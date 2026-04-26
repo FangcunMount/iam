@@ -23,6 +23,8 @@ DOCKER_REGISTRY ?= ghcr.io
 DOCKER_REPOSITORY ?= fangcunmount
 DOCKER_IMAGE := $(DOCKER_REGISTRY)/$(DOCKER_REPOSITORY)/$(PROJECT_NAME)
 DOCKER_TAG ?= latest
+RUN_UID ?= 2000
+RUN_GID ?= 2000
 LOG_DIR_HOST ?= /data/logs/iam
 TLS_CERT_HOST ?= /data/ssl/certs/fangcunmount.cn.crt
 TLS_KEY_HOST ?= /data/ssl/private/fangcunmount.cn.key
@@ -336,20 +338,20 @@ grpc-cert-verify: ## 验证 gRPC mTLS 证书（infra 统一管理）
 		echo "$(COLOR_YELLOW)请先在 infra 项目中运行: ./scripts/cert/generate-grpc-certs.sh generate-ca$(COLOR_RESET)"; \
 		exit 1; \
 	fi
-	@if [ ! -f /data/infra/ssl/grpc/server/iam-grpc.crt ]; then \
-		echo "$(COLOR_RED)❌ IAM 证书不存在: /data/infra/ssl/grpc/server/iam-grpc.crt$(COLOR_RESET)"; \
-		echo "$(COLOR_YELLOW)请先在 infra 项目中运行: ./scripts/cert/generate-grpc-certs.sh generate-server iam-grpc IAM$(COLOR_RESET)"; \
+	@if [ ! -f /data/infra/ssl/grpc/server/iam-apiserver.crt ]; then \
+		echo "$(COLOR_RED)❌ IAM 证书不存在: /data/infra/ssl/grpc/server/iam-apiserver.crt$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)请先在 infra 项目中生成 iam-apiserver 服务端证书$(COLOR_RESET)"; \
 		exit 1; \
 	fi
-	@openssl verify -CAfile /data/infra/ssl/grpc/ca/ca-chain.crt /data/infra/ssl/grpc/server/iam-grpc.crt
+	@openssl verify -CAfile /data/infra/ssl/grpc/ca/ca-chain.crt /data/infra/ssl/grpc/server/iam-apiserver.crt
 	@echo "$(COLOR_GREEN)✅ 证书验证成功$(COLOR_RESET)"
 
 grpc-cert-info: ## 显示 gRPC 证书详细信息
 	@echo "$(COLOR_CYAN)📋 显示 gRPC 证书信息...$(COLOR_RESET)"
-	@if [ -f /data/infra/ssl/grpc/server/iam-grpc.crt ]; then \
-		openssl x509 -in /data/infra/ssl/grpc/server/iam-grpc.crt -noout -subject -issuer -dates -ext subjectAltName; \
+	@if [ -f /data/infra/ssl/grpc/server/iam-apiserver.crt ]; then \
+		openssl x509 -in /data/infra/ssl/grpc/server/iam-apiserver.crt -noout -subject -issuer -dates -ext subjectAltName; \
 	else \
-		echo "$(COLOR_RED)❌ 证书不存在: /data/infra/ssl/grpc/server/iam-grpc.crt$(COLOR_RESET)"; \
+		echo "$(COLOR_RED)❌ 证书不存在: /data/infra/ssl/grpc/server/iam-apiserver.crt$(COLOR_RESET)"; \
 		exit 1; \
 	fi
 
@@ -650,6 +652,8 @@ docker-build: ## 构建 Docker 镜像
 		--build-arg VERSION=$(VERSION) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg RUN_UID=$(RUN_UID) \
+		--build-arg RUN_GID=$(RUN_GID) \
 		-f build/docker/Dockerfile \
 		-t $(DOCKER_IMAGE):$(VERSION) \
 		-t $(DOCKER_IMAGE):latest \

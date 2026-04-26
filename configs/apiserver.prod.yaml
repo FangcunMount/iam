@@ -34,12 +34,12 @@ insecure:
   bind-address: "0.0.0.0"
   bind-port: 9080
 
-# HTTPS REST API 配置（安全，外网访问）
-# 用途：外部客户端访问（移动端、Web、第三方服务）
-# 访问路径：客户端 -> Nginx (443) -> iam-apiserver (9444)
+# HTTPS REST API 配置
+# 当前四机方案中公网 TLS 由 serverA/nginx 终止，IAM 在 serverB 只暴露内网 HTTP。
+# 如需让 IAM 自行提供 HTTPS，可把 bind-port 改回 9444 并在 serverB 部署公网证书。
 secure:
   bind-address: "0.0.0.0"
-  bind-port: 9444
+  bind-port: 0
   tls:
     cert-file: /etc/iam-contracts/ssl/fangcunmount.cn.crt
     private-key-file: /etc/iam-contracts/ssl/fangcunmount.cn.key
@@ -138,8 +138,8 @@ mysql:
   username: "iam"
   password: "iam_contracts_pass123"
   database: "iam"
-  max-idle-conns: 5
-  max-open-conns: 40
+  max-idle-conns: 10
+  max-open-conns: 60
   conn-max-lifetime: 3600  # 秒
   log-level: 4 # GORM log level, 1: silent, 2:error, 3:warn, 4:info (生产环境使用 silent)
 
@@ -156,13 +156,13 @@ migration:
 redis:
   # Redis - 用于缓存、令牌等
   cache:
-    host: "redis-cache"  # ServerA 本地缓存实例（Swarm 容器名）
+    host: "your-redis.redis.rds.aliyuncs.com"
     port: 6379
     username: ""  # Redis 6.0+ ACL 用户名，留空表示使用 default 用户
     password: ""
     database: 0  # 缓存使用 DB 0
     max-idle: 20
-    max-active: 100
+    max-active: 160
     min-idle-conns: 5
     timeout: 10
     pool-timeout: 10

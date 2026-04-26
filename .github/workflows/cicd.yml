@@ -2,17 +2,20 @@ name: CI/CD Pipeline
 
 # 必需/可选 Secrets 说明：
 # 必需（部署 main 分支时强制校验）：
-#   SVRA_HOST, SVRA_USERNAME, SVRA_SSH_KEY
+#   SVRB_HOST (serverB: iam-apiserver)
+#   SVRA_USERNAME, SVRA_SSH_KEY（默认复用到 serverB）
 #   MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DBNAME
 #   REDIS_HOST
 #   IPD_ENCRYPTION_KEY
 #   GRPC_CA_CHAIN, GRPC_SERVER_CRT, GRPC_SERVER_KEY
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#   WWW_UID, WWW_GID
 # 可选（缺失时使用默认或跳过）：
+#   SVRB_USERNAME/SVRB_SSH_KEY/SVRB_SSH_PORT 可选，缺省复用 SVRA_*
+#   SVRB_SUDO_PASSWORD 可选，缺省复用 SVRA_SUDO_PASSWORD
 #   SVRA_SSH_PORT, SVRA_SUDO_PASSWORD
 #   MYSQL_PORT
 #   REDIS_PORT, REDIS_DB, REDIS_USERNAME, REDIS_PASSWORD
-#   WWW_UID, WWW_GID
 #   NSQ_LOOKUPD_HOST, NSQ_LOOKUPD_PORT, NSQ_NSQD_HOST, NSQ_NSQD_PORT (事件驱动消息)
 # 注意：JWT 签名使用 JWKS (RS256) 非对称密钥，密钥在运行时自动生成并持久化到 /app/data/keys
 
@@ -36,10 +39,15 @@ jobs:
       - name: Check Required Secrets
         env:
           SVRA_HOST: ${{ secrets.SVRA_HOST }}
+          SVRB_HOST: ${{ secrets.SVRB_HOST }}
           SVRA_USERNAME: ${{ secrets.SVRA_USERNAME }}
           SVRA_SSH_KEY: ${{ secrets.SVRA_SSH_KEY }}
+          SVRB_USERNAME: ${{ secrets.SVRB_USERNAME }}
+          SVRB_SSH_KEY: ${{ secrets.SVRB_SSH_KEY }}
           SVRA_SSH_PORT: ${{ secrets.SVRA_SSH_PORT }}
+          SVRB_SSH_PORT: ${{ secrets.SVRB_SSH_PORT }}
           SVRA_SUDO_PASSWORD: ${{ secrets.SVRA_SUDO_PASSWORD }}
+          SVRB_SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
@@ -70,8 +78,8 @@ jobs:
             echo "ℹ️ Not on main branch – required secrets reported for awareness only."
           fi
 
-          REQUIRED_SECRETS=(SVRA_HOST SVRA_USERNAME SVRA_SSH_KEY MYSQL_HOST MYSQL_USERNAME MYSQL_PASSWORD MYSQL_DBNAME REDIS_HOST DOCKERHUB_USERNAME DOCKERHUB_TOKEN)
-          OPTIONAL_SECRETS=(SVRA_SSH_PORT SVRA_SUDO_PASSWORD MYSQL_PORT REDIS_PORT REDIS_DB REDIS_USERNAME REDIS_PASSWORD WWW_UID WWW_GID NSQ_LOOKUPD_HOST NSQ_LOOKUPD_PORT NSQ_NSQD_HOST NSQ_NSQD_PORT)
+          REQUIRED_SECRETS=(SVRB_HOST SVRA_USERNAME SVRA_SSH_KEY MYSQL_HOST MYSQL_USERNAME MYSQL_PASSWORD MYSQL_DBNAME REDIS_HOST DOCKERHUB_USERNAME DOCKERHUB_TOKEN WWW_UID WWW_GID)
+          OPTIONAL_SECRETS=(SVRA_HOST SVRA_SSH_PORT SVRA_SUDO_PASSWORD SVRB_USERNAME SVRB_SSH_KEY SVRB_SSH_PORT SVRB_SUDO_PASSWORD MYSQL_PORT REDIS_PORT REDIS_DB REDIS_USERNAME REDIS_PASSWORD NSQ_LOOKUPD_HOST NSQ_LOOKUPD_PORT NSQ_NSQD_HOST NSQ_NSQD_PORT)
 
           REQUIRED_SECRETS+=(IPD_ENCRYPTION_KEY)
 
@@ -99,9 +107,6 @@ jobs:
               case "$SECRET_NAME" in
                 SVRA_SUDO_PASSWORD)
                   echo "⚠️ $SECRET_NAME is not set (needed only if sudo prompts for a password)"
-                  ;;
-                WWW_UID|WWW_GID)
-                  echo "⚠️ $SECRET_NAME is not set (deploy job 默认 999/988)"
                   ;;
                 MYSQL_PORT)
                   echo "⚠️ $SECRET_NAME is not set (defaults to 3306)"
@@ -222,6 +227,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Validate runtime UID/GID
+        env:
+          WWW_UID: ${{ secrets.WWW_UID }}
+          WWW_GID: ${{ secrets.WWW_GID }}
+        run: |
+          : "${WWW_UID:?WWW_UID secret is required}"
+          : "${WWW_GID:?WWW_GID secret is required}"
+          case "${WWW_UID}:${WWW_GID}" in
+            *[!0-9:]*|:*|*:|"")
+              echo "WWW_UID/WWW_GID must be numeric" >&2
+              exit 1
+              ;;
+          esac
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -241,6 +259,8 @@ jobs:
           DOCKER_REPOSITORY: fangcunmount
           VERSION: ${{ github.sha }}
           DOCKER_TAG: ${{ github.sha }}
+          RUN_UID: ${{ secrets.WWW_UID }}
+          RUN_GID: ${{ secrets.WWW_GID }}
       - name: Push to GitHub Container Registry
         run: |
           make docker-push
@@ -272,8 +292,8 @@ jobs:
       name: production
       url: https://iam.fangcunmount.cn
     env:
-      WWW_UID: ${{ secrets.WWW_UID || '999' }}
-      WWW_GID: ${{ secrets.WWW_GID || '988' }}
+      WWW_UID: ${{ secrets.WWW_UID }}
+      WWW_GID: ${{ secrets.WWW_GID }}
       IMAGE_TAG: ${{ github.sha }}
     steps:
       - name: Checkout
@@ -358,14 +378,14 @@ jobs:
       - name: Upload deployment package
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRA_USERNAME }}
-          key: ${{ secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRA_SSH_PORT || 22 }}
+          host: ${{ secrets.SVRB_HOST }}
+          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
           source: "deploy-package.tar.gz"
           target: "/tmp"
 
-      # === 远端只用白名单命令；TLS 固定挂载到 /etc/iam-contracts/ssl（与 apiserver.yaml 保持一致）
+      # === 远端只用白名单命令；公网 TLS 由 serverA/nginx 终止，IAM 只校验 gRPC mTLS 证书
       - name: Deploy to Production Server
         uses: appleboy/ssh-action@v1.0.0
         env:
@@ -376,20 +396,22 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          SUDO_PASSWORD: ${{ secrets.SVRA_SUDO_PASSWORD }}
+          SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD || secrets.SVRA_SUDO_PASSWORD }}
           WWW_UID: ${{ env.WWW_UID }}
           WWW_GID: ${{ env.WWW_GID }}
         with:
-          host: ${{ secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRA_USERNAME }}
-          key: ${{ secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRA_SSH_PORT || 22 }}
+          host: ${{ secrets.SVRB_HOST }}
+          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
           envs: DOCKER_REGISTRY,IMAGE_NAME,IMAGE_TAG,GHCR_USERNAME,GITHUB_TOKEN,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,SUDO_PASSWORD,WWW_UID,WWW_GID
           script: |
             set -Eeuo pipefail
 
-            APP_UID="${WWW_UID:-1000}"
-            APP_GID="${WWW_GID:-1000}"
+            : "${WWW_UID:?WWW_UID secret is required}"
+            : "${WWW_GID:?WWW_GID secret is required}"
+            APP_UID="${WWW_UID}"
+            APP_GID="${WWW_GID}"
 
             # ----- SUDO 助手：免密优先；若需密码则每次 sudo 都喂密码 -----
             if sudo -n true 2>/dev/null; then
@@ -397,7 +419,7 @@ jobs:
               echo "ℹ️ Using passwordless sudo (NOPASSWD)."
             else
               if [ -z "${SUDO_PASSWORD:-}" ]; then
-                echo "❌ sudo needs password. Provide SVRA_SUDO_PASSWORD or configure NOPASSWD." >&2
+                echo "❌ sudo needs password. Provide SVRB_SUDO_PASSWORD or configure NOPASSWD." >&2
                 exit 1
               fi
               sudo_pw() { sudo -S "$@" <<<"$SUDO_PASSWORD"; }
@@ -466,7 +488,7 @@ jobs:
             }
 
             echo "=========================================="
-            echo "Starting deployment to Production Server (SVRA)"
+            echo "Starting deployment to Production Server (SVRB)"
             echo "=========================================="
 
             # 目录准备
@@ -497,33 +519,7 @@ jobs:
                 echo "❌ Failed to create overlay network. Ensure Docker Swarm is initialized."; exit 1; }
             fi
 
-            # ======== 固定使用 /etc/iam-contracts/ssl 作为容器内证书目录 ========
-            CERT_HOST_PATH="/data/ssl/certs/fangcunmount.cn.crt"
-            KEY_HOST_PATH="/data/ssl/private/fangcunmount.cn.key"
-
-            # 用 root 身份检查，避免 deploy 身份被权限挡住
-            if ! $SUDO test -r "$CERT_HOST_PATH"; then
-              echo "❌ CERT not readable by root: $CERT_HOST_PATH"
-              $SUDO ls -l "$CERT_HOST_PATH" || true
-              exit 1
-            fi
-
-            if ! $SUDO test -r "$KEY_HOST_PATH"; then
-              echo "❌ KEY not readable by root: $KEY_HOST_PATH"
-              # 把每级目录权限也打印出来便于诊断
-              $SUDO namei -l "$KEY_HOST_PATH" || true
-              exit 1
-            fi
-
-            # compose 中 iam-apiserver 以 user: WWW_UID:WWW_GID 运行；bind 挂载保留宿主机权限，
-            # 若私钥仅为 root 可读则容器内会 permission denied，需与运行 UID 对齐。
-            $SUDO chown "$APP_UID:$APP_GID" "$CERT_HOST_PATH" "$KEY_HOST_PATH"
-            $SUDO chmod 0644 "$CERT_HOST_PATH"
-            $SUDO chmod 0640 "$KEY_HOST_PATH"
-
-            TLS_MOUNTS="-v $CERT_HOST_PATH:/etc/iam-contracts/ssl/fangcunmount.cn.crt:ro \
-                        -v $KEY_HOST_PATH:/etc/iam-contracts/ssl/fangcunmount.cn.key:ro"
-            # ===========================================================
+            # 公网 TLS 在 serverA/nginx 终止；IAM 在 serverB 不再要求 /data/ssl 公网证书。
 
             # GHCR 登录（使用 GitHub Actions 自带的 GITHUB_TOKEN）
             echo "------------------------------------------"
@@ -587,6 +583,8 @@ jobs:
 
             # 检查 gRPC mTLS 证书是否存在（由 infra 项目统一管理）
             GRPC_DIR_HOST="/data/infra/ssl/grpc"
+            $SUDO mkdir -p "$GRPC_DIR_HOST/ca" "$GRPC_DIR_HOST/server"
+            $SUDO chmod 0755 "$GRPC_DIR_HOST" "$GRPC_DIR_HOST/ca" "$GRPC_DIR_HOST/server"
             GRPC_CA="$GRPC_DIR_HOST/ca/ca-chain.crt"
             GRPC_CRT="$GRPC_DIR_HOST/server/iam-apiserver.crt"
             GRPC_KEY="$GRPC_DIR_HOST/server/iam-apiserver.key"
@@ -651,12 +649,12 @@ jobs:
       - name: Verify Deployment
         uses: appleboy/ssh-action@v1.0.0
         env:
-          SUDO_PASSWORD: ${{ secrets.SVRA_SUDO_PASSWORD }}
+          SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD || secrets.SVRA_SUDO_PASSWORD }}
         with:
-          host: ${{ secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRA_USERNAME }}
-          key: ${{ secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRA_SSH_PORT || 22 }}
+          host: ${{ secrets.SVRB_HOST }}
+          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
           envs: SUDO_PASSWORD
           script: |
             set -Eeuo pipefail
@@ -665,7 +663,7 @@ jobs:
               SUDO="sudo"
             else
               if [ -z "${SUDO_PASSWORD:-}" ]; then
-                echo "❌ sudo needs password. Provide SVRA_SUDO_PASSWORD or configure NOPASSWD." >&2
+                echo "❌ sudo needs password. Provide SVRB_SUDO_PASSWORD or configure NOPASSWD." >&2
                 exit 1
               fi
               sudo_pw() { sudo -S "$@" <<<"$SUDO_PASSWORD"; }

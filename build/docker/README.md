@@ -319,25 +319,21 @@ docker buildx build \
 
 部署前请确保在目标服务器上创建以下目录和文件：
 
-### 1. TLS/SSL 证书
+### 1. 运行用户 UID/GID
 
-```bash
-# Web HTTPS 证书
-/data/ssl/certs/fangcunmount.cn.crt
-/data/ssl/private/fangcunmount.cn.key
-```
+`docker-compose.prod.yml` 中服务以 `user: WWW_UID:WWW_GID` 运行，且生产部署要求显式提供这两个变量；镜像内默认运行用户为 `www`，本地默认 UID/GID 为 `2000:2000`。CI 部署脚本会按 `WWW_UID`/`WWW_GID` 对配置、日志和密钥目录做 `chown`；手动部署时请自行对齐。
 
-`docker-compose.prod.yml` 中服务以 `user: WWW_UID:WWW_GID`（默认与镜像内 `app` 用户一致）运行；**宿主机上 `.crt` / `.key` 的属主 UID/GID 必须与之一致**（很多机器上 `WWW_*` 与 `www` 用户相同，旧证书常用 `chown www:www`）。若用 `scp` 拷入变成 `ubuntu:ubuntu` 等，挂载进容器仍会 permission denied。CI 部署脚本会按 `WWW_UID`/`WWW_GID` 做 `chown`；手动部署时请自行对齐。
+公网 HTTPS 证书由 `serverA` 上的 Nginx 终止，`serverB` 上的 IAM 容器不再挂载 `/data/ssl/certs` 和 `/data/ssl/private`。
 
 ### 2. gRPC mTLS 证书
 
 ```bash
 # CA 证书链
-/data/ssl/iam-contracts/grpc/ca/ca-chain.crt
+/data/infra/ssl/grpc/ca/ca-chain.crt
 
 # 服务端证书
-/data/ssl/iam-contracts/grpc/server/iam-grpc.crt
-/data/ssl/iam-contracts/grpc/server/iam-grpc.key
+/data/infra/ssl/grpc/server/iam-apiserver.crt
+/data/infra/ssl/grpc/server/iam-apiserver.key
 ```
 
 ### 3. 其他目录
@@ -360,23 +356,20 @@ mkdir -p /data/ops/iam-keys
 # 生产环境初始化脚本
 
 # 创建目录结构
-mkdir -p /data/ssl/certs
-mkdir -p /data/ssl/private
-mkdir -p /data/ssl/iam-contracts/grpc/ca
-mkdir -p /data/ssl/iam-contracts/grpc/server
+mkdir -p /data/infra/ssl/grpc/ca
+mkdir -p /data/infra/ssl/grpc/server
 mkdir -p /data/ops/iam-keys
 mkdir -p /data/logs/iam
 
 # 设置权限
-chmod 755 /data/ssl /data/ops /data/logs
-chmod 700 /data/ssl/private
-chmod 700 /data/ssl/iam-contracts/grpc/server
+chmod 755 /data/infra /data/infra/ssl /data/infra/ssl/grpc /data/infra/ssl/grpc/ca /data/infra/ssl/grpc/server
+chmod 755 /data/ops /data/logs
+chmod 750 /data/ops/iam-keys
 
 # 提示：需要手动复制以下文件
 echo "请手动复制以下文件："
-echo "  - TLS 证书到 /data/ssl/certs/ 和 /data/ssl/private/"
-echo "  - gRPC CA 证书到 /data/ssl/iam-contracts/grpc/ca/"
-echo "  - gRPC 服务端证书到 /data/ssl/iam-contracts/grpc/server/"
+echo "  - gRPC CA 证书到 /data/infra/ssl/grpc/ca/"
+echo "  - gRPC 服务端证书到 /data/infra/ssl/grpc/server/"
 ```
 
 ## 技术支持

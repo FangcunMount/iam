@@ -14,10 +14,11 @@ IAM 项目不再维护证书生成脚本，也**不再复制证书**。所有证
 │   │   ├── intermediate-ca.crt
 │   │   └── ca-chain.crt        ← 所有项目引用
 │   └── server/
-│       ├── iam-grpc.crt        ← IAM gRPC 配置引用
-│       ├── iam-grpc.key
-│       ├── qs.crt              ← QS 配置引用
-│       └── qs.key
+│       ├── iam-apiserver.crt   ← IAM gRPC 配置引用
+│       ├── iam-apiserver.key
+│       ├── qs-apiserver.crt
+│       ├── qs-collection-server.crt
+│       └── qs-worker.crt
 └── web/                        ← REST API HTTPS 证书
     ├── iam-apiserver.crt       ← IAM HTTPS 配置引用
     ├── iam-apiserver.key
@@ -37,7 +38,7 @@ cd /path/to/infra
 
 ```bash
 cd /path/to/infra
-./scripts/cert/generate-grpc-certs.sh generate-server iam-grpc IAM iam-grpc.internal.example.com
+./scripts/04-ssl/grpc-mtls.sh generate-server iam-apiserver IAM iam-apiserver.internal.example.com
 ```
 
 ### 3. IAM 配置直接引用 infra 路径
@@ -53,8 +54,8 @@ tls:
 # gRPC mTLS 配置
 grpc:
   mtls:
-    cert-file: /data/infra/ssl/grpc/server/iam-grpc.crt
-    key-file: /data/infra/ssl/grpc/server/iam-grpc.key
+    cert-file: /data/infra/ssl/grpc/server/iam-apiserver.crt
+    key-file: /data/infra/ssl/grpc/server/iam-apiserver.key
     ca-file: /data/infra/ssl/grpc/ca/ca-chain.crt
 ```
 
@@ -65,10 +66,11 @@ grpc:
 | 证书类型 | 统一路径 | 说明 |
 | --------- | --------- | ------ |
 | CA 证书链 | `/data/infra/ssl/grpc/ca/ca-chain.crt` | 所有项目验证证书时引用 |
-| IAM 服务端证书 | `/data/infra/ssl/grpc/server/iam-grpc.crt` | IAM gRPC 配置引用 |
-| IAM 服务端私钥 | `/data/infra/ssl/grpc/server/iam-grpc.key` | IAM gRPC 配置引用 |
-| QS 客户端证书 | `/data/infra/ssl/grpc/server/qs.crt` | QS 配置引用 |
-| QS 客户端私钥 | `/data/infra/ssl/grpc/server/qs.key` | QS 配置引用 |
+| IAM 服务端证书 | `/data/infra/ssl/grpc/server/iam-apiserver.crt` | IAM gRPC 配置引用 |
+| IAM 服务端私钥 | `/data/infra/ssl/grpc/server/iam-apiserver.key` | IAM gRPC 配置引用 |
+| QS apiserver 证书 | `/data/infra/ssl/grpc/server/qs-apiserver.crt` | QS gRPC 服务端证书 |
+| QS collection 证书 | `/data/infra/ssl/grpc/server/qs-collection-server.crt` | QS gRPC 客户端证书 |
+| QS worker 证书 | `/data/infra/ssl/grpc/server/qs-worker.crt` | QS gRPC 客户端证书 |
 
 ### REST API HTTPS 证书
 

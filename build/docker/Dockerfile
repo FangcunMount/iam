@@ -54,9 +54,11 @@ RUN apk add --no-cache \
 # 设置时区
 ENV TZ=Asia/Shanghai
 
-# 创建非 root 用户
-RUN addgroup -g 1000 app && \
-    adduser -D -u 1000 -G app app
+# 创建非 root 用户，与宿主机 www UID/GID 对齐，由 CI build-arg 传入
+ARG RUN_UID=2000
+ARG RUN_GID=2000
+RUN addgroup -g ${RUN_GID} www && \
+    adduser -D -u ${RUN_UID} -G www www
 
 # 设置工作目录
 WORKDIR /app
@@ -65,18 +67,18 @@ WORKDIR /app
 COPY --from=builder /build/apiserver /app/apiserver
 
 # 复制配置文件
-COPY --chown=app:app configs /app/configs
+COPY --chown=www:www configs /app/configs
 
 # 创建应用运行所需目录（日志、持久化密钥等）
 RUN mkdir -p /app/logs /app/data/keys /var/log/iam-contracts && \
-    chown -R app:app /app /var/log/iam-contracts
+    chown -R www:www /app /var/log/iam-contracts
 
 # 预创建 TLS 目录，避免按文件挂载失败
 RUN mkdir -p /etc/iam-contracts/ssl /etc/iam-contracts/grpc/ca /etc/iam-contracts/grpc/server && \
     chmod 755 /etc/iam-contracts /etc/iam-contracts/ssl /etc/iam-contracts/grpc /etc/iam-contracts/grpc/ca /etc/iam-contracts/grpc/server
 
 # 切换到非 root 用户
-USER app
+USER www
 
 # 暴露端口
 # 注意：EXPOSE 仅为文档声明，实际端口映射由 docker-compose 或 k8s 控制

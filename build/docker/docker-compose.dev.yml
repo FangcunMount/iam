@@ -12,7 +12,7 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: iam-apiserver-dev
     image: iam-contracts:dev
-    user: "${WWW_UID:-1000}:${WWW_GID:-1000}"
+    user: "${WWW_UID:-2000}:${WWW_GID:-2000}"
     env_file:
       - ../../configs/env/config.dev.env
     ports:

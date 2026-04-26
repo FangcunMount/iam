@@ -137,7 +137,7 @@ import (
 
 func main() {
     conn, err := grpc.Dial(
-        "iam-grpc.internal:9443",
+        "iam-apiserver.internal:9090",
         grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: false})),
     )
     if err != nil {
@@ -186,7 +186,7 @@ grpcurl \
   -proto iam/identity/v1/identity.proto \
   -H "authorization: Bearer ${IAM_SERVICE_TOKEN}" \
   -H "x-request-id: demo-123" \
-  iam-grpc.internal:9443 \
+  iam-apiserver.internal:9090 \
   iam.identity.v1.IdentityRead/SearchUsers \
   '{"keyword":"138****","page":{"limit":10,"offset":0}}'
 ```

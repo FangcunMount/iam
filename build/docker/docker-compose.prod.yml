@@ -1,18 +1,15 @@
-version: '3.8'
-
 services:
   # IAM Contracts API Server (production)
   iam-apiserver:
     image: ${DOCKER_REGISTRY:-ghcr.io}/${IMAGE_NAME:-fangcunmount/iam-contracts}:${IMAGE_TAG:-latest}
     container_name: iam-apiserver
-    user: "${WWW_UID:-1000}:${WWW_GID:-1000}"
+    user: "${WWW_UID:?WWW_UID is required}:${WWW_GID:?WWW_GID is required}"
     env_file:
       - ../../configs/env/config.prod.env
     # 端口配置：仅暴露给 Docker 内网，外部访问通过 Nginx 反向代理
     # expose: 仅容器网络内可访问，不映射到宿主机
     expose:
       - "9080"   # HTTP REST API (内网服务调用，性能优先)
-      - "9444"   # HTTPS REST API (外网通过 Nginx 代理到此端口)
       - "9090"   # gRPC 服务 (mTLS 保护，内网服务间通信)
       - "9091"   # gRPC 健康检查 (内网监控系统)
     volumes:
@@ -20,9 +17,6 @@ services:
       - ../../configs:/app/configs:ro
       # 挂载日志目录
       - /data/logs/iam:/var/log/iam-contracts
-      # 挂载 TLS 证书（ServerA: /data/ssl/*）
-      - /data/ssl/certs/fangcunmount.cn.crt:/etc/iam-contracts/ssl/fangcunmount.cn.crt:ro
-      - /data/ssl/private/fangcunmount.cn.key:/etc/iam-contracts/ssl/fangcunmount.cn.key:ro
       # 挂载 gRPC mTLS 证书（由 infra 项目统一管理）
       - /data/infra/ssl/grpc/ca:/etc/iam-contracts/grpc/ca:ro
       - /data/infra/ssl/grpc/server:/etc/iam-contracts/grpc/server:ro
@@ -31,7 +25,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - GO_ENV=production
-      - GOMEMLIMIT=320MiB
+      - GOMEMLIMIT=384MiB
       - GOGC=75
     networks:
       - infra-network
@@ -48,7 +42,7 @@ services:
           memory: 384M
       placement:
         constraints:
-          - node.hostname == serverA
+          - node.hostname == serverB
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9080/healthz"]
