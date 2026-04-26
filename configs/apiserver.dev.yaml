@@ -68,12 +68,12 @@ grpc:
   
   # mTLS 双向认证配置（由 infra 项目统一管理）
   mtls:
-    enabled: true   # 开发环境开启 mTLS
-    cert-file: "/data/infra/ssl/grpc/server/iam-apiserver.crt"
-    key-file: "/data/infra/ssl/grpc/server/iam-apiserver.key"
-    ca-file: "/data/infra/ssl/grpc/ca/ca-chain.crt"
+    enabled: false   # 开发环境开启 mTLS
+    # cert-file: "/data/infra/ssl/grpc/server/iam-apiserver.crt"
+    # key-file: "/data/infra/ssl/grpc/server/iam-apiserver.key"
+    # ca-file: "/data/infra/ssl/grpc/ca/ca-chain.crt"
     # ca-dir: "/data/infra/ssl/grpc/ca/"  # 可选：CA 证书目录，支持多级 CA 信任链
-    require-client-cert: true
+    require-client-cert: false  # 不强制要求客户端证书
     
     # 允许的客户端证书 OU 列表
     allowed-ous:
