@@ -603,10 +603,25 @@ jobs:
             export DOCKER_REGISTRY IMAGE_NAME IMAGE_TAG
             export WWW_UID="$APP_UID" WWW_GID="$APP_GID"
 
+            # sudo 默认会清理环境变量，显式 env-file 保证 compose 插值稳定。
+            COMPOSE_ENV_FILE="/opt/iam/.env"
+            LOCAL_COMPOSE_ENV="/tmp/iam-compose-env-$$"
+            cat > "$LOCAL_COMPOSE_ENV" <<EOF
+            DOCKER_REGISTRY=${DOCKER_REGISTRY}
+            IMAGE_NAME=${IMAGE_NAME}
+            IMAGE_TAG=${IMAGE_TAG}
+            WWW_UID=${APP_UID}
+            WWW_GID=${APP_GID}
+            EOF
+            $SUDO rsync -a "$LOCAL_COMPOSE_ENV" "$COMPOSE_ENV_FILE"
+            rm -f "$LOCAL_COMPOSE_ENV"
+            $SUDO chmod 0640 "$COMPOSE_ENV_FILE"
+            $SUDO chown "$APP_UID:$APP_GID" "$COMPOSE_ENV_FILE"
+
             # 使用 docker compose 部署（仅 iam-apiserver 服务，强制重建并拉取最新镜像）
             COMPOSE_FILE="/opt/iam/build/docker/docker-compose.prod.yml"
-            (cd /opt/iam && $SUDO docker compose -f "$COMPOSE_FILE" pull iam-apiserver)
-            (cd /opt/iam && $SUDO docker compose -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans iam-apiserver)
+            (cd /opt/iam && $SUDO docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" pull iam-apiserver)
+            (cd /opt/iam && $SUDO docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans iam-apiserver)
 
             # 清理临时目录与上传包
             rm -rf "$DEPLOY_TMP"
