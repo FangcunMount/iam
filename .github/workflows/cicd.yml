@@ -518,6 +518,8 @@ jobs:
             # 备份
             BACKUP_DIR="/opt/backups/iam/deployments"
             $SUDO mkdir -p "$BACKUP_DIR"
+            $SUDO chown "$(id -u):$(id -g)" "$BACKUP_DIR"
+            $SUDO chmod 0750 "$BACKUP_DIR"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             if [ -d "/opt/iam/configs" ] && [ "$(ls -A /opt/iam/configs 2>/dev/null)" != "" ]; then
               $SUDO tar -czf "$BACKUP_DIR/backup_${TIMESTAMP}.tar.gz" \
@@ -686,7 +688,14 @@ jobs:
 
             # 清理旧备份（保留 10 个）
             echo "Cleaning up old backups..."
-            $SUDO bash -c 'ls -t '"$BACKUP_DIR"'/backup_*.tar.gz 2>/dev/null | tail -n +11 | xargs -r rm -f 2>/dev/null || true'
+            old_backups="$($SUDO ls -t "$BACKUP_DIR"/backup_*.tar.gz 2>/dev/null || true)"
+            old_backups="$(printf '%s\n' "$old_backups" | tail -n +11 || true)"
+            if [ -n "$old_backups" ]; then
+              printf '%s\n' "$old_backups" | while IFS= read -r backup_file; do
+                [ -z "$backup_file" ] && continue
+                $SUDO rm -f "$backup_file" || true
+              done
+            fi
 
             echo "=========================================="
             echo "✅ Deployment completed successfully"
