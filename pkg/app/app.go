@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/fatih/color"
@@ -262,7 +263,13 @@ func (a *App) applyOptionRules() error {
 
 // printViperConfig 输出当前 viper 读取到的配置以及关键环境变量，用于调试覆盖行为
 func printViperConfig(basename string) {
-	fmt.Printf("Viper Config (AllSettings): %+v\n", viper.AllSettings())
+	settings := viper.AllSettings()
+	settingKeys := make([]string, 0, len(settings))
+	for key := range settings {
+		settingKeys = append(settingKeys, key)
+	}
+	sort.Strings(settingKeys)
+	fmt.Printf("Viper Config keys loaded: %v\n", settingKeys)
 
 	envPrefix := strings.Replace(strings.ToUpper(basename), "-", "_", -1)
 	fmt.Printf("Using env prefix: %s_\n", envPrefix)
@@ -284,8 +291,24 @@ func printViperConfig(basename string) {
 		"IAM_APISERVER_IDP_ENCRYPTION_KEY",
 	}
 	for _, key := range keys {
-		fmt.Printf("ENV %s=%s\n", key, os.Getenv(key))
+		fmt.Printf("ENV %s=%s\n", key, redactEnvValue(key, os.Getenv(key)))
 	}
+}
+
+func redactEnvValue(key, value string) string {
+	if value == "" {
+		return ""
+	}
+
+	upperKey := strings.ToUpper(key)
+	sensitiveTokens := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL"}
+	for _, token := range sensitiveTokens {
+		if strings.Contains(upperKey, token) {
+			return "***REDACTED***"
+		}
+	}
+
+	return value
 }
 
 // printWorkingDir 打印工作目录

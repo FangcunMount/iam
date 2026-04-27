@@ -15,7 +15,7 @@ name: CI/CD Pipeline
 #   SVRB_SUDO_PASSWORD 可选，缺省复用 SVRA_SUDO_PASSWORD
 #   SVRA_SSH_PORT, SVRA_SUDO_PASSWORD
 #   MYSQL_PORT
-#   REDIS_PORT, REDIS_DB, REDIS_USERNAME, REDIS_PASSWORD
+#   REDIS_PORT, REDIS_DB, REDIS_USERNAME, REDIS_PASSWORD, REDIS_USE_SSL, REDIS_SSL_INSECURE_SKIP_VERIFY
 #   NSQ_LOOKUPD_HOST, NSQ_LOOKUPD_PORT, NSQ_NSQD_HOST, NSQ_NSQD_PORT (事件驱动消息)
 # 注意：JWT 签名使用 JWKS (RS256) 非对称密钥，密钥在运行时自动生成并持久化到 /app/data/keys
 
@@ -58,6 +58,8 @@ jobs:
           REDIS_DB: ${{ secrets.REDIS_DB }}
           REDIS_USERNAME: ${{ secrets.REDIS_USERNAME }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          REDIS_USE_SSL: ${{ secrets.REDIS_USE_SSL }}
+          REDIS_SSL_INSECURE_SKIP_VERIFY: ${{ secrets.REDIS_SSL_INSECURE_SKIP_VERIFY }}
           IPD_ENCRYPTION_KEY: ${{ secrets.IPD_ENCRYPTION_KEY }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -79,7 +81,7 @@ jobs:
           fi
 
           REQUIRED_SECRETS=(SVRB_HOST SVRA_USERNAME SVRA_SSH_KEY MYSQL_HOST MYSQL_USERNAME MYSQL_PASSWORD MYSQL_DBNAME REDIS_HOST DOCKERHUB_USERNAME DOCKERHUB_TOKEN WWW_UID WWW_GID)
-          OPTIONAL_SECRETS=(SVRA_HOST SVRA_SSH_PORT SVRA_SUDO_PASSWORD SVRB_USERNAME SVRB_SSH_KEY SVRB_SSH_PORT SVRB_SUDO_PASSWORD MYSQL_PORT REDIS_PORT REDIS_DB REDIS_USERNAME REDIS_PASSWORD NSQ_LOOKUPD_HOST NSQ_LOOKUPD_PORT NSQ_NSQD_HOST NSQ_NSQD_PORT)
+          OPTIONAL_SECRETS=(SVRA_HOST SVRA_SSH_PORT SVRA_SUDO_PASSWORD SVRB_USERNAME SVRB_SSH_KEY SVRB_SSH_PORT SVRB_SUDO_PASSWORD MYSQL_PORT REDIS_PORT REDIS_DB REDIS_USERNAME REDIS_PASSWORD REDIS_USE_SSL REDIS_SSL_INSECURE_SKIP_VERIFY NSQ_LOOKUPD_HOST NSQ_LOOKUPD_PORT NSQ_NSQD_HOST NSQ_NSQD_PORT)
 
           REQUIRED_SECRETS+=(IPD_ENCRYPTION_KEY)
 
@@ -122,6 +124,12 @@ jobs:
                   ;;
                 REDIS_PASSWORD)
                   echo "⚠️ $SECRET_NAME is not set (Redis auth disabled)"
+                  ;;
+                REDIS_USE_SSL)
+                  echo "⚠️ $SECRET_NAME is not set (defaults to true when REDIS_PORT=6380, otherwise false)"
+                  ;;
+                REDIS_SSL_INSECURE_SKIP_VERIFY)
+                  echo "⚠️ $SECRET_NAME is not set (defaults to false)"
                   ;;
                 SVRA_SSH_PORT)
                   echo "⚠️ $SECRET_NAME is not set (defaults to 22)"
@@ -326,6 +334,8 @@ jobs:
           REDIS_DB: ${{ secrets.REDIS_DB || 0 }}
           REDIS_USERNAME: ${{ secrets.REDIS_USERNAME }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          REDIS_USE_SSL: ${{ secrets.REDIS_USE_SSL }}
+          REDIS_SSL_INSECURE_SKIP_VERIFY: ${{ secrets.REDIS_SSL_INSECURE_SKIP_VERIFY }}
           IPD_ENCRYPTION_KEY: ${{ secrets.IPD_ENCRYPTION_KEY }}
           NSQ_LOOKUPD_HOST: ${{ secrets.NSQ_LOOKUPD_HOST }}
           NSQ_LOOKUPD_PORT: ${{ secrets.NSQ_LOOKUPD_PORT || 4161 }}
@@ -335,6 +345,15 @@ jobs:
           # artifact 文件名是 apiserver，需要重命名为 iam-apiserver
           mv ./artifacts/apiserver ./artifacts/iam-apiserver
           chmod +x ./artifacts/iam-apiserver
+
+          if [ -z "${REDIS_USE_SSL:-}" ]; then
+            if [ "${REDIS_PORT}" = "6380" ]; then
+              REDIS_USE_SSL=true
+            else
+              REDIS_USE_SSL=false
+            fi
+          fi
+          REDIS_SSL_INSECURE_SKIP_VERIFY="${REDIS_SSL_INSECURE_SKIP_VERIFY:-false}"
 
           mkdir -p deploy-package/configs/env
           mkdir -p deploy-package/build/docker
@@ -358,6 +377,8 @@ jobs:
           IAM_APISERVER_REDIS_CACHE_USERNAME=${REDIS_USERNAME}
           IAM_APISERVER_REDIS_CACHE_PASSWORD=${REDIS_PASSWORD}
           IAM_APISERVER_REDIS_CACHE_DATABASE=${REDIS_DB}
+          IAM_APISERVER_REDIS_CACHE_USE_SSL=${REDIS_USE_SSL}
+          IAM_APISERVER_REDIS_CACHE_SSL_INSECURE_SKIP_VERIFY=${REDIS_SSL_INSECURE_SKIP_VERIFY}
           
           IAM_APISERVER_IDP_ENCRYPTION_KEY=${IPD_ENCRYPTION_KEY}
           
