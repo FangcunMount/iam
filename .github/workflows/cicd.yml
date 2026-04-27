@@ -648,6 +648,16 @@ jobs:
               echo "❌ Service failed to start after $MAX_ATTEMPTS attempts"
               echo "Checking container status..."
               $SUDO docker ps -a --filter "name=iam-apiserver" || true
+              echo "Checking container DNS..."
+              $SUDO docker exec iam-apiserver sh -lc '
+                echo "--- /etc/resolv.conf ---"
+                cat /etc/resolv.conf || true
+                echo "--- Redis DNS ---"
+                nslookup "$IAM_APISERVER_REDIS_CACHE_HOST" || true
+                echo "--- MySQL DNS ---"
+                mysql_host="${IAM_APISERVER_MYSQL_HOST%%:*}"
+                nslookup "$mysql_host" || true
+              ' || true
               echo "Checking container logs..."
               $SUDO docker logs --tail 2000 iam-apiserver || true
               exit 1
