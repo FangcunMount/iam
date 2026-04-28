@@ -8,7 +8,6 @@ import (
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"gorm.io/gorm"
 )
 
 // AssignmentManager 赋权管理器（领域服务）
@@ -160,7 +159,7 @@ func (v *validator) CheckSubjectExists(ctx context.Context, subjectType SubjectT
 	}
 	userExists, err := v.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		if errors.IsCode(err, code.ErrUserNotFound) || err == gorm.ErrRecordNotFound {
+		if errors.IsCode(err, code.ErrUserNotFound) {
 			return errors.WithCode(code.ErrUserNotFound, "用户不存在")
 		}
 		return errors.Wrap(err, "检查用户存在性失败")

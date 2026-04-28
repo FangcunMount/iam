@@ -9,7 +9,6 @@ import (
 	policyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
 	resourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
-	authzUow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
 	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
@@ -19,6 +18,7 @@ import (
 	policyInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/policy"
 	resourceInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/resource"
 	roleInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role"
+	mysqlAuthzUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authz"
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authz/grpc"
 	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
@@ -64,7 +64,7 @@ func (m *AuthzModule) Initialize(db *gorm.DB, versionNotifier policyDomain.Versi
 	resourceRepository := resourceInfra.NewResourceRepository(db)
 	policyVersionRepository := policyInfra.NewPolicyVersionRepository(db)
 	userRepository := userInfra.NewRepository(db)
-	unitOfWork := authzUow.NewUnitOfWork(db)
+	unitOfWork := mysqlAuthzUow.NewUnitOfWork(db)
 
 	// 3. 初始化领域服务
 	// Resource 模块

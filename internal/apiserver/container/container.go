@@ -11,10 +11,7 @@ import (
 
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
-	messagingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/messaging"
-	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
 // Container 容器
@@ -149,18 +146,9 @@ func (c *Container) initAuthModule() error {
 // initUserModule 初始化用户模块
 func (c *Container) initUserModule() error {
 	userModule := assembler.NewUserModule()
-	var casbin authn.CasbinEnforcer
-	if c.AuthzModule != nil {
-		casbin = c.AuthzModule.CasbinAdapter
-	}
-	if c.AuthnModule != nil {
-		if err := userModule.Initialize(c.mysqlDB, casbin, c.AuthnModule.SessionManager()); err != nil {
-			return fmt.Errorf("failed to initialize user module: %w", err)
-		}
-		c.UserModule = userModule
-		return nil
-	}
-	if err := userModule.Initialize(c.mysqlDB, casbin); err != nil {
+	params := []interface{}{c.mysqlDB}
+	params = append(params, c.moduleGraph().userModuleDependencies()...)
+	if err := userModule.Initialize(params...); err != nil {
 		return fmt.Errorf("failed to initialize user module: %w", err)
 	}
 	c.UserModule = userModule
@@ -171,17 +159,7 @@ func (c *Container) initUserModule() error {
 // 授权模块使用 EventBus 发布策略版本变更通知
 func (c *Container) initAuthzModule() error {
 	authzModule := assembler.NewAuthzModule()
-
-	// 创建策略版本通知器
-	var versionNotifier policyDomain.VersionNotifier
-	if c.eventBus != nil {
-		// 使用 NSQ EventBus
-		versionNotifier = messagingInfra.NewVersionNotifier(c.eventBus)
-		log.Info("   📨 Policy version notifier: NSQ EventBus")
-	} else {
-		// 没有消息队列时，不发送通知
-		log.Warn("   ⚠️  Policy version notifier: disabled (no EventBus)")
-	}
+	versionNotifier := c.moduleGraph().policyVersionNotifier()
 
 	if err := authzModule.Initialize(c.mysqlDB, versionNotifier); err != nil {
 		return fmt.Errorf("failed to initialize authz module: %w", err)

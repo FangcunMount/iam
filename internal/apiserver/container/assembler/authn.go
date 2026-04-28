@@ -34,6 +34,7 @@ import (
 	acctrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/account"
 	credentialrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/credential"
 	jwksMysql "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/jwks"
+	mysqlAuthnUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authn"
 	mysqluser "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	redisInfra "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
 	schedulerInfra "github.com/FangcunMount/iam/internal/apiserver/infra/scheduler"
@@ -197,7 +198,7 @@ func (m *AuthnModule) initializeInfrastructure(db *gorm.DB, redisClient *redis.C
 	}
 
 	// UnitOfWork
-	infra.unitOfWork = authnUow.NewUnitOfWork(db)
+	infra.unitOfWork = mysqlAuthnUow.NewUnitOfWork(db)
 	infra.accountRepo = acctrepo.NewAccountRepository(db)
 	infra.credentialRepo = credentialrepo.NewRepository(db)
 

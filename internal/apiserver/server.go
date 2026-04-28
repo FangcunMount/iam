@@ -1,7 +1,6 @@
 package apiserver
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -77,130 +76,21 @@ func createAPIServer(cfg *config.Config) (*apiServer, error) {
 
 // PrepareRun 准备运行 API 服务器（六边形架构版本）
 func (s *apiServer) PrepareRun() (preparedAPIServer, error) {
-	mode := runtimeMode(s.cfg)
-	viper.Set("app.mode", appModeFromServerMode(mode))
-	degradedAllowed := degradedStartupAllowed(s.cfg)
-
-	// 初始化数据库连接（包括双 Redis 客户端）
-	if err := s.dbManager.Initialize(); err != nil {
-		if !degradedAllowed {
-			return preparedAPIServer{}, fmt.Errorf("initialize database: %w", err)
-		}
-		log.Warnw("degraded startup: database initialization failed", "error", err, "mode", mode)
-	}
-
-	// 获取 MySQL 数据库连接
-	mysqlDB, err := s.dbManager.GetMySQLDB()
+	runtime := s.prepareRuntime()
+	resources, err := s.prepareResources(runtime)
 	if err != nil {
-		if !degradedAllowed {
-			return preparedAPIServer{}, fmt.Errorf("mysql unavailable: %w", err)
-		}
-		log.Warnw("degraded startup: MySQL unavailable", "error", err, "mode", mode)
-		mysqlDB = nil
-	}
-
-	// 从 DatabaseManager 获取双 Redis 客户端
-	cacheClient, err := s.dbManager.GetCacheRedisClient()
-	if err != nil {
-		if !degradedAllowed {
-			return preparedAPIServer{}, fmt.Errorf("cache redis unavailable: %w", err)
-		}
-		log.Warnw("degraded startup: cache redis unavailable", "error", err, "mode", mode)
-		cacheClient = nil
-	}
-
-	// 获取 IDP 模块加密密钥（从配置或环境变量读取）
-	idpEncryptionKey, configured, err := loadIDPEncryptionKey()
-	if err != nil {
-		if !degradedAllowed {
-			return preparedAPIServer{}, fmt.Errorf("parse idp encryption key: %w", err)
-		}
-		log.Warnw("degraded startup: invalid idp encryption key", "error", err, "mode", mode)
-	}
-	if !configured {
-		if !degradedAllowed {
-			return preparedAPIServer{}, fmt.Errorf("idp.encryption-key is required")
-		}
-		log.Warnw("degraded startup: idp.encryption-key missing", "mode", mode)
-	}
-
-	// 创建 EventBus（如果配置启用了 NSQ）
-	eventBus, err := s.createEventBus()
-	if err != nil {
-		log.Warnw("event bus unavailable; continue without notifier", "error", err)
-		eventBus = nil
-	}
-
-	// 创建六边形架构容器（传入 MySQL、Redis、EventBus 和 IDP 加密密钥）
-	s.container = container.NewContainer(mysqlDB, cacheClient, eventBus, idpEncryptionKey)
-
-	// 初始化容器中的所有组件
-	if err := s.container.Initialize(); err != nil {
-		if !degradedAllowed {
-			return preparedAPIServer{}, fmt.Errorf("initialize container: %w", err)
-		}
-		log.Warnw("degraded startup: container initialization incomplete", "error", err, "mode", mode)
-	}
-
-	if err := s.validateCriticalModules(degradedAllowed); err != nil {
 		return preparedAPIServer{}, err
 	}
 
-	// 创建并初始化路由器
-	NewRouter(s.container).RegisterRoutes(s.genericAPIServer.Engine)
-
-	// 注册 gRPC 服务
-	s.registerGRPCServices()
-
-	// 如果认证模块提供了密钥轮换调度器，启动它并在优雅关闭时停止
-	if s.container != nil && s.container.AuthnModule != nil && s.container.AuthnModule.RotationScheduler != nil {
-		go func() {
-			if err := s.container.AuthnModule.RotationScheduler.Start(context.Background()); err != nil {
-				log.Errorf("failed to start key rotation scheduler: %v", err)
-			}
-		}()
-		log.Infow("Key rotation scheduler initialized", "description", "periodic key rotation scheduler started")
+	containerOut, err := s.prepareContainer(runtime, resources)
+	if err != nil {
+		return preparedAPIServer{}, err
 	}
 
-	log.Infow("hexagonal architecture initialized", "mode", mode, "degraded_startup_allowed", degradedAllowed)
-
-	// 添加关闭回调
-	s.gs.AddShutdownCallback(shutdown.ShutdownFunc(func(string) error {
-		// 停止密钥轮换调度器（如在运行）
-		if s.container != nil && s.container.AuthnModule != nil && s.container.AuthnModule.RotationScheduler != nil && s.container.AuthnModule.RotationScheduler.IsRunning() {
-			if err := s.container.AuthnModule.RotationScheduler.Stop(); err != nil {
-				log.Errorf("Failed to stop key rotation scheduler: %v", err)
-			}
-		}
-
-		// 停止 suggest 更新任务
-		if s.container != nil && s.container.SuggestModule != nil {
-			if err := s.container.SuggestModule.Cleanup(); err != nil {
-				log.Errorf("Failed to cleanup suggest module: %v", err)
-			}
-		}
-
-		// 清理容器资源
-		if s.container != nil {
-			// 容器清理逻辑可以在这里添加
-		}
-
-		// 关闭数据库连接
-		if s.dbManager != nil {
-			if err := s.dbManager.Close(); err != nil {
-				log.Errorf("Failed to close database connections: %v", err)
-			}
-		}
-
-		// 关闭 HTTP 服务器
-		s.genericAPIServer.Close()
-
-		// 关闭 GRPC 服务器
-		s.grpcServer.Close()
-
-		log.Info("🏗️  Hexagonal Architecture server shutdown complete")
-		return nil
-	}))
+	s.prepareTransports(containerOut)
+	s.startRuntimeTasks()
+	log.Infow("hexagonal architecture initialized", "mode", runtime.mode, "degraded_startup_allowed", runtime.degradedAllowed)
+	s.registerShutdownCallbacks()
 
 	return preparedAPIServer{s}, nil
 }

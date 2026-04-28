@@ -7,11 +7,11 @@ import (
 	appchild "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
 	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 	appregistration "github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
-	appuow "github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	childInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
 	guardianshipInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
+	mysqlUcUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	ucGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc"
 	identityGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc/identity"
@@ -56,7 +56,7 @@ func (m *UserModule) Initialize(params ...interface{}) error {
 	}
 
 	// 事务
-	uow := appuow.NewUnitOfWork(db)
+	uow := mysqlUcUow.NewUnitOfWork(db)
 
 	// 初始化仓储层
 	userRepo := userInfra.NewRepository(db)

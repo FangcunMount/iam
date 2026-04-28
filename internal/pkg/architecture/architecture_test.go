@@ -13,26 +13,9 @@ import (
 
 const modulePath = "github.com/FangcunMount/iam/"
 
-var allowedDomainInfrastructureImports = map[string]string{
-	"internal/apiserver/domain/authn/account/creator.go:gorm.io/gorm":      "legacy_not_found_check_to_remove_in_phase_3",
-	"internal/apiserver/domain/authz/assignment/validator.go:gorm.io/gorm": "legacy_not_found_check_to_remove_in_phase_3",
-	"internal/apiserver/domain/uc/user/validator.go:gorm.io/gorm":          "legacy_not_found_check_to_remove_in_phase_3",
-}
+var allowedDomainInfrastructureImports = map[string]string{}
 
 var allowedApplicationInfrastructureImports = map[string]string{
-	"internal/apiserver/application/authn/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/account":          "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authn/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/credential":       "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authn/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user":             "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authn/uow/uow.go:github.com/FangcunMount/iam/internal/pkg/database/mysql":                     "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authn/uow/uow.go:github.com/FangcunMount/iam/internal/pkg/database/tx":                        "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/assignment":       "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/casbinrule":       "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/policy":           "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/resource":         "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role":             "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user":             "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/pkg/database/mysql":                     "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/authz/uow/uow.go:github.com/FangcunMount/iam/internal/pkg/database/tx":                        "legacy_uow_factory_to_invert_in_phase_3",
 	"internal/apiserver/application/cachegovernance/jwks_inspector.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache": "legacy_cache_inspector_model_to_move_to_port",
 	"internal/apiserver/application/cachegovernance/model.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache":          "legacy_cache_inspector_model_to_move_to_port",
 	"internal/apiserver/application/cachegovernance/service.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache":        "legacy_cache_inspector_model_to_move_to_port",
@@ -41,11 +24,6 @@ var allowedApplicationInfrastructureImports = map[string]string{
 	"internal/apiserver/application/uc/testutil/db.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child":           "application_test_support",
 	"internal/apiserver/application/uc/testutil/db.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship":    "application_test_support",
 	"internal/apiserver/application/uc/testutil/db.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user":            "application_test_support",
-	"internal/apiserver/application/uc/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child":               "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/uc/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship":        "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/uc/uow/uow.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user":                "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/uc/uow/uow.go:github.com/FangcunMount/iam/internal/pkg/database/mysql":                        "legacy_uow_factory_to_invert_in_phase_3",
-	"internal/apiserver/application/uc/uow/uow.go:github.com/FangcunMount/iam/internal/pkg/database/tx":                           "legacy_uow_factory_to_invert_in_phase_3",
 }
 
 func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {

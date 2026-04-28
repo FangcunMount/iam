@@ -619,7 +619,7 @@ func (s *userQueryApplicationService) GetByID(ctx context.Context, userID string
 				"resource", logger.ResourceUser,
 				"error", err.Error(),
 			)
-			if perrors.Is(err, gorm.ErrRecordNotFound) {
+			if isUserNotFound(err) {
 				return perrors.WithCode(code.ErrUserNotFound, "user(%s) not found", userID)
 			}
 			return err
@@ -691,4 +691,8 @@ func toUserResult(user *domain.User) *UserResult {
 		IDCard: user.IDCard.String(),
 		Status: user.Status,
 	}
+}
+
+func isUserNotFound(err error) bool {
+	return perrors.Is(err, gorm.ErrRecordNotFound) || perrors.IsCode(err, code.ErrUserNotFound)
 }

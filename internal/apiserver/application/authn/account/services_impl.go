@@ -43,14 +43,8 @@ func (s *accountApplicationService) GetAccountByID(ctx context.Context, accountI
 	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
 		account, err := tx.Accounts.GetByID(ctx, accountID)
 		if err != nil {
-			if perrors.Is(err, gorm.ErrRecordNotFound) {
-				l.Warnw("账户不存在",
-					"action", logger.ActionRead,
-					"resource", "account",
-					"account_id", accountID.String(),
-					"result", logger.ResultFailed,
-				)
-				return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
+			if isAccountNotFound(err) {
+				return accountNotFound(l, accountID)
 			}
 			l.Errorw("查询账户失败",
 				"action", logger.ActionRead,
@@ -60,6 +54,9 @@ func (s *accountApplicationService) GetAccountByID(ctx context.Context, accountI
 				"result", logger.ResultFailed,
 			)
 			return err
+		}
+		if account == nil {
+			return accountNotFound(l, accountID)
 		}
 		result = toAccountResult(account)
 		return nil
@@ -77,10 +74,13 @@ func (s *accountApplicationService) FindByExternalRef(
 	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
 		account, err := tx.Accounts.GetByExternalIDAppId(ctx, externalID, appID)
 		if err != nil {
-			if perrors.Is(err, gorm.ErrRecordNotFound) {
+			if isAccountNotFound(err) {
 				return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
 			}
 			return err
+		}
+		if account == nil {
+			return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
 		}
 		result = toAccountResult(account)
 		return nil
@@ -93,10 +93,13 @@ func (s *accountApplicationService) FindByUniqueID(ctx context.Context, uniqueID
 	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
 		account, err := tx.Accounts.GetByUniqueID(ctx, uniqueID)
 		if err != nil {
-			if perrors.Is(err, gorm.ErrRecordNotFound) {
+			if isAccountNotFound(err) {
 				return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
 			}
 			return err
+		}
+		if account == nil {
+			return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
 		}
 		result = toAccountResult(account)
 		return nil
@@ -261,4 +264,20 @@ func toAccountResult(account *domain.Account) *AccountResult {
 		Meta:       account.Meta,
 		Status:     account.Status,
 	}
+}
+
+func isAccountNotFound(err error) bool {
+	return perrors.Is(err, gorm.ErrRecordNotFound) ||
+		perrors.IsCode(err, code.ErrCredentialNotFound) ||
+		perrors.IsCode(err, code.ErrNotFoundAccount)
+}
+
+func accountNotFound(l *logger.RequestLogger, accountID meta.ID) error {
+	l.Warnw("账户不存在",
+		"action", logger.ActionRead,
+		"resource", "account",
+		"account_id", accountID.String(),
+		"result", logger.ResultFailed,
+	)
+	return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
 }

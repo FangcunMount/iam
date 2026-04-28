@@ -44,11 +44,14 @@ func (r *Repository) Create(ctx context.Context, u *domain.User) error {
 func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.User, error) {
 	po, err := r.BaseRepository.FindByID(ctx, id.Uint64())
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, perrors.WithCode(code.ErrUserNotFound, "user(%s) not found", id.String())
+		}
 		return nil, err
 	}
 	u := r.mapper.ToBO(po)
 	if u == nil {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrUserNotFound, "user(%s) not found", id.String())
 	}
 	return u, nil
 }
@@ -58,11 +61,14 @@ func (r *Repository) FindByPhone(ctx context.Context, phone meta.Phone) (*domain
 	var po UserPO
 	err := r.FindByField(ctx, &po, "phone", phone.String())
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, perrors.WithCode(code.ErrUserNotFound, "user with phone(%s) not found", phone.String())
+		}
 		return nil, err
 	}
 	u := r.mapper.ToBO(&po)
 	if u == nil {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrUserNotFound, "user with phone(%s) not found", phone.String())
 	}
 	return u, nil
 }

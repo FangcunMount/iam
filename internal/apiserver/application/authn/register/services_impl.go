@@ -434,7 +434,7 @@ func (s *registerApplicationService) createOrGetUser(
 		// 如果是微信小程序注册且提供了 UnionID，则通过 UnionID 查找现有用户
 		if wechatUnionID != "" {
 			account, err := accountRepo.GetByUniqueID(ctx, domain.UnionID(wechatUnionID))
-			if err != nil && !perrors.Is(err, gorm.ErrRecordNotFound) {
+			if err != nil && !isRepositoryNotFound(err) {
 				return nil, false, err
 			}
 			if account != nil {
@@ -447,7 +447,7 @@ func (s *registerApplicationService) createOrGetUser(
 			externalID := domain.ExternalID(fmt.Sprintf("%s@%s", wechatOpenID, *req.WechatAppID))
 			appID := domain.AppId(*req.WechatAppID)
 			account, err := accountRepo.GetByExternalIDAppId(ctx, externalID, appID)
-			if err != nil && !perrors.Is(err, gorm.ErrRecordNotFound) {
+			if err != nil && !isRepositoryNotFound(err) {
 				return nil, false, err
 			}
 			if account != nil {
@@ -459,7 +459,7 @@ func (s *registerApplicationService) createOrGetUser(
 	// 通过手机号查找现有用户
 	if !req.Phone.IsEmpty() {
 		existingUser, err := repo.FindByPhone(ctx, req.Phone)
-		if err != nil && !perrors.Is(err, gorm.ErrRecordNotFound) {
+		if err != nil && !isRepositoryNotFound(err) {
 			return nil, false, err
 		}
 		// 用户已存在
@@ -496,7 +496,7 @@ func (s *registerApplicationService) loadOrRepairUserForAccount(
 	if err == nil {
 		return user, false, nil
 	}
-	if !perrors.Is(err, gorm.ErrRecordNotFound) {
+	if !isRepositoryNotFound(err) {
 		return nil, false, err
 	}
 
@@ -584,4 +584,11 @@ func mapCredentialType(t CredentialType) credDomain.CredentialType {
 	default:
 		return credDomain.CredPassword
 	}
+}
+
+func isRepositoryNotFound(err error) bool {
+	return perrors.Is(err, gorm.ErrRecordNotFound) ||
+		perrors.IsCode(err, code.ErrUserNotFound) ||
+		perrors.IsCode(err, code.ErrCredentialNotFound) ||
+		perrors.IsCode(err, code.ErrNotFoundAccount)
 }

@@ -6,7 +6,6 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"gorm.io/gorm"
 )
 
 // ==================== 账户创建器实现 ====================
@@ -61,7 +60,7 @@ func (c *accountCreator) CreateAccount(ctx context.Context, input CreationInput)
 
 	// ========== 步骤3: 幂等性检查 ==========
 	existingAccount, err := c.repo.GetByExternalIDAppId(ctx, params.ExternalID, params.AppID)
-	if err != nil && !perrors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil {
 		return nil, nil, err
 	}
 

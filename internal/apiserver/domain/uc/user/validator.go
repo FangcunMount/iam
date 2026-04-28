@@ -2,13 +2,11 @@ package user
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"gorm.io/gorm"
 )
 
 // validator 用户验证器（领域服务）
@@ -71,7 +69,7 @@ func (v *validator) CheckPhoneUnique(ctx context.Context, phone meta.Phone) erro
 	if err == nil {
 		return perrors.WithCode(code.ErrUserAlreadyExists, "user with phone(%s) already exists", phone.String())
 	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if perrors.IsCode(err, code.ErrUserNotFound) {
 		return nil
 	}
 	return perrors.WrapC(err, code.ErrDatabase, "check user phone(%s) failed", phone.String())

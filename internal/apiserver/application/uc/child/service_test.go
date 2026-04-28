@@ -9,7 +9,7 @@ import (
 
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 )
 
 // ==================== ChildApplicationService 测试 ====================
@@ -17,7 +17,7 @@ import (
 func TestChildApplicationService_Register_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	appService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -42,7 +42,7 @@ func TestChildApplicationService_Register_Success(t *testing.T) {
 func TestChildApplicationService_Register_WithOptionalFields(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	appService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -75,7 +75,7 @@ func TestChildApplicationService_Register_WithOptionalFields(t *testing.T) {
 func TestChildApplicationService_Register_EmptyName_ShouldFail(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	appService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -96,7 +96,7 @@ func TestChildApplicationService_Register_EmptyName_ShouldFail(t *testing.T) {
 func TestChildApplicationService_Register_DuplicateIDCard(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	appService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -129,7 +129,7 @@ func TestChildApplicationService_Register_DuplicateIDCard(t *testing.T) {
 func TestChildProfileApplicationService_Rename_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -159,7 +159,7 @@ func TestChildProfileApplicationService_Rename_Success(t *testing.T) {
 func TestChildProfileApplicationService_Rename_EmptyName(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -188,7 +188,7 @@ func TestChildProfileApplicationService_Rename_EmptyName(t *testing.T) {
 func TestChildProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -218,7 +218,7 @@ func TestChildProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
 func TestChildProfileApplicationService_UpdateProfile_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -254,7 +254,7 @@ func TestChildProfileApplicationService_UpdateProfile_Success(t *testing.T) {
 func TestChildProfileApplicationService_UpdateHeightWeight_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -290,7 +290,7 @@ func TestChildProfileApplicationService_UpdateHeightWeight_Success(t *testing.T)
 func TestChildProfileApplicationService_ChildNotFound_ShouldFail(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	profileService := child.NewChildProfileApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -306,7 +306,7 @@ func TestChildProfileApplicationService_ChildNotFound_ShouldFail(t *testing.T) {
 func TestChildQueryApplicationService_GetByID_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -333,7 +333,7 @@ func TestChildQueryApplicationService_GetByID_Success(t *testing.T) {
 func TestChildQueryApplicationService_GetByID_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	queryService := child.NewChildQueryApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -348,7 +348,7 @@ func TestChildQueryApplicationService_GetByID_NotFound(t *testing.T) {
 func TestChildQueryApplicationService_GetByIDCard_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -376,7 +376,7 @@ func TestChildQueryApplicationService_GetByIDCard_Success(t *testing.T) {
 func TestChildQueryApplicationService_FindSimilar_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 
 	registerService := child.NewChildApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -411,7 +411,7 @@ func TestChildQueryApplicationService_FindSimilar_Success(t *testing.T) {
 func TestChildQueryApplicationService_FindSimilar_NoMatch(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := uow.NewUnitOfWork(db)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
 	queryService := child.NewChildQueryApplicationService(unitOfWork)
 	ctx := context.Background()
 

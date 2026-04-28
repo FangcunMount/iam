@@ -4,14 +4,15 @@ import (
 	"context"
 	"sync"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	assignment "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 	role "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	wechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	child "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
 	user "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"gorm.io/gorm"
 )
 
 // AssignmentRepoStub is a simple stub for assignment.Repository used in tests.
@@ -185,16 +186,13 @@ func (s *UserRepoStub) FindByID(ctx context.Context, id meta.ID) (*user.User, er
 	if findErr != nil {
 		return nil, findErr
 	}
-	// If the map contains the key but the value is nil, treat it as "not found"
-	// without a DB error (return nil, nil). Only return gorm.ErrRecordNotFound
-	// when the key is absent from the map.
 	if ok {
 		if u != nil {
 			return u, nil
 		}
 		return nil, nil
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 }
 
 func (s *UserRepoStub) FindByPhone(ctx context.Context, phone meta.Phone) (*user.User, error) {
@@ -213,7 +211,7 @@ func (s *UserRepoStub) FindByPhone(ctx context.Context, phone meta.Phone) (*user
 		}
 		return nil, nil
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 }
 
 func (s *UserRepoStub) Update(ctx context.Context, u *user.User) error {
