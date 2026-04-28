@@ -11,10 +11,11 @@
 
 ## 30 秒结论
 
-- 公开稳定入口现在固定为：`pkg/sdk`、`pkg/sdk/config`、`pkg/sdk/auth/client`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth`、`pkg/sdk/authz`、`pkg/sdk/identity`、`pkg/sdk/idp`、`pkg/sdk/errors`
+- 公开稳定入口现在固定为：`pkg/sdk`、`pkg/sdk/config`、`pkg/sdk/auth/client`、`pkg/sdk/auth/loginv2`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth`、`pkg/sdk/authz`、`pkg/sdk/identity`、`pkg/sdk/idp`、`pkg/sdk/errors`
 - `pkg/sdk/transport` 和 `pkg/sdk/observability` 已经移入 `pkg/sdk/internal/...`，不再对外公开
 - `pkg/sdk/errors` 只保留小型 facade；高级 `Analyze / matcher / handler` 能力已收回内部
 - `pkg/sdk/auth` 兼容 façade 已删除，认证入口统一切到 `client`、`jwks`、`verifier`、`serviceauth`
+- REST AuthN v2 登录新增入口为 `pkg/sdk/auth/loginv2`；旧 gRPC v1 认证客户端仍保留在 `pkg/sdk/auth/client`
 - `sdk.NewTokenVerifier(...)`、`sdk.NewJWKSManager(...)`、`sdk.NewJWKSManagerWithClient(...)`、`sdk.NewServiceAuthHelper(...)` 已删除
 - `sdk.NewClient(...)` 不再隐式启用 request-id / metrics / circuit breaker；这些能力现在由 `Config.Observability` 显式控制
 
@@ -25,6 +26,7 @@
 - `pkg/sdk`
 - `pkg/sdk/config`
 - `pkg/sdk/auth/client`
+- `pkg/sdk/auth/loginv2`
 - `pkg/sdk/auth/jwks`
 - `pkg/sdk/auth/verifier`
 - `pkg/sdk/auth/serviceauth`
@@ -45,7 +47,7 @@
 | ---- | ---- |
 | `pkg/sdk/transport` | `pkg/sdk` + `pkg/sdk/config` |
 | `pkg/sdk/observability` | `Config.Observability` + `sdk.WithMetricsCollector(...)` / `sdk.WithTracingHook(...)` |
-| `pkg/sdk/auth` | `pkg/sdk/auth/client`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth` |
+| `pkg/sdk/auth` | `pkg/sdk/auth/client`、`pkg/sdk/auth/loginv2`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth` |
 | `sdk.NewTokenVerifier(...)` | `authverifier.NewTokenVerifier(...)` |
 | `sdk.NewJWKSManager(...)` | `authjwks.NewJWKSManager(...)` |
 | `sdk.NewJWKSManagerWithClient(...)` | `authjwks.NewJWKSManager(..., authjwks.WithAuthClient(client.Auth()))` |

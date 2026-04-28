@@ -272,6 +272,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 | 模块 | 设计重点 | 说明 |
 | ---- | ---- | ---- |
 | `pkg/sdk` | 统一接入入口 | `sdk.Client` 负责装配连接与子客户端 |
+| `auth/loginv2` | REST v2 显式登录 | 只覆盖 `/api/v2/authn/login` 已实现能力 |
 | `auth/jwks` | Chain of Responsibility | Cache → HTTP → gRPC → Seed |
 | `auth/verifier` | Strategy | Local / Remote / Fallback / Cache |
 | `auth/serviceauth` | 状态型 helper | 刷新、退避、熔断、旧 token 回退 |
@@ -285,6 +286,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 - `pkg/sdk/transport` 已删除
 - `pkg/sdk/observability` 已删除
 - `pkg/sdk/errors` 的高级分析 / matcher / handler API 已收回内部
+- `pkg/sdk/auth/loginv2` 是新增的 REST AuthN v2 显式登录入口；旧 `pkg/sdk/auth/client` 的 gRPC v1 语义不变
 
 替代入口见 [07-migration-breaking-changes.md](./docs/07-migration-breaking-changes.md)。
 

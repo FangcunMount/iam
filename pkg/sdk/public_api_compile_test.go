@@ -8,6 +8,7 @@ import (
 	sdk "github.com/FangcunMount/iam/pkg/sdk"
 	authclient "github.com/FangcunMount/iam/pkg/sdk/auth/client"
 	authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
+	authloginv2 "github.com/FangcunMount/iam/pkg/sdk/auth/loginv2"
 	authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
 	authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
 	"github.com/FangcunMount/iam/pkg/sdk/authz"
@@ -65,6 +66,22 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	_ = opt
 
 	var _ = authclient.NewClient
+	var _ *authloginv2.Client
+	var _ = authloginv2.NewClient
+	var _ = (*authloginv2.Client).Login
+	var _ = authloginv2.WithHTTPClient
+	var _ = authloginv2.WithHeader
+	var _ authloginv2.AuthMethod = authloginv2.AuthMethodPassword
+	var _ authloginv2.AuthMethod = authloginv2.AuthMethodPhoneOTP
+	var _ authloginv2.AuthMethod = authloginv2.AuthMethodWechat
+	var _ authloginv2.AuthMethod = authloginv2.AuthMethodWecom
+	var loginReq authloginv2.LoginRequest
+	var _ = loginReq.Validate
+	var _ = authloginv2.PasswordPayload{}
+	var _ = authloginv2.PhoneOTPPayload{}
+	var _ = authloginv2.WechatPayload{}
+	var _ = authloginv2.WecomPayload{}
+	var _ = authloginv2.TokenPair{}
 	var _ = authjwks.NewJWKSManager
 	var _ = authverifier.NewTokenVerifier
 	var _ = authserviceauth.NewServiceAuthHelper

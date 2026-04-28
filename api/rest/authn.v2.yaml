@@ -17,7 +17,7 @@ paths:
       tags:
       - Authentication-Auth
       summary: 显式登录
-      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。
+      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wecom；不开放 jwt_token 推断登录。
       requestBody:
         required: true
         content:
@@ -44,13 +44,19 @@ paths:
                   method_payload:
                     app_id: wx-app-id
                     code: wx-js-code
+              wecom:
+                value:
+                  auth_method: wecom
+                  method_payload:
+                    corp_id: corp-id
+                    auth_code: wecom-auth-code
       responses:
         '200':
-          description: 登录成功，返回访问令牌和刷新令牌
+          description: 登录成功，返回统一响应包装后的访问令牌和刷新令牌
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
+                $ref: '#/components/schemas/LoginV2Response'
         '400':
           description: 请求参数错误
           content:
@@ -88,6 +94,23 @@ components:
           - $ref: '#/components/schemas/PhoneOTPPayload'
           - $ref: '#/components/schemas/WechatPayload'
           - $ref: '#/components/schemas/WecomPayload'
+          description: 与 auth_method 对应的认证负载。服务端按 auth_method 显式解析，不执行 v1 字段推断。
+    LoginV2Response:
+      type: object
+      required:
+      - code
+      - message
+      - data
+      properties:
+        code:
+          type: integer
+          example: 0
+          description: 业务状态码，0 表示成功。
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/TokenPair'
     PasswordPayload:
       type: object
       required:
@@ -153,3 +176,6 @@ components:
           type: integer
         message:
           type: string
+        reference:
+          type: string
+          description: 可选参考文档地址。

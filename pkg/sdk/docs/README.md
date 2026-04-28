@@ -118,7 +118,7 @@
 | 本地验证 JWT | [JWT 本地验证](./04-jwt-verification.md) | 看 verifier、JWKS、降级策略 |
 | 实现服务间认证 | [服务间认证](./05-service-auth.md) | 看 helper、自动刷新、回退策略 |
 | 做单次权限判定 | [授权判定（PDP）](./06-authz.md) | 看 `Authz().Check()` / `Allow()` |
-| 从旧 SDK 低层包迁移 | [迁移说明](./07-migration-breaking-changes.md) | 看公开面收口与替代入口 |
+| 从旧 SDK 低层包迁移 | [迁移说明](./07-migration-breaking-changes.md) | 看公开面收口与替代入口，包含 REST AuthN v2 登录入口 |
 | 直接复制完整程序 | [示例索引](../_examples/README.md) | 进入 `_examples` 看可运行代码 |
 
 ## 📖 文档约定

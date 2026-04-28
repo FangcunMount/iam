@@ -624,7 +624,7 @@ paths:
       tags:
       - 认证
       summary: 用户登录
-      description: 支持多种登录方式：密码登录、手机验证码登录、微信小程序登录、企业微信登录。v1 为 legacy adapter，应用层仍保持字段推断兼容行为；新调用方优先使用 v2 的 auth_method + method_payload 契约。
+      description: 支持多种登录方式：密码登录、手机验证码登录、微信小程序登录、企业微信登录。v1 为 legacy/inference adapter，应用层仍保持字段推断兼容行为；新调用方优先使用 v2 的 auth_method + method_payload 显式契约。
       requestBody:
         required: true
         content:
@@ -855,7 +855,7 @@ components:
     github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LoginRequest:
       properties:
         credentials:
-          description: 凭证（根据 method 不同而不同）
+          description: 凭证（根据 method 不同而不同）。legacy/inference 字段推断兼容入口；新调用方请使用 v2 method_payload。
           items:
             type: integer
           type: array
@@ -863,7 +863,7 @@ components:
           description: 设备 ID
           type: string
         method:
-          description: 认证方式：password | phone_otp | wechat | wecom
+          description: 认证方式：password | phone_otp | wechat | wecom。v1 legacy/inference adapter 中该字段不是应用层最终权威选择，新调用方请使用 v2 auth_method。
           type: string
       required:
       - credentials

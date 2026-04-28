@@ -14,6 +14,11 @@ cd "$ROOT_DIR"
 # Proto 源文件路径
 PROTO_PATH="api/grpc"
 
+# Contract rule:
+# Only generate proto contracts for implemented and registered runtime services.
+# The current IAM gRPC public surface is v1-only. A future v2 proto must be added
+# together with runtime registration, generated code, and SDK compile tests.
+
 # 检查protoc是否安装
 if ! command -v protoc &> /dev/null; then
     echo "❌ protoc 未安装，请先安装 Protocol Buffers"

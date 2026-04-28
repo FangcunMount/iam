@@ -116,6 +116,23 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 				require.Equal(t, "js-code", *req.WechatJSCode)
 			},
 		},
+		{
+			name: "wecom",
+			body: `{
+				"auth_method": "wecom",
+				"method_payload": {
+					"corp_id": "corp-id",
+					"auth_code": "auth-code"
+				}
+			}`,
+			wantType: login.AuthTypeWecom,
+			assert: func(t *testing.T, req login.LoginRequest) {
+				require.NotNil(t, req.WecomCorpID)
+				require.NotNil(t, req.WecomCode)
+				require.Equal(t, "corp-id", *req.WecomCorpID)
+				require.Equal(t, "auth-code", *req.WecomCode)
+			},
+		},
 	}
 
 	for _, tc := range tests {

@@ -113,6 +113,29 @@ func TestAPIServerCompositionSettersAreAllowlisted(t *testing.T) {
 	})
 }
 
+func TestGRPCV2ContractsAreNotAddedWithoutRuntime(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	grpcRoot := filepath.Join(root, "api", "grpc", "iam")
+	err := filepath.WalkDir(grpcRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".proto") {
+			return nil
+		}
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.Contains(rel, "/v2/") {
+			t.Fatalf("%s is a gRPC v2 contract without a matching Phase 6 runtime registration and SDK compile-test migration", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func isDomainForbiddenImport(imp string) bool {
 	return imp == "gorm.io/gorm" ||
 		strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||

@@ -11,7 +11,7 @@ IAM 仅负责统一身份（账号、儿童档案、监护关系等）；OA、�
    - 运营后台：需要查询/批量编辑用户、儿童、监护关系。
    - 内部系统（消息、报表、风控等）：批量读取身份数据。
    - OA / 自动化流程：需要账号生命周期与监护关系写能力。
-3. **契约驱动**：`api/grpc/iam/identity/v1/identity.proto` 是唯一合同，任何实现改动必须同步更新 proto 与 README。
+3. **契约驱动**：`api/grpc/iam/*/v1/*.proto` 是当前唯一 gRPC 合同，任何实现改动必须同步更新 proto 与 README。
 
 ---
 
@@ -20,13 +20,15 @@ IAM 仅负责统一身份（账号、儿童档案、监护关系等）；OA、�
 ```text
 api/grpc/
 └── iam/
-    └── identity/
-        └── v1/
-            └── identity.proto
+    ├── authn/v1/authn.proto
+    ├── authz/v1/authz.proto
+    ├── identity/v1/identity.proto
+    └── idp/v1/idp.proto
 ```
 
 - Go import：`github.com/FangcunMount/iam/api/grpc/iam/identity/v1`
 - Proto 包名：`iam.identity.v1`，新增字段只能追加，禁止复用 field number。
+- 当前没有 gRPC v2 proto。未来新增 `api/grpc/iam/*/v2` 时，必须同时提交服务实现、运行时注册、生成代码和 SDK compile test；禁止只发布未实现的占位 proto。
 
 ---
 
@@ -96,6 +98,7 @@ api/grpc/
 ### 当前边界
 
 - 当前运行时只注册 `IdentityRead`、`GuardianshipQuery`、`GuardianshipCommand`、`IdentityLifecycle`。
+- 当前运行时注册的 AuthN/AuthZ/IDP/Identity 服务均为 v1。
 - 当前没有对外开放事件订阅型 gRPC，也不再保留未实现但可见的占位 RPC。
 
 ---
@@ -178,6 +181,7 @@ func main() {
 ## 🧪 调试与代码生成
 
 - 运行 `make proto-gen` 生成 Go SDK；若需 TS/Python，可在 `Makefile` 中新增命令。
+- `make proto-gen` 目前只生成已实现并注册的 v1 proto。新增 v2 proto 前先补齐 runtime 注册和 SDK compile test，再把对应文件加入生成流程。
 - grpcurl 示例：
 
 ```bash

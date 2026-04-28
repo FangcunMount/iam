@@ -12,10 +12,10 @@
 
 | 分组 | 端点 | 方法 | 说明 |
 | ------ | ------ | ------ | ------ |
-| **认证** | `/api/v1/auth/login` | POST | 用户登录（用户名密码/微信） |
-| | `/api/v1/auth/refresh` | POST | 刷新访问令牌 |
-| | `/api/v1/auth/verify` | POST | 验证令牌有效性 |
-| | `/api/v1/auth/logout` | POST | 退出登录（撤销令牌） |
+| **认证** | `/api/v1/authn/login` | POST | 用户登录（legacy/inference adapter，保留字段推断兼容） |
+| | `/api/v1/authn/refresh_token` | POST | 刷新访问令牌 |
+| | `/api/v1/authn/verify` | POST | 验证令牌有效性 |
+| | `/api/v1/authn/logout` | POST | 退出登录（撤销令牌） |
 | **账户** | `/api/v1/accounts/operation` | POST | 创建运营账号 |
 | | `/api/v1/accounts/operation/{username}` | PATCH | 更新运营口令 |
 | | `/api/v1/accounts/wechat/bind` | POST | 绑定微信账号 |
@@ -24,6 +24,8 @@
 | **JWKS** | `/.well-known/jwks.json` | GET | 获取公钥集（用于 JWT 验签） |
 
 #### 登录流程示例
+
+> v1 登录是 legacy/inference adapter。`method + credentials` 入口保留用于兼容旧调用方，应用层仍按字段推断规则选择登录场景；新调用方应使用 v2 的 `auth_method + method_payload` 显式契约。
 
 **运营账号登录**:
 
@@ -128,6 +130,8 @@ curl -X GET https://api.example.com/.well-known/jwks.json
 | 分组 | 端点 | 方法 | 说明 |
 | ------ | ------ | ------ | ------ |
 | **认证** | `/api/v2/authn/login` | POST | 使用 `auth_method + method_payload` 登录 |
+
+v2 AuthN 只表达已实现的显式登录能力：`password`、`phone_otp`、`wechat`、`wecom`。未实现的 refresh/logout/verify 以及 `jwt_token` 登录不会在 v2 契约中提前暴露。
 
 ---
 
@@ -477,6 +481,7 @@ curl -s -X GET https://api.example.com/api/v1/identity/me/children \
 
 - **OpenAPI 规范文件**:
   - [authn.v1.yaml](./authn.v1.yaml) - 认证 API 完整规范
+  - [authn.v2.yaml](./authn.v2.yaml) - 认证 API v2 显式登录规范
   - [identity.v1.yaml](./identity.v1.yaml) - 身份 API 完整规范
 
 - **在线文档**:
