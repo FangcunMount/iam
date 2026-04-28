@@ -61,7 +61,7 @@ func (r *AccountRepository) UpdateUniqueID(ctx context.Context, id meta.ID, uniq
 		return fmt.Errorf("failed to update account unique_id: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return accountNotFoundError()
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (r *AccountRepository) UpdateStatus(ctx context.Context, id meta.ID, status
 		return fmt.Errorf("failed to update account status: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return accountNotFoundError()
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func (r *AccountRepository) UpdateProfile(ctx context.Context, id meta.ID, profi
 		return fmt.Errorf("failed to update account profile: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return accountNotFoundError()
 	}
 	return nil
 }
@@ -111,7 +111,7 @@ func (r *AccountRepository) UpdateMeta(ctx context.Context, id meta.ID, metaData
 		return fmt.Errorf("failed to update account meta: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return accountNotFoundError()
 	}
 	return nil
 }
@@ -216,4 +216,8 @@ func (r *AccountRepository) GetAccountStatus(ctx context.Context, accountID meta
 	locked = po.Status < 0
 
 	return enabled, locked, nil
+}
+
+func accountNotFoundError() error {
+	return errors.WithCode(code.ErrNotFoundAccount, "account not found")
 }

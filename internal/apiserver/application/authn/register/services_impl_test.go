@@ -10,7 +10,6 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 type userRepoStub struct {
@@ -30,11 +29,11 @@ func (s *userRepoStub) Create(_ context.Context, user *userdomain.User) error {
 
 func (s *userRepoStub) FindByID(_ context.Context, id meta.ID) (*userdomain.User, error) {
 	if s.users == nil {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 	}
 	user, ok := s.users[id.Uint64()]
 	if !ok {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 	}
 	return user, nil
 }
@@ -45,7 +44,7 @@ func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userdo
 			return user, nil
 		}
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 }
 
 func (s *userRepoStub) Update(_ context.Context, user *userdomain.User) error {
@@ -73,19 +72,19 @@ func (s *accountRepoStub) UpdateProfile(context.Context, meta.ID, map[string]str
 }
 func (s *accountRepoStub) UpdateMeta(context.Context, meta.ID, map[string]string) error { return nil }
 func (s *accountRepoStub) GetByID(context.Context, meta.ID) (*accountdomain.Account, error) {
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrNotFoundAccount, "account not found")
 }
 func (s *accountRepoStub) GetByUniqueID(_ context.Context, uniqueID accountdomain.UnionID) (*accountdomain.Account, error) {
 	if account, ok := s.byUniqueID[string(uniqueID)]; ok {
 		return account, nil
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrNotFoundAccount, "account not found")
 }
 func (s *accountRepoStub) GetByExternalIDAppId(_ context.Context, externalID accountdomain.ExternalID, appID accountdomain.AppId) (*accountdomain.Account, error) {
 	if account, ok := s.byExternalIDApp[string(externalID)+"|"+string(appID)]; ok {
 		return account, nil
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrNotFoundAccount, "account not found")
 }
 
 func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {

@@ -13,25 +13,23 @@ import (
 
 const modulePath = "github.com/FangcunMount/iam/"
 
-var allowedDomainInfrastructureImports = map[string]string{}
-
-var allowedApplicationInfrastructureImports = map[string]string{
+var activeLegacyApplicationInfrastructureImports = map[string]string{
 	"internal/apiserver/application/cachegovernance/jwks_inspector.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache": "legacy_cache_inspector_model_to_move_to_port",
 	"internal/apiserver/application/cachegovernance/model.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache":          "legacy_cache_inspector_model_to_move_to_port",
 	"internal/apiserver/application/cachegovernance/service.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache":        "legacy_cache_inspector_model_to_move_to_port",
 	"internal/apiserver/application/suggest/service.go:github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search":       "legacy_direct_search_adapter_to_hide_behind_port",
 	"internal/apiserver/application/suggest/updater.go:github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search":       "legacy_direct_search_adapter_to_hide_behind_port",
-	"internal/apiserver/application/uc/testutil/db.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child":           "application_test_support",
-	"internal/apiserver/application/uc/testutil/db.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship":    "application_test_support",
-	"internal/apiserver/application/uc/testutil/db.go:github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user":            "application_test_support",
+}
+
+var retiredArchitectureExceptionReasonParts = [][]string{
+	{"application", "test", "support"},
+	{"legacy", "uow", "factory", "to", "invert", "in", "phase", "3"},
 }
 
 func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	assertAllowlistReasons(t, allowedDomainInfrastructureImports)
-	seen := map[string]struct{}{}
 
 	scanImports(t, filepath.Join(root, "internal", "apiserver", "domain"), func(path string, imports []string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
@@ -39,26 +37,24 @@ func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {
 			if !isDomainForbiddenImport(imp) {
 				continue
 			}
-			key := rel + ":" + imp
-			if _, ok := allowedDomainInfrastructureImports[key]; ok {
-				seen[key] = struct{}{}
-				continue
-			}
 			t.Fatalf("%s imports %s; domain must stay independent from infrastructure and database packages", rel, imp)
 		}
 	})
-	assertAllowlistStillUsed(t, allowedDomainInfrastructureImports, seen)
 }
 
 func TestApplicationPackagesDoNotAddTransportOrInfrastructureDependencies(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	assertAllowlistReasons(t, allowedApplicationInfrastructureImports)
+	assertAllowlistReasons(t, activeLegacyApplicationInfrastructureImports)
+	assertNoRetiredArchitectureExceptionReasons(t, activeLegacyApplicationInfrastructureImports)
 	seen := map[string]struct{}{}
 
 	scanImports(t, filepath.Join(root, "internal", "apiserver", "application"), func(path string, imports []string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
+		if isApplicationTestutilPath(rel) {
+			return
+		}
 		for _, imp := range imports {
 			if strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") {
 				t.Fatalf("%s imports %s; application layer must not depend on transport/interface implementations", rel, imp)
@@ -67,14 +63,38 @@ func TestApplicationPackagesDoNotAddTransportOrInfrastructureDependencies(t *tes
 				continue
 			}
 			key := rel + ":" + imp
-			if _, ok := allowedApplicationInfrastructureImports[key]; ok {
+			if _, ok := activeLegacyApplicationInfrastructureImports[key]; ok {
 				seen[key] = struct{}{}
 				continue
 			}
 			t.Fatalf("%s imports %s; add a port/factory seam or document a temporary allowlist reason", rel, imp)
 		}
 	})
-	assertAllowlistStillUsed(t, allowedApplicationInfrastructureImports, seen)
+	assertAllowlistStillUsed(t, activeLegacyApplicationInfrastructureImports, seen)
+}
+
+func TestApplicationTestSupportDependenciesStayInTestutil(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "application"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if !isApplicationTestutilPath(rel) {
+			return
+		}
+		for _, imp := range imports {
+			if isApplicationTestutilAllowedImport(imp) {
+				continue
+			}
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
+				strings.HasPrefix(imp, modulePath+"internal/pkg/database") ||
+				strings.HasPrefix(imp, modulePath+"internal/pkg/migration") ||
+				imp == "gorm.io/gorm" ||
+				strings.HasPrefix(imp, "gorm.io/driver/") {
+				t.Fatalf("%s imports %s; application test support may only depend on GORM and infra/mysql test PO helpers", rel, imp)
+			}
+		}
+	})
 }
 
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
@@ -145,9 +165,22 @@ func isDomainForbiddenImport(imp string) bool {
 }
 
 func isApplicationForbiddenImport(imp string) bool {
-	return strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
+	return imp == "gorm.io/gorm" ||
+		strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
 		strings.HasPrefix(imp, modulePath+"internal/pkg/database") ||
 		strings.HasPrefix(imp, modulePath+"internal/pkg/migration")
+}
+
+func isApplicationTestutilPath(rel string) bool {
+	return strings.HasPrefix(rel, "internal/apiserver/application/") &&
+		strings.Contains(rel, "/testutil/")
+}
+
+func isApplicationTestutilAllowedImport(imp string) bool {
+	return imp == "gorm.io/gorm" ||
+		imp == "gorm.io/gorm/logger" ||
+		strings.HasPrefix(imp, "gorm.io/driver/") ||
+		strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/mysql/")
 }
 
 func assertAllowlistReasons(t *testing.T, allowlist map[string]string) {
@@ -164,6 +197,18 @@ func assertAllowlistStillUsed(t *testing.T, allowlist map[string]string, seen ma
 	for key := range allowlist {
 		if _, ok := seen[key]; !ok {
 			t.Fatalf("architecture allowlist entry %s no longer matches current imports; remove it", key)
+		}
+	}
+}
+
+func assertNoRetiredArchitectureExceptionReasons(t *testing.T, allowlist map[string]string) {
+	t.Helper()
+	for key, reason := range allowlist {
+		for _, parts := range retiredArchitectureExceptionReasonParts {
+			retired := strings.Join(parts, "_")
+			if strings.Contains(reason, retired) {
+				t.Fatalf("architecture allowlist entry %s uses retired reason %q", key, retired)
+			}
 		}
 	}
 }

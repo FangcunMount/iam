@@ -10,7 +10,6 @@ import (
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"gorm.io/gorm"
 )
 
 // ============= AccountApplicationService 实现 =============
@@ -267,8 +266,7 @@ func toAccountResult(account *domain.Account) *AccountResult {
 }
 
 func isAccountNotFound(err error) bool {
-	return perrors.Is(err, gorm.ErrRecordNotFound) ||
-		perrors.IsCode(err, code.ErrCredentialNotFound) ||
+	return perrors.IsCode(err, code.ErrCredentialNotFound) ||
 		perrors.IsCode(err, code.ErrNotFoundAccount)
 }
 

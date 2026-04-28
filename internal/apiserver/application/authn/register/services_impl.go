@@ -12,7 +12,6 @@ import (
 	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"gorm.io/gorm"
 )
 
 // ============= RegisterApplicationService 实现 =============
@@ -208,8 +207,7 @@ func mapCredentialType(t CredentialType) credDomain.CredentialType {
 }
 
 func isRepositoryNotFound(err error) bool {
-	return perrors.Is(err, gorm.ErrRecordNotFound) ||
-		perrors.IsCode(err, code.ErrUserNotFound) ||
+	return perrors.IsCode(err, code.ErrUserNotFound) ||
 		perrors.IsCode(err, code.ErrCredentialNotFound) ||
 		perrors.IsCode(err, code.ErrNotFoundAccount)
 }

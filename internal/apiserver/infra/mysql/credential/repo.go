@@ -57,7 +57,7 @@ func (r *Repository) UpdateMaterial(ctx context.Context, id meta.ID, material []
 		return fmt.Errorf("failed to update credential material: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -73,7 +73,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain
 		return fmt.Errorf("failed to update credential status: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (r *Repository) UpdateFailedAttempts(ctx context.Context, id meta.ID, attem
 		return fmt.Errorf("failed to update credential failed_attempts: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func (r *Repository) UpdateLockedUntil(ctx context.Context, id meta.ID, lockedUn
 		return fmt.Errorf("failed to update credential locked_until: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -121,7 +121,7 @@ func (r *Repository) UpdateLastSuccessAt(ctx context.Context, id meta.ID, lastSu
 		return fmt.Errorf("failed to update credential last_success_at: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -137,7 +137,7 @@ func (r *Repository) UpdateLastFailureAt(ctx context.Context, id meta.ID, lastFa
 		return fmt.Errorf("failed to update credential last_failure_at: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -215,7 +215,7 @@ func (r *Repository) Delete(ctx context.Context, id meta.ID) error {
 		return fmt.Errorf("failed to delete credential: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return credentialNotFoundError()
 	}
 	return nil
 }
@@ -276,7 +276,7 @@ func (r *Repository) FindPhoneOTPCredential(ctx context.Context, phoneE164 strin
 
 	if len(results) == 0 {
 		zeroID := meta.FromUint64(0)
-		return zeroID, zeroID, zeroID, gorm.ErrRecordNotFound
+		return zeroID, zeroID, zeroID, credentialNotFoundError()
 	}
 
 	result := results[0]
@@ -285,6 +285,10 @@ func (r *Repository) FindPhoneOTPCredential(ctx context.Context, phoneE164 strin
 	usrID := meta.FromUint64(result.UserID)
 	credID := meta.FromUint64(result.CredentialID)
 	return accID, usrID, credID, nil
+}
+
+func credentialNotFoundError() error {
+	return perrors.WithCode(code.ErrCredentialNotFound, "credential not found")
 }
 
 // FindOAuthCredential 根据身份提供商标识查找OAuth凭据绑定
