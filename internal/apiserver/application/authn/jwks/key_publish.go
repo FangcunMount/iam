@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // KeyPublishAppService JWKS 发布应用服务

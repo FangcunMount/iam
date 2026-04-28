@@ -5,8 +5,8 @@ import (
 	"context"
 	"log"
 
-	authzv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authz/v1"
-	sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
+	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
+	sdk "github.com/FangcunMount/iam/pkg/sdk"
 )
 
 func main() {

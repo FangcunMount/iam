@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // ==================== 微信小程序账户创建策略 ====================

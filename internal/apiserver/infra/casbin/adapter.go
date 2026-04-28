@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"

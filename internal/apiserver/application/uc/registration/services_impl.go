@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	childapp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/child"
-	guardapp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/uow"
-	childdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	guarddomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	childapp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
+	guardapp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	childdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	guarddomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 type childRegistrationService struct {

@@ -6,7 +6,7 @@ info:
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam-contracts
+    url: https://github.com/FangcunMount/iam
 servers:
 - url: https://iam.fangcunmount.cn/api/v1
   description: 生产环境
@@ -29,26 +29,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.CreateWechatAppRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.CreateWechatAppRequest'
       responses:
         '201':
           description: 创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
   /idp/wechat-apps/{app_id}:
     get:
       tags:
@@ -67,19 +67,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
         '404':
           description: 应用不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
   /idp/wechat-apps/{app_id}/access-token:
     get:
       tags:
@@ -98,19 +98,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.AccessTokenResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.AccessTokenResponse'
         '404':
           description: 应用不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
   /idp/wechat-apps/refresh-access-token:
     post:
       tags:
@@ -121,32 +121,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.RefreshAccessTokenRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.RefreshAccessTokenRequest'
       responses:
         '200':
           description: 刷新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.AccessTokenResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.AccessTokenResponse'
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '404':
           description: 应用不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
   /idp/wechat-apps/rotate-auth-secret:
     post:
       tags:
@@ -157,32 +157,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.RotateAuthSecretRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.RotateAuthSecretRequest'
       responses:
         '200':
           description: 轮换成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.RotateSecretResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.RotateSecretResponse'
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '404':
           description: 应用不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
   /idp/wechat-apps/rotate-msg-secret:
     post:
       tags:
@@ -193,32 +193,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.RotateMsgSecretRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.RotateMsgSecretRequest'
       responses:
         '200':
           description: 轮换成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.RotateSecretResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.RotateSecretResponse'
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '404':
           description: 应用不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
 components:
   responses:
     NotFound:
@@ -228,7 +228,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.CreateWechatAppRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.CreateWechatAppRequest:
       properties:
         app_id:
           description: 微信应用 ID（必填）
@@ -247,7 +247,7 @@ components:
       - name
       - type
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.RefreshAccessTokenRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.RefreshAccessTokenRequest:
       properties:
         app_id:
           description: 微信应用 ID
@@ -255,7 +255,7 @@ components:
       required:
       - app_id
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.RotateAuthSecretRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.RotateAuthSecretRequest:
       properties:
         app_id:
           description: 微信应用 ID
@@ -267,7 +267,7 @@ components:
       - app_id
       - new_secret
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_request.RotateMsgSecretRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_request.RotateMsgSecretRequest:
       properties:
         app_id:
           description: 微信应用 ID
@@ -283,7 +283,7 @@ components:
       - callback_token
       - encoding_aes_key
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.AccessTokenResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.AccessTokenResponse:
       properties:
         access_token:
           description: 访问令牌
@@ -292,7 +292,7 @@ components:
           description: 过期时间（秒）
           type: integer
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.ErrorResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse:
       properties:
         code:
           description: 错误码
@@ -301,7 +301,7 @@ components:
           description: 错误消息
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.RotateSecretResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.RotateSecretResponse:
       properties:
         message:
           description: 消息
@@ -310,7 +310,7 @@ components:
           description: 是否成功
           type: boolean
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_idp_restful_response.WechatAppResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.WechatAppResponse:
       properties:
         app_id:
           description: 微信应用 ID

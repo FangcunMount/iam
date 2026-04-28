@@ -3,8 +3,8 @@ package verifier
 import (
 	"fmt"
 
-	authjwks "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/jwks"
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 // StrategySelector 策略选择器，根据条件选择合适的验证策略。

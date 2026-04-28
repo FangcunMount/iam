@@ -25,7 +25,7 @@ api/grpc/
             └── identity.proto
 ```
 
-- Go import：`github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1`
+- Go import：`github.com/FangcunMount/iam/api/grpc/iam/identity/v1`
 - Proto 包名：`iam.identity.v1`，新增字段只能追加，禁止复用 field number。
 
 ---
@@ -129,7 +129,7 @@ import (
     "time"
 
     "github.com/google/uuid"
-    identityv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1"
+    identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/metadata"

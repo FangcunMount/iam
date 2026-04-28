@@ -194,8 +194,8 @@ conn, _ := grpc.Dial("target-service:8081",
 
 ```go
 import (
-    sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
-    authserviceauth "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/serviceauth"
+    sdk "github.com/FangcunMount/iam/pkg/sdk"
+    authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
 )
 ```
 
@@ -520,7 +520,7 @@ go func() {
 ## 错误处理
 
 ```go
-import "github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+import "github.com/FangcunMount/iam/pkg/sdk/errors"
 
 token, err := helper.GetToken(ctx)
 if err != nil {

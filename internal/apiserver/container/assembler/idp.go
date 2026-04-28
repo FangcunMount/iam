@@ -11,17 +11,17 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/idp/wechatapp"
-	wechatappDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/infra/crypto"
-	infraMysql "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/wechatapp"
-	infraRedis "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/redis"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/infra/wechatapi"
-	wechatapiPort "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/wechatapi/port"
-	idpGrpc "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/idp/grpc"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/idp/restful/handler"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/crypto"
+	infraMysql "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/wechatapp"
+	infraRedis "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi"
+	wechatapiPort "github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi/port"
+	idpGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/idp/grpc"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/handler"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // IDPModule IDP 模块（Identity Provider）

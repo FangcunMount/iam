@@ -5,14 +5,14 @@ import (
 
 	"gorm.io/gorm"
 
-	accountDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
-	credentialDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/credential"
-	userDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	acctrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/account"
-	credentialrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/credential"
-	userrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/user"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/database/tx"
+	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	credentialDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
+	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	acctrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/account"
+	credentialrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/credential"
+	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
+	"github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/internal/pkg/database/tx"
 )
 
 // TxRepositories 聚合事务中可使用的仓储集合。

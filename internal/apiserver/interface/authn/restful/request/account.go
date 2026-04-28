@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // OperationCredentialPayload describes credential updates (password/hash).

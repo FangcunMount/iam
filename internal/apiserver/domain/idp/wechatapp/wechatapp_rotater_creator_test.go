@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	wechatapp "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/testhelpers"
+	wechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

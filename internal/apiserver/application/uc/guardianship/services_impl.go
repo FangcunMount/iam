@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/uow"
-	childdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	gsshipdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	childdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	gsshipdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ============= 应用服务实现 =============

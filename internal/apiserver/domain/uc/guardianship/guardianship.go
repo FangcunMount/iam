@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 type Relation string // 监护关系

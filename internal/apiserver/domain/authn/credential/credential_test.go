@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 func TestCredential_TypeChecksAndFactories(t *testing.T) {

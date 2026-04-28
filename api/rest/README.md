@@ -1,6 +1,6 @@
 # REST API 文档
 
-> IAM Contracts RESTful API 规范（OpenAPI 3.1）
+> IAM RESTful API 规范（OpenAPI 3.1）
 
 ## 📋 文档列表
 
@@ -482,6 +482,6 @@ curl -s -X GET https://api.example.com/api/v1/identity/me/children \
 
 ## 📞 技术支持
 
-- **API 问题**: [GitHub Issues](https://github.com/FangcunMount/iam-contracts/issues)
-- **功能请求**: [Feature Request](https://github.com/FangcunMount/iam-contracts/issues/new?template=feature_request.md)
+- **API 问题**: [GitHub Issues](https://github.com/FangcunMount/iam/issues)
+- **功能请求**: [Feature Request](https://github.com/FangcunMount/iam/issues/new?template=feature_request.md)
 - **安全问题**: <security@example.com>

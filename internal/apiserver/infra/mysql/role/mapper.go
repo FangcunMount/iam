@@ -1,8 +1,8 @@
 package role
 
 import (
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	base "github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	base "github.com/FangcunMount/iam/internal/pkg/database/mysql"
 )
 
 // Mapper 领域对象与PO的转换器

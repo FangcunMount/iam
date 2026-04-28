@@ -1,7 +1,7 @@
 // Package dto 角色相关的 DTO 定义
 package dto
 
-import "github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+import "github.com/FangcunMount/iam/internal/pkg/meta"
 
 // CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {

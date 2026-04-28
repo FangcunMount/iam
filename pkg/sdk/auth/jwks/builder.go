@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 // JWKSManagerOption JWKSManager 配置选项。

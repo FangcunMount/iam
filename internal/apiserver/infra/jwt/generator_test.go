@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	domainjwks "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
-	domaintoken "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	domainjwks "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	domaintoken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
 )

@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/registration"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/testutil"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/uow"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
 )
 
 func TestChildRegistrationService_RegisterChildWithGuardian_RollsBackChildOnGuardianshipFailure(t *testing.T) {

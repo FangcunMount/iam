@@ -6,11 +6,11 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	appguard "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	requestdto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/request"
-	responsedto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/response"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	_ "github.com/FangcunMount/iam-contracts/pkg/core" // imported for swagger
+	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	requestdto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/request"
+	responsedto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/response"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	_ "github.com/FangcunMount/iam/pkg/core" // imported for swagger
 )
 
 // GuardianshipHandler 监护关系 REST 处理器

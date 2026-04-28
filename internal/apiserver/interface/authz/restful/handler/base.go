@@ -7,9 +7,9 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authz/restful/dto"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/pkg/core"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/dto"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/pkg/core"
 )
 
 // BaseHandler 继承公共的 BaseHandler，并添加 authz 模块特定的方法

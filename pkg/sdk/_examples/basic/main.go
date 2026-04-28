@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 
-	identityv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1"
-	sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
+	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
+	sdk "github.com/FangcunMount/iam/pkg/sdk"
 )
 
 func main() {

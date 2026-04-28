@@ -4,7 +4,7 @@
 
 本文只回答 4 件事：
 
-1. `iam-contracts` 的 HTTP JWT 中间件在运行时到底扮演什么角色
+1. `iam` 的 HTTP JWT 中间件在运行时到底扮演什么角色
 2. `AuthRequired()` 和 `AuthOptional()` 今天分别会做什么，不会做什么
 3. 哪些 HTTP 路由今天真的用了这套中间件，哪些还没有统一纳入
 4. `RequireRole / RequirePermission` 与 Casbin 的关系是什么，什么时候才能成立

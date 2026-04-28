@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 // BuildServiceConfig 构建 gRPC ServiceConfig

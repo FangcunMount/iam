@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
@@ -26,6 +27,9 @@ type Generator struct {
 	keyMgmt             jwks.Manager            // 密钥管理服务
 	privKeyResolver     jwks.PrivateKeyResolver // 私钥解析器
 }
+
+// 确保 Generator 实现了 token.TokenGenerator 接口
+var _ token.TokenGenerator = (*Generator)(nil)
 
 // NewGenerator 创建 JWT 生成器
 func NewGenerator(

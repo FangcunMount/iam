@@ -12,7 +12,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/google/uuid"
 
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 )
 
 const (

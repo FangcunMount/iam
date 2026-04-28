@@ -6,7 +6,7 @@ info:
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam-contracts
+    url: https://github.com/FangcunMount/iam
 servers:
 - url: https://iam.fangcunmount.cn/api/v1
   description: Production
@@ -39,37 +39,37 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限访问此儿童
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 儿童不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
     patch:
       tags:
       - Identity-Children
@@ -87,44 +87,44 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限修改此儿童
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 儿童不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/children/register:
     post:
       tags:
@@ -136,38 +136,38 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest'
       responses:
         '201':
           description: 注册成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse'
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '409':
           description: 儿童已存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/children/search:
     get:
       tags:
@@ -203,25 +203,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/guardians:
     get:
       tags:
@@ -262,25 +262,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/guardians/grant:
     post:
       tags:
@@ -292,38 +292,38 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest'
       responses:
         '201':
           description: 授予成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '409':
           description: 监护关系已存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/me:
     get:
       tags:
@@ -336,19 +336,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.UserResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.UserResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
     patch:
       tags:
       - Identity-Users
@@ -359,32 +359,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.UserUpdateRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserUpdateRequest'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.UserResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.UserResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/me/children:
     get:
       tags:
@@ -410,19 +410,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
         '401':
           description: 未授权
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器内部错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -494,7 +494,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest:
       properties:
         dob:
           type: string
@@ -523,7 +523,7 @@ components:
       - legalName
       - relation
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest:
       properties:
         dob:
           type: string
@@ -536,7 +536,7 @@ components:
         weightKg:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest:
       properties:
         childId:
           type: string
@@ -554,22 +554,22 @@ components:
       - relation
       - userId
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.UserUpdateRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserUpdateRequest:
       properties:
         avatar:
           type: string
         contacts:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_request.UserContactUpsert'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserContactUpsert'
           type: array
         nickname:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildPageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
           type: array
         limit:
           type: integer
@@ -578,14 +578,14 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse:
       properties:
         child:
-          $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildResponse'
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
         guardianship:
-          $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.ChildResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse:
       properties:
         createdAt:
           type: string
@@ -608,11 +608,11 @@ components:
         weightKg:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
           type: array
         limit:
           type: integer
@@ -621,7 +621,7 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.GuardianshipResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse:
       properties:
         childId:
           type: string
@@ -636,13 +636,13 @@ components:
         userId:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.UserResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.UserResponse:
       properties:
         avatar:
           type: string
         contacts:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_uc_restful_response.VerifiedContactResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.VerifiedContactResponse'
           type: array
         createdAt:
           type: string
@@ -659,7 +659,7 @@ components:
         updatedAt:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse:
+    github_com_FangcunMount_iam_pkg_core.ErrResponse:
       properties:
         code:
           description: Code 定义了业务错误代码

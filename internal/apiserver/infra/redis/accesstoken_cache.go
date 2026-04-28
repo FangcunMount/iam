@@ -11,8 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 // accessTokenCache 访问令牌缓存实现

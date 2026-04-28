@@ -3,7 +3,7 @@ package jwks
 import (
 	"encoding/json"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // Mapper 负责 Domain Entity 和 PO 之间的转换

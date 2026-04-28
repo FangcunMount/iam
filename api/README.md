@@ -1,6 +1,6 @@
-# IAM Contracts - API 文档
+# IAM - API 文档
 
-> **IAM Contracts** 是一个统一身份认证与访问控制系统，提供 REST 和 gRPC 两类 API
+> **IAM** 是一个统一身份认证与访问控制系统，提供 REST 和 gRPC 两类 API
 
 ## 📚 文档概述
 
@@ -284,7 +284,7 @@ make sdk-go
 
 ## 📞 支持与反馈
 
-- **文档问题**: [GitHub Issues](https://github.com/FangcunMount/iam-contracts/issues)
+- **文档问题**: [GitHub Issues](https://github.com/FangcunMount/iam/issues)
 - **API 变更**: 查看 [CHANGELOG.md](../CHANGELOG.md)
 - **技术支持**: <api-support@example.com>
 

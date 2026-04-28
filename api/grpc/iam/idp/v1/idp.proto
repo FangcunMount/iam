@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package iam.idp.v1;
 
-option go_package = "github.com/FangcunMount/iam-contracts/api/grpc/iam/idp/v1;idpv1";
+option go_package = "github.com/FangcunMount/iam/api/grpc/iam/idp/v1;idpv1";
 
 // ============= Enums =============
 

@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 // ServiceTokenIssuer 定义服务间认证所需的最小签发能力。

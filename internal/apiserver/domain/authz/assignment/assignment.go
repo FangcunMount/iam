@@ -1,7 +1,7 @@
 package assignment
 
 import (
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Assignment 用户/组 ↔ 角色赋权（聚合根）

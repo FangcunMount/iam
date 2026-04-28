@@ -1,6 +1,6 @@
 package authentication
 
-import "github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+import "github.com/FangcunMount/iam/internal/pkg/meta"
 
 // 选择哪种认证策略
 type Scenario string

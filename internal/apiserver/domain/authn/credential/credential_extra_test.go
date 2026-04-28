@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

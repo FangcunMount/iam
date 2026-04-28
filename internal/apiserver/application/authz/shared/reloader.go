@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 )
 
 type cacheInvalidator interface {

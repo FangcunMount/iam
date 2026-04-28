@@ -10,9 +10,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	childpo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/child"
-	guardpo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/guardianship"
-	userpo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/user"
+	childpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
+	guardpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
+	userpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 )
 
 // SetupTestDB 创建内存数据库用于测试

@@ -5,12 +5,12 @@ import (
 	"sync"
 
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	assignment "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
-	role "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	wechatapp "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	child "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	user "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	assignment "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	role "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	wechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	child "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	user "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 

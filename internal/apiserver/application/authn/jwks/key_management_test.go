@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // MockKeyManagementService 模拟密钥管理服务

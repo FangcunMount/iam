@@ -7,9 +7,9 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	jwksdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
-	redisinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/redis"
+	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
+	redisinfra "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
 )
 
 type governanceJWKSRepository struct {

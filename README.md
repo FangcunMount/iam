@@ -1,4 +1,4 @@
-# IAM Contracts · 企业级身份与访问管理平台
+# IAM · 企业级身份与访问管理平台
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -6,7 +6,7 @@
 
 > 🔐 为心理健康测评平台提供统一的身份认证、细粒度授权、角色管理和监护关系管理能力
 
-**IAM Contracts** 是一个基于六边形架构、领域驱动设计（DDD）和 CQRS 模式构建的企业级身份与访问管理系统，专为心理健康测评等医疗健康场景设计，支持多端登录、灵活的 RBAC 授权和复杂的监护人-儿童关系管理。
+**IAM** 是一个基于六边形架构、领域驱动设计（DDD）和 CQRS 模式构建的企业级身份与访问管理系统，专为心理健康测评等医疗健康场景设计，支持多端登录、灵活的 RBAC 授权和复杂的监护人-儿童关系管理。
 
 ---
 
@@ -69,8 +69,8 @@
 #### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/FangcunMount/iam-contracts.git
-cd iam-contracts
+git clone https://github.com/FangcunMount/iam.git
+cd iam
 ```
 
 #### 2. 安装依赖
@@ -162,13 +162,13 @@ make docker-build   # 构建 Docker 镜像
 
 ```mermaid
 C4Context
-  title IAM Contracts 系统上下文图
+  title IAM 系统上下文图
 
   Person(guardian, "监护人", "家长：管理儿童档案、设置监护关系")
   Person(child, "儿童", "被监护人：完成心理测评")
   Person(admin, "系统管理员", "管理用户、角色和权限")
 
-  System(iam, "IAM Contracts", "身份认证·授权·用户管理·监护关系")
+  System(iam, "IAM", "身份认证·授权·用户管理·监护关系")
   
   System_Ext(wechat, "微信平台", "微信登录/UnionID")
   System_Ext(scale, "测评服务", "心理量表/问卷核心业务")
@@ -188,7 +188,7 @@ C4Context
 
 ### 整体架构（六边形架构 + DDD + CQRS）
 
-IAM Contracts 采用 **六边形架构（Hexagonal Architecture）** + **领域驱动设计（DDD）** + **CQRS** 模式：
+IAM 采用 **六边形架构（Hexagonal Architecture）** + **领域驱动设计（DDD）** + **CQRS** 模式：
 
 ```mermaid
 graph TB
@@ -360,7 +360,7 @@ type UserQueryApplicationService interface {
 sequenceDiagram
     autonumber
     participant MP as 微信小程序
-    participant IAM as IAM Contracts
+    participant IAM as IAM
     participant WX as 微信API
     participant DB as MySQL
     participant Redis as Redis
@@ -396,7 +396,7 @@ sequenceDiagram
     autonumber
     participant Client as 客户端
     participant BizSvc as 业务服务<br/>(scale-server)
-    participant IAM as IAM Contracts
+    participant IAM as IAM
     participant Cache as Redis Cache
 
     Note over Client,BizSvc: 业务请求 + 授权检查
@@ -532,7 +532,7 @@ graph TB
 ## 📁 项目结构
 
 ```text
-iam-contracts/
+iam/
 ├── cmd/                        # 可执行程序入口
 │   └── apiserver/              # API Server 主程序
 ├── configs/                    # 配置文件
@@ -656,7 +656,7 @@ git push origin main
 
 ```bash
 # 拉取最新镜像
-docker pull ghcr.io/fangcunmount/iam-contracts:latest
+docker pull ghcr.io/fangcunmount/iam:latest
 
 # 启动容器
 docker run -d \
@@ -664,7 +664,7 @@ docker run -d \
   -p 9080:8080 \
   -p 9444:9444 \
   --env-file .env \
-  ghcr.io/fangcunmount/iam-contracts:latest
+  ghcr.io/fangcunmount/iam:latest
 
 # 查看日志
 docker logs -f iam-apiserver
@@ -760,7 +760,7 @@ make test-coverage
 ## 📞 联系我们
 
 - **项目维护者**: [fangcun-mount](https://github.com/fangcun-mount)
-- **问题反馈**: [GitHub Issues](https://github.com/FangcunMount/iam-contracts/issues)
+- **问题反馈**: [GitHub Issues](https://github.com/FangcunMount/iam/issues)
 
 ---
 Built with ❤️ using Go and Hexagonal Architecture

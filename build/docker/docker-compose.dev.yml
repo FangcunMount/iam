@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # IAM Contracts API Server (开发/测试环境)
+  # IAM API Server (开发/测试环境)
   iam-apiserver:
     build:
       context: ../..
@@ -11,7 +11,7 @@ services:
         BUILD_TIME: ${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: iam-apiserver-dev
-    image: iam-contracts:dev
+    image: iam:dev
     user: "${WWW_UID:-2000}:${WWW_GID:-2000}"
     env_file:
       - ../../configs/env/config.dev.env
@@ -24,9 +24,9 @@ services:
       # 挂载配置文件（使用开发环境配置）
       - ../../configs:/app/configs:ro
       # 挂载日志目录
-      - ./logs:/var/log/iam-contracts
+      - ./logs:/var/log/iam
       # 挂载开发证书（使用自签名证书）
-      - ../../configs/cert:/etc/iam-contracts/ssl:ro
+      - ../../configs/cert:/etc/iam/ssl:ro
       # 挂载 JWKS 密钥目录（用于 JWT 非对称签名密钥持久化）
       - ./data/iam-keys:/app/data/keys:rw
     environment:
@@ -61,7 +61,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-iam}
       MYSQL_USER: ${MYSQL_USER:-iam}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-iam_contracts_pass123}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-iam_pass123}
       TZ: Asia/Shanghai
     ports:
       - "3306:3306"

@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authzshared "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authz/shared"
-	authzuow "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authz/uow"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
+	authzshared "github.com/FangcunMount/iam/internal/apiserver/application/authz/shared"
+	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 )
 
 type PolicyCommandService struct {

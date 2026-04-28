@@ -1,6 +1,6 @@
 # 儿童联想搜索（Suggest）
 
-本文回答：`suggest` 作为 `iam-contracts` 中的补充读侧能力，今天负责什么、不负责什么；它如何从用户域表中拉数、构建内存索引并通过 REST 提供联想查询；以及当前配置、刷新和真实代码落点分别是什么。
+本文回答：`suggest` 作为 `iam` 中的补充读侧能力，今天负责什么、不负责什么；它如何从用户域表中拉数、构建内存索引并通过 REST 提供联想查询；以及当前配置、刷新和真实代码落点分别是什么。
 
 **阅读维度**：Why = 登录后快速按姓名 / 拼音 / 手机 / ID 联想儿童；What = `Loader / Updater / Store / Term`；Where = `application/suggest`、`infra/mysql/suggest`、`infra/suggest/search`、`interface/suggest`；Verify = [`api/rest/suggest.v1.yaml`](../../api/rest/suggest.v1.yaml)、`configs/apiserver*.yaml` 的 `suggest` 段、[`infra/mysql/suggest/loader.go`](../../internal/apiserver/infra/mysql/suggest/loader.go) 默认 SQL。
 

@@ -5,7 +5,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // AuthStrategy 认证策略（领域服务接口）

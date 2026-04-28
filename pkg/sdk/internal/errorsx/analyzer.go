@@ -4,7 +4,7 @@ import (
 	stdErrors "errors"
 	"time"
 
-	sdkerrors "github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+	sdkerrors "github.com/FangcunMount/iam/pkg/sdk/errors"
 	"google.golang.org/grpc/codes"
 )
 

@@ -3,7 +3,7 @@ package restful
 import (
 	"net/http"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authz/restful/handler"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
 	"github.com/gin-gonic/gin"
 )
 

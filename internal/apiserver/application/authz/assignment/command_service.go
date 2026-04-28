@@ -6,11 +6,11 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	authzshared "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authz/shared"
-	authzuow "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authz/uow"
-	assignmentDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	authzshared "github.com/FangcunMount/iam/internal/apiserver/application/authz/shared"
+	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
+	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // AssignmentCommandService 赋权命令服务（实现 AssignmentCommander 接口）

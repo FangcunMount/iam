@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
 )
 
 // Hash 支持手机号/ID 精确匹配

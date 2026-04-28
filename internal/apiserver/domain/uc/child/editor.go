@@ -3,7 +3,7 @@ package child
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ChildProfileEditor 儿童档案资料编辑应用服务

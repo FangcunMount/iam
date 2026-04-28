@@ -3,7 +3,7 @@ package crypto
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // RSAKeyGeneratorWithStorage RSA 密钥生成器（带私钥持久化）

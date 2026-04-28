@@ -5,11 +5,11 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/idp/wechatapp"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/idp/restful/request"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/idp/restful/response"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/request"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/response"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // WechatAppHandler 微信应用管理 REST 处理器

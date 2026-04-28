@@ -1,6 +1,6 @@
 # IAM SDK for Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/FangcunMount/iam-contracts/pkg/sdk.svg)](https://pkg.go.dev/github.com/FangcunMount/iam-contracts/pkg/sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/FangcunMount/iam/pkg/sdk.svg)](https://pkg.go.dev/github.com/FangcunMount/iam/pkg/sdk)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -58,8 +58,8 @@ import (
     "context"
     "log"
 
-    authnv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authn/v1"
-    sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
+    authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
+    sdk "github.com/FangcunMount/iam/pkg/sdk"
 )
 
 func main() {
@@ -100,7 +100,7 @@ client, err := sdk.NewClient(ctx, cfg)
 ```go
 import (
     "github.com/spf13/viper"
-    "github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+    "github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 v := viper.New()
@@ -121,10 +121,10 @@ if err != nil {
 
 ```go
 import (
-    authclient "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/client"
-    authjwks "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/jwks"
-    authserviceauth "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/serviceauth"
-    authverifier "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/verifier"
+    authclient "github.com/FangcunMount/iam/pkg/sdk/auth/client"
+    authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
+    authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
+    authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
 )
 
 _ = authclient.NewClient
@@ -137,9 +137,9 @@ _ = authserviceauth.NewServiceAuthHelper
 
 ```go
 import (
-    sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
-    authjwks "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/jwks"
-    authverifier "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/verifier"
+    sdk "github.com/FangcunMount/iam/pkg/sdk"
+    authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
+    authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
 )
 
 jwksManager, err := authjwks.NewJWKSManager(
@@ -178,8 +178,8 @@ log.Printf("user=%s session=%s", result.Claims.UserID, result.Claims.SessionID)
 
 ```go
 import (
-    sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
-    authserviceauth "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/serviceauth"
+    sdk "github.com/FangcunMount/iam/pkg/sdk"
+    authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
 )
 
 helper, err := authserviceauth.NewServiceAuthHelper(&sdk.ServiceAuthConfig{
@@ -204,7 +204,7 @@ _, err = client.Identity().GetUser(authCtx, "user-123")
 ## 错误处理
 
 ```go
-import sdkerrors "github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+import sdkerrors "github.com/FangcunMount/iam/pkg/sdk/errors"
 
 resp, err := client.Identity().GetUser(ctx, "user-123")
 if err != nil {
@@ -229,7 +229,7 @@ _ = resp
 如果需要拿到结构化错误：
 
 ```go
-import sdkerrors "github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+import sdkerrors "github.com/FangcunMount/iam/pkg/sdk/errors"
 
 if iamErr, ok := sdkerrors.AsIAMError(err); ok {
     log.Printf("code=%s grpc=%s msg=%s", iamErr.Code, iamErr.GRPCCode, iamErr.Message)
@@ -245,7 +245,7 @@ import (
     "context"
     "time"
 
-    sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
+    sdk "github.com/FangcunMount/iam/pkg/sdk"
 )
 
 type myMetrics struct{}

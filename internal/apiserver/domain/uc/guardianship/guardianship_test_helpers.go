@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // stubGuardianshipRepo 是包内特化的测试 stub，用于返回可控的 FindByChildID 结果

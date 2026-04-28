@@ -1,4 +1,4 @@
-# iam-contracts 文档写作约定
+# iam 文档写作约定
 
 本文约定 `docs/` 下的现行文档写什么、写到什么粒度、如何与代码和契约对齐。读者入口见 [README.md](./README.md)。
 

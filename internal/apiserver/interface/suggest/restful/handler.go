@@ -3,9 +3,9 @@ package restful
 import (
 	"github.com/gin-gonic/gin"
 
-	appsuggest "github.com/FangcunMount/iam-contracts/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/suggest"
-	"github.com/FangcunMount/iam-contracts/pkg/core"
+	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/pkg/core"
 )
 
 // Dependencies wires runtime dependencies for the handler.

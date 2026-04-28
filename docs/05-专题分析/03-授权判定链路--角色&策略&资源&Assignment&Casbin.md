@@ -13,7 +13,7 @@
 
 ## 30 秒结论
 
-> **一句话**：`iam-contracts` 当前的授权模块由 **角色 / 资源 / 策略 / Assignment** 这 4 类业务对象组织出一条“先管理、后判定”的链路：管理面通过应用服务把规则写进 **Casbin `p/g`** 与 **MySQL 版本/分配表**，判定面再通过 **REST `POST /authz/check`、gRPC `AuthorizationService.Check`、JWT 中间件里的 `RequireRole / RequirePermission`** 调用 Casbin 做单次 PDP。
+> **一句话**：`iam` 当前的授权模块由 **角色 / 资源 / 策略 / Assignment** 这 4 类业务对象组织出一条“先管理、后判定”的链路：管理面通过应用服务把规则写进 **Casbin `p/g`** 与 **MySQL 版本/分配表**，判定面再通过 **REST `POST /authz/check`、gRPC `AuthorizationService.Check`、JWT 中间件里的 `RequireRole / RequirePermission`** 调用 Casbin 做单次 PDP。
 
 | 主题 | 当前答案 |
 | ---- | ---- |

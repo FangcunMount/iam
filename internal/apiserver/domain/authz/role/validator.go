@@ -8,8 +8,8 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // RoleManager 角色管理领域服务

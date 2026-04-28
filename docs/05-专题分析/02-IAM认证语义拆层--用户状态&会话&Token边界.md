@@ -12,7 +12,7 @@
 
 ## 30 秒结论
 
-> **一句话**：当前 `iam-contracts` 已不再把“用户封禁 / 账号禁用 / 会话失效 / access token 撤销 / refresh token 删除”混成一件事，而是拆成了四层：**subject access state、session、revoked access token、refresh token credential**；请求认证和在线 `VerifyToken` 会按这四层依次校验，而离线 JWKS 本地验签只能保证签名和过期，不能保证 session revoke 或 subject disable 的即时生效。
+> **一句话**：当前 `iam` 已不再把“用户封禁 / 账号禁用 / 会话失效 / access token 撤销 / refresh token 删除”混成一件事，而是拆成了四层：**subject access state、session、revoked access token、refresh token credential**；请求认证和在线 `VerifyToken` 会按这四层依次校验，而离线 JWKS 本地验签只能保证签名和过期，不能保证 session revoke 或 subject disable 的即时生效。
 
 | 语义层 | 作用 | 当前承载 |
 | ---- | ---- | ---- |

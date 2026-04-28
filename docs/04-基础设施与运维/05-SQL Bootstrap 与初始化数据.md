@@ -1,6 +1,6 @@
 # SQL Bootstrap 与初始化数据
 
-本文回答：`iam-contracts` 现在如何管理“系统 bootstrap 真值”，`schema.sql`、`bootstrap.sql` 和 migration 各自负责什么，以及为什么仓库已经不再把 `seeddata` 作为现行初始化入口。
+本文回答：`iam` 现在如何管理“系统 bootstrap 真值”，`schema.sql`、`bootstrap.sql` 和 migration 各自负责什么，以及为什么仓库已经不再把 `seeddata` 作为现行初始化入口。
 
 ## 30 秒结论
 

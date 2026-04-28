@@ -1,5 +1,5 @@
 -- ============================================================================
--- IAM Contracts - System Bootstrap Data
+-- IAM - System Bootstrap Data
 -- Description: Idempotent baseline data migrated from the retired seeddata flow.
 -- Scope:
 --   - baseline tenants / users / opera accounts / password credentials

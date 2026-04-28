@@ -1,7 +1,7 @@
 package account
 
 import (
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
 	"gorm.io/gorm"
 )
 

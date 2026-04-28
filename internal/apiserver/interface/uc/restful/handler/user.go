@@ -8,13 +8,13 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	appuser "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/user"
-	requestdto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/request"
-	responsedto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/response"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/middleware/authn"
-	_ "github.com/FangcunMount/iam-contracts/pkg/core" // imported for swagger
-	"github.com/FangcunMount/iam-contracts/pkg/tenant"
+	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
+	requestdto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/request"
+	responsedto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/response"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	_ "github.com/FangcunMount/iam/pkg/core" // imported for swagger
+	"github.com/FangcunMount/iam/pkg/tenant"
 )
 
 // UserHandler 基础用户 REST 处理器

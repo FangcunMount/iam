@@ -1,6 +1,6 @@
 package identity
 
-import identityv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1"
+import identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
 
 // GuardianshipClient 监护关系服务客户端。
 type GuardianshipClient struct {

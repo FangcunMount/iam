@@ -44,7 +44,7 @@ Health Check (健康验证，最长 150 秒)
 
 1. SSH 连接到生产服务器 (SVRA)
 2. 备份当前版本到 `/opt/backups/iam/deployments/`
-3. 拉取最新 Docker 镜像 `ghcr.io/fangcunmount/iam-contracts:latest`
+3. 拉取最新 Docker 镜像 `ghcr.io/fangcunmount/iam:latest`
 4. 停止现有容器 (iam-apiserver)
 5. 清理旧容器和镜像
 6. 启动新容器（端口映射 8080:9080, 9444:9444）
@@ -55,7 +55,7 @@ Health Check (健康验证，最长 150 秒)
 
 - Go 版本: 1.24
 - Docker Registry: ghcr.io
-- Image: `fangcunmount/iam-contracts:latest`
+- Image: `fangcunmount/iam:latest`
 - 健康检查超时: 150 秒
 - 容器资源配额：直接维护在 `build/docker/docker-compose.prod.yml`
 - 应用连接池与后台任务频率：直接维护在 `configs/apiserver.prod.yaml`
@@ -540,7 +540,7 @@ Actions → Database Operations → Run workflow → 选择 "migrate"
 
 #### 查看工作流状态
 
-访问: `https://github.com/FangcunMount/iam-contracts/actions`
+访问: `https://github.com/FangcunMount/iam/actions`
 
 **自动监控时间表**:
 
@@ -553,9 +553,9 @@ Actions → Database Operations → Run workflow → 选择 "migrate"
 在项目 `README.md` 中添加：
 
 ```markdown
-![CI/CD](https://github.com/FangcunMount/iam-contracts/workflows/CI/CD%20Pipeline/badge.svg)
-![Health](https://github.com/FangcunMount/iam-contracts/workflows/Server%20Health%20Check/badge.svg)
-![Ping](https://github.com/FangcunMount/iam-contracts/workflows/Ping%20Runner/badge.svg)
+![CI/CD](https://github.com/FangcunMount/iam/workflows/CI/CD%20Pipeline/badge.svg)
+![Health](https://github.com/FangcunMount/iam/workflows/Server%20Health%20Check/badge.svg)
+![Ping](https://github.com/FangcunMount/iam/workflows/Ping%20Runner/badge.svg)
 ```
 
 #### GitHub Actions 通知设置
@@ -798,7 +798,7 @@ cd $BACKUP_DIR
 cat deployment_info.txt
 
 # 6. 拉取特定版本镜像（如果有 image ID）
-sudo docker pull ghcr.io/fangcunmount/iam-contracts:specific-tag
+sudo docker pull ghcr.io/fangcunmount/iam:specific-tag
 
 # 7. 启动容器
 sudo docker run -d \
@@ -806,7 +806,7 @@ sudo docker run -d \
   -p 8080:9080 \
   -p 9444:9444 \
   --restart unless-stopped \
-  ghcr.io/fangcunmount/iam-contracts:specific-tag
+  ghcr.io/fangcunmount/iam:specific-tag
 
 # 8. 验证服务
 curl http://localhost:8080/healthz
@@ -900,8 +900,8 @@ sudo chown -R $USER:$USER /opt/iam /opt/backups/iam
 
 # 克隆仓库
 cd /opt
-git clone https://github.com/FangcunMount/iam-contracts.git
-cd iam-contracts
+git clone https://github.com/FangcunMount/iam.git
+cd iam
 
 # 安装依赖
 go mod download
@@ -1000,7 +1000,7 @@ journalctl -u iam-apiserver -f
 
 #### 查看工作流状态
 
-- 访问: `https://github.com/FangcunMount/iam-contracts/actions`
+- 访问: `https://github.com/FangcunMount/iam/actions`
 - 每个工作流执行都有详细日志
 
 #### 自动健康检查时间表
@@ -1014,9 +1014,9 @@ journalctl -u iam-apiserver -f
 在项目 README.md 中添加：
 
 ```markdown
-![CI/CD](https://github.com/FangcunMount/iam-contracts/workflows/CI/CD%20Pipeline/badge.svg)
-![Health](https://github.com/FangcunMount/iam-contracts/workflows/Server%20Health%20Check/badge.svg)
-![Ping](https://github.com/FangcunMount/iam-contracts/workflows/Ping%20Runner/badge.svg)
+![CI/CD](https://github.com/FangcunMount/iam/workflows/CI/CD%20Pipeline/badge.svg)
+![Health](https://github.com/FangcunMount/iam/workflows/Server%20Health%20Check/badge.svg)
+![Ping](https://github.com/FangcunMount/iam/workflows/Ping%20Runner/badge.svg)
 ```
 
 ---

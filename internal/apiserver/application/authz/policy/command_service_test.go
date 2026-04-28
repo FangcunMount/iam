@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	authzuow "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authz/uow"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

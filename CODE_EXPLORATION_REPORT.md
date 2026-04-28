@@ -1,6 +1,6 @@
-# IAM Contracts 项目深入代码库探索报告
+# IAM 项目深入代码库探索报告
 
-**项目**: IAM Contracts - 企业级身份与访问管理平台  
+**项目**: IAM - 企业级身份与访问管理平台  
 **架构**: 六边形架构 + DDD (领域驱动设计) + CQRS (命令查询责任分离)  
 **时间**: 2026年4月21日  
 **探索广度**: Thorough (全面深入)
@@ -923,7 +923,7 @@ func TestLogin(t *testing.T) {
 ### 6.1 目录树概览
 
 ```
-iam-contracts/
+iam/
 ├── api/
 │   ├── rest/
 │   │   ├── authn.v1.yaml        # REST 契约

@@ -3,7 +3,7 @@ package credential
 import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // rotator 凭据轮换器

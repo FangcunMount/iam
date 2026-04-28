@@ -1,7 +1,7 @@
 package user
 
 import (
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 )
 
 // UserMapper 用户映射器

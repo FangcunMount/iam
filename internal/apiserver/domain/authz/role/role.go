@@ -1,7 +1,7 @@
 package role
 
 import (
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Role 角色领域对象（聚合根）

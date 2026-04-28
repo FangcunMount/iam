@@ -7,14 +7,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	appAccount "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/account"
-	appRegister "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/register"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
-	req "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authn/restful/request"
-	resp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authn/restful/response"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
-	_ "github.com/FangcunMount/iam-contracts/pkg/core"
+	appAccount "github.com/FangcunMount/iam/internal/apiserver/application/authn/account"
+	appRegister "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	req "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/request"
+	resp "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/response"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
+	_ "github.com/FangcunMount/iam/pkg/core"
 )
 
 // AccountHandler 账户管理 HTTP Handler

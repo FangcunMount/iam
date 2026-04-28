@@ -2,9 +2,9 @@ package apiserver
 
 import (
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/config"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/options"
-	"github.com/FangcunMount/iam-contracts/pkg/app"
+	"github.com/FangcunMount/iam/internal/apiserver/config"
+	"github.com/FangcunMount/iam/internal/apiserver/options"
+	"github.com/FangcunMount/iam/pkg/app"
 )
 
 // commandDesc 命令描述
@@ -32,7 +32,7 @@ func run(opts *options.Options) app.RunFunc {
 		log.Init(opts.Log)
 		defer log.Flush()
 
-		log.Info("Starting iam-contracts ...")
+		log.Info("Starting iam ...")
 
 		// 打印配置信息
 		log.Infof("Server mode: %s", opts.GenericServerRunOptions.Mode)

@@ -3,7 +3,7 @@ package casbinrule
 import (
 	"context"
 
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

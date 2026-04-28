@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 // Option 用于扩展只读治理服务的构造参数。

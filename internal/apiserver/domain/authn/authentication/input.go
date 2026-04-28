@@ -1,6 +1,6 @@
 package authentication
 
-import "github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+import "github.com/FangcunMount/iam/internal/pkg/meta"
 
 // AuthInput 统一认证输入参数（应用层 -> 领域层）
 type AuthInput struct {

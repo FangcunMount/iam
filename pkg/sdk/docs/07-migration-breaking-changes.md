@@ -61,7 +61,7 @@
 旧写法：
 
 ```go
-import "github.com/FangcunMount/iam-contracts/pkg/sdk/transport"
+import "github.com/FangcunMount/iam/pkg/sdk/transport"
 
 _ = transport.RequestIDInterceptor
 ```
@@ -69,7 +69,7 @@ _ = transport.RequestIDInterceptor
 新写法：
 
 ```go
-import sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
+import sdk "github.com/FangcunMount/iam/pkg/sdk"
 
 ctx = sdk.WithRequestID(ctx, "req-123")
 ```
@@ -81,7 +81,7 @@ ctx = sdk.WithRequestID(ctx, "req-123")
 旧写法：
 
 ```go
-import "github.com/FangcunMount/iam-contracts/pkg/sdk/observability"
+import "github.com/FangcunMount/iam/pkg/sdk/observability"
 
 client, err := sdk.NewClient(ctx, cfg,
     sdk.WithUnaryInterceptors(
@@ -120,8 +120,8 @@ verifier, err := sdk.NewTokenVerifier(verifyCfg, jwksCfg, client)
 新写法：
 
 ```go
-import authjwks "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/jwks"
-import authverifier "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/verifier"
+import authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
+import authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
 
 jwksManager, err := authjwks.NewJWKSManager(jwksCfg,
     authjwks.WithCacheEnabled(true),

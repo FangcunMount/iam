@@ -1,5 +1,5 @@
 # ============================================================================
-# 多阶段构建 Dockerfile for IAM Contracts
+# 多阶段构建 Dockerfile for IAM
 # ============================================================================
 
 # ============================================================================
@@ -70,12 +70,12 @@ COPY --from=builder /build/apiserver /app/apiserver
 COPY --chown=www:www configs /app/configs
 
 # 创建应用运行所需目录（日志、持久化密钥等）
-RUN mkdir -p /app/logs /app/data/keys /var/log/iam-contracts && \
-    chown -R www:www /app /var/log/iam-contracts
+RUN mkdir -p /app/logs /app/data/keys /var/log/iam && \
+    chown -R www:www /app /var/log/iam
 
 # 预创建 TLS 目录，避免按文件挂载失败
-RUN mkdir -p /etc/iam-contracts/ssl /etc/iam-contracts/grpc/ca /etc/iam-contracts/grpc/server && \
-    chmod 755 /etc/iam-contracts /etc/iam-contracts/ssl /etc/iam-contracts/grpc /etc/iam-contracts/grpc/ca /etc/iam-contracts/grpc/server
+RUN mkdir -p /etc/iam/ssl /etc/iam/grpc/ca /etc/iam/grpc/server && \
+    chmod 755 /etc/iam /etc/iam/ssl /etc/iam/grpc /etc/iam/grpc/ca /etc/iam/grpc/server
 
 # 切换到非 root 用户
 USER www

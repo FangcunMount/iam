@@ -1,5 +1,5 @@
 -- ============================================================================
--- IAM Contracts - Database Schema
+-- IAM - Database Schema
 -- Version: 1.0 (Consolidated)
 -- Description: Complete initial schema for all modules
 -- Date: 2025-12-03

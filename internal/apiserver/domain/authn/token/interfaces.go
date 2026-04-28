@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 )
 
 // ================== Domain Service Interfaces (Driving Ports) ==================

@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // profileEditor 用户资料编辑服务实现

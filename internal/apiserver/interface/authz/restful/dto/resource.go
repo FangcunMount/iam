@@ -1,7 +1,7 @@
 // Package dto 资源相关的 DTO 定义
 package dto
 
-import "github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+import "github.com/FangcunMount/iam/internal/pkg/meta"
 
 // CreateResourceRequest 创建资源请求
 type CreateResourceRequest struct {

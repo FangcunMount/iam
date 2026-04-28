@@ -2,10 +2,10 @@ package handler
 
 import (
 	"github.com/FangcunMount/component-base/pkg/errors"
-	assignmentDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authz/restful/dto"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/dto"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 

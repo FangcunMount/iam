@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

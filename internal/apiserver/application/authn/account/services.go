@@ -3,8 +3,8 @@ package account
 import (
 	"context"
 
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ============= 应用服务接口（Driving Ports）=============

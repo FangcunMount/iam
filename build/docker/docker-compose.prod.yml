@@ -1,7 +1,7 @@
 services:
-  # IAM Contracts API Server (production)
+  # IAM API Server (production)
   iam-apiserver:
-    image: ${DOCKER_REGISTRY:-ghcr.io}/${IMAGE_NAME:-fangcunmount/iam-contracts}:${IMAGE_TAG:-latest}
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${IMAGE_NAME:-fangcunmount/iam}:${IMAGE_TAG:-latest}
     container_name: iam-apiserver
     user: "${WWW_UID:?WWW_UID is required}:${WWW_GID:?WWW_GID is required}"
     env_file:
@@ -16,10 +16,10 @@ services:
       # 挂载配置文件（可以覆盖镜像中的配置）
       - ../../configs:/app/configs:ro
       # 挂载日志目录
-      - /data/logs/iam:/var/log/iam-contracts
+      - /data/logs/iam:/var/log/iam
       # 挂载 gRPC mTLS 证书（由 infra 项目统一管理）
-      - /data/infra/ssl/grpc/ca:/etc/iam-contracts/grpc/ca:ro
-      - /data/infra/ssl/grpc/server:/etc/iam-contracts/grpc/server:ro
+      - /data/infra/ssl/grpc/ca:/etc/iam/grpc/ca:ro
+      - /data/infra/ssl/grpc/server:/etc/iam/grpc/server:ro
       # 挂载 JWKS 密钥目录（与镜像内部 /app/data/keys 映射，用于持久化私钥）
       - /data/ops/iam-keys:/app/data/keys:rw
     environment:

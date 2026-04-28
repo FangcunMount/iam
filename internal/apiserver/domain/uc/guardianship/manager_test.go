@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	childdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	userdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	childdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	userdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // package-local guardianship test helpers have been moved to

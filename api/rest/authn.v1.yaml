@@ -6,7 +6,7 @@ info:
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam-contracts
+    url: https://github.com/FangcunMount/iam
 servers:
 - url: https://iam.fangcunmount.cn/api/v1
   description: Production
@@ -56,7 +56,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/accounts/{accountId}:
     get:
       tags:
@@ -76,7 +76,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.Account'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.Account'
         '400':
           description: 请求参数错误
           content:
@@ -110,7 +110,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -177,14 +177,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.UpsertWeChatProfileReq'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.UpsertWeChatProfileReq'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -217,14 +217,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.SetWeChatUnionIDReq'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.SetWeChatUnionIDReq'
       responses:
         '200':
           description: 设置成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -250,14 +250,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.RegisterWeChatAccountReq'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RegisterWeChatAccountReq'
       responses:
         '201':
           description: 注册成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.RegisterResult'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.RegisterResult'
         '400':
           description: 请求参数错误
           content:
@@ -302,31 +302,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.KeyListResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyListResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
     post:
       tags:
       - Authentication-JWKS
@@ -337,38 +337,38 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.CreateKeyRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.CreateKeyRequest'
       responses:
         '201':
           description: 创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.KeyResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/admin/jwks/keys/{kid}:
     get:
       tags:
@@ -388,37 +388,37 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.KeyResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 密钥不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/admin/jwks/keys/{kid}/force-retire:
     post:
       tags:
@@ -440,31 +440,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 密钥不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/admin/jwks/keys/{kid}/grace:
     post:
       tags:
@@ -486,31 +486,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 密钥不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/admin/jwks/keys/{kid}/retire:
     post:
       tags:
@@ -532,31 +532,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 密钥不存在
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/admin/jwks/keys/cleanup:
     post:
       tags:
@@ -569,25 +569,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.CleanupResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.CleanupResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/admin/jwks/keys/publishable:
     get:
       tags:
@@ -600,25 +600,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.PublishableKeysResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.PublishableKeysResponse'
         '401':
           description: 未认证
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
           description: 无权限
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '500':
           description: 服务器错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /authn/login:
     post:
       tags:
@@ -630,14 +630,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.LoginRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LoginRequest'
       responses:
         '200':
           description: 登录成功，返回访问令牌和刷新令牌
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.TokenPair'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenPair'
         '400':
           description: 请求参数错误
           content:
@@ -663,14 +663,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.LogoutRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LogoutRequest'
       responses:
         '200':
           description: 登出成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -689,14 +689,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.RefreshTokenRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RefreshTokenRequest'
       responses:
         '200':
           description: 刷新成功，返回新的访问令牌
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.TokenPair'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenPair'
         '400':
           description: 请求参数错误
           content:
@@ -722,14 +722,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.VerifyTokenRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.VerifyTokenRequest'
       responses:
         '200':
           description: 验证成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.TokenVerifyResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenVerifyResponse'
         '400':
           description: 请求参数错误
           content:
@@ -754,14 +754,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.PreparePhoneOTPLoginRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.PreparePhoneOTPLoginRequest'
       responses:
         '200':
           description: 已受理
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -834,7 +834,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.CreateKeyRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.CreateKeyRequest:
       properties:
         algorithm:
           description: 签名算法
@@ -852,7 +852,7 @@ components:
       required:
       - algorithm
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.LoginRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LoginRequest:
       properties:
         credentials:
           description: 凭证（根据 method 不同而不同）
@@ -869,7 +869,7 @@ components:
       - credentials
       - method
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.LogoutRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LogoutRequest:
       properties:
         access_token:
           description: 可选，撤销访问令牌
@@ -878,7 +878,7 @@ components:
           description: 可选，撤销刷新令牌
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.PreparePhoneOTPLoginRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.PreparePhoneOTPLoginRequest:
       properties:
         phone:
           description: 支持 E.164 或国内手机号，服务端规范为 E.164
@@ -886,14 +886,14 @@ components:
       required:
       - phone
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.RefreshTokenRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RefreshTokenRequest:
       properties:
         refresh_token:
           type: string
       required:
       - refresh_token
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.RegisterWeChatAccountReq:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RegisterWeChatAccountReq:
       properties:
         appId:
           description: 微信应用ID
@@ -925,12 +925,12 @@ components:
       - jsCode
       - name
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.SetWeChatUnionIDReq:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.SetWeChatUnionIDReq:
       properties:
         unionId:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.UpsertWeChatProfileReq:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.UpsertWeChatProfileReq:
       properties:
         avatar:
           type: string
@@ -940,7 +940,7 @@ components:
         nickname:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_request.VerifyTokenRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.VerifyTokenRequest:
       properties:
         access_token:
           type: string
@@ -953,7 +953,7 @@ components:
       required:
       - access_token
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.Account:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.Account:
       properties:
         appId:
           type: string
@@ -968,18 +968,18 @@ components:
         userId:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.CleanupResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.CleanupResponse:
       properties:
         deletedCount:
           description: 删除的密钥数量
           type: integer
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.KeyListResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyListResponse:
       properties:
         keys:
           description: 密钥列表
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.KeyInfo'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyInfo'
           type: array
         limit:
           description: 每页数量
@@ -991,7 +991,7 @@ components:
           description: 总数
           type: integer
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.KeyResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyResponse:
       properties:
         algorithm:
           description: 签名算法
@@ -1010,7 +1010,7 @@ components:
           type: string
         publicJwk:
           allOf:
-          - $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_domain_authn_jwks.PublicJWK'
+          - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK'
           description: 公钥 JWK
         status:
           description: 密钥状态 (active, grace, retired)
@@ -1019,20 +1019,20 @@ components:
           description: 更新时间
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.MessageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse:
       properties:
         message:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.PublishableKeysResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.PublishableKeysResponse:
       properties:
         keys:
           description: 可发布的密钥列表
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.PublishableKeyInfo'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.PublishableKeyInfo'
           type: array
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.RegisterResult:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.RegisterResult:
       properties:
         accountId:
           type: integer
@@ -1055,7 +1055,7 @@ components:
         userName:
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.TokenPair:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenPair:
       properties:
         access_token:
           description: 访问令牌
@@ -1070,17 +1070,17 @@ components:
           description: 令牌类型（Bearer）
           type: string
       type: object
-    github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.TokenVerifyResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenVerifyResponse:
       properties:
         claims:
           allOf:
-          - $ref: '#/components/schemas/github_com_FangcunMount_iam-contracts_internal_apiserver_interface_authn_restful_response.TokenClaims'
+          - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenClaims'
           description: 令牌声明（如果有效）
         valid:
           description: 令牌是否有效
           type: boolean
       type: object
-    github_com_FangcunMount_iam-contracts_pkg_core.ErrResponse:
+    github_com_FangcunMount_iam_pkg_core.ErrResponse:
       properties:
         code:
           description: Code 定义了业务错误代码

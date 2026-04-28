@@ -7,8 +7,8 @@ import (
 	redisinfra "github.com/redis/go-redis/v9"
 	wechatcache "github.com/silenceper/wechat/v2/cache"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 type redisFamilyInspector struct {

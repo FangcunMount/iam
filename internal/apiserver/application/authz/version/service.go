@@ -3,7 +3,7 @@ package version
 import (
 	"context"
 
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 )
 
 type VersionService struct {

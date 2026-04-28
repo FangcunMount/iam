@@ -8,7 +8,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam-contracts/pkg/tenant"
+	"github.com/FangcunMount/iam/pkg/tenant"
 )
 
 // BaseHandler 基础Handler结构

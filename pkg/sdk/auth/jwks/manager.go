@@ -3,7 +3,7 @@ package jwks
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 

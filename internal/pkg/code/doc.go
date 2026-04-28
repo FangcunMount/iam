@@ -1,4 +1,4 @@
-// Package code defines shared error codes used across the iam-contracts services.
+// Package code defines shared error codes used across the iam services.
 //
 // 错误码按照"通用能力 + 业务模块"进行分层管理，方便在系统中快速定位并统一处理。
 // 每个文件代表一个模块或域的错误码定义：

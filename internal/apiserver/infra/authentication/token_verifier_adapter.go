@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	authPort "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	tokenPort "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	authPort "github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	tokenPort "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // TokenVerifierAdapter JWT令牌验证适配器

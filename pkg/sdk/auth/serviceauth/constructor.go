@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+	"github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 // NewServiceAuthHelper 创建服务认证助手。

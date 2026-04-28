@@ -35,7 +35,7 @@ if [ -f "configs/apiserver.dev.yaml" ]; then
     echo -e "${BLUE}   证书路径: $CERT_PATH${NC}"
     echo -e "${BLUE}   私钥路径: $KEY_PATH${NC}"
     
-    if [[ "$CERT_PATH" == *"/etc/iam-contracts"* ]]; then
+    if [[ "$CERT_PATH" == *"/etc/iam"* ]]; then
         echo -e "${RED}   ⚠️  警告: 配置文件使用的是生产环境路径${NC}"
         echo -e "${YELLOW}   建议修改为: configs/cert/web-apiserver.crt${NC}"
     else

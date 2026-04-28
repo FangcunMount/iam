@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	ucuow "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/uow"
-	userdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	ucuow "github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	userdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )

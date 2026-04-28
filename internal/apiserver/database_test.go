@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/config"
-	apiserveroptions "github.com/FangcunMount/iam-contracts/internal/apiserver/options"
+	"github.com/FangcunMount/iam/internal/apiserver/config"
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/alicebob/miniredis/v2"
 )
 

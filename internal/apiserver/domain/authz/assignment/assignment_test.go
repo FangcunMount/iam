@@ -3,8 +3,8 @@ package assignment_test
 import (
 	"testing"
 
-	assignment "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	assignment "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 )
 

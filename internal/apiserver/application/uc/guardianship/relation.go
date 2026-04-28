@@ -3,7 +3,7 @@ package guardianship
 import (
 	"strings"
 
-	gsshipdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
+	gsshipdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
 )
 
 // ParseRelation 将外部输入统一映射到领域层的监护关系词表。

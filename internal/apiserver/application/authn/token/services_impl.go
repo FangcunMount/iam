@@ -6,9 +6,9 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/security/sanitize"
+	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
 )
 
 // ============= TokenApplicationService 实现 =============

@@ -9,9 +9,9 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ============= 应用服务实现 =============

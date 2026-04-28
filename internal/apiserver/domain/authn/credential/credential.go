@@ -3,7 +3,7 @@ package credential
 import (
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Credential 凭据实体

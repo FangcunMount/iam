@@ -11,8 +11,8 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	appguard "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 func TestGuardianshipHandlerGrantUsesCurrentUser(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authn/v1"
+	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 

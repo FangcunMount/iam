@@ -3,8 +3,8 @@ package account_test
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

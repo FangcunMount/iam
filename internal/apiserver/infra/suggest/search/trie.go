@@ -8,7 +8,7 @@ import (
 
 	"github.com/mozillazg/go-pinyin"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
 )
 
 const maxSearchLen = 100

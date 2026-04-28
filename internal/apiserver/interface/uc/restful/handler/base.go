@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/FangcunMount/iam-contracts/pkg/core"
+	"github.com/FangcunMount/iam/pkg/core"
 )
 
 // BaseHandler 继承公共的 BaseHandler

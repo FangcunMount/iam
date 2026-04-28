@@ -3,7 +3,7 @@ package credential
 import (
 	"time"
 
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/credential"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 )
 
 // Mapper 负责领域模型与持久化对象之间的转换。

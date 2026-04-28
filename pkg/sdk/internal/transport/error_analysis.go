@@ -3,7 +3,7 @@ package transport
 import (
 	"context"
 
-	internalerrors "github.com/FangcunMount/iam-contracts/pkg/sdk/internal/errorsx"
+	internalerrors "github.com/FangcunMount/iam/pkg/sdk/internal/errorsx"
 	"google.golang.org/grpc"
 )
 

@@ -19,7 +19,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	"github.com/FangcunMount/component-base/pkg/grpc/mtls"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/middleware"
+	"github.com/FangcunMount/iam/internal/pkg/middleware"
 )
 
 // Server GRPC 服务器结构体

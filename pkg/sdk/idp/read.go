@@ -3,8 +3,8 @@ package idp
 import (
 	"context"
 
-	idpv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/idp/v1"
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+	idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
+	"github.com/FangcunMount/iam/pkg/sdk/errors"
 )
 
 // GetWechatApp 根据 AppID 查询微信应用。

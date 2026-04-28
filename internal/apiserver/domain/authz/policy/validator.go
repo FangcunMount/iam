@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // manager 策略管理器（领域服务实现）

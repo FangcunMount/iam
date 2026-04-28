@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/interface/idp/restful/handler"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/handler"
 )
 
 // Dependencies IDP 模块的依赖

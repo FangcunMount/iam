@@ -1,7 +1,7 @@
 package credential
 
 import (
-	credDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/credential"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"gorm.io/gorm"
 )
 

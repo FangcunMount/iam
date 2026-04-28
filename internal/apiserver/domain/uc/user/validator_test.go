@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	user "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	user "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 func TestValidator_ValidateRegisterSuccess(t *testing.T) {

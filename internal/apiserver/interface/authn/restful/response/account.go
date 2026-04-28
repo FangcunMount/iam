@@ -3,7 +3,7 @@ package response
 import (
 	"time"
 
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
 )
 
 // Account response DTO.

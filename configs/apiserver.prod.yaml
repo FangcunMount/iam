@@ -41,8 +41,8 @@ secure:
   bind-address: "0.0.0.0"
   bind-port: 0
   tls:
-    cert-file: /etc/iam-contracts/ssl/fangcunmount.cn.crt
-    private-key-file: /etc/iam-contracts/ssl/fangcunmount.cn.key
+    cert-file: /etc/iam/ssl/fangcunmount.cn.crt
+    private-key-file: /etc/iam/ssl/fangcunmount.cn.key
 
 # CORS 跨域配置
 cors:
@@ -74,10 +74,10 @@ grpc:
   # mTLS 双向认证配置（用于内部服务间通信）
   mtls:
     enabled: true        # 启用 mTLS 双向认证，强制客户端提供证书
-    cert-file: /etc/iam-contracts/grpc/server/iam-apiserver.crt
-    key-file: /etc/iam-contracts/grpc/server/iam-apiserver.key
-    ca-file: /etc/iam-contracts/grpc/ca/ca-chain.crt
-    # ca-dir: /etc/iam-contracts/grpc/ca/  # 可选：CA 证书目录，支持多级 CA 信任链
+    cert-file: /etc/iam/grpc/server/iam-apiserver.crt
+    key-file: /etc/iam/grpc/server/iam-apiserver.key
+    ca-file: /etc/iam/grpc/ca/ca-chain.crt
+    # ca-dir: /etc/iam/grpc/ca/  # 可选：CA 证书目录，支持多级 CA 信任链
     require-client-cert: true  # 强制客户端提供证书
     
     # 组织单元白名单
@@ -136,7 +136,7 @@ seed_mock_auth:
 mysql:
   host: "your-rds.mysql.rds.aliyuncs.com:3306"  # 生产环境使用云 RDS 内网地址
   username: "iam"
-  password: "iam_contracts_pass123"
+  password: "iam_pass123"
   database: "iam"
   max-idle-conns: 10
   max-open-conns: 60
@@ -188,8 +188,8 @@ jwks:
 # 4.2 TLS 证书（通用）
 # ----------------------------------------------------------------------------
 tls:
-  cert: /etc/iam-contracts/ssl/fangcunmount.cn.crt
-  key: /etc/iam-contracts/ssl/fangcunmount.cn.key
+  cert: /etc/iam/ssl/fangcunmount.cn.crt
+  key: /etc/iam/ssl/fangcunmount.cn.key
   strict: false
 
 # ----------------------------------------------------------------------------
@@ -262,9 +262,9 @@ log:
   level-output-paths:
     all:
       - stdout                              # 容器/进程标准输出保留完整日志
-      - /var/log/iam-contracts/app.log      # 完整日志（所有级别）
+      - /var/log/iam/app.log      # 完整日志（所有级别）
     warn:
-      - /var/log/iam-contracts/warn.log     # 额外记录 WARN（发现潜在问题，可选）
+      - /var/log/iam/warn.log     # 额外记录 WARN（发现潜在问题，可选）
     error:
       - stderr                              # ERROR 级别写入标准错误，便于监控采集
-      - /var/log/iam-contracts/error.log    # 额外记录 ERROR（快速定位故障）
+      - /var/log/iam/error.log    # 额外记录 ERROR（快速定位故障）

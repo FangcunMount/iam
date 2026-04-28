@@ -5,19 +5,19 @@ import (
 
 	"gorm.io/gorm"
 
-	assignmentDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	userDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	assignmentrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/assignment"
-	casbinrulerepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/casbinrule"
-	policyrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/policy"
-	resourcerepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/resource"
-	rolerepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/role"
-	userrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/user"
-	dbmysql "github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
-	txpkg "github.com/FangcunMount/iam-contracts/internal/pkg/database/tx"
+	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	assignmentrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/assignment"
+	casbinrulerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/casbinrule"
+	policyrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/policy"
+	resourcerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/resource"
+	rolerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role"
+	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
+	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	txpkg "github.com/FangcunMount/iam/internal/pkg/database/tx"
 )
 
 type TxRepositories struct {

@@ -7,8 +7,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam-contracts/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/suggest"
+	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/mysql/suggest"
 )
 
 // SuggestModule 联想搜索模块

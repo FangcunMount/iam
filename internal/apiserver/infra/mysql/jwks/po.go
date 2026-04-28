@@ -3,7 +3,7 @@ package jwks
 import (
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/internal/pkg/database/mysql"
 )
 
 // KeyPO 密钥持久化对象，对应 jwks_keys 表

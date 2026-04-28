@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/pkg/core"
-	"github.com/FangcunMount/iam-contracts/pkg/version"
+	"github.com/FangcunMount/iam/pkg/core"
+	"github.com/FangcunMount/iam/pkg/version"
 	"github.com/gin-gonic/gin"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/middleware"
+	"github.com/FangcunMount/iam/internal/pkg/middleware"
 )
 
 // GenericAPIServer 定义通用 API 服务器

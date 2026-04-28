@@ -10,16 +10,16 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	openapiFS "github.com/FangcunMount/iam-contracts/api"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/container"
-	authnhttp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authn/restful"
-	authzhttp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authz/restful"
-	cachegovernancehandler "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/cachegovernance/restful/handler"
-	idphttp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/idp/restful"
-	suggesthttp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/suggest/restful"
-	userhttp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful"
-	authnMiddleware "github.com/FangcunMount/iam-contracts/internal/pkg/middleware/authn"
-	swaggerui "github.com/FangcunMount/iam-contracts/web/swagger-ui"
+	openapiFS "github.com/FangcunMount/iam/api"
+	"github.com/FangcunMount/iam/internal/apiserver/container"
+	authnhttp "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful"
+	authzhttp "github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful"
+	cachegovernancehandler "github.com/FangcunMount/iam/internal/apiserver/interface/cachegovernance/restful/handler"
+	idphttp "github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful"
+	suggesthttp "github.com/FangcunMount/iam/internal/apiserver/interface/suggest/restful"
+	userhttp "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful"
+	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	swaggerui "github.com/FangcunMount/iam/web/swagger-ui"
 )
 
 // Router 集中的路由管理器
@@ -183,7 +183,7 @@ func (r *Router) registerBaseRoutes(engine *gin.Engine) {
 			c.JSON(http.StatusOK, gin.H{
 				"service":     "iam-apiserver",
 				"version":     "1.0.0",
-				"description": "IAM Contracts API Server",
+				"description": "IAM API Server",
 				"swagger":     "/swagger/index.html",
 			})
 		})

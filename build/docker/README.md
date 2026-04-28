@@ -60,7 +60,7 @@ docker build \
   --build-arg BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S') \
   --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
   -f build/docker/Dockerfile \
-  -t iam-contracts:latest \
+  -t iam:latest \
   .
 
 # 运行容器
@@ -71,7 +71,7 @@ docker run -d \
   -p 9444:9444 \  # HTTPS REST API (外网)
   -v $(pwd)/configs:/app/configs:ro \
   -v $(pwd)/logs:/app/logs \
-  iam-contracts:latest
+  iam:latest
 
 # 查看日志
 docker logs -f iam-apiserver
@@ -113,7 +113,7 @@ docker run -d \
   -e REDIS_CACHE_PORT=6379 \
   -e REDIS_STORE_HOST=your-redis.redis.rds.aliyuncs.com \
   -e REDIS_STORE_PORT=6379 \
-  iam-contracts:latest
+  iam:latest
 
 # 方式 2：使用 .env 文件（Docker Compose）
 # 创建 .env 文件
@@ -182,7 +182,7 @@ docker run -d \
   --name iam-apiserver \
   -v iam-data:/app/data \
   -v $(pwd)/configs:/app/configs:ro \
-  iam-contracts:latest
+  iam:latest
 ```
 
 ### 使用主机目录
@@ -194,7 +194,7 @@ docker run -d \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/configs:/app/configs:ro \
   -v $(pwd)/logs:/app/logs \
-  iam-contracts:latest
+  iam:latest
 ```
 
 ## 网络配置
@@ -209,7 +209,7 @@ docker network create --driver overlay --attachable infra-network
 docker run -d \
   --name iam-apiserver \
   --network infra-network \
-  iam-contracts:latest
+  iam:latest
 ```
 
 Docker Compose 使用外部的 `infra-network`（需预先创建，不会自动创建）。
@@ -238,7 +238,7 @@ lsof -i :9080
 netstat -tlnp | grep 9080
 
 # 使用不同端口
-docker run -d -p 9180:9080 iam-contracts:latest
+docker run -d -p 9180:9080 iam:latest
 ```
 
 ### 配置文件问题
@@ -267,14 +267,14 @@ docker exec -it iam-apiserver /app/apiserver --config=/app/configs/apiserver.pro
      --cpus=2 \
      --memory=2g \
      --memory-swap=2g \
-     iam-contracts:latest
+     iam:latest
    ```
 
 3. **重启策略**：
    ```bash
    docker run -d \
      --restart=unless-stopped \
-     iam-contracts:latest
+     iam:latest
    ```
 
 4. **日志轮转**：
@@ -283,7 +283,7 @@ docker exec -it iam-apiserver /app/apiserver --config=/app/configs/apiserver.pro
      --log-driver json-file \
      --log-opt max-size=10m \
      --log-opt max-file=3 \
-     iam-contracts:latest
+     iam:latest
    ```
 
 5. **监控和告警**：
@@ -304,7 +304,7 @@ docker buildx build \
   --platform linux/amd64,linux/arm64 \
   --build-arg VERSION=v1.0.0 \
   -f build/docker/Dockerfile \
-  -t iam-contracts:latest \
+  -t iam:latest \
   --push \
   .
 ```
@@ -376,4 +376,4 @@ echo "  - gRPC 服务端证书到 /data/infra/ssl/grpc/server/"
 
 如有问题，请参考：
 - [故障排查指南](../../docs/DEPLOYMENT.md#故障排查)
-- [GitHub Issues](https://github.com/FangcunMount/iam-contracts/issues)
+- [GitHub Issues](https://github.com/FangcunMount/iam/issues)

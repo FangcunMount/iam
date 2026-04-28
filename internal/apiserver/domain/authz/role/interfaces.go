@@ -4,7 +4,7 @@ package role
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Commander 角色命令服务接口（Driving Port - 写操作）

@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/middleware/authn"
-	"github.com/FangcunMount/iam-contracts/pkg/tenant"
+	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/pkg/tenant"
 )
 
 func TestResolveRolesIncludesPlatformRoles(t *testing.T) {

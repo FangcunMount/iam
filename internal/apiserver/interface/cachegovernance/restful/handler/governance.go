@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	cachegovernance "github.com/FangcunMount/iam-contracts/internal/apiserver/application/cachegovernance"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 
-	responsedto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/cachegovernance/restful/response"
+	responsedto "github.com/FangcunMount/iam/internal/apiserver/interface/cachegovernance/restful/response"
 )
 
 // GovernanceHandler 提供内部只读缓存治理接口。

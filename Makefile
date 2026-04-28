@@ -1,7 +1,7 @@
 # ============================================================================
-# Makefile for IAM Contracts
+# Makefile for IAM
 # ============================================================================
-# 项目：iam-contracts - IAM 身份与访问管理系统
+# 项目：iam - IAM 身份与访问管理系统
 # 架构：六边形架构 + DDD + CQRS
 # ============================================================================
 
@@ -12,7 +12,7 @@
 # ============================================================================
 
 # 项目信息
-PROJECT_NAME := iam-contracts
+PROJECT_NAME := iam
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -28,8 +28,8 @@ RUN_GID ?= 2000
 LOG_DIR_HOST ?= /data/logs/iam
 TLS_CERT_HOST ?= /data/ssl/certs/fangcunmount.cn.crt
 TLS_KEY_HOST ?= /data/ssl/private/fangcunmount.cn.key
-TLS_CERT_DEST ?= /etc/iam-contracts/ssl/fangcunmount.cn.crt
-TLS_KEY_DEST ?= /etc/iam-contracts/ssl/fangcunmount.cn.key
+TLS_CERT_DEST ?= /etc/iam/ssl/fangcunmount.cn.crt
+TLS_KEY_DEST ?= /etc/iam/ssl/fangcunmount.cn.key
 DOCKER_NETWORK ?= infra-network
 
 # Go 相关
@@ -92,7 +92,7 @@ COLOR_RED := \033[31m
 
 help: ## 显示帮助信息
 	@echo "$(COLOR_BOLD)$(COLOR_CYAN)======================================"
-	@echo "  IAM Contracts - 构建和管理工具"
+	@echo "  IAM - 构建和管理工具"
 	@echo "======================================$(COLOR_RESET)"
 	@echo ""
 	@echo "$(COLOR_BOLD)项目信息:$(COLOR_RESET)"
@@ -168,38 +168,38 @@ logs: logs-apiserver ## 查看服务日志
 health: health-check ## 健康检查
 
 run-apiserver: ## 启动 API 服务器
-	@echo "🚀 启动 iam-contracts..."
+	@echo "🚀 启动 iam..."
 	@$(MAKE) create-dirs
 	@if [ -f $(PID_DIR)/apiserver.pid ]; then \
-			echo "⚠️  iam-contracts 可能已在运行 (PID: $$(cat $(PID_DIR)/apiserver.pid))"; \
+			echo "⚠️  iam 可能已在运行 (PID: $$(cat $(PID_DIR)/apiserver.pid))"; \
 		if ! kill -0 $$(cat $(PID_DIR)/apiserver.pid) 2>/dev/null; then \
 			echo "🧹 清理无效的 PID 文件"; \
 			rm -f $(PID_DIR)/apiserver.pid; \
 		else \
-			echo "❌ iam-contracts 已在运行，请先停止"; \
+			echo "❌ iam 已在运行，请先停止"; \
 			exit 1; \
 		fi; \
 	fi
 	@nohup ./$(APISERVER_BIN) --config=$(APISERVER_CONFIG) > $(LOG_DIR)/apiserver.log 2>&1 & echo $$! > $(PID_DIR)/apiserver.pid
-	@echo "✅ iam-contracts 已启动 (PID: $$(cat $(PID_DIR)/apiserver.pid))"
+	@echo "✅ iam 已启动 (PID: $$(cat $(PID_DIR)/apiserver.pid))"
 
 # =============================================================================
 # 服务停止管理
 # =============================================================================
 
 stop-apiserver: ## 停止 API 服务器
-	@echo "⏹️  停止 iam-contracts..."
+	@echo "⏹️  停止 iam..."
 	@if [ -f $(PID_DIR)/apiserver.pid ]; then \
 		PID=$$(cat $(PID_DIR)/apiserver.pid); \
 		if kill -0 $$PID 2>/dev/null; then \
-			kill $$PID && echo "✅ iam-contracts 已停止 (PID: $$PID)"; \
+			kill $$PID && echo "✅ iam 已停止 (PID: $$PID)"; \
 			rm -f $(PID_DIR)/apiserver.pid; \
 		else \
-			echo "⚠️  iam-contracts 进程不存在，清理 PID 文件"; \
+			echo "⚠️  iam 进程不存在，清理 PID 文件"; \
 			rm -f $(PID_DIR)/apiserver.pid; \
 		fi; \
 	else \
-			echo "ℹ️  iam-contracts 未运行"; \
+			echo "ℹ️  iam 未运行"; \
 	fi
 
 # =============================================================================
@@ -207,7 +207,7 @@ stop-apiserver: ## 停止 API 服务器
 # =============================================================================
 
 restart-apiserver: ## 重启 API 服务器
-	@echo "🔄 重启 iam-contracts..."
+	@echo "🔄 重启 iam..."
 	@$(MAKE) stop-apiserver
 	@sleep 1
 	@$(MAKE) run-apiserver
@@ -220,16 +220,16 @@ status-apiserver: ## 查看 API 服务器状态
 	@if [ -f $(PID_DIR)/apiserver.pid ]; then \
 		PID=$$(cat $(PID_DIR)/apiserver.pid); \
 		if kill -0 $$PID 2>/dev/null; then \
-			echo "✅ iam-contracts      - 运行中 (PID: $$PID, Port: $(APISERVER_PORT))"; \
+			echo "✅ iam      - 运行中 (PID: $$PID, Port: $(APISERVER_PORT))"; \
 		else \
-			echo "❌ iam-contracts      - 已停止 (PID 文件存在但进程不存在)"; \
+			echo "❌ iam      - 已停止 (PID 文件存在但进程不存在)"; \
 		fi; \
 	else \
-			echo "⚪ iam-contracts      - 未运行"; \
+			echo "⚪ iam      - 未运行"; \
 	fi
 
 logs-apiserver: ## 查看 API 服务器日志
-	@echo "📋 查看 iam-contracts 日志..."
+	@echo "📋 查看 iam 日志..."
 	@tail -f $(LOG_DIR)/apiserver.log
 
 # =============================================================================
@@ -269,7 +269,7 @@ test-submit: ## 测试答卷提交
 dev: ## 启动开发环境（热更新）
 	@echo "🚀 启动开发环境..."
 	@mkdir -p tmp/pids
-	@echo "启动 iam-contracts..."
+	@echo "启动 iam..."
 	@air -c .air-apiserver.toml & echo $$! > tmp/pids/air-apiserver.pid
 	@sleep 2
 	@echo "✅ 所有服务已启动（热更新模式）"
@@ -293,9 +293,9 @@ dev-status: ## 查看开发环境状态
 	@echo "📊 开发环境状态:"
 	@echo "=============="
 	@if [ -f tmp/pids/air-apiserver.pid ] && kill -0 $$(cat tmp/pids/air-apiserver.pid) 2>/dev/null; then \
-			echo "✅ iam-contracts      - 运行中 (PID: $$(cat tmp/pids/air-apiserver.pid))"; \
+			echo "✅ iam      - 运行中 (PID: $$(cat tmp/pids/air-apiserver.pid))"; \
 	else \
-			echo "⚪ iam-contracts      - 未运行"; \
+			echo "⚪ iam      - 未运行"; \
 	fi
 
 dev-logs: ## 查看开发环境日志
@@ -691,7 +691,7 @@ docker-run: ## 运行 Docker 容器
 		--cpus 0.25 \
 		--memory 384m --memory-swap 384m \
 		-v $(PWD)/configs:/app/configs:ro \
-		-v $(LOG_DIR_HOST):/var/log/iam-contracts \
+		-v $(LOG_DIR_HOST):/var/log/iam \
 		$$TLS_MOUNTS \
 		$(DOCKER_IMAGE):$(DOCKER_TAG)
 	@echo "$(COLOR_GREEN)✅ Docker 容器已启动$(COLOR_RESET)"

@@ -5,14 +5,14 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
-	childrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/child"
-	guardrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/guardianship"
-	userrepo "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/mysql/user"
-	dbmysql "github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
-	txpkg "github.com/FangcunMount/iam-contracts/internal/pkg/database/tx"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	childrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
+	guardrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
+	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
+	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	txpkg "github.com/FangcunMount/iam/internal/pkg/database/tx"
 )
 
 // TxRepositories 聚合事务中可使用的仓储集合。

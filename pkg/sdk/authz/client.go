@@ -1,7 +1,7 @@
 // Package authz 提供授权判定（PDP）能力。
 package authz
 
-import authzv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authz/v1"
+import authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
 
 // Client 授权服务客户端。
 type Client struct {

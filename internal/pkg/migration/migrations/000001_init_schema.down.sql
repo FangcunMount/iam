@@ -1,5 +1,5 @@
 -- ============================================================================
--- IAM Contracts - Database Schema Rollback
+-- IAM - Database Schema Rollback
 -- Version: 1.0 (Consolidated)
 -- Description: Drop all tables
 -- Date: 2025-12-03

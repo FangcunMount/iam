@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"unicode"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
 )
 
 // Store 存储器

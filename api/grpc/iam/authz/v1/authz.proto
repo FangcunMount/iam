@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package iam.authz.v1;
 
-option go_package = "github.com/FangcunMount/iam-contracts/api/grpc/iam/authz/v1;authzv1";
+option go_package = "github.com/FangcunMount/iam/api/grpc/iam/authz/v1;authzv1";
 
 // AuthorizationService 策略判定（PDP）gRPC 面。
 service AuthorizationService {

@@ -24,7 +24,7 @@
 
 ```mermaid
 flowchart LR
-  subgraph IAM["IAM（iam-contracts）"]
+  subgraph IAM["IAM（iam）"]
     JWT["Access Token\nuser_id + tenant_id"]
     SNAP["GetAuthorizationSnapshot\nroles / permissions / authz_version"]
     VER["VerifyToken gRPC/REST（可选）"]

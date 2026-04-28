@@ -4,7 +4,7 @@ package policy
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 )
 
 // Commander 策略命令接口（Driving Port - 领域服务）

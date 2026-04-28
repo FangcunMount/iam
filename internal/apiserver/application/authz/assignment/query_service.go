@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	assignmentDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
+	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 )
 
 // AssignmentQueryService 赋权查询服务（实现 AssignmentQueryer 接口）

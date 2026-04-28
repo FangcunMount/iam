@@ -1,7 +1,7 @@
 // Package dto 策略相关的 DTO 定义
 package dto
 
-import "github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+import "github.com/FangcunMount/iam/internal/pkg/meta"
 
 // AddPolicyRequest 添加策略规则请求
 type AddPolicyRequest struct {

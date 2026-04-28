@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 )
 
 // ================== Repository Interface (Driven Port) ==================

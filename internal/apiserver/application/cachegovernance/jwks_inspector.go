@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	jwksdomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
+	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 type jwksPublishSnapshotInspector struct {

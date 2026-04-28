@@ -12,7 +12,7 @@
 
 ## 30 秒结论
 
-> **一句话**：`iam-contracts` 已不再自己实现 Redis Foundation；Foundation 在 `component-base`，IAM 自己只负责 **Cache Layer** 和 **Governance Layer**。当前缓存层已经围绕 `session / refresh token / revoked access token / otp / idp token / jwks snapshot` 建立了稳定的 family 模型，而治理层第一版只做 **catalog + inspector + overview/family status** 这组只读能力。
+> **一句话**：`iam` 已不再自己实现 Redis Foundation；Foundation 在 `component-base`，IAM 自己只负责 **Cache Layer** 和 **Governance Layer**。当前缓存层已经围绕 `session / refresh token / revoked access token / otp / idp token / jwks snapshot` 建立了稳定的 family 模型，而治理层第一版只做 **catalog + inspector + overview/family status** 这组只读能力。
 
 | 主题 | 当前结论 |
 | ---- | ---- |
@@ -39,8 +39,8 @@
 现在的边界已经很明确：
 
 - **Foundation**：`component-base`
-- **Cache Layer**：`iam-contracts`
-- **Governance Layer**：`iam-contracts`
+- **Cache Layer**：`iam`
+- **Governance Layer**：`iam`
 
 这意味着 IAM 不再重复实现：
 
@@ -57,8 +57,8 @@ IAM 只需要站在业务语义上回答：
 
 ```mermaid
 flowchart TD
-    Foundation["component-base / Redis Foundation"] --> Cache["iam-contracts / Cache Layer"]
-    Cache --> Governance["iam-contracts / Governance Layer"]
+    Foundation["component-base / Redis Foundation"] --> Cache["iam / Cache Layer"]
+    Cache --> Governance["iam / Governance Layer"]
     Foundation --> Runtime["runtime / keyspace / store / lease / ops"]
     Cache --> Families["session / token / otp / idp / jwks"]
     Governance --> Views["catalog / overview / family status"]

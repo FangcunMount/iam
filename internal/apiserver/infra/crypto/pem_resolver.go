@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // PEMPrivateKeyResolver 从 PEM 文件读取私钥

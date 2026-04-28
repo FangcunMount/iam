@@ -8,12 +8,12 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/token"
-	tokenDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/security/sanitize"
-	"github.com/FangcunMount/iam-contracts/pkg/core"
-	"github.com/FangcunMount/iam-contracts/pkg/tenant"
+	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
+	"github.com/FangcunMount/iam/pkg/core"
+	"github.com/FangcunMount/iam/pkg/tenant"
 )
 
 // CasbinEnforcer 可选注入的授权判定端口（由 authz Casbin 适配器实现）。

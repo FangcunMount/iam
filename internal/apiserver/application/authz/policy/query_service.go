@@ -3,9 +3,9 @@ package policy
 import (
 	"context"
 
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	roleDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 type PolicyQueryService struct {

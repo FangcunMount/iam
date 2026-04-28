@@ -8,10 +8,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	identityv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1"
-	guardianshipApp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	userApp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/user"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
+	guardianshipApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ============= IdentityRead 服务实现 =============

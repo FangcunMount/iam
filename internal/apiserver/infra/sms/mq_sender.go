@@ -8,7 +8,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/google/uuid"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 )
 
 // LoginOTPSMSTopicDefault NSQ topic：下游消费者（短信网关等）订阅并真正发送短信

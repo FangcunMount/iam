@@ -9,9 +9,9 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // RedisStore Redis 令牌存储实现

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	sdkerrors "github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+	sdkerrors "github.com/FangcunMount/iam/pkg/sdk/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -486,8 +486,8 @@ iam:
 ```go
 import (
     "github.com/spf13/viper"
-    sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
-    "github.com/FangcunMount/iam-contracts/pkg/sdk/config"
+    sdk "github.com/FangcunMount/iam/pkg/sdk"
+    "github.com/FangcunMount/iam/pkg/sdk/config"
 )
 
 func main() {

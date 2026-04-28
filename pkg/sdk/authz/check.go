@@ -3,8 +3,8 @@ package authz
 import (
 	"context"
 
-	authzv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/authz/v1"
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
+	"github.com/FangcunMount/iam/pkg/sdk/errors"
 )
 
 // Check 对单条 (subject, domain, object, action) 执行授权判定。

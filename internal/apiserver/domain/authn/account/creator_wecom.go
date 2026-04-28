@@ -4,8 +4,8 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // ==================== 企业微信账户创建策略 ====================

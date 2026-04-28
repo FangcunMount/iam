@@ -3,7 +3,7 @@ package token
 import (
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // TokenType 令牌类型

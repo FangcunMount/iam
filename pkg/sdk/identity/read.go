@@ -3,8 +3,8 @@ package identity
 import (
 	"context"
 
-	identityv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1"
-	"github.com/FangcunMount/iam-contracts/pkg/sdk/errors"
+	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
+	"github.com/FangcunMount/iam/pkg/sdk/errors"
 )
 
 // GetUser 获取单个用户。

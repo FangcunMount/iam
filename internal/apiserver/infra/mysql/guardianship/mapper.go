@@ -1,7 +1,7 @@
 package guardianship
 
 import (
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
 )
 
 // GuardianshipMapper 监护关系映射器

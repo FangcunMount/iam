@@ -13,10 +13,10 @@ import (
 	_ "github.com/FangcunMount/component-base/pkg/messaging/nsq" // 注册 NSQ Provider
 	"github.com/FangcunMount/component-base/pkg/shutdown"
 	"github.com/FangcunMount/component-base/pkg/shutdown/shutdownmanagers/posixsignal"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/config"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/container"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/grpc"
-	genericapiserver "github.com/FangcunMount/iam-contracts/internal/pkg/server"
+	"github.com/FangcunMount/iam/internal/apiserver/config"
+	"github.com/FangcunMount/iam/internal/apiserver/container"
+	"github.com/FangcunMount/iam/internal/pkg/grpc"
+	genericapiserver "github.com/FangcunMount/iam/internal/pkg/server"
 	"github.com/spf13/viper"
 )
 

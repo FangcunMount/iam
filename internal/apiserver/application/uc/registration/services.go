@@ -3,8 +3,8 @@ package registration
 import (
 	"context"
 
-	childapp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/child"
-	guardapp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
+	childapp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
+	guardapp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 )
 
 // ChildRegistrationService 负责需要跨 child/guardianship 聚合的注册用例。

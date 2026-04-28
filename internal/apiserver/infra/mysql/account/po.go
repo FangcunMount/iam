@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	base "github.com/FangcunMount/iam-contracts/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	base "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 
@@ -18,10 +18,10 @@ type AccountPO struct {
 	ExternalID string  `gorm:"column:external_id;type:varchar(128);not null;uniqueIndex:idx_type_app_external,priority:3"`
 	// ScopedTenantID 运营账号租户作用域；非 opera 为 0。
 	ScopedTenantID meta.ID `gorm:"column:scoped_tenant_id;type:bigint unsigned;not null;default:0;index"`
-	UniqueID   *string `gorm:"column:unique_id;type:varchar(128);uniqueIndex:idx_unique_id"`
-	Profile    []byte  `gorm:"column:profile;type:json"`
-	Meta       []byte  `gorm:"column:meta;type:json"`
-	Status     int8    `gorm:"column:status;type:tinyint;not null;default:1"`
+	UniqueID       *string `gorm:"column:unique_id;type:varchar(128);uniqueIndex:idx_unique_id"`
+	Profile        []byte  `gorm:"column:profile;type:json"`
+	Meta           []byte  `gorm:"column:meta;type:json"`
+	Status         int8    `gorm:"column:status;type:tinyint;not null;default:1"`
 }
 
 // TableName 指定账号表名。

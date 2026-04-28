@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	sdk "github.com/FangcunMount/iam-contracts/pkg/sdk"
-	authserviceauth "github.com/FangcunMount/iam-contracts/pkg/sdk/auth/serviceauth"
+	sdk "github.com/FangcunMount/iam/pkg/sdk"
+	authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
 )
 
 func main() {

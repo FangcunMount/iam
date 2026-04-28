@@ -4,8 +4,8 @@ package role
 import (
 	"context"
 
-	roleDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // RoleCommandService 角色命令服务（写操作）

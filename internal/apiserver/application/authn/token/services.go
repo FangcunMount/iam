@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 )
 
 // ============= 应用服务接口（Driving Ports）=============

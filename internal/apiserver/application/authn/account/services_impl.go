@@ -5,11 +5,11 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/uow"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/account"
-	sessiondomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 

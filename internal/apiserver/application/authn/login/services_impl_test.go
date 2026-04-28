@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/authentication"
-	domaintoken "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
-	"github.com/FangcunMount/iam-contracts/pkg/tenant"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	domaintoken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/pkg/tenant"
 	"github.com/stretchr/testify/require"
 )
 

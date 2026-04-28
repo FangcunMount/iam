@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/jwks"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // PEMPrivateKeyStorage PEM 文件私钥存储

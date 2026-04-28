@@ -8,14 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/login"
-	loginprep "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/loginprep"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/token"
-	domainToken "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authn/token"
-	req "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authn/restful/request"
-	resp "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authn/restful/response"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
+	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
+	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	domainToken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	req "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/request"
+	resp "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/response"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // AuthHandler 认证 HTTP 处理器

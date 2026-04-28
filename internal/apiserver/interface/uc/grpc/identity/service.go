@@ -3,13 +3,13 @@ package identity
 import (
 	"google.golang.org/grpc"
 
-	identityv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/identity/v1"
-	childApp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/child"
-	guardianshipApp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	userApp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/user"
-	childDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	guardianshipDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/guardianship"
-	userDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/user"
+	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
+	childApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
+	guardianshipApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
+	childDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	guardianshipDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
+	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 )
 
 // Service 聚合 identity 模块的 gRPC 服务

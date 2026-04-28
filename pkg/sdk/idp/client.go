@@ -1,7 +1,7 @@
 // Package idp 提供身份提供者（IDP）能力。
 package idp
 
-import idpv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/idp/v1"
+import idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
 
 // Client IDP 服务客户端。
 type Client struct {

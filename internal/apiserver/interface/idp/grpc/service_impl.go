@@ -7,8 +7,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	idpv1 "github.com/FangcunMount/iam-contracts/api/grpc/iam/idp/v1"
-	domain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/idp/wechatapp"
+	idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 )
 
 // GetWechatApp 查询微信应用
@@ -105,4 +105,3 @@ func toGRPCError(err error) error {
 
 	return status.Error(codes.Internal, err.Error())
 }
-

@@ -18,8 +18,8 @@ type TokenVerifyResponse struct {
 
 // TokenClaims JWT 声明
 type TokenClaims struct {
-	UserID     string            `json:"user_id"`              // 用户 ID
-	AccountID  string            `json:"account_id"`         // 账户 ID
+	UserID     string            `json:"user_id"`             // 用户 ID
+	AccountID  string            `json:"account_id"`          // 账户 ID
 	TenantID   *int64            `json:"tenant_id,omitempty"` // 租户 ID（可选）
 	Issuer     string            `json:"issuer"`              // 签发者
 	IssuedAt   time.Time         `json:"issued_at"`           // 签发时间

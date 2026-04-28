@@ -1,6 +1,6 @@
 package cachegovernance
 
-import cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
+import cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 
 // FamilyView 表示某个缓存族的静态描述与运行状态。
 type FamilyView struct {

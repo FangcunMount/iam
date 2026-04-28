@@ -1,8 +1,8 @@
 package assignment
 
 import (
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/assignment"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Mapper Assignment BO 和 PO 转换器

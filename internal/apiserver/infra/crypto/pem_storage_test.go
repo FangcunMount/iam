@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/infra/crypto"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/crypto"
 )
 
 func TestPEMPrivateKeyStorage_SaveAndExists(t *testing.T) {

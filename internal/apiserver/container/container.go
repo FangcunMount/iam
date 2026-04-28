@@ -9,12 +9,12 @@ import (
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	cachegovernance "github.com/FangcunMount/iam-contracts/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/container/assembler"
-	policyDomain "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	cacheinfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/cache"
-	messagingInfra "github.com/FangcunMount/iam-contracts/internal/apiserver/infra/messaging"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/middleware/authn"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
+	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
+	messagingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/messaging"
+	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
 // Container 容器

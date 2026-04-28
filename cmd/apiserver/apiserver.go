@@ -4,7 +4,7 @@
 // @termsOfService  https://iam.fangcunmount.cn/terms
 
 // @contact.name   API Support
-// @contact.url    https://github.com/FangcunMount/iam-contracts
+// @contact.url    https://github.com/FangcunMount/iam
 // @contact.email  support@fangcunmount.cn
 
 // @license.name  Apache 2.0
@@ -49,8 +49,8 @@
 package main
 
 import (
-	"github.com/FangcunMount/iam-contracts/internal/apiserver"
-	_ "github.com/FangcunMount/iam-contracts/internal/apiserver/docs"
+	"github.com/FangcunMount/iam/internal/apiserver"
+	_ "github.com/FangcunMount/iam/internal/apiserver/docs"
 )
 
 func main() {

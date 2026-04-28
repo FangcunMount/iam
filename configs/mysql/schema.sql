@@ -1,5 +1,5 @@
 -- ============================================================================
--- IAM Contracts - Database Schema
+-- IAM - Database Schema
 -- Notes:
 --   * All tables use `` prefix
 --   * utf8mb4 / InnoDB

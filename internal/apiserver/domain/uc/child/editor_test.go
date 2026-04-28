@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	child "github.com/FangcunMount/iam-contracts/internal/apiserver/domain/uc/child"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	child "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

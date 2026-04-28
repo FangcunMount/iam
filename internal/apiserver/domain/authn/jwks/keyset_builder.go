@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // KeySetBuilder JWKS 构建服务

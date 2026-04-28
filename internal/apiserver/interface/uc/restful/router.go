@@ -3,7 +3,7 @@ package restful
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
 )
 
 // Dependencies bundles the runtime collaborators required by the UC HTTP adapters.

@@ -3,8 +3,8 @@ package policy
 import (
 	"encoding/json"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Mapper PolicyVersion BO 和 PO 转换器

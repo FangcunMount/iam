@@ -10,16 +10,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 
-	sessionapp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/session"
-	tokenapp "github.com/FangcunMount/iam-contracts/internal/apiserver/application/authn/token"
-	cachegovernance "github.com/FangcunMount/iam-contracts/internal/apiserver/application/cachegovernance"
-	appsuggest "github.com/FangcunMount/iam-contracts/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/container"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/container/assembler"
-	authhandler "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authn/restful/handler"
-	authzhandler "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/authz/restful/handler"
-	uchandler "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/handler"
-	authnMiddleware "github.com/FangcunMount/iam-contracts/internal/pkg/middleware/authn"
+	sessionapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/internal/apiserver/container"
+	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
+	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
+	authzhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
+	uchandler "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
+	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
 func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {

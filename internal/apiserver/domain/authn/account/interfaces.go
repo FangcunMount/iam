@@ -3,7 +3,7 @@ package account
 import (
 	"context"
 
-	"github.com/FangcunMount/iam-contracts/internal/pkg/meta"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ==================== Driving Ports (驱动端口) ====================

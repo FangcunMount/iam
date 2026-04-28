@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/child"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/testutil"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/uow"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/user"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 )
 
 // ==================== GuardianshipApplicationService 测试 ====================

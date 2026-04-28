@@ -8,13 +8,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appchild "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/child"
-	appguard "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/guardianship"
-	appregistration "github.com/FangcunMount/iam-contracts/internal/apiserver/application/uc/registration"
-	requestdto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/request"
-	responsedto "github.com/FangcunMount/iam-contracts/internal/apiserver/interface/uc/restful/response"
-	"github.com/FangcunMount/iam-contracts/internal/pkg/code"
-	_ "github.com/FangcunMount/iam-contracts/pkg/core" // imported for swagger
+	appchild "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
+	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	appregistration "github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
+	requestdto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/request"
+	responsedto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/response"
+	"github.com/FangcunMount/iam/internal/pkg/code"
+	_ "github.com/FangcunMount/iam/pkg/core" // imported for swagger
 )
 
 // ChildHandler 儿童档案 REST 处理器

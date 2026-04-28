@@ -13,7 +13,7 @@
 
 ## 30 秒结论
 
-> **一句话**：`iam-contracts` 用统一登录 REST 把请求经 **应用编排 → `Authenticater`（多证认证策略）→ `Principal`**，再由 **`SessionManager + TokenIssuer`** 产出带 `sid` 的 **Access JWT / Refresh Token / Service Token**；资源方可以用 **`/.well-known/jwks.json`** 做本地验签，但只有 **在线 `VerifyToken`** 才能同时看到 `revoked_access_token`、`session` 和 `user/account` 当前状态，JWKS 则在启动时初始化并由轮换调度器维持长期可用。
+> **一句话**：`iam` 用统一登录 REST 把请求经 **应用编排 → `Authenticater`（多证认证策略）→ `Principal`**，再由 **`SessionManager + TokenIssuer`** 产出带 `sid` 的 **Access JWT / Refresh Token / Service Token**；资源方可以用 **`/.well-known/jwks.json`** 做本地验签，但只有 **在线 `VerifyToken`** 才能同时看到 `revoked_access_token`、`session` 和 `user/account` 当前状态，JWKS 则在启动时初始化并由轮换调度器维持长期可用。
 
 | 主题 | 当前答案 |
 | ---- | ---- |

@@ -11,7 +11,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam-contracts/internal/apiserver/infra/suggest/search"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search"
 )
 
 // Loader 负责提供数据行
