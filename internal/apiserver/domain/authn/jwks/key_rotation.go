@@ -206,7 +206,7 @@ func (s *KeyRotation) GetRotationStatus(ctx context.Context) (*RotationStatus, e
 			Algorithm: key.JWK.Alg,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
-			CreatedAt: time.Now(), // TODO: 需要从数据库获取
+			CreatedAt: key.CreatedAt,
 		}
 
 		// 计算上次轮换时间和下次轮换时间
@@ -224,7 +224,7 @@ func (s *KeyRotation) GetRotationStatus(ctx context.Context) (*RotationStatus, e
 			Algorithm: key.JWK.Alg,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
-			CreatedAt: time.Now(), // TODO: 需要从数据库获取
+			CreatedAt: key.CreatedAt,
 		})
 	}
 

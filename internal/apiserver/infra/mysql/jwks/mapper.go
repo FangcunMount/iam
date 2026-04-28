@@ -63,6 +63,8 @@ func (m *Mapper) ToKeyEntity(po *KeyPO) (*jwks.Key, error) {
 		JWK:       publicJWK,
 		NotBefore: po.NotBefore,
 		NotAfter:  po.NotAfter,
+		CreatedAt: po.CreatedAt,
+		UpdatedAt: po.UpdatedAt,
 	}
 
 	return key, nil

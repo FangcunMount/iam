@@ -40,8 +40,8 @@ func (r *KeyRepository) Save(ctx context.Context, key *domain.Key) error {
 	}
 
 	return r.CreateAndSync(ctx, po, func(updated *KeyPO) {
-		// Key doesn't carry an internal numeric ID in domain model; nothing to sync for now.
-		_ = updated
+		key.CreatedAt = updated.CreatedAt
+		key.UpdatedAt = updated.UpdatedAt
 	})
 }
 

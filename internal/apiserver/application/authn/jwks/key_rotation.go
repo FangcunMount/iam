@@ -68,7 +68,7 @@ func (s *KeyRotationAppService) RotateKey(ctx context.Context) (*RotateKeyRespon
 			Algorithm: newKey.JWK.Alg,
 			NotBefore: newKey.NotBefore,
 			NotAfter:  newKey.NotAfter,
-			CreatedAt: time.Now(), // TODO: 需要从 Key 实体获取 CreatedAt
+			CreatedAt: newKey.CreatedAt,
 		},
 	}, nil
 }

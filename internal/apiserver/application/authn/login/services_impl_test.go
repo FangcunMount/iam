@@ -133,3 +133,64 @@ func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
 		})
 	}
 }
+
+func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *testing.T) {
+	t.Parallel()
+
+	username := "alice"
+	password := "secret"
+	phone := "+8613800138000"
+	otp := "123456"
+	jwtToken := "jwt-token"
+
+	tests := []struct {
+		name string
+		req  LoginRequest
+		want authentication.Scenario
+	}{
+		{
+			name: "auth type is not authoritative when only password fields are present",
+			req: LoginRequest{
+				AuthType: AuthTypeJWTToken,
+				Username: &username,
+				Password: &password,
+			},
+			want: authentication.AuthPassword,
+		},
+		{
+			name: "phone otp fields override password fields",
+			req: LoginRequest{
+				AuthType:  AuthTypePassword,
+				Username:  &username,
+				Password:  &password,
+				PhoneE164: &phone,
+				OTPCode:   &otp,
+			},
+			want: authentication.AuthPhoneOTP,
+		},
+		{
+			name: "jwt token field wins over earlier credential fields",
+			req: LoginRequest{
+				AuthType:  AuthTypePassword,
+				Username:  &username,
+				Password:  &password,
+				PhoneE164: &phone,
+				OTPCode:   &otp,
+				JWTToken:  &jwtToken,
+			},
+			want: authentication.AuthJWTToken,
+		},
+	}
+
+	svc := &loginApplicationService{}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, _, err := svc.prepareAuthentication(context.Background(), tc.req)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}

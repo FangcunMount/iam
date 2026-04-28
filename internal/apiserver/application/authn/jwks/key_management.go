@@ -72,7 +72,7 @@ func (s *KeyManagementAppService) CreateKey(ctx context.Context, req CreateKeyRe
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
 		PublicJWK: &key.JWK,
-		CreatedAt: time.Now(), // TODO: 需要从 Key 实体获取 CreatedAt
+		CreatedAt: key.CreatedAt,
 	}, nil
 }
 
@@ -142,8 +142,8 @@ func (s *KeyManagementAppService) GetKeyByKid(ctx context.Context, kid string) (
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
 		PublicJWK: &key.JWK,
-		CreatedAt: time.Now(), // TODO: 需要从 Key 实体获取 CreatedAt
-		UpdatedAt: time.Now(), // TODO: 需要从 Key 实体获取 UpdatedAt
+		CreatedAt: key.CreatedAt,
+		UpdatedAt: key.UpdatedAt,
 	}, nil
 }
 
@@ -261,8 +261,8 @@ func (s *KeyManagementAppService) ListKeys(ctx context.Context, req ListKeysRequ
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
 			PublicJWK: &key.JWK,
-			CreatedAt: time.Now(), // TODO: 需要从 Key 实体获取 CreatedAt
-			UpdatedAt: time.Now(), // TODO: 需要从 Key 实体获取 UpdatedAt
+			CreatedAt: key.CreatedAt,
+			UpdatedAt: key.UpdatedAt,
 		}
 	}
 

@@ -52,10 +52,16 @@ func TestKey_ValidityAndExpiry(t *testing.T) {
 func TestKey_StateTransitions(t *testing.T) {
 	jwk := PublicJWK{Kty: "RSA", Use: "sig", Alg: "RS256", Kid: "kid", N: mustStr("n"), E: mustStr("e")}
 	k := NewKey("kid", jwk)
+	require.False(t, k.CreatedAt.IsZero())
+	require.False(t, k.UpdatedAt.IsZero())
+	createdAt := k.CreatedAt
+	updatedAt := k.UpdatedAt
 
 	// enter grace from active
 	require.NoError(t, k.EnterGrace())
 	assert.True(t, k.IsGrace())
+	assert.Equal(t, createdAt, k.CreatedAt)
+	assert.False(t, k.UpdatedAt.Before(updatedAt))
 
 	// cannot enter grace again
 	err := k.EnterGrace()

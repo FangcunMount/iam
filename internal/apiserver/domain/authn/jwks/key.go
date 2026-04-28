@@ -37,16 +37,21 @@ type Key struct {
 	JWK       PublicJWK // 公钥 JWK 表示
 	NotBefore *time.Time
 	NotAfter  *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // ==================== 工厂方法 ====================
 
 // NewKey 创建新密钥
 func NewKey(kid string, jwk PublicJWK, opts ...KeyOption) *Key {
+	now := time.Now()
 	key := &Key{
-		Kid:    kid,
-		Status: KeyActive, // 默认激活状态
-		JWK:    jwk,
+		Kid:       kid,
+		Status:    KeyActive, // 默认激活状态
+		JWK:       jwk,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	for _, opt := range opts {
 		opt(key)
@@ -75,6 +80,20 @@ func WithNotAfter(t time.Time) KeyOption {
 func WithStatus(status KeyStatus) KeyOption {
 	return func(k *Key) {
 		k.Status = status
+	}
+}
+
+// WithCreatedAt 设置创建时间。
+func WithCreatedAt(t time.Time) KeyOption {
+	return func(k *Key) {
+		k.CreatedAt = t
+	}
+}
+
+// WithUpdatedAt 设置更新时间。
+func WithUpdatedAt(t time.Time) KeyOption {
+	return func(k *Key) {
+		k.UpdatedAt = t
 	}
 }
 
@@ -147,6 +166,7 @@ func (k *Key) EnterGrace() error {
 		return errors.WithCode(code.ErrInvalidStateTransition, "can only enter grace period from active state")
 	}
 	k.Status = KeyGrace
+	k.UpdatedAt = time.Now()
 	return nil
 }
 
@@ -157,6 +177,7 @@ func (k *Key) Retire() error {
 		return errors.WithCode(code.ErrInvalidStateTransition, "can only retire from grace period")
 	}
 	k.Status = KeyRetired
+	k.UpdatedAt = time.Now()
 	return nil
 }
 
@@ -164,6 +185,7 @@ func (k *Key) Retire() error {
 // 用于应急情况，如密钥泄露
 func (k *Key) ForceRetire() {
 	k.Status = KeyRetired
+	k.UpdatedAt = time.Now()
 }
 
 // ==================== 验证方法 ====================

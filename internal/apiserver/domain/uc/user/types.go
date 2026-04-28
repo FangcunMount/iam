@@ -3,8 +3,8 @@ package user
 // UserStatus 用户状态
 type UserStatus uint8
 
-func (s UserStatus) Uint64() interface{} {
-	panic("unimplemented")
+func (s UserStatus) Uint64() uint64 {
+	return uint64(s)
 }
 
 const (

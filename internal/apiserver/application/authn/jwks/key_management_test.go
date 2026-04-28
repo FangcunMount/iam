@@ -143,7 +143,11 @@ func TestKeyManagementAppService_GetKeyByKid(t *testing.T) {
 	appSvc := NewKeyManagementAppService(mockSvc, logger)
 
 	ctx := context.Background()
+	createdAt := time.Date(2026, 4, 28, 9, 30, 0, 0, time.UTC)
+	updatedAt := createdAt.Add(2 * time.Hour)
 	testKey := createTestKey("test-kid", jwks.KeyGrace, "RS384")
+	testKey.CreatedAt = createdAt
+	testKey.UpdatedAt = updatedAt
 
 	mockSvc.On("GetKeyByKid", ctx, "test-kid").Return(testKey, nil)
 
@@ -154,6 +158,8 @@ func TestKeyManagementAppService_GetKeyByKid(t *testing.T) {
 	assert.Equal(t, "test-kid", resp.Kid)
 	assert.Equal(t, jwks.KeyGrace, resp.Status)
 	assert.Equal(t, "RS384", resp.Algorithm)
+	assert.Equal(t, createdAt, resp.CreatedAt)
+	assert.Equal(t, updatedAt, resp.UpdatedAt)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -227,10 +233,14 @@ func TestKeyManagementAppService_ListKeys(t *testing.T) {
 	appSvc := NewKeyManagementAppService(mockSvc, logger)
 
 	ctx := context.Background()
+	createdAt := time.Date(2026, 4, 28, 10, 0, 0, 0, time.UTC)
+	updatedAt := createdAt.Add(time.Hour)
 	testKeys := []*jwks.Key{
 		createTestKey("kid-1", jwks.KeyActive, "RS256"),
 		createTestKey("kid-2", jwks.KeyGrace, "RS256"),
 	}
+	testKeys[0].CreatedAt = createdAt
+	testKeys[0].UpdatedAt = updatedAt
 
 	mockSvc.On("ListKeys", ctx, jwks.KeyStatus(0), 10, 0).Return(testKeys, int64(2), nil)
 
@@ -247,6 +257,8 @@ func TestKeyManagementAppService_ListKeys(t *testing.T) {
 	assert.Equal(t, int64(2), resp.Total)
 	assert.Equal(t, "kid-1", resp.Keys[0].Kid)
 	assert.Equal(t, "kid-2", resp.Keys[1].Kid)
+	assert.Equal(t, createdAt, resp.Keys[0].CreatedAt)
+	assert.Equal(t, updatedAt, resp.Keys[0].UpdatedAt)
 
 	mockSvc.AssertExpectations(t)
 }
