@@ -20,6 +20,8 @@ type UserProfileApplicationService interface {
 	Rename(ctx context.Context, userID string, newName string) error
 	// Renickname 修改用户昵称
 	Renickname(ctx context.Context, userID string, newNickname string) error
+	// PatchProfile 局部更新用户资料并返回最新用户结果
+	PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*UserResult, error)
 	// UpdateContact 更新联系方式
 	UpdateContact(ctx context.Context, dto UpdateContactDTO) error
 	// UpdateIDCard 更新身份证
@@ -59,6 +61,14 @@ type UpdateContactDTO struct {
 	UserID string // 用户 ID
 	Phone  string // 手机号（可选）
 	Email  string // 邮箱（可选）
+}
+
+// PatchUserProfileDTO 局部更新用户资料 DTO。
+type PatchUserProfileDTO struct {
+	UserID   string
+	Nickname *string
+	Phone    *string
+	Email    *string
 }
 
 // UserResult 用户结果 DTO

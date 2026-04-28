@@ -234,6 +234,38 @@ func TestUserProfileApplicationService_UpdateContact_Success(t *testing.T) {
 	assert.Equal(t, dto.Email, updated.Email)
 }
 
+func TestUserProfileApplicationService_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	registerService := user.NewUserApplicationService(unitOfWork)
+	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+		Name:  "张三",
+		Phone: "13800138000",
+		Email: "old@example.com",
+	})
+	require.NoError(t, err)
+
+	profileService := user.NewUserProfileApplicationService(unitOfWork)
+	nickname := "张三丰"
+	phone := "13900139000"
+	email := "new@example.com"
+
+	updated, err := profileService.PatchProfile(ctx, user.PatchUserProfileDTO{
+		UserID:   created.ID,
+		Nickname: &nickname,
+		Phone:    &phone,
+		Email:    &email,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	assert.Equal(t, nickname, updated.Name)
+	assert.Equal(t, "+86"+phone, updated.Phone)
+	assert.Equal(t, email, updated.Email)
+}
+
 func TestUserProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)

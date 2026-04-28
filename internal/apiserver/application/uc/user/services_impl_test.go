@@ -10,17 +10,16 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 type queryUserRepoStub struct{}
 
 func (s *queryUserRepoStub) Create(context.Context, *userdomain.User) error { return nil }
 func (s *queryUserRepoStub) FindByID(context.Context, meta.ID) (*userdomain.User, error) {
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 }
 func (s *queryUserRepoStub) FindByPhone(context.Context, meta.Phone) (*userdomain.User, error) {
-	return nil, gorm.ErrRecordNotFound
+	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 }
 func (s *queryUserRepoStub) Update(context.Context, *userdomain.User) error { return nil }
 

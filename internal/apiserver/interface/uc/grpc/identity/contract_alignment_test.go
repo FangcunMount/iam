@@ -13,7 +13,7 @@ import (
 
 func TestIdentityGRPCRuntimeRegistersOnlyImplementedServices(t *testing.T) {
 	server := grpc.NewServer()
-	NewService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil).RegisterService(server)
+	NewService(nil, nil, nil, nil, nil, nil, nil, nil).RegisterService(server)
 
 	info := server.GetServiceInfo()
 	require.Contains(t, info, "iam.identity.v1.IdentityRead")

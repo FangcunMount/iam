@@ -9,10 +9,7 @@ import (
 	appregistration "github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	childInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
-	guardianshipInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
 	mysqlUcUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
-	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	ucGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc"
 	identityGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc/identity"
 	"github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
@@ -58,11 +55,6 @@ func (m *UserModule) Initialize(params ...interface{}) error {
 	// 事务
 	uow := mysqlUcUow.NewUnitOfWork(db)
 
-	// 初始化仓储层
-	userRepo := userInfra.NewRepository(db)
-	childRepo := childInfra.NewRepository(db)
-	guardRepo := guardianshipInfra.NewRepository(db)
-
 	// 用户应用服务（命令）
 	userAppSrv := appuser.NewUserApplicationService(uow)
 	userProfileAppSrv := appuser.NewUserProfileApplicationService(uow)
@@ -71,18 +63,16 @@ func (m *UserModule) Initialize(params ...interface{}) error {
 	// 用户查询服务
 	userQuerySrv := appuser.NewUserQueryApplicationService(uow)
 
-	// 儿童应用服务（命令）
-	childAppSrv := appchild.NewChildApplicationService(uow)
-	childProfileAppSrv := appchild.NewChildProfileApplicationService(uow)
-
 	// 儿童查询服务
 	childQuerySrv := appchild.NewChildQueryApplicationService(uow)
+	childAccessSrv := appchild.NewChildAccessApplicationService(uow)
 
 	// 监护关系应用服务
 	guardAppSrv := appguard.NewGuardianshipApplicationService(uow)
 
 	// 监护关系查询服务
 	guardQuerySrv := appguard.NewGuardianshipQueryApplicationService(uow)
+	guardAccessSrv := appguard.NewGuardianshipAccessApplicationService(uow)
 
 	// 组合注册服务（单事务创建 child + guardianship）
 	registrationAppSrv := appregistration.NewChildRegistrationService(uow)
@@ -96,23 +86,17 @@ func (m *UserModule) Initialize(params ...interface{}) error {
 	)
 
 	m.ChildHandler = handler.NewChildHandler(
-		childAppSrv,
-		childProfileAppSrv,
 		registrationAppSrv,
-		guardQuerySrv,
+		childAccessSrv,
 		childQuerySrv,
 	)
 
 	m.GuardianshipHandler = handler.NewGuardianshipHandler(
-		guardAppSrv,
-		guardQuerySrv,
+		guardAccessSrv,
 	)
 
 	// 初始化 gRPC 服务
 	identitySvc := identityGrpc.NewService(
-		userRepo,
-		childRepo,
-		guardRepo,
 		userQuerySrv,
 		childQuerySrv,
 		guardQuerySrv,
@@ -120,6 +104,7 @@ func (m *UserModule) Initialize(params ...interface{}) error {
 		userProfileAppSrv,
 		userStatusSrv,
 		guardAppSrv,
+		guardAccessSrv,
 	)
 
 	m.GRPCService = ucGrpc.NewService(identitySvc)

@@ -4,12 +4,16 @@ import (
 	"context"
 	"testing"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // ==================== ChildApplicationService 测试 ====================
@@ -421,4 +425,106 @@ func TestChildQueryApplicationService_FindSimilar_NoMatch(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	assert.Empty(t, results)
+}
+
+func TestChildAccessApplicationService_ListGetAndPatchForGuardian(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	userService := user.NewUserApplicationService(unitOfWork)
+	userResult, err := userService.Register(ctx, user.RegisterUserDTO{
+		Name:  "监护人",
+		Phone: "13800139001",
+		Email: "guardian@example.com",
+	})
+	require.NoError(t, err)
+
+	childService := child.NewChildApplicationService(unitOfWork)
+	childResult, err := childService.Register(ctx, child.RegisterChildDTO{
+		Name:     "旧名",
+		Gender:   1,
+		Birthday: "2020-01-15",
+	})
+	require.NoError(t, err)
+
+	guardService := guardianship.NewGuardianshipApplicationService(unitOfWork)
+	require.NoError(t, guardService.AddGuardian(ctx, guardianship.AddGuardianDTO{
+		UserID:   userResult.ID,
+		ChildID:  childResult.ID,
+		Relation: "parent",
+	}))
+
+	accessService := child.NewChildAccessApplicationService(unitOfWork)
+	children, err := accessService.ListForGuardian(ctx, userResult.ID)
+	require.NoError(t, err)
+	require.Len(t, children, 1)
+	assert.Equal(t, childResult.ID, children[0].ID)
+
+	found, err := accessService.GetForGuardian(ctx, userResult.ID, childResult.ID)
+	require.NoError(t, err)
+	assert.Equal(t, childResult.ID, found.ID)
+
+	newName := "新名"
+	gender := uint8(2)
+	birthday := "2020-02-20"
+	height := uint32(121)
+	weight := uint32(26000)
+	updated, err := accessService.PatchForGuardian(ctx, child.PatchChildForGuardianDTO{
+		UserID:    userResult.ID,
+		ChildID:   childResult.ID,
+		LegalName: &newName,
+		Gender:    &gender,
+		Birthday:  &birthday,
+		Height:    &height,
+		Weight:    &weight,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	assert.Equal(t, newName, updated.Name)
+	assert.Equal(t, gender, updated.Gender)
+	assert.Equal(t, birthday, updated.Birthday)
+	assert.Equal(t, height, updated.Height)
+	assert.Equal(t, weight, updated.Weight)
+}
+
+func TestChildAccessApplicationService_GetForGuardianRejectsNonGuardian(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	userService := user.NewUserApplicationService(unitOfWork)
+	guardian, err := userService.Register(ctx, user.RegisterUserDTO{
+		Name:  "监护人",
+		Phone: "13800139002",
+		Email: "guardian2@example.com",
+	})
+	require.NoError(t, err)
+	other, err := userService.Register(ctx, user.RegisterUserDTO{
+		Name:  "其他用户",
+		Phone: "13800139003",
+		Email: "other@example.com",
+	})
+	require.NoError(t, err)
+
+	childService := child.NewChildApplicationService(unitOfWork)
+	childResult, err := childService.Register(ctx, child.RegisterChildDTO{
+		Name:     "孩子",
+		Gender:   1,
+		Birthday: "2020-01-15",
+	})
+	require.NoError(t, err)
+
+	guardService := guardianship.NewGuardianshipApplicationService(unitOfWork)
+	require.NoError(t, guardService.AddGuardian(ctx, guardianship.AddGuardianDTO{
+		UserID:   guardian.ID,
+		ChildID:  childResult.ID,
+		Relation: "parent",
+	}))
+
+	accessService := child.NewChildAccessApplicationService(unitOfWork)
+	result, err := accessService.GetForGuardian(ctx, other.ID, childResult.ID)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
 }

@@ -34,6 +34,13 @@ type ChildQueryApplicationService interface {
 	FindSimilar(ctx context.Context, name string, gender uint8, birthday string) ([]*ChildResult, error)
 }
 
+// ChildAccessApplicationService 当前监护人视角的儿童档案用例。
+type ChildAccessApplicationService interface {
+	ListForGuardian(ctx context.Context, userID string) ([]*ChildResult, error)
+	GetForGuardian(ctx context.Context, userID string, childID string) (*ChildResult, error)
+	PatchForGuardian(ctx context.Context, dto PatchChildForGuardianDTO) (*ChildResult, error)
+}
+
 // ============= DTOs =============
 
 // RegisterChildDTO 注册儿童 DTO
@@ -58,6 +65,17 @@ type UpdateHeightWeightDTO struct {
 	ChildID string // 儿童 ID
 	Height  uint32 // 身高（厘米）
 	Weight  uint32 // 体重（克）
+}
+
+// PatchChildForGuardianDTO 当前监护人更新儿童档案 DTO。
+type PatchChildForGuardianDTO struct {
+	UserID    string
+	ChildID   string
+	LegalName *string
+	Gender    *uint8
+	Birthday  *string
+	Height    *uint32
+	Weight    *uint32
 }
 
 // ChildResult 儿童结果 DTO

@@ -195,8 +195,8 @@ func TestRouterRegistersIdentityGuardiansRoutes(t *testing.T) {
 		},
 		UserModule: &assembler.UserModule{
 			UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-			ChildHandler:        uchandler.NewChildHandler(nil, nil, nil, nil, nil),
-			GuardianshipHandler: uchandler.NewGuardianshipHandler(nil, nil),
+			ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
+			GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
 		},
 	}
 
@@ -214,8 +214,8 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	c := &container.Container{
 		UserModule: &assembler.UserModule{
 			UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-			ChildHandler:        uchandler.NewChildHandler(nil, nil, nil, nil, nil),
-			GuardianshipHandler: uchandler.NewGuardianshipHandler(nil, nil),
+			ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
+			GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
 		},
 		AuthzModule: &assembler.AuthzModule{
 			RoleHandler:       authzhandler.NewRoleHandler(nil, nil),

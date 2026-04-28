@@ -18,9 +18,8 @@ import (
 func TestGuardianshipHandlerGrantUsesCurrentUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	app := &guardianshipAppStub{}
-	query := &guardianshipQueryStub{
-		getByUserAndChild: &appguard.GuardianshipResult{
+	access := &guardianshipAccessStub{
+		grantResult: &appguard.GuardianshipResult{
 			ID:            1,
 			UserID:        "100",
 			ChildID:       "200",
@@ -28,7 +27,7 @@ func TestGuardianshipHandlerGrantUsesCurrentUser(t *testing.T) {
 			EstablishedAt: time.Now().Format(time.RFC3339),
 		},
 	}
-	handler := NewGuardianshipHandler(app, query)
+	handler := NewGuardianshipHandler(access)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -41,19 +40,21 @@ func TestGuardianshipHandlerGrantUsesCurrentUser(t *testing.T) {
 	if recorder.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusCreated, recorder.Body.String())
 	}
-	if len(app.addCalls) != 1 {
-		t.Fatalf("AddGuardian calls = %d, want 1", len(app.addCalls))
+	if len(access.grantCalls) != 1 {
+		t.Fatalf("GrantForCurrentUser calls = %d, want 1", len(access.grantCalls))
 	}
-	if app.addCalls[0].UserID != "100" {
-		t.Fatalf("AddGuardian user_id = %s, want 100", app.addCalls[0].UserID)
+	if access.grantCalls[0].currentUserID != "100" || access.grantCalls[0].dto.UserID != "" {
+		t.Fatalf("GrantForCurrentUser call = %#v, want current user 100 with empty dto user", access.grantCalls[0])
 	}
 }
 
 func TestGuardianshipHandlerGrantRejectsDifferentUserID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	app := &guardianshipAppStub{}
-	handler := NewGuardianshipHandler(app, &guardianshipQueryStub{})
+	access := &guardianshipAccessStub{
+		grantErr: perrors.WithCode(code.ErrPermissionDenied, "cannot grant guardianship for another user"),
+	}
+	handler := NewGuardianshipHandler(access)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -66,16 +67,16 @@ func TestGuardianshipHandlerGrantRejectsDifferentUserID(t *testing.T) {
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusForbidden, recorder.Body.String())
 	}
-	if len(app.addCalls) != 0 {
-		t.Fatalf("AddGuardian should not be called")
+	if len(access.grantCalls) != 1 {
+		t.Fatalf("GrantForCurrentUser calls = %d, want 1", len(access.grantCalls))
 	}
 }
 
 func TestGuardianshipHandlerListDefaultsToCurrentUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	query := &guardianshipQueryStub{
-		listChildrenResult: []*appguard.GuardianshipResult{{
+	access := &guardianshipAccessStub{
+		listResult: []*appguard.GuardianshipResult{{
 			ID:            1,
 			UserID:        "100",
 			ChildID:       "200",
@@ -83,7 +84,7 @@ func TestGuardianshipHandlerListDefaultsToCurrentUser(t *testing.T) {
 			EstablishedAt: time.Now().Format(time.RFC3339),
 		}},
 	}
-	handler := NewGuardianshipHandler(&guardianshipAppStub{}, query)
+	handler := NewGuardianshipHandler(access)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -95,16 +96,18 @@ func TestGuardianshipHandlerListDefaultsToCurrentUser(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
-	if len(query.listChildrenCalls) != 1 || query.listChildrenCalls[0] != "100" {
-		t.Fatalf("ListChildrenByUserID calls = %#v, want [100]", query.listChildrenCalls)
+	if len(access.listCalls) != 1 || access.listCalls[0].currentUserID != "100" {
+		t.Fatalf("ListForCurrentUser calls = %#v, want current user 100", access.listCalls)
 	}
 }
 
 func TestGuardianshipHandlerListRejectsCrossUserQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	query := &guardianshipQueryStub{}
-	handler := NewGuardianshipHandler(&guardianshipAppStub{}, query)
+	access := &guardianshipAccessStub{
+		listErr: perrors.WithCode(code.ErrPermissionDenied, "cannot query guardianships for another user"),
+	}
+	handler := NewGuardianshipHandler(access)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -116,18 +119,18 @@ func TestGuardianshipHandlerListRejectsCrossUserQuery(t *testing.T) {
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusForbidden, recorder.Body.String())
 	}
-	if len(query.listChildrenCalls) != 0 {
-		t.Fatalf("query service should not be called")
+	if len(access.listCalls) != 1 {
+		t.Fatalf("ListForCurrentUser calls = %d, want 1", len(access.listCalls))
 	}
 }
 
 func TestGuardianshipHandlerListRejectsChildLookupForNonGuardian(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	query := &guardianshipQueryStub{
-		getByUserAndChildErr: perrors.WithCode(code.ErrPermissionDenied, "forbidden"),
+	access := &guardianshipAccessStub{
+		listErr: perrors.WithCode(code.ErrPermissionDenied, "forbidden"),
 	}
-	handler := NewGuardianshipHandler(&guardianshipAppStub{}, query)
+	handler := NewGuardianshipHandler(access)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -139,63 +142,43 @@ func TestGuardianshipHandlerListRejectsChildLookupForNonGuardian(t *testing.T) {
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusForbidden, recorder.Body.String())
 	}
-	if len(query.listGuardiansCalls) != 0 {
-		t.Fatalf("ListGuardiansByChildID should not be called")
+	if len(access.listCalls) != 1 {
+		t.Fatalf("ListForCurrentUser calls = %d, want 1", len(access.listCalls))
 	}
 }
 
-type guardianshipAppStub struct {
-	addCalls []appguard.AddGuardianDTO
+type guardianshipAccessStub struct {
+	grantResult *appguard.GuardianshipResult
+	grantErr    error
+	grantCalls  []struct {
+		currentUserID string
+		dto           appguard.AddGuardianDTO
+	}
+
+	listResult []*appguard.GuardianshipResult
+	listErr    error
+	listCalls  []struct {
+		currentUserID string
+		dto           appguard.ListGuardianshipsDTO
+	}
 }
 
-func (s *guardianshipAppStub) AddGuardian(_ context.Context, dto appguard.AddGuardianDTO) error {
-	s.addCalls = append(s.addCalls, dto)
-	return nil
+func (s *guardianshipAccessStub) GrantForCurrentUser(_ context.Context, currentUserID string, dto appguard.AddGuardianDTO) (*appguard.GuardianshipResult, error) {
+	s.grantCalls = append(s.grantCalls, struct {
+		currentUserID string
+		dto           appguard.AddGuardianDTO
+	}{currentUserID: currentUserID, dto: dto})
+	return s.grantResult, s.grantErr
 }
 
-func (s *guardianshipAppStub) RemoveGuardian(context.Context, appguard.RemoveGuardianDTO) error {
-	return nil
+func (s *guardianshipAccessStub) ListForCurrentUser(_ context.Context, currentUserID string, dto appguard.ListGuardianshipsDTO) ([]*appguard.GuardianshipResult, error) {
+	s.listCalls = append(s.listCalls, struct {
+		currentUserID string
+		dto           appguard.ListGuardianshipsDTO
+	}{currentUserID: currentUserID, dto: dto})
+	return s.listResult, s.listErr
 }
 
-type guardianshipQueryStub struct {
-	getByUserAndChild     *appguard.GuardianshipResult
-	getByUserAndChildErr  error
-	listChildrenResult    []*appguard.GuardianshipResult
-	listChildrenCalls     []string
-	listGuardiansResult   []*appguard.GuardianshipResult
-	listGuardiansCalls    []string
-	listWithRevokedCalls  []string
-	guardWithRevokedCalls []string
-}
-
-func (s *guardianshipQueryStub) IsGuardian(context.Context, string, string) (bool, error) {
-	return false, nil
-}
-
-func (s *guardianshipQueryStub) GetByUserIDAndChildID(context.Context, string, string) (*appguard.GuardianshipResult, error) {
-	return s.getByUserAndChild, s.getByUserAndChildErr
-}
-
-func (s *guardianshipQueryStub) GetByUserIDAndChildIDIncludingRevoked(context.Context, string, string) (*appguard.GuardianshipResult, error) {
-	return s.getByUserAndChild, s.getByUserAndChildErr
-}
-
-func (s *guardianshipQueryStub) ListChildrenByUserID(_ context.Context, userID string) ([]*appguard.GuardianshipResult, error) {
-	s.listChildrenCalls = append(s.listChildrenCalls, userID)
-	return s.listChildrenResult, nil
-}
-
-func (s *guardianshipQueryStub) ListChildrenByUserIDIncludingRevoked(_ context.Context, userID string) ([]*appguard.GuardianshipResult, error) {
-	s.listWithRevokedCalls = append(s.listWithRevokedCalls, userID)
-	return s.listChildrenResult, nil
-}
-
-func (s *guardianshipQueryStub) ListGuardiansByChildID(_ context.Context, childID string) ([]*appguard.GuardianshipResult, error) {
-	s.listGuardiansCalls = append(s.listGuardiansCalls, childID)
-	return s.listGuardiansResult, nil
-}
-
-func (s *guardianshipQueryStub) ListGuardiansByChildIDIncludingRevoked(_ context.Context, childID string) ([]*appguard.GuardianshipResult, error) {
-	s.guardWithRevokedCalls = append(s.guardWithRevokedCalls, childID)
-	return s.listGuardiansResult, nil
+func (s *guardianshipAccessStub) RevokeBySelector(context.Context, appguard.RevokeGuardianBySelectorDTO) (*appguard.GuardianshipResult, error) {
+	return nil, nil
 }

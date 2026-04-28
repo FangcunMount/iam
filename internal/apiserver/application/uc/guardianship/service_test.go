@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // ==================== GuardianshipApplicationService 测试 ====================
@@ -519,4 +521,103 @@ func TestGuardianshipQueryApplicationService_ListChildrenByUserID_ExcludesRevoke
 	require.NoError(t, err)
 	require.Len(t, withRevoked, 1)
 	assert.NotEmpty(t, withRevoked[0].RevokedAt)
+}
+
+func TestGuardianshipAccessApplicationService_GrantAndListForCurrentUser(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	userService := user.NewUserApplicationService(unitOfWork)
+	userResult, err := userService.Register(ctx, user.RegisterUserDTO{
+		Name:  "当前用户",
+		Phone: "13800139101",
+		Email: "current@example.com",
+	})
+	require.NoError(t, err)
+
+	childService := child.NewChildApplicationService(unitOfWork)
+	childResult, err := childService.Register(ctx, child.RegisterChildDTO{
+		Name:     "孩子",
+		Gender:   1,
+		Birthday: "2020-01-15",
+	})
+	require.NoError(t, err)
+
+	accessService := guardianship.NewGuardianshipAccessApplicationService(unitOfWork)
+	created, err := accessService.GrantForCurrentUser(ctx, userResult.ID, guardianship.AddGuardianDTO{
+		ChildID:  childResult.ID,
+		Relation: "parent",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, userResult.ID, created.UserID)
+	assert.Equal(t, childResult.ID, created.ChildID)
+
+	results, err := accessService.ListForCurrentUser(ctx, userResult.ID, guardianship.ListGuardianshipsDTO{})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, childResult.ID, results[0].ChildID)
+}
+
+func TestGuardianshipAccessApplicationService_RejectsCrossUserGrantAndList(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	accessService := guardianship.NewGuardianshipAccessApplicationService(unitOfWork)
+
+	created, err := accessService.GrantForCurrentUser(ctx, "1", guardianship.AddGuardianDTO{
+		UserID:   "2",
+		ChildID:  "3",
+		Relation: "parent",
+	})
+	require.Error(t, err)
+	assert.Nil(t, created)
+	assert.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
+
+	results, err := accessService.ListForCurrentUser(ctx, "1", guardianship.ListGuardianshipsDTO{UserID: "2"})
+	require.Error(t, err)
+	assert.Nil(t, results)
+	assert.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
+}
+
+func TestGuardianshipAccessApplicationService_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := mysqluow.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	userService := user.NewUserApplicationService(unitOfWork)
+	userResult, err := userService.Register(ctx, user.RegisterUserDTO{
+		Name:  "撤销用户",
+		Phone: "13800139102",
+		Email: "revoke@example.com",
+	})
+	require.NoError(t, err)
+
+	childService := child.NewChildApplicationService(unitOfWork)
+	childResult, err := childService.Register(ctx, child.RegisterChildDTO{
+		Name:     "孩子",
+		Gender:   1,
+		Birthday: "2020-01-15",
+	})
+	require.NoError(t, err)
+
+	guardService := guardianship.NewGuardianshipApplicationService(unitOfWork)
+	require.NoError(t, guardService.AddGuardian(ctx, guardianship.AddGuardianDTO{
+		UserID:   userResult.ID,
+		ChildID:  childResult.ID,
+		Relation: "parent",
+	}))
+
+	accessService := guardianship.NewGuardianshipAccessApplicationService(unitOfWork)
+	revoked, err := accessService.RevokeBySelector(ctx, guardianship.RevokeGuardianBySelectorDTO{
+		UserID:  userResult.ID,
+		ChildID: childResult.ID,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, revoked)
+	assert.Equal(t, userResult.ID, revoked.UserID)
+	assert.Equal(t, childResult.ID, revoked.ChildID)
+	assert.NotEmpty(t, revoked.RevokedAt)
 }

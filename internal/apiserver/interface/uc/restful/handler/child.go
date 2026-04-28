@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appchild "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
-	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 	appregistration "github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
 	requestdto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/request"
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/response"
@@ -20,27 +19,21 @@ import (
 // ChildHandler 儿童档案 REST 处理器
 type ChildHandler struct {
 	*BaseHandler
-	childApp        appchild.ChildApplicationService
-	profileApp      appchild.ChildProfileApplicationService
 	registrationApp appregistration.ChildRegistrationService
-	guardQuery      appguard.GuardianshipQueryApplicationService
+	childAccess     appchild.ChildAccessApplicationService
 	childQuery      appchild.ChildQueryApplicationService
 }
 
 // NewChildHandler 创建儿童档案处理器
 func NewChildHandler(
-	childApp appchild.ChildApplicationService,
-	profileApp appchild.ChildProfileApplicationService,
 	registrationApp appregistration.ChildRegistrationService,
-	guardQuery appguard.GuardianshipQueryApplicationService,
+	childAccess appchild.ChildAccessApplicationService,
 	childQuery appchild.ChildQueryApplicationService,
 ) *ChildHandler {
 	return &ChildHandler{
 		BaseHandler:     NewBaseHandler(),
-		childApp:        childApp,
-		profileApp:      profileApp,
 		registrationApp: registrationApp,
-		guardQuery:      guardQuery,
+		childAccess:     childAccess,
 		childQuery:      childQuery,
 	}
 }
@@ -71,30 +64,23 @@ func (h *ChildHandler) ListMyChildren(c *gin.Context) {
 		return
 	}
 
-	// 列出用户监护的所有儿童
-	guardianships, err := h.guardQuery.ListChildrenByUserID(c.Request.Context(), rawID)
+	childResults, err := h.childAccess.ListForGuardian(c.Request.Context(), rawID)
 	if err != nil {
 		h.Error(c, err)
 		return
 	}
 
-	var children []responsedto.ChildResponse
-	for _, g := range guardianships {
-		if g == nil {
+	var childResponses []responsedto.ChildResponse
+	for _, child := range childResults {
+		if child == nil {
 			continue
 		}
-		// 查询儿童详细信息
-		child, err := h.childQuery.GetByID(c.Request.Context(), g.ChildID)
-		if err != nil {
-			h.Error(c, err)
-			return
-		}
 		resp := childResultToResponse(child)
-		children = append(children, resp)
+		childResponses = append(childResponses, resp)
 	}
 
-	total := len(children)
-	sliced := sliceChildren(children, query.Offset, query.Limit)
+	total := len(childResponses)
+	sliced := sliceChildren(childResponses, query.Offset, query.Limit)
 
 	h.Success(c, responsedto.ChildPageResponse{
 		Total:  total,
@@ -210,21 +196,7 @@ func (h *ChildHandler) GetChild(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// 验证用户是否是该儿童的监护人
-	guardianship, err := h.guardQuery.GetByUserIDAndChildID(ctx, rawUserID, childID)
-	if err != nil {
-		h.ErrorWithCode(c, code.ErrPermissionDenied, "you are not the guardian of this child")
-		return
-	}
-
-	// 检查监护关系是否有效
-	if guardianship == nil {
-		h.ErrorWithCode(c, code.ErrPermissionDenied, "you are not the guardian of this child")
-		return
-	}
-
-	// 查询儿童信息
-	child, err := h.childQuery.GetByID(ctx, childID)
+	child, err := h.childAccess.GetForGuardian(ctx, rawUserID, childID)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -265,76 +237,33 @@ func (h *ChildHandler) PatchChild(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// 验证用户是否是该儿童的监护人
-	guardianship, err := h.guardQuery.GetByUserIDAndChildID(ctx, rawUserID, childID)
-	if err != nil {
-		h.ErrorWithCode(c, code.ErrPermissionDenied, "you are not the guardian of this child")
-		return
-	}
-
-	// 检查监护关系是否有效
-	if guardianship == nil {
-		h.ErrorWithCode(c, code.ErrPermissionDenied, "you are not the guardian of this child")
-		return
-	}
-
 	var req requestdto.ChildUpdateRequest
 	if err := h.BindJSON(c, &req); err != nil {
 		h.Error(c, err)
 		return
 	}
 
-	// 更新姓名
-	if req.LegalName != nil && strings.TrimSpace(*req.LegalName) != "" {
-		if err := h.profileApp.Rename(ctx, childID, strings.TrimSpace(*req.LegalName)); err != nil {
-			h.Error(c, err)
-			return
-		}
+	var height *uint32
+	if req.HeightCm != nil {
+		parsed := uint32(*req.HeightCm)
+		height = &parsed
+	}
+	var weight *uint32
+	if req.WeightKg != nil {
+		f, _ := strconv.ParseFloat(strings.TrimSpace(*req.WeightKg), 64)
+		parsed := uint32(f * 1000) // kg转克
+		weight = &parsed
 	}
 
-	// 更新性别和生日
-	if req.Gender != nil || req.DOB != nil {
-		dto := appchild.UpdateChildProfileDTO{
-			ChildID: childID,
-		}
-		if req.Gender != nil {
-			dto.Gender = *req.Gender
-		}
-		if req.DOB != nil {
-			dto.Birthday = strings.TrimSpace(*req.DOB)
-		}
-		if err := h.profileApp.UpdateProfile(ctx, dto); err != nil {
-			h.Error(c, err)
-			return
-		}
-	}
-
-	// 更新身高体重
-	if req.HeightCm != nil || req.WeightKg != nil {
-		height := uint32(0)
-		weight := uint32(0)
-
-		if req.HeightCm != nil {
-			height = uint32(*req.HeightCm)
-		}
-		if req.WeightKg != nil {
-			f, _ := strconv.ParseFloat(strings.TrimSpace(*req.WeightKg), 64)
-			weight = uint32(f * 1000) // kg转克
-		}
-
-		dto := appchild.UpdateHeightWeightDTO{
-			ChildID: childID,
-			Height:  height,
-			Weight:  weight,
-		}
-		if err := h.profileApp.UpdateHeightWeight(ctx, dto); err != nil {
-			h.Error(c, err)
-			return
-		}
-	}
-
-	// 返回更新后的儿童信息
-	child, err := h.childQuery.GetByID(ctx, childID)
+	child, err := h.childAccess.PatchForGuardian(ctx, appchild.PatchChildForGuardianDTO{
+		UserID:    rawUserID,
+		ChildID:   childID,
+		LegalName: req.LegalName,
+		Gender:    req.Gender,
+		Birthday:  req.DOB,
+		Height:    height,
+		Weight:    weight,
+	})
 	if err != nil {
 		h.Error(c, err)
 		return

@@ -32,6 +32,13 @@ type GuardianshipQueryApplicationService interface {
 	ListGuardiansByChildIDIncludingRevoked(ctx context.Context, childID string) ([]*GuardianshipResult, error)
 }
 
+// GuardianshipAccessApplicationService 当前用户视角的监护关系访问用例。
+type GuardianshipAccessApplicationService interface {
+	GrantForCurrentUser(ctx context.Context, currentUserID string, dto AddGuardianDTO) (*GuardianshipResult, error)
+	ListForCurrentUser(ctx context.Context, currentUserID string, dto ListGuardianshipsDTO) ([]*GuardianshipResult, error)
+	RevokeBySelector(ctx context.Context, dto RevokeGuardianBySelectorDTO) (*GuardianshipResult, error)
+}
+
 // ============= DTOs =============
 
 // AddGuardianDTO 添加监护人 DTO
@@ -45,6 +52,20 @@ type AddGuardianDTO struct {
 type RemoveGuardianDTO struct {
 	UserID  string // 用户 ID
 	ChildID string // 儿童 ID
+}
+
+// ListGuardianshipsDTO 监护关系查询 DTO。
+type ListGuardianshipsDTO struct {
+	UserID  string
+	ChildID string
+	Active  *bool
+}
+
+// RevokeGuardianBySelectorDTO 通过 ID 或 user/child key 撤销监护关系。
+type RevokeGuardianBySelectorDTO struct {
+	GuardianshipID string
+	UserID         string
+	ChildID        string
 }
 
 // GuardianshipResult 监护关系结果 DTO

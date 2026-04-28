@@ -3,7 +3,6 @@ package handler
 import (
 	"time"
 
-	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
 	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
@@ -16,19 +15,16 @@ import (
 // GuardianshipHandler 监护关系 REST 处理器
 type GuardianshipHandler struct {
 	*BaseHandler
-	guardApp   appguard.GuardianshipApplicationService
-	guardQuery appguard.GuardianshipQueryApplicationService
+	guardAccess appguard.GuardianshipAccessApplicationService
 }
 
 // NewGuardianshipHandler 创建监护处理器
 func NewGuardianshipHandler(
-	guardApp appguard.GuardianshipApplicationService,
-	guardQuery appguard.GuardianshipQueryApplicationService,
+	guardAccess appguard.GuardianshipAccessApplicationService,
 ) *GuardianshipHandler {
 	return &GuardianshipHandler{
 		BaseHandler: NewBaseHandler(),
-		guardApp:    guardApp,
-		guardQuery:  guardQuery,
+		guardAccess: guardAccess,
 	}
 }
 
@@ -58,24 +54,12 @@ func (h *GuardianshipHandler) Grant(c *gin.Context) {
 		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
 		return
 	}
-	if req.UserID != "" && req.UserID != currentUserID {
-		h.ErrorWithCode(c, code.ErrPermissionDenied, "cannot grant guardianship for another user")
-		return
-	}
 
-	dto := appguard.AddGuardianDTO{
-		UserID:   currentUserID,
+	result, err := h.guardAccess.GrantForCurrentUser(c.Request.Context(), currentUserID, appguard.AddGuardianDTO{
+		UserID:   req.UserID,
 		ChildID:  req.ChildID,
 		Relation: req.Relation,
-	}
-
-	if err := h.guardApp.AddGuardian(c.Request.Context(), dto); err != nil {
-		h.Error(c, err)
-		return
-	}
-
-	// 查询返回监护关系
-	result, err := h.guardQuery.GetByUserIDAndChildID(c.Request.Context(), currentUserID, req.ChildID)
+	})
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -113,44 +97,12 @@ func (h *GuardianshipHandler) List(c *gin.Context) {
 		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
 		return
 	}
-	if req.UserID != "" && req.UserID != currentUserID {
-		h.ErrorWithCode(c, code.ErrPermissionDenied, "cannot query guardianships for another user")
-		return
-	}
 
-	req.UserID = currentUserID
-
-	var results []*appguard.GuardianshipResult
-	var err error
-
-	switch {
-	case req.UserID != "" && req.ChildID != "":
-		if err := h.ensureActiveGuardianAccess(c, currentUserID, req.ChildID); err != nil {
-			h.Error(c, err)
-			return
-		}
-		result, qerr := h.getByUserIDAndChildID(c, req)
-		if qerr != nil {
-			h.Error(c, qerr)
-			return
-		}
-		if result != nil {
-			results = []*appguard.GuardianshipResult{result}
-		} else {
-			results = []*appguard.GuardianshipResult{}
-		}
-	case req.UserID != "":
-		results, err = h.listChildrenByUserID(c, req)
-	case req.ChildID != "":
-		if err := h.ensureActiveGuardianAccess(c, currentUserID, req.ChildID); err != nil {
-			h.Error(c, err)
-			return
-		}
-		results, err = h.listGuardiansByChildID(c, req)
-	default:
-		results, err = h.listChildrenByUserID(c, req)
-	}
-
+	results, err := h.guardAccess.ListForCurrentUser(c.Request.Context(), currentUserID, appguard.ListGuardianshipsDTO{
+		UserID:  req.UserID,
+		ChildID: req.ChildID,
+		Active:  req.Active,
+	})
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -207,34 +159,6 @@ func parseGuardTime(timeStr string) time.Time {
 		return time.Time{}
 	}
 	return t
-}
-
-func (h *GuardianshipHandler) getByUserIDAndChildID(c *gin.Context, req requestdto.GuardianshipListQuery) (*appguard.GuardianshipResult, error) {
-	if req.Active != nil && !*req.Active {
-		return h.guardQuery.GetByUserIDAndChildIDIncludingRevoked(c.Request.Context(), req.UserID, req.ChildID)
-	}
-	return h.guardQuery.GetByUserIDAndChildID(c.Request.Context(), req.UserID, req.ChildID)
-}
-
-func (h *GuardianshipHandler) listChildrenByUserID(c *gin.Context, req requestdto.GuardianshipListQuery) ([]*appguard.GuardianshipResult, error) {
-	if req.Active != nil && !*req.Active {
-		return h.guardQuery.ListChildrenByUserIDIncludingRevoked(c.Request.Context(), req.UserID)
-	}
-	return h.guardQuery.ListChildrenByUserID(c.Request.Context(), req.UserID)
-}
-
-func (h *GuardianshipHandler) listGuardiansByChildID(c *gin.Context, req requestdto.GuardianshipListQuery) ([]*appguard.GuardianshipResult, error) {
-	if req.Active != nil && !*req.Active {
-		return h.guardQuery.ListGuardiansByChildIDIncludingRevoked(c.Request.Context(), req.ChildID)
-	}
-	return h.guardQuery.ListGuardiansByChildID(c.Request.Context(), req.ChildID)
-}
-
-func (h *GuardianshipHandler) ensureActiveGuardianAccess(c *gin.Context, userID, childID string) error {
-	if _, err := h.guardQuery.GetByUserIDAndChildID(c.Request.Context(), userID, childID); err != nil {
-		return perrors.WithCode(code.ErrPermissionDenied, "you are not an active guardian of this child")
-	}
-	return nil
 }
 
 // sliceGuardianships 分页切片

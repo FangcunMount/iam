@@ -7,9 +7,6 @@ import (
 	childApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
 	guardianshipApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	childDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
-	guardianshipDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
-	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 )
 
 // Service 聚合 identity 模块的 gRPC 服务
@@ -22,9 +19,6 @@ type Service struct {
 
 // NewService 创建 identity gRPC 服务
 // 参数：
-//   - userRepo: 用户领域仓储
-//   - childRepo: 儿童领域仓储
-//   - guardRepo: 监护关系领域仓储
 //   - userQuerySvc: 用户查询应用服务
 //   - childQuerySvc: 儿童查询应用服务
 //   - guardianshipQuerySvc: 监护关系查询应用服务
@@ -32,10 +26,8 @@ type Service struct {
 //   - userProfileSvc: 用户资料应用服务
 //   - userStatusSvc: 用户状态应用服务
 //   - guardianshipSvc: 监护关系应用服务
+//   - guardianshipAccessSvc: 当前用户视角监护关系访问用例
 func NewService(
-	userRepo userDomain.Repository,
-	childRepo childDomain.Repository,
-	guardRepo guardianshipDomain.Repository,
 	userQuerySvc userApp.UserQueryApplicationService,
 	childQuerySvc childApp.ChildQueryApplicationService,
 	guardianshipQuerySvc guardianshipApp.GuardianshipQueryApplicationService,
@@ -43,24 +35,21 @@ func NewService(
 	userProfileSvc userApp.UserProfileApplicationService,
 	userStatusSvc userApp.UserStatusApplicationService,
 	guardianshipSvc guardianshipApp.GuardianshipApplicationService,
+	guardianshipAccessSvc guardianshipApp.GuardianshipAccessApplicationService,
 ) *Service {
 	return &Service{
 		identityRead: identityReadServer{
-			userRepo:      userRepo,
-			childRepo:     childRepo,
 			userQuerySvc:  userQuerySvc,
 			childQuerySvc: childQuerySvc,
 		},
 		guardianshipQry: guardianshipQueryServer{
-			childRepo:            childRepo,
-			guardRepo:            guardRepo,
 			guardianshipQuerySvc: guardianshipQuerySvc,
 			userQuerySvc:         userQuerySvc,
 		},
 		guardianshipCmd: guardianshipCommandServer{
-			guardianshipSvc:      guardianshipSvc,
-			guardianshipQuerySvc: guardianshipQuerySvc,
-			guardRepo:            guardRepo,
+			guardianshipSvc:       guardianshipSvc,
+			guardianshipQuerySvc:  guardianshipQuerySvc,
+			guardianshipAccessSvc: guardianshipAccessSvc,
 		},
 		identityLifecycle: identityLifecycleServer{
 			userSvc:        userSvc,
@@ -84,8 +73,6 @@ func (s *Service) RegisterService(server *grpc.Server) {
 // identityReadServer 用户和儿童身份读取服务
 type identityReadServer struct {
 	identityv1.UnimplementedIdentityReadServer
-	userRepo      userDomain.Repository
-	childRepo     childDomain.Repository
 	userQuerySvc  userApp.UserQueryApplicationService
 	childQuerySvc childApp.ChildQueryApplicationService
 }
@@ -93,8 +80,6 @@ type identityReadServer struct {
 // guardianshipQueryServer 监护关系查询服务
 type guardianshipQueryServer struct {
 	identityv1.UnimplementedGuardianshipQueryServer
-	childRepo            childDomain.Repository
-	guardRepo            guardianshipDomain.Repository
 	guardianshipQuerySvc guardianshipApp.GuardianshipQueryApplicationService
 	userQuerySvc         userApp.UserQueryApplicationService
 }
@@ -102,9 +87,9 @@ type guardianshipQueryServer struct {
 // guardianshipCommandServer 监护关系命令服务（写操作）
 type guardianshipCommandServer struct {
 	identityv1.UnimplementedGuardianshipCommandServer
-	guardianshipSvc      guardianshipApp.GuardianshipApplicationService
-	guardianshipQuerySvc guardianshipApp.GuardianshipQueryApplicationService
-	guardRepo            guardianshipDomain.Repository
+	guardianshipSvc       guardianshipApp.GuardianshipApplicationService
+	guardianshipQuerySvc  guardianshipApp.GuardianshipQueryApplicationService
+	guardianshipAccessSvc guardianshipApp.GuardianshipAccessApplicationService
 }
 
 // identityLifecycleServer 身份生命周期服务（用户管理）

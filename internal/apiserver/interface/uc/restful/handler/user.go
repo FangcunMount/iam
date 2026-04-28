@@ -109,29 +109,24 @@ func (h *UserHandler) PatchUser(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	if req.Nickname != nil {
-		if err := h.profileApp.Rename(ctx, userID, strings.TrimSpace(*req.Nickname)); err != nil {
-			h.Error(c, err)
-			return
-		}
-	}
-
+	var phonePtr *string
+	var emailPtr *string
 	if len(req.Contacts) > 0 {
 		phoneValue, emailValue := extractContactValues(req.Contacts)
-
-		if phoneValue != "" || emailValue != "" {
-			if err := h.profileApp.UpdateContact(ctx, appuser.UpdateContactDTO{
-				UserID: userID,
-				Phone:  phoneValue,
-				Email:  emailValue,
-			}); err != nil {
-				h.Error(c, err)
-				return
-			}
+		if phoneValue != "" {
+			phonePtr = &phoneValue
+		}
+		if emailValue != "" {
+			emailPtr = &emailValue
 		}
 	}
 
-	u, err := h.userQuery.GetByID(ctx, userID)
+	u, err := h.profileApp.PatchProfile(ctx, appuser.PatchUserProfileDTO{
+		UserID:   userID,
+		Nickname: req.Nickname,
+		Phone:    phonePtr,
+		Email:    emailPtr,
+	})
 	if err != nil {
 		h.Error(c, err)
 		return

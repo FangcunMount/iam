@@ -2,7 +2,6 @@ package identity
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -11,7 +10,6 @@ import (
 	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
 	guardianshipApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ============= IdentityRead 服务实现 =============
@@ -249,21 +247,13 @@ func (s *guardianshipCommandServer) AddGuardian(ctx context.Context, req *identi
 		Relation: protoRelationToString(req.GetRelation()),
 	}
 
-	err := s.guardianshipSvc.AddGuardian(ctx, dto)
+	result, err := s.guardianshipAccessSvc.GrantForCurrentUser(ctx, req.GetUserId(), dto)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	// 查询新创建的监护关系
-	userID, _ := strconv.ParseUint(req.GetUserId(), 10, 64)
-	childID, _ := strconv.ParseUint(req.GetChildId(), 10, 64)
-	guardianship, err := s.guardRepo.FindByUserIDAndChildID(ctx, meta.FromUint64(userID), meta.FromUint64(childID))
-	if err != nil {
-		return &identityv1.AddGuardianResponse{}, nil
-	}
-
 	return &identityv1.AddGuardianResponse{
-		Guardianship: guardianshipDomainToProto(guardianship),
+		Guardianship: guardianshipResultToProto(result),
 	}, nil
 }
 
@@ -274,19 +264,12 @@ func (s *guardianshipCommandServer) RevokeGuardian(ctx context.Context, req *ide
 	}
 
 	var userID, childID string
+	var guardianshipID string
 
 	// 根据不同的 selector 解析
 	switch target := req.GetTarget().GetSelector().(type) {
 	case *identityv1.GuardianshipSelector_GuardianshipId:
-		// 如果使用 guardianship_id，需要先查询得到 user_id 和 child_id
-		guardianshipIDRaw := target.GuardianshipId
-		guardianshipID, _ := strconv.ParseUint(guardianshipIDRaw, 10, 64)
-		guardianship, err := s.guardRepo.FindByID(ctx, meta.FromUint64(guardianshipID))
-		if err != nil {
-			return nil, toGRPCError(err)
-		}
-		userID = guardianship.User.String()
-		childID = guardianship.Child.String()
+		guardianshipID = target.GuardianshipId
 
 	case *identityv1.GuardianshipSelector_Key:
 		userID = target.Key.GetUserId()
@@ -296,19 +279,13 @@ func (s *guardianshipCommandServer) RevokeGuardian(ctx context.Context, req *ide
 		return nil, status.Error(codes.InvalidArgument, "invalid target selector")
 	}
 
-	dto := guardianshipApp.RemoveGuardianDTO{
-		UserID:  userID,
-		ChildID: childID,
-	}
-
-	err := s.guardianshipSvc.RemoveGuardian(ctx, dto)
+	guardianship, err := s.guardianshipAccessSvc.RevokeBySelector(ctx, guardianshipApp.RevokeGuardianBySelectorDTO{
+		GuardianshipID: guardianshipID,
+		UserID:         userID,
+		ChildID:        childID,
+	})
 	if err != nil {
 		return nil, toGRPCError(err)
-	}
-
-	guardianship, err := s.guardianshipQuerySvc.GetByUserIDAndChildIDIncludingRevoked(ctx, userID, childID)
-	if err != nil {
-		return &identityv1.RevokeGuardianResponse{}, nil
 	}
 
 	return &identityv1.RevokeGuardianResponse{

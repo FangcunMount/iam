@@ -2,13 +2,13 @@ package registration
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 	childapp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
 	guardapp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
 	childdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
 	guarddomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/guardianship"
@@ -51,7 +51,7 @@ func (s *childRegistrationService) RegisterChildWithGuardian(ctx context.Context
 		}
 
 		manager := guarddomain.NewManagerService(tx.Guardianships, tx.Children, tx.Users)
-		newGuardianship, err := manager.AddGuardian(ctx, userID, newChild.ID, guardapp.ParseRelation(dto.Relation))
+		newGuardianship, err := manager.AddGuardian(ctx, userID, newChild.ID, guarddomain.ParseRelation(dto.Relation))
 		if err != nil {
 			return err
 		}
@@ -75,8 +75,8 @@ func (s *childRegistrationService) RegisterChildWithGuardian(ctx context.Context
 func buildChildEntity(ctx context.Context, tx uow.TxRepositories, dto RegisterChildWithGuardianDTO) (*childdomain.Child, error) {
 	name := strings.TrimSpace(dto.Name)
 	validator := childdomain.NewValidator(tx.Children)
-	gender := meta.NewGender(dto.Gender)
-	birthday := meta.NewBirthday(strings.TrimSpace(dto.Birthday))
+	gender := input.ParseGender(dto.Gender)
+	birthday := input.ParseBirthday(strings.TrimSpace(dto.Birthday))
 	if err := validator.ValidateRegister(ctx, name, gender, birthday); err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func buildChildEntity(ctx context.Context, tx uow.TxRepositories, dto RegisterCh
 		childdomain.WithBirthday(birthday),
 	}
 	if strings.TrimSpace(dto.IDCard) != "" {
-		idCard, err := meta.NewIDCard(name, strings.TrimSpace(dto.IDCard))
+		idCard, err := input.ParseIDCard(name, strings.TrimSpace(dto.IDCard))
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func buildChildEntity(ctx context.Context, tx uow.TxRepositories, dto RegisterCh
 	if dto.Height != nil || dto.Weight != nil {
 		height := newChild.Height
 		if dto.Height != nil {
-			parsedHeight, err := meta.NewHeightFromFloat(float64(*dto.Height))
+			parsedHeight, err := input.ParseHeightCm(*dto.Height)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +110,7 @@ func buildChildEntity(ctx context.Context, tx uow.TxRepositories, dto RegisterCh
 
 		weight := newChild.Weight
 		if dto.Weight != nil {
-			parsedWeight, err := meta.NewWeightFromFloat(float64(*dto.Weight) / 1000.0)
+			parsedWeight, err := input.ParseWeightGrams(*dto.Weight)
 			if err != nil {
 				return nil, err
 			}
@@ -134,8 +134,8 @@ func childToResult(child *childdomain.Child) *childapp.ChildResult {
 		IDCard:   child.IDCard.String(),
 		Gender:   child.Gender.Value(),
 		Birthday: child.Birthday.String(),
-		Height:   uint32(child.Height.Tenths() / 10),
-		Weight:   uint32(child.Weight.Tenths() * 100),
+		Height:   input.HeightCm(child.Height),
+		Weight:   input.WeightGrams(child.Weight),
 	}
 }
 
@@ -164,10 +164,5 @@ func guardianshipToResult(guardianship *guarddomain.Guardianship, child *childdo
 }
 
 func parseUserID(userID string) (meta.ID, error) {
-	var id uint64
-	_, err := fmt.Sscanf(strings.TrimSpace(userID), "%d", &id)
-	if err != nil {
-		return meta.FromUint64(0), err
-	}
-	return meta.FromUint64(id), nil
+	return input.ParseUserID(strings.TrimSpace(userID))
 }
