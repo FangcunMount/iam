@@ -4,7 +4,7 @@
 
 ## 📋 文档列表
 
-### 1. [认证 API (authn.v1.yaml)](./authn.v1.yaml)
+### 1. [认证 API v1 (authn.v1.yaml)](./authn.v1.yaml)
 
 **功能域**: 认证与账户管理
 
@@ -121,7 +121,17 @@ curl -X GET https://api.example.com/.well-known/jwks.json
 
 ---
 
-### 2. [身份 API (identity.v1.yaml)](./identity.v1.yaml)
+### 2. [认证 API v2 (authn.v2.yaml)](./authn.v2.yaml)
+
+**功能域**: 显式认证契约
+
+| 分组 | 端点 | 方法 | 说明 |
+| ------ | ------ | ------ | ------ |
+| **认证** | `/api/v2/authn/login` | POST | 使用 `auth_method + method_payload` 登录 |
+
+---
+
+### 3. [身份 API (identity.v1.yaml)](./identity.v1.yaml)
 
 **功能域**: 用户、儿童、监护关系管理
 

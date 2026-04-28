@@ -34,10 +34,21 @@ const (
 	AuthTypeJWTToken AuthType = "jwt_token" // JWT令牌认证
 )
 
+// ScenarioSelectionMode 控制 LoginRequest 如何选择认证场景。
+type ScenarioSelectionMode string
+
+const (
+	// ScenarioSelectionLegacy 保持 v1 旧行为：根据字段存在性推断认证场景，AuthType 不作为权威字段。
+	ScenarioSelectionLegacy ScenarioSelectionMode = ""
+	// ScenarioSelectionExplicit 用于 v2：AuthType 是权威字段，只读取对应 method payload 映射出的字段。
+	ScenarioSelectionExplicit ScenarioSelectionMode = "explicit"
+)
+
 // LoginRequest 统一登录请求
 type LoginRequest struct {
 	// ========== 认证类型（必须）==========
-	AuthType AuthType // 认证类型
+	AuthType      AuthType              // 认证类型
+	SelectionMode ScenarioSelectionMode // 场景选择模式；零值保持 v1 legacy 字段推断
 
 	// ========== 密码认证字段 ==========
 	TenantID meta.ID // 租户ID（可选）

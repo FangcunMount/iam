@@ -188,9 +188,55 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, _, err := svc.prepareAuthentication(context.Background(), tc.req)
+			selected, err := svc.selectScenario(context.Background(), tc.req)
 			require.NoError(t, err)
-			require.Equal(t, tc.want, got)
+			require.Equal(t, tc.want, selected.Scenario)
 		})
 	}
+}
+
+func TestExplicitScenarioSelectorUsesAuthTypeAsAuthority(t *testing.T) {
+	t.Parallel()
+
+	username := "alice"
+	password := "secret"
+	phone := "+8613800138000"
+	otp := "123456"
+
+	selector := newDefaultScenarioSelector()
+	selected, err := selector.Select(context.Background(), LoginRequest{
+		SelectionMode: ScenarioSelectionExplicit,
+		AuthType:      AuthTypePassword,
+		Username:      &username,
+		Password:      &password,
+		PhoneE164:     &phone,
+		OTPCode:       &otp,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, authentication.AuthPassword, selected.Scenario)
+	require.Equal(t, username, selected.Input.Username)
+	require.Equal(t, password, selected.Input.Password)
+	require.Empty(t, selected.Input.PhoneE164)
+	require.Empty(t, selected.Input.OTP)
+}
+
+func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testing.T) {
+	t.Parallel()
+
+	username := "alice"
+	password := "secret"
+
+	selector := newDefaultScenarioSelector()
+	selected, err := selector.Select(context.Background(), LoginRequest{
+		AuthType: AuthTypeJWTToken,
+		Username: &username,
+		Password: &password,
+		JWTToken: nil,
+		TenantID: meta.FromUint64(42),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, authentication.AuthPassword, selected.Scenario)
+	require.Equal(t, uint64(42), selected.Input.TenantID.Uint64())
 }

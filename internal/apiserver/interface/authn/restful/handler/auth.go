@@ -78,6 +78,33 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 }
 
+// LoginV2 显式登录端点。
+func (h *AuthHandler) LoginV2(c *gin.Context) {
+	var reqBody req.LoginV2Request
+	if err := h.BindJSON(c, &reqBody); err != nil {
+		h.Error(c, err)
+		return
+	}
+
+	if err := reqBody.Validate(); err != nil {
+		h.Error(c, err)
+		return
+	}
+
+	switch reqBody.AuthMethod {
+	case "password":
+		h.handlePasswordLoginV2(c, reqBody)
+	case "phone_otp":
+		h.handlePhoneOTPLoginV2(c, reqBody)
+	case "wechat":
+		h.handleWeChatLoginV2(c, reqBody)
+	case "wecom":
+		h.handleWeComLoginV2(c, reqBody)
+	default:
+		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", reqBody.AuthMethod))
+	}
+}
+
 // handlePasswordLogin 处理密码登录
 func (h *AuthHandler) handlePasswordLogin(c *gin.Context, reqBody req.LoginRequest) {
 	var creds req.PasswordCredentials
@@ -98,6 +125,26 @@ func (h *AuthHandler) handlePasswordLogin(c *gin.Context, reqBody req.LoginReque
 	h.executeLogin(c, loginReq)
 }
 
+func (h *AuthHandler) handlePasswordLoginV2(c *gin.Context, reqBody req.LoginV2Request) {
+	var creds req.PasswordCredentials
+	if err := json.Unmarshal(reqBody.MethodPayload, &creds); err != nil {
+		h.Error(c, perrors.WithCode(code.ErrBind, "invalid password method_payload: %v", err))
+		return
+	}
+
+	loginReq := login.LoginRequest{
+		SelectionMode: login.ScenarioSelectionExplicit,
+		AuthType:      login.AuthTypePassword,
+		Username:      &creds.Username,
+		Password:      &creds.Password,
+	}
+	if creds.TenantID != 0 {
+		loginReq.TenantID = meta.FromUint64(creds.TenantID)
+	}
+
+	h.executeLogin(c, loginReq)
+}
+
 // handlePhoneOTPLogin 处理手机验证码登录
 func (h *AuthHandler) handlePhoneOTPLogin(c *gin.Context, reqBody req.LoginRequest) {
 	var creds req.PhoneOTPCredentials
@@ -110,6 +157,23 @@ func (h *AuthHandler) handlePhoneOTPLogin(c *gin.Context, reqBody req.LoginReque
 		AuthType:  login.AuthTypePhoneOTP,
 		PhoneE164: &creds.Phone,
 		OTPCode:   &creds.OTPCode,
+	}
+
+	h.executeLogin(c, loginReq)
+}
+
+func (h *AuthHandler) handlePhoneOTPLoginV2(c *gin.Context, reqBody req.LoginV2Request) {
+	var creds req.PhoneOTPCredentials
+	if err := json.Unmarshal(reqBody.MethodPayload, &creds); err != nil {
+		h.Error(c, perrors.WithCode(code.ErrBind, "invalid phone OTP method_payload: %v", err))
+		return
+	}
+
+	loginReq := login.LoginRequest{
+		SelectionMode: login.ScenarioSelectionExplicit,
+		AuthType:      login.AuthTypePhoneOTP,
+		PhoneE164:     &creds.Phone,
+		OTPCode:       &creds.OTPCode,
 	}
 
 	h.executeLogin(c, loginReq)
@@ -157,6 +221,23 @@ func (h *AuthHandler) handleWeChatLogin(c *gin.Context, reqBody req.LoginRequest
 	h.executeLogin(c, loginReq)
 }
 
+func (h *AuthHandler) handleWeChatLoginV2(c *gin.Context, reqBody req.LoginV2Request) {
+	var creds req.WeChatCredentials
+	if err := json.Unmarshal(reqBody.MethodPayload, &creds); err != nil {
+		h.Error(c, perrors.WithCode(code.ErrBind, "invalid wechat method_payload: %v", err))
+		return
+	}
+
+	loginReq := login.LoginRequest{
+		SelectionMode: login.ScenarioSelectionExplicit,
+		AuthType:      login.AuthTypeWechat,
+		WechatAppID:   &creds.AppID,
+		WechatJSCode:  &creds.Code,
+	}
+
+	h.executeLogin(c, loginReq)
+}
+
 // handleWeComLogin 处理企业微信登录
 func (h *AuthHandler) handleWeComLogin(c *gin.Context, reqBody req.LoginRequest) {
 	var creds req.WeComCredentials
@@ -169,6 +250,23 @@ func (h *AuthHandler) handleWeComLogin(c *gin.Context, reqBody req.LoginRequest)
 		AuthType:    login.AuthTypeWecom,
 		WecomCorpID: &creds.CorpID,
 		WecomCode:   &creds.AuthCode,
+	}
+
+	h.executeLogin(c, loginReq)
+}
+
+func (h *AuthHandler) handleWeComLoginV2(c *gin.Context, reqBody req.LoginV2Request) {
+	var creds req.WeComCredentials
+	if err := json.Unmarshal(reqBody.MethodPayload, &creds); err != nil {
+		h.Error(c, perrors.WithCode(code.ErrBind, "invalid wecom method_payload: %v", err))
+		return
+	}
+
+	loginReq := login.LoginRequest{
+		SelectionMode: login.ScenarioSelectionExplicit,
+		AuthType:      login.AuthTypeWecom,
+		WecomCorpID:   &creds.CorpID,
+		WecomCode:     &creds.AuthCode,
 	}
 
 	h.executeLogin(c, loginReq)

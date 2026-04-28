@@ -30,19 +30,21 @@ func Register(engine *gin.Engine) {
 		return
 	}
 
-	api := engine.Group("/api/v1/authn")
+	v1 := engine.Group("/api/v1/authn")
+	v2 := engine.Group("/api/v2/authn")
 
 	// 注册符合 API 文档的认证端点
-	registerAuthEndpointsV2(api.Group(""), deps.AuthHandler)
+	registerAuthEndpointsV1(v1.Group(""), deps.AuthHandler)
+	registerAuthEndpointsV2(v2.Group(""), deps.AuthHandler)
 
 	// 注册账户管理端点
-	registerAccountEndpoints(api.Group(""), deps.AccountHandler)
+	registerAccountEndpoints(v1.Group(""), deps.AccountHandler)
 
 	// 注册 JWKS 端点（公开端点）
 	registerJWKSPublicEndpoints(engine, deps.JWKSHandler)
 
 	// 注册 JWKS 管理端点（管理员接口）
-	registerJWKSAdminEndpoints(api.Group("/admin"), deps.JWKSHandler, deps.AdminMiddlewares...)
+	registerJWKSAdminEndpoints(v1.Group("/admin"), deps.JWKSHandler, deps.AdminMiddlewares...)
 }
 
 // RegisterSeedMock exposes the internal mock-consumer ensure endpoint when explicitly enabled.
@@ -60,8 +62,8 @@ func RegisterSeedMock(engine *gin.Engine, sharedSecret string) {
 	registerInternalMockConsumerEndpoints(internal, deps.AccountHandler)
 }
 
-// registerAuthEndpointsV2 注册符合 API 文档的认证端点
-func registerAuthEndpointsV2(group *gin.RouterGroup, handler *authhandler.AuthHandler) {
+// registerAuthEndpointsV1 注册 v1 认证端点。
+func registerAuthEndpointsV1(group *gin.RouterGroup, handler *authhandler.AuthHandler) {
 	if group == nil || handler == nil {
 		return
 	}
@@ -73,6 +75,15 @@ func registerAuthEndpointsV2(group *gin.RouterGroup, handler *authhandler.AuthHa
 	group.POST("/refresh_token", handler.RefreshToken) // POST /v1/auth/refresh_token - 刷新令牌
 	group.POST("/logout", handler.Logout)              // POST /v1/auth/logout - 登出
 	group.POST("/verify", handler.VerifyToken)         // POST /v1/auth/verify - 验证令牌
+}
+
+// registerAuthEndpointsV2 注册 v2 显式认证端点。
+func registerAuthEndpointsV2(group *gin.RouterGroup, handler *authhandler.AuthHandler) {
+	if group == nil || handler == nil {
+		return
+	}
+
+	group.POST("/login", handler.LoginV2)
 }
 
 // registerJWKSPublicEndpoints 注册 JWKS 公开端点

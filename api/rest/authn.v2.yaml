@@ -1,0 +1,155 @@
+openapi: 3.1.0
+info:
+  title: IAM · AuthN API v2（认证中心）
+  version: 2.0.0
+  description: AuthN v2 仅表达已实现的显式登录契约。
+servers:
+- url: https://iam.fangcunmount.cn/api/v2
+  description: Production
+- url: http://localhost:18081/api/v2
+  description: Local Dev
+tags:
+- name: Authentication-Auth
+  description: 认证与令牌生命周期
+paths:
+  /authn/login:
+    post:
+      tags:
+      - Authentication-Auth
+      summary: 显式登录
+      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginV2Request'
+            examples:
+              password:
+                value:
+                  auth_method: password
+                  method_payload:
+                    username: alice
+                    password: secret
+                    tenant_id: 1
+              phone_otp:
+                value:
+                  auth_method: phone_otp
+                  method_payload:
+                    phone: '+8613800138000'
+                    otp_code: '123456'
+              wechat:
+                value:
+                  auth_method: wechat
+                  method_payload:
+                    app_id: wx-app-id
+                    code: wx-js-code
+      responses:
+        '200':
+          description: 登录成功，返回访问令牌和刷新令牌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 认证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    LoginV2Request:
+      type: object
+      required:
+      - auth_method
+      - method_payload
+      properties:
+        auth_method:
+          type: string
+          enum:
+          - password
+          - phone_otp
+          - wechat
+          - wecom
+          description: 显式认证方式。v2 不支持 jwt_token 公开登录。
+        device_id:
+          type: string
+          description: 设备 ID，可选。
+        method_payload:
+          oneOf:
+          - $ref: '#/components/schemas/PasswordPayload'
+          - $ref: '#/components/schemas/PhoneOTPPayload'
+          - $ref: '#/components/schemas/WechatPayload'
+          - $ref: '#/components/schemas/WecomPayload'
+    PasswordPayload:
+      type: object
+      required:
+      - username
+      - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        tenant_id:
+          type: integer
+          format: uint64
+    PhoneOTPPayload:
+      type: object
+      required:
+      - phone
+      - otp_code
+      properties:
+        phone:
+          type: string
+          description: E.164 格式手机号。
+        otp_code:
+          type: string
+    WechatPayload:
+      type: object
+      required:
+      - app_id
+      - code
+      properties:
+        app_id:
+          type: string
+        code:
+          type: string
+          description: wx.login 返回的 JS Code。
+    WecomPayload:
+      type: object
+      required:
+      - corp_id
+      - auth_code
+      properties:
+        corp_id:
+          type: string
+        auth_code:
+          type: string
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          format: int64
+        refresh_token:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string

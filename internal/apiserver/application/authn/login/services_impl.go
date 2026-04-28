@@ -14,11 +14,10 @@ import (
 )
 
 type loginApplicationService struct {
-	tokenIssuer      tokenDomain.Issuer
-	tokenRefresher   tokenDomain.Refresher
-	authenticater    *authentication.Authenticater
-	wechatAppQuerier idpPort.Repository
-	secretVault      idpPort.SecretVault
+	tokenIssuer          tokenDomain.Issuer
+	tokenRefresher       tokenDomain.Refresher
+	scenarioSelector     ScenarioSelector
+	methodAuthenticators MethodAuthenticator
 }
 
 var _ LoginApplicationService = (*loginApplicationService)(nil)
@@ -31,18 +30,17 @@ func NewLoginApplicationService(
 	secretVault idpPort.SecretVault,
 ) LoginApplicationService {
 	return &loginApplicationService{
-		tokenIssuer:      tokenIssuer,
-		tokenRefresher:   tokenRefresher,
-		authenticater:    authenticater,
-		wechatAppQuerier: wechatAppQuerier,
-		secretVault:      secretVault,
+		tokenIssuer:          tokenIssuer,
+		tokenRefresher:       tokenRefresher,
+		scenarioSelector:     newDefaultScenarioSelector(),
+		methodAuthenticators: newMethodAuthenticatorRouter(authenticater, wechatAppQuerier, secretVault),
 	}
 }
 
 func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (*LoginResult, error) {
 	l := logger.L(ctx)
 
-	scenario, authInput, err := s.prepareAuthentication(ctx, req)
+	selected, err := s.selectScenario(ctx, req)
 	if err != nil {
 		l.Warnw("认证准备失败",
 			"action", logger.ActionLogin,
@@ -53,15 +51,15 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 
 	l.Debugw("开始认证流程",
 		"action", logger.ActionLogin,
-		"scenario", string(scenario),
-		"tenant_id", authInput.TenantID,
+		"scenario", string(selected.Scenario),
+		"tenant_id", selected.Input.TenantID,
 	)
 
-	decision, err := s.authenticater.Authenticate(ctx, scenario, authInput)
+	decision, err := s.authenticateMethod(ctx, selected)
 	if err != nil {
 		l.Errorw("认证过程异常",
 			"action", logger.ActionLogin,
-			"scenario", string(scenario),
+			"scenario", string(selected.Scenario),
 			"error", err.Error(),
 		)
 		return nil, err
@@ -70,7 +68,7 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 	if !decision.OK {
 		l.Warnw("认证失败",
 			"action", logger.ActionLogin,
-			"scenario", string(scenario),
+			"scenario", string(selected.Scenario),
 			"err_code", string(decision.ErrCode),
 			"credential_id", decision.CredentialID.String(),
 			"result", logger.ResultFailed,
@@ -82,7 +80,7 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 
 	l.Debugw("认证成功，开始颁发令牌",
 		"action", logger.ActionLogin,
-		"scenario", string(scenario),
+		"scenario", string(selected.Scenario),
 		"user_id", decision.Principal.UserID.String(),
 		"account_id", decision.Principal.AccountID.String(),
 		"tenant_id", decision.Principal.TenantID.String(),
@@ -205,146 +203,26 @@ func (s *loginApplicationService) convertAuthError(errCode authentication.ErrCod
 	}
 }
 
-func (s *loginApplicationService) prepareAuthentication(ctx context.Context, req LoginRequest) (authentication.Scenario, authentication.AuthInput, error) {
-	l := logger.L(ctx)
-
-	// 构建统一的 AuthInput，根据请求中有哪些字段就填充哪些字段
-	input := authentication.AuthInput{
-		TenantID: req.TenantID,
+func (s *loginApplicationService) selectScenario(ctx context.Context, req LoginRequest) (SelectedScenario, error) {
+	selector := s.scenarioSelector
+	if selector == nil {
+		selector = newDefaultScenarioSelector()
 	}
-
-	// 根据存在的字段来推断认证场景
-	var scenario authentication.Scenario
-
-	// 密码认证
-	if req.Username != nil && req.Password != nil {
-		scenario = authentication.AuthPassword
-		input.Username = *req.Username
-		input.Password = *req.Password
-		l.Debugw("检测到密码认证",
-			"action", logger.ActionLogin,
-			"scenario", string(scenario),
-			"username", input.Username,
-		)
+	selected, err := selector.Select(ctx, req)
+	if err != nil {
+		return SelectedScenario{}, err
 	}
-
-	// 手机号OTP认证
-	if req.PhoneE164 != nil && req.OTPCode != nil {
-		scenario = authentication.AuthPhoneOTP
-		input.PhoneE164 = *req.PhoneE164
-		input.OTP = *req.OTPCode
-		l.Debugw("检测到手机OTP认证",
-			"action", logger.ActionLogin,
-			"scenario", string(scenario),
-			"phone", input.PhoneE164,
-		)
-	}
-
-	// 微信小程序认证
-	if req.WechatAppID != nil && req.WechatJSCode != nil {
-		scenario = authentication.AuthWxMinip
-		input.WxAppID = *req.WechatAppID
-		input.WxJsCode = *req.WechatJSCode
-		l.Debugw("检测到微信小程序认证",
-			"action", logger.ActionLogin,
-			"scenario", string(scenario),
-			"app_id", input.WxAppID,
-		)
-
-		// 查询微信应用配置获取 AppSecret
-		if s.wechatAppQuerier != nil && s.secretVault != nil {
-			wechatApp, err := s.wechatAppQuerier.GetByAppID(ctx, *req.WechatAppID)
-			if err != nil {
-				l.Errorw("查询微信应用配置失败",
-					"action", logger.ActionLogin,
-					"scenario", string(scenario),
-					"app_id", *req.WechatAppID,
-					"error", err.Error(),
-				)
-				return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "failed to query wechat app: %v", err)
-			}
-			if wechatApp == nil {
-				l.Warnw("微信应用不存在",
-					"action", logger.ActionLogin,
-					"scenario", string(scenario),
-					"app_id", *req.WechatAppID,
-				)
-				return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "wechat app not found: %s", *req.WechatAppID)
-			}
-			if !wechatApp.IsEnabled() {
-				l.Warnw("微信应用已禁用",
-					"action", logger.ActionLogin,
-					"scenario", string(scenario),
-					"app_id", *req.WechatAppID,
-				)
-				return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "wechat app is disabled: %s", *req.WechatAppID)
-			}
-			if wechatApp.Cred == nil || wechatApp.Cred.Auth == nil {
-				l.Errorw("微信应用凭据缺失",
-					"action", logger.ActionLogin,
-					"scenario", string(scenario),
-					"app_id", *req.WechatAppID,
-				)
-				return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "wechat app credentials not found")
-			}
-
-			appSecretPlain, err := s.secretVault.Decrypt(ctx, wechatApp.Cred.Auth.AppSecretCipher)
-			if err != nil {
-				l.Errorw("解密应用密钥失败",
-					"action", logger.ActionLogin,
-					"scenario", string(scenario),
-					"app_id", *req.WechatAppID,
-					"error", err.Error(),
-				)
-				return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "failed to decrypt app secret: %v", err)
-			}
-			input.WxAppSecret = string(appSecretPlain)
-		} else {
-			l.Errorw("微信应用配置服务不可用",
-				"action", logger.ActionLogin,
-				"scenario", string(scenario),
-			)
-			return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "wechat app configuration service not available")
-		}
-	}
-
-	// 企业微信认证
-	if req.WecomCorpID != nil && req.WecomCode != nil {
-		scenario = authentication.AuthWecom
-		input.WecomCorpID = *req.WecomCorpID
-		input.WecomCode = *req.WecomCode
-		l.Debugw("检测到企业微信认证",
-			"action", logger.ActionLogin,
-			"scenario", string(scenario),
-			"corp_id", input.WecomCorpID,
-		)
-		// TODO: 查询企业微信应用配置获取 AgentID 和 CorpSecret
-	}
-
-	// JWT令牌认证
-	if req.JWTToken != nil {
-		scenario = authentication.AuthJWTToken
-		input.AccessToken = *req.JWTToken
-		l.Debugw("检测到JWT令牌认证",
-			"action", logger.ActionLogin,
-			"scenario", string(scenario),
-		)
-	}
-
-	// 检查是否确定了认证场景
-	if scenario == "" {
-		l.Warnw("未提供有效的认证凭据",
-			"action", logger.ActionLogin,
-			"result", logger.ResultFailed,
-		)
-		return "", authentication.AuthInput{}, perrors.WithCode(code.ErrInvalidArgument, "no valid authentication credentials provided")
-	}
-
-	l.Debugw("认证准备完成",
+	logger.L(ctx).Debugw("认证准备完成",
 		"action", logger.ActionLogin,
-		"scenario", string(scenario),
-		"tenant_id", input.TenantID,
+		"scenario", string(selected.Scenario),
+		"tenant_id", selected.Input.TenantID,
 	)
+	return selected, nil
+}
 
-	return scenario, input, nil
+func (s *loginApplicationService) authenticateMethod(ctx context.Context, selected SelectedScenario) (authentication.AuthDecision, error) {
+	if s.methodAuthenticators == nil {
+		return authentication.AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "method authenticator is not initialized")
+	}
+	return s.methodAuthenticators.Authenticate(ctx, selected)
 }

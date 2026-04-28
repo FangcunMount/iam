@@ -114,6 +114,24 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
 }
 
+func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	engine := gin.New()
+	c := &container.Container{
+		AuthnModule: &assembler.AuthnModule{
+			AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
+		},
+	}
+
+	NewRouter(c).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/login")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
+}
+
 func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	viper.Reset()

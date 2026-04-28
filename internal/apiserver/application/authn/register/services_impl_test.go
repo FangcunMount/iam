@@ -91,7 +91,7 @@ func (s *accountRepoStub) GetByExternalIDAppId(_ context.Context, externalID acc
 func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {
 	t.Parallel()
 
-	service := &registerApplicationService{}
+	resolver := newUserResolver(nil, nil, nil, nil)
 	userRepo := &userRepoStub{users: make(map[uint64]*userdomain.User)}
 	accountUserID := meta.FromUint64(615206334492586542)
 	accountRepo := &accountRepoStub{
@@ -112,7 +112,7 @@ func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {
 		},
 	}
 
-	user, isNew, err := service.createOrGetUser(context.Background(), userRepo, accountRepo, req, "", "union-1")
+	user, isNew, err := resolver.createOrGetUser(context.Background(), userRepo, accountRepo, req, "", "union-1")
 	require.NoError(t, err)
 	require.False(t, isNew)
 	require.NotNil(t, user)
