@@ -89,6 +89,17 @@ func NewAuthnModule() *AuthnModule {
 	return &AuthnModule{}
 }
 
+// AuthnModuleDeps contains the runtime dependencies required to assemble the
+// authentication module.
+type AuthnModuleDeps struct {
+	DB             *gorm.DB
+	RedisClient    *redis.Client
+	PasswordHasher authentication.PasswordHasher
+	IDPModule      *IDPModule
+	EventBus       messaging.EventBus
+	EventPublisher event.Publisher
+}
+
 // Initialize 初始化模块
 // params[0]: *gorm.DB
 // params[1]: *redis.Client
@@ -98,48 +109,33 @@ func NewAuthnModule() *AuthnModule {
 //   - messaging.EventBus      可选；sms.provider=mq 时用于发布登录 OTP 短信任务
 //   - event.Publisher         可选；优先用于 catalog-backed best-effort 事件发布
 func (m *AuthnModule) Initialize(params ...interface{}) error {
-	if len(params) < 2 {
-		log.Errorf("AuthnModule.Initialize requires at least 2 parameters: db, redisClient")
-		return fmt.Errorf("requires at least 2 parameters")
+	deps, err := authnModuleDepsFromParams(params...)
+	if err != nil {
+		return err
 	}
+	return m.InitializeWithDeps(deps)
+}
 
-	db, ok := params[0].(*gorm.DB)
-	if !ok || db == nil {
+// InitializeWithDeps initializes the module through typed dependencies. Keep
+// Initialize as a compatibility wrapper until all modules stop using variadic
+// assembly.
+func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
+	if deps.DB == nil {
 		log.Errorf("params[0] must be *gorm.DB")
 		return fmt.Errorf("invalid db parameter")
 	}
-
-	redisClient, ok := params[1].(*redis.Client)
-	if !ok || redisClient == nil {
+	if deps.RedisClient == nil {
 		log.Errorf("params[1] must be *redis.Client")
 		return fmt.Errorf("invalid redis parameter")
 	}
 
-	// 获取可选依赖
-	var (
-		hasher         authentication.PasswordHasher
-		idpDeps        *IDPModule
-		eventBus       messaging.EventBus
-		eventPublisher event.Publisher
-	)
-	for _, opt := range params[2:] {
-		switch v := opt.(type) {
-		case authentication.PasswordHasher:
-			hasher = v
-		case *IDPModule:
-			idpDeps = v
-		case messaging.EventBus:
-			eventBus = v
-		case event.Publisher:
-			eventPublisher = v
-		}
-	}
+	hasher := deps.PasswordHasher
 	if hasher == nil {
 		hasher = crypto.NewArgon2Hasher("")
 	}
 
 	// 初始化基础设施层
-	infra := m.initializeInfrastructure(db, redisClient, idpDeps, eventBus, eventPublisher)
+	infra := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher)
 
 	// 初始化领域层
 	domain := m.initializeDomain(infra)
@@ -156,6 +152,44 @@ func (m *AuthnModule) Initialize(params ...interface{}) error {
 	m.initializeSchedulers()
 
 	return nil
+}
+
+func authnModuleDepsFromParams(params ...interface{}) (AuthnModuleDeps, error) {
+	if len(params) < 2 {
+		log.Errorf("AuthnModule.Initialize requires at least 2 parameters: db, redisClient")
+		return AuthnModuleDeps{}, fmt.Errorf("requires at least 2 parameters")
+	}
+
+	db, ok := params[0].(*gorm.DB)
+	if !ok || db == nil {
+		log.Errorf("params[0] must be *gorm.DB")
+		return AuthnModuleDeps{}, fmt.Errorf("invalid db parameter")
+	}
+
+	redisClient, ok := params[1].(*redis.Client)
+	if !ok || redisClient == nil {
+		log.Errorf("params[1] must be *redis.Client")
+		return AuthnModuleDeps{}, fmt.Errorf("invalid redis parameter")
+	}
+
+	// 获取可选依赖
+	deps := AuthnModuleDeps{
+		DB:          db,
+		RedisClient: redisClient,
+	}
+	for _, opt := range params[2:] {
+		switch v := opt.(type) {
+		case authentication.PasswordHasher:
+			deps.PasswordHasher = v
+		case *IDPModule:
+			deps.IDPModule = v
+		case messaging.EventBus:
+			deps.EventBus = v
+		case event.Publisher:
+			deps.EventPublisher = v
+		}
+	}
+	return deps, nil
 }
 
 // infrastructureComponents 基础设施层组件

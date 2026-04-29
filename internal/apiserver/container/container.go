@@ -190,8 +190,13 @@ func outboxRelayOptionsFromConfig() messagingInfra.OutboxRelayOptions {
 // 认证模块使用 Redis 进行 Token 持久化存储
 func (c *Container) initAuthModule() error {
 	authModule := assembler.NewAuthnModule()
-	// 传递 Redis（用于 Token 持久化）和 IDP 模块的服务
-	if err := authModule.Initialize(c.mysqlDB, c.redisClient, c.IDPModule, c.eventBus, c.eventPublisher); err != nil {
+	if err := authModule.InitializeWithDeps(assembler.AuthnModuleDeps{
+		DB:             c.mysqlDB,
+		RedisClient:    c.redisClient,
+		IDPModule:      c.IDPModule,
+		EventBus:       c.eventBus,
+		EventPublisher: c.eventPublisher,
+	}); err != nil {
 		return fmt.Errorf("failed to initialize auth module: %w", err)
 	}
 	c.AuthnModule = authModule

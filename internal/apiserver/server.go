@@ -79,23 +79,11 @@ func createAPIServer(cfg *config.Config) (*apiServer, error) {
 
 // PrepareRun 准备运行 API 服务器（六边形架构版本）
 func (s *apiServer) PrepareRun() (preparedAPIServer, error) {
-	runtime := s.prepareRuntime()
-	resources, err := s.prepareResources(runtime)
+	prepared, _, err := newPrepareRunner(s).run()
 	if err != nil {
 		return preparedAPIServer{}, err
 	}
-
-	containerOut, err := s.prepareContainer(runtime, resources)
-	if err != nil {
-		return preparedAPIServer{}, err
-	}
-
-	s.prepareTransports(containerOut)
-	s.startRuntimeTasks()
-	log.Infow("hexagonal architecture initialized", "mode", runtime.mode, "degraded_startup_allowed", runtime.degradedAllowed)
-	s.registerShutdownCallbacks()
-
-	return preparedAPIServer{s}, nil
+	return prepared, nil
 }
 
 // registerGRPCServices 注册所有 gRPC 服务到 gRPC 服务器
@@ -110,28 +98,15 @@ func (s *apiServer) registerGRPCServices() {
 		return
 	}
 
-	// 注册认证模块的 gRPC 服务
-	if s.container.AuthnModule != nil && s.container.AuthnModule.GRPCService != nil {
-		s.container.AuthnModule.GRPCService.Register(s.grpcServer.Server)
-		log.Info("📡 Registered Authn gRPC services (AuthService, JWKSService)")
-	}
-
-	// 注册用户模块的 gRPC 服务（包含 Identity 相关服务）
-	if s.container.UserModule != nil && s.container.UserModule.GRPCService != nil {
-		s.container.UserModule.GRPCService.Register(s.grpcServer.Server)
-		log.Info("📡 Registered User gRPC services (IdentityRead, GuardianshipQuery, GuardianshipCommand, IdentityLifecycle)")
-	}
-
-	// 注册 IDP 模块的 gRPC 服务
-	if s.container.IDPModule != nil && s.container.IDPModule.GRPCService != nil {
-		s.container.IDPModule.GRPCService.Register(s.grpcServer.Server)
-		log.Info("📡 Registered IDP gRPC services (IDPService)")
-	}
-
-	// 注册 Authz PDP gRPC
-	if s.container.AuthzModule != nil && s.container.AuthzModule.GRPCService != nil {
-		s.container.AuthzModule.GRPCService.Register(s.grpcServer.Server)
-		log.Info("📡 Registered Authz gRPC services (AuthorizationService)")
+	for _, registration := range s.container.GRPCRegistrations() {
+		if registration.Register == nil {
+			continue
+		}
+		registration.Register(s.grpcServer.Server)
+		log.Infow("📡 Registered gRPC services",
+			"module", registration.Module,
+			"description", registration.Description,
+		)
 	}
 
 	log.Info("✅ All gRPC services registered successfully")
