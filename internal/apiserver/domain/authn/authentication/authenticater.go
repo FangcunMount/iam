@@ -162,8 +162,8 @@ func (f *Authenticater) createStrategy(scenario Scenario) AuthStrategy {
 		return NewOAuthWechatMinipAuthStrategy(f.credRepo, f.accountRepo, f.idp)
 	case AuthWecom:
 		return NewOAuthWeChatComAuthStrategy(f.credRepo, f.accountRepo, f.idp)
-	case AuthJWTToken:
-		return NewJWTTokenAuthStrategy(f.tokenVerifier)
+	case AuthBearerToken:
+		return NewBearerTokenAuthStrategy(f.tokenVerifier)
 	default:
 		return nil
 	}

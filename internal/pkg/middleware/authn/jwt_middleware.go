@@ -9,7 +9,6 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
 	"github.com/FangcunMount/iam/pkg/core"
@@ -299,7 +298,7 @@ func TenantIDFromGin(c *gin.Context) string {
 	return tenant.DefaultID
 }
 
-func applyVerifiedClaims(c *gin.Context, claims *tokenDomain.TokenClaims) {
+func applyVerifiedClaims(c *gin.Context, claims *token.TokenClaims) {
 	if c == nil || claims == nil {
 		return
 	}

@@ -88,7 +88,7 @@ func (s legacyScenarioSelector) Select(ctx context.Context, req LoginRequest) (S
 	}
 
 	if req.JWTToken != nil {
-		scenario = authentication.AuthJWTToken
+		scenario = authentication.AuthBearerToken
 		input.AccessToken = *req.JWTToken
 		l.Debugw("检测到JWT令牌认证",
 			"action", logger.ActionLogin,
@@ -158,10 +158,10 @@ func (s explicitScenarioSelector) Select(_ context.Context, req LoginRequest) (S
 
 	case AuthTypeJWTToken:
 		if req.JWTToken == nil || *req.JWTToken == "" {
-			return SelectedScenario{}, perrors.WithCode(code.ErrInvalidArgument, "jwt token is required for jwt token authentication")
+			return SelectedScenario{}, perrors.WithCode(code.ErrInvalidArgument, "bearer token is required for bearer token authentication")
 		}
 		input.AccessToken = *req.JWTToken
-		return SelectedScenario{Scenario: authentication.AuthJWTToken, Input: input}, nil
+		return SelectedScenario{Scenario: authentication.AuthBearerToken, Input: input}, nil
 
 	default:
 		return SelectedScenario{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", req.AuthType)

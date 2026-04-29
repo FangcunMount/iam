@@ -11,7 +11,6 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
 	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	domainToken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -388,7 +387,7 @@ func (h *AuthHandler) RevokeRefreshToken(c *gin.Context) {
 }
 
 // convertTokenPair 转换令牌对为 HTTP 响应格式
-func (h *AuthHandler) convertTokenPair(tokenPair *domainToken.TokenPair) *resp.TokenPair {
+func (h *AuthHandler) convertTokenPair(tokenPair *token.TokenPair) *resp.TokenPair {
 	response := &resp.TokenPair{
 		TokenType: "Bearer",
 	}

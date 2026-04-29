@@ -12,7 +12,6 @@ import (
 	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -280,7 +279,7 @@ func (s *jwksServiceServer) GetJWKS(ctx context.Context, req *authnv1.GetJWKSReq
 	}, nil
 }
 
-func toProtoTokenPair(pair *tokenDomain.TokenPair) *authnv1.TokenPair {
+func toProtoTokenPair(pair *tokenApp.TokenPair) *authnv1.TokenPair {
 	if pair == nil || pair.AccessToken == nil {
 		return nil
 	}
@@ -296,7 +295,7 @@ func toProtoTokenPair(pair *tokenDomain.TokenPair) *authnv1.TokenPair {
 	return resp
 }
 
-func toProtoTokenClaims(claims *tokenDomain.TokenClaims) *authnv1.TokenClaims {
+func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv1.TokenClaims {
 	if claims == nil {
 		return nil
 	}
@@ -325,12 +324,12 @@ func toProtoTokenClaims(claims *tokenDomain.TokenClaims) *authnv1.TokenClaims {
 	return resp
 }
 
-func buildTokenMetadata(claims *tokenDomain.TokenClaims) *authnv1.TokenMetadata {
+func buildTokenMetadata(claims *tokenApp.TokenClaims) *authnv1.TokenMetadata {
 	if claims == nil {
 		return nil
 	}
 	tokenType := authnv1.TokenType_TOKEN_TYPE_ACCESS
-	if claims.TokenType == tokenDomain.TokenTypeService {
+	if claims.TokenType == tokenApp.TokenTypeService {
 		tokenType = authnv1.TokenType_TOKEN_TYPE_SERVICE
 	}
 	return &authnv1.TokenMetadata{

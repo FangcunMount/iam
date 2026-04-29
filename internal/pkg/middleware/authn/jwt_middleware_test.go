@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/FangcunMount/iam/pkg/tenant"
 )
@@ -20,8 +20,8 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/identity/me", nil)
 
-	claims := tokenDomain.NewTokenClaims(
-		tokenDomain.TokenTypeAccess,
+	claims := tokenapp.NewTokenClaims(
+		tokenapp.TokenTypeAccess,
 		"token-1",
 		"user:110001",
 		"sid-1",

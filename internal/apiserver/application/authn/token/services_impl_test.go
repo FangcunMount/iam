@@ -5,25 +5,24 @@ import (
 	"testing"
 	"time"
 
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
 type verifyerStub struct {
-	claims *tokenDomain.TokenClaims
+	claims *TokenClaims
 	err    error
 }
 
-func (s *verifyerStub) VerifyAccessToken(context.Context, string) (*tokenDomain.TokenClaims, error) {
+func (s *verifyerStub) VerifyAccessToken(context.Context, string) (*TokenClaims, error) {
 	return s.claims, s.err
 }
 
 func TestTokenApplicationServiceVerifyTokenHonorsExpectedIssuerAndAudience(t *testing.T) {
 	svc := &tokenApplicationService{
 		tokenVerifier: &verifyerStub{
-			claims: tokenDomain.NewTokenClaims(
-				tokenDomain.TokenTypeAccess,
+			claims: NewTokenClaims(
+				TokenTypeAccess,
 				"tid",
 				"user:1",
 				"sid-1",

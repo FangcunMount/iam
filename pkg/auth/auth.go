@@ -16,6 +16,6 @@ func Compare(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-// 注意：JWT 签发功能已迁移至 internal/apiserver/infra/jwt 包
+// 注意：JWT 签发功能已迁移至 internal/apiserver/infra/token/jwt 包
 // 现在统一使用 JWKS (RS256) 非对称签名方案，不再使用 HMAC 对称密钥
 // 请使用 jwt.Generator 进行 JWT 签发

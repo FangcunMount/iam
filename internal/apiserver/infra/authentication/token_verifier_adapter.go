@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	tokenPort "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	authPort "github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	tokenPort "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 

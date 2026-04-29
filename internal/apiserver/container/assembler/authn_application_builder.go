@@ -13,6 +13,7 @@ import (
 	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	authenticationInfra "github.com/FangcunMount/iam/internal/apiserver/infra/authentication"
 	smsInfra "github.com/FangcunMount/iam/internal/apiserver/infra/sms"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 )
@@ -48,9 +49,34 @@ func (m *AuthnModule) initializeApplication(
 	}
 	m.LoginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)
 
+	tokenIssuer := token.NewIssuer(
+		domain.tokenCodec,
+		infra.tokenStore,
+		domain.sessionManager,
+		domain.tokenCodec.ClaimMapper(),
+		domain.accessTTL,
+		domain.refreshTTL,
+	)
+	tokenRefresher := token.NewRefresher(
+		tokenIssuer,
+		infra.tokenStore,
+		domain.sessionManager,
+		infra.accessChecker,
+		domain.tokenCodec.ClaimMapper(),
+		domain.accessTTL,
+		domain.refreshTTL,
+	)
+	tokenVerifier := token.NewVerifier(
+		domain.tokenCodec,
+		infra.tokenStore,
+		domain.sessionManager,
+		infra.accessChecker,
+	)
+	infra.tokenVerifier = authenticationInfra.NewTokenVerifierAdapter(tokenVerifier)
+
 	m.LoginService = login.NewLoginApplicationService(
-		domain.tokenIssuer,
-		domain.tokenRefresher,
+		tokenIssuer,
+		tokenRefresher,
 		authentication.NewAuthenticater(
 			infra.credentialRepo,
 			infra.accountRepo,
@@ -64,9 +90,9 @@ func (m *AuthnModule) initializeApplication(
 	)
 
 	m.TokenService = token.NewTokenApplicationService(
-		domain.tokenIssuer,
-		domain.tokenRefresher,
-		domain.tokenVerifyer,
+		tokenIssuer,
+		tokenRefresher,
+		tokenVerifier,
 	)
 	m.SessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
 

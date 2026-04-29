@@ -7,17 +7,15 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	sessionDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
-	authenticationInfra "github.com/FangcunMount/iam/internal/apiserver/infra/authentication"
-	jwtinfra "github.com/FangcunMount/iam/internal/apiserver/infra/jwt"
+	jwtinfra "github.com/FangcunMount/iam/internal/apiserver/infra/token/jwt"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 )
 
 type authnDomainComponents struct {
-	tokenIssuer    *tokenDomain.TokenIssuer
-	tokenRefresher *tokenDomain.TokenRefresher
-	tokenVerifyer  *tokenDomain.TokenVerifyer
 	sessionManager sessionDomain.Manager
+	tokenCodec     *jwtinfra.Generator
+	accessTTL      time.Duration
+	refreshTTL     time.Duration
 
 	keyManager    *jwks.KeyManager
 	keySetBuilder *jwks.KeySetBuilder
@@ -53,6 +51,7 @@ func (m *AuthnModule) initializeDomain(
 		domain.keyManager,
 		infra.privKeyResolver,
 	)
+	domain.tokenCodec = infra.jwtGenerator
 
 	accessTTL := authOptions.AccessTokenTTL
 	if accessTTL == 0 {
@@ -62,14 +61,11 @@ func (m *AuthnModule) initializeDomain(
 	if refreshTTL == 0 {
 		refreshTTL = 7 * 24 * time.Hour
 	}
+	domain.accessTTL = accessTTL
+	domain.refreshTTL = refreshTTL
 
 	domain.sessionManager = sessionDomain.NewManager(infra.sessionStore)
 	m.sessionManager = domain.sessionManager
-	domain.tokenIssuer = tokenDomain.NewTokenIssuer(infra.jwtGenerator, infra.tokenStore, domain.sessionManager, accessTTL, refreshTTL)
-	domain.tokenRefresher = tokenDomain.NewTokenRefresher(infra.jwtGenerator, infra.tokenStore, domain.sessionManager, infra.accessChecker, accessTTL, refreshTTL)
-	domain.tokenVerifyer = tokenDomain.NewTokenVerifyer(infra.jwtGenerator, infra.tokenStore, domain.sessionManager, infra.accessChecker)
-
-	infra.tokenVerifier = authenticationInfra.NewTokenVerifierAdapter(domain.tokenVerifyer)
 
 	return domain
 }

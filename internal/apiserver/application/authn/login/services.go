@@ -3,8 +3,8 @@ package login
 import (
 	"context"
 
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -77,7 +77,7 @@ type LoginResult struct {
 	Principal *authentication.Principal // 认证主体信息
 
 	// 令牌对
-	TokenPair *domain.TokenPair // 访问令牌 + 刷新令牌
+	TokenPair *tokenapp.TokenPair // 访问令牌 + 刷新令牌
 
 	// 用户标识
 	UserID    meta.ID // 用户ID

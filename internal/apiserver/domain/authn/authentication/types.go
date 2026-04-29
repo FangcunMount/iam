@@ -6,22 +6,22 @@ import "github.com/FangcunMount/iam/internal/pkg/meta"
 type Scenario string
 
 const (
-	AuthPassword Scenario = "password"
-	AuthPhoneOTP Scenario = "phone_otp"
-	AuthWxMinip  Scenario = "oauth_wx_minip"
-	AuthWecom    Scenario = "oauth_wecom"
-	AuthJWTToken Scenario = "jwt_token" // JWT Token 认证
+	AuthPassword    Scenario = "password"
+	AuthPhoneOTP    Scenario = "phone_otp"
+	AuthWxMinip     Scenario = "oauth_wx_minip"
+	AuthWecom       Scenario = "oauth_wecom"
+	AuthBearerToken Scenario = "jwt_token" // Bearer access token 认证
 )
 
 // AMR（认证方法引用），用于审计与 Step-Up
 type AMR string
 
 const (
-	AMRPassword AMR = "pwd"
-	AMROTP      AMR = "otp"
-	AMRWx       AMR = "wechat"
-	AMRWecom    AMR = "wecom"
-	AMRJWTToken AMR = "jwt" // JWT Token 认证方法
+	AMRPassword    AMR = "pwd"
+	AMROTP         AMR = "otp"
+	AMRWx          AMR = "wechat"
+	AMRWecom       AMR = "wecom"
+	AMRBearerToken AMR = "jwt" // Bearer access token 认证方法
 )
 
 // 认证主体（输出，用于签 Token/授权）

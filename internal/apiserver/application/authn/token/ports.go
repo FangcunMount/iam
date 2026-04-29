@@ -1,0 +1,78 @@
+package token
+
+import (
+	"context"
+	"time"
+
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
+)
+
+// Issuer 编排登录成功后的 session 创建、access token 签发和 refresh token 保存。
+type Issuer interface {
+	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error)
+	RevokeAccessToken(ctx context.Context, tokenValue string) error
+}
+
+type Refresher interface {
+	RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error)
+	RevokeRefreshToken(ctx context.Context, refreshTokenValue string) error
+}
+
+type Verifier interface {
+	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+}
+
+// Store 保存 refresh token 与 access token 撤销标记。
+type Store interface {
+	SaveRefreshToken(ctx context.Context, token *Token) error
+	GetRefreshToken(ctx context.Context, tokenValue string) (*Token, error)
+	DeleteRefreshToken(ctx context.Context, tokenValue string) error
+	MarkAccessTokenRevoked(ctx context.Context, tokenID string, expiry time.Duration) error
+	IsAccessTokenRevoked(ctx context.Context, tokenID string) (bool, error)
+}
+
+// AccessTokenCodec 是 access/service token 编码适配端口；JWT 只是其中一种实现。
+type AccessTokenCodec interface {
+	IssueAccessToken(ctx context.Context, principal *authentication.Principal, expiresIn time.Duration) (*Token, error)
+	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*Token, error)
+	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+}
+
+// ClaimMapper 将认证主体附加信息转换为 refresh token 可持久化的字符串快照。
+type ClaimMapper interface {
+	Encode(map[string]any) map[string]string
+	Decode(map[string]string) map[string]any
+}
+
+type stringClaimMapper struct{}
+
+func NewStringClaimMapper() ClaimMapper {
+	return stringClaimMapper{}
+}
+
+func (stringClaimMapper) Encode(in map[string]any) map[string]string {
+	return stringifyClaims(in)
+}
+
+func (stringClaimMapper) Decode(in map[string]string) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func normalizeClaimMapper(mapper ClaimMapper) ClaimMapper {
+	if mapper == nil {
+		return stringClaimMapper{}
+	}
+	return mapper
+}
+
+type SessionManager = sessiondomain.Manager
+type SubjectAccessEvaluator = sessiondomain.SubjectAccessEvaluator

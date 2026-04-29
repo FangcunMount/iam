@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	domaintoken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/FangcunMount/iam/pkg/tenant"
 	"github.com/stretchr/testify/require"
@@ -16,9 +16,9 @@ type loginTokenIssuerStub struct {
 	captured *authentication.Principal
 }
 
-func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authentication.Principal) (*domaintoken.TokenPair, error) {
+func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
 	s.captured = principal
-	access := domaintoken.NewAccessToken(
+	access := tokenapp.NewAccessToken(
 		"access-id",
 		"access-value",
 		"session-id",
@@ -27,7 +27,7 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 		principal.TenantID,
 		time.Minute,
 	)
-	refresh := domaintoken.NewRefreshToken(
+	refresh := tokenapp.NewRefreshToken(
 		"refresh-id",
 		"refresh-value",
 		"session-id",
@@ -38,10 +38,10 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 		nil,
 		time.Hour,
 	)
-	return domaintoken.NewTokenPair(access, refresh), nil
+	return tokenapp.NewTokenPair(access, refresh), nil
 }
 
-func (s *loginTokenIssuerStub) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*domaintoken.TokenPair, error) {
+func (s *loginTokenIssuerStub) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*tokenapp.TokenPair, error) {
 	return nil, nil
 }
 
@@ -178,7 +178,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				OTPCode:   &otp,
 				JWTToken:  &jwtToken,
 			},
-			want: authentication.AuthJWTToken,
+			want: authentication.AuthBearerToken,
 		},
 	}
 

@@ -721,6 +721,64 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", "/wechat/register")
 }
 
+func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		"internal/apiserver/domain/authn/token",
+		"internal/apiserver/infra/jwt",
+	} {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(rel), "*.go"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(matches) > 0 {
+			t.Fatalf("%s is retired token implementation code; keep token use cases in application/authn/token and JWT encoding in infra/token/jwt", rel)
+		}
+	}
+
+	forbiddenImports := map[string]struct{}{
+		modulePath + "internal/apiserver/domain/authn/token": {},
+		modulePath + "internal/apiserver/infra/jwt":          {},
+		"github.com/golang-jwt/jwt/v4":                       {},
+		"github.com/golang-jwt/jwt/v5":                       {},
+		"github.com/golang-jwt/jwt":                          {},
+	}
+	scanImportsIncludingTests(t, filepath.Join(root, "internal"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasPrefix(rel, "internal/apiserver/infra/token/jwt/") ||
+			strings.HasPrefix(rel, "internal/pkg/architecture/") {
+			return
+		}
+		for _, imp := range imports {
+			if _, forbidden := forbiddenImports[imp]; forbidden {
+				t.Fatalf("%s imports %s; JWT libraries and retired token packages must stay behind infra/token/jwt or application token ports", rel, imp)
+			}
+		}
+	})
+
+	forbiddenDomainTokens := []string{
+		"AccessClaims",
+		"AuthJWT" + "Token",
+		"AMRJWT" + "Token",
+		"JWT" + "TokenCredential",
+		"JWT" + "TokenAuthStrategy",
+		"FlattenClaimsFor" + "JWT",
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasPrefix(rel, "internal/apiserver/domain/authn/jwks/") {
+			return
+		}
+		for _, token := range forbiddenDomainTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains retired JWT-shaped domain token %q; keep JWT claims and strategies in infra/token/jwt", rel, token)
+			}
+		}
+	})
+}
+
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
 	t.Parallel()
 

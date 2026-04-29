@@ -3,8 +3,6 @@ package token
 import (
 	"context"
 	"time"
-
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 )
 
 // ============= 应用服务接口（Driving Ports）=============
@@ -39,12 +37,12 @@ type IssueServiceTokenRequest struct {
 
 // TokenIssueResult 令牌签发结果 DTO。
 type TokenIssueResult struct {
-	TokenPair *domain.TokenPair
+	TokenPair *TokenPair
 }
 
 // TokenRefreshResult 令牌刷新结果DTO
 type TokenRefreshResult struct {
-	TokenPair *domain.TokenPair // 新的令牌对
+	TokenPair *TokenPair // 新的令牌对
 }
 
 // VerifyTokenRequest 令牌验证请求 DTO。
@@ -56,6 +54,6 @@ type VerifyTokenRequest struct {
 
 // TokenVerifyResult 令牌验证结果DTO
 type TokenVerifyResult struct {
-	Valid  bool                // 是否有效
-	Claims *domain.TokenClaims // 令牌声明（如果有效）
+	Valid  bool         // 是否有效
+	Claims *TokenClaims // 令牌声明（如果有效）
 }

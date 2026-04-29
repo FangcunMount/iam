@@ -9,7 +9,6 @@ import (
 	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -52,8 +51,8 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 	s.verifyReq = req
 	return &tokenApp.TokenVerifyResult{
 		Valid: true,
-		Claims: tokenDomain.NewTokenClaims(
-			tokenDomain.TokenTypeAccess,
+		Claims: tokenApp.NewTokenClaims(
+			tokenApp.TokenTypeAccess,
 			"tid",
 			"user:1",
 			"sid-1",
@@ -76,10 +75,10 @@ func (s *accountOnboarderStub) Onboard(ctx context.Context, req onboardingApp.On
 }
 
 func TestAuthServiceServerIssueServiceToken(t *testing.T) {
-	serviceToken := tokenDomain.NewServiceToken("sid", "jwt-service-token", "service:qs-server", []string{"iam-service"}, map[string]string{"scope": "internal"}, time.Hour)
+	serviceToken := tokenApp.NewServiceToken("sid", "jwt-service-token", "service:qs-server", []string{"iam-service"}, map[string]string{"scope": "internal"}, time.Hour)
 	stub := &tokenServiceStub{
 		issueRes: &tokenApp.TokenIssueResult{
-			TokenPair: tokenDomain.NewTokenPair(serviceToken, nil),
+			TokenPair: tokenApp.NewTokenPair(serviceToken, nil),
 		},
 	}
 	srv := &authServiceServer{tokenSvc: stub}

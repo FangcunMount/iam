@@ -6,7 +6,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
 )
@@ -14,17 +13,17 @@ import (
 // ============= TokenApplicationService 实现 =============
 
 type tokenApplicationService struct {
-	tokenIssuer    tokenDomain.Issuer
-	tokenRefresher tokenDomain.Refresher
-	tokenVerifier  tokenDomain.Verifier
+	tokenIssuer    Issuer
+	tokenRefresher Refresher
+	tokenVerifier  Verifier
 }
 
 var _ TokenApplicationService = (*tokenApplicationService)(nil)
 
 func NewTokenApplicationService(
-	tokenIssuer tokenDomain.Issuer,
-	tokenRefresher tokenDomain.Refresher,
-	tokenVerifier tokenDomain.Verifier,
+	tokenIssuer Issuer,
+	tokenRefresher Refresher,
+	tokenVerifier Verifier,
 ) TokenApplicationService {
 	return &tokenApplicationService{
 		tokenIssuer:    tokenIssuer,

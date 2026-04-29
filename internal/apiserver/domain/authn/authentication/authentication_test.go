@@ -53,7 +53,7 @@ func TestAuthenticater_CreateStrategyMapping(t *testing.T) {
 	assert.NotNil(t, a.createStrategy(AuthPhoneOTP))
 	assert.NotNil(t, a.createStrategy(AuthWxMinip))
 	assert.NotNil(t, a.createStrategy(AuthWecom))
-	assert.NotNil(t, a.createStrategy(AuthJWTToken))
+	assert.NotNil(t, a.createStrategy(AuthBearerToken))
 
 	// Unknown scenario should return nil
 	assert.Nil(t, a.createStrategy(Scenario("unknown")))

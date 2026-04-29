@@ -19,8 +19,7 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	domaintoken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/jwt"
+	tokenjwt "github.com/FangcunMount/iam/internal/apiserver/infra/token/jwt"
 	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
 	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
@@ -34,8 +33,8 @@ import (
 
 type noopTokenStore struct{}
 
-func (noopTokenStore) SaveRefreshToken(context.Context, *domaintoken.Token) error { return nil }
-func (noopTokenStore) GetRefreshToken(context.Context, string) (*domaintoken.Token, error) {
+func (noopTokenStore) SaveRefreshToken(context.Context, *tokenapp.Token) error { return nil }
+func (noopTokenStore) GetRefreshToken(context.Context, string) (*tokenapp.Token, error) {
 	return nil, nil
 }
 func (noopTokenStore) DeleteRefreshToken(context.Context, string) error { return nil }
@@ -151,8 +150,8 @@ func rsaPublicJWK(kid string, pub *rsa.PublicKey) jwksdomain.PublicJWK {
 
 func newTestTokenStack(t *testing.T) (
 	tokenapp.TokenApplicationService,
-	*jwt.Generator,
-	*domaintoken.TokenIssuer,
+	*tokenjwt.Generator,
+	tokenapp.Issuer,
 ) {
 	t.Helper()
 
@@ -168,12 +167,12 @@ func newTestTokenStack(t *testing.T) (
 		jwksdomain.WithNotAfter(now.Add(time.Hour)),
 	)
 
-	gen := jwt.NewGenerator("https://iam.integration.test", []string{"qs-api", "collection-api"}, &fixedKeyManager{active: active}, &staticPrivResolver{key: priv})
+	gen := tokenjwt.NewGenerator("https://iam.integration.test", []string{"qs-api", "collection-api"}, &fixedKeyManager{active: active}, &staticPrivResolver{key: priv})
 	store := noopTokenStore{}
 	sessionStore := &memorySessionStore{}
 	sessionManager := sessiondomain.NewManager(sessionStore)
-	issuer := domaintoken.NewTokenIssuer(gen, store, sessionManager, time.Hour, 24*time.Hour)
-	verifier := domaintoken.NewTokenVerifyer(gen, store, sessionManager, allowAllSubjectAccessEvaluator{})
+	issuer := tokenapp.NewIssuer(gen, store, sessionManager, gen.ClaimMapper(), time.Hour, 24*time.Hour)
+	verifier := tokenapp.NewVerifier(gen, store, sessionManager, allowAllSubjectAccessEvaluator{})
 	svc := tokenapp.NewTokenApplicationService(issuer, nil, verifier)
 	return svc, gen, issuer
 }
@@ -200,7 +199,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	access := pair.AccessToken.Value
 
 	// 本地解析（与 apiserver 验签链相同的 Generator）
-	parsed, err := gen.ParseAccessToken(ctx, access)
+	parsed, err := gen.VerifyAccessToken(ctx, access)
 	require.NoError(t, err)
 	require.Equal(t, uint64(9001), parsed.TenantID.Uint64(), "JWT 本地解析应含 tenant_id")
 	require.Equal(t, "1001", parsed.UserID.String())

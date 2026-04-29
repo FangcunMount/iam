@@ -5,13 +5,15 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
+	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	domainjwks "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
-	domaintoken "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
@@ -28,10 +30,11 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 		AMR:       []string{"pwd"},
 		Claims: map[string]any{
 			"display_name": "seed-user",
+			"kid":          "must-not-enter-payload",
 		},
 	}
 
-	token, err := generator.GenerateAccessToken(context.Background(), principal, 15*time.Minute)
+	token, err := generator.IssueAccessToken(context.Background(), principal, 15*time.Minute)
 	require.NoError(t, err)
 
 	parsedJWT, rawClaims := parseRawClaims(t, token.Value, signingKey)
@@ -40,9 +43,9 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	_, hasLegacyAudience := rawClaims["audience"]
 	require.False(t, hasLegacyAudience)
 
-	claims, err := generator.ParseAccessToken(context.Background(), token.Value)
+	claims, err := generator.VerifyAccessToken(context.Background(), token.Value)
 	require.NoError(t, err)
-	require.Equal(t, domaintoken.TokenTypeAccess, claims.TokenType)
+	require.Equal(t, tokenapp.TokenTypeAccess, claims.TokenType)
 	require.Equal(t, principal.UserID, claims.UserID)
 	require.Equal(t, principal.AccountID, claims.AccountID)
 	require.Equal(t, principal.TenantID, claims.TenantID)
@@ -51,12 +54,77 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	require.Equal(t, []string{"pwd"}, claims.AMR)
 }
 
+func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T) {
+	t.Parallel()
+
+	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	token, err := generator.IssueAccessToken(context.Background(), &authentication.Principal{
+		AccountID: meta.MustFromUint64(1001),
+		UserID:    meta.MustFromUint64(1002),
+		TenantID:  meta.MustFromUint64(1),
+		Claims: map[string]any{
+			"kid": "payload-kid-is-reserved",
+			"alg": "payload-alg-is-reserved",
+			"typ": "payload-typ-is-reserved",
+		},
+	}, time.Minute)
+	require.NoError(t, err)
+
+	parts := strings.Split(token.Value, ".")
+	require.Len(t, parts, 3)
+	for _, part := range parts {
+		require.NotContains(t, part, "=")
+		_, err := base64.RawURLEncoding.DecodeString(part)
+		require.NoError(t, err)
+	}
+
+	header := decodeJWTPart[map[string]any](t, parts[0])
+	require.Equal(t, "JWT", header["typ"])
+	require.Equal(t, "RS256", header["alg"])
+	require.Equal(t, "test-key", header["kid"])
+
+	payload := decodeJWTPart[map[string]any](t, parts[1])
+	require.Equal(t, "https://iam.fangcunmount.cn", payload["iss"])
+	require.Equal(t, "1002", payload["sub"])
+	require.NotContains(t, payload, "kid")
+	require.NotContains(t, payload, "alg")
+	require.NotContains(t, payload, "typ")
+	require.Contains(t, payload, "jti")
+	require.Contains(t, payload, "exp")
+	require.Contains(t, payload, "iat")
+	require.Contains(t, payload, "nbf")
+}
+
+func TestGeneratorRejectsNoneAlgorithm(t *testing.T) {
+	t.Parallel()
+
+	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	claims := CustomClaims{
+		TokenType: string(tokenapp.TokenTypeAccess),
+		UserID:    "1002",
+		RegisteredClaims: jwtv4.RegisteredClaims{
+			ID:        "none-token",
+			Subject:   "1002",
+			Issuer:    "https://iam.fangcunmount.cn",
+			Audience:  jwtv4.ClaimStrings{"qs-api"},
+			IssuedAt:  jwtv4.NewNumericDate(time.Now()),
+			ExpiresAt: jwtv4.NewNumericDate(time.Now().Add(time.Minute)),
+			NotBefore: jwtv4.NewNumericDate(time.Now()),
+		},
+	}
+	raw, err := jwtv4.NewWithClaims(jwtv4.SigningMethodNone, claims).SignedString(jwtv4.UnsafeAllowNoneSignatureType)
+	require.NoError(t, err)
+
+	_, err = generator.VerifyAccessToken(context.Background(), raw)
+	require.Error(t, err)
+}
+
 func TestGeneratorServiceTokenUsesRegisteredAudience(t *testing.T) {
 	t.Parallel()
 
 	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"ignored-default"})
 
-	token, err := generator.GenerateServiceToken(
+	token, err := generator.IssueServiceToken(
 		context.Background(),
 		"svc:report-worker",
 		[]string{"collection-api"},
@@ -127,6 +195,15 @@ func parseRawClaims(t *testing.T, tokenValue string, key *rsa.PrivateKey) (*Cust
 	return &claims, rawClaims
 }
 
+func decodeJWTPart[T any](t *testing.T, raw string) T {
+	t.Helper()
+	decoded, err := base64.RawURLEncoding.DecodeString(raw)
+	require.NoError(t, err)
+	var out T
+	require.NoError(t, json.Unmarshal(decoded, &out))
+	return out
+}
+
 type jwksManagerStub struct {
 	activeKey *domainjwks.Key
 	keys      map[string]*domainjwks.Key
@@ -144,22 +221,16 @@ func (s *jwksManagerStub) GetKeyByKid(ctx context.Context, kid string) (*domainj
 	return s.keys[kid], nil
 }
 
-func (s *jwksManagerStub) RetireKey(ctx context.Context, kid string) error {
-	panic("unexpected call")
-}
-
+func (s *jwksManagerStub) RetireKey(ctx context.Context, kid string) error { panic("unexpected call") }
 func (s *jwksManagerStub) ForceRetireKey(ctx context.Context, kid string) error {
 	panic("unexpected call")
 }
-
 func (s *jwksManagerStub) EnterGracePeriod(ctx context.Context, kid string) error {
 	panic("unexpected call")
 }
-
 func (s *jwksManagerStub) CleanupExpiredKeys(ctx context.Context) (int, error) {
 	panic("unexpected call")
 }
-
 func (s *jwksManagerStub) ListKeys(ctx context.Context, status domainjwks.KeyStatus, limit, offset int) ([]*domainjwks.Key, int64, error) {
 	panic("unexpected call")
 }

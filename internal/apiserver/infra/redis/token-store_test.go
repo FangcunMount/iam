@@ -9,7 +9,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -22,7 +22,7 @@ func TestRedisStoreRefreshTokenLifecycle(t *testing.T) {
 
 	store := NewRedisStore(client)
 	ctx := context.Background()
-	refreshToken := domain.NewRefreshToken(
+	refreshToken := tokenapp.NewRefreshToken(
 		"rt-1",
 		"refresh-value",
 		"session-1",
@@ -129,7 +129,7 @@ func TestRedisStoreRejectsExpiredRefreshToken(t *testing.T) {
 
 	store := NewRedisStore(client)
 	ctx := context.Background()
-	expiredToken := domain.NewRefreshToken(
+	expiredToken := tokenapp.NewRefreshToken(
 		"rt-expired",
 		"expired-value",
 		"session-expired",

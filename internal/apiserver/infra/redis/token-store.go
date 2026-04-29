@@ -9,8 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -51,7 +51,7 @@ type refreshTokenData struct {
 }
 
 // SaveRefreshToken 保存刷新令牌
-func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *domain.Token) error {
+func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token) error {
 	if token == nil {
 		return fmt.Errorf("token is nil")
 	}
@@ -92,7 +92,7 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *domain.Token) 
 }
 
 // GetRefreshToken 获取刷新令牌
-func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*domain.Token, error) {
+func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*tokenapp.Token, error) {
 	key := refreshTokenRedisKey(tokenValue)
 	storeKey, err := newStoreKey(key)
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*d
 	userID := meta.FromUint64(data.UserID)
 	accountID := meta.FromUint64(data.AccountID)
 	tenantID := meta.FromUint64(data.TenantID)
-	token := domain.NewRefreshToken(
+	token := tokenapp.NewRefreshToken(
 		data.TokenID,
 		tokenValue,
 		data.SessionID,

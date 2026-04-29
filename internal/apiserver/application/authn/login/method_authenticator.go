@@ -43,8 +43,8 @@ func newMethodAuthenticatorRouter(
 				scenario:      authentication.AuthWecom,
 				authenticater: authenticater,
 			},
-			authentication.AuthJWTToken: &domainMethodAuthenticator{
-				scenario:      authentication.AuthJWTToken,
+			authentication.AuthBearerToken: &domainMethodAuthenticator{
+				scenario:      authentication.AuthBearerToken,
 				authenticater: authenticater,
 			},
 		},

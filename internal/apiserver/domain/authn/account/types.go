@@ -90,16 +90,3 @@ func (s AccountStatus) String() string {
 		return "unknown"
 	}
 }
-
-// AccessClaims 访问令牌载荷，JWT 声明
-type AccessClaims struct {
-	Sub string `json:"sub"`
-	Aid string `json:"aid"`
-	Aud string `json:"aud"`
-	Iss string `json:"iss"`
-	Iat int64  `json:"iat"`
-	Exp int64  `json:"exp"`
-	Jti string `json:"jti"`
-	Kid string `json:"kid"`
-	Sid string `json:"sid,omitempty"`
-}
