@@ -9,8 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -31,10 +31,10 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 }
 
 // FamilyInspectors 返回当前适配器暴露的缓存族状态读取器。
-func (s *RedisStore) FamilyInspectors() []cacheinfra.FamilyInspector {
-	return []cacheinfra.FamilyInspector{
-		newRedisFamilyInspector(cacheinfra.FamilyAuthnRefreshToken, s.client, "刷新令牌采用 JSON String 存储。"),
-		newRedisFamilyInspector(cacheinfra.FamilyAuthnRevokedAccessToken, s.client, "已撤销访问令牌采用 marker String 存储。"),
+func (s *RedisStore) FamilyInspectors() []cachegovernance.FamilyInspector {
+	return []cachegovernance.FamilyInspector{
+		newRedisFamilyInspector(cachegovernance.FamilyAuthnRefreshToken, s.client, "刷新令牌采用 JSON String 存储。"),
+		newRedisFamilyInspector(cachegovernance.FamilyAuthnRevokedAccessToken, s.client, "已撤销访问令牌采用 marker String 存储。"),
 	}
 }
 

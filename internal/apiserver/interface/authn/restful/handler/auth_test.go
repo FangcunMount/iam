@@ -54,6 +54,85 @@ func TestAuthHandlerLoginV1PasswordAdapterKeepsLegacySelection(t *testing.T) {
 	require.Equal(t, uint64(42), stub.req.TenantID.Uint64())
 }
 
+func TestAuthHandlerLoginV1AdaptersKeepLegacySelection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name     string
+		body     string
+		wantType login.AuthType
+		assert   func(t *testing.T, req login.LoginRequest)
+	}{
+		{
+			name: "phone otp",
+			body: `{
+				"method": "phone_otp",
+				"credentials": {
+					"phone": "+8613800138000",
+					"otp_code": "123456"
+				}
+			}`,
+			wantType: login.AuthTypePhoneOTP,
+			assert: func(t *testing.T, req login.LoginRequest) {
+				require.NotNil(t, req.PhoneE164)
+				require.NotNil(t, req.OTPCode)
+				require.Equal(t, "+8613800138000", *req.PhoneE164)
+				require.Equal(t, "123456", *req.OTPCode)
+			},
+		},
+		{
+			name: "wechat",
+			body: `{
+				"method": "wechat",
+				"credentials": {
+					"app_id": "wx-app",
+					"code": "js-code"
+				}
+			}`,
+			wantType: login.AuthTypeWechat,
+			assert: func(t *testing.T, req login.LoginRequest) {
+				require.NotNil(t, req.WechatAppID)
+				require.NotNil(t, req.WechatJSCode)
+				require.Equal(t, "wx-app", *req.WechatAppID)
+				require.Equal(t, "js-code", *req.WechatJSCode)
+			},
+		},
+		{
+			name: "wecom",
+			body: `{
+				"method": "wecom",
+				"credentials": {
+					"corp_id": "corp-id",
+					"auth_code": "auth-code"
+				}
+			}`,
+			wantType: login.AuthTypeWecom,
+			assert: func(t *testing.T, req login.LoginRequest) {
+				require.NotNil(t, req.WecomCorpID)
+				require.NotNil(t, req.WecomCode)
+				require.Equal(t, "corp-id", *req.WecomCorpID)
+				require.Equal(t, "auth-code", *req.WecomCode)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			stub := &loginServiceCaptureStub{}
+			h := NewAuthHandler(stub, nil, nil)
+
+			w := performAuthRequest(h.Login, tc.body)
+
+			require.Equal(t, http.StatusOK, w.Code)
+			require.True(t, stub.called)
+			require.Equal(t, login.ScenarioSelectionLegacy, stub.req.SelectionMode)
+			require.Equal(t, tc.wantType, stub.req.AuthType)
+			tc.assert(t, stub.req)
+		})
+	}
+}
+
 func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

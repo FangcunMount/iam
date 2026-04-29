@@ -15,17 +15,18 @@ import (
 // KeySetBuilder JWKS 构建服务
 // 实现 Publisher 接口
 type KeySetBuilder struct {
-	keyRepo Repository
-	// 缓存最后构建的 JWKS
-	lastJWKS      *JWKS
-	lastCacheTag  CacheTag
-	lastBuildTime time.Time
+	keyRepo  Repository
+	snapshot *keySetSnapshotCache
 }
 
 // NewKeySetBuilder 创建 JWKS 构建器
 func NewKeySetBuilder(keyRepo Repository) *KeySetBuilder {
 	return &KeySetBuilder{
 		keyRepo: keyRepo,
+		snapshot: newKeySetSnapshotCache(
+			time.Minute,
+			time.Now,
+		),
 	}
 }
 
@@ -79,10 +80,7 @@ func (s *KeySetBuilder) BuildJWKS(ctx context.Context) ([]byte, CacheTag, error)
 	// 生成缓存标签
 	tag := s.generateCacheTag(jwksJSON)
 
-	// 更新缓存
-	s.lastJWKS = &jwksObj
-	s.lastCacheTag = tag
-	s.lastBuildTime = time.Now()
+	s.snapshot.store(jwksObj, tag)
 
 	return jwksJSON, tag, nil
 }
@@ -133,9 +131,8 @@ func (s *KeySetBuilder) ValidateCacheTag(ctx context.Context, clientTag CacheTag
 
 // GetCurrentCacheTag 获取当前缓存标签
 func (s *KeySetBuilder) GetCurrentCacheTag(ctx context.Context) (CacheTag, error) {
-	// 如果有缓存且未过期（1分钟内），直接返回
-	if s.lastCacheTag.ETag != "" && time.Since(s.lastBuildTime) < time.Minute {
-		return s.lastCacheTag, nil
+	if tag, ok := s.snapshot.currentTag(); ok {
+		return tag, nil
 	}
 
 	// 重新构建 JWKS 获取最新标签
@@ -160,18 +157,7 @@ func (s *KeySetBuilder) SnapshotStatus() SnapshotStatus {
 		return SnapshotStatus{}
 	}
 
-	status := SnapshotStatus{
-		Cached:   s.lastJWKS != nil,
-		CacheTag: s.lastCacheTag,
-	}
-	if s.lastJWKS != nil {
-		status.KeyCount = len(s.lastJWKS.Keys)
-	}
-	if !s.lastBuildTime.IsZero() {
-		lastBuildTime := s.lastBuildTime
-		status.LastBuildTime = &lastBuildTime
-	}
-	return status
+	return s.snapshot.status()
 }
 
 // generateCacheTag 生成缓存标签
@@ -181,7 +167,7 @@ func (s *KeySetBuilder) generateCacheTag(content []byte) CacheTag {
 	etag := `"` + hex.EncodeToString(hash[:16]) + `"`
 
 	// 使用当前时间作为 Last-Modified
-	lastModified := time.Now().UTC()
+	lastModified := s.snapshot.nowUTC()
 
 	return CacheTag{
 		ETag:         etag,
@@ -210,12 +196,17 @@ func (s *KeySetBuilder) GetJWKSStats(ctx context.Context) (*JWKSStats, error) {
 		}
 	}
 
-	// 最后构建时间
-	if !s.lastBuildTime.IsZero() {
-		stats.LastBuildTime = &s.lastBuildTime
-	}
+	snapshot := s.SnapshotStatus()
+	stats.LastBuildTime = snapshot.LastBuildTime
 
 	return stats, nil
+}
+
+func (s *KeySetBuilder) setClockForTest(now func() time.Time) {
+	if s == nil {
+		return
+	}
+	s.snapshot.setClockForTest(now)
 }
 
 // JWKSStats JWKS 统计信息

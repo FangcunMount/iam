@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/pkg/event"
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )

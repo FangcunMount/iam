@@ -13,10 +13,11 @@ import (
 
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
 	eventoutbox "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/internal/pkg/eventruntime"
+	"github.com/FangcunMount/iam/pkg/event"
+	"github.com/FangcunMount/iam/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/pkg/eventruntime"
 )
 
 // Container 容器
@@ -173,7 +174,7 @@ func (c *Container) initEventing() error {
 	}
 	catalog := eventcatalog.NewCatalog(cfg)
 	c.eventCatalog = catalog
-	c.eventPublisher = eventruntime.NewPublisherForBus(catalog, c.eventBus)
+	c.eventPublisher = eventruntime.NewPublisherForBus(catalog, c.eventBus, eventing.SourceAPIServer)
 	if c.mysqlDB == nil {
 		return nil
 	}

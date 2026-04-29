@@ -2,6 +2,8 @@ package jwks
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -170,6 +172,7 @@ func TestRotationPolicy_Validation(t *testing.T) {
 
 type snapshotTestRepository struct {
 	publishable []*Key
+	calls       atomic.Int64
 }
 
 func (r *snapshotTestRepository) Save(context.Context, *Key) error                { return nil }
@@ -180,6 +183,7 @@ func (r *snapshotTestRepository) FindByStatus(context.Context, KeyStatus) ([]*Ke
 	return nil, nil
 }
 func (r *snapshotTestRepository) FindPublishable(context.Context) ([]*Key, error) {
+	r.calls.Add(1)
 	return r.publishable, nil
 }
 func (r *snapshotTestRepository) FindExpired(context.Context) ([]*Key, error) { return nil, nil }
@@ -218,4 +222,86 @@ func TestKeySetBuilderSnapshotStatus(t *testing.T) {
 	assert.Equal(t, 1, snapshot.KeyCount)
 	require.NotNil(t, snapshot.LastBuildTime)
 	assert.Equal(t, tag.ETag, snapshot.CacheTag.ETag)
+}
+
+func TestKeySetBuilderCurrentCacheTagUsesFreshSnapshotWithinTTL(t *testing.T) {
+	repo := &snapshotTestRepository{
+		publishable: []*Key{
+			NewKey("kid-1", PublicJWK{
+				Kty: "RSA",
+				Use: "sig",
+				Alg: "RS256",
+				Kid: "kid-1",
+				N:   mustStr("n"),
+				E:   mustStr("e"),
+			}),
+		},
+	}
+	builder := NewKeySetBuilder(repo)
+
+	first, err := builder.GetCurrentCacheTag(context.Background())
+	require.NoError(t, err)
+	second, err := builder.GetCurrentCacheTag(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, first.ETag, second.ETag)
+	require.Equal(t, int64(1), repo.calls.Load())
+}
+
+func TestKeySetBuilderCurrentCacheTagRefreshesAfterTTL(t *testing.T) {
+	now := time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC)
+	repo := &snapshotTestRepository{
+		publishable: []*Key{
+			NewKey("kid-1", PublicJWK{
+				Kty: "RSA",
+				Use: "sig",
+				Alg: "RS256",
+				Kid: "kid-1",
+				N:   mustStr("n"),
+				E:   mustStr("e"),
+			}),
+		},
+	}
+	builder := NewKeySetBuilder(repo)
+	builder.setClockForTest(func() time.Time { return now })
+
+	_, err := builder.GetCurrentCacheTag(context.Background())
+	require.NoError(t, err)
+	now = now.Add(2 * time.Minute)
+	_, err = builder.GetCurrentCacheTag(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, int64(2), repo.calls.Load())
+}
+
+func TestKeySetBuilderConcurrentSnapshotAccessIsStable(t *testing.T) {
+	repo := &snapshotTestRepository{
+		publishable: []*Key{
+			NewKey("kid-1", PublicJWK{
+				Kty: "RSA",
+				Use: "sig",
+				Alg: "RS256",
+				Kid: "kid-1",
+				N:   mustStr("n"),
+				E:   mustStr("e"),
+			}),
+		},
+	}
+	builder := NewKeySetBuilder(repo)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _, err := builder.BuildJWKS(context.Background())
+			require.NoError(t, err)
+			_ = builder.SnapshotStatus()
+		}()
+	}
+	wg.Wait()
+
+	snapshot := builder.SnapshotStatus()
+	require.True(t, snapshot.Cached)
+	require.Equal(t, 1, snapshot.KeyCount)
 }

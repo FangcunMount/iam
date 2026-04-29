@@ -6,10 +6,10 @@ import (
 	"time"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/sms"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/pkg/event"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *test
 	require.NoError(t, module.LoginPreparationService.SendPhoneOTPForLogin(context.Background(), "13800138000"))
 
 	require.Len(t, publisher.events, 1)
-	require.Equal(t, eventcatalog.LoginOTPSMS, publisher.events[0].EventType())
+	require.Equal(t, eventing.LoginOTPSMS, publisher.events[0].EventType())
 	payload, ok := publisher.events[0].Payload().(sms.LoginOTPSMSPayload)
 	require.True(t, ok)
 	require.Equal(t, sms.EventLoginOTPSMS, payload.EventType)

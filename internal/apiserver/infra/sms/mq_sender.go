@@ -8,9 +8,9 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/internal/pkg/eventcodec"
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/pkg/event"
+	"github.com/FangcunMount/iam/pkg/eventcodec"
 )
 
 // LoginOTPSMSTopicDefault NSQ topic：下游消费者（短信网关等）订阅并真正发送短信
@@ -78,7 +78,7 @@ func NewLoginOTPSMSEvent(phoneE164, code string) LoginOTPSMSEvent {
 		Code:      code,
 	}
 	return LoginOTPSMSEvent{
-		BaseEvent: event.NewBaseEvent(eventcatalog.LoginOTPSMS, "LoginOTP", phoneE164),
+		BaseEvent: event.NewBaseEvent(eventing.LoginOTPSMS, "LoginOTP", phoneE164),
 		payload:   payload,
 	}
 }
@@ -104,7 +104,7 @@ func (p legacyLoginOTPPublisher) Publish(ctx context.Context, evt event.DomainEv
 		return fmt.Errorf("marshal login otp sms payload: %w", err)
 	}
 	msg := messaging.NewMessage(evt.EventID(), payload)
-	msg.Metadata = eventcodec.MetadataFromEvent(evt, event.SourceAPIServer)
+	msg.Metadata = eventcodec.MetadataFromEvent(evt, eventing.SourceAPIServer)
 	return p.publisher.PublishMessage(ctx, p.topic, msg)
 }
 

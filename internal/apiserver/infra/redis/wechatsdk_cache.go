@@ -10,7 +10,7 @@ import (
 	wechatCache "github.com/silenceper/wechat/v2/cache"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 )
 
 // WechatSDKCache 微信 SDK Cache 接口的 Redis 实现
@@ -33,9 +33,9 @@ func NewWechatSDKCache(client *redis.Client) wechatCache.Cache {
 }
 
 // FamilyInspectors 返回微信 SDK 缓存族的状态读取器。
-func (c *WechatSDKCache) FamilyInspectors() []cacheinfra.FamilyInspector {
-	return []cacheinfra.FamilyInspector{
-		newRedisFamilyInspector(cacheinfra.FamilyIDPWechatSDK, c.client, "缓存值为微信 SDK 提供的字符串 token 或 ticket。"),
+func (c *WechatSDKCache) FamilyInspectors() []cachegovernance.FamilyInspector {
+	return []cachegovernance.FamilyInspector{
+		newRedisFamilyInspector(cachegovernance.FamilyIDPWechatSDK, c.client, "缓存值为微信 SDK 提供的字符串 token 或 ticket。"),
 	}
 }
 

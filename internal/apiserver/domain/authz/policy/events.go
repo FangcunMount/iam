@@ -3,8 +3,8 @@ package policy
 import (
 	"strconv"
 
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/pkg/event"
 )
 
 type VersionChangedPayload struct {
@@ -20,7 +20,7 @@ type VersionChangedEvent struct {
 func NewVersionChangedEvent(tenantID string, version int64) VersionChangedEvent {
 	return VersionChangedEvent{
 		BaseEvent: event.NewBaseEvent(
-			eventcatalog.AuthzVersionChanged,
+			eventing.AuthzVersionChanged,
 			"PolicyVersion",
 			tenantID+":"+strconv.FormatInt(version, 10),
 		),

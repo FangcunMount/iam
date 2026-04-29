@@ -10,7 +10,6 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 )
 
 // ==================== UserApplicationService 测试 ====================
@@ -18,7 +17,7 @@ import (
 func TestUserApplicationService_Register_Success(t *testing.T) {
 	// Arrange - 准备测试环境
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	appService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -50,7 +49,7 @@ func TestUserApplicationService_Register_Success(t *testing.T) {
 func TestUserApplicationService_Register_WithoutEmail(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	appService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -75,7 +74,7 @@ func TestUserApplicationService_Register_WithoutEmail(t *testing.T) {
 func TestUserApplicationService_Register_DuplicatePhone(t *testing.T) {
 	// Arrange - 先注册一个用户
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	appService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -101,7 +100,7 @@ func TestUserApplicationService_Register_DuplicatePhone(t *testing.T) {
 func TestUserApplicationService_Register_InvalidPhone(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	appService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -121,7 +120,7 @@ func TestUserApplicationService_Register_InvalidPhone(t *testing.T) {
 func TestUserApplicationService_Register_WithoutPhone(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	appService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -148,7 +147,7 @@ func TestUserApplicationService_Register_WithoutPhone(t *testing.T) {
 func TestUserProfileApplicationService_Rename_Success(t *testing.T) {
 	// Arrange - 先创建一个用户
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 
 	registerService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -178,7 +177,7 @@ func TestUserProfileApplicationService_Rename_Success(t *testing.T) {
 func TestUserProfileApplicationService_Rename_EmptyName(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 
 	registerService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -201,7 +200,7 @@ func TestUserProfileApplicationService_Rename_EmptyName(t *testing.T) {
 func TestUserProfileApplicationService_UpdateContact_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 
 	registerService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -236,7 +235,7 @@ func TestUserProfileApplicationService_UpdateContact_Success(t *testing.T) {
 
 func TestUserProfileApplicationService_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	registerService := user.NewUserApplicationService(unitOfWork)
@@ -269,7 +268,7 @@ func TestUserProfileApplicationService_PatchProfile_OrchestratesProfileAndContac
 func TestUserProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 
 	registerService := user.NewUserApplicationService(unitOfWork)
 	ctx := context.Background()
@@ -301,7 +300,7 @@ func TestUserProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
 func TestUserStatusApplicationService_Activate_Success(t *testing.T) {
 	// Arrange - 先创建一个停用的用户
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	registerService := user.NewUserApplicationService(unitOfWork)
@@ -332,7 +331,7 @@ func TestUserStatusApplicationService_Activate_Success(t *testing.T) {
 func TestUserStatusApplicationService_Deactivate_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	registerService := user.NewUserApplicationService(unitOfWork)
@@ -360,7 +359,7 @@ func TestUserStatusApplicationService_Deactivate_Success(t *testing.T) {
 func TestUserStatusApplicationService_Block_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	registerService := user.NewUserApplicationService(unitOfWork)
@@ -390,7 +389,7 @@ func TestUserStatusApplicationService_Block_Success(t *testing.T) {
 func TestUserQueryApplicationService_GetByID_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	registerService := user.NewUserApplicationService(unitOfWork)
@@ -418,7 +417,7 @@ func TestUserQueryApplicationService_GetByID_Success(t *testing.T) {
 func TestUserQueryApplicationService_GetByID_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	queryService := user.NewUserQueryApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -433,7 +432,7 @@ func TestUserQueryApplicationService_GetByID_NotFound(t *testing.T) {
 func TestUserQueryApplicationService_GetByPhone_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	registerService := user.NewUserApplicationService(unitOfWork)
@@ -458,7 +457,7 @@ func TestUserQueryApplicationService_GetByPhone_Success(t *testing.T) {
 func TestUserQueryApplicationService_GetByPhone_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	queryService := user.NewUserQueryApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -479,7 +478,7 @@ func TestUserApplicationService_Transaction_Rollback(t *testing.T) {
 
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 先注册一个用户

@@ -11,8 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 // accessTokenCache 访问令牌缓存实现
@@ -35,9 +35,9 @@ func NewAccessTokenCache(client *redis.Client) wechatapp.AccessTokenCache {
 }
 
 // FamilyInspectors 返回微信 access token 缓存族的状态读取器。
-func (c *accessTokenCache) FamilyInspectors() []cacheinfra.FamilyInspector {
-	return []cacheinfra.FamilyInspector{
-		newRedisFamilyInspector(cacheinfra.FamilyIDPWechatAccessToken, c.client, "缓存主体为 JSON String，并使用 lease 协调刷新。"),
+func (c *accessTokenCache) FamilyInspectors() []cachegovernance.FamilyInspector {
+	return []cachegovernance.FamilyInspector{
+		newRedisFamilyInspector(cachegovernance.FamilyIDPWechatAccessToken, c.client, "缓存主体为 JSON String，并使用 lease 协调刷新。"),
 	}
 }
 

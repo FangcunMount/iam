@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/pkg/eventcatalog"
 )
 
 const modulePath = "github.com/FangcunMount/iam/"
@@ -161,6 +161,86 @@ func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
 			t.Fatalf("%s exposes Provide; pass dependencies explicitly to Register", rel)
 		}
 	})
+}
+
+func TestRetiredCompatibilityAliasPackagesDoNotReturn(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	retiredPaths := []string{
+		"internal/apiserver/infra/cache",
+		"internal/apiserver/outboxcore",
+		"internal/apiserver/port/outbox",
+		"internal/pkg/event",
+		"internal/pkg/eventcatalog",
+		"internal/pkg/eventcodec",
+		"internal/pkg/eventruntime",
+	}
+	for _, rel := range retiredPaths {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(rel), "*.go"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(matches) > 0 {
+			t.Fatalf("%s is retired compatibility alias code; use application/cachegovernance or public pkg/event*/pkg/outbox* primitives", rel)
+		}
+	}
+
+	forbiddenImports := map[string]struct{}{}
+	for _, rel := range retiredPaths {
+		forbiddenImports[modulePath+filepath.ToSlash(rel)] = struct{}{}
+	}
+	scanImportsIncludingTests(t, filepath.Join(root, "internal"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if rel == "internal/pkg/architecture/architecture_test.go" {
+			return
+		}
+		for _, imp := range imports {
+			if _, forbidden := forbiddenImports[imp]; forbidden {
+				t.Fatalf("%s imports retired compatibility alias %s", rel, imp)
+			}
+		}
+	})
+}
+
+func TestApplicationTestsUseTestutilForInfrastructureDependencies(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "application"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if !strings.HasSuffix(rel, "_test.go") || isApplicationTestutilPath(rel) {
+			return
+		}
+		for _, imp := range imports {
+			if isApplicationForbiddenImport(imp) ||
+				imp == "gorm.io/gorm" ||
+				strings.HasPrefix(imp, "gorm.io/driver/") {
+				t.Fatalf("%s imports %s; application tests must go through application/*/testutil for infra-backed fixtures", rel, imp)
+			}
+		}
+	})
+}
+
+func TestRESTRouterTestsUseExplicitDeps(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	rel := filepath.Join("internal", "apiserver", "routers_test.go")
+	path := filepath.Join(root, rel)
+	imports := importsForFile(t, path)
+	for _, imp := range imports {
+		if strings.HasPrefix(imp, modulePath+"internal/apiserver/container") {
+			t.Fatalf("%s imports %s; router tests must construct resttransport.Deps directly", filepath.ToSlash(rel), imp)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "BuildRESTDeps(") {
+		t.Fatalf("%s calls BuildRESTDeps; router tests must exercise Router's dependency surface directly", filepath.ToSlash(rel))
+	}
 }
 
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
@@ -382,6 +462,31 @@ func scanImports(t *testing.T, root string, visit func(path string, imports []st
 	})
 }
 
+func scanImportsIncludingTests(t *testing.T, root string, visit func(path string, imports []string)) {
+	t.Helper()
+	scanGoFilesIncludingTests(t, root, func(path string, file *ast.File) {
+		imports := make([]string, 0, len(file.Imports))
+		for _, spec := range file.Imports {
+			imports = append(imports, strings.Trim(spec.Path.Value, `"`))
+		}
+		visit(path, imports)
+	})
+}
+
+func importsForFile(t *testing.T, path string) []string {
+	t.Helper()
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imports := make([]string, 0, len(file.Imports))
+	for _, spec := range file.Imports {
+		imports = append(imports, strings.Trim(spec.Path.Value, `"`))
+	}
+	return imports
+}
+
 func scanGoFiles(t *testing.T, root string, visit func(path string, file *ast.File)) {
 	t.Helper()
 	fset := token.NewFileSet()
@@ -390,6 +495,28 @@ func scanGoFiles(t *testing.T, root string, visit func(path string, file *ast.Fi
 			return err
 		}
 		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		visit(path, file)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func scanGoFilesIncludingTests(t *testing.T, root string, visit func(path string, file *ast.File)) {
+	t.Helper()
+	fset := token.NewFileSet()
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
 		file, err := parser.ParseFile(fset, path, nil, 0)

@@ -13,7 +13,6 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -22,7 +21,7 @@ import (
 func TestGuardianshipApplicationService_AddGuardian_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 先创建用户和儿童
@@ -65,7 +64,7 @@ func TestGuardianshipApplicationService_AddGuardian_Success(t *testing.T) {
 func TestGuardianshipApplicationService_AddGuardian_DuplicateGuardian(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 先创建用户和儿童
@@ -106,7 +105,7 @@ func TestGuardianshipApplicationService_AddGuardian_DuplicateGuardian(t *testing
 func TestGuardianshipApplicationService_RemoveGuardian_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 先创建用户、儿童和监护关系
@@ -163,7 +162,7 @@ func TestGuardianshipApplicationService_RemoveGuardian_Success(t *testing.T) {
 func TestGuardianshipApplicationService_RemoveGuardian_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	guardianshipService := guardianship.NewGuardianshipApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -181,7 +180,7 @@ func TestGuardianshipApplicationService_RemoveGuardian_NotFound(t *testing.T) {
 func TestGuardianshipQueryApplicationService_IsGuardian_True(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 创建用户、儿童和监护关系
@@ -222,7 +221,7 @@ func TestGuardianshipQueryApplicationService_IsGuardian_True(t *testing.T) {
 func TestGuardianshipQueryApplicationService_IsGuardian_False(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	queryService := guardianship.NewGuardianshipQueryApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -237,7 +236,7 @@ func TestGuardianshipQueryApplicationService_IsGuardian_False(t *testing.T) {
 func TestGuardianshipQueryApplicationService_GetByUserIDAndChildID_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 创建用户、儿童和监护关系
@@ -281,7 +280,7 @@ func TestGuardianshipQueryApplicationService_GetByUserIDAndChildID_Success(t *te
 func TestGuardianshipQueryApplicationService_GetByUserIDAndChildID_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	queryService := guardianship.NewGuardianshipQueryApplicationService(unitOfWork)
 	ctx := context.Background()
 
@@ -296,7 +295,7 @@ func TestGuardianshipQueryApplicationService_GetByUserIDAndChildID_NotFound(t *t
 func TestGuardianshipQueryApplicationService_ListChildrenByUserID_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 创建用户
@@ -355,7 +354,7 @@ func TestGuardianshipQueryApplicationService_ListChildrenByUserID_Success(t *tes
 func TestGuardianshipQueryApplicationService_ListGuardiansByChildID_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 创建多个用户 (设置唯一的email避免UNIQUE约束冲突)
@@ -421,7 +420,7 @@ func TestGuardianshipQueryApplicationService_ListGuardiansByChildID_Success(t *t
 func TestGuardianshipApplicationService_AddGuardian_ConcurrentPersistence_10(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	// 创建用户和儿童（使用唯一 email 避免 UNIQUE 冲突）
@@ -481,7 +480,7 @@ func TestGuardianshipApplicationService_AddGuardian_ConcurrentPersistence_10(t *
 
 func TestGuardianshipQueryApplicationService_ListChildrenByUserID_ExcludesRevokedByDefault(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	userService := user.NewUserApplicationService(unitOfWork)
@@ -525,7 +524,7 @@ func TestGuardianshipQueryApplicationService_ListChildrenByUserID_ExcludesRevoke
 
 func TestGuardianshipAccessApplicationService_GrantAndListForCurrentUser(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	userService := user.NewUserApplicationService(unitOfWork)
@@ -562,7 +561,7 @@ func TestGuardianshipAccessApplicationService_GrantAndListForCurrentUser(t *test
 
 func TestGuardianshipAccessApplicationService_RejectsCrossUserGrantAndList(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	accessService := guardianship.NewGuardianshipAccessApplicationService(unitOfWork)
@@ -584,7 +583,7 @@ func TestGuardianshipAccessApplicationService_RejectsCrossUserGrantAndList(t *te
 
 func TestGuardianshipAccessApplicationService_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
 	userService := user.NewUserApplicationService(unitOfWork)

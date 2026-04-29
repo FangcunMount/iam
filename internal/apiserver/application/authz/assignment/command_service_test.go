@@ -11,11 +11,11 @@ import (
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/pkg/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -110,7 +110,7 @@ func TestAssignmentCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *tes
 	assert.Equal(t, "role:iam:admin", ruleStore.groupingAdds[0].Role)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
 	require.Len(t, stager.events, 1)
-	assert.Equal(t, eventcatalog.AuthzVersionChanged, stager.events[0].EventType())
+	assert.Equal(t, eventing.AuthzVersionChanged, stager.events[0].EventType())
 	assert.Equal(t, 3, runtime.loadCalls)
 }
 

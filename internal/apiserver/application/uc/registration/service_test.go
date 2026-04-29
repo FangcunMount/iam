@@ -9,12 +9,11 @@ import (
 
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
-	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 )
 
 func TestChildRegistrationService_RegisterChildWithGuardian_RollsBackChildOnGuardianshipFailure(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	unitOfWork := mysqluow.NewUnitOfWork(db)
+	unitOfWork := testutil.NewUnitOfWork(db)
 	service := registration.NewChildRegistrationService(unitOfWork)
 
 	result, err := service.RegisterChildWithGuardian(context.Background(), registration.RegisterChildWithGuardianDTO{

@@ -9,9 +9,9 @@ import (
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/pkg/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,7 +64,7 @@ func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t 
 	assert.Equal(t, "read", ruleStore.policyAdds[0].Act)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
 	require.Len(t, stager.events, 1)
-	assert.Equal(t, eventcatalog.AuthzVersionChanged, stager.events[0].EventType())
+	assert.Equal(t, eventing.AuthzVersionChanged, stager.events[0].EventType())
 	assert.Equal(t, 3, runtime.loadCalls)
 }
 

@@ -22,7 +22,7 @@ import (
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authz/grpc"
 	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
-	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/pkg/event"
 )
 
 // AuthzModule 授权模块

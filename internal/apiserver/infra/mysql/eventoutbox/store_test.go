@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FangcunMount/iam/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/internal/apiserver/outboxcore"
 	"github.com/FangcunMount/iam/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam/internal/pkg/event"
-	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/pkg/event"
+	"github.com/FangcunMount/iam/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/pkg/outboxcore"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -54,7 +55,7 @@ events:
 }
 
 func versionEvent(version int) event.DomainEvent {
-	return event.New(eventcatalog.AuthzVersionChanged, "PolicyVersion", "tenant-a", map[string]any{
+	return event.New(eventing.AuthzVersionChanged, "PolicyVersion", "tenant-a", map[string]any{
 		"tenant_id": "tenant-a",
 		"version":   version,
 	})
@@ -94,7 +95,7 @@ func TestStageCommitsAndRollsBackWithUnitOfWork(t *testing.T) {
 func TestStageRejectsBestEffortEvents(t *testing.T) {
 	db, store, _ := setupOutboxStore(t)
 	uow := mysql.NewUnitOfWork(db)
-	bestEffort := event.New(eventcatalog.LoginOTPSMS, "LoginOTP", "+8613800138000", map[string]string{"code": "123456"})
+	bestEffort := event.New(eventing.LoginOTPSMS, "LoginOTP", "+8613800138000", map[string]string{"code": "123456"})
 
 	err := uow.WithinTransaction(context.Background(), func(txCtx context.Context) error {
 		return store.Stage(txCtx, bestEffort)
@@ -114,7 +115,7 @@ func TestClaimAndMarkEventLifecycle(t *testing.T) {
 	claimed, err := store.ClaimDueEvents(context.Background(), 10, now)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
-	require.Equal(t, eventcatalog.AuthzVersionChanged, claimed[0].EventType)
+	require.Equal(t, eventing.AuthzVersionChanged, claimed[0].EventType)
 	require.Equal(t, "iam.authz.version", claimed[0].TopicName)
 
 	var payload map[string]any
@@ -189,7 +190,7 @@ func TestOutboxStatusSnapshotCountsUnfinishedStatuses(t *testing.T) {
 func statusRow(eventID, status string, createdAt time.Time) eventoutbox.OutboxPO {
 	return eventoutbox.OutboxPO{
 		EventID:       eventID,
-		EventType:     eventcatalog.AuthzVersionChanged,
+		EventType:     eventing.AuthzVersionChanged,
 		AggregateType: "PolicyVersion",
 		AggregateID:   "tenant-a",
 		TopicName:     "iam.authz.version",

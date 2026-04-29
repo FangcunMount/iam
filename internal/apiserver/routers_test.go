@@ -13,8 +13,6 @@ import (
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam/internal/apiserver/container"
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
 	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
 	authzhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
 	uchandler "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
@@ -26,11 +24,8 @@ func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *test
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		CacheGovernanceService: cachegovernance.NewReadService(nil),
-	}
 
-	newRouterForTest(c, resttransport.RouterOptions{
+	newRouterForTest(restDepsForTest(), resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{AppMode: "development"},
 	}).RegisterRoutes(engine)
 
@@ -44,11 +39,8 @@ func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesInProductionByDefault(t 
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		CacheGovernanceService: cachegovernance.NewReadService(nil),
-	}
 
-	newRouterForTest(c, resttransport.RouterOptions{
+	newRouterForTest(restDepsForTest(), resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{AppMode: "production"},
 	}).RegisterRoutes(engine)
 
@@ -61,11 +53,8 @@ func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesWhenAdminProtectionUnava
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		CacheGovernanceService: cachegovernance.NewReadService(nil),
-	}
 
-	newRouterForTest(c, resttransport.RouterOptions{
+	newRouterForTest(restDepsForTest(), resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
 			AppMode:      "production",
 			Enabled:      boolPtr(true),
@@ -80,11 +69,8 @@ func TestRouterForcesAdminProtectionForCacheGovernanceDebugRoutesInProduction(t 
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		CacheGovernanceService: cachegovernance.NewReadService(nil),
-	}
 
-	newRouterForTest(c, resttransport.RouterOptions{
+	newRouterForTest(restDepsForTest(), resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
 			AppMode:      "production",
 			Enabled:      boolPtr(true),
@@ -99,13 +85,13 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		AuthnModule: &assembler.AuthnModule{
-			AccountHandler: authhandler.NewAccountHandler(nil, nil),
-		},
+	deps := restDepsForTest()
+	deps.Authn = resttransport.AuthnDeps{
+		AccountHandler: authhandler.NewAccountHandler(nil, nil),
 	}
+	deps.ModuleStatus.Authn = true
 
-	newRouterForTest(c, resttransport.RouterOptions{
+	newRouterForTest(deps, resttransport.RouterOptions{
 		SeedMockAuth: resttransport.SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"},
 	}).RegisterRoutes(engine)
 
@@ -116,13 +102,13 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		AuthnModule: &assembler.AuthnModule{
-			AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
-		},
+	deps := restDepsForTest()
+	deps.Authn = resttransport.AuthnDeps{
+		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
 	}
+	deps.ModuleStatus.Authn = true
 
-	newRouterForTest(c, resttransport.RouterOptions{}).RegisterRoutes(engine)
+	newRouterForTest(deps, resttransport.RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/login")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
@@ -132,13 +118,13 @@ func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		AuthnModule: &assembler.AuthnModule{
-			AccountHandler: authhandler.NewAccountHandler(nil, nil),
-		},
+	deps := restDepsForTest()
+	deps.Authn = resttransport.AuthnDeps{
+		AccountHandler: authhandler.NewAccountHandler(nil, nil),
 	}
+	deps.ModuleStatus.Authn = true
 
-	newRouterForTest(c, resttransport.RouterOptions{
+	newRouterForTest(deps, resttransport.RouterOptions{
 		SeedMockAuth: resttransport.SeedMockAuthOptions{Enabled: true, SharedSecret: ""},
 	}).RegisterRoutes(engine)
 
@@ -149,11 +135,9 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	router := newRouterForTest(&container.Container{
-		AuthnModule: &assembler.AuthnModule{
-			SessionAdminHandler: authhandler.NewSessionAdminHandler(sessionServiceStub{}),
-		},
-	}, resttransport.RouterOptions{})
+	deps := restDepsForTest()
+	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
+	router := newRouterForTest(deps, resttransport.RouterOptions{})
 
 	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, casbinStub{}))
 
@@ -166,11 +150,9 @@ func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	router := newRouterForTest(&container.Container{
-		AuthnModule: &assembler.AuthnModule{
-			SessionAdminHandler: authhandler.NewSessionAdminHandler(sessionServiceStub{}),
-		},
-	}, resttransport.RouterOptions{})
+	deps := restDepsForTest()
+	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
+	router := newRouterForTest(deps, resttransport.RouterOptions{})
 
 	router.registerAdminRoutes(engine, nil)
 
@@ -183,18 +165,18 @@ func TestRouterRegistersIdentityGuardiansRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		AuthnModule: &assembler.AuthnModule{
-			TokenService: tokenServiceStub{},
-		},
-		UserModule: &assembler.UserModule{
-			UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-			ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
-			GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
-		},
+	deps := restDepsForTest()
+	deps.Authn.TokenService = tokenServiceStub{}
+	deps.User = resttransport.UserDeps{
+		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
+		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
+		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
 	}
+	deps.ModuleStatus.Authn = true
+	deps.ModuleStatus.AuthEnabled = true
+	deps.ModuleStatus.User = true
 
-	newRouterForTest(c, resttransport.RouterOptions{}).RegisterRoutes(engine)
+	newRouterForTest(deps, resttransport.RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/guardians/grant")
@@ -205,25 +187,25 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	c := &container.Container{
-		UserModule: &assembler.UserModule{
-			UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-			ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
-			GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
-		},
-		AuthzModule: &assembler.AuthzModule{
-			RoleHandler:       authzhandler.NewRoleHandler(nil, nil),
-			AssignmentHandler: authzhandler.NewAssignmentHandler(nil, nil),
-			PolicyHandler:     authzhandler.NewPolicyHandler(nil, nil),
-			ResourceHandler:   authzhandler.NewResourceHandler(nil, nil),
-			CheckHandler:      authzhandler.NewCheckHandler(nil),
-		},
-		SuggestModule: &assembler.SuggestModule{
-			Service: appsuggest.NewService(appsuggest.Config{}),
-		},
+	deps := restDepsForTest()
+	deps.User = resttransport.UserDeps{
+		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
+		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
+		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
 	}
+	deps.Authz = resttransport.AuthzDeps{
+		RoleHandler:       authzhandler.NewRoleHandler(nil, nil),
+		AssignmentHandler: authzhandler.NewAssignmentHandler(nil, nil),
+		PolicyHandler:     authzhandler.NewPolicyHandler(nil, nil),
+		ResourceHandler:   authzhandler.NewResourceHandler(nil, nil),
+		CheckHandler:      authzhandler.NewCheckHandler(nil),
+	}
+	deps.Suggest.Service = appsuggest.NewService(appsuggest.Config{})
+	deps.ModuleStatus.User = true
+	deps.ModuleStatus.Authz = true
+	deps.ModuleStatus.Suggest = true
 
-	newRouterForTest(c, resttransport.RouterOptions{}).RegisterRoutes(engine)
+	newRouterForTest(deps, resttransport.RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/identity/children/register")
@@ -232,8 +214,22 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/health")
 }
 
-func newRouterForTest(c *container.Container, options resttransport.RouterOptions) *Router {
-	return NewRouter(c.BuildRESTDeps(options))
+func newRouterForTest(deps resttransport.Deps, options resttransport.RouterOptions) *Router {
+	deps.RouterOptions = options
+	if deps.CacheGovernance == nil {
+		deps.CacheGovernance = cachegovernance.NewReadService(nil)
+	}
+	deps.ModuleStatus.ContainerInitialized = true
+	return NewRouter(deps)
+}
+
+func restDepsForTest() resttransport.Deps {
+	return resttransport.Deps{
+		CacheGovernance: cachegovernance.NewReadService(nil),
+		ModuleStatus: resttransport.ModuleStatus{
+			ContainerInitialized: true,
+		},
+	}
 }
 
 func boolPtr(v bool) *bool {

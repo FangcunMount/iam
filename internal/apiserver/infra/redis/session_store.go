@@ -7,8 +7,8 @@ import (
 	"time"
 
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/redis/go-redis/v9"
 )
@@ -166,13 +166,13 @@ func (s *SessionStore) removeExpiredIndexMembers(ctx context.Context, indexKey s
 }
 
 // FamilyInspectors 返回 session 相关缓存族的状态读取器。
-func (s *SessionStore) FamilyInspectors() []cacheinfra.FamilyInspector {
+func (s *SessionStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 	if s == nil {
 		return nil
 	}
-	return []cacheinfra.FamilyInspector{
-		newRedisFamilyInspector(cacheinfra.FamilyAuthnSession, s.client, "会话主对象使用 Redis String(JSON) 存储。"),
-		newRedisFamilyInspector(cacheinfra.FamilyAuthnUserSessionIndex, s.client, "用户维度会话索引使用 Redis ZSet。"),
-		newRedisFamilyInspector(cacheinfra.FamilyAuthnAccountSessionIndex, s.client, "账号维度会话索引使用 Redis ZSet。"),
+	return []cachegovernance.FamilyInspector{
+		newRedisFamilyInspector(cachegovernance.FamilyAuthnSession, s.client, "会话主对象使用 Redis String(JSON) 存储。"),
+		newRedisFamilyInspector(cachegovernance.FamilyAuthnUserSessionIndex, s.client, "用户维度会话索引使用 Redis ZSet。"),
+		newRedisFamilyInspector(cachegovernance.FamilyAuthnAccountSessionIndex, s.client, "账号维度会话索引使用 Redis ZSet。"),
 	}
 }

@@ -8,7 +8,7 @@ import (
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/pkg/event"
 )
 
 type TxRepositories struct {

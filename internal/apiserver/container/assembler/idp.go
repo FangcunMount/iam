@@ -1,21 +1,15 @@
 package assembler
 
 import (
-	"context"
-	"fmt"
-	"time"
-
 	redis "github.com/redis/go-redis/v9"
 	wechatCache "github.com/silenceper/wechat/v2/cache"
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
 	wechatappDomain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/crypto"
-	infraMysql "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/wechatapp"
 	infraRedis "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi"
 	wechatapiPort "github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi/port"
@@ -121,123 +115,6 @@ func validateIDPModuleDeps(deps IDPModuleDeps) error {
 	return nil
 }
 
-// initializeInfrastructure 初始化基础设施层组件
-// 直接创建各个基础设施组件，无需中间聚合器（InfrastructureServices）
-func (m *IDPModule) initializeInfrastructure(
-	db *gorm.DB,
-	redisClient *redis.Client,
-	encryptionKey []byte,
-) error {
-	// 创建 MySQL 仓储
-	m.wechatAppRepo = infraMysql.NewWechatAppRepository(db)
-
-	// 创建 Redis 缓存
-	m.accessTokenCache = infraRedis.NewAccessTokenCache(redisClient)
-
-	// 创建加密服务
-	secretVault, err := crypto.NewSecretVault(encryptionKey)
-	if err != nil {
-		return fmt.Errorf("failed to create secret vault: %w", err)
-	}
-	m.secretVault = secretVault
-
-	// 创建微信 SDK 使用的缓存适配器（使用 Redis 作为后端）
-	wechatSDKCache := infraRedis.NewWechatSDKCache(redisClient)
-	m.wechatSDKCache = wechatSDKCache
-	m.wechatAuthProvider = wechatapi.NewAuthProvider(wechatSDKCache)
-	m.wechatTokenProvider = wechatapi.NewTokenProvider(wechatSDKCache)
-
-	return nil
-}
-
-// domainServices 领域层服务（内部结构）
-type domainServices struct {
-	// 微信应用领域服务
-	wechatAppCreator  wechatappDomain.Creator
-	credentialRotater wechatappDomain.CredentialRotater
-	accessTokenCacher wechatappDomain.AccessTokenCacher
-	appTokenProvider  wechatappDomain.AppTokenProvider
-}
-
-// initializeDomain 初始化领域层
-func (m *IDPModule) initializeDomain() (*domainServices, error) {
-	// 创建微信应用领域服务
-	wechatAppCreator := wechatappDomain.NewCreator(
-		m.wechatAppRepo,
-	)
-
-	credentialRotater := wechatappDomain.NewCredentialRotater(
-		m.secretVault,
-		time.Now,
-	)
-
-	// 创建应用令牌提供器适配器（连接基础设施层和领域层）
-	appTokenProvider := &appTokenProviderAdapter{
-		tokenProvider: m.wechatTokenProvider,
-		wechatAppRepo: m.wechatAppRepo,
-	}
-
-	accessTokenCacher := wechatappDomain.NewAccessTokenCacher(
-		m.accessTokenCache,
-		appTokenProvider,
-	)
-
-	return &domainServices{
-		wechatAppCreator:  wechatAppCreator,
-		credentialRotater: credentialRotater,
-		accessTokenCacher: accessTokenCacher,
-		appTokenProvider:  appTokenProvider,
-	}, nil
-}
-
-// initializeApplication 初始化应用层
-func (m *IDPModule) initializeApplication(
-	domainServices *domainServices,
-) error {
-	// 直接创建各个应用服务
-	m.WechatAppService = wechatapp.NewWechatAppApplicationService(
-		m.wechatAppRepo,
-		domainServices.wechatAppCreator,
-		domainServices.credentialRotater,
-	)
-
-	m.WechatAppCredentialService = wechatapp.NewWechatAppCredentialApplicationService(
-		m.wechatAppRepo,
-		domainServices.credentialRotater,
-	)
-
-	m.WechatAppTokenService = wechatapp.NewWechatAppTokenApplicationService(
-		m.wechatAppRepo,
-		domainServices.accessTokenCacher,
-		domainServices.appTokenProvider,
-		m.accessTokenCache,
-	)
-
-	return nil
-}
-
-// initializeInterface 初始化接口层
-func (m *IDPModule) initializeInterface() error {
-	// 创建 HTTP 处理器（仅微信应用管理）
-	m.WechatAppHandler = handler.NewWechatAppHandler(
-		m.WechatAppService,
-		m.WechatAppCredentialService,
-		m.WechatAppTokenService,
-	)
-
-	// 创建 gRPC 服务
-	m.GRPCService = idpGrpc.NewService(
-		m.WechatAppService,
-		m.wechatAppRepo,
-		m.secretVault,
-	)
-
-	// WechatAuthHandler 已移除 - 认证功能由 authn 模块统一提供
-	// authn 模块通过容器依赖注入使用 IDP 模块的基础设施服务
-
-	return nil
-}
-
 // ============ 暴露给其他模块的基础设施能力 ============
 
 // Repository 返回微信应用查询能力（供 authn 模块读取配置）
@@ -256,40 +133,9 @@ func (m *IDPModule) WechatAuthProvider() wechatapiPort.AuthProvider {
 }
 
 // CacheFamilyInspectors 返回 IDP 模块暴露的缓存族状态读取器。
-func (m *IDPModule) CacheFamilyInspectors() []cacheinfra.FamilyInspector {
-	inspectors := make([]cacheinfra.FamilyInspector, 0, 2)
+func (m *IDPModule) CacheFamilyInspectors() []cachegovernance.FamilyInspector {
+	inspectors := make([]cachegovernance.FamilyInspector, 0, 2)
 	inspectors = append(inspectors, infraRedis.AccessTokenCacheInspectors(m.accessTokenCache)...)
 	inspectors = append(inspectors, infraRedis.WechatSDKCacheInspectors(m.wechatSDKCache)...)
 	return inspectors
-}
-
-// ==================== 适配器 ====================
-
-// appTokenProviderAdapter 应用令牌提供器适配器
-// 将基础设施层的 TokenProvider 适配为领域层的 AppTokenProvider 接口
-type appTokenProviderAdapter struct {
-	tokenProvider *wechatapi.TokenProvider
-	wechatAppRepo wechatappDomain.Repository
-}
-
-// Fetch 实现 AppTokenProvider 接口
-func (a *appTokenProviderAdapter) Fetch(
-	ctx context.Context,
-	app *wechatappDomain.WechatApp,
-) (*wechatappDomain.AppAccessToken, error) {
-	// 获取凭据
-	if app.Cred == nil || app.Cred.Auth == nil {
-		return nil, fmt.Errorf("app credentials not found")
-	}
-
-	// 注意：这里需要解密密钥，但适配器不应该直接访问 SecretVault
-	// 实际上，AppTokenProvider 应该由应用层调用，而不是在这里直接实现
-	// 这个适配器的实现需要重新考虑
-	//
-	// 正确的做法是：
-	// 1. 应用层获取 app 时已经解密了密钥
-	// 2. 或者 AppTokenProvider 接口改为接受明文 appID 和 appSecret
-	//
-	// 这里暂时返回错误，表示需要调整架构
-	return nil, fmt.Errorf("not implemented: AppTokenProvider should be called from application layer with decrypted credentials")
 }

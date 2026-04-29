@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	ucuow "github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ import (
 
 	childpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
 	guardpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
+	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 	userpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 )
 
@@ -59,6 +61,11 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err, "failed to auto-migrate tables")
 
 	return db
+}
+
+// NewUnitOfWork returns the UC UnitOfWork backed by the test database.
+func NewUnitOfWork(db *gorm.DB) ucuow.UnitOfWork {
+	return mysqluow.NewUnitOfWork(db)
 }
 
 // CleanupDB 清空数据库所有表（用于每个测试之间清理）

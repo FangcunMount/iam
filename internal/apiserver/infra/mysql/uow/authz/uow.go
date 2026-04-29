@@ -13,7 +13,7 @@ import (
 	rolerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role"
 	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/pkg/event"
 )
 
 var _ appuow.UnitOfWork = (*unitOfWork)(nil)
