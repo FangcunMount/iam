@@ -1,0 +1,322 @@
+package rest
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+
+	sessionapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
+	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
+	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
+
+	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+)
+
+func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+
+	newRouterForTest(restDepsForTest(), RouterOptions{
+		DebugCacheGovernance: DebugCacheGovernanceOptions{AppMode: "development"},
+	}).RegisterRoutes(engine)
+
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusOK, true)
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/overview", http.StatusOK, true)
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/families/authn.refresh_token", http.StatusOK, true)
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/families/unknown.family", http.StatusNotFound, true)
+}
+
+func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesInProductionByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+
+	newRouterForTest(restDepsForTest(), RouterOptions{
+		DebugCacheGovernance: DebugCacheGovernanceOptions{AppMode: "production"},
+	}).RegisterRoutes(engine)
+
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/overview", http.StatusNotFound, false)
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/families/authn.refresh_token", http.StatusNotFound, false)
+}
+
+func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesWhenAdminProtectionUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+
+	newRouterForTest(restDepsForTest(), RouterOptions{
+		DebugCacheGovernance: DebugCacheGovernanceOptions{
+			AppMode:      "production",
+			Enabled:      boolPtr(true),
+			RequireAdmin: boolPtr(true),
+		},
+	}).RegisterRoutes(engine)
+
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
+}
+
+func TestRouterForcesAdminProtectionForCacheGovernanceDebugRoutesInProduction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+
+	newRouterForTest(restDepsForTest(), RouterOptions{
+		DebugCacheGovernance: DebugCacheGovernanceOptions{
+			AppMode:      "production",
+			Enabled:      boolPtr(true),
+			RequireAdmin: boolPtr(false),
+		},
+	}).RegisterRoutes(engine)
+
+	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
+}
+
+func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		AccountHandler: authhandler.NewAccountHandler(nil, nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{
+		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"},
+	}).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
+}
+
+func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/login")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
+}
+
+func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		AccountHandler: authhandler.NewAccountHandler(nil, nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{
+		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: ""},
+	}).RegisterRoutes(engine)
+
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
+}
+
+func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
+	router := newRouterForTest(deps, RouterOptions{})
+
+	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, casbinStub{}))
+
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/admin/sessions/:sessionId/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/admin/accounts/:accountId/sessions/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/admin/users/:userId/sessions/revoke")
+}
+
+func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
+	router := newRouterForTest(deps, RouterOptions{})
+
+	router.registerAdminRoutes(engine, nil)
+
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/sessions/:sessionId/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/accounts/:accountId/sessions/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/users/:userId/sessions/revoke")
+}
+
+func TestRouterRegistersIdentityGuardiansRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn.TokenService = tokenServiceStub{}
+	deps.User = UserDeps{
+		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
+		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
+		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
+	}
+	deps.ModuleStatus.Authn = true
+	deps.ModuleStatus.AuthEnabled = true
+	deps.ModuleStatus.User = true
+
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/guardians/grant")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/children/register")
+}
+
+func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.User = UserDeps{
+		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
+		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
+		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
+	}
+	deps.Authz = AuthzDeps{
+		RoleHandler:       authzhandler.NewRoleHandler(nil, nil),
+		AssignmentHandler: authzhandler.NewAssignmentHandler(nil, nil),
+		PolicyHandler:     authzhandler.NewPolicyHandler(nil, nil),
+		ResourceHandler:   authzhandler.NewResourceHandler(nil, nil),
+		CheckHandler:      authzhandler.NewCheckHandler(nil),
+	}
+	deps.Suggest.Service = appsuggest.NewService(appsuggest.Config{})
+	deps.ModuleStatus.User = true
+	deps.ModuleStatus.Authz = true
+	deps.ModuleStatus.Suggest = true
+
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/identity/children/register")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/suggest/child")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/roles")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/health")
+}
+
+func newRouterForTest(deps Deps, options RouterOptions) *Router {
+	deps.RouterOptions = options
+	if deps.CacheGovernance == nil {
+		deps.CacheGovernance = cachegovernance.NewReadService(nil)
+	}
+	deps.ModuleStatus.ContainerInitialized = true
+	return NewRouter(deps)
+}
+
+func restDepsForTest() Deps {
+	return Deps{
+		CacheGovernance: cachegovernance.NewReadService(nil),
+		ModuleStatus: ModuleStatus{
+			ContainerInitialized: true,
+		},
+	}
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func assertDebugRouteStatus(t *testing.T, engine *gin.Engine, method, path string, wantStatus int, wantJSON bool) {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, nil)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, req)
+
+	if recorder.Code != wantStatus {
+		t.Fatalf("%s %s status = %d, want %d; body=%s", method, path, recorder.Code, wantStatus, recorder.Body.String())
+	}
+
+	if wantJSON && !json.Valid(recorder.Body.Bytes()) {
+		t.Fatalf("%s %s should return valid json, got %q", method, path, recorder.Body.String())
+	}
+}
+
+func assertRouteRegistered(t *testing.T, engine *gin.Engine, method, path string) {
+	t.Helper()
+	for _, route := range engine.Routes() {
+		if route.Method == method && route.Path == path {
+			return
+		}
+	}
+	t.Fatalf("route %s %s not registered", method, path)
+}
+
+func assertRouteNotRegistered(t *testing.T, engine *gin.Engine, method, path string) {
+	t.Helper()
+	for _, route := range engine.Routes() {
+		if route.Method == method && route.Path == path {
+			t.Fatalf("route %s %s should not be registered", method, path)
+		}
+	}
+}
+
+type sessionServiceStub struct{}
+
+func (sessionServiceStub) RevokeSession(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+func (sessionServiceStub) RevokeAllSessionsByAccount(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+func (sessionServiceStub) RevokeAllSessionsByUser(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+var _ sessionapp.SessionApplicationService = sessionServiceStub{}
+
+type casbinStub struct{}
+
+func (casbinStub) Enforce(_ context.Context, _, _, _, _ string) (bool, error) {
+	return true, nil
+}
+
+func (casbinStub) GetRolesForUser(_ context.Context, _, _ string) ([]string, error) {
+	return []string{"role:admin"}, nil
+}
+
+type tokenServiceStub struct{}
+
+func (tokenServiceStub) IssueServiceToken(context.Context, tokenapp.IssueServiceTokenRequest) (*tokenapp.TokenIssueResult, error) {
+	return nil, nil
+}
+
+func (tokenServiceStub) RefreshToken(context.Context, string) (*tokenapp.TokenRefreshResult, error) {
+	return nil, nil
+}
+
+func (tokenServiceStub) RevokeAccessToken(context.Context, string) error {
+	return nil
+}
+
+func (tokenServiceStub) RevokeRefreshToken(context.Context, string) error {
+	return nil
+}
+
+func (tokenServiceStub) VerifyToken(context.Context, tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
+	return &tokenapp.TokenVerifyResult{Valid: true}, nil
+}
+
+var _ tokenapp.TokenApplicationService = tokenServiceStub{}

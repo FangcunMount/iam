@@ -5,15 +5,15 @@ import (
 	"testing"
 
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	authngrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authn/grpc"
-	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authz/grpc"
-	idpgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/idp/grpc"
-	ucgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc"
-	identitygrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc/identity"
+	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
+	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authz"
+	idpgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
+	ucgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc"
+	identitygrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
 	googlegrpc "google.golang.org/grpc"
 )
 
-func TestGRPCRegistrationsReturnModuleRegistrarsInStartupOrder(t *testing.T) {
+func TestBuildGRPCDepsReturnsModuleRegistrarsInStartupOrder(t *testing.T) {
 	c := &Container{
 		AuthnModule: &assembler.AuthnModule{
 			GRPCService: authngrpc.NewService(nil, nil, nil),
@@ -29,7 +29,8 @@ func TestGRPCRegistrationsReturnModuleRegistrarsInStartupOrder(t *testing.T) {
 		},
 	}
 
-	registrations := c.GRPCRegistrations()
+	deps := c.BuildGRPCDeps(nil)
+	registrations := deps.Registrations
 	got := make([]string, 0, len(registrations))
 	server := googlegrpc.NewServer()
 	defer server.Stop()
@@ -51,9 +52,9 @@ func TestGRPCRegistrationsReturnModuleRegistrarsInStartupOrder(t *testing.T) {
 	}
 }
 
-func TestGRPCRegistrationsHandleNilContainer(t *testing.T) {
+func TestBuildGRPCDepsHandlesNilContainer(t *testing.T) {
 	var c *Container
-	if registrations := c.GRPCRegistrations(); len(registrations) != 0 {
+	if registrations := c.BuildGRPCDeps(nil).Registrations; len(registrations) != 0 {
 		t.Fatalf("registrations = %#v, want empty", registrations)
 	}
 }

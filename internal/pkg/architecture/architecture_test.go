@@ -53,8 +53,9 @@ func TestApplicationPackagesDoNotAddTransportOrInfrastructureDependencies(t *tes
 			return
 		}
 		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") {
-				t.Fatalf("%s imports %s; application layer must not depend on transport/interface implementations", rel, imp)
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") ||
+				strings.HasPrefix(imp, modulePath+"internal/apiserver/transport/") {
+				t.Fatalf("%s imports %s; application layer must not depend on transport implementations", rel, imp)
 			}
 			if !isApplicationForbiddenImport(imp) {
 				continue
@@ -98,11 +99,8 @@ func TestRESTRouterDoesNotImportCompositionOrGlobalConfig(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	scanImports(t, filepath.Join(root, "internal", "apiserver"), func(path string, imports []string) {
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "transport", "rest"), func(path string, imports []string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
-		if rel != "internal/apiserver/routers.go" {
-			return
-		}
 		for _, imp := range imports {
 			if strings.HasPrefix(imp, modulePath+"internal/apiserver/container") || imp == "github.com/spf13/viper" {
 				t.Fatalf("%s imports %s; REST router must consume transport deps instead of composition container or global config", rel, imp)
@@ -149,11 +147,8 @@ func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "interface"), func(path, source string) {
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport", "rest"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
-		if !strings.Contains(rel, "/restful/") {
-			return
-		}
 		if strings.Contains(source, "var deps") {
 			t.Fatalf("%s declares package-level deps; pass dependencies explicitly to Register", rel)
 		}
@@ -226,7 +221,7 @@ func TestRESTRouterTestsUseExplicitDeps(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	rel := filepath.Join("internal", "apiserver", "routers_test.go")
+	rel := filepath.Join("internal", "apiserver", "transport", "rest", "router_test.go")
 	path := filepath.Join(root, rel)
 	imports := importsForFile(t, path)
 	for _, imp := range imports {
@@ -243,6 +238,85 @@ func TestRESTRouterTestsUseExplicitDeps(t *testing.T) {
 	}
 }
 
+func TestRootAPIServerPackageOwnsOnlyRunDelegation(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImports(t, filepath.Join(root, "internal", "apiserver"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if filepath.Dir(rel) != "internal/apiserver" {
+			return
+		}
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/container") ||
+				strings.HasPrefix(imp, modulePath+"internal/apiserver/transport/") ||
+				strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") ||
+				imp == "github.com/FangcunMount/component-base/pkg/processruntime" {
+				t.Fatalf("%s imports %s; root apiserver package must delegate process ownership to internal/apiserver/process", rel, imp)
+			}
+		}
+	})
+}
+
+func TestTransportPackagesDoNotDependOnLegacyInterfacePackages(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, relRoot := range []string{
+		"internal/apiserver/transport/rest",
+		"internal/apiserver/transport/grpc",
+	} {
+		scanImports(t, filepath.Join(root, relRoot), func(path string, imports []string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, imp := range imports {
+				if strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") {
+					t.Fatalf("%s imports %s; transport packages must own registration instead of wrapping legacy interface packages", rel, imp)
+				}
+			}
+		})
+	}
+}
+
+func TestLegacyInterfacePackageIsRetired(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	legacyRoot := filepath.Join(root, "internal", "apiserver", "interface")
+	err := filepath.WalkDir(legacyRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		t.Fatalf("%s is a legacy transport implementation; move it under internal/apiserver/transport", rel)
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+}
+
+func TestLocalProcessRunnerDoesNotReturn(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		"internal/apiserver/process/runner.go",
+		"internal/apiserver/process/runner_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+			t.Fatalf("%s is retired local process runner code; use component-base/pkg/processruntime", rel)
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
 	t.Parallel()
 
@@ -255,8 +329,9 @@ func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
 		scanImports(t, filepath.Join(root, relRoot), func(path string, imports []string) {
 			rel := filepath.ToSlash(mustRel(t, root, path))
 			for _, imp := range imports {
-				if strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") {
-					t.Fatalf("%s imports %s; data access packages must not depend on transport/interface implementations", rel, imp)
+				if strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") ||
+					strings.HasPrefix(imp, modulePath+"internal/apiserver/transport/") {
+					t.Fatalf("%s imports %s; data access packages must not depend on transport implementations", rel, imp)
 				}
 			}
 		})
@@ -398,7 +473,8 @@ func isDomainForbiddenImport(imp string) bool {
 		strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
 		strings.HasPrefix(imp, modulePath+"internal/pkg/database") ||
 		strings.HasPrefix(imp, modulePath+"internal/pkg/migration") ||
-		strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/")
+		strings.HasPrefix(imp, modulePath+"internal/apiserver/interface/") ||
+		strings.HasPrefix(imp, modulePath+"internal/apiserver/transport/")
 }
 
 func isApplicationForbiddenImport(imp string) bool {

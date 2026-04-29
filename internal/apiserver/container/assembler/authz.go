@@ -20,8 +20,8 @@ import (
 	roleInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role"
 	mysqlAuthzUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authz"
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
-	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authz/grpc"
-	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
+	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authz"
+	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
 	"github.com/FangcunMount/iam/pkg/event"
 )
 

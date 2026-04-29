@@ -1,8 +1,8 @@
 package assembler
 
 import (
-	idpGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/idp/grpc"
-	"github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/handler"
+	idpGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
+	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
 )
 
 func (m *IDPModule) initializeInterface() error {

@@ -13,8 +13,8 @@ import (
 	infraRedis "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi"
 	wechatapiPort "github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi/port"
-	idpGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/idp/grpc"
-	"github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/handler"
+	idpGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
+	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 

@@ -20,6 +20,28 @@ tags:
 - name: IDP-Wechat
 paths:
   /idp/wechat-apps:
+    get:
+      tags:
+      - IDP-Wechat
+      summary: 查询微信应用列表
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
     post:
       tags:
       - IDP-Wechat
@@ -64,6 +86,110 @@ paths:
       responses:
         '200':
           description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
+        '404':
+          description: 应用不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+    patch:
+      tags:
+      - IDP-Wechat
+      summary: 更新微信应用
+      parameters:
+      - name: app_id
+        in: path
+        description: 微信应用 ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+        '404':
+          description: 应用不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+  /idp/wechat-apps/{app_id}/enable:
+    post:
+      tags:
+      - IDP-Wechat
+      summary: 启用微信应用
+      parameters:
+      - name: app_id
+        in: path
+        description: 微信应用 ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 启用成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.WechatAppResponse'
+        '404':
+          description: 应用不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_idp_restful_response.ErrorResponse'
+  /idp/wechat-apps/{app_id}/disable:
+    post:
+      tags:
+      - IDP-Wechat
+      summary: 禁用微信应用
+      parameters:
+      - name: app_id
+        in: path
+        description: 微信应用 ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 禁用成功
           content:
             application/json:
               schema:

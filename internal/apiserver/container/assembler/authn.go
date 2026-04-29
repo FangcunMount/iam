@@ -22,8 +22,8 @@ import (
 	sessionDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/crypto"
 	redisInfra "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
-	authngrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authn/grpc"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
+	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
+	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/FangcunMount/iam/pkg/event"
 )

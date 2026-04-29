@@ -22,6 +22,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.1.0 h1:HCc0+LpPfpC
 github.com/AzureAD/microsoft-authentication-library-for-go v1.1.0/go.mod h1:wP83P5OoQ5p6ip3ScPr0BAq0BvuPAvacpEuSzyouqAI=
 github.com/FangcunMount/component-base v0.5.3 h1:gpuvGZTEolnjnxUDPksfK9F2bSpUYwYHyRBAn/rb1PU=
 github.com/FangcunMount/component-base v0.5.3/go.mod h1:YdWBhEa5i08fZdxzuGRIvUBt3kBUbtxE7X3vdZ1TLDE=
+github.com/FangcunMount/component-base v0.6.1 h1:LRuZ7f4Ft2ElShEmDQDYlK6n94b/O5+z3IuTJRceJG0=
+github.com/FangcunMount/component-base v0.6.1/go.mod h1:YDJbNH8P+pNBE8MWgQCI1DptDXD2gCzBhHdd9kgSVFk=
 github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc=
 github.com/KyleBanks/depth v1.2.1/go.mod h1:jzSb9d0L43HxTQfT+oSA1EEp2q+ne2uh6XgeJcm8brE=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=

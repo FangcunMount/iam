@@ -6,10 +6,10 @@ import (
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
-	authzhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
-	idphandler "github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful/handler"
-	uchandler "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
+	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
+	idphandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
 	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 

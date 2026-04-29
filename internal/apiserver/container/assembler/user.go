@@ -10,9 +10,9 @@ import (
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	mysqlUcUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
-	ucGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc"
-	identityGrpc "github.com/FangcunMount/iam/internal/apiserver/interface/uc/grpc/identity"
-	"github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
+	ucGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc"
+	identityGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
+	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )

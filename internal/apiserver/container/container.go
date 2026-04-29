@@ -79,81 +79,9 @@ func (c *Container) Initialize() error {
 		return fmt.Errorf("container already initialized")
 	}
 
-	var errors []error
-
-	// 1. 初始化事件平台（catalog + outbox store + relay）
-	if err := c.initEventing(); err != nil {
-		log.Warnf("Failed to initialize event runtime: %v", err)
-		errors = append(errors, fmt.Errorf("event runtime: %w", err))
-	}
-
-	// 2. 初始化 IDP 模块（先初始化，因为 authn 模块依赖它）
-	if err := c.initIDPModule(); err != nil {
-		log.Warnf("Failed to initialize IDP module: %v", err)
-		errors = append(errors, fmt.Errorf("idp module: %w", err))
-	}
-
-	// 3. 初始化认证模块（依赖 IDP 模块）
-	if err := c.initAuthModule(); err != nil {
-		log.Warnf("Failed to initialize Authn module: %v", err)
-		errors = append(errors, fmt.Errorf("authn module: %w", err))
-	}
-
-	// 4. 初始化授权模块（用户模块 /identity/me 的 roles 依赖 Casbin）
-	if err := c.initAuthzModule(); err != nil {
-		log.Warnf("Failed to initialize Authz module: %v", err)
-		errors = append(errors, fmt.Errorf("authz module: %w", err))
-	}
-
-	// 5. 初始化用户模块
-	if err := c.initUserModule(); err != nil {
-		log.Warnf("Failed to initialize User module: %v", err)
-		errors = append(errors, fmt.Errorf("user module: %w", err))
-	}
-
-	// 6. 初始化 Suggest 模块（可选）
-	if err := c.initSuggestModule(); err != nil {
-		log.Warnf("Failed to initialize Suggest module: %v", err)
-		errors = append(errors, fmt.Errorf("suggest module: %w", err))
-	}
-
-	// 7. 初始化只读缓存治理服务
-	c.initCacheGovernance()
-
+	errors := c.runBootstrapPlan()
 	c.initialized = true
-
-	// 打印初始化状态
-	log.Infof("🏗️  Container initialization completed:")
-	if c.IDPModule != nil {
-		log.Info("   ✅ IDP module")
-	} else {
-		log.Warn("   ❌ IDP module failed")
-	}
-	if c.AuthnModule != nil {
-		log.Info("   ✅ Authn module")
-	} else {
-		log.Warn("   ❌ Authn module failed")
-	}
-	if c.UserModule != nil {
-		log.Info("   ✅ User module")
-	} else {
-		log.Warn("   ❌ User module failed")
-	}
-	if c.AuthzModule != nil {
-		log.Info("   ✅ Authz module")
-	} else {
-		log.Warn("   ❌ Authz module failed")
-	}
-	if c.SuggestModule != nil && c.SuggestModule.Service != nil {
-		log.Info("   ✅ Suggest module")
-	} else {
-		log.Warn("   ⚠️  Suggest module not initialized or disabled")
-	}
-	if c.outboxStore != nil {
-		log.Info("   ✅ Event outbox")
-	} else {
-		log.Warn("   ⚠️  Event outbox not initialized")
-	}
+	c.logBootstrapStatus()
 
 	// 如果有错误,返回组合错误(但容器仍然标记为已初始化)
 	if len(errors) > 0 {
@@ -198,17 +126,7 @@ func (c *Container) outboxRelayOptions() messagingInfra.OutboxRelayOptions {
 // 认证模块使用 Redis 进行 Token 持久化存储
 func (c *Container) initAuthModule() error {
 	authModule := assembler.NewAuthnModule()
-	if err := authModule.InitializeWithDeps(assembler.AuthnModuleDeps{
-		DB:             c.mysqlDB,
-		RedisClient:    c.redisClient,
-		IDPModule:      c.IDPModule,
-		EventBus:       c.eventBus,
-		EventPublisher: c.eventPublisher,
-		AppMode:        c.runtimeOptions.AppMode,
-		Auth:           c.runtimeOptions.Auth,
-		JWKS:           c.runtimeOptions.JWKS,
-		SMS:            c.runtimeOptions.SMS,
-	}); err != nil {
+	if err := authModule.InitializeWithDeps(c.moduleGraph().authnModuleDependencies()); err != nil {
 		return fmt.Errorf("failed to initialize auth module: %w", err)
 	}
 	c.AuthnModule = authModule
@@ -229,11 +147,7 @@ func (c *Container) initUserModule() error {
 // 授权模块通过 outbox stager 记录 durable 策略版本事件
 func (c *Container) initAuthzModule() error {
 	authzModule := assembler.NewAuthzModule()
-
-	if err := authzModule.InitializeWithDeps(assembler.AuthzModuleDeps{
-		DB:          c.mysqlDB,
-		EventStager: c.outboxStore,
-	}); err != nil {
+	if err := authzModule.InitializeWithDeps(c.moduleGraph().authzModuleDependencies()); err != nil {
 		return fmt.Errorf("failed to initialize authz module: %w", err)
 	}
 	c.AuthzModule = authzModule
@@ -243,10 +157,7 @@ func (c *Container) initAuthzModule() error {
 // initSuggestModule 初始化联想模块
 func (c *Container) initSuggestModule() error {
 	suggestModule := assembler.NewSuggestModule()
-	if err := suggestModule.InitializeWithDeps(assembler.SuggestModuleDeps{
-		DB:     c.mysqlDB,
-		Config: c.runtimeOptions.Suggest,
-	}); err != nil {
+	if err := suggestModule.InitializeWithDeps(c.moduleGraph().suggestModuleDependencies()); err != nil {
 		return fmt.Errorf("failed to initialize suggest module: %w", err)
 	}
 	// 可能因配置关闭而 Service 为空
@@ -260,12 +171,7 @@ func (c *Container) initSuggestModule() error {
 // IDP 模块使用 Redis 缓存 Access Token
 func (c *Container) initIDPModule() error {
 	idpModule := assembler.NewIDPModule()
-	// 传递 Redis（用于 Access Token 缓存）
-	if err := idpModule.InitializeWithDeps(assembler.IDPModuleDeps{
-		DB:            c.mysqlDB,
-		RedisClient:   c.redisClient,
-		EncryptionKey: c.idpEncryptionKey,
-	}); err != nil {
+	if err := idpModule.InitializeWithDeps(c.moduleGraph().idpModuleDependencies()); err != nil {
 		return fmt.Errorf("failed to initialize idp module: %w", err)
 	}
 	c.IDPModule = idpModule

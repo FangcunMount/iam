@@ -1,8 +1,8 @@
 package assembler
 
 import (
-	authngrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authn/grpc"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
+	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
+	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
 )
 
 func (m *AuthnModule) initializeInterface() {

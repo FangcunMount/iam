@@ -1,6 +1,6 @@
 module github.com/FangcunMount/iam
 
-go 1.24.0
+go 1.25.9
 
 require (
 	github.com/alicebob/miniredis/v2 v2.30.0
@@ -146,7 +146,7 @@ require (
 )
 
 require (
-	github.com/FangcunMount/component-base v0.5.3
+	github.com/FangcunMount/component-base v0.6.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/casbin/casbin/v2 v2.128.0
 	github.com/casbin/gorm-adapter/v3 v3.37.0
