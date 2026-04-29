@@ -38,8 +38,10 @@ func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) {
 		log.Infow("Key rotation scheduler initialized", "description", "periodic key rotation scheduler started")
 	}
 	if relay := deps.OutboxRelay; relay != nil {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx := context.Background()
 		if lifecycle != nil {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithCancel(ctx)
 			lifecycle.AddShutdownHook("stop outbox relay", func() error {
 				cancel()
 				return nil

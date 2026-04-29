@@ -121,7 +121,7 @@ func (t *Trie) Import(file string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	r := bufio.NewReaderSize(f, 400)
 	line, _, err := r.ReadLine()
 	for err == nil {
