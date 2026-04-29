@@ -15,7 +15,7 @@ import (
 )
 
 type refresher struct {
-	issuer        tokenPairIssuer
+	issuer        accessPairIssuer
 	tokenStore    Store
 	sessionManger SessionManager
 	accessChecker SubjectAccessEvaluator
@@ -24,12 +24,12 @@ type refresher struct {
 	refreshTTL    time.Duration
 }
 
-type tokenPairIssuer interface {
-	issueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
+type accessPairIssuer interface {
+	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
 }
 
 func NewRefresher(
-	tokenIssuer Issuer,
+	tokenIssuer accessPairIssuer,
 	tokenStore Store,
 	sessionManager SessionManager,
 	accessChecker SubjectAccessEvaluator,
@@ -37,9 +37,8 @@ func NewRefresher(
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
 ) Refresher {
-	issuerImpl, _ := tokenIssuer.(tokenPairIssuer)
 	return &refresher{
-		issuer:        issuerImpl,
+		issuer:        tokenIssuer,
 		tokenStore:    tokenStore,
 		sessionManger: sessionManager,
 		accessChecker: accessChecker,
@@ -85,7 +84,7 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 
 	amr := refreshToken.AMR
 	if len(amr) == 0 {
-		amr = []string{string(authentication.AMRBearerToken)}
+		amr = []string{"jwt"}
 	}
 	claims := s.claimMapper.Decode(refreshToken.SessionClaims)
 	if claims == nil {
@@ -110,7 +109,7 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 	if s.issuer == nil {
 		return nil, perrors.WithCode(code.ErrInternalServerError, "token issuer is not configured")
 	}
-	newTokenPair, err := s.issuer.issueTokenPair(ctx, principal, sess)
+	newTokenPair, err := s.issuer.IssueTokenPair(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}

@@ -38,7 +38,6 @@ type authnInfrastructureComponents struct {
 	otpVerifier    authentication.OTPVerifier
 	otpRedis       *redisInfra.OTPVerifierImpl
 	idp            authentication.IdentityProvider
-	tokenVerifier  authentication.TokenVerifier
 	accessChecker  sessionDomain.SubjectAccessEvaluator
 
 	keyRepo           keyset.Repository

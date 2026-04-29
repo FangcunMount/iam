@@ -25,7 +25,8 @@ var _ LoginApplicationService = (*loginApplicationService)(nil)
 func NewLoginApplicationService(
 	tokenIssuer tokenapp.Issuer,
 	tokenRefresher tokenapp.Refresher,
-	authenticater *authentication.Authenticater,
+	authenticator *authentication.Authenticator,
+	tokenVerifier tokenapp.Verifier,
 	wechatAppQuerier idpPort.Repository,
 	secretVault idpPort.SecretVault,
 ) LoginApplicationService {
@@ -33,7 +34,7 @@ func NewLoginApplicationService(
 		tokenIssuer:          tokenIssuer,
 		tokenRefresher:       tokenRefresher,
 		scenarioSelector:     newDefaultScenarioSelector(),
-		methodAuthenticators: newMethodAuthenticatorRouter(authenticater, wechatAppQuerier, secretVault),
+		methodAuthenticators: newMethodAuthenticatorRouter(authenticator, tokenVerifier, wechatAppQuerier, secretVault),
 	}
 }
 
@@ -51,15 +52,15 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 
 	l.Debugw("开始认证流程",
 		"action", logger.ActionLogin,
-		"scenario", string(selected.Scenario),
-		"tenant_id", selected.Input.TenantID,
+		"scenario", string(selected.Method),
+		"tenant_id", selected.Payload.TenantID,
 	)
 
 	decision, err := s.authenticateMethod(ctx, selected)
 	if err != nil {
 		l.Errorw("认证过程异常",
 			"action", logger.ActionLogin,
-			"scenario", string(selected.Scenario),
+			"scenario", string(selected.Method),
 			"error", err.Error(),
 		)
 		return nil, err
@@ -68,7 +69,7 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 	if !decision.OK {
 		l.Warnw("认证失败",
 			"action", logger.ActionLogin,
-			"scenario", string(selected.Scenario),
+			"scenario", string(selected.Method),
 			"err_code", string(decision.ErrCode),
 			"credential_id", decision.CredentialID.String(),
 			"result", logger.ResultFailed,
@@ -80,7 +81,7 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 
 	l.Debugw("认证成功，开始颁发令牌",
 		"action", logger.ActionLogin,
-		"scenario", string(selected.Scenario),
+		"scenario", string(selected.Method),
 		"user_id", decision.Principal.UserID.String(),
 		"account_id", decision.Principal.AccountID.String(),
 		"tenant_id", decision.Principal.TenantID.String(),
@@ -203,24 +204,24 @@ func (s *loginApplicationService) convertAuthError(errCode authentication.ErrCod
 	}
 }
 
-func (s *loginApplicationService) selectScenario(ctx context.Context, req LoginRequest) (SelectedScenario, error) {
+func (s *loginApplicationService) selectScenario(ctx context.Context, req LoginRequest) (SelectedMethod, error) {
 	selector := s.scenarioSelector
 	if selector == nil {
 		selector = newDefaultScenarioSelector()
 	}
 	selected, err := selector.Select(ctx, req)
 	if err != nil {
-		return SelectedScenario{}, err
+		return SelectedMethod{}, err
 	}
 	logger.L(ctx).Debugw("认证准备完成",
 		"action", logger.ActionLogin,
-		"scenario", string(selected.Scenario),
-		"tenant_id", selected.Input.TenantID,
+		"scenario", string(selected.Method),
+		"tenant_id", selected.Payload.TenantID,
 	)
 	return selected, nil
 }
 
-func (s *loginApplicationService) authenticateMethod(ctx context.Context, selected SelectedScenario) (authentication.AuthDecision, error) {
+func (s *loginApplicationService) authenticateMethod(ctx context.Context, selected SelectedMethod) (authentication.AuthDecision, error) {
 	if s.methodAuthenticators == nil {
 		return authentication.AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "method authenticator is not initialized")
 	}

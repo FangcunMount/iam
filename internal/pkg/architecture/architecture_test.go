@@ -728,6 +728,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	for _, rel := range []string{
 		"internal/apiserver/domain/authn/token",
 		"internal/apiserver/domain/authn/jwks",
+		"internal/apiserver/infra/authentication",
 		"internal/apiserver/infra/jwt",
 	} {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(rel), "*.go"))
@@ -740,12 +741,13 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	}
 
 	forbiddenImports := map[string]struct{}{
-		modulePath + "internal/apiserver/domain/authn/token": {},
-		modulePath + "internal/apiserver/domain/authn/jwks":  {},
-		modulePath + "internal/apiserver/infra/jwt":          {},
-		"github.com/golang-jwt/jwt/v4":                       {},
-		"github.com/golang-jwt/jwt/v5":                       {},
-		"github.com/golang-jwt/jwt":                          {},
+		modulePath + "internal/apiserver/domain/authn/token":   {},
+		modulePath + "internal/apiserver/domain/authn/jwks":    {},
+		modulePath + "internal/apiserver/infra/authentication": {},
+		modulePath + "internal/apiserver/infra/jwt":            {},
+		"github.com/golang-jwt/jwt/v4":                         {},
+		"github.com/golang-jwt/jwt/v5":                         {},
+		"github.com/golang-jwt/jwt":                            {},
 	}
 	scanImportsIncludingTests(t, filepath.Join(root, "internal"), func(path string, imports []string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
@@ -784,6 +786,16 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		"AccessClaims",
 		"AuthJWT" + "Token",
 		"AMRJWT" + "Token",
+		"AuthBearer" + "Token",
+		"AMRBearer" + "Token",
+		"Bearer" + "TokenCredential",
+		"Bearer" + "TokenAuthStrategy",
+		"Token" + "Verifier",
+		"Register" + "CredentialBuilder",
+		"Credential" + "Builder",
+		"credential" + "Builders",
+		"type " + "AuthInput struct",
+		"Authenticater",
 		"JWT" + "TokenCredential",
 		"JWT" + "TokenAuthStrategy",
 		"FlattenClaimsFor" + "JWT",

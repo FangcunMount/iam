@@ -14,61 +14,49 @@ type AuthStrategy interface {
 	Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error)
 }
 
-// Authenticater 认证器
-type Authenticater struct {
-	credRepo      CredentialRepository
-	accountRepo   AccountRepository
-	hasher        PasswordHasher
-	otpVerifier   OTPVerifier
-	idp           IdentityProvider
-	tokenVerifier TokenVerifier
+// Authenticator 认证器
+type Authenticator struct {
+	credRepo    CredentialRepository
+	accountRepo AccountRepository
+	hasher      PasswordHasher
+	otpVerifier OTPVerifier
+	idp         IdentityProvider
 }
 
-// NewAuthenticater 创建认证器
-func NewAuthenticater(
+// NewAuthenticator 创建认证器
+func NewAuthenticator(
 	credRepo CredentialRepository,
 	accountRepo AccountRepository,
 	hasher PasswordHasher,
 	otpVerifier OTPVerifier,
 	idp IdentityProvider,
-	tokenVerifier TokenVerifier,
-) *Authenticater {
-	return &Authenticater{
-		credRepo:      credRepo,
-		accountRepo:   accountRepo,
-		hasher:        hasher,
-		otpVerifier:   otpVerifier,
-		idp:           idp,
-		tokenVerifier: tokenVerifier,
+) *Authenticator {
+	return &Authenticator{
+		credRepo:    credRepo,
+		accountRepo: accountRepo,
+		hasher:      hasher,
+		otpVerifier: otpVerifier,
+		idp:         idp,
 	}
 }
 
 // Authenticate 认证
 // 统一流程：
-// 1. 根据场景构建领域凭据
-// 2. 获取并创建认证策略
-// 3. 执行认证
-func (a *Authenticater) Authenticate(ctx context.Context, scenario Scenario, input AuthInput) (AuthDecision, error) {
+// 1. 获取领域凭据所属的认证策略
+// 2. 执行认证
+func (a *Authenticator) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	l := logger.L(ctx)
+	if credential == nil {
+		return AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "authentication credential is required")
+	}
+	scenario := credential.Scenario()
 
 	l.Debugw("开始认证流程（域层）",
 		"action", logger.ActionLogin,
 		"scenario", string(scenario),
-		"tenant_id", input.TenantID,
 		"amr", []string{string(scenario)},
 		"claims", make(map[string]any),
 	)
-
-	// 根据场景构建领域凭据
-	credential, err := a.buildCredential(scenario, input)
-	if err != nil {
-		l.Warnw("构建认证凭据失败",
-			"action", logger.ActionLogin,
-			"scenario", string(scenario),
-			"error", err.Error(),
-		)
-		return AuthDecision{}, err
-	}
 
 	l.Debugw("认证凭据构建完成",
 		"action", logger.ActionLogin,
@@ -119,10 +107,6 @@ func (a *Authenticater) Authenticate(ctx context.Context, scenario Scenario, inp
 		return decision, nil
 	}
 
-	if decision.Principal != nil && decision.Principal.TenantID.IsZero() && !input.TenantID.IsZero() {
-		decision.Principal.TenantID = input.TenantID
-	}
-
 	l.Debugw("认证成功（域层）",
 		"action", logger.ActionLogin,
 		"scenario", string(scenario),
@@ -134,25 +118,8 @@ func (a *Authenticater) Authenticate(ctx context.Context, scenario Scenario, inp
 	return decision, nil
 }
 
-// BuildCredential 根据认证场景构建领域凭据
-func (a *Authenticater) buildCredential(kind Scenario, input AuthInput) (AuthCredential, error) {
-	builder, err := getCredentialBuilder(kind)
-	if err != nil {
-		return nil, err
-	}
-
-	credential, err := builder(input)
-	if err != nil {
-		return nil, err
-	}
-	if credential == nil {
-		return nil, perrors.WithCode(code.ErrMissingECParams, "credential builder returned nil for scenario: %s", kind)
-	}
-	return credential, nil
-}
-
 // CreateStrategy 根据场景创建认证策略
-func (f *Authenticater) createStrategy(scenario Scenario) AuthStrategy {
+func (f *Authenticator) createStrategy(scenario Scenario) AuthStrategy {
 	switch scenario {
 	case AuthPassword:
 		return NewPasswordAuthStrategy(f.credRepo, f.accountRepo, f.hasher)
@@ -162,8 +129,6 @@ func (f *Authenticater) createStrategy(scenario Scenario) AuthStrategy {
 		return NewOAuthWechatMinipAuthStrategy(f.credRepo, f.accountRepo, f.idp)
 	case AuthWecom:
 		return NewOAuthWeChatComAuthStrategy(f.credRepo, f.accountRepo, f.idp)
-	case AuthBearerToken:
-		return NewBearerTokenAuthStrategy(f.tokenVerifier)
 	default:
 		return nil
 	}

@@ -29,7 +29,7 @@ func NewIssuer(
 	claimMapper ClaimMapper,
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
-) Issuer {
+) *issuer {
 	return &issuer{
 		tokenCodec:    tokenCodec,
 		tokenStore:    tokenStore,
@@ -64,10 +64,10 @@ func (s *issuer) IssueToken(ctx context.Context, principal *authentication.Princ
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to create session")
 	}
 
-	return s.issueTokenPair(ctx, principal, sess)
+	return s.IssueTokenPair(ctx, principal, sess)
 }
 
-func (s *issuer) issueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
+func (s *issuer) IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
 	l := logger.L(ctx)
 	if sess == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "session is required")

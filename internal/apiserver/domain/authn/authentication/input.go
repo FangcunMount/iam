@@ -2,36 +2,6 @@ package authentication
 
 import "github.com/FangcunMount/iam/internal/pkg/meta"
 
-// AuthInput 统一认证输入参数（应用层 -> 领域层）
-type AuthInput struct {
-	TenantID  meta.ID
-	RemoteIP  string
-	UserAgent string
-
-	// password
-	Username string
-	Password string
-
-	// phone_otp
-	PhoneE164 string
-	OTP       string
-
-	// wx_minip
-	WxAppID     string
-	WxAppSecret string
-	WxJsCode    string
-
-	// wecom
-	WecomCorpID     string
-	WecomAgentID    string
-	WecomCorpSecret string
-	WecomCode       string
-	WecomState      string
-
-	// jwt_token
-	AccessToken string
-}
-
 type ErrCode string
 
 const (

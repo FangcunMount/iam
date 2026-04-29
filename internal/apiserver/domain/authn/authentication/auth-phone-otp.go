@@ -9,15 +9,18 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// Register the phone OTP credential builder
-func init() {
-	RegisterCredentialBuilder(AuthPhoneOTP, newPhoneOTPCredential)
-}
-
 // ====================== 认证凭据（认证所需的数据） ========================
 
 // PhoneOTPCredential 认证凭据（手机号+验证码）
 type PhoneOTPCredential struct {
+	TenantID  meta.ID
+	RemoteIP  string
+	UserAgent string
+	PhoneE164 string
+	OTP       string
+}
+
+type PhoneOTPProofSpec struct {
 	TenantID  meta.ID
 	RemoteIP  string
 	UserAgent string
@@ -30,21 +33,21 @@ func (c *PhoneOTPCredential) Scenario() Scenario {
 	return AuthPhoneOTP
 }
 
-// newPhoneOTPCredential 构造手机号验证码认证凭据
-func newPhoneOTPCredential(input AuthInput) (AuthCredential, error) {
-	if input.PhoneE164 == "" {
+// NewPhoneOTPCredential 构造手机号验证码认证凭据
+func NewPhoneOTPCredential(spec PhoneOTPProofSpec) (AuthCredential, error) {
+	if spec.PhoneE164 == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "phone number is required for phone otp authentication")
 	}
-	if input.OTP == "" {
+	if spec.OTP == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "otp code is required for phone otp authentication")
 	}
 
 	return &PhoneOTPCredential{
-		TenantID:  input.TenantID,
-		RemoteIP:  input.RemoteIP,
-		UserAgent: input.UserAgent,
-		PhoneE164: input.PhoneE164,
-		OTP:       input.OTP,
+		TenantID:  spec.TenantID,
+		RemoteIP:  spec.RemoteIP,
+		UserAgent: spec.UserAgent,
+		PhoneE164: spec.PhoneE164,
+		OTP:       spec.OTP,
 	}, nil
 }
 

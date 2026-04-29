@@ -13,7 +13,6 @@ import (
 	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	authenticationInfra "github.com/FangcunMount/iam/internal/apiserver/infra/authentication"
 	smsInfra "github.com/FangcunMount/iam/internal/apiserver/infra/sms"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 )
@@ -72,19 +71,18 @@ func (m *AuthnModule) initializeApplication(
 		domain.sessionManager,
 		infra.accessChecker,
 	)
-	infra.tokenVerifier = authenticationInfra.NewTokenVerifierAdapter(tokenVerifier)
 
 	m.LoginService = login.NewLoginApplicationService(
 		tokenIssuer,
 		tokenRefresher,
-		authentication.NewAuthenticater(
+		authentication.NewAuthenticator(
 			infra.credentialRepo,
 			infra.accountRepo,
 			hasher,
 			infra.otpVerifier,
 			infra.idp,
-			infra.tokenVerifier,
 		),
+		tokenVerifier,
 		infra.wechatAppQuerier,
 		infra.secretVault,
 	)

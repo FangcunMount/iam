@@ -3,57 +3,60 @@ package authentication
 import (
 	"testing"
 
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetCredentialBuilder_RegisteredBuilders(t *testing.T) {
-	// builders for AuthPassword and AuthPhoneOTP are registered via init()
-	b, err := getCredentialBuilder(AuthPassword)
-	require.NoError(t, err)
-	require.NotNil(t, b)
+func TestProofConstructorsValidateRequiredFieldsAndMapScenario(t *testing.T) {
+	t.Parallel()
 
-	// password builder should error on missing fields
-	_, ierr := b(AuthInput{})
-	require.Error(t, ierr)
-
-	// phone otp builder
-	b2, err := getCredentialBuilder(AuthPhoneOTP)
+	password, err := NewPasswordCredential(PasswordProofSpec{TenantID: meta.FromUint64(1), Username: "alice", Password: "secret"})
 	require.NoError(t, err)
-	require.NotNil(t, b2)
-	_, ierr2 := b2(AuthInput{})
-	require.Error(t, ierr2)
+	require.Equal(t, AuthPassword, password.Scenario())
+	_, err = NewPasswordCredential(PasswordProofSpec{})
+	require.Error(t, err)
+
+	phone, err := NewPhoneOTPCredential(PhoneOTPProofSpec{TenantID: meta.FromUint64(1), PhoneE164: "+8613800138000", OTP: "123456"})
+	require.NoError(t, err)
+	require.Equal(t, AuthPhoneOTP, phone.Scenario())
+	_, err = NewPhoneOTPCredential(PhoneOTPProofSpec{})
+	require.Error(t, err)
+
+	wechat, err := NewWechatMiniCredential(WechatMiniProofSpec{
+		TenantID:  meta.FromUint64(1),
+		AppID:     "wx-app",
+		AppSecret: "secret",
+		Code:      "code",
+	})
+	require.NoError(t, err)
+	require.Equal(t, AuthWxMinip, wechat.Scenario())
+	_, err = NewWechatMiniCredential(WechatMiniProofSpec{})
+	require.Error(t, err)
+
+	wecom, err := NewWecomCredential(WecomProofSpec{
+		TenantID:   meta.FromUint64(1),
+		CorpID:     "corp",
+		AgentID:    "agent",
+		CorpSecret: "secret",
+		Code:       "code",
+	})
+	require.NoError(t, err)
+	require.Equal(t, AuthWecom, wecom.Scenario())
+	_, err = NewWecomCredential(WecomProofSpec{})
+	require.Error(t, err)
 }
 
-func TestRegisterCredentialBuilder_Idempotent(t *testing.T) {
-	scenario := Scenario("_test_scenario")
-	called := false
-	RegisterCredentialBuilder(scenario, func(input AuthInput) (AuthCredential, error) {
-		called = true
-		return nil, nil
-	})
-	// second registration should be ignored
-	RegisterCredentialBuilder(scenario, func(input AuthInput) (AuthCredential, error) {
-		return nil, nil
-	})
+func TestAuthenticator_CreateStrategyMapping(t *testing.T) {
+	t.Parallel()
 
-	b, err := getCredentialBuilder(scenario)
-	require.NoError(t, err)
-	require.NotNil(t, b)
-	// calling builder should set called
-	_, _ = b(AuthInput{})
-	assert.True(t, called)
-}
-
-func TestAuthenticater_CreateStrategyMapping(t *testing.T) {
-	a := NewAuthenticater(nil, nil, nil, nil, nil, nil)
+	a := NewAuthenticator(nil, nil, nil, nil, nil)
 
 	// Known scenarios should map to non-nil strategies
 	assert.NotNil(t, a.createStrategy(AuthPassword))
 	assert.NotNil(t, a.createStrategy(AuthPhoneOTP))
 	assert.NotNil(t, a.createStrategy(AuthWxMinip))
 	assert.NotNil(t, a.createStrategy(AuthWecom))
-	assert.NotNil(t, a.createStrategy(AuthBearerToken))
 
 	// Unknown scenario should return nil
 	assert.Nil(t, a.createStrategy(Scenario("unknown")))

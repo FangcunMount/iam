@@ -9,15 +9,21 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// Register the Wecom credential builder
-func init() {
-	RegisterCredentialBuilder(AuthWecom, newWecomCredential)
-}
-
 // ====================== 认证凭据（认证所需的数据） ========================
 
 // WecomCredential 认证凭据（企业微信登录所需的数据）
 type WecomCredential struct {
+	TenantID   meta.ID
+	RemoteIP   string
+	UserAgent  string
+	CorpID     string
+	AgentID    string
+	CorpSecret string
+	Code       string
+	State      string
+}
+
+type WecomProofSpec struct {
 	TenantID   meta.ID
 	RemoteIP   string
 	UserAgent  string
@@ -33,29 +39,29 @@ func (c *WecomCredential) Scenario() Scenario {
 	return AuthWecom
 }
 
-// newWecomCredential 构造企业微信认证凭据
-func newWecomCredential(input AuthInput) (AuthCredential, error) {
-	if input.WecomCorpID == "" {
+// NewWecomCredential 构造企业微信认证凭据
+func NewWecomCredential(spec WecomProofSpec) (AuthCredential, error) {
+	if spec.CorpID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom corpid is required for wecom authentication")
 	}
-	if input.WecomAgentID == "" {
+	if spec.AgentID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom agentid is required for wecom authentication")
 	}
-	if input.WecomCorpSecret == "" {
+	if spec.CorpSecret == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom corpsecret is required for wecom authentication")
 	}
-	if input.WecomCode == "" {
+	if spec.Code == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom code is required for wecom authentication")
 	}
 	return &WecomCredential{
-		TenantID:   input.TenantID,
-		RemoteIP:   input.RemoteIP,
-		UserAgent:  input.UserAgent,
-		CorpID:     input.WecomCorpID,
-		AgentID:    input.WecomAgentID,
-		CorpSecret: input.WecomCorpSecret,
-		Code:       input.WecomCode,
-		State:      input.WecomState,
+		TenantID:   spec.TenantID,
+		RemoteIP:   spec.RemoteIP,
+		UserAgent:  spec.UserAgent,
+		CorpID:     spec.CorpID,
+		AgentID:    spec.AgentID,
+		CorpSecret: spec.CorpSecret,
+		Code:       spec.Code,
+		State:      spec.State,
 	}, nil
 }
 

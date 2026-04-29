@@ -2,11 +2,14 @@ package login
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/FangcunMount/iam/pkg/tenant"
 	"github.com/stretchr/testify/require"
@@ -66,10 +69,18 @@ type loginTokenVerifierStub struct {
 	userID    meta.ID
 	accountID meta.ID
 	tenantID  meta.ID
+	err       error
 }
 
-func (s *loginTokenVerifierStub) VerifyAccessToken(ctx context.Context, tokenValue string) (userID, accountID, tenantID meta.ID, err error) {
-	return s.userID, s.accountID, s.tenantID, nil
+func (s *loginTokenVerifierStub) VerifyAccessToken(ctx context.Context, tokenValue string) (*tokenapp.TokenClaims, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &tokenapp.TokenClaims{
+		UserID:    s.userID,
+		AccountID: s.accountID,
+		TenantID:  s.tenantID,
+	}, nil
 }
 
 func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
@@ -97,21 +108,21 @@ func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			auth := authentication.NewAuthenticater(
+			auth := authentication.NewAuthenticator(
 				nil,
 				&loginAccountRepoStub{enabled: true},
 				nil,
 				nil,
 				nil,
-				&loginTokenVerifierStub{
-					userID:    meta.FromUint64(1001),
-					accountID: meta.FromUint64(2002),
-					tenantID:  tc.tokenTenant,
-				},
 			)
 
 			issuer := &loginTokenIssuerStub{}
-			svc := NewLoginApplicationService(issuer, nil, auth, nil, nil)
+			verifier := &loginTokenVerifierStub{
+				userID:    meta.FromUint64(1001),
+				accountID: meta.FromUint64(2002),
+				tenantID:  tc.tokenTenant,
+			}
+			svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil)
 
 			jwtToken := "jwt-token-value"
 			result, err := svc.Login(context.Background(), LoginRequest{
@@ -134,6 +145,26 @@ func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
 	}
 }
 
+func TestLogin_BearerTokenVerifierErrorMapsToAuthenticationFailure(t *testing.T) {
+	t.Parallel()
+
+	auth := authentication.NewAuthenticator(nil, &loginAccountRepoStub{enabled: true}, nil, nil, nil)
+	issuer := &loginTokenIssuerStub{}
+	verifier := &loginTokenVerifierStub{err: errors.New("token invalid")}
+	svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil)
+
+	jwtToken := "invalid-token"
+	result, err := svc.Login(context.Background(), LoginRequest{
+		AuthType: AuthTypeJWTToken,
+		JWTToken: &jwtToken,
+	})
+
+	require.Nil(t, result)
+	require.Error(t, err)
+	require.Equal(t, code.ErrPasswordIncorrect, perrors.ParseCoder(err).Code())
+	require.Nil(t, issuer.captured)
+}
+
 func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -146,7 +177,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 	tests := []struct {
 		name string
 		req  LoginRequest
-		want authentication.Scenario
+		want MethodKind
 	}{
 		{
 			name: "auth type is not authoritative when only password fields are present",
@@ -155,7 +186,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				Username: &username,
 				Password: &password,
 			},
-			want: authentication.AuthPassword,
+			want: MethodPassword,
 		},
 		{
 			name: "phone otp fields override password fields",
@@ -166,7 +197,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				PhoneE164: &phone,
 				OTPCode:   &otp,
 			},
-			want: authentication.AuthPhoneOTP,
+			want: MethodPhoneOTP,
 		},
 		{
 			name: "jwt token field wins over earlier credential fields",
@@ -178,7 +209,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				OTPCode:   &otp,
 				JWTToken:  &jwtToken,
 			},
-			want: authentication.AuthBearerToken,
+			want: MethodBearerToken,
 		},
 	}
 
@@ -190,7 +221,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 
 			selected, err := svc.selectScenario(context.Background(), tc.req)
 			require.NoError(t, err)
-			require.Equal(t, tc.want, selected.Scenario)
+			require.Equal(t, tc.want, selected.Method)
 		})
 	}
 }
@@ -214,11 +245,11 @@ func TestExplicitScenarioSelectorUsesAuthTypeAsAuthority(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, authentication.AuthPassword, selected.Scenario)
-	require.Equal(t, username, selected.Input.Username)
-	require.Equal(t, password, selected.Input.Password)
-	require.Empty(t, selected.Input.PhoneE164)
-	require.Empty(t, selected.Input.OTP)
+	require.Equal(t, MethodPassword, selected.Method)
+	require.Equal(t, username, selected.Payload.Username)
+	require.Equal(t, password, selected.Payload.Password)
+	require.Empty(t, selected.Payload.PhoneE164)
+	require.Empty(t, selected.Payload.OTP)
 }
 
 func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testing.T) {
@@ -237,6 +268,6 @@ func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testi
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, authentication.AuthPassword, selected.Scenario)
-	require.Equal(t, uint64(42), selected.Input.TenantID.Uint64())
+	require.Equal(t, MethodPassword, selected.Method)
+	require.Equal(t, uint64(42), selected.Payload.TenantID.Uint64())
 }

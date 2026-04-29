@@ -10,15 +10,18 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// Register the password credential builder
-func init() {
-	RegisterCredentialBuilder(AuthPassword, newPasswordCredential)
-}
-
 // ====================== 认证凭据（认证所需的数据） ========================
 
 // PasswordCredential 认证凭据（用户名+密码）
 type PasswordCredential struct {
+	TenantID  meta.ID
+	RemoteIP  string
+	UserAgent string
+	Username  string
+	Password  string
+}
+
+type PasswordProofSpec struct {
 	TenantID  meta.ID
 	RemoteIP  string
 	UserAgent string
@@ -31,21 +34,21 @@ func (c *PasswordCredential) Scenario() Scenario {
 	return AuthPassword
 }
 
-// newPasswordCredential 构造密码认证凭据
-func newPasswordCredential(input AuthInput) (AuthCredential, error) {
-	if input.Username == "" {
+// NewPasswordCredential 构造密码认证凭据
+func NewPasswordCredential(spec PasswordProofSpec) (AuthCredential, error) {
+	if spec.Username == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "username is required for password authentication")
 	}
-	if input.Password == "" {
+	if spec.Password == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "password is required for password authentication")
 	}
 
 	return &PasswordCredential{
-		TenantID:  input.TenantID,
-		RemoteIP:  input.RemoteIP,
-		UserAgent: input.UserAgent,
-		Username:  input.Username,
-		Password:  input.Password,
+		TenantID:  spec.TenantID,
+		RemoteIP:  spec.RemoteIP,
+		UserAgent: spec.UserAgent,
+		Username:  spec.Username,
+		Password:  spec.Password,
 	}, nil
 }
 

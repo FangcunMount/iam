@@ -9,15 +9,19 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// Register the Wechat Mini Program credential builder
-func init() {
-	RegisterCredentialBuilder(AuthWxMinip, newWechatMinipCredential)
-}
-
 // ====================== 认证凭据（认证所需的数据） ========================
 
 // WechatMinipCredential 认证凭据（微信小程序登录所需的数据）
 type WechatMinipCredential struct {
+	TenantID  meta.ID
+	RemoteIP  string
+	UserAgent string
+	AppID     string
+	AppSecret string
+	Code      string
+}
+
+type WechatMiniProofSpec struct {
 	TenantID  meta.ID
 	RemoteIP  string
 	UserAgent string
@@ -31,24 +35,24 @@ func (c *WechatMinipCredential) Scenario() Scenario {
 	return AuthWxMinip
 }
 
-// newWechatMinipCredential 构造微信小程序认证凭据
-func newWechatMinipCredential(input AuthInput) (AuthCredential, error) {
-	if input.WxAppID == "" {
+// NewWechatMiniCredential 构造微信小程序认证凭据
+func NewWechatMiniCredential(spec WechatMiniProofSpec) (AuthCredential, error) {
+	if spec.AppID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appid is required for wechat authentication")
 	}
-	if input.WxAppSecret == "" {
+	if spec.AppSecret == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appsecret is required for wechat authentication")
 	}
-	if input.WxJsCode == "" {
+	if spec.Code == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat jscode is required for wechat authentication")
 	}
 	return &WechatMinipCredential{
-		TenantID:  input.TenantID,
-		RemoteIP:  input.RemoteIP,
-		UserAgent: input.UserAgent,
-		AppID:     input.WxAppID,
-		AppSecret: input.WxAppSecret,
-		Code:      input.WxJsCode,
+		TenantID:  spec.TenantID,
+		RemoteIP:  spec.RemoteIP,
+		UserAgent: spec.UserAgent,
+		AppID:     spec.AppID,
+		AppSecret: spec.AppSecret,
+		Code:      spec.Code,
 	}, nil
 }
 

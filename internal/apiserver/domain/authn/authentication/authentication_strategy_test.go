@@ -72,9 +72,18 @@ func (h *hasherStub) Pepper() string                           { return h.pepper
 func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	ctx := context.Background()
 
-	// helper to build Authenticater
-	makeAuth := func(acc *accRepoStub, cred *credRepoStub, hasher *hasherStub) *authentication.Authenticater {
-		return authentication.NewAuthenticater(cred, acc, hasher, nil, nil, nil)
+	// helper to build Authenticator
+	makeAuth := func(acc *accRepoStub, cred *credRepoStub, hasher *hasherStub) *authentication.Authenticator {
+		return authentication.NewAuthenticator(cred, acc, hasher, nil, nil)
+	}
+	makeProof := func(username, password string, tenantID meta.ID) authentication.AuthCredential {
+		proof, err := authentication.NewPasswordCredential(authentication.PasswordProofSpec{
+			TenantID: tenantID,
+			Username: username,
+			Password: password,
+		})
+		require.NoError(t, err)
+		return proof
 	}
 
 	// 1. account not found -> invalid credential
@@ -82,7 +91,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	cred1 := &credRepoStub{}
 	hasher1 := &hasherStub{pepper: "p"}
 	a1 := makeAuth(acc1, cred1, hasher1)
-	d1, err := a1.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: "p"})
+	d1, err := a1.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d1.OK)
 	require.Equal(t, authentication.ErrInvalidCredential, d1.ErrCode)
@@ -90,14 +99,14 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	// 2. disabled or locked
 	acc2 := &accRepoStub{accountID: meta.ID(10), userID: meta.ID(20), enabled: false}
 	a2 := makeAuth(acc2, cred1, hasher1)
-	d2, err := a2.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: "p"})
+	d2, err := a2.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d2.OK)
 	require.Equal(t, authentication.ErrDisabled, d2.ErrCode)
 
 	acc3 := &accRepoStub{accountID: meta.ID(11), userID: meta.ID(21), enabled: true, locked: true}
 	a3 := makeAuth(acc3, cred1, hasher1)
-	d3, err := a3.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: "p"})
+	d3, err := a3.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d3.OK)
 	require.Equal(t, authentication.ErrLocked, d3.ErrCode)
@@ -106,7 +115,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	acc4 := &accRepoStub{accountID: meta.ID(12), userID: meta.ID(22), enabled: true}
 	cred4 := &credRepoStub{credID: 0}
 	a4 := makeAuth(acc4, cred4, hasher1)
-	d4, err := a4.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: "p"})
+	d4, err := a4.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d4.OK)
 	require.Equal(t, authentication.ErrInvalidCredential, d4.ErrCode)
@@ -115,7 +124,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	storedWrong := "some-other"
 	cred5 := &credRepoStub{credID: meta.ID(100), stored: storedWrong}
 	a5 := makeAuth(acc4, cred5, hasher1)
-	d5, err := a5.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: "p"})
+	d5, err := a5.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d5.OK)
 	require.Equal(t, authentication.ErrInvalidCredential, d5.ErrCode)
@@ -129,7 +138,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	cred6 := &credRepoStub{credID: meta.ID(200), stored: stored}
 	hasher6 := &hasherStub{pepper: pepper, need: true, newh: "new-hash"}
 	a6 := makeAuth(acc4, cred6, hasher6)
-	d6, err := a6.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: pass})
+	d6, err := a6.Authenticate(ctx, makeProof("u", pass, meta.ID(1)))
 	require.NoError(t, err)
 	require.True(t, d6.OK)
 	require.True(t, d6.ShouldRotate)
@@ -138,7 +147,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	// 6. success, no rehash
 	hasher7 := &hasherStub{pepper: pepper, need: false}
 	a7 := makeAuth(acc4, cred6, hasher7)
-	d7, err := a7.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(1), Username: "u", Password: pass})
+	d7, err := a7.Authenticate(ctx, makeProof("u", pass, meta.ID(1)))
 	require.NoError(t, err)
 	require.True(t, d7.OK)
 	require.False(t, d7.ShouldRotate)
@@ -151,7 +160,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 		enabled:     true,
 	}
 	a8 := makeAuth(acc8, cred6, hasher7)
-	d8, err := a8.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(0), Username: "ref@example.com", Password: pass})
+	d8, err := a8.Authenticate(ctx, makeProof("ref@example.com", pass, meta.ID(0)))
 	require.NoError(t, err)
 	require.True(t, d8.OK)
 	require.NotNil(t, d8.Principal)

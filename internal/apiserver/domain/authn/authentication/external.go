@@ -70,15 +70,6 @@ type IdentityProvider interface {
 	ExchangeWecomCode(ctx context.Context, corpID, agentID, corpSecret, code string) (openUserID, userID string, err error)
 }
 
-// TokenVerifier 访问令牌验证服务
-// 职责：验证访问令牌的有效性
-type TokenVerifier interface {
-	// VerifyAccessToken 验证访问令牌
-	// 返回：用户ID、账户ID、租户ID（可选）、错误信息
-	// 如果令牌无效/过期/被撤销，返回错误
-	VerifyAccessToken(ctx context.Context, tokenValue string) (userID, accountID meta.ID, tenantID meta.ID, err error)
-}
-
 // AuditLogger 审计日志（可选）
 // 职责：记录认证事件（成功/失败/锁定）
 type AuditLogger interface {
