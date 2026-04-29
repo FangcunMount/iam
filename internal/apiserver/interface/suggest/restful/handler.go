@@ -14,15 +14,8 @@ type Dependencies struct {
 	AuthMiddleware gin.HandlerFunc
 }
 
-var deps Dependencies
-
-// Provide sets dependencies before Register is called.
-func Provide(d Dependencies) {
-	deps = d
-}
-
 // Register registers routes onto the engine.
-func Register(engine *gin.Engine) {
+func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil || deps.Service == nil || deps.AuthMiddleware == nil {
 		return
 	}

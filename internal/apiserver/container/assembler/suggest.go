@@ -26,24 +26,14 @@ func NewSuggestModule() *SuggestModule {
 	return &SuggestModule{}
 }
 
-// Initialize 初始化模块
-// params[0]: *gorm.DB
-// params[1]: config.Config (可选，默认从 viper 读取)
-func (m *SuggestModule) Initialize(params ...interface{}) error {
-	var db *gorm.DB
-	if len(params) > 0 {
-		if v, ok := params[0].(*gorm.DB); ok {
-			db = v
-		}
-	}
+type SuggestModuleDeps struct {
+	DB     *gorm.DB
+	Config appsuggest.Config
+}
 
-	cfg := appsuggest.LoadConfig()
-	if len(params) > 1 {
-		if v, ok := params[1].(appsuggest.Config); ok {
-			cfg = v
-		}
-	}
-
+// InitializeWithDeps 初始化联想模块。
+func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
+	cfg := deps.Config.WithDefaults()
 	m.config = cfg
 
 	if !cfg.Enable {
@@ -51,7 +41,7 @@ func (m *SuggestModule) Initialize(params ...interface{}) error {
 		return nil
 	}
 
-	if db == nil {
+	if deps.DB == nil {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
 
@@ -61,7 +51,7 @@ func (m *SuggestModule) Initialize(params ...interface{}) error {
 		KeyPadLen:  cfg.KeyPadLen,
 	}, runtime)
 
-	loader := mysqlsuggest.NewLoader(db, mysqlsuggest.LoaderConfig{
+	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
 		FullSQL:  cfg.FullSQL,
 		DeltaSQL: cfg.DeltaSQL,
 	})

@@ -17,7 +17,6 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/container"
 	"github.com/FangcunMount/iam/internal/pkg/grpc"
 	genericapiserver "github.com/FangcunMount/iam/internal/pkg/server"
-	"github.com/spf13/viper"
 )
 
 // apiServer 定义了 API 服务器的基本结构（六边形架构版本）
@@ -116,8 +115,8 @@ func (s *apiServer) registerGRPCServices() {
 }
 
 // loadIDPEncryptionKey 解析 IDP 加密密钥，支持 base64、base64url、hex 或纯 32 字节字符串
-func loadIDPEncryptionKey() ([]byte, bool, error) {
-	secret := strings.TrimSpace(viper.GetString("idp.encryption-key"))
+func loadIDPEncryptionKey(rawSecret string) ([]byte, bool, error) {
+	secret := strings.TrimSpace(rawSecret)
 	if secret == "" {
 		return nil, false, nil
 	}
@@ -377,36 +376,17 @@ func applyGRPCOptions(cfg *config.Config, grpcConfig *grpc.Config) error {
 
 // createEventBus 创建消息总线（如果配置启用了 NSQ）
 func (s *apiServer) createEventBus() (messaging.EventBus, error) {
-	// 从 viper 读取 NSQ 配置
-	enabled := viper.GetBool("nsq.enabled")
-	if !enabled {
+	if s == nil || s.cfg == nil || s.cfg.NSQOptions == nil || !s.cfg.NSQOptions.Enabled {
 		log.Info("📨 NSQ EventBus: disabled")
 		return nil, nil
 	}
 
-	msgTimeoutSec := viper.GetInt("nsq.msg-timeout")
-	if msgTimeoutSec == 0 {
-		msgTimeoutSec = 60
+	cfg := s.cfg.NSQOptions.ToMessagingConfig()
+	if cfg.NSQ.MsgTimeout == 0 {
+		cfg.NSQ.MsgTimeout = 60 * time.Second
 	}
-	requeueDelaySec := viper.GetInt("nsq.requeue-delay")
-	if requeueDelaySec == 0 {
-		requeueDelaySec = 5
-	}
-
-	// 构建 NSQ 配置（与 genericoptions.NSQOptions.ToMessagingConfig 对齐，避免 ReadTimeout 等为 0 导致 go-nsq 校验失败）
-	cfg := &messaging.Config{
-		Provider: messaging.ProviderNSQ,
-		NSQ: messaging.NSQConfig{
-			LookupdAddrs: viper.GetStringSlice("nsq.lookupd-addrs"),
-			NSQdAddr:     viper.GetString("nsq.nsqd-addr"),
-			MaxAttempts:  uint16(viper.GetInt("nsq.max-attempts")),
-			MaxInFlight:  viper.GetInt("nsq.max-in-flight"),
-			MsgTimeout:   time.Duration(msgTimeoutSec) * time.Second,
-			RequeueDelay: time.Duration(requeueDelaySec) * time.Second,
-			DialTimeout:  5 * time.Second,
-			ReadTimeout:  60 * time.Second,
-			WriteTimeout: 5 * time.Second,
-		},
+	if cfg.NSQ.RequeueDelay == 0 {
+		cfg.NSQ.RequeueDelay = 5 * time.Second
 	}
 
 	// 设置默认值

@@ -7,11 +7,11 @@ import (
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/sms"
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/FangcunMount/iam/internal/pkg/event"
 	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,10 +19,9 @@ import (
 
 func TestAuthnModuleInitializeSMSMQRequiresEventBusEvenWithPublisher(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
-	viper.Set("sms.provider", "mq")
 
 	module := NewAuthnModule()
-	err := module.Initialize(db, redisClient, &capturingEventPublisher{})
+	err := module.InitializeWithDeps(authnEventingDeps(db, redisClient, nil, &capturingEventPublisher{}))
 
 	require.Error(t, err)
 	require.ErrorContains(t, err, "sms.provider=mq requires EventBus")
@@ -30,11 +29,10 @@ func TestAuthnModuleInitializeSMSMQRequiresEventBusEvenWithPublisher(t *testing.
 
 func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
-	viper.Set("sms.provider", "mq")
 
 	publisher := &capturingEventPublisher{}
 	module := NewAuthnModule()
-	require.NoError(t, module.Initialize(db, redisClient, eventBusStub{}, publisher))
+	require.NoError(t, module.InitializeWithDeps(authnEventingDeps(db, redisClient, eventBusStub{}, publisher)))
 	require.NotNil(t, module.LoginPreparationService)
 
 	require.NoError(t, module.LoginPreparationService.SendPhoneOTPForLogin(context.Background(), "13800138000"))
@@ -52,13 +50,6 @@ func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *test
 func setupAuthnEventingTest(t *testing.T) (*gorm.DB, *goredis.Client) {
 	t.Helper()
 	t.Setenv("TZ", "Asia/Shanghai")
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("jwks.auto_init", false)
-	viper.Set("app.mode", "test")
-	viper.Set("sms.login_otp_ttl", 5*time.Minute)
-	viper.Set("sms.login_otp_send_cooldown", time.Minute)
-	viper.Set("sms.login_otp_code_length", 6)
 
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
@@ -69,6 +60,24 @@ func setupAuthnEventingTest(t *testing.T) (*gorm.DB, *goredis.Client) {
 		_ = redisClient.Close()
 	})
 	return db, redisClient
+}
+
+func authnEventingDeps(db *gorm.DB, redisClient *goredis.Client, eventBus cbmessaging.EventBus, publisher event.Publisher) AuthnModuleDeps {
+	smsOptions := *apiserveroptions.NewSMSOptions()
+	smsOptions.Provider = "mq"
+	smsOptions.LoginOTPTTL = 5 * time.Minute
+	smsOptions.LoginOTPSendCooldown = time.Minute
+	smsOptions.LoginOTPCodeLength = 6
+	return AuthnModuleDeps{
+		DB:             db,
+		RedisClient:    redisClient,
+		EventBus:       eventBus,
+		EventPublisher: publisher,
+		AppMode:        "test",
+		Auth:           *apiserveroptions.NewAuthOptions(),
+		JWKS:           *apiserveroptions.NewJWKSOptions(),
+		SMS:            smsOptions,
+	}
 }
 
 type capturingEventPublisher struct {

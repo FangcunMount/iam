@@ -9,5 +9,9 @@ type Config struct {
 
 // CreateConfigFromOptions 根据给定的命令行或配置文件选项创建运行配置实例
 func CreateConfigFromOptions(opts *options.Options) (*Config, error) {
+	if opts == nil {
+		opts = options.NewOptions()
+	}
+	opts.ApplyDefaults()
 	return &Config{opts}, nil
 }

@@ -1,6 +1,8 @@
 package container
 
 import (
+	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
+	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
@@ -12,15 +14,12 @@ func (c *Container) moduleGraph() *moduleGraph {
 	return &moduleGraph{container: c}
 }
 
-func (g *moduleGraph) userModuleDependencies() []interface{} {
-	deps := make([]interface{}, 0, 2)
-	if casbin := g.casbinEnforcer(); casbin != nil {
-		deps = append(deps, casbin)
+func (g *moduleGraph) userModuleDependencies() assembler.UserModuleDeps {
+	return assembler.UserModuleDeps{
+		DB:             g.container.mysqlDB,
+		Casbin:         g.casbinEnforcer(),
+		SessionManager: g.sessionManager(),
 	}
-	if sessionManager := g.sessionManager(); sessionManager != nil {
-		deps = append(deps, sessionManager)
-	}
-	return deps
 }
 
 func (g *moduleGraph) casbinEnforcer() authn.CasbinEnforcer {
@@ -30,7 +29,7 @@ func (g *moduleGraph) casbinEnforcer() authn.CasbinEnforcer {
 	return g.container.AuthzModule.CasbinAdapter
 }
 
-func (g *moduleGraph) sessionManager() interface{} {
+func (g *moduleGraph) sessionManager() sessiondomain.Manager {
 	if g == nil || g.container == nil || g.container.AuthnModule == nil {
 		return nil
 	}

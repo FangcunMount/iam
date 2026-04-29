@@ -7,7 +7,6 @@ import (
 	"time"
 
 	redis "github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/log"
@@ -42,6 +41,7 @@ import (
 	wechatInfra "github.com/FangcunMount/iam/internal/apiserver/infra/wechat"
 	authngrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authn/grpc"
 	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/FangcunMount/iam/internal/pkg/event"
 )
 
@@ -98,27 +98,13 @@ type AuthnModuleDeps struct {
 	IDPModule      *IDPModule
 	EventBus       messaging.EventBus
 	EventPublisher event.Publisher
+	AppMode        string
+	Auth           apiserveroptions.AuthOptions
+	JWKS           apiserveroptions.JWKSOptions
+	SMS            apiserveroptions.SMSOptions
 }
 
-// Initialize 初始化模块
-// params[0]: *gorm.DB
-// params[1]: *redis.Client
-// 可选参数：
-//   - authentication.PasswordHasher 自定义密码哈希器
-//   - *IDPModule              注入 IDP 模块提供的基础设施能力
-//   - messaging.EventBus      可选；sms.provider=mq 时用于发布登录 OTP 短信任务
-//   - event.Publisher         可选；优先用于 catalog-backed best-effort 事件发布
-func (m *AuthnModule) Initialize(params ...interface{}) error {
-	deps, err := authnModuleDepsFromParams(params...)
-	if err != nil {
-		return err
-	}
-	return m.InitializeWithDeps(deps)
-}
-
-// InitializeWithDeps initializes the module through typed dependencies. Keep
-// Initialize as a compatibility wrapper until all modules stop using variadic
-// assembly.
+// InitializeWithDeps initializes the module through typed dependencies.
 func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	if deps.DB == nil {
 		log.Errorf("params[0] must be *gorm.DB")
@@ -135,13 +121,13 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	}
 
 	// 初始化基础设施层
-	infra := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher)
+	infra := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher, deps.JWKS)
 
 	// 初始化领域层
-	domain := m.initializeDomain(infra)
+	domain := m.initializeDomain(infra, deps.AppMode, deps.Auth, deps.JWKS)
 
 	// 初始化应用层
-	if err := m.initializeApplication(infra, domain, hasher); err != nil {
+	if err := m.initializeApplication(infra, domain, hasher, deps.SMS); err != nil {
 		return err
 	}
 
@@ -152,44 +138,6 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	m.initializeSchedulers()
 
 	return nil
-}
-
-func authnModuleDepsFromParams(params ...interface{}) (AuthnModuleDeps, error) {
-	if len(params) < 2 {
-		log.Errorf("AuthnModule.Initialize requires at least 2 parameters: db, redisClient")
-		return AuthnModuleDeps{}, fmt.Errorf("requires at least 2 parameters")
-	}
-
-	db, ok := params[0].(*gorm.DB)
-	if !ok || db == nil {
-		log.Errorf("params[0] must be *gorm.DB")
-		return AuthnModuleDeps{}, fmt.Errorf("invalid db parameter")
-	}
-
-	redisClient, ok := params[1].(*redis.Client)
-	if !ok || redisClient == nil {
-		log.Errorf("params[1] must be *redis.Client")
-		return AuthnModuleDeps{}, fmt.Errorf("invalid redis parameter")
-	}
-
-	// 获取可选依赖
-	deps := AuthnModuleDeps{
-		DB:          db,
-		RedisClient: redisClient,
-	}
-	for _, opt := range params[2:] {
-		switch v := opt.(type) {
-		case authentication.PasswordHasher:
-			deps.PasswordHasher = v
-		case *IDPModule:
-			deps.IDPModule = v
-		case messaging.EventBus:
-			deps.EventBus = v
-		case event.Publisher:
-			deps.EventPublisher = v
-		}
-	}
-	return deps, nil
 }
 
 // infrastructureComponents 基础设施层组件
@@ -230,7 +178,14 @@ type infrastructureComponents struct {
 }
 
 // initializeInfrastructure 初始化基础设施层
-func (m *AuthnModule) initializeInfrastructure(db *gorm.DB, redisClient *redis.Client, idpDeps *IDPModule, eventBus messaging.EventBus, eventPublisher event.Publisher) *infrastructureComponents {
+func (m *AuthnModule) initializeInfrastructure(
+	db *gorm.DB,
+	redisClient *redis.Client,
+	idpDeps *IDPModule,
+	eventBus messaging.EventBus,
+	eventPublisher event.Publisher,
+	jwksOptions apiserveroptions.JWKSOptions,
+) *infrastructureComponents {
 	infra := &infrastructureComponents{
 		db:             db,
 		redis:          redisClient,
@@ -266,7 +221,7 @@ func (m *AuthnModule) initializeInfrastructure(db *gorm.DB, redisClient *redis.C
 	infra.keyRepo = jwksMysql.NewKeyRepository(db)
 
 	// JWKS 基础设施
-	keysDir := viper.GetString("jwks.keys_dir")
+	keysDir := jwksOptions.KeysDir
 	// 打印 keys_dir 以便启动时诊断（如果为空，会提示警告）
 	if strings.TrimSpace(keysDir) == "" {
 		log.Warnw("jwks.keys_dir is empty; private keys will be looked up in current working directory", "jwks.keys_dir", keysDir)
@@ -305,7 +260,12 @@ type domainComponents struct {
 }
 
 // initializeDomain 初始化领域层
-func (m *AuthnModule) initializeDomain(infra *infrastructureComponents) *domainComponents {
+func (m *AuthnModule) initializeDomain(
+	infra *infrastructureComponents,
+	appMode string,
+	authOptions apiserveroptions.AuthOptions,
+	jwksOptions apiserveroptions.JWKSOptions,
+) *domainComponents {
 	domain := &domainComponents{}
 
 	// JWKS 领域服务
@@ -324,7 +284,7 @@ func (m *AuthnModule) initializeDomain(infra *infrastructureComponents) *domainC
 
 	// Auto-initialize JWKS: ensure there's at least one active key in development
 	// or when jwks.auto_init is explicitly enabled.
-	if viper.GetBool("jwks.auto_init") || viper.GetString("app.mode") == "development" {
+	if jwksOptions.AutoInit || appMode == "development" {
 		ctx := context.Background()
 		if _, err := domain.keyManager.GetActiveKey(ctx); err != nil {
 			// 没有 active key，尝试创建一个
@@ -341,18 +301,18 @@ func (m *AuthnModule) initializeDomain(infra *infrastructureComponents) *domainC
 
 	// JWT Generator（依赖 JWKS）
 	infra.jwtGenerator = jwtinfra.NewGenerator(
-		viper.GetString("auth.jwt_issuer"),
-		viper.GetStringSlice("auth.access_token_audience"),
+		authOptions.JWTIssuer,
+		authOptions.AccessTokenAudience,
 		domain.keyManager,
 		infra.privKeyResolver,
 	)
 
 	// Token 领域服务
-	accessTTL := viper.GetDuration("auth.access_token_ttl")
+	accessTTL := authOptions.AccessTokenTTL
 	if accessTTL == 0 {
 		accessTTL = 15 * 60 * 1000000000 // 15分钟（纳秒）
 	}
-	refreshTTL := viper.GetDuration("auth.refresh_token_ttl")
+	refreshTTL := authOptions.RefreshTokenTTL
 	if refreshTTL == 0 {
 		refreshTTL = 7 * 24 * 60 * 60 * 1000000000 // 7天（纳秒）
 	}
@@ -379,6 +339,7 @@ func (m *AuthnModule) initializeApplication(
 	infra *infrastructureComponents,
 	domain *domainComponents,
 	hasher authentication.PasswordHasher,
+	smsOptions apiserveroptions.SMSOptions,
 ) error {
 	// 账户应用服务
 	m.AccountService = accountApp.NewAccountApplicationService(infra.unitOfWork, domain.sessionManager)
@@ -393,7 +354,7 @@ func (m *AuthnModule) initializeApplication(
 		infra.secretVault,
 	)
 
-	smsProvider := strings.ToLower(strings.TrimSpace(viper.GetString("sms.provider")))
+	smsProvider := strings.ToLower(strings.TrimSpace(smsOptions.Provider))
 	if smsProvider == "" {
 		smsProvider = "log"
 	}
@@ -409,7 +370,7 @@ func (m *AuthnModule) initializeApplication(
 			smsSender = smsInfra.NewMQLoginOTPSenderWithPublisher(infra.eventPublisher)
 			break
 		}
-		topic := strings.TrimSpace(viper.GetString("sms.mq.topic"))
+		topic := strings.TrimSpace(smsOptions.MQ.Topic)
 		smsSender = smsInfra.NewMQLoginOTPSender(infra.eventBus, topic)
 	default:
 		log.Warnw("unknown sms.provider, fallback to log", "sms.provider", smsProvider)
@@ -420,9 +381,9 @@ func (m *AuthnModule) initializeApplication(
 		Store:    infra.otpRedis,
 		Gate:     infra.otpRedis,
 		SMS:      smsSender,
-		TTL:      viper.GetDuration("sms.login_otp_ttl"),
-		Cooldown: viper.GetDuration("sms.login_otp_send_cooldown"),
-		CodeLen:  viper.GetInt("sms.login_otp_code_length"),
+		TTL:      smsOptions.LoginOTPTTL,
+		Cooldown: smsOptions.LoginOTPSendCooldown,
+		CodeLen:  smsOptions.LoginOTPCodeLength,
 	}
 
 	m.LoginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)

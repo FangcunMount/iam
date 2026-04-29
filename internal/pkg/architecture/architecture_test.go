@@ -111,6 +111,58 @@ func TestRESTRouterDoesNotImportCompositionOrGlobalConfig(t *testing.T) {
 	})
 }
 
+func TestRuntimeCompositionDoesNotReadGlobalConfigDirectly(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, relRoot := range []string{
+		"internal/apiserver/application",
+		"internal/apiserver/container",
+	} {
+		scanImports(t, filepath.Join(root, relRoot), func(path string, imports []string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, imp := range imports {
+				if imp == "github.com/spf13/viper" {
+					t.Fatalf("%s imports %s; runtime config must enter via typed options/deps", rel, imp)
+				}
+			}
+		})
+	}
+}
+
+func TestAssemblerModulesUseTypedDependencies(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.Contains(source, "params ...interface{}") {
+			t.Fatalf("%s uses variadic interface module initialization; use typed deps instead", rel)
+		}
+		if strings.Contains(source, "[]interface{}") {
+			t.Fatalf("%s uses []interface{} for module dependencies; use typed deps instead", rel)
+		}
+	})
+}
+
+func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "interface"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if !strings.Contains(rel, "/restful/") {
+			return
+		}
+		if strings.Contains(source, "var deps") {
+			t.Fatalf("%s declares package-level deps; pass dependencies explicitly to Register", rel)
+		}
+		if strings.Contains(source, "func Provide(") {
+			t.Fatalf("%s exposes Provide; pass dependencies explicitly to Register", rel)
+		}
+	})
+}
+
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
 	t.Parallel()
 

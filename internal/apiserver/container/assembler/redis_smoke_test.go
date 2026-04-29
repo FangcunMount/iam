@@ -3,23 +3,15 @@ package assembler
 import (
 	"testing"
 
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	t.Setenv("TZ", "Asia/Shanghai")
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("jwks.auto_init", false)
-	viper.Set("app.mode", "test")
-	viper.Set("sms.provider", "log")
-	viper.Set("sms.login_otp_ttl", "5m")
-	viper.Set("sms.login_otp_send_cooldown", "1m")
-	viper.Set("sms.login_otp_code_length", 6)
 
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
@@ -33,7 +25,14 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	})
 
 	module := NewAuthnModule()
-	if err := module.Initialize(db, redisClient); err != nil {
+	if err := module.InitializeWithDeps(AuthnModuleDeps{
+		DB:          db,
+		RedisClient: redisClient,
+		AppMode:     "test",
+		Auth:        *apiserveroptions.NewAuthOptions(),
+		JWKS:        *apiserveroptions.NewJWKSOptions(),
+		SMS:         *apiserveroptions.NewSMSOptions(),
+	}); err != nil {
 		t.Fatalf("AuthnModule.Initialize() error = %v", err)
 	}
 
@@ -61,7 +60,11 @@ func TestIDPModuleInitializeWithRedisAdapters(t *testing.T) {
 	})
 
 	module := NewIDPModule()
-	if err := module.Initialize(db, redisClient, []byte("0123456789abcdef0123456789abcdef")); err != nil {
+	if err := module.InitializeWithDeps(IDPModuleDeps{
+		DB:            db,
+		RedisClient:   redisClient,
+		EncryptionKey: []byte("0123456789abcdef0123456789abcdef"),
+	}); err != nil {
 		t.Fatalf("IDPModule.Initialize() error = %v", err)
 	}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	messagingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/messaging"
 	redis "github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
@@ -49,6 +48,9 @@ type Container struct {
 
 	// 容器状态
 	initialized bool
+
+	// typed runtime options
+	runtimeOptions RuntimeOptions
 }
 
 // NewContainer 创建容器
@@ -56,11 +58,17 @@ type Container struct {
 // eventBus: 消息总线（可选，用于事件驱动，传 nil 则不使用消息队列）
 // encryptionKey: IDP 模块使用的加密密钥（32 字节 AES-256），传 nil 则使用默认密钥
 func NewContainer(mysqlDB *gorm.DB, redisClient *redis.Client, eventBus messaging.EventBus, encryptionKey []byte) *Container {
+	return NewContainerWithOptions(mysqlDB, redisClient, eventBus, encryptionKey, RuntimeOptionsFromAPIServerOptions(nil, ""))
+}
+
+// NewContainerWithOptions 创建带 typed runtime options 的容器。
+func NewContainerWithOptions(mysqlDB *gorm.DB, redisClient *redis.Client, eventBus messaging.EventBus, encryptionKey []byte, opts RuntimeOptions) *Container {
 	return &Container{
 		mysqlDB:          mysqlDB,
 		redisClient:      redisClient,
 		eventBus:         eventBus,
 		idpEncryptionKey: encryptionKey,
+		runtimeOptions:   opts,
 	}
 }
 
@@ -155,7 +163,7 @@ func (c *Container) Initialize() error {
 }
 
 func (c *Container) initEventing() error {
-	catalogPath := strings.TrimSpace(viper.GetString("events.catalog_path"))
+	catalogPath := strings.TrimSpace(c.runtimeOptions.Events.CatalogPath)
 	if catalogPath == "" {
 		catalogPath = "configs/events.yaml"
 	}
@@ -174,14 +182,14 @@ func (c *Container) initEventing() error {
 		log.Warnw("event outbox relay not started: event bus unavailable", "store", "iam.domain_event_outbox")
 		return nil
 	}
-	c.outboxRelay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", c.outboxStore, c.eventBus, outboxRelayOptionsFromConfig())
+	c.outboxRelay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", c.outboxStore, c.eventBus, c.outboxRelayOptions())
 	return nil
 }
 
-func outboxRelayOptionsFromConfig() messagingInfra.OutboxRelayOptions {
+func (c *Container) outboxRelayOptions() messagingInfra.OutboxRelayOptions {
 	return messagingInfra.OutboxRelayOptions{
-		BatchSize:  viper.GetInt("events.outbox_relay_batch_size"),
-		RetryDelay: viper.GetDuration("events.outbox_relay_retry_delay"),
+		BatchSize:  c.runtimeOptions.Events.OutboxRelayBatchSize,
+		RetryDelay: c.runtimeOptions.Events.OutboxRelayRetryDelay,
 	}
 }
 
@@ -195,6 +203,10 @@ func (c *Container) initAuthModule() error {
 		IDPModule:      c.IDPModule,
 		EventBus:       c.eventBus,
 		EventPublisher: c.eventPublisher,
+		AppMode:        c.runtimeOptions.AppMode,
+		Auth:           c.runtimeOptions.Auth,
+		JWKS:           c.runtimeOptions.JWKS,
+		SMS:            c.runtimeOptions.SMS,
 	}); err != nil {
 		return fmt.Errorf("failed to initialize auth module: %w", err)
 	}
@@ -205,9 +217,7 @@ func (c *Container) initAuthModule() error {
 // initUserModule 初始化用户模块
 func (c *Container) initUserModule() error {
 	userModule := assembler.NewUserModule()
-	params := []interface{}{c.mysqlDB}
-	params = append(params, c.moduleGraph().userModuleDependencies()...)
-	if err := userModule.Initialize(params...); err != nil {
+	if err := userModule.InitializeWithDeps(c.moduleGraph().userModuleDependencies()); err != nil {
 		return fmt.Errorf("failed to initialize user module: %w", err)
 	}
 	c.UserModule = userModule
@@ -219,7 +229,10 @@ func (c *Container) initUserModule() error {
 func (c *Container) initAuthzModule() error {
 	authzModule := assembler.NewAuthzModule()
 
-	if err := authzModule.Initialize(c.mysqlDB, c.outboxStore); err != nil {
+	if err := authzModule.InitializeWithDeps(assembler.AuthzModuleDeps{
+		DB:          c.mysqlDB,
+		EventStager: c.outboxStore,
+	}); err != nil {
 		return fmt.Errorf("failed to initialize authz module: %w", err)
 	}
 	c.AuthzModule = authzModule
@@ -229,7 +242,10 @@ func (c *Container) initAuthzModule() error {
 // initSuggestModule 初始化联想模块
 func (c *Container) initSuggestModule() error {
 	suggestModule := assembler.NewSuggestModule()
-	if err := suggestModule.Initialize(c.mysqlDB); err != nil {
+	if err := suggestModule.InitializeWithDeps(assembler.SuggestModuleDeps{
+		DB:     c.mysqlDB,
+		Config: c.runtimeOptions.Suggest,
+	}); err != nil {
 		return fmt.Errorf("failed to initialize suggest module: %w", err)
 	}
 	// 可能因配置关闭而 Service 为空
@@ -244,7 +260,11 @@ func (c *Container) initSuggestModule() error {
 func (c *Container) initIDPModule() error {
 	idpModule := assembler.NewIDPModule()
 	// 传递 Redis（用于 Access Token 缓存）
-	if err := idpModule.Initialize(c.mysqlDB, c.redisClient, c.idpEncryptionKey); err != nil {
+	if err := idpModule.InitializeWithDeps(assembler.IDPModuleDeps{
+		DB:            c.mysqlDB,
+		RedisClient:   c.redisClient,
+		EncryptionKey: c.idpEncryptionKey,
+	}); err != nil {
 		return fmt.Errorf("failed to initialize idp module: %w", err)
 	}
 	c.IDPModule = idpModule

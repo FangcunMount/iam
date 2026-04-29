@@ -1,8 +1,7 @@
 package assembler
 
-// Module 模块接口
+// Module 模块生命周期接口
 type Module interface {
-	Initialize(params ...interface{}) error
 	CheckHealth() error
 	Cleanup() error
 	ModuleInfo() ModuleInfo

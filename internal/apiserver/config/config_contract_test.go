@@ -33,6 +33,28 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "redis cache host", opts.RedisOptions.Cache.Host, "127.0.0.1")
 				assertEqual(t, "redis cache port", opts.RedisOptions.Cache.Port, 6379)
 				assertEqual(t, "migration enabled", opts.MigrationOptions.Enabled, true)
+				assertEqual(t, "app mode", opts.App.Mode, "development")
+				assertEqual(t, "auth issuer", opts.Auth.JWTIssuer, "https://iam.fangcunmount.cn")
+				assertEqual(t, "auth access ttl", opts.Auth.AccessTokenTTL, 15*time.Minute)
+				assertEqual(t, "auth refresh ttl", opts.Auth.RefreshTokenTTL, 168*time.Hour)
+				assertEqual(t, "jwks keys dir", opts.JWKS.KeysDir, "./configs/keys")
+				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
+				assertEqual(t, "idp encryption key", opts.IDP.EncryptionKey, "")
+				assertEqual(t, "sms provider", opts.SMS.Provider, "log")
+				assertEqual(t, "sms otp ttl", opts.SMS.LoginOTPTTL, 5*time.Minute)
+				assertEqual(t, "sms cooldown", opts.SMS.LoginOTPSendCooldown, time.Minute)
+				assertEqual(t, "sms code length", opts.SMS.LoginOTPCodeLength, 6)
+				assertEqual(t, "suggest enabled", opts.Suggest.Enable, true)
+				assertEqual(t, "suggest data dir", opts.Suggest.DataDir, "./data/suggest")
+				assertEqual(t, "suggest delta cron", opts.Suggest.DeltaSyncCron, "@every 5m")
+				assertBoolPtr(t, "suggest snapshot", opts.Suggest.Snapshot, true)
+				assertBoolPtr(t, "debug cache governance enabled", opts.Debug.CacheGovernance.Enabled, true)
+				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, false)
+				assertEqual(t, "seed mock disabled by default", opts.SeedMockAuth.Enabled, false)
+				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "configs/events.yaml")
+				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
+				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 50)
+				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
 			},
 		},
 		{
@@ -50,6 +72,25 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "mysql database", opts.MySQLOptions.Database, "iam")
 				assertEqual(t, "redis cache logging", opts.RedisOptions.Cache.EnableLogging, false)
 				assertEqual(t, "migration database", opts.MigrationOptions.Database, "iam")
+				assertEqual(t, "app mode", opts.App.Mode, "production")
+				assertEqual(t, "auth issuer", opts.Auth.JWTIssuer, "https://iam.fangcunmount.cn")
+				assertEqual(t, "auth audience count", len(opts.Auth.AccessTokenAudience), 2)
+				assertEqual(t, "jwks keys dir", opts.JWKS.KeysDir, "/app/data/keys")
+				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
+				assertEqual(t, "idp encryption key", opts.IDP.EncryptionKey, "CHANGE_ME_WITH_32_BYTE_BASE64_SECRET")
+				assertEqual(t, "sms mq topic", opts.SMS.MQ.Topic, "iam.notify.sms")
+				assertEqual(t, "suggest enabled", opts.Suggest.Enable, true)
+				assertEqual(t, "suggest full cron", opts.Suggest.FullSyncCron, "@every 6h")
+				assertEqual(t, "suggest delta cron", opts.Suggest.DeltaSyncCron, "@every 30m")
+				assertBoolPtr(t, "suggest snapshot", opts.Suggest.Snapshot, true)
+				assertBoolPtr(t, "debug cache governance enabled", opts.Debug.CacheGovernance.Enabled, false)
+				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, true)
+				assertEqual(t, "seed mock enabled", opts.SeedMockAuth.Enabled, true)
+				assertEqual(t, "seed mock secret", opts.SeedMockAuth.SharedSecret, "N&#$Xds8sz72s0!8wkzsdcbWCnfJ6S5")
+				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "/app/configs/events.yaml")
+				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
+				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 50)
+				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
 			},
 		},
 	}
@@ -99,5 +140,15 @@ func assertEqual[T comparable](t *testing.T, label string, got, want T) {
 	t.Helper()
 	if got != want {
 		t.Fatalf("%s = %#v, want %#v", label, got, want)
+	}
+}
+
+func assertBoolPtr(t *testing.T, label string, got *bool, want bool) {
+	t.Helper()
+	if got == nil {
+		t.Fatalf("%s = nil, want %v", label, want)
+	}
+	if *got != want {
+		t.Fatalf("%s = %v, want %v", label, *got, want)
 	}
 }

@@ -10,16 +10,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestAuthnModuleDepsFromParamsPreservesLegacyInitializeContract(t *testing.T) {
+func TestAuthnModuleDepsPreserveTypedDependencies(t *testing.T) {
 	db := &gorm.DB{}
 	redisClient := redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"})
 	hasher := authnHasherStub{}
 	publisher := authnPublisherStub{}
 	idp := &IDPModule{}
 
-	deps, err := authnModuleDepsFromParams(db, redisClient, hasher, idp, publisher)
-	if err != nil {
-		t.Fatalf("authnModuleDepsFromParams() error = %v", err)
+	deps := AuthnModuleDeps{
+		DB:             db,
+		RedisClient:    redisClient,
+		PasswordHasher: hasher,
+		IDPModule:      idp,
+		EventPublisher: publisher,
 	}
 	if deps.DB != db {
 		t.Fatalf("DB dependency was not preserved")

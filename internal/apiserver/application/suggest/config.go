@@ -1,11 +1,5 @@
 package suggest
 
-import (
-	"strings"
-
-	"github.com/spf13/viper"
-)
-
 // Config 控制 suggest 模块行为
 type Config struct {
 	Enable        bool
@@ -19,39 +13,34 @@ type Config struct {
 	Snapshot      bool
 }
 
-// LoadConfig 从 viper 读取配置
-func LoadConfig() Config {
-	cfg := Config{
+// DefaultConfig returns the behavior-preserving defaults for suggest.
+func DefaultConfig() Config {
+	return Config{
 		MaxResults:    20,
 		KeyPadLen:     25,
 		FullSyncCron:  "@every 1h",
 		DeltaSyncCron: "",
 	}
+}
 
-	sub := viper.Sub("suggest")
-	if sub == nil {
-		return cfg
+// WithDefaults fills unset optional values without changing explicit settings.
+func (c Config) WithDefaults() Config {
+	cfg := DefaultConfig()
+	cfg.Enable = c.Enable
+	cfg.DataDir = c.DataDir
+	cfg.FullSQL = c.FullSQL
+	cfg.DeltaSQL = c.DeltaSQL
+	cfg.Snapshot = c.Snapshot
+	if c.FullSyncCron != "" {
+		cfg.FullSyncCron = c.FullSyncCron
 	}
-
-	cfg.Enable = sub.GetBool("enable")
-	cfg.DataDir = strings.TrimSpace(sub.GetString("data_dir"))
-	if v := strings.TrimSpace(sub.GetString("full_sync_cron")); v != "" {
-		cfg.FullSyncCron = v
+	cfg.DeltaSyncCron = c.DeltaSyncCron
+	if c.MaxResults > 0 {
+		cfg.MaxResults = c.MaxResults
 	}
-	cfg.DeltaSyncCron = strings.TrimSpace(sub.GetString("delta_sync_cron"))
-	if v := sub.GetInt("max_results"); v > 0 {
-		cfg.MaxResults = v
+	if c.KeyPadLen > 0 {
+		cfg.KeyPadLen = c.KeyPadLen
 	}
-	if v := sub.GetInt("key_pad_len"); v > 0 {
-		cfg.KeyPadLen = v
-	}
-	cfg.FullSQL = sub.GetString("full_sql")
-	cfg.DeltaSQL = sub.GetString("delta_sql")
-	cfg.Snapshot = sub.GetBool("snapshot")
-	if cfg.DataDir != "" && !sub.IsSet("snapshot") {
-		cfg.Snapshot = true
-	}
-
 	return cfg
 }
 

@@ -17,15 +17,8 @@ type Dependencies struct {
 	AdminMiddlewares []gin.HandlerFunc           // 管理接口中间件
 }
 
-var deps Dependencies
-
-// Provide wires the dependencies for subsequent Register calls.
-func Provide(d Dependencies) {
-	deps = d
-}
-
 // Register exposes the authentication endpoints that issue and refresh tokens.
-func Register(engine *gin.Engine) {
+func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil {
 		return
 	}
@@ -48,8 +41,8 @@ func Register(engine *gin.Engine) {
 }
 
 // RegisterSeedMock exposes the internal mock-consumer ensure endpoint when explicitly enabled.
-func RegisterSeedMock(engine *gin.Engine, sharedSecret string) {
-	if engine == nil || deps.AccountHandler == nil {
+func RegisterSeedMock(engine *gin.Engine, accountHandler *authhandler.AccountHandler, sharedSecret string) {
+	if engine == nil || accountHandler == nil {
 		return
 	}
 	sharedSecret = strings.TrimSpace(sharedSecret)
@@ -59,7 +52,7 @@ func RegisterSeedMock(engine *gin.Engine, sharedSecret string) {
 
 	internal := engine.Group("/api/v1/internal/authn")
 	internal.Use(authnMiddleware.RequireSeedMockSecret(sharedSecret))
-	registerInternalMockConsumerEndpoints(internal, deps.AccountHandler)
+	registerInternalMockConsumerEndpoints(internal, accountHandler)
 }
 
 // registerAuthEndpointsV1 注册 v1 认证端点。

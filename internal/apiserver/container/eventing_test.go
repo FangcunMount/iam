@@ -5,21 +5,21 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/spf13/viper"
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func TestInitEventingKeepsOutboxPendingWhenEventBusUnavailable(t *testing.T) {
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("events.catalog_path", filepath.Join(testRepoRoot(t), "configs", "events.yaml"))
-
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 
-	c := NewContainer(db, nil, nil, nil)
+	c := NewContainerWithOptions(db, nil, nil, nil, RuntimeOptions{
+		Events: apiserveroptions.EventOptions{
+			CatalogPath: filepath.Join(testRepoRoot(t), "configs", "events.yaml"),
+		},
+	})
 
 	require.NoError(t, c.initEventing())
 	require.NotNil(t, c.outboxStore)

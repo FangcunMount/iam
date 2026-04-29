@@ -14,15 +14,8 @@ type Dependencies struct {
 	AuthMiddleware      gin.HandlerFunc
 }
 
-var deps Dependencies
-
-// Provide wires the dependencies to be used when Register is invoked.
-func Provide(d Dependencies) {
-	deps = d
-}
-
 // Register exposes the UC module REST endpoints on the supplied engine.
-func Register(engine *gin.Engine) {
+func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil || deps.AuthMiddleware == nil {
 		return
 	}

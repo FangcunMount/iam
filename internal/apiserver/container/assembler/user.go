@@ -33,32 +33,25 @@ func NewUserModule() *UserModule {
 	return &UserModule{}
 }
 
-// Initialize 初始化模块
-func (m *UserModule) Initialize(params ...interface{}) error {
-	db := params[0].(*gorm.DB)
-	if db == nil {
+type UserModuleDeps struct {
+	DB             *gorm.DB
+	Casbin         authn.CasbinEnforcer
+	SessionManager sessiondomain.Manager
+}
+
+// InitializeWithDeps 初始化用户模块。
+func (m *UserModule) InitializeWithDeps(deps UserModuleDeps) error {
+	if deps.DB == nil {
 		return errors.WithCode(code.ErrModuleInitializationFailed, "database connection is nil")
-	}
-	var casbin authn.CasbinEnforcer
-	var sessionManager sessiondomain.Manager
-	if len(params) > 1 {
-		for _, param := range params[1:] {
-			switch v := param.(type) {
-			case authn.CasbinEnforcer:
-				casbin = v
-			case sessiondomain.Manager:
-				sessionManager = v
-			}
-		}
 	}
 
 	// 事务
-	uow := mysqlUcUow.NewUnitOfWork(db)
+	uow := mysqlUcUow.NewUnitOfWork(deps.DB)
 
 	// 用户应用服务（命令）
 	userAppSrv := appuser.NewUserApplicationService(uow)
 	userProfileAppSrv := appuser.NewUserProfileApplicationService(uow)
-	userStatusSrv := appuser.NewUserStatusApplicationService(uow, sessionManager)
+	userStatusSrv := appuser.NewUserStatusApplicationService(uow, deps.SessionManager)
 
 	// 用户查询服务
 	userQuerySrv := appuser.NewUserQueryApplicationService(uow)
@@ -82,7 +75,7 @@ func (m *UserModule) Initialize(params ...interface{}) error {
 		userAppSrv,
 		userProfileAppSrv,
 		userQuerySrv,
-		casbin,
+		deps.Casbin,
 	)
 
 	m.ChildHandler = handler.NewChildHandler(

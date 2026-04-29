@@ -191,16 +191,11 @@ func newIDPRouter(t *testing.T, middlewares []gin.HandlerFunc, appService appsvc
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 
-	Provide(Dependencies{
+	engine := gin.New()
+	Register(engine, Dependencies{
 		WechatAppHandler: handler.NewWechatAppHandler(appService, fakeCredentialService{}, fakeTokenService{}),
 		AdminMiddlewares: middlewares,
 	})
-	t.Cleanup(func() {
-		Provide(Dependencies{})
-	})
-
-	engine := gin.New()
-	Register(engine)
 	return engine
 }
 

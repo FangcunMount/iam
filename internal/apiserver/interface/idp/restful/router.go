@@ -17,13 +17,6 @@ type Dependencies struct {
 	// WechatAuthHandler 已移除 - 认证功能由 authn 模块统一提供
 }
 
-var deps Dependencies
-
-// Provide 存储依赖供 Register 使用
-func Provide(d Dependencies) {
-	deps = d
-}
-
 // Register 注册 IDP 模块的所有路由
 //
 // IDP 模块职责：
@@ -32,7 +25,7 @@ func Provide(d Dependencies) {
 //
 // 认证功能由 authn 模块统一提供：
 // - POST /api/v1/auth/login (method: "wx:minip") - 微信小程序登录
-func Register(engine *gin.Engine) {
+func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil {
 		return
 	}

@@ -18,15 +18,8 @@ type Dependencies struct {
 	AuthMiddleware gin.HandlerFunc
 }
 
-var deps Dependencies
-
-// Provide 存储依赖供 Register 使用
-func Provide(d Dependencies) {
-	deps = d
-}
-
 // Register 注册授权模块的所有路由
-func Register(engine *gin.Engine) {
+func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil {
 		return
 	}

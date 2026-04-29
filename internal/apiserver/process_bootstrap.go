@@ -9,14 +9,15 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/component-base/pkg/shutdown"
 	"github.com/FangcunMount/iam/internal/apiserver/container"
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
 	redis "github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
 
 type runtimeOutput struct {
 	mode            string
+	appMode         string
 	degradedAllowed bool
 }
 
@@ -33,9 +34,10 @@ type containerOutput struct {
 
 func (s *apiServer) prepareRuntime() runtimeOutput {
 	mode := runtimeMode(s.cfg)
-	viper.Set("app.mode", appModeFromServerMode(mode))
+	appMode := appModeFromServerMode(mode)
 	return runtimeOutput{
 		mode:            mode,
+		appMode:         appMode,
 		degradedAllowed: degradedStartupAllowed(s.cfg),
 	}
 }
@@ -66,7 +68,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		cacheClient = nil
 	}
 
-	idpEncryptionKey, configured, err := loadIDPEncryptionKey()
+	idpEncryptionKey, configured, err := loadIDPEncryptionKey(s.idpEncryptionSecret())
 	if err != nil {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("parse idp encryption key: %w", err)
@@ -95,11 +97,12 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 }
 
 func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput) (containerOutput, error) {
-	s.container = container.NewContainer(
+	s.container = container.NewContainerWithOptions(
 		resources.mysqlDB,
 		resources.cacheClient,
 		resources.eventBus,
 		resources.idpEncryptionKey,
+		container.RuntimeOptionsFromAPIServerOptions(s.cfg.Options, rt.appMode),
 	)
 
 	if err := s.container.Initialize(); err != nil {
@@ -116,32 +119,48 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 	return containerOutput{container: s.container}, nil
 }
 
-func (s *apiServer) prepareTransports(out containerOutput) {
-	NewRouter(out.container.BuildRESTDeps(routerOptionsFromConfig())).RegisterRoutes(s.genericAPIServer.Engine)
+func (s *apiServer) prepareTransports(rt runtimeOutput, out containerOutput) {
+	NewRouter(out.container.BuildRESTDeps(routerOptionsFromConfig(s.cfg.Options, rt.appMode))).RegisterRoutes(s.genericAPIServer.Engine)
 	s.registerGRPCServices()
 }
 
-func routerOptionsFromConfig() resttransport.RouterOptions {
+func routerOptionsFromConfig(opts *apiserveroptions.Options, appMode string) resttransport.RouterOptions {
+	var seed apiserveroptions.SeedMockAuthOptions
+	var debug apiserveroptions.DebugOptions
+	if opts != nil && opts.SeedMockAuth != nil {
+		seed = *opts.SeedMockAuth
+	}
+	if opts != nil && opts.Debug != nil {
+		debug = *opts.Debug
+	}
 	options := resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
-			AppMode: viper.GetString("app.mode"),
+			AppMode: appMode,
 		},
 		SeedMockAuth: resttransport.SeedMockAuthOptions{
-			Enabled:      viper.GetBool("seed_mock_auth.enabled"),
-			SharedSecret: viper.GetString("seed_mock_auth.shared_secret"),
+			Enabled:      seed.Enabled,
+			SharedSecret: seed.SharedSecret,
 		},
 	}
 
-	if viper.IsSet("debug.cache_governance.enabled") {
-		enabled := viper.GetBool("debug.cache_governance.enabled")
-		options.DebugCacheGovernance.Enabled = &enabled
-	}
-	if viper.IsSet("debug.cache_governance.require_admin") {
-		requireAdmin := viper.GetBool("debug.cache_governance.require_admin")
-		options.DebugCacheGovernance.RequireAdmin = &requireAdmin
-	}
+	options.DebugCacheGovernance.Enabled = debug.CacheGovernance.Enabled
+	options.DebugCacheGovernance.RequireAdmin = debug.CacheGovernance.RequireAdmin
 
 	return options
+}
+
+func (s *apiServer) idpEncryptionSecret() string {
+	if s == nil || s.cfg == nil || s.cfg.IDP == nil {
+		return ""
+	}
+	return s.cfg.IDP.EncryptionKey
+}
+
+func (s *apiServer) outboxRelayInterval() time.Duration {
+	if s == nil || s.cfg == nil || s.cfg.Events == nil {
+		return 2 * time.Second
+	}
+	return s.cfg.Events.OutboxRelayInterval
 }
 
 func (s *apiServer) startRuntimeTasks() {
@@ -167,7 +186,7 @@ func (s *apiServer) startRuntimeTasks() {
 func (s *apiServer) runOutboxRelay(ctx context.Context, relay interface {
 	DispatchDue(context.Context) error
 }) {
-	interval := viper.GetDuration("events.outbox_relay_interval")
+	interval := s.outboxRelayInterval()
 	if interval <= 0 {
 		interval = 2 * time.Second
 	}

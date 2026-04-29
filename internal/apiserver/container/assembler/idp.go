@@ -62,19 +62,20 @@ func NewIDPModule() *IDPModule {
 	return &IDPModule{}
 }
 
-// Initialize 初始化模块
-// params[0]: *gorm.DB - 数据库连接
-// params[1]: *redis.Client - Redis 客户端
-// params[2]: []byte - 加密密钥（32 字节 AES-256）
-func (m *IDPModule) Initialize(params ...interface{}) error {
-	// 验证参数
-	db, redisClient, encryptionKey, err := m.validateParameters(params)
-	if err != nil {
+type IDPModuleDeps struct {
+	DB            *gorm.DB
+	RedisClient   *redis.Client
+	EncryptionKey []byte
+}
+
+// InitializeWithDeps 初始化 IDP 模块。
+func (m *IDPModule) InitializeWithDeps(deps IDPModuleDeps) error {
+	if err := validateIDPModuleDeps(deps); err != nil {
 		return err
 	}
 
 	// 初始化基础设施层组件（直接创建）
-	if err := m.initializeInfrastructure(db, redisClient, encryptionKey); err != nil {
+	if err := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.EncryptionKey); err != nil {
 		return err
 	}
 
@@ -97,36 +98,27 @@ func (m *IDPModule) Initialize(params ...interface{}) error {
 	return nil
 }
 
-// validateParameters 验证初始化参数
-func (m *IDPModule) validateParameters(params []interface{}) (*gorm.DB, *redis.Client, []byte, error) {
-	if len(params) < 3 {
-		log.Warnf("IDP module initialization requires 3 parameters, got %d", len(params))
-		return nil, nil, nil, errors.WithCode(code.ErrModuleInitializationFailed,
-			"missing required parameters: db, redis client, and encryption key")
-	}
-
-	db, ok := params[0].(*gorm.DB)
-	if !ok || db == nil {
+// validateIDPModuleDeps 验证初始化依赖。
+func validateIDPModuleDeps(deps IDPModuleDeps) error {
+	if deps.DB == nil {
 		log.Warnf("IDP module initialization requires a valid database connection")
-		return nil, nil, nil, errors.WithCode(code.ErrModuleInitializationFailed,
+		return errors.WithCode(code.ErrModuleInitializationFailed,
 			"database connection is nil or invalid")
 	}
 
-	redisClient, ok := params[1].(*redis.Client)
-	if !ok || redisClient == nil {
+	if deps.RedisClient == nil {
 		log.Warnf("IDP module initialization requires a valid Redis client")
-		return nil, nil, nil, errors.WithCode(code.ErrModuleInitializationFailed,
+		return errors.WithCode(code.ErrModuleInitializationFailed,
 			"redis client is nil or invalid")
 	}
 
-	encryptionKey, ok := params[2].([]byte)
-	if !ok || len(encryptionKey) != 32 {
+	if len(deps.EncryptionKey) != 32 {
 		log.Warnf("IDP module initialization requires a 32-byte encryption key")
-		return nil, nil, nil, errors.WithCode(code.ErrModuleInitializationFailed,
+		return errors.WithCode(code.ErrModuleInitializationFailed,
 			"encryption key must be 32 bytes for AES-256")
 	}
 
-	return db, redisClient, encryptionKey, nil
+	return nil
 }
 
 // initializeInfrastructure 初始化基础设施层组件

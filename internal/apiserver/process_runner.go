@@ -89,7 +89,7 @@ type transportStage struct {
 func (transportStage) Name() string { return "initialize transports" }
 
 func (s transportStage) Run(state *prepareState) error {
-	s.server.prepareTransports(state.container)
+	s.server.prepareTransports(state.runtime, state.container)
 	return nil
 }
 

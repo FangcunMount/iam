@@ -44,31 +44,36 @@ func NewAuthzModule() *AuthzModule {
 	return &AuthzModule{}
 }
 
-// Initialize 初始化授权模块
-func (m *AuthzModule) Initialize(db *gorm.DB, stagers ...event.Stager) error {
-	if db == nil {
+type AuthzModuleDeps struct {
+	DB          *gorm.DB
+	EventStager event.Stager
+	ModelPath   string
+}
+
+// InitializeWithDeps 初始化授权模块。
+func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
+	if deps.DB == nil {
 		return fmt.Errorf("mysql db is required")
-	}
-	var eventStager event.Stager
-	if len(stagers) > 0 {
-		eventStager = stagers[0]
 	}
 
 	// 1. 初始化 Casbin Enforcer
-	modelPath := "configs/casbin_model.conf"
-	casbinAdapter, err := casbinInfra.NewCasbinAdapter(db, modelPath)
+	modelPath := deps.ModelPath
+	if modelPath == "" {
+		modelPath = "configs/casbin_model.conf"
+	}
+	casbinAdapter, err := casbinInfra.NewCasbinAdapter(deps.DB, modelPath)
 	if err != nil {
 		return fmt.Errorf("failed to create casbin adapter: %w", err)
 	}
 	m.CasbinAdapter = casbinAdapter
 
 	// 2. 初始化仓储层
-	roleRepository := roleInfra.NewRoleRepository(db)
-	assignmentRepository := assignmentInfra.NewAssignmentRepository(db)
-	resourceRepository := resourceInfra.NewResourceRepository(db)
-	policyVersionRepository := policyInfra.NewPolicyVersionRepository(db)
-	userRepository := userInfra.NewRepository(db)
-	unitOfWork := mysqlAuthzUow.NewUnitOfWork(db, eventStager)
+	roleRepository := roleInfra.NewRoleRepository(deps.DB)
+	assignmentRepository := assignmentInfra.NewAssignmentRepository(deps.DB)
+	resourceRepository := resourceInfra.NewResourceRepository(deps.DB)
+	policyVersionRepository := policyInfra.NewPolicyVersionRepository(deps.DB)
+	userRepository := userInfra.NewRepository(deps.DB)
+	unitOfWork := mysqlAuthzUow.NewUnitOfWork(deps.DB, deps.EventStager)
 
 	// 3. 初始化领域服务
 	// Resource 模块

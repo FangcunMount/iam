@@ -73,19 +73,19 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	// Authn 模块（公开端点）
 	if authnRoutesAvailable(deps.authn) {
-		authnhttp.Provide(authnhttp.Dependencies{
+		authnDeps := authnhttp.Dependencies{
 			AuthHandler:      deps.authn.AuthHandler,
 			AccountHandler:   deps.authn.AccountHandler,
 			JWKSHandler:      deps.authn.JWKSHandler,
 			AdminMiddlewares: deps.adminMiddlewares,
-		})
-		authnhttp.Register(engine)
+		}
+		authnhttp.Register(engine, authnDeps)
 		if r.deps.SeedMockAuth.Enabled {
 			secret := strings.TrimSpace(r.deps.SeedMockAuth.SharedSecret)
 			if secret == "" {
 				log.Warn("⚠️  seed_mock_auth.enabled=true but seed_mock_auth.shared_secret is empty; internal mock-consumer route not registered")
 			} else {
-				authnhttp.RegisterSeedMock(engine, secret)
+				authnhttp.RegisterSeedMock(engine, deps.authn.AccountHandler, secret)
 				log.Info("✅ Authn seed mock routes registered")
 			}
 		}
@@ -96,7 +96,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	// Authz 模块（授权管理 + PDP）
 	if authzRoutesAvailable(deps.authz) && authMiddleware != nil {
-		authzhttp.Provide(authzhttp.Dependencies{
+		authzhttp.Register(engine, authzhttp.Dependencies{
 			RoleHandler:       deps.authz.RoleHandler,
 			AssignmentHandler: deps.authz.AssignmentHandler,
 			PolicyHandler:     deps.authz.PolicyHandler,
@@ -104,7 +104,6 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 			CheckHandler:      deps.authz.CheckHandler,
 			AuthMiddleware:    authMiddleware.AuthRequired(),
 		})
-		authzhttp.Register(engine)
 		log.Info("✅ Authz module routes registered")
 	} else if authzRoutesAvailable(deps.authz) {
 		log.Warn("⚠️  Authz module initialized but JWT middleware unavailable; protected routes not registered")
@@ -114,12 +113,11 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	// IDP 模块（身份提供者）
 	if r.deps.ModuleStatus.IDP {
-		idphttp.Provide(idphttp.Dependencies{
+		idphttp.Register(engine, idphttp.Dependencies{
 			WechatAppHandler: deps.idp.WechatAppHandler,
 			AdminMiddlewares: deps.adminMiddlewares,
 			// WechatAuthHandler 已移除 - 认证由 authn 模块统一提供
 		})
-		idphttp.Register(engine)
 		log.Info("✅ IDP module routes registered")
 	} else {
 		log.Warn("⚠️  IDP module not initialized, routes not registered")
@@ -127,13 +125,12 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	// User 模块（受 JWT 保护）
 	if userRoutesAvailable(deps.user) && authMiddleware != nil {
-		userhttp.Provide(userhttp.Dependencies{
+		userhttp.Register(engine, userhttp.Dependencies{
 			UserHandler:         deps.user.UserHandler,
 			ChildHandler:        deps.user.ChildHandler,
 			GuardianshipHandler: deps.user.GuardianshipHandler,
 			AuthMiddleware:      authMiddleware.AuthRequired(),
 		})
-		userhttp.Register(engine)
 		log.Info("✅ User module routes registered")
 	} else if userRoutesAvailable(deps.user) {
 		log.Warn("⚠️  User module initialized but JWT middleware unavailable; protected routes not registered")
@@ -143,11 +140,10 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	// Suggest 模块（依赖 Service 和可选认证）
 	if deps.suggest.Service != nil && authMiddleware != nil {
-		suggesthttp.Provide(suggesthttp.Dependencies{
+		suggesthttp.Register(engine, suggesthttp.Dependencies{
 			Service:        deps.suggest.Service,
 			AuthMiddleware: authMiddleware.AuthRequired(),
 		})
-		suggesthttp.Register(engine)
 		log.Info("✅ Suggest module routes registered")
 	} else if deps.suggest.Service != nil {
 		log.Warn("⚠️  Suggest module initialized but JWT middleware unavailable; protected routes not registered")
