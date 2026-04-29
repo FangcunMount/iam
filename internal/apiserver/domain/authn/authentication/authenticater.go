@@ -16,28 +16,21 @@ type AuthStrategy interface {
 
 // Authenticator 认证器
 type Authenticator struct {
-	credRepo    CredentialRepository
-	accountRepo AccountRepository
-	hasher      PasswordHasher
-	otpVerifier OTPVerifier
-	idp         IdentityProvider
+	strategies map[Scenario]AuthStrategy
 }
 
 // NewAuthenticator 创建认证器
-func NewAuthenticator(
-	credRepo CredentialRepository,
-	accountRepo AccountRepository,
-	hasher PasswordHasher,
-	otpVerifier OTPVerifier,
-	idp IdentityProvider,
-) *Authenticator {
-	return &Authenticator{
-		credRepo:    credRepo,
-		accountRepo: accountRepo,
-		hasher:      hasher,
-		otpVerifier: otpVerifier,
-		idp:         idp,
+func NewAuthenticator(strategies ...AuthStrategy) *Authenticator {
+	authenticator := &Authenticator{
+		strategies: make(map[Scenario]AuthStrategy, len(strategies)),
 	}
+	for _, strategy := range strategies {
+		if strategy == nil {
+			continue
+		}
+		authenticator.strategies[strategy.Kind()] = strategy
+	}
+	return authenticator
 }
 
 // Authenticate 认证
@@ -66,8 +59,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, credential AuthCredent
 		"claims", make(map[string]any),
 	)
 
-	// 创建认证策略
-	strategy := a.createStrategy(scenario)
+	strategy := a.strategyFor(scenario)
 	if strategy == nil {
 		l.Errorw("不支持的认证场景",
 			"action", logger.ActionLogin,
@@ -118,18 +110,9 @@ func (a *Authenticator) Authenticate(ctx context.Context, credential AuthCredent
 	return decision, nil
 }
 
-// CreateStrategy 根据场景创建认证策略
-func (f *Authenticator) createStrategy(scenario Scenario) AuthStrategy {
-	switch scenario {
-	case AuthPassword:
-		return NewPasswordAuthStrategy(f.credRepo, f.accountRepo, f.hasher)
-	case AuthPhoneOTP:
-		return NewPhoneOTPAuthStrategy(f.credRepo, f.accountRepo, f.otpVerifier)
-	case AuthWxMinip:
-		return NewOAuthWechatMinipAuthStrategy(f.credRepo, f.accountRepo, f.idp)
-	case AuthWecom:
-		return NewOAuthWeChatComAuthStrategy(f.credRepo, f.accountRepo, f.idp)
-	default:
+func (a *Authenticator) strategyFor(scenario Scenario) AuthStrategy {
+	if a == nil {
 		return nil
 	}
+	return a.strategies[scenario]
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	smsInfra "github.com/FangcunMount/iam/internal/apiserver/infra/sms"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/token/keyset"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 )
 
@@ -76,11 +77,10 @@ func (m *AuthnModule) initializeApplication(
 		tokenIssuer,
 		tokenRefresher,
 		authentication.NewAuthenticator(
-			infra.credentialRepo,
-			infra.accountRepo,
-			hasher,
-			infra.otpVerifier,
-			infra.idp,
+			authentication.NewPasswordAuthStrategy(infra.credentialRepo, infra.accountRepo, hasher),
+			authentication.NewPhoneOTPAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.otpVerifier),
+			authentication.NewOAuthWechatMinipAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
+			authentication.NewOAuthWeChatComAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
 		),
 		tokenVerifier,
 		infra.wechatAppQuerier,
@@ -95,10 +95,10 @@ func (m *AuthnModule) initializeApplication(
 	m.SessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
 
 	logger := log.New(log.NewOptions())
-	m.KeyManagementApp = jwksApp.NewKeyManagementAppService(infra.keyManager, logger)
-	m.KeyPublishApp = jwksApp.NewKeyPublishAppService(infra.keySetBuilder, logger)
-	m.KeyRotationApp = jwksApp.NewKeyRotationAppService(infra.keyRotation, logger)
-	m.jwksSnapshotReporter = infra.keySetBuilder
+	m.KeyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)
+	m.KeyPublishApp = jwksApp.NewKeyPublishAppService(keyset.NewApplicationKeyPublisher(infra.keySetBuilder), logger)
+	m.KeyRotationApp = jwksApp.NewKeyRotationAppService(keyset.NewApplicationKeyRotator(infra.keyRotation), logger)
+	m.jwksSnapshotReporter = keyset.NewApplicationSnapshotReporter(infra.keySetBuilder)
 
 	return nil
 }

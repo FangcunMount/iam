@@ -74,7 +74,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 
 	// helper to build Authenticator
 	makeAuth := func(acc *accRepoStub, cred *credRepoStub, hasher *hasherStub) *authentication.Authenticator {
-		return authentication.NewAuthenticator(cred, acc, hasher, nil, nil)
+		return authentication.NewAuthenticator(authentication.NewPasswordAuthStrategy(cred, acc, hasher))
 	}
 	makeProof := func(username, password string, tenantID meta.ID) authentication.AuthCredential {
 		proof, err := authentication.NewPasswordCredential(authentication.PasswordProofSpec{

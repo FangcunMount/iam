@@ -1,10 +1,10 @@
 package authentication
 
 import (
+	"context"
 	"testing"
 
 	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,17 +47,43 @@ func TestProofConstructorsValidateRequiredFieldsAndMapScenario(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAuthenticator_CreateStrategyMapping(t *testing.T) {
+type authenticatorStrategyStub struct {
+	kind   Scenario
+	called bool
+}
+
+func (s *authenticatorStrategyStub) Kind() Scenario {
+	return s.kind
+}
+
+func (s *authenticatorStrategyStub) Authenticate(context.Context, AuthCredential) (AuthDecision, error) {
+	s.called = true
+	return AuthDecision{
+		OK: true,
+		Principal: &Principal{
+			UserID:    meta.FromUint64(1001),
+			AccountID: meta.FromUint64(2002),
+			TenantID:  meta.FromUint64(1),
+		},
+	}, nil
+}
+
+func TestAuthenticatorUsesInjectedStrategyMapping(t *testing.T) {
 	t.Parallel()
 
-	a := NewAuthenticator(nil, nil, nil, nil, nil)
+	strategy := &authenticatorStrategyStub{kind: AuthPassword}
+	a := NewAuthenticator(strategy)
+	proof, err := NewPasswordCredential(PasswordProofSpec{
+		TenantID: meta.FromUint64(1),
+		Username: "alice",
+		Password: "secret",
+	})
+	require.NoError(t, err)
 
-	// Known scenarios should map to non-nil strategies
-	assert.NotNil(t, a.createStrategy(AuthPassword))
-	assert.NotNil(t, a.createStrategy(AuthPhoneOTP))
-	assert.NotNil(t, a.createStrategy(AuthWxMinip))
-	assert.NotNil(t, a.createStrategy(AuthWecom))
+	decision, err := a.Authenticate(context.Background(), proof)
 
-	// Unknown scenario should return nil
-	assert.Nil(t, a.createStrategy(Scenario("unknown")))
+	require.NoError(t, err)
+	require.True(t, decision.OK)
+	require.True(t, strategy.called)
+	require.Nil(t, a.strategyFor(Scenario("unknown")))
 }

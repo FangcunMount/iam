@@ -794,6 +794,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		"Register" + "CredentialBuilder",
 		"Credential" + "Builder",
 		"credential" + "Builders",
+		"create" + "Strategy",
 		"type " + "AuthInput struct",
 		"Authenticater",
 		"JWT" + "TokenCredential",
@@ -813,6 +814,35 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 			if strings.Contains(source, token) {
 				t.Fatalf("%s contains retired JWT-shaped domain token %q; keep JWT claims and strategies in infra/token/jwt", rel, token)
 			}
+		}
+	})
+
+	forbiddenApplicationJWKSLifecycleTokens := []string{
+		"func (k *ManagedKey) Enter" + "Grace",
+		"func (k *ManagedKey) Retire",
+		"func (k *ManagedKey) Force" + "Retire",
+		"func (k *ManagedKey) Can" + "Sign",
+		"func (k *ManagedKey) Can" + "Verify",
+		"func (k *ManagedKey) Should" + "Publish",
+		"func (k *ManagedKey) Is" + "Expired",
+		"func (k *ManagedKey) Is" + "NotYetValid",
+		"func (k *ManagedKey) Is" + "ValidAt",
+	}
+	appJWKSModelsBytes, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "application", "authn", "jwks", "models.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	appJWKSModels := string(appJWKSModelsBytes)
+	for _, token := range forbiddenApplicationJWKSLifecycleTokens {
+		if strings.Contains(appJWKSModels, token) {
+			t.Fatalf("application/authn/jwks/models.go contains signing key lifecycle behavior %q; keep key lifecycle behavior in infra/token/keyset", token)
+		}
+	}
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "infra", "token", "keyset"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.Contains(source, "type Key =") || strings.Contains(source, "type KeyStatus =") {
+			t.Fatalf("%s aliases application jwks lifecycle types; keyset must own signing key models and map to application DTOs", rel)
 		}
 	})
 }
