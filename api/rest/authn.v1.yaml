@@ -1010,7 +1010,7 @@ components:
           type: string
         publicJwk:
           allOf:
-          - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK'
+          - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK'
           description: 公钥 JWK
         status:
           description: 密钥状态 (active, grace, retired)

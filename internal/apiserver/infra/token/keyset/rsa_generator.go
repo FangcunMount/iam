@@ -1,4 +1,4 @@
-package crypto
+package keyset
 
 import (
 	"context"
@@ -9,12 +9,11 @@ import (
 	"math/big"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // RSAKeyGenerator RSA 密钥生成器
-// 实现 jwks.KeyGenerator 接口
+// 实现 KeyGenerator 接口
 type RSAKeyGenerator struct {
 	// 默认密钥大小（位）
 	defaultKeySize int
@@ -37,10 +36,10 @@ func NewRSAKeyGeneratorWithSize(keySize int) *RSAKeyGenerator {
 }
 
 // Ensure RSAKeyGenerator implements KeyGenerator
-var _ jwks.KeyGenerator = (*RSAKeyGenerator)(nil)
+var _ KeyGenerator = (*RSAKeyGenerator)(nil)
 
 // GenerateKeyPair 生成 RSA 密钥对
-func (g *RSAKeyGenerator) GenerateKeyPair(ctx context.Context, algorithm, kid string) (*jwks.KeyPair, error) {
+func (g *RSAKeyGenerator) GenerateKeyPair(ctx context.Context, algorithm, kid string) (*KeyPair, error) {
 	// 验证算法
 	if !IsSupportedAlgorithm(algorithm) {
 		return nil, errors.WithCode(
@@ -78,7 +77,7 @@ func (g *RSAKeyGenerator) GenerateKeyPair(ctx context.Context, algorithm, kid st
 		)
 	}
 
-	return &jwks.KeyPair{
+	return &KeyPair{
 		PrivateKey: privateKey,
 		PublicJWK:  publicJWK,
 	}, nil
@@ -110,7 +109,7 @@ func (g *RSAKeyGenerator) getKeySizeForAlgorithm(_ string) int {
 }
 
 // buildPublicJWK 从 RSA 私钥构建 PublicJWK
-func (g *RSAKeyGenerator) buildPublicJWK(privateKey *rsa.PrivateKey, alg, kid string) (jwks.PublicJWK, error) {
+func (g *RSAKeyGenerator) buildPublicJWK(privateKey *rsa.PrivateKey, alg, kid string) (PublicJWK, error) {
 	// 获取公钥
 	publicKey := &privateKey.PublicKey
 
@@ -121,7 +120,7 @@ func (g *RSAKeyGenerator) buildPublicJWK(privateKey *rsa.PrivateKey, alg, kid st
 	// 将 e (exponent) 编码为 base64url
 	e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(publicKey.E)).Bytes())
 
-	return jwks.PublicJWK{
+	return PublicJWK{
 		Kty: "RSA",
 		Use: "sig",
 		Alg: alg,

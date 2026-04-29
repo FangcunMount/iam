@@ -727,6 +727,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	root := repoRoot(t)
 	for _, rel := range []string{
 		"internal/apiserver/domain/authn/token",
+		"internal/apiserver/domain/authn/jwks",
 		"internal/apiserver/infra/jwt",
 	} {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(rel), "*.go"))
@@ -740,6 +741,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 
 	forbiddenImports := map[string]struct{}{
 		modulePath + "internal/apiserver/domain/authn/token": {},
+		modulePath + "internal/apiserver/domain/authn/jwks":  {},
 		modulePath + "internal/apiserver/infra/jwt":          {},
 		"github.com/golang-jwt/jwt/v4":                       {},
 		"github.com/golang-jwt/jwt/v5":                       {},
@@ -758,6 +760,26 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		}
 	})
 
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "application", "authn"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/token/") ||
+				imp == "crypto/rsa" ||
+				strings.HasPrefix(imp, "github.com/golang-jwt/") {
+				t.Fatalf("%s imports %s; application/authn must depend on token ports and DTOs, not JWT/key infrastructure", rel, imp)
+			}
+		}
+	})
+
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "infra", "token", "jwt"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authn/") {
+				t.Fatalf("%s imports %s; JWT infrastructure must implement application ports without depending on authn domain packages", rel, imp)
+			}
+		}
+	})
+
 	forbiddenDomainTokens := []string{
 		"AccessClaims",
 		"AuthJWT" + "Token",
@@ -765,12 +787,16 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		"JWT" + "TokenCredential",
 		"JWT" + "TokenAuthStrategy",
 		"FlattenClaimsFor" + "JWT",
+		"JWK",
+		"JWKS",
+		"RS256",
+		"PEM",
+		"SigningMethod",
+		"RegisteredClaims",
+		"crypto/rsa",
 	}
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
-		if strings.HasPrefix(rel, "internal/apiserver/domain/authn/jwks/") {
-			return
-		}
 		for _, token := range forbiddenDomainTokens {
 			if strings.Contains(source, token) {
 				t.Fatalf("%s contains retired JWT-shaped domain token %q; keep JWT claims and strategies in infra/token/jwt", rel, token)

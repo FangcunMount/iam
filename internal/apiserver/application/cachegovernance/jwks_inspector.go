@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	jwksapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
 )
 
 type jwksPublishSnapshotInspector struct {
-	builder *jwksdomain.KeySetBuilder
+	reporter jwksapp.SnapshotReporter
 }
 
 // NewJWKSPublishSnapshotInspector 创建 JWKS 发布快照的只读状态读取器。
-func NewJWKSPublishSnapshotInspector(builder *jwksdomain.KeySetBuilder) FamilyInspector {
-	return &jwksPublishSnapshotInspector{builder: builder}
+func NewJWKSPublishSnapshotInspector(reporter jwksapp.SnapshotReporter) FamilyInspector {
+	return &jwksPublishSnapshotInspector{reporter: reporter}
 }
 
 func (i *jwksPublishSnapshotInspector) Descriptor() FamilyDescriptor {
@@ -32,17 +32,17 @@ func (i *jwksPublishSnapshotInspector) Descriptor() FamilyDescriptor {
 func (i *jwksPublishSnapshotInspector) Status(context.Context) (FamilyStatus, error) {
 	status := FamilyStatus{
 		Family:          FamilyAuthnJWKSPublishSnapshot,
-		Configured:      i.builder != nil,
+		Configured:      i.reporter != nil,
 		Healthy:         false,
 		EntryCountKnown: false,
 		Notes:           []string{},
 	}
-	if i.builder == nil {
+	if i.reporter == nil {
 		status.Notes = append(status.Notes, "JWKS 构建器未配置。")
 		return status, nil
 	}
 
-	snapshot := i.builder.SnapshotStatus()
+	snapshot := i.reporter.SnapshotStatus()
 	status.Healthy = true
 	if !snapshot.Cached {
 		status.Notes = append(status.Notes, "尚未构建 JWKS 进程内快照。")

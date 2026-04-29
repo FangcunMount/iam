@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	domain "github.com/FangcunMount/iam/internal/apiserver/infra/token/keyset"
 )
 
 func TestMapperToKeyEntityPreservesAuditTimestamps(t *testing.T) {

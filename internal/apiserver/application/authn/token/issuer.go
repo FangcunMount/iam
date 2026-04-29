@@ -73,7 +73,7 @@ func (s *issuer) issueTokenPair(ctx context.Context, principal *authentication.P
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "session is required")
 	}
 
-	principalWithSession := &authentication.Principal{
+	principalWithSession := &Principal{
 		UserID:    principal.UserID,
 		AccountID: principal.AccountID,
 		TenantID:  principal.TenantID,

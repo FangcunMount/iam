@@ -3074,7 +3074,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK": {
+        "github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK": {
             "type": "object",
             "properties": {
                 "alg": {
@@ -3359,7 +3359,7 @@ const docTemplate = `{
                     "description": "公钥 JWK",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK"
                         }
                     ]
                 },
@@ -3424,7 +3424,7 @@ const docTemplate = `{
                     "description": "公钥 JWK",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK"
                         }
                     ]
                 },
@@ -3469,7 +3469,7 @@ const docTemplate = `{
                     "description": "公钥 JWK",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK"
                         }
                     ]
                 },

@@ -50,10 +50,10 @@ func (m *AuthnModule) initializeApplication(
 	m.LoginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)
 
 	tokenIssuer := token.NewIssuer(
-		domain.tokenCodec,
+		infra.jwtGenerator,
 		infra.tokenStore,
 		domain.sessionManager,
-		domain.tokenCodec.ClaimMapper(),
+		infra.jwtGenerator.ClaimMapper(),
 		domain.accessTTL,
 		domain.refreshTTL,
 	)
@@ -62,12 +62,12 @@ func (m *AuthnModule) initializeApplication(
 		infra.tokenStore,
 		domain.sessionManager,
 		infra.accessChecker,
-		domain.tokenCodec.ClaimMapper(),
+		infra.jwtGenerator.ClaimMapper(),
 		domain.accessTTL,
 		domain.refreshTTL,
 	)
 	tokenVerifier := token.NewVerifier(
-		domain.tokenCodec,
+		infra.jwtGenerator,
 		infra.tokenStore,
 		domain.sessionManager,
 		infra.accessChecker,
@@ -97,9 +97,10 @@ func (m *AuthnModule) initializeApplication(
 	m.SessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
 
 	logger := log.New(log.NewOptions())
-	m.KeyManagementApp = jwksApp.NewKeyManagementAppService(domain.keyManager, logger)
-	m.KeyPublishApp = jwksApp.NewKeyPublishAppService(domain.keySetBuilder, logger)
-	m.KeyRotationApp = jwksApp.NewKeyRotationAppService(domain.keyRotation, logger)
+	m.KeyManagementApp = jwksApp.NewKeyManagementAppService(infra.keyManager, logger)
+	m.KeyPublishApp = jwksApp.NewKeyPublishAppService(infra.keySetBuilder, logger)
+	m.KeyRotationApp = jwksApp.NewKeyRotationAppService(infra.keyRotation, logger)
+	m.jwksSnapshotReporter = infra.keySetBuilder
 
 	return nil
 }

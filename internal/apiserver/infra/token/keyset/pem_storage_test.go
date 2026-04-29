@@ -1,4 +1,4 @@
-package crypto_test
+package keyset_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam/internal/apiserver/infra/crypto"
+	"github.com/FangcunMount/iam/internal/apiserver/infra/token/keyset"
 )
 
 func TestPEMPrivateKeyStorage_SaveAndExists(t *testing.T) {
@@ -18,14 +18,14 @@ func TestPEMPrivateKeyStorage_SaveAndExists(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// 创建存储
-	storage := crypto.NewPEMPrivateKeyStorage(tempDir)
+	storage := keyset.NewPEMPrivateKeyStorage(tempDir)
 
 	ctx := context.Background()
 	kid := "test-kid-001"
 	alg := "RS256"
 
 	// 生成测试密钥
-	generator := crypto.NewRSAKeyGenerator()
+	generator := keyset.NewRSAKeyGenerator()
 	keyPair, err := generator.GenerateKeyPair(ctx, alg, kid)
 	require.NoError(t, err)
 
@@ -53,13 +53,13 @@ func TestPEMPrivateKeyStorage_SaveAndExists(t *testing.T) {
 
 func TestPEMPrivateKeyStorage_DeleteKey(t *testing.T) {
 	tempDir := t.TempDir()
-	storage := crypto.NewPEMPrivateKeyStorage(tempDir)
+	storage := keyset.NewPEMPrivateKeyStorage(tempDir)
 	ctx := context.Background()
 	kid := "test-kid-002"
 	alg := "RS256"
 
 	// 生成并保存密钥
-	generator := crypto.NewRSAKeyGenerator()
+	generator := keyset.NewRSAKeyGenerator()
 	keyPair, err := generator.GenerateKeyPair(ctx, alg, kid)
 	require.NoError(t, err)
 
@@ -85,12 +85,12 @@ func TestPEMPrivateKeyStorage_DeleteKey(t *testing.T) {
 
 func TestPEMPrivateKeyStorage_ListKeys(t *testing.T) {
 	tempDir := t.TempDir()
-	storage := crypto.NewPEMPrivateKeyStorage(tempDir)
+	storage := keyset.NewPEMPrivateKeyStorage(tempDir)
 	ctx := context.Background()
 	alg := "RS256"
 
 	// 生成多个密钥
-	generator := crypto.NewRSAKeyGenerator()
+	generator := keyset.NewRSAKeyGenerator()
 	kids := []string{"key-001", "key-002", "key-003"}
 
 	for _, kid := range kids {
@@ -113,8 +113,8 @@ func TestPEMPrivateKeyStorage_ListKeys(t *testing.T) {
 
 func TestRSAKeyGeneratorWithStorage_Integration(t *testing.T) {
 	tempDir := t.TempDir()
-	storage := crypto.NewPEMPrivateKeyStorage(tempDir)
-	generator := crypto.NewRSAKeyGeneratorWithStorage(storage)
+	storage := keyset.NewPEMPrivateKeyStorage(tempDir)
+	generator := keyset.NewRSAKeyGeneratorWithStorage(storage)
 
 	ctx := context.Background()
 	kid := "test-integration-key"
@@ -138,7 +138,7 @@ func TestRSAKeyGeneratorWithStorage_Integration(t *testing.T) {
 	assert.True(t, exists, "Private key should be saved automatically")
 
 	// 验证可以读取私钥
-	resolver := crypto.NewPEMPrivateKeyResolver(tempDir)
+	resolver := keyset.NewPEMPrivateKeyResolver(tempDir)
 	resolvedKey, err := resolver.ResolveSigningKey(ctx, kid, alg)
 	require.NoError(t, err)
 	require.NotNil(t, resolvedKey)
@@ -153,8 +153,8 @@ func TestRSAKeyGeneratorWithStorage_Integration(t *testing.T) {
 
 func TestRSAKeyGeneratorWithStorage_DifferentAlgorithms(t *testing.T) {
 	tempDir := t.TempDir()
-	storage := crypto.NewPEMPrivateKeyStorage(tempDir)
-	generator := crypto.NewRSAKeyGeneratorWithStorage(storage)
+	storage := keyset.NewPEMPrivateKeyStorage(tempDir)
+	generator := keyset.NewRSAKeyGeneratorWithStorage(storage)
 
 	ctx := context.Background()
 	algorithms := []string{"RS256", "RS384", "RS512"}
@@ -177,15 +177,15 @@ func TestRSAKeyGeneratorWithStorage_DifferentAlgorithms(t *testing.T) {
 func TestPEMPrivateKeyStorage_CompatibilityWithResolver(t *testing.T) {
 	// 测试存储和解析器的兼容性
 	tempDir := t.TempDir()
-	storage := crypto.NewPEMPrivateKeyStorage(tempDir)
-	resolver := crypto.NewPEMPrivateKeyResolver(tempDir)
+	storage := keyset.NewPEMPrivateKeyStorage(tempDir)
+	resolver := keyset.NewPEMPrivateKeyResolver(tempDir)
 
 	ctx := context.Background()
 	kid := "compatibility-test-key"
 	alg := "RS256"
 
 	// 生成密钥
-	generator := crypto.NewRSAKeyGenerator()
+	generator := keyset.NewRSAKeyGenerator()
 	keyPair, err := generator.GenerateKeyPair(ctx, alg, kid)
 	require.NoError(t, err)
 

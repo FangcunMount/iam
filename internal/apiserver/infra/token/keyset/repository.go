@@ -1,11 +1,11 @@
-package jwks
+package keyset
 
 import (
 	"context"
 )
 
-// ================== Repository Interface (Driven Port) ==================
-// 定义领域模型所依赖的仓储接口，由基础设施层提供实现
+// ================== Repository Interface ==================
+// 定义 keyset 组件依赖的密钥仓储接口，由 MySQL 等持久化适配器实现。
 
 // Repository 密钥仓储接口
 // 负责 Key 实体的持久化操作（MySQL/PostgreSQL 等）

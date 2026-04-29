@@ -1,4 +1,4 @@
-package jwks
+package keyset
 
 import (
 	"context"
@@ -215,14 +215,6 @@ type JWKSStats struct {
 	ActiveKeys    int        // Active 状态的密钥数
 	GraceKeys     int        // Grace 状态的密钥数
 	LastBuildTime *time.Time // 最后构建时间
-}
-
-// SnapshotStatus 表示当前进程内 JWKS 发布快照的状态。
-type SnapshotStatus struct {
-	Cached        bool       // 是否已经构建过进程内快照
-	KeyCount      int        // 快照中的公钥数量
-	CacheTag      CacheTag   // 最近一次构建生成的缓存标签
-	LastBuildTime *time.Time // 最近一次构建时间
 }
 
 // GetCacheControl 获取缓存控制策略（辅助方法）

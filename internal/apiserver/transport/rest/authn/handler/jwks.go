@@ -9,7 +9,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -166,14 +165,14 @@ func (h *JWKSHandler) ListKeys(c *gin.Context) {
 	}
 
 	// 解析状态
-	var status jwks.KeyStatus
+	var status jwksApp.KeyStatus
 	if statusStr != "" {
 		statusUint, err := parseKeyStatus(statusStr)
 		if err != nil {
 			h.Error(c, err)
 			return
 		}
-		status = jwks.KeyStatus(statusUint)
+		status = jwksApp.KeyStatus(statusUint)
 	}
 
 	// 调用应用服务

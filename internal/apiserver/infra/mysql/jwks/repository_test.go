@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	jwks "github.com/FangcunMount/iam/internal/apiserver/infra/token/keyset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"

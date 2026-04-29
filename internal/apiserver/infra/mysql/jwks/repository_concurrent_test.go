@@ -9,7 +9,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	testutil "github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
-	d "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
+	d "github.com/FangcunMount/iam/internal/apiserver/infra/token/keyset"
 	testhelpers "github.com/FangcunMount/iam/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/stretchr/testify/require"

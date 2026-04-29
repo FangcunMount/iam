@@ -5,19 +5,18 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // KeyRotationAppService 密钥轮换应用服务
 // 负责密钥的自动轮换和策略管理
 type KeyRotationAppService struct {
-	keyRotationSvc jwks.Rotator
+	keyRotationSvc KeyRotatorPort
 	logger         log.Logger
 }
 
 // NewKeyRotationAppService 创建密钥轮换应用服务
 func NewKeyRotationAppService(
-	keyRotationSvc jwks.Rotator,
+	keyRotationSvc KeyRotatorPort,
 	logger log.Logger,
 ) *KeyRotationAppService {
 	return &KeyRotationAppService{
@@ -33,12 +32,12 @@ type RotateKeyResponse struct {
 
 // RotatedKeyInfo 轮换后的密钥信息
 type RotatedKeyInfo struct {
-	Kid       string         // 密钥 ID
-	Status    jwks.KeyStatus // 密钥状态
-	Algorithm string         // 签名算法
-	NotBefore *time.Time     // 生效时间
-	NotAfter  *time.Time     // 过期时间
-	CreatedAt time.Time      // 创建时间
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	CreatedAt time.Time  // 创建时间
 }
 
 // RotateKey 执行密钥轮换
@@ -108,7 +107,7 @@ func (s *KeyRotationAppService) ShouldRotate(ctx context.Context) (*ShouldRotate
 
 // GetRotationPolicyResponse 获取轮换策略响应
 type GetRotationPolicyResponse struct {
-	Policy jwks.RotationPolicy // 轮换策略
+	Policy RotationPolicy // 轮换策略
 }
 
 // GetRotationPolicy 获取当前轮换策略
@@ -130,7 +129,7 @@ func (s *KeyRotationAppService) GetRotationPolicy(ctx context.Context) *GetRotat
 
 // UpdateRotationPolicyRequest 更新轮换策略请求
 type UpdateRotationPolicyRequest struct {
-	Policy jwks.RotationPolicy // 新的轮换策略
+	Policy RotationPolicy // 新的轮换策略
 }
 
 // UpdateRotationPolicy 更新轮换策略
@@ -157,20 +156,20 @@ type GetRotationStatusResponse struct {
 
 // RotationStatus 轮换状态
 type RotationStatus struct {
-	LastRotation time.Time           // 上次轮换时间
-	NextRotation time.Time           // 下次计划轮换时间
-	ActiveKey    *RotationKeyInfo    // 当前激活的密钥
-	GraceKeys    []*RotationKeyInfo  // 宽限期密钥列表
-	RetiredKeys  int                 // 已退役密钥数量
-	Policy       jwks.RotationPolicy // 当前轮换策略
+	LastRotation time.Time          // 上次轮换时间
+	NextRotation time.Time          // 下次计划轮换时间
+	ActiveKey    *RotationKeyInfo   // 当前激活的密钥
+	GraceKeys    []*RotationKeyInfo // 宽限期密钥列表
+	RetiredKeys  int                // 已退役密钥数量
+	Policy       RotationPolicy     // 当前轮换策略
 }
 
 // RotationKeyInfo 轮换密钥信息
 type RotationKeyInfo struct {
-	Kid       string         // 密钥 ID
-	Status    jwks.KeyStatus // 密钥状态
-	Algorithm string         // 签名算法
-	NotBefore *time.Time     // 生效时间
-	NotAfter  *time.Time     // 过期时间
-	CreatedAt time.Time      // 创建时间
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	CreatedAt time.Time  // 创建时间
 }

@@ -1,7 +1,7 @@
-// Package service 实现 JWKS 领域服务层
+// Package keyset implements signing-key lifecycle and JWKS publishing infrastructure.
 //
-// 领域服务（Domain Service）负责实现复杂的业务逻辑，这些逻辑不适合放在实体或值对象中。
-// 服务层实现 driving port 接口，被应用层调用，同时依赖 driven port 接口访问基础设施层。
+// 这里承接 JWT/JWKS 的技术细节：密钥生成、私钥解析、JWK/JWKS wire model、
+// 发布缓存和轮换。Authn domain 不依赖此包。
 //
 // # 服务分类
 //
@@ -87,7 +87,7 @@
 // # 示例用法
 //
 //	// 创建服务
-//	keyManager := service.NewKeyManager(keyRepo, keyGenerator)
+//	keyManager := keyset.NewKeyManager(keyRepo, keyGenerator)
 //
 //	// 创建密钥
 //	key, err := keyManager.CreateKey(ctx, "RS256", nil, nil)
@@ -160,7 +160,7 @@
 // ## 示例用法
 //
 //	// 创建服务
-//	builder := service.NewKeySetBuilder(keyRepo)
+//	builder := keyset.NewKeySetBuilder(keyRepo)
 //
 //	// 构建 JWKS
 //	jwksJSON, tag, err := builder.BuildJWKS(ctx)
@@ -173,4 +173,4 @@
 //
 //	// 刷新缓存（密钥轮换后）
 //	err := builder.RefreshCache(ctx)
-package jwks
+package keyset

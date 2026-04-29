@@ -1,4 +1,4 @@
-package crypto
+package keyset
 
 import (
 	"context"

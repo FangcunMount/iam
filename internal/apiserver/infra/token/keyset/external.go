@@ -1,14 +1,14 @@
-package jwks
+package keyset
 
 import (
 	"context"
 )
 
-// ================== External Service Interfaces (Driven Ports) ==================
-// 定义领域模型所依赖的外部服务接口，由基础设施层提供实现
+// ================== External Service Interfaces ==================
+// 定义 keyset 运行时依赖的外部能力接口，由具体基础设施提供实现。
 
 // KeyPair 密钥对（私钥 + 公钥）
-// 由 KeyGenerator 生成，返回给领域服务
+// 由 KeyGenerator 生成，返回给密钥生命周期组件。
 type KeyPair struct {
 	// PrivateKey 私钥（crypto.PrivateKey 类型）
 	// RSA: *rsa.PrivateKey

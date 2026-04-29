@@ -1,17 +1,17 @@
-package jwks
+package keyset
 
 import (
 	"context"
 	"time"
 )
 
-// ================== Domain Service Interfaces (Driving Ports) ==================
-// 这些接口由领域层（领域服务）实现，供应用层调用
-// 按照功能职责拆分，遵循接口隔离原则
+// ================== Keyset Runtime Interfaces ==================
+// 这些接口由 keyset 基础设施实现，供 application/authn/jwks 用例调用。
+// 按照功能职责拆分，遵循接口隔离原则。
 
 // Manager 密钥管理服务接口
 // 负责密钥的生命周期管理：创建、激活、宽限、退役、清理
-// 由应用层调用，实现在领域服务层
+// 由应用层调用，实现在 keyset 基础设施层。
 type Manager interface {
 	// CreateKey 创建新密钥
 	// alg: 签名算法（RS256/ES256/EdDSA 等）
@@ -57,7 +57,7 @@ type Manager interface {
 
 // Publisher JWKS 发布服务接口
 // 负责构建和发布 /.well-known/jwks.json
-// 由应用层调用，实现在领域服务层
+// 由应用层调用，实现在 keyset 基础设施层。
 type Publisher interface {
 	// BuildJWKS 构建 JWKS JSON
 	// 查询所有可发布的密钥（Active + Grace 状态且未过期）
@@ -85,7 +85,7 @@ type Publisher interface {
 
 // Rotator 密钥轮换服务接口
 // 负责密钥的自动轮换：生成新密钥、旧密钥进入宽限期、清理过期密钥
-// 由应用层调用（定时任务或手动触发），实现在领域服务层
+// 由应用层调用（定时任务或手动触发），实现在 keyset 基础设施层。
 type Rotator interface {
 	// RotateKey 执行密钥轮换
 	// 轮换流程：

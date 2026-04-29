@@ -6,14 +6,11 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
-	"math/big"
 	"strings"
 	"testing"
 	"time"
 
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	domainjwks "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
@@ -23,7 +20,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	t.Parallel()
 
 	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api", "collection-api"})
-	principal := &authentication.Principal{
+	principal := &tokenapp.Principal{
 		AccountID: meta.MustFromUint64(1001),
 		UserID:    meta.MustFromUint64(1002),
 		TenantID:  meta.MustFromUint64(1),
@@ -58,7 +55,7 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 	t.Parallel()
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
-	token, err := generator.IssueAccessToken(context.Background(), &authentication.Principal{
+	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.Principal{
 		AccountID: meta.MustFromUint64(1001),
 		UserID:    meta.MustFromUint64(1002),
 		TenantID:  meta.MustFromUint64(1),
@@ -147,34 +144,15 @@ func newTestGenerator(t *testing.T, issuer string, accessAudience []string) (*Ge
 	require.NoError(t, err)
 
 	kid := "test-key"
-	manager := &jwksManagerStub{
-		activeKey: newRSAJWKKey(t, kid, &privKey.PublicKey),
-		keys: map[string]*domainjwks.Key{
-			kid: newRSAJWKKey(t, kid, &privKey.PublicKey),
-		},
-	}
-	resolver := &privateKeyResolverStub{
-		keys: map[string]*rsa.PrivateKey{
-			kid: privKey,
+	keySource := &signingKeySourceStub{
+		kid:        kid,
+		privateKey: privKey,
+		publicKeys: map[string]*rsa.PublicKey{
+			kid: &privKey.PublicKey,
 		},
 	}
 
-	return NewGenerator(issuer, accessAudience, manager, resolver), privKey
-}
-
-func newRSAJWKKey(t *testing.T, kid string, pubKey *rsa.PublicKey) *domainjwks.Key {
-	t.Helper()
-
-	n := base64.RawURLEncoding.EncodeToString(pubKey.N.Bytes())
-	e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pubKey.E)).Bytes())
-	return domainjwks.NewKey(kid, domainjwks.PublicJWK{
-		Kty: "RSA",
-		Use: "sig",
-		Alg: "RS256",
-		Kid: kid,
-		N:   &n,
-		E:   &e,
-	})
+	return NewGenerator(issuer, accessAudience, keySource), privKey
 }
 
 func parseRawClaims(t *testing.T, tokenValue string, key *rsa.PrivateKey) (*CustomClaims, jwtv4.MapClaims) {
@@ -204,41 +182,16 @@ func decodeJWTPart[T any](t *testing.T, raw string) T {
 	return out
 }
 
-type jwksManagerStub struct {
-	activeKey *domainjwks.Key
-	keys      map[string]*domainjwks.Key
+type signingKeySourceStub struct {
+	kid        string
+	privateKey *rsa.PrivateKey
+	publicKeys map[string]*rsa.PublicKey
 }
 
-func (s *jwksManagerStub) CreateKey(ctx context.Context, alg string, notBefore, notAfter *time.Time) (*domainjwks.Key, error) {
-	panic("unexpected call")
+func (s *signingKeySourceStub) ActiveSigningKey(context.Context) (string, *rsa.PrivateKey, error) {
+	return s.kid, s.privateKey, nil
 }
 
-func (s *jwksManagerStub) GetActiveKey(ctx context.Context) (*domainjwks.Key, error) {
-	return s.activeKey, nil
-}
-
-func (s *jwksManagerStub) GetKeyByKid(ctx context.Context, kid string) (*domainjwks.Key, error) {
-	return s.keys[kid], nil
-}
-
-func (s *jwksManagerStub) RetireKey(ctx context.Context, kid string) error { panic("unexpected call") }
-func (s *jwksManagerStub) ForceRetireKey(ctx context.Context, kid string) error {
-	panic("unexpected call")
-}
-func (s *jwksManagerStub) EnterGracePeriod(ctx context.Context, kid string) error {
-	panic("unexpected call")
-}
-func (s *jwksManagerStub) CleanupExpiredKeys(ctx context.Context) (int, error) {
-	panic("unexpected call")
-}
-func (s *jwksManagerStub) ListKeys(ctx context.Context, status domainjwks.KeyStatus, limit, offset int) ([]*domainjwks.Key, int64, error) {
-	panic("unexpected call")
-}
-
-type privateKeyResolverStub struct {
-	keys map[string]*rsa.PrivateKey
-}
-
-func (s *privateKeyResolverStub) ResolveSigningKey(ctx context.Context, kid, alg string) (any, error) {
-	return s.keys[kid], nil
+func (s *signingKeySourceStub) VerificationKey(_ context.Context, kid string) (*rsa.PublicKey, error) {
+	return s.publicKeys[kid], nil
 }

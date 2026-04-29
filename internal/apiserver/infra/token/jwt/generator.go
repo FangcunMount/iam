@@ -4,26 +4,26 @@ package jwt
 import (
 	"context"
 	"crypto/rsa"
-	"encoding/base64"
 	"fmt"
-	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
 
+type SigningKeySource interface {
+	ActiveSigningKey(ctx context.Context) (kid string, privateKey *rsa.PrivateKey, err error)
+	VerificationKey(ctx context.Context, kid string) (*rsa.PublicKey, error)
+}
+
 type Generator struct {
 	issuer              string
 	accessTokenAudience []string
-	keyMgmt             jwks.Manager
-	privKeyResolver     jwks.PrivateKeyResolver
+	keySource           SigningKeySource
 	claimsMapper        ClaimsMapper
 }
 
@@ -33,8 +33,7 @@ var _ tokenapp.ClaimMapper = ClaimsMapper{}
 func NewGenerator(
 	issuer string,
 	accessTokenAudience []string,
-	keyMgmt jwks.Manager,
-	privKeyResolver jwks.PrivateKeyResolver,
+	keySource SigningKeySource,
 ) *Generator {
 	if issuer == "" {
 		issuer = "https://iam.fangcunmount.cn"
@@ -45,8 +44,7 @@ func NewGenerator(
 	return &Generator{
 		issuer:              issuer,
 		accessTokenAudience: cloneStrings(accessTokenAudience),
-		keyMgmt:             keyMgmt,
-		privKeyResolver:     privKeyResolver,
+		keySource:           keySource,
 		claimsMapper:        NewClaimsMapper(),
 	}
 }
@@ -66,7 +64,7 @@ func (g *Generator) ClaimMapper() tokenapp.ClaimMapper {
 	return g.claimsMapper
 }
 
-func (g *Generator) IssueAccessToken(ctx context.Context, principal *authentication.Principal, expiresIn time.Duration) (*tokenapp.Token, error) {
+func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Principal, expiresIn time.Duration) (*tokenapp.Token, error) {
 	l := logger.L(ctx)
 	l.Debugw("IssueAccessToken", "principal", fmt.Sprintf("%+v", principal), "expiresIn", expiresIn)
 	now := time.Now()
@@ -144,37 +142,14 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 			return nil, fmt.Errorf("invalid kid type in token header")
 		}
 
-		key, err := g.keyMgmt.GetKeyByKid(ctx, kid)
+		key, err := g.keySource.VerificationKey(ctx, kid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get key %s: %w", kid, err)
 		}
 		if key == nil {
 			return nil, fmt.Errorf("key not found for kid %s", kid)
 		}
-		if key.JWK.Kty != "RSA" {
-			return nil, fmt.Errorf("unsupported key kty for verification: %s", key.JWK.Kty)
-		}
-		if key.JWK.N == nil || key.JWK.E == nil {
-			return nil, fmt.Errorf("missing RSA parameters in JWK for kid %s", kid)
-		}
-
-		nBytes, err := base64.RawURLEncoding.DecodeString(*key.JWK.N)
-		if err != nil {
-			return nil, fmt.Errorf("failed to base64url-decode n for kid %s: %w", kid, err)
-		}
-		eBytes, err := base64.RawURLEncoding.DecodeString(*key.JWK.E)
-		if err != nil {
-			return nil, fmt.Errorf("failed to base64url-decode e for kid %s: %w", kid, err)
-		}
-		n := new(big.Int).SetBytes(nBytes)
-		e := 0
-		for _, b := range eBytes {
-			e = e<<8 + int(b)
-		}
-		if e == 0 {
-			return nil, fmt.Errorf("invalid exponent parsed for kid %s", kid)
-		}
-		return &rsa.PublicKey{N: n, E: e}, nil
+		return key, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token: %w", err)
@@ -207,21 +182,13 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 }
 
 func (g *Generator) signClaims(ctx context.Context, claims CustomClaims) (string, error) {
-	activeKey, err := g.keyMgmt.GetActiveKey(ctx)
+	kid, rsaPrivKey, err := g.keySource.ActiveSigningKey(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get active key: %w", err)
-	}
-	privKey, err := g.privKeyResolver.ResolveSigningKey(ctx, activeKey.Kid, activeKey.JWK.Alg)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve private key: %w", err)
-	}
-	rsaPrivKey, ok := privKey.(*rsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("expected RSA private key, got %T", privKey)
+		return "", fmt.Errorf("failed to resolve active signing key: %w", err)
 	}
 	token := jwtv4.NewWithClaims(jwtv4.SigningMethodRS256, claims)
 	token.Header["typ"] = headerTypeJWT
-	token.Header["kid"] = activeKey.Kid
+	token.Header["kid"] = kid
 	return token.SignedString(rsaPrivKey)
 }
 

@@ -70,8 +70,8 @@ type IdentityProvider interface {
 	ExchangeWecomCode(ctx context.Context, corpID, agentID, corpSecret, code string) (openUserID, userID string, err error)
 }
 
-// TokenVerifier JWT令牌验证服务
-// 职责：验证JWT访问令牌的有效性
+// TokenVerifier 访问令牌验证服务
+// 职责：验证访问令牌的有效性
 type TokenVerifier interface {
 	// VerifyAccessToken 验证访问令牌
 	// 返回：用户ID、账户ID、租户ID（可选）、错误信息

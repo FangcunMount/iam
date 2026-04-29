@@ -5,10 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +14,6 @@ import (
 	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	tokenjwt "github.com/FangcunMount/iam/internal/apiserver/infra/token/jwt"
 	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
@@ -106,46 +102,17 @@ func (allowAllSubjectAccessEvaluator) Evaluate(context.Context, meta.ID, meta.ID
 	return sessiondomain.SubjectAccessDecision{Status: sessiondomain.SubjectAccessActive}, nil
 }
 
-type staticPrivResolver struct{ key *rsa.PrivateKey }
-
-func (s *staticPrivResolver) ResolveSigningKey(context.Context, string, string) (any, error) {
-	return s.key, nil
+type fixedSigningKeySource struct {
+	kid string
+	key *rsa.PrivateKey
 }
 
-// fixedKeyManager 仅满足 JWT 签发与验签所需的最小 Manager 行为。
-type fixedKeyManager struct{ active *jwksdomain.Key }
-
-func (m *fixedKeyManager) GetActiveKey(context.Context) (*jwksdomain.Key, error) {
-	return m.active, nil
-}
-func (m *fixedKeyManager) GetKeyByKid(context.Context, string) (*jwksdomain.Key, error) {
-	return m.active, nil
-}
-func (m *fixedKeyManager) CreateKey(context.Context, string, *time.Time, *time.Time) (*jwksdomain.Key, error) {
-	return nil, errJWKSStub
-}
-func (m *fixedKeyManager) RetireKey(context.Context, string) error         { return errJWKSStub }
-func (m *fixedKeyManager) ForceRetireKey(context.Context, string) error    { return errJWKSStub }
-func (m *fixedKeyManager) EnterGracePeriod(context.Context, string) error  { return errJWKSStub }
-func (m *fixedKeyManager) CleanupExpiredKeys(context.Context) (int, error) { return 0, errJWKSStub }
-func (m *fixedKeyManager) ListKeys(context.Context, jwksdomain.KeyStatus, int, int) ([]*jwksdomain.Key, int64, error) {
-	return nil, 0, errJWKSStub
+func (s fixedSigningKeySource) ActiveSigningKey(context.Context) (string, *rsa.PrivateKey, error) {
+	return s.kid, s.key, nil
 }
 
-var errJWKSStub = errors.New("jwks: stub")
-
-func rsaPublicJWK(kid string, pub *rsa.PublicKey) jwksdomain.PublicJWK {
-	n := base64.RawURLEncoding.EncodeToString(pub.N.Bytes())
-	eb := big.NewInt(int64(pub.E)).Bytes()
-	es := base64.RawURLEncoding.EncodeToString(eb)
-	return jwksdomain.PublicJWK{
-		Kty: "RSA",
-		Use: "sig",
-		Alg: "RS256",
-		Kid: kid,
-		N:   &n,
-		E:   &es,
-	}
+func (s fixedSigningKeySource) VerificationKey(context.Context, string) (*rsa.PublicKey, error) {
+	return &s.key.PublicKey, nil
 }
 
 func newTestTokenStack(t *testing.T) (
@@ -159,15 +126,7 @@ func newTestTokenStack(t *testing.T) (
 	require.NoError(t, err)
 
 	kid := "integration-test-kid"
-	jwk := rsaPublicJWK(kid, &priv.PublicKey)
-	now := time.Now()
-	active := jwksdomain.NewKey(kid, jwk,
-		jwksdomain.WithStatus(jwksdomain.KeyActive),
-		jwksdomain.WithNotBefore(now),
-		jwksdomain.WithNotAfter(now.Add(time.Hour)),
-	)
-
-	gen := tokenjwt.NewGenerator("https://iam.integration.test", []string{"qs-api", "collection-api"}, &fixedKeyManager{active: active}, &staticPrivResolver{key: priv})
+	gen := tokenjwt.NewGenerator("https://iam.integration.test", []string{"qs-api", "collection-api"}, fixedSigningKeySource{kid: kid, key: priv})
 	store := noopTokenStore{}
 	sessionStore := &memorySessionStore{}
 	sessionManager := sessiondomain.NewManager(sessionStore)

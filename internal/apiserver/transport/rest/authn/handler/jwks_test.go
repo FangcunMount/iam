@@ -14,32 +14,31 @@ import (
 	"go.uber.org/zap"
 
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
-	domainjwks "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 type jwksPublisherStub struct {
 	json []byte
-	tag  domainjwks.CacheTag
+	tag  jwksApp.CacheTag
 	err  error
 }
 
-func (s *jwksPublisherStub) BuildJWKS(context.Context) ([]byte, domainjwks.CacheTag, error) {
+func (s *jwksPublisherStub) BuildJWKS(context.Context) ([]byte, jwksApp.CacheTag, error) {
 	if s.err != nil {
-		return nil, domainjwks.CacheTag{}, s.err
+		return nil, jwksApp.CacheTag{}, s.err
 	}
 	return s.json, s.tag, nil
 }
 
-func (s *jwksPublisherStub) GetPublishableKeys(context.Context) ([]*domainjwks.Key, error) {
+func (s *jwksPublisherStub) GetPublishableKeys(context.Context) ([]*jwksApp.ManagedKey, error) {
 	return nil, nil
 }
 
-func (s *jwksPublisherStub) ValidateCacheTag(context.Context, domainjwks.CacheTag) (bool, error) {
+func (s *jwksPublisherStub) ValidateCacheTag(context.Context, jwksApp.CacheTag) (bool, error) {
 	return false, nil
 }
 
-func (s *jwksPublisherStub) GetCurrentCacheTag(context.Context) (domainjwks.CacheTag, error) {
+func (s *jwksPublisherStub) GetCurrentCacheTag(context.Context) (jwksApp.CacheTag, error) {
 	return s.tag, nil
 }
 
@@ -53,7 +52,7 @@ func TestJWKSHandlerGetJWKSWritesCacheHeadersAndRawJSON(t *testing.T) {
 	lastModified := time.Date(2026, 4, 29, 10, 20, 30, 0, time.UTC)
 	handler := newJWKSHandlerForTest(&jwksPublisherStub{
 		json: []byte(`{"keys":[{"kid":"kid-1"}]}`),
-		tag: domainjwks.CacheTag{
+		tag: jwksApp.CacheTag{
 			ETag:         `"tag-1"`,
 			LastModified: lastModified,
 		},
@@ -74,7 +73,7 @@ func TestJWKSHandlerGetJWKSReturnsNotModifiedWhenETagMatches(t *testing.T) {
 
 	handler := newJWKSHandlerForTest(&jwksPublisherStub{
 		json: []byte(`{"keys":[]}`),
-		tag: domainjwks.CacheTag{
+		tag: jwksApp.CacheTag{
 			ETag:         `"tag-1"`,
 			LastModified: time.Date(2026, 4, 29, 10, 20, 30, 0, time.UTC),
 		},
@@ -98,7 +97,7 @@ func TestJWKSHandlerGetJWKSReturnsErrorWhenBuildFails(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func newJWKSHandlerForTest(publisher domainjwks.Publisher) *JWKSHandler {
+func newJWKSHandlerForTest(publisher jwksApp.KeyPublisherPort) *JWKSHandler {
 	return NewJWKSHandler(
 		nil,
 		jwksApp.NewKeyPublishAppService(publisher, log.NewLogger(zap.NewNop())),

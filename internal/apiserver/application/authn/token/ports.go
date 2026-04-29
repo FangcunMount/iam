@@ -6,6 +6,7 @@ import (
 
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // Issuer 编排登录成功后的 session 创建、access token 签发和 refresh token 保存。
@@ -35,9 +36,19 @@ type Store interface {
 
 // AccessTokenCodec 是 access/service token 编码适配端口；JWT 只是其中一种实现。
 type AccessTokenCodec interface {
-	IssueAccessToken(ctx context.Context, principal *authentication.Principal, expiresIn time.Duration) (*Token, error)
+	IssueAccessToken(ctx context.Context, principal *Principal, expiresIn time.Duration) (*Token, error)
 	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*Token, error)
 	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+}
+
+// Principal 是 access token 编码所需的应用层身份快照。
+type Principal struct {
+	UserID    meta.ID
+	AccountID meta.ID
+	TenantID  meta.ID
+	SessionID string
+	AMR       []string
+	Claims    map[string]any
 }
 
 // ClaimMapper 将认证主体附加信息转换为 refresh token 可持久化的字符串快照。

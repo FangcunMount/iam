@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // MockKeyManagementService 模拟密钥管理服务
@@ -17,28 +16,28 @@ type MockKeyManagementService struct {
 	mock.Mock
 }
 
-func (m *MockKeyManagementService) CreateKey(ctx context.Context, alg string, notBefore, notAfter *time.Time) (*jwks.Key, error) {
+func (m *MockKeyManagementService) CreateKey(ctx context.Context, alg string, notBefore, notAfter *time.Time) (*ManagedKey, error) {
 	args := m.Called(ctx, alg, notBefore, notAfter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*jwks.Key), args.Error(1)
+	return args.Get(0).(*ManagedKey), args.Error(1)
 }
 
-func (m *MockKeyManagementService) GetActiveKey(ctx context.Context) (*jwks.Key, error) {
+func (m *MockKeyManagementService) GetActiveKey(ctx context.Context) (*ManagedKey, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*jwks.Key), args.Error(1)
+	return args.Get(0).(*ManagedKey), args.Error(1)
 }
 
-func (m *MockKeyManagementService) GetKeyByKid(ctx context.Context, kid string) (*jwks.Key, error) {
+func (m *MockKeyManagementService) GetKeyByKid(ctx context.Context, kid string) (*ManagedKey, error) {
 	args := m.Called(ctx, kid)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*jwks.Key), args.Error(1)
+	return args.Get(0).(*ManagedKey), args.Error(1)
 }
 
 func (m *MockKeyManagementService) RetireKey(ctx context.Context, kid string) error {
@@ -61,19 +60,19 @@ func (m *MockKeyManagementService) CleanupExpiredKeys(ctx context.Context) (int,
 	return args.Int(0), args.Error(1)
 }
 
-func (m *MockKeyManagementService) ListKeys(ctx context.Context, status jwks.KeyStatus, limit, offset int) ([]*jwks.Key, int64, error) {
+func (m *MockKeyManagementService) ListKeys(ctx context.Context, status KeyStatus, limit, offset int) ([]*ManagedKey, int64, error) {
 	args := m.Called(ctx, status, limit, offset)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(int64), args.Error(2)
 	}
-	return args.Get(0).([]*jwks.Key), args.Get(1).(int64), args.Error(2)
+	return args.Get(0).([]*ManagedKey), args.Get(1).(int64), args.Error(2)
 }
 
 // createTestKey 创建测试密钥
-func createTestKey(kid string, status jwks.KeyStatus, alg string) *jwks.Key {
+func createTestKey(kid string, status KeyStatus, alg string) *ManagedKey {
 	n := "test-modulus"
 	e := "AQAB"
-	publicJWK := jwks.PublicJWK{
+	publicJWK := PublicJWK{
 		Kty: "RSA",
 		Use: "sig",
 		Alg: alg,
@@ -83,10 +82,10 @@ func createTestKey(kid string, status jwks.KeyStatus, alg string) *jwks.Key {
 	}
 
 	now := time.Now()
-	return jwks.NewKey(kid, publicJWK,
-		jwks.WithStatus(status),
-		jwks.WithNotBefore(now),
-		jwks.WithNotAfter(now.Add(30*24*time.Hour)),
+	return NewKey(kid, publicJWK,
+		WithStatus(status),
+		WithNotBefore(now),
+		WithNotAfter(now.Add(30*24*time.Hour)),
 	)
 }
 
@@ -97,7 +96,7 @@ func TestKeyManagementAppService_CreateKey(t *testing.T) {
 
 	ctx := context.Background()
 	now := time.Now()
-	testKey := createTestKey("test-kid-1", jwks.KeyActive, "RS256")
+	testKey := createTestKey("test-kid-1", KeyActive, "RS256")
 
 	mockSvc.On("CreateKey", ctx, "RS256", &now, mock.Anything).Return(testKey, nil)
 
@@ -111,7 +110,7 @@ func TestKeyManagementAppService_CreateKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "test-kid-1", resp.Kid)
-	assert.Equal(t, jwks.KeyActive, resp.Status)
+	assert.Equal(t, KeyActive, resp.Status)
 	assert.Equal(t, "RS256", resp.Algorithm)
 
 	mockSvc.AssertExpectations(t)
@@ -123,7 +122,7 @@ func TestKeyManagementAppService_GetActiveKey(t *testing.T) {
 	appSvc := NewKeyManagementAppService(mockSvc, logger)
 
 	ctx := context.Background()
-	testKey := createTestKey("active-kid", jwks.KeyActive, "RS256")
+	testKey := createTestKey("active-kid", KeyActive, "RS256")
 
 	mockSvc.On("GetActiveKey", ctx).Return(testKey, nil)
 
@@ -132,7 +131,7 @@ func TestKeyManagementAppService_GetActiveKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "active-kid", resp.Kid)
-	assert.Equal(t, jwks.KeyActive, resp.Status)
+	assert.Equal(t, KeyActive, resp.Status)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -145,7 +144,7 @@ func TestKeyManagementAppService_GetKeyByKid(t *testing.T) {
 	ctx := context.Background()
 	createdAt := time.Date(2026, 4, 28, 9, 30, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(2 * time.Hour)
-	testKey := createTestKey("test-kid", jwks.KeyGrace, "RS384")
+	testKey := createTestKey("test-kid", KeyGrace, "RS384")
 	testKey.CreatedAt = createdAt
 	testKey.UpdatedAt = updatedAt
 
@@ -156,7 +155,7 @@ func TestKeyManagementAppService_GetKeyByKid(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "test-kid", resp.Kid)
-	assert.Equal(t, jwks.KeyGrace, resp.Status)
+	assert.Equal(t, KeyGrace, resp.Status)
 	assert.Equal(t, "RS384", resp.Algorithm)
 	assert.Equal(t, createdAt, resp.CreatedAt)
 	assert.Equal(t, updatedAt, resp.UpdatedAt)
@@ -235,14 +234,14 @@ func TestKeyManagementAppService_ListKeys(t *testing.T) {
 	ctx := context.Background()
 	createdAt := time.Date(2026, 4, 28, 10, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Hour)
-	testKeys := []*jwks.Key{
-		createTestKey("kid-1", jwks.KeyActive, "RS256"),
-		createTestKey("kid-2", jwks.KeyGrace, "RS256"),
+	testKeys := []*ManagedKey{
+		createTestKey("kid-1", KeyActive, "RS256"),
+		createTestKey("kid-2", KeyGrace, "RS256"),
 	}
 	testKeys[0].CreatedAt = createdAt
 	testKeys[0].UpdatedAt = updatedAt
 
-	mockSvc.On("ListKeys", ctx, jwks.KeyStatus(0), 10, 0).Return(testKeys, int64(2), nil)
+	mockSvc.On("ListKeys", ctx, KeyStatus(0), 10, 0).Return(testKeys, int64(2), nil)
 
 	req := ListKeysRequest{
 		Limit:  10,

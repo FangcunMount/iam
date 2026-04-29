@@ -5,19 +5,18 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // KeyPublishAppService JWKS 发布应用服务
 // 负责构建和发布 /.well-known/jwks.json
 type KeyPublishAppService struct {
-	keyPublishSvc jwks.Publisher
+	keyPublishSvc KeyPublisherPort
 	logger        log.Logger
 }
 
 // NewKeyPublishAppService 创建 JWKS 发布应用服务
 func NewKeyPublishAppService(
-	keyPublishSvc jwks.Publisher,
+	keyPublishSvc KeyPublisherPort,
 	logger log.Logger,
 ) *KeyPublishAppService {
 	return &KeyPublishAppService{
@@ -64,12 +63,12 @@ type GetPublishableKeysResponse struct {
 
 // PublishableKeyInfo 可发布的密钥信息
 type PublishableKeyInfo struct {
-	Kid       string          // 密钥 ID
-	Status    jwks.KeyStatus  // 密钥状态
-	Algorithm string          // 签名算法
-	NotBefore *time.Time      // 生效时间
-	NotAfter  *time.Time      // 过期时间
-	PublicJWK *jwks.PublicJWK // 公钥 JWK
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	PublicJWK *PublicJWK // 公钥 JWK
 }
 
 // GetPublishableKeys 获取可发布的密钥列表
@@ -117,7 +116,7 @@ func (s *KeyPublishAppService) ValidateCacheTag(ctx context.Context, req Validat
 		"clientLastModified", req.LastModified,
 	)
 
-	clientTag := jwks.CacheTag{
+	clientTag := CacheTag{
 		ETag:         req.ETag,
 		LastModified: req.LastModified,
 	}

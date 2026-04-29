@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK:
+  github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK:
     properties:
       alg:
         description: '"RS256"/"ES256"/"EdDSA"'
@@ -198,7 +198,7 @@ definitions:
         type: string
       publicJwk:
         allOf:
-        - $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK'
+        - $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK'
         description: 公钥 JWK
       status:
         description: 密钥状态
@@ -243,7 +243,7 @@ definitions:
         type: string
       publicJwk:
         allOf:
-        - $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK'
+        - $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK'
         description: 公钥 JWK
       status:
         description: 密钥状态 (active, grace, retired)
@@ -273,7 +273,7 @@ definitions:
         type: string
       publicJwk:
         allOf:
-        - $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_domain_authn_jwks.PublicJWK'
+        - $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK'
         description: 公钥 JWK
       status:
         description: 密钥状态

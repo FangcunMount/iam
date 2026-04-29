@@ -1,4 +1,4 @@
-package crypto
+package keyset
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -26,7 +25,7 @@ type PEMPrivateKeyStorage struct {
 	fileMode os.FileMode
 }
 
-var _ jwks.PrivateKeyStorage = (*PEMPrivateKeyStorage)(nil)
+var _ PrivateKeyStorage = (*PEMPrivateKeyStorage)(nil)
 
 // NewPEMPrivateKeyStorage 创建 PEM 私钥存储
 func NewPEMPrivateKeyStorage(keysDir string) *PEMPrivateKeyStorage {

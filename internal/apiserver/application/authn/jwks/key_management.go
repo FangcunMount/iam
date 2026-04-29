@@ -5,19 +5,18 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 )
 
 // KeyManagementAppService 密钥管理应用服务
 // 负责密钥生命周期管理的应用层协调
 type KeyManagementAppService struct {
-	keyMgmtSvc jwks.Manager
+	keyMgmtSvc KeyManagerPort
 	logger     log.Logger
 }
 
 // NewKeyManagementAppService 创建密钥管理应用服务
 func NewKeyManagementAppService(
-	keyMgmtSvc jwks.Manager,
+	keyMgmtSvc KeyManagerPort,
 	logger log.Logger,
 ) *KeyManagementAppService {
 	return &KeyManagementAppService{
@@ -35,13 +34,13 @@ type CreateKeyRequest struct {
 
 // CreateKeyResponse 创建密钥响应
 type CreateKeyResponse struct {
-	Kid       string          // 密钥 ID
-	Status    jwks.KeyStatus  // 密钥状态
-	Algorithm string          // 签名算法
-	NotBefore *time.Time      // 生效时间
-	NotAfter  *time.Time      // 过期时间
-	PublicJWK *jwks.PublicJWK // 公钥 JWK
-	CreatedAt time.Time       // 创建时间
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	PublicJWK *PublicJWK // 公钥 JWK
+	CreatedAt time.Time  // 创建时间
 }
 
 // CreateKey 创建新密钥
@@ -78,12 +77,12 @@ func (s *KeyManagementAppService) CreateKey(ctx context.Context, req CreateKeyRe
 
 // GetActiveKeyResponse 获取激活密钥响应
 type GetActiveKeyResponse struct {
-	Kid       string          // 密钥 ID
-	Status    jwks.KeyStatus  // 密钥状态
-	Algorithm string          // 签名算法
-	NotBefore *time.Time      // 生效时间
-	NotAfter  *time.Time      // 过期时间
-	PublicJWK *jwks.PublicJWK // 公钥 JWK
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	PublicJWK *PublicJWK // 公钥 JWK
 }
 
 // GetActiveKey 获取当前激活的密钥
@@ -113,14 +112,14 @@ func (s *KeyManagementAppService) GetActiveKey(ctx context.Context) (*GetActiveK
 
 // GetKeyByKidResponse 根据 kid 获取密钥响应
 type GetKeyByKidResponse struct {
-	Kid       string          // 密钥 ID
-	Status    jwks.KeyStatus  // 密钥状态
-	Algorithm string          // 签名算法
-	NotBefore *time.Time      // 生效时间
-	NotAfter  *time.Time      // 过期时间
-	PublicJWK *jwks.PublicJWK // 公钥 JWK
-	CreatedAt time.Time       // 创建时间
-	UpdatedAt time.Time       // 更新时间
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	PublicJWK *PublicJWK // 公钥 JWK
+	CreatedAt time.Time  // 创建时间
+	UpdatedAt time.Time  // 更新时间
 }
 
 // GetKeyByKid 根据 kid 获取密钥
@@ -210,9 +209,9 @@ func (s *KeyManagementAppService) CleanupExpiredKeys(ctx context.Context) (*Clea
 
 // ListKeysRequest 列出密钥请求
 type ListKeysRequest struct {
-	Status jwks.KeyStatus // 状态过滤（可选）
-	Limit  int            // 每页数量
-	Offset int            // 偏移量
+	Status KeyStatus // 状态过滤（可选）
+	Limit  int       // 每页数量
+	Offset int       // 偏移量
 }
 
 // ListKeysResponse 列出密钥响应
@@ -223,14 +222,14 @@ type ListKeysResponse struct {
 
 // KeyInfo 密钥信息
 type KeyInfo struct {
-	Kid       string          // 密钥 ID
-	Status    jwks.KeyStatus  // 密钥状态
-	Algorithm string          // 签名算法
-	NotBefore *time.Time      // 生效时间
-	NotAfter  *time.Time      // 过期时间
-	PublicJWK *jwks.PublicJWK // 公钥 JWK
-	CreatedAt time.Time       // 创建时间
-	UpdatedAt time.Time       // 更新时间
+	Kid       string     // 密钥 ID
+	Status    KeyStatus  // 密钥状态
+	Algorithm string     // 签名算法
+	NotBefore *time.Time // 生效时间
+	NotAfter  *time.Time // 过期时间
+	PublicJWK *PublicJWK // 公钥 JWK
+	CreatedAt time.Time  // 创建时间
+	UpdatedAt time.Time  // 更新时间
 }
 
 // ListKeys 列出密钥（分页）

@@ -1,4 +1,4 @@
-package crypto
+package keyset
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -23,10 +22,10 @@ type PEMPrivateKeyResolver struct {
 	keysDir string
 }
 
-var _ jwks.PrivateKeyResolver = (*PEMPrivateKeyResolver)(nil)
+var _ PrivateKeyResolver = (*PEMPrivateKeyResolver)(nil)
 
 // NewPEMPrivateKeyResolver 创建 PEM 私钥解析器
-func NewPEMPrivateKeyResolver(keysDir string) jwks.PrivateKeyResolver {
+func NewPEMPrivateKeyResolver(keysDir string) PrivateKeyResolver {
 	return &PEMPrivateKeyResolver{
 		keysDir: keysDir,
 	}
