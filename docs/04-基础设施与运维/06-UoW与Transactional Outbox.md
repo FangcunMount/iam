@@ -15,13 +15,17 @@
 
 | 关注点 | 位置 | 说明 |
 | ---- | ---- | ---- |
-| UoW 核心 | [../../internal/pkg/database/mysql/uow.go](../../internal/pkg/database/mysql/uow.go) | `WithinTransaction`、tx context、`AfterCommit`、nil DB fail-closed |
+| UoW 核心 | [../../pkg/uow/gorm/uow.go](../../pkg/uow/gorm/uow.go) | `WithinTransaction`、tx context、`AfterCommit`、nil DB fail-closed |
 | Repository tx 感知 | [../../internal/pkg/database/mysql/base.go](../../internal/pkg/database/mysql/base.go) | `WithContext(ctx)` 优先读取 ctx 中的事务 |
 | 应用 UoW 端口 | [../../internal/apiserver/application/authz/uow/uow.go](../../internal/apiserver/application/authz/uow/uow.go) | application 只看 `TxRepositories` 与 `UnitOfWork` |
 | Outbox store | [../../internal/apiserver/infra/mysql/eventoutbox/store.go](../../internal/apiserver/infra/mysql/eventoutbox/store.go) | 事务内 stage、claim、mark published/failed、状态快照 |
 | Relay | [../../internal/apiserver/infra/messaging/outbox_relay.go](../../internal/apiserver/infra/messaging/outbox_relay.go) | 同进程轮询 due events 并发布到 MQ |
-| Event catalog | [../../configs/events.yaml](../../configs/events.yaml) | topic、event type、delivery class 的真值 |
+| Event catalog | [../../pkg/eventcatalog](../../pkg/eventcatalog)、[../../configs/events.yaml](../../configs/events.yaml) | 通用 catalog parser + IAM 事件配置真值 |
+| Event codec/runtime | [../../pkg/eventcodec](../../pkg/eventcodec)、[../../pkg/eventmessaging](../../pkg/eventmessaging)、[../../pkg/eventruntime](../../pkg/eventruntime) | legacy payload 编码、component-base message adapter 和 catalog-backed publisher |
+| Outbox core/port | [../../pkg/outboxcore](../../pkg/outboxcore)、[../../pkg/outbox](../../pkg/outbox) | outbox record 构造、状态快照和 relay store port |
 | 迁移 | [../../internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql](../../internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql) | 创建 `domain_event_outbox` 表 |
+
+`internal/pkg/event*`、`internal/pkg/database/mysql/uow.go`、`internal/apiserver/outboxcore` 和 `internal/apiserver/port/outbox` 现在是兼容层；新跨仓库复用应直接依赖 `pkg/*`。这批 shared packages 仍是 experimental API，qs-server 接入时需要按实际使用反馈继续收口。IAM 业务事件常量仍留在 internal wrapper 与 `configs/events.yaml`，避免把 IAM 业务语义泄漏给其他项目。
 
 ## 运行边界
 
