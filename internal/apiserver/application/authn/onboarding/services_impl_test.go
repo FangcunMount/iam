@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	accountdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	idpwechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	userdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
@@ -90,7 +92,7 @@ func (s *accountRepoStub) GetByExternalIDAppId(_ context.Context, externalID acc
 func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {
 	t.Parallel()
 
-	resolver := newUserResolver(nil, nil, nil, nil)
+	resolver := newUserResolver(nil, nil)
 	userRepo := &userRepoStub{users: make(map[uint64]*userdomain.User)}
 	accountUserID := meta.FromUint64(615206334492586542)
 	accountRepo := &accountRepoStub{
@@ -123,4 +125,130 @@ func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {
 	stored, err := userRepo.FindByID(context.Background(), accountUserID)
 	require.NoError(t, err)
 	require.Equal(t, accountUserID.Uint64(), stored.ID.Uint64())
+}
+
+func TestPrepareWechatIdentityDoesNotMutateOriginalRequest(t *testing.T) {
+	t.Parallel()
+
+	appID := "wx-app"
+	jsCode := "js-code"
+	req := OnboardingRequest{
+		AccountType:  accountdomain.TypeWcMinip,
+		WechatAppID:  &appID,
+		WechatJsCode: &jsCode,
+	}
+
+	prepared := prepareWechatIdentity(req, wechatIdentity{
+		OpenID:  "openid-1",
+		UnionID: "union-1",
+	})
+
+	require.Nil(t, req.WechatOpenID)
+	require.Nil(t, req.WechatUnionID)
+	require.NotNil(t, req.WechatJsCode)
+	require.Equal(t, "js-code", *req.WechatJsCode)
+
+	require.NotNil(t, prepared.WechatOpenID)
+	require.Equal(t, "openid-1", *prepared.WechatOpenID)
+	require.NotNil(t, prepared.WechatUnionID)
+	require.Equal(t, "union-1", *prepared.WechatUnionID)
+	require.Nil(t, prepared.WechatJsCode)
+}
+
+func TestWechatIdentityResolverUsesAppConfigAndExchangesCode(t *testing.T) {
+	t.Parallel()
+
+	appID := "wx-app"
+	jsCode := "js-code"
+	idp := &onboardingIDPStub{openID: "openid-1", unionID: "union-1"}
+	resolver := newWechatIdentityResolver(
+		idp,
+		&onboardingWechatAppRepoStub{
+			app: &idpwechatapp.WechatApp{
+				AppID:  appID,
+				Status: idpwechatapp.StatusEnabled,
+				Cred: &idpwechatapp.Credentials{
+					Auth: &idpwechatapp.AuthSecret{AppSecretCipher: []byte("cipher")},
+				},
+			},
+		},
+		onboardingSecretVaultStub{plaintext: "app-secret"},
+	)
+
+	identity, err := resolver.ResolveMiniProgram(context.Background(), OnboardingRequest{
+		AccountType:  accountdomain.TypeWcMinip,
+		WechatAppID:  &appID,
+		WechatJsCode: &jsCode,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "openid-1", identity.OpenID)
+	require.Equal(t, "union-1", identity.UnionID)
+	require.Equal(t, "wx-app", idp.appID)
+	require.Equal(t, "app-secret", idp.appSecret)
+	require.Equal(t, "js-code", idp.jsCode)
+}
+
+type onboardingWechatAppRepoStub struct {
+	app *idpwechatapp.WechatApp
+	err error
+}
+
+func (s *onboardingWechatAppRepoStub) Create(context.Context, *idpwechatapp.WechatApp) error {
+	return nil
+}
+
+func (s *onboardingWechatAppRepoStub) GetByID(context.Context, idutil.ID) (*idpwechatapp.WechatApp, error) {
+	return nil, nil
+}
+
+func (s *onboardingWechatAppRepoStub) GetByAppID(context.Context, string) (*idpwechatapp.WechatApp, error) {
+	return s.app, s.err
+}
+
+func (s *onboardingWechatAppRepoStub) List(context.Context, idpwechatapp.ListFilter) ([]*idpwechatapp.WechatApp, error) {
+	return nil, nil
+}
+
+func (s *onboardingWechatAppRepoStub) Update(context.Context, *idpwechatapp.WechatApp) error {
+	return nil
+}
+
+type onboardingSecretVaultStub struct {
+	plaintext string
+	err       error
+}
+
+func (s onboardingSecretVaultStub) Encrypt(context.Context, []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (s onboardingSecretVaultStub) Decrypt(context.Context, []byte) ([]byte, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return []byte(s.plaintext), nil
+}
+
+func (s onboardingSecretVaultStub) Sign(context.Context, string, []byte) ([]byte, error) {
+	return nil, nil
+}
+
+type onboardingIDPStub struct {
+	appID     string
+	appSecret string
+	jsCode    string
+	openID    string
+	unionID   string
+}
+
+func (s *onboardingIDPStub) ExchangeWxMinipCode(_ context.Context, appID, appSecret, jsCode string) (string, string, error) {
+	s.appID = appID
+	s.appSecret = appSecret
+	s.jsCode = jsCode
+	return s.openID, s.unionID, nil
+}
+
+func (s *onboardingIDPStub) ExchangeWecomCode(context.Context, string, string, string, string) (string, string, error) {
+	return "", "", nil
 }

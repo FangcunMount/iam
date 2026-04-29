@@ -24,6 +24,7 @@ func newMethodAuthenticatorRouter(
 	tokenVerifier tokenapp.Verifier,
 	wechatAppQuerier idpPort.Repository,
 	secretVault idpPort.SecretVault,
+	wecomConfig WecomConfig,
 ) *methodAuthenticatorRouter {
 	return &methodAuthenticatorRouter{
 		byMethod: map[MethodKind]MethodAuthenticator{
@@ -40,9 +41,11 @@ func newMethodAuthenticatorRouter(
 				wechatAppQuerier: wechatAppQuerier,
 				secretVault:      secretVault,
 			},
-			MethodWecom: &domainMethodAuthenticator{
-				authenticator: authenticator,
-				buildProof:    buildWecomProof,
+			MethodWecom: &wecomMethodAuthenticator{
+				authenticator:    authenticator,
+				wechatAppQuerier: wechatAppQuerier,
+				secretVault:      secretVault,
+				config:           wecomConfig,
 			},
 			MethodBearerToken: &bearerMethodAuthenticator{
 				tokenVerifier: tokenVerifier,

@@ -9,7 +9,9 @@ import (
 // AccountHandler 账户管理 HTTP Handler
 type AccountHandler struct {
 	*BaseHandler
-	accountService   appAccount.AccountApplicationService
+	accountDirectory appAccount.AccountDirectory
+	profileEditor    appAccount.AccountProfileEditor
+	statusChanger    appAccount.AccountStatusChanger
 	accountOnboarder appOnboarding.AccountOnboarder
 }
 
@@ -18,9 +20,21 @@ func NewAccountHandler(
 	accountService appAccount.AccountApplicationService,
 	accountOnboarder appOnboarding.AccountOnboarder,
 ) *AccountHandler {
+	return NewAccountHandlerWithRoles(accountService, accountService, accountService, accountOnboarder)
+}
+
+// NewAccountHandlerWithRoles 使用窄应用角色构造账户处理器。
+func NewAccountHandlerWithRoles(
+	accountDirectory appAccount.AccountDirectory,
+	profileEditor appAccount.AccountProfileEditor,
+	statusChanger appAccount.AccountStatusChanger,
+	accountOnboarder appOnboarding.AccountOnboarder,
+) *AccountHandler {
 	return &AccountHandler{
 		BaseHandler:      NewBaseHandler(),
-		accountService:   accountService,
+		accountDirectory: accountDirectory,
+		profileEditor:    profileEditor,
+		statusChanger:    statusChanger,
 		accountOnboarder: accountOnboarder,
 	}
 }

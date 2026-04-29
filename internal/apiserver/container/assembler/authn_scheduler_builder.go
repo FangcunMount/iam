@@ -10,7 +10,7 @@ func (m *AuthnModule) initializeSchedulers() {
 	cronSpec := "0 2 * * *"
 
 	m.rotationScheduler = schedulerInfra.NewKeyRotationCronScheduler(
-		m.KeyRotationApp,
+		m.keyRotationApp,
 		cronSpec,
 		logger,
 	)

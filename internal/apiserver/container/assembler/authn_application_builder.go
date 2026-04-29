@@ -22,11 +22,12 @@ func (m *AuthnModule) initializeApplication(
 	infra *authnInfrastructureComponents,
 	domain *authnDomainComponents,
 	hasher authentication.PasswordHasher,
+	idpOptions apiserveroptions.IDPOptions,
 	smsOptions apiserveroptions.SMSOptions,
 ) error {
-	m.AccountService = accountApp.NewAccountApplicationService(infra.unitOfWork, domain.sessionManager)
+	m.accountService = accountApp.NewAccountApplicationService(infra.unitOfWork, domain.sessionManager)
 
-	m.AccountOnboarder = onboardingApp.NewAccountOnboarder(
+	m.accountOnboarder = onboardingApp.NewAccountOnboarder(
 		infra.unitOfWork,
 		hasher,
 		infra.idp,
@@ -47,7 +48,7 @@ func (m *AuthnModule) initializeApplication(
 		Cooldown: smsOptions.LoginOTPSendCooldown,
 		CodeLen:  smsOptions.LoginOTPCodeLength,
 	}
-	m.LoginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)
+	m.loginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)
 
 	tokenIssuer := token.NewIssuer(
 		infra.jwtGenerator,
@@ -73,7 +74,7 @@ func (m *AuthnModule) initializeApplication(
 		infra.accessChecker,
 	)
 
-	m.LoginService = login.NewLoginApplicationService(
+	m.loginService = login.NewLoginApplicationService(
 		tokenIssuer,
 		tokenRefresher,
 		authentication.NewAuthenticator(
@@ -85,19 +86,20 @@ func (m *AuthnModule) initializeApplication(
 		tokenVerifier,
 		infra.wechatAppQuerier,
 		infra.secretVault,
+		login.WecomConfig{AgentID: idpOptions.WeCom.AgentID},
 	)
 
-	m.TokenService = token.NewTokenApplicationService(
+	m.tokenService = token.NewTokenApplicationService(
 		tokenIssuer,
 		tokenRefresher,
 		tokenVerifier,
 	)
-	m.SessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
+	m.sessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
 
 	logger := log.New(log.NewOptions())
-	m.KeyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)
-	m.KeyPublishApp = jwksApp.NewKeyPublishAppService(keyset.NewApplicationKeyPublisher(infra.keySetBuilder), logger)
-	m.KeyRotationApp = jwksApp.NewKeyRotationAppService(keyset.NewApplicationKeyRotator(infra.keyRotation), logger)
+	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)
+	m.keyPublishApp = jwksApp.NewKeyPublishAppService(keyset.NewApplicationKeyPublisher(infra.keySetBuilder), logger)
+	m.keyRotationApp = jwksApp.NewKeyRotationAppService(keyset.NewApplicationKeyRotator(infra.keyRotation), logger)
 	m.jwksSnapshotReporter = keyset.NewApplicationSnapshotReporter(infra.keySetBuilder)
 
 	return nil

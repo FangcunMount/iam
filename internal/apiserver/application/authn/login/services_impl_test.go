@@ -116,7 +116,7 @@ func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
 				accountID: meta.FromUint64(2002),
 				tenantID:  tc.tokenTenant,
 			}
-			svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil)
+			svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil, WecomConfig{})
 
 			jwtToken := "jwt-token-value"
 			result, err := svc.Login(context.Background(), LoginRequest{
@@ -145,7 +145,7 @@ func TestLogin_BearerTokenVerifierErrorMapsToAuthenticationFailure(t *testing.T)
 	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
 	verifier := &loginTokenVerifierStub{err: errors.New("token invalid")}
-	svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil)
+	svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil, WecomConfig{})
 
 	jwtToken := "invalid-token"
 	result, err := svc.Login(context.Background(), LoginRequest{

@@ -36,10 +36,11 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 		t.Fatalf("AuthnModule.Initialize() error = %v", err)
 	}
 
-	if module.LoginPreparationService == nil {
+	caps := module.ApplicationCapabilities()
+	if caps.LoginPreparationService == nil {
 		t.Fatalf("expected LoginPreparationService to be initialized")
 	}
-	if module.TokenService == nil {
+	if caps.TokenService == nil {
 		t.Fatalf("expected TokenService to be initialized")
 	}
 	if got := len(module.CacheFamilyInspectors()); got != 8 {

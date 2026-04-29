@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/FangcunMount/iam/pkg/event"
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -23,6 +24,7 @@ func TestAuthnModuleDepsPreserveTypedDependencies(t *testing.T) {
 		PasswordHasher: hasher,
 		IDPModule:      idp,
 		EventPublisher: publisher,
+		IDPOptions:     *apiserveroptions.NewIDPOptions(),
 	}
 	if deps.DB != db {
 		t.Fatalf("DB dependency was not preserved")
@@ -38,6 +40,9 @@ func TestAuthnModuleDepsPreserveTypedDependencies(t *testing.T) {
 	}
 	if deps.EventPublisher != publisher {
 		t.Fatalf("EventPublisher dependency was not preserved")
+	}
+	if deps.IDPOptions.WeCom.AgentID != "" {
+		t.Fatalf("IDPOptions dependency default changed")
 	}
 }
 

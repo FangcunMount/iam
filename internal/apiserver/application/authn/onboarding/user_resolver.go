@@ -7,8 +7,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -18,72 +16,59 @@ import (
 type userResolution struct {
 	User      *userDomain.User
 	IsNewUser bool
+	Request   OnboardingRequest
 }
 
 // UserResolver 负责注册流程中的用户解析、复用和缺失用户修复。
 type UserResolver struct {
-	fallbackUserRepo userDomain.Repository
-	idp              authentication.IdentityProvider
-	wechatAppQuerier idpPort.Repository
-	secretVault      idpPort.SecretVault
+	fallbackUserRepo       userDomain.Repository
+	wechatIdentityResolver *wechatIdentityResolver
 }
 
 func newUserResolver(
 	fallbackUserRepo userDomain.Repository,
-	idp authentication.IdentityProvider,
-	wechatAppQuerier idpPort.Repository,
-	secretVault idpPort.SecretVault,
+	wechatIdentityResolver *wechatIdentityResolver,
 ) *UserResolver {
 	return &UserResolver{
-		fallbackUserRepo: fallbackUserRepo,
-		idp:              idp,
-		wechatAppQuerier: wechatAppQuerier,
-		secretVault:      secretVault,
+		fallbackUserRepo:       fallbackUserRepo,
+		wechatIdentityResolver: wechatIdentityResolver,
 	}
 }
 
-func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositories, req *OnboardingRequest) (*userResolution, error) {
+func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositories, req OnboardingRequest) (*userResolution, error) {
 	userRepo := repos.Users
 	if userRepo == nil {
 		userRepo = r.fallbackUserRepo
 	}
 
-	if !req.ExistingUserID.IsZero() {
-		user, err := userRepo.FindByID(ctx, req.ExistingUserID)
+	identity, err := r.resolveWechatIdentity(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	preparedReq := prepareWechatIdentity(req, identity)
+
+	if !preparedReq.ExistingUserID.IsZero() {
+		user, err := userRepo.FindByID(ctx, preparedReq.ExistingUserID)
 		if err != nil {
 			return nil, err
 		}
 		if user == nil {
-			return nil, perrors.WithCode(code.ErrInvalidArgument, "existing user not found: %s", req.ExistingUserID.String())
+			return nil, perrors.WithCode(code.ErrInvalidArgument, "existing user not found: %s", preparedReq.ExistingUserID.String())
 		}
 		if err := profileLinkDomain.NewSelfProfileEnsurer(repos.Profiles, repos.ProfileLinks).Ensure(ctx, user); err != nil {
 			return nil, err
 		}
-		return &userResolution{User: user, IsNewUser: false}, nil
+		return &userResolution{User: user, IsNewUser: false, Request: preparedReq}, nil
 	}
 
-	openID, unionID, err := r.resolveWechatIDs(ctx, *req)
-	if err != nil {
-		return nil, err
-	}
-	if openID != "" && req.WechatOpenID == nil {
-		req.WechatOpenID = &openID
-	}
-	if unionID != "" && req.WechatUnionID == nil {
-		req.WechatUnionID = &unionID
-	}
-	if openID != "" && req.WechatJsCode != nil {
-		req.WechatJsCode = nil
-	}
-
-	user, isNewUser, err := r.createOrGetUser(ctx, userRepo, repos.Accounts, *req, openID, unionID)
+	user, isNewUser, err := r.createOrGetUser(ctx, userRepo, repos.Accounts, preparedReq, identity.OpenID, identity.UnionID)
 	if err != nil {
 		return nil, err
 	}
 	if err := profileLinkDomain.NewSelfProfileEnsurer(repos.Profiles, repos.ProfileLinks).Ensure(ctx, user); err != nil {
 		return nil, err
 	}
-	return &userResolution{User: user, IsNewUser: isNewUser}, nil
+	return &userResolution{User: user, IsNewUser: isNewUser, Request: preparedReq}, nil
 }
 
 func (r *UserResolver) createOrGetUser(
@@ -186,47 +171,9 @@ func (r *UserResolver) loadOrRepairUserForAccount(
 	return recovered, false, nil
 }
 
-func (r *UserResolver) resolveWechatIDs(ctx context.Context, req OnboardingRequest) (string, string, error) {
-	if req.AccountType != domain.TypeWcMinip {
-		return "", "", nil
+func (r *UserResolver) resolveWechatIdentity(ctx context.Context, req OnboardingRequest) (wechatIdentity, error) {
+	if r == nil || r.wechatIdentityResolver == nil {
+		return wechatIdentity{}, nil
 	}
-	if req.WechatOpenID != nil && *req.WechatOpenID != "" {
-		openID := *req.WechatOpenID
-		unionID := ""
-		if req.WechatUnionID != nil {
-			unionID = *req.WechatUnionID
-		}
-		return openID, unionID, nil
-	}
-	if req.WechatAppID == nil || *req.WechatAppID == "" || req.WechatJsCode == nil || *req.WechatJsCode == "" {
-		return "", "", nil
-	}
-	if r.wechatAppQuerier == nil || r.secretVault == nil {
-		return "", "", perrors.WithCode(code.ErrInvalidArgument, "wechat app configuration service not available")
-	}
-
-	wechatApp, err := r.wechatAppQuerier.GetByAppID(ctx, *req.WechatAppID)
-	if err != nil {
-		return "", "", perrors.WithCode(code.ErrInvalidArgument, "failed to query wechat app: %v", err)
-	}
-	if wechatApp == nil {
-		return "", "", perrors.WithCode(code.ErrInvalidArgument, "wechat app not found: %s", *req.WechatAppID)
-	}
-	if !wechatApp.IsEnabled() {
-		return "", "", perrors.WithCode(code.ErrInvalidArgument, "wechat app is disabled: %s", *req.WechatAppID)
-	}
-	if wechatApp.Cred == nil || wechatApp.Cred.Auth == nil {
-		return "", "", perrors.WithCode(code.ErrInvalidArgument, "wechat app credentials not found")
-	}
-
-	appSecretPlain, err := r.secretVault.Decrypt(ctx, wechatApp.Cred.Auth.AppSecretCipher)
-	if err != nil {
-		return "", "", perrors.WithCode(code.ErrInvalidArgument, "failed to decrypt app secret: %v", err)
-	}
-
-	openID, unionID, err := r.idp.ExchangeWxMinipCode(ctx, *req.WechatAppID, string(appSecretPlain), *req.WechatJsCode)
-	if err != nil {
-		return "", "", perrors.WithCode(code.ErrInvalidCredential, "failed to call wechat code2session: %v", err)
-	}
-	return openID, unionID, nil
+	return r.wechatIdentityResolver.ResolveMiniProgram(ctx, req)
 }

@@ -28,17 +28,17 @@ import (
 // AuthnModule 认证模块
 type AuthnModule struct {
 	// 应用服务
-	AccountService          accountApp.AccountApplicationService
-	AccountOnboarder        onboardingApp.AccountOnboarder
-	LoginService            login.LoginApplicationService
-	LoginPreparationService loginprep.LoginPreparationService
-	TokenService            token.TokenApplicationService
-	SessionService          sessionApp.SessionApplicationService
+	accountService          accountApp.AccountApplicationService
+	accountOnboarder        onboardingApp.AccountOnboarder
+	loginService            login.LoginApplicationService
+	loginPreparationService loginprep.LoginPreparationService
+	tokenService            token.TokenApplicationService
+	sessionService          sessionApp.SessionApplicationService
 
 	// JWKS 应用服务
-	KeyManagementApp *jwksApp.KeyManagementAppService
-	KeyPublishApp    *jwksApp.KeyPublishAppService
-	KeyRotationApp   *jwksApp.KeyRotationAppService
+	keyManagementApp *jwksApp.KeyManagementAppService
+	keyPublishApp    *jwksApp.KeyPublishAppService
+	keyRotationApp   *jwksApp.KeyRotationAppService
 
 	// 调度器
 	rotationScheduler KeyRotationScheduler
@@ -67,6 +67,7 @@ type AuthnModuleDeps struct {
 	AppMode        string
 	Auth           apiserveroptions.AuthOptions
 	JWKS           apiserveroptions.JWKSOptions
+	IDPOptions     apiserveroptions.IDPOptions
 	SMS            apiserveroptions.SMSOptions
 }
 
@@ -93,7 +94,7 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	domain := m.initializeDomain(infra, deps.Auth)
 
 	// 初始化应用层
-	if err := m.initializeApplication(infra, domain, hasher, deps.SMS); err != nil {
+	if err := m.initializeApplication(infra, domain, hasher, deps.IDPOptions, deps.SMS); err != nil {
 		return err
 	}
 
@@ -135,15 +136,15 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 		return AuthnApplicationCapabilities{}
 	}
 	return AuthnApplicationCapabilities{
-		AccountService:          m.AccountService,
-		AccountOnboarder:        m.AccountOnboarder,
-		LoginService:            m.LoginService,
-		LoginPreparationService: m.LoginPreparationService,
-		TokenService:            m.TokenService,
-		SessionService:          m.SessionService,
-		KeyManagementApp:        m.KeyManagementApp,
-		KeyPublishApp:           m.KeyPublishApp,
-		KeyRotationApp:          m.KeyRotationApp,
+		AccountService:          m.accountService,
+		AccountOnboarder:        m.accountOnboarder,
+		LoginService:            m.loginService,
+		LoginPreparationService: m.loginPreparationService,
+		TokenService:            m.tokenService,
+		SessionService:          m.sessionService,
+		KeyManagementApp:        m.keyManagementApp,
+		KeyPublishApp:           m.keyPublishApp,
+		KeyRotationApp:          m.keyRotationApp,
 	}
 }
 

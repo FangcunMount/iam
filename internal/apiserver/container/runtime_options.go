@@ -10,6 +10,7 @@ type RuntimeOptions struct {
 	AppMode string
 	Auth    apiserveroptions.AuthOptions
 	JWKS    apiserveroptions.JWKSOptions
+	IDP     apiserveroptions.IDPOptions
 	SMS     apiserveroptions.SMSOptions
 	Suggest appsuggest.Config
 	Events  apiserveroptions.EventOptions
@@ -27,6 +28,7 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 		AppMode: appMode,
 		Auth:    *defaults.Auth,
 		JWKS:    *defaults.JWKS,
+		IDP:     *defaults.IDP,
 		SMS:     *defaults.SMS,
 		Events:  *defaults.Events,
 		Suggest: appsuggest.Config{
@@ -46,6 +48,9 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 	}
 	if opts.JWKS != nil {
 		runtime.JWKS = *opts.JWKS
+	}
+	if opts.IDP != nil {
+		runtime.IDP = *opts.IDP
 	}
 	if opts.SMS != nil {
 		runtime.SMS = *opts.SMS

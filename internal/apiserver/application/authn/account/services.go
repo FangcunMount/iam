@@ -9,8 +9,8 @@ import (
 
 // ============= 应用服务接口（Driving Ports）=============
 
-// AccountApplicationService 账户应用服务 - 已存在账户的管理
-type AccountApplicationService interface {
+// AccountDirectory 查询已存在账户。
+type AccountDirectory interface {
 	// GetAccountByID 根据ID获取账户
 	GetAccountByID(ctx context.Context, accountID meta.ID) (*AccountResult, error)
 
@@ -20,7 +20,10 @@ type AccountApplicationService interface {
 
 	// FindByUniqueID 根据全局唯一标识查找账户
 	FindByUniqueID(ctx context.Context, uniqueID domain.UnionID) (*AccountResult, error)
+}
 
+// AccountProfileEditor 修改账户 profile / meta / unique id。
+type AccountProfileEditor interface {
 	// SetUniqueID 设置全局唯一标识（如 UnionID）
 	SetUniqueID(ctx context.Context, accountID meta.ID, uniqueID domain.UnionID) error
 
@@ -29,7 +32,10 @@ type AccountApplicationService interface {
 
 	// UpdateMeta 更新账户元数据
 	UpdateMeta(ctx context.Context, accountID meta.ID, meta map[string]string) error
+}
 
+// AccountStatusChanger 修改账户生命周期状态。
+type AccountStatusChanger interface {
 	// EnableAccount 启用账户
 	EnableAccount(ctx context.Context, accountID meta.ID) error
 
@@ -41,6 +47,13 @@ type AccountApplicationService interface {
 
 	// DeleteAccount 删除账户（软删除）
 	DeleteAccount(ctx context.Context, accountID meta.ID) error
+}
+
+// AccountApplicationService 聚合账户应用能力，保留给现有 container capability 使用。
+type AccountApplicationService interface {
+	AccountDirectory
+	AccountProfileEditor
+	AccountStatusChanger
 }
 
 // ============= DTOs =============

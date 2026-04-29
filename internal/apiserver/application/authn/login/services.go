@@ -71,6 +71,12 @@ type LoginRequest struct {
 	JWTToken *string // JWT访问令牌（当 AuthType=jwt_token 时必须）
 }
 
+// WecomConfig contains server-side credentials that are intentionally not
+// exposed through REST/gRPC login requests.
+type WecomConfig struct {
+	AgentID string
+}
+
 // LoginResult 登录结果
 type LoginResult struct {
 	// 认证主体

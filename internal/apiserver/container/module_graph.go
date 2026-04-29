@@ -40,6 +40,7 @@ func (g *moduleGraph) authnModuleDependencies() assembler.AuthnModuleDeps {
 		AppMode:        g.container.runtimeOptions.AppMode,
 		Auth:           g.container.runtimeOptions.Auth,
 		JWKS:           g.container.runtimeOptions.JWKS,
+		IDPOptions:     g.container.runtimeOptions.IDP,
 		SMS:            g.container.runtimeOptions.SMS,
 	}
 }

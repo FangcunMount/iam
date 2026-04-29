@@ -33,15 +33,3 @@ func buildPhoneOTPProof(payload MethodPayload) (authentication.AuthCredential, e
 		OTP:       phonePayload.OTP,
 	})
 }
-
-func buildWecomProof(payload MethodPayload) (authentication.AuthCredential, error) {
-	wecomPayload, ok := payload.(WecomPayload)
-	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid wecom payload")
-	}
-	return authentication.NewWecomCredential(authentication.WecomProofSpec{
-		TenantID: wecomPayload.TenantID,
-		CorpID:   wecomPayload.CorpID,
-		Code:     wecomPayload.Code,
-	})
-}

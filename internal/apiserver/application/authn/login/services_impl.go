@@ -29,12 +29,13 @@ func NewLoginApplicationService(
 	tokenVerifier tokenapp.Verifier,
 	wechatAppQuerier idpPort.Repository,
 	secretVault idpPort.SecretVault,
+	wecomConfig WecomConfig,
 ) LoginApplicationService {
 	return &loginApplicationService{
 		tokenIssuer:          tokenIssuer,
 		tokenRefresher:       tokenRefresher,
 		scenarioSelector:     newDefaultScenarioSelector(),
-		methodAuthenticators: newMethodAuthenticatorRouter(authenticator, tokenVerifier, wechatAppQuerier, secretVault),
+		methodAuthenticators: newMethodAuthenticatorRouter(authenticator, tokenVerifier, wechatAppQuerier, secretVault, wecomConfig),
 	}
 }
 
