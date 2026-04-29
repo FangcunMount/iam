@@ -38,7 +38,7 @@ func (h *AccountHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	if err := h.accountService.UpdateProfile(c.Request.Context(), accountID, profileFromUpsertRequest(reqBody)); err != nil {
+	if err := h.profileEditor.UpdateProfile(c.Request.Context(), accountID, profileFromUpsertRequest(reqBody)); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -77,7 +77,7 @@ func (h *AccountHandler) SetUnionID(c *gin.Context) {
 	}
 
 	unionID := domain.UnionID(reqBody.UnionID)
-	if err := h.accountService.SetUniqueID(c.Request.Context(), accountID, unionID); err != nil {
+	if err := h.profileEditor.SetUniqueID(c.Request.Context(), accountID, unionID); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -101,7 +101,7 @@ func (h *AccountHandler) DisableAccount(c *gin.Context) {
 		return
 	}
 
-	if err := h.accountService.DisableAccount(c.Request.Context(), accountID); err != nil {
+	if err := h.statusChanger.DisableAccount(c.Request.Context(), accountID); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -125,7 +125,7 @@ func (h *AccountHandler) EnableAccount(c *gin.Context) {
 		return
 	}
 
-	if err := h.accountService.EnableAccount(c.Request.Context(), accountID); err != nil {
+	if err := h.statusChanger.EnableAccount(c.Request.Context(), accountID); err != nil {
 		h.Error(c, err)
 		return
 	}

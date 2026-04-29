@@ -44,11 +44,18 @@ func NewJWKSOptions() *JWKSOptions {
 
 // IDPOptions configures identity provider bootstrap secrets.
 type IDPOptions struct {
-	EncryptionKey string `json:"encryption-key" mapstructure:"encryption-key"`
+	EncryptionKey string       `json:"encryption-key" mapstructure:"encryption-key"`
+	WeCom         WeComOptions `json:"wecom" mapstructure:"wecom"`
 }
 
 func NewIDPOptions() *IDPOptions {
 	return &IDPOptions{}
+}
+
+// WeComOptions configures server-side Enterprise WeChat login material that
+// should not be supplied by public login requests.
+type WeComOptions struct {
+	AgentID string `json:"agent_id" mapstructure:"agent_id"`
 }
 
 // SMSOptions configures login OTP delivery.

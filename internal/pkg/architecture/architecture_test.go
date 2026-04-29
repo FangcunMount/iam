@@ -199,6 +199,20 @@ func TestAssemblerModulesDoNotExposeTransportFields(t *testing.T) {
 	})
 }
 
+func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	source, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "container", "assembler", "authn.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	forbidden := regexp.MustCompile(`(?m)^\s*(AccountService|AccountOnboarder|LoginService|LoginPreparationService|TokenService|SessionService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
+	if match := forbidden.FindString(string(source)); match != "" {
+		t.Fatalf("AuthnModule exposes concrete application field %q; use ApplicationCapabilities instead", strings.TrimSpace(match))
+	}
+}
+
 func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -816,6 +830,23 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 			}
 		}
 	})
+
+	authnDomainReadme, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "domain", "authn", "authentication", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	forbiddenAuthnDocTokens := []string{
+		"AuthInput",
+		"issue" + "JWT",
+		"JWT Token 认证",
+		"Authenticator Service",
+		"策略工厂",
+	}
+	for _, token := range forbiddenAuthnDocTokens {
+		if strings.Contains(string(authnDomainReadme), token) {
+			t.Fatalf("domain/authn/authentication/README.md contains retired authn domain wording %q", token)
+		}
+	}
 
 	forbiddenApplicationJWKSLifecycleTokens := []string{
 		"func (k *ManagedKey) Enter" + "Grace",

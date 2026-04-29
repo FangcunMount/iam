@@ -26,7 +26,7 @@ func (h *AccountHandler) GetAccountByID(c *gin.Context) {
 		return
 	}
 
-	result, err := h.accountService.GetAccountByID(c.Request.Context(), accountID)
+	result, err := h.accountDirectory.GetAccountByID(c.Request.Context(), accountID)
 	if err != nil {
 		h.Error(c, err)
 		return
