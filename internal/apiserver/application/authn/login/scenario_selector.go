@@ -25,26 +25,67 @@ type SelectedMethod struct {
 	Payload MethodPayload
 }
 
-// MethodPayload 只在应用层表达协议输入到认证 proof 的映射数据。
-type MethodPayload struct {
+func (m SelectedMethod) TenantID() meta.ID {
+	if m.Payload == nil {
+		return meta.ZeroID
+	}
+	return m.Payload.commonPayload().TenantID
+}
+
+// MethodPayload 是按认证方式拆分后的应用层输入。
+type MethodPayload interface {
+	methodPayload()
+	commonPayload() methodPayloadCommon
+}
+
+type methodPayloadCommon struct {
 	TenantID  meta.ID
 	RemoteIP  string
 	UserAgent string
+}
 
+func (p methodPayloadCommon) commonPayload() methodPayloadCommon {
+	return p
+}
+
+type PasswordPayload struct {
+	methodPayloadCommon
 	Username string
 	Password string
+}
 
+func (PasswordPayload) methodPayload() {}
+
+type PhoneOTPPayload struct {
+	methodPayloadCommon
 	PhoneE164 string
 	OTP       string
-
-	WechatAppID  string
-	WechatJSCode string
-
-	WecomCorpID string
-	WecomCode   string
-
-	BearerToken string
 }
+
+func (PhoneOTPPayload) methodPayload() {}
+
+type WechatMiniPayload struct {
+	methodPayloadCommon
+	AppID  string
+	JSCode string
+}
+
+func (WechatMiniPayload) methodPayload() {}
+
+type WecomPayload struct {
+	methodPayloadCommon
+	CorpID string
+	Code   string
+}
+
+func (WecomPayload) methodPayload() {}
+
+type BearerPayload struct {
+	methodPayloadCommon
+	Token string
+}
+
+func (BearerPayload) methodPayload() {}
 
 // ScenarioSelector 将登录请求转换为领域认证场景和输入。
 type ScenarioSelector interface {
@@ -71,56 +112,76 @@ type legacyScenarioSelector struct{}
 
 func (s legacyScenarioSelector) Select(ctx context.Context, req LoginRequest) (SelectedMethod, error) {
 	l := logger.L(ctx)
-	payload := MethodPayload{TenantID: req.TenantID}
+	common := methodPayloadCommon{TenantID: req.TenantID}
+	var payload MethodPayload
 	var method MethodKind
 
 	if req.Username != nil && req.Password != nil {
 		method = MethodPassword
-		payload.Username = *req.Username
-		payload.Password = *req.Password
+		passwordPayload := PasswordPayload{
+			methodPayloadCommon: common,
+			Username:            *req.Username,
+			Password:            *req.Password,
+		}
+		payload = passwordPayload
 		l.Debugw("检测到密码认证",
 			"action", logger.ActionLogin,
 			"scenario", string(method),
-			"username", payload.Username,
+			"username", passwordPayload.Username,
 		)
 	}
 
 	if req.PhoneE164 != nil && req.OTPCode != nil {
 		method = MethodPhoneOTP
-		payload.PhoneE164 = *req.PhoneE164
-		payload.OTP = *req.OTPCode
+		phonePayload := PhoneOTPPayload{
+			methodPayloadCommon: common,
+			PhoneE164:           *req.PhoneE164,
+			OTP:                 *req.OTPCode,
+		}
+		payload = phonePayload
 		l.Debugw("检测到手机OTP认证",
 			"action", logger.ActionLogin,
 			"scenario", string(method),
-			"phone", payload.PhoneE164,
+			"phone", phonePayload.PhoneE164,
 		)
 	}
 
 	if req.WechatAppID != nil && req.WechatJSCode != nil {
 		method = MethodWechatMini
-		payload.WechatAppID = *req.WechatAppID
-		payload.WechatJSCode = *req.WechatJSCode
+		wechatPayload := WechatMiniPayload{
+			methodPayloadCommon: common,
+			AppID:               *req.WechatAppID,
+			JSCode:              *req.WechatJSCode,
+		}
+		payload = wechatPayload
 		l.Debugw("检测到微信小程序认证",
 			"action", logger.ActionLogin,
 			"scenario", string(method),
-			"app_id", payload.WechatAppID,
+			"app_id", wechatPayload.AppID,
 		)
 	}
 
 	if req.WecomCorpID != nil && req.WecomCode != nil {
 		method = MethodWecom
-		payload.WecomCorpID = *req.WecomCorpID
-		payload.WecomCode = *req.WecomCode
+		wecomPayload := WecomPayload{
+			methodPayloadCommon: common,
+			CorpID:              *req.WecomCorpID,
+			Code:                *req.WecomCode,
+		}
+		payload = wecomPayload
 		l.Debugw("检测到企业微信认证",
 			"action", logger.ActionLogin,
 			"scenario", string(method),
-			"corp_id", payload.WecomCorpID,
+			"corp_id", wecomPayload.CorpID,
 		)
 	}
 
 	if req.JWTToken != nil {
 		method = MethodBearerToken
-		payload.BearerToken = *req.JWTToken
+		payload = BearerPayload{
+			methodPayloadCommon: common,
+			Token:               *req.JWTToken,
+		}
 		l.Debugw("检测到JWT令牌认证",
 			"action", logger.ActionLogin,
 			"scenario", string(method),
@@ -141,7 +202,7 @@ func (s legacyScenarioSelector) Select(ctx context.Context, req LoginRequest) (S
 type explicitScenarioSelector struct{}
 
 func (s explicitScenarioSelector) Select(_ context.Context, req LoginRequest) (SelectedMethod, error) {
-	payload := MethodPayload{TenantID: req.TenantID}
+	common := methodPayloadCommon{TenantID: req.TenantID}
 	switch req.AuthType {
 	case AuthTypePassword:
 		if req.Username == nil || *req.Username == "" {
@@ -150,9 +211,14 @@ func (s explicitScenarioSelector) Select(_ context.Context, req LoginRequest) (S
 		if req.Password == nil || *req.Password == "" {
 			return SelectedMethod{}, perrors.WithCode(code.ErrInvalidArgument, "password is required for password authentication")
 		}
-		payload.Username = *req.Username
-		payload.Password = *req.Password
-		return SelectedMethod{Method: MethodPassword, Payload: payload}, nil
+		return SelectedMethod{
+			Method: MethodPassword,
+			Payload: PasswordPayload{
+				methodPayloadCommon: common,
+				Username:            *req.Username,
+				Password:            *req.Password,
+			},
+		}, nil
 
 	case AuthTypePhoneOTP:
 		if req.PhoneE164 == nil || *req.PhoneE164 == "" {
@@ -161,9 +227,14 @@ func (s explicitScenarioSelector) Select(_ context.Context, req LoginRequest) (S
 		if req.OTPCode == nil || *req.OTPCode == "" {
 			return SelectedMethod{}, perrors.WithCode(code.ErrInvalidArgument, "otp_code is required for phone otp authentication")
 		}
-		payload.PhoneE164 = *req.PhoneE164
-		payload.OTP = *req.OTPCode
-		return SelectedMethod{Method: MethodPhoneOTP, Payload: payload}, nil
+		return SelectedMethod{
+			Method: MethodPhoneOTP,
+			Payload: PhoneOTPPayload{
+				methodPayloadCommon: common,
+				PhoneE164:           *req.PhoneE164,
+				OTP:                 *req.OTPCode,
+			},
+		}, nil
 
 	case AuthTypeWechat:
 		if req.WechatAppID == nil || *req.WechatAppID == "" {
@@ -172,9 +243,14 @@ func (s explicitScenarioSelector) Select(_ context.Context, req LoginRequest) (S
 		if req.WechatJSCode == nil || *req.WechatJSCode == "" {
 			return SelectedMethod{}, perrors.WithCode(code.ErrInvalidArgument, "code is required for wechat authentication")
 		}
-		payload.WechatAppID = *req.WechatAppID
-		payload.WechatJSCode = *req.WechatJSCode
-		return SelectedMethod{Method: MethodWechatMini, Payload: payload}, nil
+		return SelectedMethod{
+			Method: MethodWechatMini,
+			Payload: WechatMiniPayload{
+				methodPayloadCommon: common,
+				AppID:               *req.WechatAppID,
+				JSCode:              *req.WechatJSCode,
+			},
+		}, nil
 
 	case AuthTypeWecom:
 		if req.WecomCorpID == nil || *req.WecomCorpID == "" {
@@ -183,16 +259,26 @@ func (s explicitScenarioSelector) Select(_ context.Context, req LoginRequest) (S
 		if req.WecomCode == nil || *req.WecomCode == "" {
 			return SelectedMethod{}, perrors.WithCode(code.ErrInvalidArgument, "auth_code is required for wecom authentication")
 		}
-		payload.WecomCorpID = *req.WecomCorpID
-		payload.WecomCode = *req.WecomCode
-		return SelectedMethod{Method: MethodWecom, Payload: payload}, nil
+		return SelectedMethod{
+			Method: MethodWecom,
+			Payload: WecomPayload{
+				methodPayloadCommon: common,
+				CorpID:              *req.WecomCorpID,
+				Code:                *req.WecomCode,
+			},
+		}, nil
 
 	case AuthTypeJWTToken:
 		if req.JWTToken == nil || *req.JWTToken == "" {
 			return SelectedMethod{}, perrors.WithCode(code.ErrInvalidArgument, "bearer token is required for bearer token authentication")
 		}
-		payload.BearerToken = *req.JWTToken
-		return SelectedMethod{Method: MethodBearerToken, Payload: payload}, nil
+		return SelectedMethod{
+			Method: MethodBearerToken,
+			Payload: BearerPayload{
+				methodPayloadCommon: common,
+				Token:               *req.JWTToken,
+			},
+		}, nil
 
 	default:
 		return SelectedMethod{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", req.AuthType)

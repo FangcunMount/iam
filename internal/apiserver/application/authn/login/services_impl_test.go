@@ -108,13 +108,7 @@ func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			auth := authentication.NewAuthenticator(
-				nil,
-				&loginAccountRepoStub{enabled: true},
-				nil,
-				nil,
-				nil,
-			)
+			auth := authentication.NewAuthenticator()
 
 			issuer := &loginTokenIssuerStub{}
 			verifier := &loginTokenVerifierStub{
@@ -148,7 +142,7 @@ func TestLogin_DefaultsMissingTenantIDBeforeTokenIssue(t *testing.T) {
 func TestLogin_BearerTokenVerifierErrorMapsToAuthenticationFailure(t *testing.T) {
 	t.Parallel()
 
-	auth := authentication.NewAuthenticator(nil, &loginAccountRepoStub{enabled: true}, nil, nil, nil)
+	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
 	verifier := &loginTokenVerifierStub{err: errors.New("token invalid")}
 	svc := NewLoginApplicationService(issuer, nil, auth, verifier, nil, nil)
@@ -246,10 +240,10 @@ func TestExplicitScenarioSelectorUsesAuthTypeAsAuthority(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, MethodPassword, selected.Method)
-	require.Equal(t, username, selected.Payload.Username)
-	require.Equal(t, password, selected.Payload.Password)
-	require.Empty(t, selected.Payload.PhoneE164)
-	require.Empty(t, selected.Payload.OTP)
+	payload, ok := selected.Payload.(PasswordPayload)
+	require.True(t, ok)
+	require.Equal(t, username, payload.Username)
+	require.Equal(t, password, payload.Password)
 }
 
 func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testing.T) {
@@ -269,5 +263,5 @@ func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testi
 
 	require.NoError(t, err)
 	require.Equal(t, MethodPassword, selected.Method)
-	require.Equal(t, uint64(42), selected.Payload.TenantID.Uint64())
+	require.Equal(t, uint64(42), selected.TenantID().Uint64())
 }

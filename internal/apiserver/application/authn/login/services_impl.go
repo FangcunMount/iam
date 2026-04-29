@@ -53,7 +53,7 @@ func (s *loginApplicationService) Login(ctx context.Context, req LoginRequest) (
 	l.Debugw("开始认证流程",
 		"action", logger.ActionLogin,
 		"scenario", string(selected.Method),
-		"tenant_id", selected.Payload.TenantID,
+		"tenant_id", selected.TenantID(),
 	)
 
 	decision, err := s.authenticateMethod(ctx, selected)
@@ -216,7 +216,7 @@ func (s *loginApplicationService) selectScenario(ctx context.Context, req LoginR
 	logger.L(ctx).Debugw("认证准备完成",
 		"action", logger.ActionLogin,
 		"scenario", string(selected.Method),
-		"tenant_id", selected.Payload.TenantID,
+		"tenant_id", selected.TenantID(),
 	)
 	return selected, nil
 }
