@@ -2,7 +2,6 @@ package response
 
 import (
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 type CatalogResponse struct {
@@ -56,7 +55,7 @@ type RuntimeStatusResponse struct {
 	Notes      []string `json:"notes"`
 }
 
-func FromCatalog(descriptors []cacheinfra.FamilyDescriptor) CatalogResponse {
+func FromCatalog(descriptors []cachegovernance.FamilyDescriptor) CatalogResponse {
 	families := make([]FamilyDescriptorResponse, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		families = append(families, fromDescriptor(descriptor))
@@ -91,7 +90,7 @@ func FromFamilyView(view cachegovernance.FamilyView) FamilyViewResponse {
 	}
 }
 
-func fromDescriptor(descriptor cacheinfra.FamilyDescriptor) FamilyDescriptorResponse {
+func fromDescriptor(descriptor cachegovernance.FamilyDescriptor) FamilyDescriptorResponse {
 	capabilities := make([]string, 0, len(descriptor.Capabilities))
 	for _, capability := range descriptor.Capabilities {
 		capabilities = append(capabilities, string(capability))
@@ -117,7 +116,7 @@ func fromDescriptor(descriptor cacheinfra.FamilyDescriptor) FamilyDescriptorResp
 	}
 }
 
-func fromFamilyStatus(status cacheinfra.FamilyStatus) FamilyStatusResponse {
+func fromFamilyStatus(status cachegovernance.FamilyStatus) FamilyStatusResponse {
 	return FamilyStatusResponse{
 		Family:          string(status.Family),
 		Configured:      status.Configured,
@@ -127,7 +126,7 @@ func fromFamilyStatus(status cacheinfra.FamilyStatus) FamilyStatusResponse {
 	}
 }
 
-func fromRuntimeStatus(status cacheinfra.RuntimeStatus) RuntimeStatusResponse {
+func fromRuntimeStatus(status cachegovernance.RuntimeStatus) RuntimeStatusResponse {
 	return RuntimeStatusResponse{
 		Backend:    string(status.Backend),
 		Configured: status.Configured,

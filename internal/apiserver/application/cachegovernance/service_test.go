@@ -3,80 +3,23 @@ package cachegovernance
 import (
 	"context"
 	"testing"
-
-	"github.com/alicebob/miniredis/v2"
-	goredis "github.com/redis/go-redis/v9"
-
-	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
-	redisinfra "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
 )
 
-type governanceJWKSRepository struct {
-	publishable []*jwksdomain.Key
-}
-
-func (r *governanceJWKSRepository) Save(context.Context, *jwksdomain.Key) error   { return nil }
-func (r *governanceJWKSRepository) Update(context.Context, *jwksdomain.Key) error { return nil }
-func (r *governanceJWKSRepository) Delete(context.Context, string) error          { return nil }
-func (r *governanceJWKSRepository) FindByKid(context.Context, string) (*jwksdomain.Key, error) {
-	return nil, nil
-}
-func (r *governanceJWKSRepository) FindByStatus(context.Context, jwksdomain.KeyStatus) ([]*jwksdomain.Key, error) {
-	return nil, nil
-}
-func (r *governanceJWKSRepository) FindPublishable(context.Context) ([]*jwksdomain.Key, error) {
-	return r.publishable, nil
-}
-func (r *governanceJWKSRepository) FindExpired(context.Context) ([]*jwksdomain.Key, error) {
-	return nil, nil
-}
-func (r *governanceJWKSRepository) FindAll(context.Context, int, int) ([]*jwksdomain.Key, int64, error) {
-	return nil, 0, nil
-}
-func (r *governanceJWKSRepository) CountByStatus(context.Context, jwksdomain.KeyStatus) (int64, error) {
-	return 0, nil
-}
-
 func TestReadServiceOverview(t *testing.T) {
-	mr := miniredis.RunT(t)
-	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() {
-		_ = client.Close()
-	})
-
-	ctx := context.Background()
-	tokenStore := redisinfra.NewRedisStore(client)
-	sessionStore := redisinfra.NewSessionStore(client)
-	otpVerifier := redisinfra.NewOTPVerifier(client)
-	accessTokenCache := redisinfra.NewAccessTokenCache(client)
-	wechatSDKCache := redisinfra.NewWechatSDKCache(client)
-
-	jwksRepo := &governanceJWKSRepository{
-		publishable: []*jwksdomain.Key{
-			jwksdomain.NewKey("kid-1", jwksdomain.PublicJWK{
-				Kty: "RSA",
-				Use: "sig",
-				Alg: "RS256",
-				Kid: "kid-1",
-				N:   mustStr("n"),
-				E:   mustStr("e"),
-			}),
-		},
-	}
-	keySetBuilder := jwksdomain.NewKeySetBuilder(jwksRepo)
-	if _, _, err := keySetBuilder.BuildJWKS(ctx); err != nil {
-		t.Fatalf("BuildJWKS() error = %v", err)
+	inspectors := make([]FamilyInspector, 0, len(Families()))
+	for _, descriptor := range Families() {
+		inspectors = append(inspectors, governanceInspectorStub{
+			descriptor: descriptor,
+			status: FamilyStatus{
+				Family:          descriptor.Family,
+				Configured:      true,
+				Healthy:         true,
+				EntryCountKnown: descriptor.Backend == BackendKindMemory,
+			},
+		})
 	}
 
-	inspectors := append(redisinfra.RedisStoreInspectors(tokenStore), redisinfra.OTPVerifierInspectors(otpVerifier)...)
-	inspectors = append(inspectors, redisinfra.SessionStoreInspectors(sessionStore)...)
-	inspectors = append(inspectors, redisinfra.AccessTokenCacheInspectors(accessTokenCache)...)
-	inspectors = append(inspectors, redisinfra.WechatSDKCacheInspectors(wechatSDKCache)...)
-	inspectors = append(inspectors, NewJWKSPublishSnapshotInspector(keySetBuilder))
-
-	service := NewReadService(inspectors)
-	overview, err := service.Overview(ctx)
+	overview, err := NewReadService(inspectors).Overview(context.Background())
 	if err != nil {
 		t.Fatalf("Overview() error = %v", err)
 	}
@@ -97,11 +40,11 @@ func TestReadServiceOverview(t *testing.T) {
 		}
 	}
 
-	redisRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, cacheinfra.BackendKindRedis)
+	redisRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, BackendKindRedis)
 	if !redisRuntime.Configured || !redisRuntime.Healthy {
 		t.Fatalf("redis runtime = %#v, want configured and healthy", redisRuntime)
 	}
-	memoryRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, cacheinfra.BackendKindMemory)
+	memoryRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, BackendKindMemory)
 	if !memoryRuntime.Configured || !memoryRuntime.Healthy {
 		t.Fatalf("memory runtime = %#v, want configured and healthy", memoryRuntime)
 	}
@@ -127,13 +70,13 @@ func TestReadServiceDegradesWithoutInspectors(t *testing.T) {
 		}
 	}
 
-	redisRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, cacheinfra.BackendKindRedis)
+	redisRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, BackendKindRedis)
 	if redisRuntime.Configured || redisRuntime.Healthy {
 		t.Fatalf("redis runtime = %#v, want unconfigured and unhealthy", redisRuntime)
 	}
 }
 
-func findRuntimeStatus(t *testing.T, statuses []cacheinfra.RuntimeStatus, backend cacheinfra.BackendKind) cacheinfra.RuntimeStatus {
+func findRuntimeStatus(t *testing.T, statuses []RuntimeStatus, backend BackendKind) RuntimeStatus {
 	t.Helper()
 	for _, status := range statuses {
 		if status.Backend == backend {
@@ -141,9 +84,19 @@ func findRuntimeStatus(t *testing.T, statuses []cacheinfra.RuntimeStatus, backen
 		}
 	}
 	t.Fatalf("runtime status for backend %s not found", backend)
-	return cacheinfra.RuntimeStatus{}
+	return RuntimeStatus{}
 }
 
-func mustStr(s string) *string {
-	return &s
+type governanceInspectorStub struct {
+	descriptor FamilyDescriptor
+	status     FamilyStatus
+	err        error
+}
+
+func (s governanceInspectorStub) Descriptor() FamilyDescriptor {
+	return s.descriptor
+}
+
+func (s governanceInspectorStub) Status(context.Context) (FamilyStatus, error) {
+	return s.status, s.err
 }

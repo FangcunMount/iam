@@ -1,23 +1,25 @@
 package cache
 
+import cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+
 // RedisDataType 表示治理面视角下的 Redis 数据结构。
-type RedisDataType string
+type RedisDataType = cachegovernance.RedisDataType
 
 const (
-	RedisDataTypeNone   RedisDataType = "none"
-	RedisDataTypeString RedisDataType = "string"
-	RedisDataTypeHash   RedisDataType = "hash"
-	RedisDataTypeSet    RedisDataType = "set"
-	RedisDataTypeZSet   RedisDataType = "zset"
+	RedisDataTypeNone   = cachegovernance.RedisDataTypeNone
+	RedisDataTypeString = cachegovernance.RedisDataTypeString
+	RedisDataTypeHash   = cachegovernance.RedisDataTypeHash
+	RedisDataTypeSet    = cachegovernance.RedisDataTypeSet
+	RedisDataTypeZSet   = cachegovernance.RedisDataTypeZSet
 )
 
 // ValueCodecKind 表示 family 的 value 编码方式。
-type ValueCodecKind string
+type ValueCodecKind = cachegovernance.ValueCodecKind
 
 const (
-	ValueCodecKindMemoryObject ValueCodecKind = "memory_object"
-	ValueCodecKindJSON         ValueCodecKind = "json"
-	ValueCodecKindMarker       ValueCodecKind = "marker"
-	ValueCodecKindString       ValueCodecKind = "string"
-	ValueCodecKindLeaseToken   ValueCodecKind = "lease_token"
+	ValueCodecKindMemoryObject = cachegovernance.ValueCodecKindMemoryObject
+	ValueCodecKindJSON         = cachegovernance.ValueCodecKindJSON
+	ValueCodecKindMarker       = cachegovernance.ValueCodecKindMarker
+	ValueCodecKindString       = cachegovernance.ValueCodecKindString
+	ValueCodecKindLeaseToken   = cachegovernance.ValueCodecKindLeaseToken
 )

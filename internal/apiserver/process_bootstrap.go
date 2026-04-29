@@ -9,6 +9,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/component-base/pkg/shutdown"
 	"github.com/FangcunMount/iam/internal/apiserver/container"
+	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
 	redis "github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -116,8 +117,31 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 }
 
 func (s *apiServer) prepareTransports(out containerOutput) {
-	NewRouter(out.container).RegisterRoutes(s.genericAPIServer.Engine)
+	NewRouter(out.container.BuildRESTDeps(routerOptionsFromConfig())).RegisterRoutes(s.genericAPIServer.Engine)
 	s.registerGRPCServices()
+}
+
+func routerOptionsFromConfig() resttransport.RouterOptions {
+	options := resttransport.RouterOptions{
+		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
+			AppMode: viper.GetString("app.mode"),
+		},
+		SeedMockAuth: resttransport.SeedMockAuthOptions{
+			Enabled:      viper.GetBool("seed_mock_auth.enabled"),
+			SharedSecret: viper.GetString("seed_mock_auth.shared_secret"),
+		},
+	}
+
+	if viper.IsSet("debug.cache_governance.enabled") {
+		enabled := viper.GetBool("debug.cache_governance.enabled")
+		options.DebugCacheGovernance.Enabled = &enabled
+	}
+	if viper.IsSet("debug.cache_governance.require_admin") {
+		requireAdmin := viper.GetBool("debug.cache_governance.require_admin")
+		options.DebugCacheGovernance.RequireAdmin = &requireAdmin
+	}
+
+	return options
 }
 
 func (s *apiServer) startRuntimeTasks() {

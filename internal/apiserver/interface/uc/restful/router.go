@@ -3,13 +3,15 @@ package restful
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
 )
 
 // Dependencies bundles the runtime collaborators required by the UC HTTP adapters.
 type Dependencies struct {
-	Module         *assembler.UserModule
-	AuthMiddleware gin.HandlerFunc
+	UserHandler         *handler.UserHandler
+	ChildHandler        *handler.ChildHandler
+	GuardianshipHandler *handler.GuardianshipHandler
+	AuthMiddleware      gin.HandlerFunc
 }
 
 var deps Dependencies
@@ -21,56 +23,56 @@ func Provide(d Dependencies) {
 
 // Register exposes the UC module REST endpoints on the supplied engine.
 func Register(engine *gin.Engine) {
-	if engine == nil || deps.Module == nil || deps.AuthMiddleware == nil {
+	if engine == nil || deps.AuthMiddleware == nil {
 		return
 	}
 
 	api := engine.Group("/api/v1/identity")
 	api.Use(deps.AuthMiddleware)
 
-	registerUserRoutes(api, deps.Module)
-	registerChildRoutes(api, deps.Module)
-	registerGuardianshipRoutes(api, deps.Module)
+	registerUserRoutes(api, deps.UserHandler)
+	registerChildRoutes(api, deps.ChildHandler)
+	registerGuardianshipRoutes(api, deps.GuardianshipHandler)
 }
 
 // registerUserRoutes 注册用户相关路由
-func registerUserRoutes(api *gin.RouterGroup, module *assembler.UserModule) {
-	if module.UserHandler == nil {
+func registerUserRoutes(api *gin.RouterGroup, h *handler.UserHandler) {
+	if h == nil {
 		return
 	}
 
 	me := api.Group("/me")
 	{
-		me.GET("", module.UserHandler.GetUserProfile)
-		me.PATCH("", module.UserHandler.PatchUser)
+		me.GET("", h.GetUserProfile)
+		me.PATCH("", h.PatchUser)
 	}
 }
 
-func registerChildRoutes(api *gin.RouterGroup, module *assembler.UserModule) {
-	if module.ChildHandler == nil {
+func registerChildRoutes(api *gin.RouterGroup, h *handler.ChildHandler) {
+	if h == nil {
 		return
 	}
 
 	me := api.Group("/me")
 	{
-		me.GET("/children", module.ChildHandler.ListMyChildren)
+		me.GET("/children", h.ListMyChildren)
 	}
 
-	api.POST("/children/register", module.ChildHandler.RegisterChild)
-	api.GET("/children/search", module.ChildHandler.SearchChildren)
+	api.POST("/children/register", h.RegisterChild)
+	api.GET("/children/search", h.SearchChildren)
 
 	children := api.Group("/children")
 	{
-		children.GET("/:id", module.ChildHandler.GetChild)
-		children.PATCH("/:id", module.ChildHandler.PatchChild)
+		children.GET("/:id", h.GetChild)
+		children.PATCH("/:id", h.PatchChild)
 	}
 }
 
-func registerGuardianshipRoutes(api *gin.RouterGroup, module *assembler.UserModule) {
-	if module.GuardianshipHandler == nil {
+func registerGuardianshipRoutes(api *gin.RouterGroup, h *handler.GuardianshipHandler) {
+	if h == nil {
 		return
 	}
 
-	api.GET("/guardians", module.GuardianshipHandler.List)
-	api.POST("/guardians/grant", module.GuardianshipHandler.Grant)
+	api.GET("/guardians", h.List)
+	api.POST("/guardians/grant", h.Grant)
 }

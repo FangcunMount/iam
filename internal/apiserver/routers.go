@@ -7,47 +7,42 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	openapiFS "github.com/FangcunMount/iam/api"
-	"github.com/FangcunMount/iam/internal/apiserver/container"
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
 	authnhttp "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful"
 	authzhttp "github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful"
 	cachegovernancehandler "github.com/FangcunMount/iam/internal/apiserver/interface/cachegovernance/restful/handler"
 	idphttp "github.com/FangcunMount/iam/internal/apiserver/interface/idp/restful"
 	suggesthttp "github.com/FangcunMount/iam/internal/apiserver/interface/suggest/restful"
 	userhttp "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful"
+	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
 	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 	swaggerui "github.com/FangcunMount/iam/web/swagger-ui"
 )
 
 // Router 集中的路由管理器
 type Router struct {
-	container              *container.Container
+	deps                   resttransport.Deps
 	engine                 *gin.Engine // 保存 engine 引用用于调试
 	cacheGovernanceHandler *cachegovernancehandler.GovernanceHandler
 }
 
 type routeDependencies struct {
-	authn            *assembler.AuthnModule
-	authz            *assembler.AuthzModule
-	idp              *assembler.IDPModule
-	user             *assembler.UserModule
-	suggest          *assembler.SuggestModule
+	authn            resttransport.AuthnDeps
+	authz            resttransport.AuthzDeps
+	idp              resttransport.IDPDeps
+	user             resttransport.UserDeps
+	suggest          resttransport.SuggestDeps
 	authMiddleware   *authnMiddleware.JWTAuthMiddleware
 	adminMiddlewares []gin.HandlerFunc
 }
 
 // NewRouter 创建路由管理器
-func NewRouter(c *container.Container) *Router {
-	var governanceHandler = cachegovernancehandler.NewGovernanceHandler(nil)
-	if c != nil {
-		governanceHandler = cachegovernancehandler.NewGovernanceHandler(c.CacheGovernanceService)
-	}
+func NewRouter(deps resttransport.Deps) *Router {
+	governanceHandler := cachegovernancehandler.NewGovernanceHandler(deps.CacheGovernance)
 	return &Router{
-		container:              c,
+		deps:                   deps,
 		cacheGovernanceHandler: governanceHandler,
 	}
 }
@@ -62,7 +57,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	r.registerBaseRoutes(engine)
 
-	if r.container == nil {
+	if !r.deps.ModuleStatus.ContainerInitialized {
 		r.registerCacheGovernanceDebugRoutes(engine, nil)
 		fmt.Printf("⚠️  container not initialized, skipped module route registration\n")
 		return
@@ -77,7 +72,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 	r.registerCacheGovernanceDebugRoutes(engine, authMiddleware)
 
 	// Authn 模块（公开端点）
-	if deps.authn != nil {
+	if authnRoutesAvailable(deps.authn) {
 		authnhttp.Provide(authnhttp.Dependencies{
 			AuthHandler:      deps.authn.AuthHandler,
 			AccountHandler:   deps.authn.AccountHandler,
@@ -85,8 +80,8 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 			AdminMiddlewares: deps.adminMiddlewares,
 		})
 		authnhttp.Register(engine)
-		if viper.GetBool("seed_mock_auth.enabled") {
-			secret := strings.TrimSpace(viper.GetString("seed_mock_auth.shared_secret"))
+		if r.deps.SeedMockAuth.Enabled {
+			secret := strings.TrimSpace(r.deps.SeedMockAuth.SharedSecret)
 			if secret == "" {
 				log.Warn("⚠️  seed_mock_auth.enabled=true but seed_mock_auth.shared_secret is empty; internal mock-consumer route not registered")
 			} else {
@@ -100,7 +95,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 	}
 
 	// Authz 模块（授权管理 + PDP）
-	if deps.authz != nil && authMiddleware != nil {
+	if authzRoutesAvailable(deps.authz) && authMiddleware != nil {
 		authzhttp.Provide(authzhttp.Dependencies{
 			RoleHandler:       deps.authz.RoleHandler,
 			AssignmentHandler: deps.authz.AssignmentHandler,
@@ -111,14 +106,14 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 		})
 		authzhttp.Register(engine)
 		log.Info("✅ Authz module routes registered")
-	} else if deps.authz != nil {
+	} else if authzRoutesAvailable(deps.authz) {
 		log.Warn("⚠️  Authz module initialized but JWT middleware unavailable; protected routes not registered")
 	} else {
 		log.Warn("⚠️  Authz module not initialized, routes not registered")
 	}
 
 	// IDP 模块（身份提供者）
-	if deps.idp != nil {
+	if r.deps.ModuleStatus.IDP {
 		idphttp.Provide(idphttp.Dependencies{
 			WechatAppHandler: deps.idp.WechatAppHandler,
 			AdminMiddlewares: deps.adminMiddlewares,
@@ -131,28 +126,30 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 	}
 
 	// User 模块（受 JWT 保护）
-	if deps.user != nil && authMiddleware != nil {
+	if userRoutesAvailable(deps.user) && authMiddleware != nil {
 		userhttp.Provide(userhttp.Dependencies{
-			Module:         deps.user,
-			AuthMiddleware: authMiddleware.AuthRequired(),
+			UserHandler:         deps.user.UserHandler,
+			ChildHandler:        deps.user.ChildHandler,
+			GuardianshipHandler: deps.user.GuardianshipHandler,
+			AuthMiddleware:      authMiddleware.AuthRequired(),
 		})
 		userhttp.Register(engine)
 		log.Info("✅ User module routes registered")
-	} else if deps.user != nil {
+	} else if userRoutesAvailable(deps.user) {
 		log.Warn("⚠️  User module initialized but JWT middleware unavailable; protected routes not registered")
 	} else {
 		log.Warn("⚠️  User module not initialized, routes not registered")
 	}
 
 	// Suggest 模块（依赖 Service 和可选认证）
-	if deps.suggest != nil && deps.suggest.Service != nil && authMiddleware != nil {
+	if deps.suggest.Service != nil && authMiddleware != nil {
 		suggesthttp.Provide(suggesthttp.Dependencies{
 			Service:        deps.suggest.Service,
 			AuthMiddleware: authMiddleware.AuthRequired(),
 		})
 		suggesthttp.Register(engine)
 		log.Info("✅ Suggest module routes registered")
-	} else if deps.suggest != nil && deps.suggest.Service != nil {
+	} else if deps.suggest.Service != nil {
 		log.Warn("⚠️  Suggest module initialized but JWT middleware unavailable; protected routes not registered")
 	} else {
 		log.Warn("⚠️  Suggest module not initialized or disabled, routes not registered")
@@ -164,24 +161,20 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 }
 
 func (r *Router) resolveRouteDependencies() routeDependencies {
-	if r.container == nil {
+	if !r.deps.ModuleStatus.ContainerInitialized {
 		return routeDependencies{}
 	}
 
 	deps := routeDependencies{
-		authn:   r.container.AuthnModule,
-		authz:   r.container.AuthzModule,
-		idp:     r.container.IDPModule,
-		user:    r.container.UserModule,
-		suggest: r.container.SuggestModule,
+		authn:   r.deps.Authn,
+		authz:   r.deps.Authz,
+		idp:     r.deps.IDP,
+		user:    r.deps.User,
+		suggest: r.deps.Suggest,
 	}
 
-	if deps.authn != nil && deps.authn.TokenService != nil {
-		var casbin authnMiddleware.CasbinEnforcer
-		if deps.authz != nil && deps.authz.CasbinAdapter != nil {
-			casbin = deps.authz.CasbinAdapter
-		}
-		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, casbin)
+	if deps.authn.TokenService != nil {
+		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, deps.authz.Casbin)
 	}
 
 	if deps.authMiddleware != nil && deps.authMiddleware.SupportsRoleCheck() {
@@ -189,6 +182,19 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 	}
 
 	return deps
+}
+
+func authnRoutesAvailable(deps resttransport.AuthnDeps) bool {
+	return deps.AuthHandler != nil || deps.AccountHandler != nil || deps.JWKSHandler != nil
+}
+
+func authzRoutesAvailable(deps resttransport.AuthzDeps) bool {
+	return deps.RoleHandler != nil || deps.AssignmentHandler != nil || deps.PolicyHandler != nil ||
+		deps.ResourceHandler != nil || deps.CheckHandler != nil
+}
+
+func userRoutesAvailable(deps resttransport.UserDeps) bool {
+	return deps.UserHandler != nil || deps.ChildHandler != nil || deps.GuardianshipHandler != nil
 }
 
 func (r *Router) registerBaseRoutes(engine *gin.Engine) {
@@ -243,18 +249,18 @@ func (r *Router) registerCacheGovernanceDebugRoutes(engine *gin.Engine, authMidd
 }
 
 func (r *Router) cacheGovernanceDebugEnabled() bool {
-	if viper.IsSet("debug.cache_governance.enabled") {
-		return viper.GetBool("debug.cache_governance.enabled")
+	if r.deps.DebugCacheGovernance.Enabled != nil {
+		return *r.deps.DebugCacheGovernance.Enabled
 	}
-	return viper.GetString("app.mode") != "production"
+	return r.deps.DebugCacheGovernance.AppMode != "production"
 }
 
 func (r *Router) cacheGovernanceDebugRequireAdmin() bool {
-	if viper.GetString("app.mode") == "production" {
+	if r.deps.DebugCacheGovernance.AppMode == "production" {
 		return true
 	}
-	if viper.IsSet("debug.cache_governance.require_admin") {
-		return viper.GetBool("debug.cache_governance.require_admin")
+	if r.deps.DebugCacheGovernance.RequireAdmin != nil {
+		return *r.deps.DebugCacheGovernance.RequireAdmin
 	}
 	return false
 }
@@ -276,10 +282,10 @@ func (r *Router) registerAdminRoutes(engine *gin.Engine, authMiddleware *authnMi
 		admin.GET("/users", r.placeholder)      // 管理员获取所有用户
 		admin.GET("/statistics", r.placeholder) // 系统统计信息
 		admin.GET("/logs", r.placeholder)       // 系统日志
-		if r.container != nil && r.container.AuthnModule != nil && r.container.AuthnModule.SessionAdminHandler != nil {
-			admin.POST("/sessions/:sessionId/revoke", r.container.AuthnModule.SessionAdminHandler.RevokeSession)
-			admin.POST("/accounts/:accountId/sessions/revoke", r.container.AuthnModule.SessionAdminHandler.RevokeAccountSessions)
-			admin.POST("/users/:userId/sessions/revoke", r.container.AuthnModule.SessionAdminHandler.RevokeUserSessions)
+		if r.deps.Authn.SessionAdminHandler != nil {
+			admin.POST("/sessions/:sessionId/revoke", r.deps.Authn.SessionAdminHandler.RevokeSession)
+			admin.POST("/accounts/:accountId/sessions/revoke", r.deps.Authn.SessionAdminHandler.RevokeAccountSessions)
+			admin.POST("/users/:userId/sessions/revoke", r.deps.Authn.SessionAdminHandler.RevokeUserSessions)
 		}
 	}
 }
@@ -296,20 +302,16 @@ func (r *Router) placeholder(c *gin.Context) {
 
 // healthCheck 健康检查处理函数
 func (r *Router) healthCheck(c *gin.Context) {
-	authEnabled := r.container != nil && r.container.AuthnModule != nil && r.container.AuthnModule.TokenService != nil
+	authEnabled := r.deps.ModuleStatus.AuthEnabled
 	authzRuntimeHealthy := true
 	authzRuntimeError := ""
 	var authzReloadedAt time.Time
 
-	if r.container != nil && r.container.AuthzModule != nil && r.container.AuthzModule.CasbinAdapter != nil {
-		if reporter, ok := r.container.AuthzModule.CasbinAdapter.(interface {
-			ReloadHealth() (bool, error, time.Time)
-		}); ok {
-			var err error
-			authzRuntimeHealthy, err, authzReloadedAt = reporter.ReloadHealth()
-			if err != nil {
-				authzRuntimeError = err.Error()
-			}
+	if r.deps.Authz.HealthReporter != nil {
+		var err error
+		authzRuntimeHealthy, err, authzReloadedAt = r.deps.Authz.HealthReporter.ReloadHealth()
+		if err != nil {
+			authzRuntimeError = err.Error()
 		}
 	}
 
@@ -387,15 +389,16 @@ func (r *Router) debugRoutes(c *gin.Context) {
 // debugModules 调试端点：查看模块初始化状态
 func (r *Router) debugModules(c *gin.Context) {
 	response := gin.H{
-		"container_initialized": r.container != nil,
+		"container_initialized": r.deps.ModuleStatus.ContainerInitialized,
 	}
 
-	if r.container != nil {
+	if r.deps.ModuleStatus.ContainerInitialized {
 		response["modules"] = gin.H{
-			"authn": r.container.AuthnModule != nil,
-			"authz": r.container.AuthzModule != nil,
-			"user":  r.container.UserModule != nil,
-			"idp":   r.container.IDPModule != nil,
+			"authn":   r.deps.ModuleStatus.Authn,
+			"authz":   r.deps.ModuleStatus.Authz,
+			"user":    r.deps.ModuleStatus.User,
+			"idp":     r.deps.ModuleStatus.IDP,
+			"suggest": r.deps.ModuleStatus.Suggest,
 		}
 		response["container_status"] = "initialized"
 	} else {

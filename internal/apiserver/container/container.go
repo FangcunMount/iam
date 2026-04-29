@@ -14,7 +14,6 @@ import (
 
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 	eventoutbox "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/internal/pkg/event"
 	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
@@ -253,11 +252,11 @@ func (c *Container) initIDPModule() error {
 }
 
 type cacheInspectorProvider interface {
-	CacheFamilyInspectors() []cacheinfra.FamilyInspector
+	CacheFamilyInspectors() []cachegovernance.FamilyInspector
 }
 
 func (c *Container) initCacheGovernance() {
-	inspectors := make([]cacheinfra.FamilyInspector, 0, 8)
+	inspectors := make([]cachegovernance.FamilyInspector, 0, 8)
 	for _, provider := range []cacheInspectorProvider{c.AuthnModule, c.IDPModule} {
 		if provider == nil {
 			continue

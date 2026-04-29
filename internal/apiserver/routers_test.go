@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 
 	sessionapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
@@ -19,21 +18,21 @@ import (
 	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
 	authzhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
 	uchandler "github.com/FangcunMount/iam/internal/apiserver/interface/uc/restful/handler"
+	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
 	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
 func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("app.mode", "development")
 
 	engine := gin.New()
 	c := &container.Container{
 		CacheGovernanceService: cachegovernance.NewReadService(nil),
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{
+		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{AppMode: "development"},
+	}).RegisterRoutes(engine)
 
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusOK, true)
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/overview", http.StatusOK, true)
@@ -43,16 +42,15 @@ func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *test
 
 func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesInProductionByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("app.mode", "production")
 
 	engine := gin.New()
 	c := &container.Container{
 		CacheGovernanceService: cachegovernance.NewReadService(nil),
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{
+		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{AppMode: "production"},
+	}).RegisterRoutes(engine)
 
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/overview", http.StatusNotFound, false)
@@ -61,46 +59,44 @@ func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesInProductionByDefault(t 
 
 func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesWhenAdminProtectionUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("app.mode", "production")
-	viper.Set("debug.cache_governance.enabled", true)
-	viper.Set("debug.cache_governance.require_admin", true)
 
 	engine := gin.New()
 	c := &container.Container{
 		CacheGovernanceService: cachegovernance.NewReadService(nil),
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{
+		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
+			AppMode:      "production",
+			Enabled:      boolPtr(true),
+			RequireAdmin: boolPtr(true),
+		},
+	}).RegisterRoutes(engine)
 
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
 }
 
 func TestRouterForcesAdminProtectionForCacheGovernanceDebugRoutesInProduction(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("app.mode", "production")
-	viper.Set("debug.cache_governance.enabled", true)
-	viper.Set("debug.cache_governance.require_admin", false)
 
 	engine := gin.New()
 	c := &container.Container{
 		CacheGovernanceService: cachegovernance.NewReadService(nil),
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{
+		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
+			AppMode:      "production",
+			Enabled:      boolPtr(true),
+			RequireAdmin: boolPtr(false),
+		},
+	}).RegisterRoutes(engine)
 
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
 }
 
 func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("seed_mock_auth.enabled", true)
-	viper.Set("seed_mock_auth.shared_secret", "test-secret")
 
 	engine := gin.New()
 	c := &container.Container{
@@ -109,15 +105,15 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 		},
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{
+		SeedMockAuth: resttransport.SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"},
+	}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
 }
 
 func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
 
 	engine := gin.New()
 	c := &container.Container{
@@ -126,7 +122,7 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 		},
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/login")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
@@ -134,10 +130,6 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 
 func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("seed_mock_auth.enabled", true)
-	viper.Set("seed_mock_auth.shared_secret", "")
 
 	engine := gin.New()
 	c := &container.Container{
@@ -146,7 +138,9 @@ func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 		},
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{
+		SeedMockAuth: resttransport.SeedMockAuthOptions{Enabled: true, SharedSecret: ""},
+	}).RegisterRoutes(engine)
 
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
 }
@@ -155,11 +149,11 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	router := NewRouter(&container.Container{
+	router := newRouterForTest(&container.Container{
 		AuthnModule: &assembler.AuthnModule{
 			SessionAdminHandler: authhandler.NewSessionAdminHandler(sessionServiceStub{}),
 		},
-	})
+	}, resttransport.RouterOptions{})
 
 	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, casbinStub{}))
 
@@ -172,11 +166,11 @@ func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
-	router := NewRouter(&container.Container{
+	router := newRouterForTest(&container.Container{
 		AuthnModule: &assembler.AuthnModule{
 			SessionAdminHandler: authhandler.NewSessionAdminHandler(sessionServiceStub{}),
 		},
-	})
+	}, resttransport.RouterOptions{})
 
 	router.registerAdminRoutes(engine, nil)
 
@@ -200,7 +194,7 @@ func TestRouterRegistersIdentityGuardiansRoutes(t *testing.T) {
 		},
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/guardians/grant")
@@ -229,13 +223,21 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		},
 	}
 
-	NewRouter(c).RegisterRoutes(engine)
+	newRouterForTest(c, resttransport.RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/identity/children/register")
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/suggest/child")
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/roles")
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/health")
+}
+
+func newRouterForTest(c *container.Container, options resttransport.RouterOptions) *Router {
+	return NewRouter(c.BuildRESTDeps(options))
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
 
 func assertDebugRouteStatus(t *testing.T, engine *gin.Engine, method, path string, wantStatus int, wantJSON bool) {

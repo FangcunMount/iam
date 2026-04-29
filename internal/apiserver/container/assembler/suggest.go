@@ -8,7 +8,8 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/mysql/suggest"
+	mysqlsuggest "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/suggest"
+	searchruntime "github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search"
 )
 
 // SuggestModule 联想搜索模块
@@ -54,16 +55,17 @@ func (m *SuggestModule) Initialize(params ...interface{}) error {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
 
-	m.Service = appsuggest.NewService(appsuggest.Config{
+	runtime := searchruntime.NewRuntime()
+	m.Service = appsuggest.NewServiceWithRuntime(appsuggest.Config{
 		MaxResults: cfg.MaxResults,
 		KeyPadLen:  cfg.KeyPadLen,
-	})
+	}, runtime)
 
-	loader := suggest.NewLoader(db, suggest.LoaderConfig{
+	loader := mysqlsuggest.NewLoader(db, mysqlsuggest.LoaderConfig{
 		FullSQL:  cfg.FullSQL,
 		DeltaSQL: cfg.DeltaSQL,
 	})
-	m.Updater = appsuggest.NewUpdater(loader, cfg.ToUpdaterConfig())
+	m.Updater = appsuggest.NewUpdaterWithRuntime(loader, cfg.ToUpdaterConfig(), runtime)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := m.Updater.Start(ctx); err != nil {

@@ -1,24 +1,9 @@
 package cache
 
+import cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+
 // FamilyPolicy 描述某个缓存族的静态策略。
-type FamilyPolicy struct {
-	TTLSource                      string
-	WriteMode                      string
-	InvalidationMode               string
-	HasInternalRefreshCoordination bool
-}
+type FamilyPolicy = cachegovernance.FamilyPolicy
 
 // FamilyDescriptor 描述一个缓存族的治理元数据。
-type FamilyDescriptor struct {
-	Family          Family
-	Backend         BackendKind
-	RedisType       RedisDataType
-	Codec           ValueCodecKind
-	Role            DataRole
-	OwnerModule     string
-	KeyPattern      string
-	TTLSource       string
-	SelectionReason string
-	Policy          FamilyPolicy
-	Capabilities    []GovernanceCapability
-}
+type FamilyDescriptor = cachegovernance.FamilyDescriptor

@@ -1,42 +1,44 @@
 package cache
 
+import cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+
 // Family 表示 IAM 中一个稳定的缓存族标识。
-type Family string
+type Family = cachegovernance.Family
 
 const (
-	FamilyAuthnRefreshToken        Family = "authn.refresh_token"
-	FamilyAuthnRevokedAccessToken  Family = "authn.revoked_access_token"
-	FamilyAuthnSession             Family = "authn.session"
-	FamilyAuthnUserSessionIndex    Family = "authn.user_session_index"
-	FamilyAuthnAccountSessionIndex Family = "authn.account_session_index"
-	FamilyAuthnLoginOTP            Family = "authn.login_otp"
-	FamilyAuthnLoginOTPSendGate    Family = "authn.login_otp_send_gate"
-	FamilyIDPWechatAccessToken     Family = "idp.wechat_access_token"
-	FamilyIDPWechatSDK             Family = "idp.wechat_sdk"
-	FamilyAuthnJWKSPublishSnapshot Family = "authn.jwks_publish_snapshot"
+	FamilyAuthnRefreshToken        = cachegovernance.FamilyAuthnRefreshToken
+	FamilyAuthnRevokedAccessToken  = cachegovernance.FamilyAuthnRevokedAccessToken
+	FamilyAuthnSession             = cachegovernance.FamilyAuthnSession
+	FamilyAuthnUserSessionIndex    = cachegovernance.FamilyAuthnUserSessionIndex
+	FamilyAuthnAccountSessionIndex = cachegovernance.FamilyAuthnAccountSessionIndex
+	FamilyAuthnLoginOTP            = cachegovernance.FamilyAuthnLoginOTP
+	FamilyAuthnLoginOTPSendGate    = cachegovernance.FamilyAuthnLoginOTPSendGate
+	FamilyIDPWechatAccessToken     = cachegovernance.FamilyIDPWechatAccessToken
+	FamilyIDPWechatSDK             = cachegovernance.FamilyIDPWechatSDK
+	FamilyAuthnJWKSPublishSnapshot = cachegovernance.FamilyAuthnJWKSPublishSnapshot
 )
 
 // BackendKind 表示缓存后端类型。
-type BackendKind string
+type BackendKind = cachegovernance.BackendKind
 
 const (
-	BackendKindRedis  BackendKind = "redis"
-	BackendKindMemory BackendKind = "memory"
+	BackendKindRedis  = cachegovernance.BackendKindRedis
+	BackendKindMemory = cachegovernance.BackendKindMemory
 )
 
 // DataRole 表示缓存族承载的数据角色。
-type DataRole string
+type DataRole = cachegovernance.DataRole
 
 const (
-	DataRoleAuthoritativeState DataRole = "authoritative_state"
-	DataRoleMarkerState        DataRole = "marker_state"
-	DataRoleRemoteTokenCache   DataRole = "remote_token_cache"
-	DataRoleDerivedSnapshot    DataRole = "derived_snapshot"
+	DataRoleAuthoritativeState = cachegovernance.DataRoleAuthoritativeState
+	DataRoleMarkerState        = cachegovernance.DataRoleMarkerState
+	DataRoleRemoteTokenCache   = cachegovernance.DataRoleRemoteTokenCache
+	DataRoleDerivedSnapshot    = cachegovernance.DataRoleDerivedSnapshot
 )
 
 // GovernanceCapability 表示第一版治理面对 family 暴露的能力。
-type GovernanceCapability string
+type GovernanceCapability = cachegovernance.GovernanceCapability
 
 const (
-	GovernanceCapabilityInspect GovernanceCapability = "inspect"
+	GovernanceCapabilityInspect = cachegovernance.GovernanceCapabilityInspect
 )

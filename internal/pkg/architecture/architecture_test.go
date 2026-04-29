@@ -16,13 +16,7 @@ import (
 
 const modulePath = "github.com/FangcunMount/iam/"
 
-var activeLegacyApplicationInfrastructureImports = map[string]string{
-	"internal/apiserver/application/cachegovernance/jwks_inspector.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache": "legacy_cache_inspector_model_to_move_to_port",
-	"internal/apiserver/application/cachegovernance/model.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache":          "legacy_cache_inspector_model_to_move_to_port",
-	"internal/apiserver/application/cachegovernance/service.go:github.com/FangcunMount/iam/internal/apiserver/infra/cache":        "legacy_cache_inspector_model_to_move_to_port",
-	"internal/apiserver/application/suggest/service.go:github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search":       "legacy_direct_search_adapter_to_hide_behind_port",
-	"internal/apiserver/application/suggest/updater.go:github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search":       "legacy_direct_search_adapter_to_hide_behind_port",
-}
+var activeLegacyApplicationInfrastructureImports = map[string]string{}
 
 var retiredArchitectureExceptionReasonParts = [][]string{
 	{"application", "test", "support"},
@@ -95,6 +89,23 @@ func TestApplicationTestSupportDependenciesStayInTestutil(t *testing.T) {
 				imp == "gorm.io/gorm" ||
 				strings.HasPrefix(imp, "gorm.io/driver/") {
 				t.Fatalf("%s imports %s; application test support may only depend on GORM and infra/mysql test PO helpers", rel, imp)
+			}
+		}
+	})
+}
+
+func TestRESTRouterDoesNotImportCompositionOrGlobalConfig(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImports(t, filepath.Join(root, "internal", "apiserver"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if rel != "internal/apiserver/routers.go" {
+			return
+		}
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/container") || imp == "github.com/spf13/viper" {
+				t.Fatalf("%s imports %s; REST router must consume transport deps instead of composition container or global config", rel, imp)
 			}
 		}
 	})

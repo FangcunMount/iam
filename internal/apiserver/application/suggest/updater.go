@@ -11,7 +11,6 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search"
 )
 
 // Loader 负责提供数据行
@@ -23,6 +22,7 @@ type Loader interface {
 // Updater 定期刷新内存搜索引擎
 type Updater struct {
 	loader        Loader
+	runtime       IndexRuntime
 	fullSpec      string
 	deltaSpec     string
 	dataDir       string
@@ -41,12 +41,18 @@ type UpdaterConfig struct {
 
 // NewUpdater 创建 Updater
 func NewUpdater(loader Loader, cfg UpdaterConfig) *Updater {
+	return NewUpdaterWithRuntime(loader, cfg, nil)
+}
+
+// NewUpdaterWithRuntime creates an updater with an explicit index runtime.
+func NewUpdaterWithRuntime(loader Loader, cfg UpdaterConfig, runtime IndexRuntime) *Updater {
 	full := cfg.FullCron
 	if full == "" {
 		full = "@every 1h"
 	}
 	return &Updater{
 		loader:        loader,
+		runtime:       runtime,
 		fullSpec:      full,
 		deltaSpec:     cfg.DeltaCron,
 		dataDir:       cfg.DataDir,
@@ -108,7 +114,9 @@ func (u *Updater) runFull(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	search.Swap(search.Load(lines))
+	if u.runtime != nil {
+		u.runtime.Replace(lines)
+	}
 	u.lastFetch = time.Now()
 	u.persist(lines)
 	log.Infow("suggest full sync completed", "count", len(lines))
@@ -126,11 +134,12 @@ func (u *Updater) runDelta(ctx context.Context) error {
 	if len(lines) == 0 {
 		return nil
 	}
-	store := search.Current()
-	if store == nil {
+	if u.runtime == nil {
 		return fmt.Errorf("suggest store not initialized")
 	}
-	store.ImportLines(lines)
+	if err := u.runtime.ImportDelta(lines); err != nil {
+		return err
+	}
 	u.lastFetch = time.Now()
 	u.persist(lines)
 	log.Infow("suggest delta sync completed", "count", len(lines))

@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/interface/cachegovernance/restful/response"
 )
@@ -62,7 +61,7 @@ func (h *GovernanceHandler) GetFamily(c *gin.Context) {
 		return
 	}
 
-	family := cacheinfra.Family(c.Param("family"))
+	family := cachegovernance.Family(c.Param("family"))
 	view, err := h.service.Family(c.Request.Context(), family)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{

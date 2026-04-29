@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	jwksdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/jwks"
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 type jwksPublishSnapshotInspector struct {
@@ -13,26 +12,26 @@ type jwksPublishSnapshotInspector struct {
 }
 
 // NewJWKSPublishSnapshotInspector 创建 JWKS 发布快照的只读状态读取器。
-func NewJWKSPublishSnapshotInspector(builder *jwksdomain.KeySetBuilder) cacheinfra.FamilyInspector {
+func NewJWKSPublishSnapshotInspector(builder *jwksdomain.KeySetBuilder) FamilyInspector {
 	return &jwksPublishSnapshotInspector{builder: builder}
 }
 
-func (i *jwksPublishSnapshotInspector) Descriptor() cacheinfra.FamilyDescriptor {
-	descriptor, ok := cacheinfra.GetFamily(cacheinfra.FamilyAuthnJWKSPublishSnapshot)
+func (i *jwksPublishSnapshotInspector) Descriptor() FamilyDescriptor {
+	descriptor, ok := GetFamily(FamilyAuthnJWKSPublishSnapshot)
 	if !ok {
-		return cacheinfra.FamilyDescriptor{
-			Family:    cacheinfra.FamilyAuthnJWKSPublishSnapshot,
-			Backend:   cacheinfra.BackendKindMemory,
-			RedisType: cacheinfra.RedisDataTypeNone,
-			Codec:     cacheinfra.ValueCodecKindMemoryObject,
+		return FamilyDescriptor{
+			Family:    FamilyAuthnJWKSPublishSnapshot,
+			Backend:   BackendKindMemory,
+			RedisType: RedisDataTypeNone,
+			Codec:     ValueCodecKindMemoryObject,
 		}
 	}
 	return descriptor
 }
 
-func (i *jwksPublishSnapshotInspector) Status(context.Context) (cacheinfra.FamilyStatus, error) {
-	status := cacheinfra.FamilyStatus{
-		Family:          cacheinfra.FamilyAuthnJWKSPublishSnapshot,
+func (i *jwksPublishSnapshotInspector) Status(context.Context) (FamilyStatus, error) {
+	status := FamilyStatus{
+		Family:          FamilyAuthnJWKSPublishSnapshot,
 		Configured:      i.builder != nil,
 		Healthy:         false,
 		EntryCountKnown: false,

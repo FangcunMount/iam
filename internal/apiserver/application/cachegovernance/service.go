@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
 )
 
 // Option 用于扩展只读治理服务的构造参数。
 type Option func(*ReadService)
 
 // WithRuntimeReaders 配置后端级运行状态读取器。
-func WithRuntimeReaders(readers ...cacheinfra.RuntimeStatusReader) Option {
+func WithRuntimeReaders(readers ...RuntimeStatusReader) Option {
 	return func(s *ReadService) {
 		for _, reader := range readers {
 			if reader == nil {
@@ -26,15 +24,15 @@ func WithRuntimeReaders(readers ...cacheinfra.RuntimeStatusReader) Option {
 
 // ReadService 负责聚合 IAM 缓存目录和运行状态。
 type ReadService struct {
-	inspectors     map[cacheinfra.Family]cacheinfra.FamilyInspector
-	runtimeReaders map[cacheinfra.BackendKind]cacheinfra.RuntimeStatusReader
+	inspectors     map[Family]FamilyInspector
+	runtimeReaders map[BackendKind]RuntimeStatusReader
 }
 
 // NewReadService 创建只读治理聚合服务。
-func NewReadService(inspectors []cacheinfra.FamilyInspector, opts ...Option) *ReadService {
+func NewReadService(inspectors []FamilyInspector, opts ...Option) *ReadService {
 	service := &ReadService{
-		inspectors:     make(map[cacheinfra.Family]cacheinfra.FamilyInspector, len(inspectors)),
-		runtimeReaders: map[cacheinfra.BackendKind]cacheinfra.RuntimeStatusReader{},
+		inspectors:     make(map[Family]FamilyInspector, len(inspectors)),
+		runtimeReaders: map[BackendKind]RuntimeStatusReader{},
 	}
 	for _, inspector := range inspectors {
 		if inspector == nil {
@@ -49,13 +47,13 @@ func NewReadService(inspectors []cacheinfra.FamilyInspector, opts ...Option) *Re
 }
 
 // Catalog 返回当前缓存目录快照。
-func (s *ReadService) Catalog(context.Context) ([]cacheinfra.FamilyDescriptor, error) {
-	return cacheinfra.Families(), nil
+func (s *ReadService) Catalog(context.Context) ([]FamilyDescriptor, error) {
+	return Families(), nil
 }
 
 // Family 返回指定缓存族的静态描述和只读状态。
-func (s *ReadService) Family(ctx context.Context, family cacheinfra.Family) (FamilyView, error) {
-	descriptor, ok := cacheinfra.GetFamily(family)
+func (s *ReadService) Family(ctx context.Context, family Family) (FamilyView, error) {
+	descriptor, ok := GetFamily(family)
 	if !ok {
 		return FamilyView{}, fmt.Errorf("unknown cache family %q", family)
 	}
@@ -64,9 +62,9 @@ func (s *ReadService) Family(ctx context.Context, family cacheinfra.Family) (Fam
 
 // Overview 返回所有缓存族和后端运行状态的聚合视图。
 func (s *ReadService) Overview(ctx context.Context) (Overview, error) {
-	descriptors := cacheinfra.Families()
+	descriptors := Families()
 	views := make([]FamilyView, 0, len(descriptors))
-	grouped := map[cacheinfra.BackendKind][]FamilyView{}
+	grouped := map[BackendKind][]FamilyView{}
 
 	for _, descriptor := range descriptors {
 		view := s.readFamilyView(ctx, descriptor)
@@ -74,7 +72,7 @@ func (s *ReadService) Overview(ctx context.Context) (Overview, error) {
 		grouped[descriptor.Backend] = append(grouped[descriptor.Backend], view)
 	}
 
-	runtimeStatuses := make([]cacheinfra.RuntimeStatus, 0, len(grouped))
+	runtimeStatuses := make([]RuntimeStatus, 0, len(grouped))
 	for _, backend := range orderedBackends(descriptors) {
 		runtimeStatuses = append(runtimeStatuses, s.readRuntimeStatus(ctx, backend, grouped[backend]))
 	}
@@ -85,12 +83,12 @@ func (s *ReadService) Overview(ctx context.Context) (Overview, error) {
 	}, nil
 }
 
-func (s *ReadService) readFamilyView(ctx context.Context, descriptor cacheinfra.FamilyDescriptor) FamilyView {
+func (s *ReadService) readFamilyView(ctx context.Context, descriptor FamilyDescriptor) FamilyView {
 	inspector := s.inspectors[descriptor.Family]
 	if inspector == nil {
 		return FamilyView{
 			Descriptor: descriptor,
-			Status: cacheinfra.FamilyStatus{
+			Status: FamilyStatus{
 				Family:          descriptor.Family,
 				Configured:      false,
 				Healthy:         false,
@@ -102,7 +100,7 @@ func (s *ReadService) readFamilyView(ctx context.Context, descriptor cacheinfra.
 
 	status, err := inspector.Status(ctx)
 	if err != nil {
-		status = cacheinfra.FamilyStatus{
+		status = FamilyStatus{
 			Family:          descriptor.Family,
 			Configured:      true,
 			Healthy:         false,
@@ -120,13 +118,13 @@ func (s *ReadService) readFamilyView(ctx context.Context, descriptor cacheinfra.
 	}
 }
 
-func (s *ReadService) readRuntimeStatus(ctx context.Context, backend cacheinfra.BackendKind, views []FamilyView) cacheinfra.RuntimeStatus {
+func (s *ReadService) readRuntimeStatus(ctx context.Context, backend BackendKind, views []FamilyView) RuntimeStatus {
 	if reader := s.runtimeReaders[backend]; reader != nil {
 		status, err := reader.Status(ctx)
 		if err == nil {
 			return status
 		}
-		return cacheinfra.RuntimeStatus{
+		return RuntimeStatus{
 			Backend:    backend,
 			Configured: true,
 			Healthy:    false,
@@ -136,8 +134,8 @@ func (s *ReadService) readRuntimeStatus(ctx context.Context, backend cacheinfra.
 	return deriveRuntimeStatus(backend, views)
 }
 
-func deriveRuntimeStatus(backend cacheinfra.BackendKind, views []FamilyView) cacheinfra.RuntimeStatus {
-	status := cacheinfra.RuntimeStatus{
+func deriveRuntimeStatus(backend BackendKind, views []FamilyView) RuntimeStatus {
+	status := RuntimeStatus{
 		Backend: backend,
 		Notes:   []string{},
 	}
@@ -177,9 +175,9 @@ func deriveRuntimeStatus(backend cacheinfra.BackendKind, views []FamilyView) cac
 	return status
 }
 
-func orderedBackends(descriptors []cacheinfra.FamilyDescriptor) []cacheinfra.BackendKind {
-	seen := map[cacheinfra.BackendKind]struct{}{}
-	backends := make([]cacheinfra.BackendKind, 0, len(descriptors))
+func orderedBackends(descriptors []FamilyDescriptor) []BackendKind {
+	seen := map[BackendKind]struct{}{}
+	backends := make([]BackendKind, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		if _, ok := seen[descriptor.Backend]; ok {
 			continue
