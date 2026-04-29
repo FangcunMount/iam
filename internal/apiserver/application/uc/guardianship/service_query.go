@@ -25,7 +25,7 @@ func NewGuardianshipQueryApplicationService(uow uow.UnitOfWork) GuardianshipQuer
 func (s *guardianshipQueryApplicationService) IsGuardian(ctx context.Context, userID string, childID string) (bool, error) {
 	var isGuardian bool
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		userIDObj, err := parseUserID(userID)
 		if err != nil {
@@ -57,7 +57,7 @@ func (s *guardianshipQueryApplicationService) GetByUserIDAndChildIDIncludingRevo
 func (s *guardianshipQueryApplicationService) getByUserIDAndChildID(ctx context.Context, userID string, childID string, includeRevoked bool) (*GuardianshipResult, error) {
 	var result *GuardianshipResult
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		userIDObj, err := parseUserID(userID)
 		if err != nil {
@@ -105,7 +105,7 @@ func (s *guardianshipQueryApplicationService) ListChildrenByUserIDIncludingRevok
 func (s *guardianshipQueryApplicationService) listChildrenByUserID(ctx context.Context, userID string, includeRevoked bool) ([]*GuardianshipResult, error) {
 	var results []*GuardianshipResult
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		userIDObj, err := parseUserID(userID)
 		if err != nil {
@@ -154,7 +154,7 @@ func (s *guardianshipQueryApplicationService) ListGuardiansByChildIDIncludingRev
 func (s *guardianshipQueryApplicationService) listGuardiansByChildID(ctx context.Context, childID string, includeRevoked bool) ([]*GuardianshipResult, error) {
 	var results []*GuardianshipResult
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		childIDObj, err := parseChildID(childID)
 		if err != nil {

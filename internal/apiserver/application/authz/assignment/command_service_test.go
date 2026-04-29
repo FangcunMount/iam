@@ -13,6 +13,8 @@ import (
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +33,7 @@ func TestAssignmentCommandServiceGrant_RejectsMissingUserWithoutWrites(t *testin
 	versionRepo := &policyVersionRepoStub{}
 	ruleStore := &ruleStoreStub{}
 	runtime := &casbinAdapterStub{}
+	stager := &assignmentEventStagerStub{}
 
 	validator := assignmentDomain.NewValidator(assignmentRepo, roleRepo, userRepo)
 	service := NewAssignmentCommandService(
@@ -41,9 +44,9 @@ func TestAssignmentCommandServiceGrant_RejectsMissingUserWithoutWrites(t *testin
 			Users:          userRepo,
 			PolicyVersions: versionRepo,
 			RuleStore:      ruleStore,
+			Events:         stager,
 		}},
 		runtime,
-		nil,
 	)
 
 	_, err := service.Grant(context.Background(), assignmentDomain.GrantCommand{
@@ -75,7 +78,7 @@ func TestAssignmentCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *tes
 	versionRepo := &policyVersionRepoStub{}
 	ruleStore := &ruleStoreStub{}
 	runtime := &casbinAdapterStub{loadErr: errors.New("reload failed")}
-	notifier := &versionNotifierStub{}
+	stager := &assignmentEventStagerStub{}
 
 	validator := assignmentDomain.NewValidator(assignmentRepo, roleRepo, userRepo)
 	service := NewAssignmentCommandService(
@@ -86,9 +89,9 @@ func TestAssignmentCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *tes
 			Users:          userRepo,
 			PolicyVersions: versionRepo,
 			RuleStore:      ruleStore,
+			Events:         stager,
 		}},
 		runtime,
-		notifier,
 	)
 
 	result, err := service.Grant(context.Background(), assignmentDomain.GrantCommand{
@@ -106,7 +109,8 @@ func TestAssignmentCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *tes
 	assert.Equal(t, "user:123", ruleStore.groupingAdds[0].Sub)
 	assert.Equal(t, "role:iam:admin", ruleStore.groupingAdds[0].Role)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
-	assert.Equal(t, 1, notifier.publishCalls)
+	require.Len(t, stager.events, 1)
+	assert.Equal(t, eventcatalog.AuthzVersionChanged, stager.events[0].EventType())
 	assert.Equal(t, 3, runtime.loadCalls)
 }
 
@@ -114,8 +118,17 @@ type uowStub struct {
 	tx authzuow.TxRepositories
 }
 
-func (u *uowStub) WithinTx(_ context.Context, fn func(tx authzuow.TxRepositories) error) error {
-	return fn(u.tx)
+func (u *uowStub) WithinTx(ctx context.Context, fn func(txCtx context.Context, tx authzuow.TxRepositories) error) error {
+	return fn(ctx, u.tx)
+}
+
+type assignmentEventStagerStub struct {
+	events []event.DomainEvent
+}
+
+func (s *assignmentEventStagerStub) Stage(_ context.Context, events ...event.DomainEvent) error {
+	s.events = append(s.events, events...)
+	return nil
 }
 
 type assignmentRepoStub struct {
@@ -259,16 +272,3 @@ func (s *casbinAdapterStub) GetImplicitPermissionsForUser(context.Context, strin
 	return nil, nil
 }
 func (s *casbinAdapterStub) InvalidateCache() {}
-
-type versionNotifierStub struct {
-	publishCalls int
-}
-
-func (n *versionNotifierStub) Publish(context.Context, string, int64) error {
-	n.publishCalls++
-	return nil
-}
-func (n *versionNotifierStub) Subscribe(context.Context, policyDomain.VersionChangeHandler) error {
-	return nil
-}
-func (n *versionNotifierStub) Close() error { return nil }

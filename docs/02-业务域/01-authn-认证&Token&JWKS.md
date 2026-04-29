@@ -14,7 +14,7 @@
 - 对外暴露面包括：REST 登录/刷新/校验/JWKS、gRPC `VerifyToken/RefreshToken/Revoke*/IssueServiceToken/GetJWKS`。
 - 在线 `VerifyToken` 现在是权威校验链：它不只验签和过期，还会检查 `revoked_access_token(jti)`、`session(sid)` 和 `user/account` 当前访问状态。
 - `authn` 不负责角色策略，不负责监护关系，也不承诺在 JWT 内承载完整授权上下文。
-- 统一事件清单：**N/A**。当前仓库没有 `configs/events.yaml` 这种统一事件真值文件；若要讲事件，应直接回链源码。
+- 统一事件清单：[`configs/events.yaml`](../../configs/events.yaml) 已声明 `iam.login_otp_sms`，该事件为 best-effort 投递，当前只用于登录 OTP 短信意图。
 
 | 主题 | 当前答案 |
 | ---- | ---- |

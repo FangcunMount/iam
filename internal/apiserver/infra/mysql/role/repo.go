@@ -71,7 +71,7 @@ func (r *RoleRepository) FindByID(ctx context.Context, id meta.ID) (*domain.Role
 // FindByName 根据名称和租户获取角色
 func (r *RoleRepository) FindByName(ctx context.Context, tenantID, name string) (*domain.Role, error) {
 	var po RolePO
-	err := r.db.WithContext(ctx).Where("tenant_id = ? AND name = ?", tenantID, name).First(&po).Error
+	err := r.WithContext(ctx).Where("tenant_id = ? AND name = ?", tenantID, name).First(&po).Error
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (r *RoleRepository) List(ctx context.Context, tenantID string, offset, limi
 	var pos []*RolePO
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&RolePO{}).Where("tenant_id = ?", tenantID)
+	query := r.WithContext(ctx).Model(&RolePO{}).Where("tenant_id = ?", tenantID)
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {

@@ -9,6 +9,8 @@ import (
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +34,7 @@ func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t 
 	versionRepo := &policyVersionRepoForCommandStub{}
 	ruleStore := &policyRuleStoreStub{}
 	runtime := &policyCasbinAdapterStub{loadErr: errors.New("reload failed")}
-	notifier := &policyVersionNotifierStub{}
+	stager := &policyEventStagerStub{}
 
 	service := NewPolicyCommandService(
 		policyDomain.NewValidator(roleRepo, resourceRepo),
@@ -41,9 +43,9 @@ func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t 
 			Resources:      resourceRepo,
 			PolicyVersions: versionRepo,
 			RuleStore:      ruleStore,
+			Events:         stager,
 		}},
 		runtime,
-		notifier,
 	)
 
 	err := service.AddPolicyRule(context.Background(), policyDomain.AddPolicyRuleCommand{
@@ -61,7 +63,8 @@ func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t 
 	assert.Equal(t, "iam:user:*", ruleStore.policyAdds[0].Obj)
 	assert.Equal(t, "read", ruleStore.policyAdds[0].Act)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
-	assert.Equal(t, 1, notifier.publishCalls)
+	require.Len(t, stager.events, 1)
+	assert.Equal(t, eventcatalog.AuthzVersionChanged, stager.events[0].EventType())
 	assert.Equal(t, 3, runtime.loadCalls)
 }
 
@@ -69,8 +72,17 @@ type policyUowStub struct {
 	tx authzuow.TxRepositories
 }
 
-func (u *policyUowStub) WithinTx(_ context.Context, fn func(tx authzuow.TxRepositories) error) error {
-	return fn(u.tx)
+func (u *policyUowStub) WithinTx(ctx context.Context, fn func(txCtx context.Context, tx authzuow.TxRepositories) error) error {
+	return fn(ctx, u.tx)
+}
+
+type policyEventStagerStub struct {
+	events []event.DomainEvent
+}
+
+func (s *policyEventStagerStub) Stage(_ context.Context, events ...event.DomainEvent) error {
+	s.events = append(s.events, events...)
+	return nil
 }
 
 type policyRoleRepoStub struct {
@@ -193,16 +205,3 @@ func (s *policyCasbinAdapterStub) GetImplicitPermissionsForUser(context.Context,
 	return nil, nil
 }
 func (s *policyCasbinAdapterStub) InvalidateCache() {}
-
-type policyVersionNotifierStub struct {
-	publishCalls int
-}
-
-func (n *policyVersionNotifierStub) Publish(context.Context, string, int64) error {
-	n.publishCalls++
-	return nil
-}
-func (n *policyVersionNotifierStub) Subscribe(context.Context, policyDomain.VersionChangeHandler) error {
-	return nil
-}
-func (n *policyVersionNotifierStub) Close() error { return nil }

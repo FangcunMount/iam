@@ -1,0 +1,25 @@
+version: "1"
+
+topics:
+  authz_version:
+    name: iam.authz.version
+    description: Authorization policy version changes.
+  notification_sms:
+    name: iam.notify.sms
+    description: SMS notification tasks.
+
+events:
+  iam.authz.version_changed:
+    topic: authz_version
+    delivery: durable_outbox
+    aggregate: PolicyVersion
+    domain: authz
+    handler: iam-policy-sync
+    description: Authorization policy version changed.
+  iam.login_otp_sms:
+    topic: notification_sms
+    delivery: best_effort
+    aggregate: LoginOTP
+    domain: authn
+    handler: sms-dispatcher
+    description: Login OTP SMS dispatch request.

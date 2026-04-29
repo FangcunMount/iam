@@ -69,7 +69,7 @@ func (s *guardianshipAccessApplicationService) ListForCurrentUser(ctx context.Co
 
 func (s *guardianshipAccessApplicationService) RevokeBySelector(ctx context.Context, dto RevokeGuardianBySelectorDTO) (*GuardianshipResult, error) {
 	var result *GuardianshipResult
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		var userID meta.ID
 		var childID meta.ID
 		if dto.GuardianshipID != "" {

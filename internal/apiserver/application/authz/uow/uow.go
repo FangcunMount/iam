@@ -8,6 +8,7 @@ import (
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/internal/pkg/event"
 )
 
 type TxRepositories struct {
@@ -17,8 +18,9 @@ type TxRepositories struct {
 	PolicyVersions policyDomain.Repository
 	Users          userDomain.Repository
 	RuleStore      policyDomain.RuleStore
+	Events         event.Stager
 }
 
 type UnitOfWork interface {
-	WithinTx(ctx context.Context, fn func(tx TxRepositories) error) error
+	WithinTx(ctx context.Context, fn func(txCtx context.Context, tx TxRepositories) error) error
 }

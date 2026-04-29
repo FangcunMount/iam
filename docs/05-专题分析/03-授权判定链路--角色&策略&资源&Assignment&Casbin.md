@@ -7,9 +7,9 @@
 1. 授权对象：角色、资源、策略、Assignment、Casbin 各自负责什么
 2. 管理链：策略和 Assignment 如何进入 Casbin
 3. 判定链：单次 Check 与中间件如何消费 Casbin
-4. 查询、版本与通知：管理侧如何看到当前授权状态
+4. 查询、版本与 outbox：管理侧如何看到当前授权状态、版本事件如何发布
 
-**与业务域正文的分工**：相对 [../02-业务域/02-authz-角色&策略&资源&Assignment.md](../02-业务域/02-authz-角色&策略&资源&Assignment.md)，业务域文档讲 **模型、表结构、Casbin 装配、模块边界**；本篇讲 **管理链与判定链如何连接**、**Casbin 与 MySQL 的双读面**、**版本通知与当前边界**。
+**与业务域正文的分工**：相对 [../02-业务域/02-authz-角色&策略&资源&Assignment.md](../02-业务域/02-authz-角色&策略&资源&Assignment.md)，业务域文档讲 **模型、表结构、Casbin 装配、模块边界**；本篇讲 **管理链与判定链如何连接**、**Casbin 与 MySQL 的双读面**、**版本事件与 outbox 边界**。
 
 ## 30 秒结论
 
@@ -29,13 +29,13 @@
 | REST 暴露面 | 管理面 + `POST /api/v1/authz/check` | [../../api/rest/authz.v1.yaml](../../api/rest/authz.v1.yaml)、[../../internal/apiserver/interface/authz/restful/router.go](../../internal/apiserver/interface/authz/restful/router.go) |
 | gRPC 暴露面 | `iam.authz.v1.AuthorizationService/Check` | [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto)、[../../internal/apiserver/interface/authz/grpc/service.go](../../internal/apiserver/interface/authz/grpc/service.go) |
 | 模块装配 | `AuthzModule.Initialize` 统一装配 Repo / Validator / App Service / Casbin Adapter / HTTP / gRPC | [../../internal/apiserver/container/assembler/authz.go](../../internal/apiserver/container/assembler/authz.go) |
-| Policy 写入 | 先写 Casbin `p`，再递增版本，可选发布版本消息 | [../../internal/apiserver/application/authz/policy/command_service.go](../../internal/apiserver/application/authz/policy/command_service.go) |
-| Assignment 写入 | 先写 MySQL assignment，再写 Casbin `g`；失败时 best-effort 回滚 | [../../internal/apiserver/application/authz/assignment/command_service.go](../../internal/apiserver/application/authz/assignment/command_service.go) |
+| Policy 写入 | 事务内写 `casbin_rule`、递增版本、stage outbox 事件，提交后 best-effort reload | [../../internal/apiserver/application/authz/policy/command_service.go](../../internal/apiserver/application/authz/policy/command_service.go) |
+| Assignment 写入 | 事务内写 assignment、`casbin_rule`、递增版本、stage outbox 事件 | [../../internal/apiserver/application/authz/assignment/command_service.go](../../internal/apiserver/application/authz/assignment/command_service.go) |
 | 判定模型 | `r = sub, dom, obj, act`，靠 `g + dom + keyMatch + regexMatch` 进行 RBAC | [../../configs/casbin_model.conf](../../configs/casbin_model.conf) |
 | REST PDP 的主体解析 | 可显式传 `subject_type + subject_id`，否则回退当前用户 | [../../internal/apiserver/interface/authz/restful/handler/check.go](../../internal/apiserver/interface/authz/restful/handler/check.go) |
 | 默认上下文 | `tenant_id` 缺失退到 `default`，`user_id` 缺失退到 `system` | [../../internal/apiserver/interface/authz/restful/handler/base.go](../../internal/apiserver/interface/authz/restful/handler/base.go)、[../../pkg/core/handler.go](../../pkg/core/handler.go) |
 | 运行时消费 | `JWTAuthMiddleware.RequireRole / RequirePermission` 依赖注入 CasbinEnforcer | [../../internal/pkg/middleware/authn/jwt_middleware.go](../../internal/pkg/middleware/authn/jwt_middleware.go) |
-| 版本通知 | 主题为 `iam.authz.policy_version`，只有 EventBus 存在时才发布 | [../../internal/apiserver/infra/messaging/version_notifier.go](../../internal/apiserver/infra/messaging/version_notifier.go)、[../../internal/apiserver/container/container.go](../../internal/apiserver/container/container.go) |
+| 版本事件 | event `iam.authz.version_changed` 事务内进入 outbox，relay 发布到 `iam.authz.version` | [../../configs/events.yaml](../../configs/events.yaml)、[../../internal/apiserver/infra/mysql/eventoutbox/store.go](../../internal/apiserver/infra/mysql/eventoutbox/store.go)、[../../internal/apiserver/infra/messaging/outbox_relay.go](../../internal/apiserver/infra/messaging/outbox_relay.go) |
 
 ## 1. 授权对象：角色、资源、策略、Assignment、Casbin 各自负责什么
 
@@ -137,13 +137,14 @@ sequenceDiagram
     participant App as Policy / Assignment App Service
     participant MySQL as MySQL
     participant Casbin as Casbin Adapter
-    participant MQ as VersionNotifier
+    participant OB as domain_event_outbox
+    participant MQ as OutboxRelay/EventBus
 
     Client->>REST: POST /api/v1/authz/policies
     REST->>App: AddPolicyRuleCommand
-    App->>Casbin: AddPolicy(p)
-    App->>MySQL: Increment authz_policy_versions
-    App-->>MQ: Publish version (optional)
+    App->>MySQL: Write casbin_rule + Increment authz_policy_versions
+    App->>OB: Stage iam.authz.version_changed
+    App-->>MQ: Relay publishes after commit
     REST-->>Client: 200
 
     Client->>REST: POST /api/v1/authz/assignments/grant
@@ -183,13 +184,14 @@ sequenceDiagram
 | 步骤 | 内容 |
 | ---- | ---- |
 | 1 | 查角色与资源，构建 `PolicyRule{sub, dom, obj, act}` |
-| 2 | `casbinAdapter.AddPolicy(rule)` |
-| 3 | `policyRepo.Increment(tenant, changedBy, reason)` |
-| 4 | `versionNotifier.Publish(...)`（可选） |
+| 2 | 事务内写入 `casbin_rule` |
+| 3 | 事务内 `policyRepo.Increment(tenant, changedBy, reason)` |
+| 4 | 事务内 stage `iam.authz.version_changed` 到 `domain_event_outbox` |
+| 5 | 事务提交后 best-effort reload 运行时 Casbin 缓存 |
 
 删除策略同理，只是把 `AddPolicy` 换成 `RemovePolicy`。
 
-**结论**：策略真正在运行时生效的第一步，是先把 `p` 规则写进 Casbin；版本表是管理侧的同步信号，不是 Casbin 自带版本。
+**结论**：策略事实源先写数据库；版本表与 `iam.authz.version_changed` outbox row 在同一个事务里提交，运行时 Casbin reload 是事务成功后的本地 best-effort 副作用。
 
 ### 2.3 Assignment：如何变成 Casbin `g`
 
@@ -209,14 +211,14 @@ sequenceDiagram
 
 ### 2.4 双写一致性边界
 
-Assignment 撤销当前有两条路径：
+Assignment 撤销当前有两条路径，但数据库事实都在同一个 UoW 事务里提交：
 
 | 路径 | 顺序 |
 | ---- | ---- |
 | `Revoke(subject + role)` | 先删数据库，再删 Casbin `g` |
 | `RevokeByID` | 先删 Casbin `g`，再删数据库；数据库失败时尝试补回 Casbin |
 
-**结论**：当前是“带 best-effort 回滚的双写”，还不能讲成“Casbin 与 MySQL 之间具备强事务一致性”。
+**结论**：当前对 MySQL 事实源具备单事务一致性；运行时 `CachedEnforcer` reload 和 MQ 发布仍是事务成功后的异步 / best-effort 边界。
 
 ## 3. 判定链：单次 Check 与中间件如何消费 Casbin
 
@@ -330,22 +332,20 @@ gRPC `Check` 更直接：
 
 当前 handler 在仓储返回 `nil` 时，会映射为 HTTP 200、`version: 0`。所以接入方需要把 `0` 理解为“尚未形成可读版本状态”或“当前无版本记录”，而不是直接等同于错误。
 
-### 4.3 版本通知是“可选发布”，不是仓库内已证明的闭环消费
+### 4.3 版本事件是 durable outbox，不再从命令路径直发
 
-文件：[../../internal/apiserver/infra/messaging/version_notifier.go](../../internal/apiserver/infra/messaging/version_notifier.go)、[../../internal/apiserver/container/container.go](../../internal/apiserver/container/container.go)
+文件：[../../configs/events.yaml](../../configs/events.yaml)、[../../internal/apiserver/infra/mysql/eventoutbox/store.go](../../internal/apiserver/infra/mysql/eventoutbox/store.go)、[../../internal/apiserver/infra/messaging/outbox_relay.go](../../internal/apiserver/infra/messaging/outbox_relay.go)
 
 当前可证明的事实：
 
 | 项 | 当前答案 |
 | ---- | ---- |
-| 发布主题 | `iam.authz.policy_version` |
-| 发布前提 | 只有 `eventBus != nil` 才会创建 `VersionNotifier` |
+| 发布主题 | `iam.authz.version` |
+| 发布前提 | 命令事务内先写 `domain_event_outbox`；EventBus 可用时 relay claim 并发布 |
 | 消息内容 | `tenant_id + version` |
-| Subscribe 能力 | 实现存在 |
+| EventBus 不可用 | relay 不 claim，row 保持 pending |
 
-但当前仓库内没有查到启动阶段对 `VersionNotifier.Subscribe(...)` 的实际接线。
-
-**结论**：今天可以讲成“版本消息可发布”，不能讲成“仓库内已形成版本订阅与策略缓存刷新闭环”。
+**结论**：今天可以讲成“版本事件与业务写入同事务提交，并由 relay 异步发布”；不能讲成跨 Redis/Casbin/MQ 的分布式事务。
 
 ## 5. 保证与风险边界
 
@@ -387,7 +387,7 @@ gRPC `Check` 更直接：
 | REST PDP | `rg -n 'func \\(h \\*CheckHandler\\) Check|resolveSubject|getTenantID' internal/apiserver/interface/authz/restful/handler/check.go internal/apiserver/interface/authz/restful/handler/base.go` |
 | gRPC PDP | `rg -n 'func \\(s \\*authorizationServer\\) Check|authorization engine not available' internal/apiserver/interface/authz/grpc/service.go` |
 | 路由保护边界 | `rg -n 'Authn module unavailable|AuthRequired|authzGroup.GET\\(\"/health\"' internal/apiserver/routers.go internal/apiserver/interface/authz/restful/router.go` |
-| 版本通知 | `rg -n 'iam.authz.policy_version|Publish|Subscribe' internal/apiserver/infra/messaging/version_notifier.go internal/apiserver/container/container.go` |
+| 版本事件 | `rg -n 'iam.authz.version_changed|domain_event_outbox|OutboxRelay' configs internal/apiserver` |
 
 **读结果提示**：
 

@@ -33,7 +33,7 @@ func (s *childQueryApplicationService) GetByID(ctx context.Context, childID stri
 		"resource_id", childID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		childIDObj, err := parseChildID(childID)
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *childQueryApplicationService) GetByIDCard(ctx context.Context, idCard s
 		"resource", logger.ResourceChild,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		idCardObj, err := input.ParseIDCard("", idCard)
 		if err != nil {
@@ -136,7 +136,7 @@ func (s *childQueryApplicationService) FindSimilar(ctx context.Context, name str
 		"name", name,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		genderObj := input.ParseGender(gender)
 		birthdayObj := input.ParseBirthday(birthday)

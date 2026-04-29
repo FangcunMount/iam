@@ -13,7 +13,7 @@
 - 当前用户域既有 REST，也有 gRPC：REST 偏“当前登录用户上下文”，gRPC 偏“服务间显式传 ID”。
 - `children/register` 的当前真实写链已经收口为单事务组合用例，是原子闭环。
 - 查询与访问控制大多先从 guardianship 关系出发，再回查 child 或 user。
-- 统一事件清单：**N/A**。本仓库没有 `configs/events.yaml`；当前对外 identity 合同也不再保留事件订阅型 gRPC。
+- 统一事件清单：见 [`configs/events.yaml`](../../configs/events.yaml)。当前用户域不声明领域事件，对外 identity 合同也不保留事件订阅型 gRPC。
 
 | 主题 | 当前答案 |
 | ---- | ---- |

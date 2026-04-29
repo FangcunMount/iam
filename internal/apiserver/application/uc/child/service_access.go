@@ -24,7 +24,7 @@ func NewChildAccessApplicationService(uow uow.UnitOfWork) ChildAccessApplication
 
 func (s *childAccessApplicationService) ListForGuardian(ctx context.Context, userID string) ([]*ChildResult, error) {
 	var results []*ChildResult
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		userIDObj, err := parseChildAccessUserID(userID)
 		if err != nil {
 			return err
@@ -98,7 +98,7 @@ func (s *childAccessApplicationService) PatchForGuardian(ctx context.Context, dt
 }
 
 func (s *childAccessApplicationService) ensureActiveGuardianAccess(ctx context.Context, userID string, childID string) error {
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		userIDObj, err := parseChildAccessUserID(userID)
 		if err != nil {
 			return err

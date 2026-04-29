@@ -8,23 +8,18 @@ import (
 
 	appuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
 	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authz"
+	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
 )
 
-func TestUnitOfWork_WithNilDBRunsCallbackWithZeroRepositories(t *testing.T) {
+func TestUnitOfWork_WithNilDBFailsClosed(t *testing.T) {
 	uow := mysqluow.NewUnitOfWork(nil)
 
 	called := false
-	err := uow.WithinTx(context.Background(), func(tx appuow.TxRepositories) error {
+	err := uow.WithinTx(context.Background(), func(txCtx context.Context, tx appuow.TxRepositories) error {
 		called = true
-		require.Nil(t, tx.Assignments)
-		require.Nil(t, tx.Roles)
-		require.Nil(t, tx.Resources)
-		require.Nil(t, tx.PolicyVersions)
-		require.Nil(t, tx.Users)
-		require.Nil(t, tx.RuleStore)
 		return nil
 	})
 
-	require.NoError(t, err)
-	require.True(t, called)
+	require.ErrorIs(t, err, dbmysql.ErrUnitOfWorkUnavailable)
+	require.False(t, called)
 }

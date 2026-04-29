@@ -1,9 +1,6 @@
 package container
 
 import (
-	"github.com/FangcunMount/component-base/pkg/log"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	messagingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/messaging"
 	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
@@ -13,15 +10,6 @@ type moduleGraph struct {
 
 func (c *Container) moduleGraph() *moduleGraph {
 	return &moduleGraph{container: c}
-}
-
-func (g *moduleGraph) policyVersionNotifier() policyDomain.VersionNotifier {
-	if g == nil || g.container == nil || g.container.eventBus == nil {
-		log.Warn("   ⚠️  Policy version notifier: disabled (no EventBus)")
-		return nil
-	}
-	log.Info("   📨 Policy version notifier: NSQ EventBus")
-	return messagingInfra.NewVersionNotifier(g.container.eventBus)
 }
 
 func (g *moduleGraph) userModuleDependencies() []interface{} {

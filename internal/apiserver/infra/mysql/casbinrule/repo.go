@@ -4,6 +4,7 @@ import (
 	"context"
 
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,6 +34,13 @@ func NewRepository(db *gorm.DB) policyDomain.RuleStore {
 	return &Repository{db: db}
 }
 
+func (r *Repository) WithContext(ctx context.Context) *gorm.DB {
+	if tx, ok := dbmysql.TxFromContext(ctx); ok {
+		return tx.WithContext(ctx)
+	}
+	return r.db.WithContext(ctx)
+}
+
 func (r *Repository) AddPolicy(ctx context.Context, rules ...policyDomain.PolicyRule) error {
 	if len(rules) == 0 || r == nil || r.db == nil {
 		return nil
@@ -47,12 +55,12 @@ func (r *Repository) AddPolicy(ctx context.Context, rules ...policyDomain.Policy
 			V3:    stringPtr(rule.Act),
 		})
 	}
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error
+	return r.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error
 }
 
 func (r *Repository) RemovePolicy(ctx context.Context, rules ...policyDomain.PolicyRule) error {
 	for _, rule := range rules {
-		if err := r.db.WithContext(ctx).
+		if err := r.WithContext(ctx).
 			Where("ptype = ? AND v0 = ? AND v1 = ? AND v2 = ? AND v3 = ?", "p", rule.Sub, rule.Dom, rule.Obj, rule.Act).
 			Delete(&rulePO{}).Error; err != nil {
 			return err
@@ -74,12 +82,12 @@ func (r *Repository) AddGroupingPolicy(ctx context.Context, rules ...policyDomai
 			V2:    stringPtr(rule.Dom),
 		})
 	}
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error
+	return r.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error
 }
 
 func (r *Repository) RemoveGroupingPolicy(ctx context.Context, rules ...policyDomain.GroupingRule) error {
 	for _, rule := range rules {
-		if err := r.db.WithContext(ctx).
+		if err := r.WithContext(ctx).
 			Where("ptype = ? AND v0 = ? AND v1 = ? AND v2 = ?", "g", rule.Sub, rule.Role, rule.Dom).
 			Delete(&rulePO{}).Error; err != nil {
 			return err

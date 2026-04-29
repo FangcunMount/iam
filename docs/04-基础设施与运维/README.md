@@ -7,7 +7,7 @@
 - `04-基础设施与运维` 现在承接两类内容：一类是六边形架构、CQRS 这类横切技术机制；另一类是 `Makefile`、端口、证书、迁移、Docker、SQL bootstrap 这类交付与维护入口。
 - 现行主路径已经切到这一层；旧 `docs/04-基础设施/` 和 `docs/ops/` 只保留为历史资料并归入 `_archive/`。
 - 这组文档不重复解释业务域流程，也不替代 `api/` 契约；它更关心“代码为什么这样分层”“系统如何被启动、校验、部署、迁移”。
-- 如果只先读 3 篇，建议按这个顺序：`六边形架构实践 -> 命令、契约校验与开发流程 -> 端口、证书与数据库迁移`。
+- 如果只先读 4 篇，建议按这个顺序：`六边形架构实践 -> UoW 与 Transactional Outbox -> 命令、契约校验与开发流程 -> 端口、证书与数据库迁移`。
 
 ## 重点速查
 
@@ -15,6 +15,7 @@
 | ---- | ---- |
 | 六边形架构在当前代码里怎么落地？ | [01-六边形架构实践.md](./01-六边形架构实践.md) |
 | CQRS 在当前代码里怎么落地？ | [02-CQRS模式实践.md](./02-CQRS模式实践.md) |
+| UoW、事务内事件、outbox relay 如何协作？ | [06-UoW与Transactional Outbox.md](./06-UoW与Transactional Outbox.md) |
 | 构建、运行、测试、swagger、proto、OpenAPI 校验怎么做？ | [03-命令&契约校验与开发流程.md](./03-命令&契约校验与开发流程.md) |
 | 端口、证书、Docker、数据库迁移从哪看？ | [04-端口&证书与数据库迁移.md](./04-端口&证书与数据库迁移.md) |
 | 系统 bootstrap 基线数据现在如何管理？ | [05-SQL Bootstrap 与初始化数据.md](./05-SQL Bootstrap 与初始化数据.md) |
@@ -31,6 +32,7 @@
 | [03-命令&契约校验与开发流程.md](./03-命令&契约校验与开发流程.md) | `Makefile`、swagger / OpenAPI / proto 校验链、开发命令面 |
 | [04-端口&证书与数据库迁移.md](./04-端口&证书与数据库迁移.md) | dev/prod 端口、mTLS 证书、Docker 与 migration 入口 |
 | [05-SQL Bootstrap 与初始化数据.md](./05-SQL Bootstrap 与初始化数据.md) | schema.sql、bootstrap.sql 与 migration 的职责分工 |
+| [06-UoW与Transactional Outbox.md](./06-UoW与Transactional Outbox.md) | 成熟 UoW、tx context、after-commit、event catalog、outbox relay 的运行边界 |
 补充专题：
 
 - [../05-专题分析/05-IAM缓存层--缓存层的设计与治理.md](../05-专题分析/05-IAM缓存层--缓存层的设计与治理.md)

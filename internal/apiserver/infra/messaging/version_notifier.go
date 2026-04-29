@@ -1,5 +1,5 @@
 // Package messaging 消息基础设施层
-// 基于 component-base/pkg/messaging 实现策略版本通知
+// 基于 component-base/pkg/messaging 实现策略版本通知订阅
 package messaging
 
 import (
@@ -10,7 +10,6 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	"github.com/google/uuid"
 
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 )
@@ -23,9 +22,8 @@ const (
 	AuthzVersionChannel = "iam-policy-sync"
 )
 
-// VersionNotifier NSQ 版本通知器实现
+// VersionNotifier NSQ 版本通知订阅器实现
 type VersionNotifier struct {
-	publisher  messaging.Publisher
 	subscriber messaging.Subscriber
 	mu         sync.RWMutex
 	closed     bool
@@ -40,65 +38,21 @@ type VersionChangeMessage struct {
 	Version  int64  `json:"version"`
 }
 
-// NewVersionNotifier 创建版本通知器
+// NewVersionNotifier 创建版本通知订阅器
 func NewVersionNotifier(bus messaging.EventBus) domain.VersionNotifier {
 	return &VersionNotifier{
-		publisher:  bus.Publisher(),
 		subscriber: bus.Subscriber(),
 		closed:     false,
 	}
 }
 
-// NewVersionNotifierWithPubSub 使用独立的 Publisher/Subscriber 创建
-func NewVersionNotifierWithPubSub(publisher messaging.Publisher, subscriber messaging.Subscriber) domain.VersionNotifier {
+// NewVersionNotifierWithPubSub 使用独立的 Publisher/Subscriber 创建。
+// Publisher 参数保留用于兼容旧测试与装配入口；发布职责已迁移到 outbox relay。
+func NewVersionNotifierWithPubSub(_ messaging.Publisher, subscriber messaging.Subscriber) domain.VersionNotifier {
 	return &VersionNotifier{
-		publisher:  publisher,
 		subscriber: subscriber,
 		closed:     false,
 	}
-}
-
-// Publish 发布策略版本变更通知
-func (n *VersionNotifier) Publish(ctx context.Context, tenantID string, version int64) error {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-
-	if n.closed {
-		return fmt.Errorf("notifier is closed")
-	}
-
-	msg := VersionChangeMessage{
-		TenantID: tenantID,
-		Version:  version,
-	}
-
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.ErrorContext(ctx, "failed to marshal version message",
-			log.String("error", err.Error()),
-		)
-		return fmt.Errorf("failed to marshal message: %w", err)
-	}
-
-	// 创建带 UUID 的消息
-	message := messaging.NewMessage(uuid.New().String(), payload)
-	message.Metadata["tenant_id"] = tenantID
-
-	if err := n.publisher.PublishMessage(ctx, AuthzVersionTopic, message); err != nil {
-		log.ErrorContext(ctx, "failed to publish version change",
-			log.String("topic", AuthzVersionTopic),
-			log.String("tenant_id", tenantID),
-			log.String("error", err.Error()),
-		)
-		return fmt.Errorf("failed to publish message: %w", err)
-	}
-
-	log.InfoContext(ctx, "version change published",
-		log.String("topic", AuthzVersionTopic),
-		log.String("tenant_id", tenantID),
-		log.Int64("version", version),
-	)
-	return nil
 }
 
 // Subscribe 订阅策略版本变更通知

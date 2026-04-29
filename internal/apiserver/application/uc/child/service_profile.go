@@ -34,7 +34,7 @@ func (s *childProfileApplicationService) Rename(ctx context.Context, childID str
 		"new_name", newName,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Children)
 		profileService := domain.NewProfileService(tx.Children, validator)
@@ -91,7 +91,7 @@ func (s *childProfileApplicationService) UpdateIDCard(ctx context.Context, child
 		"resource_id", childID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Children)
 		profileService := domain.NewProfileService(tx.Children, validator)
@@ -161,7 +161,7 @@ func (s *childProfileApplicationService) UpdateProfile(ctx context.Context, dto 
 		"resource_id", dto.ChildID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Children)
 		profileService := domain.NewProfileService(tx.Children, validator)
@@ -222,7 +222,7 @@ func (s *childProfileApplicationService) UpdateHeightWeight(ctx context.Context,
 		"resource_id", dto.ChildID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Children)
 		profileService := domain.NewProfileService(tx.Children, validator)

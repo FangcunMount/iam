@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/component-base/pkg/log"
 	authzshared "github.com/FangcunMount/iam/internal/apiserver/application/authz/shared"
 	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
 	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
@@ -20,7 +19,6 @@ type AssignmentCommandService struct {
 	assignmentValidator assignmentDomain.Validator
 	uow                 authzuow.UnitOfWork
 	casbinAdapter       policyDomain.CasbinAdapter
-	versionNotifier     policyDomain.VersionNotifier
 }
 
 // NewAssignmentCommandService 创建赋权命令服务
@@ -28,13 +26,11 @@ func NewAssignmentCommandService(
 	assignmentValidator assignmentDomain.Validator,
 	uow authzuow.UnitOfWork,
 	casbinAdapter policyDomain.CasbinAdapter,
-	versionNotifier policyDomain.VersionNotifier,
 ) *AssignmentCommandService {
 	return &AssignmentCommandService{
 		assignmentValidator: assignmentValidator,
 		uow:                 uow,
 		casbinAdapter:       casbinAdapter,
-		versionNotifier:     versionNotifier,
 	}
 }
 
@@ -50,16 +46,16 @@ func (s *AssignmentCommandService) Grant(ctx context.Context, cmd assignmentDoma
 		version       *policyDomain.PolicyVersion
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx authzuow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
 		txValidator := assignmentDomain.NewValidator(tx.Assignments, tx.Roles, tx.Users)
-		if err := txValidator.CheckRoleExists(ctx, cmd.RoleID, cmd.TenantID); err != nil {
+		if err := txValidator.CheckRoleExists(txCtx, cmd.RoleID, cmd.TenantID); err != nil {
 			return err
 		}
-		if err := txValidator.CheckSubjectExists(ctx, cmd.SubjectType, cmd.SubjectID, cmd.TenantID); err != nil {
+		if err := txValidator.CheckSubjectExists(txCtx, cmd.SubjectType, cmd.SubjectID, cmd.TenantID); err != nil {
 			return err
 		}
 
-		role, err := tx.Roles.FindByID(ctx, meta.FromUint64(cmd.RoleID))
+		role, err := tx.Roles.FindByID(txCtx, meta.FromUint64(cmd.RoleID))
 		if err != nil {
 			return errors.Wrap(err, "获取角色失败")
 		}
@@ -74,7 +70,7 @@ func (s *AssignmentCommandService) Grant(ctx context.Context, cmd assignmentDoma
 			cmd.TenantID,
 			assignmentDomain.WithGrantedBy(cmd.GrantedBy),
 		)
-		if err := tx.Assignments.Create(ctx, &created); err != nil {
+		if err := tx.Assignments.Create(txCtx, &created); err != nil {
 			return errors.Wrap(err, "创建赋权失败")
 		}
 
@@ -83,13 +79,16 @@ func (s *AssignmentCommandService) Grant(ctx context.Context, cmd assignmentDoma
 			Role: role.Key(),
 			Dom:  cmd.TenantID,
 		}
-		if err := tx.RuleStore.AddGroupingPolicy(ctx, groupingRule); err != nil {
+		if err := tx.RuleStore.AddGroupingPolicy(txCtx, groupingRule); err != nil {
 			return errors.Wrap(err, "添加 Casbin 分组规则失败")
 		}
 
-		version, err = tx.PolicyVersions.Increment(ctx, cmd.TenantID, cmd.GrantedBy, "assignment grant")
+		version, err = tx.PolicyVersions.Increment(txCtx, cmd.TenantID, cmd.GrantedBy, "assignment grant")
 		if err != nil {
 			return errors.Wrap(err, "更新授权版本失败")
+		}
+		if err := authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version); err != nil {
+			return err
 		}
 
 		newAssignment = &created
@@ -99,7 +98,6 @@ func (s *AssignmentCommandService) Grant(ctx context.Context, cmd assignmentDoma
 		return nil, err
 	}
 
-	s.publishVersion(ctx, cmd.TenantID, version)
 	authzshared.ReloadRuntimePolicy(ctx, s.casbinAdapter, "assignment grant")
 	return newAssignment, nil
 }
@@ -112,8 +110,8 @@ func (s *AssignmentCommandService) Revoke(ctx context.Context, cmd assignmentDom
 	}
 
 	var version *policyDomain.PolicyVersion
-	err := s.uow.WithinTx(ctx, func(tx authzuow.TxRepositories) error {
-		role, err := tx.Roles.FindByID(ctx, meta.FromUint64(cmd.RoleID))
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
+		role, err := tx.Roles.FindByID(txCtx, meta.FromUint64(cmd.RoleID))
 		if err != nil {
 			return errors.Wrap(err, "获取角色失败")
 		}
@@ -121,7 +119,7 @@ func (s *AssignmentCommandService) Revoke(ctx context.Context, cmd assignmentDom
 			return errors.New("角色不属于当前租户")
 		}
 
-		if err := tx.Assignments.DeleteBySubjectAndRole(ctx, cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID); err != nil {
+		if err := tx.Assignments.DeleteBySubjectAndRole(txCtx, cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID); err != nil {
 			return errors.Wrap(err, "删除赋权记录失败")
 		}
 
@@ -130,21 +128,20 @@ func (s *AssignmentCommandService) Revoke(ctx context.Context, cmd assignmentDom
 			Role: role.Key(),
 			Dom:  cmd.TenantID,
 		}
-		if err := tx.RuleStore.RemoveGroupingPolicy(ctx, groupingRule); err != nil {
+		if err := tx.RuleStore.RemoveGroupingPolicy(txCtx, groupingRule); err != nil {
 			return errors.Wrap(err, "删除 Casbin 分组规则失败")
 		}
 
-		version, err = tx.PolicyVersions.Increment(ctx, cmd.TenantID, "system", "assignment revoke")
+		version, err = tx.PolicyVersions.Increment(txCtx, cmd.TenantID, "system", "assignment revoke")
 		if err != nil {
 			return errors.Wrap(err, "更新授权版本失败")
 		}
-		return nil
+		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err != nil {
 		return err
 	}
 
-	s.publishVersion(ctx, cmd.TenantID, version)
 	authzshared.ReloadRuntimePolicy(ctx, s.casbinAdapter, "assignment revoke")
 	return nil
 }
@@ -156,9 +153,9 @@ func (s *AssignmentCommandService) RevokeByID(ctx context.Context, cmd assignmen
 		targetAssignment *assignmentDomain.Assignment
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx authzuow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
 		var err error
-		targetAssignment, err = tx.Assignments.FindByID(ctx, cmd.AssignmentID)
+		targetAssignment, err = tx.Assignments.FindByID(txCtx, cmd.AssignmentID)
 		if err != nil {
 			return errors.Wrap(err, "获取赋权记录失败")
 		}
@@ -166,7 +163,7 @@ func (s *AssignmentCommandService) RevokeByID(ctx context.Context, cmd assignmen
 			return errors.New("赋权记录不属于当前租户")
 		}
 
-		role, err := tx.Roles.FindByID(ctx, meta.FromUint64(targetAssignment.RoleID))
+		role, err := tx.Roles.FindByID(txCtx, meta.FromUint64(targetAssignment.RoleID))
 		if err != nil {
 			return errors.Wrap(err, "获取角色失败")
 		}
@@ -176,33 +173,23 @@ func (s *AssignmentCommandService) RevokeByID(ctx context.Context, cmd assignmen
 			Role: role.Key(),
 			Dom:  targetAssignment.TenantID,
 		}
-		if err := tx.RuleStore.RemoveGroupingPolicy(ctx, groupingRule); err != nil {
+		if err := tx.RuleStore.RemoveGroupingPolicy(txCtx, groupingRule); err != nil {
 			return errors.Wrap(err, "删除 Casbin 分组规则失败")
 		}
-		if err := tx.Assignments.Delete(ctx, targetAssignment.ID); err != nil {
+		if err := tx.Assignments.Delete(txCtx, targetAssignment.ID); err != nil {
 			return errors.Wrap(err, "删除赋权记录失败")
 		}
 
-		version, err = tx.PolicyVersions.Increment(ctx, targetAssignment.TenantID, "system", "assignment revoke")
+		version, err = tx.PolicyVersions.Increment(txCtx, targetAssignment.TenantID, "system", "assignment revoke")
 		if err != nil {
 			return errors.Wrap(err, "更新授权版本失败")
 		}
-		return nil
+		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, targetAssignment.TenantID, version)
 	})
 	if err != nil {
 		return err
 	}
 
-	s.publishVersion(ctx, cmd.TenantID, version)
 	authzshared.ReloadRuntimePolicy(ctx, s.casbinAdapter, "assignment revoke by id")
 	return nil
-}
-
-func (s *AssignmentCommandService) publishVersion(ctx context.Context, tenantID string, version *policyDomain.PolicyVersion) {
-	if s.versionNotifier == nil || version == nil {
-		return
-	}
-	if err := s.versionNotifier.Publish(ctx, tenantID, version.Version); err != nil {
-		log.Errorw("failed to publish authz assignment version", "tenant_id", tenantID, "version", version.Version, "error", err)
-	}
 }

@@ -36,7 +36,7 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 		"phone", dto.Phone,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建验证器
 		validator := user.NewValidator(tx.Users)
 

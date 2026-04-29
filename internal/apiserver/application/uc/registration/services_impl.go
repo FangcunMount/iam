@@ -36,7 +36,7 @@ func (s *childRegistrationService) RegisterChildWithGuardian(ctx context.Context
 		"relation", dto.Relation,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		userID, err := parseUserID(dto.UserID)
 		if err != nil {
 			return err

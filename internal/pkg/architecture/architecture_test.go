@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
 )
 
 const modulePath = "github.com/FangcunMount/iam/"
@@ -156,6 +158,45 @@ func TestGRPCV2ContractsAreNotAddedWithoutRuntime(t *testing.T) {
 	}
 }
 
+func TestDurableOutboxEventsAreNotDirectPublishedToMQ(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	cfg, err := eventcatalog.Load(filepath.Join(root, "configs", "events.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	durableTopics := map[string]struct{}{}
+	for eventType, eventCfg := range cfg.Events {
+		if eventCfg.Delivery != eventcatalog.DeliveryClassDurableOutbox {
+			continue
+		}
+		topicName, ok := cfg.GetTopicName(eventType)
+		if !ok {
+			t.Fatalf("durable event %s has no topic name", eventType)
+		}
+		durableTopics[topicName] = struct{}{}
+	}
+	if len(durableTopics) == 0 {
+		t.Fatal("event catalog has no durable_outbox events; ratchet would not protect durable publishing")
+	}
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if rel == "internal/apiserver/infra/messaging/outbox_relay.go" {
+			return
+		}
+		if !strings.Contains(source, "PublishMessage") && !strings.Contains(source, ".Publish(") {
+			return
+		}
+		for topic := range durableTopics {
+			if strings.Contains(source, topic) {
+				t.Fatalf("%s directly publishes durable_outbox topic %q; stage it in outbox and let the relay publish", rel, topic)
+			}
+		}
+	})
+}
+
 func isDomainForbiddenImport(imp string) bool {
 	return imp == "gorm.io/gorm" ||
 		strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
@@ -166,6 +207,7 @@ func isDomainForbiddenImport(imp string) bool {
 
 func isApplicationForbiddenImport(imp string) bool {
 	return imp == "gorm.io/gorm" ||
+		imp == "github.com/FangcunMount/component-base/pkg/messaging" ||
 		strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
 		strings.HasPrefix(imp, modulePath+"internal/pkg/database") ||
 		strings.HasPrefix(imp, modulePath+"internal/pkg/migration")
@@ -239,6 +281,27 @@ func scanGoFiles(t *testing.T, root string, visit func(path string, file *ast.Fi
 			return err
 		}
 		visit(path, file)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func scanGoSources(t *testing.T, root string, visit func(path, source string)) {
+	t.Helper()
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		visit(path, string(data))
 		return nil
 	})
 	if err != nil {

@@ -33,7 +33,7 @@ func (s *userStatusApplicationService) Activate(ctx context.Context, userID stri
 		"user_id", userID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		lifecycler := user.NewLifecycler(tx.Users)
 
@@ -85,7 +85,7 @@ func (s *userStatusApplicationService) Deactivate(ctx context.Context, userID st
 		"user_id", userID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		lifecycler := user.NewLifecycler(tx.Users)
 
@@ -137,7 +137,7 @@ func (s *userStatusApplicationService) Block(ctx context.Context, userID string)
 		"user_id", userID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		lifecycler := user.NewLifecycler(tx.Users)
 

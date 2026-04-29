@@ -33,11 +33,8 @@ type CasbinAdapter interface {
 	GetImplicitPermissionsForUser(ctx context.Context, user, domain string) ([]PolicyRule, error)
 }
 
-// VersionNotifier 策略版本通知接口（Driven Port - 外部服务）
+// VersionNotifier 策略版本通知订阅接口（Driven Port - 外部服务）
 type VersionNotifier interface {
-	// Publish 发布策略版本变更通知
-	Publish(ctx context.Context, tenantID string, version int64) error
-
 	// Subscribe 订阅策略版本变更通知
 	// handler 会在接收到版本变更通知时被调用
 	Subscribe(ctx context.Context, handler VersionChangeHandler) error

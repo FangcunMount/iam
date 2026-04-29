@@ -22,6 +22,7 @@ import (
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authz/grpc"
 	"github.com/FangcunMount/iam/internal/apiserver/interface/authz/restful/handler"
+	"github.com/FangcunMount/iam/internal/pkg/event"
 )
 
 // AuthzModule 授权模块
@@ -44,10 +45,13 @@ func NewAuthzModule() *AuthzModule {
 }
 
 // Initialize 初始化授权模块
-// versionNotifier: 策略版本通知器（可选，传 nil 则不发送通知）
-func (m *AuthzModule) Initialize(db *gorm.DB, versionNotifier policyDomain.VersionNotifier) error {
+func (m *AuthzModule) Initialize(db *gorm.DB, stagers ...event.Stager) error {
 	if db == nil {
 		return fmt.Errorf("mysql db is required")
+	}
+	var eventStager event.Stager
+	if len(stagers) > 0 {
+		eventStager = stagers[0]
 	}
 
 	// 1. 初始化 Casbin Enforcer
@@ -64,7 +68,7 @@ func (m *AuthzModule) Initialize(db *gorm.DB, versionNotifier policyDomain.Versi
 	resourceRepository := resourceInfra.NewResourceRepository(db)
 	policyVersionRepository := policyInfra.NewPolicyVersionRepository(db)
 	userRepository := userInfra.NewRepository(db)
-	unitOfWork := mysqlAuthzUow.NewUnitOfWork(db)
+	unitOfWork := mysqlAuthzUow.NewUnitOfWork(db, eventStager)
 
 	// 3. 初始化领域服务
 	// Resource 模块
@@ -84,14 +88,13 @@ func (m *AuthzModule) Initialize(db *gorm.DB, versionNotifier policyDomain.Versi
 	roleCommander := roleApp.NewRoleCommandService(roleManager, roleRepository)
 	roleQueryer := roleApp.NewRoleQueryService(roleRepository)
 	// Policy 模块
-	policyCommander := policyApp.NewPolicyCommandService(policyManager, unitOfWork, casbinAdapter, versionNotifier)
+	policyCommander := policyApp.NewPolicyCommandService(policyManager, unitOfWork, casbinAdapter)
 	policyQueryer := policyApp.NewPolicyQueryService(policyVersionRepository, casbinAdapter, roleRepository)
 	// Assignment 模块
 	assignmentCommander := assignmentApp.NewAssignmentCommandService(
 		assignmentManager,
 		unitOfWork,
 		casbinAdapter,
-		versionNotifier,
 	)
 	assignmentQueryer := assignmentApp.NewAssignmentQueryService(assignmentManager, assignmentRepository)
 

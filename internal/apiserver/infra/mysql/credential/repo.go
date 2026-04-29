@@ -45,7 +45,7 @@ func (r *Repository) Create(ctx context.Context, cred *domain.Credential) error 
 
 // UpdateMaterial 更新凭据材料（用于密码重置、轮换等）。
 func (r *Repository) UpdateMaterial(ctx context.Context, id meta.ID, material []byte, algo string) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Model(&PO{}).
 		Where("id = ?", id.Uint64()).
 		Updates(map[string]interface{}{
@@ -64,7 +64,7 @@ func (r *Repository) UpdateMaterial(ctx context.Context, id meta.ID, material []
 
 // UpdateStatus 更新凭据状态。
 func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain.CredentialStatus) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Model(&PO{}).
 		Where("id = ?", id.Uint64()).
 		Update("status", int8(status))
@@ -80,7 +80,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain
 
 // UpdateFailedAttempts 更新失败尝试次数（用于账号锁定策略）。
 func (r *Repository) UpdateFailedAttempts(ctx context.Context, id meta.ID, attempts int) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Model(&PO{}).
 		Where("id = ?", id.Uint64()).
 		Update("failed_attempts", attempts)
@@ -96,7 +96,7 @@ func (r *Repository) UpdateFailedAttempts(ctx context.Context, id meta.ID, attem
 
 // UpdateLockedUntil 更新锁定截止时间。
 func (r *Repository) UpdateLockedUntil(ctx context.Context, id meta.ID, lockedUntil *time.Time) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Model(&PO{}).
 		Where("id = ?", id.Uint64()).
 		Update("locked_until", lockedUntil)
@@ -112,7 +112,7 @@ func (r *Repository) UpdateLockedUntil(ctx context.Context, id meta.ID, lockedUn
 
 // UpdateLastSuccessAt 更新最近成功时间。
 func (r *Repository) UpdateLastSuccessAt(ctx context.Context, id meta.ID, lastSuccessAt time.Time) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Model(&PO{}).
 		Where("id = ?", id.Uint64()).
 		Update("last_success_at", lastSuccessAt)
@@ -128,7 +128,7 @@ func (r *Repository) UpdateLastSuccessAt(ctx context.Context, id meta.ID, lastSu
 
 // UpdateLastFailureAt 更新最近失败时间。
 func (r *Repository) UpdateLastFailureAt(ctx context.Context, id meta.ID, lastFailureAt time.Time) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Model(&PO{}).
 		Where("id = ?", id.Uint64()).
 		Update("last_failure_at", lastFailureAt)
@@ -150,7 +150,7 @@ func (r *Repository) UpdateExpiresAt(ctx context.Context, id meta.ID, expiresAt 
 // GetByID 根据ID查询凭据。
 func (r *Repository) GetByID(ctx context.Context, id meta.ID) (*domain.Credential, error) {
 	var po PO
-	if err := r.db.WithContext(ctx).
+	if err := r.WithContext(ctx).
 		Where("id = ?", id.Uint64()).
 		First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -164,7 +164,7 @@ func (r *Repository) GetByID(ctx context.Context, id meta.ID) (*domain.Credentia
 // GetByAccountIDAndType 根据账号ID和类型查找凭据（接口方法）。
 func (r *Repository) GetByAccountIDAndType(ctx context.Context, accountID meta.ID, credType domain.CredentialType) (*domain.Credential, error) {
 	var po PO
-	if err := r.db.WithContext(ctx).
+	if err := r.WithContext(ctx).
 		Where("account_id = ? AND type = ?", accountID.Uint64(), string(credType)).
 		First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -178,7 +178,7 @@ func (r *Repository) GetByAccountIDAndType(ctx context.Context, accountID meta.I
 // GetPhoneOTP 获取手机号 OTP 凭据。
 func (r *Repository) GetPhoneOTP(ctx context.Context, accountID int64, phone string) (*domain.Credential, error) {
 	var po PO
-	if err := r.db.WithContext(ctx).
+	if err := r.WithContext(ctx).
 		Where("account_id = ? AND idp = ? AND idp_identifier = ?", accountID, "phone", phone).
 		First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -192,7 +192,7 @@ func (r *Repository) GetPhoneOTP(ctx context.Context, accountID int64, phone str
 // ListByAccountID 列出账号下的所有凭据（接口方法）。
 func (r *Repository) ListByAccountID(ctx context.Context, accountID meta.ID) ([]*domain.Credential, error) {
 	var pos []PO
-	if err := r.db.WithContext(ctx).
+	if err := r.WithContext(ctx).
 		Where("account_id = ?", accountID.Uint64()).
 		Find(&pos).Error; err != nil {
 		return nil, fmt.Errorf("failed to list credentials by account: %w", err)
@@ -207,7 +207,7 @@ func (r *Repository) ListByAccountID(ctx context.Context, accountID meta.ID) ([]
 
 // Delete 删除指定ID的凭据（接口方法）。
 func (r *Repository) Delete(ctx context.Context, id meta.ID) error {
-	result := r.db.WithContext(ctx).
+	result := r.WithContext(ctx).
 		Where("id = ?", id.Uint64()).
 		Delete(&PO{})
 
@@ -223,7 +223,7 @@ func (r *Repository) Delete(ctx context.Context, id meta.ID) error {
 // GetByIDPIdentifier 根据外部身份标识和凭据类型查找凭据（接口方法）。
 func (r *Repository) GetByIDPIdentifier(ctx context.Context, idpIdentifier string, credType domain.CredentialType) (*domain.Credential, error) {
 	var po PO
-	if err := r.db.WithContext(ctx).
+	if err := r.WithContext(ctx).
 		Where("idp_identifier = ? AND type = ?", idpIdentifier, string(credType)).
 		First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -238,7 +238,7 @@ func (r *Repository) GetByIDPIdentifier(ctx context.Context, idpIdentifier strin
 // 返回：凭据ID、密码哈希值（PHC格式）
 func (r *Repository) FindPasswordCredential(ctx context.Context, accountID meta.ID) (credentialID meta.ID, passwordHash string, err error) {
 	var po PO
-	if err := r.db.WithContext(ctx).
+	if err := r.WithContext(ctx).
 		Select("id", "material").
 		Where("account_id = ? AND type = ?", accountID, "password").
 		First(&po).Error; err != nil {
@@ -260,7 +260,7 @@ func (r *Repository) FindPhoneOTPCredential(ctx context.Context, phoneE164 strin
 	}
 
 	var results []Result
-	err = r.db.WithContext(ctx).
+	err = r.WithContext(ctx).
 		Table("auth_credentials c").
 		Select("c.id as credential_id", "c.account_id", "a.user_id").
 		Joins("INNER JOIN auth_accounts a ON c.account_id = a.id").
@@ -303,7 +303,7 @@ func (r *Repository) FindOAuthCredential(ctx context.Context, idpType, appID, id
 	}
 
 	var results []Result
-	query := r.db.WithContext(ctx).
+	query := r.WithContext(ctx).
 		Table("auth_credentials c").
 		Select("c.id as credential_id", "c.account_id", "a.user_id").
 		Joins("INNER JOIN auth_accounts a ON c.account_id = a.id").

@@ -490,7 +490,31 @@ CREATE TABLE IF NOT EXISTS `audit_logs`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT ='审计日志表 - 用于安全合规审计';
 
--- 5.5 数据字典表
+-- 5.5 领域事件 Outbox 表
+CREATE TABLE IF NOT EXISTS `domain_event_outbox`
+(
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `event_id`        VARCHAR(64)     NOT NULL COMMENT '事件ID',
+    `event_type`      VARCHAR(128)    NOT NULL COMMENT '事件类型',
+    `aggregate_type`  VARCHAR(64)     NOT NULL COMMENT '聚合类型',
+    `aggregate_id`    VARCHAR(64)     NOT NULL COMMENT '聚合ID',
+    `topic_name`      VARCHAR(128)    NOT NULL COMMENT 'MQ Topic',
+    `payload_json`    LONGTEXT        NOT NULL COMMENT '事件载荷 JSON',
+    `status`          VARCHAR(32)     NOT NULL COMMENT 'pending/publishing/published/failed',
+    `attempt_count`   INT UNSIGNED    NOT NULL DEFAULT 0 COMMENT '投递尝试次数',
+    `next_attempt_at` DATETIME(3)     NOT NULL COMMENT '下次可投递时间',
+    `last_error`      TEXT                     DEFAULT NULL COMMENT '最近失败原因',
+    `created_at`      DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `updated_at`      DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    `published_at`    DATETIME(3)              DEFAULT NULL COMMENT '发布时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_event_id` (`event_id`),
+    KEY `idx_status_next_attempt_at` (`status`, `next_attempt_at`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT ='领域事件 Outbox 表';
+
+-- 5.6 数据字典表
 CREATE TABLE IF NOT EXISTS `data_dictionary`
 (
     `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',

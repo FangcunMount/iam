@@ -35,7 +35,7 @@ func (s *userProfileApplicationService) Rename(ctx context.Context, userID strin
 		"new_name", newName,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
 		profileEditor := user.NewProfileEditor(tx.Users, validator)
@@ -89,7 +89,7 @@ func (s *userProfileApplicationService) Renickname(ctx context.Context, userID s
 		"new_nickname", newNickname,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
 		profileEditor := user.NewProfileEditor(tx.Users, validator)
@@ -144,7 +144,7 @@ func (s *userProfileApplicationService) UpdateContact(ctx context.Context, dto U
 		"email", dto.Email,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
 		profileEditor := user.NewProfileEditor(tx.Users, validator)
@@ -250,7 +250,7 @@ func (s *userProfileApplicationService) UpdateIDCard(ctx context.Context, userID
 		"user_id", userID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
 		profileEditor := user.NewProfileEditor(tx.Users, validator)

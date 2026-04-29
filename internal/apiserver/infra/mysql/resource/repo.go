@@ -72,7 +72,7 @@ func (r *ResourceRepository) FindByKey(ctx context.Context, key string) (*domain
 	var po ResourcePO
 
 	// `key` is a reserved word in MySQL; quote the column name to avoid syntax errors
-	err := r.db.WithContext(ctx).Where("`key` = ?", key).First(&po).Error
+	err := r.WithContext(ctx).Where("`key` = ?", key).First(&po).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -90,12 +90,12 @@ func (r *ResourceRepository) ListByApp(ctx context.Context, appName string, offs
 	var total int64
 
 	// 统计总数
-	if err := r.db.WithContext(ctx).Model(&ResourcePO{}).Where("app_name = ?", appName).Count(&total).Error; err != nil {
+	if err := r.WithContext(ctx).Model(&ResourcePO{}).Where("app_name = ?", appName).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count resources: %w", err)
 	}
 
 	// 查询列表
-	err := r.db.WithContext(ctx).
+	err := r.WithContext(ctx).
 		Where("app_name = ?", appName).
 		Order("`key` ASC").
 		Offset(offset).
@@ -117,12 +117,12 @@ func (r *ResourceRepository) ListByDomain(ctx context.Context, domain string, of
 	var total int64
 
 	// 统计总数
-	if err := r.db.WithContext(ctx).Model(&ResourcePO{}).Where("domain = ?", domain).Count(&total).Error; err != nil {
+	if err := r.WithContext(ctx).Model(&ResourcePO{}).Where("domain = ?", domain).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count resources: %w", err)
 	}
 
 	// 查询列表
-	err := r.db.WithContext(ctx).
+	err := r.WithContext(ctx).
 		Where("domain = ?", domain).
 		Order("`key` ASC").
 		Offset(offset).
@@ -143,7 +143,7 @@ func (r *ResourceRepository) List(ctx context.Context, query domain.ListResource
 	var pos []*ResourcePO
 	var total int64
 
-	db := r.db.WithContext(ctx).Model(&ResourcePO{})
+	db := r.WithContext(ctx).Model(&ResourcePO{})
 	if query.AppName != "" {
 		db = db.Where("app_name = ?", query.AppName)
 	}

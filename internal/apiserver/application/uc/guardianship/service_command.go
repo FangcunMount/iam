@@ -32,7 +32,7 @@ func (s *guardianshipApplicationService) AddGuardian(ctx context.Context, dto Ad
 		"relation", dto.Relation,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		managerService := domain.NewManagerService(tx.Guardianships, tx.Children, tx.Users)
 
@@ -98,7 +98,7 @@ func (s *guardianshipApplicationService) RemoveGuardian(ctx context.Context, dto
 		"child_id", dto.ChildID,
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		managerService := domain.NewManagerService(tx.Guardianships, tx.Children, tx.Users)
 

@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -32,6 +33,8 @@ type apiServer struct {
 	dbManager *DatabaseManager
 	// Container 主容器
 	container *container.Container
+	// runtime task cancellation
+	outboxRelayCancel context.CancelFunc
 }
 
 // preparedAPIServer 定义了准备运行的 API 服务器

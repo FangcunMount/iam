@@ -13,7 +13,7 @@
 - 当前既有管理面，也有单次 PDP：REST `POST /api/v1/authz/check`、gRPC `AuthorizationService.Check`、HTTP 中间件 `RequireRole / RequirePermission` 都已经是现状能力。
 - 存储不是单一一套：业务元数据主要在 `authz_*` 表，执行规则主要在 `casbin_rule`，策略版本在 `authz_policy_versions`。
 - `authz` 不负责登录与 Token，不负责用户档案与监护关系，也不等于“完整授权平台全家桶”。
-- 统一事件清单：**N/A**。本仓库没有 `configs/events.yaml`；若提到版本通知 topic，应直接回链源码。
+- 统一事件清单：[`configs/events.yaml`](../../configs/events.yaml) 已声明 `iam.authz.version_changed`，该事件为 durable outbox 投递，topic 仍为 `iam.authz.version`。
 
 | 主题 | 当前答案 |
 | ---- | ---- |
@@ -29,7 +29,7 @@
 
 - 租户内角色、资源目录、策略规则、主体到角色分配的建模
 - Casbin `p` / `g` 规则写入与单次判定能力
-- 租户级策略版本递增与可选版本通知
+- 租户级策略版本递增与 durable outbox 版本事件
 - 对外暴露 REST 管理面、REST PDP、gRPC PDP 和 HTTP 运行时权限中间件入口
 
 #### 不负责
@@ -43,7 +43,7 @@
 
 - 依赖 `authn` 的 JWT 校验和身份上下文，主体通常来自 `user:<id>`
 - 与 user 域没有聚合级依赖，只依赖主体键约定
-- 版本通知依赖 EventBus 是否装配；未装配时主流程仍成立
+- 策略版本事件依赖 `domain_event_outbox`；EventBus 未装配时 durable row 保持 pending，主事务仍成立
 
 ### 运行时示意图
 
@@ -186,7 +186,7 @@ flowchart TB
   RS --> MY
   PC --> CAS
   PC --> MY
-  PC --> MQ
+  PC --> OB[domain_event_outbox]
   AC --> MY
   AC --> CAS
 ```
@@ -195,7 +195,7 @@ flowchart TB
 | ---- | ---- | ---- |
 | 角色管理 | 角色 CRUD 与查询 | [`application/authz/role/`](../../internal/apiserver/application/authz/role/) |
 | 资源管理 | 资源 CRUD 与动作校验 | [`application/authz/resource/`](../../internal/apiserver/application/authz/resource/) |
-| 策略管理 | 写入 / 删除 Casbin `p` 规则，递增版本，可选发版本通知 | [`application/authz/policy/command_service.go`](../../internal/apiserver/application/authz/policy/command_service.go) |
+| 策略管理 | 写入 / 删除 Casbin `p` 规则，递增版本并 stage durable 版本事件 | [`application/authz/policy/command_service.go`](../../internal/apiserver/application/authz/policy/command_service.go) |
 | 分配管理 | 写入 / 删除 assignment，并同步 Casbin `g` 规则 | [`application/authz/assignment/command_service.go`](../../internal/apiserver/application/authz/assignment/command_service.go) |
 | 单次 PDP | 对 `(subject, domain, object, action)` 执行 `Enforce` | [`interface/authz/restful/handler/check.go`](../../internal/apiserver/interface/authz/restful/handler/check.go)、[`interface/authz/grpc/service.go`](../../internal/apiserver/interface/authz/grpc/service.go) |
 
@@ -219,15 +219,15 @@ flowchart TB
 - `Assignment` 不是抽象“权限树”，而是主体到角色的绑定关系
 - 角色的真正执行键不是数据库 ID，而是 `role:<name>`
 
-### 核心双写模式：Policy 和 Assignment 都是“双面数据”，但顺序不同
+### 核心写入模式：Policy 和 Assignment 的数据库事实同事务提交
 
-**结论**：当前 `authz` 的管理写链不是统一单事务模型，而是“业务表 + Casbin”双面维护，其中策略和 Assignment 的写入顺序并不相同。
+**结论**：当前 `authz` 的管理写链把业务表、`casbin_rule`、策略版本和 durable 版本事件纳入同一个 MySQL 事务；运行时 Casbin reload 是事务成功后的 best-effort 副作用。
 
 | 写入对象 | 当前顺序 | 回滚策略 |
 | ---- | ---- | ---- |
-| Policy | 先写 Casbin `p`，再递增 `authz_policy_versions`，再可选发通知 | 版本递增失败时回滚 Casbin |
-| Assignment Grant | 先写 `authz_assignments`，再写 Casbin `g` | Casbin 失败时删除刚插入的 assignment |
-| Assignment Revoke | 当前有两条路径，先后顺序不同 | 只有 best-effort 回滚 |
+| Policy | 事务内写 `casbin_rule(p)`、递增 `authz_policy_versions`、stage `iam.authz.version_changed` | 任一步失败回滚整个 MySQL 事务 |
+| Assignment Grant | 事务内写 `authz_assignments`、`casbin_rule(g)`、版本和 outbox event | 任一步失败回滚整个 MySQL 事务 |
+| Assignment Revoke | 事务内删除 assignment / `casbin_rule(g)`，递增版本并 stage outbox event | 任一步失败回滚整个 MySQL 事务 |
 
 这一条只需要在模块文里点明模式，不需要把完整时序在这里重复展开；长时序见 [../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md)。
 
@@ -259,16 +259,16 @@ flowchart TB
 
 所以今天更准确的说法是：**标准装配路径下已受保护，但不是任何降级场景都能保证统一受保护。**
 
-### 核心装配与配置：Casbin 模型、适配器和版本通知决定 `authz` 的运行形态
+### 核心装配与配置：Casbin 模型、适配器和 outbox 决定 `authz` 的运行形态
 
-**结论**：真正决定 `authz` 运行形态的，不是 prose 描述，而是装配代码、Casbin 模型文件和可选版本通知器。
+**结论**：真正决定 `authz` 运行形态的，不是 prose 描述，而是装配代码、Casbin 模型文件、event catalog 和 outbox relay。
 
 | 项 | 说明 |
 | ---- | ---- |
 | Casbin 模型路径 | `assembler/authz.go` 中固定使用 `configs/casbin_model.conf` |
 | 适配器 | `infra/casbin` 下 `gorm-adapter` + `CachedEnforcer` |
 | gRPC 注册 | `AuthzModule.GRPCService.Register` |
-| 版本通知 | `versionNotifier != nil` 时才会发布 `iam.authz.policy_version` |
+| 版本事件 | `iam.authz.version_changed` 事务内写入 `domain_event_outbox`，relay 发布到 `iam.authz.version` |
 
 | 文件 | 作用 |
 | ---- | ---- |
@@ -282,7 +282,7 @@ flowchart TB
 ## 边界与注意事项
 
 - `authz` 今天已经有完整的“管理面 + 单次 PDP”能力，但还不能讲成完整授权平台全家桶。
-- 策略版本通知 topic `iam.authz.policy_version` 只有发布侧；消费闭环需要结合部署和下游代码继续核对。
+- 策略版本事件通过 outbox relay 发布；EventBus 不可用时不 claim、不标记 published。
 - 路由保护依赖 `authn` 中间件与 Casbin 装配，不能把设计意图包装成无条件现状。
 - `tenant_id / user_id` 的默认值、`changed_by / granted_by` 的合同与运行时来源漂移，统一看 [../03-接口与集成/03-授权接入与边界.md](../03-接口与集成/03-授权接入与边界.md)。
 - Policy/Assignment 的长时序、PDP 使用路径和版本传播链，统一看 [../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md)。
@@ -297,10 +297,10 @@ flowchart TB
 | REST 路由 | `internal/apiserver/interface/authz/restful/router.go` | `/health` 公开；其余挂 `AuthMiddleware` |
 | REST PDP | `internal/apiserver/interface/authz/restful/handler/check.go` | `POST /check` |
 | gRPC PDP | `internal/apiserver/interface/authz/grpc/service.go` | `AuthorizationService.Check` |
-| Policy 写入 | `internal/apiserver/application/authz/policy/command_service.go` | `p` 规则 + 版本递增 + 可选通知 |
+| Policy 写入 | `internal/apiserver/application/authz/policy/command_service.go` | `p` 规则 + 版本递增 + outbox event |
 | Assignment 写入 | `internal/apiserver/application/authz/assignment/command_service.go` | assignment + Casbin `g` 双写 |
 | Casbin 实现 | `internal/apiserver/infra/casbin/` | `CachedEnforcer`、规则装载、执行 |
 | 中间件消费 | `internal/pkg/middleware/authn/jwt_middleware.go` | `RequireRole / RequirePermission` |
-| 版本通知 | `internal/apiserver/infra/messaging/version_notifier.go` | topic `iam.authz.policy_version` |
+| 版本事件 | `configs/events.yaml`、`internal/apiserver/infra/mysql/eventoutbox/store.go`、`internal/apiserver/infra/messaging/outbox_relay.go` | event `iam.authz.version_changed` -> topic `iam.authz.version` |
 | 域模型 | `internal/apiserver/domain/authz/` | `role / resource / assignment / policy` |
 | SDK 消费面 | `pkg/sdk/authz/client.go` | 对外单次 PDP 调用 |

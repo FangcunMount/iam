@@ -62,7 +62,7 @@ func (r *AssignmentRepository) FindByID(ctx context.Context, id domain.Assignmen
 func (r *AssignmentRepository) ListBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID, tenantID string) ([]*domain.Assignment, error) {
 	var pos []*AssignmentPO
 
-	err := r.db.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID).
+	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID).
 		Find(&pos).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domains by subject: %w", err)
@@ -77,7 +77,7 @@ func (r *AssignmentRepository) ListBySubject(ctx context.Context, subjectType do
 func (r *AssignmentRepository) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*domain.Assignment, error) {
 	var pos []*AssignmentPO
 
-	err := r.db.WithContext(ctx).Where("tenant_id = ? AND role_id = ?", tenantID, roleID).
+	err := r.WithContext(ctx).Where("tenant_id = ? AND role_id = ?", tenantID, roleID).
 		Find(&pos).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domains by role: %w", err)
@@ -100,7 +100,7 @@ func (r *AssignmentRepository) Delete(ctx context.Context, id domain.AssignmentI
 
 // DeleteBySubjectAndRole 删除指定主体和角色的分配
 func (r *AssignmentRepository) DeleteBySubjectAndRole(ctx context.Context, subjectType domain.SubjectType, subjectID string, roleID uint64, tenantID string) error {
-	err := r.db.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ? AND role_id = ?",
+	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ? AND role_id = ?",
 		tenantID, string(subjectType), subjectID, roleID).
 		Delete(&AssignmentPO{}).Error
 	if err != nil {

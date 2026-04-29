@@ -62,7 +62,7 @@ func (r *PolicyVersionRepository) FindByID(ctx context.Context, id domain.Policy
 func (r *PolicyVersionRepository) GetCurrent(ctx context.Context, tenantID string) (*domain.PolicyVersion, error) {
 	var po PolicyVersionPO
 
-	err := r.db.WithContext(ctx).
+	err := r.WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
 		Order("policy_version DESC").
 		First(&po).Error
@@ -149,12 +149,12 @@ func (r *PolicyVersionRepository) ListByTenant(ctx context.Context, tenantID str
 	var total int64
 
 	// 统计总数
-	if err := r.db.WithContext(ctx).Model(&PolicyVersionPO{}).Where("tenant_id = ?", tenantID).Count(&total).Error; err != nil {
+	if err := r.WithContext(ctx).Model(&PolicyVersionPO{}).Where("tenant_id = ?", tenantID).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count policy versions: %w", err)
 	}
 
 	// 查询列表
-	err := r.db.WithContext(ctx).
+	err := r.WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
 		Order("policy_version DESC").
 		Offset(offset).

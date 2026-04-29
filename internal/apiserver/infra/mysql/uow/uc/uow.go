@@ -25,17 +25,24 @@ type unitOfWork struct {
 	base *dbmysql.UnitOfWork
 }
 
-func (u *unitOfWork) WithinTx(ctx context.Context, fn func(tx appuow.TxRepositories) error) error {
+func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context, tx appuow.TxRepositories) error) error {
+	if fn == nil {
+		return nil
+	}
 	if u == nil || u.base == nil {
-		return fn(appuow.TxRepositories{})
+		return dbmysql.ErrUnitOfWorkUnavailable
 	}
 
-	return u.base.WithinTransaction(ctx, func(tx *gorm.DB) error {
+	return u.base.WithinTransaction(ctx, func(txCtx context.Context) error {
+		tx, err := dbmysql.RequireTx(txCtx)
+		if err != nil {
+			return err
+		}
 		repos := appuow.TxRepositories{
 			Guardianships: guardrepo.NewRepository(tx),
 			Children:      childrepo.NewRepository(tx),
 			Users:         userrepo.NewRepository(tx),
 		}
-		return fn(repos)
+		return fn(txCtx, repos)
 	})
 }

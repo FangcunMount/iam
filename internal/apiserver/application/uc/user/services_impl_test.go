@@ -27,8 +27,8 @@ type queryUOWStub struct {
 	users userdomain.Repository
 }
 
-func (s *queryUOWStub) WithinTx(ctx context.Context, fn func(tx ucuow.TxRepositories) error) error {
-	return fn(ucuow.TxRepositories{Users: s.users})
+func (s *queryUOWStub) WithinTx(ctx context.Context, fn func(txCtx context.Context, tx ucuow.TxRepositories) error) error {
+	return fn(ctx, ucuow.TxRepositories{Users: s.users})
 }
 
 func TestUserQueryGetByID_ReturnsErrUserNotFound(t *testing.T) {

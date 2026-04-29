@@ -36,7 +36,7 @@ func (s *userQueryApplicationService) GetByID(ctx context.Context, userID string
 	var result *UserResult
 
 	// 查询操作也通过 UoW，但不需要写操作，可以直接使用只读事务
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		userIDObj, err := parseUserID(userID)
 		if err != nil {
@@ -81,7 +81,7 @@ func (s *userQueryApplicationService) GetByID(ctx context.Context, userID string
 func (s *userQueryApplicationService) GetByPhone(ctx context.Context, phone string) (*UserResult, error) {
 	var result *UserResult
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
 		phoneObj, err := input.ParseOptionalPhone(phone)
 		if err != nil {

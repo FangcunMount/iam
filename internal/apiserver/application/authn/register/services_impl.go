@@ -67,7 +67,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 		"phone", req.Phone.String(),
 	)
 
-	err := s.uow.WithinTx(ctx, func(tx uow.TxRepositories) error {
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		repos := registrationRepositories{
 			Users:       tx.Users,
 			Accounts:    tx.Accounts,

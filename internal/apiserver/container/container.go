@@ -3,15 +3,22 @@ package container
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
+	messagingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/messaging"
 	redis "github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 	"gorm.io/gorm"
 
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
 	cacheinfra "github.com/FangcunMount/iam/internal/apiserver/infra/cache"
+	eventoutbox "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/internal/pkg/event"
+	"github.com/FangcunMount/iam/internal/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/internal/pkg/eventruntime"
 )
 
 // Container 容器
@@ -23,6 +30,12 @@ type Container struct {
 
 	// 消息总线（可选）
 	eventBus messaging.EventBus
+
+	// 事件平台
+	eventCatalog   *eventcatalog.Catalog
+	eventPublisher event.Publisher
+	outboxStore    *eventoutbox.Store
+	outboxRelay    messagingInfra.OutboxRelay
 
 	// 业务模块
 	AuthnModule            *assembler.AuthnModule
@@ -60,37 +73,43 @@ func (c *Container) Initialize() error {
 
 	var errors []error
 
-	// 1. 初始化 IDP 模块（先初始化，因为 authn 模块依赖它）
+	// 1. 初始化事件平台（catalog + outbox store + relay）
+	if err := c.initEventing(); err != nil {
+		log.Warnf("Failed to initialize event runtime: %v", err)
+		errors = append(errors, fmt.Errorf("event runtime: %w", err))
+	}
+
+	// 2. 初始化 IDP 模块（先初始化，因为 authn 模块依赖它）
 	if err := c.initIDPModule(); err != nil {
 		log.Warnf("Failed to initialize IDP module: %v", err)
 		errors = append(errors, fmt.Errorf("idp module: %w", err))
 	}
 
-	// 2. 初始化认证模块（依赖 IDP 模块）
+	// 3. 初始化认证模块（依赖 IDP 模块）
 	if err := c.initAuthModule(); err != nil {
 		log.Warnf("Failed to initialize Authn module: %v", err)
 		errors = append(errors, fmt.Errorf("authn module: %w", err))
 	}
 
-	// 3. 初始化授权模块（用户模块 /identity/me 的 roles 依赖 Casbin）
+	// 4. 初始化授权模块（用户模块 /identity/me 的 roles 依赖 Casbin）
 	if err := c.initAuthzModule(); err != nil {
 		log.Warnf("Failed to initialize Authz module: %v", err)
 		errors = append(errors, fmt.Errorf("authz module: %w", err))
 	}
 
-	// 4. 初始化用户模块
+	// 5. 初始化用户模块
 	if err := c.initUserModule(); err != nil {
 		log.Warnf("Failed to initialize User module: %v", err)
 		errors = append(errors, fmt.Errorf("user module: %w", err))
 	}
 
-	// 5. 初始化 Suggest 模块（可选）
+	// 6. 初始化 Suggest 模块（可选）
 	if err := c.initSuggestModule(); err != nil {
 		log.Warnf("Failed to initialize Suggest module: %v", err)
 		errors = append(errors, fmt.Errorf("suggest module: %w", err))
 	}
 
-	// 6. 初始化只读缓存治理服务
+	// 7. 初始化只读缓存治理服务
 	c.initCacheGovernance()
 
 	c.initialized = true
@@ -122,6 +141,11 @@ func (c *Container) Initialize() error {
 	} else {
 		log.Warn("   ⚠️  Suggest module not initialized or disabled")
 	}
+	if c.outboxStore != nil {
+		log.Info("   ✅ Event outbox")
+	} else {
+		log.Warn("   ⚠️  Event outbox not initialized")
+	}
 
 	// 如果有错误,返回组合错误(但容器仍然标记为已初始化)
 	if len(errors) > 0 {
@@ -131,12 +155,32 @@ func (c *Container) Initialize() error {
 	return nil
 }
 
+func (c *Container) initEventing() error {
+	catalogPath := strings.TrimSpace(viper.GetString("events.catalog_path"))
+	if catalogPath == "" {
+		catalogPath = "configs/events.yaml"
+	}
+	cfg, err := eventcatalog.Load(catalogPath)
+	if err != nil {
+		return fmt.Errorf("load event catalog %q: %w", catalogPath, err)
+	}
+	catalog := eventcatalog.NewCatalog(cfg)
+	c.eventCatalog = catalog
+	c.eventPublisher = eventruntime.NewPublisherForBus(catalog, c.eventBus)
+	if c.mysqlDB == nil {
+		return nil
+	}
+	c.outboxStore = eventoutbox.NewStore(c.mysqlDB, catalog)
+	c.outboxRelay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", c.outboxStore, c.eventBus)
+	return nil
+}
+
 // initAuthModule 初始化认证模块（依赖 IDP 模块）
 // 认证模块使用 Redis 进行 Token 持久化存储
 func (c *Container) initAuthModule() error {
 	authModule := assembler.NewAuthnModule()
 	// 传递 Redis（用于 Token 持久化）和 IDP 模块的服务
-	if err := authModule.Initialize(c.mysqlDB, c.redisClient, c.IDPModule, c.eventBus); err != nil {
+	if err := authModule.Initialize(c.mysqlDB, c.redisClient, c.IDPModule, c.eventBus, c.eventPublisher); err != nil {
 		return fmt.Errorf("failed to initialize auth module: %w", err)
 	}
 	c.AuthnModule = authModule
@@ -156,12 +200,11 @@ func (c *Container) initUserModule() error {
 }
 
 // initAuthzModule 初始化授权模块
-// 授权模块使用 EventBus 发布策略版本变更通知
+// 授权模块通过 outbox stager 记录 durable 策略版本事件
 func (c *Container) initAuthzModule() error {
 	authzModule := assembler.NewAuthzModule()
-	versionNotifier := c.moduleGraph().policyVersionNotifier()
 
-	if err := authzModule.Initialize(c.mysqlDB, versionNotifier); err != nil {
+	if err := authzModule.Initialize(c.mysqlDB, c.outboxStore); err != nil {
 		return fmt.Errorf("failed to initialize authz module: %w", err)
 	}
 	c.AuthzModule = authzModule
@@ -230,6 +273,13 @@ func (c *Container) HealthCheck(ctx context.Context) error {
 // GetMySQLDB 获取MySQL数据库连接
 func (c *Container) GetMySQLDB() *gorm.DB {
 	return c.mysqlDB
+}
+
+func (c *Container) OutboxRelay() messagingInfra.OutboxRelay {
+	if c == nil {
+		return nil
+	}
+	return c.outboxRelay
 }
 
 // IsInitialized 检查容器是否已初始化

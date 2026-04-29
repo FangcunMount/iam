@@ -42,6 +42,7 @@ import (
 	wechatInfra "github.com/FangcunMount/iam/internal/apiserver/infra/wechat"
 	authngrpc "github.com/FangcunMount/iam/internal/apiserver/interface/authn/grpc"
 	authhandler "github.com/FangcunMount/iam/internal/apiserver/interface/authn/restful/handler"
+	"github.com/FangcunMount/iam/internal/pkg/event"
 )
 
 // AuthnModule 认证模块
@@ -95,6 +96,7 @@ func NewAuthnModule() *AuthnModule {
 //   - authentication.PasswordHasher 自定义密码哈希器
 //   - *IDPModule              注入 IDP 模块提供的基础设施能力
 //   - messaging.EventBus      可选；sms.provider=mq 时用于发布登录 OTP 短信任务
+//   - event.Publisher         可选；优先用于 catalog-backed best-effort 事件发布
 func (m *AuthnModule) Initialize(params ...interface{}) error {
 	if len(params) < 2 {
 		log.Errorf("AuthnModule.Initialize requires at least 2 parameters: db, redisClient")
@@ -115,9 +117,10 @@ func (m *AuthnModule) Initialize(params ...interface{}) error {
 
 	// 获取可选依赖
 	var (
-		hasher   authentication.PasswordHasher
-		idpDeps  *IDPModule
-		eventBus messaging.EventBus
+		hasher         authentication.PasswordHasher
+		idpDeps        *IDPModule
+		eventBus       messaging.EventBus
+		eventPublisher event.Publisher
 	)
 	for _, opt := range params[2:] {
 		switch v := opt.(type) {
@@ -127,6 +130,8 @@ func (m *AuthnModule) Initialize(params ...interface{}) error {
 			idpDeps = v
 		case messaging.EventBus:
 			eventBus = v
+		case event.Publisher:
+			eventPublisher = v
 		}
 	}
 	if hasher == nil {
@@ -134,7 +139,7 @@ func (m *AuthnModule) Initialize(params ...interface{}) error {
 	}
 
 	// 初始化基础设施层
-	infra := m.initializeInfrastructure(db, redisClient, idpDeps, eventBus)
+	infra := m.initializeInfrastructure(db, redisClient, idpDeps, eventBus, eventPublisher)
 
 	// 初始化领域层
 	domain := m.initializeDomain(infra)
@@ -186,15 +191,17 @@ type infrastructureComponents struct {
 	secretVault      idpPort.SecretVault
 
 	// 消息总线（可选，登录 OTP 走 MQ 时需要）
-	eventBus messaging.EventBus
+	eventBus       messaging.EventBus
+	eventPublisher event.Publisher
 }
 
 // initializeInfrastructure 初始化基础设施层
-func (m *AuthnModule) initializeInfrastructure(db *gorm.DB, redisClient *redis.Client, idpDeps *IDPModule, eventBus messaging.EventBus) *infrastructureComponents {
+func (m *AuthnModule) initializeInfrastructure(db *gorm.DB, redisClient *redis.Client, idpDeps *IDPModule, eventBus messaging.EventBus, eventPublisher event.Publisher) *infrastructureComponents {
 	infra := &infrastructureComponents{
-		db:       db,
-		redis:    redisClient,
-		eventBus: eventBus,
+		db:             db,
+		redis:          redisClient,
+		eventBus:       eventBus,
+		eventPublisher: eventPublisher,
 	}
 
 	// UnitOfWork
@@ -361,8 +368,12 @@ func (m *AuthnModule) initializeApplication(
 	case "log":
 		smsSender = smsInfra.LogSender{}
 	case "mq":
+		if infra.eventPublisher != nil {
+			smsSender = smsInfra.NewMQLoginOTPSenderWithPublisher(infra.eventPublisher)
+			break
+		}
 		if infra.eventBus == nil {
-			return fmt.Errorf("sms.provider=mq requires NSQ EventBus (enable nsq.enabled and ensure EventBus is created)")
+			return fmt.Errorf("sms.provider=mq requires EventBus or event publisher (enable nsq.enabled and ensure EventBus is created)")
 		}
 		topic := strings.TrimSpace(viper.GetString("sms.mq.topic"))
 		smsSender = smsInfra.NewMQLoginOTPSender(infra.eventBus, topic)

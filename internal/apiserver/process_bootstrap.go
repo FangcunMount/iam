@@ -3,6 +3,7 @@ package apiserver
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
@@ -120,19 +121,54 @@ func (s *apiServer) prepareTransports(out containerOutput) {
 }
 
 func (s *apiServer) startRuntimeTasks() {
-	if s.container == nil || s.container.AuthnModule == nil || s.container.AuthnModule.RotationScheduler == nil {
+	if s.container == nil {
 		return
 	}
-	go func() {
-		if err := s.container.AuthnModule.RotationScheduler.Start(context.Background()); err != nil {
-			log.Errorf("failed to start key rotation scheduler: %v", err)
+	if s.container.AuthnModule != nil && s.container.AuthnModule.RotationScheduler != nil {
+		go func() {
+			if err := s.container.AuthnModule.RotationScheduler.Start(context.Background()); err != nil {
+				log.Errorf("failed to start key rotation scheduler: %v", err)
+			}
+		}()
+		log.Infow("Key rotation scheduler initialized", "description", "periodic key rotation scheduler started")
+	}
+	if relay := s.container.OutboxRelay(); relay != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.outboxRelayCancel = cancel
+		go s.runOutboxRelay(ctx, relay)
+		log.Infow("Outbox relay initialized", "description", "domain event outbox relay started")
+	}
+}
+
+func (s *apiServer) runOutboxRelay(ctx context.Context, relay interface {
+	DispatchDue(context.Context) error
+}) {
+	interval := viper.GetDuration("events.outbox_relay_interval")
+	if interval <= 0 {
+		interval = 2 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		if err := relay.DispatchDue(ctx); err != nil {
+			log.Warnw("outbox relay dispatch failed", "error", err)
 		}
-	}()
-	log.Infow("Key rotation scheduler initialized", "description", "periodic key rotation scheduler started")
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func (s *apiServer) registerShutdownCallbacks() {
 	s.gs.AddShutdownCallback(shutdown.ShutdownFunc(func(string) error {
+		if s.outboxRelayCancel != nil {
+			s.outboxRelayCancel()
+			s.outboxRelayCancel = nil
+		}
+
 		if s.container != nil && s.container.AuthnModule != nil && s.container.AuthnModule.RotationScheduler != nil && s.container.AuthnModule.RotationScheduler.IsRunning() {
 			if err := s.container.AuthnModule.RotationScheduler.Stop(); err != nil {
 				log.Errorf("Failed to stop key rotation scheduler: %v", err)

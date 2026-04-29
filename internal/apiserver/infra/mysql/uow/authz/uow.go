@@ -13,24 +13,37 @@ import (
 	rolerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role"
 	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/internal/pkg/event"
 )
 
 var _ appuow.UnitOfWork = (*unitOfWork)(nil)
 
 // NewUnitOfWork 创建基于 MySQL/GORM 的授权事务边界。
-func NewUnitOfWork(db *gorm.DB) appuow.UnitOfWork {
-	return &unitOfWork{base: dbmysql.NewUnitOfWork(db)}
+func NewUnitOfWork(db *gorm.DB, stagers ...event.Stager) appuow.UnitOfWork {
+	var stager event.Stager
+	if len(stagers) > 0 {
+		stager = stagers[0]
+	}
+	return &unitOfWork{base: dbmysql.NewUnitOfWork(db), events: stager}
 }
 
 type unitOfWork struct {
-	base *dbmysql.UnitOfWork
+	base   *dbmysql.UnitOfWork
+	events event.Stager
 }
 
-func (u *unitOfWork) WithinTx(ctx context.Context, fn func(tx appuow.TxRepositories) error) error {
-	if u == nil || u.base == nil {
-		return fn(appuow.TxRepositories{})
+func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context, tx appuow.TxRepositories) error) error {
+	if fn == nil {
+		return nil
 	}
-	return u.base.WithinTransaction(ctx, func(tx *gorm.DB) error {
+	if u == nil || u.base == nil {
+		return dbmysql.ErrUnitOfWorkUnavailable
+	}
+	return u.base.WithinTransaction(ctx, func(txCtx context.Context) error {
+		tx, err := dbmysql.RequireTx(txCtx)
+		if err != nil {
+			return err
+		}
 		repos := appuow.TxRepositories{
 			Assignments:    assignmentrepo.NewAssignmentRepository(tx),
 			Roles:          rolerepo.NewRoleRepository(tx),
@@ -38,7 +51,8 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(tx appuow.TxRepositor
 			PolicyVersions: policyrepo.NewPolicyVersionRepository(tx),
 			Users:          userrepo.NewRepository(tx),
 			RuleStore:      casbinrulerepo.NewRepository(tx),
+			Events:         u.events,
 		}
-		return fn(repos)
+		return fn(txCtx, repos)
 	})
 }

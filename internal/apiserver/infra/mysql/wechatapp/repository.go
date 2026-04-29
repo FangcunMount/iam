@@ -63,7 +63,7 @@ func (r *wechatAppRepository) GetByID(ctx context.Context, id idutil.ID) (*wecha
 
 // List 查询微信应用列表。
 func (r *wechatAppRepository) List(ctx context.Context, filter wechatapp.ListFilter) ([]*wechatapp.WechatApp, error) {
-	query := r.dbConn.WithContext(ctx).Model(&WechatAppPO{})
+	query := r.WithContext(ctx).Model(&WechatAppPO{})
 	if filter.Type != nil {
 		query = query.Where("type = ?", string(*filter.Type))
 	}
@@ -110,7 +110,7 @@ func (r *wechatAppRepository) Update(ctx context.Context, app *wechatapp.WechatA
 	po.FromDomain(app)
 
 	// use BaseRepository helper to perform update
-	result := r.dbConn.WithContext(ctx).Model(&WechatAppPO{}).Where("id = ?", po.ID).Updates(map[string]interface{}{
+	result := r.WithContext(ctx).Model(&WechatAppPO{}).Where("id = ?", po.ID).Updates(map[string]interface{}{
 		"name":                   po.Name,
 		"type":                   po.Type,
 		"status":                 po.Status,

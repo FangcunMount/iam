@@ -29,7 +29,7 @@
 | **Where** | 在 `iam-apiserver` 中的入口（REST/gRPC/装配） | 各篇「运行时示意图」与文末锚点表 |
 | **Verify** | 与契约、配置、数据库如何对齐 | `api/rest/*.yaml`、`api/grpc/**/*.proto`、`configs/`、各篇 Verify 提示 |
 
-进程与命名：业务逻辑均在 **`iam-apiserver`**（入口 [`cmd/apiserver/apiserver.go`](../../cmd/apiserver/apiserver.go)），与 [01-运行时](../01-运行时/README.md) 一致。本仓库**没有**独立 `worker` 进程；异步与消息以代码为准（如 authz 策略版本通知依赖 EventBus 是否装配）。
+进程与命名：业务逻辑均在 **`iam-apiserver`**（入口 [`cmd/apiserver/apiserver.go`](../../cmd/apiserver/apiserver.go)），与 [01-运行时](../01-运行时/README.md) 一致。本仓库**没有**独立 `worker` 进程；durable 事件由同进程 outbox relay 发布，EventBus 不可用时 row 保持 pending。
 
 ## 单篇文档的统一结构
 
@@ -43,7 +43,7 @@
 | **边界与注意事项** | 易误解点、已知限制；专题层只交叉引用 |
 | **代码锚点索引**（建议） | `关注点 \| 路径 \| 说明` |
 
-**领域事件与 Topic**：本仓库**无** `configs/events.yaml`；若写事件/Topic，须回链源码（如 authz 版本通知主题 `iam.authz.policy_version` 见 [version_notifier.go](../../internal/apiserver/infra/messaging/version_notifier.go)），否则标 **N/A**。
+**领域事件与 Topic**：统一事件清单以 [../../configs/events.yaml](../../configs/events.yaml) 为准。durable 事件必须通过 transactional outbox 提交，best-effort 事件可走 catalog-backed publisher；文档写事件时必须回链 event catalog 与对应 codec/handler。
 
 ## 图表节奏
 

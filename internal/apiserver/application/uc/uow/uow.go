@@ -17,5 +17,5 @@ type TxRepositories struct {
 
 // UnitOfWork 提供业务事务边界。
 type UnitOfWork interface {
-	WithinTx(ctx context.Context, fn func(tx TxRepositories) error) error
+	WithinTx(ctx context.Context, fn func(txCtx context.Context, tx TxRepositories) error) error
 }
