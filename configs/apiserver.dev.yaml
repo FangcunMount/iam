@@ -197,6 +197,8 @@ sms:
   login_otp_send_cooldown: 60s
   login_otp_code_length: 6
   mq:
+    # Deprecated: 主路径以 configs/events.yaml 中 iam.login_otp_sms 的 topic 为准；
+    # 仅 legacy fallback 构造器继续读取该值。
     topic: iam.notify.sms
 
 # ----------------------------------------------------------------------------
@@ -269,3 +271,12 @@ nsq:
   max-in-flight: 200                          # 最大并发处理数
   msg-timeout: 60                             # 消息超时时间（秒）
   requeue-delay: 5                            # 重新入队延迟（秒）
+
+# ----------------------------------------------------------------------------
+# 5.3 事件目录与 Transactional Outbox Relay
+# ----------------------------------------------------------------------------
+events:
+  catalog_path: configs/events.yaml
+  outbox_relay_interval: 2s
+  outbox_relay_batch_size: 50
+  outbox_relay_retry_delay: 10s

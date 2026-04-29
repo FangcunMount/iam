@@ -72,7 +72,7 @@ func (s *guardianshipApplicationService) AddGuardian(ctx context.Context, dto Ad
 		}
 
 		// 持久化监护关系
-		return tx.Guardianships.Create(ctx, guardianship)
+		return tx.Guardianships.Create(txCtx, guardianship)
 	})
 
 	if err == nil {
@@ -135,7 +135,7 @@ func (s *guardianshipApplicationService) RemoveGuardian(ctx context.Context, dto
 		}
 
 		// 持久化修改
-		return tx.Guardianships.Update(ctx, guardianship)
+		return tx.Guardianships.Update(txCtx, guardianship)
 	})
 
 	if err == nil {

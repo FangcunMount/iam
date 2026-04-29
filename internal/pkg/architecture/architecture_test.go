@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -192,6 +193,58 @@ func TestDurableOutboxEventsAreNotDirectPublishedToMQ(t *testing.T) {
 		for topic := range durableTopics {
 			if strings.Contains(source, topic) {
 				t.Fatalf("%s directly publishes durable_outbox topic %q; stage it in outbox and let the relay publish", rel, topic)
+			}
+		}
+	})
+}
+
+func TestApplicationTransactionCallbacksUseTransactionContext(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	outerCtxTxCall := regexp.MustCompile(`\b(?:tx(?:\.[A-Za-z0-9_]+)+|tx[A-Za-z0-9_]*\.[A-Za-z0-9_]+|editor\.[A-Za-z0-9_]+|statusManager\.[A-Za-z0-9_]+|lifecycler\.[A-Za-z0-9_]+)\(ctx\b`)
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application"), func(path, source string) {
+		if !strings.Contains(source, "WithinTx(ctx, func(txCtx") {
+			return
+		}
+		if match := outerCtxTxCall.FindString(source); match != "" {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			t.Fatalf("%s uses outer ctx in transaction callback call %q; use txCtx for tx-scoped repositories and domain collaborators", rel, match)
+		}
+	})
+}
+
+func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		strings.Join([]string{"internal", "pkg", "database", "tx", "runner.go"}, "/"),
+		strings.Join([]string{"internal", "apiserver", "infra", "messaging", "version_notifier.go"}, "/"),
+	} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+			t.Fatalf("%s is retired legacy code; do not reintroduce old fail-open transaction runner or authz version notifier", rel)
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+
+	forbiddenTokens := []string{
+		"Version" + "Notifier",
+		"Version" + "ChangeHandler",
+		"Authz" + "VersionTopic",
+		"Authz" + "VersionChannel",
+		"Default" + "DecodeFailureRetryDelay",
+		"type " + "Envelope struct",
+	}
+	scanGoSources(t, filepath.Join(root, "internal"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if rel == "internal/pkg/architecture/architecture_test.go" {
+			return
+		}
+		for _, token := range forbiddenTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains retired transactional outbox token %q", rel, token)
 			}
 		}
 	})

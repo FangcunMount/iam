@@ -77,7 +77,7 @@ func (s *guardianshipAccessApplicationService) RevokeBySelector(ctx context.Cont
 			if err != nil {
 				return err
 			}
-			existing, err := tx.Guardianships.FindByID(ctx, guardianshipID)
+			existing, err := tx.Guardianships.FindByID(txCtx, guardianshipID)
 			if err != nil {
 				return err
 			}
@@ -101,11 +101,11 @@ func (s *guardianshipAccessApplicationService) RevokeBySelector(ctx context.Cont
 		if err != nil {
 			return err
 		}
-		if err := tx.Guardianships.Update(ctx, guardianship); err != nil {
+		if err := tx.Guardianships.Update(txCtx, guardianship); err != nil {
 			return err
 		}
 
-		child, err := tx.Children.FindByID(ctx, guardianship.Child)
+		child, err := tx.Children.FindByID(txCtx, guardianship.Child)
 		if err != nil {
 			return err
 		}

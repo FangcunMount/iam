@@ -368,12 +368,12 @@ func (m *AuthnModule) initializeApplication(
 	case "log":
 		smsSender = smsInfra.LogSender{}
 	case "mq":
+		if infra.eventBus == nil {
+			return fmt.Errorf("sms.provider=mq requires EventBus (enable nsq.enabled and ensure EventBus is created)")
+		}
 		if infra.eventPublisher != nil {
 			smsSender = smsInfra.NewMQLoginOTPSenderWithPublisher(infra.eventPublisher)
 			break
-		}
-		if infra.eventBus == nil {
-			return fmt.Errorf("sms.provider=mq requires EventBus or event publisher (enable nsq.enabled and ensure EventBus is created)")
 		}
 		topic := strings.TrimSpace(viper.GetString("sms.mq.topic"))
 		smsSender = smsInfra.NewMQLoginOTPSender(infra.eventBus, topic)

@@ -16,9 +16,8 @@ const (
 	StatusPublished  = "published"
 	StatusFailed     = "failed"
 
-	DefaultPublishingStaleFor      = time.Minute
-	DefaultRelayRetryDelay         = 10 * time.Second
-	DefaultDecodeFailureRetryDelay = 10 * time.Second
+	DefaultPublishingStaleFor = time.Minute
+	DefaultRelayRetryDelay    = 10 * time.Second
 )
 
 var unfinishedStatuses = []string{StatusPending, StatusFailed, StatusPublishing}

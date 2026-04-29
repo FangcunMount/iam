@@ -87,7 +87,7 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 		}
 
 		// 持久化用户
-		if err := tx.Users.Create(ctx, newUser); err != nil {
+		if err := tx.Users.Create(txCtx, newUser); err != nil {
 			l.Errorw("持久化用户失败",
 				"action", logger.ActionRegister,
 				"resource", logger.ResourceUser,

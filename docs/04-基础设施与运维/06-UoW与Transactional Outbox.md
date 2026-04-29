@@ -5,9 +5,10 @@
 ## 30 秒结论
 
 - 应用层继续使用 `uow.WithinTx(ctx, func(txCtx, tx) error)` 表达用例事务边界。
+- 事务回调内部访问 tx-scoped repository 或领域协作者时必须传 `txCtx`，不能继续传外层 `ctx`。
 - MySQL UoW 现在通过 `context.Context` 注入事务；已有事务时采用 `Required` 传播语义，复用外层事务，不默认创建嵌套事务。
 - durable 事件必须在事务内通过 outbox stager 写入 `domain_event_outbox`，事务回滚时事件同步回滚。
-- best-effort 事件可以通过 catalog-backed publisher 直发，当前只有 `iam.login_otp_sms`。
+- best-effort 事件可以通过 catalog-backed publisher 直发，当前只有 `iam.login_otp_sms`；`sms.provider=mq` 要求 EventBus 可用，不会静默退化为 logging 成功。
 - 本地非可靠副作用使用事务成功后的 best-effort 路径，例如 Casbin runtime policy reload；它不进入 outbox。
 
 ## 当前实现
@@ -50,10 +51,21 @@ sequenceDiagram
 | `iam.authz.version_changed` | `durable_outbox` | `iam.authz.version` | Authz policy/assignment 变更后通知策略版本 |
 | `iam.login_otp_sms` | `best_effort` | `iam.notify.sms` | 登录 OTP 短信发送意图 |
 
+## 配置边界
+
+| 配置 | 默认值 | 说明 |
+| ---- | ---- | ---- |
+| `events.catalog_path` | `configs/events.yaml` | event type、topic、delivery class 的真值来源 |
+| `events.outbox_relay_interval` | `2s` | 同进程 relay 轮询间隔 |
+| `events.outbox_relay_batch_size` | `50` | 每轮最多 claim 的 outbox rows |
+| `events.outbox_relay_retry_delay` | `10s` | MQ publish 失败后的下一次重试延迟 |
+| `sms.mq.topic` | `iam.notify.sms` | deprecated；仅 legacy fallback 使用，主路径以 event catalog 为准 |
+
 ## 约束
 
 1. application 层不得直接依赖 GORM、infra outbox、component-base messaging。
 2. durable 事件不得从业务命令路径直接 MQ publish；只能 stage 到 outbox，由 relay 发布。
 3. outbox `Stage` 必须发生在 active tx context 内，缺少事务时 fail-closed。
-4. EventBus 不可用时 relay 不 claim、不标记 published，durable row 保持 pending。
+4. EventBus 不可用时 container 只初始化 outbox store，不启动 active relay；durable row 保持 pending，待 EventBus 恢复后发布。
 5. 新增事件必须先进入 `configs/events.yaml`，并补 codec / outbox / 架构测试。
+6. `AfterCommit` 只用于本地非可靠副作用；跨进程、MQ 或需要可靠投递的副作用必须走 outbox 或显式 best-effort publisher。

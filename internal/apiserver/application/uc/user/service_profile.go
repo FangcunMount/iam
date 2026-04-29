@@ -64,7 +64,7 @@ func (s *userProfileApplicationService) Rename(ctx context.Context, userID strin
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {
@@ -118,7 +118,7 @@ func (s *userProfileApplicationService) Renickname(ctx context.Context, userID s
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {
@@ -192,7 +192,7 @@ func (s *userProfileApplicationService) UpdateContact(ctx context.Context, dto U
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {
@@ -290,7 +290,7 @@ func (s *userProfileApplicationService) UpdateIDCard(ctx context.Context, userID
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {

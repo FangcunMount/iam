@@ -48,7 +48,7 @@ func (s *userQueryApplicationService) GetByID(ctx context.Context, userID string
 			return err
 		}
 
-		user, err := tx.Users.FindByID(ctx, userIDObj)
+		user, err := tx.Users.FindByID(txCtx, userIDObj)
 		if err != nil {
 			l.Warnw("用户不存在",
 				"action", logger.ActionRead,
@@ -88,7 +88,7 @@ func (s *userQueryApplicationService) GetByPhone(ctx context.Context, phone stri
 			return err
 		}
 
-		user, err := tx.Users.FindByPhone(ctx, phoneObj)
+		user, err := tx.Users.FindByPhone(txCtx, phoneObj)
 		if err != nil {
 			return err
 		}

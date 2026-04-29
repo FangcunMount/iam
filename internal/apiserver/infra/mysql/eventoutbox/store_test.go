@@ -132,3 +132,71 @@ func TestClaimAndMarkEventLifecycle(t *testing.T) {
 	require.Equal(t, outboxcore.StatusPublished, row.Status)
 	require.NotNil(t, row.PublishedAt)
 }
+
+func TestClaimReclaimsStalePublishingEvents(t *testing.T) {
+	db, store, _ := setupOutboxStore(t)
+	uow := mysql.NewUnitOfWork(db)
+	require.NoError(t, uow.WithinTransaction(context.Background(), func(txCtx context.Context) error {
+		return store.Stage(txCtx, versionEvent(4))
+	}))
+
+	now := time.Now()
+	claimed, err := store.ClaimDueEvents(context.Background(), 10, now)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+
+	reclaimed, err := store.ClaimDueEvents(context.Background(), 10, now.Add(outboxcore.DefaultPublishingStaleFor+time.Second))
+	require.NoError(t, err)
+	require.Len(t, reclaimed, 1)
+	require.Equal(t, claimed[0].EventID, reclaimed[0].EventID)
+}
+
+func TestMarkUnknownEventReturnsError(t *testing.T) {
+	_, store, _ := setupOutboxStore(t)
+
+	err := store.MarkEventPublished(context.Background(), "missing", time.Now())
+	require.ErrorContains(t, err, "not found")
+
+	err = store.MarkEventFailed(context.Background(), "missing", "failed", time.Now())
+	require.ErrorContains(t, err, "not found")
+}
+
+func TestOutboxStatusSnapshotCountsUnfinishedStatuses(t *testing.T) {
+	db, store, _ := setupOutboxStore(t)
+	now := time.Now()
+	require.NoError(t, db.Create([]eventoutbox.OutboxPO{
+		statusRow("evt-pending", outboxcore.StatusPending, now.Add(-3*time.Minute)),
+		statusRow("evt-failed", outboxcore.StatusFailed, now.Add(-2*time.Minute)),
+		statusRow("evt-publishing", outboxcore.StatusPublishing, now.Add(-time.Minute)),
+		statusRow("evt-published", outboxcore.StatusPublished, now.Add(-time.Minute)),
+	}).Error)
+
+	snapshot, err := store.OutboxStatusSnapshot(context.Background(), now)
+	require.NoError(t, err)
+
+	require.Equal(t, "iam-mysql-outbox", snapshot.Store)
+	require.Len(t, snapshot.Buckets, 3)
+	countByStatus := map[string]int64{}
+	for _, bucket := range snapshot.Buckets {
+		countByStatus[bucket.Status] = bucket.Count
+		require.GreaterOrEqual(t, bucket.OldestAgeSeconds, 0.0)
+	}
+	require.Equal(t, int64(1), countByStatus[outboxcore.StatusPending])
+	require.Equal(t, int64(1), countByStatus[outboxcore.StatusFailed])
+	require.Equal(t, int64(1), countByStatus[outboxcore.StatusPublishing])
+}
+
+func statusRow(eventID, status string, createdAt time.Time) eventoutbox.OutboxPO {
+	return eventoutbox.OutboxPO{
+		EventID:       eventID,
+		EventType:     eventcatalog.AuthzVersionChanged,
+		AggregateType: "PolicyVersion",
+		AggregateID:   "tenant-a",
+		TopicName:     "iam.authz.version",
+		PayloadJSON:   `{"tenant_id":"tenant-a","version":1}`,
+		Status:        status,
+		NextAttemptAt: createdAt,
+		CreatedAt:     createdAt,
+		UpdatedAt:     createdAt,
+	}
+}

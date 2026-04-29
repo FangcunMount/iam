@@ -207,6 +207,8 @@ sms:
   login_otp_send_cooldown: 60s
   login_otp_code_length: 6
   mq:
+    # Deprecated: 主路径以 events.catalog_path 中 iam.login_otp_sms 的 topic 为准；
+    # 仅 legacy fallback 构造器继续读取该值。
     topic: iam.notify.sms
 
 # ----------------------------------------------------------------------------
@@ -268,3 +270,12 @@ log:
     error:
       - stderr                              # ERROR 级别写入标准错误，便于监控采集
       - /var/log/iam/error.log    # 额外记录 ERROR（快速定位故障）
+
+# ----------------------------------------------------------------------------
+# 5.2 事件目录与 Transactional Outbox Relay
+# ----------------------------------------------------------------------------
+events:
+  catalog_path: /app/configs/events.yaml
+  outbox_relay_interval: 2s
+  outbox_relay_batch_size: 50
+  outbox_relay_retry_delay: 10s

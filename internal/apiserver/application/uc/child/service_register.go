@@ -106,7 +106,7 @@ func (s *childApplicationService) Register(ctx context.Context, dto RegisterChil
 		}
 
 		// 持久化儿童
-		if err := tx.Children.Create(ctx, newChild); err != nil {
+		if err := tx.Children.Create(txCtx, newChild); err != nil {
 			l.Errorw("持久化儿童档案失败",
 				"action", logger.ActionRegister,
 				"resource", logger.ResourceChild,

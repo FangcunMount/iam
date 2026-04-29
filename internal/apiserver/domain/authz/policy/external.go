@@ -32,16 +32,3 @@ type CasbinAdapter interface {
 	// GetImplicitPermissionsForUser 返回用户在租户域下的隐式权限规则。
 	GetImplicitPermissionsForUser(ctx context.Context, user, domain string) ([]PolicyRule, error)
 }
-
-// VersionNotifier 策略版本通知订阅接口（Driven Port - 外部服务）
-type VersionNotifier interface {
-	// Subscribe 订阅策略版本变更通知
-	// handler 会在接收到版本变更通知时被调用
-	Subscribe(ctx context.Context, handler VersionChangeHandler) error
-
-	// Close 关闭订阅
-	Close() error
-}
-
-// VersionChangeHandler 版本变更处理函数
-type VersionChangeHandler func(tenantID string, version int64)

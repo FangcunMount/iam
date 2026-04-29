@@ -171,8 +171,19 @@ func (c *Container) initEventing() error {
 		return nil
 	}
 	c.outboxStore = eventoutbox.NewStore(c.mysqlDB, catalog)
-	c.outboxRelay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", c.outboxStore, c.eventBus)
+	if c.eventBus == nil {
+		log.Warnw("event outbox relay not started: event bus unavailable", "store", "iam.domain_event_outbox")
+		return nil
+	}
+	c.outboxRelay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", c.outboxStore, c.eventBus, outboxRelayOptionsFromConfig())
 	return nil
+}
+
+func outboxRelayOptionsFromConfig() messagingInfra.OutboxRelayOptions {
+	return messagingInfra.OutboxRelayOptions{
+		BatchSize:  viper.GetInt("events.outbox_relay_batch_size"),
+		RetryDelay: viper.GetDuration("events.outbox_relay_retry_delay"),
+	}
 }
 
 // initAuthModule 初始化认证模块（依赖 IDP 模块）

@@ -34,7 +34,9 @@ type MQLoginOTPSender struct {
 
 var _ authentication.SMSSender = (*MQLoginOTPSender)(nil)
 
-// NewMQLoginOTPSender 使用 EventBus 的 Publisher 发布登录 OTP 短信任务
+// NewMQLoginOTPSender 使用 EventBus 的 Publisher 发布登录 OTP 短信任务。
+// Deprecated: 新装配应使用 catalog-backed NewMQLoginOTPSenderWithPublisher；
+// topic 参数仅保留给迁移窗口内的 legacy sms.mq.topic fallback。
 func NewMQLoginOTPSender(bus messaging.EventBus, topic string) *MQLoginOTPSender {
 	if topic == "" {
 		topic = LoginOTPSMSTopicDefault

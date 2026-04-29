@@ -21,6 +21,7 @@ const (
 
 type RoutingPublisher struct {
 	topicResolver eventcatalog.TopicResolver
+	delivery      eventcatalog.DeliveryClassResolver
 	mqPublisher   messaging.Publisher
 	source        string
 	mode          PublishMode
@@ -29,6 +30,7 @@ type RoutingPublisher struct {
 type RoutingPublisherOptions struct {
 	Catalog       *eventcatalog.Catalog
 	TopicResolver eventcatalog.TopicResolver
+	Delivery      eventcatalog.DeliveryClassResolver
 	MQPublisher   messaging.Publisher
 	Source        string
 	Mode          PublishMode
@@ -38,6 +40,10 @@ func NewRoutingPublisher(opts RoutingPublisherOptions) *RoutingPublisher {
 	resolver := opts.TopicResolver
 	if resolver == nil && opts.Catalog != nil {
 		resolver = opts.Catalog
+	}
+	delivery := opts.Delivery
+	if delivery == nil && opts.Catalog != nil {
+		delivery = opts.Catalog
 	}
 	if resolver == nil {
 		resolver = eventcatalog.NewCatalog(nil)
@@ -52,6 +58,7 @@ func NewRoutingPublisher(opts RoutingPublisherOptions) *RoutingPublisher {
 	}
 	return &RoutingPublisher{
 		topicResolver: resolver,
+		delivery:      delivery,
 		mqPublisher:   opts.MQPublisher,
 		source:        source,
 		mode:          mode,
@@ -79,6 +86,12 @@ func (p *RoutingPublisher) Publish(ctx context.Context, evt event.DomainEvent) e
 	topicName, ok := p.topicResolver.GetTopicForEvent(evt.EventType())
 	if !ok {
 		return fmt.Errorf("event type %q not found in catalog", evt.EventType())
+	}
+	if p.delivery != nil {
+		delivery, ok := p.delivery.GetDeliveryClass(evt.EventType())
+		if ok && delivery == eventcatalog.DeliveryClassDurableOutbox {
+			return fmt.Errorf("event type %q is durable_outbox and must be staged to outbox", evt.EventType())
+		}
 	}
 	switch p.mode {
 	case PublishModeMQ:

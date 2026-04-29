@@ -29,7 +29,7 @@ func (s *childAccessApplicationService) ListForGuardian(ctx context.Context, use
 		if err != nil {
 			return err
 		}
-		guardianships, err := tx.Guardianships.FindByUserID(ctx, userIDObj)
+		guardianships, err := tx.Guardianships.FindByUserID(txCtx, userIDObj)
 		if err != nil {
 			return err
 		}
@@ -38,7 +38,7 @@ func (s *childAccessApplicationService) ListForGuardian(ctx context.Context, use
 			if guardianship == nil {
 				continue
 			}
-			child, err := tx.Children.FindByID(ctx, guardianship.Child)
+			child, err := tx.Children.FindByID(txCtx, guardianship.Child)
 			if err != nil {
 				return err
 			}
@@ -107,7 +107,7 @@ func (s *childAccessApplicationService) ensureActiveGuardianAccess(ctx context.C
 		if err != nil {
 			return err
 		}
-		guardianship, err := tx.Guardianships.FindByUserIDAndChildID(ctx, userIDObj, childIDObj)
+		guardianship, err := tx.Guardianships.FindByUserIDAndChildID(txCtx, userIDObj, childIDObj)
 		if err != nil {
 			return err
 		}

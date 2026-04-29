@@ -49,7 +49,7 @@ func (s *userStatusApplicationService) Activate(ctx context.Context, userID stri
 		}
 
 		// 调用领域服务激活用户
-		modifiedUser, err := lifecycler.Activate(ctx, id)
+		modifiedUser, err := lifecycler.Activate(txCtx, id)
 		if err != nil {
 			l.Errorw("激活用户失败",
 				"action", logger.ActionUpdate,
@@ -61,7 +61,7 @@ func (s *userStatusApplicationService) Activate(ctx context.Context, userID stri
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {
@@ -101,7 +101,7 @@ func (s *userStatusApplicationService) Deactivate(ctx context.Context, userID st
 		}
 
 		// 调用领域服务停用用户
-		modifiedUser, err := lifecycler.Deactivate(ctx, id)
+		modifiedUser, err := lifecycler.Deactivate(txCtx, id)
 		if err != nil {
 			l.Errorw("停用用户失败",
 				"action", logger.ActionUpdate,
@@ -113,7 +113,7 @@ func (s *userStatusApplicationService) Deactivate(ctx context.Context, userID st
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {
@@ -153,7 +153,7 @@ func (s *userStatusApplicationService) Block(ctx context.Context, userID string)
 		}
 
 		// 调用领域服务封禁用户
-		modifiedUser, err := lifecycler.Block(ctx, id)
+		modifiedUser, err := lifecycler.Block(txCtx, id)
 		if err != nil {
 			l.Errorw("封禁用户失败",
 				"action", logger.ActionUpdate,
@@ -165,7 +165,7 @@ func (s *userStatusApplicationService) Block(ctx context.Context, userID string)
 		}
 
 		// 持久化修改
-		return tx.Users.Update(ctx, modifiedUser)
+		return tx.Users.Update(txCtx, modifiedUser)
 	})
 
 	if err == nil {

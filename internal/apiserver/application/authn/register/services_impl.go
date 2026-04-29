@@ -78,7 +78,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 			"action", logger.ActionRegister,
 			"phone", req.Phone.String(),
 		)
-		userResolution, err := s.userResolver.Resolve(ctx, repos, &req)
+		userResolution, err := s.userResolver.Resolve(txCtx, repos, &req)
 		if err != nil {
 			l.Errorw("创建或获取用户失败",
 				"action", logger.ActionRegister,
@@ -100,7 +100,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 			"account_type", string(req.AccountType),
 			"user_id", user.ID.String(),
 		)
-		accountCreation, err := s.accountCreator.Create(ctx, repos.Accounts, req, user.ID)
+		accountCreation, err := s.accountCreator.Create(txCtx, repos.Accounts, req, user.ID)
 		if err != nil {
 			l.Errorw("创建账户失败",
 				"action", logger.ActionRegister,
@@ -123,7 +123,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 			"credential_type", string(req.CredentialType),
 			"account_id", account.ID.String(),
 		)
-		credential, err := s.credentialIssuer.Issue(ctx, repos.Credentials, account.ID, accountCreation.CreationParams, req)
+		credential, err := s.credentialIssuer.Issue(txCtx, repos.Credentials, account.ID, accountCreation.CreationParams, req)
 		if err != nil {
 			l.Errorw("颁发凭据失败",
 				"action", logger.ActionRegister,

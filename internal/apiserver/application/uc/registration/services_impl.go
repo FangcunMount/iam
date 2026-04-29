@@ -46,7 +46,7 @@ func (s *childRegistrationService) RegisterChildWithGuardian(ctx context.Context
 		if err != nil {
 			return err
 		}
-		if err := tx.Children.Create(ctx, newChild); err != nil {
+		if err := tx.Children.Create(txCtx, newChild); err != nil {
 			return err
 		}
 
@@ -55,7 +55,7 @@ func (s *childRegistrationService) RegisterChildWithGuardian(ctx context.Context
 		if err != nil {
 			return err
 		}
-		if err := tx.Guardianships.Create(ctx, newGuardianship); err != nil {
+		if err := tx.Guardianships.Create(txCtx, newGuardianship); err != nil {
 			return err
 		}
 

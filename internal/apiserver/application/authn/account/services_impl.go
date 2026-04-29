@@ -40,7 +40,7 @@ func (s *accountApplicationService) GetAccountByID(ctx context.Context, accountI
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		account, err := tx.Accounts.GetByID(ctx, accountID)
+		account, err := tx.Accounts.GetByID(txCtx, accountID)
 		if err != nil {
 			if isAccountNotFound(err) {
 				return accountNotFound(l, accountID)
@@ -71,7 +71,7 @@ func (s *accountApplicationService) FindByExternalRef(
 ) (*AccountResult, error) {
 	var result *AccountResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		account, err := tx.Accounts.GetByExternalIDAppId(ctx, externalID, appID)
+		account, err := tx.Accounts.GetByExternalIDAppId(txCtx, externalID, appID)
 		if err != nil {
 			if isAccountNotFound(err) {
 				return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
@@ -90,7 +90,7 @@ func (s *accountApplicationService) FindByExternalRef(
 func (s *accountApplicationService) FindByUniqueID(ctx context.Context, uniqueID domain.UnionID) (*AccountResult, error) {
 	var result *AccountResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		account, err := tx.Accounts.GetByUniqueID(ctx, uniqueID)
+		account, err := tx.Accounts.GetByUniqueID(txCtx, uniqueID)
 		if err != nil {
 			if isAccountNotFound(err) {
 				return perrors.WithCode(code.ErrCredentialNotFound, "account not found")
@@ -118,7 +118,7 @@ func (s *accountApplicationService) SetUniqueID(ctx context.Context, accountID m
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		editor := domain.NewEditor(tx.Accounts)
-		_, err := editor.SetUniqueID(ctx, accountID, uniqueID)
+		_, err := editor.SetUniqueID(txCtx, accountID, uniqueID)
 		if err != nil {
 			l.Errorw("设置账户唯一ID失败",
 				"action", logger.ActionUpdate,
@@ -154,7 +154,7 @@ func (s *accountApplicationService) UpdateProfile(ctx context.Context, accountID
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		editor := domain.NewEditor(tx.Accounts)
-		_, err := editor.UpdateProfile(ctx, accountID, profile)
+		_, err := editor.UpdateProfile(txCtx, accountID, profile)
 		if err != nil {
 			l.Errorw("更新账户资料失败",
 				"action", logger.ActionUpdate,
@@ -182,7 +182,7 @@ func (s *accountApplicationService) UpdateProfile(ctx context.Context, accountID
 func (s *accountApplicationService) UpdateMeta(ctx context.Context, accountID meta.ID, meta map[string]string) error {
 	return s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		editor := domain.NewEditor(tx.Accounts)
-		_, err := editor.UpdateMeta(ctx, accountID, meta)
+		_, err := editor.UpdateMeta(txCtx, accountID, meta)
 		return err
 	})
 }
@@ -191,13 +191,13 @@ func (s *accountApplicationService) EnableAccount(ctx context.Context, accountID
 	return s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 使用新的 StatusManager 接口
 		statusManager := domain.NewStatusManager(tx.Accounts)
-		account, err := statusManager.Activate(ctx, accountID)
+		account, err := statusManager.Activate(txCtx, accountID)
 		if err != nil {
 			return err
 		}
 
 		// 持久化状态变更
-		return tx.Accounts.UpdateStatus(ctx, account.ID, account.Status)
+		return tx.Accounts.UpdateStatus(txCtx, account.ID, account.Status)
 	})
 }
 
@@ -205,13 +205,13 @@ func (s *accountApplicationService) DisableAccount(ctx context.Context, accountI
 	if err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 使用新的 StatusManager 接口
 		statusManager := domain.NewStatusManager(tx.Accounts)
-		account, err := statusManager.Disable(ctx, accountID)
+		account, err := statusManager.Disable(txCtx, accountID)
 		if err != nil {
 			return err
 		}
 
 		// 持久化状态变更
-		return tx.Accounts.UpdateStatus(ctx, account.ID, account.Status)
+		return tx.Accounts.UpdateStatus(txCtx, account.ID, account.Status)
 	}); err != nil {
 		return err
 	}
@@ -225,13 +225,13 @@ func (s *accountApplicationService) ArchiveAccount(ctx context.Context, accountI
 	return s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 使用新的 StatusManager 接口
 		statusManager := domain.NewStatusManager(tx.Accounts)
-		account, err := statusManager.Archive(ctx, accountID)
+		account, err := statusManager.Archive(txCtx, accountID)
 		if err != nil {
 			return err
 		}
 
 		// 持久化状态变更
-		return tx.Accounts.UpdateStatus(ctx, account.ID, account.Status)
+		return tx.Accounts.UpdateStatus(txCtx, account.ID, account.Status)
 	})
 }
 
@@ -239,13 +239,13 @@ func (s *accountApplicationService) DeleteAccount(ctx context.Context, accountID
 	return s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 使用新的 StatusManager 接口
 		statusManager := domain.NewStatusManager(tx.Accounts)
-		account, err := statusManager.Delete(ctx, accountID)
+		account, err := statusManager.Delete(txCtx, accountID)
 		if err != nil {
 			return err
 		}
 
 		// 持久化状态变更
-		return tx.Accounts.UpdateStatus(ctx, account.ID, account.Status)
+		return tx.Accounts.UpdateStatus(txCtx, account.ID, account.Status)
 	})
 }
 

@@ -37,7 +37,7 @@ func (s *guardianshipQueryApplicationService) IsGuardian(ctx context.Context, us
 			return err
 		}
 
-		isGuardian, err = tx.Guardianships.IsGuardian(ctx, userIDObj, childIDObj)
+		isGuardian, err = tx.Guardianships.IsGuardian(txCtx, userIDObj, childIDObj)
 		return err
 	})
 
@@ -71,16 +71,16 @@ func (s *guardianshipQueryApplicationService) getByUserIDAndChildID(ctx context.
 
 		var guardianship *domain.Guardianship
 		if includeRevoked {
-			guardianship, err = tx.Guardianships.FindByUserIDAndChildIDIncludingRevoked(ctx, userIDObj, childIDObj)
+			guardianship, err = tx.Guardianships.FindByUserIDAndChildIDIncludingRevoked(txCtx, userIDObj, childIDObj)
 		} else {
-			guardianship, err = tx.Guardianships.FindByUserIDAndChildID(ctx, userIDObj, childIDObj)
+			guardianship, err = tx.Guardianships.FindByUserIDAndChildID(txCtx, userIDObj, childIDObj)
 		}
 		if err != nil {
 			return err
 		}
 
 		// 查询儿童信息
-		child, err := tx.Children.FindByID(ctx, guardianship.Child)
+		child, err := tx.Children.FindByID(txCtx, guardianship.Child)
 		if err != nil {
 			return err
 		}
@@ -114,9 +114,9 @@ func (s *guardianshipQueryApplicationService) listChildrenByUserID(ctx context.C
 
 		var guardianships []*domain.Guardianship
 		if includeRevoked {
-			guardianships, err = tx.Guardianships.FindByUserIDIncludingRevoked(ctx, userIDObj)
+			guardianships, err = tx.Guardianships.FindByUserIDIncludingRevoked(txCtx, userIDObj)
 		} else {
-			guardianships, err = tx.Guardianships.FindByUserID(ctx, userIDObj)
+			guardianships, err = tx.Guardianships.FindByUserID(txCtx, userIDObj)
 		}
 		if err != nil {
 			return err
@@ -128,7 +128,7 @@ func (s *guardianshipQueryApplicationService) listChildrenByUserID(ctx context.C
 			if g == nil {
 				continue
 			}
-			child, err := tx.Children.FindByID(ctx, g.Child)
+			child, err := tx.Children.FindByID(txCtx, g.Child)
 			if err != nil {
 				return err
 			}
@@ -163,16 +163,16 @@ func (s *guardianshipQueryApplicationService) listGuardiansByChildID(ctx context
 
 		var guardianships []*domain.Guardianship
 		if includeRevoked {
-			guardianships, err = tx.Guardianships.FindByChildIDIncludingRevoked(ctx, childIDObj)
+			guardianships, err = tx.Guardianships.FindByChildIDIncludingRevoked(txCtx, childIDObj)
 		} else {
-			guardianships, err = tx.Guardianships.FindByChildID(ctx, childIDObj)
+			guardianships, err = tx.Guardianships.FindByChildID(txCtx, childIDObj)
 		}
 		if err != nil {
 			return err
 		}
 
 		// 查询儿童信息（所有监护关系共享同一个儿童）
-		child, err := tx.Children.FindByID(ctx, childIDObj)
+		child, err := tx.Children.FindByID(txCtx, childIDObj)
 		if err != nil {
 			return err
 		}

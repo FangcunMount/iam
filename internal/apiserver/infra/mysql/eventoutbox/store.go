@@ -2,6 +2,7 @@ package eventoutbox
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/FangcunMount/iam/internal/apiserver/outboxcore"
@@ -167,18 +168,25 @@ func (s *Store) ClaimDueEvents(ctx context.Context, limit int, now time.Time) ([
 }
 
 func (s *Store) MarkEventPublished(ctx context.Context, eventID string, publishedAt time.Time) error {
-	return s.db.WithContext(ctx).Model(&OutboxPO{}).
+	result := s.db.WithContext(ctx).Model(&OutboxPO{}).
 		Where("event_id = ?", eventID).
 		Updates(map[string]interface{}{
 			"status":       outboxcore.StatusPublished,
 			"published_at": publishedAt,
 			"updated_at":   publishedAt,
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("outbox event %q not found", eventID)
+	}
+	return nil
 }
 
 func (s *Store) MarkEventFailed(ctx context.Context, eventID, lastError string, nextAttemptAt time.Time) error {
 	now := time.Now()
-	return s.db.WithContext(ctx).Model(&OutboxPO{}).
+	result := s.db.WithContext(ctx).Model(&OutboxPO{}).
 		Where("event_id = ?", eventID).
 		Updates(map[string]interface{}{
 			"status":          outboxcore.StatusFailed,
@@ -186,7 +194,14 @@ func (s *Store) MarkEventFailed(ctx context.Context, eventID, lastError string, 
 			"next_attempt_at": nextAttemptAt,
 			"updated_at":      now,
 			"attempt_count":   gorm.Expr("attempt_count + ?", 1),
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("outbox event %q not found", eventID)
+	}
+	return nil
 }
 
 func (s *Store) OutboxStatusSnapshot(ctx context.Context, now time.Time) (outboxport.StatusSnapshot, error) {

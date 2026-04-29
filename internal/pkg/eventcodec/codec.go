@@ -3,22 +3,12 @@ package eventcodec
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/internal/pkg/event"
 )
 
 const occurredAtLayout = "2006-01-02T15:04:05.000Z07:00"
-
-type Envelope struct {
-	ID            string          `json:"id"`
-	EventType     string          `json:"eventType"`
-	OccurredAt    time.Time       `json:"occurredAt"`
-	AggregateType string          `json:"aggregateType"`
-	AggregateID   string          `json:"aggregateID"`
-	Data          json.RawMessage `json:"data"`
-}
 
 // EncodePayload serializes the event wire payload. IAM keeps legacy payload
 // shapes for migrated events so existing consumers continue to unmarshal the

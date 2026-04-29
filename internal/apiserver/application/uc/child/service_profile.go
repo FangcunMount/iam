@@ -66,7 +66,7 @@ func (s *childProfileApplicationService) Rename(ctx context.Context, childID str
 		}
 
 		// 持久化修改
-		return tx.Children.Update(ctx, modifiedChild)
+		return tx.Children.Update(txCtx, modifiedChild)
 	})
 
 	if err == nil {
@@ -136,7 +136,7 @@ func (s *childProfileApplicationService) UpdateIDCard(ctx context.Context, child
 		}
 
 		// 持久化修改
-		return tx.Children.Update(ctx, modifiedChild)
+		return tx.Children.Update(txCtx, modifiedChild)
 	})
 
 	if err == nil {
@@ -197,7 +197,7 @@ func (s *childProfileApplicationService) UpdateProfile(ctx context.Context, dto 
 		}
 
 		// 持久化修改
-		return tx.Children.Update(ctx, modifiedChild)
+		return tx.Children.Update(txCtx, modifiedChild)
 	})
 
 	if err == nil {
@@ -265,7 +265,7 @@ func (s *childProfileApplicationService) UpdateHeightWeight(ctx context.Context,
 		}
 
 		// 持久化修改
-		return tx.Children.Update(ctx, modifiedChild)
+		return tx.Children.Update(txCtx, modifiedChild)
 	})
 
 	if err == nil {

@@ -16,6 +16,11 @@ type OutboxRelay interface {
 	DispatchDue(ctx context.Context) error
 }
 
+type OutboxRelayOptions struct {
+	BatchSize  int
+	RetryDelay time.Duration
+}
+
 type outboxRelay struct {
 	name       string
 	store      outboxport.Store
@@ -24,17 +29,27 @@ type outboxRelay struct {
 	retryDelay time.Duration
 }
 
-func NewOutboxRelay(name string, store outboxport.Store, bus cbmessaging.EventBus) OutboxRelay {
+func NewOutboxRelay(name string, store outboxport.Store, bus cbmessaging.EventBus, opts ...OutboxRelayOptions) OutboxRelay {
 	var publisher cbmessaging.Publisher
 	if bus != nil {
 		publisher = bus.Publisher()
+	}
+	batchSize := defaultOutboxRelayBatchSize
+	retryDelay := outboxcore.DefaultRelayRetryDelay
+	if len(opts) > 0 {
+		if opts[0].BatchSize > 0 {
+			batchSize = opts[0].BatchSize
+		}
+		if opts[0].RetryDelay > 0 {
+			retryDelay = opts[0].RetryDelay
+		}
 	}
 	return &outboxRelay{
 		name:       name,
 		store:      store,
 		publisher:  publisher,
-		batchSize:  defaultOutboxRelayBatchSize,
-		retryDelay: outboxcore.DefaultRelayRetryDelay,
+		batchSize:  batchSize,
+		retryDelay: retryDelay,
 	}
 }
 

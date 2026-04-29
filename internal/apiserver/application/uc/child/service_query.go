@@ -47,7 +47,7 @@ func (s *childQueryApplicationService) GetByID(ctx context.Context, childID stri
 			return err
 		}
 
-		child, err := tx.Children.FindByID(ctx, childIDObj)
+		child, err := tx.Children.FindByID(txCtx, childIDObj)
 		if err != nil {
 			l.Warnw("查询儿童档案失败",
 				"action", logger.ActionRead,
@@ -98,7 +98,7 @@ func (s *childQueryApplicationService) GetByIDCard(ctx context.Context, idCard s
 			return err
 		}
 
-		child, err := tx.Children.FindByIDCard(ctx, idCardObj)
+		child, err := tx.Children.FindByIDCard(txCtx, idCardObj)
 		if err != nil {
 			l.Warnw("根据身份证查询儿童档案失败",
 				"action", logger.ActionRead,
@@ -141,7 +141,7 @@ func (s *childQueryApplicationService) FindSimilar(ctx context.Context, name str
 		genderObj := input.ParseGender(gender)
 		birthdayObj := input.ParseBirthday(birthday)
 
-		children, err := tx.Children.FindSimilar(ctx, name, genderObj, birthdayObj)
+		children, err := tx.Children.FindSimilar(txCtx, name, genderObj, birthdayObj)
 		if err != nil {
 			l.Warnw("查找相似儿童档案失败",
 				"action", logger.ActionList,
