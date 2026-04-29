@@ -6,7 +6,6 @@ import (
 	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/gin-gonic/gin"
 )
 
@@ -44,8 +43,7 @@ func convertToSubjectType(s string) (assignmentDomain.SubjectType, error) {
 // @Router /authz/assignments/grant [post]
 func (h *AssignmentHandler) GrantRole(c *gin.Context) {
 	var req dto.GrantRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -93,8 +91,7 @@ func (h *AssignmentHandler) GrantRole(c *gin.Context) {
 // @Router /authz/assignments/revoke [post]
 func (h *AssignmentHandler) RevokeRole(c *gin.Context) {
 	var req dto.RevokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -133,9 +130,8 @@ func (h *AssignmentHandler) RevokeRole(c *gin.Context) {
 // @Success 200 {object} dto.Response
 // @Router /authz/assignments/{id} [delete]
 func (h *AssignmentHandler) RevokeRoleByID(c *gin.Context) {
-	assignmentID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "分配ID格式错误"))
+	assignmentID, ok := parseIDParam(c, "id", "分配ID格式错误")
+	if !ok {
 		return
 	}
 
@@ -216,9 +212,8 @@ func (h *AssignmentHandler) ListAssignmentsBySubject(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
 // @Router /authz/roles/{id}/assignments [get]
 func (h *AssignmentHandler) ListAssignmentsByRole(c *gin.Context) {
-	roleID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "角色ID格式错误"))
+	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
+	if !ok {
 		return
 	}
 

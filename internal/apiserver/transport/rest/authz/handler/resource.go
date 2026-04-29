@@ -4,11 +4,8 @@ package handler
 import (
 	"strconv"
 
-	"github.com/FangcunMount/component-base/pkg/errors"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,8 +38,7 @@ func NewResourceHandler(
 // @Router /authz/resources [post]
 func (h *ResourceHandler) CreateResource(c *gin.Context) {
 	var req dto.CreateResourceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -75,15 +71,13 @@ func (h *ResourceHandler) CreateResource(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=dto.ResourceResponse}
 // @Router /authz/resources/{id} [put]
 func (h *ResourceHandler) UpdateResource(c *gin.Context) {
-	resourceID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "资源ID格式错误"))
+	resourceID, ok := parseIDParam(c, "id", "资源ID格式错误")
+	if !ok {
 		return
 	}
 
 	var req dto.UpdateResourceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -110,14 +104,12 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 // @Success 200 {object} dto.Response
 // @Router /authz/resources/{id} [delete]
 func (h *ResourceHandler) DeleteResource(c *gin.Context) {
-	resourceID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "资源ID格式错误"))
+	resourceID, ok := parseIDParam(c, "id", "资源ID格式错误")
+	if !ok {
 		return
 	}
 
-	err = h.commander.DeleteResource(c.Request.Context(), resourceDomain.NewResourceID(resourceID.Uint64()))
-	if err != nil {
+	if err := h.commander.DeleteResource(c.Request.Context(), resourceDomain.NewResourceID(resourceID.Uint64())); err != nil {
 		handleError(c, err)
 		return
 	}
@@ -133,9 +125,8 @@ func (h *ResourceHandler) DeleteResource(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=dto.ResourceResponse}
 // @Router /authz/resources/{id} [get]
 func (h *ResourceHandler) GetResource(c *gin.Context) {
-	resourceID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "资源ID格式错误"))
+	resourceID, ok := parseIDParam(c, "id", "资源ID格式错误")
+	if !ok {
 		return
 	}
 
@@ -217,8 +208,7 @@ func (h *ResourceHandler) ListResources(c *gin.Context) {
 // @Router /authz/resources/validate-action [post]
 func (h *ResourceHandler) ValidateAction(c *gin.Context) {
 	var req dto.ValidateActionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 

@@ -2,11 +2,8 @@
 package handler
 
 import (
-	"github.com/FangcunMount/component-base/pkg/errors"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,8 +36,7 @@ func NewRoleHandler(
 // @Router /authz/roles [post]
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	var req dto.CreateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -76,15 +72,13 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
 // @Router /authz/roles/{id} [put]
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
-	roleID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "角色ID格式错误"))
+	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
+	if !ok {
 		return
 	}
 
 	var req dto.UpdateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -110,14 +104,12 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 // @Success 200 {object} dto.Response
 // @Router /authz/roles/{id} [delete]
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
-	roleID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "角色ID格式错误"))
+	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
+	if !ok {
 		return
 	}
 
-	err = h.commander.DeleteRole(c.Request.Context(), roleID)
-	if err != nil {
+	if err := h.commander.DeleteRole(c.Request.Context(), roleID); err != nil {
 		handleError(c, err)
 		return
 	}
@@ -133,13 +125,12 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
 // @Router /authz/roles/{id} [get]
 func (h *RoleHandler) GetRole(c *gin.Context) {
-	roleID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "角色ID格式错误"))
+	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
+	if !ok {
 		return
 	}
 
-	foundRole, err := h.queryer.GetRoleByID(c.Request.Context(), meta.FromUint64(uint64(roleID)))
+	foundRole, err := h.queryer.GetRoleByID(c.Request.Context(), roleID)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -158,8 +149,7 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 // @Router /authz/roles [get]
 func (h *RoleHandler) ListRoles(c *gin.Context) {
 	var query dto.ListRoleQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindQuery(c, &query) {
 		return
 	}
 

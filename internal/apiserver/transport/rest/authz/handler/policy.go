@@ -7,7 +7,6 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,8 +34,7 @@ func NewPolicyHandler(commander policyDomain.Commander, queryer policyDomain.Que
 // @Router /authz/policies [post]
 func (h *PolicyHandler) AddPolicyRule(c *gin.Context) {
 	var req dto.AddPolicyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -91,8 +89,7 @@ func (h *PolicyHandler) AddPolicyRule(c *gin.Context) {
 // @Router /authz/policies [delete]
 func (h *PolicyHandler) RemovePolicyRule(c *gin.Context) {
 	var req dto.RemovePolicyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 
@@ -145,9 +142,8 @@ func (h *PolicyHandler) RemovePolicyRule(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=[]dto.PolicyRuleResponse}
 // @Router /authz/roles/{id}/policies [get]
 func (h *PolicyHandler) GetPoliciesByRole(c *gin.Context) {
-	roleID, err := meta.ParseID(c.Param("id"))
-	if err != nil {
-		handleError(c, errors.WithCode(code.ErrInvalidArgument, "角色ID格式错误"))
+	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
+	if !ok {
 		return
 	}
 

@@ -34,8 +34,7 @@ func (h *CheckHandler) Check(c *gin.Context) {
 	}
 
 	var req dto.CheckRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleError(c, errors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+	if !bindJSON(c, &req) {
 		return
 	}
 

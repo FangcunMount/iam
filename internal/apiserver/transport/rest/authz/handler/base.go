@@ -9,6 +9,7 @@ import (
 
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/FangcunMount/iam/pkg/core"
 )
 
@@ -47,6 +48,31 @@ func getUserID(c *gin.Context) (string, error) {
 		return "", perrors.WithCode(code.ErrTokenInvalid, "user id not found in context")
 	}
 	return userID, nil
+}
+
+func bindJSON(c *gin.Context, req interface{}) bool {
+	if err := c.ShouldBindJSON(req); err != nil {
+		handleError(c, perrors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+		return false
+	}
+	return true
+}
+
+func bindQuery(c *gin.Context, query interface{}) bool {
+	if err := c.ShouldBindQuery(query); err != nil {
+		handleError(c, perrors.WithCode(code.ErrBind, "请求参数错误: %v", err))
+		return false
+	}
+	return true
+}
+
+func parseIDParam(c *gin.Context, name, message string) (meta.ID, bool) {
+	id, err := meta.ParseID(c.Param(name))
+	if err != nil {
+		handleError(c, perrors.WithCode(code.ErrInvalidArgument, "%s", message))
+		return 0, false
+	}
+	return id, true
 }
 
 // handleError 统一错误处理 (authz 模块特定的错误格式)
