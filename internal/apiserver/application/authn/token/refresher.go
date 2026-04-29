@@ -25,7 +25,7 @@ type refresher struct {
 }
 
 type accessPairIssuer interface {
-	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
+	issueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
 }
 
 func NewRefresher(
@@ -109,7 +109,7 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 	if s.issuer == nil {
 		return nil, perrors.WithCode(code.ErrInternalServerError, "token issuer is not configured")
 	}
-	newTokenPair, err := s.issuer.IssueTokenPair(ctx, principal, sess)
+	newTokenPair, err := s.issuer.issueTokenPair(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}
