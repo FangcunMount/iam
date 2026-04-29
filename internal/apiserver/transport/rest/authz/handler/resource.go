@@ -232,17 +232,3 @@ func (h *ResourceHandler) ValidateAction(c *gin.Context) {
 		Valid: valid,
 	})
 }
-
-// toResourceResponse 转换为响应对象
-func (h *ResourceHandler) toResourceResponse(r *resourceDomain.Resource) dto.ResourceResponse {
-	return dto.ResourceResponse{
-		ID:          meta.FromUint64(r.ID.Uint64()),
-		Key:         r.Key,
-		DisplayName: r.DisplayName,
-		AppName:     r.AppName,
-		Domain:      r.Domain,
-		Type:        r.Type,
-		Actions:     r.Actions,
-		Description: r.Description,
-	}
-}

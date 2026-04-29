@@ -168,17 +168,7 @@ func (h *PolicyHandler) GetPoliciesByRole(c *gin.Context) {
 		return
 	}
 
-	policyRules := make([]dto.PolicyRuleResponse, 0, len(rules))
-	for _, rule := range rules {
-		policyRules = append(policyRules, dto.PolicyRuleResponse{
-			Subject: rule.Sub,
-			Domain:  rule.Dom,
-			Object:  rule.Obj,
-			Action:  rule.Act,
-		})
-	}
-
-	success(c, policyRules)
+	success(c, toPolicyRuleResponses(rules))
 }
 
 // GetCurrentVersion 获取当前策略版本
@@ -205,19 +195,9 @@ func (h *PolicyHandler) GetCurrentVersion(c *gin.Context) {
 	}
 
 	if version == nil {
-		success(c, dto.PolicyVersionResponse{
-			TenantID:  tenantID,
-			Version:   0,
-			ChangedBy: "",
-			Reason:    "",
-		})
+		success(c, emptyPolicyVersionResponse(tenantID))
 		return
 	}
 
-	success(c, dto.PolicyVersionResponse{
-		TenantID:  version.TenantID,
-		Version:   version.Version,
-		ChangedBy: version.ChangedBy,
-		Reason:    version.Reason,
-	})
+	success(c, toPolicyVersionResponse(version))
 }

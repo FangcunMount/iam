@@ -2,6 +2,11 @@ package container
 
 import (
 	grpctransport "github.com/FangcunMount/iam/internal/apiserver/transport/grpc"
+	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
+	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authz"
+	idpgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
+	ucgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc"
+	identitygrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
 	grpcpkg "github.com/FangcunMount/iam/internal/pkg/grpc"
 )
 
@@ -18,32 +23,46 @@ func (c *Container) BuildGRPCDeps(server *grpcpkg.Server) grpctransport.Deps {
 
 func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	registrations := make([]grpctransport.Registration, 0, 4)
-	if c.AuthnModule != nil && c.AuthnModule.GRPCService != nil {
-		service := c.AuthnModule.GRPCService
+	if c.AuthnModule != nil {
+		caps := c.AuthnModule.ApplicationCapabilities()
+		service := authngrpc.NewService(caps.TokenService, caps.RegisterService, caps.KeyPublishApp)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "authn",
 			Description: "AuthService, JWKSService",
 			Register:    service.Register,
 		})
 	}
-	if c.UserModule != nil && c.UserModule.GRPCService != nil {
-		service := c.UserModule.GRPCService
+	if c.UserModule != nil {
+		caps := c.UserModule.ApplicationCapabilities()
+		identitySvc := identitygrpc.NewService(
+			caps.UserQueryService,
+			caps.ChildQueryService,
+			caps.GuardianshipQueryService,
+			caps.UserService,
+			caps.UserProfileService,
+			caps.UserStatusService,
+			caps.GuardianshipService,
+			caps.GuardianshipAccessService,
+		)
+		service := ucgrpc.NewService(identitySvc)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "user",
 			Description: "IdentityRead, GuardianshipQuery, GuardianshipCommand, IdentityLifecycle",
 			Register:    service.Register,
 		})
 	}
-	if c.IDPModule != nil && c.IDPModule.GRPCService != nil {
-		service := c.IDPModule.GRPCService
+	if c.IDPModule != nil {
+		caps := c.IDPModule.ApplicationCapabilities()
+		service := idpgrpc.NewService(caps.WechatAppService, caps.WechatAppRepository, caps.SecretVault)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "idp",
 			Description: "IDPService",
 			Register:    service.Register,
 		})
 	}
-	if c.AuthzModule != nil && c.AuthzModule.GRPCService != nil {
-		service := c.AuthzModule.GRPCService
+	if c.AuthzModule != nil {
+		caps := c.AuthzModule.ApplicationCapabilities()
+		service := authzgrpc.NewService(caps.Casbin, caps.RoleRepository, caps.PolicyVersionRepo, caps.AssignmentCommander)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "authz",
 			Description: "AuthorizationService",

@@ -71,8 +71,8 @@ func TestIDPModuleInitializeWithRedisAdapters(t *testing.T) {
 	if module.WechatAppTokenService == nil {
 		t.Fatalf("expected WechatAppTokenService to be initialized")
 	}
-	if module.WechatAppHandler == nil {
-		t.Fatalf("expected WechatAppHandler to be initialized")
+	if module.ApplicationCapabilities().WechatAppService == nil {
+		t.Fatalf("expected WechatAppService capability to be initialized")
 	}
 	if got := len(module.CacheFamilyInspectors()); got != 2 {
 		t.Fatalf("IDPModule.CacheFamilyInspectors() count = %d, want 2", got)

@@ -20,23 +20,24 @@ import (
 	roleInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/role"
 	mysqlAuthzUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authz"
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
-	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authz"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
 	"github.com/FangcunMount/iam/pkg/event"
 )
 
 // AuthzModule 授权模块
 type AuthzModule struct {
-	// HTTP Handlers
-	RoleHandler       *handler.RoleHandler
-	AssignmentHandler *handler.AssignmentHandler
-	PolicyHandler     *handler.PolicyHandler
-	ResourceHandler   *handler.ResourceHandler
-	CheckHandler      *handler.CheckHandler
-	GRPCService       *authzgrpc.Service
-
 	// CasbinAdapter 运行时策略引擎（供 HTTP/gRPC/中间件复用）
 	CasbinAdapter policyDomain.CasbinAdapter
+
+	resourceCommander   resourceDomain.Commander
+	resourceQueryer     resourceDomain.Queryer
+	roleCommander       roleDomain.Commander
+	roleQueryer         roleDomain.Queryer
+	policyCommander     policyDomain.Commander
+	policyQueryer       policyDomain.Queryer
+	assignmentCommander assignmentDomain.Commander
+	assignmentQueryer   assignmentDomain.Queryer
+	roleRepository      roleDomain.Repository
+	policyVersionRepo   policyDomain.Repository
 }
 
 // NewAuthzModule 创建授权模块
@@ -103,17 +104,34 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	)
 	assignmentQueryer := assignmentApp.NewAssignmentQueryService(assignmentManager, assignmentRepository)
 
-	// 5. 初始化 HTTP 处理器 - 依赖 driving 接口（CQRS）
-	// Resource Handler
-	m.ResourceHandler = handler.NewResourceHandler(resourceCommander, resourceQueryer)
-	// Role Handler
-	m.RoleHandler = handler.NewRoleHandler(roleCommander, roleQueryer)
-	// Policy Handler
-	m.PolicyHandler = handler.NewPolicyHandler(policyCommander, policyQueryer)
-	// Assignment Handler
-	m.AssignmentHandler = handler.NewAssignmentHandler(assignmentCommander, assignmentQueryer)
-	// PDP
-	m.CheckHandler = handler.NewCheckHandler(casbinAdapter)
-	m.GRPCService = authzgrpc.NewService(casbinAdapter, roleRepository, policyVersionRepository, assignmentCommander)
+	m.resourceCommander = resourceCommander
+	m.resourceQueryer = resourceQueryer
+	m.roleCommander = roleCommander
+	m.roleQueryer = roleQueryer
+	m.policyCommander = policyCommander
+	m.policyQueryer = policyQueryer
+	m.assignmentCommander = assignmentCommander
+	m.assignmentQueryer = assignmentQueryer
+	m.roleRepository = roleRepository
+	m.policyVersionRepo = policyVersionRepository
 	return nil
+}
+
+func (m *AuthzModule) ApplicationCapabilities() AuthzApplicationCapabilities {
+	if m == nil {
+		return AuthzApplicationCapabilities{}
+	}
+	return AuthzApplicationCapabilities{
+		ResourceCommander:   m.resourceCommander,
+		ResourceQueryer:     m.resourceQueryer,
+		RoleCommander:       m.roleCommander,
+		RoleQueryer:         m.roleQueryer,
+		PolicyCommander:     m.policyCommander,
+		PolicyQueryer:       m.policyQueryer,
+		AssignmentCommander: m.assignmentCommander,
+		AssignmentQueryer:   m.assignmentQueryer,
+		Casbin:              m.CasbinAdapter,
+		RoleRepository:      m.roleRepository,
+		PolicyVersionRepo:   m.policyVersionRepo,
+	}
 }

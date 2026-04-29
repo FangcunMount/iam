@@ -167,6 +167,38 @@ func TestAssemblerComponentHoldersDoNotReturn(t *testing.T) {
 	})
 }
 
+func TestAssemblerDoesNotConstructTransportImplementations(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/transport/") {
+				t.Fatalf("%s imports %s; assembler must expose application/domain capabilities and leave REST/gRPC construction to container transport deps builders", rel, imp)
+			}
+		}
+	})
+}
+
+func TestAssemblerModulesDoNotExposeTransportFields(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbidden := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^\s*\w*Handler\s+\*`),
+		regexp.MustCompile(`(?m)^\s*GRPCService\s+\*`),
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, pattern := range forbidden {
+			if match := pattern.FindString(source); match != "" {
+				t.Fatalf("%s exposes transport field %q; expose application/domain capability methods instead", rel, strings.TrimSpace(match))
+			}
+		}
+	})
+}
+
 func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
 	t.Parallel()
 

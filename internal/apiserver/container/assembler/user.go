@@ -10,9 +10,6 @@ import (
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	mysqlUcUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
-	ucGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc"
-	identityGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
@@ -20,12 +17,17 @@ import (
 // UserModule 用户模块
 // 负责组装用户相关的所有组件
 type UserModule struct {
-	// handler 层
-	UserHandler         *handler.UserHandler
-	ChildHandler        *handler.ChildHandler
-	GuardianshipHandler *handler.GuardianshipHandler
-	// gRPC 服务
-	GRPCService *ucGrpc.Service
+	userAppSrv         appuser.UserApplicationService
+	userProfileAppSrv  appuser.UserProfileApplicationService
+	userStatusSrv      appuser.UserStatusApplicationService
+	userQuerySrv       appuser.UserQueryApplicationService
+	childQuerySrv      appchild.ChildQueryApplicationService
+	childAccessSrv     appchild.ChildAccessApplicationService
+	guardAppSrv        appguard.GuardianshipApplicationService
+	guardQuerySrv      appguard.GuardianshipQueryApplicationService
+	guardAccessSrv     appguard.GuardianshipAccessApplicationService
+	registrationAppSrv appregistration.ChildRegistrationService
+	casbin             authn.CasbinEnforcer
 }
 
 // NewUserModule 创建用户模块
@@ -70,38 +72,17 @@ func (m *UserModule) InitializeWithDeps(deps UserModuleDeps) error {
 	// 组合注册服务（单事务创建 child + guardianship）
 	registrationAppSrv := appregistration.NewChildRegistrationService(uow)
 
-	// 初始化 handler 层
-	m.UserHandler = handler.NewUserHandler(
-		userAppSrv,
-		userProfileAppSrv,
-		userQuerySrv,
-		deps.Casbin,
-	)
-
-	m.ChildHandler = handler.NewChildHandler(
-		registrationAppSrv,
-		childAccessSrv,
-		childQuerySrv,
-	)
-
-	m.GuardianshipHandler = handler.NewGuardianshipHandler(
-		guardAccessSrv,
-	)
-
-	// 初始化 gRPC 服务
-	identitySvc := identityGrpc.NewService(
-		userQuerySrv,
-		childQuerySrv,
-		guardQuerySrv,
-		userAppSrv,
-		userProfileAppSrv,
-		userStatusSrv,
-		guardAppSrv,
-		guardAccessSrv,
-	)
-
-	m.GRPCService = ucGrpc.NewService(identitySvc)
-
+	m.userAppSrv = userAppSrv
+	m.userProfileAppSrv = userProfileAppSrv
+	m.userStatusSrv = userStatusSrv
+	m.userQuerySrv = userQuerySrv
+	m.childQuerySrv = childQuerySrv
+	m.childAccessSrv = childAccessSrv
+	m.guardAppSrv = guardAppSrv
+	m.guardQuerySrv = guardQuerySrv
+	m.guardAccessSrv = guardAccessSrv
+	m.registrationAppSrv = registrationAppSrv
+	m.casbin = deps.Casbin
 	return nil
 }
 
@@ -115,4 +96,23 @@ func (m *UserModule) Cleanup() error {
 // CheckHealth 检查模块健康状态
 func (m *UserModule) CheckHealth() error {
 	return nil
+}
+
+func (m *UserModule) ApplicationCapabilities() UserApplicationCapabilities {
+	if m == nil {
+		return UserApplicationCapabilities{}
+	}
+	return UserApplicationCapabilities{
+		UserService:               m.userAppSrv,
+		UserProfileService:        m.userProfileAppSrv,
+		UserStatusService:         m.userStatusSrv,
+		UserQueryService:          m.userQuerySrv,
+		ChildQueryService:         m.childQuerySrv,
+		ChildAccessService:        m.childAccessSrv,
+		GuardianshipService:       m.guardAppSrv,
+		GuardianshipQueryService:  m.guardQuerySrv,
+		GuardianshipAccessService: m.guardAccessSrv,
+		ChildRegistrationService:  m.registrationAppSrv,
+		Casbin:                    m.casbin,
+	}
 }

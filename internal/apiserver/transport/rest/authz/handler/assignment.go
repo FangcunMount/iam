@@ -246,15 +246,3 @@ func (h *AssignmentHandler) ListAssignmentsByRole(c *gin.Context) {
 
 	success(c, assignments)
 }
-
-// toAssignmentResponse 转换为响应对象
-func (h *AssignmentHandler) toAssignmentResponse(a *assignmentDomain.Assignment) dto.AssignmentResponse {
-	return dto.AssignmentResponse{
-		ID:          meta.ID(a.ID),
-		SubjectType: a.SubjectType.String(),
-		SubjectID:   a.SubjectID,
-		RoleID:      meta.FromUint64(a.RoleID),
-		TenantID:    a.TenantID,
-		GrantedBy:   a.GrantedBy,
-	}
-}

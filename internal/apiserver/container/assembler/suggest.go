@@ -89,3 +89,17 @@ func (m *SuggestModule) CheckHealth() error {
 	}
 	return nil
 }
+
+func (m *SuggestModule) ApplicationCapabilities() SuggestApplicationCapabilities {
+	if m == nil {
+		return SuggestApplicationCapabilities{}
+	}
+	return SuggestApplicationCapabilities{Service: m.Service}
+}
+
+func (m *SuggestModule) RuntimeCapabilities() SuggestRuntimeCapabilities {
+	if m == nil {
+		return SuggestRuntimeCapabilities{}
+	}
+	return SuggestRuntimeCapabilities{Cleanup: m.Cleanup}
+}

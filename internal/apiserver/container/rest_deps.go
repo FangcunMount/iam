@@ -1,6 +1,12 @@
 package container
 
-import resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
+import (
+	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
+	authnhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
+	identityhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
+	idphandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
+)
 
 // BuildRESTDeps exposes only the collaborators required by the REST transport.
 func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttransport.Deps {
@@ -23,26 +29,28 @@ func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttrans
 
 func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
 	if c.AuthnModule != nil {
+		caps := c.AuthnModule.ApplicationCapabilities()
 		deps.ModuleStatus.Authn = true
-		deps.Authn.AuthHandler = c.AuthnModule.AuthHandler
-		deps.Authn.AccountHandler = c.AuthnModule.AccountHandler
-		deps.Authn.JWKSHandler = c.AuthnModule.JWKSHandler
-		deps.Authn.SessionAdminHandler = c.AuthnModule.SessionAdminHandler
-		deps.Authn.TokenService = c.AuthnModule.TokenService
-		deps.ModuleStatus.AuthEnabled = c.AuthnModule.TokenService != nil
+		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.LoginService, caps.TokenService, caps.LoginPreparationService)
+		deps.Authn.AccountHandler = authnhandler.NewAccountHandler(caps.AccountService, caps.RegisterService)
+		deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyPublishApp)
+		deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionService)
+		deps.Authn.TokenService = caps.TokenService
+		deps.ModuleStatus.AuthEnabled = caps.TokenService != nil
 	}
 }
 
 func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
 	if c.AuthzModule != nil {
+		caps := c.AuthzModule.ApplicationCapabilities()
 		deps.ModuleStatus.Authz = true
-		deps.Authz.RoleHandler = c.AuthzModule.RoleHandler
-		deps.Authz.AssignmentHandler = c.AuthzModule.AssignmentHandler
-		deps.Authz.PolicyHandler = c.AuthzModule.PolicyHandler
-		deps.Authz.ResourceHandler = c.AuthzModule.ResourceHandler
-		deps.Authz.CheckHandler = c.AuthzModule.CheckHandler
-		deps.Authz.Casbin = c.AuthzModule.CasbinAdapter
-		if reporter, ok := c.AuthzModule.CasbinAdapter.(resttransport.AuthzHealthReporter); ok {
+		deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCommander, caps.RoleQueryer)
+		deps.Authz.AssignmentHandler = authzhandler.NewAssignmentHandler(caps.AssignmentCommander, caps.AssignmentQueryer)
+		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PolicyCommander, caps.PolicyQueryer)
+		deps.Authz.ResourceHandler = authzhandler.NewResourceHandler(caps.ResourceCommander, caps.ResourceQueryer)
+		deps.Authz.CheckHandler = authzhandler.NewCheckHandler(caps.Casbin)
+		deps.Authz.Casbin = caps.Casbin
+		if reporter, ok := caps.Casbin.(resttransport.AuthzHealthReporter); ok {
 			deps.Authz.HealthReporter = reporter
 		}
 	}
@@ -50,23 +58,39 @@ func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
 
 func (c *Container) collectIDPRESTDeps(deps *resttransport.Deps) {
 	if c.IDPModule != nil {
+		caps := c.IDPModule.ApplicationCapabilities()
 		deps.ModuleStatus.IDP = true
-		deps.IDP.WechatAppHandler = c.IDPModule.WechatAppHandler
+		deps.IDP.WechatAppHandler = idphandler.NewWechatAppHandler(
+			caps.WechatAppService,
+			caps.WechatAppCredentialService,
+			caps.WechatAppTokenService,
+		)
 	}
 }
 
 func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
 	if c.UserModule != nil {
+		caps := c.UserModule.ApplicationCapabilities()
 		deps.ModuleStatus.User = true
-		deps.User.UserHandler = c.UserModule.UserHandler
-		deps.User.ChildHandler = c.UserModule.ChildHandler
-		deps.User.GuardianshipHandler = c.UserModule.GuardianshipHandler
+		deps.User.UserHandler = identityhandler.NewUserHandler(
+			caps.UserService,
+			caps.UserProfileService,
+			caps.UserQueryService,
+			caps.Casbin,
+		)
+		deps.User.ChildHandler = identityhandler.NewChildHandler(
+			caps.ChildRegistrationService,
+			caps.ChildAccessService,
+			caps.ChildQueryService,
+		)
+		deps.User.GuardianshipHandler = identityhandler.NewGuardianshipHandler(caps.GuardianshipAccessService)
 	}
 }
 
 func (c *Container) collectSuggestRESTDeps(deps *resttransport.Deps) {
 	if c.SuggestModule != nil {
-		deps.ModuleStatus.Suggest = c.SuggestModule.Service != nil
-		deps.Suggest.Service = c.SuggestModule.Service
+		caps := c.SuggestModule.ApplicationCapabilities()
+		deps.ModuleStatus.Suggest = caps.Service != nil
+		deps.Suggest.Service = caps.Service
 	}
 }

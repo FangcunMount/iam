@@ -22,8 +22,6 @@ import (
 	sessionDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/crypto"
 	redisInfra "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
-	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
 	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
 	"github.com/FangcunMount/iam/pkg/event"
 )
@@ -43,22 +41,8 @@ type AuthnModule struct {
 	KeyPublishApp    *jwksApp.KeyPublishAppService
 	KeyRotationApp   *jwksApp.KeyRotationAppService
 
-	// HTTP 处理器
-	AccountHandler      *authhandler.AccountHandler
-	AuthHandler         *authhandler.AuthHandler
-	JWKSHandler         *authhandler.JWKSHandler
-	SessionAdminHandler *authhandler.SessionAdminHandler
-
-	// gRPC 服务
-	GRPCService *authngrpc.Service
-
 	// 调度器
-	RotationScheduler interface {
-		Start(ctx context.Context) error
-		Stop() error
-		IsRunning() bool
-		TriggerNow(ctx context.Context) error
-	}
+	rotationScheduler KeyRotationScheduler
 
 	tokenStoreInspectorSource *redisInfra.RedisStore
 	sessionStoreInspector     *redisInfra.SessionStore
@@ -114,9 +98,6 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 		return err
 	}
 
-	// 初始化接口层
-	m.initializeInterface()
-
 	// 初始化调度器
 	m.initializeSchedulers()
 
@@ -125,8 +106,8 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 
 // Cleanup 清理资源
 func (m *AuthnModule) Cleanup(ctx context.Context) error {
-	if m.RotationScheduler != nil && m.RotationScheduler.IsRunning() {
-		if err := m.RotationScheduler.Stop(); err != nil {
+	if m.rotationScheduler != nil && m.rotationScheduler.IsRunning() {
+		if err := m.rotationScheduler.Stop(); err != nil {
 			log.Warnf("Failed to stop rotation scheduler: %v", err)
 		}
 	}
@@ -148,4 +129,30 @@ func (m *AuthnModule) CacheFamilyInspectors() []cachegovernance.FamilyInspector 
 // SessionManager 返回认证模块创建的会话管理器。
 func (m *AuthnModule) SessionManager() sessionDomain.Manager {
 	return m.sessionManager
+}
+
+func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
+	if m == nil {
+		return AuthnApplicationCapabilities{}
+	}
+	return AuthnApplicationCapabilities{
+		AccountService:          m.AccountService,
+		RegisterService:         m.RegisterService,
+		LoginService:            m.LoginService,
+		LoginPreparationService: m.LoginPreparationService,
+		TokenService:            m.TokenService,
+		SessionService:          m.SessionService,
+		KeyManagementApp:        m.KeyManagementApp,
+		KeyPublishApp:           m.KeyPublishApp,
+		KeyRotationApp:          m.KeyRotationApp,
+	}
+}
+
+func (m *AuthnModule) RuntimeCapabilities() AuthnRuntimeCapabilities {
+	if m == nil {
+		return AuthnRuntimeCapabilities{}
+	}
+	return AuthnRuntimeCapabilities{
+		RotationScheduler: m.rotationScheduler,
+	}
 }

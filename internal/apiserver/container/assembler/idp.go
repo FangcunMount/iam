@@ -13,8 +13,6 @@ import (
 	infraRedis "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
 	"github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi"
 	wechatapiPort "github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi/port"
-	idpGrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -34,13 +32,6 @@ type IDPModule struct {
 	WechatAppService           wechatapp.WechatAppApplicationService
 	WechatAppCredentialService wechatapp.WechatAppCredentialApplicationService
 	WechatAppTokenService      wechatapp.WechatAppTokenApplicationService
-
-	// HTTP 处理器（对外暴露）
-	WechatAppHandler *handler.WechatAppHandler
-	// WechatAuthHandler 已移除 - 认证由 authn 模块统一提供
-
-	// gRPC 服务（对外暴露）
-	GRPCService *idpGrpc.Service
 
 	// 基础设施组件（内部管理，供其他模块使用）
 	wechatAppRepo       wechatappDomain.Repository
@@ -81,11 +72,6 @@ func (m *IDPModule) InitializeWithDeps(deps IDPModuleDeps) error {
 
 	// 初始化应用层
 	if err := m.initializeApplication(domainServices); err != nil {
-		return err
-	}
-
-	// 初始化接口层
-	if err := m.initializeInterface(); err != nil {
 		return err
 	}
 
@@ -138,4 +124,17 @@ func (m *IDPModule) CacheFamilyInspectors() []cachegovernance.FamilyInspector {
 	inspectors = append(inspectors, infraRedis.AccessTokenCacheInspectors(m.accessTokenCache)...)
 	inspectors = append(inspectors, infraRedis.WechatSDKCacheInspectors(m.wechatSDKCache)...)
 	return inspectors
+}
+
+func (m *IDPModule) ApplicationCapabilities() IDPApplicationCapabilities {
+	if m == nil {
+		return IDPApplicationCapabilities{}
+	}
+	return IDPApplicationCapabilities{
+		WechatAppService:           m.WechatAppService,
+		WechatAppCredentialService: m.WechatAppCredentialService,
+		WechatAppTokenService:      m.WechatAppTokenService,
+		WechatAppRepository:        m.wechatAppRepo,
+		SecretVault:                m.secretVault,
+	}
 }

@@ -188,14 +188,3 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 
 	successList(c, roles, result.Total, query.Offset, query.Limit)
 }
-
-// toRoleResponse 转换为响应对象
-func (h *RoleHandler) toRoleResponse(r *roleDomain.Role) dto.RoleResponse {
-	return dto.RoleResponse{
-		ID:          r.ID,
-		Name:        r.Name,
-		DisplayName: r.DisplayName,
-		TenantID:    r.TenantID,
-		Description: r.Description,
-	}
-}

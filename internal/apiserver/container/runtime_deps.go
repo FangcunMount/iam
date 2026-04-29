@@ -30,11 +30,11 @@ func (c *Container) BuildRuntimeDeps() RuntimeDeps {
 func (c *Container) runtimeHooks() RuntimeDeps {
 	var deps RuntimeDeps
 	if c.AuthnModule != nil {
-		deps.RotationScheduler = c.AuthnModule.RotationScheduler
+		deps.RotationScheduler = c.AuthnModule.RuntimeCapabilities().RotationScheduler
 	}
 	deps.OutboxRelay = c.OutboxRelay()
 	if c.SuggestModule != nil {
-		deps.SuggestCleanup = c.SuggestModule.Cleanup
+		deps.SuggestCleanup = c.SuggestModule.RuntimeCapabilities().Cleanup
 	}
 	return deps
 }

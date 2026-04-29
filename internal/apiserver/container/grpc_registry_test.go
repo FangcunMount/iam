@@ -5,28 +5,15 @@ import (
 	"testing"
 
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
-	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authz"
-	idpgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
-	ucgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc"
-	identitygrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
 	googlegrpc "google.golang.org/grpc"
 )
 
 func TestBuildGRPCDepsReturnsModuleRegistrarsInStartupOrder(t *testing.T) {
 	c := &Container{
-		AuthnModule: &assembler.AuthnModule{
-			GRPCService: authngrpc.NewService(nil, nil, nil),
-		},
-		UserModule: &assembler.UserModule{
-			GRPCService: ucgrpc.NewService(identitygrpc.NewService(nil, nil, nil, nil, nil, nil, nil, nil)),
-		},
-		IDPModule: &assembler.IDPModule{
-			GRPCService: idpgrpc.NewService(nil, nil, nil),
-		},
-		AuthzModule: &assembler.AuthzModule{
-			GRPCService: authzgrpc.NewService(nil, nil, nil, nil),
-		},
+		AuthnModule: &assembler.AuthnModule{},
+		UserModule:  &assembler.UserModule{},
+		IDPModule:   &assembler.IDPModule{},
+		AuthzModule: &assembler.AuthzModule{},
 	}
 
 	deps := c.BuildGRPCDeps(nil)
