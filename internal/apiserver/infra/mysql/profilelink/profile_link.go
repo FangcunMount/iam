@@ -17,6 +17,7 @@ type ProfileLinkPO struct {
 	ProfileID     meta.ID    `gorm:"column:profile_id;type:bigint unsigned;not null;uniqueIndex:idx_user_profile_link,priority:2;comment:档案ID"`
 	Type          string     `gorm:"column:type;type:varchar(32);not null;default:'relation';uniqueIndex:idx_user_profile_link,priority:3;index;comment:关系类型"`
 	Relation      string     `gorm:"column:relation;type:varchar(16);not null;comment:档案关系"`
+	SelfKey       *int64     `gorm:"column:self_key;type:bigint;uniqueIndex:uk_active_self_profile_link;comment:active self link user guard"`
 	EstablishedAt time.Time  `gorm:"column:established_at;type:datetime;not null;comment:建立时间"`
 	RevokedAt     *time.Time `gorm:"column:revoked_at;type:datetime;comment:撤销时间"`
 }

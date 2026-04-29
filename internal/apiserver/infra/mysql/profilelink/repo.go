@@ -22,14 +22,18 @@ func NewRepository(db *gorm.DB) domain.Repository {
 	base := mysql.NewBaseRepository[*ProfileLinkPO](db)
 	// register a driver-aware translator that maps duplicate DB errors to the
 	// profile-link-specific business error code.
-	base.SetErrorTranslator(mysql.NewDuplicateToTranslator(func(e error) error {
-		return errors.WithCode(code.ErrIdentityProfileLinkExists, "profile link already exists")
-	}))
+	base.SetErrorTranslator(translateProfileLinkError)
 
 	return &Repository{
 		BaseRepository: base,
 		mapper:         NewProfileLinkMapper(),
 	}
+}
+
+func translateProfileLinkError(err error) error {
+	return mysql.NewDuplicateToTranslator(func(e error) error {
+		return errors.WithCode(code.ErrIdentityProfileLinkExists, "profile link already exists")
+	})(err)
 }
 
 // Create 创建新的档案关系
@@ -141,14 +145,26 @@ func (r *Repository) IsLinked(ctx context.Context, userID meta.ID, profileID met
 	return count > 0, nil
 }
 
-// Update 更新档案关系// Update 更新档案关系
+// Update 更新档案关系
 func (r *Repository) Update(ctx context.Context, g *domain.ProfileLink) error {
 	po := r.mapper.ToPO(g)
-	return r.UpdateAndSync(ctx, po, func(updated *ProfileLinkPO) {
-		g.ID = updated.ID
-		g.EstablishedAt = updated.EstablishedAt
-		g.RevokedAt = updated.RevokedAt
-	})
+	updates := map[string]interface{}{
+		"user_id":        po.UserID,
+		"profile_id":     po.ProfileID,
+		"type":           po.Type,
+		"relation":       po.Relation,
+		"self_key":       po.SelfKey,
+		"established_at": po.EstablishedAt,
+		"revoked_at":     po.RevokedAt,
+	}
+	result := r.WithContext(ctx).Model(&ProfileLinkPO{}).Where("id = ?", po.ID.Uint64()).Updates(updates)
+	if result.Error != nil {
+		return translateProfileLinkError(result.Error)
+	}
+	g.ID = po.ID
+	g.EstablishedAt = po.EstablishedAt
+	g.RevokedAt = po.RevokedAt
+	return nil
 }
 
 func (r *Repository) toDomainSlice(pos []*ProfileLinkPO) []*domain.ProfileLink {

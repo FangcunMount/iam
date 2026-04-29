@@ -16,13 +16,13 @@ func NewCreator(uow uow.UnitOfWork) Creator {
 	return &profileEditor{uow: uow}
 }
 
-// Register 创建新档案
+// Create 创建新档案
 func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*ProfileResult, error) {
 	l := logger.L(ctx)
 	var result *ProfileResult
 
 	l.Debugw("开始创建档案",
-		"action", logger.ActionRegister,
+		"action", logger.ActionCreate,
 		"resource", "profile",
 		"profile_name", dto.Name,
 		"has_idcard", dto.IDCard != "",
@@ -39,7 +39,7 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 		})
 		if err != nil {
 			l.Errorw("创建档案实体失败",
-				"action", logger.ActionRegister,
+				"action", logger.ActionCreate,
 				"resource", "profile",
 				"error", err.Error(),
 				"result", logger.ResultFailed,
@@ -50,7 +50,7 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 		// 持久化档案
 		if err := tx.Profiles.Create(txCtx, newProfile); err != nil {
 			l.Errorw("持久化档案失败",
-				"action", logger.ActionRegister,
+				"action", logger.ActionCreate,
 				"resource", "profile",
 				"error", err.Error(),
 				"result", logger.ResultFailed,
@@ -65,7 +65,7 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 
 	if err == nil {
 		l.Debugw("档案创建成功",
-			"action", logger.ActionRegister,
+			"action", logger.ActionCreate,
 			"resource", "profile",
 			"resource_id", result.ID,
 			"profile_name", result.Name,

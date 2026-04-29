@@ -18,11 +18,18 @@ func (m *ProfileLinkMapper) ToPO(gBO *domain.ProfileLink) *ProfileLinkPO {
 		return nil
 	}
 
+	var selfKey *int64
+	if gBO.Type == domain.TypeSelf && gBO.RevokedAt == nil {
+		v := gBO.User.Int64()
+		selfKey = &v
+	}
+
 	po := &ProfileLinkPO{
 		UserID:        gBO.User,
 		ProfileID:     gBO.Profile,
 		Type:          string(gBO.Type),
 		Relation:      string(gBO.Rel),
+		SelfKey:       selfKey,
 		EstablishedAt: gBO.EstablishedAt,
 		RevokedAt:     gBO.RevokedAt,
 	}

@@ -25,13 +25,13 @@ func NewCreator(uow uow.UnitOfWork) Creator {
 	return &creator{uow: uow}
 }
 
-// Register 创建新用户
+// Create 创建新用户
 func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, error) {
 	l := logger.L(ctx)
 	var result *UserResult
 
 	l.Debugw("开始创建用户",
-		"action", logger.ActionRegister,
+		"action", logger.ActionCreate,
 		"resource", logger.ResourceUser,
 		"name", dto.Name,
 		"phone", dto.Phone,
@@ -47,9 +47,9 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 		}
 
 		// 验证创建参数
-		if err := validator.ValidateRegister(txCtx, dto.Name, phone); err != nil {
+		if err := validator.ValidateCreate(txCtx, dto.Name, phone); err != nil {
 			l.Warnw("用户创建参数验证失败",
-				"action", logger.ActionRegister,
+				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
 				"error", err.Error(),
 				"result", logger.ResultFailed,
@@ -65,7 +65,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 		newUser, err := user.NewUser(dto.Name, phone, opts...)
 		if err != nil {
 			l.Errorw("创建用户实体失败",
-				"action", logger.ActionRegister,
+				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
 				"error", err.Error(),
 				"result", logger.ResultFailed,
@@ -78,7 +78,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 			email, err := input.ParseOptionalEmail(dto.Email)
 			if err != nil {
 				l.Warnw("邮箱格式验证失败",
-					"action", logger.ActionRegister,
+					"action", logger.ActionCreate,
 					"resource", logger.ResourceUser,
 					"error", err.Error(),
 				)
@@ -90,7 +90,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 		// 持久化用户
 		if err := tx.Users.Create(txCtx, newUser); err != nil {
 			l.Errorw("持久化用户失败",
-				"action", logger.ActionRegister,
+				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
 				"error", err.Error(),
 				"result", logger.ResultFailed,
@@ -109,7 +109,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 
 	if err == nil {
 		l.Debugw("用户创建成功",
-			"action", logger.ActionRegister,
+			"action", logger.ActionCreate,
 			"resource", logger.ResourceUser,
 			"user_id", result.ID,
 			"result", logger.ResultSuccess,

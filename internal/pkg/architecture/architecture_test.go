@@ -278,7 +278,7 @@ func TestUCApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
 
 	root := repoRoot(t)
 	forbiddenTokens := []string{
-		"validator.ValidateRegister(ctx",
+		"validator.ValidateCreate(ctx",
 		"profileEditor.Rename(ctx",
 		"profileEditor.Renickname(ctx",
 		"profileEditor.UpdateContact(ctx",
@@ -656,6 +656,8 @@ func TestUCSemanticServiceNamesDoNotRegress(t *testing.T) {
 				"NewRegistrar",
 				"RegisterUserDTO",
 				"RegisterProfileDTO",
+				"ValidateRegister",
+				"ActionRegister",
 			} {
 				if strings.Contains(source, token) {
 					t.Fatalf("%s contains retired UC service name %q; use semantic capabilities such as Creator, Editor, Directory, MyProfiles, Linker, or Commands", rel, token)

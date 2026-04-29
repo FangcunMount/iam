@@ -5,8 +5,11 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ============================================
@@ -48,67 +51,107 @@ func (s *myProfiles) Get(ctx context.Context, userID string, profileID string) (
 }
 
 func (s *myProfiles) Patch(ctx context.Context, dto PatchMyProfileDTO) (*ProfileResult, error) {
-	if err := s.ensureActiveProfileLinkAccess(ctx, dto.UserID, dto.ProfileID); err != nil {
-		return nil, err
-	}
+	var result *ProfileResult
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
+		profileID, err := accessibleProfileIDInTx(txCtx, tx, dto.UserID, dto.ProfileID)
+		if err != nil {
+			return err
+		}
 
-	profile := NewEditor(s.uow)
-	if dto.LegalName != nil && strings.TrimSpace(*dto.LegalName) != "" {
-		if err := profile.Rename(ctx, dto.ProfileID, strings.TrimSpace(*dto.LegalName)); err != nil {
-			return nil, err
+		profile, err := tx.Profiles.FindByID(txCtx, profileID)
+		if err != nil {
+			return err
 		}
-	}
 
-	if dto.Gender != nil || dto.Birthday != nil {
-		profileDTO := UpdateProfileDTO{ProfileID: dto.ProfileID}
-		if dto.Gender != nil {
-			profileDTO.Gender = *dto.Gender
+		validator := domain.NewValidator(tx.Profiles)
+		changed := false
+		if dto.LegalName != nil && strings.TrimSpace(*dto.LegalName) != "" {
+			name := strings.TrimSpace(*dto.LegalName)
+			if err := validator.ValidateRename(name); err != nil {
+				return err
+			}
+			profile.Rename(name)
+			changed = true
 		}
-		if dto.Birthday != nil {
-			profileDTO.Birthday = strings.TrimSpace(*dto.Birthday)
-		}
-		if err := profile.UpdateProfile(ctx, profileDTO); err != nil {
-			return nil, err
-		}
-	}
 
-	if dto.Height != nil || dto.Weight != nil {
-		measurementDTO := UpdateHeightWeightDTO{ProfileID: dto.ProfileID}
-		if dto.Height != nil {
-			measurementDTO.Height = *dto.Height
+		if dto.Gender != nil || dto.Birthday != nil {
+			gender := input.ParseGender(0)
+			if dto.Gender != nil {
+				gender = input.ParseGender(*dto.Gender)
+			}
+			birthday := input.ParseBirthday("")
+			if dto.Birthday != nil {
+				birthday = input.ParseBirthday(strings.TrimSpace(*dto.Birthday))
+			}
+			if err := validator.ValidateUpdateProfile(gender, birthday); err != nil {
+				return err
+			}
+			profile.UpdateProfile(gender, birthday)
+			changed = true
 		}
-		if dto.Weight != nil {
-			measurementDTO.Weight = *dto.Weight
-		}
-		if err := profile.UpdateHeightWeight(ctx, measurementDTO); err != nil {
-			return nil, err
-		}
-	}
 
-	return NewDirectory(s.uow).GetByID(ctx, dto.ProfileID)
+		if dto.Height != nil || dto.Weight != nil {
+			height, err := input.ParseHeightCm(0)
+			if err != nil {
+				return err
+			}
+			if dto.Height != nil {
+				height, err = input.ParseHeightCm(*dto.Height)
+				if err != nil {
+					return err
+				}
+			}
+			weight, err := input.ParseWeightGrams(0)
+			if err != nil {
+				return err
+			}
+			if dto.Weight != nil {
+				weight, err = input.ParseWeightGrams(*dto.Weight)
+				if err != nil {
+					return err
+				}
+			}
+			profile.UpdateHeightWeight(height, weight)
+			changed = true
+		}
+
+		if changed {
+			if err := tx.Profiles.Update(txCtx, profile); err != nil {
+				return err
+			}
+		}
+		result = toProfileResult(profile)
+		return nil
+	})
+	return result, err
 }
 
 func (s *myProfiles) ensureActiveProfileLinkAccess(ctx context.Context, userID string, profileID string) error {
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		userIDObj, err := parseProfileAccessUserID(userID)
-		if err != nil {
-			return err
-		}
-		profileIDObj, err := parseProfileID(profileID)
-		if err != nil {
-			return err
-		}
-		profileLink, err := tx.ProfileLinks.FindByUserIDAndProfileID(txCtx, userIDObj, profileIDObj)
-		if err != nil {
-			return err
-		}
-		if profileLink == nil {
-			return perrors.WithCode(code.ErrPermissionDenied, "you are not linked to this profile")
-		}
-		return nil
+		_, err := accessibleProfileIDInTx(txCtx, tx, userID, profileID)
+		return err
 	})
 	if err != nil {
 		return perrors.WithCode(code.ErrPermissionDenied, "you are not linked to this profile")
 	}
 	return nil
+}
+
+func accessibleProfileIDInTx(txCtx context.Context, tx uow.TxRepositories, userID string, profileID string) (meta.ID, error) {
+	userIDObj, err := parseProfileAccessUserID(userID)
+	if err != nil {
+		return 0, perrors.WithCode(code.ErrPermissionDenied, "you are not linked to this profile")
+	}
+	profileIDObj, err := parseProfileID(profileID)
+	if err != nil {
+		return 0, perrors.WithCode(code.ErrPermissionDenied, "you are not linked to this profile")
+	}
+	profileLink, err := tx.ProfileLinks.FindByUserIDAndProfileID(txCtx, userIDObj, profileIDObj)
+	if err != nil {
+		return 0, perrors.WithCode(code.ErrPermissionDenied, "you are not linked to this profile")
+	}
+	if profileLink == nil {
+		return 0, perrors.WithCode(code.ErrPermissionDenied, "you are not linked to this profile")
+	}
+	return profileIDObj, nil
 }

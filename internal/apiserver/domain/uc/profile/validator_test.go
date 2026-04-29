@@ -12,22 +12,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProfileValidator_ValidateRegister(t *testing.T) {
+func TestProfileValidator_ValidateCreate(t *testing.T) {
 	v := profile.NewValidator(&testhelpers.ProfileRepoStub{})
-	err := v.ValidateRegister(context.Background(), "name", meta.GenderMale, meta.NewBirthday("2010-01-01"))
+	err := v.ValidateCreate(context.Background(), "name", meta.GenderMale, meta.NewBirthday("2010-01-01"))
 	assert.NoError(t, err)
 }
 
-func TestProfileValidator_ValidateRegister_EmptyName(t *testing.T) {
+func TestProfileValidator_ValidateCreate_EmptyName(t *testing.T) {
 	v := profile.NewValidator(&testhelpers.ProfileRepoStub{})
-	err := v.ValidateRegister(context.Background(), "", meta.GenderMale, meta.NewBirthday("2010-01-01"))
+	err := v.ValidateCreate(context.Background(), "", meta.GenderMale, meta.NewBirthday("2010-01-01"))
 	require.Error(t, err)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "name cannot be empty")
 }
 
-func TestProfileValidator_ValidateRegister_EmptyBirthdayAllowed(t *testing.T) {
+func TestProfileValidator_ValidateCreate_EmptyBirthdayAllowed(t *testing.T) {
 	v := profile.NewValidator(&testhelpers.ProfileRepoStub{})
-	err := v.ValidateRegister(context.Background(), "name", meta.GenderMale, meta.Birthday{})
+	err := v.ValidateCreate(context.Background(), "name", meta.GenderMale, meta.Birthday{})
 	require.NoError(t, err)
 }
 

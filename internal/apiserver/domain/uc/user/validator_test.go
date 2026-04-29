@@ -15,43 +15,43 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-func TestValidator_ValidateRegisterSuccess(t *testing.T) {
+func TestValidator_ValidateCreateSuccess(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	v := user.NewValidator(repo)
 
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
 
-	err = v.ValidateRegister(context.Background(), " name ", phone)
+	err = v.ValidateCreate(context.Background(), " name ", phone)
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, repo.FindPhoneCalls)
 }
 
-func TestValidator_ValidateRegister_EmptyInputs(t *testing.T) {
+func TestValidator_ValidateCreate_EmptyInputs(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	v := user.NewValidator(repo)
 
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
 
-	err = v.ValidateRegister(context.Background(), " ", phone)
+	err = v.ValidateCreate(context.Background(), " ", phone)
 	require.Error(t, err)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "name cannot be empty")
 
-	err = v.ValidateRegister(context.Background(), "name", meta.Phone{})
+	err = v.ValidateCreate(context.Background(), "name", meta.Phone{})
 	require.NoError(t, err)
 	assert.Equal(t, 0, repo.FindPhoneCalls)
 }
 
-func TestValidator_ValidateRegister_DuplicatePhone(t *testing.T) {
+func TestValidator_ValidateCreate_DuplicatePhone(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
 	repo.UsersByPhone[phone.String()] = &user.User{}
 	v := user.NewValidator(repo)
 
-	err = v.ValidateRegister(context.Background(), "name", phone)
+	err = v.ValidateCreate(context.Background(), "name", phone)
 
 	require.Error(t, err)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "already exists")

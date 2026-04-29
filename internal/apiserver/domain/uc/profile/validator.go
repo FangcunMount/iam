@@ -18,8 +18,8 @@ func NewValidator(repo Repository) Validator {
 	return &validator{repo: repo}
 }
 
-// ValidateRegister 验证注册参数
-func (v *validator) ValidateRegister(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
+// ValidateCreate 验证创建参数
+func (v *validator) ValidateCreate(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
 	// 验证名称
 	if name == "" {
 		return errors.WithCode(code.ErrUserBasicInfoInvalid, "name cannot be empty")

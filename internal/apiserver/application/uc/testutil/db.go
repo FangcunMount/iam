@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	profilepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profile"
-	guardpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profilelink"
+	profilelinkpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profilelink"
 	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 	userpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 )
@@ -56,7 +56,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&userpo.UserPO{},
 		&profilepo.ProfilePO{},
-		&guardpo.ProfileLinkPO{},
+		&profilelinkpo.ProfileLinkPO{},
 	)
 	require.NoError(t, err, "failed to auto-migrate tables")
 

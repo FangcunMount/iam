@@ -134,7 +134,7 @@ type ProfileValidatorStub struct {
 	UpdateProfileErr error
 }
 
-func (s *ProfileValidatorStub) ValidateRegister(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
+func (s *ProfileValidatorStub) ValidateCreate(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
 	return nil
 }
 func (s *ProfileValidatorStub) ValidateRename(name string) error { return s.RenameErr }
@@ -232,7 +232,7 @@ type UserValidatorStub struct {
 	CheckCalls         int
 }
 
-func (s *UserValidatorStub) ValidateRegister(ctx context.Context, name string, phone meta.Phone) error {
+func (s *UserValidatorStub) ValidateCreate(ctx context.Context, name string, phone meta.Phone) error {
 	return nil
 }
 func (s *UserValidatorStub) ValidateRename(name string) error {

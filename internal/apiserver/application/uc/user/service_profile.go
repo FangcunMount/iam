@@ -209,36 +209,65 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 
 // PatchProfile 局部更新用户资料并返回最新用户结果。
 func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*UserResult, error) {
-	if dto.Nickname != nil {
-		nickname := strings.TrimSpace(*dto.Nickname)
-		if nickname != "" {
-			if err := s.Rename(ctx, dto.UserID, nickname); err != nil {
-				return nil, err
+	var result *UserResult
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
+		validator := user.NewValidator(tx.Users)
+		profileEditor := user.NewProfileEditor(tx.Users, validator)
+
+		id, err := parseUserID(dto.UserID)
+		if err != nil {
+			return err
+		}
+
+		if dto.Nickname != nil {
+			nickname := strings.TrimSpace(*dto.Nickname)
+			if nickname != "" {
+				modifiedUser, err := profileEditor.Rename(txCtx, id, nickname)
+				if err != nil {
+					return err
+				}
+				if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	var phoneValue, emailValue string
-	var hasContact bool
-	if dto.Phone != nil && *dto.Phone != "" {
-		phoneValue = *dto.Phone
-		hasContact = true
-	}
-	if dto.Email != nil && *dto.Email != "" {
-		emailValue = *dto.Email
-		hasContact = true
-	}
-	if hasContact {
-		if err := s.UpdateContact(ctx, UpdateContactDTO{
-			UserID: dto.UserID,
-			Phone:  phoneValue,
-			Email:  emailValue,
-		}); err != nil {
-			return nil, err
+		var phoneValue, emailValue string
+		var hasContact bool
+		if dto.Phone != nil && *dto.Phone != "" {
+			phoneValue = *dto.Phone
+			hasContact = true
 		}
-	}
+		if dto.Email != nil && *dto.Email != "" {
+			emailValue = *dto.Email
+			hasContact = true
+		}
+		if hasContact {
+			phone, err := input.ParseOptionalPhone(phoneValue)
+			if err != nil {
+				return err
+			}
+			email, err := input.ParseOptionalEmail(emailValue)
+			if err != nil {
+				return err
+			}
+			modifiedUser, err := profileEditor.UpdateContact(txCtx, id, phone, email)
+			if err != nil {
+				return err
+			}
+			if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
+				return err
+			}
+		}
 
-	return NewDirectory(s.uow).GetByID(ctx, dto.UserID)
+		latest, err := tx.Users.FindByID(txCtx, id)
+		if err != nil {
+			return err
+		}
+		result = toUserResult(latest)
+		return nil
+	})
+	return result, err
 }
 
 // UpdateIDCard 更新身份证

@@ -2,6 +2,7 @@ package profilelink
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -94,4 +95,78 @@ func TestRepository_DefaultQueriesExcludeRevokedRefs(t *testing.T) {
 	hasProfileLink, err := repo.IsLinked(ctx, record.User, record.Profile)
 	require.NoError(t, err)
 	assert.False(t, hasProfileLink)
+}
+
+func TestRepository_CreateConcurrentSelfLinksAllowsOnlyOneActiveSelfPerUser(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&ProfileLinkPO{}))
+
+	repo := NewRepository(db)
+	ctx := context.Background()
+	userID := meta.FromUint64(1001)
+	now := time.Now()
+
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, profileID := range []meta.ID{meta.FromUint64(2001), meta.FromUint64(2002)} {
+		wg.Add(1)
+		go func(profileID meta.ID) {
+			defer wg.Done()
+			<-start
+			errs <- repo.Create(ctx, profilelink.NewSelfProfileLink(userID, profileID, now))
+		}(profileID)
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	var successCount, duplicateCount int
+	for err := range errs {
+		switch {
+		case err == nil:
+			successCount++
+		case perrors.IsCode(err, code.ErrIdentityProfileLinkExists):
+			duplicateCount++
+		default:
+			require.NoError(t, err)
+		}
+	}
+
+	require.Equal(t, 1, successCount)
+	require.Equal(t, 1, duplicateCount)
+
+	links, err := repo.FindByUserID(ctx, userID)
+	require.NoError(t, err)
+	var activeSelfCount int
+	for _, link := range links {
+		if link != nil && link.Type == profilelink.TypeSelf && link.IsActive() {
+			activeSelfCount++
+		}
+	}
+	assert.Equal(t, 1, activeSelfCount)
+}
+
+func TestRepository_UpdateRevokedSelfLinkReleasesActiveSelfGuard(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&ProfileLinkPO{}))
+
+	repo := NewRepository(db)
+	ctx := context.Background()
+	userID := meta.FromUint64(1001)
+
+	first := profilelink.NewSelfProfileLink(userID, meta.FromUint64(2001), time.Now())
+	require.NoError(t, repo.Create(ctx, first))
+
+	first.Revoke(time.Now())
+	require.NoError(t, repo.Update(ctx, first))
+
+	second := profilelink.NewSelfProfileLink(userID, meta.FromUint64(2002), time.Now())
+	require.NoError(t, repo.Create(ctx, second))
+
+	links, err := repo.FindByUserID(ctx, userID)
+	require.NoError(t, err)
+	require.Len(t, links, 1)
+	assert.Equal(t, second.Profile, links[0].Profile)
 }

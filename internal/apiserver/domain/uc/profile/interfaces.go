@@ -13,8 +13,8 @@ import (
 // Validator 档案验证器接口（Driving Port - 领域能力）
 // 封装档案相关的验证规则和业务检查
 type Validator interface {
-	// ValidateRegister 验证注册参数
-	ValidateRegister(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error
+	// ValidateCreate 验证创建参数
+	ValidateCreate(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error
 
 	// ValidateRename 验证改名参数
 	ValidateRename(name string) error

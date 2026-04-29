@@ -12,8 +12,8 @@ import (
 // Validator 用户验证器接口（Driving Port - 领域服务）
 // 封装用户相关的验证规则和业务检查
 type Validator interface {
-	// ValidateRegister 验证注册参数
-	ValidateRegister(ctx context.Context, name string, phone meta.Phone) error
+	// ValidateCreate 验证创建参数
+	ValidateCreate(ctx context.Context, name string, phone meta.Phone) error
 
 	// ValidateRename 验证改名参数
 	ValidateRename(name string) error

@@ -23,9 +23,9 @@ func NewValidator(repo Repository) Validator {
 	return &validator{repo: repo}
 }
 
-// ValidateRegister 验证注册参数
+// ValidateCreate 验证创建参数
 // 检查手机号唯一性和基本参数有效性
-func (v *validator) ValidateRegister(ctx context.Context, name string, phone meta.Phone) error {
+func (v *validator) ValidateCreate(ctx context.Context, name string, phone meta.Phone) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return perrors.WithCode(code.ErrUserBasicInfoInvalid, "name cannot be empty")

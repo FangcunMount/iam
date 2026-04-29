@@ -27,7 +27,7 @@ func TestCreator_Create_Success(t *testing.T) {
 		Email: "zhangsan@example.com",
 	}
 
-	// Act - 执行注册
+	// Act - 执行创建
 	result, err := appService.Create(ctx, dto)
 
 	// Assert - 验证结果
@@ -72,7 +72,7 @@ func TestCreator_Create_WithoutEmail(t *testing.T) {
 }
 
 func TestCreator_Create_DuplicatePhone(t *testing.T) {
-	// Arrange - 先注册一个用户
+	// Arrange - 先创建一个用户
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	appService := user.NewCreator(unitOfWork)
@@ -85,7 +85,7 @@ func TestCreator_Create_DuplicatePhone(t *testing.T) {
 	_, err := appService.Create(ctx, dto1)
 	require.NoError(t, err)
 
-	// Act - 尝试注册相同手机号
+	// Act - 尝试创建相同手机号
 	dto2 := user.CreateUserDTO{
 		Name:  "李四",
 		Phone: "13800138000", // 重复手机号
@@ -149,10 +149,10 @@ func TestEditor_Rename_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewCreator(unitOfWork)
+	createUseCase := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -179,10 +179,10 @@ func TestEditor_Rename_EmptyName(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewCreator(unitOfWork)
+	createUseCase := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -202,10 +202,10 @@ func TestEditor_UpdateContact_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewCreator(unitOfWork)
+	createUseCase := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "old@example.com",
@@ -238,8 +238,8 @@ func TestEditor_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewCreator(unitOfWork)
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "old@example.com",
@@ -265,15 +265,45 @@ func TestEditor_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
 	assert.Equal(t, email, updated.Email)
 }
 
+func TestEditor_PatchProfile_RollsBackNameWhenContactUpdateFails(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := testutil.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
+		Name:  "张三",
+		Phone: "13800138000",
+		Email: "old@example.com",
+	})
+	require.NoError(t, err)
+
+	newName := "不应保存"
+	invalidPhone := "bad-phone"
+	updated, err := user.NewEditor(unitOfWork).PatchProfile(ctx, user.PatchUserProfileDTO{
+		UserID:   created.ID,
+		Nickname: &newName,
+		Phone:    &invalidPhone,
+	})
+	require.Error(t, err)
+	assert.Nil(t, updated)
+
+	persisted, err := user.NewDirectory(unitOfWork).GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, created.Name, persisted.Name)
+	assert.Equal(t, created.Phone, persisted.Phone)
+	assert.Equal(t, created.Email, persisted.Email)
+}
+
 func TestEditor_UpdateIDCard_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewCreator(unitOfWork)
+	createUseCase := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -303,8 +333,8 @@ func TestStatusChanger_Activate_Success(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewCreator(unitOfWork)
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -334,8 +364,8 @@ func TestStatusChanger_Deactivate_Success(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewCreator(unitOfWork)
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -362,8 +392,8 @@ func TestStatusChanger_Block_Success(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewCreator(unitOfWork)
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -392,8 +422,8 @@ func TestDirectory_GetByID_Success(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewCreator(unitOfWork)
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "zhangsan@example.com",
@@ -435,8 +465,8 @@ func TestDirectory_GetByPhone_Success(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewCreator(unitOfWork)
-	created, err := registerService.Create(ctx, user.CreateUserDTO{
+	createUseCase := user.NewCreator(unitOfWork)
+	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
@@ -481,21 +511,21 @@ func TestRegistrar_Transaction_Rollback(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	// 先注册一个用户
-	registerService := user.NewCreator(unitOfWork)
-	_, err := registerService.Create(ctx, user.CreateUserDTO{
+	// 先创建一个用户
+	createUseCase := user.NewCreator(unitOfWork)
+	_, err := createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	// Act - 尝试注册重复手机号（应该在事务中失败并回滚）
-	_, err = registerService.Create(ctx, user.CreateUserDTO{
+	// Act - 尝试创建重复手机号（应该在事务中失败并回滚）
+	_, err = createUseCase.Create(ctx, user.CreateUserDTO{
 		Name:  "李四",
 		Phone: "13800138000", // 重复
 	})
 
-	// Assert - 注册应该失败
+	// Assert - 创建应该失败
 	require.Error(t, err)
 
 	// 验证数据库中只有一个用户

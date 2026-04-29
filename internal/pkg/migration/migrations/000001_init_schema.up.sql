@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS `profile_links`
     `user_id`        BIGINT UNSIGNED NOT NULL COMMENT '关系用户ID (用户ID)',
     `profile_id`       BIGINT UNSIGNED NOT NULL COMMENT '档案ID',
     `type`           VARCHAR(32)     NOT NULL DEFAULT 'relation' COMMENT '关系类型: self-本人档案, relation-普通关系',
-    `relation`       VARCHAR(16)     NOT NULL COMMENT '档案关系: parent-父母, link-关系用户',
+    `relation`       VARCHAR(16)     NOT NULL COMMENT '档案关系: self-本人, parent-父母, grandparent-祖父母, other-其他',
+    `self_key`       BIGINT UNSIGNED          DEFAULT NULL COMMENT 'active self link 唯一性保护键',
     `established_at` DATETIME        NOT NULL COMMENT '建立时间',
     `revoked_at`     DATETIME                 DEFAULT NULL COMMENT '撤销时间',
     `created_at`     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS `profile_links`
     `deleted_by`     BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '删除人ID',
     `version`        INT UNSIGNED    NOT NULL DEFAULT 1 COMMENT '乐观锁版本号',
     UNIQUE KEY `uk_user_profile_link` (`user_id`, `profile_id`, `type`),
+    UNIQUE KEY `uk_active_self_profile_link` (`self_key`),
     KEY `idx_type` (`type`),
     KEY `idx_deleted_at` (`deleted_at`)
 ) ENGINE = InnoDB

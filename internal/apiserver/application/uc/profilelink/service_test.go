@@ -62,7 +62,7 @@ func TestCommands_Establish_Success(t *testing.T) {
 	assert.True(t, hasProfileLink)
 }
 
-func TestCommands_Establish_DuplicateRef(t *testing.T) {
+func TestCommands_Establish_DuplicateLink(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
@@ -623,8 +623,8 @@ func TestMyProfileLinks_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	guardService := profilelink.NewCommands(unitOfWork)
-	_, err = guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	linkCommands := profilelink.NewCommands(unitOfWork)
+	_, err = linkCommands.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",

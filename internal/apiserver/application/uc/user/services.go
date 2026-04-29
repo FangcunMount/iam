@@ -10,7 +10,7 @@ import (
 
 // Creator 创建登录主体。
 type Creator interface {
-	// Register 创建新用户
+	// Create 创建新用户
 	Create(ctx context.Context, dto CreateUserDTO) (*UserResult, error)
 }
 

@@ -28,7 +28,7 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 	var result *CreatedProfileResult
 
 	l.Debugw("创建档案并建立关系",
-		"action", logger.ActionRegister,
+		"action", logger.ActionCreate,
 		"resource", "profile",
 		"user_id", currentUserID,
 		"profile_name", dto.Name,
@@ -36,7 +36,7 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		userID, err := parseRegistrationUserID(currentUserID)
+		userID, err := parseMyProfileUserID(currentUserID)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 
 		result = &CreatedProfileResult{
 			Profile:     toProfileResult(newProfile),
-			ProfileLink: registrationProfileLinkToResult(newProfileLink, newProfile),
+			ProfileLink: myProfileLinkToResult(newProfileLink, newProfile),
 		}
 		return nil
 	})
@@ -78,7 +78,7 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 	return result, nil
 }
 
-func registrationProfileLinkToResult(profileLink *profileLinkDomain.ProfileLink, profile *profiledomain.Profile) *appProfileLink.ProfileLinkResult {
+func myProfileLinkToResult(profileLink *profileLinkDomain.ProfileLink, profile *profiledomain.Profile) *appProfileLink.ProfileLinkResult {
 	if profileLink == nil {
 		return nil
 	}
@@ -102,6 +102,6 @@ func registrationProfileLinkToResult(profileLink *profileLinkDomain.ProfileLink,
 	return result
 }
 
-func parseRegistrationUserID(userID string) (meta.ID, error) {
+func parseMyProfileUserID(userID string) (meta.ID, error) {
 	return input.ParseUserID(strings.TrimSpace(userID))
 }

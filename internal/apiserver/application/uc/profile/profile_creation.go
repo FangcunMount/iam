@@ -24,7 +24,7 @@ func buildProfileEntity(txCtx context.Context, tx uow.TxRepositories, in profile
 		return nil, err
 	}
 	validator := profiledomain.NewValidator(tx.Profiles)
-	if err := validator.ValidateRegister(txCtx, spec.Name, spec.Gender, spec.Birthday); err != nil {
+	if err := validator.ValidateCreate(txCtx, spec.Name, spec.Gender, spec.Birthday); err != nil {
 		return nil, err
 	}
 	return profiledomain.NewFromCreationSpec(spec)
