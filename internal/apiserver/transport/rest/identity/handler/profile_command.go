@@ -10,24 +10,27 @@ import (
 	requestdto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/pkg/core"
 )
 
-// RegisterProfile 创建档案并建立当前用户关系。
+var _ = core.ErrResponse{}
+
+// CreateProfile 创建档案并建立当前用户关系。
 // @Summary 创建档案并建立关系
 // @Description 创建档案并自动将当前用户关联到该档案（身份证可不填写）
 // @Tags Identity-Profiles
 // @Accept json
 // @Produce json
-// @Param request body requestdto.ProfileRegisterRequest true "创建档案请求"
-// @Success 201 {object} responsedto.ProfileRegisterResponse "注册成功"
+// @Param request body requestdto.ProfileCreateRequest true "创建档案请求"
+// @Success 201 {object} responsedto.ProfileCreateResponse "创建成功"
 // @Failure 400 {object} core.ErrResponse "请求参数错误"
 // @Failure 401 {object} core.ErrResponse "未授权"
 // @Failure 409 {object} core.ErrResponse "档案已存在"
 // @Failure 500 {object} core.ErrResponse "服务器内部错误"
 // @Router /identity/profiles [post]
 // @Security BearerAuth
-func (h *ProfileHandler) RegisterProfile(c *gin.Context) {
-	var req requestdto.ProfileRegisterRequest
+func (h *ProfileHandler) CreateProfile(c *gin.Context) {
+	var req requestdto.ProfileCreateRequest
 	if err := h.BindJSON(c, &req); err != nil {
 		h.Error(c, err)
 		return
@@ -43,8 +46,7 @@ func (h *ProfileHandler) RegisterProfile(c *gin.Context) {
 	if req.Gender != nil {
 		gender = *req.Gender
 	}
-	result, err := h.registrationApp.RegisterProfileWithProfileLink(c.Request.Context(), appprofile.RegisterProfileWithProfileLinkDTO{
-		UserID:   rawUserID,
+	result, err := h.myProfiles.Create(c.Request.Context(), rawUserID, appprofile.CreateMyProfileDTO{
 		Name:     strings.TrimSpace(req.LegalName),
 		Gender:   gender,
 		Birthday: strings.TrimSpace(req.DOB),
@@ -80,7 +82,7 @@ func (h *ProfileHandler) RegisterProfile(c *gin.Context) {
 		profileLinkResp.RevokedAt = revokedAt
 	}
 
-	h.Created(c, responsedto.ProfileRegisterResponse{
+	h.Created(c, responsedto.ProfileCreateResponse{
 		Profile:     profileResp,
 		ProfileLink: profileLinkResp,
 	})
@@ -133,7 +135,7 @@ func (h *ProfileHandler) PatchProfile(c *gin.Context) {
 		weight = &parsed
 	}
 
-	profile, err := h.profileAccess.PatchForProfileLink(c.Request.Context(), appprofile.PatchProfileForProfileLinkDTO{
+	profile, err := h.myProfiles.Patch(c.Request.Context(), appprofile.PatchMyProfileDTO{
 		UserID:    rawUserID,
 		ProfileID: profileID,
 		LegalName: req.LegalName,

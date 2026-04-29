@@ -6,7 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	appAccount "github.com/FangcunMount/iam/internal/apiserver/application/authn/account"
-	appRegister "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	appOnboarding "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
 	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
@@ -40,7 +40,7 @@ func toAccountResponse(result *appAccount.AccountResult) resp.Account {
 	}
 }
 
-func registerWechatRequestFromHTTP(reqBody req.RegisterWeChatAccountReq) (appRegister.RegisterRequest, error) {
+func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProgramRequest) (appOnboarding.OnboardingRequest, error) {
 	var phone meta.Phone
 	if strings.TrimSpace(reqBody.Phone) != "" {
 		phone, _ = meta.NewPhone(strings.TrimSpace(reqBody.Phone))
@@ -63,15 +63,15 @@ func registerWechatRequestFromHTTP(reqBody req.RegisterWeChatAccountReq) (appReg
 
 	metaMap, err := reqBody.MetaJSON()
 	if err != nil {
-		return appRegister.RegisterRequest{}, err
+		return appOnboarding.OnboardingRequest{}, err
 	}
 
-	return appRegister.RegisterRequest{
+	return appOnboarding.OnboardingRequest{
 		Name:           strings.TrimSpace(reqBody.Name),
 		Phone:          phone,
 		Email:          email,
 		AccountType:    domain.TypeWcMinip,
-		CredentialType: appRegister.CredTypeWechat,
+		CredentialType: appOnboarding.CredTypeWechat,
 		WechatAppID:    &appID,
 		WechatJsCode:   &jsCode,
 		Profile:        profile,
@@ -79,8 +79,8 @@ func registerWechatRequestFromHTTP(reqBody req.RegisterWeChatAccountReq) (appReg
 	}, nil
 }
 
-func registerResultToResponse(result *appRegister.RegisterResult) resp.RegisterResult {
-	return resp.RegisterResult{
+func signupResultToResponse(result *appOnboarding.OnboardingResult) resp.SignupResult {
+	return resp.SignupResult{
 		UserID:       result.UserID.Uint64(),
 		UserName:     result.UserName,
 		Phone:        result.Phone.String(),

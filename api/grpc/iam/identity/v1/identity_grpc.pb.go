@@ -451,7 +451,7 @@ var ProfileLinkQuery_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ProfileLinkCommand_CreateProfileLink_FullMethodName       = "/iam.identity.v1.ProfileLinkCommand/CreateProfileLink"
+	ProfileLinkCommand_EstablishProfileLink_FullMethodName    = "/iam.identity.v1.ProfileLinkCommand/EstablishProfileLink"
 	ProfileLinkCommand_RevokeProfileLink_FullMethodName       = "/iam.identity.v1.ProfileLinkCommand/RevokeProfileLink"
 	ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName = "/iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks"
 	ProfileLinkCommand_ImportProfileLinks_FullMethodName      = "/iam.identity.v1.ProfileLinkCommand/ImportProfileLinks"
@@ -461,7 +461,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ProfileLinkCommandClient interface {
-	CreateProfileLink(ctx context.Context, in *CreateProfileLinkRequest, opts ...grpc.CallOption) (*CreateProfileLinkResponse, error)
+	EstablishProfileLink(ctx context.Context, in *EstablishProfileLinkRequest, opts ...grpc.CallOption) (*EstablishProfileLinkResponse, error)
 	RevokeProfileLink(ctx context.Context, in *RevokeProfileLinkRequest, opts ...grpc.CallOption) (*RevokeProfileLinkResponse, error)
 	BatchRevokeProfileLinks(ctx context.Context, in *BatchRevokeProfileLinksRequest, opts ...grpc.CallOption) (*BatchRevokeProfileLinksResponse, error)
 	ImportProfileLinks(ctx context.Context, in *ImportProfileLinksRequest, opts ...grpc.CallOption) (*ImportProfileLinksResponse, error)
@@ -475,10 +475,10 @@ func NewProfileLinkCommandClient(cc grpc.ClientConnInterface) ProfileLinkCommand
 	return &profileLinkCommandClient{cc}
 }
 
-func (c *profileLinkCommandClient) CreateProfileLink(ctx context.Context, in *CreateProfileLinkRequest, opts ...grpc.CallOption) (*CreateProfileLinkResponse, error) {
+func (c *profileLinkCommandClient) EstablishProfileLink(ctx context.Context, in *EstablishProfileLinkRequest, opts ...grpc.CallOption) (*EstablishProfileLinkResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateProfileLinkResponse)
-	err := c.cc.Invoke(ctx, ProfileLinkCommand_CreateProfileLink_FullMethodName, in, out, cOpts...)
+	out := new(EstablishProfileLinkResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkCommand_EstablishProfileLink_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +519,7 @@ func (c *profileLinkCommandClient) ImportProfileLinks(ctx context.Context, in *I
 // All implementations must embed UnimplementedProfileLinkCommandServer
 // for forward compatibility.
 type ProfileLinkCommandServer interface {
-	CreateProfileLink(context.Context, *CreateProfileLinkRequest) (*CreateProfileLinkResponse, error)
+	EstablishProfileLink(context.Context, *EstablishProfileLinkRequest) (*EstablishProfileLinkResponse, error)
 	RevokeProfileLink(context.Context, *RevokeProfileLinkRequest) (*RevokeProfileLinkResponse, error)
 	BatchRevokeProfileLinks(context.Context, *BatchRevokeProfileLinksRequest) (*BatchRevokeProfileLinksResponse, error)
 	ImportProfileLinks(context.Context, *ImportProfileLinksRequest) (*ImportProfileLinksResponse, error)
@@ -533,8 +533,8 @@ type ProfileLinkCommandServer interface {
 // pointer dereference when methods are called.
 type UnimplementedProfileLinkCommandServer struct{}
 
-func (UnimplementedProfileLinkCommandServer) CreateProfileLink(context.Context, *CreateProfileLinkRequest) (*CreateProfileLinkResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateProfileLink not implemented")
+func (UnimplementedProfileLinkCommandServer) EstablishProfileLink(context.Context, *EstablishProfileLinkRequest) (*EstablishProfileLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EstablishProfileLink not implemented")
 }
 func (UnimplementedProfileLinkCommandServer) RevokeProfileLink(context.Context, *RevokeProfileLinkRequest) (*RevokeProfileLinkResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeProfileLink not implemented")
@@ -566,20 +566,20 @@ func RegisterProfileLinkCommandServer(s grpc.ServiceRegistrar, srv ProfileLinkCo
 	s.RegisterService(&ProfileLinkCommand_ServiceDesc, srv)
 }
 
-func _ProfileLinkCommand_CreateProfileLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateProfileLinkRequest)
+func _ProfileLinkCommand_EstablishProfileLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EstablishProfileLinkRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProfileLinkCommandServer).CreateProfileLink(ctx, in)
+		return srv.(ProfileLinkCommandServer).EstablishProfileLink(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProfileLinkCommand_CreateProfileLink_FullMethodName,
+		FullMethod: ProfileLinkCommand_EstablishProfileLink_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProfileLinkCommandServer).CreateProfileLink(ctx, req.(*CreateProfileLinkRequest))
+		return srv.(ProfileLinkCommandServer).EstablishProfileLink(ctx, req.(*EstablishProfileLinkRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -646,8 +646,8 @@ var ProfileLinkCommand_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ProfileLinkCommandServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateProfileLink",
-			Handler:    _ProfileLinkCommand_CreateProfileLink_Handler,
+			MethodName: "EstablishProfileLink",
+			Handler:    _ProfileLinkCommand_EstablishProfileLink_Handler,
 		},
 		{
 			MethodName: "RevokeProfileLink",

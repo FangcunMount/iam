@@ -2,37 +2,35 @@ package user
 
 import (
 	"context"
-	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	profiledomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
 	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ======================================
-// ==== UserApplicationService 实现 =====
+// ==== Creator 实现 =====
 // ======================================
 
-// userApplicationService 用户应用服务实现
-type userApplicationService struct {
+// creator 用户用例实现
+type creator struct {
 	uow uow.UnitOfWork
 }
 
-// NewUserApplicationService 创建用户应用服务
-func NewUserApplicationService(uow uow.UnitOfWork) UserApplicationService {
-	return &userApplicationService{uow: uow}
+// NewCreator 创建用户用例
+func NewCreator(uow uow.UnitOfWork) Creator {
+	return &creator{uow: uow}
 }
 
-// Register 注册新用户
-func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserDTO) (*UserResult, error) {
+// Register 创建新用户
+func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, error) {
 	l := logger.L(ctx)
 	var result *UserResult
 
-	l.Debugw("开始注册用户",
+	l.Debugw("开始创建用户",
 		"action", logger.ActionRegister,
 		"resource", logger.ResourceUser,
 		"name", dto.Name,
@@ -48,9 +46,9 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 			return err
 		}
 
-		// 验证注册参数
+		// 验证创建参数
 		if err := validator.ValidateRegister(txCtx, dto.Name, phone); err != nil {
-			l.Warnw("用户注册参数验证失败",
+			l.Warnw("用户创建参数验证失败",
 				"action", logger.ActionRegister,
 				"resource", logger.ResourceUser,
 				"error", err.Error(),
@@ -100,7 +98,7 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 			return err
 		}
 
-		if err := ensureSelfProfileLink(txCtx, tx, newUser); err != nil {
+		if err := profileLinkDomain.NewSelfProfileEnsurer(tx.Profiles, tx.ProfileLinks).Ensure(txCtx, newUser); err != nil {
 			return err
 		}
 
@@ -110,7 +108,7 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 	})
 
 	if err == nil {
-		l.Debugw("用户注册成功",
+		l.Debugw("用户创建成功",
 			"action", logger.ActionRegister,
 			"resource", logger.ResourceUser,
 			"user_id", result.ID,
@@ -119,28 +117,4 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 	}
 
 	return result, err
-}
-
-func ensureSelfProfileLink(txCtx context.Context, tx uow.TxRepositories, u *user.User) error {
-	if u == nil || tx.Profiles == nil || tx.ProfileLinks == nil {
-		return nil
-	}
-	profileLinks, err := tx.ProfileLinks.FindByUserID(txCtx, u.ID)
-	if err != nil {
-		return err
-	}
-	for _, existing := range profileLinks {
-		if existing != nil && existing.Type == profileLinkDomain.TypeSelf && existing.IsActive() {
-			return nil
-		}
-	}
-
-	selfProfile, err := profiledomain.NewProfile(u.Name)
-	if err != nil {
-		return err
-	}
-	if err := tx.Profiles.Create(txCtx, selfProfile); err != nil {
-		return err
-	}
-	return tx.ProfileLinks.Create(txCtx, profileLinkDomain.NewSelfProfileLink(u.ID, selfProfile.ID, time.Now()))
 }

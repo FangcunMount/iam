@@ -11,21 +11,21 @@ import (
 )
 
 // ===========================================
-// ==== UserQueryApplicationService 实现 =====
+// ==== Directory 实现 =====
 // ===========================================
 
-// userQueryApplicationService 用户查询应用服务实现
-type userQueryApplicationService struct {
+// directory 用户查询用例实现
+type directory struct {
 	uow uow.UnitOfWork
 }
 
-// NewUserQueryApplicationService 创建用户查询应用服务
-func NewUserQueryApplicationService(uow uow.UnitOfWork) UserQueryApplicationService {
-	return &userQueryApplicationService{uow: uow}
+// NewDirectory 创建用户查询用例
+func NewDirectory(uow uow.UnitOfWork) Directory {
+	return &directory{uow: uow}
 }
 
 // GetByID 根据 ID 查询用户
-func (s *userQueryApplicationService) GetByID(ctx context.Context, userID string) (*UserResult, error) {
+func (s *directory) GetByID(ctx context.Context, userID string) (*UserResult, error) {
 	l := logger.L(ctx)
 	l.Debugw("查询用户信息",
 		"action", logger.ActionRead,
@@ -78,7 +78,7 @@ func (s *userQueryApplicationService) GetByID(ctx context.Context, userID string
 }
 
 // GetByPhone 根据手机号查询用户
-func (s *userQueryApplicationService) GetByPhone(ctx context.Context, phone string) (*UserResult, error) {
+func (s *directory) GetByPhone(ctx context.Context, phone string) (*UserResult, error) {
 	var result *UserResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {

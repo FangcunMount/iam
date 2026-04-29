@@ -1,4 +1,4 @@
-package register
+package onboarding
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
-// ============= RegisterApplicationService 实现 =============
+// ============= AccountOnboarder 实现 =============
 
-type registerApplicationService struct {
+type accountOnboarder struct {
 	uow              uow.UnitOfWork
 	userResolver     *UserResolver
 	accountCreator   *AccountCreator
@@ -33,17 +33,17 @@ type registrationRepositories struct {
 	Credentials  credDomain.Repository
 }
 
-var _ RegisterApplicationService = (*registerApplicationService)(nil)
+var _ AccountOnboarder = (*accountOnboarder)(nil)
 
-func NewRegisterApplicationService(
+func NewAccountOnboarder(
 	uow uow.UnitOfWork,
 	hasher authentication.PasswordHasher,
 	idp authentication.IdentityProvider,
 	userRepo userDomain.Repository,
 	wechatAppQuerier idpPort.Repository,
 	secretVault idpPort.SecretVault,
-) RegisterApplicationService {
-	return &registerApplicationService{
+) AccountOnboarder {
+	return &accountOnboarder{
 		uow:              uow,
 		userResolver:     newUserResolver(userRepo, idp, wechatAppQuerier, secretVault),
 		accountCreator:   newAccountCreator(idp, wechatAppQuerier, secretVault),
@@ -51,10 +51,10 @@ func NewRegisterApplicationService(
 	}
 }
 
-// Register 统一注册接口（使用领域层策略模式 + 凭据绑定分离）
-func (s *registerApplicationService) Register(ctx context.Context, req RegisterRequest) (*RegisterResult, error) {
+// Onboard 统一账号开通接口（使用领域层策略模式 + 凭据绑定分离）。
+func (s *accountOnboarder) Onboard(ctx context.Context, req OnboardingRequest) (*OnboardingResult, error) {
 	l := logger.L(ctx)
-	var result *RegisterResult
+	var result *OnboardingResult
 
 	if req.AccountType == domain.TypeOpera && req.ScopedTenantID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "scoped_tenant_id is required for opera account")
@@ -63,7 +63,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "scoped_tenant_id is only valid for opera account")
 	}
 
-	l.Debugw("开始用户注册流程",
+	l.Debugw("开始账号开通流程",
 		"action", logger.ActionRegister,
 		"resource", logger.ResourceUser,
 		"account_type", string(req.AccountType),
@@ -151,7 +151,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 		)
 
 		// ========== 步骤4: 构造返回结果 ==========
-		result = &RegisterResult{
+		result = &OnboardingResult{
 			// 用户信息
 			UserID:     user.ID,
 			UserName:   user.Name,
@@ -184,7 +184,7 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 		return nil, err
 	}
 
-	l.Debugw("用户注册成功",
+	l.Debugw("账号开通成功",
 		"action", logger.ActionRegister,
 		"resource", logger.ResourceUser,
 		"user_id", result.UserID.String(),

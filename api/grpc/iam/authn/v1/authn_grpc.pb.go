@@ -19,12 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_VerifyToken_FullMethodName              = "/iam.authn.v1.AuthService/VerifyToken"
-	AuthService_RegisterOperationAccount_FullMethodName = "/iam.authn.v1.AuthService/RegisterOperationAccount"
-	AuthService_RefreshToken_FullMethodName             = "/iam.authn.v1.AuthService/RefreshToken"
-	AuthService_RevokeToken_FullMethodName              = "/iam.authn.v1.AuthService/RevokeToken"
-	AuthService_RevokeRefreshToken_FullMethodName       = "/iam.authn.v1.AuthService/RevokeRefreshToken"
-	AuthService_IssueServiceToken_FullMethodName        = "/iam.authn.v1.AuthService/IssueServiceToken"
+	AuthService_VerifyToken_FullMethodName        = "/iam.authn.v1.AuthService/VerifyToken"
+	AuthService_RefreshToken_FullMethodName       = "/iam.authn.v1.AuthService/RefreshToken"
+	AuthService_RevokeToken_FullMethodName        = "/iam.authn.v1.AuthService/RevokeToken"
+	AuthService_RevokeRefreshToken_FullMethodName = "/iam.authn.v1.AuthService/RevokeRefreshToken"
+	AuthService_IssueServiceToken_FullMethodName  = "/iam.authn.v1.AuthService/IssueServiceToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -32,7 +31,6 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AuthServiceClient interface {
 	VerifyToken(ctx context.Context, in *VerifyTokenRequest, opts ...grpc.CallOption) (*VerifyTokenResponse, error)
-	RegisterOperationAccount(ctx context.Context, in *RegisterOperationAccountRequest, opts ...grpc.CallOption) (*RegisterOperationAccountResponse, error)
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	RevokeToken(ctx context.Context, in *RevokeTokenRequest, opts ...grpc.CallOption) (*RevokeTokenResponse, error)
 	RevokeRefreshToken(ctx context.Context, in *RevokeRefreshTokenRequest, opts ...grpc.CallOption) (*RevokeRefreshTokenResponse, error)
@@ -51,16 +49,6 @@ func (c *authServiceClient) VerifyToken(ctx context.Context, in *VerifyTokenRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(VerifyTokenResponse)
 	err := c.cc.Invoke(ctx, AuthService_VerifyToken_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) RegisterOperationAccount(ctx context.Context, in *RegisterOperationAccountRequest, opts ...grpc.CallOption) (*RegisterOperationAccountResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RegisterOperationAccountResponse)
-	err := c.cc.Invoke(ctx, AuthService_RegisterOperationAccount_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +100,6 @@ func (c *authServiceClient) IssueServiceToken(ctx context.Context, in *IssueServ
 // for forward compatibility.
 type AuthServiceServer interface {
 	VerifyToken(context.Context, *VerifyTokenRequest) (*VerifyTokenResponse, error)
-	RegisterOperationAccount(context.Context, *RegisterOperationAccountRequest) (*RegisterOperationAccountResponse, error)
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	RevokeToken(context.Context, *RevokeTokenRequest) (*RevokeTokenResponse, error)
 	RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*RevokeRefreshTokenResponse, error)
@@ -129,9 +116,6 @@ type UnimplementedAuthServiceServer struct{}
 
 func (UnimplementedAuthServiceServer) VerifyToken(context.Context, *VerifyTokenRequest) (*VerifyTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VerifyToken not implemented")
-}
-func (UnimplementedAuthServiceServer) RegisterOperationAccount(context.Context, *RegisterOperationAccountRequest) (*RegisterOperationAccountResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RegisterOperationAccount not implemented")
 }
 func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RefreshToken not implemented")
@@ -180,24 +164,6 @@ func _AuthService_VerifyToken_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).VerifyToken(ctx, req.(*VerifyTokenRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_RegisterOperationAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RegisterOperationAccountRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).RegisterOperationAccount(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_RegisterOperationAccount_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).RegisterOperationAccount(ctx, req.(*RegisterOperationAccountRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -286,10 +252,6 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_VerifyToken_Handler,
 		},
 		{
-			MethodName: "RegisterOperationAccount",
-			Handler:    _AuthService_RegisterOperationAccount_Handler,
-		},
-		{
 			MethodName: "RefreshToken",
 			Handler:    _AuthService_RefreshToken_Handler,
 		},
@@ -304,6 +266,109 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IssueServiceToken",
 			Handler:    _AuthService_IssueServiceToken_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/authn/v1/authn.proto",
+}
+
+const (
+	AccountOnboardingService_CreateOperationAccount_FullMethodName = "/iam.authn.v1.AccountOnboardingService/CreateOperationAccount"
+)
+
+// AccountOnboardingServiceClient is the client API for AccountOnboardingService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AccountOnboardingServiceClient interface {
+	CreateOperationAccount(ctx context.Context, in *CreateOperationAccountRequest, opts ...grpc.CallOption) (*CreateOperationAccountResponse, error)
+}
+
+type accountOnboardingServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAccountOnboardingServiceClient(cc grpc.ClientConnInterface) AccountOnboardingServiceClient {
+	return &accountOnboardingServiceClient{cc}
+}
+
+func (c *accountOnboardingServiceClient) CreateOperationAccount(ctx context.Context, in *CreateOperationAccountRequest, opts ...grpc.CallOption) (*CreateOperationAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateOperationAccountResponse)
+	err := c.cc.Invoke(ctx, AccountOnboardingService_CreateOperationAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AccountOnboardingServiceServer is the server API for AccountOnboardingService service.
+// All implementations must embed UnimplementedAccountOnboardingServiceServer
+// for forward compatibility.
+type AccountOnboardingServiceServer interface {
+	CreateOperationAccount(context.Context, *CreateOperationAccountRequest) (*CreateOperationAccountResponse, error)
+	mustEmbedUnimplementedAccountOnboardingServiceServer()
+}
+
+// UnimplementedAccountOnboardingServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAccountOnboardingServiceServer struct{}
+
+func (UnimplementedAccountOnboardingServiceServer) CreateOperationAccount(context.Context, *CreateOperationAccountRequest) (*CreateOperationAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateOperationAccount not implemented")
+}
+func (UnimplementedAccountOnboardingServiceServer) mustEmbedUnimplementedAccountOnboardingServiceServer() {
+}
+func (UnimplementedAccountOnboardingServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAccountOnboardingServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AccountOnboardingServiceServer will
+// result in compilation errors.
+type UnsafeAccountOnboardingServiceServer interface {
+	mustEmbedUnimplementedAccountOnboardingServiceServer()
+}
+
+func RegisterAccountOnboardingServiceServer(s grpc.ServiceRegistrar, srv AccountOnboardingServiceServer) {
+	// If the following call panics, it indicates UnimplementedAccountOnboardingServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AccountOnboardingService_ServiceDesc, srv)
+}
+
+func _AccountOnboardingService_CreateOperationAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateOperationAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountOnboardingServiceServer).CreateOperationAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountOnboardingService_CreateOperationAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountOnboardingServiceServer).CreateOperationAccount(ctx, req.(*CreateOperationAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AccountOnboardingService_ServiceDesc is the grpc.ServiceDesc for AccountOnboardingService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AccountOnboardingService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.authn.v1.AccountOnboardingService",
+	HandlerType: (*AccountOnboardingServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateOperationAccount",
+			Handler:    _AccountOnboardingService_CreateOperationAccount_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

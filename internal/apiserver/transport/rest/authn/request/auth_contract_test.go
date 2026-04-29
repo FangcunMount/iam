@@ -76,7 +76,7 @@ func TestLoginV1OpenAPIContractMarksLegacyInference(t *testing.T) {
 	operation := spec.Paths["/authn/login"]["post"]
 	assertLegacyInferenceDescription(t, operation.Description)
 
-	loginSchema := spec.Components.Schemas["github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LoginRequest"]
+	loginSchema := spec.Components.Schemas["github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.LoginRequest"]
 	assertLegacyInferenceDescription(t, loginSchema.Properties["method"].Description)
 	assertLegacyInferenceDescription(t, loginSchema.Properties["credentials"].Description)
 }

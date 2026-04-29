@@ -11,8 +11,8 @@ import (
 	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
 )
 
-// CreateProfileLink 添加关系用户
-func (s *profileLinkCommandServer) CreateProfileLink(ctx context.Context, req *identityv1.CreateProfileLinkRequest) (*identityv1.CreateProfileLinkResponse, error) {
+// EstablishProfileLink 添加关系用户
+func (s *profileLinkCommandServer) EstablishProfileLink(ctx context.Context, req *identityv1.EstablishProfileLinkRequest) (*identityv1.EstablishProfileLinkResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and profile_id are required")
 	}
@@ -23,12 +23,12 @@ func (s *profileLinkCommandServer) CreateProfileLink(ctx context.Context, req *i
 		Relation:  protoRelationToString(req.GetRelation()),
 	}
 
-	result, err := s.profileLinkAccessSvc.GrantForCurrentUser(ctx, req.GetUserId(), dto)
+	result, err := s.profileLinkAccessSvc.Grant(ctx, req.GetUserId(), dto)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return &identityv1.CreateProfileLinkResponse{
+	return &identityv1.EstablishProfileLinkResponse{
 		ProfileLink: profileLinkResultToProto(result),
 	}, nil
 }
@@ -55,7 +55,7 @@ func (s *profileLinkCommandServer) RevokeProfileLink(ctx context.Context, req *i
 		return nil, status.Error(codes.InvalidArgument, "invalid target selector")
 	}
 
-	profileLink, err := s.profileLinkAccessSvc.RevokeBySelector(ctx, profileLinkApp.RevokeProfileLinkBySelectorDTO{
+	profileLink, err := s.profileLinkAccessSvc.Revoke(ctx, profileLinkApp.RevokeProfileLinkBySelectorDTO{
 		ProfileLinkID: profileLinkID,
 		UserID:        userID,
 		ProfileID:     profileID,
@@ -115,14 +115,14 @@ func (s *profileLinkCommandServer) ImportProfileLinks(ctx context.Context, req *
 	}
 
 	for _, record := range req.GetRecords() {
-		addReq := &identityv1.CreateProfileLinkRequest{
+		addReq := &identityv1.EstablishProfileLinkRequest{
 			UserId:    record.GetUserId(),
 			ProfileId: record.GetProfileId(),
 			Relation:  record.GetRelation(),
 			Operator:  req.GetOperator(),
 		}
 
-		addResp, err := s.CreateProfileLink(ctx, addReq)
+		addResp, err := s.EstablishProfileLink(ctx, addReq)
 		if err != nil {
 			resp.Failures = append(resp.Failures, &identityv1.FailedImportProfileLink{
 				Record: record,

@@ -8,21 +8,18 @@ import (
 // ProfileHandler 档案 REST 处理器。
 type ProfileHandler struct {
 	*BaseHandler
-	registrationApp appprofile.ProfileRegistrationService
-	profileAccess   appprofile.ProfileAccessApplicationService
-	profileQuery    appprofile.ProfileQueryApplicationService
+	myProfiles       appprofile.MyProfiles
+	profileDirectory appprofile.Directory
 }
 
 // NewProfileHandler 创建档案处理器。
 func NewProfileHandler(
-	registrationApp appprofile.ProfileRegistrationService,
-	profileAccess appprofile.ProfileAccessApplicationService,
-	profileQuery appprofile.ProfileQueryApplicationService,
+	myProfiles appprofile.MyProfiles,
+	profileDirectory appprofile.Directory,
 ) *ProfileHandler {
 	return &ProfileHandler{
-		BaseHandler:     NewBaseHandler(),
-		registrationApp: registrationApp,
-		profileAccess:   profileAccess,
-		profileQuery:    profileQuery,
+		BaseHandler:      NewBaseHandler(),
+		myProfiles:       myProfiles,
+		profileDirectory: profileDirectory,
 	}
 }

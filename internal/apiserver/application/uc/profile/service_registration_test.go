@@ -11,13 +11,12 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
 )
 
-func TestProfileRegistrationService_RegisterProfileWithProfileLink_RollsBackProfileOnLinkFailure(t *testing.T) {
+func TestMyProfiles_Create_RollsBackProfileOnLinkFailure(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	service := profile.NewProfileRegistrationService(unitOfWork)
+	service := profile.NewMyProfiles(unitOfWork)
 
-	result, err := service.RegisterProfileWithProfileLink(context.Background(), profile.RegisterProfileWithProfileLinkDTO{
-		UserID:   "999999999999999999",
+	result, err := service.Create(context.Background(), "999999999999999999", profile.CreateMyProfileDTO{
 		Name:     "回滚测试档案",
 		Gender:   1,
 		Birthday: "2020-04-21",

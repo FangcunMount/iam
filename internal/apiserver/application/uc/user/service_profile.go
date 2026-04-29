@@ -12,21 +12,21 @@ import (
 )
 
 // =============================================
-// ==== UserProfileApplicationService 实现 =====
+// ==== Editor 实现 =====
 // =============================================
 
-// userProfileApplicationService 用户资料应用服务实现
-type userProfileApplicationService struct {
+// editor 用户资料用例实现
+type editor struct {
 	uow uow.UnitOfWork
 }
 
-// NewUserProfileApplicationService 创建用户资料应用服务
-func NewUserProfileApplicationService(uow uow.UnitOfWork) UserProfileApplicationService {
-	return &userProfileApplicationService{uow: uow}
+// NewEditor 创建用户资料用例
+func NewEditor(uow uow.UnitOfWork) Editor {
+	return &editor{uow: uow}
 }
 
 // Rename 修改用户名称
-func (s *userProfileApplicationService) Rename(ctx context.Context, userID string, newName string) error {
+func (s *editor) Rename(ctx context.Context, userID string, newName string) error {
 	l := logger.L(ctx)
 	l.Debugw("修改用户名称",
 		"action", logger.ActionUpdate,
@@ -80,7 +80,7 @@ func (s *userProfileApplicationService) Rename(ctx context.Context, userID strin
 }
 
 // Renickname 修改用户昵称
-func (s *userProfileApplicationService) Renickname(ctx context.Context, userID string, newNickname string) error {
+func (s *editor) Renickname(ctx context.Context, userID string, newNickname string) error {
 	l := logger.L(ctx)
 	l.Debugw("修改用户昵称",
 		"action", logger.ActionUpdate,
@@ -134,7 +134,7 @@ func (s *userProfileApplicationService) Renickname(ctx context.Context, userID s
 }
 
 // UpdateContact 更新联系方式
-func (s *userProfileApplicationService) UpdateContact(ctx context.Context, dto UpdateContactDTO) error {
+func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error {
 	l := logger.L(ctx)
 	l.Debugw("更新用户联系方式",
 		"action", logger.ActionUpdate,
@@ -208,7 +208,7 @@ func (s *userProfileApplicationService) UpdateContact(ctx context.Context, dto U
 }
 
 // PatchProfile 局部更新用户资料并返回最新用户结果。
-func (s *userProfileApplicationService) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*UserResult, error) {
+func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*UserResult, error) {
 	if dto.Nickname != nil {
 		nickname := strings.TrimSpace(*dto.Nickname)
 		if nickname != "" {
@@ -238,11 +238,11 @@ func (s *userProfileApplicationService) PatchProfile(ctx context.Context, dto Pa
 		}
 	}
 
-	return NewUserQueryApplicationService(s.uow).GetByID(ctx, dto.UserID)
+	return NewDirectory(s.uow).GetByID(ctx, dto.UserID)
 }
 
 // UpdateIDCard 更新身份证
-func (s *userProfileApplicationService) UpdateIDCard(ctx context.Context, userID string, idCard string) error {
+func (s *editor) UpdateIDCard(ctx context.Context, userID string, idCard string) error {
 	l := logger.L(ctx)
 	l.Debugw("更新用户身份证",
 		"action", logger.ActionUpdate,

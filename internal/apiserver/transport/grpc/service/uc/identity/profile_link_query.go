@@ -16,7 +16,7 @@ func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identi
 		return nil, status.Error(codes.InvalidArgument, "user_id and profile_id are required")
 	}
 
-	hasProfileLink, err := s.profileLinkQuerySvc.HasProfileLink(ctx, req.GetUserId(), req.GetProfileId())
+	hasProfileLink, err := s.profileLinkQuerySvc.IsLinked(ctx, req.GetUserId(), req.GetProfileId())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -25,7 +25,7 @@ func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identi
 
 	// 如果是关系用户，返回档案关系详情
 	if hasProfileLink {
-		profileLink, err := s.profileLinkQuerySvc.GetByUserIDAndProfileID(ctx, req.GetUserId(), req.GetProfileId())
+		profileLink, err := s.profileLinkQuerySvc.Get(ctx, req.GetUserId(), req.GetProfileId())
 		if err == nil && profileLink != nil {
 			resp.ProfileLink = profileLinkResultToProto(profileLink)
 		}
@@ -40,7 +40,7 @@ func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identity
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	profileLinks, err := s.profileLinkQuerySvc.ListProfilesByUserID(ctx, req.GetUserId())
+	profileLinks, err := s.profileLinkQuerySvc.ListProfilesForUser(ctx, req.GetUserId())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -84,7 +84,7 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
 
-	profileLinks, err := s.profileLinkQuerySvc.ListProfileLinksByProfileID(ctx, req.GetProfileId())
+	profileLinks, err := s.profileLinkQuerySvc.ListLinksForProfile(ctx, req.GetProfileId())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}

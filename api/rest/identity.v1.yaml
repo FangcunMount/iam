@@ -20,6 +20,287 @@ tags:
 - name: Identity-ProfileLink
 - name: Suggest
 paths:
+  /identity/me:
+    get:
+      tags:
+      - Identity-Users
+      summary: 获取当前用户信息
+      description: 获取当前登录用户的资料信息
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.UserResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+    patch:
+      tags:
+      - Identity-Users
+      summary: 更新当前用户信息
+      description: 部分更新当前登录用户的信息，支持更新昵称和联系方式
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.UserUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.UserResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+  /identity/me/profiles:
+    get:
+      tags:
+      - Identity-Profiles
+      summary: 获取当前用户的档案列表
+      description: 获取当前登录用户作为关系用户的所有档案
+      parameters:
+      - name: offset
+        in: query
+        description: 偏移量
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        description: 每页数量
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfilePageResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+  /identity/profile-links:
+    get:
+      tags:
+      - Identity-ProfileLink
+      summary: 查询档案关系
+      description: 查询用户或档案的档案关系列表
+      parameters:
+      - name: user_id
+        in: query
+        description: 用户 ID
+        schema:
+          type: string
+      - name: profile_id
+        in: query
+        description: 档案 ID
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: 是否仅查询活跃的档案关系
+        schema:
+          type: boolean
+      - name: offset
+        in: query
+        description: 偏移量
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        description: 每页数量
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkPageResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+    post:
+      tags:
+      - Identity-ProfileLink
+      summary: 授予档案关系
+      description: 将用户设置为档案的关系用户
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.ProfileLinkCreateRequest'
+      responses:
+        '201':
+          description: 授予成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '409':
+          description: 档案关系已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+  /identity/profile-links/{id}/revoke:
+    post:
+      tags:
+      - Identity-ProfileLink
+      summary: 撤销档案关系
+      description: 根据关系 ID 撤销当前用户可见的档案关系
+      parameters:
+      - name: id
+        in: path
+        description: 关系 ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 撤销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+  /identity/profiles:
+    post:
+      tags:
+      - Identity-Profiles
+      summary: 创建档案并建立关系
+      description: 创建档案并自动将当前用户关联到该档案（身份证可不填写）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.ProfileCreateRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileCreateResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '409':
+          description: 档案已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
   /identity/profiles/{id}:
     get:
       tags:
@@ -39,7 +320,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileResponse'
         '400':
           description: 参数错误
           content:
@@ -73,8 +354,8 @@ paths:
     patch:
       tags:
       - Identity-Profiles
-      summary: 更新档案（仅限当前用户可访问的档案）
-      description: 部分更新档案信息，只能更新当前用户关系的档案
+      summary: 更新档案
+      description: 部分更新当前用户可访问的档案信息
       parameters:
       - name: id
         in: path
@@ -87,14 +368,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.ProfileUpdateRequest'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileResponse'
         '400':
           description: 参数错误
           content:
@@ -115,49 +396,6 @@ paths:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
           description: 档案不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/profiles:
-    post:
-      tags:
-      - Identity-Profiles
-      summary: 创建档案并建立关系
-      description: 创建档案并自动将当前用户关联到该档案（身份证可不填写）
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest'
-      responses:
-        '201':
-          description: 注册成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '409':
-          description: 档案已存在
           content:
             application/json:
               schema:
@@ -203,257 +441,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfilePageResponse'
         '400':
           description: 参数错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/profile-links:
-    get:
-      tags:
-      - Identity-ProfileLink
-      summary: 查询档案关系
-      description: 查询用户或档案的关系列表
-      parameters:
-      - name: user_id
-        in: query
-        description: 用户 ID
-        schema:
-          type: string
-      - name: profile_id
-        in: query
-        description: 档案 ID
-        schema:
-          type: string
-      - name: active
-        in: query
-        description: 是否仅查询活跃关系
-        schema:
-          type: boolean
-      - name: offset
-        in: query
-        description: 偏移量
-        schema:
-          type: integer
-          default: 0
-      - name: limit
-        in: query
-        description: 每页数量
-        schema:
-          type: integer
-          default: 20
-      responses:
-        '200':
-          description: 查询成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse'
-        '400':
-          description: 参数错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-    post:
-      tags:
-      - Identity-ProfileLink
-      summary: 创建档案关系
-      description: 将当前用户或指定用户关联到档案
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest'
-      responses:
-        '201':
-          description: 创建成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
-        '400':
-          description: 参数错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '409':
-          description: 关系已存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/profile-links/{id}/revoke:
-    post:
-      tags:
-      - Identity-ProfileLink
-      summary: 撤销档案关系
-      description: 撤销当前用户的一条档案关系
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: 关系 ID
-        schema:
-          type: string
-      responses:
-        '200':
-          description: 撤销成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
-        '400':
-          description: 参数错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '404':
-          description: 关系不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/me:
-    get:
-      tags:
-      - Identity-Users
-      summary: 获取当前用户信息
-      description: 获取当前登录用户的资料信息
-      responses:
-        '200':
-          description: 查询成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.UserResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-    patch:
-      tags:
-      - Identity-Users
-      summary: 更新当前用户信息
-      description: 部分更新当前登录用户的信息，支持更新昵称和联系方式
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserUpdateRequest'
-      responses:
-        '200':
-          description: 更新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.UserResponse'
-        '400':
-          description: 参数错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/me/profiles:
-    get:
-      tags:
-      - Identity-Profiles
-      summary: 获取当前用户的档案列表
-      description: 获取当前登录用户作为关系用户的所有档案
-      parameters:
-      - name: offset
-        in: query
-        description: 偏移量
-        schema:
-          type: integer
-          default: 0
-      - name: limit
-        in: query
-        description: 每页数量
-        schema:
-          type: integer
-          default: 20
-      responses:
-        '200':
-          description: 查询成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse'
         '401':
           description: 未授权
           content:
@@ -537,7 +531,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.ProfileCreateRequest:
       properties:
         dob:
           type: string
@@ -566,20 +560,7 @@ components:
       - legalName
       - relation
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest:
-      properties:
-        dob:
-          type: string
-        gender:
-          type: integer
-        heightCm:
-          type: integer
-        legalName:
-          type: string
-        weightKg:
-          type: string
-      type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.ProfileLinkCreateRequest:
       properties:
         profileId:
           type: string
@@ -595,24 +576,43 @@ components:
       required:
       - profileId
       - relation
-      - userId
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserUpdateRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.ProfileUpdateRequest:
+      properties:
+        dob:
+          type: string
+        gender:
+          type: integer
+        heightCm:
+          type: integer
+        legalName:
+          type: string
+        weightKg:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.UserUpdateRequest:
       properties:
         avatar:
           type: string
         contacts:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserContactUpsert'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_request.UserContactUpsert'
           type: array
         nickname:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileCreateResponse:
+      properties:
+        profile:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileResponse'
+        profileLink:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
+      type: object
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkPageResponse:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
           type: array
         limit:
           type: integer
@@ -621,14 +621,35 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse:
       properties:
-        profile:
-          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
-        profileLink:
-          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
+        id:
+          type: integer
+        profileId:
+          type: string
+        relation:
+          type: string
+        revokedAt:
+          type: string
+        since:
+          type: string
+        userId:
+          type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfilePageResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileResponse'
+          type: array
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+      type: object
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.ProfileResponse:
       properties:
         createdAt:
           type: string
@@ -651,41 +672,13 @@ components:
         weightKg:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
-          type: array
-        limit:
-          type: integer
-        offset:
-          type: integer
-        total:
-          type: integer
-      type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse:
-      properties:
-        profileId:
-          type: string
-        id:
-          type: integer
-        relation:
-          type: string
-        revokedAt:
-          type: string
-        since:
-          type: string
-        userId:
-          type: string
-      type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.UserResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.UserResponse:
       properties:
         avatar:
           type: string
         contacts:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.VerifiedContactResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_identity_response.VerifiedContactResponse'
           type: array
         createdAt:
           type: string
@@ -713,6 +706,6 @@ components:
             此消息适合暴露给外部'
           type: string
         reference:
-          description: ProfileLinkerence 返回参考文档，可能有助于解决此错误
+          description: Reference 返回参考文档，可能有助于解决此错误
           type: string
       type: object

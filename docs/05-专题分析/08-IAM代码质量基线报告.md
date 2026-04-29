@@ -61,7 +61,7 @@ rg -n 'TODO|FIXME|XXX' internal cmd pkg
 | ---- | ---- | ---- |
 | `internal/apiserver/application/uc/user/services_impl.go` | 694 | 应用服务编排长度偏大 |
 | `internal/apiserver/application/uc/profile/services_impl.go` | 617 | 读写协调逻辑继续堆积 |
-| `internal/apiserver/application/authn/register/services_impl.go` | 587 | 认证注册流程编排继续拉长 |
+| `internal/apiserver/application/authn/onboarding/services_impl.go` | 587 | 认证注册流程编排继续拉长 |
 | `internal/apiserver/server.go` | 570 | 启动装配与模块初始化仍偏重 |
 
 这组数字说明：`iam` 当前的首要问题已经不再是“目录没有分层”，而是少数热点文件开始承担过多 orchestration 责任。SDK 的包边界这轮已经明显收口，但编排复杂度债务仍然存在于若干应用服务和状态型 helper 中。

@@ -16,7 +16,7 @@ func TestProfileEditor_RenameSuccess(t *testing.T) {
 	id := meta.FromUint64(1)
 	ch := &profile.Profile{ID: id, Name: "Old"}
 	repo := &testhelpers.ProfileRepoStub{Profile: ch}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{})
 
 	updated, err := editor.Rename(context.Background(), ch.ID, "NewName")
 
@@ -29,7 +29,7 @@ func TestProfileEditor_RenameSuccess(t *testing.T) {
 func TestProfileEditor_RenameValidatorError(t *testing.T) {
 	id := meta.FromUint64(1)
 	repo := &testhelpers.ProfileRepoStub{Profile: &profile.Profile{ID: id, Name: "Old"}}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{RenameErr: errors.New("invalid name")})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{RenameErr: errors.New("invalid name")})
 
 	updated, err := editor.Rename(context.Background(), repo.Profile.ID, "bad")
 
@@ -40,7 +40,7 @@ func TestProfileEditor_RenameValidatorError(t *testing.T) {
 
 func TestProfileEditor_RenameRepoError(t *testing.T) {
 	repo := &testhelpers.ProfileRepoStub{Profile: &profile.Profile{ID: meta.FromUint64(1)}, FindErr: errors.New("db error")}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{})
 
 	updated, err := editor.Rename(context.Background(), repo.Profile.ID, "Name")
 
@@ -52,7 +52,7 @@ func TestProfileEditor_RenameRepoError(t *testing.T) {
 func TestProfileEditor_UpdateProfileSuccess(t *testing.T) {
 	ch := &profile.Profile{ID: meta.FromUint64(2)}
 	repo := &testhelpers.ProfileRepoStub{Profile: ch}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{})
 
 	birthday := meta.NewBirthday("2020-05-06")
 	updated, err := editor.UpdateProfile(context.Background(), ch.ID, meta.GenderFemale, birthday)
@@ -65,7 +65,7 @@ func TestProfileEditor_UpdateProfileSuccess(t *testing.T) {
 
 func TestProfileEditor_UpdateProfileValidatorError(t *testing.T) {
 	repo := &testhelpers.ProfileRepoStub{Profile: &profile.Profile{ID: meta.FromUint64(3)}}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{UpdateProfileErr: errors.New("bad birthday")})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{UpdateProfileErr: errors.New("bad birthday")})
 
 	updated, err := editor.UpdateProfile(context.Background(), repo.Profile.ID, meta.GenderMale, meta.Birthday{})
 
@@ -77,7 +77,7 @@ func TestProfileEditor_UpdateProfileValidatorError(t *testing.T) {
 func TestProfileEditor_UpdateHeightWeight(t *testing.T) {
 	ch := &profile.Profile{ID: meta.FromUint64(4)}
 	repo := &testhelpers.ProfileRepoStub{Profile: ch}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{})
 
 	height, err := meta.NewHeightFromFloat(150.4)
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestProfileEditor_UpdateHeightWeight(t *testing.T) {
 func TestProfileEditor_UpdateIDCard(t *testing.T) {
 	ch := &profile.Profile{ID: meta.FromUint64(5)}
 	repo := &testhelpers.ProfileRepoStub{Profile: ch}
-	editor := profile.NewProfileService(repo, &testhelpers.ProfileValidatorStub{})
+	editor := profile.NewEditor(repo, &testhelpers.ProfileValidatorStub{})
 
 	idCard, err := meta.NewIDCard("tester", "110101199003070011")
 	require.NoError(t, err)

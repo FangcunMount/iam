@@ -7,9 +7,9 @@ import (
 	"github.com/FangcunMount/iam/pkg/sdk/errors"
 )
 
-// CreateProfileLink 创建档案关系。
-func (c *ProfileLinkClient) CreateProfileLink(ctx context.Context, req *identityv1.CreateProfileLinkRequest) (*identityv1.CreateProfileLinkResponse, error) {
-	resp, err := c.commandService.CreateProfileLink(ctx, req)
+// EstablishProfileLink 创建档案关系。
+func (c *ProfileLinkClient) EstablishProfileLink(ctx context.Context, req *identityv1.EstablishProfileLinkRequest) (*identityv1.EstablishProfileLinkResponse, error) {
+	resp, err := c.commandService.EstablishProfileLink(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}

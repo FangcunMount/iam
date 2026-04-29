@@ -8,7 +8,10 @@ import (
 	requestdto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/pkg/core"
 )
+
+var _ = core.ErrResponse{}
 
 // ListMyProfiles 获取当前用户的档案列表
 // @Summary 获取当前用户的档案列表
@@ -36,7 +39,7 @@ func (h *ProfileHandler) ListMyProfiles(c *gin.Context) {
 		return
 	}
 
-	profileResults, err := h.profileAccess.ListForProfileLink(c.Request.Context(), rawID)
+	profileResults, err := h.myProfiles.List(c.Request.Context(), rawID)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -90,7 +93,7 @@ func (h *ProfileHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	profile, err := h.profileAccess.GetForProfileLink(c.Request.Context(), rawUserID, profileID)
+	profile, err := h.myProfiles.Get(c.Request.Context(), rawUserID, profileID)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -128,7 +131,7 @@ func (h *ProfileHandler) SearchProfiles(c *gin.Context) {
 		birthday = strings.TrimSpace(*query.DOB)
 	}
 
-	profiles, err := h.profileQuery.FindSimilar(c.Request.Context(), name, 0, birthday)
+	profiles, err := h.profileDirectory.FindSimilar(c.Request.Context(), name, 0, birthday)
 	if err != nil {
 		h.Error(c, err)
 		return

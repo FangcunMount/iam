@@ -12,23 +12,23 @@ import (
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 )
 
-// ==================== UserApplicationService 测试 ====================
+// ==================== Creator 测试 ====================
 
-func TestUserApplicationService_Register_Success(t *testing.T) {
+func TestCreator_Create_Success(t *testing.T) {
 	// Arrange - 准备测试环境
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := user.NewUserApplicationService(unitOfWork)
+	appService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	dto := user.RegisterUserDTO{
+	dto := user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "zhangsan@example.com",
 	}
 
 	// Act - 执行注册
-	result, err := appService.Register(ctx, dto)
+	result, err := appService.Create(ctx, dto)
 
 	// Assert - 验证结果
 	require.NoError(t, err)
@@ -40,27 +40,27 @@ func TestUserApplicationService_Register_Success(t *testing.T) {
 	assert.Equal(t, domain.UserActive, result.Status)
 
 	// 验证数据库持久化
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	saved, err := queryService.GetByPhone(ctx, "+86"+dto.Phone) // 查询时也需要使用 E.164 格式
 	require.NoError(t, err)
 	assert.Equal(t, result.ID, saved.ID)
 }
 
-func TestUserApplicationService_Register_WithoutEmail(t *testing.T) {
+func TestCreator_Create_WithoutEmail(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := user.NewUserApplicationService(unitOfWork)
+	appService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	dto := user.RegisterUserDTO{
+	dto := user.CreateUserDTO{
 		Name:  "李四",
 		Phone: "13800138001",
 		Email: "", // 不提供邮箱
 	}
 
 	// Act
-	result, err := appService.Register(ctx, dto)
+	result, err := appService.Create(ctx, dto)
 
 	// Assert
 	require.NoError(t, err)
@@ -71,67 +71,67 @@ func TestUserApplicationService_Register_WithoutEmail(t *testing.T) {
 	assert.Empty(t, result.Email)                  // 邮箱应该为空
 }
 
-func TestUserApplicationService_Register_DuplicatePhone(t *testing.T) {
+func TestCreator_Create_DuplicatePhone(t *testing.T) {
 	// Arrange - 先注册一个用户
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := user.NewUserApplicationService(unitOfWork)
+	appService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	dto1 := user.RegisterUserDTO{
+	dto1 := user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	}
-	_, err := appService.Register(ctx, dto1)
+	_, err := appService.Create(ctx, dto1)
 	require.NoError(t, err)
 
 	// Act - 尝试注册相同手机号
-	dto2 := user.RegisterUserDTO{
+	dto2 := user.CreateUserDTO{
 		Name:  "李四",
 		Phone: "13800138000", // 重复手机号
 	}
-	result, err := appService.Register(ctx, dto2)
+	result, err := appService.Create(ctx, dto2)
 
 	// Assert - 应该失败
 	require.Error(t, err)
 	assert.Nil(t, result)
 }
 
-func TestUserApplicationService_Register_InvalidPhone(t *testing.T) {
+func TestCreator_Create_InvalidPhone(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := user.NewUserApplicationService(unitOfWork)
+	appService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	dto := user.RegisterUserDTO{
+	dto := user.CreateUserDTO{
 		Name:  "王五",
 		Phone: "not-a-phone", // 非法电话号码
 	}
 
 	// Act
-	result, err := appService.Register(ctx, dto)
+	result, err := appService.Create(ctx, dto)
 
 	// Assert - 非法电话号码应该被拒绝
 	assert.Error(t, err)
 	assert.Nil(t, result)
 }
 
-func TestUserApplicationService_Register_WithoutPhone(t *testing.T) {
+func TestCreator_Create_WithoutPhone(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := user.NewUserApplicationService(unitOfWork)
+	appService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	dto := user.RegisterUserDTO{
+	dto := user.CreateUserDTO{
 		Name:  "赵六",
 		Phone: "",
 		Email: "zhaoliu@example.com",
 	}
 
 	// Act
-	result, err := appService.Register(ctx, dto)
+	result, err := appService.Create(ctx, dto)
 
 	// Assert - 空手机号允许
 	require.NoError(t, err)
@@ -142,23 +142,23 @@ func TestUserApplicationService_Register_WithoutPhone(t *testing.T) {
 	assert.Equal(t, dto.Email, result.Email)
 }
 
-// ==================== UserProfileApplicationService 测试 ====================
+// ==================== Editor 测试 ====================
 
-func TestUserProfileApplicationService_Rename_Success(t *testing.T) {
+func TestEditor_Rename_Success(t *testing.T) {
 	// Arrange - 先创建一个用户
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewUserApplicationService(unitOfWork)
+	registerService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	profileService := user.NewUserProfileApplicationService(unitOfWork)
+	profileService := user.NewEditor(unitOfWork)
 	newName := "张三丰"
 
 	// Act - 修改名称
@@ -168,27 +168,27 @@ func TestUserProfileApplicationService_Rename_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 验证修改结果
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	updated, err := queryService.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, newName, updated.Name)
 }
 
-func TestUserProfileApplicationService_Rename_EmptyName(t *testing.T) {
+func TestEditor_Rename_EmptyName(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewUserApplicationService(unitOfWork)
+	registerService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	profileService := user.NewUserProfileApplicationService(unitOfWork)
+	profileService := user.NewEditor(unitOfWork)
 
 	// Act - 尝试设置空名称
 	err = profileService.Rename(ctx, created.ID, "")
@@ -197,22 +197,22 @@ func TestUserProfileApplicationService_Rename_EmptyName(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUserProfileApplicationService_UpdateContact_Success(t *testing.T) {
+func TestEditor_UpdateContact_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewUserApplicationService(unitOfWork)
+	registerService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "old@example.com",
 	})
 	require.NoError(t, err)
 
-	profileService := user.NewUserProfileApplicationService(unitOfWork)
+	profileService := user.NewEditor(unitOfWork)
 	dto := user.UpdateContactDTO{
 		UserID: created.ID,
 		Phone:  "13900139000",     // 新手机号
@@ -226,27 +226,27 @@ func TestUserProfileApplicationService_UpdateContact_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 验证修改结果
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	updated, err := queryService.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "+86"+dto.Phone, updated.Phone) // Phone 会被规范化为 E.164 格式
 	assert.Equal(t, dto.Email, updated.Email)
 }
 
-func TestUserProfileApplicationService_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
+func TestEditor_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewUserApplicationService(unitOfWork)
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "old@example.com",
 	})
 	require.NoError(t, err)
 
-	profileService := user.NewUserProfileApplicationService(unitOfWork)
+	profileService := user.NewEditor(unitOfWork)
 	nickname := "张三丰"
 	phone := "13900139000"
 	email := "new@example.com"
@@ -265,21 +265,21 @@ func TestUserProfileApplicationService_PatchProfile_OrchestratesProfileAndContac
 	assert.Equal(t, email, updated.Email)
 }
 
-func TestUserProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
+func TestEditor_UpdateIDCard_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	registerService := user.NewUserApplicationService(unitOfWork)
+	registerService := user.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	profileService := user.NewUserProfileApplicationService(unitOfWork)
+	profileService := user.NewEditor(unitOfWork)
 	idCard := "110101199003070011" // 有效的测试身份证号
 
 	// Act
@@ -289,29 +289,29 @@ func TestUserProfileApplicationService_UpdateIDCard_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 验证修改结果
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	updated, err := queryService.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, idCard, updated.IDCard)
 }
 
-// ==================== UserStatusApplicationService 测试 ====================
+// ==================== StatusChanger 测试 ====================
 
-func TestUserStatusApplicationService_Activate_Success(t *testing.T) {
+func TestStatusChanger_Activate_Success(t *testing.T) {
 	// Arrange - 先创建一个停用的用户
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewUserApplicationService(unitOfWork)
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
 	// 先停用
-	statusService := user.NewUserStatusApplicationService(unitOfWork, nil)
+	statusService := user.NewStatusChanger(unitOfWork, nil)
 	err = statusService.Deactivate(ctx, created.ID)
 	require.NoError(t, err)
 
@@ -322,26 +322,26 @@ func TestUserStatusApplicationService_Activate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 验证状态
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	updated, err := queryService.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.UserActive, updated.Status)
 }
 
-func TestUserStatusApplicationService_Deactivate_Success(t *testing.T) {
+func TestStatusChanger_Deactivate_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewUserApplicationService(unitOfWork)
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	statusService := user.NewUserStatusApplicationService(unitOfWork, nil)
+	statusService := user.NewStatusChanger(unitOfWork, nil)
 
 	// Act - 停用
 	err = statusService.Deactivate(ctx, created.ID)
@@ -350,26 +350,26 @@ func TestUserStatusApplicationService_Deactivate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 验证状态
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	updated, err := queryService.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.UserInactive, updated.Status)
 }
 
-func TestUserStatusApplicationService_Block_Success(t *testing.T) {
+func TestStatusChanger_Block_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewUserApplicationService(unitOfWork)
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	statusService := user.NewUserStatusApplicationService(unitOfWork, nil)
+	statusService := user.NewStatusChanger(unitOfWork, nil)
 
 	// Act - 封禁
 	err = statusService.Block(ctx, created.ID)
@@ -378,29 +378,29 @@ func TestUserStatusApplicationService_Block_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 验证状态
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	updated, err := queryService.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.UserBlocked, updated.Status)
 }
 
-// ==================== UserQueryApplicationService 测试 ====================
+// ==================== Directory 测试 ====================
 
-func TestUserQueryApplicationService_GetByID_Success(t *testing.T) {
+func TestDirectory_GetByID_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewUserApplicationService(unitOfWork)
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 		Email: "zhangsan@example.com",
 	})
 	require.NoError(t, err)
 
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 
 	// Act
 	result, err := queryService.GetByID(ctx, created.ID)
@@ -414,11 +414,11 @@ func TestUserQueryApplicationService_GetByID_Success(t *testing.T) {
 	assert.Equal(t, created.Email, result.Email)
 }
 
-func TestUserQueryApplicationService_GetByID_NotFound(t *testing.T) {
+func TestDirectory_GetByID_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	ctx := context.Background()
 
 	// Act - 查询不存在的用户
@@ -429,20 +429,20 @@ func TestUserQueryApplicationService_GetByID_NotFound(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-func TestUserQueryApplicationService_GetByPhone_Success(t *testing.T) {
+func TestDirectory_GetByPhone_Success(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
 
-	registerService := user.NewUserApplicationService(unitOfWork)
-	created, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	created, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 
 	// Act
 	result, err := queryService.GetByPhone(ctx, created.Phone)
@@ -454,11 +454,11 @@ func TestUserQueryApplicationService_GetByPhone_Success(t *testing.T) {
 	assert.Equal(t, created.Phone, result.Phone)
 }
 
-func TestUserQueryApplicationService_GetByPhone_NotFound(t *testing.T) {
+func TestDirectory_GetByPhone_NotFound(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	ctx := context.Background()
 
 	// Act
@@ -471,7 +471,7 @@ func TestUserQueryApplicationService_GetByPhone_NotFound(t *testing.T) {
 
 // ==================== 事务测试 ====================
 
-func TestUserApplicationService_Transaction_Rollback(t *testing.T) {
+func TestRegistrar_Transaction_Rollback(t *testing.T) {
 	// 此测试验证事务回滚功能
 	// 由于我们使用的是内存数据库和真实的 UnitOfWork，
 	// 如果中间出现错误，事务应该自动回滚
@@ -482,15 +482,15 @@ func TestUserApplicationService_Transaction_Rollback(t *testing.T) {
 	ctx := context.Background()
 
 	// 先注册一个用户
-	registerService := user.NewUserApplicationService(unitOfWork)
-	_, err := registerService.Register(ctx, user.RegisterUserDTO{
+	registerService := user.NewCreator(unitOfWork)
+	_, err := registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "张三",
 		Phone: "13800138000",
 	})
 	require.NoError(t, err)
 
 	// Act - 尝试注册重复手机号（应该在事务中失败并回滚）
-	_, err = registerService.Register(ctx, user.RegisterUserDTO{
+	_, err = registerService.Create(ctx, user.CreateUserDTO{
 		Name:  "李四",
 		Phone: "13800138000", // 重复
 	})
@@ -499,7 +499,7 @@ func TestUserApplicationService_Transaction_Rollback(t *testing.T) {
 	require.Error(t, err)
 
 	// 验证数据库中只有一个用户
-	queryService := user.NewUserQueryApplicationService(unitOfWork)
+	queryService := user.NewDirectory(unitOfWork)
 	result, err := queryService.GetByPhone(ctx, "13800138000")
 	require.NoError(t, err)
 	assert.Equal(t, "张三", result.Name) // 应该是第一个用户

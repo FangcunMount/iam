@@ -12,18 +12,25 @@ import (
 //
 // 提供认证相关功能，包括：
 //   - Token 验证和管理（VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken）
+//   - 账号开通（CreateOperationAccount）
 //   - 服务间认证（IssueServiceToken）
 //   - JWKS 管理（GetJWKS）
 type Client struct {
-	authService authnv1.AuthServiceClient
-	jwksService authnv1.JWKSServiceClient
+	authService              authnv1.AuthServiceClient
+	accountOnboardingService authnv1.AccountOnboardingServiceClient
+	jwksService              authnv1.JWKSServiceClient
 }
 
 // NewClient 创建认证服务客户端。
-func NewClient(authService authnv1.AuthServiceClient, jwksService authnv1.JWKSServiceClient) *Client {
+func NewClient(
+	authService authnv1.AuthServiceClient,
+	accountOnboardingService authnv1.AccountOnboardingServiceClient,
+	jwksService authnv1.JWKSServiceClient,
+) *Client {
 	return &Client{
-		authService: authService,
-		jwksService: jwksService,
+		authService:              authService,
+		accountOnboardingService: accountOnboardingService,
+		jwksService:              jwksService,
 	}
 }
 
@@ -36,9 +43,9 @@ func (c *Client) VerifyToken(ctx context.Context, req *authnv1.VerifyTokenReques
 	return resp, nil
 }
 
-// RegisterOperationAccount 创建运营后台账号，并按需创建用户、账户和密码凭据。
-func (c *Client) RegisterOperationAccount(ctx context.Context, req *authnv1.RegisterOperationAccountRequest) (*authnv1.RegisterOperationAccountResponse, error) {
-	resp, err := c.authService.RegisterOperationAccount(ctx, req)
+// CreateOperationAccount 创建运营后台账号，并按需创建用户、账户和密码凭据。
+func (c *Client) CreateOperationAccount(ctx context.Context, req *authnv1.CreateOperationAccountRequest) (*authnv1.CreateOperationAccountResponse, error) {
+	resp, err := c.accountOnboardingService.CreateOperationAccount(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -93,6 +100,11 @@ func (c *Client) GetJWKS(ctx context.Context, req *authnv1.GetJWKSRequest) (*aut
 // Raw 返回原始认证服务 gRPC 客户端。
 func (c *Client) Raw() authnv1.AuthServiceClient {
 	return c.authService
+}
+
+// AccountOnboardingRaw 返回原始账号开通 gRPC 客户端。
+func (c *Client) AccountOnboardingRaw() authnv1.AccountOnboardingServiceClient {
+	return c.accountOnboardingService
 }
 
 // JWKSRaw 返回原始 JWKS 服务 gRPC 客户端。

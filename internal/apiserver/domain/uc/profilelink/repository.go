@@ -19,6 +19,6 @@ type Repository interface {
 	FindByUserIDIncludingRevoked(ctx context.Context, id meta.ID) (profileLinks []*ProfileLink, err error)
 	FindByUserIDAndProfileID(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error)
 	FindByUserIDAndProfileIDIncludingRevoked(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error)
-	HasProfileLink(ctx context.Context, userID meta.ID, profileID meta.ID) (bool, error)
+	IsLinked(ctx context.Context, userID meta.ID, profileID meta.ID) (bool, error)
 	Update(ctx context.Context, profileLink *ProfileLink) error
 }

@@ -14,29 +14,29 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-type profileRegistrationService struct {
+type myProfiles struct {
 	uow uow.UnitOfWork
 }
 
-// NewProfileRegistrationService 创建跨 Profile/ProfileLink 的组合建档服务。
-func NewProfileRegistrationService(uow uow.UnitOfWork) ProfileRegistrationService {
-	return &profileRegistrationService{uow: uow}
+// NewMyProfiles 创建跨 Profile/ProfileLink 的组合建档服务。
+func NewMyProfiles(uow uow.UnitOfWork) MyProfiles {
+	return &myProfiles{uow: uow}
 }
 
-func (s *profileRegistrationService) RegisterProfileWithProfileLink(ctx context.Context, dto RegisterProfileWithProfileLinkDTO) (*RegisterProfileWithProfileLinkResult, error) {
+func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto CreateMyProfileDTO) (*CreatedProfileResult, error) {
 	l := logger.L(ctx)
-	var result *RegisterProfileWithProfileLinkResult
+	var result *CreatedProfileResult
 
 	l.Debugw("创建档案并建立关系",
 		"action", logger.ActionRegister,
 		"resource", "profile",
-		"user_id", dto.UserID,
+		"user_id", currentUserID,
 		"profile_name", dto.Name,
 		"relation", dto.Relation,
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		userID, err := parseRegistrationUserID(dto.UserID)
+		userID, err := parseRegistrationUserID(currentUserID)
 		if err != nil {
 			return err
 		}
@@ -49,8 +49,8 @@ func (s *profileRegistrationService) RegisterProfileWithProfileLink(ctx context.
 			return err
 		}
 
-		manager := profileLinkDomain.NewManagerService(tx.ProfileLinks, tx.Profiles, tx.Users)
-		newProfileLink, err := manager.CreateProfileLink(txCtx, userID, newProfile.ID, profileLinkDomain.ParseRelation(dto.Relation))
+		manager := profileLinkDomain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
+		newProfileLink, err := manager.Establish(txCtx, userID, newProfile.ID, profileLinkDomain.ParseRelation(dto.Relation))
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func (s *profileRegistrationService) RegisterProfileWithProfileLink(ctx context.
 			return err
 		}
 
-		result = &RegisterProfileWithProfileLinkResult{
+		result = &CreatedProfileResult{
 			Profile:     toProfileResult(newProfile),
 			ProfileLink: registrationProfileLinkToResult(newProfileLink, newProfile),
 		}
@@ -71,7 +71,7 @@ func (s *profileRegistrationService) RegisterProfileWithProfileLink(ctx context.
 	return result, nil
 }
 
-func buildProfileEntity(txCtx context.Context, tx uow.TxRepositories, dto RegisterProfileWithProfileLinkDTO) (*profiledomain.Profile, error) {
+func buildProfileEntity(txCtx context.Context, tx uow.TxRepositories, dto CreateMyProfileDTO) (*profiledomain.Profile, error) {
 	name := strings.TrimSpace(dto.Name)
 	validator := profiledomain.NewValidator(tx.Profiles)
 	gender := input.ParseGender(dto.Gender)

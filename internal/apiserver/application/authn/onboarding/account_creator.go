@@ -1,4 +1,4 @@
-package register
+package onboarding
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func newAccountCreator(
 	}
 }
 
-func (c *AccountCreator) Create(ctx context.Context, repo domain.Repository, req RegisterRequest, userID meta.ID) (*accountCreation, error) {
+func (c *AccountCreator) Create(ctx context.Context, repo domain.Repository, req OnboardingRequest, userID meta.ID) (*accountCreation, error) {
 	domainInput, err := c.toDomainInput(ctx, req, userID)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (c *AccountCreator) Create(ctx context.Context, repo domain.Repository, req
 	}, nil
 }
 
-func (c *AccountCreator) toDomainInput(ctx context.Context, req RegisterRequest, userID meta.ID) (domain.CreationInput, error) {
+func (c *AccountCreator) toDomainInput(ctx context.Context, req OnboardingRequest, userID meta.ID) (domain.CreationInput, error) {
 	input := domain.CreationInput{
 		UserID:         userID,
 		Phone:          req.Phone,

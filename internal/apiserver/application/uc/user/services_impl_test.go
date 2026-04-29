@@ -34,7 +34,7 @@ func (s *queryUOWStub) WithinTx(ctx context.Context, fn func(txCtx context.Conte
 func TestUserQueryGetByID_ReturnsErrUserNotFound(t *testing.T) {
 	t.Parallel()
 
-	svc := NewUserQueryApplicationService(&queryUOWStub{users: &queryUserRepoStub{}})
+	svc := NewDirectory(&queryUOWStub{users: &queryUserRepoStub{}})
 	result, err := svc.GetByID(context.Background(), "615206334492586542")
 
 	require.Nil(t, result)

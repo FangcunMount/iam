@@ -6,7 +6,7 @@ import (
 	"time"
 
 	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	registerApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
 	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
@@ -25,9 +25,9 @@ type tokenServiceStub struct {
 	verifyReq tokenApp.VerifyTokenRequest
 }
 
-type registerServiceStub struct {
-	req registerApp.RegisterRequest
-	res *registerApp.RegisterResult
+type accountOnboarderStub struct {
+	req onboardingApp.OnboardingRequest
+	res *onboardingApp.OnboardingResult
 	err error
 }
 
@@ -70,7 +70,7 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 	}, nil
 }
 
-func (s *registerServiceStub) Register(ctx context.Context, req registerApp.RegisterRequest) (*registerApp.RegisterResult, error) {
+func (s *accountOnboarderStub) Onboard(ctx context.Context, req onboardingApp.OnboardingRequest) (*onboardingApp.OnboardingResult, error) {
 	s.req = req
 	return s.res, s.err
 }
@@ -128,10 +128,10 @@ func TestAuthServiceServerVerifyTokenPassesExpectationGuards(t *testing.T) {
 	require.Equal(t, []string{"qs-api"}, stub.verifyReq.ExpectedAudience)
 }
 
-func TestAuthServiceServerRegisterOperationAccount(t *testing.T) {
+func TestAccountOnboardingServiceServerCreateOperationAccount(t *testing.T) {
 	password := "Secret123!"
-	stub := &registerServiceStub{
-		res: &registerApp.RegisterResult{
+	stub := &accountOnboarderStub{
+		res: &onboardingApp.OnboardingResult{
 			UserID:       meta.FromUint64(101),
 			AccountID:    meta.FromUint64(202),
 			AccountType:  accountDomain.TypeOpera,
@@ -141,9 +141,9 @@ func TestAuthServiceServerRegisterOperationAccount(t *testing.T) {
 			IsNewAccount: true,
 		},
 	}
-	srv := &authServiceServer{registerSvc: stub}
+	srv := &accountOnboardingServer{accountOnboarder: stub}
 
-	resp, err := srv.RegisterOperationAccount(context.Background(), &authnv1.RegisterOperationAccountRequest{
+	resp, err := srv.CreateOperationAccount(context.Background(), &authnv1.CreateOperationAccountRequest{
 		Name:           "张三",
 		Phone:          "13800138000",
 		Email:          "staff@example.com",
@@ -156,7 +156,7 @@ func TestAuthServiceServerRegisterOperationAccount(t *testing.T) {
 	require.Equal(t, "303", resp.GetCredentialId())
 	require.Equal(t, "staff@example.com", resp.GetExternalId())
 	require.Equal(t, accountDomain.TypeOpera, stub.req.AccountType)
-	require.Equal(t, registerApp.CredTypePassword, stub.req.CredentialType)
+	require.Equal(t, onboardingApp.CredTypePassword, stub.req.CredentialType)
 	require.NotNil(t, stub.req.Password)
 	require.Equal(t, password, *stub.req.Password)
 	require.Equal(t, meta.FromUint64(1), stub.req.ScopedTenantID)

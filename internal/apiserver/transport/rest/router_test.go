@@ -114,6 +114,22 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
 }
 
+func TestRouterRegistersAuthnSignupRouteAndRetiresOldWechatRegister(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		AccountHandler: authhandler.NewAccountHandler(nil, nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/signups/wechat-miniprogram")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/authn/accounts/wechat/register")
+}
+
 func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -185,7 +201,7 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 	deps.Authn.TokenService = tokenServiceStub{}
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
-		ProfileHandler:     uchandler.NewProfileHandler(nil, nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil, nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.ModuleStatus.Authn = true
@@ -207,7 +223,7 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	deps := restDepsForTest()
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
-		ProfileHandler:     uchandler.NewProfileHandler(nil, nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil, nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Authz = AuthzDeps{

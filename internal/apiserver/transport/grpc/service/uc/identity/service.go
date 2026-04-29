@@ -28,14 +28,14 @@ type Service struct {
 //   - profileLinkSvc: 档案关系应用服务
 //   - profileLinkAccessSvc: 当前用户视角档案关系访问用例
 func NewService(
-	userQuerySvc userApp.UserQueryApplicationService,
-	profileQuerySvc profileApp.ProfileQueryApplicationService,
-	profileLinkQuerySvc profileLinkApp.ProfileLinkQueryApplicationService,
-	userSvc userApp.UserApplicationService,
-	userProfileSvc userApp.UserProfileApplicationService,
-	userStatusSvc userApp.UserStatusApplicationService,
-	profileLinkSvc profileLinkApp.ProfileLinkApplicationService,
-	profileLinkAccessSvc profileLinkApp.ProfileLinkAccessApplicationService,
+	userQuerySvc userApp.Directory,
+	profileQuerySvc profileApp.Directory,
+	profileLinkQuerySvc profileLinkApp.Directory,
+	userSvc userApp.Creator,
+	userProfileSvc userApp.Editor,
+	userStatusSvc userApp.StatusChanger,
+	profileLinkSvc profileLinkApp.Commands,
+	profileLinkAccessSvc profileLinkApp.MyProfileLinks,
 ) *Service {
 	return &Service{
 		identityRead: identityReadServer{
@@ -73,30 +73,30 @@ func (s *Service) RegisterService(server *grpc.Server) {
 // identityReadServer 用户和档案身份读取服务
 type identityReadServer struct {
 	identityv1.UnimplementedIdentityReadServer
-	userQuerySvc    userApp.UserQueryApplicationService
-	profileQuerySvc profileApp.ProfileQueryApplicationService
+	userQuerySvc    userApp.Directory
+	profileQuerySvc profileApp.Directory
 }
 
 // profileLinkQueryServer 档案关系查询服务
 type profileLinkQueryServer struct {
 	identityv1.UnimplementedProfileLinkQueryServer
-	profileLinkQuerySvc profileLinkApp.ProfileLinkQueryApplicationService
-	userQuerySvc        userApp.UserQueryApplicationService
+	profileLinkQuerySvc profileLinkApp.Directory
+	userQuerySvc        userApp.Directory
 }
 
 // profileLinkCommandServer 档案关系命令服务（写操作）
 type profileLinkCommandServer struct {
 	identityv1.UnimplementedProfileLinkCommandServer
-	profileLinkSvc       profileLinkApp.ProfileLinkApplicationService
-	profileLinkQuerySvc  profileLinkApp.ProfileLinkQueryApplicationService
-	profileLinkAccessSvc profileLinkApp.ProfileLinkAccessApplicationService
+	profileLinkSvc       profileLinkApp.Commands
+	profileLinkQuerySvc  profileLinkApp.Directory
+	profileLinkAccessSvc profileLinkApp.MyProfileLinks
 }
 
 // identityLifecycleServer 身份生命周期服务（用户管理）
 type identityLifecycleServer struct {
 	identityv1.UnimplementedIdentityLifecycleServer
-	userSvc        userApp.UserApplicationService
-	userQuerySvc   userApp.UserQueryApplicationService
-	userProfileSvc userApp.UserProfileApplicationService
-	userStatusSvc  userApp.UserStatusApplicationService
+	userSvc        userApp.Creator
+	userQuerySvc   userApp.Directory
+	userProfileSvc userApp.Editor
+	userStatusSvc  userApp.StatusChanger
 }

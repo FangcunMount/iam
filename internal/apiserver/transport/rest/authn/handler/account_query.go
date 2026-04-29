@@ -2,7 +2,11 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 )
+
+var _ = resp.Account{}
 
 // GetAccountByID 根据账户ID获取账户信息
 // @Summary 获取账户信息

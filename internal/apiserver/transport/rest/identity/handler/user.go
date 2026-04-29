@@ -13,24 +13,26 @@ import (
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
-	_ "github.com/FangcunMount/iam/pkg/core" // imported for swagger
+	"github.com/FangcunMount/iam/pkg/core"
 	"github.com/FangcunMount/iam/pkg/tenant"
 )
+
+var _ = core.ErrResponse{}
 
 // UserHandler 基础用户 REST 处理器
 type UserHandler struct {
 	*BaseHandler
-	userApp    appuser.UserApplicationService
-	profileApp appuser.UserProfileApplicationService
-	userQuery  appuser.UserQueryApplicationService
+	userApp    appuser.Creator
+	profileApp appuser.Editor
+	userQuery  appuser.Directory
 	casbin     authn.CasbinEnforcer
 }
 
 // NewUserHandler 创建用户处理器。casbin 可为 nil，此时 /identity/me 不返回 roles。
 func NewUserHandler(
-	userApp appuser.UserApplicationService,
-	profileApp appuser.UserProfileApplicationService,
-	userQuery appuser.UserQueryApplicationService,
+	userApp appuser.Creator,
+	profileApp appuser.Editor,
+	userQuery appuser.Directory,
 	casbin authn.CasbinEnforcer,
 ) *UserHandler {
 	return &UserHandler{

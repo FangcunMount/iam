@@ -9,12 +9,7 @@ type ProfileCreateRequest struct {
 	IDNo      string `json:"idNo,omitempty"`
 	HeightCm  *int   `json:"heightCm,omitempty"`
 	WeightKg  string `json:"weightKg,omitempty"`
-}
-
-// ProfileRegisterRequest 注册档案并授予关系
-type ProfileRegisterRequest struct {
-	ProfileCreateRequest
-	Relation string `json:"relation" binding:"required,oneof=self parent grandparent other"`
+	Relation  string `json:"relation" binding:"required,oneof=self parent grandparent other"`
 }
 
 // ProfileUpdateRequest 更新档案请求

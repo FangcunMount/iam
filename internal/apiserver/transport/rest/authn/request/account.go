@@ -86,7 +86,7 @@ func (r *ChangeOperationUsernameReq) Validate() error {
 }
 
 // BindWeChatAccountReq payload.
-// Deprecated: 使用 RegisterWeChatAccountReq 代替，该接口假设 Account 已存在
+// Deprecated: legacy endpoint assumes Account already exists.
 type BindWeChatAccountReq struct {
 	UserID   string                 `json:"userId"`
 	AppID    string                 `json:"appId"`
@@ -104,9 +104,9 @@ func (r *BindWeChatAccountReq) Validate() error {
 	return nil
 }
 
-// RegisterWeChatAccountReq 微信注册用户请求
-// 该接口会原子性地创建 User + Account + WeChatAccount
-type RegisterWeChatAccountReq struct {
+// SignUpWithWeChatMiniProgramRequest 微信小程序账号开通请求。
+// 该接口会原子性地创建 User + Account + WeChatAccount。
+type SignUpWithWeChatMiniProgramRequest struct {
 	Name     string                 `json:"name" binding:"required"`   // 用户名
 	Phone    string                 `json:"phone,omitempty"`           // 手机号（可选）
 	Email    string                 `json:"email,omitempty"`           // 邮箱（可选）
@@ -143,15 +143,15 @@ func (r *EnsureMockConsumerReq) Validate() error {
 	return nil
 }
 
-// Validate 保留方法以兼容现有代码，但实际验证由 binding 标签处理
-func (r *RegisterWeChatAccountReq) Validate() error {
+// Validate 保留方法以兼容现有代码，但实际验证由 binding 标签处理。
+func (r *SignUpWithWeChatMiniProgramRequest) Validate() error {
 	// binding 标签已经处理了基本验证
 	// 这里可以添加额外的业务逻辑验证（如果需要）
 	return nil
 }
 
-// MetaJSON encodes RegisterWeChatAccount meta.
-func (r *RegisterWeChatAccountReq) MetaJSON() (map[string]string, error) {
+// MetaJSON encodes signup meta.
+func (r *SignUpWithWeChatMiniProgramRequest) MetaJSON() (map[string]string, error) {
 	if r.Meta == nil {
 		return nil, nil
 	}

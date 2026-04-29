@@ -1929,7 +1929,7 @@ func (x *HasProfileLinkResponse) GetProfileLink() *ProfileLink {
 	return nil
 }
 
-type CreateProfileLinkRequest struct {
+type EstablishProfileLinkRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	ProfileId     string                 `protobuf:"bytes,2,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
@@ -1939,20 +1939,20 @@ type CreateProfileLinkRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateProfileLinkRequest) Reset() {
-	*x = CreateProfileLinkRequest{}
+func (x *EstablishProfileLinkRequest) Reset() {
+	*x = EstablishProfileLinkRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CreateProfileLinkRequest) String() string {
+func (x *EstablishProfileLinkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateProfileLinkRequest) ProtoMessage() {}
+func (*EstablishProfileLinkRequest) ProtoMessage() {}
 
-func (x *CreateProfileLinkRequest) ProtoReflect() protoreflect.Message {
+func (x *EstablishProfileLinkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1964,60 +1964,60 @@ func (x *CreateProfileLinkRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateProfileLinkRequest.ProtoReflect.Descriptor instead.
-func (*CreateProfileLinkRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use EstablishProfileLinkRequest.ProtoReflect.Descriptor instead.
+func (*EstablishProfileLinkRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{29}
 }
 
-func (x *CreateProfileLinkRequest) GetUserId() string {
+func (x *EstablishProfileLinkRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *CreateProfileLinkRequest) GetProfileId() string {
+func (x *EstablishProfileLinkRequest) GetProfileId() string {
 	if x != nil {
 		return x.ProfileId
 	}
 	return ""
 }
 
-func (x *CreateProfileLinkRequest) GetRelation() ProfileLinkRelation {
+func (x *EstablishProfileLinkRequest) GetRelation() ProfileLinkRelation {
 	if x != nil {
 		return x.Relation
 	}
 	return ProfileLinkRelation_PROFILE_LINK_RELATION_UNSPECIFIED
 }
 
-func (x *CreateProfileLinkRequest) GetOperator() *OperatorContext {
+func (x *EstablishProfileLinkRequest) GetOperator() *OperatorContext {
 	if x != nil {
 		return x.Operator
 	}
 	return nil
 }
 
-type CreateProfileLinkResponse struct {
+type EstablishProfileLinkResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ProfileLink   *ProfileLink           `protobuf:"bytes,1,opt,name=profile_link,json=profileLink,proto3" json:"profile_link,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateProfileLinkResponse) Reset() {
-	*x = CreateProfileLinkResponse{}
+func (x *EstablishProfileLinkResponse) Reset() {
+	*x = EstablishProfileLinkResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CreateProfileLinkResponse) String() string {
+func (x *EstablishProfileLinkResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateProfileLinkResponse) ProtoMessage() {}
+func (*EstablishProfileLinkResponse) ProtoMessage() {}
 
-func (x *CreateProfileLinkResponse) ProtoReflect() protoreflect.Message {
+func (x *EstablishProfileLinkResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2029,12 +2029,12 @@ func (x *CreateProfileLinkResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateProfileLinkResponse.ProtoReflect.Descriptor instead.
-func (*CreateProfileLinkResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use EstablishProfileLinkResponse.ProtoReflect.Descriptor instead.
+func (*EstablishProfileLinkResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{30}
 }
 
-func (x *CreateProfileLinkResponse) GetProfileLink() *ProfileLink {
+func (x *EstablishProfileLinkResponse) GetProfileLink() *ProfileLink {
 	if x != nil {
 		return x.ProfileLink
 	}
@@ -3044,15 +3044,15 @@ const file_iam_identity_v1_identity_proto_rawDesc = "" +
 	"profile_id\x18\x02 \x01(\tR\tprofileId\"\x83\x01\n" +
 	"\x16HasProfileLinkResponse\x12(\n" +
 	"\x10has_profile_link\x18\x01 \x01(\bR\x0ehasProfileLink\x12?\n" +
-	"\fprofile_link\x18\x02 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"\xd2\x01\n" +
-	"\x18CreateProfileLinkRequest\x12\x17\n" +
+	"\fprofile_link\x18\x02 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"\xd5\x01\n" +
+	"\x1bEstablishProfileLinkRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
 	"profile_id\x18\x02 \x01(\tR\tprofileId\x12@\n" +
 	"\brelation\x18\x03 \x01(\x0e2$.iam.identity.v1.ProfileLinkRelationR\brelation\x12<\n" +
 	"\boperator\x18\n" +
-	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\\\n" +
-	"\x19CreateProfileLinkResponse\x12?\n" +
+	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"_\n" +
+	"\x1cEstablishProfileLinkResponse\x12?\n" +
 	"\fprofile_link\x18\x01 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"\xae\x01\n" +
 	"\x18RevokeProfileLinkRequest\x12<\n" +
 	"\x06target\x18\x01 \x01(\v2$.iam.identity.v1.ProfileLinkSelectorR\x06target\x12\x16\n" +
@@ -3153,9 +3153,9 @@ const file_iam_identity_v1_identity_proto_rawDesc = "" +
 	"\x10ProfileLinkQuery\x12a\n" +
 	"\x0eHasProfileLink\x12&.iam.identity.v1.HasProfileLinkRequest\x1a'.iam.identity.v1.HasProfileLinkResponse\x12[\n" +
 	"\fListProfiles\x12$.iam.identity.v1.ListProfilesRequest\x1a%.iam.identity.v1.ListProfilesResponse\x12g\n" +
-	"\x10ListProfileLinks\x12(.iam.identity.v1.ListProfileLinksRequest\x1a).iam.identity.v1.ListProfileLinksResponse2\xd9\x03\n" +
-	"\x12ProfileLinkCommand\x12j\n" +
-	"\x11CreateProfileLink\x12).iam.identity.v1.CreateProfileLinkRequest\x1a*.iam.identity.v1.CreateProfileLinkResponse\x12j\n" +
+	"\x10ListProfileLinks\x12(.iam.identity.v1.ListProfileLinksRequest\x1a).iam.identity.v1.ListProfileLinksResponse2\xe2\x03\n" +
+	"\x12ProfileLinkCommand\x12s\n" +
+	"\x14EstablishProfileLink\x12,.iam.identity.v1.EstablishProfileLinkRequest\x1a-.iam.identity.v1.EstablishProfileLinkResponse\x12j\n" +
 	"\x11RevokeProfileLink\x12).iam.identity.v1.RevokeProfileLinkRequest\x1a*.iam.identity.v1.RevokeProfileLinkResponse\x12|\n" +
 	"\x17BatchRevokeProfileLinks\x12/.iam.identity.v1.BatchRevokeProfileLinksRequest\x1a0.iam.identity.v1.BatchRevokeProfileLinksResponse\x12m\n" +
 	"\x12ImportProfileLinks\x12*.iam.identity.v1.ImportProfileLinksRequest\x1a+.iam.identity.v1.ImportProfileLinksResponse2\x84\x03\n" +
@@ -3215,8 +3215,8 @@ var file_iam_identity_v1_identity_proto_goTypes = []any{
 	(*ListProfileLinksResponse)(nil),        // 30: iam.identity.v1.ListProfileLinksResponse
 	(*HasProfileLinkRequest)(nil),           // 31: iam.identity.v1.HasProfileLinkRequest
 	(*HasProfileLinkResponse)(nil),          // 32: iam.identity.v1.HasProfileLinkResponse
-	(*CreateProfileLinkRequest)(nil),        // 33: iam.identity.v1.CreateProfileLinkRequest
-	(*CreateProfileLinkResponse)(nil),       // 34: iam.identity.v1.CreateProfileLinkResponse
+	(*EstablishProfileLinkRequest)(nil),     // 33: iam.identity.v1.EstablishProfileLinkRequest
+	(*EstablishProfileLinkResponse)(nil),    // 34: iam.identity.v1.EstablishProfileLinkResponse
 	(*RevokeProfileLinkRequest)(nil),        // 35: iam.identity.v1.RevokeProfileLinkRequest
 	(*RevokeProfileLinkResponse)(nil),       // 36: iam.identity.v1.RevokeProfileLinkResponse
 	(*BatchRevokeProfileLinksRequest)(nil),  // 37: iam.identity.v1.BatchRevokeProfileLinksRequest
@@ -3269,9 +3269,9 @@ var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	13, // 30: iam.identity.v1.ListProfilesResponse.items:type_name -> iam.identity.v1.ProfileEdge
 	14, // 31: iam.identity.v1.ListProfileLinksResponse.items:type_name -> iam.identity.v1.ProfileLinkEdge
 	12, // 32: iam.identity.v1.HasProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
-	3,  // 33: iam.identity.v1.CreateProfileLinkRequest.relation:type_name -> iam.identity.v1.ProfileLinkRelation
-	8,  // 34: iam.identity.v1.CreateProfileLinkRequest.operator:type_name -> iam.identity.v1.OperatorContext
-	12, // 35: iam.identity.v1.CreateProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
+	3,  // 33: iam.identity.v1.EstablishProfileLinkRequest.relation:type_name -> iam.identity.v1.ProfileLinkRelation
+	8,  // 34: iam.identity.v1.EstablishProfileLinkRequest.operator:type_name -> iam.identity.v1.OperatorContext
+	12, // 35: iam.identity.v1.EstablishProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
 	16, // 36: iam.identity.v1.RevokeProfileLinkRequest.target:type_name -> iam.identity.v1.ProfileLinkSelector
 	8,  // 37: iam.identity.v1.RevokeProfileLinkRequest.operator:type_name -> iam.identity.v1.OperatorContext
 	12, // 38: iam.identity.v1.RevokeProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
@@ -3304,7 +3304,7 @@ var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	31, // 65: iam.identity.v1.ProfileLinkQuery.HasProfileLink:input_type -> iam.identity.v1.HasProfileLinkRequest
 	27, // 66: iam.identity.v1.ProfileLinkQuery.ListProfiles:input_type -> iam.identity.v1.ListProfilesRequest
 	29, // 67: iam.identity.v1.ProfileLinkQuery.ListProfileLinks:input_type -> iam.identity.v1.ListProfileLinksRequest
-	33, // 68: iam.identity.v1.ProfileLinkCommand.CreateProfileLink:input_type -> iam.identity.v1.CreateProfileLinkRequest
+	33, // 68: iam.identity.v1.ProfileLinkCommand.EstablishProfileLink:input_type -> iam.identity.v1.EstablishProfileLinkRequest
 	35, // 69: iam.identity.v1.ProfileLinkCommand.RevokeProfileLink:input_type -> iam.identity.v1.RevokeProfileLinkRequest
 	37, // 70: iam.identity.v1.ProfileLinkCommand.BatchRevokeProfileLinks:input_type -> iam.identity.v1.BatchRevokeProfileLinksRequest
 	41, // 71: iam.identity.v1.ProfileLinkCommand.ImportProfileLinks:input_type -> iam.identity.v1.ImportProfileLinksRequest
@@ -3320,7 +3320,7 @@ var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	32, // 81: iam.identity.v1.ProfileLinkQuery.HasProfileLink:output_type -> iam.identity.v1.HasProfileLinkResponse
 	28, // 82: iam.identity.v1.ProfileLinkQuery.ListProfiles:output_type -> iam.identity.v1.ListProfilesResponse
 	30, // 83: iam.identity.v1.ProfileLinkQuery.ListProfileLinks:output_type -> iam.identity.v1.ListProfileLinksResponse
-	34, // 84: iam.identity.v1.ProfileLinkCommand.CreateProfileLink:output_type -> iam.identity.v1.CreateProfileLinkResponse
+	34, // 84: iam.identity.v1.ProfileLinkCommand.EstablishProfileLink:output_type -> iam.identity.v1.EstablishProfileLinkResponse
 	36, // 85: iam.identity.v1.ProfileLinkCommand.RevokeProfileLink:output_type -> iam.identity.v1.RevokeProfileLinkResponse
 	38, // 86: iam.identity.v1.ProfileLinkCommand.BatchRevokeProfileLinks:output_type -> iam.identity.v1.BatchRevokeProfileLinksResponse
 	42, // 87: iam.identity.v1.ProfileLinkCommand.ImportProfileLinks:output_type -> iam.identity.v1.ImportProfileLinksResponse

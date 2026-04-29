@@ -22,15 +22,15 @@ import (
 
 // profile and user repo stubs replaced by shared testhelpers stubs
 
-func TestProfileLinkManager_CreateProfileLinkSuccess(t *testing.T) {
+func TestProfileLinker_CreateProfileLinkSuccess(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: &profiledomain.Profile{ID: meta.FromUint64(1)}}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = &userdomain.User{ID: meta.FromUint64(2)}
 	profileLinkRepo := &stubProfileLinkRepo{profilesResults: make(map[uint64][]*ProfileLink)}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.NoError(t, err)
 	require.NotNil(t, profileLink)
@@ -40,7 +40,7 @@ func TestProfileLinkManager_CreateProfileLinkSuccess(t *testing.T) {
 	assert.False(t, profileLink.EstablishedAt.IsZero())
 }
 
-func TestProfileLinkManager_CreateProfileLink_Duplicate(t *testing.T) {
+func TestProfileLinker_Establish_Duplicate(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: &profiledomain.Profile{ID: meta.FromUint64(1)}}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = &userdomain.User{ID: meta.FromUint64(2)}
@@ -51,70 +51,70 @@ func TestProfileLinkManager_CreateProfileLink_Duplicate(t *testing.T) {
 		},
 	}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "profile link already exists")
 }
 
-func TestProfileLinkManager_CreateProfileLink_ProfileNotFound(t *testing.T) {
+func TestProfileLinker_Establish_ProfileNotFound(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: nil}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = &userdomain.User{ID: meta.FromUint64(2)}
 	profileLinkRepo := &stubProfileLinkRepo{}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "profile not found")
 }
 
-func TestProfileLinkManager_CreateProfileLink_UserRepoError(t *testing.T) {
+func TestProfileLinker_Establish_UserRepoError(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: &profiledomain.Profile{ID: meta.FromUint64(1)}}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.FindErr = errors.New("db error")
 	profileLinkRepo := &stubProfileLinkRepo{}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "find user failed")
 }
 
-func TestProfileLinkManager_CreateProfileLink_FindByProfileError(t *testing.T) {
+func TestProfileLinker_Establish_FindByProfileError(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: &profiledomain.Profile{ID: meta.FromUint64(1)}}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = &userdomain.User{ID: meta.FromUint64(2)}
 	profileLinkRepo := &stubProfileLinkRepo{findErr: errors.New("db error")}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "find profile links failed")
 }
 
-func TestProfileLinkManager_RemoveProfileLinkSuccess(t *testing.T) {
+func TestProfileLinker_RemoveProfileLinkSuccess(t *testing.T) {
 	target := &ProfileLink{User: meta.FromUint64(2), Profile: meta.FromUint64(1)}
 	profileLinkRepo := &stubProfileLinkRepo{
 		profilesResults: map[uint64][]*ProfileLink{
 			1: {target},
 		},
 	}
-	manager := NewManagerService(profileLinkRepo, &testhelpers.ProfileRepoStub{}, testhelpers.NewUserRepoStub())
+	manager := NewLinker(profileLinkRepo, &testhelpers.ProfileRepoStub{}, testhelpers.NewUserRepoStub())
 
-	removed, err := manager.RemoveProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
+	removed, err := manager.Revoke(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
 
 	require.NoError(t, err)
 	assert.NotNil(t, removed)
@@ -122,57 +122,57 @@ func TestProfileLinkManager_RemoveProfileLinkSuccess(t *testing.T) {
 	assert.True(t, removed.RevokedAt.After(time.Time{}))
 }
 
-func TestProfileLinkManager_RemoveProfileLink_NotFound(t *testing.T) {
+func TestProfileLinker_Revoke_NotFound(t *testing.T) {
 	profileLinkRepo := &stubProfileLinkRepo{
 		profilesResults: map[uint64][]*ProfileLink{
 			1: {},
 		},
 	}
-	manager := NewManagerService(profileLinkRepo, &testhelpers.ProfileRepoStub{}, testhelpers.NewUserRepoStub())
+	manager := NewLinker(profileLinkRepo, &testhelpers.ProfileRepoStub{}, testhelpers.NewUserRepoStub())
 
-	removed, err := manager.RemoveProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
+	removed, err := manager.Revoke(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
 
 	require.Error(t, err)
 	assert.Nil(t, removed)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "active profile link not found")
 }
 
-func TestProfileLinkManager_CreateProfileLink_ProfileRepoError(t *testing.T) {
+func TestProfileLinker_Establish_ProfileRepoError(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{FindErr: errors.New("db error")}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = &userdomain.User{ID: meta.FromUint64(2)}
 	profileLinkRepo := &stubProfileLinkRepo{}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "find profile failed")
 }
 
-func TestProfileLinkManager_CreateProfileLink_UserNotFound(t *testing.T) {
+func TestProfileLinker_Establish_UserNotFound(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: &profiledomain.Profile{ID: meta.FromUint64(1)}}
 	userRepo := testhelpers.NewUserRepoStub()
 	// ensure repo returns (nil, nil) for the id to simulate "user not found" without DB error
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = nil
 	profileLinkRepo := &stubProfileLinkRepo{}
 
-	manager := NewManagerService(profileLinkRepo, profileRepo, userRepo)
+	manager := NewLinker(profileLinkRepo, profileRepo, userRepo)
 
-	profileLink, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+	profileLink, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "user not found")
 }
 
-func TestProfileLinkManager_RemoveProfileLink_FindError(t *testing.T) {
+func TestProfileLinker_Revoke_FindError(t *testing.T) {
 	profileLinkRepo := &stubProfileLinkRepo{findErr: errors.New("db error")}
-	manager := NewManagerService(profileLinkRepo, &testhelpers.ProfileRepoStub{}, testhelpers.NewUserRepoStub())
+	manager := NewLinker(profileLinkRepo, &testhelpers.ProfileRepoStub{}, testhelpers.NewUserRepoStub())
 
-	removed, err := manager.RemoveProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
+	removed, err := manager.Revoke(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
 
 	require.Error(t, err)
 	assert.Nil(t, removed)
@@ -180,7 +180,7 @@ func TestProfileLinkManager_RemoveProfileLink_FindError(t *testing.T) {
 }
 
 // seqProfileLinkRepo and helper functions have been moved to ref_test_helpers.go
-func TestProfileLinkManager_CreateProfileLink_ConcurrentDuplicateDetection(t *testing.T) {
+func TestProfileLinker_Establish_ConcurrentDuplicateDetection(t *testing.T) {
 	profileRepo := &testhelpers.ProfileRepoStub{Profile: &profiledomain.Profile{ID: meta.FromUint64(1)}}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[meta.FromUint64(2).Uint64()] = &userdomain.User{ID: meta.FromUint64(2)}
@@ -193,7 +193,7 @@ func TestProfileLinkManager_CreateProfileLink_ConcurrentDuplicateDetection(t *te
 		},
 	}
 
-	manager := NewManagerService(seq, profileRepo, userRepo)
+	manager := NewLinker(seq, profileRepo, userRepo)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -209,7 +209,7 @@ func TestProfileLinkManager_CreateProfileLink_ConcurrentDuplicateDetection(t *te
 		go func() {
 			defer wg.Done()
 			<-startCh
-			g, err := manager.CreateProfileLink(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
+			g, err := manager.Establish(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 			results[idx].g = g
 			results[idx].err = err
 		}()

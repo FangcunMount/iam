@@ -10,22 +10,22 @@ import (
 )
 
 // ===========================================
-// ==== UserStatusApplicationService 实现 =====
+// ==== StatusChanger 实现 =====
 // ===========================================
 
-// userStatusApplicationService 用户状态应用服务实现
-type userStatusApplicationService struct {
+// statusChanger 用户状态用例实现
+type statusChanger struct {
 	uow            uow.UnitOfWork
 	sessionManager session.Manager
 }
 
-// NewUserStatusApplicationService 创建用户状态应用服务
-func NewUserStatusApplicationService(uow uow.UnitOfWork, sessionManager session.Manager) UserStatusApplicationService {
-	return &userStatusApplicationService{uow: uow, sessionManager: sessionManager}
+// NewStatusChanger 创建用户状态用例
+func NewStatusChanger(uow uow.UnitOfWork, sessionManager session.Manager) StatusChanger {
+	return &statusChanger{uow: uow, sessionManager: sessionManager}
 }
 
 // Activate 激活用户
-func (s *userStatusApplicationService) Activate(ctx context.Context, userID string) error {
+func (s *statusChanger) Activate(ctx context.Context, userID string) error {
 	l := logger.L(ctx)
 	l.Debugw("激活用户",
 		"action", logger.ActionUpdate,
@@ -77,7 +77,7 @@ func (s *userStatusApplicationService) Activate(ctx context.Context, userID stri
 }
 
 // Deactivate 停用用户
-func (s *userStatusApplicationService) Deactivate(ctx context.Context, userID string) error {
+func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
 	l := logger.L(ctx)
 	l.Debugw("停用用户",
 		"action", logger.ActionUpdate,
@@ -129,7 +129,7 @@ func (s *userStatusApplicationService) Deactivate(ctx context.Context, userID st
 }
 
 // Block 封禁用户
-func (s *userStatusApplicationService) Block(ctx context.Context, userID string) error {
+func (s *statusChanger) Block(ctx context.Context, userID string) error {
 	l := logger.L(ctx)
 	l.Debugw("封禁用户",
 		"action", logger.ActionUpdate,

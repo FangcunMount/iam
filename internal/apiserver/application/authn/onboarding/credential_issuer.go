@@ -1,4 +1,4 @@
-package register
+package onboarding
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func (i *CredentialIssuer) Issue(
 	repo credDomain.Repository,
 	accountID meta.ID,
 	creationParams *domain.CreationParams,
-	req RegisterRequest,
+	req OnboardingRequest,
 ) (*credDomain.Credential, error) {
 	issuer := credDomain.NewIssuer(i.hasher)
 	credential, err := i.issueCredential(ctx, issuer, accountID, creationParams, req)
@@ -53,7 +53,7 @@ func (i *CredentialIssuer) issueCredential(
 	issuer credDomain.Issuer,
 	accountID meta.ID,
 	creationParams *domain.CreationParams,
-	req RegisterRequest,
+	req OnboardingRequest,
 ) (*credDomain.Credential, error) {
 	switch req.CredentialType {
 	case CredTypePassword:

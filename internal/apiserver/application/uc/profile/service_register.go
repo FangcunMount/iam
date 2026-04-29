@@ -10,20 +10,20 @@ import (
 )
 
 // ======================================
-// ==== ProfileApplicationService 实现 =====
+// ==== Editor 实现 =====
 // ======================================
 
-// NewProfileCreatorApplicationService 创建档案创建应用服务。
-func NewProfileCreatorApplicationService(uow uow.UnitOfWork) ProfileCreatorApplicationService {
-	return NewProfileApplicationService(uow)
+// NewCreator 创建档案创建用例。
+func NewCreator(uow uow.UnitOfWork) Creator {
+	return &profileEditor{uow: uow}
 }
 
-// Register 注册新档案
-func (s *profileApplicationService) Register(ctx context.Context, dto RegisterProfileDTO) (*ProfileResult, error) {
+// Register 创建新档案
+func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*ProfileResult, error) {
 	l := logger.L(ctx)
 	var result *ProfileResult
 
-	l.Debugw("开始注册档案",
+	l.Debugw("开始创建档案",
 		"action", logger.ActionRegister,
 		"resource", "profile",
 		"profile_name", dto.Name,
@@ -38,9 +38,9 @@ func (s *profileApplicationService) Register(ctx context.Context, dto RegisterPr
 		gender := input.ParseGender(dto.Gender)
 		birthday := input.ParseBirthday(dto.Birthday)
 
-		// 验证注册参数
+		// 验证创建参数
 		if err := validator.ValidateRegister(ctx, dto.Name, gender, birthday); err != nil {
-			l.Warnw("档案注册参数验证失败",
+			l.Warnw("档案创建参数验证失败",
 				"action", logger.ActionRegister,
 				"resource", "profile",
 				"error", err.Error(),
@@ -117,7 +117,7 @@ func (s *profileApplicationService) Register(ctx context.Context, dto RegisterPr
 	})
 
 	if err == nil {
-		l.Debugw("档案注册成功",
+		l.Debugw("档案创建成功",
 			"action", logger.ActionRegister,
 			"resource", "profile",
 			"resource_id", result.ID,

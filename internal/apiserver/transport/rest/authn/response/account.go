@@ -37,8 +37,8 @@ type BindResult struct {
 	Created   bool   `json:"created"`
 }
 
-// RegisterResult 注册结果响应
-type RegisterResult struct {
+// SignupResult 账号开通结果响应。
+type SignupResult struct {
 	UserID       uint64 `json:"userId"`
 	UserName     string `json:"userName"`
 	Phone        string `json:"phone"`

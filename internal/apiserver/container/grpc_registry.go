@@ -25,7 +25,7 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	registrations := make([]grpctransport.Registration, 0, 4)
 	if c.AuthnModule != nil {
 		caps := c.AuthnModule.ApplicationCapabilities()
-		service := authngrpc.NewService(caps.TokenService, caps.RegisterService, caps.KeyPublishApp)
+		service := authngrpc.NewService(caps.TokenService, caps.AccountOnboarder, caps.KeyPublishApp)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "authn",
 			Description: "AuthService, JWKSService",
@@ -35,14 +35,14 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	if c.UserModule != nil {
 		caps := c.UserModule.ApplicationCapabilities()
 		identitySvc := identitygrpc.NewService(
-			caps.UserQueryService,
-			caps.ProfileQueryService,
-			caps.ProfileLinkQueryService,
-			caps.UserService,
-			caps.UserProfileService,
-			caps.UserStatusService,
-			caps.ProfileLinkService,
-			caps.ProfileLinkAccessService,
+			caps.UserDirectory,
+			caps.ProfileDirectory,
+			caps.ProfileLinkDirectory,
+			caps.UserCreator,
+			caps.UserEditor,
+			caps.UserStatusChanger,
+			caps.ProfileLinkCommands,
+			caps.MyProfileLinks,
 		)
 		service := ucgrpc.NewService(identitySvc)
 		registrations = append(registrations, grpctransport.Registration{

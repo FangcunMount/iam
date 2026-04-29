@@ -17,13 +17,13 @@ func (s *identityLifecycleServer) CreateUser(ctx context.Context, req *identityv
 		return nil, status.Error(codes.InvalidArgument, "nickname is required")
 	}
 
-	dto := userApp.RegisterUserDTO{
+	dto := userApp.CreateUserDTO{
 		Name:  req.GetNickname(),
 		Phone: req.GetPhone(),
 		Email: req.GetEmail(),
 	}
 
-	result, err := s.userSvc.Register(ctx, dto)
+	result, err := s.userSvc.Create(ctx, dto)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}

@@ -10,19 +10,10 @@ import (
 )
 
 // ============================================
-// ==== ProfileAccessApplicationService 实现 =====
+// ==== MyProfiles 当前用户档案访问用例 =====
 // ============================================
 
-type profileAccessApplicationService struct {
-	uow uow.UnitOfWork
-}
-
-// NewProfileAccessApplicationService 创建当前关系用户视角的档案用例服务。
-func NewProfileAccessApplicationService(uow uow.UnitOfWork) ProfileAccessApplicationService {
-	return &profileAccessApplicationService{uow: uow}
-}
-
-func (s *profileAccessApplicationService) ListForProfileLink(ctx context.Context, userID string) ([]*ProfileResult, error) {
+func (s *myProfiles) List(ctx context.Context, userID string) ([]*ProfileResult, error) {
 	var results []*ProfileResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		userIDObj, err := parseProfileAccessUserID(userID)
@@ -49,19 +40,19 @@ func (s *profileAccessApplicationService) ListForProfileLink(ctx context.Context
 	return results, err
 }
 
-func (s *profileAccessApplicationService) GetForProfileLink(ctx context.Context, userID string, profileID string) (*ProfileResult, error) {
+func (s *myProfiles) Get(ctx context.Context, userID string, profileID string) (*ProfileResult, error) {
 	if err := s.ensureActiveProfileLinkAccess(ctx, userID, profileID); err != nil {
 		return nil, err
 	}
-	return NewProfileQueryApplicationService(s.uow).GetByID(ctx, profileID)
+	return NewDirectory(s.uow).GetByID(ctx, profileID)
 }
 
-func (s *profileAccessApplicationService) PatchForProfileLink(ctx context.Context, dto PatchProfileForProfileLinkDTO) (*ProfileResult, error) {
+func (s *myProfiles) Patch(ctx context.Context, dto PatchMyProfileDTO) (*ProfileResult, error) {
 	if err := s.ensureActiveProfileLinkAccess(ctx, dto.UserID, dto.ProfileID); err != nil {
 		return nil, err
 	}
 
-	profile := NewProfileApplicationService(s.uow)
+	profile := NewEditor(s.uow)
 	if dto.LegalName != nil && strings.TrimSpace(*dto.LegalName) != "" {
 		if err := profile.Rename(ctx, dto.ProfileID, strings.TrimSpace(*dto.LegalName)); err != nil {
 			return nil, err
@@ -94,10 +85,10 @@ func (s *profileAccessApplicationService) PatchForProfileLink(ctx context.Contex
 		}
 	}
 
-	return NewProfileQueryApplicationService(s.uow).GetByID(ctx, dto.ProfileID)
+	return NewDirectory(s.uow).GetByID(ctx, dto.ProfileID)
 }
 
-func (s *profileAccessApplicationService) ensureActiveProfileLinkAccess(ctx context.Context, userID string, profileID string) error {
+func (s *myProfiles) ensureActiveProfileLinkAccess(ctx context.Context, userID string, profileID string) error {
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		userIDObj, err := parseProfileAccessUserID(userID)
 		if err != nil {

@@ -163,7 +163,7 @@ type profileLinkAccessStub struct {
 	}
 }
 
-func (s *profileLinkAccessStub) GrantForCurrentUser(_ context.Context, currentUserID string, dto appprofilelink.CreateProfileLinkDTO) (*appprofilelink.ProfileLinkResult, error) {
+func (s *profileLinkAccessStub) Grant(_ context.Context, currentUserID string, dto appprofilelink.CreateProfileLinkDTO) (*appprofilelink.ProfileLinkResult, error) {
 	s.grantCalls = append(s.grantCalls, struct {
 		currentUserID string
 		dto           appprofilelink.CreateProfileLinkDTO
@@ -171,7 +171,7 @@ func (s *profileLinkAccessStub) GrantForCurrentUser(_ context.Context, currentUs
 	return s.grantResult, s.grantErr
 }
 
-func (s *profileLinkAccessStub) ListForCurrentUser(_ context.Context, currentUserID string, dto appprofilelink.ListProfileLinksDTO) ([]*appprofilelink.ProfileLinkResult, error) {
+func (s *profileLinkAccessStub) List(_ context.Context, currentUserID string, dto appprofilelink.ListProfileLinksDTO) ([]*appprofilelink.ProfileLinkResult, error) {
 	s.listCalls = append(s.listCalls, struct {
 		currentUserID string
 		dto           appprofilelink.ListProfileLinksDTO
@@ -179,6 +179,6 @@ func (s *profileLinkAccessStub) ListForCurrentUser(_ context.Context, currentUse
 	return s.listResult, s.listErr
 }
 
-func (s *profileLinkAccessStub) RevokeBySelector(context.Context, appprofilelink.RevokeProfileLinkBySelectorDTO) (*appprofilelink.ProfileLinkResult, error) {
+func (s *profileLinkAccessStub) Revoke(context.Context, appprofilelink.RevokeProfileLinkBySelectorDTO) (*appprofilelink.ProfileLinkResult, error) {
 	return nil, nil
 }

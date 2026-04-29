@@ -25,16 +25,16 @@ services:
       - /iam.identity.v1.IdentityRead/GetProfile
       - /iam.identity.v1.IdentityRead/BatchGetProfiles
       
-      # RefQuery - 档案关系查询
-      - /iam.identity.v1.RefQuery/IsRef
-      - /iam.identity.v1.RefQuery/ListProfiles
-      - /iam.identity.v1.RefQuery/ListRefs
+      # ProfileLinkQuery - 档案关系查询
+      - /iam.identity.v1.ProfileLinkQuery/HasProfileLink
+      - /iam.identity.v1.ProfileLinkQuery/ListProfiles
+      - /iam.identity.v1.ProfileLinkQuery/ListProfileLinks
       
-      # RefCommand - 档案关系管理
-      - /iam.identity.v1.RefCommand/AddRef
-      - /iam.identity.v1.RefCommand/RevokeRef
-      - /iam.identity.v1.RefCommand/BatchRevokeRefs
-      - /iam.identity.v1.RefCommand/ImportRefs
+      # ProfileLinkCommand - 档案关系管理
+      - /iam.identity.v1.ProfileLinkCommand/EstablishProfileLink
+      - /iam.identity.v1.ProfileLinkCommand/RevokeProfileLink
+      - /iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks
+      - /iam.identity.v1.ProfileLinkCommand/ImportProfileLinks
       
       # IdentityLifecycle - 用户生命周期管理
       - /iam.identity.v1.IdentityLifecycle/CreateUser
@@ -44,7 +44,7 @@ services:
       
       # AuthService - Token 验证和管理
       - /iam.authn.v1.AuthService/VerifyToken
-      - /iam.authn.v1.AuthService/RegisterOperationAccount
+      - /iam.authn.v1.AccountOnboardingService/CreateOperationAccount
       - /iam.authn.v1.AuthService/RefreshToken
       - /iam.authn.v1.AuthService/IssueServiceToken
       
@@ -73,16 +73,16 @@ services:
       - /iam.identity.v1.IdentityRead/GetProfile
       - /iam.identity.v1.IdentityRead/BatchGetProfiles
       
-      # RefQuery - 档案关系查询
-      - /iam.identity.v1.RefQuery/IsRef
-      - /iam.identity.v1.RefQuery/ListProfiles
-      - /iam.identity.v1.RefQuery/ListRefs
+      # ProfileLinkQuery - 档案关系查询
+      - /iam.identity.v1.ProfileLinkQuery/HasProfileLink
+      - /iam.identity.v1.ProfileLinkQuery/ListProfiles
+      - /iam.identity.v1.ProfileLinkQuery/ListProfileLinks
       
-      # RefCommand - 档案关系管理
-      - /iam.identity.v1.RefCommand/AddRef
-      - /iam.identity.v1.RefCommand/RevokeRef
-      - /iam.identity.v1.RefCommand/BatchRevokeRefs
-      - /iam.identity.v1.RefCommand/ImportRefs
+      # ProfileLinkCommand - 档案关系管理
+      - /iam.identity.v1.ProfileLinkCommand/EstablishProfileLink
+      - /iam.identity.v1.ProfileLinkCommand/RevokeProfileLink
+      - /iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks
+      - /iam.identity.v1.ProfileLinkCommand/ImportProfileLinks
       
       # IdentityLifecycle - 用户生命周期管理
       - /iam.identity.v1.IdentityLifecycle/CreateUser
@@ -110,11 +110,12 @@ services:
     allowed_methods:
       # 所有 Identity 服务方法
       - /iam.identity.v1.IdentityRead/*
-      - /iam.identity.v1.RefQuery/*
-      - /iam.identity.v1.RefCommand/*
+      - /iam.identity.v1.ProfileLinkQuery/*
+      - /iam.identity.v1.ProfileLinkCommand/*
       - /iam.identity.v1.IdentityLifecycle/*
       # 所有 Authn 服务方法
       - /iam.authn.v1.AuthService/*
+      - /iam.authn.v1.AccountOnboardingService/*
       - /iam.authn.v1.JWKSService/*
       - /iam.idp.v1.IDPService/*
       - /iam.authz.v1.AuthorizationService/*
@@ -147,8 +148,8 @@ services:
     allowed_methods:
       - /iam.identity.v1.IdentityRead/BatchGetUsers
       - /iam.identity.v1.IdentityRead/BatchGetProfiles
-      - /iam.identity.v1.RefQuery/ListProfiles
-      - /iam.identity.v1.RefQuery/ListRefs
+      - /iam.identity.v1.ProfileLinkQuery/ListProfiles
+      - /iam.identity.v1.ProfileLinkQuery/ListProfileLinks
       - /iam.authz.v1.AuthorizationService/GetAuthorizationSnapshot
 
 # 服务凭证配置（用于应用层鉴权）

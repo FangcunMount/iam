@@ -130,8 +130,8 @@ func (r *Repository) findByUserIDAndProfileID(ctx context.Context, userID meta.I
 	return g, nil
 }
 
-// HasProfileLink 检查是否为档案关系
-func (r *Repository) HasProfileLink(ctx context.Context, userID meta.ID, profileID meta.ID) (bool, error) {
+// IsLinked 检查是否为档案关系
+func (r *Repository) IsLinked(ctx context.Context, userID meta.ID, profileID meta.ID) (bool, error) {
 	var count int64
 	if err := r.WithContext(ctx).Model(&ProfileLinkPO{}).
 		Where("user_id = ? AND profile_id = ? AND revoked_at IS NULL", userID.Uint64(), profileID.Uint64()).

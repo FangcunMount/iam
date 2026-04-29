@@ -51,7 +51,7 @@ func registerProfileRoutes(api *gin.RouterGroup, h *handler.ProfileHandler) {
 		me.GET("/profiles", h.ListMyProfiles)
 	}
 
-	api.POST("/profiles", h.RegisterProfile)
+	api.POST("/profiles", h.CreateProfile)
 	api.GET("/profiles/search", h.SearchProfiles)
 
 	profiles := api.Group("/profiles")

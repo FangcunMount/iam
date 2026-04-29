@@ -9,7 +9,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
-	registerApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
 	tokenDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/token"
@@ -23,20 +23,23 @@ import (
 
 // Service 聚合 authn 模块的 gRPC 服务
 type Service struct {
-	auth authServiceServer
-	jwks jwksServiceServer
+	auth       authServiceServer
+	onboarding accountOnboardingServer
+	jwks       jwksServiceServer
 }
 
 // NewService 创建 authn gRPC 服务
 func NewService(
 	tokenSvc tokenApp.TokenApplicationService,
-	registerSvc registerApp.RegisterApplicationService,
+	accountOnboarder onboardingApp.AccountOnboarder,
 	keyPublish *jwksApp.KeyPublishAppService,
 ) *Service {
 	return &Service{
 		auth: authServiceServer{
-			tokenSvc:    tokenSvc,
-			registerSvc: registerSvc,
+			tokenSvc: tokenSvc,
+		},
+		onboarding: accountOnboardingServer{
+			accountOnboarder: accountOnboarder,
 		},
 		jwks: jwksServiceServer{
 			keyPublish: keyPublish,
@@ -52,6 +55,9 @@ func (s *Service) Register(server *grpc.Server) {
 	if s.auth.tokenSvc != nil {
 		authnv1.RegisterAuthServiceServer(server, &s.auth)
 	}
+	if s.onboarding.accountOnboarder != nil {
+		authnv1.RegisterAccountOnboardingServiceServer(server, &s.onboarding)
+	}
 	if s.jwks.keyPublish != nil {
 		authnv1.RegisterJWKSServiceServer(server, &s.jwks)
 	}
@@ -59,8 +65,12 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authServiceServer struct {
 	authnv1.UnimplementedAuthServiceServer
-	tokenSvc    tokenApp.TokenApplicationService
-	registerSvc registerApp.RegisterApplicationService
+	tokenSvc tokenApp.TokenApplicationService
+}
+
+type accountOnboardingServer struct {
+	authnv1.UnimplementedAccountOnboardingServiceServer
+	accountOnboarder onboardingApp.AccountOnboarder
 }
 
 type jwksServiceServer struct {
@@ -102,9 +112,9 @@ func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv1.Verify
 	return resp, nil
 }
 
-func (s *authServiceServer) RegisterOperationAccount(ctx context.Context, req *authnv1.RegisterOperationAccountRequest) (*authnv1.RegisterOperationAccountResponse, error) {
-	if s.registerSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "register service not configured")
+func (s *accountOnboardingServer) CreateOperationAccount(ctx context.Context, req *authnv1.CreateOperationAccountRequest) (*authnv1.CreateOperationAccountResponse, error) {
+	if s.accountOnboarder == nil {
+		return nil, status.Error(codes.Unimplemented, "account onboarding service not configured")
 	}
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
@@ -149,7 +159,7 @@ func (s *authServiceServer) RegisterOperationAccount(ctx context.Context, req *a
 		}
 	}
 
-	result, err := s.registerSvc.Register(ctx, registerApp.RegisterRequest{
+	result, err := s.accountOnboarder.Onboard(ctx, onboardingApp.OnboardingRequest{
 		Name:           name,
 		Phone:          phone,
 		Email:          email,
@@ -157,14 +167,14 @@ func (s *authServiceServer) RegisterOperationAccount(ctx context.Context, req *a
 		OperaLoginID:   strings.TrimSpace(req.GetOperaLoginId()),
 		ScopedTenantID: scopedTenantID,
 		AccountType:    accountDomain.TypeOpera,
-		CredentialType: registerApp.CredTypePassword,
+		CredentialType: onboardingApp.CredTypePassword,
 		Password:       &password,
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return &authnv1.RegisterOperationAccountResponse{
+	return &authnv1.CreateOperationAccountResponse{
 		UserId:       result.UserID.String(),
 		AccountId:    result.AccountID.String(),
 		CredentialId: result.CredentialID.String(),

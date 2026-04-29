@@ -11,29 +11,29 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// ProfileLinkManager 档案关系管理领域服务
-type ProfileLinkManager struct {
+// ProfileLinker 建立和撤销档案关系的领域能力。
+type ProfileLinker struct {
 	repo        Repository
 	profileRepo profile.Repository
 	userRepo    user.Repository
 }
 
 // 确保实现
-var _ Manager = (*ProfileLinkManager)(nil)
+var _ Linker = (*ProfileLinker)(nil)
 
-// NewManagerService 创建管理服务
-func NewManagerService(r Repository, cr profile.Repository, ur user.Repository) *ProfileLinkManager {
-	return &ProfileLinkManager{
+// NewLinker 创建档案关系领域能力。
+func NewLinker(r Repository, cr profile.Repository, ur user.Repository) *ProfileLinker {
+	return &ProfileLinker{
 		repo:        r,
 		profileRepo: cr,
 		userRepo:    ur,
 	}
 }
 
-// CreateProfileLink 添加关系用户
+// Establish 建立档案关系。
 // 领域逻辑：验证用户和档案存在性 + 验证档案关系不重复 + 创建关系实体
 // 注意：不包括持久化，返回创建的档案关系实体供应用层持久化
-func (s *ProfileLinkManager) CreateProfileLink(ctx context.Context, userID meta.ID, profileID meta.ID, relation Relation) (*ProfileLink, error) {
+func (s *ProfileLinker) Establish(ctx context.Context, userID meta.ID, profileID meta.ID, relation Relation) (*ProfileLink, error) {
 	// 验证档案存在
 	c, err := s.profileRepo.FindByID(ctx, profileID)
 	if err != nil {
@@ -79,10 +79,10 @@ func (s *ProfileLinkManager) CreateProfileLink(ctx context.Context, userID meta.
 	return newProfileLink, nil
 }
 
-// RemoveProfileLink 撤销关系
+// Revoke 撤销档案关系。
 // 领域逻辑：查询档案关系 + 撤销关系
 // 注意：不包括持久化，返回修改后的档案关系实体供应用层持久化
-func (s *ProfileLinkManager) RemoveProfileLink(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error) {
+func (s *ProfileLinker) Revoke(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error) {
 	// 查询档案关系
 	profileLinks, err := s.repo.FindByProfileID(ctx, profileID)
 	if err != nil {

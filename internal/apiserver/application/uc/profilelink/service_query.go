@@ -8,21 +8,21 @@ import (
 )
 
 // ==================================================
-// ==== ProfileLinkQueryApplicationService 实现 =====
+// ==== Directory 实现 =====
 // ==================================================
 
-// profileLinkQueryApplicationService 档案关系查询应用服务实现
-type profileLinkQueryApplicationService struct {
+// directory 档案关系查询用例实现
+type directory struct {
 	uow uow.UnitOfWork
 }
 
-// NewProfileLinkQueryApplicationService 创建档案关系查询应用服务
-func NewProfileLinkQueryApplicationService(uow uow.UnitOfWork) ProfileLinkQueryApplicationService {
-	return &profileLinkQueryApplicationService{uow: uow}
+// NewDirectory 创建档案关系查询用例
+func NewDirectory(uow uow.UnitOfWork) Directory {
+	return &directory{uow: uow}
 }
 
-// HasProfileLink 检查是否为关系用户
-func (s *profileLinkQueryApplicationService) HasProfileLink(ctx context.Context, userID string, profileID string) (bool, error) {
+// IsLinked 检查是否为关系用户
+func (s *directory) IsLinked(ctx context.Context, userID string, profileID string) (bool, error) {
 	var hasProfileLink bool
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
@@ -37,24 +37,24 @@ func (s *profileLinkQueryApplicationService) HasProfileLink(ctx context.Context,
 			return err
 		}
 
-		hasProfileLink, err = tx.ProfileLinks.HasProfileLink(txCtx, userIDObj, profileIDObj)
+		hasProfileLink, err = tx.ProfileLinks.IsLinked(txCtx, userIDObj, profileIDObj)
 		return err
 	})
 
 	return hasProfileLink, err
 }
 
-// GetByUserIDAndProfileID 查询档案关系
-func (s *profileLinkQueryApplicationService) GetByUserIDAndProfileID(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error) {
+// Get 查询档案关系
+func (s *directory) Get(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error) {
 	return s.getByUserIDAndProfileID(ctx, userID, profileID, false)
 }
 
-// GetByUserIDAndProfileIDIncludingRevoked 查询档案关系（包含已撤销）
-func (s *profileLinkQueryApplicationService) GetByUserIDAndProfileIDIncludingRevoked(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error) {
+// GetIncludingRevoked 查询档案关系（包含已撤销）
+func (s *directory) GetIncludingRevoked(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error) {
 	return s.getByUserIDAndProfileID(ctx, userID, profileID, true)
 }
 
-func (s *profileLinkQueryApplicationService) getByUserIDAndProfileID(ctx context.Context, userID string, profileID string, includeRevoked bool) (*ProfileLinkResult, error) {
+func (s *directory) getByUserIDAndProfileID(ctx context.Context, userID string, profileID string, includeRevoked bool) (*ProfileLinkResult, error) {
 	var result *ProfileLinkResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
@@ -92,17 +92,17 @@ func (s *profileLinkQueryApplicationService) getByUserIDAndProfileID(ctx context
 	return result, err
 }
 
-// ListProfilesByUserID 列出用户关系的所有档案
-func (s *profileLinkQueryApplicationService) ListProfilesByUserID(ctx context.Context, userID string) ([]*ProfileLinkResult, error) {
+// ListProfilesForUser 列出用户关系的所有档案
+func (s *directory) ListProfilesForUser(ctx context.Context, userID string) ([]*ProfileLinkResult, error) {
 	return s.listProfilesByUserID(ctx, userID, false)
 }
 
-// ListProfilesByUserIDIncludingRevoked 列出用户关系的所有档案（包含已撤销）
-func (s *profileLinkQueryApplicationService) ListProfilesByUserIDIncludingRevoked(ctx context.Context, userID string) ([]*ProfileLinkResult, error) {
+// ListProfilesForUserIncludingRevoked 列出用户关系的所有档案（包含已撤销）
+func (s *directory) ListProfilesForUserIncludingRevoked(ctx context.Context, userID string) ([]*ProfileLinkResult, error) {
 	return s.listProfilesByUserID(ctx, userID, true)
 }
 
-func (s *profileLinkQueryApplicationService) listProfilesByUserID(ctx context.Context, userID string, includeRevoked bool) ([]*ProfileLinkResult, error) {
+func (s *directory) listProfilesByUserID(ctx context.Context, userID string, includeRevoked bool) ([]*ProfileLinkResult, error) {
 	var results []*ProfileLinkResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
@@ -141,17 +141,17 @@ func (s *profileLinkQueryApplicationService) listProfilesByUserID(ctx context.Co
 	return results, err
 }
 
-// ListProfileLinksByProfileID 列出档案的所有关系用户
-func (s *profileLinkQueryApplicationService) ListProfileLinksByProfileID(ctx context.Context, profileID string) ([]*ProfileLinkResult, error) {
+// ListLinksForProfile 列出档案的所有关系用户
+func (s *directory) ListLinksForProfile(ctx context.Context, profileID string) ([]*ProfileLinkResult, error) {
 	return s.listProfileLinksByProfileID(ctx, profileID, false)
 }
 
-// ListProfileLinksByProfileIDIncludingRevoked 列出档案的所有关系用户（包含已撤销）
-func (s *profileLinkQueryApplicationService) ListProfileLinksByProfileIDIncludingRevoked(ctx context.Context, profileID string) ([]*ProfileLinkResult, error) {
+// ListLinksForProfileIncludingRevoked 列出档案的所有关系用户（包含已撤销）
+func (s *directory) ListLinksForProfileIncludingRevoked(ctx context.Context, profileID string) ([]*ProfileLinkResult, error) {
 	return s.listProfileLinksByProfileID(ctx, profileID, true)
 }
 
-func (s *profileLinkQueryApplicationService) listProfileLinksByProfileID(ctx context.Context, profileID string, includeRevoked bool) ([]*ProfileLinkResult, error) {
+func (s *directory) listProfileLinksByProfileID(ctx context.Context, profileID string, includeRevoked bool) ([]*ProfileLinkResult, error) {
 	var results []*ProfileLinkResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {

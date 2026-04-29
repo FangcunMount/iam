@@ -44,7 +44,7 @@ func (s *stubProfileLinkRepo) FindByUserIDAndProfileID(context.Context, meta.ID,
 func (s *stubProfileLinkRepo) FindByUserIDAndProfileIDIncludingRevoked(context.Context, meta.ID, meta.ID) (*ProfileLink, error) {
 	return nil, nil
 }
-func (s *stubProfileLinkRepo) HasProfileLink(context.Context, meta.ID, meta.ID) (bool, error) {
+func (s *stubProfileLinkRepo) IsLinked(context.Context, meta.ID, meta.ID) (bool, error) {
 	return false, nil
 }
 func (s *stubProfileLinkRepo) Update(context.Context, *ProfileLink) error { return nil }
@@ -85,7 +85,7 @@ func (s *seqProfileLinkRepo) FindByUserIDAndProfileID(context.Context, meta.ID, 
 func (s *seqProfileLinkRepo) FindByUserIDAndProfileIDIncludingRevoked(context.Context, meta.ID, meta.ID) (*ProfileLink, error) {
 	return nil, nil
 }
-func (s *seqProfileLinkRepo) HasProfileLink(context.Context, meta.ID, meta.ID) (bool, error) {
+func (s *seqProfileLinkRepo) IsLinked(context.Context, meta.ID, meta.ID) (bool, error) {
 	return false, nil
 }
 func (s *seqProfileLinkRepo) Update(context.Context, *ProfileLink) error { return nil }

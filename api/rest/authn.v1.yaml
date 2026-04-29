@@ -76,7 +76,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.Account'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.Account'
         '400':
           description: 请求参数错误
           content:
@@ -110,7 +110,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -177,14 +177,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.UpsertWeChatProfileReq'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -217,14 +217,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.SetWeChatUnionIDReq'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq'
       responses:
         '200':
           description: 设置成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -234,39 +234,6 @@ paths:
                 type: object
         '404':
           description: 账户不存在
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-  /authn/accounts/wechat/register:
-    post:
-      tags:
-      - 账户管理
-      summary: 微信用户注册
-      description: 使用微信 JS Code 注册新用户，服务端根据 AppID 查询 AppSecret 并自动调用 code2session 获取 OpenID 和 UnionID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RegisterWeChatAccountReq'
-      responses:
-        '201':
-          description: 注册成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.RegisterResult'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-        '409':
-          description: 用户已存在
           content:
             application/json:
               schema:
@@ -302,7 +269,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyListResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.KeyListResponse'
         '400':
           description: 参数错误
           content:
@@ -337,14 +304,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.CreateKeyRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.CreateKeyRequest'
       responses:
         '201':
           description: 创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.KeyResponse'
         '400':
           description: 参数错误
           content:
@@ -388,7 +355,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.KeyResponse'
         '400':
           description: 参数错误
           content:
@@ -569,7 +536,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.CleanupResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.CleanupResponse'
         '401':
           description: 未认证
           content:
@@ -600,7 +567,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.PublishableKeysResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.PublishableKeysResponse'
         '401':
           description: 未认证
           content:
@@ -624,20 +591,20 @@ paths:
       tags:
       - 认证
       summary: 用户登录
-      description: 支持多种登录方式：密码登录、手机验证码登录、微信小程序登录、企业微信登录。v1 为 legacy/inference adapter，应用层仍保持字段推断兼容行为；新调用方优先使用 v2 的 auth_method + method_payload 显式契约。
+      description: 支持多种登录方式：密码登录、手机验证码登录、微信小程序登录、企业微信登录；v1 使用 legacy inference 从 method/credentials 推断场景
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LoginRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.LoginRequest'
       responses:
         '200':
           description: 登录成功，返回访问令牌和刷新令牌
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenPair'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.TokenPair'
         '400':
           description: 请求参数错误
           content:
@@ -652,6 +619,24 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
+  /authn/login/prep/phone-otp:
+    post:
+      tags:
+      - 认证
+      summary: 登录预准备-发送手机验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.PreparePhoneOTPLoginRequest'
+      responses:
+        '200':
+          description: 已受理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse'
   /authn/logout:
     post:
       tags:
@@ -663,14 +648,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LogoutRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.LogoutRequest'
       responses:
         '200':
           description: 登出成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse'
         '400':
           description: 请求参数错误
           content:
@@ -689,14 +674,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RefreshTokenRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.RefreshTokenRequest'
       responses:
         '200':
           description: 刷新成功，返回新的访问令牌
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenPair'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.TokenPair'
         '400':
           description: 请求参数错误
           content:
@@ -706,6 +691,39 @@ paths:
                 type: object
         '401':
           description: 刷新令牌无效或已过期
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+  /authn/signups/wechat-miniprogram:
+    post:
+      tags:
+      - 账户管理
+      summary: 微信小程序账号开通
+      description: 使用微信 JS Code 开通账号，服务端根据 AppID 查询 AppSecret 并自动调用 code2session 获取 OpenID 和 UnionID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest'
+      responses:
+        '201':
+          description: 开通成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.SignupResult'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        '409':
+          description: 用户已存在
           content:
             application/json:
               schema:
@@ -722,14 +740,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.VerifyTokenRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.VerifyTokenRequest'
       responses:
         '200':
           description: 验证成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenVerifyResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.TokenVerifyResponse'
         '400':
           description: 请求参数错误
           content:
@@ -744,24 +762,6 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
-  /authn/login/prep/phone-otp:
-    post:
-      tags:
-      - 认证
-      summary: 登录预准备-发送手机验证码
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.PreparePhoneOTPLoginRequest'
-      responses:
-        '200':
-          description: 已受理
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -834,7 +834,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.CreateKeyRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.CreateKeyRequest:
       properties:
         algorithm:
           description: 签名算法
@@ -852,10 +852,10 @@ components:
       required:
       - algorithm
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LoginRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.LoginRequest:
       properties:
         credentials:
-          description: 凭证（根据 method 不同而不同）。legacy/inference 字段推断兼容入口；新调用方请使用 v2 method_payload。
+          description: 凭证（根据 method 不同而不同）；v1 legacy inference 的凭证载荷
           items:
             type: integer
           type: array
@@ -863,13 +863,13 @@ components:
           description: 设备 ID
           type: string
         method:
-          description: 认证方式：password | phone_otp | wechat | wecom。v1 legacy/inference adapter 中该字段不是应用层最终权威选择，新调用方请使用 v2 auth_method。
+          description: 认证方式：password | phone_otp | wechat | wecom；v1 legacy inference 的方法标识
           type: string
       required:
       - credentials
       - method
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.LogoutRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.LogoutRequest:
       properties:
         access_token:
           description: 可选，撤销访问令牌
@@ -878,7 +878,7 @@ components:
           description: 可选，撤销刷新令牌
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.PreparePhoneOTPLoginRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.PreparePhoneOTPLoginRequest:
       properties:
         phone:
           description: 支持 E.164 或国内手机号，服务端规范为 E.164
@@ -886,14 +886,19 @@ components:
       required:
       - phone
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RefreshTokenRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.RefreshTokenRequest:
       properties:
         refresh_token:
           type: string
       required:
       - refresh_token
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.RegisterWeChatAccountReq:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq:
+      properties:
+        unionId:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest:
       properties:
         appId:
           description: 微信应用ID
@@ -925,12 +930,7 @@ components:
       - jsCode
       - name
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.SetWeChatUnionIDReq:
-      properties:
-        unionId:
-          type: string
-      type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.UpsertWeChatProfileReq:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq:
       properties:
         avatar:
           type: string
@@ -940,7 +940,7 @@ components:
         nickname:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_request.VerifyTokenRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.VerifyTokenRequest:
       properties:
         access_token:
           type: string
@@ -953,7 +953,7 @@ components:
       required:
       - access_token
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.Account:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.Account:
       properties:
         appId:
           type: string
@@ -968,18 +968,18 @@ components:
         userId:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.CleanupResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.CleanupResponse:
       properties:
         deletedCount:
           description: 删除的密钥数量
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyListResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.KeyListResponse:
       properties:
         keys:
           description: 密钥列表
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyInfo'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.KeyInfo'
           type: array
         limit:
           description: 每页数量
@@ -991,7 +991,7 @@ components:
           description: 总数
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.KeyResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.KeyResponse:
       properties:
         algorithm:
           description: 签名算法
@@ -1019,20 +1019,20 @@ components:
           description: 更新时间
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.MessageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.MessageResponse:
       properties:
         message:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.PublishableKeysResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.PublishableKeysResponse:
       properties:
         keys:
           description: 可发布的密钥列表
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.PublishableKeyInfo'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.PublishableKeyInfo'
           type: array
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.RegisterResult:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.SignupResult:
       properties:
         accountId:
           type: integer
@@ -1055,7 +1055,7 @@ components:
         userName:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenPair:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.TokenPair:
       properties:
         access_token:
           description: 访问令牌
@@ -1070,11 +1070,11 @@ components:
           description: 令牌类型（Bearer）
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenVerifyResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.TokenVerifyResponse:
       properties:
         claims:
           allOf:
-          - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_authn_restful_response.TokenClaims'
+          - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_response.TokenClaims'
           description: 令牌声明（如果有效）
         valid:
           description: 令牌是否有效
@@ -1091,6 +1091,6 @@ components:
             此消息适合暴露给外部'
           type: string
         reference:
-          description: ProfileLinkerence 返回参考文档，可能有助于解决此错误
+          description: Reference 返回参考文档，可能有助于解决此错误
           type: string
       type: object

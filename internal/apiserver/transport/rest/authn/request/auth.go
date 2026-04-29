@@ -10,9 +10,9 @@ import (
 
 // LoginRequest 统一登录请求
 type LoginRequest struct {
-	Method      string          `json:"method" binding:"required"`      // 认证方式：password | phone_otp | wechat | wecom
+	Method      string          `json:"method" binding:"required"`      // 认证方式：password | phone_otp | wechat | wecom；v1 legacy inference 的方法标识
 	DeviceID    string          `json:"device_id,omitempty"`            // 设备 ID
-	Credentials json.RawMessage `json:"credentials" binding:"required"` // 凭证（根据 method 不同而不同）
+	Credentials json.RawMessage `json:"credentials" binding:"required"` // 凭证（根据 method 不同而不同）；v1 legacy inference 的凭证载荷
 }
 
 // Validate 验证登录请求

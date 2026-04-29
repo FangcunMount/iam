@@ -117,12 +117,11 @@ func registerAccountEndpoints(v1 *gin.RouterGroup, h *authhandler.AccountHandler
 		return
 	}
 
-	accounts := v1.Group("/accounts")
-
-	// 微信注册（公开端点，无需认证）
-	accounts.POST("/wechat/register", h.RegisterWithWeChat)
+	signups := v1.Group("/signups")
+	signups.POST("/wechat-miniprogram", h.SignUpWithWeChatMiniProgram)
 
 	// 账户查询和管理（需要认证）
+	accounts := v1.Group("/accounts")
 	accounts.GET("/:accountId", h.GetAccountByID)
 	accounts.PUT("/:accountId/profile", h.UpdateProfile)
 	accounts.PUT("/:accountId/unionid", h.SetUnionID)

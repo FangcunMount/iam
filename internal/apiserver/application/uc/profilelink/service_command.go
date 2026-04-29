@@ -9,20 +9,20 @@ import (
 )
 
 // =============================================
-// ==== ProfileLinkApplicationService 实现 =====
+// ==== Commands 实现 =====
 // =============================================
-// profileLinkApplicationService 档案关系应用服务实现
-type profileLinkApplicationService struct {
+// commands 档案关系用例实现
+type commands struct {
 	uow uow.UnitOfWork
 }
 
-// NewProfileLinkApplicationService 创建档案关系应用服务
-func NewProfileLinkApplicationService(uow uow.UnitOfWork) ProfileLinkApplicationService {
-	return &profileLinkApplicationService{uow: uow}
+// NewCommands 创建档案关系用例
+func NewCommands(uow uow.UnitOfWork) Commands {
+	return &commands{uow: uow}
 }
 
 // CreateProfileLink 添加关系用户
-func (s *profileLinkApplicationService) CreateProfileLink(ctx context.Context, dto CreateProfileLinkDTO) error {
+func (s *commands) Establish(ctx context.Context, dto CreateProfileLinkDTO) error {
 	l := logger.L(ctx)
 	l.Debugw("添加关系用户",
 		"action", logger.ActionCreate,
@@ -34,7 +34,7 @@ func (s *profileLinkApplicationService) CreateProfileLink(ctx context.Context, d
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
-		managerService := domain.NewManagerService(tx.ProfileLinks, tx.Profiles, tx.Users)
+		managerService := domain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
 
 		// 转换 ID
 		userID, err := parseUserID(dto.UserID)
@@ -60,7 +60,7 @@ func (s *profileLinkApplicationService) CreateProfileLink(ctx context.Context, d
 		relation := domain.ParseRelation(dto.Relation)
 
 		// 调用领域服务添加关系用户
-		profileLink, err := managerService.CreateProfileLink(ctx, userID, profileID, relation)
+		profileLink, err := managerService.Establish(ctx, userID, profileID, relation)
 		if err != nil {
 			l.Errorw("添加关系用户失败",
 				"action", logger.ActionCreate,
@@ -89,7 +89,7 @@ func (s *profileLinkApplicationService) CreateProfileLink(ctx context.Context, d
 }
 
 // RemoveProfileLink 移除关系用户
-func (s *profileLinkApplicationService) RemoveProfileLink(ctx context.Context, dto RemoveProfileLinkDTO) error {
+func (s *commands) Revoke(ctx context.Context, dto RemoveProfileLinkDTO) error {
 	l := logger.L(ctx)
 	l.Debugw("移除关系用户",
 		"action", logger.ActionDelete,
@@ -100,7 +100,7 @@ func (s *profileLinkApplicationService) RemoveProfileLink(ctx context.Context, d
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
-		managerService := domain.NewManagerService(tx.ProfileLinks, tx.Profiles, tx.Users)
+		managerService := domain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
 
 		// 转换 ID
 		userID, err := parseUserID(dto.UserID)
@@ -123,7 +123,7 @@ func (s *profileLinkApplicationService) RemoveProfileLink(ctx context.Context, d
 		}
 
 		// 调用领域服务移除关系用户
-		profileLink, err := managerService.RemoveProfileLink(ctx, userID, profileID)
+		profileLink, err := managerService.Revoke(ctx, userID, profileID)
 		if err != nil {
 			l.Errorw("移除关系用户失败",
 				"action", logger.ActionDelete,

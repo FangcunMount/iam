@@ -24,8 +24,8 @@ type ProfilePageResponse struct {
 	Items  []ProfileResponse `json:"items"`
 }
 
-// ProfileRegisterResponse 档案注册响应
-type ProfileRegisterResponse struct {
+// ProfileCreateResponse 档案创建响应。
+type ProfileCreateResponse struct {
 	Profile     ProfileResponse     `json:"profile"`
 	ProfileLink ProfileLinkResponse `json:"profileLink"`
 }

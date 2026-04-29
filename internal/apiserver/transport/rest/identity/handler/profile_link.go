@@ -9,18 +9,20 @@ import (
 	requestdto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	_ "github.com/FangcunMount/iam/pkg/core" // imported for swagger
+	"github.com/FangcunMount/iam/pkg/core"
 )
+
+var _ = core.ErrResponse{}
 
 // ProfileLinkHandler 档案关系 REST 处理器
 type ProfileLinkHandler struct {
 	*BaseHandler
-	profileLinkAccess appprofilelink.ProfileLinkAccessApplicationService
+	profileLinkAccess appprofilelink.MyProfileLinks
 }
 
 // NewProfileLinkHandler 创建关系处理器
 func NewProfileLinkHandler(
-	profileLinkAccess appprofilelink.ProfileLinkAccessApplicationService,
+	profileLinkAccess appprofilelink.MyProfileLinks,
 ) *ProfileLinkHandler {
 	return &ProfileLinkHandler{
 		BaseHandler:       NewBaseHandler(),
@@ -55,7 +57,7 @@ func (h *ProfileLinkHandler) Grant(c *gin.Context) {
 		return
 	}
 
-	result, err := h.profileLinkAccess.GrantForCurrentUser(c.Request.Context(), currentUserID, appprofilelink.CreateProfileLinkDTO{
+	result, err := h.profileLinkAccess.Grant(c.Request.Context(), currentUserID, appprofilelink.CreateProfileLinkDTO{
 		UserID:    req.UserID,
 		ProfileID: req.ProfileID,
 		Relation:  req.Relation,
@@ -91,7 +93,7 @@ func (h *ProfileLinkHandler) Revoke(c *gin.Context) {
 		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
 		return
 	}
-	result, err := h.profileLinkAccess.RevokeBySelector(c.Request.Context(), appprofilelink.RevokeProfileLinkBySelectorDTO{
+	result, err := h.profileLinkAccess.Revoke(c.Request.Context(), appprofilelink.RevokeProfileLinkBySelectorDTO{
 		ProfileLinkID: profileLinkID,
 	})
 	if err != nil {
@@ -131,7 +133,7 @@ func (h *ProfileLinkHandler) List(c *gin.Context) {
 		return
 	}
 
-	results, err := h.profileLinkAccess.ListForCurrentUser(c.Request.Context(), currentUserID, appprofilelink.ListProfileLinksDTO{
+	results, err := h.profileLinkAccess.List(c.Request.Context(), currentUserID, appprofilelink.ListProfileLinksDTO{
 		UserID:    req.UserID,
 		ProfileID: req.ProfileID,
 		Active:    req.Active,

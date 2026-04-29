@@ -9,21 +9,21 @@ import (
 )
 
 // ============================================
-// ==== ProfileQueryApplicationService 实现 =====
+// ==== Directory 实现 =====
 // ============================================
 
-// profileQueryApplicationService 档案查询应用服务实现
-type profileQueryApplicationService struct {
+// directory 档案查询用例实现
+type directory struct {
 	uow uow.UnitOfWork
 }
 
-// NewProfileQueryApplicationService 创建档案查询应用服务
-func NewProfileQueryApplicationService(uow uow.UnitOfWork) ProfileQueryApplicationService {
-	return &profileQueryApplicationService{uow: uow}
+// NewDirectory 创建档案查询用例
+func NewDirectory(uow uow.UnitOfWork) Directory {
+	return &directory{uow: uow}
 }
 
 // GetByID 根据 ID 查询档案
-func (s *profileQueryApplicationService) GetByID(ctx context.Context, profileID string) (*ProfileResult, error) {
+func (s *directory) GetByID(ctx context.Context, profileID string) (*ProfileResult, error) {
 	l := logger.L(ctx)
 	var result *ProfileResult
 
@@ -76,7 +76,7 @@ func (s *profileQueryApplicationService) GetByID(ctx context.Context, profileID 
 }
 
 // GetByIDCard 根据身份证查询档案
-func (s *profileQueryApplicationService) GetByIDCard(ctx context.Context, idCard string) (*ProfileResult, error) {
+func (s *directory) GetByIDCard(ctx context.Context, idCard string) (*ProfileResult, error) {
 	l := logger.L(ctx)
 	var result *ProfileResult
 
@@ -126,7 +126,7 @@ func (s *profileQueryApplicationService) GetByIDCard(ctx context.Context, idCard
 }
 
 // FindSimilar 查找相似档案（姓名、性别、生日）
-func (s *profileQueryApplicationService) FindSimilar(ctx context.Context, name string, gender uint8, birthday string) ([]*ProfileResult, error) {
+func (s *directory) FindSimilar(ctx context.Context, name string, gender uint8, birthday string) ([]*ProfileResult, error) {
 	l := logger.L(ctx)
 	var results []*ProfileResult
 

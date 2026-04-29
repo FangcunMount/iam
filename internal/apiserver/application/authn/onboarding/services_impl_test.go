@@ -1,4 +1,4 @@
-package register
+package onboarding
 
 import (
 	"context"
@@ -101,7 +101,7 @@ func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {
 	email, err := meta.NewEmail("clack@fangcunmount.com")
 	require.NoError(t, err)
 
-	req := RegisterRequest{
+	req := OnboardingRequest{
 		Name:           "clack",
 		Email:          email,
 		AccountType:    accountdomain.TypeWcMinip,

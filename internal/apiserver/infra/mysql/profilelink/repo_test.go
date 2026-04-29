@@ -91,7 +91,7 @@ func TestRepository_DefaultQueriesExcludeRevokedRefs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, withRevokedByProfile, 1)
 
-	hasProfileLink, err := repo.HasProfileLink(ctx, record.User, record.Profile)
+	hasProfileLink, err := repo.IsLinked(ctx, record.User, record.Profile)
 	require.NoError(t, err)
 	assert.False(t, hasProfileLink)
 }

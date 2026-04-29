@@ -35,6 +35,7 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodPost, "/api/v2/authn/login"},
 		{http.MethodPost, "/api/v1/authn/login/prep/phone-otp"},
 		{http.MethodPost, "/api/v1/authn/refresh_token"},
+		{http.MethodPost, "/api/v1/authn/signups/wechat-miniprogram"},
 		{http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure"},
 		{http.MethodGet, "/api/v1/authz/health"},
 		{http.MethodPost, "/api/v1/authz/check"},
@@ -49,6 +50,7 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 	} {
 		assertRoutePresent(t, routes, route.method, route.path)
 	}
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v1/authn/accounts/wechat/register")
 }
 
 func TestRouterOpenAPIContractCoversRegisteredPublicRoutes(t *testing.T) {
@@ -97,7 +99,7 @@ func routeMatrixDeps() Deps {
 	}
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
-		ProfileHandler:     uchandler.NewProfileHandler(nil, nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil, nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Suggest = SuggestDeps{Service: appsuggest.NewService(appsuggest.Config{})}
@@ -208,6 +210,15 @@ func assertRoutePresent(t *testing.T, routes gin.RoutesInfo, method, path string
 		}
 	}
 	t.Fatalf("route %s %s not registered", method, path)
+}
+
+func assertRouteAbsent(t *testing.T, routes gin.RoutesInfo, method, path string) {
+	t.Helper()
+	for _, route := range routes {
+		if route.Method == method && route.Path == path {
+			t.Fatalf("route %s %s should not be registered", method, path)
+		}
+	}
 }
 
 func repoRoot(t *testing.T) string {

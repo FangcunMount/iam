@@ -624,7 +624,7 @@ func (x *VerifyTokenResponse) GetFailureReason() string {
 	return ""
 }
 
-type RegisterOperationAccountRequest struct {
+type CreateOperationAccountRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	ExistingUserId string                 `protobuf:"bytes,1,opt,name=existing_user_id,json=existingUserId,proto3" json:"existing_user_id,omitempty"`
 	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -637,20 +637,20 @@ type RegisterOperationAccountRequest struct {
 	sizeCache      protoimpl.SizeCache
 }
 
-func (x *RegisterOperationAccountRequest) Reset() {
-	*x = RegisterOperationAccountRequest{}
+func (x *CreateOperationAccountRequest) Reset() {
+	*x = CreateOperationAccountRequest{}
 	mi := &file_iam_authn_v1_authn_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisterOperationAccountRequest) String() string {
+func (x *CreateOperationAccountRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisterOperationAccountRequest) ProtoMessage() {}
+func (*CreateOperationAccountRequest) ProtoMessage() {}
 
-func (x *RegisterOperationAccountRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateOperationAccountRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_authn_v1_authn_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -662,61 +662,61 @@ func (x *RegisterOperationAccountRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisterOperationAccountRequest.ProtoReflect.Descriptor instead.
-func (*RegisterOperationAccountRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateOperationAccountRequest.ProtoReflect.Descriptor instead.
+func (*CreateOperationAccountRequest) Descriptor() ([]byte, []int) {
 	return file_iam_authn_v1_authn_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *RegisterOperationAccountRequest) GetExistingUserId() string {
+func (x *CreateOperationAccountRequest) GetExistingUserId() string {
 	if x != nil {
 		return x.ExistingUserId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountRequest) GetName() string {
+func (x *CreateOperationAccountRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountRequest) GetPhone() string {
+func (x *CreateOperationAccountRequest) GetPhone() string {
 	if x != nil {
 		return x.Phone
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountRequest) GetEmail() string {
+func (x *CreateOperationAccountRequest) GetEmail() string {
 	if x != nil {
 		return x.Email
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountRequest) GetScopedTenantId() string {
+func (x *CreateOperationAccountRequest) GetScopedTenantId() string {
 	if x != nil {
 		return x.ScopedTenantId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountRequest) GetOperaLoginId() string {
+func (x *CreateOperationAccountRequest) GetOperaLoginId() string {
 	if x != nil {
 		return x.OperaLoginId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountRequest) GetPassword() string {
+func (x *CreateOperationAccountRequest) GetPassword() string {
 	if x != nil {
 		return x.Password
 	}
 	return ""
 }
 
-type RegisterOperationAccountResponse struct {
+type CreateOperationAccountResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	AccountId     string                 `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
@@ -728,20 +728,20 @@ type RegisterOperationAccountResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RegisterOperationAccountResponse) Reset() {
-	*x = RegisterOperationAccountResponse{}
+func (x *CreateOperationAccountResponse) Reset() {
+	*x = CreateOperationAccountResponse{}
 	mi := &file_iam_authn_v1_authn_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisterOperationAccountResponse) String() string {
+func (x *CreateOperationAccountResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisterOperationAccountResponse) ProtoMessage() {}
+func (*CreateOperationAccountResponse) ProtoMessage() {}
 
-func (x *RegisterOperationAccountResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateOperationAccountResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_authn_v1_authn_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -753,47 +753,47 @@ func (x *RegisterOperationAccountResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisterOperationAccountResponse.ProtoReflect.Descriptor instead.
-func (*RegisterOperationAccountResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateOperationAccountResponse.ProtoReflect.Descriptor instead.
+func (*CreateOperationAccountResponse) Descriptor() ([]byte, []int) {
 	return file_iam_authn_v1_authn_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *RegisterOperationAccountResponse) GetUserId() string {
+func (x *CreateOperationAccountResponse) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountResponse) GetAccountId() string {
+func (x *CreateOperationAccountResponse) GetAccountId() string {
 	if x != nil {
 		return x.AccountId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountResponse) GetCredentialId() string {
+func (x *CreateOperationAccountResponse) GetCredentialId() string {
 	if x != nil {
 		return x.CredentialId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountResponse) GetExternalId() string {
+func (x *CreateOperationAccountResponse) GetExternalId() string {
 	if x != nil {
 		return x.ExternalId
 	}
 	return ""
 }
 
-func (x *RegisterOperationAccountResponse) GetIsNewUser() bool {
+func (x *CreateOperationAccountResponse) GetIsNewUser() bool {
 	if x != nil {
 		return x.IsNewUser
 	}
 	return false
 }
 
-func (x *RegisterOperationAccountResponse) GetIsNewAccount() bool {
+func (x *CreateOperationAccountResponse) GetIsNewAccount() bool {
 	if x != nil {
 		return x.IsNewAccount
 	}
@@ -1352,16 +1352,16 @@ const file_iam_authn_v1_authn_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\x0e2\x19.iam.authn.v1.TokenStatusR\x06status\x121\n" +
 	"\x06claims\x18\x03 \x01(\v2\x19.iam.authn.v1.TokenClaimsR\x06claims\x127\n" +
 	"\bmetadata\x18\x04 \x01(\v2\x1b.iam.authn.v1.TokenMetadataR\bmetadata\x12%\n" +
-	"\x0efailure_reason\x18\x05 \x01(\tR\rfailureReason\"\xf7\x01\n" +
-	"\x1fRegisterOperationAccountRequest\x12(\n" +
+	"\x0efailure_reason\x18\x05 \x01(\tR\rfailureReason\"\xf5\x01\n" +
+	"\x1dCreateOperationAccountRequest\x12(\n" +
 	"\x10existing_user_id\x18\x01 \x01(\tR\x0eexistingUserId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05phone\x18\x03 \x01(\tR\x05phone\x12\x14\n" +
 	"\x05email\x18\x04 \x01(\tR\x05email\x12(\n" +
 	"\x10scoped_tenant_id\x18\x05 \x01(\tR\x0escopedTenantId\x12$\n" +
 	"\x0eopera_login_id\x18\x06 \x01(\tR\foperaLoginId\x12\x1a\n" +
-	"\bpassword\x18\a \x01(\tR\bpassword\"\xe6\x01\n" +
-	" RegisterOperationAccountResponse\x12\x17\n" +
+	"\bpassword\x18\a \x01(\tR\bpassword\"\xe4\x01\n" +
+	"\x1eCreateOperationAccountResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x02 \x01(\tR\taccountId\x12#\n" +
@@ -1415,14 +1415,15 @@ const file_iam_authn_v1_authn_proto_rawDesc = "" +
 	"\x16TOKEN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11TOKEN_TYPE_ACCESS\x10\x01\x12\x16\n" +
 	"\x12TOKEN_TYPE_REFRESH\x10\x02\x12\x16\n" +
-	"\x12TOKEN_TYPE_SERVICE\x10\x032\xd6\x04\n" +
+	"\x12TOKEN_TYPE_SERVICE\x10\x032\xdb\x03\n" +
 	"\vAuthService\x12R\n" +
-	"\vVerifyToken\x12 .iam.authn.v1.VerifyTokenRequest\x1a!.iam.authn.v1.VerifyTokenResponse\x12y\n" +
-	"\x18RegisterOperationAccount\x12-.iam.authn.v1.RegisterOperationAccountRequest\x1a..iam.authn.v1.RegisterOperationAccountResponse\x12U\n" +
+	"\vVerifyToken\x12 .iam.authn.v1.VerifyTokenRequest\x1a!.iam.authn.v1.VerifyTokenResponse\x12U\n" +
 	"\fRefreshToken\x12!.iam.authn.v1.RefreshTokenRequest\x1a\".iam.authn.v1.RefreshTokenResponse\x12R\n" +
 	"\vRevokeToken\x12 .iam.authn.v1.RevokeTokenRequest\x1a!.iam.authn.v1.RevokeTokenResponse\x12g\n" +
 	"\x12RevokeRefreshToken\x12'.iam.authn.v1.RevokeRefreshTokenRequest\x1a(.iam.authn.v1.RevokeRefreshTokenResponse\x12d\n" +
-	"\x11IssueServiceToken\x12&.iam.authn.v1.IssueServiceTokenRequest\x1a'.iam.authn.v1.IssueServiceTokenResponse2U\n" +
+	"\x11IssueServiceToken\x12&.iam.authn.v1.IssueServiceTokenRequest\x1a'.iam.authn.v1.IssueServiceTokenResponse2\x8f\x01\n" +
+	"\x18AccountOnboardingService\x12s\n" +
+	"\x16CreateOperationAccount\x12+.iam.authn.v1.CreateOperationAccountRequest\x1a,.iam.authn.v1.CreateOperationAccountResponse2U\n" +
 	"\vJWKSService\x12F\n" +
 	"\aGetJWKS\x12\x1c.iam.authn.v1.GetJWKSRequest\x1a\x1d.iam.authn.v1.GetJWKSResponseB;Z9github.com/FangcunMount/iam/api/grpc/iam/authn/v1;authnv1b\x06proto3"
 
@@ -1441,32 +1442,32 @@ func file_iam_authn_v1_authn_proto_rawDescGZIP() []byte {
 var file_iam_authn_v1_authn_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_iam_authn_v1_authn_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_iam_authn_v1_authn_proto_goTypes = []any{
-	(TokenStatus)(0),                         // 0: iam.authn.v1.TokenStatus
-	(TokenType)(0),                           // 1: iam.authn.v1.TokenType
-	(*OperatorContext)(nil),                  // 2: iam.authn.v1.OperatorContext
-	(*TokenClaims)(nil),                      // 3: iam.authn.v1.TokenClaims
-	(*TokenPair)(nil),                        // 4: iam.authn.v1.TokenPair
-	(*TokenMetadata)(nil),                    // 5: iam.authn.v1.TokenMetadata
-	(*VerifyTokenRequest)(nil),               // 6: iam.authn.v1.VerifyTokenRequest
-	(*VerifyTokenResponse)(nil),              // 7: iam.authn.v1.VerifyTokenResponse
-	(*RegisterOperationAccountRequest)(nil),  // 8: iam.authn.v1.RegisterOperationAccountRequest
-	(*RegisterOperationAccountResponse)(nil), // 9: iam.authn.v1.RegisterOperationAccountResponse
-	(*RefreshTokenRequest)(nil),              // 10: iam.authn.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),             // 11: iam.authn.v1.RefreshTokenResponse
-	(*RevokeTokenRequest)(nil),               // 12: iam.authn.v1.RevokeTokenRequest
-	(*RevokeTokenResponse)(nil),              // 13: iam.authn.v1.RevokeTokenResponse
-	(*RevokeRefreshTokenRequest)(nil),        // 14: iam.authn.v1.RevokeRefreshTokenRequest
-	(*RevokeRefreshTokenResponse)(nil),       // 15: iam.authn.v1.RevokeRefreshTokenResponse
-	(*IssueServiceTokenRequest)(nil),         // 16: iam.authn.v1.IssueServiceTokenRequest
-	(*IssueServiceTokenResponse)(nil),        // 17: iam.authn.v1.IssueServiceTokenResponse
-	(*GetJWKSRequest)(nil),                   // 18: iam.authn.v1.GetJWKSRequest
-	(*GetJWKSResponse)(nil),                  // 19: iam.authn.v1.GetJWKSResponse
-	nil,                                      // 20: iam.authn.v1.OperatorContext.ExtraEntry
-	nil,                                      // 21: iam.authn.v1.TokenClaims.AttributesEntry
-	nil,                                      // 22: iam.authn.v1.RefreshTokenRequest.ContextEntry
-	(*timestamppb.Timestamp)(nil),            // 23: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),              // 24: google.protobuf.Duration
-	(*structpb.Struct)(nil),                  // 25: google.protobuf.Struct
+	(TokenStatus)(0),                       // 0: iam.authn.v1.TokenStatus
+	(TokenType)(0),                         // 1: iam.authn.v1.TokenType
+	(*OperatorContext)(nil),                // 2: iam.authn.v1.OperatorContext
+	(*TokenClaims)(nil),                    // 3: iam.authn.v1.TokenClaims
+	(*TokenPair)(nil),                      // 4: iam.authn.v1.TokenPair
+	(*TokenMetadata)(nil),                  // 5: iam.authn.v1.TokenMetadata
+	(*VerifyTokenRequest)(nil),             // 6: iam.authn.v1.VerifyTokenRequest
+	(*VerifyTokenResponse)(nil),            // 7: iam.authn.v1.VerifyTokenResponse
+	(*CreateOperationAccountRequest)(nil),  // 8: iam.authn.v1.CreateOperationAccountRequest
+	(*CreateOperationAccountResponse)(nil), // 9: iam.authn.v1.CreateOperationAccountResponse
+	(*RefreshTokenRequest)(nil),            // 10: iam.authn.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),           // 11: iam.authn.v1.RefreshTokenResponse
+	(*RevokeTokenRequest)(nil),             // 12: iam.authn.v1.RevokeTokenRequest
+	(*RevokeTokenResponse)(nil),            // 13: iam.authn.v1.RevokeTokenResponse
+	(*RevokeRefreshTokenRequest)(nil),      // 14: iam.authn.v1.RevokeRefreshTokenRequest
+	(*RevokeRefreshTokenResponse)(nil),     // 15: iam.authn.v1.RevokeRefreshTokenResponse
+	(*IssueServiceTokenRequest)(nil),       // 16: iam.authn.v1.IssueServiceTokenRequest
+	(*IssueServiceTokenResponse)(nil),      // 17: iam.authn.v1.IssueServiceTokenResponse
+	(*GetJWKSRequest)(nil),                 // 18: iam.authn.v1.GetJWKSRequest
+	(*GetJWKSResponse)(nil),                // 19: iam.authn.v1.GetJWKSResponse
+	nil,                                    // 20: iam.authn.v1.OperatorContext.ExtraEntry
+	nil,                                    // 21: iam.authn.v1.TokenClaims.AttributesEntry
+	nil,                                    // 22: iam.authn.v1.RefreshTokenRequest.ContextEntry
+	(*timestamppb.Timestamp)(nil),          // 23: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),            // 24: google.protobuf.Duration
+	(*structpb.Struct)(nil),                // 25: google.protobuf.Struct
 }
 var file_iam_authn_v1_authn_proto_depIdxs = []int32{
 	20, // 0: iam.authn.v1.OperatorContext.extra:type_name -> iam.authn.v1.OperatorContext.ExtraEntry
@@ -1491,18 +1492,18 @@ var file_iam_authn_v1_authn_proto_depIdxs = []int32{
 	4,  // 19: iam.authn.v1.IssueServiceTokenResponse.token_pair:type_name -> iam.authn.v1.TokenPair
 	23, // 20: iam.authn.v1.GetJWKSResponse.last_modified:type_name -> google.protobuf.Timestamp
 	6,  // 21: iam.authn.v1.AuthService.VerifyToken:input_type -> iam.authn.v1.VerifyTokenRequest
-	8,  // 22: iam.authn.v1.AuthService.RegisterOperationAccount:input_type -> iam.authn.v1.RegisterOperationAccountRequest
-	10, // 23: iam.authn.v1.AuthService.RefreshToken:input_type -> iam.authn.v1.RefreshTokenRequest
-	12, // 24: iam.authn.v1.AuthService.RevokeToken:input_type -> iam.authn.v1.RevokeTokenRequest
-	14, // 25: iam.authn.v1.AuthService.RevokeRefreshToken:input_type -> iam.authn.v1.RevokeRefreshTokenRequest
-	16, // 26: iam.authn.v1.AuthService.IssueServiceToken:input_type -> iam.authn.v1.IssueServiceTokenRequest
+	10, // 22: iam.authn.v1.AuthService.RefreshToken:input_type -> iam.authn.v1.RefreshTokenRequest
+	12, // 23: iam.authn.v1.AuthService.RevokeToken:input_type -> iam.authn.v1.RevokeTokenRequest
+	14, // 24: iam.authn.v1.AuthService.RevokeRefreshToken:input_type -> iam.authn.v1.RevokeRefreshTokenRequest
+	16, // 25: iam.authn.v1.AuthService.IssueServiceToken:input_type -> iam.authn.v1.IssueServiceTokenRequest
+	8,  // 26: iam.authn.v1.AccountOnboardingService.CreateOperationAccount:input_type -> iam.authn.v1.CreateOperationAccountRequest
 	18, // 27: iam.authn.v1.JWKSService.GetJWKS:input_type -> iam.authn.v1.GetJWKSRequest
 	7,  // 28: iam.authn.v1.AuthService.VerifyToken:output_type -> iam.authn.v1.VerifyTokenResponse
-	9,  // 29: iam.authn.v1.AuthService.RegisterOperationAccount:output_type -> iam.authn.v1.RegisterOperationAccountResponse
-	11, // 30: iam.authn.v1.AuthService.RefreshToken:output_type -> iam.authn.v1.RefreshTokenResponse
-	13, // 31: iam.authn.v1.AuthService.RevokeToken:output_type -> iam.authn.v1.RevokeTokenResponse
-	15, // 32: iam.authn.v1.AuthService.RevokeRefreshToken:output_type -> iam.authn.v1.RevokeRefreshTokenResponse
-	17, // 33: iam.authn.v1.AuthService.IssueServiceToken:output_type -> iam.authn.v1.IssueServiceTokenResponse
+	11, // 29: iam.authn.v1.AuthService.RefreshToken:output_type -> iam.authn.v1.RefreshTokenResponse
+	13, // 30: iam.authn.v1.AuthService.RevokeToken:output_type -> iam.authn.v1.RevokeTokenResponse
+	15, // 31: iam.authn.v1.AuthService.RevokeRefreshToken:output_type -> iam.authn.v1.RevokeRefreshTokenResponse
+	17, // 32: iam.authn.v1.AuthService.IssueServiceToken:output_type -> iam.authn.v1.IssueServiceTokenResponse
+	9,  // 33: iam.authn.v1.AccountOnboardingService.CreateOperationAccount:output_type -> iam.authn.v1.CreateOperationAccountResponse
 	19, // 34: iam.authn.v1.JWKSService.GetJWKS:output_type -> iam.authn.v1.GetJWKSResponse
 	28, // [28:35] is the sub-list for method output_type
 	21, // [21:28] is the sub-list for method input_type
@@ -1524,7 +1525,7 @@ func file_iam_authn_v1_authn_proto_init() {
 			NumEnums:      2,
 			NumMessages:   21,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   3,
 		},
 		GoTypes:           file_iam_authn_v1_authn_proto_goTypes,
 		DependencyIndexes: file_iam_authn_v1_authn_proto_depIdxs,

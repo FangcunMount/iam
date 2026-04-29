@@ -16,16 +16,15 @@ import (
 // UserModule 用户模块
 // 负责组装用户相关的所有组件
 type UserModule struct {
-	userAppSrv           appuser.UserApplicationService
-	userProfileAppSrv    appuser.UserProfileApplicationService
-	userStatusSrv        appuser.UserStatusApplicationService
-	userQuerySrv         appuser.UserQueryApplicationService
-	profileQuerySrv      appprofile.ProfileQueryApplicationService
-	profileAccessSrv     appprofile.ProfileAccessApplicationService
-	profileLinkAppSrv    appprofilelink.ProfileLinkApplicationService
-	profileLinkQuerySrv  appprofilelink.ProfileLinkQueryApplicationService
-	profileLinkAccessSrv appprofilelink.ProfileLinkAccessApplicationService
-	registrationAppSrv   appprofile.ProfileRegistrationService
+	userCreator          appuser.Creator
+	userEditor           appuser.Editor
+	userStatusChanger    appuser.StatusChanger
+	userDirectory        appuser.Directory
+	profileDirectory     appprofile.Directory
+	myProfiles           appprofile.MyProfiles
+	profileLinkCommands  appprofilelink.Commands
+	profileLinkDirectory appprofilelink.Directory
+	myProfileLinks       appprofilelink.MyProfileLinks
 	casbin               authn.CasbinEnforcer
 }
 
@@ -49,38 +48,25 @@ func (m *UserModule) InitializeWithDeps(deps UserModuleDeps) error {
 	// 事务
 	uow := mysqlUcUow.NewUnitOfWork(deps.DB)
 
-	// 用户应用服务（命令）
-	userAppSrv := appuser.NewUserApplicationService(uow)
-	userProfileAppSrv := appuser.NewUserProfileApplicationService(uow)
-	userStatusSrv := appuser.NewUserStatusApplicationService(uow, deps.SessionManager)
+	userCreator := appuser.NewCreator(uow)
+	userEditor := appuser.NewEditor(uow)
+	userStatusChanger := appuser.NewStatusChanger(uow, deps.SessionManager)
+	userDirectory := appuser.NewDirectory(uow)
+	profileDirectory := appprofile.NewDirectory(uow)
+	myProfiles := appprofile.NewMyProfiles(uow)
+	profileLinkCommands := appprofilelink.NewCommands(uow)
+	profileLinkDirectory := appprofilelink.NewDirectory(uow)
+	myProfileLinks := appprofilelink.NewMyProfileLinks(uow)
 
-	// 用户查询服务
-	userQuerySrv := appuser.NewUserQueryApplicationService(uow)
-
-	// 儿童查询服务
-	profileQuerySrv := appprofile.NewProfileQueryApplicationService(uow)
-	profileAccessSrv := appprofile.NewProfileAccessApplicationService(uow)
-
-	// 档案关系应用服务
-	profileLinkAppSrv := appprofilelink.NewProfileLinkApplicationService(uow)
-
-	// 档案关系查询服务
-	profileLinkQuerySrv := appprofilelink.NewProfileLinkQueryApplicationService(uow)
-	profileLinkAccessSrv := appprofilelink.NewProfileLinkAccessApplicationService(uow)
-
-	// 组合注册服务（单事务创建 profile + profile link）
-	registrationAppSrv := appprofile.NewProfileRegistrationService(uow)
-
-	m.userAppSrv = userAppSrv
-	m.userProfileAppSrv = userProfileAppSrv
-	m.userStatusSrv = userStatusSrv
-	m.userQuerySrv = userQuerySrv
-	m.profileQuerySrv = profileQuerySrv
-	m.profileAccessSrv = profileAccessSrv
-	m.profileLinkAppSrv = profileLinkAppSrv
-	m.profileLinkQuerySrv = profileLinkQuerySrv
-	m.profileLinkAccessSrv = profileLinkAccessSrv
-	m.registrationAppSrv = registrationAppSrv
+	m.userCreator = userCreator
+	m.userEditor = userEditor
+	m.userStatusChanger = userStatusChanger
+	m.userDirectory = userDirectory
+	m.profileDirectory = profileDirectory
+	m.myProfiles = myProfiles
+	m.profileLinkCommands = profileLinkCommands
+	m.profileLinkDirectory = profileLinkDirectory
+	m.myProfileLinks = myProfileLinks
 	m.casbin = deps.Casbin
 	return nil
 }
@@ -102,16 +88,15 @@ func (m *UserModule) ApplicationCapabilities() UserApplicationCapabilities {
 		return UserApplicationCapabilities{}
 	}
 	return UserApplicationCapabilities{
-		UserService:                m.userAppSrv,
-		UserProfileService:         m.userProfileAppSrv,
-		UserStatusService:          m.userStatusSrv,
-		UserQueryService:           m.userQuerySrv,
-		ProfileQueryService:        m.profileQuerySrv,
-		ProfileAccessService:       m.profileAccessSrv,
-		ProfileLinkService:         m.profileLinkAppSrv,
-		ProfileLinkQueryService:    m.profileLinkQuerySrv,
-		ProfileLinkAccessService:   m.profileLinkAccessSrv,
-		ProfileRegistrationService: m.registrationAppSrv,
-		Casbin:                     m.casbin,
+		UserCreator:          m.userCreator,
+		UserEditor:           m.userEditor,
+		UserStatusChanger:    m.userStatusChanger,
+		UserDirectory:        m.userDirectory,
+		ProfileDirectory:     m.profileDirectory,
+		MyProfiles:           m.myProfiles,
+		ProfileLinkCommands:  m.profileLinkCommands,
+		ProfileLinkDirectory: m.profileLinkDirectory,
+		MyProfileLinks:       m.myProfileLinks,
+		Casbin:               m.casbin,
 	}
 }

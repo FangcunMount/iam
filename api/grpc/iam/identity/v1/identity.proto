@@ -200,13 +200,13 @@ message HasProfileLinkResponse {
 
 // ============= Command Models =============
 
-message CreateProfileLinkRequest {
+message EstablishProfileLinkRequest {
   string user_id = 1;
   string profile_id = 2;
   ProfileLinkRelation relation = 3;
   OperatorContext operator = 10;
 }
-message CreateProfileLinkResponse { ProfileLink profile_link = 1; }
+message EstablishProfileLinkResponse { ProfileLink profile_link = 1; }
 
 message RevokeProfileLinkRequest {
   ProfileLinkSelector target = 1;
@@ -297,7 +297,7 @@ service ProfileLinkQuery {
 }
 
 service ProfileLinkCommand {
-  rpc CreateProfileLink(CreateProfileLinkRequest) returns (CreateProfileLinkResponse);
+  rpc EstablishProfileLink(EstablishProfileLinkRequest) returns (EstablishProfileLinkResponse);
   rpc RevokeProfileLink(RevokeProfileLinkRequest) returns (RevokeProfileLinkResponse);
   rpc BatchRevokeProfileLinks(BatchRevokeProfileLinksRequest) returns (BatchRevokeProfileLinksResponse);
   rpc ImportProfileLinks(ImportProfileLinksRequest) returns (ImportProfileLinksResponse);

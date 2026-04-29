@@ -29,7 +29,7 @@ func TestIdentityGRPCRuntimeRegistersOnlyImplementedServices(t *testing.T) {
 		"HasProfileLink", "ListProfiles", "ListProfileLinks",
 	}, methodNames(info["iam.identity.v1.ProfileLinkQuery"]))
 	assert.ElementsMatch(t, []string{
-		"CreateProfileLink", "RevokeProfileLink", "BatchRevokeProfileLinks", "ImportProfileLinks",
+		"EstablishProfileLink", "RevokeProfileLink", "BatchRevokeProfileLinks", "ImportProfileLinks",
 	}, methodNames(info["iam.identity.v1.ProfileLinkCommand"]))
 	assert.ElementsMatch(t, []string{
 		"CreateUser", "UpdateUser", "DeactivateUser", "BlockUser",

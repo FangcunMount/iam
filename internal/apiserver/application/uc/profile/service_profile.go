@@ -10,20 +10,20 @@ import (
 )
 
 // ==============================================
-// ==== ProfileApplicationService 实现 =====
+// ==== Editor 实现 =====
 // ==============================================
 
-type profileApplicationService struct {
+type profileEditor struct {
 	uow uow.UnitOfWork
 }
 
-// NewProfileApplicationService 创建档案资料应用服务。
-func NewProfileApplicationService(uow uow.UnitOfWork) ProfileApplicationService {
-	return &profileApplicationService{uow: uow}
+// NewEditor 创建档案资料用例。
+func NewEditor(uow uow.UnitOfWork) Editor {
+	return &profileEditor{uow: uow}
 }
 
 // Rename 修改档案姓名
-func (s *profileApplicationService) Rename(ctx context.Context, profileID string, newName string) error {
+func (s *profileEditor) Rename(ctx context.Context, profileID string, newName string) error {
 	l := logger.L(ctx)
 
 	l.Debugw("开始修改档案姓名",
@@ -36,7 +36,7 @@ func (s *profileApplicationService) Rename(ctx context.Context, profileID string
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Profiles)
-		profileService := domain.NewProfileService(tx.Profiles, validator)
+		profileService := domain.NewEditor(tx.Profiles, validator)
 
 		// 转换 ID
 		id, err := parseProfileID(profileID)
@@ -81,7 +81,7 @@ func (s *profileApplicationService) Rename(ctx context.Context, profileID string
 }
 
 // UpdateIDCard 更新身份证
-func (s *profileApplicationService) UpdateIDCard(ctx context.Context, profileID string, name string, idCard string) error {
+func (s *profileEditor) UpdateIDCard(ctx context.Context, profileID string, name string, idCard string) error {
 	l := logger.L(ctx)
 
 	l.Debugw("开始更新档案身份证",
@@ -93,7 +93,7 @@ func (s *profileApplicationService) UpdateIDCard(ctx context.Context, profileID 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Profiles)
-		profileService := domain.NewProfileService(tx.Profiles, validator)
+		profileService := domain.NewEditor(tx.Profiles, validator)
 
 		// 转换 ID
 		id, err := parseProfileID(profileID)
@@ -151,7 +151,7 @@ func (s *profileApplicationService) UpdateIDCard(ctx context.Context, profileID 
 }
 
 // UpdateProfile 更新基本信息（性别、生日）
-func (s *profileApplicationService) UpdateProfile(ctx context.Context, dto UpdateProfileDTO) error {
+func (s *profileEditor) UpdateProfile(ctx context.Context, dto UpdateProfileDTO) error {
 	l := logger.L(ctx)
 
 	l.Debugw("开始更新档案基本信息",
@@ -163,7 +163,7 @@ func (s *profileApplicationService) UpdateProfile(ctx context.Context, dto Updat
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Profiles)
-		profileService := domain.NewProfileService(tx.Profiles, validator)
+		profileService := domain.NewEditor(tx.Profiles, validator)
 
 		// 转换 ID
 		id, err := parseProfileID(dto.ProfileID)
@@ -212,7 +212,7 @@ func (s *profileApplicationService) UpdateProfile(ctx context.Context, dto Updat
 }
 
 // UpdateHeightWeight 更新身高体重
-func (s *profileApplicationService) UpdateHeightWeight(ctx context.Context, dto UpdateHeightWeightDTO) error {
+func (s *profileEditor) UpdateHeightWeight(ctx context.Context, dto UpdateHeightWeightDTO) error {
 	l := logger.L(ctx)
 
 	l.Debugw("开始更新档案身高体重",
@@ -224,7 +224,7 @@ func (s *profileApplicationService) UpdateHeightWeight(ctx context.Context, dto 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := domain.NewValidator(tx.Profiles)
-		profileService := domain.NewProfileService(tx.Profiles, validator)
+		profileService := domain.NewEditor(tx.Profiles, validator)
 
 		// 转换 ID
 		id, err := parseProfileID(dto.ProfileID)

@@ -32,7 +32,7 @@ func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
 		caps := c.AuthnModule.ApplicationCapabilities()
 		deps.ModuleStatus.Authn = true
 		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.LoginService, caps.TokenService, caps.LoginPreparationService)
-		deps.Authn.AccountHandler = authnhandler.NewAccountHandler(caps.AccountService, caps.RegisterService)
+		deps.Authn.AccountHandler = authnhandler.NewAccountHandler(caps.AccountService, caps.AccountOnboarder)
 		deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyPublishApp)
 		deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionService)
 		deps.Authn.TokenService = caps.TokenService
@@ -73,17 +73,16 @@ func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
 		caps := c.UserModule.ApplicationCapabilities()
 		deps.ModuleStatus.User = true
 		deps.User.UserHandler = identityhandler.NewUserHandler(
-			caps.UserService,
-			caps.UserProfileService,
-			caps.UserQueryService,
+			caps.UserCreator,
+			caps.UserEditor,
+			caps.UserDirectory,
 			caps.Casbin,
 		)
 		deps.User.ProfileHandler = identityhandler.NewProfileHandler(
-			caps.ProfileRegistrationService,
-			caps.ProfileAccessService,
-			caps.ProfileQueryService,
+			caps.MyProfiles,
+			caps.ProfileDirectory,
 		)
-		deps.User.ProfileLinkHandler = identityhandler.NewProfileLinkHandler(caps.ProfileLinkAccessService)
+		deps.User.ProfileLinkHandler = identityhandler.NewProfileLinkHandler(caps.MyProfileLinks)
 	}
 }
 

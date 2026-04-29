@@ -4,39 +4,39 @@ import (
 	"context"
 )
 
-// ============= 应用服务接口（Driving Ports）=============
+// ============= 当前调用者用例接口（Driving Ports）=============
 
-// ProfileLinkApplicationService 档案关系应用服务
-type ProfileLinkApplicationService interface {
-	// CreateProfileLink 添加关系用户
-	CreateProfileLink(ctx context.Context, dto CreateProfileLinkDTO) error
-	// RemoveProfileLink 移除关系用户
-	RemoveProfileLink(ctx context.Context, dto RemoveProfileLinkDTO) error
+// Commands 执行系统侧档案关系命令。
+type Commands interface {
+	// Establish 建立档案关系。
+	Establish(ctx context.Context, dto CreateProfileLinkDTO) error
+	// Revoke 撤销档案关系。
+	Revoke(ctx context.Context, dto RemoveProfileLinkDTO) error
 }
 
-// ProfileLinkQueryApplicationService 档案关系查询应用服务（只读）
-type ProfileLinkQueryApplicationService interface {
-	// HasProfileLink 检查是否为关系用户
-	HasProfileLink(ctx context.Context, userID string, profileID string) (bool, error)
-	// GetByUserIDAndProfileID 查询档案关系
-	GetByUserIDAndProfileID(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error)
-	// GetByUserIDAndProfileIDIncludingRevoked 查询档案关系（包含已撤销）
-	GetByUserIDAndProfileIDIncludingRevoked(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error)
-	// ListProfilesByUserID 列出用户关系的所有档案
-	ListProfilesByUserID(ctx context.Context, userID string) ([]*ProfileLinkResult, error)
-	// ListProfilesByUserIDIncludingRevoked 列出用户关系的所有档案（包含已撤销）
-	ListProfilesByUserIDIncludingRevoked(ctx context.Context, userID string) ([]*ProfileLinkResult, error)
-	// ListProfileLinksByProfileID 列出档案的所有关系用户
-	ListProfileLinksByProfileID(ctx context.Context, profileID string) ([]*ProfileLinkResult, error)
-	// ListProfileLinksByProfileIDIncludingRevoked 列出档案的所有关系用户（包含已撤销）
-	ListProfileLinksByProfileIDIncludingRevoked(ctx context.Context, profileID string) ([]*ProfileLinkResult, error)
+// Directory 查询档案关系。
+type Directory interface {
+	// IsLinked 检查是否为关系用户
+	IsLinked(ctx context.Context, userID string, profileID string) (bool, error)
+	// Get 查询档案关系
+	Get(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error)
+	// GetIncludingRevoked 查询档案关系（包含已撤销）
+	GetIncludingRevoked(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error)
+	// ListProfilesForUser 列出用户关系的所有档案
+	ListProfilesForUser(ctx context.Context, userID string) ([]*ProfileLinkResult, error)
+	// ListProfilesForUserIncludingRevoked 列出用户关系的所有档案（包含已撤销）
+	ListProfilesForUserIncludingRevoked(ctx context.Context, userID string) ([]*ProfileLinkResult, error)
+	// ListLinksForProfile 列出档案的所有关系用户
+	ListLinksForProfile(ctx context.Context, profileID string) ([]*ProfileLinkResult, error)
+	// ListLinksForProfileIncludingRevoked 列出档案的所有关系用户（包含已撤销）
+	ListLinksForProfileIncludingRevoked(ctx context.Context, profileID string) ([]*ProfileLinkResult, error)
 }
 
-// ProfileLinkAccessApplicationService 当前用户视角的档案关系访问用例。
-type ProfileLinkAccessApplicationService interface {
-	GrantForCurrentUser(ctx context.Context, currentUserID string, dto CreateProfileLinkDTO) (*ProfileLinkResult, error)
-	ListForCurrentUser(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error)
-	RevokeBySelector(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error)
+// MyProfileLinks 当前用户视角的档案关系访问用例。
+type MyProfileLinks interface {
+	Grant(ctx context.Context, currentUserID string, dto CreateProfileLinkDTO) (*ProfileLinkResult, error)
+	List(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error)
+	Revoke(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error)
 }
 
 // ============= DTOs =============

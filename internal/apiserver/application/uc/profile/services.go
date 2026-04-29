@@ -6,45 +6,40 @@ import (
 	appProfileLink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
 )
 
-// ============= 应用服务接口（Driving Ports）=============
+// ============= 当前调用者用例接口（Driving Ports）=============
 
-// ProfileApplicationService 档案命令应用服务。
-type ProfileApplicationService interface {
-	Register(ctx context.Context, dto RegisterProfileDTO) (*ProfileResult, error)
+// Creator 创建档案。
+type Creator interface {
+	Create(ctx context.Context, dto CreateProfileDTO) (*ProfileResult, error)
+}
+
+// Editor 编辑档案资料。
+type Editor interface {
 	Rename(ctx context.Context, profileID string, newName string) error
 	UpdateIDCard(ctx context.Context, profileID string, name string, idCard string) error
 	UpdateProfile(ctx context.Context, dto UpdateProfileDTO) error
 	UpdateHeightWeight(ctx context.Context, dto UpdateHeightWeightDTO) error
 }
 
-// ProfileCreatorApplicationService 是创建档案的窄接口，供只需要建档能力的调用方使用。
-type ProfileCreatorApplicationService interface {
-	Register(ctx context.Context, dto RegisterProfileDTO) (*ProfileResult, error)
-}
-
-// ProfileRegistrationService 负责需要跨 Profile/ProfileLink 聚合的建档用例。
-type ProfileRegistrationService interface {
-	RegisterProfileWithProfileLink(ctx context.Context, dto RegisterProfileWithProfileLinkDTO) (*RegisterProfileWithProfileLinkResult, error)
-}
-
-// ProfileQueryApplicationService 档案查询应用服务。
-type ProfileQueryApplicationService interface {
+// Directory 查询档案。
+type Directory interface {
 	GetByID(ctx context.Context, profileID string) (*ProfileResult, error)
 	GetByIDCard(ctx context.Context, idCard string) (*ProfileResult, error)
 	FindSimilar(ctx context.Context, name string, gender uint8, birthday string) ([]*ProfileResult, error)
 }
 
-// ProfileAccessApplicationService 当前用户视角的档案访问用例。
-type ProfileAccessApplicationService interface {
-	ListForProfileLink(ctx context.Context, userID string) ([]*ProfileResult, error)
-	GetForProfileLink(ctx context.Context, userID string, profileID string) (*ProfileResult, error)
-	PatchForProfileLink(ctx context.Context, dto PatchProfileForProfileLinkDTO) (*ProfileResult, error)
+// MyProfiles 当前用户视角的档案用例。
+type MyProfiles interface {
+	Create(ctx context.Context, currentUserID string, dto CreateMyProfileDTO) (*CreatedProfileResult, error)
+	List(ctx context.Context, userID string) ([]*ProfileResult, error)
+	Get(ctx context.Context, userID string, profileID string) (*ProfileResult, error)
+	Patch(ctx context.Context, dto PatchMyProfileDTO) (*ProfileResult, error)
 }
 
 // ============= DTOs =============
 
-// RegisterProfileDTO 创建档案 DTO。
-type RegisterProfileDTO struct {
+// CreateProfileDTO 创建档案 DTO。
+type CreateProfileDTO struct {
 	Name     string
 	Gender   uint8
 	Birthday string
@@ -53,9 +48,8 @@ type RegisterProfileDTO struct {
 	Weight   *uint32
 }
 
-// RegisterProfileWithProfileLinkDTO 同时创建档案并建立用户关系。
-type RegisterProfileWithProfileLinkDTO struct {
-	UserID   string
+// CreateMyProfileDTO 当前用户创建档案并建立关系 DTO。
+type CreateMyProfileDTO struct {
 	Name     string
 	Gender   uint8
 	Birthday string
@@ -79,8 +73,8 @@ type UpdateHeightWeightDTO struct {
 	Weight    uint32
 }
 
-// PatchProfileForProfileLinkDTO 当前用户通过关系更新档案 DTO。
-type PatchProfileForProfileLinkDTO struct {
+// PatchMyProfileDTO 当前用户通过关系更新档案 DTO。
+type PatchMyProfileDTO struct {
 	UserID    string
 	ProfileID string
 	LegalName *string
@@ -101,8 +95,8 @@ type ProfileResult struct {
 	Weight   uint32
 }
 
-// RegisterProfileWithProfileLinkResult 聚合 Profile 和 ProfileLink 的返回结果。
-type RegisterProfileWithProfileLinkResult struct {
+// CreatedProfileResult 聚合 Profile 和 ProfileLink 的返回结果。
+type CreatedProfileResult struct {
 	Profile     *ProfileResult
 	ProfileLink *appProfileLink.ProfileLinkResult
 }

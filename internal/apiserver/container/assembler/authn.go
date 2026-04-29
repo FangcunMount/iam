@@ -13,7 +13,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
 	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
-	registerApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
@@ -30,7 +30,7 @@ import (
 type AuthnModule struct {
 	// 应用服务
 	AccountService          accountApp.AccountApplicationService
-	RegisterService         registerApp.RegisterApplicationService
+	AccountOnboarder        onboardingApp.AccountOnboarder
 	LoginService            login.LoginApplicationService
 	LoginPreparationService loginprep.LoginPreparationService
 	TokenService            token.TokenApplicationService
@@ -137,7 +137,7 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 	}
 	return AuthnApplicationCapabilities{
 		AccountService:          m.AccountService,
-		RegisterService:         m.RegisterService,
+		AccountOnboarder:        m.AccountOnboarder,
 		LoginService:            m.LoginService,
 		LoginPreparationService: m.LoginPreparationService,
 		TokenService:            m.TokenService,

@@ -81,7 +81,7 @@ message VerifyTokenResponse {
   string failure_reason = 5;
 }
 
-message RegisterOperationAccountRequest {
+message CreateOperationAccountRequest {
   string existing_user_id = 1;
   string name = 2;
   string phone = 3;
@@ -91,7 +91,7 @@ message RegisterOperationAccountRequest {
   string password = 7;
 }
 
-message RegisterOperationAccountResponse {
+message CreateOperationAccountResponse {
   string user_id = 1;
   string account_id = 2;
   string credential_id = 3;
@@ -133,11 +133,14 @@ message IssueServiceTokenResponse {
 
 service AuthService {
   rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
-  rpc RegisterOperationAccount(RegisterOperationAccountRequest) returns (RegisterOperationAccountResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
   rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
   rpc RevokeRefreshToken(RevokeRefreshTokenRequest) returns (RevokeRefreshTokenResponse);
   rpc IssueServiceToken(IssueServiceTokenRequest) returns (IssueServiceTokenResponse);
+}
+
+service AccountOnboardingService {
+  rpc CreateOperationAccount(CreateOperationAccountRequest) returns (CreateOperationAccountResponse);
 }
 
 // ============= JWKSService =============

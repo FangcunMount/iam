@@ -51,7 +51,7 @@ func NewAuthHandler(
 
 // Login 统一登录端点
 // @Summary 用户登录
-// @Description 支持多种登录方式：密码登录、手机验证码登录、微信小程序登录、企业微信登录
+// @Description 支持多种登录方式：密码登录、手机验证码登录、微信小程序登录、企业微信登录；v1 使用 legacy inference 从 method/credentials 推断场景
 // @Tags 认证
 // @Accept json
 // @Produce json

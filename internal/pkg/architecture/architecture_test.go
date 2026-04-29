@@ -607,6 +607,88 @@ func TestUCLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
 	}
 }
 
+func TestUCSemanticServiceNamesDoNotRegress(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, relRoot := range []string{
+		"internal/apiserver/application/uc",
+		"internal/apiserver/domain/uc",
+	} {
+		scanGoSources(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path, source string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, token := range []string{
+				"ApplicationService",
+				"NewProfileService",
+				"NewManagerService",
+				"ProfileLinkManager",
+				"Registrar",
+				"NewRegistrar",
+				"RegisterUserDTO",
+				"RegisterProfileDTO",
+			} {
+				if strings.Contains(source, token) {
+					t.Fatalf("%s contains retired UC service name %q; use semantic capabilities such as Creator, Editor, Directory, MyProfiles, Linker, or Commands", rel, token)
+				}
+			}
+		})
+
+		scanGoFiles(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path string, file *ast.File) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, decl := range file.Decls {
+				switch d := decl.(type) {
+				case *ast.GenDecl:
+					for _, spec := range d.Specs {
+						typeSpec, ok := spec.(*ast.TypeSpec)
+						if !ok {
+							continue
+						}
+						if strings.HasSuffix(typeSpec.Name.Name, "Manager") {
+							t.Fatalf("%s declares %s; UC service names should express domain capability rather than Manager", rel, typeSpec.Name.Name)
+						}
+					}
+				case *ast.FuncDecl:
+					if strings.HasPrefix(d.Name.Name, "New") && strings.HasSuffix(d.Name.Name, "Manager") {
+						t.Fatalf("%s declares %s; UC constructors should express domain capability rather than Manager", rel, d.Name.Name)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	if _, err := os.Stat(filepath.Join(root, "internal", "apiserver", "application", "authn", "register")); err == nil {
+		t.Fatal("internal/apiserver/application/authn/register is retired; use application/authn/onboarding")
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	assertFileContains(t, root, "api/grpc/iam/authn/v1/authn.proto", "service AccountOnboardingService")
+	assertFileContains(t, root, "api/grpc/iam/authn/v1/authn.proto", "rpc CreateOperationAccount")
+	assertFileLacks(t, root, "api/grpc/iam/authn/v1/authn.proto", "RegisterOperationAccount")
+	assertFileLacks(t, root, "pkg/sdk/auth/client/client.go", "RegisterOperationAccount")
+	assertFileContains(t, root, "pkg/sdk/auth/client/client.go", "CreateOperationAccount")
+
+	assertFileContains(t, root, "api/grpc/iam/identity/v1/identity.proto", "rpc EstablishProfileLink")
+	assertFileLacks(t, root, "api/grpc/iam/identity/v1/identity.proto", "CreateProfileLink")
+	assertFileLacks(t, root, "pkg/sdk/identity/profile_link_command.go", "CreateProfileLink")
+
+	for _, rel := range []string{
+		"api/rest/authn.v1.yaml",
+		"internal/apiserver/docs/swagger.yaml",
+	} {
+		assertFileContains(t, root, rel, "/authn/signups/wechat-miniprogram")
+		assertFileLacks(t, root, rel, "/authn/accounts/wechat/register")
+	}
+	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/signups"`)
+	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/wechat-miniprogram"`)
+	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", "/wechat/register")
+}
+
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
 	t.Parallel()
 
@@ -855,6 +937,28 @@ func assertNoUCLegacyToken(t *testing.T, root, path string) {
 		if strings.Contains(source, token) {
 			t.Fatalf("%s contains retired UC model token %q", rel, token)
 		}
+	}
+}
+
+func assertFileContains(t *testing.T, root, rel, token string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), token) {
+		t.Fatalf("%s does not contain required token %q", rel, token)
+	}
+}
+
+func assertFileLacks(t *testing.T, root, rel, token string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), token) {
+		t.Fatalf("%s contains retired token %q", rel, token)
 	}
 }
 

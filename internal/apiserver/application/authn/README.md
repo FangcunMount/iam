@@ -15,13 +15,13 @@ application/
 
 ## 服务职责划分
 
-### 1. RegisterApplicationService - 注册服务
+### 1. AccountOnboarder - 注册服务
 
 **职责**：处理用户注册流程
 
 **核心方法**：
 
-- `Register(ctx, RegisterRequest)` - 统一注册接口
+- `Register(ctx, OnboardingRequest)` - 统一注册接口
 
 **注册流程**：
 
@@ -40,7 +40,7 @@ application/
 **使用示例**：
 
 ```go
-result, err := registerService.Register(ctx, RegisterRequest{
+result, err := registerService.Register(ctx, OnboardingRequest{
     Name:  "张三",
     Phone: "+8613800138000",
     CredentialType: register.CredentialTypePassword,
@@ -188,7 +188,7 @@ err := accountService.BindCredential(ctx, BindCredentialRequest{
 
 ```go
 // 1. 用户注册
-registerResult, err := registerService.Register(ctx, RegisterRequest{
+registerResult, err := registerService.Register(ctx, OnboardingRequest{
     Name:           "张三",
     Phone:          "+8613800138000",
     Email:          "zhangsan@example.com",
@@ -312,7 +312,7 @@ func NewApplicationServices(
     
     // 应用服务
     return &ApplicationServices{
-        Register: register.NewRegisterApplicationService(uow),
+        Register: register.NewAccountOnboarder(uow),
         Login:    login.NewLoginApplicationService(strategyFactory, tokenIssuer),
         Token:    token.NewTokenApplicationService(tokenVerifier, tokenRefresher),
         Account:  account.NewAccountApplicationService(uow),
@@ -364,7 +364,7 @@ func LoginHandler(loginService login.LoginApplicationService) gin.HandlerFunc {
 
 **正确的使用方式**：
 
-- 注册 → `RegisterApplicationService`
+- 注册 → `AccountOnboarder`
 - 登录 → `LoginApplicationService.Login`
 - 登出 → `LoginApplicationService.Logout`
 - API 认证中间件 → `TokenApplicationService.VerifyToken`

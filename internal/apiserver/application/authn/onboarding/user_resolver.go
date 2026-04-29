@@ -1,16 +1,14 @@
-package register
+package onboarding
 
 import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	profileDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
 	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -44,7 +42,7 @@ func newUserResolver(
 	}
 }
 
-func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositories, req *RegisterRequest) (*userResolution, error) {
+func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositories, req *OnboardingRequest) (*userResolution, error) {
 	userRepo := repos.Users
 	if userRepo == nil {
 		userRepo = r.fallbackUserRepo
@@ -58,7 +56,7 @@ func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositori
 		if user == nil {
 			return nil, perrors.WithCode(code.ErrInvalidArgument, "existing user not found: %s", req.ExistingUserID.String())
 		}
-		if err := ensureSelfProfileLink(ctx, repos, user); err != nil {
+		if err := profileLinkDomain.NewSelfProfileEnsurer(repos.Profiles, repos.ProfileLinks).Ensure(ctx, user); err != nil {
 			return nil, err
 		}
 		return &userResolution{User: user, IsNewUser: false}, nil
@@ -82,7 +80,7 @@ func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositori
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureSelfProfileLink(ctx, repos, user); err != nil {
+	if err := profileLinkDomain.NewSelfProfileEnsurer(repos.Profiles, repos.ProfileLinks).Ensure(ctx, user); err != nil {
 		return nil, err
 	}
 	return &userResolution{User: user, IsNewUser: isNewUser}, nil
@@ -92,7 +90,7 @@ func (r *UserResolver) createOrGetUser(
 	ctx context.Context,
 	repo userDomain.Repository,
 	accountRepo domain.Repository,
-	req RegisterRequest,
+	req OnboardingRequest,
 	wechatOpenID string,
 	wechatUnionID string,
 ) (*userDomain.User, bool, error) {
@@ -150,35 +148,11 @@ func (r *UserResolver) createOrGetUser(
 	return user, true, nil
 }
 
-func ensureSelfProfileLink(ctx context.Context, repos registrationRepositories, user *userDomain.User) error {
-	if user == nil || repos.Profiles == nil || repos.ProfileLinks == nil {
-		return nil
-	}
-	profileLinks, err := repos.ProfileLinks.FindByUserID(ctx, user.ID)
-	if err != nil {
-		return err
-	}
-	for _, existing := range profileLinks {
-		if existing != nil && existing.Type == profileLinkDomain.TypeSelf && existing.IsActive() {
-			return nil
-		}
-	}
-
-	selfProfile, err := profileDomain.NewProfile(user.Name)
-	if err != nil {
-		return err
-	}
-	if err := repos.Profiles.Create(ctx, selfProfile); err != nil {
-		return err
-	}
-	return repos.ProfileLinks.Create(ctx, profileLinkDomain.NewSelfProfileLink(user.ID, selfProfile.ID, time.Now()))
-}
-
 func (r *UserResolver) loadOrRepairUserForAccount(
 	ctx context.Context,
 	repo userDomain.Repository,
 	userID meta.ID,
-	req RegisterRequest,
+	req OnboardingRequest,
 ) (*userDomain.User, bool, error) {
 	user, err := repo.FindByID(ctx, userID)
 	if err == nil {
@@ -212,7 +186,7 @@ func (r *UserResolver) loadOrRepairUserForAccount(
 	return recovered, false, nil
 }
 
-func (r *UserResolver) resolveWechatIDs(ctx context.Context, req RegisterRequest) (string, string, error) {
+func (r *UserResolver) resolveWechatIDs(ctx context.Context, req OnboardingRequest) (string, string, error) {
 	if req.AccountType != domain.TypeWcMinip {
 		return "", "", nil
 	}

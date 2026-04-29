@@ -75,6 +75,6 @@ components:
             此消息适合暴露给外部'
           type: string
         reference:
-          description: ProfileLinkerence 返回参考文档，可能有助于解决此错误
+          description: Reference 返回参考文档，可能有助于解决此错误
           type: string
       type: object

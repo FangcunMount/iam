@@ -7,7 +7,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
 	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
-	registerApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
@@ -35,7 +35,7 @@ type KeyRotationScheduler interface {
 // by transports without exposing concrete transport objects from assembler.
 type AuthnApplicationCapabilities struct {
 	AccountService          accountApp.AccountApplicationService
-	RegisterService         registerApp.RegisterApplicationService
+	AccountOnboarder        onboardingApp.AccountOnboarder
 	LoginService            login.LoginApplicationService
 	LoginPreparationService loginprep.LoginPreparationService
 	TokenService            token.TokenApplicationService
@@ -64,17 +64,16 @@ type AuthzApplicationCapabilities struct {
 }
 
 type UserApplicationCapabilities struct {
-	UserService                appuser.UserApplicationService
-	UserProfileService         appuser.UserProfileApplicationService
-	UserStatusService          appuser.UserStatusApplicationService
-	UserQueryService           appuser.UserQueryApplicationService
-	ProfileQueryService        appprofile.ProfileQueryApplicationService
-	ProfileAccessService       appprofile.ProfileAccessApplicationService
-	ProfileLinkService         appprofilelink.ProfileLinkApplicationService
-	ProfileLinkQueryService    appprofilelink.ProfileLinkQueryApplicationService
-	ProfileLinkAccessService   appprofilelink.ProfileLinkAccessApplicationService
-	ProfileRegistrationService appprofile.ProfileRegistrationService
-	Casbin                     authn.CasbinEnforcer
+	UserCreator          appuser.Creator
+	UserEditor           appuser.Editor
+	UserStatusChanger    appuser.StatusChanger
+	UserDirectory        appuser.Directory
+	ProfileDirectory     appprofile.Directory
+	MyProfiles           appprofile.MyProfiles
+	ProfileLinkCommands  appprofilelink.Commands
+	ProfileLinkDirectory appprofilelink.Directory
+	MyProfileLinks       appprofilelink.MyProfileLinks
+	Casbin               authn.CasbinEnforcer
 }
 
 type IDPApplicationCapabilities struct {

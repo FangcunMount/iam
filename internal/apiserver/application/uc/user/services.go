@@ -6,16 +6,16 @@ import (
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 )
 
-// ============= 应用服务接口（Driving Ports）=============
+// ============= 当前调用者用例接口（Driving Ports）=============
 
-// UserApplicationService 用户应用服务 - 基本管理（命令）
-type UserApplicationService interface {
-	// Register 注册新用户
-	Register(ctx context.Context, dto RegisterUserDTO) (*UserResult, error)
+// Creator 创建登录主体。
+type Creator interface {
+	// Register 创建新用户
+	Create(ctx context.Context, dto CreateUserDTO) (*UserResult, error)
 }
 
-// UserProfileApplicationService 用户资料应用服务
-type UserProfileApplicationService interface {
+// Editor 编辑登录主体资料。
+type Editor interface {
 	// Rename 修改用户名称
 	Rename(ctx context.Context, userID string, newName string) error
 	// Renickname 修改用户昵称
@@ -28,8 +28,8 @@ type UserProfileApplicationService interface {
 	UpdateIDCard(ctx context.Context, userID string, idCard string) error
 }
 
-// UserStatusApplicationService 用户状态应用服务
-type UserStatusApplicationService interface {
+// StatusChanger 改变登录主体状态。
+type StatusChanger interface {
 	// Activate 激活用户
 	Activate(ctx context.Context, userID string) error
 	// Deactivate 停用用户
@@ -38,8 +38,8 @@ type UserStatusApplicationService interface {
 	Block(ctx context.Context, userID string) error
 }
 
-// UserQueryApplicationService 用户查询应用服务（只读）
-type UserQueryApplicationService interface {
+// Directory 查询登录主体。
+type Directory interface {
 	// GetByID 根据 ID 查询用户
 	GetByID(ctx context.Context, userID string) (*UserResult, error)
 	// GetByPhone 根据手机号查询用户
@@ -48,8 +48,8 @@ type UserQueryApplicationService interface {
 
 // ============= DTOs =============
 
-// RegisterUserDTO 注册用户 DTO
-type RegisterUserDTO struct {
+// CreateUserDTO 创建用户 DTO
+type CreateUserDTO struct {
 	ID    uint64 // 用户ID（可选，0 表示由系统生成）
 	Name  string // 用户名
 	Phone string // 手机号（可选）

@@ -9,7 +9,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
 	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
-	registerApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/register"
+	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
@@ -25,7 +25,7 @@ func (m *AuthnModule) initializeApplication(
 ) error {
 	m.AccountService = accountApp.NewAccountApplicationService(infra.unitOfWork, domain.sessionManager)
 
-	m.RegisterService = registerApp.NewRegisterApplicationService(
+	m.AccountOnboarder = onboardingApp.NewAccountOnboarder(
 		infra.unitOfWork,
 		hasher,
 		infra.idp,

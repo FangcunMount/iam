@@ -12,35 +12,35 @@ import (
 )
 
 // ====================================================
-// ==== ProfileLinkAccessApplicationService 实现 =====
+// ==== MyProfileLinks 实现 =====
 // ====================================================
 
-type profileLinkAccessApplicationService struct {
+type myProfileLinks struct {
 	uow uow.UnitOfWork
 }
 
-// NewProfileLinkAccessApplicationService 创建当前用户视角的档案关系访问用例。
-func NewProfileLinkAccessApplicationService(uow uow.UnitOfWork) ProfileLinkAccessApplicationService {
-	return &profileLinkAccessApplicationService{uow: uow}
+// NewMyProfileLinks 创建当前用户视角的档案关系访问用例。
+func NewMyProfileLinks(uow uow.UnitOfWork) MyProfileLinks {
+	return &myProfileLinks{uow: uow}
 }
 
-func (s *profileLinkAccessApplicationService) GrantForCurrentUser(ctx context.Context, currentUserID string, dto CreateProfileLinkDTO) (*ProfileLinkResult, error) {
+func (s *myProfileLinks) Grant(ctx context.Context, currentUserID string, dto CreateProfileLinkDTO) (*ProfileLinkResult, error) {
 	if dto.UserID != "" && dto.UserID != currentUserID {
 		return nil, perrors.WithCode(code.ErrPermissionDenied, "cannot grant profile link for another user")
 	}
 	dto.UserID = currentUserID
-	if err := NewProfileLinkApplicationService(s.uow).CreateProfileLink(ctx, dto); err != nil {
+	if err := NewCommands(s.uow).Establish(ctx, dto); err != nil {
 		return nil, err
 	}
-	return NewProfileLinkQueryApplicationService(s.uow).GetByUserIDAndProfileID(ctx, currentUserID, dto.ProfileID)
+	return NewDirectory(s.uow).Get(ctx, currentUserID, dto.ProfileID)
 }
 
-func (s *profileLinkAccessApplicationService) ListForCurrentUser(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
+func (s *myProfileLinks) List(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
 	if dto.UserID != "" && dto.UserID != currentUserID {
 		return nil, perrors.WithCode(code.ErrPermissionDenied, "cannot query profile links for another user")
 	}
 	dto.UserID = currentUserID
-	query := NewProfileLinkQueryApplicationService(s.uow)
+	query := NewDirectory(s.uow)
 
 	switch {
 	case dto.UserID != "" && dto.ProfileID != "":
@@ -67,7 +67,7 @@ func (s *profileLinkAccessApplicationService) ListForCurrentUser(ctx context.Con
 	}
 }
 
-func (s *profileLinkAccessApplicationService) RevokeBySelector(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
+func (s *myProfileLinks) Revoke(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
 	var result *ProfileLinkResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		var userID meta.ID
@@ -96,8 +96,8 @@ func (s *profileLinkAccessApplicationService) RevokeBySelector(ctx context.Conte
 			profileID = parsedProfileID
 		}
 
-		managerService := domain.NewManagerService(tx.ProfileLinks, tx.Profiles, tx.Users)
-		profileLink, err := managerService.RemoveProfileLink(ctx, userID, profileID)
+		managerService := domain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
+		profileLink, err := managerService.Revoke(ctx, userID, profileID)
 		if err != nil {
 			return err
 		}
@@ -115,29 +115,29 @@ func (s *profileLinkAccessApplicationService) RevokeBySelector(ctx context.Conte
 	return result, err
 }
 
-func getByUserIDAndProfileID(ctx context.Context, query ProfileLinkQueryApplicationService, dto ListProfileLinksDTO) (*ProfileLinkResult, error) {
+func getByUserIDAndProfileID(ctx context.Context, query Directory, dto ListProfileLinksDTO) (*ProfileLinkResult, error) {
 	if dto.Active != nil && !*dto.Active {
-		return query.GetByUserIDAndProfileIDIncludingRevoked(ctx, dto.UserID, dto.ProfileID)
+		return query.GetIncludingRevoked(ctx, dto.UserID, dto.ProfileID)
 	}
-	return query.GetByUserIDAndProfileID(ctx, dto.UserID, dto.ProfileID)
+	return query.Get(ctx, dto.UserID, dto.ProfileID)
 }
 
-func listProfilesByUserID(ctx context.Context, query ProfileLinkQueryApplicationService, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
+func listProfilesByUserID(ctx context.Context, query Directory, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
 	if dto.Active != nil && !*dto.Active {
-		return query.ListProfilesByUserIDIncludingRevoked(ctx, dto.UserID)
+		return query.ListProfilesForUserIncludingRevoked(ctx, dto.UserID)
 	}
-	return query.ListProfilesByUserID(ctx, dto.UserID)
+	return query.ListProfilesForUser(ctx, dto.UserID)
 }
 
-func listProfileLinksByProfileID(ctx context.Context, query ProfileLinkQueryApplicationService, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
+func listProfileLinksByProfileID(ctx context.Context, query Directory, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
 	if dto.Active != nil && !*dto.Active {
-		return query.ListProfileLinksByProfileIDIncludingRevoked(ctx, dto.ProfileID)
+		return query.ListLinksForProfileIncludingRevoked(ctx, dto.ProfileID)
 	}
-	return query.ListProfileLinksByProfileID(ctx, dto.ProfileID)
+	return query.ListLinksForProfile(ctx, dto.ProfileID)
 }
 
-func ensureActiveProfileLinkAccess(ctx context.Context, query ProfileLinkQueryApplicationService, userID string, profileID string) error {
-	if _, err := query.GetByUserIDAndProfileID(ctx, userID, profileID); err != nil {
+func ensureActiveProfileLinkAccess(ctx context.Context, query Directory, userID string, profileID string) error {
+	if _, err := query.Get(ctx, userID, profileID); err != nil {
 		return perrors.WithCode(code.ErrPermissionDenied, "you are not an active profile link of this profile")
 	}
 	return nil

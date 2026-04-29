@@ -14,8 +14,8 @@ type editor struct {
 
 var _ ProfileEditor = (*editor)(nil)
 
-// NewProfileService 创建档案资料领域服务。
-func NewProfileService(repo Repository, validator Validator) ProfileEditor {
+// NewEditor 创建档案资料领域服务。
+func NewEditor(repo Repository, validator Validator) ProfileEditor {
 	return &editor{
 		repo:      repo,
 		validator: validator,
