@@ -90,8 +90,8 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	var _ = authz.NewClient
 	var _ *identity.Client
 	var _ = identity.NewClient
-	var _ *identity.GuardianshipClient
-	var _ = identity.NewGuardianshipClient
+	var _ *identity.ProfileLinkClient
+	var _ = identity.NewProfileLinkClient
 	var _ *idp.Client
 	var _ = idp.NewClient
 

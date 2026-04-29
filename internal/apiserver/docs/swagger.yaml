@@ -721,7 +721,7 @@ definitions:
         description: 应用类型（MiniProgram/OfficialAccount）
         type: string
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest:
     properties:
       dob:
         type: string
@@ -750,7 +750,7 @@ definitions:
     - legalName
     - relation
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest:
     properties:
       dob:
         type: string
@@ -763,9 +763,9 @@ definitions:
       weightKg:
         type: string
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest:
     properties:
-      childId:
+      profileId:
         type: string
       relation:
         enum:
@@ -777,7 +777,7 @@ definitions:
       userId:
         type: string
     required:
-    - childId
+    - profileId
     - relation
     type: object
   github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.UserContactUpsert:
@@ -804,11 +804,11 @@ definitions:
       nickname:
         type: string
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
         type: array
       limit:
         type: integer
@@ -817,14 +817,14 @@ definitions:
       total:
         type: integer
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse:
     properties:
-      child:
-        $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
-      guardianship:
-        $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+      profile:
+        $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
+      profileLink:
+        $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse:
     properties:
       createdAt:
         type: string
@@ -847,11 +847,11 @@ definitions:
       weightKg:
         type: string
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
         type: array
       limit:
         type: integer
@@ -860,9 +860,9 @@ definitions:
       total:
         type: integer
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse:
+  github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse:
     properties:
-      childId:
+      profileId:
         type: string
       id:
         type: integer
@@ -918,7 +918,7 @@ definitions:
           此消息适合暴露给外部
         type: string
       reference:
-        description: Reference 返回参考文档，可能有助于解决此错误
+        description: ProfileLinkerence 返回参考文档，可能有助于解决此错误
         type: string
     type: object
 host: iam.fangcunmount.cn
@@ -2133,13 +2133,13 @@ paths:
       summary: 获取角色的策略列表
       tags:
       - Authorization-Policies
-  /identity/children/{id}:
+  /identity/profiles/{id}:
     get:
       consumes:
       - application/json
-      description: 根据儿童 ID 查询儿童详细档案，只能查询当前用户监护的孩子
+      description: 根据档案 ID 查询档案详细档案，只能查询当前用户关系的孩子
       parameters:
-      - description: 儿童 ID
+      - description: 档案 ID
         in: path
         name: id
         required: true
@@ -2150,7 +2150,7 @@ paths:
         "200":
           description: 查询成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
         "400":
           description: 参数错误
           schema:
@@ -2160,11 +2160,11 @@ paths:
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "403":
-          description: 无权限访问此儿童
+          description: 无权限访问此档案
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "404":
-          description: 儿童不存在
+          description: 档案不存在
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "500":
@@ -2173,32 +2173,32 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 查询儿童档案（仅限自己监护的孩子）
+      summary: 查询档案（仅限自己关系的孩子）
       tags:
-      - Identity-Children
+      - Identity-Profiles
     patch:
       consumes:
       - application/json
-      description: 部分更新儿童档案信息，只能更新当前用户监护的孩子
+      description: 部分更新档案信息，只能更新当前用户关系的孩子
       parameters:
-      - description: 儿童 ID
+      - description: 档案 ID
         in: path
         name: id
         required: true
         type: string
-      - description: 更新儿童请求
+      - description: 更新档案请求
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 更新成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
         "400":
           description: 参数错误
           schema:
@@ -2208,11 +2208,11 @@ paths:
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "403":
-          description: 无权限修改此儿童
+          description: 无权限修改此档案
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "404":
-          description: 儿童不存在
+          description: 档案不存在
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "500":
@@ -2221,28 +2221,28 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 更新儿童档案（仅限自己监护的孩子）
+      summary: 更新档案（仅限自己关系的孩子）
       tags:
-      - Identity-Children
-  /identity/children/register:
+      - Identity-Profiles
+  /identity/profiles:
     post:
       consumes:
       - application/json
-      description: 创建儿童档案并自动将当前用户设置为监护人（身份证可不填写）
+      description: 创建档案并自动将当前用户设置为关系用户（身份证可不填写）
       parameters:
-      - description: 注册儿童请求
+      - description: 注册档案请求
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: 注册成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse'
         "400":
           description: 请求参数错误
           schema:
@@ -2252,7 +2252,7 @@ paths:
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "409":
-          description: 儿童已存在
+          description: 档案已存在
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "500":
@@ -2261,16 +2261,16 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 注册儿童档案并建立监护关系
+      summary: 注册档案并建立档案关系
       tags:
-      - Identity-Children
-  /identity/children/search:
+      - Identity-Profiles
+  /identity/profiles/search:
     get:
       consumes:
       - application/json
-      description: 根据姓名、生日等信息搜索相似的儿童档案（用于运营查询）
+      description: 根据姓名、生日等信息搜索相似的档案（用于运营查询）
       parameters:
-      - description: 儿童姓名
+      - description: 档案姓名
         in: query
         name: name
         type: string
@@ -2294,7 +2294,7 @@ paths:
         "200":
           description: 查询成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse'
         "400":
           description: 参数错误
           schema:
@@ -2309,24 +2309,24 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 搜索儿童
+      summary: 搜索档案
       tags:
-      - Identity-Children
-  /identity/guardians:
+      - Identity-Profiles
+  /identity/profile-links:
     get:
       consumes:
       - application/json
-      description: 查询当前登录用户视角下的监护关系；省略 user_id 时默认当前用户，按 child_id 查询前要求当前用户对该儿童存在活跃监护关系。
+      description: 查询当前登录用户视角下的档案关系；省略 user_id 时默认当前用户，按 profile_id 查询前要求当前用户对该档案存在活跃档案关系。
       parameters:
       - description: 当前用户 ID；省略时默认当前登录用户，不支持跨用户查询
         in: query
         name: user_id
         type: string
-      - description: 儿童 ID；仅当当前用户对该儿童存在活跃监护关系时可查询
+      - description: 档案 ID；仅当当前用户对该档案存在活跃档案关系时可查询
         in: query
-        name: child_id
+        name: profile_id
         type: string
-      - description: 是否仅查询活跃的监护关系
+      - description: 是否仅查询活跃的档案关系
         in: query
         name: active
         type: boolean
@@ -2346,7 +2346,7 @@ paths:
         "200":
           description: 查询成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse'
         "400":
           description: 参数错误
           schema:
@@ -2361,28 +2361,27 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 查询监护关系
+      summary: 查询档案关系
       tags:
-      - Identity-Guardianship
-  /identity/guardians/grant:
+      - Identity-ProfileLink
     post:
       consumes:
       - application/json
-      description: 将当前登录用户设置为儿童的监护人；如传 userId，必须与当前登录用户一致
+      description: 将当前登录用户关联到档案；如传 userId，必须与当前登录用户一致
       parameters:
-      - description: 授予监护请求
+      - description: 创建档案关系请求
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: 授予成功
+          description: 创建成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
         "400":
           description: 参数错误
           schema:
@@ -2392,7 +2391,7 @@ paths:
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "409":
-          description: 监护关系已存在
+          description: 档案关系已存在
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         "500":
@@ -2401,9 +2400,49 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 授予监护关系
+      summary: 创建档案关系
       tags:
-      - Identity-Guardianship
+      - Identity-ProfileLink
+  /identity/profile-links/{id}/revoke:
+    post:
+      consumes:
+      - application/json
+      description: 将当前登录用户设置为档案的关系用户；如传 userId，必须与当前登录用户一致
+      parameters:
+      - description: 授予关系请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 授予成功
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        "409":
+          description: 档案关系已存在
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: 授予档案关系
+      tags:
+      - Identity-ProfileLink
   /identity/me:
     get:
       consumes:
@@ -2464,11 +2503,11 @@ paths:
       summary: 更新当前用户信息
       tags:
       - Identity-Users
-  /identity/me/children:
+  /identity/me/profiles:
     get:
       consumes:
       - application/json
-      description: 获取当前登录用户作为监护人的所有儿童档案
+      description: 获取当前登录用户作为关系用户的所有档案
       parameters:
       - default: 0
         description: 偏移量
@@ -2486,7 +2525,7 @@ paths:
         "200":
           description: 查询成功
           schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
+            $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse'
         "401":
           description: 未授权
           schema:
@@ -2497,9 +2536,9 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 获取当前用户的儿童档案列表
+      summary: 获取当前用户的档案列表
       tags:
-      - Identity-Children
+      - Identity-Profiles
   /idp/wechat-apps:
     post:
       consumes:
@@ -2684,7 +2723,7 @@ paths:
       summary: 轮换消息加解密密钥
       tags:
       - IDP-Wechat
-  /suggest/child:
+  /suggest/profile:
     get:
       consumes:
       - application/json
@@ -2710,7 +2749,7 @@ paths:
             $ref: '#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse'
       security:
       - BearerAuth: []
-      summary: 儿童联想搜索
+      summary: 档案联想搜索
       tags:
       - Suggest
 securityDefinitions:
@@ -2729,10 +2768,10 @@ tags:
   name: Authentication-JWKS
 - description: 用户管理 - 创建、查询、更新用户信息
   name: Identity-Users
-- description: 儿童管理 - 注册、查询、更新儿童档案
-  name: Identity-Children
-- description: 监护关系 - 授予、撤销、查询监护权
-  name: Identity-Guardianship
+- description: 档案管理 - 注册、查询、更新档案
+  name: Identity-Profiles
+- description: 档案关系 - 授予、撤销、查询关系权
+  name: Identity-ProfileLink
 - description: 角色管理 - 创建、查询、更新、删除角色
   name: Authorization-Roles
 - description: 角色分配 - 授予、撤销用户或组的角色

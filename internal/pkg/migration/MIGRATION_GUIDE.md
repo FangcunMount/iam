@@ -23,8 +23,8 @@
 **主要表**:
 
 - `iam_users` - 用户表
-- `iam_children` - 儿童档案表
-- `iam_guardianships` - 监护关系表
+- `iam_profiles` - 儿童档案表
+- `iam_refs` - 监护关系表
 - `iam_auth_accounts` - 认证账号表（旧版）
 - `iam_auth_wechat_accounts` - 微信账号扩展表（旧版）
 - `iam_auth_operation_accounts` - 运营账号凭证表（旧版）

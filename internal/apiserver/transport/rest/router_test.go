@@ -177,16 +177,16 @@ func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/users/:userId/sessions/revoke")
 }
 
-func TestRouterRegistersIdentityGuardiansRoutes(t *testing.T) {
+func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn.TokenService = tokenServiceStub{}
 	deps.User = UserDeps{
-		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
-		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
+		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil, nil, nil),
+		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.ModuleStatus.Authn = true
 	deps.ModuleStatus.AuthEnabled = true
@@ -194,9 +194,10 @@ func TestRouterRegistersIdentityGuardiansRoutes(t *testing.T) {
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
-	assertRouteRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/guardians/grant")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/children/register")
+	assertRouteRegistered(t, engine, http.MethodGet, "/api/v1/identity/profile-links")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/profile-links")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/profile-links/:id/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/profiles")
 }
 
 func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
@@ -205,9 +206,9 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.User = UserDeps{
-		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
-		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
+		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil, nil, nil),
+		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Authz = AuthzDeps{
 		RoleHandler:       authzhandler.NewRoleHandler(nil, nil),
@@ -223,9 +224,9 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/identity/guardians")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/identity/children/register")
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/suggest/child")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/identity/profile-links")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/identity/profiles")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/suggest/profile")
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/roles")
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/health")
 }

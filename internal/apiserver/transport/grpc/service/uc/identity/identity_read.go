@@ -87,39 +87,39 @@ func (s *identityReadServer) searchUsersByPhones(ctx context.Context, req *ident
 	}, nil
 }
 
-// GetChild 查询儿童档案
-func (s *identityReadServer) GetChild(ctx context.Context, req *identityv1.GetChildRequest) (*identityv1.GetChildResponse, error) {
-	if req == nil || strings.TrimSpace(req.GetChildId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "child_id is required")
+// GetProfile 查询档案
+func (s *identityReadServer) GetProfile(ctx context.Context, req *identityv1.GetProfileRequest) (*identityv1.GetProfileResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetProfileId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
 
-	result, err := s.childQuerySvc.GetByID(ctx, req.GetChildId())
+	result, err := s.profileQuerySvc.GetByID(ctx, req.GetProfileId())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return &identityv1.GetChildResponse{Child: childResultToProto(result)}, nil
+	return &identityv1.GetProfileResponse{Profile: profileResultToProto(result)}, nil
 }
 
-// BatchGetChildren 批量查询儿童档案
-func (s *identityReadServer) BatchGetChildren(ctx context.Context, req *identityv1.BatchGetChildrenRequest) (*identityv1.BatchGetChildrenResponse, error) {
-	if req == nil || len(req.GetChildIds()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "child_ids is required")
+// BatchGetProfiles 批量查询档案
+func (s *identityReadServer) BatchGetProfiles(ctx context.Context, req *identityv1.BatchGetProfilesRequest) (*identityv1.BatchGetProfilesResponse, error) {
+	if req == nil || len(req.GetProfileIds()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "profile_ids is required")
 	}
 
-	resp := &identityv1.BatchGetChildrenResponse{
-		Children:    make([]*identityv1.Child, 0, len(req.GetChildIds())),
+	resp := &identityv1.BatchGetProfilesResponse{
+		Profiles:    make([]*identityv1.Profile, 0, len(req.GetProfileIds())),
 		NotFoundIds: make([]string, 0),
 	}
 
-	for _, childID := range req.GetChildIds() {
-		result, err := s.childQuerySvc.GetByID(ctx, childID)
+	for _, profileID := range req.GetProfileIds() {
+		result, err := s.profileQuerySvc.GetByID(ctx, profileID)
 		if err != nil {
 			// 如果是未找到错误，添加到 not_found 列表
-			resp.NotFoundIds = append(resp.NotFoundIds, childID)
+			resp.NotFoundIds = append(resp.NotFoundIds, profileID)
 			continue
 		}
-		resp.Children = append(resp.Children, childResultToProto(result))
+		resp.Profiles = append(resp.Profiles, profileResultToProto(result))
 	}
 
 	return resp, nil

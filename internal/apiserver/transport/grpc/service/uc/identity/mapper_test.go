@@ -5,8 +5,8 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	childApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
-	guardianshipApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	profileApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
+	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
 	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -32,9 +32,9 @@ func TestUserResultToProtoKeepsContactsAndStatus(t *testing.T) {
 	require.Equal(t, identityv1.ContactType_CONTACT_TYPE_EMAIL, got.Contacts[1].Type)
 }
 
-func TestChildResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
-	got := childResultToProto(&childApp.ChildResult{
-		ID:       "child-1",
+func TestProfileResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
+	got := profileResultToProto(&profileApp.ProfileResult{
+		ID:       "profile-1",
 		Name:     "Bob",
 		IDCard:   "110***********001",
 		Gender:   1,
@@ -43,7 +43,7 @@ func TestChildResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
 		Weight:   23500,
 	})
 
-	require.Equal(t, "child-1", got.Id)
+	require.Equal(t, "profile-1", got.Id)
 	require.Equal(t, "Bob", got.LegalName)
 	require.Equal(t, identityv1.Gender_GENDER_MALE, got.Gender)
 	require.Equal(t, "2020-01-02", got.Dob)
@@ -52,18 +52,18 @@ func TestChildResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
 	require.Equal(t, "23.50", got.Stats.WeightKg)
 }
 
-func TestGuardianshipResultToProtoParsesRelationAndTimestamps(t *testing.T) {
-	got := guardianshipResultToProto(&guardianshipApp.GuardianshipResult{
+func TestProfileLinkResultToProtoParsesRelationAndTimestamps(t *testing.T) {
+	got := profileLinkResultToProto(&profileLinkApp.ProfileLinkResult{
 		ID:            42,
 		UserID:        "user-1",
-		ChildID:       "child-1",
+		ProfileID:     "profile-1",
 		Relation:      "parent",
 		EstablishedAt: "2026-04-29T10:20:30Z",
 		RevokedAt:     "2026-04-30T10:20:30Z",
 	})
 
 	require.Equal(t, "42", got.Id)
-	require.Equal(t, identityv1.GuardianshipRelation_GUARDIANSHIP_RELATION_PARENT, got.Relation)
+	require.Equal(t, identityv1.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT, got.Relation)
 	require.NotNil(t, got.Since)
 	require.NotNil(t, got.RevokedAt)
 }

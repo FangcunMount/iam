@@ -14,10 +14,10 @@
                     ↓   ↓   ↓
         ┌───────┬────────┬────────────┬──────────────┐
         ↓       ↓        ↓            ↓
-    Auth()   Authz()  Identity()  Guardianship()
-    认证服务  授权判定  身份服务      监护关系服务
+    Auth()   Authz()  Identity()  ProfileLink()
+    认证服务  授权判定  身份服务      档案关系服务
         ↓       ↓        ↓              ↓
-    验证Token  单次PDP  用户/儿童管理   监护关系查询
+    验证Token  单次PDP  用户/档案管理   档案关系查询
 ```
 
 ### 核心概念
@@ -28,8 +28,8 @@
 | **Config** | 配置对象 | 地址 + TLS + 重试 |
 | **Auth** | 认证服务 | 验证/刷新/撤销 Token |
 | **Authz** | 授权判定 | 单次权限检查（PDP） |
-| **Identity** | 身份服务 | 用户/角色/部门管理 |
-| **Guardianship** | 监护关系 | 家长-孩子关系查询 |
+| **Identity** | 身份服务 | 用户/档案管理 |
+| **ProfileLink** | 档案关系 | 用户-档案关系查询 |
 
 ### 3 行代码开始
 
@@ -62,7 +62,7 @@ log.Printf("用户: %s", user.GetProfile().GetDisplayName())
 │    client.Auth().VerifyToken(...)                       │
 │    client.Authz().Allow(...)                            │
 │    client.Identity().GetUser(...)                       │
-│    client.Guardianship().IsGuardian(...)                │
+│    client.ProfileLink().HasProfileLink(...)                │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -224,7 +224,7 @@ users, err := client.Identity().BatchGetUsers(ctx, []string{"user-1", "user-2"})
 resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
     Subject: "user:user-123",
     Domain:  "default",
-    Object:  "resource:child_profile",
+    Object:  "resource:profile_profile",
     Action:  "read",
 })
 
@@ -233,19 +233,19 @@ allowed, err := client.Authz().Allow(
     ctx,
     "user:user-123",
     "default",
-    "resource:child_profile",
+    "resource:profile_profile",
     "read",
 )
 ```
 
-### 监护关系服务
+### 档案关系服务
 
 ```go
-// 检查监护关系
-isGuardian, err := client.Guardianship().IsGuardian(ctx, "parent-id", "child-id")
+// 检查档案关系
+linkResp, err := client.ProfileLink().HasProfileLink(ctx, "user-id", "profile-id")
 
-// 列举被监护人
-children, err := client.Guardianship().GetUserChildren(ctx, "parent-id")
+// 列举关联档案
+profiles, err := client.ProfileLink().GetUserProfiles(ctx, "user-id")
 ```
 
 ## 错误处理

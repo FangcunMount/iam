@@ -35,7 +35,7 @@
 #### 不负责
 
 - 登录、Token、JWKS：见 [01-authn-认证&Token&JWKS.md](./01-authn-认证&Token&JWKS.md)
-- 用户、儿童、监护关系：见 [03-user-用户&儿童&Guardianship.md](./03-user-用户&儿童&Guardianship.md)
+- 用户、儿童、监护关系：见 [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md)
 - gRPC 传输层 mTLS、服务端 ACL：见 [../01-运行时/02-gRPC与mTLS.md](../01-运行时/02-gRPC与mTLS.md)
 - 更复杂的批量 PDP、Explain、菜单树等“授权平台全家桶”能力：今天都不应包装成现状
 

@@ -66,12 +66,12 @@ api/
 | **用户** | `POST /api/v1/users` | 创建用户 |
 | | `GET /api/v1/users/{userId}` | 查询用户 |
 | | `PATCH /api/v1/users/{userId}` | 更新用户 |
-| **儿童** | `POST /api/v1/children/register` | 注册儿童（含监护授权） |
-| | `GET /api/v1/me/children` | 我的孩子列表 |
-| | `GET /api/v1/children/{childId}` | 查询儿童档案 |
-| **监护** | `POST /api/v1/guardians/grant` | 授予监护关系 |
-| | `POST /api/v1/guardians/revoke` | 撤销监护关系 |
-| | `GET /api/v1/guardians` | 查询监护关系 |
+| **儿童** | `POST /api/v1/profiles/register` | 注册儿童（含监护授权） |
+| | `GET /api/v1/me/profiles` | 我的孩子列表 |
+| | `GET /api/v1/profiles/{profileId}` | 查询儿童档案 |
+| **监护** | `POST /api/v1/refs/grant` | 授予监护关系 |
+| | `POST /api/v1/refs/revoke` | 撤销监护关系 |
+| | `GET /api/v1/refs` | 查询监护关系 |
 
 ---
 
@@ -93,9 +93,9 @@ api/
 | | `BatchAllow(BatchAllowReq)` | 批量权限判定 |
 | | `Explain(ExplainReq)` | 权限决策解释 |
 | **IdentityRead** | `GetUser(GetUserReq)` | 查询用户信息 |
-| | `GetChild(GetChildReq)` | 查询儿童档案 |
-| **GuardianshipQuery** | `IsGuardian(IsGuardianReq)` | 判定监护关系 |
-| | `ListChildren(ListChildrenReq)` | 列出监护儿童 |
+| | `GetProfile(GetProfileReq)` | 查询儿童档案 |
+| **RefQuery** | `IsRef(IsRefReq)` | 判定监护关系 |
+| | `ListProfiles(ListProfilesReq)` | 列出监护儿童 |
 
 ---
 
@@ -181,8 +181,8 @@ status {
 
 - [**身份查询 (iam.identity.v1.proto)**](./grpc/iam.identity.v1.proto)
   - 用户查询（GetUser）
-  - 儿童查询（GetChild）
-  - 监护判定（IsGuardian、ListChildren）
+  - 儿童查询（GetProfile）
+  - 监护判定（IsRef、ListProfiles）
 
 ---
 
@@ -213,7 +213,7 @@ curl -X GET https://api.example.com/api/v1/users/usr_123456 \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 # 3. 查询我的孩子
-curl -X GET https://api.example.com/api/v1/me/children \
+curl -X GET https://api.example.com/api/v1/me/profiles \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
@@ -239,10 +239,10 @@ resp, err := authzClient.Allow(ctx, &authzv1.AllowReq{
 })
 
 // 3. 监护关系判定
-identityClient := identityv1.NewGuardianshipQueryClient(conn)
-isGuardian, err := identityClient.IsGuardian(ctx, &identityv1.IsGuardianReq{
+identityClient := identityv1.NewRefQueryClient(conn)
+isRef, err := identityClient.IsRef(ctx, &identityv1.IsRefReq{
     UserId:  "usr_123456",
-    ChildId: "chd_789",
+    ProfileId: "chd_789",
 })
 ```
 

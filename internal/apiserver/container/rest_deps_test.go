@@ -40,7 +40,7 @@ func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testi
 	if deps.IDP.WechatAppHandler == nil {
 		t.Fatalf("idp transport handler was not constructed")
 	}
-	if deps.User.UserHandler == nil || deps.User.ChildHandler == nil || deps.User.GuardianshipHandler == nil {
+	if deps.User.UserHandler == nil || deps.User.ProfileHandler == nil || deps.User.ProfileLinkHandler == nil {
 		t.Fatalf("identity transport handlers were not constructed: %#v", deps.User)
 	}
 }

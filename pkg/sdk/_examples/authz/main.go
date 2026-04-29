@@ -24,7 +24,7 @@ func main() {
 	resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
 		Subject: "user:user-123",
 		Domain:  "fangcun",
-		Object:  "resource:child_profile",
+		Object:  "resource:profile_profile",
 		Action:  "read",
 	})
 	if err != nil {

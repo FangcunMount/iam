@@ -42,7 +42,7 @@ pkg/sdk/
 │   ├── verifier/
 │   └── serviceauth/
 ├── authz/                     # 授权判定 client
-├── identity/                  # 身份 / guardianship client
+├── identity/                  # 身份 / profile-link client
 ├── idp/                       # IDP client
 ├── internal/
 │   ├── transport/             # gRPC 连接、重试、metadata、拦截器

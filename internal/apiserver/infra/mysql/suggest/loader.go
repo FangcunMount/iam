@@ -17,8 +17,8 @@ SELECT
   c.name,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
   1 AS weight
-FROM children c
-INNER JOIN guardianships g ON g.child_id = c.id AND g.deleted_at IS NULL
+FROM profiles c
+INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
 INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
 WHERE c.deleted_at IS NULL
 GROUP BY c.id;
@@ -29,8 +29,8 @@ SELECT
   c.name,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
   1 AS weight
-FROM children c
-INNER JOIN guardianships g ON g.child_id = c.id AND g.deleted_at IS NULL
+FROM profiles c
+INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
 INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
 WHERE c.deleted_at IS NULL AND GREATEST(c.updated_at, g.updated_at, u.updated_at) > ?
 GROUP BY c.id;

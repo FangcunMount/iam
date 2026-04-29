@@ -35,7 +35,7 @@
 │          │ default / tenant-a                               │
 ├─────────────────────────────────────────────────────────────┤
 │ object   │ 访问什么资源                                     │
-│          │ resource:child_profile / resource:report        │
+│          │ resource:profile_profile / resource:report        │
 ├─────────────────────────────────────────────────────────────┤
 │ action   │ 对资源做什么动作                                 │
 │          │ read / write / delete / grant                   │
@@ -82,7 +82,7 @@ allowed, err := client.Authz().Allow(
     ctx,
     "user:user-123",
     "default",
-    "resource:child_profile",
+    "resource:profile_profile",
     "read",
 )
 ```
@@ -140,7 +140,7 @@ defer client.Close()
 resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
     Subject: "user:user-123",
     Domain:  "default",
-    Object:  "resource:child_profile",
+    Object:  "resource:profile_profile",
     Action:  "read",
 })
 ```
@@ -154,7 +154,7 @@ allowed, err := client.Authz().Allow(
     ctx,
     "user:user-123",
     "default",
-    "resource:child_profile",
+    "resource:profile_profile",
     "read",
 )
 ```
@@ -241,7 +241,7 @@ SDK 不替你推断 `subject`，调用方要自己传入最终字符串。
 例如：
 
 ```text
-resource:child_profile
+resource:profile_profile
 resource:report
 resource:survey
 ```

@@ -4,52 +4,52 @@ import (
 	"google.golang.org/grpc"
 
 	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	childApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
-	guardianshipApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
+	profileApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
+	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
 	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 )
 
 // Service 聚合 identity 模块的 gRPC 服务
 type Service struct {
 	identityRead      identityReadServer
-	guardianshipQry   guardianshipQueryServer
-	guardianshipCmd   guardianshipCommandServer
+	profileLinkQry    profileLinkQueryServer
+	profileLinkCmd    profileLinkCommandServer
 	identityLifecycle identityLifecycleServer
 }
 
 // NewService 创建 identity gRPC 服务
 // 参数：
 //   - userQuerySvc: 用户查询应用服务
-//   - childQuerySvc: 儿童查询应用服务
-//   - guardianshipQuerySvc: 监护关系查询应用服务
+//   - profileQuerySvc: 档案查询应用服务
+//   - profileLinkQuerySvc: 档案关系查询应用服务
 //   - userSvc: 用户应用服务
 //   - userProfileSvc: 用户资料应用服务
 //   - userStatusSvc: 用户状态应用服务
-//   - guardianshipSvc: 监护关系应用服务
-//   - guardianshipAccessSvc: 当前用户视角监护关系访问用例
+//   - profileLinkSvc: 档案关系应用服务
+//   - profileLinkAccessSvc: 当前用户视角档案关系访问用例
 func NewService(
 	userQuerySvc userApp.UserQueryApplicationService,
-	childQuerySvc childApp.ChildQueryApplicationService,
-	guardianshipQuerySvc guardianshipApp.GuardianshipQueryApplicationService,
+	profileQuerySvc profileApp.ProfileQueryApplicationService,
+	profileLinkQuerySvc profileLinkApp.ProfileLinkQueryApplicationService,
 	userSvc userApp.UserApplicationService,
 	userProfileSvc userApp.UserProfileApplicationService,
 	userStatusSvc userApp.UserStatusApplicationService,
-	guardianshipSvc guardianshipApp.GuardianshipApplicationService,
-	guardianshipAccessSvc guardianshipApp.GuardianshipAccessApplicationService,
+	profileLinkSvc profileLinkApp.ProfileLinkApplicationService,
+	profileLinkAccessSvc profileLinkApp.ProfileLinkAccessApplicationService,
 ) *Service {
 	return &Service{
 		identityRead: identityReadServer{
-			userQuerySvc:  userQuerySvc,
-			childQuerySvc: childQuerySvc,
+			userQuerySvc:    userQuerySvc,
+			profileQuerySvc: profileQuerySvc,
 		},
-		guardianshipQry: guardianshipQueryServer{
-			guardianshipQuerySvc: guardianshipQuerySvc,
-			userQuerySvc:         userQuerySvc,
+		profileLinkQry: profileLinkQueryServer{
+			profileLinkQuerySvc: profileLinkQuerySvc,
+			userQuerySvc:        userQuerySvc,
 		},
-		guardianshipCmd: guardianshipCommandServer{
-			guardianshipSvc:       guardianshipSvc,
-			guardianshipQuerySvc:  guardianshipQuerySvc,
-			guardianshipAccessSvc: guardianshipAccessSvc,
+		profileLinkCmd: profileLinkCommandServer{
+			profileLinkSvc:       profileLinkSvc,
+			profileLinkQuerySvc:  profileLinkQuerySvc,
+			profileLinkAccessSvc: profileLinkAccessSvc,
 		},
 		identityLifecycle: identityLifecycleServer{
 			userSvc:        userSvc,
@@ -63,33 +63,33 @@ func NewService(
 // RegisterService 注册 gRPC 服务到 gRPC 服务器
 func (s *Service) RegisterService(server *grpc.Server) {
 	identityv1.RegisterIdentityReadServer(server, &s.identityRead)
-	identityv1.RegisterGuardianshipQueryServer(server, &s.guardianshipQry)
-	identityv1.RegisterGuardianshipCommandServer(server, &s.guardianshipCmd)
+	identityv1.RegisterProfileLinkQueryServer(server, &s.profileLinkQry)
+	identityv1.RegisterProfileLinkCommandServer(server, &s.profileLinkCmd)
 	identityv1.RegisterIdentityLifecycleServer(server, &s.identityLifecycle)
 }
 
 // ============= 服务器结构体定义 =============
 
-// identityReadServer 用户和儿童身份读取服务
+// identityReadServer 用户和档案身份读取服务
 type identityReadServer struct {
 	identityv1.UnimplementedIdentityReadServer
-	userQuerySvc  userApp.UserQueryApplicationService
-	childQuerySvc childApp.ChildQueryApplicationService
+	userQuerySvc    userApp.UserQueryApplicationService
+	profileQuerySvc profileApp.ProfileQueryApplicationService
 }
 
-// guardianshipQueryServer 监护关系查询服务
-type guardianshipQueryServer struct {
-	identityv1.UnimplementedGuardianshipQueryServer
-	guardianshipQuerySvc guardianshipApp.GuardianshipQueryApplicationService
-	userQuerySvc         userApp.UserQueryApplicationService
+// profileLinkQueryServer 档案关系查询服务
+type profileLinkQueryServer struct {
+	identityv1.UnimplementedProfileLinkQueryServer
+	profileLinkQuerySvc profileLinkApp.ProfileLinkQueryApplicationService
+	userQuerySvc        userApp.UserQueryApplicationService
 }
 
-// guardianshipCommandServer 监护关系命令服务（写操作）
-type guardianshipCommandServer struct {
-	identityv1.UnimplementedGuardianshipCommandServer
-	guardianshipSvc       guardianshipApp.GuardianshipApplicationService
-	guardianshipQuerySvc  guardianshipApp.GuardianshipQueryApplicationService
-	guardianshipAccessSvc guardianshipApp.GuardianshipAccessApplicationService
+// profileLinkCommandServer 档案关系命令服务（写操作）
+type profileLinkCommandServer struct {
+	identityv1.UnimplementedProfileLinkCommandServer
+	profileLinkSvc       profileLinkApp.ProfileLinkApplicationService
+	profileLinkQuerySvc  profileLinkApp.ProfileLinkQueryApplicationService
+	profileLinkAccessSvc profileLinkApp.ProfileLinkAccessApplicationService
 }
 
 // identityLifecycleServer 身份生命周期服务（用户管理）

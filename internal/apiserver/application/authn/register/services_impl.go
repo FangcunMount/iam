@@ -10,6 +10,8 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	profileDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
 	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
@@ -24,9 +26,11 @@ type registerApplicationService struct {
 }
 
 type registrationRepositories struct {
-	Users       userDomain.Repository
-	Accounts    domain.Repository
-	Credentials credDomain.Repository
+	Users        userDomain.Repository
+	Profiles     profileDomain.Repository
+	ProfileLinks profileLinkDomain.Repository
+	Accounts     domain.Repository
+	Credentials  credDomain.Repository
 }
 
 var _ RegisterApplicationService = (*registerApplicationService)(nil)
@@ -69,9 +73,11 @@ func (s *registerApplicationService) Register(ctx context.Context, req RegisterR
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		repos := registrationRepositories{
-			Users:       tx.Users,
-			Accounts:    tx.Accounts,
-			Credentials: tx.Credentials,
+			Users:        tx.Users,
+			Profiles:     tx.Profiles,
+			ProfileLinks: tx.ProfileLinks,
+			Accounts:     tx.Accounts,
+			Credentials:  tx.Credentials,
 		}
 
 		l.Debugw("步骤1: 创建或获取用户",

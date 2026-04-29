@@ -9,7 +9,7 @@ import (
 )
 
 func TestMockConsumerCreatorStrategyPrepareDataUsesEmailAsExternalID(t *testing.T) {
-	email, err := meta.NewEmail("guardian@example.com")
+	email, err := meta.NewEmail("ref@example.com")
 	require.NoError(t, err)
 
 	strategy := NewMockConsumerCreatorStrategy()
@@ -17,16 +17,16 @@ func TestMockConsumerCreatorStrategyPrepareDataUsesEmailAsExternalID(t *testing.
 		UserID:      meta.FromUint64(101),
 		Email:       email,
 		AccountType: TypeMockConsumer,
-		Profile:     map[string]string{"nickname": "guardian"},
+		Profile:     map[string]string{"nickname": "ref"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, TypeMockConsumer, params.AccountType)
-	require.Equal(t, ExternalID("guardian@example.com"), params.ExternalID)
+	require.Equal(t, ExternalID("ref@example.com"), params.ExternalID)
 	require.Equal(t, MockConsumerAppID, params.AppID)
 }
 
 func TestMockConsumerCreatorStrategyRejectsScopedTenantID(t *testing.T) {
-	email, err := meta.NewEmail("guardian@example.com")
+	email, err := meta.NewEmail("ref@example.com")
 	require.NoError(t, err)
 
 	_, err = NewMockConsumerCreatorStrategy().PrepareData(context.Background(), CreationInput{

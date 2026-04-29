@@ -17,20 +17,20 @@ func TestIdentityGRPCRuntimeRegistersOnlyImplementedServices(t *testing.T) {
 
 	info := server.GetServiceInfo()
 	require.Contains(t, info, "iam.identity.v1.IdentityRead")
-	require.Contains(t, info, "iam.identity.v1.GuardianshipQuery")
-	require.Contains(t, info, "iam.identity.v1.GuardianshipCommand")
+	require.Contains(t, info, "iam.identity.v1.ProfileLinkQuery")
+	require.Contains(t, info, "iam.identity.v1.ProfileLinkCommand")
 	require.Contains(t, info, "iam.identity.v1.IdentityLifecycle")
 	assert.NotContains(t, info, "iam.identity.v1.IdentityStream")
 
 	assert.ElementsMatch(t, []string{
-		"GetUser", "BatchGetUsers", "SearchUsers", "GetChild", "BatchGetChildren",
+		"GetUser", "BatchGetUsers", "SearchUsers", "GetProfile", "BatchGetProfiles",
 	}, methodNames(info["iam.identity.v1.IdentityRead"]))
 	assert.ElementsMatch(t, []string{
-		"IsGuardian", "ListChildren", "ListGuardians",
-	}, methodNames(info["iam.identity.v1.GuardianshipQuery"]))
+		"HasProfileLink", "ListProfiles", "ListProfileLinks",
+	}, methodNames(info["iam.identity.v1.ProfileLinkQuery"]))
 	assert.ElementsMatch(t, []string{
-		"AddGuardian", "RevokeGuardian", "BatchRevokeGuardians", "ImportGuardians",
-	}, methodNames(info["iam.identity.v1.GuardianshipCommand"]))
+		"CreateProfileLink", "RevokeProfileLink", "BatchRevokeProfileLinks", "ImportProfileLinks",
+	}, methodNames(info["iam.identity.v1.ProfileLinkCommand"]))
 	assert.ElementsMatch(t, []string{
 		"CreateUser", "UpdateUser", "DeactivateUser", "BlockUser",
 	}, methodNames(info["iam.identity.v1.IdentityLifecycle"]))
@@ -42,14 +42,14 @@ func TestIdentityContractsDoNotReferenceRemovedRPCs(t *testing.T) {
 		filepath.Join(root, "api/grpc/README.md"),
 		filepath.Join(root, "configs/grpc_acl.yaml"),
 		filepath.Join(root, "pkg/sdk/identity/client.go"),
-		filepath.Join(root, "pkg/sdk/identity/guardianship.go"),
+		filepath.Join(root, "pkg/sdk/identity/profile_link.go"),
 	}
 
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
 		require.NoError(t, err)
 		content := string(data)
-		assert.NotContains(t, content, "UpdateGuardianRelation", path)
+		assert.NotContains(t, content, "UpdateProfileLinkRelation", path)
 		assert.NotContains(t, content, "LinkExternalIdentity", path)
 		assert.NotContains(t, content, "IdentityStream", path)
 	}

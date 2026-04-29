@@ -2,9 +2,9 @@ DELETE FROM `casbin_rule`
 WHERE (`ptype`, `v0`, `v1`, `v2`, `v3`) IN (('p', 'role:super_admin', 'platform', '*', '.*'),
                                             ('p', 'role:tenant_admin', 'fangcun', 'iam:users',
                                              'read|search|create|update|deactivate|block|link_external_identity'),
-                                            ('p', 'role:tenant_admin', 'fangcun', 'iam:children',
+                                            ('p', 'role:tenant_admin', 'fangcun', 'iam:profiles',
                                              'read|list|search|create|update'),
-                                            ('p', 'role:tenant_admin', 'fangcun', 'iam:guardianships',
+                                            ('p', 'role:tenant_admin', 'fangcun', 'iam:profile-links',
                                              'read|list|grant|update_relation|revoke|bulk_revoke|import'),
                                             ('p', 'role:tenant_admin', 'fangcun', 'iam:roles',
                                              'create|read|update|delete|list'),
@@ -68,8 +68,8 @@ WHERE (`tenant_id`, `policy_version`) IN (('platform', 1),
 DELETE FROM `authz_resources`
 WHERE `key` IN ('iam:profile',
                 'iam:users',
-                'iam:children',
-                'iam:guardianships',
+                'iam:profiles',
+                'iam:profile-links',
                 'iam:roles',
                 'iam:assignments',
                 'iam:policies',
@@ -131,7 +131,7 @@ WHERE (`dict_type`, `dict_code`) IN (('gender', '0'),
                                      ('relation_type', 'mother'),
                                      ('relation_type', 'grandfather'),
                                      ('relation_type', 'grandmother'),
-                                     ('relation_type', 'guardian'));
+                                     ('relation_type', 'other'));
 
 DELETE FROM `tenants`
 WHERE `id` IN ('platform', 'fangcun');

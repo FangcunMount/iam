@@ -46,13 +46,13 @@ internal/apiserver/interface/
 │   ├── restful/
 │   │   ├── handler/
 │   │   │   ├── identity.go          # 身份端点
-│   │   │   ├── guardianship.go      # 监护关系端点
-│   │   │   └── child.go             # 儿童管理端点
+│   │   │   ├── ref.go      # 监护关系端点
+│   │   │   └── profile.go             # 儿童管理端点
 │   │   └── router.go
 │   └── grpc/
 │       ├── identity/
 │       │   └── service.go           # 身份 gRPC 服务
-│       ├── guardianship/
+│       ├── ref/
 │       │   └── service.go           # 监护关系 gRPC 服务
 │       └── lifecycle/
 │           └── service.go           # 生命周期 gRPC 服务
@@ -177,11 +177,11 @@ internal/apiserver/application/uc/
 │   ├── services.go                  # 用户应用服务接口
 │   ├── services_impl.go             # 实现 (Register/Rename/UpdateContact)
 │   └── services_impl_test.go
-├── child/
+├── profile/
 │   ├── services.go                  # 儿童应用服务接口
 │   ├── services_impl.go             # 实现 (Register/Update/Query)
 │   └── services_impl_test.go
-├── guardianship/
+├── ref/
 │   ├── services.go                  # 监护关系应用服务接口
 │   ├── services_impl.go             # 实现 (Create/Revoke/Query)
 │   └── services_impl_test.go
@@ -309,15 +309,15 @@ internal/apiserver/domain/uc/
 │   ├── status.go                    # UserStatus 值对象 (枚举)
 │   ├── repository.go                # UserRepository 接口
 │   └── commands.go                  # 用户命令对象
-├── child/
-│   ├── child.go                     # Child 聚合根
+├── profile/
+│   ├── profile.go                     # Profile 聚合根
 │   ├── gender.go                    # Gender 值对象
-│   ├── repository.go                # ChildRepository 接口
+│   ├── repository.go                # ProfileRepository 接口
 │   └── commands.go                  # 儿童命令对象
-└── guardianship/
-    ├── guardianship.go              # Guardianship 聚合根 (关系对象)
+└── ref/
+    ├── ref.go              # Ref 聚合根 (关系对象)
     ├── relation_type.go             # RelationType 值对象
-    ├── repository.go                # GuardianshipRepository 接口
+    ├── repository.go                # RefRepository 接口
     ├── commands.go                  # 监护关系命令对象
     └── errors.go                    # 域错误
 ```
@@ -366,11 +366,11 @@ internal/apiserver/infra/mysql/
 │   ├── po.go
 │   ├── mapper.go
 │   └── repository.go
-├── child/
+├── profile/
 │   ├── po.go
 │   ├── mapper.go
 │   └── repository.go
-├── guardianship/
+├── ref/
 │   ├── po.go
 │   ├── mapper.go
 │   └── repository.go
@@ -602,14 +602,14 @@ api/rest/
 │   └── CRUD /api/v1/authz/assignments/*
 ├── identity.v1.yaml                 # 身份 REST API
 │   ├── GET /api/v1/identity/me
-│   ├── GET /api/v1/identity/me/children
-│   ├── POST /api/v1/identity/children/register
-│   └── POST /api/v1/identity/guardians/grant
+│   ├── GET /api/v1/identity/me/profiles
+│   ├── POST /api/v1/identity/profiles/register
+│   └── POST /api/v1/identity/refs/grant
 ├── idp.v1.yaml                      # IDP REST API
 │   ├── CRUD /api/v1/idp/wechat-apps/*
 │   └── CRUD /api/v1/idp/tenant-config/*
 └── suggest.v1.yaml                  # 联想搜索 API
-    └── GET /api/v1/suggest/child?k=...
+    └── GET /api/v1/suggest/profile?k=...
 ```
 
 ### 2.2 gRPC 契约
@@ -641,7 +641,7 @@ api/grpc/iam/
 │       └── message CheckRequest
 ├── identity/v1/
 │   ├── identity.proto               # 身份服务
-│   ├── guardianship.proto           # 监护关系服务
+│   ├── ref.proto           # 监护关系服务
 │   └── lifecycle.proto              # 生命周期服务
 └── idp/v1/
     └── idp.proto                    # IDP 服务
@@ -664,8 +664,8 @@ configs/
 │       ├── users
 │       ├── auth_accounts
 │       ├── auth_credentials
-│       ├── children
-│       ├── guardianships
+│       ├── profiles
+│       ├── refs
 │       ├── authz_roles
 │       ├── authz_resources
 │       ├── authz_assignments
@@ -721,7 +721,7 @@ docs/
 ├── 02-业务域/
 │   ├── 01-authn-认证&Token&JWKS.md
 │   ├── 02-authz-角色&策略&资源&Assignment.md
-│   ├── 03-user-用户&儿童&Guardianship.md
+│   ├── 03-user-用户&儿童&Ref.md
 │   └── 04-suggest-儿童联想搜索.md
 ├── 03-接口与集成/
 │   ├── 01-REST契约与接入.md
@@ -740,7 +740,7 @@ docs/
     ├── 01-认证链路--从登录请求到Token与JWKS.md
     ├── 02-IAM认证语义拆层--用户状态&会话&Token边界.md
     ├── 03-授权判定链路--角色&策略&资源&Assignment&Casbin.md
-    ├── 04-监护关系链路--用户&儿童&Guardianship的协作.md
+    ├── 04-监护关系链路--用户&儿童&Ref的协作.md
     ├── 05-IAM缓存层--缓存层的设计与治理.md
     ├── 06-IAM缓存层--数据结构选择与Redis建模判断.md
     └── 07-SDK封装与接入价值.md
@@ -807,8 +807,8 @@ pkg/sdk/
 
 关键类型定义文件：
 - domain/uc/user/user.go                       (User 聚合根)
-- domain/uc/child/child.go                     (Child 聚合根)
-- domain/uc/guardianship/guardianship.go       (Guardianship 关系)
+- domain/uc/profile/profile.go                     (Profile 聚合根)
+- domain/uc/ref/ref.go       (Ref 关系)
 - application/uc/uow/uow.go                    (UnitOfWork 事务)
 - application/uc/user/services.go              (用户应用服务)
 ```
@@ -824,7 +824,7 @@ pkg/sdk/
 | 整体架构 | [docs/00-概览/01-系统架构总览.md](docs/00-概览/01-系统架构总览.md) |
 | 登录流程 | [docs/05-专题分析/01-认证链路.md](docs/05-专题分析/01-认证链路.md) + [internal/apiserver/interface/authn/restful/handler/auth.go](internal/apiserver/interface/authn/restful/handler/auth.go) |
 | 权限检查 | [docs/05-专题分析/03-授权判定链路.md](docs/05-专题分析/03-授权判定链路.md) + [internal/apiserver/infra/casbin/adapter.go](internal/apiserver/infra/casbin/adapter.go) |
-| 监护关系 | [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md) + [internal/apiserver/domain/uc/guardianship/guardianship.go](internal/apiserver/domain/uc/guardianship/guardianship.go) |
+| 监护关系 | [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md) + [internal/apiserver/domain/uc/ref/ref.go](internal/apiserver/domain/uc/ref/ref.go) |
 | CQRS 实践 | [docs/04-基础设施与运维/02-CQRS模式实践.md](docs/04-基础设施与运维/02-CQRS模式实践.md) + [internal/apiserver/application/authz/role/](internal/apiserver/application/authz/role/) |
 | 六边形架构 | [docs/04-基础设施与运维/01-六边形架构实践.md](docs/04-基础设施与运维/01-六边形架构实践.md) + [internal/apiserver/container/assembler/](internal/apiserver/container/assembler/) |
 | 缓存系统 | [docs/05-专题分析/05-IAM缓存层.md](docs/05-专题分析/05-IAM缓存层.md) + [internal/apiserver/infra/redis/](internal/apiserver/infra/redis/) |

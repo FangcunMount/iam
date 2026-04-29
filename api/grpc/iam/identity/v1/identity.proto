@@ -25,7 +25,7 @@ enum ContactType {
   CONTACT_TYPE_CUSTOM = 4;
 }
 
-// 儿童性别
+// 档案性别
 enum Gender {
   GENDER_UNSPECIFIED = 0;
   GENDER_MALE = 1;
@@ -33,13 +33,13 @@ enum Gender {
   GENDER_OTHER = 3;
 }
 
-// 监护关系类型
-enum GuardianshipRelation {
-  GUARDIANSHIP_RELATION_UNSPECIFIED = 0;
-  GUARDIANSHIP_RELATION_SELF = 1;
-  GUARDIANSHIP_RELATION_PARENT = 2;
-  GUARDIANSHIP_RELATION_GRANDPARENT = 3;
-  GUARDIANSHIP_RELATION_OTHER = 10;
+// 档案关系类型
+enum ProfileLinkRelation {
+  PROFILE_LINK_RELATION_UNSPECIFIED = 0;
+  PROFILE_LINK_RELATION_SELF = 1;
+  PROFILE_LINK_RELATION_PARENT = 2;
+  PROFILE_LINK_RELATION_GRANDPARENT = 3;
+  PROFILE_LINK_RELATION_OTHER = 10;
 }
 
 // ============= Value Objects =============
@@ -98,7 +98,7 @@ message User {
   google.protobuf.Timestamp updated_at = 11;
 }
 
-message Child {
+message Profile {
   string id = 1;
   string legal_name = 2;
   Gender gender = 3;
@@ -109,35 +109,35 @@ message Child {
   google.protobuf.Timestamp updated_at = 11;
 }
 
-message Guardianship {
+message ProfileLink {
   string id = 1;
   string user_id = 2;
-  string child_id = 3;
-  GuardianshipRelation relation = 4;
+  string profile_id = 3;
+  ProfileLinkRelation relation = 4;
   google.protobuf.Timestamp since = 5;
   google.protobuf.Timestamp revoked_at = 6;
 }
 
-message ChildEdge {
-  Child child = 1;
-  Guardianship guardianship = 2;
+message ProfileEdge {
+  Profile profile = 1;
+  ProfileLink profile_link = 2;
 }
 
-message GuardianshipEdge {
-  Guardianship guardianship = 1;
-  User guardian = 2;
+message ProfileLinkEdge {
+  ProfileLink profile_link = 1;
+  User user = 2;
 }
 
-// 用于 (user_id, child_id) 唯一定位一条关系
-message GuardianshipKey {
+// 用于 (user_id, profile_id) 唯一定位一条关系
+message ProfileLinkKey {
   string user_id = 1;
-  string child_id = 2;
+  string profile_id = 2;
 }
 
-message GuardianshipSelector {
+message ProfileLinkSelector {
   oneof selector {
-    string guardianship_id = 1;
-    GuardianshipKey key = 2;
+    string profile_link_id = 1;
+    ProfileLinkKey key = 2;
   }
 }
 
@@ -164,87 +164,87 @@ message SearchUsersResponse {
   repeated User users = 3;
 }
 
-message GetChildRequest { string child_id = 1; }
-message GetChildResponse { Child child = 1; }
+message GetProfileRequest { string profile_id = 1; }
+message GetProfileResponse { Profile profile = 1; }
 
-message BatchGetChildrenRequest { repeated string child_ids = 1; }
-message BatchGetChildrenResponse {
-  repeated Child children = 1;
+message BatchGetProfilesRequest { repeated string profile_ids = 1; }
+message BatchGetProfilesResponse {
+  repeated Profile profiles = 1;
   repeated string not_found_ids = 2;
 }
 
-message ListChildrenRequest {
+message ListProfilesRequest {
   string user_id = 1;
   OffsetPagination page = 2;
 }
-message ListChildrenResponse {
+message ListProfilesResponse {
   int32 total = 1;
   OffsetPagination page = 2;
-  repeated ChildEdge items = 3;
+  repeated ProfileEdge items = 3;
 }
 
-message ListGuardiansRequest { string child_id = 1; }
-message ListGuardiansResponse {
+message ListProfileLinksRequest { string profile_id = 1; }
+message ListProfileLinksResponse {
   int32 total = 1;
-  repeated GuardianshipEdge items = 2;
+  repeated ProfileLinkEdge items = 2;
 }
 
-message IsGuardianRequest {
+message HasProfileLinkRequest {
   string user_id = 1;
-  string child_id = 2;
+  string profile_id = 2;
 }
-message IsGuardianResponse {
-  bool is_guardian = 1;
-  Guardianship guardianship = 2;
+message HasProfileLinkResponse {
+  bool has_profile_link = 1;
+  ProfileLink profile_link = 2;
 }
 
 // ============= Command Models =============
 
-message AddGuardianRequest {
+message CreateProfileLinkRequest {
   string user_id = 1;
-  string child_id = 2;
-  GuardianshipRelation relation = 3;
+  string profile_id = 2;
+  ProfileLinkRelation relation = 3;
   OperatorContext operator = 10;
 }
-message AddGuardianResponse { Guardianship guardianship = 1; }
+message CreateProfileLinkResponse { ProfileLink profile_link = 1; }
 
-message RevokeGuardianRequest {
-  GuardianshipSelector target = 1;
+message RevokeProfileLinkRequest {
+  ProfileLinkSelector target = 1;
   string reason = 2;
   OperatorContext operator = 10;
 }
-message RevokeGuardianResponse { Guardianship guardianship = 1; }
+message RevokeProfileLinkResponse { ProfileLink profile_link = 1; }
 
-message BatchRevokeGuardiansRequest {
-  repeated GuardianshipSelector targets = 1;
+message BatchRevokeProfileLinksRequest {
+  repeated ProfileLinkSelector targets = 1;
   string reason = 2;
   OperatorContext operator = 10;
 }
-message BatchRevokeGuardiansResponse {
-  repeated Guardianship revoked = 1;
-  repeated FailedGuardianshipFailure failures = 2;
+message BatchRevokeProfileLinksResponse {
+  repeated ProfileLink revoked = 1;
+  repeated FailedProfileLinkFailure failures = 2;
 }
 
-message FailedGuardianshipFailure {
-  GuardianshipSelector target = 1;
+message FailedProfileLinkFailure {
+  ProfileLinkSelector target = 1;
   string error = 2;
 }
 
-message ImportGuardianRecord {
+message ImportProfileLinkRecord {
   string user_id = 1;
-  string child_id = 2;
-  GuardianshipRelation relation = 3;
+  string profile_id = 2;
+  ProfileLinkRelation relation = 3;
 }
-message ImportGuardiansRequest {
-  repeated ImportGuardianRecord records = 1;
+message ImportProfileLinksRequest {
+  repeated ImportProfileLinkRecord records = 1;
   OperatorContext operator = 10;
 }
-message ImportGuardiansResponse {
-  repeated Guardianship created = 1;
-  repeated FailedImportGuardian failures = 2;
+message ImportProfileLinksResponse {
+  repeated ProfileLink created = 1;
+  repeated FailedImportProfileLink failures = 2;
 }
-message FailedImportGuardian {
-  ImportGuardianRecord record = 1;
+message FailedImportProfileLink {
+  ImportProfileLinkRecord record = 1;
   string error = 2;
 }
 
@@ -286,21 +286,21 @@ service IdentityRead {
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
   rpc BatchGetUsers(BatchGetUsersRequest) returns (BatchGetUsersResponse);
   rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
-  rpc GetChild(GetChildRequest) returns (GetChildResponse);
-  rpc BatchGetChildren(BatchGetChildrenRequest) returns (BatchGetChildrenResponse);
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc BatchGetProfiles(BatchGetProfilesRequest) returns (BatchGetProfilesResponse);
 }
 
-service GuardianshipQuery {
-  rpc IsGuardian(IsGuardianRequest) returns (IsGuardianResponse);
-  rpc ListChildren(ListChildrenRequest) returns (ListChildrenResponse);
-  rpc ListGuardians(ListGuardiansRequest) returns (ListGuardiansResponse);
+service ProfileLinkQuery {
+  rpc HasProfileLink(HasProfileLinkRequest) returns (HasProfileLinkResponse);
+  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
+  rpc ListProfileLinks(ListProfileLinksRequest) returns (ListProfileLinksResponse);
 }
 
-service GuardianshipCommand {
-  rpc AddGuardian(AddGuardianRequest) returns (AddGuardianResponse);
-  rpc RevokeGuardian(RevokeGuardianRequest) returns (RevokeGuardianResponse);
-  rpc BatchRevokeGuardians(BatchRevokeGuardiansRequest) returns (BatchRevokeGuardiansResponse);
-  rpc ImportGuardians(ImportGuardiansRequest) returns (ImportGuardiansResponse);
+service ProfileLinkCommand {
+  rpc CreateProfileLink(CreateProfileLinkRequest) returns (CreateProfileLinkResponse);
+  rpc RevokeProfileLink(RevokeProfileLinkRequest) returns (RevokeProfileLinkResponse);
+  rpc BatchRevokeProfileLinks(BatchRevokeProfileLinksRequest) returns (BatchRevokeProfileLinksResponse);
+  rpc ImportProfileLinks(ImportProfileLinksRequest) returns (ImportProfileLinksResponse);
 }
 
 service IdentityLifecycle {

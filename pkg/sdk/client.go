@@ -22,11 +22,11 @@ type Client struct {
 	conn *grpc.ClientConn
 	cfg  *Config
 
-	authClient         *authclient.Client
-	authzClient        *authz.Client
-	identityClient     *identity.Client
-	guardianshipClient *identity.GuardianshipClient
-	idpClient          *idp.Client
+	authClient        *authclient.Client
+	authzClient       *authz.Client
+	identityClient    *identity.Client
+	profileLinkClient *identity.ProfileLinkClient
+	idpClient         *idp.Client
 }
 
 // NewClient 创建 IAM 客户端。
@@ -74,9 +74,9 @@ func (c *Client) initSubClients() {
 	lifecycleService := identityv1.NewIdentityLifecycleClient(c.conn)
 	c.identityClient = identity.NewClient(readService, lifecycleService)
 
-	queryService := identityv1.NewGuardianshipQueryClient(c.conn)
-	commandService := identityv1.NewGuardianshipCommandClient(c.conn)
-	c.guardianshipClient = identity.NewGuardianshipClient(queryService, commandService)
+	queryService := identityv1.NewProfileLinkQueryClient(c.conn)
+	commandService := identityv1.NewProfileLinkCommandClient(c.conn)
+	c.profileLinkClient = identity.NewProfileLinkClient(queryService, commandService)
 
 	idpService := idpv1.NewIDPServiceClient(c.conn)
 	c.idpClient = idp.NewClient(idpService)
@@ -94,8 +94,8 @@ func (c *Client) Identity() *identity.Client {
 	return c.identityClient
 }
 
-func (c *Client) Guardianship() *identity.GuardianshipClient {
-	return c.guardianshipClient
+func (c *Client) ProfileLink() *identity.ProfileLinkClient {
+	return c.profileLinkClient
 }
 
 func (c *Client) IDP() *idp.Client {

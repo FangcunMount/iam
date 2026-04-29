@@ -81,10 +81,10 @@ func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
 func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if userRoutesAvailable(deps) && authMiddleware != nil {
 		userhttp.Register(engine, userhttp.Dependencies{
-			UserHandler:         deps.UserHandler,
-			ChildHandler:        deps.ChildHandler,
-			GuardianshipHandler: deps.GuardianshipHandler,
-			AuthMiddleware:      authMiddleware.AuthRequired(),
+			UserHandler:        deps.UserHandler,
+			ProfileHandler:     deps.ProfileHandler,
+			ProfileLinkHandler: deps.ProfileLinkHandler,
+			AuthMiddleware:     authMiddleware.AuthRequired(),
 		})
 		log.Info("✅ User module routes registered")
 		return
@@ -122,5 +122,5 @@ func authzRoutesAvailable(deps AuthzDeps) bool {
 }
 
 func userRoutesAvailable(deps UserDeps) bool {
-	return deps.UserHandler != nil || deps.ChildHandler != nil || deps.GuardianshipHandler != nil
+	return deps.UserHandler != nil || deps.ProfileHandler != nil || deps.ProfileLinkHandler != nil
 }

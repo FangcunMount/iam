@@ -28,7 +28,7 @@
 | 登录请求如何走到认证、Session、Token、JWKS？ | [01-认证链路--从登录请求到 Token 与 JWKS.md](./01-认证链路--从登录请求到 Token 与 JWKS.md) |
 | 用户状态、会话、access token revoke、refresh token 到底怎么拆层？ | [02-IAM认证语义拆层--用户状态&会话&Token边界.md](./02-IAM认证语义拆层--用户状态&会话&Token边界.md) |
 | 角色、策略、资源、Assignment、Casbin 今天怎么协作？ | [03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](./03-授权判定链路--角色&策略&资源&Assignment&Casbin.md) |
-| 用户、儿童、Guardianship 今天怎么协作？ | [04-监护关系链路--用户&儿童&Guardianship 的协作.md](./04-监护关系链路--用户&儿童&Guardianship 的协作.md) |
+| 用户、儿童、Ref 今天怎么协作？ | [04-监护关系链路--用户&儿童&Ref 的协作.md](./04-监护关系链路--用户&儿童&Ref 的协作.md) |
 | IAM 缓存层整体怎么设计，治理面今天到哪一步？ | [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md) |
 | 为什么 `revoked_access_token` 当前不是 `Set`，session index 为什么是 `ZSet`？ | [06-IAM缓存层--数据结构选择与 Redis 建模判断.md](./06-IAM缓存层--数据结构选择与 Redis 建模判断.md) |
 | 为什么 `pkg/sdk` 不是 wrapper，而是接入主轴？ | [07-SDK封装与接入价值.md](./07-SDK封装与接入价值.md) |
@@ -59,7 +59,7 @@
 | [01-认证链路--从登录请求到 Token 与 JWKS.md](./01-认证链路--从登录请求到 Token 与 JWKS.md) | 登录、认证策略、Session、Token 生命周期、JWKS 发布与轮换 |
 | [02-IAM认证语义拆层--用户状态&会话&Token边界.md](./02-IAM认证语义拆层--用户状态&会话&Token边界.md) | 为什么要拆成 subject/session/access token/refresh token 四层 |
 | [03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](./03-授权判定链路--角色&策略&资源&Assignment&Casbin.md) | Role / Resource / Policy / Assignment 如何变成一次 Casbin 判定 |
-| [04-监护关系链路--用户&儿童&Guardianship 的协作.md](./04-监护关系链路--用户&儿童&Guardianship 的协作.md) | 用户、儿童、Guardianship 的协作链路 |
+| [04-监护关系链路--用户&儿童&Ref 的协作.md](./04-监护关系链路--用户&儿童&Ref 的协作.md) | 用户、儿童、Ref 的协作链路 |
 | [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md) | IAM Cache Layer、family 分工、只读治理面、运行边界 |
 | [06-IAM缓存层--数据结构选择与 Redis 建模判断.md](./06-IAM缓存层--数据结构选择与 Redis 建模判断.md) | Redis 结构为什么这样选、未来何时才值得升级 |
 | [07-SDK封装与接入价值.md](./07-SDK封装与接入价值.md) | SDK 作为接入产品层的价值、在线/离线验证边界和当前限制 |

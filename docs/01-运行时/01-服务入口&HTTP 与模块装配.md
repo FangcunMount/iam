@@ -32,7 +32,7 @@
 | 用户模块路由 | `/api/v1/identity/*` | [../../internal/apiserver/interface/uc/restful/router.go](../../internal/apiserver/interface/uc/restful/router.go) |
 | 授权模块路由 | `/api/v1/authz/*` | [../../internal/apiserver/interface/authz/restful/router.go](../../internal/apiserver/interface/authz/restful/router.go) |
 | IDP 模块路由 | `/api/v1/idp/*` | [../../internal/apiserver/interface/idp/restful/router.go](../../internal/apiserver/interface/idp/restful/router.go) |
-| Suggest 路由 | `/api/v1/suggest/child` | [../../internal/apiserver/interface/suggest/restful/handler.go](../../internal/apiserver/interface/suggest/restful/handler.go) |
+| Suggest 路由 | `/api/v1/suggest/profile` | [../../internal/apiserver/interface/suggest/restful/handler.go](../../internal/apiserver/interface/suggest/restful/handler.go) |
 
 ## 1. `iam-apiserver` 是怎么从入口走到运行态的
 
@@ -140,7 +140,7 @@ flowchart LR
 | `authn` | `/api/v1/authn` | 登录、刷新、登出、verify、accounts、JWKS 管理 |
 | `authz` | `/api/v1/authz` | 角色、策略、资源、Assignment 管理面与单次 PDP |
 | `idp` | `/api/v1/idp` | 微信应用管理与令牌相关接口 |
-| `user` | `/api/v1/identity` | me、children、guardianship 等身份接口 |
+| `user` | `/api/v1/identity` | me、profiles、ref 等身份接口 |
 | `suggest` | `/api/v1/suggest` | 联想搜索接口 |
 | `admin` | `/api/v1/admin` | session revoke 管理动作与保留 placeholder |
 

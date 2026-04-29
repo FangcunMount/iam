@@ -16,25 +16,25 @@ services:
   # QS 服务 - 心理健康测评系统
   - service_name: qs-apiserver.svc  # 匹配证书 CN
     enabled: true
-    description: "QS API SERVER - 心理健康测评系统，允许用户/监护关系的查询和管理"
+    description: "QS API SERVER - 心理健康测评系统，允许用户/档案关系的查询和管理"
     allowed_methods:
       # IdentityRead - 用户查询服务
       - /iam.identity.v1.IdentityRead/GetUser
       - /iam.identity.v1.IdentityRead/BatchGetUsers
       - /iam.identity.v1.IdentityRead/SearchUsers
-      - /iam.identity.v1.IdentityRead/GetChild
-      - /iam.identity.v1.IdentityRead/BatchGetChildren
+      - /iam.identity.v1.IdentityRead/GetProfile
+      - /iam.identity.v1.IdentityRead/BatchGetProfiles
       
-      # GuardianshipQuery - 监护关系查询
-      - /iam.identity.v1.GuardianshipQuery/IsGuardian
-      - /iam.identity.v1.GuardianshipQuery/ListChildren
-      - /iam.identity.v1.GuardianshipQuery/ListGuardians
+      # RefQuery - 档案关系查询
+      - /iam.identity.v1.RefQuery/IsRef
+      - /iam.identity.v1.RefQuery/ListProfiles
+      - /iam.identity.v1.RefQuery/ListRefs
       
-      # GuardianshipCommand - 监护关系管理
-      - /iam.identity.v1.GuardianshipCommand/AddGuardian
-      - /iam.identity.v1.GuardianshipCommand/RevokeGuardian
-      - /iam.identity.v1.GuardianshipCommand/BatchRevokeGuardians
-      - /iam.identity.v1.GuardianshipCommand/ImportGuardians
+      # RefCommand - 档案关系管理
+      - /iam.identity.v1.RefCommand/AddRef
+      - /iam.identity.v1.RefCommand/RevokeRef
+      - /iam.identity.v1.RefCommand/BatchRevokeRefs
+      - /iam.identity.v1.RefCommand/ImportRefs
       
       # IdentityLifecycle - 用户生命周期管理
       - /iam.identity.v1.IdentityLifecycle/CreateUser
@@ -64,25 +64,25 @@ services:
   # QS Collection Server - 数据收集服务
   - service_name: qs-collection-server.svc  # 匹配证书 CN
     enabled: true
-    description: "QS Collection Server - 数据收集服务，允许用户/监护关系的查询和管理"
+    description: "QS Collection Server - 数据收集服务，允许用户/档案关系的查询和管理"
     allowed_methods:
       # IdentityRead - 用户查询服务
       - /iam.identity.v1.IdentityRead/GetUser
       - /iam.identity.v1.IdentityRead/BatchGetUsers
       - /iam.identity.v1.IdentityRead/SearchUsers
-      - /iam.identity.v1.IdentityRead/GetChild
-      - /iam.identity.v1.IdentityRead/BatchGetChildren
+      - /iam.identity.v1.IdentityRead/GetProfile
+      - /iam.identity.v1.IdentityRead/BatchGetProfiles
       
-      # GuardianshipQuery - 监护关系查询
-      - /iam.identity.v1.GuardianshipQuery/IsGuardian
-      - /iam.identity.v1.GuardianshipQuery/ListChildren
-      - /iam.identity.v1.GuardianshipQuery/ListGuardians
+      # RefQuery - 档案关系查询
+      - /iam.identity.v1.RefQuery/IsRef
+      - /iam.identity.v1.RefQuery/ListProfiles
+      - /iam.identity.v1.RefQuery/ListRefs
       
-      # GuardianshipCommand - 监护关系管理
-      - /iam.identity.v1.GuardianshipCommand/AddGuardian
-      - /iam.identity.v1.GuardianshipCommand/RevokeGuardian
-      - /iam.identity.v1.GuardianshipCommand/BatchRevokeGuardians
-      - /iam.identity.v1.GuardianshipCommand/ImportGuardians
+      # RefCommand - 档案关系管理
+      - /iam.identity.v1.RefCommand/AddRef
+      - /iam.identity.v1.RefCommand/RevokeRef
+      - /iam.identity.v1.RefCommand/BatchRevokeRefs
+      - /iam.identity.v1.RefCommand/ImportRefs
       
       # IdentityLifecycle - 用户生命周期管理
       - /iam.identity.v1.IdentityLifecycle/CreateUser
@@ -110,8 +110,8 @@ services:
     allowed_methods:
       # 所有 Identity 服务方法
       - /iam.identity.v1.IdentityRead/*
-      - /iam.identity.v1.GuardianshipQuery/*
-      - /iam.identity.v1.GuardianshipCommand/*
+      - /iam.identity.v1.RefQuery/*
+      - /iam.identity.v1.RefCommand/*
       - /iam.identity.v1.IdentityLifecycle/*
       # 所有 Authn 服务方法
       - /iam.authn.v1.AuthService/*
@@ -146,9 +146,9 @@ services:
     description: "报表服务，仅允许读取统计数据"
     allowed_methods:
       - /iam.identity.v1.IdentityRead/BatchGetUsers
-      - /iam.identity.v1.IdentityRead/BatchGetChildren
-      - /iam.identity.v1.GuardianshipQuery/ListChildren
-      - /iam.identity.v1.GuardianshipQuery/ListGuardians
+      - /iam.identity.v1.IdentityRead/BatchGetProfiles
+      - /iam.identity.v1.RefQuery/ListProfiles
+      - /iam.identity.v1.RefQuery/ListRefs
       - /iam.authz.v1.AuthorizationService/GetAuthorizationSnapshot
 
 # 服务凭证配置（用于应用层鉴权）

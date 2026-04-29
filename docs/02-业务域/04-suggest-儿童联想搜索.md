@@ -9,18 +9,18 @@
 ## 30 秒了解系统
 
 - `suggest` 不是用户域的写模型，也不是独立搜索服务；它是依附于 `iam-apiserver` 的一块**内存读侧能力**。
-- 当前没有独立 `suggest_*` 表，数据来自可配置 Raw SQL，默认从 `children + guardianships + users` 拉数。
+- 当前没有独立 `suggest_*` 表，数据来自可配置 Raw SQL，默认从 `profiles + refs + users` 拉数。
 - 模块内最重要的对象是：`Loader / Updater / Store / Term`。
 - 查询侧的核心结构是 **Trie + Hash**：数字关键词走 Hash，非数字关键词走 Trie 前缀/通配。
 - 刷新侧的核心策略是：启动先做一次全量 `Swap`，之后按 cron 做全量刷新，可选再做增量 `ImportLines`。
-- 对外只有一个 REST 入口：`GET /api/v1/suggest/child?k=`；没有 gRPC。
+- 对外只有一个 REST 入口：`GET /api/v1/suggest/profile?k=`；没有 gRPC。
 
 | 主题 | 当前答案 |
 | ---- | ---- |
-| 数据来源 | 默认 SQL 读 `children / guardianships / users` |
+| 数据来源 | 默认 SQL 读 `profiles / refs / users` |
 | 内部索引 | `search.Store = Trie + Hash` |
 | 刷新策略 | 启动全量、定时全量、可选增量、可选 snapshot |
-| 对外暴露 | `GET /api/v1/suggest/child` |
+| 对外暴露 | `GET /api/v1/suggest/profile` |
 | 真实契约 | [`api/rest/suggest.v1.yaml`](../../api/rest/suggest.v1.yaml) |
 
 ### 模块边界
@@ -34,7 +34,7 @@
 
 #### 不负责
 
-- 儿童、用户、监护关系的写模型与业务规则：见 [03-user-用户&儿童&Guardianship.md](./03-user-用户&儿童&Guardianship.md)
+- 儿童、用户、监护关系的写模型与业务规则：见 [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md)
 - 登录、Token、JWKS：见 [01-authn-认证&Token&JWKS.md](./01-authn-认证&Token&JWKS.md)
 - 分布式一致性搜索、跨副本统一索引、专用搜索集群
 
@@ -51,12 +51,12 @@
 ```mermaid
 flowchart LR
   subgraph iam["iam-apiserver / suggest"]
-    REST["GET /api/v1/suggest/child"]
+    REST["GET /api/v1/suggest/profile"]
     SVC["application/suggest Service"]
     UPD["Updater cron"]
     LD["mysql Loader Raw SQL"]
     ST["search.Store = Trie + Hash"]
-    DB[("MySQL children / guardianships / users")]
+    DB[("MySQL profiles / refs / users")]
   end
   C((Client / BFF)) --> REST
   REST --> SVC
@@ -83,8 +83,8 @@ flowchart LR
 ```mermaid
 flowchart LR
   Users["users"]
-  Guards["guardianships"]
-  Children["children"]
+  Guards["refs"]
+  Profiles["profiles"]
   SQL["Loader SQL"]
   Line["name|id|mobiles|-|weight"]
   Store["Store (Trie + Hash)"]
@@ -92,7 +92,7 @@ flowchart LR
 
   Users --> SQL
   Guards --> SQL
-  Children --> SQL
+  Profiles --> SQL
   SQL --> Line --> Store --> Term
 ```
 
@@ -153,19 +153,19 @@ flowchart TB
 
 ### 核心数据源：`suggest` 不维护自己的业务事实
 
-**结论**：`suggest` 今天不是一套独立业务模型，而是对用户域数据的只读投影。它不写 `children`、不写 `guardianships`，只负责把这些表的数据整理成联想行。
+**结论**：`suggest` 今天不是一套独立业务模型，而是对用户域数据的只读投影。它不写 `profiles`、不写 `refs`，只负责把这些表的数据整理成联想行。
 
 默认 SQL 当前主要做了这些事情：
 
-- 从 `children` 读儿童名和 ID
-- 通过 `guardianships` 连到监护人
+- 从 `profiles` 读儿童名和 ID
+- 通过 `refs` 连到监护人
 - 从 `users` 拿手机号
-- 按 child 聚合出一行
+- 按 profile 聚合出一行
 
 **设计边界**：
 
 - 默认 SQL 过滤的是 `deleted_at`
-- 它**没有**天然按 `guardianships.revoked_at` 统一过滤
+- 它**没有**天然按 `refs.revoked_at` 统一过滤
 
 这意味着 `suggest` 和 `user` 域在“撤销关系是否仍可见”上，当前可能并不天然一致。若产品要求一致，应该优先改 `suggest.full_sql` / `delta_sql`。
 
@@ -229,7 +229,7 @@ flowchart TD
 
 | 面向 | 当前能力 |
 | ---- | ---- |
-| REST | `GET /api/v1/suggest/child?k=` |
+| REST | `GET /api/v1/suggest/profile?k=` |
 | gRPC | N/A |
 
 当前装配边界也要写清：
@@ -271,7 +271,7 @@ flowchart TD
 | ------ | ---- | ---- |
 | 模块装配 | `internal/apiserver/container/assembler/suggest.go` | `enable` 短路、Service/Updater 装配 |
 | 配置读取 | `internal/apiserver/application/suggest/config.go` | `suggest.*` 默认值与读取逻辑 |
-| REST 暴露 | `internal/apiserver/interface/suggest/restful/handler.go` | `GET /api/v1/suggest/child` |
+| REST 暴露 | `internal/apiserver/interface/suggest/restful/handler.go` | `GET /api/v1/suggest/profile` |
 | 路由注册 | `internal/apiserver/routers.go` | Suggest 路由条件注册 |
 | 刷新调度 | `internal/apiserver/application/suggest/updater.go` | 全量 / 增量 / snapshot |
 | SQL 数据源 | `internal/apiserver/infra/mysql/suggest/loader.go` | 默认 Full / Delta SQL 与行格式 |

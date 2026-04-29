@@ -40,10 +40,10 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodPost, "/api/v1/authz/check"},
 		{http.MethodGet, "/api/v1/authz/roles"},
 		{http.MethodGet, "/api/v1/identity/me"},
-		{http.MethodPost, "/api/v1/identity/children/register"},
+		{http.MethodPost, "/api/v1/identity/profiles"},
 		{http.MethodGet, "/api/v1/idp/health"},
 		{http.MethodGet, "/api/v1/idp/wechat-apps"},
-		{http.MethodGet, "/api/v1/suggest/child"},
+		{http.MethodGet, "/api/v1/suggest/profile"},
 		{http.MethodGet, "/debug/cache-governance/catalog"},
 		{http.MethodPost, "/api/v1/admin/sessions/:sessionId/revoke"},
 	} {
@@ -96,9 +96,9 @@ func routeMatrixDeps() Deps {
 		WechatAppHandler: idphandler.NewWechatAppHandler(nil, nil, nil),
 	}
 	deps.User = UserDeps{
-		UserHandler:         uchandler.NewUserHandler(nil, nil, nil, nil),
-		ChildHandler:        uchandler.NewChildHandler(nil, nil, nil),
-		GuardianshipHandler: uchandler.NewGuardianshipHandler(nil),
+		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil, nil, nil),
+		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Suggest = SuggestDeps{Service: appsuggest.NewService(appsuggest.Config{})}
 	deps.ModuleStatus = ModuleStatus{

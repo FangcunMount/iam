@@ -24,9 +24,9 @@ func TestParseIDPreservesLegacySscanfBehavior(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, userID.String())
 
-			childID, err := ParseChildID(tt.raw)
+			profileID, err := ParseProfileID(tt.raw)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, childID.String())
+			assert.Equal(t, tt.want, profileID.String())
 		})
 	}
 }
@@ -36,7 +36,7 @@ func TestParseIDRejectsEmptyAndNonNumeric(t *testing.T) {
 		_, err := ParseUserID(raw)
 		require.Error(t, err)
 
-		_, err = ParseChildID(raw)
+		_, err = ParseProfileID(raw)
 		require.Error(t, err)
 	}
 }
@@ -59,7 +59,7 @@ func TestParseOptionalContactValues(t *testing.T) {
 	assert.Equal(t, "user@example.com", email.String())
 }
 
-func TestChildMeasurementConversions(t *testing.T) {
+func TestProfileMeasurementConversions(t *testing.T) {
 	height, err := ParseHeightCm(120)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(120), HeightCm(height))

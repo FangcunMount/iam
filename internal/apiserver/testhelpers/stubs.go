@@ -9,7 +9,7 @@ import (
 	assignment "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 	role "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	wechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	child "github.com/FangcunMount/iam/internal/apiserver/domain/uc/child"
+	profile "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
 	user "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
@@ -80,21 +80,21 @@ func (s *WechatRepoStub) List(ctx context.Context, filter wechatapp.ListFilter) 
 }
 func (s *WechatRepoStub) Update(ctx context.Context, app *wechatapp.WechatApp) error { return nil }
 
-// ChildRepoStub is a stub for child.Repository used in tests.
-type ChildRepoStub struct {
-	Child      *child.Child
+// ProfileRepoStub is a stub for profile.Repository used in tests.
+type ProfileRepoStub struct {
+	Profile    *profile.Profile
 	FindErr    error
 	FindCalls  int
-	UpdateArgs []*child.Child
+	UpdateArgs []*profile.Profile
 	mu         sync.Mutex
 }
 
-func (s *ChildRepoStub) Create(ctx context.Context, c *child.Child) error { return nil }
-func (s *ChildRepoStub) FindByID(ctx context.Context, id meta.ID) (*child.Child, error) {
+func (s *ProfileRepoStub) Create(ctx context.Context, c *profile.Profile) error { return nil }
+func (s *ProfileRepoStub) FindByID(ctx context.Context, id meta.ID) (*profile.Profile, error) {
 	s.mu.Lock()
 	s.FindCalls++
 	findErr := s.FindErr
-	ch := s.Child
+	ch := s.Profile
 	s.mu.Unlock()
 
 	if findErr != nil {
@@ -105,22 +105,22 @@ func (s *ChildRepoStub) FindByID(ctx context.Context, id meta.ID) (*child.Child,
 	}
 	return ch, nil
 }
-func (s *ChildRepoStub) FindByName(ctx context.Context, name string) (*child.Child, error) {
+func (s *ProfileRepoStub) FindByName(ctx context.Context, name string) (*profile.Profile, error) {
 	return nil, s.FindErr
 }
-func (s *ChildRepoStub) FindByIDCard(ctx context.Context, idCard meta.IDCard) (*child.Child, error) {
+func (s *ProfileRepoStub) FindByIDCard(ctx context.Context, idCard meta.IDCard) (*profile.Profile, error) {
 	return nil, s.FindErr
 }
-func (s *ChildRepoStub) FindListByName(ctx context.Context, name string) ([]*child.Child, error) {
+func (s *ProfileRepoStub) FindListByName(ctx context.Context, name string) ([]*profile.Profile, error) {
 	return nil, s.FindErr
 }
-func (s *ChildRepoStub) FindListByNameAndBirthday(ctx context.Context, name string, birthday meta.Birthday) ([]*child.Child, error) {
+func (s *ProfileRepoStub) FindListByNameAndBirthday(ctx context.Context, name string, birthday meta.Birthday) ([]*profile.Profile, error) {
 	return nil, s.FindErr
 }
-func (s *ChildRepoStub) FindSimilar(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) ([]*child.Child, error) {
+func (s *ProfileRepoStub) FindSimilar(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) ([]*profile.Profile, error) {
 	return nil, s.FindErr
 }
-func (s *ChildRepoStub) Update(ctx context.Context, ch *child.Child) error {
+func (s *ProfileRepoStub) Update(ctx context.Context, ch *profile.Profile) error {
 	s.mu.Lock()
 	s.UpdateArgs = append(s.UpdateArgs, ch)
 	findErr := s.FindErr
@@ -128,17 +128,17 @@ func (s *ChildRepoStub) Update(ctx context.Context, ch *child.Child) error {
 	return findErr
 }
 
-// ChildValidatorStub is a stub for child.Validator used in tests.
-type ChildValidatorStub struct {
+// ProfileValidatorStub is a stub for profile.Validator used in tests.
+type ProfileValidatorStub struct {
 	RenameErr        error
 	UpdateProfileErr error
 }
 
-func (s *ChildValidatorStub) ValidateRegister(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
+func (s *ProfileValidatorStub) ValidateRegister(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
 	return nil
 }
-func (s *ChildValidatorStub) ValidateRename(name string) error { return s.RenameErr }
-func (s *ChildValidatorStub) ValidateUpdateProfile(gender meta.Gender, birthday meta.Birthday) error {
+func (s *ProfileValidatorStub) ValidateRename(name string) error { return s.RenameErr }
+func (s *ProfileValidatorStub) ValidateUpdateProfile(gender meta.Gender, birthday meta.Birthday) error {
 	return s.UpdateProfileErr
 }
 

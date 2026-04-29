@@ -2,10 +2,13 @@ package user
 
 import (
 	"context"
+	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	profiledomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -46,7 +49,7 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 		}
 
 		// 验证注册参数
-		if err := validator.ValidateRegister(ctx, dto.Name, phone); err != nil {
+		if err := validator.ValidateRegister(txCtx, dto.Name, phone); err != nil {
 			l.Warnw("用户注册参数验证失败",
 				"action", logger.ActionRegister,
 				"resource", logger.ResourceUser,
@@ -97,6 +100,10 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 			return err
 		}
 
+		if err := ensureSelfProfileLink(txCtx, tx, newUser); err != nil {
+			return err
+		}
+
 		// 转换为 DTO
 		result = toUserResult(newUser)
 		return nil
@@ -112,4 +119,28 @@ func (s *userApplicationService) Register(ctx context.Context, dto RegisterUserD
 	}
 
 	return result, err
+}
+
+func ensureSelfProfileLink(txCtx context.Context, tx uow.TxRepositories, u *user.User) error {
+	if u == nil || tx.Profiles == nil || tx.ProfileLinks == nil {
+		return nil
+	}
+	profileLinks, err := tx.ProfileLinks.FindByUserID(txCtx, u.ID)
+	if err != nil {
+		return err
+	}
+	for _, existing := range profileLinks {
+		if existing != nil && existing.Type == profileLinkDomain.TypeSelf && existing.IsActive() {
+			return nil
+		}
+	}
+
+	selfProfile, err := profiledomain.NewProfile(u.Name)
+	if err != nil {
+		return err
+	}
+	if err := tx.Profiles.Create(txCtx, selfProfile); err != nil {
+		return err
+	}
+	return tx.ProfileLinks.Create(txCtx, profileLinkDomain.NewSelfProfileLink(u.ID, selfProfile.ID, time.Now()))
 }

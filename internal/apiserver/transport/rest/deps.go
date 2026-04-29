@@ -68,9 +68,9 @@ type IDPDeps struct {
 }
 
 type UserDeps struct {
-	UserHandler         *uchandler.UserHandler
-	ChildHandler        *uchandler.ChildHandler
-	GuardianshipHandler *uchandler.GuardianshipHandler
+	UserHandler        *uchandler.UserHandler
+	ProfileHandler     *uchandler.ProfileHandler
+	ProfileLinkHandler *uchandler.ProfileLinkHandler
 }
 
 type SuggestDeps struct {

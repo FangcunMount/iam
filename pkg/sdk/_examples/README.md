@@ -7,7 +7,7 @@
 
 | 示例 | 路径 | 说明 |
 | ---- | ---- | ---- |
-| 基础用法 | [basic/main.go](./basic/main.go) | 创建客户端、读取用户、判定监护关系 |
+| 基础用法 | [basic/main.go](./basic/main.go) | 创建客户端、读取用户、判定档案关系 |
 | mTLS | [mtls/main.go](./mtls/main.go) | 生产环境 TLS / 重试 / Keepalive 配置 |
 | JWT 验证 | [verifier/main.go](./verifier/main.go) | 本地验证、JWKS、远程降级 |
 | 服务间认证 | [service_auth/main.go](./service_auth/main.go) | `ServiceAuthHelper` 基础用法 |

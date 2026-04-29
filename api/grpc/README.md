@@ -36,9 +36,9 @@ api/grpc/
 
 | Service | 主要消费方 | 能力概览 |
 | --------- | ------------ | ----------- |
-| `IdentityRead` | 运营、OA、消息 | 获取/搜索用户与儿童 (`GetUser/BatchGetUsers/SearchUsers/GetChild/BatchGetChildren`) |
-| `GuardianshipQuery` | 运营、消息 | 读取监护关系 (`IsGuardian/ListChildren/ListGuardians`) |
-| `GuardianshipCommand` | OA、运营 | 写入监护关系 (`Add/Revoke/BatchRevoke/Import`) |
+| `IdentityRead` | 运营、OA、消息 | 获取/搜索用户与儿童 (`GetUser/BatchGetUsers/SearchUsers/GetProfile/BatchGetProfiles`) |
+| `RefQuery` | 运营、消息 | 读取监护关系 (`IsRef/ListProfiles/ListRefs`) |
+| `RefCommand` | OA、运营 | 写入监护关系 (`Add/Revoke/BatchRevoke/Import`) |
 | `IdentityLifecycle` | OA、自动化 | 账号生命周期 (`Create/Update/Deactivate/Block`) |
 | `AuthService` | 业务服务、网关 | 认证能力 (`VerifyToken/RefreshToken/RevokeToken/RevokeRefreshToken/IssueServiceToken`) |
 | `JWKSService` | SDK、业务服务 | gRPC 方式获取 JWKS |
@@ -47,7 +47,7 @@ api/grpc/
 
 ## 🔐 请求契约
 
-- **ID**：全部使用十进制字符串（`user_id`, `child_id` 等），超过 `uint64` 返回 `INVALID_ARGUMENT`。
+- **ID**：全部使用十进制字符串（`user_id`, `profile_id` 等），超过 `uint64` 返回 `INVALID_ARGUMENT`。
 - **Metadata**：
   - `authorization: Bearer <service-token>`（或绑定 mTLS 证书）。
   - `x-request-id`：必填，用于日志/Tracing。
@@ -60,10 +60,10 @@ api/grpc/
 ## 🧾 核心消息语义
 
 - **User**：包含状态、昵称、头像、联系方式（已脱敏展示）、外部账号列表、创建/更新时间。
-- **Child**：儿童实名档案，含性别、出生日期、身高体重、证件脱敏号、时间戳。
-- **Guardianship**：用户 ↔ 儿童 监护关系（关系类型、生效/撤销时间）。
-- **ChildEdge**：`Child + Guardianship`，用于“用户监护的儿童”列表。
-- **GuardianshipEdge**：`Guardianship + User`，用于“儿童的监护人”列表。
+- **Profile**：儿童实名档案，含性别、出生日期、身高体重、证件脱敏号、时间戳。
+- **Ref**：用户 ↔ 儿童 监护关系（关系类型、生效/撤销时间）。
+- **ProfileEdge**：`Profile + Ref`，用于“用户监护的儿童”列表。
+- **RefEdge**：`Ref + User`，用于“儿童的监护人”列表。
 - **OperatorContext**：写接口必填，记录操作者、渠道、理由，服务端据此落审计日志。
 完整字段定义见 `identity.proto`。
 
@@ -75,19 +75,19 @@ api/grpc/
 
 - `GetUser / BatchGetUsers`：按用户 ID 查询账号，批量接口减少网络往返。
 - `SearchUsers`：支持昵称关键字、手机号、邮箱等组合条件分页检索。
-- `GetChild / BatchGetChildren`：查询儿童档案详情，用于运营、报表或消息系统。
+- `GetProfile / BatchGetProfiles`：查询儿童档案详情，用于运营、报表或消息系统。
 
-### GuardianshipQuery
+### RefQuery
 
-- `IsGuardian`：判定某用户是否监护指定儿童，若为真附带监护详情。
-- `ListChildren`：列出用户监护的儿童（`ChildEdge`），支持分页。
-- `ListGuardians`：列出儿童所有监护人（`GuardianshipEdge`）。
+- `IsRef`：判定某用户是否监护指定儿童，若为真附带监护详情。
+- `ListProfiles`：列出用户监护的儿童（`ProfileEdge`），支持分页。
+- `ListRefs`：列出儿童所有监护人（`RefEdge`）。
 
-### GuardianshipCommand
+### RefCommand
 
-- `AddGuardian`：创建监护关系，需要 `OperatorContext`。
-- `RevokeGuardian / BatchRevokeGuardians`：撤销单条或批量关系，可通过 guardianship_id 或 (user_id, child_id) 指定。
-- `ImportGuardians`：批量导入线下数据，支持部分成功。
+- `AddRef`：创建监护关系，需要 `OperatorContext`。
+- `RevokeRef / BatchRevokeRefs`：撤销单条或批量关系，可通过 ref_id 或 (user_id, profile_id) 指定。
+- `ImportRefs`：批量导入线下数据，支持部分成功。
 
 ### IdentityLifecycle
 
@@ -97,7 +97,7 @@ api/grpc/
 
 ### 当前边界
 
-- 当前运行时只注册 `IdentityRead`、`GuardianshipQuery`、`GuardianshipCommand`、`IdentityLifecycle`。
+- 当前运行时只注册 `IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle`。
 - 当前运行时注册的 AuthN/AuthZ/IDP/Identity 服务均为 v1。
 - 当前没有对外开放事件订阅型 gRPC，也不再保留未实现但可见的占位 RPC。
 
@@ -162,16 +162,16 @@ func main() {
     }
     log.Printf("User %s status=%s", userResp.User.Id, userResp.User.Status)
 
-    guardClient := identityv1.NewGuardianshipQueryClient(conn)
-    listResp, err := guardClient.ListChildren(ctx, &identityv1.ListChildrenRequest{
+    guardClient := identityv1.NewRefQueryClient(conn)
+    listResp, err := guardClient.ListProfiles(ctx, &identityv1.ListProfilesRequest{
         UserId: "1024",
         Page:   &identityv1.OffsetPagination{Limit: 20, Offset: 0},
     })
     if err != nil {
-        log.Fatalf("ListChildren failed: %v", err)
+        log.Fatalf("ListProfiles failed: %v", err)
     }
     for _, edge := range listResp.Items {
-        log.Printf("Child %s relation=%s", edge.Guardianship.ChildId, edge.Guardianship.Relation)
+        log.Printf("Profile %s relation=%s", edge.Ref.ProfileId, edge.Ref.Relation)
     }
 }
 ```

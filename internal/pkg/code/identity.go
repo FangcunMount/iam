@@ -6,7 +6,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 )
 
-// Identity: 基础用户及身份档案/监护等领域错误码 (101000～101999).
+// Identity: 基础用户及身份档案关系等领域错误码 (101000～101999).
 
 // Identity: 用户基础错误 (101000～101099).
 const (
@@ -32,22 +32,22 @@ const (
 	ErrUserInactive = 101006
 )
 
-// Identity: 儿童档案错误 (101100～101199).
+// Identity: 档案错误 (101100～101199).
 const (
-	// ErrIdentityChildExists - 400: 儿童档案已存在
-	ErrIdentityChildExists = 101100
+	// ErrIdentityProfileExists - 400: 档案已存在
+	ErrIdentityProfileExists = 101100
 
-	// ErrIdentityChildNotFound - 404: 儿童不存在
-	ErrIdentityChildNotFound = 101101
+	// ErrIdentityProfileNotFound - 404: 档案不存在
+	ErrIdentityProfileNotFound = 101101
 )
 
-// Identity: 监护关系错误 (101200～101299).
+// Identity: 档案关系错误 (101200～101299).
 const (
-	// ErrIdentityGuardianshipExists - 400: 监护关系已存在
-	ErrIdentityGuardianshipExists = 101200
+	// ErrIdentityProfileLinkExists - 400: 档案关系已存在
+	ErrIdentityProfileLinkExists = 101200
 
-	// ErrIdentityGuardianshipNotFound - 404: 监护关系不存在
-	ErrIdentityGuardianshipNotFound = 101201
+	// ErrIdentityProfileLinkNotFound - 404: 档案关系不存在
+	ErrIdentityProfileLinkNotFound = 101201
 )
 
 // nolint: gochecknoinits
@@ -65,13 +65,13 @@ func registerIdentity() {
 	errors.MustRegister(&identityCoder{code: ErrUserBlocked, status: http.StatusForbidden, msg: "User is blocked"})
 	errors.MustRegister(&identityCoder{code: ErrUserInactive, status: http.StatusForbidden, msg: "User is inactive"})
 
-	// 儿童档案错误
-	errors.MustRegister(&identityCoder{code: ErrIdentityChildExists, status: http.StatusBadRequest, msg: "儿童档案已存在"})
-	errors.MustRegister(&identityCoder{code: ErrIdentityChildNotFound, status: http.StatusNotFound, msg: "儿童不存在"})
+	// 档案错误
+	errors.MustRegister(&identityCoder{code: ErrIdentityProfileExists, status: http.StatusBadRequest, msg: "档案已存在"})
+	errors.MustRegister(&identityCoder{code: ErrIdentityProfileNotFound, status: http.StatusNotFound, msg: "档案不存在"})
 
-	// 监护关系错误
-	errors.MustRegister(&identityCoder{code: ErrIdentityGuardianshipExists, status: http.StatusBadRequest, msg: "监护关系已存在"})
-	errors.MustRegister(&identityCoder{code: ErrIdentityGuardianshipNotFound, status: http.StatusNotFound, msg: "监护关系不存在"})
+	// 档案关系错误
+	errors.MustRegister(&identityCoder{code: ErrIdentityProfileLinkExists, status: http.StatusBadRequest, msg: "档案关系已存在"})
+	errors.MustRegister(&identityCoder{code: ErrIdentityProfileLinkNotFound, status: http.StatusNotFound, msg: "档案关系不存在"})
 }
 
 // identityCoder 实现 errors.Coder 接口

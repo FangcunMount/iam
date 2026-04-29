@@ -7,7 +7,7 @@
 - 当前更推荐的接法是：`SDK + gRPC`，再按一致性要求二选一：
   - 高频、可接受最终一致撤销语义：`本地 JWKS 验签`
   - 要求 session revoke / 用户封禁 / 账号禁用即时生效：`IAM 在线 VerifyToken`
-- 如果场景是“网关验证用户 JWT”，优先看 `pkg/sdk` 里的 `TokenVerifier` 和 `JWKS` 配置；如果场景是“后端按 ID 读用户 / 判定监护关系”，优先看 gRPC 与 SDK 的 `Identity()` / `Guardianship()` 客户端。
+- 如果场景是“网关验证用户 JWT”，优先看 `pkg/sdk` 里的 `TokenVerifier` 和 `JWKS` 配置；如果场景是“后端按 ID 读用户 / 判定监护关系”，优先看 gRPC 与 SDK 的 `Identity()` / `Ref()` 客户端。
 - `docs/03-接口与集成` 负责说明“怎么接”；真正的字段、服务和错误语义仍以 `api/rest/*.yaml`、`api/grpc/**/*.proto`、`pkg/sdk/docs/*` 为准。
 - 授权：`authz` 已包含管理面与单次 PDP（REST `POST /authz/check`、gRPC `AuthorizationService/Check`、SDK `Authz()`）；批量/Explain/菜单仍通常需业务侧扩展，见 [03-授权接入与边界.md](./03-授权接入与边界.md)。
 - 旧版《QS 接入 IAM 实践指南》已经归档到 [../_archive/00-概览/04-qs接入iam指南.md](../_archive/00-概览/04-qs接入iam指南.md)；现行接入口径以本文和关联文档为准。
@@ -19,7 +19,7 @@
 | 先判断 SDK 是否能直接承载场景 | 先看 SDK 价值说明 | [../05-专题分析/07-SDK封装与接入价值.md](../05-专题分析/07-SDK封装与接入价值.md) |
 | 网关或 BFF 校验用户 JWT（最终一致即可） | SDK `TokenVerifier` + JWKS | [../../pkg/sdk/docs/04-jwt-verification.md](../../pkg/sdk/docs/04-jwt-verification.md)、[../../pkg/sdk/_examples/verifier/main.go](../../pkg/sdk/_examples/verifier/main.go) |
 | 需要 access revoke / session revoke / 用户封禁即时生效 | 在线 `VerifyToken`（SDK / gRPC） | [02-gRPC契约与接入.md](./02-gRPC契约与接入.md)、[../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
-| 后端服务读取用户 / 儿童 / 监护关系 | SDK `Identity()` / `Guardianship()` | [../../pkg/sdk/docs/01-quick-start.md](../../pkg/sdk/docs/01-quick-start.md)、[../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
+| 后端服务读取用户 / 儿童 / 监护关系 | SDK `Identity()` / `Ref()` | [../../pkg/sdk/docs/01-quick-start.md](../../pkg/sdk/docs/01-quick-start.md)、[../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
 | 服务间获取服务 Token | SDK `ServiceAuthHelper` | [../../pkg/sdk/docs/05-service-auth.md](../../pkg/sdk/docs/05-service-auth.md)、[../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
 | 查看 gRPC 合同与 metadata | gRPC 契约解释层 | [02-gRPC契约与接入.md](./02-gRPC契约与接入.md)、[../../api/grpc/README.md](../../api/grpc/README.md) |
 | 查看 REST 路径与公开 JWKS | REST 契约解释层 | [01-REST契约与接入.md](./01-REST契约与接入.md)、[../../api/rest/authn.v1.yaml](../../api/rest/authn.v1.yaml) |
@@ -87,7 +87,7 @@ SDK 当前已经把最常用的服务收成统一入口：
 
 - `client.Auth()`
 - `client.Identity()`
-- `client.Guardianship()`
+- `client.Ref()`
 
 对应资料：
 
@@ -100,9 +100,9 @@ SDK 当前已经把最常用的服务收成统一入口：
 | 动作 | 当前更合适的能力 |
 | ---- | ---- |
 | 按 `user_id` 查用户 | `Identity().GetUser(...)` |
-| 判定某用户是否是某孩子监护人 | `Guardianship().IsGuardian(...)` |
-| 列出某监护人的孩子 | `Guardianship().ListChildren(...)` |
-| 列出某孩子的监护人 | `Guardianship().ListGuardians(...)` |
+| 判定某用户是否是某孩子监护人 | `Ref().IsRef(...)` |
+| 列出某监护人的孩子 | `Ref().ListProfiles(...)` |
+| 列出某孩子的监护人 | `Ref().ListRefs(...)` |
 
 这比直接对着 `proto` 或手写 gRPC client 更适合业务接入层。
 

@@ -36,18 +36,18 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 		caps := c.UserModule.ApplicationCapabilities()
 		identitySvc := identitygrpc.NewService(
 			caps.UserQueryService,
-			caps.ChildQueryService,
-			caps.GuardianshipQueryService,
+			caps.ProfileQueryService,
+			caps.ProfileLinkQueryService,
 			caps.UserService,
 			caps.UserProfileService,
 			caps.UserStatusService,
-			caps.GuardianshipService,
-			caps.GuardianshipAccessService,
+			caps.ProfileLinkService,
+			caps.ProfileLinkAccessService,
 		)
 		service := ucgrpc.NewService(identitySvc)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "user",
-			Description: "IdentityRead, GuardianshipQuery, GuardianshipCommand, IdentityLifecycle",
+			Description: "IdentityRead, ProfileLinkQuery, ProfileLinkCommand, IdentityLifecycle",
 			Register:    service.Register,
 		})
 	}

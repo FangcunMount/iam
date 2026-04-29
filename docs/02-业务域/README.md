@@ -15,7 +15,7 @@
 | ---- | ---- |
 | 账户、凭据、Token、JWKS 模块本身怎么设计 | [01-authn-认证&Token&JWKS.md](./01-authn-认证&Token&JWKS.md) |
 | 角色、策略、资源、Assignment 模块本身怎么设计 | [02-authz-角色&策略&资源&Assignment.md](./02-authz-角色&策略&资源&Assignment.md) |
-| 用户、儿童、监护关系模块本身怎么设计 | [03-user-用户&儿童&Guardianship.md](./03-user-用户&儿童&Guardianship.md) |
+| 用户、儿童、监护关系模块本身怎么设计 | [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md) |
 | 儿童联想搜索这块读侧能力怎么设计 | [04-suggest-儿童联想搜索.md](./04-suggest-儿童联想搜索.md) |
 | 认证链、授权链、监护链的完整时序从哪看 | [../05-专题分析/README.md](../05-专题分析/README.md) |
 | REST / gRPC / SDK 的接入边界从哪看 | [../03-接口与集成/README.md](../03-接口与集成/README.md) |
@@ -59,7 +59,7 @@
 | ---- | ---- |
 | [01-authn-认证&Token&JWKS.md](./01-authn-认证&Token&JWKS.md) | 账户、凭据、登录、Token、JWKS |
 | [02-authz-角色&策略&资源&Assignment.md](./02-authz-角色&策略&资源&Assignment.md) | 角色/资源/策略/Assignment、Casbin、PDP |
-| [03-user-用户&儿童&Guardianship.md](./03-user-用户&儿童&Guardianship.md) | 用户、儿童、监护关系 |
+| [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md) | 用户、儿童、监护关系 |
 | [04-suggest-儿童联想搜索.md](./04-suggest-儿童联想搜索.md) | 依附用户域的联想搜索读侧能力 |
 
 ## 跨层分工

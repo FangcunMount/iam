@@ -8,10 +8,10 @@ import (
 
 // Dependencies bundles the runtime collaborators required by the UC HTTP adapters.
 type Dependencies struct {
-	UserHandler         *handler.UserHandler
-	ChildHandler        *handler.ChildHandler
-	GuardianshipHandler *handler.GuardianshipHandler
-	AuthMiddleware      gin.HandlerFunc
+	UserHandler        *handler.UserHandler
+	ProfileHandler     *handler.ProfileHandler
+	ProfileLinkHandler *handler.ProfileLinkHandler
+	AuthMiddleware     gin.HandlerFunc
 }
 
 // Register exposes the UC module REST endpoints on the supplied engine.
@@ -24,8 +24,8 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	api.Use(deps.AuthMiddleware)
 
 	registerUserRoutes(api, deps.UserHandler)
-	registerChildRoutes(api, deps.ChildHandler)
-	registerGuardianshipRoutes(api, deps.GuardianshipHandler)
+	registerProfileRoutes(api, deps.ProfileHandler)
+	registerProfileLinkRoutes(api, deps.ProfileLinkHandler)
 }
 
 // registerUserRoutes 注册用户相关路由
@@ -41,31 +41,32 @@ func registerUserRoutes(api *gin.RouterGroup, h *handler.UserHandler) {
 	}
 }
 
-func registerChildRoutes(api *gin.RouterGroup, h *handler.ChildHandler) {
+func registerProfileRoutes(api *gin.RouterGroup, h *handler.ProfileHandler) {
 	if h == nil {
 		return
 	}
 
 	me := api.Group("/me")
 	{
-		me.GET("/children", h.ListMyChildren)
+		me.GET("/profiles", h.ListMyProfiles)
 	}
 
-	api.POST("/children/register", h.RegisterChild)
-	api.GET("/children/search", h.SearchChildren)
+	api.POST("/profiles", h.RegisterProfile)
+	api.GET("/profiles/search", h.SearchProfiles)
 
-	children := api.Group("/children")
+	profiles := api.Group("/profiles")
 	{
-		children.GET("/:id", h.GetChild)
-		children.PATCH("/:id", h.PatchChild)
+		profiles.GET("/:id", h.GetProfile)
+		profiles.PATCH("/:id", h.PatchProfile)
 	}
 }
 
-func registerGuardianshipRoutes(api *gin.RouterGroup, h *handler.GuardianshipHandler) {
+func registerProfileLinkRoutes(api *gin.RouterGroup, h *handler.ProfileLinkHandler) {
 	if h == nil {
 		return
 	}
 
-	api.GET("/guardians", h.List)
-	api.POST("/guardians/grant", h.Grant)
+	api.GET("/profile-links", h.List)
+	api.POST("/profile-links", h.Grant)
+	api.POST("/profile-links/:id/revoke", h.Revoke)
 }

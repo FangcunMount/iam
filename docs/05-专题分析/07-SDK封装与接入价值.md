@@ -12,7 +12,7 @@
 
 ## 30 秒结论
 
-> **一句话**：当前 `pkg/sdk` 已经不是“把 gRPC client 再包一层”的薄封装，而是 IAM 面向接入方的 **统一接入层**。它把在线 verify、本地 JWKS 验签、服务间认证、Authz 单次判定、Identity/Guardianship 查询这几条常见接入路径产品化了；同时它也明确保留了边界，例如本地验签不保证 `revoked_access_token / session / user-account state` 的即时生效，`ForceRemote` 也还不是逐次调用级真正切换策略的完整开关。
+> **一句话**：当前 `pkg/sdk` 已经不是“把 gRPC client 再包一层”的薄封装，而是 IAM 面向接入方的 **统一接入层**。它把在线 verify、本地 JWKS 验签、服务间认证、Authz 单次判定、Identity/Ref 查询这几条常见接入路径产品化了；同时它也明确保留了边界，例如本地验签不保证 `revoked_access_token / session / user-account state` 的即时生效，`ForceRemote` 也还不是逐次调用级真正切换策略的完整开关。
 
 | 主题 | 当前结论 |
 | ---- | ---- |
@@ -51,7 +51,7 @@ flowchart LR
     Biz["业务服务 / 网关 / BFF"] --> SDK["pkg/sdk"]
     SDK --> Auth["Auth()"]
     SDK --> Authz["Authz()"]
-    SDK --> Identity["Identity() / Guardianship()"]
+    SDK --> Identity["Identity() / Ref()"]
     SDK --> IDP["IDP()"]
     Auth --> IAM["iam-apiserver"]
     Authz --> IAM

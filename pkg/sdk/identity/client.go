@@ -1,4 +1,4 @@
-// Package identity 提供身份管理和监护关系查询能力。
+// Package identity 提供身份管理和档案关系查询能力。
 package identity
 
 import identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"

@@ -60,7 +60,7 @@ rg -n 'TODO|FIXME|XXX' internal cmd pkg
 | 文件 | 行数 | 当前判断 |
 | ---- | ---- | ---- |
 | `internal/apiserver/application/uc/user/services_impl.go` | 694 | 应用服务编排长度偏大 |
-| `internal/apiserver/application/uc/child/services_impl.go` | 617 | 读写协调逻辑继续堆积 |
+| `internal/apiserver/application/uc/profile/services_impl.go` | 617 | 读写协调逻辑继续堆积 |
 | `internal/apiserver/application/authn/register/services_impl.go` | 587 | 认证注册流程编排继续拉长 |
 | `internal/apiserver/server.go` | 570 | 启动装配与模块初始化仍偏重 |
 
@@ -107,20 +107,20 @@ rg -n 'TODO|FIXME|XXX' internal cmd pkg
 
 ### 3. 监护关系接口收口为“当前用户自助视角”
 
-原先 `guardianship` REST 接口直接信任请求里的 `userId / childId`。这会让“已登录”与“有权操作该用户/儿童”之间出现断层。
+原先 `ref` REST 接口直接信任请求里的 `userId / profileId`。这会让“已登录”与“有权操作该用户/儿童”之间出现断层。
 
 本次已完成：
 
 1. `grant` 始终使用 JWT 中的当前用户作为 `UserID`
 2. 请求体中的 `userId` 只做兼容性校验，不再作为授权来源
 3. `list` 默认查当前用户，不允许跨用户 `user_id`
-4. 按 `child_id` 查询前，必须先确认当前用户对该儿童存在活跃监护关系
+4. 按 `profile_id` 查询前，必须先确认当前用户对该儿童存在活跃监护关系
 
 主要落点：
 
-- [`../../internal/apiserver/interface/uc/restful/handler/guardianship.go`](../../internal/apiserver/interface/uc/restful/handler/guardianship.go)
-- [`../../internal/apiserver/interface/uc/restful/request/guardianship.go`](../../internal/apiserver/interface/uc/restful/request/guardianship.go)
-- [`../../internal/apiserver/interface/uc/restful/handler/guardianship_test.go`](../../internal/apiserver/interface/uc/restful/handler/guardianship_test.go)
+- [`../../internal/apiserver/interface/uc/restful/handler/ref.go`](../../internal/apiserver/interface/uc/restful/handler/ref.go)
+- [`../../internal/apiserver/interface/uc/restful/request/ref.go`](../../internal/apiserver/interface/uc/restful/request/ref.go)
+- [`../../internal/apiserver/interface/uc/restful/handler/ref_test.go`](../../internal/apiserver/interface/uc/restful/handler/ref_test.go)
 
 ### 4. Authz 写路径改成单库事务，不再靠伪补偿维持一致性
 
@@ -168,7 +168,7 @@ rg -n 'TODO|FIXME|XXX' internal cmd pkg
 | 收益 | 含义 |
 | ---- | ---- |
 | 安全默认值更硬 | 关键模块失效时，不再用“继续启动”伪装可用性 |
-| 权限边界更清楚 | Guardianship 与 Authz 写入口都回到了“当前用户 / 可验证主体”语义 |
+| 权限边界更清楚 | Ref 与 Authz 写入口都回到了“当前用户 / 可验证主体”语义 |
 | 授权事实更一致 | 业务表、版本表、Casbin 规则表在同一事务提交 |
 | 运行状态更可观测 | `/health` 不再只看进程活着，还会反映 auth/authz runtime 健康 |
 | 文档与实现更一致 | Swagger、REST 契约和运行时行为已经同步收口 |

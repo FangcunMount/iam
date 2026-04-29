@@ -78,12 +78,12 @@ func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
 			caps.UserQueryService,
 			caps.Casbin,
 		)
-		deps.User.ChildHandler = identityhandler.NewChildHandler(
-			caps.ChildRegistrationService,
-			caps.ChildAccessService,
-			caps.ChildQueryService,
+		deps.User.ProfileHandler = identityhandler.NewProfileHandler(
+			caps.ProfileRegistrationService,
+			caps.ProfileAccessService,
+			caps.ProfileQueryService,
 		)
-		deps.User.GuardianshipHandler = identityhandler.NewGuardianshipHandler(caps.GuardianshipAccessService)
+		deps.User.ProfileLinkHandler = identityhandler.NewProfileLinkHandler(caps.ProfileLinkAccessService)
 	}
 }
 

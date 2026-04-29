@@ -30,7 +30,7 @@
 | 上下文字段常量 | `user_id / account_id / token_id / claims` | [../../internal/pkg/middleware/authn/context_keys.go](../../internal/pkg/middleware/authn/context_keys.go) |
 | 中央创建位置 | Router 根据 `AuthnModule.TokenService` 创建 | [../../internal/apiserver/routers.go](../../internal/apiserver/routers.go) |
 | 用户域受保护路由 | `/api/v1/identity/*` | [../../internal/apiserver/interface/uc/restful/router.go](../../internal/apiserver/interface/uc/restful/router.go) |
-| Suggest 受保护路由 | `/api/v1/suggest/child` | [../../internal/apiserver/interface/suggest/restful/handler.go](../../internal/apiserver/interface/suggest/restful/handler.go) |
+| Suggest 受保护路由 | `/api/v1/suggest/profile` | [../../internal/apiserver/interface/suggest/restful/handler.go](../../internal/apiserver/interface/suggest/restful/handler.go) |
 | Authz 受保护路由 | `/api/v1/authz/*`（`/health` 公开） | [../../internal/apiserver/interface/authz/restful/router.go](../../internal/apiserver/interface/authz/restful/router.go) |
 | 条件式 admin 路由 | `/api/v1/admin/*`、`/api/v1/authn/admin/jwks/*` | [../../internal/apiserver/routers.go](../../internal/apiserver/routers.go)、[../../internal/apiserver/interface/authn/restful/router.go](../../internal/apiserver/interface/authn/restful/router.go) |
 | 当前未统一挂 JWT 的模块 | `authn` 的公开登录/账户面、`idp` | [../../internal/apiserver/routers.go](../../internal/apiserver/routers.go) |

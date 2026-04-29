@@ -160,11 +160,11 @@ VALUES (901000001, 'iam:profile', '个人资料', 'iam', 'uc', 'instance', JSON_
        (901000002, 'iam:users', '用户管理', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'search', 'create', 'update', 'deactivate', 'block', 'link_external_identity'),
         '用户资料、状态和外部身份关联管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000003, 'iam:children', '儿童档案', 'iam', 'identity', 'collection',
-        JSON_ARRAY('read', 'list', 'search', 'create', 'update'), '儿童档案查询、注册与更新', NOW(), NOW(), 0, 0, 0, 1),
-       (901000004, 'iam:guardianships', '监护关系', 'iam', 'identity', 'collection',
+       (901000003, 'iam:profiles', '档案', 'iam', 'identity', 'collection',
+        JSON_ARRAY('read', 'list', 'search', 'create', 'update'), '档案查询、注册与更新', NOW(), NOW(), 0, 0, 0, 1),
+       (901000004, 'iam:profile-links', '档案关系', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'list', 'grant', 'update_relation', 'revoke', 'bulk_revoke', 'import'),
-        '监护关系授予、更新、撤销与导入', NOW(), NOW(), 0, 0, 0, 1),
+        '档案关系授予、更新、撤销与导入', NOW(), NOW(), 0, 0, 0, 1),
        (901000005, 'iam:roles', '角色管理', 'iam', 'authz', 'collection',
         JSON_ARRAY('create', 'read', 'update', 'delete', 'list'), '角色目录管理', NOW(), NOW(), 0, 0, 0, 1),
        (901000006, 'iam:assignments', '角色分配', 'iam', 'authz', 'collection',
@@ -284,9 +284,9 @@ FROM (SELECT 'p'                  AS `ptype`,
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:users',
              'read|search|create|update|deactivate|block|link_external_identity', NULL, NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:children', 'read|list|search|create|update', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profiles', 'read|list|search|create|update', NULL, NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:guardianships',
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profile-links',
              'read|list|grant|update_relation|revoke|bulk_revoke|import', NULL, NULL
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:roles', 'create|read|update|delete|list', NULL, NULL
@@ -398,10 +398,11 @@ ON DUPLICATE KEY UPDATE `dict_label` = VALUES(`dict_label`),
                         `is_default` = VALUES(`is_default`);
 
 INSERT INTO `data_dictionary` (`dict_type`, `dict_code`, `dict_value`, `dict_label`, `sort_order`)
-VALUES ('relation_type', 'father', 'father', '父亲', 1),
-       ('relation_type', 'mother', 'mother', '母亲', 2),
-       ('relation_type', 'grandfather', 'grandfather', '祖父/外祖父', 3),
-       ('relation_type', 'grandmother', 'grandmother', '祖母/外祖母', 4),
-       ('relation_type', 'guardian', 'guardian', '法定监护人', 5)
+VALUES ('relation_type', 'self', 'self', '本人', 1),
+       ('relation_type', 'father', 'father', '父亲', 2),
+       ('relation_type', 'mother', 'mother', '母亲', 3),
+       ('relation_type', 'grandfather', 'grandfather', '祖父/外祖父', 4),
+       ('relation_type', 'grandmother', 'grandmother', '祖母/外祖母', 5),
+       ('relation_type', 'other', 'other', '关系用户', 6)
 ON DUPLICATE KEY UPDATE `dict_label` = VALUES(`dict_label`),
                         `sort_order` = VALUES(`sort_order`);

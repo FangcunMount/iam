@@ -14,7 +14,7 @@
 ## 30 秒结论
 
 - gRPC 的机器契约以 [../../api/grpc/](../../api/grpc/) 下的 `proto` 为准，`docs/` 只负责解释如何接入和如何验证理解。
-- 当前已注册的 gRPC 服务包括 `AuthService`、`JWKSService`、`IdentityRead`、`GuardianshipQuery`、`GuardianshipCommand`、`IdentityLifecycle`、`IDPService`、`AuthorizationService`（authz PDP）。
+- 当前已注册的 gRPC 服务包括 `AuthService`、`JWKSService`、`IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle`、`IDPService`、`AuthorizationService`（authz PDP）。
 - `api/grpc/README.md` 当前已经提供了核心服务矩阵、metadata 约定、超时建议和调用示例，应把它视为契约消费入口，而不是把这些内容散写在概览文档里。
 - 运行时安全与装配细节不在本文展开；那部分已经放到 [../01-运行时/02-gRPC与mTLS.md](../01-运行时/02-gRPC与mTLS.md)。
 - 提交前如改了 Proto 或 gRPC 相关生成物，应至少检查 `make proto-gen` 和相关 README 是否同步更新。
@@ -26,7 +26,7 @@
 | 契约根目录 | gRPC Proto 合同 | [../../api/grpc/](../../api/grpc/) |
 | 主合同说明 | gRPC 服务矩阵、请求约定、示例 | [../../api/grpc/README.md](../../api/grpc/README.md) |
 | Authn Proto | `AuthService`、`JWKSService` | [../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
-| Identity Proto | `IdentityRead`、`Guardianship*`、`IdentityLifecycle` | [../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
+| Identity Proto | `IdentityRead`、`Ref*`、`IdentityLifecycle` | [../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
 | IDP Proto | `IDPService` | [../../api/grpc/iam/idp/v1/idp.proto](../../api/grpc/iam/idp/v1/idp.proto) |
 | Authz Proto | `AuthorizationService` | [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto) |
 | 代码注册点 | 真实注册了哪些服务 | [../../internal/apiserver/server.go](../../internal/apiserver/server.go) |
@@ -75,8 +75,8 @@ flowchart LR
 | Authn | `AuthService` | [../../internal/apiserver/interface/authn/grpc/service.go](../../internal/apiserver/interface/authn/grpc/service.go) |
 | Authn | `JWKSService` | [../../internal/apiserver/interface/authn/grpc/service.go](../../internal/apiserver/interface/authn/grpc/service.go) |
 | UC | `IdentityRead` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
-| UC | `GuardianshipQuery` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
-| UC | `GuardianshipCommand` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
+| UC | `RefQuery` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
+| UC | `RefCommand` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
 | UC | `IdentityLifecycle` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
 | IDP | `IDPService` | [../../internal/apiserver/interface/idp/grpc/service.go](../../internal/apiserver/interface/idp/grpc/service.go) |
 | Authz | `AuthorizationService` | [../../internal/apiserver/interface/authz/grpc/service.go](../../internal/apiserver/interface/authz/grpc/service.go) |

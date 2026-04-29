@@ -131,7 +131,7 @@ func (ContactType) EnumDescriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{1}
 }
 
-// 儿童性别
+// 档案性别
 type Gender int32
 
 const (
@@ -184,59 +184,59 @@ func (Gender) EnumDescriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{2}
 }
 
-// 监护关系类型
-type GuardianshipRelation int32
+// 档案关系类型
+type ProfileLinkRelation int32
 
 const (
-	GuardianshipRelation_GUARDIANSHIP_RELATION_UNSPECIFIED GuardianshipRelation = 0
-	GuardianshipRelation_GUARDIANSHIP_RELATION_SELF        GuardianshipRelation = 1
-	GuardianshipRelation_GUARDIANSHIP_RELATION_PARENT      GuardianshipRelation = 2
-	GuardianshipRelation_GUARDIANSHIP_RELATION_GRANDPARENT GuardianshipRelation = 3
-	GuardianshipRelation_GUARDIANSHIP_RELATION_OTHER       GuardianshipRelation = 10
+	ProfileLinkRelation_PROFILE_LINK_RELATION_UNSPECIFIED ProfileLinkRelation = 0
+	ProfileLinkRelation_PROFILE_LINK_RELATION_SELF        ProfileLinkRelation = 1
+	ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT      ProfileLinkRelation = 2
+	ProfileLinkRelation_PROFILE_LINK_RELATION_GRANDPARENT ProfileLinkRelation = 3
+	ProfileLinkRelation_PROFILE_LINK_RELATION_OTHER       ProfileLinkRelation = 10
 )
 
-// Enum value maps for GuardianshipRelation.
+// Enum value maps for ProfileLinkRelation.
 var (
-	GuardianshipRelation_name = map[int32]string{
-		0:  "GUARDIANSHIP_RELATION_UNSPECIFIED",
-		1:  "GUARDIANSHIP_RELATION_SELF",
-		2:  "GUARDIANSHIP_RELATION_PARENT",
-		3:  "GUARDIANSHIP_RELATION_GRANDPARENT",
-		10: "GUARDIANSHIP_RELATION_OTHER",
+	ProfileLinkRelation_name = map[int32]string{
+		0:  "PROFILE_LINK_RELATION_UNSPECIFIED",
+		1:  "PROFILE_LINK_RELATION_SELF",
+		2:  "PROFILE_LINK_RELATION_PARENT",
+		3:  "PROFILE_LINK_RELATION_GRANDPARENT",
+		10: "PROFILE_LINK_RELATION_OTHER",
 	}
-	GuardianshipRelation_value = map[string]int32{
-		"GUARDIANSHIP_RELATION_UNSPECIFIED": 0,
-		"GUARDIANSHIP_RELATION_SELF":        1,
-		"GUARDIANSHIP_RELATION_PARENT":      2,
-		"GUARDIANSHIP_RELATION_GRANDPARENT": 3,
-		"GUARDIANSHIP_RELATION_OTHER":       10,
+	ProfileLinkRelation_value = map[string]int32{
+		"PROFILE_LINK_RELATION_UNSPECIFIED": 0,
+		"PROFILE_LINK_RELATION_SELF":        1,
+		"PROFILE_LINK_RELATION_PARENT":      2,
+		"PROFILE_LINK_RELATION_GRANDPARENT": 3,
+		"PROFILE_LINK_RELATION_OTHER":       10,
 	}
 )
 
-func (x GuardianshipRelation) Enum() *GuardianshipRelation {
-	p := new(GuardianshipRelation)
+func (x ProfileLinkRelation) Enum() *ProfileLinkRelation {
+	p := new(ProfileLinkRelation)
 	*p = x
 	return p
 }
 
-func (x GuardianshipRelation) String() string {
+func (x ProfileLinkRelation) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (GuardianshipRelation) Descriptor() protoreflect.EnumDescriptor {
+func (ProfileLinkRelation) Descriptor() protoreflect.EnumDescriptor {
 	return file_iam_identity_v1_identity_proto_enumTypes[3].Descriptor()
 }
 
-func (GuardianshipRelation) Type() protoreflect.EnumType {
+func (ProfileLinkRelation) Type() protoreflect.EnumType {
 	return &file_iam_identity_v1_identity_proto_enumTypes[3]
 }
 
-func (x GuardianshipRelation) Number() protoreflect.EnumNumber {
+func (x ProfileLinkRelation) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use GuardianshipRelation.Descriptor instead.
-func (GuardianshipRelation) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use ProfileLinkRelation.Descriptor instead.
+func (ProfileLinkRelation) EnumDescriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{3}
 }
 
@@ -698,7 +698,7 @@ func (x *User) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-type Child struct {
+type Profile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	LegalName     string                 `protobuf:"bytes,2,opt,name=legal_name,json=legalName,proto3" json:"legal_name,omitempty"`
@@ -712,20 +712,20 @@ type Child struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Child) Reset() {
-	*x = Child{}
+func (x *Profile) Reset() {
+	*x = Profile{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Child) String() string {
+func (x *Profile) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Child) ProtoMessage() {}
+func (*Profile) ProtoMessage() {}
 
-func (x *Child) ProtoReflect() protoreflect.Message {
+func (x *Profile) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -737,93 +737,93 @@ func (x *Child) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Child.ProtoReflect.Descriptor instead.
-func (*Child) Descriptor() ([]byte, []int) {
+// Deprecated: Use Profile.ProtoReflect.Descriptor instead.
+func (*Profile) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *Child) GetId() string {
+func (x *Profile) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *Child) GetLegalName() string {
+func (x *Profile) GetLegalName() string {
 	if x != nil {
 		return x.LegalName
 	}
 	return ""
 }
 
-func (x *Child) GetGender() Gender {
+func (x *Profile) GetGender() Gender {
 	if x != nil {
 		return x.Gender
 	}
 	return Gender_GENDER_UNSPECIFIED
 }
 
-func (x *Child) GetDob() string {
+func (x *Profile) GetDob() string {
 	if x != nil {
 		return x.Dob
 	}
 	return ""
 }
 
-func (x *Child) GetIdentity() *IdentityDocument {
+func (x *Profile) GetIdentity() *IdentityDocument {
 	if x != nil {
 		return x.Identity
 	}
 	return nil
 }
 
-func (x *Child) GetStats() *PhysicalStats {
+func (x *Profile) GetStats() *PhysicalStats {
 	if x != nil {
 		return x.Stats
 	}
 	return nil
 }
 
-func (x *Child) GetCreatedAt() *timestamppb.Timestamp {
+func (x *Profile) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return nil
 }
 
-func (x *Child) GetUpdatedAt() *timestamppb.Timestamp {
+func (x *Profile) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
 	return nil
 }
 
-type Guardianship struct {
+type ProfileLink struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ChildId       string                 `protobuf:"bytes,3,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
-	Relation      GuardianshipRelation   `protobuf:"varint,4,opt,name=relation,proto3,enum=iam.identity.v1.GuardianshipRelation" json:"relation,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,3,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	Relation      ProfileLinkRelation    `protobuf:"varint,4,opt,name=relation,proto3,enum=iam.identity.v1.ProfileLinkRelation" json:"relation,omitempty"`
 	Since         *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=since,proto3" json:"since,omitempty"`
 	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Guardianship) Reset() {
-	*x = Guardianship{}
+func (x *ProfileLink) Reset() {
+	*x = ProfileLink{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Guardianship) String() string {
+func (x *ProfileLink) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Guardianship) ProtoMessage() {}
+func (*ProfileLink) ProtoMessage() {}
 
-func (x *Guardianship) ProtoReflect() protoreflect.Message {
+func (x *ProfileLink) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -835,75 +835,75 @@ func (x *Guardianship) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Guardianship.ProtoReflect.Descriptor instead.
-func (*Guardianship) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProfileLink.ProtoReflect.Descriptor instead.
+func (*ProfileLink) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *Guardianship) GetId() string {
+func (x *ProfileLink) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *Guardianship) GetUserId() string {
+func (x *ProfileLink) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *Guardianship) GetChildId() string {
+func (x *ProfileLink) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-func (x *Guardianship) GetRelation() GuardianshipRelation {
+func (x *ProfileLink) GetRelation() ProfileLinkRelation {
 	if x != nil {
 		return x.Relation
 	}
-	return GuardianshipRelation_GUARDIANSHIP_RELATION_UNSPECIFIED
+	return ProfileLinkRelation_PROFILE_LINK_RELATION_UNSPECIFIED
 }
 
-func (x *Guardianship) GetSince() *timestamppb.Timestamp {
+func (x *ProfileLink) GetSince() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Since
 	}
 	return nil
 }
 
-func (x *Guardianship) GetRevokedAt() *timestamppb.Timestamp {
+func (x *ProfileLink) GetRevokedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.RevokedAt
 	}
 	return nil
 }
 
-type ChildEdge struct {
+type ProfileEdge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Child         *Child                 `protobuf:"bytes,1,opt,name=child,proto3" json:"child,omitempty"`
-	Guardianship  *Guardianship          `protobuf:"bytes,2,opt,name=guardianship,proto3" json:"guardianship,omitempty"`
+	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	ProfileLink   *ProfileLink           `protobuf:"bytes,2,opt,name=profile_link,json=profileLink,proto3" json:"profile_link,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ChildEdge) Reset() {
-	*x = ChildEdge{}
+func (x *ProfileEdge) Reset() {
+	*x = ProfileEdge{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ChildEdge) String() string {
+func (x *ProfileEdge) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ChildEdge) ProtoMessage() {}
+func (*ProfileEdge) ProtoMessage() {}
 
-func (x *ChildEdge) ProtoReflect() protoreflect.Message {
+func (x *ProfileEdge) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -915,47 +915,47 @@ func (x *ChildEdge) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ChildEdge.ProtoReflect.Descriptor instead.
-func (*ChildEdge) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProfileEdge.ProtoReflect.Descriptor instead.
+func (*ProfileEdge) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *ChildEdge) GetChild() *Child {
+func (x *ProfileEdge) GetProfile() *Profile {
 	if x != nil {
-		return x.Child
+		return x.Profile
 	}
 	return nil
 }
 
-func (x *ChildEdge) GetGuardianship() *Guardianship {
+func (x *ProfileEdge) GetProfileLink() *ProfileLink {
 	if x != nil {
-		return x.Guardianship
+		return x.ProfileLink
 	}
 	return nil
 }
 
-type GuardianshipEdge struct {
+type ProfileLinkEdge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Guardianship  *Guardianship          `protobuf:"bytes,1,opt,name=guardianship,proto3" json:"guardianship,omitempty"`
-	Guardian      *User                  `protobuf:"bytes,2,opt,name=guardian,proto3" json:"guardian,omitempty"`
+	ProfileLink   *ProfileLink           `protobuf:"bytes,1,opt,name=profile_link,json=profileLink,proto3" json:"profile_link,omitempty"`
+	User          *User                  `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GuardianshipEdge) Reset() {
-	*x = GuardianshipEdge{}
+func (x *ProfileLinkEdge) Reset() {
+	*x = ProfileLinkEdge{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GuardianshipEdge) String() string {
+func (x *ProfileLinkEdge) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GuardianshipEdge) ProtoMessage() {}
+func (*ProfileLinkEdge) ProtoMessage() {}
 
-func (x *GuardianshipEdge) ProtoReflect() protoreflect.Message {
+func (x *ProfileLinkEdge) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -967,48 +967,48 @@ func (x *GuardianshipEdge) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GuardianshipEdge.ProtoReflect.Descriptor instead.
-func (*GuardianshipEdge) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProfileLinkEdge.ProtoReflect.Descriptor instead.
+func (*ProfileLinkEdge) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *GuardianshipEdge) GetGuardianship() *Guardianship {
+func (x *ProfileLinkEdge) GetProfileLink() *ProfileLink {
 	if x != nil {
-		return x.Guardianship
+		return x.ProfileLink
 	}
 	return nil
 }
 
-func (x *GuardianshipEdge) GetGuardian() *User {
+func (x *ProfileLinkEdge) GetUser() *User {
 	if x != nil {
-		return x.Guardian
+		return x.User
 	}
 	return nil
 }
 
-// 用于 (user_id, child_id) 唯一定位一条关系
-type GuardianshipKey struct {
+// 用于 (user_id, profile_id) 唯一定位一条关系
+type ProfileLinkKey struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ChildId       string                 `protobuf:"bytes,2,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,2,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GuardianshipKey) Reset() {
-	*x = GuardianshipKey{}
+func (x *ProfileLinkKey) Reset() {
+	*x = ProfileLinkKey{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GuardianshipKey) String() string {
+func (x *ProfileLinkKey) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GuardianshipKey) ProtoMessage() {}
+func (*ProfileLinkKey) ProtoMessage() {}
 
-func (x *GuardianshipKey) ProtoReflect() protoreflect.Message {
+func (x *ProfileLinkKey) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1020,50 +1020,50 @@ func (x *GuardianshipKey) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GuardianshipKey.ProtoReflect.Descriptor instead.
-func (*GuardianshipKey) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProfileLinkKey.ProtoReflect.Descriptor instead.
+func (*ProfileLinkKey) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *GuardianshipKey) GetUserId() string {
+func (x *ProfileLinkKey) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *GuardianshipKey) GetChildId() string {
+func (x *ProfileLinkKey) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-type GuardianshipSelector struct {
+type ProfileLinkSelector struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Selector:
 	//
-	//	*GuardianshipSelector_GuardianshipId
-	//	*GuardianshipSelector_Key
-	Selector      isGuardianshipSelector_Selector `protobuf_oneof:"selector"`
+	//	*ProfileLinkSelector_ProfileLinkId
+	//	*ProfileLinkSelector_Key
+	Selector      isProfileLinkSelector_Selector `protobuf_oneof:"selector"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GuardianshipSelector) Reset() {
-	*x = GuardianshipSelector{}
+func (x *ProfileLinkSelector) Reset() {
+	*x = ProfileLinkSelector{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GuardianshipSelector) String() string {
+func (x *ProfileLinkSelector) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GuardianshipSelector) ProtoMessage() {}
+func (*ProfileLinkSelector) ProtoMessage() {}
 
-func (x *GuardianshipSelector) ProtoReflect() protoreflect.Message {
+func (x *ProfileLinkSelector) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1075,51 +1075,51 @@ func (x *GuardianshipSelector) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GuardianshipSelector.ProtoReflect.Descriptor instead.
-func (*GuardianshipSelector) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProfileLinkSelector.ProtoReflect.Descriptor instead.
+func (*ProfileLinkSelector) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *GuardianshipSelector) GetSelector() isGuardianshipSelector_Selector {
+func (x *ProfileLinkSelector) GetSelector() isProfileLinkSelector_Selector {
 	if x != nil {
 		return x.Selector
 	}
 	return nil
 }
 
-func (x *GuardianshipSelector) GetGuardianshipId() string {
+func (x *ProfileLinkSelector) GetProfileLinkId() string {
 	if x != nil {
-		if x, ok := x.Selector.(*GuardianshipSelector_GuardianshipId); ok {
-			return x.GuardianshipId
+		if x, ok := x.Selector.(*ProfileLinkSelector_ProfileLinkId); ok {
+			return x.ProfileLinkId
 		}
 	}
 	return ""
 }
 
-func (x *GuardianshipSelector) GetKey() *GuardianshipKey {
+func (x *ProfileLinkSelector) GetKey() *ProfileLinkKey {
 	if x != nil {
-		if x, ok := x.Selector.(*GuardianshipSelector_Key); ok {
+		if x, ok := x.Selector.(*ProfileLinkSelector_Key); ok {
 			return x.Key
 		}
 	}
 	return nil
 }
 
-type isGuardianshipSelector_Selector interface {
-	isGuardianshipSelector_Selector()
+type isProfileLinkSelector_Selector interface {
+	isProfileLinkSelector_Selector()
 }
 
-type GuardianshipSelector_GuardianshipId struct {
-	GuardianshipId string `protobuf:"bytes,1,opt,name=guardianship_id,json=guardianshipId,proto3,oneof"`
+type ProfileLinkSelector_ProfileLinkId struct {
+	ProfileLinkId string `protobuf:"bytes,1,opt,name=profile_link_id,json=profileLinkId,proto3,oneof"`
 }
 
-type GuardianshipSelector_Key struct {
-	Key *GuardianshipKey `protobuf:"bytes,2,opt,name=key,proto3,oneof"`
+type ProfileLinkSelector_Key struct {
+	Key *ProfileLinkKey `protobuf:"bytes,2,opt,name=key,proto3,oneof"`
 }
 
-func (*GuardianshipSelector_GuardianshipId) isGuardianshipSelector_Selector() {}
+func (*ProfileLinkSelector_ProfileLinkId) isProfileLinkSelector_Selector() {}
 
-func (*GuardianshipSelector_Key) isGuardianshipSelector_Selector() {}
+func (*ProfileLinkSelector_Key) isProfileLinkSelector_Selector() {}
 
 type GetUserRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1433,27 +1433,27 @@ func (x *SearchUsersResponse) GetUsers() []*User {
 	return nil
 }
 
-type GetChildRequest struct {
+type GetProfileRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChildId       string                 `protobuf:"bytes,1,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetChildRequest) Reset() {
-	*x = GetChildRequest{}
+func (x *GetProfileRequest) Reset() {
+	*x = GetProfileRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetChildRequest) String() string {
+func (x *GetProfileRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetChildRequest) ProtoMessage() {}
+func (*GetProfileRequest) ProtoMessage() {}
 
-func (x *GetChildRequest) ProtoReflect() protoreflect.Message {
+func (x *GetProfileRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1465,39 +1465,39 @@ func (x *GetChildRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetChildRequest.ProtoReflect.Descriptor instead.
-func (*GetChildRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetProfileRequest.ProtoReflect.Descriptor instead.
+func (*GetProfileRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{19}
 }
 
-func (x *GetChildRequest) GetChildId() string {
+func (x *GetProfileRequest) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-type GetChildResponse struct {
+type GetProfileResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Child         *Child                 `protobuf:"bytes,1,opt,name=child,proto3" json:"child,omitempty"`
+	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetChildResponse) Reset() {
-	*x = GetChildResponse{}
+func (x *GetProfileResponse) Reset() {
+	*x = GetProfileResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetChildResponse) String() string {
+func (x *GetProfileResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetChildResponse) ProtoMessage() {}
+func (*GetProfileResponse) ProtoMessage() {}
 
-func (x *GetChildResponse) ProtoReflect() protoreflect.Message {
+func (x *GetProfileResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1509,39 +1509,39 @@ func (x *GetChildResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetChildResponse.ProtoReflect.Descriptor instead.
-func (*GetChildResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetProfileResponse.ProtoReflect.Descriptor instead.
+func (*GetProfileResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *GetChildResponse) GetChild() *Child {
+func (x *GetProfileResponse) GetProfile() *Profile {
 	if x != nil {
-		return x.Child
+		return x.Profile
 	}
 	return nil
 }
 
-type BatchGetChildrenRequest struct {
+type BatchGetProfilesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChildIds      []string               `protobuf:"bytes,1,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	ProfileIds    []string               `protobuf:"bytes,1,rep,name=profile_ids,json=profileIds,proto3" json:"profile_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchGetChildrenRequest) Reset() {
-	*x = BatchGetChildrenRequest{}
+func (x *BatchGetProfilesRequest) Reset() {
+	*x = BatchGetProfilesRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchGetChildrenRequest) String() string {
+func (x *BatchGetProfilesRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchGetChildrenRequest) ProtoMessage() {}
+func (*BatchGetProfilesRequest) ProtoMessage() {}
 
-func (x *BatchGetChildrenRequest) ProtoReflect() protoreflect.Message {
+func (x *BatchGetProfilesRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1553,40 +1553,40 @@ func (x *BatchGetChildrenRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchGetChildrenRequest.ProtoReflect.Descriptor instead.
-func (*BatchGetChildrenRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchGetProfilesRequest.ProtoReflect.Descriptor instead.
+func (*BatchGetProfilesRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{21}
 }
 
-func (x *BatchGetChildrenRequest) GetChildIds() []string {
+func (x *BatchGetProfilesRequest) GetProfileIds() []string {
 	if x != nil {
-		return x.ChildIds
+		return x.ProfileIds
 	}
 	return nil
 }
 
-type BatchGetChildrenResponse struct {
+type BatchGetProfilesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Children      []*Child               `protobuf:"bytes,1,rep,name=children,proto3" json:"children,omitempty"`
+	Profiles      []*Profile             `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
 	NotFoundIds   []string               `protobuf:"bytes,2,rep,name=not_found_ids,json=notFoundIds,proto3" json:"not_found_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchGetChildrenResponse) Reset() {
-	*x = BatchGetChildrenResponse{}
+func (x *BatchGetProfilesResponse) Reset() {
+	*x = BatchGetProfilesResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchGetChildrenResponse) String() string {
+func (x *BatchGetProfilesResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchGetChildrenResponse) ProtoMessage() {}
+func (*BatchGetProfilesResponse) ProtoMessage() {}
 
-func (x *BatchGetChildrenResponse) ProtoReflect() protoreflect.Message {
+func (x *BatchGetProfilesResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1598,26 +1598,26 @@ func (x *BatchGetChildrenResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchGetChildrenResponse.ProtoReflect.Descriptor instead.
-func (*BatchGetChildrenResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchGetProfilesResponse.ProtoReflect.Descriptor instead.
+func (*BatchGetProfilesResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *BatchGetChildrenResponse) GetChildren() []*Child {
+func (x *BatchGetProfilesResponse) GetProfiles() []*Profile {
 	if x != nil {
-		return x.Children
+		return x.Profiles
 	}
 	return nil
 }
 
-func (x *BatchGetChildrenResponse) GetNotFoundIds() []string {
+func (x *BatchGetProfilesResponse) GetNotFoundIds() []string {
 	if x != nil {
 		return x.NotFoundIds
 	}
 	return nil
 }
 
-type ListChildrenRequest struct {
+type ListProfilesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Page          *OffsetPagination      `protobuf:"bytes,2,opt,name=page,proto3" json:"page,omitempty"`
@@ -1625,20 +1625,20 @@ type ListChildrenRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListChildrenRequest) Reset() {
-	*x = ListChildrenRequest{}
+func (x *ListProfilesRequest) Reset() {
+	*x = ListProfilesRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListChildrenRequest) String() string {
+func (x *ListProfilesRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListChildrenRequest) ProtoMessage() {}
+func (*ListProfilesRequest) ProtoMessage() {}
 
-func (x *ListChildrenRequest) ProtoReflect() protoreflect.Message {
+func (x *ListProfilesRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1650,48 +1650,48 @@ func (x *ListChildrenRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListChildrenRequest.ProtoReflect.Descriptor instead.
-func (*ListChildrenRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListProfilesRequest.ProtoReflect.Descriptor instead.
+func (*ListProfilesRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{23}
 }
 
-func (x *ListChildrenRequest) GetUserId() string {
+func (x *ListProfilesRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *ListChildrenRequest) GetPage() *OffsetPagination {
+func (x *ListProfilesRequest) GetPage() *OffsetPagination {
 	if x != nil {
 		return x.Page
 	}
 	return nil
 }
 
-type ListChildrenResponse struct {
+type ListProfilesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
 	Page          *OffsetPagination      `protobuf:"bytes,2,opt,name=page,proto3" json:"page,omitempty"`
-	Items         []*ChildEdge           `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	Items         []*ProfileEdge         `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListChildrenResponse) Reset() {
-	*x = ListChildrenResponse{}
+func (x *ListProfilesResponse) Reset() {
+	*x = ListProfilesResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListChildrenResponse) String() string {
+func (x *ListProfilesResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListChildrenResponse) ProtoMessage() {}
+func (*ListProfilesResponse) ProtoMessage() {}
 
-func (x *ListChildrenResponse) ProtoReflect() protoreflect.Message {
+func (x *ListProfilesResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1703,53 +1703,53 @@ func (x *ListChildrenResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListChildrenResponse.ProtoReflect.Descriptor instead.
-func (*ListChildrenResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListProfilesResponse.ProtoReflect.Descriptor instead.
+func (*ListProfilesResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *ListChildrenResponse) GetTotal() int32 {
+func (x *ListProfilesResponse) GetTotal() int32 {
 	if x != nil {
 		return x.Total
 	}
 	return 0
 }
 
-func (x *ListChildrenResponse) GetPage() *OffsetPagination {
+func (x *ListProfilesResponse) GetPage() *OffsetPagination {
 	if x != nil {
 		return x.Page
 	}
 	return nil
 }
 
-func (x *ListChildrenResponse) GetItems() []*ChildEdge {
+func (x *ListProfilesResponse) GetItems() []*ProfileEdge {
 	if x != nil {
 		return x.Items
 	}
 	return nil
 }
 
-type ListGuardiansRequest struct {
+type ListProfileLinksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChildId       string                 `protobuf:"bytes,1,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListGuardiansRequest) Reset() {
-	*x = ListGuardiansRequest{}
+func (x *ListProfileLinksRequest) Reset() {
+	*x = ListProfileLinksRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListGuardiansRequest) String() string {
+func (x *ListProfileLinksRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListGuardiansRequest) ProtoMessage() {}
+func (*ListProfileLinksRequest) ProtoMessage() {}
 
-func (x *ListGuardiansRequest) ProtoReflect() protoreflect.Message {
+func (x *ListProfileLinksRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1761,40 +1761,40 @@ func (x *ListGuardiansRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListGuardiansRequest.ProtoReflect.Descriptor instead.
-func (*ListGuardiansRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListProfileLinksRequest.ProtoReflect.Descriptor instead.
+func (*ListProfileLinksRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *ListGuardiansRequest) GetChildId() string {
+func (x *ListProfileLinksRequest) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-type ListGuardiansResponse struct {
+type ListProfileLinksResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Items         []*GuardianshipEdge    `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	Items         []*ProfileLinkEdge     `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListGuardiansResponse) Reset() {
-	*x = ListGuardiansResponse{}
+func (x *ListProfileLinksResponse) Reset() {
+	*x = ListProfileLinksResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListGuardiansResponse) String() string {
+func (x *ListProfileLinksResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListGuardiansResponse) ProtoMessage() {}
+func (*ListProfileLinksResponse) ProtoMessage() {}
 
-func (x *ListGuardiansResponse) ProtoReflect() protoreflect.Message {
+func (x *ListProfileLinksResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1806,47 +1806,47 @@ func (x *ListGuardiansResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListGuardiansResponse.ProtoReflect.Descriptor instead.
-func (*ListGuardiansResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListProfileLinksResponse.ProtoReflect.Descriptor instead.
+func (*ListProfileLinksResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{26}
 }
 
-func (x *ListGuardiansResponse) GetTotal() int32 {
+func (x *ListProfileLinksResponse) GetTotal() int32 {
 	if x != nil {
 		return x.Total
 	}
 	return 0
 }
 
-func (x *ListGuardiansResponse) GetItems() []*GuardianshipEdge {
+func (x *ListProfileLinksResponse) GetItems() []*ProfileLinkEdge {
 	if x != nil {
 		return x.Items
 	}
 	return nil
 }
 
-type IsGuardianRequest struct {
+type HasProfileLinkRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ChildId       string                 `protobuf:"bytes,2,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,2,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *IsGuardianRequest) Reset() {
-	*x = IsGuardianRequest{}
+func (x *HasProfileLinkRequest) Reset() {
+	*x = HasProfileLinkRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IsGuardianRequest) String() string {
+func (x *HasProfileLinkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IsGuardianRequest) ProtoMessage() {}
+func (*HasProfileLinkRequest) ProtoMessage() {}
 
-func (x *IsGuardianRequest) ProtoReflect() protoreflect.Message {
+func (x *HasProfileLinkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1858,47 +1858,47 @@ func (x *IsGuardianRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IsGuardianRequest.ProtoReflect.Descriptor instead.
-func (*IsGuardianRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use HasProfileLinkRequest.ProtoReflect.Descriptor instead.
+func (*HasProfileLinkRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *IsGuardianRequest) GetUserId() string {
+func (x *HasProfileLinkRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *IsGuardianRequest) GetChildId() string {
+func (x *HasProfileLinkRequest) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-type IsGuardianResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	IsGuardian    bool                   `protobuf:"varint,1,opt,name=is_guardian,json=isGuardian,proto3" json:"is_guardian,omitempty"`
-	Guardianship  *Guardianship          `protobuf:"bytes,2,opt,name=guardianship,proto3" json:"guardianship,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+type HasProfileLinkResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	HasProfileLink bool                   `protobuf:"varint,1,opt,name=has_profile_link,json=hasProfileLink,proto3" json:"has_profile_link,omitempty"`
+	ProfileLink    *ProfileLink           `protobuf:"bytes,2,opt,name=profile_link,json=profileLink,proto3" json:"profile_link,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *IsGuardianResponse) Reset() {
-	*x = IsGuardianResponse{}
+func (x *HasProfileLinkResponse) Reset() {
+	*x = HasProfileLinkResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IsGuardianResponse) String() string {
+func (x *HasProfileLinkResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IsGuardianResponse) ProtoMessage() {}
+func (*HasProfileLinkResponse) ProtoMessage() {}
 
-func (x *IsGuardianResponse) ProtoReflect() protoreflect.Message {
+func (x *HasProfileLinkResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1910,49 +1910,49 @@ func (x *IsGuardianResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IsGuardianResponse.ProtoReflect.Descriptor instead.
-func (*IsGuardianResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use HasProfileLinkResponse.ProtoReflect.Descriptor instead.
+func (*HasProfileLinkResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{28}
 }
 
-func (x *IsGuardianResponse) GetIsGuardian() bool {
+func (x *HasProfileLinkResponse) GetHasProfileLink() bool {
 	if x != nil {
-		return x.IsGuardian
+		return x.HasProfileLink
 	}
 	return false
 }
 
-func (x *IsGuardianResponse) GetGuardianship() *Guardianship {
+func (x *HasProfileLinkResponse) GetProfileLink() *ProfileLink {
 	if x != nil {
-		return x.Guardianship
+		return x.ProfileLink
 	}
 	return nil
 }
 
-type AddGuardianRequest struct {
+type CreateProfileLinkRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ChildId       string                 `protobuf:"bytes,2,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
-	Relation      GuardianshipRelation   `protobuf:"varint,3,opt,name=relation,proto3,enum=iam.identity.v1.GuardianshipRelation" json:"relation,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,2,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	Relation      ProfileLinkRelation    `protobuf:"varint,3,opt,name=relation,proto3,enum=iam.identity.v1.ProfileLinkRelation" json:"relation,omitempty"`
 	Operator      *OperatorContext       `protobuf:"bytes,10,opt,name=operator,proto3" json:"operator,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AddGuardianRequest) Reset() {
-	*x = AddGuardianRequest{}
+func (x *CreateProfileLinkRequest) Reset() {
+	*x = CreateProfileLinkRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AddGuardianRequest) String() string {
+func (x *CreateProfileLinkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AddGuardianRequest) ProtoMessage() {}
+func (*CreateProfileLinkRequest) ProtoMessage() {}
 
-func (x *AddGuardianRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateProfileLinkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1964,60 +1964,60 @@ func (x *AddGuardianRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AddGuardianRequest.ProtoReflect.Descriptor instead.
-func (*AddGuardianRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateProfileLinkRequest.ProtoReflect.Descriptor instead.
+func (*CreateProfileLinkRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{29}
 }
 
-func (x *AddGuardianRequest) GetUserId() string {
+func (x *CreateProfileLinkRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *AddGuardianRequest) GetChildId() string {
+func (x *CreateProfileLinkRequest) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-func (x *AddGuardianRequest) GetRelation() GuardianshipRelation {
+func (x *CreateProfileLinkRequest) GetRelation() ProfileLinkRelation {
 	if x != nil {
 		return x.Relation
 	}
-	return GuardianshipRelation_GUARDIANSHIP_RELATION_UNSPECIFIED
+	return ProfileLinkRelation_PROFILE_LINK_RELATION_UNSPECIFIED
 }
 
-func (x *AddGuardianRequest) GetOperator() *OperatorContext {
+func (x *CreateProfileLinkRequest) GetOperator() *OperatorContext {
 	if x != nil {
 		return x.Operator
 	}
 	return nil
 }
 
-type AddGuardianResponse struct {
+type CreateProfileLinkResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Guardianship  *Guardianship          `protobuf:"bytes,1,opt,name=guardianship,proto3" json:"guardianship,omitempty"`
+	ProfileLink   *ProfileLink           `protobuf:"bytes,1,opt,name=profile_link,json=profileLink,proto3" json:"profile_link,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AddGuardianResponse) Reset() {
-	*x = AddGuardianResponse{}
+func (x *CreateProfileLinkResponse) Reset() {
+	*x = CreateProfileLinkResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AddGuardianResponse) String() string {
+func (x *CreateProfileLinkResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AddGuardianResponse) ProtoMessage() {}
+func (*CreateProfileLinkResponse) ProtoMessage() {}
 
-func (x *AddGuardianResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateProfileLinkResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2029,41 +2029,41 @@ func (x *AddGuardianResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AddGuardianResponse.ProtoReflect.Descriptor instead.
-func (*AddGuardianResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateProfileLinkResponse.ProtoReflect.Descriptor instead.
+func (*CreateProfileLinkResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{30}
 }
 
-func (x *AddGuardianResponse) GetGuardianship() *Guardianship {
+func (x *CreateProfileLinkResponse) GetProfileLink() *ProfileLink {
 	if x != nil {
-		return x.Guardianship
+		return x.ProfileLink
 	}
 	return nil
 }
 
-type RevokeGuardianRequest struct {
+type RevokeProfileLinkRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Target        *GuardianshipSelector  `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
+	Target        *ProfileLinkSelector   `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
 	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
 	Operator      *OperatorContext       `protobuf:"bytes,10,opt,name=operator,proto3" json:"operator,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RevokeGuardianRequest) Reset() {
-	*x = RevokeGuardianRequest{}
+func (x *RevokeProfileLinkRequest) Reset() {
+	*x = RevokeProfileLinkRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RevokeGuardianRequest) String() string {
+func (x *RevokeProfileLinkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RevokeGuardianRequest) ProtoMessage() {}
+func (*RevokeProfileLinkRequest) ProtoMessage() {}
 
-func (x *RevokeGuardianRequest) ProtoReflect() protoreflect.Message {
+func (x *RevokeProfileLinkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2075,53 +2075,53 @@ func (x *RevokeGuardianRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RevokeGuardianRequest.ProtoReflect.Descriptor instead.
-func (*RevokeGuardianRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use RevokeProfileLinkRequest.ProtoReflect.Descriptor instead.
+func (*RevokeProfileLinkRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{31}
 }
 
-func (x *RevokeGuardianRequest) GetTarget() *GuardianshipSelector {
+func (x *RevokeProfileLinkRequest) GetTarget() *ProfileLinkSelector {
 	if x != nil {
 		return x.Target
 	}
 	return nil
 }
 
-func (x *RevokeGuardianRequest) GetReason() string {
+func (x *RevokeProfileLinkRequest) GetReason() string {
 	if x != nil {
 		return x.Reason
 	}
 	return ""
 }
 
-func (x *RevokeGuardianRequest) GetOperator() *OperatorContext {
+func (x *RevokeProfileLinkRequest) GetOperator() *OperatorContext {
 	if x != nil {
 		return x.Operator
 	}
 	return nil
 }
 
-type RevokeGuardianResponse struct {
+type RevokeProfileLinkResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Guardianship  *Guardianship          `protobuf:"bytes,1,opt,name=guardianship,proto3" json:"guardianship,omitempty"`
+	ProfileLink   *ProfileLink           `protobuf:"bytes,1,opt,name=profile_link,json=profileLink,proto3" json:"profile_link,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RevokeGuardianResponse) Reset() {
-	*x = RevokeGuardianResponse{}
+func (x *RevokeProfileLinkResponse) Reset() {
+	*x = RevokeProfileLinkResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RevokeGuardianResponse) String() string {
+func (x *RevokeProfileLinkResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RevokeGuardianResponse) ProtoMessage() {}
+func (*RevokeProfileLinkResponse) ProtoMessage() {}
 
-func (x *RevokeGuardianResponse) ProtoReflect() protoreflect.Message {
+func (x *RevokeProfileLinkResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2133,41 +2133,41 @@ func (x *RevokeGuardianResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RevokeGuardianResponse.ProtoReflect.Descriptor instead.
-func (*RevokeGuardianResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use RevokeProfileLinkResponse.ProtoReflect.Descriptor instead.
+func (*RevokeProfileLinkResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{32}
 }
 
-func (x *RevokeGuardianResponse) GetGuardianship() *Guardianship {
+func (x *RevokeProfileLinkResponse) GetProfileLink() *ProfileLink {
 	if x != nil {
-		return x.Guardianship
+		return x.ProfileLink
 	}
 	return nil
 }
 
-type BatchRevokeGuardiansRequest struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Targets       []*GuardianshipSelector `protobuf:"bytes,1,rep,name=targets,proto3" json:"targets,omitempty"`
-	Reason        string                  `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
-	Operator      *OperatorContext        `protobuf:"bytes,10,opt,name=operator,proto3" json:"operator,omitempty"`
+type BatchRevokeProfileLinksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Targets       []*ProfileLinkSelector `protobuf:"bytes,1,rep,name=targets,proto3" json:"targets,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	Operator      *OperatorContext       `protobuf:"bytes,10,opt,name=operator,proto3" json:"operator,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchRevokeGuardiansRequest) Reset() {
-	*x = BatchRevokeGuardiansRequest{}
+func (x *BatchRevokeProfileLinksRequest) Reset() {
+	*x = BatchRevokeProfileLinksRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchRevokeGuardiansRequest) String() string {
+func (x *BatchRevokeProfileLinksRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchRevokeGuardiansRequest) ProtoMessage() {}
+func (*BatchRevokeProfileLinksRequest) ProtoMessage() {}
 
-func (x *BatchRevokeGuardiansRequest) ProtoReflect() protoreflect.Message {
+func (x *BatchRevokeProfileLinksRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2179,54 +2179,54 @@ func (x *BatchRevokeGuardiansRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchRevokeGuardiansRequest.ProtoReflect.Descriptor instead.
-func (*BatchRevokeGuardiansRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchRevokeProfileLinksRequest.ProtoReflect.Descriptor instead.
+func (*BatchRevokeProfileLinksRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{33}
 }
 
-func (x *BatchRevokeGuardiansRequest) GetTargets() []*GuardianshipSelector {
+func (x *BatchRevokeProfileLinksRequest) GetTargets() []*ProfileLinkSelector {
 	if x != nil {
 		return x.Targets
 	}
 	return nil
 }
 
-func (x *BatchRevokeGuardiansRequest) GetReason() string {
+func (x *BatchRevokeProfileLinksRequest) GetReason() string {
 	if x != nil {
 		return x.Reason
 	}
 	return ""
 }
 
-func (x *BatchRevokeGuardiansRequest) GetOperator() *OperatorContext {
+func (x *BatchRevokeProfileLinksRequest) GetOperator() *OperatorContext {
 	if x != nil {
 		return x.Operator
 	}
 	return nil
 }
 
-type BatchRevokeGuardiansResponse struct {
-	state         protoimpl.MessageState       `protogen:"open.v1"`
-	Revoked       []*Guardianship              `protobuf:"bytes,1,rep,name=revoked,proto3" json:"revoked,omitempty"`
-	Failures      []*FailedGuardianshipFailure `protobuf:"bytes,2,rep,name=failures,proto3" json:"failures,omitempty"`
+type BatchRevokeProfileLinksResponse struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	Revoked       []*ProfileLink              `protobuf:"bytes,1,rep,name=revoked,proto3" json:"revoked,omitempty"`
+	Failures      []*FailedProfileLinkFailure `protobuf:"bytes,2,rep,name=failures,proto3" json:"failures,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchRevokeGuardiansResponse) Reset() {
-	*x = BatchRevokeGuardiansResponse{}
+func (x *BatchRevokeProfileLinksResponse) Reset() {
+	*x = BatchRevokeProfileLinksResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchRevokeGuardiansResponse) String() string {
+func (x *BatchRevokeProfileLinksResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchRevokeGuardiansResponse) ProtoMessage() {}
+func (*BatchRevokeProfileLinksResponse) ProtoMessage() {}
 
-func (x *BatchRevokeGuardiansResponse) ProtoReflect() protoreflect.Message {
+func (x *BatchRevokeProfileLinksResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2238,47 +2238,47 @@ func (x *BatchRevokeGuardiansResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchRevokeGuardiansResponse.ProtoReflect.Descriptor instead.
-func (*BatchRevokeGuardiansResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchRevokeProfileLinksResponse.ProtoReflect.Descriptor instead.
+func (*BatchRevokeProfileLinksResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{34}
 }
 
-func (x *BatchRevokeGuardiansResponse) GetRevoked() []*Guardianship {
+func (x *BatchRevokeProfileLinksResponse) GetRevoked() []*ProfileLink {
 	if x != nil {
 		return x.Revoked
 	}
 	return nil
 }
 
-func (x *BatchRevokeGuardiansResponse) GetFailures() []*FailedGuardianshipFailure {
+func (x *BatchRevokeProfileLinksResponse) GetFailures() []*FailedProfileLinkFailure {
 	if x != nil {
 		return x.Failures
 	}
 	return nil
 }
 
-type FailedGuardianshipFailure struct {
+type FailedProfileLinkFailure struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Target        *GuardianshipSelector  `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
+	Target        *ProfileLinkSelector   `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
 	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FailedGuardianshipFailure) Reset() {
-	*x = FailedGuardianshipFailure{}
+func (x *FailedProfileLinkFailure) Reset() {
+	*x = FailedProfileLinkFailure{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FailedGuardianshipFailure) String() string {
+func (x *FailedProfileLinkFailure) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FailedGuardianshipFailure) ProtoMessage() {}
+func (*FailedProfileLinkFailure) ProtoMessage() {}
 
-func (x *FailedGuardianshipFailure) ProtoReflect() protoreflect.Message {
+func (x *FailedProfileLinkFailure) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2290,48 +2290,48 @@ func (x *FailedGuardianshipFailure) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FailedGuardianshipFailure.ProtoReflect.Descriptor instead.
-func (*FailedGuardianshipFailure) Descriptor() ([]byte, []int) {
+// Deprecated: Use FailedProfileLinkFailure.ProtoReflect.Descriptor instead.
+func (*FailedProfileLinkFailure) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{35}
 }
 
-func (x *FailedGuardianshipFailure) GetTarget() *GuardianshipSelector {
+func (x *FailedProfileLinkFailure) GetTarget() *ProfileLinkSelector {
 	if x != nil {
 		return x.Target
 	}
 	return nil
 }
 
-func (x *FailedGuardianshipFailure) GetError() string {
+func (x *FailedProfileLinkFailure) GetError() string {
 	if x != nil {
 		return x.Error
 	}
 	return ""
 }
 
-type ImportGuardianRecord struct {
+type ImportProfileLinkRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ChildId       string                 `protobuf:"bytes,2,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
-	Relation      GuardianshipRelation   `protobuf:"varint,3,opt,name=relation,proto3,enum=iam.identity.v1.GuardianshipRelation" json:"relation,omitempty"`
+	ProfileId     string                 `protobuf:"bytes,2,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	Relation      ProfileLinkRelation    `protobuf:"varint,3,opt,name=relation,proto3,enum=iam.identity.v1.ProfileLinkRelation" json:"relation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ImportGuardianRecord) Reset() {
-	*x = ImportGuardianRecord{}
+func (x *ImportProfileLinkRecord) Reset() {
+	*x = ImportProfileLinkRecord{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ImportGuardianRecord) String() string {
+func (x *ImportProfileLinkRecord) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ImportGuardianRecord) ProtoMessage() {}
+func (*ImportProfileLinkRecord) ProtoMessage() {}
 
-func (x *ImportGuardianRecord) ProtoReflect() protoreflect.Message {
+func (x *ImportProfileLinkRecord) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2343,54 +2343,54 @@ func (x *ImportGuardianRecord) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ImportGuardianRecord.ProtoReflect.Descriptor instead.
-func (*ImportGuardianRecord) Descriptor() ([]byte, []int) {
+// Deprecated: Use ImportProfileLinkRecord.ProtoReflect.Descriptor instead.
+func (*ImportProfileLinkRecord) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{36}
 }
 
-func (x *ImportGuardianRecord) GetUserId() string {
+func (x *ImportProfileLinkRecord) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *ImportGuardianRecord) GetChildId() string {
+func (x *ImportProfileLinkRecord) GetProfileId() string {
 	if x != nil {
-		return x.ChildId
+		return x.ProfileId
 	}
 	return ""
 }
 
-func (x *ImportGuardianRecord) GetRelation() GuardianshipRelation {
+func (x *ImportProfileLinkRecord) GetRelation() ProfileLinkRelation {
 	if x != nil {
 		return x.Relation
 	}
-	return GuardianshipRelation_GUARDIANSHIP_RELATION_UNSPECIFIED
+	return ProfileLinkRelation_PROFILE_LINK_RELATION_UNSPECIFIED
 }
 
-type ImportGuardiansRequest struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Records       []*ImportGuardianRecord `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
-	Operator      *OperatorContext        `protobuf:"bytes,10,opt,name=operator,proto3" json:"operator,omitempty"`
+type ImportProfileLinksRequest struct {
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	Records       []*ImportProfileLinkRecord `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	Operator      *OperatorContext           `protobuf:"bytes,10,opt,name=operator,proto3" json:"operator,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ImportGuardiansRequest) Reset() {
-	*x = ImportGuardiansRequest{}
+func (x *ImportProfileLinksRequest) Reset() {
+	*x = ImportProfileLinksRequest{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ImportGuardiansRequest) String() string {
+func (x *ImportProfileLinksRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ImportGuardiansRequest) ProtoMessage() {}
+func (*ImportProfileLinksRequest) ProtoMessage() {}
 
-func (x *ImportGuardiansRequest) ProtoReflect() protoreflect.Message {
+func (x *ImportProfileLinksRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2402,47 +2402,47 @@ func (x *ImportGuardiansRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ImportGuardiansRequest.ProtoReflect.Descriptor instead.
-func (*ImportGuardiansRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ImportProfileLinksRequest.ProtoReflect.Descriptor instead.
+func (*ImportProfileLinksRequest) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{37}
 }
 
-func (x *ImportGuardiansRequest) GetRecords() []*ImportGuardianRecord {
+func (x *ImportProfileLinksRequest) GetRecords() []*ImportProfileLinkRecord {
 	if x != nil {
 		return x.Records
 	}
 	return nil
 }
 
-func (x *ImportGuardiansRequest) GetOperator() *OperatorContext {
+func (x *ImportProfileLinksRequest) GetOperator() *OperatorContext {
 	if x != nil {
 		return x.Operator
 	}
 	return nil
 }
 
-type ImportGuardiansResponse struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Created       []*Guardianship         `protobuf:"bytes,1,rep,name=created,proto3" json:"created,omitempty"`
-	Failures      []*FailedImportGuardian `protobuf:"bytes,2,rep,name=failures,proto3" json:"failures,omitempty"`
+type ImportProfileLinksResponse struct {
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	Created       []*ProfileLink             `protobuf:"bytes,1,rep,name=created,proto3" json:"created,omitempty"`
+	Failures      []*FailedImportProfileLink `protobuf:"bytes,2,rep,name=failures,proto3" json:"failures,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ImportGuardiansResponse) Reset() {
-	*x = ImportGuardiansResponse{}
+func (x *ImportProfileLinksResponse) Reset() {
+	*x = ImportProfileLinksResponse{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ImportGuardiansResponse) String() string {
+func (x *ImportProfileLinksResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ImportGuardiansResponse) ProtoMessage() {}
+func (*ImportProfileLinksResponse) ProtoMessage() {}
 
-func (x *ImportGuardiansResponse) ProtoReflect() protoreflect.Message {
+func (x *ImportProfileLinksResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2454,47 +2454,47 @@ func (x *ImportGuardiansResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ImportGuardiansResponse.ProtoReflect.Descriptor instead.
-func (*ImportGuardiansResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ImportProfileLinksResponse.ProtoReflect.Descriptor instead.
+func (*ImportProfileLinksResponse) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{38}
 }
 
-func (x *ImportGuardiansResponse) GetCreated() []*Guardianship {
+func (x *ImportProfileLinksResponse) GetCreated() []*ProfileLink {
 	if x != nil {
 		return x.Created
 	}
 	return nil
 }
 
-func (x *ImportGuardiansResponse) GetFailures() []*FailedImportGuardian {
+func (x *ImportProfileLinksResponse) GetFailures() []*FailedImportProfileLink {
 	if x != nil {
 		return x.Failures
 	}
 	return nil
 }
 
-type FailedImportGuardian struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Record        *ImportGuardianRecord  `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+type FailedImportProfileLink struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Record        *ImportProfileLinkRecord `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	Error         string                   `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FailedImportGuardian) Reset() {
-	*x = FailedImportGuardian{}
+func (x *FailedImportProfileLink) Reset() {
+	*x = FailedImportProfileLink{}
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FailedImportGuardian) String() string {
+func (x *FailedImportProfileLink) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FailedImportGuardian) ProtoMessage() {}
+func (*FailedImportProfileLink) ProtoMessage() {}
 
-func (x *FailedImportGuardian) ProtoReflect() protoreflect.Message {
+func (x *FailedImportProfileLink) ProtoReflect() protoreflect.Message {
 	mi := &file_iam_identity_v1_identity_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2506,19 +2506,19 @@ func (x *FailedImportGuardian) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FailedImportGuardian.ProtoReflect.Descriptor instead.
-func (*FailedImportGuardian) Descriptor() ([]byte, []int) {
+// Deprecated: Use FailedImportProfileLink.ProtoReflect.Descriptor instead.
+func (*FailedImportProfileLink) Descriptor() ([]byte, []int) {
 	return file_iam_identity_v1_identity_proto_rawDescGZIP(), []int{39}
 }
 
-func (x *FailedImportGuardian) GetRecord() *ImportGuardianRecord {
+func (x *FailedImportProfileLink) GetRecord() *ImportProfileLinkRecord {
 	if x != nil {
 		return x.Record
 	}
 	return nil
 }
 
-func (x *FailedImportGuardian) GetError() string {
+func (x *FailedImportProfileLink) GetError() string {
 	if x != nil {
 		return x.Error
 	}
@@ -2957,8 +2957,8 @@ const file_iam_identity_v1_identity_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xe4\x02\n" +
-	"\x05Child\x12\x0e\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xe6\x02\n" +
+	"\aProfile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
 	"legal_name\x18\x02 \x01(\tR\tlegalName\x12/\n" +
@@ -2970,27 +2970,29 @@ const file_iam_identity_v1_identity_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x82\x02\n" +
-	"\fGuardianship\x12\x0e\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x84\x02\n" +
+	"\vProfileLink\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x19\n" +
-	"\bchild_id\x18\x03 \x01(\tR\achildId\x12A\n" +
-	"\brelation\x18\x04 \x01(\x0e2%.iam.identity.v1.GuardianshipRelationR\brelation\x120\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x03 \x01(\tR\tprofileId\x12@\n" +
+	"\brelation\x18\x04 \x01(\x0e2$.iam.identity.v1.ProfileLinkRelationR\brelation\x120\n" +
 	"\x05since\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x129\n" +
 	"\n" +
-	"revoked_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\"|\n" +
-	"\tChildEdge\x12,\n" +
-	"\x05child\x18\x01 \x01(\v2\x16.iam.identity.v1.ChildR\x05child\x12A\n" +
-	"\fguardianship\x18\x02 \x01(\v2\x1d.iam.identity.v1.GuardianshipR\fguardianship\"\x88\x01\n" +
-	"\x10GuardianshipEdge\x12A\n" +
-	"\fguardianship\x18\x01 \x01(\v2\x1d.iam.identity.v1.GuardianshipR\fguardianship\x121\n" +
-	"\bguardian\x18\x02 \x01(\v2\x15.iam.identity.v1.UserR\bguardian\"E\n" +
-	"\x0fGuardianshipKey\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\"\x83\x01\n" +
-	"\x14GuardianshipSelector\x12)\n" +
-	"\x0fguardianship_id\x18\x01 \x01(\tH\x00R\x0eguardianshipId\x124\n" +
-	"\x03key\x18\x02 \x01(\v2 .iam.identity.v1.GuardianshipKeyH\x00R\x03keyB\n" +
+	"revoked_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\"\x82\x01\n" +
+	"\vProfileEdge\x122\n" +
+	"\aprofile\x18\x01 \x01(\v2\x18.iam.identity.v1.ProfileR\aprofile\x12?\n" +
+	"\fprofile_link\x18\x02 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"}\n" +
+	"\x0fProfileLinkEdge\x12?\n" +
+	"\fprofile_link\x18\x01 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\x12)\n" +
+	"\x04user\x18\x02 \x01(\v2\x15.iam.identity.v1.UserR\x04user\"H\n" +
+	"\x0eProfileLinkKey\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x02 \x01(\tR\tprofileId\"\x80\x01\n" +
+	"\x13ProfileLinkSelector\x12(\n" +
+	"\x0fprofile_link_id\x18\x01 \x01(\tH\x00R\rprofileLinkId\x123\n" +
+	"\x03key\x18\x02 \x01(\v2\x1f.iam.identity.v1.ProfileLinkKeyH\x00R\x03keyB\n" +
 	"\n" +
 	"\bselector\")\n" +
 	"\x0eGetUserRequest\x12\x17\n" +
@@ -3011,74 +3013,79 @@ const file_iam_identity_v1_identity_proto_rawDesc = "" +
 	"\x13SearchUsersResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x125\n" +
 	"\x04page\x18\x02 \x01(\v2!.iam.identity.v1.OffsetPaginationR\x04page\x12+\n" +
-	"\x05users\x18\x03 \x03(\v2\x15.iam.identity.v1.UserR\x05users\",\n" +
-	"\x0fGetChildRequest\x12\x19\n" +
-	"\bchild_id\x18\x01 \x01(\tR\achildId\"@\n" +
-	"\x10GetChildResponse\x12,\n" +
-	"\x05child\x18\x01 \x01(\v2\x16.iam.identity.v1.ChildR\x05child\"6\n" +
-	"\x17BatchGetChildrenRequest\x12\x1b\n" +
-	"\tchild_ids\x18\x01 \x03(\tR\bchildIds\"r\n" +
-	"\x18BatchGetChildrenResponse\x122\n" +
-	"\bchildren\x18\x01 \x03(\v2\x16.iam.identity.v1.ChildR\bchildren\x12\"\n" +
+	"\x05users\x18\x03 \x03(\v2\x15.iam.identity.v1.UserR\x05users\"2\n" +
+	"\x11GetProfileRequest\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x01 \x01(\tR\tprofileId\"H\n" +
+	"\x12GetProfileResponse\x122\n" +
+	"\aprofile\x18\x01 \x01(\v2\x18.iam.identity.v1.ProfileR\aprofile\":\n" +
+	"\x17BatchGetProfilesRequest\x12\x1f\n" +
+	"\vprofile_ids\x18\x01 \x03(\tR\n" +
+	"profileIds\"t\n" +
+	"\x18BatchGetProfilesResponse\x124\n" +
+	"\bprofiles\x18\x01 \x03(\v2\x18.iam.identity.v1.ProfileR\bprofiles\x12\"\n" +
 	"\rnot_found_ids\x18\x02 \x03(\tR\vnotFoundIds\"e\n" +
-	"\x13ListChildrenRequest\x12\x17\n" +
+	"\x13ListProfilesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x125\n" +
-	"\x04page\x18\x02 \x01(\v2!.iam.identity.v1.OffsetPaginationR\x04page\"\x95\x01\n" +
-	"\x14ListChildrenResponse\x12\x14\n" +
+	"\x04page\x18\x02 \x01(\v2!.iam.identity.v1.OffsetPaginationR\x04page\"\x97\x01\n" +
+	"\x14ListProfilesResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x125\n" +
-	"\x04page\x18\x02 \x01(\v2!.iam.identity.v1.OffsetPaginationR\x04page\x120\n" +
-	"\x05items\x18\x03 \x03(\v2\x1a.iam.identity.v1.ChildEdgeR\x05items\"1\n" +
-	"\x14ListGuardiansRequest\x12\x19\n" +
-	"\bchild_id\x18\x01 \x01(\tR\achildId\"f\n" +
-	"\x15ListGuardiansResponse\x12\x14\n" +
-	"\x05total\x18\x01 \x01(\x05R\x05total\x127\n" +
-	"\x05items\x18\x02 \x03(\v2!.iam.identity.v1.GuardianshipEdgeR\x05items\"G\n" +
-	"\x11IsGuardianRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\"x\n" +
-	"\x12IsGuardianResponse\x12\x1f\n" +
-	"\vis_guardian\x18\x01 \x01(\bR\n" +
-	"isGuardian\x12A\n" +
-	"\fguardianship\x18\x02 \x01(\v2\x1d.iam.identity.v1.GuardianshipR\fguardianship\"\xc9\x01\n" +
-	"\x12AddGuardianRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\x12A\n" +
-	"\brelation\x18\x03 \x01(\x0e2%.iam.identity.v1.GuardianshipRelationR\brelation\x12<\n" +
+	"\x04page\x18\x02 \x01(\v2!.iam.identity.v1.OffsetPaginationR\x04page\x122\n" +
+	"\x05items\x18\x03 \x03(\v2\x1c.iam.identity.v1.ProfileEdgeR\x05items\"8\n" +
+	"\x17ListProfileLinksRequest\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x01 \x01(\tR\tprofileId\"h\n" +
+	"\x18ListProfileLinksResponse\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x126\n" +
+	"\x05items\x18\x02 \x03(\v2 .iam.identity.v1.ProfileLinkEdgeR\x05items\"O\n" +
+	"\x15HasProfileLinkRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x02 \x01(\tR\tprofileId\"\x83\x01\n" +
+	"\x16HasProfileLinkResponse\x12(\n" +
+	"\x10has_profile_link\x18\x01 \x01(\bR\x0ehasProfileLink\x12?\n" +
+	"\fprofile_link\x18\x02 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"\xd2\x01\n" +
+	"\x18CreateProfileLinkRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x02 \x01(\tR\tprofileId\x12@\n" +
+	"\brelation\x18\x03 \x01(\x0e2$.iam.identity.v1.ProfileLinkRelationR\brelation\x12<\n" +
 	"\boperator\x18\n" +
-	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"X\n" +
-	"\x13AddGuardianResponse\x12A\n" +
-	"\fguardianship\x18\x01 \x01(\v2\x1d.iam.identity.v1.GuardianshipR\fguardianship\"\xac\x01\n" +
-	"\x15RevokeGuardianRequest\x12=\n" +
-	"\x06target\x18\x01 \x01(\v2%.iam.identity.v1.GuardianshipSelectorR\x06target\x12\x16\n" +
+	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\\\n" +
+	"\x19CreateProfileLinkResponse\x12?\n" +
+	"\fprofile_link\x18\x01 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"\xae\x01\n" +
+	"\x18RevokeProfileLinkRequest\x12<\n" +
+	"\x06target\x18\x01 \x01(\v2$.iam.identity.v1.ProfileLinkSelectorR\x06target\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12<\n" +
 	"\boperator\x18\n" +
-	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"[\n" +
-	"\x16RevokeGuardianResponse\x12A\n" +
-	"\fguardianship\x18\x01 \x01(\v2\x1d.iam.identity.v1.GuardianshipR\fguardianship\"\xb4\x01\n" +
-	"\x1bBatchRevokeGuardiansRequest\x12?\n" +
-	"\atargets\x18\x01 \x03(\v2%.iam.identity.v1.GuardianshipSelectorR\atargets\x12\x16\n" +
+	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\\\n" +
+	"\x19RevokeProfileLinkResponse\x12?\n" +
+	"\fprofile_link\x18\x01 \x01(\v2\x1c.iam.identity.v1.ProfileLinkR\vprofileLink\"\xb6\x01\n" +
+	"\x1eBatchRevokeProfileLinksRequest\x12>\n" +
+	"\atargets\x18\x01 \x03(\v2$.iam.identity.v1.ProfileLinkSelectorR\atargets\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12<\n" +
 	"\boperator\x18\n" +
-	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\x9f\x01\n" +
-	"\x1cBatchRevokeGuardiansResponse\x127\n" +
-	"\arevoked\x18\x01 \x03(\v2\x1d.iam.identity.v1.GuardianshipR\arevoked\x12F\n" +
-	"\bfailures\x18\x02 \x03(\v2*.iam.identity.v1.FailedGuardianshipFailureR\bfailures\"p\n" +
-	"\x19FailedGuardianshipFailure\x12=\n" +
-	"\x06target\x18\x01 \x01(\v2%.iam.identity.v1.GuardianshipSelectorR\x06target\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\x8d\x01\n" +
-	"\x14ImportGuardianRecord\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\x12A\n" +
-	"\brelation\x18\x03 \x01(\x0e2%.iam.identity.v1.GuardianshipRelationR\brelation\"\x97\x01\n" +
-	"\x16ImportGuardiansRequest\x12?\n" +
-	"\arecords\x18\x01 \x03(\v2%.iam.identity.v1.ImportGuardianRecordR\arecords\x12<\n" +
+	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\xa0\x01\n" +
+	"\x1fBatchRevokeProfileLinksResponse\x126\n" +
+	"\arevoked\x18\x01 \x03(\v2\x1c.iam.identity.v1.ProfileLinkR\arevoked\x12E\n" +
+	"\bfailures\x18\x02 \x03(\v2).iam.identity.v1.FailedProfileLinkFailureR\bfailures\"n\n" +
+	"\x18FailedProfileLinkFailure\x12<\n" +
+	"\x06target\x18\x01 \x01(\v2$.iam.identity.v1.ProfileLinkSelectorR\x06target\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\x93\x01\n" +
+	"\x17ImportProfileLinkRecord\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\x02 \x01(\tR\tprofileId\x12@\n" +
+	"\brelation\x18\x03 \x01(\x0e2$.iam.identity.v1.ProfileLinkRelationR\brelation\"\x9d\x01\n" +
+	"\x19ImportProfileLinksRequest\x12B\n" +
+	"\arecords\x18\x01 \x03(\v2(.iam.identity.v1.ImportProfileLinkRecordR\arecords\x12<\n" +
 	"\boperator\x18\n" +
-	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\x95\x01\n" +
-	"\x17ImportGuardiansResponse\x127\n" +
-	"\acreated\x18\x01 \x03(\v2\x1d.iam.identity.v1.GuardianshipR\acreated\x12A\n" +
-	"\bfailures\x18\x02 \x03(\v2%.iam.identity.v1.FailedImportGuardianR\bfailures\"k\n" +
-	"\x14FailedImportGuardian\x12=\n" +
-	"\x06record\x18\x01 \x01(\v2%.iam.identity.v1.ImportGuardianRecordR\x06record\x12\x14\n" +
+	" \x01(\v2 .iam.identity.v1.OperatorContextR\boperator\"\x9a\x01\n" +
+	"\x1aImportProfileLinksResponse\x126\n" +
+	"\acreated\x18\x01 \x03(\v2\x1c.iam.identity.v1.ProfileLinkR\acreated\x12D\n" +
+	"\bfailures\x18\x02 \x03(\v2(.iam.identity.v1.FailedImportProfileLinkR\bfailures\"q\n" +
+	"\x17FailedImportProfileLink\x12@\n" +
+	"\x06record\x18\x01 \x01(\v2(.iam.identity.v1.ImportProfileLinkRecordR\x06record\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"\xca\x02\n" +
 	"\x11CreateUserRequest\x12\x1a\n" +
 	"\bnickname\x18\x01 \x01(\tR\bnickname\x12\x14\n" +
@@ -3128,30 +3135,30 @@ const file_iam_identity_v1_identity_proto_rawDesc = "" +
 	"\x12GENDER_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vGENDER_MALE\x10\x01\x12\x11\n" +
 	"\rGENDER_FEMALE\x10\x02\x12\x10\n" +
-	"\fGENDER_OTHER\x10\x03*\xc7\x01\n" +
-	"\x14GuardianshipRelation\x12%\n" +
-	"!GUARDIANSHIP_RELATION_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aGUARDIANSHIP_RELATION_SELF\x10\x01\x12 \n" +
-	"\x1cGUARDIANSHIP_RELATION_PARENT\x10\x02\x12%\n" +
-	"!GUARDIANSHIP_RELATION_GRANDPARENT\x10\x03\x12\x1f\n" +
-	"\x1bGUARDIANSHIP_RELATION_OTHER\x10\n" +
-	"2\xd0\x03\n" +
+	"\fGENDER_OTHER\x10\x03*\xc6\x01\n" +
+	"\x13ProfileLinkRelation\x12%\n" +
+	"!PROFILE_LINK_RELATION_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aPROFILE_LINK_RELATION_SELF\x10\x01\x12 \n" +
+	"\x1cPROFILE_LINK_RELATION_PARENT\x10\x02\x12%\n" +
+	"!PROFILE_LINK_RELATION_GRANDPARENT\x10\x03\x12\x1f\n" +
+	"\x1bPROFILE_LINK_RELATION_OTHER\x10\n" +
+	"2\xd6\x03\n" +
 	"\fIdentityRead\x12L\n" +
 	"\aGetUser\x12\x1f.iam.identity.v1.GetUserRequest\x1a .iam.identity.v1.GetUserResponse\x12^\n" +
 	"\rBatchGetUsers\x12%.iam.identity.v1.BatchGetUsersRequest\x1a&.iam.identity.v1.BatchGetUsersResponse\x12X\n" +
-	"\vSearchUsers\x12#.iam.identity.v1.SearchUsersRequest\x1a$.iam.identity.v1.SearchUsersResponse\x12O\n" +
-	"\bGetChild\x12 .iam.identity.v1.GetChildRequest\x1a!.iam.identity.v1.GetChildResponse\x12g\n" +
-	"\x10BatchGetChildren\x12(.iam.identity.v1.BatchGetChildrenRequest\x1a).iam.identity.v1.BatchGetChildrenResponse2\xa7\x02\n" +
-	"\x11GuardianshipQuery\x12U\n" +
+	"\vSearchUsers\x12#.iam.identity.v1.SearchUsersRequest\x1a$.iam.identity.v1.SearchUsersResponse\x12U\n" +
 	"\n" +
-	"IsGuardian\x12\".iam.identity.v1.IsGuardianRequest\x1a#.iam.identity.v1.IsGuardianResponse\x12[\n" +
-	"\fListChildren\x12$.iam.identity.v1.ListChildrenRequest\x1a%.iam.identity.v1.ListChildrenResponse\x12^\n" +
-	"\rListGuardians\x12%.iam.identity.v1.ListGuardiansRequest\x1a&.iam.identity.v1.ListGuardiansResponse2\xad\x03\n" +
-	"\x13GuardianshipCommand\x12X\n" +
-	"\vAddGuardian\x12#.iam.identity.v1.AddGuardianRequest\x1a$.iam.identity.v1.AddGuardianResponse\x12a\n" +
-	"\x0eRevokeGuardian\x12&.iam.identity.v1.RevokeGuardianRequest\x1a'.iam.identity.v1.RevokeGuardianResponse\x12s\n" +
-	"\x14BatchRevokeGuardians\x12,.iam.identity.v1.BatchRevokeGuardiansRequest\x1a-.iam.identity.v1.BatchRevokeGuardiansResponse\x12d\n" +
-	"\x0fImportGuardians\x12'.iam.identity.v1.ImportGuardiansRequest\x1a(.iam.identity.v1.ImportGuardiansResponse2\x84\x03\n" +
+	"GetProfile\x12\".iam.identity.v1.GetProfileRequest\x1a#.iam.identity.v1.GetProfileResponse\x12g\n" +
+	"\x10BatchGetProfiles\x12(.iam.identity.v1.BatchGetProfilesRequest\x1a).iam.identity.v1.BatchGetProfilesResponse2\xbb\x02\n" +
+	"\x10ProfileLinkQuery\x12a\n" +
+	"\x0eHasProfileLink\x12&.iam.identity.v1.HasProfileLinkRequest\x1a'.iam.identity.v1.HasProfileLinkResponse\x12[\n" +
+	"\fListProfiles\x12$.iam.identity.v1.ListProfilesRequest\x1a%.iam.identity.v1.ListProfilesResponse\x12g\n" +
+	"\x10ListProfileLinks\x12(.iam.identity.v1.ListProfileLinksRequest\x1a).iam.identity.v1.ListProfileLinksResponse2\xd9\x03\n" +
+	"\x12ProfileLinkCommand\x12j\n" +
+	"\x11CreateProfileLink\x12).iam.identity.v1.CreateProfileLinkRequest\x1a*.iam.identity.v1.CreateProfileLinkResponse\x12j\n" +
+	"\x11RevokeProfileLink\x12).iam.identity.v1.RevokeProfileLinkRequest\x1a*.iam.identity.v1.RevokeProfileLinkResponse\x12|\n" +
+	"\x17BatchRevokeProfileLinks\x12/.iam.identity.v1.BatchRevokeProfileLinksRequest\x1a0.iam.identity.v1.BatchRevokeProfileLinksResponse\x12m\n" +
+	"\x12ImportProfileLinks\x12*.iam.identity.v1.ImportProfileLinksRequest\x1a+.iam.identity.v1.ImportProfileLinksResponse2\x84\x03\n" +
 	"\x11IdentityLifecycle\x12U\n" +
 	"\n" +
 	"CreateUser\x12\".iam.identity.v1.CreateUserRequest\x1a#.iam.identity.v1.CreateUserResponse\x12U\n" +
@@ -3175,58 +3182,58 @@ func file_iam_identity_v1_identity_proto_rawDescGZIP() []byte {
 var file_iam_identity_v1_identity_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_iam_identity_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_iam_identity_v1_identity_proto_goTypes = []any{
-	(UserStatus)(0),                      // 0: iam.identity.v1.UserStatus
-	(ContactType)(0),                     // 1: iam.identity.v1.ContactType
-	(Gender)(0),                          // 2: iam.identity.v1.Gender
-	(GuardianshipRelation)(0),            // 3: iam.identity.v1.GuardianshipRelation
-	(*VerifiedContact)(nil),              // 4: iam.identity.v1.VerifiedContact
-	(*IdentityDocument)(nil),             // 5: iam.identity.v1.IdentityDocument
-	(*PhysicalStats)(nil),                // 6: iam.identity.v1.PhysicalStats
-	(*ExternalIdentity)(nil),             // 7: iam.identity.v1.ExternalIdentity
-	(*OperatorContext)(nil),              // 8: iam.identity.v1.OperatorContext
-	(*OffsetPagination)(nil),             // 9: iam.identity.v1.OffsetPagination
-	(*User)(nil),                         // 10: iam.identity.v1.User
-	(*Child)(nil),                        // 11: iam.identity.v1.Child
-	(*Guardianship)(nil),                 // 12: iam.identity.v1.Guardianship
-	(*ChildEdge)(nil),                    // 13: iam.identity.v1.ChildEdge
-	(*GuardianshipEdge)(nil),             // 14: iam.identity.v1.GuardianshipEdge
-	(*GuardianshipKey)(nil),              // 15: iam.identity.v1.GuardianshipKey
-	(*GuardianshipSelector)(nil),         // 16: iam.identity.v1.GuardianshipSelector
-	(*GetUserRequest)(nil),               // 17: iam.identity.v1.GetUserRequest
-	(*GetUserResponse)(nil),              // 18: iam.identity.v1.GetUserResponse
-	(*BatchGetUsersRequest)(nil),         // 19: iam.identity.v1.BatchGetUsersRequest
-	(*BatchGetUsersResponse)(nil),        // 20: iam.identity.v1.BatchGetUsersResponse
-	(*SearchUsersRequest)(nil),           // 21: iam.identity.v1.SearchUsersRequest
-	(*SearchUsersResponse)(nil),          // 22: iam.identity.v1.SearchUsersResponse
-	(*GetChildRequest)(nil),              // 23: iam.identity.v1.GetChildRequest
-	(*GetChildResponse)(nil),             // 24: iam.identity.v1.GetChildResponse
-	(*BatchGetChildrenRequest)(nil),      // 25: iam.identity.v1.BatchGetChildrenRequest
-	(*BatchGetChildrenResponse)(nil),     // 26: iam.identity.v1.BatchGetChildrenResponse
-	(*ListChildrenRequest)(nil),          // 27: iam.identity.v1.ListChildrenRequest
-	(*ListChildrenResponse)(nil),         // 28: iam.identity.v1.ListChildrenResponse
-	(*ListGuardiansRequest)(nil),         // 29: iam.identity.v1.ListGuardiansRequest
-	(*ListGuardiansResponse)(nil),        // 30: iam.identity.v1.ListGuardiansResponse
-	(*IsGuardianRequest)(nil),            // 31: iam.identity.v1.IsGuardianRequest
-	(*IsGuardianResponse)(nil),           // 32: iam.identity.v1.IsGuardianResponse
-	(*AddGuardianRequest)(nil),           // 33: iam.identity.v1.AddGuardianRequest
-	(*AddGuardianResponse)(nil),          // 34: iam.identity.v1.AddGuardianResponse
-	(*RevokeGuardianRequest)(nil),        // 35: iam.identity.v1.RevokeGuardianRequest
-	(*RevokeGuardianResponse)(nil),       // 36: iam.identity.v1.RevokeGuardianResponse
-	(*BatchRevokeGuardiansRequest)(nil),  // 37: iam.identity.v1.BatchRevokeGuardiansRequest
-	(*BatchRevokeGuardiansResponse)(nil), // 38: iam.identity.v1.BatchRevokeGuardiansResponse
-	(*FailedGuardianshipFailure)(nil),    // 39: iam.identity.v1.FailedGuardianshipFailure
-	(*ImportGuardianRecord)(nil),         // 40: iam.identity.v1.ImportGuardianRecord
-	(*ImportGuardiansRequest)(nil),       // 41: iam.identity.v1.ImportGuardiansRequest
-	(*ImportGuardiansResponse)(nil),      // 42: iam.identity.v1.ImportGuardiansResponse
-	(*FailedImportGuardian)(nil),         // 43: iam.identity.v1.FailedImportGuardian
-	(*CreateUserRequest)(nil),            // 44: iam.identity.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),           // 45: iam.identity.v1.CreateUserResponse
-	(*UpdateUserRequest)(nil),            // 46: iam.identity.v1.UpdateUserRequest
-	(*UpdateUserResponse)(nil),           // 47: iam.identity.v1.UpdateUserResponse
-	(*ChangeUserStatusRequest)(nil),      // 48: iam.identity.v1.ChangeUserStatusRequest
-	(*UserOperationResponse)(nil),        // 49: iam.identity.v1.UserOperationResponse
-	nil,                                  // 50: iam.identity.v1.OperatorContext.ExtraEntry
-	(*timestamppb.Timestamp)(nil),        // 51: google.protobuf.Timestamp
+	(UserStatus)(0),                         // 0: iam.identity.v1.UserStatus
+	(ContactType)(0),                        // 1: iam.identity.v1.ContactType
+	(Gender)(0),                             // 2: iam.identity.v1.Gender
+	(ProfileLinkRelation)(0),                // 3: iam.identity.v1.ProfileLinkRelation
+	(*VerifiedContact)(nil),                 // 4: iam.identity.v1.VerifiedContact
+	(*IdentityDocument)(nil),                // 5: iam.identity.v1.IdentityDocument
+	(*PhysicalStats)(nil),                   // 6: iam.identity.v1.PhysicalStats
+	(*ExternalIdentity)(nil),                // 7: iam.identity.v1.ExternalIdentity
+	(*OperatorContext)(nil),                 // 8: iam.identity.v1.OperatorContext
+	(*OffsetPagination)(nil),                // 9: iam.identity.v1.OffsetPagination
+	(*User)(nil),                            // 10: iam.identity.v1.User
+	(*Profile)(nil),                         // 11: iam.identity.v1.Profile
+	(*ProfileLink)(nil),                     // 12: iam.identity.v1.ProfileLink
+	(*ProfileEdge)(nil),                     // 13: iam.identity.v1.ProfileEdge
+	(*ProfileLinkEdge)(nil),                 // 14: iam.identity.v1.ProfileLinkEdge
+	(*ProfileLinkKey)(nil),                  // 15: iam.identity.v1.ProfileLinkKey
+	(*ProfileLinkSelector)(nil),             // 16: iam.identity.v1.ProfileLinkSelector
+	(*GetUserRequest)(nil),                  // 17: iam.identity.v1.GetUserRequest
+	(*GetUserResponse)(nil),                 // 18: iam.identity.v1.GetUserResponse
+	(*BatchGetUsersRequest)(nil),            // 19: iam.identity.v1.BatchGetUsersRequest
+	(*BatchGetUsersResponse)(nil),           // 20: iam.identity.v1.BatchGetUsersResponse
+	(*SearchUsersRequest)(nil),              // 21: iam.identity.v1.SearchUsersRequest
+	(*SearchUsersResponse)(nil),             // 22: iam.identity.v1.SearchUsersResponse
+	(*GetProfileRequest)(nil),               // 23: iam.identity.v1.GetProfileRequest
+	(*GetProfileResponse)(nil),              // 24: iam.identity.v1.GetProfileResponse
+	(*BatchGetProfilesRequest)(nil),         // 25: iam.identity.v1.BatchGetProfilesRequest
+	(*BatchGetProfilesResponse)(nil),        // 26: iam.identity.v1.BatchGetProfilesResponse
+	(*ListProfilesRequest)(nil),             // 27: iam.identity.v1.ListProfilesRequest
+	(*ListProfilesResponse)(nil),            // 28: iam.identity.v1.ListProfilesResponse
+	(*ListProfileLinksRequest)(nil),         // 29: iam.identity.v1.ListProfileLinksRequest
+	(*ListProfileLinksResponse)(nil),        // 30: iam.identity.v1.ListProfileLinksResponse
+	(*HasProfileLinkRequest)(nil),           // 31: iam.identity.v1.HasProfileLinkRequest
+	(*HasProfileLinkResponse)(nil),          // 32: iam.identity.v1.HasProfileLinkResponse
+	(*CreateProfileLinkRequest)(nil),        // 33: iam.identity.v1.CreateProfileLinkRequest
+	(*CreateProfileLinkResponse)(nil),       // 34: iam.identity.v1.CreateProfileLinkResponse
+	(*RevokeProfileLinkRequest)(nil),        // 35: iam.identity.v1.RevokeProfileLinkRequest
+	(*RevokeProfileLinkResponse)(nil),       // 36: iam.identity.v1.RevokeProfileLinkResponse
+	(*BatchRevokeProfileLinksRequest)(nil),  // 37: iam.identity.v1.BatchRevokeProfileLinksRequest
+	(*BatchRevokeProfileLinksResponse)(nil), // 38: iam.identity.v1.BatchRevokeProfileLinksResponse
+	(*FailedProfileLinkFailure)(nil),        // 39: iam.identity.v1.FailedProfileLinkFailure
+	(*ImportProfileLinkRecord)(nil),         // 40: iam.identity.v1.ImportProfileLinkRecord
+	(*ImportProfileLinksRequest)(nil),       // 41: iam.identity.v1.ImportProfileLinksRequest
+	(*ImportProfileLinksResponse)(nil),      // 42: iam.identity.v1.ImportProfileLinksResponse
+	(*FailedImportProfileLink)(nil),         // 43: iam.identity.v1.FailedImportProfileLink
+	(*CreateUserRequest)(nil),               // 44: iam.identity.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),              // 45: iam.identity.v1.CreateUserResponse
+	(*UpdateUserRequest)(nil),               // 46: iam.identity.v1.UpdateUserRequest
+	(*UpdateUserResponse)(nil),              // 47: iam.identity.v1.UpdateUserResponse
+	(*ChangeUserStatusRequest)(nil),         // 48: iam.identity.v1.ChangeUserStatusRequest
+	(*UserOperationResponse)(nil),           // 49: iam.identity.v1.UserOperationResponse
+	nil,                                     // 50: iam.identity.v1.OperatorContext.ExtraEntry
+	(*timestamppb.Timestamp)(nil),           // 51: google.protobuf.Timestamp
 }
 var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	1,  // 0: iam.identity.v1.VerifiedContact.type:type_name -> iam.identity.v1.ContactType
@@ -3237,48 +3244,48 @@ var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	7,  // 5: iam.identity.v1.User.external_identities:type_name -> iam.identity.v1.ExternalIdentity
 	51, // 6: iam.identity.v1.User.created_at:type_name -> google.protobuf.Timestamp
 	51, // 7: iam.identity.v1.User.updated_at:type_name -> google.protobuf.Timestamp
-	2,  // 8: iam.identity.v1.Child.gender:type_name -> iam.identity.v1.Gender
-	5,  // 9: iam.identity.v1.Child.identity:type_name -> iam.identity.v1.IdentityDocument
-	6,  // 10: iam.identity.v1.Child.stats:type_name -> iam.identity.v1.PhysicalStats
-	51, // 11: iam.identity.v1.Child.created_at:type_name -> google.protobuf.Timestamp
-	51, // 12: iam.identity.v1.Child.updated_at:type_name -> google.protobuf.Timestamp
-	3,  // 13: iam.identity.v1.Guardianship.relation:type_name -> iam.identity.v1.GuardianshipRelation
-	51, // 14: iam.identity.v1.Guardianship.since:type_name -> google.protobuf.Timestamp
-	51, // 15: iam.identity.v1.Guardianship.revoked_at:type_name -> google.protobuf.Timestamp
-	11, // 16: iam.identity.v1.ChildEdge.child:type_name -> iam.identity.v1.Child
-	12, // 17: iam.identity.v1.ChildEdge.guardianship:type_name -> iam.identity.v1.Guardianship
-	12, // 18: iam.identity.v1.GuardianshipEdge.guardianship:type_name -> iam.identity.v1.Guardianship
-	10, // 19: iam.identity.v1.GuardianshipEdge.guardian:type_name -> iam.identity.v1.User
-	15, // 20: iam.identity.v1.GuardianshipSelector.key:type_name -> iam.identity.v1.GuardianshipKey
+	2,  // 8: iam.identity.v1.Profile.gender:type_name -> iam.identity.v1.Gender
+	5,  // 9: iam.identity.v1.Profile.identity:type_name -> iam.identity.v1.IdentityDocument
+	6,  // 10: iam.identity.v1.Profile.stats:type_name -> iam.identity.v1.PhysicalStats
+	51, // 11: iam.identity.v1.Profile.created_at:type_name -> google.protobuf.Timestamp
+	51, // 12: iam.identity.v1.Profile.updated_at:type_name -> google.protobuf.Timestamp
+	3,  // 13: iam.identity.v1.ProfileLink.relation:type_name -> iam.identity.v1.ProfileLinkRelation
+	51, // 14: iam.identity.v1.ProfileLink.since:type_name -> google.protobuf.Timestamp
+	51, // 15: iam.identity.v1.ProfileLink.revoked_at:type_name -> google.protobuf.Timestamp
+	11, // 16: iam.identity.v1.ProfileEdge.profile:type_name -> iam.identity.v1.Profile
+	12, // 17: iam.identity.v1.ProfileEdge.profile_link:type_name -> iam.identity.v1.ProfileLink
+	12, // 18: iam.identity.v1.ProfileLinkEdge.profile_link:type_name -> iam.identity.v1.ProfileLink
+	10, // 19: iam.identity.v1.ProfileLinkEdge.user:type_name -> iam.identity.v1.User
+	15, // 20: iam.identity.v1.ProfileLinkSelector.key:type_name -> iam.identity.v1.ProfileLinkKey
 	10, // 21: iam.identity.v1.GetUserResponse.user:type_name -> iam.identity.v1.User
 	10, // 22: iam.identity.v1.BatchGetUsersResponse.users:type_name -> iam.identity.v1.User
 	9,  // 23: iam.identity.v1.SearchUsersRequest.page:type_name -> iam.identity.v1.OffsetPagination
 	9,  // 24: iam.identity.v1.SearchUsersResponse.page:type_name -> iam.identity.v1.OffsetPagination
 	10, // 25: iam.identity.v1.SearchUsersResponse.users:type_name -> iam.identity.v1.User
-	11, // 26: iam.identity.v1.GetChildResponse.child:type_name -> iam.identity.v1.Child
-	11, // 27: iam.identity.v1.BatchGetChildrenResponse.children:type_name -> iam.identity.v1.Child
-	9,  // 28: iam.identity.v1.ListChildrenRequest.page:type_name -> iam.identity.v1.OffsetPagination
-	9,  // 29: iam.identity.v1.ListChildrenResponse.page:type_name -> iam.identity.v1.OffsetPagination
-	13, // 30: iam.identity.v1.ListChildrenResponse.items:type_name -> iam.identity.v1.ChildEdge
-	14, // 31: iam.identity.v1.ListGuardiansResponse.items:type_name -> iam.identity.v1.GuardianshipEdge
-	12, // 32: iam.identity.v1.IsGuardianResponse.guardianship:type_name -> iam.identity.v1.Guardianship
-	3,  // 33: iam.identity.v1.AddGuardianRequest.relation:type_name -> iam.identity.v1.GuardianshipRelation
-	8,  // 34: iam.identity.v1.AddGuardianRequest.operator:type_name -> iam.identity.v1.OperatorContext
-	12, // 35: iam.identity.v1.AddGuardianResponse.guardianship:type_name -> iam.identity.v1.Guardianship
-	16, // 36: iam.identity.v1.RevokeGuardianRequest.target:type_name -> iam.identity.v1.GuardianshipSelector
-	8,  // 37: iam.identity.v1.RevokeGuardianRequest.operator:type_name -> iam.identity.v1.OperatorContext
-	12, // 38: iam.identity.v1.RevokeGuardianResponse.guardianship:type_name -> iam.identity.v1.Guardianship
-	16, // 39: iam.identity.v1.BatchRevokeGuardiansRequest.targets:type_name -> iam.identity.v1.GuardianshipSelector
-	8,  // 40: iam.identity.v1.BatchRevokeGuardiansRequest.operator:type_name -> iam.identity.v1.OperatorContext
-	12, // 41: iam.identity.v1.BatchRevokeGuardiansResponse.revoked:type_name -> iam.identity.v1.Guardianship
-	39, // 42: iam.identity.v1.BatchRevokeGuardiansResponse.failures:type_name -> iam.identity.v1.FailedGuardianshipFailure
-	16, // 43: iam.identity.v1.FailedGuardianshipFailure.target:type_name -> iam.identity.v1.GuardianshipSelector
-	3,  // 44: iam.identity.v1.ImportGuardianRecord.relation:type_name -> iam.identity.v1.GuardianshipRelation
-	40, // 45: iam.identity.v1.ImportGuardiansRequest.records:type_name -> iam.identity.v1.ImportGuardianRecord
-	8,  // 46: iam.identity.v1.ImportGuardiansRequest.operator:type_name -> iam.identity.v1.OperatorContext
-	12, // 47: iam.identity.v1.ImportGuardiansResponse.created:type_name -> iam.identity.v1.Guardianship
-	43, // 48: iam.identity.v1.ImportGuardiansResponse.failures:type_name -> iam.identity.v1.FailedImportGuardian
-	40, // 49: iam.identity.v1.FailedImportGuardian.record:type_name -> iam.identity.v1.ImportGuardianRecord
+	11, // 26: iam.identity.v1.GetProfileResponse.profile:type_name -> iam.identity.v1.Profile
+	11, // 27: iam.identity.v1.BatchGetProfilesResponse.profiles:type_name -> iam.identity.v1.Profile
+	9,  // 28: iam.identity.v1.ListProfilesRequest.page:type_name -> iam.identity.v1.OffsetPagination
+	9,  // 29: iam.identity.v1.ListProfilesResponse.page:type_name -> iam.identity.v1.OffsetPagination
+	13, // 30: iam.identity.v1.ListProfilesResponse.items:type_name -> iam.identity.v1.ProfileEdge
+	14, // 31: iam.identity.v1.ListProfileLinksResponse.items:type_name -> iam.identity.v1.ProfileLinkEdge
+	12, // 32: iam.identity.v1.HasProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
+	3,  // 33: iam.identity.v1.CreateProfileLinkRequest.relation:type_name -> iam.identity.v1.ProfileLinkRelation
+	8,  // 34: iam.identity.v1.CreateProfileLinkRequest.operator:type_name -> iam.identity.v1.OperatorContext
+	12, // 35: iam.identity.v1.CreateProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
+	16, // 36: iam.identity.v1.RevokeProfileLinkRequest.target:type_name -> iam.identity.v1.ProfileLinkSelector
+	8,  // 37: iam.identity.v1.RevokeProfileLinkRequest.operator:type_name -> iam.identity.v1.OperatorContext
+	12, // 38: iam.identity.v1.RevokeProfileLinkResponse.profile_link:type_name -> iam.identity.v1.ProfileLink
+	16, // 39: iam.identity.v1.BatchRevokeProfileLinksRequest.targets:type_name -> iam.identity.v1.ProfileLinkSelector
+	8,  // 40: iam.identity.v1.BatchRevokeProfileLinksRequest.operator:type_name -> iam.identity.v1.OperatorContext
+	12, // 41: iam.identity.v1.BatchRevokeProfileLinksResponse.revoked:type_name -> iam.identity.v1.ProfileLink
+	39, // 42: iam.identity.v1.BatchRevokeProfileLinksResponse.failures:type_name -> iam.identity.v1.FailedProfileLinkFailure
+	16, // 43: iam.identity.v1.FailedProfileLinkFailure.target:type_name -> iam.identity.v1.ProfileLinkSelector
+	3,  // 44: iam.identity.v1.ImportProfileLinkRecord.relation:type_name -> iam.identity.v1.ProfileLinkRelation
+	40, // 45: iam.identity.v1.ImportProfileLinksRequest.records:type_name -> iam.identity.v1.ImportProfileLinkRecord
+	8,  // 46: iam.identity.v1.ImportProfileLinksRequest.operator:type_name -> iam.identity.v1.OperatorContext
+	12, // 47: iam.identity.v1.ImportProfileLinksResponse.created:type_name -> iam.identity.v1.ProfileLink
+	43, // 48: iam.identity.v1.ImportProfileLinksResponse.failures:type_name -> iam.identity.v1.FailedImportProfileLink
+	40, // 49: iam.identity.v1.FailedImportProfileLink.record:type_name -> iam.identity.v1.ImportProfileLinkRecord
 	4,  // 50: iam.identity.v1.CreateUserRequest.contacts:type_name -> iam.identity.v1.VerifiedContact
 	7,  // 51: iam.identity.v1.CreateUserRequest.external_identities:type_name -> iam.identity.v1.ExternalIdentity
 	8,  // 52: iam.identity.v1.CreateUserRequest.operator:type_name -> iam.identity.v1.OperatorContext
@@ -3292,15 +3299,15 @@ var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	17, // 60: iam.identity.v1.IdentityRead.GetUser:input_type -> iam.identity.v1.GetUserRequest
 	19, // 61: iam.identity.v1.IdentityRead.BatchGetUsers:input_type -> iam.identity.v1.BatchGetUsersRequest
 	21, // 62: iam.identity.v1.IdentityRead.SearchUsers:input_type -> iam.identity.v1.SearchUsersRequest
-	23, // 63: iam.identity.v1.IdentityRead.GetChild:input_type -> iam.identity.v1.GetChildRequest
-	25, // 64: iam.identity.v1.IdentityRead.BatchGetChildren:input_type -> iam.identity.v1.BatchGetChildrenRequest
-	31, // 65: iam.identity.v1.GuardianshipQuery.IsGuardian:input_type -> iam.identity.v1.IsGuardianRequest
-	27, // 66: iam.identity.v1.GuardianshipQuery.ListChildren:input_type -> iam.identity.v1.ListChildrenRequest
-	29, // 67: iam.identity.v1.GuardianshipQuery.ListGuardians:input_type -> iam.identity.v1.ListGuardiansRequest
-	33, // 68: iam.identity.v1.GuardianshipCommand.AddGuardian:input_type -> iam.identity.v1.AddGuardianRequest
-	35, // 69: iam.identity.v1.GuardianshipCommand.RevokeGuardian:input_type -> iam.identity.v1.RevokeGuardianRequest
-	37, // 70: iam.identity.v1.GuardianshipCommand.BatchRevokeGuardians:input_type -> iam.identity.v1.BatchRevokeGuardiansRequest
-	41, // 71: iam.identity.v1.GuardianshipCommand.ImportGuardians:input_type -> iam.identity.v1.ImportGuardiansRequest
+	23, // 63: iam.identity.v1.IdentityRead.GetProfile:input_type -> iam.identity.v1.GetProfileRequest
+	25, // 64: iam.identity.v1.IdentityRead.BatchGetProfiles:input_type -> iam.identity.v1.BatchGetProfilesRequest
+	31, // 65: iam.identity.v1.ProfileLinkQuery.HasProfileLink:input_type -> iam.identity.v1.HasProfileLinkRequest
+	27, // 66: iam.identity.v1.ProfileLinkQuery.ListProfiles:input_type -> iam.identity.v1.ListProfilesRequest
+	29, // 67: iam.identity.v1.ProfileLinkQuery.ListProfileLinks:input_type -> iam.identity.v1.ListProfileLinksRequest
+	33, // 68: iam.identity.v1.ProfileLinkCommand.CreateProfileLink:input_type -> iam.identity.v1.CreateProfileLinkRequest
+	35, // 69: iam.identity.v1.ProfileLinkCommand.RevokeProfileLink:input_type -> iam.identity.v1.RevokeProfileLinkRequest
+	37, // 70: iam.identity.v1.ProfileLinkCommand.BatchRevokeProfileLinks:input_type -> iam.identity.v1.BatchRevokeProfileLinksRequest
+	41, // 71: iam.identity.v1.ProfileLinkCommand.ImportProfileLinks:input_type -> iam.identity.v1.ImportProfileLinksRequest
 	44, // 72: iam.identity.v1.IdentityLifecycle.CreateUser:input_type -> iam.identity.v1.CreateUserRequest
 	46, // 73: iam.identity.v1.IdentityLifecycle.UpdateUser:input_type -> iam.identity.v1.UpdateUserRequest
 	48, // 74: iam.identity.v1.IdentityLifecycle.DeactivateUser:input_type -> iam.identity.v1.ChangeUserStatusRequest
@@ -3308,15 +3315,15 @@ var file_iam_identity_v1_identity_proto_depIdxs = []int32{
 	18, // 76: iam.identity.v1.IdentityRead.GetUser:output_type -> iam.identity.v1.GetUserResponse
 	20, // 77: iam.identity.v1.IdentityRead.BatchGetUsers:output_type -> iam.identity.v1.BatchGetUsersResponse
 	22, // 78: iam.identity.v1.IdentityRead.SearchUsers:output_type -> iam.identity.v1.SearchUsersResponse
-	24, // 79: iam.identity.v1.IdentityRead.GetChild:output_type -> iam.identity.v1.GetChildResponse
-	26, // 80: iam.identity.v1.IdentityRead.BatchGetChildren:output_type -> iam.identity.v1.BatchGetChildrenResponse
-	32, // 81: iam.identity.v1.GuardianshipQuery.IsGuardian:output_type -> iam.identity.v1.IsGuardianResponse
-	28, // 82: iam.identity.v1.GuardianshipQuery.ListChildren:output_type -> iam.identity.v1.ListChildrenResponse
-	30, // 83: iam.identity.v1.GuardianshipQuery.ListGuardians:output_type -> iam.identity.v1.ListGuardiansResponse
-	34, // 84: iam.identity.v1.GuardianshipCommand.AddGuardian:output_type -> iam.identity.v1.AddGuardianResponse
-	36, // 85: iam.identity.v1.GuardianshipCommand.RevokeGuardian:output_type -> iam.identity.v1.RevokeGuardianResponse
-	38, // 86: iam.identity.v1.GuardianshipCommand.BatchRevokeGuardians:output_type -> iam.identity.v1.BatchRevokeGuardiansResponse
-	42, // 87: iam.identity.v1.GuardianshipCommand.ImportGuardians:output_type -> iam.identity.v1.ImportGuardiansResponse
+	24, // 79: iam.identity.v1.IdentityRead.GetProfile:output_type -> iam.identity.v1.GetProfileResponse
+	26, // 80: iam.identity.v1.IdentityRead.BatchGetProfiles:output_type -> iam.identity.v1.BatchGetProfilesResponse
+	32, // 81: iam.identity.v1.ProfileLinkQuery.HasProfileLink:output_type -> iam.identity.v1.HasProfileLinkResponse
+	28, // 82: iam.identity.v1.ProfileLinkQuery.ListProfiles:output_type -> iam.identity.v1.ListProfilesResponse
+	30, // 83: iam.identity.v1.ProfileLinkQuery.ListProfileLinks:output_type -> iam.identity.v1.ListProfileLinksResponse
+	34, // 84: iam.identity.v1.ProfileLinkCommand.CreateProfileLink:output_type -> iam.identity.v1.CreateProfileLinkResponse
+	36, // 85: iam.identity.v1.ProfileLinkCommand.RevokeProfileLink:output_type -> iam.identity.v1.RevokeProfileLinkResponse
+	38, // 86: iam.identity.v1.ProfileLinkCommand.BatchRevokeProfileLinks:output_type -> iam.identity.v1.BatchRevokeProfileLinksResponse
+	42, // 87: iam.identity.v1.ProfileLinkCommand.ImportProfileLinks:output_type -> iam.identity.v1.ImportProfileLinksResponse
 	45, // 88: iam.identity.v1.IdentityLifecycle.CreateUser:output_type -> iam.identity.v1.CreateUserResponse
 	47, // 89: iam.identity.v1.IdentityLifecycle.UpdateUser:output_type -> iam.identity.v1.UpdateUserResponse
 	49, // 90: iam.identity.v1.IdentityLifecycle.DeactivateUser:output_type -> iam.identity.v1.UserOperationResponse
@@ -3334,8 +3341,8 @@ func file_iam_identity_v1_identity_proto_init() {
 		return
 	}
 	file_iam_identity_v1_identity_proto_msgTypes[12].OneofWrappers = []any{
-		(*GuardianshipSelector_GuardianshipId)(nil),
-		(*GuardianshipSelector_Key)(nil),
+		(*ProfileLinkSelector_ProfileLinkId)(nil),
+		(*ProfileLinkSelector_Key)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

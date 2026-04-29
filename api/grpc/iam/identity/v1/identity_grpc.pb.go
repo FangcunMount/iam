@@ -22,8 +22,8 @@ const (
 	IdentityRead_GetUser_FullMethodName          = "/iam.identity.v1.IdentityRead/GetUser"
 	IdentityRead_BatchGetUsers_FullMethodName    = "/iam.identity.v1.IdentityRead/BatchGetUsers"
 	IdentityRead_SearchUsers_FullMethodName      = "/iam.identity.v1.IdentityRead/SearchUsers"
-	IdentityRead_GetChild_FullMethodName         = "/iam.identity.v1.IdentityRead/GetChild"
-	IdentityRead_BatchGetChildren_FullMethodName = "/iam.identity.v1.IdentityRead/BatchGetChildren"
+	IdentityRead_GetProfile_FullMethodName       = "/iam.identity.v1.IdentityRead/GetProfile"
+	IdentityRead_BatchGetProfiles_FullMethodName = "/iam.identity.v1.IdentityRead/BatchGetProfiles"
 )
 
 // IdentityReadClient is the client API for IdentityRead service.
@@ -33,8 +33,8 @@ type IdentityReadClient interface {
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
 	BatchGetUsers(ctx context.Context, in *BatchGetUsersRequest, opts ...grpc.CallOption) (*BatchGetUsersResponse, error)
 	SearchUsers(ctx context.Context, in *SearchUsersRequest, opts ...grpc.CallOption) (*SearchUsersResponse, error)
-	GetChild(ctx context.Context, in *GetChildRequest, opts ...grpc.CallOption) (*GetChildResponse, error)
-	BatchGetChildren(ctx context.Context, in *BatchGetChildrenRequest, opts ...grpc.CallOption) (*BatchGetChildrenResponse, error)
+	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
+	BatchGetProfiles(ctx context.Context, in *BatchGetProfilesRequest, opts ...grpc.CallOption) (*BatchGetProfilesResponse, error)
 }
 
 type identityReadClient struct {
@@ -75,20 +75,20 @@ func (c *identityReadClient) SearchUsers(ctx context.Context, in *SearchUsersReq
 	return out, nil
 }
 
-func (c *identityReadClient) GetChild(ctx context.Context, in *GetChildRequest, opts ...grpc.CallOption) (*GetChildResponse, error) {
+func (c *identityReadClient) GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetChildResponse)
-	err := c.cc.Invoke(ctx, IdentityRead_GetChild_FullMethodName, in, out, cOpts...)
+	out := new(GetProfileResponse)
+	err := c.cc.Invoke(ctx, IdentityRead_GetProfile_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *identityReadClient) BatchGetChildren(ctx context.Context, in *BatchGetChildrenRequest, opts ...grpc.CallOption) (*BatchGetChildrenResponse, error) {
+func (c *identityReadClient) BatchGetProfiles(ctx context.Context, in *BatchGetProfilesRequest, opts ...grpc.CallOption) (*BatchGetProfilesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(BatchGetChildrenResponse)
-	err := c.cc.Invoke(ctx, IdentityRead_BatchGetChildren_FullMethodName, in, out, cOpts...)
+	out := new(BatchGetProfilesResponse)
+	err := c.cc.Invoke(ctx, IdentityRead_BatchGetProfiles_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,8 +102,8 @@ type IdentityReadServer interface {
 	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
 	BatchGetUsers(context.Context, *BatchGetUsersRequest) (*BatchGetUsersResponse, error)
 	SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersResponse, error)
-	GetChild(context.Context, *GetChildRequest) (*GetChildResponse, error)
-	BatchGetChildren(context.Context, *BatchGetChildrenRequest) (*BatchGetChildrenResponse, error)
+	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
+	BatchGetProfiles(context.Context, *BatchGetProfilesRequest) (*BatchGetProfilesResponse, error)
 	mustEmbedUnimplementedIdentityReadServer()
 }
 
@@ -123,11 +123,11 @@ func (UnimplementedIdentityReadServer) BatchGetUsers(context.Context, *BatchGetU
 func (UnimplementedIdentityReadServer) SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchUsers not implemented")
 }
-func (UnimplementedIdentityReadServer) GetChild(context.Context, *GetChildRequest) (*GetChildResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetChild not implemented")
+func (UnimplementedIdentityReadServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
 }
-func (UnimplementedIdentityReadServer) BatchGetChildren(context.Context, *BatchGetChildrenRequest) (*BatchGetChildrenResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method BatchGetChildren not implemented")
+func (UnimplementedIdentityReadServer) BatchGetProfiles(context.Context, *BatchGetProfilesRequest) (*BatchGetProfilesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchGetProfiles not implemented")
 }
 func (UnimplementedIdentityReadServer) mustEmbedUnimplementedIdentityReadServer() {}
 func (UnimplementedIdentityReadServer) testEmbeddedByValue()                      {}
@@ -204,38 +204,38 @@ func _IdentityRead_SearchUsers_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IdentityRead_GetChild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetChildRequest)
+func _IdentityRead_GetProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProfileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IdentityReadServer).GetChild(ctx, in)
+		return srv.(IdentityReadServer).GetProfile(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IdentityRead_GetChild_FullMethodName,
+		FullMethod: IdentityRead_GetProfile_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IdentityReadServer).GetChild(ctx, req.(*GetChildRequest))
+		return srv.(IdentityReadServer).GetProfile(ctx, req.(*GetProfileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IdentityRead_BatchGetChildren_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BatchGetChildrenRequest)
+func _IdentityRead_BatchGetProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchGetProfilesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IdentityReadServer).BatchGetChildren(ctx, in)
+		return srv.(IdentityReadServer).BatchGetProfiles(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IdentityRead_BatchGetChildren_FullMethodName,
+		FullMethod: IdentityRead_BatchGetProfiles_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IdentityReadServer).BatchGetChildren(ctx, req.(*BatchGetChildrenRequest))
+		return srv.(IdentityReadServer).BatchGetProfiles(ctx, req.(*BatchGetProfilesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -260,190 +260,12 @@ var IdentityRead_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _IdentityRead_SearchUsers_Handler,
 		},
 		{
-			MethodName: "GetChild",
-			Handler:    _IdentityRead_GetChild_Handler,
+			MethodName: "GetProfile",
+			Handler:    _IdentityRead_GetProfile_Handler,
 		},
 		{
-			MethodName: "BatchGetChildren",
-			Handler:    _IdentityRead_BatchGetChildren_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/identity/v1/identity.proto",
-}
-
-const (
-	GuardianshipQuery_IsGuardian_FullMethodName    = "/iam.identity.v1.GuardianshipQuery/IsGuardian"
-	GuardianshipQuery_ListChildren_FullMethodName  = "/iam.identity.v1.GuardianshipQuery/ListChildren"
-	GuardianshipQuery_ListGuardians_FullMethodName = "/iam.identity.v1.GuardianshipQuery/ListGuardians"
-)
-
-// GuardianshipQueryClient is the client API for GuardianshipQuery service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GuardianshipQueryClient interface {
-	IsGuardian(ctx context.Context, in *IsGuardianRequest, opts ...grpc.CallOption) (*IsGuardianResponse, error)
-	ListChildren(ctx context.Context, in *ListChildrenRequest, opts ...grpc.CallOption) (*ListChildrenResponse, error)
-	ListGuardians(ctx context.Context, in *ListGuardiansRequest, opts ...grpc.CallOption) (*ListGuardiansResponse, error)
-}
-
-type guardianshipQueryClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewGuardianshipQueryClient(cc grpc.ClientConnInterface) GuardianshipQueryClient {
-	return &guardianshipQueryClient{cc}
-}
-
-func (c *guardianshipQueryClient) IsGuardian(ctx context.Context, in *IsGuardianRequest, opts ...grpc.CallOption) (*IsGuardianResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IsGuardianResponse)
-	err := c.cc.Invoke(ctx, GuardianshipQuery_IsGuardian_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *guardianshipQueryClient) ListChildren(ctx context.Context, in *ListChildrenRequest, opts ...grpc.CallOption) (*ListChildrenResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListChildrenResponse)
-	err := c.cc.Invoke(ctx, GuardianshipQuery_ListChildren_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *guardianshipQueryClient) ListGuardians(ctx context.Context, in *ListGuardiansRequest, opts ...grpc.CallOption) (*ListGuardiansResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListGuardiansResponse)
-	err := c.cc.Invoke(ctx, GuardianshipQuery_ListGuardians_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GuardianshipQueryServer is the server API for GuardianshipQuery service.
-// All implementations must embed UnimplementedGuardianshipQueryServer
-// for forward compatibility.
-type GuardianshipQueryServer interface {
-	IsGuardian(context.Context, *IsGuardianRequest) (*IsGuardianResponse, error)
-	ListChildren(context.Context, *ListChildrenRequest) (*ListChildrenResponse, error)
-	ListGuardians(context.Context, *ListGuardiansRequest) (*ListGuardiansResponse, error)
-	mustEmbedUnimplementedGuardianshipQueryServer()
-}
-
-// UnimplementedGuardianshipQueryServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedGuardianshipQueryServer struct{}
-
-func (UnimplementedGuardianshipQueryServer) IsGuardian(context.Context, *IsGuardianRequest) (*IsGuardianResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method IsGuardian not implemented")
-}
-func (UnimplementedGuardianshipQueryServer) ListChildren(context.Context, *ListChildrenRequest) (*ListChildrenResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListChildren not implemented")
-}
-func (UnimplementedGuardianshipQueryServer) ListGuardians(context.Context, *ListGuardiansRequest) (*ListGuardiansResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListGuardians not implemented")
-}
-func (UnimplementedGuardianshipQueryServer) mustEmbedUnimplementedGuardianshipQueryServer() {}
-func (UnimplementedGuardianshipQueryServer) testEmbeddedByValue()                           {}
-
-// UnsafeGuardianshipQueryServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GuardianshipQueryServer will
-// result in compilation errors.
-type UnsafeGuardianshipQueryServer interface {
-	mustEmbedUnimplementedGuardianshipQueryServer()
-}
-
-func RegisterGuardianshipQueryServer(s grpc.ServiceRegistrar, srv GuardianshipQueryServer) {
-	// If the following call panics, it indicates UnimplementedGuardianshipQueryServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&GuardianshipQuery_ServiceDesc, srv)
-}
-
-func _GuardianshipQuery_IsGuardian_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsGuardianRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GuardianshipQueryServer).IsGuardian(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GuardianshipQuery_IsGuardian_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipQueryServer).IsGuardian(ctx, req.(*IsGuardianRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GuardianshipQuery_ListChildren_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListChildrenRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GuardianshipQueryServer).ListChildren(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GuardianshipQuery_ListChildren_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipQueryServer).ListChildren(ctx, req.(*ListChildrenRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GuardianshipQuery_ListGuardians_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListGuardiansRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GuardianshipQueryServer).ListGuardians(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GuardianshipQuery_ListGuardians_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipQueryServer).ListGuardians(ctx, req.(*ListGuardiansRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// GuardianshipQuery_ServiceDesc is the grpc.ServiceDesc for GuardianshipQuery service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var GuardianshipQuery_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.identity.v1.GuardianshipQuery",
-	HandlerType: (*GuardianshipQueryServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "IsGuardian",
-			Handler:    _GuardianshipQuery_IsGuardian_Handler,
-		},
-		{
-			MethodName: "ListChildren",
-			Handler:    _GuardianshipQuery_ListChildren_Handler,
-		},
-		{
-			MethodName: "ListGuardians",
-			Handler:    _GuardianshipQuery_ListGuardians_Handler,
+			MethodName: "BatchGetProfiles",
+			Handler:    _IdentityRead_BatchGetProfiles_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -451,215 +273,393 @@ var GuardianshipQuery_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	GuardianshipCommand_AddGuardian_FullMethodName          = "/iam.identity.v1.GuardianshipCommand/AddGuardian"
-	GuardianshipCommand_RevokeGuardian_FullMethodName       = "/iam.identity.v1.GuardianshipCommand/RevokeGuardian"
-	GuardianshipCommand_BatchRevokeGuardians_FullMethodName = "/iam.identity.v1.GuardianshipCommand/BatchRevokeGuardians"
-	GuardianshipCommand_ImportGuardians_FullMethodName      = "/iam.identity.v1.GuardianshipCommand/ImportGuardians"
+	ProfileLinkQuery_HasProfileLink_FullMethodName   = "/iam.identity.v1.ProfileLinkQuery/HasProfileLink"
+	ProfileLinkQuery_ListProfiles_FullMethodName     = "/iam.identity.v1.ProfileLinkQuery/ListProfiles"
+	ProfileLinkQuery_ListProfileLinks_FullMethodName = "/iam.identity.v1.ProfileLinkQuery/ListProfileLinks"
 )
 
-// GuardianshipCommandClient is the client API for GuardianshipCommand service.
+// ProfileLinkQueryClient is the client API for ProfileLinkQuery service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GuardianshipCommandClient interface {
-	AddGuardian(ctx context.Context, in *AddGuardianRequest, opts ...grpc.CallOption) (*AddGuardianResponse, error)
-	RevokeGuardian(ctx context.Context, in *RevokeGuardianRequest, opts ...grpc.CallOption) (*RevokeGuardianResponse, error)
-	BatchRevokeGuardians(ctx context.Context, in *BatchRevokeGuardiansRequest, opts ...grpc.CallOption) (*BatchRevokeGuardiansResponse, error)
-	ImportGuardians(ctx context.Context, in *ImportGuardiansRequest, opts ...grpc.CallOption) (*ImportGuardiansResponse, error)
+type ProfileLinkQueryClient interface {
+	HasProfileLink(ctx context.Context, in *HasProfileLinkRequest, opts ...grpc.CallOption) (*HasProfileLinkResponse, error)
+	ListProfiles(ctx context.Context, in *ListProfilesRequest, opts ...grpc.CallOption) (*ListProfilesResponse, error)
+	ListProfileLinks(ctx context.Context, in *ListProfileLinksRequest, opts ...grpc.CallOption) (*ListProfileLinksResponse, error)
 }
 
-type guardianshipCommandClient struct {
+type profileLinkQueryClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGuardianshipCommandClient(cc grpc.ClientConnInterface) GuardianshipCommandClient {
-	return &guardianshipCommandClient{cc}
+func NewProfileLinkQueryClient(cc grpc.ClientConnInterface) ProfileLinkQueryClient {
+	return &profileLinkQueryClient{cc}
 }
 
-func (c *guardianshipCommandClient) AddGuardian(ctx context.Context, in *AddGuardianRequest, opts ...grpc.CallOption) (*AddGuardianResponse, error) {
+func (c *profileLinkQueryClient) HasProfileLink(ctx context.Context, in *HasProfileLinkRequest, opts ...grpc.CallOption) (*HasProfileLinkResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AddGuardianResponse)
-	err := c.cc.Invoke(ctx, GuardianshipCommand_AddGuardian_FullMethodName, in, out, cOpts...)
+	out := new(HasProfileLinkResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkQuery_HasProfileLink_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *guardianshipCommandClient) RevokeGuardian(ctx context.Context, in *RevokeGuardianRequest, opts ...grpc.CallOption) (*RevokeGuardianResponse, error) {
+func (c *profileLinkQueryClient) ListProfiles(ctx context.Context, in *ListProfilesRequest, opts ...grpc.CallOption) (*ListProfilesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RevokeGuardianResponse)
-	err := c.cc.Invoke(ctx, GuardianshipCommand_RevokeGuardian_FullMethodName, in, out, cOpts...)
+	out := new(ListProfilesResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkQuery_ListProfiles_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *guardianshipCommandClient) BatchRevokeGuardians(ctx context.Context, in *BatchRevokeGuardiansRequest, opts ...grpc.CallOption) (*BatchRevokeGuardiansResponse, error) {
+func (c *profileLinkQueryClient) ListProfileLinks(ctx context.Context, in *ListProfileLinksRequest, opts ...grpc.CallOption) (*ListProfileLinksResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(BatchRevokeGuardiansResponse)
-	err := c.cc.Invoke(ctx, GuardianshipCommand_BatchRevokeGuardians_FullMethodName, in, out, cOpts...)
+	out := new(ListProfileLinksResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkQuery_ListProfileLinks_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *guardianshipCommandClient) ImportGuardians(ctx context.Context, in *ImportGuardiansRequest, opts ...grpc.CallOption) (*ImportGuardiansResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ImportGuardiansResponse)
-	err := c.cc.Invoke(ctx, GuardianshipCommand_ImportGuardians_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GuardianshipCommandServer is the server API for GuardianshipCommand service.
-// All implementations must embed UnimplementedGuardianshipCommandServer
+// ProfileLinkQueryServer is the server API for ProfileLinkQuery service.
+// All implementations must embed UnimplementedProfileLinkQueryServer
 // for forward compatibility.
-type GuardianshipCommandServer interface {
-	AddGuardian(context.Context, *AddGuardianRequest) (*AddGuardianResponse, error)
-	RevokeGuardian(context.Context, *RevokeGuardianRequest) (*RevokeGuardianResponse, error)
-	BatchRevokeGuardians(context.Context, *BatchRevokeGuardiansRequest) (*BatchRevokeGuardiansResponse, error)
-	ImportGuardians(context.Context, *ImportGuardiansRequest) (*ImportGuardiansResponse, error)
-	mustEmbedUnimplementedGuardianshipCommandServer()
+type ProfileLinkQueryServer interface {
+	HasProfileLink(context.Context, *HasProfileLinkRequest) (*HasProfileLinkResponse, error)
+	ListProfiles(context.Context, *ListProfilesRequest) (*ListProfilesResponse, error)
+	ListProfileLinks(context.Context, *ListProfileLinksRequest) (*ListProfileLinksResponse, error)
+	mustEmbedUnimplementedProfileLinkQueryServer()
 }
 
-// UnimplementedGuardianshipCommandServer must be embedded to have
+// UnimplementedProfileLinkQueryServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedGuardianshipCommandServer struct{}
+type UnimplementedProfileLinkQueryServer struct{}
 
-func (UnimplementedGuardianshipCommandServer) AddGuardian(context.Context, *AddGuardianRequest) (*AddGuardianResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method AddGuardian not implemented")
+func (UnimplementedProfileLinkQueryServer) HasProfileLink(context.Context, *HasProfileLinkRequest) (*HasProfileLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method HasProfileLink not implemented")
 }
-func (UnimplementedGuardianshipCommandServer) RevokeGuardian(context.Context, *RevokeGuardianRequest) (*RevokeGuardianResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RevokeGuardian not implemented")
+func (UnimplementedProfileLinkQueryServer) ListProfiles(context.Context, *ListProfilesRequest) (*ListProfilesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProfiles not implemented")
 }
-func (UnimplementedGuardianshipCommandServer) BatchRevokeGuardians(context.Context, *BatchRevokeGuardiansRequest) (*BatchRevokeGuardiansResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method BatchRevokeGuardians not implemented")
+func (UnimplementedProfileLinkQueryServer) ListProfileLinks(context.Context, *ListProfileLinksRequest) (*ListProfileLinksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProfileLinks not implemented")
 }
-func (UnimplementedGuardianshipCommandServer) ImportGuardians(context.Context, *ImportGuardiansRequest) (*ImportGuardiansResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ImportGuardians not implemented")
-}
-func (UnimplementedGuardianshipCommandServer) mustEmbedUnimplementedGuardianshipCommandServer() {}
-func (UnimplementedGuardianshipCommandServer) testEmbeddedByValue()                             {}
+func (UnimplementedProfileLinkQueryServer) mustEmbedUnimplementedProfileLinkQueryServer() {}
+func (UnimplementedProfileLinkQueryServer) testEmbeddedByValue()                          {}
 
-// UnsafeGuardianshipCommandServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GuardianshipCommandServer will
+// UnsafeProfileLinkQueryServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ProfileLinkQueryServer will
 // result in compilation errors.
-type UnsafeGuardianshipCommandServer interface {
-	mustEmbedUnimplementedGuardianshipCommandServer()
+type UnsafeProfileLinkQueryServer interface {
+	mustEmbedUnimplementedProfileLinkQueryServer()
 }
 
-func RegisterGuardianshipCommandServer(s grpc.ServiceRegistrar, srv GuardianshipCommandServer) {
-	// If the following call panics, it indicates UnimplementedGuardianshipCommandServer was
+func RegisterProfileLinkQueryServer(s grpc.ServiceRegistrar, srv ProfileLinkQueryServer) {
+	// If the following call panics, it indicates UnimplementedProfileLinkQueryServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&GuardianshipCommand_ServiceDesc, srv)
+	s.RegisterService(&ProfileLinkQuery_ServiceDesc, srv)
 }
 
-func _GuardianshipCommand_AddGuardian_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddGuardianRequest)
+func _ProfileLinkQuery_HasProfileLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HasProfileLinkRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GuardianshipCommandServer).AddGuardian(ctx, in)
+		return srv.(ProfileLinkQueryServer).HasProfileLink(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GuardianshipCommand_AddGuardian_FullMethodName,
+		FullMethod: ProfileLinkQuery_HasProfileLink_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipCommandServer).AddGuardian(ctx, req.(*AddGuardianRequest))
+		return srv.(ProfileLinkQueryServer).HasProfileLink(ctx, req.(*HasProfileLinkRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GuardianshipCommand_RevokeGuardian_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RevokeGuardianRequest)
+func _ProfileLinkQuery_ListProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProfilesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GuardianshipCommandServer).RevokeGuardian(ctx, in)
+		return srv.(ProfileLinkQueryServer).ListProfiles(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GuardianshipCommand_RevokeGuardian_FullMethodName,
+		FullMethod: ProfileLinkQuery_ListProfiles_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipCommandServer).RevokeGuardian(ctx, req.(*RevokeGuardianRequest))
+		return srv.(ProfileLinkQueryServer).ListProfiles(ctx, req.(*ListProfilesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GuardianshipCommand_BatchRevokeGuardians_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BatchRevokeGuardiansRequest)
+func _ProfileLinkQuery_ListProfileLinks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProfileLinksRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GuardianshipCommandServer).BatchRevokeGuardians(ctx, in)
+		return srv.(ProfileLinkQueryServer).ListProfileLinks(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GuardianshipCommand_BatchRevokeGuardians_FullMethodName,
+		FullMethod: ProfileLinkQuery_ListProfileLinks_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipCommandServer).BatchRevokeGuardians(ctx, req.(*BatchRevokeGuardiansRequest))
+		return srv.(ProfileLinkQueryServer).ListProfileLinks(ctx, req.(*ListProfileLinksRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GuardianshipCommand_ImportGuardians_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ImportGuardiansRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GuardianshipCommandServer).ImportGuardians(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GuardianshipCommand_ImportGuardians_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GuardianshipCommandServer).ImportGuardians(ctx, req.(*ImportGuardiansRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// GuardianshipCommand_ServiceDesc is the grpc.ServiceDesc for GuardianshipCommand service.
+// ProfileLinkQuery_ServiceDesc is the grpc.ServiceDesc for ProfileLinkQuery service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var GuardianshipCommand_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.identity.v1.GuardianshipCommand",
-	HandlerType: (*GuardianshipCommandServer)(nil),
+var ProfileLinkQuery_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.identity.v1.ProfileLinkQuery",
+	HandlerType: (*ProfileLinkQueryServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "AddGuardian",
-			Handler:    _GuardianshipCommand_AddGuardian_Handler,
+			MethodName: "HasProfileLink",
+			Handler:    _ProfileLinkQuery_HasProfileLink_Handler,
 		},
 		{
-			MethodName: "RevokeGuardian",
-			Handler:    _GuardianshipCommand_RevokeGuardian_Handler,
+			MethodName: "ListProfiles",
+			Handler:    _ProfileLinkQuery_ListProfiles_Handler,
 		},
 		{
-			MethodName: "BatchRevokeGuardians",
-			Handler:    _GuardianshipCommand_BatchRevokeGuardians_Handler,
+			MethodName: "ListProfileLinks",
+			Handler:    _ProfileLinkQuery_ListProfileLinks_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/identity/v1/identity.proto",
+}
+
+const (
+	ProfileLinkCommand_CreateProfileLink_FullMethodName       = "/iam.identity.v1.ProfileLinkCommand/CreateProfileLink"
+	ProfileLinkCommand_RevokeProfileLink_FullMethodName       = "/iam.identity.v1.ProfileLinkCommand/RevokeProfileLink"
+	ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName = "/iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks"
+	ProfileLinkCommand_ImportProfileLinks_FullMethodName      = "/iam.identity.v1.ProfileLinkCommand/ImportProfileLinks"
+)
+
+// ProfileLinkCommandClient is the client API for ProfileLinkCommand service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ProfileLinkCommandClient interface {
+	CreateProfileLink(ctx context.Context, in *CreateProfileLinkRequest, opts ...grpc.CallOption) (*CreateProfileLinkResponse, error)
+	RevokeProfileLink(ctx context.Context, in *RevokeProfileLinkRequest, opts ...grpc.CallOption) (*RevokeProfileLinkResponse, error)
+	BatchRevokeProfileLinks(ctx context.Context, in *BatchRevokeProfileLinksRequest, opts ...grpc.CallOption) (*BatchRevokeProfileLinksResponse, error)
+	ImportProfileLinks(ctx context.Context, in *ImportProfileLinksRequest, opts ...grpc.CallOption) (*ImportProfileLinksResponse, error)
+}
+
+type profileLinkCommandClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewProfileLinkCommandClient(cc grpc.ClientConnInterface) ProfileLinkCommandClient {
+	return &profileLinkCommandClient{cc}
+}
+
+func (c *profileLinkCommandClient) CreateProfileLink(ctx context.Context, in *CreateProfileLinkRequest, opts ...grpc.CallOption) (*CreateProfileLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateProfileLinkResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkCommand_CreateProfileLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *profileLinkCommandClient) RevokeProfileLink(ctx context.Context, in *RevokeProfileLinkRequest, opts ...grpc.CallOption) (*RevokeProfileLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeProfileLinkResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkCommand_RevokeProfileLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *profileLinkCommandClient) BatchRevokeProfileLinks(ctx context.Context, in *BatchRevokeProfileLinksRequest, opts ...grpc.CallOption) (*BatchRevokeProfileLinksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchRevokeProfileLinksResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *profileLinkCommandClient) ImportProfileLinks(ctx context.Context, in *ImportProfileLinksRequest, opts ...grpc.CallOption) (*ImportProfileLinksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportProfileLinksResponse)
+	err := c.cc.Invoke(ctx, ProfileLinkCommand_ImportProfileLinks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ProfileLinkCommandServer is the server API for ProfileLinkCommand service.
+// All implementations must embed UnimplementedProfileLinkCommandServer
+// for forward compatibility.
+type ProfileLinkCommandServer interface {
+	CreateProfileLink(context.Context, *CreateProfileLinkRequest) (*CreateProfileLinkResponse, error)
+	RevokeProfileLink(context.Context, *RevokeProfileLinkRequest) (*RevokeProfileLinkResponse, error)
+	BatchRevokeProfileLinks(context.Context, *BatchRevokeProfileLinksRequest) (*BatchRevokeProfileLinksResponse, error)
+	ImportProfileLinks(context.Context, *ImportProfileLinksRequest) (*ImportProfileLinksResponse, error)
+	mustEmbedUnimplementedProfileLinkCommandServer()
+}
+
+// UnimplementedProfileLinkCommandServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedProfileLinkCommandServer struct{}
+
+func (UnimplementedProfileLinkCommandServer) CreateProfileLink(context.Context, *CreateProfileLinkRequest) (*CreateProfileLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateProfileLink not implemented")
+}
+func (UnimplementedProfileLinkCommandServer) RevokeProfileLink(context.Context, *RevokeProfileLinkRequest) (*RevokeProfileLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeProfileLink not implemented")
+}
+func (UnimplementedProfileLinkCommandServer) BatchRevokeProfileLinks(context.Context, *BatchRevokeProfileLinksRequest) (*BatchRevokeProfileLinksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchRevokeProfileLinks not implemented")
+}
+func (UnimplementedProfileLinkCommandServer) ImportProfileLinks(context.Context, *ImportProfileLinksRequest) (*ImportProfileLinksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportProfileLinks not implemented")
+}
+func (UnimplementedProfileLinkCommandServer) mustEmbedUnimplementedProfileLinkCommandServer() {}
+func (UnimplementedProfileLinkCommandServer) testEmbeddedByValue()                            {}
+
+// UnsafeProfileLinkCommandServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ProfileLinkCommandServer will
+// result in compilation errors.
+type UnsafeProfileLinkCommandServer interface {
+	mustEmbedUnimplementedProfileLinkCommandServer()
+}
+
+func RegisterProfileLinkCommandServer(s grpc.ServiceRegistrar, srv ProfileLinkCommandServer) {
+	// If the following call panics, it indicates UnimplementedProfileLinkCommandServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ProfileLinkCommand_ServiceDesc, srv)
+}
+
+func _ProfileLinkCommand_CreateProfileLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateProfileLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfileLinkCommandServer).CreateProfileLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProfileLinkCommand_CreateProfileLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfileLinkCommandServer).CreateProfileLink(ctx, req.(*CreateProfileLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProfileLinkCommand_RevokeProfileLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeProfileLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfileLinkCommandServer).RevokeProfileLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProfileLinkCommand_RevokeProfileLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfileLinkCommandServer).RevokeProfileLink(ctx, req.(*RevokeProfileLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProfileLinkCommand_BatchRevokeProfileLinks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchRevokeProfileLinksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfileLinkCommandServer).BatchRevokeProfileLinks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfileLinkCommandServer).BatchRevokeProfileLinks(ctx, req.(*BatchRevokeProfileLinksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProfileLinkCommand_ImportProfileLinks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportProfileLinksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfileLinkCommandServer).ImportProfileLinks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProfileLinkCommand_ImportProfileLinks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfileLinkCommandServer).ImportProfileLinks(ctx, req.(*ImportProfileLinksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ProfileLinkCommand_ServiceDesc is the grpc.ServiceDesc for ProfileLinkCommand service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ProfileLinkCommand_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.identity.v1.ProfileLinkCommand",
+	HandlerType: (*ProfileLinkCommandServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateProfileLink",
+			Handler:    _ProfileLinkCommand_CreateProfileLink_Handler,
 		},
 		{
-			MethodName: "ImportGuardians",
-			Handler:    _GuardianshipCommand_ImportGuardians_Handler,
+			MethodName: "RevokeProfileLink",
+			Handler:    _ProfileLinkCommand_RevokeProfileLink_Handler,
+		},
+		{
+			MethodName: "BatchRevokeProfileLinks",
+			Handler:    _ProfileLinkCommand_BatchRevokeProfileLinks_Handler,
+		},
+		{
+			MethodName: "ImportProfileLinks",
+			Handler:    _ProfileLinkCommand_ImportProfileLinks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -107,20 +107,20 @@ graph LR
 - `UserProfileApplicationService` / `UserStatusApplicationService` 负责不同写职责
 - `UserQueryApplicationService` 负责只读查询
 
-`child` 和 `guardianship` 也采用同样模式。
+`profile` 和 `ref` 也采用同样模式。
 
 ### 3.2 Query 侧仍走 UoW 与 Repository
 
 例如：
 
 - [../../internal/apiserver/application/uc/user/services_impl.go](../../internal/apiserver/application/uc/user/services_impl.go)
-- [../../internal/apiserver/application/uc/child/services_impl.go](../../internal/apiserver/application/uc/child/services_impl.go)
-- [../../internal/apiserver/application/uc/guardianship/services_impl.go](../../internal/apiserver/application/uc/guardianship/services_impl.go)
+- [../../internal/apiserver/application/uc/profile/services_impl.go](../../internal/apiserver/application/uc/profile/services_impl.go)
+- [../../internal/apiserver/application/uc/ref/services_impl.go](../../internal/apiserver/application/uc/ref/services_impl.go)
 
 这些查询实现都有共同特征：
 
 1. 通过 `uow.WithinTx(...)` 进入事务边界
-2. 从 `TxRepositories` 里拿 `Users / Children / Guardianships`
+2. 从 `TxRepositories` 里拿 `Users / Profiles / Refs`
 3. 继续调用同一套仓储接口做读操作
 
 所以当前 UC 的 CQRS 是：
@@ -132,7 +132,7 @@ graph LR
 
 [../../internal/apiserver/application/uc/uow/uow.go](../../internal/apiserver/application/uc/uow/uow.go) 明确说明：
 
-- `WithinTx` 会创建 `Users / Children / Guardianships` 三组仓储
+- `WithinTx` 会创建 `Users / Profiles / Refs` 三组仓储
 - 查询和命令都通过这套事务边界进入
 
 这也是为什么当前不能把 UC 讲成“查询完全绕开领域和事务”。

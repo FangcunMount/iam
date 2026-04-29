@@ -46,13 +46,13 @@ func main() {
 	}
 	fmt.Printf("找到 %d 个用户\n", searchResp.Total)
 
-	// 检查监护关系
-	guardianResp, err := client.Guardianship().IsGuardian(ctx, "user-123", "child-456")
+	// 检查档案关系
+	linkResp, err := client.ProfileLink().HasProfileLink(ctx, "user-123", "profile-456")
 	if err != nil {
-		log.Printf("检查监护关系失败: %v", err)
+		log.Printf("检查档案关系失败: %v", err)
 		return
 	}
-	if guardianResp.IsGuardian {
-		fmt.Println("是监护人")
+	if linkResp.GetHasProfileLink() {
+		fmt.Println("是关系用户")
 	}
 }

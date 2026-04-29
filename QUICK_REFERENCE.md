@@ -16,7 +16,7 @@
 | **六边形架构** | ✅ 95% | ❌ 无 | Driving/Driven 适配器清晰，务实妥协合理 |
 | **认证链路** | ✅ 98% | ❌ 无 | 登录→Principal→Token→JWKS 完整一致 |
 | **授权链路** | ✅ 98% | ❌ 无 | Role/Policy/Assignment→Casbin 完美映射 |
-| **用户域 (UC)** | ✅ 93% | ⚠️ 轻微 | Guardian 失败恢复机制文档缺失 |
+| **用户域 (UC)** | ✅ 93% | ⚠️ 轻微 | Ref 失败恢复机制文档缺失 |
 | **CQRS 模式** | ⚠️ 85% | ⚠️ 轻微 | 实现是"服务级分离"，文档表述需更清晰 |
 | **缓存治理** | ⚠️ 80% | ⚠️ 中等 | FamilyInspector 实现程度不明确 |
 | **IDP/集成** | ⚠️ 80% | ⚠️ 中等 | 部分集成细节（wecom）实现度不明 |
@@ -29,17 +29,17 @@
 
 ### HIGH 优先级
 
-#### 1️⃣ Guardian 关系写失败恢复（用户域）
-- **问题**: `children/register` 第二步失败时，孤立 Child 记录不会自动清理
+#### 1️⃣ Ref 关系写失败恢复（用户域）
+- **问题**: `profiles/register` 第二步失败时，孤立 Profile 记录不会自动清理
 - **文档状态**: 文档说明了"两段事务"但未说明失败场景
-- **修正位置**: [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md)
+- **修正位置**: [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
 - **建议**: 补充"事务恢复与孤立记录"章节
 - **影响**: 中等（操作层面的细节）
 
 #### 2️⃣ Stream 端点实现状态（用户域）
 - **问题**: `IdentityStream` 在 proto 定义但 gRPC Service 未注册实现
 - **文档状态**: 文档已准确指出但标记不明确
-- **修正位置**: [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md)
+- **修正位置**: [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
 - **建议**: 加粗标注为"🚧 计划中"，说明当前替代方案
 - **影响**: 低（仅影响流式消费能力）
 
@@ -103,7 +103,7 @@
 3. **添加"与理想形态的差异"说明**
    - CQRS: 为什么不做事件投影？
    - 缓存治理: 为什么不做主动管理？
-   - Guardian: 为什么不原子化？
+   - Ref: 为什么不原子化？
 
 ### 中期（本季度）
 
@@ -117,7 +117,7 @@
    - 缓存管理操作: 什么时候需要？
 
 3. **补充"已知限制与未来演进"章节**
-   - 当前为什么 Guardian 不是原子？
+   - 当前为什么 Ref 不是原子？
    - 为什么缓存治理暂不支持写操作？
 
 ### 长期（制度化）
@@ -142,7 +142,7 @@
 
 ### 必查（一级）
 - [x] [internal/apiserver/container/container.go](internal/apiserver/container/container.go) - 模块装配顺序是否与文档一致
-- [x] [internal/apiserver/application/uc/user/services_impl.go](internal/apiserver/application/uc/user/services_impl.go) - Guardian 失败场景处理
+- [x] [internal/apiserver/application/uc/user/services_impl.go](internal/apiserver/application/uc/user/services_impl.go) - Ref 失败场景处理
 - [x] [internal/apiserver/application/cachegovernance/service.go](internal/apiserver/application/cachegovernance/service.go) - 缓存治理实现范围
 
 ### 应查（二级）

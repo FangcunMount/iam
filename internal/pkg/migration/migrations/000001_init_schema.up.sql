@@ -40,11 +40,11 @@ CREATE TABLE IF NOT EXISTS `users`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT ='用户表';
 
--- 1.2 儿童档案表
-CREATE TABLE IF NOT EXISTS `children`
+-- 1.2 档案表
+CREATE TABLE IF NOT EXISTS `profiles`
 (
-    `id`         BIGINT UNSIGNED NOT NULL PRIMARY KEY COMMENT '儿童ID',
-    `name`       VARCHAR(64)     NOT NULL COMMENT '儿童姓名',
+    `id`         BIGINT UNSIGNED NOT NULL PRIMARY KEY COMMENT '档案ID',
+    `name`       VARCHAR(64)     NOT NULL COMMENT '档案姓名',
     `id_card`    VARCHAR(20)              DEFAULT NULL COMMENT '身份证号码',
     `gender`     TINYINT         NOT NULL DEFAULT 0 COMMENT '性别: 0-未知, 1-男, 2-女',
     `birthday`   VARCHAR(10)              DEFAULT NULL COMMENT '出生日期 (YYYY-MM-DD)',
@@ -62,15 +62,16 @@ CREATE TABLE IF NOT EXISTS `children`
     KEY `idx_name_gender_birthday` (`name`, `gender`, `birthday`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT ='儿童档案表';
+  COLLATE = utf8mb4_unicode_ci COMMENT ='档案表';
 
--- 1.3 监护关系表
-CREATE TABLE IF NOT EXISTS `guardianships`
+-- 1.3 档案关系表
+CREATE TABLE IF NOT EXISTS `profile_links`
 (
-    `id`             BIGINT UNSIGNED NOT NULL PRIMARY KEY COMMENT '监护关系ID',
-    `user_id`        BIGINT UNSIGNED NOT NULL COMMENT '监护人ID (用户ID)',
-    `child_id`       BIGINT UNSIGNED NOT NULL COMMENT '儿童ID',
-    `relation`       VARCHAR(16)     NOT NULL COMMENT '监护关系: parent-父母, guardian-监护人',
+    `id`             BIGINT UNSIGNED NOT NULL PRIMARY KEY COMMENT '档案关系ID',
+    `user_id`        BIGINT UNSIGNED NOT NULL COMMENT '关系用户ID (用户ID)',
+    `profile_id`       BIGINT UNSIGNED NOT NULL COMMENT '档案ID',
+    `type`           VARCHAR(32)     NOT NULL DEFAULT 'relation' COMMENT '关系类型: self-本人档案, relation-普通关系',
+    `relation`       VARCHAR(16)     NOT NULL COMMENT '档案关系: parent-父母, link-关系用户',
     `established_at` DATETIME        NOT NULL COMMENT '建立时间',
     `revoked_at`     DATETIME                 DEFAULT NULL COMMENT '撤销时间',
     `created_at`     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -80,11 +81,12 @@ CREATE TABLE IF NOT EXISTS `guardianships`
     `updated_by`     BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '更新人ID',
     `deleted_by`     BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '删除人ID',
     `version`        INT UNSIGNED    NOT NULL DEFAULT 1 COMMENT '乐观锁版本号',
-    UNIQUE KEY `uk_user_child_ref` (`user_id`, `child_id`),
+    UNIQUE KEY `uk_user_profile_link` (`user_id`, `profile_id`, `type`),
+    KEY `idx_type` (`type`),
     KEY `idx_deleted_at` (`deleted_at`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT ='监护关系表';
+  COLLATE = utf8mb4_unicode_ci COMMENT ='档案关系表';
 
 -- ============================================================================
 -- Module 2: Authentication (Authn) 认证模块

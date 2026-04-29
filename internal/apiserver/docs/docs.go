@@ -1930,14 +1930,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/children/register": {
+        "/identity/profiles": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "创建儿童档案并自动将当前用户设置为监护人（身份证可不填写）",
+                "description": "创建档案并自动将当前用户设置为关系用户（身份证可不填写）",
                 "consumes": [
                     "application/json"
                 ],
@@ -1945,17 +1945,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Children"
+                    "Identity-Profiles"
                 ],
-                "summary": "注册儿童档案并建立监护关系",
+                "summary": "注册档案并建立档案关系",
                 "parameters": [
                     {
-                        "description": "注册儿童请求",
+                        "description": "注册档案请求",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest"
                         }
                     }
                 ],
@@ -1963,7 +1963,7 @@ const docTemplate = `{
                     "201": {
                         "description": "注册成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse"
                         }
                     },
                     "400": {
@@ -1979,7 +1979,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "儿童已存在",
+                        "description": "档案已存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
                         }
@@ -1993,14 +1993,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/children/search": {
+        "/identity/profiles/search": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据姓名、生日等信息搜索相似的儿童档案（用于运营查询）",
+                "description": "根据姓名、生日等信息搜索相似的档案（用于运营查询）",
                 "consumes": [
                     "application/json"
                 ],
@@ -2008,13 +2008,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Children"
+                    "Identity-Profiles"
                 ],
-                "summary": "搜索儿童",
+                "summary": "搜索档案",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "儿童姓名",
+                        "description": "档案姓名",
                         "name": "name",
                         "in": "query"
                     },
@@ -2043,7 +2043,7 @@ const docTemplate = `{
                     "200": {
                         "description": "查询成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse"
                         }
                     },
                     "400": {
@@ -2067,14 +2067,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/children/{id}": {
+        "/identity/profiles/{id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据儿童 ID 查询儿童详细档案，只能查询当前用户监护的孩子",
+                "description": "根据档案 ID 查询档案详细档案，只能查询当前用户关系的孩子",
                 "consumes": [
                     "application/json"
                 ],
@@ -2082,13 +2082,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Children"
+                    "Identity-Profiles"
                 ],
-                "summary": "查询儿童档案（仅限自己监护的孩子）",
+                "summary": "查询档案（仅限自己关系的孩子）",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "儿童 ID",
+                        "description": "档案 ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2098,7 +2098,7 @@ const docTemplate = `{
                     "200": {
                         "description": "查询成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse"
                         }
                     },
                     "400": {
@@ -2114,13 +2114,13 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "无权限访问此儿童",
+                        "description": "无权限访问此档案",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
                         }
                     },
                     "404": {
-                        "description": "儿童不存在",
+                        "description": "档案不存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
                         }
@@ -2139,7 +2139,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "部分更新儿童档案信息，只能更新当前用户监护的孩子",
+                "description": "部分更新档案信息，只能更新当前用户关系的孩子",
                 "consumes": [
                     "application/json"
                 ],
@@ -2147,24 +2147,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Children"
+                    "Identity-Profiles"
                 ],
-                "summary": "更新儿童档案（仅限自己监护的孩子）",
+                "summary": "更新档案（仅限自己关系的孩子）",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "儿童 ID",
+                        "description": "档案 ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "更新儿童请求",
+                        "description": "更新档案请求",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest"
                         }
                     }
                 ],
@@ -2172,7 +2172,7 @@ const docTemplate = `{
                     "200": {
                         "description": "更新成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse"
                         }
                     },
                     "400": {
@@ -2188,13 +2188,13 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "无权限修改此儿童",
+                        "description": "无权限修改此档案",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
                         }
                     },
                     "404": {
-                        "description": "儿童不存在",
+                        "description": "档案不存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
                         }
@@ -2208,14 +2208,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/guardians": {
+        "/identity/profile-links": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "查询用户或儿童的监护关系列表",
+                "description": "查询用户或档案的档案关系列表",
                 "consumes": [
                     "application/json"
                 ],
@@ -2223,9 +2223,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Guardianship"
+                    "Identity-ProfileLink"
                 ],
-                "summary": "查询监护关系",
+                "summary": "查询档案关系",
                 "parameters": [
                     {
                         "type": "string",
@@ -2235,13 +2235,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "儿童 ID",
-                        "name": "child_id",
+                        "description": "档案 ID",
+                        "name": "profile_id",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
-                        "description": "是否仅查询活跃的监护关系",
+                        "description": "是否仅查询活跃的档案关系",
                         "name": "active",
                         "in": "query"
                     },
@@ -2264,7 +2264,7 @@ const docTemplate = `{
                     "200": {
                         "description": "查询成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse"
                         }
                     },
                     "400": {
@@ -2286,16 +2286,14 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/identity/guardians/grant": {
+            },
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "将用户设置为儿童的监护人",
+                "description": "将当前登录用户关联到档案；如传 userId，必须与当前登录用户一致",
                 "consumes": [
                     "application/json"
                 ],
@@ -2303,25 +2301,25 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Guardianship"
+                    "Identity-ProfileLink"
                 ],
-                "summary": "授予监护关系",
+                "summary": "创建档案关系",
                 "parameters": [
                     {
-                        "description": "授予监护请求",
+                        "description": "创建档案关系请求",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "授予成功",
+                        "description": "创建成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse"
                         }
                     },
                     "400": {
@@ -2337,7 +2335,70 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "监护关系已存在",
+                        "description": "档案关系已存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/identity/profile-links/{id}/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "将用户设置为档案的关系用户",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Identity-ProfileLink"
+                ],
+                "summary": "授予档案关系",
+                "parameters": [
+                    {
+                        "description": "授予关系请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "授予成功",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未授权",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "档案关系已存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_pkg_core.ErrResponse"
                         }
@@ -2446,14 +2507,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/me/children": {
+        "/identity/me/profiles": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取当前登录用户作为监护人的所有儿童档案",
+                "description": "获取当前登录用户作为关系用户的所有档案",
                 "consumes": [
                     "application/json"
                 ],
@@ -2461,9 +2522,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Identity-Children"
+                    "Identity-Profiles"
                 ],
-                "summary": "获取当前用户的儿童档案列表",
+                "summary": "获取当前用户的档案列表",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2484,7 +2545,7 @@ const docTemplate = `{
                     "200": {
                         "description": "查询成功",
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse"
                         }
                     },
                     "401": {
@@ -2786,7 +2847,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/suggest/child": {
+        "/suggest/profile": {
             "get": {
                 "security": [
                     {
@@ -2803,7 +2864,7 @@ const docTemplate = `{
                 "tags": [
                     "Suggest"
                 ],
-                "summary": "儿童联想搜索",
+                "summary": "档案联想搜索",
                 "parameters": [
                     {
                         "type": "string",
@@ -3896,7 +3957,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest": {
             "type": "object",
             "required": [
                 "dob",
@@ -3937,7 +3998,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest": {
             "type": "object",
             "properties": {
                 "dob": {
@@ -3957,15 +4018,15 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest": {
             "type": "object",
             "required": [
-                "childId",
+                "profileId",
                 "relation",
                 "userId"
             ],
             "properties": {
-                "childId": {
+                "profileId": {
                     "type": "string"
                 },
                 "relation": {
@@ -4018,13 +4079,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse"
+                        "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse"
                     }
                 },
                 "limit": {
@@ -4038,18 +4099,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse": {
             "type": "object",
             "properties": {
-                "child": {
-                    "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse"
+                "profile": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse"
                 },
-                "guardianship": {
-                    "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse"
+                "profileLink": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse"
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -4084,13 +4145,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse"
+                        "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse"
                     }
                 },
                 "limit": {
@@ -4104,10 +4165,10 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse": {
+        "github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse": {
             "type": "object",
             "properties": {
-                "childId": {
+                "profileId": {
                     "type": "string"
                 },
                 "id": {
@@ -4188,7 +4249,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reference": {
-                    "description": "Reference 返回参考文档，可能有助于解决此错误",
+                    "description": "ProfileLinkerence 返回参考文档，可能有助于解决此错误",
                     "type": "string"
                 }
             }
@@ -4220,12 +4281,12 @@ const docTemplate = `{
             "name": "Identity-Users"
         },
         {
-            "description": "儿童管理 - 注册、查询、更新儿童档案",
-            "name": "Identity-Children"
+            "description": "档案管理 - 注册、查询、更新档案",
+            "name": "Identity-Profiles"
         },
         {
-            "description": "监护关系 - 授予、撤销、查询监护权",
-            "name": "Identity-Guardianship"
+            "description": "档案关系 - 授予、撤销、查询关系权",
+            "name": "Identity-ProfileLink"
         },
         {
             "description": "角色管理 - 创建、查询、更新、删除角色",

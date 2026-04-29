@@ -14,7 +14,7 @@
 
 - gRPC 不是独立服务，而是 `iam-apiserver` 进程内的一块运行面；启动、注册和关闭都在 [../../internal/apiserver/server.go](../../internal/apiserver/server.go)。
 - 当前 gRPC 运行时最值得先记住的是 4 件事：注册了哪些服务、拦截器链怎么排、dev/prod 到底开了哪些安全开关、健康检查如何暴露。
-- 当前实际注册的服务只有 `AuthService`、`JWKSService`、`IdentityRead`、`GuardianshipQuery`、`GuardianshipCommand`、`IdentityLifecycle`、`IDPService`；没有注册就不能讲成“当前已暴露”。
+- 当前实际注册的服务只有 `AuthService`、`JWKSService`、`IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle`、`IDPService`；没有注册就不能讲成“当前已暴露”。
 - dev / prod 当前都启用了 `mTLS` 和审计；`auth` 仍关闭，`ACL` 只在 prod 开启。
 - gRPC 契约与 metadata 约定看 [../03-接口与集成/02-gRPC契约与接入.md](../03-接口与集成/02-gRPC契约与接入.md)；健康检查、debug 路由和降级启动边界看 [04-健康检查&debug 路由与降级启动边界.md](./04-健康检查&debug 路由与降级启动边界.md)。
 
@@ -26,7 +26,7 @@
 | gRPC 服务器封装 | 项目级 gRPC 基础设施封装 | [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go)、[../../internal/pkg/grpc/config.go](../../internal/pkg/grpc/config.go) |
 | 服务注册 | 在 `registerGRPCServices()` 中聚合注册 | [../../internal/apiserver/server.go](../../internal/apiserver/server.go) |
 | 认证域 gRPC | `AuthService`、`JWKSService` | [../../internal/apiserver/interface/authn/grpc/service.go](../../internal/apiserver/interface/authn/grpc/service.go) |
-| 用户域 gRPC | `IdentityRead`、`Guardianship*`、`IdentityLifecycle` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
+| 用户域 gRPC | `IdentityRead`、`Ref*`、`IdentityLifecycle` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
 | IDP gRPC | `IDPService` | [../../internal/apiserver/interface/idp/grpc/service.go](../../internal/apiserver/interface/idp/grpc/service.go) |
 | dev/prod 安全口径 | 两边都开 `mTLS`，`auth` 仍关闭，`ACL` 只在 prod 打开 | [../../configs/apiserver.dev.yaml](../../configs/apiserver.dev.yaml)、[../../configs/apiserver.prod.yaml](../../configs/apiserver.prod.yaml) |
 | ACL 合同 | 方法级 ACL 配置，不是 proto 合同 | [../../configs/grpc_acl.yaml](../../configs/grpc_acl.yaml) |
@@ -74,7 +74,7 @@ flowchart LR
 | 模块 | 服务 |
 | ---- | ---- |
 | Authn | `AuthService`、`JWKSService` |
-| UC / Identity | `IdentityRead`、`GuardianshipQuery`、`GuardianshipCommand`、`IdentityLifecycle` |
+| UC / Identity | `IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle` |
 | IDP | `IDPService` |
 
 说明：

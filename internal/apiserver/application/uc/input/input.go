@@ -11,8 +11,8 @@ func ParseUserID(raw string) (meta.ID, error) {
 	return parseID(raw)
 }
 
-// ParseChildID preserves the legacy application parsing behavior based on fmt.Sscanf.
-func ParseChildID(raw string) (meta.ID, error) {
+// ParseProfileID preserves the legacy application parsing behavior based on fmt.Sscanf.
+func ParseProfileID(raw string) (meta.ID, error) {
 	return parseID(raw)
 }
 

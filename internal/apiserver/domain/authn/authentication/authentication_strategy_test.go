@@ -151,7 +151,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 		enabled:     true,
 	}
 	a8 := makeAuth(acc8, cred6, hasher7)
-	d8, err := a8.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(0), Username: "guardian@example.com", Password: pass})
+	d8, err := a8.Authenticate(ctx, authentication.AuthPassword, authentication.AuthInput{TenantID: meta.ID(0), Username: "ref@example.com", Password: pass})
 	require.NoError(t, err)
 	require.True(t, d8.OK)
 	require.NotNil(t, d8.Principal)

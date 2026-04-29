@@ -55,7 +55,7 @@
         │  Application Layer (业务编排 + CQRS)        │
         │  ├─ authn/(login,token,session,jwks)        │
         │  ├─ authz/(role,resource,policy,assign)     │
-        │  ├─ uc/(user,child,guardianship)            │
+        │  ├─ uc/(user,profile,ref)            │
         │  ├─ idp/(wechat 配置)                       │
         │  └─ suggest/(搜索)                          │
         ├─────────────────────────────────────────────┤
@@ -415,9 +415,9 @@ Casbin.Enforce(user:123, T1, course, read)
      │
      ▼
 ┌──────────────────┐
-│ Guardianship     │  监护关系
+│ Ref     │  监护关系
 │ user_id(FK)      │  (谁和哪个儿童是什么关系)
-│ child_id(FK)     │
+│ profile_id(FK)     │
 │ relation_type    │
 │ established_at   │
 │ revoked_at       │
@@ -425,8 +425,8 @@ Casbin.Enforce(user:123, T1, course, read)
      │
      ▼
 ┌──────────────┐
-│    Child     │  儿童 (被测评者)
-│ child_id(PK) │
+│    Profile     │  儿童 (被测评者)
+│ profile_id(PK) │
 │ name         │
 │ gender       │
 │ birthday     │
@@ -440,8 +440,8 @@ Casbin.Enforce(user:123, T1, course, read)
 |------|------|------|
 | `UserApplicationService` | [application/uc/user/services.go](internal/apiserver/application/uc/user/services.go) | 用户注册、资料更新 |
 | `UserQueryApplicationService` | [application/uc/user/services.go](internal/apiserver/application/uc/user/services.go) | 用户查询 |
-| `ChildApplicationService` | [application/uc/child/](internal/apiserver/application/uc/child/) | 儿童档案管理 |
-| `GuardianshipApplicationService` | [application/uc/guardianship/](internal/apiserver/application/uc/guardianship/) | 监护关系管理 |
+| `ProfileApplicationService` | [application/uc/profile/](internal/apiserver/application/uc/profile/) | 儿童档案管理 |
+| `RefApplicationService` | [application/uc/ref/](internal/apiserver/application/uc/ref/) | 监护关系管理 |
 
 #### CQRS 在用户域的体现
 
@@ -449,7 +449,7 @@ Casbin.Enforce(user:123, T1, course, read)
 // 写侧应用服务
 userApp.Register(ctx, dto)
 userApp.Rename(ctx, userID, newName)
-childApp.RegisterChild(ctx, dto)
+profileApp.RegisterProfile(ctx, dto)
 
 // 读侧应用服务 (QueryApplicationService)
 userApp.GetByID(ctx, userID)
@@ -461,14 +461,14 @@ userApp.GetByPhone(ctx, phone)
 
 #### 操作限制
 
-查询与访问控制大多从 `Guardianship` 关系出发：
+查询与访问控制大多从 `Ref` 关系出发：
 
 ```go
 // 获取当前用户的所有儿童
-guardians := guardianshipRepo.FindByGuardian(ctx, userID)
-children := make([]*Child, len(guardians))
-for i, g := range guardians {
-    children[i], _ = childRepo.FindByID(ctx, g.ChildID)
+refs := refRepo.FindByRef(ctx, userID)
+profiles := make([]*Profile, len(refs))
+for i, g := range refs {
+    profiles[i], _ = profileRepo.FindByID(ctx, g.ProfileID)
 }
 ```
 
@@ -551,7 +551,7 @@ Loader (Raw SQL)
     ▼
 Store (内存 Trie + Hash 索引)
     ▼
-REST GET /api/v1/suggest/child?k=
+REST GET /api/v1/suggest/profile?k=
 ```
 
 #### 关键组件
@@ -649,22 +649,22 @@ casbin_rule
 
 **用户域表**
 ```sql
-children
-├─ child_id (PK)
+profiles
+├─ profile_id (PK)
 ├─ name
 ├─ gender
 ├─ birthday
 ├─ id_card
 └─ status
 
-guardianships
-├─ guardianship_id (PK)
+refs
+├─ ref_id (PK)
 ├─ user_id (FK)
-├─ child_id (FK)
+├─ profile_id (FK)
 ├─ relation_type
 ├─ established_at
 ├─ revoked_at
-└─ (user_id, child_id unique)
+└─ (user_id, profile_id unique)
 ```
 
 #### Redis 存储结构
@@ -842,7 +842,7 @@ type UserQueryApplicationService interface {
 | DDD 概念 | 代码位置 | 例子 |
 |---------|---------|------|
 | **Aggregate (聚合根)** | `domain/*/model.go` | User, Role, Account |
-| **Entity (实体)** | `domain/*/model.go` | Child (带生命周期) |
+| **Entity (实体)** | `domain/*/model.go` | Profile (带生命周期) |
 | **Value Object (值对象)** | `domain/authn/token/token.go` | Token, Principal, TokenClaims |
 | **Aggregate Repository** | `domain/*/repository.go` | UserRepository, RoleRepository |
 | **Domain Service** | `domain/authn/authentication/authenticater.go` | Authenticater (认证决策) |
@@ -959,8 +959,8 @@ iam/
 │   │   │   └── assignment/
 │   │   ├── uc/
 │   │   │   ├── user/
-│   │   │   ├── child/
-│   │   │   ├── guardianship/
+│   │   │   ├── profile/
+│   │   │   ├── ref/
 │   │   │   └── uow/             # Unit of Work
 │   │   ├── idp/
 │   │   ├── suggest/
@@ -980,8 +980,8 @@ iam/
 │   │   │   └── assignment/
 │   │   ├── uc/
 │   │   │   ├── user/            # 聚合根
-│   │   │   ├── child/           # 聚合根
-│   │   │   └── guardianship/    # 聚合根
+│   │   │   ├── profile/           # 聚合根
+│   │   │   └── ref/    # 聚合根
 │   │   ├── idp/
 │   │   │   └── wechatapp/
 │   │   └── suggest/
@@ -991,8 +991,8 @@ iam/
 │   │   │   ├── credential/
 │   │   │   ├── role/
 │   │   │   ├── user/
-│   │   │   ├── child/
-│   │   │   └── guardianship/
+│   │   │   ├── profile/
+│   │   │   └── ref/
 │   │   ├── redis/
 │   │   │   ├── session_store.go
 │   │   │   ├── token_store.go
@@ -1406,8 +1406,8 @@ type UnitOfWork struct {
 
 type TxRepositories struct {
     Users         user.Repository
-    Children      child.Repository
-    Guardianships guardianship.Repository
+    Profiles      profile.Repository
+    Refs ref.Repository
 }
 
 // 事务边界管理
@@ -1420,8 +1420,8 @@ func (uow *UnitOfWork) WithinTx(ctx context.Context, fn func(*TxRepositories) er
     // 为事务内的操作创建仓储
     txRepos := &TxRepositories{
         Users:         user.NewRepository(tx),
-        Children:      child.NewRepository(tx),
-        Guardianships: guardianship.NewRepository(tx),
+        Profiles:      profile.NewRepository(tx),
+        Refs: ref.NewRepository(tx),
     }
     
     // 执行业务逻辑
@@ -1435,21 +1435,21 @@ func (uow *UnitOfWork) WithinTx(ctx context.Context, fn func(*TxRepositories) er
 }
 
 // 使用示例
-func (s *GuardianshipService) RegisterChild(ctx context.Context, dto RegisterChildDTO) error {
+func (s *RefService) RegisterProfile(ctx context.Context, dto RegisterProfileDTO) error {
     return s.uow.WithinTx(ctx, func(repos *TxRepositories) error {
         // 1. 创建儿童档案
-        child := child.NewChild(dto.Name, dto.Gender, dto.Birthday)
-        if err := repos.Children.Create(ctx, child); err != nil {
+        profile := profile.NewProfile(dto.Name, dto.Gender, dto.Birthday)
+        if err := repos.Profiles.Create(ctx, profile); err != nil {
             return err
         }
         
         // 2. 创建监护关系
-        guardianship := guardianship.NewGuardianship(
+        ref := ref.NewRef(
             dto.UserID,
-            child.ID,
-            guardianship.RelationTypeParent,
+            profile.ID,
+            ref.RelationTypeParent,
         )
-        if err := repos.Guardianships.Create(ctx, guardianship); err != nil {
+        if err := repos.Refs.Create(ctx, ref); err != nil {
             return err
         }
         
@@ -1483,7 +1483,7 @@ func (s *GuardianshipService) RegisterChild(ctx context.Context, dto RegisterChi
 
 3. **监护关系判定**：gRPC 查询
    ```go
-   guardians, err := client.Guardianship().ListByChild(ctx, childID)
+   refs, err := client.Ref().ListByProfile(ctx, profileID)
    ```
 
 #### 集成点
@@ -1545,7 +1545,7 @@ services:
   - name: IdentityService
     methods:
       - GetUser
-      - ListChildren
+      - ListProfiles
     roles: ["*"]  # 所有用户可访问
     
   # 管理接口 (admin)
@@ -1573,7 +1573,7 @@ auth, _ := client.Auth().VerifyToken(ctx, token)
 identity, _ := client.Identity().GetByID(ctx, userID)
 
 // 监护关系
-guardians, _ := client.Guardianship().ListByChild(ctx, childID)
+refs, _ := client.Ref().ListByProfile(ctx, profileID)
 
 // 授权检查
 allowed, _ := client.Authz().Check(ctx, subject, domain, object, action)

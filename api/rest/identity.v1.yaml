@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: IAM · Identity API
   version: 1.0.0
-  description: 用户、儿童档案与监护关系 REST API
+  description: 用户、档案与档案关系 REST API
   contact:
     name: API Support
     email: yshujie@163.com
@@ -16,20 +16,20 @@ security:
 - bearerAuth: []
 tags:
 - name: Identity-Users
-- name: Identity-Children
-- name: Identity-Guardianship
+- name: Identity-Profiles
+- name: Identity-ProfileLink
 - name: Suggest
 paths:
-  /identity/children/{id}:
+  /identity/profiles/{id}:
     get:
       tags:
-      - Identity-Children
-      summary: 查询儿童档案（仅限自己监护的孩子）
-      description: 根据儿童 ID 查询儿童详细档案，只能查询当前用户监护的孩子
+      - Identity-Profiles
+      summary: 查询档案（仅限当前用户可访问的档案）
+      description: 根据档案 ID 查询档案详情，只能查询当前用户关系的档案
       parameters:
       - name: id
         in: path
-        description: 儿童 ID
+        description: 档案 ID
         required: true
         schema:
           type: string
@@ -39,7 +39,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
         '400':
           description: 参数错误
           content:
@@ -53,13 +53,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
-          description: 无权限访问此儿童
+          description: 无权限访问此档案
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
-          description: 儿童不存在
+          description: 档案不存在
           content:
             application/json:
               schema:
@@ -72,13 +72,13 @@ paths:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
     patch:
       tags:
-      - Identity-Children
-      summary: 更新儿童档案（仅限自己监护的孩子）
-      description: 部分更新儿童档案信息，只能更新当前用户监护的孩子
+      - Identity-Profiles
+      summary: 更新档案（仅限当前用户可访问的档案）
+      description: 部分更新档案信息，只能更新当前用户关系的档案
       parameters:
       - name: id
         in: path
-        description: 儿童 ID
+        description: 档案 ID
         required: true
         schema:
           type: string
@@ -87,14 +87,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
         '400':
           description: 参数错误
           content:
@@ -108,13 +108,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '403':
-          description: 无权限修改此儿童
+          description: 无权限修改此档案
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '404':
-          description: 儿童不存在
+          description: 档案不存在
           content:
             application/json:
               schema:
@@ -125,25 +125,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/children/register:
+  /identity/profiles:
     post:
       tags:
-      - Identity-Children
-      summary: 注册儿童档案并建立监护关系
-      description: 创建儿童档案并自动将当前用户设置为监护人（身份证可不填写）
+      - Identity-Profiles
+      summary: 创建档案并建立关系
+      description: 创建档案并自动将当前用户关联到该档案（身份证可不填写）
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest'
       responses:
         '201':
           description: 注册成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse'
         '400':
           description: 请求参数错误
           content:
@@ -157,7 +157,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '409':
-          description: 儿童已存在
+          description: 档案已存在
           content:
             application/json:
               schema:
@@ -168,16 +168,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/children/search:
+  /identity/profiles/search:
     get:
       tags:
-      - Identity-Children
-      summary: 搜索儿童
-      description: 根据姓名、生日等信息搜索相似的儿童档案（用于运营查询）
+      - Identity-Profiles
+      summary: 搜索档案
+      description: 根据姓名、生日等信息搜索相似的档案（用于运营查询）
       parameters:
       - name: name
         in: query
-        description: 儿童姓名
+        description: 档案姓名
         schema:
           type: string
       - name: dob
@@ -203,7 +203,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse'
         '400':
           description: 参数错误
           content:
@@ -222,26 +222,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/guardians:
+  /identity/profile-links:
     get:
       tags:
-      - Identity-Guardianship
-      summary: 查询监护关系
-      description: 查询用户或儿童的监护关系列表
+      - Identity-ProfileLink
+      summary: 查询档案关系
+      description: 查询用户或档案的关系列表
       parameters:
       - name: user_id
         in: query
         description: 用户 ID
         schema:
           type: string
-      - name: child_id
+      - name: profile_id
         in: query
-        description: 儿童 ID
+        description: 档案 ID
         schema:
           type: string
       - name: active
         in: query
-        description: 是否仅查询活跃的监护关系
+        description: 是否仅查询活跃关系
         schema:
           type: boolean
       - name: offset
@@ -262,7 +262,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse'
         '400':
           description: 参数错误
           content:
@@ -281,25 +281,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/guardians/grant:
     post:
       tags:
-      - Identity-Guardianship
-      summary: 授予监护关系
-      description: 将用户设置为儿童的监护人
+      - Identity-ProfileLink
+      summary: 创建档案关系
+      description: 将当前用户或指定用户关联到档案
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest'
       responses:
         '201':
-          description: 授予成功
+          description: 创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
         '400':
           description: 参数错误
           content:
@@ -313,7 +312,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
         '409':
-          description: 监护关系已存在
+          description: 关系已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+  /identity/profile-links/{id}/revoke:
+    post:
+      tags:
+      - Identity-ProfileLink
+      summary: 撤销档案关系
+      description: 撤销当前用户的一条档案关系
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: 关系 ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 撤销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+        '404':
+          description: 关系不存在
           content:
             application/json:
               schema:
@@ -385,12 +428,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
-  /identity/me/children:
+  /identity/me/profiles:
     get:
       tags:
-      - Identity-Children
-      summary: 获取当前用户的儿童档案列表
-      description: 获取当前登录用户作为监护人的所有儿童档案
+      - Identity-Profiles
+      summary: 获取当前用户的档案列表
+      description: 获取当前登录用户作为关系用户的所有档案
       parameters:
       - name: offset
         in: query
@@ -410,7 +453,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse'
         '401':
           description: 未授权
           content:
@@ -430,9 +473,9 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
-    ChildId:
+    ProfileId:
       in: path
-      name: childId
+      name: profileId
       required: true
       schema:
         type: string
@@ -494,7 +537,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildRegisterRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileRegisterRequest:
       properties:
         dob:
           type: string
@@ -523,7 +566,7 @@ components:
       - legalName
       - relation
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ChildUpdateRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileUpdateRequest:
       properties:
         dob:
           type: string
@@ -536,9 +579,9 @@ components:
         weightKg:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.GuardianGrantRequest:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_request.ProfileLinkGrantRequest:
       properties:
-        childId:
+        profileId:
           type: string
         relation:
           enum:
@@ -550,7 +593,7 @@ components:
         userId:
           type: string
       required:
-      - childId
+      - profileId
       - relation
       - userId
       type: object
@@ -565,11 +608,11 @@ components:
         nickname:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildPageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfilePageResponse:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
           type: array
         limit:
           type: integer
@@ -578,14 +621,14 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildRegisterResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileRegisterResponse:
       properties:
-        child:
-          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse'
-        guardianship:
-          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+        profile:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse'
+        profileLink:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ChildResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileResponse:
       properties:
         createdAt:
           type: string
@@ -608,11 +651,11 @@ components:
         weightKg:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipPageResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkPageResponse:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse'
           type: array
         limit:
           type: integer
@@ -621,9 +664,9 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.GuardianshipResponse:
+    github_com_FangcunMount_iam_internal_apiserver_interface_uc_restful_response.ProfileLinkResponse:
       properties:
-        childId:
+        profileId:
           type: string
         id:
           type: integer
@@ -670,6 +713,6 @@ components:
             此消息适合暴露给外部'
           type: string
         reference:
-          description: Reference 返回参考文档，可能有助于解决此错误
+          description: ProfileLinkerence 返回参考文档，可能有助于解决此错误
           type: string
       type: object

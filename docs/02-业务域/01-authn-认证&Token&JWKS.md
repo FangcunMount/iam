@@ -37,7 +37,7 @@
 
 #### 不负责
 
-- 用户档案、儿童、监护关系：见 [03-user-用户&儿童&Guardianship.md](./03-user-用户&儿童&Guardianship.md)
+- 用户档案、儿童、监护关系：见 [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md)
 - 角色、策略、Assignment、Casbin：见 [02-authz-角色&策略&资源&Assignment.md](./02-authz-角色&策略&资源&Assignment.md)
 - HTTP 请求里的 JWT 消费与上下文注入：见 [../01-运行时/03-HTTP认证中间件与身份上下文.md](../01-运行时/03-HTTP认证中间件与身份上下文.md)
 - 登录长链、Token 生命周期时序、JWKS 轮换运行面：见 [../05-专题分析/01-认证链路--从登录请求到 Token 与 JWKS.md](../05-专题分析/01-认证链路--从登录请求到 Token 与 JWKS.md)

@@ -24,7 +24,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	group.Use(deps.AuthMiddleware)
 
 	h := NewHandler(deps.Service)
-	group.GET("/child", h.Child)
+	group.GET("/profile", h.Profile)
 }
 
 // Handler 提供 suggest 接口
@@ -41,8 +41,8 @@ func NewHandler(svc *appsuggest.Service) *Handler {
 	}
 }
 
-// Child 处理儿童联想查询
-// @Summary 儿童联想搜索
+// Profile 处理档案联想查询
+// @Summary 档案联想搜索
 // @Description 支持中文/拼音前缀联想，数字关键词走手机号/ID 精确匹配
 // @Tags Suggest
 // @Accept  json
@@ -50,9 +50,9 @@ func NewHandler(svc *appsuggest.Service) *Handler {
 // @Param k query string true "关键词；数字=精确匹配手机号/ID，其他=前缀联想"
 // @Success 200 {array} suggest.Term "联想结果（按权重降序，去重）"
 // @Failure 400 {object} core.ErrResponse "参数缺失"
-// @Router /suggest/child [get]
+// @Router /suggest/profile [get]
 // @Security BearerAuth
-func (h *Handler) Child(c *gin.Context) {
+func (h *Handler) Profile(c *gin.Context) {
 	var query struct {
 		K string `form:"k" binding:"required"`
 	}

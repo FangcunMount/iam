@@ -81,21 +81,21 @@ interface -> application -> domain -> infra (+ container 装配)
 | 对象 | 文档说法 | 源码实现 | 细节偏移 |
 |-----|--------|--------|---------|
 | User | 命令/查询分离，共享 UoW | ✅ 已实现 | ✅ 无偏移 |
-| Child | 命令/查询分离，共享 UoW | ✅ 已实现 | ✅ 无偏移 |
-| Guardianship | 命令/查询分离，共享 UoW | ⚠️ 部分 | ⚠️ 见下 |
+| Profile | 命令/查询分离，共享 UoW | ✅ 已实现 | ✅ 无偏移 |
+| Ref | 命令/查询分离，共享 UoW | ⚠️ 部分 | ⚠️ 见下 |
 
-**Guardian 关系写操作细节偏移**：
+**Ref 关系写操作细节偏移**：
 
-文档在 [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md) 描述：
+文档在 [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md) 描述：
 ```
-"children/register 的当前真实写链是'先建 child，再建 guardianship'的两段事务，
+"profiles/register 的当前真实写链是'先建 profile，再建 ref'的两段事务，
 不是原子闭环"
 ```
 
 源码实现情况：
-- [internal/apiserver/application/uc/child/services_impl.go](internal/apiserver/application/uc/child/services_impl.go)
+- [internal/apiserver/application/uc/profile/services_impl.go](internal/apiserver/application/uc/profile/services_impl.go)
 - 确实是两步分散的写操作，但**没有显式的 saga 或补偿机制**
-- 如果第二步 (guardianship) 失败，孤立的 child 记录会保留
+- 如果第二步 (ref) 失败，孤立的 profile 记录会保留
 
 **偏移评估**: ⚠️ **轻微** - 文档已明确说明这是"两段事务"而非"原子"，源码符合这一说法。但文档可以进一步补充：**如果第二步失败会如何清理孤立记录**。
 
@@ -151,17 +151,17 @@ interface -> application -> domain -> infra (+ container 装配)
 ### 5. 用户域 (UC) ✅ 基本一致，部分细节待补充
 
 #### 文档覆盖
-- [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md)
+- [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
 
 #### 验证内容
 
 | 特性 | 文档说法 | 源码实现 | 一致性 |
 |-----|--------|--------|------|
 | User 对象 | 用户档案锚点 | ✅ [internal/apiserver/domain/uc/user/user.go](internal/apiserver/domain/uc/user/user.go) | ✅ |
-| Child 对象 | 儿童身份对象 | ✅ [internal/apiserver/domain/uc/child/child.go](internal/apiserver/domain/uc/child/child.go) | ✅ |
-| Guardianship | 监护关系、relation/established_at/revoked_at | ✅ [internal/apiserver/domain/uc/guardianship/guardianship.go](internal/apiserver/domain/uc/guardianship/guardianship.go) | ✅ |
-| REST 入口 | `/api/v1/identity/me`、`/me/children` 等 | ✅ [api/rest/identity.v1.yaml](api/rest/identity.v1.yaml) | ✅ |
-| gRPC 入口 | `IdentityRead`、`GuardianshipQuery` 等 | ✅ [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto) | ✅ |
+| Profile 对象 | 儿童身份对象 | ✅ [internal/apiserver/domain/uc/profile/profile.go](internal/apiserver/domain/uc/profile/profile.go) | ✅ |
+| Ref | 监护关系、relation/established_at/revoked_at | ✅ [internal/apiserver/domain/uc/ref/ref.go](internal/apiserver/domain/uc/ref/ref.go) | ✅ |
+| REST 入口 | `/api/v1/identity/me`、`/me/profiles` 等 | ✅ [api/rest/identity.v1.yaml](api/rest/identity.v1.yaml) | ✅ |
+| gRPC 入口 | `IdentityRead`、`RefQuery` 等 | ✅ [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto) | ✅ |
 
 **细节偏移识别**：
 
@@ -338,7 +338,7 @@ interface -> application -> domain -> infra (+ container 装配)
 | **六边形架构** | 0% | 无 | 无 |
 | **认证链路 (Authn)** | 0% | 无 | 无 |
 | **授权链路 (Authz)** | 0% | 无 | 无 |
-| **用户域 (UC)** | 2-3% | Guardian 失败恢复未说明 | 补充：失败时的孤立记录清理策略 |
+| **用户域 (UC)** | 2-3% | Ref 失败恢复未说明 | 补充：失败时的孤立记录清理策略 |
 | **CQRS 模式** | 5% | 部分表述略显理想化 | 补充：实现中的务实妥协 |
 | **缓存治理** | 10-15% | FamilyInspector 实现程度不清 | 补充：详细的治理能力清单 |
 | **IDP 与集成** | 10-20% | 部分集成实现细节不明 | 补充：各 IDP 集成的完整度说明 |
@@ -351,22 +351,22 @@ interface -> application -> domain -> infra (+ container 装配)
 
 ### 立即修正（HIGH）
 
-#### 1. UC 模块 - Guardian 写操作恢复
-**文件**: [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md)
+#### 1. UC 模块 - Ref 写操作恢复
+**文件**: [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
 
 **补充**:
 ```markdown
 ### 事务恢复与孤立记录
 
-当前 `children/register` 流程是两步写操作：
-1. 创建 Child
-2. 创建 Guardianship
+当前 `profiles/register` 流程是两步写操作：
+1. 创建 Profile
+2. 创建 Ref
 
-若第 2 步失败，孤立的 Child 记录**不会自动清理**。
+若第 2 步失败，孤立的 Profile 记录**不会自动清理**。
 
 当前设计假设：
 - 高层应用或客户端应该负责检测和重试
-- 定期清理作业可扫描孤立 Child 记录
+- 定期清理作业可扫描孤立 Profile 记录
 - 未来可考虑引入 Saga 模式进行补偿
 ```
 
@@ -387,7 +387,7 @@ interface -> application -> domain -> infra (+ container 装配)
 ```
 
 #### 3. 事件系统 - 清晰说明 Stream 端点状态
-**文件**: [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md)
+**文件**: [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
 
 **补充**:
 ```markdown
@@ -483,7 +483,7 @@ rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse
    - 源码: [internal/apiserver/domain/authz/](internal/apiserver/domain/authz/)、[configs/casbin_model.conf](configs/casbin_model.conf)
 
 3. **用户域**:
-   - 阅读: [docs/02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md)
+   - 阅读: [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
    - 源码: [internal/apiserver/domain/uc/](internal/apiserver/domain/uc/)
 
 ### 第三阶段：深度理解（可选，3-5 天）
@@ -517,7 +517,7 @@ rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse
 需要改进的地方：
 - 部分细节功能的实现状态说明不足（如 Stream 端点、FamilyInspector）
 - 某些"选择性功能"（如缓存治理的管理操作）应更明确标注为"暂未实现"
-- Guardian 关系的失败恢复机制需要补充文档
+- Ref 关系的失败恢复机制需要补充文档
 
 **建议**: 
 1. 定期同步文档与源码（建议每个大版本同步一次）
@@ -537,7 +537,7 @@ rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse
 | [01-运行时/03-HTTP认证中间件与身份上下文.md](docs/01-运行时/03-HTTP认证中间件与身份上下文.md) | 中间件 | ✅ 一致 | |
 | [02-业务域/01-authn-认证&Token&JWKS.md](docs/02-业务域/01-authn-认证&Token&JWKS.md) | 认证域 | ✅ 完全一致 | |
 | [02-业务域/02-authz-角色&策略&资源&Assignment.md](docs/02-业务域/02-authz-角色&策略&资源&Assignment.md) | 授权域 | ✅ 完全一致 | |
-| [02-业务域/03-user-用户&儿童&Guardianship.md](docs/02-业务域/03-user-用户&儿童&Guardianship.md) | 用户域 | ⚠️ 基本一致 | Guardian 恢复机制缺文档 |
+| [02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md) | 用户域 | ⚠️ 基本一致 | Ref 恢复机制缺文档 |
 | [02-业务域/04-suggest-儿童联想搜索.md](docs/02-业务域/04-suggest-儿童联想搜索.md) | Suggest 模块 | ✅ 可信 | |
 | [04-基础设施与运维/01-六边形架构实践.md](docs/04-基础设施与运维/01-六边形架构实践.md) | 架构模式 | ✅ 完全一致 | |
 | [04-基础设施与运维/02-CQRS模式实践.md](docs/04-基础设施与运维/02-CQRS模式实践.md) | CQRS 模式 | ⚠️ 基本一致 | 务实妥协部分需补充 |

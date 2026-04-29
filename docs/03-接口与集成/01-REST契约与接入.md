@@ -17,7 +17,7 @@
 - 当前 REST 合同已经拆成 5 份：`authn`、`identity`、`authz`、`idp`、`suggest`；真实路由注册点分别落在 `internal/apiserver/interface/*/restful`，统一装配入口在 [../../internal/apiserver/routers.go](../../internal/apiserver/routers.go)。
 - `internal/apiserver/docs/swagger.yaml` 和运行时 `/swagger/`、`/openapi/` 都是派生工件或调试入口，不是独立真值层；提交前应优先看 `api/rest/*.yaml`，再用 `make api-validate` 校验有没有漂移。
 - 鉴权边界不能只靠概括性 README 判断：`identity`、`authz` 与 `suggest` 在路由层明确挂了 JWT 中间件；`authn` 以公开登录/JWKS 为主；`idp` 当前没有在 router 层统一挂 JWT。
-- [../../api/rest/README.md](../../api/rest/README.md) 里仍有一批历史示例路径沿用旧写法，例如 `/api/v1/auth/*`、`/api/v1/children/*`；接入时应优先相信逐份 YAML 和真实 router，而不是只看这份总 README。
+- [../../api/rest/README.md](../../api/rest/README.md) 里仍有一批历史示例路径沿用旧写法，例如 `/api/v1/auth/*`、`/api/v1/profiles/*`；接入时应优先相信逐份 YAML 和真实 router，而不是只看这份总 README。
 
 ## 重点速查
 
@@ -90,10 +90,10 @@ flowchart LR
 | ---- | ---- | ---- |
 | Public / Base | `/.well-known/jwks.json`、`/health`、`/ping`、`/api/v1/public/info` | 基础健康检查、公开信息与 JWKS |
 | Authn | `/api/v1/authn/login`、`/api/v1/authn/refresh_token` | 登录、令牌生命周期、账户、JWKS 管理；其中 `authn/admin/jwks/*` 为管理员控制面 |
-| Identity | `/api/v1/identity/me`、`/api/v1/identity/children/register` | 当前用户、儿童、监护关系 |
+| Identity | `/api/v1/identity/me`、`/api/v1/identity/profiles/register` | 当前用户、儿童、监护关系 |
 | Authz | `/api/v1/authz/roles`、`/api/v1/authz/policies` | 授权管理面 |
 | IDP | `/api/v1/idp/wechat-apps` | 微信应用管理 |
-| Suggest | `/api/v1/suggest/child` | 儿童联想搜索 |
+| Suggest | `/api/v1/suggest/profile` | 儿童联想搜索 |
 
 ### 2.3 总 README 与逐份合同的边界
 
@@ -101,7 +101,7 @@ flowchart LR
 
 已核对到的当前差异包括：
 
-- README 中仍大量使用旧前缀，例如 `/api/v1/auth/login`、`/api/v1/children/register`
+- README 中仍大量使用旧前缀，例如 `/api/v1/auth/login`、`/api/v1/profiles/register`
 - 当前逐份 OpenAPI 与 runtime router 已切到 `/api/v1/authn/*`、`/api/v1/identity/*` 这类新路径族
 
 因此接入方的正确顺序应是：

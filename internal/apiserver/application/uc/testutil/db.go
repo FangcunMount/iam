@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	childpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
-	guardpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
+	profilepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profile"
+	guardpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profilelink"
 	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 	userpo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 )
@@ -55,8 +55,8 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	// 自动迁移所有表
 	err = db.AutoMigrate(
 		&userpo.UserPO{},
-		&childpo.ChildPO{},
-		&guardpo.GuardianshipPO{},
+		&profilepo.ProfilePO{},
+		&guardpo.ProfileLinkPO{},
 	)
 	require.NoError(t, err, "failed to auto-migrate tables")
 
@@ -74,8 +74,8 @@ func CleanupDB(t *testing.T, db *gorm.DB) {
 
 	// 按依赖顺序删除（先删除有外键的表）
 	tables := []string{
-		"guardianships", // 监护关系（依赖 users 和 children）
-		"children",      // 儿童
+		"profile_links", // 档案关系（依赖 users 和 profiles）
+		"profiles",      // 档案
 		"users",         // 用户
 	}
 

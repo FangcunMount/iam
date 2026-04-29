@@ -12,9 +12,8 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
 	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	appchild "github.com/FangcunMount/iam/internal/apiserver/application/uc/child"
-	appguard "github.com/FangcunMount/iam/internal/apiserver/application/uc/guardianship"
-	appregistration "github.com/FangcunMount/iam/internal/apiserver/application/uc/registration"
+	appprofile "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
+	appprofilelink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
 	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
@@ -65,17 +64,17 @@ type AuthzApplicationCapabilities struct {
 }
 
 type UserApplicationCapabilities struct {
-	UserService               appuser.UserApplicationService
-	UserProfileService        appuser.UserProfileApplicationService
-	UserStatusService         appuser.UserStatusApplicationService
-	UserQueryService          appuser.UserQueryApplicationService
-	ChildQueryService         appchild.ChildQueryApplicationService
-	ChildAccessService        appchild.ChildAccessApplicationService
-	GuardianshipService       appguard.GuardianshipApplicationService
-	GuardianshipQueryService  appguard.GuardianshipQueryApplicationService
-	GuardianshipAccessService appguard.GuardianshipAccessApplicationService
-	ChildRegistrationService  appregistration.ChildRegistrationService
-	Casbin                    authn.CasbinEnforcer
+	UserService                appuser.UserApplicationService
+	UserProfileService         appuser.UserProfileApplicationService
+	UserStatusService          appuser.UserStatusApplicationService
+	UserQueryService           appuser.UserQueryApplicationService
+	ProfileQueryService        appprofile.ProfileQueryApplicationService
+	ProfileAccessService       appprofile.ProfileAccessApplicationService
+	ProfileLinkService         appprofilelink.ProfileLinkApplicationService
+	ProfileLinkQueryService    appprofilelink.ProfileLinkQueryApplicationService
+	ProfileLinkAccessService   appprofilelink.ProfileLinkAccessApplicationService
+	ProfileRegistrationService appprofile.ProfileRegistrationService
+	Casbin                     authn.CasbinEnforcer
 }
 
 type IDPApplicationCapabilities struct {

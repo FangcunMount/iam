@@ -164,8 +164,8 @@ make docker-build   # 构建 Docker 镜像
 C4Context
   title IAM 系统上下文图
 
-  Person(guardian, "监护人", "家长：管理儿童档案、设置监护关系")
-  Person(child, "儿童", "被监护人：完成心理测评")
+  Person(ref, "监护人", "家长：管理儿童档案、设置监护关系")
+  Person(profile, "儿童", "被监护人：完成心理测评")
   Person(admin, "系统管理员", "管理用户、角色和权限")
 
   System(iam, "IAM", "身份认证·授权·用户管理·监护关系")
@@ -174,14 +174,14 @@ C4Context
   System_Ext(scale, "测评服务", "心理量表/问卷核心业务")
   System_Ext(report, "报告服务", "测评报告生成与查看")
 
-  Rel(guardian, iam, "微信登录、创建儿童档案、绑定监护关系", "HTTPS/JWT")
+  Rel(ref, iam, "微信登录、创建儿童档案、绑定监护关系", "HTTPS/JWT")
   Rel(admin, iam, "用户管理、角色分配、权限配置", "HTTPS/JWT")
   
   Rel(iam, wechat, "获取 OpenID/UnionID", "HTTPS")
   
   Rel(scale, iam, "验证 JWT、查询监护关系", "gRPC/JWKS")
   Rel(report, iam, "验证用户身份、检查访问权限", "gRPC/JWKS")
-  Rel(child, scale, "完成测评（监护人代填）", "HTTPS")
+  Rel(profile, scale, "完成测评（监护人代填）", "HTTPS")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
@@ -207,8 +207,8 @@ graph TB
     end
 
     subgraph "Domain Layer 领域层"
-        AGG[Aggregates<br/>聚合根<br/>User/Child/Role]
-        ENTITY[Entities<br/>实体<br/>Account/Guardianship]
+        AGG[Aggregates<br/>聚合根<br/>User/Profile/Role]
+        ENTITY[Entities<br/>实体<br/>Account/Ref]
         VO[Value Objects<br/>值对象<br/>UserID/IDCard]
         DSVC[Domain Services<br/>领域服务]
         REPO_IF[Repository Interfaces<br/>仓储接口]
@@ -265,7 +265,7 @@ classDiagram
         +datetime created_at
         --领域行为--
         +BindAccount(account)
-        +CreateGuardianship(child)
+        +CreateRef(profile)
     }
 
     class Account {
@@ -276,7 +276,7 @@ classDiagram
         +bool is_primary
     }
 
-    class Child {
+    class Profile {
         +bigint id
         +string name
         +string id_card
@@ -288,10 +288,10 @@ classDiagram
         +UpdateProfile(data)
     }
 
-    class Guardianship {
+    class Ref {
         +bigint id
         +UUID user_id
-        +bigint child_id
+        +bigint profile_id
         +string relation
         +bool is_primary
         +datetime created_at
@@ -325,8 +325,8 @@ classDiagram
     }
 
     User "1" --> "*" Account : 绑定多个账户
-    User "1" --> "*" Guardianship : 监护关系
-    Child "1" --> "*" Guardianship : 被监护
+    User "1" --> "*" Ref : 监护关系
+    Profile "1" --> "*" Ref : 被监护
     User "1" --> "*" Assignment : 角色赋权
     Role "1" --> "*" Policy : 定义权限
     Role "1" --> "*" Assignment : 授予主体
@@ -420,9 +420,9 @@ sequenceDiagram
     
     alt 需要监护关系验证
         Note over BizSvc,IAM: 检查监护关系
-        BizSvc->>IAM: gRPC: IsGuardian<br/>{user_id, child_id}
-        IAM->>IAM: Query guardianships:<br/>- user_id + child_id<br/>- is_primary
-        IAM-->>BizSvc: {is_guardian: true/false}
+        BizSvc->>IAM: gRPC: IsRef<br/>{user_id, profile_id}
+        IAM->>IAM: Query refs:<br/>- user_id + profile_id<br/>- is_primary
+        IAM-->>BizSvc: {is_ref: true/false}
     end
     
     IAM-->>BizSvc: {<br/>  allowed: true/false,<br/>  reason: "..."<br/>}
@@ -543,7 +543,7 @@ iam/
 ├── internal/                   # 内部应用代码（不对外暴露）
 │   └── apiserver/
 │       ├── modules/            # 业务模块
-│       │   ├── uc/             # 用户中心（User/Child/Guardianship）
+│       │   ├── uc/             # 用户中心（User/Profile/Ref）
 │       │   ├── authn/          # 认证模块（JWT/JWKS/WeChat）
 │       │   └── authz/          # 授权模块（Role/Policy/Assignment）
 │       ├── container/          # 依赖注入容器

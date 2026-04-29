@@ -425,8 +425,8 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 		"AuthzModule.CasbinAdapter",
 		"AuthzModule.GRPCService",
 		"UserModule.UserHandler",
-		"UserModule.ChildHandler",
-		"UserModule.GuardianshipHandler",
+		"UserModule.ProfileHandler",
+		"UserModule.ProfileLinkHandler",
 		"UserModule.GRPCService",
 		"IDPModule.WechatAppHandler",
 		"IDPModule.GRPCService",
@@ -562,6 +562,49 @@ func TestApplicationTransactionCallbacksUseTransactionContext(t *testing.T) {
 			t.Fatalf("%s uses outer ctx in transaction callback call %q; use txCtx for tx-scoped repositories and domain collaborators", rel, match)
 		}
 	})
+}
+
+func TestUCLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	roots := []string{
+		"api/grpc/iam/identity/v1",
+		"api/rest/identity.v1.yaml",
+		"configs/grpc_acl.yaml",
+		"configs/mysql",
+		"internal/apiserver/application/uc",
+		"internal/apiserver/domain/uc",
+		"internal/apiserver/infra/mysql",
+		"internal/apiserver/transport/grpc/service/uc",
+		"internal/apiserver/transport/rest/identity",
+		"internal/pkg/migration/migrations",
+		"pkg/sdk/identity",
+	}
+	for _, relRoot := range roots {
+		path := filepath.Join(root, filepath.FromSlash(relRoot))
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !info.IsDir() {
+			assertNoUCLegacyToken(t, root, path)
+			continue
+		}
+		err = filepath.WalkDir(path, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			assertNoUCLegacyToken(t, root, path)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
@@ -757,6 +800,61 @@ func scanGoSources(t *testing.T, root string, visit func(path, source string)) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func assertNoUCLegacyToken(t *testing.T, root, path string) {
+	t.Helper()
+	rel := filepath.ToSlash(mustRel(t, root, path))
+	for _, token := range []string{
+		"/child/",
+		"/guardianship/",
+		"children",
+		"guardians",
+		"Child",
+		"Guardianship",
+		"profiles/register",
+		"/identity/refs",
+		"refs/grant",
+		"儿童",
+		"孩子",
+		"监护",
+	} {
+		if strings.Contains(rel, token) {
+			t.Fatalf("%s contains retired UC model token %q", rel, token)
+		}
+	}
+	switch filepath.Ext(path) {
+	case ".go", ".proto", ".yaml", ".yml", ".sql":
+	default:
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	for _, token := range []string{
+		"internal/apiserver/application/uc/child",
+		"internal/apiserver/application/uc/guardianship",
+		"internal/apiserver/domain/uc/child",
+		"internal/apiserver/domain/uc/guardianship",
+		"internal/apiserver/infra/mysql/child",
+		"internal/apiserver/infra/mysql/guardianship",
+		"/identity/children",
+		"/identity/guardians",
+		"/identity/profiles/register",
+		"/identity/refs",
+		"/identity/refs/grant",
+		"儿童",
+		"孩子",
+		"监护",
+		"Child",
+		"Guardianship",
+	} {
+		if strings.Contains(source, token) {
+			t.Fatalf("%s contains retired UC model token %q", rel, token)
+		}
 	}
 }
 

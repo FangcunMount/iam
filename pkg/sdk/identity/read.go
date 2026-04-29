@@ -38,10 +38,10 @@ func (c *Client) SearchUsers(ctx context.Context, req *identityv1.SearchUsersReq
 	return resp, nil
 }
 
-// GetChild 获取单个儿童。
-func (c *Client) GetChild(ctx context.Context, childID string) (*identityv1.GetChildResponse, error) {
-	resp, err := c.readService.GetChild(ctx, &identityv1.GetChildRequest{
-		ChildId: childID,
+// GetProfile 获取单个档案。
+func (c *Client) GetProfile(ctx context.Context, profileID string) (*identityv1.GetProfileResponse, error) {
+	resp, err := c.readService.GetProfile(ctx, &identityv1.GetProfileRequest{
+		ProfileId: profileID,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -49,10 +49,10 @@ func (c *Client) GetChild(ctx context.Context, childID string) (*identityv1.GetC
 	return resp, nil
 }
 
-// BatchGetChildren 批量获取儿童。
-func (c *Client) BatchGetChildren(ctx context.Context, childIDs []string) (*identityv1.BatchGetChildrenResponse, error) {
-	resp, err := c.readService.BatchGetChildren(ctx, &identityv1.BatchGetChildrenRequest{
-		ChildIds: childIDs,
+// BatchGetProfiles 批量获取档案。
+func (c *Client) BatchGetProfiles(ctx context.Context, profileIDs []string) (*identityv1.BatchGetProfilesResponse, error) {
+	resp, err := c.readService.BatchGetProfiles(ctx, &identityv1.BatchGetProfilesRequest{
+		ProfileIds: profileIDs,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err)

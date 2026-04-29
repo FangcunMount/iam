@@ -6,8 +6,8 @@ import (
 	"gorm.io/gorm"
 
 	appuow "github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	childrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/child"
-	guardrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/guardianship"
+	profilerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profile"
+	guardrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profilelink"
 	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
 	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
 )
@@ -39,9 +39,9 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context
 			return err
 		}
 		repos := appuow.TxRepositories{
-			Guardianships: guardrepo.NewRepository(tx),
-			Children:      childrepo.NewRepository(tx),
-			Users:         userrepo.NewRepository(tx),
+			ProfileLinks: guardrepo.NewRepository(tx),
+			Profiles:     profilerepo.NewRepository(tx),
+			Users:        userrepo.NewRepository(tx),
 		}
 		return fn(txCtx, repos)
 	})
