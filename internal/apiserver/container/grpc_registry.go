@@ -12,6 +12,11 @@ func (c *Container) BuildGRPCDeps(server *grpcpkg.Server) grpctransport.Deps {
 		return deps
 	}
 
+	deps.Registrations = c.grpcRegistrations()
+	return deps
+}
+
+func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	registrations := make([]grpctransport.Registration, 0, 4)
 	if c.AuthnModule != nil && c.AuthnModule.GRPCService != nil {
 		service := c.AuthnModule.GRPCService
@@ -45,6 +50,5 @@ func (c *Container) BuildGRPCDeps(server *grpcpkg.Server) grpctransport.Deps {
 			Register:    service.Register,
 		})
 	}
-	deps.Registrations = registrations
-	return deps
+	return registrations
 }

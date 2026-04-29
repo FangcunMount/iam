@@ -116,12 +116,3 @@ func (m *UserModule) Cleanup() error {
 func (m *UserModule) CheckHealth() error {
 	return nil
 }
-
-// ModuleInfo 返回模块信息
-func (m *UserModule) ModuleInfo() ModuleInfo {
-	return ModuleInfo{
-		Name:        "user",
-		Version:     "1.0.0",
-		Description: "用户管理模块",
-	}
-}

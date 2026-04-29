@@ -21,10 +21,14 @@ type RuntimeDeps struct {
 // BuildRuntimeDeps exposes background runtime collaborators without leaking
 // concrete module fields into process bootstrap code.
 func (c *Container) BuildRuntimeDeps() RuntimeDeps {
-	var deps RuntimeDeps
 	if c == nil {
-		return deps
+		return RuntimeDeps{}
 	}
+	return c.runtimeHooks()
+}
+
+func (c *Container) runtimeHooks() RuntimeDeps {
+	var deps RuntimeDeps
 	if c.AuthnModule != nil {
 		deps.RotationScheduler = c.AuthnModule.RotationScheduler
 	}

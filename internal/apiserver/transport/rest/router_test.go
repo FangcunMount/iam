@@ -114,6 +114,22 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
 }
 
+func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		JWKSHandler: authhandler.NewJWKSHandler(nil, nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodGet, "/.well-known/jwks.json")
+	assertRouteBefore(t, engine, http.MethodGet, "/health", http.MethodGet, "/.well-known/jwks.json")
+}
+
 func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -268,6 +284,28 @@ func assertRouteNotRegistered(t *testing.T, engine *gin.Engine, method, path str
 		if route.Method == method && route.Path == path {
 			t.Fatalf("route %s %s should not be registered", method, path)
 		}
+	}
+}
+
+func assertRouteBefore(t *testing.T, engine *gin.Engine, beforeMethod, beforePath, afterMethod, afterPath string) {
+	t.Helper()
+	beforeIndex := -1
+	afterIndex := -1
+	for i, route := range engine.Routes() {
+		if route.Method == beforeMethod && route.Path == beforePath {
+			beforeIndex = i
+		}
+		if route.Method == afterMethod && route.Path == afterPath {
+			afterIndex = i
+		}
+	}
+	if beforeIndex < 0 || afterIndex < 0 {
+		t.Fatalf("cannot compare route order, %s %s index=%d, %s %s index=%d",
+			beforeMethod, beforePath, beforeIndex, afterMethod, afterPath, afterIndex)
+	}
+	if beforeIndex >= afterIndex {
+		t.Fatalf("route %s %s index=%d, want before %s %s index=%d",
+			beforeMethod, beforePath, beforeIndex, afterMethod, afterPath, afterIndex)
 	}
 }
 

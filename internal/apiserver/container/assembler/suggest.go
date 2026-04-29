@@ -89,12 +89,3 @@ func (m *SuggestModule) CheckHealth() error {
 	}
 	return nil
 }
-
-// ModuleInfo 返回模块信息
-func (m *SuggestModule) ModuleInfo() ModuleInfo {
-	return ModuleInfo{
-		Name:        "suggest",
-		Version:     "1.0.0",
-		Description: "联想搜索模块",
-	}
-}

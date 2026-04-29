@@ -56,21 +56,27 @@ func (h *JWKSHandler) GetJWKS(c *gin.Context) {
 		return
 	}
 
-	// 检查客户端缓存
-	clientETag := c.GetHeader("If-None-Match")
-	if clientETag != "" && clientETag == result.ETag {
+	if clientJWKSCacheMatches(c, result) {
 		c.AbortWithStatus(http.StatusNotModified)
 		return
 	}
 
-	// 设置缓存头
+	writeJWKSCacheHeaders(c, result)
+
+	// 返回 JWKS JSON（直接写入原始 JSON）
+	c.Data(http.StatusOK, "application/json", result.JWKS)
+}
+
+func clientJWKSCacheMatches(c *gin.Context, result *jwksApp.BuildJWKSResponse) bool {
+	clientETag := c.GetHeader("If-None-Match")
+	return clientETag != "" && clientETag == result.ETag
+}
+
+func writeJWKSCacheHeaders(c *gin.Context, result *jwksApp.BuildJWKSResponse) {
 	c.Header("Content-Type", "application/json")
 	c.Header("ETag", result.ETag)
 	c.Header("Last-Modified", result.LastModified.Format(http.TimeFormat))
 	c.Header("Cache-Control", "public, max-age=3600") // 缓存 1 小时
-
-	// 返回 JWKS JSON（直接写入原始 JSON）
-	c.Data(http.StatusOK, "application/json", result.JWKS)
 }
 
 // CreateKey 创建密钥（管理员接口）

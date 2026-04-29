@@ -260,6 +260,53 @@ func TestRegister_WechatAppListHandlesServiceErrors(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 
+func TestRegister_WechatAppMutationRoutesPropagateServiceErrors(t *testing.T) {
+	engine := newIDPRouterWithError(t, []gin.HandlerFunc{requireAdminHeader()}, &fakeWechatAppServiceWithError{
+		err: perrors.WithCode(code.ErrWechatAppNotFound, "missing"),
+	})
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+	}{
+		{
+			name:   "update",
+			method: http.MethodPatch,
+			path:   "/api/v1/idp/wechat-apps/wx-missing",
+			body:   `{"name":"Missing"}`,
+		},
+		{
+			name:   "enable",
+			method: http.MethodPost,
+			path:   "/api/v1/idp/wechat-apps/wx-missing/enable",
+		},
+		{
+			name:   "disable",
+			method: http.MethodPost,
+			path:   "/api/v1/idp/wechat-apps/wx-missing/disable",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			req := httptest.NewRequest(tc.method, tc.path, bytes.NewBufferString(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Admin", "1")
+
+			engine.ServeHTTP(recorder, req)
+
+			require.Equal(t, http.StatusNotFound, recorder.Code)
+			var body core.Response
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+			require.Equal(t, code.ErrWechatAppNotFound, body.Code)
+		})
+	}
+}
+
 type fakeWechatAppServiceWithError struct {
 	err error
 }

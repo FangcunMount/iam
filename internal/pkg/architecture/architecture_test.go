@@ -143,6 +143,30 @@ func TestAssemblerModulesUseTypedDependencies(t *testing.T) {
 	})
 }
 
+func TestAssemblerComponentHoldersDoNotReturn(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbiddenTokens := []string{
+		"type Module interface",
+		"type ModuleInfo struct",
+		"type RepoComponent struct",
+		"type ServiceComponent struct",
+		"type HandlerComponent struct",
+		"Repository  interface{}",
+		"Service     interface{}",
+		"Handler     interface{}",
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range forbiddenTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains retired assembler component holder %q", rel, token)
+			}
+		}
+	})
+}
+
 func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -315,6 +339,82 @@ func TestLocalProcessRunnerDoesNotReturn(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func TestProcessRootDoesNotOwnBootstrapDetails(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	rel := "internal/apiserver/process/root.go"
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	for _, token := range []string{
+		"applyGRPCOptions",
+		"normalizeNSQConfig",
+		"parseIDPEncryptionKey",
+		"processruntime.RunGroup",
+		"messaging.NewEventBus",
+		"base64.",
+		"hex.",
+		"runOutboxRelay",
+	} {
+		if strings.Contains(source, token) {
+			t.Fatalf("%s contains bootstrap detail %q; keep process root to server lifecycle only", rel, token)
+		}
+	}
+}
+
+func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	allowed := map[string]struct{}{
+		"internal/apiserver/container/rest_deps.go":     {},
+		"internal/apiserver/container/grpc_registry.go": {},
+		"internal/apiserver/container/runtime_deps.go":  {},
+		"internal/apiserver/container/module_graph.go":  {},
+	}
+	forbiddenTokens := []string{
+		"AuthnModule.AuthHandler",
+		"AuthnModule.AccountHandler",
+		"AuthnModule.JWKSHandler",
+		"AuthnModule.SessionAdminHandler",
+		"AuthnModule.TokenService",
+		"AuthnModule.GRPCService",
+		"AuthnModule.RotationScheduler",
+		"AuthzModule.RoleHandler",
+		"AuthzModule.AssignmentHandler",
+		"AuthzModule.PolicyHandler",
+		"AuthzModule.ResourceHandler",
+		"AuthzModule.CheckHandler",
+		"AuthzModule.CasbinAdapter",
+		"AuthzModule.GRPCService",
+		"UserModule.UserHandler",
+		"UserModule.ChildHandler",
+		"UserModule.GuardianshipHandler",
+		"UserModule.GRPCService",
+		"IDPModule.WechatAppHandler",
+		"IDPModule.GRPCService",
+		"SuggestModule.Cleanup",
+	}
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if _, ok := allowed[rel]; ok {
+			return
+		}
+		if strings.HasPrefix(rel, "internal/apiserver/container/assembler/") {
+			return
+		}
+		for _, token := range forbiddenTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s directly navigates container module capability %q; add a container collector instead", rel, token)
+			}
+		}
+	})
 }
 
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
