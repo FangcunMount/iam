@@ -4,11 +4,8 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
 	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 // ====================================================
@@ -29,10 +26,7 @@ func (s *myProfileLinks) Grant(ctx context.Context, currentUserID string, dto Cr
 		return nil, perrors.WithCode(code.ErrPermissionDenied, "cannot grant profile link for another user")
 	}
 	dto.UserID = currentUserID
-	if err := NewCommands(s.uow).Establish(ctx, dto); err != nil {
-		return nil, err
-	}
-	return NewDirectory(s.uow).Get(ctx, currentUserID, dto.ProfileID)
+	return NewCommands(s.uow).Establish(ctx, dto)
 }
 
 func (s *myProfileLinks) List(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
@@ -67,50 +61,26 @@ func (s *myProfileLinks) List(ctx context.Context, currentUserID string, dto Lis
 	}
 }
 
-func (s *myProfileLinks) Revoke(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
+func (s *myProfileLinks) Revoke(ctx context.Context, currentUserID string, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
 	var result *ProfileLinkResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		var userID meta.ID
-		var profileID meta.ID
-		if dto.ProfileLinkID != "" {
-			refID, err := input.ParseUserID(dto.ProfileLinkID)
-			if err != nil {
-				return err
-			}
-			existing, err := tx.ProfileLinks.FindByID(txCtx, refID)
-			if err != nil {
-				return err
-			}
-			userID = existing.User
-			profileID = existing.Profile
-		} else {
-			parsedUserID, err := parseUserID(dto.UserID)
-			if err != nil {
-				return err
-			}
-			parsedProfileID, err := parseProfileID(dto.ProfileID)
-			if err != nil {
-				return err
-			}
-			userID = parsedUserID
-			profileID = parsedProfileID
-		}
-
-		managerService := domain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
-		profileLink, err := managerService.Revoke(ctx, userID, profileID)
+		currentUser, err := parseUserID(currentUserID)
 		if err != nil {
 			return err
 		}
-		if err := tx.ProfileLinks.Update(txCtx, profileLink); err != nil {
-			return err
+		if dto.ProfileLinkID == "" && dto.UserID == "" {
+			dto.UserID = currentUserID
 		}
-
-		profile, err := tx.Profiles.FindByID(txCtx, profileLink.Profile)
+		userID, profileID, err := resolveRevokeSelector(txCtx, tx, dto)
 		if err != nil {
 			return err
 		}
-		result = toProfileLinkResult(profileLink, profile)
-		return nil
+		if userID != currentUser {
+			return perrors.WithCode(code.ErrPermissionDenied, "cannot revoke profile link for another user")
+		}
+		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID)
+		result = revoked
+		return err
 	})
 	return result, err
 }

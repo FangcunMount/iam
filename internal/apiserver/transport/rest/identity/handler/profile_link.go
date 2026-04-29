@@ -89,11 +89,12 @@ func (h *ProfileLinkHandler) Revoke(c *gin.Context) {
 		h.ErrorWithCode(c, code.ErrInvalidArgument, "profile link id is required")
 		return
 	}
-	if _, ok := h.GetUserID(c); !ok {
+	currentUserID, ok := h.GetUserID(c)
+	if !ok {
 		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
 		return
 	}
-	result, err := h.profileLinkAccess.Revoke(c.Request.Context(), appprofilelink.RevokeProfileLinkBySelectorDTO{
+	result, err := h.profileLinkAccess.Revoke(c.Request.Context(), currentUserID, appprofilelink.RevokeProfileLinkBySelectorDTO{
 		ProfileLinkID: profileLinkID,
 	})
 	if err != nil {

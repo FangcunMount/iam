@@ -54,6 +54,17 @@ func (g *ProfileLink) Revoke(at time.Time) {
 	g.RevokedAt = t
 }
 
+// ConvertToRelation 将错误的 self 关系降级为普通关系，保留同一条历史边。
+func (g *ProfileLink) ConvertToRelation(relation Relation) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if relation == RelSelf {
+		relation = RelParent
+	}
+	g.Type = TypeRelation
+	g.Rel = relation
+}
+
 // NewSelfProfileLink 创建 User 与本人档案之间的强制关系。
 func NewSelfProfileLink(userID meta.ID, profileID meta.ID, now time.Time) *ProfileLink {
 	return &ProfileLink{

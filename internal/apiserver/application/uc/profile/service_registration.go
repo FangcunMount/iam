@@ -41,7 +41,14 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 			return err
 		}
 
-		newProfile, err := buildProfileEntity(txCtx, tx, dto)
+		newProfile, err := buildProfileEntity(txCtx, tx, profileCreationInput{
+			Name:     dto.Name,
+			Gender:   dto.Gender,
+			Birthday: dto.Birthday,
+			IDCard:   dto.IDCard,
+			Height:   dto.Height,
+			Weight:   dto.Weight,
+		})
 		if err != nil {
 			return err
 		}
@@ -69,57 +76,6 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 	}
 
 	return result, nil
-}
-
-func buildProfileEntity(txCtx context.Context, tx uow.TxRepositories, dto CreateMyProfileDTO) (*profiledomain.Profile, error) {
-	name := strings.TrimSpace(dto.Name)
-	validator := profiledomain.NewValidator(tx.Profiles)
-	gender := input.ParseGender(dto.Gender)
-	birthday := input.ParseBirthday(strings.TrimSpace(dto.Birthday))
-	if err := validator.ValidateRegister(txCtx, name, gender, birthday); err != nil {
-		return nil, err
-	}
-
-	options := []profiledomain.ProfileOption{
-		profiledomain.WithGender(gender),
-		profiledomain.WithBirthday(birthday),
-	}
-	if strings.TrimSpace(dto.IDCard) != "" {
-		idCard, err := input.ParseIDCard(name, strings.TrimSpace(dto.IDCard))
-		if err != nil {
-			return nil, err
-		}
-		options = append(options, profiledomain.WithIDCard(idCard))
-	}
-
-	newProfile, err := profiledomain.NewProfile(name, options...)
-	if err != nil {
-		return nil, err
-	}
-
-	if dto.Height != nil || dto.Weight != nil {
-		height := newProfile.Height
-		if dto.Height != nil {
-			parsedHeight, err := input.ParseHeightCm(*dto.Height)
-			if err != nil {
-				return nil, err
-			}
-			height = parsedHeight
-		}
-
-		weight := newProfile.Weight
-		if dto.Weight != nil {
-			parsedWeight, err := input.ParseWeightGrams(*dto.Weight)
-			if err != nil {
-				return nil, err
-			}
-			weight = parsedWeight
-		}
-
-		newProfile.UpdateHeightWeight(height, weight)
-	}
-
-	return newProfile, nil
 }
 
 func registrationProfileLinkToResult(profileLink *profileLinkDomain.ProfileLink, profile *profiledomain.Profile) *appProfileLink.ProfileLinkResult {

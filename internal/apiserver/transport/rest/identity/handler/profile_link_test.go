@@ -147,6 +147,40 @@ func TestProfileLinkHandlerListRejectsProfileLookupForNonRef(t *testing.T) {
 	}
 }
 
+func TestProfileLinkHandlerRevokeUsesCurrentUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	access := &profileLinkAccessStub{
+		revokeResult: &appprofilelink.ProfileLinkResult{
+			ID:            1,
+			UserID:        "100",
+			ProfileID:     "200",
+			Relation:      "parent",
+			EstablishedAt: time.Now().Format(time.RFC3339),
+			RevokedAt:     time.Now().Format(time.RFC3339),
+		},
+	}
+	handler := NewProfileLinkHandler(access)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/identity/profile-links/1/revoke", nil)
+	c.Params = gin.Params{{Key: "id", Value: "1"}}
+	c.Set("user_id", "100")
+
+	handler.Revoke(c)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if len(access.revokeCalls) != 1 {
+		t.Fatalf("RevokeForCurrentUser calls = %d, want 1", len(access.revokeCalls))
+	}
+	if access.revokeCalls[0].currentUserID != "100" || access.revokeCalls[0].dto.ProfileLinkID != "1" {
+		t.Fatalf("RevokeForCurrentUser call = %#v, want current user 100 and link id 1", access.revokeCalls[0])
+	}
+}
+
 type profileLinkAccessStub struct {
 	grantResult *appprofilelink.ProfileLinkResult
 	grantErr    error
@@ -160,6 +194,13 @@ type profileLinkAccessStub struct {
 	listCalls  []struct {
 		currentUserID string
 		dto           appprofilelink.ListProfileLinksDTO
+	}
+
+	revokeResult *appprofilelink.ProfileLinkResult
+	revokeErr    error
+	revokeCalls  []struct {
+		currentUserID string
+		dto           appprofilelink.RevokeProfileLinkBySelectorDTO
 	}
 }
 
@@ -179,6 +220,10 @@ func (s *profileLinkAccessStub) List(_ context.Context, currentUserID string, dt
 	return s.listResult, s.listErr
 }
 
-func (s *profileLinkAccessStub) Revoke(context.Context, appprofilelink.RevokeProfileLinkBySelectorDTO) (*appprofilelink.ProfileLinkResult, error) {
-	return nil, nil
+func (s *profileLinkAccessStub) Revoke(_ context.Context, currentUserID string, dto appprofilelink.RevokeProfileLinkBySelectorDTO) (*appprofilelink.ProfileLinkResult, error) {
+	s.revokeCalls = append(s.revokeCalls, struct {
+		currentUserID string
+		dto           appprofilelink.RevokeProfileLinkBySelectorDTO
+	}{currentUserID: currentUserID, dto: dto})
+	return s.revokeResult, s.revokeErr
 }

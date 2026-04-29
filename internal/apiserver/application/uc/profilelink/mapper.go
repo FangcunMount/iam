@@ -21,6 +21,10 @@ func parseProfileID(profileID string) (meta.ID, error) {
 	return input.ParseProfileID(profileID)
 }
 
+func parseProfileLinkID(profileLinkID string) (meta.ID, error) {
+	return input.ParseUserID(profileLinkID)
+}
+
 // toProfileLinkResult 将领域实体转换为 DTO
 func toProfileLinkResult(profileLink *domain.ProfileLink, profile *profiledomain.Profile) *ProfileLinkResult {
 	if profileLink == nil {

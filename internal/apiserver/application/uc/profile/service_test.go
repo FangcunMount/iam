@@ -448,11 +448,12 @@ func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 	require.NoError(t, err)
 
 	guardService := profilelink.NewCommands(unitOfWork)
-	require.NoError(t, guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
-	}))
+	})
+	require.NoError(t, err)
 
 	accessService := profile.NewMyProfiles(unitOfWork)
 	profiles, err := accessService.List(ctx, userResult.ID)
@@ -515,11 +516,12 @@ func TestMyProfiles_GetForProfileLinkRejectsNonRef(t *testing.T) {
 	require.NoError(t, err)
 
 	guardService := profilelink.NewCommands(unitOfWork)
-	require.NoError(t, guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    profileLinkUser.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
-	}))
+	})
+	require.NoError(t, err)
 
 	accessService := profile.NewMyProfiles(unitOfWork)
 	result, err := accessService.Get(ctx, other.ID, profileResult.ID)

@@ -52,7 +52,7 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 		}
 
 		// 调用领域服务修改名称
-		modifiedUser, err := profileEditor.Rename(ctx, id, newName)
+		modifiedUser, err := profileEditor.Rename(txCtx, id, newName)
 		if err != nil {
 			l.Errorw("修改用户名称失败",
 				"action", logger.ActionUpdate,
@@ -106,7 +106,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 		}
 
 		// 调用领域服务修改昵称
-		modifiedUser, err := profileEditor.Renickname(ctx, id, newNickname)
+		modifiedUser, err := profileEditor.Renickname(txCtx, id, newNickname)
 		if err != nil {
 			l.Errorw("修改用户昵称失败",
 				"action", logger.ActionUpdate,
@@ -180,7 +180,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 		}
 
 		// 调用领域服务更新联系方式
-		modifiedUser, err := profileEditor.UpdateContact(ctx, id, phone, email)
+		modifiedUser, err := profileEditor.UpdateContact(txCtx, id, phone, email)
 		if err != nil {
 			l.Errorw("更新联系方式失败",
 				"action", logger.ActionUpdate,
@@ -278,7 +278,7 @@ func (s *editor) UpdateIDCard(ctx context.Context, userID string, idCard string)
 		}
 
 		// 调用领域服务更新身份证
-		modifiedUser, err := profileEditor.UpdateIDCard(ctx, id, idCardVO)
+		modifiedUser, err := profileEditor.UpdateIDCard(txCtx, id, idCardVO)
 		if err != nil {
 			l.Errorw("更新身份证失败",
 				"action", logger.ActionUpdate,

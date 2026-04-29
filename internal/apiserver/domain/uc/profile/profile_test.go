@@ -49,6 +49,37 @@ func TestNewProfile_EmptyName(t *testing.T) {
 	assert.Contains(t, fmt.Sprintf("%-v", err), "name cannot be empty")
 }
 
+func TestNewFromCreationSpecUsesProfileCreationOptions(t *testing.T) {
+	id := meta.FromUint64(99)
+	idCard, err := meta.NewIDCard("tester", "110101199003070011")
+	require.NoError(t, err)
+	height, err := meta.NewHeightFromFloat(121.5)
+	require.NoError(t, err)
+	weight, err := meta.NewWeightFromFloat(33.4)
+	require.NoError(t, err)
+	birthday := meta.NewBirthday("2020-05-06")
+
+	profile, err := NewFromCreationSpec(CreationSpec{
+		ID:       id,
+		Name:     "小新",
+		IDCard:   idCard,
+		Gender:   meta.GenderMale,
+		Birthday: birthday,
+		Height:   height,
+		Weight:   weight,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, profile)
+	assert.Equal(t, id, profile.ID)
+	assert.Equal(t, "小新", profile.Name)
+	assert.True(t, profile.IDCard.Equal(idCard))
+	assert.Equal(t, meta.GenderMale, profile.Gender)
+	assert.True(t, profile.Birthday.Equal(birthday))
+	assert.Equal(t, height.Tenths(), profile.Height.Tenths())
+	assert.Equal(t, weight.Tenths(), profile.Weight.Tenths())
+}
+
 func TestProfileRenamingAndProfileUpdates(t *testing.T) {
 	profile, err := NewProfile("原名")
 	require.NoError(t, err)

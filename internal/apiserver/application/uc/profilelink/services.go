@@ -9,9 +9,11 @@ import (
 // Commands 执行系统侧档案关系命令。
 type Commands interface {
 	// Establish 建立档案关系。
-	Establish(ctx context.Context, dto CreateProfileLinkDTO) error
+	Establish(ctx context.Context, dto CreateProfileLinkDTO) (*ProfileLinkResult, error)
 	// Revoke 撤销档案关系。
-	Revoke(ctx context.Context, dto RemoveProfileLinkDTO) error
+	Revoke(ctx context.Context, dto RemoveProfileLinkDTO) (*ProfileLinkResult, error)
+	// RevokeBySelector 通过关系 ID 或 user/profile key 撤销档案关系。
+	RevokeBySelector(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error)
 }
 
 // Directory 查询档案关系。
@@ -36,7 +38,7 @@ type Directory interface {
 type MyProfileLinks interface {
 	Grant(ctx context.Context, currentUserID string, dto CreateProfileLinkDTO) (*ProfileLinkResult, error)
 	List(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error)
-	Revoke(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error)
+	Revoke(ctx context.Context, currentUserID string, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error)
 }
 
 // ============= DTOs =============

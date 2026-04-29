@@ -52,7 +52,7 @@ func (s *profileEditor) Rename(ctx context.Context, profileID string, newName st
 		}
 
 		// 调用领域服务修改姓名
-		modifiedProfile, err := profileService.Rename(ctx, id, newName)
+		modifiedProfile, err := profileService.Rename(txCtx, id, newName)
 		if err != nil {
 			l.Warnw("修改档案姓名失败",
 				"action", logger.ActionUpdate,
@@ -122,7 +122,7 @@ func (s *profileEditor) UpdateIDCard(ctx context.Context, profileID string, name
 		}
 
 		// 调用领域服务更新身份证
-		modifiedProfile, err := profileService.UpdateIDCard(ctx, id, idCardVO)
+		modifiedProfile, err := profileService.UpdateIDCard(txCtx, id, idCardVO)
 		if err != nil {
 			l.Warnw("更新身份证失败",
 				"action", logger.ActionUpdate,
@@ -183,7 +183,7 @@ func (s *profileEditor) UpdateProfile(ctx context.Context, dto UpdateProfileDTO)
 		birthday := input.ParseBirthday(dto.Birthday)
 
 		// 调用领域服务更新资料
-		modifiedProfile, err := profileService.UpdateProfile(ctx, id, gender, birthday)
+		modifiedProfile, err := profileService.UpdateProfile(txCtx, id, gender, birthday)
 		if err != nil {
 			l.Warnw("更新档案基本信息失败",
 				"action", logger.ActionUpdate,
@@ -251,7 +251,7 @@ func (s *profileEditor) UpdateHeightWeight(ctx context.Context, dto UpdateHeight
 		}
 
 		// 调用领域服务更新身高体重
-		modifiedProfile, err := profileService.UpdateHeightWeight(ctx, id, height, weight)
+		modifiedProfile, err := profileService.UpdateHeightWeight(txCtx, id, height, weight)
 		if err != nil {
 			l.Warnw("更新档案身高体重失败",
 				"action", logger.ActionUpdate,

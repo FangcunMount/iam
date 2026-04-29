@@ -273,6 +273,36 @@ func TestApplicationTestsUseTestutilForInfrastructureDependencies(t *testing.T) 
 	})
 }
 
+func TestUCApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbiddenTokens := []string{
+		"validator.ValidateRegister(ctx",
+		"profileEditor.Rename(ctx",
+		"profileEditor.Renickname(ctx",
+		"profileEditor.UpdateContact(ctx",
+		"profileEditor.UpdateIDCard(ctx",
+		"profileService.Rename(ctx",
+		"profileService.UpdateIDCard(ctx",
+		"profileService.UpdateProfile(ctx",
+		"profileService.UpdateHeightWeight(ctx",
+		"managerService.Establish(ctx",
+		"managerService.Revoke(ctx",
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "uc"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasSuffix(rel, "_test.go") {
+			return
+		}
+		for _, token := range forbiddenTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s uses outer ctx in a transaction-scoped domain call %q; pass txCtx instead", rel, token)
+			}
+		}
+	})
+}
+
 func TestRESTRouterTestsUseExplicitDeps(t *testing.T) {
 	t.Parallel()
 

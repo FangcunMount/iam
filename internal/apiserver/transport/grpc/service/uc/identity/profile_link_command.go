@@ -23,7 +23,7 @@ func (s *profileLinkCommandServer) EstablishProfileLink(ctx context.Context, req
 		Relation:  protoRelationToString(req.GetRelation()),
 	}
 
-	result, err := s.profileLinkAccessSvc.Grant(ctx, req.GetUserId(), dto)
+	result, err := s.profileLinkSvc.Establish(ctx, dto)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -55,7 +55,7 @@ func (s *profileLinkCommandServer) RevokeProfileLink(ctx context.Context, req *i
 		return nil, status.Error(codes.InvalidArgument, "invalid target selector")
 	}
 
-	profileLink, err := s.profileLinkAccessSvc.Revoke(ctx, profileLinkApp.RevokeProfileLinkBySelectorDTO{
+	profileLink, err := s.profileLinkSvc.RevokeBySelector(ctx, profileLinkApp.RevokeProfileLinkBySelectorDTO{
 		ProfileLinkID: profileLinkID,
 		UserID:        userID,
 		ProfileID:     profileID,

@@ -2,6 +2,7 @@ package profilelink_test
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -49,7 +50,7 @@ func TestCommands_Establish_Success(t *testing.T) {
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
 	}
-	err = profileLinkService.Establish(ctx, dto)
+	_, err = profileLinkService.Establish(ctx, dto)
 
 	// Assert
 	require.NoError(t, err)
@@ -92,11 +93,11 @@ func TestCommands_Establish_DuplicateRef(t *testing.T) {
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
 	}
-	err = profileLinkService.Establish(ctx, dto)
+	_, err = profileLinkService.Establish(ctx, dto)
 	require.NoError(t, err)
 
 	// Act - 尝试重复添加相同的档案关系
-	err = profileLinkService.Establish(ctx, dto)
+	_, err = profileLinkService.Establish(ctx, dto)
 
 	// Assert - 应该失败
 	require.Error(t, err)
@@ -126,7 +127,7 @@ func TestCommands_Revoke_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	profileLinkService := profilelink.NewCommands(unitOfWork)
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
@@ -138,7 +139,7 @@ func TestCommands_Revoke_Success(t *testing.T) {
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 	}
-	err = profileLinkService.Revoke(ctx, dto)
+	_, err = profileLinkService.Revoke(ctx, dto)
 
 	// Assert
 	require.NoError(t, err)
@@ -171,7 +172,7 @@ func TestCommands_Revoke_NotFound(t *testing.T) {
 		UserID:    "999999999999999999",
 		ProfileID: "888888888888888888",
 	}
-	err := profileLinkService.Revoke(ctx, dto)
+	_, err := profileLinkService.Revoke(ctx, dto)
 
 	// Assert - 应该失败
 	require.Error(t, err)
@@ -201,7 +202,7 @@ func TestDirectory_HasProfileLink_True(t *testing.T) {
 	require.NoError(t, err)
 
 	profileLinkService := profilelink.NewCommands(unitOfWork)
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
@@ -257,7 +258,7 @@ func TestDirectory_GetByUserIDAndProfileID_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	profileLinkService := profilelink.NewCommands(unitOfWork)
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "grandparent",
@@ -327,14 +328,14 @@ func TestDirectory_ListProfilesByUserID_Success(t *testing.T) {
 
 	// 添加档案关系
 	profileLinkService := profilelink.NewCommands(unitOfWork)
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profile1.ID,
 		Relation:  "parent",
 	})
 	require.NoError(t, err)
 
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profile2.ID,
 		Relation:  "parent",
@@ -393,14 +394,14 @@ func TestDirectory_ListProfileLinksByProfileID_Success(t *testing.T) {
 
 	// 添加多个关系用户
 	profileLinkService := profilelink.NewCommands(unitOfWork)
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    user1.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
 	})
 	require.NoError(t, err)
 
-	err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    user2.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
@@ -460,7 +461,7 @@ func TestCommands_Establish_ConcurrentPersistence_10(t *testing.T) {
 				ProfileID: profileResult.ID,
 				Relation:  "parent",
 			}
-			_ = profileLinkService.Establish(ctx, dto)
+			_, _ = profileLinkService.Establish(ctx, dto)
 		}(i)
 	}
 
@@ -500,15 +501,17 @@ func TestDirectory_ListProfilesByUserID_ExcludesRevokedByDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	profileLinkService := profilelink.NewCommands(unitOfWork)
-	require.NoError(t, profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = profileLinkService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
-	}))
-	require.NoError(t, profileLinkService.Revoke(ctx, profilelink.RemoveProfileLinkDTO{
+	})
+	require.NoError(t, err)
+	_, err = profileLinkService.Revoke(ctx, profilelink.RemoveProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
-	}))
+	})
+	require.NoError(t, err)
 
 	queryService := profilelink.NewDirectory(unitOfWork)
 
@@ -621,14 +624,15 @@ func TestMyProfileLinks_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
 	require.NoError(t, err)
 
 	guardService := profilelink.NewCommands(unitOfWork)
-	require.NoError(t, guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
+	_, err = guardService.Establish(ctx, profilelink.CreateProfileLinkDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		Relation:  "parent",
-	}))
+	})
+	require.NoError(t, err)
 
 	accessService := profilelink.NewMyProfileLinks(unitOfWork)
-	revoked, err := accessService.Revoke(ctx, profilelink.RevokeProfileLinkBySelectorDTO{
+	revoked, err := accessService.Revoke(ctx, userResult.ID, profilelink.RevokeProfileLinkBySelectorDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 	})
@@ -637,4 +641,53 @@ func TestMyProfileLinks_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
 	assert.Equal(t, userResult.ID, revoked.UserID)
 	assert.Equal(t, profileResult.ID, revoked.ProfileID)
 	assert.NotEmpty(t, revoked.RevokedAt)
+}
+
+func TestMyProfileLinks_RevokeRejectsOtherUsersProfileLink(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := testutil.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	userService := user.NewCreator(unitOfWork)
+	owner, err := userService.Create(ctx, user.CreateUserDTO{
+		Name:  "关系所有人",
+		Phone: "13800139103",
+		Email: "owner@example.com",
+	})
+	require.NoError(t, err)
+	other, err := userService.Create(ctx, user.CreateUserDTO{
+		Name:  "其他用户",
+		Phone: "13800139104",
+		Email: "other-revoke@example.com",
+	})
+	require.NoError(t, err)
+
+	profileService := profile.NewCreator(unitOfWork)
+	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
+		Name:     "档案",
+		Gender:   1,
+		Birthday: "2020-01-15",
+	})
+	require.NoError(t, err)
+
+	command := profilelink.NewCommands(unitOfWork)
+	link, err := command.Establish(ctx, profilelink.CreateProfileLinkDTO{
+		UserID:    owner.ID,
+		ProfileID: profileResult.ID,
+		Relation:  "parent",
+	})
+	require.NoError(t, err)
+
+	accessService := profilelink.NewMyProfileLinks(unitOfWork)
+	revoked, err := accessService.Revoke(ctx, other.ID, profilelink.RevokeProfileLinkBySelectorDTO{
+		ProfileLinkID: strconv.FormatUint(link.ID, 10),
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, revoked)
+	assert.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
+
+	stillActive, err := profilelink.NewDirectory(unitOfWork).Get(ctx, owner.ID, profileResult.ID)
+	require.NoError(t, err)
+	assert.Empty(t, stillActive.RevokedAt)
 }
