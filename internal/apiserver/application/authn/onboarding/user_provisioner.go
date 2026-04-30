@@ -19,23 +19,23 @@ type userResolution struct {
 	Request   OnboardingRequest
 }
 
-// UserResolver 负责注册流程中的用户解析、复用和缺失用户修复。
-type UserResolver struct {
+// UserProvisioner 负责开通流程中的用户供给、复用和缺失用户修复。
+type UserProvisioner struct {
 	fallbackUserRepo       userDomain.Repository
 	wechatIdentityResolver *wechatIdentityResolver
 }
 
-func newUserResolver(
+func newUserProvisioner(
 	fallbackUserRepo userDomain.Repository,
 	wechatIdentityResolver *wechatIdentityResolver,
-) *UserResolver {
-	return &UserResolver{
+) *UserProvisioner {
+	return &UserProvisioner{
 		fallbackUserRepo:       fallbackUserRepo,
 		wechatIdentityResolver: wechatIdentityResolver,
 	}
 }
 
-func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositories, req OnboardingRequest) (*userResolution, error) {
+func (r *UserProvisioner) Provision(ctx context.Context, repos registrationRepositories, req OnboardingRequest) (*userResolution, error) {
 	userRepo := repos.Users
 	if userRepo == nil {
 		userRepo = r.fallbackUserRepo
@@ -71,7 +71,7 @@ func (r *UserResolver) Resolve(ctx context.Context, repos registrationRepositori
 	return &userResolution{User: user, IsNewUser: isNewUser, Request: preparedReq}, nil
 }
 
-func (r *UserResolver) createOrGetUser(
+func (r *UserProvisioner) createOrGetUser(
 	ctx context.Context,
 	repo userDomain.Repository,
 	accountRepo domain.Repository,
@@ -133,7 +133,7 @@ func (r *UserResolver) createOrGetUser(
 	return user, true, nil
 }
 
-func (r *UserResolver) loadOrRepairUserForAccount(
+func (r *UserProvisioner) loadOrRepairUserForAccount(
 	ctx context.Context,
 	repo userDomain.Repository,
 	userID meta.ID,
@@ -171,7 +171,7 @@ func (r *UserResolver) loadOrRepairUserForAccount(
 	return recovered, false, nil
 }
 
-func (r *UserResolver) resolveWechatIdentity(ctx context.Context, req OnboardingRequest) (wechatIdentity, error) {
+func (r *UserProvisioner) resolveWechatIdentity(ctx context.Context, req OnboardingRequest) (wechatIdentity, error) {
 	if r == nil || r.wechatIdentityResolver == nil {
 		return wechatIdentity{}, nil
 	}

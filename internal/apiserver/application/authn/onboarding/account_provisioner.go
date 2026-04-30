@@ -17,16 +17,16 @@ type accountCreation struct {
 	IsNewAccount   bool
 }
 
-// AccountCreator 负责注册流程中的账户创建输入组装和持久化。
-type AccountCreator struct {
+// AccountProvisioner 负责开通流程中的账户创建输入组装和持久化。
+type AccountProvisioner struct {
 	idp authentication.IdentityProvider
 }
 
-func newAccountCreator(idp authentication.IdentityProvider) *AccountCreator {
-	return &AccountCreator{idp: idp}
+func newAccountProvisioner(idp authentication.IdentityProvider) *AccountProvisioner {
+	return &AccountProvisioner{idp: idp}
 }
 
-func (c *AccountCreator) Create(ctx context.Context, repo domain.Repository, req OnboardingRequest, userID meta.ID) (*accountCreation, error) {
+func (c *AccountProvisioner) Provision(ctx context.Context, repo domain.Repository, req OnboardingRequest, userID meta.ID) (*accountCreation, error) {
 	domainInput, err := c.toDomainInput(req, userID)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (c *AccountCreator) Create(ctx context.Context, repo domain.Repository, req
 	}, nil
 }
 
-func (c *AccountCreator) toDomainInput(req OnboardingRequest, userID meta.ID) (domain.CreationInput, error) {
+func (c *AccountProvisioner) toDomainInput(req OnboardingRequest, userID meta.ID) (domain.CreationInput, error) {
 	input := domain.CreationInput{
 		UserID:         userID,
 		Phone:          req.Phone,

@@ -19,10 +19,10 @@ import (
 // ============= AccountOnboarder 实现 =============
 
 type accountOnboarder struct {
-	uow              uow.UnitOfWork
-	userResolver     *UserResolver
-	accountCreator   *AccountCreator
-	credentialIssuer *CredentialIssuer
+	uow                uow.UnitOfWork
+	userProvisioner    *UserProvisioner
+	accountProvisioner *AccountProvisioner
+	credentialBinder   *CredentialBinder
 }
 
 type registrationRepositories struct {
@@ -45,10 +45,10 @@ func NewAccountOnboarder(
 ) AccountOnboarder {
 	wechatIdentityResolver := newWechatIdentityResolver(idp, wechatAppQuerier, secretVault)
 	return &accountOnboarder{
-		uow:              uow,
-		userResolver:     newUserResolver(userRepo, wechatIdentityResolver),
-		accountCreator:   newAccountCreator(idp),
-		credentialIssuer: newCredentialIssuer(hasher),
+		uow:                uow,
+		userProvisioner:    newUserProvisioner(userRepo, wechatIdentityResolver),
+		accountProvisioner: newAccountProvisioner(idp),
+		credentialBinder:   newCredentialBinder(hasher),
 	}
 }
 
@@ -85,7 +85,7 @@ func (s *accountOnboarder) Onboard(ctx context.Context, req OnboardingRequest) (
 			"action", logger.ActionRegister,
 			"phone", req.Phone.String(),
 		)
-		userResolution, err := s.userResolver.Resolve(txCtx, repos, req)
+		userResolution, err := s.userProvisioner.Provision(txCtx, repos, req)
 		if err != nil {
 			l.Errorw("创建或获取用户失败",
 				"action", logger.ActionRegister,
@@ -108,7 +108,7 @@ func (s *accountOnboarder) Onboard(ctx context.Context, req OnboardingRequest) (
 			"account_type", string(req.AccountType),
 			"user_id", user.ID.String(),
 		)
-		accountCreation, err := s.accountCreator.Create(txCtx, repos.Accounts, preparedReq, user.ID)
+		accountCreation, err := s.accountProvisioner.Provision(txCtx, repos.Accounts, preparedReq, user.ID)
 		if err != nil {
 			l.Errorw("创建账户失败",
 				"action", logger.ActionRegister,
@@ -131,7 +131,7 @@ func (s *accountOnboarder) Onboard(ctx context.Context, req OnboardingRequest) (
 			"credential_type", string(req.CredentialType),
 			"account_id", account.ID.String(),
 		)
-		credential, err := s.credentialIssuer.Issue(txCtx, repos.Credentials, account.ID, accountCreation.CreationParams, preparedReq)
+		credential, err := s.credentialBinder.Bind(txCtx, repos.Credentials, account.ID, accountCreation.CreationParams, preparedReq)
 		if err != nil {
 			l.Errorw("颁发凭据失败",
 				"action", logger.ActionRegister,

@@ -11,16 +11,16 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// CredentialIssuer 负责注册流程中的凭据颁发、持久化和幂等复用。
-type CredentialIssuer struct {
+// CredentialBinder 负责开通流程中的凭据绑定、持久化和幂等复用。
+type CredentialBinder struct {
 	hasher authentication.PasswordHasher
 }
 
-func newCredentialIssuer(hasher authentication.PasswordHasher) *CredentialIssuer {
-	return &CredentialIssuer{hasher: hasher}
+func newCredentialBinder(hasher authentication.PasswordHasher) *CredentialBinder {
+	return &CredentialBinder{hasher: hasher}
 }
 
-func (i *CredentialIssuer) Issue(
+func (i *CredentialBinder) Bind(
 	ctx context.Context,
 	repo credDomain.Repository,
 	accountID meta.ID,
@@ -28,7 +28,7 @@ func (i *CredentialIssuer) Issue(
 	req OnboardingRequest,
 ) (*credDomain.Credential, error) {
 	issuer := credDomain.NewIssuer(i.hasher)
-	credential, err := i.issueCredential(ctx, issuer, accountID, creationParams, req)
+	credential, err := i.buildCredential(ctx, issuer, accountID, creationParams, req)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (i *CredentialIssuer) Issue(
 	return credential, nil
 }
 
-func (i *CredentialIssuer) issueCredential(
+func (i *CredentialBinder) buildCredential(
 	ctx context.Context,
 	issuer credDomain.Issuer,
 	accountID meta.ID,
