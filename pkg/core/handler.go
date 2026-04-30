@@ -8,6 +8,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/gin-gonic/gin"
 
+	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/pkg/tenant"
 )
 
@@ -55,7 +56,13 @@ func (h *BaseHandler) NoContent(c *gin.Context) {
 // ErrorResponse 智能错误响应 - 根据错误类型自动选择合适的HTTP状态码和错误码
 func (h *BaseHandler) ErrorResponse(c *gin.Context, err error) {
 	if err == nil {
+		if c.Writer.Written() {
+			return
+		}
 		h.SuccessResponse(c, nil)
+		return
+	}
+	if c.Writer.Written() {
 		return
 	}
 
@@ -99,11 +106,7 @@ func (h *BaseHandler) ErrorResponseWithCode(c *gin.Context, code int, format str
 
 // BadRequestResponse 400错误响应
 func (h *BaseHandler) BadRequestResponse(c *gin.Context, message string, err error) {
-	if err != nil {
-		h.ErrorResponse(c, errors.Wrap(err, message))
-	} else {
-		h.ErrorResponseWithCode(c, 100001, "%s", message) // ErrBind
-	}
+	h.ErrorResponse(c, newBindError(message, err))
 }
 
 // NotFoundResponse 404错误响应
@@ -151,8 +154,9 @@ func (h *BaseHandler) ConflictResponse(c *gin.Context, message string, err error
 // BindJSON 绑定JSON参数
 func (h *BaseHandler) BindJSON(c *gin.Context, obj interface{}) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
-		h.BadRequestResponse(c, "JSON参数绑定失败", err)
-		return err
+		bindErr := newBindError("JSON参数绑定失败", err)
+		h.ErrorResponse(c, bindErr)
+		return bindErr
 	}
 	return nil
 }
@@ -160,8 +164,9 @@ func (h *BaseHandler) BindJSON(c *gin.Context, obj interface{}) error {
 // BindQuery 绑定查询参数
 func (h *BaseHandler) BindQuery(c *gin.Context, obj interface{}) error {
 	if err := c.ShouldBindQuery(obj); err != nil {
-		h.BadRequestResponse(c, "查询参数绑定失败", err)
-		return err
+		bindErr := newBindError("查询参数绑定失败", err)
+		h.ErrorResponse(c, bindErr)
+		return bindErr
 	}
 	return nil
 }
@@ -169,10 +174,18 @@ func (h *BaseHandler) BindQuery(c *gin.Context, obj interface{}) error {
 // BindUri 绑定URI参数
 func (h *BaseHandler) BindUri(c *gin.Context, obj interface{}) error {
 	if err := c.ShouldBindUri(obj); err != nil {
-		h.BadRequestResponse(c, "URI参数绑定失败", err)
-		return err
+		bindErr := newBindError("URI参数绑定失败", err)
+		h.ErrorResponse(c, bindErr)
+		return bindErr
 	}
 	return nil
+}
+
+func newBindError(message string, err error) error {
+	if err == nil {
+		return errors.WithCode(code.ErrBind, "%s", message)
+	}
+	return errors.WithCode(code.ErrBind, "%s: %v", message, err)
 }
 
 // GetPathParam 获取路径参数
