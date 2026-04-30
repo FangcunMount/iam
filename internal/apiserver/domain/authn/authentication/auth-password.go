@@ -6,6 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -29,9 +30,9 @@ type PasswordProofSpec struct {
 	Password  string
 }
 
-// Scenario 返回认证场景
-func (c *PasswordCredential) Scenario() Scenario {
-	return AuthPassword
+// CredentialType 返回凭据类型。
+func (c *PasswordCredential) CredentialType() credDomain.CredentialType {
+	return credDomain.CredPassword
 }
 
 // NewPasswordCredential 构造密码认证凭据
@@ -56,10 +57,10 @@ func NewPasswordCredential(spec PasswordProofSpec) (AuthCredential, error) {
 
 // PasswordAuthStrategy 用户名+密码认证策略
 type PasswordAuthStrategy struct {
-	scenario    Scenario
-	credRepo    CredentialRepository
-	accountRepo AccountRepository
-	hasher      PasswordHasher
+	credentialType credDomain.CredentialType
+	credRepo       CredentialRepository
+	accountRepo    AccountRepository
+	hasher         PasswordHasher
 }
 
 // 实现认证策略接口
@@ -72,16 +73,16 @@ func NewPasswordAuthStrategy(
 	hasher PasswordHasher,
 ) *PasswordAuthStrategy {
 	return &PasswordAuthStrategy{
-		scenario:    AuthPassword,
-		credRepo:    credRepo,
-		accountRepo: accountRepo,
-		hasher:      hasher,
+		credentialType: credDomain.CredPassword,
+		credRepo:       credRepo,
+		accountRepo:    accountRepo,
+		hasher:         hasher,
 	}
 }
 
 // Kind 返回认证策略类型
-func (p *PasswordAuthStrategy) Kind() Scenario {
-	return p.scenario
+func (p *PasswordAuthStrategy) Kind() credDomain.CredentialType {
+	return p.credentialType
 }
 
 // Authenticate 执行用户名+密码认证
@@ -101,7 +102,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	l.Debugw("密码认证：步骤1 - 根据用户名查找账户",
-		"scenario", string(AuthPassword),
+		"credential_type", string(credDomain.CredPassword),
 		"username", passwordCredential.Username,
 	)
 
@@ -110,7 +111,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if err != nil {
 		// 系统异常（如数据库错误）
 		l.Errorw("查询账户失败",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"username", passwordCredential.Username,
 			"error", err.Error(),
 		)
@@ -119,7 +120,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if lookup == nil || lookup.AccountID.IsZero() {
 		// 业务失败：账户不存在（用统一的错误码，防止用户名枚举攻击）
 		l.Warnw("账户不存在",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"username", passwordCredential.Username,
 		)
 		return AuthDecision{
@@ -134,7 +135,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	case "opera":
 		if lookup.ScopedTenantID.IsZero() {
 			l.Warnw("运营账号未配置 scoped_tenant_id",
-				"scenario", string(AuthPassword),
+				"credential_type", string(credDomain.CredPassword),
 				"account_id", accountID.String(),
 			)
 			return AuthDecision{
@@ -144,7 +145,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		}
 		if !passwordCredential.TenantID.IsZero() && passwordCredential.TenantID != lookup.ScopedTenantID {
 			l.Warnw("登录请求租户与运营账号绑定租户不一致",
-				"scenario", string(AuthPassword),
+				"credential_type", string(credDomain.CredPassword),
 				"account_id", accountID.String(),
 				"request_tenant_id", passwordCredential.TenantID.String(),
 				"scoped_tenant_id", lookup.ScopedTenantID.String(),
@@ -158,7 +159,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	default:
 		if !lookup.ScopedTenantID.IsZero() {
 			l.Warnw("非运营账号不应设置 scoped_tenant_id",
-				"scenario", string(AuthPassword),
+				"credential_type", string(credDomain.CredPassword),
 				"account_id", accountID.String(),
 				"type", lookup.AccountType,
 			)
@@ -171,7 +172,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	l.Debugw("密码认证：步骤2 - 检查账户状态",
-		"scenario", string(AuthPassword),
+		"credential_type", string(credDomain.CredPassword),
 		"account_id", accountID.String(),
 	)
 
@@ -179,7 +180,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	enabled, locked, err := p.accountRepo.GetAccountStatus(ctx, accountID)
 	if err != nil {
 		l.Errorw("查询账户状态失败",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"account_id", accountID.String(),
 			"error", err.Error(),
 		)
@@ -187,7 +188,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 	if !enabled {
 		l.Warnw("账户已禁用",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"account_id", accountID.String(),
 		)
 		return AuthDecision{
@@ -197,7 +198,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 	if locked {
 		l.Warnw("账户已锁定",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"account_id", accountID.String(),
 		)
 		return AuthDecision{
@@ -207,7 +208,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	l.Debugw("密码认证：步骤3 - 查找密码凭据",
-		"scenario", string(AuthPassword),
+		"credential_type", string(credDomain.CredPassword),
 		"account_id", accountID.String(),
 	)
 
@@ -215,7 +216,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	credentialID, storedHash, err := p.credRepo.FindPasswordCredential(ctx, accountID)
 	if err != nil {
 		l.Errorw("查询密码凭据失败",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"account_id", accountID.String(),
 			"error", err.Error(),
 		)
@@ -224,7 +225,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if credentialID.IsZero() {
 		// 账户没有设置密码
 		l.Warnw("账户未设置密码",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"account_id", accountID.String(),
 		)
 		return AuthDecision{
@@ -234,7 +235,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	l.Debugw("密码认证：步骤4 - 验证密码",
-		"scenario", string(AuthPassword),
+		"credential_type", string(credDomain.CredPassword),
 		"credential_id", credentialID.String(),
 	)
 
@@ -243,7 +244,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if !p.hasher.Verify(storedHash, plaintextWithPepper) {
 		// 密码错误（返回凭据ID用于失败次数统计）
 		l.Warnw("密码验证失败",
-			"scenario", string(AuthPassword),
+			"credential_type", string(credDomain.CredPassword),
 			"credential_id", credentialID.String(),
 		)
 		return AuthDecision{
@@ -254,7 +255,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	l.Debugw("密码认证：步骤5 - 检查是否需要密码rehash",
-		"scenario", string(AuthPassword),
+		"credential_type", string(credDomain.CredPassword),
 		"credential_id", credentialID.String(),
 	)
 
@@ -267,7 +268,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			// rehash失败不应该阻止认证成功
 			// 记录日志即可，由应用层决定是否处理
 			l.Warnw("密码rehash失败",
-				"scenario", string(AuthPassword),
+				"credential_type", string(credDomain.CredPassword),
 				"credential_id", credentialID.String(),
 				"error", err.Error(),
 			)
@@ -275,7 +276,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			shouldRotate = true
 			newHashBytes = []byte(newHash)
 			l.Debugw("检测到需要rehash的密码",
-				"scenario", string(AuthPassword),
+				"credential_type", string(credDomain.CredPassword),
 				"credential_id", credentialID.String(),
 			)
 		}
@@ -283,7 +284,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 
 	// Step 6: 认证成功，构造Principal
 	l.Debugw("密码认证成功",
-		"scenario", string(AuthPassword),
+		"credential_type", string(credDomain.CredPassword),
 		"account_id", accountID.String(),
 		"user_id", userID.String(),
 		"should_rotate", shouldRotate,

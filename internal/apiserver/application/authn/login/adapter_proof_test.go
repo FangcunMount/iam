@@ -8,6 +8,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	idpWechatApp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
@@ -25,7 +26,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	require.NoError(t, err)
 	password, ok := passwordProof.(*authentication.PasswordCredential)
 	require.True(t, ok)
-	require.Equal(t, authentication.AuthPassword, password.Scenario())
+	require.Equal(t, credDomain.CredPassword, password.CredentialType())
 	require.Equal(t, uint64(42), password.TenantID.Uint64())
 	require.Equal(t, "alice", password.Username)
 
@@ -37,7 +38,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	require.NoError(t, err)
 	phone, ok := phoneProof.(*authentication.PhoneOTPCredential)
 	require.True(t, ok)
-	require.Equal(t, authentication.AuthPhoneOTP, phone.Scenario())
+	require.Equal(t, credDomain.CredPhoneOTP, phone.CredentialType())
 	require.Equal(t, "+8613800138000", phone.PhoneE164)
 }
 

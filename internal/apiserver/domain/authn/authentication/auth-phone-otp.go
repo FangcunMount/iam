@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -28,9 +29,9 @@ type PhoneOTPProofSpec struct {
 	OTP       string
 }
 
-// Scenario 返回认证场景
-func (c *PhoneOTPCredential) Scenario() Scenario {
-	return AuthPhoneOTP
+// CredentialType 返回凭据类型。
+func (c *PhoneOTPCredential) CredentialType() credDomain.CredentialType {
+	return credDomain.CredPhoneOTP
 }
 
 // NewPhoneOTPCredential 构造手机号验证码认证凭据
@@ -55,10 +56,10 @@ func NewPhoneOTPCredential(spec PhoneOTPProofSpec) (AuthCredential, error) {
 
 // PhoneOTPAuthStrategy 手机短信验证码认证策略
 type PhoneOTPAuthStrategy struct {
-	scenario    Scenario
-	credRepo    CredentialRepository
-	accountRepo AccountRepository
-	otpVerifier OTPVerifier
+	credentialType credDomain.CredentialType
+	credRepo       CredentialRepository
+	accountRepo    AccountRepository
+	otpVerifier    OTPVerifier
 }
 
 // 实现认证策略接口
@@ -71,16 +72,16 @@ func NewPhoneOTPAuthStrategy(
 	otpVerifier OTPVerifier,
 ) *PhoneOTPAuthStrategy {
 	return &PhoneOTPAuthStrategy{
-		scenario:    AuthPhoneOTP,
-		credRepo:    credRepo,
-		accountRepo: accountRepo,
-		otpVerifier: otpVerifier,
+		credentialType: credDomain.CredPhoneOTP,
+		credRepo:       credRepo,
+		accountRepo:    accountRepo,
+		otpVerifier:    otpVerifier,
 	}
 }
 
 // Kind 返回认证策略类型
-func (p *PhoneOTPAuthStrategy) Kind() Scenario {
-	return p.scenario
+func (p *PhoneOTPAuthStrategy) Kind() credDomain.CredentialType {
+	return p.credentialType
 }
 
 // Authenticate 执行手机验证码认证

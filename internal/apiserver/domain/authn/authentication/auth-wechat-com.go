@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -34,9 +35,9 @@ type WecomProofSpec struct {
 	State      string
 }
 
-// Scenario 返回认证场景
-func (c *WecomCredential) Scenario() Scenario {
-	return AuthWecom
+// CredentialType 返回凭据类型。
+func (c *WecomCredential) CredentialType() credDomain.CredentialType {
+	return credDomain.CredOAuthWecom
 }
 
 // NewWecomCredential 构造企业微信认证凭据
@@ -69,10 +70,10 @@ func NewWecomCredential(spec WecomProofSpec) (AuthCredential, error) {
 
 // OAuthWeChatComAuthStrategy 企业微信认证策略
 type OAuthWeChatComAuthStrategy struct {
-	scenario    Scenario
-	credRepo    CredentialRepository
-	accountRepo AccountRepository
-	idp         IdentityProvider
+	credentialType credDomain.CredentialType
+	credRepo       CredentialRepository
+	accountRepo    AccountRepository
+	idp            IdentityProvider
 }
 
 // 实现认证策略接口
@@ -85,16 +86,16 @@ func NewOAuthWeChatComAuthStrategy(
 	idp IdentityProvider,
 ) *OAuthWeChatComAuthStrategy {
 	return &OAuthWeChatComAuthStrategy{
-		scenario:    AuthWecom,
-		credRepo:    credRepo,
-		accountRepo: accountRepo,
-		idp:         idp,
+		credentialType: credDomain.CredOAuthWecom,
+		credRepo:       credRepo,
+		accountRepo:    accountRepo,
+		idp:            idp,
 	}
 }
 
 // Kind 返回认证策略类型
-func (o *OAuthWeChatComAuthStrategy) Kind() Scenario {
-	return o.scenario
+func (o *OAuthWeChatComAuthStrategy) Kind() credDomain.CredentialType {
+	return o.credentialType
 }
 
 // Authenticate 执行企业微信认证

@@ -5,6 +5,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -15,7 +16,7 @@ func newPasswordAdapter() passwordAdapter {
 }
 
 func (passwordAdapter) Kind() SignInKind {
-	return SignInKind(authentication.AuthPassword)
+	return SignInKind(credDomain.CredPassword)
 }
 
 func (passwordAdapter) AuthType() AuthType {

@@ -2,16 +2,6 @@ package authentication
 
 import "github.com/FangcunMount/iam/internal/pkg/meta"
 
-// 选择哪种认证策略
-type Scenario string
-
-const (
-	AuthPassword Scenario = "password"
-	AuthPhoneOTP Scenario = "phone_otp"
-	AuthWxMinip  Scenario = "oauth_wx_minip"
-	AuthWecom    Scenario = "oauth_wecom"
-)
-
 // AMR（认证方法引用），用于审计与 Step-Up
 type AMR string
 

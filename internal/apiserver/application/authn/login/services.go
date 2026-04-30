@@ -5,6 +5,7 @@ import (
 
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -25,8 +26,8 @@ type LoginApplicationService interface {
 type AuthType string
 
 const (
-	AuthTypePassword AuthType = AuthType(authentication.AuthPassword) // 密码认证
-	AuthTypePhoneOTP AuthType = AuthType(authentication.AuthPhoneOTP) // 手机号OTP认证
+	AuthTypePassword AuthType = AuthType(credDomain.CredPassword) // 密码认证
+	AuthTypePhoneOTP AuthType = AuthType(credDomain.CredPhoneOTP) // 手机号OTP认证
 	// AuthTypeWechat 是 public wire value；它映射到 domain scenario oauth_wx_minip。
 	AuthTypeWechat AuthType = "wechat"
 	// AuthTypeWecom 是 public wire value；它映射到 domain scenario oauth_wecom。

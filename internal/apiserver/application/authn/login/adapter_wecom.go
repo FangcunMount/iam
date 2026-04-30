@@ -7,6 +7,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
@@ -26,7 +27,7 @@ func newWecomAdapter(repo idpPort.Repository, vault idpPort.SecretVault, config 
 }
 
 func (*wecomAdapter) Kind() SignInKind {
-	return SignInKind(authentication.AuthWecom)
+	return SignInKind(credDomain.CredOAuthWecom)
 }
 
 func (*wecomAdapter) AuthType() AuthType {
@@ -88,7 +89,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if a.wechatAppQuerier == nil || a.secretVault == nil {
 		l.Errorw("企业微信应用配置服务不可用",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app configuration service not available")
 	}
@@ -97,7 +98,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if agentID == "" {
 		l.Errorw("企业微信应用 agent_id 未配置",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom agent_id is required in server configuration")
@@ -107,7 +108,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if err != nil {
 		l.Errorw("查询企业微信应用配置失败",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 			"error", err.Error(),
 		)
@@ -116,7 +117,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if wechatApp == nil {
 		l.Warnw("企业微信应用不存在",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app not found: %s", payload.CorpID)
@@ -124,7 +125,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if !wechatApp.IsEnabled() {
 		l.Warnw("企业微信应用已禁用",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app is disabled: %s", payload.CorpID)
@@ -132,7 +133,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if wechatApp.Cred == nil || wechatApp.Cred.Auth == nil {
 		l.Errorw("企业微信应用凭据缺失",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app credentials not found")
@@ -142,7 +143,7 @@ func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomP
 	if err != nil {
 		l.Errorw("解密企业微信应用密钥失败",
 			"action", logger.ActionLogin,
-			"scenario", string(authentication.AuthWecom),
+			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 			"error", err.Error(),
 		)

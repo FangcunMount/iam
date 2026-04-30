@@ -6,6 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 )
@@ -18,11 +19,11 @@ type fakeCatalogPayload struct {
 func (fakeCatalogPayload) methodPayload() {}
 
 type fakeCatalogCredential struct {
-	scenario authentication.Scenario
+	credentialType credDomain.CredentialType
 }
 
-func (c fakeCatalogCredential) Scenario() authentication.Scenario {
-	return c.scenario
+func (c fakeCatalogCredential) CredentialType() credDomain.CredentialType {
+	return c.credentialType
 }
 
 type fakeCatalogAdapter struct {
@@ -55,7 +56,7 @@ func (a fakeCatalogAdapter) BuildExplicit(cmd SignInCommand, common methodPayloa
 }
 
 func (a fakeCatalogAdapter) PrepareProof(context.Context, MethodPayload) (authentication.AuthCredential, error) {
-	return fakeCatalogCredential{scenario: authentication.Scenario(a.kind)}, nil
+	return fakeCatalogCredential{credentialType: credDomain.CredentialType(a.kind)}, nil
 }
 
 func TestSignInAdapterCatalogRejectsDuplicateKindAndAuthType(t *testing.T) {
@@ -114,5 +115,5 @@ func TestMethodSelectorUsesCatalogDefinitions(t *testing.T) {
 	require.True(t, ok)
 	credential, err := adapter.PrepareProof(context.Background(), explicit.Payload)
 	require.NoError(t, err)
-	require.Equal(t, authentication.Scenario(fakeMethod), credential.Scenario())
+	require.Equal(t, credDomain.CredentialType(fakeMethod), credential.CredentialType())
 }

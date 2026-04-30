@@ -821,6 +821,12 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		"SigningMethod",
 		"RegisteredClaims",
 		"crypto/rsa",
+		"type Scenario string",
+		"AuthPassword Scenario",
+		"AuthPhoneOTP Scenario",
+		"AuthWxMinip  Scenario",
+		"AuthWecom    Scenario",
+		".Scenario()",
 	}
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))

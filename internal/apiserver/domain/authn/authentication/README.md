@@ -5,7 +5,7 @@
 ## 当前边界
 
 - `AuthCredential` 是已经由应用层选好登录方式后构造出的领域 proof。
-- `Authenticator` 只按 `AuthCredential.Scenario()` 分派到构造期注入的 `AuthStrategy`。
+- `Authenticator` 只按 `AuthCredential.CredentialType()` 分派到构造期注入的 `AuthStrategy`。
 - 领域策略只返回 `AuthDecision`：认证是否通过、失败原因、命中的 credential、以及是否需要 credential material rotation。
 - 领域层可以依赖账号仓储、凭据仓储、密码哈希、OTP verifier、IdP 交换端口，因为这些是认证判定所需的 driven ports。
 
@@ -26,7 +26,7 @@
 新增认证方式时，优先流程是：
 
 1. 在 application 登录 selector 中新增协议输入到 method payload 的映射。
-2. 在 application method authenticator 中构造明确的 domain proof。
+2. 在 application sign-in adapter 中构造明确的 domain proof。
 3. 在 domain 中新增 `AuthCredential` 和 `AuthStrategy`。
 4. 在 assembler 中显式注入 strategy。
 5. 补 characterization/contract tests，确认 token 与 transport 行为不漂移。

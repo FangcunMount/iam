@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -35,7 +35,7 @@ func TestLegacyMethodSelectorPreservesOverrideOrder(t *testing.T) {
 				Username: &username,
 				Password: &password,
 			},
-			want: SignInKind(authentication.AuthPassword),
+			want: SignInKind(credDomain.CredPassword),
 		},
 		{
 			name: "phone overrides password",
@@ -45,7 +45,7 @@ func TestLegacyMethodSelectorPreservesOverrideOrder(t *testing.T) {
 				PhoneE164: &phone,
 				OTPCode:   &otp,
 			},
-			want: SignInKind(authentication.AuthPhoneOTP),
+			want: SignInKind(credDomain.CredPhoneOTP),
 		},
 		{
 			name: "wechat overrides phone",
@@ -57,7 +57,7 @@ func TestLegacyMethodSelectorPreservesOverrideOrder(t *testing.T) {
 				WechatAppID:  &wechatAppID,
 				WechatJSCode: &wechatCode,
 			},
-			want: SignInKind(authentication.AuthWxMinip),
+			want: SignInKind(credDomain.CredOAuthWxMinip),
 		},
 		{
 			name: "wecom overrides wechat",
@@ -71,7 +71,7 @@ func TestLegacyMethodSelectorPreservesOverrideOrder(t *testing.T) {
 				WecomCorpID:  &wecomCorpID,
 				WecomCode:    &wecomCode,
 			},
-			want: SignInKind(authentication.AuthWecom),
+			want: SignInKind(credDomain.CredOAuthWecom),
 		},
 		{
 			name: "bearer overrides all legacy credentials",

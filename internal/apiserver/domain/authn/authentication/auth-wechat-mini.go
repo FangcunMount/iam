@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -30,9 +31,9 @@ type WechatMiniProofSpec struct {
 	Code      string
 }
 
-// Scenario 返回认证场景
-func (c *WechatMinipCredential) Scenario() Scenario {
-	return AuthWxMinip
+// CredentialType 返回凭据类型。
+func (c *WechatMinipCredential) CredentialType() credDomain.CredentialType {
+	return credDomain.CredOAuthWxMinip
 }
 
 // NewWechatMiniCredential 构造微信小程序认证凭据
@@ -60,10 +61,10 @@ func NewWechatMiniCredential(spec WechatMiniProofSpec) (AuthCredential, error) {
 
 // OAuthWechatMinipAuthStrategy 微信小程序认证策略
 type OAuthWechatMinipAuthStrategy struct {
-	scenario    Scenario
-	credRepo    CredentialRepository
-	accountRepo AccountRepository
-	idp         IdentityProvider
+	credentialType credDomain.CredentialType
+	credRepo       CredentialRepository
+	accountRepo    AccountRepository
+	idp            IdentityProvider
 }
 
 // 实现认证策略接口
@@ -76,16 +77,16 @@ func NewOAuthWechatMinipAuthStrategy(
 	idp IdentityProvider,
 ) *OAuthWechatMinipAuthStrategy {
 	return &OAuthWechatMinipAuthStrategy{
-		scenario:    AuthWxMinip,
-		credRepo:    credRepo,
-		accountRepo: accountRepo,
-		idp:         idp,
+		credentialType: credDomain.CredOAuthWxMinip,
+		credRepo:       credRepo,
+		accountRepo:    accountRepo,
+		idp:            idp,
 	}
 }
 
 // Kind 返回认证策略类型
-func (o *OAuthWechatMinipAuthStrategy) Kind() Scenario {
-	return o.scenario
+func (o *OAuthWechatMinipAuthStrategy) Kind() credDomain.CredentialType {
+	return o.credentialType
 }
 
 // Authenticate 执行微信小程序认证
@@ -117,7 +118,7 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 		idpIdentifier = unionID
 	}
 
-	accountID, userID, credentialID, err := o.credRepo.FindOAuthCredential(ctx, string(AuthWxMinip), wechatCred.AppID, idpIdentifier)
+	accountID, userID, credentialID, err := o.credRepo.FindOAuthCredential(ctx, string(credDomain.CredOAuthWxMinip), wechatCred.AppID, idpIdentifier)
 	if err != nil {
 		return AuthDecision{}, fmt.Errorf("failed to find wx minip credential: %w", err)
 	}

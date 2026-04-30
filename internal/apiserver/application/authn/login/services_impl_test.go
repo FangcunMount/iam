@@ -9,6 +9,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/FangcunMount/iam/pkg/tenant"
@@ -180,7 +181,7 @@ func TestMethodSelectorCharacterizesCurrentFieldInferencePrecedence(t *testing.T
 				Username: &username,
 				Password: &password,
 			},
-			want: SignInKind(authentication.AuthPassword),
+			want: SignInKind(credDomain.CredPassword),
 		},
 		{
 			name: "phone otp fields override password fields",
@@ -191,7 +192,7 @@ func TestMethodSelectorCharacterizesCurrentFieldInferencePrecedence(t *testing.T
 				PhoneE164: &phone,
 				OTPCode:   &otp,
 			},
-			want: SignInKind(authentication.AuthPhoneOTP),
+			want: SignInKind(credDomain.CredPhoneOTP),
 		},
 		{
 			name: "jwt token field wins over earlier credential fields",
@@ -239,7 +240,7 @@ func TestExplicitMethodSelectorUsesAuthTypeAsAuthority(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, SignInKind(authentication.AuthPassword), selected.Method)
+	require.Equal(t, SignInKind(credDomain.CredPassword), selected.Method)
 	payload, ok := selected.Payload.(PasswordPayload)
 	require.True(t, ok)
 	require.Equal(t, username, payload.Username)
@@ -262,6 +263,6 @@ func TestLegacyMethodSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testing
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, SignInKind(authentication.AuthPassword), selected.Method)
+	require.Equal(t, SignInKind(credDomain.CredPassword), selected.Method)
 	require.Equal(t, uint64(42), selected.TenantID().Uint64())
 }
