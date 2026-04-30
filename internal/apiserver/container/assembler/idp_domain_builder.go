@@ -23,7 +23,7 @@ func (m *IDPModule) initializeDomain() (*idpDomainServices, error) {
 
 	appTokenProvider := &appTokenProviderAdapter{
 		tokenProvider: m.wechatTokenProvider,
-		wechatAppRepo: m.wechatAppRepo,
+		secretVault:   m.secretVault,
 	}
 
 	accessTokenCacher := wechatappDomain.NewAccessTokenCacher(
