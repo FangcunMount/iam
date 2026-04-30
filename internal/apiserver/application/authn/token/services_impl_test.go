@@ -18,6 +18,22 @@ func (s *verifyerStub) VerifyAccessToken(context.Context, string) (*TokenClaims,
 	return s.claims, s.err
 }
 
+type serviceTokenIssuerStub struct {
+	subject    string
+	audience   []string
+	attributes map[string]string
+	ttl        time.Duration
+	pair       *TokenPair
+}
+
+func (s *serviceTokenIssuerStub) IssueServiceToken(_ context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error) {
+	s.subject = subject
+	s.audience = audience
+	s.attributes = attributes
+	s.ttl = ttl
+	return s.pair, nil
+}
+
 func TestTokenApplicationServiceVerifyTokenHonorsExpectedIssuerAndAudience(t *testing.T) {
 	svc := &tokenApplicationService{
 		tokenVerifier: &verifyerStub{
@@ -63,4 +79,35 @@ func TestTokenApplicationServiceVerifyTokenHonorsExpectedIssuerAndAudience(t *te
 	require.NoError(t, err)
 	require.False(t, audienceMismatch.Valid)
 	require.Nil(t, audienceMismatch.Claims)
+}
+
+func TestTokenApplicationServiceIssueServiceTokenUsesServiceIssuer(t *testing.T) {
+	t.Parallel()
+
+	serviceToken := NewServiceToken(
+		"service-token-id",
+		"service-token-value",
+		"service:mailer",
+		[]string{"iam-api"},
+		map[string]string{"scope": "send"},
+		time.Minute,
+	)
+	issuer := &serviceTokenIssuerStub{pair: NewTokenPair(serviceToken, nil)}
+	svc := &tokenApplicationService{serviceTokenIssuer: issuer}
+
+	result, err := svc.IssueServiceToken(context.Background(), IssueServiceTokenRequest{
+		Subject:    "service:mailer",
+		Audience:   []string{"iam-api"},
+		Attributes: map[string]string{"scope": "send"},
+		TTL:        time.Minute,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.TokenPair.AccessToken)
+	require.Nil(t, result.TokenPair.RefreshToken)
+	require.Equal(t, "service:mailer", issuer.subject)
+	require.Equal(t, []string{"iam-api"}, issuer.audience)
+	require.Equal(t, map[string]string{"scope": "send"}, issuer.attributes)
+	require.Equal(t, time.Minute, issuer.ttl)
 }

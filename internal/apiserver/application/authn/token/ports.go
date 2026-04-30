@@ -9,11 +9,26 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// Issuer 编排登录成功后的 session 创建、access token 签发和 refresh token 保存。
-type Issuer interface {
+// SessionTokenIssuer 编排登录成功后的 session 创建、access token 签发和 refresh token 保存。
+type SessionTokenIssuer interface {
 	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+}
+
+// ServiceTokenIssuer 签发服务间访问令牌；服务令牌不创建 refresh token。
+type ServiceTokenIssuer interface {
 	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error)
+}
+
+// AccessRevoker 撤销单个 access token 及其关联会话。
+type AccessRevoker interface {
 	RevokeAccessToken(ctx context.Context, tokenValue string) error
+}
+
+// Issuer 聚合 token 签发/撤销能力，保留给 login/container 现有装配使用。
+type Issuer interface {
+	SessionTokenIssuer
+	ServiceTokenIssuer
+	AccessRevoker
 }
 
 type Refresher interface {

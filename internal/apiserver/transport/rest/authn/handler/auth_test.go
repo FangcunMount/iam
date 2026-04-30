@@ -7,10 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
+	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 type loginServiceCaptureStub struct {
@@ -26,6 +29,41 @@ func (s *loginServiceCaptureStub) Login(_ context.Context, req login.LoginReques
 
 func (s *loginServiceCaptureStub) Logout(context.Context, login.LogoutRequest) error {
 	return nil
+}
+
+type tokenServiceCaptureStub struct {
+	refreshCalled bool
+	verifyCalled  bool
+	revokeCalled  bool
+	refreshErr    error
+	verifyErr     error
+	revokeErr     error
+}
+
+func (s *tokenServiceCaptureStub) IssueServiceToken(context.Context, token.IssueServiceTokenRequest) (*token.TokenIssueResult, error) {
+	return nil, nil
+}
+
+func (s *tokenServiceCaptureStub) RefreshToken(context.Context, string) (*token.TokenRefreshResult, error) {
+	s.refreshCalled = true
+	return nil, s.refreshErr
+}
+
+func (s *tokenServiceCaptureStub) RevokeAccessToken(context.Context, string) error {
+	s.revokeCalled = true
+	return s.revokeErr
+}
+
+func (s *tokenServiceCaptureStub) RevokeRefreshToken(context.Context, string) error {
+	return nil
+}
+
+func (s *tokenServiceCaptureStub) VerifyToken(context.Context, token.VerifyTokenRequest) (*token.TokenVerifyResult, error) {
+	s.verifyCalled = true
+	if s.verifyErr != nil {
+		return nil, s.verifyErr
+	}
+	return &token.TokenVerifyResult{Valid: false}, nil
 }
 
 func TestAuthHandlerLoginV1PasswordAdapterKeepsLegacySelection(t *testing.T) {
@@ -258,6 +296,90 @@ func TestAuthHandlerLoginV2RejectsInvalidContract(t *testing.T) {
 
 			require.Equal(t, http.StatusBadRequest, w.Code)
 			require.False(t, stub.called)
+		})
+	}
+}
+
+func TestAuthHandlerTokenEndpointsRejectInvalidRequestsBeforeApplicationCall(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name   string
+		call   func(*AuthHandler) gin.HandlerFunc
+		body   string
+		called func(*tokenServiceCaptureStub) bool
+	}{
+		{
+			name:   "refresh token missing",
+			call:   func(h *AuthHandler) gin.HandlerFunc { return h.RefreshToken },
+			body:   `{}`,
+			called: func(s *tokenServiceCaptureStub) bool { return s.refreshCalled },
+		},
+		{
+			name:   "verify token missing",
+			call:   func(h *AuthHandler) gin.HandlerFunc { return h.VerifyToken },
+			body:   `{}`,
+			called: func(s *tokenServiceCaptureStub) bool { return s.verifyCalled },
+		},
+		{
+			name:   "revoke token missing",
+			call:   func(h *AuthHandler) gin.HandlerFunc { return h.RevokeToken },
+			body:   `{}`,
+			called: func(s *tokenServiceCaptureStub) bool { return s.revokeCalled },
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			tokenSvc := &tokenServiceCaptureStub{}
+			h := NewAuthHandler(nil, tokenSvc, nil)
+
+			w := performAuthRequest(tc.call(h), tc.body)
+
+			require.Equal(t, http.StatusInternalServerError, w.Code)
+			require.False(t, tc.called(tokenSvc))
+		})
+	}
+}
+
+func TestAuthHandlerTokenEndpointsPropagateApplicationErrors(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name string
+		call func(*AuthHandler) gin.HandlerFunc
+		body string
+		svc  *tokenServiceCaptureStub
+	}{
+		{
+			name: "refresh token invalid",
+			call: func(h *AuthHandler) gin.HandlerFunc { return h.RefreshToken },
+			body: `{"refresh_token":"refresh-token"}`,
+			svc:  &tokenServiceCaptureStub{refreshErr: perrors.WithCode(code.ErrTokenInvalid, "invalid refresh")},
+		},
+		{
+			name: "verify token invalid",
+			call: func(h *AuthHandler) gin.HandlerFunc { return h.VerifyToken },
+			body: `{"access_token":"access-token"}`,
+			svc:  &tokenServiceCaptureStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+		},
+		{
+			name: "revoke token invalid",
+			call: func(h *AuthHandler) gin.HandlerFunc { return h.RevokeToken },
+			body: `{"access_token":"access-token"}`,
+			svc:  &tokenServiceCaptureStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			h := NewAuthHandler(nil, tc.svc, nil)
+
+			w := performAuthRequest(tc.call(h), tc.body)
+
+			require.Equal(t, http.StatusUnauthorized, w.Code)
 		})
 	}
 }

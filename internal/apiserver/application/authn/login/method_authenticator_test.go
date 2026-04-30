@@ -2,6 +2,7 @@ package login
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -70,6 +71,90 @@ func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 	require.False(t, decision.OK)
 	require.Error(t, err)
 	require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
+}
+
+func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		repo        *wecomAppRepoStub
+		vault       wecomSecretVaultStub
+		wantErrCode int
+	}{
+		{
+			name:        "query failure",
+			repo:        &wecomAppRepoStub{err: errors.New("db down")},
+			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantErrCode: code.ErrInvalidArgument,
+		},
+		{
+			name:        "app missing",
+			repo:        &wecomAppRepoStub{},
+			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantErrCode: code.ErrInvalidArgument,
+		},
+		{
+			name: "app disabled",
+			repo: &wecomAppRepoStub{app: &idpWechatApp.WechatApp{
+				AppID:  "corp-id",
+				Status: idpWechatApp.StatusDisabled,
+				Cred: &idpWechatApp.Credentials{
+					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
+				},
+			}},
+			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantErrCode: code.ErrInvalidArgument,
+		},
+		{
+			name: "credentials missing",
+			repo: &wecomAppRepoStub{app: &idpWechatApp.WechatApp{
+				AppID:  "corp-id",
+				Status: idpWechatApp.StatusEnabled,
+			}},
+			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantErrCode: code.ErrInvalidArgument,
+		},
+		{
+			name: "secret decrypt failure",
+			repo: &wecomAppRepoStub{app: &idpWechatApp.WechatApp{
+				AppID:  "corp-id",
+				Status: idpWechatApp.StatusEnabled,
+				Cred: &idpWechatApp.Credentials{
+					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
+				},
+			}},
+			vault:       wecomSecretVaultStub{err: errors.New("kms down")},
+			wantErrCode: code.ErrInvalidArgument,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			router := newMethodAuthenticatorRouter(
+				authentication.NewAuthenticator(),
+				nil,
+				tc.repo,
+				tc.vault,
+				WecomConfig{AgentID: "agent-id"},
+			)
+			decision, err := router.Authenticate(context.Background(), SelectedMethod{
+				Method: MethodWecom,
+				Payload: WecomPayload{
+					methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
+					CorpID:              "corp-id",
+					Code:                "auth-code",
+				},
+			})
+
+			require.False(t, decision.OK)
+			require.Error(t, err)
+			require.Equal(t, tc.wantErrCode, perrors.ParseCoder(err).Code())
+		})
+	}
 }
 
 func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {

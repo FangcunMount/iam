@@ -4,24 +4,19 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
 // ==================== 企业微信账户创建策略 ====================
 
 // WecomCreatorStrategy 企业微信账户创建策略（TypeWcCom）
-type WecomCreatorStrategy struct {
-	idp authentication.IdentityProvider // 用于 code 换取用户信息
-}
+type WecomCreatorStrategy struct{}
 
 var _ CreatorStrategy = (*WecomCreatorStrategy)(nil)
 
 // NewWecomCreatorStrategy 创建企业微信创建策略
-func NewWecomCreatorStrategy(idp authentication.IdentityProvider) *WecomCreatorStrategy {
-	return &WecomCreatorStrategy{
-		idp: idp,
-	}
+func NewWecomCreatorStrategy() *WecomCreatorStrategy {
+	return &WecomCreatorStrategy{}
 }
 
 // Kind 返回策略支持的账户类型

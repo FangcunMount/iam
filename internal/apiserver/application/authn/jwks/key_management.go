@@ -7,8 +7,8 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 )
 
-// KeyManagementAppService 密钥管理应用服务
-// 负责密钥生命周期管理的应用层协调
+// KeyManagementAppService exposes JWKS admin commands to transport.
+// Signing-key lifecycle behavior is implemented by the KeyManagerPort adapter.
 type KeyManagementAppService struct {
 	keyMgmtSvc KeyManagerPort
 	logger     log.Logger
@@ -51,7 +51,6 @@ func (s *KeyManagementAppService) CreateKey(ctx context.Context, req CreateKeyRe
 		"notAfter", req.NotAfter,
 	)
 
-	// 调用领域服务创建密钥
 	key, err := s.keyMgmtSvc.CreateKey(ctx, req.Algorithm, req.NotBefore, req.NotAfter)
 	if err != nil {
 		s.logger.Errorw("Failed to create key", "error", err)

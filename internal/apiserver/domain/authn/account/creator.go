@@ -25,7 +25,7 @@ func NewAccountCreator(repo Repository, idp authentication.IdentityProvider) Acc
 	strategies := map[AccountType]CreatorStrategy{
 		TypeOpera:        NewOperaCreatorStrategy(),
 		TypeWcMinip:      NewWechatMinipCreatorStrategy(idp),
-		TypeWcCom:        NewWecomCreatorStrategy(idp),
+		TypeWcCom:        NewWecomCreatorStrategy(),
 		TypeMockConsumer: NewMockConsumerCreatorStrategy(),
 	}
 

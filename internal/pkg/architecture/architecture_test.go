@@ -831,20 +831,39 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		}
 	})
 
-	authnDomainReadme, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "domain", "authn", "authentication", "README.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver"), func(path, source string) {
+		if !strings.Contains(source, "jwt_token") {
+			return
+		}
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasPrefix(rel, "internal/apiserver/application/authn/login/") ||
+			strings.HasPrefix(rel, "internal/apiserver/transport/rest/authn/") {
+			return
+		}
+		t.Fatalf("%s contains jwt_token compatibility wording; only application/authn/login and transport authn adapters may understand this wire value", rel)
+	})
+
 	forbiddenAuthnDocTokens := []string{
 		"AuthInput",
 		"issue" + "JWT",
 		"JWT Token 认证",
 		"Authenticator Service",
 		"策略工厂",
+		"strategy" + "Factory",
+		"Strategy" + "Factory",
 	}
-	for _, token := range forbiddenAuthnDocTokens {
-		if strings.Contains(string(authnDomainReadme), token) {
-			t.Fatalf("domain/authn/authentication/README.md contains retired authn domain wording %q", token)
+	for _, rel := range []string{
+		"internal/apiserver/domain/authn/authentication/README.md",
+		"internal/apiserver/application/authn/README.md",
+	} {
+		authnDocBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range forbiddenAuthnDocTokens {
+			if strings.Contains(string(authnDocBytes), token) {
+				t.Fatalf("%s contains retired authn wording %q", rel, token)
+			}
 		}
 	}
 

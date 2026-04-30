@@ -13,9 +13,10 @@ import (
 // ============= TokenApplicationService 实现 =============
 
 type tokenApplicationService struct {
-	tokenIssuer    Issuer
-	tokenRefresher Refresher
-	tokenVerifier  Verifier
+	serviceTokenIssuer ServiceTokenIssuer
+	accessRevoker      AccessRevoker
+	tokenRefresher     Refresher
+	tokenVerifier      Verifier
 }
 
 var _ TokenApplicationService = (*tokenApplicationService)(nil)
@@ -26,9 +27,10 @@ func NewTokenApplicationService(
 	tokenVerifier Verifier,
 ) TokenApplicationService {
 	return &tokenApplicationService{
-		tokenIssuer:    tokenIssuer,
-		tokenRefresher: tokenRefresher,
-		tokenVerifier:  tokenVerifier,
+		serviceTokenIssuer: tokenIssuer,
+		accessRevoker:      tokenIssuer,
+		tokenRefresher:     tokenRefresher,
+		tokenVerifier:      tokenVerifier,
 	}
 }
 
@@ -44,7 +46,7 @@ func (s *tokenApplicationService) IssueServiceToken(ctx context.Context, req Iss
 		"audience", req.Audience,
 	)
 
-	tokenPair, err := s.tokenIssuer.IssueServiceToken(ctx, req.Subject, req.Audience, req.Attributes, req.TTL)
+	tokenPair, err := s.serviceTokenIssuer.IssueServiceToken(ctx, req.Subject, req.Audience, req.Attributes, req.TTL)
 	if err != nil {
 		l.Warnw("签发服务令牌失败",
 			"action", logger.ActionCreate,
@@ -111,7 +113,7 @@ func (s *tokenApplicationService) RevokeAccessToken(ctx context.Context, accessT
 		"token_hint", sanitize.MaskToken(accessToken),
 	)
 
-	err := s.tokenIssuer.RevokeAccessToken(ctx, accessToken)
+	err := s.accessRevoker.RevokeAccessToken(ctx, accessToken)
 	if err != nil {
 		l.Errorw("撤销访问令牌失败",
 			"action", logger.ActionRevoke,

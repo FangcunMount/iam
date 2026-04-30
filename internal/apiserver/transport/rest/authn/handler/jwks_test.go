@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -18,9 +19,10 @@ import (
 )
 
 type jwksPublisherStub struct {
-	json []byte
-	tag  jwksApp.CacheTag
-	err  error
+	json           []byte
+	tag            jwksApp.CacheTag
+	err            error
+	publishableErr error
 }
 
 func (s *jwksPublisherStub) BuildJWKS(context.Context) ([]byte, jwksApp.CacheTag, error) {
@@ -31,6 +33,9 @@ func (s *jwksPublisherStub) BuildJWKS(context.Context) ([]byte, jwksApp.CacheTag
 }
 
 func (s *jwksPublisherStub) GetPublishableKeys(context.Context) ([]*jwksApp.ManagedKey, error) {
+	if s.publishableErr != nil {
+		return nil, s.publishableErr
+	}
 	return nil, nil
 }
 
@@ -97,9 +102,72 @@ func TestJWKSHandlerGetJWKSReturnsErrorWhenBuildFails(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
+func TestJWKSHandlerCreateKeyReturnsBindError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.CreateKey, http.MethodPost, "/admin/jwks/keys", []byte(`{`), nil)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestJWKSHandlerListKeysRejectsInvalidQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.ListKeys, http.MethodGet, "/admin/jwks/keys?status=invalid", nil, nil)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestJWKSHandlerGetKeyRequiresKid(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.GetKey, http.MethodGet, "/admin/jwks/keys/", nil, nil)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestJWKSHandlerRetireKeyPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
+		retireErr: perrors.WithCode(code.ErrInvalidArgument, "invalid transition"),
+	}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.RetireKey, http.MethodPost, "/admin/jwks/keys/kid-1/retire", nil, gin.Params{
+		{Key: "kid", Value: "kid-1"},
+	})
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestJWKSHandlerGetPublishableKeysPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{}, &jwksPublisherStub{
+		publishableErr: perrors.WithCode(code.ErrInternalServerError, "publisher failed"),
+	})
+
+	w := performJWKSAdminRequest(handler.GetPublishableKeys, http.MethodGet, "/admin/jwks/keys/publishable", nil, nil)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func newJWKSHandlerForTest(publisher jwksApp.KeyPublisherPort) *JWKSHandler {
 	return NewJWKSHandler(
 		nil,
+		jwksApp.NewKeyPublishAppService(publisher, log.NewLogger(zap.NewNop())),
+	)
+}
+
+func newJWKSAdminHandlerForTest(manager jwksApp.KeyManagerPort, publisher jwksApp.KeyPublisherPort) *JWKSHandler {
+	return NewJWKSHandler(
+		jwksApp.NewKeyManagementAppService(manager, log.NewLogger(zap.NewNop())),
 		jwksApp.NewKeyPublishAppService(publisher, log.NewLogger(zap.NewNop())),
 	)
 }
@@ -115,4 +183,54 @@ func performJWKSRequest(handler gin.HandlerFunc, ifNoneMatch string) *httptest.R
 	handler(c)
 
 	return w
+}
+
+func performJWKSAdminRequest(handler gin.HandlerFunc, method, path string, body []byte, params gin.Params) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = params
+	c.Request = httptest.NewRequest(method, path, bytes.NewReader(body))
+	if body != nil {
+		c.Request.Header.Set("Content-Type", "application/json")
+	}
+
+	handler(c)
+
+	return w
+}
+
+type jwksKeyManagerStub struct {
+	retireErr error
+}
+
+func (s *jwksKeyManagerStub) CreateKey(context.Context, string, *time.Time, *time.Time) (*jwksApp.ManagedKey, error) {
+	return nil, nil
+}
+
+func (s *jwksKeyManagerStub) GetActiveKey(context.Context) (*jwksApp.ManagedKey, error) {
+	return nil, nil
+}
+
+func (s *jwksKeyManagerStub) GetKeyByKid(context.Context, string) (*jwksApp.ManagedKey, error) {
+	return nil, nil
+}
+
+func (s *jwksKeyManagerStub) RetireKey(context.Context, string) error {
+	return s.retireErr
+}
+
+func (s *jwksKeyManagerStub) ForceRetireKey(context.Context, string) error {
+	return nil
+}
+
+func (s *jwksKeyManagerStub) EnterGracePeriod(context.Context, string) error {
+	return nil
+}
+
+func (s *jwksKeyManagerStub) CleanupExpiredKeys(context.Context) (int, error) {
+	return 0, nil
+}
+
+func (s *jwksKeyManagerStub) ListKeys(context.Context, jwksApp.KeyStatus, int, int) ([]*jwksApp.ManagedKey, int64, error) {
+	return nil, 0, nil
 }

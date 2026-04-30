@@ -7,8 +7,8 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 )
 
-// KeyRotationAppService 密钥轮换应用服务
-// 负责密钥的自动轮换和策略管理
+// KeyRotationAppService exposes JWKS rotation use cases to transport and
+// schedulers. Rotation rules are implemented by the KeyRotatorPort adapter.
 type KeyRotationAppService struct {
 	keyRotationSvc KeyRotatorPort
 	logger         log.Logger

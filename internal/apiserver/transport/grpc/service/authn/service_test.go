@@ -5,10 +5,12 @@ import (
 	"testing"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
 	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -18,10 +20,13 @@ import (
 )
 
 type tokenServiceStub struct {
-	issueReq  tokenApp.IssueServiceTokenRequest
-	issueRes  *tokenApp.TokenIssueResult
-	issueErr  error
-	verifyReq tokenApp.VerifyTokenRequest
+	issueReq   tokenApp.IssueServiceTokenRequest
+	issueRes   *tokenApp.TokenIssueResult
+	issueErr   error
+	verifyReq  tokenApp.VerifyTokenRequest
+	verifyErr  error
+	refreshErr error
+	revokeErr  error
 }
 
 type accountOnboarderStub struct {
@@ -36,11 +41,11 @@ func (s *tokenServiceStub) IssueServiceToken(ctx context.Context, req tokenApp.I
 }
 
 func (s *tokenServiceStub) RefreshToken(ctx context.Context, refreshToken string) (*tokenApp.TokenRefreshResult, error) {
-	return nil, nil
+	return nil, s.refreshErr
 }
 
 func (s *tokenServiceStub) RevokeAccessToken(ctx context.Context, accessToken string) error {
-	return nil
+	return s.revokeErr
 }
 
 func (s *tokenServiceStub) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
@@ -49,6 +54,9 @@ func (s *tokenServiceStub) RevokeRefreshToken(ctx context.Context, refreshToken 
 
 func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyTokenRequest) (*tokenApp.TokenVerifyResult, error) {
 	s.verifyReq = req
+	if s.verifyErr != nil {
+		return nil, s.verifyErr
+	}
 	return &tokenApp.TokenVerifyResult{
 		Valid: true,
 		Claims: tokenApp.NewTokenClaims(
@@ -125,6 +133,55 @@ func TestAuthServiceServerVerifyTokenPassesExpectationGuards(t *testing.T) {
 	require.Equal(t, "jwt-token", stub.verifyReq.AccessToken)
 	require.Equal(t, "https://iam.fangcunmount.cn", stub.verifyReq.ExpectedIssuer)
 	require.Equal(t, []string{"qs-api"}, stub.verifyReq.ExpectedAudience)
+}
+
+func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(*authServiceServer) error
+		stub *tokenServiceStub
+		want codes.Code
+	}{
+		{
+			name: "verify token app unauthenticated",
+			call: func(s *authServiceServer) error {
+				_, err := s.VerifyToken(context.Background(), &authnv1.VerifyTokenRequest{AccessToken: "access-token"})
+				return err
+			},
+			stub: &tokenServiceStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			want: codes.Unauthenticated,
+		},
+		{
+			name: "refresh token app unauthenticated",
+			call: func(s *authServiceServer) error {
+				_, err := s.RefreshToken(context.Background(), &authnv1.RefreshTokenRequest{RefreshToken: "refresh-token"})
+				return err
+			},
+			stub: &tokenServiceStub{refreshErr: perrors.WithCode(code.ErrTokenInvalid, "invalid refresh")},
+			want: codes.Unauthenticated,
+		},
+		{
+			name: "revoke token app unauthenticated",
+			call: func(s *authServiceServer) error {
+				_, err := s.RevokeToken(context.Background(), &authnv1.RevokeTokenRequest{AccessToken: "access-token"})
+				return err
+			},
+			stub: &tokenServiceStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			want: codes.Unauthenticated,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			srv := &authServiceServer{tokenSvc: tc.stub}
+
+			err := tc.call(srv)
+
+			require.Error(t, err)
+			require.Equal(t, tc.want, status.Code(err))
+		})
+	}
 }
 
 func TestAccountOnboardingServiceServerCreateOperationAccount(t *testing.T) {

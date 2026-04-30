@@ -31,7 +31,7 @@ const (
 	AuthTypePhoneOTP AuthType = "phone_otp" // 手机号OTP认证
 	AuthTypeWechat   AuthType = "wechat"    // 微信小程序认证
 	AuthTypeWecom    AuthType = "wecom"     // 企业微信认证
-	AuthTypeJWTToken AuthType = "jwt_token" // JWT令牌认证
+	AuthTypeJWTToken AuthType = "jwt_token" // bearer-token compatibility method
 )
 
 // ScenarioSelectionMode 控制 LoginRequest 如何选择认证场景。
@@ -68,7 +68,7 @@ type LoginRequest struct {
 	WecomCode   *string // 企业微信授权code（当 AuthType=wecom 时必须）
 
 	// ========== JWT令牌认证字段 ==========
-	JWTToken *string // JWT访问令牌（当 AuthType=jwt_token 时必须）
+	JWTToken *string // bearer access token（当 AuthType=jwt_token 时必须）
 }
 
 // WecomConfig contains server-side credentials that are intentionally not
