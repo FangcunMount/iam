@@ -6,7 +6,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -18,12 +17,10 @@ type accountCreation struct {
 }
 
 // AccountProvisioner 负责开通流程中的账户创建输入组装和持久化。
-type AccountProvisioner struct {
-	idp authentication.IdentityProvider
-}
+type AccountProvisioner struct{}
 
-func newAccountProvisioner(idp authentication.IdentityProvider) *AccountProvisioner {
-	return &AccountProvisioner{idp: idp}
+func newAccountProvisioner() *AccountProvisioner {
+	return &AccountProvisioner{}
 }
 
 func (c *AccountProvisioner) Provision(ctx context.Context, repo domain.Repository, req OnboardingRequest, userID meta.ID) (*accountCreation, error) {
@@ -32,7 +29,7 @@ func (c *AccountProvisioner) Provision(ctx context.Context, repo domain.Reposito
 		return nil, err
 	}
 
-	accountCreator := domain.NewAccountCreator(repo, c.idp)
+	accountCreator := domain.NewAccountCreator(repo)
 	account, creationParams, err := accountCreator.CreateAccount(ctx, domainInput)
 	if err != nil {
 		return nil, err
@@ -62,7 +59,6 @@ func (c *AccountProvisioner) toDomainInput(req OnboardingRequest, userID meta.ID
 		ScopedTenantID: req.ScopedTenantID,
 		AccountType:    req.AccountType,
 		WechatAppID:    req.WechatAppID,
-		WechatJsCode:   req.WechatJsCode,
 		WechatOpenID:   req.WechatOpenID,
 		WechatUnionID:  req.WechatUnionID,
 		WecomCorpID:    req.WecomCorpID,

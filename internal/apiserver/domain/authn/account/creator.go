@@ -4,7 +4,6 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -20,11 +19,11 @@ var _ AccountCreator = (*accountCreator)(nil)
 
 // NewAccountCreator 创建账户创建器
 // 内部自动注册所有策略，应用层无需关心策略细节
-func NewAccountCreator(repo Repository, idp authentication.IdentityProvider) AccountCreator {
+func NewAccountCreator(repo Repository) AccountCreator {
 	// 注册所有策略
 	strategies := map[AccountType]CreatorStrategy{
 		TypeOpera:        NewOperaCreatorStrategy(),
-		TypeWcMinip:      NewWechatMinipCreatorStrategy(idp),
+		TypeWcMinip:      NewWechatMinipCreatorStrategy(),
 		TypeWcCom:        NewWecomCreatorStrategy(),
 		TypeMockConsumer: NewMockConsumerCreatorStrategy(),
 	}

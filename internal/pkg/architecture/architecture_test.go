@@ -733,6 +733,27 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/signups"`)
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/wechat-miniprogram"`)
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", "/wechat/register")
+
+	for _, token := range []string{
+		"CreateOperationAccountReq",
+		"UpdateOperationCredentialReq",
+		"ChangeOperationUsernameReq",
+		"BindWeChatAccountReq",
+		"OperationCredentialPayload",
+	} {
+		assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/request/account.go", token)
+	}
+	for _, token := range []string{
+		"CreateOperationAccount",
+		"UpdateOperationCredential",
+		"ChangeOperationUsername",
+		"BindWeChatAccount",
+		"GetOperationAccountByUsername",
+		"FindAccountByRef",
+		"ListAccountsByUser",
+	} {
+		assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", token)
+	}
 }
 
 func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
@@ -833,6 +854,27 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		for _, token := range forbiddenDomainTokens {
 			if strings.Contains(source, token) {
 				t.Fatalf("%s contains retired JWT-shaped domain token %q; keep JWT claims and strategies in infra/token/jwt", rel, token)
+			}
+		}
+	})
+
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "domain", "authn", "account"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if imp == modulePath+"internal/apiserver/domain/authn/authentication" {
+				t.Fatalf("%s imports %s; account creation must consume prepared identity data instead of external authentication exchange ports", rel, imp)
+			}
+		}
+	})
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn", "account"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{
+			"WechatAppSecret",
+			"WechatJsCode",
+			"ExchangeWxMinipCode",
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains account-domain external identity exchange token %q; resolve WeChat identity in application/onboarding", rel, token)
 			}
 		}
 	})
@@ -961,6 +1003,7 @@ func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
 			"newSignInMethodCatalog",
 			"mustSignInMethodCatalog",
 			"signInMethodDeps",
+			"ScenarioSelection",
 			"buildPasswordProof",
 			"buildPhoneOTPProof",
 		} {
@@ -969,6 +1012,7 @@ func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
 			}
 		}
 	})
+	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/handler/auth_login.go", "ScenarioSelection")
 }
 
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {

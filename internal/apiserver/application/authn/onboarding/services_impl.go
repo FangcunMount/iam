@@ -47,7 +47,7 @@ func NewAccountOnboarder(
 	return &accountOnboarder{
 		uow:                uow,
 		userProvisioner:    newUserProvisioner(userRepo, wechatIdentityResolver),
-		accountProvisioner: newAccountProvisioner(idp),
+		accountProvisioner: newAccountProvisioner(),
 		credentialBinder:   newCredentialBinder(hasher),
 	}
 }

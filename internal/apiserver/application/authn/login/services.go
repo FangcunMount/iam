@@ -28,9 +28,9 @@ type AuthType string
 const (
 	AuthTypePassword AuthType = AuthType(credDomain.CredPassword) // 密码认证
 	AuthTypePhoneOTP AuthType = AuthType(credDomain.CredPhoneOTP) // 手机号OTP认证
-	// AuthTypeWechat 是 public wire value；它映射到 domain scenario oauth_wx_minip。
+	// AuthTypeWechat 是 public wire value；它映射到领域凭据类型 oauth_wx_minip。
 	AuthTypeWechat AuthType = "wechat"
-	// AuthTypeWecom 是 public wire value；它映射到 domain scenario oauth_wecom。
+	// AuthTypeWecom 是 public wire value；它映射到领域凭据类型 oauth_wecom。
 	AuthTypeWecom    AuthType = "wecom"
 	AuthTypeJWTToken AuthType = "jwt_token" // bearer-token compatibility method
 )
@@ -43,14 +43,7 @@ const (
 	SignInSelectionLegacy SignInSelectionMode = ""
 	// SignInSelectionExplicit 用于 v2：AuthType 是权威字段，只读取对应 method payload 映射出的字段。
 	SignInSelectionExplicit SignInSelectionMode = "explicit"
-	// ScenarioSelectionLegacy 是旧命名兼容别名；新代码使用 SignInSelectionLegacy。
-	ScenarioSelectionLegacy = SignInSelectionLegacy
-	// ScenarioSelectionExplicit 是旧命名兼容别名；新代码使用 SignInSelectionExplicit。
-	ScenarioSelectionExplicit = SignInSelectionExplicit
 )
-
-// ScenarioSelectionMode 是旧命名兼容别名；新代码使用 SignInSelectionMode。
-type ScenarioSelectionMode = SignInSelectionMode
 
 // SignInCommand 是登录用例的应用层输入。
 type SignInCommand struct {

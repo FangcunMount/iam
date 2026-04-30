@@ -127,17 +127,6 @@ func registerAccountEndpoints(v1 *gin.RouterGroup, h *authhandler.AccountHandler
 	accounts.PUT("/:accountId/unionid", h.SetUnionID)
 	accounts.POST("/:accountId/enable", h.EnableAccount)
 	accounts.POST("/:accountId/disable", h.DisableAccount)
-
-	// TODO: 以下端点待实现
-	// accounts.GET("/:accountId/credentials", h.GetCredentials) // 待实现凭据查询服务
-	// accounts.POST("/operation", h.CreateOperationAccount)
-	// accounts.PATCH("/operation/:username", h.UpdateOperationCredential)
-	// accounts.POST("/operation/:username/change", h.ChangeOperationUsername)
-	// accounts.POST("/wechat/bind", h.BindWeChatAccount)
-	// accounts.GET("/operation/:username", h.GetOperationAccountByUsername)
-	// v1.GET("/accounts/by-ref", h.FindAccountByRef)
-	// users := v1.Group("/users")
-	// users.GET("/:userId/accounts", h.ListAccountsByUser)
 }
 
 func registerInternalMockConsumerEndpoints(v1 *gin.RouterGroup, h *authhandler.AccountHandler) {

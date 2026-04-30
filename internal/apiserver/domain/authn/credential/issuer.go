@@ -11,8 +11,8 @@ import (
 // ==================== 凭据颁发器接口 ====================
 
 // Issuer 凭据颁发器接口（领域服务）
-// 职责：为账户颁发各种类型的登录凭据
-// 注意：与 Binder 不同，Issuer 是面向应用层的领域服务，包含持久化逻辑
+// 职责：为账户创建各种类型的登录凭据实体。
+// 注意：Issuer 不负责持久化；应用层在事务中保存返回的 Credential。
 type Issuer interface {
 	// IssuePassword 颁发密码凭据
 	IssuePassword(ctx context.Context, req IssuePasswordRequest) (*Credential, error)

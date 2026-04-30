@@ -83,7 +83,7 @@ func TestAuthHandlerLoginV1PasswordAdapterKeepsLegacySelection(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.True(t, stub.called)
-	require.Equal(t, login.ScenarioSelectionLegacy, stub.req.SelectionMode)
+	require.Equal(t, login.SignInSelectionLegacy, stub.req.SelectionMode)
 	require.Equal(t, login.AuthTypePassword, stub.req.AuthType)
 	require.NotNil(t, stub.req.Username)
 	require.NotNil(t, stub.req.Password)
@@ -164,7 +164,7 @@ func TestAuthHandlerLoginV1AdaptersKeepLegacySelection(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, w.Code)
 			require.True(t, stub.called)
-			require.Equal(t, login.ScenarioSelectionLegacy, stub.req.SelectionMode)
+			require.Equal(t, login.SignInSelectionLegacy, stub.req.SelectionMode)
 			require.Equal(t, tc.wantType, stub.req.AuthType)
 			tc.assert(t, stub.req)
 		})
@@ -262,7 +262,7 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, w.Code)
 			require.True(t, stub.called)
-			require.Equal(t, login.ScenarioSelectionExplicit, stub.req.SelectionMode)
+			require.Equal(t, login.SignInSelectionExplicit, stub.req.SelectionMode)
 			require.Equal(t, tc.wantType, stub.req.AuthType)
 			tc.assert(t, stub.req)
 		})

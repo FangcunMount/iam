@@ -39,7 +39,7 @@ type StatusManager interface {
 // CreatorStrategy 账户创建策略接口
 // 每种账户类型（AccountType）都有自己的创建策略
 // 策略职责：
-// 1. 准备账户创建所需的数据（包括调用第三方服务，如微信 code2session）
+// 1. 准备账户创建所需的数据
 // 2. 创建账户实体
 // 注意：凭据颁发不属于账户创建策略，由 credential 领域负责
 type CreatorStrategy interface {
@@ -49,7 +49,7 @@ type CreatorStrategy interface {
 	// PrepareData 准备账户信息
 	// 在创建账户前调用，用于：
 	// - 验证必要参数
-	// - 调用第三方服务（如微信 code2session 获取 OpenID）
+	// - 将应用层准备好的身份数据转换为账户创建参数
 	// 返回：准备好的创建参数
 	PrepareData(ctx context.Context, input CreationInput) (*CreationParams, error)
 
@@ -80,11 +80,9 @@ type CreationInput struct {
 	ScopedTenantID meta.ID
 
 	// ========== 微信小程序专用 ==========
-	WechatAppID     *string // 微信AppID（TypeWcMinip 必须）
-	WechatAppSecret *string // 微信AppSecret（用于 code2session，TypeWcMinip 必须）
-	WechatJsCode    *string // 微信登录码（用于 code2session，TypeWcMinip 时如果没有 OpenID 则必须）
-	WechatOpenID    *string // 微信OpenID（可选，如果有就不需要 code2session）
-	WechatUnionID   *string // 微信UnionID（可选）
+	WechatAppID   *string // 微信AppID（TypeWcMinip 必须）
+	WechatOpenID  *string // 微信OpenID（TypeWcMinip 必须，由应用层解析 code2session 后注入）
+	WechatUnionID *string // 微信UnionID（可选）
 
 	// ========== 企业微信专用 ==========
 	WecomCorpID *string // 企业CorpID（TypeWcCom 必须）

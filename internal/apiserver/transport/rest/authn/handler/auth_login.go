@@ -12,7 +12,7 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-type loginPayloadAdapter func(json.RawMessage, login.ScenarioSelectionMode, string) (login.LoginRequest, error)
+type loginPayloadAdapter func(json.RawMessage, login.SignInSelectionMode, string) (login.LoginRequest, error)
 
 var loginPayloadAdapters = map[string]loginPayloadAdapter{
 	"password":  passwordLoginRequest,
@@ -44,7 +44,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	loginReq, err := buildLoginRequest(reqBody.Method, reqBody.Credentials, login.ScenarioSelectionLegacy, "credentials")
+	loginReq, err := buildLoginRequest(reqBody.Method, reqBody.Credentials, login.SignInSelectionLegacy, "credentials")
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -65,7 +65,7 @@ func (h *AuthHandler) LoginV2(c *gin.Context) {
 		return
 	}
 
-	loginReq, err := buildLoginRequest(reqBody.AuthMethod, reqBody.MethodPayload, login.ScenarioSelectionExplicit, "method_payload")
+	loginReq, err := buildLoginRequest(reqBody.AuthMethod, reqBody.MethodPayload, login.SignInSelectionExplicit, "method_payload")
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -73,7 +73,7 @@ func (h *AuthHandler) LoginV2(c *gin.Context) {
 	h.executeLogin(c, loginReq)
 }
 
-func buildLoginRequest(method string, payload json.RawMessage, selection login.ScenarioSelectionMode, payloadLabel string) (login.LoginRequest, error) {
+func buildLoginRequest(method string, payload json.RawMessage, selection login.SignInSelectionMode, payloadLabel string) (login.LoginRequest, error) {
 	adapter, ok := loginPayloadAdapters[method]
 	if !ok {
 		return login.LoginRequest{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", method)
@@ -81,7 +81,7 @@ func buildLoginRequest(method string, payload json.RawMessage, selection login.S
 	return adapter(payload, selection, payloadLabel)
 }
 
-func passwordLoginRequest(payload json.RawMessage, selection login.ScenarioSelectionMode, payloadLabel string) (login.LoginRequest, error) {
+func passwordLoginRequest(payload json.RawMessage, selection login.SignInSelectionMode, payloadLabel string) (login.LoginRequest, error) {
 	var creds req.PasswordCredentials
 	if err := json.Unmarshal(payload, &creds); err != nil {
 		return login.LoginRequest{}, perrors.WithCode(code.ErrBind, "invalid password %s: %v", payloadLabel, err)
@@ -100,7 +100,7 @@ func passwordLoginRequest(payload json.RawMessage, selection login.ScenarioSelec
 	return loginReq, nil
 }
 
-func phoneOTPLoginRequest(payload json.RawMessage, selection login.ScenarioSelectionMode, payloadLabel string) (login.LoginRequest, error) {
+func phoneOTPLoginRequest(payload json.RawMessage, selection login.SignInSelectionMode, payloadLabel string) (login.LoginRequest, error) {
 	var creds req.PhoneOTPCredentials
 	if err := json.Unmarshal(payload, &creds); err != nil {
 		return login.LoginRequest{}, perrors.WithCode(code.ErrBind, "invalid phone OTP %s: %v", payloadLabel, err)
@@ -114,7 +114,7 @@ func phoneOTPLoginRequest(payload json.RawMessage, selection login.ScenarioSelec
 	}, nil
 }
 
-func wechatLoginRequest(payload json.RawMessage, selection login.ScenarioSelectionMode, payloadLabel string) (login.LoginRequest, error) {
+func wechatLoginRequest(payload json.RawMessage, selection login.SignInSelectionMode, payloadLabel string) (login.LoginRequest, error) {
 	var creds req.WeChatCredentials
 	if err := json.Unmarshal(payload, &creds); err != nil {
 		return login.LoginRequest{}, perrors.WithCode(code.ErrBind, "invalid wechat %s: %v", payloadLabel, err)
@@ -128,7 +128,7 @@ func wechatLoginRequest(payload json.RawMessage, selection login.ScenarioSelecti
 	}, nil
 }
 
-func wecomLoginRequest(payload json.RawMessage, selection login.ScenarioSelectionMode, payloadLabel string) (login.LoginRequest, error) {
+func wecomLoginRequest(payload json.RawMessage, selection login.SignInSelectionMode, payloadLabel string) (login.LoginRequest, error) {
 	var creds req.WeComCredentials
 	if err := json.Unmarshal(payload, &creds); err != nil {
 		return login.LoginRequest{}, perrors.WithCode(code.ErrBind, "invalid wecom %s: %v", payloadLabel, err)
