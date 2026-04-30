@@ -5,15 +5,18 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 )
+
+type RuntimePolicyReloader interface {
+	LoadPolicy(ctx context.Context) error
+}
 
 type cacheInvalidator interface {
 	InvalidateCache()
 }
 
 // ReloadRuntimePolicy 将运行时 Casbin 缓存刷新到最新数据库事实。
-func ReloadRuntimePolicy(ctx context.Context, adapter policyDomain.CasbinAdapter, operation string) {
+func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, operation string) {
 	if adapter == nil {
 		return
 	}

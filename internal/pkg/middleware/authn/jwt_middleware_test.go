@@ -62,7 +62,7 @@ func TestRequirePlatformAdminAllowsSuperAdminFromPlatformDomain(t *testing.T) {
 		c.Next()
 	})
 
-	middleware := NewJWTAuthMiddleware(nil, casbinRoleStub{
+	middleware := NewJWTAuthMiddleware(nil, routeAuthorizationStub{
 		rolesByDomain: map[string][]string{
 			"1":               {"role:qs:admin"},
 			tenant.PlatformID: {"role:super_admin"},
@@ -92,7 +92,7 @@ func TestRequirePlatformAdminRejectsTenantOnlyRoles(t *testing.T) {
 		c.Next()
 	})
 
-	middleware := NewJWTAuthMiddleware(nil, casbinRoleStub{
+	middleware := NewJWTAuthMiddleware(nil, routeAuthorizationStub{
 		rolesByDomain: map[string][]string{
 			"1": {"role:qs:admin"},
 		},
@@ -122,14 +122,14 @@ func TestNormalizeRoleName(t *testing.T) {
 	}
 }
 
-type casbinRoleStub struct {
+type routeAuthorizationStub struct {
 	rolesByDomain map[string][]string
 }
 
-func (s casbinRoleStub) Enforce(_ context.Context, _, _, _, _ string) (bool, error) {
+func (s routeAuthorizationStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, error) {
 	return true, nil
 }
 
-func (s casbinRoleStub) GetRolesForUser(_ context.Context, _, domain string) ([]string, error) {
+func (s routeAuthorizationStub) DirectRoleKeys(_ context.Context, _, domain string) ([]string, error) {
 	return append([]string(nil), s.rolesByDomain[domain]...), nil
 }

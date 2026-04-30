@@ -2,32 +2,41 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/FangcunMount/component-base/pkg/errors"
-	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	bindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
+	bindingDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 
-// AssignmentHandler 角色分配处理器
-type AssignmentHandler struct {
-	commander assignmentDomain.Commander
-	queryer   assignmentDomain.Queryer
+// RoleBindingHandler 角色分配处理器
+type RoleBindingHandler struct {
+	commander roleBindingCommander
+	queryer   bindingApp.Directory
 }
 
-// NewAssignmentHandler 创建角色分配处理器
-func NewAssignmentHandler(commander assignmentDomain.Commander, queryer assignmentDomain.Queryer) *AssignmentHandler {
-	return &AssignmentHandler{
+type roleBindingCommander interface {
+	Grant(ctx context.Context, cmd bindingApp.GrantCommand) (*bindingDomain.Binding, error)
+	Revoke(ctx context.Context, cmd bindingApp.RevokeCommand) error
+	RevokeByID(ctx context.Context, cmd bindingApp.RevokeByIDCommand) error
+}
+
+// NewRoleBindingHandler 创建角色分配处理器
+func NewRoleBindingHandler(commander roleBindingCommander, queryer bindingApp.Directory) *RoleBindingHandler {
+	return &RoleBindingHandler{
 		commander: commander,
 		queryer:   queryer,
 	}
 }
 
 // convertToSubjectType 将字符串转换为 SubjectType
-func convertToSubjectType(s string) (assignmentDomain.SubjectType, error) {
+func convertToSubjectType(s string) (bindingDomain.SubjectType, error) {
 	switch s {
 	case "user":
-		return assignmentDomain.SubjectTypeUser, nil
+		return bindingDomain.SubjectTypeUser, nil
 	default:
 		return "", errors.WithCode(code.ErrInvalidArgument, "无效的主体类型: %s", s)
 	}
@@ -41,7 +50,7 @@ func convertToSubjectType(s string) (assignmentDomain.SubjectType, error) {
 // @Param request body dto.GrantRequest true "授予角色请求"
 // @Success 200 {object} dto.Response{data=dto.AssignmentResponse}
 // @Router /authz/assignments/grant [post]
-func (h *AssignmentHandler) GrantRole(c *gin.Context) {
+func (h *RoleBindingHandler) GrantRoleBinding(c *gin.Context) {
 	var req dto.GrantRequest
 	if !bindJSON(c, &req) {
 		return
@@ -64,7 +73,7 @@ func (h *AssignmentHandler) GrantRole(c *gin.Context) {
 		return
 	}
 
-	cmd := assignmentDomain.GrantCommand{
+	cmd := bindingApp.GrantCommand{
 		SubjectType: subjectType,
 		SubjectID:   req.SubjectID,
 		RoleID:      req.RoleID.Uint64(),
@@ -72,13 +81,13 @@ func (h *AssignmentHandler) GrantRole(c *gin.Context) {
 		GrantedBy:   grantedBy,
 	}
 
-	grantedAssignment, err := h.commander.Grant(c.Request.Context(), cmd)
+	grantedBinding, err := h.commander.Grant(c.Request.Context(), cmd)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	success(c, h.toAssignmentResponse(grantedAssignment))
+	success(c, h.toAssignmentResponse(grantedBinding))
 }
 
 // RevokeRole 撤销角色
@@ -89,7 +98,7 @@ func (h *AssignmentHandler) GrantRole(c *gin.Context) {
 // @Param request body dto.RevokeRequest true "撤销角色请求"
 // @Success 200 {object} dto.Response
 // @Router /authz/assignments/revoke [post]
-func (h *AssignmentHandler) RevokeRole(c *gin.Context) {
+func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 	var req dto.RevokeRequest
 	if !bindJSON(c, &req) {
 		return
@@ -107,7 +116,7 @@ func (h *AssignmentHandler) RevokeRole(c *gin.Context) {
 		return
 	}
 
-	cmd := assignmentDomain.RevokeCommand{
+	cmd := bindingApp.RevokeCommand{
 		SubjectType: subjectType,
 		SubjectID:   req.SubjectID,
 		RoleID:      req.RoleID.Uint64(),
@@ -123,14 +132,14 @@ func (h *AssignmentHandler) RevokeRole(c *gin.Context) {
 	successNoContent(c)
 }
 
-// RevokeRoleByID 根据分配ID撤销角色
+// RevokeRoleBindingByID 根据分配ID撤销角色
 // @Summary 根据分配ID撤销角色
 // @Tags Authorization-Assignments
 // @Param id path string true "分配ID"
 // @Success 200 {object} dto.Response
 // @Router /authz/assignments/{id} [delete]
-func (h *AssignmentHandler) RevokeRoleByID(c *gin.Context) {
-	assignmentID, ok := parseIDParam(c, "id", "分配ID格式错误")
+func (h *RoleBindingHandler) RevokeRoleBindingByID(c *gin.Context) {
+	bindingID, ok := parseIDParam(c, "id", "分配ID格式错误")
 	if !ok {
 		return
 	}
@@ -141,9 +150,9 @@ func (h *AssignmentHandler) RevokeRoleByID(c *gin.Context) {
 		return
 	}
 
-	cmd := assignmentDomain.RevokeByIDCommand{
-		AssignmentID: assignmentDomain.NewAssignmentID(assignmentID.Uint64()),
-		TenantID:     tenantID,
+	cmd := bindingApp.RevokeByIDCommand{
+		BindingID: bindingDomain.NewBindingID(bindingID.Uint64()),
+		TenantID:  tenantID,
 	}
 
 	err = h.commander.RevokeByID(c.Request.Context(), cmd)
@@ -155,7 +164,7 @@ func (h *AssignmentHandler) RevokeRoleByID(c *gin.Context) {
 	successNoContent(c)
 }
 
-// ListAssignmentsBySubject 列出主体的角色分配
+// ListRoleBindingsBySubject 列出主体的角色分配
 // @Summary 列出主体的角色分配
 // @Tags Authorization-Assignments
 // @Produce json
@@ -163,7 +172,7 @@ func (h *AssignmentHandler) RevokeRoleByID(c *gin.Context) {
 // @Param subject_id query string true "主体ID"
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
 // @Router /authz/assignments/subject [get]
-func (h *AssignmentHandler) ListAssignmentsBySubject(c *gin.Context) {
+func (h *RoleBindingHandler) ListRoleBindingsBySubject(c *gin.Context) {
 	subjectTypeStr := c.Query("subject_type")
 	subjectID := c.Query("subject_id")
 
@@ -184,7 +193,7 @@ func (h *AssignmentHandler) ListAssignmentsBySubject(c *gin.Context) {
 		return
 	}
 
-	query := assignmentDomain.ListBySubjectQuery{
+	query := bindingApp.ListBySubjectQuery{
 		SubjectType: subjectType,
 		SubjectID:   subjectID,
 		TenantID:    tenantID,
@@ -196,22 +205,22 @@ func (h *AssignmentHandler) ListAssignmentsBySubject(c *gin.Context) {
 		return
 	}
 
-	assignments := make([]dto.AssignmentResponse, 0, len(result))
+	bindings := make([]dto.AssignmentResponse, 0, len(result))
 	for _, a := range result {
-		assignments = append(assignments, h.toAssignmentResponse(a))
+		bindings = append(bindings, h.toAssignmentResponse(a))
 	}
 
-	success(c, assignments)
+	success(c, bindings)
 }
 
-// ListAssignmentsByRole 列出角色的分配记录
+// ListRoleBindingsByRole 列出角色的分配记录
 // @Summary 列出角色的分配记录
 // @Tags Authorization-Assignments
 // @Produce json
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
 // @Router /authz/roles/{id}/assignments [get]
-func (h *AssignmentHandler) ListAssignmentsByRole(c *gin.Context) {
+func (h *RoleBindingHandler) ListRoleBindingsByRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
 	if !ok {
 		return
@@ -223,7 +232,7 @@ func (h *AssignmentHandler) ListAssignmentsByRole(c *gin.Context) {
 		return
 	}
 
-	query := assignmentDomain.ListByRoleQuery{
+	query := bindingApp.ListByRoleQuery{
 		RoleID:   roleID.Uint64(),
 		TenantID: tenantID,
 	}
@@ -234,10 +243,10 @@ func (h *AssignmentHandler) ListAssignmentsByRole(c *gin.Context) {
 		return
 	}
 
-	assignments := make([]dto.AssignmentResponse, 0, len(result))
+	bindings := make([]dto.AssignmentResponse, 0, len(result))
 	for _, a := range result {
-		assignments = append(assignments, h.toAssignmentResponse(a))
+		bindings = append(bindings, h.toAssignmentResponse(a))
 	}
 
-	success(c, assignments)
+	success(c, bindings)
 }

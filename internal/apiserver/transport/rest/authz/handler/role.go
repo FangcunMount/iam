@@ -2,7 +2,7 @@
 package handler
 
 import (
-	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -11,14 +11,14 @@ import (
 //
 // 依赖倒置原则：Handler 依赖 driving 接口，不依赖具体实现
 type RoleHandler struct {
-	commander roleDomain.Commander // 命令服务（写操作）
-	queryer   roleDomain.Queryer   // 查询服务（读操作）
+	commander roleApp.Catalog
+	queryer   roleApp.Directory
 }
 
 // NewRoleHandler 创建角色处理器
 func NewRoleHandler(
-	commander roleDomain.Commander,
-	queryer roleDomain.Queryer,
+	commander roleApp.Catalog,
+	queryer roleApp.Directory,
 ) *RoleHandler {
 	return &RoleHandler{
 		commander: commander,
@@ -46,7 +46,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
-	cmd := roleDomain.CreateRoleCommand{
+	cmd := roleApp.CreateRoleCommand{
 		Name:        req.Name,
 		DisplayName: req.DisplayName,
 		TenantID:    tenantID,
@@ -82,7 +82,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	cmd := roleDomain.UpdateRoleCommand{
+	cmd := roleApp.UpdateRoleCommand{
 		ID:          roleID,
 		DisplayName: &req.DisplayName,
 		Description: &req.Description,
@@ -159,7 +159,7 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 		return
 	}
 
-	listQuery := roleDomain.ListRolesQuery{
+	listQuery := roleApp.ListRolesQuery{
 		TenantID: tenantID,
 		Offset:   query.Offset,
 		Limit:    query.Limit,

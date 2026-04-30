@@ -3,23 +3,18 @@ definitions:
   github_com_FangcunMount_iam_internal_apiserver_application_authn_jwks.PublicJWK:
     properties:
       alg:
-        description: '"RS256"/"ES256"/"EdDSA"'
         type: string
       crv:
         type: string
       e:
         type: string
       kid:
-        description: key id
         type: string
       kty:
-        description: '"RSA"/"EC"/"OKP"'
         type: string
       "n":
-        description: 'RSA: n/e; EC: crv/x/y; OKP: crv/x'
         type: string
       use:
-        description: '"sig"'
         type: string
       x:
         type: string
@@ -370,7 +365,7 @@ definitions:
         description: 令牌是否有效
         type: boolean
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPolicyRequest:
+  github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest:
     properties:
       action:
         type: string
@@ -381,6 +376,10 @@ definitions:
       resource_id:
         type: string
       role_id:
+        type: string
+      scope_type:
+        type: string
+      scope_value:
         type: string
     required:
     - action
@@ -407,6 +406,10 @@ definitions:
       action:
         type: string
       object:
+        type: string
+      scope_type:
+        type: string
+      scope_value:
         type: string
       subject_id:
         type: string
@@ -439,6 +442,10 @@ definitions:
         type: string
       key:
         type: string
+      scope_kinds:
+        items:
+          type: string
+        type: array
       type:
         type: string
     required:
@@ -492,13 +499,17 @@ definitions:
       total:
         type: integer
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyRuleResponse:
+  github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse:
     properties:
       action:
         type: string
       domain:
         type: string
       object:
+        type: string
+      scope_type:
+        type: string
+      scope_value:
         type: string
       subject:
         type: string
@@ -514,7 +525,7 @@ definitions:
       version:
         type: integer
     type: object
-  github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePolicyRequest:
+  github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest:
     properties:
       action:
         type: string
@@ -525,6 +536,10 @@ definitions:
       resource_id:
         type: string
       role_id:
+        type: string
+      scope_type:
+        type: string
+      scope_value:
         type: string
     required:
     - action
@@ -549,6 +564,10 @@ definitions:
         type: string
       key:
         type: string
+      scope_kinds:
+        items:
+          type: string
+        type: array
       type:
         type: string
     type: object
@@ -599,6 +618,10 @@ definitions:
         type: string
       display_name:
         type: string
+      scope_kinds:
+        items:
+          type: string
+        type: array
     type: object
   github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest:
     properties:
@@ -1745,7 +1768,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePolicyRequest'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest'
       produces:
       - application/json
       responses:
@@ -1753,7 +1776,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 移除策略规则
+      summary: 移除权限
       tags:
       - Authorization-Policies
     post:
@@ -1765,7 +1788,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPolicyRequest'
+          $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest'
       produces:
       - application/json
       responses:
@@ -1773,7 +1796,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 添加策略规则
+      summary: 添加权限
       tags:
       - Authorization-Policies
   /authz/policies/version:
@@ -2144,7 +2167,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyRuleResponse'
+                    $ref: '#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse'
                   type: array
               type: object
       summary: 获取角色的策略列表
@@ -2911,7 +2934,7 @@ tags:
   name: Authorization-Roles
 - description: 角色分配 - 授予、撤销用户或组的角色
   name: Authorization-Assignments
-- description: 策略管理 - 添加、移除 RBAC 策略规则
+- description: 策略管理 - 添加、移除 RBAC 权限
   name: Authorization-Policies
 - description: 资源管理 - 创建、查询、更新受保护资源
   name: Authorization-Resources

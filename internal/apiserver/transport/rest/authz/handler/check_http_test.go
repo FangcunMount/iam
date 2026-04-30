@@ -8,6 +8,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -54,7 +55,7 @@ func TestCheckHandlerHTTPBranches(t *testing.T) {
 		casbin := &casbinFake{}
 		handler := NewCheckHandler(casbin)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/check", `{"subject_type":"user","subject_id":"user-2","object":"scale:form:*","action":"read"}`, handler.Check, withTenantUser("tenant-a", "user-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/check", `{"subject_type":"user","subject_id":"user-2","object":"scale:form:*","action":"read","scope_type":"origin","scope_value":"1"}`, handler.Check, withTenantUser("tenant-a", "user-1"))
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, casbin.enforceCalls, 1)
@@ -62,6 +63,7 @@ func TestCheckHandlerHTTPBranches(t *testing.T) {
 		require.Equal(t, "tenant-a", casbin.enforceCalls[0].dom)
 		require.Equal(t, "scale:form:*", casbin.enforceCalls[0].obj)
 		require.Equal(t, "read", casbin.enforceCalls[0].act)
+		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, casbin.enforceCalls[0].scope)
 	})
 
 	t.Run("current user fallback is used when subject is omitted", func(t *testing.T) {

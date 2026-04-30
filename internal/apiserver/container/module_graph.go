@@ -3,7 +3,6 @@ package container
 import (
 	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
 type moduleGraph struct {
@@ -17,7 +16,7 @@ func (c *Container) moduleGraph() *moduleGraph {
 func (g *moduleGraph) userModuleDependencies() assembler.UserModuleDeps {
 	return assembler.UserModuleDeps{
 		DB:             g.container.mysqlDB,
-		Casbin:         g.casbinEnforcer(),
+		RoleNames:      g.roleNameReader(),
 		SessionManager: g.sessionManager(),
 	}
 }
@@ -59,7 +58,7 @@ func (g *moduleGraph) suggestModuleDependencies() assembler.SuggestModuleDeps {
 	}
 }
 
-func (g *moduleGraph) casbinEnforcer() authn.CasbinEnforcer {
+func (g *moduleGraph) roleNameReader() assembler.RoleNameReader {
 	if g == nil || g.container == nil || g.container.AuthzModule == nil {
 		return nil
 	}

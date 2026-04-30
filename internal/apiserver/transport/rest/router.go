@@ -80,7 +80,7 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 	}
 
 	if deps.authn.TokenService != nil {
-		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, deps.authz.Casbin)
+		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, deps.authz.RouteAuthorization)
 	}
 
 	if deps.authMiddleware != nil && deps.authMiddleware.SupportsRoleCheck() {

@@ -10,15 +10,17 @@ import (
 	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	authzAuthorizationApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
+	authzPolicyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
+	authzResourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
+	authzRoleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
+	authzRolebindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
 	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
 	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
 	appprofile "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
 	appprofilelink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	wechatappDomain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
@@ -50,17 +52,21 @@ type AuthnRuntimeCapabilities struct {
 }
 
 type AuthzApplicationCapabilities struct {
-	ResourceCommander   resourceDomain.Commander
-	ResourceQueryer     resourceDomain.Queryer
-	RoleCommander       roleDomain.Commander
-	RoleQueryer         roleDomain.Queryer
-	PolicyCommander     policyDomain.Commander
-	PolicyQueryer       policyDomain.Queryer
-	AssignmentCommander assignmentDomain.Commander
-	AssignmentQueryer   assignmentDomain.Queryer
-	Casbin              policyDomain.CasbinAdapter
-	RoleRepository      roleDomain.Repository
-	PolicyVersionRepo   policyDomain.Repository
+	ResourceCatalog             authzResourceApp.Catalog
+	ResourceDirectory           authzResourceApp.Directory
+	RoleCatalog                 authzRoleApp.Catalog
+	RoleDirectory               authzRoleApp.Directory
+	PermissionCommands          authzPolicyApp.PermissionCommands
+	PermissionReader            authzPolicyApp.PermissionReader
+	RoleBindingCommands         authzRolebindingApp.Commands
+	RoleBindingDirectory        authzRolebindingApp.Directory
+	RouteAuthorization          authn.RouteAuthorizationRuntime
+	AuthorizationChecker        *authzAuthorizationApp.Checker
+	AuthorizationSnapshotReader *authzAuthorizationApp.SnapshotReader
+}
+
+type RoleNameReader interface {
+	RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error)
 }
 
 type UserApplicationCapabilities struct {
@@ -73,7 +79,7 @@ type UserApplicationCapabilities struct {
 	ProfileLinkCommands  appprofilelink.Commands
 	ProfileLinkDirectory appprofilelink.Directory
 	MyProfileLinks       appprofilelink.MyProfileLinks
-	Casbin               authn.CasbinEnforcer
+	RoleNames            RoleNameReader
 }
 
 type IDPApplicationCapabilities struct {

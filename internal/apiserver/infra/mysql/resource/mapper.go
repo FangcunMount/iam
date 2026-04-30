@@ -3,6 +3,7 @@ package resource
 import (
 	"encoding/json"
 
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -23,6 +24,7 @@ func (m *Mapper) ToBO(po *ResourcePO) *resource.Resource {
 
 	// 解析 Actions JSON
 	actions, _ := m.parseActions(po.Actions)
+	scopeKinds, _ := m.parseScopeKinds(po.ScopeKinds)
 
 	r := &resource.Resource{
 		ID:          resource.NewResourceID(po.ID.Uint64()),
@@ -32,6 +34,7 @@ func (m *Mapper) ToBO(po *ResourcePO) *resource.Resource {
 		Domain:      po.Domain,
 		Type:        po.Type,
 		Actions:     actions,
+		ScopeKinds:  scopeKinds,
 		Description: po.Description,
 	}
 
@@ -46,6 +49,7 @@ func (m *Mapper) ToPO(bo *resource.Resource) *ResourcePO {
 
 	// 序列化 Actions 为 JSON
 	actionsJSON, _ := m.serializeActions(bo.Actions)
+	scopeKindsJSON, _ := m.serializeScopeKinds(bo.ScopeKinds)
 
 	po := &ResourcePO{
 		Key:         bo.Key,
@@ -54,6 +58,7 @@ func (m *Mapper) ToPO(bo *resource.Resource) *ResourcePO {
 		Domain:      bo.Domain,
 		Type:        bo.Type,
 		Actions:     actionsJSON,
+		ScopeKinds:  scopeKindsJSON,
 		Description: bo.Description,
 	}
 	id := meta.FromUint64(bo.ID.Uint64()) // 来自业务对象，必定有效
@@ -102,4 +107,32 @@ func (m *Mapper) parseActions(jsonStr string) ([]string, error) {
 		return []string{}, err
 	}
 	return actions, nil
+}
+
+func (m *Mapper) serializeScopeKinds(kinds []authzDomain.ScopeKind) (string, error) {
+	normalized := resource.NormalizeScopeKinds(kinds)
+	values := make([]string, 0, len(normalized))
+	for _, kind := range normalized {
+		values = append(values, string(kind))
+	}
+	data, err := json.Marshal(values)
+	if err != nil {
+		return `["all"]`, err
+	}
+	return string(data), nil
+}
+
+func (m *Mapper) parseScopeKinds(jsonStr string) ([]authzDomain.ScopeKind, error) {
+	if jsonStr == "" || jsonStr == "[]" {
+		return resource.NormalizeScopeKinds(nil), nil
+	}
+	var values []string
+	if err := json.Unmarshal([]byte(jsonStr), &values); err != nil {
+		return resource.NormalizeScopeKinds(nil), err
+	}
+	kinds := make([]authzDomain.ScopeKind, 0, len(values))
+	for _, value := range values {
+		kinds = append(kinds, authzDomain.ScopeKind(value))
+	}
+	return resource.NormalizeScopeKinds(kinds), nil
 }

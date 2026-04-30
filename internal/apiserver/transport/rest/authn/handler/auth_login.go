@@ -8,9 +8,12 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
 	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
+
+var _ *resp.TokenPair
 
 type loginPayloadAdapter func(json.RawMessage, login.SignInSelectionMode, string) (login.LoginRequest, error)
 

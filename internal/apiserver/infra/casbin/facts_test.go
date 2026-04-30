@@ -1,0 +1,45 @@
+package casbin
+
+import (
+	"testing"
+
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
+	"github.com/stretchr/testify/require"
+)
+
+func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
+	t.Parallel()
+
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	require.NoError(t, err)
+	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:user:*", "read")
+	require.NoError(t, err)
+	binding, err := authzDomain.NewRoleBinding(subject, "iam:admin", "tenant-a", "operator-1")
+	require.NoError(t, err)
+	request, err := authzDomain.NewAuthorizationRequest(subject, "tenant-a", "iam:user:*", "read")
+	require.NoError(t, err)
+
+	require.Equal(t, Request{
+		Sub:   "user:100",
+		Dom:   "tenant-a",
+		Obj:   "iam:user:*",
+		Act:   "read",
+		Scope: "all:*",
+	}, RequestFromAuthorizationRequest(request))
+
+	require.Equal(t, PolicyRule{
+		Sub:   "role:iam:admin",
+		Dom:   "tenant-a",
+		Obj:   "iam:user:*",
+		Act:   "read",
+		Scope: "all:*",
+	}, PolicyRuleFromPermission(permission))
+
+	require.Equal(t, GroupingRule{
+		Sub:  "user:100",
+		Role: "role:iam:admin",
+		Dom:  "tenant-a",
+	}, GroupingRuleFromRoleBinding(binding))
+
+	require.Equal(t, "iam:admin", RoleNameFromKey("role:iam:admin"))
+}

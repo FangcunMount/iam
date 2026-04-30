@@ -1,33 +1,33 @@
-package assignment
+package rolebinding
 
 import (
 	"context"
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/database/mysql"
 	"gorm.io/gorm"
 )
 
-// AssignmentRepository Assignment 仓储实现
-type AssignmentRepository struct {
-	mysql.BaseRepository[*AssignmentPO]
+// BindingRepository Binding 仓储实现
+type BindingRepository struct {
+	mysql.BaseRepository[*BindingPO]
 	mapper *Mapper
 	db     *gorm.DB
 }
 
-var _ domain.Repository = (*AssignmentRepository)(nil)
+var _ domain.Repository = (*BindingRepository)(nil)
 
-// NewAssignmentRepository 创建 Assignment 仓储
-func NewAssignmentRepository(db *gorm.DB) domain.Repository {
-	base := mysql.NewBaseRepository[*AssignmentPO](db)
+// NewBindingRepository 创建 Binding 仓储
+func NewBindingRepository(db *gorm.DB) domain.Repository {
+	base := mysql.NewBaseRepository[*BindingPO](db)
 	base.SetErrorTranslator(mysql.NewDuplicateToTranslator(func(e error) error {
-		return perrors.WithCode(code.ErrAssignmentAlreadyExists, "assignment already exists")
+		return perrors.WithCode(code.ErrAssignmentAlreadyExists, "binding already exists")
 	}))
 
-	return &AssignmentRepository{
+	return &BindingRepository{
 		BaseRepository: base,
 		mapper:         NewMapper(),
 		db:             db,
@@ -35,16 +35,16 @@ func NewAssignmentRepository(db *gorm.DB) domain.Repository {
 }
 
 // Create 创建新分配
-func (r *AssignmentRepository) Create(ctx context.Context, a *domain.Assignment) error {
+func (r *BindingRepository) Create(ctx context.Context, a *domain.Binding) error {
 	po := r.mapper.ToPO(a)
 
-	return r.BaseRepository.CreateAndSync(ctx, po, func(updated *AssignmentPO) {
-		a.ID = domain.AssignmentID(updated.ID)
+	return r.BaseRepository.CreateAndSync(ctx, po, func(updated *BindingPO) {
+		a.ID = domain.BindingID(updated.ID)
 	})
 }
 
 // FindByID 根据ID查找分配
-func (r *AssignmentRepository) FindByID(ctx context.Context, id domain.AssignmentID) (*domain.Assignment, error) {
+func (r *BindingRepository) FindByID(ctx context.Context, id domain.BindingID) (*domain.Binding, error) {
 	po, err := r.BaseRepository.FindByID(ctx, id.Uint64())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find domain: %w", err)
@@ -59,8 +59,8 @@ func (r *AssignmentRepository) FindByID(ctx context.Context, id domain.Assignmen
 }
 
 // ListBySubject 根据主体列出赋权
-func (r *AssignmentRepository) ListBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID, tenantID string) ([]*domain.Assignment, error) {
-	var pos []*AssignmentPO
+func (r *BindingRepository) ListBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID, tenantID string) ([]*domain.Binding, error) {
+	var pos []*BindingPO
 
 	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID).
 		Find(&pos).Error
@@ -74,8 +74,8 @@ func (r *AssignmentRepository) ListBySubject(ctx context.Context, subjectType do
 }
 
 // ListByRole 根据角色列出赋权
-func (r *AssignmentRepository) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*domain.Assignment, error) {
-	var pos []*AssignmentPO
+func (r *BindingRepository) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*domain.Binding, error) {
+	var pos []*BindingPO
 
 	err := r.WithContext(ctx).Where("tenant_id = ? AND role_id = ?", tenantID, roleID).
 		Find(&pos).Error
@@ -89,7 +89,7 @@ func (r *AssignmentRepository) ListByRole(ctx context.Context, roleID uint64, te
 }
 
 // Delete 删除分配
-func (r *AssignmentRepository) Delete(ctx context.Context, id domain.AssignmentID) error {
+func (r *BindingRepository) Delete(ctx context.Context, id domain.BindingID) error {
 	err := r.BaseRepository.DeleteByID(ctx, id.Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to delete domain: %w", err)
@@ -99,10 +99,10 @@ func (r *AssignmentRepository) Delete(ctx context.Context, id domain.AssignmentI
 }
 
 // DeleteBySubjectAndRole 删除指定主体和角色的分配
-func (r *AssignmentRepository) DeleteBySubjectAndRole(ctx context.Context, subjectType domain.SubjectType, subjectID string, roleID uint64, tenantID string) error {
+func (r *BindingRepository) DeleteBySubjectAndRole(ctx context.Context, subjectType domain.SubjectType, subjectID string, roleID uint64, tenantID string) error {
 	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ? AND role_id = ?",
 		tenantID, string(subjectType), subjectID, roleID).
-		Delete(&AssignmentPO{}).Error
+		Delete(&BindingPO{}).Error
 	if err != nil {
 		return fmt.Errorf("failed to delete domain: %w", err)
 	}

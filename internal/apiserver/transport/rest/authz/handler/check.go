@@ -1,25 +1,31 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/FangcunMount/component-base/pkg/errors"
-	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	authzapp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 
+type authorizationChecker interface {
+	Check(ctx context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error)
+}
+
 // CheckHandler PDP（策略判定）HTTP 入口。
 type CheckHandler struct {
-	casbin policyDomain.CasbinAdapter
+	checker authorizationChecker
 }
 
 // NewCheckHandler 创建判定处理器。
-func NewCheckHandler(casbin policyDomain.CasbinAdapter) *CheckHandler {
-	return &CheckHandler{casbin: casbin}
+func NewCheckHandler(checker authorizationChecker) *CheckHandler {
+	return &CheckHandler{checker: checker}
 }
 
-// Check 对单条 (subject, domain, object, action) 执行 Casbin Enforce。
+// Check 对单条 (subject, domain, object, action) 执行 授权判定。
 // @Summary 策略判定（Enforce）
 // @Tags Authorization-Policies
 // @Accept json
@@ -28,7 +34,7 @@ func NewCheckHandler(casbin policyDomain.CasbinAdapter) *CheckHandler {
 // @Success 200 {object} dto.Response{data=dto.CheckResponse}
 // @Router /authz/check [post]
 func (h *CheckHandler) Check(c *gin.Context) {
-	if h.casbin == nil {
+	if h.checker == nil {
 		handleError(c, errors.WithCode(code.ErrInternalServerError, "authorization engine not available"))
 		return
 	}
@@ -49,26 +55,40 @@ func (h *CheckHandler) Check(c *gin.Context) {
 		handleError(c, err)
 		return
 	}
-	allowed, err := h.casbin.Enforce(c.Request.Context(), sub, dom, req.Object, req.Action)
+	scope, ok := parseScope(c, req.ScopeType, req.ScopeValue)
+	if !ok {
+		return
+	}
+	decision, err := h.checker.Check(c.Request.Context(), authzapp.CheckCommand{
+		Subject:     sub,
+		TenantID:    dom,
+		ResourceKey: req.Object,
+		Action:      req.Action,
+		ObjectScope: scope,
+	})
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	success(c, dto.CheckResponse{Allowed: allowed})
+	success(c, dto.CheckResponse{Allowed: decision.Allowed})
 }
 
-func resolveSubject(c *gin.Context, req dto.CheckRequest) (string, bool) {
+func resolveSubject(c *gin.Context, req dto.CheckRequest) (authzDomain.Subject, bool) {
 	if req.SubjectID != "" && req.SubjectType != "" {
-		st := assignmentDomain.SubjectType(req.SubjectType)
-		if st == "" {
-			return "", false
+		subject, err := authzDomain.NewSubject(authzDomain.SubjectType(req.SubjectType), req.SubjectID)
+		if err != nil {
+			return authzDomain.Subject{}, false
 		}
-		return st.String() + ":" + req.SubjectID, true
+		return subject, true
 	}
 	uid, err := getUserID(c)
 	if err != nil || uid == "" {
-		return "", false
+		return authzDomain.Subject{}, false
 	}
-	return "user:" + uid, true
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, uid)
+	if err != nil {
+		return authzDomain.Subject{}, false
+	}
+	return subject, true
 }

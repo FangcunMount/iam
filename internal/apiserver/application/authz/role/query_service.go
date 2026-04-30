@@ -41,14 +41,14 @@ func (s *RoleQueryService) GetRoleByName(
 // ListRoles 列出角色（支持分页和租户过滤）
 func (s *RoleQueryService) ListRoles(
 	ctx context.Context,
-	query roleDomain.ListRolesQuery,
-) (*roleDomain.ListRolesResult, error) {
+	query ListRolesQuery,
+) (*ListRolesResult, error) {
 	roles, total, err := s.roleRepo.List(ctx, query.TenantID, query.Offset, query.Limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return &roleDomain.ListRolesResult{
+	return &ListRolesResult{
 		Roles: roles,
 		Total: total,
 	}, nil

@@ -29,6 +29,8 @@ type CheckRequest struct {
 	Domain        string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	Object        string `protobuf:"bytes,3,opt,name=object,proto3" json:"object,omitempty"`
 	Action        string `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
+	ScopeType     string `protobuf:"bytes,5,opt,name=scope_type,json=scopeType,proto3" json:"scope_type,omitempty"`
+	ScopeValue    string `protobuf:"bytes,6,opt,name=scope_value,json=scopeValue,proto3" json:"scope_value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -91,6 +93,20 @@ func (x *CheckRequest) GetAction() string {
 	return ""
 }
 
+func (x *CheckRequest) GetScopeType() string {
+	if x != nil {
+		return x.ScopeType
+	}
+	return ""
+}
+
+func (x *CheckRequest) GetScopeValue() string {
+	if x != nil {
+		return x.ScopeValue
+	}
+	return ""
+}
+
 type CheckResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
@@ -139,6 +155,8 @@ type PermissionEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Resource      string                 `protobuf:"bytes,1,opt,name=resource,proto3" json:"resource,omitempty"`
 	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	ScopeType     string                 `protobuf:"bytes,3,opt,name=scope_type,json=scopeType,proto3" json:"scope_type,omitempty"`
+	ScopeValue    string                 `protobuf:"bytes,4,opt,name=scope_value,json=scopeValue,proto3" json:"scope_value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -183,6 +201,20 @@ func (x *PermissionEntry) GetResource() string {
 func (x *PermissionEntry) GetAction() string {
 	if x != nil {
 		return x.Action
+	}
+	return ""
+}
+
+func (x *PermissionEntry) GetScopeType() string {
+	if x != nil {
+		return x.ScopeType
+	}
+	return ""
+}
+
+func (x *PermissionEntry) GetScopeValue() string {
+	if x != nil {
+		return x.ScopeValue
 	}
 	return ""
 }
@@ -511,17 +543,25 @@ var File_iam_authz_v1_authz_proto protoreflect.FileDescriptor
 
 const file_iam_authz_v1_authz_proto_rawDesc = "" +
 	"\n" +
-	"\x18iam/authz/v1/authz.proto\x12\fiam.authz.v1\"p\n" +
+	"\x18iam/authz/v1/authz.proto\x12\fiam.authz.v1\"\xb0\x01\n" +
 	"\fCheckRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x16\n" +
 	"\x06object\x18\x03 \x01(\tR\x06object\x12\x16\n" +
-	"\x06action\x18\x04 \x01(\tR\x06action\")\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12\x1d\n" +
+	"\n" +
+	"scope_type\x18\x05 \x01(\tR\tscopeType\x12\x1f\n" +
+	"\vscope_value\x18\x06 \x01(\tR\n" +
+	"scopeValue\")\n" +
 	"\rCheckResponse\x12\x18\n" +
-	"\aallowed\x18\x01 \x01(\bR\aallowed\"E\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed\"\x85\x01\n" +
 	"\x0fPermissionEntry\x12\x1a\n" +
 	"\bresource\x18\x01 \x01(\tR\bresource\x12\x16\n" +
-	"\x06action\x18\x02 \x01(\tR\x06action\"n\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x1d\n" +
+	"\n" +
+	"scope_type\x18\x03 \x01(\tR\tscopeType\x12\x1f\n" +
+	"\vscope_value\x18\x04 \x01(\tR\n" +
+	"scopeValue\"n\n" +
 	"\x1fGetAuthorizationSnapshotRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x19\n" +

@@ -3,7 +3,7 @@ package handler
 
 import (
 	"github.com/FangcunMount/component-base/pkg/errors"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	policyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -12,28 +12,28 @@ import (
 
 // PolicyHandler 策略处理器
 type PolicyHandler struct {
-	commander policyDomain.Commander
-	queryer   policyDomain.Queryer
+	commander policyApp.PermissionCommands
+	queryer   policyApp.PermissionReader
 }
 
 // NewPolicyHandler 创建策略处理器
-func NewPolicyHandler(commander policyDomain.Commander, queryer policyDomain.Queryer) *PolicyHandler {
+func NewPolicyHandler(commander policyApp.PermissionCommands, queryer policyApp.PermissionReader) *PolicyHandler {
 	return &PolicyHandler{
 		commander: commander,
 		queryer:   queryer,
 	}
 }
 
-// AddPolicyRule 添加策略规则
-// @Summary 添加策略规则
+// AddPermission 添加权限
+// @Summary 添加权限
 // @Tags Authorization-Policies
 // @Accept json
 // @Produce json
-// @Param request body dto.AddPolicyRequest true "添加策略请求"
+// @Param request body dto.AddPermissionRequest true "添加策略请求"
 // @Success 200 {object} dto.Response
 // @Router /authz/policies [post]
-func (h *PolicyHandler) AddPolicyRule(c *gin.Context) {
-	var req dto.AddPolicyRequest
+func (h *PolicyHandler) AddPermission(c *gin.Context) {
+	var req dto.AddPermissionRequest
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -60,17 +60,22 @@ func (h *PolicyHandler) AddPolicyRule(c *gin.Context) {
 		handleError(c, errors.WithCode(code.ErrInvalidArgument, "资源ID不能为空"))
 		return
 	}
+	scope, ok := parseScope(c, req.ScopeType, req.ScopeValue)
+	if !ok {
+		return
+	}
 
-	cmd := policyDomain.AddPolicyRuleCommand{
+	cmd := policyApp.AddPermissionCommand{
 		RoleID:     roleID.Uint64(),
 		ResourceID: resource.NewResourceID(resourceID.Uint64()),
 		Action:     req.Action,
+		Scope:      scope,
 		TenantID:   tenantID,
 		ChangedBy:  changedBy,
 		Reason:     req.Reason,
 	}
 
-	err = h.commander.AddPolicyRule(c.Request.Context(), cmd)
+	err = h.commander.AddPermission(c.Request.Context(), cmd)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -79,16 +84,16 @@ func (h *PolicyHandler) AddPolicyRule(c *gin.Context) {
 	successNoContent(c)
 }
 
-// RemovePolicyRule 移除策略规则
-// @Summary 移除策略规则
+// RemovePermission 移除权限
+// @Summary 移除权限
 // @Tags Authorization-Policies
 // @Accept json
 // @Produce json
-// @Param request body dto.RemovePolicyRequest true "移除策略请求"
+// @Param request body dto.RemovePermissionRequest true "移除策略请求"
 // @Success 200 {object} dto.Response
 // @Router /authz/policies [delete]
-func (h *PolicyHandler) RemovePolicyRule(c *gin.Context) {
-	var req dto.RemovePolicyRequest
+func (h *PolicyHandler) RemovePermission(c *gin.Context) {
+	var req dto.RemovePermissionRequest
 	if !bindJSON(c, &req) {
 		return
 	}
@@ -115,17 +120,22 @@ func (h *PolicyHandler) RemovePolicyRule(c *gin.Context) {
 		handleError(c, errors.WithCode(code.ErrInvalidArgument, "资源ID不能为空"))
 		return
 	}
+	scope, ok := parseScope(c, req.ScopeType, req.ScopeValue)
+	if !ok {
+		return
+	}
 
-	cmd := policyDomain.RemovePolicyRuleCommand{
+	cmd := policyApp.RemovePermissionCommand{
 		RoleID:     roleID.Uint64(),
 		ResourceID: resource.NewResourceID(resourceID.Uint64()),
 		Action:     req.Action,
+		Scope:      scope,
 		TenantID:   tenantID,
 		ChangedBy:  changedBy,
 		Reason:     req.Reason,
 	}
 
-	err = h.commander.RemovePolicyRule(c.Request.Context(), cmd)
+	err = h.commander.RemovePermission(c.Request.Context(), cmd)
 	if err != nil {
 		handleError(c, err)
 		return
@@ -139,7 +149,7 @@ func (h *PolicyHandler) RemovePolicyRule(c *gin.Context) {
 // @Tags Authorization-Policies
 // @Produce json
 // @Param id path string true "角色ID"
-// @Success 200 {object} dto.Response{data=[]dto.PolicyRuleResponse}
+// @Success 200 {object} dto.Response{data=[]dto.PermissionResponse}
 // @Router /authz/roles/{id}/policies [get]
 func (h *PolicyHandler) GetPoliciesByRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
@@ -153,18 +163,18 @@ func (h *PolicyHandler) GetPoliciesByRole(c *gin.Context) {
 		return
 	}
 
-	query := policyDomain.GetPoliciesByRoleQuery{
+	query := policyApp.RolePermissionsQuery{
 		RoleID:   roleID.Uint64(),
 		TenantID: tenantID,
 	}
 
-	rules, err := h.queryer.GetPoliciesByRole(c.Request.Context(), query)
+	rules, err := h.queryer.GetPermissionsForRole(c.Request.Context(), query)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	success(c, toPolicyRuleResponses(rules))
+	success(c, toPermissionResponses(rules))
 }
 
 // GetCurrentVersion 获取当前策略版本
@@ -180,7 +190,7 @@ func (h *PolicyHandler) GetCurrentVersion(c *gin.Context) {
 		return
 	}
 
-	query := policyDomain.GetCurrentVersionQuery{
+	query := policyApp.CurrentVersionQuery{
 		TenantID: tenantID,
 	}
 

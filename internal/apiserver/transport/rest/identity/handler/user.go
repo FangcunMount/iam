@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
 	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	requestdto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -19,13 +21,17 @@ import (
 
 var _ = core.ErrResponse{}
 
+type RoleNameReader interface {
+	RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error)
+}
+
 // UserHandler 基础用户 REST 处理器
 type UserHandler struct {
 	*BaseHandler
 	userApp    appuser.Creator
 	profileApp appuser.Editor
 	userQuery  appuser.Directory
-	casbin     authn.CasbinEnforcer
+	roles      RoleNameReader
 }
 
 // NewUserHandler 创建用户处理器。casbin 可为 nil，此时 /identity/me 不返回 roles。
@@ -33,14 +39,14 @@ func NewUserHandler(
 	userApp appuser.Creator,
 	profileApp appuser.Editor,
 	userQuery appuser.Directory,
-	casbin authn.CasbinEnforcer,
+	roles RoleNameReader,
 ) *UserHandler {
 	return &UserHandler{
 		BaseHandler: NewBaseHandler(),
 		userApp:     userApp,
 		profileApp:  profileApp,
 		userQuery:   userQuery,
-		casbin:      casbin,
+		roles:       roles,
 	}
 }
 
@@ -154,10 +160,13 @@ func extractContactValues(contacts []requestdto.UserContactUpsert) (phone string
 }
 
 func (h *UserHandler) resolveRoles(c *gin.Context, userID string) []string {
-	if h.casbin == nil || strings.TrimSpace(userID) == "" {
+	if h.roles == nil || strings.TrimSpace(userID) == "" {
 		return nil
 	}
-	sub := "user:" + userID
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, userID)
+	if err != nil {
+		return nil
+	}
 	domains := []string{authn.TenantIDFromGin(c)}
 	if domains[0] != tenant.PlatformID {
 		domains = append(domains, tenant.PlatformID)
@@ -166,9 +175,9 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID string) []string {
 	seen := make(map[string]struct{}, 4)
 	out := make([]string, 0, 4)
 	for idx, dom := range domains {
-		raw, err := h.casbin.GetRolesForUser(c.Request.Context(), sub, dom)
+		raw, err := h.roles.RoleNamesForSubject(c.Request.Context(), subject, dom)
 		if err != nil {
-			log.Debugw("me: GetRolesForUser failed", "sub", sub, "domain", dom, "error", err)
+			log.Debugw("me: role name lookup failed", "subject_type", string(subject.Type), "subject_id", subject.ID, "domain", dom, "error", err)
 			if idx == 0 {
 				return nil
 			}
@@ -176,7 +185,7 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID string) []string {
 		}
 		if len(raw) == 0 {
 			if idx == 0 {
-				log.Debugw("me: no casbin roles", "sub", sub, "domain", dom)
+				log.Debugw("me: no roles", "subject_type", string(subject.Type), "subject_id", subject.ID, "domain", dom)
 			}
 			continue
 		}

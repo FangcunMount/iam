@@ -62,7 +62,11 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	}
 	if c.AuthzModule != nil {
 		caps := c.AuthzModule.ApplicationCapabilities()
-		service := authzgrpc.NewService(caps.Casbin, caps.RoleRepository, caps.PolicyVersionRepo, caps.AssignmentCommander)
+		service := authzgrpc.NewService(
+			caps.AuthorizationChecker,
+			caps.AuthorizationSnapshotReader,
+			caps.RoleBindingCommands,
+		)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "authz",
 			Description: "AuthorizationService",

@@ -9,7 +9,7 @@ const (
 	// ContextKeyAccountID 当前认证账户的 ID
 	ContextKeyAccountID = "account_id"
 
-	// ContextKeyTenantID 当前认证租户的 ID（Casbin domain）
+	// ContextKeyTenantID 当前认证租户的 ID（tenant domain）
 	ContextKeyTenantID = "tenant_id"
 
 	// ContextKeyTokenID 当前使用的 Token ID

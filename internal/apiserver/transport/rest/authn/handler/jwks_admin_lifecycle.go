@@ -6,7 +6,10 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/pkg/core"
 )
+
+var _ = core.ErrResponse{}
 
 // RetireKey 退役密钥（管理员接口）
 // @Summary 退役密钥

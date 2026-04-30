@@ -8,6 +8,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	resourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
@@ -25,7 +26,7 @@ func TestResourceHandlerCreateResourceHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		commander := &resourceCommanderFake{
-			createFn: func(context.Context, resourceDomain.CreateResourceCommand) (*resourceDomain.Resource, error) {
+			createFn: func(context.Context, resourceApp.CreateResourceCommand) (*resourceDomain.Resource, error) {
 				return nil, perrors.WithCode(code.ErrResourceAlreadyExists, "exists")
 			},
 		}
@@ -45,7 +46,7 @@ func TestResourceHandlerCreateResourceHTTPBranches(t *testing.T) {
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, commander.createCalls, 1)
-		require.Equal(t, resourceDomain.CreateResourceCommand{
+		require.Equal(t, resourceApp.CreateResourceCommand{
 			Key:         "scale:form:*",
 			DisplayName: "Form",
 			AppName:     "scale",
@@ -80,7 +81,7 @@ func TestResourceHandlerUpdateResourceHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		commander := &resourceCommanderFake{
-			updateFn: func(context.Context, resourceDomain.UpdateResourceCommand) (*resourceDomain.Resource, error) {
+			updateFn: func(context.Context, resourceApp.UpdateResourceCommand) (*resourceDomain.Resource, error) {
 				return nil, perrors.WithCode(code.ErrResourceNotFound, "missing")
 			},
 		}
@@ -184,7 +185,7 @@ func TestResourceHandlerListResourcesHTTPBranches(t *testing.T) {
 		require.Equal(t, 0, envelope.Offset)
 		require.Equal(t, 0, envelope.Limit)
 		require.Len(t, queryer.listCalls, 1)
-		require.Equal(t, resourceDomain.ListResourcesQuery{
+		require.Equal(t, resourceApp.ListResourcesQuery{
 			AppName: "scale",
 			Domain:  "form",
 			Type:    "*",
@@ -195,7 +196,7 @@ func TestResourceHandlerListResourcesHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		queryer := &resourceQueryerFake{
-			listFn: func(context.Context, resourceDomain.ListResourcesQuery) (*resourceDomain.ListResourcesResult, error) {
+			listFn: func(context.Context, resourceApp.ListResourcesQuery) (*resourceApp.ListResourcesResult, error) {
 				return nil, perrors.WithCode(code.ErrInternalServerError, "list failed")
 			},
 		}

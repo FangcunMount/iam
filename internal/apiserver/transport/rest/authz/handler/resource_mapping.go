@@ -1,6 +1,7 @@
 package handler
 
 import (
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
@@ -16,6 +17,16 @@ func (h *ResourceHandler) toResourceResponse(r *resourceDomain.Resource) dto.Res
 		Domain:      r.Domain,
 		Type:        r.Type,
 		Actions:     r.Actions,
+		ScopeKinds:  fromDomainScopeKinds(r.ScopeKinds),
 		Description: r.Description,
 	}
+}
+
+func fromDomainScopeKinds(kinds []authzDomain.ScopeKind) []string {
+	normalized := resourceDomain.NormalizeScopeKinds(kinds)
+	values := make([]string, 0, len(normalized))
+	for _, kind := range normalized {
+		values = append(values, string(kind))
+	}
+	return values
 }

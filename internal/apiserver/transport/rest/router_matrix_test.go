@@ -87,12 +87,12 @@ func routeMatrixDeps() Deps {
 		TokenService:        tokenServiceStub{},
 	}
 	deps.Authz = AuthzDeps{
-		RoleHandler:       authzhandler.NewRoleHandler(nil, nil),
-		AssignmentHandler: authzhandler.NewAssignmentHandler(nil, nil),
-		PolicyHandler:     authzhandler.NewPolicyHandler(nil, nil),
-		ResourceHandler:   authzhandler.NewResourceHandler(nil, nil),
-		CheckHandler:      authzhandler.NewCheckHandler(nil),
-		Casbin:            casbinStub{},
+		RoleHandler:        authzhandler.NewRoleHandler(nil, nil),
+		RoleBindingHandler: authzhandler.NewRoleBindingHandler(nil, nil),
+		PolicyHandler:      authzhandler.NewPolicyHandler(nil, nil),
+		ResourceHandler:    authzhandler.NewResourceHandler(nil, nil),
+		CheckHandler:       authzhandler.NewCheckHandler(nil),
+		RouteAuthorization: casbinStub{},
 	}
 	deps.IDP = IDPDeps{
 		WechatAppHandler: idphandler.NewWechatAppHandler(nil, nil, nil),

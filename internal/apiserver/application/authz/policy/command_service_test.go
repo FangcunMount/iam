@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
@@ -16,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t *testing.T) {
+func TestPolicyCommandServiceAddPermission_CommitsFactsWhenRuntimeReloadFails(t *testing.T) {
 	roleRepo := &policyRoleRepoStub{
 		role: &roleDomain.Role{
 			ID:       meta.FromUint64(10),
@@ -32,23 +33,23 @@ func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t 
 		},
 	}
 	versionRepo := &policyVersionRepoForCommandStub{}
-	ruleStore := &policyRuleStoreStub{}
+	ruleStore := &policyAuthorizationFactStoreStub{}
 	runtime := &policyCasbinAdapterStub{loadErr: errors.New("reload failed")}
 	stager := &policyEventStagerStub{}
 
 	service := NewPolicyCommandService(
 		policyDomain.NewValidator(roleRepo, resourceRepo),
 		&policyUowStub{tx: authzuow.TxRepositories{
-			Roles:          roleRepo,
-			Resources:      resourceRepo,
-			PolicyVersions: versionRepo,
-			RuleStore:      ruleStore,
-			Events:         stager,
+			Roles:              roleRepo,
+			Resources:          resourceRepo,
+			PolicyVersions:     versionRepo,
+			AuthorizationFacts: ruleStore,
+			Events:             stager,
 		}},
 		runtime,
 	)
 
-	err := service.AddPolicyRule(context.Background(), policyDomain.AddPolicyRuleCommand{
+	err := service.AddPermission(context.Background(), AddPermissionCommand{
 		RoleID:     10,
 		ResourceID: resourceDomain.NewResourceID(20),
 		Action:     "read",
@@ -58,14 +59,101 @@ func TestPolicyCommandServiceAddPolicyRule_CommitsFactsWhenRuntimeReloadFails(t 
 	})
 	require.NoError(t, err)
 	require.Len(t, ruleStore.policyAdds, 1)
-	assert.Equal(t, "role:iam:admin", ruleStore.policyAdds[0].Sub)
-	assert.Equal(t, "tenant-a", ruleStore.policyAdds[0].Dom)
-	assert.Equal(t, "iam:user:*", ruleStore.policyAdds[0].Obj)
-	assert.Equal(t, "read", ruleStore.policyAdds[0].Act)
+	assert.Equal(t, "iam:admin", ruleStore.policyAdds[0].RoleName)
+	assert.Equal(t, "tenant-a", ruleStore.policyAdds[0].TenantID)
+	assert.Equal(t, "iam:user:*", ruleStore.policyAdds[0].ResourceKey)
+	assert.Equal(t, "read", ruleStore.policyAdds[0].Action)
+	assert.Equal(t, authzDomain.DefaultScope(), ruleStore.policyAdds[0].Scope)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
 	require.Len(t, stager.events, 1)
 	assert.Equal(t, eventing.AuthzVersionChanged, stager.events[0].EventType())
 	assert.Equal(t, 3, runtime.loadCalls)
+}
+
+func TestPolicyCommandServiceAddPermission_ValidatesResourceScopeKind(t *testing.T) {
+	roleRepo := &policyRoleRepoStub{
+		role: &roleDomain.Role{
+			ID:       meta.FromUint64(10),
+			Name:     "iam:admin",
+			TenantID: "tenant-a",
+		},
+	}
+	resourceRepo := &resourceRepoStub{
+		resource: &resourceDomain.Resource{
+			ID:         resourceDomain.NewResourceID(20),
+			Key:        "iam:user:*",
+			Actions:    []string{"read"},
+			ScopeKinds: []authzDomain.ScopeKind{authzDomain.ScopeKindAll, authzDomain.ScopeKindOrigin},
+		},
+	}
+	ruleStore := &policyAuthorizationFactStoreStub{}
+	service := NewPolicyCommandService(
+		policyDomain.NewValidator(roleRepo, resourceRepo),
+		&policyUowStub{tx: authzuow.TxRepositories{
+			Roles:              roleRepo,
+			Resources:          resourceRepo,
+			PolicyVersions:     &policyVersionRepoForCommandStub{},
+			AuthorizationFacts: ruleStore,
+			Events:             &policyEventStagerStub{},
+		}},
+		&policyCasbinAdapterStub{},
+	)
+	scope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
+	require.NoError(t, err)
+
+	err = service.AddPermission(context.Background(), AddPermissionCommand{
+		RoleID:     10,
+		ResourceID: resourceDomain.NewResourceID(20),
+		Action:     "read",
+		Scope:      scope,
+		TenantID:   "tenant-a",
+		ChangedBy:  "1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, ruleStore.policyAdds, 1)
+	assert.Equal(t, scope, ruleStore.policyAdds[0].Scope)
+}
+
+func TestPolicyCommandServiceAddPermission_RejectsUnsupportedScopeKind(t *testing.T) {
+	roleRepo := &policyRoleRepoStub{
+		role: &roleDomain.Role{
+			ID:       meta.FromUint64(10),
+			Name:     "iam:admin",
+			TenantID: "tenant-a",
+		},
+	}
+	resourceRepo := &resourceRepoStub{
+		resource: &resourceDomain.Resource{
+			ID:      resourceDomain.NewResourceID(20),
+			Key:     "iam:user:*",
+			Actions: []string{"read"},
+		},
+	}
+	service := NewPolicyCommandService(
+		policyDomain.NewValidator(roleRepo, resourceRepo),
+		&policyUowStub{tx: authzuow.TxRepositories{
+			Roles:              roleRepo,
+			Resources:          resourceRepo,
+			PolicyVersions:     &policyVersionRepoForCommandStub{},
+			AuthorizationFacts: &policyAuthorizationFactStoreStub{},
+			Events:             &policyEventStagerStub{},
+		}},
+		&policyCasbinAdapterStub{},
+	)
+	scope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
+	require.NoError(t, err)
+
+	err = service.AddPermission(context.Background(), AddPermissionCommand{
+		RoleID:     10,
+		ResourceID: resourceDomain.NewResourceID(20),
+		Action:     "read",
+		Scope:      scope,
+		TenantID:   "tenant-a",
+		ChangedBy:  "1",
+	})
+
+	require.Error(t, err)
 }
 
 type policyUowStub struct {
@@ -115,7 +203,7 @@ func (r *resourceRepoStub) FindByID(context.Context, resourceDomain.ResourceID) 
 func (r *resourceRepoStub) FindByKey(context.Context, string) (*resourceDomain.Resource, error) {
 	return r.resource, nil
 }
-func (r *resourceRepoStub) List(context.Context, resourceDomain.ListResourcesQuery) ([]*resourceDomain.Resource, int64, error) {
+func (r *resourceRepoStub) List(context.Context, resourceDomain.ResourceFilter) ([]*resourceDomain.Resource, int64, error) {
 	return nil, 0, nil
 }
 func (r *resourceRepoStub) ValidateAction(context.Context, string, string) (bool, error) {
@@ -147,21 +235,21 @@ func (r *policyVersionRepoForCommandStub) GetCurrent(_ context.Context, tenantID
 	return &version, nil
 }
 
-type policyRuleStoreStub struct {
-	policyAdds []policyDomain.PolicyRule
+type policyAuthorizationFactStoreStub struct {
+	policyAdds []authzDomain.Permission
 }
 
-func (r *policyRuleStoreStub) AddPolicy(_ context.Context, rules ...policyDomain.PolicyRule) error {
-	r.policyAdds = append(r.policyAdds, rules...)
+func (r *policyAuthorizationFactStoreStub) AddPermission(_ context.Context, permission authzDomain.Permission) error {
+	r.policyAdds = append(r.policyAdds, permission)
 	return nil
 }
-func (r *policyRuleStoreStub) RemovePolicy(context.Context, ...policyDomain.PolicyRule) error {
+func (r *policyAuthorizationFactStoreStub) RemovePermission(context.Context, authzDomain.Permission) error {
 	return nil
 }
-func (r *policyRuleStoreStub) AddGroupingPolicy(context.Context, ...policyDomain.GroupingRule) error {
+func (r *policyAuthorizationFactStoreStub) AddRoleBinding(context.Context, authzDomain.RoleBinding) error {
 	return nil
 }
-func (r *policyRuleStoreStub) RemoveGroupingPolicy(context.Context, ...policyDomain.GroupingRule) error {
+func (r *policyAuthorizationFactStoreStub) RemoveRoleBinding(context.Context, authzDomain.RoleBinding) error {
 	return nil
 }
 
@@ -170,38 +258,8 @@ type policyCasbinAdapterStub struct {
 	loadCalls int
 }
 
-func (s *policyCasbinAdapterStub) AddPolicy(context.Context, ...policyDomain.PolicyRule) error {
-	return nil
-}
-func (s *policyCasbinAdapterStub) RemovePolicy(context.Context, ...policyDomain.PolicyRule) error {
-	return nil
-}
-func (s *policyCasbinAdapterStub) AddGroupingPolicy(context.Context, ...policyDomain.GroupingRule) error {
-	return nil
-}
-func (s *policyCasbinAdapterStub) RemoveGroupingPolicy(context.Context, ...policyDomain.GroupingRule) error {
-	return nil
-}
-func (s *policyCasbinAdapterStub) GetPoliciesByRole(context.Context, string, string) ([]policyDomain.PolicyRule, error) {
-	return nil, nil
-}
-func (s *policyCasbinAdapterStub) GetGroupingsBySubject(context.Context, string, string) ([]policyDomain.GroupingRule, error) {
-	return nil, nil
-}
 func (s *policyCasbinAdapterStub) LoadPolicy(context.Context) error {
 	s.loadCalls++
 	return s.loadErr
-}
-func (s *policyCasbinAdapterStub) Enforce(context.Context, string, string, string, string) (bool, error) {
-	return false, nil
-}
-func (s *policyCasbinAdapterStub) GetRolesForUser(context.Context, string, string) ([]string, error) {
-	return nil, nil
-}
-func (s *policyCasbinAdapterStub) GetImplicitRolesForUser(context.Context, string, string) ([]string, error) {
-	return nil, nil
-}
-func (s *policyCasbinAdapterStub) GetImplicitPermissionsForUser(context.Context, string, string) ([]policyDomain.PolicyRule, error) {
-	return nil, nil
 }
 func (s *policyCasbinAdapterStub) InvalidateCache() {}

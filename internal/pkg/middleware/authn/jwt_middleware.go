@@ -15,32 +15,32 @@ import (
 	"github.com/FangcunMount/iam/pkg/tenant"
 )
 
-// CasbinEnforcer 可选注入的授权判定端口（由 authz Casbin 适配器实现）。
+// RouteAuthorizationRuntime 可选注入路由级授权运行时。
 // 为 nil 时 RequireRole / RequirePermission 返回服务不可用。
-type CasbinEnforcer interface {
-	Enforce(ctx context.Context, sub, dom, obj, act string) (bool, error)
-	GetRolesForUser(ctx context.Context, user, domain string) ([]string, error)
+type RouteAuthorizationRuntime interface {
+	AuthorizeRoute(ctx context.Context, sub, tenantID, resourceKey, action string) (bool, error)
+	DirectRoleKeys(ctx context.Context, sub, tenantID string) ([]string, error)
 }
 
 // JWTAuthMiddleware JWT 认证中间件
 // 使用新的认证模块来验证令牌
 type JWTAuthMiddleware struct {
 	tokenService token.TokenApplicationService
-	casbin       CasbinEnforcer
+	routeAuth    RouteAuthorizationRuntime
 }
 
 // NewJWTAuthMiddleware 创建 JWT 认证中间件。
-// casbin 可为 nil（仅 JWT 校验，不做角色/权限判定）。
-func NewJWTAuthMiddleware(tokenService token.TokenApplicationService, casbin CasbinEnforcer) *JWTAuthMiddleware {
+// routeAuth 可为 nil（仅 JWT 校验，不做角色/权限判定）。
+func NewJWTAuthMiddleware(tokenService token.TokenApplicationService, routeAuth RouteAuthorizationRuntime) *JWTAuthMiddleware {
 	return &JWTAuthMiddleware{
 		tokenService: tokenService,
-		casbin:       casbin,
+		routeAuth:    routeAuth,
 	}
 }
 
 // SupportsRoleCheck 返回当前中间件是否具备角色判定能力。
 func (m *JWTAuthMiddleware) SupportsRoleCheck() bool {
-	return m != nil && m.casbin != nil
+	return m != nil && m.routeAuth != nil
 }
 
 // AuthRequired 认证必需中间件
@@ -150,11 +150,11 @@ func (m *JWTAuthMiddleware) AuthOptional() gin.HandlerFunc {
 	}
 }
 
-// RequireRole 要求用户拥有任一角色名（与 Casbin `role:<name>` 对齐，入参传 name 即可）。
+// RequireRole 要求用户拥有任一角色名（与 route role key 对齐，入参传 name 即可）。
 // 必须在 AuthRequired 之后使用。
 func (m *JWTAuthMiddleware) RequireRole(roleNames ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if m.casbin == nil {
+		if m.routeAuth == nil {
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
 			c.Abort()
 			return
@@ -173,9 +173,9 @@ func (m *JWTAuthMiddleware) RequireRole(roleNames ...string) gin.HandlerFunc {
 		}
 		sub := "user:" + uid
 		dom := TenantIDFromGin(c)
-		roles, err := m.casbin.GetRolesForUser(c.Request.Context(), sub, dom)
+		roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
 		if err != nil {
-			log.Errorw("casbin GetRolesForUser failed", "error", err, "sub", sub, "dom", dom)
+			log.Errorw("route authorization role lookup failed", "error", err, "sub", sub, "dom", dom)
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
 			c.Abort()
 			return
@@ -202,7 +202,7 @@ func (m *JWTAuthMiddleware) RequireRole(roleNames ...string) gin.HandlerFunc {
 // 必须在 AuthRequired 之后使用。
 func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if m.casbin == nil {
+		if m.routeAuth == nil {
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
 			c.Abort()
 			return
@@ -227,9 +227,9 @@ func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
 		}
 
 		for _, dom := range domains {
-			roles, err := m.casbin.GetRolesForUser(c.Request.Context(), sub, dom)
+			roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
 			if err != nil {
-				log.Errorw("casbin GetRolesForUser failed", "error", err, "sub", sub, "dom", dom)
+				log.Errorw("route authorization role lookup failed", "error", err, "sub", sub, "dom", dom)
 				core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
 				c.Abort()
 				return
@@ -247,11 +247,11 @@ func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
 	}
 }
 
-// RequirePermission 对资源键与动作执行 Casbin Enforce（与 PDP 一致）。
+// RequirePermission 对资源键与动作执行路由级授权判定。
 // 必须在 AuthRequired 之后使用。
 func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if m.casbin == nil {
+		if m.routeAuth == nil {
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
 			c.Abort()
 			return
@@ -270,9 +270,9 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 		}
 		sub := "user:" + uid
 		dom := TenantIDFromGin(c)
-		allowed, err := m.casbin.Enforce(c.Request.Context(), sub, dom, resourceObj, action)
+		allowed, err := m.routeAuth.AuthorizeRoute(c.Request.Context(), sub, dom, resourceObj, action)
 		if err != nil {
-			log.Errorw("casbin Enforce failed", "error", err, "sub", sub, "dom", dom)
+			log.Errorw("route authorization failed", "error", err, "sub", sub, "dom", dom)
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
 			c.Abort()
 			return
@@ -286,7 +286,7 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 	}
 }
 
-// TenantIDFromGin 从 gin 上下文解析租户域（Casbin domain），缺省为 tenant.DefaultID。
+// TenantIDFromGin 从 gin 上下文解析租户域（tenant domain），缺省为 tenant.DefaultID。
 func TenantIDFromGin(c *gin.Context) string {
 	tenantID, exists := c.Get(ContextKeyTenantID)
 	if !exists {

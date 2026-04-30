@@ -23,6 +23,8 @@ message CheckRequest {
   string domain = 2;
   string object = 3;
   string action = 4;
+  string scope_type = 5;
+  string scope_value = 6;
 }
 
 message CheckResponse {
@@ -32,6 +34,8 @@ message CheckResponse {
 message PermissionEntry {
   string resource = 1;
   string action = 2;
+  string scope_type = 3;
+  string scope_value = 4;
 }
 
 message GetAuthorizationSnapshotRequest {

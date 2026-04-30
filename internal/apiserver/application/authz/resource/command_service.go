@@ -6,26 +6,30 @@ import (
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 )
 
-type ResourceCommandService struct {
+// ResourceCatalog manages protected resource definitions.
+type ResourceCatalog struct {
 	resourceValidator resourceDomain.Validator
 	resourceRepo      resourceDomain.Repository
 }
 
-func NewResourceCommandService(
+func NewResourceCatalog(
 	resourceValidator resourceDomain.Validator,
 	resourceRepo resourceDomain.Repository,
-) *ResourceCommandService {
-	return &ResourceCommandService{
+) *ResourceCatalog {
+	return &ResourceCatalog{
 		resourceValidator: resourceValidator,
 		resourceRepo:      resourceRepo,
 	}
 }
 
-func (s *ResourceCommandService) CreateResource(
+func (s *ResourceCatalog) CreateResource(
 	ctx context.Context,
-	cmd resourceDomain.CreateResourceCommand,
+	cmd CreateResourceCommand,
 ) (*resourceDomain.Resource, error) {
-	if err := s.resourceValidator.ValidateCreateCommand(cmd); err != nil {
+	if err := s.resourceValidator.ValidateCreateParameters(cmd.Key, cmd.DisplayName, cmd.AppName, cmd.Domain, cmd.Type, cmd.Actions); err != nil {
+		return nil, err
+	}
+	if err := s.resourceValidator.ValidateScopeKinds(cmd.ScopeKinds); err != nil {
 		return nil, err
 	}
 
@@ -36,6 +40,7 @@ func (s *ResourceCommandService) CreateResource(
 		resourceDomain.WithAppName(cmd.AppName),
 		resourceDomain.WithDomain(cmd.Domain),
 		resourceDomain.WithType(cmd.Type),
+		resourceDomain.WithScopeKinds(cmd.ScopeKinds),
 		resourceDomain.WithDescription(cmd.Description),
 	)
 
@@ -46,11 +51,16 @@ func (s *ResourceCommandService) CreateResource(
 	return &newResource, nil
 }
 
-func (s *ResourceCommandService) UpdateResource(
+func (s *ResourceCatalog) UpdateResource(
 	ctx context.Context,
-	cmd resourceDomain.UpdateResourceCommand,
+	cmd UpdateResourceCommand,
 ) (*resourceDomain.Resource, error) {
-	if err := s.resourceValidator.ValidateUpdateCommand(cmd); err != nil {
+	if cmd.Actions != nil {
+		if err := s.resourceValidator.ValidateUpdateParameters(cmd.Actions); err != nil {
+			return nil, err
+		}
+	}
+	if err := s.resourceValidator.ValidateScopeKinds(cmd.ScopeKinds); err != nil {
 		return nil, err
 	}
 
@@ -65,6 +75,9 @@ func (s *ResourceCommandService) UpdateResource(
 	if len(cmd.Actions) > 0 {
 		existingResource.Actions = cmd.Actions
 	}
+	if len(cmd.ScopeKinds) > 0 {
+		existingResource.ScopeKinds = resourceDomain.NormalizeScopeKinds(cmd.ScopeKinds)
+	}
 	if cmd.Description != nil {
 		existingResource.Description = *cmd.Description
 	}
@@ -76,7 +89,7 @@ func (s *ResourceCommandService) UpdateResource(
 	return existingResource, nil
 }
 
-func (s *ResourceCommandService) DeleteResource(
+func (s *ResourceCatalog) DeleteResource(
 	ctx context.Context,
 	resourceID resourceDomain.ResourceID,
 ) error {

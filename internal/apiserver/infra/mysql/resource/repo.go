@@ -139,7 +139,7 @@ func (r *ResourceRepository) ListByDomain(ctx context.Context, domain string, of
 }
 
 // List 列出资源（可按 app/domain/type 过滤）
-func (r *ResourceRepository) List(ctx context.Context, query domain.ListResourcesQuery) ([]*domain.Resource, int64, error) {
+func (r *ResourceRepository) List(ctx context.Context, query domain.ResourceFilter) ([]*domain.Resource, int64, error) {
 	var pos []*ResourcePO
 	var total int64
 

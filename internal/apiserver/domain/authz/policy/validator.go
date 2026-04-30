@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/internal/pkg/code"
@@ -73,8 +74,8 @@ func (v *validator) ValidateRemovePolicyParameters(
 	return v.ValidateAddPolicyParameters(roleID, resourceID, action, tenantID, changedBy)
 }
 
-// CheckRoleExistsAndTenant 检查角色是否存在并验证租户隔离
-// 返回角色Key用于后续操作
+// CheckRoleExistsAndTenant 检查角色是否存在并验证租户隔离。
+// 返回业务角色名用于构造授权权限模型。
 func (v *validator) CheckRoleExistsAndTenant(
 	ctx context.Context,
 	roleID uint64,
@@ -94,7 +95,7 @@ func (v *validator) CheckRoleExistsAndTenant(
 		return "", errors.WithCode(code.ErrPermissionDenied, "无权操作其他租户的角色")
 	}
 
-	return roleExists.Key(), nil
+	return roleExists.Name, nil
 }
 
 // CheckResourceExistsAndValidateAction 检查资源是否存在并验证 Action 合法性
@@ -103,6 +104,15 @@ func (v *validator) CheckResourceExistsAndValidateAction(
 	ctx context.Context,
 	resourceID resource.ResourceID,
 	action string,
+) (string, error) {
+	return v.CheckResourceExistsActionAndScope(ctx, resourceID, action, authzDomain.DefaultScope())
+}
+
+func (v *validator) CheckResourceExistsActionAndScope(
+	ctx context.Context,
+	resourceID resource.ResourceID,
+	action string,
+	scope authzDomain.Scope,
 ) (string, error) {
 	resourceExists, err := v.resourceRepo.FindByID(ctx, resourceID)
 	if err != nil {
@@ -119,6 +129,9 @@ func (v *validator) CheckResourceExistsAndValidateAction(
 	}
 	if !valid {
 		return "", errors.WithCode(code.ErrInvalidAction, "Action %s 不被资源 %s 支持", action, resourceExists.Key)
+	}
+	if !resourceExists.AllowsScopeKind(scope.Normalized().Kind) {
+		return "", errors.WithCode(code.ErrInvalidArgument, "资源 %s 不支持 scope %s", resourceExists.Key, scope.Normalized().Kind)
 	}
 
 	return resourceExists.Key, nil

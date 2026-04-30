@@ -9,11 +9,11 @@ import (
 
 // Dependencies 授权模块的依赖
 type Dependencies struct {
-	RoleHandler       *handler.RoleHandler
-	AssignmentHandler *handler.AssignmentHandler
-	PolicyHandler     *handler.PolicyHandler
-	ResourceHandler   *handler.ResourceHandler
-	CheckHandler      *handler.CheckHandler
+	RoleHandler        *handler.RoleHandler
+	RoleBindingHandler *handler.RoleBindingHandler
+	PolicyHandler      *handler.PolicyHandler
+	ResourceHandler    *handler.ResourceHandler
+	CheckHandler       *handler.CheckHandler
 	// AuthMiddleware 保护除 /health 外的管理面与 PDP；若为空则不注册受保护路由。
 	AuthMiddleware gin.HandlerFunc
 }
@@ -56,22 +56,22 @@ func Register(engine *gin.Engine, deps Dependencies) {
 			roles.DELETE("/:id", deps.RoleHandler.DeleteRole)
 			roles.GET("/:id", deps.RoleHandler.GetRole)
 			roles.GET("", deps.RoleHandler.ListRoles)
-			roles.GET("/:id/assignments", deps.AssignmentHandler.ListAssignmentsByRole)
+			roles.GET("/:id/assignments", deps.RoleBindingHandler.ListRoleBindingsByRole)
 			roles.GET("/:id/policies", deps.PolicyHandler.GetPoliciesByRole)
 		}
 
 		assignments := g.Group("/assignments")
 		{
-			assignments.POST("/grant", deps.AssignmentHandler.GrantRole)
-			assignments.POST("/revoke", deps.AssignmentHandler.RevokeRole)
-			assignments.DELETE("/:id", deps.AssignmentHandler.RevokeRoleByID)
-			assignments.GET("/subject", deps.AssignmentHandler.ListAssignmentsBySubject)
+			assignments.POST("/grant", deps.RoleBindingHandler.GrantRoleBinding)
+			assignments.POST("/revoke", deps.RoleBindingHandler.RevokeRoleBinding)
+			assignments.DELETE("/:id", deps.RoleBindingHandler.RevokeRoleBindingByID)
+			assignments.GET("/subject", deps.RoleBindingHandler.ListRoleBindingsBySubject)
 		}
 
 		policies := g.Group("/policies")
 		{
-			policies.POST("", deps.PolicyHandler.AddPolicyRule)
-			policies.DELETE("", deps.PolicyHandler.RemovePolicyRule)
+			policies.POST("", deps.PolicyHandler.AddPermission)
+			policies.DELETE("", deps.PolicyHandler.RemovePermission)
 			policies.GET("/version", deps.PolicyHandler.GetCurrentVersion)
 		}
 

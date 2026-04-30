@@ -8,6 +8,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
@@ -36,7 +37,7 @@ func TestRoleHandlerCreateRoleHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		commander := &roleCommanderFake{
-			createFn: func(context.Context, roleDomain.CreateRoleCommand) (*roleDomain.Role, error) {
+			createFn: func(context.Context, roleApp.CreateRoleCommand) (*roleDomain.Role, error) {
 				return nil, perrors.WithCode(code.ErrRoleAlreadyExists, "role exists")
 			},
 		}
@@ -56,7 +57,7 @@ func TestRoleHandlerCreateRoleHTTPBranches(t *testing.T) {
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, commander.createCalls, 1)
-		require.Equal(t, roleDomain.CreateRoleCommand{
+		require.Equal(t, roleApp.CreateRoleCommand{
 			Name:        "admin",
 			DisplayName: "Admin",
 			TenantID:    "tenant-a",
@@ -88,7 +89,7 @@ func TestRoleHandlerUpdateRoleHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		commander := &roleCommanderFake{
-			updateFn: func(context.Context, roleDomain.UpdateRoleCommand) (*roleDomain.Role, error) {
+			updateFn: func(context.Context, roleApp.UpdateRoleCommand) (*roleDomain.Role, error) {
 				return nil, perrors.WithCode(code.ErrRoleNotFound, "missing")
 			},
 		}
@@ -190,7 +191,7 @@ func TestRoleHandlerListRolesHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		queryer := &roleQueryerFake{
-			listFn: func(context.Context, roleDomain.ListRolesQuery) (*roleDomain.ListRolesResult, error) {
+			listFn: func(context.Context, roleApp.ListRolesQuery) (*roleApp.ListRolesResult, error) {
 				return nil, perrors.WithCode(code.ErrInternalServerError, "list failed")
 			},
 		}
@@ -213,6 +214,6 @@ func TestRoleHandlerListRolesHTTPBranches(t *testing.T) {
 		require.Equal(t, 2, envelope.Offset)
 		require.Equal(t, 5, envelope.Limit)
 		require.Len(t, queryer.listCalls, 1)
-		require.Equal(t, roleDomain.ListRolesQuery{TenantID: "tenant-a", Offset: 2, Limit: 5}, queryer.listCalls[0])
+		require.Equal(t, roleApp.ListRolesQuery{TenantID: "tenant-a", Offset: 2, Limit: 5}, queryer.listCalls[0])
 	})
 }

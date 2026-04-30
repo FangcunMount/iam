@@ -10,10 +10,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	assignmentDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	authzapp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
+	policyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
+	resourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
+	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
+	bindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	bindingDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -80,16 +86,16 @@ func requireAuthzCode(t *testing.T, recorder *httptest.ResponseRecorder, wantSta
 }
 
 type roleCommanderFake struct {
-	createFn func(context.Context, roleDomain.CreateRoleCommand) (*roleDomain.Role, error)
-	updateFn func(context.Context, roleDomain.UpdateRoleCommand) (*roleDomain.Role, error)
+	createFn func(context.Context, roleApp.CreateRoleCommand) (*roleDomain.Role, error)
+	updateFn func(context.Context, roleApp.UpdateRoleCommand) (*roleDomain.Role, error)
 	deleteFn func(context.Context, meta.ID) error
 
-	createCalls []roleDomain.CreateRoleCommand
-	updateCalls []roleDomain.UpdateRoleCommand
+	createCalls []roleApp.CreateRoleCommand
+	updateCalls []roleApp.UpdateRoleCommand
 	deleteCalls []meta.ID
 }
 
-func (f *roleCommanderFake) CreateRole(ctx context.Context, cmd roleDomain.CreateRoleCommand) (*roleDomain.Role, error) {
+func (f *roleCommanderFake) CreateRole(ctx context.Context, cmd roleApp.CreateRoleCommand) (*roleDomain.Role, error) {
 	f.createCalls = append(f.createCalls, cmd)
 	if f.createFn != nil {
 		return f.createFn(ctx, cmd)
@@ -98,7 +104,7 @@ func (f *roleCommanderFake) CreateRole(ctx context.Context, cmd roleDomain.Creat
 	return &result, nil
 }
 
-func (f *roleCommanderFake) UpdateRole(ctx context.Context, cmd roleDomain.UpdateRoleCommand) (*roleDomain.Role, error) {
+func (f *roleCommanderFake) UpdateRole(ctx context.Context, cmd roleApp.UpdateRoleCommand) (*roleDomain.Role, error) {
 	f.updateCalls = append(f.updateCalls, cmd)
 	if f.updateFn != nil {
 		return f.updateFn(ctx, cmd)
@@ -117,10 +123,10 @@ func (f *roleCommanderFake) DeleteRole(ctx context.Context, roleID meta.ID) erro
 
 type roleQueryerFake struct {
 	getFn  func(context.Context, meta.ID) (*roleDomain.Role, error)
-	listFn func(context.Context, roleDomain.ListRolesQuery) (*roleDomain.ListRolesResult, error)
+	listFn func(context.Context, roleApp.ListRolesQuery) (*roleApp.ListRolesResult, error)
 
 	getCalls  []meta.ID
-	listCalls []roleDomain.ListRolesQuery
+	listCalls []roleApp.ListRolesQuery
 }
 
 func (f *roleQueryerFake) GetRoleByID(ctx context.Context, roleID meta.ID) (*roleDomain.Role, error) {
@@ -136,13 +142,13 @@ func (f *roleQueryerFake) GetRoleByName(context.Context, string, string) (*roleD
 	return nil, nil
 }
 
-func (f *roleQueryerFake) ListRoles(ctx context.Context, query roleDomain.ListRolesQuery) (*roleDomain.ListRolesResult, error) {
+func (f *roleQueryerFake) ListRoles(ctx context.Context, query roleApp.ListRolesQuery) (*roleApp.ListRolesResult, error) {
 	f.listCalls = append(f.listCalls, query)
 	if f.listFn != nil {
 		return f.listFn(ctx, query)
 	}
 	result := roleDomain.NewRole("admin", "Admin", query.TenantID, roleDomain.WithID(meta.FromUint64(11)))
-	return &roleDomain.ListRolesResult{Roles: []*roleDomain.Role{&result}, Total: 1}, nil
+	return &roleApp.ListRolesResult{Roles: []*roleDomain.Role{&result}, Total: 1}, nil
 }
 
 func (f *roleQueryerFake) ListRolesByTenant(context.Context, string) ([]*roleDomain.Role, error) {
@@ -150,16 +156,16 @@ func (f *roleQueryerFake) ListRolesByTenant(context.Context, string) ([]*roleDom
 }
 
 type resourceCommanderFake struct {
-	createFn func(context.Context, resourceDomain.CreateResourceCommand) (*resourceDomain.Resource, error)
-	updateFn func(context.Context, resourceDomain.UpdateResourceCommand) (*resourceDomain.Resource, error)
+	createFn func(context.Context, resourceApp.CreateResourceCommand) (*resourceDomain.Resource, error)
+	updateFn func(context.Context, resourceApp.UpdateResourceCommand) (*resourceDomain.Resource, error)
 	deleteFn func(context.Context, resourceDomain.ResourceID) error
 
-	createCalls []resourceDomain.CreateResourceCommand
-	updateCalls []resourceDomain.UpdateResourceCommand
+	createCalls []resourceApp.CreateResourceCommand
+	updateCalls []resourceApp.UpdateResourceCommand
 	deleteCalls []resourceDomain.ResourceID
 }
 
-func (f *resourceCommanderFake) CreateResource(ctx context.Context, cmd resourceDomain.CreateResourceCommand) (*resourceDomain.Resource, error) {
+func (f *resourceCommanderFake) CreateResource(ctx context.Context, cmd resourceApp.CreateResourceCommand) (*resourceDomain.Resource, error) {
 	f.createCalls = append(f.createCalls, cmd)
 	if f.createFn != nil {
 		return f.createFn(ctx, cmd)
@@ -175,7 +181,7 @@ func (f *resourceCommanderFake) CreateResource(ctx context.Context, cmd resource
 	return &result, nil
 }
 
-func (f *resourceCommanderFake) UpdateResource(ctx context.Context, cmd resourceDomain.UpdateResourceCommand) (*resourceDomain.Resource, error) {
+func (f *resourceCommanderFake) UpdateResource(ctx context.Context, cmd resourceApp.UpdateResourceCommand) (*resourceDomain.Resource, error) {
 	f.updateCalls = append(f.updateCalls, cmd)
 	if f.updateFn != nil {
 		return f.updateFn(ctx, cmd)
@@ -199,12 +205,12 @@ func (f *resourceCommanderFake) DeleteResource(ctx context.Context, resourceID r
 type resourceQueryerFake struct {
 	getByIDFn  func(context.Context, resourceDomain.ResourceID) (*resourceDomain.Resource, error)
 	getByKeyFn func(context.Context, string) (*resourceDomain.Resource, error)
-	listFn     func(context.Context, resourceDomain.ListResourcesQuery) (*resourceDomain.ListResourcesResult, error)
+	listFn     func(context.Context, resourceApp.ListResourcesQuery) (*resourceApp.ListResourcesResult, error)
 	validateFn func(context.Context, string, string) (bool, error)
 
 	getByIDCalls  []resourceDomain.ResourceID
 	getByKeyCalls []string
-	listCalls     []resourceDomain.ListResourcesQuery
+	listCalls     []resourceApp.ListResourcesQuery
 	validateCalls []struct {
 		resourceKey string
 		action      string
@@ -229,13 +235,13 @@ func (f *resourceQueryerFake) GetResourceByKey(ctx context.Context, key string) 
 	return &result, nil
 }
 
-func (f *resourceQueryerFake) ListResources(ctx context.Context, query resourceDomain.ListResourcesQuery) (*resourceDomain.ListResourcesResult, error) {
+func (f *resourceQueryerFake) ListResources(ctx context.Context, query resourceApp.ListResourcesQuery) (*resourceApp.ListResourcesResult, error) {
 	f.listCalls = append(f.listCalls, query)
 	if f.listFn != nil {
 		return f.listFn(ctx, query)
 	}
 	result := resourceDomain.NewResource("scale:form:*", []string{"read"}, resourceDomain.WithID(resourceDomain.NewResourceID(21)))
-	return &resourceDomain.ListResourcesResult{Resources: []*resourceDomain.Resource{&result}, Total: 1}, nil
+	return &resourceApp.ListResourcesResult{Resources: []*resourceDomain.Resource{&result}, Total: 1}, nil
 }
 
 func (f *resourceQueryerFake) ValidateAction(ctx context.Context, resourceKey, action string) (bool, error) {
@@ -249,29 +255,29 @@ func (f *resourceQueryerFake) ValidateAction(ctx context.Context, resourceKey, a
 	return true, nil
 }
 
-type assignmentCommanderFake struct {
-	grantFn      func(context.Context, assignmentDomain.GrantCommand) (*assignmentDomain.Assignment, error)
-	revokeFn     func(context.Context, assignmentDomain.RevokeCommand) error
-	revokeByIDFn func(context.Context, assignmentDomain.RevokeByIDCommand) error
+type bindingCommanderFake struct {
+	grantFn      func(context.Context, bindingApp.GrantCommand) (*bindingDomain.Binding, error)
+	revokeFn     func(context.Context, bindingApp.RevokeCommand) error
+	revokeByIDFn func(context.Context, bindingApp.RevokeByIDCommand) error
 
-	grantCalls      []assignmentDomain.GrantCommand
-	revokeCalls     []assignmentDomain.RevokeCommand
-	revokeByIDCalls []assignmentDomain.RevokeByIDCommand
+	grantCalls      []bindingApp.GrantCommand
+	revokeCalls     []bindingApp.RevokeCommand
+	revokeByIDCalls []bindingApp.RevokeByIDCommand
 }
 
-func (f *assignmentCommanderFake) Grant(ctx context.Context, cmd assignmentDomain.GrantCommand) (*assignmentDomain.Assignment, error) {
+func (f *bindingCommanderFake) Grant(ctx context.Context, cmd bindingApp.GrantCommand) (*bindingDomain.Binding, error) {
 	f.grantCalls = append(f.grantCalls, cmd)
 	if f.grantFn != nil {
 		return f.grantFn(ctx, cmd)
 	}
-	result := assignmentDomain.NewAssignment(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID,
-		assignmentDomain.WithID(assignmentDomain.NewAssignmentID(31)),
-		assignmentDomain.WithGrantedBy(cmd.GrantedBy),
+	result := bindingDomain.NewBinding(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID,
+		bindingDomain.WithID(bindingDomain.NewBindingID(31)),
+		bindingDomain.WithGrantedBy(cmd.GrantedBy),
 	)
 	return &result, nil
 }
 
-func (f *assignmentCommanderFake) Revoke(ctx context.Context, cmd assignmentDomain.RevokeCommand) error {
+func (f *bindingCommanderFake) Revoke(ctx context.Context, cmd bindingApp.RevokeCommand) error {
 	f.revokeCalls = append(f.revokeCalls, cmd)
 	if f.revokeFn != nil {
 		return f.revokeFn(ctx, cmd)
@@ -279,7 +285,7 @@ func (f *assignmentCommanderFake) Revoke(ctx context.Context, cmd assignmentDoma
 	return nil
 }
 
-func (f *assignmentCommanderFake) RevokeByID(ctx context.Context, cmd assignmentDomain.RevokeByIDCommand) error {
+func (f *bindingCommanderFake) RevokeByID(ctx context.Context, cmd bindingApp.RevokeByIDCommand) error {
 	f.revokeByIDCalls = append(f.revokeByIDCalls, cmd)
 	if f.revokeByIDFn != nil {
 		return f.revokeByIDFn(ctx, cmd)
@@ -287,41 +293,41 @@ func (f *assignmentCommanderFake) RevokeByID(ctx context.Context, cmd assignment
 	return nil
 }
 
-type assignmentQueryerFake struct {
-	listBySubjectFn func(context.Context, assignmentDomain.ListBySubjectQuery) ([]*assignmentDomain.Assignment, error)
-	listByRoleFn    func(context.Context, assignmentDomain.ListByRoleQuery) ([]*assignmentDomain.Assignment, error)
+type bindingQueryerFake struct {
+	listBySubjectFn func(context.Context, bindingApp.ListBySubjectQuery) ([]*bindingDomain.Binding, error)
+	listByRoleFn    func(context.Context, bindingApp.ListByRoleQuery) ([]*bindingDomain.Binding, error)
 
-	listBySubjectCalls []assignmentDomain.ListBySubjectQuery
-	listByRoleCalls    []assignmentDomain.ListByRoleQuery
+	listBySubjectCalls []bindingApp.ListBySubjectQuery
+	listByRoleCalls    []bindingApp.ListByRoleQuery
 }
 
-func (f *assignmentQueryerFake) ListBySubject(ctx context.Context, query assignmentDomain.ListBySubjectQuery) ([]*assignmentDomain.Assignment, error) {
+func (f *bindingQueryerFake) ListBySubject(ctx context.Context, query bindingApp.ListBySubjectQuery) ([]*bindingDomain.Binding, error) {
 	f.listBySubjectCalls = append(f.listBySubjectCalls, query)
 	if f.listBySubjectFn != nil {
 		return f.listBySubjectFn(ctx, query)
 	}
-	result := assignmentDomain.NewAssignment(query.SubjectType, query.SubjectID, 11, query.TenantID, assignmentDomain.WithID(assignmentDomain.NewAssignmentID(31)))
-	return []*assignmentDomain.Assignment{&result}, nil
+	result := bindingDomain.NewBinding(query.SubjectType, query.SubjectID, 11, query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
+	return []*bindingDomain.Binding{&result}, nil
 }
 
-func (f *assignmentQueryerFake) ListByRole(ctx context.Context, query assignmentDomain.ListByRoleQuery) ([]*assignmentDomain.Assignment, error) {
+func (f *bindingQueryerFake) ListByRole(ctx context.Context, query bindingApp.ListByRoleQuery) ([]*bindingDomain.Binding, error) {
 	f.listByRoleCalls = append(f.listByRoleCalls, query)
 	if f.listByRoleFn != nil {
 		return f.listByRoleFn(ctx, query)
 	}
-	result := assignmentDomain.NewAssignment(assignmentDomain.SubjectTypeUser, "user-1", query.RoleID, query.TenantID, assignmentDomain.WithID(assignmentDomain.NewAssignmentID(31)))
-	return []*assignmentDomain.Assignment{&result}, nil
+	result := bindingDomain.NewBinding(bindingDomain.SubjectTypeUser, "user-1", query.RoleID, query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
+	return []*bindingDomain.Binding{&result}, nil
 }
 
 type policyCommanderFake struct {
-	addFn    func(context.Context, policyDomain.AddPolicyRuleCommand) error
-	removeFn func(context.Context, policyDomain.RemovePolicyRuleCommand) error
+	addFn    func(context.Context, policyApp.AddPermissionCommand) error
+	removeFn func(context.Context, policyApp.RemovePermissionCommand) error
 
-	addCalls    []policyDomain.AddPolicyRuleCommand
-	removeCalls []policyDomain.RemovePolicyRuleCommand
+	addCalls    []policyApp.AddPermissionCommand
+	removeCalls []policyApp.RemovePermissionCommand
 }
 
-func (f *policyCommanderFake) AddPolicyRule(ctx context.Context, cmd policyDomain.AddPolicyRuleCommand) error {
+func (f *policyCommanderFake) AddPermission(ctx context.Context, cmd policyApp.AddPermissionCommand) error {
 	f.addCalls = append(f.addCalls, cmd)
 	if f.addFn != nil {
 		return f.addFn(ctx, cmd)
@@ -329,7 +335,7 @@ func (f *policyCommanderFake) AddPolicyRule(ctx context.Context, cmd policyDomai
 	return nil
 }
 
-func (f *policyCommanderFake) RemovePolicyRule(ctx context.Context, cmd policyDomain.RemovePolicyRuleCommand) error {
+func (f *policyCommanderFake) RemovePermission(ctx context.Context, cmd policyApp.RemovePermissionCommand) error {
 	f.removeCalls = append(f.removeCalls, cmd)
 	if f.removeFn != nil {
 		return f.removeFn(ctx, cmd)
@@ -338,22 +344,26 @@ func (f *policyCommanderFake) RemovePolicyRule(ctx context.Context, cmd policyDo
 }
 
 type policyQueryerFake struct {
-	getPoliciesFn       func(context.Context, policyDomain.GetPoliciesByRoleQuery) ([]policyDomain.PolicyRule, error)
-	getCurrentVersionFn func(context.Context, policyDomain.GetCurrentVersionQuery) (*policyDomain.PolicyVersion, error)
+	getPoliciesFn       func(context.Context, policyApp.RolePermissionsQuery) ([]authzDomain.Permission, error)
+	getCurrentVersionFn func(context.Context, policyApp.CurrentVersionQuery) (*policyDomain.PolicyVersion, error)
 
-	getPoliciesCalls       []policyDomain.GetPoliciesByRoleQuery
-	getCurrentVersionCalls []policyDomain.GetCurrentVersionQuery
+	getPoliciesCalls       []policyApp.RolePermissionsQuery
+	getCurrentVersionCalls []policyApp.CurrentVersionQuery
 }
 
-func (f *policyQueryerFake) GetPoliciesByRole(ctx context.Context, query policyDomain.GetPoliciesByRoleQuery) ([]policyDomain.PolicyRule, error) {
+func (f *policyQueryerFake) GetPermissionsForRole(ctx context.Context, query policyApp.RolePermissionsQuery) ([]authzDomain.Permission, error) {
 	f.getPoliciesCalls = append(f.getPoliciesCalls, query)
 	if f.getPoliciesFn != nil {
 		return f.getPoliciesFn(ctx, query)
 	}
-	return []policyDomain.PolicyRule{policyDomain.NewPolicyRule("role:admin", query.TenantID, "scale:form:*", "read")}, nil
+	permission, err := authzDomain.NewPermission("admin", query.TenantID, "scale:form:*", "read")
+	if err != nil {
+		return nil, err
+	}
+	return []authzDomain.Permission{permission}, nil
 }
 
-func (f *policyQueryerFake) GetCurrentVersion(ctx context.Context, query policyDomain.GetCurrentVersionQuery) (*policyDomain.PolicyVersion, error) {
+func (f *policyQueryerFake) GetCurrentVersion(ctx context.Context, query policyApp.CurrentVersionQuery) (*policyDomain.PolicyVersion, error) {
 	f.getCurrentVersionCalls = append(f.getCurrentVersionCalls, query)
 	if f.getCurrentVersionFn != nil {
 		return f.getCurrentVersionFn(ctx, query)
@@ -366,47 +376,21 @@ type casbinFake struct {
 	enforceFn func(context.Context, string, string, string, string) (bool, error)
 
 	enforceCalls []struct {
-		sub string
-		dom string
-		obj string
-		act string
+		sub   string
+		dom   string
+		obj   string
+		act   string
+		scope authzDomain.Scope
 	}
 }
 
-func (f *casbinFake) AddPolicy(context.Context, ...policyDomain.PolicyRule) error {
-	return nil
-}
-
-func (f *casbinFake) RemovePolicy(context.Context, ...policyDomain.PolicyRule) error {
-	return nil
-}
-
-func (f *casbinFake) AddGroupingPolicy(context.Context, ...policyDomain.GroupingRule) error {
-	return nil
-}
-
-func (f *casbinFake) RemoveGroupingPolicy(context.Context, ...policyDomain.GroupingRule) error {
-	return nil
-}
-
-func (f *casbinFake) GetPoliciesByRole(context.Context, string, string) ([]policyDomain.PolicyRule, error) {
-	return nil, nil
-}
-
-func (f *casbinFake) GetGroupingsBySubject(context.Context, string, string) ([]policyDomain.GroupingRule, error) {
-	return nil, nil
-}
-
-func (f *casbinFake) LoadPolicy(context.Context) error {
-	return nil
-}
-
-func (f *casbinFake) Enforce(ctx context.Context, sub, dom, obj, act string) (bool, error) {
+func (f *casbinFake) AuthorizeRoute(ctx context.Context, sub, dom, obj, act string) (bool, error) {
 	f.enforceCalls = append(f.enforceCalls, struct {
-		sub string
-		dom string
-		obj string
-		act string
+		sub   string
+		dom   string
+		obj   string
+		act   string
+		scope authzDomain.Scope
 	}{sub: sub, dom: dom, obj: obj, act: act})
 	if f.enforceFn != nil {
 		return f.enforceFn(ctx, sub, dom, obj, act)
@@ -414,16 +398,16 @@ func (f *casbinFake) Enforce(ctx context.Context, sub, dom, obj, act string) (bo
 	return true, nil
 }
 
-func (f *casbinFake) GetRolesForUser(context.Context, string, string) ([]string, error) {
-	return nil, nil
-}
-
-func (f *casbinFake) GetImplicitRolesForUser(context.Context, string, string) ([]string, error) {
-	return nil, nil
-}
-
-func (f *casbinFake) GetImplicitPermissionsForUser(context.Context, string, string) ([]policyDomain.PolicyRule, error) {
-	return nil, nil
+func (f *casbinFake) Check(ctx context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error) {
+	sub := string(cmd.Subject.Type) + ":" + cmd.Subject.ID
+	allowed, err := f.AuthorizeRoute(ctx, sub, cmd.TenantID, cmd.ResourceKey, cmd.Action)
+	if err != nil {
+		return authzDomain.AuthorizationDecision{}, err
+	}
+	if len(f.enforceCalls) > 0 {
+		f.enforceCalls[len(f.enforceCalls)-1].scope = cmd.ObjectScope
+	}
+	return authzDomain.AuthorizationDecision{Allowed: allowed}, nil
 }
 
 func valueOrEmpty(value *string) string {

@@ -462,7 +462,7 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 		"AuthnModule.GRPCService",
 		"AuthnModule.RotationScheduler",
 		"AuthzModule.RoleHandler",
-		"AuthzModule.AssignmentHandler",
+		"AuthzModule.RoleBindingHandler",
 		"AuthzModule.PolicyHandler",
 		"AuthzModule.ResourceHandler",
 		"AuthzModule.CheckHandler",
@@ -491,6 +491,153 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		"internal/apiserver/domain/authz/assignment",
+		"internal/apiserver/application/authz/assignment",
+		"internal/apiserver/infra/mysql/assignment",
+	} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); !os.IsNotExist(err) {
+			t.Fatalf("%s must not exist; internal authz language should use rolebinding", rel)
+		}
+	}
+
+	forbiddenDomainTokens := []string{
+		"PolicyRule",
+		"GroupingRule",
+		"CasbinAdapter",
+		"type AuthorizationFactStore interface",
+		"BuildPolicyRule",
+		"SubjectKey(",
+		"RoleKey(",
+		"scopeMatch",
+		"Sub string",
+		"Dom string",
+		"Obj string",
+		"Act string",
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authz"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range forbiddenDomainTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains Casbin technical authorization fact token %q; keep p/g/r tuples in infra/casbin and use domain business models", rel, token)
+			}
+		}
+	})
+	forbiddenDomainCrudTokens := []string{
+		"type Commander interface",
+		"type Queryer interface",
+		"Driving Port",
+		"type CreateRoleCommand",
+		"type UpdateRoleCommand",
+		"type CreateResourceCommand",
+		"type UpdateResourceCommand",
+		"type GrantCommand",
+		"type RevokeCommand",
+		"type RevokeByIDCommand",
+		"type ListBySubjectQuery",
+		"type ListByRoleQuery",
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authz"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range forbiddenDomainCrudTokens {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains application driving model %q; keep authz domain to entities, value objects, repositories, and pure domain services", rel, token)
+			}
+		}
+	})
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "transport", "grpc", "service", "authz"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/casbin") ||
+				strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/policy") ||
+				strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/rolebinding") ||
+				strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/role") {
+				t.Fatalf("%s imports %s; authz gRPC transport must depend on authorization application use cases", rel, imp)
+			}
+		}
+	})
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "transport", "rest", "authz"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/casbin") {
+				t.Fatalf("%s imports %s; REST authz handlers must not directly depend on Casbin infrastructure", rel, imp)
+			}
+		}
+	})
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{".Enforce(", ".GetRolesForUser("} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s directly calls %s; transport must use RouteAuthorizationRuntime or application authorization ports", rel, token)
+			}
+		}
+	})
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "application", "authz"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/casbin") {
+				t.Fatalf("%s imports %s; authz application must depend on business ports, not Casbin infrastructure", rel, imp)
+			}
+		}
+	})
+
+	assertFileContains(t, root, "configs/casbin_model.conf", "r = sub, dom, obj, act, scope")
+	assertFileContains(t, root, "configs/casbin_model.conf", "p = sub, dom, obj, act, scope")
+	assertFileContains(t, root, "configs/casbin_model.conf", "scopeMatch(r.scope, p.scope)")
+	assertFileContains(t, root, "api/grpc/iam/authz/v1/authz.proto", "scope_type")
+	assertFileContains(t, root, "api/grpc/iam/authz/v1/authz.proto", "scope_value")
+	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/policy.go", "ScopeType")
+	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/check.go", "ScopeType")
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport", "rest", "authz"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{
+			"policyDomain.PolicyRule",
+			"policyDomain.GroupingRule",
+			"policy.CasbinAdapter",
+			"policy.AuthorizationFactStore",
+			".AddPolicy(",
+			".AddGroupingPolicy(",
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains Casbin technical authz dependency %q; REST authz must consume application authorization use cases", rel, token)
+			}
+		}
+	})
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "infra", "mysql", "casbinrule"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/policy") {
+				t.Fatalf("%s imports %s; casbinrule storage must receive business facts through the authz application rule-store port", rel, imp)
+			}
+		}
+	})
+
+	assertFileLacks(t, root, "internal/apiserver/application/authz/uow/uow.go", "policyDomain.AuthorizationFactStore")
+	assertFileLacks(t, root, "internal/apiserver/application/authz/uow/uow.go", "RuleStore")
+	assertFileLacks(t, root, "internal/pkg/middleware/authn/jwt_middleware.go", "CasbinEnforcer")
+	assertFileLacks(t, root, "internal/apiserver/application/authz/policy/command_service.go", "BuildPolicyRule")
+	assertFileLacks(t, root, "internal/apiserver/application/authz/policy/command_service.go", ".AddPolicy(")
+	assertFileLacks(t, root, "internal/apiserver/application/authz/rolebinding/command_service.go", ".AddGroupingPolicy(")
+	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.CasbinAdapter")
+	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.Commander")
+	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.Queryer")
+	assertFileLacks(t, root, "internal/apiserver/infra/casbin/adapter.go", "func (c *CasbinAdapter) Enforcer(")
+	if matches, err := filepath.Glob(filepath.Join(root, "internal", "apiserver", "application", "authz", "version", "*.go")); err != nil {
+		t.Fatal(err)
+	} else if len(matches) > 0 {
+		t.Fatalf("internal/apiserver/application/authz/version is retired; version changes must flow through PolicyChangeCommitter")
+	}
 }
 
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {

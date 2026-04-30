@@ -49,13 +49,13 @@ func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
 	if c.AuthzModule != nil {
 		caps := c.AuthzModule.ApplicationCapabilities()
 		deps.ModuleStatus.Authz = true
-		deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCommander, caps.RoleQueryer)
-		deps.Authz.AssignmentHandler = authzhandler.NewAssignmentHandler(caps.AssignmentCommander, caps.AssignmentQueryer)
-		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PolicyCommander, caps.PolicyQueryer)
-		deps.Authz.ResourceHandler = authzhandler.NewResourceHandler(caps.ResourceCommander, caps.ResourceQueryer)
-		deps.Authz.CheckHandler = authzhandler.NewCheckHandler(caps.Casbin)
-		deps.Authz.Casbin = caps.Casbin
-		if reporter, ok := caps.Casbin.(resttransport.AuthzHealthReporter); ok {
+		deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCatalog, caps.RoleDirectory)
+		deps.Authz.RoleBindingHandler = authzhandler.NewRoleBindingHandler(caps.RoleBindingCommands, caps.RoleBindingDirectory)
+		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PermissionCommands, caps.PermissionReader)
+		deps.Authz.ResourceHandler = authzhandler.NewResourceHandler(caps.ResourceCatalog, caps.ResourceDirectory)
+		deps.Authz.CheckHandler = authzhandler.NewCheckHandler(caps.AuthorizationChecker)
+		deps.Authz.RouteAuthorization = caps.RouteAuthorization
+		if reporter, ok := caps.RouteAuthorization.(resttransport.AuthzHealthReporter); ok {
 			deps.Authz.HealthReporter = reporter
 		}
 	}
@@ -81,7 +81,7 @@ func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
 			caps.UserCreator,
 			caps.UserEditor,
 			caps.UserDirectory,
-			caps.Casbin,
+			caps.RoleNames,
 		)
 		deps.User.ProfileHandler = identityhandler.NewProfileHandler(
 			caps.MyProfiles,

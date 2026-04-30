@@ -49,12 +49,12 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies)
 func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if authzRoutesAvailable(deps) && authMiddleware != nil {
 		authzhttp.Register(engine, authzhttp.Dependencies{
-			RoleHandler:       deps.RoleHandler,
-			AssignmentHandler: deps.AssignmentHandler,
-			PolicyHandler:     deps.PolicyHandler,
-			ResourceHandler:   deps.ResourceHandler,
-			CheckHandler:      deps.CheckHandler,
-			AuthMiddleware:    authMiddleware.AuthRequired(),
+			RoleHandler:        deps.RoleHandler,
+			RoleBindingHandler: deps.RoleBindingHandler,
+			PolicyHandler:      deps.PolicyHandler,
+			ResourceHandler:    deps.ResourceHandler,
+			CheckHandler:       deps.CheckHandler,
+			AuthMiddleware:     authMiddleware.AuthRequired(),
 		})
 		log.Info("✅ Authz module routes registered")
 		return
@@ -117,7 +117,7 @@ func authnRoutesAvailable(deps AuthnDeps) bool {
 }
 
 func authzRoutesAvailable(deps AuthzDeps) bool {
-	return deps.RoleHandler != nil || deps.AssignmentHandler != nil || deps.PolicyHandler != nil ||
+	return deps.RoleHandler != nil || deps.RoleBindingHandler != nil || deps.PolicyHandler != nil ||
 		deps.ResourceHandler != nil || deps.CheckHandler != nil
 }
 

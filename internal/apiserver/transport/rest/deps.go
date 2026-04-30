@@ -54,13 +54,13 @@ type AuthnDeps struct {
 }
 
 type AuthzDeps struct {
-	RoleHandler       *authzhandler.RoleHandler
-	AssignmentHandler *authzhandler.AssignmentHandler
-	PolicyHandler     *authzhandler.PolicyHandler
-	ResourceHandler   *authzhandler.ResourceHandler
-	CheckHandler      *authzhandler.CheckHandler
-	Casbin            authnMiddleware.CasbinEnforcer
-	HealthReporter    AuthzHealthReporter
+	RoleHandler        *authzhandler.RoleHandler
+	RoleBindingHandler *authzhandler.RoleBindingHandler
+	PolicyHandler      *authzhandler.PolicyHandler
+	ResourceHandler    *authzhandler.ResourceHandler
+	CheckHandler       *authzhandler.CheckHandler
+	RouteAuthorization authnMiddleware.RouteAuthorizationRuntime
+	HealthReporter     AuthzHealthReporter
 }
 
 type IDPDeps struct {

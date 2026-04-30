@@ -30,6 +30,22 @@ func (c *Client) Allow(ctx context.Context, subject, domain, object, action stri
 	return resp.Allowed, nil
 }
 
+// AllowScoped 是 Check 的 scope-aware 便捷封装。
+func (c *Client) AllowScoped(ctx context.Context, subject, domain, object, action, scopeType, scopeValue string) (bool, error) {
+	resp, err := c.Check(ctx, &authzv1.CheckRequest{
+		Subject:    subject,
+		Domain:     domain,
+		Object:     object,
+		Action:     action,
+		ScopeType:  scopeType,
+		ScopeValue: scopeValue,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Allowed, nil
+}
+
 // GetAuthorizationSnapshot 获取主体在指定租户/应用下的授权快照。
 func (c *Client) GetAuthorizationSnapshot(ctx context.Context, req *authzv1.GetAuthorizationSnapshotRequest) (*authzv1.GetAuthorizationSnapshotResponse, error) {
 	resp, err := c.authorizationService.GetAuthorizationSnapshot(ctx, req)

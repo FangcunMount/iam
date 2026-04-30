@@ -1,4 +1,4 @@
-package assignment
+package rolebinding
 
 import (
 	"time"
@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// AssignmentPO 赋权持久化对象
-type AssignmentPO struct {
+// BindingPO 赋权持久化对象
+type BindingPO struct {
 	base.AuditFields
 	SubjectType string    `gorm:"column:subject_type;type:varchar(16);not null;index:idx_subject,priority:1"`
 	SubjectID   string    `gorm:"column:subject_id;type:varchar(64);not null;index:idx_subject,priority:2"`
@@ -21,12 +21,12 @@ type AssignmentPO struct {
 }
 
 // TableName 指定表名
-func (AssignmentPO) TableName() string {
+func (BindingPO) TableName() string {
 	return "authz_assignments"
 }
 
 // BeforeCreate 在创建前设置信息
-func (p *AssignmentPO) BeforeCreate(tx *gorm.DB) error {
+func (p *BindingPO) BeforeCreate(tx *gorm.DB) error {
 	now := time.Now()
 	id := meta.FromUint64(idutil.GetIntID()) // 新生成的 ID 必定有效
 	createdBy := base.UserIDOrZero(tx.Statement.Context)
@@ -44,7 +44,7 @@ func (p *AssignmentPO) BeforeCreate(tx *gorm.DB) error {
 }
 
 // BeforeUpdate 在更新前设置信息
-func (a *AssignmentPO) BeforeUpdate(tx *gorm.DB) error {
+func (a *BindingPO) BeforeUpdate(tx *gorm.DB) error {
 	a.UpdatedAt = time.Now()
 
 	updatedBy := base.UserIDOrZero(tx.Statement.Context)

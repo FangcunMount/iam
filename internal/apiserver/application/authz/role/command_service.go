@@ -8,30 +8,29 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// RoleCommandService 角色命令服务（写操作）
-type RoleCommandService struct {
+// RoleCatalog manages the role catalog inside a tenant.
+type RoleCatalog struct {
 	roleValidator roleDomain.Validator
 	roleRepo      roleDomain.Repository
 }
 
-// NewRoleCommandService 创建角色命令服务
-func NewRoleCommandService(
+func NewRoleCatalog(
 	roleValidator roleDomain.Validator,
 	roleRepo roleDomain.Repository,
-) *RoleCommandService {
-	return &RoleCommandService{
+) *RoleCatalog {
+	return &RoleCatalog{
 		roleValidator: roleValidator,
 		roleRepo:      roleRepo,
 	}
 }
 
 // CreateRole 创建角色
-func (s *RoleCommandService) CreateRole(
+func (s *RoleCatalog) CreateRole(
 	ctx context.Context,
-	cmd roleDomain.CreateRoleCommand,
+	cmd CreateRoleCommand,
 ) (*roleDomain.Role, error) {
 	// 1. 验证创建命令
-	if err := s.roleValidator.ValidateCreateCommand(cmd); err != nil {
+	if err := s.roleValidator.ValidateCreateParameters(cmd.Name, cmd.DisplayName, cmd.TenantID); err != nil {
 		return nil, err
 	}
 
@@ -52,15 +51,11 @@ func (s *RoleCommandService) CreateRole(
 }
 
 // UpdateRole 更新角色
-func (s *RoleCommandService) UpdateRole(
+func (s *RoleCatalog) UpdateRole(
 	ctx context.Context,
-	cmd roleDomain.UpdateRoleCommand,
+	cmd UpdateRoleCommand,
 ) (*roleDomain.Role, error) {
 	// 1. 验证更新命令
-	if err := s.roleValidator.ValidateUpdateCommand(cmd); err != nil {
-		return nil, err
-	}
-
 	// 2. 获取角色
 	existingRole, err := s.roleRepo.FindByID(ctx, cmd.ID)
 	if err != nil {
@@ -84,7 +79,7 @@ func (s *RoleCommandService) UpdateRole(
 }
 
 // DeleteRole 删除角色
-func (s *RoleCommandService) DeleteRole(
+func (s *RoleCatalog) DeleteRole(
 	ctx context.Context,
 	roleID meta.ID,
 ) error {

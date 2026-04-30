@@ -1,18 +1,21 @@
 package handler
 
 import (
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 )
 
-func toPolicyRuleResponses(rules []policyDomain.PolicyRule) []dto.PolicyRuleResponse {
-	policyRules := make([]dto.PolicyRuleResponse, 0, len(rules))
-	for _, rule := range rules {
-		policyRules = append(policyRules, dto.PolicyRuleResponse{
-			Subject: rule.Sub,
-			Domain:  rule.Dom,
-			Object:  rule.Obj,
-			Action:  rule.Act,
+func toPermissionResponses(permissions []authzDomain.Permission) []dto.PermissionResponse {
+	policyRules := make([]dto.PermissionResponse, 0, len(permissions))
+	for _, permission := range permissions {
+		policyRules = append(policyRules, dto.PermissionResponse{
+			Subject:    "role:" + permission.RoleName,
+			Domain:     permission.TenantID,
+			Object:     permission.ResourceKey,
+			Action:     permission.Action,
+			ScopeType:  string(permission.Scope.Normalized().Kind),
+			ScopeValue: permission.Scope.Normalized().Value,
 		})
 	}
 	return policyRules

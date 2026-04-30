@@ -1244,7 +1244,7 @@ const docTemplate = `{
                 "tags": [
                     "Authorization-Policies"
                 ],
-                "summary": "添加策略规则",
+                "summary": "添加权限",
                 "parameters": [
                     {
                         "description": "添加策略请求",
@@ -1252,7 +1252,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPolicyRequest"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest"
                         }
                     }
                 ],
@@ -1275,7 +1275,7 @@ const docTemplate = `{
                 "tags": [
                     "Authorization-Policies"
                 ],
-                "summary": "移除策略规则",
+                "summary": "移除权限",
                 "parameters": [
                     {
                         "description": "移除策略请求",
@@ -1283,7 +1283,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePolicyRequest"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest"
                         }
                     }
                 ],
@@ -1918,7 +1918,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyRuleResponse"
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse"
                                             }
                                         }
                                     }
@@ -3078,7 +3078,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "alg": {
-                    "description": "\"RS256\"/\"ES256\"/\"EdDSA\"",
                     "type": "string"
                 },
                 "crv": {
@@ -3088,19 +3087,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "kid": {
-                    "description": "key id",
                     "type": "string"
                 },
                 "kty": {
-                    "description": "\"RSA\"/\"EC\"/\"OKP\"",
                     "type": "string"
                 },
                 "n": {
-                    "description": "RSA: n/e; EC: crv/x/y; OKP: crv/x",
                     "type": "string"
                 },
                 "use": {
-                    "description": "\"sig\"",
                     "type": "string"
                 },
                 "x": {
@@ -3613,7 +3608,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPolicyRequest": {
+        "github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest": {
             "type": "object",
             "required": [
                 "action",
@@ -3634,6 +3629,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role_id": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                },
+                "scope_value": {
                     "type": "string"
                 }
             }
@@ -3672,6 +3673,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "object": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                },
+                "scope_value": {
                     "type": "string"
                 },
                 "subject_id": {
@@ -3723,6 +3730,12 @@ const docTemplate = `{
                 },
                 "key": {
                     "type": "string"
+                },
+                "scope_kinds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "type": {
                     "type": "string"
@@ -3793,7 +3806,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyRuleResponse": {
+        "github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse": {
             "type": "object",
             "properties": {
                 "action": {
@@ -3803,6 +3816,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "object": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                },
+                "scope_value": {
                     "type": "string"
                 },
                 "subject": {
@@ -3827,7 +3846,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePolicyRequest": {
+        "github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest": {
             "type": "object",
             "required": [
                 "action",
@@ -3848,6 +3867,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role_id": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                },
+                "scope_value": {
                     "type": "string"
                 }
             }
@@ -3878,6 +3903,12 @@ const docTemplate = `{
                 },
                 "key": {
                     "type": "string"
+                },
+                "scope_kinds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "type": {
                     "type": "string"
@@ -3953,6 +3984,12 @@ const docTemplate = `{
                 },
                 "display_name": {
                     "type": "string"
+                },
+                "scope_kinds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -4495,7 +4532,7 @@ const docTemplate = `{
             "name": "Authorization-Assignments"
         },
         {
-            "description": "策略管理 - 添加、移除 RBAC 策略规则",
+            "description": "策略管理 - 添加、移除 RBAC 权限",
             "name": "Authorization-Policies"
         },
         {

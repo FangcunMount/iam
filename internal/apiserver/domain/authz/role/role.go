@@ -1,6 +1,8 @@
 package role
 
 import (
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -32,7 +34,18 @@ type RoleOption func(*Role)
 func WithID(id meta.ID) RoleOption           { return func(r *Role) { r.ID = id } }
 func WithDescription(desc string) RoleOption { return func(r *Role) { r.Description = desc } }
 
-// Key 返回 Casbin 中的角色标识
-func (r *Role) Key() string {
-	return "role:" + r.Name
+func (r Role) BelongsToTenant(tenantID string) bool {
+	return r.TenantID == tenantID
+}
+
+func (r *Role) Rename(displayName string) error {
+	if displayName == "" {
+		return perrors.WithCode(code.ErrInvalidArgument, "显示名称不能为空")
+	}
+	r.DisplayName = displayName
+	return nil
+}
+
+func (r *Role) ChangeDescription(description string) {
+	r.Description = description
 }

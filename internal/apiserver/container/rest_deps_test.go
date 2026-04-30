@@ -34,7 +34,7 @@ func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testi
 	if deps.Authn.AuthHandler == nil || deps.Authn.AccountHandler == nil || deps.Authn.JWKSHandler == nil || deps.Authn.SessionAdminHandler == nil {
 		t.Fatalf("authn transport handlers were not constructed: %#v", deps.Authn)
 	}
-	if deps.Authz.RoleHandler == nil || deps.Authz.AssignmentHandler == nil || deps.Authz.PolicyHandler == nil || deps.Authz.ResourceHandler == nil || deps.Authz.CheckHandler == nil {
+	if deps.Authz.RoleHandler == nil || deps.Authz.RoleBindingHandler == nil || deps.Authz.PolicyHandler == nil || deps.Authz.ResourceHandler == nil || deps.Authz.CheckHandler == nil {
 		t.Fatalf("authz transport handlers were not constructed: %#v", deps.Authz)
 	}
 	if deps.IDP.WechatAppHandler == nil {

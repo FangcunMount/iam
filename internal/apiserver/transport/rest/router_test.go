@@ -227,11 +227,11 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Authz = AuthzDeps{
-		RoleHandler:       authzhandler.NewRoleHandler(nil, nil),
-		AssignmentHandler: authzhandler.NewAssignmentHandler(nil, nil),
-		PolicyHandler:     authzhandler.NewPolicyHandler(nil, nil),
-		ResourceHandler:   authzhandler.NewResourceHandler(nil, nil),
-		CheckHandler:      authzhandler.NewCheckHandler(nil),
+		RoleHandler:        authzhandler.NewRoleHandler(nil, nil),
+		RoleBindingHandler: authzhandler.NewRoleBindingHandler(nil, nil),
+		PolicyHandler:      authzhandler.NewPolicyHandler(nil, nil),
+		ResourceHandler:    authzhandler.NewResourceHandler(nil, nil),
+		CheckHandler:       authzhandler.NewCheckHandler(nil),
 	}
 	deps.Suggest.Service = appsuggest.NewService(appsuggest.Config{})
 	deps.ModuleStatus.User = true
@@ -344,11 +344,11 @@ var _ sessionapp.SessionApplicationService = sessionServiceStub{}
 
 type casbinStub struct{}
 
-func (casbinStub) Enforce(_ context.Context, _, _, _, _ string) (bool, error) {
+func (casbinStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, error) {
 	return true, nil
 }
 
-func (casbinStub) GetRolesForUser(_ context.Context, _, _ string) ([]string, error) {
+func (casbinStub) DirectRoleKeys(_ context.Context, _, _ string) ([]string, error) {
 	return []string{"role:admin"}, nil
 }
 

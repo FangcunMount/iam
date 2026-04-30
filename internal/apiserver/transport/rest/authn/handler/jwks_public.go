@@ -6,7 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
+	"github.com/FangcunMount/iam/pkg/core"
 )
+
+var _ = core.ErrResponse{}
 
 // GetJWKS 获取 JWKS（公开端点）
 // @Summary 获取 JWKS

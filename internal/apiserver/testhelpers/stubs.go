@@ -6,8 +6,8 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	assignment "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
 	role "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	binding "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
 	wechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
 	profile "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
 	user "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
@@ -15,28 +15,28 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// AssignmentRepoStub is a simple stub for assignment.Repository used in tests.
-type AssignmentRepoStub struct {
-	Assignments []*assignment.Assignment
-	Err         error
+// BindingRepoStub is a simple stub for binding.Repository used in tests.
+type BindingRepoStub struct {
+	Bindings []*binding.Binding
+	Err      error
 }
 
-func (s *AssignmentRepoStub) Create(ctx context.Context, a *assignment.Assignment) error {
+func (s *BindingRepoStub) Create(ctx context.Context, a *binding.Binding) error {
 	return nil
 }
-func (s *AssignmentRepoStub) Delete(ctx context.Context, id assignment.AssignmentID) error {
+func (s *BindingRepoStub) Delete(ctx context.Context, id binding.BindingID) error {
 	return nil
 }
-func (s *AssignmentRepoStub) DeleteBySubjectAndRole(ctx context.Context, subjectType assignment.SubjectType, subjectID string, roleID uint64, tenantID string) error {
+func (s *BindingRepoStub) DeleteBySubjectAndRole(ctx context.Context, subjectType binding.SubjectType, subjectID string, roleID uint64, tenantID string) error {
 	return nil
 }
-func (s *AssignmentRepoStub) FindByID(ctx context.Context, id assignment.AssignmentID) (*assignment.Assignment, error) {
+func (s *BindingRepoStub) FindByID(ctx context.Context, id binding.BindingID) (*binding.Binding, error) {
 	return nil, nil
 }
-func (s *AssignmentRepoStub) ListBySubject(ctx context.Context, subjectType assignment.SubjectType, subjectID, tenantID string) ([]*assignment.Assignment, error) {
-	return s.Assignments, s.Err
+func (s *BindingRepoStub) ListBySubject(ctx context.Context, subjectType binding.SubjectType, subjectID, tenantID string) ([]*binding.Binding, error) {
+	return s.Bindings, s.Err
 }
-func (s *AssignmentRepoStub) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*assignment.Assignment, error) {
+func (s *BindingRepoStub) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*binding.Binding, error) {
 	return nil, s.Err
 }
 

@@ -3,30 +3,36 @@ package dto
 
 import "github.com/FangcunMount/iam/internal/pkg/meta"
 
-// AddPolicyRequest 添加策略规则请求
-type AddPolicyRequest struct {
+// AddPermissionRequest 添加权限请求
+type AddPermissionRequest struct {
 	RoleID     meta.ID `json:"role_id" binding:"required" swaggertype:"string"`
 	ResourceID meta.ID `json:"resource_id" binding:"required" swaggertype:"string"`
 	Action     string  `json:"action" binding:"required"`
+	ScopeType  string  `json:"scope_type"`
+	ScopeValue string  `json:"scope_value"`
 	ChangedBy  string  `json:"changed_by,omitempty"`
 	Reason     string  `json:"reason"`
 }
 
-// RemovePolicyRequest 移除策略规则请求
-type RemovePolicyRequest struct {
+// RemovePermissionRequest 移除权限请求
+type RemovePermissionRequest struct {
 	RoleID     meta.ID `json:"role_id" binding:"required" swaggertype:"string"`
 	ResourceID meta.ID `json:"resource_id" binding:"required" swaggertype:"string"`
 	Action     string  `json:"action" binding:"required"`
+	ScopeType  string  `json:"scope_type"`
+	ScopeValue string  `json:"scope_value"`
 	ChangedBy  string  `json:"changed_by,omitempty"`
 	Reason     string  `json:"reason"`
 }
 
-// PolicyRuleResponse 策略规则响应
-type PolicyRuleResponse struct {
-	Subject string `json:"subject"`
-	Domain  string `json:"domain"`
-	Object  string `json:"object"`
-	Action  string `json:"action"`
+// PermissionResponse 权限响应
+type PermissionResponse struct {
+	Subject    string `json:"subject"`
+	Domain     string `json:"domain"`
+	Object     string `json:"object"`
+	Action     string `json:"action"`
+	ScopeType  string `json:"scope_type"`
+	ScopeValue string `json:"scope_value"`
 }
 
 // PolicyVersionResponse 策略版本响应

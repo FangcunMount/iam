@@ -34,14 +34,20 @@ func (s *ResourceQueryService) GetResourceByKey(
 
 func (s *ResourceQueryService) ListResources(
 	ctx context.Context,
-	query resourceDomain.ListResourcesQuery,
-) (*resourceDomain.ListResourcesResult, error) {
-	resources, total, err := s.resourceRepo.List(ctx, query)
+	query ListResourcesQuery,
+) (*ListResourcesResult, error) {
+	resources, total, err := s.resourceRepo.List(ctx, resourceDomain.ResourceFilter{
+		AppName: query.AppName,
+		Domain:  query.Domain,
+		Type:    query.Type,
+		Offset:  query.Offset,
+		Limit:   query.Limit,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &resourceDomain.ListResourcesResult{
+	return &ListResourcesResult{
 		Resources: resources,
 		Total:     total,
 	}, nil

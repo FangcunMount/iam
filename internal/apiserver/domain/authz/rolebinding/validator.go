@@ -1,4 +1,4 @@
-package assignment
+package rolebinding
 
 import (
 	"context"
@@ -10,75 +10,32 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
-// AssignmentManager 赋权管理器（领域服务）
+// BindingManager 赋权管理器（领域服务）
 // 封装赋权相关的业务规则，包括：
 // 1. 赋权参数验证
 // 2. 角色存在性检查
 // 3. 租户隔离检查
 // 4. 赋权记录查找
 type validator struct {
-	assignmentRepo Repository
-	roleRepo       role.Repository
-	userRepo       userDomain.Repository
+	bindingRepo Repository
+	roleRepo    role.Repository
+	userRepo    userDomain.Repository
 }
 
-// NewAssignmentManager 创建赋权管理器
+// NewBindingManager 创建赋权管理器
 func NewValidator(
-	assignmentRepo Repository,
+	bindingRepo Repository,
 	roleRepo role.Repository,
 	userRepo userDomain.Repository,
 ) *validator {
 	return &validator{
-		assignmentRepo: assignmentRepo,
-		roleRepo:       roleRepo,
-		userRepo:       userRepo,
+		bindingRepo: bindingRepo,
+		roleRepo:    roleRepo,
+		userRepo:    userRepo,
 	}
 }
 
-// ValidateGrantCommand 验证授权命令
-func (v *validator) ValidateGrantCommand(cmd GrantCommand) error {
-	if cmd.SubjectType == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "主体类型不能为空")
-	}
-	if err := validateWritableSubjectType(cmd.SubjectType); err != nil {
-		return err
-	}
-	if cmd.SubjectID == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
-	}
-	if cmd.RoleID == 0 {
-		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
-	}
-	if cmd.TenantID == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "租户ID不能为空")
-	}
-	if cmd.GrantedBy == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "授权人不能为空")
-	}
-	return nil
-}
-
-// ValidateRevokeCommand 验证撤销命令
-func (v *validator) ValidateRevokeCommand(cmd RevokeCommand) error {
-	if cmd.SubjectType == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "主体类型不能为空")
-	}
-	if err := validateWritableSubjectType(cmd.SubjectType); err != nil {
-		return err
-	}
-	if cmd.SubjectID == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
-	}
-	if cmd.RoleID == 0 {
-		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
-	}
-	if cmd.TenantID == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "租户ID不能为空")
-	}
-	return nil
-}
-
-// ValidateGrantParameters 验证授权参数（已废弃，保留用于兼容）
+// ValidateGrantParameters 验证授权参数。
 func (v *validator) ValidateGrantParameters(
 	subjectType SubjectType,
 	subjectID string,
@@ -88,6 +45,9 @@ func (v *validator) ValidateGrantParameters(
 ) error {
 	if subjectType == "" {
 		return errors.WithCode(code.ErrInvalidArgument, "主体类型不能为空")
+	}
+	if err := validateWritableSubjectType(subjectType); err != nil {
+		return err
 	}
 	if subjectID == "" {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
@@ -113,6 +73,9 @@ func (v *validator) ValidateRevokeParameters(
 ) error {
 	if subjectType == "" {
 		return errors.WithCode(code.ErrInvalidArgument, "主体类型不能为空")
+	}
+	if err := validateWritableSubjectType(subjectType); err != nil {
+		return err
 	}
 	if subjectID == "" {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
@@ -172,10 +135,10 @@ func (v *validator) CheckSubjectExists(ctx context.Context, subjectType SubjectT
 
 // ValidateRevokeByIDParameters 验证根据ID撤销授权参数
 func (v *validator) ValidateRevokeByIDParameters(
-	assignmentID AssignmentID,
+	bindingID BindingID,
 	tenantID string,
 ) error {
-	if assignmentID.Uint64() == 0 {
+	if bindingID.Uint64() == 0 {
 		return errors.WithCode(code.ErrInvalidArgument, "赋权ID不能为空")
 	}
 	if tenantID == "" {
@@ -208,22 +171,22 @@ func (v *validator) CheckRoleExistsAndTenant(
 	return roleExists, nil
 }
 
-// FindAssignmentBySubjectAndRole 查找主体和角色的赋权记录
-func (v *validator) FindAssignmentBySubjectAndRole(
+// FindBindingBySubjectAndRole 查找主体和角色的赋权记录
+func (v *validator) FindBindingBySubjectAndRole(
 	ctx context.Context,
 	subjectType SubjectType,
 	subjectID string,
 	roleID uint64,
 	tenantID string,
-) (*Assignment, error) {
+) (*Binding, error) {
 	// 查询赋权列表
-	assignments, err := v.assignmentRepo.ListBySubject(ctx, subjectType, subjectID, tenantID)
+	bindings, err := v.bindingRepo.ListBySubject(ctx, subjectType, subjectID, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(err, "查询赋权记录失败")
 	}
 
 	// 查找匹配的赋权记录
-	for _, a := range assignments {
+	for _, a := range bindings {
 		if a.RoleID == roleID {
 			return a, nil
 		}
@@ -232,14 +195,14 @@ func (v *validator) FindAssignmentBySubjectAndRole(
 	return nil, errors.WithCode(code.ErrAssignmentNotFound, "赋权记录不存在")
 }
 
-// GetAssignmentByIDAndCheckTenant 根据ID获取赋权记录并检查租户隔离
-func (v *validator) GetAssignmentByIDAndCheckTenant(
+// GetBindingByIDAndCheckTenant 根据ID获取赋权记录并检查租户隔离
+func (v *validator) GetBindingByIDAndCheckTenant(
 	ctx context.Context,
-	assignmentID AssignmentID,
+	bindingID BindingID,
 	tenantID string,
-) (*Assignment, error) {
+) (*Binding, error) {
 	// 获取赋权记录
-	targetAssignment, err := v.assignmentRepo.FindByID(ctx, assignmentID)
+	targetBinding, err := v.bindingRepo.FindByID(ctx, bindingID)
 	if err != nil {
 		if errors.IsCode(err, code.ErrAssignmentNotFound) {
 			return nil, errors.WithCode(code.ErrAssignmentNotFound, "赋权记录不存在")
@@ -248,11 +211,11 @@ func (v *validator) GetAssignmentByIDAndCheckTenant(
 	}
 
 	// 检查租户隔离
-	if targetAssignment.TenantID != tenantID {
+	if targetBinding.TenantID != tenantID {
 		return nil, errors.WithCode(code.ErrPermissionDenied, "无权操作其他租户的赋权记录")
 	}
 
-	return targetAssignment, nil
+	return targetBinding, nil
 }
 
 // ValidateListBySubjectQuery 验证根据主体查询参数

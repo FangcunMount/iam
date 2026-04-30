@@ -3,33 +3,34 @@ package policy
 import (
 	"context"
 
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
 type PolicyQueryService struct {
-	policyRepo    policyDomain.Repository
-	casbinAdapter policyDomain.CasbinAdapter
-	roleRepo      roleDomain.Repository
+	policyRepo      policyDomain.Repository
+	permissionStore RolePermissionStore
+	roleRepo        roleDomain.Repository
 }
 
 func NewPolicyQueryService(
 	policyRepo policyDomain.Repository,
-	casbinAdapter policyDomain.CasbinAdapter,
+	permissionStore RolePermissionStore,
 	roleRepo roleDomain.Repository,
 ) *PolicyQueryService {
 	return &PolicyQueryService{
-		policyRepo:    policyRepo,
-		casbinAdapter: casbinAdapter,
-		roleRepo:      roleRepo,
+		policyRepo:      policyRepo,
+		permissionStore: permissionStore,
+		roleRepo:        roleRepo,
 	}
 }
 
-func (s *PolicyQueryService) GetPoliciesByRole(
+func (s *PolicyQueryService) GetPermissionsForRole(
 	ctx context.Context,
-	query policyDomain.GetPoliciesByRoleQuery,
-) ([]policyDomain.PolicyRule, error) {
+	query RolePermissionsQuery,
+) ([]authzDomain.Permission, error) {
 	// 1. 获取角色信息
 	role, err := s.roleRepo.FindByID(ctx, meta.FromUint64(query.RoleID))
 	if err != nil {
@@ -37,12 +38,14 @@ func (s *PolicyQueryService) GetPoliciesByRole(
 	}
 
 	// 2. 查询策略规则
-	return s.casbinAdapter.GetPoliciesByRole(ctx, role.Key(), query.TenantID)
+	return s.permissionStore.PermissionsForRole(ctx, role.Name, query.TenantID)
 }
 
 func (s *PolicyQueryService) GetCurrentVersion(
 	ctx context.Context,
-	query policyDomain.GetCurrentVersionQuery,
+	query CurrentVersionQuery,
 ) (*policyDomain.PolicyVersion, error) {
 	return s.policyRepo.GetCurrent(ctx, query.TenantID)
 }
+
+var _ PermissionReader = (*PolicyQueryService)(nil)

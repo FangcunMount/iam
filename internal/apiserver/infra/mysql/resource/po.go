@@ -18,6 +18,7 @@ type ResourcePO struct {
 	Domain      string `gorm:"column:domain;type:varchar(32);index"`
 	Type        string `gorm:"column:type;type:varchar(32);index"`
 	Actions     string `gorm:"column:actions;type:text"` // JSON array string
+	ScopeKinds  string `gorm:"column:scope_kinds;type:text"`
 	Description string `gorm:"column:description;type:varchar(512)"`
 }
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"
@@ -19,12 +19,14 @@ type CasbinAdapter struct {
 	lastReloadAt  time.Time
 }
 
-var _ domain.CasbinAdapter = (*CasbinAdapter)(nil)
-
-// NewCasbinAdapter 创建 Casbin 适配器
-func NewCasbinAdapter(db *gorm.DB, modelPath string) (domain.CasbinAdapter, error) {
+// NewCasbinAdapter 创建 Casbin 适配器。
+func NewCasbinAdapter(db *gorm.DB, modelPath string) (*CasbinAdapter, error) {
 	adapter, err := gormadapter.NewAdapterByDB(db)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := normalizePersistedPolicyScopes(db); err != nil {
 		return nil, err
 	}
 
@@ -32,6 +34,7 @@ func NewCasbinAdapter(db *gorm.DB, modelPath string) (domain.CasbinAdapter, erro
 	if err != nil {
 		return nil, err
 	}
+	enforcer.AddFunction("scopeMatch", scopeMatchFunc)
 
 	// DB 是授权事实源；运行时 Enforcer 只负责内存加载与判定。
 	enforcer.EnableAutoSave(false)
@@ -46,13 +49,23 @@ func NewCasbinAdapter(db *gorm.DB, modelPath string) (domain.CasbinAdapter, erro
 	}, nil
 }
 
-// AddPolicy 添加 p 规则
-func (c *CasbinAdapter) AddPolicy(ctx context.Context, rules ...domain.PolicyRule) error {
+func normalizePersistedPolicyScopes(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	return db.Exec(
+		"UPDATE casbin_rule SET v4 = ? WHERE ptype = ? AND (v4 IS NULL OR v4 = '')",
+		defaultScopeKey,
+		"p",
+	).Error
+}
+
+func (c *CasbinAdapter) addPolicyFacts(ctx context.Context, rules ...PolicyRule) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	for _, rule := range rules {
-		_, err := c.enforcer.AddPolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act)
+		_, err := c.enforcer.AddPolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
 		if err != nil {
 			return err
 		}
@@ -60,13 +73,12 @@ func (c *CasbinAdapter) AddPolicy(ctx context.Context, rules ...domain.PolicyRul
 	return nil
 }
 
-// RemovePolicy 删除 p 规则
-func (c *CasbinAdapter) RemovePolicy(ctx context.Context, rules ...domain.PolicyRule) error {
+func (c *CasbinAdapter) removePolicyFacts(ctx context.Context, rules ...PolicyRule) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	for _, rule := range rules {
-		_, err := c.enforcer.RemovePolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act)
+		_, err := c.enforcer.RemovePolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
 		if err != nil {
 			return err
 		}
@@ -74,8 +86,7 @@ func (c *CasbinAdapter) RemovePolicy(ctx context.Context, rules ...domain.Policy
 	return nil
 }
 
-// AddGroupingPolicy 添加 g 规则
-func (c *CasbinAdapter) AddGroupingPolicy(ctx context.Context, rules ...domain.GroupingRule) error {
+func (c *CasbinAdapter) addGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -88,8 +99,7 @@ func (c *CasbinAdapter) AddGroupingPolicy(ctx context.Context, rules ...domain.G
 	return nil
 }
 
-// RemoveGroupingPolicy 删除 g 规则
-func (c *CasbinAdapter) RemoveGroupingPolicy(ctx context.Context, rules ...domain.GroupingRule) error {
+func (c *CasbinAdapter) removeGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -102,24 +112,24 @@ func (c *CasbinAdapter) RemoveGroupingPolicy(ctx context.Context, rules ...domai
 	return nil
 }
 
-// GetPoliciesByRole 获取角色的所有 p 规则
-func (c *CasbinAdapter) GetPoliciesByRole(ctx context.Context, role, domainStr string) ([]domain.PolicyRule, error) {
+func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domainStr string) ([]PolicyRule, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	policies, err := c.enforcer.GetFilteredPolicy(0, role, domainStr)
+	policies, err := c.enforcer.GetFilteredPolicy(0, RoleKey(roleName), domainStr)
 	if err != nil {
 		return nil, err
 	}
-	rules := make([]domain.PolicyRule, 0, len(policies))
+	rules := make([]PolicyRule, 0, len(policies))
 
 	for _, p := range policies {
 		if len(p) >= 4 {
-			rules = append(rules, domain.PolicyRule{
-				Sub: p[0],
-				Dom: p[1],
-				Obj: p[2],
-				Act: p[3],
+			rules = append(rules, PolicyRule{
+				Sub:   p[0],
+				Dom:   p[1],
+				Obj:   p[2],
+				Act:   p[3],
+				Scope: policyScopeAt(p, 4),
 			})
 		}
 	}
@@ -127,8 +137,7 @@ func (c *CasbinAdapter) GetPoliciesByRole(ctx context.Context, role, domainStr s
 	return rules, nil
 }
 
-// GetGroupingsBySubject 获取主体的所有 g 规则
-func (c *CasbinAdapter) GetGroupingsBySubject(ctx context.Context, subject, domainStr string) ([]domain.GroupingRule, error) {
+func (c *CasbinAdapter) groupingFactsForSubject(ctx context.Context, subject, domainStr string) ([]GroupingRule, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -136,11 +145,11 @@ func (c *CasbinAdapter) GetGroupingsBySubject(ctx context.Context, subject, doma
 	if err != nil {
 		return nil, err
 	}
-	rules := make([]domain.GroupingRule, 0, len(groupings))
+	rules := make([]GroupingRule, 0, len(groupings))
 
 	for _, g := range groupings {
 		if len(g) >= 3 {
-			rules = append(rules, domain.GroupingRule{
+			rules = append(rules, GroupingRule{
 				Sub:  g[0],
 				Role: g[1],
 				Dom:  g[2],
@@ -164,26 +173,43 @@ func (c *CasbinAdapter) LoadPolicy(ctx context.Context) error {
 	return err
 }
 
-// Enforce 执行 Casbin 判定。
-func (c *CasbinAdapter) Enforce(ctx context.Context, sub, dom, obj, act string) (bool, error) {
+// AuthorizeRoute 执行路由级授权判定；路由守卫只使用租户内 all:* 范围。
+func (c *CasbinAdapter) AuthorizeRoute(ctx context.Context, sub, tenantID, resourceKey, action string) (bool, error) {
 	_ = ctx
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.enforcer.Enforce(sub, dom, obj, act)
+	return c.enforcer.Enforce(sub, tenantID, resourceKey, action, defaultScopeKey)
 }
 
-// GetRolesForUser 返回用户在指定租户域下的直接角色键。
-func (c *CasbinAdapter) GetRolesForUser(ctx context.Context, user, domain string) ([]string, error) {
+// Check implements the application authorization decision port using Casbin.
+func (c *CasbinAdapter) Check(ctx context.Context, request authzDomain.AuthorizationRequest) (authzDomain.AuthorizationDecision, error) {
+	fact := RequestFromAuthorizationRequest(request)
+	allowed, err := c.enforceFact(ctx, fact)
+	if err != nil {
+		return authzDomain.AuthorizationDecision{}, err
+	}
+	return authzDomain.AuthorizationDecision{Allowed: allowed}, nil
+}
+
+func (c *CasbinAdapter) enforceFact(ctx context.Context, fact Request) (bool, error) {
 	_ = ctx
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.enforcer.GetRolesForUser(user, domain)
+	return c.enforcer.Enforce(fact.Sub, fact.Dom, fact.Obj, fact.Act, normalizeScopeKey(fact.Scope))
 }
 
-// GetImplicitRolesForUser 返回用户在指定租户域下的隐式角色键。
-func (c *CasbinAdapter) GetImplicitRolesForUser(ctx context.Context, user, domain string) ([]string, error) {
+// DirectRoleKeys 返回主体在指定租户域下的直接角色键。
+func (c *CasbinAdapter) DirectRoleKeys(ctx context.Context, subject, tenantID string) ([]string, error) {
+	_ = ctx
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.enforcer.GetRolesForUser(subject, tenantID)
+}
+
+func (c *CasbinAdapter) implicitRolesForUser(ctx context.Context, user, domain string) ([]string, error) {
 	_ = ctx
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -191,8 +217,20 @@ func (c *CasbinAdapter) GetImplicitRolesForUser(ctx context.Context, user, domai
 	return c.enforcer.GetImplicitRolesForUser(user, domain)
 }
 
-// GetImplicitPermissionsForUser 返回用户在指定租户域下的隐式权限规则。
-func (c *CasbinAdapter) GetImplicitPermissionsForUser(ctx context.Context, user, dom string) ([]domain.PolicyRule, error) {
+// RoleNamesForSubject returns business role names for a subject inside a tenant.
+func (c *CasbinAdapter) RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error) {
+	roleKeys, err := c.implicitRolesForUser(ctx, SubjectKey(subject), tenantID)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := make([]string, 0, len(roleKeys))
+	for _, roleKey := range roleKeys {
+		roleNames = append(roleNames, RoleNameFromKey(roleKey))
+	}
+	return roleNames, nil
+}
+
+func (c *CasbinAdapter) implicitPermissionsForUser(ctx context.Context, user, dom string) ([]PolicyRule, error) {
 	_ = ctx
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -202,24 +240,66 @@ func (c *CasbinAdapter) GetImplicitPermissionsForUser(ctx context.Context, user,
 		return nil, err
 	}
 
-	rules := make([]domain.PolicyRule, 0, len(permissions))
+	rules := make([]PolicyRule, 0, len(permissions))
 	for _, permission := range permissions {
 		if len(permission) < 4 {
 			continue
 		}
-		rules = append(rules, domain.PolicyRule{
-			Sub: permission[0],
-			Dom: permission[1],
-			Obj: permission[2],
-			Act: permission[3],
+		rules = append(rules, PolicyRule{
+			Sub:   permission[0],
+			Dom:   permission[1],
+			Obj:   permission[2],
+			Act:   permission[3],
+			Scope: policyScopeAt(permission, 4),
 		})
 	}
 	return rules, nil
 }
 
-// Enforcer 获取 Enforcer 实例（用于 PEP）
-func (c *CasbinAdapter) Enforcer() *casbin.CachedEnforcer {
-	return c.enforcer
+// PermissionsForSubject returns business permissions for a subject inside a tenant.
+func (c *CasbinAdapter) PermissionsForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]authzDomain.Permission, error) {
+	rules, err := c.implicitPermissionsForUser(ctx, SubjectKey(subject), tenantID)
+	if err != nil {
+		return nil, err
+	}
+	permissions := make([]authzDomain.Permission, 0, len(rules))
+	for _, rule := range rules {
+		permission, err := authzDomain.NewPermission(
+			RoleNameFromKey(rule.Sub),
+			rule.Dom,
+			rule.Obj,
+			rule.Act,
+			authzDomain.WithPermissionScope(ScopeFromKey(rule.Scope)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+	return permissions, nil
+}
+
+// PermissionsForRole returns business permissions granted to a role inside a tenant.
+func (c *CasbinAdapter) PermissionsForRole(ctx context.Context, roleName, tenantID string) ([]authzDomain.Permission, error) {
+	rules, err := c.policyFactsForRole(ctx, roleName, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	permissions := make([]authzDomain.Permission, 0, len(rules))
+	for _, rule := range rules {
+		permission, err := authzDomain.NewPermission(
+			RoleNameFromKey(rule.Sub),
+			rule.Dom,
+			rule.Obj,
+			rule.Act,
+			authzDomain.WithPermissionScope(ScopeFromKey(rule.Scope)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+	return permissions, nil
 }
 
 // InvalidateCache 清除缓存
@@ -232,4 +312,34 @@ func (c *CasbinAdapter) ReloadHealth() (bool, error, time.Time) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.lastReloadErr == nil, c.lastReloadErr, c.lastReloadAt
+}
+
+func policyScopeAt(values []string, idx int) string {
+	if len(values) <= idx {
+		return defaultScopeKey
+	}
+	return normalizeScopeKey(values[idx])
+}
+
+func normalizeScopeKey(scope string) string {
+	normalized := ScopeFromKey(scope)
+	return ScopeKey(normalized)
+}
+
+func scopeMatchFunc(args ...interface{}) (interface{}, error) {
+	if len(args) != 2 {
+		return false, nil
+	}
+	requestScope, _ := args[0].(string)
+	policyScope, _ := args[1].(string)
+	return scopeMatch(requestScope, policyScope), nil
+}
+
+func scopeMatch(requestScope, policyScope string) bool {
+	requestScope = normalizeScopeKey(requestScope)
+	policyScope = normalizeScopeKey(policyScope)
+	if policyScope == defaultScopeKey {
+		return true
+	}
+	return requestScope == policyScope
 }

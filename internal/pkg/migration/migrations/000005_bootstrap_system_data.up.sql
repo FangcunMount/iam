@@ -238,57 +238,57 @@ FROM (SELECT 'p'                  AS `ptype`,
              'platform'           AS `v1`,
              '*'                  AS `v2`,
              '.*'                 AS `v3`,
-             NULL                 AS `v4`,
+             'all:*'                 AS `v4`,
              NULL                 AS `v5`
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:users',
-             'read|search|create|update|deactivate|block|link_external_identity', NULL, NULL
+             'read|search|create|update|deactivate|block|link_external_identity', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profiles', 'read|list|search|create|update', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profiles', 'read|list|search|create|update', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profile-links',
-             'read|list|grant|update_relation|revoke|bulk_revoke|import', NULL, NULL
+             'read|list|grant|update_relation|revoke|bulk_revoke|import', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:roles', 'create|read|update|delete|list', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:roles', 'create|read|update|delete|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:assignments', 'grant|revoke|delete|read', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:assignments', 'grant|revoke|delete|read', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:policies', 'read|write|delete', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:policies', 'read|write|delete', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:resources',
-             'create|read|update|delete|list|validate_action', NULL, NULL
+             'create|read|update|delete|list|validate_action', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:check', 'check', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:check', 'check', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:accounts', 'read|update|enable|disable', NULL, NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:accounts', 'read|update|enable|disable', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'read', NULL, NULL
+      SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'read', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'update', NULL, NULL
+      SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'update', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:admin', '1', 'qs:*', '.*', NULL, NULL
+      SELECT 'p', 'role:qs:admin', '1', 'qs:*', '.*', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:qs:content_manager', '1', 'qs:questionnaires',
-             'create|read|list|update|delete|publish|unpublish|archive|statistics', NULL, NULL
+             'create|read|list|update|delete|publish|unpublish|archive|statistics', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:qs:content_manager', '1', 'qs:scales',
-             'create|read|list|update|delete|publish|unpublish|archive', NULL, NULL
+             'create|read|list|update|delete|publish|unpublish|archive', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:answersheets', 'read|list|statistics', NULL, NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:answersheets', 'read|list|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:assessments', 'read|list|retry|batch_evaluate|statistics', NULL, NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:assessments', 'read|list|retry|batch_evaluate|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:reports', 'read|list', NULL, NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:reports', 'read|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:testees', 'read|list|analyze|statistics', NULL, NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:testees', 'read|list|analyze|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:staff', '1', 'qs:testees', 'read|list', NULL, NULL
+      SELECT 'p', 'role:qs:staff', '1', 'qs:testees', 'read|list', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:evaluation_plans',
-             'create|read|list|update|pause|resume|cancel|enroll|terminate|statistics', NULL, NULL
+             'create|read|list|update|pause|resume|cancel|enroll|terminate|statistics', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:evaluation_plan_tasks',
-             'schedule|read|list|open|complete|expire|cancel', NULL, NULL
+             'schedule|read|list|open|complete|expire|cancel', 'all:*', NULL
       UNION ALL
       SELECT 'g', 'role:tenant_admin', 'role:user', 'fangcun', NULL, NULL, NULL
       UNION ALL

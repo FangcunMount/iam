@@ -1,0 +1,64 @@
+package rolebinding
+
+import (
+	"github.com/FangcunMount/iam/internal/pkg/meta"
+)
+
+// Binding 用户/组 ↔ 角色赋权（聚合根）
+type Binding struct {
+	ID          BindingID
+	SubjectType SubjectType // user/group/service
+	SubjectID   string      // 用户或组ID
+	RoleID      uint64      // 角色ID
+	TenantID    string      // 租户ID（域）
+	GrantedBy   string      // 授权人
+}
+
+// NewBinding 创建新赋权
+func NewBinding(subjectType SubjectType, subjectID string, roleID uint64, tenantID string, opts ...BindingOption) Binding {
+	a := Binding{
+		SubjectType: subjectType,
+		SubjectID:   subjectID,
+		RoleID:      roleID,
+		TenantID:    tenantID,
+	}
+	for _, opt := range opts {
+		opt(&a)
+	}
+	return a
+}
+
+// BindingOption 赋权选项
+type BindingOption func(*Binding)
+
+func WithID(id BindingID) BindingOption     { return func(a *Binding) { a.ID = id } }
+func WithGrantedBy(by string) BindingOption { return func(a *Binding) { a.GrantedBy = by } }
+
+// BindingID 赋权ID值对象
+type BindingID meta.ID
+
+func NewBindingID(value uint64) BindingID {
+	id := meta.FromUint64(value) // 来自 URL 或内部生成
+	return BindingID(id)
+}
+
+func (id BindingID) Uint64() uint64 {
+	return meta.ID(id).Uint64()
+}
+
+func (id BindingID) String() string {
+	return meta.ID(id).String()
+}
+
+// SubjectType 主体类型
+type SubjectType string
+
+const (
+	SubjectTypeUser    SubjectType = "user"
+	SubjectTypeGroup   SubjectType = "group"
+	SubjectTypeService SubjectType = "service"
+)
+
+func (st SubjectType) String() string {
+	return string(st)
+}

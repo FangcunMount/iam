@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS `authz_resources`
     `domain`       VARCHAR(32)              DEFAULT NULL COMMENT '资源域',
     `type`         VARCHAR(32)              DEFAULT NULL COMMENT '资源类型',
     `actions`      TEXT                     DEFAULT NULL COMMENT '资源可用操作 (JSON数组格式)',
+    `scope_kinds`  TEXT                     DEFAULT NULL COMMENT '资源支持的授权范围类型 (JSON数组格式)',
     `description`  VARCHAR(512)             DEFAULT NULL COMMENT '资源描述',
     `created_at`   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

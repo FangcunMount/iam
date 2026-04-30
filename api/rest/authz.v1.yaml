@@ -145,13 +145,13 @@ paths:
     post:
       tags:
       - Authorization-Policies
-      summary: 添加策略规则
+      summary: 添加权限
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPolicyRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest'
       responses:
         '200':
           description: OK
@@ -162,13 +162,13 @@ paths:
     delete:
       tags:
       - Authorization-Policies
-      summary: 移除策略规则
+      summary: 移除权限
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePolicyRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest'
       responses:
         '200':
           description: OK
@@ -554,7 +554,7 @@ paths:
                 - properties:
                     data:
                       items:
-                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyRuleResponse'
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse'
                       type: array
                   type: object
 components:
@@ -603,7 +603,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPolicyRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest:
       properties:
         action:
           type: string
@@ -614,6 +614,10 @@ components:
         resource_id:
           type: string
         role_id:
+          type: string
+        scope_type:
+          type: string
+        scope_value:
           type: string
       required:
       - action
@@ -640,6 +644,10 @@ components:
         action:
           type: string
         object:
+          type: string
+        scope_type:
+          type: string
+        scope_value:
           type: string
         subject_id:
           type: string
@@ -672,6 +680,10 @@ components:
           type: string
         key:
           type: string
+        scope_kinds:
+          items:
+            type: string
+          type: array
         type:
           type: string
       required:
@@ -725,13 +737,17 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyRuleResponse:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse:
       properties:
         action:
           type: string
         domain:
           type: string
         object:
+          type: string
+        scope_type:
+          type: string
+        scope_value:
           type: string
         subject:
           type: string
@@ -747,7 +763,7 @@ components:
         version:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePolicyRequest:
+    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest:
       properties:
         action:
           type: string
@@ -758,6 +774,10 @@ components:
         resource_id:
           type: string
         role_id:
+          type: string
+        scope_type:
+          type: string
+        scope_value:
           type: string
       required:
       - action
@@ -782,6 +802,10 @@ components:
           type: string
         key:
           type: string
+        scope_kinds:
+          items:
+            type: string
+          type: array
         type:
           type: string
       type: object
@@ -832,6 +856,10 @@ components:
           type: string
         display_name:
           type: string
+        scope_kinds:
+          items:
+            type: string
+          type: array
       type: object
     github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest:
       properties:

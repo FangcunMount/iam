@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
@@ -56,19 +57,6 @@ func (v *validator) CheckKeyUnique(ctx context.Context, key string) error {
 	return nil
 }
 
-// ValidateCreateCommand 验证创建命令
-func (v *validator) ValidateCreateCommand(cmd CreateResourceCommand) error {
-	return v.ValidateCreateParameters(cmd.Key, cmd.DisplayName, cmd.AppName, cmd.Domain, cmd.Type, cmd.Actions)
-}
-
-// ValidateUpdateCommand 验证更新命令
-func (v *validator) ValidateUpdateCommand(cmd UpdateResourceCommand) error {
-	if cmd.Actions != nil {
-		return v.ValidateUpdateParameters(cmd.Actions)
-	}
-	return nil
-}
-
 // ValidateCreateParameters 验证创建资源的参数
 //
 // 业务规则：
@@ -105,6 +93,17 @@ func (v *validator) ValidateCreateParameters(key string, displayName string, app
 func (v *validator) ValidateUpdateParameters(actions []string) error {
 	if actions != nil && len(actions) == 0 {
 		return errors.WithCode(code.ErrInvalidArgument, "动作列表不能为空")
+	}
+	return nil
+}
+
+func (v *validator) ValidateScopeKinds(kinds []authzDomain.ScopeKind) error {
+	for _, kind := range kinds {
+		switch kind {
+		case authzDomain.ScopeKindAll, authzDomain.ScopeKindOrigin:
+		default:
+			return errors.WithCode(code.ErrInvalidArgument, "unsupported scope kind: %s", kind)
+		}
 	}
 	return nil
 }

@@ -10,7 +10,10 @@ import (
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/pkg/core"
 )
+
+var _ = core.ErrResponse{}
 
 // CreateKey 创建密钥（管理员接口）
 // @Summary 创建密钥

@@ -1,4 +1,4 @@
-package assignment
+package rolebinding
 
 import (
 	"context"
@@ -9,24 +9,24 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
 	testhelpers "github.com/FangcunMount/iam/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 )
 
-// 并发创建相同的 assignment（相同 subject_type+subject_id+role_id+tenant_id），
+// 并发创建相同的 binding（相同 subject_type+subject_id+role_id+tenant_id），
 // 在测试环境为表添加唯一索引以触发重复错误，期望只有 1 条记录写入，
 // 其余被翻译为 code.ErrAssignmentAlreadyExists。
-func TestAssignmentRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
+func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 	db := testhelpers.SetupTempSQLiteDB(t)
-	require.NoError(t, db.AutoMigrate(&AssignmentPO{}))
+	require.NoError(t, db.AutoMigrate(&BindingPO{}))
 
 	// 为测试环境显式创建唯一索引，避免在 PO tag 中改动生产 schema
 	// 复合唯一键: subject_type, subject_id, role_id, tenant_id
-	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_assignment ON authz_assignments(subject_type, subject_id, role_id, tenant_id)")
+	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_binding ON authz_assignments(subject_type, subject_id, role_id, tenant_id)")
 
-	repo := NewAssignmentRepository(db)
+	repo := NewBindingRepository(db)
 	ctx := context.Background()
 
 	const concurrency = 50
@@ -41,7 +41,7 @@ func TestAssignmentRepository_Create_ConcurrentDuplicateDetection(t *testing.T) 
 		go func(d int) {
 			defer wg.Done()
 			time.Sleep(time.Millisecond * time.Duration(d))
-			a := domain.NewAssignment(domain.SubjectTypeUser, "user-123", 42, "tenant-1")
+			a := domain.NewBinding(domain.SubjectTypeUser, "user-123", 42, "tenant-1")
 			if err := testhelpers.RetryOnDBLocked(func() error { return repo.Create(ctx, &a) }); err != nil {
 				errs <- err
 				return
@@ -75,7 +75,7 @@ func TestAssignmentRepository_Create_ConcurrentDuplicateDetection(t *testing.T) 
 	require.GreaterOrEqual(t, mappedCount, 1, "at least one error should be mapped to ErrAssignmentAlreadyExists")
 
 	var cnt int64
-	require.NoError(t, db.Model(&AssignmentPO{}).
+	require.NoError(t, db.Model(&BindingPO{}).
 		Where("subject_type = ? AND subject_id = ? AND role_id = ? AND tenant_id = ?", "user", "user-123", 42, "tenant-1").
 		Count(&cnt).Error)
 	require.Equal(t, int64(1), cnt)

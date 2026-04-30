@@ -4,6 +4,8 @@ package handler
 import (
 	"strconv"
 
+	resourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
@@ -13,14 +15,14 @@ import (
 //
 // 依赖倒置原则：Handler 依赖 driving 接口，不依赖具体实现
 type ResourceHandler struct {
-	commander resourceDomain.Commander // 命令服务（写操作）
-	queryer   resourceDomain.Queryer   // 查询服务（读操作）
+	commander resourceApp.Catalog
+	queryer   resourceApp.Directory
 }
 
 // NewResourceHandler 创建资源处理器
 func NewResourceHandler(
-	commander resourceDomain.Commander,
-	queryer resourceDomain.Queryer,
+	commander resourceApp.Catalog,
+	queryer resourceApp.Directory,
 ) *ResourceHandler {
 	return &ResourceHandler{
 		commander: commander,
@@ -42,13 +44,14 @@ func (h *ResourceHandler) CreateResource(c *gin.Context) {
 		return
 	}
 
-	cmd := resourceDomain.CreateResourceCommand{
+	cmd := resourceApp.CreateResourceCommand{
 		Key:         req.Key,
 		DisplayName: req.DisplayName,
 		AppName:     req.AppName,
 		Domain:      req.Domain,
 		Type:        req.Type,
 		Actions:     req.Actions,
+		ScopeKinds:  toDomainScopeKinds(req.ScopeKinds),
 		Description: req.Description,
 	}
 
@@ -81,10 +84,11 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	cmd := resourceDomain.UpdateResourceCommand{
+	cmd := resourceApp.UpdateResourceCommand{
 		ID:          resourceDomain.NewResourceID(resourceID.Uint64()),
 		DisplayName: &req.DisplayName,
 		Actions:     req.Actions,
+		ScopeKinds:  toDomainScopeKinds(req.ScopeKinds),
 		Description: &req.Description,
 	}
 
@@ -95,6 +99,17 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 	}
 
 	success(c, h.toResourceResponse(updatedResource))
+}
+
+func toDomainScopeKinds(values []string) []authzDomain.ScopeKind {
+	if len(values) == 0 {
+		return nil
+	}
+	kinds := make([]authzDomain.ScopeKind, 0, len(values))
+	for _, value := range values {
+		kinds = append(kinds, authzDomain.ScopeKind(value))
+	}
+	return kinds
 }
 
 // DeleteResource 删除资源
@@ -176,7 +191,7 @@ func (h *ResourceHandler) ListResources(c *gin.Context) {
 	domain := c.Query("domain")
 	typ := c.Query("type")
 
-	query := resourceDomain.ListResourcesQuery{
+	query := resourceApp.ListResourcesQuery{
 		AppName: appName,
 		Domain:  domain,
 		Type:    typ,

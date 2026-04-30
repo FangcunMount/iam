@@ -1,8 +1,6 @@
 package policy
 
 import (
-	"encoding/json"
-
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
@@ -64,56 +62,4 @@ func (m *Mapper) ToBOList(pos []*PolicyVersionPO) []*policy.PolicyVersion {
 	}
 
 	return bos
-}
-
-// PolicyRulesToJSON 将策略规则转换为 JSON 字符串
-func PolicyRulesToJSON(rules []policy.PolicyRule) (string, error) {
-	if len(rules) == 0 {
-		return "[]", nil
-	}
-
-	data, err := json.Marshal(rules)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-// JSONToPolicyRules 将 JSON 字符串转换为策略规则
-func JSONToPolicyRules(jsonStr string) ([]policy.PolicyRule, error) {
-	if jsonStr == "" || jsonStr == "[]" {
-		return nil, nil
-	}
-
-	var rules []policy.PolicyRule
-	if err := json.Unmarshal([]byte(jsonStr), &rules); err != nil {
-		return nil, err
-	}
-	return rules, nil
-}
-
-// GroupingRulesToJSON 将分组规则转换为 JSON 字符串
-func GroupingRulesToJSON(rules []policy.GroupingRule) (string, error) {
-	if len(rules) == 0 {
-		return "[]", nil
-	}
-
-	data, err := json.Marshal(rules)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-// JSONToGroupingRules 将 JSON 字符串转换为分组规则
-func JSONToGroupingRules(jsonStr string) ([]policy.GroupingRule, error) {
-	if jsonStr == "" || jsonStr == "[]" {
-		return nil, nil
-	}
-
-	var rules []policy.GroupingRule
-	if err := json.Unmarshal([]byte(jsonStr), &rules); err != nil {
-		return nil, err
-	}
-	return rules, nil
 }

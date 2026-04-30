@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	appuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
-	assignmentrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/assignment"
+	bindingrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/rolebinding"
 	casbinrulerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/casbinrule"
 	policyrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/policy"
 	resourcerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/resource"
@@ -45,12 +45,12 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context
 			return err
 		}
 		repos := appuow.TxRepositories{
-			Assignments:    assignmentrepo.NewAssignmentRepository(tx),
+			Bindings:    bindingrepo.NewBindingRepository(tx),
 			Roles:          rolerepo.NewRoleRepository(tx),
 			Resources:      resourcerepo.NewResourceRepository(tx),
 			PolicyVersions: policyrepo.NewPolicyVersionRepository(tx),
 			Users:          userrepo.NewRepository(tx),
-			RuleStore:      casbinrulerepo.NewRepository(tx),
+			AuthorizationFacts:      casbinrulerepo.NewRepository(tx),
 			Events:         u.events,
 		}
 		return fn(txCtx, repos)

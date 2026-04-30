@@ -3,10 +3,11 @@ package handler
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/assignment"
+	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	binding "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/internal/pkg/meta"
 )
 
@@ -31,15 +32,15 @@ func TestRoleHandlerToRoleResponse(t *testing.T) {
 	}
 }
 
-func TestAssignmentHandlerToAssignmentResponse(t *testing.T) {
-	handler := &AssignmentHandler{}
-	source := assignment.NewAssignment(
-		assignment.SubjectTypeUser,
+func TestRoleBindingHandlerToBindingResponse(t *testing.T) {
+	handler := &RoleBindingHandler{}
+	source := binding.NewBinding(
+		binding.SubjectTypeUser,
 		"user-1",
 		22,
 		"tenant-a",
-		assignment.WithID(assignment.NewAssignmentID(12)),
-		assignment.WithGrantedBy("operator-1"),
+		binding.WithID(binding.NewBindingID(12)),
+		binding.WithGrantedBy("operator-1"),
 	)
 
 	resp := handler.toAssignmentResponse(&source)
@@ -50,7 +51,7 @@ func TestAssignmentHandlerToAssignmentResponse(t *testing.T) {
 		resp.RoleID.Uint64() != 22 ||
 		resp.TenantID != "tenant-a" ||
 		resp.GrantedBy != "operator-1" {
-		t.Fatalf("unexpected assignment response: %#v", resp)
+		t.Fatalf("unexpected binding response: %#v", resp)
 	}
 }
 
@@ -59,7 +60,7 @@ func TestConvertToSubjectType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convert user subject type: %v", err)
 	}
-	if subjectType != assignment.SubjectTypeUser {
+	if subjectType != binding.SubjectTypeUser {
 		t.Fatalf("unexpected subject type: %s", subjectType)
 	}
 
@@ -98,17 +99,20 @@ func TestResourceHandlerToResourceResponse(t *testing.T) {
 }
 
 func TestPolicyRuleAndVersionResponses(t *testing.T) {
-	rules := []policy.PolicyRule{
-		policy.NewPolicyRule("role:admin", "tenant-a", "scale:form:*", "read"),
+	permission, err := authzDomain.NewPermission("admin", "tenant-a", "scale:form:*", "read")
+	if err != nil {
+		t.Fatalf("new permission: %v", err)
 	}
 
-	ruleResponses := toPolicyRuleResponses(rules)
+	ruleResponses := toPermissionResponses([]authzDomain.Permission{permission})
 	if len(ruleResponses) != 1 ||
 		ruleResponses[0].Subject != "role:admin" ||
 		ruleResponses[0].Domain != "tenant-a" ||
 		ruleResponses[0].Object != "scale:form:*" ||
-		ruleResponses[0].Action != "read" {
-		t.Fatalf("unexpected policy rule responses: %#v", ruleResponses)
+		ruleResponses[0].Action != "read" ||
+		ruleResponses[0].ScopeType != "all" ||
+		ruleResponses[0].ScopeValue != "*" {
+		t.Fatalf("unexpected permission responses: %#v", ruleResponses)
 	}
 
 	empty := emptyPolicyVersionResponse("tenant-a")

@@ -11,6 +11,7 @@ type CreateResourceRequest struct {
 	Domain      string   `json:"domain" binding:"required"`
 	Type        string   `json:"type" binding:"required"`
 	Actions     []string `json:"actions" binding:"required,min=1"`
+	ScopeKinds  []string `json:"scope_kinds"`
 	Description string   `json:"description"`
 }
 
@@ -18,6 +19,7 @@ type CreateResourceRequest struct {
 type UpdateResourceRequest struct {
 	DisplayName string   `json:"display_name"`
 	Actions     []string `json:"actions" binding:"min=1"`
+	ScopeKinds  []string `json:"scope_kinds"`
 	Description string   `json:"description"`
 }
 
@@ -30,6 +32,7 @@ type ResourceResponse struct {
 	Domain      string   `json:"domain"`
 	Type        string   `json:"type"`
 	Actions     []string `json:"actions"`
+	ScopeKinds  []string `json:"scope_kinds"`
 	Description string   `json:"description"`
 }
 

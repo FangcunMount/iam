@@ -10,7 +10,6 @@ import (
 	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
 	mysqlUcUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
 	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 )
 
 // UserModule 用户模块
@@ -25,7 +24,7 @@ type UserModule struct {
 	profileLinkCommands  appprofilelink.Commands
 	profileLinkDirectory appprofilelink.Directory
 	myProfileLinks       appprofilelink.MyProfileLinks
-	casbin               authn.CasbinEnforcer
+	roleNames            RoleNameReader
 }
 
 // NewUserModule 创建用户模块
@@ -35,7 +34,7 @@ func NewUserModule() *UserModule {
 
 type UserModuleDeps struct {
 	DB             *gorm.DB
-	Casbin         authn.CasbinEnforcer
+	RoleNames      RoleNameReader
 	SessionManager sessiondomain.Manager
 }
 
@@ -67,7 +66,7 @@ func (m *UserModule) InitializeWithDeps(deps UserModuleDeps) error {
 	m.profileLinkCommands = profileLinkCommands
 	m.profileLinkDirectory = profileLinkDirectory
 	m.myProfileLinks = myProfileLinks
-	m.casbin = deps.Casbin
+	m.roleNames = deps.RoleNames
 	return nil
 }
 
@@ -97,6 +96,6 @@ func (m *UserModule) ApplicationCapabilities() UserApplicationCapabilities {
 		ProfileLinkCommands:  m.profileLinkCommands,
 		ProfileLinkDirectory: m.profileLinkDirectory,
 		MyProfileLinks:       m.myProfileLinks,
-		Casbin:               m.casbin,
+		RoleNames:            m.roleNames,
 	}
 }

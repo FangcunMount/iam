@@ -58,17 +58,6 @@ func (v *validator) CheckNameUnique(ctx context.Context, tenantID, name string) 
 	return nil
 }
 
-// ValidateCreateCommand 验证创建命令
-func (v *validator) ValidateCreateCommand(cmd CreateRoleCommand) error {
-	return v.ValidateCreateParameters(cmd.Name, cmd.DisplayName, cmd.TenantID)
-}
-
-// ValidateUpdateCommand 验证更新命令
-func (v *validator) ValidateUpdateCommand(cmd UpdateRoleCommand) error {
-	// 更新命令的验证逻辑可以根据需要扩展
-	return nil
-}
-
 // ValidateCreateParameters 验证创建角色的参数
 //
 // 业务规则：
