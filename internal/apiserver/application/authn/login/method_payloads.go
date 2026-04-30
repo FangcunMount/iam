@@ -18,7 +18,7 @@ func (p methodPayloadCommon) commonPayload() methodPayloadCommon {
 	return p
 }
 
-func commonPayloadFromRequest(req LoginRequest) methodPayloadCommon {
+func commonPayloadFromRequest(req SignInCommand) methodPayloadCommon {
 	return methodPayloadCommon{TenantID: req.TenantID}
 }
 

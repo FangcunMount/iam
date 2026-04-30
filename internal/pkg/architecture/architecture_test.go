@@ -897,6 +897,74 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	})
 }
 
+func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	if _, err := os.Stat(filepath.Join(root, "internal", "apiserver", "application", "authn", "login", "method_authenticator.go")); err == nil {
+		t.Fatal("application/authn/login/method_authenticator.go is retired; sign-in methods prepare domain credentials and domain Authenticator dispatches normal authentication")
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{
+		"internal/apiserver/application/authn/login/scenario_selector.go",
+		"internal/apiserver/application/authn/login/scenario_selector_explicit.go",
+		"internal/apiserver/application/authn/login/scenario_selector_legacy.go",
+		"internal/apiserver/application/authn/login/method_catalog.go",
+		"internal/apiserver/application/authn/login/method_password.go",
+		"internal/apiserver/application/authn/login/method_phone_otp.go",
+		"internal/apiserver/application/authn/login/method_wechat.go",
+		"internal/apiserver/application/authn/login/method_wecom.go",
+		"internal/apiserver/application/authn/login/method_bearer.go",
+		"internal/apiserver/application/authn/login/method_authenticator_test.go",
+		"internal/apiserver/application/authn/login/signin_method_catalog_test.go",
+		"internal/apiserver/application/authn/login/method_proof_preparer_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+			t.Fatalf("%s is retired login wording; use sign-in adapter catalog names", rel)
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method_selector_explicit.go", "switch req.AuthType")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method_selector_legacy.go", "legacyPasswordPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method_selector_legacy.go", "legacyPhoneOTPPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/services_impl.go", "methodAuthenticators")
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "authn", "login"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{
+			"type MethodAuthenticator interface",
+			"newMethodAuthenticatorRouter",
+			"map[MethodKind]MethodAuthenticator",
+			"domainMethodAuthenticator",
+			"type MethodKind",
+			"MethodPassword",
+			"MethodPhoneOTP",
+			"MethodWechatMini",
+			"MethodWecom",
+			"MethodBearerToken",
+			"type ScenarioSelector interface",
+			"type SelectedMethod struct",
+			"type CredentialPreparer interface",
+			"PrepareCredential(",
+			"type SignInMethodDefinition",
+			"MethodRoute",
+			"newDefaultSignInMethodCatalog",
+			"newSignInMethodCatalog",
+			"mustSignInMethodCatalog",
+			"signInMethodDeps",
+			"buildPasswordProof",
+			"buildPhoneOTPProof",
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains retired login method router token %q; keep request adaptation in SignInAdapterCatalog and normal authentication in domain Authenticator", rel, token)
+			}
+		}
+	})
+}
+
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
 	t.Parallel()
 

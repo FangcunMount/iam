@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMethodProofBuildersMapSelectedPayloads(t *testing.T) {
+func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	t.Parallel()
 
-	passwordProof, err := buildPasswordProof(PasswordPayload{
+	passwordProof, err := newPasswordAdapter().PrepareProof(context.Background(), PasswordPayload{
 		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(42)},
 		Username:            "alice",
 		Password:            "secret",
@@ -29,7 +29,7 @@ func TestMethodProofBuildersMapSelectedPayloads(t *testing.T) {
 	require.Equal(t, uint64(42), password.TenantID.Uint64())
 	require.Equal(t, "alice", password.Username)
 
-	phoneProof, err := buildPhoneOTPProof(PhoneOTPPayload{
+	phoneProof, err := newPhoneOTPAdapter().PrepareProof(context.Background(), PhoneOTPPayload{
 		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(7)},
 		PhoneE164:           "+8613800138000",
 		OTP:                 "123456",
@@ -44,9 +44,7 @@ func TestMethodProofBuildersMapSelectedPayloads(t *testing.T) {
 func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 	t.Parallel()
 
-	router := newMethodAuthenticatorRouter(
-		authentication.NewAuthenticator(),
-		nil,
+	adapter := newWecomAdapter(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
 				AppID:  "corp-id",
@@ -59,16 +57,13 @@ func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 		wecomSecretVaultStub{plaintext: "corp-secret"},
 		WecomConfig{},
 	)
-	decision, err := router.Authenticate(context.Background(), SelectedMethod{
-		Method: MethodWecom,
-		Payload: WecomPayload{
-			methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
-			CorpID:              "corp-id",
-			Code:                "auth-code",
-		},
+	credential, err := adapter.PrepareProof(context.Background(), WecomPayload{
+		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
+		CorpID:              "corp-id",
+		Code:                "auth-code",
 	})
 
-	require.False(t, decision.OK)
+	require.Nil(t, credential)
 	require.Error(t, err)
 	require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
 }
@@ -134,23 +129,18 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			router := newMethodAuthenticatorRouter(
-				authentication.NewAuthenticator(),
-				nil,
+			adapter := newWecomAdapter(
 				tc.repo,
 				tc.vault,
 				WecomConfig{AgentID: "agent-id"},
 			)
-			decision, err := router.Authenticate(context.Background(), SelectedMethod{
-				Method: MethodWecom,
-				Payload: WecomPayload{
-					methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
-					CorpID:              "corp-id",
-					Code:                "auth-code",
-				},
+			credential, err := adapter.PrepareProof(context.Background(), WecomPayload{
+				methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
+				CorpID:              "corp-id",
+				Code:                "auth-code",
 			})
 
-			require.False(t, decision.OK)
+			require.Nil(t, credential)
 			require.Error(t, err)
 			require.Equal(t, tc.wantErrCode, perrors.ParseCoder(err).Code())
 		})
@@ -171,9 +161,7 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 		userID:     "wecom-user-id",
 	}
 	auth := authentication.NewAuthenticator(authentication.NewOAuthWeChatComAuthStrategy(credRepo, accountRepo, idp))
-	router := newMethodAuthenticatorRouter(
-		auth,
-		nil,
+	adapter := newWecomAdapter(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
 				AppID:  "corp-id",
@@ -187,15 +175,14 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 		WecomConfig{AgentID: "agent-id"},
 	)
 
-	decision, err := router.Authenticate(context.Background(), SelectedMethod{
-		Method: MethodWecom,
-		Payload: WecomPayload{
-			methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
-			CorpID:              "corp-id",
-			Code:                "auth-code",
-		},
+	credential, err := adapter.PrepareProof(context.Background(), WecomPayload{
+		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
+		CorpID:              "corp-id",
+		Code:                "auth-code",
 	})
+	require.NoError(t, err)
 
+	decision, err := auth.Authenticate(context.Background(), credential)
 	require.NoError(t, err)
 	require.True(t, decision.OK)
 	require.Equal(t, meta.FromUint64(1001), decision.Principal.AccountID)

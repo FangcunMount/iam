@@ -10,45 +10,52 @@ import (
 
 // ============= 应用服务接口（Driving Ports）=============
 
-// LoginApplicationService 登录应用服务 - 统一的登录接口
+// LoginApplicationService 是 transport 依赖的登录门面。
 type LoginApplicationService interface {
-	// Login 统一登录接口
-	// 根据 LoginRequest.AuthType 自动选择认证策略，完成认证并签发令牌
+	// Login 根据调用者输入选择登录方式，完成认证并签发令牌。
 	Login(ctx context.Context, req LoginRequest) (*LoginResult, error)
 
-	// Logout 登出接口
-	// 撤销用户的访问令牌或刷新令牌，使其失效
+	// Logout 撤销用户的访问令牌或刷新令牌，使其失效。
 	Logout(ctx context.Context, req LogoutRequest) error
 }
 
 // ============= DTOs =============
 
-// AuthType 认证类型
+// AuthType 是 v2 explicit 请求里用于选择登录方式的 wire value。
 type AuthType string
 
 const (
-	AuthTypePassword AuthType = "password"  // 密码认证
-	AuthTypePhoneOTP AuthType = "phone_otp" // 手机号OTP认证
-	AuthTypeWechat   AuthType = "wechat"    // 微信小程序认证
-	AuthTypeWecom    AuthType = "wecom"     // 企业微信认证
+	AuthTypePassword AuthType = AuthType(authentication.AuthPassword) // 密码认证
+	AuthTypePhoneOTP AuthType = AuthType(authentication.AuthPhoneOTP) // 手机号OTP认证
+	// AuthTypeWechat 是 public wire value；它映射到 domain scenario oauth_wx_minip。
+	AuthTypeWechat AuthType = "wechat"
+	// AuthTypeWecom 是 public wire value；它映射到 domain scenario oauth_wecom。
+	AuthTypeWecom    AuthType = "wecom"
 	AuthTypeJWTToken AuthType = "jwt_token" // bearer-token compatibility method
 )
 
-// ScenarioSelectionMode 控制 LoginRequest 如何选择认证场景。
-type ScenarioSelectionMode string
+// SignInSelectionMode 控制登录命令如何选择登录方式。
+type SignInSelectionMode string
 
 const (
-	// ScenarioSelectionLegacy 保持 v1 旧行为：根据字段存在性推断认证场景，AuthType 不作为权威字段。
-	ScenarioSelectionLegacy ScenarioSelectionMode = ""
-	// ScenarioSelectionExplicit 用于 v2：AuthType 是权威字段，只读取对应 method payload 映射出的字段。
-	ScenarioSelectionExplicit ScenarioSelectionMode = "explicit"
+	// SignInSelectionLegacy 保持 v1 旧行为：根据字段存在性推断登录方式，AuthType 不作为权威字段。
+	SignInSelectionLegacy SignInSelectionMode = ""
+	// SignInSelectionExplicit 用于 v2：AuthType 是权威字段，只读取对应 method payload 映射出的字段。
+	SignInSelectionExplicit SignInSelectionMode = "explicit"
+	// ScenarioSelectionLegacy 是旧命名兼容别名；新代码使用 SignInSelectionLegacy。
+	ScenarioSelectionLegacy = SignInSelectionLegacy
+	// ScenarioSelectionExplicit 是旧命名兼容别名；新代码使用 SignInSelectionExplicit。
+	ScenarioSelectionExplicit = SignInSelectionExplicit
 )
 
-// LoginRequest 统一登录请求
-type LoginRequest struct {
+// ScenarioSelectionMode 是旧命名兼容别名；新代码使用 SignInSelectionMode。
+type ScenarioSelectionMode = SignInSelectionMode
+
+// SignInCommand 是登录用例的应用层输入。
+type SignInCommand struct {
 	// ========== 认证类型（必须）==========
-	AuthType      AuthType              // 认证类型
-	SelectionMode ScenarioSelectionMode // 场景选择模式；零值保持 v1 legacy 字段推断
+	AuthType      AuthType            // 认证类型
+	SelectionMode SignInSelectionMode // 登录方式选择模式；零值保持 v1 legacy 字段推断
 
 	// ========== 密码认证字段 ==========
 	TenantID meta.ID // 租户ID（可选）
@@ -77,8 +84,11 @@ type WecomConfig struct {
 	AgentID string
 }
 
-// LoginResult 登录结果
-type LoginResult struct {
+// LoginRequest 保留给现有 transport 调用方；语义等同于 SignInCommand。
+type LoginRequest = SignInCommand
+
+// SignInResult 是登录用例的应用层输出。
+type SignInResult struct {
 	// 认证主体
 	Principal *authentication.Principal // 认证主体信息
 
@@ -91,11 +101,17 @@ type LoginResult struct {
 	TenantID  meta.ID // 租户ID（可选）
 }
 
-// LogoutRequest 登出请求
-type LogoutRequest struct {
+// LoginResult 保留给现有 transport 调用方；语义等同于 SignInResult。
+type LoginResult = SignInResult
+
+// SignOutCommand 是登出用例的应用层输入。
+type SignOutCommand struct {
 	// AccessToken 或 RefreshToken 二选一
 	// 如果提供 AccessToken，只撤销该访问令牌
 	// 如果提供 RefreshToken，撤销刷新令牌（更彻底，会使所有通过该刷新令牌签发的访问令牌失效）
 	AccessToken  *string // 访问令牌
 	RefreshToken *string // 刷新令牌
 }
+
+// LogoutRequest 保留给现有 transport 调用方；语义等同于 SignOutCommand。
+type LogoutRequest = SignOutCommand

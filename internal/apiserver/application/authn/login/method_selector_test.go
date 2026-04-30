@@ -7,10 +7,11 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
-func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
+func TestLegacyMethodSelectorPreservesOverrideOrder(t *testing.T) {
 	t.Parallel()
 
 	username := "alice"
@@ -26,7 +27,7 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 	tests := []struct {
 		name string
 		req  LoginRequest
-		want MethodKind
+		want SignInKind
 	}{
 		{
 			name: "password",
@@ -34,7 +35,7 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 				Username: &username,
 				Password: &password,
 			},
-			want: MethodPassword,
+			want: SignInKind(authentication.AuthPassword),
 		},
 		{
 			name: "phone overrides password",
@@ -44,7 +45,7 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 				PhoneE164: &phone,
 				OTPCode:   &otp,
 			},
-			want: MethodPhoneOTP,
+			want: SignInKind(authentication.AuthPhoneOTP),
 		},
 		{
 			name: "wechat overrides phone",
@@ -56,7 +57,7 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 				WechatAppID:  &wechatAppID,
 				WechatJSCode: &wechatCode,
 			},
-			want: MethodWechatMini,
+			want: SignInKind(authentication.AuthWxMinip),
 		},
 		{
 			name: "wecom overrides wechat",
@@ -70,7 +71,7 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 				WecomCorpID:  &wecomCorpID,
 				WecomCode:    &wecomCode,
 			},
-			want: MethodWecom,
+			want: SignInKind(authentication.AuthWecom),
 		},
 		{
 			name: "bearer overrides all legacy credentials",
@@ -85,11 +86,11 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 				WecomCode:    &wecomCode,
 				JWTToken:     &jwtToken,
 			},
-			want: MethodBearerToken,
+			want: SignInKind(AuthTypeJWTToken),
 		},
 	}
 
-	selector := newDefaultScenarioSelector()
+	selector := newDefaultMethodSelector(newDefaultSignInAdapterCatalog(signInAdapterDeps{}))
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -103,7 +104,7 @@ func TestLegacyScenarioSelectorPreservesOverrideOrder(t *testing.T) {
 	}
 }
 
-func TestExplicitScenarioSelectorRequiresMethodFields(t *testing.T) {
+func TestExplicitMethodSelectorRequiresMethodFields(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -113,41 +114,41 @@ func TestExplicitScenarioSelectorRequiresMethodFields(t *testing.T) {
 		{
 			name: "password username",
 			req: LoginRequest{
-				SelectionMode: ScenarioSelectionExplicit,
+				SelectionMode: SignInSelectionExplicit,
 				AuthType:      AuthTypePassword,
 			},
 		},
 		{
 			name: "phone",
 			req: LoginRequest{
-				SelectionMode: ScenarioSelectionExplicit,
+				SelectionMode: SignInSelectionExplicit,
 				AuthType:      AuthTypePhoneOTP,
 			},
 		},
 		{
 			name: "wechat",
 			req: LoginRequest{
-				SelectionMode: ScenarioSelectionExplicit,
+				SelectionMode: SignInSelectionExplicit,
 				AuthType:      AuthTypeWechat,
 			},
 		},
 		{
 			name: "wecom",
 			req: LoginRequest{
-				SelectionMode: ScenarioSelectionExplicit,
+				SelectionMode: SignInSelectionExplicit,
 				AuthType:      AuthTypeWecom,
 			},
 		},
 		{
 			name: "bearer",
 			req: LoginRequest{
-				SelectionMode: ScenarioSelectionExplicit,
+				SelectionMode: SignInSelectionExplicit,
 				AuthType:      AuthTypeJWTToken,
 			},
 		},
 	}
 
-	selector := newDefaultScenarioSelector()
+	selector := newDefaultMethodSelector(newDefaultSignInAdapterCatalog(signInAdapterDeps{}))
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {

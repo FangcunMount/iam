@@ -159,7 +159,7 @@ func TestLogin_BearerTokenVerifierErrorMapsToAuthenticationFailure(t *testing.T)
 	require.Nil(t, issuer.captured)
 }
 
-func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *testing.T) {
+func TestMethodSelectorCharacterizesCurrentFieldInferencePrecedence(t *testing.T) {
 	t.Parallel()
 
 	username := "alice"
@@ -171,7 +171,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 	tests := []struct {
 		name string
 		req  LoginRequest
-		want MethodKind
+		want SignInKind
 	}{
 		{
 			name: "auth type is not authoritative when only password fields are present",
@@ -180,7 +180,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				Username: &username,
 				Password: &password,
 			},
-			want: MethodPassword,
+			want: SignInKind(authentication.AuthPassword),
 		},
 		{
 			name: "phone otp fields override password fields",
@@ -191,7 +191,7 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				PhoneE164: &phone,
 				OTPCode:   &otp,
 			},
-			want: MethodPhoneOTP,
+			want: SignInKind(authentication.AuthPhoneOTP),
 		},
 		{
 			name: "jwt token field wins over earlier credential fields",
@@ -203,24 +203,24 @@ func TestPrepareAuthenticationCharacterizesCurrentFieldInferencePrecedence(t *te
 				OTPCode:   &otp,
 				JWTToken:  &jwtToken,
 			},
-			want: MethodBearerToken,
+			want: SignInKind(AuthTypeJWTToken),
 		},
 	}
 
-	svc := &loginApplicationService{}
+	selector := newDefaultMethodSelector(newDefaultSignInAdapterCatalog(signInAdapterDeps{}))
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			selected, err := svc.selectScenario(context.Background(), tc.req)
+			selected, err := selector.Select(context.Background(), tc.req)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, selected.Method)
 		})
 	}
 }
 
-func TestExplicitScenarioSelectorUsesAuthTypeAsAuthority(t *testing.T) {
+func TestExplicitMethodSelectorUsesAuthTypeAsAuthority(t *testing.T) {
 	t.Parallel()
 
 	username := "alice"
@@ -228,9 +228,9 @@ func TestExplicitScenarioSelectorUsesAuthTypeAsAuthority(t *testing.T) {
 	phone := "+8613800138000"
 	otp := "123456"
 
-	selector := newDefaultScenarioSelector()
+	selector := newDefaultMethodSelector(newDefaultSignInAdapterCatalog(signInAdapterDeps{}))
 	selected, err := selector.Select(context.Background(), LoginRequest{
-		SelectionMode: ScenarioSelectionExplicit,
+		SelectionMode: SignInSelectionExplicit,
 		AuthType:      AuthTypePassword,
 		Username:      &username,
 		Password:      &password,
@@ -239,20 +239,20 @@ func TestExplicitScenarioSelectorUsesAuthTypeAsAuthority(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, MethodPassword, selected.Method)
+	require.Equal(t, SignInKind(authentication.AuthPassword), selected.Method)
 	payload, ok := selected.Payload.(PasswordPayload)
 	require.True(t, ok)
 	require.Equal(t, username, payload.Username)
 	require.Equal(t, password, payload.Password)
 }
 
-func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testing.T) {
+func TestLegacyMethodSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testing.T) {
 	t.Parallel()
 
 	username := "alice"
 	password := "secret"
 
-	selector := newDefaultScenarioSelector()
+	selector := newDefaultMethodSelector(newDefaultSignInAdapterCatalog(signInAdapterDeps{}))
 	selected, err := selector.Select(context.Background(), LoginRequest{
 		AuthType: AuthTypeJWTToken,
 		Username: &username,
@@ -262,6 +262,6 @@ func TestLegacyScenarioSelectorKeepsFieldInferenceWhenAuthTypeConflicts(t *testi
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, MethodPassword, selected.Method)
+	require.Equal(t, SignInKind(authentication.AuthPassword), selected.Method)
 	require.Equal(t, uint64(42), selected.TenantID().Uint64())
 }

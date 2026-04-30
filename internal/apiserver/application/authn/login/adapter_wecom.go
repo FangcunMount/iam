@@ -11,38 +11,71 @@ import (
 	"github.com/FangcunMount/iam/internal/pkg/code"
 )
 
-type wecomMethodAuthenticator struct {
-	authenticator    *authentication.Authenticator
+type wecomAdapter struct {
 	wechatAppQuerier idpPort.Repository
 	secretVault      idpPort.SecretVault
 	config           WecomConfig
 }
 
-func (a *wecomMethodAuthenticator) Authenticate(ctx context.Context, selected SelectedMethod) (authentication.AuthDecision, error) {
-	if a == nil || a.authenticator == nil {
-		return authentication.AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "authenticator is not initialized")
+func newWecomAdapter(repo idpPort.Repository, vault idpPort.SecretVault, config WecomConfig) *wecomAdapter {
+	return &wecomAdapter{
+		wechatAppQuerier: repo,
+		secretVault:      vault,
+		config:           config,
 	}
-	payload, ok := selected.Payload.(WecomPayload)
+}
+
+func (*wecomAdapter) Kind() SignInKind {
+	return SignInKind(authentication.AuthWecom)
+}
+
+func (*wecomAdapter) AuthType() AuthType {
+	return AuthTypeWecom
+}
+
+func (*wecomAdapter) TryLegacy(req SignInCommand, common methodPayloadCommon) (MethodPayload, bool) {
+	if req.WecomCorpID == nil || req.WecomCode == nil {
+		return nil, false
+	}
+	return WecomPayload{
+		methodPayloadCommon: common,
+		CorpID:              *req.WecomCorpID,
+		Code:                *req.WecomCode,
+	}, true
+}
+
+func (*wecomAdapter) BuildExplicit(req SignInCommand, common methodPayloadCommon) (MethodPayload, error) {
+	if req.WecomCorpID == nil || *req.WecomCorpID == "" {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "corp_id is required for wecom authentication")
+	}
+	if req.WecomCode == nil || *req.WecomCode == "" {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "auth_code is required for wecom authentication")
+	}
+	return WecomPayload{
+		methodPayloadCommon: common,
+		CorpID:              *req.WecomCorpID,
+		Code:                *req.WecomCode,
+	}, nil
+}
+
+func (a *wecomAdapter) PrepareProof(ctx context.Context, payload MethodPayload) (authentication.AuthCredential, error) {
+	wecomPayload, ok := payload.(WecomPayload)
 	if !ok {
-		return authentication.AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "invalid wecom payload")
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid wecom payload")
 	}
-	appConfig, err := a.prepareWecomAppConfig(ctx, payload)
+	appConfig, err := a.prepareWecomAppConfig(ctx, wecomPayload)
 	if err != nil {
-		return authentication.AuthDecision{}, err
+		return nil, err
 	}
-	proof, err := authentication.NewWecomCredential(authentication.WecomProofSpec{
-		TenantID:   payload.TenantID,
-		RemoteIP:   payload.RemoteIP,
-		UserAgent:  payload.UserAgent,
-		CorpID:     payload.CorpID,
+	return authentication.NewWecomCredential(authentication.WecomProofSpec{
+		TenantID:   wecomPayload.TenantID,
+		RemoteIP:   wecomPayload.RemoteIP,
+		UserAgent:  wecomPayload.UserAgent,
+		CorpID:     wecomPayload.CorpID,
 		AgentID:    appConfig.agentID,
 		CorpSecret: appConfig.corpSecret,
-		Code:       payload.Code,
+		Code:       wecomPayload.Code,
 	})
-	if err != nil {
-		return authentication.AuthDecision{}, err
-	}
-	return a.authenticator.Authenticate(ctx, proof)
 }
 
 type wecomAppConfig struct {
@@ -50,12 +83,12 @@ type wecomAppConfig struct {
 	corpSecret string
 }
 
-func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, payload WecomPayload) (wecomAppConfig, error) {
+func (a *wecomAdapter) prepareWecomAppConfig(ctx context.Context, payload WecomPayload) (wecomAppConfig, error) {
 	l := logger.L(ctx)
 	if a.wechatAppQuerier == nil || a.secretVault == nil {
 		l.Errorw("企业微信应用配置服务不可用",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app configuration service not available")
 	}
@@ -64,7 +97,7 @@ func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, pa
 	if agentID == "" {
 		l.Errorw("企业微信应用 agent_id 未配置",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom agent_id is required in server configuration")
@@ -74,7 +107,7 @@ func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, pa
 	if err != nil {
 		l.Errorw("查询企业微信应用配置失败",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 			"corp_id", payload.CorpID,
 			"error", err.Error(),
 		)
@@ -83,7 +116,7 @@ func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, pa
 	if wechatApp == nil {
 		l.Warnw("企业微信应用不存在",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app not found: %s", payload.CorpID)
@@ -91,7 +124,7 @@ func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, pa
 	if !wechatApp.IsEnabled() {
 		l.Warnw("企业微信应用已禁用",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app is disabled: %s", payload.CorpID)
@@ -99,7 +132,7 @@ func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, pa
 	if wechatApp.Cred == nil || wechatApp.Cred.Auth == nil {
 		l.Errorw("企业微信应用凭据缺失",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 			"corp_id", payload.CorpID,
 		)
 		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app credentials not found")
@@ -109,7 +142,7 @@ func (a *wecomMethodAuthenticator) prepareWecomAppConfig(ctx context.Context, pa
 	if err != nil {
 		l.Errorw("解密企业微信应用密钥失败",
 			"action", logger.ActionLogin,
-			"scenario", string(MethodWecom),
+			"scenario", string(authentication.AuthWecom),
 			"corp_id", payload.CorpID,
 			"error", err.Error(),
 		)
