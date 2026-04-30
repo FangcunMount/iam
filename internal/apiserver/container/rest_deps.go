@@ -55,9 +55,7 @@ func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
 		deps.Authz.ResourceHandler = authzhandler.NewResourceHandler(caps.ResourceCatalog, caps.ResourceDirectory)
 		deps.Authz.CheckHandler = authzhandler.NewCheckHandler(caps.AuthorizationChecker)
 		deps.Authz.RouteAuthorization = caps.RouteAuthorization
-		if reporter, ok := caps.RouteAuthorization.(resttransport.AuthzHealthReporter); ok {
-			deps.Authz.HealthReporter = reporter
-		}
+		deps.Authz.HealthReporter = caps.RuntimeHealth
 	}
 }
 

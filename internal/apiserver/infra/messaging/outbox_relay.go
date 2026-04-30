@@ -57,14 +57,29 @@ func (r *outboxRelay) DispatchDue(ctx context.Context) error {
 	if r == nil || r.store == nil {
 		return nil
 	}
+	started := time.Now()
 	if r.publisher == nil {
-		log.Warnw("outbox relay degraded: event bus unavailable", "relay", r.name)
+		log.WarnContext(ctx, "outbox relay degraded: event bus unavailable",
+			log.String("relay", r.name),
+			log.String("result", "degraded"),
+			log.Int64("duration_ms", time.Since(started).Milliseconds()),
+		)
 		return nil
 	}
 	pendingEvents, err := r.store.ClaimDueEvents(ctx, r.batchSize, time.Now())
 	if err != nil {
+		log.ErrorContext(ctx, "outbox relay claim failed",
+			log.String("relay", r.name),
+			log.String("result", "failed"),
+			log.Int("batch_size", r.batchSize),
+			log.Int64("duration_ms", time.Since(started).Milliseconds()),
+			log.Err(err),
+		)
 		return err
 	}
+	published := 0
+	publishFailed := 0
+	markFailed := 0
 	for _, pending := range pendingEvents {
 		msg := cbmessaging.NewMessage(pending.EventID, pending.Payload)
 		msg.Metadata["event_type"] = pending.EventType
@@ -79,21 +94,40 @@ func (r *outboxRelay) DispatchDue(ctx context.Context) error {
 				"error", err.Error(),
 			)
 			if markErr := r.store.MarkEventFailed(ctx, pending.EventID, err.Error(), time.Now().Add(r.retryDelay)); markErr != nil {
+				markFailed++
 				log.Errorw("outbox mark failed failed",
 					"relay", r.name,
 					"event_id", pending.EventID,
 					"error", markErr.Error(),
 				)
 			}
+			publishFailed++
 			continue
 		}
 		if err := r.store.MarkEventPublished(ctx, pending.EventID, time.Now()); err != nil {
+			markFailed++
 			log.Errorw("outbox mark published failed",
 				"relay", r.name,
 				"event_id", pending.EventID,
 				"error", err.Error(),
 			)
 		}
+		published++
+	}
+	if len(pendingEvents) > 0 {
+		result := "success"
+		if publishFailed > 0 || markFailed > 0 {
+			result = "partial_failure"
+		}
+		log.InfoContext(ctx, "outbox relay dispatch completed",
+			log.String("relay", r.name),
+			log.String("result", result),
+			log.Int("claimed", len(pendingEvents)),
+			log.Int("published", published),
+			log.Int("publish_failed", publishFailed),
+			log.Int("mark_failed", markFailed),
+			log.Int64("duration_ms", time.Since(started).Milliseconds()),
+		)
 	}
 	return nil
 }

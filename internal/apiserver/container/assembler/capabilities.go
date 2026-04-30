@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"context"
+	"time"
 
 	accountApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/account"
 	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
@@ -61,12 +62,17 @@ type AuthzApplicationCapabilities struct {
 	RoleBindingCommands         authzRolebindingApp.Commands
 	RoleBindingDirectory        authzRolebindingApp.Directory
 	RouteAuthorization          authn.RouteAuthorizationRuntime
+	RuntimeHealth               AuthzRuntimeHealthReporter
 	AuthorizationChecker        *authzAuthorizationApp.Checker
 	AuthorizationSnapshotReader *authzAuthorizationApp.SnapshotReader
 }
 
 type RoleNameReader interface {
 	RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error)
+}
+
+type AuthzRuntimeHealthReporter interface {
+	ReloadHealth() (bool, error, time.Time)
 }
 
 type UserApplicationCapabilities struct {

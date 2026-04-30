@@ -62,7 +62,7 @@ func (g *moduleGraph) roleNameReader() assembler.RoleNameReader {
 	if g == nil || g.container == nil || g.container.AuthzModule == nil {
 		return nil
 	}
-	return g.container.AuthzModule.CasbinAdapter
+	return g.container.AuthzModule.RoleNameReader()
 }
 
 func (g *moduleGraph) sessionManager() sessiondomain.Manager {

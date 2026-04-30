@@ -34,6 +34,7 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) error {
 		return fmt.Errorf("suggest refresher missing source")
 	}
 
+	started := time.Now()
 	candidates, err := r.source.Full(ctx)
 	if err != nil {
 		return err
@@ -43,7 +44,11 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) error {
 	}
 	r.lastFetch = r.now()
 	r.writeSnapshot(ctx, candidates)
-	log.Infow("suggest full sync completed", "count", len(candidates))
+	log.InfoContext(ctx, "suggest full sync completed",
+		log.String("result", "success"),
+		log.Int("count", len(candidates)),
+		log.Int64("duration_ms", time.Since(started).Milliseconds()),
+	)
 	return nil
 }
 
@@ -56,6 +61,7 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) error {
 		return nil
 	}
 
+	started := time.Now()
 	candidates, err := r.source.Delta(ctx, r.lastFetch)
 	if err != nil {
 		return err
@@ -71,7 +77,11 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) error {
 	}
 	r.lastFetch = r.now()
 	r.writeSnapshot(ctx, candidates)
-	log.Infow("suggest delta sync completed", "count", len(candidates))
+	log.InfoContext(ctx, "suggest delta sync completed",
+		log.String("result", "success"),
+		log.Int("count", len(candidates)),
+		log.Int64("duration_ms", time.Since(started).Milliseconds()),
+	)
 	return nil
 }
 

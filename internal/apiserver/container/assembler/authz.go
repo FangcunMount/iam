@@ -21,14 +21,15 @@ import (
 	bindingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/rolebinding"
 	mysqlAuthzUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authz"
 	userInfra "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
+	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
 	"github.com/FangcunMount/iam/pkg/event"
 )
 
 // AuthzModule 授权模块
 type AuthzModule struct {
-	// 授权运行时适配器（供中间件、健康检查和 application ports 复用）
-	CasbinAdapter *casbinInfra.CasbinAdapter
-
+	routeAuthorization          authn.RouteAuthorizationRuntime
+	roleNames                   RoleNameReader
+	runtimeHealth               AuthzRuntimeHealthReporter
 	resourceCatalog             resourceApp.Catalog
 	resourceDirectory           resourceApp.Directory
 	roleCatalog                 roleApp.Catalog
@@ -67,7 +68,9 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	if err != nil {
 		return fmt.Errorf("failed to create casbin adapter: %w", err)
 	}
-	m.CasbinAdapter = casbinAdapter
+	m.routeAuthorization = casbinAdapter
+	m.roleNames = casbinAdapter
+	m.runtimeHealth = casbinAdapter
 
 	// 2. 初始化仓储层
 	roleRepository := roleInfra.NewRoleRepository(deps.DB)
@@ -134,8 +137,16 @@ func (m *AuthzModule) ApplicationCapabilities() AuthzApplicationCapabilities {
 		PermissionReader:            m.permissionReader,
 		RoleBindingCommands:         m.roleBindingCommands,
 		RoleBindingDirectory:        m.roleBindingDirectory,
-		RouteAuthorization:          m.CasbinAdapter,
+		RouteAuthorization:          m.routeAuthorization,
+		RuntimeHealth:               m.runtimeHealth,
 		AuthorizationChecker:        m.authorizationChecker,
 		AuthorizationSnapshotReader: m.authorizationSnapshotReader,
 	}
+}
+
+func (m *AuthzModule) RoleNameReader() RoleNameReader {
+	if m == nil {
+		return nil
+	}
+	return m.roleNames
 }

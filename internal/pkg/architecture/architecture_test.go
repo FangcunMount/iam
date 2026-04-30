@@ -632,6 +632,8 @@ func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
 	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.CasbinAdapter")
 	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.Commander")
 	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.Queryer")
+	assertFileLacks(t, root, "internal/apiserver/container/assembler/authz.go", "CasbinAdapter *casbinInfra.CasbinAdapter")
+	assertFileLacks(t, root, "internal/apiserver/container/module_graph.go", "AuthzModule.CasbinAdapter")
 	assertFileLacks(t, root, "internal/apiserver/infra/casbin/adapter.go", "func (c *CasbinAdapter) Enforcer(")
 	if matches, err := filepath.Glob(filepath.Join(root, "internal", "apiserver", "application", "authz", "version", "*.go")); err != nil {
 		t.Fatal(err)
