@@ -1,306 +1,287 @@
-# 角色、策略、资源、Assignment
+# AuthZ：角色、策略、资源与 Assignment
 
-本文回答：授权域（`authz`）今天负责什么、不负责什么；它在 `iam-apiserver` 中如何组织 `Role / Resource / PolicyRule / Assignment / Casbin` 这组对象；以及当前对外暴露面、存储、配置与真实代码落点分别是什么。
+## 本文回答
 
-**阅读维度**：Why = 租户内 RBAC + 可审计的策略版本；What = `Role / Resource / Assignment / PolicyRule / PolicyVersion / Casbin`；Where = `iam-apiserver` 的 REST / gRPC / Gin 中间件；Verify = OpenAPI、proto、[`configs/casbin_model.conf`](../../configs/casbin_model.conf)、`authz_*` 表与 `casbin_rule`。
+本文回答：IAM AuthZ 域如何表达 Subject、Scope、Role、Resource、Permission、RoleBinding、PolicyVersion 和 AuthorizationDecision；为什么公开合同保留 `assignment`，内部实现使用 `rolebinding`；以及授权写操作如何通过 Unit of Work、PolicyChangeCommitter 和 transactional outbox 保持事实与版本事件一致。
 
----
+## 30 秒结论
 
-## 30 秒了解系统
+- AuthZ 的核心问题有两个：管理授权事实，以及对 subject/resource/action/scope 执行授权判定。
+- 公开 REST/proto 使用 `assignment` 作为 wire term；内部 domain/application 以 `rolebinding` 表达“主体持有角色”。
+- `Role`、`Resource`、`Permission`、`RoleBinding` 是授权事实；`AuthorizationRequest` 和 `AuthorizationDecision` 是 PDP 判定对象。
+- 授权写操作不是直接写一堆表，而是先形成 `PolicyChange`，再由 `PolicyChangeCommitter` 在 UoW 事务内写业务记录、授权事实、版本号和 outbox 事件。
+- 授权快照通过 `SnapshotReader` 读取角色、权限和 `authz_version`，再按 `app_name` 投影给接入方。
+- Casbin 是运行时决策引擎和事实存储适配，不是业务语言本身；业务语言在 domain/authz 中。
 
-- `authz` 的主问题只有两个：先把角色、资源、策略、Assignment 这组业务对象管理好，再把它们汇总成 Casbin 可执行的判定规则。
-- 模块内最重要的对象是：`Role / Resource / PolicyRule / Assignment / PolicyVersion / CasbinAdapter`。
-- 当前既有管理面，也有单次 PDP：REST `POST /api/v1/authz/check`、gRPC `AuthorizationService.Check`、HTTP 中间件 `RequireRole / RequirePermission` 都已经是现状能力。
-- 存储不是单一一套：业务元数据主要在 `authz_*` 表，执行规则主要在 `casbin_rule`，策略版本在 `authz_policy_versions`。
-- `authz` 不负责登录与 Token，不负责用户档案与监护关系，也不等于“完整授权平台全家桶”。
-- 统一事件清单：[`configs/events.yaml`](../../configs/events.yaml) 已声明 `iam.authz.version_changed`，该事件为 durable outbox 投递，topic 仍为 `iam.authz.version`。
-
-| 主题 | 当前答案 |
-| ---- | ---- |
-| 管理对象 | `Role / Resource / PolicyRule / Assignment` |
-| 判定引擎 | Casbin `p/g` + `Enforce` |
-| 主存储 | `authz_roles`、`authz_resources`、`authz_assignments`、`authz_policy_versions`、`casbin_rule` |
-| 对外暴露 | REST 管理面 + REST `check` + gRPC `Check` + `RequireRole / RequirePermission` |
-| 真实契约 | [`api/rest/authz.v1.yaml`](../../api/rest/authz.v1.yaml)、[`api/grpc/iam/authz/v1/authz.proto`](../../api/grpc/iam/authz/v1/authz.proto) |
-
-### 模块边界
-
-#### 负责
-
-- 租户内角色、资源目录、策略规则、主体到角色分配的建模
-- Casbin `p` / `g` 规则写入与单次判定能力
-- 租户级策略版本递增与 durable outbox 版本事件
-- 对外暴露 REST 管理面、REST PDP、gRPC PDP 和 HTTP 运行时权限中间件入口
-
-#### 不负责
-
-- 登录、Token、JWKS：见 [01-authn-认证&Token&JWKS.md](./01-authn-认证&Token&JWKS.md)
-- 用户、儿童、监护关系：见 [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md)
-- gRPC 传输层 mTLS、服务端 ACL：见 [../01-运行时/02-gRPC与mTLS.md](../01-运行时/02-gRPC与mTLS.md)
-- 更复杂的批量 PDP、Explain、菜单树等“授权平台全家桶”能力：今天都不应包装成现状
-
-#### 依赖
-
-- 依赖 `authn` 的 JWT 校验和身份上下文，主体通常来自 `user:<id>`
-- 与 user 域没有聚合级依赖，只依赖主体键约定
-- 策略版本事件依赖 `domain_event_outbox`；EventBus 未装配时 durable row 保持 pending，主事务仍成立
-
-### 运行时示意图
-
-`authz` 只运行在 **`iam-apiserver`** 中。
+## 主图：AuthZ 概念模型
 
 ```mermaid
-flowchart TB
-  subgraph iam["iam-apiserver / authz"]
-    REST["REST /api/v1/authz/*"]
-    GRPC["gRPC AuthorizationService"]
-    MW["JWT + RequireRole / RequirePermission"]
-    APP["application/authz/*"]
-    CAS["CasbinAdapter / CachedEnforcer"]
-    DB[("MySQL authz_* + casbin_rule")]
-  end
-  C((Client / Internal Service)) --> REST
-  C --> GRPC
-  REST --> MW
-  MW --> APP
-  GRPC --> APP
-  APP --> CAS
-  APP --> DB
-  CAS --> DB
+classDiagram
+    class Subject {
+      type
+      id
+    }
+    class Scope {
+      kind
+      value
+    }
+    class Role {
+      name
+      tenantID
+    }
+    class Resource {
+      key
+      actions
+      scopeKinds
+    }
+    class Permission {
+      roleName
+      resourceKey
+      action
+      scope
+    }
+    class RoleBinding {
+      subject
+      roleName
+      tenantID
+    }
+    class AuthorizationRequest {
+      subject
+      resourceKey
+      action
+      objectScope
+    }
+    class AuthorizationDecision {
+      allowed
+      reason
+    }
+
+    Subject --> RoleBinding
+    Role --> RoleBinding
+    Role --> Permission
+    Resource --> Permission
+    Scope --> Permission
+    AuthorizationRequest --> AuthorizationDecision
 ```
 
-**图意**：`authz` 不是独立服务，而是 `iam-apiserver` 里的一组模块能力；管理面、PDP、运行时中间件最终都复用同一个 Casbin 适配器。
+## 重点速查
 
----
+| 关注点 | 当前答案 | 代码证据 |
+| ---- | ---- | ---- |
+| 授权基础模型 | Subject、Scope、Permission、RoleBinding、AuthorizationRequest、AuthorizationDecision。 | [../../internal/apiserver/domain/authz/model.go](../../internal/apiserver/domain/authz/model.go) |
+| 角色 | 命名角色，属于 tenant。 | [../../internal/apiserver/domain/authz/role](../../internal/apiserver/domain/authz/role) |
+| 资源 | 资源 key、可用 action、scope kind。 | [../../internal/apiserver/domain/authz/resource](../../internal/apiserver/domain/authz/resource) |
+| 策略变更 | AuthorizationPolicy 产生 PolicyChange。 | [../../internal/apiserver/domain/authz/policy](../../internal/apiserver/domain/authz/policy) |
+| 内部绑定 | rolebinding application/domain。 | [../../internal/apiserver/application/authz/rolebinding](../../internal/apiserver/application/authz/rolebinding)、[../../internal/apiserver/domain/authz/rolebinding](../../internal/apiserver/domain/authz/rolebinding) |
+| PDP | Checker 组装 AuthorizationRequest 并调用 DecisionEngine。 | [../../internal/apiserver/application/authz/authorization/service.go](../../internal/apiserver/application/authz/authorization/service.go) |
+| 快照 | SnapshotReader 读取角色、权限和版本并按 app 投影。 | [../../internal/apiserver/application/authz/authorization/service.go](../../internal/apiserver/application/authz/authorization/service.go) |
+| 事务与事件 | PolicyChangeCommitter 在事务内写 facts、version、outbox event。 | [../../internal/apiserver/application/authz/policy/committer.go](../../internal/apiserver/application/authz/policy/committer.go) |
 
-## 模型与服务
+## 1. 术语：assignment 与 rolebinding
 
-### 模型关系图
+| 名称 | 所在层 | 当前含义 |
+| ---- | ---- | ---- |
+| `assignment` | REST/proto wire term | 对外接口仍使用的“角色分配”术语。 |
+| `rolebinding` | internal domain/application | 主体和角色之间的绑定，是当前代码实现的标准术语。 |
+| `authz_assignments` | MySQL schema | 历史表名/存储名，承载 rolebinding 事实。 |
 
-这张图只回答“静态对象如何协作”，不展开管理链与判定链的完整时序。
+文档写法规则：
+
+- 描述公开 REST/proto 时可以写 `assignment`。
+- 描述内部模型、应用服务和代码路径时写 `rolebinding`。
+- 不新增 `assignment` internal package 的说法。
+
+## 2. 领域模型与不变量
+
+```mermaid
+flowchart TD
+    Subject["Subject\nuser/group/service + id"]
+    Tenant["TenantScope"]
+    Role["Role\ntenant-owned name"]
+    Resource["Resource\nkey + actions + scope kinds"]
+    Permission["Permission\nrole -> resource/action/scope"]
+    RoleBinding["RoleBinding\nsubject -> role"]
+    Version["PolicyVersion\ntenant authz version"]
+
+    Tenant --> Role
+    Tenant --> Resource
+    Role --> Permission
+    Resource --> Permission
+    Subject --> RoleBinding
+    Role --> RoleBinding
+    Permission --> Version
+    RoleBinding --> Version
+```
+
+| 概念 | 业务含义 | 关键规则 |
+| ---- | ---- | ---- |
+| `Subject` | 被授权主体，可是 user、group、service。 | type 和 id 都不能为空。 |
+| `Scope` | 权限覆盖的对象范围。 | 空 scope 归一化为 `all:*`；`origin` 必须有具体值。 |
+| `Resource` | 可被保护的资源。 | action 必须在资源 action 集内；scope kind 必须被资源支持。 |
+| `Role` | tenant 内命名角色。 | role 属于某个 tenant；跨 tenant 使用会被验证拒绝。 |
+| `Permission` | role 对 resource/action/scope 的能力。 | role、tenant、resource、action 都不能为空。 |
+| `RoleBinding` | subject 在 tenant 下持有 role。 | subject、role、tenant 必须完整。 |
+| `PolicyVersion` | tenant 授权事实版本。 | 写操作递增版本，快照返回版本给接入方。 |
+
+## 3. 领域服务：AuthorizationPolicy 和 Validator
 
 ```mermaid
 flowchart LR
-  Subject["Subject<br/>user / group"]
-  Assignment["Assignment"]
-  Role["Role"]
-  Policy["PolicyRule"]
-  Resource["Resource"]
-  Version["PolicyVersion"]
-  Casbin["CasbinAdapter"]
+    Command["command intent"]
+    Validator["Validator"]
+    Policy["AuthorizationPolicy"]
+    Change["PolicyChange"]
+    Fact["Permission or RoleBinding fact"]
 
-  Subject --> Assignment
-  Assignment --> Role
-  Role --> Policy
-  Resource --> Policy
-  Policy --> Casbin
-  Assignment --> Casbin
-  Policy --> Version
+    Command --> Validator --> Policy --> Change --> Fact
 ```
 
-**图意**：`Role / Resource / PolicyRule / Assignment` 是业务对象；Casbin 是执行引擎；`PolicyVersion` 是管理和同步锚点，而不是执行引擎的一部分。
+| 领域能力 | 解决的问题 | 落地 |
+| ---- | ---- | ---- |
+| `AuthorizationPolicy` | 授权变更需要统一产出业务事实和变更意图。 | grant/revoke permission，bind/unbind role。 |
+| Role validator | 创建/更新角色时校验名称、tenant ownership、存在性。 | [../../internal/apiserver/domain/authz/role/validator.go](../../internal/apiserver/domain/authz/role/validator.go) |
+| Resource validator | 校验资源 key、actions、scope kinds 和存在性。 | [../../internal/apiserver/domain/authz/resource/validator.go](../../internal/apiserver/domain/authz/resource/validator.go) |
+| Policy validator | 校验 role/resource/action/scope 组合是否有效。 | [../../internal/apiserver/domain/authz/policy/validator.go](../../internal/apiserver/domain/authz/policy/validator.go) |
+| Rolebinding validator | 校验 subject、role、tenant 和绑定存在性。 | [../../internal/apiserver/domain/authz/rolebinding/validator.go](../../internal/apiserver/domain/authz/rolebinding/validator.go) |
 
-### 数据关系（概念 ER）
+Validator 是 Specification 风格的领域服务：它们不负责持久化提交，但会借助 repository 读取必要事实，避免 application command service 重复散落校验规则。
 
-当前最重要的事实有 3 条：
+## 4. 应用服务
 
-- `authz_resources` 没有 `tenant_id`，资源键 `key` 全局唯一
-- `authz_roles` / `authz_assignments` 带 `tenant_id`
-- Casbin 规则单独落在 `casbin_rule`
+| 应用服务 | 职责 | 代码入口 |
+| ---- | ---- | ---- |
+| `RoleCatalog` / `RoleDirectory` | 角色写入与查询。 | [../../internal/apiserver/application/authz/role](../../internal/apiserver/application/authz/role) |
+| `ResourceCatalog` / `ResourceDirectory` | 资源写入、查询和 action 校验。 | [../../internal/apiserver/application/authz/resource](../../internal/apiserver/application/authz/resource) |
+| `PolicyAdministration` | 权限 grant/revoke 与 role bind/unbind 的统一用例。 | [../../internal/apiserver/application/authz/policy/administration.go](../../internal/apiserver/application/authz/policy/administration.go) |
+| `PolicyChangeCommitter` | 授权变更事务模板。 | [../../internal/apiserver/application/authz/policy/committer.go](../../internal/apiserver/application/authz/policy/committer.go) |
+| `rolebinding.CommandService` | rolebinding 命令 facade，支撑公开 assignment wire term。 | [../../internal/apiserver/application/authz/rolebinding/command_service.go](../../internal/apiserver/application/authz/rolebinding/command_service.go) |
+| `rolebinding.DirectoryService` | rolebinding 查询。 | [../../internal/apiserver/application/authz/rolebinding/directory.go](../../internal/apiserver/application/authz/rolebinding/directory.go) |
+| `authorization.Checker` | 单次 PDP 判定应用入口。 | [../../internal/apiserver/application/authz/authorization/service.go](../../internal/apiserver/application/authz/authorization/service.go) |
+| `authorization.SnapshotReader` | 授权快照读取和投影。 | [../../internal/apiserver/application/authz/authorization/service.go](../../internal/apiserver/application/authz/authorization/service.go) |
+
+## 5. 授权判定链
 
 ```mermaid
-erDiagram
-  authz_roles ||--o{ authz_assignments : "role_id"
-  authz_resources {
-    string key UK
-    string actions
-  }
-  authz_roles {
-    string tenant_id
-    string name
-  }
-  authz_assignments {
-    string subject_type
-    string subject_id
-    string tenant_id
-  }
-  authz_policy_versions {
-    string tenant_id
-    bigint policy_version
-  }
-  casbin_rule {
-    string ptype
-    string v0
-    string v1
-    string v2
-    string v3
-  }
+sequenceDiagram
+    participant Caller as "REST/gRPC or route middleware"
+    participant Checker as "authorization.Checker"
+    participant Domain as "AuthorizationRequest"
+    participant Engine as "DecisionEngine"
+    participant Casbin as "Casbin adapter"
+
+    Caller->>Checker: "subject, tenant, resource, action, scope"
+    Checker->>Domain: "NewAuthorizationRequest"
+    Domain-->>Checker: "validated request"
+    Checker->>Engine: "Check(request)"
+    Engine->>Casbin: "evaluate facts"
+    Casbin-->>Engine: "allow/deny"
+    Engine-->>Caller: "AuthorizationDecision"
 ```
 
-### 领域模型与领域服务
+判定链的边界：
 
-**限界上下文**：`authz` 负责回答“某主体在某租户下是否可以对某资源执行某动作”，并维护支持这个判定所需的角色、资源、策略和分配数据。
+- Checker 负责把调用方输入变成领域请求。
+- DecisionEngine 是端口，当前 runtime 可以由 Casbin-backed engine 实现。
+- Domain 不知道 Casbin model.conf，也不依赖数据库。
+- HTTP route authorization 使用同一类能力，但路由保护在运行时文档中展开。
 
-| 概念 | 职责 | 与相邻概念的关系 |
-| ---- | ---- | ---- |
-| `Role` | 租户内角色元数据 | `Key()` 产出 Casbin 侧 `role:<name>` |
-| `Resource` | 资源目录与动作集合 | 参与策略规则构造 |
-| `PolicyRule` | 角色对资源动作的允许规则 | 变成 Casbin `p` |
-| `Assignment` | 主体与角色绑定关系 | 变成 Casbin `g` |
-| `PolicyVersion` | 租户策略版本 | 用于同步和审计，不直接参与 `Enforce` |
-| `CasbinAdapter` | 授权执行与规则写入端口 | 被管理面、PDP、中间件复用 |
-
-### 应用服务设计
+## 6. 授权变更事务
 
 ```mermaid
-flowchart TB
-  subgraph interface
-    RH["REST handlers"]
-    GS["gRPC AuthorizationService"]
-  end
-  subgraph application
-    RC["role command/query"]
-    RS["resource command/query"]
-    PC["policy command/query"]
-    AC["assignment command/query"]
-  end
-  subgraph domain
-    DR["role / resource / assignment / policy validator"]
-  end
-  subgraph infra
-    CAS["casbin adapter"]
-    MY["mysql repos"]
-    MQ["version notifier"]
-  end
+sequenceDiagram
+    participant App as "PolicyAdministration"
+    participant Committer as "PolicyChangeCommitter"
+    participant UoW as "AuthZ UnitOfWork"
+    participant Domain as "AuthorizationPolicy"
+    participant Facts as "AuthorizationFacts"
+    participant Version as "PolicyVersions"
+    participant Outbox as "Event Stager"
+    participant Runtime as "RuntimePolicyReloader"
 
-  RH --> RC
-  RH --> RS
-  RH --> PC
-  RH --> AC
-  GS --> CAS
-  RC --> DR
-  RS --> DR
-  PC --> DR
-  AC --> DR
-  RC --> MY
-  RS --> MY
-  PC --> CAS
-  PC --> MY
-  PC --> OB[domain_event_outbox]
-  AC --> MY
-  AC --> CAS
+    App->>Committer: "Commit(build change)"
+    Committer->>UoW: "WithinTx"
+    UoW->>Domain: "build PolicyChange"
+    UoW->>Facts: "write permission or rolebinding fact"
+    UoW->>Version: "Increment tenant version"
+    UoW->>Outbox: "Stage version changed event"
+    UoW-->>Committer: "commit"
+    Committer->>Runtime: "ReloadRuntimePolicy"
 ```
 
-| 用例 | 职责一句 | 锚点 |
-| ---- | ---- | ---- |
-| 角色管理 | 角色 CRUD 与查询 | [`application/authz/role/`](../../internal/apiserver/application/authz/role/) |
-| 资源管理 | 资源 CRUD 与动作校验 | [`application/authz/resource/`](../../internal/apiserver/application/authz/resource/) |
-| 策略管理 | 写入 / 删除 Casbin `p` 规则，递增版本并 stage durable 版本事件 | [`application/authz/policy/command_service.go`](../../internal/apiserver/application/authz/policy/command_service.go) |
-| 分配管理 | 写入 / 删除 assignment，并同步 Casbin `g` 规则 | [`application/authz/assignment/command_service.go`](../../internal/apiserver/application/authz/assignment/command_service.go) |
-| 单次 PDP | 对 `(subject, domain, object, action)` 执行 `Enforce` | [`interface/authz/restful/handler/check.go`](../../internal/apiserver/interface/authz/restful/handler/check.go)、[`interface/authz/grpc/service.go`](../../internal/apiserver/interface/authz/grpc/service.go) |
+`PolicyChangeCommitter` 是 AuthZ 写模型的关键模板：
 
----
+1. 在事务内构造 `PolicyChange`。
+2. 执行可选 before-facts mutation，例如先写 rolebinding 业务记录。
+3. 写授权事实。
+4. 执行可选 after-facts mutation，例如按 ID 删除记录。
+5. 递增 tenant policy version。
+6. stage policy version changed event 到 transactional outbox。
+7. 事务提交后触发 runtime policy reload。
 
-## 核心设计
+这解决了“业务记录、授权事实、版本号、事件”分散写入导致不一致的问题。
 
-### 核心授权模型：业务对象和执行引擎是两层，不是一层
+## 7. 授权快照
 
-**结论**：`authz` 不是“只有 Casbin”；它先用 `Role / Resource / PolicyRule / Assignment` 组织业务事实，再把这些事实投射成 Casbin `p/g` 规则做执行。
+```mermaid
+flowchart LR
+    Query["SnapshotQuery\nsubject tenant app"]
+    Store["SnapshotStore"]
+    Versions["PolicyVersion repo"]
+    Projector["SnapshotProjector"]
+    Snapshot["roles permissions authz_version"]
 
-| 层 | 当前职责 |
+    Query --> Store
+    Query --> Versions
+    Store --> Projector
+    Versions --> Snapshot
+    Projector --> Snapshot
+```
+
+授权快照面向接入方缓存和快速判定：
+
+- 输入必须有 subject、tenant、app name。
+- 读取 subject 在 tenant 下的 roles 和 permissions。
+- 按 `app_name:` 前缀过滤角色与资源。
+- 去重后返回 roles、permissions 和 `authz_version`。
+
+它不是写入口，也不是绕过 PDP 的全局权限导出。接入方必须根据版本变化和业务风险选择缓存策略。
+
+## 8. 运行时与契约入口
+
+| 接口面 | 当前能力 |
 | ---- | ---- |
-| 业务对象层 | Role、Resource、PolicyRule、Assignment、PolicyVersion |
-| 执行引擎层 | Casbin `p/g` + `Enforce` |
-| 运行时消费层 | REST `check`、gRPC `Check`、`RequireRole / RequirePermission` |
+| REST | `/api/v1/authz/check`、roles、resources、policies、assignments。 |
+| gRPC | `AuthorizationService.Check`、`GetAuthorizationSnapshot`、`GrantAssignment`、`RevokeAssignment`。 |
+| Route middleware | `RouteAuthorizationRuntime` 支撑角色/权限/admin 判定。 |
+| Event catalog | policy version changed event 以 [../../configs/events.yaml](../../configs/events.yaml) 为准。 |
 
-**设计边界**：
+数据库事实入口包括 [../../configs/mysql/schema.sql](../../configs/mysql/schema.sql) 和 [../../internal/pkg/migration/migrations](../../internal/pkg/migration/migrations)。
 
-- `PolicyRule` 不是单独 DSL 引擎，而是 Casbin `p` 规则的业务化包装
-- `Assignment` 不是抽象“权限树”，而是主体到角色的绑定关系
-- 角色的真正执行键不是数据库 ID，而是 `role:<name>`
+## 9. 设计模式
 
-### 核心写入模式：Policy 和 Assignment 的数据库事实同事务提交
+| 模式 | 为什么用 | IAM 中如何落地 | 代价和边界 |
+| ---- | ---- | ---- | ---- |
+| Policy Object | 授权变更规则需要统一产出业务事实。 | `AuthorizationPolicy` 生成 `PolicyChange`。 | Policy 只表达规则，不提交事务。 |
+| Specification/Validator | role/resource/scope/subject 校验会在多个用例重复。 | role/resource/policy/rolebinding validators。 | Validator 需要 repository，注意不要写入状态。 |
+| Unit of Work | 授权写入跨多个 repository 和 outbox。 | `authz/uow.UnitOfWork` + `TxRepositories`。 | 事务内不要做外部网络调用。 |
+| Template Method | 授权变更流程固定，但各命令的 before/after mutation 不同。 | `PolicyChangeCommitter.Commit` + options。 | 过多 hook 会降低可读性，需保持少量明确扩展点。 |
+| Transactional Outbox | 授权版本事件必须和数据库事实一起提交。 | `StagePolicyVersionChanged` 写 outbox。 | 事件异步投递，消费者看到的是最终一致。 |
+| Snapshot/Projector | 接入方需要 app 维度快照，而存储是通用授权事实。 | `SnapshotReader` + `SnapshotProjector`。 | 投影只筛选和去重，不改变授权事实。 |
+| Adapter | Casbin 是实现细节，不能污染 domain 语言。 | Casbin adapter 实现 facts/decision engine。 | adapter 与模型配置要靠测试保护。 |
 
-**结论**：当前 `authz` 的管理写链把业务表、`casbin_rule`、策略版本和 durable 版本事件纳入同一个 MySQL 事务；运行时 Casbin reload 是事务成功后的 best-effort 副作用。
+## 10. 代码证据与验证
 
-| 写入对象 | 当前顺序 | 回滚策略 |
-| ---- | ---- | ---- |
-| Policy | 事务内写 `casbin_rule(p)`、递增 `authz_policy_versions`、stage `iam.authz.version_changed` | 任一步失败回滚整个 MySQL 事务 |
-| Assignment Grant | 事务内写 `authz_assignments`、`casbin_rule(g)`、版本和 outbox event | 任一步失败回滚整个 MySQL 事务 |
-| Assignment Revoke | 事务内删除 assignment / `casbin_rule(g)`，递增版本并 stage outbox event | 任一步失败回滚整个 MySQL 事务 |
-
-这一条只需要在模块文里点明模式，不需要把完整时序在这里重复展开；长时序见 [../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md)。
-
-### 核心判定模型：今天的 PDP 以单次 `Check` 为中心
-
-**结论**：当前 `authz` 已经有 REST PDP、gRPC PDP 和运行时中间件消费面，但它们共同回答的是“单次 allow/deny”，不是更复杂的批量解释型平台能力。
-
-| 面向 | 当前能力 |
+| 关注点 | 路径 |
 | ---- | ---- |
-| REST PDP | `POST /api/v1/authz/check` |
-| gRPC PDP | `AuthorizationService.Check` |
-| 运行时中间件 | `RequireRole`、`RequirePermission` |
+| 授权领域模型 | [../../internal/apiserver/domain/authz](../../internal/apiserver/domain/authz) |
+| AuthZ 应用服务 | [../../internal/apiserver/application/authz](../../internal/apiserver/application/authz) |
+| Casbin adapter | [../../internal/apiserver/infra/casbin](../../internal/apiserver/infra/casbin) |
+| Outbox store | [../../internal/apiserver/infra/mysql/eventoutbox](../../internal/apiserver/infra/mysql/eventoutbox) |
+| REST 合同 | [../../api/rest/authz.v1.yaml](../../api/rest/authz.v1.yaml) |
+| gRPC 合同 | [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto) |
 
-**当前边界必须讲清**：
+验证命令：
 
-- REST `check` 可以显式传主体，也可以回退当前用户
-- gRPC `Check` 要求调用方显式给齐四元组
-- `RequireRole / RequirePermission` 依赖 Casbin 已注入，且前面已经过 `AuthRequired()`
-
-### 核心路由与保护：管理面和 PDP 共享同一条认证入口，但不是全局强制
-
-**结论**：`/api/v1/authz/*` 现在已经是“管理面 + PDP”同组路由，除 `/health` 外都会走注入的 `AuthMiddleware`；但在认证模块缺失时，router 仍可能回退到放行占位。
-
-| 路由面 | 当前状态 |
-| ---- | ---- |
-| `/api/v1/authz/health` | 公开 |
-| 角色 / 资源 / 策略 / Assignment 管理面 | 走 `AuthMiddleware` |
-| `POST /api/v1/authz/check` | 走 `AuthMiddleware` |
-
-所以今天更准确的说法是：**标准装配路径下已受保护，但不是任何降级场景都能保证统一受保护。**
-
-### 核心装配与配置：Casbin 模型、适配器和 outbox 决定 `authz` 的运行形态
-
-**结论**：真正决定 `authz` 运行形态的，不是 prose 描述，而是装配代码、Casbin 模型文件、event catalog 和 outbox relay。
-
-| 项 | 说明 |
-| ---- | ---- |
-| Casbin 模型路径 | `assembler/authz.go` 中固定使用 `configs/casbin_model.conf` |
-| 适配器 | `infra/casbin` 下 `gorm-adapter` + `CachedEnforcer` |
-| gRPC 注册 | `AuthzModule.GRPCService.Register` |
-| 版本事件 | `iam.authz.version_changed` 事务内写入 `domain_event_outbox`，relay 发布到 `iam.authz.version` |
-
-| 文件 | 作用 |
-| ---- | ---- |
-| [`configs/casbin_model.conf`](../../configs/casbin_model.conf) | 判定语义真源 |
-| [`configs/grpc_acl.yaml`](../../configs/grpc_acl.yaml) | gRPC 服务端 ACL；与 Casbin PDP 不是同一层 |
-| [`api/rest/authz.v1.yaml`](../../api/rest/authz.v1.yaml) | REST 合同 |
-| [`api/grpc/iam/authz/v1/authz.proto`](../../api/grpc/iam/authz/v1/authz.proto) | gRPC 合同 |
-
----
-
-## 边界与注意事项
-
-- `authz` 今天已经有完整的“管理面 + 单次 PDP”能力，但还不能讲成完整授权平台全家桶。
-- 策略版本事件通过 outbox relay 发布；EventBus 不可用时不 claim、不标记 published。
-- 路由保护依赖 `authn` 中间件与 Casbin 装配，不能把设计意图包装成无条件现状。
-- `tenant_id / user_id` 的默认值、`changed_by / granted_by` 的合同与运行时来源漂移，统一看 [../03-接口与集成/03-授权接入与边界.md](../03-接口与集成/03-授权接入与边界.md)。
-- Policy/Assignment 的长时序、PDP 使用路径和版本传播链，统一看 [../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](../05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md)。
-
----
-
-## 代码锚点索引
-
-| 关注点 | 路径 | 说明 |
-| ------ | ---- | ---- |
-| 模块装配 | `internal/apiserver/container/assembler/authz.go` | `AuthzModule`、Casbin 模型路径、应用服务装配 |
-| REST 路由 | `internal/apiserver/interface/authz/restful/router.go` | `/health` 公开；其余挂 `AuthMiddleware` |
-| REST PDP | `internal/apiserver/interface/authz/restful/handler/check.go` | `POST /check` |
-| gRPC PDP | `internal/apiserver/interface/authz/grpc/service.go` | `AuthorizationService.Check` |
-| Policy 写入 | `internal/apiserver/application/authz/policy/command_service.go` | `p` 规则 + 版本递增 + outbox event |
-| Assignment 写入 | `internal/apiserver/application/authz/assignment/command_service.go` | assignment + Casbin `g` 双写 |
-| Casbin 实现 | `internal/apiserver/infra/casbin/` | `CachedEnforcer`、规则装载、执行 |
-| 中间件消费 | `internal/pkg/middleware/authn/jwt_middleware.go` | `RequireRole / RequirePermission` |
-| 版本事件 | `configs/events.yaml`、`internal/apiserver/infra/mysql/eventoutbox/store.go`、`internal/apiserver/infra/messaging/outbox_relay.go` | event `iam.authz.version_changed` -> topic `iam.authz.version` |
-| 域模型 | `internal/apiserver/domain/authz/` | `role / resource / assignment / policy` |
-| SDK 消费面 | `pkg/sdk/authz/client.go` | 对外单次 PDP 调用 |
+```bash
+go test ./internal/apiserver/domain/authz/... ./internal/apiserver/application/authz/... ./internal/apiserver/infra/casbin ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/transport/rest/authz/... ./internal/apiserver/transport/grpc/service/authz
+```

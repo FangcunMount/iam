@@ -1,324 +1,288 @@
-# 认证、Token、JWKS
+# AuthN：认证、Token 与 JWKS
 
-本文回答：认证域（`authn`）今天负责什么、不负责什么；它在 `iam-apiserver` 中如何组织 `Account / Credential / Principal / Session / Token / JWKS` 这组对象；以及当前对外暴露面、配置与真实代码落点分别是什么。
+## 本文回答
 
-**阅读维度**：Why = 多场景登录、可轮换密钥与可即时失效；What = `Account / Credential / Principal / Session / Token / JWKS`；Where = `iam-apiserver` 的 REST / gRPC / 装配；Verify = `api/rest/authn.v1.yaml`、`api/grpc/iam/authn/v1/authn.proto`、`configs/`、Redis `session/refresh/revoked_access_token` 与 `jwks_*` 存储。
+本文回答：IAM AuthN 域如何表达账户、凭据、登录策略、session、Token 与 JWKS/keyset；为什么认证规则放在 domain，登录与 token 生命周期放在 application；以及 AuthN 如何依赖 IDP 和 Identity，又不把 JWT/keyset 基础设施泄漏进领域层。
 
----
+## 30 秒结论
 
-## 30 秒了解系统
+- AuthN 的业务核心不是“一个登录 handler”，而是 Account、Credential、Authentication Strategy、Session、Token、JWKS 多个子能力的协作。
+- Domain 层负责账户状态、凭据可用性、认证策略、session 访问状态等业务规则；Application 层负责登录方式选择、proof 构建、onboarding、token issue/refresh/verify/revoke 和 JWKS 用例。
+- Access Token 是由 `application/authn/token` 编排、`infra/token/jwt` 编码的 JWT；Refresh Token 是应用层 token 模型并由存储端口保存。
+- JWKS/keyset 的签名密钥生命周期在 `infra/token/keyset`，应用层只通过 JWKS use case 暴露发布、管理和轮换入口。
+- `jwt_token` 是登录兼容方式，只存在于 application/transport 的适配层，不是 domain authentication strategy。
+- AuthN 与 IDP 的关系是“登录 proof 需要外部身份换取结果”；AuthN 与 Identity 的关系是 onboarding 时创建或复用 User，并保证 self ProfileLink 不变量。
 
-- `authn` 的主问题现在有三段：先把“凭据”判成“主体”，再把“主体”落成“会话”，最后把“会话”变成“可验证、可轮换、可撤销”的 token 集。
-- 模块内最重要的对象是：`Account / Credential / Authenticater / Principal / Session / Token / JWKS`。
-- 登录成功先产出 **`Principal`**，再创建 **`Session`**，最后由 **`TokenIssuer`** 颁发带 `sid` 的 **Access JWT + Refresh Token**；服务间还可签发 **Service Token**。
-- 对外暴露面包括：REST 登录/刷新/校验/JWKS、gRPC `VerifyToken/RefreshToken/Revoke*/IssueServiceToken/GetJWKS`。
-- 在线 `VerifyToken` 现在是权威校验链：它不只验签和过期，还会检查 `revoked_access_token(jti)`、`session(sid)` 和 `user/account` 当前访问状态。
-- `authn` 不负责角色策略，不负责监护关系，也不承诺在 JWT 内承载完整授权上下文。
-- 统一事件清单：[`configs/events.yaml`](../../configs/events.yaml) 已声明 `iam.login_otp_sms`，该事件为 best-effort 投递，当前只用于登录 OTP 短信意图。
-
-| 主题 | 当前答案 |
-| ---- | ---- |
-| 认证中心 | `Authenticater` + 多证认证策略 |
-| 会话设计 | `Session(sid)` + `user/account session index` |
-| token 设计 | Access JWT（带 `sid`）、Refresh Token（带 `sid`）、Service Token |
-| 公钥发布 | `/.well-known/jwks.json` + gRPC `GetJWKS` |
-| 主存储 | `auth_accounts`、`auth_credentials`、`jwks_keys`、Redis `session / refresh / revoked_access_token` |
-| 真实契约 | [`api/rest/authn.v1.yaml`](../../api/rest/authn.v1.yaml)、[`api/grpc/iam/authn/v1/authn.proto`](../../api/grpc/iam/authn/v1/authn.proto) |
-
-### 模块边界
-
-#### 负责
-
-- 账户与凭据生命周期
-- 密码 / OTP / 微信 / 企微等认证判决
-- `Principal` 到 `Session`，再到 Access / Refresh / Service Token 的签发与生命周期
-- Access 验签、Refresh 轮换、会话失效、单 token 撤销
-- JWKS 发布、初始 key 建立与轮换调度
-
-#### 不负责
-
-- 用户档案、儿童、监护关系：见 [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md)
-- 角色、策略、Assignment、Casbin：见 [02-authz-角色&策略&资源&Assignment.md](./02-authz-角色&策略&资源&Assignment.md)
-- HTTP 请求里的 JWT 消费与上下文注入：见 [../01-运行时/03-HTTP认证中间件与身份上下文.md](../01-运行时/03-HTTP认证中间件与身份上下文.md)
-- 登录长链、Token 生命周期时序、JWKS 轮换运行面：见 [../05-专题分析/01-认证链路--从登录请求到 Token 与 JWKS.md](../05-专题分析/01-认证链路--从登录请求到 Token 与 JWKS.md)
-- 认证语义拆层与在线/离线校验边界：见 [../05-专题分析/02-IAM认证语义拆层--用户状态、会话与Token边界.md](../05-专题分析/02-IAM认证语义拆层--用户状态、会话与Token边界.md)
-
-#### 依赖
-
-- 与用户域通过 `Principal.UserID` 衔接，但不反向依赖 `authz`
-- 微信 / 企微等场景依赖 IDP 和应用配置
-- Token 与 Session 子系统依赖 JWKS、JWT、Redis，以及 `user/account` 当前状态判定
-
-### 运行时示意图
-
-`authn` 只运行在 **`iam-apiserver`** 中。
+## 主图：AuthN 分层模型
 
 ```mermaid
-flowchart TB
-  subgraph iam["iam-apiserver / authn"]
-    REST["REST /api/v1/authn/* + /.well-known/jwks.json"]
-    GRPC["gRPC AuthService / JWKSService"]
-    APP["application/authn/*"]
-    DOM["domain/authn/*"]
-    JWT["infra/jwt + redis token store"]
-    DB[("MySQL auth_* / jwks_*")]
-  end
-  C((Client / Internal Service)) --> REST
-  C --> GRPC
-  REST --> APP
-  GRPC --> APP
-  APP --> DOM
-  APP --> JWT
-  APP --> DB
+flowchart TD
+    Transport["REST/gRPC AuthN"]
+    LoginApp["application/authn/login"]
+    TokenApp["application/authn/token"]
+    JWKSApp["application/authn/jwks"]
+    OnboardApp["application/authn/onboarding"]
+
+    DomainAuth["domain/authn/authentication"]
+    DomainAccount["domain/authn/account"]
+    DomainCredential["domain/authn/credential"]
+    DomainSession["domain/authn/session"]
+
+    IDP["domain/application idp/wechatapp"]
+    Identity["application/uc user/profilelink"]
+    TokenInfra["infra/token/jwt + keyset"]
+    Store["Redis/MySQL stores"]
+
+    Transport --> LoginApp
+    Transport --> TokenApp
+    Transport --> JWKSApp
+    Transport --> OnboardApp
+    LoginApp --> DomainAuth
+    LoginApp --> TokenApp
+    LoginApp --> IDP
+    OnboardApp --> DomainAccount
+    OnboardApp --> DomainCredential
+    OnboardApp --> Identity
+    TokenApp --> DomainSession
+    TokenApp --> TokenInfra
+    TokenApp --> Store
+    JWKSApp --> TokenInfra
 ```
 
-**图意**：`authn` 不是单独进程，而是 `iam-apiserver` 里的一组模块能力；REST、gRPC、JWT、Redis、MySQL 最终都围绕这组领域对象协作。
+## 重点速查
 
----
+| 关注点 | 当前答案 | 代码证据 |
+| ---- | ---- | ---- |
+| 账户模型 | Account 表达外部/本地账号、绑定 User、状态和扩展信息。 | [../../internal/apiserver/domain/authn/account](../../internal/apiserver/domain/authn/account) |
+| 凭据模型 | Credential 表达 password、OAuth、phone OTP 等凭据类型和可用性。 | [../../internal/apiserver/domain/authn/credential](../../internal/apiserver/domain/authn/credential) |
+| 认证策略 | Authenticator 根据 CredentialType 选择 AuthStrategy。 | [../../internal/apiserver/domain/authn/authentication](../../internal/apiserver/domain/authn/authentication) |
+| 登录应用服务 | LoginApplicationService 选择登录方式、构造 proof、调用认证并签发 token。 | [../../internal/apiserver/application/authn/login](../../internal/apiserver/application/authn/login) |
+| Token 应用服务 | TokenApplicationService 暴露 issue、refresh、revoke、verify。 | [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token) |
+| JWKS 应用服务 | key management、key publish、key rotation use cases。 | [../../internal/apiserver/application/authn/jwks](../../internal/apiserver/application/authn/jwks) |
+| Token 基础设施 | JWT codec 和 keyset lifecycle。 | [../../internal/apiserver/infra/token/jwt](../../internal/apiserver/infra/token/jwt)、[../../internal/apiserver/infra/token/keyset](../../internal/apiserver/infra/token/keyset) |
+| 合同 | REST AuthN v1/v2 与 gRPC AuthService/JWKSService。 | [../../api/rest/authn.v1.yaml](../../api/rest/authn.v1.yaml)、[../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml)、[../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
 
-## 模型与服务
+## 1. 领域模型
 
-### 模型关系图
+```mermaid
+classDiagram
+    class Account {
+      ID
+      UserID
+      Type
+      AppID
+      ExternalID
+      UniqueID
+      Status
+    }
+    class Credential {
+      AccountID
+      Type
+      Material
+      Status
+      LockedUntil
+      FailureCount
+    }
+    class AuthCredential {
+      CredentialType()
+    }
+    class AuthStrategy {
+      Kind()
+      Authenticate()
+    }
+    class Authenticator {
+      strategies
+      Authenticate()
+    }
+    class Session {
+      SessionID
+      UserID
+      AccountID
+      TenantID
+      Status
+      ExpiresAt
+    }
 
-这张图只回答“静态对象如何协作”，不展开登录时序。
+    Account "1" --> "*" Credential
+    AuthCredential --> AuthStrategy
+    Authenticator --> AuthStrategy
+    Session --> Account
+```
+
+| 概念 | 业务含义 | 不变量/边界 |
+| ---- | ---- | ---- |
+| `Account` | 认证账号，是外部身份、本地账号与 IAM User 之间的锚点。 | 账号状态影响登录和 session 访问；账号创建由 account creator/onboarding 负责。 |
+| `Credential` | 账号可用于认证的凭据。 | 凭据有类型、状态、锁定时间、失败次数；可用性由 usage/lifecycle/rotator 领域服务维护。 |
+| `AuthCredential` | 一次认证请求中的 proof。 | password、phone OTP、WeChat、WeCom 各自有 proof 类型。 |
+| `AuthStrategy` | 对某类凭据执行认证的领域策略。 | Domain 只知道凭据类型和认证决策，不知道 REST 字段名或 token 编码。 |
+| `Session` | 登录成功后的认证会话。 | Access/Refresh Token 关联 session；用户或账号不可用会影响 verify/refresh。 |
+
+## 2. 领域服务
+
+| 领域服务 | 解决的问题 | 落地位置 |
+| ---- | ---- | ---- |
+| `Authenticator` | 多种凭据认证流程不能塞进一个 switch；按 credential type 选择策略。 | [../../internal/apiserver/domain/authn/authentication/authenticater.go](../../internal/apiserver/domain/authn/authentication/authenticater.go) |
+| `AccountCreator` / `Editor` / `Lifecycler` | 账户创建、资料变更、状态变更需要统一规则。 | [../../internal/apiserver/domain/authn/account](../../internal/apiserver/domain/authn/account) |
+| `Binder` / `Usage` / `Locker` / `Rotator` / `Lifecycle` | 凭据绑定、失败计数、锁定、轮换和启停各自是独立变化点。 | [../../internal/apiserver/domain/authn/credential](../../internal/apiserver/domain/authn/credential) |
+| `SubjectAccessEvaluator` | Verify/Refresh 需要判断用户和账号当前是否仍可访问。 | [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go) |
+
+这些领域服务的共同边界是：它们处理认证业务规则，但不签 JWT、不发布 JWKS、不读取 Gin context、不知道 proto message。
+
+## 3. 应用服务
 
 ```mermaid
 flowchart LR
-  Account["Account"]
-  Credential["Credential"]
-  Principal["Principal"]
-  Session["Session"]
-  Token["TokenPair / TokenClaims"]
-  JWKS["JWKS Key / KeySet"]
-  User["User（外域引用）"]
-  AccountState["Account State"]
-  UserState["User State"]
+    Login["LoginApplicationService"]
+    Prep["LoginPreparationService"]
+    Onboarding["AccountOnboarder"]
+    Token["TokenApplicationService"]
+    Session["SessionApplicationService"]
+    JWKS["JWKS Use Cases"]
+    AccountAdmin["AccountApplicationService"]
 
-  User -->|"user_id"| Account
-  Account --> Credential
-  Credential -->|"认证成功"| Principal
-  Principal -->|"Create Session"| Session
-  Session -->|"IssueToken / Refresh"| Token
-  Token -->|"kid / RS256"| JWKS
-  Account --> AccountState
-  User --> UserState
+    Login --> Token
+    Login --> Onboarding
+    Token --> Session
+    JWKS --> Keyset["infra/token/keyset ports"]
+    AccountAdmin --> Session
 ```
 
-**图意**：`Account / Credential` 是认证输入侧，`Principal` 是认证输出侧，`Session` 是“这次登录”的运行时锚点，`Token / JWKS` 是凭证发布与验签侧。`User` 和 `Account` 状态是 access subject state 的事实来源，不是单独复制进 `authn` 的 Redis 聚合。
+| 应用服务 | 职责 |
+| ---- | ---- |
+| `LoginApplicationService` | 接收登录命令，选择登录方法，构造 method payload/proof，完成认证并签发 token pair。 |
+| `LoginPreparationService` | 处理登录前准备，例如手机 OTP 发码。 |
+| `AccountOnboarder` | 创建或复用 UC User，保证 self ProfileLink，再创建或复用 AuthN account/credential。 |
+| `TokenApplicationService` | 为 transport 暴露服务令牌签发、刷新、撤销和在线 verify。 |
+| `SessionApplicationService` | 管理 session 撤销，支撑管理端和账户状态变更副作用。 |
+| `JWKS` use cases | 管理 key、发布 JWKS、触发/调度 key rotation。 |
+| `AccountApplicationService` | 账号目录、profile 编辑、状态变更和 session 失效副作用。 |
 
-### 数据关系（概念 ER）
-
-与当前存储和仓储映射对齐：
-
-- `auth_accounts`
-- `auth_credentials`
-- `auth_operation_accounts`
-- `auth_wechat_accounts`
-- `jwks_keys`
-- Redis `session` / `user_session_index` / `account_session_index`
-- Redis `refresh_token`
-- Redis `revoked_access_token`
+## 4. 登录方式选择
 
 ```mermaid
-erDiagram
-  users ||--o{ auth_accounts : "user_id"
-  auth_accounts ||--o{ auth_credentials : "account_id"
-  auth_accounts ||--o| auth_wechat_accounts : "oauth optional"
-  auth_accounts ||--o| auth_operation_accounts : "ops optional"
-  jwks_keys {
-    string kid
-    tinyint status
-  }
-  auth_accounts {
-    bigint user_id
-    string provider
-    string external_id
-    tinyint status
-  }
-  auth_credentials {
-    bigint account_id
-    string type
-    blob material
-  }
+sequenceDiagram
+    participant Client as "REST/gRPC"
+    participant Login as "SignIn"
+    participant Selector as "MethodSelector"
+    participant Catalog as "SignInAdapterCatalog"
+    participant Domain as "Authenticator"
+    participant Token as "Token issuer"
+
+    Client->>Login: "SignInCommand"
+    Login->>Selector: "legacy inference or explicit auth type"
+    Selector->>Catalog: "find adapter"
+    Catalog-->>Login: "method payload"
+    alt domain proof method
+        Login->>Domain: "Authenticate(proof)"
+        Domain-->>Login: "Principal"
+    else bearer compatibility
+        Login->>Login: "Reauthenticate via token verifier"
+    end
+    Login->>Token: "IssueToken(principal)"
+    Token-->>Client: "TokenPair"
 ```
 
-**说明**：
+登录选择分两层：
 
-- `auth_credentials` 的仓储映射见 [`infra/mysql/credential/po.go`](../../internal/apiserver/infra/mysql/credential/po.go)
-- 微信应用配置与 OAuth 绑定的逻辑关联仍要结合 `idp_wechat_apps`
-- `session`、`refresh token`、`revoked access token` 主要落在 Redis，不在这张 ER 里展开
-
-### 领域模型与领域服务
-
-**限界上下文**：`authn` 负责证明“谁在什么租户下，以何种方式完成了认证”，并给出后续可消费的 token；它不负责业务授权判定。
-
-| 概念 | 职责 | 与相邻概念的关系 |
+| 层 | 作用 | 设计原因 |
 | ---- | ---- | ---- |
-| `Account` | 可登录账户锚点 | 指向外域 `UserID`，关联多种凭据 |
-| `Credential` | 密码、OTP、OAuth 等认证材料 | 被 `Authenticater` 消费 |
-| `Authenticater` | 认证判决中心 | 根据场景组装策略并返回 `AuthDecision` |
-| `Principal` | 认证成功后的统一主体 | 被 `TokenIssuer` 消费 |
-| `SessionManager` | 创建、读取、延长、撤销会话 | 依赖 Redis SessionStore |
-| `SubjectAccessEvaluator` | 汇总 user/account 当前访问状态 | 依赖 user/account 领域仓储 |
-| `TokenIssuer` | 先创建 session，再颁发 Access / Refresh / Service Token | 依赖 JWT 生成器、TokenStore、SessionManager |
-| `TokenRefresher` | 用 refresh 恢复主体，检查 session/subject 状态后轮换新 pair | 依赖 Redis TokenStore、SessionManager、SubjectAccessEvaluator |
-| `TokenVerifyer` | 验签、过期、单 token 撤销、会话状态、subject 状态检查 | 依赖 JWT 生成器、TokenStore、SessionManager、SubjectAccessEvaluator |
-| `JWKS` | 公钥发布与轮换对象 | 支撑 Access / Service Token 验签 |
+| `MethodSelector` | v1 legacy 字段推断或 v2 explicit `AuthType`。 | 保持旧调用兼容，同时让新合同显式选择登录方式。 |
+| `SignInAdapterCatalog` | 按 auth type 找适配器，构造 method payload 或 proof。 | 新增登录方式时收敛在 adapter，不把字段判断散到应用服务主流程。 |
 
-### 应用服务设计
+当前支持 password、phone OTP、WeChat mini program、WeCom 和 bearer-token compatibility。v2 合同只开放显式业务登录方式，兼容方式不作为新公开登录策略扩散。
+
+## 5. Token 生命周期
 
 ```mermaid
-flowchart TB
-  subgraph interface
-    RH["REST handlers"]
-    GS["gRPC services"]
-  end
-  subgraph application
-    LG["login service"]
-    TK["token service"]
-    JW["jwks app service"]
-    AC["account service"]
-  end
-  subgraph domain
-    AU["authentication"]
-    TD["token"]
-    KD["jwks"]
-  end
-  subgraph infra
-    MY["mysql"]
-    RD["redis"]
-    JI["jwt generator"]
-    IDP["idp / secret vault"]
-  end
+flowchart TD
+    Principal["authentication.Principal"]
+    CreateSession["SessionManager.Create"]
+    Access["IssueAccessToken via codec"]
+    Refresh["SaveRefreshToken via store"]
+    Pair["TokenPair"]
+    Verify["VerifyAccessToken"]
+    AccessRevoked["access revoke marker"]
+    SubjectAccess["SubjectAccessEvaluator"]
+    Revoke["Revoke access or refresh"]
 
-  RH --> LG
-  RH --> TK
-  RH --> AC
-  GS --> TK
-  GS --> JW
-  LG --> AU
-  LG --> TD
-  TK --> TD
-  JW --> KD
-  AU --> MY
-  AU --> IDP
-  TD --> JI
-  TD --> RD
+    Principal --> CreateSession --> Access --> Pair
+    CreateSession --> Refresh --> Pair
+    Verify --> AccessRevoked
+    Verify --> SubjectAccess
+    Pair --> Revoke
 ```
 
-| 用例 | 职责一句 | 锚点 |
-| ---- | ---- | ---- |
-| 登录 | 场景推断、认证判决、成功后签发 token pair | [`application/authn/login/services_impl.go`](../../internal/apiserver/application/authn/login/services_impl.go) |
-| Token 生命周期 | 服务化暴露 `IssueServiceToken / Verify / Refresh / Revoke*` | [`application/authn/token/services_impl.go`](../../internal/apiserver/application/authn/token/services_impl.go) |
-| JWKS 发布与管理 | 构建可发布 key set、管理 key 生命周期、触发轮换 | [`application/authn/jwks`](../../internal/apiserver/application/authn/jwks) |
-| 账户管理 | 账户注册、档案修改、绑定与启停等 | [`application/authn/account`](../../internal/apiserver/application/authn/account) |
-
----
-
-## 核心设计
-
-### 核心认证模型：先产出 `Principal`，再进入 token 子系统
-
-**结论**：`authn` 的领域边界很清楚，认证链本身不直接等于 token 生命周期；它先产出 `Principal`，再由 token 领域服务决定如何签发和轮换凭证。
-
-| 入口方法 | 当前场景常量 | 当前实现 |
-| ---- | ---- | ---- |
-| `password` | `AuthPassword` | 已实现 |
-| `phone_otp` | `AuthPhoneOTP` | 已实现 |
-| `wechat` | `AuthWxMinip` | 已实现 |
-| `wecom` | `AuthWecom` | 已实现 |
-| `jwt_token` | `AuthJWTToken` | 应用层保留，REST 公开登录入口未接纳 |
-
-**设计边界**：
-
-- `prepareAuthentication()` 负责把输入整理成 `AuthInput`
-- `Authenticater.Authenticate()` 负责真正的认证判决
-- 认证成功后才进入 `TokenIssuer`
-
-长链路时序不在这里重复，统一看 [../05-专题分析/01-认证链路--从登录请求到 Token 与 JWKS.md](../05-专题分析/01-认证链路--从登录请求到 Token 与 JWKS.md)。
-
-### 核心会话与凭证模型：先有 `Session`，再有 Access / Refresh / Service 三类 token
-
-**结论**：当前 token 子系统不再是单一“JWT 签发器”，而是 `Session + Access / Refresh / Service` 共同组成的生命周期系统。
-
-| 类型 | 当前作用 | 当前承载方式 |
-| ---- | ---- | ---- |
-| Session | 这次登录的运行时锚点 | Redis `session:{sid}` + `ZSet` 索引 |
-| Access Token | 资源访问凭证 | RS256 JWT，Header 带 `kid`，由 JWKS 验签 |
-| Refresh Token | 换新 token pair | Redis 持久化，绑定 `sid`，刷新时恢复主体并删旧 |
-| Service Token | 服务间调用凭证 | 通过 gRPC `IssueServiceToken` 签发，仍走 JWT + JWKS 体系 |
-
-**最重要的静态判断**：
-
-- `VerifyToken`、`RefreshToken`、`RevokeToken`、`RevokeRefreshToken`、`IssueServiceToken` 都已经进入 `TokenApplicationService`
-- service token 不再是“文档里有、服务端没实现”的状态
-
-### 核心公钥模型：JWKS 不是附属接口，而是 token 体系的一部分
-
-**结论**：当前 Access / Service Token 的可验证性依赖 JWKS；因此 `JWKS` 属于 `authn` 模块本体，而不是对外附属页面。
-
-| 组件 | 职责 |
+| 操作 | 当前语义 |
 | ---- | ---- |
-| `KeyManager` | 管理密钥状态与生命周期 |
-| `KeySetBuilder` | 组装对外发布的 key set |
-| `KeyPublishAppService` | 生成 `JWKS + ETag + LastModified` |
-| 轮换调度器 | 启动后定时检查和轮换 key |
+| Issue session token pair | 创建 session，签发 access token，保存 refresh token。 |
+| Issue service token | 签发服务间 access token，不返回 refresh token。 |
+| Refresh | 读取 refresh token，校验 session 与 subject access，签发新 pair，删除旧 refresh。 |
+| Verify | 校验 access token 编码、过期、撤销标记、session 和用户/账号状态。 |
+| Revoke access | 标记 access token revoked；有 session id 时撤销对应 session。 |
+| Revoke refresh | 删除 refresh token。 |
 
-这篇只强调静态关系；启动初始化和轮换运行面细节见专题文。
+Access/Refresh/Service 都是 application token 模型；具体 JWT 编码、key id、签名算法属于 `infra/token/*`。
 
-### 核心对外暴露：REST / gRPC / 公开 JWKS 三条面
+## 6. JWKS 与 Keyset
 
-**结论**：`authn` 当前不是只有“登录 REST”，而是有三条明确暴露面。
+```mermaid
+flowchart LR
+    Admin["JWKS admin use cases"]
+    Publish["KeyPublishApp"]
+    Rotation["KeyRotationApp"]
+    Keyset["infra/token/keyset"]
+    JWT["infra/token/jwt"]
+    Public["/.well-known/jwks.json and JWKSService"]
 
-| 面向 | 当前能力 |
+    Admin --> Keyset
+    Rotation --> Keyset
+    Keyset --> JWT
+    Keyset --> Publish --> Public
+```
+
+JWKS 的关键分工：
+
+- Application/JWKS 提供“创建、查询、发布、轮换”的用例入口。
+- `infra/token/keyset` 管 key material、PEM storage、key manager、rotation policy 和 publishable snapshot。
+- `infra/token/jwt` 使用 key source 完成 access/service token 的编码与验签。
+- REST public JWKS 和 gRPC `JWKSService` 只读发布结果；管理端路由必须走 admin middlewares。
+
+## 7. 运行时与契约入口
+
+| 接口面 | 能力 |
 | ---- | ---- |
-| REST | `/api/v1/authn/login`、`/refresh_token`、`/logout`、`/verify`、账户管理、JWKS 管理 |
-| gRPC | `VerifyToken / RefreshToken / RevokeToken / RevokeRefreshToken / IssueServiceToken / GetJWKS` |
-| 公开端点 | `/.well-known/jwks.json` 与 `/api/v1/.well-known/jwks.json` |
+| REST v1 | `/api/v1/authn/login`、`/login/prep/phone-otp`、`/refresh_token`、`/logout`、`/verify`、signups、accounts、JWKS public/admin。 |
+| REST v2 | `/api/v2/authn/login`，使用 explicit auth method。 |
+| gRPC `AuthService` | Verify、Refresh、Revoke、RevokeRefresh、IssueServiceToken。 |
+| gRPC `AccountOnboardingService` | 账户 onboarding。 |
+| gRPC `JWKSService` | GetJWKS。 |
 
-**当前边界必须讲清**：
+路由和服务注册由运行时层解释，业务语义以本篇的 application/domain 为准。
 
-- `authn` 公开登录与账户管理端点仍没有统一挂中央 JWT 中间件
-- `authn/admin/jwks/*` 当前已经要求 `JWT + admin role`，且管理员鉴权能力缺失时按 fail-closed 不注册
-- `/api/v1/admin/*` 现在同样要求 `JWT + admin role`，并已承载 session revoke 控制面
+## 8. 设计模式
 
-### 核心配置：真正影响 `authn` 行为的是哪组键
+| 模式 | 为什么用 | IAM 中如何落地 | 代价和边界 |
+| ---- | ---- | ---- | ---- |
+| Strategy | 多种凭据认证差异大，但输出都是认证决策。 | `AuthStrategy` + `Authenticator`。 | 新策略需要注册进 domain authenticator。 |
+| Adapter Catalog | REST/gRPC 字段形态和 domain proof 不一致。 | `SignInAdapterCatalog` 把 wire 输入转成 method payload/proof。 | adapter 不能承载认证规则，只做选择和转换。 |
+| Application Service | 登录、onboarding、token 生命周期要跨多个领域对象和外部端口。 | `LoginApplicationService`、`TokenApplicationService`、`AccountOnboarder`。 | 应用服务编排流程，不拥有领域不变量。 |
+| Repository/Port | 领域规则需要读取账号、凭据、session，但不能依赖数据库实现。 | domain repository interfaces 和 application ports。 | 端口要保持窄，否则 application 会知道过多 infra 细节。 |
+| DTO/Mapper | transport 合同、应用输出、token claims 不应互相污染。 | request/result DTO、claim mapper、transport mapper。 | 映射代码增加，但合同稳定性更高。 |
+| Cache/Store Port | Refresh token、revoke marker、session 需要可替换存储。 | `token.Store`、session manager、Redis adapter。 | 可用性和 TTL 语义必须由测试锁定。 |
 
-**结论**：`authn` 的运行事实主要受 `auth.*` 和 `jwks.*` 影响，别把 gRPC transport 层配置和业务 JWT 配置混在一起讲。
+## 9. 代码证据与验证
 
-| 配置键 | 含义 | 默认值或当前口径 |
-| ------ | ---- | ---------------- |
-| `auth.jwt_issuer` | Access / Service Token 的 `iss` | 未配置时为空字符串 |
-| `auth.access_token_ttl` | Access TTL | 默认 15 分钟 |
-| `auth.refresh_token_ttl` | Refresh TTL | 默认 7 天 |
-| `jwks.keys_dir` | 私钥目录 | 未配置时按工作目录解析 |
-| `jwks.auto_init` | 无 active key 时自动初始化 | 可参与自动建钥判断 |
-| `app.mode` | 运行模式 | `development` 会参与 JWKS 自动初始化逻辑 |
+| 关注点 | 路径 |
+| ---- | ---- |
+| AuthN application 边界说明 | [../../internal/apiserver/application/authn/README.md](../../internal/apiserver/application/authn/README.md) |
+| 登录选择与 adapter | [../../internal/apiserver/application/authn/login](../../internal/apiserver/application/authn/login) |
+| Token lifecycle | [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token) |
+| JWKS use cases | [../../internal/apiserver/application/authn/jwks](../../internal/apiserver/application/authn/jwks) |
+| 认证领域模型 | [../../internal/apiserver/domain/authn](../../internal/apiserver/domain/authn) |
+| Token/JWKS 基础设施 | [../../internal/apiserver/infra/token](../../internal/apiserver/infra/token) |
 
----
+验证命令：
 
-## 边界与注意事项
-
-- `authn` 现在已经有明确的 `Session` 子域；不要再把它讲成“只有 token，没有会话”的体系。
-- JWT claims 不承诺承载完整授权上下文；授权看 [02-authz-角色&策略&资源&Assignment.md](./02-authz-角色&策略&资源&Assignment.md)。
-- 离线 JWKS 本地验签只能保证签名与过期；如果业务要求 session revoke、账号禁用、用户封禁即时生效，必须走在线权威校验。
-- `jwt_token` 场景今天属于应用层保留能力，不是公开 REST 登录方式。
-- 统一事件清单：**N/A**。若后续补异步事件，应以源码为准，而不是先在 prose 中虚构 `topic`。
-
----
-
-## 代码锚点索引
-
-| 关注点 | 路径 | 说明 |
-| ------ | ---- | ---- |
-| 模块装配 | `internal/apiserver/container/assembler/authn.go` | `AuthnModule`、TTL、JWKS、Token 领域服务 |
-| 认证场景枚举 | `internal/apiserver/domain/authn/authentication/types.go` | `Scenario` / `AMR` |
-| 认证判决中心 | `internal/apiserver/domain/authn/authentication/authenticater.go` | 多证认证策略入口 |
-| REST 路由 | `internal/apiserver/interface/authn/restful/router.go` | 登录、账户、JWKS 路由 |
-| REST 登录分发 | `internal/apiserver/interface/authn/restful/handler/auth.go` | `method` → 各登录分支 |
-| gRPC 服务 | `internal/apiserver/interface/authn/grpc/service.go` | `Verify/Refresh/Revoke/IssueServiceToken/GetJWKS` |
-| Token 应用层 | `internal/apiserver/application/authn/token/services_impl.go` | 服务化 token 生命周期入口 |
-| Token 领域层 | `internal/apiserver/domain/authn/token` | `Issuer / Refresher / Verifyer` |
-| JWKS 应用/领域层 | `internal/apiserver/application/authn/jwks`、`internal/apiserver/domain/authn/jwks` | 发布、管理、轮换 |
-| 凭据表映射 | `internal/apiserver/infra/mysql/credential/po.go` | `auth_credentials` |
-| 真值契约 | `api/rest/authn.v1.yaml`、`api/grpc/iam/authn/v1/authn.proto` | 对外契约与 RPC 名称 |
+```bash
+go test ./internal/apiserver/domain/authn/... ./internal/apiserver/application/authn/... ./internal/apiserver/transport/rest/authn/... ./internal/apiserver/transport/grpc/service/authn
+```

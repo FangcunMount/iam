@@ -1,307 +1,231 @@
-# IAM 缓存层专题：数据结构选择与 Redis 建模判断
+# IAM 缓存层：数据结构选择与 Redis 建模判断
 
-## 本文回答
-
-本文只回答 4 件事：
-
-1. 当前 IAM 的各个 cache family 为什么分别选了这些 Redis 数据结构
-2. 为什么“要查 membership”并不自动意味着“应该用 `Set`”
-3. 为什么 `session` 这一轮开始正式引入 `ZSet`
-4. 未来什么时候才值得把某个 family 从当前结构升级成别的结构
+本文回答：IAM 为什么大量缓存族选择 Redis String，为什么 session index 使用 ZSet，为什么撤销 token 不使用 Set，为什么 JWKS 发布快照是内存对象；以及这些选择分别解决什么问题、带来什么代价。
 
 ## 30 秒结论
 
-> **一句话**：IAM 里的 Redis 数据结构不是按名字选，而是按 **访问模式 + TTL 粒度 + 原子语义 + 聚合需求** 选。当前大多数 family 仍然落在 `String`，因为它们都是单 key / 单对象 / key 级 TTL；真正第一次明确需要非 `String` 的，是 `authn.user_session_index` 和 `authn.account_session_index` 这两类会话索引，所以这里引入了 `ZSet`。
+- IAM 的 Redis 建模原则是：先看访问语义，再选数据结构。单对象、整对象读写、独立 TTL 优先 String；存在性判断优先 marker；需要按时间排序或批量回收才用 ZSet。
+- `authn.revoked_access_token` 不使用 Redis Set，因为 Set 无法给单个 member 设置独立 TTL。撤销 access token 需要每个 token marker 随自身过期时间自然消失。
+- session 主对象和 session index 分开建模：`session:{sid}` 保存 authoritative session object，`user_session_index:{userID}` / `account_session_index:{accountID}` 保存 sid 到过期时间的索引。
+- IDP 微信 access token 是 cache-aside + refresh lock，不是简单 KV；缓存族 catalog 用 `HasInternalRefreshCoordination=true` 标识这个事实。
+- `authn.jwks_publish_snapshot` 当前是 process-local memory snapshot，因为它是派生发布视图，不是跨实例共享状态。
 
-| 判断问题 | 当前结论 |
-| ---- | ---- |
-| `authn.revoked_access_token` 为什么不是 `Set` | 因为它更重要的是“逐 token 独立 TTL”，不是集合 membership |
-| `authn.session` 为什么还是 `String(JSON)` | 它仍然是单 `sid` 单对象、整对象读写 |
-| session index 为什么是 `ZSet` | 因为它承担的是“按 user/account 聚合 sid + 按过期时间懒清理” |
-| `idp.wechat_access_token.lock` 算不算独立锁平台 | 不算；它只是内部刷新协调 key |
-| `authn.jwks_publish_snapshot` 在哪 | 它是 memory-backed family，不进入 Redis |
-
-## 重点速查
-
-| 想回答的问题 | 先看哪里 |
-| ---- | ---- |
-| 当前 family 清单和结构元数据 | [../../internal/apiserver/infra/cache/catalog.go](../../internal/apiserver/infra/cache/catalog.go) |
-| Session 为什么要加 index | [../../internal/apiserver/infra/redis/session_store.go](../../internal/apiserver/infra/redis/session_store.go) |
-| `revoked_access_token` 的真实读写语义 | [../../internal/apiserver/infra/redis/token-store.go](../../internal/apiserver/infra/redis/token-store.go) |
-| 为什么会出现 session / revoke / refresh 四层语义 | [02-IAM认证语义拆层--用户状态、会话与Token边界.md](./02-IAM认证语义拆层--用户状态、会话与Token边界.md) |
-| 缓存层整体设计和治理面 | [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md) |
-
-## 1. 结构选择总原则
-
-IAM 里选择 Redis 数据结构，优先看这 5 件事：
-
-1. 读取粒度
-2. 写入粒度
-3. TTL 附着粒度
-4. 原子操作需求
-5. 是否真的需要成员级聚合、排序或范围扫描
-
-如果一个 family 同时满足：
-
-- 单 key / 单对象
-- 整体读取、整体写入
-- TTL 挂在整个对象上
-- 不需要成员级聚合
-
-那默认就应先站在 `String` 这边，而不是为了“名字更像集合”去强行换结构。
+## 主图：从访问语义到 Redis 类型
 
 ```mermaid
 flowchart TD
-    A["单 key / 单对象？"] -->|是| B["整体读写？"]
-    A -->|否| C["需要成员聚合 / 排序 / 范围扫描？"]
-    B -->|是| D["TTL 挂在整个对象上？"]
-    B -->|否| C
-    D -->|是| E["优先考虑 String"]
-    D -->|否| C
-    C --> F["再评估 Hash / Set / ZSet"]
+    Need["要缓存什么?"] --> Object{"是否单对象整读整写?"}
+    Object -- "yes" --> TTL{"是否需要 key 级独立 TTL?"}
+    TTL -- "yes" --> StringJSON["String + JSON\nrefresh / session / wechat token"]
+    Object -- "no" --> Exists{"是否只关心存在性?"}
+    Exists -- "yes" --> Marker["String marker\nrevoke / OTP / send gate"]
+    Exists -- "no" --> List{"是否要按 owner 列举或清理?"}
+    List -- "yes" --> ZSet["ZSet\nsession index by expiresAt"]
+    List -- "no" --> Recheck["重新确认需求\nHash / Set / Lua / DB"]
+    TTL -- "no" --> StringPlain["String\nwechat sdk token/ticket"]
 ```
 
-**图意**：是否需要复合结构，关键不在对象名字，而在访问模式和 TTL 语义。
+这张图背后的工程判断是：缓存结构越复杂，维护成本越高。只有当查询、清理、并发或一致性需求真的需要某种结构时，才升级为 Hash、Set、ZSet、Lua 或事务封装。
 
-## 2. `String` 适用条件
+## 当前建模矩阵
 
-### 2.1 什么情况下 `String` 最合适
+| Family | Key pattern | Redis 类型 | Value codec | 写入方式 | 失效方式 | 为什么这样建模 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| `authn.refresh_token` | `refresh_token:{tokenValue}` | String | JSON | 整体写入 | TTL 到期或显式删除 | Refresh Token 是单 token 主对象，需要独立生命周期。 |
+| `authn.revoked_access_token` | `revoked_access_token:{tokenID}` | String | marker | marker 写入 | TTL 到期 | 只需判定 tokenID 是否已撤销，每个 token 独立过期。 |
+| `authn.session` | `session:{sid}` | String | JSON | 整体写入 | TTL 到期或主动撤销后自然过期 | session 主对象按 sid 获取，字段不需要局部更新。 |
+| `authn.user_session_index` | `user_session_index:{userID}` | ZSet | string | `ZADD sid -> expiresAtUnix` | 撤销移除，读取前懒清理 | 按用户列举和批量回收 session。 |
+| `authn.account_session_index` | `account_session_index:{accountID}` | ZSet | string | `ZADD sid -> expiresAtUnix` | 撤销移除，读取前懒清理 | 按账号列举和批量回收 session。 |
+| `authn.login_otp` | `otp:{scene}:{phoneE164}:{code}` | String | marker | marker 写入 + 原子消费 | 消费删除或 TTL 到期 | OTP 是一次性存在性凭证。 |
+| `authn.login_otp_send_gate` | `otp:sendgate:{scene}:{phoneE164}` | String | marker | `SET NX EX` | TTL 到期 | 发送冷却是短生命周期 gate。 |
+| `idp.wechat_access_token` | `idp:wechat:token:{appID}` | String | JSON | 整体写入 | TTL 到期或刷新覆盖 | 外部 access token 是单 app 远程 token cache。 |
+| `idp.wechat_sdk` | 由微信 SDK 调用方提供 | String | string | 字符串整体写入 | TTL 到期或显式删除 | 值本身就是 token 或 ticket 字符串。 |
+| `authn.jwks_publish_snapshot` | 无 Redis key | Memory | object | 重建快照覆盖内存字段 | 重建刷新 | JWKS 发布视图是派生快照，当前无跨实例共享需求。 |
 
-当 family 具备这些特征时，`String` 几乎总是最自然的选择：
+## 深度链路一：Refresh Token 为什么是 String JSON
 
-- 单 key / 单对象
-- 点查远多于聚合查
-- 整体序列化 / 整体反序列化
-- 需要对象级 TTL
-- 不依赖成员级删除、成员级过期或 score 范围操作
+```mermaid
+sequenceDiagram
+    participant App as "token application"
+    participant Store as "refresh token store"
+    participant Redis as "Redis String"
 
-这正是当前这些 family 的共同特征：
+    App->>Store: "Save(token)"
+    Store->>Redis: "SET refresh_token:{value} JSON EX remaining"
+    App->>Store: "Get(tokenValue)"
+    Store->>Redis: "GET refresh_token:{value}"
+    Redis-->>Store: "JSON or nil"
+    Store-->>App: "RefreshToken object"
+    App->>Store: "Delete(tokenValue)"
+    Store->>Redis: "DEL refresh_token:{value}"
+```
 
-- `authn.session`
-- `authn.refresh_token`
-- `authn.revoked_access_token`
-- `authn.login_otp`
-- `authn.login_otp_send_gate`
-- `idp.wechat_access_token`
-- `idp.wechat_sdk`
+Refresh Token 的关键特征：
 
-### 2.2 为什么 `String` 不是“简单但落后”
+- 读写单位是 token 对象，不是对象里的某个字段。
+- 每个 token 有自己的剩余有效期。
+- 刷新和撤销都围绕一个 token value。
+- JSON 编码方便表达 token 的元数据，Redis key TTL 承载过期语义。
 
-在 IAM 里，`String` 的价值不只是实现简单，而是它刚好保住了几件关键语义：
+如果改用 Hash，会引入字段级更新能力，但当前没有这个需求，反而要额外处理 Hash key TTL、字段兼容和局部更新不变量。
 
-- 每条记录单独 TTL
-- 单 key 原子写入
-- 单 key 存在性判断
-- 结构和业务对象一一对应
-
-所以“继续使用 `String`”在这里不是保守，而是恰好匹配当前访问模式。
-
-## 3. `Hash / Set / ZSet` 何时才值得引入
-
-### 3.1 `Hash`
-
-只有在这些条件同时出现时，才值得考虑 `Hash`：
-
-- 一个对象内有多个稳定字段
-- 高频局部字段更新明显多于整对象更新
-- 读取也经常按字段读取
-- 仍然接受整 key 共用一个 TTL
-
-当前 IAM 里的认证状态对象没有一类明显满足这些条件，所以暂时没有 family 使用 `Hash`。
-
-### 3.2 `Set`
-
-只有在这些条件出现时，才值得考虑 `Set`：
-
-- 核心操作真的是 membership / add / remove
-- 成员去重是主价值
-- 不要求成员级 TTL
-- 不需要按成员时间排序或按过期时间清理
-
-当前 IAM 里没有一个 family 完整满足这组条件。  
-尤其 `authn.revoked_access_token` 看起来像集合，但它真正重要的是“每个 token 自己过期”，因此不适合 `Set`。
-
-### 3.3 `ZSet`
-
-当你需要这些能力时，`ZSet` 才会明显优于 `String`：
-
-- 一个 key 下聚合多个成员
-- 成员带时间或分值
-- 需要范围查询、排序或懒清理
-
-这正是 session index 的使用场景，所以当前第一次正式引入了 `ZSet`。
-
-## 4. 按 family 判断
-
-### 4.1 `authn.session`
-
-- 当前结构：`String(JSON)`
-- key：`session:{sid}`
-- 为什么这样选：
-  - 单 `sid` 单对象
-  - Verify / Refresh / Revoke 都是按 `sid` 点查
-  - 需要对象级 TTL
-- 为什么不是 `Hash`：
-  - 当前没有字段级热点更新
-  - 整对象读取远多于字段级读取
-
-### 4.2 `authn.refresh_token`
-
-- 当前结构：`String(JSON)`
-- key：`refresh_token:{value}`
-- 为什么这样选：
-  - 单 refresh token 单对象
-  - 读取时总是整对象恢复主体与 `sid`
-  - TTL 与 refresh token 生命周期一一对应
-- 为什么不是 `Hash`：
-  - 没有局部更新收益
-  - 只会增加编码复杂度
-
-### 4.3 `authn.revoked_access_token`
-
-- 当前结构：`String(marker)`
-- key：`revoked_access_token:{jti}`
-- 为什么这样选：
-  - 点查为主
-  - 每个 `jti` 需要独立 TTL
-  - 验证链只需要判断“这个 `jti` 是否已撤销”
-
-#### 为什么不是 `Set`
-
-因为 `Set` 解决的是：
-
-- membership
-
-而当前这个 family 还必须解决：
-
-- **成员级过期**
-
-如果改成一个公共 `Set`：
-
-- `SISMEMBER` 能做 membership
-- 但 TTL 只能挂在整个 key 上
-- 已过期成员需要业务层自己清理
-
-这会把当前天然的“逐 token 自动失效”模型改坏。
-
-#### 如果未来真要升级，更可能是什么
-
-如果未来出现：
-
-- 需要按时间窗观测撤销标记
-- 需要批量清理已过期成员
-- 需要统计撤销规模
-
-那更值得优先评估的是 `ZSet`：
-
-- `member = jti`
-- `score = expiresAtUnix`
-
-而不是 `Set`。
+## 深度链路二：Access Token revoke marker 为什么不用 Set
 
 ```mermaid
 flowchart LR
-    String["String<br/>revoked_access_token:{jti} -> \"1\" + per-key TTL"] --> Fit["当前最合适"]
-    Set["Set<br/>SADD revoked_access_token jti"] --> Bad["成员级 TTL 丢失"]
-    ZSet["ZSet<br/>member=jti, score=expiresAtUnix"] --> Future["未来若要时间窗清理/观测可评估"]
+    AccessToken["Access Token\njti / exp"] --> Revoke["revoke"]
+    Revoke --> MarkerKey["revoked_access_token:{jti}"]
+    MarkerKey --> TTL["EX until token exp"]
+    Verify["online Verify"] --> Exists{"EXISTS marker?"}
+    Exists -- "yes" --> Deny["invalid / revoked"]
+    Exists -- "no" --> Continue["continue claim validation"]
 ```
 
-### 4.4 `authn.login_otp`
+撤销 Access Token 的需求不是“保存一个撤销集合”，而是“某个 tokenID 在它原本有效期内被标记为撤销”。Redis Set 的问题是：
 
-- 当前结构：`String(marker)`
-- key：`otp:{scene}:{phoneE164}:{code}`
-- 为什么这样选：
-  - 核心语义是“一次性存在性”
-  - 依赖原子 `consume-if-exists`
-  - 每条 OTP 都有独立 TTL
-- 为什么不是 `Set / Hash`：
-  - 不会让原子消费更简单
-  - 也没有字段级更新收益
+- Set 可以聚合 tokenID，但无法给单个 member 设置独立 TTL。
+- 如果整个 Set 设置 TTL，会让不同过期时间的 token 相互影响。
+- 如果永不过期，需要额外清理任务和数据膨胀治理。
 
-### 4.5 `authn.login_otp_send_gate`
+使用独立 marker key 后，撤销状态和 token 原始过期时间对齐，Redis 自然淘汰即可完成清理。这是“用 key 级 TTL 表达业务生命周期”的典型选择。
 
-- 当前结构：`String(marker)`
-- key：`otp:sendgate:{scene}:{phoneE164}`
-- 为什么这样选：
-  - 它本质上就是 `SET NX EX`
-  - 冷却窗口不需要成员级聚合
-- 什么时候才会考虑 `ZSet`：
-  - 如果需求升级成“滑动窗口限频”
+## 深度链路三：session 主对象与 ZSet 索引为什么分离
 
-### 4.6 `idp.wechat_access_token`
+```mermaid
+flowchart TD
+    Login["login success"] --> Session["session:{sid}\nString JSON + TTL"]
+    Login --> UserIdx["user_session_index:{userID}\nZSet sid -> expiresAt"]
+    Login --> AccountIdx["account_session_index:{accountID}\nZSet sid -> expiresAt"]
 
-- 当前结构：`String(JSON)`
-- key：`idp:wechat:token:{appID}`
-- 为什么这样选：
-  - 单 app 单对象
-  - 整体读写
-  - TTL 直接跟 token 生命周期绑定
-- 为什么不是 `Hash`：
-  - 当前主要复杂度在刷新协调，不在对象内部结构
+    QueryUser["list sessions by user"] --> CleanUser["ZREMRANGEBYSCORE expired"]
+    CleanUser --> ReadUser["ZRANGE active sid"]
+    ReadUser --> LoadSessions["MGET session:{sid}"]
 
-### 4.7 `idp.wechat_access_token.lock`
+    Revoke["revoke session"] --> DelSession["update/delete session state"]
+    Revoke --> RemoveIdx["ZREM sid from indexes"]
+```
 
-- 当前结构：`String(lease token)`
-- key：`idp:wechat:token:lock:{appID}`
-- 为什么这样选：
-  - 它不是 cache object，而是内部刷新协调 key
-  - 只需要短 TTL + owner token 语义
+session 有两类访问路径：
 
-这类 key 不应被单独扩写成“锁平台专题”；它只是 `idp.wechat_access_token` family 的内部机制。
+- 按 sid 获取主对象：适合 String。
+- 按 user 或 account 列举、批量撤销、懒清理过期 session：适合 ZSet。
 
-### 4.8 `idp.wechat_sdk`
+ZSet score 使用 session 过期时间，因此读取前可以按 score 清理过期成员。这样避免了 index key 必须和每个 session 拥有相同 TTL 的问题，也避免了把 session 主对象塞进一个大集合导致单条 session 生命周期难以管理。
 
-- 当前结构：`String(string)`
-- 为什么这样选：
-  - 当前缓存值本来就是字符串 token / ticket
-  - 不存在对象级建模收益
+代价是主对象和索引之间存在短暂不一致可能。例如 session key 已过期但 ZSet 成员还没清理。当前设计通过读取前懒清理和按 sid 回表来吸收这种不一致。
 
-### 4.9 `authn.jwks_publish_snapshot`
+## 深度链路四：OTP 和 send gate 为什么是 marker
 
-- 当前后端：memory
-- 为什么不进 Redis：
-  - 当前是单进程派生快照
-  - 核心价值是发布视图与 cache tag，而不是跨实例共享缓存
+```mermaid
+sequenceDiagram
+    participant Client as "login prep caller"
+    participant OTP as "OTP service/store"
+    participant Redis as "Redis"
 
-它属于 cache family，但不属于 Redis family。
+    Client->>OTP: "send code"
+    OTP->>Redis: "SET NX EX otp:sendgate:{scene}:{phone}"
+    OTP->>Redis: "SET EX otp:{scene}:{phone}:{code}"
+    Client->>OTP: "verify code"
+    OTP->>Redis: "consume marker atomically"
+    Redis-->>OTP: "exists -> delete / missing"
+```
 
-## 5. 当前例外：为什么 session index 使用 `ZSet`
+OTP 本身不是持久账户事实，只是短生命周期登录凭证。send gate 也不是业务对象，只是防抖门闩。因此它们都不需要 JSON 对象，也不需要集合结构：
 
-Session 这一轮是第一个明确超出“全部 `String`”的例子。原因不是它更复杂，而是访问模式已经变了：
+- OTP marker 表达“这个 code 在这个 scene 和 phone 下是否有效”。
+- send gate marker 表达“这个 scene 和 phone 当前是否处于发送冷却期”。
+- TTL 是核心语义，value 内容不是核心语义。
 
-- 需要按 user/account 聚合多个 `sid`
-- 需要按 `expires_at` 做懒清理
-- 需要支持批量 revoke
+## 深度链路五：IDP 微信 access token 为什么是 cache-aside + lock
 
-所以：
+```mermaid
+sequenceDiagram
+    participant App as "WechatAppToken service"
+    participant Cacher as "AccessTokenCacher"
+    participant Cache as "AccessTokenCache"
+    participant Provider as "AppTokenProvider"
 
-- `authn.session` 继续用 `String(JSON)` 保存主对象
-- `authn.user_session_index` / `authn.account_session_index` 使用 `ZSet`
+    App->>Cacher: "EnsureToken(app, skew)"
+    Cacher->>Cache: "Get(appID)"
+    alt "cached valid beyond skew"
+        Cache-->>Cacher: "token"
+    else "missing or near expiry"
+        Cacher->>Cache: "TryLockRefresh(appID)"
+        alt "lock acquired"
+            Cacher->>Provider: "Fetch(app)"
+            Provider-->>Cacher: "token + expiresAt"
+            Cacher->>Cache: "Set(appID, token, ttl-skew)"
+        else "lock not acquired"
+            Cacher->>Cache: "Get(appID) once"
+            alt "someone refreshed"
+                Cache-->>Cacher: "token"
+            else "still empty"
+                Cacher-->>App: "retry error"
+            end
+        end
+    end
+```
 
-这三者组合起来，正好对应：
+微信 access token 的难点是外部获取成本和并发刷新：
 
-- 主对象读取
-- 聚合索引
-- 过期时间驱动的索引维护
+- 多个请求同时发现 token 快过期时，不应该全部打到微信 API。
+- token 需要提前刷新，避免拿到马上过期的 token。
+- 外部 provider 失败时，不能把空 token 写进缓存。
 
-## 6. 未来升级触发条件
+因此 `AccessTokenCacher` 使用 cache-aside：先读缓存，缓存不可用时尝试刷新锁，拿锁者调用 provider 并写回；未拿到锁者再读一次缓存，否则返回 retry 语义。catalog 里的 `HasInternalRefreshCoordination=true` 就是这个事实的治理表达。
 
-后续只有在满足真实收益时，才值得把 family 从当前结构升级：
+## 深度链路六：JWKS publish snapshot 为什么不是 Redis
 
-| 触发条件 | 更可能考虑的结构 |
+```mermaid
+flowchart LR
+    Keyset["infra/token/keyset\nbuild JWKS"] --> Snapshot["process memory snapshot"]
+    Snapshot --> ETag["ETag"]
+    Snapshot --> LastModified["Last-Modified"]
+    Snapshot --> JWKS["JWKS JSON"]
+    JWKS --> Clients["SDK / verifier / gateways"]
+```
+
+JWKS 发布快照与 Redis 缓存不同：
+
+- 它是签名 keyset 的派生视图，不是业务写模型。
+- 当前实现使用进程内 1 分钟复用窗口，减少重复构建。
+- 它需要被治理面看见，所以作为 `authn.jwks_publish_snapshot` 纳入 catalog。
+- 它当前不承诺跨实例共享；如果未来需要跨实例一致的 JWKS cache，应先调整架构和测试，再修改 catalog。
+
+## 设计模式
+
+| 模式 | 为什么用 | 解决什么问题 | IAM 落地 | 代价和边界 |
+| ---- | ---- | ---- | ---- | ---- |
+| Data Structure as Policy | Redis 类型就是业务访问策略的一部分。 | 防止缓存结构随意升级或误用。 | catalog 的 `RedisType`、`Codec`、`SelectionReason`。 | 需要文档和测试一起维护。 |
+| Marker State | 存在性比对象内容更重要。 | 撤销 token、OTP、冷却 gate 的 value 不应复杂化。 | `revoked_access_token`、`login_otp`、`login_otp_send_gate`。 | marker 只能表达简单状态，复杂审计要走业务日志或 DB。 |
+| Secondary Index | 主对象访问和按 owner 查询是两种路径。 | session 既要 sid 获取，又要用户/账号级枚举。 | `session:{sid}` + session index ZSet。 | 主对象和索引可能短暂不一致，需要懒清理和回表。 |
+| Cache Aside | 外部 token 获取成本高且有明确过期时间。 | 避免每次调用微信 API，又不让缓存成为唯一事实源。 | `AccessTokenCacher`。 | 外部 provider 不可用时仍可能失败。 |
+| Process-local Snapshot | 派生发布视图读频高、构建可复用。 | JWKS 发布减少重复构建，保持接口轻量。 | `authn.jwks_publish_snapshot`。 | 当前不是跨实例共享缓存。 |
+
+## 失败边界
+
+| 场景 | 当前选择 | 风险控制 |
+| ---- | ---- | ---- |
+| revoked marker TTL 计算错误 | marker 可能过早消失或保留过久。 | TTL 必须来自 token expiry；在线 Verify 仍要校验 JWT exp。 |
+| session index 残留过期 sid | 查询时可能读到已过期 sid。 | ZSet 按 score 懒清理，并回表加载 session 主对象。 |
+| OTP marker 被重复消费 | 登录凭证可能复用。 | store 需要原子消费；文档不把 OTP 写成普通 GET/DEL。 |
+| 微信 access token 并发刷新 | 可能打爆外部 provider 或写入竞争。 | `TryLockRefresh` + 二次读缓存。 |
+| JWKS 多实例发布差异 | 离线验证方可能看到不同实例快照。 | 当前文档只描述现状，不承诺跨实例共享；生产网关应按公开 JWKS/issuer 配置缓存策略。 |
+
+## 代码证据与验证
+
+| 事实 | 代码 |
 | ---- | ---- |
-| 对象内字段级热点更新明显增加 | `Hash` |
-| membership 成为核心操作，且成员级 TTL 不重要 | `Set` |
-| 需要时间窗、排序、topN、懒清理 | `ZSet` |
+| 缓存族结构与选择原因 | [../../internal/apiserver/application/cachegovernance/catalog.go](../../internal/apiserver/application/cachegovernance/catalog.go) |
+| AuthN session domain | [../../internal/apiserver/domain/authn/session](../../internal/apiserver/domain/authn/session) |
+| AuthN token 应用服务 | [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token) |
+| IDP access token cache-aside | [../../internal/apiserver/domain/idp/wechatapp/accesstoken-cacher.go](../../internal/apiserver/domain/idp/wechatapp/accesstoken-cacher.go) |
+| Redis 基础设施实现 | [../../internal/apiserver/infra/redis](../../internal/apiserver/infra/redis) |
+| JWKS keyset | [../../internal/apiserver/infra/token/keyset](../../internal/apiserver/infra/token/keyset) |
 
-如果只是“看起来更语义化”，但不改变 TTL 粒度或访问模式，那就不值得换。
+建议验证：
 
-## 继续往下读
-
-| 文档 | 说明 |
-| ---- | ---- |
-| [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md) | IAM 缓存层与治理面的整体设计 |
-| [02-IAM认证语义拆层--用户状态、会话与Token边界.md](./02-IAM认证语义拆层--用户状态、会话与Token边界.md) | 为什么 session 这一轮成为认证运行时锚点 |
-| [../02-业务域/01-authn-认证&Token&JWKS.md](../02-业务域/01-authn-认证&Token&JWKS.md) | Session、Refresh、Revoke 与 JWKS 的主叙事 |
-| [../../internal/apiserver/infra/cache/catalog.go](../../internal/apiserver/infra/cache/catalog.go) | family 与结构元数据的源码锚点 |
-| [../../internal/apiserver/infra/redis/session_store.go](../../internal/apiserver/infra/redis/session_store.go) | session + ZSet index 的实际承载 |
+```bash
+go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/redis ./internal/apiserver/infra/token/...
+make docs-hygiene
+```

@@ -1,279 +1,232 @@
-# 儿童联想搜索（Suggest）
+# Suggest：儿童联想搜索
 
-本文回答：`suggest` 作为 `iam` 中的补充读侧能力，今天负责什么、不负责什么；它如何从用户域表中拉数、构建内存索引并通过 REST 提供联想查询；以及当前配置、刷新和真实代码落点分别是什么。
+## 本文回答
 
-**阅读维度**：Why = 登录后快速按姓名 / 拼音 / 手机 / ID 联想儿童；What = `Loader / Updater / Store / Term`；Where = `application/suggest`、`infra/mysql/suggest`、`infra/suggest/search`、`interface/suggest`；Verify = [`api/rest/suggest.v1.yaml`](../../api/rest/suggest.v1.yaml)、`configs/apiserver*.yaml` 的 `suggest` 段、[`infra/mysql/suggest/loader.go`](../../internal/apiserver/infra/mysql/suggest/loader.go) 默认 SQL。
+本文回答：IAM Suggest 域为什么被设计成读侧辅助能力，如何从 Profile 数据构建档案候选索引，查询时怎样表达关键词、限制、排名和去重，以及它为什么不能替代 ProfileLink 写入或 AuthZ 权限判定。
 
----
+## 30 秒结论
 
-## 30 秒了解系统
+- Suggest 只负责“给当前查询返回候选 profile”，不负责创建 Profile、不负责建立 ProfileLink，也不负责判定访问权限。
+- Domain 层用 `ProfileCandidate`、`Term`、`Keyword`、`Query`、`RankingPolicy` 表达候选、查询和排序规则。
+- Application 层有两类用例：`Service.Suggest` 是查询用例，`ProfileIndexRefresher` 是索引刷新用例。
+- 索引生命周期由 `ProfileSuggestionRuntime` 端口承载；数据来源由 `ProfileCandidateSource` 端口提供；可选 snapshot 写入由 `SnapshotWriter` 端口隔离。
+- 查询接口是 `GET /api/v1/suggest/profile?k=...`，REST handler 需要 Auth middleware 和 Suggest service 同时存在才注册。
+- 当前默认限制是 `MaxResults=20`、`KeyPadLen=25`，配置入口在 `application/suggest.Config`。
 
-- `suggest` 不是用户域的写模型，也不是独立搜索服务；它是依附于 `iam-apiserver` 的一块**内存读侧能力**。
-- 当前没有独立 `suggest_*` 表，数据来自可配置 Raw SQL，默认从 `profiles + refs + users` 拉数。
-- 模块内最重要的对象是：`Loader / Updater / Store / Term`。
-- 查询侧的核心结构是 **Trie + Hash**：数字关键词走 Hash，非数字关键词走 Trie 前缀/通配。
-- 刷新侧的核心策略是：启动先做一次全量 `Swap`，之后按 cron 做全量刷新，可选再做增量 `ImportLines`。
-- 对外只有一个 REST 入口：`GET /api/v1/suggest/profile?k=`；没有 gRPC。
-
-| 主题 | 当前答案 |
-| ---- | ---- |
-| 数据来源 | 默认 SQL 读 `profiles / refs / users` |
-| 内部索引 | `search.Store = Trie + Hash` |
-| 刷新策略 | 启动全量、定时全量、可选增量、可选 snapshot |
-| 对外暴露 | `GET /api/v1/suggest/profile` |
-| 真实契约 | [`api/rest/suggest.v1.yaml`](../../api/rest/suggest.v1.yaml) |
-
-### 模块边界
-
-#### 负责
-
-- 按配置从 MySQL 拉取联想数据行
-- 构建并维护进程内 `Trie + Hash` 索引
-- 提供儿童联想搜索 REST 接口
-- 定时刷新和可选快照落盘
-
-#### 不负责
-
-- 儿童、用户、监护关系的写模型与业务规则：见 [03-user-用户&儿童&Ref.md](./03-user-用户&儿童&Ref.md)
-- 登录、Token、JWKS：见 [01-authn-认证&Token&JWKS.md](./01-authn-认证&Token&JWKS.md)
-- 分布式一致性搜索、跨副本统一索引、专用搜索集群
-
-#### 依赖
-
-- 依赖 MySQL 与用户域表结构
-- 依赖 `suggest.enable` 配置决定是否初始化
-- REST 可选依赖中央 `AuthMiddleware`；认证模块未起时仍可能回退为空中间件
-
-### 运行时示意图
-
-`suggest` 只运行在 **`iam-apiserver`** 中。
-
-```mermaid
-flowchart LR
-  subgraph iam["iam-apiserver / suggest"]
-    REST["GET /api/v1/suggest/profile"]
-    SVC["application/suggest Service"]
-    UPD["Updater cron"]
-    LD["mysql Loader Raw SQL"]
-    ST["search.Store = Trie + Hash"]
-    DB[("MySQL profiles / refs / users")]
-  end
-  C((Client / BFF)) --> REST
-  REST --> SVC
-  SVC --> ST
-  UPD --> LD
-  LD --> DB
-  UPD --> ST
-```
-
-**图意**：`suggest` 的核心不是业务聚合，而是“数据拉取 + 内存索引 + 查询 API”这条读侧链。
-
----
-
-## 模型与服务
-
-### 数据关系（ER：N/A）
-
-`suggest` 当前没有自己的业务表，也没有需要单独维护的聚合关系；它更像“从用户域表中拉取结果行，再投影为内存索引”的读侧能力，所以这里不画模块内 ER。
-
-### 数据源关系图
-
-`suggest` 没有自己的业务表，所以这里更重要的是数据源关系，而不是模块内 ER。
-
-```mermaid
-flowchart LR
-  Users["users"]
-  Guards["refs"]
-  Profiles["profiles"]
-  SQL["Loader SQL"]
-  Line["name|id|mobiles|-|weight"]
-  Store["Store (Trie + Hash)"]
-  Term["Term[]"]
-
-  Users --> SQL
-  Guards --> SQL
-  Profiles --> SQL
-  SQL --> Line --> Store --> Term
-```
-
-**图意**：`suggest` 今天完全建立在“把业务库里的几张表映射成一批联想行，再装进内存索引”这个模型上。
-
-### 领域模型与领域服务
-
-模块真正对外暴露的领域对象非常轻：
-
-| 概念 | 职责 |
-| ---- | ---- |
-| `Term` | 联想结果项，承载 `name / id / mobile / weight` |
-
-锚点：[../../internal/apiserver/domain/suggest/term.go](../../internal/apiserver/domain/suggest/term.go)
-
-当前没有额外的领域服务或聚合树。更重要的是内存索引模型：
-
-| 组件 | 职责 |
-| ---- | ---- |
-| `Loader` | 从数据库拉取原始行 |
-| `Updater` | 负责全量 / 增量刷新和 snapshot |
-| `Store` | 当前活跃的查询索引 |
-| `Trie` | 中文 / 拼音前缀与通配查询 |
-| `Hash` | 数字关键词的精确匹配 |
-
-### 应用服务设计
-
-```mermaid
-flowchart TB
-  subgraph interface
-    RH["REST handler"]
-  end
-  subgraph application
-    SVC["Service"]
-    UPD["Updater"]
-  end
-  subgraph infra
-    LD["mysql Loader"]
-    ST["search.Store"]
-  end
-
-  RH --> SVC
-  SVC --> ST
-  UPD --> LD
-  UPD --> ST
-```
-
-| 组件 | 职责一句 | 锚点 |
-| ---- | -------- | ---- |
-| `Service` | 读取当前活跃 `Store` 并执行 `Suggest(keyword)` | [`application/suggest/service.go`](../../internal/apiserver/application/suggest/service.go) |
-| `Updater` | 启动时全量加载，之后按 cron 做全量/增量刷新，可选写快照 | [`application/suggest/updater.go`](../../internal/apiserver/application/suggest/updater.go) |
-| `Loader` | 执行可配置 Raw SQL，把结果转成行格式 | [`infra/mysql/suggest/loader.go`](../../internal/apiserver/infra/mysql/suggest/loader.go) |
-| `SuggestModule` | 读取配置、短路禁用态、装配 Service/Updater | [`container/assembler/suggest.go`](../../internal/apiserver/container/assembler/suggest.go) |
-
----
-
-## 核心设计
-
-### 核心数据源：`suggest` 不维护自己的业务事实
-
-**结论**：`suggest` 今天不是一套独立业务模型，而是对用户域数据的只读投影。它不写 `profiles`、不写 `refs`，只负责把这些表的数据整理成联想行。
-
-默认 SQL 当前主要做了这些事情：
-
-- 从 `profiles` 读儿童名和 ID
-- 通过 `refs` 连到监护人
-- 从 `users` 拿手机号
-- 按 profile 聚合出一行
-
-**设计边界**：
-
-- 默认 SQL 过滤的是 `deleted_at`
-- 它**没有**天然按 `refs.revoked_at` 统一过滤
-
-这意味着 `suggest` 和 `user` 域在“撤销关系是否仍可见”上，当前可能并不天然一致。若产品要求一致，应该优先改 `suggest.full_sql` / `delta_sql`。
-
-### 核心索引结构：数字查 Hash，前缀查 Trie
-
-**结论**：当前查询模型不是“一套全文搜索”，而是按关键词类型分流。
-
-| 关键词类型 | 当前行为 |
-| ---- | ---- |
-| 纯数字 | 走 `Hash.Search`，偏手机号 / ID 精确匹配 |
-| 非数字 | 走 `Trie.Wildcard`，不足 `key_pad_len` 时补 `*` 后前缀匹配 |
-
-`Store.Suggest()` 当前的稳定流程是：
-
-1. 先判断关键词是否全数字
-2. 选择 `Hash` 或 `Trie`
-3. 去重
-4. 按权重排序
-5. 截断到 `max_results`
-
-这意味着今天更准确的说法是：`suggest` 是“前缀联想 + 数字精确命中”的组合索引，不是通用搜索引擎。
-
-### 核心刷新模型：启动全量、定时全量、可选增量
-
-**结论**：`suggest` 的一致性主要依赖调度刷新，而不是事务内同步更新。
+## 主图：Suggest 读模型协作
 
 ```mermaid
 flowchart TD
-  Start["模块启动"]
-  Full["runFull()"]
-  Swap["search.Swap(search.Load(lines))"]
-  Cron["cron scheduler"]
-  Delta["runDelta()"]
-  Import["Current().ImportLines(lines)"]
-  Snapshot["snapshot.txt (optional)"]
+    ProfileStore["Profile 数据源"]
+    Source["ProfileCandidateSource\nFull / Delta"]
+    Refresher["ProfileIndexRefresher"]
+    Runtime["ProfileSuggestionRuntime\nCurrent / Replace / ImportDelta"]
+    Index["ProfileSuggestionIndex"]
+    Service["application/suggest.Service"]
+    REST["GET /api/v1/suggest/profile"]
+    Snapshot["SnapshotWriter\n可选持久化"]
 
-  Start --> Full --> Swap --> Cron
-  Full --> Snapshot
-  Cron --> Full
-  Cron --> Delta --> Import
-  Delta --> Snapshot
+    ProfileStore --> Source
+    Source --> Refresher
+    Refresher --> Runtime
+    Refresher -. "optional" .-> Snapshot
+    Runtime --> Index
+    REST --> Service
+    Service --> Runtime
+    Service --> Index
 ```
 
-当前刷新口径：
+## 重点速查
 
-| 路径 | 当前行为 |
-| ---- | ---- |
-| 启动时 | 先跑一次全量 `runFull()` |
-| 全量刷新 | `search.Swap(search.Load(lines))` 整体替换当前索引 |
-| 增量刷新 | `ImportLines(lines)` 合并进当前索引 |
-| snapshot | `data_dir` 非空且开启 snapshot 时写 `snapshot.txt` |
+| 关注点 | 当前答案 | 代码证据 |
+| ---- | ---- | ---- |
+| 候选输入 | `ProfileCandidate` 清洗 display name 和 mobile，再转成 `Term`。 | [../../internal/apiserver/domain/suggest/profile.go](../../internal/apiserver/domain/suggest/profile.go) |
+| 查询对象 | `Query` 持有 `Keyword`、limit 和 keypad length，并提供默认值。 | [../../internal/apiserver/domain/suggest/profile.go](../../internal/apiserver/domain/suggest/profile.go) |
+| 结果项 | `Term` 是 suggest 返回项，包含 name、id、mobile、weight。 | [../../internal/apiserver/domain/suggest/term.go](../../internal/apiserver/domain/suggest/term.go) |
+| 排名策略 | `RankingPolicy` 先按 profile id 去重，再按 weight 降序，最后截断 limit。 | [../../internal/apiserver/domain/suggest/profile.go](../../internal/apiserver/domain/suggest/profile.go) |
+| 查询应用服务 | `Service.Suggest` 从 runtime 取当前 index，空 runtime/index 返回空结果。 | [../../internal/apiserver/application/suggest/service.go](../../internal/apiserver/application/suggest/service.go) |
+| 刷新应用服务 | `ProfileIndexRefresher` 支持 full replace 与 delta import。 | [../../internal/apiserver/application/suggest/refresher.go](../../internal/apiserver/application/suggest/refresher.go) |
+| 端口 | 数据源、索引、运行时、snapshot 都通过 application ports 抽象。 | [../../internal/apiserver/application/suggest/ports.go](../../internal/apiserver/application/suggest/ports.go) |
+| 合同 | REST `GET /api/v1/suggest/profile`，参数 `k` 必填。 | [../../api/rest/suggest.v1.yaml](../../api/rest/suggest.v1.yaml)、[../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go) |
 
-**设计边界**：
+## 1. 模块边界
 
-- 多副本部署下，各节点各自刷新，不是分布式统一索引
-- 增量刷新不是“精确变更流”，而是基于 `DeltaSQL` 的定时补丁
+| 边界 | Suggest 负责 | Suggest 不负责 |
+| ---- | ---- | ---- |
+| 数据写入 | 从候选源读取 ProfileCandidate，刷新读模型。 | 创建、编辑、删除 Profile。 |
+| 关系写入 | 返回可被选择的候选 profile。 | 建立、撤销、审核 ProfileLink。 |
+| 权限 | REST 层要求已认证用户才能访问 suggest route。 | 判定用户是否有权访问某个 profile 的业务权限。 |
+| 查询体验 | 关键词归一、数字关键词识别、候选排序和去重。 | 搜索引擎级全文检索、复杂解释分数、跨域授权投影。 |
 
-### 核心暴露：只有一个 REST 入口，没有 gRPC
+这个边界很重要：Suggest 是“帮助用户找到可能的儿童档案”，不是“证明这个用户可以管理该档案”。建立档案关系仍应走 Identity/ProfileLink；需要资源级权限时走 AuthZ。
 
-**结论**：`suggest` 当前只是一块 HTTP 读侧能力，没有单独 gRPC 暴露面。
+## 2. 领域模型
 
-| 面向 | 当前能力 |
-| ---- | ---- |
-| REST | `GET /api/v1/suggest/profile?k=` |
-| gRPC | N/A |
+```mermaid
+classDiagram
+    class ProfileCandidate {
+      ProfileID
+      DisplayName
+      Mobiles
+      Weight
+      Term()
+    }
+    class Term {
+      Name
+      ID
+      Mobile
+      Weight
+    }
+    class Keyword {
+      value
+      String()
+      IsDigits()
+    }
+    class Query {
+      Keyword
+      Limit
+      KeyPadLen
+    }
+    class RankingPolicy {
+      Rank(terms, limit)
+    }
 
-当前装配边界也要写清：
+    ProfileCandidate --> Term
+    Query --> Keyword
+    RankingPolicy --> Term
+```
 
-- `suggest.enable = false` 时模块不初始化，路由不注册
-- 模块已启用但认证模块未装配时，`AuthMiddleware` 仍可能回退到空中间件
+### ProfileCandidate
 
-所以今天更准确的说法是：**它是条件式启用、条件式受保护的单 REST 读接口**。
+`ProfileCandidate` 是索引的领域输入，不是数据库行的直接镜像。它保留 Profile ID、展示名、手机号集合和权重，并在 `NewProfileCandidate` 中完成最基础的数据清洗：
 
-### 核心配置：`suggest.*` 决定的是刷新与索引行为
+- 去掉空手机号。
+- trim display name 和 mobile。
+- 用 `Term()` 把多个手机号折叠成返回项需要的 mobile 字符串。
 
-**结论**：真正影响 `suggest` 行为的不是业务规则，而是 `suggest.*` 这一组运行配置。
+这样做的原因是 Suggest 的领域规则关注“候选能否进入联想索引”，而不是 Profile 聚合的完整生命周期。候选输入越窄，Suggest 越不容易越界修改 Profile 模型。
 
-| 键 | 含义 | 默认/备注 |
-| --- | --- | --- |
-| `enable` | 是否启用模块 | 默认 `false` |
-| `data_dir` | snapshot 目录 | 非空时且未显式设 `snapshot`，默认会开启 snapshot |
-| `full_sync_cron` | 全量周期 | 默认 `@every 1h` |
-| `delta_sync_cron` | 增量周期 | 为空则不做增量调度 |
-| `max_results` | 单次返回上限 | 默认 `20` |
-| `key_pad_len` | Trie 查询补齐长度 | 默认 `25` |
-| `full_sql` / `delta_sql` | 覆盖默认 SQL | 为空则用 loader 内建 SQL |
-| `snapshot` | 是否写 `snapshot.txt` | 结合 `data_dir` 决定 |
+### Keyword 与 Query
 
----
+`Keyword` 封装一次查询关键字，并提供 `IsDigits()`。这让“数字关键词可以走手机号/ID 精确匹配，非数字关键词走前缀联想”的分支成为领域概念，而不是散落在 handler 或 infra index 中的字符串判断。
 
-## 边界与注意事项
+`Query` 负责把一次查询的业务参数放在一起：
 
-- `suggest` 是补充读侧，不应被讲成用户域的主模型。
-- 默认 SQL 和用户域查询语义并不天然完全一致，尤其是 `revoked_at` 处理。
-- 当前没有 gRPC，也没有独立写模型；如后续演进为更强搜索服务，应明确区分“当前架构”和“规划架构”。
-- 目前没有单独的专题分析文；如果未来要深挖“读侧索引 / 刷新 / 一致性”，建议在 [../05-专题分析](../05-专题分析/README.md) 下单独补专题，而不是继续把实现细节堆回模块文。
+- `Keyword`：用户输入。
+- `Limit`：最大结果数，默认 `20`。
+- `KeyPadLen`：keypad 索引相关长度，默认 `25`。
 
----
+默认值放在 domain 中，是因为这些值是 suggest 体验规则的一部分；application config 只负责让部署侧覆盖它们。
 
-## 代码锚点索引
+### Term 与 RankingPolicy
 
-| 关注点 | 路径 | 说明 |
-| ------ | ---- | ---- |
-| 模块装配 | `internal/apiserver/container/assembler/suggest.go` | `enable` 短路、Service/Updater 装配 |
-| 配置读取 | `internal/apiserver/application/suggest/config.go` | `suggest.*` 默认值与读取逻辑 |
-| REST 暴露 | `internal/apiserver/interface/suggest/restful/handler.go` | `GET /api/v1/suggest/profile` |
-| 路由注册 | `internal/apiserver/routers.go` | Suggest 路由条件注册 |
-| 刷新调度 | `internal/apiserver/application/suggest/updater.go` | 全量 / 增量 / snapshot |
-| SQL 数据源 | `internal/apiserver/infra/mysql/suggest/loader.go` | 默认 Full / Delta SQL 与行格式 |
-| 内存索引 | `internal/apiserver/infra/suggest/search/store.go` | `Load / Swap / ImportLines / Suggest` |
-| 真值契约 | `api/rest/suggest.v1.yaml` | REST 合同 |
+`Term` 是当前 REST 合同暴露的结果项。它只有 name、id、mobile、weight，避免把 Profile 的完整字段误暴露给联想接口。
+
+`RankingPolicy` 做两件事：
+
+1. 按 `Term.ID` 去重，避免同一 profile 因多个手机号或多条索引项重复出现。
+2. 按 `Weight` 降序排序，再按 limit 截断。
+
+这不是通用搜索排序引擎，而是一个小而明确的领域策略对象。它让排序规则可以被测试和替换，同时保持当前实现足够轻。
+
+## 3. 应用服务
+
+### 查询用例：Service.Suggest
+
+```mermaid
+sequenceDiagram
+    participant C as "REST client"
+    participant H as "suggest Handler"
+    participant S as "Service.Suggest"
+    participant R as "ProfileSuggestionRuntime"
+    participant I as "ProfileSuggestionIndex"
+
+    C->>H: "GET /api/v1/suggest/profile?k=keyword"
+    H->>S: "Suggest(ctx, keyword)"
+    S->>R: "Current()"
+    R-->>S: "index"
+    S->>I: "Suggest(Query)"
+    I-->>S: "[]Term"
+    S-->>H: "[]Term"
+    H-->>C: "200"
+```
+
+`Service.Suggest` 的职责很窄：按配置构造 `Query`，从 runtime 拿当前 index，调用 index 查询。它刻意不关心索引结构、候选来源、快照格式和存储细节。
+
+空依赖的语义也很明确：
+
+- service 为 nil、runtime 为 nil、当前 index 为 nil 时返回 nil。
+- handler 会把 nil list 规范成空数组返回。
+
+这种行为让 suggest 在启动或降级场景下不会把查询能力伪装成写入能力，也不会把索引缺失误判成 Profile 不存在。
+
+### 刷新用例：ProfileIndexRefresher
+
+```mermaid
+flowchart TD
+    Start["refresh triggered"]
+    Full{"RunFull?"}
+    LoadFull["source.Full(ctx)"]
+    Replace["runtime.Replace(candidates)"]
+    DeltaGate{"lastFetch exists?"}
+    LoadDelta["source.Delta(ctx, lastFetch)"]
+    ImportDelta["runtime.ImportDelta(candidates)"]
+    Mark["lastFetch = now"]
+    Snapshot["snapshot.Write(ctx, candidates)"]
+    Done["log completed"]
+
+    Start --> Full
+    Full -->|yes| LoadFull --> Replace --> Mark
+    Full -->|no| DeltaGate
+    DeltaGate -->|no| Done
+    DeltaGate -->|yes| LoadDelta --> ImportDelta --> Mark
+    Mark -. "if enabled and non-empty" .-> Snapshot
+    Snapshot --> Done
+    Mark --> Done
+```
+
+`RunFull` 和 `RunDelta` 对应两种维护读模型的方式：
+
+- `RunFull`：完整读取候选，替换当前索引，并记录 `lastFetch`。
+- `RunDelta`：只有在已有 `lastFetch` 后才读取增量；没有候选时直接返回；runtime 缺失时显式报错。
+
+可选 snapshot 的写入失败只记录 warning，不回滚已经完成的 runtime refresh。这是一个刻意的边界：snapshot 是基础设施恢复/观测辅助，不是联想查询正确性的主事实源。
+
+## 4. REST 合同与注册
+
+| 路由 | 认证 | 参数 | 返回 |
+| ---- | ---- | ---- | ---- |
+| `GET /api/v1/suggest/profile` | Bearer JWT | query `k` 必填 | `[]Term`，按权重降序并去重 |
+
+注册事实在 [../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go)：
+
+- engine、service、auth middleware 任一缺失时不注册 route。
+- route group 是 `/api/v1/suggest`。
+- handler 只做参数绑定、调用应用服务和响应规范化。
+
+这符合运行时文档中的 fail-closed 原则：protected route 的认证依赖不可用时，宁可不注册，也不开放一个未受保护的 suggest 查询面。
+
+## 5. 设计模式
+
+| 模式 | 为什么用 | 解决的问题 | IAM 落地 | 代价和边界 |
+| ---- | ---- | ---- | ---- | ---- |
+| Read Model | 联想搜索是读侧体验优化，不应污染 Profile 写模型。 | 写模型和搜索查询需求不同步、字段需求不同。 | `ProfileCandidate`、`Term`、`ProfileSuggestionIndex`。 | 需要刷新机制；读模型可能短暂落后。 |
+| Repository/Port | 候选来源和索引实现不应被应用服务绑定。 | 替换 SQL、内存索引、持久化索引时减少改动。 | `ProfileCandidateSource`、`ProfileSuggestionRuntime`、`SnapshotWriter`。 | 端口过多会增加理解成本，所以都保持窄接口。 |
+| Policy Object | 排名去重是业务策略，不该散在 index 实现里。 | 排序规则难测试、重复实现。 | `RankingPolicy.Rank`。 | 当前策略较简单，不能承诺复杂搜索解释能力。 |
+| Null/Empty Boundary | 索引缺失时不让查询路径 panic。 | 启动或降级阶段的空依赖风险。 | `Service.Suggest` 对 nil runtime/index 返回 nil，handler 输出空数组。 | 需要监控配合，否则空结果可能掩盖索引未初始化。 |
+| Snapshot | 允许把刷新候选保存为基础设施格式。 | 索引恢复、问题定位和离线分析。 | `SnapshotWriter` 是可选端口。 | snapshot 不是主事实源，写入失败只告警。 |
+
+## 6. 代码证据与验证
+
+核心代码：
+
+- Domain：[../../internal/apiserver/domain/suggest](../../internal/apiserver/domain/suggest)
+- Application：[../../internal/apiserver/application/suggest](../../internal/apiserver/application/suggest)
+- REST handler：[../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go)
+- REST contract：[../../api/rest/suggest.v1.yaml](../../api/rest/suggest.v1.yaml)
+
+建议验证：
+
+```bash
+go test ./internal/apiserver/domain/suggest ./internal/apiserver/application/suggest ./internal/apiserver/transport/rest/suggest
+```

@@ -1,126 +1,63 @@
 # SQL Bootstrap 与初始化数据
 
-本文回答：`iam` 现在如何管理“系统 bootstrap 真值”，`schema.sql`、`bootstrap.sql` 和 migration 各自负责什么，以及为什么仓库已经不再把 `seeddata` 作为现行初始化入口。
+本文回答：`schema.sql`、`bootstrap.sql` 和 migration 的职责边界；新增表结构、索引、系统角色、默认权限或初始化数据时，应该先改哪里、如何验证。
 
 ## 30 秒结论
 
-- `seeddata` 是 zero 阶段的历史 bootstrap 工具，当前已经退出现行主路径。
-- 今天最可信的初始化入口有两层：
-  - `internal/pkg/migration/migrations/*.sql`：应用启动时自动执行的 schema 与 bootstrap
-  - `configs/mysql/bootstrap.sql`：需要人工重放时可直接执行的幂等初始化 SQL
-- `configs/mysql/schema.sql` 现在只负责“完整表结构基线”，不再偷偷夹带系统 seed。
-- `make db-bootstrap` 是对 `bootstrap.sql` 的手动入口，适合重建后补齐系统租户、基础用户/账号、角色资源策略和数据字典。
+- 运行时数据库演进以 migration 为准。
+- [../../configs/mysql/schema.sql](../../configs/mysql/schema.sql) 是完整表结构基线，适合离线阅读、开发环境初始化和人工比对。
+- [../../configs/mysql/bootstrap.sql](../../configs/mysql/bootstrap.sql) 是可手动重放的初始化数据基线。
+- [../../internal/pkg/migration/migrations/000005_bootstrap_system_data.up.sql](../../internal/pkg/migration/migrations/000005_bootstrap_system_data.up.sql) 是自动迁移里的系统数据基线。
+- 初始化数据必须幂等，避免重复执行造成重复角色、重复权限或约束冲突。
 
-## 重点速查
+## 职责边界
 
-| 关注点 | 当前答案 | 真实落点 |
+| 文件 | 用途 | 维护规则 |
 | ---- | ---- | ---- |
-| 表结构真值 | migration + schema 基线 | [../../internal/pkg/migration/migrations/](../../internal/pkg/migration/migrations/)、[../../configs/mysql/schema.sql](../../configs/mysql/schema.sql) |
-| 系统 bootstrap 真值 | migration `000005` + `bootstrap.sql` | [../../internal/pkg/migration/migrations/000005_bootstrap_system_data.up.sql](../../internal/pkg/migration/migrations/000005_bootstrap_system_data.up.sql)、[../../configs/mysql/bootstrap.sql](../../configs/mysql/bootstrap.sql) |
-| 手工重放入口 | `make db-bootstrap` | [../../Makefile](../../Makefile) |
-| 现行是否还需要 seeddata | 不需要 | 本文结论 |
+| `configs/mysql/schema.sql` | 给人和离线环境看的结构基线 | 新表/索引最终应同步到这里，但不能替代 migration。 |
+| `configs/mysql/bootstrap.sql` | 手动初始化或重放基础数据 | 必须幂等，适合开发和恢复场景。 |
+| `internal/pkg/migration/migrations/*.sql` | 应用启动或迁移流程使用的演进事实 | 新结构和系统数据先进入 migration。 |
+| `schema_migrations` | 迁移版本记录表 | 由 migrator 维护，不手工改。 |
 
-## 1. 为什么不再保留 seeddata 主路径
+## 推荐变更顺序
 
-`seeddata` 当初存在的原因是：
+```mermaid
+flowchart TD
+    Need["需要新增表/索引/初始化数据"] --> Migration["新增 migration up/down"]
+    Migration --> Test["运行 migration tests / SQL review"]
+    Test --> Schema["同步 schema.sql, if baseline needs update"]
+    Schema --> Bootstrap["同步 bootstrap.sql, if baseline data needs update"]
+    Bootstrap --> Docs["更新文档引用和验证命令"]
+```
 
-1. 系统还处于 zero 阶段
-2. 空库无法直接启动出一个可工作的最小系统
-3. 需要一条“一次性造出 system init、基础账户、用户体系数据”的 bootstrap 工具链
+不要先改 `schema.sql` 后忘记 migration。运行时真正执行的是 migration；基线 SQL 只能帮助初始化、阅读和人工排查。
 
-现在这条前提已经变化了：
+## 初始化数据类型
 
-- 应用本身已经有稳定 migration 机制
-- JWKS 也有运行时自动初始化路径
-- 真正必须长期保留的，是系统 bootstrap 真值，而不是整套模拟账户、家庭、跨服务编排工具
+| 数据类型 | 建议位置 | 注意点 |
+| ---- | ---- | ---- |
+| 系统角色、权限、资源 | migration + bootstrap 基线 | 必须幂等，避免重复插入。 |
+| 开发环境演示账号 | bootstrap 或 seed mock | 不应混入生产 migration。 |
+| 表结构和索引 | migration | schema 基线后续同步。 |
+| 事件/outbox 表 | migration | 需要和应用代码状态机匹配。 |
+| ProfileLink 约束 | migration | 需要和领域不变量一致。 |
 
-因此继续把 `seeddata` 当现行入口，只会带来双轨维护成本。
+## Bootstrap 与业务事实
 
-## 2. 三类 SQL / migration 的职责
+Bootstrap 数据应只表达系统启动必须存在的基础事实，例如平台角色、基础权限、内置资源等。它不应该承载：
 
-### 2.1 `schema.sql`
+- 某个业务客户的具体数据。
+- 一次性修复脚本。
+- 依赖环境的密钥或 token。
+- 会随业务操作变化的普通运行数据。
 
-职责：
+这些内容应该走单独运维流程、管理 API 或数据修复脚本。
 
-- 提供完整表结构基线
-- 便于离线审阅、一次性建库、与 migration 对照
-- 对需要手工执行 `bootstrap.sql` 的表保持与运行时 schema 兼容
-
-不负责：
-
-- 账户样例
-- 家庭样例
-- 历史 seed 场景
-- 任何需要跨服务编排的数据造数逻辑
-
-### 2.2 `bootstrap.sql`
-
-职责：
-
-- 承载系统 bootstrap 真值
-- 保持幂等，可人工重放
-- 让默认租户、基础用户/账号、系统角色、资源策略、默认微信应用、数据字典有一个稳定 SQL 入口
-
-当前内容包括：
-
-1. `fangcun` / `platform` 租户与联系信息
-2. `system` / `admin` / `content_manager` 基础用户、运营账号和密码凭据
-3. IAM / QS 的基线角色、资源目录、角色分配、Casbin 策略、策略版本
-4. 默认微信应用元数据
-5. 性别、用户状态、监护关系等基础字典
-
-### 2.3 migration `000005`
-
-职责：
-
-- 把 `bootstrap.sql` 的系统 bootstrap 真值接入应用启动路径
-- 保证 fresh DB 在自动迁移后就具备可登录、可授权、可对接默认微信应用的基础数据
-
-这意味着：
-
-- 手工执行 `bootstrap.sql` 是补救/重放入口
-- migration `000005` 才是运行时真正的自动入口
-
-## 3. 当前推荐流程
-
-### 3.1 正常开发 / 部署
-
-1. 启动 MySQL
-2. 启动 `iam-apiserver`
-3. 应用自动执行 migration
-4. migration 自动补齐系统 bootstrap 基线数据
-
-### 3.2 手工修复 / 重放系统真值
+## 验证
 
 ```bash
 make db-bootstrap DB_USER=root DB_PASSWORD=yourpassword
+go test ./internal/pkg/migration/...
 ```
 
-适用场景：
-
-- 环境重建后需要补齐系统 bootstrap 数据
-- 某些基础账号、角色资源策略或字典被误删后需要重放
-- 需要对比 migration 与离线 SQL 的效果
-
-## 4. 当前边界
-
-### 已完成
-
-- `schema.sql` 与 bootstrap 数据职责已拆开
-- `schema.sql` 已对齐 bootstrap 依赖的运行时认证表结构
-- migration 已接入系统 bootstrap
-- `Makefile` 与 README 已切出 `db-bootstrap` 入口
-
-### 不再承诺
-
-- 不再承诺提供家庭、儿童、监护关系等业务样例造数入口
-- 不再把跨服务 testee 创建这类逻辑当作 IAM 主初始化面的一部分
-
-## 5. 继续往下读
-
-| 文档 | 说明 |
-| ---- | ---- |
-| [03-命令&契约校验与开发流程.md](./03-命令&契约校验与开发流程.md) | `Makefile` 里的 `db-bootstrap`、质量链与开发入口 |
-| [04-端口&证书与数据库迁移.md](./04-端口&证书与数据库迁移.md) | migration 与部署口径 |
-| [../../configs/mysql/schema.sql](../../configs/mysql/schema.sql) | 完整表结构基线 |
-| [../../configs/mysql/bootstrap.sql](../../configs/mysql/bootstrap.sql) | 系统 bootstrap 真值 SQL |
+`make db-bootstrap` 需要可连接的 MySQL。仅改文档或离线检查时，可以先跑 migration package tests，并人工检查 SQL 是否幂等。

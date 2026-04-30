@@ -77,7 +77,7 @@ COLOR_RED := \033[31m
 .PHONY: proto proto-gen
 .PHONY: install install-tools create-dirs
 .PHONY: up down re st log
-.PHONY: api-validate
+.PHONY: api-validate docs-hygiene
 .PHONY: db-bootstrap db-connect db-status db-backup
 .PHONY: docker-mysql-up docker-mysql-down docker-mysql-clean docker-mysql-logs
 .PHONY: cert-gen cert-test cert-verify test-dev-config
@@ -107,7 +107,7 @@ help: ## 显示帮助信息
 	@grep -E '^(run|start|stop|restart|status|logs|health).*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v "dev" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(COLOR_BOLD)🛠️  开发工具:$(COLOR_RESET)"
-	@grep -E '^(dev|test|lint|fmt|cert|api-validate).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
+	@grep -E '^(dev|test|lint|fmt|cert|api-validate|docs-hygiene).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(COLOR_BOLD)🗄️  数据库管理:$(COLOR_RESET)"
 	@grep -E '^(db-|docker-mysql-).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
@@ -124,6 +124,9 @@ help: ## 显示帮助信息
 
 api-validate: ## Lint OpenAPI (spectral) + compare swagger vs api/rest
 	./scripts/validate-openapi.sh
+
+docs-hygiene: ## Check active Markdown links and retired documentation references
+	python scripts/check-docs-links.py
 
 docs-swagger: ## Regenerate swagger (internal/apiserver/docs)
 	swag init -g cmd/apiserver/apiserver.go -o internal/apiserver/docs --parseDependency --parseInternal

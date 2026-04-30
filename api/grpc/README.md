@@ -1,204 +1,70 @@
-# Identity gRPC API
+# gRPC API 契约
 
-IAM 仅负责统一身份（账号、儿童档案、监护关系等）；OA、运营、消息等内部系统通过 gRPC 访问这些领域能力。REST 接口仍面向“当前登录用户”，而 gRPC 仅对可信网络开放，凭借 mTLS/ServiceToken 鉴别调用方。
+IAM gRPC 面向可信服务间调用。当前只发布 v1 proto，所有服务由 `iam-apiserver` 同一进程注册，运行时注册在 [internal/apiserver/transport/grpc/registry.go](../../internal/apiserver/transport/grpc/registry.go)。
 
----
-
-## 🎯 设计前置
-
-1. **OA 独立**：员工、组织、部门由独立 OA 系统负责，IAM 不承载此类业务。
-2. **多消费方**：
-   - 运营后台：需要查询/批量编辑用户、儿童、监护关系。
-   - 内部系统（消息、报表、风控等）：批量读取身份数据。
-   - OA / 自动化流程：需要账号生命周期与监护关系写能力。
-3. **契约驱动**：`api/grpc/iam/*/v1/*.proto` 是当前唯一 gRPC 合同，任何实现改动必须同步更新 proto 与 README。
-
----
-
-## 📦 Proto 布局
+## Proto 布局
 
 ```text
-api/grpc/
-└── iam/
-    ├── authn/v1/authn.proto
-    ├── authz/v1/authz.proto
-    ├── identity/v1/identity.proto
-    └── idp/v1/idp.proto
+api/grpc/iam/
+├── authn/v1/authn.proto
+├── authz/v1/authz.proto
+├── identity/v1/identity.proto
+└── idp/v1/idp.proto
 ```
 
-- Go import：`github.com/FangcunMount/iam/api/grpc/iam/identity/v1`
-- Proto 包名：`iam.identity.v1`，新增字段只能追加，禁止复用 field number。
-- 当前没有 gRPC v2 proto。未来新增 `api/grpc/iam/*/v2` 时，必须同时提交服务实现、运行时注册、生成代码和 SDK compile test；禁止只发布未实现的占位 proto。
+新增字段只能追加，禁止复用 field number。新增 v2 proto 前必须同时提交 transport 注册、生成代码、SDK compile test 和契约文档。
 
----
+## 服务矩阵
 
-## 🧩 服务矩阵
+| Proto | Service | 当前能力 |
+| ---- | ---- | ---- |
+| [iam/authn/v1/authn.proto](iam/authn/v1/authn.proto) | `AuthService` | VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken、IssueServiceToken |
+| [iam/authn/v1/authn.proto](iam/authn/v1/authn.proto) | `AccountOnboardingService` | CreateOperationAccount |
+| [iam/authn/v1/authn.proto](iam/authn/v1/authn.proto) | `JWKSService` | GetJWKS |
+| [iam/authz/v1/authz.proto](iam/authz/v1/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
+| [iam/identity/v1/identity.proto](iam/identity/v1/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
+| [iam/identity/v1/identity.proto](iam/identity/v1/identity.proto) | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
+| [iam/identity/v1/identity.proto](iam/identity/v1/identity.proto) | `ProfileLinkCommand` | EstablishProfileLink、RevokeProfileLink、BatchRevokeProfileLinks、ImportProfileLinks |
+| [iam/identity/v1/identity.proto](iam/identity/v1/identity.proto) | `IdentityLifecycle` | CreateUser、UpdateUser、DeactivateUser、BlockUser |
+| [iam/idp/v1/idp.proto](iam/idp/v1/idp.proto) | `IDPService` | GetWechatApp |
 
-| Service | 主要消费方 | 能力概览 |
-| --------- | ------------ | ----------- |
-| `IdentityRead` | 运营、OA、消息 | 获取/搜索用户与儿童 (`GetUser/BatchGetUsers/SearchUsers/GetProfile/BatchGetProfiles`) |
-| `RefQuery` | 运营、消息 | 读取监护关系 (`IsRef/ListProfiles/ListRefs`) |
-| `RefCommand` | OA、运营 | 写入监护关系 (`Add/Revoke/BatchRevoke/Import`) |
-| `IdentityLifecycle` | OA、自动化 | 账号生命周期 (`Create/Update/Deactivate/Block`) |
-| `AuthService` | 业务服务、网关 | 认证能力 (`VerifyToken/RefreshToken/RevokeToken/RevokeRefreshToken/IssueServiceToken`) |
-| `JWKSService` | SDK、业务服务 | gRPC 方式获取 JWKS |
+## 安全与 metadata
 
----
+- gRPC 配置在 `process` 层装配，支持 mTLS、service token、ACL 和 audit。
+- 调用方传 `authorization: Bearer <service-token>`；服务端也可结合 mTLS 身份与 ACL 判断调用边界。
+- 建议所有调用传 `x-request-id`，便于日志和 trace 对齐。
 
-## 🔐 请求契约
+## Identity 关系术语
 
-- **ID**：全部使用十进制字符串（`user_id`, `profile_id` 等），超过 `uint64` 返回 `INVALID_ARGUMENT`。
-- **Metadata**：
-  - `authorization: Bearer <service-token>`（或绑定 mTLS 证书）。
-  - `x-request-id`：必填，用于日志/Tracing。
-  - 写接口需传 `operator` 信息（可放在 metadata 或请求体 `OperatorContext`）。
-- **超时**：P99 < 50 ms，客户端推荐超时 100~200 ms，可按业务策略重试。
-- **分页**：`OffsetPagination.limit` 默认 20，最大 50；`offset` 默认 0。
+当前 proto 的关系服务是 `ProfileLinkQuery` 与 `ProfileLinkCommand`。`ProfileLink` 表示用户和 profile 之间的档案关系，可承载自有档案和亲属/监护类关系语义。旧关系名只保留为历史语义，不作为当前合同名。
 
----
-
-## 🧾 核心消息语义
-
-- **User**：包含状态、昵称、头像、联系方式（已脱敏展示）、外部账号列表、创建/更新时间。
-- **Profile**：儿童实名档案，含性别、出生日期、身高体重、证件脱敏号、时间戳。
-- **Ref**：用户 ↔ 儿童 监护关系（关系类型、生效/撤销时间）。
-- **ProfileEdge**：`Profile + Ref`，用于“用户监护的儿童”列表。
-- **RefEdge**：`Ref + User`，用于“儿童的监护人”列表。
-- **OperatorContext**：写接口必填，记录操作者、渠道、理由，服务端据此落审计日志。
-完整字段定义见 `identity.proto`。
-
----
-
-## 🛠️ 服务说明
-
-### IdentityRead
-
-- `GetUser / BatchGetUsers`：按用户 ID 查询账号，批量接口减少网络往返。
-- `SearchUsers`：支持昵称关键字、手机号、邮箱等组合条件分页检索。
-- `GetProfile / BatchGetProfiles`：查询儿童档案详情，用于运营、报表或消息系统。
-
-### RefQuery
-
-- `IsRef`：判定某用户是否监护指定儿童，若为真附带监护详情。
-- `ListProfiles`：列出用户监护的儿童（`ProfileEdge`），支持分页。
-- `ListRefs`：列出儿童所有监护人（`RefEdge`）。
-
-### RefCommand
-
-- `AddRef`：创建监护关系，需要 `OperatorContext`。
-- `RevokeRef / BatchRevokeRefs`：撤销单条或批量关系，可通过 ref_id 或 (user_id, profile_id) 指定。
-- `ImportRefs`：批量导入线下数据，支持部分成功。
-
-### IdentityLifecycle
-
-- `CreateUser`：创建账号（昵称/手机号/邮箱/外部身份等）。
-- `UpdateUser`：更新账号基础资料。
-- `DeactivateUser` / `BlockUser`：停用或封禁账号。
-
-### 当前边界
-
-- 当前运行时只注册 `IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle`。
-- 当前运行时注册的 AuthN/AuthZ/IDP/Identity 服务均为 v1。
-- 当前没有对外开放事件订阅型 gRPC，也不再保留未实现但可见的占位 RPC。
-
----
-
-## ⚠️ 错误码约定
-
-| Code | 场景示例 |
-| ------ | --------- |
-| `INVALID_ARGUMENT` | 缺少必填字段、ID 非数字、分页参数超限 |
-| `NOT_FOUND` | 用户/儿童/监护关系不存在 |
-| `ALREADY_EXISTS` | 重复创建监护关系或外部账号映射 |
-| `FAILED_PRECONDITION` | 当前状态不允许操作（如封禁用户后仍更新资料） |
-| `PERMISSION_DENIED` | 调用方 token 无权访问该 service |
-| `UNAUTHENTICATED` | 没有或非法服务凭证 |
-| `INTERNAL` | 依赖（数据库/缓存等）异常 |
-
-错误 message 会附带可读描述，必要时在 metadata 中返回细分 `error-code`。
-
----
-
-## 🧑‍💻 Go 调用示例
+## Go 调用示例
 
 ```go
-package main
-
-import (
-    "context"
-    "crypto/tls"
-    "log"
-    "os"
-    "time"
-
-    "github.com/google/uuid"
-    identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-    "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials"
-    "google.golang.org/grpc/metadata"
+ctx = metadata.AppendToOutgoingContext(ctx,
+    "authorization", "Bearer "+serviceToken,
+    "x-request-id", requestID,
 )
 
-func main() {
-    conn, err := grpc.Dial(
-        "iam-apiserver.internal:9090",
-        grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: false})),
-    )
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer conn.Close()
+authzClient := authzv1.NewAuthorizationServiceClient(conn)
+snapshot, err := authzClient.GetAuthorizationSnapshot(ctx, &authzv1.GetAuthorizationSnapshotRequest{
+    Subject: &authzv1.Subject{Type: "user", Id: "1024"},
+    TenantId: "default",
+    AppName:  "qs",
+})
 
-    ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
-    defer cancel()
-    ctx = metadata.AppendToOutgoingContext(ctx,
-        "authorization", "Bearer "+os.Getenv("IAM_SERVICE_TOKEN"),
-        "x-request-id", "trace-"+uuid.NewString(),
-    )
-
-    readClient := identityv1.NewIdentityReadClient(conn)
-    userResp, err := readClient.GetUser(ctx, &identityv1.GetUserRequest{UserId: "1024"})
-    if err != nil {
-        log.Fatalf("GetUser failed: %v", err)
-    }
-    log.Printf("User %s status=%s", userResp.User.Id, userResp.User.Status)
-
-    guardClient := identityv1.NewRefQueryClient(conn)
-    listResp, err := guardClient.ListProfiles(ctx, &identityv1.ListProfilesRequest{
-        UserId: "1024",
-        Page:   &identityv1.OffsetPagination{Limit: 20, Offset: 0},
-    })
-    if err != nil {
-        log.Fatalf("ListProfiles failed: %v", err)
-    }
-    for _, edge := range listResp.Items {
-        log.Printf("Profile %s relation=%s", edge.Ref.ProfileId, edge.Ref.Relation)
-    }
-}
+identityClient := identityv1.NewProfileLinkQueryClient(conn)
+linked, err := identityClient.HasProfileLink(ctx, &identityv1.HasProfileLinkRequest{
+    UserId: "1024",
+    ProfileId: "2048",
+})
 ```
 
----
-
-## 🧪 调试与代码生成
-
-- 运行 `make proto-gen` 生成 Go SDK；若需 TS/Python，可在 `Makefile` 中新增命令。
-- `make proto-gen` 目前只生成已实现并注册的 v1 proto。新增 v2 proto 前先补齐 runtime 注册和 SDK compile test，再把对应文件加入生成流程。
-- grpcurl 示例：
+## 验证
 
 ```bash
-grpcurl \
-  -import-path api/grpc \
-  -proto iam/identity/v1/identity.proto \
-  -H "authorization: Bearer ${IAM_SERVICE_TOKEN}" \
-  -H "x-request-id: demo-123" \
-  iam-apiserver.internal:9090 \
-  iam.identity.v1.IdentityRead/SearchUsers \
-  '{"keyword":"138****","page":{"limit":10,"offset":0}}'
+make proto-gen
+go test ./internal/apiserver/transport/grpc ./pkg/sdk
 ```
 
----
-
-## 🚧 下一步
-
-- 持续用 proto 生成与契约校验约束实现面，避免再次出现“合同大于运行时”的漂移。
-- 引入 proto lint（buf 等）与 ABI 兼容性检查。
-- 生成多语言 SDK，方便其它系统复用。
+proto 与注册关系由 [internal/apiserver/transport/grpc/proto_contract_test.go](../../internal/apiserver/transport/grpc/proto_contract_test.go) 保护。

@@ -1,105 +1,106 @@
-# 专题分析
+# 05-专题分析
 
 ## 本文回答
 
-本组 README 只回答 5 件事：
+本组文档回答：IAM 中最关键的跨模块链路如何执行，为什么这些链路采用当前架构、领域模型、应用服务和设计模式，以及排查问题时应从哪些代码、契约和测试回到事实源。
 
-1. 为什么 `05-专题分析` 要单独存在
-2. 当前这 8 篇专题分别讲什么，应该先看哪篇
-3. 它和 `02-业务域`、`03-接口与集成`、`01-运行时` 怎么分工
-4. 新增缓存专题、SDK 专题与代码质量专题后，这一组的阅读顺序怎么选
-5. 这组文档后续还适合继续扩什么问题
+`02-业务域` 负责按模块讲清 AuthN、AuthZ、Identity/ProfileLink、IDP、Suggest 的领域模型和应用服务；本组负责把重要链路纵向打穿，讲清一个请求、一次轮换、一次授权变更、一次缓存读取或一次 SDK 调用如何跨越 transport、application、domain、infra 和 runtime。
 
 ## 30 秒结论
 
-> **一句话**：`05-专题分析` 负责把 `iam` 里“跨层才能讲清楚”的主链路和设计判断单独拉出来讲。它不替代业务域正文，也不替代契约层，而是把 **对象、运行时链路、工程边界、当前保证与风险边界** 串成读者可以一口气读懂的专题文。
+- `05-专题分析` 是跨层深潜层，不是业务域索引，也不是运行时索引。
+- 每篇都以“本文回答 -> 30 秒结论 -> 主图/速查表 -> 深度链路 -> 设计模式 -> 失败边界 -> 代码证据与验证”组织。
+- 当前事实口径保持一致：`ProfileLink`、内部 `rolebinding`、公开 `assignment` wire term、`application/authn/token`、`infra/token/*`、`application/cachegovernance/catalog`、transactional outbox + relay。
+- 旧质量报告和历史材料不放在活跃专题层；历史材料只从 [../_archive](../_archive/README.md) 追溯。
 
-| 问题 | 当前答案 |
-| ---- | ---- |
-| 为什么需要这一组 | 因为认证、授权、监护关系、缓存层、Redis 建模判断、SDK 接入价值、代码质量治理都不是单一模块能讲清的 |
-| 当前已有哪些专题 | 认证链、认证语义拆层、授权判定链、监护关系链、缓存层设计与治理、缓存数据结构判断、SDK 封装与接入价值、代码质量基线报告 |
-| 这组最适合做什么 | 讲跨层主链、设计取舍、工程边界、当前风险 |
-| 这组不适合做什么 | 不替代 `02-业务域` 写静态模型，也不替代 `api/*` 写契约真值 |
+## 专题地图
 
-## 重点速查
+```mermaid
+flowchart TD
+    Docs["05-专题分析"]
+    AuthChain["01 认证链路"]
+    AuthSemantics["02 认证语义拆层"]
+    AuthZChain["03 授权判定链路"]
+    ProfileLink["04 ProfileLink 链路"]
+    CacheGov["05 缓存治理"]
+    RedisModel["06 Redis 建模"]
+    SDK["07 SDK 接入"]
+    IDPWechat["08 IDP 微信登录"]
+    Suggest["09 Suggest 读模型"]
+    Outbox["10 授权版本事件"]
 
-| 想回答的问题 | 先打开哪里 |
-| ---- | ---- |
-| 登录请求如何走到认证、Session、Token、JWKS？ | [01-认证链路--从登录请求到 Token 与 JWKS.md](./01-认证链路--从登录请求到 Token 与 JWKS.md) |
-| 用户状态、会话、access token revoke、refresh token 到底怎么拆层？ | [02-IAM认证语义拆层--用户状态&会话&Token边界.md](./02-IAM认证语义拆层--用户状态&会话&Token边界.md) |
-| 角色、策略、资源、Assignment、Casbin 今天怎么协作？ | [03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](./03-授权判定链路--角色&策略&资源&Assignment&Casbin.md) |
-| 用户、儿童、Ref 今天怎么协作？ | [04-监护关系链路--用户&儿童&Ref 的协作.md](./04-监护关系链路--用户&儿童&Ref 的协作.md) |
-| IAM 缓存层整体怎么设计，治理面今天到哪一步？ | [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md) |
-| 为什么 `revoked_access_token` 当前不是 `Set`，session index 为什么是 `ZSet`？ | [06-IAM缓存层--数据结构选择与 Redis 建模判断.md](./06-IAM缓存层--数据结构选择与 Redis 建模判断.md) |
-| 为什么 `pkg/sdk` 不是 wrapper，而是接入主轴？ | [07-SDK封装与接入价值.md](./07-SDK封装与接入价值.md) |
-| `iam` 现在的代码质量基线是什么，这轮重构收口了哪些坏味道？ | [08-IAM代码质量基线报告：2026-04-23.md](./08-IAM代码质量基线报告：2026-04-23.md) |
+    Docs --> AuthChain
+    Docs --> AuthSemantics
+    Docs --> AuthZChain
+    Docs --> ProfileLink
+    Docs --> CacheGov
+    Docs --> RedisModel
+    Docs --> SDK
+    Docs --> IDPWechat
+    Docs --> Suggest
+    Docs --> Outbox
 
-## 为什么需要这一组
+    IDPWechat --> AuthChain
+    AuthChain --> AuthSemantics
+    AuthZChain --> Outbox
+    CacheGov --> RedisModel
+    SDK --> AuthChain
+    SDK --> AuthZChain
+```
 
-如果只看 `02-业务域`，你能知道：
+## 文档清单
 
-- 模块边界
-- 领域对象
-- 应用服务
-
-但你不一定能一口气看懂：
-
-- 登录请求是怎么变成 `Session + Access / Refresh Token`
-- 授权管理链如何落到 Casbin 判定
-- 监护关系如何同时影响写链、读链和访问边界
-- Session 为什么会把 IAM Redis 建模从“全是 String”推进到“String + ZSet”
-- SDK 为什么既不是新真值层，也不是薄 wrapper
-
-这组文档就是专门回答这些“跨层才能讲清的问题”。
-
-## 当前 8 篇专题各自负责什么
-
-| 文档 | 现在主要回答什么 |
-| ---- | ---- |
-| [01-认证链路--从登录请求到 Token 与 JWKS.md](./01-认证链路--从登录请求到 Token 与 JWKS.md) | 登录、认证策略、Session、Token 生命周期、JWKS 发布与轮换 |
-| [02-IAM认证语义拆层--用户状态&会话&Token边界.md](./02-IAM认证语义拆层--用户状态&会话&Token边界.md) | 为什么要拆成 subject/session/access token/refresh token 四层 |
-| [03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](./03-授权判定链路--角色&策略&资源&Assignment&Casbin.md) | Role / Resource / Policy / Assignment 如何变成一次 Casbin 判定 |
-| [04-监护关系链路--用户&儿童&Ref 的协作.md](./04-监护关系链路--用户&儿童&Ref 的协作.md) | 用户、儿童、Ref 的协作链路 |
-| [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md) | IAM Cache Layer、family 分工、只读治理面、运行边界 |
-| [06-IAM缓存层--数据结构选择与 Redis 建模判断.md](./06-IAM缓存层--数据结构选择与 Redis 建模判断.md) | Redis 结构为什么这样选、未来何时才值得升级 |
-| [07-SDK封装与接入价值.md](./07-SDK封装与接入价值.md) | SDK 作为接入产品层的价值、在线/离线验证边界和当前限制 |
-| [08-IAM代码质量基线报告：2026-04-23.md](./08-IAM代码质量基线报告：2026-04-23.md) | 当前代码质量基线、这轮坏味道治理成果、剩余结构性风险与下一轮重构顺序 |
-
-## 它和 `02/03/01` 怎么分工
-
-| 组别 | 主要负责什么 | 不主要负责什么 |
+| 顺序 | 文档 | 深潜问题 |
 | ---- | ---- | ---- |
-| `02-业务域` | 模块边界、领域对象、静态结构 | 不主讲跨层主链 |
-| `03-接口与集成` | 契约解释层、接入方式、消费边界 | 不主讲完整内部运行链 |
-| `01-运行时` | 进程、启动、mTLS、中间件、debug 路由 | 不主讲完整业务语义拆层 |
-| `05-专题分析` | 跨层主链、设计取舍、当前保证与风险边界 | 不替代静态模型文或契约真值 |
+| 1 | [01-认证链路--从登录请求到 Token 与 JWKS.md](01-认证链路--从登录请求到%20Token%20与%20JWKS.md) | 登录请求如何经过 adapter、strategy、onboarding、session、token、JWKS。 |
+| 2 | [02-IAM认证语义拆层--用户状态&会话&Token边界.md](02-IAM认证语义拆层--用户状态&会话&Token边界.md) | 为什么需要用户/账号状态、session、Access Token、Refresh Token 四层失效语义。 |
+| 3 | [03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](03-授权判定链路--角色&策略&资源&Assignment&Casbin.md) | 授权事实如何写入、判定、投影为快照，并维持 `assignment`/`rolebinding` 边界。 |
+| 4 | [04-ProfileLink链路--用户&儿童档案关系协作.md](04-ProfileLink链路--用户&儿童档案关系协作.md) | self profile/link、建立关系、撤销关系、当前用户视角 guard 如何协作。 |
+| 5 | [05-IAM缓存层--缓存层的设计与治理.md](05-IAM缓存层--缓存层的设计与治理.md) | cache family catalog、inspector、debug route 如何形成只读治理面。 |
+| 6 | [06-IAM缓存层--数据结构选择与 Redis 建模判断.md](06-IAM缓存层--数据结构选择与%20Redis%20建模判断.md) | 为什么不同缓存族选择 String、ZSet、marker、lease 或 memory snapshot。 |
+| 7 | [07-SDK封装与接入价值.md](07-SDK封装与接入价值.md) | SDK 如何把配置、transport、JWT/JWKS、service auth、AuthZ、Identity 封装成接入产品层。 |
+| 8 | [08-IDP与微信登录链路--WechatApp到AuthNProof.md](08-IDP与微信登录链路--WechatApp到AuthNProof.md) | WechatApp、SecretVault、微信 provider 和 AuthN proof 如何协作。 |
+| 9 | [09-Suggest读模型链路--候选刷新到联想查询.md](09-Suggest读模型链路--候选刷新到联想查询.md) | full/delta refresh、runtime index、RankingPolicy、snapshot 如何支撑联想搜索。 |
+| 10 | [10-授权版本事件链路--UoW到OutboxRelay.md](10-授权版本事件链路--UoW到OutboxRelay.md) | AuthZ policy version event 如何在 UoW 内入 outbox，再由 relay 异步投递。 |
 
-## 推荐阅读顺序
+## 读者路径
 
-### 最短主线
+| 读者 | 推荐路径 | 重点 |
+| ---- | ---- | ---- |
+| 新成员 | 01 -> 03 -> 04 -> 05 | 先理解 IAM 最常被调用的认证、授权、关系和缓存链路。 |
+| 业务域开发 | 对应 `02-业务域` 模块文档 -> 本组相应链路 | 从领域模型跳到执行链路，确认应用服务和基础设施协作方式。 |
+| 接入方 | 01/02 -> 03 -> 07 | 理解 token、JWKS、AuthZ 和 SDK 接入边界。 |
+| 运维/平台 | 05 -> 06 -> 10 -> 01 的 JWKS 部分 | 理解缓存族、事件投递、密钥发布和失败排查入口。 |
+| 文档维护者 | README -> 每篇“代码证据与验证” | 保持专题事实回到代码、合同、迁移和测试。 |
 
-1. [01-认证链路--从登录请求到 Token 与 JWKS.md](./01-认证链路--从登录请求到 Token 与 JWKS.md)
-2. [02-IAM认证语义拆层--用户状态&会话&Token边界.md](./02-IAM认证语义拆层--用户状态&会话&Token边界.md)
-3. [05-IAM缓存层--缓存层的设计与治理.md](./05-IAM缓存层--缓存层的设计与治理.md)
-4. [06-IAM缓存层--数据结构选择与 Redis 建模判断.md](./06-IAM缓存层--数据结构选择与 Redis 建模判断.md)
-5. [07-SDK封装与接入价值.md](./07-SDK封装与接入价值.md)
+## 事实源优先级
 
-### 接入方主线
+1. 当前代码与测试：`internal/apiserver/domain`、`internal/apiserver/application`、`internal/apiserver/transport`、`internal/apiserver/infra`、`pkg/sdk`。
+2. 机器合同：`api/rest`、`api/grpc`、迁移和配置。
+3. 已重建文档：`00-概览`、`01-运行时`、`02-业务域`、`04-基础设施与运维`。
+4. 本组专题。
+5. 归档材料。
 
-1. [07-SDK封装与接入价值.md](./07-SDK封装与接入价值.md)
-2. [01-认证链路--从登录请求到 Token 与 JWKS.md](./01-认证链路--从登录请求到 Token 与 JWKS.md)
-3. [02-IAM认证语义拆层--用户状态&会话&Token边界.md](./02-IAM认证语义拆层--用户状态&会话&Token边界.md)
+## 本组不替代什么
 
-## 后续还适合扩什么
+- 不替代 [../02-业务域](../02-业务域/README.md)：业务域讲模块模型，本组讲跨层链路。
+- 不替代 [../01-运行时](../01-运行时/README.md)：运行时讲进程、transport、安全中间件和 graceful shutdown。
+- 不替代 [../04-基础设施与运维](../04-基础设施与运维/README.md)：基础设施层讲运维、迁移、证书、CQRS 和 outbox 总体实践。
+- 不替代 [../../pkg/sdk/docs/README.md](../../pkg/sdk/docs/README.md)：SDK docs 面向接入方，本组只解释 SDK 在 IAM 文档体系中的设计价值。
 
-如果继续扩专题，这一组更适合继续新增：
+## 维护验证
 
-- 在线 verify 与离线 JWKS 的接入决策专题
-- Session 管理与管理员控制面的专题
-- IAM 与业务系统竖切边界专题
+修改本组文档后至少运行：
 
-原则不变：
+```bash
+make docs-hygiene
+git diff --check -- docs/05-专题分析 docs/README.md
+```
 
-- 只有“跨层才能讲清”的问题，才值得进 `05-专题分析`
-- 静态模型回 `02-业务域`
-- 契约与接入方式回 `03-接口与集成`
+如果专题补充了代码事实或合同表，应补跑对应事实测试：
+
+```bash
+go test ./internal/apiserver/domain/... ./internal/apiserver/application/authn/... ./internal/apiserver/application/authz/... ./internal/apiserver/application/uc/... ./internal/apiserver/application/idp/... ./internal/apiserver/application/suggest
+go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/redis ./internal/apiserver/infra/token/... ./internal/apiserver/infra/casbin ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging ./pkg/outbox/... ./pkg/outboxcore/... ./pkg/eventruntime/...
+go test ./internal/apiserver/transport/rest ./internal/apiserver/transport/grpc/... ./pkg/sdk/...
+```

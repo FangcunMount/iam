@@ -1,67 +1,47 @@
-# 基础设施与运维
+# 04-基础设施与运维
 
-本文回答：`iam` 里哪些内容属于技术底座、哪些属于运维交付，这一层现在应该从哪几篇读起，以及它和 `运行时 / 业务域 / 接口与集成` 如何分工。
+本文回答：IAM 的基础设施层、运维配置、验证命令、数据库迁移、证书端口和事件投递应该从哪里理解。本组不是业务域深潜，而是给开发、部署、排障和文档维护提供工程事实入口。
 
 ## 30 秒结论
 
-- `04-基础设施与运维` 现在承接两类内容：一类是六边形架构、CQRS 这类横切技术机制；另一类是 `Makefile`、端口、证书、迁移、Docker、SQL bootstrap 这类交付与维护入口。
-- 现行主路径已经切到这一层；旧 `docs/04-基础设施/` 和 `docs/ops/` 只保留为历史资料并归入 `_archive/`。
-- 这组文档不重复解释业务域流程，也不替代 `api/` 契约；它更关心“代码为什么这样分层”“系统如何被启动、校验、部署、迁移”。
-- 如果只先读 4 篇，建议按这个顺序：`六边形架构实践 -> UoW 与 Transactional Outbox -> 命令、契约校验与开发流程 -> 端口、证书与数据库迁移`。
+- IAM 采用 `transport -> application -> domain` 的业务依赖方向，infra 作为 driven adapters 接入 MySQL、Redis、Casbin、JWT、IDP、Outbox 等外部能力。
+- [../../internal/apiserver/container](../../internal/apiserver/container) 是组合根，允许看到多层类型，用来把端口和适配器接起来。
+- 运行时配置重点看端口、TLS/mTLS、ACL、migration、outbox relay 和 debug 开关。
+- 数据库演进以 migration 为准；`schema.sql` 和 `bootstrap.sql` 是基线材料，不替代迁移事实。
+- 文档和合同维护必须跑 `make docs-hygiene`，涉及 REST/proto 时再跑 `make api-validate` 和 `make proto-gen`。
 
-## 重点速查
+## 文档地图
 
-| 想回答的问题 | 先打开哪里 |
-| ---- | ---- |
-| 六边形架构在当前代码里怎么落地？ | [01-六边形架构实践.md](./01-六边形架构实践.md) |
-| CQRS 在当前代码里怎么落地？ | [02-CQRS模式实践.md](./02-CQRS模式实践.md) |
-| UoW、事务内事件、outbox relay 如何协作？ | [06-UoW与Transactional Outbox.md](./06-UoW与Transactional Outbox.md) |
-| 构建、运行、测试、swagger、proto、OpenAPI 校验怎么做？ | [03-命令&契约校验与开发流程.md](./03-命令&契约校验与开发流程.md) |
-| 端口、证书、Docker、数据库迁移从哪看？ | [04-端口&证书与数据库迁移.md](./04-端口&证书与数据库迁移.md) |
-| 系统 bootstrap 基线数据现在如何管理？ | [05-SQL Bootstrap 与初始化数据.md](./05-SQL Bootstrap 与初始化数据.md) |
-| IAM 缓存层今天到底怎么设计、治理面已经做到哪里？ | [../05-专题分析/05-IAM缓存层--缓存层的设计与治理.md](../05-专题分析/05-IAM缓存层--缓存层的设计与治理.md) |
-| IAM 当前各个 cache family 为什么大多还是 Redis `String`，`revoked_access_token` 为什么不是 `Set`？ | [../05-专题分析/06-IAM缓存层--数据结构选择与 Redis 建模判断.md](../05-专题分析/06-IAM缓存层--数据结构选择与 Redis 建模判断.md) |
-| 真实配置和工件入口在哪里？ | [../../configs/](../../configs/)、[../../build/docker/](../../build/docker/)、[../../scripts/](../../scripts/)、[../../Makefile](../../Makefile) |
-
-## 当前文档
-
-| 文档 | 说明 |
-| ---- | ---- |
-| [01-六边形架构实践.md](./01-六边形架构实践.md) | interface / application / domain / infra 的真实分层与装配 |
-| [02-CQRS模式实践.md](./02-CQRS模式实践.md) | 当前 CQRS 的真实形态与读写边界 |
-| [03-命令&契约校验与开发流程.md](./03-命令&契约校验与开发流程.md) | `Makefile`、swagger / OpenAPI / proto 校验链、开发命令面 |
-| [04-端口&证书与数据库迁移.md](./04-端口&证书与数据库迁移.md) | dev/prod 端口、mTLS 证书、Docker 与 migration 入口 |
-| [05-SQL Bootstrap 与初始化数据.md](./05-SQL Bootstrap 与初始化数据.md) | schema.sql、bootstrap.sql 与 migration 的职责分工 |
-| [06-UoW与Transactional Outbox.md](./06-UoW与Transactional Outbox.md) | 成熟 UoW、tx context、after-commit、event catalog、outbox relay 的运行边界 |
-补充专题：
-
-- [../05-专题分析/05-IAM缓存层--缓存层的设计与治理.md](../05-专题分析/05-IAM缓存层--缓存层的设计与治理.md)
-  - 解释 IAM Cache Layer、family 分工、只读治理面与运行边界
-- [../05-专题分析/06-IAM缓存层--数据结构选择与 Redis 建模判断.md](../05-专题分析/06-IAM缓存层--数据结构选择与 Redis 建模判断.md)
-  - 专门回答“为什么当前 family 大多仍然是 `String`、为什么 `revoked_access_token` 不是 `Set`、为什么 session index 使用 `ZSet`”
-
-## 与其他层的分工
-
-| 层 | 负责什么 |
-| ---- | ---- |
-| `01-运行时` | 运行时进程、gRPC、mTLS、健康检查 |
-| `02-业务域` | 认证 / 授权 / 用户等业务能力边界 |
-| `03-接口与集成` | REST / gRPC 契约解释层与接入边界 |
-| `04-基础设施与运维` | 通用技术模式、配置、部署、迁移、排障入口 |
-
-## 真实入口
-
-| 类型 | 位置 | 说明 |
+| 文档 | 说明 | 适合场景 |
 | ---- | ---- | ---- |
-| 命令入口 | [../../Makefile](../../Makefile) | 构建、运行、测试、校验、Docker、数据库工具 |
-| 运行配置 | [../../configs/apiserver.dev.yaml](../../configs/apiserver.dev.yaml)、[../../configs/apiserver.prod.yaml](../../configs/apiserver.prod.yaml)、[../../configs/grpc_acl.yaml](../../configs/grpc_acl.yaml) | 端口、TLS、mTLS、ACL |
-| 数据库迁移 | [../../internal/pkg/migration/](../../internal/pkg/migration/) | migration 实现、README、SQL 文件 |
-| Docker 工件 | [../../build/docker/README.md](../../build/docker/README.md)、[../../build/docker/](../../build/docker/) | Dockerfile、compose、部署说明 |
-| 开发脚本 | [../../scripts/](../../scripts/) | OpenAPI 校验、proto 生成、证书说明等 |
+| [01-六边形架构实践.md](01-六边形架构实践.md) | 当前分层、端口、适配器和依赖方向 | 代码定位、架构评审 |
+| [02-CQRS模式实践.md](02-CQRS模式实践.md) | 命令/查询边界和读写分离粒度 | 应用服务设计、接口拆分 |
+| [03-命令&契约校验与开发流程.md](03-命令&契约校验与开发流程.md) | Make targets、OpenAPI/proto/docs hygiene | 提交前检查、CI 排障 |
+| [04-端口&证书与数据库迁移.md](04-端口&证书与数据库迁移.md) | HTTP/gRPC 端口、mTLS、ACL、migration | 部署和环境配置 |
+| [05-SQL Bootstrap 与初始化数据.md](05-SQL%20Bootstrap%20与初始化数据.md) | schema、bootstrap、migration 分工 | 初始化数据和基线维护 |
+| [06-UoW与Transactional Outbox.md](06-UoW与Transactional%20Outbox.md) | UoW、事件 stage、outbox relay | 事务一致性和事件投递排障 |
 
-## 当前约定
+## 快速定位
 
-1. 现行正文统一写在 `docs/04-基础设施与运维/`。
-2. 旧 `docs/04-基础设施/` 和 `docs/ops/` 只作为历史资料保留在 `_archive/`。
-3. 这层默认采用：
-   `本文回答 -> 30 秒结论 -> 重点速查 -> 当前实现 -> 当前边界`
+| 你要做什么 | 先看 |
+| ---- | ---- |
+| 判断某段代码应该放 application、domain 还是 infra | [01-六边形架构实践.md](01-六边形架构实践.md) |
+| 给新命令或查询找落点 | [02-CQRS模式实践.md](02-CQRS模式实践.md) |
+| 改 REST/proto 合同 | [03-命令&契约校验与开发流程.md](03-命令&契约校验与开发流程.md) |
+| 配 gRPC mTLS 或 ACL | [04-端口&证书与数据库迁移.md](04-端口&证书与数据库迁移.md) |
+| 新增表、索引或初始化数据 | [05-SQL Bootstrap 与初始化数据.md](05-SQL%20Bootstrap%20与初始化数据.md) |
+| 排查授权版本事件没有投递 | [06-UoW与Transactional Outbox.md](06-UoW与Transactional%20Outbox.md) |
+
+## 本组边界
+
+- 不替代 [../01-运行时](../01-运行时/README.md)：运行时层更详细解释启动、注册、健康检查和 graceful shutdown。
+- 不替代 [../02-业务域](../02-业务域/README.md)：业务域层更详细解释 AuthN/AuthZ/Identity/IDP/Suggest。
+- 不替代 [../05-专题分析](../05-专题分析/README.md)：专题层更详细解释关键执行链路。
+- 不替代机器合同和迁移文件：API 字段以 `api/` 为准，数据库结构以 migration 为准。
+
+## 维护验证
+
+```bash
+make docs-hygiene
+go test ./internal/pkg/architecture ./internal/apiserver/process ./internal/pkg/migration/... ./internal/apiserver/infra/...
+```

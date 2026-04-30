@@ -2,192 +2,232 @@
 
 ## 本文回答
 
-本文只回答 5 件事：
-
-1. gRPC 在当前运行时里到底扮演什么角色
-2. 它是怎么被组装、启动并注册进进程的
-3. 当前拦截器与安全链是怎么叠加的
-4. dev / prod 今天到底开了哪些安全开关
-5. 它和健康检查、契约层、其他运行面应该怎么分工
+本文回答：IAM 的 gRPC 运行面如何由 `process` 创建、由 `container` 生成服务注册项、由 `transport/grpc.Registry` 注册到 gRPC server，并通过 mTLS、ACL、audit、health 和 reflection 形成当前运行时边界。
 
 ## 30 秒结论
 
-- gRPC 不是独立服务，而是 `iam-apiserver` 进程内的一块运行面；启动、注册和关闭都在 [../../internal/apiserver/server.go](../../internal/apiserver/server.go)。
-- 当前 gRPC 运行时最值得先记住的是 4 件事：注册了哪些服务、拦截器链怎么排、dev/prod 到底开了哪些安全开关、健康检查如何暴露。
-- 当前实际注册的服务只有 `AuthService`、`JWKSService`、`IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle`、`IDPService`；没有注册就不能讲成“当前已暴露”。
-- dev / prod 当前都启用了 `mTLS` 和审计；`auth` 仍关闭，`ACL` 只在 prod 开启。
-- gRPC 契约与 metadata 约定看 [../03-接口与集成/02-gRPC契约与接入.md](../03-接口与集成/02-gRPC契约与接入.md)；健康检查、debug 路由和降级启动边界看 [04-健康检查&debug 路由与降级启动边界.md](./04-健康检查&debug 路由与降级启动边界.md)。
+- gRPC 与 REST 同属 `iam-apiserver` 进程，由 [../../internal/apiserver/process/bootstrap.go](../../internal/apiserver/process/bootstrap.go) 在 transport stage 中构建和注册。
+- gRPC server 的底座在 [../../internal/pkg/grpc](../../internal/pkg/grpc)，负责 server options、mTLS/TLS、interceptors、health service、reflection、独立 HTTP 探针和 graceful stop。
+- 业务服务注册不是散落在 main 或 process 中，而是 container 生成 registrations，`transport/grpc.Registry` 逐项调用并最终 `MarkAllServicesServing()`。
+- 当前 v1 gRPC 暴露面包括 AuthN、AuthZ、Identity/ProfileLink、IDP；没有 v2 proto 运行时面。
+- dev/prod 配置都启用 mTLS 和 audit；prod 开启 ACL，dev 默认关闭 ACL；应用层 gRPC credential auth 当前配置为关闭。
+
+## 主图：gRPC 运行时装配
+
+```mermaid
+flowchart TD
+    Config["configs/apiserver.*.yaml"]
+    Process["process.buildGRPCServer"]
+    Server["internal/pkg/grpc.Server"]
+    Container["container.BuildGRPCDeps"]
+    Registrations["[]grpc.Registration"]
+    Registry["transport/grpc.Registry"]
+    Services["AuthN / AuthZ / Identity / IDP services"]
+    Health["grpc.health.v1.Health\n/healthz /readyz /livez"]
+
+    Config --> Process
+    Process --> Server
+    Container --> Registrations
+    Registrations --> Registry
+    Registry --> Services
+    Registry --> Server
+    Server --> Health
+```
 
 ## 重点速查
 
-| 关注点 | 当前答案 | 真实落点 |
+| 问题 | 当前答案 | 代码/配置证据 |
 | ---- | ---- | ---- |
-| 进程入口 | `iam-apiserver` 进程同时启动 HTTP 和 gRPC | [../../cmd/apiserver/apiserver.go](../../cmd/apiserver/apiserver.go)、[../../internal/apiserver/server.go](../../internal/apiserver/server.go) |
-| gRPC 服务器封装 | 项目级 gRPC 基础设施封装 | [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go)、[../../internal/pkg/grpc/config.go](../../internal/pkg/grpc/config.go) |
-| 服务注册 | 在 `registerGRPCServices()` 中聚合注册 | [../../internal/apiserver/server.go](../../internal/apiserver/server.go) |
-| 认证域 gRPC | `AuthService`、`JWKSService` | [../../internal/apiserver/interface/authn/grpc/service.go](../../internal/apiserver/interface/authn/grpc/service.go) |
-| 用户域 gRPC | `IdentityRead`、`Ref*`、`IdentityLifecycle` | [../../internal/apiserver/interface/uc/grpc/identity/service.go](../../internal/apiserver/interface/uc/grpc/identity/service.go) |
-| IDP gRPC | `IDPService` | [../../internal/apiserver/interface/idp/grpc/service.go](../../internal/apiserver/interface/idp/grpc/service.go) |
-| dev/prod 安全口径 | 两边都开 `mTLS`，`auth` 仍关闭，`ACL` 只在 prod 打开 | [../../configs/apiserver.dev.yaml](../../configs/apiserver.dev.yaml)、[../../configs/apiserver.prod.yaml](../../configs/apiserver.prod.yaml) |
-| ACL 合同 | 方法级 ACL 配置，不是 proto 合同 | [../../configs/grpc_acl.yaml](../../configs/grpc_acl.yaml) |
-| 健康检查与降级启动 | gRPC health、独立 HTTP 探针、部分初始化仍继续启动 | [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go)、[../../internal/apiserver/server.go](../../internal/apiserver/server.go)、[./04-健康检查&debug 路由与降级启动边界.md](./04-健康检查&debug 路由与降级启动边界.md) |
+| gRPC server 谁创建 | `process.buildGRPCServer` 把 apiserver config 映射到 `internal/pkg/grpc.Config`。 | [../../internal/apiserver/process/grpc_config.go](../../internal/apiserver/process/grpc_config.go) |
+| gRPC server 底座在哪里 | `internal/pkg/grpc.Server` 封装 mTLS、interceptors、health、reflection、Run/Close。 | [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go)、[../../internal/pkg/grpc/config.go](../../internal/pkg/grpc/config.go) |
+| 服务注册谁负责 | `transport/grpc.Registry` 消费 container 传入的 registrations。 | [../../internal/apiserver/transport/grpc/registry.go](../../internal/apiserver/transport/grpc/registry.go) |
+| registration 谁生成 | `container.grpcRegistrations()` 根据已初始化模块生成。 | [../../internal/apiserver/container/grpc_registry.go](../../internal/apiserver/container/grpc_registry.go) |
+| 合同在哪里 | `api/grpc/iam/**/v1/*.proto`。 | [../../api/grpc/iam](../../api/grpc/iam) |
+| dev/prod 安全开关如何验证 | 配置合同测试锁定端口、mTLS、ACL、audit。 | [../../internal/apiserver/config/config_contract_test.go](../../internal/apiserver/config/config_contract_test.go) |
+| proto 与 runtime 注册如何对齐 | transport gRPC contract test 检查 proto service 都有注册调用。 | [../../internal/apiserver/transport/grpc/proto_contract_test.go](../../internal/apiserver/transport/grpc/proto_contract_test.go) |
 
-## 1. gRPC 在当前运行时里到底扮演什么角色
-
-gRPC 在当前仓库中属于**运行时通信面**，不是独立服务。
+## 1. 配置映射与安全模式
 
 ```mermaid
 flowchart LR
-    Client[内部服务 / 运维工具 / 管理面] --> GRPC[gRPC 暴露面]
-    Client --> REST[HTTP REST 暴露面]
-    GRPC --> App[iam-apiserver]
-    REST --> App
-    App --> Container[container]
-    Container --> Interface[interface/*/grpc]
-    Interface --> Application[application]
-    Application --> Domain[domain]
-    Application --> Infra[infra]
+    YAML["apiserver YAML"]
+    Options["options.GRPCOptions"]
+    Apply["process.applyGRPCOptions"]
+    Config["grpc.Config"]
+    Complete["Config.Complete().New()"]
+    Server["grpc.Server"]
+
+    YAML --> Options --> Apply --> Config --> Complete --> Server
 ```
 
-这意味着读 gRPC 运行时时，最重要的不是某一个 `proto` 文件，而是：
+`applyGRPCOptions` 会映射这些配置：
 
-1. 进程怎么把 gRPC 服务器启动起来。
-2. 进程把哪些服务注册进去了。
-3. 服务器层叠加了哪些安全和治理机制。
+- bind address、bind port、healthz port。
+- mTLS CA、server cert/key、client cert requirement、CN/OU/SAN allowlists、TLS version、auto reload。
+- 应用层 credential auth 开关。
+- ACL config file 和 default policy。
+- Audit 开关。
+- secure serving TLS cert/key fallback。
+- `Insecure` 最终值：启用 mTLS 或配置 TLS cert/key 时强制 false。
 
-## 2. 它是怎么被组装、启动并注册进进程的
+对应测试在 [../../internal/apiserver/process/grpc_config_test.go](../../internal/apiserver/process/grpc_config_test.go)。
 
-### 2.1 入口链路
+## 2. dev/prod 当前开关
 
-| 步骤 | 路径 | 说明 |
-| ---- | ---- | ---- |
-| 程序入口 | [../../cmd/apiserver/apiserver.go](../../cmd/apiserver/apiserver.go) | 启动 `iam-apiserver` |
-| 创建 API Server | [../../internal/apiserver/server.go](../../internal/apiserver/server.go) | `createAPIServer()` 同时创建 HTTP 与 gRPC 服务器 |
-| 构建 gRPC 服务器 | [../../internal/apiserver/server.go](../../internal/apiserver/server.go) | `buildGRPCServer()` -> `grpcConfig.Complete().New()` |
-| gRPC 基础设施封装 | [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go) | `NewServer()`、拦截器链、mTLS、ACL、健康检查 |
-| 注册业务服务 | [../../internal/apiserver/server.go](../../internal/apiserver/server.go) | `registerGRPCServices()` |
+| 环境 | gRPC 端口 | healthz 端口 | mTLS | 应用层 credential auth | ACL | Audit | 证据 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| dev | `19091` | `19092` | enabled | disabled | disabled | enabled | [../../configs/apiserver.dev.yaml](../../configs/apiserver.dev.yaml) |
+| prod | `9090` | `9091` | enabled | disabled | enabled | enabled | [../../configs/apiserver.prod.yaml](../../configs/apiserver.prod.yaml) |
 
-### 2.2 实际注册的服务
+边界说明：
 
-当前代码实际注册了这些 gRPC 服务：
+- mTLS 是传输和客户端证书身份层，不等同于业务授权。
+- 当前应用层 gRPC credential auth 的能力存在于配置和拦截器装配中，但 dev/prod 配置均未启用。
+- ACL 是方法级访问控制配置，当前 prod 开启；它不是 proto 合同。
 
-| 模块 | 服务 |
-| ---- | ---- |
-| Authn | `AuthService`、`JWKSService` |
-| UC / Identity | `IdentityRead`、`RefQuery`、`RefCommand`、`IdentityLifecycle` |
-| IDP | `IDPService` |
+## 3. 拦截器链
 
-说明：
+### Unary 链
 
-- 这一表是根据当前 `Register*Server(...)` 的真实调用整理的。
-- 如果 `proto` 里存在但当前没有 `Register...Server(...)`，不能把它写成“当前运行时已暴露”。
+```mermaid
+flowchart LR
+    Request["Unary RPC"]
+    Recovery["Recovery"]
+    RequestID["RequestID"]
+    Logging["Logging"]
+    MTLS["mTLS identity\nif enabled"]
+    Credential["Credential auth\nif enabled"]
+    ACL["ACL\nif enabled"]
+    Audit["Audit\nif enabled"]
+    Handler["Service handler"]
 
-## 3. 当前拦截器与安全链是怎么叠加的
+    Request --> Recovery --> RequestID --> Logging --> MTLS --> Credential --> ACL --> Audit --> Handler
+```
 
-### 3.1 当前一元拦截器链
-
-根据 [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go)，当前一元拦截器链的顺序是：
+当前 unary chain 的构建顺序在 [../../internal/pkg/grpc/server.go](../../internal/pkg/grpc/server.go)：
 
 1. Recovery
 2. RequestID
 3. Logging
-4. mTLS 身份提取（启用 mTLS 时）
-5. 应用层凭证验证（启用 Auth 时）
-6. ACL（启用 ACL 时）
-7. Audit（启用 Audit 时）
+4. mTLS identity extraction
+5. Credential validation
+6. ACL
+7. Audit
 
-### 3.2 当前流式拦截器链
+### Stream 链
 
-流式链路当前包括：
+流式链当前是 Logging、mTLS、Credential、ACL、Audit。IAM 当前公开 proto 主要是 unary 服务；stream chain 仍作为 gRPC 底座能力保留。
 
-1. Logging
-2. mTLS
-3. Credential
-4. ACL
-5. Audit
+### 为什么用 Chain of Responsibility
 
-### 3.3 当前安全分层
+- **解决的问题**：认证、授权、审计、日志和恢复都是请求横切能力，不应写进每个 service method。
+- **IAM 的落地**：`grpc.ChainUnaryInterceptor` 和 `grpc.ChainStreamInterceptor` 按配置拼接拦截器。
+- **代价和边界**：拦截器顺序会影响行为；新增安全层必须明确位于认证前、授权前还是审计前。
 
-| 层 | 作用 | 位置 |
-| ---- | ---- | ---- |
-| 传输层 | TLS / mTLS | `component-base/pkg/grpc/mtls` + `internal/pkg/grpc/server.go` |
-| 身份提取 | 从证书读取客户端身份 | `component-base/pkg/grpc/interceptors` |
-| 应用层认证 | Bearer / HMAC / API Key | `internal/pkg/grpc/server.go` 中 CredentialInterceptor 装配 |
-| 方法级权限控制 | 基于 ACL 文件控制 method 访问 | [../../configs/grpc_acl.yaml](../../configs/grpc_acl.yaml) |
-| 审计与日志 | 请求日志、审计日志、RequestID | `internal/pkg/grpc/interceptors.go`、`server.go` |
+## 4. 服务注册
 
-## 4. dev / prod 今天到底开了哪些安全开关
+```mermaid
+flowchart TD
+    AuthNModule["AuthN Module"]
+    UserModule["User Module"]
+    IDPModule["IDP Module"]
+    AuthZModule["AuthZ Module"]
 
-### 4.1 dev / prod 对照
+    Registrations["container.grpcRegistrations()"]
+    Registry["transport/grpc.Registry"]
 
-| 环境 | gRPC 端口 | HTTP 健康检查端口 | mTLS | Auth | ACL | Audit |
-| ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| dev | `19091` | `19092` | 开 | 关 | 关 | 开 |
-| prod | `9090` | `9091` | 开 | 关 | 开 | 开 |
+    AuthNServices["AuthService\nAccountOnboardingService\nJWKSService"]
+    IdentityServices["IdentityRead\nProfileLinkQuery\nProfileLinkCommand\nIdentityLifecycle"]
+    IDPService["IDPService"]
+    AuthZService["AuthorizationService"]
 
-这张表比长段配置解释更重要，因为它直接回答了今天最容易被误讲的 3 个问题：
+    AuthNModule --> Registrations
+    UserModule --> Registrations
+    IDPModule --> Registrations
+    AuthZModule --> Registrations
 
-1. gRPC 运行面不是“默认裸跑”，而是 dev / prod 都启用了 mTLS。
-2. 应用层 `auth` 当前还没有在这条链上打开，不能讲成“gRPC 已经叠加 bearer / hmac / api key 认证”。
-3. `ACL` 不是所有环境都启用，当前只有 prod 打开。
+    Registrations --> Registry
+    Registry --> AuthNServices
+    Registry --> IdentityServices
+    Registry --> IDPService
+    Registry --> AuthZService
+```
 
-### 4.2 ACL 合同
+| 模块 | 当前注册服务 | 代码证据 | 合同 |
+| ---- | ---- | ---- | ---- |
+| AuthN | `AuthService`、`AccountOnboardingService`、`JWKSService` | [../../internal/apiserver/transport/grpc/service/authn/service.go](../../internal/apiserver/transport/grpc/service/authn/service.go) | [../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
+| Identity | `IdentityRead`、`ProfileLinkQuery`、`ProfileLinkCommand`、`IdentityLifecycle` | [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go) | [../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
+| IDP | `IDPService` | [../../internal/apiserver/transport/grpc/service/idp/service.go](../../internal/apiserver/transport/grpc/service/idp/service.go) | [../../api/grpc/iam/idp/v1/idp.proto](../../api/grpc/iam/idp/v1/idp.proto) |
+| AuthZ | `AuthorizationService` | [../../internal/apiserver/transport/grpc/service/authz/service.go](../../internal/apiserver/transport/grpc/service/authz/service.go) | [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto) |
 
-[../../configs/grpc_acl.yaml](../../configs/grpc_acl.yaml) 当前承载：
+`Registry.RegisterServices()` 注册完成后调用 `MarkAllServicesServing()`，把整体和已注册业务服务标记为 `SERVING`。如果 server 为空，registry 会跳过并记录 warning。
 
-- 默认策略
-- 调用方 `service_name`
-- 允许访问的方法列表
-- 可选的 HMAC / API Key / IP 白名单
+## 5. Health、Reflection 与独立 HTTP 探针
 
-注意：
+```mermaid
+flowchart TD
+    GRPCServer["internal/pkg/grpc.Server"]
+    HealthSvc["grpc.health.v1.Health"]
+    Reflection["gRPC Reflection"]
+    Healthz["HTTP /healthz"]
+    Readyz["HTTP /readyz"]
+    Livez["HTTP /livez"]
 
-- 这份 ACL 文件是**运行时权限配置**，不是 `proto` 合同。
-- 文档表述应以当前已注册和可调用的方法为准，不应凭设计意图扩写。
-- 它回答的是“谁在运行时可以调用哪个方法”，不是“系统外部承诺提供哪些 RPC”。
+    GRPCServer --> HealthSvc
+    GRPCServer --> Reflection
+    GRPCServer --> Healthz
+    GRPCServer --> Readyz
+    GRPCServer --> Livez
+```
 
-## 5. 它和健康检查、契约层、其他运行面应该怎么分工
+当前语义：
 
-gRPC 这篇的重点是“服务如何启动与保护”，不是把整个运行面杂糅进一篇里。
+- `grpc.health.v1.Health`：标准 gRPC health service。
+- `/healthz`：检查整体 gRPC health status 是否 `SERVING`。
+- `/readyz`：同样依赖整体 gRPC health status，失败返回 `NOT_READY`。
+- `/livez`：只说明 healthz HTTP server 活着，不证明业务依赖健康。
+- reflection：默认配置启用，用于服务发现和调试。
 
-| 暴露面 | 位置 | 说明 |
-| ---- | ---- | ---- |
-| gRPC 服务端口 | gRPC 配置 `bind-port` | 内部服务间调用 |
-| gRPC Health | `grpc.health.v1.Health` | 标准 gRPC 健康检查 |
-| HTTP `/healthz` | `healthz-port` | 不需要 mTLS，便于探针 |
-| HTTP `/readyz` | `healthz-port` | 就绪探针 |
-| HTTP `/livez` | `healthz-port` | 存活探针 |
+这些入口属于 gRPC 基础设施运行面，不等价于 MySQL、Redis、EventBus 或每个业务模块都健康。
 
-另外两类容易和 gRPC 混在一起的话题已经拆出去单独说：
+## 6. ACL 的运行时含义
 
-- HTTP `/health`、`/ping`、`/debug/routes`、`/debug/modules`
-- MySQL / Redis / EventBus / 容器初始化失败后，进程为什么还会继续启动
+[../../configs/grpc_acl.yaml](../../configs/grpc_acl.yaml) 描述调用方 `service_name` 与允许访问的 full method name。它的语义是运行时访问控制，而不是 API 合同。
 
-统一看 [04-健康检查&debug 路由与降级启动边界.md](./04-健康检查&debug 路由与降级启动边界.md)。
+```mermaid
+flowchart LR
+    Cert["mTLS client identity"]
+    Metadata["optional credentials"]
+    Method["FullMethod"]
+    ACLConfig["configs/grpc_acl.yaml"]
+    Decision["allow / deny"]
 
-## 6. 当前保证与风险边界
+    Cert --> Decision
+    Metadata --> Decision
+    Method --> Decision
+    ACLConfig --> Decision
+```
 
-### 已实现
+边界：
 
-- 项目级 gRPC 服务器封装
-- mTLS、ACL、审计、RequestID、健康检查装配
-- Authn / UC / IDP 三类 gRPC 服务注册
-- dev/prod 配置分离
+- proto 声明某个 RPC，不代表所有调用方都能调用。
+- ACL 允许某调用方调用某方法，不代表该方法业务内部一定会成功。
+- 当前 prod 开启 ACL；dev 默认关闭，适合本地调试。
 
-### 待补证据
+## 7. 运行时设计模式
 
-- 不同调用方在真实生产环境中的证书发放与轮换流程，还需要与 infra 项目或运维脚本联合核对
+| 模式 | 为什么用 | IAM 中如何落地 | 代价和边界 |
+| ---- | ---- | ---- | ---- |
+| Registry | 服务注册来自模块，但注册动作属于 transport。 | `container.grpcRegistrations()` + `transport/grpc.Registry`。 | 新增 proto service 时必须补 runtime registration。 |
+| Chain of Responsibility | 多个横切安全/治理能力需要顺序执行。 | gRPC unary/stream interceptors。 | 顺序错误会改变认证、授权和审计语义。 |
+| Adapter / Mapper | proto 消息不能直接污染 application/domain。 | `transport/grpc/service/*` 内部 mapper。 | 增加映射代码，但保护合同稳定。 |
+| Fail Closed | server 或注册项缺失时不能假装服务可用。 | nil server 跳过注册；capability 缺失则服务不注册或返回 Unavailable。 | 调试时需要结合 service registration 和 health 判断。 |
 
-### 规划改造
+## 8. 验证入口
 
-- 如未来要把 gRPC 运行面从 `iam-apiserver` 中再拆成独立进程，应在此文与部署文档中明确区分“当前架构”和“规划架构”
+```bash
+go test ./internal/apiserver/process ./internal/apiserver/transport/grpc ./internal/pkg/grpc
+make docs-hygiene
+```
 
-## 继续往下读
-
-| 文档 | 说明 |
-| ---- | ---- |
-| [../03-接口与集成/02-gRPC契约与接入.md](../03-接口与集成/02-gRPC契约与接入.md) | gRPC 合同、接入方式、metadata 约定 |
-| [04-健康检查&debug 路由与降级启动边界.md](./04-健康检查&debug 路由与降级启动边界.md) | 探针、debug 路由、部分初始化与降级启动边界 |
-| [../00-概览/01-系统架构总览.md](../00-概览/01-系统架构总览.md) | 系统级总览 |
-| [../../api/grpc/README.md](../../api/grpc/README.md) | `proto` 与调用契约入口 |
-| [../04-基础设施与运维/04-端口&证书与数据库迁移.md](../04-基础设施与运维/04-端口&证书与数据库迁移.md) | 端口、证书、迁移与 Docker 入口 |
+如果 proto 有新增 service，必须同时检查 [../../internal/apiserver/transport/grpc/proto_contract_test.go](../../internal/apiserver/transport/grpc/proto_contract_test.go) 和 SDK compile tests。

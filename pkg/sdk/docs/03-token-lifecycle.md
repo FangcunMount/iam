@@ -156,7 +156,7 @@ resp, err := client.Auth().IssueServiceToken(ctx, &authnv1.IssueServiceTokenRequ
 当前要注意两点：
 
 - SDK `Auth().IssueServiceToken(...)` 已存在
-- 默认服务端 [`interface/authn/grpc/service.go`](../../../internal/apiserver/interface/authn/grpc/service.go) 已实现该 RPC；只有 `tokenSvc` 未装配时才会返回 `codes.Unimplemented`
+- 默认服务端 [`transport/grpc/service/authn/auth_token_service.go`](../../../internal/apiserver/transport/grpc/service/authn/auth_token_service.go) 已实现该 RPC；只有 `tokenSvc` 未装配时才会返回 `codes.Unimplemented`
 
 所以这条能力今天可以讲成：
 

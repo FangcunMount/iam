@@ -1,502 +1,69 @@
-# REST API 文档
+# REST API 契约
 
-> IAM RESTful API 规范（OpenAPI 3.1）
+REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错误响应的事实源；运行时注册在 [internal/apiserver/transport/rest](../../internal/apiserver/transport/rest)。
 
-## 📋 文档列表
+## 契约文件
 
-### 1. [认证 API v1 (authn.v1.yaml)](./authn.v1.yaml)
+| 文件 | 说明 |
+| ---- | ---- |
+| [authn.v1.yaml](authn.v1.yaml) | v1 认证、Token、JWKS、账户和 signup |
+| [authn.v2.yaml](authn.v2.yaml) | v2 显式登录 |
+| [authz.v1.yaml](authz.v1.yaml) | 授权判定、角色、assignment、策略、资源 |
+| [identity.v1.yaml](identity.v1.yaml) | 当前用户、profiles、profile-links |
+| [idp.v1.yaml](idp.v1.yaml) | IDP 健康检查和微信应用配置 |
+| [suggest.v1.yaml](suggest.v1.yaml) | 儿童档案联想搜索 |
 
-**功能域**: 认证与账户管理
+## 当前路由口径
 
-#### 核心端点
+| 能力 | 路由 |
+| ---- | ---- |
+| 登录 | `POST /api/v1/authn/login`、`POST /api/v2/authn/login` |
+| 登录准备 | `POST /api/v1/authn/login/prep/phone-otp` |
+| Token | `POST /api/v1/authn/refresh_token`、`POST /api/v1/authn/logout`、`POST /api/v1/authn/verify` |
+| JWKS | `GET /.well-known/jwks.json`、`GET /api/v1/.well-known/jwks.json` |
+| 账户 | `/api/v1/authn/accounts/*`、`/api/v1/authn/signups/wechat-miniprogram` |
+| 授权 | `/api/v1/authz/health`、`/api/v1/authz/check`、`/api/v1/authz/{roles,assignments,policies,resources}` |
+| Identity | `/api/v1/identity/me`、`/api/v1/identity/profiles`、`/api/v1/identity/profile-links` |
+| IDP | `/api/v1/idp/health`、`/api/v1/idp/wechat-apps/*` |
+| Suggest | `GET /api/v1/suggest/profile` |
+| Debug | `/debug/routes`、`/debug/modules`、`/debug/cache-governance/*` |
 
-| 分组 | 端点 | 方法 | 说明 |
-| ------ | ------ | ------ | ------ |
-| **认证** | `/api/v1/authn/login` | POST | 用户登录（legacy/inference adapter，保留字段推断兼容） |
-| | `/api/v1/authn/refresh_token` | POST | 刷新访问令牌 |
-| | `/api/v1/authn/verify` | POST | 验证令牌有效性 |
-| | `/api/v1/authn/logout` | POST | 退出登录（撤销令牌） |
-| **账户** | `/api/v1/accounts/operation` | POST | 创建运营账号 |
-| | `/api/v1/accounts/operation/{username}` | PATCH | 更新运营口令 |
-| | `/api/v1/accounts/wechat/bind` | POST | 绑定微信账号 |
-| | `/api/v1/accounts/{accountId}` | GET | 查询账户信息 |
-| | `/api/v1/accounts/by-ref` | GET | 通过引用查询账户 |
-| **JWKS** | `/.well-known/jwks.json` | GET | 获取公钥集（用于 JWT 验签） |
+Identity 的当前关系术语是 `ProfileLink`。REST 路由使用 `/profile-links`，不再使用旧关系路由。
 
-#### 登录流程示例
+## 运行时注册
 
-> v1 登录是 legacy/inference adapter。`method + credentials` 入口保留用于兼容旧调用方，应用层仍按字段推断规则选择登录场景；新调用方应使用 v2 的 `auth_method + method_payload` 显式契约。
+- 总路由入口：[internal/apiserver/transport/rest/router.go](../../internal/apiserver/transport/rest/router.go)
+- 模块路由：[internal/apiserver/transport/rest/module_routes.go](../../internal/apiserver/transport/rest/module_routes.go)
+- AuthN 路由：[internal/apiserver/transport/rest/authn/router.go](../../internal/apiserver/transport/rest/authn/router.go)
+- AuthZ 路由：[internal/apiserver/transport/rest/authz/router.go](../../internal/apiserver/transport/rest/authz/router.go)
+- Identity 路由：[internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go)
+- IDP 路由：[internal/apiserver/transport/rest/idp/router.go](../../internal/apiserver/transport/rest/idp/router.go)
+- Suggest 路由：[internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go)
 
-**运营账号登录**:
+受保护模块路由依赖 JWT middleware；认证模块不可用时 protected routes fail closed，不注册需要身份上下文的能力。
+
+## 示例
 
 ```bash
-curl -X POST https://api.example.com/api/v1/auth/login \
+curl -X POST https://iam.example.com/api/v1/authn/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "account_type": "operation",
-    "username": "admin",
-    "password": "SecureP@ss123"
-  }'
-```
+  -d '{"method":"password","credentials":{"username":"admin","password":"secret"}}'
 
-**响应**:
+curl https://iam.example.com/api/v1/identity/me \
+  -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 
-```json
-{
-  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "Bearer",
-  "expires_in": 86400,
-  "refresh_token": "def50200a1b2c3d4e5f6...",
-  "scope": "read write",
-  "user": {
-    "id": "usr_1234567890",
-    "username": "admin",
-    "status": "active"
-  }
-}
-```
-
-**微信小程序登录**:
-
-```bash
-curl -X POST https://api.example.com/api/v1/auth/login \
+curl -X POST https://iam.example.com/api/v1/authz/check \
+  -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "account_type": "wechat",
-    "wechat": {
-      "app_id": "wx1234567890abcdef",
-      "code": "061XYZ..."
-    }
-  }'
+  -d '{"resource":"qs:answer-sheet","action":"submit"}'
 ```
 
-#### 令牌管理
-
-**刷新令牌**:
+## 验证
 
 ```bash
-curl -X POST https://api.example.com/api/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{
-    "refresh_token": "def50200a1b2c3d4e5f6..."
-  }'
+make docs-swagger
+make api-validate
+go test ./internal/apiserver/transport/rest
 ```
 
-**验证令牌**:
-
-```bash
-curl -X POST https://api.example.com/api/v1/auth/verify \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**退出登录**:
-
-```bash
-curl -X POST https://api.example.com/api/v1/auth/logout \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-#### JWKS 公钥集
-
-**获取公钥用于验签**:
-
-```bash
-curl -X GET https://api.example.com/.well-known/jwks.json
-```
-
-**响应** (符合 RFC 7517):
-
-```json
-{
-  "keys": [
-    {
-      "kty": "RSA",
-      "use": "sig",
-      "kid": "2024-10-key-1",
-      "alg": "RS256",
-      "n": "xGOr-H7A...",
-      "e": "AQAB"
-    }
-  ]
-}
-```
-
----
-
-### 2. [认证 API v2 (authn.v2.yaml)](./authn.v2.yaml)
-
-**功能域**: 显式认证契约
-
-| 分组 | 端点 | 方法 | 说明 |
-| ------ | ------ | ------ | ------ |
-| **认证** | `/api/v2/authn/login` | POST | 使用 `auth_method + method_payload` 登录 |
-
-v2 AuthN 只表达已实现的显式登录能力：`password`、`phone_otp`、`wechat`、`wecom`。未实现的 refresh/logout/verify 以及 `jwt_token` 登录不会在 v2 契约中提前暴露。
-
----
-
-### 3. [身份 API (identity.v1.yaml)](./identity.v1.yaml)
-
-**功能域**: 用户、儿童、监护关系管理
-
-#### 身份管理核心端点
-
-| 分组 | 端点 | 方法 | 说明 |
-| ------ | ------ | ------ | ------ |
-| **用户** | `/api/v1/identity/me` | GET | 获取当前用户资料 |
-| | `/api/v1/identity/me` | PATCH | 更新当前用户资料 |
-| **儿童** | `/api/v1/identity/profiles/register` | POST | 注册儿童（建档+授监护） |
-| | `/api/v1/identity/profiles/{id}` | GET | 查询儿童档案 |
-| | `/api/v1/identity/profiles/{id}` | PATCH | 更新儿童档案 |
-| | `/api/v1/identity/profiles/search` | GET | 搜索相似儿童 |
-| | `/api/v1/identity/me/profiles` | GET | 我的孩子列表 |
-| **监护** | `/api/v1/identity/refs/grant` | POST | 授予监护关系 |
-| | `/api/v1/identity/refs` | GET | 查询监护关系 |
-
-#### 当前用户示例
-
-**查询当前用户**:
-
-```bash
-curl -X GET https://api.example.com/api/v1/identity/me \
-  -H "Authorization: Bearer <token>"
-```
-
-**响应**:
-
-```json
-{
-  "id": "1234567890",
-  "nickname": "张三",
-  "status": "active",
-  "contacts": [
-    {
-      "type": "phone",
-      "value": "138****8000"
-    }
-  ]
-}
-```
-
-#### 儿童档案管理
-
-**注册儿童（推荐方式，自动建立监护关系）**:
-
-```bash
-curl -X POST https://api.example.com/api/v1/identity/profiles/register \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: uuid-12345678-90ab-cdef-1234-567890abcdef" \
-  -d '{
-    "legalName": "小明",
-    "gender": 1,
-    "dob": "2020-05-15",
-    "idType": "id_card",
-    "idNo": "110101202005150012",
-    "relation": "parent"
-  }'
-```
-
-**响应**:
-
-```json
-{
-  "profile": {
-    "id": "chd_9876543210",
-    "legalName": "小明",
-    "gender": 1,
-    "dob": "2020-05-15",
-    "idType": "id_card",
-    "idMasked": "1101012020051***12"
-  },
-  "ref": {
-    "id": 12345,
-    "userId": "usr_1234567890",
-    "profileId": "chd_9876543210",
-    "relation": "parent",
-    "since": "2024-10-29T11:00:00Z"
-  }
-}
-```
-
-**查询我的孩子**:
-
-```bash
-curl -X GET https://api.example.com/api/v1/identity/me/profiles?limit=20&offset=0 \
-  -H "Authorization: Bearer <token>"
-```
-
-**响应**:
-
-```json
-{
-  "total": 2,
-  "items": [
-    {
-      "id": "chd_9876543210",
-      "legalName": "小明",
-      "gender": 1,
-      "dob": "2020-05-15",
-      "idMasked": "1101012020051***12",
-      "heightCm": 105,
-      "weightKg": "18.5"
-    },
-    {
-      "id": "chd_1111111111",
-      "legalName": "小红",
-      "gender": 2,
-      "dob": "2021-03-20",
-      "idMasked": "1101012021032***45"
-    }
-  ]
-}
-```
-
-**搜索相似儿童（防重复建档）**:
-
-```bash
-curl -X GET "https://api.example.com/api/v1/identity/profiles/search?name=小明&dob=2020-05-15" \
-  -H "Authorization: Bearer <token>"
-```
-
-#### 监护关系管理
-
-**授予监护关系**:
-
-```bash
-curl -X POST https://api.example.com/api/v1/identity/refs/grant \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId": "usr_0987654321",
-    "profileId": "chd_9876543210",
-    "relation": "grandparent"
-  }'
-```
-
-**查询监护关系**:
-
-```bash
-# 查询用户的所有监护儿童
-curl -X GET "https://api.example.com/api/v1/identity/refs?user_id=usr_1234567890&active=true" \
-  -H "Authorization: Bearer <token>"
-
-# 查询儿童的所有监护人
-curl -X GET "https://api.example.com/api/v1/identity/refs?profile_id=chd_9876543210" \
-  -H "Authorization: Bearer <token>"
-
-# 查询特定监护关系（active=false 时包含已撤销关系）
-curl -X GET "https://api.example.com/api/v1/identity/refs?user_id=usr_1234567890&profile_id=chd_9876543210&active=false" \
-  -H "Authorization: Bearer <token>"
-```
-
-**响应**:
-
-```json
-{
-  "total": 1,
-  "items": [
-    {
-      "id": 12345,
-      "userId": "usr_1234567890",
-      "profileId": "chd_9876543210",
-      "relation": "parent",
-      "since": "2024-10-29T11:00:00Z",
-      "revokedAt": null
-    }
-  ]
-}
-```
-
----
-
-## 🔐 认证与授权
-
-### JWT 令牌结构
-
-**Header**:
-
-```json
-{
-  "alg": "RS256",
-  "typ": "JWT",
-  "kid": "2024-10-key-1"
-}
-```
-
-**Payload**:
-
-```json
-{
-  "sub": "usr_1234567890",
-  "iat": 1698566400,
-  "exp": 1698652800,
-  "nbf": 1698566400,
-  "jti": "jwt_abcdef123456",
-  "iss": "https://api.example.com",
-  "aud": ["iam-api"],
-  "scope": "read write",
-  "account_id": "acc_0987654321",
-  "account_type": "operation"
-}
-```
-
-### 使用 JWT 访问 API
-
-```bash
-curl -X GET https://api.example.com/api/v1/identity/me \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
----
-
-## 🛡️ 安全最佳实践
-
-### 1. 幂等性
-
-所有 `POST` 请求都应提供幂等键：
-
-```bash
-curl -X POST https://api.example.com/api/v1/identity/profiles/register \
-  -H "X-Idempotency-Key: $(uuidgen)" \
-  -H "Authorization: Bearer <token>" \
-  ...
-```
-
-### 2. 请求追踪
-
-建议所有请求携带追踪 ID：
-
-```bash
-curl -X GET https://api.example.com/api/v1/identity/me \
-  -H "X-Request-Id: $(uuidgen)" \
-  -H "Authorization: Bearer <token>"
-```
-
-### 3. HTTPS 强制
-
-- 生产环境必须使用 HTTPS
-- 本地开发可使用 HTTP (<http://localhost:9080>)
-
-### 4. 令牌存储
-
-- **不要**将令牌存储在 localStorage（易受 XSS 攻击）
-- **推荐**使用 HttpOnly Cookie 或内存存储
-- **移动端**使用 Keychain (iOS) 或 Keystore (Android)
-
-### 5. 令牌刷新策略
-
-```javascript
-// 推荐：在 access_token 过期前 5 分钟刷新
-const shouldRefresh = (expiresIn) => expiresIn < 300; // 300秒 = 5分钟
-
-if (shouldRefresh(tokenExpiresIn)) {
-  const newToken = await refreshAccessToken(refreshToken);
-}
-```
-
----
-
-## 📊 HTTP 状态码
-
-| 状态码 | 说明 | 示例场景 |
-| -------- | ------ | ---------- |
-| **200** | 成功 | GET/PATCH 成功 |
-| **201** | 创建成功 | POST 创建资源成功 |
-| **204** | 无内容 | DELETE 成功 |
-| **400** | 请求参数错误 | 缺少必填字段、格式错误 |
-| **401** | 未认证 | 缺少令牌、令牌无效 |
-| **403** | 无权限 | 令牌有效但无操作权限 |
-| **404** | 资源不存在 | 用户/儿童不存在 |
-| **409** | 冲突 | 用户名重复、幂等键冲突 |
-| **422** | 业务规则错误 | 儿童年龄不符合规则 |
-| **429** | 请求过多 | 触发限流 |
-| **500** | 服务器错误 | 内部错误 |
-| **503** | 服务不可用 | 维护中或过载 |
-
----
-
-## 🧪 测试示例
-
-### Postman Collection
-
-导入 Postman Collection:
-
-```bash
-# 下载 Collection
-curl -o iam-api.postman_collection.json \
-  https://api.example.com/docs/postman/collection.json
-
-# 导入环境变量
-curl -o iam-api.postman_environment.json \
-  https://api.example.com/docs/postman/environment.json
-```
-
-### cURL 测试脚本
-
-```bash
-#!/bin/bash
-# 完整流程测试脚本
-
-# 1. 登录
-TOKEN=$(curl -s -X POST https://api.example.com/api/v1/authn/login \
-  -H "Content-Type: application/json" \
-  -d '{"account_type":"operation","username":"admin","password":"admin123"}' \
-  | jq -r '.access_token')
-
-echo "Token: $TOKEN"
-
-# 2. 查看当前用户
-USER_ID=$(curl -s -X GET https://api.example.com/api/v1/identity/me \
-  -H "Authorization: Bearer $TOKEN" \
-  | jq -r '.id')
-
-echo "Current User ID: $USER_ID"
-
-# 3. 注册儿童
-CHILD_RESPONSE=$(curl -s -X POST https://api.example.com/api/v1/identity/profiles/register \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: $(uuidgen)" \
-  -d '{
-    "legalName": "测试儿童",
-    "gender": 1,
-    "dob": "2020-01-01",
-    "idType": "id_card",
-    "idNo": "110101202001010012",
-    "relation": "parent"
-  }')
-
-echo "Profile Response: $CHILD_RESPONSE"
-
-# 4. 查询我的孩子
-curl -s -X GET https://api.example.com/api/v1/identity/me/profiles \
-  -H "Authorization: Bearer $TOKEN" \
-  | jq .
-```
-
----
-
-## 📚 相关资源
-
-- **OpenAPI 规范文件**:
-  - [authn.v1.yaml](./authn.v1.yaml) - 认证 API 完整规范
-  - [authn.v2.yaml](./authn.v2.yaml) - 认证 API v2 显式登录规范
-  - [identity.v1.yaml](./identity.v1.yaml) - 身份 API 完整规范
-
-- **在线文档**:
-  - [Swagger UI](https://api.example.com/swagger) - 交互式 API 文档
-  - [ReDoc](https://api.example.com/redoc) - 美化版 API 文档
-
-- **SDK 与工具**:
-  - [TypeScript SDK](https://www.npmjs.com/package/@iam/api-client)
-  - [Go SDK](https://github.com/FangcunMount/iam-sdk-go)
-  - [Postman Collection](https://api.example.com/docs/postman/collection.json)
-
----
-
-## 📞 技术支持
-
-- **API 问题**: [GitHub Issues](https://github.com/FangcunMount/iam/issues)
-- **功能请求**: [Feature Request](https://github.com/FangcunMount/iam/issues/new?template=feature_request.md)
-- **安全问题**: <security@example.com>
+`make api-validate` 会比较 `api/rest/*.yaml`、swagger 生成物和实际路由合同；需要 Docker daemon 可用。
