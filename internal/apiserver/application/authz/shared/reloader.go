@@ -21,19 +21,28 @@ func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, ope
 		return
 	}
 
+	started := time.Now()
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
 		if invalidator, ok := adapter.(cacheInvalidator); ok {
 			invalidator.InvalidateCache()
 		}
 		if err := adapter.LoadPolicy(ctx); err == nil {
+			log.InfoContext(ctx, "authz runtime policy reload completed",
+				log.String("operation", operation),
+				log.String("result", "success"),
+				log.Int("attempt", attempt),
+				log.Int64("duration_ms", time.Since(started).Milliseconds()),
+			)
 			return
 		} else {
 			lastErr = err
-			log.Errorw("failed to reload authz runtime policy",
-				"operation", operation,
-				"attempt", attempt,
-				"error", err,
+			log.ErrorContext(ctx, "failed to reload authz runtime policy",
+				log.String("operation", operation),
+				log.String("result", "failed"),
+				log.Int("attempt", attempt),
+				log.Int64("duration_ms", time.Since(started).Milliseconds()),
+				log.Err(err),
 			)
 		}
 		if attempt < 3 {
@@ -41,8 +50,10 @@ func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, ope
 		}
 	}
 
-	log.Errorw("authz runtime policy remains degraded after reload retries",
-		"operation", operation,
-		"error", lastErr,
+	log.ErrorContext(ctx, "authz runtime policy remains degraded after reload retries",
+		log.String("operation", operation),
+		log.String("result", "degraded"),
+		log.Int64("duration_ms", time.Since(started).Milliseconds()),
+		log.Err(lastErr),
 	)
 }

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FangcunMount/component-base/pkg/log"
 	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
@@ -162,7 +163,7 @@ func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domain
 
 // LoadPolicy 重新加载策略（用于缓存刷新）
 func (c *CasbinAdapter) LoadPolicy(ctx context.Context) error {
-	_ = ctx
+	started := time.Now()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -170,6 +171,19 @@ func (c *CasbinAdapter) LoadPolicy(ctx context.Context) error {
 	err := c.enforcer.LoadPolicy()
 	c.lastReloadAt = time.Now()
 	c.lastReloadErr = err
+	duration := time.Since(started)
+	if err != nil {
+		log.ErrorContext(ctx, "authz runtime policy reload failed",
+			log.String("result", "failed"),
+			log.Int64("duration_ms", duration.Milliseconds()),
+			log.Err(err),
+		)
+	} else {
+		log.InfoContext(ctx, "authz runtime policy reloaded",
+			log.String("result", "success"),
+			log.Int64("duration_ms", duration.Milliseconds()),
+		)
+	}
 	return err
 }
 
