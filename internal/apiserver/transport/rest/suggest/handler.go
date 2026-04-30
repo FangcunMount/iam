@@ -10,7 +10,7 @@ import (
 
 // Dependencies wires runtime dependencies for the handler.
 type Dependencies struct {
-	Service        *appsuggest.Service
+	Service        appsuggest.ProfileSuggestor
 	AuthMiddleware gin.HandlerFunc
 }
 
@@ -30,11 +30,11 @@ func Register(engine *gin.Engine, deps Dependencies) {
 // Handler 提供 suggest 接口
 type Handler struct {
 	*core.BaseHandler
-	svc *appsuggest.Service
+	svc appsuggest.ProfileSuggestor
 }
 
 // NewHandler creates a suggest handler.
-func NewHandler(svc *appsuggest.Service) *Handler {
+func NewHandler(svc appsuggest.ProfileSuggestor) *Handler {
 	return &Handler{
 		BaseHandler: core.NewBaseHandler(),
 		svc:         svc,

@@ -160,8 +160,8 @@ func (c *Container) initSuggestModule() error {
 	if err := suggestModule.InitializeWithDeps(c.moduleGraph().suggestModuleDependencies()); err != nil {
 		return fmt.Errorf("failed to initialize suggest module: %w", err)
 	}
-	// 可能因配置关闭而 Service 为空
-	if suggestModule.Service != nil {
+	// 可能因配置关闭而 service 为空
+	if suggestModule.IsInitialized() {
 		c.SuggestModule = suggestModule
 	}
 	return nil
@@ -279,7 +279,7 @@ func (c *Container) PrintStatus() {
 	}
 
 	fmt.Printf("   • Suggest Module: ")
-	if c.SuggestModule != nil && c.SuggestModule.Service != nil {
+	if c.SuggestModule != nil && c.SuggestModule.IsInitialized() {
 		fmt.Printf("✅\n")
 	} else {
 		fmt.Printf("⚠️  (disabled or not initialized)\n")

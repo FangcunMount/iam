@@ -18,15 +18,15 @@ func TestServiceSuggestReturnsNilWhenRuntimeHasNoCurrentIndex(t *testing.T) {
 	}
 }
 
-func TestUpdaterFullSyncReplacesRuntimeIndex(t *testing.T) {
+func TestProfileIndexRefresherFullSyncReplacesRuntimeIndex(t *testing.T) {
 	runtime := &suggestRuntimeStub{}
 	loader := &suggestLoaderStub{
-		full: []string{"张三|1|13800138000|-|5"},
+		full: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(1, "张三", []string{"13800138000"}, 5)},
 	}
-	updater := NewUpdaterWithRuntime(loader, UpdaterConfig{}, runtime)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 
-	if err := updater.runFull(context.Background()); err != nil {
-		t.Fatalf("runFull() error = %v", err)
+	if err := refresher.RunFull(context.Background()); err != nil {
+		t.Fatalf("RunFull() error = %v", err)
 	}
 
 	if !reflect.DeepEqual(runtime.replaced, loader.full) {
@@ -37,33 +37,33 @@ func TestUpdaterFullSyncReplacesRuntimeIndex(t *testing.T) {
 	}
 }
 
-func TestUpdaterDeltaSyncReturnsRuntimeNotInitializedError(t *testing.T) {
+func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *testing.T) {
 	wantErr := errors.New("suggest store not initialized")
 	runtime := &suggestRuntimeStub{importErr: wantErr}
 	loader := &suggestLoaderStub{
-		delta: []string{"李四|2|13900139000|-|3"},
+		delta: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(2, "李四", []string{"13900139000"}, 3)},
 	}
-	updater := NewUpdaterWithRuntime(loader, UpdaterConfig{}, runtime)
-	updater.lastFetch = time.Now().Add(-time.Minute)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil)
+	refresher.lastFetch = time.Now().Add(-time.Minute)
 
-	err := updater.runDelta(context.Background())
+	err := refresher.RunDelta(context.Background())
 	if !errors.Is(err, wantErr) {
-		t.Fatalf("runDelta() error = %v, want %v", err, wantErr)
+		t.Fatalf("RunDelta() error = %v, want %v", err, wantErr)
 	}
 }
 
-func TestUpdaterDeltaSyncAppendsToCurrentIndex(t *testing.T) {
+func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 	runtime := &suggestRuntimeStub{
 		current: suggestIndexStub{terms: []domainsuggest.Term{{Name: "张三", ID: 1, Weight: 5}}},
 	}
 	loader := &suggestLoaderStub{
-		delta: []string{"李四|2|13900139000|-|3"},
+		delta: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(2, "李四", []string{"13900139000"}, 3)},
 	}
-	updater := NewUpdaterWithRuntime(loader, UpdaterConfig{}, runtime)
-	updater.lastFetch = time.Now().Add(-time.Minute)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil)
+	refresher.lastFetch = time.Now().Add(-time.Minute)
 
-	if err := updater.runDelta(context.Background()); err != nil {
-		t.Fatalf("runDelta() error = %v", err)
+	if err := refresher.RunDelta(context.Background()); err != nil {
+		t.Fatalf("RunDelta() error = %v", err)
 	}
 
 	if !reflect.DeepEqual(runtime.imported, loader.delta) {
@@ -71,41 +71,58 @@ func TestUpdaterDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 	}
 }
 
+func TestRefresherWritesSnapshotAfterFullSync(t *testing.T) {
+	runtime := &suggestRuntimeStub{}
+	loader := &suggestLoaderStub{
+		full: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(1, "张三", []string{"13800138000"}, 5)},
+	}
+	snapshot := &snapshotWriterStub{}
+	refresher := NewProfileIndexRefresher(loader, runtime, snapshot)
+
+	if err := refresher.RunFull(context.Background()); err != nil {
+		t.Fatalf("RunFull() error = %v", err)
+	}
+
+	if !reflect.DeepEqual(snapshot.written, loader.full) {
+		t.Fatalf("snapshot = %#v, want %#v", snapshot.written, loader.full)
+	}
+}
+
 type suggestLoaderStub struct {
-	full  []string
-	delta []string
+	full  []domainsuggest.ProfileCandidate
+	delta []domainsuggest.ProfileCandidate
 }
 
-func (l *suggestLoaderStub) Full(context.Context) ([]string, error) {
-	return append([]string(nil), l.full...), nil
+func (l *suggestLoaderStub) Full(context.Context) ([]domainsuggest.ProfileCandidate, error) {
+	return append([]domainsuggest.ProfileCandidate(nil), l.full...), nil
 }
 
-func (l *suggestLoaderStub) Delta(context.Context, time.Time) ([]string, error) {
-	return append([]string(nil), l.delta...), nil
+func (l *suggestLoaderStub) Delta(context.Context, time.Time) ([]domainsuggest.ProfileCandidate, error) {
+	return append([]domainsuggest.ProfileCandidate(nil), l.delta...), nil
 }
 
 type suggestRuntimeStub struct {
-	current   SearchIndex
-	replaced  []string
-	imported  []string
+	current   ProfileSuggestionIndex
+	replaced  []domainsuggest.ProfileCandidate
+	imported  []domainsuggest.ProfileCandidate
 	importErr error
 }
 
-func (r *suggestRuntimeStub) Current() SearchIndex {
+func (r *suggestRuntimeStub) Current() ProfileSuggestionIndex {
 	return r.current
 }
 
-func (r *suggestRuntimeStub) Replace(lines []string) SearchIndex {
-	r.replaced = append([]string(nil), lines...)
+func (r *suggestRuntimeStub) Replace(candidates []domainsuggest.ProfileCandidate) ProfileSuggestionIndex {
+	r.replaced = append([]domainsuggest.ProfileCandidate(nil), candidates...)
 	r.current = suggestIndexStub{terms: []domainsuggest.Term{{Name: "张三", ID: 1, Weight: 5}}}
 	return r.current
 }
 
-func (r *suggestRuntimeStub) ImportDelta(lines []string) error {
+func (r *suggestRuntimeStub) ImportDelta(candidates []domainsuggest.ProfileCandidate) error {
 	if r.importErr != nil {
 		return r.importErr
 	}
-	r.imported = append([]string(nil), lines...)
+	r.imported = append([]domainsuggest.ProfileCandidate(nil), candidates...)
 	return nil
 }
 
@@ -113,6 +130,15 @@ type suggestIndexStub struct {
 	terms []domainsuggest.Term
 }
 
-func (s suggestIndexStub) Suggest(string, int, int) []domainsuggest.Term {
+func (s suggestIndexStub) Suggest(domainsuggest.Query) []domainsuggest.Term {
 	return append([]domainsuggest.Term(nil), s.terms...)
+}
+
+type snapshotWriterStub struct {
+	written []domainsuggest.ProfileCandidate
+}
+
+func (s *snapshotWriterStub) Write(_ context.Context, candidates []domainsuggest.ProfileCandidate) error {
+	s.written = append([]domainsuggest.ProfileCandidate(nil), candidates...)
+	return nil
 }

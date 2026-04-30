@@ -62,7 +62,7 @@ func (c *Container) logBootstrapStatus() {
 	} else {
 		log.Warn("   ❌ Authz module failed")
 	}
-	if c.SuggestModule != nil && c.SuggestModule.Service != nil {
+	if c.SuggestModule != nil && c.SuggestModule.IsInitialized() {
 		log.Info("   ✅ Suggest module")
 	} else {
 		log.Warn("   ⚠️  Suggest module not initialized or disabled")

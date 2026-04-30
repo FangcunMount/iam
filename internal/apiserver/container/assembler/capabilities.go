@@ -91,7 +91,7 @@ type IDPApplicationCapabilities struct {
 }
 
 type SuggestApplicationCapabilities struct {
-	Service *appsuggest.Service
+	Service appsuggest.ProfileSuggestor
 }
 
 type SuggestRuntimeCapabilities struct {

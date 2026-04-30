@@ -1,9 +1,6 @@
 package search
 
 import (
-	"bufio"
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/mozillazg/go-pinyin"
@@ -31,51 +28,20 @@ type node struct {
 // Terms 术语列表
 type Terms []suggest.Term
 
-func (t Terms) Len() int           { return len(t) }
-func (t Terms) Less(i, j int) bool { return t[i].Weight > t[j].Weight }
-func (t Terms) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-
-// RemoveDuplicate 去重，保留顺序
-func RemoveDuplicate(list Terms) Terms {
-	var out Terms
-	for _, cur := range list {
-		found := false
-		for _, v := range out {
-			if v.ID == cur.ID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			out = append(out, cur)
-		}
-	}
-	return out
-}
-
 // NewTrie 创建一个新的 Trie
 func NewTrie() *Trie {
 	return &Trie{}
 }
 
-// ImportLines 解析 name|id|mobiles|disease|weight 行并插入术语
-func (t *Trie) ImportLines(lines []string) {
+// ImportCandidates inserts profile candidates into the prefix index.
+func (t *Trie) ImportCandidates(candidates []suggest.ProfileCandidate) {
 	pyArgs := pinyin.NewArgs()
-	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		if len(parts) < 5 {
-			continue
-		}
-		name := strings.TrimSpace(parts[0])
+	for _, candidate := range candidates {
+		name := strings.TrimSpace(candidate.DisplayName)
 		if name == "" {
 			continue
 		}
-		idStr := strings.TrimSpace(parts[1])
-		id, _ := strconv.ParseInt(idStr, 10, 64)
-		mobile := strings.TrimSpace(parts[2])
-		_ = strings.TrimSpace(parts[3]) // disease field ignored
-		weight, _ := strconv.Atoi(strings.TrimSpace(parts[4]))
-		term := suggest.Term{Name: name, ID: id, Mobile: mobile, Weight: weight}
+		term := candidate.Term()
 
 		// 原始中文名
 		t.Put(name, term)
@@ -113,21 +79,6 @@ func uniq(list []string) []string {
 		}
 	}
 	return out
-}
-
-// Import 从文件导入数据
-func (t *Trie) Import(file string) {
-	f, err := os.Open(file)
-	if err != nil {
-		return
-	}
-	defer func() { _ = f.Close() }()
-	r := bufio.NewReaderSize(f, 400)
-	line, _, err := r.ReadLine()
-	for err == nil {
-		t.ImportLines([]string{string(line)})
-		line, _, err = r.ReadLine()
-	}
 }
 
 // Put 插入一个术语，键为提供的字符串

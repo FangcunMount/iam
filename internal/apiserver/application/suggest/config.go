@@ -1,5 +1,7 @@
 package suggest
 
+import domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+
 // Config 控制 suggest 模块行为
 type Config struct {
 	Enable        bool
@@ -16,8 +18,8 @@ type Config struct {
 // DefaultConfig returns the behavior-preserving defaults for suggest.
 func DefaultConfig() Config {
 	return Config{
-		MaxResults:    20,
-		KeyPadLen:     25,
+		MaxResults:    domainsuggest.DefaultLimit,
+		KeyPadLen:     domainsuggest.DefaultKeyPadLen,
 		FullSyncCron:  "@every 1h",
 		DeltaSyncCron: "",
 	}
@@ -42,14 +44,4 @@ func (c Config) WithDefaults() Config {
 		cfg.KeyPadLen = c.KeyPadLen
 	}
 	return cfg
-}
-
-// ToUpdaterConfig 转换为 Updater 配置
-func (c Config) ToUpdaterConfig() UpdaterConfig {
-	return UpdaterConfig{
-		FullCron:  c.FullSyncCron,
-		DeltaCron: c.DeltaSyncCron,
-		DataDir:   c.DataDir,
-		Snapshot:  c.Snapshot,
-	}
 }

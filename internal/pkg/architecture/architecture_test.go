@@ -640,6 +640,48 @@ func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
 	}
 }
 
+func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "application", "suggest"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
+				imp == "os" ||
+				imp == "path/filepath" ||
+				imp == "github.com/robfig/cron/v3" {
+				t.Fatalf("%s imports %s; suggest application must depend on profile candidate ports instead of infra, filesystem, or cron scheduling", rel, imp)
+			}
+		}
+	})
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "suggest"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{
+			"name|id|mobiles",
+			"snapshot.txt",
+			"Trie",
+			"Hash",
+			"ImportLines",
+			"cron",
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains suggest infrastructure language %q; keep the domain to profile candidates, query, and ranking rules", rel, token)
+			}
+		}
+	})
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "transport", "rest", "suggest"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/suggest") {
+				t.Fatalf("%s imports %s; REST suggest transport must depend on application ProfileSuggestor", rel, imp)
+			}
+		}
+	})
+}
+
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
 	t.Parallel()
 

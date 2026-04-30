@@ -17,25 +17,14 @@ func NewHash() *Hash {
 	return &Hash{table: make(map[int64][]suggest.Term)}
 }
 
-// ImportLines loads name|id|mobiles|disease|weight formatted rows.
-func (h *Hash) ImportLines(lines []string) {
-	for _, line := range lines {
-		parts := strings.Split(line, "|")
-		if len(parts) < 5 {
-			continue
+// ImportCandidates loads profile candidates into the exact numeric index.
+func (h *Hash) ImportCandidates(candidates []suggest.ProfileCandidate) {
+	for _, candidate := range candidates {
+		term := candidate.Term()
+		if candidate.ProfileID != 0 {
+			h.table[candidate.ProfileID] = append(h.table[candidate.ProfileID], term)
 		}
-		name := strings.TrimSpace(parts[0])
-		idStr := strings.TrimSpace(parts[1])
-		mobileStr := strings.TrimSpace(parts[2])
-		_ = strings.TrimSpace(parts[3]) // disease field ignored
-		weight, _ := strconv.Atoi(strings.TrimSpace(parts[4]))
-		id, _ := strconv.ParseInt(idStr, 10, 64)
-		mobiles := strings.Split(mobileStr, ",")
-		term := suggest.Term{Name: name, ID: id, Mobile: mobileStr, Weight: weight}
-		if id != 0 {
-			h.table[id] = append(h.table[id], term)
-		}
-		for _, m := range mobiles {
+		for _, m := range candidate.Mobiles {
 			m = strings.TrimSpace(m)
 			if m == "" {
 				continue

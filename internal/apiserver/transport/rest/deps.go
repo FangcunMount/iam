@@ -74,7 +74,7 @@ type UserDeps struct {
 }
 
 type SuggestDeps struct {
-	Service *appsuggest.Service
+	Service appsuggest.ProfileSuggestor
 }
 
 // ModuleStatus is the route-visible module state used by /debug/modules and /health.

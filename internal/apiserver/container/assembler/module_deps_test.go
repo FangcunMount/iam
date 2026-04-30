@@ -12,8 +12,8 @@ func TestSuggestModuleInitializeWithDepsDisabledDoesNotRequireDB(t *testing.T) {
 	if err := module.InitializeWithDeps(SuggestModuleDeps{Config: appsuggest.Config{Enable: false}}); err != nil {
 		t.Fatalf("InitializeWithDeps() error = %v", err)
 	}
-	if module.Service != nil {
-		t.Fatalf("Service = %#v, want nil when suggest is disabled", module.Service)
+	if module.IsInitialized() {
+		t.Fatalf("IsInitialized() = true, want false when suggest is disabled")
 	}
 }
 

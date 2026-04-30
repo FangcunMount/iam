@@ -9,7 +9,7 @@ import (
 // Service 提供 suggest 查询
 type Service struct {
 	cfg     Config
-	runtime IndexRuntime
+	runtime ProfileSuggestionRuntime
 }
 
 // NewService 创建 Service
@@ -18,12 +18,12 @@ func NewService(cfg Config) *Service {
 }
 
 // NewServiceWithRuntime creates a suggest service with an explicit index runtime.
-func NewServiceWithRuntime(cfg Config, runtime IndexRuntime) *Service {
+func NewServiceWithRuntime(cfg Config, runtime ProfileSuggestionRuntime) *Service {
 	if cfg.MaxResults == 0 {
-		cfg.MaxResults = 20
+		cfg.MaxResults = suggest.DefaultLimit
 	}
 	if cfg.KeyPadLen == 0 {
-		cfg.KeyPadLen = 25
+		cfg.KeyPadLen = suggest.DefaultKeyPadLen
 	}
 	return &Service{cfg: cfg, runtime: runtime}
 }
@@ -37,5 +37,5 @@ func (s *Service) Suggest(_ context.Context, keyword string) []suggest.Term {
 	if index == nil {
 		return nil
 	}
-	return index.Suggest(keyword, s.cfg.MaxResults, s.cfg.KeyPadLen)
+	return index.Suggest(suggest.NewQuery(keyword, s.cfg.MaxResults, s.cfg.KeyPadLen))
 }

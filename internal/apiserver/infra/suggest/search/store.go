@@ -1,11 +1,9 @@
 package search
 
 import (
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unicode"
 
 	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
 )
@@ -19,12 +17,12 @@ type Store struct {
 
 var active atomic.Value // 当前活跃的存储器
 
-// Load 从原始行构建 Store
-func Load(lines []string) *Store {
+// Load 从档案候选构建 Store
+func Load(candidates []suggest.ProfileCandidate) *Store {
 	t := NewTrie()
 	h := NewHash()
-	t.ImportLines(lines)
-	h.ImportLines(lines)
+	t.ImportCandidates(candidates)
+	h.ImportCandidates(candidates)
 	return &Store{trie: t, table: h}
 }
 
@@ -39,19 +37,19 @@ func Current() *Store {
 	return nil
 }
 
-// ImportLines 追加新数据到现有存储器（受锁保护）
-func (s *Store) ImportLines(lines []string) {
-	if s == nil || len(lines) == 0 {
+// ImportCandidates 追加新数据到现有存储器（受锁保护）
+func (s *Store) ImportCandidates(candidates []suggest.ProfileCandidate) {
+	if s == nil || len(candidates) == 0 {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.trie.ImportLines(lines)
-	s.table.ImportLines(lines)
+	s.trie.ImportCandidates(candidates)
+	s.table.ImportCandidates(candidates)
 }
 
 // Suggest 返回有序且去重的术语
-func (s *Store) Suggest(keyword string, max int, pad int) []suggest.Term {
+func (s *Store) Suggest(query suggest.Query) []suggest.Term {
 	if s == nil {
 		return nil
 	}
@@ -59,24 +57,14 @@ func (s *Store) Suggest(keyword string, max int, pad int) []suggest.Term {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if max <= 0 {
-		max = 20
-	}
-
 	// 数字走 Hash
-	if isDigits(keyword) {
-		terms := Terms(s.table.Search(keyword))
-		terms = RemoveDuplicate(terms)
-		sort.Sort(terms)
-		if len(terms) > max {
-			terms = terms[:max]
-		}
-		return terms
+	if query.Keyword.IsDigits() {
+		return suggest.RankingPolicy{}.Rank(s.table.Search(query.Keyword.String()), query.Limit)
 	}
 	// 前缀通配
-	k := keyword
-	if len([]rune(k)) < pad {
-		k = k + strings.Repeat("*", pad-len([]rune(k)))
+	k := query.Keyword.String()
+	if len([]rune(k)) < query.KeyPadLen {
+		k = k + strings.Repeat("*", query.KeyPadLen-len([]rune(k)))
 	}
 	keys := s.trie.Wildcard(k)
 	var out Terms
@@ -85,20 +73,5 @@ func (s *Store) Suggest(keyword string, max int, pad int) []suggest.Term {
 			out = append(out, v.(Terms)...)
 		}
 	}
-	out = RemoveDuplicate(out)
-	sort.Sort(out)
-	if len(out) > max {
-		out = out[:max]
-	}
-	return out
-}
-
-// isDigits 判断是否为数字
-func isDigits(s string) bool {
-	for _, r := range s {
-		if !unicode.IsDigit(r) {
-			return false
-		}
-	}
-	return len(s) > 0
+	return suggest.RankingPolicy{}.Rank(out, query.Limit)
 }

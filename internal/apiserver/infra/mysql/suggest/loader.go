@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +44,7 @@ type LoaderConfig struct {
 	DeltaSQL string
 }
 
-// Loader 从业务库拉取 suggest 数据行
+// Loader 从业务库拉取档案联想候选
 type Loader struct {
 	db     *gorm.DB
 	config LoaderConfig
@@ -70,12 +71,12 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 }
 
 // Full 全量拉取
-func (l *Loader) Full(ctx context.Context) ([]string, error) {
+func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileCandidate, error) {
 	return l.query(ctx, l.config.FullSQL)
 }
 
 // Delta 增量拉取，按时间过滤
-func (l *Loader) Delta(ctx context.Context, since time.Time) ([]string, error) {
+func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileCandidate, error) {
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
 	}
@@ -89,7 +90,7 @@ type record struct {
 	Weight  int     `gorm:"column:weight"`
 }
 
-func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]string, error) {
+func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]domainsuggest.ProfileCandidate, error) {
 	if l.db == nil {
 		return nil, fmt.Errorf("suggest loader db is nil")
 	}
@@ -99,20 +100,38 @@ func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]
 		return nil, err
 	}
 
-	lines := make([]string, 0, len(rows))
+	candidates := make([]domainsuggest.ProfileCandidate, 0, len(rows))
 	for _, row := range rows {
-		mobiles := ""
-		if row.Mobiles != nil {
-			mobiles = *row.Mobiles
-		}
-		// 保持行格式：name|id|mobiles|-|weight，中间的占位符与旧格式兼容
-		line := fmt.Sprintf("%s|%d|%s|-|%d", strings.TrimSpace(row.Name), row.ID, strings.TrimSpace(mobiles), row.Weight)
-		lines = append(lines, line)
+		candidates = append(candidates, row.profileCandidate())
 	}
 
-	log.Infow("suggest loader finished query", "sql", sanitizeSQL(sql), "count", len(lines))
+	log.Infow("suggest loader finished query", "sql", sanitizeSQL(sql), "count", len(candidates))
 
-	return lines, nil
+	return candidates, nil
+}
+
+func (r record) profileCandidate() domainsuggest.ProfileCandidate {
+	mobiles := ""
+	if r.Mobiles != nil {
+		mobiles = *r.Mobiles
+	}
+	return domainsuggest.NewProfileCandidate(r.ID, r.Name, splitMobiles(mobiles), r.Weight)
+}
+
+func splitMobiles(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	mobiles := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		mobiles = append(mobiles, part)
+	}
+	return mobiles
 }
 
 // sanitizeSQL 仅用于日志，避免输出换行
