@@ -24,19 +24,20 @@ func toAppPublicJWK(jwk PublicJWK) appjwks.PublicJWK {
 	}
 }
 
-func fromAppPublicJWK(jwk appjwks.PublicJWK) PublicJWK {
-	return PublicJWK{
-		Kty: jwk.Kty,
-		Use: jwk.Use,
-		Alg: jwk.Alg,
-		Kid: jwk.Kid,
-		N:   jwk.N,
-		E:   jwk.E,
-		Crv: jwk.Crv,
-		X:   jwk.X,
-		Y:   jwk.Y,
-	}
-}
+// fromAppPublicJWK 将应用层的 PublicJWK 转换为领域层的 PublicJWK
+// func fromAppPublicJWK(jwk appjwks.PublicJWK) PublicJWK {
+// 	return PublicJWK{
+// 		Kty: jwk.Kty,
+// 		Use: jwk.Use,
+// 		Alg: jwk.Alg,
+// 		Kid: jwk.Kid,
+// 		N:   jwk.N,
+// 		E:   jwk.E,
+// 		Crv: jwk.Crv,
+// 		X:   jwk.X,
+// 		Y:   jwk.Y,
+// 	}
+// }
 
 func toAppManagedKey(key *Key) *appjwks.ManagedKey {
 	if key == nil {
