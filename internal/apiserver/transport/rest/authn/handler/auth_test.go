@@ -337,7 +337,7 @@ func TestAuthHandlerTokenEndpointsRejectInvalidRequestsBeforeApplicationCall(t *
 
 			w := performAuthRequest(tc.call(h), tc.body)
 
-			require.Equal(t, http.StatusInternalServerError, w.Code)
+			require.Equal(t, http.StatusBadRequest, w.Code)
 			require.False(t, tc.called(tokenSvc))
 		})
 	}

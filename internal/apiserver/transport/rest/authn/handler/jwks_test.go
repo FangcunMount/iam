@@ -109,7 +109,7 @@ func TestJWKSHandlerCreateKeyReturnsBindError(t *testing.T) {
 
 	w := performJWKSAdminRequest(handler.CreateKey, http.MethodPost, "/admin/jwks/keys", []byte(`{`), nil)
 
-	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestJWKSHandlerListKeysRejectsInvalidQuery(t *testing.T) {
@@ -122,6 +122,18 @@ func TestJWKSHandlerListKeysRejectsInvalidQuery(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestJWKSHandlerListKeysPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
+		listErr: perrors.WithCode(code.ErrInternalServerError, "list failed"),
+	}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.ListKeys, http.MethodGet, "/admin/jwks/keys", nil, nil)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func TestJWKSHandlerGetKeyRequiresKid(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -130,6 +142,20 @@ func TestJWKSHandlerGetKeyRequiresKid(t *testing.T) {
 	w := performJWKSAdminRequest(handler.GetKey, http.MethodGet, "/admin/jwks/keys/", nil, nil)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestJWKSHandlerGetKeyPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
+		getErr: perrors.WithCode(code.ErrKeyNotFound, "key not found"),
+	}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.GetKey, http.MethodGet, "/admin/jwks/keys/kid-1", nil, gin.Params{
+		{Key: "kid", Value: "kid-1"},
+	})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestJWKSHandlerRetireKeyPropagatesApplicationError(t *testing.T) {
@@ -144,6 +170,46 @@ func TestJWKSHandlerRetireKeyPropagatesApplicationError(t *testing.T) {
 	})
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestJWKSHandlerForceRetireKeyPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
+		forceRetireErr: perrors.WithCode(code.ErrKeyNotFound, "key not found"),
+	}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.ForceRetireKey, http.MethodPost, "/admin/jwks/keys/kid-1/force-retire", nil, gin.Params{
+		{Key: "kid", Value: "kid-1"},
+	})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestJWKSHandlerEnterGracePeriodPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
+		graceErr: perrors.WithCode(code.ErrInvalidArgument, "invalid transition"),
+	}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.EnterGracePeriod, http.MethodPost, "/admin/jwks/keys/kid-1/grace", nil, gin.Params{
+		{Key: "kid", Value: "kid-1"},
+	})
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestJWKSHandlerCleanupExpiredKeysPropagatesApplicationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
+		cleanupErr: perrors.WithCode(code.ErrInternalServerError, "cleanup failed"),
+	}, &jwksPublisherStub{})
+
+	w := performJWKSAdminRequest(handler.CleanupExpiredKeys, http.MethodPost, "/admin/jwks/keys/cleanup", nil, nil)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestJWKSHandlerGetPublishableKeysPropagatesApplicationError(t *testing.T) {
@@ -200,10 +266,19 @@ func performJWKSAdminRequest(handler gin.HandlerFunc, method, path string, body 
 }
 
 type jwksKeyManagerStub struct {
-	retireErr error
+	createErr      error
+	getErr         error
+	retireErr      error
+	forceRetireErr error
+	graceErr       error
+	cleanupErr     error
+	listErr        error
 }
 
 func (s *jwksKeyManagerStub) CreateKey(context.Context, string, *time.Time, *time.Time) (*jwksApp.ManagedKey, error) {
+	if s.createErr != nil {
+		return nil, s.createErr
+	}
 	return nil, nil
 }
 
@@ -212,6 +287,9 @@ func (s *jwksKeyManagerStub) GetActiveKey(context.Context) (*jwksApp.ManagedKey,
 }
 
 func (s *jwksKeyManagerStub) GetKeyByKid(context.Context, string) (*jwksApp.ManagedKey, error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
 	return nil, nil
 }
 
@@ -220,17 +298,23 @@ func (s *jwksKeyManagerStub) RetireKey(context.Context, string) error {
 }
 
 func (s *jwksKeyManagerStub) ForceRetireKey(context.Context, string) error {
-	return nil
+	return s.forceRetireErr
 }
 
 func (s *jwksKeyManagerStub) EnterGracePeriod(context.Context, string) error {
-	return nil
+	return s.graceErr
 }
 
 func (s *jwksKeyManagerStub) CleanupExpiredKeys(context.Context) (int, error) {
+	if s.cleanupErr != nil {
+		return 0, s.cleanupErr
+	}
 	return 0, nil
 }
 
 func (s *jwksKeyManagerStub) ListKeys(context.Context, jwksApp.KeyStatus, int, int) ([]*jwksApp.ManagedKey, int64, error) {
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
 	return nil, 0, nil
 }
