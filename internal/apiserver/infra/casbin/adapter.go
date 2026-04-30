@@ -99,18 +99,18 @@ func (c *CasbinAdapter) addGroupingFacts(ctx context.Context, rules ...GroupingR
 	return nil
 }
 
-func (c *CasbinAdapter) removeGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// func (c *CasbinAdapter) removeGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
+// 	c.mu.Lock()
+// 	defer c.mu.Unlock()
 
-	for _, rule := range rules {
-		_, err := c.enforcer.RemoveGroupingPolicy(rule.Sub, rule.Role, rule.Dom)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// 	for _, rule := range rules {
+// 		_, err := c.enforcer.RemoveGroupingPolicy(rule.Sub, rule.Role, rule.Dom)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domainStr string) ([]PolicyRule, error) {
 	c.mu.RLock()
@@ -137,28 +137,28 @@ func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domain
 	return rules, nil
 }
 
-func (c *CasbinAdapter) groupingFactsForSubject(ctx context.Context, subject, domainStr string) ([]GroupingRule, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+// func (c *CasbinAdapter) groupingFactsForSubject(ctx context.Context, subject, domainStr string) ([]GroupingRule, error) {
+// 	c.mu.RLock()
+// 	defer c.mu.RUnlock()
 
-	groupings, err := c.enforcer.GetFilteredGroupingPolicy(0, subject, "", domainStr)
-	if err != nil {
-		return nil, err
-	}
-	rules := make([]GroupingRule, 0, len(groupings))
+// 	groupings, err := c.enforcer.GetFilteredGroupingPolicy(0, subject, "", domainStr)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	rules := make([]GroupingRule, 0, len(groupings))
 
-	for _, g := range groupings {
-		if len(g) >= 3 {
-			rules = append(rules, GroupingRule{
-				Sub:  g[0],
-				Role: g[1],
-				Dom:  g[2],
-			})
-		}
-	}
+// 	for _, g := range groupings {
+// 		if len(g) >= 3 {
+// 			rules = append(rules, GroupingRule{
+// 				Sub:  g[0],
+// 				Role: g[1],
+// 				Dom:  g[2],
+// 			})
+// 		}
+// 	}
 
-	return rules, nil
-}
+// 	return rules, nil
+// }
 
 // LoadPolicy 重新加载策略（用于缓存刷新）
 func (c *CasbinAdapter) LoadPolicy(ctx context.Context) error {
