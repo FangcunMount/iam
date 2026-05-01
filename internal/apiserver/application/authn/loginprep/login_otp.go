@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 )
 
 // PhoneOTPDeps 手机登录发码依赖（与登录校验共用 Redis OTP 约定）

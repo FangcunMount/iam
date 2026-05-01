@@ -3,12 +3,12 @@ package authz
 import (
 	"context"
 
-	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/errors"
+	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/errors"
 )
 
 // GrantAssignment 为主体授予角色。
-func (c *Client) GrantAssignment(ctx context.Context, req *authzv1.GrantAssignmentRequest) (*authzv1.GrantAssignmentResponse, error) {
+func (c *Client) GrantAssignment(ctx context.Context, req *authzv2.GrantAssignmentRequest) (*authzv2.GrantAssignmentResponse, error) {
 	resp, err := c.authorizationService.GrantAssignment(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -17,7 +17,7 @@ func (c *Client) GrantAssignment(ctx context.Context, req *authzv1.GrantAssignme
 }
 
 // RevokeAssignment 撤销主体上的角色。
-func (c *Client) RevokeAssignment(ctx context.Context, req *authzv1.RevokeAssignmentRequest) (*authzv1.RevokeAssignmentResponse, error) {
+func (c *Client) RevokeAssignment(ctx context.Context, req *authzv2.RevokeAssignmentRequest) (*authzv2.RevokeAssignmentResponse, error) {
 	resp, err := c.authorizationService.RevokeAssignment(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)

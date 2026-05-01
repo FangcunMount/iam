@@ -6,8 +6,8 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
 
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 )
 
 // RefreshToken 刷新访问令牌

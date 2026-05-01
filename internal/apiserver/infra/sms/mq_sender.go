@@ -7,10 +7,10 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/messaging"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/apiserver/eventing"
-	"github.com/FangcunMount/iam/pkg/event"
-	"github.com/FangcunMount/iam/pkg/eventcodec"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v2/pkg/event"
+	"github.com/FangcunMount/iam/v2/pkg/eventcodec"
 )
 
 // LoginOTPSMSTopicDefault NSQ topic：下游消费者（短信网关等）订阅并真正发送短信

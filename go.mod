@@ -1,4 +1,4 @@
-module github.com/FangcunMount/iam
+module github.com/FangcunMount/iam/v2
 
 go 1.25.9
 

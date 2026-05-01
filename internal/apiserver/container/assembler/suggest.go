@@ -8,9 +8,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	mysqlsuggest "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/suggest"
-	searchruntime "github.com/FangcunMount/iam/internal/apiserver/infra/suggest/search"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	mysqlsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/suggest"
+	searchruntime "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/search"
 )
 
 // SuggestModule 联想搜索模块

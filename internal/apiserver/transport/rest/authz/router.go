@@ -3,7 +3,7 @@ package authz
 import (
 	"net/http"
 
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,7 +24,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		return
 	}
 
-	authzGroup := engine.Group("/api/v1/authz")
+	authzGroup := engine.Group("/api/v2/authz")
 	{
 		authzGroup.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{

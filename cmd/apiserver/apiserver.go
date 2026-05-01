@@ -4,14 +4,14 @@
 // @termsOfService  https://iam.fangcunmount.cn/terms
 
 // @contact.name   API Support
-// @contact.url    https://github.com/FangcunMount/iam
+// @contact.url    https://github.com/FangcunMount/iam/v2
 // @contact.email  support@fangcunmount.cn
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      iam.fangcunmount.cn
-// @BasePath  /api/v1
+// @BasePath  /api/v2
 
 // @securityDefinitions.apikey BearerAuth
 // @in header
@@ -49,8 +49,8 @@
 package main
 
 import (
-	"github.com/FangcunMount/iam/internal/apiserver"
-	_ "github.com/FangcunMount/iam/internal/apiserver/docs"
+	"github.com/FangcunMount/iam/v2/internal/apiserver"
+	_ "github.com/FangcunMount/iam/v2/internal/apiserver/docs"
 )
 
 func main() {

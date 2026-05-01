@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	profileApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
-	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	profileApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	userApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,10 +26,10 @@ func TestUserResultToProtoKeepsContactsAndStatus(t *testing.T) {
 
 	require.Equal(t, "user-1", got.Id)
 	require.Equal(t, "Alice", got.Nickname)
-	require.Equal(t, identityv1.UserStatus_USER_STATUS_BLOCKED, got.Status)
+	require.Equal(t, identityv2.UserStatus_USER_STATUS_BLOCKED, got.Status)
 	require.Len(t, got.Contacts, 2)
-	require.Equal(t, identityv1.ContactType_CONTACT_TYPE_PHONE, got.Contacts[0].Type)
-	require.Equal(t, identityv1.ContactType_CONTACT_TYPE_EMAIL, got.Contacts[1].Type)
+	require.Equal(t, identityv2.ContactType_CONTACT_TYPE_PHONE, got.Contacts[0].Type)
+	require.Equal(t, identityv2.ContactType_CONTACT_TYPE_EMAIL, got.Contacts[1].Type)
 }
 
 func TestProfileResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
@@ -45,7 +45,7 @@ func TestProfileResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
 
 	require.Equal(t, "profile-1", got.Id)
 	require.Equal(t, "Bob", got.LegalName)
-	require.Equal(t, identityv1.Gender_GENDER_MALE, got.Gender)
+	require.Equal(t, identityv2.Gender_GENDER_MALE, got.Gender)
 	require.Equal(t, "2020-01-02", got.Dob)
 	require.Equal(t, "110***********001", got.Identity.MaskedNumber)
 	require.Equal(t, int32(120), got.Stats.HeightCm)
@@ -63,7 +63,7 @@ func TestProfileLinkResultToProtoParsesRelationAndTimestamps(t *testing.T) {
 	})
 
 	require.Equal(t, "42", got.Id)
-	require.Equal(t, identityv1.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT, got.Relation)
+	require.Equal(t, identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT, got.Relation)
 	require.NotNil(t, got.Since)
 	require.NotNil(t, got.RevokedAt)
 }

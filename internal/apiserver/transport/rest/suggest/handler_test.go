@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 func TestProfileReturnsSuggestTerms(t *testing.T) {
@@ -23,7 +23,7 @@ func TestProfileReturnsSuggestTerms(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/suggest/profile?k=张", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/suggest/profile?k=张", nil)
 	engine.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -52,7 +52,7 @@ func TestProfileMissingKeywordReturnsBindError(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/suggest/profile", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/suggest/profile", nil)
 	engine.ServeHTTP(w, req)
 
 	if w.Code != http.StatusBadRequest {

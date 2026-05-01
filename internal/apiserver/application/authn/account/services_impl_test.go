@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

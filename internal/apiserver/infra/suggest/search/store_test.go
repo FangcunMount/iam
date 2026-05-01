@@ -3,7 +3,7 @@ package search
 import (
 	"testing"
 
-	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 func TestSuggestByPrefixAndPinyin(t *testing.T) {

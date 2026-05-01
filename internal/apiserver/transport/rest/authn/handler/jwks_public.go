@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
-	"github.com/FangcunMount/iam/pkg/core"
+	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
 var _ = core.ErrResponse{}

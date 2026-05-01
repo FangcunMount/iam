@@ -3,8 +3,8 @@ package search
 import (
 	"fmt"
 
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 // Runtime adapts the process-global suggest store to the application port.

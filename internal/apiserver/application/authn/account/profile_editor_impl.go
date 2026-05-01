@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func (s *accountApplicationService) SetUniqueID(ctx context.Context, accountID meta.ID, uniqueID domain.UnionID) error {

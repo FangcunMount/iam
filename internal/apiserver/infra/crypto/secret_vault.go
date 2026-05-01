@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 )
 
 // secretVault 密钥加密服务实现（AES-GCM）

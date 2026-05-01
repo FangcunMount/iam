@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
 )
 
 // ============================================

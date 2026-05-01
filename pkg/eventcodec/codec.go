@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/FangcunMount/iam/pkg/event"
+	"github.com/FangcunMount/iam/v2/pkg/event"
 )
 
 const occurredAtLayout = "2006-01-02T15:04:05.000Z07:00"

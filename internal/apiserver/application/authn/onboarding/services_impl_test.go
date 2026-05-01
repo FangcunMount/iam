@@ -6,11 +6,11 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	accountdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	idpwechatapp "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	userdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	accountdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	idpwechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

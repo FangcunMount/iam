@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Manager 提供会话生命周期管理能力。

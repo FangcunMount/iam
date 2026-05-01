@@ -8,16 +8,16 @@ owning JWT encoding or signing-key lifecycle behavior.
 
 - Domain owns account, credential, session, authentication proof, and
   authentication decision rules.
-- Application owns sign-in method selection, proof construction, bearer-token
-  compatibility, token lifecycle orchestration, onboarding, account
+- Application owns sign-in method selection, proof construction, internal bearer
+  reauthentication, token lifecycle orchestration, onboarding, account
   administration, and JWKS public/admin use cases.
 - Infra owns JWT/JWS compact encoding, claims mapping, signing-key lifecycle,
   Redis stores, MySQL repositories, and external provider adapters.
 - Transport owns REST/gRPC binding, DTO conversion, and error mapping.
 
-`jwt_token` is a compatibility login method. It is understood by
-`application/authn/login` and transport adapters only; it is not a domain
-authentication strategy.
+`jwt_token` is an internal bearer reauthentication method. It is understood by
+`application/authn/login` only; it is not exposed through the public REST/gRPC
+login contract and is not a domain authentication strategy.
 
 ## Use Cases
 
@@ -32,8 +32,8 @@ Selects the sign-in method from the request, constructs a method-specific proof
 or bearer verification request, calls the domain authenticator when appropriate,
 and asks the token use case to create the session token pair.
 
-Supported method kinds are password, phone OTP, WeChat mini program, WeCom, and
-the bearer-token compatibility method.
+Supported public method kinds are password, phone OTP, WeChat mini program, and
+WeCom. Bearer-token reauthentication remains an internal application concern.
 
 ### TokenApplicationService
 
@@ -65,5 +65,5 @@ aggregate interface remains available for existing container capability wiring.
 - `application/authn` may depend on Authn domain packages and application ports.
 - `application/authn` must not import JWT libraries or `infra/token`.
 - Signing-key lifecycle behavior must stay in `infra/token/keyset`.
-- Domain Authn packages must not mention JWT, JWKS, bearer-token compatibility,
+- Domain Authn packages must not mention JWT, JWKS, bearer-token reauthentication,
   key ids, algorithms, or token encoding details.

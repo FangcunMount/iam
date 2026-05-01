@@ -4,10 +4,10 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 type wechatIdentityResolver struct {

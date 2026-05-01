@@ -155,10 +155,10 @@ flowchart TD
 
 | 模块 | 当前注册服务 | 代码证据 | 合同 |
 | ---- | ---- | ---- | ---- |
-| AuthN | `AuthService`、`AccountOnboardingService`、`JWKSService` | [../../internal/apiserver/transport/grpc/service/authn/service.go](../../internal/apiserver/transport/grpc/service/authn/service.go) | [../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
-| Identity | `IdentityRead`、`ProfileLinkQuery`、`ProfileLinkCommand`、`IdentityLifecycle` | [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go) | [../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
-| IDP | `IDPService` | [../../internal/apiserver/transport/grpc/service/idp/service.go](../../internal/apiserver/transport/grpc/service/idp/service.go) | [../../api/grpc/iam/idp/v1/idp.proto](../../api/grpc/iam/idp/v1/idp.proto) |
-| AuthZ | `AuthorizationService` | [../../internal/apiserver/transport/grpc/service/authz/service.go](../../internal/apiserver/transport/grpc/service/authz/service.go) | [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto) |
+| AuthN | `AuthService`、`AccountOnboardingService`、`JWKSService` | [../../internal/apiserver/transport/grpc/service/authn/service.go](../../internal/apiserver/transport/grpc/service/authn/service.go) | [../../api/grpc/iam/authn/v2/authn.proto](../../api/grpc/iam/authn/v2/authn.proto) |
+| Identity | `IdentityRead`、`ProfileLinkQuery`、`ProfileLinkCommand`、`IdentityLifecycle` | [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go) | [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto) |
+| IDP | `IDPService` | [../../internal/apiserver/transport/grpc/service/idp/service.go](../../internal/apiserver/transport/grpc/service/idp/service.go) | [../../api/grpc/iam/idp/v2/idp.proto](../../api/grpc/iam/idp/v2/idp.proto) |
+| AuthZ | `AuthorizationService` | [../../internal/apiserver/transport/grpc/service/authz/service.go](../../internal/apiserver/transport/grpc/service/authz/service.go) | [../../api/grpc/iam/authz/v2/authz.proto](../../api/grpc/iam/authz/v2/authz.proto) |
 
 `Registry.RegisterServices()` 注册完成后调用 `MarkAllServicesServing()`，把整体和已注册业务服务标记为 `SERVING`。如果 server 为空，registry 会跳过并记录 warning。
 

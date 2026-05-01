@@ -3,8 +3,8 @@ package role
 import (
 	"context"
 
-	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type Catalog interface {

@@ -5,10 +5,10 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func (s *accountApplicationService) GetAccountByID(ctx context.Context, accountID meta.ID) (*AccountResult, error) {

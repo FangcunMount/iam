@@ -3,7 +3,7 @@ package rolebinding
 import (
 	"context"
 
-	bindingDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
+	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 )
 
 // Commands 承载角色绑定写用例；REST 以 role_id 写入，gRPC 以 role_name 写入。

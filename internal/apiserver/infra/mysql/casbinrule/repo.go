@@ -3,10 +3,10 @@ package casbinrule
 import (
 	"context"
 
-	appuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	casbinfacts "github.com/FangcunMount/iam/internal/apiserver/infra/casbin"
-	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	casbinfacts "github.com/FangcunMount/iam/v2/internal/apiserver/infra/casbin"
+	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

@@ -3,12 +3,12 @@ package identity
 import (
 	"context"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/errors"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/errors"
 )
 
 // CreateUser 创建用户。
-func (c *Client) CreateUser(ctx context.Context, req *identityv1.CreateUserRequest) (*identityv1.CreateUserResponse, error) {
+func (c *Client) CreateUser(ctx context.Context, req *identityv2.CreateUserRequest) (*identityv2.CreateUserResponse, error) {
 	resp, err := c.lifecycleService.CreateUser(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -17,7 +17,7 @@ func (c *Client) CreateUser(ctx context.Context, req *identityv1.CreateUserReque
 }
 
 // UpdateUser 更新用户。
-func (c *Client) UpdateUser(ctx context.Context, req *identityv1.UpdateUserRequest) (*identityv1.UpdateUserResponse, error) {
+func (c *Client) UpdateUser(ctx context.Context, req *identityv2.UpdateUserRequest) (*identityv2.UpdateUserResponse, error) {
 	resp, err := c.lifecycleService.UpdateUser(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -26,7 +26,7 @@ func (c *Client) UpdateUser(ctx context.Context, req *identityv1.UpdateUserReque
 }
 
 // DeactivateUser 停用用户。
-func (c *Client) DeactivateUser(ctx context.Context, req *identityv1.ChangeUserStatusRequest) (*identityv1.UserOperationResponse, error) {
+func (c *Client) DeactivateUser(ctx context.Context, req *identityv2.ChangeUserStatusRequest) (*identityv2.UserOperationResponse, error) {
 	resp, err := c.lifecycleService.DeactivateUser(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -35,7 +35,7 @@ func (c *Client) DeactivateUser(ctx context.Context, req *identityv1.ChangeUserS
 }
 
 // BlockUser 封禁用户。
-func (c *Client) BlockUser(ctx context.Context, req *identityv1.ChangeUserStatusRequest) (*identityv1.UserOperationResponse, error) {
+func (c *Client) BlockUser(ctx context.Context, req *identityv2.ChangeUserStatusRequest) (*identityv2.UserOperationResponse, error) {
 	resp, err := c.lifecycleService.BlockUser(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)

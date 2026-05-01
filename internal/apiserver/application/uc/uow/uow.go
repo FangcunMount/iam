@@ -3,9 +3,9 @@ package uow
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
 )
 
 // TxRepositories 聚合事务中可使用的仓储集合。

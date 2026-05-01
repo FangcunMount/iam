@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	appjwks "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
+	appjwks "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 )
 
 type applicationKeyManager struct {

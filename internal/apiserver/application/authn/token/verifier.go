@@ -5,9 +5,9 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 )
 
 type verifier struct {

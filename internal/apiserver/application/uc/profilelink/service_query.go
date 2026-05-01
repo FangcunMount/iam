@@ -3,8 +3,8 @@ package profilelink
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
 )
 
 // ==================================================

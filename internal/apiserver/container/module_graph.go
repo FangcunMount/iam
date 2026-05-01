@@ -1,8 +1,8 @@
 package container
 
 import (
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 )
 
 type moduleGraph struct {

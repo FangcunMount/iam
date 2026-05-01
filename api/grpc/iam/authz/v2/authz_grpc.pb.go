@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v5.29.3
-// source: iam/authz/v1/authz.proto
+// source: iam/authz/v2/authz.proto
 
-package authzv1
+package authzv2
 
 import (
 	context "context"
@@ -19,10 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthorizationService_Check_FullMethodName                    = "/iam.authz.v1.AuthorizationService/Check"
-	AuthorizationService_GetAuthorizationSnapshot_FullMethodName = "/iam.authz.v1.AuthorizationService/GetAuthorizationSnapshot"
-	AuthorizationService_GrantAssignment_FullMethodName          = "/iam.authz.v1.AuthorizationService/GrantAssignment"
-	AuthorizationService_RevokeAssignment_FullMethodName         = "/iam.authz.v1.AuthorizationService/RevokeAssignment"
+	AuthorizationService_Check_FullMethodName                    = "/iam.authz.v2.AuthorizationService/Check"
+	AuthorizationService_GetAuthorizationSnapshot_FullMethodName = "/iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot"
+	AuthorizationService_GrantAssignment_FullMethodName          = "/iam.authz.v2.AuthorizationService/GrantAssignment"
+	AuthorizationService_RevokeAssignment_FullMethodName         = "/iam.authz.v2.AuthorizationService/RevokeAssignment"
 )
 
 // AuthorizationServiceClient is the client API for AuthorizationService service.
@@ -222,7 +222,7 @@ func _AuthorizationService_RevokeAssignment_Handler(srv interface{}, ctx context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AuthorizationService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.authz.v1.AuthorizationService",
+	ServiceName: "iam.authz.v2.AuthorizationService",
 	HandlerType: (*AuthorizationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -243,5 +243,5 @@ var AuthorizationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/authz/v1/authz.proto",
+	Metadata: "iam/authz/v2/authz.proto",
 }

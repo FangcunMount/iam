@@ -3,8 +3,8 @@ package assembler
 import (
 	"time"
 
-	sessionDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
+	sessionDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 )
 
 type authnDomainComponents struct {

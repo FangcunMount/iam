@@ -4,8 +4,8 @@ Compare REST routes exposed in swagger (generated from code) with OpenAPI specs 
 Serves as a contract check: what code advertises vs what the spec documents.
 
 Normalization:
-- swagger basePath (e.g., /api/v1) + path are concatenated, then we strip a leading "/api"
-  to align with OpenAPI paths that start with "/v1/...".
+- swagger basePath (e.g., /api/v2) + path are concatenated, then we strip a leading "/api"
+  to align with OpenAPI paths that start with "/v2/...".
 - Path params are already in {param} style in both swagger and OpenAPI.
 """
 from pathlib import Path
@@ -15,15 +15,15 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 SWAGGER_PATH = ROOT / "internal/apiserver/docs/swagger.yaml"
 REST_SPECS = [
-    ROOT / "api/rest/authn.v1.yaml",
-    ROOT / "api/rest/identity.v1.yaml",
-    ROOT / "api/rest/authz.v1.yaml",
-    ROOT / "api/rest/idp.v1.yaml",
-    ROOT / "api/rest/suggest.v1.yaml",
+    ROOT / "api/rest/authn.v2.yaml",
+    ROOT / "api/rest/identity.v2.yaml",
+    ROOT / "api/rest/authz.v2.yaml",
+    ROOT / "api/rest/idp.v2.yaml",
+    ROOT / "api/rest/suggest.v2.yaml",
 ]
 IGNORE_ROUTES = {
-    "get /v1/authz/health",
-    "get /v1/idp/health",
+    "get /v2/authz/health",
+    "get /v2/idp/health",
 }
 
 

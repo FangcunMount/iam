@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authz "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	authz "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // Actor identifies the operator that changes the authorization policy.

@@ -3,7 +3,7 @@ package uc
 import (
 	"google.golang.org/grpc"
 
-	"github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/uc/identity"
 )
 
 // Service 聚合 UC 模块的所有 gRPC 服务

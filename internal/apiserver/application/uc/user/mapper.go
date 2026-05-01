@@ -2,10 +2,10 @@ package user
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============= DTO 转换辅助函数 =============

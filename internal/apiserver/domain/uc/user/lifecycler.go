@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // lifecycler 用户生命周期管理服务实现

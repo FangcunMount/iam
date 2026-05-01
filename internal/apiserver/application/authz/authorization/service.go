@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 type DecisionEngine interface {

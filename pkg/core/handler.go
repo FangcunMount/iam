@@ -8,8 +8,8 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/pkg/tenant"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 // BaseHandler 基础Handler结构

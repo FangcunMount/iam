@@ -5,38 +5,14 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
-
-// LoginRequest 统一登录请求
-type LoginRequest struct {
-	Method      string          `json:"method" binding:"required"`      // 认证方式：password | phone_otp | wechat | wecom；v1 legacy inference 的方法标识
-	DeviceID    string          `json:"device_id,omitempty"`            // 设备 ID
-	Credentials json.RawMessage `json:"credentials" binding:"required"` // 凭证（根据 method 不同而不同）；v1 legacy inference 的凭证载荷
-}
-
-// Validate 验证登录请求
-func (r *LoginRequest) Validate() error {
-	validMethods := map[string]bool{
-		"password":  true,
-		"phone_otp": true,
-		"wechat":    true,
-		"wecom":     true,
-	}
-	if !validMethods[r.Method] {
-		return perrors.WithCode(code.ErrInvalidArgument, "invalid authentication method: %s", r.Method)
-	}
-	if len(r.Credentials) == 0 {
-		return perrors.WithCode(code.ErrInvalidArgument, "credentials is required")
-	}
-	return nil
-}
 
 // LoginV2Request 是 v2 显式登录请求。
 type LoginV2Request struct {
-	AuthMethod    string          `json:"auth_method"`         // 认证方式：password | phone_otp | wechat | wecom
-	DeviceID      string          `json:"device_id,omitempty"` // 设备 ID
-	MethodPayload json.RawMessage `json:"method_payload"`      // 凭证（根据 auth_method 不同而不同）
+	AuthMethod    string          `json:"auth_method" binding:"required"`    // 认证方式：password | phone_otp | wechat | wecom
+	DeviceID      string          `json:"device_id,omitempty"`               // 设备 ID
+	MethodPayload json.RawMessage `json:"method_payload" binding:"required"` // 凭证（根据 auth_method 不同而不同）
 }
 
 // Validate 验证 v2 登录请求。

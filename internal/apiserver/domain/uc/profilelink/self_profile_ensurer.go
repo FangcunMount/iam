@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
 )
 
 // SelfProfileEnsurer ensures every login user has exactly one active self profile link.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -88,7 +88,7 @@ func (h *ServiceAuthHelper) closeCircuit() {
 }
 
 func (h *ServiceAuthHelper) refreshToken(ctx context.Context) error {
-	req := &authnv1.IssueServiceTokenRequest{
+	req := &authnv2.IssueServiceTokenRequest{
 		Subject:  h.config.ServiceID,
 		Audience: h.config.TargetAudience,
 	}

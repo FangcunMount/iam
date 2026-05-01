@@ -37,13 +37,13 @@ sequenceDiagram
 
 | 需求 | IAM 能力 | 推荐入口 |
 | ---- | ---- | ---- |
-| 用户登录 | AuthN login | REST `/api/v1/authn/login` 或 `/api/v2/authn/login` |
-| Token 在线校验 | VerifyToken | REST `/api/v1/authn/verify` 或 gRPC `VerifyToken` |
+| 用户登录 | AuthN login | REST `/api/v2/authn/login` 或 `/api/v2/authn/login` |
+| Token 在线校验 | VerifyToken | REST `/api/v2/authn/verify` 或 gRPC `VerifyToken` |
 | 离线验签 | JWKS + verifier | `/.well-known/jwks.json` 或 SDK verifier |
 | 服务间 token | IssueServiceToken | SDK `serviceauth` 或 gRPC `IssueServiceToken` |
-| 授权判定 | AuthZ Check | REST `/api/v1/authz/check` 或 gRPC `Check` |
+| 授权判定 | AuthZ Check | REST `/api/v2/authz/check` 或 gRPC `Check` |
 | 本地授权缓存 | Authorization Snapshot | gRPC `GetAuthorizationSnapshot` |
-| 用户/profile 关系 | ProfileLink | REST `/api/v1/identity/profile-links` 或 gRPC `ProfileLinkQuery` |
+| 用户/profile 关系 | ProfileLink | REST `/api/v2/identity/profile-links` 或 gRPC `ProfileLinkQuery` |
 
 ## QS 应维护的本地上下文
 

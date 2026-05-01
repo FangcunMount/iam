@@ -11,11 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
-	uchandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
-	idphandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
+	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
 )
 
 func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
@@ -31,26 +31,25 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 	}{
 		{http.MethodGet, "/health"},
 		{http.MethodGet, "/.well-known/jwks.json"},
-		{http.MethodPost, "/api/v1/authn/login"},
 		{http.MethodPost, "/api/v2/authn/login"},
-		{http.MethodPost, "/api/v1/authn/login/prep/phone-otp"},
-		{http.MethodPost, "/api/v1/authn/refresh_token"},
-		{http.MethodPost, "/api/v1/authn/signups/wechat-miniprogram"},
-		{http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure"},
-		{http.MethodGet, "/api/v1/authz/health"},
-		{http.MethodPost, "/api/v1/authz/check"},
-		{http.MethodGet, "/api/v1/authz/roles"},
-		{http.MethodGet, "/api/v1/identity/me"},
-		{http.MethodPost, "/api/v1/identity/profiles"},
-		{http.MethodGet, "/api/v1/idp/health"},
-		{http.MethodGet, "/api/v1/idp/wechat-apps"},
-		{http.MethodGet, "/api/v1/suggest/profile"},
+		{http.MethodPost, "/api/v2/authn/login/prep/phone-otp"},
+		{http.MethodPost, "/api/v2/authn/refresh_token"},
+		{http.MethodPost, "/api/v2/authn/signups/wechat-miniprogram"},
+		{http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure"},
+		{http.MethodGet, "/api/v2/authz/health"},
+		{http.MethodPost, "/api/v2/authz/check"},
+		{http.MethodGet, "/api/v2/authz/roles"},
+		{http.MethodGet, "/api/v2/identity/me"},
+		{http.MethodPost, "/api/v2/identity/profiles"},
+		{http.MethodGet, "/api/v2/idp/health"},
+		{http.MethodGet, "/api/v2/idp/wechat-apps"},
+		{http.MethodGet, "/api/v2/suggest/profile"},
 		{http.MethodGet, "/debug/cache-governance/catalog"},
-		{http.MethodPost, "/api/v1/admin/sessions/:sessionId/revoke"},
+		{http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke"},
 	} {
 		assertRoutePresent(t, routes, route.method, route.path)
 	}
-	assertRouteAbsent(t, routes, http.MethodPost, "/api/v1/authn/accounts/wechat/register")
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/authn/accounts/wechat/register")
 }
 
 func TestRouterOpenAPIContractCoversRegisteredPublicRoutes(t *testing.T) {
@@ -127,12 +126,11 @@ func loadRESTOpenAPISpecs(t *testing.T) openAPISpec {
 	root := repoRoot(t)
 	paths := map[string]map[string]any{}
 	for _, rel := range []string{
-		"api/rest/authn.v1.yaml",
 		"api/rest/authn.v2.yaml",
-		"api/rest/authz.v1.yaml",
-		"api/rest/identity.v1.yaml",
-		"api/rest/idp.v1.yaml",
-		"api/rest/suggest.v1.yaml",
+		"api/rest/authz.v2.yaml",
+		"api/rest/identity.v2.yaml",
+		"api/rest/idp.v2.yaml",
+		"api/rest/suggest.v2.yaml",
 	} {
 		data, err := os.ReadFile(filepath.Join(root, rel))
 		if err != nil {
@@ -155,29 +153,29 @@ func loadRESTOpenAPISpecs(t *testing.T) openAPISpec {
 }
 
 func routeMustBeDocumented(route gin.RouteInfo) bool {
-	if route.Path == "/.well-known/jwks.json" || route.Path == "/api/v1/.well-known/jwks.json" {
+	if route.Path == "/.well-known/jwks.json" || route.Path == "/api/v2/.well-known/jwks.json" {
 		return true
 	}
-	if !strings.HasPrefix(route.Path, "/api/v1/") && !strings.HasPrefix(route.Path, "/api/v2/") {
+	if !strings.HasPrefix(route.Path, "/api/v2/") {
 		return false
 	}
 	for _, prefix := range []string{
-		"/api/v1/public/",
-		"/api/v1/internal/",
-		"/api/v1/admin/sessions/",
-		"/api/v1/admin/accounts/",
-		"/api/v1/admin/users/",
+		"/api/v2/public/",
+		"/api/v2/internal/",
+		"/api/v2/admin/sessions/",
+		"/api/v2/admin/accounts/",
+		"/api/v2/admin/users/",
 	} {
 		if strings.HasPrefix(route.Path, prefix) {
 			return false
 		}
 	}
 	for _, path := range []string{
-		"/api/v1/admin/users",
-		"/api/v1/admin/statistics",
-		"/api/v1/admin/logs",
-		"/api/v1/idp/health",
-		"/api/v1/authz/health",
+		"/api/v2/admin/users",
+		"/api/v2/admin/statistics",
+		"/api/v2/admin/logs",
+		"/api/v2/idp/health",
+		"/api/v2/authz/health",
 	} {
 		if route.Path == path {
 			return false
@@ -187,7 +185,6 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 }
 
 func normalizeOpenAPIPath(path string) string {
-	path = strings.TrimPrefix(path, "/api/v1")
 	path = strings.TrimPrefix(path, "/api/v2")
 	path = strings.ReplaceAll(path, ":accountId", "{accountId}")
 	path = strings.ReplaceAll(path, ":sessionId", "{sessionId}")

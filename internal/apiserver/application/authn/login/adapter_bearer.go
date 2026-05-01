@@ -5,10 +5,10 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type bearerAdapter struct {

@@ -3,9 +3,9 @@ package suggest
 import (
 	"github.com/gin-gonic/gin"
 
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
-	"github.com/FangcunMount/iam/pkg/core"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
 // Dependencies wires runtime dependencies for the handler.
@@ -20,7 +20,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		return
 	}
 
-	group := engine.Group("/api/v1/suggest")
+	group := engine.Group("/api/v2/suggest")
 	group.Use(deps.AuthMiddleware)
 
 	h := NewHandler(deps.Service)

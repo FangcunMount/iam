@@ -7,11 +7,11 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"github.com/FangcunMount/iam/pkg/core"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
 // BaseHandler 继承公共的 BaseHandler，并添加 authz 模块特定的方法

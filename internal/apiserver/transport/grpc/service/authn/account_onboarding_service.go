@@ -4,15 +4,15 @@ import (
 	"context"
 	"strings"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (s *accountOnboardingServer) CreateOperationAccount(ctx context.Context, req *authnv1.CreateOperationAccountRequest) (*authnv1.CreateOperationAccountResponse, error) {
+func (s *accountOnboardingServer) CreateOperationAccount(ctx context.Context, req *authnv2.CreateOperationAccountRequest) (*authnv2.CreateOperationAccountResponse, error) {
 	if s.accountOnboarder == nil {
 		return nil, status.Error(codes.Unimplemented, "account onboarding service not configured")
 	}
@@ -74,7 +74,7 @@ func (s *accountOnboardingServer) CreateOperationAccount(ctx context.Context, re
 		return nil, toGRPCError(err)
 	}
 
-	return &authnv1.CreateOperationAccountResponse{
+	return &authnv2.CreateOperationAccountResponse{
 		UserId:       result.UserID.String(),
 		AccountId:    result.AccountID.String(),
 		CredentialId: result.CredentialID.String(),

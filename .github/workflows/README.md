@@ -540,7 +540,7 @@ Actions → Database Operations → Run workflow → 选择 "migrate"
 
 #### 查看工作流状态
 
-访问: `https://github.com/FangcunMount/iam/actions`
+访问: `https://github.com/FangcunMount/iam/v2/actions`
 
 **自动监控时间表**:
 
@@ -553,9 +553,9 @@ Actions → Database Operations → Run workflow → 选择 "migrate"
 在项目 `README.md` 中添加：
 
 ```markdown
-![CI/CD](https://github.com/FangcunMount/iam/workflows/CI/CD%20Pipeline/badge.svg)
-![Health](https://github.com/FangcunMount/iam/workflows/Server%20Health%20Check/badge.svg)
-![Ping](https://github.com/FangcunMount/iam/workflows/Ping%20Runner/badge.svg)
+![CI/CD](https://github.com/FangcunMount/iam/v2/workflows/CI/CD%20Pipeline/badge.svg)
+![Health](https://github.com/FangcunMount/iam/v2/workflows/Server%20Health%20Check/badge.svg)
+![Ping](https://github.com/FangcunMount/iam/v2/workflows/Ping%20Runner/badge.svg)
 ```
 
 #### GitHub Actions 通知设置
@@ -900,7 +900,7 @@ sudo chown -R $USER:$USER /opt/iam /opt/backups/iam
 
 # 克隆仓库
 cd /opt
-git clone https://github.com/FangcunMount/iam.git
+git clone https://github.com/FangcunMount/iam/v2.git
 cd iam
 
 # 安装依赖
@@ -1000,7 +1000,7 @@ journalctl -u iam-apiserver -f
 
 #### 查看工作流状态
 
-- 访问: `https://github.com/FangcunMount/iam/actions`
+- 访问: `https://github.com/FangcunMount/iam/v2/actions`
 - 每个工作流执行都有详细日志
 
 #### 自动健康检查时间表
@@ -1014,9 +1014,9 @@ journalctl -u iam-apiserver -f
 在项目 README.md 中添加：
 
 ```markdown
-![CI/CD](https://github.com/FangcunMount/iam/workflows/CI/CD%20Pipeline/badge.svg)
-![Health](https://github.com/FangcunMount/iam/workflows/Server%20Health%20Check/badge.svg)
-![Ping](https://github.com/FangcunMount/iam/workflows/Ping%20Runner/badge.svg)
+![CI/CD](https://github.com/FangcunMount/iam/v2/workflows/CI/CD%20Pipeline/badge.svg)
+![Health](https://github.com/FangcunMount/iam/v2/workflows/Server%20Health%20Check/badge.svg)
+![Ping](https://github.com/FangcunMount/iam/v2/workflows/Ping%20Runner/badge.svg)
 ```
 
 ---

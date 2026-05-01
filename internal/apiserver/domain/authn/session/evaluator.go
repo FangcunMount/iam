@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	accountdomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	userdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	accountdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type subjectAccessEvaluator struct {

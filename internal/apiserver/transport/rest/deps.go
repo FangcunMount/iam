@@ -3,14 +3,14 @@ package rest
 import (
 	"time"
 
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
-	uchandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
-	idphandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
-	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
+	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
+	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 // RouterOptions carries transport bootstrap decisions into the REST router.

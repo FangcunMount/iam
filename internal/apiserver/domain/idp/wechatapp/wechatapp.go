@@ -1,7 +1,7 @@
 package wechatapp
 
 import (
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // WechatApp 微信应用领域对象

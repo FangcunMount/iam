@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
 )
 
 // ============= 当前调用者用例接口（Driving Ports）=============

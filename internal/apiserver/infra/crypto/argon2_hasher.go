@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 )
 
 // Argon2Hasher 基于Argon2id的密码哈希实现

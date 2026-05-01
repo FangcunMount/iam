@@ -200,15 +200,15 @@ flowchart TD
 | 路由面 | 示例 | 认证/授权边界 |
 | ---- | ---- | ---- |
 | Base | `/health`、`/ping`、`/debug/routes`、`/debug/modules`、`/openapi`、`/swagger` | 不要求用户 JWT。 |
-| Public info | `/api/v1/public/info` | 不要求用户 JWT。 |
-| AuthN 登录与令牌 | `/api/v1/authn/login`、`/api/v2/authn/login`、`/api/v1/authn/refresh_token`、`/api/v1/authn/verify` | 不由 JWT middleware 保护；它们属于签发、刷新、校验令牌的入口。 |
-| JWKS public | `/.well-known/jwks.json`、`/api/v1/.well-known/jwks.json` | 不要求用户 JWT。 |
-| AuthZ | `/api/v1/authz/*` | `registerAuthzRoutes` 要求 AuthZ handlers 和 JWT middleware；模块内 `/health` 也只在 AuthZ module registration 发生时出现。 |
-| Identity/ProfileLink | `/api/v1/identity/*` | 要求 JWT middleware；ProfileLink 是当前档案关系能力的标准术语。 |
-| Suggest | `/api/v1/suggest/profile` | 要求 Suggest service 和 JWT middleware。 |
-| IDP admin | `/api/v1/idp/wechat-apps/*` | 需要 admin middlewares；IDP health 不需要用户 JWT。 |
-| AuthN JWKS admin | `/api/v1/authn/admin/jwks/*` | 需要 admin middlewares。 |
-| Platform admin | `/api/v1/admin/*` | 需要 `AuthRequired` 和 `RequirePlatformAdmin`。 |
+| Public info | `/api/v2/public/info` | 不要求用户 JWT。 |
+| AuthN 登录与令牌 | `/api/v2/authn/login`、`/api/v2/authn/login`、`/api/v2/authn/refresh_token`、`/api/v2/authn/verify` | 不由 JWT middleware 保护；它们属于签发、刷新、校验令牌的入口。 |
+| JWKS public | `/.well-known/jwks.json`、`/api/v2/.well-known/jwks.json` | 不要求用户 JWT。 |
+| AuthZ | `/api/v2/authz/*` | `registerAuthzRoutes` 要求 AuthZ handlers 和 JWT middleware；模块内 `/health` 也只在 AuthZ module registration 发生时出现。 |
+| Identity/ProfileLink | `/api/v2/identity/*` | 要求 JWT middleware；ProfileLink 是当前档案关系能力的标准术语。 |
+| Suggest | `/api/v2/suggest/profile` | 要求 Suggest service 和 JWT middleware。 |
+| IDP admin | `/api/v2/idp/wechat-apps/*` | 需要 admin middlewares；IDP health 不需要用户 JWT。 |
+| AuthN JWKS admin | `/api/v2/authn/admin/jwks/*` | 需要 admin middlewares。 |
+| Platform admin | `/api/v2/admin/*` | 需要 `AuthRequired` 和 `RequirePlatformAdmin`。 |
 
 当前实现选择“不满足依赖就不注册受保护路由”。这比注册后在请求时返回 500 更容易被 `/debug/routes` 发现，也避免了安全依赖缺失时误暴露业务面。
 

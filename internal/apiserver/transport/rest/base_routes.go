@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	openapiFS "github.com/FangcunMount/iam/api"
-	swaggerui "github.com/FangcunMount/iam/web/swagger-ui"
+	openapiFS "github.com/FangcunMount/iam/v2/api"
+	swaggerui "github.com/FangcunMount/iam/v2/web/swagger-ui"
 )
 
 func (r *Router) registerBaseRoutes(engine *gin.Engine) {
@@ -18,7 +18,7 @@ func (r *Router) registerBaseRoutes(engine *gin.Engine) {
 	engine.StaticFS("/openapi", http.FS(openapiFS.RestFS))
 	engine.StaticFS("/swagger", http.FS(swaggerui.DistFS))
 
-	publicAPI := engine.Group("/api/v1/public")
+	publicAPI := engine.Group("/api/v2/public")
 	{
 		publicAPI.GET("/info", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{

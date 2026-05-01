@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: IAM · Suggest API
-  version: 1.0.0
+  title: IAM · Suggest API v2
+  version: 2.0.0
   description: 联想搜索 REST API
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam
+    url: https://github.com/FangcunMount/iam/v2
 servers:
-- url: https://iam.fangcunmount.cn/api/v1
+- url: https://iam.fangcunmount.cn/api/v2
   description: Production
-- url: http://localhost:18081/api/v1
+- url: http://localhost:18081/api/v2
   description: Local Dev
 security:
 - bearerAuth: []
@@ -37,14 +37,14 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_domain_suggest.Term'
+                  $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term'
                 type: array
         '400':
           description: 参数缺失
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_pkg_core.ErrResponse'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -52,7 +52,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
-    github_com_FangcunMount_iam_internal_apiserver_domain_suggest.Term:
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term:
       properties:
         id:
           example: ''
@@ -64,7 +64,7 @@ components:
         weight:
           type: integer
       type: object
-    github_com_FangcunMount_iam_pkg_core.ErrResponse:
+    github_com_FangcunMount_iam_v2_pkg_core.ErrResponse:
       properties:
         code:
           description: Code 定义了业务错误代码

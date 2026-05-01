@@ -5,8 +5,8 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // SignOut 编排登出：撤销调用者提供的访问令牌或刷新令牌。

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

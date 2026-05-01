@@ -3,13 +3,13 @@ package idp
 import (
 	"context"
 
-	idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/errors"
+	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/errors"
 )
 
 // GetWechatApp 根据 AppID 查询微信应用。
-func (c *Client) GetWechatApp(ctx context.Context, appID string) (*idpv1.GetWechatAppResponse, error) {
-	resp, err := c.idpService.GetWechatApp(ctx, &idpv1.GetWechatAppRequest{
+func (c *Client) GetWechatApp(ctx context.Context, appID string) (*idpv2.GetWechatAppResponse, error) {
+	resp, err := c.idpService.GetWechatApp(ctx, &idpv2.GetWechatAppRequest{
 		AppId: appID,
 	})
 	if err != nil {

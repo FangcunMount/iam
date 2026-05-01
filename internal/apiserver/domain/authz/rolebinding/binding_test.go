@@ -3,7 +3,7 @@ package rolebinding_test
 import (
 	"testing"
 
-	binding "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
+	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	"github.com/stretchr/testify/assert"
 )
 

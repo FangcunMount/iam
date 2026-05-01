@@ -3,12 +3,12 @@ package handler
 import (
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	binding "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func TestRoleHandlerToRoleResponse(t *testing.T) {

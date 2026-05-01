@@ -3,10 +3,10 @@ package login
 import (
 	"context"
 
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============= 应用服务接口（Driving Ports）=============
@@ -32,14 +32,14 @@ const (
 	AuthTypeWechat AuthType = "wechat"
 	// AuthTypeWecom 是 public wire value；它映射到领域凭据类型 oauth_wecom。
 	AuthTypeWecom    AuthType = "wecom"
-	AuthTypeJWTToken AuthType = "jwt_token" // bearer-token compatibility method
+	AuthTypeJWTToken AuthType = "jwt_token" // internal bearer-token reauthentication method
 )
 
 // SignInSelectionMode 控制登录命令如何选择登录方式。
 type SignInSelectionMode string
 
 const (
-	// SignInSelectionLegacy 保持 v1 旧行为：根据字段存在性推断登录方式，AuthType 不作为权威字段。
+	// SignInSelectionLegacy keeps field-inference behavior for internal callers.
 	SignInSelectionLegacy SignInSelectionMode = ""
 	// SignInSelectionExplicit 用于 v2：AuthType 是权威字段，只读取对应 method payload 映射出的字段。
 	SignInSelectionExplicit SignInSelectionMode = "explicit"

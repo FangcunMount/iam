@@ -3,8 +3,8 @@ package container
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
+	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
 )
 
 func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testing.T) {

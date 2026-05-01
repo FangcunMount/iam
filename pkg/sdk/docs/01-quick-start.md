@@ -71,7 +71,7 @@ log.Printf("用户: %s", user.GetProfile().GetDisplayName())
 ## 📦 安装
 
 ```bash
-go get github.com/FangcunMount/iam/pkg/sdk
+go get github.com/FangcunMount/iam/v2/pkg/sdk
 ```
 
 ## 示例约定
@@ -95,7 +95,7 @@ if err != nil {
 }
 defer client.Close()
 
-result, err := client.Auth().VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+result, err := client.Auth().VerifyToken(ctx, &authnv2.VerifyTokenRequest{
     AccessToken: "your-token-here",
 })
 ```
@@ -182,17 +182,17 @@ cfg := &sdk.Config{
 
 ```go
 // 验证 Token
-resp, err := client.Auth().VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+resp, err := client.Auth().VerifyToken(ctx, &authnv2.VerifyTokenRequest{
     AccessToken: token,
 })
 
 // 刷新 Token
-resp, err := client.Auth().RefreshToken(ctx, &authnv1.RefreshTokenRequest{
+resp, err := client.Auth().RefreshToken(ctx, &authnv2.RefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 
 // 撤销 Token
-_, err := client.Auth().RevokeToken(ctx, &authnv1.RevokeTokenRequest{
+_, err := client.Auth().RevokeToken(ctx, &authnv2.RevokeTokenRequest{
     AccessToken: token,
 })
 ```
@@ -204,9 +204,9 @@ _, err := client.Auth().RevokeToken(ctx, &authnv1.RevokeTokenRequest{
 user, err := client.Identity().GetUser(ctx, "user-id-123")
 
 // 创建用户
-user, err := client.Identity().CreateUser(ctx, &identityv1.CreateUserRequest{
-    User: &identityv1.User{
-        Profile: &identityv1.UserProfile{
+user, err := client.Identity().CreateUser(ctx, &identityv2.CreateUserRequest{
+    User: &identityv2.User{
+        Profile: &identityv2.UserProfile{
             DisplayName: "张三",
             Email:       "zhangsan@example.com",
         },
@@ -221,7 +221,7 @@ users, err := client.Identity().BatchGetUsers(ctx, []string{"user-1", "user-2"})
 
 ```go
 // 单次权限判定
-resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
+resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
     Subject: "user:user-123",
     Domain:  "default",
     Object:  "resource:profile_profile",

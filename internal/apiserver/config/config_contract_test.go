@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
+	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	"github.com/spf13/viper"
 )
 

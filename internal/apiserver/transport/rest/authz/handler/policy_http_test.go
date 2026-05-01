@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	policyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
+	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/stretchr/testify/require"
 
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {

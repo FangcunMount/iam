@@ -7,9 +7,9 @@ import (
 	"time"
 
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/redis/go-redis/v9"
 )
 

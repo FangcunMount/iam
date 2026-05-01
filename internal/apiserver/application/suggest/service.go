@@ -3,7 +3,7 @@ package suggest
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 // Service 提供 suggest 查询

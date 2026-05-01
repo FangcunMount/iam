@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	gormuow "github.com/FangcunMount/iam/pkg/uow/gorm"
+	gormuow "github.com/FangcunMount/iam/v2/pkg/uow/gorm"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

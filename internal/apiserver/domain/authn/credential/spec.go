@@ -1,6 +1,6 @@
 package credential
 
-import "github.com/FangcunMount/iam/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 // ==================== 规格对象（Specification）====================
 // 用于封装创建或修改凭据的业务规则参数

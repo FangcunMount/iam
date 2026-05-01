@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ================== External Service Interfaces (Driven Ports) ==================

@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
-	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 // Dependencies describes the external collaborators needed to expose authn endpoints.
@@ -23,21 +23,19 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		return
 	}
 
-	v1 := engine.Group("/api/v1/authn")
-	v2 := engine.Group("/api/v2/authn")
+	api := engine.Group("/api/v2/authn")
 
-	// 注册符合 API 文档的认证端点
-	registerAuthEndpointsV1(v1.Group(""), deps.AuthHandler)
-	registerAuthEndpointsV2(v2.Group(""), deps.AuthHandler)
+	// 注册符合 v2 API 文档的认证端点
+	registerAuthEndpoints(api.Group(""), deps.AuthHandler)
 
 	// 注册账户管理端点
-	registerAccountEndpoints(v1.Group(""), deps.AccountHandler)
+	registerAccountEndpoints(api.Group(""), deps.AccountHandler)
 
 	// 注册 JWKS 端点（公开端点）
 	registerJWKSPublicEndpoints(engine, deps.JWKSHandler)
 
 	// 注册 JWKS 管理端点（管理员接口）
-	registerJWKSAdminEndpoints(v1.Group("/admin"), deps.JWKSHandler, deps.AdminMiddlewares...)
+	registerJWKSAdminEndpoints(api.Group("/admin"), deps.JWKSHandler, deps.AdminMiddlewares...)
 }
 
 // RegisterSeedMock exposes the internal mock-consumer ensure endpoint when explicitly enabled.
@@ -50,33 +48,24 @@ func RegisterSeedMock(engine *gin.Engine, accountHandler *authhandler.AccountHan
 		return
 	}
 
-	internal := engine.Group("/api/v1/internal/authn")
+	internal := engine.Group("/api/v2/internal/authn")
 	internal.Use(authnMiddleware.RequireSeedMockSecret(sharedSecret))
 	registerInternalMockConsumerEndpoints(internal, accountHandler)
 }
 
-// registerAuthEndpointsV1 注册 v1 认证端点。
-func registerAuthEndpointsV1(group *gin.RouterGroup, handler *authhandler.AuthHandler) {
+// registerAuthEndpoints 注册 v2 显式认证端点。
+func registerAuthEndpoints(group *gin.RouterGroup, handler *authhandler.AuthHandler) {
 	if group == nil || handler == nil {
 		return
 	}
 
 	// 认证端点(符合 API 文档)
-	group.POST("/login", handler.Login) // POST /v1/authn/login - 统一登录
+	group.POST("/login", handler.LoginV2)
 	// 登录预准备（发码、未来扫码会话等）
 	group.POST("/login/prep/phone-otp", handler.PreparePhoneOTPLogin)
-	group.POST("/refresh_token", handler.RefreshToken) // POST /v1/auth/refresh_token - 刷新令牌
-	group.POST("/logout", handler.Logout)              // POST /v1/auth/logout - 登出
-	group.POST("/verify", handler.VerifyToken)         // POST /v1/auth/verify - 验证令牌
-}
-
-// registerAuthEndpointsV2 注册 v2 显式认证端点。
-func registerAuthEndpointsV2(group *gin.RouterGroup, handler *authhandler.AuthHandler) {
-	if group == nil || handler == nil {
-		return
-	}
-
-	group.POST("/login", handler.LoginV2)
+	group.POST("/refresh_token", handler.RefreshToken)
+	group.POST("/logout", handler.Logout)
+	group.POST("/verify", handler.VerifyToken)
 }
 
 // registerJWKSPublicEndpoints 注册 JWKS 公开端点
@@ -87,7 +76,7 @@ func registerJWKSPublicEndpoints(engine *gin.Engine, handler *authhandler.JWKSHa
 
 	// JWKS 公开端点（无需认证）
 	engine.GET("/.well-known/jwks.json", handler.GetJWKS)
-	engine.GET("/api/v1/.well-known/jwks.json", handler.GetJWKS)
+	engine.GET("/api/v2/.well-known/jwks.json", handler.GetJWKS)
 }
 
 // registerJWKSAdminEndpoints 注册 JWKS 管理端点
@@ -112,16 +101,16 @@ func registerJWKSAdminEndpoints(admin *gin.RouterGroup, handler *authhandler.JWK
 	}
 }
 
-func registerAccountEndpoints(v1 *gin.RouterGroup, h *authhandler.AccountHandler) {
-	if v1 == nil || h == nil {
+func registerAccountEndpoints(api *gin.RouterGroup, h *authhandler.AccountHandler) {
+	if api == nil || h == nil {
 		return
 	}
 
-	signups := v1.Group("/signups")
+	signups := api.Group("/signups")
 	signups.POST("/wechat-miniprogram", h.SignUpWithWeChatMiniProgram)
 
 	// 账户查询和管理（需要认证）
-	accounts := v1.Group("/accounts")
+	accounts := api.Group("/accounts")
 	accounts.GET("/:accountId", h.GetAccountByID)
 	accounts.PUT("/:accountId/profile", h.UpdateProfile)
 	accounts.PUT("/:accountId/unionid", h.SetUnionID)
@@ -129,11 +118,11 @@ func registerAccountEndpoints(v1 *gin.RouterGroup, h *authhandler.AccountHandler
 	accounts.POST("/:accountId/disable", h.DisableAccount)
 }
 
-func registerInternalMockConsumerEndpoints(v1 *gin.RouterGroup, h *authhandler.AccountHandler) {
-	if v1 == nil || h == nil {
+func registerInternalMockConsumerEndpoints(api *gin.RouterGroup, h *authhandler.AccountHandler) {
+	if api == nil || h == nil {
 		return
 	}
 
-	mockConsumers := v1.Group("/mock-consumers")
+	mockConsumers := api.Group("/mock-consumers")
 	mockConsumers.POST("/ensure", h.EnsureMockConsumer)
 }

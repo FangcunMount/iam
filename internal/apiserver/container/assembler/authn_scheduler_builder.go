@@ -2,7 +2,7 @@ package assembler
 
 import (
 	"github.com/FangcunMount/component-base/pkg/log"
-	schedulerInfra "github.com/FangcunMount/iam/internal/apiserver/infra/scheduler"
+	schedulerInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/scheduler"
 )
 
 func (m *AuthnModule) initializeSchedulers() {

@@ -3,7 +3,7 @@ package assembler
 import (
 	"testing"
 
-	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
+	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 	"gorm.io/driver/sqlite"

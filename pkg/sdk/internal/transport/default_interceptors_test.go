@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -100,7 +100,7 @@ func invokeUnaryChain(t *testing.T, interceptors []grpc.UnaryClientInterceptor, 
 			captured = md
 			return err
 		}
-		return interceptors[idx](current, "/iam.authn.v1.AuthService/VerifyToken", nil, nil, nil, func(nextCtx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+		return interceptors[idx](current, "/iam.authn.v2.AuthService/VerifyToken", nil, nil, nil, func(nextCtx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 			return call(idx+1, nextCtx)
 		})
 	}

@@ -8,8 +8,8 @@ import (
 	"github.com/silenceper/wechat/v2/cache"
 	workConfig "github.com/silenceper/wechat/v2/work/config"
 
-	authPort "github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	wechatAuthPort "github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi/port"
+	authPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	wechatAuthPort "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi/port"
 )
 
 // IdentityProviderImpl 微信身份提供商的实现

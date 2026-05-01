@@ -3,7 +3,7 @@ package account
 import (
 	"fmt"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Account 第三方登录账号实体

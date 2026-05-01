@@ -4,9 +4,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/request"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/response"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/request"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/response"
 )
 
 // WechatAppHandler 微信应用管理 REST 处理器

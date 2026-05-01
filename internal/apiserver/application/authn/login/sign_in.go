@@ -5,11 +5,11 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"github.com/FangcunMount/iam/pkg/tenant"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 // SignIn 编排一次登录：选择登录方式、准备领域 proof、调用领域认证并签发令牌。

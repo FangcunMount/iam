@@ -2,8 +2,8 @@ package profile
 
 import (
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Profile 档案（档案）

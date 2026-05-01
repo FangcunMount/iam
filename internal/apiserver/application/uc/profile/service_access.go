@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============================================

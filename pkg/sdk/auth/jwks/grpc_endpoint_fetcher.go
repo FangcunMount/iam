@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -15,7 +15,7 @@ import (
 type GRPCEndpointFetcher struct {
 	endpoint string
 	conn     *grpc.ClientConn
-	client   authnv1.JWKSServiceClient
+	client   authnv2.JWKSServiceClient
 	next     KeyFetcher
 	stats    *FetcherStats
 
@@ -60,7 +60,7 @@ func (f *GRPCEndpointFetcher) init(ctx context.Context) error {
 			return
 		}
 		f.conn = conn
-		f.client = authnv1.NewJWKSServiceClient(conn)
+		f.client = authnv2.NewJWKSServiceClient(conn)
 	})
 	return f.initErr
 }
@@ -72,7 +72,7 @@ func (f *GRPCEndpointFetcher) Fetch(ctx context.Context) (jwk.Set, error) {
 		return f.tryNext(ctx, err)
 	}
 
-	resp, err := f.client.GetJWKS(ctx, &authnv1.GetJWKSRequest{})
+	resp, err := f.client.GetJWKS(ctx, &authnv2.GetJWKSRequest{})
 	if err != nil {
 		return f.tryNext(ctx, err)
 	}

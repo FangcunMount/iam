@@ -1,8 +1,8 @@
 package account
 
 import (
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 )
 
 type accountApplicationService struct {

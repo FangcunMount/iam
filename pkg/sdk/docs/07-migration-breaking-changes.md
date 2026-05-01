@@ -15,7 +15,7 @@
 - `pkg/sdk/transport` 和 `pkg/sdk/observability` 已经移入 `pkg/sdk/internal/...`，不再对外公开
 - `pkg/sdk/errors` 只保留小型 facade；高级 `Analyze / matcher / handler` 能力已收回内部
 - `pkg/sdk/auth` 兼容 façade 已删除，认证入口统一切到 `client`、`jwks`、`verifier`、`serviceauth`
-- REST AuthN v2 登录新增入口为 `pkg/sdk/auth/loginv2`；旧 gRPC v1 认证客户端仍保留在 `pkg/sdk/auth/client`
+- REST AuthN v2 登录入口为 `pkg/sdk/auth/loginv2`；gRPC token/JWKS/onboarding 客户端统一走 `pkg/sdk/auth/client` 的 v2 契约
 - `sdk.NewTokenVerifier(...)`、`sdk.NewJWKSManager(...)`、`sdk.NewJWKSManagerWithClient(...)`、`sdk.NewServiceAuthHelper(...)` 已删除
 - `sdk.NewClient(...)` 不再隐式启用 request-id / metrics / circuit breaker；这些能力现在由 `Config.Observability` 显式控制
 
@@ -63,7 +63,7 @@
 旧写法：
 
 ```go
-import "github.com/FangcunMount/iam/pkg/sdk/transport"
+import "github.com/FangcunMount/iam/v2/pkg/sdk/transport"
 
 _ = transport.RequestIDInterceptor
 ```
@@ -71,7 +71,7 @@ _ = transport.RequestIDInterceptor
 新写法：
 
 ```go
-import sdk "github.com/FangcunMount/iam/pkg/sdk"
+import sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
 
 ctx = sdk.WithRequestID(ctx, "req-123")
 ```
@@ -83,7 +83,7 @@ ctx = sdk.WithRequestID(ctx, "req-123")
 旧写法：
 
 ```go
-import "github.com/FangcunMount/iam/pkg/sdk/observability"
+import "github.com/FangcunMount/iam/v2/pkg/sdk/observability"
 
 client, err := sdk.NewClient(ctx, cfg,
     sdk.WithUnaryInterceptors(
@@ -122,8 +122,8 @@ verifier, err := sdk.NewTokenVerifier(verifyCfg, jwksCfg, client)
 新写法：
 
 ```go
-import authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
-import authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
+import authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
+import authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
 
 jwksManager, err := authjwks.NewJWKSManager(jwksCfg,
     authjwks.WithCacheEnabled(true),

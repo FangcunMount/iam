@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v5.29.3
-// source: iam/identity/v1/identity.proto
+// source: iam/identity/v2/identity.proto
 
-package identityv1
+package identityv2
 
 import (
 	context "context"
@@ -19,11 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IdentityRead_GetUser_FullMethodName          = "/iam.identity.v1.IdentityRead/GetUser"
-	IdentityRead_BatchGetUsers_FullMethodName    = "/iam.identity.v1.IdentityRead/BatchGetUsers"
-	IdentityRead_SearchUsers_FullMethodName      = "/iam.identity.v1.IdentityRead/SearchUsers"
-	IdentityRead_GetProfile_FullMethodName       = "/iam.identity.v1.IdentityRead/GetProfile"
-	IdentityRead_BatchGetProfiles_FullMethodName = "/iam.identity.v1.IdentityRead/BatchGetProfiles"
+	IdentityRead_GetUser_FullMethodName          = "/iam.identity.v2.IdentityRead/GetUser"
+	IdentityRead_BatchGetUsers_FullMethodName    = "/iam.identity.v2.IdentityRead/BatchGetUsers"
+	IdentityRead_SearchUsers_FullMethodName      = "/iam.identity.v2.IdentityRead/SearchUsers"
+	IdentityRead_GetProfile_FullMethodName       = "/iam.identity.v2.IdentityRead/GetProfile"
+	IdentityRead_BatchGetProfiles_FullMethodName = "/iam.identity.v2.IdentityRead/BatchGetProfiles"
 )
 
 // IdentityReadClient is the client API for IdentityRead service.
@@ -244,7 +244,7 @@ func _IdentityRead_BatchGetProfiles_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var IdentityRead_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.identity.v1.IdentityRead",
+	ServiceName: "iam.identity.v2.IdentityRead",
 	HandlerType: (*IdentityReadServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -269,13 +269,13 @@ var IdentityRead_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/identity/v1/identity.proto",
+	Metadata: "iam/identity/v2/identity.proto",
 }
 
 const (
-	ProfileLinkQuery_HasProfileLink_FullMethodName   = "/iam.identity.v1.ProfileLinkQuery/HasProfileLink"
-	ProfileLinkQuery_ListProfiles_FullMethodName     = "/iam.identity.v1.ProfileLinkQuery/ListProfiles"
-	ProfileLinkQuery_ListProfileLinks_FullMethodName = "/iam.identity.v1.ProfileLinkQuery/ListProfileLinks"
+	ProfileLinkQuery_HasProfileLink_FullMethodName   = "/iam.identity.v2.ProfileLinkQuery/HasProfileLink"
+	ProfileLinkQuery_ListProfiles_FullMethodName     = "/iam.identity.v2.ProfileLinkQuery/ListProfiles"
+	ProfileLinkQuery_ListProfileLinks_FullMethodName = "/iam.identity.v2.ProfileLinkQuery/ListProfileLinks"
 )
 
 // ProfileLinkQueryClient is the client API for ProfileLinkQuery service.
@@ -430,7 +430,7 @@ func _ProfileLinkQuery_ListProfileLinks_Handler(srv interface{}, ctx context.Con
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ProfileLinkQuery_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.identity.v1.ProfileLinkQuery",
+	ServiceName: "iam.identity.v2.ProfileLinkQuery",
 	HandlerType: (*ProfileLinkQueryServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -447,14 +447,14 @@ var ProfileLinkQuery_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/identity/v1/identity.proto",
+	Metadata: "iam/identity/v2/identity.proto",
 }
 
 const (
-	ProfileLinkCommand_EstablishProfileLink_FullMethodName    = "/iam.identity.v1.ProfileLinkCommand/EstablishProfileLink"
-	ProfileLinkCommand_RevokeProfileLink_FullMethodName       = "/iam.identity.v1.ProfileLinkCommand/RevokeProfileLink"
-	ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName = "/iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks"
-	ProfileLinkCommand_ImportProfileLinks_FullMethodName      = "/iam.identity.v1.ProfileLinkCommand/ImportProfileLinks"
+	ProfileLinkCommand_EstablishProfileLink_FullMethodName    = "/iam.identity.v2.ProfileLinkCommand/EstablishProfileLink"
+	ProfileLinkCommand_RevokeProfileLink_FullMethodName       = "/iam.identity.v2.ProfileLinkCommand/RevokeProfileLink"
+	ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName = "/iam.identity.v2.ProfileLinkCommand/BatchRevokeProfileLinks"
+	ProfileLinkCommand_ImportProfileLinks_FullMethodName      = "/iam.identity.v2.ProfileLinkCommand/ImportProfileLinks"
 )
 
 // ProfileLinkCommandClient is the client API for ProfileLinkCommand service.
@@ -642,7 +642,7 @@ func _ProfileLinkCommand_ImportProfileLinks_Handler(srv interface{}, ctx context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ProfileLinkCommand_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.identity.v1.ProfileLinkCommand",
+	ServiceName: "iam.identity.v2.ProfileLinkCommand",
 	HandlerType: (*ProfileLinkCommandServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -663,14 +663,14 @@ var ProfileLinkCommand_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/identity/v1/identity.proto",
+	Metadata: "iam/identity/v2/identity.proto",
 }
 
 const (
-	IdentityLifecycle_CreateUser_FullMethodName     = "/iam.identity.v1.IdentityLifecycle/CreateUser"
-	IdentityLifecycle_UpdateUser_FullMethodName     = "/iam.identity.v1.IdentityLifecycle/UpdateUser"
-	IdentityLifecycle_DeactivateUser_FullMethodName = "/iam.identity.v1.IdentityLifecycle/DeactivateUser"
-	IdentityLifecycle_BlockUser_FullMethodName      = "/iam.identity.v1.IdentityLifecycle/BlockUser"
+	IdentityLifecycle_CreateUser_FullMethodName     = "/iam.identity.v2.IdentityLifecycle/CreateUser"
+	IdentityLifecycle_UpdateUser_FullMethodName     = "/iam.identity.v2.IdentityLifecycle/UpdateUser"
+	IdentityLifecycle_DeactivateUser_FullMethodName = "/iam.identity.v2.IdentityLifecycle/DeactivateUser"
+	IdentityLifecycle_BlockUser_FullMethodName      = "/iam.identity.v2.IdentityLifecycle/BlockUser"
 )
 
 // IdentityLifecycleClient is the client API for IdentityLifecycle service.
@@ -858,7 +858,7 @@ func _IdentityLifecycle_BlockUser_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var IdentityLifecycle_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.identity.v1.IdentityLifecycle",
+	ServiceName: "iam.identity.v2.IdentityLifecycle",
 	HandlerType: (*IdentityLifecycleServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -879,5 +879,5 @@ var IdentityLifecycle_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/identity/v1/identity.proto",
+	Metadata: "iam/identity/v2/identity.proto",
 }

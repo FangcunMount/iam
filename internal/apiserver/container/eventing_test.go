@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
+	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

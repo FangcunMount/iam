@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/apiserver/eventing"
+	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

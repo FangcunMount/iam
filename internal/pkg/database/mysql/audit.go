@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 // InitialVersion 默认的乐观锁版本号起点。

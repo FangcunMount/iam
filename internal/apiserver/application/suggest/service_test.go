@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 func TestServiceSuggestReturnsNilWhenRuntimeHasNoCurrentIndex(t *testing.T) {

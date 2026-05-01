@@ -4,8 +4,8 @@ package client
 import (
 	"context"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/errors"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/errors"
 )
 
 // Client 认证服务客户端。
@@ -16,16 +16,16 @@ import (
 //   - 服务间认证（IssueServiceToken）
 //   - JWKS 管理（GetJWKS）
 type Client struct {
-	authService              authnv1.AuthServiceClient
-	accountOnboardingService authnv1.AccountOnboardingServiceClient
-	jwksService              authnv1.JWKSServiceClient
+	authService              authnv2.AuthServiceClient
+	accountOnboardingService authnv2.AccountOnboardingServiceClient
+	jwksService              authnv2.JWKSServiceClient
 }
 
 // NewClient 创建认证服务客户端。
 func NewClient(
-	authService authnv1.AuthServiceClient,
-	accountOnboardingService authnv1.AccountOnboardingServiceClient,
-	jwksService authnv1.JWKSServiceClient,
+	authService authnv2.AuthServiceClient,
+	accountOnboardingService authnv2.AccountOnboardingServiceClient,
+	jwksService authnv2.JWKSServiceClient,
 ) *Client {
 	return &Client{
 		authService:              authService,
@@ -35,7 +35,7 @@ func NewClient(
 }
 
 // VerifyToken 在线验证 Access Token。
-func (c *Client) VerifyToken(ctx context.Context, req *authnv1.VerifyTokenRequest) (*authnv1.VerifyTokenResponse, error) {
+func (c *Client) VerifyToken(ctx context.Context, req *authnv2.VerifyTokenRequest) (*authnv2.VerifyTokenResponse, error) {
 	resp, err := c.authService.VerifyToken(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -44,7 +44,7 @@ func (c *Client) VerifyToken(ctx context.Context, req *authnv1.VerifyTokenReques
 }
 
 // CreateOperationAccount 创建运营后台账号，并按需创建用户、账户和密码凭据。
-func (c *Client) CreateOperationAccount(ctx context.Context, req *authnv1.CreateOperationAccountRequest) (*authnv1.CreateOperationAccountResponse, error) {
+func (c *Client) CreateOperationAccount(ctx context.Context, req *authnv2.CreateOperationAccountRequest) (*authnv2.CreateOperationAccountResponse, error) {
 	resp, err := c.accountOnboardingService.CreateOperationAccount(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -53,7 +53,7 @@ func (c *Client) CreateOperationAccount(ctx context.Context, req *authnv1.Create
 }
 
 // RefreshToken 使用 Refresh Token 刷新获取新的 Access Token。
-func (c *Client) RefreshToken(ctx context.Context, req *authnv1.RefreshTokenRequest) (*authnv1.RefreshTokenResponse, error) {
+func (c *Client) RefreshToken(ctx context.Context, req *authnv2.RefreshTokenRequest) (*authnv2.RefreshTokenResponse, error) {
 	resp, err := c.authService.RefreshToken(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -62,7 +62,7 @@ func (c *Client) RefreshToken(ctx context.Context, req *authnv1.RefreshTokenRequ
 }
 
 // RevokeToken 撤销 Access Token。
-func (c *Client) RevokeToken(ctx context.Context, req *authnv1.RevokeTokenRequest) (*authnv1.RevokeTokenResponse, error) {
+func (c *Client) RevokeToken(ctx context.Context, req *authnv2.RevokeTokenRequest) (*authnv2.RevokeTokenResponse, error) {
 	resp, err := c.authService.RevokeToken(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -71,7 +71,7 @@ func (c *Client) RevokeToken(ctx context.Context, req *authnv1.RevokeTokenReques
 }
 
 // RevokeRefreshToken 撤销 Refresh Token。
-func (c *Client) RevokeRefreshToken(ctx context.Context, req *authnv1.RevokeRefreshTokenRequest) (*authnv1.RevokeRefreshTokenResponse, error) {
+func (c *Client) RevokeRefreshToken(ctx context.Context, req *authnv2.RevokeRefreshTokenRequest) (*authnv2.RevokeRefreshTokenResponse, error) {
 	resp, err := c.authService.RevokeRefreshToken(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -80,7 +80,7 @@ func (c *Client) RevokeRefreshToken(ctx context.Context, req *authnv1.RevokeRefr
 }
 
 // IssueServiceToken 签发服务间认证 Token。
-func (c *Client) IssueServiceToken(ctx context.Context, req *authnv1.IssueServiceTokenRequest) (*authnv1.IssueServiceTokenResponse, error) {
+func (c *Client) IssueServiceToken(ctx context.Context, req *authnv2.IssueServiceTokenRequest) (*authnv2.IssueServiceTokenResponse, error) {
 	resp, err := c.authService.IssueServiceToken(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -89,7 +89,7 @@ func (c *Client) IssueServiceToken(ctx context.Context, req *authnv1.IssueServic
 }
 
 // GetJWKS 获取 JSON Web Key Set (JWKS)。
-func (c *Client) GetJWKS(ctx context.Context, req *authnv1.GetJWKSRequest) (*authnv1.GetJWKSResponse, error) {
+func (c *Client) GetJWKS(ctx context.Context, req *authnv2.GetJWKSRequest) (*authnv2.GetJWKSResponse, error) {
 	resp, err := c.jwksService.GetJWKS(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -98,16 +98,16 @@ func (c *Client) GetJWKS(ctx context.Context, req *authnv1.GetJWKSRequest) (*aut
 }
 
 // Raw 返回原始认证服务 gRPC 客户端。
-func (c *Client) Raw() authnv1.AuthServiceClient {
+func (c *Client) Raw() authnv2.AuthServiceClient {
 	return c.authService
 }
 
 // AccountOnboardingRaw 返回原始账号开通 gRPC 客户端。
-func (c *Client) AccountOnboardingRaw() authnv1.AccountOnboardingServiceClient {
+func (c *Client) AccountOnboardingRaw() authnv2.AccountOnboardingServiceClient {
 	return c.accountOnboardingService
 }
 
 // JWKSRaw 返回原始 JWKS 服务 gRPC 客户端。
-func (c *Client) JWKSRaw() authnv1.JWKSServiceClient {
+func (c *Client) JWKSRaw() authnv2.JWKSServiceClient {
 	return c.jwksService
 }

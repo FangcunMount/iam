@@ -7,13 +7,13 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
-	wechatappDomain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	infraRedis "github.com/FangcunMount/iam/internal/apiserver/infra/redis"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi"
-	wechatapiPort "github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi/port"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	infraRedis "github.com/FangcunMount/iam/v2/internal/apiserver/infra/redis"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
+	wechatapiPort "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi/port"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // IDPModule IDP 模块（Identity Provider）

@@ -3,26 +3,26 @@ package identity
 import (
 	"strconv"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	profileApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	profileApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
 )
 
-func profileResultToProto(result *profileApp.ProfileResult) *identityv1.Profile {
+func profileResultToProto(result *profileApp.ProfileResult) *identityv2.Profile {
 	if result == nil {
 		return nil
 	}
 
-	return &identityv1.Profile{
+	return &identityv2.Profile{
 		Id:        result.ID,
 		LegalName: result.Name,
 		Gender:    genderUint8ToProto(result.Gender),
 		Dob:       result.Birthday,
-		Identity: &identityv1.IdentityDocument{
+		Identity: &identityv2.IdentityDocument{
 			Type:         "id_card",
 			MaskedNumber: result.IDCard,
 		},
-		Stats: &identityv1.PhysicalStats{
+		Stats: &identityv2.PhysicalStats{
 			HeightCm: int32(result.Height),
 			WeightKg: formatWeight(result.Weight),
 		},
@@ -31,12 +31,12 @@ func profileResultToProto(result *profileApp.ProfileResult) *identityv1.Profile 
 	}
 }
 
-func profileResultToProtoFromProfileLink(result *profileLinkApp.ProfileLinkResult) *identityv1.Profile {
+func profileResultToProtoFromProfileLink(result *profileLinkApp.ProfileLinkResult) *identityv2.Profile {
 	if result == nil {
 		return nil
 	}
 
-	return &identityv1.Profile{
+	return &identityv2.Profile{
 		Id:        result.ProfileID,
 		LegalName: result.ProfileName,
 		Gender:    genderUint8ToProto(result.ProfileGender),
@@ -48,16 +48,16 @@ func profileResultToProtoFromProfileLink(result *profileLinkApp.ProfileLinkResul
 	}
 }
 
-func genderUint8ToProto(gender uint8) identityv1.Gender {
+func genderUint8ToProto(gender uint8) identityv2.Gender {
 	switch gender {
 	case 1:
-		return identityv1.Gender_GENDER_MALE
+		return identityv2.Gender_GENDER_MALE
 	case 2:
-		return identityv1.Gender_GENDER_FEMALE
+		return identityv2.Gender_GENDER_FEMALE
 	case 0:
-		return identityv1.Gender_GENDER_OTHER
+		return identityv2.Gender_GENDER_OTHER
 	default:
-		return identityv1.Gender_GENDER_UNSPECIFIED
+		return identityv2.Gender_GENDER_UNSPECIFIED
 	}
 }
 

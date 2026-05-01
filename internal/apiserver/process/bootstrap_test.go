@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	grpcpkg "github.com/FangcunMount/iam/internal/pkg/grpc"
-	genericapiserver "github.com/FangcunMount/iam/internal/pkg/server"
+	grpcpkg "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 func TestBootstrapTransportsBuildsAndRegistersInOrder(t *testing.T) {

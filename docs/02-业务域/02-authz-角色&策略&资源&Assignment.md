@@ -250,7 +250,7 @@ flowchart LR
 
 | 接口面 | 当前能力 |
 | ---- | ---- |
-| REST | `/api/v1/authz/check`、roles、resources、policies、assignments。 |
+| REST | `/api/v2/authz/check`、roles、resources、policies、assignments。 |
 | gRPC | `AuthorizationService.Check`、`GetAuthorizationSnapshot`、`GrantAssignment`、`RevokeAssignment`。 |
 | Route middleware | `RouteAuthorizationRuntime` 支撑角色/权限/admin 判定。 |
 | Event catalog | policy version changed event 以 [../../configs/events.yaml](../../configs/events.yaml) 为准。 |
@@ -277,8 +277,8 @@ flowchart LR
 | AuthZ 应用服务 | [../../internal/apiserver/application/authz](../../internal/apiserver/application/authz) |
 | Casbin adapter | [../../internal/apiserver/infra/casbin](../../internal/apiserver/infra/casbin) |
 | Outbox store | [../../internal/apiserver/infra/mysql/eventoutbox](../../internal/apiserver/infra/mysql/eventoutbox) |
-| REST 合同 | [../../api/rest/authz.v1.yaml](../../api/rest/authz.v1.yaml) |
-| gRPC 合同 | [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto) |
+| REST 合同 | [../../api/rest/authz.v2.yaml](../../api/rest/authz.v2.yaml) |
+| gRPC 合同 | [../../api/grpc/iam/authz/v2/authz.proto](../../api/grpc/iam/authz/v2/authz.proto) |
 
 验证命令：
 

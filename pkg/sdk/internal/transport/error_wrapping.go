@@ -3,7 +3,7 @@ package transport
 import (
 	"context"
 
-	sdkerrors "github.com/FangcunMount/iam/pkg/sdk/errors"
+	sdkerrors "github.com/FangcunMount/iam/v2/pkg/sdk/errors"
 	"google.golang.org/grpc"
 )
 

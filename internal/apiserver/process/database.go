@@ -12,9 +12,9 @@ import (
 	"github.com/FangcunMount/component-base/pkg/database"
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/internal/apiserver/config"
-	"github.com/FangcunMount/iam/internal/pkg/migration"
-	"github.com/FangcunMount/iam/internal/pkg/options"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/config"
+	"github.com/FangcunMount/iam/v2/internal/pkg/migration"
+	"github.com/FangcunMount/iam/v2/internal/pkg/options"
 )
 
 // DatabaseManager 数据库管理器

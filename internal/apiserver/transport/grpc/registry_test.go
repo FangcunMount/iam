@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	grpcpkg "github.com/FangcunMount/iam/internal/pkg/grpc"
+	grpcpkg "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 	googlegrpc "google.golang.org/grpc"
 )
 

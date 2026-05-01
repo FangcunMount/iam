@@ -4,9 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/pkg/core"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
 var _ = core.ErrResponse{}

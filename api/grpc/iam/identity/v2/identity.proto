@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package iam.identity.v1;
+package iam.identity.v2;
 
-option go_package = "github.com/FangcunMount/iam/api/grpc/iam/identity/v1;identityv1";
+option go_package = "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2;identityv2";
 
 import "google/protobuf/timestamp.proto";
 

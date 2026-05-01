@@ -10,17 +10,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	authzapp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
-	policyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
-	resourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
-	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
-	bindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	bindingDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
+	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
+	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
+	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type authzEnvelope struct {

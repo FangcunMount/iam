@@ -48,12 +48,12 @@ func TestMetricsUnaryInterceptorRecordsMethodAndCode(t *testing.T) {
 
 	collector := &recordingMetricsCollector{}
 	interceptor := MetricsUnaryInterceptor(collector)
-	err := interceptor(context.Background(), "/iam.authz.v1.AuthorizationService/Check", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+	err := interceptor(context.Background(), "/iam.authz.v2.AuthorizationService/Check", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return status.Error(codes.PermissionDenied, "denied")
 	})
 	require.Error(t, err)
 	require.Equal(t, 1, collector.calls)
-	require.Equal(t, "/iam.authz.v1.AuthorizationService/Check", collector.method)
+	require.Equal(t, "/iam.authz.v2.AuthorizationService/Check", collector.method)
 	require.Equal(t, codes.PermissionDenied.String(), collector.code)
 }
 
@@ -62,14 +62,14 @@ func TestTracingUnaryInterceptorDelegatesToHook(t *testing.T) {
 
 	hook := &recordingTracingHook{}
 	interceptor := TracingUnaryInterceptor(hook)
-	err := interceptor(context.Background(), "/iam.identity.v1.IdentityRead/GetUser", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+	err := interceptor(context.Background(), "/iam.identity.v2.IdentityRead/GetUser", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return status.Error(codes.Internal, "boom")
 	})
 	require.Error(t, err)
 	require.True(t, hook.started)
 	require.True(t, hook.completed)
 	require.Equal(t, "grpc", hook.attrs["rpc.system"])
-	require.Equal(t, "iam.identity.v1.IdentityRead", hook.attrs["rpc.service"])
+	require.Equal(t, "iam.identity.v2.IdentityRead", hook.attrs["rpc.service"])
 	require.Equal(t, "GetUser", hook.attrs["rpc.method"])
 	require.Equal(t, "rpc error: code = Internal desc = boom", hook.recorded.Error())
 }
@@ -86,13 +86,13 @@ func TestCircuitBreakerInterceptorOpensAfterFailureThreshold(t *testing.T) {
 	})
 	interceptor := CircuitBreakerInterceptor(cb)
 
-	err := interceptor(context.Background(), "/iam.authn.v1.AuthService/VerifyToken", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+	err := interceptor(context.Background(), "/iam.authn.v2.AuthService/VerifyToken", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return status.Error(codes.Unavailable, "boom")
 	})
 	require.Error(t, err)
 	require.Equal(t, CircuitOpen, cb.State())
 
-	err = interceptor(context.Background(), "/iam.authn.v1.AuthService/VerifyToken", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+	err = interceptor(context.Background(), "/iam.authn.v2.AuthService/VerifyToken", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		t.Fatal("invoker should not run when circuit is open")
 		return nil
 	})

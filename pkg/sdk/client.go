@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
-	authclient "github.com/FangcunMount/iam/pkg/sdk/auth/client"
-	"github.com/FangcunMount/iam/pkg/sdk/authz"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
-	"github.com/FangcunMount/iam/pkg/sdk/identity"
-	"github.com/FangcunMount/iam/pkg/sdk/idp"
-	internaltransport "github.com/FangcunMount/iam/pkg/sdk/internal/transport"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
+	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/authz"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/identity"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/idp"
+	internaltransport "github.com/FangcunMount/iam/v2/pkg/sdk/internal/transport"
 	"google.golang.org/grpc"
 )
 
@@ -63,23 +63,23 @@ func NewClient(ctx context.Context, cfg *Config, opts ...ClientOption) (*Client,
 }
 
 func (c *Client) initSubClients() {
-	authService := authnv1.NewAuthServiceClient(c.conn)
-	accountOnboardingService := authnv1.NewAccountOnboardingServiceClient(c.conn)
-	jwksService := authnv1.NewJWKSServiceClient(c.conn)
+	authService := authnv2.NewAuthServiceClient(c.conn)
+	accountOnboardingService := authnv2.NewAccountOnboardingServiceClient(c.conn)
+	jwksService := authnv2.NewJWKSServiceClient(c.conn)
 	c.authClient = authclient.NewClient(authService, accountOnboardingService, jwksService)
 
-	authorizationService := authzv1.NewAuthorizationServiceClient(c.conn)
+	authorizationService := authzv2.NewAuthorizationServiceClient(c.conn)
 	c.authzClient = authz.NewClient(authorizationService)
 
-	readService := identityv1.NewIdentityReadClient(c.conn)
-	lifecycleService := identityv1.NewIdentityLifecycleClient(c.conn)
+	readService := identityv2.NewIdentityReadClient(c.conn)
+	lifecycleService := identityv2.NewIdentityLifecycleClient(c.conn)
 	c.identityClient = identity.NewClient(readService, lifecycleService)
 
-	queryService := identityv1.NewProfileLinkQueryClient(c.conn)
-	commandService := identityv1.NewProfileLinkCommandClient(c.conn)
+	queryService := identityv2.NewProfileLinkQueryClient(c.conn)
+	commandService := identityv2.NewProfileLinkCommandClient(c.conn)
 	c.profileLinkClient = identity.NewProfileLinkClient(queryService, commandService)
 
-	idpService := idpv1.NewIDPServiceClient(c.conn)
+	idpService := idpv2.NewIDPServiceClient(c.conn)
 	c.idpClient = idp.NewClient(idpService)
 }
 

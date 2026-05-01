@@ -1,6 +1,6 @@
 package authentication
 
-import "github.com/FangcunMount/iam/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 // AMR（认证方法引用），用于审计与 Step-Up
 type AMR string

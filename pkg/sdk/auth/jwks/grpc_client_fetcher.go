@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 
@@ -47,7 +47,7 @@ func (f *GRPCFetcher) Fetch(ctx context.Context) (jwk.Set, error) {
 	}
 
 	f.stats.IncrAttempts()
-	resp, err := f.client.GetJWKS(ctx, &authnv1.GetJWKSRequest{})
+	resp, err := f.client.GetJWKS(ctx, &authnv2.GetJWKSRequest{})
 	if err != nil {
 		return f.tryNext(ctx, err)
 	}

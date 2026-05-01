@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/stretchr/testify/require"
 )
 

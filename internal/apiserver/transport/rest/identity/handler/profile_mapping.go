@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	appprofile "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
+	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
 )
 
 func profileResultToResponse(result *appprofile.ProfileResult) responsedto.ProfileResponse {

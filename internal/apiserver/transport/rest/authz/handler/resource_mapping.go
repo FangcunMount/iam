@@ -1,10 +1,10 @@
 package handler
 
 import (
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // toResourceResponse 转换为响应对象

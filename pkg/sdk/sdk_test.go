@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	authclient "github.com/FangcunMount/iam/pkg/sdk/auth/client"
-	authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
-	authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
-	authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
+	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
+	authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
+	authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -17,47 +17,47 @@ import (
 )
 
 type sdkAuthServiceClientStub struct {
-	verifyReq  *authnv1.VerifyTokenRequest
-	verifyResp *authnv1.VerifyTokenResponse
+	verifyReq  *authnv2.VerifyTokenRequest
+	verifyResp *authnv2.VerifyTokenResponse
 	verifyErr  error
 
-	issueResp *authnv1.IssueServiceTokenResponse
+	issueResp *authnv2.IssueServiceTokenResponse
 	issueErr  error
 }
 
-func (s *sdkAuthServiceClientStub) VerifyToken(ctx context.Context, in *authnv1.VerifyTokenRequest, _ ...grpc.CallOption) (*authnv1.VerifyTokenResponse, error) {
+func (s *sdkAuthServiceClientStub) VerifyToken(ctx context.Context, in *authnv2.VerifyTokenRequest, _ ...grpc.CallOption) (*authnv2.VerifyTokenResponse, error) {
 	s.verifyReq = in
 	return s.verifyResp, s.verifyErr
 }
 
-func (s *sdkAuthServiceClientStub) RefreshToken(context.Context, *authnv1.RefreshTokenRequest, ...grpc.CallOption) (*authnv1.RefreshTokenResponse, error) {
+func (s *sdkAuthServiceClientStub) RefreshToken(context.Context, *authnv2.RefreshTokenRequest, ...grpc.CallOption) (*authnv2.RefreshTokenResponse, error) {
 	return nil, nil
 }
 
-func (s *sdkAuthServiceClientStub) RevokeToken(context.Context, *authnv1.RevokeTokenRequest, ...grpc.CallOption) (*authnv1.RevokeTokenResponse, error) {
+func (s *sdkAuthServiceClientStub) RevokeToken(context.Context, *authnv2.RevokeTokenRequest, ...grpc.CallOption) (*authnv2.RevokeTokenResponse, error) {
 	return nil, nil
 }
 
-func (s *sdkAuthServiceClientStub) RevokeRefreshToken(context.Context, *authnv1.RevokeRefreshTokenRequest, ...grpc.CallOption) (*authnv1.RevokeRefreshTokenResponse, error) {
+func (s *sdkAuthServiceClientStub) RevokeRefreshToken(context.Context, *authnv2.RevokeRefreshTokenRequest, ...grpc.CallOption) (*authnv2.RevokeRefreshTokenResponse, error) {
 	return nil, nil
 }
 
-func (s *sdkAuthServiceClientStub) IssueServiceToken(context.Context, *authnv1.IssueServiceTokenRequest, ...grpc.CallOption) (*authnv1.IssueServiceTokenResponse, error) {
+func (s *sdkAuthServiceClientStub) IssueServiceToken(context.Context, *authnv2.IssueServiceTokenRequest, ...grpc.CallOption) (*authnv2.IssueServiceTokenResponse, error) {
 	return s.issueResp, s.issueErr
 }
 
 type sdkAccountOnboardingServiceClientStub struct{}
 
-func (s *sdkAccountOnboardingServiceClientStub) CreateOperationAccount(context.Context, *authnv1.CreateOperationAccountRequest, ...grpc.CallOption) (*authnv1.CreateOperationAccountResponse, error) {
+func (s *sdkAccountOnboardingServiceClientStub) CreateOperationAccount(context.Context, *authnv2.CreateOperationAccountRequest, ...grpc.CallOption) (*authnv2.CreateOperationAccountResponse, error) {
 	return nil, nil
 }
 
 type sdkJWKSServiceClientStub struct {
-	resp *authnv1.GetJWKSResponse
+	resp *authnv2.GetJWKSResponse
 	err  error
 }
 
-func (s *sdkJWKSServiceClientStub) GetJWKS(context.Context, *authnv1.GetJWKSRequest, ...grpc.CallOption) (*authnv1.GetJWKSResponse, error) {
+func (s *sdkJWKSServiceClientStub) GetJWKS(context.Context, *authnv2.GetJWKSRequest, ...grpc.CallOption) (*authnv2.GetJWKSResponse, error) {
 	return s.resp, s.err
 }
 
@@ -65,9 +65,9 @@ func TestClientAuthUsesTypedAuthClient(t *testing.T) {
 	t.Parallel()
 
 	authStub := &sdkAuthServiceClientStub{
-		verifyResp: &authnv1.VerifyTokenResponse{
+		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
-			Claims: &authnv1.TokenClaims{
+			Claims: &authnv2.TokenClaims{
 				TokenId:   "jti-1",
 				Subject:   "user:1",
 				SessionId: "sid-1",
@@ -84,7 +84,7 @@ func TestClientAuthUsesTypedAuthClient(t *testing.T) {
 		authClient: authclient.NewClient(authStub, &sdkAccountOnboardingServiceClientStub{}, &sdkJWKSServiceClientStub{}),
 	}
 
-	resp, err := client.Auth().VerifyToken(context.Background(), &authnv1.VerifyTokenRequest{
+	resp, err := client.Auth().VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{
 		AccessToken: "jwt-token",
 	})
 	require.NoError(t, err)
@@ -96,9 +96,9 @@ func TestAuthSubpackagesComposeWithSDKClient(t *testing.T) {
 	t.Parallel()
 
 	authStub := &sdkAuthServiceClientStub{
-		verifyResp: &authnv1.VerifyTokenResponse{
+		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
-			Claims: &authnv1.TokenClaims{
+			Claims: &authnv2.TokenClaims{
 				TokenId:   "jti-1",
 				Subject:   "user:1",
 				SessionId: "sid-1",
@@ -109,8 +109,8 @@ func TestAuthSubpackagesComposeWithSDKClient(t *testing.T) {
 				ExpiresAt: timestamppb.New(time.Now().Add(time.Minute)),
 			},
 		},
-		issueResp: &authnv1.IssueServiceTokenResponse{
-			TokenPair: &authnv1.TokenPair{
+		issueResp: &authnv2.IssueServiceTokenResponse{
+			TokenPair: &authnv2.TokenPair{
 				AccessToken: "svc-token",
 				ExpiresIn:   durationpb.New(time.Minute),
 			},
@@ -119,7 +119,7 @@ func TestAuthSubpackagesComposeWithSDKClient(t *testing.T) {
 
 	client := &Client{
 		authClient: authclient.NewClient(authStub, &sdkAccountOnboardingServiceClientStub{}, &sdkJWKSServiceClientStub{
-			resp: &authnv1.GetJWKSResponse{Jwks: []byte(`{"keys":[]}`)},
+			resp: &authnv2.GetJWKSResponse{Jwks: []byte(`{"keys":[]}`)},
 		}),
 	}
 

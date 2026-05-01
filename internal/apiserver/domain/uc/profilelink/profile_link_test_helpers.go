@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // stubProfileLinkRepo 是包内特化的测试 stub，用于返回可控的 FindByProfileID 结果

@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	appsvc "github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
-	idpresponse "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/pkg/core"
+	appsvc "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
+	idpresponse "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -78,12 +78,12 @@ func TestRegister_WechatAppManagementRoutesNotRegisteredWithoutAdminMiddlewares(
 	engine := newIDPRouter(t, nil, &fakeWechatAppService{})
 
 	health := httptest.NewRecorder()
-	healthReq := httptest.NewRequest(http.MethodGet, "/api/v1/idp/health", nil)
+	healthReq := httptest.NewRequest(http.MethodGet, "/api/v2/idp/health", nil)
 	engine.ServeHTTP(health, healthReq)
 	require.Equal(t, http.StatusOK, health.Code)
 
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/idp/wechat-apps", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/idp/wechat-apps", nil)
 	engine.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusNotFound, recorder.Code)
 }
@@ -102,12 +102,12 @@ func TestRegister_WechatAppListRequiresAdminMiddleware(t *testing.T) {
 	})
 
 	unauthorized := httptest.NewRecorder()
-	unauthorizedReq := httptest.NewRequest(http.MethodGet, "/api/v1/idp/wechat-apps", nil)
+	unauthorizedReq := httptest.NewRequest(http.MethodGet, "/api/v2/idp/wechat-apps", nil)
 	engine.ServeHTTP(unauthorized, unauthorizedReq)
 	require.Equal(t, http.StatusUnauthorized, unauthorized.Code)
 
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/idp/wechat-apps?type=MP&status=Enabled", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/idp/wechat-apps?type=MP&status=Enabled", nil)
 	req.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(recorder, req)
 
@@ -145,7 +145,7 @@ func TestRegister_WechatAppUpdateEnableDisableRoutes(t *testing.T) {
 	engine := newIDPRouter(t, []gin.HandlerFunc{requireAdminHeader()}, service)
 
 	updateRecorder := httptest.NewRecorder()
-	updateReq := httptest.NewRequest(http.MethodPatch, "/api/v1/idp/wechat-apps/wx-update", bytes.NewBufferString(`{"name":"Updated","type":"MP"}`))
+	updateReq := httptest.NewRequest(http.MethodPatch, "/api/v2/idp/wechat-apps/wx-update", bytes.NewBufferString(`{"name":"Updated","type":"MP"}`))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(updateRecorder, updateReq)
@@ -158,14 +158,14 @@ func TestRegister_WechatAppUpdateEnableDisableRoutes(t *testing.T) {
 	require.Equal(t, domain.MP, *service.lastUpdateDTO.Type)
 
 	enableRecorder := httptest.NewRecorder()
-	enableReq := httptest.NewRequest(http.MethodPost, "/api/v1/idp/wechat-apps/wx-enable/enable", nil)
+	enableReq := httptest.NewRequest(http.MethodPost, "/api/v2/idp/wechat-apps/wx-enable/enable", nil)
 	enableReq.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(enableRecorder, enableReq)
 	require.Equal(t, http.StatusOK, enableRecorder.Code)
 	require.Equal(t, "wx-enable", service.lastEnableAppID)
 
 	disableRecorder := httptest.NewRecorder()
-	disableReq := httptest.NewRequest(http.MethodPost, "/api/v1/idp/wechat-apps/wx-disable/disable", nil)
+	disableReq := httptest.NewRequest(http.MethodPost, "/api/v2/idp/wechat-apps/wx-disable/disable", nil)
 	disableReq.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(disableRecorder, disableReq)
 	require.Equal(t, http.StatusOK, disableRecorder.Code)
@@ -176,7 +176,7 @@ func TestRegister_WechatAppUpdateRejectsInvalidType(t *testing.T) {
 	engine := newIDPRouter(t, []gin.HandlerFunc{requireAdminHeader()}, &fakeWechatAppService{})
 
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/idp/wechat-apps/wx-invalid", bytes.NewBufferString(`{"type":"OfficialAccount"}`))
+	req := httptest.NewRequest(http.MethodPatch, "/api/v2/idp/wechat-apps/wx-invalid", bytes.NewBufferString(`{"type":"OfficialAccount"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(recorder, req)
@@ -235,7 +235,7 @@ func TestRegister_WechatAppListPropagatesAppServiceFilter(t *testing.T) {
 	engine := newIDPRouter(t, []gin.HandlerFunc{requireAdminHeader()}, service)
 
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/idp/wechat-apps?type=MP&status=Disabled", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/idp/wechat-apps?type=MP&status=Disabled", nil)
 	req.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(recorder, req)
 
@@ -253,7 +253,7 @@ func TestRegister_WechatAppListHandlesServiceErrors(t *testing.T) {
 	engine := newIDPRouterWithError(t, []gin.HandlerFunc{requireAdminHeader()}, service)
 
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/idp/wechat-apps?status=Enabled", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/idp/wechat-apps?status=Enabled", nil)
 	req.Header.Set("X-Admin", "1")
 	engine.ServeHTTP(recorder, req)
 
@@ -274,18 +274,18 @@ func TestRegister_WechatAppMutationRoutesPropagateServiceErrors(t *testing.T) {
 		{
 			name:   "update",
 			method: http.MethodPatch,
-			path:   "/api/v1/idp/wechat-apps/wx-missing",
+			path:   "/api/v2/idp/wechat-apps/wx-missing",
 			body:   `{"name":"Missing"}`,
 		},
 		{
 			name:   "enable",
 			method: http.MethodPost,
-			path:   "/api/v1/idp/wechat-apps/wx-missing/enable",
+			path:   "/api/v2/idp/wechat-apps/wx-missing/enable",
 		},
 		{
 			name:   "disable",
 			method: http.MethodPost,
-			path:   "/api/v1/idp/wechat-apps/wx-missing/disable",
+			path:   "/api/v2/idp/wechat-apps/wx-missing/disable",
 		},
 	}
 

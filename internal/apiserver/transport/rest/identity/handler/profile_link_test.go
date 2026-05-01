@@ -11,8 +11,8 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	appprofilelink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 func TestProfileLinkHandlerGrantUsesCurrentUser(t *testing.T) {
@@ -31,7 +31,7 @@ func TestProfileLinkHandlerGrantUsesCurrentUser(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/identity/profile-links", bytes.NewBufferString(`{"profileId":"200","relation":"parent"}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/identity/profile-links", bytes.NewBufferString(`{"profileId":"200","relation":"parent"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("user_id", "100")
 
@@ -58,7 +58,7 @@ func TestProfileLinkHandlerGrantRejectsDifferentUserID(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/identity/profile-links", bytes.NewBufferString(`{"userId":"999","profileId":"200","relation":"parent"}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/identity/profile-links", bytes.NewBufferString(`{"userId":"999","profileId":"200","relation":"parent"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("user_id", "100")
 
@@ -88,7 +88,7 @@ func TestProfileLinkHandlerListDefaultsToCurrentUser(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/identity/profile-links", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links", nil)
 	c.Set("user_id", "100")
 
 	handler.List(c)
@@ -111,7 +111,7 @@ func TestProfileLinkHandlerListRejectsCrossUserQuery(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/identity/profile-links?user_id=999", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links?user_id=999", nil)
 	c.Set("user_id", "100")
 
 	handler.List(c)
@@ -134,7 +134,7 @@ func TestProfileLinkHandlerListRejectsProfileLookupForNonRef(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/identity/profile-links?profile_id=200", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links?profile_id=200", nil)
 	c.Set("user_id", "100")
 
 	handler.List(c)
@@ -164,7 +164,7 @@ func TestProfileLinkHandlerRevokeUsesCurrentUser(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/identity/profile-links/1/revoke", nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/identity/profile-links/1/revoke", nil)
 	c.Params = gin.Params{{Key: "id", Value: "1"}}
 	c.Set("user_id", "100")
 

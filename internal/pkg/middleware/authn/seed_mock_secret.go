@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 const SeedMockSecretHeader = "X-IAM-Seed-Secret"

@@ -148,7 +148,7 @@
 ### 应查（二级）
 - [x] [internal/apiserver/interface/uc/grpc/identity/service.go](internal/apiserver/interface/uc/grpc/identity/service.go) - 检查 Stream 端点实现
 - [x] [internal/apiserver/infra/cache/catalog.go](internal/apiserver/infra/cache/catalog.go) - 缓存 family 清单是否完整
-- [x] [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto) - Proto stream 定义
+- [x] [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto) - Proto stream 定义
 
 ### 可查（三级）
 - [x] [configs/casbin_model.conf](configs/casbin_model.conf) - Casbin 模型是否与文档完全一致

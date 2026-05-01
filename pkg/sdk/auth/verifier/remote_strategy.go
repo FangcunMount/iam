@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 )
 
 // RemoteVerifyStrategy 远程验证策略（调用 IAM 服务）。
@@ -37,7 +37,7 @@ func (s *RemoteVerifyStrategy) Verify(ctx context.Context, tokenString string, o
 		opts = &VerifyOptions{}
 	}
 
-	resp, err := s.authClient.VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+	resp, err := s.authClient.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:      tokenString,
 		ForceRemote:      opts.ForceRemote,
 		IncludeMetadata:  opts.IncludeMetadata,

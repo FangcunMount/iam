@@ -4,12 +4,12 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	appprofile "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	appprofilelink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
-	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	mysqlUcUow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/uc"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	mysqlUcUow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/uc"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // UserModule 用户模块

@@ -2,8 +2,8 @@
 package handler
 
 import (
-	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
+	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
 )
 

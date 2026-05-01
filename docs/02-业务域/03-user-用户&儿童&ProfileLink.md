@@ -64,7 +64,7 @@ classDiagram
 | Profile 应用服务 | 创建、编辑、当前用户 profile 访问、查询。 | [../../internal/apiserver/application/uc/profile](../../internal/apiserver/application/uc/profile) |
 | ProfileLink 应用服务 | 系统侧命令、目录查询、当前用户视角关系访问。 | [../../internal/apiserver/application/uc/profilelink](../../internal/apiserver/application/uc/profilelink) |
 | UoW | User/Profile/ProfileLink 事务仓库集合。 | [../../internal/apiserver/application/uc/uow/uow.go](../../internal/apiserver/application/uc/uow/uow.go) |
-| 合同 | REST Identity 和 gRPC Identity/ProfileLink。 | [../../api/rest/identity.v1.yaml](../../api/rest/identity.v1.yaml)、[../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
+| 合同 | REST Identity 和 gRPC Identity/ProfileLink。 | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto) |
 
 ## 1. 模块边界
 
@@ -212,10 +212,10 @@ sequenceDiagram
 
 | 接口面 | 当前能力 |
 | ---- | ---- |
-| REST `/api/v1/identity/me` | 当前用户资料读取和 patch。 |
-| REST `/api/v1/identity/me/profiles` | 当前用户关联 profile。 |
-| REST `/api/v1/identity/profiles` | profile 创建、查询、搜索和更新。 |
-| REST `/api/v1/identity/profile-links` | ProfileLink 查询、建立和撤销。 |
+| REST `/api/v2/identity/me` | 当前用户资料读取和 patch。 |
+| REST `/api/v2/identity/me/profiles` | 当前用户关联 profile。 |
+| REST `/api/v2/identity/profiles` | profile 创建、查询、搜索和更新。 |
+| REST `/api/v2/identity/profile-links` | ProfileLink 查询、建立和撤销。 |
 | gRPC `IdentityRead` | 用户和 profile 读取。 |
 | gRPC `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks。 |
 | gRPC `ProfileLinkCommand` | Establish、Revoke、BatchRevoke、Import。 |
@@ -251,8 +251,8 @@ sequenceDiagram
 | UC application | [../../internal/apiserver/application/uc](../../internal/apiserver/application/uc) |
 | REST Identity | [../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity) |
 | gRPC Identity | [../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity) |
-| REST contract | [../../api/rest/identity.v1.yaml](../../api/rest/identity.v1.yaml) |
-| gRPC contract | [../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto) |
+| REST contract | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml) |
+| gRPC contract | [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto) |
 
 验证命令：
 

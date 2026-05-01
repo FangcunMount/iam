@@ -3,11 +3,11 @@ package login
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // SignInKind 是应用层一次登录尝试的内部标识。
-// 普通账号登录直接使用 domain credential.CredentialType 的字符串值；jwt_token 仅作为兼容登录标识存在于 application/transport。
+// 普通账号登录直接使用 domain credential.CredentialType 的字符串值；jwt_token 仅作为内部 bearer 复认证标识存在于 application。
 type SignInKind string
 
 // SignInAttempt 是应用层完成 method selection 后的一次登录尝试。

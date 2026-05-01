@@ -1,7 +1,7 @@
 package response
 
 import (
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 )
 
 type CatalogResponse struct {

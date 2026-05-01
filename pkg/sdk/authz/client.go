@@ -1,15 +1,15 @@
 // Package authz 提供授权判定（PDP）能力。
 package authz
 
-import authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
+import authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
 
 // Client 授权服务客户端。
 type Client struct {
-	authorizationService authzv1.AuthorizationServiceClient
+	authorizationService authzv2.AuthorizationServiceClient
 }
 
 // NewClient 创建授权服务客户端。
-func NewClient(authorizationService authzv1.AuthorizationServiceClient) *Client {
+func NewClient(authorizationService authzv2.AuthorizationServiceClient) *Client {
 	return &Client{
 		authorizationService: authorizationService,
 	}

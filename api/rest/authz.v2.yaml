@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: IAM Authorization API
-  version: 1.0.0
+  title: IAM Authorization API v2
+  version: 2.0.0
   description: 授权、角色、资源与策略管理 REST API
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam
+    url: https://github.com/FangcunMount/iam/v2
 servers:
-- url: https://iam.fangcunmount.cn/api/v1
+- url: https://iam.fangcunmount.cn/api/v2
   description: 生产环境
-- url: http://localhost:18081/api/v1
+- url: http://localhost:18081/api/v2
   description: 本地开发
 tags:
 - name: Health
@@ -42,7 +42,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
   /authz/assignments/grant:
     post:
       tags:
@@ -53,7 +53,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.GrantRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest'
       responses:
         '200':
           description: OK
@@ -61,10 +61,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
                   type: object
   /authz/assignments/revoke:
     post:
@@ -76,14 +76,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RevokeRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
   /authz/assignments/subject:
     get:
       tags:
@@ -111,11 +111,11 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
                       items:
-                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
                       type: array
                   type: object
   /authz/check:
@@ -128,7 +128,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CheckRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckRequest'
       responses:
         '200':
           description: OK
@@ -136,10 +136,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CheckResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckResponse'
                   type: object
   /authz/policies:
     post:
@@ -151,14 +151,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
     delete:
       tags:
       - Authorization-Policies
@@ -168,14 +168,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
   /authz/policies/version:
     get:
       tags:
@@ -188,10 +188,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse'
                   type: object
   /authz/resources:
     get:
@@ -233,11 +233,11 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ListResponse'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
                 - properties:
                     data:
                       items:
-                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                       type: array
                   type: object
     post:
@@ -249,7 +249,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest'
       responses:
         '200':
           description: OK
@@ -257,10 +257,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
   /authz/resources/{id}:
     get:
@@ -281,10 +281,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
     put:
       tags:
@@ -302,7 +302,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest'
       responses:
         '200':
           description: OK
@@ -310,10 +310,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
     delete:
       tags:
@@ -332,7 +332,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
   /authz/resources/key/{key}:
     get:
       tags:
@@ -352,10 +352,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
   /authz/resources/validate-action:
     post:
@@ -367,7 +367,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest'
       responses:
         '200':
           description: OK
@@ -375,10 +375,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse'
                   type: object
   /authz/roles:
     get:
@@ -405,11 +405,11 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ListResponse'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
                 - properties:
                     data:
                       items:
-                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                       type: array
                   type: object
     post:
@@ -421,7 +421,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest'
       responses:
         '200':
           description: OK
@@ -429,10 +429,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                   type: object
   /authz/roles/{id}:
     get:
@@ -453,10 +453,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                   type: object
     put:
       tags:
@@ -474,7 +474,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest'
       responses:
         '200':
           description: OK
@@ -482,10 +482,10 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
-                      $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                   type: object
     delete:
       tags:
@@ -504,7 +504,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
   /authz/roles/{id}/assignments:
     get:
       tags:
@@ -524,11 +524,11 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
                       items:
-                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
                       type: array
                   type: object
   /authz/roles/{id}/policies:
@@ -550,11 +550,11 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response'
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
                 - properties:
                     data:
                       items:
-                        $ref: '#/components/schemas/github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse'
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionResponse'
                       type: array
                   type: object
 components:
@@ -603,7 +603,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest:
       properties:
         action:
           type: string
@@ -624,7 +624,7 @@ components:
       - resource_id
       - role_id
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.AssignmentResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse:
       properties:
         granted_by:
           type: string
@@ -639,7 +639,7 @@ components:
         tenant_id:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CheckRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckRequest:
       properties:
         action:
           type: string
@@ -658,12 +658,12 @@ components:
       - action
       - object
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CheckResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckResponse:
       properties:
         allowed:
           type: boolean
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest:
       properties:
         actions:
           items:
@@ -694,7 +694,7 @@ components:
       - key
       - type
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest:
       properties:
         description:
           type: string
@@ -706,7 +706,7 @@ components:
       - display_name
       - name
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.GrantRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest:
       properties:
         granted_by:
           type: string
@@ -723,7 +723,7 @@ components:
       - subject_id
       - subject_type
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ListResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse:
       properties:
         code:
           type: integer
@@ -737,7 +737,7 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PermissionResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionResponse:
       properties:
         action:
           type: string
@@ -752,7 +752,7 @@ components:
         subject:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse:
       properties:
         changed_by:
           type: string
@@ -763,7 +763,7 @@ components:
         version:
           type: integer
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest:
       properties:
         action:
           type: string
@@ -784,7 +784,7 @@ components:
       - resource_id
       - role_id
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ResourceResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse:
       properties:
         actions:
           items:
@@ -809,7 +809,7 @@ components:
         type:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.Response:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response:
       properties:
         code:
           type: integer
@@ -817,7 +817,7 @@ components:
         message:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RevokeRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest:
       properties:
         role_id:
           type: string
@@ -832,7 +832,7 @@ components:
       - subject_id
       - subject_type
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.RoleResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse:
       properties:
         description:
           type: string
@@ -845,7 +845,7 @@ components:
         tenant_id:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest:
       properties:
         actions:
           items:
@@ -861,14 +861,14 @@ components:
             type: string
           type: array
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest:
       properties:
         description:
           type: string
         display_name:
           type: string
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest:
       properties:
         action:
           type: string
@@ -878,7 +878,7 @@ components:
       - action
       - resource_key
       type: object
-    github_com_FangcunMount_iam_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse:
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse:
       properties:
         valid:
           type: boolean

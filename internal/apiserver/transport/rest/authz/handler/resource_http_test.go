@@ -8,9 +8,9 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	resourceApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/resource"
-	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
+	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 func TestResourceHandlerCreateResourceHTTPBranches(t *testing.T) {

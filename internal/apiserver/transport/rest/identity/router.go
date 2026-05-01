@@ -3,7 +3,7 @@ package identity
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
 )
 
 // Dependencies bundles the runtime collaborators required by the UC HTTP adapters.
@@ -20,7 +20,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		return
 	}
 
-	api := engine.Group("/api/v1/identity")
+	api := engine.Group("/api/v2/identity")
 	api.Use(deps.AuthMiddleware)
 
 	registerUserRoutes(api, deps.UserHandler)

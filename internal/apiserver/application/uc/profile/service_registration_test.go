@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/testutil"
 )
 
 func TestMyProfiles_Create_RollsBackProfileOnLinkFailure(t *testing.T) {

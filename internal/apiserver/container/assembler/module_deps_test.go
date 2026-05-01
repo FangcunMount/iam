@@ -3,7 +3,7 @@ package assembler
 import (
 	"testing"
 
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 )
 
 func TestSuggestModuleInitializeWithDepsDisabledDoesNotRequireDB(t *testing.T) {

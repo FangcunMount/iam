@@ -6,26 +6,25 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 
 | 文件 | 说明 |
 | ---- | ---- |
-| [authn.v1.yaml](authn.v1.yaml) | v1 认证、Token、JWKS、账户和 signup |
-| [authn.v2.yaml](authn.v2.yaml) | v2 显式登录 |
-| [authz.v1.yaml](authz.v1.yaml) | 授权判定、角色、assignment、策略、资源 |
-| [identity.v1.yaml](identity.v1.yaml) | 当前用户、profiles、profile-links |
-| [idp.v1.yaml](idp.v1.yaml) | IDP 健康检查和微信应用配置 |
-| [suggest.v1.yaml](suggest.v1.yaml) | 儿童档案联想搜索 |
+| [authn.v2.yaml](authn.v2.yaml) | v2 认证、Token、JWKS、账户和 signup |
+| [authz.v2.yaml](authz.v2.yaml) | 授权判定、角色、assignment、策略、资源 |
+| [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links |
+| [idp.v2.yaml](idp.v2.yaml) | IDP 健康检查和微信应用配置 |
+| [suggest.v2.yaml](suggest.v2.yaml) | 儿童档案联想搜索 |
 
 ## 当前路由口径
 
 | 能力 | 路由 |
 | ---- | ---- |
-| 登录 | `POST /api/v1/authn/login`、`POST /api/v2/authn/login` |
-| 登录准备 | `POST /api/v1/authn/login/prep/phone-otp` |
-| Token | `POST /api/v1/authn/refresh_token`、`POST /api/v1/authn/logout`、`POST /api/v1/authn/verify` |
-| JWKS | `GET /.well-known/jwks.json`、`GET /api/v1/.well-known/jwks.json` |
-| 账户 | `/api/v1/authn/accounts/*`、`/api/v1/authn/signups/wechat-miniprogram` |
-| 授权 | `/api/v1/authz/health`、`/api/v1/authz/check`、`/api/v1/authz/{roles,assignments,policies,resources}` |
-| Identity | `/api/v1/identity/me`、`/api/v1/identity/profiles`、`/api/v1/identity/profile-links` |
-| IDP | `/api/v1/idp/health`、`/api/v1/idp/wechat-apps/*` |
-| Suggest | `GET /api/v1/suggest/profile` |
+| 登录 | `POST /api/v2/authn/login` |
+| 登录准备 | `POST /api/v2/authn/login/prep/phone-otp` |
+| Token | `POST /api/v2/authn/refresh_token`、`POST /api/v2/authn/logout`、`POST /api/v2/authn/verify` |
+| JWKS | `GET /.well-known/jwks.json`、`GET /api/v2/.well-known/jwks.json` |
+| 账户 | `/api/v2/authn/accounts/*`、`/api/v2/authn/signups/wechat-miniprogram` |
+| 授权 | `/api/v2/authz/health`、`/api/v2/authz/check`、`/api/v2/authz/{roles,assignments,policies,resources}` |
+| Identity | `/api/v2/identity/me`、`/api/v2/identity/profiles`、`/api/v2/identity/profile-links` |
+| IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` |
+| Suggest | `GET /api/v2/suggest/profile` |
 | Debug | `/debug/routes`、`/debug/modules`、`/debug/cache-governance/*` |
 
 Identity 的当前关系术语是 `ProfileLink`。REST 路由使用 `/profile-links`，不再使用旧关系路由。
@@ -45,14 +44,14 @@ Identity 的当前关系术语是 `ProfileLink`。REST 路由使用 `/profile-li
 ## 示例
 
 ```bash
-curl -X POST https://iam.example.com/api/v1/authn/login \
+curl -X POST https://iam.example.com/api/v2/authn/login \
   -H "Content-Type: application/json" \
-  -d '{"method":"password","credentials":{"username":"admin","password":"secret"}}'
+  -d '{"auth_method":"password","method_payload":{"username":"admin","password":"secret"}}'
 
-curl https://iam.example.com/api/v1/identity/me \
+curl https://iam.example.com/api/v2/identity/me \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 
-curl -X POST https://iam.example.com/api/v1/authz/check \
+curl -X POST https://iam.example.com/api/v2/authz/check \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"resource":"qs:answer-sheet","action":"submit"}'

@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
-	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 )
 
 // AuthHandler 认证 HTTP 处理器

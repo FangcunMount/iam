@@ -1,6 +1,6 @@
 package keyset
 
-import appjwks "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
+import appjwks "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 
 func toAppKeyStatus(status KeyStatus) appjwks.KeyStatus {
 	return appjwks.KeyStatus(status)

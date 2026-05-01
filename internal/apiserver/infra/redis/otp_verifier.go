@@ -10,8 +10,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 )
 
 // OTPVerifierImpl OTP验证器的Redis实现

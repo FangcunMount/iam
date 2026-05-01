@@ -7,39 +7,37 @@
 ```text
 api/
 ├── rest/
-│   ├── authn.v1.yaml
 │   ├── authn.v2.yaml
-│   ├── authz.v1.yaml
-│   ├── identity.v1.yaml
-│   ├── idp.v1.yaml
-│   └── suggest.v1.yaml
+│   ├── authz.v2.yaml
+│   ├── identity.v2.yaml
+│   ├── idp.v2.yaml
+│   └── suggest.v2.yaml
 └── grpc/
-    └── iam/{authn,authz,identity,idp}/v1/*.proto
+    └── iam/{authn,authz,identity,idp}/v2/*.proto
 ```
 
 ## REST 能力
 
 | 契约 | 当前能力 |
 | ---- | ---- |
-| [rest/authn.v1.yaml](rest/authn.v1.yaml) | v1 登录、登录准备、刷新、登出、验证、JWKS、账户和 signup |
-| [rest/authn.v2.yaml](rest/authn.v2.yaml) | 使用 `auth_method + method_payload` 的显式登录契约 |
-| [rest/authz.v1.yaml](rest/authz.v1.yaml) | 授权健康检查、判定、角色、assignment、策略、资源管理 |
-| [rest/identity.v1.yaml](rest/identity.v1.yaml) | 当前用户、profiles、profile-links |
-| [rest/idp.v1.yaml](rest/idp.v1.yaml) | IDP 健康检查和微信应用管理 |
-| [rest/suggest.v1.yaml](rest/suggest.v1.yaml) | 儿童档案联想搜索 |
+| [rest/authn.v2.yaml](rest/authn.v2.yaml) | 使用 `auth_method + method_payload` 的显式登录、登录准备、刷新、登出、验证、JWKS、账户和 signup |
+| [rest/authz.v2.yaml](rest/authz.v2.yaml) | 授权健康检查、判定、角色、assignment、策略、资源管理 |
+| [rest/identity.v2.yaml](rest/identity.v2.yaml) | 当前用户、profiles、profile-links |
+| [rest/idp.v2.yaml](rest/idp.v2.yaml) | IDP 健康检查和微信应用管理 |
+| [rest/suggest.v2.yaml](rest/suggest.v2.yaml) | 儿童档案联想搜索 |
 
 常用端点示例：
 
 ```text
-POST /api/v1/authn/login
-POST /api/v1/authn/refresh_token
-POST /api/v1/authn/logout
+POST /api/v2/authn/login
+POST /api/v2/authn/refresh_token
+POST /api/v2/authn/logout
 GET  /.well-known/jwks.json
-POST /api/v1/authz/check
-GET  /api/v1/identity/me
-POST /api/v1/identity/profiles
-GET  /api/v1/identity/profile-links
-GET  /api/v1/suggest/profile
+POST /api/v2/authz/check
+GET  /api/v2/identity/me
+POST /api/v2/identity/profiles
+GET  /api/v2/identity/profile-links
+GET  /api/v2/suggest/profile
 ```
 
 实际注册位置在 [internal/apiserver/transport/rest](../internal/apiserver/transport/rest)，路由矩阵由 [internal/apiserver/transport/rest/router_matrix_test.go](../internal/apiserver/transport/rest/router_matrix_test.go) 保护。
@@ -48,10 +46,10 @@ GET  /api/v1/suggest/profile
 
 | 契约 | 服务 |
 | ---- | ---- |
-| [grpc/iam/authn/v1/authn.proto](grpc/iam/authn/v1/authn.proto) | `AuthService`、`AccountOnboardingService`、`JWKSService` |
-| [grpc/iam/authz/v1/authz.proto](grpc/iam/authz/v1/authz.proto) | `AuthorizationService` |
-| [grpc/iam/identity/v1/identity.proto](grpc/iam/identity/v1/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileLinkCommand`、`IdentityLifecycle` |
-| [grpc/iam/idp/v1/idp.proto](grpc/iam/idp/v1/idp.proto) | `IDPService` |
+| [grpc/iam/authn/v2/authn.proto](grpc/iam/authn/v2/authn.proto) | `AuthService`、`AccountOnboardingService`、`JWKSService` |
+| [grpc/iam/authz/v2/authz.proto](grpc/iam/authz/v2/authz.proto) | `AuthorizationService` |
+| [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileLinkCommand`、`IdentityLifecycle` |
+| [grpc/iam/idp/v2/idp.proto](grpc/iam/idp/v2/idp.proto) | `IDPService` |
 
 服务注册位置在 [internal/apiserver/transport/grpc/registry.go](../internal/apiserver/transport/grpc/registry.go)，proto 与注册关系由 [internal/apiserver/transport/grpc/proto_contract_test.go](../internal/apiserver/transport/grpc/proto_contract_test.go) 保护。
 

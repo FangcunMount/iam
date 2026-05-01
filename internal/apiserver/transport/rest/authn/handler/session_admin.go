@@ -4,9 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	sessionapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	sessionapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // SessionAdminHandler 暴露管理员会话控制接口。

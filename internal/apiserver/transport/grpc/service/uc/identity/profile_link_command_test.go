@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,10 +52,10 @@ func TestProfileLinkCommandEstablishUsesSystemCommand(t *testing.T) {
 	commands := &profileLinkCommandStub{}
 	server := &profileLinkCommandServer{profileLinkSvc: commands}
 
-	resp, err := server.EstablishProfileLink(context.Background(), &identityv1.EstablishProfileLinkRequest{
+	resp, err := server.EstablishProfileLink(context.Background(), &identityv2.EstablishProfileLinkRequest{
 		UserId:    "100",
 		ProfileId: "200",
-		Relation:  identityv1.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT,
+		Relation:  identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT,
 	})
 
 	require.NoError(t, err)
@@ -69,10 +69,10 @@ func TestProfileLinkCommandRevokeUsesSystemCommandSelector(t *testing.T) {
 	commands := &profileLinkCommandStub{}
 	server := &profileLinkCommandServer{profileLinkSvc: commands}
 
-	resp, err := server.RevokeProfileLink(context.Background(), &identityv1.RevokeProfileLinkRequest{
-		Target: &identityv1.ProfileLinkSelector{
-			Selector: &identityv1.ProfileLinkSelector_Key{
-				Key: &identityv1.ProfileLinkKey{
+	resp, err := server.RevokeProfileLink(context.Background(), &identityv2.RevokeProfileLinkRequest{
+		Target: &identityv2.ProfileLinkSelector{
+			Selector: &identityv2.ProfileLinkSelector_Key{
+				Key: &identityv2.ProfileLinkKey{
 					UserId:    "100",
 					ProfileId: "200",
 				},

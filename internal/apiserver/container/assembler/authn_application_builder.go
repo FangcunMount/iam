@@ -5,17 +5,17 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	accountApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/account"
-	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
-	loginprep "github.com/FangcunMount/iam/internal/apiserver/application/authn/loginprep"
-	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	sessionApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	smsInfra "github.com/FangcunMount/iam/internal/apiserver/infra/sms"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/token/keyset"
-	apiserveroptions "github.com/FangcunMount/iam/internal/apiserver/options"
+	accountApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
+	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
+	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	smsInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/token/keyset"
+	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 )
 
 func (m *AuthnModule) initializeApplication(

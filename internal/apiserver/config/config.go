@@ -1,6 +1,6 @@
 package config
 
-import "github.com/FangcunMount/iam/internal/apiserver/options"
+import "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 
 // Config 运行配置结构体
 type Config struct {

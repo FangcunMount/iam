@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	profile "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	profile "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

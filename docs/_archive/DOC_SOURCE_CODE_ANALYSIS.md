@@ -116,7 +116,7 @@ interface -> application -> domain -> infra (+ container 装配)
 | Principal 产出 | 认证判决中心产出 | ✅ [internal/apiserver/domain/authn/authentication/authenticater.go](internal/apiserver/domain/authn/authentication/authenticater.go) | ✅ |
 | Access Token | JWT + RS256 + kid + sid | ✅ [internal/apiserver/infra/jwt/generator.go](internal/apiserver/infra/jwt/generator.go) | ✅ |
 | Refresh Token | UUID + Redis + sid + 轮换删旧 | ✅ [internal/apiserver/infra/redis/token-store.go](internal/apiserver/infra/redis/token-store.go) | ✅ |
-| Service Token | gRPC IssueServiceToken | ✅ [api/grpc/iam/authn/v1/authn.proto](api/grpc/iam/authn/v1/authn.proto) | ✅ |
+| Service Token | gRPC IssueServiceToken | ✅ [api/grpc/iam/authn/v2/authn.proto](api/grpc/iam/authn/v2/authn.proto) | ✅ |
 | JWT 中间件 | 验签 + 过期 + revoke + session | ✅ [internal/pkg/middleware/authn/jwt_middleware.go](internal/pkg/middleware/authn/jwt_middleware.go) | ✅ |
 | JWKS 发布 | `/.well-known/jwks.json` | ✅ [internal/apiserver/application/authn/jwks/key_publish.go](internal/apiserver/application/authn/jwks/key_publish.go) | ✅ |
 | 密钥轮换 | 每日凌晨 2 点检查 | ✅ [internal/apiserver/container/assembler/authn.go](internal/apiserver/container/assembler/authn.go) | ✅ |
@@ -161,7 +161,7 @@ interface -> application -> domain -> infra (+ container 装配)
 | Profile 对象 | 儿童身份对象 | ✅ [internal/apiserver/domain/uc/profile/profile.go](internal/apiserver/domain/uc/profile/profile.go) | ✅ |
 | Ref | 监护关系、relation/established_at/revoked_at | ✅ [internal/apiserver/domain/uc/ref/ref.go](internal/apiserver/domain/uc/ref/ref.go) | ✅ |
 | REST 入口 | `/api/v1/identity/me`、`/me/profiles` 等 | ✅ [api/rest/identity.v1.yaml](api/rest/identity.v1.yaml) | ✅ |
-| gRPC 入口 | `IdentityRead`、`RefQuery` 等 | ✅ [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto) | ✅ |
+| gRPC 入口 | `IdentityRead`、`RefQuery` 等 | ✅ [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto) | ✅ |
 
 **细节偏移识别**：
 
@@ -173,7 +173,7 @@ interface -> application -> domain -> infra (+ container 装配)
 **注意**: 文档指出的" `identitiy.proto` 虽有 stream 合同，但运行时未注册 `IdentityStream`"
 
 源码验证:
-- [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto) 中确实定义了 stream
+- [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto) 中确实定义了 stream
 - [internal/apiserver/interface/uc/grpc/identity/service.go](internal/apiserver/interface/uc/grpc/identity/service.go) 中**未实现** stream 端点
 
 **偏移评估**: ⚠️ **轻微** - 文档已准确指出这一点，但没有解释为什么预留了 proto 但未实现。
@@ -302,7 +302,7 @@ interface -> application -> domain -> infra (+ container 装配)
 **问题识别**:
 
 1. **Stream 端点预留但未实现**
-   - [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto) 中定义了 stream
+   - [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto) 中定义了 stream
    - 但实现中 **Stream 服务未注册**
    - 文档已准确指出
 
@@ -393,7 +393,7 @@ interface -> application -> domain -> infra (+ container 装配)
 ```markdown
 ### Stream 端点的当前状态
 
-**Proto 定义**: `api/grpc/iam/identity/v1/identity.proto` 中定义了：
+**Proto 定义**: `api/grpc/iam/identity/v2/identity.proto` 中定义了：
 ```protobuf
 rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse);
 ```

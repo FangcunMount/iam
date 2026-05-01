@@ -14,22 +14,22 @@
 
 | 文件 | 能力 | 说明 |
 | ---- | ---- | ---- |
-| [../../api/rest/authn.v1.yaml](../../api/rest/authn.v1.yaml) | 登录、Token、JWKS、账户开通 | v1 REST 入口，包含 public JWKS。 |
+| [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) | 登录、Token、JWKS、账户开通 | v1 REST 入口，包含 public JWKS。 |
 | [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) | 显式登录 | `auth_method + method_payload` 形态。 |
-| [../../api/rest/authz.v1.yaml](../../api/rest/authz.v1.yaml) | 授权判定和管理面 | 公开 term 使用 `assignment`。 |
-| [../../api/rest/identity.v1.yaml](../../api/rest/identity.v1.yaml) | User、Profile、ProfileLink | 用户和档案关系接入。 |
-| [../../api/rest/idp.v1.yaml](../../api/rest/idp.v1.yaml) | IDP 微信应用管理 | 登录仍由 AuthN 统一提供。 |
-| [../../api/rest/suggest.v1.yaml](../../api/rest/suggest.v1.yaml) | Profile 联想搜索 | 读侧辅助能力。 |
+| [../../api/rest/authz.v2.yaml](../../api/rest/authz.v2.yaml) | 授权判定和管理面 | 公开 term 使用 `assignment`。 |
+| [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml) | User、Profile、ProfileLink | 用户和档案关系接入。 |
+| [../../api/rest/idp.v2.yaml](../../api/rest/idp.v2.yaml) | IDP 微信应用管理 | 登录仍由 AuthN 统一提供。 |
+| [../../api/rest/suggest.v2.yaml](../../api/rest/suggest.v2.yaml) | Profile 联想搜索 | 读侧辅助能力。 |
 
 ## 当前路由速查
 
 | 模块 | 入口 | 认证边界 |
 | ---- | ---- | ---- |
-| AuthN | `/api/v1/authn/*`、`/api/v2/authn/login`、`/.well-known/jwks.json` | 登录和 JWKS 有公开入口；token 管理依合同要求认证。 |
-| AuthZ | `/api/v1/authz/*` | protected route，管理面还依赖角色/权限要求。 |
-| Identity | `/api/v1/identity/me`、`/api/v1/identity/profiles`、`/api/v1/identity/profile-links` | protected route。 |
-| IDP | `/api/v1/idp/*` | 微信应用管理需要 admin middlewares；health 入口按 router 实现注册。 |
-| Suggest | `/api/v1/suggest/profile` | protected route，返回读侧候选。 |
+| AuthN | `/api/v2/authn/*`、`/api/v2/authn/login`、`/.well-known/jwks.json` | 登录和 JWKS 有公开入口；token 管理依合同要求认证。 |
+| AuthZ | `/api/v2/authz/*` | protected route，管理面还依赖角色/权限要求。 |
+| Identity | `/api/v2/identity/me`、`/api/v2/identity/profiles`、`/api/v2/identity/profile-links` | protected route。 |
+| IDP | `/api/v2/idp/*` | 微信应用管理需要 admin middlewares；health 入口按 router 实现注册。 |
+| Suggest | `/api/v2/suggest/profile` | protected route，返回读侧候选。 |
 | Debug | `/debug/routes`、`/debug/modules`、`/debug/cache-governance/*` | 受运行模式和 debug 配置控制，生产默认要求 admin。 |
 
 ## REST 请求路径
@@ -59,7 +59,7 @@ REST handler 的职责应保持轻：解析请求、读取身份上下文、调�
 v1 登录示例：
 
 ```bash
-curl -X POST https://iam.example.com/api/v1/authn/login \
+curl -X POST https://iam.example.com/api/v2/authn/login \
   -H "Content-Type: application/json" \
   -d '{"method":"password","credentials":{"username":"admin","password":"secret"}}'
 ```
@@ -67,14 +67,14 @@ curl -X POST https://iam.example.com/api/v1/authn/login \
 访问 ProfileLink：
 
 ```bash
-curl https://iam.example.com/api/v1/identity/profile-links \
+curl https://iam.example.com/api/v2/identity/profile-links \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 ```
 
 授权判定：
 
 ```bash
-curl -X POST https://iam.example.com/api/v1/authz/check \
+curl -X POST https://iam.example.com/api/v2/authz/check \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"action":"read","resource":"qs:profile:1001","domain":"1"}'

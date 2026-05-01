@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -36,21 +36,21 @@ func (s *verifyStrategyStub) Name() string {
 }
 
 type verifyTokenClientStub struct {
-	verifyReq  *authnv1.VerifyTokenRequest
-	verifyResp *authnv1.VerifyTokenResponse
+	verifyReq  *authnv2.VerifyTokenRequest
+	verifyResp *authnv2.VerifyTokenResponse
 	verifyErr  error
 }
 
-func (s *verifyTokenClientStub) VerifyToken(_ context.Context, in *authnv1.VerifyTokenRequest) (*authnv1.VerifyTokenResponse, error) {
+func (s *verifyTokenClientStub) VerifyToken(_ context.Context, in *authnv2.VerifyTokenRequest) (*authnv2.VerifyTokenResponse, error) {
 	s.verifyReq = in
 	return s.verifyResp, s.verifyErr
 }
 
 func TestRemoteVerifyStrategyPassesConfiguredIssuerAndAudience(t *testing.T) {
 	stub := &verifyTokenClientStub{
-		verifyResp: &authnv1.VerifyTokenResponse{
+		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
-			Claims: &authnv1.TokenClaims{
+			Claims: &authnv2.TokenClaims{
 				TokenId:   "jti-1",
 				Subject:   "user:1",
 				SessionId: "sid-1",
@@ -80,9 +80,9 @@ func TestRemoteVerifyStrategyPassesConfiguredIssuerAndAudience(t *testing.T) {
 
 func TestRemoteVerifyStrategyOptionsOverrideConfig(t *testing.T) {
 	stub := &verifyTokenClientStub{
-		verifyResp: &authnv1.VerifyTokenResponse{
+		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
-			Claims: &authnv1.TokenClaims{
+			Claims: &authnv2.TokenClaims{
 				TokenId:   "jti-2",
 				Subject:   "user:1",
 				SessionId: "sid-override",
@@ -119,9 +119,9 @@ func TestRemoteVerifyStrategyOptionsOverrideConfig(t *testing.T) {
 
 func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 	stub := &verifyTokenClientStub{
-		verifyResp: &authnv1.VerifyTokenResponse{
+		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
-			Claims: &authnv1.TokenClaims{
+			Claims: &authnv2.TokenClaims{
 				TokenId:   "jti-remote",
 				Subject:   "user:1",
 				SessionId: "sid-remote",
@@ -134,9 +134,9 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 				IssuedAt:  timestamppb.New(time.Now()),
 				ExpiresAt: timestamppb.New(time.Now().Add(time.Minute)),
 			},
-			Metadata: &authnv1.TokenMetadata{
-				TokenType: authnv1.TokenType_TOKEN_TYPE_ACCESS,
-				Status:    authnv1.TokenStatus_TOKEN_STATUS_VALID,
+			Metadata: &authnv2.TokenMetadata{
+				TokenType: authnv2.TokenType_TOKEN_TYPE_ACCESS,
+				Status:    authnv2.TokenStatus_TOKEN_STATUS_VALID,
 				IssuedAt:  timestamppb.New(time.Now()),
 				ExpiresAt: timestamppb.New(time.Now().Add(time.Minute)),
 			},
@@ -153,8 +153,8 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 	require.Equal(t, "sid-remote", result.Claims.SessionID)
 	require.Equal(t, []string{"pwd", "otp"}, result.Claims.AMR)
 	require.NotNil(t, result.Metadata)
-	require.Equal(t, authnv1.TokenType_TOKEN_TYPE_ACCESS, result.Metadata.TokenType)
-	require.Equal(t, authnv1.TokenStatus_TOKEN_STATUS_VALID, result.Metadata.Status)
+	require.Equal(t, authnv2.TokenType_TOKEN_TYPE_ACCESS, result.Metadata.TokenType)
+	require.Equal(t, authnv2.TokenStatus_TOKEN_STATUS_VALID, result.Metadata.Status)
 }
 
 func TestExtractClaimsIncludesSessionID(t *testing.T) {
@@ -182,8 +182,8 @@ func TestBuildVerifyMetadataFromClaimsDefaultsAccessToken(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Minute),
 	})
 	require.NotNil(t, metadata)
-	require.Equal(t, authnv1.TokenType_TOKEN_TYPE_ACCESS, metadata.TokenType)
-	require.Equal(t, authnv1.TokenStatus_TOKEN_STATUS_VALID, metadata.Status)
+	require.Equal(t, authnv2.TokenType_TOKEN_TYPE_ACCESS, metadata.TokenType)
+	require.Equal(t, authnv2.TokenStatus_TOKEN_STATUS_VALID, metadata.Status)
 }
 
 func TestTokenVerifierForceRemoteUsesRemoteStrategy(t *testing.T) {

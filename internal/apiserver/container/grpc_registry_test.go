@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
 	googlegrpc "google.golang.org/grpc"
 )
 

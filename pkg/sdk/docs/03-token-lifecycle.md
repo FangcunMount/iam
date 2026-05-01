@@ -76,7 +76,7 @@
 ### 3 行代码开始
 
 ```go
-resp, err := client.Auth().RefreshToken(ctx, &authnv1.RefreshTokenRequest{
+resp, err := client.Auth().RefreshToken(ctx, &authnv2.RefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 ```
@@ -111,7 +111,7 @@ resp, err := client.Auth().RefreshToken(ctx, &authnv1.RefreshTokenRequest{
 
 - 已存在 `ctx`
 - 已创建 `client`
-- 已按需导入 `sdk`、`authnv1`、`errors`
+- 已按需导入 `sdk`、`authnv2`、`errors`
 - 你已经拿到了已有 token，或者明确知道自己要传的 `subject / audience / ttl`
 
 这篇文档保留的是**最小可理解片段**。  
@@ -146,7 +146,7 @@ SDK 从这里开始消费 Verify / Refresh / Revoke / GetJWKS
 ### 3.2 服务态 Token：SDK 与默认服务端都已支持
 
 ```go
-resp, err := client.Auth().IssueServiceToken(ctx, &authnv1.IssueServiceTokenRequest{
+resp, err := client.Auth().IssueServiceToken(ctx, &authnv2.IssueServiceTokenRequest{
     Subject:  "service:qs-server",
     Audience: []string{"iam-service"},
     Ttl:      durationpb.New(time.Hour),
@@ -170,7 +170,7 @@ resp, err := client.Auth().IssueServiceToken(ctx, &authnv1.IssueServiceTokenRequ
 ### 4.1 VerifyToken：远程校验 Access Token
 
 ```go
-resp, err := client.Auth().VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+resp, err := client.Auth().VerifyToken(ctx, &authnv2.VerifyTokenRequest{
     AccessToken: accessToken,
 })
 if err != nil {
@@ -191,7 +191,7 @@ if !resp.Valid {
 ### 4.2 RefreshToken：用 Refresh Token 换新 TokenPair
 
 ```go
-resp, err := client.Auth().RefreshToken(ctx, &authnv1.RefreshTokenRequest{
+resp, err := client.Auth().RefreshToken(ctx, &authnv2.RefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 if err != nil {
@@ -207,13 +207,13 @@ newRefresh := resp.TokenPair.RefreshToken
 ### 4.3 RevokeToken / RevokeRefreshToken：主动失效
 
 ```go
-_, err := client.Auth().RevokeToken(ctx, &authnv1.RevokeTokenRequest{
+_, err := client.Auth().RevokeToken(ctx, &authnv2.RevokeTokenRequest{
     AccessToken: accessToken,
 })
 ```
 
 ```go
-_, err := client.Auth().RevokeRefreshToken(ctx, &authnv1.RevokeRefreshTokenRequest{
+_, err := client.Auth().RevokeRefreshToken(ctx, &authnv2.RevokeRefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 ```
@@ -227,7 +227,7 @@ _, err := client.Auth().RevokeRefreshToken(ctx, &authnv1.RevokeRefreshTokenReque
 ### 4.4 GetJWKS：获取公钥集
 
 ```go
-resp, err := client.Auth().GetJWKS(ctx, &authnv1.GetJWKSRequest{})
+resp, err := client.Auth().GetJWKS(ctx, &authnv2.GetJWKSRequest{})
 if err != nil {
     return err
 }
@@ -247,7 +247,7 @@ jwksJSON := resp.Jwks
 ### 5.1 “先远程校验，再继续业务”
 
 ```go
-resp, err := client.Auth().VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+resp, err := client.Auth().VerifyToken(ctx, &authnv2.VerifyTokenRequest{
     AccessToken: accessToken,
 })
 if err != nil {
@@ -261,7 +261,7 @@ if !resp.Valid {
 ### 5.2 “刷新成功后立刻替换整对 Token”
 
 ```go
-resp, err := client.Auth().RefreshToken(ctx, &authnv1.RefreshTokenRequest{
+resp, err := client.Auth().RefreshToken(ctx, &authnv2.RefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 if err != nil {
@@ -274,14 +274,14 @@ saveTokenPair(resp.TokenPair.AccessToken, resp.TokenPair.RefreshToken)
 ### 5.3 “登出时同时撤销 access 和 refresh”
 
 ```go
-_, err = client.Auth().RevokeToken(ctx, &authnv1.RevokeTokenRequest{
+_, err = client.Auth().RevokeToken(ctx, &authnv2.RevokeTokenRequest{
     AccessToken: accessToken,
 })
 if err != nil {
     return err
 }
 
-_, err = client.Auth().RevokeRefreshToken(ctx, &authnv1.RevokeRefreshTokenRequest{
+_, err = client.Auth().RevokeRefreshToken(ctx, &authnv2.RevokeRefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 ```
@@ -291,7 +291,7 @@ _, err = client.Auth().RevokeRefreshToken(ctx, &authnv1.RevokeRefreshTokenReques
 ### 6.1 当前常见错误
 
 ```go
-resp, err := client.Auth().RefreshToken(ctx, &authnv1.RefreshTokenRequest{
+resp, err := client.Auth().RefreshToken(ctx, &authnv2.RefreshTokenRequest{
     RefreshToken: refreshToken,
 })
 if err != nil {

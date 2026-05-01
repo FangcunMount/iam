@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	bindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
-	bindingDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
+	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 

@@ -3,14 +3,14 @@ window.onload = function() {
 
   const params = new URLSearchParams(window.location.search);
   const customUrl = params.get("url");
-  const defaultUrl = "/openapi/authn.v1.yaml";
+  const defaultUrl = "/openapi/authn.v2.yaml";
 
   const urls = [
-    { name: "AuthN", url: "/openapi/authn.v1.yaml" },
-    { name: "Identity", url: "/openapi/identity.v1.yaml" },
-    { name: "AuthZ", url: "/openapi/authz.v1.yaml" },
-    { name: "IDP", url: "/openapi/idp.v1.yaml" },
-    { name: "Suggest", url: "/openapi/suggest.v1.yaml" },
+    { name: "AuthN", url: "/openapi/authn.v2.yaml" },
+    { name: "Identity", url: "/openapi/identity.v2.yaml" },
+    { name: "AuthZ", url: "/openapi/authz.v2.yaml" },
+    { name: "IDP", url: "/openapi/idp.v2.yaml" },
+    { name: "Suggest", url: "/openapi/suggest.v2.yaml" },
   ];
 
   window.ui = SwaggerUIBundle({

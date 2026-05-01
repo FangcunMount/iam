@@ -52,8 +52,8 @@ flowchart TD
 | self 不变量 | `SelfProfileEnsurer` 确保用户有 active self link，并收敛重复 active self link。 | [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go) |
 | 应用命令 | `Commands` 用 UoW 包住建立和撤销。 | [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go) |
 | 当前用户视角 | `MyProfileLinks` 拒绝为其他用户 grant/list/revoke。 | [../../internal/apiserver/application/uc/profilelink/service_access.go](../../internal/apiserver/application/uc/profilelink/service_access.go) |
-| REST 合同 | `/api/v1/identity/profile-links`。 | [../../api/rest/identity.v1.yaml](../../api/rest/identity.v1.yaml)、[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity) |
-| gRPC 合同 | `ProfileLinkQuery`、`ProfileLinkCommand`。 | [../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto)、[../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity) |
+| REST 合同 | `/api/v2/identity/profile-links`。 | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity) |
+| gRPC 合同 | `ProfileLinkQuery`、`ProfileLinkCommand`。 | [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)、[../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity) |
 
 ## 1. 领域模型：ProfileLink 不是 Profile 的字段
 
@@ -132,7 +132,7 @@ sequenceDiagram
     participant Linker as "ProfileLinker"
     participant Repo as "Repositories"
 
-    Client->>REST: "POST /api/v1/identity/profile-links"
+    Client->>REST: "POST /api/v2/identity/profile-links"
     REST->>My: "Grant(currentUserID, dto)"
     My->>My: "reject dto.UserID != currentUserID"
     My->>Cmd: "Establish(dto with current user)"
@@ -168,7 +168,7 @@ sequenceDiagram
     participant Linker as "ProfileLinker"
     participant Repo as "Repositories"
 
-    Client->>REST: "POST /api/v1/identity/profile-links/{id}/revoke"
+    Client->>REST: "POST /api/v2/identity/profile-links/{id}/revoke"
     REST->>My: "Revoke(currentUserID, selector)"
     My->>UOW: "WithinTx"
     UOW->>Repo: "resolve selector"

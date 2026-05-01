@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	authzapp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 

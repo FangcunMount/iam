@@ -1,7 +1,7 @@
 package profilelink
 
 import (
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
 )
 
 // ProfileLinkMapper 档案关系映射器

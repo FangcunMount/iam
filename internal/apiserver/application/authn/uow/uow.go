@@ -3,11 +3,11 @@ package uow
 import (
 	"context"
 
-	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	credentialDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	profileDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
-	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	credentialDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	profileDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
 )
 
 // TxRepositories 聚合事务中可使用的仓储集合。

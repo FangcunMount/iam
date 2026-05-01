@@ -3,9 +3,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 )
 
 // UpdateProfile 更新账户资料

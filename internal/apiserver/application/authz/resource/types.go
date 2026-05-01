@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 )
 
 type Catalog interface {

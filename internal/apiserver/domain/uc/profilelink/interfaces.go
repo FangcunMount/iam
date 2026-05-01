@@ -3,7 +3,7 @@ package profilelink
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ================== Domain Capability Interfaces (Driving Ports) ==================

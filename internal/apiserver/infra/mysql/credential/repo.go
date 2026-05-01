@@ -6,10 +6,10 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 

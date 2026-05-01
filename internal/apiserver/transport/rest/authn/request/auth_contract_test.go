@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -68,24 +67,6 @@ func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 
 	okSchema := spec.Paths["/authn/login"]["post"].Responses["200"].Content["application/json"].Schema
 	require.Equal(t, "#/components/schemas/LoginV2Response", okSchema.Ref)
-}
-
-func TestLoginV1OpenAPIContractMarksLegacyInference(t *testing.T) {
-	spec := loadOpenAPISpec(t, "api/rest/authn.v1.yaml")
-
-	operation := spec.Paths["/authn/login"]["post"]
-	assertLegacyInferenceDescription(t, operation.Description)
-
-	loginSchema := spec.Components.Schemas["github_com_FangcunMount_iam_internal_apiserver_transport_rest_authn_request.LoginRequest"]
-	assertLegacyInferenceDescription(t, loginSchema.Properties["method"].Description)
-	assertLegacyInferenceDescription(t, loginSchema.Properties["credentials"].Description)
-}
-
-func assertLegacyInferenceDescription(t *testing.T, desc string) {
-	t.Helper()
-	lower := strings.ToLower(desc)
-	require.Contains(t, lower, "legacy")
-	require.Contains(t, lower, "inference")
 }
 
 func loadOpenAPISpec(t *testing.T, rel string) openAPISpec {

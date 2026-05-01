@@ -1,9 +1,9 @@
 package handler
 
 import (
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 )
 
 func toPermissionResponses(permissions []authzDomain.Permission) []dto.PermissionResponse {

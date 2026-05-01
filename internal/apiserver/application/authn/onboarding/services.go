@@ -3,9 +3,9 @@ package onboarding
 import (
 	"context"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============= 应用服务接口（Driving Ports）=============

@@ -172,14 +172,14 @@ flowchart TD
 
 | 路由层 | 示例 | 注册条件 | 代码证据 |
 | ---- | ---- | ---- | ---- |
-| Base routes | `/health`、`/ping`、`/debug/routes`、`/debug/modules`、`/openapi`、`/swagger`、`/api/v1/public/info` | 只要 engine 存在。 | [../../internal/apiserver/transport/rest/base_routes.go](../../internal/apiserver/transport/rest/base_routes.go) |
+| Base routes | `/health`、`/ping`、`/debug/routes`、`/debug/modules`、`/openapi`、`/swagger`、`/api/v2/public/info` | 只要 engine 存在。 | [../../internal/apiserver/transport/rest/base_routes.go](../../internal/apiserver/transport/rest/base_routes.go) |
 | Cache governance debug | `/debug/cache-governance/catalog` 等 | 非 production 默认启用；production 强制 admin 保护。 | [../../internal/apiserver/transport/rest/debug_routes.go](../../internal/apiserver/transport/rest/debug_routes.go) |
-| AuthN | `/api/v1/authn/*`、`/api/v2/authn/login`、JWKS public/admin。 | AuthN handler 存在；admin JWKS 需要 admin middlewares。 | [../../internal/apiserver/transport/rest/authn/router.go](../../internal/apiserver/transport/rest/authn/router.go) |
-| AuthZ | `/api/v1/authz/*` | AuthZ handlers 存在且 JWT middleware 存在。 | [../../internal/apiserver/transport/rest/authz/router.go](../../internal/apiserver/transport/rest/authz/router.go) |
-| Identity | `/api/v1/identity/*` | User handlers 存在且 JWT middleware 存在。 | [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go) |
-| IDP | `/api/v1/idp/health`、`/api/v1/idp/wechat-apps/*` | health 总是注册；WeChat app 管理需要 handler 和 admin middlewares。 | [../../internal/apiserver/transport/rest/idp/router.go](../../internal/apiserver/transport/rest/idp/router.go) |
-| Suggest | `/api/v1/suggest/profile` | Suggest service 和 JWT middleware 都存在。 | [../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go) |
-| Admin | `/api/v1/admin/*` | JWT middleware 存在且支持 role check。 | [../../internal/apiserver/transport/rest/admin_routes.go](../../internal/apiserver/transport/rest/admin_routes.go) |
+| AuthN | `/api/v2/authn/*`、`/api/v2/authn/login`、JWKS public/admin。 | AuthN handler 存在；admin JWKS 需要 admin middlewares。 | [../../internal/apiserver/transport/rest/authn/router.go](../../internal/apiserver/transport/rest/authn/router.go) |
+| AuthZ | `/api/v2/authz/*` | AuthZ handlers 存在且 JWT middleware 存在。 | [../../internal/apiserver/transport/rest/authz/router.go](../../internal/apiserver/transport/rest/authz/router.go) |
+| Identity | `/api/v2/identity/*` | User handlers 存在且 JWT middleware 存在。 | [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go) |
+| IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` | health 总是注册；WeChat app 管理需要 handler 和 admin middlewares。 | [../../internal/apiserver/transport/rest/idp/router.go](../../internal/apiserver/transport/rest/idp/router.go) |
+| Suggest | `/api/v2/suggest/profile` | Suggest service 和 JWT middleware 都存在。 | [../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go) |
+| Admin | `/api/v2/admin/*` | JWT middleware 存在且支持 role check。 | [../../internal/apiserver/transport/rest/admin_routes.go](../../internal/apiserver/transport/rest/admin_routes.go) |
 
 ## 6. Fail-Closed 边界
 

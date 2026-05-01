@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
-	authzapp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
-	rolebindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
+	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
+	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,7 +23,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{}
 
-		_, err := srv.Check(context.Background(), &authzv1.CheckRequest{
+		_, err := srv.Check(context.Background(), &authzv2.CheckRequest{
 			Subject: "user:1", Domain: "tenant-a", Object: "iam:user:*", Action: "read",
 		})
 
@@ -34,7 +34,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{checker: &authzCheckerFake{}}
 
-		_, err := srv.Check(context.Background(), &authzv1.CheckRequest{})
+		_, err := srv.Check(context.Background(), &authzv2.CheckRequest{})
 
 		require.Equal(t, codes.InvalidArgument, status.Code(err))
 	})
@@ -44,7 +44,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		checker := &authzCheckerFake{decision: authzDomain.AuthorizationDecision{Allowed: true}}
 		srv := &authorizationServer{checker: checker}
 
-		resp, err := srv.Check(context.Background(), &authzv1.CheckRequest{
+		resp, err := srv.Check(context.Background(), &authzv2.CheckRequest{
 			Subject: "user:1", Domain: "tenant-a", Object: "iam:user:*", Action: "read", ScopeType: "origin", ScopeValue: "1",
 		})
 
@@ -63,7 +63,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{checker: &authzCheckerFake{err: errors.New("boom")}}
 
-		_, err := srv.Check(context.Background(), &authzv1.CheckRequest{
+		_, err := srv.Check(context.Background(), &authzv2.CheckRequest{
 			Subject: "user:1", Domain: "tenant-a", Object: "iam:user:*", Action: "read",
 		})
 
@@ -86,7 +86,7 @@ func TestAuthorizationServerSnapshotUsesApplicationReader(t *testing.T) {
 	}
 	srv := &authorizationServer{snapshotReader: reader}
 
-	resp, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv1.GetAuthorizationSnapshotRequest{
+	resp, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv2.GetAuthorizationSnapshotRequest{
 		Subject: "user:1",
 		Domain:  "tenant-a",
 		AppName: "iam",
@@ -95,7 +95,7 @@ func TestAuthorizationServerSnapshotUsesApplicationReader(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"iam:admin"}, resp.Roles)
 	require.Equal(t, int64(12), resp.AuthzVersion)
-	require.Equal(t, []*authzv1.PermissionEntry{
+	require.Equal(t, []*authzv2.PermissionEntry{
 		{Resource: "iam:user:*", Action: "read", ScopeType: "all", ScopeValue: "*"},
 		{Resource: "iam:user:*", Action: "write", ScopeType: "all", ScopeValue: "*"},
 	}, resp.Permissions)
@@ -113,7 +113,7 @@ func TestAuthorizationServerSnapshotBranches(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{}
 
-		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv1.GetAuthorizationSnapshotRequest{
+		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv2.GetAuthorizationSnapshotRequest{
 			Subject: "user:1", Domain: "tenant-a", AppName: "iam",
 		})
 
@@ -124,7 +124,7 @@ func TestAuthorizationServerSnapshotBranches(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{snapshotReader: &authzSnapshotReaderFake{}}
 
-		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv1.GetAuthorizationSnapshotRequest{})
+		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv2.GetAuthorizationSnapshotRequest{})
 
 		require.Equal(t, codes.InvalidArgument, status.Code(err))
 	})
@@ -133,7 +133,7 @@ func TestAuthorizationServerSnapshotBranches(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{snapshotReader: &authzSnapshotReaderFake{err: errors.New("snapshot failed")}}
 
-		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv1.GetAuthorizationSnapshotRequest{
+		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv2.GetAuthorizationSnapshotRequest{
 			Subject: "user:1", Domain: "tenant-a", AppName: "iam",
 		})
 
@@ -147,7 +147,7 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 	commands := &roleBindingCommandsFake{}
 	srv := &authorizationServer{roleBindings: commands}
 
-	_, err := srv.GrantAssignment(context.Background(), &authzv1.GrantAssignmentRequest{
+	_, err := srv.GrantAssignment(context.Background(), &authzv2.GrantAssignmentRequest{
 		Subject:   "user:100",
 		Domain:    "tenant-a",
 		RoleName:  "iam:admin",
@@ -161,7 +161,7 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 		GrantedBy: "operator-1",
 	}}, commands.grants)
 
-	_, err = srv.RevokeAssignment(context.Background(), &authzv1.RevokeAssignmentRequest{
+	_, err = srv.RevokeAssignment(context.Background(), &authzv2.RevokeAssignmentRequest{
 		Subject:  "user:100",
 		Domain:   "tenant-a",
 		RoleName: "iam:admin",
@@ -181,7 +181,7 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{}
 
-		_, err := srv.GrantAssignment(context.Background(), &authzv1.GrantAssignmentRequest{
+		_, err := srv.GrantAssignment(context.Background(), &authzv2.GrantAssignmentRequest{
 			Subject: "user:100", Domain: "tenant-a", RoleName: "iam:admin",
 		})
 
@@ -192,7 +192,7 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 		t.Parallel()
 		srv := &authorizationServer{roleBindings: &roleBindingCommandsFake{}}
 
-		_, err := srv.GrantAssignment(context.Background(), &authzv1.GrantAssignmentRequest{
+		_, err := srv.GrantAssignment(context.Background(), &authzv2.GrantAssignmentRequest{
 			Subject: "malformed", Domain: "tenant-a", RoleName: "iam:admin",
 		})
 
@@ -207,7 +207,7 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 			},
 		}
 
-		_, err := srv.GrantAssignment(context.Background(), &authzv1.GrantAssignmentRequest{
+		_, err := srv.GrantAssignment(context.Background(), &authzv2.GrantAssignmentRequest{
 			Subject: "user:100", Domain: "tenant-a", RoleName: "iam:admin",
 		})
 
@@ -220,7 +220,7 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 			roleBindings: &roleBindingCommandsFake{grantErr: errors.New("grant failed")},
 		}
 
-		_, err := srv.GrantAssignment(context.Background(), &authzv1.GrantAssignmentRequest{
+		_, err := srv.GrantAssignment(context.Background(), &authzv2.GrantAssignmentRequest{
 			Subject: "user:100", Domain: "tenant-a", RoleName: "iam:admin",
 		})
 

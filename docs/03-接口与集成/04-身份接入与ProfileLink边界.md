@@ -4,7 +4,7 @@
 
 ## 30 秒结论
 
-- 当前关系模型名是 `ProfileLink`，REST 关系路由是 `/api/v1/identity/profile-links`，gRPC 关系服务是 `ProfileLinkQuery` 和 `ProfileLinkCommand`。
+- 当前关系模型名是 `ProfileLink`，REST 关系路由是 `/api/v2/identity/profile-links`，gRPC 关系服务是 `ProfileLinkQuery` 和 `ProfileLinkCommand`。
 - ProfileLink 可表达自有档案、亲属关系、监护类业务语义，但 IAM 不替业务系统完成全部家庭业务规则或资源授权。
 - REST 更适合当前用户视角和管理后台；gRPC 更适合服务间查询、批量查询、导入和后台同步。
 - 当前用户视角下的 ProfileLink 操作有 guard，不能简单把它当成任意用户关系写入口。
@@ -14,16 +14,16 @@
 
 | 路由 | 说明 | 典型场景 |
 | ---- | ---- | ---- |
-| `GET /api/v1/identity/me` | 当前用户 | 前端初始化当前身份。 |
-| `PATCH /api/v1/identity/me` | 更新当前用户 | 用户资料维护。 |
-| `GET /api/v1/identity/me/profiles` | 当前用户关联 profiles | 选择儿童档案、切换档案。 |
-| `POST /api/v1/identity/profiles` | 创建 profile | 创建儿童或个人档案。 |
-| `GET /api/v1/identity/profiles/{id}` | 读取 profile | 管理后台或详情页。 |
-| `PATCH /api/v1/identity/profiles/{id}` | 更新 profile | 档案信息维护。 |
-| `GET /api/v1/identity/profiles/search` | 搜索 profile | 管理后台检索。 |
-| `GET /api/v1/identity/profile-links` | 查询 ProfileLink | 当前用户或管理视角查询关系。 |
-| `POST /api/v1/identity/profile-links` | 建立 ProfileLink | 绑定用户和 profile。 |
-| `POST /api/v1/identity/profile-links/{id}/revoke` | 撤销 ProfileLink | 解绑关系。 |
+| `GET /api/v2/identity/me` | 当前用户 | 前端初始化当前身份。 |
+| `PATCH /api/v2/identity/me` | 更新当前用户 | 用户资料维护。 |
+| `GET /api/v2/identity/me/profiles` | 当前用户关联 profiles | 选择儿童档案、切换档案。 |
+| `POST /api/v2/identity/profiles` | 创建 profile | 创建儿童或个人档案。 |
+| `GET /api/v2/identity/profiles/{id}` | 读取 profile | 管理后台或详情页。 |
+| `PATCH /api/v2/identity/profiles/{id}` | 更新 profile | 档案信息维护。 |
+| `GET /api/v2/identity/profiles/search` | 搜索 profile | 管理后台检索。 |
+| `GET /api/v2/identity/profile-links` | 查询 ProfileLink | 当前用户或管理视角查询关系。 |
+| `POST /api/v2/identity/profile-links` | 建立 ProfileLink | 绑定用户和 profile。 |
+| `POST /api/v2/identity/profile-links/{id}/revoke` | 撤销 ProfileLink | 解绑关系。 |
 
 ## gRPC 接入
 
@@ -82,7 +82,7 @@ sequenceDiagram
 - ProfileLink 业务域：[../../internal/apiserver/domain/uc/profilelink](../../internal/apiserver/domain/uc/profilelink)
 - REST：[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity)
 - gRPC：[../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity)
-- 契约：[../../api/rest/identity.v1.yaml](../../api/rest/identity.v1.yaml)、[../../api/grpc/iam/identity/v1/identity.proto](../../api/grpc/iam/identity/v1/identity.proto)
+- 契约：[../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)
 
 ## 验证
 

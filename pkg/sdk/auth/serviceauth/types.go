@@ -6,13 +6,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 )
 
 // ServiceTokenIssuer 定义服务间认证所需的最小签发能力。
 type ServiceTokenIssuer interface {
-	IssueServiceToken(context.Context, *authnv1.IssueServiceTokenRequest) (*authnv1.IssueServiceTokenResponse, error)
+	IssueServiceToken(context.Context, *authnv2.IssueServiceTokenRequest) (*authnv2.IssueServiceTokenResponse, error)
 }
 
 // RefreshStrategy 刷新策略配置。

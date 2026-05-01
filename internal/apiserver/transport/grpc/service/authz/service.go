@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
-	authzapp "github.com/FangcunMount/iam/internal/apiserver/application/authz/authorization"
-	rolebindingApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/rolebinding"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
+	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
+	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -48,17 +48,17 @@ func (s *Service) Register(server *grpc.Server) {
 	if s == nil || server == nil {
 		return
 	}
-	authzv1.RegisterAuthorizationServiceServer(server, &s.srv)
+	authzv2.RegisterAuthorizationServiceServer(server, &s.srv)
 }
 
 type authorizationServer struct {
-	authzv1.UnimplementedAuthorizationServiceServer
+	authzv2.UnimplementedAuthorizationServiceServer
 	checker        authorizationChecker
 	snapshotReader authorizationSnapshotReader
 	roleBindings   rolebindingApp.NamedCommands
 }
 
-func (s *authorizationServer) Check(ctx context.Context, req *authzv1.CheckRequest) (*authzv1.CheckResponse, error) {
+func (s *authorizationServer) Check(ctx context.Context, req *authzv2.CheckRequest) (*authzv2.CheckResponse, error) {
 	if s.checker == nil {
 		return nil, status.Error(codes.Unavailable, "authorization engine not available")
 	}
@@ -83,10 +83,10 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv1.CheckReque
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "enforce: %v", err)
 	}
-	return &authzv1.CheckResponse{Allowed: decision.Allowed}, nil
+	return &authzv2.CheckResponse{Allowed: decision.Allowed}, nil
 }
 
-func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req *authzv1.GetAuthorizationSnapshotRequest) (*authzv1.GetAuthorizationSnapshotResponse, error) {
+func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req *authzv2.GetAuthorizationSnapshotRequest) (*authzv2.GetAuthorizationSnapshotResponse, error) {
 	if s.snapshotReader == nil {
 		return nil, status.Error(codes.Unavailable, "authorization snapshot service not available")
 	}
@@ -107,14 +107,14 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 		return nil, status.Errorf(codes.Internal, "get authorization snapshot: %v", err)
 	}
 
-	return &authzv1.GetAuthorizationSnapshotResponse{
+	return &authzv2.GetAuthorizationSnapshotResponse{
 		Roles:        snapshot.Roles,
 		Permissions:  toProtoPermissions(snapshot.Permissions),
 		AuthzVersion: snapshot.AuthzVersion,
 	}, nil
 }
 
-func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv1.GrantAssignmentRequest) (*authzv1.GrantAssignmentResponse, error) {
+func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv2.GrantAssignmentRequest) (*authzv2.GrantAssignmentResponse, error) {
 	if s.roleBindings == nil {
 		return nil, status.Error(codes.Unavailable, "assignment service not available")
 	}
@@ -132,10 +132,10 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv1.
 		return nil, authzGRPCError(codes.Internal, "grant assignment", err)
 	}
 
-	return &authzv1.GrantAssignmentResponse{}, nil
+	return &authzv2.GrantAssignmentResponse{}, nil
 }
 
-func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv1.RevokeAssignmentRequest) (*authzv1.RevokeAssignmentResponse, error) {
+func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv2.RevokeAssignmentRequest) (*authzv2.RevokeAssignmentResponse, error) {
 	if s.roleBindings == nil {
 		return nil, status.Error(codes.Unavailable, "assignment service not available")
 	}
@@ -153,7 +153,7 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv1
 		return nil, authzGRPCError(codes.Internal, "revoke assignment", err)
 	}
 
-	return &authzv1.RevokeAssignmentResponse{}, nil
+	return &authzv2.RevokeAssignmentResponse{}, nil
 }
 
 func parseSubjectKey(subject string) (authzDomain.Subject, error) {
@@ -175,11 +175,11 @@ func authzGRPCError(defaultCode codes.Code, operation string, err error) error {
 	}
 }
 
-func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv1.PermissionEntry {
-	permissions := make([]*authzv1.PermissionEntry, 0, len(entries))
+func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv2.PermissionEntry {
+	permissions := make([]*authzv2.PermissionEntry, 0, len(entries))
 	for _, entry := range entries {
 		scope := entry.Scope.Normalized()
-		permissions = append(permissions, &authzv1.PermissionEntry{
+		permissions = append(permissions, &authzv2.PermissionEntry{
 			Resource:   entry.ResourceKey,
 			Action:     entry.Action,
 			ScopeType:  string(scope.Kind),
@@ -190,5 +190,5 @@ func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv1.Permissio
 }
 
 var (
-	_ authzv1.AuthorizationServiceServer = (*authorizationServer)(nil)
+	_ authzv2.AuthorizationServiceServer = (*authorizationServer)(nil)
 )

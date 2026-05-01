@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	wechatappDomain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/wechatapi"
+	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
 	"github.com/stretchr/testify/require"
 )
 

@@ -13,10 +13,10 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 SWAGGER_PATH = ROOT / "internal/apiserver/docs/swagger.yaml"
 REST_SPECS = [
-    ROOT / "api/rest/authn.v1.yaml",
-    ROOT / "api/rest/identity.v1.yaml",
-    ROOT / "api/rest/authz.v1.yaml",
-    ROOT / "api/rest/idp.v1.yaml",
+    ROOT / "api/rest/authn.v2.yaml",
+    ROOT / "api/rest/identity.v2.yaml",
+    ROOT / "api/rest/authz.v2.yaml",
+    ROOT / "api/rest/idp.v2.yaml",
 ]
 
 
@@ -60,12 +60,11 @@ def main() -> int:
     swagger = load_yaml(SWAGGER_PATH)
     sw_defs = swagger.get("definitions", {})
 
-    # crude module split by filename hints
     sw_groups = {
-        "authn": {k: v for k, v in sw_defs.items() if "authn" in k},
-        "identity": {k: v for k, v in sw_defs.items() if "uc_restful" in k},
-        "authz": {k: v for k, v in sw_defs.items() if "authz" in k},
-        "idp": {k: v for k, v in sw_defs.items() if "idp_restful" in k},
+        "authn": {k: v for k, v in sw_defs.items() if "transport_rest_authn" in k},
+        "identity": {k: v for k, v in sw_defs.items() if "transport_rest_identity" in k},
+        "authz": {k: v for k, v in sw_defs.items() if "transport_rest_authz" in k},
+        "idp": {k: v for k, v in sw_defs.items() if "transport_rest_idp" in k},
     }
 
     diffs: list[str] = []

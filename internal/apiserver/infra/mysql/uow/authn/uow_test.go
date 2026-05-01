@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	appuow "github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
-	mysqluow "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/uow/authn"
-	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
+	mysqluow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/authn"
+	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 )
 
 func TestUnitOfWork_WithNilDBFailsClosed(t *testing.T) {

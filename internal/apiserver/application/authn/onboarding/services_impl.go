@@ -5,15 +5,15 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/uow"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	profileDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
-	userDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	profileDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // ============= AccountOnboarder 实现 =============

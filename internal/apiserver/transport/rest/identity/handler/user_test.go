@@ -9,16 +9,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
-	"github.com/FangcunMount/iam/pkg/tenant"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 func TestResolveRolesIncludesPlatformRoles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/identity/me", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/me", nil)
 	c.Set(authn.ContextKeyTenantID, "1")
 
 	h := &UserHandler{

@@ -3,9 +3,9 @@ package policy
 import (
 	"testing"
 
-	authz "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
+	authz "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	"github.com/stretchr/testify/require"
 )
 

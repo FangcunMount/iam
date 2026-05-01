@@ -3,7 +3,7 @@ package token
 import (
 	"time"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // TokenType 表示 IAM 内部令牌用途。

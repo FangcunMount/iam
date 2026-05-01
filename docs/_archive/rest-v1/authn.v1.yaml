@@ -6,11 +6,11 @@ info:
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam
+    url: https://github.com/FangcunMount/iam/v2
 servers:
-- url: https://iam.fangcunmount.cn/api/v1
+- url: https://iam.fangcunmount.cn/api/v2
   description: Production
-- url: http://localhost:18081/api/v1
+- url: http://localhost:18081/api/v2
   description: Local Dev
 security:
 - bearerAuth: []

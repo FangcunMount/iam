@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v5.29.3
-// source: iam/idp/v1/idp.proto
+// source: iam/idp/v2/idp.proto
 
-package idpv1
+package idpv2
 
 import (
 	context "context"
@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IDPService_GetWechatApp_FullMethodName = "/iam.idp.v1.IDPService/GetWechatApp"
+	IDPService_GetWechatApp_FullMethodName = "/iam.idp.v2.IDPService/GetWechatApp"
 )
 
 // IDPServiceClient is the client API for IDPService service.
@@ -114,7 +114,7 @@ func _IDPService_GetWechatApp_Handler(srv interface{}, ctx context.Context, dec 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var IDPService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.idp.v1.IDPService",
+	ServiceName: "iam.idp.v2.IDPService",
 	HandlerType: (*IDPServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -123,5 +123,5 @@ var IDPService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/idp/v1/idp.proto",
+	Metadata: "iam/idp/v2/idp.proto",
 }

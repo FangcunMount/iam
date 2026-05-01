@@ -8,10 +8,10 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	roleApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/role"
-	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
+	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func TestRoleHandlerCreateRoleHTTPBranches(t *testing.T) {

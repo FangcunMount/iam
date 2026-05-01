@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 // VerifyTokenClient 定义远程验证所需的最小客户端能力。
 type VerifyTokenClient interface {
-	VerifyToken(context.Context, *authnv1.VerifyTokenRequest) (*authnv1.VerifyTokenResponse, error)
+	VerifyToken(context.Context, *authnv2.VerifyTokenRequest) (*authnv2.VerifyTokenResponse, error)
 }
 
 // VerifyStrategy 定义 Token 验证策略接口。
@@ -30,8 +30,8 @@ type VerifyResult struct {
 
 // VerifyMetadata Token 验证元数据。
 type VerifyMetadata struct {
-	TokenType authnv1.TokenType
-	Status    authnv1.TokenStatus
+	TokenType authnv2.TokenType
+	Status    authnv2.TokenStatus
 	IssuedAt  time.Time
 	ExpiresAt time.Time
 }

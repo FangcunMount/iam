@@ -3,7 +3,7 @@ package profile
 import (
 	"context"
 
-	appProfileLink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
+	appProfileLink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
 )
 
 // ============= 当前调用者用例接口（Driving Ports）=============

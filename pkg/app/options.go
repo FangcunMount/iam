@@ -1,7 +1,7 @@
 package app
 
 import (
-	cliflag "github.com/FangcunMount/iam/pkg/flag"
+	cliflag "github.com/FangcunMount/iam/v2/pkg/flag"
 )
 
 // CliOptions 命令行选项

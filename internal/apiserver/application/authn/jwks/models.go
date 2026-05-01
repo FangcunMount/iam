@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // KeyStatus 表示签名密钥的生命周期状态。

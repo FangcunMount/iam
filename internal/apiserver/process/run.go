@@ -1,6 +1,6 @@
 package process
 
-import apiserverconfig "github.com/FangcunMount/iam/internal/apiserver/config"
+import apiserverconfig "github.com/FangcunMount/iam/v2/internal/apiserver/config"
 
 // Run owns the IAM apiserver process lifecycle.
 func Run(cfg *apiserverconfig.Config) error {

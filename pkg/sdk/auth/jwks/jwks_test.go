@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -20,11 +20,11 @@ import (
 var testJWKSJSON = []byte(`{"keys":[]}`)
 
 type jwksClientStub struct {
-	resp *authnv1.GetJWKSResponse
+	resp *authnv2.GetJWKSResponse
 	err  error
 }
 
-func (s *jwksClientStub) GetJWKS(context.Context, *authnv1.GetJWKSRequest) (*authnv1.GetJWKSResponse, error) {
+func (s *jwksClientStub) GetJWKS(context.Context, *authnv2.GetJWKSRequest) (*authnv2.GetJWKSResponse, error) {
 	return s.resp, s.err
 }
 
@@ -44,12 +44,12 @@ func (f *failingFetcher) Name() string {
 }
 
 type jwksServiceServer struct {
-	authnv1.UnimplementedJWKSServiceServer
-	resp *authnv1.GetJWKSResponse
+	authnv2.UnimplementedJWKSServiceServer
+	resp *authnv2.GetJWKSResponse
 	err  error
 }
 
-func (s *jwksServiceServer) GetJWKS(context.Context, *authnv1.GetJWKSRequest) (*authnv1.GetJWKSResponse, error) {
+func (s *jwksServiceServer) GetJWKS(context.Context, *authnv2.GetJWKSRequest) (*authnv2.GetJWKSResponse, error) {
 	return s.resp, s.err
 }
 
@@ -70,7 +70,7 @@ func TestHTTPFetcherFetch(t *testing.T) {
 
 func TestGRPCFetcherFetch(t *testing.T) {
 	fetcher := NewGRPCFetcher(&jwksClientStub{
-		resp: &authnv1.GetJWKSResponse{
+		resp: &authnv2.GetJWKSResponse{
 			Jwks:         testJWKSJSON,
 			LastModified: timestamppb.New(time.Now()),
 		},
@@ -89,8 +89,8 @@ func TestGRPCEndpointFetcherFetch(t *testing.T) {
 	defer func() { _ = lis.Close() }()
 
 	server := grpc.NewServer()
-	authnv1.RegisterJWKSServiceServer(server, &jwksServiceServer{
-		resp: &authnv1.GetJWKSResponse{Jwks: testJWKSJSON},
+	authnv2.RegisterJWKSServiceServer(server, &jwksServiceServer{
+		resp: &authnv2.GetJWKSResponse{Jwks: testJWKSJSON},
 	})
 	defer server.Stop()
 

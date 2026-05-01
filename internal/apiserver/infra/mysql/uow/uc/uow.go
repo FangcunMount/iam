@@ -5,11 +5,11 @@ import (
 
 	"gorm.io/gorm"
 
-	appuow "github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	profilerepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profile"
-	guardrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/profilelink"
-	userrepo "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/user"
-	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
+	profilerepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profile"
+	guardrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profilelink"
+	userrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
+	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 )
 
 var _ appuow.UnitOfWork = (*unitOfWork)(nil)

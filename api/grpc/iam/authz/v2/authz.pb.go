@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v5.29.3
-// source: iam/authz/v1/authz.proto
+// source: iam/authz/v2/authz.proto
 
-package authzv1
+package authzv2
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -37,7 +37,7 @@ type CheckRequest struct {
 
 func (x *CheckRequest) Reset() {
 	*x = CheckRequest{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[0]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +49,7 @@ func (x *CheckRequest) String() string {
 func (*CheckRequest) ProtoMessage() {}
 
 func (x *CheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[0]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *CheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckRequest.ProtoReflect.Descriptor instead.
 func (*CheckRequest) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{0}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CheckRequest) GetSubject() string {
@@ -116,7 +116,7 @@ type CheckResponse struct {
 
 func (x *CheckResponse) Reset() {
 	*x = CheckResponse{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[1]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -128,7 +128,7 @@ func (x *CheckResponse) String() string {
 func (*CheckResponse) ProtoMessage() {}
 
 func (x *CheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[1]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -141,7 +141,7 @@ func (x *CheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckResponse.ProtoReflect.Descriptor instead.
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{1}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CheckResponse) GetAllowed() bool {
@@ -163,7 +163,7 @@ type PermissionEntry struct {
 
 func (x *PermissionEntry) Reset() {
 	*x = PermissionEntry{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[2]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -175,7 +175,7 @@ func (x *PermissionEntry) String() string {
 func (*PermissionEntry) ProtoMessage() {}
 
 func (x *PermissionEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[2]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -188,7 +188,7 @@ func (x *PermissionEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermissionEntry.ProtoReflect.Descriptor instead.
 func (*PermissionEntry) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{2}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PermissionEntry) GetResource() string {
@@ -230,7 +230,7 @@ type GetAuthorizationSnapshotRequest struct {
 
 func (x *GetAuthorizationSnapshotRequest) Reset() {
 	*x = GetAuthorizationSnapshotRequest{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[3]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +242,7 @@ func (x *GetAuthorizationSnapshotRequest) String() string {
 func (*GetAuthorizationSnapshotRequest) ProtoMessage() {}
 
 func (x *GetAuthorizationSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[3]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +255,7 @@ func (x *GetAuthorizationSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAuthorizationSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetAuthorizationSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{3}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetAuthorizationSnapshotRequest) GetSubject() string {
@@ -290,7 +290,7 @@ type GetAuthorizationSnapshotResponse struct {
 
 func (x *GetAuthorizationSnapshotResponse) Reset() {
 	*x = GetAuthorizationSnapshotResponse{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[4]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +302,7 @@ func (x *GetAuthorizationSnapshotResponse) String() string {
 func (*GetAuthorizationSnapshotResponse) ProtoMessage() {}
 
 func (x *GetAuthorizationSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[4]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +315,7 @@ func (x *GetAuthorizationSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAuthorizationSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*GetAuthorizationSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{4}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetAuthorizationSnapshotResponse) GetRoles() []string {
@@ -351,7 +351,7 @@ type GrantAssignmentRequest struct {
 
 func (x *GrantAssignmentRequest) Reset() {
 	*x = GrantAssignmentRequest{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[5]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -363,7 +363,7 @@ func (x *GrantAssignmentRequest) String() string {
 func (*GrantAssignmentRequest) ProtoMessage() {}
 
 func (x *GrantAssignmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[5]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -376,7 +376,7 @@ func (x *GrantAssignmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantAssignmentRequest.ProtoReflect.Descriptor instead.
 func (*GrantAssignmentRequest) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{5}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GrantAssignmentRequest) GetSubject() string {
@@ -415,7 +415,7 @@ type GrantAssignmentResponse struct {
 
 func (x *GrantAssignmentResponse) Reset() {
 	*x = GrantAssignmentResponse{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[6]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -427,7 +427,7 @@ func (x *GrantAssignmentResponse) String() string {
 func (*GrantAssignmentResponse) ProtoMessage() {}
 
 func (x *GrantAssignmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[6]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -440,7 +440,7 @@ func (x *GrantAssignmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantAssignmentResponse.ProtoReflect.Descriptor instead.
 func (*GrantAssignmentResponse) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{6}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{6}
 }
 
 type RevokeAssignmentRequest struct {
@@ -454,7 +454,7 @@ type RevokeAssignmentRequest struct {
 
 func (x *RevokeAssignmentRequest) Reset() {
 	*x = RevokeAssignmentRequest{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[7]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -466,7 +466,7 @@ func (x *RevokeAssignmentRequest) String() string {
 func (*RevokeAssignmentRequest) ProtoMessage() {}
 
 func (x *RevokeAssignmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[7]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -479,7 +479,7 @@ func (x *RevokeAssignmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAssignmentRequest.ProtoReflect.Descriptor instead.
 func (*RevokeAssignmentRequest) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{7}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RevokeAssignmentRequest) GetSubject() string {
@@ -511,7 +511,7 @@ type RevokeAssignmentResponse struct {
 
 func (x *RevokeAssignmentResponse) Reset() {
 	*x = RevokeAssignmentResponse{}
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[8]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -523,7 +523,7 @@ func (x *RevokeAssignmentResponse) String() string {
 func (*RevokeAssignmentResponse) ProtoMessage() {}
 
 func (x *RevokeAssignmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_authz_v1_authz_proto_msgTypes[8]
+	mi := &file_iam_authz_v2_authz_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -536,14 +536,14 @@ func (x *RevokeAssignmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAssignmentResponse.ProtoReflect.Descriptor instead.
 func (*RevokeAssignmentResponse) Descriptor() ([]byte, []int) {
-	return file_iam_authz_v1_authz_proto_rawDescGZIP(), []int{8}
+	return file_iam_authz_v2_authz_proto_rawDescGZIP(), []int{8}
 }
 
-var File_iam_authz_v1_authz_proto protoreflect.FileDescriptor
+var File_iam_authz_v2_authz_proto protoreflect.FileDescriptor
 
-const file_iam_authz_v1_authz_proto_rawDesc = "" +
+const file_iam_authz_v2_authz_proto_rawDesc = "" +
 	"\n" +
-	"\x18iam/authz/v1/authz.proto\x12\fiam.authz.v1\"\xb0\x01\n" +
+	"\x18iam/authz/v2/authz.proto\x12\fiam.authz.v2\"\xb0\x01\n" +
 	"\fCheckRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x16\n" +
@@ -568,7 +568,7 @@ const file_iam_authz_v1_authz_proto_rawDesc = "" +
 	"\bapp_name\x18\x03 \x01(\tR\aappName\"\x9e\x01\n" +
 	" GetAuthorizationSnapshotResponse\x12\x14\n" +
 	"\x05roles\x18\x01 \x03(\tR\x05roles\x12?\n" +
-	"\vpermissions\x18\x02 \x03(\v2\x1d.iam.authz.v1.PermissionEntryR\vpermissions\x12#\n" +
+	"\vpermissions\x18\x02 \x03(\v2\x1d.iam.authz.v2.PermissionEntryR\vpermissions\x12#\n" +
 	"\rauthz_version\x18\x03 \x01(\x03R\fauthzVersion\"\x86\x01\n" +
 	"\x16GrantAssignmentRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x16\n" +
@@ -583,45 +583,45 @@ const file_iam_authz_v1_authz_proto_rawDesc = "" +
 	"\trole_name\x18\x03 \x01(\tR\broleName\"\x1a\n" +
 	"\x18RevokeAssignmentResponse2\x96\x03\n" +
 	"\x14AuthorizationService\x12@\n" +
-	"\x05Check\x12\x1a.iam.authz.v1.CheckRequest\x1a\x1b.iam.authz.v1.CheckResponse\x12y\n" +
-	"\x18GetAuthorizationSnapshot\x12-.iam.authz.v1.GetAuthorizationSnapshotRequest\x1a..iam.authz.v1.GetAuthorizationSnapshotResponse\x12^\n" +
-	"\x0fGrantAssignment\x12$.iam.authz.v1.GrantAssignmentRequest\x1a%.iam.authz.v1.GrantAssignmentResponse\x12a\n" +
-	"\x10RevokeAssignment\x12%.iam.authz.v1.RevokeAssignmentRequest\x1a&.iam.authz.v1.RevokeAssignmentResponseB;Z9github.com/FangcunMount/iam/api/grpc/iam/authz/v1;authzv1b\x06proto3"
+	"\x05Check\x12\x1a.iam.authz.v2.CheckRequest\x1a\x1b.iam.authz.v2.CheckResponse\x12y\n" +
+	"\x18GetAuthorizationSnapshot\x12-.iam.authz.v2.GetAuthorizationSnapshotRequest\x1a..iam.authz.v2.GetAuthorizationSnapshotResponse\x12^\n" +
+	"\x0fGrantAssignment\x12$.iam.authz.v2.GrantAssignmentRequest\x1a%.iam.authz.v2.GrantAssignmentResponse\x12a\n" +
+	"\x10RevokeAssignment\x12%.iam.authz.v2.RevokeAssignmentRequest\x1a&.iam.authz.v2.RevokeAssignmentResponseB>Z<github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2;authzv2b\x06proto3"
 
 var (
-	file_iam_authz_v1_authz_proto_rawDescOnce sync.Once
-	file_iam_authz_v1_authz_proto_rawDescData []byte
+	file_iam_authz_v2_authz_proto_rawDescOnce sync.Once
+	file_iam_authz_v2_authz_proto_rawDescData []byte
 )
 
-func file_iam_authz_v1_authz_proto_rawDescGZIP() []byte {
-	file_iam_authz_v1_authz_proto_rawDescOnce.Do(func() {
-		file_iam_authz_v1_authz_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_iam_authz_v1_authz_proto_rawDesc), len(file_iam_authz_v1_authz_proto_rawDesc)))
+func file_iam_authz_v2_authz_proto_rawDescGZIP() []byte {
+	file_iam_authz_v2_authz_proto_rawDescOnce.Do(func() {
+		file_iam_authz_v2_authz_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_iam_authz_v2_authz_proto_rawDesc), len(file_iam_authz_v2_authz_proto_rawDesc)))
 	})
-	return file_iam_authz_v1_authz_proto_rawDescData
+	return file_iam_authz_v2_authz_proto_rawDescData
 }
 
-var file_iam_authz_v1_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
-var file_iam_authz_v1_authz_proto_goTypes = []any{
-	(*CheckRequest)(nil),                     // 0: iam.authz.v1.CheckRequest
-	(*CheckResponse)(nil),                    // 1: iam.authz.v1.CheckResponse
-	(*PermissionEntry)(nil),                  // 2: iam.authz.v1.PermissionEntry
-	(*GetAuthorizationSnapshotRequest)(nil),  // 3: iam.authz.v1.GetAuthorizationSnapshotRequest
-	(*GetAuthorizationSnapshotResponse)(nil), // 4: iam.authz.v1.GetAuthorizationSnapshotResponse
-	(*GrantAssignmentRequest)(nil),           // 5: iam.authz.v1.GrantAssignmentRequest
-	(*GrantAssignmentResponse)(nil),          // 6: iam.authz.v1.GrantAssignmentResponse
-	(*RevokeAssignmentRequest)(nil),          // 7: iam.authz.v1.RevokeAssignmentRequest
-	(*RevokeAssignmentResponse)(nil),         // 8: iam.authz.v1.RevokeAssignmentResponse
+var file_iam_authz_v2_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_iam_authz_v2_authz_proto_goTypes = []any{
+	(*CheckRequest)(nil),                     // 0: iam.authz.v2.CheckRequest
+	(*CheckResponse)(nil),                    // 1: iam.authz.v2.CheckResponse
+	(*PermissionEntry)(nil),                  // 2: iam.authz.v2.PermissionEntry
+	(*GetAuthorizationSnapshotRequest)(nil),  // 3: iam.authz.v2.GetAuthorizationSnapshotRequest
+	(*GetAuthorizationSnapshotResponse)(nil), // 4: iam.authz.v2.GetAuthorizationSnapshotResponse
+	(*GrantAssignmentRequest)(nil),           // 5: iam.authz.v2.GrantAssignmentRequest
+	(*GrantAssignmentResponse)(nil),          // 6: iam.authz.v2.GrantAssignmentResponse
+	(*RevokeAssignmentRequest)(nil),          // 7: iam.authz.v2.RevokeAssignmentRequest
+	(*RevokeAssignmentResponse)(nil),         // 8: iam.authz.v2.RevokeAssignmentResponse
 }
-var file_iam_authz_v1_authz_proto_depIdxs = []int32{
-	2, // 0: iam.authz.v1.GetAuthorizationSnapshotResponse.permissions:type_name -> iam.authz.v1.PermissionEntry
-	0, // 1: iam.authz.v1.AuthorizationService.Check:input_type -> iam.authz.v1.CheckRequest
-	3, // 2: iam.authz.v1.AuthorizationService.GetAuthorizationSnapshot:input_type -> iam.authz.v1.GetAuthorizationSnapshotRequest
-	5, // 3: iam.authz.v1.AuthorizationService.GrantAssignment:input_type -> iam.authz.v1.GrantAssignmentRequest
-	7, // 4: iam.authz.v1.AuthorizationService.RevokeAssignment:input_type -> iam.authz.v1.RevokeAssignmentRequest
-	1, // 5: iam.authz.v1.AuthorizationService.Check:output_type -> iam.authz.v1.CheckResponse
-	4, // 6: iam.authz.v1.AuthorizationService.GetAuthorizationSnapshot:output_type -> iam.authz.v1.GetAuthorizationSnapshotResponse
-	6, // 7: iam.authz.v1.AuthorizationService.GrantAssignment:output_type -> iam.authz.v1.GrantAssignmentResponse
-	8, // 8: iam.authz.v1.AuthorizationService.RevokeAssignment:output_type -> iam.authz.v1.RevokeAssignmentResponse
+var file_iam_authz_v2_authz_proto_depIdxs = []int32{
+	2, // 0: iam.authz.v2.GetAuthorizationSnapshotResponse.permissions:type_name -> iam.authz.v2.PermissionEntry
+	0, // 1: iam.authz.v2.AuthorizationService.Check:input_type -> iam.authz.v2.CheckRequest
+	3, // 2: iam.authz.v2.AuthorizationService.GetAuthorizationSnapshot:input_type -> iam.authz.v2.GetAuthorizationSnapshotRequest
+	5, // 3: iam.authz.v2.AuthorizationService.GrantAssignment:input_type -> iam.authz.v2.GrantAssignmentRequest
+	7, // 4: iam.authz.v2.AuthorizationService.RevokeAssignment:input_type -> iam.authz.v2.RevokeAssignmentRequest
+	1, // 5: iam.authz.v2.AuthorizationService.Check:output_type -> iam.authz.v2.CheckResponse
+	4, // 6: iam.authz.v2.AuthorizationService.GetAuthorizationSnapshot:output_type -> iam.authz.v2.GetAuthorizationSnapshotResponse
+	6, // 7: iam.authz.v2.AuthorizationService.GrantAssignment:output_type -> iam.authz.v2.GrantAssignmentResponse
+	8, // 8: iam.authz.v2.AuthorizationService.RevokeAssignment:output_type -> iam.authz.v2.RevokeAssignmentResponse
 	5, // [5:9] is the sub-list for method output_type
 	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -629,26 +629,26 @@ var file_iam_authz_v1_authz_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_iam_authz_v1_authz_proto_init() }
-func file_iam_authz_v1_authz_proto_init() {
-	if File_iam_authz_v1_authz_proto != nil {
+func init() { file_iam_authz_v2_authz_proto_init() }
+func file_iam_authz_v2_authz_proto_init() {
+	if File_iam_authz_v2_authz_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_authz_v1_authz_proto_rawDesc), len(file_iam_authz_v1_authz_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_authz_v2_authz_proto_rawDesc), len(file_iam_authz_v2_authz_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_iam_authz_v1_authz_proto_goTypes,
-		DependencyIndexes: file_iam_authz_v1_authz_proto_depIdxs,
-		MessageInfos:      file_iam_authz_v1_authz_proto_msgTypes,
+		GoTypes:           file_iam_authz_v2_authz_proto_goTypes,
+		DependencyIndexes: file_iam_authz_v2_authz_proto_depIdxs,
+		MessageInfos:      file_iam_authz_v2_authz_proto_msgTypes,
 	}.Build()
-	File_iam_authz_v1_authz_proto = out.File
-	file_iam_authz_v1_authz_proto_goTypes = nil
-	file_iam_authz_v1_authz_proto_depIdxs = nil
+	File_iam_authz_v2_authz_proto = out.File
+	file_iam_authz_v2_authz_proto_goTypes = nil
+	file_iam_authz_v2_authz_proto_depIdxs = nil
 }

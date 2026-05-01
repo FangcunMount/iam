@@ -3,7 +3,7 @@ package wechatapp
 import (
 	"context"
 
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 )
 
 // ============= 应用服务接口（Driving Ports）=============

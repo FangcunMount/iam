@@ -7,17 +7,17 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	messagingInfra "github.com/FangcunMount/iam/internal/apiserver/infra/messaging"
+	messagingInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/messaging"
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam/internal/apiserver/container/assembler"
-	"github.com/FangcunMount/iam/internal/apiserver/eventing"
-	eventoutbox "github.com/FangcunMount/iam/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/pkg/event"
-	"github.com/FangcunMount/iam/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/pkg/eventruntime"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	eventoutbox "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/v2/pkg/event"
+	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v2/pkg/eventruntime"
 )
 
 // Container 容器

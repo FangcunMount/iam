@@ -17,7 +17,7 @@
          │                    │                    │
          └────────────────────┴────────────────────┘
                               ↓
-      iam.authz.v1.AuthorizationService.Check(subject, domain, object, action)
+      iam.authz.v2.AuthorizationService.Check(subject, domain, object, action)
                               ↓
                        Casbin Enforce(sub, dom, obj, act)
                               ↓
@@ -63,7 +63,7 @@
 
 ### 一句话结论
 
-`client.Authz()` 是 IAM SDK 对 `iam.authz.v1.AuthorizationService/Check` 的轻封装，适合做**单次权限判定**；当前稳定能力是 `Check`、`Allow` 和 `Raw`。
+`client.Authz()` 是 IAM SDK 对 `iam.authz.v2.AuthorizationService/Check` 的轻封装，适合做**单次权限判定**；当前稳定能力是 `Check`、`Allow` 和 `Raw`。
 
 ### 当前能力边界
 
@@ -121,7 +121,7 @@ allowed, err := client.Authz().Allow(
 
 - 已存在 `ctx`
 - 已创建 `client`
-- 已按需导入 `sdk`、`authzv1`、`errors`
+- 已按需导入 `sdk`、`authzv2`、`errors`
 - 你已经在业务侧准备好了最终的 `subject / domain / object / action`
 
 文档里保留的是**最小可理解片段**；如果你需要 `package main + import + 启动代码` 的完整版本，直接看上面的 `_examples/authz/main.go`。
@@ -137,7 +137,7 @@ if err != nil {
 }
 defer client.Close()
 
-resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
+resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
     Subject: "user:user-123",
     Domain:  "default",
     Object:  "resource:profile_profile",
@@ -221,7 +221,7 @@ service:<service-id>
 ```
 
 SDK 不替你推断 `subject`，调用方要自己传入最终字符串。  
-这和服务端 gRPC 合同保持一致，见 [../../../api/grpc/iam/authz/v1/authz.proto](../../../api/grpc/iam/authz/v1/authz.proto)。
+这和服务端 gRPC 合同保持一致，见 [../../../api/grpc/iam/authz/v2/authz.proto](../../../api/grpc/iam/authz/v2/authz.proto)。
 
 #### `domain`
 
@@ -280,7 +280,7 @@ if !allowed {
 如果你不只需要布尔值，而是希望和未来的响应字段兼容，直接保留 `Check(...)`：
 
 ```go
-resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
+resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
     Subject: sub,
     Domain:  dom,
     Object:  obj,
@@ -301,7 +301,7 @@ if !resp.Allowed {
 
 ```go
 raw := client.Authz().Raw()
-resp, err := raw.Check(ctx, &authzv1.CheckRequest{
+resp, err := raw.Check(ctx, &authzv2.CheckRequest{
     Subject: sub,
     Domain:  dom,
     Object:  obj,

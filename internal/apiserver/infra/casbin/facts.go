@@ -3,7 +3,7 @@ package casbin
 import (
 	"strings"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 )
 
 const defaultScopeKey = "all:*"

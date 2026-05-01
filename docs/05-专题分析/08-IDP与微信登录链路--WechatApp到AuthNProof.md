@@ -21,7 +21,7 @@ flowchart LR
     Domain --> Cache["AccessTokenCache"]
     Domain --> AppTokenProvider["AppTokenProvider"]
 
-    Login["AuthN login\n/api/v1/authn/login"] --> Catalog["SignInAdapterCatalog"]
+    Login["AuthN login\n/api/v2/authn/login"] --> Catalog["SignInAdapterCatalog"]
     Catalog --> Adapter["wechatMiniAdapter"]
     Adapter --> Repo
     Adapter --> Vault
@@ -60,7 +60,7 @@ sequenceDiagram
     participant Domain as "domain service / entity"
     participant Repo as "WechatApp repository"
 
-    Admin->>REST: "POST /api/v1/idp/wechat-apps"
+    Admin->>REST: "POST /api/v2/idp/wechat-apps"
     REST->>App: "CreateApp(dto)"
     App->>Domain: "Creator.Create(appID, name, type)"
     Domain-->>App: "WechatApp(enabled)"
@@ -77,7 +77,7 @@ sequenceDiagram
 - enable/disable 是状态变更，不删除历史配置。
 - archived app 不允许变更 credentials。
 
-REST 管理面在 `/api/v1/idp/wechat-apps` 下，具体路由由 [../../internal/apiserver/transport/rest/idp/router.go](../../internal/apiserver/transport/rest/idp/router.go) 注册；gRPC 当前只提供 `IDPService.GetWechatApp` 读能力。
+REST 管理面在 `/api/v2/idp/wechat-apps` 下，具体路由由 [../../internal/apiserver/transport/rest/idp/router.go](../../internal/apiserver/transport/rest/idp/router.go) 注册；gRPC 当前只提供 `IDPService.GetWechatApp` 读能力。
 
 ## 深度链路二：AppSecret 轮换为什么是领域服务
 
@@ -127,7 +127,7 @@ sequenceDiagram
     participant Provider as "Wechat IdentityProvider"
     participant Token as "TokenIssuer"
 
-    Client->>REST: "POST /api/v1/authn/login\nappID + jsCode"
+    Client->>REST: "POST /api/v2/authn/login\nappID + jsCode"
     REST->>Login: "SignInCommand"
     Login->>Catalog: "select adapter"
     Catalog-->>Login: "wechatMiniAdapter"
@@ -217,8 +217,8 @@ sequenceDiagram
 | IDP 应用服务 | [../../internal/apiserver/application/idp/wechatapp/services_impl.go](../../internal/apiserver/application/idp/wechatapp/services_impl.go) |
 | 微信登录 adapter | [../../internal/apiserver/application/authn/login/adapter_wechat_mini.go](../../internal/apiserver/application/authn/login/adapter_wechat_mini.go) |
 | 微信 provider | [../../internal/apiserver/infra/wechat](../../internal/apiserver/infra/wechat) |
-| IDP REST 合同 | [../../api/rest/idp.v1.yaml](../../api/rest/idp.v1.yaml) |
-| IDP gRPC 合同 | [../../api/grpc/iam/idp/v1/idp.proto](../../api/grpc/iam/idp/v1/idp.proto) |
+| IDP REST 合同 | [../../api/rest/idp.v2.yaml](../../api/rest/idp.v2.yaml) |
+| IDP gRPC 合同 | [../../api/grpc/iam/idp/v2/idp.proto](../../api/grpc/iam/idp/v2/idp.proto) |
 
 建议验证：
 

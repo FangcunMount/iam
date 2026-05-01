@@ -3,7 +3,7 @@ package mysql
 import (
 	"context"
 
-	shareduow "github.com/FangcunMount/iam/pkg/uow/gorm"
+	shareduow "github.com/FangcunMount/iam/v2/pkg/uow/gorm"
 	"gorm.io/gorm"
 )
 

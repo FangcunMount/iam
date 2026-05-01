@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/role"
-	bindingDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type PolicyAdministrationDeps struct {

@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 func (r *Router) registerAdminRoutes(engine *gin.Engine, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
@@ -18,10 +18,10 @@ func (r *Router) registerAdminRoutes(engine *gin.Engine, authMiddleware *authnMi
 		return
 	}
 
-	apiV1 := engine.Group("/api/v1")
-	apiV1.Use(authMiddleware.AuthRequired(), authMiddleware.RequirePlatformAdmin())
+	apiV2 := engine.Group("/api/v2")
+	apiV2.Use(authMiddleware.AuthRequired(), authMiddleware.RequirePlatformAdmin())
 
-	admin := apiV1.Group("/admin")
+	admin := apiV2.Group("/admin")
 	{
 		admin.GET("/users", r.placeholder)
 		admin.GET("/statistics", r.placeholder)

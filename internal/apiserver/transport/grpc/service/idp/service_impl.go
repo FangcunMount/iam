@@ -7,12 +7,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 )
 
 // GetWechatApp 查询微信应用
-func (s *idpServer) GetWechatApp(ctx context.Context, req *idpv1.GetWechatAppRequest) (*idpv1.GetWechatAppResponse, error) {
+func (s *idpServer) GetWechatApp(ctx context.Context, req *idpv2.GetWechatAppRequest) (*idpv2.GetWechatAppResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetAppId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "app_id is required")
 	}
@@ -33,18 +33,18 @@ func (s *idpServer) GetWechatApp(ctx context.Context, req *idpv1.GetWechatAppReq
 		return nil, status.Error(codes.Internal, "failed to decrypt app secret: "+err.Error())
 	}
 
-	return &idpv1.GetWechatAppResponse{
+	return &idpv2.GetWechatAppResponse{
 		App: protoApp,
 	}, nil
 }
 
 // wechatAppDomainToProto 将领域对象转换为 proto 消息（包含解密后的 appSecret）
-func wechatAppDomainToProto(ctx context.Context, app *domain.WechatApp, secretVault domain.SecretVault) (*idpv1.WechatApp, error) {
+func wechatAppDomainToProto(ctx context.Context, app *domain.WechatApp, secretVault domain.SecretVault) (*idpv2.WechatApp, error) {
 	if app == nil {
 		return nil, nil
 	}
 
-	protoApp := &idpv1.WechatApp{
+	protoApp := &idpv2.WechatApp{
 		Id:     app.ID.String(),
 		AppId:  app.AppID,
 		Name:   app.Name,
@@ -67,28 +67,28 @@ func wechatAppDomainToProto(ctx context.Context, app *domain.WechatApp, secretVa
 }
 
 // appTypeToProto 将领域 AppType 转换为 proto 枚举
-func appTypeToProto(t domain.AppType) idpv1.WechatAppType {
+func appTypeToProto(t domain.AppType) idpv2.WechatAppType {
 	switch t {
 	case domain.MiniProgram:
-		return idpv1.WechatAppType_WECHAT_APP_TYPE_MINI_PROGRAM
+		return idpv2.WechatAppType_WECHAT_APP_TYPE_MINI_PROGRAM
 	case domain.MP:
-		return idpv1.WechatAppType_WECHAT_APP_TYPE_MP
+		return idpv2.WechatAppType_WECHAT_APP_TYPE_MP
 	default:
-		return idpv1.WechatAppType_WECHAT_APP_TYPE_UNSPECIFIED
+		return idpv2.WechatAppType_WECHAT_APP_TYPE_UNSPECIFIED
 	}
 }
 
 // statusToProto 将领域 Status 转换为 proto 枚举
-func statusToProto(s domain.Status) idpv1.WechatAppStatus {
+func statusToProto(s domain.Status) idpv2.WechatAppStatus {
 	switch s {
 	case domain.StatusEnabled:
-		return idpv1.WechatAppStatus_WECHAT_APP_STATUS_ENABLED
+		return idpv2.WechatAppStatus_WECHAT_APP_STATUS_ENABLED
 	case domain.StatusDisabled:
-		return idpv1.WechatAppStatus_WECHAT_APP_STATUS_DISABLED
+		return idpv2.WechatAppStatus_WECHAT_APP_STATUS_DISABLED
 	case domain.StatusArchived:
-		return idpv1.WechatAppStatus_WECHAT_APP_STATUS_ARCHIVED
+		return idpv2.WechatAppStatus_WECHAT_APP_STATUS_ARCHIVED
 	default:
-		return idpv1.WechatAppStatus_WECHAT_APP_STATUS_UNSPECIFIED
+		return idpv2.WechatAppStatus_WECHAT_APP_STATUS_UNSPECIFIED
 	}
 }
 

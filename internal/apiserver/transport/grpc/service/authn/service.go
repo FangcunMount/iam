@@ -1,10 +1,10 @@
 package authn
 
 import (
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	jwksApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
-	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"google.golang.org/grpc"
 )
 
@@ -40,27 +40,27 @@ func (s *Service) Register(server *grpc.Server) {
 		return
 	}
 	if s.auth.tokenSvc != nil {
-		authnv1.RegisterAuthServiceServer(server, &s.auth)
+		authnv2.RegisterAuthServiceServer(server, &s.auth)
 	}
 	if s.onboarding.accountOnboarder != nil {
-		authnv1.RegisterAccountOnboardingServiceServer(server, &s.onboarding)
+		authnv2.RegisterAccountOnboardingServiceServer(server, &s.onboarding)
 	}
 	if s.jwks.keyPublish != nil {
-		authnv1.RegisterJWKSServiceServer(server, &s.jwks)
+		authnv2.RegisterJWKSServiceServer(server, &s.jwks)
 	}
 }
 
 type authServiceServer struct {
-	authnv1.UnimplementedAuthServiceServer
+	authnv2.UnimplementedAuthServiceServer
 	tokenSvc tokenApp.TokenApplicationService
 }
 
 type accountOnboardingServer struct {
-	authnv1.UnimplementedAccountOnboardingServiceServer
+	authnv2.UnimplementedAccountOnboardingServiceServer
 	accountOnboarder onboardingApp.AccountOnboarder
 }
 
 type jwksServiceServer struct {
-	authnv1.UnimplementedJWKSServiceServer
+	authnv2.UnimplementedJWKSServiceServer
 	keyPublish *jwksApp.KeyPublishAppService
 }

@@ -1,9 +1,9 @@
 package handler
 
 import (
-	appAccount "github.com/FangcunMount/iam/internal/apiserver/application/authn/account"
-	appOnboarding "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	_ "github.com/FangcunMount/iam/pkg/core"
+	appAccount "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
+	appOnboarding "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	_ "github.com/FangcunMount/iam/v2/pkg/core"
 )
 
 // AccountHandler 账户管理 HTTP Handler

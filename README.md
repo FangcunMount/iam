@@ -16,18 +16,18 @@ IAM 是方寸山项目的身份与访问管理服务，当前运行单元是 `ia
 | gRPC 适配 | [internal/apiserver/transport/grpc](internal/apiserver/transport/grpc) | proto 服务注册与 transport mapper |
 | 应用/领域/基础设施 | [internal/apiserver/application](internal/apiserver/application)、[internal/apiserver/domain](internal/apiserver/domain)、[internal/apiserver/infra](internal/apiserver/infra) | 用例、领域模型、MySQL/Redis/Casbin/JWT/Outbox 等实现 |
 | REST 契约 | [api/rest](api/rest) | OpenAPI 3.1 契约 |
-| gRPC 契约 | [api/grpc](api/grpc) | Proto v1 契约与生成代码 |
+| gRPC 契约 | [api/grpc](api/grpc) | Proto v2 契约与生成代码 |
 | SDK | [pkg/sdk](pkg/sdk) | Go SDK、服务认证、JWT 验签、AuthZ 与 Identity 客户端 |
 
 冲突时优先级是：源码与运行时行为、机器契约与配置、当前维护文档、历史文档与归档材料。
 
 ## 核心能力
 
-- AuthN：v1/v2 登录、Refresh Token、Access Token 撤销、会话校验、Service Token、JWKS 发布与管理端保护。
+- AuthN：v2 显式登录、Refresh Token、Access Token 撤销、会话校验、Service Token、JWKS 发布与管理端保护。
 - AuthZ：REST 与 gRPC 判定、授权快照、角色/资源/策略/assignment wire term，内部实现以 rolebinding 为准。
 - Identity：用户资料、儿童档案、ProfileLink 档案关系查询与写入。
 - IDP：微信应用配置与登录所需 IDP 能力。
-- Suggest：`GET /api/v1/suggest/profile` 儿童档案联想搜索。
+- Suggest：`GET /api/v2/suggest/profile` 儿童档案联想搜索。
 - CacheGovernance：只读缓存目录、family 状态和 debug 治理面。
 - Transactional Outbox：授权版本变更等领域事件通过 outbox relay 持久发布。
 
@@ -61,19 +61,18 @@ go test ./...
 
 REST 契约以 OpenAPI 文件为准：
 
-- [api/rest/authn.v1.yaml](api/rest/authn.v1.yaml)
 - [api/rest/authn.v2.yaml](api/rest/authn.v2.yaml)
-- [api/rest/authz.v1.yaml](api/rest/authz.v1.yaml)
-- [api/rest/identity.v1.yaml](api/rest/identity.v1.yaml)
-- [api/rest/idp.v1.yaml](api/rest/idp.v1.yaml)
-- [api/rest/suggest.v1.yaml](api/rest/suggest.v1.yaml)
+- [api/rest/authz.v2.yaml](api/rest/authz.v2.yaml)
+- [api/rest/identity.v2.yaml](api/rest/identity.v2.yaml)
+- [api/rest/idp.v2.yaml](api/rest/idp.v2.yaml)
+- [api/rest/suggest.v2.yaml](api/rest/suggest.v2.yaml)
 
 gRPC 契约以 proto 文件为准：
 
-- [api/grpc/iam/authn/v1/authn.proto](api/grpc/iam/authn/v1/authn.proto)
-- [api/grpc/iam/authz/v1/authz.proto](api/grpc/iam/authz/v1/authz.proto)
-- [api/grpc/iam/identity/v1/identity.proto](api/grpc/iam/identity/v1/identity.proto)
-- [api/grpc/iam/idp/v1/idp.proto](api/grpc/iam/idp/v1/idp.proto)
+- [api/grpc/iam/authn/v2/authn.proto](api/grpc/iam/authn/v2/authn.proto)
+- [api/grpc/iam/authz/v2/authz.proto](api/grpc/iam/authz/v2/authz.proto)
+- [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto)
+- [api/grpc/iam/idp/v2/idp.proto](api/grpc/iam/idp/v2/idp.proto)
 
 说明性 API 文档见 [api/README.md](api/README.md)、[api/rest/README.md](api/rest/README.md) 和 [api/grpc/README.md](api/grpc/README.md)。
 

@@ -1,6 +1,6 @@
 package profilelink
 
-import gsshipdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
+import gsshipdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
 
 // ParseRelation 将外部输入统一映射到领域层的档案关系词表。
 func ParseRelation(relation string) gsshipdomain.Relation {

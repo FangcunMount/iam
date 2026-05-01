@@ -190,9 +190,9 @@ JWKSManager (Chain of Responsibility 模式)
 
 ```go
 import (
-    sdk "github.com/FangcunMount/iam/pkg/sdk"
-    authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
-    authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
+    sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+    authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
+    authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
 )
 ```
 

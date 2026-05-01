@@ -1,6 +1,6 @@
 package login
 
-import "github.com/FangcunMount/iam/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 // MethodPayload 是按认证方式拆分后的应用层输入。
 type MethodPayload interface {

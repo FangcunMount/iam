@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // SessionTokenIssuer 编排登录成功后的 session 创建、access token 签发和 refresh token 保存。

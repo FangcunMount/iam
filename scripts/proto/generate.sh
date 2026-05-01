@@ -16,8 +16,8 @@ PROTO_PATH="api/grpc"
 
 # Contract rule:
 # Only generate proto contracts for implemented and registered runtime services.
-# The current IAM gRPC public surface is v1-only. A future v2 proto must be added
-# together with runtime registration, generated code, and SDK compile tests.
+# The current IAM gRPC public surface is v2-only. Runtime registration, generated
+# code, and SDK compile tests must stay aligned with these v2 proto files.
 
 # 检查protoc是否安装
 if ! command -v protoc &> /dev/null; then
@@ -55,7 +55,7 @@ protoc \
     --go_opt=paths=source_relative \
     --go-grpc_out=${PROTO_PATH} \
     --go-grpc_opt=paths=source_relative \
-    iam/authn/v1/authn.proto
+    iam/authn/v2/authn.proto
 
 # 生成 identity proto
 echo "🔄 生成 identity 服务..."
@@ -65,7 +65,7 @@ protoc \
     --go_opt=paths=source_relative \
     --go-grpc_out=${PROTO_PATH} \
     --go-grpc_opt=paths=source_relative \
-    iam/identity/v1/identity.proto
+    iam/identity/v2/identity.proto
 
 # 生成 idp proto
 echo "🔄 生成 idp 服务..."
@@ -75,7 +75,7 @@ protoc \
     --go_opt=paths=source_relative \
     --go-grpc_out=${PROTO_PATH} \
     --go-grpc_opt=paths=source_relative \
-    iam/idp/v1/idp.proto
+    iam/idp/v2/idp.proto
 
 # 生成 authz proto
 echo "🔄 生成 authz 服务..."
@@ -85,7 +85,7 @@ protoc \
     --go_opt=paths=source_relative \
     --go-grpc_out=${PROTO_PATH} \
     --go-grpc_opt=paths=source_relative \
-    iam/authz/v1/authz.proto
+    iam/authz/v2/authz.proto
 
 echo "✅ Proto文件生成完成！"
 echo ""

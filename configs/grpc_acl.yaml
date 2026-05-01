@@ -19,46 +19,46 @@ services:
     description: "QS API SERVER - 心理健康测评系统，允许用户/档案关系的查询和管理"
     allowed_methods:
       # IdentityRead - 用户查询服务
-      - /iam.identity.v1.IdentityRead/GetUser
-      - /iam.identity.v1.IdentityRead/BatchGetUsers
-      - /iam.identity.v1.IdentityRead/SearchUsers
-      - /iam.identity.v1.IdentityRead/GetProfile
-      - /iam.identity.v1.IdentityRead/BatchGetProfiles
+      - /iam.identity.v2.IdentityRead/GetUser
+      - /iam.identity.v2.IdentityRead/BatchGetUsers
+      - /iam.identity.v2.IdentityRead/SearchUsers
+      - /iam.identity.v2.IdentityRead/GetProfile
+      - /iam.identity.v2.IdentityRead/BatchGetProfiles
       
       # ProfileLinkQuery - 档案关系查询
-      - /iam.identity.v1.ProfileLinkQuery/HasProfileLink
-      - /iam.identity.v1.ProfileLinkQuery/ListProfiles
-      - /iam.identity.v1.ProfileLinkQuery/ListProfileLinks
+      - /iam.identity.v2.ProfileLinkQuery/HasProfileLink
+      - /iam.identity.v2.ProfileLinkQuery/ListProfiles
+      - /iam.identity.v2.ProfileLinkQuery/ListProfileLinks
       
       # ProfileLinkCommand - 档案关系管理
-      - /iam.identity.v1.ProfileLinkCommand/EstablishProfileLink
-      - /iam.identity.v1.ProfileLinkCommand/RevokeProfileLink
-      - /iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks
-      - /iam.identity.v1.ProfileLinkCommand/ImportProfileLinks
+      - /iam.identity.v2.ProfileLinkCommand/EstablishProfileLink
+      - /iam.identity.v2.ProfileLinkCommand/RevokeProfileLink
+      - /iam.identity.v2.ProfileLinkCommand/BatchRevokeProfileLinks
+      - /iam.identity.v2.ProfileLinkCommand/ImportProfileLinks
       
       # IdentityLifecycle - 用户生命周期管理
-      - /iam.identity.v1.IdentityLifecycle/CreateUser
-      - /iam.identity.v1.IdentityLifecycle/UpdateUser
-      - /iam.identity.v1.IdentityLifecycle/DeactivateUser
-      - /iam.identity.v1.IdentityLifecycle/BlockUser
+      - /iam.identity.v2.IdentityLifecycle/CreateUser
+      - /iam.identity.v2.IdentityLifecycle/UpdateUser
+      - /iam.identity.v2.IdentityLifecycle/DeactivateUser
+      - /iam.identity.v2.IdentityLifecycle/BlockUser
       
       # AuthService - Token 验证和管理
-      - /iam.authn.v1.AuthService/VerifyToken
-      - /iam.authn.v1.AccountOnboardingService/CreateOperationAccount
-      - /iam.authn.v1.AuthService/RefreshToken
-      - /iam.authn.v1.AuthService/IssueServiceToken
+      - /iam.authn.v2.AuthService/VerifyToken
+      - /iam.authn.v2.AccountOnboardingService/CreateOperationAccount
+      - /iam.authn.v2.AuthService/RefreshToken
+      - /iam.authn.v2.AuthService/IssueServiceToken
       
       # JWKSService - 公钥获取
-      - /iam.authn.v1.JWKSService/GetJWKS
+      - /iam.authn.v2.JWKSService/GetJWKS
       
       # IDPService - 微信应用查询
-      - /iam.idp.v1.IDPService/GetWechatApp
+      - /iam.idp.v2.IDPService/GetWechatApp
 
       # AuthorizationService - PDP（策略判定）
-      - /iam.authz.v1.AuthorizationService/Check
-      - /iam.authz.v1.AuthorizationService/GetAuthorizationSnapshot
-      - /iam.authz.v1.AuthorizationService/GrantAssignment
-      - /iam.authz.v1.AuthorizationService/RevokeAssignment
+      - /iam.authz.v2.AuthorizationService/Check
+      - /iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.authz.v2.AuthorizationService/GrantAssignment
+      - /iam.authz.v2.AuthorizationService/RevokeAssignment
     denied_methods: []
 
   # QS Collection Server - 数据收集服务
@@ -67,40 +67,40 @@ services:
     description: "QS Collection Server - 数据收集服务，允许用户/档案关系的查询和管理"
     allowed_methods:
       # IdentityRead - 用户查询服务
-      - /iam.identity.v1.IdentityRead/GetUser
-      - /iam.identity.v1.IdentityRead/BatchGetUsers
-      - /iam.identity.v1.IdentityRead/SearchUsers
-      - /iam.identity.v1.IdentityRead/GetProfile
-      - /iam.identity.v1.IdentityRead/BatchGetProfiles
+      - /iam.identity.v2.IdentityRead/GetUser
+      - /iam.identity.v2.IdentityRead/BatchGetUsers
+      - /iam.identity.v2.IdentityRead/SearchUsers
+      - /iam.identity.v2.IdentityRead/GetProfile
+      - /iam.identity.v2.IdentityRead/BatchGetProfiles
       
       # ProfileLinkQuery - 档案关系查询
-      - /iam.identity.v1.ProfileLinkQuery/HasProfileLink
-      - /iam.identity.v1.ProfileLinkQuery/ListProfiles
-      - /iam.identity.v1.ProfileLinkQuery/ListProfileLinks
+      - /iam.identity.v2.ProfileLinkQuery/HasProfileLink
+      - /iam.identity.v2.ProfileLinkQuery/ListProfiles
+      - /iam.identity.v2.ProfileLinkQuery/ListProfileLinks
       
       # ProfileLinkCommand - 档案关系管理
-      - /iam.identity.v1.ProfileLinkCommand/EstablishProfileLink
-      - /iam.identity.v1.ProfileLinkCommand/RevokeProfileLink
-      - /iam.identity.v1.ProfileLinkCommand/BatchRevokeProfileLinks
-      - /iam.identity.v1.ProfileLinkCommand/ImportProfileLinks
+      - /iam.identity.v2.ProfileLinkCommand/EstablishProfileLink
+      - /iam.identity.v2.ProfileLinkCommand/RevokeProfileLink
+      - /iam.identity.v2.ProfileLinkCommand/BatchRevokeProfileLinks
+      - /iam.identity.v2.ProfileLinkCommand/ImportProfileLinks
       
       # IdentityLifecycle - 用户生命周期管理
-      - /iam.identity.v1.IdentityLifecycle/CreateUser
-      - /iam.identity.v1.IdentityLifecycle/UpdateUser
-      - /iam.identity.v1.IdentityLifecycle/DeactivateUser
-      - /iam.identity.v1.IdentityLifecycle/BlockUser
+      - /iam.identity.v2.IdentityLifecycle/CreateUser
+      - /iam.identity.v2.IdentityLifecycle/UpdateUser
+      - /iam.identity.v2.IdentityLifecycle/DeactivateUser
+      - /iam.identity.v2.IdentityLifecycle/BlockUser
       
       # AuthService - Token 验证和管理
-      - /iam.authn.v1.AuthService/VerifyToken
-      - /iam.authn.v1.AuthService/RefreshToken
-      - /iam.authn.v1.AuthService/IssueServiceToken
+      - /iam.authn.v2.AuthService/VerifyToken
+      - /iam.authn.v2.AuthService/RefreshToken
+      - /iam.authn.v2.AuthService/IssueServiceToken
       
       # JWKSService - 公钥获取
-      - /iam.authn.v1.JWKSService/GetJWKS
+      - /iam.authn.v2.JWKSService/GetJWKS
 
       # AuthorizationService - PDP
-      - /iam.authz.v1.AuthorizationService/Check
-      - /iam.authz.v1.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.authz.v2.AuthorizationService/Check
+      - /iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot
     denied_methods: []
 
   # 内部管理工具
@@ -109,16 +109,16 @@ services:
     description: "内部管理工具，完全访问权限"
     allowed_methods:
       # 所有 Identity 服务方法
-      - /iam.identity.v1.IdentityRead/*
-      - /iam.identity.v1.ProfileLinkQuery/*
-      - /iam.identity.v1.ProfileLinkCommand/*
-      - /iam.identity.v1.IdentityLifecycle/*
+      - /iam.identity.v2.IdentityRead/*
+      - /iam.identity.v2.ProfileLinkQuery/*
+      - /iam.identity.v2.ProfileLinkCommand/*
+      - /iam.identity.v2.IdentityLifecycle/*
       # 所有 Authn 服务方法
-      - /iam.authn.v1.AuthService/*
-      - /iam.authn.v1.AccountOnboardingService/*
-      - /iam.authn.v1.JWKSService/*
-      - /iam.idp.v1.IDPService/*
-      - /iam.authz.v1.AuthorizationService/*
+      - /iam.authn.v2.AuthService/*
+      - /iam.authn.v2.AccountOnboardingService/*
+      - /iam.authn.v2.JWKSService/*
+      - /iam.idp.v2.IDPService/*
+      - /iam.authz.v2.AuthorizationService/*
 
   # 运维工具
   - service_name: ops
@@ -126,12 +126,12 @@ services:
     description: "运维工具，用于密钥轮换、Token 撤销等运维操作"
     allowed_methods:
       # Authn 运维操作
-      - /iam.authn.v1.AuthService/RevokeToken
-      - /iam.authn.v1.AuthService/RevokeRefreshToken
-      - /iam.authn.v1.AuthService/IssueServiceToken
+      - /iam.authn.v2.AuthService/RevokeToken
+      - /iam.authn.v2.AuthService/RevokeRefreshToken
+      - /iam.authn.v2.AuthService/IssueServiceToken
       # Identity 运维操作
-      - /iam.identity.v1.IdentityLifecycle/DeactivateUser
-      - /iam.identity.v1.IdentityLifecycle/BlockUser
+      - /iam.identity.v2.IdentityLifecycle/DeactivateUser
+      - /iam.identity.v2.IdentityLifecycle/BlockUser
       # 健康检查
       - /grpc.health.v1.Health/Check
 
@@ -146,11 +146,11 @@ services:
     enabled: true
     description: "报表服务，仅允许读取统计数据"
     allowed_methods:
-      - /iam.identity.v1.IdentityRead/BatchGetUsers
-      - /iam.identity.v1.IdentityRead/BatchGetProfiles
-      - /iam.identity.v1.ProfileLinkQuery/ListProfiles
-      - /iam.identity.v1.ProfileLinkQuery/ListProfileLinks
-      - /iam.authz.v1.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.identity.v2.IdentityRead/BatchGetUsers
+      - /iam.identity.v2.IdentityRead/BatchGetProfiles
+      - /iam.identity.v2.ProfileLinkQuery/ListProfiles
+      - /iam.identity.v2.ProfileLinkQuery/ListProfileLinks
+      - /iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot
 
 # 服务凭证配置（用于应用层鉴权）
 # ============================================================================

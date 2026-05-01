@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/testutil"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
 )
 
 // ==================== Creator 测试 ====================

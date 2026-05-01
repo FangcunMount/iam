@@ -3,7 +3,7 @@ package testutil
 import (
 	"testing"
 
-	ucuow "github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
+	ucuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
 	"github.com/stretchr/testify/require"
 )
 

@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	profiledomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	userdomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/user"
-	"github.com/FangcunMount/iam/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // package-local profileLink test helpers have been moved to

@@ -18,11 +18,11 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SWAGGER = ROOT / "internal/apiserver/docs/swagger.yaml"
 SPEC_PATHS = {
-    "authn": ROOT / "api/rest/authn.v1.yaml",
-    "authz": ROOT / "api/rest/authz.v1.yaml",
-    "identity": ROOT / "api/rest/identity.v1.yaml",
-    "idp": ROOT / "api/rest/idp.v1.yaml",
-    "suggest": ROOT / "api/rest/suggest.v1.yaml",
+    "authn": ROOT / "api/rest/authn.v2.yaml",
+    "authz": ROOT / "api/rest/authz.v2.yaml",
+    "identity": ROOT / "api/rest/identity.v2.yaml",
+    "idp": ROOT / "api/rest/idp.v2.yaml",
+    "suggest": ROOT / "api/rest/suggest.v2.yaml",
 }
 
 
@@ -53,11 +53,11 @@ def map_path(path: str) -> str:
         return "/authn" + path
     if path.startswith("/authz/") or path.startswith("/idp/"):
         return path
-    if path.startswith("/api/v1/suggest/") or path.startswith("/suggest/"):
-        # Suggest 独立模块，移除 /api/v1 前缀
+    if path.startswith("/api/v2/suggest/") or path.startswith("/suggest/"):
+        # Suggest 独立模块，移除 /api/v2 前缀
         normalized = path
-        if normalized.startswith("/api/v1"):
-            normalized = normalized[len("/api/v1") :]
+        if normalized.startswith("/api/v2"):
+            normalized = normalized[len("/api/v2") :]
         return normalized
     if path.startswith("/children") or path.startswith("/guardians") or path.startswith("/me") or path.startswith("/users"):
         return "/identity" + path
@@ -71,7 +71,7 @@ def module_for_path(path: str) -> str:
         return "authz"
     if path.startswith("/identity/"):
         return "identity"
-    if path.startswith("/suggest/") or path.startswith("/api/v1/suggest/"):
+    if path.startswith("/suggest/") or path.startswith("/api/v2/suggest/"):
         return "suggest"
     if path.startswith("/idp/"):
         return "idp"

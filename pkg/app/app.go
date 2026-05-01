@@ -12,10 +12,10 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	cliflag "github.com/FangcunMount/iam/pkg/flag"
-	"github.com/FangcunMount/iam/pkg/term"
-	"github.com/FangcunMount/iam/pkg/version"
-	"github.com/FangcunMount/iam/pkg/version/verflag"
+	cliflag "github.com/FangcunMount/iam/v2/pkg/flag"
+	"github.com/FangcunMount/iam/v2/pkg/term"
+	"github.com/FangcunMount/iam/v2/pkg/version"
+	"github.com/FangcunMount/iam/v2/pkg/version/verflag"
 )
 
 var (

@@ -5,8 +5,8 @@ import (
 	"context"
 	"log"
 
-	authzv1 "github.com/FangcunMount/iam/api/grpc/iam/authz/v1"
-	sdk "github.com/FangcunMount/iam/pkg/sdk"
+	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
+	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 	defer client.Close()
 
 	// 方式 1：使用原始 Check 请求
-	resp, err := client.Authz().Check(ctx, &authzv1.CheckRequest{
+	resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
 		Subject: "user:user-123",
 		Domain:  "fangcun",
 		Object:  "resource:profile_profile",

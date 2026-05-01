@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 func TestLegacySnapshotCodecRoundTripsProfileCandidate(t *testing.T) {

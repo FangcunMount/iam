@@ -1,6 +1,6 @@
 package suggest
 
-import domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+import domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 
 // Config 控制 suggest 模块行为
 type Config struct {

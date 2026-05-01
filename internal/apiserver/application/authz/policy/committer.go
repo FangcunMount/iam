@@ -4,10 +4,10 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzshared "github.com/FangcunMount/iam/internal/apiserver/application/authz/shared"
-	authzuow "github.com/FangcunMount/iam/internal/apiserver/application/authz/uow"
-	policyDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	authzshared "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/shared"
+	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
+	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 type PolicyChangeBuilder func(ctx context.Context, tx authzuow.TxRepositories) (policyDomain.PolicyChange, error)

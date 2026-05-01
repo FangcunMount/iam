@@ -3,9 +3,9 @@ package login
 import (
 	"context"
 
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 )
 
 type loginApplicationService struct {

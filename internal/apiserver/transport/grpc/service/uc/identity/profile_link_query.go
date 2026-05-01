@@ -7,11 +7,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 )
 
 // HasProfileLink 判定是否为关系用户
-func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identityv1.HasProfileLinkRequest) (*identityv1.HasProfileLinkResponse, error) {
+func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identityv2.HasProfileLinkRequest) (*identityv2.HasProfileLinkResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and profile_id are required")
 	}
@@ -21,7 +21,7 @@ func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identi
 		return nil, toGRPCError(err)
 	}
 
-	resp := &identityv1.HasProfileLinkResponse{HasProfileLink: hasProfileLink}
+	resp := &identityv2.HasProfileLinkResponse{HasProfileLink: hasProfileLink}
 
 	// 如果是关系用户，返回档案关系详情
 	if hasProfileLink {
@@ -35,7 +35,7 @@ func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identi
 }
 
 // ListProfiles 列出关系的档案
-func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identityv1.ListProfilesRequest) (*identityv1.ListProfilesResponse, error) {
+func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identityv2.ListProfilesRequest) (*identityv2.ListProfilesResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
@@ -56,7 +56,7 @@ func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identity
 	}
 
 	total := len(profileLinks)
-	items := make([]*identityv1.ProfileEdge, 0)
+	items := make([]*identityv2.ProfileEdge, 0)
 
 	if offset < total {
 		end := offset + limit
@@ -64,14 +64,14 @@ func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identity
 			end = total
 		}
 		for _, g := range profileLinks[offset:end] {
-			items = append(items, &identityv1.ProfileEdge{
+			items = append(items, &identityv2.ProfileEdge{
 				Profile:     profileResultToProtoFromProfileLink(g),
 				ProfileLink: profileLinkResultToProto(g),
 			})
 		}
 	}
 
-	return &identityv1.ListProfilesResponse{
+	return &identityv2.ListProfilesResponse{
 		Total: int32(total),
 		Page:  req.GetPage(),
 		Items: items,
@@ -79,7 +79,7 @@ func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identity
 }
 
 // ListProfileLinks 列出档案的所有关系用户
-func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *identityv1.ListProfileLinksRequest) (*identityv1.ListProfileLinksResponse, error) {
+func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *identityv2.ListProfileLinksRequest) (*identityv2.ListProfileLinksResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
@@ -89,10 +89,10 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 		return nil, toGRPCError(err)
 	}
 
-	items := make([]*identityv1.ProfileLinkEdge, 0, len(profileLinks))
+	items := make([]*identityv2.ProfileLinkEdge, 0, len(profileLinks))
 	for _, g := range profileLinks {
 		// 查询关系用户详细信息
-		var user *identityv1.User
+		var user *identityv2.User
 		if g.UserID != "" {
 			userResult, err := s.userQuerySvc.GetByID(ctx, g.UserID)
 			if err == nil && userResult != nil {
@@ -100,13 +100,13 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 			}
 		}
 
-		items = append(items, &identityv1.ProfileLinkEdge{
+		items = append(items, &identityv2.ProfileLinkEdge{
 			ProfileLink: profileLinkResultToProto(g),
 			User:        user,
 		})
 	}
 
-	return &identityv1.ListProfileLinksResponse{
+	return &identityv2.ListProfileLinksResponse{
 		Total: int32(len(items)),
 		Items: items,
 	}, nil

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"

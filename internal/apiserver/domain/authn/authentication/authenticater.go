@@ -5,8 +5,8 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // AuthStrategy 认证策略（领域服务接口）

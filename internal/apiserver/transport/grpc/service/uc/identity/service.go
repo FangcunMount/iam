@@ -3,10 +3,10 @@ package identity
 import (
 	"google.golang.org/grpc"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	profileApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
-	userApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	profileApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	userApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
 )
 
 // Service 聚合 identity 模块的 gRPC 服务
@@ -62,31 +62,31 @@ func NewService(
 
 // RegisterService 注册 gRPC 服务到 gRPC 服务器
 func (s *Service) RegisterService(server *grpc.Server) {
-	identityv1.RegisterIdentityReadServer(server, &s.identityRead)
-	identityv1.RegisterProfileLinkQueryServer(server, &s.profileLinkQry)
-	identityv1.RegisterProfileLinkCommandServer(server, &s.profileLinkCmd)
-	identityv1.RegisterIdentityLifecycleServer(server, &s.identityLifecycle)
+	identityv2.RegisterIdentityReadServer(server, &s.identityRead)
+	identityv2.RegisterProfileLinkQueryServer(server, &s.profileLinkQry)
+	identityv2.RegisterProfileLinkCommandServer(server, &s.profileLinkCmd)
+	identityv2.RegisterIdentityLifecycleServer(server, &s.identityLifecycle)
 }
 
 // ============= 服务器结构体定义 =============
 
 // identityReadServer 用户和档案身份读取服务
 type identityReadServer struct {
-	identityv1.UnimplementedIdentityReadServer
+	identityv2.UnimplementedIdentityReadServer
 	userQuerySvc    userApp.Directory
 	profileQuerySvc profileApp.Directory
 }
 
 // profileLinkQueryServer 档案关系查询服务
 type profileLinkQueryServer struct {
-	identityv1.UnimplementedProfileLinkQueryServer
+	identityv2.UnimplementedProfileLinkQueryServer
 	profileLinkQuerySvc profileLinkApp.Directory
 	userQuerySvc        userApp.Directory
 }
 
 // profileLinkCommandServer 档案关系命令服务（写操作）
 type profileLinkCommandServer struct {
-	identityv1.UnimplementedProfileLinkCommandServer
+	identityv2.UnimplementedProfileLinkCommandServer
 	profileLinkSvc       profileLinkApp.Commands
 	profileLinkQuerySvc  profileLinkApp.Directory
 	profileLinkAccessSvc profileLinkApp.MyProfileLinks
@@ -94,7 +94,7 @@ type profileLinkCommandServer struct {
 
 // identityLifecycleServer 身份生命周期服务（用户管理）
 type identityLifecycleServer struct {
-	identityv1.UnimplementedIdentityLifecycleServer
+	identityv2.UnimplementedIdentityLifecycleServer
 	userSvc        userApp.Creator
 	userQuerySvc   userApp.Directory
 	userProfileSvc userApp.Editor

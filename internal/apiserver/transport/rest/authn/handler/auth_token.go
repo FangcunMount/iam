@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/login"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 )
 
 // Logout 登出

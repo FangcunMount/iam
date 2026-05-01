@@ -1,6 +1,6 @@
 package authentication
 
-import "github.com/FangcunMount/iam/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 type ErrCode string
 

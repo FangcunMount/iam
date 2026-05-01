@@ -3,7 +3,7 @@ package session
 import (
 	"time"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Status 表示认证会话的生命周期状态。

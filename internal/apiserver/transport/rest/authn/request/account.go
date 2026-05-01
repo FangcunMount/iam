@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // SignUpWithWeChatMiniProgramRequest 微信小程序账号开通请求。

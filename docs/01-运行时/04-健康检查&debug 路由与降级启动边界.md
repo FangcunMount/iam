@@ -74,7 +74,7 @@ flowchart TD
 | `/debug/routes` | 查看当前实际路由列表。 | 排查“文档有、运行时没有”的第一入口。 |
 | `/debug/modules` | 查看 container 和模块初始化状态。 | 用于解释 protected route 缺失原因。 |
 | `/openapi`、`/swagger` | 静态合同与 Swagger UI。 | 说明合同存在，不说明某个运行时依赖已初始化。 |
-| `/api/v1/public/info` | 服务基础信息。 | 不要求用户 JWT。 |
+| `/api/v2/public/info` | 服务基础信息。 | 不要求用户 JWT。 |
 
 这种设计的重点是：即使 container 初始化失败或部分模块不可用，也保留最小诊断面，便于在非生产受控环境定位问题。
 

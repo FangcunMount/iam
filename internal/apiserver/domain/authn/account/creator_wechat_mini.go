@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // ==================== 微信小程序账户创建策略 ====================

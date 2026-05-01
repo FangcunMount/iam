@@ -1,7 +1,7 @@
 package rolebinding
 
 import (
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Binding 用户/组 ↔ 角色赋权（聚合根）

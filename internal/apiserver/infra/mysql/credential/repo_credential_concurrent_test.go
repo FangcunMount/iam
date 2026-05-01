@@ -9,11 +9,11 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	testutil "github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	testhelpers "github.com/FangcunMount/iam/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	m "github.com/FangcunMount/iam/internal/pkg/meta"
+	testutil "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/testutil"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	testhelpers "github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	m "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v5.29.3
-// source: iam/idp/v1/idp.proto
+// source: iam/idp/v2/idp.proto
 
-package idpv1
+package idpv2
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -55,11 +55,11 @@ func (x WechatAppType) String() string {
 }
 
 func (WechatAppType) Descriptor() protoreflect.EnumDescriptor {
-	return file_iam_idp_v1_idp_proto_enumTypes[0].Descriptor()
+	return file_iam_idp_v2_idp_proto_enumTypes[0].Descriptor()
 }
 
 func (WechatAppType) Type() protoreflect.EnumType {
-	return &file_iam_idp_v1_idp_proto_enumTypes[0]
+	return &file_iam_idp_v2_idp_proto_enumTypes[0]
 }
 
 func (x WechatAppType) Number() protoreflect.EnumNumber {
@@ -68,7 +68,7 @@ func (x WechatAppType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WechatAppType.Descriptor instead.
 func (WechatAppType) EnumDescriptor() ([]byte, []int) {
-	return file_iam_idp_v1_idp_proto_rawDescGZIP(), []int{0}
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{0}
 }
 
 // 微信应用状态
@@ -108,11 +108,11 @@ func (x WechatAppStatus) String() string {
 }
 
 func (WechatAppStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_iam_idp_v1_idp_proto_enumTypes[1].Descriptor()
+	return file_iam_idp_v2_idp_proto_enumTypes[1].Descriptor()
 }
 
 func (WechatAppStatus) Type() protoreflect.EnumType {
-	return &file_iam_idp_v1_idp_proto_enumTypes[1]
+	return &file_iam_idp_v2_idp_proto_enumTypes[1]
 }
 
 func (x WechatAppStatus) Number() protoreflect.EnumNumber {
@@ -121,7 +121,7 @@ func (x WechatAppStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WechatAppStatus.Descriptor instead.
 func (WechatAppStatus) EnumDescriptor() ([]byte, []int) {
-	return file_iam_idp_v1_idp_proto_rawDescGZIP(), []int{1}
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{1}
 }
 
 // 微信应用
@@ -131,15 +131,15 @@ type WechatApp struct {
 	AppId         string                 `protobuf:"bytes,2,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`                       // 微信应用 ID
 	AppSecret     string                 `protobuf:"bytes,3,opt,name=app_secret,json=appSecret,proto3" json:"app_secret,omitempty"`           // 微信应用密钥（AppSecret）
 	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`                                      // 应用名称
-	Type          WechatAppType          `protobuf:"varint,5,opt,name=type,proto3,enum=iam.idp.v1.WechatAppType" json:"type,omitempty"`       // 应用类型
-	Status        WechatAppStatus        `protobuf:"varint,6,opt,name=status,proto3,enum=iam.idp.v1.WechatAppStatus" json:"status,omitempty"` // 应用状态
+	Type          WechatAppType          `protobuf:"varint,5,opt,name=type,proto3,enum=iam.idp.v2.WechatAppType" json:"type,omitempty"`       // 应用类型
+	Status        WechatAppStatus        `protobuf:"varint,6,opt,name=status,proto3,enum=iam.idp.v2.WechatAppStatus" json:"status,omitempty"` // 应用状态
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WechatApp) Reset() {
 	*x = WechatApp{}
-	mi := &file_iam_idp_v1_idp_proto_msgTypes[0]
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -151,7 +151,7 @@ func (x *WechatApp) String() string {
 func (*WechatApp) ProtoMessage() {}
 
 func (x *WechatApp) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_idp_v1_idp_proto_msgTypes[0]
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -164,7 +164,7 @@ func (x *WechatApp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WechatApp.ProtoReflect.Descriptor instead.
 func (*WechatApp) Descriptor() ([]byte, []int) {
-	return file_iam_idp_v1_idp_proto_rawDescGZIP(), []int{0}
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *WechatApp) GetId() string {
@@ -219,7 +219,7 @@ type GetWechatAppRequest struct {
 
 func (x *GetWechatAppRequest) Reset() {
 	*x = GetWechatAppRequest{}
-	mi := &file_iam_idp_v1_idp_proto_msgTypes[1]
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -231,7 +231,7 @@ func (x *GetWechatAppRequest) String() string {
 func (*GetWechatAppRequest) ProtoMessage() {}
 
 func (x *GetWechatAppRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_idp_v1_idp_proto_msgTypes[1]
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +244,7 @@ func (x *GetWechatAppRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWechatAppRequest.ProtoReflect.Descriptor instead.
 func (*GetWechatAppRequest) Descriptor() ([]byte, []int) {
-	return file_iam_idp_v1_idp_proto_rawDescGZIP(), []int{1}
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetWechatAppRequest) GetAppId() string {
@@ -264,7 +264,7 @@ type GetWechatAppResponse struct {
 
 func (x *GetWechatAppResponse) Reset() {
 	*x = GetWechatAppResponse{}
-	mi := &file_iam_idp_v1_idp_proto_msgTypes[2]
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -276,7 +276,7 @@ func (x *GetWechatAppResponse) String() string {
 func (*GetWechatAppResponse) ProtoMessage() {}
 
 func (x *GetWechatAppResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iam_idp_v1_idp_proto_msgTypes[2]
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -289,7 +289,7 @@ func (x *GetWechatAppResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWechatAppResponse.ProtoReflect.Descriptor instead.
 func (*GetWechatAppResponse) Descriptor() ([]byte, []int) {
-	return file_iam_idp_v1_idp_proto_rawDescGZIP(), []int{2}
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetWechatAppResponse) GetApp() *WechatApp {
@@ -299,24 +299,24 @@ func (x *GetWechatAppResponse) GetApp() *WechatApp {
 	return nil
 }
 
-var File_iam_idp_v1_idp_proto protoreflect.FileDescriptor
+var File_iam_idp_v2_idp_proto protoreflect.FileDescriptor
 
-const file_iam_idp_v1_idp_proto_rawDesc = "" +
+const file_iam_idp_v2_idp_proto_rawDesc = "" +
 	"\n" +
-	"\x14iam/idp/v1/idp.proto\x12\n" +
-	"iam.idp.v1\"\xc9\x01\n" +
+	"\x14iam/idp/v2/idp.proto\x12\n" +
+	"iam.idp.v2\"\xc9\x01\n" +
 	"\tWechatApp\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
 	"\x06app_id\x18\x02 \x01(\tR\x05appId\x12\x1d\n" +
 	"\n" +
 	"app_secret\x18\x03 \x01(\tR\tappSecret\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12-\n" +
-	"\x04type\x18\x05 \x01(\x0e2\x19.iam.idp.v1.WechatAppTypeR\x04type\x123\n" +
-	"\x06status\x18\x06 \x01(\x0e2\x1b.iam.idp.v1.WechatAppStatusR\x06status\",\n" +
+	"\x04type\x18\x05 \x01(\x0e2\x19.iam.idp.v2.WechatAppTypeR\x04type\x123\n" +
+	"\x06status\x18\x06 \x01(\x0e2\x1b.iam.idp.v2.WechatAppStatusR\x06status\",\n" +
 	"\x13GetWechatAppRequest\x12\x15\n" +
 	"\x06app_id\x18\x01 \x01(\tR\x05appId\"?\n" +
 	"\x14GetWechatAppResponse\x12'\n" +
-	"\x03app\x18\x01 \x01(\v2\x15.iam.idp.v1.WechatAppR\x03app*j\n" +
+	"\x03app\x18\x01 \x01(\v2\x15.iam.idp.v2.WechatAppR\x03app*j\n" +
 	"\rWechatAppType\x12\x1f\n" +
 	"\x1bWECHAT_APP_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cWECHAT_APP_TYPE_MINI_PROGRAM\x10\x01\x12\x16\n" +
@@ -328,35 +328,35 @@ const file_iam_idp_v1_idp_proto_rawDesc = "" +
 	"\x1aWECHAT_APP_STATUS_ARCHIVED\x10\x032_\n" +
 	"\n" +
 	"IDPService\x12Q\n" +
-	"\fGetWechatApp\x12\x1f.iam.idp.v1.GetWechatAppRequest\x1a .iam.idp.v1.GetWechatAppResponseB7Z5github.com/FangcunMount/iam/api/grpc/iam/idp/v1;idpv1b\x06proto3"
+	"\fGetWechatApp\x12\x1f.iam.idp.v2.GetWechatAppRequest\x1a .iam.idp.v2.GetWechatAppResponseB:Z8github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2;idpv2b\x06proto3"
 
 var (
-	file_iam_idp_v1_idp_proto_rawDescOnce sync.Once
-	file_iam_idp_v1_idp_proto_rawDescData []byte
+	file_iam_idp_v2_idp_proto_rawDescOnce sync.Once
+	file_iam_idp_v2_idp_proto_rawDescData []byte
 )
 
-func file_iam_idp_v1_idp_proto_rawDescGZIP() []byte {
-	file_iam_idp_v1_idp_proto_rawDescOnce.Do(func() {
-		file_iam_idp_v1_idp_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_iam_idp_v1_idp_proto_rawDesc), len(file_iam_idp_v1_idp_proto_rawDesc)))
+func file_iam_idp_v2_idp_proto_rawDescGZIP() []byte {
+	file_iam_idp_v2_idp_proto_rawDescOnce.Do(func() {
+		file_iam_idp_v2_idp_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_iam_idp_v2_idp_proto_rawDesc), len(file_iam_idp_v2_idp_proto_rawDesc)))
 	})
-	return file_iam_idp_v1_idp_proto_rawDescData
+	return file_iam_idp_v2_idp_proto_rawDescData
 }
 
-var file_iam_idp_v1_idp_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_iam_idp_v1_idp_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_iam_idp_v1_idp_proto_goTypes = []any{
-	(WechatAppType)(0),           // 0: iam.idp.v1.WechatAppType
-	(WechatAppStatus)(0),         // 1: iam.idp.v1.WechatAppStatus
-	(*WechatApp)(nil),            // 2: iam.idp.v1.WechatApp
-	(*GetWechatAppRequest)(nil),  // 3: iam.idp.v1.GetWechatAppRequest
-	(*GetWechatAppResponse)(nil), // 4: iam.idp.v1.GetWechatAppResponse
+var file_iam_idp_v2_idp_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_iam_idp_v2_idp_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_iam_idp_v2_idp_proto_goTypes = []any{
+	(WechatAppType)(0),           // 0: iam.idp.v2.WechatAppType
+	(WechatAppStatus)(0),         // 1: iam.idp.v2.WechatAppStatus
+	(*WechatApp)(nil),            // 2: iam.idp.v2.WechatApp
+	(*GetWechatAppRequest)(nil),  // 3: iam.idp.v2.GetWechatAppRequest
+	(*GetWechatAppResponse)(nil), // 4: iam.idp.v2.GetWechatAppResponse
 }
-var file_iam_idp_v1_idp_proto_depIdxs = []int32{
-	0, // 0: iam.idp.v1.WechatApp.type:type_name -> iam.idp.v1.WechatAppType
-	1, // 1: iam.idp.v1.WechatApp.status:type_name -> iam.idp.v1.WechatAppStatus
-	2, // 2: iam.idp.v1.GetWechatAppResponse.app:type_name -> iam.idp.v1.WechatApp
-	3, // 3: iam.idp.v1.IDPService.GetWechatApp:input_type -> iam.idp.v1.GetWechatAppRequest
-	4, // 4: iam.idp.v1.IDPService.GetWechatApp:output_type -> iam.idp.v1.GetWechatAppResponse
+var file_iam_idp_v2_idp_proto_depIdxs = []int32{
+	0, // 0: iam.idp.v2.WechatApp.type:type_name -> iam.idp.v2.WechatAppType
+	1, // 1: iam.idp.v2.WechatApp.status:type_name -> iam.idp.v2.WechatAppStatus
+	2, // 2: iam.idp.v2.GetWechatAppResponse.app:type_name -> iam.idp.v2.WechatApp
+	3, // 3: iam.idp.v2.IDPService.GetWechatApp:input_type -> iam.idp.v2.GetWechatAppRequest
+	4, // 4: iam.idp.v2.IDPService.GetWechatApp:output_type -> iam.idp.v2.GetWechatAppResponse
 	4, // [4:5] is the sub-list for method output_type
 	3, // [3:4] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -364,27 +364,27 @@ var file_iam_idp_v1_idp_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_iam_idp_v1_idp_proto_init() }
-func file_iam_idp_v1_idp_proto_init() {
-	if File_iam_idp_v1_idp_proto != nil {
+func init() { file_iam_idp_v2_idp_proto_init() }
+func file_iam_idp_v2_idp_proto_init() {
+	if File_iam_idp_v2_idp_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_idp_v1_idp_proto_rawDesc), len(file_iam_idp_v1_idp_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_idp_v2_idp_proto_rawDesc), len(file_iam_idp_v2_idp_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_iam_idp_v1_idp_proto_goTypes,
-		DependencyIndexes: file_iam_idp_v1_idp_proto_depIdxs,
-		EnumInfos:         file_iam_idp_v1_idp_proto_enumTypes,
-		MessageInfos:      file_iam_idp_v1_idp_proto_msgTypes,
+		GoTypes:           file_iam_idp_v2_idp_proto_goTypes,
+		DependencyIndexes: file_iam_idp_v2_idp_proto_depIdxs,
+		EnumInfos:         file_iam_idp_v2_idp_proto_enumTypes,
+		MessageInfos:      file_iam_idp_v2_idp_proto_msgTypes,
 	}.Build()
-	File_iam_idp_v1_idp_proto = out.File
-	file_iam_idp_v1_idp_proto_goTypes = nil
-	file_iam_idp_v1_idp_proto_depIdxs = nil
+	File_iam_idp_v2_idp_proto = out.File
+	file_iam_idp_v2_idp_proto_goTypes = nil
+	file_iam_idp_v2_idp_proto_depIdxs = nil
 }

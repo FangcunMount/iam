@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
-	appProfileLink "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	profiledomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	profileLinkDomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profilelink"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
+	appProfileLink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
+	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type myProfiles struct {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 
-	"github.com/FangcunMount/iam/internal/pkg/security/sanitize"
+	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 )
 
 // VerifyToken 验证访问令牌

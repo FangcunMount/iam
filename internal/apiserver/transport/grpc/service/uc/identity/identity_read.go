@@ -7,11 +7,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 )
 
 // GetUser 查询用户
-func (s *identityReadServer) GetUser(ctx context.Context, req *identityv1.GetUserRequest) (*identityv1.GetUserResponse, error) {
+func (s *identityReadServer) GetUser(ctx context.Context, req *identityv2.GetUserRequest) (*identityv2.GetUserResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
@@ -21,17 +21,17 @@ func (s *identityReadServer) GetUser(ctx context.Context, req *identityv1.GetUse
 		return nil, toGRPCError(err)
 	}
 
-	return &identityv1.GetUserResponse{User: userResultToProto(result)}, nil
+	return &identityv2.GetUserResponse{User: userResultToProto(result)}, nil
 }
 
 // BatchGetUsers 批量查询用户
-func (s *identityReadServer) BatchGetUsers(ctx context.Context, req *identityv1.BatchGetUsersRequest) (*identityv1.BatchGetUsersResponse, error) {
+func (s *identityReadServer) BatchGetUsers(ctx context.Context, req *identityv2.BatchGetUsersRequest) (*identityv2.BatchGetUsersResponse, error) {
 	if req == nil || len(req.GetUserIds()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_ids is required")
 	}
 
-	resp := &identityv1.BatchGetUsersResponse{
-		Users:       make([]*identityv1.User, 0, len(req.GetUserIds())),
+	resp := &identityv2.BatchGetUsersResponse{
+		Users:       make([]*identityv2.User, 0, len(req.GetUserIds())),
 		NotFoundIds: make([]string, 0),
 	}
 
@@ -49,7 +49,7 @@ func (s *identityReadServer) BatchGetUsers(ctx context.Context, req *identityv1.
 }
 
 // SearchUsers 搜索用户
-func (s *identityReadServer) SearchUsers(ctx context.Context, req *identityv1.SearchUsersRequest) (*identityv1.SearchUsersResponse, error) {
+func (s *identityReadServer) SearchUsers(ctx context.Context, req *identityv2.SearchUsersRequest) (*identityv2.SearchUsersResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
@@ -60,16 +60,16 @@ func (s *identityReadServer) SearchUsers(ctx context.Context, req *identityv1.Se
 	}
 
 	// 其他搜索条件暂不支持
-	return &identityv1.SearchUsersResponse{
+	return &identityv2.SearchUsersResponse{
 		Total: 0,
 		Page:  req.GetPage(),
-		Users: []*identityv1.User{},
+		Users: []*identityv2.User{},
 	}, nil
 }
 
 // searchUsersByPhones 通过手机号列表搜索用户
-func (s *identityReadServer) searchUsersByPhones(ctx context.Context, req *identityv1.SearchUsersRequest) (*identityv1.SearchUsersResponse, error) {
-	users := make([]*identityv1.User, 0)
+func (s *identityReadServer) searchUsersByPhones(ctx context.Context, req *identityv2.SearchUsersRequest) (*identityv2.SearchUsersResponse, error) {
+	users := make([]*identityv2.User, 0)
 
 	for _, phone := range req.GetPhones() {
 		result, err := s.userQuerySvc.GetByPhone(ctx, phone)
@@ -80,7 +80,7 @@ func (s *identityReadServer) searchUsersByPhones(ctx context.Context, req *ident
 		users = append(users, userResultToProto(result))
 	}
 
-	return &identityv1.SearchUsersResponse{
+	return &identityv2.SearchUsersResponse{
 		Total: int32(len(users)),
 		Page:  req.GetPage(),
 		Users: users,
@@ -88,7 +88,7 @@ func (s *identityReadServer) searchUsersByPhones(ctx context.Context, req *ident
 }
 
 // GetProfile 查询档案
-func (s *identityReadServer) GetProfile(ctx context.Context, req *identityv1.GetProfileRequest) (*identityv1.GetProfileResponse, error) {
+func (s *identityReadServer) GetProfile(ctx context.Context, req *identityv2.GetProfileRequest) (*identityv2.GetProfileResponse, error) {
 	if req == nil || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
@@ -98,17 +98,17 @@ func (s *identityReadServer) GetProfile(ctx context.Context, req *identityv1.Get
 		return nil, toGRPCError(err)
 	}
 
-	return &identityv1.GetProfileResponse{Profile: profileResultToProto(result)}, nil
+	return &identityv2.GetProfileResponse{Profile: profileResultToProto(result)}, nil
 }
 
 // BatchGetProfiles 批量查询档案
-func (s *identityReadServer) BatchGetProfiles(ctx context.Context, req *identityv1.BatchGetProfilesRequest) (*identityv1.BatchGetProfilesResponse, error) {
+func (s *identityReadServer) BatchGetProfiles(ctx context.Context, req *identityv2.BatchGetProfilesRequest) (*identityv2.BatchGetProfilesResponse, error) {
 	if req == nil || len(req.GetProfileIds()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "profile_ids is required")
 	}
 
-	resp := &identityv1.BatchGetProfilesResponse{
-		Profiles:    make([]*identityv1.Profile, 0, len(req.GetProfileIds())),
+	resp := &identityv2.BatchGetProfilesResponse{
+		Profiles:    make([]*identityv2.Profile, 0, len(req.GetProfileIds())),
 		NotFoundIds: make([]string, 0),
 	}
 

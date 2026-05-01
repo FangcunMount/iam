@@ -16,24 +16,24 @@ func TestIdentityGRPCRuntimeRegistersOnlyImplementedServices(t *testing.T) {
 	NewService(nil, nil, nil, nil, nil, nil, nil, nil).RegisterService(server)
 
 	info := server.GetServiceInfo()
-	require.Contains(t, info, "iam.identity.v1.IdentityRead")
-	require.Contains(t, info, "iam.identity.v1.ProfileLinkQuery")
-	require.Contains(t, info, "iam.identity.v1.ProfileLinkCommand")
-	require.Contains(t, info, "iam.identity.v1.IdentityLifecycle")
-	assert.NotContains(t, info, "iam.identity.v1.IdentityStream")
+	require.Contains(t, info, "iam.identity.v2.IdentityRead")
+	require.Contains(t, info, "iam.identity.v2.ProfileLinkQuery")
+	require.Contains(t, info, "iam.identity.v2.ProfileLinkCommand")
+	require.Contains(t, info, "iam.identity.v2.IdentityLifecycle")
+	assert.NotContains(t, info, "iam.identity.v2.IdentityStream")
 
 	assert.ElementsMatch(t, []string{
 		"GetUser", "BatchGetUsers", "SearchUsers", "GetProfile", "BatchGetProfiles",
-	}, methodNames(info["iam.identity.v1.IdentityRead"]))
+	}, methodNames(info["iam.identity.v2.IdentityRead"]))
 	assert.ElementsMatch(t, []string{
 		"HasProfileLink", "ListProfiles", "ListProfileLinks",
-	}, methodNames(info["iam.identity.v1.ProfileLinkQuery"]))
+	}, methodNames(info["iam.identity.v2.ProfileLinkQuery"]))
 	assert.ElementsMatch(t, []string{
 		"EstablishProfileLink", "RevokeProfileLink", "BatchRevokeProfileLinks", "ImportProfileLinks",
-	}, methodNames(info["iam.identity.v1.ProfileLinkCommand"]))
+	}, methodNames(info["iam.identity.v2.ProfileLinkCommand"]))
 	assert.ElementsMatch(t, []string{
 		"CreateUser", "UpdateUser", "DeactivateUser", "BlockUser",
-	}, methodNames(info["iam.identity.v1.IdentityLifecycle"]))
+	}, methodNames(info["iam.identity.v2.IdentityLifecycle"]))
 }
 
 func TestIdentityContractsDoNotReferenceRemovedRPCs(t *testing.T) {

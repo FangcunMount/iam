@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	sdk "github.com/FangcunMount/iam/pkg/sdk"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
 )
 
 func main() {
@@ -36,9 +36,9 @@ func main() {
 	fmt.Printf("用户: %s\n", resp.User.Nickname)
 
 	// 搜索用户
-	searchResp, err := client.Identity().SearchUsers(ctx, &identityv1.SearchUsersRequest{
+	searchResp, err := client.Identity().SearchUsers(ctx, &identityv2.SearchUsersRequest{
 		Keyword: "张三",
-		Page:    &identityv1.OffsetPagination{Limit: 10, Offset: 0},
+		Page:    &identityv2.OffsetPagination{Limit: 10, Offset: 0},
 	})
 	if err != nil {
 		log.Printf("搜索用户失败: %v", err)

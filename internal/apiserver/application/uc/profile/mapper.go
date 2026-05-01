@@ -1,9 +1,9 @@
 package profile
 
 import (
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============= DTO 转换辅助函数 =============

@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/profile"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/testutil"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/testutil"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 // ==================== Editor 测试 ====================

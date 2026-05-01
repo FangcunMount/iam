@@ -10,7 +10,7 @@
 - Domain 层用 `ProfileCandidate`、`Term`、`Keyword`、`Query`、`RankingPolicy` 表达候选、查询和排序规则。
 - Application 层有两类用例：`Service.Suggest` 是查询用例，`ProfileIndexRefresher` 是索引刷新用例。
 - 索引生命周期由 `ProfileSuggestionRuntime` 端口承载；数据来源由 `ProfileCandidateSource` 端口提供；可选 snapshot 写入由 `SnapshotWriter` 端口隔离。
-- 查询接口是 `GET /api/v1/suggest/profile?k=...`，REST handler 需要 Auth middleware 和 Suggest service 同时存在才注册。
+- 查询接口是 `GET /api/v2/suggest/profile?k=...`，REST handler 需要 Auth middleware 和 Suggest service 同时存在才注册。
 - 当前默认限制是 `MaxResults=20`、`KeyPadLen=25`，配置入口在 `application/suggest.Config`。
 
 ## 主图：Suggest 读模型协作
@@ -23,7 +23,7 @@ flowchart TD
     Runtime["ProfileSuggestionRuntime\nCurrent / Replace / ImportDelta"]
     Index["ProfileSuggestionIndex"]
     Service["application/suggest.Service"]
-    REST["GET /api/v1/suggest/profile"]
+    REST["GET /api/v2/suggest/profile"]
     Snapshot["SnapshotWriter\n可选持久化"]
 
     ProfileStore --> Source
@@ -47,7 +47,7 @@ flowchart TD
 | 查询应用服务 | `Service.Suggest` 从 runtime 取当前 index，空 runtime/index 返回空结果。 | [../../internal/apiserver/application/suggest/service.go](../../internal/apiserver/application/suggest/service.go) |
 | 刷新应用服务 | `ProfileIndexRefresher` 支持 full replace 与 delta import。 | [../../internal/apiserver/application/suggest/refresher.go](../../internal/apiserver/application/suggest/refresher.go) |
 | 端口 | 数据源、索引、运行时、snapshot 都通过 application ports 抽象。 | [../../internal/apiserver/application/suggest/ports.go](../../internal/apiserver/application/suggest/ports.go) |
-| 合同 | REST `GET /api/v1/suggest/profile`，参数 `k` 必填。 | [../../api/rest/suggest.v1.yaml](../../api/rest/suggest.v1.yaml)、[../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go) |
+| 合同 | REST `GET /api/v2/suggest/profile`，参数 `k` 必填。 | [../../api/rest/suggest.v2.yaml](../../api/rest/suggest.v2.yaml)、[../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go) |
 
 ## 1. 模块边界
 
@@ -141,7 +141,7 @@ sequenceDiagram
     participant R as "ProfileSuggestionRuntime"
     participant I as "ProfileSuggestionIndex"
 
-    C->>H: "GET /api/v1/suggest/profile?k=keyword"
+    C->>H: "GET /api/v2/suggest/profile?k=keyword"
     H->>S: "Suggest(ctx, keyword)"
     S->>R: "Current()"
     R-->>S: "index"
@@ -196,12 +196,12 @@ flowchart TD
 
 | 路由 | 认证 | 参数 | 返回 |
 | ---- | ---- | ---- | ---- |
-| `GET /api/v1/suggest/profile` | Bearer JWT | query `k` 必填 | `[]Term`，按权重降序并去重 |
+| `GET /api/v2/suggest/profile` | Bearer JWT | query `k` 必填 | `[]Term`，按权重降序并去重 |
 
 注册事实在 [../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go)：
 
 - engine、service、auth middleware 任一缺失时不注册 route。
-- route group 是 `/api/v1/suggest`。
+- route group 是 `/api/v2/suggest`。
 - handler 只做参数绑定、调用应用服务和响应规范化。
 
 这符合运行时文档中的 fail-closed 原则：protected route 的认证依赖不可用时，宁可不注册，也不开放一个未受保护的 suggest 查询面。
@@ -223,7 +223,7 @@ flowchart TD
 - Domain：[../../internal/apiserver/domain/suggest](../../internal/apiserver/domain/suggest)
 - Application：[../../internal/apiserver/application/suggest](../../internal/apiserver/application/suggest)
 - REST handler：[../../internal/apiserver/transport/rest/suggest/handler.go](../../internal/apiserver/transport/rest/suggest/handler.go)
-- REST contract：[../../api/rest/suggest.v1.yaml](../../api/rest/suggest.v1.yaml)
+- REST contract：[../../api/rest/suggest.v2.yaml](../../api/rest/suggest.v2.yaml)
 
 建议验证：
 

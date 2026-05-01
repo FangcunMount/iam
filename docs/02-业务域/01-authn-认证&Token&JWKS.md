@@ -60,7 +60,7 @@ flowchart TD
 | Token 应用服务 | TokenApplicationService 暴露 issue、refresh、revoke、verify。 | [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token) |
 | JWKS 应用服务 | key management、key publish、key rotation use cases。 | [../../internal/apiserver/application/authn/jwks](../../internal/apiserver/application/authn/jwks) |
 | Token 基础设施 | JWT codec 和 keyset lifecycle。 | [../../internal/apiserver/infra/token/jwt](../../internal/apiserver/infra/token/jwt)、[../../internal/apiserver/infra/token/keyset](../../internal/apiserver/infra/token/keyset) |
-| 合同 | REST AuthN v1/v2 与 gRPC AuthService/JWKSService。 | [../../api/rest/authn.v1.yaml](../../api/rest/authn.v1.yaml)、[../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml)、[../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
+| 合同 | REST AuthN v1/v2 与 gRPC AuthService/JWKSService。 | [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml)、[../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml)、[../../api/grpc/iam/authn/v2/authn.proto](../../api/grpc/iam/authn/v2/authn.proto) |
 
 ## 1. 领域模型
 
@@ -251,7 +251,7 @@ JWKS 的关键分工：
 
 | 接口面 | 能力 |
 | ---- | ---- |
-| REST v1 | `/api/v1/authn/login`、`/login/prep/phone-otp`、`/refresh_token`、`/logout`、`/verify`、signups、accounts、JWKS public/admin。 |
+| REST v1 | `/api/v2/authn/login`、`/login/prep/phone-otp`、`/refresh_token`、`/logout`、`/verify`、signups、accounts、JWKS public/admin。 |
 | REST v2 | `/api/v2/authn/login`，使用 explicit auth method。 |
 | gRPC `AuthService` | Verify、Refresh、Revoke、RevokeRefresh、IssueServiceToken。 |
 | gRPC `AccountOnboardingService` | 账户 onboarding。 |

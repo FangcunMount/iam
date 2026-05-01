@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package iam.authz.v1;
+package iam.authz.v2;
 
-option go_package = "github.com/FangcunMount/iam/api/grpc/iam/authz/v1;authzv1";
+option go_package = "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2;authzv2";
 
 // AuthorizationService 策略判定（PDP）gRPC 面。
 service AuthorizationService {

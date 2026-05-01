@@ -5,17 +5,17 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/FangcunMount/iam/pkg/sdk"
-	authclient "github.com/FangcunMount/iam/pkg/sdk/auth/client"
-	authjwks "github.com/FangcunMount/iam/pkg/sdk/auth/jwks"
-	authloginv2 "github.com/FangcunMount/iam/pkg/sdk/auth/loginv2"
-	authserviceauth "github.com/FangcunMount/iam/pkg/sdk/auth/serviceauth"
-	authverifier "github.com/FangcunMount/iam/pkg/sdk/auth/verifier"
-	"github.com/FangcunMount/iam/pkg/sdk/authz"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
-	sdkerrors "github.com/FangcunMount/iam/pkg/sdk/errors"
-	"github.com/FangcunMount/iam/pkg/sdk/identity"
-	"github.com/FangcunMount/iam/pkg/sdk/idp"
+	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
+	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
+	authloginv2 "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginv2"
+	authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
+	authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/authz"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	sdkerrors "github.com/FangcunMount/iam/v2/pkg/sdk/errors"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/identity"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/idp"
 )
 
 type compileMetrics struct{}

@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"github.com/FangcunMount/iam/pkg/tenant"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {

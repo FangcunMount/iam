@@ -1,8 +1,8 @@
 package profile
 
 import (
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ProfileMapper 档案映射器

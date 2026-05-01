@@ -8,7 +8,7 @@
 - 刷新链路由 `ProfileIndexRefresher` 驱动：`RunFull` 全量替换 runtime index，`RunDelta` 在已有 `lastFetch` 后导入变化候选。
 - 查询链路由 `Service.Suggest` 驱动：从 `ProfileSuggestionRuntime.Current()` 取当前 index，构造 `Query`，返回 `Term` 列表；runtime 或 index 缺失时返回空结果而不是 panic。
 - 领域层最核心的规则是 `ProfileCandidate` 清洗、`Keyword` 数字判断、`Query` 默认限制和 `RankingPolicy` 去重排序。
-- REST 当前入口是 `GET /api/v1/suggest/profile?k=...`，handler 需要认证 middleware 和 suggest service 存在才注册。
+- REST 当前入口是 `GET /api/v2/suggest/profile?k=...`，handler 需要认证 middleware 和 suggest service 存在才注册。
 
 ## 主图：Suggest 读模型协作
 
@@ -18,7 +18,7 @@ flowchart LR
     Refresher --> Runtime["ProfileSuggestionRuntime\nReplace / ImportDelta / Current"]
     Refresher -. optional .-> Snapshot["SnapshotWriter"]
     Runtime --> Index["ProfileSuggestionIndex"]
-    Query["REST GET /api/v1/suggest/profile?k=..."] --> Service["Service.Suggest"]
+    Query["REST GET /api/v2/suggest/profile?k=..."] --> Service["Service.Suggest"]
     Service --> Runtime
     Service --> Domain["Query / Keyword / RankingPolicy"]
     Index --> Domain
@@ -122,7 +122,7 @@ sequenceDiagram
     participant Index as "ProfileSuggestionIndex"
     participant Domain as "Query / RankingPolicy"
 
-    Client->>REST: "GET /api/v1/suggest/profile?k=keyword"
+    Client->>REST: "GET /api/v2/suggest/profile?k=keyword"
     REST->>Service: "Suggest(ctx, keyword)"
     Service->>Runtime: "Current()"
     alt "runtime or index missing"

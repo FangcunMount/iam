@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // PolicyVersion 策略版本（用于缓存失效通知）

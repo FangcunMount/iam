@@ -19,7 +19,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	"github.com/FangcunMount/component-base/pkg/grpc/mtls"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/pkg/middleware"
+	"github.com/FangcunMount/iam/v2/internal/pkg/middleware"
 )
 
 // Server GRPC 服务器结构体
@@ -327,7 +327,7 @@ func (s *Server) RegisterService(service Service) {
 }
 
 // SetServingStatus 设置指定服务的健康状态
-// service: 服务名称（如 "iam.authn.v1.AuthService"），空字符串表示整体服务
+// service: 服务名称（如 "iam.authn.v2.AuthService"），空字符串表示整体服务
 // status: 健康状态（healthpb.HealthCheckResponse_SERVING, NOT_SERVING, UNKNOWN, SERVICE_UNKNOWN）
 func (s *Server) SetServingStatus(service string, status healthpb.HealthCheckResponse_ServingStatus) {
 	if s.healthServer != nil {

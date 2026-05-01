@@ -4,17 +4,17 @@ import (
 	"strconv"
 	"time"
 
-	identityv1 "github.com/FangcunMount/iam/api/grpc/iam/identity/v1"
-	profileLinkApp "github.com/FangcunMount/iam/internal/apiserver/application/uc/profilelink"
+	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func profileLinkResultToProto(result *profileLinkApp.ProfileLinkResult) *identityv1.ProfileLink {
+func profileLinkResultToProto(result *profileLinkApp.ProfileLinkResult) *identityv2.ProfileLink {
 	if result == nil {
 		return nil
 	}
 
-	return &identityv1.ProfileLink{
+	return &identityv2.ProfileLink{
 		Id:        strconv.FormatUint(result.ID, 10),
 		UserId:    result.UserID,
 		ProfileId: result.ProfileID,

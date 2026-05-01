@@ -6,12 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	appOnboarding "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	appOnboarding "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // SignUpWithWeChatMiniProgram 微信小程序账号开通。

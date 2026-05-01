@@ -11,7 +11,7 @@
 
 ## 不属于本包的职责
 
-- 登录请求字段推断、v1/v2 登录协议差异、以及 `jwt_token` 兼容登录属于 `application/authn/login`。
+- 登录协议输入映射、显式 method payload 解析、以及内部 `jwt_token` bearer 复认证属于 `application/authn/login`。
 - access/service token 编码、验签、刷新、撤销属于 `application/authn/token` 和 `infra/token/jwt`。
 - signing key 生命周期、key source、JWKS 构建与缓存属于 `infra/token/keyset`。
 - REST/gRPC DTO、错误映射、响应 envelope 属于 transport。

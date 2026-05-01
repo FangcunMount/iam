@@ -6,12 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authnhttp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn"
-	authzhttp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz"
-	userhttp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity"
-	idphttp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp"
-	suggesthttp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/suggest"
-	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	authnhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn"
+	authzhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz"
+	userhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity"
+	idphttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp"
+	suggesthttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/suggest"
+	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies, authMiddleware *authnMiddleware.JWTAuthMiddleware) {

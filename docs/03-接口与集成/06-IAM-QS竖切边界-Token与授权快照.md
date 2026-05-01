@@ -33,7 +33,7 @@ flowchart LR
 
 - [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token)
 - [../../internal/apiserver/infra/token](../../internal/apiserver/infra/token)
-- [../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto)
+- [../../api/grpc/iam/authn/v2/authn.proto](../../api/grpc/iam/authn/v2/authn.proto)
 - [../../pkg/sdk/docs/04-jwt-verification.md](../../pkg/sdk/docs/04-jwt-verification.md)
 
 ## 授权快照边界
@@ -65,7 +65,7 @@ sequenceDiagram
 
 - [../../internal/apiserver/application/authz/authorization](../../internal/apiserver/application/authz/authorization)
 - [../../internal/apiserver/application/authz/rolebinding](../../internal/apiserver/application/authz/rolebinding)
-- [../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto)
+- [../../api/grpc/iam/authz/v2/authz.proto](../../api/grpc/iam/authz/v2/authz.proto)
 - [../../pkg/sdk/docs/06-authz.md](../../pkg/sdk/docs/06-authz.md)
 
 ## 推荐同步策略

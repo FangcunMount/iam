@@ -6,9 +6,9 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ====================== 认证凭据（认证所需的数据） ========================

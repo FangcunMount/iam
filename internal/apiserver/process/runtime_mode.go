@@ -3,7 +3,7 @@ package process
 import (
 	"strings"
 
-	"github.com/FangcunMount/iam/internal/apiserver/config"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/config"
 )
 
 func degradedStartupAllowed(cfg *config.Config) bool {

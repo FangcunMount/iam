@@ -3,8 +3,8 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
+	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 )
 
 // PreparePhoneOTPLogin 登录预准备：写入 Redis 后发布 OTP（sms.provider=mq 走 NSQ；log 仅打日志）

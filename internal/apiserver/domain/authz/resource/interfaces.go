@@ -4,7 +4,7 @@ package resource
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 )
 
 // ResourceFilter describes repository-level resource filtering.

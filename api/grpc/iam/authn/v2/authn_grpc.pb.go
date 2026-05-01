@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v5.29.3
-// source: iam/authn/v1/authn.proto
+// source: iam/authn/v2/authn.proto
 
-package authnv1
+package authnv2
 
 import (
 	context "context"
@@ -19,11 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_VerifyToken_FullMethodName        = "/iam.authn.v1.AuthService/VerifyToken"
-	AuthService_RefreshToken_FullMethodName       = "/iam.authn.v1.AuthService/RefreshToken"
-	AuthService_RevokeToken_FullMethodName        = "/iam.authn.v1.AuthService/RevokeToken"
-	AuthService_RevokeRefreshToken_FullMethodName = "/iam.authn.v1.AuthService/RevokeRefreshToken"
-	AuthService_IssueServiceToken_FullMethodName  = "/iam.authn.v1.AuthService/IssueServiceToken"
+	AuthService_VerifyToken_FullMethodName        = "/iam.authn.v2.AuthService/VerifyToken"
+	AuthService_RefreshToken_FullMethodName       = "/iam.authn.v2.AuthService/RefreshToken"
+	AuthService_RevokeToken_FullMethodName        = "/iam.authn.v2.AuthService/RevokeToken"
+	AuthService_RevokeRefreshToken_FullMethodName = "/iam.authn.v2.AuthService/RevokeRefreshToken"
+	AuthService_IssueServiceToken_FullMethodName  = "/iam.authn.v2.AuthService/IssueServiceToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -244,7 +244,7 @@ func _AuthService_IssueServiceToken_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AuthService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.authn.v1.AuthService",
+	ServiceName: "iam.authn.v2.AuthService",
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -269,11 +269,11 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/authn/v1/authn.proto",
+	Metadata: "iam/authn/v2/authn.proto",
 }
 
 const (
-	AccountOnboardingService_CreateOperationAccount_FullMethodName = "/iam.authn.v1.AccountOnboardingService/CreateOperationAccount"
+	AccountOnboardingService_CreateOperationAccount_FullMethodName = "/iam.authn.v2.AccountOnboardingService/CreateOperationAccount"
 )
 
 // AccountOnboardingServiceClient is the client API for AccountOnboardingService service.
@@ -363,7 +363,7 @@ func _AccountOnboardingService_CreateOperationAccount_Handler(srv interface{}, c
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AccountOnboardingService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.authn.v1.AccountOnboardingService",
+	ServiceName: "iam.authn.v2.AccountOnboardingService",
 	HandlerType: (*AccountOnboardingServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -372,11 +372,11 @@ var AccountOnboardingService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/authn/v1/authn.proto",
+	Metadata: "iam/authn/v2/authn.proto",
 }
 
 const (
-	JWKSService_GetJWKS_FullMethodName = "/iam.authn.v1.JWKSService/GetJWKS"
+	JWKSService_GetJWKS_FullMethodName = "/iam.authn.v2.JWKSService/GetJWKS"
 )
 
 // JWKSServiceClient is the client API for JWKSService service.
@@ -465,7 +465,7 @@ func _JWKSService_GetJWKS_Handler(srv interface{}, ctx context.Context, dec func
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var JWKSService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "iam.authn.v1.JWKSService",
+	ServiceName: "iam.authn.v2.JWKSService",
 	HandlerType: (*JWKSServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -474,5 +474,5 @@ var JWKSService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iam/authn/v1/authn.proto",
+	Metadata: "iam/authn/v2/authn.proto",
 }

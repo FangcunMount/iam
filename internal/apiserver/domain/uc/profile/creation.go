@@ -1,6 +1,6 @@
 package profile
 
-import "github.com/FangcunMount/iam/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 // CreationSpec 是档案创建的领域输入，应用层负责把外部 DTO 解析为值对象。
 type CreationSpec struct {

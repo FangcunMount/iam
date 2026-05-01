@@ -1,7 +1,7 @@
 package transport
 
 import (
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )

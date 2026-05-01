@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/internal/apiserver/eventing"
-	"github.com/FangcunMount/iam/internal/apiserver/infra/sms"
-	"github.com/FangcunMount/iam/pkg/eventcodec"
-	"github.com/FangcunMount/iam/pkg/eventmessaging"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
+	"github.com/FangcunMount/iam/v2/pkg/eventcodec"
+	"github.com/FangcunMount/iam/v2/pkg/eventmessaging"
 	"github.com/stretchr/testify/require"
 )
 

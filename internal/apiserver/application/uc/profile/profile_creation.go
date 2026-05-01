@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/input"
-	"github.com/FangcunMount/iam/internal/apiserver/application/uc/uow"
-	profiledomain "github.com/FangcunMount/iam/internal/apiserver/domain/uc/profile"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
+	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
 )
 
 type profileCreationInput struct {

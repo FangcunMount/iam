@@ -7,9 +7,9 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	dbmysql "github.com/FangcunMount/iam/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"gorm.io/gorm"
 )
 

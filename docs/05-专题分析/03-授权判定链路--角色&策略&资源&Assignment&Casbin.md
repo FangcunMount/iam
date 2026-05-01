@@ -52,7 +52,7 @@ flowchart TD
 | 在线判定 | `Checker.Check` 构造 domain request 后调用 decision engine。 | [../../internal/apiserver/application/authz/authorization/service.go](../../internal/apiserver/application/authz/authorization/service.go) |
 | 授权快照 | `SnapshotReader` + `SnapshotProjector`。 | [../../internal/apiserver/application/authz/authorization/service.go](../../internal/apiserver/application/authz/authorization/service.go) |
 | Casbin adapter | 管理 p/g facts 和 Enforce。 | [../../internal/apiserver/infra/casbin](../../internal/apiserver/infra/casbin) |
-| REST/gRPC | REST `/api/v1/authz/*`，gRPC `AuthorizationService`。 | [../../api/rest/authz.v1.yaml](../../api/rest/authz.v1.yaml)、[../../api/grpc/iam/authz/v1/authz.proto](../../api/grpc/iam/authz/v1/authz.proto) |
+| REST/gRPC | REST `/api/v2/authz/*`，gRPC `AuthorizationService`。 | [../../api/rest/authz.v2.yaml](../../api/rest/authz.v2.yaml)、[../../api/grpc/iam/authz/v2/authz.proto](../../api/grpc/iam/authz/v2/authz.proto) |
 
 ## 1. 术语边界：assignment 是 wire term，rolebinding 是内部事实
 
@@ -134,7 +134,7 @@ sequenceDiagram
     participant Engine as "DecisionEngine"
     participant Casbin as "Casbin facts"
 
-    Client->>Handler: "POST /api/v1/authz/check"
+    Client->>Handler: "POST /api/v2/authz/check"
     Handler->>Checker: "CheckCommand"
     Checker->>Domain: "NewAuthorizationRequest"
     Checker->>Engine: "Check(request)"

@@ -14,15 +14,15 @@
 
 | Proto service | 主要用途 | 典型调用方 |
 | ---- | ---- | ---- |
-| `iam.authn.v1.AuthService` | Verify、Refresh、Revoke、IssueServiceToken | 网关、业务服务、后台任务 |
-| `iam.authn.v1.AccountOnboardingService` | 创建运营账户 | 管理后台、初始化任务 |
-| `iam.authn.v1.JWKSService` | 获取 JWKS | SDK verifier、网关 |
-| `iam.authz.v1.AuthorizationService` | Check、授权快照、Grant/Revoke assignment | 业务服务、权限同步器 |
-| `iam.identity.v1.IdentityRead` | 读取用户和 profile | 业务服务 |
-| `iam.identity.v1.ProfileLinkQuery` | 查询 ProfileLink | 业务服务、同步器 |
-| `iam.identity.v1.ProfileLinkCommand` | 建立、撤销、导入 ProfileLink | 后台任务、受控管理服务 |
-| `iam.identity.v1.IdentityLifecycle` | 用户生命周期 | 管理服务 |
-| `iam.idp.v1.IDPService` | 读取微信应用配置 | 内部服务或 SDK |
+| `iam.authn.v2.AuthService` | Verify、Refresh、Revoke、IssueServiceToken | 网关、业务服务、后台任务 |
+| `iam.authn.v2.AccountOnboardingService` | 创建运营账户 | 管理后台、初始化任务 |
+| `iam.authn.v2.JWKSService` | 获取 JWKS | SDK verifier、网关 |
+| `iam.authz.v2.AuthorizationService` | Check、授权快照、Grant/Revoke assignment | 业务服务、权限同步器 |
+| `iam.identity.v2.IdentityRead` | 读取用户和 profile | 业务服务 |
+| `iam.identity.v2.ProfileLinkQuery` | 查询 ProfileLink | 业务服务、同步器 |
+| `iam.identity.v2.ProfileLinkCommand` | 建立、撤销、导入 ProfileLink | 后台任务、受控管理服务 |
+| `iam.identity.v2.IdentityLifecycle` | 用户生命周期 | 管理服务 |
+| `iam.idp.v2.IDPService` | 读取微信应用配置 | 内部服务或 SDK |
 
 ## 推荐调用形态
 

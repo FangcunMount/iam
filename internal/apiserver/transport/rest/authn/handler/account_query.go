@@ -3,7 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 )
 
 var _ = resp.Account{}

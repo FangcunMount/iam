@@ -1,6 +1,6 @@
 package sdk
 
-import "github.com/FangcunMount/iam/pkg/sdk/config"
+import "github.com/FangcunMount/iam/v2/pkg/sdk/config"
 
 type Config = config.Config
 type TLSConfig = config.TLSConfig

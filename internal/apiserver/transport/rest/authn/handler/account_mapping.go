@@ -5,13 +5,13 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	appAccount "github.com/FangcunMount/iam/internal/apiserver/application/authn/account"
-	appOnboarding "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	domain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	req "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	appAccount "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
+	appOnboarding "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func parseAccountID(idStr string) (meta.ID, error) {

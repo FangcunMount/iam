@@ -1,13 +1,13 @@
 package container
 
 import (
-	grpctransport "github.com/FangcunMount/iam/internal/apiserver/transport/grpc"
-	authngrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authn"
-	authzgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/authz"
-	idpgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/idp"
-	ucgrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc"
-	identitygrpc "github.com/FangcunMount/iam/internal/apiserver/transport/grpc/service/uc/identity"
-	grpcpkg "github.com/FangcunMount/iam/internal/pkg/grpc"
+	grpctransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc"
+	authngrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/authn"
+	authzgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/authz"
+	idpgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/idp"
+	ucgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/uc"
+	identitygrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/uc/identity"
+	grpcpkg "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 )
 
 // BuildGRPCDeps exposes only the collaborators required by the gRPC transport.

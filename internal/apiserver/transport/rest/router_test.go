@@ -9,15 +9,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	sessionapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/session"
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	cachegovernance "github.com/FangcunMount/iam/internal/apiserver/application/cachegovernance"
-	appsuggest "github.com/FangcunMount/iam/internal/apiserver/application/suggest"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
-	uchandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
+	sessionapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
 
-	authnMiddleware "github.com/FangcunMount/iam/internal/pkg/middleware/authn"
+	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {
@@ -95,7 +95,7 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"},
 	}).RegisterRoutes(engine)
 
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure")
 }
 
 func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
@@ -110,7 +110,7 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/login")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
 }
 
@@ -126,8 +126,8 @@ func TestRouterRegistersAuthnSignupRouteAndRetiresOldWechatRegister(t *testing.T
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/authn/signups/wechat-miniprogram")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/authn/accounts/wechat/register")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/signups/wechat-miniprogram")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/authn/accounts/wechat/register")
 }
 
 func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
@@ -160,7 +160,7 @@ func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: ""},
 	}).RegisterRoutes(engine)
 
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/internal/authn/mock-consumers/ensure")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure")
 }
 
 func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
@@ -173,9 +173,9 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 
 	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, casbinStub{}))
 
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/admin/sessions/:sessionId/revoke")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/admin/accounts/:accountId/sessions/revoke")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/admin/users/:userId/sessions/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/accounts/:accountId/sessions/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/users/:userId/sessions/revoke")
 }
 
 func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
@@ -188,9 +188,9 @@ func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
 
 	router.registerAdminRoutes(engine, nil)
 
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/sessions/:sessionId/revoke")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/accounts/:accountId/sessions/revoke")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/admin/users/:userId/sessions/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/accounts/:accountId/sessions/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/users/:userId/sessions/revoke")
 }
 
 func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
@@ -210,10 +210,10 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
-	assertRouteRegistered(t, engine, http.MethodGet, "/api/v1/identity/profile-links")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/profile-links")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/profile-links/:id/revoke")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v1/identity/profiles")
+	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profile-links")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/identity/profiles")
 }
 
 func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
@@ -240,11 +240,11 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/identity/profile-links")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v1/identity/profiles")
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/suggest/profile")
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/roles")
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v1/authz/health")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/identity/profile-links")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profiles")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/suggest/profile")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/authz/roles")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/authz/health")
 }
 
 func newRouterForTest(deps Deps, options RouterOptions) *Router {

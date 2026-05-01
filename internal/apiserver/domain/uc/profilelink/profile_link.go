@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type Relation string // 档案关系

@@ -6,12 +6,12 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	onboardingApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/onboarding"
-	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	accountDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/account"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -94,7 +94,7 @@ func TestAuthServiceServerIssueServiceToken(t *testing.T) {
 	attrs, err := structpb.NewStruct(map[string]any{"scope": "internal", "level": 2})
 	require.NoError(t, err)
 
-	resp, err := srv.IssueServiceToken(context.Background(), &authnv1.IssueServiceTokenRequest{
+	resp, err := srv.IssueServiceToken(context.Background(), &authnv2.IssueServiceTokenRequest{
 		Subject:    "service:qs-server",
 		Audience:   []string{"iam-service"},
 		Ttl:        durationpb.New(time.Hour),
@@ -115,7 +115,7 @@ func TestAuthServiceServerIssueServiceToken(t *testing.T) {
 func TestAuthServiceServerIssueServiceTokenValidation(t *testing.T) {
 	srv := &authServiceServer{tokenSvc: &tokenServiceStub{}}
 
-	_, err := srv.IssueServiceToken(context.Background(), &authnv1.IssueServiceTokenRequest{})
+	_, err := srv.IssueServiceToken(context.Background(), &authnv2.IssueServiceTokenRequest{})
 	require.Error(t, err)
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }
@@ -124,7 +124,7 @@ func TestAuthServiceServerVerifyTokenPassesExpectationGuards(t *testing.T) {
 	stub := &tokenServiceStub{}
 	srv := &authServiceServer{tokenSvc: stub}
 
-	_, err := srv.VerifyToken(context.Background(), &authnv1.VerifyTokenRequest{
+	_, err := srv.VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{
 		AccessToken:      "jwt-token",
 		ExpectedIssuer:   "https://iam.fangcunmount.cn",
 		ExpectedAudience: []string{"qs-api"},
@@ -145,7 +145,7 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 		{
 			name: "verify token app unauthenticated",
 			call: func(s *authServiceServer) error {
-				_, err := s.VerifyToken(context.Background(), &authnv1.VerifyTokenRequest{AccessToken: "access-token"})
+				_, err := s.VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{AccessToken: "access-token"})
 				return err
 			},
 			stub: &tokenServiceStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
@@ -154,7 +154,7 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 		{
 			name: "refresh token app unauthenticated",
 			call: func(s *authServiceServer) error {
-				_, err := s.RefreshToken(context.Background(), &authnv1.RefreshTokenRequest{RefreshToken: "refresh-token"})
+				_, err := s.RefreshToken(context.Background(), &authnv2.RefreshTokenRequest{RefreshToken: "refresh-token"})
 				return err
 			},
 			stub: &tokenServiceStub{refreshErr: perrors.WithCode(code.ErrTokenInvalid, "invalid refresh")},
@@ -163,7 +163,7 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 		{
 			name: "revoke token app unauthenticated",
 			call: func(s *authServiceServer) error {
-				_, err := s.RevokeToken(context.Background(), &authnv1.RevokeTokenRequest{AccessToken: "access-token"})
+				_, err := s.RevokeToken(context.Background(), &authnv2.RevokeTokenRequest{AccessToken: "access-token"})
 				return err
 			},
 			stub: &tokenServiceStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
@@ -199,7 +199,7 @@ func TestAccountOnboardingServiceServerCreateOperationAccount(t *testing.T) {
 	}
 	srv := &accountOnboardingServer{accountOnboarder: stub}
 
-	resp, err := srv.CreateOperationAccount(context.Background(), &authnv1.CreateOperationAccountRequest{
+	resp, err := srv.CreateOperationAccount(context.Background(), &authnv2.CreateOperationAccountRequest{
 		Name:           "张三",
 		Phone:          "13800138000",
 		Email:          "staff@example.com",

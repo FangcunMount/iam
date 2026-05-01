@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/session"
-	tokenjwt "github.com/FangcunMount/iam/internal/apiserver/infra/token/jwt"
-	authhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
-	resp "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
-	"github.com/FangcunMount/iam/pkg/core"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	tokenjwt "github.com/FangcunMount/iam/v2/internal/apiserver/infra/token/jwt"
+	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -168,7 +168,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 
 	// gRPC VerifyToken
 	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
-	gresp, err := grpcSrv.VerifyToken(ctx, &authnv1.VerifyTokenRequest{AccessToken: access})
+	gresp, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{AccessToken: access})
 	require.NoError(t, err)
 	require.True(t, gresp.Valid)
 	require.NotNil(t, gresp.Claims)
@@ -178,7 +178,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.Equal(t, []string{string(authentication.AMRPassword)}, gresp.Claims.Amr)
 	require.Equal(t, "+8613800138000", gresp.Claims.Attributes["phone_number"])
 
-	gresp, err = grpcSrv.VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+	gresp, err = grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:      access,
 		ExpectedIssuer:   "https://iam.integration.test",
 		ExpectedAudience: []string{"qs-api"},
@@ -191,7 +191,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	w := httptest.NewRecorder()
 	body := bytes.NewBufferString(`{"access_token":"` + access + `"}`)
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/authn/verify", body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/authn/verify", body)
 	c.Request.Header.Set("Content-Type", "application/json")
 	h.VerifyToken(c)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -233,14 +233,14 @@ func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 
 	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
 
-	respIssuer, err := grpcSrv.VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+	respIssuer, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:    pair.AccessToken.Value,
 		ExpectedIssuer: "https://issuer.invalid",
 	})
 	require.NoError(t, err)
 	require.False(t, respIssuer.Valid)
 
-	respAudience, err := grpcSrv.VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+	respAudience, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:      pair.AccessToken.Value,
 		ExpectedAudience: []string{"wrong-audience"},
 	})
@@ -262,7 +262,7 @@ func TestIntegration_VerifyToken_GRPC_IncludeMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
-	gresp, err := grpcSrv.VerifyToken(ctx, &authnv1.VerifyTokenRequest{
+	gresp, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:     pair.AccessToken.Value,
 		IncludeMetadata: true,
 	})

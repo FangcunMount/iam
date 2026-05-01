@@ -5,20 +5,20 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func toProtoTokenPair(pair *tokenApp.TokenPair) *authnv1.TokenPair {
+func toProtoTokenPair(pair *tokenApp.TokenPair) *authnv2.TokenPair {
 	if pair == nil || pair.AccessToken == nil {
 		return nil
 	}
-	resp := &authnv1.TokenPair{
+	resp := &authnv2.TokenPair{
 		TokenType:    "Bearer",
 		AccessToken:  pair.AccessToken.Value,
 		RefreshToken: "",
@@ -30,11 +30,11 @@ func toProtoTokenPair(pair *tokenApp.TokenPair) *authnv1.TokenPair {
 	return resp
 }
 
-func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv1.TokenClaims {
+func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv2.TokenClaims {
 	if claims == nil {
 		return nil
 	}
-	resp := &authnv1.TokenClaims{
+	resp := &authnv2.TokenClaims{
 		TokenId:    claims.TokenID,
 		Subject:    claims.Subject,
 		Issuer:     claims.Issuer,
@@ -59,17 +59,17 @@ func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv1.TokenClaims {
 	return resp
 }
 
-func buildTokenMetadata(claims *tokenApp.TokenClaims) *authnv1.TokenMetadata {
+func buildTokenMetadata(claims *tokenApp.TokenClaims) *authnv2.TokenMetadata {
 	if claims == nil {
 		return nil
 	}
-	tokenType := authnv1.TokenType_TOKEN_TYPE_ACCESS
+	tokenType := authnv2.TokenType_TOKEN_TYPE_ACCESS
 	if claims.TokenType == tokenApp.TokenTypeService {
-		tokenType = authnv1.TokenType_TOKEN_TYPE_SERVICE
+		tokenType = authnv2.TokenType_TOKEN_TYPE_SERVICE
 	}
-	return &authnv1.TokenMetadata{
+	return &authnv2.TokenMetadata{
 		TokenType: tokenType,
-		Status:    authnv1.TokenStatus_TOKEN_STATUS_VALID,
+		Status:    authnv2.TokenStatus_TOKEN_STATUS_VALID,
 		IssuedAt:  timestamppb.New(claims.IssuedAt),
 		ExpiresAt: timestamppb.New(claims.ExpiresAt),
 	}

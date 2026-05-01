@@ -3,7 +3,7 @@ package input
 import (
 	"fmt"
 
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ParseUserID preserves the legacy application parsing behavior based on fmt.Sscanf.

@@ -1,6 +1,6 @@
 package sdk
 
-import internaltransport "github.com/FangcunMount/iam/pkg/sdk/internal/transport"
+import internaltransport "github.com/FangcunMount/iam/v2/pkg/sdk/internal/transport"
 
 var WithRequestID = internaltransport.WithRequestID
 var WithTraceID = internaltransport.WithTraceID

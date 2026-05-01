@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	credDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

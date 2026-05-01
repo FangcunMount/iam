@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	requestdto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/request"
-	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/pkg/core"
+	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
+	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
 var _ = core.ErrResponse{}

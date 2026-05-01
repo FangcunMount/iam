@@ -3,10 +3,10 @@ package handler
 
 import (
 	"github.com/FangcunMount/component-base/pkg/errors"
-	policyApp "github.com/FangcunMount/iam/internal/apiserver/application/authz/policy"
-	"github.com/FangcunMount/iam/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/internal/pkg/code"
+	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 

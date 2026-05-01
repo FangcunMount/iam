@@ -1,11 +1,11 @@
 package container
 
 import (
-	resttransport "github.com/FangcunMount/iam/internal/apiserver/transport/rest"
-	authnhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/authz/handler"
-	identityhandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/handler"
-	idphandler "github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
+	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
+	authnhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
+	identityhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
+	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
 )
 
 // BuildRESTDeps exposes only the collaborators required by the REST transport.

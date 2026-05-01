@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	tokenapp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
 )

@@ -6,7 +6,7 @@
 
 ## 30 秒结论
 
-- REST 当前登录入口是 `POST /api/v1/authn/login` 和 v2 `POST /api/v1/authn/login`；二者使用不同 request schema，但最终进入同一个 login application。
+- REST 当前登录入口是 `POST /api/v2/authn/login` 和 v2 `POST /api/v2/authn/login`；二者使用不同 request schema，但最终进入同一个 login application。
 - 登录不是 handler 直接查账号，而是 `SignInAdapterCatalog -> MethodSelector -> AuthCredential proof -> Authenticator/AuthStrategy -> TokenIssuer`。
 - 微信小程序和企业微信登录的 AppSecret 来自 IDP/WechatApp，解密通过 `SecretVault`，外部 code exchange 通过 AuthN domain 的 `IdentityProvider` 端口。
 - 登录成功后由 token issuer 创建 session、签发 Access Token、保存 Refresh Token；JWT 编码在 `infra/token/jwt`，签名密钥来自 `infra/token/keyset`。
@@ -28,7 +28,7 @@ sequenceDiagram
     participant Keyset as "infra/token/keyset"
     participant Store as "Redis/MySQL"
 
-    C->>REST: "POST /api/v1/authn/login"
+    C->>REST: "POST /api/v2/authn/login"
     REST->>Login: "LoginRequest"
     Login->>Adapter: "Select + Build payload"
     Adapter-->>Login: "AuthCredential proof"
@@ -49,13 +49,13 @@ sequenceDiagram
 
 | 阶段 | 当前事实 | 代码证据 |
 | ---- | ---- | ---- |
-| REST 登录 | v1/v2 request 先映射为 login application request。 | [../../internal/apiserver/transport/rest/authn/handler/auth_login.go](../../internal/apiserver/transport/rest/authn/handler/auth_login.go)、[../../api/rest/authn.v1.yaml](../../api/rest/authn.v1.yaml)、[../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) |
+| REST 登录 | v1/v2 request 先映射为 login application request。 | [../../internal/apiserver/transport/rest/authn/handler/auth_login.go](../../internal/apiserver/transport/rest/authn/handler/auth_login.go)、[../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml)、[../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) |
 | Adapter catalog | password、phone_otp、wechat、wecom、bearer 适配器注册并拒绝重复。 | [../../internal/apiserver/application/authn/login/adapter_catalog.go](../../internal/apiserver/application/authn/login/adapter_catalog.go) |
 | SignIn 编排 | 选择登录方法、准备 proof、调用 domain authenticator、签发 token。 | [../../internal/apiserver/application/authn/login/sign_in.go](../../internal/apiserver/application/authn/login/sign_in.go) |
 | 领域认证 | Authenticator 按 CredentialType 选择 AuthStrategy。 | [../../internal/apiserver/domain/authn/authentication/authenticater.go](../../internal/apiserver/domain/authn/authentication/authenticater.go) |
 | Token application | issue、refresh、verify、revoke 由 application/authn/token 承载。 | [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token) |
 | JWT 与 keyset | JWT codec 和 keyset/JWKS 是 infra 适配器。 | [../../internal/apiserver/infra/token/jwt](../../internal/apiserver/infra/token/jwt)、[../../internal/apiserver/infra/token/keyset](../../internal/apiserver/infra/token/keyset) |
-| JWKS 合同 | REST `/.well-known/jwks.json`、`/api/v1/.well-known/jwks.json`，gRPC `JWKSService.GetJWKS`。 | [../../api/rest/authn.v1.yaml](../../api/rest/authn.v1.yaml)、[../../api/grpc/iam/authn/v1/authn.proto](../../api/grpc/iam/authn/v1/authn.proto) |
+| JWKS 合同 | REST `/.well-known/jwks.json`、`/api/v2/.well-known/jwks.json`，gRPC `JWKSService.GetJWKS`。 | [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml)、[../../api/grpc/iam/authn/v2/authn.proto](../../api/grpc/iam/authn/v2/authn.proto) |
 
 ## 1. Transport：登录入口只做合同适配
 

@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/internal/apiserver/transport/rest/idp/handler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
 )
 
 // Dependencies IDP 模块的依赖
@@ -24,13 +24,13 @@ type Dependencies struct {
 // - 提供基础设施服务供其他模块使用（通过容器依赖注入）
 //
 // 认证功能由 authn 模块统一提供：
-// - POST /api/v1/auth/login (method: "wx:minip") - 微信小程序登录
+// - POST /api/v2/auth/login (method: "wx:minip") - 微信小程序登录
 func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil {
 		return
 	}
 
-	idpGroup := engine.Group("/api/v1/idp")
+	idpGroup := engine.Group("/api/v2/idp")
 	{
 		// 健康检查
 		idpGroup.GET("/health", func(c *gin.Context) {
@@ -85,7 +85,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		// ============ 微信认证 ============
 		// 已移除 - 认证功能由 authn 模块统一提供
 		// 使用方式：
-		//   POST /api/v1/auth/login
+		//   POST /api/v2/auth/login
 		//   {
 		//     "method": "wx:minip",
 		//     "credentials": {

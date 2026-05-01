@@ -7,20 +7,20 @@ import (
 	"testing"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	"github.com/FangcunMount/iam/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type issueServiceTokenClientStub struct {
 	mu        sync.Mutex
-	responses []*authnv1.IssueServiceTokenResponse
+	responses []*authnv2.IssueServiceTokenResponse
 	errs      []error
 	calls     int
 }
 
-func (s *issueServiceTokenClientStub) IssueServiceToken(context.Context, *authnv1.IssueServiceTokenRequest) (*authnv1.IssueServiceTokenResponse, error) {
+func (s *issueServiceTokenClientStub) IssueServiceToken(context.Context, *authnv2.IssueServiceTokenRequest) (*authnv2.IssueServiceTokenResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -38,9 +38,9 @@ func (s *issueServiceTokenClientStub) IssueServiceToken(context.Context, *authnv
 
 func TestNewServiceAuthHelperGetsInitialToken(t *testing.T) {
 	stub := &issueServiceTokenClientStub{
-		responses: []*authnv1.IssueServiceTokenResponse{
+		responses: []*authnv2.IssueServiceTokenResponse{
 			{
-				TokenPair: &authnv1.TokenPair{
+				TokenPair: &authnv2.TokenPair{
 					AccessToken: "svc-token-1",
 					ExpiresIn:   durationpb.New(time.Minute),
 				},
@@ -65,9 +65,9 @@ func TestNewServiceAuthHelperGetsInitialToken(t *testing.T) {
 
 func TestGetTokenFallsBackToCachedTokenOnRefreshFailure(t *testing.T) {
 	stub := &issueServiceTokenClientStub{
-		responses: []*authnv1.IssueServiceTokenResponse{
+		responses: []*authnv2.IssueServiceTokenResponse{
 			{
-				TokenPair: &authnv1.TokenPair{
+				TokenPair: &authnv2.TokenPair{
 					AccessToken: "svc-token-1",
 					ExpiresIn:   durationpb.New(5 * time.Second),
 				},
@@ -96,9 +96,9 @@ func TestGetTokenFallsBackToCachedTokenOnRefreshFailure(t *testing.T) {
 
 func TestServiceAuthHelperOpensCircuitAfterMaxRetries(t *testing.T) {
 	stub := &issueServiceTokenClientStub{
-		responses: []*authnv1.IssueServiceTokenResponse{
+		responses: []*authnv2.IssueServiceTokenResponse{
 			{
-				TokenPair: &authnv1.TokenPair{
+				TokenPair: &authnv2.TokenPair{
 					AccessToken: "svc-token-1",
 					ExpiresIn:   durationpb.New(5 * time.Second),
 				},

@@ -5,13 +5,13 @@ import (
 	"strings"
 	"time"
 
-	authnv1 "github.com/FangcunMount/iam/api/grpc/iam/authn/v1"
-	tokenApp "github.com/FangcunMount/iam/internal/apiserver/application/authn/token"
+	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv1.VerifyTokenRequest) (*authnv1.VerifyTokenResponse, error) {
+func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv2.VerifyTokenRequest) (*authnv2.VerifyTokenResponse, error) {
 	if s.tokenSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "token service not configured")
 	}
@@ -28,24 +28,24 @@ func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv1.Verify
 		return nil, toGRPCError(err)
 	}
 
-	resp := &authnv1.VerifyTokenResponse{}
+	resp := &authnv2.VerifyTokenResponse{}
 	if result != nil {
 		resp.Valid = result.Valid
 	}
 	if resp.Valid {
-		resp.Status = authnv1.TokenStatus_TOKEN_STATUS_VALID
+		resp.Status = authnv2.TokenStatus_TOKEN_STATUS_VALID
 		resp.Claims = toProtoTokenClaims(result.Claims)
 		if req.GetIncludeMetadata() {
 			resp.Metadata = buildTokenMetadata(result.Claims)
 		}
 	} else {
-		resp.Status = authnv1.TokenStatus_TOKEN_STATUS_REVOKED
+		resp.Status = authnv2.TokenStatus_TOKEN_STATUS_REVOKED
 		resp.FailureReason = "token invalid or expired"
 	}
 	return resp, nil
 }
 
-func (s *authServiceServer) RefreshToken(ctx context.Context, req *authnv1.RefreshTokenRequest) (*authnv1.RefreshTokenResponse, error) {
+func (s *authServiceServer) RefreshToken(ctx context.Context, req *authnv2.RefreshTokenRequest) (*authnv2.RefreshTokenResponse, error) {
 	if s.tokenSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "token service not configured")
 	}
@@ -58,12 +58,12 @@ func (s *authServiceServer) RefreshToken(ctx context.Context, req *authnv1.Refre
 		return nil, toGRPCError(err)
 	}
 
-	return &authnv1.RefreshTokenResponse{
+	return &authnv2.RefreshTokenResponse{
 		TokenPair: toProtoTokenPair(result.TokenPair),
 	}, nil
 }
 
-func (s *authServiceServer) RevokeToken(ctx context.Context, req *authnv1.RevokeTokenRequest) (*authnv1.RevokeTokenResponse, error) {
+func (s *authServiceServer) RevokeToken(ctx context.Context, req *authnv2.RevokeTokenRequest) (*authnv2.RevokeTokenResponse, error) {
 	if s.tokenSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "token service not configured")
 	}
@@ -73,10 +73,10 @@ func (s *authServiceServer) RevokeToken(ctx context.Context, req *authnv1.Revoke
 	if err := s.tokenSvc.RevokeAccessToken(ctx, req.GetAccessToken()); err != nil {
 		return nil, toGRPCError(err)
 	}
-	return &authnv1.RevokeTokenResponse{}, nil
+	return &authnv2.RevokeTokenResponse{}, nil
 }
 
-func (s *authServiceServer) RevokeRefreshToken(ctx context.Context, req *authnv1.RevokeRefreshTokenRequest) (*authnv1.RevokeRefreshTokenResponse, error) {
+func (s *authServiceServer) RevokeRefreshToken(ctx context.Context, req *authnv2.RevokeRefreshTokenRequest) (*authnv2.RevokeRefreshTokenResponse, error) {
 	if s.tokenSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "token service not configured")
 	}
@@ -86,10 +86,10 @@ func (s *authServiceServer) RevokeRefreshToken(ctx context.Context, req *authnv1
 	if err := s.tokenSvc.RevokeRefreshToken(ctx, req.GetRefreshToken()); err != nil {
 		return nil, toGRPCError(err)
 	}
-	return &authnv1.RevokeRefreshTokenResponse{}, nil
+	return &authnv2.RevokeRefreshTokenResponse{}, nil
 }
 
-func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv1.IssueServiceTokenRequest) (*authnv1.IssueServiceTokenResponse, error) {
+func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv2.IssueServiceTokenRequest) (*authnv2.IssueServiceTokenResponse, error) {
 	if s.tokenSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "token service not configured")
 	}
@@ -120,7 +120,7 @@ func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv1.
 		return nil, toGRPCError(err)
 	}
 
-	return &authnv1.IssueServiceTokenResponse{
+	return &authnv2.IssueServiceTokenResponse{
 		TokenPair: toProtoTokenPair(result.TokenPair),
 	}, nil
 }

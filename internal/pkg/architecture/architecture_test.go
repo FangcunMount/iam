@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FangcunMount/iam/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
 )
 
-const modulePath = "github.com/FangcunMount/iam/"
+const modulePath = "github.com/FangcunMount/iam/v2/"
 
 var activeLegacyApplicationInfrastructureImports = map[string]string{}
 
@@ -594,8 +594,8 @@ func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
 	assertFileContains(t, root, "configs/casbin_model.conf", "r = sub, dom, obj, act, scope")
 	assertFileContains(t, root, "configs/casbin_model.conf", "p = sub, dom, obj, act, scope")
 	assertFileContains(t, root, "configs/casbin_model.conf", "scopeMatch(r.scope, p.scope)")
-	assertFileContains(t, root, "api/grpc/iam/authz/v1/authz.proto", "scope_type")
-	assertFileContains(t, root, "api/grpc/iam/authz/v1/authz.proto", "scope_value")
+	assertFileContains(t, root, "api/grpc/iam/authz/v2/authz.proto", "scope_type")
+	assertFileContains(t, root, "api/grpc/iam/authz/v2/authz.proto", "scope_value")
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/policy.go", "ScopeType")
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/check.go", "ScopeType")
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport", "rest", "authz"), func(path, source string) {
@@ -721,11 +721,69 @@ func TestAPIServerCompositionSettersAreAllowlisted(t *testing.T) {
 	})
 }
 
-func TestGRPCV2ContractsAreNotAddedWithoutRuntime(t *testing.T) {
+func TestGRPCV2ContractsHaveRuntimeAndSDKCompileGuards(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
 	grpcRoot := filepath.Join(root, "api", "grpc", "iam")
+	contracts := []struct {
+		module           string
+		proto            string
+		goPackageAlias   string
+		generatedPackage string
+		serviceFile      string
+		registerToken    string
+		sdkFile          string
+	}{
+		{
+			module:           "authn",
+			proto:            "api/grpc/iam/authn/v2/authn.proto",
+			goPackageAlias:   "authnv2",
+			generatedPackage: "api/grpc/iam/authn/v2",
+			serviceFile:      "internal/apiserver/transport/grpc/service/authn/service.go",
+			registerToken:    "authnv2.RegisterAuthServiceServer",
+			sdkFile:          "pkg/sdk/auth/client/client.go",
+		},
+		{
+			module:           "authz",
+			proto:            "api/grpc/iam/authz/v2/authz.proto",
+			goPackageAlias:   "authzv2",
+			generatedPackage: "api/grpc/iam/authz/v2",
+			serviceFile:      "internal/apiserver/transport/grpc/service/authz/service.go",
+			registerToken:    "authzv2.RegisterAuthorizationServiceServer",
+			sdkFile:          "pkg/sdk/authz/client.go",
+		},
+		{
+			module:           "identity",
+			proto:            "api/grpc/iam/identity/v2/identity.proto",
+			goPackageAlias:   "identityv2",
+			generatedPackage: "api/grpc/iam/identity/v2",
+			serviceFile:      "internal/apiserver/transport/grpc/service/uc/identity/service.go",
+			registerToken:    "identityv2.RegisterIdentityReadServer",
+			sdkFile:          "pkg/sdk/identity/client.go",
+		},
+		{
+			module:           "idp",
+			proto:            "api/grpc/iam/idp/v2/idp.proto",
+			goPackageAlias:   "idpv2",
+			generatedPackage: "api/grpc/iam/idp/v2",
+			serviceFile:      "internal/apiserver/transport/grpc/service/idp/service.go",
+			registerToken:    "idpv2.RegisterIDPServiceServer",
+			sdkFile:          "pkg/sdk/idp/client.go",
+		},
+	}
+
+	for _, contract := range contracts {
+		assertFileContains(t, root, contract.proto, "package iam."+contract.module+".v2;")
+		assertFileContains(t, root, contract.proto, "github.com/FangcunMount/iam/v2/"+contract.generatedPackage+";"+contract.goPackageAlias)
+		assertFileContains(t, root, filepath.ToSlash(filepath.Join(contract.generatedPackage, contract.module+".pb.go")), "package "+contract.goPackageAlias)
+		assertFileContains(t, root, filepath.ToSlash(filepath.Join(contract.generatedPackage, contract.module+"_grpc.pb.go")), "package "+contract.goPackageAlias)
+		assertFileContains(t, root, contract.serviceFile, "api/grpc/iam/"+contract.module+"/v2")
+		assertFileContains(t, root, contract.serviceFile, contract.registerToken)
+		assertFileContains(t, root, contract.sdkFile, "api/grpc/iam/"+contract.module+"/v2")
+	}
+	assertFileContains(t, root, "pkg/sdk/public_api_compile_test.go", `github.com/FangcunMount/iam/v2/pkg/sdk`)
+
 	err := filepath.WalkDir(grpcRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -734,8 +792,11 @@ func TestGRPCV2ContractsAreNotAddedWithoutRuntime(t *testing.T) {
 			return nil
 		}
 		rel := filepath.ToSlash(mustRel(t, root, path))
-		if strings.Contains(rel, "/v2/") {
-			t.Fatalf("%s is a gRPC v2 contract without a matching Phase 6 runtime registration and SDK compile-test migration", rel)
+		if strings.Contains(rel, "/v1/") {
+			t.Fatalf("%s is a retired gRPC v1 contract; IAM public gRPC contracts must stay v2-only", rel)
+		}
+		if !strings.Contains(rel, "/v2/") {
+			t.Fatalf("%s is not under a v2 contract directory", rel)
 		}
 		return nil
 	})
@@ -804,8 +865,8 @@ func TestUCLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
 
 	root := repoRoot(t)
 	roots := []string{
-		"api/grpc/iam/identity/v1",
-		"api/rest/identity.v1.yaml",
+		"api/grpc/iam/identity/v2",
+		"api/rest/identity.v2.yaml",
 		"configs/grpc_acl.yaml",
 		"configs/mysql",
 		"internal/apiserver/application/uc",
@@ -904,18 +965,18 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertFileContains(t, root, "api/grpc/iam/authn/v1/authn.proto", "service AccountOnboardingService")
-	assertFileContains(t, root, "api/grpc/iam/authn/v1/authn.proto", "rpc CreateOperationAccount")
-	assertFileLacks(t, root, "api/grpc/iam/authn/v1/authn.proto", "RegisterOperationAccount")
+	assertFileContains(t, root, "api/grpc/iam/authn/v2/authn.proto", "service AccountOnboardingService")
+	assertFileContains(t, root, "api/grpc/iam/authn/v2/authn.proto", "rpc CreateOperationAccount")
+	assertFileLacks(t, root, "api/grpc/iam/authn/v2/authn.proto", "RegisterOperationAccount")
 	assertFileLacks(t, root, "pkg/sdk/auth/client/client.go", "RegisterOperationAccount")
 	assertFileContains(t, root, "pkg/sdk/auth/client/client.go", "CreateOperationAccount")
 
-	assertFileContains(t, root, "api/grpc/iam/identity/v1/identity.proto", "rpc EstablishProfileLink")
-	assertFileLacks(t, root, "api/grpc/iam/identity/v1/identity.proto", "CreateProfileLink")
+	assertFileContains(t, root, "api/grpc/iam/identity/v2/identity.proto", "rpc EstablishProfileLink")
+	assertFileLacks(t, root, "api/grpc/iam/identity/v2/identity.proto", "CreateProfileLink")
 	assertFileLacks(t, root, "pkg/sdk/identity/profile_link_command.go", "CreateProfileLink")
 
 	for _, rel := range []string{
-		"api/rest/authn.v1.yaml",
+		"api/rest/authn.v2.yaml",
 		"internal/apiserver/docs/swagger.yaml",
 	} {
 		assertFileContains(t, root, rel, "/authn/signups/wechat-miniprogram")

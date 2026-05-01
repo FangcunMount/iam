@@ -3,9 +3,9 @@ package idp
 import (
 	"google.golang.org/grpc"
 
-	idpv1 "github.com/FangcunMount/iam/api/grpc/iam/idp/v1"
-	wechatappApp "github.com/FangcunMount/iam/internal/apiserver/application/idp/wechatapp"
-	wechatappDomain "github.com/FangcunMount/iam/internal/apiserver/domain/idp/wechatapp"
+	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
+	wechatappApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 )
 
 // Service IDP gRPC 服务
@@ -35,12 +35,12 @@ func NewService(
 
 // RegisterService 注册 gRPC 服务到 gRPC 服务器
 func (s *Service) RegisterService(server *grpc.Server) {
-	idpv1.RegisterIDPServiceServer(server, &s.idpService)
+	idpv2.RegisterIDPServiceServer(server, &s.idpService)
 }
 
 // idpServer IDP 服务实现
 type idpServer struct {
-	idpv1.UnimplementedIDPServiceServer
+	idpv2.UnimplementedIDPServiceServer
 	wechatAppService wechatappApp.WechatAppApplicationService
 	wechatAppRepo    wechatappDomain.Repository
 	secretVault      wechatappDomain.SecretVault

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	domainsuggest "github.com/FangcunMount/iam/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
 const snapshotFileName = "snapshot.txt"

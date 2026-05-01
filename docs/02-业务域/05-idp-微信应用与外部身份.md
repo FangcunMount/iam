@@ -11,7 +11,7 @@
 - `AuthSecret` 用于微信登录/换 token 场景；`MsgSecret` 用于消息推送安全模式；`APISecureChannel` 是接口层安全能力的领域占位，但当前 API 对称/非对称轮换方法是空实现，不应写成已完成能力。
 - `SecretVault`、`AccessTokenCache`、`AppTokenProvider` 是被驱动端口，基础设施层提供加密、缓存和微信 API 调用能力。
 - AuthN 依赖 IDP 提供微信应用查询、secret 解密和微信认证基础能力；登录后的账户、session、token 签发仍由 AuthN 负责。
-- REST 管理面在 `/api/v1/idp/wechat-apps` 下，gRPC 当前只注册 `IDPService.GetWechatApp`。
+- REST 管理面在 `/api/v2/idp/wechat-apps` 下，gRPC 当前只注册 `IDPService.GetWechatApp`。
 
 ## 主图：IDP 与 AuthN 的关系
 
@@ -53,7 +53,7 @@ IDP 的边界不是“完成登录”，而是“管理外部身份提供者所�
 | access token 缓存 | `AccessTokenCacher` 读缓存、抢刷新锁、调用 provider、写 TTL。 | [../../internal/apiserver/domain/idp/wechatapp/accesstoken-cacher.go](../../internal/apiserver/domain/idp/wechatapp/accesstoken-cacher.go) |
 | 应用服务 | 管理服务、凭据服务、token 服务三组接口。 | [../../internal/apiserver/application/idp/wechatapp/services.go](../../internal/apiserver/application/idp/wechatapp/services.go) |
 | 容器装配 | IDPModule 初始化 infra、domain、application，并向 AuthN 暴露依赖。 | [../../internal/apiserver/container/assembler/idp.go](../../internal/apiserver/container/assembler/idp.go)、[../../internal/apiserver/container/assembler/idp_domain_builder.go](../../internal/apiserver/container/assembler/idp_domain_builder.go) |
-| 合同 | REST WechatApp 管理；gRPC `IDPService.GetWechatApp`。 | [../../api/rest/idp.v1.yaml](../../api/rest/idp.v1.yaml)、[../../api/grpc/iam/idp/v1/idp.proto](../../api/grpc/iam/idp/v1/idp.proto) |
+| 合同 | REST WechatApp 管理；gRPC `IDPService.GetWechatApp`。 | [../../api/rest/idp.v2.yaml](../../api/rest/idp.v2.yaml)、[../../api/grpc/iam/idp/v2/idp.proto](../../api/grpc/iam/idp/v2/idp.proto) |
 
 ## 1. 领域模型
 
@@ -347,16 +347,16 @@ flowchart TD
 
 | 路由 | 用途 | 应用服务 |
 | ---- | ---- | ---- |
-| `GET /api/v1/idp/wechat-apps` | 查询微信应用列表。 | `WechatAppApplicationService.ListApps` |
-| `POST /api/v1/idp/wechat-apps` | 创建微信应用。 | `WechatAppApplicationService.CreateApp` |
-| `GET /api/v1/idp/wechat-apps/{app_id}` | 查询单个微信应用。 | `WechatAppApplicationService.GetApp` |
-| `PATCH /api/v1/idp/wechat-apps/{app_id}` | 更新名称或类型。 | `WechatAppApplicationService.UpdateApp` |
-| `POST /api/v1/idp/wechat-apps/{app_id}/enable` | 启用应用。 | `WechatAppApplicationService.EnableApp` |
-| `POST /api/v1/idp/wechat-apps/{app_id}/disable` | 禁用应用。 | `WechatAppApplicationService.DisableApp` |
-| `GET /api/v1/idp/wechat-apps/{app_id}/access-token` | 获取 access token。 | `WechatAppTokenApplicationService.GetAccessToken` |
-| `POST /api/v1/idp/wechat-apps/refresh-access-token` | 强制刷新 access token。 | `WechatAppTokenApplicationService.RefreshAccessToken` |
-| `POST /api/v1/idp/wechat-apps/rotate-auth-secret` | 轮换 AppSecret。 | `WechatAppCredentialApplicationService.RotateAuthSecret` |
-| `POST /api/v1/idp/wechat-apps/rotate-msg-secret` | 轮换消息密钥。 | `WechatAppCredentialApplicationService.RotateMsgSecret` |
+| `GET /api/v2/idp/wechat-apps` | 查询微信应用列表。 | `WechatAppApplicationService.ListApps` |
+| `POST /api/v2/idp/wechat-apps` | 创建微信应用。 | `WechatAppApplicationService.CreateApp` |
+| `GET /api/v2/idp/wechat-apps/{app_id}` | 查询单个微信应用。 | `WechatAppApplicationService.GetApp` |
+| `PATCH /api/v2/idp/wechat-apps/{app_id}` | 更新名称或类型。 | `WechatAppApplicationService.UpdateApp` |
+| `POST /api/v2/idp/wechat-apps/{app_id}/enable` | 启用应用。 | `WechatAppApplicationService.EnableApp` |
+| `POST /api/v2/idp/wechat-apps/{app_id}/disable` | 禁用应用。 | `WechatAppApplicationService.DisableApp` |
+| `GET /api/v2/idp/wechat-apps/{app_id}/access-token` | 获取 access token。 | `WechatAppTokenApplicationService.GetAccessToken` |
+| `POST /api/v2/idp/wechat-apps/refresh-access-token` | 强制刷新 access token。 | `WechatAppTokenApplicationService.RefreshAccessToken` |
+| `POST /api/v2/idp/wechat-apps/rotate-auth-secret` | 轮换 AppSecret。 | `WechatAppCredentialApplicationService.RotateAuthSecret` |
+| `POST /api/v2/idp/wechat-apps/rotate-msg-secret` | 轮换消息密钥。 | `WechatAppCredentialApplicationService.RotateMsgSecret` |
 
 REST 注册在 [../../internal/apiserver/transport/rest/idp/router.go](../../internal/apiserver/transport/rest/idp/router.go)。管理路由需要 admin middlewares；如果 WechatApp handler 缺失，只保留 IDP health route；如果 admin middlewares 缺失，则不注册微信应用管理路由。
 
@@ -391,7 +391,7 @@ REST 注册在 [../../internal/apiserver/transport/rest/idp/router.go](../../int
 - Container assembler：[../../internal/apiserver/container/assembler/idp.go](../../internal/apiserver/container/assembler/idp.go)
 - REST：[../../internal/apiserver/transport/rest/idp](../../internal/apiserver/transport/rest/idp)
 - gRPC：[../../internal/apiserver/transport/grpc/service/idp](../../internal/apiserver/transport/grpc/service/idp)
-- Contracts：[../../api/rest/idp.v1.yaml](../../api/rest/idp.v1.yaml)、[../../api/grpc/iam/idp/v1/idp.proto](../../api/grpc/iam/idp/v1/idp.proto)
+- Contracts：[../../api/rest/idp.v2.yaml](../../api/rest/idp.v2.yaml)、[../../api/grpc/iam/idp/v2/idp.proto](../../api/grpc/iam/idp/v2/idp.proto)
 
 建议验证：
 

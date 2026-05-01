@@ -7,7 +7,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/internal/apiserver/application/authn/jwks"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 )
 
 // KeyRotationCronScheduler 基于 Cron 表达式的密钥轮换调度器

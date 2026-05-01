@@ -9,14 +9,14 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	appuser "github.com/FangcunMount/iam/internal/apiserver/application/uc/user"
-	authzDomain "github.com/FangcunMount/iam/internal/apiserver/domain/authz"
-	requestdto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/request"
-	responsedto "github.com/FangcunMount/iam/internal/apiserver/transport/rest/identity/response"
-	"github.com/FangcunMount/iam/internal/pkg/code"
-	"github.com/FangcunMount/iam/internal/pkg/middleware/authn"
-	"github.com/FangcunMount/iam/pkg/core"
-	"github.com/FangcunMount/iam/pkg/tenant"
+	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
+	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v2/pkg/core"
+	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 var _ = core.ErrResponse{}
