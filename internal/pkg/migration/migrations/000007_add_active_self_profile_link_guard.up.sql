@@ -14,8 +14,21 @@ UPDATE `profile_links` pl
 SET pl.`type`     = 'relation',
     pl.`relation` = 'parent';
 
-ALTER TABLE `profile_links`
-    ADD COLUMN `self_key` BIGINT UNSIGNED DEFAULT NULL COMMENT 'active self link 唯一性保护键' AFTER `relation`;
+SET @iam_has_self_key = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'profile_links'
+      AND COLUMN_NAME = 'self_key'
+);
+
+SET @iam_sql = IF(@iam_has_self_key = 0,
+'ALTER TABLE `profile_links`
+     ADD COLUMN `self_key` BIGINT UNSIGNED DEFAULT NULL COMMENT ''active self link 唯一性保护键'' AFTER `relation`',
+'SELECT 1');
+PREPARE iam_stmt FROM @iam_sql;
+EXECUTE iam_stmt;
+DEALLOCATE PREPARE iam_stmt;
 
 UPDATE `profile_links`
 SET `self_key` = `user_id`
@@ -23,4 +36,17 @@ WHERE `type` = 'self'
   AND `revoked_at` IS NULL
   AND `deleted_at` IS NULL;
 
-CREATE UNIQUE INDEX `uk_active_self_profile_link` ON `profile_links` (`self_key`);
+SET @iam_has_uk_active_self_profile_link = (
+    SELECT COUNT(*)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'profile_links'
+      AND INDEX_NAME = 'uk_active_self_profile_link'
+);
+
+SET @iam_sql = IF(@iam_has_uk_active_self_profile_link = 0,
+'CREATE UNIQUE INDEX `uk_active_self_profile_link` ON `profile_links` (`self_key`)',
+'SELECT 1');
+PREPARE iam_stmt FROM @iam_sql;
+EXECUTE iam_stmt;
+DEALLOCATE PREPARE iam_stmt;

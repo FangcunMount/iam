@@ -29,6 +29,25 @@
 - ✅ 后续启动会**跳过**已执行的版本
 - ✅ 不会删除或覆盖现有数据
 
+## 旧库升级：children/guardianships 到 profiles/profile_links
+
+2026-05 的 UC 重构把运行时表切到 `profiles` / `profile_links`。已经执行过旧版
+`000001` 的数据库物理表仍是 `children` / `guardianships`，不会因为后来修改了
+`000001_init_schema.up.sql` 自动变化。
+
+因此 `000002_add_profile_links_profile_id_index` 同时承担桥接职责：
+
+- 若 `profiles` / `profile_links` 不存在，先创建 v2 运行时表；
+- 若旧表 `children` 存在，把儿童档案复制到 `profiles`；
+- 若旧表 `guardianships` 存在，把监护关系复制到 `profile_links`，旧 `guardian` 关系映射为 v2 的 `other`；
+- 不删除 `children` / `guardianships`，上线后保留作审计和回滚依据；
+- 再幂等补充 `idx_profile_id` 索引。
+
+如果某个环境已经用旧的 `000002` 启动失败，`schema_migrations` 可能处于
+`version=2, dirty=1`。只有在确认失败点是“`profile_links` 不存在导致旧 `000002`
+创建索引失败”，且没有手工执行过新 `000002` 的部分语句时，才可以在备份后把版本恢复为
+`version=1, dirty=0`，再使用包含本修复的镜像重新启动迁移。
+
 ## 📁 目录结构
 
 ```text
@@ -241,11 +260,16 @@ A: Dirty 状态表示迁移中途失败。需要：
 
 1. 检查日志确定失败原因
 2. 手动修复数据库到一致状态
-3. 更新 `schema_migrations` 表的 dirty 字段为 0
+3. 确认失败版本的 SQL 是否已经部分生效
+4. 只在数据库状态与目标版本一致时，才更新 `schema_migrations`
 
 ```sql
-UPDATE schema_migrations SET dirty = 0 WHERE version = X;
+SELECT version, dirty FROM schema_migrations;
 ```
+
+不要只把 `dirty` 改成 0 后重启。对于本轮已知的旧 `000002` 失败，如果确认失败发生在
+`CREATE INDEX idx_profile_id ON profile_links` 且 `profile_links` 当时不存在，可以在备份后把
+`schema_migrations` 恢复到 `version=1, dirty=0`，让修复后的 `000002` 重新执行。
 
 ### Q: 生产环境如何禁用自动迁移？
 
