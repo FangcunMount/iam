@@ -17,6 +17,7 @@ type Router struct {
 	cacheGovernanceHandler *cachegovernancehandler.GovernanceHandler
 }
 
+// routeDependencies 路由依赖
 type routeDependencies struct {
 	authn            AuthnDeps
 	authz            AuthzDeps
@@ -44,33 +45,42 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	r.engine = engine // 保存引用用于调试
 
+	// 注册基础路由
 	r.registerBaseRoutes(engine)
 
+	// 如果容器未初始化，则注册缓存治理调试路由
 	if !r.deps.ModuleStatus.ContainerInitialized {
 		r.registerCacheGovernanceDebugRoutes(engine, nil)
 		fmt.Printf("⚠️  container not initialized, skipped module route registration\n")
 		return
 	}
 
+	// 解析路由依赖
 	deps := r.resolveRouteDependencies()
 	authMiddleware := deps.authMiddleware
 	if authMiddleware == nil {
 		log.Warn("Authn module unavailable; protected routes will not be registered")
 	}
 
+	// 注册缓存治理调试路由
 	r.registerCacheGovernanceDebugRoutes(engine, authMiddleware)
 
+	// 注册模块路由
 	r.registerModuleRoutes(engine, deps, authMiddleware)
+
+	// 注册管理员路由
 	r.registerAdminRoutes(engine, authMiddleware)
 
 	log.Info("🔗 All routes registration completed")
 }
 
+// resolveRouteDependencies 解析路由依赖
 func (r *Router) resolveRouteDependencies() routeDependencies {
 	if !r.deps.ModuleStatus.ContainerInitialized {
 		return routeDependencies{}
 	}
 
+	// 创建路由依赖
 	deps := routeDependencies{
 		authn:   r.deps.Authn,
 		authz:   r.deps.Authz,
@@ -79,13 +89,16 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 		suggest: r.deps.Suggest,
 	}
 
+	// 创建认证中间件
 	if deps.authn.TokenService != nil {
 		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, deps.authz.RouteAuthorization)
 	}
 
+	// 若认证中间件支持角色检查，则拼出管理员中间件
 	if deps.authMiddleware != nil && deps.authMiddleware.SupportsRoleCheck() {
 		deps.adminMiddlewares = append(deps.adminMiddlewares, deps.authMiddleware.AuthRequired(), deps.authMiddleware.RequirePlatformAdmin())
 	}
 
+	// 返回路由依赖
 	return deps
 }

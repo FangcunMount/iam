@@ -18,7 +18,6 @@ import (
 )
 
 // DatabaseManager 数据库管理器
-// Redis 客户端用于缓存、令牌等所有用途
 type DatabaseManager struct {
 	config        *config.Config
 	registry      *database.Registry

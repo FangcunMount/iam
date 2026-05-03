@@ -26,25 +26,26 @@ func NewApp(basename string) *app.App {
 	return application
 }
 
+// run 运行函数
 func run(opts *options.Options) app.RunFunc {
 	return func(basename string) error {
 		// 初始化日志（使用从配置文件加载的配置）
 		log.Init(opts.Log)
 		defer log.Flush()
 
-		log.Info("Starting iam ...")
+		log.Info("Starting iam contracts API Server ...")
 
 		// 打印配置信息
 		log.Infof("Server mode: %s", opts.GenericServerRunOptions.Mode)
 		log.Infof("Health check enabled: %v", opts.GenericServerRunOptions.Healthz)
 
-		// 根据 options 创建 app 配置
+		// 根据 options 创建 APIServer 配置
 		cfg, err := config.CreateConfigFromOptions(opts)
 		if err != nil {
 			return err
 		}
 
-		// 运行 app
+		// 运行 APIServer
 		return Run(cfg)
 	}
 }

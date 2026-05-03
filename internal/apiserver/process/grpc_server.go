@@ -5,9 +5,11 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 )
 
-// buildGRPCServer 构建 GRPC 服务器。
+// buildGRPCServer 构建 GRPC 服务器
 func buildGRPCServer(cfg *config.Config) (*grpc.Server, error) {
+	// 创建 GRPC 配置
 	grpcConfig := grpc.NewConfig()
+	// 应用 GRPC 选项到配置
 	if err := applyGRPCOptions(cfg, grpcConfig); err != nil {
 		return nil, err
 	}
@@ -16,10 +18,12 @@ func buildGRPCServer(cfg *config.Config) (*grpc.Server, error) {
 
 // applyGRPCOptions 应用 GRPC 选项到配置。
 func applyGRPCOptions(cfg *config.Config, grpcConfig *grpc.Config) error {
+	// 设置 GRPC 地址
 	grpcConfig.BindAddress = cfg.GRPCOptions.BindAddress
 	grpcConfig.BindPort = cfg.GRPCOptions.BindPort
 	grpcConfig.HealthzPort = cfg.GRPCOptions.HealthzPort
 
+	// 设置 mTLS 配置
 	if cfg.GRPCOptions.MTLS != nil {
 		mtlsOpt := cfg.GRPCOptions.MTLS
 		grpcConfig.MTLS.Enabled = mtlsOpt.Enabled
@@ -45,6 +49,7 @@ func applyGRPCOptions(cfg *config.Config, grpcConfig *grpc.Config) error {
 		}
 	}
 
+	// 设置应用层认证配置
 	if cfg.GRPCOptions.Auth != nil {
 		authOpt := cfg.GRPCOptions.Auth
 		grpcConfig.Auth.Enabled = authOpt.Enabled
@@ -57,6 +62,7 @@ func applyGRPCOptions(cfg *config.Config, grpcConfig *grpc.Config) error {
 		grpcConfig.Auth.RequireIdentityMatch = authOpt.RequireIdentityMatch
 	}
 
+	// 设置 ACL 配置
 	if cfg.GRPCOptions.ACL != nil {
 		aclOpt := cfg.GRPCOptions.ACL
 		grpcConfig.ACL.Enabled = aclOpt.Enabled
@@ -66,15 +72,19 @@ func applyGRPCOptions(cfg *config.Config, grpcConfig *grpc.Config) error {
 		}
 	}
 
+	// 设置审计日志配置
 	if cfg.GRPCOptions.Audit != nil {
 		grpcConfig.Audit.Enabled = cfg.GRPCOptions.Audit.Enabled
 	}
 
+	// 设置 TLS 证书文件和密钥文件
 	if cfg.SecureServing != nil && grpcConfig.TLSCertFile == "" && grpcConfig.TLSKeyFile == "" {
 		grpcConfig.TLSCertFile = cfg.SecureServing.TLS.CertFile
 		grpcConfig.TLSKeyFile = cfg.SecureServing.TLS.KeyFile
 	}
 
+	// 设置不安全连接
 	grpcConfig.Insecure = cfg.GRPCOptions.Insecure && !grpcConfig.MTLS.Enabled && grpcConfig.TLSCertFile == "" && grpcConfig.TLSKeyFile == ""
+	// 返回错误
 	return nil
 }

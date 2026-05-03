@@ -16,39 +16,47 @@ import (
 	"gorm.io/gorm"
 )
 
+// runtimeOutput 运行时输出
 type runtimeOutput struct {
-	mode            string
-	appMode         string
-	degradedAllowed bool
-	lifecycle       processruntime.Lifecycle
+	mode            string                   // 运行时模式
+	appMode         string                   // 应用模式
+	degradedAllowed bool                     // 是否允许降级启动
+	lifecycle       processruntime.Lifecycle // 生命周期
 }
 
+// resourceOutput 资源输出
 type resourceOutput struct {
-	mysqlDB          *gorm.DB
-	cacheClient      *redis.Client
-	idpEncryptionKey []byte
-	eventBus         messaging.EventBus
+	mysqlDB          *gorm.DB           // MySQL 数据库
+	cacheClient      *redis.Client      // Redis 缓存客户端
+	idpEncryptionKey []byte             // IDP 加密密钥
+	eventBus         messaging.EventBus // 事件总线
 }
 
+// containerOutput 容器输出
 type containerOutput struct {
-	container *container.Container
+	container *container.Container // 容器
 }
 
+// transportOutput 传输输出
 type transportOutput struct {
-	httpServer *genericapiserver.GenericAPIServer
-	grpcServer *grpcpkg.Server
+	httpServer *genericapiserver.GenericAPIServer // HTTP 服务器
+	grpcServer *grpcpkg.Server                    // GRPC 服务器
 }
 
+// transportStageDeps 传输阶段依赖
 type transportStageDeps struct {
-	buildHTTPServer func() (*genericapiserver.GenericAPIServer, error)
-	buildGRPCServer func() (*grpcpkg.Server, error)
-	registerREST    func(*genericapiserver.GenericAPIServer)
-	registerGRPC    func(*grpcpkg.Server) error
+	buildHTTPServer func() (*genericapiserver.GenericAPIServer, error) // 构建 HTTP 服务器
+	buildGRPCServer func() (*grpcpkg.Server, error)                    // 构建 GRPC 服务器
+	registerREST    func(*genericapiserver.GenericAPIServer)           // 注册 REST 路由
+	registerGRPC    func(*grpcpkg.Server) error                        // 注册 GRPC 服务
 }
 
+// prepareRuntime 准备运行时
 func (s *apiServer) prepareRuntime() runtimeOutput {
+	// 获取运行时模式
 	mode := runtimeMode(s.cfg)
 	appMode := appModeFromServerMode(mode)
+	// 返回运行时输出
 	return runtimeOutput{
 		mode:            mode,
 		appMode:         appMode,
@@ -56,7 +64,9 @@ func (s *apiServer) prepareRuntime() runtimeOutput {
 	}
 }
 
+// prepareResources 准备资源
 func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
+	// 初始化数据库
 	if err := s.dbManager.Initialize(); err != nil {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("initialize database: %w", err)
@@ -64,6 +74,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		log.Warnw("degraded startup: database initialization failed", "error", err, "mode", rt.mode)
 	}
 
+	// 获取 MySQL 数据库
 	mysqlDB, err := s.dbManager.GetMySQLDB()
 	if err != nil {
 		if !rt.degradedAllowed {
@@ -73,6 +84,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		mysqlDB = nil
 	}
 
+	// 获取 Redis 缓存客户端
 	cacheClient, err := s.dbManager.GetCacheRedisClient()
 	if err != nil {
 		if !rt.degradedAllowed {
@@ -82,6 +94,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		cacheClient = nil
 	}
 
+	// 解析 IDP 加密密钥
 	idpEncryptionKey, configured, err := parseIDPEncryptionKey(s.idpEncryptionSecret())
 	if err != nil {
 		if !rt.degradedAllowed {
@@ -96,12 +109,14 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		log.Warnw("degraded startup: idp.encryption-key missing", "mode", rt.mode)
 	}
 
+	// 创建事件总线
 	eventBus, err := s.createEventBus()
 	if err != nil {
 		log.Warnw("event bus unavailable; continue without notifier", "error", err)
 		eventBus = nil
 	}
 
+	// 返回资源输出
 	return resourceOutput{
 		mysqlDB:          mysqlDB,
 		cacheClient:      cacheClient,
@@ -110,7 +125,9 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 	}, nil
 }
 
+// prepareContainer 准备容器
 func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput) (containerOutput, error) {
+	// 创建容器
 	s.container = container.NewContainerWithOptions(
 		resources.mysqlDB,
 		resources.cacheClient,
@@ -119,6 +136,7 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 		container.RuntimeOptionsFromAPIServerOptions(s.cfg.Options, rt.appMode),
 	)
 
+	// 初始化容器
 	if err := s.container.Initialize(); err != nil {
 		if !rt.degradedAllowed {
 			return containerOutput{}, fmt.Errorf("initialize container: %w", err)
@@ -126,27 +144,37 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 		log.Warnw("degraded startup: container initialization incomplete", "error", err, "mode", rt.mode)
 	}
 
+	// 验证关键模块
 	if err := s.validateCriticalModules(rt.degradedAllowed); err != nil {
 		return containerOutput{}, err
 	}
 
+	// 返回容器输出
 	return containerOutput{container: s.container}, nil
 }
 
+// prepareTransports 准备传输
 func (s *apiServer) prepareTransports(rt runtimeOutput, out containerOutput) (transportOutput, error) {
+	// 构建传输阶段依赖
 	transport, err := bootstrapTransports(s.buildTransportStageDeps(rt, out))
 	if err != nil {
 		return transportOutput{}, err
 	}
+	// 设置 HTTP 服务器
 	s.genericAPIServer = transport.httpServer
+	// 设置 GRPC 服务器
 	s.grpcServer = transport.grpcServer
+	// 返回传输输出
 	return transport, nil
 }
 
+// buildTransportStageDeps 构建传输阶段依赖
 func (s *apiServer) buildTransportStageDeps(rt runtimeOutput, out containerOutput) transportStageDeps {
+	// 如果 API 服务器为空，则返回空传输阶段依赖
 	if s == nil || s.cfg == nil || out.container == nil {
 		return transportStageDeps{}
 	}
+	// 返回传输阶段依赖
 	return transportStageDeps{
 		buildHTTPServer: func() (*genericapiserver.GenericAPIServer, error) {
 			return buildGenericServer(s.cfg)
@@ -163,9 +191,12 @@ func (s *apiServer) buildTransportStageDeps(rt runtimeOutput, out containerOutpu
 	}
 }
 
+// bootstrapTransports 引导传输
 func bootstrapTransports(deps transportStageDeps) (transportOutput, error) {
+	// 创建传输输出
 	var output transportOutput
 	if deps.buildHTTPServer != nil {
+		// 构建 HTTP 服务器
 		httpServer, err := deps.buildHTTPServer()
 		if err != nil {
 			return transportOutput{}, err
@@ -173,6 +204,7 @@ func bootstrapTransports(deps transportStageDeps) (transportOutput, error) {
 		output.httpServer = httpServer
 	}
 	if deps.buildGRPCServer != nil {
+		// 构建 GRPC 服务器
 		grpcServer, err := deps.buildGRPCServer()
 		if err != nil {
 			return transportOutput{}, err
@@ -180,18 +212,24 @@ func bootstrapTransports(deps transportStageDeps) (transportOutput, error) {
 		output.grpcServer = grpcServer
 	}
 	if deps.registerREST != nil && output.httpServer != nil {
+		// 注册 REST 路由
 		deps.registerREST(output.httpServer)
 	}
 	if deps.registerGRPC != nil && output.grpcServer != nil {
+		// 注册 GRPC 服务
 		if err := deps.registerGRPC(output.grpcServer); err != nil {
 			return transportOutput{}, err
 		}
 	}
+	// 返回传输输出
 	return output, nil
 }
 
+// routerOptionsFromConfig 从配置中获取路由选项
 func routerOptionsFromConfig(opts *apiserveroptions.Options, appMode string) resttransport.RouterOptions {
+	// 获取种子模拟认证选项
 	var seed apiserveroptions.SeedMockAuthOptions
+	// 获取调试缓存治理选项
 	var debug apiserveroptions.DebugOptions
 	if opts != nil && opts.SeedMockAuth != nil {
 		seed = *opts.SeedMockAuth
@@ -199,6 +237,7 @@ func routerOptionsFromConfig(opts *apiserveroptions.Options, appMode string) res
 	if opts != nil && opts.Debug != nil {
 		debug = *opts.Debug
 	}
+	// 创建路由选项
 	options := resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
 			AppMode: appMode,
@@ -209,15 +248,20 @@ func routerOptionsFromConfig(opts *apiserveroptions.Options, appMode string) res
 		},
 	}
 
+	// 设置调试缓存治理选项
 	options.DebugCacheGovernance.Enabled = debug.CacheGovernance.Enabled
 	options.DebugCacheGovernance.RequireAdmin = debug.CacheGovernance.RequireAdmin
 
+	// 返回路由选项
 	return options
 }
 
+// idpEncryptionSecret 获取 IDP 加密密钥
 func (s *apiServer) idpEncryptionSecret() string {
+	// 如果 API 服务器为空，则返回空字符串
 	if s == nil || s.cfg == nil || s.cfg.IDP == nil {
 		return ""
 	}
+	// 返回 IDP 加密密钥
 	return s.cfg.IDP.EncryptionKey
 }

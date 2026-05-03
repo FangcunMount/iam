@@ -13,27 +13,26 @@ import (
 	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
-// RouterOptions carries transport bootstrap decisions into the REST router.
+// RouterOptions 路由选项
 type RouterOptions struct {
 	DebugCacheGovernance DebugCacheGovernanceOptions
 	SeedMockAuth         SeedMockAuthOptions
 }
 
-// DebugCacheGovernanceOptions keeps nil as "unset" so router defaults remain
-// distinguishable from explicit false.
+// DebugCacheGovernanceOptions 调试缓存治理选项
 type DebugCacheGovernanceOptions struct {
 	AppMode      string
 	Enabled      *bool
 	RequireAdmin *bool
 }
 
-// SeedMockAuthOptions controls the internal seed mock route.
+// SeedMockAuthOptions 种子模拟认证选项
 type SeedMockAuthOptions struct {
 	Enabled      bool
 	SharedSecret string
 }
 
-// Deps is the concrete dependency surface consumed by the REST router.
+// Deps	依赖面
 type Deps struct {
 	Authn           AuthnDeps
 	Authz           AuthzDeps
@@ -45,6 +44,7 @@ type Deps struct {
 	RouterOptions
 }
 
+// AuthnDeps 认证依赖
 type AuthnDeps struct {
 	AuthHandler         *authhandler.AuthHandler
 	AccountHandler      *authhandler.AccountHandler
@@ -53,6 +53,7 @@ type AuthnDeps struct {
 	TokenService        tokenapp.TokenApplicationService
 }
 
+// AuthzDeps 授权依赖
 type AuthzDeps struct {
 	RoleHandler        *authzhandler.RoleHandler
 	RoleBindingHandler *authzhandler.RoleBindingHandler
@@ -63,21 +64,24 @@ type AuthzDeps struct {
 	HealthReporter     AuthzHealthReporter
 }
 
+// IDPDeps IDP依赖
 type IDPDeps struct {
 	WechatAppHandler *idphandler.WechatAppHandler
 }
 
+// UserDeps 用户依赖
 type UserDeps struct {
 	UserHandler        *uchandler.UserHandler
 	ProfileHandler     *uchandler.ProfileHandler
 	ProfileLinkHandler *uchandler.ProfileLinkHandler
 }
 
+// SuggestDeps 建议依赖
 type SuggestDeps struct {
 	Service appsuggest.ProfileSuggestor
 }
 
-// ModuleStatus is the route-visible module state used by /debug/modules and /health.
+// ModuleStatus 模块状态，用于/debug/modules和/health
 type ModuleStatus struct {
 	ContainerInitialized bool
 	Authn                bool
@@ -88,8 +92,7 @@ type ModuleStatus struct {
 	AuthEnabled          bool
 }
 
-// AuthzHealthReporter exposes authz runtime reload health without leaking the
-// concrete infra adapter into the router.
+// AuthzHealthReporter 授权运行时重载健康报告，不泄露具体的底层适配器到路由
 type AuthzHealthReporter interface {
 	ReloadHealth() (bool, error, time.Time)
 }

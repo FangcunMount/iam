@@ -14,14 +14,21 @@ import (
 	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
+// registerModuleRoutes 注册模块路由
 func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
+	// 注册 AuthN 模块 认证路由
 	r.registerAuthnRoutes(engine, deps)
+	// 注册 AuthZ 模块 授权路由
 	r.registerAuthzRoutes(engine, deps.authz, authMiddleware)
+	// 注册 IDP 模块 IDP路由
 	r.registerIDPRoutes(engine, deps)
+	// 注册 Identity 模块 身份路由
 	r.registerIdentityRoutes(engine, deps.user, authMiddleware)
+	// 注册 Suggest 模块 建议路由
 	r.registerSuggestRoutes(engine, deps.suggest, authMiddleware)
 }
 
+// registerAuthnRoutes 注册 AuthN 模块 认证路由
 func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies) {
 	if authnRoutesAvailable(deps.authn) {
 		authnDeps := authnhttp.Dependencies{
@@ -46,6 +53,7 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies)
 	log.Warn("⚠️  Authn module not initialized, routes not registered")
 }
 
+// registerAuthzRoutes 注册 AuthZ 模块 授权路由
 func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if authzRoutesAvailable(deps) && authMiddleware != nil {
 		authzhttp.Register(engine, authzhttp.Dependencies{
@@ -66,6 +74,7 @@ func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMid
 	log.Warn("⚠️  Authz module not initialized, routes not registered")
 }
 
+// registerIDPRoutes 注册 IDP 模块 IDP路由
 func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
 	if r.deps.ModuleStatus.IDP {
 		idphttp.Register(engine, idphttp.Dependencies{
@@ -78,6 +87,7 @@ func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
 	log.Warn("⚠️  IDP module not initialized, routes not registered")
 }
 
+// registerIdentityRoutes 注册 Identity 模块 身份路由
 func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if userRoutesAvailable(deps) && authMiddleware != nil {
 		userhttp.Register(engine, userhttp.Dependencies{
@@ -96,6 +106,7 @@ func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authM
 	log.Warn("⚠️  User module not initialized, routes not registered")
 }
 
+// registerSuggestRoutes 注册 Suggest 模块 建议路由
 func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if deps.Service != nil && authMiddleware != nil {
 		suggesthttp.Register(engine, suggesthttp.Dependencies{
@@ -112,15 +123,18 @@ func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, aut
 	log.Warn("⚠️  Suggest module not initialized or disabled, routes not registered")
 }
 
+// authnRoutesAvailable 认证路由是否可用
 func authnRoutesAvailable(deps AuthnDeps) bool {
 	return deps.AuthHandler != nil || deps.AccountHandler != nil || deps.JWKSHandler != nil
 }
 
+// authzRoutesAvailable 授权路由是否可用
 func authzRoutesAvailable(deps AuthzDeps) bool {
 	return deps.RoleHandler != nil || deps.RoleBindingHandler != nil || deps.PolicyHandler != nil ||
 		deps.ResourceHandler != nil || deps.CheckHandler != nil
 }
 
+// userRoutesAvailable 用户路由是否可用
 func userRoutesAvailable(deps UserDeps) bool {
 	return deps.UserHandler != nil || deps.ProfileHandler != nil || deps.ProfileLinkHandler != nil
 }
