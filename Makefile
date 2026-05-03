@@ -25,12 +25,18 @@ DOCKER_IMAGE := $(DOCKER_REGISTRY)/$(DOCKER_REPOSITORY)/$(PROJECT_NAME)
 DOCKER_TAG ?= latest
 RUN_UID ?= 2000
 RUN_GID ?= 2000
+WWW_UID ?= $(RUN_UID)
+WWW_GID ?= $(RUN_GID)
 LOG_DIR_HOST ?= /data/logs/iam
 TLS_CERT_HOST ?= /data/ssl/certs/fangcunmount.cn.crt
 TLS_KEY_HOST ?= /data/ssl/private/fangcunmount.cn.key
 TLS_CERT_DEST ?= /etc/iam/ssl/fangcunmount.cn.crt
 TLS_KEY_DEST ?= /etc/iam/ssl/fangcunmount.cn.key
 DOCKER_NETWORK ?= infra-network
+SERVICE ?= apiserver
+DEPLOY_REF ?= $(GIT_BRANCH)
+DEPLOY_SHA ?= $(GIT_COMMIT)
+IMAGE_TAG ?= $(DEPLOY_SHA)
 
 # Go 相关
 GO := env -u GOROOT go
@@ -45,6 +51,7 @@ PID_DIR := $(TMP_DIR)/pids
 LOG_DIR := logs
 COVERAGE_DIR := coverage
 SPECTRAL_IMAGE ?= stoplight/spectral:latest
+CD_SCRIPT_DIR := scripts/cd
 
 # 服务配置
 APISERVER_BIN := $(BIN_DIR)/apiserver
@@ -85,6 +92,7 @@ COLOR_RED := \033[31m
 .PHONY: docker-dev-up docker-dev-down docker-dev-restart docker-dev-logs docker-dev-clean
 .PHONY: docker-compose-build docker-compose-up docker-compose-down docker-compose-restart docker-compose-logs
 .PHONY: deploy deploy-local deploy-prod deploy-nginx deploy-systemd
+.PHONY: cd-validate cd-image cd-package cd-remote-deploy
 
 # ============================================================================
 # 帮助信息
@@ -117,6 +125,9 @@ help: ## 显示帮助信息
 	@echo ""
 	@echo "$(COLOR_BOLD)🐳 Docker 生产部署:$(COLOR_RESET)"
 	@grep -E '^docker-compose-.*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(COLOR_BOLD)🚢 CD 发布入口:$(COLOR_RESET)"
+	@grep -E '^cd-.*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(COLOR_BOLD)📚 其他命令:$(COLOR_RESET)"
 	@grep -E '^(deps|proto|install|clean|version|debug|up|down|st).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
@@ -536,6 +547,24 @@ ci: deps-verify fmt-check lint test ## CI 流程
 release: clean build ## 发布版本
 	@echo "$(COLOR_GREEN)✅ 版本 $(VERSION) 发布准备完成$(COLOR_RESET)"
 
+cd-validate: ## 校验 CD 服务元数据和脚本入口 (SERVICE=apiserver)
+	@SERVICE="$(SERVICE)" IMAGE_METADATA_PRINT=1 "$(CD_SCRIPT_DIR)/image-metadata.sh" >/dev/null
+	@test -x "$(CD_SCRIPT_DIR)/build-image.sh"
+	@test -x "$(CD_SCRIPT_DIR)/push-dockerhub.sh"
+	@test -x "$(CD_SCRIPT_DIR)/prepare-package.sh"
+	@test -x "$(CD_SCRIPT_DIR)/remote-deploy.sh"
+	@echo "$(COLOR_GREEN)✅ CD metadata validated for SERVICE=$(SERVICE)$(COLOR_RESET)"
+
+cd-image: cd-validate ## 构建并发布 IAM 镜像到 GHCR 和 Docker Hub
+	@SERVICE="$(SERVICE)" DOCKER_REGISTRY="$(DOCKER_REGISTRY)" DOCKER_REPOSITORY="$(DOCKER_REPOSITORY)" DEPLOY_REF="$(DEPLOY_REF)" DEPLOY_SHA="$(DEPLOY_SHA)" BUILD_TIME="$(BUILD_TIME)" BUILD_CACHE_REF="$(BUILD_CACHE_REF)" WWW_UID="$(WWW_UID)" WWW_GID="$(WWW_GID)" "$(CD_SCRIPT_DIR)/build-image.sh"
+	@SERVICE="$(SERVICE)" DOCKER_REGISTRY="$(DOCKER_REGISTRY)" DOCKER_REPOSITORY="$(DOCKER_REPOSITORY)" DOCKERHUB_USERNAME="$(DOCKERHUB_USERNAME)" DEPLOY_SHA="$(DEPLOY_SHA)" "$(CD_SCRIPT_DIR)/push-dockerhub.sh"
+
+cd-package: cd-validate ## 生成 IAM 生产部署包
+	@SERVICE="$(SERVICE)" "$(CD_SCRIPT_DIR)/prepare-package.sh"
+
+cd-remote-deploy: cd-validate ## 在目标机执行远端部署脚本
+	@SERVICE="$(SERVICE)" IMAGE_TAG="$(IMAGE_TAG)" "$(CD_SCRIPT_DIR)/remote-deploy.sh"
+
 # ============================================================================
 # 快捷命令
 # ============================================================================
@@ -780,8 +809,8 @@ docker-dev-clean: ## 清理 Docker 开发环境（包括数据卷）
 
 deploy-prepare: ## 准备部署文件 (已废弃，现使用 Docker 部署)
 	@echo "$(COLOR_YELLOW)⚠️  此命令已废弃，现在使用 Docker 部署$(COLOR_RESET)"
-	@echo "$(COLOR_BLUE)请使用: git push origin main (自动触发 CI/CD)$(COLOR_RESET)"
-	@echo "$(COLOR_BLUE)或查看: .github/workflows/cicd.yml$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)请使用: git push origin main (自动触发 CI + CD)$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)或查看: .github/workflows/cd.yml$(COLOR_RESET)"
 
 deploy-check: ## 检查部署环境
 	@echo "$(COLOR_BLUE)🔍 检查部署环境...$(COLOR_RESET)"

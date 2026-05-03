@@ -1,17 +1,38 @@
-name: Concurrency DB Tests
+name: MySQL Concurrency Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
+    paths:
+      - go.mod
+      - go.sum
+      - internal/apiserver/infra/mysql/**
+      - internal/apiserver/application/uc/**
+      - internal/apiserver/testhelpers/**
+      - internal/pkg/code/**
+      - .github/workflows/concurrency-tests.yml
   pull_request:
     branches: [ main ]
+    paths:
+      - go.mod
+      - go.sum
+      - internal/apiserver/infra/mysql/**
+      - internal/apiserver/application/uc/**
+      - internal/apiserver/testhelpers/**
+      - internal/pkg/code/**
+      - .github/workflows/concurrency-tests.yml
+
+env:
+  GOTOOLCHAIN: local
 
 jobs:
   mysql-concurrency-tests:
+    name: Run MySQL-backed concurrency tests
     runs-on: ubuntu-latest
-    # Only a single MySQL service is required for these concurrency tests.
-    # Credentials are taken from repository secrets when available; defaults
-    # are provided for convenience but you should set secrets in production.
+    timeout-minutes: 15
+    permissions:
+      contents: read
     services:
       mysql:
         image: mysql:8.0
@@ -20,71 +41,75 @@ jobs:
           MYSQL_DATABASE: ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }}
           MYSQL_USER: ${{ secrets.CI_MYSQL_USER || 'iam' }}
           MYSQL_PASSWORD: ${{ secrets.CI_MYSQL_PASSWORD || 'iam_password' }}
-        # Exposing ports is unnecessary for the runner steps but kept for clarity.
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping --silent" --health-interval=5s --health-timeout=5s --health-retries=30
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - name: Setup Go
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
 
-      - name: Install DB client (mysql)
+      - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y default-mysql-client
 
-      - name: Wait for MySQL to be ready
+      - name: Wait for MySQL
         env:
           MYSQL_PWD: ${{ secrets.CI_MYSQL_PASSWORD || 'iam_password' }}
+          MYSQL_USER: ${{ secrets.CI_MYSQL_USER || 'iam' }}
         run: |
-          echo 'Waiting for MySQL to be available...'
+          echo "Waiting for MySQL to be available..."
           for i in {1..30}; do
-            if mysql --host=127.0.0.1 --port=3306 -u ${{ secrets.CI_MYSQL_USER || 'iam' }} -p${MYSQL_PWD} -e 'SELECT 1' >/dev/null 2>&1; then
-              echo 'MySQL is ready'
+            if mysql --host=127.0.0.1 --port=3306 -u "$MYSQL_USER" -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MySQL is ready"
               exit 0
             fi
             sleep 2
           done
-          echo 'MySQL did not become ready in time' >&2
+          echo "MySQL did not become ready in time" >&2
           exit 1
 
-      - name: Prepare DB schema for tests
+      - name: Prepare database
         env:
           MYSQL_PWD: ${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}
+          MYSQL_DATABASE: ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }}
         run: |
-          mysql --host=127.0.0.1 --port=3306 -u root -p${MYSQL_PWD} -e "CREATE DATABASE IF NOT EXISTS ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }};"
+          mysql --host=127.0.0.1 --port=3306 -u root \
+            -e "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-      - name: Run concurrency tests (dev-test-all if available)
+      - name: Run concurrency tests
         env:
           MYSQL_HOST: 127.0.0.1
           MYSQL_PORT: 3306
           MYSQL_USER: ${{ secrets.CI_MYSQL_USER || 'iam' }}
+          MYSQL_USERNAME: ${{ secrets.CI_MYSQL_USER || 'iam' }}
           MYSQL_PASSWORD: ${{ secrets.CI_MYSQL_PASSWORD || 'iam_password' }}
           MYSQL_DATABASE: ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }}
+          MYSQL_DBNAME: ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }}
         run: |
           set -o pipefail
           export MYSQL_PWD="$MYSQL_PASSWORD"
           mkdir -p test-artifacts
-          if command -v make >/dev/null 2>&1 && grep -q "dev-test-all" Makefile; then
-            echo "Running make dev-test-all"
-            MAKEFLAGS="" make dev-test-all 2>&1 | tee test-artifacts/dev-test-all.txt
-            rc=${PIPESTATUS[0]}
-          else
-            echo "Running targeted go tests"
-            go test ./internal/apiserver/infra/mysql/... -v -count=1 2>&1 | tee test-artifacts/go-tests.txt
-            rc=${PIPESTATUS[0]}
-          fi
-          echo "Test exit code: $rc"
-          exit $rc
+          go test ./internal/apiserver/infra/mysql/... \
+            -run "Concurrent|Concurrency" \
+            -v \
+            -count=1 \
+            2>&1 | tee test-artifacts/mysql-concurrency-tests.txt
+          exit "${PIPESTATUS[0]}"
 
       - name: Upload test logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: concurrency-test-logs-${{ github.run_id }}
           path: test-artifacts/**

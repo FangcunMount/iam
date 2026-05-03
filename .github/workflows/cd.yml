@@ -1,0 +1,201 @@
+name: Production Deploy
+
+# 必需/可选 Secrets 说明：
+# 必需（部署 main 分支或手动部署时强制校验）：
+#   SVRB_HOST (serverB: iam-apiserver)
+#   SVRA_USERNAME, SVRA_SSH_KEY（默认复用到 serverB）
+#   MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DBNAME
+#   REDIS_HOST
+#   IPD_ENCRYPTION_KEY
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#   WWW_UID, WWW_GID
+# 可选（缺失时使用默认或跳过）：
+#   SVRB_USERNAME/SVRB_SSH_KEY/SVRB_SSH_PORT 可选，缺省复用 SVRA_*
+#   SVRB_SUDO_PASSWORD 可选，缺省复用 SVRA_SUDO_PASSWORD
+#   SVRA_SSH_PORT, SVRA_SUDO_PASSWORD
+#   MYSQL_PORT
+#   REDIS_PORT, REDIS_DB, REDIS_USERNAME, REDIS_PASSWORD, REDIS_USE_SSL, REDIS_SSL_INSECURE_SKIP_VERIFY
+#   NSQ_LOOKUPD_HOST, NSQ_LOOKUPD_PORT, NSQ_NSQD_HOST, NSQ_NSQD_PORT
+# 注意：JWT 签名使用 JWKS (RS256) 非对称密钥，密钥在运行时自动生成并持久化到 /app/data/keys。
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-production-deploy
+  cancel-in-progress: false
+
+env:
+  GOTOOLCHAIN: local
+  DOCKER_REGISTRY: ghcr.io
+  DOCKER_REPOSITORY: fangcunmount
+  SERVICE: apiserver
+  DEPLOY_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+  DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+  BUILD_TIME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.updated_at || github.event.repository.updated_at }}
+
+jobs:
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    env:
+      WWW_UID: ${{ secrets.WWW_UID }}
+      WWW_GID: ${{ secrets.WWW_GID }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and publish image
+        run: |
+          make cd-image \
+            SERVICE="${SERVICE}" \
+            DEPLOY_REF="${DEPLOY_REF}" \
+            DEPLOY_SHA="${DEPLOY_SHA}" \
+            BUILD_TIME="${BUILD_TIME}"
+
+  deploy:
+    name: Deploy to Production
+    needs: [docker]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://iam.fangcunmount.cn
+    if: |
+      always() &&
+      needs.docker.result == 'success'
+    env:
+      WWW_UID: ${{ secrets.WWW_UID }}
+      WWW_GID: ${{ secrets.WWW_GID }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Prepare deployment package
+        env:
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT || 6379 }}
+          REDIS_DB: ${{ secrets.REDIS_DB || 0 }}
+          REDIS_USERNAME: ${{ secrets.REDIS_USERNAME }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          REDIS_USE_SSL: ${{ secrets.REDIS_USE_SSL }}
+          REDIS_SSL_INSECURE_SKIP_VERIFY: ${{ secrets.REDIS_SSL_INSECURE_SKIP_VERIFY }}
+          IPD_ENCRYPTION_KEY: ${{ secrets.IPD_ENCRYPTION_KEY }}
+          NSQ_LOOKUPD_HOST: ${{ secrets.NSQ_LOOKUPD_HOST }}
+          NSQ_LOOKUPD_PORT: ${{ secrets.NSQ_LOOKUPD_PORT || 4161 }}
+          NSQ_NSQD_HOST: ${{ secrets.NSQ_NSQD_HOST }}
+          NSQ_NSQD_PORT: ${{ secrets.NSQ_NSQD_PORT || 4150 }}
+        run: |
+          make cd-package SERVICE="${SERVICE}"
+
+      - name: Upload deployment package
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.SVRB_HOST }}
+          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          source: "deploy-package-apiserver.tar.gz"
+          target: "/tmp"
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          SERVICE: ${{ env.SERVICE }}
+          DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+          DOCKER_REPOSITORY: ${{ env.DOCKER_REPOSITORY }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD || secrets.SVRA_SUDO_PASSWORD }}
+          WWW_UID: ${{ env.WWW_UID }}
+          WWW_GID: ${{ env.WWW_GID }}
+          IMAGE_TAG: ${{ env.DEPLOY_SHA }}
+        with:
+          host: ${{ secrets.SVRB_HOST }}
+          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          command_timeout: 30m
+          envs: SERVICE,DOCKER_REGISTRY,DOCKER_REPOSITORY,GHCR_USERNAME,GITHUB_TOKEN,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,SUDO_PASSWORD,WWW_UID,WWW_GID,IMAGE_TAG
+          script: |
+            set -Eeuo pipefail
+            BOOTSTRAP_TMP="/tmp/iam-deploy-bootstrap-${SERVICE}-$$"
+            mkdir -p "$BOOTSTRAP_TMP"
+            trap 'rm -rf "$BOOTSTRAP_TMP"' EXIT
+            tar -xzf "/tmp/deploy-package-apiserver.tar.gz" -C "$BOOTSTRAP_TMP"
+            bash "$BOOTSTRAP_TMP/scripts/cd/remote-deploy.sh"
+
+  notify:
+    name: Deployment Summary
+    needs: [docker, deploy]
+    runs-on: ubuntu-latest
+    if: |
+      always() && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_branch == 'main')
+      )
+    steps:
+      - name: Log deployment status
+        run: |
+          echo "=========================================="
+          echo "Deployment Summary"
+          echo "=========================================="
+          echo "Docker: ${{ needs.docker.result }}"
+          echo "Deploy: ${{ needs.deploy.result }}"
+          echo "Ref: ${DEPLOY_REF}"
+          echo "SHA: ${DEPLOY_SHA}"
+          echo "Service: ${SERVICE}"
+          if [ "${{ needs.docker.result }}" != "success" ] || [ "${{ needs.deploy.result }}" != "success" ]; then
+            echo "Production deploy failed or was skipped."
+            exit 1
+          fi
+          echo "Production deploy completed."

@@ -1,91 +1,92 @@
-name: Test SSH Connection
+name: Production SSH Diagnostics
 
-# Required Secrets: SVRA_HOST, SVRA_USERNAME, SVRA_SSH_KEY, SVRA_SSH_PORT
+# Manual diagnostic workflow for the production host.
+# Uses SVRB first and falls back to SVRA while secrets are being migrated.
+# Required Secrets: SVRB_HOST, SVRA_USERNAME, SVRA_SSH_KEY
+# Optional Secrets: SVRB_USERNAME, SVRB_SSH_KEY, SVRB_SSH_PORT, SVRA_SSH_PORT
 
 on:
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test-ssh:
-    name: Test SSH Connection to SVRA
+    name: Test SSH connection to production host
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - name: Show GitHub Runner Info
         run: |
-          echo "=========================================="
           echo "GitHub Runner Information"
-          echo "=========================================="
           echo "Runner OS: ${{ runner.os }}"
           echo "Runner Name: ${{ runner.name }}"
           echo "Runner Arch: ${{ runner.arch }}"
           echo "UTC Time: $(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')"
-          echo "=========================================="
-      
+
       - name: Test SSH Connection
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
-          host: ${{ secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRA_USERNAME }}
-          key: ${{ secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRA_SSH_PORT || 22 }}
+          host: ${{ secrets.SVRB_HOST || secrets.SVRA_HOST }}
+          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
           script: |
-            echo "=========================================="
-            echo "SSH Connection Test - Success!"
-            echo "=========================================="
+            set -euo pipefail
+
+            echo "SSH connection test succeeded"
             echo "Server: $(hostname)"
             echo "User: $(whoami)"
-            echo "Working Directory: $(pwd)"
+            echo "Working directory: $(pwd)"
             echo ""
-            
-            echo "Time Information:"
-            echo "  Local Time: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-            echo "  UTC Time: $(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')"
-            
+
+            echo "Time information:"
+            echo "  Local: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+            echo "  UTC:   $(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')"
+
             if command -v timedatectl >/dev/null 2>&1; then
               echo ""
-              echo "Timezone Configuration:"
+              echo "Timezone configuration:"
               timedatectl | grep -E "Time zone|Local time|Universal time"
             fi
-            
+
             echo ""
-            echo "System Information:"
+            echo "System information:"
             echo "  OS: $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || uname -s)"
             echo "  Kernel: $(uname -r)"
             echo "  Uptime: $(uptime -p 2>/dev/null || uptime)"
-            
+
             echo ""
-            echo "Docker Status:"
-            if command -v docker >/dev/null 2>&1; then
-              if sudo docker info >/dev/null 2>&1; then
-                echo "  ✅ Docker is running"
-                echo "  Version: $(sudo docker version --format '{{.Server.Version}}' 2>/dev/null)"
-                echo "  Containers: $(sudo docker ps -q | wc -l) running"
-              else
-                echo "  ⚠️ Docker daemon not accessible"
-              fi
-            else
-              echo "  ❌ Docker not installed"
+            echo "Docker status:"
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "  Docker is not installed"
+              exit 1
             fi
-            
-            echo ""
-            echo "IAM Service Status:"
-            if sudo docker ps --filter "name=iam-apiserver" --format "{{.Names}}" | grep -q "iam-apiserver"; then
-              echo "  ✅ IAM container is running"
-              CONTAINER_STATUS=$(sudo docker ps --filter "name=iam-apiserver" --format "{{.Status}}")
-              echo "  Status: $CONTAINER_STATUS"
-            else
-              echo "  ⚠️ IAM container not found"
+            if ! sudo docker info >/dev/null 2>&1; then
+              echo "  Docker daemon is not accessible"
+              exit 1
             fi
-            
+            echo "  Docker is running"
+            echo "  Version: $(sudo docker version --format '{{.Server.Version}}' 2>/dev/null)"
+            echo "  Containers: $(sudo docker ps -q | wc -l) running"
+
             echo ""
-            echo "Disk Space:"
+            echo "IAM service status:"
+            if sudo docker ps --filter "name=iam-apiserver" --format "{{.Names}}" | grep -wq "iam-apiserver"; then
+              echo "  iam-apiserver container is running"
+              sudo docker ps --filter "name=iam-apiserver" --format "table {{.Names}}\t{{.Status}}\t{{.Networks}}"
+              http_status=$(sudo docker exec iam-apiserver curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9080/healthz || echo "000")
+              echo "  Internal /healthz: $http_status"
+            else
+              echo "  iam-apiserver container is not running"
+              sudo docker ps -a --filter "name=iam-apiserver" || true
+            fi
+
+            echo ""
+            echo "Disk space:"
             df -h / | tail -1 | awk '{printf "  Root: %s used / %s total (%s)\n", $3, $2, $5}'
-            
+
             echo ""
-            echo "Memory Usage:"
+            echo "Memory usage:"
             free -h | awk 'NR==2{printf "  Used: %s / Total: %s (%.1f%%)\n", $3, $2, $3*100/$2}'
-            
-            echo "=========================================="
-            echo "✅ All checks completed"
-            echo "=========================================="
