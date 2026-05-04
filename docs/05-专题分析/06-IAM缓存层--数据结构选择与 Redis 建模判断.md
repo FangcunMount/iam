@@ -216,16 +216,16 @@ JWKS 发布快照与 Redis 缓存不同：
 
 | 事实 | 代码 |
 | ---- | ---- |
-| 缓存族结构与选择原因 | [../../internal/apiserver/application/cachegovernance/catalog.go](../../internal/apiserver/application/cachegovernance/catalog.go) |
+| 缓存族结构与选择原因 | [../../internal/apiserver/cache/catalog.go](../../internal/apiserver/cache/catalog.go) |
 | AuthN session domain | [../../internal/apiserver/domain/authn/session](../../internal/apiserver/domain/authn/session) |
 | AuthN token 应用服务 | [../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token) |
 | IDP access token cache-aside | [../../internal/apiserver/domain/idp/wechatapp/accesstoken-cacher.go](../../internal/apiserver/domain/idp/wechatapp/accesstoken-cacher.go) |
-| Redis 基础设施实现 | [../../internal/apiserver/infra/redis](../../internal/apiserver/infra/redis) |
+| Redis 基础设施实现 | [../../internal/apiserver/infra/cache/redis](../../internal/apiserver/infra/cache/redis) |
 | JWKS keyset | [../../internal/apiserver/infra/token/keyset](../../internal/apiserver/infra/token/keyset) |
 
 建议验证：
 
 ```bash
-go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/redis ./internal/apiserver/infra/token/...
+go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/cache/redis ./internal/apiserver/infra/token/...
 make docs-hygiene
 ```

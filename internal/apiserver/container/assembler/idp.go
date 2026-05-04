@@ -10,7 +10,7 @@ import (
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
 	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	infraRedis "github.com/FangcunMount/iam/v2/internal/apiserver/infra/redis"
+	infraRedis "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
 	wechatapiPort "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi/port"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"

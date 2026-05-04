@@ -1,8 +1,13 @@
 package assembler
 
 import (
+	"context"
+	"fmt"
+	"strings"
 	"testing"
 
+	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
@@ -43,9 +48,16 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	if caps.TokenService == nil {
 		t.Fatalf("expected TokenService to be initialized")
 	}
-	if got := len(module.CacheFamilyInspectors()); got != 8 {
-		t.Fatalf("AuthnModule.CacheFamilyInspectors() count = %d, want 8", got)
-	}
+	assertInspectorFamilies(t, module.CacheFamilyInspectors(), []cachemodel.Family{
+		cachemodel.FamilyAuthnRefreshToken,
+		cachemodel.FamilyAuthnRevokedAccessToken,
+		cachemodel.FamilyAuthnSession,
+		cachemodel.FamilyAuthnUserSessionIndex,
+		cachemodel.FamilyAuthnAccountSessionIndex,
+		cachemodel.FamilyAuthnLoginOTP,
+		cachemodel.FamilyAuthnLoginOTPSendGate,
+		cachemodel.FamilyAuthnJWKSPublishSnapshot,
+	})
 }
 
 func TestIDPModuleInitializeWithRedisAdapters(t *testing.T) {
@@ -75,7 +87,68 @@ func TestIDPModuleInitializeWithRedisAdapters(t *testing.T) {
 	if module.ApplicationCapabilities().WechatAppService == nil {
 		t.Fatalf("expected WechatAppService capability to be initialized")
 	}
-	if got := len(module.CacheFamilyInspectors()); got != 2 {
-		t.Fatalf("IDPModule.CacheFamilyInspectors() count = %d, want 2", got)
+	assertInspectorFamilies(t, module.CacheFamilyInspectors(), []cachemodel.Family{
+		cachemodel.FamilyIDPWechatAccessToken,
+		cachemodel.FamilyIDPWechatSDK,
+	})
+}
+
+func TestValidateInspectorFamiliesRejectsDuplicateAndUnknown(t *testing.T) {
+	if err := validateInspectorFamilies([]cachegovernance.FamilyInspector{
+		inspectorFamilyStub{family: cachemodel.FamilyAuthnRefreshToken},
+		inspectorFamilyStub{family: cachemodel.FamilyAuthnRefreshToken},
+	}, []cachemodel.Family{cachemodel.FamilyAuthnRefreshToken}); err == nil || !strings.Contains(err.Error(), "duplicate cache family") {
+		t.Fatalf("duplicate validation error = %v, want duplicate cache family", err)
 	}
+
+	if err := validateInspectorFamilies([]cachegovernance.FamilyInspector{
+		inspectorFamilyStub{family: "unknown.family"},
+	}, []cachemodel.Family{"unknown.family"}); err == nil || !strings.Contains(err.Error(), "unknown cache family") {
+		t.Fatalf("unknown validation error = %v, want unknown cache family", err)
+	}
+}
+
+func assertInspectorFamilies(t *testing.T, inspectors []cachegovernance.FamilyInspector, want []cachemodel.Family) {
+	t.Helper()
+	if err := validateInspectorFamilies(inspectors, want); err != nil {
+		t.Fatalf("CacheFamilyInspectors() families mismatch: %v", err)
+	}
+}
+
+func validateInspectorFamilies(inspectors []cachegovernance.FamilyInspector, want []cachemodel.Family) error {
+	seen := make(map[cachemodel.Family]struct{}, len(inspectors))
+	for index, inspector := range inspectors {
+		if inspector == nil {
+			return fmt.Errorf("inspector[%d] is nil", index)
+		}
+		family := inspector.Descriptor().Family
+		if _, ok := cachemodel.GetFamily(family); !ok {
+			return fmt.Errorf("unknown cache family %s", family)
+		}
+		if _, ok := seen[family]; ok {
+			return fmt.Errorf("duplicate cache family %s", family)
+		}
+		seen[family] = struct{}{}
+	}
+	if len(seen) != len(want) {
+		return fmt.Errorf("family count = %d, want %d", len(seen), len(want))
+	}
+	for _, family := range want {
+		if _, ok := seen[family]; !ok {
+			return fmt.Errorf("missing cache family %s", family)
+		}
+	}
+	return nil
+}
+
+type inspectorFamilyStub struct {
+	family cachemodel.Family
+}
+
+func (s inspectorFamilyStub) Descriptor() cachegovernance.FamilyDescriptor {
+	return cachegovernance.FamilyDescriptor{Family: s.family}
+}
+
+func (s inspectorFamilyStub) Status(context.Context) (cachegovernance.FamilyStatus, error) {
+	return cachegovernance.FamilyStatus{Family: s.family}, nil
 }

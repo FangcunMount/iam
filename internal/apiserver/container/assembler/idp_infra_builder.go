@@ -6,9 +6,9 @@ import (
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	infraRedis "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/crypto"
 	infraMysql "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/wechatapp"
-	infraRedis "github.com/FangcunMount/iam/v2/internal/apiserver/infra/redis"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
 )
 

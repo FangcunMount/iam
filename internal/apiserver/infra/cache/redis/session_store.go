@@ -8,6 +8,7 @@ import (
 
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/redis/go-redis/v9"
@@ -171,8 +172,8 @@ func (s *SessionStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 		return nil
 	}
 	return []cachegovernance.FamilyInspector{
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnSession, s.client, "会话主对象使用 Redis String(JSON) 存储。"),
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnUserSessionIndex, s.client, "用户维度会话索引使用 Redis ZSet。"),
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnAccountSessionIndex, s.client, "账号维度会话索引使用 Redis ZSet。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnSession, s.client, "会话主对象使用 Redis String(JSON) 存储。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnUserSessionIndex, s.client, "用户维度会话索引使用 Redis ZSet。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnAccountSessionIndex, s.client, "账号维度会话索引使用 Redis ZSet。"),
 	}
 }

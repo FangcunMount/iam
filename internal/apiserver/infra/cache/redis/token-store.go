@@ -11,6 +11,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -33,8 +34,8 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 // FamilyInspectors 返回当前适配器暴露的缓存族状态读取器。
 func (s *RedisStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnRefreshToken, s.client, "刷新令牌采用 JSON String 存储。"),
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnRevokedAccessToken, s.client, "已撤销访问令牌采用 marker String 存储。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnRefreshToken, s.client, "刷新令牌采用 JSON String 存储。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnRevokedAccessToken, s.client, "已撤销访问令牌采用 marker String 存储。"),
 	}
 }
 

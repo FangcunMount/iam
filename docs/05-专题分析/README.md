@@ -10,7 +10,7 @@
 
 - `05-专题分析` 是跨层深潜层，不是业务域索引，也不是运行时索引。
 - 每篇都以“本文回答 -> 30 秒结论 -> 主图/速查表 -> 深度链路 -> 设计模式 -> 失败边界 -> 代码证据与验证”组织。
-- 当前事实口径保持一致：`ProfileLink`、内部 `rolebinding`、公开 `assignment` wire term、`application/authn/token`、`infra/token/*`、`application/cachegovernance/catalog`、transactional outbox + relay。
+- 当前事实口径保持一致：`ProfileLink`、内部 `rolebinding`、公开 `assignment` wire term、`application/authn/token`、`infra/token/*`、`internal/apiserver/cache/catalog.go`、transactional outbox + relay。
 - 旧质量报告和历史材料不放在活跃专题层；历史材料只从 [../_archive](../_archive/README.md) 追溯。
 
 ## 专题地图
@@ -101,6 +101,6 @@ git diff --check -- docs/05-专题分析 docs/README.md
 
 ```bash
 go test ./internal/apiserver/domain/... ./internal/apiserver/application/authn/... ./internal/apiserver/application/authz/... ./internal/apiserver/application/uc/... ./internal/apiserver/application/idp/... ./internal/apiserver/application/suggest
-go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/redis ./internal/apiserver/infra/token/... ./internal/apiserver/infra/casbin ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging ./pkg/outbox/... ./pkg/outboxcore/... ./pkg/eventruntime/...
+go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/cache/redis ./internal/apiserver/infra/token/... ./internal/apiserver/infra/casbin ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging ./pkg/outbox/... ./pkg/outboxcore/... ./pkg/eventruntime/...
 go test ./internal/apiserver/transport/rest ./internal/apiserver/transport/grpc/... ./pkg/sdk/...
 ```

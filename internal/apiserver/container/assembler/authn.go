@@ -19,8 +19,8 @@ import (
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	sessionDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	redisInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/crypto"
-	redisInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/redis"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v2/pkg/event"
 )

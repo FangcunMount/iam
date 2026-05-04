@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	cacheflow "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 )
 
 type accessTokenCacher struct {
@@ -35,35 +37,43 @@ func (s *accessTokenCacher) EnsureToken(ctx context.Context, app *WechatApp, ske
 	if skew <= 0 {
 		skew = s.refreshSkew
 	}
-	// 1) 读缓存
-	if cached, _ := s.cache.Get(ctx, app.AppID); cached != nil && cached.IsValid(time.Now(), skew) {
-		return cached.Token, nil
-	}
 
-	// 2) 单飞刷新
-	ok, unlock, err := s.cache.TryLockRefresh(ctx, app.AppID, 10*time.Second)
+	token, err := cacheflow.LockedReadThrough[AppAccessToken](ctx, cacheflow.LockedReadThroughOptions[AppAccessToken]{
+		ReadThroughOptions: cacheflow.ReadThroughOptions[AppAccessToken]{
+			Get: func(ctx context.Context) (*AppAccessToken, error) {
+				return s.cache.Get(ctx, app.AppID)
+			},
+			Valid: func(aat *AppAccessToken) bool {
+				return aat != nil && aat.IsValid(time.Now(), skew)
+			},
+			Load: func(ctx context.Context) (*AppAccessToken, error) {
+				return s.provider.Fetch(ctx, app)
+			},
+			TTL: func(aat *AppAccessToken) time.Duration {
+				ttl := time.Until(aat.ExpiresAt) - skew
+				if ttl < s.cacheTTLMin {
+					ttl = s.cacheTTLMin
+				}
+				return ttl
+			},
+			Set: func(ctx context.Context, aat *AppAccessToken, ttl time.Duration) error {
+				return s.cache.Set(ctx, app.AppID, aat, ttl)
+			},
+			IgnoreGetError: true,
+		},
+		Lock: func(ctx context.Context) (bool, func(), error) {
+			return s.cache.TryLockRefresh(ctx, app.AppID, 10*time.Second)
+		},
+		RereadUsable: func(aat *AppAccessToken) bool {
+			return aat != nil && aat.Token != ""
+		},
+		LockMissError: errors.New("access_token refresh in progress, please retry"),
+	})
 	if err != nil {
 		return "", err
 	}
-	if ok {
-		defer unlock()
-		aat, err := s.provider.Fetch(ctx, app)
-		if err != nil {
-			return "", err
-		}
-		ttl := time.Until(aat.ExpiresAt) - skew
-		if ttl < s.cacheTTLMin {
-			ttl = s.cacheTTLMin
-		}
-		if err := s.cache.Set(ctx, app.AppID, aat, ttl); err != nil {
-			return "", err
-		}
-		return aat.Token, nil
+	if token == nil {
+		return "", errors.New("access_token refresh in progress, please retry")
 	}
-
-	// 3) 未拿到锁：读一次缓存（可能被别人刷新了）
-	if cached, _ := s.cache.Get(ctx, app.AppID); cached != nil && cached.Token != "" {
-		return cached.Token, nil
-	}
-	return "", errors.New("access_token refresh in progress, please retry")
+	return token.Token, nil
 }

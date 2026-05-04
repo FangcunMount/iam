@@ -8,16 +8,17 @@ import (
 	wechatcache "github.com/silenceper/wechat/v2/cache"
 
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 )
 
 type redisFamilyInspector struct {
-	family cachegovernance.Family
+	family cachemodel.Family
 	client *redisinfra.Client
 	notes  []string
 }
 
-func newRedisFamilyInspector(family cachegovernance.Family, client *redisinfra.Client, notes ...string) cachegovernance.FamilyInspector {
+func newRedisFamilyInspector(family cachemodel.Family, client *redisinfra.Client, notes ...string) cachegovernance.FamilyInspector {
 	return &redisFamilyInspector{
 		family: family,
 		client: client,
@@ -26,12 +27,12 @@ func newRedisFamilyInspector(family cachegovernance.Family, client *redisinfra.C
 }
 
 func (i *redisFamilyInspector) Descriptor() cachegovernance.FamilyDescriptor {
-	descriptor, ok := cachegovernance.GetFamily(i.family)
+	descriptor, ok := cachemodel.GetFamily(i.family)
 	if !ok {
 		return cachegovernance.FamilyDescriptor{
 			Family:    i.family,
-			Backend:   cachegovernance.BackendKindRedis,
-			RedisType: cachegovernance.RedisDataTypeString,
+			Backend:   cachemodel.BackendKindRedis,
+			RedisType: cachemodel.RedisDataTypeString,
 		}
 	}
 	return descriptor

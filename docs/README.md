@@ -395,7 +395,7 @@ docs/README.md 最终更新
 ## 术语约定
 
 | 术语 | 当前约定 |
-|---|---|
+| --- | --- |
 | IAM | Identity and Access Management 服务，不等同于单纯用户管理后台 |
 | AuthN | Authentication，负责登录、账号、session、token、JWKS |
 | AuthZ | Authorization，负责角色、资源、权限、RoleBinding、授权判定 |

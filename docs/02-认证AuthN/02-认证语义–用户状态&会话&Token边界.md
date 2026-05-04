@@ -79,8 +79,8 @@ load refresh token
 - [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go)
 - [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go)
 - [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go)
-- [../../internal/apiserver/infra/redis/token-store.go](../../internal/apiserver/infra/redis/token-store.go)
-- [../../internal/apiserver/infra/redis/session_store.go](../../internal/apiserver/infra/redis/session_store.go)
+- [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
+- [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
 ---
 
@@ -128,8 +128,8 @@ flowchart TD
 | 在线 Verify 检查什么 | JWT、过期、撤销标记、session active、user/account access。 | [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go) |
 | Refresh 检查什么 | refresh token、session active、user/account access、refresh token expiry。 | [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go) |
 | User/Account 访问状态在哪里汇总 | `SubjectAccessEvaluator`。 | [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go) |
-| Access revoke marker 保存在哪里 | Redis token store 的 revoked access token marker。 | [../../internal/apiserver/infra/redis/token-store.go](../../internal/apiserver/infra/redis/token-store.go) |
-| Session 保存在哪里 | Redis SessionStore，含 user/account session index。 | [../../internal/apiserver/infra/redis/session_store.go](../../internal/apiserver/infra/redis/session_store.go) |
+| Access revoke marker 保存在哪里 | Redis token store 的 revoked access token marker。 | [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go) |
+| Session 保存在哪里 | Redis SessionStore，含 user/account session index。 | [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go) |
 | Block 用户是否撤销 session | User `Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go) |
 
 ---
@@ -403,7 +403,7 @@ Redis SessionStore 保存：
 - [../../internal/apiserver/domain/authn/session/session.go](../../internal/apiserver/domain/authn/session/session.go)
 - [../../internal/apiserver/domain/authn/session/manager.go](../../internal/apiserver/domain/authn/session/manager.go)
 - [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
-- [../../internal/apiserver/infra/redis/session_store.go](../../internal/apiserver/infra/redis/session_store.go)
+- [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
 ---
 
@@ -509,7 +509,7 @@ Refresh Token 绑定 session。
 核心源码：
 
 - [../../internal/apiserver/application/authn/token/types.go](../../internal/apiserver/application/authn/token/types.go)
-- [../../internal/apiserver/infra/redis/token-store.go](../../internal/apiserver/infra/redis/token-store.go)
+- [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 - [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go)
 
 ---
@@ -673,7 +673,7 @@ sessionManager.Extend(sessionID, newTokenPair.RefreshToken.ExpiresAt)
 核心源码：
 
 - [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go)
-- [../../internal/apiserver/infra/redis/token-store.go](../../internal/apiserver/infra/redis/token-store.go)
+- [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 - [../../internal/apiserver/domain/authn/session/manager.go](../../internal/apiserver/domain/authn/session/manager.go)
 
 ---
@@ -721,7 +721,7 @@ flowchart TD
 核心源码：
 
 - [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
-- [../../internal/apiserver/infra/redis/token-store.go](../../internal/apiserver/infra/redis/token-store.go)
+- [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 
 ---
 
@@ -809,7 +809,7 @@ sequenceDiagram
 核心源码：
 
 - [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go)
-- [../../internal/apiserver/infra/redis/session_store.go](../../internal/apiserver/infra/redis/session_store.go)
+- [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
 ---
 
@@ -1001,8 +1001,8 @@ internal/apiserver/domain/authn/account/account.go
 ### 第四轮：Redis store
 
 ```text
-internal/apiserver/infra/redis/token-store.go
-internal/apiserver/infra/redis/session_store.go
+internal/apiserver/infra/cache/redis/token-store.go
+internal/apiserver/infra/cache/redis/session_store.go
 ```
 
 目标：看清 refresh token、revoked access marker、session、user/account session index 如何存储。
@@ -1024,7 +1024,7 @@ internal/apiserver/infra/token/keyset
 ```bash
 go test ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
-  ./internal/apiserver/infra/redis \
+  ./internal/apiserver/infra/cache/redis \
   ./internal/apiserver/domain/uc/user \
   ./internal/apiserver/application/uc/user
 

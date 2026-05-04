@@ -4,7 +4,7 @@
 
 ## 30 秒结论
 
-- CacheGovernance 的核心不是“缓存实现”，而是“缓存族目录 + 只读运行状态”。静态目录定义在 [../../internal/apiserver/application/cachegovernance/catalog.go](../../internal/apiserver/application/cachegovernance/catalog.go)，运行状态由各模块 inspector 提供。
+- CacheGovernance 的核心不是“缓存实现”，而是“缓存族目录 + 只读运行状态”。静态目录定义在 [../../internal/apiserver/cache/catalog.go](../../internal/apiserver/cache/catalog.go)，运行状态由各模块 inspector 提供。
 - 当前治理面覆盖 10 个 family：AuthN refresh token、revoked access token、session、session index、OTP、IDP 微信 access token、微信 SDK 缓存、JWKS 发布快照。
 - 治理面是读模型：它可以说明缓存属于谁、怎么编码、TTL 从哪里来、为什么选这种结构、当前 inspector 是否健康；它不负责清空缓存、不参与认证授权判定，也不把 debug 接口变成运维写入口。
 - REST debug 面在 `/debug/cache-governance/*`，由 [../../internal/apiserver/transport/rest/debug_routes.go](../../internal/apiserver/transport/rest/debug_routes.go) 注册；生产模式默认要求平台管理员保护。
@@ -227,16 +227,16 @@ handler 的失败边界很明确：
 
 | 事实 | 代码 |
 | ---- | ---- |
-| 缓存族 catalog | [../../internal/apiserver/application/cachegovernance/catalog.go](../../internal/apiserver/application/cachegovernance/catalog.go) |
+| 缓存族 catalog | [../../internal/apiserver/cache/catalog.go](../../internal/apiserver/cache/catalog.go) |
 | ReadService 聚合逻辑 | [../../internal/apiserver/application/cachegovernance/service.go](../../internal/apiserver/application/cachegovernance/service.go) |
 | JWKS 内存快照 inspector | [../../internal/apiserver/application/cachegovernance/jwks_inspector.go](../../internal/apiserver/application/cachegovernance/jwks_inspector.go) |
-| Redis inspectors | [../../internal/apiserver/infra/redis](../../internal/apiserver/infra/redis) |
+| Redis inspectors | [../../internal/apiserver/infra/cache/redis](../../internal/apiserver/infra/cache/redis) |
 | REST debug handler | [../../internal/apiserver/transport/rest/cachegovernance/handler/governance.go](../../internal/apiserver/transport/rest/cachegovernance/handler/governance.go) |
 | debug route 注册 | [../../internal/apiserver/transport/rest/debug_routes.go](../../internal/apiserver/transport/rest/debug_routes.go) |
 
 建议验证：
 
 ```bash
-go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/redis ./internal/apiserver/transport/rest
+go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/cache/redis ./internal/apiserver/transport/rest
 make docs-hygiene
 ```

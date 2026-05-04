@@ -182,12 +182,12 @@ sequenceDiagram
 
 - Token application：[../../internal/apiserver/application/authn/token](../../internal/apiserver/application/authn/token)
 - Session domain：[../../internal/apiserver/domain/authn/session](../../internal/apiserver/domain/authn/session)
-- Redis stores：[../../internal/apiserver/infra/redis](../../internal/apiserver/infra/redis)
+- Redis stores：[../../internal/apiserver/infra/cache/redis](../../internal/apiserver/infra/cache/redis)
 - SDK verifier：[../../pkg/sdk/auth/verifier](../../pkg/sdk/auth/verifier)
 - SDK JWKS manager：[../../pkg/sdk/auth/jwks](../../pkg/sdk/auth/jwks)
 
 建议验证：
 
 ```bash
-go test ./internal/apiserver/application/authn/token ./internal/apiserver/domain/authn/session ./internal/apiserver/infra/redis ./pkg/sdk/auth/verifier ./pkg/sdk/auth/jwks
+go test ./internal/apiserver/application/authn/token ./internal/apiserver/domain/authn/session ./internal/apiserver/infra/cache/redis ./pkg/sdk/auth/verifier ./pkg/sdk/auth/jwks
 ```

@@ -11,6 +11,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 )
 
@@ -40,8 +41,8 @@ func NewOTPVerifier(client *redis.Client) *OTPVerifierImpl {
 // FamilyInspectors 返回 OTP 相关缓存族的状态读取器。
 func (v *OTPVerifierImpl) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnLoginOTP, v.client, "OTP 采用一次性 marker String 存储。"),
-		newRedisFamilyInspector(cachegovernance.FamilyAuthnLoginOTPSendGate, v.client, "发送频控采用 SET NX EX 的 cooldown marker。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTP, v.client, "OTP 采用一次性 marker String 存储。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendGate, v.client, "发送频控采用 SET NX EX 的 cooldown marker。"),
 	}
 }
 
