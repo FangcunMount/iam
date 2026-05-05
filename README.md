@@ -1,6 +1,6 @@
 # IAM
 
-IAM 是方寸山项目的身份与访问管理服务，提供完整的认证、授权、用户档案管理和第三方身份集成能力。
+IAM 是方寸项目的身份与访问管理服务，提供完整的认证、授权、用户档案管理和第三方身份集成能力。
 
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
