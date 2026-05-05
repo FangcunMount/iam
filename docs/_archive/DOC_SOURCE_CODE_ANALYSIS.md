@@ -17,7 +17,7 @@ docs 文档与源码的一致性极高，但存在**少量特定领域的细节�
 ### 主要发现
 
 | 评级 | 类别 | 偏移程度 | 影响 |
-|------|------|--------|------|
+| ------ | ------ | -------- | ------ |
 | ✅ | 架构分层 | 0% 偏移 | 完全一致 |
 | ✅ | 六边形架构 | 0% 偏移 | 实现清晰 |
 | ✅ | 核心业务域 (authn/authz/uc) | 0% 偏移 | 完全对齐 |
@@ -45,7 +45,7 @@ interface -> application -> domain -> infra (+ container 装配)
 #### 源码落点验证
 
 | 层级 | 文档说法 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | Interface | REST/gRPC 适配器 | `internal/apiserver/interface/{authn,authz,uc,idp,suggest}/` | ✅ 完全一致 |
 | Application | 用例编排、事务边界 | `internal/apiserver/application/{authn,authz,uc,idp,suggest}/` | ✅ 完全一致 |
 | Domain | 核心业务规则、仓储接口 | `internal/apiserver/domain/{authn,authz,uc,idp,suggest}/` | ✅ 完全一致 |
@@ -70,7 +70,7 @@ interface -> application -> domain -> infra (+ container 装配)
 **授权域 (Authz)**
 
 | 对象 | 文档承诺 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | Policy | `CommandService` + `QueryService` | ✅ 已实现 | ✅ 一致 |
 | Role | `CommandService` + `QueryService` | ✅ 已实现 | ✅ 一致 |
 | Assignment | `CommandService` + `QueryService` | ✅ 已实现 | ✅ 一致 |
@@ -79,7 +79,7 @@ interface -> application -> domain -> infra (+ container 装配)
 **用户域 (UC)**
 
 | 对象 | 文档说法 | 源码实现 | 细节偏移 |
-|-----|--------|--------|---------|
+| ----- | -------- | -------- | --------- |
 | User | 命令/查询分离，共享 UoW | ✅ 已实现 | ✅ 无偏移 |
 | Profile | 命令/查询分离，共享 UoW | ✅ 已实现 | ✅ 无偏移 |
 | Ref | 命令/查询分离，共享 UoW | ⚠️ 部分 | ⚠️ 见下 |
@@ -110,7 +110,7 @@ interface -> application -> domain -> infra (+ container 装配)
 #### 验证内容
 
 | 特性 | 文档说法 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | 统一登录入口 | `POST /api/v1/authn/login` | ✅ [internal/apiserver/interface/authn/restful/handler/auth.go](internal/apiserver/interface/authn/restful/handler/auth.go) | ✅ |
 | 多认证策略 | password、phone_otp、wechat、wecom | ✅ [internal/apiserver/domain/authn/authentication/](internal/apiserver/domain/authn/authentication/) | ✅ |
 | Principal 产出 | 认证判决中心产出 | ✅ [internal/apiserver/domain/authn/authentication/authenticater.go](internal/apiserver/domain/authn/authentication/authenticater.go) | ✅ |
@@ -134,7 +134,7 @@ interface -> application -> domain -> infra (+ container 装配)
 #### 验证内容
 
 | 特性 | 文档说法 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | 角色对象 | 打包能力、编码 `role:<name>` | ✅ [internal/apiserver/domain/authz/role/role.go](internal/apiserver/domain/authz/role/role.go) | ✅ |
 | 资源对象 | 被保护资源、编码 `<key>` | ✅ [internal/apiserver/domain/authz/resource/resource.go](internal/apiserver/domain/authz/resource/resource.go) | ✅ |
 | 策略对象 | 角色能做什么、映射 Casbin `p` | ✅ [internal/apiserver/application/authz/policy/command_service.go](internal/apiserver/application/authz/policy/command_service.go) | ✅ |
@@ -156,7 +156,7 @@ interface -> application -> domain -> infra (+ container 装配)
 #### 验证内容
 
 | 特性 | 文档说法 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | User 对象 | 用户档案锚点 | ✅ [internal/apiserver/domain/uc/user/user.go](internal/apiserver/domain/uc/user/user.go) | ✅ |
 | Profile 对象 | 儿童身份对象 | ✅ [internal/apiserver/domain/uc/profile/profile.go](internal/apiserver/domain/uc/profile/profile.go) | ✅ |
 | Ref | 监护关系、relation/established_at/revoked_at | ✅ [internal/apiserver/domain/uc/ref/ref.go](internal/apiserver/domain/uc/ref/ref.go) | ✅ |
@@ -197,7 +197,7 @@ interface -> application -> domain -> infra (+ container 装配)
 源码验证：
 
 | 治理能力 | 文档说法 | 源码实现 | 状态 |
-|---------|--------|--------|------|
+| --------- | -------- | -------- | ------ |
 | Catalog | 已实现 | ✅ [internal/apiserver/infra/cache/catalog.go](internal/apiserver/infra/cache/catalog.go) | ✅ |
 | FamilyInspector | 已实现 | ✅ 部分实现 | ⚠️ 见下 |
 | GovernanceReadService | 已实现 | ✅ [internal/apiserver/application/cachegovernance/service.go](internal/apiserver/application/cachegovernance/service.go) | ✅ |
@@ -231,7 +231,7 @@ interface -> application -> domain -> infra (+ container 装配)
 #### 验证内容
 
 | 要点 | 文档说法 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | main 入口 | `cmd/apiserver/apiserver.go` | ✅ [cmd/apiserver/apiserver.go](cmd/apiserver/apiserver.go) | ✅ |
 | 初始化序列 | IDP -> Authn -> User -> Authz -> Suggest | ✅ [internal/apiserver/container/container.go](internal/apiserver/container/container.go) | ✅ |
 | 模块初始化失败 | 记录 warning 不退出 | ✅ 源码确实如此 | ✅ |
@@ -259,7 +259,7 @@ interface -> application -> domain -> infra (+ container 装配)
 源码实现：
 
 | IDP 类型 | 文档提及 | 源码实现 | 状态 |
-|---------|--------|--------|------|
+| --------- | -------- | -------- | ------ |
 | WeChat Mini | ✅ 提及 | ✅ [internal/apiserver/domain/authn/authentication/auth-wechat-mini.go](internal/apiserver/domain/authn/authentication/auth-wechat-mini.go) | ✅ |
 | WeChat Work (wecom) | ✅ 提及 | ⚠️ 部分 | ⚠️ 见下 |
 | 可扩展框架 | ✅ 提及 | ✅ [internal/apiserver/domain/authn/authentication/](internal/apiserver/domain/authn/authentication/) | ✅ |
@@ -294,7 +294,7 @@ interface -> application -> domain -> infra (+ container 装配)
 源码验证：
 
 | 功能 | 文档说法 | 源码实现 | 状态 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | Policy 版本表 | `authz_policy_versions` | ✅ [configs/mysql/schema.sql](configs/mysql/schema.sql) | ✅ |
 | 版本消息发布 | 可选、消息主题 `iam.authz.policy_version` | ✅ [internal/apiserver/infra/messaging/version_notifier.go](internal/apiserver/infra/messaging/version_notifier.go) | ✅ |
 | EventBus 接入 | 可选配置 | ✅ [internal/apiserver/container/container.go](internal/apiserver/container/container.go) | ✅ |
@@ -320,7 +320,7 @@ interface -> application -> domain -> infra (+ container 装配)
 #### 验证内容
 
 | 特性 | 文档说法 | 源码实现 | 一致性 |
-|-----|--------|--------|------|
+| ----- | -------- | -------- | ------ |
 | JWKS 发布端点 | `/.well-known/jwks.json` | ✅ [internal/apiserver/routers.go](internal/apiserver/routers.go) | ✅ |
 | 初始密钥生成 | 启动时可自动建初始 active key | ✅ [internal/apiserver/domain/authn/jwks/keyset_builder.go](internal/apiserver/domain/authn/jwks/keyset_builder.go) | ✅ |
 | 轮换机制 | 每日凌晨 2 点检查 | ✅ [internal/apiserver/container/assembler/authn.go](internal/apiserver/container/assembler/authn.go) | ✅ |
@@ -333,7 +333,7 @@ interface -> application -> domain -> infra (+ container 装配)
 ## 总体偏移汇总表
 
 | 模块 | 偏移程度 | 主要问题 | 建议修正 |
-|-----|--------|--------|---------|
+| ----- | -------- | -------- | --------- |
 | **架构分层** | 0% | 无 | 无 |
 | **六边形架构** | 0% | 无 | 无 |
 | **认证链路 (Authn)** | 0% | 无 | 无 |
@@ -498,7 +498,7 @@ rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse
 ### 评分
 
 | 维度 | 评分 |
-|-----|-----|
+| ----- | ----- |
 | 架构一致性 | ⭐⭐⭐⭐⭐ (95/100) |
 | 业务域完整性 | ⭐⭐⭐⭐⭐ (90/100) |
 | 文档准确性 | ⭐⭐⭐⭐☆ (85/100) |
@@ -529,7 +529,7 @@ rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse
 ## 附录：文档文件清单与状态
 
 | 文档文件 | 覆盖范围 | 与源码一致性 | 备注 |
-|---------|--------|----------|------|
+| --------- | -------- | ---------- | ------ |
 | [00-概览/01-系统架构总览.md](docs/00-概览/01-系统架构总览.md) | 总体架构 | ✅ 完全一致 | |
 | [00-概览/02-核心概念术语.md](docs/00-概览/02-核心概念术语.md) | 概念定义 | ✅ 一致 | |
 | [01-运行时/01-服务入口&HTTP 与模块装配.md](docs/01-运行时/01-服务入口&HTTP%20与模块装配.md) | 运行时组装 | ✅ 完全一致 | |

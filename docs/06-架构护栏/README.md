@@ -59,7 +59,7 @@ docs-hygiene
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | `01-架构测试与依赖边界.md` | 解释代码层架构护栏 | domain/application/transport/container 的依赖方向如何被测试保护 |
 | `02-文档事实源与防漂移机制.md` | 解释文档与契约防漂移 | docs、OpenAPI、proto、SDK、_archive 的事实源优先级如何维护 |
 
@@ -234,7 +234,7 @@ flowchart TD
 ## 主要架构护栏
 
 | 护栏 | 保护什么 | 典型测试 |
-|---|---|---|
+| --- | --- | --- |
 | domain 不依赖 infra/database | 保持领域规则纯净 | `TestDomainPackagesDoNotAddInfrastructureDependencies` |
 | application 不依赖 transport/infra | 保持用例层不绑定协议和基础设施 | `TestApplicationPackagesDoNotAddTransportOrInfrastructureDependencies` |
 | REST router 不依赖 container/viper | transport 消费显式 deps，不导航组合根 | `TestRESTRouterDoesNotImportCompositionOrGlobalConfig` |
@@ -373,7 +373,7 @@ _archive 不作为当前事实源
 ## 代码证据入口
 
 | 主题 | 代码 / 脚本入口 |
-|---|---|
+| --- | --- |
 | 架构测试 | `internal/pkg/architecture/architecture_test.go` |
 | REST contract test | `internal/apiserver/transport/rest/router_matrix_test.go` |
 | gRPC proto contract | `internal/apiserver/transport/grpc/proto_contract_test.go` |
@@ -390,7 +390,7 @@ _archive 不作为当前事实源
 ## 与其他目录的关系
 
 | 目录 | 关系 |
-|---|---|
+| --- | --- |
 | `00-概览` | 概览层说明系统分层；架构护栏解释这些分层如何被测试保护 |
 | `01-运行时` | 运行时说明 process/container/transport；架构护栏防止这些层次混淆 |
 | `02-认证AuthN` | AuthN 文档说明业务链路；架构护栏防止 REST handler 拥有登录方式分发 |

@@ -51,7 +51,7 @@ Command
 也就是说，一次授权变更至少涉及四类结果：
 
 | 结果 | 例子 | 目的 |
-|---|---|---|
+| --- | --- | --- |
 | 管理记录 | `rolebinding.Binding` | 用于后台查询、审计、管理 |
 | 授权事实 | `casbin_rule p/g` | 用于 runtime 判定 |
 | 策略版本 | `PolicyVersion` | 用于授权快照和缓存失效 |
@@ -97,7 +97,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | 领域层如何表达授权变更 | `AuthorizationPolicy` 生成 `PolicyChange`，类型包括 grant/revoke permission、bind/unbind role。 | `domain/authz/policy/authorization_policy.go` |
 | 应用事务由谁拥有 | `PolicyChangeCommitter.Commit`。 | `application/authz/policy/committer.go` |
 | Commit 的事务边界 | `uow.WithinTx`。 | `application/authz/policy/committer.go` |
@@ -194,7 +194,7 @@ runtime LoadPolicy()
 因此，授权写入至少分成两类数据：
 
 | 类型 | 作用 |
-|---|---|
+| --- | --- |
 | 管理数据 | 给后台、审计、查询、撤销使用 |
 | 运行时事实 | 给 Casbin runtime Enforce 使用 |
 
@@ -535,7 +535,7 @@ casbin_rule
 映射：
 
 | 领域事实 | Casbin fact |
-|---|---|
+| --- | --- |
 | Permission | `p(role, tenant, resource, action, scope)` |
 | RoleBinding | `g(subject, role, tenant)` |
 
@@ -1073,7 +1073,7 @@ DB 是事实源，reload 是事务后的 best-effort。失败会记录 degraded�
 ## 18. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | AuthorizationPolicy 生成 PolicyChange | `domain/authz/policy/authorization_policy.go` |
 | PolicyAdministration 调用 committer 提交授权变更 | `application/authz/policy/administration.go` |
 | PolicyChangeCommitter 拥有事务顺序 | `application/authz/policy/committer.go` |
@@ -1165,7 +1165,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | GrantPermission | p fact 写入、version 递增、event staged、reload |
 | RevokePermission | p fact 删除、version 递增、event staged |
 | BindRole | Binding 管理记录 + g fact 同事务写入 |

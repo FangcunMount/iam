@@ -40,7 +40,7 @@ Go SDK
 事实源分别是：
 
 | 接入方式 | 事实源 |
-|---|---|
+| --- | --- |
 | REST | `api/rest/*.yaml` |
 | gRPC | `api/grpc/iam/*/v2/*.proto` |
 | SDK | `pkg/sdk` 公开稳定 API |
@@ -64,7 +64,7 @@ Go SDK
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | `01-REST API契约.md` | 解释 REST OpenAPI 与 HTTP 接入边界 | REST 面向哪些调用方，哪些路由公开/受保护/admin/debug |
 | `02-gRPC API契约.md` | 解释 gRPC proto 与服务间调用边界 | gRPC service 矩阵、metadata、安全边界和 registration 如何组织 |
 | `03-SDK接入模型.md` | 解释 Go SDK 的定位与接入方式 | SDK 封装什么、不封装什么，为什么它不是业务层 |
@@ -235,7 +235,7 @@ REST、gRPC、SDK 是同一套 IAM Server 能力的不同接入方式
 ## 接入方式选择规则
 
 | 场景 | 推荐接入 | 原因 |
-|---|---|---|
+| --- | --- | --- |
 | 用户显式登录 | REST / SDK loginv2 | 当前登录事实源是 REST AuthN v2 |
 | Web/App 当前用户接口 | REST | HTTP 友好，JWT middleware，current-user 语义清晰 |
 | 管理后台 | REST | OpenAPI、调试、管理面友好 |
@@ -280,7 +280,7 @@ internal/apiserver/transport/rest
 ### REST 覆盖能力
 
 | 能力 | 契约 |
-|---|---|
+| --- | --- |
 | AuthN | `api/rest/authn.v2.yaml` |
 | AuthZ | `api/rest/authz.v2.yaml` |
 | Identity | `api/rest/identity.v2.yaml` |
@@ -330,7 +330,7 @@ internal/apiserver/transport/grpc
 ### gRPC 服务矩阵
 
 | Proto | Service | 当前能力 |
-|---|---|---|
+| --- | --- | --- |
 | `authn/v2/authn.proto` | `AuthService` | VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken、IssueServiceToken |
 | `authn/v2/authn.proto` | `AccountOnboardingService` | CreateOperationAccount |
 | `authn/v2/authn.proto` | `JWKSService` | GetJWKS |
@@ -394,7 +394,7 @@ pkg/sdk/errors
 ### SDK 封装能力
 
 | SDK 子包 | 作用 |
-|---|---|
+| --- | --- |
 | `sdk.NewClient` | 初始化 gRPC conn 和 Auth/Authz/Identity/ProfileLink/IDP 子客户端 |
 | `auth/loginv2` | REST AuthN v2 显式登录 |
 | `auth/client` | gRPC AuthN client |
@@ -421,7 +421,7 @@ SDK public API 必须通过 compile test 保护
 ## 接入与 AuthN/AuthZ/Identity/IDP 的关系
 
 | 模块 | REST | gRPC | SDK |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | AuthN | 登录、refresh、logout、verify、JWKS、account | VerifyToken、RefreshToken、RevokeToken、IssueServiceToken、JWKS | LoginV2、Auth client、JWKSManager、TokenVerifier、ServiceAuthHelper |
 | AuthZ | check、roles、assignments、policies、resources | AuthorizationService.Check、Snapshot、Grant/RevokeAssignment | Authz().Check / Allow / AllowScoped / Snapshot |
 | Identity | me、profiles、profile-links 当前用户视角 | IdentityRead、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle | Identity/ProfileLink client |
@@ -433,7 +433,7 @@ SDK public API 必须通过 compile test 保护
 ## 机器契约与防漂移
 
 | 契约 | 防漂移机制 |
-|---|---|
+| --- | --- |
 | REST OpenAPI | `make docs-swagger`、`make api-validate`、REST router matrix tests |
 | gRPC proto | `make proto-gen`、`proto_contract_test.go` |
 | SDK public API | `pkg/sdk/public_api_compile_test.go` |
@@ -453,7 +453,7 @@ SDK 公开 API 以 pkg/sdk 为准
 ## 代码证据入口
 
 | 主题 | 代码 / 契约入口 |
-|---|---|
+| --- | --- |
 | REST 契约总览 | `api/rest/README.md` |
 | REST OpenAPI | `api/rest/*.yaml` |
 | REST runtime | `internal/apiserver/transport/rest` |

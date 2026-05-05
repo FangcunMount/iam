@@ -38,7 +38,7 @@ RoleBinding
 当前实际有三层模型：
 
 | 层次 | 名称 | 字段特点 | 用途 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | REST/proto wire term | Assignment | REST 用 `subject_type + subject_id + role_id`；gRPC 用 `subject + domain + role_name` | 外部 API 契约 |
 | 管理记录 | `rolebinding.Binding` | `SubjectType + SubjectID + RoleID + TenantID + GrantedBy` | 后台查询、撤销、按 ID 管理 |
 | 授权事实 | `authz.RoleBinding` | `Subject + RoleName + TenantID + GrantedBy` | 生成 Casbin `g` fact，参与运行时授权判定 |
@@ -85,7 +85,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | 授权事实模型在哪里 | `authz.RoleBinding` 定义在通用授权模型中。 | `internal/apiserver/domain/authz/model.go` |
 | 管理记录模型在哪里 | `rolebinding.Binding` 定义在 `domain/authz/rolebinding`。 | `internal/apiserver/domain/authz/rolebinding/binding.go` |
 | REST 对外为什么叫 assignment | DTO 是 `GrantRequest/RevokeRequest/AssignmentResponse`，路由是 `/authz/assignments/*`。 | `transport/rest/authz/dto/assignment.go` |
@@ -265,7 +265,7 @@ GrantedBy
 字段语义：
 
 | 字段 | 作用 |
-|---|---|
+| --- | --- |
 | `Subject` | 被授权主体，user/group/service |
 | `RoleName` | 角色事实名 |
 | `TenantID` | 授权域 |
@@ -656,7 +656,7 @@ GrantAssignmentRequest(subject, domain, role_name, granted_by)
 gRPC 和 REST 的差异：
 
 | 维度 | REST | gRPC |
-|---|---|---|
+| --- | --- | --- |
 | 对外名称 | Assignment | Assignment |
 | role 标识 | role_id | role_name |
 | subject 表达 | subject_type + subject_id | subject 字符串 |
@@ -1069,7 +1069,7 @@ RoleID 跨环境可读性和迁移性差，不适合作为 policy fact。
 ## 18. 代码证据地图
 
 | 结论 | 源码/契约入口 |
-|---|---|
+| --- | --- |
 | 授权事实模型是 `authz.RoleBinding` | `internal/apiserver/domain/authz/model.go` |
 | 管理记录模型是 `rolebinding.Binding` | `internal/apiserver/domain/authz/rolebinding/binding.go` |
 | REST DTO 对外仍叫 Assignment | `internal/apiserver/transport/rest/authz/dto/assignment.go` |
@@ -1159,7 +1159,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | REST GrantAssignment | DTO role_id -> GrantCommand |
 | REST RevokeAssignment | DTO role_id -> RevokeCommand |
 | REST subject_type | 当前只允许 user |

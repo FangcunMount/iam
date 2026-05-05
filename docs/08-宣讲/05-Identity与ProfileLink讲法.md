@@ -494,7 +494,7 @@ SDK 的 Identity/ProfileLink client 更偏系统侧 gRPC 接入，不等于 REST
 ## 11. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | UserModule 装配 User/Profile/ProfileLink/MyProfiles/MyProfileLinks | `container/assembler/user.go` |
 | User 是身份锚点并包含状态 | `domain/uc/user/user.go` |
 | Profile 是业务档案 | `domain/uc/profile/profile.go` |

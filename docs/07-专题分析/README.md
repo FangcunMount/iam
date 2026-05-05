@@ -76,7 +76,7 @@
 ```
 
 | 文档 | 核心问题 | 关联事实层 |
-|---|---|---|
+| --- | --- | --- |
 | `01-为什么IAM不是普通用户中心.md` | IAM 为什么不能只按 User CRUD / 登录系统理解 | `00-概览` |
 | `02-为什么拆分AuthN-AuthZ-Identity-IDP.md` | 四个边界为什么不能揉成 UserService | `00-概览`、`01-运行时` |
 | `03-为什么AuthN需要Session与RefreshToken.md` | 为什么 JWT 之外还需要 Session 与 RefreshToken | `02-认证AuthN` |
@@ -323,7 +323,7 @@ _archive 不作为当前事实源
 ## 专题主题与代码证据入口
 
 | 专题 | 主要代码证据 |
-|---|---|
+| --- | --- |
 | IAM 不是普通用户中心 | `README.md`、`docs/README.md`、`internal/apiserver/container` |
 | 拆分 AuthN/AuthZ/Identity/IDP | `internal/apiserver/container/assembler/authn.go`、`authz.go`、`user.go`、`idp.go` |
 | Session 与 RefreshToken | `application/authn/token/issuer.go`、`verifier.go`、`refresher.go`、`domain/authn/session` |
@@ -341,7 +341,7 @@ _archive 不作为当前事实源
 ## 与其他目录的关系
 
 | 目录 | 关系 |
-|---|---|
+| --- | --- |
 | `00-概览` | 提供系统定位和总图，专题分析解释为什么不是普通用户中心 |
 | `01-运行时` | 提供进程与装配事实，专题分析解释边界设计取舍 |
 | `02-认证AuthN` | 提供 AuthN 事实链路，专题分析解释 Session/Refresh/JWKS/Verify |

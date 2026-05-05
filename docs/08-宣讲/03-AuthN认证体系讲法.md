@@ -488,7 +488,7 @@ SDK 是业务服务接入 AuthN 的产品化封装，不是 AuthN 业务层。
 ## 11. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | AuthN module 包含 account/login/token/session/JWKS/key rotation | `AuthnModule` 装配 |
 | LoginApplicationService 构造 SignIn/SignOut，并使用 adapter catalog | `application/authn/login/services_impl.go` |
 | SignIn 选择登录方式、准备 proof、调用 Authenticator、签发 token | `application/authn/login/sign_in.go` |

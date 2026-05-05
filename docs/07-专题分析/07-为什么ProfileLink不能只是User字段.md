@@ -111,7 +111,7 @@ flowchart TB
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | User 是什么 | IAM 内部身份锚点，包含状态和基础资料。 | `domain/uc/user/user.go` |
 | Profile 是什么 | 业务档案，包含姓名、证件、性别、生日、身高体重。 | `domain/uc/profile/profile.go` |
 | ProfileLink 是什么 | User 与 Profile 的关系边，包含 type/relation/established/revoked。 | `domain/uc/profilelink/profile_link.go` |
@@ -1166,7 +1166,7 @@ ProfileLink 是身份关系。它可以作为当前用户访问档案的 guard�
 ## 19. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | User 是身份锚点 | `domain/uc/user/user.go` |
 | Profile 是业务档案 | `domain/uc/profile/profile.go` |
 | ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/uc/profilelink/profile_link.go` |
@@ -1249,7 +1249,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | Establish success | User/Profile 存在时创建 link |
 | Establish duplicate | 同 User/Profile active link 不允许重复 |
 | Revoke | 设置 RevokedAt，而不是删除 |

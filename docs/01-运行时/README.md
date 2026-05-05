@@ -42,7 +42,7 @@ cmd/apiserver
 其中：
 
 | 层次 | 职责 |
-|---|---|
+| --- | --- |
 | `cmd/apiserver` | 最薄进程入口，只创建并运行 App |
 | `app/options/config` | 接入命令行框架，生成运行时配置 |
 | `process` | 生命周期编排层，负责资源准备、container 初始化、transport 注册、后台任务和关闭 |
@@ -73,7 +73,7 @@ cmd/apiserver
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | [01-服务入口与生命周期装配.md](01-服务入口与生命周期装配.md) | 解释从 `main()` 到 prepared server 的完整生命周期 | 服务如何从入口启动、准备资源、初始化 container、启动 HTTP/gRPC、注册 shutdown |
 | [02-Transport装配--REST路由与gRPC服务注册.md](02-Transport装配--REST路由与gRPC服务注册.md) | 解释 REST/gRPC 如何从 container 获取模块能力 | REST deps、gRPC registrations、路由注册、service registration 如何工作 |
 | [03-配置与运行模式.md](03-配置与运行模式.md) | 解释 options/config/server mode/app mode/degradedAllowed | 配置如何进入运行时，不同运行模式如何影响启动策略 |
@@ -284,7 +284,7 @@ sequenceDiagram
 ## 运行时关键概念
 
 | 概念 | 当前含义 | 常见误解 |
-|---|---|---|
+| --- | --- | --- |
 | `process` | 生命周期拥有者，负责启动阶段、运行期任务和关闭 | 误以为只是普通 server 包 |
 | `container` | 组合根，负责装配模块和投影能力 | 误以为是业务 service 或运行期 Service Locator |
 | `transport` | REST/gRPC 协议适配层 | 误以为可以直接访问 infra 或 container |
@@ -375,7 +375,7 @@ transport 不负责：
 ## 运行时与业务模块的关系
 
 | 业务模块 | 运行时如何装配 | 深潜入口 |
-|---|---|---|
+| --- | --- | --- |
 | AuthN | container 初始化 AuthN module，投影 token service、login service、JWKS、session admin、rotation scheduler | `../02-认证AuthN/` |
 | AuthZ | container 初始化 AuthZ module，投影 role/resource/policy/rolebinding/check/snapshot、route authorization runtime | `../03-授权AuthZ/` |
 | Identity | container 初始化 User module，投影 User/Profile/ProfileLink 相关 capabilities | `../04-身份Identity/` |
@@ -556,7 +556,7 @@ protected route 是否注册
 ## 代码证据入口
 
 | 主题 | 代码入口 |
-|---|---|
+| --- | --- |
 | 进程入口 | `cmd/apiserver/apiserver.go` |
 | App 初始化 | `internal/apiserver/app.go` |
 | 根 Run 委托 | `internal/apiserver/run.go` |

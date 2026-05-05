@@ -45,7 +45,7 @@ cmd/apiserver
 其中：
 
 | 层次 | 职责 |
-|---|---|
+| --- | --- |
 | `process` | 管理进程生命周期、资源准备、运行时任务和优雅关闭 |
 | `container` | 作为组合根装配 AuthN/AuthZ/Identity/IDP 等模块 |
 | `transport` | 负责 REST/gRPC 协议适配、路由注册、DTO/mapper、错误映射 |
@@ -66,7 +66,7 @@ cmd/apiserver
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | [01-系统架构总览.md](01-系统架构总览.md) | IAM 第一张系统地图 | IAM 如何从 Go 进程装配成同时提供认证、授权、身份、IDP、REST/gRPC、Outbox 能力的服务 |
 
 后续如果新增概览层文档，应继续保持“系统级入口”定位，不要把业务模块深潜内容塞回 `00-概览/`。
@@ -239,7 +239,7 @@ pkg/sdk/README.md
 ## 00-概览 与后续目录的关系
 
 | 后续目录 | `00-概览` 如何衔接 |
-|---|---|
+| --- | --- |
 | `01-运行时` | 从系统总览进入服务入口、启动阶段、container 初始化、transport 注册、后台任务和优雅关闭 |
 | `02-认证AuthN` | 从系统定位进入登录、Session、Access/Refresh Token、JWKS、KeyRotation、IDP 登录协作 |
 | `03-授权AuthZ` | 从系统模块图进入 Role、Resource、Permission、RoleBinding、Casbin、PolicyVersion、Outbox |
@@ -255,7 +255,7 @@ pkg/sdk/README.md
 ## 核心术语速查
 
 | 术语 | 当前含义 |
-|---|---|
+| --- | --- |
 | IAM | Identity and Access Management，身份与访问管理服务 |
 | AuthN | Authentication，认证，负责登录、账号、Session、Token、JWKS |
 | AuthZ | Authorization，授权，负责 Role、Resource、Permission、RoleBinding、Check |
@@ -305,7 +305,7 @@ pkg/sdk/README.md
 ## 代码证据入口
 
 | 主题 | 代码 / 契约入口 |
-|---|---|
+| --- | --- |
 | 进程入口 | `cmd/apiserver/apiserver.go` |
 | App 初始化 | `internal/apiserver/app.go` |
 | 生命周期管理 | `internal/apiserver/process` |

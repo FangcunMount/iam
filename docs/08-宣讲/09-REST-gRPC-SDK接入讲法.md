@@ -360,7 +360,7 @@ Close()
 ## 9. 三者的选择规则
 
 | 场景 | 推荐接入 | 原因 |
-|---|---|---|
+| --- | --- | --- |
 | 用户登录 | REST / SDK loginv2 | 登录事实源是 REST AuthN v2 |
 | Web/App 当前用户接口 | REST | HTTP 友好，JWT middleware，current-user 语义 |
 | 管理后台 | REST | OpenAPI、调试、管理面友好 |
@@ -609,7 +609,7 @@ REST 提供 IDP 管理面，gRPC/SDK 提供高信任内部读取。
 ## 14. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | REST 使用 OpenAPI 3.1，OpenAPI 是字段、路径、认证和错误响应事实源 | `api/rest/README.md` |
 | REST 覆盖 AuthN/AuthZ/Identity/IDP/Suggest/Debug 路由 | `api/rest/README.md` |
 | gRPC 面向可信服务间调用 | `api/grpc/README.md` |

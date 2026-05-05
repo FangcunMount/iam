@@ -128,7 +128,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 代码证据 |
-|---|---|---|
+| --- | --- | --- |
 | transport stage 在哪里触发 | `prepareTransports` 调用 `bootstrapTransports`。 | [../../internal/apiserver/process/bootstrap.go](../../internal/apiserver/process/bootstrap.go) |
 | REST Router 消费什么依赖 | 消费 `rest.Deps`，不是直接消费 container。 | [../../internal/apiserver/transport/rest/deps.go](../../internal/apiserver/transport/rest/deps.go) |
 | REST deps 谁生成 | `Container.BuildRESTDeps(options)`。 | [../../internal/apiserver/container/rest_deps.go](../../internal/apiserver/container/rest_deps.go) |
@@ -364,7 +364,7 @@ flowchart TD
 AuthN module capabilities 会被转换成：
 
 | REST 依赖 | 来源能力 | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | `AuthHandler` | LoginService、TokenService、LoginPreparationService | 登录、刷新、登出、验证、登录预准备 |
 | `AccountHandler` | AccountService、AccountOnboarder | 账号查询、账号资料更新、signup、mock consumer seed |
 | `JWKSHandler` | KeyManagementApp、KeyPublishApp | JWKS public endpoint、admin key management |
@@ -376,7 +376,7 @@ AuthN module capabilities 会被转换成：
 AuthZ module capabilities 会被转换成：
 
 | REST 依赖 | 用途 |
-|---|---|
+| --- | --- |
 | `RoleHandler` | 角色管理 |
 | `RoleBindingHandler` | assignment/rolebinding 管理 |
 | `PolicyHandler` | 权限策略管理、policy version |
@@ -390,7 +390,7 @@ AuthZ module capabilities 会被转换成：
 User module capabilities 会被转换成：
 
 | REST 依赖 | 用途 |
-|---|---|
+| --- | --- |
 | `UserHandler` | `/identity/me` 等当前用户接口 |
 | `ProfileHandler` | profiles 创建、查询、更新 |
 | `ProfileLinkHandler` | profile-links grant/list/revoke |
@@ -398,7 +398,7 @@ User module capabilities 会被转换成：
 ### 4.4 IDP / Suggest / CacheGovernance 投影
 
 | 模块 | REST 投影 |
-|---|---|
+| --- | --- |
 | IDP | `WechatAppHandler`，用于微信应用管理 |
 | Suggest | `ProfileSuggestor`，用于 `/api/v2/suggest/profile` |
 | CacheGovernance | `ReadService`，用于 debug cache governance routes |
@@ -467,7 +467,7 @@ base routes 不依赖业务模块。
 当前包括：
 
 | 路由 | 用途 |
-|---|---|
+| --- | --- |
 | `GET /health` | IAM REST 层健康检查 |
 | `GET /ping` | 简单连通性检查 |
 | `GET /debug/routes` | 查看已注册路由 |
@@ -570,7 +570,7 @@ AuthN 路由在 `authnRoutesAvailable(deps.authn)` 为 true 时注册。
 主要包括：
 
 | 路由组 | 条件 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | `/api/v2/authn/login` | `AuthHandler` 存在 | 登录 |
 | `/api/v2/authn/login/prep/phone-otp` | `AuthHandler` 存在 | 登录预准备 |
 | `/api/v2/authn/refresh_token` | `AuthHandler` 存在 | 刷新 token |
@@ -601,7 +601,7 @@ AuthZ handlers 存在
 `authzhttp.Register` 内部会在 `/api/v2/authz` 下注册 health 和受保护路由。受保护路由包括：
 
 | 路由 | 说明 |
-|---|---|
+| --- | --- |
 | `POST /api/v2/authz/check` | PDP 授权判定 |
 | `/api/v2/authz/roles/*` | 角色管理 |
 | `/api/v2/authz/assignments/*` | 对外 assignment 合同，内部 rolebinding |
@@ -628,7 +628,7 @@ User/Profile/ProfileLink handlers 存在
 主要路由包括：
 
 | 路由 | 说明 |
-|---|---|
+| --- | --- |
 | `GET /api/v2/identity/me` | 当前用户 |
 | `PATCH /api/v2/identity/me` | 更新当前用户 |
 | `GET /api/v2/identity/me/profiles` | 当前用户 profiles |
@@ -657,7 +657,7 @@ ModuleStatus.IDP == true
 注册后分两层：
 
 | 路由 | 条件 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | `GET /api/v2/idp/health` | IDP Register 被调用 | IDP health |
 | `/api/v2/idp/wechat-apps/*` | WechatAppHandler + admin middlewares | 微信应用管理 |
 
@@ -723,7 +723,7 @@ Cache governance debug routes 的注册受 `RouterOptions.DebugCacheGovernance` 
 当前规则：
 
 | 场景 | 行为 |
-|---|---|
+| --- | --- |
 | 显式 `Enabled=false` | 不注册 |
 | 显式 `Enabled=true` | 注册 |
 | 未显式配置，`AppMode != production` | 默认注册 |
@@ -763,7 +763,7 @@ flowchart TD
 IAM 的 REST route registration 遵循 fail-closed。
 
 | 依赖缺失 | 当前行为 | 设计原因 |
-|---|---|---|
+| --- | --- | --- |
 | container 未初始化 | 只注册 base routes 和允许的 debug routes | 保留诊断面，不暴露半可用业务面 |
 | TokenService 缺失 | JWT middleware 不创建，protected routes 不注册 | 没有权威 token verify，不能暴露受保护接口 |
 | RouteAuthorization 缺失 | middleware 可认证，但不支持 role check；admin routes 不注册 | 没有角色判定就不能暴露管理面 |
@@ -835,7 +835,7 @@ AuthN module 会创建 authn gRPC 聚合服务。
 它根据能力是否存在，分别注册：
 
 | 服务 | 条件 | 能力来源 |
-|---|---|---|
+| --- | --- | --- |
 | `AuthService` | TokenService 存在 | token verify / refresh / revoke 等 |
 | `AccountOnboardingService` | AccountOnboarder 存在 | account onboarding |
 | `JWKSService` | KeyPublishApp 存在 | JWKS 发布 |
@@ -853,7 +853,7 @@ User module 会创建 identity gRPC 聚合服务。
 它注册：
 
 | 服务 | 说明 |
-|---|---|
+| --- | --- |
 | `IdentityRead` | 用户与 profile 读取 |
 | `ProfileLinkQuery` | ProfileLink 查询 |
 | `ProfileLinkCommand` | ProfileLink 命令 |
@@ -944,7 +944,7 @@ gRPC 当前通过 proto contract test 检查：
 REST 和 gRPC 都是 transport，但注册方式不同：
 
 | 维度 | REST | gRPC |
-|---|---|---|
+| --- | --- | --- |
 | 协议入口 | Gin route | grpc.Server service |
 | 依赖形态 | `rest.Deps` | `[]Registration` |
 | 注册入口 | `Router.RegisterRoutes(engine)` | `Registry.RegisterServices()` |
@@ -965,7 +965,7 @@ REST 和 gRPC 都是 transport，但注册方式不同：
 当前架构测试对 transport 有几条关键约束：
 
 | 护栏 | 保护的设计 |
-|---|---|
+| --- | --- |
 | REST router 不依赖 container/global config | Router 只能消费显式 deps，避免向组合根穿透 |
 | REST registrars 不使用 package global dependencies | 路由注册必须显式传依赖 |
 | transport 不依赖 legacy interface packages | transport 自己拥有注册逻辑 |

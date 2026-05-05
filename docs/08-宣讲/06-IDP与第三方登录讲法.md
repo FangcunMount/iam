@@ -517,7 +517,7 @@ IDP 不只是代码逻辑，还需要密钥治理、缓存治理和管理面保�
 ## 11. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | IDP 负责微信应用管理和供 AuthN 使用的基础设施 | `IDPModule` 注释 |
 | IDP 暴露 Repository / SecretVault / WechatAuthProvider | `IDPModule` 方法 |
 | WechatApp 包含 AppID、Name、Type、Status、Credentials | `domain/idp/wechatapp/wechatapp.go` |

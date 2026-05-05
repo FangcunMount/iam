@@ -115,7 +115,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | JWT 如何签发 | `Generator.signClaims` 使用 active signing key，并把 `kid` 写入 header。 | `infra/token/jwt/generator.go` |
 | JWT 验签如何找 key | `VerifyAccessToken` 从 header 取 `kid`，调用 `VerificationKey(ctx, kid)`。 | `infra/token/jwt/generator.go` |
 | JWKS 发布哪些 key | `BuildJWKS` 查 `FindPublishable`，并只加入 `ShouldPublish()` 的 key。 | `infra/token/keyset/keyset_builder.go` |
@@ -213,7 +213,7 @@ tokenCodec.VerifyAccessToken
 它会检查：
 
 | 检查 | 解决的问题 |
-|---|---|
+| --- | --- |
 | JWT 签名和 claims | token 是否由 IAM 签发、是否过期 |
 | revoked marker | access token 是否被主动撤销 |
 | Session | 登录态是否仍然 active |
@@ -603,7 +603,7 @@ Auth().VerifyToken
 SDK 中有几类能力：
 
 | SDK 能力 | 作用 |
-|---|---|
+| --- | --- |
 | `auth/jwks.JWKSManager` | 获取和缓存 JWKS |
 | `auth/verifier.TokenVerifier` | 本地/远程/fallback token 验证策略 |
 | `client.Auth().VerifyToken` | gRPC 在线 Verify |
@@ -966,7 +966,7 @@ Service Token 不是用户登录态，不属于 User/Account/Session 语义。
 ## 17. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | JWT 签发时使用 active signing key 并写入 header.kid | `infra/token/jwt/generator.go` |
 | JWT 验签时从 header.kid 取 VerificationKey | `infra/token/jwt/generator.go` |
 | JWKS 只发布 active/grace 未过期 public key | `infra/token/keyset/keyset_builder.go`、`keyset/key.go` |
@@ -1048,7 +1048,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | JWT signs with kid | access token header 必须有 kid |
 | JWKS publish active/grace | active/grace 未过期 key 被发布 |
 | Retired not published | retired key 不出现在 JWKS |

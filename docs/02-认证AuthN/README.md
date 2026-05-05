@@ -52,7 +52,7 @@ Login request
 其中：
 
 | 概念 | 职责 |
-|---|---|
+| --- | --- |
 | Account | 登录账号与凭据归属 |
 | User | IAM 内部身份锚点 |
 | Principal | 认证成功后的主体快照 |
@@ -83,7 +83,7 @@ Login request
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | `01-登录链路--从Login请求到Session与Token.md` | 解释一次登录如何被编排 | Login request 如何经过 adapter、proof、Authenticator、Principal、TokenIssuer |
 | `02-认证语义--用户状态&会话&Token边界.md` | 解释认证对象边界 | Account/User/Session/Access Token/Refresh Token 的职责和状态变化 |
 | `03-JWKS与KeyRotation.md` | 解释 JWT 验签和密钥轮换 | JWKS、本地验签、`kid`、active/grace/retired key 如何工作 |
@@ -305,7 +305,7 @@ JWT 验签只是第一步
 ## AuthN 核心概念
 
 | 概念 | 当前职责 | 常见误解 |
-|---|---|---|
+| --- | --- | --- |
 | Account | 登录账号与凭据归属，例如运营账号、微信账号、企微账号 | 误以为 Account 等于 User |
 | User | IAM 内部身份锚点，参与 Principal、Session、AuthZ subject | 误以为 User 直接承载所有登录凭据 |
 | Principal | 认证成功后的主体快照，包含 UserID、AccountID、TenantID、AMR、claims | 误以为 Principal 是数据库实体 |
@@ -322,7 +322,7 @@ JWT 验签只是第一步
 ## AuthN 与其他模块的关系
 
 | 模块 | 关系 |
-|---|---|
+| --- | --- |
 | Identity | AuthN 使用 UserID 作为身份锚点；Verify 会检查 User 状态；User block 可影响 Session |
 | IDP | AuthN 借用 IDP 的 WechatApp、SecretVault、WechatAuthProvider 完成第三方 proof 准备 |
 | AuthZ | AuthN 证明“你是谁”，AuthZ 判断“你能做什么” |
@@ -337,7 +337,7 @@ JWT 验签只是第一步
 ## 代码证据入口
 
 | 主题 | 代码入口 |
-|---|---|
+| --- | --- |
 | AuthN module 装配 | `internal/apiserver/container/assembler/authn.go` |
 | AuthN infra builder | `internal/apiserver/container/assembler/authn_infra_builder.go` |
 | AuthN domain builder | `internal/apiserver/container/assembler/authn_domain_builder.go` |

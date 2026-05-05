@@ -60,7 +60,7 @@ SDK 负责的是：
 它解决的是接入复杂度：
 
 | 接入痛点 | SDK 封装 |
-|---|---|
+| --- | --- |
 | gRPC 连接、TLS、metadata、retry | `sdk.NewClient` + `Config` |
 | 用户登录 REST v2 | `auth/loginv2` |
 | 在线 token verify | `client.Auth().VerifyToken` |
@@ -115,7 +115,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | SDK 官方定位 | `pkg/sdk` 是 IAM 官方 Go 接入入口，公开稳定面固定。 | `pkg/sdk/README.md` |
 | SDK 公开稳定包 | `pkg/sdk`、`config`、`auth/client`、`auth/loginv2`、`auth/jwks`、`auth/verifier`、`auth/serviceauth`、`authz`、`identity`、`idp`、`errors`。 | `pkg/sdk/README.md` |
 | SDK 总入口 | `sdk.NewClient(ctx, cfg)`。 | `pkg/sdk/client.go` |
@@ -279,7 +279,7 @@ SDK 位于调用方进程中。
 ### 对比
 
 | 维度 | Application Service | SDK |
-|---|---|---|
+| --- | --- | --- |
 | 所在进程 | IAM Server | 业务服务 |
 | 依赖方向 | 调 domain / ports / UoW | 调 REST/gRPC |
 | 是否拥有事务 | 是 | 否 |
@@ -702,7 +702,7 @@ SDK 不替代 REST/gRPC。
 它消费 REST/gRPC。
 
 | 能力 | REST | gRPC | SDK |
-|---|---|---|
+| --- | --- | --- |
 | 用户登录 | `/authn/login` | 当前无 Login RPC | `auth/loginv2` |
 | 在线 Verify | `/authn/verify` | `AuthService.VerifyToken` | `client.Auth().VerifyToken` |
 | JWKS | `/.well-known/jwks.json` | `JWKSService.GetJWKS` | `JWKSManager` |
@@ -982,7 +982,7 @@ SDK 按事实契约封装，所以用户登录在 `auth/loginv2`。
 ## 20. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | SDK 是官方 Go 接入入口，公开稳定面固定 | `pkg/sdk/README.md` |
 | internal transport/observability 不再公开 | `pkg/sdk/README.md` |
 | `sdk.Client` 只装配 gRPC conn 与子客户端 | `pkg/sdk/client.go` |
@@ -1085,7 +1085,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | public API compile | 防止稳定公开符号回退 |
 | NewClient | 子客户端初始化完整 |
 | Config defaults/validate | 连接配置稳定 |

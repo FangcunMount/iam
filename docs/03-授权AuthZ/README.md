@@ -97,7 +97,7 @@ Grant / Revoke / Bind / Unbind
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | `01-授权模型--Role&Resource&Permission&RoleBinding.md` | 解释授权领域模型 | Role、Resource、Permission、RoleBinding、Scope 如何组织 |
 | `02-授权判定链路--从Check到Casbin.md` | 解释一次授权判定 | Check 如何变成 AuthorizationRequest，如何通过 CasbinAdapter 得到 Decision |
 | `03-PolicyChangeCommitter与UoW.md` | 解释授权写入事务 | 为什么授权写入不是 CRUD，PolicyChangeCommitter 如何编排 UoW |
@@ -330,7 +330,7 @@ flowchart TD
 ## AuthZ 核心概念
 
 | 概念 | 当前职责 | 常见误解 |
-|---|---|---|
+| --- | --- | --- |
 | Subject | 被授权主体，如 user/group/service | 误以为只能是用户 |
 | Tenant | 授权域 / domain 边界 | 误以为所有权限都是全局的 |
 | Resource | 被保护资源，例如业务对象或功能 | 误以为只需要接口路径 |
@@ -352,7 +352,7 @@ flowchart TD
 ## AuthZ 与其他模块的关系
 
 | 模块 | 关系 |
-|---|---|
+| --- | --- |
 | AuthN | AuthN 证明“你是谁”，AuthZ 判断“你能做什么” |
 | Identity | Identity 提供 User / ProfileLink 等身份关系；AuthZ 使用 `user:<id>` 等 subject 做资源权限判定 |
 | IDP | IDP 不参与资源授权；外部身份最终通过 AuthN 映射为 IAM subject |
@@ -429,7 +429,7 @@ rolebinding = 内部 application/domain 标准术语
 对应模型：
 
 | 层次 | 名称 | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | REST/proto | Assignment | 对外表示“角色分配” |
 | application/domain | RoleBinding | 表示 subject 在 tenant 下持有 role |
 | DB management record | rolebinding.Binding | 便于后台查询、按 ID 撤销、审计 |
@@ -440,7 +440,7 @@ rolebinding = 内部 application/domain 标准术语
 ## 代码证据入口
 
 | 主题 | 代码入口 |
-|---|---|
+| --- | --- |
 | AuthZ module 装配 | `internal/apiserver/container/assembler/authz.go` |
 | AuthZ 领域模型 | `internal/apiserver/domain/authz/model.go` |
 | Role domain | `internal/apiserver/domain/authz/role` |

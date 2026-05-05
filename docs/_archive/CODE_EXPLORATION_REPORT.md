@@ -95,7 +95,7 @@
 **`iam-apiserver` 是唯一的中央进程**，不是多服务分散架构，承载了：
 
 | 能力 | 实现方式 | 代码位置 |
-|------|--------|---------|
+| ------ | -------- | --------- |
 | REST 暴露 | Gin Router 注册 | [internal/apiserver/routers.go](internal/apiserver/routers.go) |
 | gRPC 暴露 | gRPC Server 注册 | [internal/apiserver/server.go](internal/apiserver/server.go) |
 | Swagger | 代码注释生成 | [internal/apiserver/docs/swagger.yaml](internal/apiserver/docs/swagger.yaml) |
@@ -104,7 +104,7 @@
 ### 1.3 对外暴露面全景
 
 | 暴露方式 | 能力 | 对应模块 |
-|---------|-----|--------|
+| --------- | ----- | -------- |
 | **REST** | 认证 (authn)、授权 (authz)、身份 (identity)、IDP、联想搜索 (suggest) | `/api/v1/authn/*`, `/api/v1/authz/*`, `/api/v1/identity/*` |
 | **gRPC** | 认证、JWKS、授权、身份、IDP | [api/grpc/iam](api/grpc/iam) |
 | **JWKS** | 公钥发布 | `/.well-known/jwks.json` |
@@ -151,7 +151,7 @@
 ### 2.2 各层的真实代码位置
 
 | 层级 | 目录 | 职责 | 代表文件 |
-|-----|------|------|--------|
+| ----- | ------ | ------ | -------- |
 | Interface | `interface/*/restful/handler/` `interface/*/grpc/service.go` | 接协议、参数绑定、响应转换 | [interface/authn/restful/handler/auth.go](internal/apiserver/interface/authn/restful/handler/auth.go) |
 | Application | `application/authn/login/` `application/authz/role/` `application/uc/user/` | 用例编排、CQRS 分离 | [application/authn/login/services.go](internal/apiserver/application/authn/login/services.go) |
 | Domain | `domain/authn/authentication/` `domain/authz/role/` `domain/uc/user/` | 聚合、值对象、验证器、仓储接口 | [domain/authn/authentication/repository.go](internal/apiserver/domain/authn/authentication/repository.go) |
@@ -210,7 +210,7 @@
 #### 关键应用服务
 
 | 服务 | 位置 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `LoginApplicationService` | [application/authn/login/services.go](internal/apiserver/application/authn/login/services.go) | 统一登录、多策略路由 |
 | `TokenApplicationService` | [application/authn/token/services.go](internal/apiserver/application/authn/token/services.go) | Token 刷新、撤销、验证 |
 | `SessionApplicationService` | [application/authn/session/services.go](internal/apiserver/application/authn/session/services.go) | Session 生命周期管理 |
@@ -335,7 +335,7 @@ type AccountRepository interface {
 #### 核心应用服务
 
 | 服务 | 位置 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `RoleCommandService` | [application/authz/role/command_service.go](internal/apiserver/application/authz/role/command_service.go) | 角色 CRUD |
 | `RoleQueryService` | [application/authz/role/query_service.go](internal/apiserver/application/authz/role/query_service.go) | 角色查询 |
 | `PolicyCommandService` | [application/authz/policy/command_service.go](internal/apiserver/application/authz/policy/command_service.go) | 策略修改 + Casbin 同步 |
@@ -437,7 +437,7 @@ Casbin.Enforce(user:123, T1, course, read)
 #### 关键应用服务
 
 | 服务 | 位置 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `UserApplicationService` | [application/uc/user/services.go](internal/apiserver/application/uc/user/services.go) | 用户注册、资料更新 |
 | `UserQueryApplicationService` | [application/uc/user/services.go](internal/apiserver/application/uc/user/services.go) | 用户查询 |
 | `ProfileApplicationService` | [application/uc/profile/](internal/apiserver/application/uc/profile/) | 儿童档案管理 |
@@ -513,7 +513,7 @@ func (u *User) Block()      { u.Status = UserBlocked }
 #### 核心组件
 
 | 组件 | 位置 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `WechatAppRepository` | [domain/idp/wechatapp/repository.go](internal/apiserver/domain/idp/wechatapp/repository.go) | 应用配置存储 |
 | `AccessTokenCache` | [infra/redis/accesstoken_cache.go](internal/apiserver/infra/redis/accesstoken_cache.go) | WeChat Access Token 缓存 |
 | `IdentityProvider` | [domain/authn/authentication/external.go](internal/apiserver/domain/authn/authentication/external.go) | OAuth/OIDC 端口 |
@@ -557,7 +557,7 @@ REST GET /api/v1/suggest/profile?k=
 #### 关键组件
 
 | 组件 | 位置 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `Loader` | [infra/mysql/suggest/loader.go](internal/apiserver/infra/mysql/suggest/loader.go) | 从 MySQL 拉取原始数据 |
 | `Updater` | [application/suggest/](internal/apiserver/application/suggest/) | 构建内存索引 |
 | `Store` | [infra/suggest/search/](internal/apiserver/infra/suggest/search/) | Trie + Hash 搜索 |
@@ -570,7 +570,7 @@ REST GET /api/v1/suggest/profile?k=
 ### 4.1 技术栈
 
 | 技术 | 用途 | 位置 |
-|------|------|------|
+| ------ | ------ | ------ |
 | **Gin** | HTTP Web 框架 | 路由注册 |
 | **gRPC** | RPC 框架 + Protobuf | 服务间通信 |
 | **GORM** | ORM 框架 | [infra/mysql/](internal/apiserver/infra/mysql/) |
@@ -738,7 +738,7 @@ func (c *CasbinAdapter) Enforce(ctx context.Context, sub, dom, obj, act string) 
 **缓存族 (Cache Family)** 概念用于统一管理各个缓存分类：
 
 | 缓存族 | ID | 主要用途 |
-|-------|----|---------| 
+| ------- | ---- | --------- | 
 | Session | `authn_session` | 用户会话存储 |
 | Token | `authn_token` | 令牌验证缓存 |
 | JWKS | `authn_jwks` | 公钥缓存 |
@@ -840,7 +840,7 @@ type UserQueryApplicationService interface {
 **应用**：
 
 | DDD 概念 | 代码位置 | 例子 |
-|---------|---------|------|
+| --------- | --------- | ------ |
 | **Aggregate (聚合根)** | `domain/*/model.go` | User, Role, Account |
 | **Entity (实体)** | `domain/*/model.go` | Profile (带生命周期) |
 | **Value Object (值对象)** | `domain/authn/token/token.go` | Token, Principal, TokenClaims |
@@ -1059,7 +1059,7 @@ iam/
 ### 6.2 关键代码文件
 
 | 文件 | 行数 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | [cmd/apiserver/apiserver.go](cmd/apiserver/apiserver.go) | ~100 | 进程主入口 |
 | [internal/apiserver/app.go](internal/apiserver/app.go) | ~50 | 应用初始化 |
 | [internal/apiserver/routers.go](internal/apiserver/routers.go) | ~200 | HTTP/gRPC 路由 |
@@ -1489,7 +1489,7 @@ func (s *RefService) RegisterProfile(ctx context.Context, dto RegisterProfileDTO
 #### 集成点
 
 | 集成点 | 协议 | 说明 |
-|-------|------|------|
+| ------- | ------ | ------ |
 | 用户认证 | REST / gRPC | 登录、刷新、验证 |
 | 身份查询 | gRPC | 用户/儿童信息 |
 | 权限检查 | gRPC / REST | PDP 调用 |
@@ -1586,7 +1586,7 @@ allowed, _ := client.Authz().Check(ctx, subject, domain, object, action)
 ### 9.1 已实现的核心能力
 
 | 特性 | 实现状态 | 说明 |
-|------|--------|------|
+| ------ | -------- | ------ |
 | **多端支持** | ✅ | 微信小程序、Web、企业微信 |
 | **多凭据** | ✅ | 密码、OTP、OAuth |
 | **JWT + JWKS** | ✅ | 标准 JWT、公钥轮换 |
@@ -1603,7 +1603,7 @@ allowed, _ := client.Authz().Check(ctx, subject, domain, object, action)
 ### 9.2 部分落地的能力
 
 | 特性 | 实现状态 | 说明 |
-|------|--------|------|
+| ------ | -------- | ------ |
 | **完整 CQRS** | 🟡 | authz 清晰，uc 部分实现 |
 | **事件驱动** | 🟡 | 可选消息队列集成 |
 | **分布式追踪** | 🟡 | Prometheus/Observability 支持 |
@@ -1701,7 +1701,7 @@ type CasbinAdapter interface {
 ### B. 重要文件链接表
 
 | 文件 | 链接 |
-|------|------|
+| ------ | ------ |
 | 项目 README | [README.md](README.md) |
 | 架构总览 | [docs/00-概览/01-系统架构总览.md](docs/00-概览/01-系统架构总览.md) |
 | 六边形架构实践 | [docs/04-基础设施与运维/01-六边形架构实践.md](docs/04-基础设施与运维/01-六边形架构实践.md) |

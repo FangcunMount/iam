@@ -104,7 +104,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | IDP module 职责是什么 | 微信应用管理、向 AuthN 提供基础设施服务，认证由 AuthN 统一提供。 | `container/assembler/idp.go` |
 | IDP 对外应用服务有哪些 | WechatApp 管理、凭据轮换、微信 access_token 获取/刷新。 | `application/idp/wechatapp/services.go` |
 | IDP 暴露给 AuthN 什么 | Repository、SecretVault、WechatAuthProvider。 | `container/assembler/idp.go` |
@@ -180,7 +180,7 @@ AppSecret 如何加密？
 它们的变化原因完全不同。
 
 | 变化 | 应该影响 |
-|---|---|
+| --- | --- |
 | 新增登录方式 password/phone_otp/wechat/wecom | AuthN |
 | access token TTL / refresh TTL | AuthN |
 | Session revoke 语义 | AuthN |
@@ -447,7 +447,7 @@ IDP 仍然只是：
 这两个名字很像，但完全不是一回事。
 
 | 名称 | 所属系统 | 用途 | 管理模块 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 微信 access_token | 微信平台 | 调用微信平台 API | IDP |
 | IAM access token | IAM | 访问业务系统 / IAM protected API | AuthN |
 
@@ -1049,7 +1049,7 @@ AuthN adapter 需要构造微信登录 proof。但它不拥有 AppSecret 生命�
 ## 19. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | IDP module 明确认证由 AuthN 统一提供 | `container/assembler/idp.go` |
 | IDP 暴露 Repository/SecretVault/WechatAuthProvider 给 AuthN | `container/assembler/idp.go` |
 | 微信小程序 AuthN adapter 使用 IDP repo/vault | `application/authn/login/adapter_wechat_mini.go` |
@@ -1130,7 +1130,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | IDP init without DB/Redis/key | 初始化失败，边界明确 |
 | WechatApp disabled | AuthN adapter 拒绝登录 proof |
 | WechatApp missing | AuthN adapter 返回错误 |

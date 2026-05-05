@@ -47,7 +47,7 @@ IAM 是一个面向业务系统接入的身份与访问管理服务，不是普�
 其中：
 
 | 层次 | 作用 |
-|---|---|
+| --- | --- |
 | `00-概览` | 建立系统地图，说明 IAM 是什么、如何分层、如何从 Go 进程装配成服务 |
 | `01-运行时` | 解释服务如何启动、装配 REST/gRPC、运行后台任务、优雅关闭和降级诊断 |
 | `02-认证AuthN` | 解释登录、账号、Session、Access Token、Refresh Token、JWKS、KeyRotation、Verify |
@@ -150,7 +150,7 @@ docs/
 ## 快速导航
 
 | 你想回答的问题 | 推荐阅读 |
-|---|---|
+| --- | --- |
 | IAM 是什么，为什么不是普通用户中心 | [00-概览/README.md](00-概览/README.md)、[00-概览/01-系统架构总览.md](00-概览/01-系统架构总览.md)、[07-专题分析/01-为什么IAM不是普通用户中心.md](07-专题分析/01-为什么IAM不是普通用户中心.md) |
 | 服务如何从入口启动到 REST/gRPC | [01-运行时/README.md](01-运行时/README.md)、[01-运行时/01-服务入口与生命周期装配.md](01-运行时/01-服务入口与生命周期装配.md) |
 | REST/gRPC 如何从 container 获取能力 | [01-运行时/02-Transport装配--REST路由与gRPC服务注册.md](01-运行时/02-Transport装配--REST路由与gRPC服务注册.md) |
@@ -507,7 +507,7 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 ## 核心术语
 
 | 术语 | 当前约定 |
-|---|---|
+| --- | --- |
 | IAM | Identity and Access Management 服务，不等同于单纯用户管理后台 |
 | AuthN | Authentication，负责登录、账号、Session、Token、JWKS |
 | AuthZ | Authorization，负责 Role、Resource、Permission、RoleBinding、Check |
@@ -540,7 +540,7 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 ## 代码与契约入口
 
 | 主题 | 入口 |
-|---|---|
+| --- | --- |
 | 根项目说明 | [`../README.md`](../README.md) |
 | 进程入口 | [`../cmd/apiserver/apiserver.go`](../cmd/apiserver/apiserver.go) |
 | 运行时生命周期 | [`../internal/apiserver/process`](../internal/apiserver/process) |

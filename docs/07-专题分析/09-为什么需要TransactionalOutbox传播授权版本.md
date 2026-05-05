@@ -126,7 +126,7 @@ sequenceDiagram
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | AuthZ 何时 stage 版本事件 | `PolicyChangeCommitter.Commit` 在写 facts、递增 version 后调用 `StagePolicyVersionChanged`。 | `application/authz/policy/committer.go` |
 | 版本事件内容是什么 | `tenant_id + version`。 | `domain/authz/policy/events.go` |
 | stager 缺失会怎样 | `StagePolicyVersionChanged` 返回错误，UoW 回滚。 | `application/authz/shared/version_event.go` |
@@ -243,7 +243,7 @@ iam.authz.version_changed
 ### runtime reload 与 outbox 的区别
 
 | 机制 | 解决什么 |
-|---|---|
+| --- | --- |
 | `ReloadRuntimePolicy` | 当前 IAM 进程的内存判定器刷新 |
 | `PolicyVersion` | tenant 授权事实版本递增 |
 | `Outbox event` | 跨系统通知版本变化 |
@@ -1186,7 +1186,7 @@ DB 已经是事实源，不能因为 runtime reload 失败反向否定已提交�
 ## 20. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | Committer 在 UoW 内写 facts、version、event | `application/authz/policy/committer.go` |
 | StagePolicyVersionChanged 要求 stager | `application/authz/shared/version_event.go` |
 | VersionChangedEvent payload 是 tenant_id + version | `domain/authz/policy/events.go` |
@@ -1280,7 +1280,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | Commit stages version event | facts + version + event 同事务 |
 | stager nil | commit 失败并回滚 |
 | Store.Stage requires tx | 无 active tx 时失败 |

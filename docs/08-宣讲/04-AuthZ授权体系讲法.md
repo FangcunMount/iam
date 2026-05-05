@@ -549,7 +549,7 @@ AuthZ 写入不仅改变当前 DB，还要告诉业务服务授权版本变了�
 ## 11. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | AuthZ module 装配 role/resource/policy/rolebinding/check/snapshot | `container/assembler/authz.go` |
 | 领域模型包含 Subject、Permission、RoleBinding、AuthorizationRequest | `domain/authz/model.go` |
 | Checker 将 CheckCommand 转成 AuthorizationRequest，再调用 DecisionEngine | `application/authz/authorization/service.go` |

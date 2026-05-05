@@ -90,7 +90,7 @@ active / revoked
 ```
 
 | 文档 | 作用 | 读完后应该能回答 |
-|---|---|---|
+| --- | --- | --- |
 | `01-User与Profile模型.md` | 解释 User 与 Profile 的领域边界 | User 为什么是登录主体，Profile 为什么是业务档案，二者为什么不能合并 |
 | `02-ProfileLink链路--用户与儿童档案关系协作.md` | 解释 ProfileLink 关系链路 | ProfileLink 如何建立/撤销，MyProfiles/MyProfileLinks 如何保护当前用户视角 |
 
@@ -269,7 +269,7 @@ flowchart TD
 ## Identity 核心概念
 
 | 概念 | 当前职责 | 常见误解 |
-|---|---|---|
+| --- | --- | --- |
 | User | 登录主体，IAM 内部身份锚点，带状态 | 误以为 User 等于所有业务档案 |
 | UserStatus | User 的可用状态，例如 active、inactive、blocked | 误以为只影响资料显示，不影响认证 |
 | Profile | 业务档案，例如本人档案、儿童档案、被测评者档案 | 误以为 Profile 是登录账号 |
@@ -358,7 +358,7 @@ Casbin fact
 ## Identity 与其他模块的关系
 
 | 模块 | 关系 |
-|---|---|
+| --- | --- |
 | AuthN | AuthN 使用 UserID 作为 Principal 身份锚点；Verify 会检查 User 状态 |
 | AuthZ | AuthZ 使用 `user:<id>` 等 subject 做资源权限判定；ProfileLink 不等于 Permission |
 | IDP | 外部身份源通过 AuthN 绑定 Account/User；微信 openid 不是 IAM User |
@@ -444,7 +444,7 @@ MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己�
 ## 代码证据入口
 
 | 主题 | 代码入口 |
-|---|---|
+| --- | --- |
 | UserModule 装配 | `internal/apiserver/container/assembler/user.go` |
 | User 领域模型 | `internal/apiserver/domain/uc/user/user.go` |
 | UserStatus | `internal/apiserver/domain/uc/user/status.go` |

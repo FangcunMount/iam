@@ -38,7 +38,7 @@ IAM 不是普通用户中心，而是统一处理认证、授权、身份关系�
 ## 核心能力
 
 | 能力 | 说明 |
-|---|---|
+| --- | --- |
 | AuthN 认证 | 显式登录、账号、Session、Access Token、Refresh Token、Verify、Revoke、JWKS、KeyRotation、Service Token |
 | AuthZ 授权 | Role、Resource、Permission、RoleBinding、Scope、Check、AuthorizationSnapshot、PolicyVersion、Transactional Outbox |
 | Identity 身份关系 | User、Profile、ProfileLink、MyProfiles、MyProfileLinks、self profile link |
@@ -76,7 +76,7 @@ flowchart TD
 分层职责：
 
 | 层次 | 位置 | 职责 |
-|---|---|---|
+| --- | --- | --- |
 | 进程入口 | [`cmd/apiserver`](cmd/apiserver) | `iam-apiserver` 服务入口 |
 | 生命周期管理 | [`internal/apiserver/process`](internal/apiserver/process) | 配置、资源初始化、container、REST/gRPC、后台任务、优雅关闭 |
 | 组合根 | [`internal/apiserver/container`](internal/apiserver/container) | 装配 AuthN、AuthZ、Identity、IDP、Suggest、Outbox 等模块 |
@@ -376,7 +376,7 @@ go test ./internal/apiserver/transport/grpc
 推荐入口：
 
 | 你想了解 | 推荐阅读 |
-|---|---|
+| --- | --- |
 | IAM 是什么，整体架构怎么分层 | [docs/00-概览/README.md](docs/00-概览/README.md) |
 | 服务如何启动、装配和关闭 | [docs/01-运行时/README.md](docs/01-运行时/README.md) |
 | 登录、Session、Token、JWKS 如何工作 | [docs/02-认证AuthN/README.md](docs/02-认证AuthN/README.md) |
@@ -441,7 +441,7 @@ docs/
 IAM 使用自动化护栏防止系统长期演进成大泥球。
 
 | 护栏 | 作用 |
-|---|---|
+| --- | --- |
 | architecture tests | 保护 domain/application/transport/container 的依赖方向 |
 | REST contract tests | 保护 OpenAPI 与运行时路由一致 |
 | gRPC proto contract tests | 保护 proto service 与 runtime registration 一致 |

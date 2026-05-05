@@ -552,7 +552,7 @@ SDK 让业务服务按风险选择本地验签、在线 Verify 或 fallback 策�
 ## 11. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | IssueToken 先创建 Session，再签发 Access Token 和保存 Refresh Token | `application/authn/token/issuer.go` |
 | Access Token 带 SessionID/UserID/AccountID/TenantID | `infra/token/jwt/generator.go` |
 | JWT header 带 kid，并通过 active signing key 签名 | `infra/token/jwt/generator.go` |

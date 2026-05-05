@@ -11,7 +11,7 @@
 ### 1.1 六边形架构
 
 | 文档 | 位置 | 源码体现 |
-|------|------|---------|
+| ------ | ------ | --------- |
 | [04-基础设施与运维/01-六边形架构实践.md](docs/04-基础设施与运维/01-六边形架构实践.md) | 架构概念 | 见 1.2-1.5 |
 
 ### 1.2 Interface Layer (驱动适配器)
@@ -820,7 +820,7 @@ pkg/sdk/
 ### 6.1 我想要理解 XXX
 
 | 想要理解的内容 | 从这里开始 |
-|---------------|-----------|
+| --------------- | ----------- |
 | 整体架构 | [docs/00-概览/01-系统架构总览.md](docs/00-概览/01-系统架构总览.md) |
 | 登录流程 | [docs/05-专题分析/01-认证链路.md](docs/05-专题分析/01-认证链路.md) + [internal/apiserver/interface/authn/restful/handler/auth.go](internal/apiserver/interface/authn/restful/handler/auth.go) |
 | 权限检查 | [docs/05-专题分析/03-授权判定链路.md](docs/05-专题分析/03-授权判定链路.md) + [internal/apiserver/infra/casbin/adapter.go](internal/apiserver/infra/casbin/adapter.go) |
@@ -834,7 +834,7 @@ pkg/sdk/
 ### 6.2 我想要改进 XXX
 
 | 想要改进的内容 | 涉及的代码文件 |
-|---------------|--------------|
+| --------------- | -------------- |
 | 添加新认证策略 | [internal/apiserver/infra/authentication/](internal/apiserver/infra/authentication/) + [internal/apiserver/domain/authn/authentication/](internal/apiserver/domain/authn/authentication/) |
 | 添加新角色类型 | [internal/apiserver/domain/authz/role/](internal/apiserver/domain/authz/role/) + [internal/apiserver/application/authz/role/](internal/apiserver/application/authz/role/) |
 | 添加新资源 | [internal/apiserver/domain/authz/resource/](internal/apiserver/domain/authz/resource/) + [internal/apiserver/interface/authz/restful/handler/resource.go](internal/apiserver/interface/authz/restful/handler/resource.go) |
@@ -846,7 +846,7 @@ pkg/sdk/
 ### 6.3 快速查找代码位置
 
 | 代码特征 | 搜索关键字 | 代码位置 |
-|---------|---------|--------|
+| --------- | --------- | -------- |
 | Repository 接口定义 | `type.*Repository interface` | `domain/*/repository.go` |
 | 聚合根定义 | `type.*struct` (在 domain 里带多个方法) | `domain/*/**.go` |
 | 应用服务 | `type.*ApplicationService interface` | `application/*/*.go` |
@@ -930,7 +930,7 @@ build/docker/
 ## 9. 常见问题快速定位
 
 | 问题 | 相关代码位置 |
-|------|-----------|
+| ------ | ----------- |
 | 如何添加新的登录方式？ | [internal/apiserver/infra/authentication/](internal/apiserver/infra/authentication/) + [internal/apiserver/domain/authn/authentication/](internal/apiserver/domain/authn/authentication/) |
 | 如何修改 Token 有效期？ | [internal/apiserver/domain/authn/token/](internal/apiserver/domain/authn/token/) + [internal/apiserver/application/authn/token/](internal/apiserver/application/authn/token/) |
 | 如何添加新权限规则？ | [internal/apiserver/application/authz/policy/](internal/apiserver/application/authz/policy/) |

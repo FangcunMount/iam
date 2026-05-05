@@ -122,7 +122,7 @@ flowchart TB
 ## 重点速查
 
 | 问题 | 普通用户中心 | IAM 当前答案 | 代码入口 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 用户是谁 | User 表 | User 是 Identity 身份锚点 | `internal/apiserver/domain/uc/user` |
 | 如何登录 | 用户名密码查表 | AuthN SignInAdapter + AuthStrategy + Session + TokenIssuer | `internal/apiserver/application/authn/login` |
 | token 是什么 | 通常只发 JWT | Access Token + Refresh Token + Session + Verify/Revoke | `internal/apiserver/application/authn/token` |
@@ -231,7 +231,7 @@ IAM 内部这个人是谁？
 这些问题分别属于：
 
 | 问题 | 模块 |
-|---|---|
+| --- | --- |
 | 如何登录 | AuthN |
 | token/session 是否有效 | AuthN |
 | 有无资源权限 | AuthZ |
@@ -947,7 +947,7 @@ SDK 把常用接入模式产品化，但不替代 REST/gRPC 契约。
 ## 16. 代码证据地图
 
 | 结论 | 代码/契约入口 |
-|---|---|
+| --- | --- |
 | IAM 不只是用户中心 | `README.md` 功能特性 |
 | 文档事实层已覆盖 AuthN/AuthZ/Identity/接入/护栏 | `docs/README.md` |
 | AuthN 装配 login/token/session/JWKS | `internal/apiserver/container/assembler/authn_application_builder.go` |

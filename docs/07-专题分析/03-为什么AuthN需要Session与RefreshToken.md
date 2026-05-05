@@ -126,7 +126,7 @@ flowchart TD
 ## 重点速查
 
 | 问题 | 当前答案 | 源码入口 |
-|---|---|---|
+| --- | --- | --- |
 | 登录成功后是否先创建 Session | 是，`IssueToken` 先 `sessionManager.Create`，再生成 token pair。 | `application/authn/token/issuer.go` |
 | Session 过期时间依据什么 | 使用 `refreshTTL`，即 session 生命周期与 refresh 续期窗口绑定。 | `issuer.go` |
 | Access Token 是否携带 SessionID | 是，`issueTokenPair` 构造 `principalWithSession`。 | `issuer.go` |
@@ -716,7 +716,7 @@ load user
 这意味着：
 
 | 状态变化 | Access Token 在线 Verify | Refresh |
-|---|---|---|
+| --- | --- | --- |
 | User blocked | 失败 | 失败 |
 | User inactive | 失败 | 失败 |
 | Account disabled | 失败 | 失败 |
@@ -751,7 +751,7 @@ RevokeByAccount
 ## 9. Access Token、Refresh Token、Session 三者的影响矩阵
 
 | 操作 | Access Token | Refresh Token | Session |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | access token 自然过期 | access 不能用 | refresh 可继续续期 | session 不一定失效 |
 | refresh token 自然过期 | access 到期后无法续期 | refresh 不能用 | session 到期 |
 | RevokeAccessToken | 当前 access marker 失效 | 不直接删除 | 当前实现会 revoke session |
@@ -1083,7 +1083,7 @@ User block 还要让在线 Verify 失败，并主动 revoke sessions。
 ## 17. 代码证据地图
 
 | 结论 | 代码入口 |
-|---|---|
+| --- | --- |
 | IssueToken 先创建 Session，再 issue token pair | `application/authn/token/issuer.go` |
 | Access Token 签发时带 SessionID | `issuer.go` |
 | Refresh Token 用 uuid value，并保存 SessionID/UserID/AccountID/TenantID | `issuer.go`、`infra/cache/redis/token-store.go` |
@@ -1165,7 +1165,7 @@ make docs-hygiene
 建议重点测试方向：
 
 | 测试方向 | 目的 |
-|---|---|
+| --- | --- |
 | IssueToken creates session | 登录签发必须先创建 session |
 | Access token includes sessionID | Verify 能回查 session |
 | SaveRefreshToken | refresh token 存储 SessionID/UserID/AccountID/TenantID |

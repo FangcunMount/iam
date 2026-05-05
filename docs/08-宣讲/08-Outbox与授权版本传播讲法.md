@@ -550,7 +550,7 @@ Outbox 让事件可恢复，但也需要 dashboard 和告警，否则 failed 堆
 ## 11. 证据链索引
 
 | 讲法 | 证据 |
-|---|---|
+| --- | --- |
 | Committer 在 UoW 中写 facts、递增 version、stage event | `application/authz/policy/committer.go` |
 | stager 缺失会失败 | `application/authz/shared/version_event.go` |
 | VersionChangedEvent payload 是 tenant_id + version | `domain/authz/policy/events.go` |
