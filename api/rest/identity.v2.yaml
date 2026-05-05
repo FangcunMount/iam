@@ -136,9 +136,14 @@ paths:
         description: 档案 ID
         schema:
           type: string
+      - name: include_revoked
+        in: query
+        description: 是否包含已撤销档案关系
+        schema:
+          type: boolean
       - name: active
         in: query
-        description: 是否仅查询活跃的档案关系
+        description: 是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）
         schema:
           type: boolean
       - name: offset

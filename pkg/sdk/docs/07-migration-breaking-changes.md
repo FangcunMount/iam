@@ -16,6 +16,7 @@
 - `pkg/sdk/errors` 只保留小型 facade；高级 `Analyze / matcher / handler` 能力已收回内部
 - `pkg/sdk/auth` 兼容 façade 已删除，认证入口统一切到 `client`、`jwks`、`verifier`、`serviceauth`
 - REST AuthN v2 登录入口为 `pkg/sdk/auth/loginv2`；gRPC token/JWKS/onboarding 客户端统一走 `pkg/sdk/auth/client` 的 v2 契约
+- 2026-05 的契约整理仍在 v2 下进行：`AuthService.Login`、`IDPService.GetWechatAccessToken/RefreshWechatAccessToken`、ProfileLink `include_revoked` 已进入 v2 proto 和 SDK
 - `sdk.NewTokenVerifier(...)`、`sdk.NewJWKSManager(...)`、`sdk.NewJWKSManagerWithClient(...)`、`sdk.NewServiceAuthHelper(...)` 已删除
 - `sdk.NewClient(...)` 不再隐式启用 request-id / metrics / circuit breaker；这些能力现在由 `Config.Observability` 显式控制
 
@@ -57,6 +58,30 @@
 | `errors.NewErrorHandler(...)` | 不再公开；调用方直接写自己的分支处理 |
 
 ## 常见迁移示例
+
+### 0. v2 契约整理：登录、IDP token、ProfileLink include_revoked
+
+本轮不发布 v3；REST/gRPC/SDK 直接在 v2 下整理契约。
+
+- gRPC 登录新增 `iam.authn.v2.AuthService.Login`，请求继续使用 `auth_method + method_payload`。
+- Go SDK `pkg/sdk/auth/client.Client` 新增 `Login(ctx, *authnv2.LoginRequest)`。
+- IDP v2 gRPC 新增 `GetWechatAccessToken` 和 `RefreshWechatAccessToken`，Go SDK `pkg/sdk/idp.Client` 同步新增同名方法。
+- ProfileLink v2 gRPC `ListProfilesRequest` 和 `ListProfileLinksRequest` 新增 `include_revoked`；Go SDK 透传 proto 字段，并提供 `GetUserProfilesIncludingRevoked` 便捷方法。
+- REST ProfileLink 列表新增 `include_revoked` query 参数，旧 `active` 参数暂时兼容；新代码优先使用 `include_revoked=true`。
+- gRPC 错误映射已收口到服务端共享表：400/401/403/404/409/423/429/500/502/503/504 分别映射到稳定 gRPC code；SDK 继续以 `pkg/sdk/errors.GRPCCode`、`ToHTTPStatus` 和 `Is*` 谓词作为唯一公开错误判断入口。
+- Identity 批量读取和 ProfileLink 关系用户查询已改为批量查询路径；返回顺序、缺失用户容忍、`include_revoked` 语义保持不变。
+
+旧 REST AuthN v2 登录 JSON 形状不变：
+
+```json
+{
+  "auth_method": "password",
+  "method_payload": {
+    "username": "alice",
+    "password": "secret"
+  }
+}
+```
 
 ### 1. 移除对 `pkg/sdk/transport` 的直接 import
 
@@ -164,6 +189,8 @@ default:
     log.Printf("grpc=%s http=%d", errors.GRPCCode(err), errors.ToHTTPStatus(err))
 }
 ```
+
+服务端现在统一按 gRPC code 暴露错误语义。SDK 不承诺还原服务端内部 `component-base` 错误码；调用方应按 `GRPCCode`、`ToHTTPStatus` 或 `IsNotFound/IsRateLimited/IsRetryable` 等谓词分支。
 
 ## 这轮不再承诺为公开稳定 API 的能力
 

@@ -13,13 +13,13 @@ type bootstrapStep struct {
 
 func (c *Container) bootstrapPlan() []bootstrapStep {
 	return []bootstrapStep{
-		{name: "event runtime", run: c.initEventing},
-		{name: "idp module", run: c.initIDPModule},
-		{name: "authn module", run: c.initAuthModule},
-		{name: "authz module", run: c.initAuthzModule},
-		{name: "user module", run: c.initUserModule},
-		{name: "suggest module", run: c.initSuggestModule},
-		{name: "cache governance", run: func() error {
+		{name: moduleEventRuntime, run: c.initEventing},
+		{name: moduleIDP, run: c.initIDPModule},
+		{name: moduleAuthn, run: c.initAuthModule},
+		{name: moduleAuthz, run: c.initAuthzModule},
+		{name: moduleUser, run: c.initUserModule},
+		{name: moduleSuggest, run: c.initSuggestModule},
+		{name: moduleCacheGovernance, run: func() error {
 			c.initCacheGovernance()
 			return nil
 		}},
@@ -34,6 +34,7 @@ func (c *Container) runBootstrapPlan() []error {
 		}
 		if err := step.run(); err != nil {
 			log.Warnf("Failed to initialize %s: %v", step.name, err)
+			c.recordBootstrapFailure(step.name, err)
 			errors = append(errors, fmt.Errorf("%s: %w", step.name, err))
 		}
 	}

@@ -28,3 +28,33 @@ func TestUserRepositoryMapsRecordNotFoundToDomainCode(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, perrors.IsCode(err, code.ErrUserNotFound))
 }
+
+func TestUserRepositoryFindByIDsReturnsFoundUsersOnly(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&UserPO{}))
+
+	phone10, err := meta.NewPhone("+8613800000010")
+	require.NoError(t, err)
+	email10, err := meta.NewEmail("alice@example.com")
+	require.NoError(t, err)
+	phone11, err := meta.NewPhone("+8613800000011")
+	require.NoError(t, err)
+	email11, err := meta.NewEmail("bob@example.com")
+	require.NoError(t, err)
+
+	alice := &UserPO{Name: "alice", Phone: phone10, Email: email10, Status: 1}
+	alice.ID = meta.FromUint64(10)
+	bob := &UserPO{Name: "bob", Phone: phone11, Email: email11, Status: 1}
+	bob.ID = meta.FromUint64(11)
+	require.NoError(t, db.Create(alice).Error)
+	require.NoError(t, db.Create(bob).Error)
+
+	repo := NewRepository(db)
+	got, err := repo.FindByIDs(context.Background(), []meta.ID{meta.FromUint64(11), meta.FromUint64(404), meta.FromUint64(10), meta.FromUint64(11)})
+
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	require.Equal(t, "alice", got[meta.FromUint64(10)].Name)
+	require.Equal(t, "bob", got[meta.FromUint64(11)].Name)
+	require.Nil(t, got[meta.FromUint64(404)])
+}

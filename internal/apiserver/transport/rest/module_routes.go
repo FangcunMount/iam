@@ -30,7 +30,7 @@ func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies
 
 // registerAuthnRoutes 注册 AuthN 模块 认证路由
 func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies) {
-	if authnRoutesAvailable(deps.authn) {
+	if r.deps.ModuleStatus.authnAvailable() && authnRoutesAvailable(deps.authn) {
 		authnDeps := authnhttp.Dependencies{
 			AuthHandler:      deps.authn.AuthHandler,
 			AccountHandler:   deps.authn.AccountHandler,
@@ -55,7 +55,7 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies)
 
 // registerAuthzRoutes 注册 AuthZ 模块 授权路由
 func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
-	if authzRoutesAvailable(deps) && authMiddleware != nil {
+	if r.deps.ModuleStatus.authzAvailable() && authzRoutesAvailable(deps) && authMiddleware != nil {
 		authzhttp.Register(engine, authzhttp.Dependencies{
 			RoleHandler:        deps.RoleHandler,
 			RoleBindingHandler: deps.RoleBindingHandler,
@@ -67,7 +67,7 @@ func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMid
 		log.Info("✅ Authz module routes registered")
 		return
 	}
-	if authzRoutesAvailable(deps) {
+	if r.deps.ModuleStatus.authzAvailable() && authzRoutesAvailable(deps) {
 		log.Warn("⚠️  Authz module initialized but JWT middleware unavailable; protected routes not registered")
 		return
 	}
@@ -76,7 +76,7 @@ func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMid
 
 // registerIDPRoutes 注册 IDP 模块 IDP路由
 func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
-	if r.deps.ModuleStatus.IDP {
+	if r.deps.ModuleStatus.idpAvailable() && deps.idp.WechatAppHandler != nil {
 		idphttp.Register(engine, idphttp.Dependencies{
 			WechatAppHandler: deps.idp.WechatAppHandler,
 			AdminMiddlewares: deps.adminMiddlewares,
@@ -89,7 +89,7 @@ func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
 
 // registerIdentityRoutes 注册 Identity 模块 身份路由
 func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
-	if userRoutesAvailable(deps) && authMiddleware != nil {
+	if r.deps.ModuleStatus.userAvailable() && userRoutesAvailable(deps) && authMiddleware != nil {
 		userhttp.Register(engine, userhttp.Dependencies{
 			UserHandler:        deps.UserHandler,
 			ProfileHandler:     deps.ProfileHandler,
@@ -99,7 +99,7 @@ func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authM
 		log.Info("✅ User module routes registered")
 		return
 	}
-	if userRoutesAvailable(deps) {
+	if r.deps.ModuleStatus.userAvailable() && userRoutesAvailable(deps) {
 		log.Warn("⚠️  User module initialized but JWT middleware unavailable; protected routes not registered")
 		return
 	}
@@ -108,7 +108,7 @@ func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authM
 
 // registerSuggestRoutes 注册 Suggest 模块 建议路由
 func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
-	if deps.Service != nil && authMiddleware != nil {
+	if r.deps.ModuleStatus.suggestAvailable() && deps.Service != nil && authMiddleware != nil {
 		suggesthttp.Register(engine, suggesthttp.Dependencies{
 			Service:        deps.Service,
 			AuthMiddleware: authMiddleware.AuthRequired(),
@@ -116,7 +116,7 @@ func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, aut
 		log.Info("✅ Suggest module routes registered")
 		return
 	}
-	if deps.Service != nil {
+	if r.deps.ModuleStatus.suggestAvailable() && deps.Service != nil {
 		log.Warn("⚠️  Suggest module initialized but JWT middleware unavailable; protected routes not registered")
 		return
 	}

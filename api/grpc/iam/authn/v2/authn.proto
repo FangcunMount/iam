@@ -65,6 +65,16 @@ message TokenMetadata {
 
 // ============= AuthService =============
 
+message LoginRequest {
+  string auth_method = 1;
+  google.protobuf.Struct method_payload = 2;
+  string device_id = 3;
+}
+
+message LoginResponse {
+  TokenPair token_pair = 1;
+}
+
 message VerifyTokenRequest {
   string access_token = 1;
   bool force_remote = 2;
@@ -132,6 +142,7 @@ message IssueServiceTokenResponse {
 }
 
 service AuthService {
+  rpc Login(LoginRequest) returns (LoginResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
   rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);

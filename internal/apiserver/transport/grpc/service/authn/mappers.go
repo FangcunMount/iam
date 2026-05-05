@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/FangcunMount/component-base/pkg/errors"
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -91,23 +89,7 @@ func parseOptionalMetaID(text string) (meta.ID, error) {
 }
 
 func toGRPCError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if coder := errors.ParseCoder(err); coder != nil {
-		switch coder.HTTPStatus() {
-		case 400:
-			return status.Error(codes.InvalidArgument, coder.String())
-		case 401:
-			return status.Error(codes.Unauthenticated, coder.String())
-		case 403:
-			return status.Error(codes.PermissionDenied, coder.String())
-		case 404:
-			return status.Error(codes.NotFound, coder.String())
-		}
-		return status.Error(codes.Internal, coder.String())
-	}
-	return status.Error(codes.Internal, err.Error())
+	return iamgrpc.ToStatusError(err)
 }
 
 func cloneAudience(in []string) []string {

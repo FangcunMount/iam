@@ -39,6 +39,18 @@ func (c *ProfileLinkClient) GetUserProfiles(ctx context.Context, userID string) 
 	return resp, nil
 }
 
+// GetUserProfilesIncludingRevoked 使用默认分页列出用户的关系档案，包含已撤销关系。
+func (c *ProfileLinkClient) GetUserProfilesIncludingRevoked(ctx context.Context, userID string) (*identityv2.ListProfilesResponse, error) {
+	resp, err := c.queryService.ListProfiles(ctx, &identityv2.ListProfilesRequest{
+		UserId:         userID,
+		IncludeRevoked: true,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return resp, nil
+}
+
 // ListProfileLinks 列出档案的关系用户。
 func (c *ProfileLinkClient) ListProfileLinks(ctx context.Context, req *identityv2.ListProfileLinksRequest) (*identityv2.ListProfileLinksResponse, error) {
 	resp, err := c.queryService.ListProfileLinks(ctx, req)

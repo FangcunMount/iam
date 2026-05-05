@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -40,7 +41,15 @@ func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identity
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	profileLinks, err := s.profileLinkQuerySvc.ListProfilesForUser(ctx, req.GetUserId())
+	var (
+		profileLinks []*profileLinkApp.ProfileLinkResult
+		err          error
+	)
+	if req.GetIncludeRevoked() {
+		profileLinks, err = s.profileLinkQuerySvc.ListProfilesForUserIncludingRevoked(ctx, req.GetUserId())
+	} else {
+		profileLinks, err = s.profileLinkQuerySvc.ListProfilesForUser(ctx, req.GetUserId())
+	}
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -84,20 +93,28 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
 
-	profileLinks, err := s.profileLinkQuerySvc.ListLinksForProfile(ctx, req.GetProfileId())
+	var (
+		profileLinks []*profileLinkApp.ProfileLinkResult
+		err          error
+	)
+	if req.GetIncludeRevoked() {
+		profileLinks, err = s.profileLinkQuerySvc.ListLinksForProfileIncludingRevoked(ctx, req.GetProfileId())
+	} else {
+		profileLinks, err = s.profileLinkQuerySvc.ListLinksForProfile(ctx, req.GetProfileId())
+	}
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
+	usersByID, err := s.userQuerySvc.BatchGetByID(ctx, userIDsFromProfileLinks(profileLinks))
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
 	items := make([]*identityv2.ProfileLinkEdge, 0, len(profileLinks))
 	for _, g := range profileLinks {
-		// 查询关系用户详细信息
 		var user *identityv2.User
-		if g.UserID != "" {
-			userResult, err := s.userQuerySvc.GetByID(ctx, g.UserID)
-			if err == nil && userResult != nil {
-				user = userResultToProto(userResult)
-			}
+		if userResult := usersByID[g.UserID]; userResult != nil {
+			user = userResultToProto(userResult)
 		}
 
 		items = append(items, &identityv2.ProfileLinkEdge{
@@ -110,4 +127,20 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 		Total: int32(len(items)),
 		Items: items,
 	}, nil
+}
+
+func userIDsFromProfileLinks(profileLinks []*profileLinkApp.ProfileLinkResult) []string {
+	ids := make([]string, 0, len(profileLinks))
+	seen := make(map[string]struct{}, len(profileLinks))
+	for _, link := range profileLinks {
+		if link == nil || link.UserID == "" {
+			continue
+		}
+		if _, ok := seen[link.UserID]; ok {
+			continue
+		}
+		seen[link.UserID] = struct{}{}
+		ids = append(ids, link.UserID)
+	}
+	return ids
 }

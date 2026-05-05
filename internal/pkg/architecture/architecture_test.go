@@ -338,6 +338,138 @@ func TestRESTRouterTestsUseExplicitDeps(t *testing.T) {
 	}
 }
 
+func TestRESTLoginDoesNotOwnAuthMethodDispatch(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	rel := "internal/apiserver/transport/rest/authn/handler/auth_login.go"
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	for _, token := range []string{
+		"loginPayloadAdapters",
+		"type loginPayloadAdapter",
+		"passwordLoginRequest",
+		"phoneOTPLoginRequest",
+		"wechatLoginRequest",
+		"wecomLoginRequest",
+	} {
+		if strings.Contains(source, token) {
+			t.Fatalf("%s contains REST-owned login dispatch %q; public auth methods must come from application/authn/login", rel, token)
+		}
+	}
+	assertFileContains(t, root, rel, "login.BuildExplicitLoginRequest")
+}
+
+func TestIDPTokenAppNotFoundUsesStructuredError(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	foundStructuredCode := false
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "idp", "wechatapp"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.Contains(source, "code.ErrWechatAppNotFound") {
+			foundStructuredCode = true
+		}
+		for _, token := range []string{
+			`fmt.Errorf("wechat app not found`,
+			`errors.New("wechat app not found`,
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains unstructured WeChat app not found error %q; use code.ErrWechatAppNotFound", rel, token)
+			}
+		}
+	})
+	if !foundStructuredCode {
+		t.Fatalf("application/idp/wechatapp does not use code.ErrWechatAppNotFound")
+	}
+}
+
+func TestGRPCServicesUseSharedCodedErrorMapper(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport", "grpc", "service"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{
+			"ParseCoder(",
+			".HTTPStatus()",
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains private coded-error mapping token %q; use internal/pkg/grpc shared mapper", rel, token)
+			}
+		}
+	})
+}
+
+func TestRESTRouteRegistrationUsesModuleStateAvailability(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		"internal/apiserver/transport/rest/router.go",
+		"internal/apiserver/transport/rest/module_routes.go",
+	} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		source := string(data)
+		for _, token := range []string{
+			".ModuleStatus.ContainerInitialized",
+			".ModuleStatus.Authn",
+			".ModuleStatus.Authz",
+			".ModuleStatus.User",
+			".ModuleStatus.IDP",
+			".ModuleStatus.Suggest",
+			".ModuleStatus.AuthEnabled",
+		} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s reads legacy module status %q during route registration; use ModuleState availability helpers", rel, token)
+			}
+		}
+	}
+}
+
+func TestIdentityProfileLinkListDoesNotUseNPlusOneUserLookup(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	rel := "internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go"
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	for _, token := range []string{
+		"GetByID(ctx, g.UserID)",
+		"userQuerySvc.GetByID",
+	} {
+		if strings.Contains(source, token) {
+			t.Fatalf("%s uses per-link user lookup %q; use batch user query and preserve edge order", rel, token)
+		}
+	}
+	assertFileContains(t, root, rel, "BatchGetByID")
+}
+
+func TestProfileLinkListProfilesDoesNotUseNPlusOneProfileLookup(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	rel := "internal/apiserver/application/uc/profilelink/service_query.go"
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	if strings.Contains(source, "tx.Profiles.FindByID(txCtx, g.Profile)") {
+		t.Fatalf("%s uses per-link profile lookup in ListProfilesForUser; use batch FindByIDs and preserve link order", rel)
+	}
+	assertFileContains(t, root, rel, "tx.Profiles.FindByIDs")
+}
+
 func TestRootAPIServerPackageOwnsOnlyRunDelegation(t *testing.T) {
 	t.Parallel()
 

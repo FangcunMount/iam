@@ -43,6 +43,15 @@ func (c *Client) VerifyToken(ctx context.Context, req *authnv2.VerifyTokenReques
 	return resp, nil
 }
 
+// Login 使用 v2 explicit auth_method + method_payload 契约登录。
+func (c *Client) Login(ctx context.Context, req *authnv2.LoginRequest) (*authnv2.LoginResponse, error) {
+	resp, err := c.authService.Login(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return resp, nil
+}
+
 // CreateOperationAccount 创建运营后台账号，并按需创建用户、账户和密码凭据。
 func (c *Client) CreateOperationAccount(ctx context.Context, req *authnv2.CreateOperationAccountRequest) (*authnv2.CreateOperationAccountResponse, error) {
 	resp, err := c.accountOnboardingService.CreateOperationAccount(ctx, req)

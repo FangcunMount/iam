@@ -3,6 +3,7 @@ package authn
 import (
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"google.golang.org/grpc"
@@ -17,12 +18,14 @@ type Service struct {
 
 // NewService 创建 authn gRPC 服务
 func NewService(
+	loginSvc loginApp.LoginApplicationService,
 	tokenSvc tokenApp.TokenApplicationService,
 	accountOnboarder onboardingApp.AccountOnboarder,
 	keyPublish *jwksApp.KeyPublishAppService,
 ) *Service {
 	return &Service{
 		auth: authServiceServer{
+			loginSvc: loginSvc,
 			tokenSvc: tokenSvc,
 		},
 		onboarding: accountOnboardingServer{
@@ -39,7 +42,7 @@ func (s *Service) Register(server *grpc.Server) {
 	if s == nil || server == nil {
 		return
 	}
-	if s.auth.tokenSvc != nil {
+	if s.auth.loginSvc != nil || s.auth.tokenSvc != nil {
 		authnv2.RegisterAuthServiceServer(server, &s.auth)
 	}
 	if s.onboarding.accountOnboarder != nil {
@@ -52,6 +55,7 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authServiceServer struct {
 	authnv2.UnimplementedAuthServiceServer
+	loginSvc loginApp.LoginApplicationService
 	tokenSvc tokenApp.TokenApplicationService
 }
 

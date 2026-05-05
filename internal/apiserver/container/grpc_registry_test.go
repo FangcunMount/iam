@@ -14,6 +14,7 @@ func TestBuildGRPCDepsReturnsModuleRegistrarsInStartupOrder(t *testing.T) {
 		UserModule:  &assembler.UserModule{},
 		IDPModule:   &assembler.IDPModule{},
 		AuthzModule: &assembler.AuthzModule{},
+		initialized: true,
 	}
 
 	deps := c.BuildGRPCDeps(nil)

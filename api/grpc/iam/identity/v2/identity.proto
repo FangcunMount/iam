@@ -176,6 +176,7 @@ message BatchGetProfilesResponse {
 message ListProfilesRequest {
   string user_id = 1;
   OffsetPagination page = 2;
+  bool include_revoked = 3;
 }
 message ListProfilesResponse {
   int32 total = 1;
@@ -183,7 +184,10 @@ message ListProfilesResponse {
   repeated ProfileEdge items = 3;
 }
 
-message ListProfileLinksRequest { string profile_id = 1; }
+message ListProfileLinksRequest {
+  string profile_id = 1;
+  bool include_revoked = 2;
+}
 message ListProfileLinksResponse {
   int32 total = 1;
   repeated ProfileLinkEdge items = 2;

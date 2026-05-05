@@ -30,6 +30,10 @@ func (s *sdkAuthServiceClientStub) VerifyToken(ctx context.Context, in *authnv2.
 	return s.verifyResp, s.verifyErr
 }
 
+func (s *sdkAuthServiceClientStub) Login(context.Context, *authnv2.LoginRequest, ...grpc.CallOption) (*authnv2.LoginResponse, error) {
+	return nil, nil
+}
+
 func (s *sdkAuthServiceClientStub) RefreshToken(context.Context, *authnv2.RefreshTokenRequest, ...grpc.CallOption) (*authnv2.RefreshTokenResponse, error) {
 	return nil, nil
 }

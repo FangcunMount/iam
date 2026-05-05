@@ -21,14 +21,16 @@ func (s *Service) Register(server *grpc.Server) {
 // NewService 创建 IDP gRPC 服务
 func NewService(
 	wechatAppService wechatappApp.WechatAppApplicationService,
+	wechatAppTokenService wechatappApp.WechatAppTokenApplicationService,
 	wechatAppRepo wechatappDomain.Repository,
 	secretVault wechatappDomain.SecretVault,
 ) *Service {
 	return &Service{
 		idpService: idpServer{
-			wechatAppService: wechatAppService,
-			wechatAppRepo:    wechatAppRepo,
-			secretVault:      secretVault,
+			wechatAppService:      wechatAppService,
+			wechatAppTokenService: wechatAppTokenService,
+			wechatAppRepo:         wechatAppRepo,
+			secretVault:           secretVault,
 		},
 	}
 }
@@ -41,7 +43,8 @@ func (s *Service) RegisterService(server *grpc.Server) {
 // idpServer IDP 服务实现
 type idpServer struct {
 	idpv2.UnimplementedIDPServiceServer
-	wechatAppService wechatappApp.WechatAppApplicationService
-	wechatAppRepo    wechatappDomain.Repository
-	secretVault      wechatappDomain.SecretVault
+	wechatAppService      wechatappApp.WechatAppApplicationService
+	wechatAppTokenService wechatappApp.WechatAppTokenApplicationService
+	wechatAppRepo         wechatappDomain.Repository
+	secretVault           wechatappDomain.SecretVault
 }

@@ -4,11 +4,14 @@ import (
 	"context"
 	"strings"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 )
 
 // GetWechatApp 查询微信应用
@@ -24,7 +27,7 @@ func (s *idpServer) GetWechatApp(ctx context.Context, req *idpv2.GetWechatAppReq
 	}
 
 	if app == nil {
-		return nil, status.Error(codes.NotFound, "wechat app not found")
+		return nil, toGRPCError(perrors.WithCode(code.ErrWechatAppNotFound, "wechat app not found: %s", req.GetAppId()))
 	}
 
 	// 转换为 proto 消息（包含解密后的 appSecret）
@@ -36,6 +39,36 @@ func (s *idpServer) GetWechatApp(ctx context.Context, req *idpv2.GetWechatAppReq
 	return &idpv2.GetWechatAppResponse{
 		App: protoApp,
 	}, nil
+}
+
+// GetWechatAccessToken 获取微信应用访问令牌。
+func (s *idpServer) GetWechatAccessToken(ctx context.Context, req *idpv2.GetWechatAccessTokenRequest) (*idpv2.GetWechatAccessTokenResponse, error) {
+	if s.wechatAppTokenService == nil {
+		return nil, status.Error(codes.Unimplemented, "wechat app token service not configured")
+	}
+	if req == nil || strings.TrimSpace(req.GetAppId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "app_id is required")
+	}
+	token, err := s.wechatAppTokenService.GetAccessToken(ctx, req.GetAppId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	return &idpv2.GetWechatAccessTokenResponse{AccessToken: token}, nil
+}
+
+// RefreshWechatAccessToken 强制刷新微信应用访问令牌。
+func (s *idpServer) RefreshWechatAccessToken(ctx context.Context, req *idpv2.RefreshWechatAccessTokenRequest) (*idpv2.RefreshWechatAccessTokenResponse, error) {
+	if s.wechatAppTokenService == nil {
+		return nil, status.Error(codes.Unimplemented, "wechat app token service not configured")
+	}
+	if req == nil || strings.TrimSpace(req.GetAppId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "app_id is required")
+	}
+	token, err := s.wechatAppTokenService.RefreshAccessToken(ctx, req.GetAppId())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+	return &idpv2.RefreshWechatAccessTokenResponse{AccessToken: token}, nil
 }
 
 // wechatAppDomainToProto 将领域对象转换为 proto 消息（包含解密后的 appSecret）
@@ -94,14 +127,5 @@ func statusToProto(s domain.Status) idpv2.WechatAppStatus {
 
 // toGRPCError 将应用层错误转换为 gRPC 错误
 func toGRPCError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	// 简单的错误转换，可以根据实际需求扩展
-	if strings.Contains(err.Error(), "not found") {
-		return status.Error(codes.NotFound, err.Error())
-	}
-
-	return status.Error(codes.Internal, err.Error())
+	return iamgrpc.ToStatusError(err)
 }

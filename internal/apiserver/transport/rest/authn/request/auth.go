@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -17,13 +18,7 @@ type LoginV2Request struct {
 
 // Validate 验证 v2 登录请求。
 func (r *LoginV2Request) Validate() error {
-	validMethods := map[string]bool{
-		"password":  true,
-		"phone_otp": true,
-		"wechat":    true,
-		"wecom":     true,
-	}
-	if !validMethods[r.AuthMethod] {
+	if !login.IsPublicAuthType(r.AuthMethod) {
 		return perrors.WithCode(code.ErrInvalidArgument, "invalid authentication method: %s", r.AuthMethod)
 	}
 	if len(r.MethodPayload) == 0 {

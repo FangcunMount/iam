@@ -18,7 +18,9 @@ func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttrans
 	}
 
 	deps.CacheGovernance = c.CacheGovernanceService
-	deps.ModuleStatus.ContainerInitialized = true
+	deps.ModuleStatus.Container = toRESTModuleState(c.ContainerState())
+	deps.ModuleStatus.ContainerInitialized = deps.ModuleStatus.Container.Bootstrapped
+	deps.ModuleStatus.Modules = toRESTModuleStates(c.ModuleStates())
 	c.collectAuthnRESTDeps(&deps)
 	c.collectAuthzRESTDeps(&deps)
 	c.collectIDPRESTDeps(&deps)
@@ -27,10 +29,29 @@ func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttrans
 	return deps
 }
 
+func toRESTModuleStates(states map[string]ModuleState) map[string]resttransport.ModuleState {
+	if len(states) == 0 {
+		return nil
+	}
+	out := make(map[string]resttransport.ModuleState, len(states))
+	for name, state := range states {
+		out[name] = toRESTModuleState(state)
+	}
+	return out
+}
+
+func toRESTModuleState(state ModuleState) resttransport.ModuleState {
+	return resttransport.ModuleState{
+		Bootstrapped:   state.Bootstrapped,
+		Available:      state.Available,
+		DegradedReason: state.DegradedReason,
+	}
+}
+
 func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
-	if c.AuthnModule != nil {
+	if c.ModuleState(moduleAuthn).Available {
 		caps := c.AuthnModule.ApplicationCapabilities()
-		deps.ModuleStatus.Authn = true
+		deps.ModuleStatus.Authn = deps.ModuleStatus.Modules[moduleAuthn].Available
 		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.LoginService, caps.TokenService, caps.LoginPreparationService)
 		deps.Authn.AccountHandler = authnhandler.NewAccountHandlerWithRoles(
 			caps.AccountService,
@@ -46,9 +67,9 @@ func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
 }
 
 func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
-	if c.AuthzModule != nil {
+	if c.ModuleState(moduleAuthz).Available {
 		caps := c.AuthzModule.ApplicationCapabilities()
-		deps.ModuleStatus.Authz = true
+		deps.ModuleStatus.Authz = deps.ModuleStatus.Modules[moduleAuthz].Available
 		deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCatalog, caps.RoleDirectory)
 		deps.Authz.RoleBindingHandler = authzhandler.NewRoleBindingHandler(caps.RoleBindingCommands, caps.RoleBindingDirectory)
 		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PermissionCommands, caps.PermissionReader)
@@ -60,9 +81,9 @@ func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
 }
 
 func (c *Container) collectIDPRESTDeps(deps *resttransport.Deps) {
-	if c.IDPModule != nil {
+	if c.ModuleState(moduleIDP).Available {
 		caps := c.IDPModule.ApplicationCapabilities()
-		deps.ModuleStatus.IDP = true
+		deps.ModuleStatus.IDP = deps.ModuleStatus.Modules[moduleIDP].Available
 		deps.IDP.WechatAppHandler = idphandler.NewWechatAppHandler(
 			caps.WechatAppService,
 			caps.WechatAppCredentialService,
@@ -72,9 +93,9 @@ func (c *Container) collectIDPRESTDeps(deps *resttransport.Deps) {
 }
 
 func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
-	if c.UserModule != nil {
+	if c.ModuleState(moduleUser).Available {
 		caps := c.UserModule.ApplicationCapabilities()
-		deps.ModuleStatus.User = true
+		deps.ModuleStatus.User = deps.ModuleStatus.Modules[moduleUser].Available
 		deps.User.UserHandler = identityhandler.NewUserHandler(
 			caps.UserCreator,
 			caps.UserEditor,
@@ -90,9 +111,9 @@ func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
 }
 
 func (c *Container) collectSuggestRESTDeps(deps *resttransport.Deps) {
-	if c.SuggestModule != nil {
+	if c.ModuleState(moduleSuggest).Available {
 		caps := c.SuggestModule.ApplicationCapabilities()
-		deps.ModuleStatus.Suggest = caps.Service != nil
+		deps.ModuleStatus.Suggest = deps.ModuleStatus.Modules[moduleSuggest].Available
 		deps.Suggest.Service = caps.Service
 	}
 }

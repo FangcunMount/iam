@@ -8,6 +8,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ===========================================
@@ -75,6 +76,51 @@ func (s *directory) GetByID(ctx context.Context, userID string) (*UserResult, er
 	}
 
 	return result, err
+}
+
+// BatchGetByID 根据 ID 集合批量查询用户。
+func (s *directory) BatchGetByID(ctx context.Context, userIDs []string) (map[string]*UserResult, error) {
+	results := map[string]*UserResult{}
+	if len(userIDs) == 0 {
+		return results, nil
+	}
+
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
+		ids := userIDsForBatch(userIDs)
+		if len(ids) == 0 {
+			return nil
+		}
+		usersByID, err := tx.Users.FindByIDs(txCtx, ids)
+		if err != nil {
+			return err
+		}
+		for _, u := range usersByID {
+			if u == nil {
+				continue
+			}
+			results[u.ID.String()] = toUserResult(u)
+		}
+		return nil
+	})
+
+	return results, err
+}
+
+func userIDsForBatch(userIDs []string) []meta.ID {
+	ids := make([]meta.ID, 0, len(userIDs))
+	seen := make(map[meta.ID]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		id, err := parseUserID(userID)
+		if err != nil || id.IsZero() {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 // GetByPhone 根据手机号查询用户

@@ -3,6 +3,7 @@ package wechatapp
 import (
 	"context"
 	"testing"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
@@ -144,4 +145,43 @@ func TestWechatAppApplicationService_EnableDisableApp(t *testing.T) {
 	require.Equal(t, domain.StatusDisabled, disabled.Status)
 	require.Equal(t, domain.StatusDisabled, repo.apps["wx-disable"].Status)
 	require.Equal(t, 2, repo.updateCalls)
+}
+
+func TestWechatAppTokenApplicationService_AppNotFoundUsesStructuredError(t *testing.T) {
+	svc := NewWechatAppTokenApplicationService(
+		&repoStub{},
+		tokenCacherStub{},
+		tokenProviderStub{},
+		tokenCacheStub{},
+	)
+
+	_, err := svc.GetAccessToken(context.Background(), "missing-app")
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrWechatAppNotFound))
+
+	_, err = svc.RefreshAccessToken(context.Background(), "missing-app")
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrWechatAppNotFound))
+}
+
+type tokenCacherStub struct{}
+
+func (tokenCacherStub) EnsureToken(context.Context, *domain.WechatApp, time.Duration) (string, error) {
+	return "access-token", nil
+}
+
+type tokenProviderStub struct{}
+
+func (tokenProviderStub) Fetch(context.Context, *domain.WechatApp) (*domain.AppAccessToken, error) {
+	return &domain.AppAccessToken{Token: "access-token", ExpiresAt: time.Now().Add(time.Hour)}, nil
+}
+
+type tokenCacheStub struct{}
+
+func (tokenCacheStub) Get(context.Context, string) (*domain.AppAccessToken, error) { return nil, nil }
+func (tokenCacheStub) Set(context.Context, string, *domain.AppAccessToken, time.Duration) error {
+	return nil
+}
+func (tokenCacheStub) TryLockRefresh(context.Context, string, time.Duration) (bool, func(), error) {
+	return true, func() {}, nil
 }

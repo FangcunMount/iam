@@ -114,6 +114,38 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
 }
 
+func TestRouterRegistersModuleRoutesFromModuleStateWithoutLegacyBooleans(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
+	}
+	deps.ModuleStatus.Authn = false
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
+
+	NewRouter(deps).RegisterRoutes(engine)
+
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
+}
+
+func TestRouterDoesNotUseLegacyModuleBooleansForRegistration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
+	}
+	deps.ModuleStatus.Modules = map[string]ModuleState{}
+	deps.ModuleStatus.Authn = true
+
+	NewRouter(deps).RegisterRoutes(engine)
+
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
+}
+
 func TestRouterRegistersAuthnSignupRouteAndRetiresOldWechatRegister(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -252,17 +284,55 @@ func newRouterForTest(deps Deps, options RouterOptions) *Router {
 	if deps.CacheGovernance == nil {
 		deps.CacheGovernance = cachegovernance.NewReadService(nil)
 	}
-	deps.ModuleStatus.ContainerInitialized = true
+	normalizeModuleStatusForTest(&deps.ModuleStatus)
 	return NewRouter(deps)
 }
 
 func restDepsForTest() Deps {
 	return Deps{
 		CacheGovernance: cachegovernance.NewReadService(nil),
-		ModuleStatus: ModuleStatus{
-			ContainerInitialized: true,
-		},
+		ModuleStatus:    moduleStatusForTest(),
 	}
+}
+
+func moduleStatusForTest() ModuleStatus {
+	return ModuleStatus{
+		ContainerInitialized: true,
+		Container:            ModuleState{Bootstrapped: true, Available: true},
+		Modules:              map[string]ModuleState{},
+	}
+}
+
+func normalizeModuleStatusForTest(status *ModuleStatus) {
+	if status == nil {
+		return
+	}
+	if status.ContainerInitialized && !status.Container.Bootstrapped {
+		status.Container.Bootstrapped = true
+		status.Container.Available = true
+	}
+	if status.Modules == nil {
+		status.Modules = map[string]ModuleState{}
+	}
+	if status.Authn {
+		markModuleAvailableForTest(status, moduleStateAuthn)
+	}
+	if status.Authz {
+		markModuleAvailableForTest(status, moduleStateAuthz)
+	}
+	if status.IDP {
+		markModuleAvailableForTest(status, moduleStateIDP)
+	}
+	if status.User {
+		markModuleAvailableForTest(status, moduleStateUser)
+	}
+	if status.Suggest {
+		markModuleAvailableForTest(status, moduleStateSuggest)
+	}
+}
+
+func markModuleAvailableForTest(status *ModuleStatus, name string) {
+	status.Modules[name] = ModuleState{Bootstrapped: true, Available: true}
 }
 
 func boolPtr(v bool) *bool {

@@ -48,7 +48,8 @@ type Container struct {
 	idpEncryptionKey []byte
 
 	// 容器状态
-	initialized bool
+	initialized     bool
+	bootstrapErrors map[string]string
 
 	// typed runtime options
 	runtimeOptions RuntimeOptions
@@ -79,6 +80,7 @@ func (c *Container) Initialize() error {
 		return fmt.Errorf("container already initialized")
 	}
 
+	c.bootstrapErrors = make(map[string]string)
 	errors := c.runBootstrapPlan()
 	c.initialized = true
 	c.logBootstrapStatus()

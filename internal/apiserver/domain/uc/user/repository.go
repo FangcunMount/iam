@@ -14,6 +14,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, user *User) error
 	FindByID(ctx context.Context, id meta.ID) (*User, error)
+	FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*User, error)
 	FindByPhone(ctx context.Context, phone meta.Phone) (*User, error)
 	Update(ctx context.Context, user *User) error
 }

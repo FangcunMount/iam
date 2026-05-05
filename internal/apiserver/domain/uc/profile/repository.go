@@ -13,6 +13,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, profile *Profile) error
 	FindByID(ctx context.Context, id meta.ID) (*Profile, error)
+	FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*Profile, error)
 	FindByName(ctx context.Context, name string) (*Profile, error)
 	FindByIDCard(ctx context.Context, idCard meta.IDCard) (*Profile, error)
 	FindListByName(ctx context.Context, name string) (profiles []*Profile, err error)

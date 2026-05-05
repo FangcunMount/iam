@@ -19,7 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IDPService_GetWechatApp_FullMethodName = "/iam.idp.v2.IDPService/GetWechatApp"
+	IDPService_GetWechatApp_FullMethodName             = "/iam.idp.v2.IDPService/GetWechatApp"
+	IDPService_GetWechatAccessToken_FullMethodName     = "/iam.idp.v2.IDPService/GetWechatAccessToken"
+	IDPService_RefreshWechatAccessToken_FullMethodName = "/iam.idp.v2.IDPService/RefreshWechatAccessToken"
 )
 
 // IDPServiceClient is the client API for IDPService service.
@@ -30,6 +32,10 @@ const (
 type IDPServiceClient interface {
 	// 根据 AppID 查询微信应用
 	GetWechatApp(ctx context.Context, in *GetWechatAppRequest, opts ...grpc.CallOption) (*GetWechatAppResponse, error)
+	// 获取微信应用访问令牌
+	GetWechatAccessToken(ctx context.Context, in *GetWechatAccessTokenRequest, opts ...grpc.CallOption) (*GetWechatAccessTokenResponse, error)
+	// 强制刷新微信应用访问令牌
+	RefreshWechatAccessToken(ctx context.Context, in *RefreshWechatAccessTokenRequest, opts ...grpc.CallOption) (*RefreshWechatAccessTokenResponse, error)
 }
 
 type iDPServiceClient struct {
@@ -50,6 +56,26 @@ func (c *iDPServiceClient) GetWechatApp(ctx context.Context, in *GetWechatAppReq
 	return out, nil
 }
 
+func (c *iDPServiceClient) GetWechatAccessToken(ctx context.Context, in *GetWechatAccessTokenRequest, opts ...grpc.CallOption) (*GetWechatAccessTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWechatAccessTokenResponse)
+	err := c.cc.Invoke(ctx, IDPService_GetWechatAccessToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iDPServiceClient) RefreshWechatAccessToken(ctx context.Context, in *RefreshWechatAccessTokenRequest, opts ...grpc.CallOption) (*RefreshWechatAccessTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefreshWechatAccessTokenResponse)
+	err := c.cc.Invoke(ctx, IDPService_RefreshWechatAccessToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IDPServiceServer is the server API for IDPService service.
 // All implementations must embed UnimplementedIDPServiceServer
 // for forward compatibility.
@@ -58,6 +84,10 @@ func (c *iDPServiceClient) GetWechatApp(ctx context.Context, in *GetWechatAppReq
 type IDPServiceServer interface {
 	// 根据 AppID 查询微信应用
 	GetWechatApp(context.Context, *GetWechatAppRequest) (*GetWechatAppResponse, error)
+	// 获取微信应用访问令牌
+	GetWechatAccessToken(context.Context, *GetWechatAccessTokenRequest) (*GetWechatAccessTokenResponse, error)
+	// 强制刷新微信应用访问令牌
+	RefreshWechatAccessToken(context.Context, *RefreshWechatAccessTokenRequest) (*RefreshWechatAccessTokenResponse, error)
 	mustEmbedUnimplementedIDPServiceServer()
 }
 
@@ -70,6 +100,12 @@ type UnimplementedIDPServiceServer struct{}
 
 func (UnimplementedIDPServiceServer) GetWechatApp(context.Context, *GetWechatAppRequest) (*GetWechatAppResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetWechatApp not implemented")
+}
+func (UnimplementedIDPServiceServer) GetWechatAccessToken(context.Context, *GetWechatAccessTokenRequest) (*GetWechatAccessTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetWechatAccessToken not implemented")
+}
+func (UnimplementedIDPServiceServer) RefreshWechatAccessToken(context.Context, *RefreshWechatAccessTokenRequest) (*RefreshWechatAccessTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RefreshWechatAccessToken not implemented")
 }
 func (UnimplementedIDPServiceServer) mustEmbedUnimplementedIDPServiceServer() {}
 func (UnimplementedIDPServiceServer) testEmbeddedByValue()                    {}
@@ -110,6 +146,42 @@ func _IDPService_GetWechatApp_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IDPService_GetWechatAccessToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWechatAccessTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IDPServiceServer).GetWechatAccessToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IDPService_GetWechatAccessToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IDPServiceServer).GetWechatAccessToken(ctx, req.(*GetWechatAccessTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IDPService_RefreshWechatAccessToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshWechatAccessTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IDPServiceServer).RefreshWechatAccessToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IDPService_RefreshWechatAccessToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IDPServiceServer).RefreshWechatAccessToken(ctx, req.(*RefreshWechatAccessTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IDPService_ServiceDesc is the grpc.ServiceDesc for IDPService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -120,6 +192,14 @@ var IDPService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetWechatApp",
 			Handler:    _IDPService_GetWechatApp_Handler,
+		},
+		{
+			MethodName: "GetWechatAccessToken",
+			Handler:    _IDPService_GetWechatAccessToken_Handler,
+		},
+		{
+			MethodName: "RefreshWechatAccessToken",
+			Handler:    _IDPService_RefreshWechatAccessToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -49,7 +49,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 	r.registerBaseRoutes(engine)
 
 	// 如果容器未初始化，则注册缓存治理调试路由
-	if !r.deps.ModuleStatus.ContainerInitialized {
+	if !r.deps.ModuleStatus.containerAvailable() {
 		r.registerCacheGovernanceDebugRoutes(engine, nil)
 		fmt.Printf("⚠️  container not initialized, skipped module route registration\n")
 		return
@@ -76,7 +76,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 // resolveRouteDependencies 解析路由依赖
 func (r *Router) resolveRouteDependencies() routeDependencies {
-	if !r.deps.ModuleStatus.ContainerInitialized {
+	if !r.deps.ModuleStatus.containerAvailable() {
 		return routeDependencies{}
 	}
 
@@ -90,7 +90,7 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 	}
 
 	// 创建认证中间件
-	if deps.authn.TokenService != nil {
+	if r.deps.ModuleStatus.authnAvailable() && deps.authn.TokenService != nil {
 		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, deps.authz.RouteAuthorization)
 	}
 

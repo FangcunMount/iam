@@ -94,6 +94,7 @@ func (r *Router) debugModules(c *gin.Context) {
 	// 创建响应
 	response := gin.H{
 		"container_initialized": r.deps.ModuleStatus.ContainerInitialized,
+		"container":             r.deps.ModuleStatus.Container,
 	}
 
 	// 如果容器已初始化，则添加模块状态
@@ -104,6 +105,9 @@ func (r *Router) debugModules(c *gin.Context) {
 			"user":    r.deps.ModuleStatus.User,
 			"idp":     r.deps.ModuleStatus.IDP,
 			"suggest": r.deps.ModuleStatus.Suggest,
+		}
+		if len(r.deps.ModuleStatus.Modules) > 0 {
+			response["module_states"] = r.deps.ModuleStatus.Modules
 		}
 		response["container_status"] = "initialized"
 	} else {

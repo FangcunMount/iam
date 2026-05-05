@@ -105,6 +105,25 @@ func (s *ProfileRepoStub) FindByID(ctx context.Context, id meta.ID) (*profile.Pr
 	}
 	return ch, nil
 }
+func (s *ProfileRepoStub) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*profile.Profile, error) {
+	s.mu.Lock()
+	s.FindCalls++
+	findErr := s.FindErr
+	ch := s.Profile
+	s.mu.Unlock()
+
+	if findErr != nil {
+		return nil, findErr
+	}
+	out := make(map[meta.ID]*profile.Profile, len(ids))
+	if ch == nil {
+		return out, nil
+	}
+	for _, id := range ids {
+		out[id] = ch
+	}
+	return out, nil
+}
 func (s *ProfileRepoStub) FindByName(ctx context.Context, name string) (*profile.Profile, error) {
 	return nil, s.FindErr
 }
@@ -193,6 +212,24 @@ func (s *UserRepoStub) FindByID(ctx context.Context, id meta.ID) (*user.User, er
 		return nil, nil
 	}
 	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
+}
+
+func (s *UserRepoStub) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*user.User, error) {
+	s.mu.Lock()
+	s.FindIDCalls++
+	findErr := s.FindErr
+	out := make(map[meta.ID]*user.User, len(ids))
+	for _, id := range ids {
+		if u := s.UsersByID[id.Uint64()]; u != nil {
+			out[id] = u
+		}
+	}
+	s.mu.Unlock()
+
+	if findErr != nil {
+		return nil, findErr
+	}
+	return out, nil
 }
 
 func (s *UserRepoStub) FindByPhone(ctx context.Context, phone meta.Phone) (*user.User, error) {

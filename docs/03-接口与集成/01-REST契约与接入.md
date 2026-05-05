@@ -14,7 +14,7 @@
 
 | 文件 | 能力 | 说明 |
 | ---- | ---- | ---- |
-| [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) | 登录、Token、JWKS、账户开通 | v1 REST 入口，包含 public JWKS。 |
+| [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) | 登录、Token、JWKS、账户开通 | v2 REST 入口，包含 public JWKS。 |
 | [../../api/rest/authn.v2.yaml](../../api/rest/authn.v2.yaml) | 显式登录 | `auth_method + method_payload` 形态。 |
 | [../../api/rest/authz.v2.yaml](../../api/rest/authz.v2.yaml) | 授权判定和管理面 | 公开 term 使用 `assignment`。 |
 | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml) | User、Profile、ProfileLink | 用户和档案关系接入。 |
@@ -56,18 +56,25 @@ REST handler 的职责应保持轻：解析请求、读取身份上下文、调�
 
 ## 接入示例
 
-v1 登录示例：
+v2 登录示例：
 
 ```bash
 curl -X POST https://iam.example.com/api/v2/authn/login \
   -H "Content-Type: application/json" \
-  -d '{"method":"password","credentials":{"username":"admin","password":"secret"}}'
+  -d '{"auth_method":"password","method_payload":{"username":"admin","password":"secret"}}'
 ```
 
 访问 ProfileLink：
 
 ```bash
 curl https://iam.example.com/api/v2/identity/profile-links \
+  -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
+```
+
+包含已撤销 ProfileLink：
+
+```bash
+curl 'https://iam.example.com/api/v2/identity/profile-links?include_revoked=true' \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 ```
 
@@ -89,6 +96,13 @@ curl -X POST https://iam.example.com/api/v2/authz/check \
 | IDP 管理不是登录 | IDP 管理微信应用配置；用户登录仍走 AuthN。 |
 | `assignment` 是 wire term | REST/proto 保留 `assignment`；内部代码按 `rolebinding` 组织。 |
 | ProfileLink 不等于完整业务授权 | 关系存在不代表业务资源动作自动允许，必要时叠加 AuthZ。 |
+
+## V2 迁移边界
+
+- ProfileLink 列表推荐使用 `include_revoked=true` 表达“包含已撤销关系”；旧 `active` query 参数只作为兼容字段保留。
+- `/debug/modules` 同时返回 legacy `modules` 布尔字段和新的 `module_states`。新接入方应读取 `module_states[*].available` 和 `degraded_reason`；legacy 布尔字段仅用于过渡期展示。
+- REST route 注册只以模块状态可用性为准；当 AuthN token 能力不可用时，受保护业务路由保持 fail-closed，不会因为 legacy 状态字段为 true 而注册。
+- REST 与 gRPC 共用同一组应用错误语义；跨协议接入时按 HTTP status / gRPC code 判断，不解析错误消息文本。
 
 ## 代码证据与验证
 

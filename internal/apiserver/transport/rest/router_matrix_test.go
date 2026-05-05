@@ -111,6 +111,7 @@ func routeMatrixDeps() Deps {
 		Suggest:              true,
 		AuthEnabled:          true,
 	}
+	normalizeModuleStatusForTest(&deps.ModuleStatus)
 	deps.SeedMockAuth = SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"}
 	deps.DebugCacheGovernance = DebugCacheGovernanceOptions{AppMode: "development"}
 	return deps

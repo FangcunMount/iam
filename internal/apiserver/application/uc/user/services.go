@@ -42,6 +42,8 @@ type StatusChanger interface {
 type Directory interface {
 	// GetByID 根据 ID 查询用户
 	GetByID(ctx context.Context, userID string) (*UserResult, error)
+	// BatchGetByID 根据 ID 集合批量查询用户，未找到或非法 ID 不会出现在返回 map 中。
+	BatchGetByID(ctx context.Context, userIDs []string) (map[string]*UserResult, error)
 	// GetByPhone 根据手机号查询用户
 	GetByPhone(ctx context.Context, phone string) (*UserResult, error)
 }

@@ -35,10 +35,13 @@ func (s *identityReadServer) BatchGetUsers(ctx context.Context, req *identityv2.
 		NotFoundIds: make([]string, 0),
 	}
 
+	usersByID, err := s.userQuerySvc.BatchGetByID(ctx, req.GetUserIds())
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
 	for _, userID := range req.GetUserIds() {
-		result, err := s.userQuerySvc.GetByID(ctx, userID)
-		if err != nil {
-			// 如果是未找到错误，添加到 not_found 列表
+		result := usersByID[userID]
+		if result == nil {
 			resp.NotFoundIds = append(resp.NotFoundIds, userID)
 			continue
 		}

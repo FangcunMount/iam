@@ -84,12 +84,59 @@ type SuggestDeps struct {
 // ModuleStatus 模块状态，用于/debug/modules和/health
 type ModuleStatus struct {
 	ContainerInitialized bool
+	Container            ModuleState
+	Modules              map[string]ModuleState
 	Authn                bool
 	Authz                bool
 	User                 bool
 	IDP                  bool
 	Suggest              bool
 	AuthEnabled          bool
+}
+
+// ModuleState describes a bootstrapped module capability without forcing
+// transports to infer availability from legacy booleans.
+type ModuleState struct {
+	Bootstrapped   bool   `json:"bootstrapped"`
+	Available      bool   `json:"available"`
+	DegradedReason string `json:"degraded_reason,omitempty"`
+}
+
+const (
+	moduleStateAuthn   = "authn module"
+	moduleStateAuthz   = "authz module"
+	moduleStateIDP     = "idp module"
+	moduleStateUser    = "user module"
+	moduleStateSuggest = "suggest module"
+)
+
+func (s ModuleStatus) containerAvailable() bool {
+	return s.Container.Available
+}
+
+func (s ModuleStatus) moduleAvailable(name string) bool {
+	state, ok := s.Modules[name]
+	return ok && state.Available
+}
+
+func (s ModuleStatus) authnAvailable() bool {
+	return s.moduleAvailable(moduleStateAuthn)
+}
+
+func (s ModuleStatus) authzAvailable() bool {
+	return s.moduleAvailable(moduleStateAuthz)
+}
+
+func (s ModuleStatus) idpAvailable() bool {
+	return s.moduleAvailable(moduleStateIDP)
+}
+
+func (s ModuleStatus) userAvailable() bool {
+	return s.moduleAvailable(moduleStateUser)
+}
+
+func (s ModuleStatus) suggestAvailable() bool {
+	return s.moduleAvailable(moduleStateSuggest)
 }
 
 // AuthzHealthReporter 授权运行时重载健康报告，不泄露具体的底层适配器到路由

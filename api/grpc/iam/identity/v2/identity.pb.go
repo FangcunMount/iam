@@ -1618,11 +1618,12 @@ func (x *BatchGetProfilesResponse) GetNotFoundIds() []string {
 }
 
 type ListProfilesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Page          *OffsetPagination      `protobuf:"bytes,2,opt,name=page,proto3" json:"page,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UserId         string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Page           *OffsetPagination      `protobuf:"bytes,2,opt,name=page,proto3" json:"page,omitempty"`
+	IncludeRevoked bool                   `protobuf:"varint,3,opt,name=include_revoked,json=includeRevoked,proto3" json:"include_revoked,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ListProfilesRequest) Reset() {
@@ -1667,6 +1668,13 @@ func (x *ListProfilesRequest) GetPage() *OffsetPagination {
 		return x.Page
 	}
 	return nil
+}
+
+func (x *ListProfilesRequest) GetIncludeRevoked() bool {
+	if x != nil {
+		return x.IncludeRevoked
+	}
+	return false
 }
 
 type ListProfilesResponse struct {
@@ -1730,10 +1738,11 @@ func (x *ListProfilesResponse) GetItems() []*ProfileEdge {
 }
 
 type ListProfileLinksRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProfileId     string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ProfileId      string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	IncludeRevoked bool                   `protobuf:"varint,2,opt,name=include_revoked,json=includeRevoked,proto3" json:"include_revoked,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ListProfileLinksRequest) Reset() {
@@ -1771,6 +1780,13 @@ func (x *ListProfileLinksRequest) GetProfileId() string {
 		return x.ProfileId
 	}
 	return ""
+}
+
+func (x *ListProfileLinksRequest) GetIncludeRevoked() bool {
+	if x != nil {
+		return x.IncludeRevoked
+	}
+	return false
 }
 
 type ListProfileLinksResponse struct {
@@ -3024,17 +3040,19 @@ const file_iam_identity_v2_identity_proto_rawDesc = "" +
 	"profileIds\"t\n" +
 	"\x18BatchGetProfilesResponse\x124\n" +
 	"\bprofiles\x18\x01 \x03(\v2\x18.iam.identity.v2.ProfileR\bprofiles\x12\"\n" +
-	"\rnot_found_ids\x18\x02 \x03(\tR\vnotFoundIds\"e\n" +
+	"\rnot_found_ids\x18\x02 \x03(\tR\vnotFoundIds\"\x8e\x01\n" +
 	"\x13ListProfilesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x125\n" +
-	"\x04page\x18\x02 \x01(\v2!.iam.identity.v2.OffsetPaginationR\x04page\"\x97\x01\n" +
+	"\x04page\x18\x02 \x01(\v2!.iam.identity.v2.OffsetPaginationR\x04page\x12'\n" +
+	"\x0finclude_revoked\x18\x03 \x01(\bR\x0eincludeRevoked\"\x97\x01\n" +
 	"\x14ListProfilesResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x125\n" +
 	"\x04page\x18\x02 \x01(\v2!.iam.identity.v2.OffsetPaginationR\x04page\x122\n" +
-	"\x05items\x18\x03 \x03(\v2\x1c.iam.identity.v2.ProfileEdgeR\x05items\"8\n" +
+	"\x05items\x18\x03 \x03(\v2\x1c.iam.identity.v2.ProfileEdgeR\x05items\"a\n" +
 	"\x17ListProfileLinksRequest\x12\x1d\n" +
 	"\n" +
-	"profile_id\x18\x01 \x01(\tR\tprofileId\"h\n" +
+	"profile_id\x18\x01 \x01(\tR\tprofileId\x12'\n" +
+	"\x0finclude_revoked\x18\x02 \x01(\bR\x0eincludeRevoked\"h\n" +
 	"\x18ListProfileLinksResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x126\n" +
 	"\x05items\x18\x02 \x03(\v2 .iam.identity.v2.ProfileLinkEdgeR\x05items\"O\n" +

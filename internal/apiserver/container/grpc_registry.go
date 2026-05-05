@@ -23,16 +23,16 @@ func (c *Container) BuildGRPCDeps(server *grpcpkg.Server) grpctransport.Deps {
 
 func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	registrations := make([]grpctransport.Registration, 0, 4)
-	if c.AuthnModule != nil {
+	if c.ModuleState(moduleAuthn).Available {
 		caps := c.AuthnModule.ApplicationCapabilities()
-		service := authngrpc.NewService(caps.TokenService, caps.AccountOnboarder, caps.KeyPublishApp)
+		service := authngrpc.NewService(caps.LoginService, caps.TokenService, caps.AccountOnboarder, caps.KeyPublishApp)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "authn",
-			Description: "AuthService, JWKSService",
+			Description: "AuthService, AccountOnboardingService, JWKSService",
 			Register:    service.Register,
 		})
 	}
-	if c.UserModule != nil {
+	if c.ModuleState(moduleUser).Available {
 		caps := c.UserModule.ApplicationCapabilities()
 		identitySvc := identitygrpc.NewService(
 			caps.UserDirectory,
@@ -51,16 +51,16 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 			Register:    service.Register,
 		})
 	}
-	if c.IDPModule != nil {
+	if c.ModuleState(moduleIDP).Available {
 		caps := c.IDPModule.ApplicationCapabilities()
-		service := idpgrpc.NewService(caps.WechatAppService, caps.WechatAppRepository, caps.SecretVault)
+		service := idpgrpc.NewService(caps.WechatAppService, caps.WechatAppTokenService, caps.WechatAppRepository, caps.SecretVault)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "idp",
 			Description: "IDPService",
 			Register:    service.Register,
 		})
 	}
-	if c.AuthzModule != nil {
+	if c.ModuleState(moduleAuthz).Available {
 		caps := c.AuthzModule.ApplicationCapabilities()
 		service := authzgrpc.NewService(
 			caps.AuthorizationChecker,

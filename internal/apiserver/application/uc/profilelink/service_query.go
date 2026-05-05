@@ -3,8 +3,11 @@ package profilelink
 import (
 	"context"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/uow"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ==================================================
@@ -122,15 +125,19 @@ func (s *directory) listProfilesByUserID(ctx context.Context, userID string, inc
 			return err
 		}
 
-		// 遍历查询每个档案信息
+		profilesByID, err := tx.Profiles.FindByIDs(txCtx, profileIDsFromLinks(profileLinks))
+		if err != nil {
+			return err
+		}
+
 		results = make([]*ProfileLinkResult, 0, len(profileLinks))
 		for _, g := range profileLinks {
 			if g == nil {
 				continue
 			}
-			profile, err := tx.Profiles.FindByID(txCtx, g.Profile)
-			if err != nil {
-				return err
+			profile := profilesByID[g.Profile]
+			if profile == nil {
+				return perrors.WithCode(code.ErrIdentityProfileNotFound, "profile not found: %s", g.Profile.String())
 			}
 			results = append(results, toProfileLinkResult(g, profile))
 		}
@@ -139,6 +146,22 @@ func (s *directory) listProfilesByUserID(ctx context.Context, userID string, inc
 	})
 
 	return results, err
+}
+
+func profileIDsFromLinks(profileLinks []*domain.ProfileLink) []meta.ID {
+	ids := make([]meta.ID, 0, len(profileLinks))
+	seen := make(map[meta.ID]struct{}, len(profileLinks))
+	for _, link := range profileLinks {
+		if link == nil || link.Profile.IsZero() {
+			continue
+		}
+		if _, ok := seen[link.Profile]; ok {
+			continue
+		}
+		seen[link.Profile] = struct{}{}
+		ids = append(ids, link.Profile)
+	}
+	return ids
 }
 
 // ListLinksForProfile 列出档案的所有关系用户

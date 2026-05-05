@@ -52,6 +52,42 @@ func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.Profile,
 	return c, nil
 }
 
+// FindByIDs 根据 ID 集合批量查找档案。
+func (r *Repository) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*domain.Profile, error) {
+	if len(ids) == 0 {
+		return map[meta.ID]*domain.Profile{}, nil
+	}
+
+	uniqueIDs := make([]uint64, 0, len(ids))
+	seen := make(map[meta.ID]struct{}, len(ids))
+	for _, id := range ids {
+		if id.IsZero() {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id.Uint64())
+	}
+	if len(uniqueIDs) == 0 {
+		return map[meta.ID]*domain.Profile{}, nil
+	}
+
+	var pos []*ProfilePO
+	if err := r.WithContext(ctx).Where("id IN ?", uniqueIDs).Find(&pos).Error; err != nil {
+		return nil, err
+	}
+	profiles := make(map[meta.ID]*domain.Profile, len(pos))
+	for _, bo := range r.toProfiles(pos) {
+		if bo == nil {
+			continue
+		}
+		profiles[bo.ID] = bo
+	}
+	return profiles, nil
+}
+
 // FindByName 根据姓名查找档案
 func (r *Repository) FindByName(ctx context.Context, name string) (*domain.Profile, error) {
 	var po ProfilePO

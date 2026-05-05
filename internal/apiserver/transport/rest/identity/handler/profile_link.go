@@ -112,7 +112,8 @@ func (h *ProfileLinkHandler) Revoke(c *gin.Context) {
 // @Produce json
 // @Param user_id query string false "用户 ID"
 // @Param profile_id query string false "档案 ID"
-// @Param active query boolean false "是否仅查询活跃的档案关系"
+// @Param include_revoked query boolean false "是否包含已撤销档案关系"
+// @Param active query boolean false "是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）"
 // @Param offset query int false "偏移量" default(0)
 // @Param limit query int false "每页数量" default(20)
 // @Success 200 {object} responsedto.ProfileLinkPageResponse "查询成功"
@@ -137,7 +138,7 @@ func (h *ProfileLinkHandler) List(c *gin.Context) {
 	results, err := h.profileLinkAccess.List(c.Request.Context(), currentUserID, appprofilelink.ListProfileLinksDTO{
 		UserID:    req.UserID,
 		ProfileID: req.ProfileID,
-		Active:    req.Active,
+		Active:    profileLinkActiveFilter(req),
 	})
 	if err != nil {
 		h.Error(c, err)
@@ -161,6 +162,14 @@ func (h *ProfileLinkHandler) List(c *gin.Context) {
 		Offset: req.Offset,
 		Items:  sliced,
 	})
+}
+
+func profileLinkActiveFilter(req requestdto.ProfileLinkListQuery) *bool {
+	if req.IncludeRevoked != nil {
+		active := !*req.IncludeRevoked
+		return &active
+	}
+	return req.Active
 }
 
 // ========== 辅助函数 ==========

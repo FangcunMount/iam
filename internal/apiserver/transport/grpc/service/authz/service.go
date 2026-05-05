@@ -4,12 +4,11 @@ import (
 	"context"
 	"strings"
 
-	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
 	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -165,14 +164,10 @@ func parseSubjectKey(subject string) (authzDomain.Subject, error) {
 }
 
 func authzGRPCError(defaultCode codes.Code, operation string, err error) error {
-	switch {
-	case perrors.IsCode(err, code.ErrRoleNotFound):
-		return status.Errorf(codes.NotFound, "role not found: %v", err)
-	case perrors.IsCode(err, code.ErrInvalidArgument):
-		return status.Error(codes.InvalidArgument, err.Error())
-	default:
-		return status.Errorf(defaultCode, "%s: %v", operation, err)
+	if coded, ok := iamgrpc.CodedStatusError(err); ok {
+		return coded
 	}
+	return status.Errorf(defaultCode, "%s: %v", operation, err)
 }
 
 func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv2.PermissionEntry {

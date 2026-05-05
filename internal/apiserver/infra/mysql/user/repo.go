@@ -56,6 +56,42 @@ func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.User, er
 	return u, nil
 }
 
+// FindByIDs 根据 ID 集合批量查找用户。
+func (r *Repository) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*domain.User, error) {
+	if len(ids) == 0 {
+		return map[meta.ID]*domain.User{}, nil
+	}
+
+	uniqueIDs := make([]uint64, 0, len(ids))
+	seen := make(map[meta.ID]struct{}, len(ids))
+	for _, id := range ids {
+		if id.IsZero() {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id.Uint64())
+	}
+	if len(uniqueIDs) == 0 {
+		return map[meta.ID]*domain.User{}, nil
+	}
+
+	var pos []*UserPO
+	if err := r.WithContext(ctx).Where("id IN ?", uniqueIDs).Find(&pos).Error; err != nil {
+		return nil, err
+	}
+	users := make(map[meta.ID]*domain.User, len(pos))
+	for _, u := range r.mapper.ToBOs(pos) {
+		if u == nil {
+			continue
+		}
+		users[u.ID] = u
+	}
+	return users, nil
+}
+
 // FindByPhone 根据手机号查找用户
 func (r *Repository) FindByPhone(ctx context.Context, phone meta.Phone) (*domain.User, error) {
 	var po UserPO

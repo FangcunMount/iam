@@ -299,6 +299,182 @@ func (x *GetWechatAppResponse) GetApp() *WechatApp {
 	return nil
 }
 
+type GetWechatAccessTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AppId         string                 `protobuf:"bytes,1,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWechatAccessTokenRequest) Reset() {
+	*x = GetWechatAccessTokenRequest{}
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWechatAccessTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWechatAccessTokenRequest) ProtoMessage() {}
+
+func (x *GetWechatAccessTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWechatAccessTokenRequest.ProtoReflect.Descriptor instead.
+func (*GetWechatAccessTokenRequest) Descriptor() ([]byte, []int) {
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetWechatAccessTokenRequest) GetAppId() string {
+	if x != nil {
+		return x.AppId
+	}
+	return ""
+}
+
+type GetWechatAccessTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWechatAccessTokenResponse) Reset() {
+	*x = GetWechatAccessTokenResponse{}
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWechatAccessTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWechatAccessTokenResponse) ProtoMessage() {}
+
+func (x *GetWechatAccessTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWechatAccessTokenResponse.ProtoReflect.Descriptor instead.
+func (*GetWechatAccessTokenResponse) Descriptor() ([]byte, []int) {
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetWechatAccessTokenResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+type RefreshWechatAccessTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AppId         string                 `protobuf:"bytes,1,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshWechatAccessTokenRequest) Reset() {
+	*x = RefreshWechatAccessTokenRequest{}
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshWechatAccessTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshWechatAccessTokenRequest) ProtoMessage() {}
+
+func (x *RefreshWechatAccessTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshWechatAccessTokenRequest.ProtoReflect.Descriptor instead.
+func (*RefreshWechatAccessTokenRequest) Descriptor() ([]byte, []int) {
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RefreshWechatAccessTokenRequest) GetAppId() string {
+	if x != nil {
+		return x.AppId
+	}
+	return ""
+}
+
+type RefreshWechatAccessTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshWechatAccessTokenResponse) Reset() {
+	*x = RefreshWechatAccessTokenResponse{}
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshWechatAccessTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshWechatAccessTokenResponse) ProtoMessage() {}
+
+func (x *RefreshWechatAccessTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_idp_v2_idp_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshWechatAccessTokenResponse.ProtoReflect.Descriptor instead.
+func (*RefreshWechatAccessTokenResponse) Descriptor() ([]byte, []int) {
+	return file_iam_idp_v2_idp_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RefreshWechatAccessTokenResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
 var File_iam_idp_v2_idp_proto protoreflect.FileDescriptor
 
 const file_iam_idp_v2_idp_proto_rawDesc = "" +
@@ -316,7 +492,15 @@ const file_iam_idp_v2_idp_proto_rawDesc = "" +
 	"\x13GetWechatAppRequest\x12\x15\n" +
 	"\x06app_id\x18\x01 \x01(\tR\x05appId\"?\n" +
 	"\x14GetWechatAppResponse\x12'\n" +
-	"\x03app\x18\x01 \x01(\v2\x15.iam.idp.v2.WechatAppR\x03app*j\n" +
+	"\x03app\x18\x01 \x01(\v2\x15.iam.idp.v2.WechatAppR\x03app\"4\n" +
+	"\x1bGetWechatAccessTokenRequest\x12\x15\n" +
+	"\x06app_id\x18\x01 \x01(\tR\x05appId\"A\n" +
+	"\x1cGetWechatAccessTokenResponse\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"8\n" +
+	"\x1fRefreshWechatAccessTokenRequest\x12\x15\n" +
+	"\x06app_id\x18\x01 \x01(\tR\x05appId\"E\n" +
+	" RefreshWechatAccessTokenResponse\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken*j\n" +
 	"\rWechatAppType\x12\x1f\n" +
 	"\x1bWECHAT_APP_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cWECHAT_APP_TYPE_MINI_PROGRAM\x10\x01\x12\x16\n" +
@@ -325,10 +509,12 @@ const file_iam_idp_v2_idp_proto_rawDesc = "" +
 	"\x1dWECHAT_APP_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19WECHAT_APP_STATUS_ENABLED\x10\x01\x12\x1e\n" +
 	"\x1aWECHAT_APP_STATUS_DISABLED\x10\x02\x12\x1e\n" +
-	"\x1aWECHAT_APP_STATUS_ARCHIVED\x10\x032_\n" +
+	"\x1aWECHAT_APP_STATUS_ARCHIVED\x10\x032\xc1\x02\n" +
 	"\n" +
 	"IDPService\x12Q\n" +
-	"\fGetWechatApp\x12\x1f.iam.idp.v2.GetWechatAppRequest\x1a .iam.idp.v2.GetWechatAppResponseB:Z8github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2;idpv2b\x06proto3"
+	"\fGetWechatApp\x12\x1f.iam.idp.v2.GetWechatAppRequest\x1a .iam.idp.v2.GetWechatAppResponse\x12i\n" +
+	"\x14GetWechatAccessToken\x12'.iam.idp.v2.GetWechatAccessTokenRequest\x1a(.iam.idp.v2.GetWechatAccessTokenResponse\x12u\n" +
+	"\x18RefreshWechatAccessToken\x12+.iam.idp.v2.RefreshWechatAccessTokenRequest\x1a,.iam.idp.v2.RefreshWechatAccessTokenResponseB:Z8github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2;idpv2b\x06proto3"
 
 var (
 	file_iam_idp_v2_idp_proto_rawDescOnce sync.Once
@@ -343,22 +529,30 @@ func file_iam_idp_v2_idp_proto_rawDescGZIP() []byte {
 }
 
 var file_iam_idp_v2_idp_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_iam_idp_v2_idp_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_iam_idp_v2_idp_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_iam_idp_v2_idp_proto_goTypes = []any{
-	(WechatAppType)(0),           // 0: iam.idp.v2.WechatAppType
-	(WechatAppStatus)(0),         // 1: iam.idp.v2.WechatAppStatus
-	(*WechatApp)(nil),            // 2: iam.idp.v2.WechatApp
-	(*GetWechatAppRequest)(nil),  // 3: iam.idp.v2.GetWechatAppRequest
-	(*GetWechatAppResponse)(nil), // 4: iam.idp.v2.GetWechatAppResponse
+	(WechatAppType)(0),                       // 0: iam.idp.v2.WechatAppType
+	(WechatAppStatus)(0),                     // 1: iam.idp.v2.WechatAppStatus
+	(*WechatApp)(nil),                        // 2: iam.idp.v2.WechatApp
+	(*GetWechatAppRequest)(nil),              // 3: iam.idp.v2.GetWechatAppRequest
+	(*GetWechatAppResponse)(nil),             // 4: iam.idp.v2.GetWechatAppResponse
+	(*GetWechatAccessTokenRequest)(nil),      // 5: iam.idp.v2.GetWechatAccessTokenRequest
+	(*GetWechatAccessTokenResponse)(nil),     // 6: iam.idp.v2.GetWechatAccessTokenResponse
+	(*RefreshWechatAccessTokenRequest)(nil),  // 7: iam.idp.v2.RefreshWechatAccessTokenRequest
+	(*RefreshWechatAccessTokenResponse)(nil), // 8: iam.idp.v2.RefreshWechatAccessTokenResponse
 }
 var file_iam_idp_v2_idp_proto_depIdxs = []int32{
 	0, // 0: iam.idp.v2.WechatApp.type:type_name -> iam.idp.v2.WechatAppType
 	1, // 1: iam.idp.v2.WechatApp.status:type_name -> iam.idp.v2.WechatAppStatus
 	2, // 2: iam.idp.v2.GetWechatAppResponse.app:type_name -> iam.idp.v2.WechatApp
 	3, // 3: iam.idp.v2.IDPService.GetWechatApp:input_type -> iam.idp.v2.GetWechatAppRequest
-	4, // 4: iam.idp.v2.IDPService.GetWechatApp:output_type -> iam.idp.v2.GetWechatAppResponse
-	4, // [4:5] is the sub-list for method output_type
-	3, // [3:4] is the sub-list for method input_type
+	5, // 4: iam.idp.v2.IDPService.GetWechatAccessToken:input_type -> iam.idp.v2.GetWechatAccessTokenRequest
+	7, // 5: iam.idp.v2.IDPService.RefreshWechatAccessToken:input_type -> iam.idp.v2.RefreshWechatAccessTokenRequest
+	4, // 6: iam.idp.v2.IDPService.GetWechatApp:output_type -> iam.idp.v2.GetWechatAppResponse
+	6, // 7: iam.idp.v2.IDPService.GetWechatAccessToken:output_type -> iam.idp.v2.GetWechatAccessTokenResponse
+	8, // 8: iam.idp.v2.IDPService.RefreshWechatAccessToken:output_type -> iam.idp.v2.RefreshWechatAccessTokenResponse
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -375,7 +569,7 @@ func file_iam_idp_v2_idp_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_idp_v2_idp_proto_rawDesc), len(file_iam_idp_v2_idp_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   3,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

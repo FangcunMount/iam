@@ -45,11 +45,32 @@ message GetWechatAppResponse {
   WechatApp app = 1;
 }
 
+message GetWechatAccessTokenRequest {
+  string app_id = 1;
+}
+
+message GetWechatAccessTokenResponse {
+  string access_token = 1;
+}
+
+message RefreshWechatAccessTokenRequest {
+  string app_id = 1;
+}
+
+message RefreshWechatAccessTokenResponse {
+  string access_token = 1;
+}
+
 // ============= Services =============
 
 // IDP 服务（身份提供者服务）
 service IDPService {
   // 根据 AppID 查询微信应用
   rpc GetWechatApp(GetWechatAppRequest) returns (GetWechatAppResponse);
-}
 
+  // 获取微信应用访问令牌
+  rpc GetWechatAccessToken(GetWechatAccessTokenRequest) returns (GetWechatAccessTokenResponse);
+
+  // 强制刷新微信应用访问令牌
+  rpc RefreshWechatAccessToken(RefreshWechatAccessTokenRequest) returns (RefreshWechatAccessTokenResponse);
+}

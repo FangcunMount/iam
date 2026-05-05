@@ -40,6 +40,19 @@ func (s *userRepoStub) FindByID(_ context.Context, id meta.ID) (*userdomain.User
 	return user, nil
 }
 
+func (s *userRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[meta.ID]*userdomain.User, error) {
+	out := make(map[meta.ID]*userdomain.User, len(ids))
+	for _, id := range ids {
+		if s.users == nil {
+			continue
+		}
+		if user := s.users[id.Uint64()]; user != nil {
+			out[id] = user
+		}
+	}
+	return out, nil
+}
+
 func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userdomain.User, error) {
 	for _, user := range s.users {
 		if user.Phone.String() == phone.String() {

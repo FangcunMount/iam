@@ -7,6 +7,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
@@ -33,6 +34,21 @@ type accountOnboarderStub struct {
 	req onboardingApp.OnboardingRequest
 	res *onboardingApp.OnboardingResult
 	err error
+}
+
+type loginServiceStub struct {
+	req loginApp.LoginRequest
+	res *loginApp.LoginResult
+	err error
+}
+
+func (s *loginServiceStub) Login(ctx context.Context, req loginApp.LoginRequest) (*loginApp.LoginResult, error) {
+	s.req = req
+	return s.res, s.err
+}
+
+func (s *loginServiceStub) Logout(ctx context.Context, req loginApp.LogoutRequest) error {
+	return nil
 }
 
 func (s *tokenServiceStub) IssueServiceToken(ctx context.Context, req tokenApp.IssueServiceTokenRequest) (*tokenApp.TokenIssueResult, error) {
@@ -80,6 +96,55 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 func (s *accountOnboarderStub) Onboard(ctx context.Context, req onboardingApp.OnboardingRequest) (*onboardingApp.OnboardingResult, error) {
 	s.req = req
 	return s.res, s.err
+}
+
+func TestAuthServiceServerLoginUsesExplicitV2Contract(t *testing.T) {
+	access := tokenApp.NewAccessToken("access-id", "access-token", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(7), time.Hour)
+	refresh := tokenApp.NewRefreshToken("refresh-id", "refresh-token", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(7), []string{"pwd"}, nil, 24*time.Hour)
+	stub := &loginServiceStub{
+		res: &loginApp.LoginResult{
+			TokenPair: tokenApp.NewTokenPair(access, refresh),
+			UserID:    meta.FromUint64(1),
+			AccountID: meta.FromUint64(2),
+			TenantID:  meta.FromUint64(7),
+		},
+	}
+	srv := &authServiceServer{loginSvc: stub}
+	payload, err := structpb.NewStruct(map[string]any{
+		"username":  "alice",
+		"password":  "secret",
+		"tenant_id": 7,
+	})
+	require.NoError(t, err)
+
+	resp, err := srv.Login(context.Background(), &authnv2.LoginRequest{
+		AuthMethod:    "password",
+		MethodPayload: payload,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, resp.GetTokenPair())
+	require.Equal(t, "access-token", resp.GetTokenPair().GetAccessToken())
+	require.Equal(t, "refresh-token", resp.GetTokenPair().GetRefreshToken())
+	require.Equal(t, loginApp.AuthTypePassword, stub.req.AuthType)
+	require.Equal(t, loginApp.SignInSelectionExplicit, stub.req.SelectionMode)
+	require.Equal(t, "alice", *stub.req.Username)
+	require.Equal(t, "secret", *stub.req.Password)
+	require.Equal(t, meta.FromUint64(7), stub.req.TenantID)
+}
+
+func TestAuthServiceServerLoginRejectsNonPublicMethod(t *testing.T) {
+	srv := &authServiceServer{loginSvc: &loginServiceStub{}}
+	payload, err := structpb.NewStruct(map[string]any{"token": "jwt"})
+	require.NoError(t, err)
+
+	_, err = srv.Login(context.Background(), &authnv2.LoginRequest{
+		AuthMethod:    "jwt_token",
+		MethodPayload: payload,
+	})
+
+	require.Error(t, err)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
 func TestAuthServiceServerIssueServiceToken(t *testing.T) {

@@ -236,6 +236,8 @@ if iamErr, ok := sdkerrors.AsIAMError(err); ok {
 }
 ```
 
+服务端 V2 gRPC 错误映射已经统一：常见业务错误会稳定落到 `InvalidArgument`、`Unauthenticated`、`PermissionDenied`、`NotFound`、`AlreadyExists`、`FailedPrecondition`、`ResourceExhausted`、`Unavailable`、`DeadlineExceeded` 或 `Internal`。SDK 调用方不要解析错误消息文本。
+
 ## Metrics 与 Tracing Hook
 
 SDK 的 request-id / metrics / tracing / circuit breaker 链路已经内聚到 `pkg/sdk/internal/...`，但默认不会自动启用。只有显式设置 `Config.Observability` 时，SDK 才会挂载对应默认拦截器；对外仍只保留 hook 注入点。
@@ -272,7 +274,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 | 模块 | 设计重点 | 说明 |
 | ---- | ---- | ---- |
 | `pkg/sdk` | 统一接入入口 | `sdk.Client` 负责装配连接与子客户端 |
-| `auth/loginv2` | REST v2 显式登录 | 只覆盖 `/api/v2/authn/login` 已实现能力 |
+| `auth/loginv2` | REST v2 显式登录 | 覆盖 `/api/v2/authn/login`；gRPC 登录走 `auth/client` |
 | `auth/jwks` | Chain of Responsibility | Cache → HTTP → gRPC → Seed |
 | `auth/verifier` | Strategy | Local / Remote / Fallback / Cache |
 | `auth/serviceauth` | 状态型 helper | 刷新、退避、熔断、旧 token 回退 |
@@ -286,7 +288,9 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 - `pkg/sdk/transport` 已删除
 - `pkg/sdk/observability` 已删除
 - `pkg/sdk/errors` 的高级分析 / matcher / handler API 已收回内部
-- `pkg/sdk/auth/loginv2` 是 REST AuthN v2 显式登录入口；`pkg/sdk/auth/client` 已对齐 gRPC v2 token/JWKS/onboarding 契约
+- `pkg/sdk/auth/loginv2` 是 REST AuthN v2 显式登录入口；`pkg/sdk/auth/client` 已对齐 gRPC v2 Login/token/JWKS/onboarding 契约
+- `pkg/sdk/idp` 已对齐 v2 WeChat app 查询与 access token 获取/刷新契约
+- `pkg/sdk/identity` 的 ProfileLink 查询支持 `include_revoked`
 
 替代入口见 [07-migration-breaking-changes.md](./docs/07-migration-breaking-changes.md)。
 
