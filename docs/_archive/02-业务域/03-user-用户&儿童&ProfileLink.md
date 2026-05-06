@@ -109,7 +109,7 @@ active self link guard 由数据库迁移 [../../internal/pkg/migration/migratio
 | 领域服务 | 解决的问题 | 代码入口 |
 | ---- | ---- | ---- |
 | `user.Validator` | 用户创建、联系人更新、手机号唯一性。 | [../../internal/apiserver/domain/identity/user/validator.go](../../internal/apiserver/domain/identity/user/validator.go) |
-| `user.ProfileEditor` | 用户资料变更规则。 | [../../internal/apiserver/domain/identity/user/profile_editor.go](../../internal/apiserver/domain/identity/user/profile_editor.go) |
+| `user.UserEditor` | 用户资料变更规则。 | [../../internal/apiserver/domain/identity/user/editor.go](../../internal/apiserver/domain/identity/user/editor.go) |
 | `user.Lifecycler` | 用户激活、停用、封禁。 | [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go) |
 | `profile.Validator` | 档案创建和更新字段校验。 | [../../internal/apiserver/domain/identity/profile/validator.go](../../internal/apiserver/domain/identity/profile/validator.go) |
 | `profile.ProfileEditor` | 档案重命名、证件、基础资料、身高体重更新。 | [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go) |

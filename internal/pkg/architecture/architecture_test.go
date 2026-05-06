@@ -293,10 +293,10 @@ func TestIdentityApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
 	root := repoRoot(t)
 	forbiddenTokens := []string{
 		"validator.ValidateCreate(ctx",
-		"profileEditor.Rename(ctx",
-		"profileEditor.Renickname(ctx",
-		"profileEditor.UpdateContact(ctx",
-		"profileEditor.UpdateIDCard(ctx",
+		"userEditor.Rename(ctx",
+		"userEditor.Renickname(ctx",
+		"userEditor.UpdateContact(ctx",
+		"userEditor.UpdateIDCard(ctx",
 		"profileService.Rename(ctx",
 		"profileService.UpdateIDCard(ctx",
 		"profileService.UpdateProfile(ctx",

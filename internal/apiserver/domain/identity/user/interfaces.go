@@ -25,9 +25,9 @@ type Validator interface {
 	CheckPhoneUnique(ctx context.Context, phone meta.Phone) error
 }
 
-// ProfileEditor 用户资料编辑器接口（Driving Port - 领域服务）
+// UserEditor 用户资料编辑器接口（Driving Port - 领域服务）
 // 负责用户资料的修改操作
-type ProfileEditor interface {
+type UserEditor interface {
 	// Rename 修改用户名称
 	Rename(ctx context.Context, id meta.ID, newName string) (*User, error)
 

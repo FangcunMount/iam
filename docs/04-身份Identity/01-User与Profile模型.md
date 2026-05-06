@@ -365,7 +365,7 @@ User 领域层定义了几个能力接口：
 | 能力 | 作用 |
 | --- | --- |
 | `Validator` | 创建、改名、联系方式更新、手机号唯一性 |
-| `ProfileEditor` | 修改 User 基础资料 |
+| `UserEditor` | 修改 User 基础资料 |
 | `Lifecycler` | 激活、停用、封禁 |
 | `Repository` | 持久化端口 |
 
@@ -383,10 +383,9 @@ CheckPhoneUnique
 其中手机号唯一性通过 `repo.FindByPhone` 检查。
 如果手机号已存在，返回用户已存在错误。
 
-### ProfileEditor
+### UserEditor
 
-User 的 `ProfileEditor` 名字容易和 Profile 模块混淆。
-它编辑的是 User 自身资料，不是业务档案 Profile。
+User 的 `UserEditor` 编辑的是 User 自身资料，不是业务档案 Profile。
 
 能力包括：
 
@@ -423,7 +422,7 @@ Block
 
 - [../../internal/apiserver/domain/identity/user/interfaces.go](../../internal/apiserver/domain/identity/user/interfaces.go)
 - [../../internal/apiserver/domain/identity/user/validator.go](../../internal/apiserver/domain/identity/user/validator.go)
-- [../../internal/apiserver/domain/identity/user/profile_editor.go](../../internal/apiserver/domain/identity/user/profile_editor.go)
+- [../../internal/apiserver/domain/identity/user/editor.go](../../internal/apiserver/domain/identity/user/editor.go)
 - [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go)
 - [../../internal/apiserver/domain/identity/user/repository.go](../../internal/apiserver/domain/identity/user/repository.go)
 
@@ -485,7 +484,7 @@ User 编辑流程一般是：
 
 ```text
 parse user id / value objects
-  -> domain ProfileEditor
+  -> domain UserEditor
   -> tx.Users.Update
 ```
 
@@ -1257,10 +1256,10 @@ Profile 不直接属于 User，关系由 ProfileLink 表达。
 不完整。
 当前 User block 成功后还会调用 `sessionManager.RevokeByUser`，影响 AuthN 在线登录态。
 
-### 误区四：`User.ProfileEditor` 编辑的是 Profile
+### 误区四：`UserEditor` 编辑的是 Profile
 
 不对。
-`domain/identity/user.ProfileEditor` 编辑的是 User 自身资料。
+`domain/identity/user.UserEditor` 编辑的是 User 自身资料。
 Profile 的编辑器在 `domain/identity/profile.ProfileEditor`。
 
 ### 误区五：MyProfiles 是普通 Profile CRUD
@@ -1326,7 +1325,7 @@ internal/apiserver/domain/identity/user/types.go
 internal/apiserver/domain/identity/user/user.go
 internal/apiserver/domain/identity/user/interfaces.go
 internal/apiserver/domain/identity/user/validator.go
-internal/apiserver/domain/identity/user/profile_editor.go
+internal/apiserver/domain/identity/user/editor.go
 internal/apiserver/domain/identity/user/lifecycler.go
 internal/apiserver/domain/identity/user/repository.go
 ```

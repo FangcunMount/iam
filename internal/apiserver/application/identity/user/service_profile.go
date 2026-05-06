@@ -38,7 +38,7 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
-		profileEditor := user.NewProfileEditor(tx.Users, validator)
+		userEditor := user.NewEditor(tx.Users, validator)
 
 		// 转换 ID
 		id, err := parseUserID(userID)
@@ -52,7 +52,7 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 		}
 
 		// 调用领域服务修改名称
-		modifiedUser, err := profileEditor.Rename(txCtx, id, newName)
+		modifiedUser, err := userEditor.Rename(txCtx, id, newName)
 		if err != nil {
 			l.Errorw("修改用户名称失败",
 				"action", logger.ActionUpdate,
@@ -92,7 +92,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
-		profileEditor := user.NewProfileEditor(tx.Users, validator)
+		userEditor := user.NewEditor(tx.Users, validator)
 
 		// 转换 ID
 		id, err := parseUserID(userID)
@@ -106,7 +106,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 		}
 
 		// 调用领域服务修改昵称
-		modifiedUser, err := profileEditor.Renickname(txCtx, id, newNickname)
+		modifiedUser, err := userEditor.Renickname(txCtx, id, newNickname)
 		if err != nil {
 			l.Errorw("修改用户昵称失败",
 				"action", logger.ActionUpdate,
@@ -147,7 +147,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
-		profileEditor := user.NewProfileEditor(tx.Users, validator)
+		userEditor := user.NewEditor(tx.Users, validator)
 
 		// 转换 ID
 		id, err := parseUserID(dto.UserID)
@@ -180,7 +180,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 		}
 
 		// 调用领域服务更新联系方式
-		modifiedUser, err := profileEditor.UpdateContact(txCtx, id, phone, email)
+		modifiedUser, err := userEditor.UpdateContact(txCtx, id, phone, email)
 		if err != nil {
 			l.Errorw("更新联系方式失败",
 				"action", logger.ActionUpdate,
@@ -212,7 +212,7 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 	var result *UserResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		validator := user.NewValidator(tx.Users)
-		profileEditor := user.NewProfileEditor(tx.Users, validator)
+		userEditor := user.NewEditor(tx.Users, validator)
 
 		id, err := parseUserID(dto.UserID)
 		if err != nil {
@@ -222,7 +222,7 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 		if dto.Nickname != nil {
 			nickname := strings.TrimSpace(*dto.Nickname)
 			if nickname != "" {
-				modifiedUser, err := profileEditor.Rename(txCtx, id, nickname)
+				modifiedUser, err := userEditor.Rename(txCtx, id, nickname)
 				if err != nil {
 					return err
 				}
@@ -251,7 +251,7 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 			if err != nil {
 				return err
 			}
-			modifiedUser, err := profileEditor.UpdateContact(txCtx, id, phone, email)
+			modifiedUser, err := userEditor.UpdateContact(txCtx, id, phone, email)
 			if err != nil {
 				return err
 			}
@@ -282,7 +282,7 @@ func (s *editor) UpdateIDCard(ctx context.Context, userID string, idCard string)
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		// 创建领域服务
 		validator := user.NewValidator(tx.Users)
-		profileEditor := user.NewProfileEditor(tx.Users, validator)
+		userEditor := user.NewEditor(tx.Users, validator)
 
 		// 转换 ID
 		id, err := parseUserID(userID)
@@ -307,7 +307,7 @@ func (s *editor) UpdateIDCard(ctx context.Context, userID string, idCard string)
 		}
 
 		// 调用领域服务更新身份证
-		modifiedUser, err := profileEditor.UpdateIDCard(txCtx, id, idCardVO)
+		modifiedUser, err := userEditor.UpdateIDCard(txCtx, id, idCardVO)
 		if err != nil {
 			l.Errorw("更新身份证失败",
 				"action", logger.ActionUpdate,

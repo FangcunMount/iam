@@ -13,7 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-func TestProfileEditor_RenameSuccess(t *testing.T) {
+func TestUserEditor_RenameSuccess(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
@@ -24,7 +24,7 @@ func TestProfileEditor_RenameSuccess(t *testing.T) {
 	repo.UsersByID[userEntity.ID.Uint64()] = userEntity
 
 	validator := &testhelpers.UserValidatorStub{}
-	editor := user.NewProfileEditor(repo, validator)
+	editor := user.NewEditor(repo, validator)
 
 	updated, err := editor.Rename(context.Background(), userEntity.ID, "new-name")
 
@@ -35,7 +35,7 @@ func TestProfileEditor_RenameSuccess(t *testing.T) {
 	assert.Equal(t, 1, repo.FindIDCalls)
 }
 
-func TestProfileEditor_RenameValidationError(t *testing.T) {
+func TestUserEditor_RenameValidationError(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestProfileEditor_RenameValidationError(t *testing.T) {
 	repo.UsersByID[userEntity.ID.Uint64()] = userEntity
 
 	validator := &testhelpers.UserValidatorStub{RenameErr: errors.New("bad name")}
-	editor := user.NewProfileEditor(repo, validator)
+	editor := user.NewEditor(repo, validator)
 
 	updated, err := editor.Rename(context.Background(), userEntity.ID, "")
 
@@ -54,7 +54,7 @@ func TestProfileEditor_RenameValidationError(t *testing.T) {
 	assert.Equal(t, 0, repo.FindIDCalls, "repository should not be touched when validation fails")
 }
 
-func TestProfileEditor_UpdateContact(t *testing.T) {
+func TestUserEditor_UpdateContact(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestProfileEditor_UpdateContact(t *testing.T) {
 	repo.UsersByID[userEntity.ID.Uint64()] = userEntity
 
 	validator := &testhelpers.UserValidatorStub{}
-	editor := user.NewProfileEditor(repo, validator)
+	editor := user.NewEditor(repo, validator)
 
 	newPhone, err := meta.NewPhone("+8613112345678")
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestProfileEditor_UpdateContact(t *testing.T) {
 	assert.Equal(t, 1, repo.FindIDCalls)
 }
 
-func TestProfileEditor_UpdateContactValidationError(t *testing.T) {
+func TestUserEditor_UpdateContactValidationError(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestProfileEditor_UpdateContactValidationError(t *testing.T) {
 	repo.UsersByID[userEntity.ID.Uint64()] = userEntity
 
 	validator := &testhelpers.UserValidatorStub{UpdateContactErr: errors.New("duplicate")}
-	editor := user.NewProfileEditor(repo, validator)
+	editor := user.NewEditor(repo, validator)
 
 	newPhone, err := meta.NewPhone("+8613112345678")
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestProfileEditor_UpdateContactValidationError(t *testing.T) {
 	assert.Equal(t, 1, repo.FindIDCalls)
 }
 
-func TestProfileEditor_UpdateIDCard(t *testing.T) {
+func TestUserEditor_UpdateIDCard(t *testing.T) {
 	repo := testhelpers.NewUserRepoStub()
 	phone, err := meta.NewPhone("+8613012345678")
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestProfileEditor_UpdateIDCard(t *testing.T) {
 	userEntity.ID = meta.FromUint64(5)
 	repo.UsersByID[userEntity.ID.Uint64()] = userEntity
 
-	editor := user.NewProfileEditor(repo, &testhelpers.UserValidatorStub{})
+	editor := user.NewEditor(repo, &testhelpers.UserValidatorStub{})
 	idCard, err := meta.NewIDCard("tester", "110101199003070011")
 	require.NoError(t, err)
 
