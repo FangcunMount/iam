@@ -1,10 +1,18 @@
 package process
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/messaging"
+	apiserverconfig "github.com/FangcunMount/iam/v2/internal/apiserver/config"
+	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	genericoptions "github.com/FangcunMount/iam/v2/internal/pkg/options"
 )
 
 func TestNormalizeNSQConfigAppliesRuntimeDefaults(t *testing.T) {
@@ -55,4 +63,84 @@ func TestNormalizeNSQConfigPreservesConfiguredValues(t *testing.T) {
 		got.NSQ.MaxInFlight != 33 {
 		t.Fatalf("configured NSQ values were not preserved: %#v", got.NSQ)
 	}
+}
+
+func TestDurableTopicNamesFromCatalogReturnsOnlyDurableTopics(t *testing.T) {
+	catalogPath := writeEventCatalog(t, `
+version: "1"
+topics:
+  authz_version:
+    name: iam.authz.version
+  notification_sms:
+    name: iam.notify.sms
+events:
+  iam.authz.version_changed:
+    topic: authz_version
+    delivery: durable_outbox
+    handler: iam-policy-sync
+  iam.login_otp_sms:
+    topic: notification_sms
+    delivery: best_effort
+    handler: sms-dispatcher
+`)
+
+	topics, err := durableTopicNamesFromCatalog(catalogPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(topics) != 1 || topics[0] != "iam.authz.version" {
+		t.Fatalf("durable topics = %#v, want only iam.authz.version", topics)
+	}
+}
+
+func TestEnsureDurableTopicsCreatesOnlyDurableCatalogTopics(t *testing.T) {
+	catalogPath := writeEventCatalog(t, `
+version: "1"
+topics:
+  authz_version:
+    name: iam.authz.version
+  notification_sms:
+    name: iam.notify.sms
+events:
+  iam.authz.version_changed:
+    topic: authz_version
+    delivery: durable_outbox
+    handler: iam-policy-sync
+  iam.login_otp_sms:
+    topic: notification_sms
+    delivery: best_effort
+    handler: sms-dispatcher
+`)
+
+	created := make([]string, 0, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/topic/create" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+		created = append(created, r.URL.Query().Get("topic"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	s := &apiServer{cfg: &apiserverconfig.Config{Options: &apiserveroptions.Options{
+		Events:     &apiserveroptions.EventOptions{CatalogPath: catalogPath},
+		NSQOptions: &genericoptions.NSQOptions{Enabled: true},
+	}}}
+	nsqdAddr := strings.TrimPrefix(server.URL, "http://")
+
+	if err := s.ensureDurableTopics(nsqdAddr); err != nil {
+		t.Fatal(err)
+	}
+	if len(created) != 1 || created[0] != "iam.authz.version" {
+		t.Fatalf("created topics = %#v, want only iam.authz.version", created)
+	}
+}
+
+func writeEventCatalog(t *testing.T, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "events.yaml")
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(content)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
