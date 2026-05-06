@@ -29,13 +29,3 @@ func TestRef_Revoke_SetsRevokedAt(t *testing.T) {
 	require.NotNil(t, g.RevokedAt)
 	assert.Equal(t, tNow, *g.RevokedAt)
 }
-
-func TestRef_ConvertToRelationMapsSelfToParent(t *testing.T) {
-	g := NewSelfProfileLink(meta.FromUint64(1), meta.FromUint64(2), time.Unix(1, 0))
-
-	g.ConvertToRelation(RelSelf)
-
-	require.Equal(t, TypeRelation, g.Type)
-	require.Equal(t, RelParent, g.Rel)
-	require.True(t, g.IsActive())
-}

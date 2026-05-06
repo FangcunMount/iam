@@ -117,9 +117,9 @@ flowchart TB
 | ProfileLink 是什么 | User 与 Profile 的关系边，包含 type/relation/established/revoked。 | `domain/identity/profilelink/profile_link.go` |
 | 支持哪些关系 | self、parent、grandparent、other。 | `profile_link.go` |
 | 关系是否有效如何判断 | `IsActive()` 判断 `RevokedAt == nil`。 | `profile_link.go` |
-| 建立关系会校验什么 | Profile 存在、User 存在、同 User/Profile 没有 active duplicate。 | `domain/identity/profilelink/linker.go` |
+| 建立关系会校验什么 | 应用层校验 Profile/User 存在；`ProfileLinker` 校验同 User/Profile 没有 active duplicate；`SelfProfileGuard` 校验同 User 无 active self。 | `application/identity/profilelink/service_command.go`、`domain/identity/profilelink/linker.go`、`domain/identity/profilelink/self_profile_guard.go` |
 | 撤销关系如何实现 | `Revoke` 设置 `RevokedAt`，不是删除记录。 | `profile_link.go`、`linker.go` |
-| self link 不变量如何维护 | `SelfProfileEnsurer` 保证 active self link，重复时保留最早、其他转 parent。 | `domain/identity/profilelink/self_profile_ensurer.go` |
+| self link 不变量如何维护 | `SelfProfileGuard.EnsureCanCreateSelf` 拒绝第二条 active self，DB 用 `self_key` 唯一索引兜底。 | `domain/identity/profilelink/self_profile_guard.go` |
 | 当前用户创建档案如何处理 | `MyProfiles.Create` 同事务创建 Profile 和 ProfileLink。 | `application/identity/profile/service_my_profiles.go` |
 | 当前用户访问 Profile 如何 guard | `accessibleProfileIDInTx` 查 active ProfileLink。 | `application/identity/profile/service_access.go` |
 | 当前用户操作 ProfileLink 如何 guard | `MyProfileLinks` 禁止 grant/list/revoke 其他 user 的 link。 | `application/identity/profilelink/service_access.go` |
@@ -451,13 +451,13 @@ Revoke(at)
 
 ## 5. 建立关系为什么是领域能力
 
-`ProfileLinker.Establish` 不只是 new 一个 struct。
+`ProfileLinker.Link` 不只是 new 一个 struct。
 
 它会：
 
 ```text
-检查 Profile 存在
-检查 User 存在
+应用层检查 Profile 存在
+应用层检查 User 存在
 检查同一个 User/Profile 没有 active duplicate
 根据 relation 计算 Type
 创建 ProfileLink entity
@@ -467,15 +467,16 @@ Revoke(at)
 
 ```mermaid
 flowchart TD
-    Establish["Establish(userID, profileID, relation)"]
-    Profile["Find Profile"]
-    User["Find User"]
+    Establish["CreateProfileLink command"]
+    Profile["Application finds Profile"]
+    User["Application finds User"]
     Existing["Find links by profileID"]
+    Linker["ProfileLinker.Link"]
     Dup{"same user active link?"}
     Create["Create ProfileLink"]
     Error["error"]
 
-    Establish --> Profile --> User --> Existing --> Dup
+    Establish --> Profile --> User --> Linker --> Existing --> Dup
     Dup -->|"yes"| Error
     Dup -->|"no"| Create
 ```
@@ -544,9 +545,9 @@ same user + same profile + active link
 
 ---
 
-## 7. SelfProfileEnsurer：为什么本人档案要单独保护
+## 7. Active Self Guard：为什么本人档案要单独保护
 
-系统希望每个登录 User 有一个 active self profile link。
+系统允许 User 没有 self Profile，但如果用户主动创建本人档案，一个 User 最多只能有一个 active self profile link。
 
 原因是很多业务流程需要：
 
@@ -554,47 +555,40 @@ same user + same profile + active link
 当前登录用户自己的档案
 ```
 
-如果没有 self profile/link，就会出现：
+因此不能把 self profile 当成 User 的天然字段，也不能在注册时无条件补档案。当前规则是：
 
-- `/identity/me/profiles` 没有本人档案；
-- 当前用户档案关系不完整；
-- onboarding 后无法稳定找到“本人”档案；
-- 后续业务系统需要自己补默认档案。
-
-所以有：
-
-```text
-SelfProfileEnsurer
-```
+- User 创建不自动创建 self Profile；
+- 用户主动选择“为自己创建档案”时创建 self ProfileLink；
+- 已有 active self 时拒绝重复创建；
+- relation Profile 可以有多个。
 
 它的逻辑：
 
 ```text
-如果没有 active self link：
-  -> 创建 Profile(Name=user.Name)
-  -> 创建 self ProfileLink
-
-如果有多个 active self links：
-  -> 保留最早一条 self
-  -> 其他转换为 parent relation
+MyProfiles.Create(currentUserID, relation)
+  -> 创建 Profile
+  -> relation == self 时检查 active self
+  -> 已有 active self 则拒绝
+  -> relation != self 时允许多个
+  -> 创建 ProfileLink
 ```
 
 ```mermaid
 flowchart TD
-    Ensure["Ensure(user)"]
-    Links["FindByUserID"]
-    Selfs["active self links"]
-    None{"none?"}
-    Multi{"multiple?"}
-    Create["Create self Profile + self Link"]
-    Normalize["Keep earliest; convert others to parent"]
+    User["currentUser"]
+    Relation["parse relation"]
+    Profile["create Profile"]
+    IsSelf{"relation == self?"}
+    HasSelf{"has active self?"}
+    Link["create ProfileLink"]
+    Reject["reject duplicate self"]
     Done["done"]
 
-    Ensure --> Links --> Selfs --> None
-    None -->|"yes"| Create --> Done
-    None -->|"no"| Multi
-    Multi -->|"yes"| Normalize --> Done
-    Multi -->|"no"| Done
+    User --> Relation --> Profile --> IsSelf
+    IsSelf -->|"no"| Link --> Done
+    IsSelf -->|"yes"| HasSelf
+    HasSelf -->|"yes"| Reject
+    HasSelf -->|"no"| Link --> Done
 ```
 
 ### 7.1 为什么不是 User.self_profile_id
@@ -1170,9 +1164,9 @@ ProfileLink 是身份关系。它可以作为当前用户访问档案的 guard�
 | User 是身份锚点 | `domain/identity/user/user.go` |
 | Profile 是业务档案 | `domain/identity/profile/profile.go` |
 | ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/identity/profilelink/profile_link.go` |
-| Establish 校验 User/Profile 存在和 active duplicate | `domain/identity/profilelink/linker.go` |
+| 应用层校验 User/Profile 存在，ProfileLinker 校验 active duplicate | `application/identity/profilelink/service_command.go`、`domain/identity/profilelink/linker.go` |
 | Revoke 设置 RevokedAt | `domain/identity/profilelink/linker.go`、`profile_link.go` |
-| SelfProfileEnsurer 维护 active self link | `domain/identity/profilelink/self_profile_ensurer.go` |
+| active self 唯一性由 SelfProfileGuard + DB 兜底 | `domain/identity/profilelink/self_profile_guard.go` |
 | MyProfiles.Create 同事务创建 Profile + ProfileLink | `application/identity/profile/service_my_profiles.go` |
 | MyProfiles.Get/Patch 用 active ProfileLink guard | `application/identity/profile/service_access.go` |
 | MyProfileLinks 限制 currentUserID | `application/identity/profilelink/service_access.go` |
@@ -1204,7 +1198,7 @@ internal/apiserver/domain/identity/profilelink/linker.go
 ### 第三轮：self link 不变量
 
 ```text
-internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go
+internal/apiserver/domain/identity/profilelink/linker.go
 internal/apiserver/infra/mysql/profilelink/mapper.go
 internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql
 ```
@@ -1255,8 +1249,8 @@ make docs-hygiene
 | Revoke | 设置 RevokedAt，而不是删除 |
 | Active query | 默认只返回 RevokedAt nil |
 | Including revoked query | 能查历史关系 |
-| SelfProfileEnsurer no self | 自动创建 Profile + self link |
-| SelfProfileEnsurer duplicate self | 保留最早 self，其余转 parent |
+| MyProfiles.Create relation=self | 主动创建 Profile + self link |
+| Active self duplicate | 拒绝第二条 active self |
 | self_key mapper | active self 设置 self_key=userID |
 | DB unique self | 同 User active self 只能一个 |
 | MyProfiles.Create | Profile + ProfileLink 同事务 |

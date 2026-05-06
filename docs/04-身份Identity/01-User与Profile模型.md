@@ -16,7 +16,7 @@
 - User/Profile 的创建、查询、编辑分别由哪些 application service 承担；
 - 当前用户视角的 `/identity/me` 和 `/identity/me/profiles` 分别从哪里来；
 - 为什么 `MyProfiles` 会组合 Profile 与 ProfileLink；
-- SelfProfileEnsurer 维护什么不变量；
+- active self ProfileLink 维护什么不变量；
 - 本篇与下一篇 ProfileLink 链路文档的边界是什么。
 
 ---
@@ -84,7 +84,7 @@ REST 侧则通过 `/api/v2/identity` 暴露当前用户、当前用户档案和�
 - [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go)
 - [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go)
 - [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
-- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
 - [../../internal/apiserver/application/identity/user/services.go](../../internal/apiserver/application/identity/user/services.go)
 - [../../internal/apiserver/application/identity/profile/services.go](../../internal/apiserver/application/identity/profile/services.go)
 - [../../internal/apiserver/container/assembler/user.go](../../internal/apiserver/container/assembler/user.go)
@@ -166,7 +166,7 @@ classDiagram
 | User 领域对象在哪里 | `domain/identity/user/user.go`。 | [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
 | User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go) |
 | User 创建后默认状态 | `UserActive`。 | [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
-| User 创建用例是否维护 self profile | `service_create.go` 创建 User 后调用 `SelfProfileEnsurer.Ensure`。 | [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go) |
+| User 创建用例是否维护 self profile | 不维护；User 可以没有 self Profile。 | [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go) |
 | User blocked 是否撤销 session | `StatusChanger.Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go) |
 | Profile 领域对象在哪里 | `domain/identity/profile/profile.go`。 | [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go) |
 | Profile 创建输入如何统一 | `CreationSpec` + `NewFromCreationSpec`。 | [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go) |
@@ -290,7 +290,7 @@ User 不是“某一次登录账号”，而是 IAM 系统里的身份锚点。
 | Account | AuthN | 登录账号和凭据归属 |
 | User | Identity | IAM 内部用户身份锚点 |
 
-AuthN onboarding 中的 `UserProvisioner` 会根据已有 account、手机号或微信身份决定复用 User、修复 User 或创建 User。创建或复用后，也会调用 `SelfProfileEnsurer` 维护 self profile/link 不变量。
+AuthN onboarding 中的 `UserProvisioner` 会根据已有 account、手机号或微信身份决定复用 User、修复 User 或创建 User。创建或复用 User 后不会自动创建 self ProfileLink。
 
 核心源码：
 
@@ -459,7 +459,6 @@ CreateUserDTO
   -> ValidateCreate
   -> user.NewUser
   -> tx.Users.Create
-  -> SelfProfileEnsurer.Ensure
   -> UserResult
 ```
 
@@ -470,18 +469,15 @@ sequenceDiagram
     participant Validator as "User Validator"
     participant User as "User Entity"
     participant Repo as "User Repository"
-    participant Ensurer as "SelfProfileEnsurer"
 
     App->>UOW: WithinTx
     UOW->>Validator: ValidateCreate
     UOW->>User: NewUser
     UOW->>Repo: Create(user)
-    UOW->>Ensurer: Ensure(user)
-    Ensurer-->>UOW: self profile/link exists
 ```
 
-关键点是：User 创建后会维护 self profile/link 不变量。
-这意味着系统希望每个登录主体至少有一个“本人档案”关系。
+关键点是：User 创建后只产生登录主体，不自动创建 self profile/link。
+用户可以先没有本人档案，后续由 C 端显式建档能力创建 self ProfileLink。
 
 ### 5.2 Edit User
 
@@ -651,7 +647,7 @@ flowchart TD
 ```text
 直接创建 Profile
 当前用户创建自己的 Profile
-SelfProfileEnsurer 创建 self Profile
+当前用户为自己创建 self Profile
 ```
 
 `CreationSpec` 把创建字段集中起来，避免每个入口手动拼 option。
@@ -871,58 +867,65 @@ ProfileLink 的建立、撤销、self link、不变量、当前用户 guard，�
 
 ---
 
-## 11. SelfProfileEnsurer：本人档案不变量
+## 11. Active Self Guard：本人档案不变量
 
-系统希望每个登录 User 至少有一个 active self profile link。
+系统允许 User 没有 self Profile，但如果存在 self ProfileLink，则一个 User 最多只能有一个 active self profile link。
 
-`SelfProfileEnsurer` 维护这个不变量：
+当前创建规则：
 
 ```text
-如果 User 没有 active self link：
-  -> 创建 Profile(Name=user.Name)
-  -> 创建 self ProfileLink
+User 创建:
+  -> 不创建 Profile
+  -> 不创建 ProfileLink
 
-如果 User 有多个 active self links：
-  -> 保留最早一条 self
-  -> 其余转换为 parent relation
+C 端主动创建 Profile:
+  -> relation == self 时创建 self ProfileLink
+  -> relation != self 时创建 relation ProfileLink
+
+如果 User 已有 active self link:
+  -> 拒绝重复 self 创建
+
+relation Profile:
+  -> 允许多个
 ```
 
 ```mermaid
 flowchart TD
-    User["User"]
-    Links["FindByUserID"]
-    HasSelf{"has active self link?"}
-    Multi{"multiple active self links?"}
-    CreateProfile["create Profile(Name=user.Name)"]
-    CreateLink["create self ProfileLink"]
-    Normalize["keep earliest self; convert duplicates to parent"]
+    User["currentUser"]
+    Relation["parse relation"]
+    CreateProfile["create Profile"]
+    IsSelf{"relation == self?"}
+    HasSelf{"has active self?"}
+    CreateLink["create ProfileLink"]
+    Reject["reject duplicate self"]
     Done["done"]
 
-    User --> Links --> HasSelf
-    HasSelf -->|"no"| CreateProfile --> CreateLink --> Done
-    HasSelf -->|"yes"| Multi
-    Multi -->|"yes"| Normalize --> Done
-    Multi -->|"no"| Done
+    User --> Relation --> CreateProfile --> IsSelf
+    IsSelf -->|"no"| CreateLink --> Done
+    IsSelf -->|"yes"| HasSelf
+    HasSelf -->|"yes"| Reject
+    HasSelf -->|"no"| CreateLink --> Done
 ```
 
-SelfProfileEnsurer 在两个场景被调用：
+active self guard 在两个层面生效：
 
 | 场景 | 作用 |
 | --- | --- |
-| User 创建 | 创建用户后确保 self profile/link |
-| AuthN onboarding | 复用或创建用户后确保 self profile/link |
+| `SelfProfileGuard.EnsureCanCreateSelf` | relation 为 self 时检查当前 User 是否已有 active self |
+| `ProfileLinker.LinkSelf/LinkRelation` | 创建 User -> Profile 的关系实体，不负责 self 唯一性 |
+| `self_key` unique index | DB 层兜底防止并发写入多个 active self |
 
 ### 为什么要有 self profile
 
 因为很多业务流程需要“当前登录用户自己的档案”。
-如果没有 self profile/link，后续 profile 查询、identity 同步和档案关系都会出现空洞。
+没有 self profile/link 是允许状态；需要“当前登录用户自己的档案”的业务流程应先显式创建或查询 self profile。
 
 但 self profile 仍然是 Profile，不是 User 本身。
 它只是通过 ProfileLink 与 User 形成 `self` 关系。
 
 核心源码：
 
-- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
 - [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go)
 - [../../internal/apiserver/application/authn/onboarding/user_provisioner.go](../../internal/apiserver/application/authn/onboarding/user_provisioner.go)
 
@@ -1265,10 +1268,10 @@ Profile 的编辑器在 `domain/identity/profile.ProfileEditor`。
 不对。
 MyProfiles 是当前用户视角的 Profile 访问用例，会通过 ProfileLink 检查访问关系。
 
-### 误区六：SelfProfileEnsurer 把 User 复制成 Profile
+### 误区六：Active self guard 把 User 复制成 Profile
 
 不准确。
-它只是在缺少 active self link 时，用 User.Name 创建一个 self Profile，并建立 self ProfileLink，目的是维护本人档案不变量。
+它不再在缺少 active self link 时自动补档案。`SelfProfileGuard` 只提供显式唯一性保护，调用方必须在用户主动选择“为自己创建档案”时才调用 guard 并创建 self ProfileLink。
 
 ### 误区七：Identity 模块负责权限判定
 
@@ -1294,10 +1297,9 @@ Identity 模块可读取角色名用于展示，但权限判定仍然是 AuthZ �
 `MyProfiles.Get/Patch` 会检查当前 User 是否存在对应 ProfileLink。
 它不是 AuthZ resource/action 判定。后续如果要把 Profile 访问纳入统一 AuthZ，需要设计 ResourceKey、Scope 和 Check 链路。
 
-### 19.4 SelfProfileEnsurer 自动创建 self Profile
+### 19.4 self Profile 只在用户主动建档时创建
 
-User 创建和 AuthN onboarding 都会调用 SelfProfileEnsurer。
-这会自动创建 Profile 和 self ProfileLink，是一个重要不变量。测试和文档都应持续保护这个事实。
+User 创建和 AuthN onboarding 不再自动创建 Profile 或 self ProfileLink。C 端用户主动选择“为自己创建档案”时，`MyProfiles.Create` 在同一事务里创建 Profile，并按 relation 创建 ProfileLink。
 
 ---
 
@@ -1308,7 +1310,7 @@ User 创建和 AuthN onboarding 都会调用 SelfProfileEnsurer。
 | Identity Anchor | 登录主体需要稳定内部 ID | User 作为 IAM 身份锚点 | 不能把 User 当业务档案 |
 | Profile as Business Record | 业务档案可能多人关联 | Profile 独立建模 | 访问必须经 ProfileLink guard |
 | Relationship Entity | User/Profile 关系有类型和状态 | ProfileLink | 链路复杂度高于简单外键 |
-| Self Invariant | 登录用户需要本人档案 | SelfProfileEnsurer | 自动创建 Profile，需要注意业务语义 |
+| Self Invariant | 一个 User 最多一个 active self link | SelfProfileGuard + self_key unique index | User 可以没有 self Profile |
 | Application UoW | Profile + ProfileLink 要同事务 | Identity UnitOfWork | service 需要在 tx repos 中完成组合写入 |
 | Cross-module Capability | Identity 状态影响 AuthN/AuthZ | SessionManager / RoleNameReader | 模块边界要靠显式 deps 维护 |
 | Current-user View | 前端关心“我的档案” | MyProfiles / MyProfileLinks | 不等于全局 Profile 管理 |
@@ -1374,7 +1376,7 @@ internal/apiserver/application/identity/profile/service_access.go
 
 ```text
 internal/apiserver/domain/identity/profilelink/profile_link.go
-internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go
+internal/apiserver/domain/identity/profilelink/linker.go
 ```
 
 目标：理解 User/Profile 为什么通过关系边连接。
@@ -1422,7 +1424,7 @@ make docs-hygiene
 | User deactivate | 状态改为 inactive，不主动 revoke session |
 | Profile create | name 必填，CreationSpec 正确装配字段 |
 | Profile update | Rename / IDCard / gender+birthday / height+weight |
-| SelfProfileEnsurer | 无 self link 时创建 profile/link，多 self link 时只保留最早一条 |
+| Active self guard | self 创建时拒绝第二条 active self，DB self_key 唯一索引兜底 |
 | MyProfiles.Create | Profile + ProfileLink 同事务创建 |
 | MyProfiles.Get/Patch | 没有关联时返回 permission denied |
 | REST /identity/me | 从 JWT context 读取 user_id |

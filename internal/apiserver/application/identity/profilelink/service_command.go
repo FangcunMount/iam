@@ -3,9 +3,11 @@ package profilelink
 import (
 	"context"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -142,8 +144,19 @@ func establishProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, dto 
 	if err != nil {
 		return nil, err
 	}
-	linker := domain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
-	profileLink, err := linker.Establish(txCtx, userID, profileID, domain.ParseRelation(dto.Relation))
+	if err := ensureProfileLinkParticipantsExist(txCtx, tx, userID, profileID); err != nil {
+		return nil, err
+	}
+
+	relation := domain.ParseRelation(dto.Relation)
+	if relation == domain.RelSelf {
+		if err := domain.NewSelfProfileGuard(tx.ProfileLinks).EnsureCanCreateSelf(txCtx, userID); err != nil {
+			return nil, err
+		}
+	}
+
+	linker := domain.NewLinker(tx.ProfileLinks)
+	profileLink, err := linker.Link(txCtx, userID, profileID, relation)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +171,7 @@ func establishProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, dto 
 }
 
 func revokeProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, userID, profileID meta.ID) (*ProfileLinkResult, error) {
-	linker := domain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
+	linker := domain.NewLinker(tx.ProfileLinks)
 	profileLink, err := linker.Revoke(txCtx, userID, profileID)
 	if err != nil {
 		return nil, err
@@ -171,6 +184,26 @@ func revokeProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, userID,
 		return nil, err
 	}
 	return toProfileLinkResult(profileLink, profile), nil
+}
+
+func ensureProfileLinkParticipantsExist(txCtx context.Context, tx uow.TxRepositories, userID, profileID meta.ID) error {
+	profile, err := tx.Profiles.FindByID(txCtx, profileID)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrDatabase, "find profile failed")
+	}
+	if profile == nil {
+		return perrors.WithCode(code.ErrUserInvalid, "profile not found")
+	}
+
+	user, err := tx.Users.FindByID(txCtx, userID)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrDatabase, "find user failed")
+	}
+	if user == nil {
+		return perrors.WithCode(code.ErrUserInvalid, "user not found")
+	}
+
+	return nil
 }
 
 func resolveRevokeSelector(txCtx context.Context, tx uow.TxRepositories, dto RevokeProfileLinkBySelectorDTO) (meta.ID, meta.ID, error) {

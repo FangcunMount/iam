@@ -16,5 +16,4 @@ func TestParseRelationNormalizesKnownValues(t *testing.T) {
 func TestParseRelationFallsBackToOther(t *testing.T) {
 	assert.Equal(t, RelOther, ParseRelation(""))
 	assert.Equal(t, RelOther, ParseRelation("unknown"))
-	assert.Equal(t, "other", NormalizeRelation("unknown"))
 }

@@ -458,8 +458,8 @@ func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 	accessService := profile.NewMyProfiles(unitOfWork)
 	profiles, err := accessService.List(ctx, userResult.ID)
 	require.NoError(t, err)
-	require.Len(t, profiles, 2)
-	assert.Contains(t, []string{profiles[0].ID, profiles[1].ID}, profileResult.ID)
+	require.Len(t, profiles, 1)
+	assert.Equal(t, profileResult.ID, profiles[0].ID)
 
 	found, err := accessService.Get(ctx, userResult.ID, profileResult.ID)
 	require.NoError(t, err)

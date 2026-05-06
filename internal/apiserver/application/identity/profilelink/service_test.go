@@ -349,7 +349,7 @@ func TestDirectory_ListProfilesByUserID_Success(t *testing.T) {
 
 	// Assert
 	require.NoError(t, err)
-	assert.Len(t, results, 3)
+	assert.Len(t, results, 2)
 }
 
 func TestDirectory_ListProfileLinksByProfileID_Success(t *testing.T) {
@@ -517,11 +517,11 @@ func TestDirectory_ListProfilesByUserID_ExcludesRevokedByDefault(t *testing.T) {
 
 	activeOnly, err := queryService.ListProfilesForUser(ctx, userResult.ID)
 	require.NoError(t, err)
-	assert.Len(t, activeOnly, 1)
+	assert.Empty(t, activeOnly)
 
 	withRevoked, err := queryService.ListProfilesForUserIncludingRevoked(ctx, userResult.ID)
 	require.NoError(t, err)
-	require.Len(t, withRevoked, 2)
+	require.Len(t, withRevoked, 1)
 	assert.True(t, hasRevokedProfileLink(withRevoked))
 }
 
@@ -558,7 +558,7 @@ func TestMyProfileLinks_GrantAndList(t *testing.T) {
 
 	results, err := accessService.List(ctx, userResult.ID, profilelink.ListProfileLinksDTO{})
 	require.NoError(t, err)
-	require.Len(t, results, 2)
+	require.Len(t, results, 1)
 	assert.True(t, hasProfileLink(results, profileResult.ID))
 }
 

@@ -2,7 +2,7 @@
 
 ## 本文回答
 
-本文回答：IAM Identity 模块中 `ProfileLink` 如何表达 User 与 Profile 的关系；为什么它不是简单外键，也不是 AuthZ 权限；系统如何建立、查询、撤销关系；当前用户视角的 `MyProfileLinks` 如何防止用户操作其他用户的档案关系；`SelfProfileEnsurer` 如何维护每个 User 的 active self profile link；REST/gRPC 如何把 ProfileLink 能力暴露给调用方。
+本文回答：IAM Identity 模块中 `ProfileLink` 如何表达 User 与 Profile 的关系；为什么它不是简单外键，也不是 AuthZ 权限；系统如何建立、查询、撤销关系；当前用户视角的 `MyProfileLinks` 如何防止用户操作其他用户的档案关系；active self 唯一性如何由领域和 DB 共同保护；REST/gRPC 如何把 ProfileLink 能力暴露给调用方。
 
 读完本文，你应该能回答：
 
@@ -15,7 +15,7 @@
 - `Commands` 和 `MyProfileLinks` 的区别是什么；
 - 当前用户为什么不能为另一个 user grant/revoke profile link；
 - 当前用户访问 Profile 时如何通过 ProfileLink guard；
-- `SelfProfileEnsurer` 如何保证 active self link；
+- active self link 如何保证唯一；
 - 数据库层如何保护一个 User 只有一个 active self link；
 - ProfileLink 与 AuthZ 权限、Suggest 候选搜索之间的边界是什么。
 
@@ -95,7 +95,7 @@ ProfileLink 是身份关系，不是 AuthZ 权限。
 - [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
 - [../../internal/apiserver/domain/identity/profilelink/relation.go](../../internal/apiserver/domain/identity/profilelink/relation.go)
 - [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
-- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
 - [../../internal/apiserver/application/identity/profilelink/services.go](../../internal/apiserver/application/identity/profilelink/services.go)
 - [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go)
 - [../../internal/apiserver/application/identity/profilelink/service_query.go](../../internal/apiserver/application/identity/profilelink/service_query.go)
@@ -153,13 +153,13 @@ sequenceDiagram
 | 支持哪些 relation | `self`、`parent`、`grandparent`、`other`。 | [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go) |
 | relation 输入如何规范化 | `ParseRelation`，未知值默认 `other`。 | [../../internal/apiserver/domain/identity/profilelink/relation.go](../../internal/apiserver/domain/identity/profilelink/relation.go) |
 | 关系是否 active 如何判断 | `IsActive()` 判断 `RevokedAt == nil`。 | [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go) |
-| 建立关系的领域能力在哪里 | `ProfileLinker.Establish`。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
-| 建立关系会检查什么 | Profile 存在、User 存在、同 User/Profile 没有 active duplicate。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| 建立关系的领域能力在哪里 | `ProfileLinker.Link/LinkSelf/LinkRelation`。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| 建立关系会检查什么 | 应用层检查 Profile/User 存在；`ProfileLinker` 检查同 User/Profile 没有 active duplicate；`SelfProfileGuard` 检查同 User 没有 active self。 | [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go)、[../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)、[../../internal/apiserver/domain/identity/profilelink/self_profile_guard.go](../../internal/apiserver/domain/identity/profilelink/self_profile_guard.go) |
 | 撤销关系的领域能力在哪里 | `ProfileLinker.Revoke`。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
 | 系统侧命令在哪里 | `application/identity/profilelink/service_command.go`。 | [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go) |
 | 当前用户视角在哪里 | `application/identity/profilelink/service_access.go`。 | [../../internal/apiserver/application/identity/profilelink/service_access.go](../../internal/apiserver/application/identity/profilelink/service_access.go) |
 | MyProfiles 如何检查访问 | `accessibleProfileIDInTx` 查询 active ProfileLink。 | [../../internal/apiserver/application/identity/profile/service_access.go](../../internal/apiserver/application/identity/profile/service_access.go) |
-| self link 不变量在哪里维护 | `SelfProfileEnsurer`。 | [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go) |
+| self link 不变量在哪里维护 | `SelfProfileGuard.EnsureCanCreateSelf` + `self_key` 唯一索引。 | [../../internal/apiserver/domain/identity/profilelink/self_profile_guard.go](../../internal/apiserver/domain/identity/profilelink/self_profile_guard.go)、[../../internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql](../../internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql) |
 | DB 如何保护 active self link | `self_key` + `uk_active_self_profile_link`。 | [../../internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql](../../internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql) |
 | REST ProfileLink 入口在哪里 | `/api/v2/identity/profile-links`。 | [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go)、[../../internal/apiserver/transport/rest/identity/handler/profile_link.go](../../internal/apiserver/transport/rest/identity/handler/profile_link.go) |
 | gRPC ProfileLink 命令在哪里 | `profile_link_command.go`。 | [../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go) |
@@ -228,7 +228,6 @@ classDiagram
       RevokedAt
       IsActive()
       Revoke(at)
-      ConvertToRelation(relation)
     }
 
     class Type {
@@ -266,7 +265,7 @@ revoked link: RevokedAt non-nil
 
 ### 并发安全
 
-ProfileLink 内部有 `sync.RWMutex`，`IsActive`、`Revoke`、`ConvertToRelation` 都使用锁。  
+ProfileLink 内部有 `sync.RWMutex`，`IsActive`、`Revoke` 都使用锁。
 `Revoke(at)` 会分配新的 `time.Time` 指针，避免多个调用者共享同一个栈地址。
 
 核心源码：
@@ -336,12 +335,12 @@ TypeFromRelation(RelOther) = TypeRelation
 
 ---
 
-## 4. Establish：建立 ProfileLink
+## 4. Link：建立 ProfileLink
 
 领域能力：
 
 ```text
-ProfileLinker.Establish(ctx, userID, profileID, relation)
+ProfileLinker.Link(ctx, userID, profileID, relation)
 ```
 
 流程：
@@ -563,7 +562,7 @@ flowchart TD
 5. 为 active self link 设置 `self_key=user_id`；
 6. 创建唯一索引。
 
-这和领域层 `SelfProfileEnsurer` 的策略一致。
+这和领域层 `SelfProfileGuard` 的 active self 唯一性策略一致。
 
 核心源码：
 
@@ -573,51 +572,52 @@ flowchart TD
 
 ---
 
-## 8. SelfProfileEnsurer：维护本人档案不变量
+## 8. Active Self Guard：维护本人档案不变量
 
-`SelfProfileEnsurer` 负责保证：
+Identity 负责保证：
 
 ```text
 每个 User 最多一个 active self ProfileLink
-如果没有 active self link，则创建一个 self Profile 和 self link
+如果没有 active self link，不自动创建
 ```
 
 流程：
 
 ```text
-FindByUserID(userID)
-  -> active self links
-  -> if none: create self Profile + self ProfileLink
-  -> if multiple: keep earliest, convert duplicates to parent relation
+MyProfiles.Create(currentUserID, relation)
+  -> create Profile
+  -> if relation == self: reject when active self already exists
+  -> if relation != self: allow multiple relation profiles
+  -> create ProfileLink
 ```
 
 ```mermaid
 flowchart TD
-    Ensure["Ensure(user)"]
-    Links["FindByUserID"]
-    ActiveSelf["filter active self links"]
-    Has{"has active self?"}
-    CreateProfile["Create Profile(Name=user.Name)"]
-    CreateLink["Create self ProfileLink"]
-    Multi{"multiple active self?"}
-    Sort["sort by EstablishedAt, ID"]
-    Convert["duplicates ConvertToRelation(parent)"]
-    Update["links.Update"]
+    User["currentUser"]
+    Relation["parse relation"]
+    CreateProfile["create Profile"]
+    IsSelf{"relation == self?"}
+    HasSelf{"has active self?"}
+    CreateLink["create ProfileLink"]
+    Reject["reject duplicate self"]
     Done["done"]
 
-    Ensure --> Links --> ActiveSelf --> Has
-    Has -->|"no"| CreateProfile --> CreateLink --> Done
-    Has -->|"yes"| Multi
-    Multi -->|"yes"| Sort --> Convert --> Update --> Done
-    Multi -->|"no"| Done
+    User --> Relation --> CreateProfile --> IsSelf
+    IsSelf -->|"no"| CreateLink --> Done
+    IsSelf -->|"yes"| HasSelf
+    HasSelf -->|"yes"| Reject
+    HasSelf -->|"no"| CreateLink --> Done
 ```
 
 调用场景：
 
 | 场景 | 作用 |
 | --- | --- |
-| User 创建 | 创建 User 后自动补 self Profile/ProfileLink |
-| AuthN onboarding | 复用或创建 User 后确保 self link |
+| User 创建 | User 创建不自动补 self Profile/ProfileLink |
+| AuthN onboarding | 复用或创建 User 后不自动创建 self link |
+| 显式本人档案保护 | `SelfProfileGuard` 提供 active self 唯一性检查，不承担登录后自动 ensure |
+| C 端建档 relation=self | 创建 self ProfileLink，已有 active self 时拒绝 |
+| C 端建档 relation!=self | 创建 relation ProfileLink，允许多个 |
 
 ### self link 的意义
 
@@ -634,7 +634,7 @@ self Profile 不是 User 本身
 
 核心源码：
 
-- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
 - [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go)
 - [../../internal/apiserver/application/authn/onboarding/user_provisioner.go](../../internal/apiserver/application/authn/onboarding/user_provisioner.go)
 
@@ -864,7 +864,8 @@ MyProfileLinks 的 guard 是关系访问控制：
 parse currentUserID
   -> build Profile
   -> tx.Profiles.Create
-  -> ProfileLinker.Establish(currentUserID, newProfile.ID, relation)
+  -> if relation == self: SelfProfileGuard.EnsureCanCreateSelf
+  -> ProfileLinker.LinkSelf / LinkRelation
   -> tx.ProfileLinks.Create
   -> return Profile + ProfileLink
 ```
@@ -1149,8 +1150,8 @@ Suggest 是候选，ProfileLink 是关系。
 | MyProfileLinks.List | 查询其他 user links | permission denied |
 | MyProfileLinks.Revoke | selector 解析出的 user 不是 current user | permission denied |
 | MyProfiles.Get/Patch | 当前用户没有 active link | permission denied |
-| SelfProfileEnsurer | profiles/links repo nil | no-op |
-| SelfProfileEnsurer | 多 active self link | 保留最早，其他转 parent |
+| Active self guard | relation=self 且已有 active self | 拒绝重复创建 |
+| DB self unique | 多 active self link 并发创建 | unique index 阻止 |
 | DB self unique | 多 active self link 并发创建 | unique index 阻止 |
 
 ---
@@ -1231,9 +1232,9 @@ Profile 是独立业务档案，通过 ProfileLink 和 User 建立关系。
 | Relationship Entity | 关系有类型、状态和历史 | ProfileLink | 比简单外键复杂，但语义完整 |
 | Soft Revocation | 关系撤销需要历史 | RevokedAt | 查询必须区分 active / including revoked |
 | Current-user Guard | 用户只能操作自己的关系 | MyProfileLinks | 系统侧 gRPC/Commands 需另有权限保护 |
-| Self Invariant | 每个 User 需要本人档案关系 | SelfProfileEnsurer + self_key unique index | 自动创建 Profile，需要明确业务语义 |
+| Self Invariant | 一个 User 最多一个 active self link | SelfProfileGuard + self_key unique index | User 可以没有 self Profile |
 | UoW Composition | Profile + ProfileLink 要同事务 | Identity UnitOfWork | 所有组合写入必须走 tx repos |
-| Domain Capability | 领域只返回实体，不持久化 | Linker.Establish/Revoke | 应用层必须负责 Update/Create |
+| Domain Capability | 领域只返回实体，不持久化 | Linker.Link/Revoke + SelfProfileGuard | 应用层必须负责 Update/Create |
 | Dual Interface | 用户侧与系统侧能力不同 | REST MyProfileLinks / gRPC Commands | 文档要明确接入边界 |
 
 ---
@@ -1255,7 +1256,7 @@ internal/apiserver/domain/identity/profilelink/repository.go
 
 ```text
 internal/apiserver/domain/identity/profilelink/linker.go
-internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go
+internal/apiserver/domain/identity/profilelink/linker.go
 internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql
 ```
 
@@ -1331,8 +1332,8 @@ make docs-hygiene
 | Revoke not found | 无 active link 返回错误 |
 | Repository active query | 默认排除 revoked |
 | Repository including revoked | 包含已撤销历史 |
-| SelfProfileEnsurer no self | 自动创建 self Profile + self link |
-| SelfProfileEnsurer duplicates | 保留最早 self，其他转 parent |
+| MyProfiles.Create relation=self | 主动创建 self Profile + self link |
+| Active self duplicate | 拒绝第二条 active self |
 | self_key mapper | active self 设置 self_key，revoked/self relation 不设置 |
 | MyProfileLinks Grant | 不能给其他 user 建立关系 |
 | MyProfileLinks List | 不能查其他 user links |

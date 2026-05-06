@@ -13,7 +13,7 @@
 5. self / parent / grandparent / other 等关系如何表达；
 6. active / revoked 关系状态如何影响当前用户访问；
 7. MyProfiles 与 MyProfileLinks 如何保护当前用户视角；
-8. SelfProfileEnsurer 为什么要维护 active self link；
+8. active self ProfileLink 的唯一性如何由领域检查和 DB 兜底共同维护；
 9. Identity 与 AuthN、AuthZ、IDP、SDK 的边界分别是什么。
 
 本目录只解释 **身份主体与业务档案关系**。  
@@ -115,7 +115,7 @@ flowchart TD
     ProfileLinkDoc --> Link["ProfileLink"]
     ProfileLinkDoc --> Rel["Relation<br/>self / parent / grandparent / other"]
     ProfileLinkDoc --> State["active / revoked"]
-    ProfileLinkDoc --> Self["SelfProfileEnsurer"]
+    ProfileLinkDoc --> Self["Active self guard"]
     ProfileLinkDoc --> MyProfiles["MyProfiles"]
     ProfileLinkDoc --> MyLinks["MyProfileLinks"]
 
@@ -277,7 +277,7 @@ flowchart TD
 | Relation | 关系语义，例如 self、parent、grandparent、other | 误以为所有关系都是 parent-child |
 | Type | 关系主类别，例如 self、relation | 误以为和 Relation 完全重复 |
 | RevokedAt | 关系撤销时间，nil 表示 active | 误以为撤销就是物理删除 |
-| SelfProfileEnsurer | 维护每个登录 User 的 active self link | 误以为 self profile 应直接写在 User 字段里 |
+| Active self guard | 维护一个 User 最多一个 active self link | 误以为 User 天然拥有 self profile |
 | MyProfiles | 当前用户视角的 Profile 用例 | 误以为是系统侧 Profile 管理接口 |
 | MyProfileLinks | 当前用户视角的 ProfileLink 用例 | 误以为可操作任意用户的关系 |
 
@@ -417,18 +417,20 @@ MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己�
 
 ---
 
-## SelfProfileEnsurer 的意义
+## Active Self Guard 的意义
 
-`SelfProfileEnsurer` 维护一个重要不变量：
+Identity 维护一个重要不变量：
 
 ```text
-每个登录 User 应该有一个 active self ProfileLink
+一个 User 最多只能有一个 active self ProfileLink
 ```
 
-它做两件事：
+它不再做自动补档案。当前规则是：
 
-1. 如果没有 active self link，则创建一个 self Profile 和 self ProfileLink；
-2. 如果历史数据中有多个 active self link，则保留最早一条，其他转换为 parent relation。
+1. User 创建和 AuthN onboarding 不自动创建 self Profile；
+2. 用户主动选择“为自己创建档案”时，`MyProfiles.Create` 创建 Profile 和 self ProfileLink；
+3. 如果已有 active self ProfileLink，则拒绝重复创建；
+4. relation ProfileLink 可以有多个。
 
 这个设计的价值是：
 
@@ -436,7 +438,8 @@ MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己�
 本人档案也走 ProfileLink 统一关系模型
 不需要额外 User.self_profile_id 字段
 当前用户可以稳定找到自己的 self profile
-历史异常数据可以被规范化
+User 可以没有 self Profile，但仍可拥有 relation Profile
+active self 唯一性由 SelfProfileGuard 和 self_key 唯一索引共同保护
 ```
 
 ---
@@ -452,7 +455,8 @@ MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己�
 | ProfileLink 领域模型 | `internal/apiserver/domain/identity/profilelink/profile_link.go` |
 | Relation parser | `internal/apiserver/domain/identity/profilelink/relation.go` |
 | ProfileLinker | `internal/apiserver/domain/identity/profilelink/linker.go` |
-| SelfProfileEnsurer | `internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go` |
+| SelfProfileGuard | `internal/apiserver/domain/identity/profilelink/self_profile_guard.go` |
+| Active self guard | `internal/apiserver/domain/identity/profilelink/self_profile_guard.go`、`internal/apiserver/infra/mysql/profilelink/mapper.go` |
 | User application | `internal/apiserver/application/identity/user` |
 | Profile application | `internal/apiserver/application/identity/profile` |
 | MyProfiles | `internal/apiserver/application/identity/profile/service_my_profiles.go`、`service_access.go` |
@@ -711,7 +715,7 @@ Profile
 ProfileLink
 MyProfiles
 MyProfileLinks
-SelfProfileEnsurer
+Active self guard
 ```
 
 不要恢复或混用旧术语：

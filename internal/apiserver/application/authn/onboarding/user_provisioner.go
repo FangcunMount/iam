@@ -7,7 +7,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
-	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
 	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -55,17 +54,11 @@ func (r *UserProvisioner) Provision(ctx context.Context, repos registrationRepos
 		if user == nil {
 			return nil, perrors.WithCode(code.ErrInvalidArgument, "existing user not found: %s", preparedReq.ExistingUserID.String())
 		}
-		if err := profileLinkDomain.NewSelfProfileEnsurer(repos.Profiles, repos.ProfileLinks).Ensure(ctx, user); err != nil {
-			return nil, err
-		}
 		return &userResolution{User: user, IsNewUser: false, Request: preparedReq}, nil
 	}
 
 	user, isNewUser, err := r.createOrGetUser(ctx, userRepo, repos.Accounts, preparedReq, identity.OpenID, identity.UnionID)
 	if err != nil {
-		return nil, err
-	}
-	if err := profileLinkDomain.NewSelfProfileEnsurer(repos.Profiles, repos.ProfileLinks).Ensure(ctx, user); err != nil {
 		return nil, err
 	}
 	return &userResolution{User: user, IsNewUser: isNewUser, Request: preparedReq}, nil

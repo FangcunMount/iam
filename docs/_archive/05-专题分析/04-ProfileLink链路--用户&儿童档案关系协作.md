@@ -7,7 +7,7 @@
 ## 30 秒结论
 
 - `ProfileLink` 是当前标准术语，表达 User 与 Profile 的档案关系，可承载监护关系语义，但不是法律监护判定引擎。
-- self profile/link 是登录和当前用户视角的基础不变量，由 `SelfProfileEnsurer` 保障。
+- self profile/link 不是登录后的天然默认值；用户主动创建 self profile 时，由 ProfileLink 建立逻辑保证最多一个 active self link。
 - 系统侧命令使用 `Commands.Establish/Revoke`；当前用户视角使用 `MyProfileLinks.Grant/List/Revoke`，后者会拒绝跨用户操作。
 - 默认查询 active link；包含 revoked 的查询必须显式调用 including-revoked 能力或传入对应 active 参数。
 - ProfileLink 不负责权限判定；资源访问仍应结合 AuthZ。Suggest 只提供候选，不写入关系。
@@ -23,7 +23,6 @@ flowchart TD
     Directory["ProfileLink Directory\nquery"]
     UOW["Identity UnitOfWork"]
     Linker["domain ProfileLinker"]
-    Ensurer["SelfProfileEnsurer"]
     User["User Repository"]
     Profile["Profile Repository"]
     Links["ProfileLink Repository"]
@@ -35,12 +34,9 @@ flowchart TD
     Commands --> UOW
     Directory --> UOW
     UOW --> Linker
-    UOW --> Ensurer
     Linker --> User
     Linker --> Profile
     Linker --> Links
-    Ensurer --> Profile
-    Ensurer --> Links
 ```
 
 ## 重点速查
@@ -49,7 +45,7 @@ flowchart TD
 | ---- | ---- | ---- |
 | ProfileLink 领域模型 | User 与 Profile 的关系，含 Type、Relation、EstablishedAt、RevokedAt。 | [../../internal/apiserver/domain/identity/profilelink](../../internal/apiserver/domain/identity/profilelink) |
 | 关系建立/撤销 | `ProfileLinker` 校验 user/profile 存在、active link 不重复，并返回待持久化实体。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
-| self 不变量 | `SelfProfileEnsurer` 确保用户有 active self link，并收敛重复 active self link。 | [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go) |
+| self 不变量 | `ProfileLinker` 在建立 self 关系时拒绝同一 User 的第二条 active self link。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
 | 应用命令 | `Commands` 用 UoW 包住建立和撤销。 | [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go) |
 | 当前用户视角 | `MyProfileLinks` 拒绝为其他用户 grant/list/revoke。 | [../../internal/apiserver/application/identity/profilelink/service_access.go](../../internal/apiserver/application/identity/profilelink/service_access.go) |
 | REST 合同 | `/api/v2/identity/profile-links`。 | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity) |
@@ -97,25 +93,24 @@ ProfileLink 独立成模型，是因为一个 Profile 可以被多个 User 关�
 
 ## 2. self profile/link 不变量
 
-`SelfProfileEnsurer` 解决的是“每个登录用户都应该有一个可作为自己身份档案的 self profile/link”。
+当前规则不再要求每个登录用户天然拥有 self profile/link；self 只在用户主动创建本人档案时建立，并在建立时校验唯一 active self link。
 
 ```mermaid
 flowchart TD
-    Start["Ensure(user)"]
+    Start["Create profile with relation"]
     Links["FindByUserID"]
+    Self{"relation == self?"}
     HasSelf{"has active self link?"}
-    Multi{"more than one?"}
-    Keep["keep earliest self"]
-    Convert["convert duplicates to parent"]
-    CreateProfile["create self Profile"]
-    CreateLink["create self ProfileLink"]
+    Reject["reject or return existing self"]
+    CreateProfile["create Profile"]
+    CreateLink["create ProfileLink"]
     Done["done"]
 
-    Start --> Links --> HasSelf
-    HasSelf -->|yes| Multi
-    Multi -->|yes| Keep --> Convert --> Done
-    Multi -->|no| Done
+    Start --> Self
+    Self -->|yes| Links --> HasSelf
+    HasSelf -->|yes| Reject
     HasSelf -->|no| CreateProfile --> CreateLink --> Done
+    Self -->|no| CreateProfile
 ```
 
 如果历史数据中存在多个 active self link，当前逻辑保留最早的一条为 self，把后续重复 self link 转成 parent 关系。这是一个收敛不变量的领域服务，不是 transport 层的补丁。
@@ -145,10 +140,9 @@ sequenceDiagram
     Repo-->>REST: "ProfileLinkResult"
 ```
 
-`ProfileLinker.Establish` 不直接持久化。它只负责领域规则：
+`ProfileLinker.Link` 不直接持久化。它只负责关系创建规则：
 
-- profile 必须存在。
-- user 必须存在。
+- profile / user 存在性由应用层事务编排检查。
 - 同一 user/profile 不能已有 active link。
 - relation 决定 link type。
 - 返回待保存的 ProfileLink。
@@ -215,14 +209,14 @@ flowchart TD
 | ---- | ---- | ---- |
 | AuthZ | 可基于用户、角色、资源和 scope 做权限判定。 | ProfileLink 不是资源权限判定引擎。 |
 | Suggest | 给用户返回可能的 profile 候选。 | Suggest 不建立 ProfileLink，也不证明访问权。 |
-| AuthN | 登录后可能确保 self profile/link。 | AuthN 不维护普通关系链路。 |
+| AuthN | 登录后只负责 User 解析/创建。 | AuthN 不自动创建 self profile/link，也不维护普通关系链路。 |
 | IDP | 提供外部身份登录依赖。 | IDP 不决定用户和 profile 的业务关系。 |
 
 ## 7. 设计模式
 
 | 模式 | 为什么用 | 解决的问题 | IAM 落地 | 代价和边界 |
 | ---- | ---- | ---- | ---- | ---- |
-| Domain Service | 建立/撤销关系跨 User、Profile、ProfileLink。 | 行为不属于单个实体。 | `ProfileLinker`、`SelfProfileEnsurer`。 | 领域服务不持久化，需应用层 UoW 配合。 |
+| Domain Service | 建立/撤销关系跨 User、Profile、ProfileLink。 | 行为不属于单个实体。 | `ProfileLinker`。 | 领域服务不持久化，需应用层 UoW 配合。 |
 | Unit of Work | 创建/撤销需要多 repository 协作。 | 防止部分写入。 | `application/identity/uow`。 | 查询路径不应变成复杂事务脚本。 |
 | Guard/Policy Boundary | 当前用户视角必须限制 user scope。 | 防止跨用户查询或撤销。 | `MyProfileLinks`。 | 系统侧 gRPC command 仍需调用方具备外层授权。 |
 | Soft Revoke | 关系撤销需要可追溯。 | 保留历史，同时默认隐藏 revoked。 | `RevokedAt` + active 默认查询。 | 调用方必须理解 active=false 的含义。 |

@@ -338,7 +338,7 @@ IAM 内部这个用户是谁？
 User
 Profile
 ProfileLink
-SelfProfileEnsurer
+Active self guard
 MyProfiles
 MyProfileLinks
 User lifecycle

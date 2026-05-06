@@ -11,11 +11,21 @@ import (
 // （同时保留 Create/Update 等方法以实现 Repository 接口）
 type stubProfileLinkRepo struct {
 	profilesResults map[uint64][]*ProfileLink
+	userResults     map[uint64][]*ProfileLink
+	createArgs      []*ProfileLink
+	createErr       error
 	findErr         error
+	findByUserErr   error
 	findCalls       int
 }
 
-func (s *stubProfileLinkRepo) Create(context.Context, *ProfileLink) error { return nil }
+func (s *stubProfileLinkRepo) Create(_ context.Context, link *ProfileLink) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	s.createArgs = append(s.createArgs, link)
+	return nil
+}
 func (s *stubProfileLinkRepo) FindByID(context.Context, meta.ID) (*ProfileLink, error) {
 	return nil, nil
 }
@@ -32,11 +42,17 @@ func (s *stubProfileLinkRepo) FindByProfileID(ctx context.Context, id meta.ID) (
 func (s *stubProfileLinkRepo) FindByProfileIDIncludingRevoked(ctx context.Context, id meta.ID) ([]*ProfileLink, error) {
 	return s.FindByProfileID(ctx, id)
 }
-func (s *stubProfileLinkRepo) FindByUserID(context.Context, meta.ID) ([]*ProfileLink, error) {
-	return nil, nil
+func (s *stubProfileLinkRepo) FindByUserID(_ context.Context, id meta.ID) ([]*ProfileLink, error) {
+	if s.findByUserErr != nil {
+		return nil, s.findByUserErr
+	}
+	if s.userResults == nil {
+		return nil, nil
+	}
+	return s.userResults[id.Uint64()], nil
 }
-func (s *stubProfileLinkRepo) FindByUserIDIncludingRevoked(context.Context, meta.ID) ([]*ProfileLink, error) {
-	return nil, nil
+func (s *stubProfileLinkRepo) FindByUserIDIncludingRevoked(ctx context.Context, id meta.ID) ([]*ProfileLink, error) {
+	return s.FindByUserID(ctx, id)
 }
 func (s *stubProfileLinkRepo) FindByUserIDAndProfileID(context.Context, meta.ID, meta.ID) (*ProfileLink, error) {
 	return nil, nil

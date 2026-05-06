@@ -264,7 +264,7 @@ User -- ProfileLink -- Profile
 ### 7.3 self profile link 不变量
 
 ```text
-每个 User 应该有且只有一个 active self ProfileLink。
+一个 User 最多只能有一个 active self ProfileLink；User 可以没有 self Profile。
 ```
 
 价值：
@@ -420,7 +420,7 @@ ProfileLink 有 RevokedAt，撤销是软撤销。这样可以保留关系历史�
 ### Q7：self profile link 是什么？
 
 ```text
-self profile link 表示用户和自己本人档案之间的关系。它也是 ProfileLink 的一种，只是有更强不变量：每个 User 应该只有一个 active self link。这样既保持模型统一，又能稳定找到当前用户自己的档案。
+self profile link 表示用户和自己本人档案之间的关系。它也是 ProfileLink 的一种，只是有更强不变量：一个 User 最多只能有一个 active self link，但可以没有 self Profile。这样既保持模型统一，又避免注册或登录时自动补档案。
 ```
 
 ---
@@ -500,8 +500,9 @@ SDK 的 Identity/ProfileLink client 更偏系统侧 gRPC 接入，不等于 REST
 | Profile 是业务档案 | `domain/identity/profile/profile.go` |
 | ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/identity/profilelink/profile_link.go` |
 | ProfileLink 支持 self/parent/grandparent/other | `profile_link.go` |
-| ProfileLinker 建立关系时校验 User/Profile 存在和 active duplicate | `domain/identity/profilelink/linker.go` |
-| SelfProfileEnsurer 保证 active self link | `domain/identity/profilelink/self_profile_ensurer.go` |
+| 应用层建立关系前校验 User/Profile 存在 | `application/identity/profilelink/service_command.go` |
+| ProfileLinker 创建 User -> Profile 关系并校验同 User/Profile active duplicate | `domain/identity/profilelink/linker.go` |
+| SelfProfileGuard 保证同一 User 最多一个 active self link | `domain/identity/profilelink/self_profile_guard.go` |
 | MyProfiles.Create 同事务创建 Profile + ProfileLink | `application/identity/profile/service_my_profiles.go` |
 | MyProfiles.Get/Patch 通过 active ProfileLink guard | `application/identity/profile/service_access.go` |
 | MyProfileLinks 限制当前用户只能操作自己的 link | `application/identity/profilelink/service_access.go` |

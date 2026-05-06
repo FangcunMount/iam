@@ -1,6 +1,6 @@
 -- Migration: add DB guard for one active self ProfileLink per User.
 -- Historical duplicate active self links are normalized using the same policy
--- as the domain SelfProfileEnsurer: keep the earliest self link and convert
+-- as the historical domain self-link guard: keep the earliest self link and convert
 -- later active self links to parent relations.
 
 UPDATE `profile_links` pl

@@ -6,7 +6,6 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
-	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -95,10 +94,6 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 				"error", err.Error(),
 				"result", logger.ResultFailed,
 			)
-			return err
-		}
-
-		if err := profileLinkDomain.NewSelfProfileEnsurer(tx.Profiles, tx.ProfileLinks).Ensure(txCtx, newUser); err != nil {
 			return err
 		}
 

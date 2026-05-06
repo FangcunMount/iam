@@ -5,12 +5,14 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	appProfileLink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
 	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -56,8 +58,21 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 			return err
 		}
 
-		manager := profileLinkDomain.NewLinker(tx.ProfileLinks, tx.Profiles, tx.Users)
-		newProfileLink, err := manager.Establish(txCtx, userID, newProfile.ID, profileLinkDomain.ParseRelation(dto.Relation))
+		if err := ensureMyProfileUserExists(txCtx, tx, userID); err != nil {
+			return err
+		}
+
+		relation := profileLinkDomain.ParseRelation(dto.Relation)
+		linker := profileLinkDomain.NewLinker(tx.ProfileLinks)
+		var newProfileLink *profileLinkDomain.ProfileLink
+		if relation == profileLinkDomain.RelSelf {
+			if err := profileLinkDomain.NewSelfProfileGuard(tx.ProfileLinks).EnsureCanCreateSelf(txCtx, userID); err != nil {
+				return err
+			}
+			newProfileLink, err = linker.LinkSelf(txCtx, userID, newProfile.ID)
+		} else {
+			newProfileLink, err = linker.LinkRelation(txCtx, userID, newProfile.ID, relation)
+		}
 		if err != nil {
 			return err
 		}
@@ -76,6 +91,17 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 	}
 
 	return result, nil
+}
+
+func ensureMyProfileUserExists(txCtx context.Context, tx uow.TxRepositories, userID meta.ID) error {
+	user, err := tx.Users.FindByID(txCtx, userID)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrDatabase, "find user failed")
+	}
+	if user == nil {
+		return perrors.WithCode(code.ErrUserInvalid, "user not found")
+	}
+	return nil
 }
 
 func myProfileLinkToResult(profileLink *profileLinkDomain.ProfileLink, profile *profiledomain.Profile) *appProfileLink.ProfileLinkResult {

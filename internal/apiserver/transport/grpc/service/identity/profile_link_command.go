@@ -147,7 +147,7 @@ func protoRelationToString(relation identityv2.ProfileLinkRelation) string {
 	case identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT:
 		return "parent"
 	case identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_GRANDPARENT:
-		return profileLinkApp.NormalizeRelation("grandparent")
+		return "grandparent"
 	case identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_OTHER:
 		return "other"
 	default:

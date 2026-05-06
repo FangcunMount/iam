@@ -114,7 +114,7 @@ func TestRepository_CreateConcurrentSelfLinksAllowsOnlyOneActiveSelfPerUser(t *t
 		go func(profileID meta.ID) {
 			defer wg.Done()
 			<-start
-			errs <- repo.Create(ctx, profilelink.NewSelfProfileLink(userID, profileID, now))
+			errs <- repo.Create(ctx, newSelfProfileLink(userID, profileID, now))
 		}(profileID)
 	}
 
@@ -156,17 +156,27 @@ func TestRepository_UpdateRevokedSelfLinkReleasesActiveSelfGuard(t *testing.T) {
 	ctx := context.Background()
 	userID := meta.FromUint64(1001)
 
-	first := profilelink.NewSelfProfileLink(userID, meta.FromUint64(2001), time.Now())
+	first := newSelfProfileLink(userID, meta.FromUint64(2001), time.Now())
 	require.NoError(t, repo.Create(ctx, first))
 
 	first.Revoke(time.Now())
 	require.NoError(t, repo.Update(ctx, first))
 
-	second := profilelink.NewSelfProfileLink(userID, meta.FromUint64(2002), time.Now())
+	second := newSelfProfileLink(userID, meta.FromUint64(2002), time.Now())
 	require.NoError(t, repo.Create(ctx, second))
 
 	links, err := repo.FindByUserID(ctx, userID)
 	require.NoError(t, err)
 	require.Len(t, links, 1)
 	assert.Equal(t, second.Profile, links[0].Profile)
+}
+
+func newSelfProfileLink(userID meta.ID, profileID meta.ID, establishedAt time.Time) *profilelink.ProfileLink {
+	return &profilelink.ProfileLink{
+		User:          userID,
+		Profile:       profileID,
+		Type:          profilelink.TypeSelf,
+		Rel:           profilelink.RelSelf,
+		EstablishedAt: establishedAt,
+	}
 }

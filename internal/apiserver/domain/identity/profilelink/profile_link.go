@@ -7,22 +7,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-type Relation string // 档案关系
-const (
-	RelSelf        Relation = "self"        // 自己
-	RelParent      Relation = "parent"      // 父母
-	RelGrandparent Relation = "grandparent" // 祖父母
-	RelOther       Relation = "other"       // 其他
-)
-
-// Type 描述关系边的主类别，Relation 描述同一类别下的业务关系。
-type Type string
-
-const (
-	TypeSelf     Type = "self"
-	TypeRelation Type = "relation"
-)
-
 // ProfileLink 档案关系
 type ProfileLink struct {
 	mu            sync.RWMutex `json:"-"`
@@ -52,33 +36,4 @@ func (g *ProfileLink) Revoke(at time.Time) {
 	t := new(time.Time)
 	*t = at
 	g.RevokedAt = t
-}
-
-// ConvertToRelation 将错误的 self 关系降级为普通关系，保留同一条历史边。
-func (g *ProfileLink) ConvertToRelation(relation Relation) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if relation == RelSelf {
-		relation = RelParent
-	}
-	g.Type = TypeRelation
-	g.Rel = relation
-}
-
-// NewSelfProfileLink 创建 User 与本人档案之间的强制关系。
-func NewSelfProfileLink(userID meta.ID, profileID meta.ID, now time.Time) *ProfileLink {
-	return &ProfileLink{
-		User:          userID,
-		Profile:       profileID,
-		Type:          TypeSelf,
-		Rel:           RelSelf,
-		EstablishedAt: now,
-	}
-}
-
-func TypeFromRelation(relation Relation) Type {
-	if relation == RelSelf {
-		return TypeSelf
-	}
-	return TypeRelation
 }

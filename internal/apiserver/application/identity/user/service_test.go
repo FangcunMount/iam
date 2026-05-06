@@ -44,6 +44,10 @@ func TestCreator_Create_Success(t *testing.T) {
 	saved, err := queryService.GetByPhone(ctx, "+86"+dto.Phone) // 查询时也需要使用 E.164 格式
 	require.NoError(t, err)
 	assert.Equal(t, result.ID, saved.ID)
+
+	var linkCount int64
+	require.NoError(t, db.Table("profile_links").Where("user_id = ? AND revoked_at IS NULL", result.ID).Count(&linkCount).Error)
+	assert.Zero(t, linkCount)
 }
 
 func TestCreator_Create_WithoutEmail(t *testing.T) {
