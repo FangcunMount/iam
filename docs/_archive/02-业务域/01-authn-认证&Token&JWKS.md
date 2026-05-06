@@ -29,7 +29,7 @@ flowchart TD
     DomainSession["domain/authn/session"]
 
     IDP["domain/application idp/wechatapp"]
-    Identity["application/uc user/profilelink"]
+    Identity["application/identity user/profilelink"]
     TokenInfra["infra/token/jwt + keyset"]
     Store["Redis/MySQL stores"]
 

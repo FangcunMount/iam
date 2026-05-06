@@ -59,8 +59,8 @@ rg -n 'TODO|FIXME|XXX' internal cmd pkg
 
 | 文件 | 行数 | 当前判断 |
 | ---- | ---- | ---- |
-| `internal/apiserver/application/uc/user/services_impl.go` | 694 | 应用服务编排长度偏大 |
-| `internal/apiserver/application/uc/profile/services_impl.go` | 617 | 读写协调逻辑继续堆积 |
+| `internal/apiserver/application/identity/user/services_impl.go` | 694 | 应用服务编排长度偏大 |
+| `internal/apiserver/application/identity/profile/services_impl.go` | 617 | 读写协调逻辑继续堆积 |
 | `internal/apiserver/application/authn/onboarding/services_impl.go` | 587 | 认证注册流程编排继续拉长 |
 | `internal/apiserver/server.go` | 570 | 启动装配与模块初始化仍偏重 |
 

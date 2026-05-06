@@ -123,13 +123,13 @@ flowchart TB
 
 | 问题 | 普通用户中心 | IAM 当前答案 | 代码入口 |
 | --- | --- | --- | --- |
-| 用户是谁 | User 表 | User 是 Identity 身份锚点 | `internal/apiserver/domain/uc/user` |
+| 用户是谁 | User 表 | User 是 Identity 身份锚点 | `internal/apiserver/domain/identity/user` |
 | 如何登录 | 用户名密码查表 | AuthN SignInAdapter + AuthStrategy + Session + TokenIssuer | `internal/apiserver/application/authn/login` |
 | token 是什么 | 通常只发 JWT | Access Token + Refresh Token + Session + Verify/Revoke | `internal/apiserver/application/authn/token` |
 | 是否支持离线验签 | 不一定 | JWKS + KeyRotation | `internal/apiserver/application/authn/jwks`、`internal/apiserver/infra/token/keyset` |
 | 权限怎么做 | user.role 字段 | Role/Resource/Permission/RoleBinding + Casbin facts | `internal/apiserver/domain/authz`、`internal/apiserver/infra/casbin` |
 | 权限变更怎么传播 | 通常无 | PolicyVersion + Transactional Outbox | `internal/apiserver/application/authz/policy`、`internal/apiserver/infra/mysql/eventoutbox` |
-| 用户资料是什么 | User profile 字段 | User 与 Profile 分离，ProfileLink 表达关系 | `internal/apiserver/domain/uc/profile`、`domain/uc/profilelink` |
+| 用户资料是什么 | User profile 字段 | User 与 Profile 分离，ProfileLink 表达关系 | `internal/apiserver/domain/identity/profile`、`domain/identity/profilelink` |
 | 第三方登录怎么做 | 直接在 login 里写微信逻辑 | IDP 管配置/secret/API，AuthN 管登录态 | `internal/apiserver/container/assembler/idp.go`、`application/authn/login` |
 | 如何接入业务系统 | 手写 HTTP 调用 | REST/gRPC/SDK 三层契约 | `api/rest`、`api/grpc`、`pkg/sdk` |
 | 如何防止边界回退 | 通常靠约定 | 架构测试、契约测试、docs hygiene | `internal/pkg/architecture`、`scripts` |
@@ -999,10 +999,10 @@ internal/apiserver/infra/mysql/casbinrule
 ### 第四轮：看 Identity
 
 ```text
-internal/apiserver/domain/uc/user
-internal/apiserver/domain/uc/profile
-internal/apiserver/domain/uc/profilelink
-internal/apiserver/application/uc
+internal/apiserver/domain/identity/user
+internal/apiserver/domain/identity/profile
+internal/apiserver/domain/identity/profilelink
+internal/apiserver/application/identity
 ```
 
 目标：理解 User、Profile、ProfileLink 的关系。
@@ -1036,7 +1036,7 @@ scripts/check-docs-links.py
 ## 18. 验证建议
 
 ```bash
-go test ./internal/apiserver/application/authn/...   ./internal/apiserver/domain/authn/...   ./internal/apiserver/application/authz/...   ./internal/apiserver/domain/authz/...   ./internal/apiserver/application/uc/...   ./internal/apiserver/domain/uc/...   ./internal/pkg/architecture   ./internal/apiserver/transport/rest   ./internal/apiserver/transport/grpc   ./pkg/sdk
+go test ./internal/apiserver/application/authn/...   ./internal/apiserver/domain/authn/...   ./internal/apiserver/application/authz/...   ./internal/apiserver/domain/authz/...   ./internal/apiserver/application/identity/...   ./internal/apiserver/domain/identity/...   ./internal/pkg/architecture   ./internal/apiserver/transport/rest   ./internal/apiserver/transport/grpc   ./pkg/sdk
 
 make docs-hygiene
 ```

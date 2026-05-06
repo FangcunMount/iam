@@ -8,7 +8,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	accountdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
 	idpwechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"

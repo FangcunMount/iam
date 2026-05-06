@@ -153,8 +153,8 @@
 | 层级 | 目录 | 职责 | 代表文件 |
 | ----- | ------ | ------ | -------- |
 | Interface | `interface/*/restful/handler/` `interface/*/grpc/service.go` | 接协议、参数绑定、响应转换 | [interface/authn/restful/handler/auth.go](internal/apiserver/interface/authn/restful/handler/auth.go) |
-| Application | `application/authn/login/` `application/authz/role/` `application/uc/user/` | 用例编排、CQRS 分离 | [application/authn/login/services.go](internal/apiserver/application/authn/login/services.go) |
-| Domain | `domain/authn/authentication/` `domain/authz/role/` `domain/uc/user/` | 聚合、值对象、验证器、仓储接口 | [domain/authn/authentication/repository.go](internal/apiserver/domain/authn/authentication/repository.go) |
+| Application | `application/authn/login/` `application/authz/role/` `application/identity/user/` | 用例编排、CQRS 分离 | [application/authn/login/services.go](internal/apiserver/application/authn/login/services.go) |
+| Domain | `domain/authn/authentication/` `domain/authz/role/` `domain/identity/user/` | 聚合、值对象、验证器、仓储接口 | [domain/authn/authentication/repository.go](internal/apiserver/domain/authn/authentication/repository.go) |
 | Infrastructure | `infra/mysql/` `infra/redis/` `infra/casbin/` `infra/jwt/` | 仓储实现、缓存、策略引擎 | [infra/mysql/account/](internal/apiserver/infra/mysql/account/) |
 
 ---
@@ -438,10 +438,10 @@ Casbin.Enforce(user:123, T1, course, read)
 
 | 服务 | 位置 | 职责 |
 | ------ | ------ | ------ |
-| `UserApplicationService` | [application/uc/user/services.go](internal/apiserver/application/uc/user/services.go) | 用户注册、资料更新 |
-| `UserQueryApplicationService` | [application/uc/user/services.go](internal/apiserver/application/uc/user/services.go) | 用户查询 |
-| `ProfileApplicationService` | [application/uc/profile/](internal/apiserver/application/uc/profile/) | 儿童档案管理 |
-| `RefApplicationService` | [application/uc/ref/](internal/apiserver/application/uc/ref/) | 监护关系管理 |
+| `UserApplicationService` | [application/identity/user/services.go](internal/apiserver/application/identity/user/services.go) | 用户注册、资料更新 |
+| `UserQueryApplicationService` | [application/identity/user/services.go](internal/apiserver/application/identity/user/services.go) | 用户查询 |
+| `ProfileApplicationService` | [application/identity/profile/](internal/apiserver/application/identity/profile/) | 儿童档案管理 |
+| `RefApplicationService` | [application/identity/ref/](internal/apiserver/application/identity/ref/) | 监护关系管理 |
 
 #### CQRS 在用户域的体现
 
@@ -474,7 +474,7 @@ for i, g := range refs {
 
 #### 关键代码片段
 
-**Domain: 用户聚合根** ([domain/uc/user/user.go](internal/apiserver/domain/uc/user/user.go))
+**Domain: 用户聚合根** ([domain/identity/user/user.go](internal/apiserver/domain/identity/user/user.go))
 ```go
 type User struct {
     ID       meta.ID
@@ -1398,7 +1398,7 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 ### 7.5 Unit of Work 模式 - 用户域
 
 ```go
-// application/uc/uow/uow.go
+// application/identity/uow/uow.go
 type UnitOfWork struct {
     db          *gorm.DB
     repositories *TxRepositories

@@ -9,7 +9,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"

@@ -4,11 +4,11 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
-	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
-	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/user"
+	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
+	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	mysqlUcUow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/uc"
+	mysqlIdentityUow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/identity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -45,7 +45,7 @@ func (m *UserModule) InitializeWithDeps(deps UserModuleDeps) error {
 	}
 
 	// 事务
-	uow := mysqlUcUow.NewUnitOfWork(deps.DB)
+	uow := mysqlIdentityUow.NewUnitOfWork(deps.DB)
 
 	userCreator := appuser.NewCreator(uow)
 	userEditor := appuser.NewEditor(uow)

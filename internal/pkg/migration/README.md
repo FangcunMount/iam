@@ -31,7 +31,7 @@
 
 ## 旧库升级：children/guardianships 到 profiles/profile_links
 
-2026-05 的 UC 重构把运行时表切到 `profiles` / `profile_links`。已经执行过旧版
+2026-05 的 Identity 重构把运行时表切到 `profiles` / `profile_links`。已经执行过旧版
 `000001` 的数据库物理表仍是 `children` / `guardianships`，不会因为后来修改了
 `000001_init_schema.up.sql` 自动变化。
 

@@ -5,9 +5,9 @@ import (
 
 	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
 	credentialDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
-	profileDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
-	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	profileDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 )
 
 // TxRepositories 聚合事务中可使用的仓储集合。

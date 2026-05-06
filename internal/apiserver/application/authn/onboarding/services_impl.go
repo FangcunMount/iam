@@ -10,9 +10,9 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	profileDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
-	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	profileDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 

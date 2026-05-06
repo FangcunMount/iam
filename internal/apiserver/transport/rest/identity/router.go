@@ -6,7 +6,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
 )
 
-// Dependencies bundles the runtime collaborators required by the UC HTTP adapters.
+// Dependencies bundles the runtime collaborators required by the identity HTTP adapters.
 type Dependencies struct {
 	UserHandler        *handler.UserHandler
 	ProfileHandler     *handler.ProfileHandler
@@ -14,7 +14,7 @@ type Dependencies struct {
 	AuthMiddleware     gin.HandlerFunc
 }
 
-// Register exposes the UC module REST endpoints on the supplied engine.
+// Register exposes the identity module REST endpoints on the supplied engine.
 func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil || deps.AuthMiddleware == nil {
 		return

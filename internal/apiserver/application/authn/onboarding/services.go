@@ -4,7 +4,7 @@ import (
 	"context"
 
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 

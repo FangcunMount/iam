@@ -496,15 +496,15 @@ SDK 的 Identity/ProfileLink client 更偏系统侧 gRPC 接入，不等于 REST
 | 讲法 | 证据 |
 | --- | --- |
 | UserModule 装配 User/Profile/ProfileLink/MyProfiles/MyProfileLinks | `container/assembler/user.go` |
-| User 是身份锚点并包含状态 | `domain/uc/user/user.go` |
-| Profile 是业务档案 | `domain/uc/profile/profile.go` |
-| ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/uc/profilelink/profile_link.go` |
+| User 是身份锚点并包含状态 | `domain/identity/user/user.go` |
+| Profile 是业务档案 | `domain/identity/profile/profile.go` |
+| ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/identity/profilelink/profile_link.go` |
 | ProfileLink 支持 self/parent/grandparent/other | `profile_link.go` |
-| ProfileLinker 建立关系时校验 User/Profile 存在和 active duplicate | `domain/uc/profilelink/linker.go` |
-| SelfProfileEnsurer 保证 active self link | `domain/uc/profilelink/self_profile_ensurer.go` |
-| MyProfiles.Create 同事务创建 Profile + ProfileLink | `application/uc/profile/service_my_profiles.go` |
-| MyProfiles.Get/Patch 通过 active ProfileLink guard | `application/uc/profile/service_access.go` |
-| MyProfileLinks 限制当前用户只能操作自己的 link | `application/uc/profilelink/service_access.go` |
+| ProfileLinker 建立关系时校验 User/Profile 存在和 active duplicate | `domain/identity/profilelink/linker.go` |
+| SelfProfileEnsurer 保证 active self link | `domain/identity/profilelink/self_profile_ensurer.go` |
+| MyProfiles.Create 同事务创建 Profile + ProfileLink | `application/identity/profile/service_my_profiles.go` |
+| MyProfiles.Get/Patch 通过 active ProfileLink guard | `application/identity/profile/service_access.go` |
+| MyProfileLinks 限制当前用户只能操作自己的 link | `application/identity/profilelink/service_access.go` |
 
 ---
 

@@ -1,7 +1,7 @@
 package profile
 
 import (
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 

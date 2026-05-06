@@ -8,7 +8,7 @@
 
 - 当前标准关系模型是 `ProfileLink`，表示 User 与 Profile 之间的档案关系。
 - `ProfileLink.Relation` 可表达 self、parent、grandparent、other 等业务语义；`Type` 区分 self 边和普通关系边。
-- User、Profile、ProfileLink 都有各自领域模型和服务；跨对象写入由 application/uc 的 Unit of Work 保证事务边界。
+- User、Profile、ProfileLink 都有各自领域模型和服务；跨对象写入由 application/identity 的 Unit of Work 保证事务边界。
 - `SelfProfileEnsurer` 用来保证用户自己的 profile 和 self link 不变量；数据库迁移也增加了 active self link guard。
 - ProfileLink 默认查询 active 关系；需要包含 revoked 的场景必须调用明确的 including-revoked 能力。
 - ProfileLink 不是 AuthZ，也不是法律监护裁定；业务系统需要权限判定时应结合 AuthZ 或业务自己的规则。
@@ -57,13 +57,13 @@ classDiagram
 
 | 关注点 | 当前答案 | 代码证据 |
 | ---- | ---- | ---- |
-| User 领域模型 | 用户资料、联系方式、状态。 | [../../internal/apiserver/domain/uc/user](../../internal/apiserver/domain/uc/user) |
-| Profile 领域模型 | 儿童或个人档案字段。 | [../../internal/apiserver/domain/uc/profile](../../internal/apiserver/domain/uc/profile) |
-| ProfileLink 领域模型 | User 与 Profile 的档案关系。 | [../../internal/apiserver/domain/uc/profilelink](../../internal/apiserver/domain/uc/profilelink) |
-| User 应用服务 | 创建、编辑、状态变更、目录查询。 | [../../internal/apiserver/application/uc/user](../../internal/apiserver/application/uc/user) |
-| Profile 应用服务 | 创建、编辑、当前用户 profile 访问、查询。 | [../../internal/apiserver/application/uc/profile](../../internal/apiserver/application/uc/profile) |
-| ProfileLink 应用服务 | 系统侧命令、目录查询、当前用户视角关系访问。 | [../../internal/apiserver/application/uc/profilelink](../../internal/apiserver/application/uc/profilelink) |
-| UoW | User/Profile/ProfileLink 事务仓库集合。 | [../../internal/apiserver/application/uc/uow/uow.go](../../internal/apiserver/application/uc/uow/uow.go) |
+| User 领域模型 | 用户资料、联系方式、状态。 | [../../internal/apiserver/domain/identity/user](../../internal/apiserver/domain/identity/user) |
+| Profile 领域模型 | 儿童或个人档案字段。 | [../../internal/apiserver/domain/identity/profile](../../internal/apiserver/domain/identity/profile) |
+| ProfileLink 领域模型 | User 与 Profile 的档案关系。 | [../../internal/apiserver/domain/identity/profilelink](../../internal/apiserver/domain/identity/profilelink) |
+| User 应用服务 | 创建、编辑、状态变更、目录查询。 | [../../internal/apiserver/application/identity/user](../../internal/apiserver/application/identity/user) |
+| Profile 应用服务 | 创建、编辑、当前用户 profile 访问、查询。 | [../../internal/apiserver/application/identity/profile](../../internal/apiserver/application/identity/profile) |
+| ProfileLink 应用服务 | 系统侧命令、目录查询、当前用户视角关系访问。 | [../../internal/apiserver/application/identity/profilelink](../../internal/apiserver/application/identity/profilelink) |
+| UoW | User/Profile/ProfileLink 事务仓库集合。 | [../../internal/apiserver/application/identity/uow/uow.go](../../internal/apiserver/application/identity/uow/uow.go) |
 | 合同 | REST Identity 和 gRPC Identity/ProfileLink。 | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto) |
 
 ## 1. 模块边界
@@ -108,13 +108,13 @@ active self link guard 由数据库迁移 [../../internal/pkg/migration/migratio
 
 | 领域服务 | 解决的问题 | 代码入口 |
 | ---- | ---- | ---- |
-| `user.Validator` | 用户创建、联系人更新、手机号唯一性。 | [../../internal/apiserver/domain/uc/user/validator.go](../../internal/apiserver/domain/uc/user/validator.go) |
-| `user.ProfileEditor` | 用户资料变更规则。 | [../../internal/apiserver/domain/uc/user/profile_editor.go](../../internal/apiserver/domain/uc/user/profile_editor.go) |
-| `user.Lifecycler` | 用户激活、停用、封禁。 | [../../internal/apiserver/domain/uc/user/lifecycler.go](../../internal/apiserver/domain/uc/user/lifecycler.go) |
-| `profile.Validator` | 档案创建和更新字段校验。 | [../../internal/apiserver/domain/uc/profile/validator.go](../../internal/apiserver/domain/uc/profile/validator.go) |
-| `profile.ProfileEditor` | 档案重命名、证件、基础资料、身高体重更新。 | [../../internal/apiserver/domain/uc/profile/editor.go](../../internal/apiserver/domain/uc/profile/editor.go) |
-| `ProfileLinker` | 建立/撤销档案关系，校验 user/profile 存在和 active 重复关系。 | [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go) |
-| `SelfProfileEnsurer` | 确保 User 拥有本人 profile 和唯一 active self link。 | [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go) |
+| `user.Validator` | 用户创建、联系人更新、手机号唯一性。 | [../../internal/apiserver/domain/identity/user/validator.go](../../internal/apiserver/domain/identity/user/validator.go) |
+| `user.ProfileEditor` | 用户资料变更规则。 | [../../internal/apiserver/domain/identity/user/profile_editor.go](../../internal/apiserver/domain/identity/user/profile_editor.go) |
+| `user.Lifecycler` | 用户激活、停用、封禁。 | [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go) |
+| `profile.Validator` | 档案创建和更新字段校验。 | [../../internal/apiserver/domain/identity/profile/validator.go](../../internal/apiserver/domain/identity/profile/validator.go) |
+| `profile.ProfileEditor` | 档案重命名、证件、基础资料、身高体重更新。 | [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go) |
+| `ProfileLinker` | 建立/撤销档案关系，校验 user/profile 存在和 active 重复关系。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| `SelfProfileEnsurer` | 确保 User 拥有本人 profile 和唯一 active self link。 | [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go) |
 
 ProfileLinker 的边界很重要：它返回要持久化的领域对象，但不直接提交事务。提交由 application 层的 UoW 负责。
 
@@ -124,11 +124,11 @@ ProfileLinker 的边界很重要：它返回要持久化的领域对象，但不
 flowchart TD
     REST["REST identity handler"]
     GRPC["gRPC identity services"]
-    UserApp["application/uc/user"]
-    ProfileApp["application/uc/profile"]
-    LinkApp["application/uc/profilelink"]
-    UoW["application/uc/uow"]
-    Domain["domain/uc"]
+    UserApp["application/identity/user"]
+    ProfileApp["application/identity/profile"]
+    LinkApp["application/identity/profilelink"]
+    UoW["application/identity/uow"]
+    Domain["domain/identity"]
     DB["MySQL repos"]
 
     REST --> UserApp
@@ -162,7 +162,7 @@ flowchart TD
 sequenceDiagram
     participant Client as "REST/gRPC"
     participant MyProfiles as "profile.MyProfiles"
-    participant UoW as "UC UnitOfWork"
+    participant UoW as "Identity UnitOfWork"
     participant Profile as "Profile domain"
     participant Ensurer as "SelfProfileEnsurer"
     participant Repo as "Repositories"
@@ -184,7 +184,7 @@ sequenceDiagram
 sequenceDiagram
     participant Caller as "REST/gRPC"
     participant App as "profilelink.Commands"
-    participant UoW as "UC UnitOfWork"
+    participant UoW as "Identity UnitOfWork"
     participant Linker as "ProfileLinker"
     participant Repo as "ProfileLink repo"
 
@@ -236,9 +236,9 @@ sequenceDiagram
 
 | 模式 | 为什么用 | IAM 中如何落地 | 代价和边界 |
 | ---- | ---- | ---- | ---- |
-| Aggregate/Entity | User、Profile、ProfileLink 有各自生命周期和不变量。 | domain/uc 下独立模型和 repository。 | 不强行把 Profile 聚合进 User，避免关系规则耦合。 |
+| Aggregate/Entity | User、Profile、ProfileLink 有各自生命周期和不变量。 | domain/identity 下独立模型和 repository。 | 不强行把 Profile 聚合进 User，避免关系规则耦合。 |
 | Domain Service | 建立关系需要同时验证 user/profile/link。 | `ProfileLinker`、`SelfProfileEnsurer`。 | 领域服务不提交事务。 |
-| Unit of Work | 创建 profile 与 self link、建立关系和撤销关系需要原子提交。 | `application/uc/uow.UnitOfWork`。 | 应用层负责事务，不把事务泄漏到 domain。 |
+| Unit of Work | 创建 profile 与 self link、建立关系和撤销关系需要原子提交。 | `application/identity/uow.UnitOfWork`。 | 应用层负责事务，不把事务泄漏到 domain。 |
 | CQRS-lite | 当前用户视角、系统侧命令和目录查询变化原因不同。 | `Commands`、`Directory`、`MyProfileLinks`、`MyProfiles`。 | 接口变多，但权限边界更清晰。 |
 | DTO/Mapper | REST/gRPC、应用结果和领域对象字段不同。 | `mapper.go`、DTO/result types。 | 映射层必须跟合同测试一起维护。 |
 | Guarded Invariant | self profile link 是强不变量。 | `SelfProfileEnsurer` + DB active self guard。 | 迁移和应用逻辑需共同维护。 |
@@ -247,15 +247,15 @@ sequenceDiagram
 
 | 关注点 | 路径 |
 | ---- | ---- |
-| UC domain | [../../internal/apiserver/domain/uc](../../internal/apiserver/domain/uc) |
-| UC application | [../../internal/apiserver/application/uc](../../internal/apiserver/application/uc) |
+| UC domain | [../../internal/apiserver/domain/identity](../../internal/apiserver/domain/identity) |
+| UC application | [../../internal/apiserver/application/identity](../../internal/apiserver/application/identity) |
 | REST Identity | [../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity) |
-| gRPC Identity | [../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity) |
+| gRPC Identity | [../../internal/apiserver/transport/grpc/service/identity](../../internal/apiserver/transport/grpc/service/identity) |
 | REST contract | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml) |
 | gRPC contract | [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto) |
 
 验证命令：
 
 ```bash
-go test ./internal/apiserver/domain/uc/... ./internal/apiserver/application/uc/... ./internal/apiserver/transport/rest/identity/... ./internal/apiserver/transport/grpc/service/uc/identity
+go test ./internal/apiserver/domain/identity/... ./internal/apiserver/application/identity/... ./internal/apiserver/transport/rest/identity/... ./internal/apiserver/transport/grpc/service/identity
 ```

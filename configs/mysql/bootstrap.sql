@@ -155,7 +155,7 @@ ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
 -- ----------------------------------------------------------------------------
 INSERT INTO `authz_resources` (`id`, `key`, `display_name`, `app_name`, `domain`, `type`, `actions`, `description`,
                                `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted_by`, `version`)
-VALUES (901000001, 'iam:profile', '个人资料', 'iam', 'uc', 'instance', JSON_ARRAY('read', 'update'),
+VALUES (901000001, 'iam:profile', '个人资料', 'iam', 'identity', 'instance', JSON_ARRAY('read', 'update'),
         '当前用户自服务资料读取与更新', NOW(), NOW(), 0, 0, 0, 1),
        (901000002, 'iam:users', '用户管理', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'search', 'create', 'update', 'deactivate', 'block', 'link_external_identity'),

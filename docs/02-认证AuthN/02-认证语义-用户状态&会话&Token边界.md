@@ -78,7 +78,7 @@ load refresh token
 - [../../internal/apiserver/domain/authn/session/subject_access.go](../../internal/apiserver/domain/authn/session/subject_access.go)
 - [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go)
 - [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go)
-- [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go)
+- [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
 - [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 - [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
@@ -119,7 +119,7 @@ flowchart TD
 
 | 问题 | 当前答案 | 代码证据 |
 | --- | --- | --- |
-| User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/uc/user/types.go](../../internal/apiserver/domain/uc/user/types.go)、[../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go) |
+| User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)、[../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
 | Account 状态有哪些 | active、disabled、archived、deleted 等。 | [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go) |
 | Session 状态有哪些 | `active`、`revoked`、`expired`。 | [../../internal/apiserver/domain/authn/session/session.go](../../internal/apiserver/domain/authn/session/session.go) |
 | Session 何时创建 | 登录成功后 `TokenIssuer.IssueToken` 调用 `SessionManager.Create`。 | [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go) |
@@ -130,7 +130,7 @@ flowchart TD
 | User/Account 访问状态在哪里汇总 | `SubjectAccessEvaluator`。 | [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go) |
 | Access revoke marker 保存在哪里 | Redis token store 的 revoked access token marker。 | [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go) |
 | Session 保存在哪里 | Redis SessionStore，含 user/account session index。 | [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go) |
-| Block 用户是否撤销 session | User `Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go) |
+| Block 用户是否撤销 session | User `Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go) |
 
 ---
 
@@ -220,8 +220,8 @@ User 状态不是 JWT 静态 claim 的唯一依据。
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/user/types.go](../../internal/apiserver/domain/uc/user/types.go)
-- [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go)
+- [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)
+- [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
 - [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go)
 
 ---
@@ -772,7 +772,7 @@ User 状态改变属于 Identity/User 模块，但会影响 AuthN session。
 
 当前 User `Block` 用例：
 
-1. 在 UC UoW 事务中把用户状态改为 blocked；
+1. 在 Identity UoW 事务中把用户状态改为 blocked；
 2. 持久化成功后；
 3. 如果 `sessionManager` 存在，则调用：
 
@@ -783,7 +783,7 @@ sessionManager.RevokeByUser(ctx, userID, "user_blocked", userID)
 ```mermaid
 sequenceDiagram
     participant App as "User StatusChanger"
-    participant UOW as "UC UnitOfWork"
+    participant UOW as "Identity UnitOfWork"
     participant User as "User Lifecycler"
     participant Repo as "User Repository"
     participant Session as "SessionManager"
@@ -808,7 +808,7 @@ sequenceDiagram
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go)
+- [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go)
 - [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
 ---
@@ -990,9 +990,9 @@ internal/apiserver/domain/authn/session/evaluator.go
 ### 第三轮：User / Account 状态
 
 ```text
-internal/apiserver/domain/uc/user/types.go
-internal/apiserver/domain/uc/user/user.go
-internal/apiserver/application/uc/user/service_status.go
+internal/apiserver/domain/identity/user/types.go
+internal/apiserver/domain/identity/user/user.go
+internal/apiserver/application/identity/user/service_status.go
 internal/apiserver/domain/authn/account/account.go
 ```
 
@@ -1025,8 +1025,8 @@ internal/apiserver/infra/token/keyset
 go test ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
   ./internal/apiserver/infra/cache/redis \
-  ./internal/apiserver/domain/uc/user \
-  ./internal/apiserver/application/uc/user
+  ./internal/apiserver/domain/identity/user \
+  ./internal/apiserver/application/identity/user
 
 make docs-hygiene
 ```

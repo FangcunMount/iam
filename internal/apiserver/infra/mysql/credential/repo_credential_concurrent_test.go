@@ -9,7 +9,7 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	testutil "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/testutil"
+	testutil "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/testutil"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	testhelpers "github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"

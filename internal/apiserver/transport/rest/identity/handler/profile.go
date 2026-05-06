@@ -1,7 +1,7 @@
 package handler
 
 import (
-	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
 	_ "github.com/FangcunMount/iam/v2/pkg/core" // imported for swagger
 )
 

@@ -3,7 +3,7 @@
 -- Version: 000002
 -- Description:
 --   * Deployed databases may already be at version 1 with physical tables
---     children/guardianships, because 000001 was edited after the UC refactor.
+--     children/guardianships, because 000001 was edited after the Identity refactor.
 --   * This migration is the first version old databases actually execute, so
 --     it must create and backfill the v2 tables before adding profile_id index.
 --   * Legacy tables are intentionally kept for rollback/audit; runtime reads

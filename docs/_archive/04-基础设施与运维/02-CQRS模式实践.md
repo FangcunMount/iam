@@ -16,7 +16,7 @@
 | AuthZ Role | [../../internal/apiserver/application/authz/role/command_service.go](../../internal/apiserver/application/authz/role/command_service.go) | [../../internal/apiserver/application/authz/role/query_service.go](../../internal/apiserver/application/authz/role/query_service.go) | 角色写入和读取分离。 |
 | AuthZ Resource | [../../internal/apiserver/application/authz/resource/command_service.go](../../internal/apiserver/application/authz/resource/command_service.go) | [../../internal/apiserver/application/authz/resource/query_service.go](../../internal/apiserver/application/authz/resource/query_service.go) | 资源注册、更新、读取分离。 |
 | AuthZ Policy | [../../internal/apiserver/application/authz/policy/command_service.go](../../internal/apiserver/application/authz/policy/command_service.go) | [../../internal/apiserver/application/authz/policy/query_service.go](../../internal/apiserver/application/authz/policy/query_service.go) | 策略写入涉及版本和事件。 |
-| ProfileLink | [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go) | [../../internal/apiserver/application/uc/profilelink/service_query.go](../../internal/apiserver/application/uc/profilelink/service_query.go) | 建立/撤销关系与查询关系分开。 |
+| ProfileLink | [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go) | [../../internal/apiserver/application/identity/profilelink/service_query.go](../../internal/apiserver/application/identity/profilelink/service_query.go) | 建立/撤销关系与查询关系分开。 |
 | Suggest | [../../internal/apiserver/application/suggest/refresher.go](../../internal/apiserver/application/suggest/refresher.go) | [../../internal/apiserver/application/suggest/service.go](../../internal/apiserver/application/suggest/service.go) | 刷新读模型和查询联想分开。 |
 
 ## 基本形态
@@ -65,5 +65,5 @@ CQRS 在这里解决的不是“技术炫技”，而是两个实际问题：
 ## 验证
 
 ```bash
-go test ./internal/apiserver/application/authz/... ./internal/apiserver/application/uc/... ./internal/apiserver/application/suggest
+go test ./internal/apiserver/application/authz/... ./internal/apiserver/application/identity/... ./internal/apiserver/application/suggest
 ```

@@ -712,7 +712,7 @@ go test ./pkg/sdk/...
 ```bash
 go test ./internal/apiserver/application/authn/... \
   ./internal/apiserver/application/authz/... \
-  ./internal/apiserver/application/uc/... \
+  ./internal/apiserver/application/identity/... \
   ./internal/apiserver/application/idp/...
 ```
 

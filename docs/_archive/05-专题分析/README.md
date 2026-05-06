@@ -100,7 +100,7 @@ git diff --check -- docs/05-专题分析 docs/README.md
 如果专题补充了代码事实或合同表，应补跑对应事实测试：
 
 ```bash
-go test ./internal/apiserver/domain/... ./internal/apiserver/application/authn/... ./internal/apiserver/application/authz/... ./internal/apiserver/application/uc/... ./internal/apiserver/application/idp/... ./internal/apiserver/application/suggest
+go test ./internal/apiserver/domain/... ./internal/apiserver/application/authn/... ./internal/apiserver/application/authz/... ./internal/apiserver/application/identity/... ./internal/apiserver/application/idp/... ./internal/apiserver/application/suggest
 go test ./internal/apiserver/application/cachegovernance ./internal/apiserver/infra/cache/redis ./internal/apiserver/infra/token/... ./internal/apiserver/infra/casbin ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging ./pkg/outbox/... ./pkg/outboxcore/... ./pkg/eventruntime/...
 go test ./internal/apiserver/transport/rest ./internal/apiserver/transport/grpc/... ./pkg/sdk/...
 ```

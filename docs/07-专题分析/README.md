@@ -330,7 +330,7 @@ _archive 不作为当前事实源
 | JWKS 与在线 Verify | `infra/token/jwt`、`infra/token/keyset`、`transport/rest/authn/handler/jwks_public.go`、`token/verifier.go` |
 | AuthZ 写入不是 CRUD | `application/authz/policy/committer.go`、`application/authz/uow`、`infra/mysql/uow/authz` |
 | RoleBinding 与 Assignment | `domain/authz/model.go`、`domain/authz/rolebinding`、`transport/rest/authz/dto`、`api/grpc/iam/authz/v2/authz.proto` |
-| ProfileLink 不是 User 字段 | `domain/uc/user`、`domain/uc/profile`、`domain/uc/profilelink`、`application/uc/profile` |
+| ProfileLink 不是 User 字段 | `domain/identity/user`、`domain/identity/profile`、`domain/identity/profilelink`、`application/identity/profile` |
 | IDP 只做基础设施 | `container/assembler/idp.go`、`domain/idp/wechatapp`、`application/authn/login/adapter_wechat_mini.go` |
 | Transactional Outbox | `application/authz/shared/version_event.go`、`infra/mysql/eventoutbox`、`infra/messaging/outbox_relay.go` |
 | SDK 是接入产品层 | `pkg/sdk/README.md`、`pkg/sdk/client.go`、`pkg/sdk/public_api_compile_test.go` |
@@ -436,7 +436,7 @@ go test ./internal/pkg/architecture
 ```bash
 go test ./internal/apiserver/application/authn/... \
   ./internal/apiserver/application/authz/... \
-  ./internal/apiserver/application/uc/... \
+  ./internal/apiserver/application/identity/... \
   ./internal/apiserver/application/idp/...
 ```
 

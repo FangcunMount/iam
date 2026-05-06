@@ -287,7 +287,7 @@ func TestApplicationTestsUseTestutilForInfrastructureDependencies(t *testing.T) 
 	})
 }
 
-func TestUCApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
+func TestIdentityApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
@@ -304,7 +304,7 @@ func TestUCApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
 		"managerService.Establish(ctx",
 		"managerService.Revoke(ctx",
 	}
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "uc"), func(path, source string) {
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "identity"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		if strings.HasSuffix(rel, "_test.go") {
 			return
@@ -437,7 +437,7 @@ func TestIdentityProfileLinkListDoesNotUseNPlusOneUserLookup(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	rel := "internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go"
+	rel := "internal/apiserver/transport/grpc/service/identity/profile_link_query.go"
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 	if err != nil {
 		t.Fatal(err)
@@ -458,7 +458,7 @@ func TestProfileLinkListProfilesDoesNotUseNPlusOneProfileLookup(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	rel := "internal/apiserver/application/uc/profilelink/service_query.go"
+	rel := "internal/apiserver/application/identity/profilelink/service_query.go"
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 	if err != nil {
 		t.Fatal(err)
@@ -890,7 +890,7 @@ func TestGRPCV2ContractsHaveRuntimeAndSDKCompileGuards(t *testing.T) {
 			proto:            "api/grpc/iam/identity/v2/identity.proto",
 			goPackageAlias:   "identityv2",
 			generatedPackage: "api/grpc/iam/identity/v2",
-			serviceFile:      "internal/apiserver/transport/grpc/service/uc/identity/service.go",
+			serviceFile:      "internal/apiserver/transport/grpc/service/identity/service.go",
 			registerToken:    "identityv2.RegisterIdentityReadServer",
 			sdkFile:          "pkg/sdk/identity/client.go",
 		},
@@ -992,7 +992,7 @@ func TestApplicationTransactionCallbacksUseTransactionContext(t *testing.T) {
 	})
 }
 
-func TestUCLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
+func TestIdentityLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
@@ -1001,10 +1001,10 @@ func TestUCLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
 		"api/rest/identity.v2.yaml",
 		"configs/grpc_acl.yaml",
 		"configs/mysql",
-		"internal/apiserver/application/uc",
-		"internal/apiserver/domain/uc",
+		"internal/apiserver/application/identity",
+		"internal/apiserver/domain/identity",
 		"internal/apiserver/infra/mysql",
-		"internal/apiserver/transport/grpc/service/uc",
+		"internal/apiserver/transport/grpc/service/identity",
 		"internal/apiserver/transport/rest/identity",
 		"internal/pkg/migration/migrations",
 		"pkg/sdk/identity",
@@ -1035,13 +1035,13 @@ func TestUCLegacyChildGuardianshipModelDoesNotReturn(t *testing.T) {
 	}
 }
 
-func TestUCSemanticServiceNamesDoNotRegress(t *testing.T) {
+func TestIdentitySemanticServiceNamesDoNotRegress(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
 	for _, relRoot := range []string{
-		"internal/apiserver/application/uc",
-		"internal/apiserver/domain/uc",
+		"internal/apiserver/application/identity",
+		"internal/apiserver/domain/identity",
 	} {
 		scanGoSources(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path, source string) {
 			rel := filepath.ToSlash(mustRel(t, root, path))
@@ -1058,7 +1058,7 @@ func TestUCSemanticServiceNamesDoNotRegress(t *testing.T) {
 				"ActionRegister",
 			} {
 				if strings.Contains(source, token) {
-					t.Fatalf("%s contains retired UC service name %q; use semantic capabilities such as Creator, Editor, Directory, MyProfiles, Linker, or Commands", rel, token)
+					t.Fatalf("%s contains retired identity service name %q; use semantic capabilities such as Creator, Editor, Directory, MyProfiles, Linker, or Commands", rel, token)
 				}
 			}
 		})
@@ -1074,12 +1074,12 @@ func TestUCSemanticServiceNamesDoNotRegress(t *testing.T) {
 							continue
 						}
 						if strings.HasSuffix(typeSpec.Name.Name, "Manager") {
-							t.Fatalf("%s declares %s; UC service names should express domain capability rather than Manager", rel, typeSpec.Name.Name)
+							t.Fatalf("%s declares %s; identity service names should express domain capability rather than Manager", rel, typeSpec.Name.Name)
 						}
 					}
 				case *ast.FuncDecl:
 					if strings.HasPrefix(d.Name.Name, "New") && strings.HasSuffix(d.Name.Name, "Manager") {
-						t.Fatalf("%s declares %s; UC constructors should express domain capability rather than Manager", rel, d.Name.Name)
+						t.Fatalf("%s declares %s; identity constructors should express domain capability rather than Manager", rel, d.Name.Name)
 					}
 				}
 			}
@@ -1613,7 +1613,7 @@ func assertNoUCLegacyToken(t *testing.T, root, path string) {
 		"监护",
 	} {
 		if strings.Contains(rel, token) {
-			t.Fatalf("%s contains retired UC model token %q", rel, token)
+			t.Fatalf("%s contains retired identity model token %q", rel, token)
 		}
 	}
 	switch filepath.Ext(path) {
@@ -1627,10 +1627,10 @@ func assertNoUCLegacyToken(t *testing.T, root, path string) {
 	}
 	source := string(data)
 	for _, token := range []string{
-		"internal/apiserver/application/uc/child",
-		"internal/apiserver/application/uc/guardianship",
-		"internal/apiserver/domain/uc/child",
-		"internal/apiserver/domain/uc/guardianship",
+		"internal/apiserver/application/identity/child",
+		"internal/apiserver/application/identity/guardianship",
+		"internal/apiserver/domain/identity/child",
+		"internal/apiserver/domain/identity/guardianship",
 		"internal/apiserver/infra/mysql/child",
 		"internal/apiserver/infra/mysql/guardianship",
 		"/identity/children",
@@ -1645,7 +1645,7 @@ func assertNoUCLegacyToken(t *testing.T, root, path string) {
 		"Guardianship",
 	} {
 		if strings.Contains(source, token) {
-			t.Fatalf("%s contains retired UC model token %q", rel, token)
+			t.Fatalf("%s contains retired identity model token %q", rel, token)
 		}
 	}
 }

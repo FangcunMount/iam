@@ -112,17 +112,17 @@ flowchart TB
 
 | 问题 | 当前答案 | 源码入口 |
 | --- | --- | --- |
-| User 是什么 | IAM 内部身份锚点，包含状态和基础资料。 | `domain/uc/user/user.go` |
-| Profile 是什么 | 业务档案，包含姓名、证件、性别、生日、身高体重。 | `domain/uc/profile/profile.go` |
-| ProfileLink 是什么 | User 与 Profile 的关系边，包含 type/relation/established/revoked。 | `domain/uc/profilelink/profile_link.go` |
+| User 是什么 | IAM 内部身份锚点，包含状态和基础资料。 | `domain/identity/user/user.go` |
+| Profile 是什么 | 业务档案，包含姓名、证件、性别、生日、身高体重。 | `domain/identity/profile/profile.go` |
+| ProfileLink 是什么 | User 与 Profile 的关系边，包含 type/relation/established/revoked。 | `domain/identity/profilelink/profile_link.go` |
 | 支持哪些关系 | self、parent、grandparent、other。 | `profile_link.go` |
 | 关系是否有效如何判断 | `IsActive()` 判断 `RevokedAt == nil`。 | `profile_link.go` |
-| 建立关系会校验什么 | Profile 存在、User 存在、同 User/Profile 没有 active duplicate。 | `domain/uc/profilelink/linker.go` |
+| 建立关系会校验什么 | Profile 存在、User 存在、同 User/Profile 没有 active duplicate。 | `domain/identity/profilelink/linker.go` |
 | 撤销关系如何实现 | `Revoke` 设置 `RevokedAt`，不是删除记录。 | `profile_link.go`、`linker.go` |
-| self link 不变量如何维护 | `SelfProfileEnsurer` 保证 active self link，重复时保留最早、其他转 parent。 | `domain/uc/profilelink/self_profile_ensurer.go` |
-| 当前用户创建档案如何处理 | `MyProfiles.Create` 同事务创建 Profile 和 ProfileLink。 | `application/uc/profile/service_my_profiles.go` |
-| 当前用户访问 Profile 如何 guard | `accessibleProfileIDInTx` 查 active ProfileLink。 | `application/uc/profile/service_access.go` |
-| 当前用户操作 ProfileLink 如何 guard | `MyProfileLinks` 禁止 grant/list/revoke 其他 user 的 link。 | `application/uc/profilelink/service_access.go` |
+| self link 不变量如何维护 | `SelfProfileEnsurer` 保证 active self link，重复时保留最早、其他转 parent。 | `domain/identity/profilelink/self_profile_ensurer.go` |
+| 当前用户创建档案如何处理 | `MyProfiles.Create` 同事务创建 Profile 和 ProfileLink。 | `application/identity/profile/service_my_profiles.go` |
+| 当前用户访问 Profile 如何 guard | `accessibleProfileIDInTx` 查 active ProfileLink。 | `application/identity/profile/service_access.go` |
+| 当前用户操作 ProfileLink 如何 guard | `MyProfileLinks` 禁止 grant/list/revoke 其他 user 的 link。 | `application/identity/profilelink/service_access.go` |
 | active self link 如何做 DB 兜底 | `self_key` + `uk_active_self_profile_link`。 | `migration/000007_add_active_self_profile_link_guard.up.sql` |
 
 ---
@@ -1167,15 +1167,15 @@ ProfileLink 是身份关系。它可以作为当前用户访问档案的 guard�
 
 | 结论 | 代码入口 |
 | --- | --- |
-| User 是身份锚点 | `domain/uc/user/user.go` |
-| Profile 是业务档案 | `domain/uc/profile/profile.go` |
-| ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/uc/profilelink/profile_link.go` |
-| Establish 校验 User/Profile 存在和 active duplicate | `domain/uc/profilelink/linker.go` |
-| Revoke 设置 RevokedAt | `domain/uc/profilelink/linker.go`、`profile_link.go` |
-| SelfProfileEnsurer 维护 active self link | `domain/uc/profilelink/self_profile_ensurer.go` |
-| MyProfiles.Create 同事务创建 Profile + ProfileLink | `application/uc/profile/service_my_profiles.go` |
-| MyProfiles.Get/Patch 用 active ProfileLink guard | `application/uc/profile/service_access.go` |
-| MyProfileLinks 限制 currentUserID | `application/uc/profilelink/service_access.go` |
+| User 是身份锚点 | `domain/identity/user/user.go` |
+| Profile 是业务档案 | `domain/identity/profile/profile.go` |
+| ProfileLink 包含 User/Profile/Type/Rel/EstablishedAt/RevokedAt | `domain/identity/profilelink/profile_link.go` |
+| Establish 校验 User/Profile 存在和 active duplicate | `domain/identity/profilelink/linker.go` |
+| Revoke 设置 RevokedAt | `domain/identity/profilelink/linker.go`、`profile_link.go` |
+| SelfProfileEnsurer 维护 active self link | `domain/identity/profilelink/self_profile_ensurer.go` |
+| MyProfiles.Create 同事务创建 Profile + ProfileLink | `application/identity/profile/service_my_profiles.go` |
+| MyProfiles.Get/Patch 用 active ProfileLink guard | `application/identity/profile/service_access.go` |
+| MyProfileLinks 限制 currentUserID | `application/identity/profilelink/service_access.go` |
 | active self link DB 约束 | `infra/mysql/profilelink/mapper.go`、`000007_add_active_self_profile_link_guard.up.sql` |
 
 ---
@@ -1185,8 +1185,8 @@ ProfileLink 是身份关系。它可以作为当前用户访问档案的 guard�
 ### 第一轮：User 与 Profile 模型
 
 ```text
-internal/apiserver/domain/uc/user/user.go
-internal/apiserver/domain/uc/profile/profile.go
+internal/apiserver/domain/identity/user/user.go
+internal/apiserver/domain/identity/profile/profile.go
 ```
 
 目标：先理解 User 与 Profile 的语义差异。
@@ -1194,9 +1194,9 @@ internal/apiserver/domain/uc/profile/profile.go
 ### 第二轮：ProfileLink 领域模型
 
 ```text
-internal/apiserver/domain/uc/profilelink/profile_link.go
-internal/apiserver/domain/uc/profilelink/relation.go
-internal/apiserver/domain/uc/profilelink/linker.go
+internal/apiserver/domain/identity/profilelink/profile_link.go
+internal/apiserver/domain/identity/profilelink/relation.go
+internal/apiserver/domain/identity/profilelink/linker.go
 ```
 
 目标：理解 relation、type、active/revoked、establish/revoke。
@@ -1204,7 +1204,7 @@ internal/apiserver/domain/uc/profilelink/linker.go
 ### 第三轮：self link 不变量
 
 ```text
-internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go
+internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go
 internal/apiserver/infra/mysql/profilelink/mapper.go
 internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql
 ```
@@ -1214,9 +1214,9 @@ internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.s
 ### 第四轮：当前用户访问 guard
 
 ```text
-internal/apiserver/application/uc/profile/service_my_profiles.go
-internal/apiserver/application/uc/profile/service_access.go
-internal/apiserver/application/uc/profilelink/service_access.go
+internal/apiserver/application/identity/profile/service_my_profiles.go
+internal/apiserver/application/identity/profile/service_access.go
+internal/apiserver/application/identity/profilelink/service_access.go
 ```
 
 目标：理解 MyProfiles 和 MyProfileLinks 如何防止越权。
@@ -1225,8 +1225,8 @@ internal/apiserver/application/uc/profilelink/service_access.go
 
 ```text
 internal/apiserver/transport/rest/identity/handler/profile_link.go
-internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go
-internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go
+internal/apiserver/transport/grpc/service/identity/profile_link_query.go
+internal/apiserver/transport/grpc/service/identity/profile_link_command.go
 ```
 
 目标：理解当前用户视角和系统侧接口边界。
@@ -1236,12 +1236,12 @@ internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go
 ## 21. 验证建议
 
 ```bash
-go test ./internal/apiserver/domain/uc/profilelink \
-  ./internal/apiserver/application/uc/profile \
-  ./internal/apiserver/application/uc/profilelink \
+go test ./internal/apiserver/domain/identity/profilelink \
+  ./internal/apiserver/application/identity/profile \
+  ./internal/apiserver/application/identity/profilelink \
   ./internal/apiserver/infra/mysql/profilelink \
   ./internal/apiserver/transport/rest/identity \
-  ./internal/apiserver/transport/grpc/service/uc/identity
+  ./internal/apiserver/transport/grpc/service/identity
 
 make docs-hygiene
 ```

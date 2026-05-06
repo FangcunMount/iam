@@ -639,8 +639,8 @@ BlockUser
 
 - [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)
 - [../../internal/apiserver/container/grpc_registry.go](../../internal/apiserver/container/grpc_registry.go)
-- [../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go](../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go)
-- [../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go)
+- [../../internal/apiserver/transport/grpc/service/identity/profile_link_query.go](../../internal/apiserver/transport/grpc/service/identity/profile_link_query.go)
+- [../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go)
 
 ---
 
@@ -1242,7 +1242,7 @@ internal/pkg/grpc/server.go
 ```text
 internal/apiserver/transport/grpc/service/authn
 internal/apiserver/transport/grpc/service/authz
-internal/apiserver/transport/grpc/service/uc/identity
+internal/apiserver/transport/grpc/service/identity
 internal/apiserver/transport/grpc/service/idp
 ```
 

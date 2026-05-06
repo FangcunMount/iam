@@ -142,7 +142,7 @@
 
 ### 必查（一级）
 - [x] [internal/apiserver/container/container.go](internal/apiserver/container/container.go) - 模块装配顺序是否与文档一致
-- [x] [internal/apiserver/application/uc/user/services_impl.go](internal/apiserver/application/uc/user/services_impl.go) - Ref 失败场景处理
+- [x] [internal/apiserver/application/identity/user/services_impl.go](internal/apiserver/application/identity/user/services_impl.go) - Ref 失败场景处理
 - [x] [internal/apiserver/application/cachegovernance/service.go](internal/apiserver/application/cachegovernance/service.go) - 缓存治理实现范围
 
 ### 应查（二级）

@@ -92,16 +92,16 @@ ProfileLink 是身份关系，不是 AuthZ 权限。
 
 核心源码入口：
 
-- [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go)
-- [../../internal/apiserver/domain/uc/profilelink/relation.go](../../internal/apiserver/domain/uc/profilelink/relation.go)
-- [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go)
-- [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go)
-- [../../internal/apiserver/application/uc/profilelink/services.go](../../internal/apiserver/application/uc/profilelink/services.go)
-- [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go)
-- [../../internal/apiserver/application/uc/profilelink/service_query.go](../../internal/apiserver/application/uc/profilelink/service_query.go)
-- [../../internal/apiserver/application/uc/profilelink/service_access.go](../../internal/apiserver/application/uc/profilelink/service_access.go)
-- [../../internal/apiserver/application/uc/profile/service_my_profiles.go](../../internal/apiserver/application/uc/profile/service_my_profiles.go)
-- [../../internal/apiserver/application/uc/profile/service_access.go](../../internal/apiserver/application/uc/profile/service_access.go)
+- [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
+- [../../internal/apiserver/domain/identity/profilelink/relation.go](../../internal/apiserver/domain/identity/profilelink/relation.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
+- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/application/identity/profilelink/services.go](../../internal/apiserver/application/identity/profilelink/services.go)
+- [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go)
+- [../../internal/apiserver/application/identity/profilelink/service_query.go](../../internal/apiserver/application/identity/profilelink/service_query.go)
+- [../../internal/apiserver/application/identity/profilelink/service_access.go](../../internal/apiserver/application/identity/profilelink/service_access.go)
+- [../../internal/apiserver/application/identity/profile/service_my_profiles.go](../../internal/apiserver/application/identity/profile/service_my_profiles.go)
+- [../../internal/apiserver/application/identity/profile/service_access.go](../../internal/apiserver/application/identity/profile/service_access.go)
 - [../../internal/apiserver/transport/rest/identity/handler/profile_link.go](../../internal/apiserver/transport/rest/identity/handler/profile_link.go)
 
 ---
@@ -127,7 +127,7 @@ flowchart LR
 sequenceDiagram
     participant REST as "REST / gRPC"
     participant Access as "MyProfileLinks or Commands"
-    participant UOW as "UC UoW"
+    participant UOW as "Identity UoW"
     participant Linker as "Domain ProfileLinker"
     participant Users as "User Repository"
     participant Profiles as "Profile Repository"
@@ -149,20 +149,20 @@ sequenceDiagram
 
 | 问题 | 当前答案 | 代码证据 |
 | --- | --- | --- |
-| ProfileLink 领域对象在哪里 | `domain/uc/profilelink/profile_link.go`。 | [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go) |
-| 支持哪些 relation | `self`、`parent`、`grandparent`、`other`。 | [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go) |
-| relation 输入如何规范化 | `ParseRelation`，未知值默认 `other`。 | [../../internal/apiserver/domain/uc/profilelink/relation.go](../../internal/apiserver/domain/uc/profilelink/relation.go) |
-| 关系是否 active 如何判断 | `IsActive()` 判断 `RevokedAt == nil`。 | [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go) |
-| 建立关系的领域能力在哪里 | `ProfileLinker.Establish`。 | [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go) |
-| 建立关系会检查什么 | Profile 存在、User 存在、同 User/Profile 没有 active duplicate。 | [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go) |
-| 撤销关系的领域能力在哪里 | `ProfileLinker.Revoke`。 | [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go) |
-| 系统侧命令在哪里 | `application/uc/profilelink/service_command.go`。 | [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go) |
-| 当前用户视角在哪里 | `application/uc/profilelink/service_access.go`。 | [../../internal/apiserver/application/uc/profilelink/service_access.go](../../internal/apiserver/application/uc/profilelink/service_access.go) |
-| MyProfiles 如何检查访问 | `accessibleProfileIDInTx` 查询 active ProfileLink。 | [../../internal/apiserver/application/uc/profile/service_access.go](../../internal/apiserver/application/uc/profile/service_access.go) |
-| self link 不变量在哪里维护 | `SelfProfileEnsurer`。 | [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go) |
+| ProfileLink 领域对象在哪里 | `domain/identity/profilelink/profile_link.go`。 | [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go) |
+| 支持哪些 relation | `self`、`parent`、`grandparent`、`other`。 | [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go) |
+| relation 输入如何规范化 | `ParseRelation`，未知值默认 `other`。 | [../../internal/apiserver/domain/identity/profilelink/relation.go](../../internal/apiserver/domain/identity/profilelink/relation.go) |
+| 关系是否 active 如何判断 | `IsActive()` 判断 `RevokedAt == nil`。 | [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go) |
+| 建立关系的领域能力在哪里 | `ProfileLinker.Establish`。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| 建立关系会检查什么 | Profile 存在、User 存在、同 User/Profile 没有 active duplicate。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| 撤销关系的领域能力在哪里 | `ProfileLinker.Revoke`。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| 系统侧命令在哪里 | `application/identity/profilelink/service_command.go`。 | [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go) |
+| 当前用户视角在哪里 | `application/identity/profilelink/service_access.go`。 | [../../internal/apiserver/application/identity/profilelink/service_access.go](../../internal/apiserver/application/identity/profilelink/service_access.go) |
+| MyProfiles 如何检查访问 | `accessibleProfileIDInTx` 查询 active ProfileLink。 | [../../internal/apiserver/application/identity/profile/service_access.go](../../internal/apiserver/application/identity/profile/service_access.go) |
+| self link 不变量在哪里维护 | `SelfProfileEnsurer`。 | [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go) |
 | DB 如何保护 active self link | `self_key` + `uk_active_self_profile_link`。 | [../../internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql](../../internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql) |
 | REST ProfileLink 入口在哪里 | `/api/v2/identity/profile-links`。 | [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go)、[../../internal/apiserver/transport/rest/identity/handler/profile_link.go](../../internal/apiserver/transport/rest/identity/handler/profile_link.go) |
-| gRPC ProfileLink 命令在哪里 | `profile_link_command.go`。 | [../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go) |
+| gRPC ProfileLink 命令在哪里 | `profile_link_command.go`。 | [../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go) |
 
 ---
 
@@ -271,7 +271,7 @@ ProfileLink 内部有 `sync.RWMutex`，`IsActive`、`Revoke`、`ConvertToRelatio
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go)
+- [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
 
 ---
 
@@ -331,8 +331,8 @@ TypeFromRelation(RelOther) = TypeRelation
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go)
-- [../../internal/apiserver/domain/uc/profilelink/relation.go](../../internal/apiserver/domain/uc/profilelink/relation.go)
+- [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
+- [../../internal/apiserver/domain/identity/profilelink/relation.go](../../internal/apiserver/domain/identity/profilelink/relation.go)
 
 ---
 
@@ -396,8 +396,8 @@ duplicate 的判断是：
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go)
-- [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
+- [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go)
 
 ---
 
@@ -446,8 +446,8 @@ flowchart TD
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go)
-- [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go)
+- [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go)
+- [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
 
 ---
 
@@ -496,7 +496,7 @@ ErrIdentityProfileLinkExists
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/repository.go](../../internal/apiserver/domain/uc/profilelink/repository.go)
+- [../../internal/apiserver/domain/identity/profilelink/repository.go](../../internal/apiserver/domain/identity/profilelink/repository.go)
 - [../../internal/apiserver/infra/mysql/profilelink/repo.go](../../internal/apiserver/infra/mysql/profilelink/repo.go)
 
 ---
@@ -634,8 +634,8 @@ self Profile 不是 User 本身
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go)
-- [../../internal/apiserver/application/uc/user/service_create.go](../../internal/apiserver/application/uc/user/service_create.go)
+- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go)
 - [../../internal/apiserver/application/authn/onboarding/user_provisioner.go](../../internal/apiserver/application/authn/onboarding/user_provisioner.go)
 
 ---
@@ -704,8 +704,8 @@ FindByID(profileLinkID)
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/profilelink/services.go](../../internal/apiserver/application/uc/profilelink/services.go)
-- [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go)
+- [../../internal/apiserver/application/identity/profilelink/services.go](../../internal/apiserver/application/identity/profilelink/services.go)
+- [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go)
 
 ---
 
@@ -746,8 +746,8 @@ ProfileBirthday
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/profilelink/service_query.go](../../internal/apiserver/application/uc/profilelink/service_query.go)
-- [../../internal/apiserver/application/uc/profilelink/mapper.go](../../internal/apiserver/application/uc/profilelink/mapper.go)
+- [../../internal/apiserver/application/identity/profilelink/service_query.go](../../internal/apiserver/application/identity/profilelink/service_query.go)
+- [../../internal/apiserver/application/identity/profilelink/mapper.go](../../internal/apiserver/application/identity/profilelink/mapper.go)
 
 ---
 
@@ -848,7 +848,7 @@ MyProfileLinks 的 guard 是关系访问控制：
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/profilelink/service_access.go](../../internal/apiserver/application/uc/profilelink/service_access.go)
+- [../../internal/apiserver/application/identity/profilelink/service_access.go](../../internal/apiserver/application/identity/profilelink/service_access.go)
 
 ---
 
@@ -872,7 +872,7 @@ parse currentUserID
 ```mermaid
 sequenceDiagram
     participant App as "MyProfiles.Create"
-    participant UOW as "UC UoW"
+    participant UOW as "Identity UoW"
     participant Profile as "Profile"
     participant Linker as "ProfileLinker"
     participant Links as "ProfileLinks"
@@ -917,8 +917,8 @@ FindByUserIDAndProfileID(userID, profileID)
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/profile/service_my_profiles.go](../../internal/apiserver/application/uc/profile/service_my_profiles.go)
-- [../../internal/apiserver/application/uc/profile/service_access.go](../../internal/apiserver/application/uc/profile/service_access.go)
+- [../../internal/apiserver/application/identity/profile/service_my_profiles.go](../../internal/apiserver/application/identity/profile/service_my_profiles.go)
+- [../../internal/apiserver/application/identity/profile/service_access.go](../../internal/apiserver/application/identity/profile/service_access.go)
 
 ---
 
@@ -1066,9 +1066,9 @@ ImportProfileLinks
 
 核心源码：
 
-- [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go)
-- [../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go](../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go)
-- [../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go)
+- [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go)
+- [../../internal/apiserver/transport/grpc/service/identity/profile_link_query.go](../../internal/apiserver/transport/grpc/service/identity/profile_link_query.go)
+- [../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go](../../internal/apiserver/transport/grpc/service/identity/profile_link_command.go)
 
 ---
 
@@ -1232,7 +1232,7 @@ Profile 是独立业务档案，通过 ProfileLink 和 User 建立关系。
 | Soft Revocation | 关系撤销需要历史 | RevokedAt | 查询必须区分 active / including revoked |
 | Current-user Guard | 用户只能操作自己的关系 | MyProfileLinks | 系统侧 gRPC/Commands 需另有权限保护 |
 | Self Invariant | 每个 User 需要本人档案关系 | SelfProfileEnsurer + self_key unique index | 自动创建 Profile，需要明确业务语义 |
-| UoW Composition | Profile + ProfileLink 要同事务 | UC UnitOfWork | 所有组合写入必须走 tx repos |
+| UoW Composition | Profile + ProfileLink 要同事务 | Identity UnitOfWork | 所有组合写入必须走 tx repos |
 | Domain Capability | 领域只返回实体，不持久化 | Linker.Establish/Revoke | 应用层必须负责 Update/Create |
 | Dual Interface | 用户侧与系统侧能力不同 | REST MyProfileLinks / gRPC Commands | 文档要明确接入边界 |
 
@@ -1243,10 +1243,10 @@ Profile 是独立业务档案，通过 ProfileLink 和 User 建立关系。
 ### 第一轮：ProfileLink 领域模型
 
 ```text
-internal/apiserver/domain/uc/profilelink/profile_link.go
-internal/apiserver/domain/uc/profilelink/relation.go
-internal/apiserver/domain/uc/profilelink/interfaces.go
-internal/apiserver/domain/uc/profilelink/repository.go
+internal/apiserver/domain/identity/profilelink/profile_link.go
+internal/apiserver/domain/identity/profilelink/relation.go
+internal/apiserver/domain/identity/profilelink/interfaces.go
+internal/apiserver/domain/identity/profilelink/repository.go
 ```
 
 目标：理解 Type、Relation、active/revoked、Repository 查询边界。
@@ -1254,8 +1254,8 @@ internal/apiserver/domain/uc/profilelink/repository.go
 ### 第二轮：Linker 与 self invariant
 
 ```text
-internal/apiserver/domain/uc/profilelink/linker.go
-internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go
+internal/apiserver/domain/identity/profilelink/linker.go
+internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go
 internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.sql
 ```
 
@@ -1264,10 +1264,10 @@ internal/pkg/migration/migrations/000007_add_active_self_profile_link_guard.up.s
 ### 第三轮：Application Commands / Directory
 
 ```text
-internal/apiserver/application/uc/profilelink/services.go
-internal/apiserver/application/uc/profilelink/service_command.go
-internal/apiserver/application/uc/profilelink/service_query.go
-internal/apiserver/application/uc/profilelink/mapper.go
+internal/apiserver/application/identity/profilelink/services.go
+internal/apiserver/application/identity/profilelink/service_command.go
+internal/apiserver/application/identity/profilelink/service_query.go
+internal/apiserver/application/identity/profilelink/mapper.go
 ```
 
 目标：理解系统侧建立、撤销、查询。
@@ -1275,9 +1275,9 @@ internal/apiserver/application/uc/profilelink/mapper.go
 ### 第四轮：当前用户视角
 
 ```text
-internal/apiserver/application/uc/profilelink/service_access.go
-internal/apiserver/application/uc/profile/service_my_profiles.go
-internal/apiserver/application/uc/profile/service_access.go
+internal/apiserver/application/identity/profilelink/service_access.go
+internal/apiserver/application/identity/profile/service_my_profiles.go
+internal/apiserver/application/identity/profile/service_access.go
 ```
 
 目标：理解 MyProfileLinks / MyProfiles 如何防止操作其他用户的关系和档案。
@@ -1298,8 +1298,8 @@ internal/apiserver/infra/mysql/profilelink/repo.go
 internal/apiserver/transport/rest/identity/router.go
 internal/apiserver/transport/rest/identity/request/profile_link.go
 internal/apiserver/transport/rest/identity/handler/profile_link.go
-internal/apiserver/transport/grpc/service/uc/identity/profile_link_query.go
-internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go
+internal/apiserver/transport/grpc/service/identity/profile_link_query.go
+internal/apiserver/transport/grpc/service/identity/profile_link_command.go
 ```
 
 目标：理解 REST 当前用户视角和 gRPC 系统侧接口边界。
@@ -1309,12 +1309,12 @@ internal/apiserver/transport/grpc/service/uc/identity/profile_link_command.go
 ## 22. 验证建议
 
 ```bash
-go test ./internal/apiserver/domain/uc/profilelink \
-  ./internal/apiserver/application/uc/profilelink \
-  ./internal/apiserver/application/uc/profile \
+go test ./internal/apiserver/domain/identity/profilelink \
+  ./internal/apiserver/application/identity/profilelink \
+  ./internal/apiserver/application/identity/profile \
   ./internal/apiserver/infra/mysql/profilelink \
   ./internal/apiserver/transport/rest/identity \
-  ./internal/apiserver/transport/grpc/service/uc/identity
+  ./internal/apiserver/transport/grpc/service/identity
 
 make docs-hygiene
 ```

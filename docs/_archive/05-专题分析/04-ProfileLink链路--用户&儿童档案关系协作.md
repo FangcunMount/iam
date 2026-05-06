@@ -21,7 +21,7 @@ flowchart TD
     MyLinks["MyProfileLinks\ncurrent user view"]
     Commands["ProfileLink Commands\nsystem command"]
     Directory["ProfileLink Directory\nquery"]
-    UOW["UC UnitOfWork"]
+    UOW["Identity UnitOfWork"]
     Linker["domain ProfileLinker"]
     Ensurer["SelfProfileEnsurer"]
     User["User Repository"]
@@ -47,13 +47,13 @@ flowchart TD
 
 | 关注点 | 当前事实 | 代码证据 |
 | ---- | ---- | ---- |
-| ProfileLink 领域模型 | User 与 Profile 的关系，含 Type、Relation、EstablishedAt、RevokedAt。 | [../../internal/apiserver/domain/uc/profilelink](../../internal/apiserver/domain/uc/profilelink) |
-| 关系建立/撤销 | `ProfileLinker` 校验 user/profile 存在、active link 不重复，并返回待持久化实体。 | [../../internal/apiserver/domain/uc/profilelink/linker.go](../../internal/apiserver/domain/uc/profilelink/linker.go) |
-| self 不变量 | `SelfProfileEnsurer` 确保用户有 active self link，并收敛重复 active self link。 | [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go) |
-| 应用命令 | `Commands` 用 UoW 包住建立和撤销。 | [../../internal/apiserver/application/uc/profilelink/service_command.go](../../internal/apiserver/application/uc/profilelink/service_command.go) |
-| 当前用户视角 | `MyProfileLinks` 拒绝为其他用户 grant/list/revoke。 | [../../internal/apiserver/application/uc/profilelink/service_access.go](../../internal/apiserver/application/uc/profilelink/service_access.go) |
+| ProfileLink 领域模型 | User 与 Profile 的关系，含 Type、Relation、EstablishedAt、RevokedAt。 | [../../internal/apiserver/domain/identity/profilelink](../../internal/apiserver/domain/identity/profilelink) |
+| 关系建立/撤销 | `ProfileLinker` 校验 user/profile 存在、active link 不重复，并返回待持久化实体。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
+| self 不变量 | `SelfProfileEnsurer` 确保用户有 active self link，并收敛重复 active self link。 | [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go) |
+| 应用命令 | `Commands` 用 UoW 包住建立和撤销。 | [../../internal/apiserver/application/identity/profilelink/service_command.go](../../internal/apiserver/application/identity/profilelink/service_command.go) |
+| 当前用户视角 | `MyProfileLinks` 拒绝为其他用户 grant/list/revoke。 | [../../internal/apiserver/application/identity/profilelink/service_access.go](../../internal/apiserver/application/identity/profilelink/service_access.go) |
 | REST 合同 | `/api/v2/identity/profile-links`。 | [../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity) |
-| gRPC 合同 | `ProfileLinkQuery`、`ProfileLinkCommand`。 | [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)、[../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity) |
+| gRPC 合同 | `ProfileLinkQuery`、`ProfileLinkCommand`。 | [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)、[../../internal/apiserver/transport/grpc/service/identity](../../internal/apiserver/transport/grpc/service/identity) |
 
 ## 1. 领域模型：ProfileLink 不是 Profile 的字段
 
@@ -128,7 +128,7 @@ sequenceDiagram
     participant REST as "Identity REST"
     participant My as "MyProfileLinks"
     participant Cmd as "Commands"
-    participant UOW as "UC UoW"
+    participant UOW as "Identity UoW"
     participant Linker as "ProfileLinker"
     participant Repo as "Repositories"
 
@@ -164,7 +164,7 @@ sequenceDiagram
     participant Client
     participant REST as "Identity REST"
     participant My as "MyProfileLinks"
-    participant UOW as "UC UoW"
+    participant UOW as "Identity UoW"
     participant Linker as "ProfileLinker"
     participant Repo as "Repositories"
 
@@ -223,7 +223,7 @@ flowchart TD
 | 模式 | 为什么用 | 解决的问题 | IAM 落地 | 代价和边界 |
 | ---- | ---- | ---- | ---- | ---- |
 | Domain Service | 建立/撤销关系跨 User、Profile、ProfileLink。 | 行为不属于单个实体。 | `ProfileLinker`、`SelfProfileEnsurer`。 | 领域服务不持久化，需应用层 UoW 配合。 |
-| Unit of Work | 创建/撤销需要多 repository 协作。 | 防止部分写入。 | `application/uc/uow`。 | 查询路径不应变成复杂事务脚本。 |
+| Unit of Work | 创建/撤销需要多 repository 协作。 | 防止部分写入。 | `application/identity/uow`。 | 查询路径不应变成复杂事务脚本。 |
 | Guard/Policy Boundary | 当前用户视角必须限制 user scope。 | 防止跨用户查询或撤销。 | `MyProfileLinks`。 | 系统侧 gRPC command 仍需调用方具备外层授权。 |
 | Soft Revoke | 关系撤销需要可追溯。 | 保留历史，同时默认隐藏 revoked。 | `RevokedAt` + active 默认查询。 | 调用方必须理解 active=false 的含义。 |
 | Mapper | REST/gRPC 字段与 application DTO 不同。 | transport 术语不污染 domain。 | REST response、gRPC profile link mapper。 | mapper 需随合同维护。 |
@@ -243,14 +243,14 @@ flowchart TD
 
 核心入口：
 
-- Domain：[../../internal/apiserver/domain/uc/profilelink](../../internal/apiserver/domain/uc/profilelink)
-- Application：[../../internal/apiserver/application/uc/profilelink](../../internal/apiserver/application/uc/profilelink)
-- UC UoW：[../../internal/apiserver/application/uc/uow/uow.go](../../internal/apiserver/application/uc/uow/uow.go)
+- Domain：[../../internal/apiserver/domain/identity/profilelink](../../internal/apiserver/domain/identity/profilelink)
+- Application：[../../internal/apiserver/application/identity/profilelink](../../internal/apiserver/application/identity/profilelink)
+- Identity UoW：[../../internal/apiserver/application/identity/uow/uow.go](../../internal/apiserver/application/identity/uow/uow.go)
 - REST Identity：[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity)
-- gRPC Identity：[../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity)
+- gRPC Identity：[../../internal/apiserver/transport/grpc/service/identity](../../internal/apiserver/transport/grpc/service/identity)
 
 建议验证：
 
 ```bash
-go test ./internal/apiserver/domain/uc/profilelink ./internal/apiserver/application/uc/profilelink ./internal/apiserver/transport/rest/identity ./internal/apiserver/transport/grpc/service/uc/identity
+go test ./internal/apiserver/domain/identity/profilelink ./internal/apiserver/application/identity/profilelink ./internal/apiserver/transport/rest/identity ./internal/apiserver/transport/grpc/service/identity
 ```

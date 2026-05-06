@@ -68,7 +68,7 @@ flowchart TD
 | ---- | ---- | ---- | ---- |
 | AuthN | 登录、账户、凭据、session、Access/Refresh Token、Service Token、JWKS。 | 资源权限判定、ProfileLink 关系规则、微信应用运维管理。 | [../../internal/apiserver/domain/authn](../../internal/apiserver/domain/authn)、[../../internal/apiserver/application/authn](../../internal/apiserver/application/authn) |
 | AuthZ | 角色、资源、策略、rolebinding、PDP、授权快照、版本事件。 | 用户档案事实、认证凭据、HTTP JWT 提取。 | [../../internal/apiserver/domain/authz](../../internal/apiserver/domain/authz)、[../../internal/apiserver/application/authz](../../internal/apiserver/application/authz) |
-| Identity/UC | User、Profile、ProfileLink、当前用户视角档案访问。 | 登录签发、角色策略、外部 IDP secret 管理。 | [../../internal/apiserver/domain/uc](../../internal/apiserver/domain/uc)、[../../internal/apiserver/application/uc](../../internal/apiserver/application/uc) |
+| Identity/UC | User、Profile、ProfileLink、当前用户视角档案访问。 | 登录签发、角色策略、外部 IDP secret 管理。 | [../../internal/apiserver/domain/identity](../../internal/apiserver/domain/identity)、[../../internal/apiserver/application/identity](../../internal/apiserver/application/identity) |
 | IDP/WechatApp | 微信应用配置、secret 轮换、access token 缓存和刷新。 | AuthN 登录结果签发、ProfileLink 关系写入。 | [../../internal/apiserver/domain/idp/wechatapp](../../internal/apiserver/domain/idp/wechatapp)、[../../internal/apiserver/application/idp/wechatapp](../../internal/apiserver/application/idp/wechatapp) |
 | Suggest | 儿童档案联想搜索读模型、候选刷新、排名与去重。 | 权限判定、ProfileLink 建立或撤销、profile 写入。 | [../../internal/apiserver/domain/suggest](../../internal/apiserver/domain/suggest)、[../../internal/apiserver/application/suggest](../../internal/apiserver/application/suggest) |
 
@@ -114,7 +114,7 @@ flowchart TD
 
 ```bash
 make docs-hygiene
-go test ./internal/apiserver/domain/... ./internal/apiserver/application/authn/... ./internal/apiserver/application/authz/... ./internal/apiserver/application/uc/... ./internal/apiserver/application/idp/... ./internal/apiserver/application/suggest
+go test ./internal/apiserver/domain/... ./internal/apiserver/application/authn/... ./internal/apiserver/application/authz/... ./internal/apiserver/application/identity/... ./internal/apiserver/application/idp/... ./internal/apiserver/application/suggest
 ```
 
 如新增 REST/gRPC 路由、service 或合同表，还要补跑：

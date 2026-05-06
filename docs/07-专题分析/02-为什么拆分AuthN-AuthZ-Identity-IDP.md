@@ -111,7 +111,7 @@ flowchart TD
 | --- | --- | --- |
 | AuthN 为什么独立 | 它负责账号、凭据、认证策略、Session、Token、JWKS、KeyRotation | `internal/apiserver/container/assembler/authn.go`、`application/authn` |
 | AuthZ 为什么独立 | 它负责授权模型、判定、策略写入、PolicyVersion、Outbox | `internal/apiserver/container/assembler/authz.go`、`application/authz` |
-| Identity 为什么独立 | 它负责 User、Profile、ProfileLink、当前用户档案关系 | `internal/apiserver/container/assembler/user.go`、`application/uc` |
+| Identity 为什么独立 | 它负责 User、Profile、ProfileLink、当前用户档案关系 | `internal/apiserver/container/assembler/user.go`、`application/identity` |
 | IDP 为什么独立 | 它负责微信应用配置、SecretVault、微信 API，并明确认证由 AuthN 统一提供 | `internal/apiserver/container/assembler/idp.go` |
 | AuthN 如何依赖 IDP | 通过 `Repository()`、`SecretVault()`、`WechatAuthProvider()` 获取第三方身份源能力 | `authn_infra_builder.go`、`idp.go` |
 | AuthN 如何依赖 Identity | 通过 User repo、SubjectAccessEvaluator、onboarding、session revoke 与 User 交互 | `authn_infra_builder.go`、`user.go` |
@@ -960,11 +960,11 @@ internal/apiserver/infra/casbin/adapter.go
 ### 第四轮：看 Identity
 
 ```text
-internal/apiserver/domain/uc/user
-internal/apiserver/domain/uc/profile
-internal/apiserver/domain/uc/profilelink
-internal/apiserver/application/uc/profile
-internal/apiserver/application/uc/profilelink
+internal/apiserver/domain/identity/user
+internal/apiserver/domain/identity/profile
+internal/apiserver/domain/identity/profilelink
+internal/apiserver/application/identity/profile
+internal/apiserver/application/identity/profilelink
 ```
 
 目标：理解 User/Profile/ProfileLink 的拆分价值。
@@ -986,10 +986,10 @@ pkg/sdk/README.md
 ```bash
 go test ./internal/apiserver/application/authn/... \
   ./internal/apiserver/application/authz/... \
-  ./internal/apiserver/application/uc/... \
+  ./internal/apiserver/application/identity/... \
   ./internal/apiserver/domain/authn/... \
   ./internal/apiserver/domain/authz/... \
-  ./internal/apiserver/domain/uc/... \
+  ./internal/apiserver/domain/identity/... \
   ./internal/pkg/architecture
 
 go test ./internal/apiserver/transport/rest \

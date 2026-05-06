@@ -40,8 +40,8 @@
 sequenceDiagram
     participant Client as "caller"
     participant IAM as "Identity/ProfileLink API"
-    participant App as "application/uc"
-    participant Domain as "domain/uc"
+    participant App as "application/identity"
+    participant Domain as "domain/identity"
 
     Client->>IAM: "create/search profile or profile-link command"
     IAM->>App: "DTO -> command/query"
@@ -78,14 +78,14 @@ sequenceDiagram
 
 ## 事实入口
 
-- 应用层：[../../internal/apiserver/application/uc](../../internal/apiserver/application/uc)
-- ProfileLink 业务域：[../../internal/apiserver/domain/uc/profilelink](../../internal/apiserver/domain/uc/profilelink)
+- 应用层：[../../internal/apiserver/application/identity](../../internal/apiserver/application/identity)
+- ProfileLink 业务域：[../../internal/apiserver/domain/identity/profilelink](../../internal/apiserver/domain/identity/profilelink)
 - REST：[../../internal/apiserver/transport/rest/identity](../../internal/apiserver/transport/rest/identity)
-- gRPC：[../../internal/apiserver/transport/grpc/service/uc/identity](../../internal/apiserver/transport/grpc/service/uc/identity)
+- gRPC：[../../internal/apiserver/transport/grpc/service/identity](../../internal/apiserver/transport/grpc/service/identity)
 - 契约：[../../api/rest/identity.v2.yaml](../../api/rest/identity.v2.yaml)、[../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)
 
 ## 验证
 
 ```bash
-go test ./internal/apiserver/application/uc/... ./internal/apiserver/domain/uc/... ./internal/apiserver/transport/rest ./internal/apiserver/transport/grpc/service/uc/identity
+go test ./internal/apiserver/application/identity/... ./internal/apiserver/domain/identity/... ./internal/apiserver/transport/rest ./internal/apiserver/transport/grpc/service/identity
 ```

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profilelink"
+	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"

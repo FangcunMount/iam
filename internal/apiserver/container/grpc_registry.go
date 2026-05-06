@@ -4,9 +4,8 @@ import (
 	grpctransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc"
 	authngrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/authn"
 	authzgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/authz"
+	identitygrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/identity"
 	idpgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/idp"
-	ucgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/uc"
-	identitygrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/uc/identity"
 	grpcpkg "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 )
 
@@ -34,7 +33,7 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	}
 	if c.ModuleState(moduleUser).Available {
 		caps := c.UserModule.ApplicationCapabilities()
-		identitySvc := identitygrpc.NewService(
+		service := identitygrpc.NewService(
 			caps.UserDirectory,
 			caps.ProfileDirectory,
 			caps.ProfileLinkDirectory,
@@ -44,7 +43,6 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 			caps.ProfileLinkCommands,
 			caps.MyProfileLinks,
 		)
-		service := ucgrpc.NewService(identitySvc)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "user",
 			Description: "IdentityRead, ProfileLinkQuery, ProfileLinkCommand, IdentityLifecycle",

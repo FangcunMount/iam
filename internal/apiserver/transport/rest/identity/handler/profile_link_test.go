@@ -11,7 +11,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 

@@ -23,7 +23,7 @@ login contract and is not a domain authentication strategy.
 
 ### AccountOnboarder
 
-Creates or reuses the UC user, guarantees the self profile link invariant, and
+Creates or reuses the identity user, guarantees the self profile link invariant, and
 creates or reuses the Authn account and credential in one application flow.
 
 ### LoginApplicationService

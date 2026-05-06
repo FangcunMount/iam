@@ -14,7 +14,7 @@
 
 **包含的模块**:
 
-- User Center (UC) - 用户中心
+- Identity - 身份域
 - Authentication (Authn) - 认证模块
 - Authorization (Authz) - 授权模块
 - Identity Provider (IDP) - 身份提供商

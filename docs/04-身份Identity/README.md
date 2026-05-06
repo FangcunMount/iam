@@ -446,23 +446,23 @@ MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己�
 | 主题 | 代码入口 |
 | --- | --- |
 | UserModule 装配 | `internal/apiserver/container/assembler/user.go` |
-| User 领域模型 | `internal/apiserver/domain/uc/user/user.go` |
-| UserStatus | `internal/apiserver/domain/uc/user/status.go` |
-| Profile 领域模型 | `internal/apiserver/domain/uc/profile/profile.go` |
-| ProfileLink 领域模型 | `internal/apiserver/domain/uc/profilelink/profile_link.go` |
-| Relation parser | `internal/apiserver/domain/uc/profilelink/relation.go` |
-| ProfileLinker | `internal/apiserver/domain/uc/profilelink/linker.go` |
-| SelfProfileEnsurer | `internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go` |
-| User application | `internal/apiserver/application/uc/user` |
-| Profile application | `internal/apiserver/application/uc/profile` |
-| MyProfiles | `internal/apiserver/application/uc/profile/service_my_profiles.go`、`service_access.go` |
-| ProfileLink application | `internal/apiserver/application/uc/profilelink` |
-| MyProfileLinks | `internal/apiserver/application/uc/profilelink/service_access.go` |
-| UC UoW | `internal/apiserver/application/uc/uow` |
-| MySQL UC UoW | `internal/apiserver/infra/mysql/uow/uc` |
+| User 领域模型 | `internal/apiserver/domain/identity/user/user.go` |
+| UserStatus | `internal/apiserver/domain/identity/user/status.go` |
+| Profile 领域模型 | `internal/apiserver/domain/identity/profile/profile.go` |
+| ProfileLink 领域模型 | `internal/apiserver/domain/identity/profilelink/profile_link.go` |
+| Relation parser | `internal/apiserver/domain/identity/profilelink/relation.go` |
+| ProfileLinker | `internal/apiserver/domain/identity/profilelink/linker.go` |
+| SelfProfileEnsurer | `internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go` |
+| User application | `internal/apiserver/application/identity/user` |
+| Profile application | `internal/apiserver/application/identity/profile` |
+| MyProfiles | `internal/apiserver/application/identity/profile/service_my_profiles.go`、`service_access.go` |
+| ProfileLink application | `internal/apiserver/application/identity/profilelink` |
+| MyProfileLinks | `internal/apiserver/application/identity/profilelink/service_access.go` |
+| Identity UoW | `internal/apiserver/application/identity/uow` |
+| MySQL Identity UoW | `internal/apiserver/infra/mysql/uow/identity` |
 | ProfileLink MySQL repo | `internal/apiserver/infra/mysql/profilelink` |
 | REST Identity | `internal/apiserver/transport/rest/identity` |
-| gRPC Identity | `internal/apiserver/transport/grpc/service/uc/identity` |
+| gRPC Identity | `internal/apiserver/transport/grpc/service/identity` |
 | Identity proto | `api/grpc/iam/identity/v2/identity.proto` |
 | SDK Identity | `pkg/sdk/identity` |
 
@@ -473,7 +473,7 @@ MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己�
 Identity 相关事实冲突时，按以下顺序判断：
 
 1. **源码运行行为**  
-   `internal/apiserver/domain/uc`、`application/uc`、`infra/mysql/uc`、`transport/rest/identity`、`transport/grpc/service/uc/identity`。
+   `internal/apiserver/domain/identity`、`application/identity`、`infra/mysql/uow/identity`、`transport/rest/identity`、`transport/grpc/service/identity`。
 
 2. **机器契约与迁移**  
    `api/rest/identity.v2.yaml`、`api/grpc/iam/identity/v2/identity.proto`、`internal/pkg/migration/migrations`。
@@ -595,14 +595,14 @@ make docs-hygiene
 Identity 应用与领域测试：
 
 ```bash
-go test ./internal/apiserver/application/uc/... \
-  ./internal/apiserver/domain/uc/...
+go test ./internal/apiserver/application/identity/... \
+  ./internal/apiserver/domain/identity/...
 ```
 
 MySQL / UoW 相关：
 
 ```bash
-go test ./internal/apiserver/infra/mysql/uow/uc \
+go test ./internal/apiserver/infra/mysql/uow/identity \
   ./internal/apiserver/infra/mysql/profilelink
 ```
 
@@ -610,7 +610,7 @@ REST/gRPC 接入相关：
 
 ```bash
 go test ./internal/apiserver/transport/rest/identity \
-  ./internal/apiserver/transport/grpc/service/uc/identity
+  ./internal/apiserver/transport/grpc/service/identity
 ```
 
 SDK Identity 接入相关：

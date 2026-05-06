@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	accountdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
-	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 

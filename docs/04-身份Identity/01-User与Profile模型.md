@@ -79,14 +79,14 @@ REST 侧则通过 `/api/v2/identity` 暴露当前用户、当前用户档案和�
 
 核心源码入口：
 
-- [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go)
-- [../../internal/apiserver/domain/uc/user/types.go](../../internal/apiserver/domain/uc/user/types.go)
-- [../../internal/apiserver/domain/uc/profile/profile.go](../../internal/apiserver/domain/uc/profile/profile.go)
-- [../../internal/apiserver/domain/uc/profile/creation.go](../../internal/apiserver/domain/uc/profile/creation.go)
-- [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go)
-- [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go)
-- [../../internal/apiserver/application/uc/user/services.go](../../internal/apiserver/application/uc/user/services.go)
-- [../../internal/apiserver/application/uc/profile/services.go](../../internal/apiserver/application/uc/profile/services.go)
+- [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
+- [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)
+- [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go)
+- [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go)
+- [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
+- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/application/identity/user/services.go](../../internal/apiserver/application/identity/user/services.go)
+- [../../internal/apiserver/application/identity/profile/services.go](../../internal/apiserver/application/identity/profile/services.go)
 - [../../internal/apiserver/container/assembler/user.go](../../internal/apiserver/container/assembler/user.go)
 - [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go)
 
@@ -163,18 +163,18 @@ classDiagram
 
 | 问题 | 当前答案 | 代码证据 |
 | --- | --- | --- |
-| User 领域对象在哪里 | `domain/uc/user/user.go`。 | [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go) |
-| User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/uc/user/types.go](../../internal/apiserver/domain/uc/user/types.go) |
-| User 创建后默认状态 | `UserActive`。 | [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go) |
-| User 创建用例是否维护 self profile | `service_create.go` 创建 User 后调用 `SelfProfileEnsurer.Ensure`。 | [../../internal/apiserver/application/uc/user/service_create.go](../../internal/apiserver/application/uc/user/service_create.go) |
-| User blocked 是否撤销 session | `StatusChanger.Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go) |
-| Profile 领域对象在哪里 | `domain/uc/profile/profile.go`。 | [../../internal/apiserver/domain/uc/profile/profile.go](../../internal/apiserver/domain/uc/profile/profile.go) |
-| Profile 创建输入如何统一 | `CreationSpec` + `NewFromCreationSpec`。 | [../../internal/apiserver/domain/uc/profile/creation.go](../../internal/apiserver/domain/uc/profile/creation.go) |
-| Profile 编辑领域服务在哪里 | `domain/uc/profile/editor.go`。 | [../../internal/apiserver/domain/uc/profile/editor.go](../../internal/apiserver/domain/uc/profile/editor.go) |
-| Profile 查询仓储支持什么 | `FindByID`、`FindByIDCard`、`FindSimilar` 等。 | [../../internal/apiserver/domain/uc/profile/repository.go](../../internal/apiserver/domain/uc/profile/repository.go) |
+| User 领域对象在哪里 | `domain/identity/user/user.go`。 | [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
+| User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go) |
+| User 创建后默认状态 | `UserActive`。 | [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
+| User 创建用例是否维护 self profile | `service_create.go` 创建 User 后调用 `SelfProfileEnsurer.Ensure`。 | [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go) |
+| User blocked 是否撤销 session | `StatusChanger.Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go) |
+| Profile 领域对象在哪里 | `domain/identity/profile/profile.go`。 | [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go) |
+| Profile 创建输入如何统一 | `CreationSpec` + `NewFromCreationSpec`。 | [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go) |
+| Profile 编辑领域服务在哪里 | `domain/identity/profile/editor.go`。 | [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go) |
+| Profile 查询仓储支持什么 | `FindByID`、`FindByIDCard`、`FindSimilar` 等。 | [../../internal/apiserver/domain/identity/profile/repository.go](../../internal/apiserver/domain/identity/profile/repository.go) |
 | UserModule 装配了哪些 Identity 能力 | User、Profile、ProfileLink、MyProfiles、MyProfileLinks 等。 | [../../internal/apiserver/container/assembler/user.go](../../internal/apiserver/container/assembler/user.go) |
 | REST Identity 路由在哪里 | `/api/v2/identity`，需要 AuthMiddleware。 | [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go) |
-| gRPC Identity 聚合服务在哪里 | 注册 IdentityRead、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle。 | [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go) |
+| gRPC Identity 聚合服务在哪里 | 注册 IdentityRead、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle。 | [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go) |
 
 ---
 
@@ -208,7 +208,7 @@ ProfileLink
 
 建立关系。
 
-本篇只讲 `User` 与 `Profile` 的模型边界。  
+本篇只讲 `User` 与 `Profile` 的模型边界。
 ProfileLink 的链路、关系创建、关系撤销、当前用户视角 guard，会在下一篇单独展开。
 
 ---
@@ -294,7 +294,7 @@ AuthN onboarding 中的 `UserProvisioner` 会根据已有 account、手机号或
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/user/user.go](../../internal/apiserver/domain/uc/user/user.go)
+- [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
 - [../../internal/apiserver/application/authn/onboarding/user_provisioner.go](../../internal/apiserver/application/authn/onboarding/user_provisioner.go)
 
 ---
@@ -347,14 +347,14 @@ sessionManager.RevokeByUser(ctx, userID, "user_blocked", userID)
 
 也就是说，封禁用户会主动撤销该用户的 active sessions。
 
-`Deactivate` 当前只修改 User 状态，不主动 revoke sessions。  
+`Deactivate` 当前只修改 User 状态，不主动 revoke sessions。
 但是 AuthN 的在线 Verify / Refresh 会通过 subject access 重新检查 User 状态，inactive user 也会导致在线认证失败。
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/user/types.go](../../internal/apiserver/domain/uc/user/types.go)
-- [../../internal/apiserver/domain/uc/user/lifecycler.go](../../internal/apiserver/domain/uc/user/lifecycler.go)
-- [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go)
+- [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)
+- [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go)
+- [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go)
 
 ---
 
@@ -380,12 +380,12 @@ ValidateUpdateContact
 CheckPhoneUnique
 ```
 
-其中手机号唯一性通过 `repo.FindByPhone` 检查。  
+其中手机号唯一性通过 `repo.FindByPhone` 检查。
 如果手机号已存在，返回用户已存在错误。
 
 ### ProfileEditor
 
-User 的 `ProfileEditor` 名字容易和 Profile 模块混淆。  
+User 的 `ProfileEditor` 名字容易和 Profile 模块混淆。
 它编辑的是 User 自身资料，不是业务档案 Profile。
 
 能力包括：
@@ -421,11 +421,11 @@ Block
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/user/interfaces.go](../../internal/apiserver/domain/uc/user/interfaces.go)
-- [../../internal/apiserver/domain/uc/user/validator.go](../../internal/apiserver/domain/uc/user/validator.go)
-- [../../internal/apiserver/domain/uc/user/profile_editor.go](../../internal/apiserver/domain/uc/user/profile_editor.go)
-- [../../internal/apiserver/domain/uc/user/lifecycler.go](../../internal/apiserver/domain/uc/user/lifecycler.go)
-- [../../internal/apiserver/domain/uc/user/repository.go](../../internal/apiserver/domain/uc/user/repository.go)
+- [../../internal/apiserver/domain/identity/user/interfaces.go](../../internal/apiserver/domain/identity/user/interfaces.go)
+- [../../internal/apiserver/domain/identity/user/validator.go](../../internal/apiserver/domain/identity/user/validator.go)
+- [../../internal/apiserver/domain/identity/user/profile_editor.go](../../internal/apiserver/domain/identity/user/profile_editor.go)
+- [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go)
+- [../../internal/apiserver/domain/identity/user/repository.go](../../internal/apiserver/domain/identity/user/repository.go)
 
 ---
 
@@ -466,7 +466,7 @@ CreateUserDTO
 ```mermaid
 sequenceDiagram
     participant App as "User Creator"
-    participant UOW as "UC UoW"
+    participant UOW as "Identity UoW"
     participant Validator as "User Validator"
     participant User as "User Entity"
     participant Repo as "User Repository"
@@ -480,7 +480,7 @@ sequenceDiagram
     Ensurer-->>UOW: self profile/link exists
 ```
 
-关键点是：User 创建后会维护 self profile/link 不变量。  
+关键点是：User 创建后会维护 self profile/link 不变量。
 这意味着系统希望每个登录主体至少有一个“本人档案”关系。
 
 ### 5.2 Edit User
@@ -514,7 +514,7 @@ parse user id
   -> if Block: sessionManager.RevokeByUser
 ```
 
-注意：`Block` 的 session revoke 在 UoW 成功后执行。  
+注意：`Block` 的 session revoke 在 UoW 成功后执行。
 这避免用户状态更新失败时误撤销 session。
 
 ### 5.4 Query User
@@ -530,11 +530,11 @@ GetByPhone
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/user/services.go](../../internal/apiserver/application/uc/user/services.go)
-- [../../internal/apiserver/application/uc/user/service_create.go](../../internal/apiserver/application/uc/user/service_create.go)
-- [../../internal/apiserver/application/uc/user/service_profile.go](../../internal/apiserver/application/uc/user/service_profile.go)
-- [../../internal/apiserver/application/uc/user/service_status.go](../../internal/apiserver/application/uc/user/service_status.go)
-- [../../internal/apiserver/application/uc/user/service_query.go](../../internal/apiserver/application/uc/user/service_query.go)
+- [../../internal/apiserver/application/identity/user/services.go](../../internal/apiserver/application/identity/user/services.go)
+- [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go)
+- [../../internal/apiserver/application/identity/user/service_profile.go](../../internal/apiserver/application/identity/user/service_profile.go)
+- [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go)
+- [../../internal/apiserver/application/identity/user/service_query.go](../../internal/apiserver/application/identity/user/service_query.go)
 
 ---
 
@@ -579,7 +579,7 @@ name cannot be empty
 
 ### Profile 的核心语义
 
-Profile 不是登录主体。  
+Profile 不是登录主体。
 Profile 更接近业务对象，例如：
 
 ```text
@@ -589,14 +589,14 @@ Profile 更接近业务对象，例如：
 业务侧需要被记录和关联的个体资料
 ```
 
-它可以被多个 User 关联。  
+它可以被多个 User 关联。
 例如一个儿童档案可能同时被父母、祖父母关联。
 
 这就是为什么 Profile 不应该直接塞进 User。
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profile/profile.go](../../internal/apiserver/domain/uc/profile/profile.go)
+- [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go)
 
 ---
 
@@ -658,8 +658,8 @@ SelfProfileEnsurer 创建 self Profile
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profile/creation.go](../../internal/apiserver/domain/uc/profile/creation.go)
-- [../../internal/apiserver/application/uc/profile/profile_creation.go](../../internal/apiserver/application/uc/profile/profile_creation.go)
+- [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go)
+- [../../internal/apiserver/application/identity/profile/profile_creation.go](../../internal/apiserver/application/identity/profile/profile_creation.go)
 
 ---
 
@@ -681,7 +681,7 @@ Profile 领域层定义：
 name cannot be empty
 ```
 
-`ValidateUpdateProfile` 当前没有额外规则。  
+`ValidateUpdateProfile` 当前没有额外规则。
 这意味着现阶段性别、生日等值对象的合法性主要在 application input parse 阶段完成。
 
 ### ProfileEditor
@@ -707,10 +707,10 @@ load Profile
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profile/interfaces.go](../../internal/apiserver/domain/uc/profile/interfaces.go)
-- [../../internal/apiserver/domain/uc/profile/validator.go](../../internal/apiserver/domain/uc/profile/validator.go)
-- [../../internal/apiserver/domain/uc/profile/editor.go](../../internal/apiserver/domain/uc/profile/editor.go)
-- [../../internal/apiserver/domain/uc/profile/repository.go](../../internal/apiserver/domain/uc/profile/repository.go)
+- [../../internal/apiserver/domain/identity/profile/interfaces.go](../../internal/apiserver/domain/identity/profile/interfaces.go)
+- [../../internal/apiserver/domain/identity/profile/validator.go](../../internal/apiserver/domain/identity/profile/validator.go)
+- [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go)
+- [../../internal/apiserver/domain/identity/profile/repository.go](../../internal/apiserver/domain/identity/profile/repository.go)
 
 ---
 
@@ -775,7 +775,7 @@ name + gender + birthday
 
 ### 9.4 MyProfiles
 
-`MyProfiles` 是当前用户视角的 Profile 用例。  
+`MyProfiles` 是当前用户视角的 Profile 用例。
 它不是普通 profile CRUD，而是组合了：
 
 ```text
@@ -806,12 +806,12 @@ create Profile
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/profile/services.go](../../internal/apiserver/application/uc/profile/services.go)
-- [../../internal/apiserver/application/uc/profile/service_create.go](../../internal/apiserver/application/uc/profile/service_create.go)
-- [../../internal/apiserver/application/uc/profile/service_profile.go](../../internal/apiserver/application/uc/profile/service_profile.go)
-- [../../internal/apiserver/application/uc/profile/service_query.go](../../internal/apiserver/application/uc/profile/service_query.go)
-- [../../internal/apiserver/application/uc/profile/service_my_profiles.go](../../internal/apiserver/application/uc/profile/service_my_profiles.go)
-- [../../internal/apiserver/application/uc/profile/service_access.go](../../internal/apiserver/application/uc/profile/service_access.go)
+- [../../internal/apiserver/application/identity/profile/services.go](../../internal/apiserver/application/identity/profile/services.go)
+- [../../internal/apiserver/application/identity/profile/service_create.go](../../internal/apiserver/application/identity/profile/service_create.go)
+- [../../internal/apiserver/application/identity/profile/service_profile.go](../../internal/apiserver/application/identity/profile/service_profile.go)
+- [../../internal/apiserver/application/identity/profile/service_query.go](../../internal/apiserver/application/identity/profile/service_query.go)
+- [../../internal/apiserver/application/identity/profile/service_my_profiles.go](../../internal/apiserver/application/identity/profile/service_my_profiles.go)
+- [../../internal/apiserver/application/identity/profile/service_access.go](../../internal/apiserver/application/identity/profile/service_access.go)
 
 ---
 
@@ -867,7 +867,7 @@ ProfileLink 的建立、撤销、self link、不变量、当前用户 guard，�
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/profile_link.go](../../internal/apiserver/domain/uc/profilelink/profile_link.go)
+- [../../internal/apiserver/domain/identity/profilelink/profile_link.go](../../internal/apiserver/domain/identity/profilelink/profile_link.go)
 
 ---
 
@@ -914,23 +914,23 @@ SelfProfileEnsurer 在两个场景被调用：
 
 ### 为什么要有 self profile
 
-因为很多业务流程需要“当前登录用户自己的档案”。  
+因为很多业务流程需要“当前登录用户自己的档案”。
 如果没有 self profile/link，后续 profile 查询、identity 同步和档案关系都会出现空洞。
 
-但 self profile 仍然是 Profile，不是 User 本身。  
+但 self profile 仍然是 Profile，不是 User 本身。
 它只是通过 ProfileLink 与 User 形成 `self` 关系。
 
 核心源码：
 
-- [../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go)
-- [../../internal/apiserver/application/uc/user/service_create.go](../../internal/apiserver/application/uc/user/service_create.go)
+- [../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go](../../internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go)
+- [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go)
 - [../../internal/apiserver/application/authn/onboarding/user_provisioner.go](../../internal/apiserver/application/authn/onboarding/user_provisioner.go)
 
 ---
 
-## 12. UC Unit of Work
+## 12. Identity Unit of Work
 
-Identity/User/Profile/ProfileLink 的应用服务共享 UC UoW。
+Identity/User/Profile/ProfileLink 的应用服务共享 Identity UoW。
 
 UoW 内部仓储：
 
@@ -955,7 +955,7 @@ classDiagram
     UnitOfWork --> TxRepositories
 ```
 
-MySQL UC UoW 会在 GORM transaction 内创建：
+MySQL Identity UoW 会在 GORM transaction 内创建：
 
 ```text
 user repository
@@ -976,9 +976,9 @@ create ProfileLink
 
 核心源码：
 
-- [../../internal/apiserver/application/uc/uow/uow.go](../../internal/apiserver/application/uc/uow/uow.go)
-- [../../internal/apiserver/infra/mysql/uow/uc/uow.go](../../internal/apiserver/infra/mysql/uow/uc/uow.go)
-- [../../internal/apiserver/application/uc/profile/service_my_profiles.go](../../internal/apiserver/application/uc/profile/service_my_profiles.go)
+- [../../internal/apiserver/application/identity/uow/uow.go](../../internal/apiserver/application/identity/uow/uow.go)
+- [../../internal/apiserver/infra/mysql/uow/identity/uow.go](../../internal/apiserver/infra/mysql/uow/identity/uow.go)
+- [../../internal/apiserver/application/identity/profile/service_my_profiles.go](../../internal/apiserver/application/identity/profile/service_my_profiles.go)
 
 ---
 
@@ -996,7 +996,7 @@ SessionManager
 
 | 依赖 | 用途 |
 | --- | --- |
-| `DB` | 创建 UC UoW |
+| `DB` | 创建 Identity UoW |
 | `RoleNameReader` | `/identity/me` 返回 roles |
 | `SessionManager` | User block 时 revoke user sessions |
 
@@ -1021,7 +1021,7 @@ flowchart TD
     RoleNames["AuthZ RoleNameReader"]
     Sessions["AuthN SessionManager"]
 
-    UOW["UC UnitOfWork"]
+    UOW["Identity UnitOfWork"]
     UserCreator["UserCreator"]
     UserEditor["UserEditor"]
     UserStatus["UserStatusChanger"]
@@ -1045,7 +1045,7 @@ flowchart TD
     Sessions --> UserStatus
 ```
 
-这说明 Identity 模块不是孤立模块。  
+这说明 Identity 模块不是孤立模块。
 它依赖：
 
 - AuthZ 提供角色名读取；
@@ -1167,12 +1167,12 @@ flowchart TD
     IdentityService --> Lifecycle
 ```
 
-本篇重点只关注 User/Profile 模型。  
+本篇重点只关注 User/Profile 模型。
 gRPC 的具体 ProfileLink command/query 会在下一篇展开。
 
 核心源码：
 
-- [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go)
+- [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go)
 
 ---
 
@@ -1211,13 +1211,13 @@ user:<user_id>
 
 `/identity/me` 会通过 `RoleNameReader` 读取当前用户在当前 tenant 和 platform tenant 下的角色名。
 
-但 User 不是 Role。  
+但 User 不是 Role。
 User 只是 AuthZ subject，是否有权限仍由 AuthZ 模块判断。
 
 ### 16.3 与 IDP 的关系
 
-IDP 管第三方身份源配置。  
-AuthN onboarding 可能通过微信身份找到或创建 User。  
+IDP 管第三方身份源配置。
+AuthN onboarding 可能通过微信身份找到或创建 User。
 但 IDP 不直接管理 User/Profile 模型。
 
 ---
@@ -1241,38 +1241,38 @@ AuthN onboarding 可能通过微信身份找到或创建 User。
 
 ### 误区一：User 就是 Profile
 
-不对。  
+不对。
 User 是登录主体，Profile 是业务档案。一个 User 可以关联多个 Profile，一个 Profile 也可以被多个 User 关联。
 
 ### 误区二：Profile 属于某个 User
 
-不准确。  
+不准确。
 Profile 不直接属于 User，关系由 ProfileLink 表达。
 
 ### 误区三：User blocked 只是改一个字段
 
-不完整。  
+不完整。
 当前 User block 成功后还会调用 `sessionManager.RevokeByUser`，影响 AuthN 在线登录态。
 
 ### 误区四：`User.ProfileEditor` 编辑的是 Profile
 
-不对。  
-`domain/uc/user.ProfileEditor` 编辑的是 User 自身资料。  
-Profile 的编辑器在 `domain/uc/profile.ProfileEditor`。
+不对。
+`domain/identity/user.ProfileEditor` 编辑的是 User 自身资料。
+Profile 的编辑器在 `domain/identity/profile.ProfileEditor`。
 
 ### 误区五：MyProfiles 是普通 Profile CRUD
 
-不对。  
+不对。
 MyProfiles 是当前用户视角的 Profile 访问用例，会通过 ProfileLink 检查访问关系。
 
 ### 误区六：SelfProfileEnsurer 把 User 复制成 Profile
 
-不准确。  
+不准确。
 它只是在缺少 active self link 时，用 User.Name 创建一个 self Profile，并建立 self ProfileLink，目的是维护本人档案不变量。
 
 ### 误区七：Identity 模块负责权限判定
 
-不对。  
+不对。
 Identity 模块可读取角色名用于展示，但权限判定仍然是 AuthZ 的职责。
 
 ---
@@ -1281,22 +1281,22 @@ Identity 模块可读取角色名用于展示，但权限判定仍然是 AuthZ �
 
 ### 19.1 User deactivate 不主动 revoke session
 
-当前 `Deactivate` 只改 User 状态并持久化，不主动撤销 session。  
+当前 `Deactivate` 只改 User 状态并持久化，不主动撤销 session。
 但是 AuthN 在线 Verify / Refresh 会重新检查 User 状态，因此 inactive User 的旧 token 在线校验会失败。
 
 ### 19.2 User block 主动 revoke session
 
-当前 `Block` 在 UoW 成功后调用 `sessionManager.RevokeByUser`。  
+当前 `Block` 在 UoW 成功后调用 `sessionManager.RevokeByUser`。
 这体现了 Identity 状态变化对 AuthN session 的主动影响。
 
 ### 19.3 Profile access 目前依赖 ProfileLink guard
 
-`MyProfiles.Get/Patch` 会检查当前 User 是否存在对应 ProfileLink。  
+`MyProfiles.Get/Patch` 会检查当前 User 是否存在对应 ProfileLink。
 它不是 AuthZ resource/action 判定。后续如果要把 Profile 访问纳入统一 AuthZ，需要设计 ResourceKey、Scope 和 Check 链路。
 
 ### 19.4 SelfProfileEnsurer 自动创建 self Profile
 
-User 创建和 AuthN onboarding 都会调用 SelfProfileEnsurer。  
+User 创建和 AuthN onboarding 都会调用 SelfProfileEnsurer。
 这会自动创建 Profile 和 self ProfileLink，是一个重要不变量。测试和文档都应持续保护这个事实。
 
 ---
@@ -1309,7 +1309,7 @@ User 创建和 AuthN onboarding 都会调用 SelfProfileEnsurer。
 | Profile as Business Record | 业务档案可能多人关联 | Profile 独立建模 | 访问必须经 ProfileLink guard |
 | Relationship Entity | User/Profile 关系有类型和状态 | ProfileLink | 链路复杂度高于简单外键 |
 | Self Invariant | 登录用户需要本人档案 | SelfProfileEnsurer | 自动创建 Profile，需要注意业务语义 |
-| Application UoW | Profile + ProfileLink 要同事务 | UC UnitOfWork | service 需要在 tx repos 中完成组合写入 |
+| Application UoW | Profile + ProfileLink 要同事务 | Identity UnitOfWork | service 需要在 tx repos 中完成组合写入 |
 | Cross-module Capability | Identity 状态影响 AuthN/AuthZ | SessionManager / RoleNameReader | 模块边界要靠显式 deps 维护 |
 | Current-user View | 前端关心“我的档案” | MyProfiles / MyProfileLinks | 不等于全局 Profile 管理 |
 
@@ -1320,13 +1320,13 @@ User 创建和 AuthN onboarding 都会调用 SelfProfileEnsurer。
 ### 第一轮：User 领域模型
 
 ```text
-internal/apiserver/domain/uc/user/types.go
-internal/apiserver/domain/uc/user/user.go
-internal/apiserver/domain/uc/user/interfaces.go
-internal/apiserver/domain/uc/user/validator.go
-internal/apiserver/domain/uc/user/profile_editor.go
-internal/apiserver/domain/uc/user/lifecycler.go
-internal/apiserver/domain/uc/user/repository.go
+internal/apiserver/domain/identity/user/types.go
+internal/apiserver/domain/identity/user/user.go
+internal/apiserver/domain/identity/user/interfaces.go
+internal/apiserver/domain/identity/user/validator.go
+internal/apiserver/domain/identity/user/profile_editor.go
+internal/apiserver/domain/identity/user/lifecycler.go
+internal/apiserver/domain/identity/user/repository.go
 ```
 
 目标：理解 User 的字段、状态、领域能力和持久化端口。
@@ -1334,11 +1334,11 @@ internal/apiserver/domain/uc/user/repository.go
 ### 第二轮：User 应用服务
 
 ```text
-internal/apiserver/application/uc/user/services.go
-internal/apiserver/application/uc/user/service_create.go
-internal/apiserver/application/uc/user/service_profile.go
-internal/apiserver/application/uc/user/service_status.go
-internal/apiserver/application/uc/user/service_query.go
+internal/apiserver/application/identity/user/services.go
+internal/apiserver/application/identity/user/service_create.go
+internal/apiserver/application/identity/user/service_profile.go
+internal/apiserver/application/identity/user/service_status.go
+internal/apiserver/application/identity/user/service_query.go
 ```
 
 目标：理解 User 创建、资料编辑、状态变更、查询。
@@ -1346,12 +1346,12 @@ internal/apiserver/application/uc/user/service_query.go
 ### 第三轮：Profile 领域模型
 
 ```text
-internal/apiserver/domain/uc/profile/profile.go
-internal/apiserver/domain/uc/profile/creation.go
-internal/apiserver/domain/uc/profile/interfaces.go
-internal/apiserver/domain/uc/profile/validator.go
-internal/apiserver/domain/uc/profile/editor.go
-internal/apiserver/domain/uc/profile/repository.go
+internal/apiserver/domain/identity/profile/profile.go
+internal/apiserver/domain/identity/profile/creation.go
+internal/apiserver/domain/identity/profile/interfaces.go
+internal/apiserver/domain/identity/profile/validator.go
+internal/apiserver/domain/identity/profile/editor.go
+internal/apiserver/domain/identity/profile/repository.go
 ```
 
 目标：理解 Profile 的字段、创建规格、编辑能力和查询端口。
@@ -1359,13 +1359,13 @@ internal/apiserver/domain/uc/profile/repository.go
 ### 第四轮：Profile 应用服务
 
 ```text
-internal/apiserver/application/uc/profile/services.go
-internal/apiserver/application/uc/profile/profile_creation.go
-internal/apiserver/application/uc/profile/service_create.go
-internal/apiserver/application/uc/profile/service_profile.go
-internal/apiserver/application/uc/profile/service_query.go
-internal/apiserver/application/uc/profile/service_my_profiles.go
-internal/apiserver/application/uc/profile/service_access.go
+internal/apiserver/application/identity/profile/services.go
+internal/apiserver/application/identity/profile/profile_creation.go
+internal/apiserver/application/identity/profile/service_create.go
+internal/apiserver/application/identity/profile/service_profile.go
+internal/apiserver/application/identity/profile/service_query.go
+internal/apiserver/application/identity/profile/service_my_profiles.go
+internal/apiserver/application/identity/profile/service_access.go
 ```
 
 目标：理解普通 Profile 用例与当前用户视角 MyProfiles 用例。
@@ -1373,8 +1373,8 @@ internal/apiserver/application/uc/profile/service_access.go
 ### 第五轮：ProfileLink 边界预读
 
 ```text
-internal/apiserver/domain/uc/profilelink/profile_link.go
-internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go
+internal/apiserver/domain/identity/profilelink/profile_link.go
+internal/apiserver/domain/identity/profilelink/self_profile_ensurer.go
 ```
 
 目标：理解 User/Profile 为什么通过关系边连接。
@@ -1382,14 +1382,14 @@ internal/apiserver/domain/uc/profilelink/self_profile_ensurer.go
 ### 第六轮：模块和协议装配
 
 ```text
-internal/apiserver/application/uc/uow/uow.go
-internal/apiserver/infra/mysql/uow/uc/uow.go
+internal/apiserver/application/identity/uow/uow.go
+internal/apiserver/infra/mysql/uow/identity/uow.go
 internal/apiserver/container/assembler/user.go
 internal/apiserver/transport/rest/identity/router.go
 internal/apiserver/transport/rest/identity/handler/user.go
 internal/apiserver/transport/rest/identity/handler/profile_command.go
 internal/apiserver/transport/rest/identity/handler/profile_query.go
-internal/apiserver/transport/grpc/service/uc/identity/service.go
+internal/apiserver/transport/grpc/service/identity/service.go
 ```
 
 目标：理解 Identity 模块如何被装配成 REST/gRPC 能力。
@@ -1399,15 +1399,15 @@ internal/apiserver/transport/grpc/service/uc/identity/service.go
 ## 22. 验证建议
 
 ```bash
-go test ./internal/apiserver/domain/uc/user \
-  ./internal/apiserver/domain/uc/profile \
-  ./internal/apiserver/domain/uc/profilelink \
-  ./internal/apiserver/application/uc/user \
-  ./internal/apiserver/application/uc/profile \
-  ./internal/apiserver/application/uc/profilelink \
-  ./internal/apiserver/infra/mysql/uow/uc \
+go test ./internal/apiserver/domain/identity/user \
+  ./internal/apiserver/domain/identity/profile \
+  ./internal/apiserver/domain/identity/profilelink \
+  ./internal/apiserver/application/identity/user \
+  ./internal/apiserver/application/identity/profile \
+  ./internal/apiserver/application/identity/profilelink \
+  ./internal/apiserver/infra/mysql/uow/identity \
   ./internal/apiserver/transport/rest/identity \
-  ./internal/apiserver/transport/grpc/service/uc/identity
+  ./internal/apiserver/transport/grpc/service/identity
 
 make docs-hygiene
 ```
@@ -1428,7 +1428,7 @@ make docs-hygiene
 | REST /identity/me | 从 JWT context 读取 user_id |
 | REST /identity/profiles/:id | 只能访问当前用户 linked profile |
 | UserModule init | DB required，SessionManager/RoleNameReader 可被注入 |
-| UC UoW | Users/Profiles/ProfileLinks 在同一事务中可用 |
+| Identity UoW | Users/Profiles/ProfileLinks 在同一事务中可用 |
 
 ---
 

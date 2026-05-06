@@ -32,7 +32,7 @@ DROP TABLE IF EXISTS `auth_token_audit`;
 DROP TABLE IF EXISTS `auth_credentials`;
 DROP TABLE IF EXISTS `auth_accounts`;
 
--- UC module
+-- Identity module
 DROP TABLE IF EXISTS `profile_links`;
 DROP TABLE IF EXISTS `profiles`;
 DROP TABLE IF EXISTS `users`;

@@ -172,7 +172,7 @@ internal/apiserver/application/authz/
 #### 用户域应用服务
 
 ```
-internal/apiserver/application/uc/
+internal/apiserver/application/identity/
 ├── user/
 │   ├── services.go                  # 用户应用服务接口
 │   ├── services_impl.go             # 实现 (Register/Rename/UpdateContact)
@@ -303,7 +303,7 @@ internal/apiserver/domain/authz/
 #### 用户域
 
 ```
-internal/apiserver/domain/uc/
+internal/apiserver/domain/identity/
 ├── user/
 │   ├── user.go                      # User 聚合根
 │   ├── status.go                    # UserStatus 值对象 (枚举)
@@ -806,11 +806,11 @@ pkg/sdk/
 用户创建链：Request → Handler → UserService → UserRepository → User 聚合根
 
 关键类型定义文件：
-- domain/uc/user/user.go                       (User 聚合根)
-- domain/uc/profile/profile.go                     (Profile 聚合根)
-- domain/uc/ref/ref.go       (Ref 关系)
-- application/uc/uow/uow.go                    (UnitOfWork 事务)
-- application/uc/user/services.go              (用户应用服务)
+- domain/identity/user/user.go                       (User 聚合根)
+- domain/identity/profile/profile.go                     (Profile 聚合根)
+- domain/identity/ref/ref.go       (Ref 关系)
+- application/identity/uow/uow.go                    (UnitOfWork 事务)
+- application/identity/user/services.go              (用户应用服务)
 ```
 
 ---
@@ -824,7 +824,7 @@ pkg/sdk/
 | 整体架构 | [docs/00-概览/01-系统架构总览.md](docs/00-概览/01-系统架构总览.md) |
 | 登录流程 | [docs/05-专题分析/01-认证链路.md](docs/05-专题分析/01-认证链路.md) + [internal/apiserver/interface/authn/restful/handler/auth.go](internal/apiserver/interface/authn/restful/handler/auth.go) |
 | 权限检查 | [docs/05-专题分析/03-授权判定链路.md](docs/05-专题分析/03-授权判定链路.md) + [internal/apiserver/infra/casbin/adapter.go](internal/apiserver/infra/casbin/adapter.go) |
-| 监护关系 | [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md) + [internal/apiserver/domain/uc/ref/ref.go](internal/apiserver/domain/uc/ref/ref.go) |
+| 监护关系 | [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md) + [internal/apiserver/domain/identity/ref/ref.go](internal/apiserver/domain/identity/ref/ref.go) |
 | CQRS 实践 | [docs/04-基础设施与运维/02-CQRS模式实践.md](docs/04-基础设施与运维/02-CQRS模式实践.md) + [internal/apiserver/application/authz/role/](internal/apiserver/application/authz/role/) |
 | 六边形架构 | [docs/04-基础设施与运维/01-六边形架构实践.md](docs/04-基础设施与运维/01-六边形架构实践.md) + [internal/apiserver/container/assembler/](internal/apiserver/container/assembler/) |
 | 缓存系统 | [docs/05-专题分析/05-IAM缓存层.md](docs/05-专题分析/05-IAM缓存层.md) + [internal/apiserver/infra/redis/](internal/apiserver/infra/redis/) |
@@ -934,7 +934,7 @@ build/docker/
 | 如何添加新的登录方式？ | [internal/apiserver/infra/authentication/](internal/apiserver/infra/authentication/) + [internal/apiserver/domain/authn/authentication/](internal/apiserver/domain/authn/authentication/) |
 | 如何修改 Token 有效期？ | [internal/apiserver/domain/authn/token/](internal/apiserver/domain/authn/token/) + [internal/apiserver/application/authn/token/](internal/apiserver/application/authn/token/) |
 | 如何添加新权限规则？ | [internal/apiserver/application/authz/policy/](internal/apiserver/application/authz/policy/) |
-| 如何扩展用户信息？ | [internal/apiserver/domain/uc/user/](internal/apiserver/domain/uc/user/) + [configs/mysql/schema.sql](configs/mysql/schema.sql) |
+| 如何扩展用户信息？ | [internal/apiserver/domain/identity/user/](internal/apiserver/domain/identity/user/) + [configs/mysql/schema.sql](configs/mysql/schema.sql) |
 | 如何使用 gRPC 接口？ | [api/grpc/iam/](api/grpc/iam/) + [internal/apiserver/interface/*/grpc/](internal/apiserver/interface/*/grpc/) |
 | 如何配置 JWKS 轮换？ | [internal/apiserver/application/authn/jwks/key_rotation.go](internal/apiserver/application/authn/jwks/key_rotation.go) + [configs/apiserver.*.yaml](configs/apiserver.prod.yaml) |
 | 如何集成新的 IDP？ | [internal/apiserver/domain/idp/](internal/apiserver/domain/idp/) + [internal/apiserver/infra/wechat/](internal/apiserver/infra/wechat/) |

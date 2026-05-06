@@ -1132,8 +1132,8 @@ internal/apiserver/infra/cache/redis/session_store.go
 ### 第四轮：User/Account 状态
 
 ```text
-internal/apiserver/domain/uc/user/user.go
-internal/apiserver/domain/uc/user/types.go
+internal/apiserver/domain/identity/user/user.go
+internal/apiserver/domain/identity/user/types.go
 internal/apiserver/domain/authn/account/account.go
 ```
 
@@ -1156,7 +1156,7 @@ internal/apiserver/infra/token/keyset
 go test ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
   ./internal/apiserver/infra/cache/redis \
-  ./internal/apiserver/domain/uc/user \
+  ./internal/apiserver/domain/identity/user \
   ./internal/apiserver/domain/authn/account
 
 make docs-hygiene

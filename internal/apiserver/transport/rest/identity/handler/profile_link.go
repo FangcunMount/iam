@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profilelink"
+	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"

@@ -316,8 +316,8 @@ pkg/sdk/README.md
 | AuthN 领域层 | `internal/apiserver/domain/authn` |
 | AuthZ 应用层 | `internal/apiserver/application/authz` |
 | AuthZ 领域层 | `internal/apiserver/domain/authz` |
-| Identity 应用层 | `internal/apiserver/application/uc` |
-| Identity 领域层 | `internal/apiserver/domain/uc` |
+| Identity 应用层 | `internal/apiserver/application/identity` |
+| Identity 领域层 | `internal/apiserver/domain/identity` |
 | IDP 应用层 | `internal/apiserver/application/idp` |
 | IDP 领域层 | `internal/apiserver/domain/idp` |
 | JWT / JWKS | `internal/apiserver/infra/token` |

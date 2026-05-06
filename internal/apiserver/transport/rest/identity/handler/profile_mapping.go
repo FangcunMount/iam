@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/uc/profile"
+	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
 )
 

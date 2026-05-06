@@ -9,8 +9,8 @@ import (
 	role "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	wechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	profile "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/profile"
-	user "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	profile "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
+	user "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )

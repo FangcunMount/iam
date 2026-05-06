@@ -11,7 +11,7 @@ import (
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/uc/user"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"

@@ -94,5 +94,5 @@ go test ./internal/apiserver/transport/grpc/... ./internal/pkg/grpc ./pkg/sdk/..
 如果 proto 新增 service，还必须检查：
 
 - [../../internal/apiserver/transport/grpc/proto_contract_test.go](../../internal/apiserver/transport/grpc/proto_contract_test.go)
-- [../../internal/apiserver/transport/grpc/service/uc/identity/contract_alignment_test.go](../../internal/apiserver/transport/grpc/service/uc/identity/contract_alignment_test.go)
+- [../../internal/apiserver/transport/grpc/service/identity/contract_alignment_test.go](../../internal/apiserver/transport/grpc/service/identity/contract_alignment_test.go)
 - SDK public API compile tests：[../../pkg/sdk/public_api_compile_test.go](../../pkg/sdk/public_api_compile_test.go)

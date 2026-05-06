@@ -93,7 +93,7 @@ interface -> application -> domain -> infra (+ container 装配)
 ```
 
 源码实现情况：
-- [internal/apiserver/application/uc/profile/services_impl.go](internal/apiserver/application/uc/profile/services_impl.go)
+- [internal/apiserver/application/identity/profile/services_impl.go](internal/apiserver/application/identity/profile/services_impl.go)
 - 确实是两步分散的写操作，但**没有显式的 saga 或补偿机制**
 - 如果第二步 (ref) 失败，孤立的 profile 记录会保留
 
@@ -157,9 +157,9 @@ interface -> application -> domain -> infra (+ container 装配)
 
 | 特性 | 文档说法 | 源码实现 | 一致性 |
 | ----- | -------- | -------- | ------ |
-| User 对象 | 用户档案锚点 | ✅ [internal/apiserver/domain/uc/user/user.go](internal/apiserver/domain/uc/user/user.go) | ✅ |
-| Profile 对象 | 儿童身份对象 | ✅ [internal/apiserver/domain/uc/profile/profile.go](internal/apiserver/domain/uc/profile/profile.go) | ✅ |
-| Ref | 监护关系、relation/established_at/revoked_at | ✅ [internal/apiserver/domain/uc/ref/ref.go](internal/apiserver/domain/uc/ref/ref.go) | ✅ |
+| User 对象 | 用户档案锚点 | ✅ [internal/apiserver/domain/identity/user/user.go](internal/apiserver/domain/identity/user/user.go) | ✅ |
+| Profile 对象 | 儿童身份对象 | ✅ [internal/apiserver/domain/identity/profile/profile.go](internal/apiserver/domain/identity/profile/profile.go) | ✅ |
+| Ref | 监护关系、relation/established_at/revoked_at | ✅ [internal/apiserver/domain/identity/ref/ref.go](internal/apiserver/domain/identity/ref/ref.go) | ✅ |
 | REST 入口 | `/api/v1/identity/me`、`/me/profiles` 等 | ✅ [api/rest/identity.v1.yaml](api/rest/identity.v1.yaml) | ✅ |
 | gRPC 入口 | `IdentityRead`、`RefQuery` 等 | ✅ [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto) | ✅ |
 
@@ -484,7 +484,7 @@ rpc IdentityStream(IdentityStreamRequest) returns (stream IdentityStreamResponse
 
 3. **用户域**:
    - 阅读: [docs/02-业务域/03-user-用户&儿童&Ref.md](docs/02-业务域/03-user-用户&儿童&Ref.md)
-   - 源码: [internal/apiserver/domain/uc/](internal/apiserver/domain/uc/)
+   - 源码: [internal/apiserver/domain/identity/](internal/apiserver/domain/identity/)
 
 ### 第三阶段：深度理解（可选，3-5 天）
 1. **CQRS 实践**: [docs/04-基础设施与运维/02-CQRS模式实践.md](docs/04-基础设施与运维/02-CQRS模式实践.md)

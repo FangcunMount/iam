@@ -862,8 +862,8 @@ User module 会创建 identity gRPC 聚合服务。
 核心源码：
 
 - [../../internal/apiserver/container/grpc_registry.go](../../internal/apiserver/container/grpc_registry.go)
-- [../../internal/apiserver/transport/grpc/service/uc/service.go](../../internal/apiserver/transport/grpc/service/uc/service.go)
-- [../../internal/apiserver/transport/grpc/service/uc/identity/service.go](../../internal/apiserver/transport/grpc/service/uc/identity/service.go)
+- [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go)
+- [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go)
 - [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)
 
 ### 12.3 IDP gRPC
@@ -1033,8 +1033,8 @@ internal/pkg/middleware/authn/jwt_middleware.go
 internal/apiserver/container/grpc_registry.go
 internal/apiserver/transport/grpc/registry.go
 internal/apiserver/transport/grpc/service/authn/service.go
-internal/apiserver/transport/grpc/service/uc/service.go
-internal/apiserver/transport/grpc/service/uc/identity/service.go
+internal/apiserver/transport/grpc/service/identity/service.go
+internal/apiserver/transport/grpc/service/identity/service.go
 internal/apiserver/transport/grpc/service/authz
 internal/apiserver/transport/grpc/service/idp
 ```
