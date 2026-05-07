@@ -15,6 +15,9 @@ type stubProfileLinkRepo struct {
 	createArgs      []*ProfileLink
 	createErr       error
 	findErr         error
+	isLinkedErr     error
+	linked          bool
+	isLinkedCalls   int
 	findByUserErr   error
 	findCalls       int
 }
@@ -61,15 +64,21 @@ func (s *stubProfileLinkRepo) FindByUserIDAndProfileIDIncludingRevoked(context.C
 	return nil, nil
 }
 func (s *stubProfileLinkRepo) IsLinked(context.Context, meta.ID, meta.ID) (bool, error) {
-	return false, nil
+	s.isLinkedCalls++
+	if s.isLinkedErr != nil {
+		return false, s.isLinkedErr
+	}
+	return s.linked, nil
 }
 func (s *stubProfileLinkRepo) Update(context.Context, *ProfileLink) error { return nil }
 
 // seqProfileLinkRepo 提供按调用序列返回不同结果的 FindByProfileID，用于并发行为测试
 type seqProfileLinkRepo struct {
-	mu        sync.Mutex
-	calls     int
-	responses [][]*ProfileLink
+	mu              sync.Mutex
+	calls           int
+	responses       [][]*ProfileLink
+	isLinkedCalls   int
+	linkedResponses []bool
 }
 
 func (s *seqProfileLinkRepo) Create(context.Context, *ProfileLink) error { return nil }
@@ -102,6 +111,16 @@ func (s *seqProfileLinkRepo) FindByUserIDAndProfileIDIncludingRevoked(context.Co
 	return nil, nil
 }
 func (s *seqProfileLinkRepo) IsLinked(context.Context, meta.ID, meta.ID) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.isLinkedCalls < len(s.linkedResponses) {
+		res := s.linkedResponses[s.isLinkedCalls]
+		s.isLinkedCalls++
+		return res, nil
+	}
+	if len(s.linkedResponses) > 0 {
+		return s.linkedResponses[len(s.linkedResponses)-1], nil
+	}
 	return false, nil
 }
 func (s *seqProfileLinkRepo) Update(context.Context, *ProfileLink) error { return nil }

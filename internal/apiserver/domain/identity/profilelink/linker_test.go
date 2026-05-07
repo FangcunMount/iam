@@ -47,11 +47,8 @@ func TestProfileLinker_LinkDispatchesSelfRelation(t *testing.T) {
 }
 
 func TestProfileLinker_LinkRejectsDuplicateActiveUserProfile(t *testing.T) {
-	existing := &ProfileLink{User: meta.FromUint64(2), Profile: meta.FromUint64(1)}
 	profileLinkRepo := &stubProfileLinkRepo{
-		profilesResults: map[uint64][]*ProfileLink{
-			1: {existing},
-		},
+		linked: true,
 	}
 	manager := NewLinker(profileLinkRepo)
 
@@ -60,6 +57,8 @@ func TestProfileLinker_LinkRejectsDuplicateActiveUserProfile(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
 	assert.Contains(t, fmt.Sprintf("%-v", err), "profile link already exists")
+	assert.Equal(t, 1, profileLinkRepo.isLinkedCalls)
+	assert.Equal(t, 0, profileLinkRepo.findCalls)
 }
 
 func TestProfileLinker_LinkAllowsMultipleRelationProfilesForUser(t *testing.T) {
@@ -83,14 +82,14 @@ func TestProfileLinker_LinkAllowsMultipleRelationProfilesForUser(t *testing.T) {
 }
 
 func TestProfileLinker_LinkFindByProfileError(t *testing.T) {
-	profileLinkRepo := &stubProfileLinkRepo{findErr: errors.New("db error")}
+	profileLinkRepo := &stubProfileLinkRepo{isLinkedErr: errors.New("db error")}
 	manager := NewLinker(profileLinkRepo)
 
 	profileLink, err := manager.Link(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
 	require.Error(t, err)
 	assert.Nil(t, profileLink)
-	assert.Contains(t, fmt.Sprintf("%-v", err), "find profile links failed")
+	assert.Contains(t, fmt.Sprintf("%-v", err), "check profile link failed")
 }
 
 func TestProfileLinker_RevokeSuccess(t *testing.T) {
@@ -139,12 +138,8 @@ func TestProfileLinker_RevokeFindError(t *testing.T) {
 }
 
 func TestProfileLinker_LinkConcurrentDuplicateDetection(t *testing.T) {
-	existing := &ProfileLink{User: meta.FromUint64(2), Profile: meta.FromUint64(1)}
 	seq := &seqProfileLinkRepo{
-		responses: [][]*ProfileLink{
-			{},
-			{existing},
-		},
+		linkedResponses: []bool{false, true},
 	}
 	manager := NewLinker(seq)
 

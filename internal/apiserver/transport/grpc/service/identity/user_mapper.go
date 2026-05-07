@@ -28,13 +28,20 @@ func userResultToProto(result *userApp.UserResult) *identityv2.User {
 	return &identityv2.User{
 		Id:                 result.ID,
 		Status:             userStatusToProto(result.Status),
-		Nickname:           result.Name,
+		Nickname:           userProtoNickname(result),
 		AvatarUrl:          "",
 		Contacts:           contacts,
 		ExternalIdentities: []*identityv2.ExternalIdentity{},
 		CreatedAt:          nil,
 		UpdatedAt:          nil,
 	}
+}
+
+func userProtoNickname(result *userApp.UserResult) string {
+	if result.Nickname != "" {
+		return result.Nickname
+	}
+	return result.Name
 }
 
 func userStatusToProto(status userDomain.UserStatus) identityv2.UserStatus {

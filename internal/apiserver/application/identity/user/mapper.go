@@ -22,11 +22,12 @@ func toUserResult(user *domain.User) *UserResult {
 	}
 
 	return &UserResult{
-		ID:     user.ID.String(),
-		Name:   user.Name,
-		Phone:  user.Phone.String(),
-		Email:  user.Email.String(),
-		Status: user.Status,
+		ID:       user.ID.String(),
+		Name:     user.Name,
+		Nickname: user.Nickname,
+		Phone:    user.Phone.String(),
+		Email:    user.Email.String(),
+		Status:   user.Status,
 	}
 }
 

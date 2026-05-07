@@ -17,11 +17,12 @@ import (
 
 func TestUserResultToProtoKeepsContactsAndStatus(t *testing.T) {
 	got := userResultToProto(&userApp.UserResult{
-		ID:     "user-1",
-		Name:   "Alice",
-		Phone:  "+8613800138000",
-		Email:  "alice@example.com",
-		Status: userDomain.UserBlocked,
+		ID:       "user-1",
+		Name:     "Alice Legal",
+		Nickname: "Alice",
+		Phone:    "+8613800138000",
+		Email:    "alice@example.com",
+		Status:   userDomain.UserBlocked,
 	})
 
 	require.Equal(t, "user-1", got.Id)
@@ -30,6 +31,15 @@ func TestUserResultToProtoKeepsContactsAndStatus(t *testing.T) {
 	require.Len(t, got.Contacts, 2)
 	require.Equal(t, identityv2.ContactType_CONTACT_TYPE_PHONE, got.Contacts[0].Type)
 	require.Equal(t, identityv2.ContactType_CONTACT_TYPE_EMAIL, got.Contacts[1].Type)
+}
+
+func TestUserResultToProtoFallsBackToNameWhenNicknameEmpty(t *testing.T) {
+	got := userResultToProto(&userApp.UserResult{
+		ID:   "user-1",
+		Name: "Alice",
+	})
+
+	require.Equal(t, "Alice", got.Nickname)
 }
 
 func TestProfileResultToProtoFormatsGenderAndIdentity(t *testing.T) {

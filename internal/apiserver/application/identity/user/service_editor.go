@@ -239,9 +239,7 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 				if err != nil {
 					return err
 				}
-				if err := modifiedUser.Rename(nickname); err != nil {
-					return err
-				}
+				modifiedUser.UpdateNickname(nickname)
 				if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
 					return err
 				}

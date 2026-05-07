@@ -20,6 +20,8 @@ type Linker interface {
 	LinkRelation(ctx context.Context, userID meta.ID, profileID meta.ID, relation Relation) (*ProfileLink, error)
 	// Revoke 撤销档案关系。
 	Revoke(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error)
+	// RevokeLink 撤销已经解析出的档案关系。
+	RevokeLink(profileLink *ProfileLink) (*ProfileLink, error)
 }
 
 // SelfProfileGuarder 保护 self profile 唯一性。

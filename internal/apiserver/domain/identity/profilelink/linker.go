@@ -54,17 +54,12 @@ func (l *ProfileLinker) LinkRelation(ctx context.Context, userID meta.ID, profil
 }
 
 func (l *ProfileLinker) link(ctx context.Context, userID meta.ID, profileID meta.ID, relation Relation) (*ProfileLink, error) {
-	profileLinks, err := l.links.FindByProfileID(ctx, profileID)
+	linked, err := l.links.IsLinked(ctx, userID, profileID)
 	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrDatabase, "find profile links failed")
+		return nil, perrors.WrapC(err, code.ErrDatabase, "check profile link failed")
 	}
-	for _, link := range profileLinks {
-		if link == nil {
-			continue
-		}
-		if link.User == userID && link.IsActive() {
-			return nil, perrors.WithCode(code.ErrUserInvalid, "profile link already exists")
-		}
+	if linked {
+		return nil, perrors.WithCode(code.ErrUserInvalid, "profile link already exists")
 	}
 
 	return &ProfileLink{
@@ -102,4 +97,14 @@ func (l *ProfileLinker) Revoke(ctx context.Context, userID meta.ID, profileID me
 
 	target.Revoke(l.now())
 	return target, nil
+}
+
+// RevokeLink 撤销已经解析出的档案关系。
+func (l *ProfileLinker) RevokeLink(profileLink *ProfileLink) (*ProfileLink, error) {
+	if profileLink == nil || !profileLink.IsActive() {
+		return nil, perrors.WithCode(code.ErrUserInvalid, "active profile link not found")
+	}
+
+	profileLink.Revoke(l.now())
+	return profileLink, nil
 }

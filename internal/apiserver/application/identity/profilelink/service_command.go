@@ -94,7 +94,7 @@ func (s *commands) Revoke(ctx context.Context, dto RemoveProfileLinkDTO) (*Profi
 			)
 			return err
 		}
-		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID)
+		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID, nil)
 		result = revoked
 		return err
 	})
@@ -124,11 +124,11 @@ func (s *commands) Revoke(ctx context.Context, dto RemoveProfileLinkDTO) (*Profi
 func (s *commands) RevokeBySelector(ctx context.Context, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
 	var result *ProfileLinkResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		userID, profileID, err := resolveRevokeSelector(txCtx, tx, dto)
+		userID, profileID, existing, err := resolveRevokeSelector(txCtx, tx, dto)
 		if err != nil {
 			return err
 		}
-		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID)
+		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID, existing)
 		result = revoked
 		return err
 	})
@@ -170,9 +170,15 @@ func establishProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, dto 
 	return toProfileLinkResult(profileLink, profile), nil
 }
 
-func revokeProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, userID, profileID meta.ID) (*ProfileLinkResult, error) {
+func revokeProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, userID, profileID meta.ID, existing *domain.ProfileLink) (*ProfileLinkResult, error) {
 	linker := domain.NewLinker(tx.ProfileLinks)
-	profileLink, err := linker.Revoke(txCtx, userID, profileID)
+	var profileLink *domain.ProfileLink
+	var err error
+	if existing != nil {
+		profileLink, err = linker.RevokeLink(existing)
+	} else {
+		profileLink, err = linker.Revoke(txCtx, userID, profileID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -206,26 +212,26 @@ func ensureProfileLinkParticipantsExist(txCtx context.Context, tx uow.TxReposito
 	return nil
 }
 
-func resolveRevokeSelector(txCtx context.Context, tx uow.TxRepositories, dto RevokeProfileLinkBySelectorDTO) (meta.ID, meta.ID, error) {
+func resolveRevokeSelector(txCtx context.Context, tx uow.TxRepositories, dto RevokeProfileLinkBySelectorDTO) (meta.ID, meta.ID, *domain.ProfileLink, error) {
 	if dto.ProfileLinkID != "" {
 		profileLinkID, err := parseProfileLinkID(dto.ProfileLinkID)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, nil, err
 		}
 		existing, err := tx.ProfileLinks.FindByID(txCtx, profileLinkID)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, nil, err
 		}
-		return existing.User, existing.Profile, nil
+		return existing.User, existing.Profile, existing, nil
 	}
 
 	userID, err := parseUserID(dto.UserID)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 	profileID, err := parseProfileID(dto.ProfileID)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
-	return userID, profileID, nil
+	return userID, profileID, nil, nil
 }

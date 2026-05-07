@@ -215,7 +215,7 @@ func newUserResponse(u *appuser.UserResult, roles []string) responsedto.UserResp
 	resp := responsedto.UserResponse{
 		ID:       u.ID,
 		Status:   u.Status.String(),
-		Nickname: u.Name,
+		Nickname: userDisplayNickname(u),
 		Roles:    roles,
 	}
 
@@ -234,6 +234,16 @@ func newUserResponse(u *appuser.UserResult, roles []string) responsedto.UserResp
 	}
 
 	return resp
+}
+
+func userDisplayNickname(u *appuser.UserResult) string {
+	if u == nil {
+		return ""
+	}
+	if strings.TrimSpace(u.Nickname) != "" {
+		return u.Nickname
+	}
+	return u.Name
 }
 
 func parseUserID(raw string) (string, error) {

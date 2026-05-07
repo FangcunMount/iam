@@ -71,14 +71,14 @@ func (s *myProfileLinks) Revoke(ctx context.Context, currentUserID string, dto R
 		if dto.ProfileLinkID == "" && dto.UserID == "" {
 			dto.UserID = currentUserID
 		}
-		userID, profileID, err := resolveRevokeSelector(txCtx, tx, dto)
+		userID, profileID, existing, err := resolveRevokeSelector(txCtx, tx, dto)
 		if err != nil {
 			return err
 		}
 		if userID != currentUser {
 			return perrors.WithCode(code.ErrPermissionDenied, "cannot revoke profile link for another user")
 		}
-		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID)
+		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID, existing)
 		result = revoked
 		return err
 	})

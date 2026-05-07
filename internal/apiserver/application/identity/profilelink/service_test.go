@@ -2,6 +2,7 @@ package profilelink_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
@@ -632,6 +633,51 @@ func TestMyProfileLinks_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
 	assert.Equal(t, userResult.ID, revoked.UserID)
 	assert.Equal(t, profileResult.ID, revoked.ProfileID)
 	assert.NotEmpty(t, revoked.RevokedAt)
+}
+
+func TestMyProfileLinks_RevokeBySelectorRejectsAlreadyRevokedProfileLinkID(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	unitOfWork := testutil.NewUnitOfWork(db)
+	ctx := context.Background()
+
+	userService := user.NewCreator(unitOfWork)
+	userResult, err := userService.Create(ctx, user.CreateUserDTO{
+		Name:  "重复撤销用户",
+		Phone: "13800139112",
+		Email: "revoke-twice@example.com",
+	})
+	require.NoError(t, err)
+
+	profileService := profile.NewCreator(unitOfWork)
+	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
+		Name:     "档案",
+		Gender:   1,
+		Birthday: "2020-01-15",
+	})
+	require.NoError(t, err)
+
+	linkCommands := profilelink.NewCommands(unitOfWork)
+	link, err := linkCommands.Establish(ctx, profilelink.CreateProfileLinkDTO{
+		UserID:    userResult.ID,
+		ProfileID: profileResult.ID,
+		Relation:  "parent",
+	})
+	require.NoError(t, err)
+
+	accessService := profilelink.NewMyProfileLinks(unitOfWork)
+	_, err = accessService.Revoke(ctx, userResult.ID, profilelink.RevokeProfileLinkBySelectorDTO{
+		ProfileLinkID: strconv.FormatUint(link.ID, 10),
+	})
+	require.NoError(t, err)
+
+	revokedAgain, err := accessService.Revoke(ctx, userResult.ID, profilelink.RevokeProfileLinkBySelectorDTO{
+		ProfileLinkID: strconv.FormatUint(link.ID, 10),
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, revokedAgain)
+	assert.True(t, perrors.IsCode(err, code.ErrUserInvalid))
+	assert.Contains(t, fmt.Sprintf("%-v", err), "active profile link not found")
 }
 
 func TestMyProfileLinks_RevokeRejectsOtherUsersProfileLink(t *testing.T) {

@@ -73,9 +73,10 @@ type PatchUserProfileDTO struct {
 
 // UserResult 用户结果 DTO
 type UserResult struct {
-	ID     string            // 用户 ID
-	Name   string            // 用户名
-	Phone  string            // 手机号
-	Email  string            // 邮箱
-	Status domain.UserStatus // 用户状态
+	ID       string            // 用户 ID
+	Name     string            // 用户名
+	Nickname string            // 用户昵称
+	Phone    string            // 手机号
+	Email    string            // 邮箱
+	Status   domain.UserStatus // 用户状态
 }

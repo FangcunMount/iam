@@ -41,7 +41,7 @@ func (s *identityLifecycleServer) UpdateUser(ctx context.Context, req *identityv
 
 	// 更新昵称
 	if req.GetNickname() != "" {
-		err := s.userProfileSvc.Rename(ctx, req.GetUserId(), req.GetNickname())
+		err := s.userProfileSvc.Renickname(ctx, req.GetUserId(), req.GetNickname())
 		if err != nil {
 			return nil, toGRPCError(err)
 		}

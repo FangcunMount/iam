@@ -264,12 +264,13 @@ func TestEditor_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, updated)
-	assert.Equal(t, nickname, updated.Name)
+	assert.Equal(t, created.Name, updated.Name)
+	assert.Equal(t, nickname, updated.Nickname)
 	assert.Equal(t, "+86"+phone, updated.Phone)
 	assert.Equal(t, email, updated.Email)
 }
 
-func TestEditor_PatchProfile_RollsBackNameWhenContactUpdateFails(t *testing.T) {
+func TestEditor_PatchProfile_RollsBackNicknameWhenContactUpdateFails(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 	ctx := context.Background()
@@ -282,11 +283,11 @@ func TestEditor_PatchProfile_RollsBackNameWhenContactUpdateFails(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	newName := "不应保存"
+	newNickname := "不应保存"
 	invalidPhone := "bad-phone"
 	updated, err := user.NewEditor(unitOfWork).PatchProfile(ctx, user.PatchUserProfileDTO{
 		UserID:   created.ID,
-		Nickname: &newName,
+		Nickname: &newNickname,
 		Phone:    &invalidPhone,
 	})
 	require.Error(t, err)
@@ -295,6 +296,7 @@ func TestEditor_PatchProfile_RollsBackNameWhenContactUpdateFails(t *testing.T) {
 	persisted, err := user.NewDirectory(unitOfWork).GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, created.Name, persisted.Name)
+	assert.Equal(t, created.Nickname, persisted.Nickname)
 	assert.Equal(t, created.Phone, persisted.Phone)
 	assert.Equal(t, created.Email, persisted.Email)
 }
