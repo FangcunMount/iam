@@ -94,7 +94,7 @@ func validateRelation(relation Relation) error {
 func (linker *ProfileLinker) Revoke(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error) {
 	profileLink, err := linker.links.FindByUserIDAndProfileID(ctx, userID, profileID)
 	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrUserInvalid, "active profile link not found")
+		return nil, perrors.WrapC(err, code.ErrDatabase, "find profile links failed")
 	}
 
 	return linker.RevokeLink(profileLink)

@@ -64,10 +64,26 @@ func (s *stubProfileLinkRepo) FindByUserIDAndTypeIncludingRevoked(ctx context.Co
 func (s *stubProfileLinkRepo) FindByUserIDIncludingRevoked(ctx context.Context, id meta.ID) ([]*ProfileLink, error) {
 	return s.FindByUserID(ctx, id)
 }
-func (s *stubProfileLinkRepo) FindByUserIDAndProfileID(context.Context, meta.ID, meta.ID) (*ProfileLink, error) {
-	return nil, nil
+func (s *stubProfileLinkRepo) FindByUserIDAndProfileID(_ context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error) {
+	return s.findByUserIDAndProfileID(userID, profileID, false)
 }
-func (s *stubProfileLinkRepo) FindByUserIDAndProfileIDIncludingRevoked(context.Context, meta.ID, meta.ID) (*ProfileLink, error) {
+func (s *stubProfileLinkRepo) FindByUserIDAndProfileIDIncludingRevoked(_ context.Context, userID meta.ID, profileID meta.ID) (*ProfileLink, error) {
+	return s.findByUserIDAndProfileID(userID, profileID, true)
+}
+func (s *stubProfileLinkRepo) findByUserIDAndProfileID(userID meta.ID, profileID meta.ID, includeRevoked bool) (*ProfileLink, error) {
+	s.findCalls++
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	for _, link := range s.profilesResults[profileID.Uint64()] {
+		if link == nil || link.User != userID {
+			continue
+		}
+		if !includeRevoked && !link.IsActive() {
+			continue
+		}
+		return link, nil
+	}
 	return nil, nil
 }
 func (s *stubProfileLinkRepo) IsLinked(context.Context, meta.ID, meta.ID) (bool, error) {
