@@ -6,6 +6,7 @@ import (
 	authz "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
@@ -73,7 +74,7 @@ func TestAuthorizationPolicyBindRoleBuildsBusinessChange(t *testing.T) {
 	t.Parallel()
 
 	actor := mustActor(t, "operator-1")
-	subject, err := authz.NewSubject(authz.SubjectTypeUser, "100")
+	subject, err := authz.NewSubject(authz.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 
 	change, err := NewAuthorizationPolicy().BindRole(

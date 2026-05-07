@@ -11,7 +11,8 @@ import (
 
 	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
-	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
@@ -20,7 +21,7 @@ func TestResolveRolesIncludesPlatformRoles(t *testing.T) {
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/me", nil)
-	c.Set(authn.ContextKeyTenantID, "1")
+	requestctx.SetTenantID(c, "1")
 
 	h := &UserHandler{
 		roles: userRoleLookupStub{
@@ -31,7 +32,7 @@ func TestResolveRolesIncludesPlatformRoles(t *testing.T) {
 		},
 	}
 
-	got := h.resolveRoles(c, "10001")
+	got := h.resolveRoles(c, meta.FromUint64(10001))
 	want := []string{"qs:admin", "super_admin"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolveRoles() = %#v, want %#v", got, want)

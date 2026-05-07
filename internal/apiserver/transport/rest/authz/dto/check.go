@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+
 // CheckRequest PDP 判定请求。
 type CheckRequest struct {
 	Object     string `json:"object" binding:"required"`
@@ -7,8 +9,8 @@ type CheckRequest struct {
 	ScopeType  string `json:"scope_type"`
 	ScopeValue string `json:"scope_value"`
 	// SubjectType 可选：user | group；与 SubjectID 同时省略时使用当前 JWT 用户。
-	SubjectType string `json:"subject_type"`
-	SubjectID   string `json:"subject_id"`
+	SubjectType string  `json:"subject_type"`
+	SubjectID   meta.ID `json:"subject_id" swaggertype:"string"`
 }
 
 // CheckResponse PDP 判定结果。

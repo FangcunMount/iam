@@ -31,3 +31,13 @@ func (g Gender) String() string {
 		return "未知"
 	}
 }
+
+// IsValid 判断 Gender 值的合法性
+func (g Gender) IsValid() bool {
+	switch g {
+	case GenderMale, GenderFemale, GenderOther:
+		return true
+	default:
+		return false
+	}
+}

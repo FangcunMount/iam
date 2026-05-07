@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/testutil"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ==================== Creator 测试 ====================
@@ -166,14 +167,14 @@ func TestEditor_Rename_Success(t *testing.T) {
 	newName := "张三丰"
 
 	// Act - 修改名称
-	err = profileService.Rename(ctx, created.ID, newName)
+	err = profileService.Rename(ctx, mustID(t, created.ID), newName)
 
 	// Assert
 	require.NoError(t, err)
 
 	// 验证修改结果
 	queryService := user.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, newName, updated.Name)
 }
@@ -195,7 +196,7 @@ func TestEditor_Rename_EmptyName(t *testing.T) {
 	profileService := user.NewEditor(unitOfWork)
 
 	// Act - 尝试设置空名称
-	err = profileService.Rename(ctx, created.ID, "")
+	err = profileService.Rename(ctx, mustID(t, created.ID), "")
 
 	// Assert - 空名称应该被拒绝
 	require.Error(t, err)
@@ -218,7 +219,7 @@ func TestEditor_UpdateContact_Success(t *testing.T) {
 
 	profileService := user.NewEditor(unitOfWork)
 	dto := user.UpdateContactDTO{
-		UserID: created.ID,
+		UserID: mustID(t, created.ID),
 		Phone:  "13900139000",     // 新手机号
 		Email:  "new@example.com", // 新邮箱
 	}
@@ -231,7 +232,7 @@ func TestEditor_UpdateContact_Success(t *testing.T) {
 
 	// 验证修改结果
 	queryService := user.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, "+86"+dto.Phone, updated.Phone) // Phone 会被规范化为 E.164 格式
 	assert.Equal(t, dto.Email, updated.Email)
@@ -256,7 +257,7 @@ func TestEditor_PatchProfile_OrchestratesProfileAndContact(t *testing.T) {
 	email := "new@example.com"
 
 	updated, err := profileService.PatchProfile(ctx, user.PatchUserProfileDTO{
-		UserID:   created.ID,
+		UserID:   mustID(t, created.ID),
 		Nickname: &nickname,
 		Phone:    &phone,
 		Email:    &email,
@@ -286,14 +287,14 @@ func TestEditor_PatchProfile_RollsBackNicknameWhenContactUpdateFails(t *testing.
 	newNickname := "不应保存"
 	invalidPhone := "bad-phone"
 	updated, err := user.NewEditor(unitOfWork).PatchProfile(ctx, user.PatchUserProfileDTO{
-		UserID:   created.ID,
+		UserID:   mustID(t, created.ID),
 		Nickname: &newNickname,
 		Phone:    &invalidPhone,
 	})
 	require.Error(t, err)
 	assert.Nil(t, updated)
 
-	persisted, err := user.NewDirectory(unitOfWork).GetByID(ctx, created.ID)
+	persisted, err := user.NewDirectory(unitOfWork).GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, created.Name, persisted.Name)
 	assert.Equal(t, created.Nickname, persisted.Nickname)
@@ -318,18 +319,18 @@ func TestStatusChanger_Activate_Success(t *testing.T) {
 
 	// 先停用
 	statusService := user.NewStatusChanger(unitOfWork, nil)
-	err = statusService.Deactivate(ctx, created.ID)
+	err = statusService.Deactivate(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 
 	// Act - 激活
-	err = statusService.Activate(ctx, created.ID)
+	err = statusService.Activate(ctx, mustID(t, created.ID))
 
 	// Assert
 	require.NoError(t, err)
 
 	// 验证状态
 	queryService := user.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, domain.UserActive, updated.Status)
 }
@@ -350,14 +351,14 @@ func TestStatusChanger_Deactivate_Success(t *testing.T) {
 	statusService := user.NewStatusChanger(unitOfWork, nil)
 
 	// Act - 停用
-	err = statusService.Deactivate(ctx, created.ID)
+	err = statusService.Deactivate(ctx, mustID(t, created.ID))
 
 	// Assert
 	require.NoError(t, err)
 
 	// 验证状态
 	queryService := user.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, domain.UserInactive, updated.Status)
 }
@@ -378,14 +379,14 @@ func TestStatusChanger_Block_Success(t *testing.T) {
 	statusService := user.NewStatusChanger(unitOfWork, nil)
 
 	// Act - 封禁
-	err = statusService.Block(ctx, created.ID)
+	err = statusService.Block(ctx, mustID(t, created.ID))
 
 	// Assert
 	require.NoError(t, err)
 
 	// 验证状态
 	queryService := user.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, domain.UserBlocked, updated.Status)
 }
@@ -409,7 +410,7 @@ func TestDirectory_GetByID_Success(t *testing.T) {
 	queryService := user.NewDirectory(unitOfWork)
 
 	// Act
-	result, err := queryService.GetByID(ctx, created.ID)
+	result, err := queryService.GetByID(ctx, mustID(t, created.ID))
 
 	// Assert
 	require.NoError(t, err)
@@ -428,11 +429,18 @@ func TestDirectory_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Act - 查询不存在的用户
-	result, err := queryService.GetByID(ctx, "99999")
+	result, err := queryService.GetByID(ctx, meta.FromUint64(99999))
 
 	// Assert
 	assert.Error(t, err)
 	assert.Nil(t, result)
+}
+
+func mustID(t *testing.T, raw string) meta.ID {
+	t.Helper()
+	id, err := meta.ParseID(raw)
+	require.NoError(t, err)
+	return id
 }
 
 func TestDirectory_GetByPhone_Success(t *testing.T) {

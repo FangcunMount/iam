@@ -12,7 +12,7 @@ func (h *RoleBindingHandler) toAssignmentResponse(a *bindingDomain.Binding) dto.
 		ID:          meta.ID(a.ID),
 		SubjectType: a.SubjectType.String(),
 		SubjectID:   a.SubjectID,
-		RoleID:      meta.FromUint64(a.RoleID),
+		RoleID:      a.RoleID,
 		TenantID:    a.TenantID,
 		GrantedBy:   a.GrantedBy,
 	}

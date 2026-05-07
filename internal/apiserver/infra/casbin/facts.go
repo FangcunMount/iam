@@ -88,7 +88,7 @@ func ScopeFromKey(value string) authzDomain.Scope {
 }
 
 func SubjectKey(subject authzDomain.Subject) string {
-	return string(subject.Type) + ":" + subject.ID
+	return string(subject.Type) + ":" + subject.ID.String()
 }
 
 func RoleKey(roleName string) string {

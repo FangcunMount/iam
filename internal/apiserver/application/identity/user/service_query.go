@@ -5,7 +5,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -26,7 +25,7 @@ func NewDirectory(uow uow.UnitOfWork) Directory {
 }
 
 // GetByID 根据 ID 查询用户
-func (s *directory) GetByID(ctx context.Context, userID string) (*UserResult, error) {
+func (s *directory) GetByID(ctx context.Context, userID meta.ID) (*UserResult, error) {
 	l := logger.L(ctx)
 	l.Debugw("查询用户信息",
 		"action", logger.ActionRead,
@@ -39,17 +38,7 @@ func (s *directory) GetByID(ctx context.Context, userID string) (*UserResult, er
 	// 查询操作也通过 UoW，但不需要写操作，可以直接使用只读事务
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		userIDObj, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionRead,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		user, err := tx.Users.FindByID(txCtx, userIDObj)
+		user, err := tx.Users.FindByID(txCtx, userID)
 		if err != nil {
 			l.Warnw("用户不存在",
 				"action", logger.ActionRead,
@@ -79,7 +68,7 @@ func (s *directory) GetByID(ctx context.Context, userID string) (*UserResult, er
 }
 
 // BatchGetByID 根据 ID 集合批量查询用户。
-func (s *directory) BatchGetByID(ctx context.Context, userIDs []string) (map[string]*UserResult, error) {
+func (s *directory) BatchGetByID(ctx context.Context, userIDs []meta.ID) (map[string]*UserResult, error) {
 	results := map[string]*UserResult{}
 	if len(userIDs) == 0 {
 		return results, nil
@@ -106,12 +95,11 @@ func (s *directory) BatchGetByID(ctx context.Context, userIDs []string) (map[str
 	return results, err
 }
 
-func userIDsForBatch(userIDs []string) []meta.ID {
+func userIDsForBatch(userIDs []meta.ID) []meta.ID {
 	ids := make([]meta.ID, 0, len(userIDs))
 	seen := make(map[meta.ID]struct{}, len(userIDs))
-	for _, userID := range userIDs {
-		id, err := parseUserID(userID)
-		if err != nil || id.IsZero() {
+	for _, id := range userIDs {
+		if id.IsZero() {
 			continue
 		}
 		if _, ok := seen[id]; ok {
@@ -129,7 +117,7 @@ func (s *directory) GetByPhone(ctx context.Context, phone string) (*UserResult, 
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		phoneObj, err := input.ParseOptionalPhone(phone)
+		phoneObj, err := optionalPhone(phone)
 		if err != nil {
 			return err
 		}

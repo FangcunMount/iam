@@ -6,7 +6,7 @@ import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 // GrantRequest 授权请求
 type GrantRequest struct {
 	SubjectType string  `json:"subject_type" binding:"required,oneof=user"`
-	SubjectID   string  `json:"subject_id" binding:"required"`
+	SubjectID   meta.ID `json:"subject_id" binding:"required" swaggertype:"string"`
 	RoleID      meta.ID `json:"role_id" binding:"required" swaggertype:"string"`
 	GrantedBy   string  `json:"granted_by,omitempty"`
 }
@@ -14,7 +14,7 @@ type GrantRequest struct {
 // RevokeRequest 撤销授权请求
 type RevokeRequest struct {
 	SubjectType string  `json:"subject_type" binding:"required,oneof=user"`
-	SubjectID   string  `json:"subject_id" binding:"required"`
+	SubjectID   meta.ID `json:"subject_id" binding:"required" swaggertype:"string"`
 	RoleID      meta.ID `json:"role_id" binding:"required" swaggertype:"string"`
 }
 
@@ -22,7 +22,7 @@ type RevokeRequest struct {
 type AssignmentResponse struct {
 	ID          meta.ID `json:"id" swaggertype:"string"`
 	SubjectType string  `json:"subject_type"`
-	SubjectID   string  `json:"subject_id"`
+	SubjectID   meta.ID `json:"subject_id" swaggertype:"string"`
 	RoleID      meta.ID `json:"role_id" swaggertype:"string"`
 	TenantID    string  `json:"tenant_id"`
 	GrantedBy   string  `json:"granted_by"`
@@ -31,6 +31,6 @@ type AssignmentResponse struct {
 // ListAssignmentQuery 列出赋权查询参数
 type ListAssignmentQuery struct {
 	SubjectType string  `form:"subject_type"`
-	SubjectID   string  `form:"subject_id"`
+	SubjectID   meta.ID `form:"subject_id" swaggertype:"string"`
 	RoleID      meta.ID `form:"role_id" swaggertype:"string"`
 }

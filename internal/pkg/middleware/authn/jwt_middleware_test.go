@@ -12,6 +12,7 @@ import (
 
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
@@ -38,16 +39,16 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 
 	applyVerifiedClaims(c, claims)
 
-	if got := TenantIDFromGin(c); got != "1" {
-		t.Fatalf("TenantIDFromGin() = %q, want %q", got, "1")
+	if got := requestctx.TenantIDOrDefault(c); got != "1" {
+		t.Fatalf("TenantIDOrDefault() = %q, want %q", got, "1")
 	}
-	if got, exists := c.Get(ContextKeyUserID); !exists || got != "110001" {
-		t.Fatalf("gin user_id = %v exists=%v, want %q", got, exists, "110001")
+	if got, exists := c.Get(requestctx.KeyUserID); !exists || got != meta.ID(110001) {
+		t.Fatalf("gin user_id = %v exists=%v, want %v", got, exists, meta.ID(110001))
 	}
-	if got, exists := c.Get(ContextKeyAccountID); !exists || got != "613486856213901870" {
-		t.Fatalf("gin account_id = %v exists=%v, want %q", got, exists, "613486856213901870")
+	if got, exists := c.Get(requestctx.KeyAccountID); !exists || got != meta.ID(613486856213901870) {
+		t.Fatalf("gin account_id = %v exists=%v, want %v", got, exists, meta.ID(613486856213901870))
 	}
-	if got, exists := c.Get(ContextKeyTokenID); !exists || got != "token-1" {
+	if got, exists := c.Get(requestctx.KeyTokenID); !exists || got != "token-1" {
 		t.Fatalf("gin token_id = %v exists=%v, want %q", got, exists, "token-1")
 	}
 }
@@ -57,8 +58,8 @@ func TestRequirePlatformAdminAllowsSuperAdminFromPlatformDomain(t *testing.T) {
 
 	engine := gin.New()
 	engine.Use(func(c *gin.Context) {
-		c.Set(ContextKeyUserID, "10001")
-		c.Set(ContextKeyTenantID, "1")
+		requestctx.SetUserID(c, meta.FromUint64(10001))
+		requestctx.SetTenantID(c, "1")
 		c.Next()
 	})
 
@@ -87,8 +88,8 @@ func TestRequirePlatformAdminRejectsTenantOnlyRoles(t *testing.T) {
 
 	engine := gin.New()
 	engine.Use(func(c *gin.Context) {
-		c.Set(ContextKeyUserID, "10001")
-		c.Set(ContextKeyTenantID, "1")
+		requestctx.SetUserID(c, meta.FromUint64(10001))
+		requestctx.SetTenantID(c, "1")
 		c.Next()
 	})
 

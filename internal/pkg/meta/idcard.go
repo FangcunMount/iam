@@ -32,6 +32,7 @@ func (c IDCard) Number() string      { return c.id.Number() } // 总是返回规
 func (c IDCard) ID() IDNumber        { return c.id }
 func (c IDCard) String() string      { return c.id.String() }
 func (c IDCard) Equal(o IDCard) bool { return c.name == o.name && c.id.Equal(o.id) }
+func (c IDCard) IsValid() bool       { return c.String() != "" }
 
 // ============ DB 编解码：只存储身份证号码 ============
 

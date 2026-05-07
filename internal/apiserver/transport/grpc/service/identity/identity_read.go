@@ -15,8 +15,12 @@ func (s *identityReadServer) GetUser(ctx context.Context, req *identityv2.GetUse
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
 
-	result, err := s.userQuerySvc.GetByID(ctx, req.GetUserId())
+	result, err := s.userQuerySvc.GetByID(ctx, userID)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -35,7 +39,11 @@ func (s *identityReadServer) BatchGetUsers(ctx context.Context, req *identityv2.
 		NotFoundIds: make([]string, 0),
 	}
 
-	usersByID, err := s.userQuerySvc.BatchGetByID(ctx, req.GetUserIds())
+	userIDs, err := parseIDArgs("user_id", req.GetUserIds())
+	if err != nil {
+		return nil, err
+	}
+	usersByID, err := s.userQuerySvc.BatchGetByID(ctx, userIDs)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -95,8 +103,12 @@ func (s *identityReadServer) GetProfile(ctx context.Context, req *identityv2.Get
 	if req == nil || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
+	profileID, err := parseIDArg("profile_id", req.GetProfileId())
+	if err != nil {
+		return nil, err
+	}
 
-	result, err := s.profileQuerySvc.GetByID(ctx, req.GetProfileId())
+	result, err := s.profileQuerySvc.GetByID(ctx, profileID)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -116,7 +128,11 @@ func (s *identityReadServer) BatchGetProfiles(ctx context.Context, req *identity
 	}
 
 	for _, profileID := range req.GetProfileIds() {
-		result, err := s.profileQuerySvc.GetByID(ctx, profileID)
+		parsedProfileID, err := parseIDArg("profile_id", profileID)
+		if err != nil {
+			return nil, err
+		}
+		result, err := s.profileQuerySvc.GetByID(ctx, parsedProfileID)
 		if err != nil {
 			// 如果是未找到错误，添加到 not_found 列表
 			resp.NotFoundIds = append(resp.NotFoundIds, profileID)

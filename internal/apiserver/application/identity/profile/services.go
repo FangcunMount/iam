@@ -4,6 +4,7 @@ import (
 	"context"
 
 	appProfileLink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============= 当前调用者用例接口（Driving Ports）=============
@@ -15,23 +16,33 @@ type Creator interface {
 
 // Editor 编辑档案资料。
 type Editor interface {
-	Rename(ctx context.Context, profileID string, newName string) error
-	UpdateIDCard(ctx context.Context, profileID string, name string, idCard string) error
+	// Rename 重命名档案
+	Rename(ctx context.Context, profileID meta.ID, newName string) error
+	// UpdateIDCard 更新档案身份证号码
+	UpdateIDCard(ctx context.Context, profileID meta.ID, name string, idCard string) error
+	// UpdateProfile 更新档案基础资料
 	UpdateProfile(ctx context.Context, dto UpdateProfileDTO) error
 }
 
 // Directory 查询档案。
 type Directory interface {
-	GetByID(ctx context.Context, profileID string) (*ProfileResult, error)
+	// GetByID 根据 ID 查询档案
+	GetByID(ctx context.Context, profileID meta.ID) (*ProfileResult, error)
+	// GetByIDCard 根据身份证号码查询档案
 	GetByIDCard(ctx context.Context, idCard string) (*ProfileResult, error)
+	// FindSimilar 根据姓名、性别、生日查询可能的匹配档案列表，帮助用户找到可能的重复档案。
 	FindSimilar(ctx context.Context, name string, gender uint8, birthday string) ([]*ProfileResult, error)
 }
 
 // MyProfiles 当前用户视角的档案用例。
 type MyProfiles interface {
-	Create(ctx context.Context, currentUserID string, dto CreateMyProfileDTO) (*CreatedProfileResult, error)
-	List(ctx context.Context, userID string) ([]*ProfileResult, error)
-	Get(ctx context.Context, userID string, profileID string) (*ProfileResult, error)
+	// Create 创建档案并建立与当前用户的关系。relation 可选，表示关系类型，如 "self"、"family" 等。
+	Create(ctx context.Context, currUserID meta.ID, dto CreateMyProfileDTO) (*CreatedProfileResult, error)
+	// List 列出当前用户相关的所有档案及其关系。
+	List(ctx context.Context, userID meta.ID) ([]*ProfileResult, error)
+	// Get 获取当前用户与指定档案的关系和档案信息。
+	Get(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileResult, error)
+	// Patch 更新当前用户与指定档案的关系和/或档案信息。
 	Patch(ctx context.Context, dto PatchMyProfileDTO) (*ProfileResult, error)
 }
 
@@ -56,15 +67,15 @@ type CreateMyProfileDTO struct {
 
 // UpdateProfileDTO 更新档案基础资料 DTO。
 type UpdateProfileDTO struct {
-	ProfileID string
+	ProfileID meta.ID
 	Gender    uint8
 	Birthday  string
 }
 
 // PatchMyProfileDTO 当前用户通过关系更新档案 DTO。
 type PatchMyProfileDTO struct {
-	UserID    string
-	ProfileID string
+	UserID    meta.ID
+	ProfileID meta.ID
 	LegalName *string
 	Gender    *uint8
 	Birthday  *string

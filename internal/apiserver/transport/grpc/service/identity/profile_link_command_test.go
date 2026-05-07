@@ -6,6 +6,7 @@ import (
 
 	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,8 +19,8 @@ func (s *profileLinkCommandStub) Establish(_ context.Context, dto profileLinkApp
 	s.establishCalls = append(s.establishCalls, dto)
 	return &profileLinkApp.ProfileLinkResult{
 		ID:            1,
-		UserID:        dto.UserID,
-		ProfileID:     dto.ProfileID,
+		UserID:        dto.UserID.String(),
+		ProfileID:     dto.ProfileID.String(),
 		Relation:      dto.Relation,
 		EstablishedAt: "2026-04-29T10:20:30Z",
 	}, nil
@@ -28,8 +29,8 @@ func (s *profileLinkCommandStub) Establish(_ context.Context, dto profileLinkApp
 func (s *profileLinkCommandStub) Revoke(_ context.Context, dto profileLinkApp.RemoveProfileLinkDTO) (*profileLinkApp.ProfileLinkResult, error) {
 	return &profileLinkApp.ProfileLinkResult{
 		ID:            1,
-		UserID:        dto.UserID,
-		ProfileID:     dto.ProfileID,
+		UserID:        dto.UserID.String(),
+		ProfileID:     dto.ProfileID.String(),
 		Relation:      "parent",
 		EstablishedAt: "2026-04-29T10:20:30Z",
 		RevokedAt:     "2026-04-29T11:20:30Z",
@@ -40,8 +41,8 @@ func (s *profileLinkCommandStub) RevokeBySelector(_ context.Context, dto profile
 	s.revokeBySelectorCall = append(s.revokeBySelectorCall, dto)
 	return &profileLinkApp.ProfileLinkResult{
 		ID:            2,
-		UserID:        dto.UserID,
-		ProfileID:     dto.ProfileID,
+		UserID:        dto.UserID.String(),
+		ProfileID:     dto.ProfileID.String(),
 		Relation:      "parent",
 		EstablishedAt: "2026-04-29T10:20:30Z",
 		RevokedAt:     "2026-04-29T11:20:30Z",
@@ -61,8 +62,8 @@ func TestProfileLinkCommandEstablishUsesSystemCommand(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, commands.establishCalls, 1)
-	require.Equal(t, "100", commands.establishCalls[0].UserID)
-	require.Equal(t, "200", commands.establishCalls[0].ProfileID)
+	require.Equal(t, meta.FromUint64(100), commands.establishCalls[0].UserID)
+	require.Equal(t, meta.FromUint64(200), commands.establishCalls[0].ProfileID)
 }
 
 func TestProfileLinkCommandRevokeUsesSystemCommandSelector(t *testing.T) {
@@ -83,6 +84,6 @@ func TestProfileLinkCommandRevokeUsesSystemCommandSelector(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, commands.revokeBySelectorCall, 1)
-	require.Equal(t, "100", commands.revokeBySelectorCall[0].UserID)
-	require.Equal(t, "200", commands.revokeBySelectorCall[0].ProfileID)
+	require.Equal(t, meta.FromUint64(100), commands.revokeBySelectorCall[0].UserID)
+	require.Equal(t, meta.FromUint64(200), commands.revokeBySelectorCall[0].ProfileID)
 }

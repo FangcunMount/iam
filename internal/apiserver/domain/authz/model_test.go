@@ -5,18 +5,19 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAuthorizationBusinessModelsValidateRequiredFields(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewSubject("", "100")
+	_, err := NewSubject("", meta.FromUint64(100))
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 
-	subject, err := NewSubject(SubjectTypeUser, " 100 ")
+	subject, err := NewSubject(SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
-	require.Equal(t, Subject{Type: SubjectTypeUser, ID: "100"}, subject)
+	require.Equal(t, Subject{Type: SubjectTypeUser, ID: meta.FromUint64(100)}, subject)
 
 	_, err = NewTenantScope("")
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))

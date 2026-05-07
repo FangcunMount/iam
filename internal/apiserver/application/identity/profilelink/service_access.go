@@ -6,6 +6,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ====================================================
@@ -21,23 +22,23 @@ func NewMyProfileLinks(uow uow.UnitOfWork) MyProfileLinks {
 	return &myProfileLinks{uow: uow}
 }
 
-func (s *myProfileLinks) Grant(ctx context.Context, currentUserID string, dto CreateProfileLinkDTO) (*ProfileLinkResult, error) {
-	if dto.UserID != "" && dto.UserID != currentUserID {
+func (s *myProfileLinks) Grant(ctx context.Context, currentUserID meta.ID, dto CreateProfileLinkDTO) (*ProfileLinkResult, error) {
+	if !dto.UserID.IsZero() && dto.UserID != currentUserID {
 		return nil, perrors.WithCode(code.ErrPermissionDenied, "cannot grant profile link for another user")
 	}
 	dto.UserID = currentUserID
 	return NewCommands(s.uow).Establish(ctx, dto)
 }
 
-func (s *myProfileLinks) List(ctx context.Context, currentUserID string, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
-	if dto.UserID != "" && dto.UserID != currentUserID {
+func (s *myProfileLinks) List(ctx context.Context, currentUserID meta.ID, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
+	if !dto.UserID.IsZero() && dto.UserID != currentUserID {
 		return nil, perrors.WithCode(code.ErrPermissionDenied, "cannot query profile links for another user")
 	}
 	dto.UserID = currentUserID
 	query := NewDirectory(s.uow)
 
 	switch {
-	case dto.UserID != "" && dto.ProfileID != "":
+	case !dto.UserID.IsZero() && !dto.ProfileID.IsZero():
 		if err := ensureActiveProfileLinkAccess(ctx, query, currentUserID, dto.ProfileID); err != nil {
 			return nil, err
 		}
@@ -49,9 +50,9 @@ func (s *myProfileLinks) List(ctx context.Context, currentUserID string, dto Lis
 			return []*ProfileLinkResult{}, nil
 		}
 		return []*ProfileLinkResult{result}, nil
-	case dto.UserID != "":
+	case !dto.UserID.IsZero():
 		return listProfilesByUserID(ctx, query, dto)
-	case dto.ProfileID != "":
+	case !dto.ProfileID.IsZero():
 		if err := ensureActiveProfileLinkAccess(ctx, query, currentUserID, dto.ProfileID); err != nil {
 			return nil, err
 		}
@@ -61,21 +62,17 @@ func (s *myProfileLinks) List(ctx context.Context, currentUserID string, dto Lis
 	}
 }
 
-func (s *myProfileLinks) Revoke(ctx context.Context, currentUserID string, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
+func (s *myProfileLinks) Revoke(ctx context.Context, currentUserID meta.ID, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error) {
 	var result *ProfileLinkResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		currentUser, err := parseUserID(currentUserID)
-		if err != nil {
-			return err
-		}
-		if dto.ProfileLinkID == "" && dto.UserID == "" {
+		if dto.ProfileLinkID.IsZero() && dto.UserID.IsZero() {
 			dto.UserID = currentUserID
 		}
 		userID, profileID, existing, err := resolveRevokeSelector(txCtx, tx, dto)
 		if err != nil {
 			return err
 		}
-		if userID != currentUser {
+		if userID != currentUserID {
 			return perrors.WithCode(code.ErrPermissionDenied, "cannot revoke profile link for another user")
 		}
 		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID, existing)
@@ -106,7 +103,7 @@ func listProfileLinksByProfileID(ctx context.Context, query Directory, dto ListP
 	return query.ListLinksForProfile(ctx, dto.ProfileID)
 }
 
-func ensureActiveProfileLinkAccess(ctx context.Context, query Directory, userID string, profileID string) error {
+func ensureActiveProfileLinkAccess(ctx context.Context, query Directory, userID meta.ID, profileID meta.ID) error {
 	if _, err := query.Get(ctx, userID, profileID); err != nil {
 		return perrors.WithCode(code.ErrPermissionDenied, "you are not an active profile link of this profile")
 	}

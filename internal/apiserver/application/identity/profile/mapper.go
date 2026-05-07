@@ -1,21 +1,8 @@
 package profile
 
-import (
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-)
+import domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
 
 // ============= DTO 转换辅助函数 =============
-
-// parseProfileID 解析档案ID字符串
-func parseProfileID(profileID string) (meta.ID, error) {
-	return input.ParseProfileID(profileID)
-}
-
-func parseProfileAccessUserID(userID string) (meta.ID, error) {
-	return input.ParseUserID(userID)
-}
 
 // toProfileResult 将领域实体转换为 DTO
 func toProfileResult(profile *domain.Profile) *ProfileResult {

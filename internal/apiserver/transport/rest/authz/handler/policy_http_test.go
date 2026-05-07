@@ -12,6 +12,7 @@ import (
 
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
@@ -19,7 +20,7 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{}`, handler.AddPermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{}`, handler.AddPermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.addCalls)
@@ -29,7 +30,7 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"0","resource_id":"21","action":"read"}`, handler.AddPermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"0","resource_id":"21","action":"read"}`, handler.AddPermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.addCalls)
@@ -39,7 +40,7 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"0","action":"read"}`, handler.AddPermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"0","action":"read"}`, handler.AddPermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.addCalls)
@@ -49,7 +50,7 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"21","action":"read"}`, handler.AddPermission, withUser("operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"21","action":"read"}`, handler.AddPermission, withUser("1001"))
 
 		requireAuthzCode(t, recorder, http.StatusUnauthorized, code.ErrTokenInvalid)
 		require.Empty(t, commander.addCalls)
@@ -73,7 +74,7 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"21","action":"read","scope_type":"origin","scope_value":"1","reason":"test"}`, handler.AddPermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"21","action":"read","scope_type":"origin","scope_value":"1","reason":"test"}`, handler.AddPermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusForbidden, code.ErrPermissionDenied)
 		require.Len(t, commander.addCalls, 1)
@@ -83,16 +84,16 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"21","action":"read","scope_type":"origin","scope_value":"1","reason":"test"}`, handler.AddPermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/policies", `{"role_id":"11","resource_id":"21","action":"read","scope_type":"origin","scope_value":"1","reason":"test"}`, handler.AddPermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, commander.addCalls, 1)
-		require.Equal(t, uint64(11), commander.addCalls[0].RoleID)
+		require.Equal(t, meta.FromUint64(11), commander.addCalls[0].RoleID)
 		require.Equal(t, uint64(21), commander.addCalls[0].ResourceID.Uint64())
 		require.Equal(t, "read", commander.addCalls[0].Action)
 		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, commander.addCalls[0].Scope)
 		require.Equal(t, "tenant-a", commander.addCalls[0].TenantID)
-		require.Equal(t, "operator-1", commander.addCalls[0].ChangedBy)
+		require.Equal(t, "1001", commander.addCalls[0].ChangedBy)
 		require.Equal(t, "test", commander.addCalls[0].Reason)
 	})
 }
@@ -102,7 +103,7 @@ func TestPolicyHandlerRemovePermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{}`, handler.RemovePermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{}`, handler.RemovePermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.removeCalls)
@@ -112,7 +113,7 @@ func TestPolicyHandlerRemovePermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{"role_id":"0","resource_id":"21","action":"read"}`, handler.RemovePermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{"role_id":"0","resource_id":"21","action":"read"}`, handler.RemovePermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.removeCalls)
@@ -122,7 +123,7 @@ func TestPolicyHandlerRemovePermissionHTTPBranches(t *testing.T) {
 		commander := &policyCommanderFake{}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{"role_id":"11","resource_id":"21","action":"read"}`, handler.RemovePermission, withUser("operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{"role_id":"11","resource_id":"21","action":"read"}`, handler.RemovePermission, withUser("1001"))
 
 		requireAuthzCode(t, recorder, http.StatusUnauthorized, code.ErrTokenInvalid)
 		require.Empty(t, commander.removeCalls)
@@ -146,7 +147,7 @@ func TestPolicyHandlerRemovePermissionHTTPBranches(t *testing.T) {
 		}
 		handler := NewPolicyHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{"role_id":"11","resource_id":"21","action":"read"}`, handler.RemovePermission, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodDelete, "/policies", `{"role_id":"11","resource_id":"21","action":"read"}`, handler.RemovePermission, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusForbidden, code.ErrPermissionDenied)
 		require.Len(t, commander.removeCalls, 1)

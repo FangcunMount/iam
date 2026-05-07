@@ -9,6 +9,7 @@ import (
 
 	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 	userApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // CreateUser 创建用户
@@ -38,10 +39,14 @@ func (s *identityLifecycleServer) UpdateUser(ctx context.Context, req *identityv
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
 
 	// 更新昵称
 	if req.GetNickname() != "" {
-		err := s.userProfileSvc.Renickname(ctx, req.GetUserId(), req.GetNickname())
+		err := s.userProfileSvc.Renickname(ctx, userID, req.GetNickname())
 		if err != nil {
 			return nil, toGRPCError(err)
 		}
@@ -50,7 +55,7 @@ func (s *identityLifecycleServer) UpdateUser(ctx context.Context, req *identityv
 	// 更新联系方式
 	if req.GetPhone() != "" || req.GetEmail() != "" {
 		dto := userApp.UpdateContactDTO{
-			UserID: req.GetUserId(),
+			UserID: userID,
 			Phone:  req.GetPhone(),
 			Email:  req.GetEmail(),
 		}
@@ -61,7 +66,7 @@ func (s *identityLifecycleServer) UpdateUser(ctx context.Context, req *identityv
 	}
 
 	// 查询更新后的用户
-	result, err := s.userQuerySvc.GetByID(ctx, req.GetUserId())
+	result, err := s.userQuerySvc.GetByID(ctx, userID)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -76,13 +81,17 @@ func (s *identityLifecycleServer) DeactivateUser(ctx context.Context, req *ident
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
 
-	err := s.userStatusSvc.Deactivate(ctx, req.GetUserId())
+	err = s.userStatusSvc.Deactivate(ctx, userID)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return s.buildUserOperationResponse(ctx, req.GetUserId())
+	return s.buildUserOperationResponse(ctx, userID)
 }
 
 // BlockUser 封禁用户
@@ -90,16 +99,20 @@ func (s *identityLifecycleServer) BlockUser(ctx context.Context, req *identityv2
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
 
-	err := s.userStatusSvc.Block(ctx, req.GetUserId())
+	err = s.userStatusSvc.Block(ctx, userID)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
-	return s.buildUserOperationResponse(ctx, req.GetUserId())
+	return s.buildUserOperationResponse(ctx, userID)
 }
 
-func (s *identityLifecycleServer) buildUserOperationResponse(ctx context.Context, userID string) (*identityv2.UserOperationResponse, error) {
+func (s *identityLifecycleServer) buildUserOperationResponse(ctx context.Context, userID meta.ID) (*identityv2.UserOperationResponse, error) {
 	result, err := s.userQuerySvc.GetByID(ctx, userID)
 	if err != nil {
 		return nil, toGRPCError(err)

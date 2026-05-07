@@ -6,6 +6,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ===========================================
@@ -24,7 +25,7 @@ func NewStatusChanger(uow uow.UnitOfWork, sessionManager session.Manager) Status
 }
 
 // Activate 激活用户
-func (s *statusChanger) Activate(ctx context.Context, userID string) error {
+func (s *statusChanger) Activate(ctx context.Context, userID meta.ID) error {
 	l := logger.L(ctx)
 	l.Debugw("激活用户",
 		"action", logger.ActionUpdate,
@@ -33,18 +34,7 @@ func (s *statusChanger) Activate(ctx context.Context, userID string) error {
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		modifiedUser, err := tx.Users.FindByID(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, userID)
 		if err != nil {
 			l.Errorw("激活用户失败",
 				"action", logger.ActionUpdate,
@@ -73,7 +63,7 @@ func (s *statusChanger) Activate(ctx context.Context, userID string) error {
 }
 
 // Deactivate 停用用户
-func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
+func (s *statusChanger) Deactivate(ctx context.Context, userID meta.ID) error {
 	l := logger.L(ctx)
 	l.Debugw("停用用户",
 		"action", logger.ActionUpdate,
@@ -82,18 +72,7 @@ func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		modifiedUser, err := tx.Users.FindByID(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, userID)
 		if err != nil {
 			l.Errorw("停用用户失败",
 				"action", logger.ActionUpdate,
@@ -122,7 +101,7 @@ func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
 }
 
 // Block 封禁用户
-func (s *statusChanger) Block(ctx context.Context, userID string) error {
+func (s *statusChanger) Block(ctx context.Context, userID meta.ID) error {
 	l := logger.L(ctx)
 	l.Debugw("封禁用户",
 		"action", logger.ActionUpdate,
@@ -131,18 +110,7 @@ func (s *statusChanger) Block(ctx context.Context, userID string) error {
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		modifiedUser, err := tx.Users.FindByID(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, userID)
 		if err != nil {
 			l.Errorw("封禁用户失败",
 				"action", logger.ActionUpdate,
@@ -173,9 +141,5 @@ func (s *statusChanger) Block(ctx context.Context, userID string) error {
 	if s.sessionManager == nil {
 		return nil
 	}
-	id, parseErr := parseUserID(userID)
-	if parseErr != nil {
-		return parseErr
-	}
-	return s.sessionManager.RevokeByUser(ctx, id, "user_blocked", userID)
+	return s.sessionManager.RevokeByUser(ctx, userID, "user_blocked", userID.String())
 }

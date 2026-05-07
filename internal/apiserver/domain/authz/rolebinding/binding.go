@@ -8,14 +8,14 @@ import (
 type Binding struct {
 	ID          BindingID
 	SubjectType SubjectType // user/group/service
-	SubjectID   string      // 用户或组ID
-	RoleID      uint64      // 角色ID
+	SubjectID   meta.ID     // 用户或组ID
+	RoleID      meta.ID     // 角色ID
 	TenantID    string      // 租户ID（域）
 	GrantedBy   string      // 授权人
 }
 
 // NewBinding 创建新赋权
-func NewBinding(subjectType SubjectType, subjectID string, roleID uint64, tenantID string, opts ...BindingOption) Binding {
+func NewBinding(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, tenantID string, opts ...BindingOption) Binding {
 	a := Binding{
 		SubjectType: subjectType,
 		SubjectID:   subjectID,

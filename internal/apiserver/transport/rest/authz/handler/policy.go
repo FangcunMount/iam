@@ -66,12 +66,12 @@ func (h *PolicyHandler) AddPermission(c *gin.Context) {
 	}
 
 	cmd := policyApp.AddPermissionCommand{
-		RoleID:     roleID.Uint64(),
+		RoleID:     roleID,
 		ResourceID: resource.NewResourceID(resourceID.Uint64()),
 		Action:     req.Action,
 		Scope:      scope,
 		TenantID:   tenantID,
-		ChangedBy:  changedBy,
+		ChangedBy:  changedBy.String(),
 		Reason:     req.Reason,
 	}
 
@@ -126,12 +126,12 @@ func (h *PolicyHandler) RemovePermission(c *gin.Context) {
 	}
 
 	cmd := policyApp.RemovePermissionCommand{
-		RoleID:     roleID.Uint64(),
+		RoleID:     roleID,
 		ResourceID: resource.NewResourceID(resourceID.Uint64()),
 		Action:     req.Action,
 		Scope:      scope,
 		TenantID:   tenantID,
-		ChangedBy:  changedBy,
+		ChangedBy:  changedBy.String(),
 		Reason:     req.Reason,
 	}
 
@@ -164,7 +164,7 @@ func (h *PolicyHandler) GetPoliciesByRole(c *gin.Context) {
 	}
 
 	query := policyApp.RolePermissionsQuery{
-		RoleID:   roleID.Uint64(),
+		RoleID:   roleID,
 		TenantID: tenantID,
 	}
 

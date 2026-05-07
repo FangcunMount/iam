@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // =============================================
@@ -25,7 +25,7 @@ func NewEditor(uow uow.UnitOfWork) Editor {
 }
 
 // Rename 修改用户名称
-func (s *editor) Rename(ctx context.Context, userID string, newName string) error {
+func (s *editor) Rename(ctx context.Context, userID meta.ID, newName string) error {
 	l := logger.L(ctx)
 	l.Debugw("修改用户名称",
 		"action", logger.ActionUpdate,
@@ -35,18 +35,7 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		modifiedUser, err := tx.Users.FindByID(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, userID)
 		if err != nil {
 			l.Errorw("修改用户名称失败",
 				"action", logger.ActionUpdate,
@@ -77,7 +66,7 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 }
 
 // Renickname 修改用户昵称
-func (s *editor) Renickname(ctx context.Context, userID string, newNickname string) error {
+func (s *editor) Renickname(ctx context.Context, userID meta.ID, newNickname string) error {
 	l := logger.L(ctx)
 	l.Debugw("修改用户昵称",
 		"action", logger.ActionUpdate,
@@ -87,18 +76,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		modifiedUser, err := tx.Users.FindByID(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, userID)
 		if err != nil {
 			l.Errorw("修改用户昵称失败",
 				"action", logger.ActionUpdate,
@@ -140,18 +118,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		uniqueness := user.NewUniquenessChecker(tx.Users)
 
-		// 转换 ID
-		id, err := parseUserID(dto.UserID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		phone, err := input.ParseOptionalPhone(dto.Phone)
+		phone, err := optionalPhone(dto.Phone)
 		if err != nil {
 			l.Warnw("手机号格式错误",
 				"action", logger.ActionUpdate,
@@ -160,7 +127,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			)
 			return err
 		}
-		email, err := input.ParseOptionalEmail(dto.Email)
+		email, err := optionalEmail(dto.Email)
 		if err != nil {
 			l.Warnw("邮箱格式错误",
 				"action", logger.ActionUpdate,
@@ -170,7 +137,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			return err
 		}
 
-		modifiedUser, err := tx.Users.FindByID(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, dto.UserID)
 		if err != nil {
 			l.Errorw("更新联系方式失败",
 				"action", logger.ActionUpdate,
@@ -214,17 +181,12 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		uniqueness := user.NewUniquenessChecker(tx.Users)
 
-		id, err := parseUserID(dto.UserID)
-		if err != nil {
-			return err
-		}
-
 		var modifiedUser *user.User
 		loadUser := func() (*user.User, error) {
 			if modifiedUser != nil {
 				return modifiedUser, nil
 			}
-			loaded, err := tx.Users.FindByID(txCtx, id)
+			loaded, err := tx.Users.FindByID(txCtx, dto.UserID)
 			if err != nil {
 				return nil, err
 			}
@@ -257,11 +219,11 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 			hasContact = true
 		}
 		if hasContact {
-			phone, err := input.ParseOptionalPhone(phoneValue)
+			phone, err := optionalPhone(phoneValue)
 			if err != nil {
 				return err
 			}
-			email, err := input.ParseOptionalEmail(emailValue)
+			email, err := optionalEmail(emailValue)
 			if err != nil {
 				return err
 			}
@@ -286,7 +248,8 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 		}
 
 		if modifiedUser == nil {
-			modifiedUser, err = tx.Users.FindByID(txCtx, id)
+			var err error
+			modifiedUser, err = tx.Users.FindByID(txCtx, dto.UserID)
 			if err != nil {
 				return err
 			}

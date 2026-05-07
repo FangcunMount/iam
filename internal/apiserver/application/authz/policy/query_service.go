@@ -6,7 +6,6 @@ import (
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type PolicyQueryService struct {
@@ -32,7 +31,7 @@ func (s *PolicyQueryService) GetPermissionsForRole(
 	query RolePermissionsQuery,
 ) ([]authzDomain.Permission, error) {
 	// 1. 获取角色信息
-	role, err := s.roleRepo.FindByID(ctx, meta.FromUint64(query.RoleID))
+	role, err := s.roleRepo.FindByID(ctx, query.RoleID)
 	if err != nil {
 		return nil, err
 	}

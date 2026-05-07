@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============================================
@@ -23,7 +23,7 @@ func NewDirectory(uow uow.UnitOfWork) Directory {
 }
 
 // GetByID 根据 ID 查询档案
-func (s *directory) GetByID(ctx context.Context, profileID string) (*ProfileResult, error) {
+func (s *directory) GetByID(ctx context.Context, profileID meta.ID) (*ProfileResult, error) {
 	l := logger.L(ctx)
 	var result *ProfileResult
 
@@ -35,19 +35,7 @@ func (s *directory) GetByID(ctx context.Context, profileID string) (*ProfileResu
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		profileIDObj, err := parseProfileID(profileID)
-		if err != nil {
-			l.Warnw("档案ID解析失败",
-				"action", logger.ActionRead,
-				"resource", "profile",
-				"resource_id", profileID,
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
-			return err
-		}
-
-		profile, err := tx.Profiles.FindByID(txCtx, profileIDObj)
+		profile, err := tx.Profiles.FindByID(txCtx, profileID)
 		if err != nil {
 			l.Warnw("查询档案失败",
 				"action", logger.ActionRead,
@@ -87,7 +75,7 @@ func (s *directory) GetByIDCard(ctx context.Context, idCard string) (*ProfileRes
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		idCardObj, err := input.ParseIDCard("", idCard)
+		idCardObj, err := meta.NewIDCard("", idCard)
 		if err != nil {
 			l.Warnw("身份证格式验证失败",
 				"action", logger.ActionRead,
@@ -137,9 +125,8 @@ func (s *directory) FindSimilar(ctx context.Context, name string, gender uint8, 
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-
-		genderObj := input.ParseGender(gender)
-		birthdayObj := input.ParseBirthday(birthday)
+		genderObj := meta.NewGender(gender)
+		birthdayObj := meta.NewBirthday(birthday)
 
 		profiles, err := tx.Profiles.FindSimilar(txCtx, name, genderObj, birthdayObj)
 		if err != nil {

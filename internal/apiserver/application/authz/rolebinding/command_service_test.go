@@ -53,8 +53,8 @@ func TestBindingCommandServiceGrant_RejectsMissingUserWithoutWrites(t *testing.T
 
 	_, err := service.Grant(context.Background(), GrantCommand{
 		SubjectType: bindingDomain.SubjectTypeUser,
-		SubjectID:   "123",
-		RoleID:      10,
+		SubjectID:   meta.FromUint64(123),
+		RoleID:      meta.FromUint64(10),
 		TenantID:    "tenant-a",
 		GrantedBy:   "1",
 	})
@@ -99,8 +99,8 @@ func TestBindingCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *testin
 
 	result, err := service.Grant(context.Background(), GrantCommand{
 		SubjectType: bindingDomain.SubjectTypeUser,
-		SubjectID:   "123",
-		RoleID:      10,
+		SubjectID:   meta.FromUint64(123),
+		RoleID:      meta.FromUint64(10),
 		TenantID:    "tenant-a",
 		GrantedBy:   "1",
 	})
@@ -110,7 +110,7 @@ func TestBindingCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *testin
 	assert.Equal(t, 1, bindingRepo.createCalls)
 	require.Len(t, ruleStore.groupingAdds, 1)
 	assert.Equal(t, authzDomain.SubjectTypeUser, ruleStore.groupingAdds[0].Subject.Type)
-	assert.Equal(t, "123", ruleStore.groupingAdds[0].Subject.ID)
+	assert.Equal(t, meta.FromUint64(123), ruleStore.groupingAdds[0].Subject.ID)
 	assert.Equal(t, "iam:admin", ruleStore.groupingAdds[0].RoleName)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
 	require.Len(t, stager.events, 1)
@@ -162,7 +162,7 @@ func (r *bindingRepoStub) Delete(_ context.Context, id bindingDomain.BindingID) 
 	return nil
 }
 
-func (r *bindingRepoStub) DeleteBySubjectAndRole(_ context.Context, _ bindingDomain.SubjectType, _ string, _ uint64, _ string) error {
+func (r *bindingRepoStub) DeleteBySubjectAndRole(_ context.Context, _ bindingDomain.SubjectType, _ meta.ID, _ meta.ID, _ string) error {
 	return nil
 }
 
@@ -170,11 +170,11 @@ func (r *bindingRepoStub) FindByID(_ context.Context, id bindingDomain.BindingID
 	return r.findByID[id.Uint64()], nil
 }
 
-func (r *bindingRepoStub) ListBySubject(_ context.Context, _ bindingDomain.SubjectType, _ string, _ string) ([]*bindingDomain.Binding, error) {
+func (r *bindingRepoStub) ListBySubject(_ context.Context, _ bindingDomain.SubjectType, _ meta.ID, _ string) ([]*bindingDomain.Binding, error) {
 	return nil, nil
 }
 
-func (r *bindingRepoStub) ListByRole(_ context.Context, _ uint64, _ string) ([]*bindingDomain.Binding, error) {
+func (r *bindingRepoStub) ListByRole(_ context.Context, _ meta.ID, _ string) ([]*bindingDomain.Binding, error) {
 	return nil, nil
 }
 

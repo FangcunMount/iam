@@ -2,18 +2,11 @@ package user
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ============= DTO 转换辅助函数 =============
-
-// parseUserID 解析用户ID字符串
-func parseUserID(userID string) (meta.ID, error) {
-	return input.ParseUserID(userID)
-}
 
 // toUserResult 将领域实体转换为 DTO
 func toUserResult(user *domain.User) *UserResult {

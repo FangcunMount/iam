@@ -9,6 +9,7 @@ import (
 	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -160,7 +161,11 @@ func parseSubjectKey(subject string) (authzDomain.Subject, error) {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return authzDomain.Subject{}, status.Error(codes.InvalidArgument, "subject must be in <type>:<id> format")
 	}
-	return authzDomain.NewSubject(authzDomain.SubjectType(parts[0]), parts[1])
+	id, err := meta.ParseID(parts[1])
+	if err != nil || id.IsZero() {
+		return authzDomain.Subject{}, status.Error(codes.InvalidArgument, "subject id must be a valid IAM id")
+	}
+	return authzDomain.NewSubject(authzDomain.SubjectType(parts[0]), id)
 }
 
 func authzGRPCError(defaultCode codes.Code, operation string, err error) error {

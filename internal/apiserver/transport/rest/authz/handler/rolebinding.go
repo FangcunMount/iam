@@ -9,6 +9,7 @@ import (
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/gin-gonic/gin"
 )
 
@@ -76,9 +77,9 @@ func (h *RoleBindingHandler) GrantRoleBinding(c *gin.Context) {
 	cmd := bindingApp.GrantCommand{
 		SubjectType: subjectType,
 		SubjectID:   req.SubjectID,
-		RoleID:      req.RoleID.Uint64(),
+		RoleID:      req.RoleID,
 		TenantID:    tenantID,
-		GrantedBy:   grantedBy,
+		GrantedBy:   grantedBy.String(),
 	}
 
 	grantedBinding, err := h.commander.Grant(c.Request.Context(), cmd)
@@ -119,7 +120,7 @@ func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 	cmd := bindingApp.RevokeCommand{
 		SubjectType: subjectType,
 		SubjectID:   req.SubjectID,
-		RoleID:      req.RoleID.Uint64(),
+		RoleID:      req.RoleID,
 		TenantID:    tenantID,
 	}
 
@@ -174,9 +175,9 @@ func (h *RoleBindingHandler) RevokeRoleBindingByID(c *gin.Context) {
 // @Router /authz/assignments/subject [get]
 func (h *RoleBindingHandler) ListRoleBindingsBySubject(c *gin.Context) {
 	subjectTypeStr := c.Query("subject_type")
-	subjectID := c.Query("subject_id")
+	subjectID, err := meta.ParseID(c.Query("subject_id"))
 
-	if subjectTypeStr == "" || subjectID == "" {
+	if subjectTypeStr == "" || subjectID.IsZero() || err != nil {
 		handleError(c, errors.WithCode(code.ErrInvalidArgument, "subject_type 和 subject_id 不能为空"))
 		return
 	}
@@ -233,7 +234,7 @@ func (h *RoleBindingHandler) ListRoleBindingsByRole(c *gin.Context) {
 	}
 
 	query := bindingApp.ListByRoleQuery{
-		RoleID:   roleID.Uint64(),
+		RoleID:   roleID,
 		TenantID: tenantID,
 	}
 

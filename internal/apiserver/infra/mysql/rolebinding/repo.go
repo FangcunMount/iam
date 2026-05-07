@@ -8,6 +8,7 @@ import (
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 
@@ -59,10 +60,10 @@ func (r *BindingRepository) FindByID(ctx context.Context, id domain.BindingID) (
 }
 
 // ListBySubject 根据主体列出赋权
-func (r *BindingRepository) ListBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID, tenantID string) ([]*domain.Binding, error) {
+func (r *BindingRepository) ListBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID meta.ID, tenantID string) ([]*domain.Binding, error) {
 	var pos []*BindingPO
 
-	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID).
+	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID.String()).
 		Find(&pos).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domains by subject: %w", err)
@@ -74,10 +75,10 @@ func (r *BindingRepository) ListBySubject(ctx context.Context, subjectType domai
 }
 
 // ListByRole 根据角色列出赋权
-func (r *BindingRepository) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*domain.Binding, error) {
+func (r *BindingRepository) ListByRole(ctx context.Context, roleID meta.ID, tenantID string) ([]*domain.Binding, error) {
 	var pos []*BindingPO
 
-	err := r.WithContext(ctx).Where("tenant_id = ? AND role_id = ?", tenantID, roleID).
+	err := r.WithContext(ctx).Where("tenant_id = ? AND role_id = ?", tenantID, roleID.Uint64()).
 		Find(&pos).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domains by role: %w", err)
@@ -99,9 +100,9 @@ func (r *BindingRepository) Delete(ctx context.Context, id domain.BindingID) err
 }
 
 // DeleteBySubjectAndRole 删除指定主体和角色的分配
-func (r *BindingRepository) DeleteBySubjectAndRole(ctx context.Context, subjectType domain.SubjectType, subjectID string, roleID uint64, tenantID string) error {
+func (r *BindingRepository) DeleteBySubjectAndRole(ctx context.Context, subjectType domain.SubjectType, subjectID meta.ID, roleID meta.ID, tenantID string) error {
 	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ? AND role_id = ?",
-		tenantID, string(subjectType), subjectID, roleID).
+		tenantID, string(subjectType), subjectID.String(), roleID.Uint64()).
 		Delete(&BindingPO{}).Error
 	if err != nil {
 		return fmt.Errorf("failed to delete domain: %w", err)

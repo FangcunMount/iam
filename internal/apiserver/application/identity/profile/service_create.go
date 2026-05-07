@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ======================================
@@ -31,7 +31,7 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		idCard, hasIDCard, err := input.ParseOptionalIDCard(dto.Name, dto.IDCard)
+		idCard, hasIDCard, err := optionalIDCard(dto.Name, dto.IDCard)
 		if err != nil {
 			l.Errorw("档案身份证验证失败",
 				"action", logger.ActionCreate,
@@ -56,8 +56,8 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 
 		newProfile, err := buildProfileEntity(profileCreationInput{
 			Name:     dto.Name,
-			Gender:   dto.Gender,
-			Birthday: dto.Birthday,
+			Gender:   meta.NewGender(dto.Gender),
+			Birthday: meta.NewBirthday(dto.Birthday),
 			IDCard:   idCard,
 		})
 		if err != nil {

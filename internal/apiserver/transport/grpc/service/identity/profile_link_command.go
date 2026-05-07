@@ -9,6 +9,7 @@ import (
 
 	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // EstablishProfileLink 添加关系用户
@@ -16,10 +17,18 @@ func (s *profileLinkCommandServer) EstablishProfileLink(ctx context.Context, req
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and profile_id are required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
+	profileID, err := parseIDArg("profile_id", req.GetProfileId())
+	if err != nil {
+		return nil, err
+	}
 
 	dto := profileLinkApp.CreateProfileLinkDTO{
-		UserID:    req.GetUserId(),
-		ProfileID: req.GetProfileId(),
+		UserID:    userID,
+		ProfileID: profileID,
 		Relation:  protoRelationToString(req.GetRelation()),
 	}
 
@@ -39,17 +48,29 @@ func (s *profileLinkCommandServer) RevokeProfileLink(ctx context.Context, req *i
 		return nil, status.Error(codes.InvalidArgument, "target is required")
 	}
 
-	var userID, profileID string
-	var profileLinkID string
+	var userID, profileID meta.ID
+	var profileLinkID meta.ID
 
 	// 根据不同的 selector 解析
 	switch target := req.GetTarget().GetSelector().(type) {
 	case *identityv2.ProfileLinkSelector_ProfileLinkId:
-		profileLinkID = target.ProfileLinkId
+		id, err := parseIDArg("profile_link_id", target.ProfileLinkId)
+		if err != nil {
+			return nil, err
+		}
+		profileLinkID = id
 
 	case *identityv2.ProfileLinkSelector_Key:
-		userID = target.Key.GetUserId()
-		profileID = target.Key.GetProfileId()
+		parsedUserID, err := parseIDArg("user_id", target.Key.GetUserId())
+		if err != nil {
+			return nil, err
+		}
+		parsedProfileID, err := parseIDArg("profile_id", target.Key.GetProfileId())
+		if err != nil {
+			return nil, err
+		}
+		userID = parsedUserID
+		profileID = parsedProfileID
 
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid target selector")

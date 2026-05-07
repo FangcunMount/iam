@@ -13,6 +13,8 @@ import (
 
 	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
 func TestProfileLinkHandlerGrantUsesCurrentUser(t *testing.T) {
@@ -33,7 +35,7 @@ func TestProfileLinkHandlerGrantUsesCurrentUser(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/identity/profile-links", bytes.NewBufferString(`{"profileId":"200","relation":"parent"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Set("user_id", "100")
+	requestctx.SetUserID(c, meta.FromUint64(100))
 
 	handler.Grant(c)
 
@@ -43,7 +45,7 @@ func TestProfileLinkHandlerGrantUsesCurrentUser(t *testing.T) {
 	if len(access.grantCalls) != 1 {
 		t.Fatalf("GrantForCurrentUser calls = %d, want 1", len(access.grantCalls))
 	}
-	if access.grantCalls[0].currentUserID != "100" || access.grantCalls[0].dto.UserID != "" {
+	if access.grantCalls[0].currentUserID != meta.FromUint64(100) || !access.grantCalls[0].dto.UserID.IsZero() {
 		t.Fatalf("GrantForCurrentUser call = %#v, want current user 100 with empty dto user", access.grantCalls[0])
 	}
 }
@@ -60,7 +62,7 @@ func TestProfileLinkHandlerGrantRejectsDifferentUserID(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/identity/profile-links", bytes.NewBufferString(`{"userId":"999","profileId":"200","relation":"parent"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Set("user_id", "100")
+	requestctx.SetUserID(c, meta.FromUint64(100))
 
 	handler.Grant(c)
 
@@ -89,14 +91,14 @@ func TestProfileLinkHandlerListDefaultsToCurrentUser(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links", nil)
-	c.Set("user_id", "100")
+	requestctx.SetUserID(c, meta.FromUint64(100))
 
 	handler.List(c)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
-	if len(access.listCalls) != 1 || access.listCalls[0].currentUserID != "100" {
+	if len(access.listCalls) != 1 || access.listCalls[0].currentUserID != meta.FromUint64(100) {
 		t.Fatalf("ListForCurrentUser calls = %#v, want current user 100", access.listCalls)
 	}
 }
@@ -112,7 +114,7 @@ func TestProfileLinkHandlerListRejectsCrossUserQuery(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links?user_id=999", nil)
-	c.Set("user_id", "100")
+	requestctx.SetUserID(c, meta.FromUint64(100))
 
 	handler.List(c)
 
@@ -135,7 +137,7 @@ func TestProfileLinkHandlerListRejectsProfileLookupForNonRef(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links?profile_id=200", nil)
-	c.Set("user_id", "100")
+	requestctx.SetUserID(c, meta.FromUint64(100))
 
 	handler.List(c)
 
@@ -166,7 +168,7 @@ func TestProfileLinkHandlerRevokeUsesCurrentUser(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/v2/identity/profile-links/1/revoke", nil)
 	c.Params = gin.Params{{Key: "id", Value: "1"}}
-	c.Set("user_id", "100")
+	requestctx.SetUserID(c, meta.FromUint64(100))
 
 	handler.Revoke(c)
 
@@ -176,7 +178,7 @@ func TestProfileLinkHandlerRevokeUsesCurrentUser(t *testing.T) {
 	if len(access.revokeCalls) != 1 {
 		t.Fatalf("RevokeForCurrentUser calls = %d, want 1", len(access.revokeCalls))
 	}
-	if access.revokeCalls[0].currentUserID != "100" || access.revokeCalls[0].dto.ProfileLinkID != "1" {
+	if access.revokeCalls[0].currentUserID != meta.FromUint64(100) || access.revokeCalls[0].dto.ProfileLinkID != meta.FromUint64(1) {
 		t.Fatalf("RevokeForCurrentUser call = %#v, want current user 100 and link id 1", access.revokeCalls[0])
 	}
 }
@@ -185,44 +187,44 @@ type profileLinkAccessStub struct {
 	grantResult *appprofilelink.ProfileLinkResult
 	grantErr    error
 	grantCalls  []struct {
-		currentUserID string
+		currentUserID meta.ID
 		dto           appprofilelink.CreateProfileLinkDTO
 	}
 
 	listResult []*appprofilelink.ProfileLinkResult
 	listErr    error
 	listCalls  []struct {
-		currentUserID string
+		currentUserID meta.ID
 		dto           appprofilelink.ListProfileLinksDTO
 	}
 
 	revokeResult *appprofilelink.ProfileLinkResult
 	revokeErr    error
 	revokeCalls  []struct {
-		currentUserID string
+		currentUserID meta.ID
 		dto           appprofilelink.RevokeProfileLinkBySelectorDTO
 	}
 }
 
-func (s *profileLinkAccessStub) Grant(_ context.Context, currentUserID string, dto appprofilelink.CreateProfileLinkDTO) (*appprofilelink.ProfileLinkResult, error) {
+func (s *profileLinkAccessStub) Grant(_ context.Context, currentUserID meta.ID, dto appprofilelink.CreateProfileLinkDTO) (*appprofilelink.ProfileLinkResult, error) {
 	s.grantCalls = append(s.grantCalls, struct {
-		currentUserID string
+		currentUserID meta.ID
 		dto           appprofilelink.CreateProfileLinkDTO
 	}{currentUserID: currentUserID, dto: dto})
 	return s.grantResult, s.grantErr
 }
 
-func (s *profileLinkAccessStub) List(_ context.Context, currentUserID string, dto appprofilelink.ListProfileLinksDTO) ([]*appprofilelink.ProfileLinkResult, error) {
+func (s *profileLinkAccessStub) List(_ context.Context, currentUserID meta.ID, dto appprofilelink.ListProfileLinksDTO) ([]*appprofilelink.ProfileLinkResult, error) {
 	s.listCalls = append(s.listCalls, struct {
-		currentUserID string
+		currentUserID meta.ID
 		dto           appprofilelink.ListProfileLinksDTO
 	}{currentUserID: currentUserID, dto: dto})
 	return s.listResult, s.listErr
 }
 
-func (s *profileLinkAccessStub) Revoke(_ context.Context, currentUserID string, dto appprofilelink.RevokeProfileLinkBySelectorDTO) (*appprofilelink.ProfileLinkResult, error) {
+func (s *profileLinkAccessStub) Revoke(_ context.Context, currentUserID meta.ID, dto appprofilelink.RevokeProfileLinkBySelectorDTO) (*appprofilelink.ProfileLinkResult, error) {
 	s.revokeCalls = append(s.revokeCalls, struct {
-		currentUserID string
+		currentUserID meta.ID
 		dto           appprofilelink.RevokeProfileLinkBySelectorDTO
 	}{currentUserID: currentUserID, dto: dto})
 	return s.revokeResult, s.revokeErr

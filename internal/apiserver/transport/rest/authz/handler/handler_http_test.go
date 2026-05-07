@@ -21,6 +21,7 @@ import (
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
 type authzEnvelope struct {
@@ -51,20 +52,28 @@ func performAuthzRequest(method, target, body string, handler gin.HandlerFunc, o
 
 func withTenantUser(tenantID, userID string) authzRequestOption {
 	return func(c *gin.Context) {
-		c.Set("tenant_id", tenantID)
-		c.Set("user_id", userID)
+		requestctx.SetTenantID(c, tenantID)
+		id, err := meta.ParseID(userID)
+		if err != nil {
+			panic(err)
+		}
+		requestctx.SetUserID(c, id)
 	}
 }
 
 func withTenant(tenantID string) authzRequestOption {
 	return func(c *gin.Context) {
-		c.Set("tenant_id", tenantID)
+		requestctx.SetTenantID(c, tenantID)
 	}
 }
 
 func withUser(userID string) authzRequestOption {
 	return func(c *gin.Context) {
-		c.Set("user_id", userID)
+		id, err := meta.ParseID(userID)
+		if err != nil {
+			panic(err)
+		}
+		requestctx.SetUserID(c, id)
 	}
 }
 
@@ -306,7 +315,7 @@ func (f *bindingQueryerFake) ListBySubject(ctx context.Context, query bindingApp
 	if f.listBySubjectFn != nil {
 		return f.listBySubjectFn(ctx, query)
 	}
-	result := bindingDomain.NewBinding(query.SubjectType, query.SubjectID, 11, query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
+	result := bindingDomain.NewBinding(query.SubjectType, query.SubjectID, meta.FromUint64(11), query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
 	return []*bindingDomain.Binding{&result}, nil
 }
 
@@ -315,7 +324,7 @@ func (f *bindingQueryerFake) ListByRole(ctx context.Context, query bindingApp.Li
 	if f.listByRoleFn != nil {
 		return f.listByRoleFn(ctx, query)
 	}
-	result := bindingDomain.NewBinding(bindingDomain.SubjectTypeUser, "user-1", query.RoleID, query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
+	result := bindingDomain.NewBinding(bindingDomain.SubjectTypeUser, meta.FromUint64(1), query.RoleID, query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
 	return []*bindingDomain.Binding{&result}, nil
 }
 
@@ -399,7 +408,7 @@ func (f *casbinFake) AuthorizeRoute(ctx context.Context, sub, dom, obj, act stri
 }
 
 func (f *casbinFake) Check(ctx context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error) {
-	sub := string(cmd.Subject.Type) + ":" + cmd.Subject.ID
+	sub := string(cmd.Subject.Type) + ":" + cmd.Subject.ID.String()
 	allowed, err := f.AuthorizeRoute(ctx, sub, cmd.TenantID, cmd.ResourceKey, cmd.Action)
 	if err != nil {
 		return authzDomain.AuthorizationDecision{}, err

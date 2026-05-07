@@ -13,6 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/testutil"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ==================== Editor 测试 ====================
@@ -141,14 +142,14 @@ func TestEditor_Rename_Success(t *testing.T) {
 	profileService := profile.NewEditor(unitOfWork)
 
 	// Act - 修改姓名
-	err = profileService.Rename(ctx, created.ID, "小强")
+	err = profileService.Rename(ctx, mustID(t, created.ID), "小强")
 
 	// Assert
 	require.NoError(t, err)
 
 	// 验证数据库中的数据
 	queryService := profile.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, "小强", updated.Name)
 }
@@ -171,7 +172,7 @@ func TestEditor_Rename_EmptyName(t *testing.T) {
 	profileService := profile.NewEditor(unitOfWork)
 
 	// Act - 尝试设置空姓名
-	err = profileService.Rename(ctx, created.ID, "")
+	err = profileService.Rename(ctx, mustID(t, created.ID), "")
 
 	// Assert - 如果有验证则应该失败,没有验证则会成功
 	// 注意: 取决于领域模型的验证逻辑
@@ -200,14 +201,14 @@ func TestEditor_UpdateIDCard_Success(t *testing.T) {
 	profileService := profile.NewEditor(unitOfWork)
 
 	// Act - 更新身份证
-	err = profileService.UpdateIDCard(ctx, created.ID, "小明", "110101202001151234")
+	err = profileService.UpdateIDCard(ctx, mustID(t, created.ID), "小明", "110101202001151234")
 
 	// Assert
 	require.NoError(t, err)
 
 	// 验证数据库中的数据
 	queryService := profile.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, "110101202001151234", updated.IDCard)
 }
@@ -231,7 +232,7 @@ func TestEditor_UpdateProfile_Success(t *testing.T) {
 
 	// Act - 更新基本信息
 	dto := profile.UpdateProfileDTO{
-		ProfileID: created.ID,
+		ProfileID: mustID(t, created.ID),
 		Gender:    2, // 2=女
 		Birthday:  "2020-02-20",
 	}
@@ -242,7 +243,7 @@ func TestEditor_UpdateProfile_Success(t *testing.T) {
 
 	// 验证数据库中的数据
 	queryService := profile.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
+	updated, err := queryService.GetByID(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 	assert.Equal(t, uint8(2), updated.Gender) // 2=女
 	assert.Equal(t, "2020-02-20", updated.Birthday)
@@ -256,7 +257,7 @@ func TestEditor_ProfileNotFound_ShouldFail(t *testing.T) {
 	ctx := context.Background()
 
 	// Act - 尝试修改不存在的档案
-	err := profileService.Rename(ctx, "999999999999999999", "小强")
+	err := profileService.Rename(ctx, meta.FromUint64(999999999999999999), "小强")
 
 	// Assert - 应该失败
 	require.Error(t, err)
@@ -282,7 +283,7 @@ func TestDirectory_GetByID_Success(t *testing.T) {
 	queryService := profile.NewDirectory(unitOfWork)
 
 	// Act - 查询档案
-	result, err := queryService.GetByID(ctx, created.ID)
+	result, err := queryService.GetByID(ctx, mustID(t, created.ID))
 
 	// Assert
 	require.NoError(t, err)
@@ -299,7 +300,7 @@ func TestDirectory_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Act - 查询不存在的档案
-	result, err := queryService.GetByID(ctx, "999999999999999999")
+	result, err := queryService.GetByID(ctx, meta.FromUint64(999999999999999999))
 
 	// Assert
 	require.Error(t, err)
@@ -407,19 +408,19 @@ func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 
 	linkCommands := profilelink.NewCommands(unitOfWork)
 	_, err = linkCommands.Establish(ctx, profilelink.CreateProfileLinkDTO{
-		UserID:    userResult.ID,
-		ProfileID: profileResult.ID,
+		UserID:    mustID(t, userResult.ID),
+		ProfileID: mustID(t, profileResult.ID),
 		Relation:  "parent",
 	})
 	require.NoError(t, err)
 
 	accessService := profile.NewMyProfiles(unitOfWork)
-	profiles, err := accessService.List(ctx, userResult.ID)
+	profiles, err := accessService.List(ctx, mustID(t, userResult.ID))
 	require.NoError(t, err)
 	require.Len(t, profiles, 1)
 	assert.Equal(t, profileResult.ID, profiles[0].ID)
 
-	found, err := accessService.Get(ctx, userResult.ID, profileResult.ID)
+	found, err := accessService.Get(ctx, mustID(t, userResult.ID), mustID(t, profileResult.ID))
 	require.NoError(t, err)
 	assert.Equal(t, profileResult.ID, found.ID)
 
@@ -427,8 +428,8 @@ func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 	gender := uint8(2)
 	birthday := "2020-02-20"
 	updated, err := accessService.Patch(ctx, profile.PatchMyProfileDTO{
-		UserID:    userResult.ID,
-		ProfileID: profileResult.ID,
+		UserID:    mustID(t, userResult.ID),
+		ProfileID: mustID(t, profileResult.ID),
 		LegalName: &newName,
 		Gender:    &gender,
 		Birthday:  &birthday,
@@ -460,8 +461,8 @@ func TestMyProfiles_PatchRollsBackEarlierUpdatesWhenLaterUpdateFails(t *testing.
 	require.NoError(t, err)
 
 	_, err = profilelink.NewCommands(unitOfWork).Establish(ctx, profilelink.CreateProfileLinkDTO{
-		UserID:    userResult.ID,
-		ProfileID: profileResult.ID,
+		UserID:    mustID(t, userResult.ID),
+		ProfileID: mustID(t, profileResult.ID),
 		Relation:  "parent",
 	})
 	require.NoError(t, err)
@@ -476,14 +477,14 @@ END;`).Error)
 
 	newName := "不应保存"
 	updated, err := profile.NewMyProfiles(unitOfWork).Patch(ctx, profile.PatchMyProfileDTO{
-		UserID:    userResult.ID,
-		ProfileID: profileResult.ID,
+		UserID:    mustID(t, userResult.ID),
+		ProfileID: mustID(t, profileResult.ID),
 		LegalName: &newName,
 	})
 	require.Error(t, err)
 	assert.Nil(t, updated)
 
-	persisted, err := profile.NewDirectory(unitOfWork).GetByID(ctx, profileResult.ID)
+	persisted, err := profile.NewDirectory(unitOfWork).GetByID(ctx, mustID(t, profileResult.ID))
 	require.NoError(t, err)
 	assert.Equal(t, profileResult.Name, persisted.Name)
 }
@@ -517,15 +518,22 @@ func TestMyProfiles_GetForProfileLinkRejectsUnlinkedUser(t *testing.T) {
 
 	linkCommands := profilelink.NewCommands(unitOfWork)
 	_, err = linkCommands.Establish(ctx, profilelink.CreateProfileLinkDTO{
-		UserID:    profileLinkUser.ID,
-		ProfileID: profileResult.ID,
+		UserID:    mustID(t, profileLinkUser.ID),
+		ProfileID: mustID(t, profileResult.ID),
 		Relation:  "parent",
 	})
 	require.NoError(t, err)
 
 	accessService := profile.NewMyProfiles(unitOfWork)
-	result, err := accessService.Get(ctx, other.ID, profileResult.ID)
+	result, err := accessService.Get(ctx, mustID(t, other.ID), mustID(t, profileResult.ID))
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
+}
+
+func mustID(t *testing.T, raw string) meta.ID {
+	t.Helper()
+	id, err := meta.ParseID(raw)
+	require.NoError(t, err)
+	return id
 }

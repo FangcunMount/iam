@@ -12,6 +12,7 @@ import (
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	testhelpers "github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,7 +42,7 @@ func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 		go func(d int) {
 			defer wg.Done()
 			time.Sleep(time.Millisecond * time.Duration(d))
-			a := domain.NewBinding(domain.SubjectTypeUser, "user-123", 42, "tenant-1")
+			a := domain.NewBinding(domain.SubjectTypeUser, meta.FromUint64(123), meta.FromUint64(42), "tenant-1")
 			if err := testhelpers.RetryOnDBLocked(func() error { return repo.Create(ctx, &a) }); err != nil {
 				errs <- err
 				return
@@ -76,7 +77,7 @@ func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 
 	var cnt int64
 	require.NoError(t, db.Model(&BindingPO{}).
-		Where("subject_type = ? AND subject_id = ? AND role_id = ? AND tenant_id = ?", "user", "user-123", 42, "tenant-1").
+		Where("subject_type = ? AND subject_id = ? AND role_id = ? AND tenant_id = ?", "user", "123", 42, "tenant-1").
 		Count(&cnt).Error)
 	require.Equal(t, int64(1), cnt)
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -34,7 +35,7 @@ func TestCasbinAdapterEnforcesMemoryPolicyFacts(t *testing.T) {
 		{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:user:*", Act: "read", Scope: "all:*"},
 	}, permissions)
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	decision, err := adapter.Check(ctx, mustAuthorizationRequest(t, subject, "tenant-a", "iam:user:*", "read"))
 	require.NoError(t, err)
@@ -115,7 +116,7 @@ func TestCasbinAdapterNormalizesLegacyEmptyPolicyScope(t *testing.T) {
 	).Scan(&scope).Error)
 	require.Equal(t, "all:*", scope)
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	originScope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
 	require.NoError(t, err)
@@ -132,7 +133,7 @@ func TestCasbinAdapterEnforcesScopedPolicyFacts(t *testing.T) {
 	require.NoError(t, adapter.addGroupingFacts(ctx, GroupingRule{Sub: "user:100", Dom: "tenant-a", Role: "role:origin-admin"}))
 	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:origin-admin", Dom: "tenant-a", Obj: "iam:users", Act: "update", Scope: "origin:1"}))
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	scope1, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
 	require.NoError(t, err)

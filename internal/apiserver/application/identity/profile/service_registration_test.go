@@ -13,6 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/testutil"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func TestMyProfiles_Create_RollsBackProfileOnLinkFailure(t *testing.T) {
@@ -20,7 +21,7 @@ func TestMyProfiles_Create_RollsBackProfileOnLinkFailure(t *testing.T) {
 	unitOfWork := testutil.NewUnitOfWork(db)
 	service := profile.NewMyProfiles(unitOfWork)
 
-	result, err := service.Create(context.Background(), "999999999999999999", profile.CreateMyProfileDTO{
+	result, err := service.Create(context.Background(), meta.FromUint64(999999999999999999), profile.CreateMyProfileDTO{
 		Name:     "回滚测试档案",
 		Gender:   1,
 		Birthday: "2020-04-21",
@@ -47,7 +48,7 @@ func TestMyProfiles_CreateSelfRejectsDuplicateActiveSelfProfile(t *testing.T) {
 	require.NoError(t, err)
 
 	service := profile.NewMyProfiles(unitOfWork)
-	first, err := service.Create(ctx, userResult.ID, profile.CreateMyProfileDTO{
+	first, err := service.Create(ctx, mustID(t, userResult.ID), profile.CreateMyProfileDTO{
 		Name:     "本人档案",
 		Gender:   1,
 		Birthday: "2000-01-01",
@@ -58,7 +59,7 @@ func TestMyProfiles_CreateSelfRejectsDuplicateActiveSelfProfile(t *testing.T) {
 	require.NotNil(t, first.ProfileLink)
 	assert.Equal(t, "self", first.ProfileLink.Relation)
 
-	second, err := service.Create(ctx, userResult.ID, profile.CreateMyProfileDTO{
+	second, err := service.Create(ctx, mustID(t, userResult.ID), profile.CreateMyProfileDTO{
 		Name:     "重复本人档案",
 		Gender:   1,
 		Birthday: "2001-01-01",
@@ -92,7 +93,7 @@ func TestMyProfiles_CreateRelationAllowsMultipleProfiles(t *testing.T) {
 
 	service := profile.NewMyProfiles(unitOfWork)
 	for _, name := range []string{"关系档案一", "关系档案二"} {
-		result, err := service.Create(ctx, userResult.ID, profile.CreateMyProfileDTO{
+		result, err := service.Create(ctx, mustID(t, userResult.ID), profile.CreateMyProfileDTO{
 			Name:     name,
 			Gender:   1,
 			Birthday: "2020-01-01",
@@ -103,7 +104,7 @@ func TestMyProfiles_CreateRelationAllowsMultipleProfiles(t *testing.T) {
 		assert.Equal(t, "parent", result.ProfileLink.Relation)
 	}
 
-	links, err := profilelink.NewDirectory(unitOfWork).ListProfilesForUser(ctx, userResult.ID)
+	links, err := profilelink.NewDirectory(unitOfWork).ListProfilesForUser(ctx, mustID(t, userResult.ID))
 	require.NoError(t, err)
 	require.Len(t, links, 2)
 	for _, link := range links {

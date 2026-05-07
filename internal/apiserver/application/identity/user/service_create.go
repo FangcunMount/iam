@@ -4,10 +4,8 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ======================================
@@ -39,7 +37,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 		uniqueness := user.NewUniquenessChecker(tx.Users)
 
-		phone, err := input.ParseOptionalPhone(dto.Phone)
+		phone, err := optionalPhone(dto.Phone)
 		if err != nil {
 			return err
 		}
@@ -56,8 +54,8 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 
 		// 创建用户实体（如有指定ID则使用）
 		var opts []user.UserOption
-		if dto.ID > 0 {
-			opts = append(opts, user.WithID(meta.FromUint64(dto.ID)))
+		if !dto.ID.IsZero() {
+			opts = append(opts, user.WithID(dto.ID))
 		}
 		newUser, err := user.NewUser(dto.Name, phone, opts...)
 		if err != nil {
@@ -72,7 +70,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 
 		// 设置可选的邮箱
 		if dto.Email != "" {
-			email, err := input.ParseOptionalEmail(dto.Email)
+			email, err := optionalEmail(dto.Email)
 			if err != nil {
 				l.Warnw("邮箱格式验证失败",
 					"action", logger.ActionCreate,

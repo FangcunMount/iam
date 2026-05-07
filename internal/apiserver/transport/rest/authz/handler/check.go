@@ -75,7 +75,7 @@ func (h *CheckHandler) Check(c *gin.Context) {
 }
 
 func resolveSubject(c *gin.Context, req dto.CheckRequest) (authzDomain.Subject, bool) {
-	if req.SubjectID != "" && req.SubjectType != "" {
+	if !req.SubjectID.IsZero() && req.SubjectType != "" {
 		subject, err := authzDomain.NewSubject(authzDomain.SubjectType(req.SubjectType), req.SubjectID)
 		if err != nil {
 			return authzDomain.Subject{}, false
@@ -83,7 +83,7 @@ func resolveSubject(c *gin.Context, req dto.CheckRequest) (authzDomain.Subject, 
 		return subject, true
 	}
 	uid, err := getUserID(c)
-	if err != nil || uid == "" {
+	if err != nil || uid.IsZero() {
 		return authzDomain.Subject{}, false
 	}
 	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, uid)

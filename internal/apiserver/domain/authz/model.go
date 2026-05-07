@@ -8,6 +8,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // SubjectType identifies the kind of principal that can receive authorization.
@@ -22,17 +23,21 @@ const (
 // Subject is the business principal being authorized.
 type Subject struct {
 	Type SubjectType
-	ID   string
+	ID   meta.ID
 }
 
-func NewSubject(subjectType SubjectType, id string) (Subject, error) {
+func NewSubject(subjectType SubjectType, id meta.ID) (Subject, error) {
 	if strings.TrimSpace(string(subjectType)) == "" {
 		return Subject{}, perrors.WithCode(code.ErrInvalidArgument, "subject type is required")
 	}
-	if strings.TrimSpace(id) == "" {
+	if id.IsZero() {
 		return Subject{}, perrors.WithCode(code.ErrInvalidArgument, "subject id is required")
 	}
-	return Subject{Type: subjectType, ID: strings.TrimSpace(id)}, nil
+	return Subject{Type: subjectType, ID: id}, nil
+}
+
+func NewUserSubject(id meta.ID) (Subject, error) {
+	return NewSubject(SubjectTypeUser, id)
 }
 
 // TenantScope is the tenant/domain boundary for authorization.
@@ -190,7 +195,7 @@ func NewRoleBinding(subject Subject, roleName, tenantID, grantedBy string) (Role
 	roleName = strings.TrimSpace(roleName)
 	tenantID = strings.TrimSpace(tenantID)
 	grantedBy = strings.TrimSpace(grantedBy)
-	if subject.Type == "" || subject.ID == "" {
+	if subject.Type == "" || subject.ID.IsZero() {
 		return RoleBinding{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
 	if roleName == "" {
@@ -223,7 +228,7 @@ func NewAuthorizationRequest(subject Subject, tenantID, resourceKey, action stri
 	tenantID = strings.TrimSpace(tenantID)
 	resourceKey = strings.TrimSpace(resourceKey)
 	action = strings.TrimSpace(action)
-	if subject.Type == "" || subject.ID == "" {
+	if subject.Type == "" || subject.ID.IsZero() {
 		return AuthorizationRequest{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
 	if tenantID == "" {

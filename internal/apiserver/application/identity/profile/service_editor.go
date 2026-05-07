@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ==============================================
@@ -23,7 +23,7 @@ func NewEditor(uow uow.UnitOfWork) Editor {
 }
 
 // Rename 修改档案姓名
-func (s *profileEditor) Rename(ctx context.Context, profileID string, newName string) error {
+func (s *profileEditor) Rename(ctx context.Context, profileID meta.ID, newName string) error {
 	l := logger.L(ctx)
 
 	l.Debugw("开始修改档案姓名",
@@ -34,20 +34,7 @@ func (s *profileEditor) Rename(ctx context.Context, profileID string, newName st
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseProfileID(profileID)
-		if err != nil {
-			l.Warnw("档案ID解析失败",
-				"action", logger.ActionUpdate,
-				"resource", "profile",
-				"resource_id", profileID,
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
-			return err
-		}
-
-		modifiedProfile, err := tx.Profiles.FindByID(txCtx, id)
+		modifiedProfile, err := tx.Profiles.FindByID(txCtx, profileID)
 		if err != nil {
 			l.Warnw("修改档案姓名失败",
 				"action", logger.ActionUpdate,
@@ -79,7 +66,7 @@ func (s *profileEditor) Rename(ctx context.Context, profileID string, newName st
 }
 
 // UpdateIDCard 更新身份证
-func (s *profileEditor) UpdateIDCard(ctx context.Context, profileID string, name string, idCard string) error {
+func (s *profileEditor) UpdateIDCard(ctx context.Context, profileID meta.ID, name string, idCard string) error {
 	l := logger.L(ctx)
 
 	l.Debugw("开始更新档案身份证",
@@ -89,20 +76,7 @@ func (s *profileEditor) UpdateIDCard(ctx context.Context, profileID string, name
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseProfileID(profileID)
-		if err != nil {
-			l.Warnw("档案ID解析失败",
-				"action", logger.ActionUpdate,
-				"resource", "profile",
-				"resource_id", profileID,
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
-			return err
-		}
-
-		idCardVO, err := input.ParseIDCard(name, idCard)
+		idCardVO, err := meta.NewIDCard(name, idCard)
 		if err != nil {
 			l.Warnw("身份证格式验证失败",
 				"action", logger.ActionUpdate,
@@ -114,7 +88,7 @@ func (s *profileEditor) UpdateIDCard(ctx context.Context, profileID string, name
 			return err
 		}
 
-		modifiedProfile, err := tx.Profiles.FindByID(txCtx, id)
+		modifiedProfile, err := tx.Profiles.FindByID(txCtx, profileID)
 		if err != nil {
 			l.Warnw("更新身份证失败",
 				"action", logger.ActionUpdate,
@@ -166,24 +140,11 @@ func (s *profileEditor) UpdateProfile(ctx context.Context, dto UpdateProfileDTO)
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 转换 ID
-		id, err := parseProfileID(dto.ProfileID)
-		if err != nil {
-			l.Warnw("档案ID解析失败",
-				"action", logger.ActionUpdate,
-				"resource", "profile",
-				"resource_id", dto.ProfileID,
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
-			return err
-		}
-
 		// 转换值对象
-		gender := input.ParseGender(dto.Gender)
-		birthday := input.ParseBirthday(dto.Birthday)
+		gender := meta.NewGender(dto.Gender)
+		birthday := meta.NewBirthday(dto.Birthday)
 
-		modifiedProfile, err := tx.Profiles.FindByID(txCtx, id)
+		modifiedProfile, err := tx.Profiles.FindByID(txCtx, dto.ProfileID)
 		if err != nil {
 			l.Warnw("更新档案基本信息失败",
 				"action", logger.ActionUpdate,

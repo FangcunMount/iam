@@ -76,25 +76,7 @@ func (s *commands) Revoke(ctx context.Context, dto RemoveProfileLinkDTO) (*Profi
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		userID, err := parseUserID(dto.UserID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionDelete,
-				"resource", "profile_link",
-				"error", err.Error(),
-			)
-			return err
-		}
-		profileID, err := parseProfileID(dto.ProfileID)
-		if err != nil {
-			l.Warnw("档案ID格式错误",
-				"action", logger.ActionDelete,
-				"resource", "profile_link",
-				"error", err.Error(),
-			)
-			return err
-		}
-		revoked, err := revokeProfileLinkInTx(txCtx, tx, userID, profileID, nil)
+		revoked, err := revokeProfileLinkInTx(txCtx, tx, dto.UserID, dto.ProfileID, nil)
 		result = revoked
 		return err
 	})
@@ -136,27 +118,19 @@ func (s *commands) RevokeBySelector(ctx context.Context, dto RevokeProfileLinkBy
 }
 
 func establishProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, dto CreateProfileLinkDTO) (*ProfileLinkResult, error) {
-	userID, err := parseUserID(dto.UserID)
-	if err != nil {
-		return nil, err
-	}
-	profileID, err := parseProfileID(dto.ProfileID)
-	if err != nil {
-		return nil, err
-	}
-	if err := ensureProfileLinkParticipantsExist(txCtx, tx, userID, profileID); err != nil {
+	if err := ensureProfileLinkParticipantsExist(txCtx, tx, dto.UserID, dto.ProfileID); err != nil {
 		return nil, err
 	}
 
 	relation := domain.ParseRelation(dto.Relation)
 	if relation == domain.RelSelf {
-		if err := domain.NewSelfProfileGuard(tx.ProfileLinks).EnsureCanCreateSelf(txCtx, userID); err != nil {
+		if err := domain.NewSelfProfileGuard(tx.ProfileLinks).EnsureCanCreateSelf(txCtx, dto.UserID); err != nil {
 			return nil, err
 		}
 	}
 
 	linker := domain.NewLinker(tx.ProfileLinks)
-	profileLink, err := linker.Link(txCtx, userID, profileID, relation)
+	profileLink, err := linker.Link(txCtx, dto.UserID, dto.ProfileID, relation)
 	if err != nil {
 		return nil, err
 	}
@@ -213,25 +187,16 @@ func ensureProfileLinkParticipantsExist(txCtx context.Context, tx uow.TxReposito
 }
 
 func resolveRevokeSelector(txCtx context.Context, tx uow.TxRepositories, dto RevokeProfileLinkBySelectorDTO) (meta.ID, meta.ID, *domain.ProfileLink, error) {
-	if dto.ProfileLinkID != "" {
-		profileLinkID, err := parseProfileLinkID(dto.ProfileLinkID)
+	if !dto.ProfileLinkID.IsZero() {
+		existing, err := tx.ProfileLinks.FindByID(txCtx, dto.ProfileLinkID)
 		if err != nil {
 			return 0, 0, nil, err
 		}
-		existing, err := tx.ProfileLinks.FindByID(txCtx, profileLinkID)
-		if err != nil {
-			return 0, 0, nil, err
+		if existing == nil || !existing.IsActive() {
+			return 0, 0, nil, perrors.WithCode(code.ErrIdentityProfileLinkNotFound, "active profile link not found")
 		}
 		return existing.User, existing.Profile, existing, nil
 	}
 
-	userID, err := parseUserID(dto.UserID)
-	if err != nil {
-		return 0, 0, nil, err
-	}
-	profileID, err := parseProfileID(dto.ProfileID)
-	if err != nil {
-		return 0, 0, nil, err
-	}
-	return userID, profileID, nil, nil
+	return dto.UserID, dto.ProfileID, nil, nil
 }

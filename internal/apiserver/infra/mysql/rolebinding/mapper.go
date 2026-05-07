@@ -22,8 +22,8 @@ func (m *Mapper) ToBO(po *BindingPO) *binding.Binding {
 	a := &binding.Binding{
 		ID:          binding.BindingID(po.ID),
 		SubjectType: binding.SubjectType(po.SubjectType),
-		SubjectID:   po.SubjectID,
-		RoleID:      po.RoleID,
+		SubjectID:   meta.MustFromUint64(parseStoredID(po.SubjectID)),
+		RoleID:      meta.FromUint64(po.RoleID),
 		TenantID:    po.TenantID,
 		GrantedBy:   po.GrantedBy,
 	}
@@ -39,8 +39,8 @@ func (m *Mapper) ToPO(bo *binding.Binding) *BindingPO {
 
 	po := &BindingPO{
 		SubjectType: string(bo.SubjectType),
-		SubjectID:   bo.SubjectID,
-		RoleID:      bo.RoleID,
+		SubjectID:   bo.SubjectID.String(),
+		RoleID:      bo.RoleID.Uint64(),
 		TenantID:    bo.TenantID,
 		GrantedBy:   bo.GrantedBy,
 	}
@@ -48,6 +48,14 @@ func (m *Mapper) ToPO(bo *binding.Binding) *BindingPO {
 	po.ID = id
 
 	return po
+}
+
+func parseStoredID(value string) uint64 {
+	id, err := meta.ParseID(value)
+	if err != nil {
+		return 0
+	}
+	return id.Uint64()
 }
 
 // ToBOList 将 PO 列表转换为 BO 列表

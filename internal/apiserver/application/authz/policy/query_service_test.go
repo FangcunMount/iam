@@ -29,7 +29,7 @@ func TestPolicyQueryServiceReturnsBusinessPermissionsForRole(t *testing.T) {
 	service := NewPolicyQueryService(&policyVersionRepoForCommandStub{}, store, roleRepo)
 
 	permissions, err := service.GetPermissionsForRole(context.Background(), RolePermissionsQuery{
-		RoleID:   10,
+		RoleID:   meta.FromUint64(10),
 		TenantID: "tenant-a",
 	})
 

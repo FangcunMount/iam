@@ -7,6 +7,7 @@ import (
 	sessionapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
 // SessionAdminHandler 暴露管理员会话控制接口。
@@ -69,15 +70,11 @@ func currentActor(c *gin.Context) string {
 	if c == nil {
 		return ""
 	}
-	if value, exists := c.Get("account_id"); exists {
-		if actor, ok := value.(string); ok {
-			return actor
-		}
+	if actor, ok := requestctx.AccountID(c); ok {
+		return actor.String()
 	}
-	if value, exists := c.Get("user_id"); exists {
-		if actor, ok := value.(string); ok {
-			return actor
-		}
+	if actor, ok := requestctx.UserID(c); ok {
+		return actor.String()
 	}
 	return "admin"
 }

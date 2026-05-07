@@ -7,13 +7,14 @@ import (
 
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	engine := &decisionEngineFake{decision: authzDomain.AuthorizationDecision{Allowed: true}}
 	checker := NewChecker(engine)
@@ -39,7 +40,7 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	reader := NewSnapshotReader(
 		&snapshotStoreFake{
@@ -72,7 +73,7 @@ func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 func TestSnapshotReaderValidatesDependencies(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 
 	_, err = NewSnapshotReader(nil, &versionRepoFake{}).Read(context.Background(), SnapshotQuery{

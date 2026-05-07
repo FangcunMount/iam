@@ -6,6 +6,7 @@ import (
 
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Validator 策略验证器接口。
@@ -13,7 +14,7 @@ import (
 type Validator interface {
 	// ValidateAddPolicyParameters 验证添加策略参数
 	ValidateAddPolicyParameters(
-		roleID uint64,
+		roleID meta.ID,
 		resourceID resource.ResourceID,
 		action string,
 		tenantID string,
@@ -22,7 +23,7 @@ type Validator interface {
 
 	// ValidateRemovePolicyParameters 验证移除策略参数
 	ValidateRemovePolicyParameters(
-		roleID uint64,
+		roleID meta.ID,
 		resourceID resource.ResourceID,
 		action string,
 		tenantID string,
@@ -33,7 +34,7 @@ type Validator interface {
 	// 返回业务角色名，用于构造授权权限模型。
 	CheckRoleExistsAndTenant(
 		ctx context.Context,
-		roleID uint64,
+		roleID meta.ID,
 		tenantID string,
 	) (string, error)
 

@@ -11,6 +11,7 @@ import (
 	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {
@@ -18,7 +19,7 @@ func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {
 		commander := &bindingCommanderFake{}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{}`, handler.GrantRoleBinding, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{}`, handler.GrantRoleBinding, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.grantCalls)
@@ -28,7 +29,7 @@ func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {
 		commander := &bindingCommanderFake{}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"user-1","role_id":"11"}`, handler.GrantRoleBinding, withUser("operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.GrantRoleBinding, withUser("1001"))
 
 		requireAuthzCode(t, recorder, http.StatusUnauthorized, code.ErrTokenInvalid)
 		require.Empty(t, commander.grantCalls)
@@ -38,7 +39,7 @@ func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {
 		commander := &bindingCommanderFake{}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"user-1","role_id":"11"}`, handler.GrantRoleBinding, withTenant("tenant-a"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.GrantRoleBinding, withTenant("tenant-a"))
 
 		requireAuthzCode(t, recorder, http.StatusUnauthorized, code.ErrTokenInvalid)
 		require.Empty(t, commander.grantCalls)
@@ -52,7 +53,7 @@ func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {
 		}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"user-1","role_id":"11"}`, handler.GrantRoleBinding, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.GrantRoleBinding, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusConflict, code.ErrAssignmentAlreadyExists)
 		require.Len(t, commander.grantCalls, 1)
@@ -62,16 +63,16 @@ func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {
 		commander := &bindingCommanderFake{}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"user-1","role_id":"11"}`, handler.GrantRoleBinding, withTenantUser("tenant-a", "operator-1"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/grant", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.GrantRoleBinding, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, commander.grantCalls, 1)
 		require.Equal(t, bindingApp.GrantCommand{
 			SubjectType: bindingDomain.SubjectTypeUser,
-			SubjectID:   "user-1",
-			RoleID:      11,
+			SubjectID:   meta.FromUint64(1),
+			RoleID:      meta.FromUint64(11),
 			TenantID:    "tenant-a",
-			GrantedBy:   "operator-1",
+			GrantedBy:   "1001",
 		}, commander.grantCalls[0])
 	})
 }
@@ -91,7 +92,7 @@ func TestRoleBindingHandlerRevokeRoleHTTPBranches(t *testing.T) {
 		commander := &bindingCommanderFake{}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"user-1","role_id":"11"}`, handler.RevokeRoleBinding)
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.RevokeRoleBinding)
 
 		requireAuthzCode(t, recorder, http.StatusUnauthorized, code.ErrTokenInvalid)
 		require.Empty(t, commander.revokeCalls)
@@ -105,7 +106,7 @@ func TestRoleBindingHandlerRevokeRoleHTTPBranches(t *testing.T) {
 		}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"user-1","role_id":"11"}`, handler.RevokeRoleBinding, withTenant("tenant-a"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.RevokeRoleBinding, withTenant("tenant-a"))
 
 		requireAuthzCode(t, recorder, http.StatusNotFound, code.ErrAssignmentNotFound)
 		require.Len(t, commander.revokeCalls, 1)
@@ -165,7 +166,7 @@ func TestRoleBindingHandlerListBySubjectHTTPBranches(t *testing.T) {
 		queryer := &bindingQueryerFake{}
 		handler := NewRoleBindingHandler(nil, queryer)
 
-		recorder, _ := performAuthzRequest(http.MethodGet, "/assignments/subject?subject_type=user&subject_id=user-1", "", handler.ListRoleBindingsBySubject)
+		recorder, _ := performAuthzRequest(http.MethodGet, "/assignments/subject?subject_type=user&subject_id=1", "", handler.ListRoleBindingsBySubject)
 
 		requireAuthzCode(t, recorder, http.StatusUnauthorized, code.ErrTokenInvalid)
 		require.Empty(t, queryer.listBySubjectCalls)
@@ -189,7 +190,7 @@ func TestRoleBindingHandlerListBySubjectHTTPBranches(t *testing.T) {
 		}
 		handler := NewRoleBindingHandler(nil, queryer)
 
-		recorder, _ := performAuthzRequest(http.MethodGet, "/assignments/subject?subject_type=user&subject_id=user-1", "", handler.ListRoleBindingsBySubject, withTenant("tenant-a"))
+		recorder, _ := performAuthzRequest(http.MethodGet, "/assignments/subject?subject_type=user&subject_id=1", "", handler.ListRoleBindingsBySubject, withTenant("tenant-a"))
 
 		requireAuthzCode(t, recorder, http.StatusNotFound, code.ErrAssignmentNotFound)
 		require.Len(t, queryer.listBySubjectCalls, 1)
@@ -229,6 +230,6 @@ func TestRoleBindingHandlerListByRoleHTTPBranches(t *testing.T) {
 
 		requireAuthzCode(t, recorder, http.StatusNotFound, code.ErrAssignmentNotFound)
 		require.Len(t, queryer.listByRoleCalls, 1)
-		require.Equal(t, bindingApp.ListByRoleQuery{RoleID: 11, TenantID: "tenant-a"}, queryer.listByRoleCalls[0])
+		require.Equal(t, bindingApp.ListByRoleQuery{RoleID: meta.FromUint64(11), TenantID: "tenant-a"}, queryer.listByRoleCalls[0])
 	})
 }

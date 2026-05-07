@@ -7,7 +7,7 @@ import (
 
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
@@ -33,13 +33,13 @@ func (h *ProfileHandler) ListMyProfiles(c *gin.Context) {
 		return
 	}
 
-	rawID, ok := h.GetUserID(c)
-	if !ok {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
+	userID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
 
-	profileResults, err := h.myProfiles.List(c.Request.Context(), rawID)
+	profileResults, err := h.myProfiles.List(c.Request.Context(), userID)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -81,19 +81,19 @@ func (h *ProfileHandler) ListMyProfiles(c *gin.Context) {
 // @Router /identity/profiles/{id} [get]
 // @Security BearerAuth
 func (h *ProfileHandler) GetProfile(c *gin.Context) {
-	profileID := c.Param("id")
-	if strings.TrimSpace(profileID) == "" {
-		h.ErrorWithCode(c, code.ErrInvalidArgument, "profile id is required")
+	profileID, err := parseProfileID(c.Param("id"))
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
 
-	rawUserID, ok := h.GetUserID(c)
-	if !ok {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
+	userID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
 
-	profile, err := h.myProfiles.Get(c.Request.Context(), rawUserID, profileID)
+	profile, err := h.myProfiles.Get(c.Request.Context(), userID, profileID)
 	if err != nil {
 		h.Error(c, err)
 		return

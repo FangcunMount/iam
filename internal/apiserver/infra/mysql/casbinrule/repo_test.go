@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -93,7 +94,7 @@ func TestRepositoryStoresGroupingRulesWithCasbinFieldOrder(t *testing.T) {
 	db := setupCasbinRuleDB(t)
 	repo := NewRepository(db)
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	binding, err := authzDomain.NewRoleBinding(subject, "iam:admin", "tenant-a", "operator-1")
 	require.NoError(t, err)

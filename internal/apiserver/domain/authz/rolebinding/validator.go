@@ -38,8 +38,8 @@ func NewValidator(
 // ValidateGrantParameters 验证授权参数。
 func (v *validator) ValidateGrantParameters(
 	subjectType SubjectType,
-	subjectID string,
-	roleID uint64,
+	subjectID meta.ID,
+	roleID meta.ID,
 	tenantID string,
 	grantedBy string,
 ) error {
@@ -49,10 +49,10 @@ func (v *validator) ValidateGrantParameters(
 	if err := validateWritableSubjectType(subjectType); err != nil {
 		return err
 	}
-	if subjectID == "" {
+	if subjectID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
 	}
-	if roleID == 0 {
+	if roleID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
 	}
 	if tenantID == "" {
@@ -67,8 +67,8 @@ func (v *validator) ValidateGrantParameters(
 // ValidateRevokeParameters 验证撤销授权参数
 func (v *validator) ValidateRevokeParameters(
 	subjectType SubjectType,
-	subjectID string,
-	roleID uint64,
+	subjectID meta.ID,
+	roleID meta.ID,
 	tenantID string,
 ) error {
 	if subjectType == "" {
@@ -77,10 +77,10 @@ func (v *validator) ValidateRevokeParameters(
 	if err := validateWritableSubjectType(subjectType); err != nil {
 		return err
 	}
-	if subjectID == "" {
+	if subjectID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
 	}
-	if roleID == 0 {
+	if roleID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
 	}
 	if tenantID == "" {
@@ -90,9 +90,8 @@ func (v *validator) ValidateRevokeParameters(
 }
 
 // CheckRoleExists 检查角色是否存在
-func (v *validator) CheckRoleExists(ctx context.Context, roleID uint64, tenantID string) error {
-	id := meta.FromUint64(roleID) // roleID 来自请求，必定有效
-	roleExists, err := v.roleRepo.FindByID(ctx, id)
+func (v *validator) CheckRoleExists(ctx context.Context, roleID meta.ID, tenantID string) error {
+	roleExists, err := v.roleRepo.FindByID(ctx, roleID)
 	if err != nil {
 		if errors.IsCode(err, code.ErrRoleNotFound) {
 			return errors.WithCode(code.ErrRoleNotFound, "角色不存在")
@@ -109,18 +108,17 @@ func (v *validator) CheckRoleExists(ctx context.Context, roleID uint64, tenantID
 }
 
 // CheckSubjectExists 检查主体是否存在
-func (v *validator) CheckSubjectExists(ctx context.Context, subjectType SubjectType, subjectID, tenantID string) error {
+func (v *validator) CheckSubjectExists(ctx context.Context, subjectType SubjectType, subjectID meta.ID, tenantID string) error {
 	if err := validateWritableSubjectType(subjectType); err != nil {
 		return err
 	}
 	if v.userRepo == nil {
 		return errors.WithCode(code.ErrInternalServerError, "用户仓储未配置")
 	}
-	userID, err := meta.ParseID(subjectID)
-	if err != nil || userID.IsZero() {
+	if subjectID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID格式错误")
 	}
-	userExists, err := v.userRepo.FindByID(ctx, userID)
+	userExists, err := v.userRepo.FindByID(ctx, subjectID)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
 			return errors.WithCode(code.ErrUserNotFound, "用户不存在")
@@ -151,14 +149,13 @@ func (v *validator) ValidateRevokeByIDParameters(
 // 返回角色实体用于后续操作
 func (v *validator) CheckRoleExistsAndTenant(
 	ctx context.Context,
-	roleID uint64,
+	roleID meta.ID,
 	tenantID string,
 ) (*role.Role, error) {
-	id := meta.FromUint64(roleID) // roleID 来自请求，必定有效
-	roleExists, err := v.roleRepo.FindByID(ctx, id)
+	roleExists, err := v.roleRepo.FindByID(ctx, roleID)
 	if err != nil {
 		if errors.IsCode(err, code.ErrRoleNotFound) {
-			return nil, errors.WithCode(code.ErrRoleNotFound, "角色 %d 不存在", roleID)
+			return nil, errors.WithCode(code.ErrRoleNotFound, "角色 %d 不存在", roleID.Uint64())
 		}
 		return nil, errors.Wrap(err, "获取角色失败")
 	}
@@ -175,8 +172,8 @@ func (v *validator) CheckRoleExistsAndTenant(
 func (v *validator) FindBindingBySubjectAndRole(
 	ctx context.Context,
 	subjectType SubjectType,
-	subjectID string,
-	roleID uint64,
+	subjectID meta.ID,
+	roleID meta.ID,
 	tenantID string,
 ) (*Binding, error) {
 	// 查询赋权列表
@@ -219,8 +216,8 @@ func (v *validator) GetBindingByIDAndCheckTenant(
 }
 
 // ValidateListBySubjectQuery 验证根据主体查询参数
-func (v *validator) ValidateListBySubjectQuery(subjectID string, tenantID string) error {
-	if subjectID == "" {
+func (v *validator) ValidateListBySubjectQuery(subjectID meta.ID, tenantID string) error {
+	if subjectID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID不能为空")
 	}
 	if tenantID == "" {
@@ -230,8 +227,8 @@ func (v *validator) ValidateListBySubjectQuery(subjectID string, tenantID string
 }
 
 // ValidateListByRoleQuery 验证根据角色查询参数
-func (v *validator) ValidateListByRoleQuery(roleID uint64, tenantID string) error {
-	if roleID == 0 {
+func (v *validator) ValidateListByRoleQuery(roleID meta.ID, tenantID string) error {
+	if roleID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
 	}
 	if tenantID == "" {

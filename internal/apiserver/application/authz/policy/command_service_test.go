@@ -50,7 +50,7 @@ func TestPolicyCommandServiceAddPermission_CommitsFactsWhenRuntimeReloadFails(t 
 	)
 
 	err := service.AddPermission(context.Background(), AddPermissionCommand{
-		RoleID:     10,
+		RoleID:     meta.FromUint64(10),
 		ResourceID: resourceDomain.NewResourceID(20),
 		Action:     "read",
 		TenantID:   "tenant-a",
@@ -102,7 +102,7 @@ func TestPolicyCommandServiceAddPermission_ValidatesResourceScopeKind(t *testing
 	require.NoError(t, err)
 
 	err = service.AddPermission(context.Background(), AddPermissionCommand{
-		RoleID:     10,
+		RoleID:     meta.FromUint64(10),
 		ResourceID: resourceDomain.NewResourceID(20),
 		Action:     "read",
 		Scope:      scope,
@@ -145,7 +145,7 @@ func TestPolicyCommandServiceAddPermission_RejectsUnsupportedScopeKind(t *testin
 	require.NoError(t, err)
 
 	err = service.AddPermission(context.Background(), AddPermissionCommand{
-		RoleID:     10,
+		RoleID:     meta.FromUint64(10),
 		ResourceID: resourceDomain.NewResourceID(20),
 		Action:     "read",
 		Scope:      scope,

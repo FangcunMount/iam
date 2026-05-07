@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
@@ -159,20 +160,15 @@ func (m *JWTAuthMiddleware) RequireRole(roleNames ...string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		userID, ok := c.Get(ContextKeyUserID)
+		userID, ok := requestctx.UserID(c)
 		if !ok {
 			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
 			c.Abort()
 			return
 		}
-		uid, ok := userID.(string)
-		if !ok || uid == "" {
-			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
+		uid := userID.String()
 		sub := "user:" + uid
-		dom := TenantIDFromGin(c)
+		dom := requestctx.TenantIDOrDefault(c)
 		roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
 		if err != nil {
 			log.Errorw("route authorization role lookup failed", "error", err, "sub", sub, "dom", dom)
@@ -207,21 +203,16 @@ func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		userID, ok := c.Get(ContextKeyUserID)
+		userID, ok := requestctx.UserID(c)
 		if !ok {
 			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
 			c.Abort()
 			return
 		}
-		uid, ok := userID.(string)
-		if !ok || uid == "" {
-			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
 
+		uid := userID.String()
 		sub := "user:" + uid
-		domains := []string{TenantIDFromGin(c)}
+		domains := []string{requestctx.TenantIDOrDefault(c)}
 		if domains[0] != tenant.PlatformID {
 			domains = append(domains, tenant.PlatformID)
 		}
@@ -256,20 +247,15 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 			c.Abort()
 			return
 		}
-		userID, ok := c.Get(ContextKeyUserID)
+		userID, ok := requestctx.UserID(c)
 		if !ok {
 			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
 			c.Abort()
 			return
 		}
-		uid, ok := userID.(string)
-		if !ok || uid == "" {
-			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
+		uid := userID.String()
 		sub := "user:" + uid
-		dom := TenantIDFromGin(c)
+		dom := requestctx.TenantIDOrDefault(c)
 		allowed, err := m.routeAuth.AuthorizeRoute(c.Request.Context(), sub, dom, resourceObj, action)
 		if err != nil {
 			log.Errorw("route authorization failed", "error", err, "sub", sub, "dom", dom)
@@ -286,38 +272,26 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 	}
 }
 
-// TenantIDFromGin 从 gin 上下文解析租户域（tenant domain），缺省为 tenant.DefaultID。
-func TenantIDFromGin(c *gin.Context) string {
-	tenantID, exists := c.Get(ContextKeyTenantID)
-	if !exists {
-		return tenant.DefaultID
-	}
-	if id, ok := tenantID.(string); ok && id != "" {
-		return id
-	}
-	return tenant.DefaultID
-}
-
 func applyVerifiedClaims(c *gin.Context, claims *token.TokenClaims) {
 	if c == nil || claims == nil {
 		return
 	}
 
-	ctx := context.WithValue(c.Request.Context(), ContextKeyUserID, claims.UserID)
+	ctx := context.WithValue(c.Request.Context(), requestctx.KeyUserID, claims.UserID)
 	c.Request = c.Request.WithContext(ctx)
-	c.Set(ContextKeyClaims, claims)
+	requestctx.SetClaims(c, claims)
 
 	if !claims.UserID.IsZero() {
-		c.Set(ContextKeyUserID, claims.UserID.String())
+		requestctx.SetUserID(c, claims.UserID)
 	}
 	if !claims.AccountID.IsZero() {
-		c.Set(ContextKeyAccountID, claims.AccountID.String())
+		requestctx.SetAccountID(c, claims.AccountID)
 	}
 	if !claims.TenantID.IsZero() {
-		c.Set(ContextKeyTenantID, claims.TenantID.String())
+		requestctx.SetTenantID(c, claims.TenantID.String())
 	}
 	if claims.TokenID != "" {
-		c.Set(ContextKeyTokenID, claims.TokenID)
+		requestctx.SetTokenID(c, claims.TokenID)
 	}
 }
 
@@ -349,52 +323,14 @@ func (m *JWTAuthMiddleware) extractToken(c *gin.Context) (string, string) {
 	return "", "none"
 }
 
-// GetCurrentUserID 从上下文获取当前用户 ID
-func GetCurrentUserID(c *gin.Context) (string, bool) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		return "", false
-	}
-	if id, ok := userID.(string); ok {
-		return id, true
-	}
-	return "", false
-}
-
-// GetCurrentAccountID 从上下文获取当前账户 ID
-func GetCurrentAccountID(c *gin.Context) (string, bool) {
-	accountID, exists := c.Get("account_id")
-	if !exists {
-		return "", false
-	}
-	if id, ok := accountID.(string); ok {
-		return id, true
-	}
-	return "", false
-}
-
 func requestIDFromContext(c *gin.Context) string {
-	if rid, ok := c.Get("request_id"); ok {
-		if v, ok := rid.(string); ok && v != "" {
-			return v
-		}
+	if rid, ok := requestctx.RequestIDString(c); ok {
+		return rid
 	}
 	if rid := c.GetHeader("X-Request-Id"); rid != "" {
 		return rid
 	}
 	return ""
-}
-
-// GetCurrentSessionID 从上下文获取当前会话 ID
-func GetCurrentSessionID(c *gin.Context) (string, bool) {
-	sessionID, exists := c.Get("session_id")
-	if !exists {
-		return "", false
-	}
-	if id, ok := sessionID.(string); ok {
-		return id, true
-	}
-	return "", false
 }
 
 // RequireAuth 便捷函数：创建认证必需中间件

@@ -11,6 +11,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
@@ -28,27 +29,12 @@ func NewBaseHandler() *BaseHandler {
 
 // getTenantID 从上下文中获取租户ID。
 func getTenantID(c *gin.Context) (string, error) {
-	if c == nil {
-		return "", perrors.WithCode(code.ErrTokenInvalid, "request context is nil")
-	}
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		return "", perrors.WithCode(code.ErrTokenInvalid, "tenant id not found in context")
-	}
-	id, ok := tenantID.(string)
-	if !ok || id == "" {
-		return "", perrors.WithCode(code.ErrTokenInvalid, "tenant id not found in context")
-	}
-	return id, nil
+	return requestctx.RequiredTenantID(c)
 }
 
 // getUserID 从上下文中获取用户ID。
-func getUserID(c *gin.Context) (string, error) {
-	userID, _ := core.NewBaseHandler().GetUserID(c)
-	if userID == "" {
-		return "", perrors.WithCode(code.ErrTokenInvalid, "user id not found in context")
-	}
-	return userID, nil
+func getUserID(c *gin.Context) (meta.ID, error) {
+	return requestctx.RequiredUserID(c)
 }
 
 func bindJSON(c *gin.Context, req interface{}) bool {

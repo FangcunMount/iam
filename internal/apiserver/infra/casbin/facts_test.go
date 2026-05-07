@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, "100")
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:user:*", "read")
 	require.NoError(t, err)

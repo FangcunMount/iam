@@ -36,8 +36,8 @@ func TestRoleBindingHandlerToBindingResponse(t *testing.T) {
 	handler := &RoleBindingHandler{}
 	source := binding.NewBinding(
 		binding.SubjectTypeUser,
-		"user-1",
-		22,
+		meta.FromUint64(1),
+		meta.FromUint64(22),
 		"tenant-a",
 		binding.WithID(binding.NewBindingID(12)),
 		binding.WithGrantedBy("operator-1"),
@@ -47,7 +47,7 @@ func TestRoleBindingHandlerToBindingResponse(t *testing.T) {
 
 	if resp.ID.Uint64() != 12 ||
 		resp.SubjectType != "user" ||
-		resp.SubjectID != "user-1" ||
+		resp.SubjectID != meta.FromUint64(1) ||
 		resp.RoleID.Uint64() != 22 ||
 		resp.TenantID != "tenant-a" ||
 		resp.GrantedBy != "operator-1" {

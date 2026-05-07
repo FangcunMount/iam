@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +13,9 @@ import (
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
@@ -62,13 +63,7 @@ func NewUserHandler(
 // @Router /identity/me [get]
 // @Security BearerAuth
 func (h *UserHandler) GetUserProfile(c *gin.Context) {
-	rawUserID, exists := c.Get("user_id")
-	if !exists {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
-		return
-	}
-
-	userID, err := toUserID(rawUserID)
+	userID, err := requestctx.RequiredUserID(c)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -97,13 +92,7 @@ func (h *UserHandler) GetUserProfile(c *gin.Context) {
 // @Router /identity/me [patch]
 // @Security BearerAuth
 func (h *UserHandler) PatchUser(c *gin.Context) {
-	rawUserID, exists := c.Get("user_id")
-	if !exists {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
-		return
-	}
-
-	userID, err := toUserID(rawUserID)
+	userID, err := requestctx.RequiredUserID(c)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -159,15 +148,15 @@ func extractContactValues(contacts []requestdto.UserContactUpsert) (phone string
 	return
 }
 
-func (h *UserHandler) resolveRoles(c *gin.Context, userID string) []string {
-	if h.roles == nil || strings.TrimSpace(userID) == "" {
+func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
+	if h.roles == nil || userID.IsZero() {
 		return nil
 	}
 	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, userID)
 	if err != nil {
 		return nil
 	}
-	domains := []string{authn.TenantIDFromGin(c)}
+	domains := []string{requestctx.TenantIDOrDefault(c)}
 	if domains[0] != tenant.PlatformID {
 		domains = append(domains, tenant.PlatformID)
 	}
@@ -246,51 +235,32 @@ func userDisplayNickname(u *appuser.UserResult) string {
 	return u.Name
 }
 
-func parseUserID(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", perrors.WithCode(code.ErrInvalidArgument, "user id cannot be empty")
-	}
-
-	id, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil {
-		return "", perrors.WithCode(code.ErrInvalidArgument, "invalid user id: %s", raw)
-	}
-
-	return strconv.FormatUint(id, 10), nil
+func parseProfileID(raw string) (meta.ID, error) {
+	return parseRequiredID(raw, "profile id")
 }
 
-func toUserID(value interface{}) (string, error) {
-	switch v := value.(type) {
-	case uint64:
-		return strconv.FormatUint(v, 10), nil
-	case uint32:
-		return strconv.FormatUint(uint64(v), 10), nil
-	case uint:
-		return strconv.FormatUint(uint64(v), 10), nil
-	case int64:
-		if v < 0 {
-			return "", perrors.WithCode(code.ErrInvalidArgument, "negative id: %d", v)
-		}
-		return strconv.FormatUint(uint64(v), 10), nil
-	case int32:
-		if v < 0 {
-			return "", perrors.WithCode(code.ErrInvalidArgument, "negative id: %d", v)
-		}
-		return strconv.FormatUint(uint64(v), 10), nil
-	case int:
-		if v < 0 {
-			return "", perrors.WithCode(code.ErrInvalidArgument, "negative id: %d", v)
-		}
-		return strconv.FormatUint(uint64(v), 10), nil
-	case float64:
-		if v < 0 {
-			return "", perrors.WithCode(code.ErrInvalidArgument, "negative id: %f", v)
-		}
-		return strconv.FormatUint(uint64(v), 10), nil
-	case string:
-		return parseUserID(v)
-	default:
-		return "", perrors.WithCode(code.ErrInvalidArgument, "unsupported user id type: %T", value)
+func parseProfileLinkID(raw string) (meta.ID, error) {
+	return parseRequiredID(raw, "profile link id")
+}
+
+func parseRequiredID(raw string, field string) (meta.ID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, perrors.WithCode(code.ErrInvalidArgument, "%s cannot be empty", field)
 	}
+
+	id, err := meta.ParseID(raw)
+	if err != nil {
+		return 0, perrors.WithCode(code.ErrInvalidArgument, "invalid %s: %s", field, raw)
+	}
+
+	return id, nil
+}
+
+func parseOptionalID(raw string, field string) (meta.ID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, nil
+	}
+	return parseRequiredID(raw, field)
 }

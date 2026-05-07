@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 // BaseHandler 基础Handler结构
@@ -237,31 +236,4 @@ func (h *BaseHandler) ErrorWithCode(c *gin.Context, code int, format string, arg
 // BindURI URI参数绑定的别名（统一命名风格）
 func (h *BaseHandler) BindURI(c *gin.Context, obj interface{}) error {
 	return h.BindUri(c, obj)
-}
-
-// ====================== 上下文信息提取方法 ======================
-
-// GetUserID 从上下文中获取用户ID
-// 返回用户ID和是否存在的标志
-func (h *BaseHandler) GetUserID(c *gin.Context) (string, bool) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		return "", false
-	}
-	if id, ok := userID.(string); ok {
-		return id, true
-	}
-	return "", false
-}
-
-// GetTenantID 从上下文中获取租户ID
-func (h *BaseHandler) GetTenantID(c *gin.Context) string {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		return tenant.DefaultID
-	}
-	if id, ok := tenantID.(string); ok {
-		return id
-	}
-	return tenant.DefaultID
 }

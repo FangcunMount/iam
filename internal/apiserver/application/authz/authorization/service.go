@@ -82,7 +82,7 @@ func (r *SnapshotReader) Read(ctx context.Context, query SnapshotQuery) (*Snapsh
 	if r.versions == nil {
 		return nil, perrors.WithCode(code.ErrInternalServerError, "authorization version repository not available")
 	}
-	if query.Subject.Type == "" || strings.TrimSpace(query.Subject.ID) == "" {
+	if query.Subject.Type == "" || query.Subject.ID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
 	if strings.TrimSpace(query.TenantID) == "" {

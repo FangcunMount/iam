@@ -8,7 +8,7 @@ import (
 	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
@@ -51,15 +51,25 @@ func (h *ProfileLinkHandler) Grant(c *gin.Context) {
 		return
 	}
 
-	currentUserID, ok := h.GetUserID(c)
-	if !ok {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
+	currentUserID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	userID, err := parseOptionalID(req.UserID, "user id")
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	profileID, err := parseProfileID(req.ProfileID)
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
 
 	result, err := h.profileLinkAccess.Grant(c.Request.Context(), currentUserID, appprofilelink.CreateProfileLinkDTO{
-		UserID:    req.UserID,
-		ProfileID: req.ProfileID,
+		UserID:    userID,
+		ProfileID: profileID,
 		Relation:  req.Relation,
 	})
 	if err != nil {
@@ -84,14 +94,14 @@ func (h *ProfileLinkHandler) Grant(c *gin.Context) {
 // @Router /identity/profile-links/{id}/revoke [post]
 // @Security BearerAuth
 func (h *ProfileLinkHandler) Revoke(c *gin.Context) {
-	profileLinkID := c.Param("id")
-	if profileLinkID == "" {
-		h.ErrorWithCode(c, code.ErrInvalidArgument, "profile link id is required")
+	profileLinkID, err := parseProfileLinkID(c.Param("id"))
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
-	currentUserID, ok := h.GetUserID(c)
-	if !ok {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
+	currentUserID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
 	result, err := h.profileLinkAccess.Revoke(c.Request.Context(), currentUserID, appprofilelink.RevokeProfileLinkBySelectorDTO{
@@ -129,15 +139,25 @@ func (h *ProfileLinkHandler) List(c *gin.Context) {
 		return
 	}
 
-	currentUserID, ok := h.GetUserID(c)
-	if !ok {
-		h.ErrorWithCode(c, code.ErrTokenInvalid, "user id not found in context")
+	currentUserID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	userID, err := parseOptionalID(req.UserID, "user id")
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	profileID, err := parseOptionalID(req.ProfileID, "profile id")
+	if err != nil {
+		h.Error(c, err)
 		return
 	}
 
 	results, err := h.profileLinkAccess.List(c.Request.Context(), currentUserID, appprofilelink.ListProfileLinksDTO{
-		UserID:    req.UserID,
-		ProfileID: req.ProfileID,
+		UserID:    userID,
+		ProfileID: profileID,
 		Active:    profileLinkActiveFilter(req),
 	})
 	if err != nil {

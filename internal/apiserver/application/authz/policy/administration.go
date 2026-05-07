@@ -85,8 +85,8 @@ func (s *PolicyAdministration) RevokePermissionFromRole(ctx context.Context, cmd
 func (s *PolicyAdministration) BindRoleToSubject(
 	ctx context.Context,
 	subjectType bindingDomain.SubjectType,
-	subjectID string,
-	roleID uint64,
+	subjectID meta.ID,
+	roleID meta.ID,
 	tenantID string,
 	grantedBy string,
 ) (*bindingDomain.Binding, error) {
@@ -108,7 +108,7 @@ func (s *PolicyAdministration) BindRoleToSubject(
 			return policyDomain.PolicyChange{}, err
 		}
 
-		targetRole, err := tx.Roles.FindByID(txCtx, meta.FromUint64(roleID))
+		targetRole, err := tx.Roles.FindByID(txCtx, roleID)
 		if err != nil {
 			return policyDomain.PolicyChange{}, errors.Wrap(err, "获取角色失败")
 		}
@@ -144,8 +144,8 @@ func (s *PolicyAdministration) BindRoleToSubject(
 func (s *PolicyAdministration) UnbindRoleFromSubject(
 	ctx context.Context,
 	subjectType bindingDomain.SubjectType,
-	subjectID string,
-	roleID uint64,
+	subjectID meta.ID,
+	roleID meta.ID,
 	tenantID string,
 ) error {
 	if err := s.roleBindingValidator.ValidateRevokeParameters(subjectType, subjectID, roleID, tenantID); err != nil {
@@ -157,7 +157,7 @@ func (s *PolicyAdministration) UnbindRoleFromSubject(
 	}
 
 	return s.committer.Commit(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) (policyDomain.PolicyChange, error) {
-		targetRole, err := tx.Roles.FindByID(txCtx, meta.FromUint64(roleID))
+		targetRole, err := tx.Roles.FindByID(txCtx, roleID)
 		if err != nil {
 			return policyDomain.PolicyChange{}, errors.Wrap(err, "获取角色失败")
 		}
@@ -195,7 +195,7 @@ func (s *PolicyAdministration) UnbindRoleBindingByID(ctx context.Context, bindin
 			return policyDomain.PolicyChange{}, errors.New("赋权记录不属于当前租户")
 		}
 
-		targetRole, err := tx.Roles.FindByID(txCtx, meta.FromUint64(targetBinding.RoleID))
+		targetRole, err := tx.Roles.FindByID(txCtx, targetBinding.RoleID)
 		if err != nil {
 			return policyDomain.PolicyChange{}, errors.Wrap(err, "获取角色失败")
 		}
@@ -215,11 +215,11 @@ func (s *PolicyAdministration) UnbindRoleBindingByID(ctx context.Context, bindin
 func resolvePermissionTargets(
 	ctx context.Context,
 	tx authzuow.TxRepositories,
-	roleID uint64,
+	roleID meta.ID,
 	resourceID resourceDomain.ResourceID,
 	tenantID string,
 ) (*roleDomain.Role, *resourceDomain.Resource, error) {
-	targetRole, err := tx.Roles.FindByID(ctx, meta.FromUint64(roleID))
+	targetRole, err := tx.Roles.FindByID(ctx, roleID)
 	if err != nil {
 		return nil, nil, err
 	}

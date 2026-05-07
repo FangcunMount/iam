@@ -6,6 +6,7 @@ import (
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 type PermissionCommands interface {
@@ -23,7 +24,7 @@ type RolePermissionStore interface {
 }
 
 type AddPermissionCommand struct {
-	RoleID     uint64
+	RoleID     meta.ID
 	ResourceID resourceDomain.ResourceID
 	Action     string
 	Scope      authzDomain.Scope
@@ -33,7 +34,7 @@ type AddPermissionCommand struct {
 }
 
 type RemovePermissionCommand struct {
-	RoleID     uint64
+	RoleID     meta.ID
 	ResourceID resourceDomain.ResourceID
 	Action     string
 	Scope      authzDomain.Scope
@@ -43,7 +44,7 @@ type RemovePermissionCommand struct {
 }
 
 type RolePermissionsQuery struct {
-	RoleID   uint64
+	RoleID   meta.ID
 	TenantID string
 }
 

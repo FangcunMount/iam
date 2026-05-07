@@ -66,7 +66,7 @@ func TestUserQueryGetByID_ReturnsErrUserNotFound(t *testing.T) {
 	t.Parallel()
 
 	svc := NewDirectory(&queryUOWStub{users: &queryUserRepoStub{}})
-	result, err := svc.GetByID(context.Background(), "615206334492586542")
+	result, err := svc.GetByID(context.Background(), meta.FromUint64(615206334492586542))
 
 	require.Nil(t, result)
 	require.Error(t, err)
@@ -86,7 +86,13 @@ func TestUserQueryBatchGetByIDUsesRepositoryBatchAndSkipsMissing(t *testing.T) {
 	}
 
 	svc := NewDirectory(&queryUOWStub{users: repo})
-	results, err := svc.BatchGetByID(context.Background(), []string{"10", "bad", "11", "10", "404"})
+	results, err := svc.BatchGetByID(context.Background(), []meta.ID{
+		meta.FromUint64(10),
+		0,
+		meta.FromUint64(11),
+		meta.FromUint64(10),
+		meta.FromUint64(404),
+	})
 
 	require.NoError(t, err)
 	require.Len(t, results, 2)

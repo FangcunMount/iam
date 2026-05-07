@@ -38,13 +38,13 @@ func NewValidator(
 
 // ValidateAddPolicyParameters 验证添加策略参数
 func (v *validator) ValidateAddPolicyParameters(
-	roleID uint64,
+	roleID meta.ID,
 	resourceID resource.ResourceID,
 	action string,
 	tenantID string,
 	changedBy string,
 ) error {
-	if roleID == 0 {
+	if roleID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
 	}
 	if resourceID.Uint64() == 0 {
@@ -64,7 +64,7 @@ func (v *validator) ValidateAddPolicyParameters(
 
 // ValidateRemovePolicyParameters 验证移除策略参数
 func (v *validator) ValidateRemovePolicyParameters(
-	roleID uint64,
+	roleID meta.ID,
 	resourceID resource.ResourceID,
 	action string,
 	tenantID string,
@@ -78,14 +78,13 @@ func (v *validator) ValidateRemovePolicyParameters(
 // 返回业务角色名用于构造授权权限模型。
 func (v *validator) CheckRoleExistsAndTenant(
 	ctx context.Context,
-	roleID uint64,
+	roleID meta.ID,
 	tenantID string,
 ) (string, error) {
-	id := meta.FromUint64(roleID) // roleID 来自请求，必定有效
-	roleExists, err := v.roleRepo.FindByID(ctx, id)
+	roleExists, err := v.roleRepo.FindByID(ctx, roleID)
 	if err != nil {
 		if errors.IsCode(err, code.ErrRoleNotFound) {
-			return "", errors.WithCode(code.ErrRoleNotFound, "角色 %d 不存在", roleID)
+			return "", errors.WithCode(code.ErrRoleNotFound, "角色 %d 不存在", roleID.Uint64())
 		}
 		return "", errors.Wrap(err, "获取角色失败")
 	}
@@ -138,8 +137,8 @@ func (v *validator) CheckResourceExistsActionAndScope(
 }
 
 // ValidateGetPoliciesQuery 验证获取策略查询参数
-func (v *validator) ValidateGetPoliciesQuery(roleID uint64, tenantID string) error {
-	if roleID == 0 {
+func (v *validator) ValidateGetPoliciesQuery(roleID meta.ID, tenantID string) error {
+	if roleID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "角色ID不能为空")
 	}
 	if tenantID == "" {

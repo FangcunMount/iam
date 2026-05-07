@@ -7,6 +7,7 @@ import (
 	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	userApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +50,7 @@ func TestProfileLinkQueryListProfileLinksUsesBatchUserLookupAndKeepsOrder(t *tes
 
 	require.NoError(t, err)
 	require.Equal(t, int32(4), resp.GetTotal())
-	require.Equal(t, []string{"10", "404", "11"}, users.batchCalls[0])
+	require.Equal(t, []meta.ID{meta.FromUint64(10), meta.FromUint64(404), meta.FromUint64(11)}, users.batchCalls[0])
 	require.Equal(t, "10", resp.GetItems()[0].GetUser().GetId())
 	require.Nil(t, resp.GetItems()[1].GetUser())
 	require.Equal(t, "11", resp.GetItems()[2].GetUser().GetId())
@@ -85,44 +86,44 @@ type profileLinkQueryStub struct {
 	revokedLinkListCalls int
 }
 
-func (s *profileLinkQueryStub) IsLinked(context.Context, string, string) (bool, error) {
+func (s *profileLinkQueryStub) IsLinked(context.Context, meta.ID, meta.ID) (bool, error) {
 	return false, nil
 }
-func (s *profileLinkQueryStub) Get(context.Context, string, string) (*profileLinkApp.ProfileLinkResult, error) {
+func (s *profileLinkQueryStub) Get(context.Context, meta.ID, meta.ID) (*profileLinkApp.ProfileLinkResult, error) {
 	return nil, nil
 }
-func (s *profileLinkQueryStub) GetIncludingRevoked(context.Context, string, string) (*profileLinkApp.ProfileLinkResult, error) {
+func (s *profileLinkQueryStub) GetIncludingRevoked(context.Context, meta.ID, meta.ID) (*profileLinkApp.ProfileLinkResult, error) {
 	return nil, nil
 }
-func (s *profileLinkQueryStub) ListProfilesForUser(context.Context, string) ([]*profileLinkApp.ProfileLinkResult, error) {
+func (s *profileLinkQueryStub) ListProfilesForUser(context.Context, meta.ID) ([]*profileLinkApp.ProfileLinkResult, error) {
 	s.activeListCalls++
 	return s.active, nil
 }
-func (s *profileLinkQueryStub) ListProfilesForUserIncludingRevoked(context.Context, string) ([]*profileLinkApp.ProfileLinkResult, error) {
+func (s *profileLinkQueryStub) ListProfilesForUserIncludingRevoked(context.Context, meta.ID) ([]*profileLinkApp.ProfileLinkResult, error) {
 	s.revokedListCalls++
 	return s.all, nil
 }
-func (s *profileLinkQueryStub) ListLinksForProfile(context.Context, string) ([]*profileLinkApp.ProfileLinkResult, error) {
+func (s *profileLinkQueryStub) ListLinksForProfile(context.Context, meta.ID) ([]*profileLinkApp.ProfileLinkResult, error) {
 	s.activeLinkListCalls++
 	return s.active, nil
 }
-func (s *profileLinkQueryStub) ListLinksForProfileIncludingRevoked(context.Context, string) ([]*profileLinkApp.ProfileLinkResult, error) {
+func (s *profileLinkQueryStub) ListLinksForProfileIncludingRevoked(context.Context, meta.ID) ([]*profileLinkApp.ProfileLinkResult, error) {
 	s.revokedLinkListCalls++
 	return s.all, nil
 }
 
 type userQueryStub struct {
 	users        map[string]*userApp.UserResult
-	batchCalls   [][]string
+	batchCalls   [][]meta.ID
 	getByIDCalls int
 }
 
-func (s *userQueryStub) GetByID(context.Context, string) (*userApp.UserResult, error) {
+func (s *userQueryStub) GetByID(context.Context, meta.ID) (*userApp.UserResult, error) {
 	s.getByIDCalls++
 	return nil, nil
 }
-func (s *userQueryStub) BatchGetByID(_ context.Context, userIDs []string) (map[string]*userApp.UserResult, error) {
-	s.batchCalls = append(s.batchCalls, append([]string(nil), userIDs...))
+func (s *userQueryStub) BatchGetByID(_ context.Context, userIDs []meta.ID) (map[string]*userApp.UserResult, error) {
+	s.batchCalls = append(s.batchCalls, append([]meta.ID(nil), userIDs...))
 	return s.users, nil
 }
 func (s *userQueryStub) GetByPhone(context.Context, string) (*userApp.UserResult, error) {

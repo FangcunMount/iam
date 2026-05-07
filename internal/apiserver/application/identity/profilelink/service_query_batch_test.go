@@ -33,7 +33,7 @@ func TestDirectoryListProfilesForUserUsesBatchProfileLookupAndKeepsLinkOrder(t *
 	}
 	directory := profilelink.NewDirectory(profileLinkUOWStub{profiles: profiles, links: links})
 
-	results, err := directory.ListProfilesForUser(context.Background(), "10")
+	results, err := directory.ListProfilesForUser(context.Background(), meta.FromUint64(10))
 
 	require.NoError(t, err)
 	require.Equal(t, 1, profiles.findByIDsCalls)

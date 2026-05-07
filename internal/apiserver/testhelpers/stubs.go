@@ -27,16 +27,16 @@ func (s *BindingRepoStub) Create(ctx context.Context, a *binding.Binding) error 
 func (s *BindingRepoStub) Delete(ctx context.Context, id binding.BindingID) error {
 	return nil
 }
-func (s *BindingRepoStub) DeleteBySubjectAndRole(ctx context.Context, subjectType binding.SubjectType, subjectID string, roleID uint64, tenantID string) error {
+func (s *BindingRepoStub) DeleteBySubjectAndRole(ctx context.Context, subjectType binding.SubjectType, subjectID meta.ID, roleID meta.ID, tenantID string) error {
 	return nil
 }
 func (s *BindingRepoStub) FindByID(ctx context.Context, id binding.BindingID) (*binding.Binding, error) {
 	return nil, nil
 }
-func (s *BindingRepoStub) ListBySubject(ctx context.Context, subjectType binding.SubjectType, subjectID, tenantID string) ([]*binding.Binding, error) {
+func (s *BindingRepoStub) ListBySubject(ctx context.Context, subjectType binding.SubjectType, subjectID meta.ID, tenantID string) ([]*binding.Binding, error) {
 	return s.Bindings, s.Err
 }
-func (s *BindingRepoStub) ListByRole(ctx context.Context, roleID uint64, tenantID string) ([]*binding.Binding, error) {
+func (s *BindingRepoStub) ListByRole(ctx context.Context, roleID meta.ID, tenantID string) ([]*binding.Binding, error) {
 	return nil, s.Err
 }
 

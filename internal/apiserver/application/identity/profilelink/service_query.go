@@ -25,22 +25,13 @@ func NewDirectory(uow uow.UnitOfWork) Directory {
 }
 
 // IsLinked 检查是否为关系用户
-func (s *directory) IsLinked(ctx context.Context, userID string, profileID string) (bool, error) {
+func (s *directory) IsLinked(ctx context.Context, userID meta.ID, profileID meta.ID) (bool, error) {
 	var hasProfileLink bool
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		userIDObj, err := parseUserID(userID)
-		if err != nil {
-			return err
-		}
-
-		profileIDObj, err := parseProfileID(profileID)
-		if err != nil {
-			return err
-		}
-
-		hasProfileLink, err = tx.ProfileLinks.IsLinked(txCtx, userIDObj, profileIDObj)
+		var err error
+		hasProfileLink, err = tx.ProfileLinks.IsLinked(txCtx, userID, profileID)
 		return err
 	})
 
@@ -48,35 +39,26 @@ func (s *directory) IsLinked(ctx context.Context, userID string, profileID strin
 }
 
 // Get 查询档案关系
-func (s *directory) Get(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error) {
+func (s *directory) Get(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLinkResult, error) {
 	return s.getByUserIDAndProfileID(ctx, userID, profileID, false)
 }
 
 // GetIncludingRevoked 查询档案关系（包含已撤销）
-func (s *directory) GetIncludingRevoked(ctx context.Context, userID string, profileID string) (*ProfileLinkResult, error) {
+func (s *directory) GetIncludingRevoked(ctx context.Context, userID meta.ID, profileID meta.ID) (*ProfileLinkResult, error) {
 	return s.getByUserIDAndProfileID(ctx, userID, profileID, true)
 }
 
-func (s *directory) getByUserIDAndProfileID(ctx context.Context, userID string, profileID string, includeRevoked bool) (*ProfileLinkResult, error) {
+func (s *directory) getByUserIDAndProfileID(ctx context.Context, userID meta.ID, profileID meta.ID, includeRevoked bool) (*ProfileLinkResult, error) {
 	var result *ProfileLinkResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		userIDObj, err := parseUserID(userID)
-		if err != nil {
-			return err
-		}
-
-		profileIDObj, err := parseProfileID(profileID)
-		if err != nil {
-			return err
-		}
-
 		var profileLink *domain.ProfileLink
+		var err error
 		if includeRevoked {
-			profileLink, err = tx.ProfileLinks.FindByUserIDAndProfileIDIncludingRevoked(txCtx, userIDObj, profileIDObj)
+			profileLink, err = tx.ProfileLinks.FindByUserIDAndProfileIDIncludingRevoked(txCtx, userID, profileID)
 		} else {
-			profileLink, err = tx.ProfileLinks.FindByUserIDAndProfileID(txCtx, userIDObj, profileIDObj)
+			profileLink, err = tx.ProfileLinks.FindByUserIDAndProfileID(txCtx, userID, profileID)
 		}
 		if err != nil {
 			return err
@@ -96,30 +78,26 @@ func (s *directory) getByUserIDAndProfileID(ctx context.Context, userID string, 
 }
 
 // ListProfilesForUser 列出用户关系的所有档案
-func (s *directory) ListProfilesForUser(ctx context.Context, userID string) ([]*ProfileLinkResult, error) {
+func (s *directory) ListProfilesForUser(ctx context.Context, userID meta.ID) ([]*ProfileLinkResult, error) {
 	return s.listProfilesByUserID(ctx, userID, false)
 }
 
 // ListProfilesForUserIncludingRevoked 列出用户关系的所有档案（包含已撤销）
-func (s *directory) ListProfilesForUserIncludingRevoked(ctx context.Context, userID string) ([]*ProfileLinkResult, error) {
+func (s *directory) ListProfilesForUserIncludingRevoked(ctx context.Context, userID meta.ID) ([]*ProfileLinkResult, error) {
 	return s.listProfilesByUserID(ctx, userID, true)
 }
 
-func (s *directory) listProfilesByUserID(ctx context.Context, userID string, includeRevoked bool) ([]*ProfileLinkResult, error) {
+func (s *directory) listProfilesByUserID(ctx context.Context, userID meta.ID, includeRevoked bool) ([]*ProfileLinkResult, error) {
 	var results []*ProfileLinkResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		userIDObj, err := parseUserID(userID)
-		if err != nil {
-			return err
-		}
-
 		var profileLinks []*domain.ProfileLink
+		var err error
 		if includeRevoked {
-			profileLinks, err = tx.ProfileLinks.FindByUserIDIncludingRevoked(txCtx, userIDObj)
+			profileLinks, err = tx.ProfileLinks.FindByUserIDIncludingRevoked(txCtx, userID)
 		} else {
-			profileLinks, err = tx.ProfileLinks.FindByUserID(txCtx, userIDObj)
+			profileLinks, err = tx.ProfileLinks.FindByUserID(txCtx, userID)
 		}
 		if err != nil {
 			return err
@@ -165,37 +143,33 @@ func profileIDsFromLinks(profileLinks []*domain.ProfileLink) []meta.ID {
 }
 
 // ListLinksForProfile 列出档案的所有关系用户
-func (s *directory) ListLinksForProfile(ctx context.Context, profileID string) ([]*ProfileLinkResult, error) {
+func (s *directory) ListLinksForProfile(ctx context.Context, profileID meta.ID) ([]*ProfileLinkResult, error) {
 	return s.listProfileLinksByProfileID(ctx, profileID, false)
 }
 
 // ListLinksForProfileIncludingRevoked 列出档案的所有关系用户（包含已撤销）
-func (s *directory) ListLinksForProfileIncludingRevoked(ctx context.Context, profileID string) ([]*ProfileLinkResult, error) {
+func (s *directory) ListLinksForProfileIncludingRevoked(ctx context.Context, profileID meta.ID) ([]*ProfileLinkResult, error) {
 	return s.listProfileLinksByProfileID(ctx, profileID, true)
 }
 
-func (s *directory) listProfileLinksByProfileID(ctx context.Context, profileID string, includeRevoked bool) ([]*ProfileLinkResult, error) {
+func (s *directory) listProfileLinksByProfileID(ctx context.Context, profileID meta.ID, includeRevoked bool) ([]*ProfileLinkResult, error) {
 	var results []*ProfileLinkResult
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
 
-		profileIDObj, err := parseProfileID(profileID)
-		if err != nil {
-			return err
-		}
-
 		var profileLinks []*domain.ProfileLink
+		var err error
 		if includeRevoked {
-			profileLinks, err = tx.ProfileLinks.FindByProfileIDIncludingRevoked(txCtx, profileIDObj)
+			profileLinks, err = tx.ProfileLinks.FindByProfileIDIncludingRevoked(txCtx, profileID)
 		} else {
-			profileLinks, err = tx.ProfileLinks.FindByProfileID(txCtx, profileIDObj)
+			profileLinks, err = tx.ProfileLinks.FindByProfileID(txCtx, profileID)
 		}
 		if err != nil {
 			return err
 		}
 
 		// 查询档案信息（所有档案关系共享同一个档案）
-		profile, err := tx.Profiles.FindByID(txCtx, profileIDObj)
+		profile, err := tx.Profiles.FindByID(txCtx, profileID)
 		if err != nil {
 			return err
 		}

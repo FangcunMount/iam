@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
 // InitialVersion 默认的乐观锁版本号起点。
@@ -115,7 +115,7 @@ func UserIDFromContext(ctx context.Context) (meta.ID, bool) {
 	if ctx == nil {
 		return 0, false
 	}
-	value := ctx.Value(authn.ContextKeyUserID)
+	value := ctx.Value(requestctx.KeyUserID)
 	if value == nil {
 		return 0, false
 	}

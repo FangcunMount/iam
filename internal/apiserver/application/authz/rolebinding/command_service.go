@@ -74,7 +74,7 @@ func (s *CommandService) GrantByRoleName(ctx context.Context, cmd GrantByRoleNam
 	_, err = s.Grant(ctx, GrantCommand{
 		SubjectType: bindingDomain.SubjectType(cmd.Subject.Type),
 		SubjectID:   cmd.Subject.ID,
-		RoleID:      role.ID.Uint64(),
+		RoleID:      role.ID,
 		TenantID:    cmd.TenantID,
 		GrantedBy:   cmd.GrantedBy,
 	})
@@ -92,7 +92,7 @@ func (s *CommandService) RevokeByRoleName(ctx context.Context, cmd RevokeByRoleN
 	return s.Revoke(ctx, RevokeCommand{
 		SubjectType: bindingDomain.SubjectType(cmd.Subject.Type),
 		SubjectID:   cmd.Subject.ID,
-		RoleID:      role.ID.Uint64(),
+		RoleID:      role.ID,
 		TenantID:    cmd.TenantID,
 	})
 }

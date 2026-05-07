@@ -4,6 +4,7 @@ import (
 	"context"
 
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Commands 承载角色绑定写用例；REST 以 role_id 写入，gRPC 以 role_name 写入。
@@ -28,8 +29,8 @@ type Directory interface {
 // GrantCommand 授权命令。
 type GrantCommand struct {
 	SubjectType bindingDomain.SubjectType
-	SubjectID   string
-	RoleID      uint64
+	SubjectID   meta.ID
+	RoleID      meta.ID
 	TenantID    string
 	GrantedBy   string
 }
@@ -37,8 +38,8 @@ type GrantCommand struct {
 // RevokeCommand 撤销授权命令。
 type RevokeCommand struct {
 	SubjectType bindingDomain.SubjectType
-	SubjectID   string
-	RoleID      uint64
+	SubjectID   meta.ID
+	RoleID      meta.ID
 	TenantID    string
 }
 
@@ -51,12 +52,12 @@ type RevokeByIDCommand struct {
 // ListBySubjectQuery 根据主体列出角色绑定查询。
 type ListBySubjectQuery struct {
 	SubjectType bindingDomain.SubjectType
-	SubjectID   string
+	SubjectID   meta.ID
 	TenantID    string
 }
 
 // ListByRoleQuery 根据角色列出角色绑定查询。
 type ListByRoleQuery struct {
-	RoleID   uint64
+	RoleID   meta.ID
 	TenantID string
 }

@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // HasProfileLink 判定是否为关系用户
@@ -16,8 +17,16 @@ func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identi
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id and profile_id are required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
+	profileID, err := parseIDArg("profile_id", req.GetProfileId())
+	if err != nil {
+		return nil, err
+	}
 
-	hasProfileLink, err := s.profileLinkQuerySvc.IsLinked(ctx, req.GetUserId(), req.GetProfileId())
+	hasProfileLink, err := s.profileLinkQuerySvc.IsLinked(ctx, userID, profileID)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -26,7 +35,7 @@ func (s *profileLinkQueryServer) HasProfileLink(ctx context.Context, req *identi
 
 	// 如果是关系用户，返回档案关系详情
 	if hasProfileLink {
-		profileLink, err := s.profileLinkQuerySvc.Get(ctx, req.GetUserId(), req.GetProfileId())
+		profileLink, err := s.profileLinkQuerySvc.Get(ctx, userID, profileID)
 		if err == nil && profileLink != nil {
 			resp.ProfileLink = profileLinkResultToProto(profileLink)
 		}
@@ -40,15 +49,16 @@ func (s *profileLinkQueryServer) ListProfiles(ctx context.Context, req *identity
 	if req == nil || strings.TrimSpace(req.GetUserId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	userID, err := parseIDArg("user_id", req.GetUserId())
+	if err != nil {
+		return nil, err
+	}
 
-	var (
-		profileLinks []*profileLinkApp.ProfileLinkResult
-		err          error
-	)
+	var profileLinks []*profileLinkApp.ProfileLinkResult
 	if req.GetIncludeRevoked() {
-		profileLinks, err = s.profileLinkQuerySvc.ListProfilesForUserIncludingRevoked(ctx, req.GetUserId())
+		profileLinks, err = s.profileLinkQuerySvc.ListProfilesForUserIncludingRevoked(ctx, userID)
 	} else {
-		profileLinks, err = s.profileLinkQuerySvc.ListProfilesForUser(ctx, req.GetUserId())
+		profileLinks, err = s.profileLinkQuerySvc.ListProfilesForUser(ctx, userID)
 	}
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -92,15 +102,16 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 	if req == nil || strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
+	profileID, err := parseIDArg("profile_id", req.GetProfileId())
+	if err != nil {
+		return nil, err
+	}
 
-	var (
-		profileLinks []*profileLinkApp.ProfileLinkResult
-		err          error
-	)
+	var profileLinks []*profileLinkApp.ProfileLinkResult
 	if req.GetIncludeRevoked() {
-		profileLinks, err = s.profileLinkQuerySvc.ListLinksForProfileIncludingRevoked(ctx, req.GetProfileId())
+		profileLinks, err = s.profileLinkQuerySvc.ListLinksForProfileIncludingRevoked(ctx, profileID)
 	} else {
-		profileLinks, err = s.profileLinkQuerySvc.ListLinksForProfile(ctx, req.GetProfileId())
+		profileLinks, err = s.profileLinkQuerySvc.ListLinksForProfile(ctx, profileID)
 	}
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -129,18 +140,22 @@ func (s *profileLinkQueryServer) ListProfileLinks(ctx context.Context, req *iden
 	}, nil
 }
 
-func userIDsFromProfileLinks(profileLinks []*profileLinkApp.ProfileLinkResult) []string {
-	ids := make([]string, 0, len(profileLinks))
+func userIDsFromProfileLinks(profileLinks []*profileLinkApp.ProfileLinkResult) []meta.ID {
+	ids := make([]meta.ID, 0, len(profileLinks))
 	seen := make(map[string]struct{}, len(profileLinks))
 	for _, link := range profileLinks {
 		if link == nil || link.UserID == "" {
+			continue
+		}
+		id, err := meta.ParseID(link.UserID)
+		if err != nil || id.IsZero() {
 			continue
 		}
 		if _, ok := seen[link.UserID]; ok {
 			continue
 		}
 		seen[link.UserID] = struct{}{}
-		ids = append(ids, link.UserID)
+		ids = append(ids, id)
 	}
 	return ids
 }

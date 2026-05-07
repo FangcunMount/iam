@@ -11,6 +11,7 @@ import (
 	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -52,7 +53,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		require.True(t, resp.Allowed)
 		require.Len(t, checker.calls, 1)
 		require.Equal(t, authzDomain.SubjectTypeUser, checker.calls[0].Subject.Type)
-		require.Equal(t, "1", checker.calls[0].Subject.ID)
+		require.Equal(t, meta.FromUint64(1), checker.calls[0].Subject.ID)
 		require.Equal(t, "tenant-a", checker.calls[0].TenantID)
 		require.Equal(t, "iam:user:*", checker.calls[0].ResourceKey)
 		require.Equal(t, "read", checker.calls[0].Action)
@@ -101,7 +102,7 @@ func TestAuthorizationServerSnapshotUsesApplicationReader(t *testing.T) {
 	}, resp.Permissions)
 	require.Len(t, reader.calls, 1)
 	require.Equal(t, authzDomain.SubjectTypeUser, reader.calls[0].Subject.Type)
-	require.Equal(t, "1", reader.calls[0].Subject.ID)
+	require.Equal(t, meta.FromUint64(1), reader.calls[0].Subject.ID)
 	require.Equal(t, "tenant-a", reader.calls[0].TenantID)
 	require.Equal(t, "iam", reader.calls[0].AppName)
 }
@@ -155,7 +156,7 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []rolebindingApp.GrantByRoleNameCommand{{
-		Subject:   authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: "100"},
+		Subject:   authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: meta.FromUint64(100)},
 		TenantID:  "tenant-a",
 		RoleName:  "iam:admin",
 		GrantedBy: "operator-1",
@@ -168,7 +169,7 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []rolebindingApp.RevokeByRoleNameCommand{{
-		Subject:  authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: "100"},
+		Subject:  authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: meta.FromUint64(100)},
 		TenantID: "tenant-a",
 		RoleName: "iam:admin",
 	}}, commands.revokes)

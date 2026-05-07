@@ -31,6 +31,15 @@ func (b Birthday) IsEmpty() bool {
 	return b.day == ""
 }
 
+// IsValid 判断生日的合法性
+func (b Birthday) IsValid() bool {
+	if b.IsEmpty() {
+		return false
+	}
+
+	return true
+}
+
 // Value 实现 driver.Valuer 接口，返回数据库存储值
 func (b Birthday) Value() (driver.Value, error) {
 	if b.IsEmpty() {
