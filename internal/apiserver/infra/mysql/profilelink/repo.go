@@ -89,6 +89,33 @@ func (r *Repository) FindByUserID(ctx context.Context, id meta.ID) ([]*domain.Pr
 	return r.findByUserID(ctx, id, false)
 }
 
+// FindActiveByUserIDAndType 根据关系用户 ID、关系类型查找有效 links。
+func (r *Repository) FindActiveByUserIDAndType(ctx context.Context, userID meta.ID, typ domain.Type) ([]*domain.ProfileLink, error) {
+	return r.findByUserIDAndType(ctx, userID, typ, false)
+}
+
+// FindByUserIDAndTypeIncludingRevoked 根据关系用户 ID、关系类型查找 links，包含已撤销。
+func (r *Repository) FindByUserIDAndTypeIncludingRevoked(ctx context.Context, userID meta.ID, typ domain.Type) ([]*domain.ProfileLink, error) {
+	return r.findByUserIDAndType(ctx, userID, typ, true)
+}
+
+func (r *Repository) findByUserIDAndType(ctx context.Context, userID meta.ID, typ domain.Type, includeRevoked bool) ([]*domain.ProfileLink, error) {
+	var pos []*ProfileLinkPO
+
+	query := r.WithContext(ctx).
+		Where("user_id = ? AND type = ?", userID.Uint64(), string(typ))
+
+	if !includeRevoked {
+		query = query.Where("revoked_at IS NULL")
+	}
+
+	if err := query.Find(&pos).Error; err != nil {
+		return nil, err
+	}
+
+	return r.toDomainSlice(pos), nil
+}
+
 // FindByUserIDIncludingRevoked 根据关系用户 ID 查找档案关系（包含已撤销）
 func (r *Repository) FindByUserIDIncludingRevoked(ctx context.Context, id meta.ID) ([]*domain.ProfileLink, error) {
 	return r.findByUserID(ctx, id, true)

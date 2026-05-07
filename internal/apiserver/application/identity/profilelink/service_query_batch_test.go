@@ -110,6 +110,12 @@ func (s *profileLinkRepoStub) FindByUserID(context.Context, meta.ID) ([]*linkdom
 func (s *profileLinkRepoStub) FindByUserIDIncludingRevoked(context.Context, meta.ID) ([]*linkdomain.ProfileLink, error) {
 	return s.byUser, nil
 }
+func (s *profileLinkRepoStub) FindActiveByUserIDAndType(_ context.Context, _ meta.ID, typ linkdomain.Type) ([]*linkdomain.ProfileLink, error) {
+	return filterProfileLinksByType(s.byUser, typ, false), nil
+}
+func (s *profileLinkRepoStub) FindByUserIDAndTypeIncludingRevoked(_ context.Context, _ meta.ID, typ linkdomain.Type) ([]*linkdomain.ProfileLink, error) {
+	return filterProfileLinksByType(s.byUser, typ, true), nil
+}
 func (s *profileLinkRepoStub) FindByUserIDAndProfileID(context.Context, meta.ID, meta.ID) (*linkdomain.ProfileLink, error) {
 	return nil, nil
 }
@@ -120,3 +126,17 @@ func (s *profileLinkRepoStub) IsLinked(context.Context, meta.ID, meta.ID) (bool,
 	return false, nil
 }
 func (s *profileLinkRepoStub) Update(context.Context, *linkdomain.ProfileLink) error { return nil }
+
+func filterProfileLinksByType(links []*linkdomain.ProfileLink, typ linkdomain.Type, includeRevoked bool) []*linkdomain.ProfileLink {
+	out := make([]*linkdomain.ProfileLink, 0, len(links))
+	for _, link := range links {
+		if link == nil || link.Type != typ {
+			continue
+		}
+		if !includeRevoked && !link.IsActive() {
+			continue
+		}
+		out = append(out, link)
+	}
+	return out
+}

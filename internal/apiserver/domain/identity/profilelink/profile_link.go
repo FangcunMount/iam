@@ -7,33 +7,41 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// ProfileLink 档案关系
+// ProfileLink 表示 User 与 Profile 之间的一条档案关系事实。
 type ProfileLink struct {
-	mu            sync.RWMutex `json:"-"`
-	ID            meta.ID
-	User          meta.ID
-	Profile       meta.ID
-	Type          Type
-	Rel           Relation
-	EstablishedAt time.Time
-	RevokedAt     *time.Time
+	mu sync.RWMutex // 读写锁，保护 RevokedAt 等可变状态
+
+	ID      meta.ID
+	User    meta.ID
+	Profile meta.ID
+
+	Type          Type       // 关联类型
+	Rel           Relation   // 关联关系
+	EstablishedAt time.Time  // 建立时间
+	RevokedAt     *time.Time // 撤销时间；nil 表示当前仍有效
 }
 
-// IsActive 是否有效
-func (g *ProfileLink) IsActive() bool {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.RevokedAt == nil
+// IsActive 判断当前档案关系是否仍然有效
+func (pl *ProfileLink) IsActive() bool {
+	// 读锁
+	pl.mu.RLock()
+	defer pl.mu.RUnlock()
+
+	return pl.RevokedAt == nil
 }
 
-// Revoke 撤销档案关系 (并发安全)
-func (g *ProfileLink) Revoke(at time.Time) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	// allocate a fresh time on the heap and copy the value so
-	// concurrent callers don't end up writing the same stack address
-	// (the race detector can still observe races when &at is used).
-	t := new(time.Time)
-	*t = at
-	g.RevokedAt = t
+// Revoke 撤销档案关系
+// 撤销是幂等操作：如果已经撤销，则保留首次撤销时间
+func (pl *ProfileLink) Revoke(at time.Time) {
+	// 写锁
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+
+	// 已经撤销，则保留首次撤销时间
+	if pl.RevokedAt != nil {
+		return
+	}
+
+	revokedAt := at
+	pl.RevokedAt = &revokedAt
 }

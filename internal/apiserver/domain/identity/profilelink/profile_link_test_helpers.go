@@ -54,6 +54,13 @@ func (s *stubProfileLinkRepo) FindByUserID(_ context.Context, id meta.ID) ([]*Pr
 	}
 	return s.userResults[id.Uint64()], nil
 }
+
+func (s *stubProfileLinkRepo) FindActiveByUserIDAndType(ctx context.Context, userID meta.ID, typ Type) ([]*ProfileLink, error) {
+	return s.FindByUserID(ctx, userID)
+}
+func (s *stubProfileLinkRepo) FindByUserIDAndTypeIncludingRevoked(ctx context.Context, userID meta.ID, typ Type) ([]*ProfileLink, error) {
+	return s.FindByUserID(ctx, userID)
+}
 func (s *stubProfileLinkRepo) FindByUserIDIncludingRevoked(ctx context.Context, id meta.ID) ([]*ProfileLink, error) {
 	return s.FindByUserID(ctx, id)
 }
@@ -79,6 +86,14 @@ type seqProfileLinkRepo struct {
 	responses       [][]*ProfileLink
 	isLinkedCalls   int
 	linkedResponses []bool
+}
+
+func (s *seqProfileLinkRepo) FindActiveByUserIDAndType(ctx context.Context, userID meta.ID, typ Type) ([]*ProfileLink, error) {
+	return s.FindByUserID(ctx, userID)
+}
+
+func (s *seqProfileLinkRepo) FindByUserIDAndTypeIncludingRevoked(ctx context.Context, userID meta.ID, typ Type) ([]*ProfileLink, error) {
+	return s.FindByUserID(ctx, userID)
 }
 
 func (s *seqProfileLinkRepo) Create(context.Context, *ProfileLink) error { return nil }

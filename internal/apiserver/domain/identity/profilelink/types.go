@@ -2,43 +2,46 @@ package profilelink
 
 import "strings"
 
-// 档案关系
-type Relation string
-
-const (
-	RelSelf        Relation = "self"        // 自己
-	RelParent      Relation = "parent"      // 父母
-	RelGrandparent Relation = "grandparent" // 祖父母
-	RelOther       Relation = "other"       // 其他
-)
-
-// Type 描述关系边的主类别，Relation 描述同一类别下的业务关系。
+// Type 类型：档案类型
 type Type string
 
+// Relation: User 与 Profile 的关系
+type Relation string
+
+// Type 常量
 const (
 	TypeSelf     Type = "self"
 	TypeRelation Type = "relation"
 )
 
-// ParseRelation maps external text to the profile link domain vocabulary.
-func ParseRelation(relation string) Relation {
-	switch strings.ToLower(strings.TrimSpace(relation)) {
-	case "self":
-		return RelSelf
-	case "parent":
-		return RelParent
-	case "grandparent":
-		return RelGrandparent
-	case "other":
+// Relation 常量
+const (
+	RelSelf        Relation = "self"
+	RelParent      Relation = "parent"
+	RelGrandparent Relation = "grandparent"
+	RelOther       Relation = "other"
+)
+
+// ParseRelation 将 string 解析为 Relation
+func ParseRelation(relStr string) Relation {
+	relationMap := map[string]Relation{
+		"self":        RelSelf,
+		"parent":      RelParent,
+		"grandparent": RelGrandparent,
+	}
+
+	if rel, ok := relationMap[strings.ToLower(strings.TrimSpace(relStr))]; !ok {
 		return RelOther
-	default:
-		return RelOther
+	} else {
+		return rel
 	}
 }
 
-func TypeFromRelation(relation Relation) Type {
-	if relation == RelSelf {
+// TypeFromRelation 由 Relation 转为 Type
+func TypeFromRelation(rel Relation) Type {
+	if rel == RelSelf {
 		return TypeSelf
 	}
+
 	return TypeRelation
 }
