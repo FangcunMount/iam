@@ -13,12 +13,11 @@ import (
 // 对应数据库表结构
 type UserPO struct {
 	base.AuditFields
-	Name     string      `gorm:"column:name;type:varchar(64);not null;comment:用户名称"`
-	Nickname string      `gorm:"column:nickname;type:varchar(64);comment:用户昵称"`
-	Phone    meta.Phone  `gorm:"column:phone;type:varchar(20);index;comment:手机号（可为空）"`
-	Email    meta.Email  `gorm:"column:email;type:varchar(100);not null;comment:邮箱"`
-	IDCard   meta.IDCard `gorm:"column:id_card;type:varchar(20);uniqueIndex;comment:身份证号（可为空）"`
-	Status   uint8       `gorm:"column:status;type:int;not null;default:1;comment:用户状态"`
+	Name     string     `gorm:"column:name;type:varchar(64);not null;comment:用户名称"`
+	Nickname string     `gorm:"column:nickname;type:varchar(64);comment:用户昵称"`
+	Phone    meta.Phone `gorm:"column:phone;type:varchar(20);index;comment:手机号（可为空）"`
+	Email    meta.Email `gorm:"column:email;type:varchar(100);not null;comment:邮箱"`
+	Status   uint8      `gorm:"column:status;type:int;not null;default:1;comment:用户状态"`
 }
 
 // TableName 指定表名

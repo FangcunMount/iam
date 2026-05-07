@@ -29,8 +29,6 @@ classDiagram
       Name
       Gender
       Birthday
-      Height
-      Weight
     }
     class ProfileLink {
       ID
@@ -97,8 +95,8 @@ flowchart TD
 
 | 模型 | 关键字段/行为 | 不变量 |
 | ---- | ---- | ---- |
-| `User` | name、phone、email、id card、status。 | active user 才是可用用户；状态变化会影响 AuthN session。 |
-| `Profile` | name、gender、birthday、height、weight、id card。 | 创建和更新时由 validator 校验字段。 |
+| `User` | name、phone、email、status。 | active user 才是可用用户；状态变化会影响 AuthN session。 |
+| `Profile` | name、gender、birthday、id card。 | 创建和重命名时由实体方法校验名称。 |
 | `ProfileLink` | user、profile、type、relation、established_at、revoked_at。 | active 关系由 `RevokedAt == nil` 判定；撤销只写 revoked time。 |
 | `Relation` | self、parent、grandparent、other。 | self relation 对应 self type；普通关系不能被当成本人档案。 |
 
@@ -108,11 +106,9 @@ active self link guard 由数据库迁移 [../../internal/pkg/migration/migratio
 
 | 领域服务 | 解决的问题 | 代码入口 |
 | ---- | ---- | ---- |
-| `user.Validator` | 用户创建、联系人更新、手机号唯一性。 | [../../internal/apiserver/domain/identity/user/validator.go](../../internal/apiserver/domain/identity/user/validator.go) |
-| `user.UserEditor` | 用户资料变更规则。 | [../../internal/apiserver/domain/identity/user/editor.go](../../internal/apiserver/domain/identity/user/editor.go) |
-| `user.Lifecycler` | 用户激活、停用、封禁。 | [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go) |
-| `profile.Validator` | 档案创建和更新字段校验。 | [../../internal/apiserver/domain/identity/profile/validator.go](../../internal/apiserver/domain/identity/profile/validator.go) |
-| `profile.ProfileEditor` | 档案重命名、证件、基础资料、身高体重更新。 | [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go) |
+| `user.User` | 用户资料变更和状态变更实体行为。 | [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
+| `user.UniquenessChecker` | 用户手机号唯一性检查。 | [../../internal/apiserver/domain/identity/user/uniqueness_checker.go](../../internal/apiserver/domain/identity/user/uniqueness_checker.go) |
+| `profile.Profile` | 档案重命名、证件、基础资料实体行为。 | [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go) |
 | `ProfileLinker` | 建立/撤销档案关系，校验 user/profile 存在和 active 重复关系。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
 | `ProfileLinker` | 建立/撤销 ProfileLink，并在 self 关系建立时拒绝重复 active self link。 | [../../internal/apiserver/domain/identity/profilelink/linker.go](../../internal/apiserver/domain/identity/profilelink/linker.go) |
 
@@ -168,7 +164,7 @@ sequenceDiagram
 
     Client->>MyProfiles: "Create current user's profile"
     MyProfiles->>UoW: "WithinTx"
-    UoW->>Profile: "NewFromCreationSpec"
+    UoW->>Profile: "NewProfile"
     UoW->>Repo: "Create profile"
     UoW->>Repo: "Check active self link when relation == self"
     UoW->>Repo: "Create ProfileLink"

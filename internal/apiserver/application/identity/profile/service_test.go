@@ -49,15 +49,11 @@ func TestCreator_Create_WithOptionalFields(t *testing.T) {
 	appService := profile.NewCreator(unitOfWork)
 	ctx := context.Background()
 
-	height := uint32(110)
-	weight := uint32(20000) // 20kg = 20000g
 	dto := profile.CreateProfileDTO{
 		Name:     "小红",
 		Gender:   2, // 2=女
 		Birthday: "2019-05-20",
 		IDCard:   "110101201905201236",
-		Height:   &height,
-		Weight:   &weight,
 	}
 
 	// Act
@@ -71,8 +67,6 @@ func TestCreator_Create_WithOptionalFields(t *testing.T) {
 	assert.Equal(t, uint8(2), result.Gender) // 2=女
 	assert.Equal(t, dto.Birthday, result.Birthday)
 	assert.Equal(t, dto.IDCard, result.IDCard)
-	assert.Equal(t, height, result.Height)
-	assert.Equal(t, weight, result.Weight)
 }
 
 func TestCreator_Create_EmptyName_ShouldFail(t *testing.T) {
@@ -254,42 +248,6 @@ func TestEditor_UpdateProfile_Success(t *testing.T) {
 	assert.Equal(t, "2020-02-20", updated.Birthday)
 }
 
-func TestEditor_UpdateHeightWeight_Success(t *testing.T) {
-	// Arrange
-	db := testutil.SetupTestDB(t)
-	unitOfWork := testutil.NewUnitOfWork(db)
-
-	createUseCase := profile.NewCreator(unitOfWork)
-	ctx := context.Background()
-
-	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
-		Name:     "小明",
-		Gender:   1, // 1=男
-		Birthday: "2020-01-15",
-	})
-	require.NoError(t, err)
-
-	profileService := profile.NewEditor(unitOfWork)
-
-	// Act - 更新身高体重
-	dto := profile.UpdateHeightWeightDTO{
-		ProfileID: created.ID,
-		Height:    120,   // 120cm
-		Weight:    25000, // 25kg = 25000g
-	}
-	err = profileService.UpdateHeightWeight(ctx, dto)
-
-	// Assert
-	require.NoError(t, err)
-
-	// 验证数据库中的数据
-	queryService := profile.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, uint32(120), updated.Height)
-	assert.Equal(t, uint32(25000), updated.Weight)
-}
-
 func TestEditor_ProfileNotFound_ShouldFail(t *testing.T) {
 	// Arrange
 	db := testutil.SetupTestDB(t)
@@ -468,24 +426,18 @@ func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 	newName := "新名"
 	gender := uint8(2)
 	birthday := "2020-02-20"
-	height := uint32(121)
-	weight := uint32(26000)
 	updated, err := accessService.Patch(ctx, profile.PatchMyProfileDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		LegalName: &newName,
 		Gender:    &gender,
 		Birthday:  &birthday,
-		Height:    &height,
-		Weight:    &weight,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 	assert.Equal(t, newName, updated.Name)
 	assert.Equal(t, gender, updated.Gender)
 	assert.Equal(t, birthday, updated.Birthday)
-	assert.Equal(t, height, updated.Height)
-	assert.Equal(t, weight, updated.Weight)
 }
 
 func TestMyProfiles_PatchRollsBackEarlierUpdatesWhenLaterUpdateFails(t *testing.T) {
@@ -517,18 +469,16 @@ func TestMyProfiles_PatchRollsBackEarlierUpdatesWhenLaterUpdateFails(t *testing.
 	require.NoError(t, db.Exec(`
 CREATE TRIGGER fail_profile_measurement_update
 BEFORE UPDATE ON profiles
-WHEN NEW.height = 9990
+WHEN NEW.name = '不应保存'
 BEGIN
-  SELECT RAISE(ABORT, 'forced measurement failure');
+  SELECT RAISE(ABORT, 'forced profile update failure');
 END;`).Error)
 
 	newName := "不应保存"
-	height := uint32(999)
 	updated, err := profile.NewMyProfiles(unitOfWork).Patch(ctx, profile.PatchMyProfileDTO{
 		UserID:    userResult.ID,
 		ProfileID: profileResult.ID,
 		LegalName: &newName,
-		Height:    &height,
 	})
 	require.Error(t, err)
 	assert.Nil(t, updated)
@@ -536,7 +486,6 @@ END;`).Error)
 	persisted, err := profile.NewDirectory(unitOfWork).GetByID(ctx, profileResult.ID)
 	require.NoError(t, err)
 	assert.Equal(t, profileResult.Name, persisted.Name)
-	assert.Equal(t, profileResult.Height, persisted.Height)
 }
 
 func TestMyProfiles_GetForProfileLinkRejectsUnlinkedUser(t *testing.T) {

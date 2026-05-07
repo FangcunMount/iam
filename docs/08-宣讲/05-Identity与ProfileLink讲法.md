@@ -59,7 +59,7 @@ Identity 模块我会从三个概念讲：User、Profile 和 ProfileLink。
 
 首先，User 是登录主体。它是 IAM 内部的身份锚点，会出现在 AuthN 的 Principal、Session、Token claims 里，也可以作为 AuthZ 的 subject。User 有状态，比如 active、inactive、blocked。用户被 block 后，会影响登录态和 token 验证。
 
-第二，Profile 是业务档案。它不是登录主体，而是业务侧要记录和操作的档案，比如本人档案、儿童档案、被测评者档案。Profile 有姓名、证件、性别、生日、身高体重等业务信息，但它不直接登录，也不直接签发 token。
+第二，Profile 是 IAM 内的业务档案锚点。它不是登录主体，而是业务侧要记录和操作的档案，比如本人档案、儿童档案、被测评者档案。Profile 有姓名、证件、性别、生日等基础身份信息，但它不直接登录，也不直接签发 token。身高、体重这类业务属性应放在业务系统中。
 
 第三，ProfileLink 是 User 和 Profile 之间的关系实体。它不是一个 user.profile_id 字段，因为业务里一个用户可能有自己的档案和多个儿童档案，一个儿童档案也可能被父母、祖辈等多个用户关联。关系本身还有类型，比如 self、parent、grandparent、other，也有生命周期，比如 established、revoked。所以我把关系建模成一等实体 ProfileLink。
 
@@ -190,8 +190,6 @@ Name
 IDCard
 Gender
 Birthday
-Height
-Weight
 ```
 
 ---

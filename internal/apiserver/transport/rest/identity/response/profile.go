@@ -10,8 +10,6 @@ type ProfileResponse struct {
 	DOB       string     `json:"dob,omitempty"`
 	IDType    string     `json:"idType,omitempty"`
 	IDMasked  string     `json:"idMasked,omitempty"`
-	HeightCm  *int       `json:"heightCm,omitempty"`
-	WeightKg  *string    `json:"weightKg,omitempty"`
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }

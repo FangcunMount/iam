@@ -8,9 +8,9 @@ import (
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	role "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	wechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	profile "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
 	user "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	wechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -82,11 +82,13 @@ func (s *WechatRepoStub) Update(ctx context.Context, app *wechatapp.WechatApp) e
 
 // ProfileRepoStub is a stub for profile.Repository used in tests.
 type ProfileRepoStub struct {
-	Profile    *profile.Profile
-	FindErr    error
-	FindCalls  int
-	UpdateArgs []*profile.Profile
-	mu         sync.Mutex
+	Profile          *profile.Profile
+	ProfilesByIDCard map[string]*profile.Profile
+	FindErr          error
+	FindCalls        int
+	FindIDCardCalls  int
+	UpdateArgs       []*profile.Profile
+	mu               sync.Mutex
 }
 
 func (s *ProfileRepoStub) Create(ctx context.Context, c *profile.Profile) error { return nil }
@@ -128,7 +130,21 @@ func (s *ProfileRepoStub) FindByName(ctx context.Context, name string) (*profile
 	return nil, s.FindErr
 }
 func (s *ProfileRepoStub) FindByIDCard(ctx context.Context, idCard meta.IDCard) (*profile.Profile, error) {
-	return nil, s.FindErr
+	s.mu.Lock()
+	s.FindIDCardCalls++
+	findErr := s.FindErr
+	profilesByIDCard := s.ProfilesByIDCard
+	s.mu.Unlock()
+
+	if findErr != nil {
+		return nil, findErr
+	}
+	if profilesByIDCard != nil {
+		if p := profilesByIDCard[idCard.String()]; p != nil {
+			return p, nil
+		}
+	}
+	return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile with id card(%s) not found", idCard.String())
 }
 func (s *ProfileRepoStub) FindListByName(ctx context.Context, name string) ([]*profile.Profile, error) {
 	return nil, s.FindErr
@@ -145,20 +161,6 @@ func (s *ProfileRepoStub) Update(ctx context.Context, ch *profile.Profile) error
 	findErr := s.FindErr
 	s.mu.Unlock()
 	return findErr
-}
-
-// ProfileValidatorStub is a stub for profile.Validator used in tests.
-type ProfileValidatorStub struct {
-	RenameErr        error
-	UpdateProfileErr error
-}
-
-func (s *ProfileValidatorStub) ValidateCreate(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error {
-	return nil
-}
-func (s *ProfileValidatorStub) ValidateRename(name string) error { return s.RenameErr }
-func (s *ProfileValidatorStub) ValidateUpdateProfile(gender meta.Gender, birthday meta.Birthday) error {
-	return s.UpdateProfileErr
 }
 
 // ----------------- User stubs -----------------
@@ -257,32 +259,6 @@ func (s *UserRepoStub) Update(ctx context.Context, u *user.User) error {
 	findErr := s.FindErr
 	s.mu.Unlock()
 	return findErr
-}
-
-// UserValidatorStub is a stub for user.Validator used in tests.
-type UserValidatorStub struct {
-	RenameErr          error
-	UpdateContactErr   error
-	CheckPhoneErr      error
-	RenameCalls        int
-	UpdateContactCalls int
-	CheckCalls         int
-}
-
-func (s *UserValidatorStub) ValidateCreate(ctx context.Context, name string, phone meta.Phone) error {
-	return nil
-}
-func (s *UserValidatorStub) ValidateRename(name string) error {
-	s.RenameCalls++
-	return s.RenameErr
-}
-func (s *UserValidatorStub) ValidateUpdateContact(ctx context.Context, u *user.User, phone meta.Phone, email meta.Email) error {
-	s.UpdateContactCalls++
-	return s.UpdateContactErr
-}
-func (s *UserValidatorStub) CheckPhoneUnique(ctx context.Context, phone meta.Phone) error {
-	s.CheckCalls++
-	return s.CheckPhoneErr
 }
 
 // VaultStub is a simple SecretVault implementation for tests.

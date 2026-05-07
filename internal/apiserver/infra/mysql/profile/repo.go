@@ -43,11 +43,14 @@ func (r *Repository) Create(ctx context.Context, profile *domain.Profile) error 
 func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.Profile, error) {
 	po, err := r.BaseRepository.FindByID(ctx, id.Uint64())
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile(%s) not found", id.String())
+		}
 		return nil, err
 	}
 	c := r.mapper.ToBO(po)
 	if c == nil {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile(%s) not found", id.String())
 	}
 	return c, nil
 }
@@ -93,11 +96,14 @@ func (r *Repository) FindByName(ctx context.Context, name string) (*domain.Profi
 	var po ProfilePO
 	err := r.FindByField(ctx, &po, "name", name)
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile with name(%s) not found", name)
+		}
 		return nil, err
 	}
 	c := r.mapper.ToBO(&po)
 	if c == nil {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile with name(%s) not found", name)
 	}
 	return c, nil
 }
@@ -107,11 +113,14 @@ func (r *Repository) FindByIDCard(ctx context.Context, idCard meta.IDCard) (*dom
 	var po ProfilePO
 	err := r.FindByField(ctx, &po, "id_card", idCard.String())
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile with id card(%s) not found", idCard.String())
+		}
 		return nil, err
 	}
 	c := r.mapper.ToBO(&po)
 	if c == nil {
-		return nil, gorm.ErrRecordNotFound
+		return nil, perrors.WithCode(code.ErrIdentityProfileNotFound, "profile with id card(%s) not found", idCard.String())
 	}
 	return c, nil
 }

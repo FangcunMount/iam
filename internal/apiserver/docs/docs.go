@@ -2113,7 +2113,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "是否仅查询活跃的档案关系",
+                        "description": "是否包含已撤销档案关系",
+                        "name": "include_revoked",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）",
                         "name": "active",
                         "in": "query"
                     },
@@ -4042,9 +4048,6 @@ const docTemplate = `{
                 "gender": {
                     "type": "integer"
                 },
-                "heightCm": {
-                    "type": "integer"
-                },
                 "idNo": {
                     "type": "string"
                 },
@@ -4062,9 +4065,6 @@ const docTemplate = `{
                         "grandparent",
                         "other"
                     ]
-                },
-                "weightKg": {
-                    "type": "string"
                 }
             }
         },
@@ -4101,13 +4101,7 @@ const docTemplate = `{
                 "gender": {
                     "type": "integer"
                 },
-                "heightCm": {
-                    "type": "integer"
-                },
                 "legalName": {
-                    "type": "string"
-                },
-                "weightKg": {
                     "type": "string"
                 }
             }
@@ -4234,9 +4228,6 @@ const docTemplate = `{
                 "gender": {
                     "type": "integer"
                 },
-                "heightCm": {
-                    "type": "integer"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -4250,9 +4241,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updatedAt": {
-                    "type": "string"
-                },
-                "weightKg": {
                     "type": "string"
                 }
             }

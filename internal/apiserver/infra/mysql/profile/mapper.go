@@ -31,8 +31,6 @@ func (m *ProfileMapper) ToPO(cBO *domain.Profile) *ProfilePO {
 		IDCard:   idCardPtr,
 		Gender:   cBO.Gender.Value(),
 		Birthday: cBO.Birthday.String(),
-		Height:   cBO.Height.Tenths(),
-		Weight:   cBO.Weight.Tenths(),
 	}
 
 	po.ID = cBO.ID
@@ -57,8 +55,6 @@ func (m *ProfileMapper) ToBO(po *ProfilePO) *domain.Profile {
 		IDCard:   idCard,
 		Gender:   meta.NewGender(po.Gender),
 		Birthday: meta.NewBirthday(po.Birthday),
-		Height:   meta.NewHeightFromTenths(po.Height),
-		Weight:   meta.NewWeightFromTenths(po.Weight),
 	}
 
 	return profile

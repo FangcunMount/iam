@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -51,8 +50,6 @@ func (h *ProfileHandler) CreateProfile(c *gin.Context) {
 		Gender:   gender,
 		Birthday: strings.TrimSpace(req.DOB),
 		IDCard:   strings.TrimSpace(req.IDNo),
-		Height:   parseHeightCm(req.HeightCm),
-		Weight:   parseWeightKg(req.WeightKg),
 		Relation: req.Relation,
 	})
 	if err != nil {
@@ -123,26 +120,12 @@ func (h *ProfileHandler) PatchProfile(c *gin.Context) {
 		return
 	}
 
-	var height *uint32
-	if req.HeightCm != nil {
-		parsed := uint32(*req.HeightCm)
-		height = &parsed
-	}
-	var weight *uint32
-	if req.WeightKg != nil {
-		f, _ := strconv.ParseFloat(strings.TrimSpace(*req.WeightKg), 64)
-		parsed := uint32(f * 1000)
-		weight = &parsed
-	}
-
 	profile, err := h.myProfiles.Patch(c.Request.Context(), appprofile.PatchMyProfileDTO{
 		UserID:    rawUserID,
 		ProfileID: profileID,
 		LegalName: req.LegalName,
 		Gender:    req.Gender,
 		Birthday:  req.DOB,
-		Height:    height,
-		Weight:    weight,
 	})
 	if err != nil {
 		h.Error(c, err)

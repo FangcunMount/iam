@@ -24,7 +24,6 @@ func (m *UserMapper) ToPO(uBO *domain.User) *UserPO {
 		Nickname: uBO.Nickname,
 		Phone:    uBO.Phone,
 		Email:    uBO.Email,
-		IDCard:   uBO.IDCard,
 		Status:   uBO.Status.Value(),
 	}
 
@@ -46,7 +45,6 @@ func (m *UserMapper) ToBO(po *UserPO) *domain.User {
 		domain.WithID(po.ID),
 		domain.WithNickname(po.Nickname),
 		domain.WithEmail(po.Email),
-		domain.WithIDCard(po.IDCard),
 		domain.WithStatus(domain.UserStatus(po.Status)),
 	)
 	if err != nil {

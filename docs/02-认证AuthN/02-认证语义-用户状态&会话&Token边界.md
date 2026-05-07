@@ -130,7 +130,7 @@ flowchart TD
 | User/Account 访问状态在哪里汇总 | `SubjectAccessEvaluator`。 | [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go) |
 | Access revoke marker 保存在哪里 | Redis token store 的 revoked access token marker。 | [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go) |
 | Session 保存在哪里 | Redis SessionStore，含 user/account session index。 | [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go) |
-| Block 用户是否撤销 session | User `Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go) |
+| Block 用户是否撤销 session | User `Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_lifecycle.go](../../internal/apiserver/application/identity/user/service_lifecycle.go) |
 
 ---
 
@@ -784,13 +784,14 @@ sessionManager.RevokeByUser(ctx, userID, "user_blocked", userID)
 sequenceDiagram
     participant App as "User StatusChanger"
     participant UOW as "Identity UnitOfWork"
-    participant User as "User Lifecycler"
+    participant User as "User Entity"
     participant Repo as "User Repository"
     participant Session as "SessionManager"
 
     App->>UOW: WithinTx
-    UOW->>User: Block(userID)
-    User-->>UOW: modified user
+    UOW->>Repo: FindByID(userID)
+    Repo-->>UOW: user
+    UOW->>User: Block()
     UOW->>Repo: Update(modified user)
     UOW-->>App: commit ok
     App->>Session: RevokeByUser(userID, "user_blocked", userID)
@@ -808,7 +809,7 @@ sequenceDiagram
 
 核心源码：
 
-- [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go)
+- [../../internal/apiserver/application/identity/user/service_lifecycle.go](../../internal/apiserver/application/identity/user/service_lifecycle.go)
 - [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
 ---
@@ -992,7 +993,7 @@ internal/apiserver/domain/authn/session/evaluator.go
 ```text
 internal/apiserver/domain/identity/user/types.go
 internal/apiserver/domain/identity/user/user.go
-internal/apiserver/application/identity/user/service_status.go
+internal/apiserver/application/identity/user/service_lifecycle.go
 internal/apiserver/domain/authn/account/account.go
 ```
 

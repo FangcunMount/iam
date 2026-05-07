@@ -43,16 +43,25 @@ func (s *myProfiles) Create(ctx context.Context, currentUserID string, dto Creat
 			return err
 		}
 
-		newProfile, err := buildProfileEntity(txCtx, tx, profileCreationInput{
+		newProfile, err := buildProfileEntity(profileCreationInput{
 			Name:     dto.Name,
 			Gender:   dto.Gender,
 			Birthday: dto.Birthday,
-			IDCard:   dto.IDCard,
-			Height:   dto.Height,
-			Weight:   dto.Weight,
 		})
 		if err != nil {
 			return err
+		}
+
+		idCard, hasIDCard, err := input.ParseOptionalIDCard(dto.Name, dto.IDCard)
+		if err != nil {
+			return err
+		}
+		if hasIDCard {
+			checker := profiledomain.NewIDCardUniquenessChecker(tx.Profiles)
+			if err := checker.CheckIDCardUnique(txCtx, idCard); err != nil {
+				return err
+			}
+			newProfile.IDCard = idCard
 		}
 		if err := tx.Profiles.Create(txCtx, newProfile); err != nil {
 			return err

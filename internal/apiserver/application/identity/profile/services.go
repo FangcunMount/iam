@@ -18,7 +18,6 @@ type Editor interface {
 	Rename(ctx context.Context, profileID string, newName string) error
 	UpdateIDCard(ctx context.Context, profileID string, name string, idCard string) error
 	UpdateProfile(ctx context.Context, dto UpdateProfileDTO) error
-	UpdateHeightWeight(ctx context.Context, dto UpdateHeightWeightDTO) error
 }
 
 // Directory 查询档案。
@@ -44,8 +43,6 @@ type CreateProfileDTO struct {
 	Gender   uint8
 	Birthday string
 	IDCard   string
-	Height   *uint32
-	Weight   *uint32
 }
 
 // CreateMyProfileDTO 当前用户创建档案并建立关系 DTO。
@@ -54,8 +51,6 @@ type CreateMyProfileDTO struct {
 	Gender   uint8
 	Birthday string
 	IDCard   string
-	Height   *uint32
-	Weight   *uint32
 	Relation string
 }
 
@@ -66,13 +61,6 @@ type UpdateProfileDTO struct {
 	Birthday  string
 }
 
-// UpdateHeightWeightDTO 更新档案身高体重 DTO。
-type UpdateHeightWeightDTO struct {
-	ProfileID string
-	Height    uint32
-	Weight    uint32
-}
-
 // PatchMyProfileDTO 当前用户通过关系更新档案 DTO。
 type PatchMyProfileDTO struct {
 	UserID    string
@@ -80,8 +68,6 @@ type PatchMyProfileDTO struct {
 	LegalName *string
 	Gender    *uint8
 	Birthday  *string
-	Height    *uint32
-	Weight    *uint32
 }
 
 // ProfileResult 档案结果 DTO。
@@ -91,8 +77,6 @@ type ProfileResult struct {
 	IDCard   string
 	Gender   uint8
 	Birthday string
-	Height   uint32
-	Weight   uint32
 }
 
 // CreatedProfileResult 聚合 Profile 和 ProfileLink 的返回结果。

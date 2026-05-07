@@ -1,6 +1,8 @@
 package user
 
 import (
+	"strings"
+
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -13,14 +15,13 @@ type User struct {
 	Nickname string
 	Phone    meta.Phone
 	Email    meta.Email
-	IDCard   meta.IDCard
 	Status   UserStatus
 }
 
 // NewUser 创建新用户（完整信息）
 func NewUser(name string, phone meta.Phone, opts ...UserOption) (*User, error) {
-	if name == "" {
-		return nil, errors.WithCode(code.ErrUserBasicInfoInvalid, "name cannot be empty")
+	if err := validateName(name); err != nil {
+		return nil, err
 	}
 
 	user := &User{
@@ -39,11 +40,10 @@ func NewUser(name string, phone meta.Phone, opts ...UserOption) (*User, error) {
 type UserOption func(*User)
 
 // With*** 用户选项函数
-func WithID(id meta.ID) UserOption             { return func(u *User) { u.ID = id } }
-func WithNickname(nickname string) UserOption  { return func(u *User) { u.Nickname = nickname } }
-func WithEmail(email meta.Email) UserOption    { return func(u *User) { u.Email = email } }
-func WithIDCard(idCard meta.IDCard) UserOption { return func(u *User) { u.IDCard = idCard } }
-func WithStatus(status UserStatus) UserOption  { return func(u *User) { u.Status = status } }
+func WithID(id meta.ID) UserOption            { return func(u *User) { u.ID = id } }
+func WithNickname(nickname string) UserOption { return func(u *User) { u.Nickname = nickname } }
+func WithEmail(email meta.Email) UserOption   { return func(u *User) { u.Email = email } }
+func WithStatus(status UserStatus) UserOption { return func(u *User) { u.Status = status } }
 
 // UserStatus 用户状态
 func (u *User) Activate()   { u.Status = UserActive }
@@ -56,7 +56,13 @@ func (u *User) IsBlocked() bool  { return u.Status == UserBlocked }
 func (u *User) IsInactive() bool { return u.Status == UserInactive }
 
 // Rename 更新用户名
-func (u *User) Rename(name string) { u.Name = name }
+func (u *User) Rename(name string) error {
+	if err := validateName(name); err != nil {
+		return err
+	}
+	u.Name = name
+	return nil
+}
 
 // UpdateNickname 更新昵称
 func (u *User) UpdateNickname(nickname string) { u.Nickname = nickname }
@@ -71,5 +77,9 @@ func (u *User) UpdateEmail(email meta.Email) {
 	u.Email = email
 }
 
-// UpdateIDCard 更新身份证
-func (u *User) UpdateIDCard(idc meta.IDCard) { u.IDCard = idc }
+func validateName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return errors.WithCode(code.ErrUserBasicInfoInvalid, "name cannot be empty")
+	}
+	return nil
+}

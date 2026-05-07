@@ -24,8 +24,6 @@ type Editor interface {
 	PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*UserResult, error)
 	// UpdateContact 更新联系方式
 	UpdateContact(ctx context.Context, dto UpdateContactDTO) error
-	// UpdateIDCard 更新身份证
-	UpdateIDCard(ctx context.Context, userID string, idCard string) error
 }
 
 // StatusChanger 改变登录主体状态。
@@ -79,6 +77,5 @@ type UserResult struct {
 	Name   string            // 用户名
 	Phone  string            // 手机号
 	Email  string            // 邮箱
-	IDCard string            // 身份证号
 	Status domain.UserStatus // 用户状态
 }

@@ -32,15 +32,13 @@ func TestUserResultToProtoKeepsContactsAndStatus(t *testing.T) {
 	require.Equal(t, identityv2.ContactType_CONTACT_TYPE_EMAIL, got.Contacts[1].Type)
 }
 
-func TestProfileResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
+func TestProfileResultToProtoFormatsGenderAndIdentity(t *testing.T) {
 	got := profileResultToProto(&profileApp.ProfileResult{
 		ID:       "profile-1",
 		Name:     "Bob",
 		IDCard:   "110***********001",
 		Gender:   1,
 		Birthday: "2020-01-02",
-		Height:   120,
-		Weight:   23500,
 	})
 
 	require.Equal(t, "profile-1", got.Id)
@@ -48,8 +46,6 @@ func TestProfileResultToProtoFormatsGenderIdentityAndWeight(t *testing.T) {
 	require.Equal(t, identityv2.Gender_GENDER_MALE, got.Gender)
 	require.Equal(t, "2020-01-02", got.Dob)
 	require.Equal(t, "110***********001", got.Identity.MaskedNumber)
-	require.Equal(t, int32(120), got.Stats.HeightCm)
-	require.Equal(t, "23.50", got.Stats.WeightKg)
 }
 
 func TestProfileLinkResultToProtoParsesRelationAndTimestamps(t *testing.T) {

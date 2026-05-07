@@ -6,27 +6,13 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// ================== Domain Capability Interfaces (Driving Ports) ==================
-// 这些接口由领域层（领域能力）实现，供应用层调用
-// 按照功能职责拆分，遵循接口隔离原则
+// ================== Domain Capability Interfaces ==================
+// 领域层暴露档案规则能力；外部 DTO 解析、事务、持久化由 application 层编排。
 
-// Validator 档案验证器接口（Driving Port - 领域能力）
-// 封装档案相关的验证规则和业务检查
-type Validator interface {
-	// ValidateCreate 验证创建参数
-	ValidateCreate(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) error
-
-	// ValidateRename 验证改名参数
-	ValidateRename(name string) error
-
-	// ValidateUpdateProfile 验证资料更新参数
-	ValidateUpdateProfile(gender meta.Gender, birthday meta.Birthday) error
-}
-
-// ProfileEditor 档案资料编辑领域能力。
-type ProfileEditor interface {
-	Rename(ctx context.Context, profileID meta.ID, name string) (*Profile, error)
-	UpdateIDCard(ctx context.Context, profileID meta.ID, idCard meta.IDCard) (*Profile, error)
-	UpdateProfile(ctx context.Context, profileID meta.ID, gender meta.Gender, birthday meta.Birthday) (*Profile, error)
-	UpdateHeightWeight(ctx context.Context, profileID meta.ID, height meta.Height, weight meta.Weight) (*Profile, error)
+// IDCardUniquenessChecking 检查 Profile 身份证唯一性。
+type IDCardUniquenessChecking interface {
+	// CheckIDCardUnique 检查身份证是否还没有被其他 Profile 使用
+	CheckIDCardUnique(ctx context.Context, idCard meta.IDCard) error
+	// CheckIDCardChange 在身份证变更时检查唯一性
+	CheckIDCardChange(ctx context.Context, profile *Profile, idCard meta.IDCard) error
 }

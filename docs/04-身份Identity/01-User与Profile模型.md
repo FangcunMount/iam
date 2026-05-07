@@ -12,7 +12,7 @@
 - 为什么 User blocked 会撤销 session；
 - Profile 是什么，为什么它不是登录主体；
 - Profile 与 User 为什么不是一对一关系；
-- Profile 的基本信息、证件信息、身高体重分别如何建模；
+- Profile 的基本信息、证件信息如何建模；
 - User/Profile 的创建、查询、编辑分别由哪些 application service 承担；
 - 当前用户视角的 `/identity/me` 和 `/identity/me/profiles` 分别从哪里来；
 - 为什么 `MyProfiles` 会组合 Profile 与 ProfileLink；
@@ -42,7 +42,7 @@ Profile
 | --- | --- | --- |
 | Account | AuthN | 登录入口与凭据归属，例如手机号、微信、企微、密码账号 |
 | User | Identity | IAM 内部用户身份锚点，承接登录主体、状态和角色关系 |
-| Profile | Identity | 业务档案，承接姓名、性别、生日、证件、身高体重等业务资料 |
+| Profile | Identity | IAM 内的业务档案锚点，承接姓名、性别、生日、证件等基础资料 |
 | ProfileLink | Identity | User 与 Profile 的关系边，表达 self、parent、grandparent、other 等关系 |
 
 User 和 Profile 不能合并，原因是：
@@ -120,7 +120,6 @@ classDiagram
       Nickname
       Phone
       Email
-      IDCard
       Status
       Activate()
       Deactivate()
@@ -134,11 +133,8 @@ classDiagram
       IDCard
       Gender
       Birthday
-      Height
-      Weight
       Rename()
       UpdateProfile()
-      UpdateHeightWeight()
     }
 
     class ProfileLink {
@@ -167,10 +163,10 @@ classDiagram
 | User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go) |
 | User 创建后默认状态 | `UserActive`。 | [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
 | User 创建用例是否维护 self profile | 不维护；User 可以没有 self Profile。 | [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go) |
-| User blocked 是否撤销 session | `StatusChanger.Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go) |
+| User blocked 是否撤销 session | `StatusChanger.Block` 成功后调用 `sessionManager.RevokeByUser`。 | [../../internal/apiserver/application/identity/user/service_lifecycle.go](../../internal/apiserver/application/identity/user/service_lifecycle.go) |
 | Profile 领域对象在哪里 | `domain/identity/profile/profile.go`。 | [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go) |
-| Profile 创建输入如何统一 | `CreationSpec` + `NewFromCreationSpec`。 | [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go) |
-| Profile 编辑领域服务在哪里 | `domain/identity/profile/editor.go`。 | [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go) |
+| Profile 创建入口如何复用 | 应用层解析 DTO 后统一调用 `profile.NewProfile`，IDCard 唯一性由 `IDCardUniquenessChecker` 检查。 | [../../internal/apiserver/application/identity/profile/profile_creation.go](../../internal/apiserver/application/identity/profile/profile_creation.go) |
+| Profile 编辑用例在哪里 | `application/identity/profile/service_editor.go`，由应用层加载实体、调用实体方法并持久化。 | [../../internal/apiserver/application/identity/profile/service_editor.go](../../internal/apiserver/application/identity/profile/service_editor.go) |
 | Profile 查询仓储支持什么 | `FindByID`、`FindByIDCard`、`FindSimilar` 等。 | [../../internal/apiserver/domain/identity/profile/repository.go](../../internal/apiserver/domain/identity/profile/repository.go) |
 | UserModule 装配了哪些 Identity 能力 | User、Profile、ProfileLink、MyProfiles、MyProfileLinks 等。 | [../../internal/apiserver/container/assembler/user.go](../../internal/apiserver/container/assembler/user.go) |
 | REST Identity 路由在哪里 | `/api/v2/identity`，需要 AuthMiddleware。 | [../../internal/apiserver/transport/rest/identity/router.go](../../internal/apiserver/transport/rest/identity/router.go) |
@@ -226,7 +222,6 @@ ProfileLink 的链路、关系创建、关系撤销、当前用户视角 guard�
 | `Nickname` | 昵称 |
 | `Phone` | 手机号 |
 | `Email` | 邮箱 |
-| `IDCard` | 身份证 |
 | `Status` | active / inactive / blocked |
 
 User 的创建函数：
@@ -255,13 +250,11 @@ classDiagram
       Nickname
       Phone
       Email
-      IDCard
       Status
       Rename(name)
       UpdateNickname(nickname)
       UpdatePhone(phone)
       UpdateEmail(email)
-      UpdateIDCard(idcard)
       Activate()
       Deactivate()
       Block()
@@ -353,77 +346,54 @@ sessionManager.RevokeByUser(ctx, userID, "user_blocked", userID)
 核心源码：
 
 - [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)
-- [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go)
-- [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go)
+- [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
+- [../../internal/apiserver/application/identity/user/service_lifecycle.go](../../internal/apiserver/application/identity/user/service_lifecycle.go)
 
 ---
 
-## 4. User 领域能力
+## 4. User 领域模型与策略
 
-User 领域层定义了几个能力接口：
+User 领域层保留实体、策略和持久化端口：
 
 | 能力 | 作用 |
 | --- | --- |
-| `Validator` | 创建、改名、联系方式更新、手机号唯一性 |
-| `UserEditor` | 修改 User 基础资料 |
-| `Lifecycler` | 激活、停用、封禁 |
+| `User` | User 字段、状态和实体行为 |
+| `UniquenessChecker` | 手机号唯一性检查 |
 | `Repository` | 持久化端口 |
 
-### Validator
+### UniquenessChecker
 
-User validator 负责：
+`UniquenessChecker` 只负责跨实体唯一性：
 
 ```text
-ValidateCreate
-ValidateRename
-ValidateUpdateContact
 CheckPhoneUnique
+CheckPhoneChange
 ```
 
 其中手机号唯一性通过 `repo.FindByPhone` 检查。
 如果手机号已存在，返回用户已存在错误。
 
-### UserEditor
+### User Entity
 
-User 的 `UserEditor` 编辑的是 User 自身资料，不是业务档案 Profile。
-
-能力包括：
+User 实体承载资料修改和状态变更行为：
 
 ```text
 Rename
-Renickname
-UpdateContact
+UpdateNickname
+UpdatePhone
+UpdateEmail
 UpdateIDCard
-```
-
-它的工作方式是：
-
-```text
-load User
-  -> apply domain mutation
-  -> return modified User
-```
-
-持久化由 application 层完成。
-
-### Lifecycler
-
-`Lifecycler` 负责：
-
-```text
 Activate
 Deactivate
 Block
 ```
 
-它同样只加载 User、修改状态并返回实体，持久化由 application 层负责。
+加载实体、事务、持久化和返回 DTO 由 application service 负责。
 
 核心源码：
 
-- [../../internal/apiserver/domain/identity/user/interfaces.go](../../internal/apiserver/domain/identity/user/interfaces.go)
-- [../../internal/apiserver/domain/identity/user/validator.go](../../internal/apiserver/domain/identity/user/validator.go)
-- [../../internal/apiserver/domain/identity/user/editor.go](../../internal/apiserver/domain/identity/user/editor.go)
-- [../../internal/apiserver/domain/identity/user/lifecycler.go](../../internal/apiserver/domain/identity/user/lifecycler.go)
+- [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
+- [../../internal/apiserver/domain/identity/user/uniqueness_checker.go](../../internal/apiserver/domain/identity/user/uniqueness_checker.go)
 - [../../internal/apiserver/domain/identity/user/repository.go](../../internal/apiserver/domain/identity/user/repository.go)
 
 ---
@@ -455,7 +425,7 @@ UserResult
 ```text
 CreateUserDTO
   -> parse phone/email
-  -> ValidateCreate
+  -> CheckPhoneUnique
   -> user.NewUser
   -> tx.Users.Create
   -> UserResult
@@ -465,12 +435,12 @@ CreateUserDTO
 sequenceDiagram
     participant App as "User Creator"
     participant UOW as "Identity UoW"
-    participant Validator as "User Validator"
+    participant Unique as "User UniquenessChecker"
     participant User as "User Entity"
     participant Repo as "User Repository"
 
     App->>UOW: WithinTx
-    UOW->>Validator: ValidateCreate
+    UOW->>Unique: CheckPhoneUnique
     UOW->>User: NewUser
     UOW->>Repo: Create(user)
 ```
@@ -484,7 +454,9 @@ User 编辑流程一般是：
 
 ```text
 parse user id / value objects
-  -> domain UserEditor
+  -> tx.Users.FindByID
+  -> optional UniquenessChecker / policy
+  -> User entity mutation
   -> tx.Users.Update
 ```
 
@@ -504,7 +476,8 @@ User 状态变更流程：
 
 ```text
 parse user id
-  -> domain Lifecycler
+  -> tx.Users.FindByID
+  -> User.Activate / Deactivate / Block
   -> tx.Users.Update
   -> if Block: sessionManager.RevokeByUser
 ```
@@ -527,8 +500,8 @@ GetByPhone
 
 - [../../internal/apiserver/application/identity/user/services.go](../../internal/apiserver/application/identity/user/services.go)
 - [../../internal/apiserver/application/identity/user/service_create.go](../../internal/apiserver/application/identity/user/service_create.go)
-- [../../internal/apiserver/application/identity/user/service_profile.go](../../internal/apiserver/application/identity/user/service_profile.go)
-- [../../internal/apiserver/application/identity/user/service_status.go](../../internal/apiserver/application/identity/user/service_status.go)
+- [../../internal/apiserver/application/identity/user/service_editor.go](../../internal/apiserver/application/identity/user/service_editor.go)
+- [../../internal/apiserver/application/identity/user/service_lifecycle.go](../../internal/apiserver/application/identity/user/service_lifecycle.go)
 - [../../internal/apiserver/application/identity/user/service_query.go](../../internal/apiserver/application/identity/user/service_query.go)
 
 ---
@@ -546,8 +519,6 @@ GetByPhone
 | `IDCard` | 身份证 |
 | `Gender` | 性别 |
 | `Birthday` | 生日 |
-| `Height` | 身高 |
-| `Weight` | 体重 |
 
 ```mermaid
 classDiagram
@@ -557,12 +528,9 @@ classDiagram
       IDCard
       Gender
       Birthday
-      Height
-      Weight
       Rename(name)
       UpdateIDCard(idcard)
       UpdateProfile(gender, birthday)
-      UpdateHeightWeight(height, weight)
     }
 ```
 
@@ -595,13 +563,14 @@ Profile 更接近业务对象，例如：
 
 ---
 
-## 7. Profile 创建模型：CreationSpec
+## 7. Profile 创建模型
 
-Profile 创建使用：
+Profile 创建现在不再保留额外的 `CreationSpec`：
 
 ```text
-CreationSpec
-NewFromCreationSpec
+application profile_creation.go
+profile.NewProfile
+IDCardUniquenessChecker
 ```
 
 字段：
@@ -612,18 +581,15 @@ Name
 IDCard
 Gender
 Birthday
-Height
-Weight
 ```
 
-应用层负责把外部 DTO 解析成值对象：
+应用层负责把外部 DTO 解析成值对象，并在事务内调用领域规则：
 
 ```text
 Gender
 Birthday
 IDCard
-Height
-Weight
+IDCard uniqueness
 ```
 
 然后交给领域层创建 Profile。
@@ -632,16 +598,17 @@ Weight
 flowchart TD
     DTO["CreateProfileDTO / CreateMyProfileDTO"]
     Parse["application input parser"]
-    Spec["profile.CreationSpec"]
-    Domain["profile.NewFromCreationSpec"]
+    IDCard["profile.IDCardUniquenessChecker"]
+    Domain["profile.NewProfile"]
     Profile["Profile"]
 
-    DTO --> Parse --> Spec --> Domain --> Profile
+    DTO --> Parse --> IDCard --> Domain --> Profile
 ```
 
-### 为什么用 CreationSpec
+### 为什么删除 CreationSpec
 
-因为 Profile 创建字段比较多，而且不同入口都会创建 Profile：
+`CreationSpec` 只是在应用层 DTO 解析后再包一层结构体，没有承载独立业务规则。
+现在 Profile 字段已经收敛为 `name / idCard / gender / birthday`，直接通过 `NewProfile` 和 option 装配更清楚。
 
 ```text
 直接创建 Profile
@@ -649,62 +616,40 @@ flowchart TD
 当前用户为自己创建 self Profile
 ```
 
-`CreationSpec` 把创建字段集中起来，避免每个入口手动拼 option。
+这些入口共享应用层 `buildProfileEntity`，而跨实体规则由 `IDCardUniquenessChecker` 表达。
 
 核心源码：
 
-- [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go)
 - [../../internal/apiserver/application/identity/profile/profile_creation.go](../../internal/apiserver/application/identity/profile/profile_creation.go)
+- [../../internal/apiserver/domain/identity/profile/idcard_uniqueness_checker.go](../../internal/apiserver/domain/identity/profile/idcard_uniqueness_checker.go)
 
 ---
 
-## 8. Profile 领域能力
+## 8. Profile 领域模型与策略
 
 Profile 领域层定义：
 
 | 能力 | 作用 |
 | --- | --- |
-| `Validator` | 校验创建、改名、资料更新 |
-| `ProfileEditor` | 修改 Profile 资料 |
+| `Profile` | Profile 字段和实体行为 |
 | `Repository` | 持久化端口 |
 
-### Validator
+### Profile Entity
 
-当前 validator 主要检查：
-
-```text
-name cannot be empty
-```
-
-`ValidateUpdateProfile` 当前没有额外规则。
-这意味着现阶段性别、生日等值对象的合法性主要在 application input parse 阶段完成。
-
-### ProfileEditor
-
-Profile editor 负责：
+Profile 实体负责：
 
 ```text
 Rename
 UpdateIDCard
 UpdateProfile
-UpdateHeightWeight
 ```
 
-它的模式与 User editor 一致：
-
-```text
-load Profile
-  -> domain mutation
-  -> return modified Profile
-```
-
-持久化由 application 层完成。
+加载 Profile、事务、持久化和 DTO 返回由 application service 负责。
 
 核心源码：
 
-- [../../internal/apiserver/domain/identity/profile/interfaces.go](../../internal/apiserver/domain/identity/profile/interfaces.go)
-- [../../internal/apiserver/domain/identity/profile/validator.go](../../internal/apiserver/domain/identity/profile/validator.go)
-- [../../internal/apiserver/domain/identity/profile/editor.go](../../internal/apiserver/domain/identity/profile/editor.go)
+- [../../internal/apiserver/domain/identity/profile/profile.go](../../internal/apiserver/domain/identity/profile/profile.go)
+- [../../internal/apiserver/domain/identity/profile/creation.go](../../internal/apiserver/domain/identity/profile/creation.go)
 - [../../internal/apiserver/domain/identity/profile/repository.go](../../internal/apiserver/domain/identity/profile/repository.go)
 
 ---
@@ -739,14 +684,14 @@ CreateProfileDTO
 Rename
 UpdateIDCard
 UpdateProfile
-UpdateHeightWeight
 ```
 
 每个写操作都通过 UoW：
 
 ```text
 parse profile id / value objects
-  -> domain ProfileEditor
+  -> tx.Profiles.FindByID
+  -> Profile entity mutation
   -> tx.Profiles.Update
 ```
 
@@ -803,7 +748,7 @@ create Profile
 
 - [../../internal/apiserver/application/identity/profile/services.go](../../internal/apiserver/application/identity/profile/services.go)
 - [../../internal/apiserver/application/identity/profile/service_create.go](../../internal/apiserver/application/identity/profile/service_create.go)
-- [../../internal/apiserver/application/identity/profile/service_profile.go](../../internal/apiserver/application/identity/profile/service_profile.go)
+- [../../internal/apiserver/application/identity/profile/service_editor.go](../../internal/apiserver/application/identity/profile/service_editor.go)
 - [../../internal/apiserver/application/identity/profile/service_query.go](../../internal/apiserver/application/identity/profile/service_query.go)
 - [../../internal/apiserver/application/identity/profile/service_my_profiles.go](../../internal/apiserver/application/identity/profile/service_my_profiles.go)
 - [../../internal/apiserver/application/identity/profile/service_access.go](../../internal/apiserver/application/identity/profile/service_access.go)
@@ -1256,11 +1201,11 @@ Profile 不直接属于 User，关系由 ProfileLink 表达。
 不完整。
 当前 User block 成功后还会调用 `sessionManager.RevokeByUser`，影响 AuthN 在线登录态。
 
-### 误区四：`UserEditor` 编辑的是 Profile
+### 误区四：应用层 `UserEditor` 编辑的是 Profile
 
 不对。
-`domain/identity/user.UserEditor` 编辑的是 User 自身资料。
-Profile 的编辑器在 `domain/identity/profile.ProfileEditor`。
+应用层 `identity/user.Editor` 编辑的是 User 自身资料。
+Profile 的编辑用例在 `application/identity/profile/service_editor.go`。
 
 ### 误区五：MyProfiles 是普通 Profile CRUD
 
@@ -1323,10 +1268,7 @@ User 创建和 AuthN onboarding 不再自动创建 Profile 或 self ProfileLink�
 ```text
 internal/apiserver/domain/identity/user/types.go
 internal/apiserver/domain/identity/user/user.go
-internal/apiserver/domain/identity/user/interfaces.go
-internal/apiserver/domain/identity/user/validator.go
-internal/apiserver/domain/identity/user/editor.go
-internal/apiserver/domain/identity/user/lifecycler.go
+internal/apiserver/domain/identity/user/uniqueness_checker.go
 internal/apiserver/domain/identity/user/repository.go
 ```
 
@@ -1337,8 +1279,8 @@ internal/apiserver/domain/identity/user/repository.go
 ```text
 internal/apiserver/application/identity/user/services.go
 internal/apiserver/application/identity/user/service_create.go
-internal/apiserver/application/identity/user/service_profile.go
-internal/apiserver/application/identity/user/service_status.go
+internal/apiserver/application/identity/user/service_editor.go
+internal/apiserver/application/identity/user/service_lifecycle.go
 internal/apiserver/application/identity/user/service_query.go
 ```
 
@@ -1349,9 +1291,6 @@ internal/apiserver/application/identity/user/service_query.go
 ```text
 internal/apiserver/domain/identity/profile/profile.go
 internal/apiserver/domain/identity/profile/creation.go
-internal/apiserver/domain/identity/profile/interfaces.go
-internal/apiserver/domain/identity/profile/validator.go
-internal/apiserver/domain/identity/profile/editor.go
 internal/apiserver/domain/identity/profile/repository.go
 ```
 
@@ -1363,7 +1302,7 @@ internal/apiserver/domain/identity/profile/repository.go
 internal/apiserver/application/identity/profile/services.go
 internal/apiserver/application/identity/profile/profile_creation.go
 internal/apiserver/application/identity/profile/service_create.go
-internal/apiserver/application/identity/profile/service_profile.go
+internal/apiserver/application/identity/profile/service_editor.go
 internal/apiserver/application/identity/profile/service_query.go
 internal/apiserver/application/identity/profile/service_my_profiles.go
 internal/apiserver/application/identity/profile/service_access.go
@@ -1421,8 +1360,8 @@ make docs-hygiene
 | User phone uniqueness | 手机号变更检查唯一性 |
 | User block | 状态改为 blocked，并调用 RevokeByUser |
 | User deactivate | 状态改为 inactive，不主动 revoke session |
-| Profile create | name 必填，CreationSpec 正确装配字段 |
-| Profile update | Rename / IDCard / gender+birthday / height+weight |
+| Profile create | name 必填，IDCard 合法且唯一，字段正确装配 |
+| Profile update | Rename / IDCard / gender+birthday |
 | Active self guard | self 创建时拒绝第二条 active self，DB self_key 唯一索引兜底 |
 | MyProfiles.Create | Profile + ProfileLink 同事务创建 |
 | MyProfiles.Get/Patch | 没有关联时返回 permission denied |

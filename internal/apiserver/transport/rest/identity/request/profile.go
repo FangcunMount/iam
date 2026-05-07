@@ -7,8 +7,6 @@ type ProfileCreateRequest struct {
 	DOB       string `json:"dob" binding:"required"`
 	IDType    string `json:"idType,omitempty"`
 	IDNo      string `json:"idNo,omitempty"`
-	HeightCm  *int   `json:"heightCm,omitempty"`
-	WeightKg  string `json:"weightKg,omitempty"`
 	Relation  string `json:"relation" binding:"required,oneof=self parent grandparent other"`
 }
 
@@ -17,8 +15,6 @@ type ProfileUpdateRequest struct {
 	LegalName *string `json:"legalName,omitempty"`
 	Gender    *uint8  `json:"gender,omitempty"`
 	DOB       *string `json:"dob,omitempty"`
-	HeightCm  *int    `json:"heightCm,omitempty"`
-	WeightKg  *string `json:"weightKg,omitempty"`
 }
 
 // ProfileSearchQuery 搜索档案请求参数

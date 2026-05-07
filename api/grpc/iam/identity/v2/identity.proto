@@ -57,12 +57,6 @@ message IdentityDocument {
   string masked_number = 2; // 已脱敏编号
 }
 
-// 身体指标
-message PhysicalStats {
-  int32 height_cm = 1;
-  string weight_kg = 2; // 字符串保持小数精度
-}
-
 // 外部身份（第三方账号）
 message ExternalIdentity {
   string provider = 1;     // 例如 sso、crm
@@ -104,7 +98,6 @@ message Profile {
   Gender gender = 3;
   string dob = 4; // YYYY-MM-DD
   IdentityDocument identity = 5;
-  PhysicalStats stats = 6;
   google.protobuf.Timestamp created_at = 10;
   google.protobuf.Timestamp updated_at = 11;
 }

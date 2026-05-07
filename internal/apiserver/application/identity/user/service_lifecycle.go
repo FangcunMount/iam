@@ -6,7 +6,6 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 )
 
 // ===========================================
@@ -34,9 +33,6 @@ func (s *statusChanger) Activate(ctx context.Context, userID string) error {
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		lifecycler := user.NewLifecycler(tx.Users)
-
 		// 转换 ID
 		id, err := parseUserID(userID)
 		if err != nil {
@@ -48,8 +44,7 @@ func (s *statusChanger) Activate(ctx context.Context, userID string) error {
 			return err
 		}
 
-		// 调用领域服务激活用户
-		modifiedUser, err := lifecycler.Activate(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, id)
 		if err != nil {
 			l.Errorw("激活用户失败",
 				"action", logger.ActionUpdate,
@@ -59,6 +54,7 @@ func (s *statusChanger) Activate(ctx context.Context, userID string) error {
 			)
 			return err
 		}
+		modifiedUser.Activate()
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)
@@ -86,9 +82,6 @@ func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		lifecycler := user.NewLifecycler(tx.Users)
-
 		// 转换 ID
 		id, err := parseUserID(userID)
 		if err != nil {
@@ -100,8 +93,7 @@ func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
 			return err
 		}
 
-		// 调用领域服务停用用户
-		modifiedUser, err := lifecycler.Deactivate(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, id)
 		if err != nil {
 			l.Errorw("停用用户失败",
 				"action", logger.ActionUpdate,
@@ -111,6 +103,7 @@ func (s *statusChanger) Deactivate(ctx context.Context, userID string) error {
 			)
 			return err
 		}
+		modifiedUser.Deactivate()
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)
@@ -138,9 +131,6 @@ func (s *statusChanger) Block(ctx context.Context, userID string) error {
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		lifecycler := user.NewLifecycler(tx.Users)
-
 		// 转换 ID
 		id, err := parseUserID(userID)
 		if err != nil {
@@ -152,8 +142,7 @@ func (s *statusChanger) Block(ctx context.Context, userID string) error {
 			return err
 		}
 
-		// 调用领域服务封禁用户
-		modifiedUser, err := lifecycler.Block(txCtx, id)
+		modifiedUser, err := tx.Users.FindByID(txCtx, id)
 		if err != nil {
 			l.Errorw("封禁用户失败",
 				"action", logger.ActionUpdate,
@@ -163,6 +152,7 @@ func (s *statusChanger) Block(ctx context.Context, userID string) error {
 			)
 			return err
 		}
+		modifiedUser.Block()
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)

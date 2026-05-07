@@ -26,7 +26,6 @@ func toUserResult(user *domain.User) *UserResult {
 		Name:   user.Name,
 		Phone:  user.Phone.String(),
 		Email:  user.Email.String(),
-		IDCard: user.IDCard.String(),
 		Status: user.Status,
 	}
 }

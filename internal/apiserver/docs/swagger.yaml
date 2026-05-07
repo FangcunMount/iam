@@ -650,8 +650,6 @@ definitions:
         type: string
       gender:
         type: integer
-      heightCm:
-        type: integer
       idNo:
         type: string
       idType:
@@ -664,8 +662,6 @@ definitions:
         - parent
         - grandparent
         - other
-        type: string
-      weightKg:
         type: string
     required:
     - dob
@@ -696,11 +692,7 @@ definitions:
         type: string
       gender:
         type: integer
-      heightCm:
-        type: integer
       legalName:
-        type: string
-      weightKg:
         type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.UserContactUpsert:
@@ -783,8 +775,6 @@ definitions:
         type: string
       gender:
         type: integer
-      heightCm:
-        type: integer
       id:
         type: string
       idMasked:
@@ -794,8 +784,6 @@ definitions:
       legalName:
         type: string
       updatedAt:
-        type: string
-      weightKg:
         type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.UserResponse:
@@ -2281,7 +2269,11 @@ paths:
         in: query
         name: profile_id
         type: string
-      - description: 是否仅查询活跃的档案关系
+      - description: 是否包含已撤销档案关系
+        in: query
+        name: include_revoked
+        type: boolean
+      - description: 是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）
         in: query
         name: active
         type: boolean

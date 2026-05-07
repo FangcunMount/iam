@@ -299,36 +299,6 @@ func TestEditor_PatchProfile_RollsBackNameWhenContactUpdateFails(t *testing.T) {
 	assert.Equal(t, created.Email, persisted.Email)
 }
 
-func TestEditor_UpdateIDCard_Success(t *testing.T) {
-	// Arrange
-	db := testutil.SetupTestDB(t)
-	unitOfWork := testutil.NewUnitOfWork(db)
-
-	createUseCase := user.NewCreator(unitOfWork)
-	ctx := context.Background()
-
-	created, err := createUseCase.Create(ctx, user.CreateUserDTO{
-		Name:  "张三",
-		Phone: "13800138000",
-	})
-	require.NoError(t, err)
-
-	profileService := user.NewEditor(unitOfWork)
-	idCard := "110101199003070011" // 有效的测试身份证号
-
-	// Act
-	err = profileService.UpdateIDCard(ctx, created.ID, idCard)
-
-	// Assert
-	require.NoError(t, err)
-
-	// 验证修改结果
-	queryService := user.NewDirectory(unitOfWork)
-	updated, err := queryService.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, idCard, updated.IDCard)
-}
-
 // ==================== StatusChanger 测试 ====================
 
 func TestStatusChanger_Activate_Success(t *testing.T) {

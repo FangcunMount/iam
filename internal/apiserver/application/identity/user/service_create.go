@@ -37,17 +37,15 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建验证器
-		validator := user.NewValidator(tx.Users)
+		uniqueness := user.NewUniquenessChecker(tx.Users)
 
 		phone, err := input.ParseOptionalPhone(dto.Phone)
 		if err != nil {
 			return err
 		}
 
-		// 验证创建参数
-		if err := validator.ValidateCreate(txCtx, dto.Name, phone); err != nil {
-			l.Warnw("用户创建参数验证失败",
+		if err := uniqueness.CheckPhoneUnique(txCtx, phone); err != nil {
+			l.Warnw("用户手机号唯一性检查失败",
 				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
 				"error", err.Error(),

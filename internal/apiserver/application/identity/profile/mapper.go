@@ -29,8 +29,6 @@ func toProfileResult(profile *domain.Profile) *ProfileResult {
 		IDCard:   profile.IDCard.String(),
 		Gender:   profile.Gender.Value(),
 		Birthday: profile.Birthday.String(),
-		Height:   input.HeightCm(profile.Height),    // tenths of cm -> cm
-		Weight:   input.WeightGrams(profile.Weight), // tenths of kg -> grams (1kg=1000g, 0.1kg=100g)
 	}
 }
 

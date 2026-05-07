@@ -7,7 +7,6 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -63,14 +62,12 @@ func (s *myProfiles) Patch(ctx context.Context, dto PatchMyProfileDTO) (*Profile
 			return err
 		}
 
-		validator := domain.NewValidator(tx.Profiles)
 		changed := false
 		if dto.LegalName != nil && strings.TrimSpace(*dto.LegalName) != "" {
 			name := strings.TrimSpace(*dto.LegalName)
-			if err := validator.ValidateRename(name); err != nil {
+			if err := profile.Rename(name); err != nil {
 				return err
 			}
-			profile.Rename(name)
 			changed = true
 		}
 
@@ -83,35 +80,7 @@ func (s *myProfiles) Patch(ctx context.Context, dto PatchMyProfileDTO) (*Profile
 			if dto.Birthday != nil {
 				birthday = input.ParseBirthday(strings.TrimSpace(*dto.Birthday))
 			}
-			if err := validator.ValidateUpdateProfile(gender, birthday); err != nil {
-				return err
-			}
 			profile.UpdateProfile(gender, birthday)
-			changed = true
-		}
-
-		if dto.Height != nil || dto.Weight != nil {
-			height, err := input.ParseHeightCm(0)
-			if err != nil {
-				return err
-			}
-			if dto.Height != nil {
-				height, err = input.ParseHeightCm(*dto.Height)
-				if err != nil {
-					return err
-				}
-			}
-			weight, err := input.ParseWeightGrams(0)
-			if err != nil {
-				return err
-			}
-			if dto.Weight != nil {
-				weight, err = input.ParseWeightGrams(*dto.Weight)
-				if err != nil {
-					return err
-				}
-			}
-			profile.UpdateHeightWeight(height, weight)
 			changed = true
 		}
 

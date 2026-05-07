@@ -542,8 +542,6 @@ components:
           type: string
         gender:
           type: integer
-        heightCm:
-          type: integer
         idNo:
           type: string
         idType:
@@ -556,8 +554,6 @@ components:
           - parent
           - grandparent
           - other
-          type: string
-        weightKg:
           type: string
       required:
       - dob
@@ -588,11 +584,7 @@ components:
           type: string
         gender:
           type: integer
-        heightCm:
-          type: integer
         legalName:
-          type: string
-        weightKg:
           type: string
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.UserUpdateRequest:
@@ -662,8 +654,6 @@ components:
           type: string
         gender:
           type: integer
-        heightCm:
-          type: integer
         id:
           type: string
         idMasked:
@@ -673,8 +663,6 @@ components:
         legalName:
           type: string
         updatedAt:
-          type: string
-        weightKg:
           type: string
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.UserResponse:

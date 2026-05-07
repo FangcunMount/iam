@@ -13,14 +13,12 @@ import (
 func TestNewUser_Success(t *testing.T) {
 	phone, _ := meta.NewPhone("+8613012345678")
 	email, _ := meta.NewEmail("test@example.com")
-	idCard, _ := meta.NewIDCard("tester", "110101199003070011")
 
 	user, err := NewUser(
 		"小明",
 		phone,
 		WithID(meta.FromUint64(10)),
 		WithEmail(email),
-		WithIDCard(idCard),
 		WithStatus(UserInactive),
 	)
 
@@ -31,8 +29,6 @@ func TestNewUser_Success(t *testing.T) {
 	assert.True(t, user.Phone.Equal(expectedPhone))
 	expectedEmail, _ := meta.NewEmail("test@example.com")
 	assert.Equal(t, expectedEmail, user.Email)
-	expectedIDCard, _ := meta.NewIDCard("tester", "110101199003070011")
-	assert.True(t, user.IDCard.Equal(expectedIDCard))
 	assert.Equal(t, UserInactive, user.Status)
 }
 
@@ -60,7 +56,7 @@ func TestUserLifecycleAndUpdates(t *testing.T) {
 	user.Activate()
 	assert.True(t, user.IsUsable())
 
-	user.Rename("new name")
+	require.NoError(t, user.Rename("new name"))
 	assert.Equal(t, "new name", user.Name)
 
 	newPhone, err := meta.NewPhone("+8613112345678")
@@ -72,9 +68,4 @@ func TestUserLifecycleAndUpdates(t *testing.T) {
 	require.NoError(t, err)
 	user.UpdateEmail(newEmail)
 	assert.Equal(t, newEmail, user.Email)
-
-	newIDCard, err := meta.NewIDCard("tester", "110101199003070011")
-	require.NoError(t, err)
-	user.UpdateIDCard(newIDCard)
-	assert.True(t, user.IDCard.Equal(newIDCard))
 }

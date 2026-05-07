@@ -1,9 +1,6 @@
 package handler
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
@@ -24,38 +21,7 @@ func profileResultToResponse(result *appprofile.ProfileResult) responsedto.Profi
 
 	resp.Gender = &result.Gender
 
-	if result.Height > 0 {
-		h := int(result.Height)
-		resp.HeightCm = &h
-	}
-
-	if result.Weight > 0 {
-		kg := float64(result.Weight) / 1000.0
-		w := fmt.Sprintf("%.2f", kg)
-		resp.WeightKg = &w
-	}
-
 	return resp
-}
-
-func parseHeightCm(heightCm *int) *uint32 {
-	if heightCm == nil || *heightCm <= 0 {
-		return nil
-	}
-	h := uint32(*heightCm)
-	return &h
-}
-
-func parseWeightKg(weightKg string) *uint32 {
-	if strings.TrimSpace(weightKg) == "" {
-		return nil
-	}
-	f, err := strconv.ParseFloat(strings.TrimSpace(weightKg), 64)
-	if err != nil || f <= 0 {
-		return nil
-	}
-	w := uint32(f * 1000)
-	return &w
 }
 
 func maskIDCard(idCard string) string {

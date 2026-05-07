@@ -13,13 +13,11 @@ type Profile struct {
 	IDCard   meta.IDCard
 	Gender   meta.Gender
 	Birthday meta.Birthday
-	Height   meta.Height
-	Weight   meta.Weight
 }
 
 func NewProfile(name string, opts ...ProfileOption) (*Profile, error) {
-	if name == "" {
-		return nil, errors.WithCode(code.ErrUserBasicInfoInvalid, "name cannot be empty")
+	if err := validateName(name); err != nil {
+		return nil, err
 	}
 
 	profile := &Profile{Name: name}
@@ -40,11 +38,15 @@ func WithGender(gender meta.Gender) ProfileOption { return func(c *Profile) { c.
 func WithBirthday(birthday meta.Birthday) ProfileOption {
 	return func(c *Profile) { c.Birthday = birthday }
 }
-func WithHeight(height meta.Height) ProfileOption { return func(c *Profile) { c.Height = height } }
-func WithWeight(weight meta.Weight) ProfileOption { return func(c *Profile) { c.Weight = weight } }
 
 // Rename 重命名
-func (c *Profile) Rename(name string) { c.Name = name }
+func (c *Profile) Rename(name string) error {
+	if err := validateName(name); err != nil {
+		return err
+	}
+	c.Name = name
+	return nil
+}
 
 // UpdateIDCard 更新身份证
 func (c *Profile) UpdateIDCard(idc meta.IDCard) { c.IDCard = idc }
@@ -54,7 +56,9 @@ func (c *Profile) UpdateProfile(g meta.Gender, d meta.Birthday) {
 	c.Gender, c.Birthday = g, d
 }
 
-// UpdateHeight 更新身高体重
-func (c *Profile) UpdateHeightWeight(h meta.Height, w meta.Weight) {
-	c.Height, c.Weight = h, w
+func validateName(name string) error {
+	if name == "" {
+		return errors.WithCode(code.ErrUserBasicInfoInvalid, "name cannot be empty")
+	}
+	return nil
 }

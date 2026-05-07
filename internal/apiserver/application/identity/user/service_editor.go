@@ -8,7 +8,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // =============================================
@@ -36,10 +35,6 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		validator := user.NewValidator(tx.Users)
-		userEditor := user.NewEditor(tx.Users, validator)
-
 		// 转换 ID
 		id, err := parseUserID(userID)
 		if err != nil {
@@ -51,8 +46,7 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 			return err
 		}
 
-		// 调用领域服务修改名称
-		modifiedUser, err := userEditor.Rename(txCtx, id, newName)
+		modifiedUser, err := tx.Users.FindByID(txCtx, id)
 		if err != nil {
 			l.Errorw("修改用户名称失败",
 				"action", logger.ActionUpdate,
@@ -60,6 +54,9 @@ func (s *editor) Rename(ctx context.Context, userID string, newName string) erro
 				"error", err.Error(),
 				"result", logger.ResultFailed,
 			)
+			return err
+		}
+		if err := modifiedUser.Rename(newName); err != nil {
 			return err
 		}
 
@@ -90,10 +87,6 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		validator := user.NewValidator(tx.Users)
-		userEditor := user.NewEditor(tx.Users, validator)
-
 		// 转换 ID
 		id, err := parseUserID(userID)
 		if err != nil {
@@ -105,8 +98,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 			return err
 		}
 
-		// 调用领域服务修改昵称
-		modifiedUser, err := userEditor.Renickname(txCtx, id, newNickname)
+		modifiedUser, err := tx.Users.FindByID(txCtx, id)
 		if err != nil {
 			l.Errorw("修改用户昵称失败",
 				"action", logger.ActionUpdate,
@@ -116,6 +108,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 			)
 			return err
 		}
+		modifiedUser.UpdateNickname(newNickname)
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)
@@ -145,9 +138,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		validator := user.NewValidator(tx.Users)
-		userEditor := user.NewEditor(tx.Users, validator)
+		uniqueness := user.NewUniquenessChecker(tx.Users)
 
 		// 转换 ID
 		id, err := parseUserID(dto.UserID)
@@ -179,8 +170,7 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			return err
 		}
 
-		// 调用领域服务更新联系方式
-		modifiedUser, err := userEditor.UpdateContact(txCtx, id, phone, email)
+		modifiedUser, err := tx.Users.FindByID(txCtx, id)
 		if err != nil {
 			l.Errorw("更新联系方式失败",
 				"action", logger.ActionUpdate,
@@ -190,6 +180,17 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			)
 			return err
 		}
+		if phone.IsEmpty() {
+			phone = modifiedUser.Phone
+		}
+		if email.IsEmpty() {
+			email = modifiedUser.Email
+		}
+		if err := uniqueness.CheckPhoneChange(txCtx, modifiedUser, phone); err != nil {
+			return err
+		}
+		modifiedUser.UpdatePhone(phone)
+		modifiedUser.UpdateEmail(email)
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)
@@ -211,19 +212,34 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*UserResult, error) {
 	var result *UserResult
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		validator := user.NewValidator(tx.Users)
-		userEditor := user.NewEditor(tx.Users, validator)
+		uniqueness := user.NewUniquenessChecker(tx.Users)
 
 		id, err := parseUserID(dto.UserID)
 		if err != nil {
 			return err
 		}
 
+		var modifiedUser *user.User
+		loadUser := func() (*user.User, error) {
+			if modifiedUser != nil {
+				return modifiedUser, nil
+			}
+			loaded, err := tx.Users.FindByID(txCtx, id)
+			if err != nil {
+				return nil, err
+			}
+			modifiedUser = loaded
+			return modifiedUser, nil
+		}
+
 		if dto.Nickname != nil {
 			nickname := strings.TrimSpace(*dto.Nickname)
 			if nickname != "" {
-				modifiedUser, err := userEditor.Rename(txCtx, id, nickname)
+				modifiedUser, err := loadUser()
 				if err != nil {
+					return err
+				}
+				if err := modifiedUser.Rename(nickname); err != nil {
 					return err
 				}
 				if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
@@ -251,85 +267,34 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 			if err != nil {
 				return err
 			}
-			modifiedUser, err := userEditor.UpdateContact(txCtx, id, phone, email)
+			modifiedUser, err := loadUser()
 			if err != nil {
 				return err
 			}
+			if phone.IsEmpty() {
+				phone = modifiedUser.Phone
+			}
+			if email.IsEmpty() {
+				email = modifiedUser.Email
+			}
+			if err := uniqueness.CheckPhoneChange(txCtx, modifiedUser, phone); err != nil {
+				return err
+			}
+			modifiedUser.UpdatePhone(phone)
+			modifiedUser.UpdateEmail(email)
 			if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
 				return err
 			}
 		}
 
-		latest, err := tx.Users.FindByID(txCtx, id)
-		if err != nil {
-			return err
+		if modifiedUser == nil {
+			modifiedUser, err = tx.Users.FindByID(txCtx, id)
+			if err != nil {
+				return err
+			}
 		}
-		result = toUserResult(latest)
+		result = toUserResult(modifiedUser)
 		return nil
 	})
 	return result, err
-}
-
-// UpdateIDCard 更新身份证
-func (s *editor) UpdateIDCard(ctx context.Context, userID string, idCard string) error {
-	l := logger.L(ctx)
-	l.Debugw("更新用户身份证",
-		"action", logger.ActionUpdate,
-		"resource", logger.ResourceUser,
-		"user_id", userID,
-	)
-
-	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 创建领域服务
-		validator := user.NewValidator(tx.Users)
-		userEditor := user.NewEditor(tx.Users, validator)
-
-		// 转换 ID
-		id, err := parseUserID(userID)
-		if err != nil {
-			l.Warnw("用户ID格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		// 转换身份证 (NewIDCard 需要name和number两个参数，这里我们只传number，name留空)
-		idCardVO, err := meta.NewIDCard("", idCard)
-		if err != nil {
-			l.Warnw("身份证格式错误",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-			)
-			return err
-		}
-
-		// 调用领域服务更新身份证
-		modifiedUser, err := userEditor.UpdateIDCard(txCtx, id, idCardVO)
-		if err != nil {
-			l.Errorw("更新身份证失败",
-				"action", logger.ActionUpdate,
-				"resource", logger.ResourceUser,
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
-			return err
-		}
-
-		// 持久化修改
-		return tx.Users.Update(txCtx, modifiedUser)
-	})
-
-	if err == nil {
-		l.Debugw("更新身份证成功",
-			"action", logger.ActionUpdate,
-			"resource", logger.ResourceUser,
-			"user_id", userID,
-			"result", logger.ResultSuccess,
-		)
-	}
-
-	return err
 }

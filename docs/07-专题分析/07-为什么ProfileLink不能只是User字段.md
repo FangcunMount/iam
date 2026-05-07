@@ -113,7 +113,7 @@ flowchart TB
 | 问题 | 当前答案 | 源码入口 |
 | --- | --- | --- |
 | User 是什么 | IAM 内部身份锚点，包含状态和基础资料。 | `domain/identity/user/user.go` |
-| Profile 是什么 | 业务档案，包含姓名、证件、性别、生日、身高体重。 | `domain/identity/profile/profile.go` |
+| Profile 是什么 | IAM 内的业务档案锚点，包含姓名、证件、性别、生日。 | `domain/identity/profile/profile.go` |
 | ProfileLink 是什么 | User 与 Profile 的关系边，包含 type/relation/established/revoked。 | `domain/identity/profilelink/profile_link.go` |
 | 支持哪些关系 | self、parent、grandparent、other。 | `profile_link.go` |
 | 关系是否有效如何判断 | `IsActive()` 判断 `RevokedAt == nil`。 | `profile_link.go` |
@@ -149,7 +149,6 @@ Name
 Nickname
 Phone
 Email
-IDCard
 Status
 ```
 
@@ -179,8 +178,6 @@ Name
 IDCard
 Gender
 Birthday
-Height
-Weight
 ```
 
 Profile 更接近：

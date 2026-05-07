@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/input"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
+	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
 )
 
 // ======================================
@@ -29,13 +31,34 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		newProfile, err := buildProfileEntity(txCtx, tx, profileCreationInput{
+		idCard, hasIDCard, err := input.ParseOptionalIDCard(dto.Name, dto.IDCard)
+		if err != nil {
+			l.Errorw("档案身份证验证失败",
+				"action", logger.ActionCreate,
+				"resource", "profile",
+				"error", err.Error(),
+				"result", logger.ResultFailed,
+			)
+			return err
+		}
+		if hasIDCard {
+			checker := profiledomain.NewIDCardUniquenessChecker(tx.Profiles)
+			if err := checker.CheckIDCardUnique(txCtx, idCard); err != nil {
+				l.Errorw("档案身份证唯一性检查失败",
+					"action", logger.ActionCreate,
+					"resource", "profile",
+					"error", err.Error(),
+					"result", logger.ResultFailed,
+				)
+				return err
+			}
+		}
+
+		newProfile, err := buildProfileEntity(profileCreationInput{
 			Name:     dto.Name,
 			Gender:   dto.Gender,
 			Birthday: dto.Birthday,
-			IDCard:   dto.IDCard,
-			Height:   dto.Height,
-			Weight:   dto.Weight,
+			IDCard:   idCard,
 		})
 		if err != nil {
 			l.Errorw("创建档案实体失败",

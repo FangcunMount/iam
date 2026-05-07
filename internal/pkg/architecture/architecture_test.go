@@ -287,20 +287,11 @@ func TestApplicationTestsUseTestutilForInfrastructureDependencies(t *testing.T) 
 	})
 }
 
-func TestIdentityApplicationTransactionDomainCallsUseTxContext(t *testing.T) {
+func TestIdentityApplicationTransactionScopedCallsUseTxContext(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
 	forbiddenTokens := []string{
-		"validator.ValidateCreate(ctx",
-		"userEditor.Rename(ctx",
-		"userEditor.Renickname(ctx",
-		"userEditor.UpdateContact(ctx",
-		"userEditor.UpdateIDCard(ctx",
-		"profileService.Rename(ctx",
-		"profileService.UpdateIDCard(ctx",
-		"profileService.UpdateProfile(ctx",
-		"profileService.UpdateHeightWeight(ctx",
 		"managerService.Establish(ctx",
 		"managerService.Revoke(ctx",
 	}
@@ -980,7 +971,7 @@ func TestApplicationTransactionCallbacksUseTransactionContext(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	outerCtxTxCall := regexp.MustCompile(`\b(?:tx(?:\.[A-Za-z0-9_]+)+|tx[A-Za-z0-9_]*\.[A-Za-z0-9_]+|editor\.[A-Za-z0-9_]+|statusManager\.[A-Za-z0-9_]+|lifecycler\.[A-Za-z0-9_]+)\(ctx\b`)
+	outerCtxTxCall := regexp.MustCompile(`\b(?:tx(?:\.[A-Za-z0-9_]+)+|tx[A-Za-z0-9_]*\.[A-Za-z0-9_]+|editor\.[A-Za-z0-9_]+|statusManager\.[A-Za-z0-9_]+)\(ctx\b`)
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application"), func(path, source string) {
 		if !strings.Contains(source, "WithinTx(ctx, func(txCtx") {
 			return

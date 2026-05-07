@@ -367,20 +367,11 @@ func TestDirectory_ListProfileLinksByProfileID_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// 设置唯一的 IDCard 避免 UNIQUE 约束冲突
-	userProfileService := user.NewEditor(unitOfWork)
-	err = userProfileService.UpdateIDCard(ctx, user1.ID, "320106198001011110")
-	require.NoError(t, err)
-
 	user2, err := userService.Create(ctx, user.CreateUserDTO{
 		Name:  "妈妈",
 		Phone: "13800138008",
 		Email: "mother@example.com", // 唯一email
 	})
-	require.NoError(t, err)
-
-	// 设置唯一的 IDCard 避免 UNIQUE 约束冲突
-	err = userProfileService.UpdateIDCard(ctx, user2.ID, "320106198001012228")
 	require.NoError(t, err)
 
 	// 创建档案

@@ -15,8 +15,6 @@ func TestProfileResultToResponse(t *testing.T) {
 		IDCard:   "123456200001019999",
 		Gender:   1,
 		Birthday: "2020-01-01",
-		Height:   120,
-		Weight:   30500,
 	}
 
 	resp := profileResultToResponse(result)
@@ -26,11 +24,7 @@ func TestProfileResultToResponse(t *testing.T) {
 		resp.IDMasked != "123456********9999" ||
 		resp.DOB != "2020-01-01" ||
 		resp.Gender == nil ||
-		*resp.Gender != 1 ||
-		resp.HeightCm == nil ||
-		*resp.HeightCm != 120 ||
-		resp.WeightKg == nil ||
-		*resp.WeightKg != "30.50" {
+		*resp.Gender != 1 {
 		t.Fatalf("unexpected profile response: %#v", resp)
 	}
 
@@ -41,25 +35,6 @@ func TestProfileResultToResponse(t *testing.T) {
 }
 
 func TestProfileMappingParsers(t *testing.T) {
-	height := 121
-	parsedHeight := parseHeightCm(&height)
-	if parsedHeight == nil || *parsedHeight != 121 {
-		t.Fatalf("unexpected height: %v", parsedHeight)
-	}
-
-	if parseHeightCm(nil) != nil {
-		t.Fatal("expected nil height")
-	}
-
-	parsedWeight := parseWeightKg("30.25")
-	if parsedWeight == nil || *parsedWeight != 30250 {
-		t.Fatalf("unexpected weight: %v", parsedWeight)
-	}
-
-	if parseWeightKg("bad") != nil {
-		t.Fatal("expected invalid weight to return nil")
-	}
-
 	when := "2024-01-02T03:04:05Z"
 	parsed := parseTime(when)
 	if parsed.IsZero() || parsed.Format(time.RFC3339) != when {
