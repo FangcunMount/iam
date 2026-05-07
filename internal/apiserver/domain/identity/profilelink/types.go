@@ -1,6 +1,8 @@
 package profilelink
 
-import "strings"
+import (
+	"strings"
+)
 
 // Type 类型：档案类型
 type Type string
@@ -21,6 +23,16 @@ const (
 	RelGrandparent Relation = "grandparent"
 	RelOther       Relation = "other"
 )
+
+// IsValid Relation 值是否合法
+func (r Relation) IsValid() bool {
+	switch r {
+	case RelSelf, RelParent, RelGrandparent, RelOther:
+		return true
+	default:
+		return false
+	}
+}
 
 // ParseRelation 将 string 解析为 Relation
 func ParseRelation(relStr string) Relation {
