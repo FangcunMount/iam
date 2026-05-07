@@ -108,7 +108,7 @@ func (s *editor) Renickname(ctx context.Context, userID string, newNickname stri
 			)
 			return err
 		}
-		modifiedUser.UpdateNickname(newNickname)
+		modifiedUser.ChangeNickname(newNickname)
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)
@@ -189,8 +189,8 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 		if err := uniqueness.CheckPhoneChange(txCtx, modifiedUser, phone); err != nil {
 			return err
 		}
-		modifiedUser.UpdatePhone(phone)
-		modifiedUser.UpdateEmail(email)
+		modifiedUser.ChangePhone(phone)
+		modifiedUser.ChangeEmail(email)
 
 		// 持久化修改
 		return tx.Users.Update(txCtx, modifiedUser)
@@ -239,7 +239,7 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 				if err != nil {
 					return err
 				}
-				modifiedUser.UpdateNickname(nickname)
+				modifiedUser.ChangeNickname(nickname)
 				if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
 					return err
 				}
@@ -278,8 +278,8 @@ func (s *editor) PatchProfile(ctx context.Context, dto PatchUserProfileDTO) (*Us
 			if err := uniqueness.CheckPhoneChange(txCtx, modifiedUser, phone); err != nil {
 				return err
 			}
-			modifiedUser.UpdatePhone(phone)
-			modifiedUser.UpdateEmail(email)
+			modifiedUser.ChangePhone(phone)
+			modifiedUser.ChangeEmail(email)
 			if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
 				return err
 			}

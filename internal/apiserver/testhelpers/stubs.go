@@ -250,7 +250,7 @@ func (s *UserRepoStub) FindByPhone(ctx context.Context, phone meta.Phone) (*user
 		}
 		return nil, nil
 	}
-	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
+	return nil, nil
 }
 
 func (s *UserRepoStub) Update(ctx context.Context, u *user.User) error {

@@ -22,7 +22,7 @@ func (s *queryUserRepoStub) FindByIDs(context.Context, []meta.ID) (map[meta.ID]*
 	return map[meta.ID]*userdomain.User{}, nil
 }
 func (s *queryUserRepoStub) FindByPhone(context.Context, meta.Phone) (*userdomain.User, error) {
-	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
+	return nil, nil
 }
 func (s *queryUserRepoStub) Update(context.Context, *userdomain.User) error { return nil }
 
@@ -50,7 +50,7 @@ func (s *batchUserRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[met
 }
 func (s *batchUserRepoStub) FindByPhone(context.Context, meta.Phone) (*userdomain.User, error) {
 	s.findByPhone++
-	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
+	return nil, nil
 }
 func (s *batchUserRepoStub) Update(context.Context, *userdomain.User) error { return nil }
 

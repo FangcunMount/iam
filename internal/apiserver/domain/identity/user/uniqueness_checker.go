@@ -18,29 +18,39 @@ func NewUniquenessChecker(repo Repository) *UniquenessChecker {
 	return &UniquenessChecker{repo: repo}
 }
 
-// CheckPhoneChange 在手机号变更时检查唯一性。
-func (c *UniquenessChecker) CheckPhoneChange(ctx context.Context, user *User, phone meta.Phone) error {
-	// 如果手机号变更，检查唯一性
-	if !phone.IsEmpty() && !user.Phone.Equal(phone) {
-		if err := c.CheckPhoneUnique(ctx, phone); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// CheckPhoneUnique 检查手机号唯一性
-func (c *UniquenessChecker) CheckPhoneUnique(ctx context.Context, phone meta.Phone) error {
+// CheckPhoneUnique 检查手机号唯一性。
+// 手机号为空时视为未绑定手机号，不参与唯一性检查。
+func (checker *UniquenessChecker) CheckPhoneUnique(ctx context.Context, phone meta.Phone) error {
 	if phone.IsEmpty() {
 		return nil
 	}
 
-	_, err := c.repo.FindByPhone(ctx, phone)
-	if err == nil {
+	existing, err := checker.repo.FindByPhone(ctx, phone)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrDatabase, "check user phone(%s) failed", phone.String())
+	}
+	if existing != nil {
 		return perrors.WithCode(code.ErrUserAlreadyExists, "user with phone(%s) already exists", phone.String())
 	}
-	if perrors.IsCode(err, code.ErrUserNotFound) {
+	return nil
+}
+
+// CheckPhoneChange 在手机号变更时检查唯一性。
+// 清空手机号，或新手机号与旧手机号相同，则不必校验。
+func (checker *UniquenessChecker) CheckPhoneChange(ctx context.Context, user *User, phone meta.Phone) error {
+	if user == nil {
+		return perrors.WithCode(code.ErrInvalidArgument, "user is required")
+	}
+	if phone.IsEmpty() || phone.Equal(user.Phone) {
 		return nil
 	}
-	return perrors.WrapC(err, code.ErrDatabase, "check user phone(%s) failed", phone.String())
+
+	existing, err := checker.repo.FindByPhone(ctx, phone)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrDatabase, "check user phone(%s) failed", phone.String())
+	}
+	if existing != nil && (user.ID.IsZero() || existing.ID.IsZero() || existing.ID != user.ID) {
+		return perrors.WithCode(code.ErrUserAlreadyExists, "user with phone(%s) already exists", phone.String())
+	}
+	return nil
 }

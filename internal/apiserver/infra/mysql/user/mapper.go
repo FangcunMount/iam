@@ -45,7 +45,7 @@ func (m *UserMapper) ToBO(po *UserPO) *domain.User {
 		domain.WithID(po.ID),
 		domain.WithNickname(po.Nickname),
 		domain.WithEmail(po.Email),
-		domain.WithStatus(domain.UserStatus(po.Status)),
+		domain.WithStatus(domain.Status(po.Status)),
 	)
 	if err != nil {
 		return nil

@@ -7,8 +7,8 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	accountdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
-	idpwechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	idpwechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -59,7 +59,7 @@ func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userdo
 			return user, nil
 		}
 	}
-	return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
+	return nil, nil
 }
 
 func (s *userRepoStub) Update(_ context.Context, user *userdomain.User) error {

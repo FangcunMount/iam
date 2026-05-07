@@ -72,11 +72,11 @@ const (
 // OnboardingResult 账号开通结果
 type OnboardingResult struct {
 	// 用户信息
-	UserID     meta.ID               // 用户ID
-	UserName   string                // 用户姓名
-	Phone      meta.Phone            // 手机号
-	Email      meta.Email            // 邮箱
-	UserStatus userDomain.UserStatus // 用户状态
+	UserID     meta.ID           // 用户ID
+	UserName   string            // 用户姓名
+	Phone      meta.Phone        // 手机号
+	Email      meta.Email        // 邮箱
+	UserStatus userDomain.Status // 用户状态
 
 	// 账户信息
 	AccountID   meta.ID            // 账户ID

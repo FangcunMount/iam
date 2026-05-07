@@ -138,6 +138,9 @@ func (s *directory) GetByPhone(ctx context.Context, phone string) (*UserResult, 
 		if err != nil {
 			return err
 		}
+		if user == nil {
+			return perrors.WithCode(code.ErrUserNotFound, "user with phone(%s) not found", phoneObj.String())
+		}
 
 		result = toUserResult(user)
 		return nil

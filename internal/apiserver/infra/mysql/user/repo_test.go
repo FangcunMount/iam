@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUserRepositoryMapsRecordNotFoundToDomainCode(t *testing.T) {
+func TestUserRepositoryFindByIDMapsRecordNotFoundToDomainCode(t *testing.T) {
 	db := testhelpers.SetupTempSQLiteDB(t)
 	require.NoError(t, db.AutoMigrate(&UserPO{}))
 
@@ -20,13 +20,20 @@ func TestUserRepositoryMapsRecordNotFoundToDomainCode(t *testing.T) {
 	_, err := repo.FindByID(context.Background(), meta.FromUint64(404))
 	require.Error(t, err)
 	require.True(t, perrors.IsCode(err, code.ErrUserNotFound))
+}
+
+func TestUserRepositoryFindByPhoneReturnsNilWhenMissing(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&UserPO{}))
+
+	repo := NewRepository(db)
 
 	phone, err := meta.NewPhone("+8613900000000")
 	require.NoError(t, err)
 
-	_, err = repo.FindByPhone(context.Background(), phone)
-	require.Error(t, err)
-	require.True(t, perrors.IsCode(err, code.ErrUserNotFound))
+	got, err := repo.FindByPhone(context.Background(), phone)
+	require.NoError(t, err)
+	require.Nil(t, got)
 }
 
 func TestUserRepositoryFindByIDsReturnsFoundUsersOnly(t *testing.T) {

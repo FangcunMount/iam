@@ -81,7 +81,7 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 				)
 				return err
 			}
-			newUser.UpdateEmail(email)
+			newUser.ChangeEmail(email)
 		}
 
 		// 持久化用户

@@ -17,12 +17,12 @@ func TestUpdatePhoneEmailEdgecases(t *testing.T) {
 	// Update phone to another valid phone
 	p2, err := meta.NewPhone("+8613112345678")
 	require.NoError(t, err)
-	u.UpdatePhone(p2)
+	u.ChangePhone(p2)
 	assert.True(t, u.Phone.Equal(p2))
 
 	// Update email to valid one
 	e, err := meta.NewEmail("hello@example.com")
 	require.NoError(t, err)
-	u.UpdateEmail(e)
+	u.ChangeEmail(e)
 	assert.Equal(t, e, u.Email)
 }

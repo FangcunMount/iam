@@ -98,13 +98,13 @@ func (r *Repository) FindByPhone(ctx context.Context, phone meta.Phone) (*domain
 	err := r.FindByField(ctx, &po, "phone", phone.String())
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, perrors.WithCode(code.ErrUserNotFound, "user with phone(%s) not found", phone.String())
+			return nil, nil
 		}
 		return nil, err
 	}
 	u := r.mapper.ToBO(&po)
 	if u == nil {
-		return nil, perrors.WithCode(code.ErrUserNotFound, "user with phone(%s) not found", phone.String())
+		return nil, nil
 	}
 	return u, nil
 }

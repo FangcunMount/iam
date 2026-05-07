@@ -7,7 +7,7 @@ func TestUserStatusUint64ReturnsNumericStatus(t *testing.T) {
 
 	tests := []struct {
 		name string
-		in   UserStatus
+		in   Status
 		want uint64
 	}{
 		{name: "active", in: UserActive, want: 1},

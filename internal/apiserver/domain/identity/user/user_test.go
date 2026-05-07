@@ -61,11 +61,11 @@ func TestUserLifecycleAndUpdates(t *testing.T) {
 
 	newPhone, err := meta.NewPhone("+8613112345678")
 	require.NoError(t, err)
-	user.UpdatePhone(newPhone)
+	user.ChangePhone(newPhone)
 	assert.True(t, user.Phone.Equal(newPhone))
 
 	newEmail, err := meta.NewEmail("user@example.com")
 	require.NoError(t, err)
-	user.UpdateEmail(newEmail)
+	user.ChangeEmail(newEmail)
 	assert.Equal(t, newEmail, user.Email)
 }

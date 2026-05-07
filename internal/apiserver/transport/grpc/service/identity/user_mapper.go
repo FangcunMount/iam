@@ -44,7 +44,7 @@ func userProtoNickname(result *userApp.UserResult) string {
 	return result.Name
 }
 
-func userStatusToProto(status userDomain.UserStatus) identityv2.UserStatus {
+func userStatusToProto(status userDomain.Status) identityv2.UserStatus {
 	switch status {
 	case userDomain.UserActive:
 		return identityv2.UserStatus_USER_STATUS_ACTIVE
