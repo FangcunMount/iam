@@ -87,6 +87,25 @@ load refresh token from store
 
 > **JWT 证明 token 是 IAM 签的；Session 证明这次登录态仍然在线有效；Refresh Token 证明调用方有资格续期。三者不能互相替代。**
 
+当前应用层实现里，Refresh Token 是 Redis 中保存的服务端续期凭证，并且始终绑定 Session：
+
+```text
+TokenIssuer.IssueToken
+  -> SessionManager.Create
+  -> AccessTokenCodec.IssueAccessToken
+  -> TokenStore.SaveRefreshToken(sessionID)
+
+TokenRefresher.RefreshToken
+  -> TokenStore.GetRefreshToken
+  -> SessionManager.Get + session.IsActive
+  -> SubjectAccessEvaluator.Evaluate
+  -> issue new access/refresh pair
+  -> TokenStore.DeleteRefreshToken(old)
+  -> SessionManager.Extend
+```
+
+因此新版应用层不是把 refresh token 当成另一个长期 JWT，而是把它作为“Redis 存储、与 Session 绑定、刷新后轮换删除旧值”的服务端凭证。
+
 ---
 
 ## 主图：Session、Access Token、Refresh Token 的职责分工

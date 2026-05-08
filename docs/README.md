@@ -80,22 +80,22 @@ docs/
 │
 ├── 02-认证AuthN/
 │   ├── README.md
-│   ├── 01-登录链路--从Login请求到Session与Token.md
-│   ├── 02-认证语义--用户状态&会话&Token边界.md
+│   ├── 01-登录链路-从Login请求到Session与Token.md
+│   ├── 02-认证语义-用户状态&会话&Token边界.md
 │   ├── 03-JWKS与KeyRotation.md
 │   └── 04-第三方登录与IDP协作.md
 │
 ├── 03-授权AuthZ/
 │   ├── README.md
-│   ├── 01-授权模型--Role&Resource&Permission&RoleBinding.md
-│   ├── 02-授权判定链路--从Check到Casbin.md
+│   ├── 01-授权模型-Role&Resource&Permission&RoleBinding.md
+│   ├── 02-授权判定链路-从Check到Casbin.md
 │   ├── 03-PolicyChangeCommitter与UoW.md
 │   └── 04-授权版本事件与Outbox.md
 │
 ├── 04-身份Identity/
 │   ├── README.md
 │   ├── 01-User与Profile模型.md
-│   └── 02-ProfileLink链路--用户与儿童档案关系协作.md
+│   └── 02-ProfileLink链路-用户与用户档案关系协作.md
 │
 ├── 05-接入与契约/
 │   ├── README.md
@@ -156,15 +156,15 @@ docs/
 | REST/gRPC 如何从 container 获取能力 | [01-运行时/02-Transport装配--REST路由与gRPC服务注册.md](01-运行时/02-Transport装配--REST路由与gRPC服务注册.md) |
 | 配置、运行模式和 degraded startup 如何理解 | [01-运行时/03-配置与运行模式.md](01-运行时/03-配置与运行模式.md)、[01-运行时/05-降级启动与健康检查.md](01-运行时/05-降级启动与健康检查.md) |
 | 后台任务和 graceful shutdown 如何运行 | [01-运行时/04-后台任务与优雅关闭.md](01-运行时/04-后台任务与优雅关闭.md) |
-| 登录如何变成 Session、Access Token、Refresh Token | [02-认证AuthN/README.md](02-认证AuthN/README.md)、[02-认证AuthN/01-登录链路--从Login请求到Session与Token.md](02-认证AuthN/01-登录链路--从Login请求到Session与Token.md) |
-| Token、Session、用户状态边界是什么 | [02-认证AuthN/02-认证语义--用户状态&会话&Token边界.md](02-认证AuthN/02-认证语义--用户状态&会话&Token边界.md) |
+| 登录如何变成 Session、Access Token、Refresh Token | [02-认证AuthN/README.md](02-认证AuthN/README.md)、[02-认证AuthN/01-登录链路-从Login请求到Session与Token.md](02-认证AuthN/01-登录链路-从Login请求到Session与Token.md) |
+| Token、Session、用户状态边界是什么 | [02-认证AuthN/02-认证语义-用户状态&会话&Token边界.md](02-认证AuthN/02-认证语义-用户状态&会话&Token边界.md) |
 | JWKS、KeyRotation、在线 Verify 如何工作 | [02-认证AuthN/03-JWKS与KeyRotation.md](02-认证AuthN/03-JWKS与KeyRotation.md)、[07-专题分析/04-为什么JWKS与在线Verify要并存.md](07-专题分析/04-为什么JWKS与在线Verify要并存.md) |
 | 微信/企微登录和 IDP 如何协作 | [02-认证AuthN/04-第三方登录与IDP协作.md](02-认证AuthN/04-第三方登录与IDP协作.md)、[07-专题分析/08-为什么IDP只做身份源基础设施.md](07-专题分析/08-为什么IDP只做身份源基础设施.md) |
-| 授权模型如何组织 | [03-授权AuthZ/README.md](03-授权AuthZ/README.md)、[03-授权AuthZ/01-授权模型--Role&Resource&Permission&RoleBinding.md](03-授权AuthZ/01-授权模型--Role&Resource&Permission&RoleBinding.md) |
-| 一次授权判定如何走到 Casbin | [03-授权AuthZ/02-授权判定链路--从Check到Casbin.md](03-授权AuthZ/02-授权判定链路--从Check到Casbin.md) |
+| 授权模型如何组织 | [03-授权AuthZ/README.md](03-授权AuthZ/README.md)、[03-授权AuthZ/01-授权模型-Role&Resource&Permission&RoleBinding.md](03-授权AuthZ/01-授权模型-Role&Resource&Permission&RoleBinding.md) |
+| 一次授权判定如何走到 Casbin | [03-授权AuthZ/02-授权判定链路-从Check到Casbin.md](03-授权AuthZ/02-授权判定链路-从Check到Casbin.md) |
 | 授权写入为什么不是简单 CRUD | [03-授权AuthZ/03-PolicyChangeCommitter与UoW.md](03-授权AuthZ/03-PolicyChangeCommitter与UoW.md)、[07-专题分析/05-为什么AuthZ写入不是简单CRUD.md](07-专题分析/05-为什么AuthZ写入不是简单CRUD.md) |
 | 授权版本事件和 Outbox 如何传播 | [03-授权AuthZ/04-授权版本事件与Outbox.md](03-授权AuthZ/04-授权版本事件与Outbox.md)、[07-专题分析/09-为什么需要TransactionalOutbox传播授权版本.md](07-专题分析/09-为什么需要TransactionalOutbox传播授权版本.md) |
-| User、Profile、ProfileLink 如何建模 | [04-身份Identity/README.md](04-身份Identity/README.md)、[04-身份Identity/01-User与Profile模型.md](04-身份Identity/01-User与Profile模型.md)、[04-身份Identity/02-ProfileLink链路--用户与儿童档案关系协作.md](04-身份Identity/02-ProfileLink链路--用户与儿童档案关系协作.md) |
+| User、Profile、ProfileLink 如何建模 | [04-身份Identity/README.md](04-身份Identity/README.md)、[04-身份Identity/01-User与Profile模型.md](04-身份Identity/01-User与Profile模型.md)、[04-身份Identity/02-ProfileLink链路-用户与用户档案关系协作.md](04-身份Identity/02-ProfileLink链路-用户与用户档案关系协作.md) |
 | REST/gRPC/SDK 如何接入 | [05-接入与契约/README.md](05-接入与契约/README.md)、[05-接入与契约/01-REST API契约.md](05-接入与契约/01-REST API契约.md)、[05-接入与契约/02-gRPC API契约.md](05-接入与契约/02-gRPC API契约.md)、[05-接入与契约/03-SDK接入模型.md](05-接入与契约/03-SDK接入模型.md) |
 | 架构边界如何被测试保护 | [06-架构护栏/README.md](06-架构护栏/README.md)、[06-架构护栏/01-架构测试与依赖边界.md](06-架构护栏/01-架构测试与依赖边界.md) |
 | 文档事实源和防漂移机制是什么 | [06-架构护栏/02-文档事实源与防漂移机制.md](06-架构护栏/02-文档事实源与防漂移机制.md) |
@@ -228,11 +228,13 @@ docs/
 重点说明：
 
 - 登录入口；
-- SignInAdapterCatalog；
-- AuthCredential proof；
+- LoginRequest；
+- MethodRegistry / LoginMethod；
+- ProofFactory / AuthCredential；
 - Authenticator / AuthStrategy；
 - Principal；
 - TokenIssuer；
+- Reauthenticate；
 - Session；
 - Refresh Token；
 - Access Token；

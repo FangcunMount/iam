@@ -84,6 +84,39 @@ load refresh token
 
 ---
 
+## 应用层入口补充
+
+在线 token 验证不属于登录用例的 method 选择分支。当前应用层把“新登录”和“已有 access token 再验证”拆开：
+
+```text
+LoginApplicationService.Login
+  -> MethodRegistry.Select
+  -> ProofFactory.Build
+  -> Authenticator.Authenticate
+  -> TokenIssuer.IssueToken
+
+LoginApplicationService.Reauthenticate
+  -> ReAuthenticator
+  -> TokenVerifier.VerifyAccessToken
+  -> AuthResult
+```
+
+因此：
+
+- `Login` 只处理 password、phone_otp、wechat、wecom 这类凭据登录，并在认证成功后签发新的 Session/Token；
+- `Reauthenticate` 用于 bearer access token 再验证，不创建 session，也不签发新 token；
+- REST `/authn/verify` 和 gRPC `VerifyToken` 属于 token lifecycle facade，底层同样依赖 `TokenVerifier`，并可额外检查 expected issuer/audience；
+- 无论通过 `Reauthenticate` 还是 `VerifyToken`，在线验证都必须回查 revoked marker、session、User/Account subject access。
+
+核心源码：
+
+- [../../internal/apiserver/application/authn/login/re_authenticate.go](../../internal/apiserver/application/authn/login/re_authenticate.go)
+- [../../internal/apiserver/application/authn/login/reauth/token.go](../../internal/apiserver/application/authn/login/reauth/token.go)
+- [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
+- [../../internal/apiserver/application/authn/token/service_verify.go](../../internal/apiserver/application/authn/token/service_verify.go)
+
+---
+
 ## 主图：认证状态分层
 
 ```mermaid
