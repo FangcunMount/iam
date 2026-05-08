@@ -113,11 +113,7 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 	// Step 1: 与企业微信IdP交互，用code换取用户信息
 	openUserID, userID, err := o.idp.ExchangeWecomCode(ctx, wecomCred.CorpID, wecomCred.AgentID, wecomCred.CorpSecret, wecomCred.Code)
 	if err != nil {
-		// 系统异常或业务失败（code无效）
-		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrIDPExchangeFailed,
-		}, fmt.Errorf("failed to exchange wecom code: %w", err)
+		return AuthDecision{}, fmt.Errorf("failed to exchange wecom code: %w", err)
 	}
 
 	// Step 2: 根据UserID查找凭据绑定（优先使用UserID，回退到OpenUserID）
@@ -133,8 +129,8 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 	if credentialID.IsZero() {
 		// 业务失败：企业微信账号未绑定
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrNoBinding,
+			OK:   false,
+			Code: code.ErrNoBinding,
 		}, nil
 	}
 
@@ -145,14 +141,14 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 	}
 	if !enabled {
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrDisabled,
+			OK:   false,
+			Code: code.ErrCredentialDisabled,
 		}, nil
 	}
 	if locked {
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrLocked,
+			OK:   false,
+			Code: code.ErrCredentialLocked,
 		}, nil
 	}
 

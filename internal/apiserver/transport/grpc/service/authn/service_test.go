@@ -51,6 +51,10 @@ func (s *loginServiceStub) Logout(ctx context.Context, req loginApp.LogoutReques
 	return nil
 }
 
+func (s *loginServiceStub) Reauthenticate(context.Context, string) (*loginApp.AuthResult, error) {
+	return nil, nil
+}
+
 func (s *tokenServiceStub) IssueServiceToken(ctx context.Context, req tokenApp.IssueServiceTokenRequest) (*tokenApp.TokenIssueResult, error) {
 	s.issueReq = req
 	return s.issueRes, s.issueErr
@@ -126,11 +130,12 @@ func TestAuthServiceServerLoginUsesExplicitV2Contract(t *testing.T) {
 	require.NotNil(t, resp.GetTokenPair())
 	require.Equal(t, "access-token", resp.GetTokenPair().GetAccessToken())
 	require.Equal(t, "refresh-token", resp.GetTokenPair().GetRefreshToken())
-	require.Equal(t, loginApp.AuthTypePassword, stub.req.AuthType)
-	require.Equal(t, loginApp.SignInSelectionExplicit, stub.req.SelectionMode)
-	require.Equal(t, "alice", *stub.req.Username)
-	require.Equal(t, "secret", *stub.req.Password)
+	require.Equal(t, loginApp.AuthMethodPassword, stub.req.AuthMethod)
 	require.Equal(t, meta.FromUint64(7), stub.req.TenantID)
+	loginPayload, ok := stub.req.Payload.(loginApp.PasswordPayload)
+	require.True(t, ok)
+	require.Equal(t, "alice", loginPayload.Username)
+	require.Equal(t, "secret", loginPayload.Password)
 }
 
 func TestAuthServiceServerLoginRejectsNonPublicMethod(t *testing.T) {

@@ -105,11 +105,7 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 
 	openID, unionID, err := o.idp.ExchangeWxMinipCode(ctx, wechatCred.AppID, wechatCred.AppSecret, wechatCred.Code)
 	if err != nil {
-		// 系统异常或业务失败（code无效）
-		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrIDPExchangeFailed,
-		}, fmt.Errorf("failed to exchange wx minip code: %w", err)
+		return AuthDecision{}, fmt.Errorf("failed to exchange wx minip code: %w", err)
 	}
 
 	// Step 2: 根据openID查找凭据绑定（优先使用unionID，回退到openID）
@@ -125,8 +121,8 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 	if credentialID.IsZero() {
 		// 业务失败：微信账号未绑定
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrNoBinding,
+			OK:   false,
+			Code: code.ErrNoBinding,
 		}, nil
 	}
 
@@ -137,14 +133,14 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 	}
 	if !enabled {
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrDisabled,
+			OK:   false,
+			Code: code.ErrCredentialDisabled,
 		}, nil
 	}
 	if locked {
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrLocked,
+			OK:   false,
+			Code: code.ErrCredentialLocked,
 		}, nil
 	}
 

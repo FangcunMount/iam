@@ -31,6 +31,10 @@ func (s *loginServiceCaptureStub) Logout(context.Context, login.LogoutRequest) e
 	return nil
 }
 
+func (s *loginServiceCaptureStub) Reauthenticate(context.Context, string) (*login.AuthResult, error) {
+	return nil, nil
+}
+
 type tokenServiceCaptureStub struct {
 	refreshCalled bool
 	verifyCalled  bool
@@ -70,10 +74,10 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name     string
-		body     string
-		wantType login.AuthType
-		assert   func(t *testing.T, req login.LoginRequest)
+		name       string
+		body       string
+		wantMethod login.AuthMethod
+		assert     func(t *testing.T, req login.LoginRequest)
 	}{
 		{
 			name: "password",
@@ -85,12 +89,12 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 					"tenant_id": 77
 				}
 			}`,
-			wantType: login.AuthTypePassword,
+			wantMethod: login.AuthMethodPassword,
 			assert: func(t *testing.T, req login.LoginRequest) {
-				require.NotNil(t, req.Username)
-				require.NotNil(t, req.Password)
-				require.Equal(t, "alice", *req.Username)
-				require.Equal(t, "secret", *req.Password)
+				payload, ok := req.Payload.(login.PasswordPayload)
+				require.True(t, ok)
+				require.Equal(t, "alice", payload.Username)
+				require.Equal(t, "secret", payload.Password)
 				require.Equal(t, uint64(77), req.TenantID.Uint64())
 			},
 		},
@@ -103,12 +107,12 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 					"otp_code": "123456"
 				}
 			}`,
-			wantType: login.AuthTypePhoneOTP,
+			wantMethod: login.AuthMethodPhoneOTP,
 			assert: func(t *testing.T, req login.LoginRequest) {
-				require.NotNil(t, req.PhoneE164)
-				require.NotNil(t, req.OTPCode)
-				require.Equal(t, "+8613800138000", *req.PhoneE164)
-				require.Equal(t, "123456", *req.OTPCode)
+				payload, ok := req.Payload.(login.PhoneOTPPayload)
+				require.True(t, ok)
+				require.Equal(t, "+8613800138000", payload.PhoneE164)
+				require.Equal(t, "123456", payload.OTP)
 			},
 		},
 		{
@@ -120,12 +124,12 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 					"code": "js-code"
 				}
 			}`,
-			wantType: login.AuthTypeWechat,
+			wantMethod: login.AuthMethodWechat,
 			assert: func(t *testing.T, req login.LoginRequest) {
-				require.NotNil(t, req.WechatAppID)
-				require.NotNil(t, req.WechatJSCode)
-				require.Equal(t, "wx-app", *req.WechatAppID)
-				require.Equal(t, "js-code", *req.WechatJSCode)
+				payload, ok := req.Payload.(login.WechatMiniPayload)
+				require.True(t, ok)
+				require.Equal(t, "wx-app", payload.AppID)
+				require.Equal(t, "js-code", payload.JSCode)
 			},
 		},
 		{
@@ -137,12 +141,12 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 					"auth_code": "auth-code"
 				}
 			}`,
-			wantType: login.AuthTypeWecom,
+			wantMethod: login.AuthMethodWecom,
 			assert: func(t *testing.T, req login.LoginRequest) {
-				require.NotNil(t, req.WecomCorpID)
-				require.NotNil(t, req.WecomCode)
-				require.Equal(t, "corp-id", *req.WecomCorpID)
-				require.Equal(t, "auth-code", *req.WecomCode)
+				payload, ok := req.Payload.(login.WecomPayload)
+				require.True(t, ok)
+				require.Equal(t, "corp-id", payload.CorpID)
+				require.Equal(t, "auth-code", payload.Code)
 			},
 		},
 	}
@@ -157,8 +161,7 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, w.Code)
 			require.True(t, stub.called)
-			require.Equal(t, login.SignInSelectionExplicit, stub.req.SelectionMode)
-			require.Equal(t, tc.wantType, stub.req.AuthType)
+			require.Equal(t, tc.wantMethod, stub.req.AuthMethod)
 			tc.assert(t, stub.req)
 		})
 	}

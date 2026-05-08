@@ -28,7 +28,7 @@ func (s *tokenApplicationService) RevokeAccessToken(ctx context.Context, accessT
 			"error", err.Error(),
 			"result", logger.ResultFailed,
 		)
-		return perrors.WithCode(code.ErrInvalidArgument, "failed to revoke token: %v", err)
+		return perrors.WithCode(code.ErrTokenRevokeFailed, "failed to revoke token")
 	}
 
 	l.Debugw("访问令牌撤销成功",
@@ -59,7 +59,7 @@ func (s *tokenApplicationService) RevokeRefreshToken(ctx context.Context, refres
 			"error", err.Error(),
 			"result", logger.ResultFailed,
 		)
-		return perrors.WithCode(code.ErrInvalidArgument, "failed to revoke refresh token: %v", err)
+		return perrors.WithCode(code.ErrTokenRevokeFailed, "failed to revoke refresh token")
 	}
 
 	l.Debugw("刷新令牌撤销成功",

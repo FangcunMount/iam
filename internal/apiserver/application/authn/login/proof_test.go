@@ -7,6 +7,8 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	idpWechatApp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
@@ -18,11 +20,10 @@ import (
 func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	t.Parallel()
 
-	passwordProof, err := newPasswordAdapter().PrepareProof(context.Background(), PasswordPayload{
-		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(42)},
-		Username:            "alice",
-		Password:            "secret",
-	})
+	passwordProof, err := proof.NewPasswordBuilder().Build(context.Background(), method.PasswordPayload{
+		Username: "alice",
+		Password: "secret",
+	}, method.CommonPayload{TenantID: meta.FromUint64(42)})
 	require.NoError(t, err)
 	password, ok := passwordProof.(*authentication.PasswordCredential)
 	require.True(t, ok)
@@ -30,11 +31,10 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	require.Equal(t, uint64(42), password.TenantID.Uint64())
 	require.Equal(t, "alice", password.Username)
 
-	phoneProof, err := newPhoneOTPAdapter().PrepareProof(context.Background(), PhoneOTPPayload{
-		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(7)},
-		PhoneE164:           "+8613800138000",
-		OTP:                 "123456",
-	})
+	phoneProof, err := proof.NewPhoneOTPBuilder().Build(context.Background(), method.PhoneOTPPayload{
+		PhoneE164: "+8613800138000",
+		OTP:       "123456",
+	}, method.CommonPayload{TenantID: meta.FromUint64(7)})
 	require.NoError(t, err)
 	phone, ok := phoneProof.(*authentication.PhoneOTPCredential)
 	require.True(t, ok)
@@ -45,7 +45,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 	t.Parallel()
 
-	adapter := newWecomAdapter(
+	factory := proof.DefaultFactory(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
 				AppID:  "corp-id",
@@ -58,10 +58,13 @@ func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 		wecomSecretVaultStub{plaintext: "corp-secret"},
 		WecomConfig{},
 	)
-	credential, err := adapter.PrepareProof(context.Background(), WecomPayload{
-		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
-		CorpID:              "corp-id",
-		Code:                "auth-code",
+	credential, err := factory.Build(context.Background(), method.LoginMethodSelection{
+		CredentialKind: method.CredentialKindWecom,
+		Common:         method.CommonPayload{TenantID: meta.FromUint64(1)},
+		Payload: method.WecomPayload{
+			CorpID: "corp-id",
+			Code:   "auth-code",
+		},
 	})
 
 	require.Nil(t, credential)
@@ -73,22 +76,22 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		repo        *wecomAppRepoStub
-		vault       wecomSecretVaultStub
-		wantErrCode int
+		name     string
+		repo     *wecomAppRepoStub
+		vault    wecomSecretVaultStub
+		wantCode int
 	}{
 		{
-			name:        "query failure",
-			repo:        &wecomAppRepoStub{err: errors.New("db down")},
-			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantErrCode: code.ErrInvalidArgument,
+			name:     "query failure",
+			repo:     &wecomAppRepoStub{err: errors.New("db down")},
+			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantCode: code.ErrInvalidArgument,
 		},
 		{
-			name:        "app missing",
-			repo:        &wecomAppRepoStub{},
-			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantErrCode: code.ErrInvalidArgument,
+			name:     "app missing",
+			repo:     &wecomAppRepoStub{},
+			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantCode: code.ErrInvalidArgument,
 		},
 		{
 			name: "app disabled",
@@ -99,8 +102,8 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
 				},
 			}},
-			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantErrCode: code.ErrInvalidArgument,
+			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantCode: code.ErrInvalidArgument,
 		},
 		{
 			name: "credentials missing",
@@ -108,8 +111,8 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 				AppID:  "corp-id",
 				Status: idpWechatApp.StatusEnabled,
 			}},
-			vault:       wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantErrCode: code.ErrInvalidArgument,
+			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
+			wantCode: code.ErrInvalidArgument,
 		},
 		{
 			name: "secret decrypt failure",
@@ -120,8 +123,8 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
 				},
 			}},
-			vault:       wecomSecretVaultStub{err: errors.New("kms down")},
-			wantErrCode: code.ErrInvalidArgument,
+			vault:    wecomSecretVaultStub{err: errors.New("kms down")},
+			wantCode: code.ErrInvalidArgument,
 		},
 	}
 
@@ -130,20 +133,23 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			adapter := newWecomAdapter(
+			factory := proof.DefaultFactory(
 				tc.repo,
 				tc.vault,
 				WecomConfig{AgentID: "agent-id"},
 			)
-			credential, err := adapter.PrepareProof(context.Background(), WecomPayload{
-				methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
-				CorpID:              "corp-id",
-				Code:                "auth-code",
+			credential, err := factory.Build(context.Background(), method.LoginMethodSelection{
+				CredentialKind: method.CredentialKindWecom,
+				Common:         method.CommonPayload{TenantID: meta.FromUint64(1)},
+				Payload: method.WecomPayload{
+					CorpID: "corp-id",
+					Code:   "auth-code",
+				},
 			})
 
 			require.Nil(t, credential)
 			require.Error(t, err)
-			require.Equal(t, tc.wantErrCode, perrors.ParseCoder(err).Code())
+			require.Equal(t, tc.wantCode, perrors.ParseCoder(err).Code())
 		})
 	}
 }
@@ -162,7 +168,7 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 		userID:     "wecom-user-id",
 	}
 	auth := authentication.NewAuthenticator(authentication.NewOAuthWeChatComAuthStrategy(credRepo, accountRepo, idp))
-	adapter := newWecomAdapter(
+	factory := proof.DefaultFactory(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
 				AppID:  "corp-id",
@@ -176,10 +182,13 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 		WecomConfig{AgentID: "agent-id"},
 	)
 
-	credential, err := adapter.PrepareProof(context.Background(), WecomPayload{
-		methodPayloadCommon: methodPayloadCommon{TenantID: meta.FromUint64(1)},
-		CorpID:              "corp-id",
-		Code:                "auth-code",
+	credential, err := factory.Build(context.Background(), method.LoginMethodSelection{
+		CredentialKind: method.CredentialKindWecom,
+		Common:         method.CommonPayload{TenantID: meta.FromUint64(1)},
+		Payload: method.WecomPayload{
+			CorpID: "corp-id",
+			Code:   "auth-code",
+		},
 	})
 	require.NoError(t, err)
 

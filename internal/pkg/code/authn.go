@@ -129,6 +129,7 @@ const (
 	ErrIDPExchangeFailed    = 102403
 	ErrNoBinding            = 102404
 	ErrOTPSendTooFrequent   = 102405
+	ErrTokenRevokeFailed    = 102406
 )
 
 // nolint: gochecknoinits
@@ -193,6 +194,7 @@ func registerAuthn() {
 	errors.MustRegister(&authnCoder{code: ErrIDPExchangeFailed, status: http.StatusBadGateway, msg: "Failed to exchange code with identity provider"})
 	errors.MustRegister(&authnCoder{code: ErrNoBinding, status: http.StatusUnauthorized, msg: "No account binding found"})
 	errors.MustRegister(&authnCoder{code: ErrOTPSendTooFrequent, status: http.StatusTooManyRequests, msg: "OTP send too frequent"})
+	errors.MustRegister(&authnCoder{code: ErrTokenRevokeFailed, status: http.StatusInternalServerError, msg: "Token revoke failed"})
 }
 
 // authnCoder 实现 errors.Coder 接口

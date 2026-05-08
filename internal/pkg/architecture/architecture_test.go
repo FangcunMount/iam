@@ -1259,11 +1259,11 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 			return
 		}
 		rel := filepath.ToSlash(mustRel(t, root, path))
-		if strings.HasPrefix(rel, "internal/apiserver/application/authn/login/") ||
-			strings.HasPrefix(rel, "internal/apiserver/transport/rest/authn/") {
+		if strings.HasPrefix(rel, "internal/apiserver/transport/rest/authn/") ||
+			strings.HasPrefix(rel, "internal/apiserver/transport/grpc/service/authn/") {
 			return
 		}
-		t.Fatalf("%s contains jwt_token compatibility wording; only application/authn/login and transport authn adapters may understand this wire value", rel)
+		t.Fatalf("%s contains jwt_token compatibility wording; only transport authn adapters may understand this wire value", rel)
 	})
 
 	forbiddenAuthnDocTokens := []string{
@@ -1320,7 +1320,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	})
 }
 
-func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
+func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
@@ -1342,18 +1342,67 @@ func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
 		"internal/apiserver/application/authn/login/method_authenticator_test.go",
 		"internal/apiserver/application/authn/login/signin_method_catalog_test.go",
 		"internal/apiserver/application/authn/login/method_proof_preparer_test.go",
+		"internal/apiserver/application/authn/login/adapter_bearer.go",
+		"internal/apiserver/application/authn/login/adapter_catalog.go",
+		"internal/apiserver/application/authn/login/adapter_password.go",
+		"internal/apiserver/application/authn/login/adapter_phone_otp.go",
+		"internal/apiserver/application/authn/login/adapter_wechat_mini.go",
+		"internal/apiserver/application/authn/login/adapter_wecom.go",
+		"internal/apiserver/application/authn/login/explicit_payload_adapter.go",
+		"internal/apiserver/application/authn/login/method_selector.go",
+		"internal/apiserver/application/authn/login/method_selector_explicit.go",
+		"internal/apiserver/application/authn/login/method_selector_legacy.go",
+		"internal/apiserver/application/authn/login/services.go",
+		"internal/apiserver/application/authn/login/services_impl.go",
+		"internal/apiserver/application/authn/login/method/bearer.go",
+		"internal/apiserver/application/authn/login/proof/bearer.go",
+		"internal/apiserver/application/authn/login/compatibility/bearer_strategy.go",
+		"internal/apiserver/application/authn/login/compatibility/bearer_strategy_test.go",
 	} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
-			t.Fatalf("%s is retired login wording; use sign-in adapter catalog names", rel)
+			t.Fatalf("%s is retired login wording; use method registry, proof factory, and SignIn/SignOut use cases", rel)
 		} else if !os.IsNotExist(err) {
 			t.Fatal(err)
 		}
 	}
 
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method_selector_explicit.go", "switch req.AuthType")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method_selector_legacy.go", "legacyPasswordPayload")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method_selector_legacy.go", "legacyPhoneOTPPayload")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/services_impl.go", "methodAuthenticators")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/selector.go", "type Registry struct")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/types.go", "type LoginMethod interface")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/types.go", "type LoginRequest struct")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/types.go", "type LoginMethodSelection struct")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/payload.go", "type Payload interface")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/payload.go", "func CommonPayloadFromLoginRequest")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/types.go", "CommonPayload")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/compatibility/explicit_payload.go", "BuildExplicitWireLoginRequest")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/method/selector.go", "func (s *Registry) Select")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/proof/factory.go", "type Factory struct")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/service.go", "type Dependencies struct")
+	assertFileContains(t, root, "internal/apiserver/application/authn/login/service.go", "Reauthenticate(ctx context.Context, token string)")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/payload.go", "Common() CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/password.go", "CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/phone_otp.go", "CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/wechat.go", "CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/wecom.go", "CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/service.go", "method.DefaultSelector")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/service.go", "proof.DefaultFactory")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/service.go", "NewBearerTokenAuthStrategy")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/sign_in.go", "DefaultSelector")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/sign_in.go", "DefaultFactory")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/selector.go", "type AuthType")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/selector.go", "type Kind")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/selector.go", "type Definition interface")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/selector.go", "type LoginMethod interface")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/selector.go", "SelectionMode")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/types.go", "type Payload interface")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/types.go", "type Attempt struct")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/types.go", "type Command struct")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/types.go", "LoginMethodCommand")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/compatibility/explicit_payload.go", "BuildExplicitLoginMethodCommand")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/types.go", "SignInAttempt")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/types.go", "AuthMethodJWTToken")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/types.go", "CredentialKindAccessToken")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/method/selector.go", "NewBearer")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/login/proof/factory.go", "NewBearerBuilder")
 
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "authn", "login"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
@@ -1363,10 +1412,6 @@ func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
 			"map[MethodKind]MethodAuthenticator",
 			"domainMethodAuthenticator",
 			"type MethodKind",
-			"MethodPassword",
-			"MethodPhoneOTP",
-			"MethodWechatMini",
-			"MethodWecom",
 			"MethodBearerToken",
 			"type ScenarioSelector interface",
 			"type SelectedMethod struct",
@@ -1381,9 +1426,18 @@ func TestAuthnLoginMethodSelectionUsesAdapterCatalog(t *testing.T) {
 			"ScenarioSelection",
 			"buildPasswordProof",
 			"buildPhoneOTPProof",
+			"type signInAdapter interface",
+			"newDefaultSignInAdapterCatalog",
+			"newSignInAdapterCatalog",
+			"mustSignInAdapterCatalog",
+			"BearerCompatibilityAdapter",
+			"DomainProofAdapter",
+			"PrepareProof(",
+			"legacyPasswordPayload",
+			"legacyPhoneOTPPayload",
 		} {
 			if strings.Contains(source, token) {
-				t.Fatalf("%s contains retired login method router token %q; keep request adaptation in SignInAdapterCatalog and normal authentication in domain Authenticator", rel, token)
+				t.Fatalf("%s contains retired login method router token %q; keep request adaptation in MethodRegistry, proof construction in ProofFactory, and normal authentication in domain Authenticator", rel, token)
 			}
 		}
 	})

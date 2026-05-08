@@ -10,63 +10,70 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPublicAuthTypesDerivedFromApplicationCatalog(t *testing.T) {
-	require.ElementsMatch(t, []AuthType{
-		AuthTypePassword,
-		AuthTypePhoneOTP,
-		AuthTypeWechat,
-		AuthTypeWecom,
-	}, PublicAuthTypes())
-	require.False(t, IsPublicAuthType(string(AuthTypeJWTToken)))
+func TestPublicAuthMethodsDerivedFromApplicationCatalog(t *testing.T) {
+	require.ElementsMatch(t, []AuthMethod{
+		AuthMethodPassword,
+		AuthMethodPhoneOTP,
+		AuthMethodWechat,
+		AuthMethodWecom,
+	}, PublicAuthMethods())
+	require.False(t, IsPublicAuthMethod("unsupported"))
 }
 
 func TestBuildExplicitLoginRequestMapsPublicV2Payloads(t *testing.T) {
 	tests := []struct {
 		name    string
-		method  AuthType
+		method  AuthMethod
 		payload string
 		assert  func(*testing.T, LoginRequest)
 	}{
 		{
 			name:    "password",
-			method:  AuthTypePassword,
+			method:  AuthMethodPassword,
 			payload: `{"username":"alice","password":"secret","tenant_id":42}`,
 			assert: func(t *testing.T, req LoginRequest) {
-				require.Equal(t, AuthTypePassword, req.AuthType)
-				require.Equal(t, SignInSelectionExplicit, req.SelectionMode)
-				require.Equal(t, "alice", *req.Username)
-				require.Equal(t, "secret", *req.Password)
+				require.Equal(t, AuthMethodPassword, req.AuthMethod)
 				require.Equal(t, meta.FromUint64(42), req.TenantID)
+				payload, ok := req.Payload.(PasswordPayload)
+				require.True(t, ok)
+				require.Equal(t, "alice", payload.Username)
+				require.Equal(t, "secret", payload.Password)
 			},
 		},
 		{
 			name:    "phone otp",
-			method:  AuthTypePhoneOTP,
+			method:  AuthMethodPhoneOTP,
 			payload: `{"phone":"+8613800138000","otp_code":"123456"}`,
 			assert: func(t *testing.T, req LoginRequest) {
-				require.Equal(t, AuthTypePhoneOTP, req.AuthType)
-				require.Equal(t, "+8613800138000", *req.PhoneE164)
-				require.Equal(t, "123456", *req.OTPCode)
+				require.Equal(t, AuthMethodPhoneOTP, req.AuthMethod)
+				payload, ok := req.Payload.(PhoneOTPPayload)
+				require.True(t, ok)
+				require.Equal(t, "+8613800138000", payload.PhoneE164)
+				require.Equal(t, "123456", payload.OTP)
 			},
 		},
 		{
 			name:    "wechat",
-			method:  AuthTypeWechat,
+			method:  AuthMethodWechat,
 			payload: `{"app_id":"wx-app","code":"js-code"}`,
 			assert: func(t *testing.T, req LoginRequest) {
-				require.Equal(t, AuthTypeWechat, req.AuthType)
-				require.Equal(t, "wx-app", *req.WechatAppID)
-				require.Equal(t, "js-code", *req.WechatJSCode)
+				require.Equal(t, AuthMethodWechat, req.AuthMethod)
+				payload, ok := req.Payload.(WechatMiniPayload)
+				require.True(t, ok)
+				require.Equal(t, "wx-app", payload.AppID)
+				require.Equal(t, "js-code", payload.JSCode)
 			},
 		},
 		{
 			name:    "wecom",
-			method:  AuthTypeWecom,
+			method:  AuthMethodWecom,
 			payload: `{"corp_id":"corp","auth_code":"auth-code"}`,
 			assert: func(t *testing.T, req LoginRequest) {
-				require.Equal(t, AuthTypeWecom, req.AuthType)
-				require.Equal(t, "corp", *req.WecomCorpID)
-				require.Equal(t, "auth-code", *req.WecomCode)
+				require.Equal(t, AuthMethodWecom, req.AuthMethod)
+				payload, ok := req.Payload.(WecomPayload)
+				require.True(t, ok)
+				require.Equal(t, "corp", payload.CorpID)
+				require.Equal(t, "auth-code", payload.Code)
 			},
 		},
 	}
@@ -82,7 +89,7 @@ func TestBuildExplicitLoginRequestMapsPublicV2Payloads(t *testing.T) {
 }
 
 func TestBuildExplicitLoginRequestRejectsNonPublicCatalogMethod(t *testing.T) {
-	_, err := BuildExplicitLoginRequest(string(AuthTypeJWTToken), json.RawMessage(`{"token":"jwt"}`))
+	_, err := BuildExplicitLoginRequest("unsupported", json.RawMessage(`{"value":"x"}`))
 	require.Error(t, err)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }

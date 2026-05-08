@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -8,6 +9,9 @@ import (
 	accountApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/reauth"
 	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
@@ -74,20 +78,29 @@ func (m *AuthnModule) initializeApplication(
 		infra.accessChecker,
 	)
 
-	m.loginService = login.NewLoginApplicationService(
-		tokenIssuer,
-		tokenRefresher,
-		authentication.NewAuthenticator(
-			authentication.NewPasswordAuthStrategy(infra.credentialRepo, infra.accountRepo, hasher),
-			authentication.NewPhoneOTPAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.otpVerifier),
-			authentication.NewOAuthWechatMinipAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
-			authentication.NewOAuthWeChatComAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
-		),
-		tokenVerifier,
-		infra.wechatAppQuerier,
-		infra.secretVault,
-		login.WecomConfig{AgentID: idpOptions.WeCom.AgentID},
+	authenticator := authentication.NewAuthenticator(
+		authentication.NewPasswordAuthStrategy(infra.credentialRepo, infra.accountRepo, hasher),
+		authentication.NewPhoneOTPAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.otpVerifier),
+		authentication.NewOAuthWechatMinipAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
+		authentication.NewOAuthWeChatComAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
 	)
+
+	loginService, err := login.NewLoginApplicationService(login.Dependencies{
+		TokenIssuer:     tokenIssuer,
+		TokenRevoker:    loginTokenRevoker{access: tokenIssuer, refresh: tokenRefresher},
+		Authenticator:   authenticator,
+		MethodRegistry:  method.DefaultSelector(),
+		ReAuthenticator: reauth.NewTokenReAuthenticator(tokenVerifier),
+		ProofFactory: proof.DefaultFactory(
+			infra.wechatAppQuerier,
+			infra.secretVault,
+			proof.WecomConfig{AgentID: idpOptions.WeCom.AgentID},
+		),
+	})
+	if err != nil {
+		return err
+	}
+	m.loginService = loginService
 
 	m.tokenService = token.NewTokenApplicationService(
 		tokenIssuer,
@@ -103,6 +116,19 @@ func (m *AuthnModule) initializeApplication(
 	m.jwksSnapshotReporter = keyset.NewApplicationSnapshotReporter(infra.keySetBuilder)
 
 	return nil
+}
+
+type loginTokenRevoker struct {
+	access  token.AccessRevoker
+	refresh token.RefreshRevoker
+}
+
+func (r loginTokenRevoker) RevokeAccessToken(ctx context.Context, tokenValue string) error {
+	return r.access.RevokeAccessToken(ctx, tokenValue)
+}
+
+func (r loginTokenRevoker) RevokeRefreshToken(ctx context.Context, tokenValue string) error {
+	return r.refresh.RevokeRefreshToken(ctx, tokenValue)
 }
 
 func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiserveroptions.SMSOptions) (authentication.SMSSender, error) {

@@ -101,8 +101,8 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if !p.otpVerifier.VerifyAndConsume(ctx, otpCredential.PhoneE164, otpScene, otpCredential.OTP) {
 		// 业务失败：OTP无效或已过期
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrOTPMissingOrExpiry,
+			OK:   false,
+			Code: code.ErrOTPInvalid,
 		}, nil
 	}
 
@@ -114,8 +114,8 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if credentialID.IsZero() {
 		// 业务失败：手机号未绑定账户
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrNoBinding,
+			OK:   false,
+			Code: code.ErrNoBinding,
 		}, nil
 	}
 
@@ -126,14 +126,14 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 	if !enabled {
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrDisabled,
+			OK:   false,
+			Code: code.ErrCredentialDisabled,
 		}, nil
 	}
 	if locked {
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrLocked,
+			OK:   false,
+			Code: code.ErrCredentialLocked,
 		}, nil
 	}
 

@@ -24,6 +24,17 @@ type AccessRevoker interface {
 	RevokeAccessToken(ctx context.Context, tokenValue string) error
 }
 
+// RefreshRevoker 撤销单个 refresh token。
+type RefreshRevoker interface {
+	RevokeRefreshToken(ctx context.Context, tokenValue string) error
+}
+
+// Revoker 聚合 access token 与 refresh token 撤销能力。
+type Revoker interface {
+	AccessRevoker
+	RefreshRevoker
+}
+
 // Issuer 聚合 token 签发/撤销能力，保留给 login/container 现有装配使用。
 type Issuer interface {
 	SessionTokenIssuer
@@ -33,7 +44,7 @@ type Issuer interface {
 
 type Refresher interface {
 	RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error)
-	RevokeRefreshToken(ctx context.Context, refreshTokenValue string) error
+	RefreshRevoker
 }
 
 type Verifier interface {

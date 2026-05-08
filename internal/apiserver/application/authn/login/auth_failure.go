@@ -2,29 +2,57 @@ package login
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-type AuthFailureTranslator struct{}
+func authFailureError(codeValue int) error {
+	if codeValue == 0 {
+		codeValue = code.ErrAuthenticationFailed
+	}
+	return perrors.WithCode(codeValue, "%s", authFailureMessage(codeValue))
+}
 
-func (AuthFailureTranslator) Translate(errCode authentication.ErrCode) error {
-	switch errCode {
-	case authentication.ErrInvalidCredential:
-		return perrors.WithCode(code.ErrPasswordIncorrect, "invalid credentials")
-	case authentication.ErrOTPMissingOrExpiry:
-		return perrors.WithCode(code.ErrOTPInvalid, "OTP is invalid or expired")
-	case authentication.ErrNoBinding:
-		return perrors.WithCode(code.ErrNoBinding, "no account binding found")
-	case authentication.ErrLocked:
-		return perrors.WithCode(code.ErrCredentialLocked, "account is locked")
-	case authentication.ErrDisabled:
-		return perrors.WithCode(code.ErrCredentialDisabled, "account is disabled")
-	case authentication.ErrIDPExchangeFailed:
-		return perrors.WithCode(code.ErrIDPExchangeFailed, "failed to exchange with identity provider")
-	case authentication.ErrStateMismatch:
-		return perrors.WithCode(code.ErrStateMismatch, "state parameter mismatch")
+func authFailureMessage(codeValue int) string {
+	switch codeValue {
+	case code.ErrUnauthenticated:
+		return "authentication failed"
+	case code.ErrInvalidCredentials:
+		return "invalid credentials"
+	case code.ErrTokenInvalid:
+		return "token invalid"
+	case code.ErrSignatureInvalid:
+		return "signature invalid"
+	case code.ErrExpired:
+		return "token expired"
+	case code.ErrUserNotRegistered:
+		return "user not registered"
+	case code.ErrCredentialLocked:
+		return "account is locked"
+	case code.ErrCredentialExpired:
+		return "credential has expired"
+	case code.ErrCredentialDisabled:
+		return "account is disabled"
+	case code.ErrInvalidCredential:
+		return "invalid credential"
+	case code.ErrCredentialNotUsable:
+		return "credential is not usable"
+	case code.ErrAuthenticationFailed:
+		return "authentication failed"
+	case code.ErrOTPInvalid:
+		return "OTP is invalid or expired"
+	case code.ErrStateMismatch:
+		return "OAuth state mismatch"
+	case code.ErrIDPExchangeFailed:
+		return "failed to exchange code with identity provider"
+	case code.ErrNoBinding:
+		return "no account binding found"
+	case code.ErrOTPSendTooFrequent:
+		return "OTP send too frequent"
+	case code.ErrUserBlocked:
+		return "user is blocked"
+	case code.ErrUserInactive:
+		return "user is inactive"
 	default:
-		return perrors.WithCode(code.ErrAuthenticationFailed, "authentication failed")
+		return "authentication failed"
 	}
 }

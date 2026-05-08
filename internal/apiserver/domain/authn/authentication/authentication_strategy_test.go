@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -94,7 +95,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	d1, err := a1.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d1.OK)
-	require.Equal(t, authentication.ErrInvalidCredential, d1.ErrCode)
+	require.Equal(t, code.ErrInvalidCredentials, d1.Code)
 
 	// 2. disabled or locked
 	acc2 := &accRepoStub{accountID: meta.ID(10), userID: meta.ID(20), enabled: false}
@@ -102,14 +103,14 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	d2, err := a2.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d2.OK)
-	require.Equal(t, authentication.ErrDisabled, d2.ErrCode)
+	require.Equal(t, code.ErrCredentialDisabled, d2.Code)
 
 	acc3 := &accRepoStub{accountID: meta.ID(11), userID: meta.ID(21), enabled: true, locked: true}
 	a3 := makeAuth(acc3, cred1, hasher1)
 	d3, err := a3.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d3.OK)
-	require.Equal(t, authentication.ErrLocked, d3.ErrCode)
+	require.Equal(t, code.ErrCredentialLocked, d3.Code)
 
 	// 3. no credential set
 	acc4 := &accRepoStub{accountID: meta.ID(12), userID: meta.ID(22), enabled: true}
@@ -118,7 +119,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	d4, err := a4.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d4.OK)
-	require.Equal(t, authentication.ErrInvalidCredential, d4.ErrCode)
+	require.Equal(t, code.ErrInvalidCredentials, d4.Code)
 
 	// 4. wrong password -> invalid credential with CredentialID
 	storedWrong := "some-other"
@@ -127,7 +128,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	d5, err := a5.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
 	require.NoError(t, err)
 	require.False(t, d5.OK)
-	require.Equal(t, authentication.ErrInvalidCredential, d5.ErrCode)
+	require.Equal(t, code.ErrInvalidCredentials, d5.Code)
 	require.Equal(t, meta.ID(100), d5.CredentialID)
 
 	// 5. success, need rehash -> ShouldRotate true and NewMaterial set

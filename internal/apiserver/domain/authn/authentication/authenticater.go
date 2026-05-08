@@ -26,12 +26,19 @@ func NewAuthenticator(strategies ...AuthStrategy) *Authenticator {
 		strategies: make(map[credDomain.CredentialType]AuthStrategy, len(strategies)),
 	}
 	for _, strategy := range strategies {
-		if strategy == nil {
-			continue
-		}
-		authenticator.strategies[strategy.Kind()] = strategy
+		authenticator.Register(strategy)
 	}
 	return authenticator
+}
+
+func (a *Authenticator) Register(strategy AuthStrategy) {
+	if a == nil || strategy == nil {
+		return
+	}
+	if a.strategies == nil {
+		a.strategies = make(map[credDomain.CredentialType]AuthStrategy)
+	}
+	a.strategies[strategy.Kind()] = strategy
 }
 
 // Authenticate 认证
@@ -94,7 +101,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		l.Warnw("认证不通过（域层）",
 			"action", logger.ActionLogin,
 			"credential_type", string(credentialType),
-			"err_code", string(decision.ErrCode),
+			"code", decision.Code,
 		)
 		return decision, nil
 	}

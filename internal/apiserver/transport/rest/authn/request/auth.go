@@ -18,7 +18,7 @@ type LoginV2Request struct {
 
 // Validate 验证 v2 登录请求。
 func (r *LoginV2Request) Validate() error {
-	if !login.IsPublicAuthType(r.AuthMethod) {
+	if !login.IsPublicAuthMethod(r.AuthMethod) {
 		return perrors.WithCode(code.ErrInvalidArgument, "invalid authentication method: %s", r.AuthMethod)
 	}
 	if len(r.MethodPayload) == 0 {

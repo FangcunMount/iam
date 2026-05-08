@@ -124,8 +124,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			"username", passwordCredential.Username,
 		)
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrInvalidCredential,
+			OK:   false,
+			Code: code.ErrInvalidCredentials,
 		}, nil
 	}
 	accountID, userID := lookup.AccountID, lookup.UserID
@@ -139,8 +139,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 				"account_id", accountID.String(),
 			)
 			return AuthDecision{
-				OK:      false,
-				ErrCode: ErrInvalidCredential,
+				OK:   false,
+				Code: code.ErrInvalidCredentials,
 			}, nil
 		}
 		if !passwordCredential.TenantID.IsZero() && passwordCredential.TenantID != lookup.ScopedTenantID {
@@ -151,8 +151,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 				"scoped_tenant_id", lookup.ScopedTenantID.String(),
 			)
 			return AuthDecision{
-				OK:      false,
-				ErrCode: ErrInvalidCredential,
+				OK:   false,
+				Code: code.ErrInvalidCredentials,
 			}, nil
 		}
 		principalTenant = lookup.ScopedTenantID
@@ -164,8 +164,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 				"type", lookup.AccountType,
 			)
 			return AuthDecision{
-				OK:      false,
-				ErrCode: ErrInvalidCredential,
+				OK:   false,
+				Code: code.ErrInvalidCredentials,
 			}, nil
 		}
 		principalTenant = passwordCredential.TenantID
@@ -192,8 +192,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			"account_id", accountID.String(),
 		)
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrDisabled,
+			OK:   false,
+			Code: code.ErrCredentialDisabled,
 		}, nil
 	}
 	if locked {
@@ -202,8 +202,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			"account_id", accountID.String(),
 		)
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrLocked,
+			OK:   false,
+			Code: code.ErrCredentialLocked,
 		}, nil
 	}
 
@@ -229,8 +229,8 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			"account_id", accountID.String(),
 		)
 		return AuthDecision{
-			OK:      false,
-			ErrCode: ErrInvalidCredential,
+			OK:   false,
+			Code: code.ErrInvalidCredentials,
 		}, nil
 	}
 
@@ -249,7 +249,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		)
 		return AuthDecision{
 			OK:           false,
-			ErrCode:      ErrInvalidCredential,
+			Code:         code.ErrInvalidCredentials,
 			CredentialID: credentialID,
 		}, nil
 	}

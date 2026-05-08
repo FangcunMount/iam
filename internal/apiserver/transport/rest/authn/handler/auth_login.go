@@ -38,17 +38,21 @@ func (h *AuthHandler) LoginV2(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
+	loginReq.RemoteIP = c.ClientIP()
+	loginReq.UserAgent = c.Request.UserAgent()
 	h.executeLogin(c, loginReq)
 }
 
 // executeLogin 执行登录并返回令牌
 func (h *AuthHandler) executeLogin(c *gin.Context, loginReq login.LoginRequest) {
+	// 调用登录服务
 	result, err := h.loginService.Login(c.Request.Context(), loginReq)
 	if err != nil {
 		h.Error(c, err)
 		return
 	}
 
+	// 转换令牌
 	tokenPair := h.convertTokenPair(result.TokenPair)
 	h.Success(c, tokenPair)
 }
