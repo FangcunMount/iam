@@ -363,8 +363,8 @@ Casbin fact
 | AuthZ | AuthZ 使用 `user:<id>` 等 subject 做资源权限判定；ProfileLink 不等于 Permission |
 | IDP | 外部身份源通过 AuthN 绑定 Account/User；微信 openid 不是 IAM User |
 | REST | REST 提供当前用户视角的 Identity / Profile / ProfileLink 接口 |
-| gRPC | gRPC 提供系统侧 IdentityRead、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle |
-| SDK | SDK 封装系统侧 Identity/ProfileLink gRPC 能力，但不替代当前用户 guard |
+| gRPC | gRPC 提供系统侧 IdentityRead、ProfileCommand、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle |
+| SDK | SDK 封装系统侧 Identity/Profile/ProfileLink gRPC 能力，但不替代当前用户 guard |
 | Suggest | Suggest 只提供 Profile 候选发现，不建立关系、不判断权限 |
 | Session | UserStatusChanger 可依赖 SessionManager 影响用户会话状态 |
 

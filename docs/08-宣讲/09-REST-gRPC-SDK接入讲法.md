@@ -135,7 +135,8 @@ flowchart TD
     SDK["sdk.NewClient"]
     Auth["Auth()<br/>Verify / Refresh / Revoke / JWKS"]
     Authz["Authz()<br/>Check / Allow / Snapshot"]
-    Identity["Identity()<br/>User / Profile"]
+    Identity["Identity()<br/>User / Profile Read"]
+    Profile["Profile()<br/>ProfileCommand"]
     ProfileLink["ProfileLink()<br/>Query / Command"]
     IDP["IDP()<br/>GetWechatApp"]
     LoginV2["auth/loginv2<br/>REST Login"]
@@ -145,6 +146,7 @@ flowchart TD
     SDK --> Auth
     SDK --> Authz
     SDK --> Identity
+    SDK --> Profile
     SDK --> ProfileLink
     SDK --> IDP
 
@@ -338,6 +340,7 @@ IDP client
 Auth()
 Authz()
 Identity()
+Profile()
 ProfileLink()
 IDP()
 Close()
@@ -352,7 +355,7 @@ Close()
 统一错误判断
 封装 JWKS / Verify / ServiceAuth
 封装 AuthZ Check
-封装 Identity/ProfileLink 查询
+封装 Identity/Profile/ProfileLink 系统侧接入
 ```
 
 ---
@@ -367,7 +370,7 @@ Close()
 | 服务间 Token Verify | gRPC / SDK | 强类型、内部调用、可配 service token |
 | AuthZ Check | gRPC / SDK | 高频服务间判定 |
 | AuthorizationSnapshot | gRPC / SDK | 服务间缓存和版本治理 |
-| Identity 系统侧查询 | gRPC / SDK | 后端服务查 User/Profile/ProfileLink |
+| Identity/Profile/ProfileLink 系统侧接入 | gRPC / SDK | 后端服务查 User/Profile、创建 Profile、维护 ProfileLink |
 | IDP 内部读取 | gRPC / SDK | 高信任内部能力 |
 | Go 业务服务接入 | SDK | 少写重复 client 代码 |
 | API Gateway 本地验签 | JWKS | 标准公钥分发 |
@@ -533,7 +536,7 @@ SDK 封装 REST/gRPC/JWKS/ServiceAuth 等接入复杂度，业务规则仍在 IA
 ### Q2：REST 和 gRPC 怎么划分？
 
 ```text
-REST 更偏用户侧和管理侧，事实源是 OpenAPI，适合登录、当前用户、管理后台和 HTTP 调试。gRPC 更偏服务间调用，事实源是 proto，适合 AuthN Verify、AuthZ Check、AuthorizationSnapshot、Identity/ProfileLink 系统侧查询和 IDP 高信任读取。
+REST 更偏用户侧和管理侧，事实源是 OpenAPI，适合登录、当前用户、管理后台和 HTTP 调试。gRPC 更偏服务间调用，事实源是 proto，适合 AuthN Verify、AuthZ Check、AuthorizationSnapshot、Identity/Profile/ProfileLink 系统侧接入和 IDP 高信任读取。
 ```
 
 ---
@@ -595,7 +598,7 @@ REST 提供 AuthZ 管理和 check，gRPC 提供 AuthorizationService，SDK 提�
 ### 13.3 与 Identity
 
 ```text
-REST 提供当前用户视角，gRPC 提供系统侧 Identity/ProfileLink，SDK 封装系统侧查询和命令。
+REST 提供当前用户视角，gRPC 提供系统侧 Identity/Profile/ProfileLink，SDK 封装系统侧查询和命令。
 ```
 
 ### 13.4 与 IDP
@@ -614,10 +617,10 @@ REST 提供 IDP 管理面，gRPC/SDK 提供高信任内部读取。
 | REST 覆盖 AuthN/AuthZ/Identity/IDP/Suggest/Debug 路由 | `api/rest/README.md` |
 | gRPC 面向可信服务间调用 | `api/grpc/README.md` |
 | gRPC 当前只发布 v2 proto，包含 authn/authz/identity/idp | `api/grpc/README.md` |
-| gRPC 服务矩阵包含 AuthService、AuthorizationService、IdentityRead、ProfileLinkQuery/Command、IDPService | `api/grpc/README.md` |
+| gRPC 服务矩阵包含 AuthService、AuthorizationService、IdentityRead、ProfileCommand、ProfileLinkQuery/Command、IDPService | `api/grpc/README.md` |
 | SDK 是 IAM 官方 Go 接入入口 | `pkg/sdk/README.md` |
 | SDK 公开稳定包固定，internal transport/observability 不公开 | `pkg/sdk/README.md` |
-| `sdk.Client` 初始化 Auth/Authz/Identity/ProfileLink/IDP 子客户端 | `pkg/sdk/client.go` |
+| `sdk.Client` 初始化 Auth/Authz/Identity/Profile/ProfileLink/IDP 子客户端 | `pkg/sdk/client.go` |
 | SDK 快速开始使用 `sdk.NewClient` 和 `client.Auth().VerifyToken` | `pkg/sdk/README.md` |
 | SDK 封装 JWKS、Verifier、ServiceAuth、AuthZ、Identity、IDP | `pkg/sdk/README.md` |
 
@@ -626,7 +629,7 @@ REST 提供 IDP 管理面，gRPC/SDK 提供高信任内部读取。
 ## 15. 简历项目描述版本
 
 ```text
-设计并完善 IAM 的 REST/gRPC/SDK 接入体系：REST 使用 OpenAPI 作为事实源，面向 Web、App 和管理后台，覆盖登录、Token、AuthZ、Identity、IDP 等接口；gRPC 使用 proto 作为事实源，面向可信服务间调用，提供 VerifyToken、AuthZ Check、AuthorizationSnapshot、Identity/ProfileLink 查询和 IDP 内部能力；Go SDK 作为接入产品层，封装 gRPC client、REST LoginV2、JWKS、本地验证、ServiceAuth、AuthZ Check、错误处理和配置加载，降低业务服务接入 IAM 的复杂度，并通过契约测试和 public API compile test 防止接口漂移。
+设计并完善 IAM 的 REST/gRPC/SDK 接入体系：REST 使用 OpenAPI 作为事实源，面向 Web、App 和管理后台，覆盖登录、Token、AuthZ、Identity、IDP 等接口；gRPC 使用 proto 作为事实源，面向可信服务间调用，提供 VerifyToken、AuthZ Check、AuthorizationSnapshot、Identity/Profile/ProfileLink 系统侧接入和 IDP 内部能力；Go SDK 作为接入产品层，封装 gRPC client、REST LoginV2、JWKS、本地验证、ServiceAuth、AuthZ Check、错误处理和配置加载，降低业务服务接入 IAM 的复杂度，并通过契约测试和 public API compile test 防止接口漂移。
 ```
 
 ---
@@ -670,5 +673,5 @@ REST / gRPC / SDK 接入讲法的核心是：
 推荐最终表达：
 
 ```text
-IAM 对外提供 REST、gRPC 和 Go SDK 三层接入。REST 以 OpenAPI 为事实源，面向 Web、App、管理后台和登录场景；gRPC 以 proto 为事实源，面向可信服务间调用，提供 VerifyToken、AuthZ Check、Identity/ProfileLink 查询等能力；SDK 是 Go 服务端接入产品层，封装 REST/gRPC/JWKS/ServiceAuth/AuthZ Check 等复杂度，但不定义业务规则。三者服务不同调用方，底层仍然回到同一套 IAM Server 的 AuthN、AuthZ、Identity、IDP 能力。
+IAM 对外提供 REST、gRPC 和 Go SDK 三层接入。REST 以 OpenAPI 为事实源，面向 Web、App、管理后台和登录场景；gRPC 以 proto 为事实源，面向可信服务间调用，提供 VerifyToken、AuthZ Check、Identity/Profile/ProfileLink 系统侧接入等能力；SDK 是 Go 服务端接入产品层，封装 REST/gRPC/JWKS/ServiceAuth/AuthZ Check 等复杂度，但不定义业务规则。三者服务不同调用方，底层仍然回到同一套 IAM Server 的 AuthN、AuthZ、Identity、IDP 能力。
 ```

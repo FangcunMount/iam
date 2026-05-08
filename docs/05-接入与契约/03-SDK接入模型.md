@@ -2,7 +2,7 @@
 
 ## 本文回答
 
-本文回答：IAM SDK 在 REST/gRPC 契约之上解决什么接入问题；业务服务应该如何通过 SDK 接入认证、授权、Identity/ProfileLink、IDP；`sdk.Client`、`auth/loginv2`、`auth/jwks`、`auth/verifier`、`auth/serviceauth`、`authz`、`identity`、`idp` 这些公开入口分别适合什么场景；SDK 如何隐藏连接、TLS、metadata、错误包装、JWKS、本地验证和服务间 token 管理等底层细节。
+本文回答：IAM SDK 在 REST/gRPC 契约之上解决什么接入问题；业务服务应该如何通过 SDK 接入认证、授权、Identity/Profile/ProfileLink、IDP；`sdk.Client`、`auth/loginv2`、`auth/jwks`、`auth/verifier`、`auth/serviceauth`、`authz`、`identity`、`idp` 这些公开入口分别适合什么场景；SDK 如何隐藏连接、TLS、metadata、错误包装、JWKS、本地验证和服务间 token 管理等底层细节。
 
 读完本文，你应该能回答：
 
@@ -12,7 +12,7 @@
 - 业务服务如何选择在线 Verify、本地 JWT 验证、JWKS、AuthZ Check；
 - `ServiceAuthHelper` 适合什么场景；
 - `Authz().Check / Allow / AllowScoped` 如何组织 subject/domain/object/action/scope；
-- `Identity()` 和 `ProfileLink()` 分别代表什么；
+- `Identity()`、`Profile()` 和 `ProfileLink()` 分别代表什么；
 - IDP SDK 为什么是高信任内部能力；
 - SDK 稳定公开包有哪些；
 - 哪些历史包已经收回内部实现；
@@ -64,6 +64,7 @@ pkg/sdk/errors
   -> client.Auth().VerifyToken(...)
   -> client.Authz().AllowScoped(...)
   -> client.Identity().GetUser(...)
+  -> client.Profile().CreateProfile(...)
   -> client.ProfileLink().HasProfileLink(...)
 ```
 
@@ -89,6 +90,8 @@ pkg/sdk/auth/loginv2
 - [../../pkg/sdk/auth/client/client.go](../../pkg/sdk/auth/client/client.go)
 - [../../pkg/sdk/authz/check.go](../../pkg/sdk/authz/check.go)
 - [../../pkg/sdk/identity/read.go](../../pkg/sdk/identity/read.go)
+- [../../pkg/sdk/identity/profile.go](../../pkg/sdk/identity/profile.go)
+- [../../pkg/sdk/identity/profile_command.go](../../pkg/sdk/identity/profile_command.go)
 - [../../pkg/sdk/identity/profile_link_query.go](../../pkg/sdk/identity/profile_link_query.go)
 
 ---
@@ -103,6 +106,7 @@ flowchart TD
     Auth["Auth()<br/>gRPC AuthN"]
     Authz["Authz()<br/>gRPC AuthZ"]
     Identity["Identity()<br/>gRPC IdentityRead/Lifecycle"]
+    Profile["Profile()<br/>gRPC ProfileCommand"]
     ProfileLink["ProfileLink()<br/>gRPC ProfileLink Query/Command"]
     IDP["IDP()<br/>gRPC IDP"]
     JWKS["auth/jwks<br/>JWKS Manager"]
@@ -121,6 +125,7 @@ flowchart TD
     SDK --> Auth
     SDK --> Authz
     SDK --> Identity
+    SDK --> Profile
     SDK --> ProfileLink
     SDK --> IDP
 
@@ -128,6 +133,7 @@ flowchart TD
     Auth --> GRPC
     Authz --> GRPC
     Identity --> GRPC
+    Profile --> GRPC
     ProfileLink --> GRPC
     IDP --> GRPC
     JWKS --> REST
@@ -251,7 +257,7 @@ sdk.WithTraceID
 | 包 | 作用 |
 | --- | --- |
 | `authz` | AuthZ Check / Allow / Snapshot |
-| `identity` | User/Profile/ProfileLink gRPC client |
+| `identity` | User / ProfileCommand / ProfileLink gRPC client |
 | `idp` | IDP gRPC client |
 | `errors` | 统一错误 facade |
 
@@ -288,6 +294,7 @@ type Client struct {
     authClient        *authclient.Client
     authzClient       *authz.Client
     identityClient    *identity.Client
+    profileClient     *identity.ProfileClient
     profileLinkClient *identity.ProfileLinkClient
     idpClient         *idp.Client
 }
@@ -316,7 +323,7 @@ sequenceDiagram
     SDK->>Config: WithDefaults + Validate
     SDK->>Transport: Dial(ctx, cfg, opts)
     Transport-->>SDK: grpc.ClientConn
-    SDK->>Sub: init Auth/Authz/Identity/ProfileLink/IDP
+    SDK->>Sub: init Auth/Authz/Identity/Profile/ProfileLink/IDP
     SDK-->>App: *sdk.Client
 ```
 
@@ -328,6 +335,7 @@ sequenceDiagram
 client.Auth()
 client.Authz()
 client.Identity()
+client.Profile()
 client.ProfileLink()
 client.IDP()
 client.Conn()
@@ -338,7 +346,8 @@ client.Close()
 | --- | --- | --- |
 | `Auth()` | `*authclient.Client` | gRPC AuthN token/JWKS/onboarding |
 | `Authz()` | `*authz.Client` | AuthZ Check/Snapshot |
-| `Identity()` | `*identity.Client` | User/Profile read/lifecycle |
+| `Identity()` | `*identity.Client` | User / IdentityRead / IdentityLifecycle |
+| `Profile()` | `*identity.ProfileClient` | ProfileCommand |
 | `ProfileLink()` | `*identity.ProfileLinkClient` | ProfileLink query/command |
 | `IDP()` | `*idp.Client` | IDP GetWechatApp |
 | `Conn()` | `*grpc.ClientConn` | 原始连接 |
@@ -823,7 +832,7 @@ Snapshot 适合本地缓存和批量权限视图；单次操作是否允许，�
 
 ---
 
-## 10. Identity 与 ProfileLink：client.Identity() / client.ProfileLink()
+## 10. Identity / Profile / ProfileLink：拆分式身份 SDK
 
 ### 10.1 Identity()
 
@@ -850,7 +859,34 @@ BlockUser
 
 它偏系统侧服务间接口，不是 REST `/identity/me` 的当前用户视角。
 
-### 10.2 ProfileLink()
+### 10.2 Profile()
+
+`client.Profile()` 只封装：
+
+```text
+ProfileCommand
+```
+
+当前命令能力：
+
+```go
+CreateProfile
+```
+
+创建档案并建立初始 `User -> Profile` 关系时走这里：
+
+```go
+resp, err := client.Profile().CreateProfile(ctx, &identityv2.CreateProfileRequest{
+    UserId:       "1001",
+    LegalName:   "小明",
+    Gender:      identityv2.Gender_GENDER_MALE,
+    Dob:         "2018-01-01",
+    IdCardNumber: "",
+    Relation:    identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT,
+})
+```
+
+### 10.3 ProfileLink()
 
 `client.ProfileLink()` 封装：
 
@@ -877,7 +913,25 @@ BatchRevokeProfileLinks
 ImportProfileLinks
 ```
 
-### 10.3 与 REST Identity 的区别
+### 10.4 使用已有 gRPC 连接创建子客户端
+
+如果调用方已经持有 gRPC 连接，可以绕过 `sdk.Client`，直接创建拆分式 identity 子客户端：
+
+```go
+identityClient := identity.NewClientFromConn(conn)
+profileClient := identity.NewProfileClientFromConn(conn)
+profileLinkClient := identity.NewProfileLinkClientFromConn(conn)
+```
+
+如果需要显式注入 generated gRPC client 或测试替身，也可以使用原始构造函数：
+
+```go
+profileClient := identity.NewProfileClient(
+    identityv2.NewProfileCommandClient(conn),
+)
+```
+
+### 10.5 与 REST Identity 的区别
 
 REST `/api/v2/identity/profile-links` 是当前用户视角，使用 `MyProfileLinks` guard。
 
@@ -1071,7 +1125,7 @@ type TracingHook interface {
 2. ServiceAuthHelper 获取 service token
 3. Auth().VerifyToken 校验用户 token
 4. Authz().AllowScoped 做权限判定
-5. Identity()/ProfileLink() 查询用户与档案关系
+5. Identity()/Profile()/ProfileLink() 查询用户、创建档案与维护档案关系
 ```
 
 示例：
@@ -1321,8 +1375,11 @@ api/grpc/iam/authz/v2/authz.proto
 
 ```text
 pkg/sdk/identity/client.go
+pkg/sdk/identity/factory.go
 pkg/sdk/identity/read.go
 pkg/sdk/identity/write.go
+pkg/sdk/identity/profile.go
+pkg/sdk/identity/profile_command.go
 pkg/sdk/identity/profile_link.go
 pkg/sdk/identity/profile_link_query.go
 pkg/sdk/identity/profile_link_command.go
@@ -1332,7 +1389,7 @@ api/grpc/iam/identity/v2/identity.proto
 api/grpc/iam/idp/v2/idp.proto
 ```
 
-目标：理解系统侧 User/Profile/ProfileLink/IDP 接入边界。
+目标：理解系统侧 User/ProfileCommand/ProfileLink/IDP 接入边界。
 
 ### 第六轮：示例
 
@@ -1377,7 +1434,7 @@ make docs-hygiene
 | TokenVerifier | local/remote/fallback strategy |
 | ServiceAuthHelper | 初始 token、刷新循环、失败回调、Stop |
 | Authz AllowScoped | scope 传递正确 |
-| Identity/ProfileLink | 系统侧 query/command 包装正确 |
+| Identity/Profile/ProfileLink | 系统侧 query/command 包装正确 |
 | IDP | app_id required、错误包装、secret 风险可测试 |
 | errors facade | IsNotFound/IsRetryable/GRPCCode/ToHTTPStatus |
 
@@ -1395,7 +1452,7 @@ SDK 接入模型可以压缩成一句话：
 sdk.NewClient
   -> Auth().VerifyToken
   -> Authz().AllowScoped
-  -> Identity().GetUser / ProfileLink().HasProfileLink
+  -> Identity().GetUser / Profile().CreateProfile / ProfileLink().HasProfileLink
   -> errors facade
   -> serviceauth / jwks / verifier 按需增强
 ```
@@ -1408,6 +1465,7 @@ sdk.NewClient
 在线认证用 client.Auth().VerifyToken
 本地验签用 auth/verifier + auth/jwks
 权限判定用 client.Authz()
+创建档案用 client.Profile()
 档案关系用 client.ProfileLink()
 高敏 IDP 能力谨慎使用 client.IDP()
 ```

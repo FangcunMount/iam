@@ -6,7 +6,6 @@ import (
 
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
 	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
 	"github.com/FangcunMount/iam/v2/pkg/sdk/authz"
@@ -72,16 +71,9 @@ func (c *Client) initSubClients() {
 	authorizationService := authzv2.NewAuthorizationServiceClient(c.conn)
 	c.authzClient = authz.NewClient(authorizationService)
 
-	readService := identityv2.NewIdentityReadClient(c.conn)
-	lifecycleService := identityv2.NewIdentityLifecycleClient(c.conn)
-	c.identityClient = identity.NewClient(readService, lifecycleService)
-
-	profileCommandService := identityv2.NewProfileCommandClient(c.conn)
-	c.profileClient = identity.NewProfileClient(profileCommandService)
-
-	queryService := identityv2.NewProfileLinkQueryClient(c.conn)
-	commandService := identityv2.NewProfileLinkCommandClient(c.conn)
-	c.profileLinkClient = identity.NewProfileLinkClient(queryService, commandService)
+	c.identityClient = identity.NewClientFromConn(c.conn)
+	c.profileClient = identity.NewProfileClientFromConn(c.conn)
+	c.profileLinkClient = identity.NewProfileLinkClientFromConn(c.conn)
 
 	idpService := idpv2.NewIDPServiceClient(c.conn)
 	c.idpClient = idp.NewClient(idpService)

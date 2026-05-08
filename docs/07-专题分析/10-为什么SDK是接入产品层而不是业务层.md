@@ -67,7 +67,7 @@ SDK 负责的是：
 | 本地 JWT 验签 | `auth/jwks` + `auth/verifier` |
 | 服务间 token | `auth/serviceauth.ServiceAuthHelper` |
 | 授权判定 | `client.Authz().Check/Allow/AllowScoped` |
-| User/Profile/ProfileLink 查询 | `client.Identity()`、`client.ProfileLink()` |
+| User / Profile / ProfileLink 接入 | `client.Identity()`、`client.Profile()`、`client.ProfileLink()` |
 | IDP 内部读取 | `client.IDP()` |
 | 错误判断 | `pkg/sdk/errors` |
 | metrics/tracing 接入 | `WithMetricsCollector`、`WithTracingHook` |
@@ -330,6 +330,7 @@ initSubClients
 Auth()
 Authz()
 Identity()
+Profile()
 ProfileLink()
 IDP()
 Conn()
@@ -481,15 +482,16 @@ SDK 可以缓存、fallback、包装调用，但不应成为授权规则源。
 
 ---
 
-## 7. 为什么 Identity/ProfileLink SDK 是系统侧接入封装
+## 7. 为什么 Identity/Profile/ProfileLink SDK 是系统侧接入封装
 
-`client.Identity()` 和 `client.ProfileLink()` 封装的是 gRPC Identity 服务。
+`client.Identity()`、`client.Profile()` 和 `client.ProfileLink()` 封装的是 gRPC Identity 服务。
 
 它们更偏系统侧：
 
 ```text
 IdentityRead
 IdentityLifecycle
+ProfileCommand
 ProfileLinkQuery
 ProfileLinkCommand
 ```
@@ -710,6 +712,7 @@ SDK 不替代 REST/gRPC。
 | 服务间 token | 非主入口 | `IssueServiceToken` | `ServiceAuthHelper` |
 | AuthZ Check | `/authz/check` | `AuthorizationService.Check` | `Authz().Check/Allow` |
 | Identity read | REST current-user/admin | gRPC system-side | `Identity()` |
+| Profile command | REST admin/current-user write | gRPC system-side | `Profile()` |
 | ProfileLink | REST current-user guard | gRPC system-side | `ProfileLink()` |
 | IDP | REST admin management | gRPC high-trust lookup | `IDP()` |
 
@@ -937,7 +940,7 @@ SDK 是 IAM 的接入产品层，不是业务层；它把 REST/gRPC/JWKS/AuthZ C
 1. 先说明 SDK 解决的是接入复杂度
 2. 讲 sdk.Client 只是连接和子客户端 facade
 3. 讲 LoginV2 为什么是 REST client
-4. 讲 AuthZ/Identity/ProfileLink SDK 只是 gRPC wrapper
+4. 讲 AuthZ/Identity/Profile/ProfileLink SDK 只是 gRPC wrapper
 5. 讲 JWKS/Verifier/ServiceAuth 是接入策略封装
 6. 讲为什么 SDK 不能承载业务规则
 7. 讲 public API compile test 和 internal 包边界

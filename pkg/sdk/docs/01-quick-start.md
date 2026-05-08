@@ -12,12 +12,12 @@
               │  (一个连接，全部服务)     │
               └─────────────────────────┘
                     ↓   ↓   ↓
-        ┌───────┬────────┬────────────┬──────────────┐
-        ↓       ↓        ↓            ↓
-    Auth()   Authz()  Identity()  ProfileLink()
-    认证服务  授权判定  身份服务      档案关系服务
-        ↓       ↓        ↓              ↓
-    验证Token  单次PDP  用户/档案管理   档案关系查询
+        ┌───────┬────────┬────────────┬──────────┬──────────────┐
+        ↓       ↓        ↓            ↓          ↓
+    Auth()   Authz()  Identity()   Profile()  ProfileLink()
+    认证服务  授权判定  身份服务       档案命令    档案关系服务
+        ↓       ↓        ↓            ↓          ↓
+    验证Token  单次PDP  用户读写/档案读  创建档案    档案关系查询/命令
 ```
 
 ### 核心概念
@@ -28,8 +28,9 @@
 | **Config** | 配置对象 | 地址 + TLS + 重试 |
 | **Auth** | 认证服务 | 验证/刷新/撤销 Token |
 | **Authz** | 授权判定 | 单次权限检查（PDP） |
-| **Identity** | 身份服务 | 用户/档案管理 |
-| **ProfileLink** | 档案关系 | 用户-档案关系查询 |
+| **Identity** | 身份服务 | 用户读写 / 档案读取 |
+| **Profile** | 档案命令 | 创建档案并建立关系 |
+| **ProfileLink** | 档案关系 | 用户-档案关系查询与命令 |
 
 ### 3 行代码开始
 
@@ -62,7 +63,8 @@ log.Printf("用户: %s", user.GetProfile().GetDisplayName())
 │    client.Auth().VerifyToken(...)                       │
 │    client.Authz().Allow(...)                            │
 │    client.Identity().GetUser(...)                       │
-│    client.ProfileLink().HasProfileLink(...)                │
+│    client.Profile().CreateProfile(...)                  │
+│    client.ProfileLink().HasProfileLink(...)             │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -217,6 +219,21 @@ user, err := client.Identity().CreateUser(ctx, &identityv2.CreateUserRequest{
 users, err := client.Identity().BatchGetUsers(ctx, []string{"user-1", "user-2"})
 ```
 
+### 档案命令服务
+
+`Profile()` 只封装 gRPC `ProfileCommand`。创建档案并建立初始 `User -> Profile` 关系时走这里：
+
+```go
+resp, err := client.Profile().CreateProfile(ctx, &identityv2.CreateProfileRequest{
+    UserId:       "1001",
+    LegalName:   "小明",
+    Gender:      identityv2.Gender_GENDER_MALE,
+    Dob:         "2018-01-01",
+    IdCardNumber: "",
+    Relation:    identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT,
+})
+```
+
 ### 授权判定服务
 
 ```go
@@ -246,6 +263,24 @@ linkResp, err := client.ProfileLink().HasProfileLink(ctx, "user-id", "profile-id
 
 // 列举关联档案
 profiles, err := client.ProfileLink().GetUserProfiles(ctx, "user-id")
+```
+
+### 只使用 identity 子包
+
+如果调用方已经持有 gRPC 连接，可以直接创建拆分式子客户端：
+
+```go
+identityClient := identity.NewClientFromConn(conn)
+profileClient := identity.NewProfileClientFromConn(conn)
+profileLinkClient := identity.NewProfileLinkClientFromConn(conn)
+```
+
+需要显式注入 generated gRPC client 或测试替身时，继续使用原始构造函数：
+
+```go
+profileClient := identity.NewProfileClient(
+    identityv2.NewProfileCommandClient(conn),
+)
 ```
 
 ## 错误处理

@@ -36,6 +36,9 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 
 	var _ *sdk.Client
 	var _ = sdk.NewClient
+	var _ = (*sdk.Client).Identity
+	var _ = (*sdk.Client).Profile
+	var _ = (*sdk.Client).ProfileLink
 	var _ = sdk.WithRequestID
 	var _ = sdk.WithTraceID
 	var _ = sdk.GetRequestID
@@ -90,10 +93,13 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	var _ = authz.NewClient
 	var _ *identity.Client
 	var _ = identity.NewClient
+	var _ = identity.NewClientFromConn
 	var _ *identity.ProfileClient
 	var _ = identity.NewProfileClient
+	var _ = identity.NewProfileClientFromConn
 	var _ *identity.ProfileLinkClient
 	var _ = identity.NewProfileLinkClient
+	var _ = identity.NewProfileLinkClientFromConn
 	var _ *idp.Client
 	var _ = idp.NewClient
 

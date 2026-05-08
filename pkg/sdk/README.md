@@ -42,7 +42,7 @@ pkg/sdk/
 │   ├── verifier/
 │   └── serviceauth/
 ├── authz/                     # 授权判定 client
-├── identity/                  # 身份 / profile-link client
+├── identity/                  # 身份 / profile / profile-link client
 ├── idp/                       # IDP client
 ├── internal/
 │   ├── transport/             # gRPC 连接、重试、metadata、拦截器
@@ -201,6 +201,45 @@ if err != nil {
 _, err = client.Identity().GetUser(authCtx, "user-123")
 ```
 
+## Identity / Profile 拆分式客户端
+
+统一入口 `sdk.Client` 会复用同一个 gRPC connection，并暴露三个拆分式 identity 子客户端：
+
+```go
+identityClient := client.Identity()       // User / IdentityRead / IdentityLifecycle
+profileClient := client.Profile()         // ProfileCommand
+profileLinkClient := client.ProfileLink() // ProfileLinkQuery / ProfileLinkCommand
+```
+
+创建档案走 `Profile()`，不是 `Identity()`：
+
+```go
+resp, err := profileClient.CreateProfile(ctx, &identityv2.CreateProfileRequest{
+    UserId:       "1001",
+    LegalName:   "小明",
+    Gender:      identityv2.Gender_GENDER_MALE,
+    Dob:         "2018-01-01",
+    IdCardNumber: "",
+    Relation:    identityv2.ProfileLinkRelation_PROFILE_LINK_RELATION_PARENT,
+})
+```
+
+如果调用方已经持有 gRPC 连接，可以只使用 `pkg/sdk/identity` 子包：
+
+```go
+identityClient := identity.NewClientFromConn(conn)
+profileClient := identity.NewProfileClientFromConn(conn)
+profileLinkClient := identity.NewProfileLinkClientFromConn(conn)
+```
+
+需要显式注入 generated gRPC client 或测试替身时，保留原始工厂：
+
+```go
+profileClient := identity.NewProfileClient(
+    identityv2.NewProfileCommandClient(conn),
+)
+```
+
 ## 错误处理
 
 ```go
@@ -278,6 +317,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 | `auth/jwks` | Chain of Responsibility | Cache → HTTP → gRPC → Seed |
 | `auth/verifier` | Strategy | Local / Remote / Fallback / Cache |
 | `auth/serviceauth` | 状态型 helper | 刷新、退避、熔断、旧 token 回退 |
+| `identity` | 拆分式 Identity SDK | `Client` 负责 User / IdentityRead / IdentityLifecycle；`ProfileClient` 负责 ProfileCommand；`ProfileLinkClient` 负责 ProfileLink query/command |
 | `errors` | 小型 facade | 保留稳定谓词与映射，移除高级 matcher API |
 | `internal/transport` | 内聚 plumbing | gRPC 连接、metadata、默认拦截器链 |
 
@@ -290,7 +330,7 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 - `pkg/sdk/errors` 的高级分析 / matcher / handler API 已收回内部
 - `pkg/sdk/auth/loginv2` 是 REST AuthN v2 显式登录入口；`pkg/sdk/auth/client` 已对齐 gRPC v2 Login/token/JWKS/onboarding 契约
 - `pkg/sdk/idp` 已对齐 v2 WeChat app 查询与 access token 获取/刷新契约
-- `pkg/sdk/identity` 的 ProfileLink 查询支持 `include_revoked`
+- `pkg/sdk/identity` 保持拆分式客户端：`Client`、`ProfileClient`、`ProfileLinkClient`；ProfileLink 查询支持 `include_revoked`
 
 替代入口见 [07-migration-breaking-changes.md](./docs/07-migration-breaking-changes.md)。
 

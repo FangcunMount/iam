@@ -395,14 +395,14 @@ pkg/sdk/errors
 
 | SDK 子包 | 作用 |
 | --- | --- |
-| `sdk.NewClient` | 初始化 gRPC conn 和 Auth/Authz/Identity/ProfileLink/IDP 子客户端 |
+| `sdk.NewClient` | 初始化 gRPC conn 和 Auth/Authz/Identity/Profile/ProfileLink/IDP 子客户端 |
 | `auth/loginv2` | REST AuthN v2 显式登录 |
 | `auth/client` | gRPC AuthN client |
 | `auth/jwks` | JWKSManager |
 | `auth/verifier` | TokenVerifier，本地/远程/fallback 验证 |
 | `auth/serviceauth` | 服务间 token 获取、刷新和上下文注入 |
 | `authz` | Check、Allow、AllowScoped、AuthorizationSnapshot |
-| `identity` | User/Profile/ProfileLink 系统侧查询与命令 |
+| `identity` | User / ProfileCommand / ProfileLink 系统侧查询与命令 |
 | `idp` | 高信任 IDP 内部能力 |
 | `errors` | IAMError、IsNotFound、IsUnauthorized、IsPermissionDenied 等稳定错误 facade |
 
@@ -424,7 +424,7 @@ SDK public API 必须通过 compile test 保护
 | --- | --- | --- | --- |
 | AuthN | 登录、refresh、logout、verify、JWKS、account | VerifyToken、RefreshToken、RevokeToken、IssueServiceToken、JWKS | LoginV2、Auth client、JWKSManager、TokenVerifier、ServiceAuthHelper |
 | AuthZ | check、roles、assignments、policies、resources | AuthorizationService.Check、Snapshot、Grant/RevokeAssignment | Authz().Check / Allow / AllowScoped / Snapshot |
-| Identity | me、profiles、profile-links 当前用户视角 | IdentityRead、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle | Identity/ProfileLink client |
+| Identity | me、profiles、profile-links 当前用户视角 | IdentityRead、ProfileCommand、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle | Identity/Profile/ProfileLink client |
 | IDP | WechatApp 管理、IDP health、secret rotation、provider token 管理 | IDPService.GetWechatApp | IDP client，高信任内部能力 |
 | Suggest | profile suggest | 当前无主 gRPC 入口 | 当前不作为主要 SDK 稳定面 |
 
