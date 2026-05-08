@@ -45,7 +45,7 @@ func (h *ProfileHandler) CreateProfile(c *gin.Context) {
 	if req.Gender != nil {
 		gender = *req.Gender
 	}
-	result, err := h.myProfiles.Create(c.Request.Context(), userID, appprofile.CreateMyProfileDTO{
+	result, err := h.myProfiles.Create(c.Request.Context(), userID, appprofile.CreateProfileDTO{
 		Name:     strings.TrimSpace(req.LegalName),
 		Gender:   gender,
 		Birthday: strings.TrimSpace(req.DOB),

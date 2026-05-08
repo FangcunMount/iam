@@ -5,8 +5,6 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
-	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ======================================
@@ -31,70 +29,34 @@ func (s *profileEditor) Create(ctx context.Context, dto CreateProfileDTO) (*Prof
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		idCard, hasIDCard, err := optionalIDCard(dto.Name, dto.IDCard)
+		// 构建创建信息
+		info, err := buildProfileCreationInfo(dto)
 		if err != nil {
-			l.Errorw("档案身份证验证失败",
-				"action", logger.ActionCreate,
-				"resource", "profile",
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
 			return err
 		}
-		if hasIDCard {
-			checker := profiledomain.NewIDCardUniquenessChecker(tx.Profiles)
-			if err := checker.CheckIDCardUnique(txCtx, idCard); err != nil {
-				l.Errorw("档案身份证唯一性检查失败",
-					"action", logger.ActionCreate,
-					"resource", "profile",
-					"error", err.Error(),
-					"result", logger.ResultFailed,
-				)
-				return err
-			}
+
+		// 校验建档信息
+		if err := checkProfileCreationInfo(txCtx, tx.Profiles, info); err != nil {
+			return err
 		}
 
-		newProfile, err := buildProfileEntity(profileCreationInput{
-			Name:     dto.Name,
-			Gender:   meta.NewGender(dto.Gender),
-			Birthday: meta.NewBirthday(dto.Birthday),
-			IDCard:   idCard,
-		})
+		// 创建档案记录
+		newProfile, err := createProfileRecord(txCtx, tx.Profiles, info)
 		if err != nil {
-			l.Errorw("创建档案实体失败",
-				"action", logger.ActionCreate,
-				"resource", "profile",
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
 			return err
 		}
 
-		// 持久化档案
-		if err := tx.Profiles.Create(txCtx, newProfile); err != nil {
-			l.Errorw("持久化档案失败",
-				"action", logger.ActionCreate,
-				"resource", "profile",
-				"error", err.Error(),
-				"result", logger.ResultFailed,
-			)
-			return err
+		// 构建结果
+		result = &ProfileResult{
+			ID:       newProfile.ID.String(),
+			Name:     newProfile.Name,
+			Gender:   uint8(newProfile.Gender),
+			Birthday: newProfile.Birthday.String(),
+			IDCard:   newProfile.IDCard.Number(),
 		}
 
-		// 转换为 DTO
-		result = toProfileResult(newProfile)
 		return nil
 	})
-
-	if err == nil {
-		l.Debugw("档案创建成功",
-			"action", logger.ActionCreate,
-			"resource", "profile",
-			"resource_id", result.ID,
-			"profile_name", result.Name,
-			"result", logger.ResultSuccess,
-		)
-	}
 
 	return result, err
 }

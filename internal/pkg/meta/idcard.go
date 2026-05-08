@@ -32,7 +32,21 @@ func (c IDCard) Number() string      { return c.id.Number() } // 总是返回规
 func (c IDCard) ID() IDNumber        { return c.id }
 func (c IDCard) String() string      { return c.id.String() }
 func (c IDCard) Equal(o IDCard) bool { return c.name == o.name && c.id.Equal(o.id) }
-func (c IDCard) IsValid() bool       { return c.String() != "" }
+
+// IsValid 判断身份证信息是否合法（号码合法且姓名非空）
+func (c IDCard) IsValid() bool {
+	// 姓名不能为空且身份证号码合法
+	if c.name == "" {
+		return false
+	}
+
+	// 身份证号码必须合法
+	if !c.id.IsValid() {
+		return false
+	}
+
+	return true
+}
 
 // ============ DB 编解码：只存储身份证号码 ============
 
@@ -91,6 +105,21 @@ func (id IDNumber) String() string        { return id.v }
 func (id IDNumber) Number() string        { return id.v }
 func (id IDNumber) IsEmpty() bool         { return id.v == "" }
 func (id IDNumber) Equal(o IDNumber) bool { return id.v == o.v }
+
+// IsValid 判断身份证号码是否合法（格式合法且校验位正确）
+func (id IDNumber) IsValid() bool {
+	// 空值不合法
+	if id.IsEmpty() {
+		return false
+	}
+
+	// 验证规范化为18位的合法性（长度、格式、校验位）
+	if _, err := normalize18(id.v); err != nil {
+		return false
+	}
+
+	return true
+}
 
 // BirthDate 解析出生日期
 func (id IDNumber) BirthDate() (time.Time, error) {
@@ -201,6 +230,7 @@ var validProv = map[string]struct{}{
 	"71": {}, "81": {}, "82": {}, // 台湾/香港/澳门 省级代码
 }
 
+// normalize18 验证并规范化为18位身份证号码（统一大写，校验位正确）
 func normalize18(s string) (string, error) {
 	if len(s) != 18 {
 		return "", errors.New("长度不是18位")

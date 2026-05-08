@@ -1,6 +1,9 @@
 package meta
 
-import "database/sql/driver"
+import (
+	"database/sql/driver"
+	"time"
+)
 
 type Birthday struct {
 	day string // YYYY-MM-DD
@@ -34,6 +37,12 @@ func (b Birthday) IsEmpty() bool {
 // IsValid 判断生日的合法性
 func (b Birthday) IsValid() bool {
 	if b.IsEmpty() {
+		return false
+	}
+
+	// 验证年月日的合法性
+	// 用 time 包解析验证日期是否合法
+	if _, err := time.Parse("2006-01-02", b.day); err != nil {
 		return false
 	}
 

@@ -11,7 +11,10 @@ import (
 
 // Repository 档案存储接口
 type Repository interface {
+	// Create 创建档案
 	Create(ctx context.Context, profile *Profile) error
+
+	// 读取档案
 	FindByID(ctx context.Context, id meta.ID) (*Profile, error)
 	FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*Profile, error)
 	FindByName(ctx context.Context, name string) (*Profile, error)
@@ -19,5 +22,7 @@ type Repository interface {
 	FindListByName(ctx context.Context, name string) (profiles []*Profile, err error)
 	FindListByNameAndBirthday(ctx context.Context, name string, birthday meta.Birthday) (profiles []*Profile, err error)
 	FindSimilar(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) (profiles []*Profile, err error)
+
+	// Update 更新档案
 	Update(ctx context.Context, profile *Profile) error
 }

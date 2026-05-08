@@ -37,7 +37,7 @@ type Directory interface {
 // MyProfiles 当前用户视角的档案用例。
 type MyProfiles interface {
 	// Create 创建档案并建立与当前用户的关系。relation 可选，表示关系类型，如 "self"、"family" 等。
-	Create(ctx context.Context, currUserID meta.ID, dto CreateMyProfileDTO) (*CreatedProfileResult, error)
+	Create(ctx context.Context, currUserID meta.ID, dto CreateProfileDTO) (*CreatedProfileResult, error)
 	// List 列出当前用户相关的所有档案及其关系。
 	List(ctx context.Context, userID meta.ID) ([]*ProfileResult, error)
 	// Get 获取当前用户与指定档案的关系和档案信息。
@@ -54,6 +54,7 @@ type CreateProfileDTO struct {
 	Gender   uint8
 	Birthday string
 	IDCard   string
+	Relation string
 }
 
 // CreateMyProfileDTO 当前用户创建档案并建立关系 DTO。

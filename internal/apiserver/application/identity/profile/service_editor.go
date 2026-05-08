@@ -13,9 +13,13 @@ import (
 // ==== Editor 实现 =====
 // ==============================================
 
+// profileEditor 实现了 Editor 接口，负责处理档案的修改操作。
 type profileEditor struct {
 	uow uow.UnitOfWork
 }
+
+// 确保 profileEditor 实现了 Editor 接口。
+var _ Editor = (*profileEditor)(nil)
 
 // NewEditor 创建档案资料用例。
 func NewEditor(uow uow.UnitOfWork) Editor {
