@@ -18,7 +18,7 @@ func TestProfileCommandCreateProfileUsesMyProfilesCreate(t *testing.T) {
 
 	resp, err := server.CreateProfile(context.Background(), &identityv2.CreateProfileRequest{
 		UserId:       "100",
-		LegalName:    "儿童档案",
+		LegalName:    "测试档案",
 		Gender:       identityv2.Gender_GENDER_MALE,
 		Dob:          "2020-01-01",
 		IdCardNumber: "110101202001011234",
@@ -31,7 +31,7 @@ func TestProfileCommandCreateProfileUsesMyProfilesCreate(t *testing.T) {
 	require.Len(t, stub.createCalls, 1)
 	require.Equal(t, meta.FromUint64(100), stub.createCalls[0].userID)
 	require.Equal(t, profileApp.CreateProfileDTO{
-		Name:     "儿童档案",
+		Name:     "测试档案",
 		Gender:   1,
 		Birthday: "2020-01-01",
 		IDCard:   "110101202001011234",
