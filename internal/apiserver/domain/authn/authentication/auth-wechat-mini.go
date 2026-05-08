@@ -102,24 +102,17 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 	}
 
 	// Step 1: 与微信IdP交互，用jsCode换取openID
-
-	openID, unionID, err := o.idp.ExchangeWxMinipCode(ctx, wechatCred.AppID, wechatCred.AppSecret, wechatCred.Code)
+	identity, err := o.exchangeWechatMinipIdentity(ctx, wechatCred)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to exchange wx minip code: %w", err)
+		return AuthDecision{}, err
 	}
 
 	// Step 2: 根据openID查找凭据绑定（优先使用unionID，回退到openID）
-	idpIdentifier := openID
-	if unionID != "" {
-		idpIdentifier = unionID
-	}
-
-	accountID, userID, credentialID, err := o.credRepo.FindOAuthCredential(ctx, string(credDomain.CredOAuthWxMinip), wechatCred.AppID, idpIdentifier)
+	accountID, userID, credentialID, found, err := o.findWechatMinipCredential(ctx, wechatCred, identity)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to find wx minip credential: %w", err)
+		return AuthDecision{}, err
 	}
-	if credentialID.IsZero() {
-		// 业务失败：微信账号未绑定
+	if !found {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrNoBinding,
@@ -127,32 +120,82 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 	}
 
 	// Step 3: 检查账户状态
-	enabled, locked, err := o.accountRepo.GetAccountStatus(ctx, accountID)
+	statusFailure, err := accountStatusFailureDecision(ctx, o.accountRepo, accountID)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to get account status: %w", err)
+		return AuthDecision{}, err
 	}
-	if !enabled {
-		return AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialDisabled,
-		}, nil
-	}
-	if locked {
-		return AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialLocked,
-		}, nil
+	if statusFailure != nil {
+		return *statusFailure, nil
 	}
 
 	// Step 4: 认证成功，构造Principal
+	return o.buildWechatMinipSuccessDecision(ctx, wechatCred, identity, accountID, userID, credentialID), nil
+}
+
+// wechatMinipIdentity 微信小程序身份
+type wechatMinipIdentity struct {
+	openID  string
+	unionID string
+}
+
+// exchangeWechatMinipIdentity 与微信IdP交互，用jsCode换取openID
+func (o *OAuthWechatMinipAuthStrategy) exchangeWechatMinipIdentity(ctx context.Context, credential *WechatMinipCredential) (wechatMinipIdentity, error) {
+	openID, unionID, err := o.idp.ExchangeWxMinipCode(ctx, credential.AppID, credential.AppSecret, credential.Code)
+	if err != nil {
+		return wechatMinipIdentity{}, fmt.Errorf("failed to exchange wx minip code: %w", err)
+	}
+	return wechatMinipIdentity{
+		openID:  openID,
+		unionID: unionID,
+	}, nil
+}
+
+// findWechatMinipCredential 根据openID查找凭据绑定
+func (o *OAuthWechatMinipAuthStrategy) findWechatMinipCredential(
+	ctx context.Context,
+	credential *WechatMinipCredential,
+	identity wechatMinipIdentity,
+) (meta.ID, meta.ID, meta.ID, bool, error) {
+	accountID, userID, credentialID, err := o.credRepo.FindOAuthCredential(
+		ctx,
+		string(credDomain.CredOAuthWxMinip),
+		credential.AppID,
+		wechatMinipIDPIdentifier(identity),
+	)
+	if err != nil {
+		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, fmt.Errorf("failed to find wx minip credential: %w", err)
+	}
+	if credentialID.IsZero() {
+		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, nil
+	}
+	return accountID, userID, credentialID, true, nil
+}
+
+// wechatMinipIDPIdentifier 微信小程序IDP标识符
+func wechatMinipIDPIdentifier(identity wechatMinipIdentity) string {
+	if identity.unionID != "" {
+		return identity.unionID
+	}
+	return identity.openID
+}
+
+// buildWechatMinipSuccessDecision 认证成功，构造Principal
+func (o *OAuthWechatMinipAuthStrategy) buildWechatMinipSuccessDecision(
+	ctx context.Context,
+	credential *WechatMinipCredential,
+	identity wechatMinipIdentity,
+	accountID meta.ID,
+	userID meta.ID,
+	credentialID meta.ID,
+) AuthDecision {
 	principal := &Principal{
 		AccountID: accountID,
 		UserID:    userID,
-		TenantID:  wechatCred.TenantID,
+		TenantID:  credential.TenantID,
 		AMR:       []string{string(AMRWx)},
 		Claims: map[string]any{
-			"wx_openid":  openID,
-			"wx_unionid": unionID,
+			"wx_openid":  identity.openID,
+			"wx_unionid": identity.unionID,
 			"auth_time":  ctx.Value("request_time"),
 		},
 	}
@@ -160,6 +203,7 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 	return AuthDecision{
 		OK:           true,
 		Principal:    principal,
+		AccountID:    accountID,
 		CredentialID: credentialID,
-	}, nil
+	}
 }

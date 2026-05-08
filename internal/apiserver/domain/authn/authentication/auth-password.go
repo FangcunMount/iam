@@ -116,13 +116,14 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	principalTenant, ok := resolvePasswordPrincipalTenant(passwordCredential.TenantID, lookup)
 	if !ok {
 		return AuthDecision{
-			OK:   false,
-			Code: code.ErrInvalidCredentials,
+			OK:        false,
+			Code:      code.ErrInvalidCredentials,
+			AccountID: accountID,
 		}, nil
 	}
 
 	// Step 2: 检查账户状态
-	statusFailure, err := p.accountStatusFailure(ctx, accountID)
+	statusFailure, err := accountStatusFailureDecision(ctx, p.accountRepo, accountID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
@@ -137,8 +138,9 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 	if !found {
 		return AuthDecision{
-			OK:   false,
-			Code: code.ErrInvalidCredentials,
+			OK:        false,
+			Code:      code.ErrInvalidCredentials,
+			AccountID: accountID,
 		}, nil
 	}
 
@@ -149,6 +151,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		return AuthDecision{
 			OK:           false,
 			Code:         code.ErrInvalidCredentials,
+			AccountID:    accountID,
 			CredentialID: credentialID,
 		}, nil
 	}
@@ -170,6 +173,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	return AuthDecision{
 		OK:           true,
 		Principal:    principal,
+		AccountID:    accountID,
 		CredentialID: credentialID,
 		ShouldRotate: shouldRotate,
 		NewMaterial:  newMaterial,
@@ -194,28 +198,6 @@ func resolvePasswordPrincipalTenant(requestTenantID meta.ID, lookup *UsernameLog
 		return meta.ZeroID, false
 	}
 	return requestTenantID, true
-}
-
-// 检查账户状态是否失败
-func (p *PasswordAuthStrategy) accountStatusFailure(ctx context.Context, accountID meta.ID) (*AuthDecision, error) {
-	enabled, locked, err := p.accountRepo.GetAccountStatus(ctx, accountID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account status: %w", err)
-	}
-	if !enabled {
-		return &AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialDisabled,
-		}, nil
-	}
-	if locked {
-		return &AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialLocked,
-		}, nil
-	}
-
-	return nil, nil
 }
 
 // findPasswordCredential 查找密码凭据

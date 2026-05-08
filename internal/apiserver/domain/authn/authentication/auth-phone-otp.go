@@ -65,6 +65,8 @@ type PhoneOTPAuthStrategy struct {
 // 实现认证策略接口
 var _ AuthStrategy = (*PhoneOTPAuthStrategy)(nil)
 
+const phoneOTPLoginScene = "login"
+
 // NewPhoneOTPAuthStrategy 构造函数（注入依赖）
 func NewPhoneOTPAuthStrategy(
 	credRepo CredentialRepository,
@@ -97,9 +99,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	// Step 1: 验证OTP并标记为已使用
-	const otpScene = "login" // OTP场景：登录
-	if !p.otpVerifier.VerifyAndConsume(ctx, otpCredential.PhoneE164, otpScene, otpCredential.OTP) {
-		// 业务失败：OTP无效或已过期
+	if !p.verifyLoginOTP(ctx, otpCredential) {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrOTPInvalid,
@@ -107,12 +107,11 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	// Step 2: 根据手机号查找凭据绑定
-	accountID, userID, credentialID, err := p.credRepo.FindPhoneOTPCredential(ctx, otpCredential.PhoneE164)
+	accountID, userID, credentialID, found, err := p.findPhoneOTPCredential(ctx, otpCredential.PhoneE164)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to find phone OTP credential: %w", err)
+		return AuthDecision{}, err
 	}
-	if credentialID.IsZero() {
-		// 业务失败：手机号未绑定账户
+	if !found {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrNoBinding,
@@ -120,31 +119,50 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	// Step 3: 检查账户状态
-	enabled, locked, err := p.accountRepo.GetAccountStatus(ctx, accountID)
+	statusFailure, err := accountStatusFailureDecision(ctx, p.accountRepo, accountID)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to get account status: %w", err)
+		return AuthDecision{}, err
 	}
-	if !enabled {
-		return AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialDisabled,
-		}, nil
-	}
-	if locked {
-		return AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialLocked,
-		}, nil
+	if statusFailure != nil {
+		return *statusFailure, nil
 	}
 
 	// Step 4: 认证成功，构造Principal
+	return p.buildPhoneOTPSuccessDecision(ctx, otpCredential, accountID, userID, credentialID), nil
+}
+
+// verifyLoginOTP 验证OTP并标记为已使用
+func (p *PhoneOTPAuthStrategy) verifyLoginOTP(ctx context.Context, credential *PhoneOTPCredential) bool {
+	return p.otpVerifier.VerifyAndConsume(ctx, credential.PhoneE164, phoneOTPLoginScene, credential.OTP)
+}
+
+// findPhoneOTPCredential 根据手机号查找凭据绑定
+func (p *PhoneOTPAuthStrategy) findPhoneOTPCredential(ctx context.Context, phoneE164 string) (meta.ID, meta.ID, meta.ID, bool, error) {
+	accountID, userID, credentialID, err := p.credRepo.FindPhoneOTPCredential(ctx, phoneE164)
+	if err != nil {
+		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, fmt.Errorf("failed to find phone OTP credential: %w", err)
+	}
+	if credentialID.IsZero() {
+		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, nil
+	}
+	return accountID, userID, credentialID, true, nil
+}
+
+// buildPhoneOTPSuccessDecision 认证成功，构造Principal
+func (p *PhoneOTPAuthStrategy) buildPhoneOTPSuccessDecision(
+	ctx context.Context,
+	credential *PhoneOTPCredential,
+	accountID meta.ID,
+	userID meta.ID,
+	credentialID meta.ID,
+) AuthDecision {
 	principal := &Principal{
 		AccountID: accountID,
 		UserID:    userID,
-		TenantID:  otpCredential.TenantID,
+		TenantID:  credential.TenantID,
 		AMR:       []string{string(AMROTP)},
 		Claims: map[string]any{
-			"phone_number": otpCredential.PhoneE164,
+			"phone_number": credential.PhoneE164,
 			"auth_time":    ctx.Value("request_time"),
 		},
 	}
@@ -152,6 +170,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	return AuthDecision{
 		OK:           true,
 		Principal:    principal,
+		AccountID:    accountID,
 		CredentialID: credentialID,
-	}, nil
+	}
 }

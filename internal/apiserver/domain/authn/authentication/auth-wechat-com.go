@@ -111,23 +111,17 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 	}
 
 	// Step 1: 与企业微信IdP交互，用code换取用户信息
-	openUserID, userID, err := o.idp.ExchangeWecomCode(ctx, wecomCred.CorpID, wecomCred.AgentID, wecomCred.CorpSecret, wecomCred.Code)
+	identity, err := o.exchangeWecomIdentity(ctx, wecomCred)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to exchange wecom code: %w", err)
+		return AuthDecision{}, err
 	}
 
 	// Step 2: 根据UserID查找凭据绑定（优先使用UserID，回退到OpenUserID）
-	idpIdentifier := userID
-	if idpIdentifier == "" {
-		idpIdentifier = openUserID
-	}
-
-	accountID, uid, credentialID, err := o.credRepo.FindOAuthCredential(ctx, "wecom", wecomCred.CorpID, idpIdentifier)
+	accountID, userID, credentialID, found, err := o.findWecomCredential(ctx, wecomCred, identity)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to find wecom credential: %w", err)
+		return AuthDecision{}, err
 	}
-	if credentialID.IsZero() {
-		// 业务失败：企业微信账号未绑定
+	if !found {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrNoBinding,
@@ -135,34 +129,84 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 	}
 
 	// Step 3: 检查账户状态
-	enabled, locked, err := o.accountRepo.GetAccountStatus(ctx, accountID)
+	statusFailure, err := accountStatusFailureDecision(ctx, o.accountRepo, accountID)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to get account status: %w", err)
+		return AuthDecision{}, err
 	}
-	if !enabled {
-		return AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialDisabled,
-		}, nil
-	}
-	if locked {
-		return AuthDecision{
-			OK:   false,
-			Code: code.ErrCredentialLocked,
-		}, nil
+	if statusFailure != nil {
+		return *statusFailure, nil
 	}
 
 	// Step 4: 认证成功，构造Principal
+	return o.buildWecomSuccessDecision(ctx, wecomCred, identity, accountID, userID, credentialID), nil
+}
+
+// wecomIdentity 企业微信身份
+type wecomIdentity struct {
+	openUserID string
+	userID     string
+}
+
+// exchangeWecomIdentity 与企业微信IdP交互，用code换取用户信息
+func (o *OAuthWeChatComAuthStrategy) exchangeWecomIdentity(ctx context.Context, credential *WecomCredential) (wecomIdentity, error) {
+	openUserID, userID, err := o.idp.ExchangeWecomCode(ctx, credential.CorpID, credential.AgentID, credential.CorpSecret, credential.Code)
+	if err != nil {
+		return wecomIdentity{}, fmt.Errorf("failed to exchange wecom code: %w", err)
+	}
+	return wecomIdentity{
+		openUserID: openUserID,
+		userID:     userID,
+	}, nil
+}
+
+// findWecomCredential 根据UserID查找凭据绑定
+func (o *OAuthWeChatComAuthStrategy) findWecomCredential(
+	ctx context.Context,
+	credential *WecomCredential,
+	identity wecomIdentity,
+) (meta.ID, meta.ID, meta.ID, bool, error) {
+	accountID, userID, credentialID, err := o.credRepo.FindOAuthCredential(
+		ctx,
+		"wecom",
+		credential.CorpID,
+		wecomIDPIdentifier(identity),
+	)
+	if err != nil {
+		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, fmt.Errorf("failed to find wecom credential: %w", err)
+	}
+	if credentialID.IsZero() {
+		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, nil
+	}
+	return accountID, userID, credentialID, true, nil
+}
+
+// wecomIDPIdentifier 企业微信IDP标识符
+func wecomIDPIdentifier(identity wecomIdentity) string {
+	if identity.userID != "" {
+		return identity.userID
+	}
+	return identity.openUserID
+}
+
+// buildWecomSuccessDecision 认证成功，构造Principal
+func (o *OAuthWeChatComAuthStrategy) buildWecomSuccessDecision(
+	ctx context.Context,
+	credential *WecomCredential,
+	identity wecomIdentity,
+	accountID meta.ID,
+	userID meta.ID,
+	credentialID meta.ID,
+) AuthDecision {
 	principal := &Principal{
 		AccountID: accountID,
-		UserID:    uid,
-		TenantID:  wecomCred.TenantID,
+		UserID:    userID,
+		TenantID:  credential.TenantID,
 		AMR:       []string{string(AMRWecom)},
 		Claims: map[string]any{
-			"wecom_corp_id":      wecomCred.CorpID,
-			"wecom_state":        wecomCred.State,
-			"wecom_user_id":      userID,
-			"wecom_open_user_id": openUserID,
+			"wecom_corp_id":      credential.CorpID,
+			"wecom_state":        credential.State,
+			"wecom_user_id":      identity.userID,
+			"wecom_open_user_id": identity.openUserID,
 			"auth_time":          ctx.Value("request_time"),
 		},
 	}
@@ -170,6 +214,7 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 	return AuthDecision{
 		OK:           true,
 		Principal:    principal,
+		AccountID:    accountID,
 		CredentialID: credentialID,
-	}, nil
+	}
 }

@@ -17,7 +17,8 @@ type AuthStrategy interface {
 
 // Authenticator 认证器
 type Authenticator struct {
-	strategies map[credDomain.CredentialType]AuthStrategy
+	strategies  map[credDomain.CredentialType]AuthStrategy
+	auditLogger AuditLogger
 }
 
 // NewAuthenticator 创建认证器
@@ -31,6 +32,7 @@ func NewAuthenticator(strategies ...AuthStrategy) *Authenticator {
 	return authenticator
 }
 
+// Register 注册认证策略
 func (a *Authenticator) Register(strategy AuthStrategy) {
 	if a == nil || strategy == nil {
 		return
@@ -39,6 +41,15 @@ func (a *Authenticator) Register(strategy AuthStrategy) {
 		a.strategies = make(map[credDomain.CredentialType]AuthStrategy)
 	}
 	a.strategies[strategy.Kind()] = strategy
+}
+
+// WithAuditLogger 设置审计日志记录器
+func (a *Authenticator) WithAuditLogger(auditLogger AuditLogger) *Authenticator {
+	if a == nil {
+		return nil
+	}
+	a.auditLogger = auditLogger
+	return a
 }
 
 // Authenticate 认证
@@ -66,6 +77,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		"claims", make(map[string]any),
 	)
 
+	// 获取认证策略
 	strategy := a.strategyFor(credentialType)
 	if strategy == nil {
 		l.Errorw("不支持的认证场景",
@@ -87,6 +99,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		"credential_type", string(credentialType),
 	)
 
+	// 执行认证策略
 	decision, err := strategy.Authenticate(ctx, proof)
 	if err != nil {
 		l.Errorw("认证策略执行出错",
@@ -97,6 +110,10 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		return AuthDecision{}, err
 	}
 
+	// 记录审计日志
+	a.logAuthAttempt(ctx, proof, decision)
+
+	// 认证不通过
 	if !decision.OK {
 		l.Warnw("认证不通过（域层）",
 			"action", logger.ActionLogin,
@@ -106,6 +123,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		return decision, nil
 	}
 
+	// 认证通过
 	l.Debugw("认证成功（域层）",
 		"action", logger.ActionLogin,
 		"credential_type", string(credentialType),
@@ -117,9 +135,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 	return decision, nil
 }
 
+// strategyFor 获取认证策略
 func (a *Authenticator) strategyFor(credentialType credDomain.CredentialType) AuthStrategy {
-	if a == nil {
-		return nil
-	}
 	return a.strategies[credentialType]
 }

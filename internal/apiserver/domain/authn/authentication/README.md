@@ -7,6 +7,7 @@
 - `AuthCredential` 是已经由应用层选好登录方式后构造出的领域 proof。
 - `Authenticator` 只按 `AuthCredential.CredentialType()` 分派到构造期注入的 `AuthStrategy`。
 - 领域策略只返回 `AuthDecision`：认证是否通过、失败原因、命中的 credential、以及是否需要 credential material rotation。
+- `Authenticator` 可以通过可选的 `AuditLogger` 统一记录认证判决。策略本身不直接写审计；失败次数统计、暴力破解防护、锁定策略等由审计端口的实现承接。
 - 领域层可以依赖账号仓储、凭据仓储、密码哈希、OTP verifier、IdP 交换端口，因为这些是认证判定所需的 driven ports。
 
 ## 不属于本包的职责
