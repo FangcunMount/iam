@@ -226,3 +226,45 @@ func TestMethodSelectorUsesAuthMethodAsAuthority(t *testing.T) {
 	require.Equal(t, "alice", payload.Username)
 	require.Equal(t, "secret", payload.Password)
 }
+
+func TestLoginPayloadFailureUsesPayloadInvalidCode(t *testing.T) {
+	t.Parallel()
+
+	auth := authentication.NewAuthenticator()
+	issuer := &loginTokenIssuerStub{}
+	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(&loginTokenVerifierStub{}))
+
+	result, err := svc.Login(context.Background(), LoginRequest{
+		AuthMethod: AuthMethodPassword,
+		Payload: PhoneOTPPayload{
+			PhoneE164: "+8613800138000",
+			OTP:       "123456",
+		},
+	})
+
+	require.Nil(t, result)
+	require.Error(t, err)
+	require.Equal(t, code.ErrPayloadInvalid, perrors.ParseCoder(err).Code())
+	require.Nil(t, issuer.captured)
+}
+
+func TestLoginProofFailureUsesProofBuildFailedCode(t *testing.T) {
+	t.Parallel()
+
+	auth := authentication.NewAuthenticator()
+	issuer := &loginTokenIssuerStub{}
+	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(&loginTokenVerifierStub{}))
+
+	result, err := svc.Login(context.Background(), LoginRequest{
+		AuthMethod: AuthMethodWecom,
+		Payload: WecomPayload{
+			CorpID: "corp-id",
+			Code:   "auth-code",
+		},
+	})
+
+	require.Nil(t, result)
+	require.Error(t, err)
+	require.Equal(t, code.ErrProofBuildFailed, perrors.ParseCoder(err).Code())
+	require.Nil(t, issuer.captured)
+}

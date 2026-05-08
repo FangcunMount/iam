@@ -35,13 +35,13 @@ func (wechatMethod) CredentialKind() CredentialKind {
 func (wechatMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
 	payload, ok := cmd.Payload.(WechatPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid wechat payload")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "invalid wechat payload")
 	}
 	if payload.AppID == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "app_id is required for wechat authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "app_id is required for wechat authentication")
 	}
 	if payload.JSCode == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "code is required for wechat authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "code is required for wechat authentication")
 	}
 	return payload, nil
 }

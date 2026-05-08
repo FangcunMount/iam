@@ -48,6 +48,12 @@ func authFailureMessage(codeValue int) string {
 		return "no account binding found"
 	case code.ErrOTPSendTooFrequent:
 		return "OTP send too frequent"
+	case code.ErrUnsupportedAuthMethod:
+		return "unsupported authentication method"
+	case code.ErrPayloadInvalid:
+		return "authentication payload is invalid"
+	case code.ErrProofBuildFailed:
+		return "failed to build authentication proof"
 	case code.ErrUserBlocked:
 		return "user is blocked"
 	case code.ErrUserInactive:

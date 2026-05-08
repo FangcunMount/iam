@@ -123,13 +123,16 @@ const (
 
 // Authn: 认证流程相关错误码 (102400～102499).
 const (
-	ErrAuthenticationFailed = 102400
-	ErrOTPInvalid           = 102401
-	ErrStateMismatch        = 102402
-	ErrIDPExchangeFailed    = 102403
-	ErrNoBinding            = 102404
-	ErrOTPSendTooFrequent   = 102405
-	ErrTokenRevokeFailed    = 102406
+	ErrAuthenticationFailed  = 102400
+	ErrOTPInvalid            = 102401
+	ErrStateMismatch         = 102402
+	ErrIDPExchangeFailed     = 102403
+	ErrNoBinding             = 102404
+	ErrOTPSendTooFrequent    = 102405
+	ErrTokenRevokeFailed     = 102406
+	ErrUnsupportedAuthMethod = 102407
+	ErrPayloadInvalid        = 102408
+	ErrProofBuildFailed      = 102409
 )
 
 // nolint: gochecknoinits
@@ -195,6 +198,9 @@ func registerAuthn() {
 	errors.MustRegister(&authnCoder{code: ErrNoBinding, status: http.StatusUnauthorized, msg: "No account binding found"})
 	errors.MustRegister(&authnCoder{code: ErrOTPSendTooFrequent, status: http.StatusTooManyRequests, msg: "OTP send too frequent"})
 	errors.MustRegister(&authnCoder{code: ErrTokenRevokeFailed, status: http.StatusInternalServerError, msg: "Token revoke failed"})
+	errors.MustRegister(&authnCoder{code: ErrUnsupportedAuthMethod, status: http.StatusBadRequest, msg: "Unsupported authentication method"})
+	errors.MustRegister(&authnCoder{code: ErrPayloadInvalid, status: http.StatusBadRequest, msg: "Authentication payload is invalid"})
+	errors.MustRegister(&authnCoder{code: ErrProofBuildFailed, status: http.StatusBadRequest, msg: "Failed to build authentication proof"})
 }
 
 // authnCoder 实现 errors.Coder 接口

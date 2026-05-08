@@ -29,19 +29,19 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 	// 选择登录方式
 	selection, err := s.methodRegistry.Select(ctx, cmd)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "failed to select login method: %w", err)
+		return nil, wrapLoginStageError(err, code.ErrUnsupportedAuthMethod, "failed to select login method")
 	}
 
 	// 构建认证凭据
 	credential, err := s.proofFactory.Build(ctx, selection)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "failed to build credential: %w", err)
+		return nil, wrapLoginStageError(err, code.ErrProofBuildFailed, "failed to build credential")
 	}
 
 	// 进行认证
 	decision, err := s.domainAuthenticator.Authenticate(ctx, credential)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "failed to authenticate: %w", err)
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to authenticate")
 	}
 	if !decision.OK {
 		return nil, authFailureError(decision.Code)
@@ -64,6 +64,14 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 		AccountID: decision.Principal.AccountID,
 		TenantID:  decision.Principal.TenantID,
 	}, nil
+}
+
+func wrapLoginStageError(err error, fallbackCode int, message string) error {
+	codeValue := fallbackCode
+	if coder := perrors.ParseCoder(err); coder != nil && coder.Code() != 0 {
+		codeValue = coder.Code()
+	}
+	return perrors.WrapC(err, codeValue, "%s", message)
 }
 
 // ensurePrincipalTenantID 补齐认证主体的默认租户ID

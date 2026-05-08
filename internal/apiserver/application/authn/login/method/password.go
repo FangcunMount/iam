@@ -35,13 +35,13 @@ func (passwordMethod) CredentialKind() CredentialKind {
 func (passwordMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
 	payload, ok := cmd.Payload.(PasswordPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid password payload")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "invalid password payload")
 	}
 	if payload.Username == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "username is required for password authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "username is required for password authentication")
 	}
 	if payload.Password == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "password is required for password authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "password is required for password authentication")
 	}
 	return payload, nil
 }

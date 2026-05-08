@@ -69,7 +69,7 @@ func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 
 	require.Nil(t, credential)
 	require.Error(t, err)
-	require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
+	require.Equal(t, code.ErrProofBuildFailed, perrors.ParseCoder(err).Code())
 }
 
 func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
@@ -85,13 +85,13 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 			name:     "query failure",
 			repo:     &wecomAppRepoStub{err: errors.New("db down")},
 			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantCode: code.ErrInvalidArgument,
+			wantCode: code.ErrProofBuildFailed,
 		},
 		{
 			name:     "app missing",
 			repo:     &wecomAppRepoStub{},
 			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantCode: code.ErrInvalidArgument,
+			wantCode: code.ErrProofBuildFailed,
 		},
 		{
 			name: "app disabled",
@@ -103,7 +103,7 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 				},
 			}},
 			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantCode: code.ErrInvalidArgument,
+			wantCode: code.ErrProofBuildFailed,
 		},
 		{
 			name: "credentials missing",
@@ -112,7 +112,7 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 				Status: idpWechatApp.StatusEnabled,
 			}},
 			vault:    wecomSecretVaultStub{plaintext: "corp-secret"},
-			wantCode: code.ErrInvalidArgument,
+			wantCode: code.ErrProofBuildFailed,
 		},
 		{
 			name: "secret decrypt failure",
@@ -124,7 +124,7 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 				},
 			}},
 			vault:    wecomSecretVaultStub{err: errors.New("kms down")},
-			wantCode: code.ErrInvalidArgument,
+			wantCode: code.ErrProofBuildFailed,
 		},
 	}
 

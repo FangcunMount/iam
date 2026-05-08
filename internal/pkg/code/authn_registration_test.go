@@ -77,6 +77,24 @@ func TestAuthnErrorCodesUsage(t *testing.T) {
 			expectedStatus: http.StatusTooManyRequests,
 			shouldRegister: true,
 		},
+		{
+			name:           "ErrUnsupportedAuthMethod",
+			errorCode:      code.ErrUnsupportedAuthMethod,
+			expectedStatus: http.StatusBadRequest,
+			shouldRegister: true,
+		},
+		{
+			name:           "ErrPayloadInvalid",
+			errorCode:      code.ErrPayloadInvalid,
+			expectedStatus: http.StatusBadRequest,
+			shouldRegister: true,
+		},
+		{
+			name:           "ErrProofBuildFailed",
+			errorCode:      code.ErrProofBuildFailed,
+			expectedStatus: http.StatusBadRequest,
+			shouldRegister: true,
+		},
 	}
 
 	for _, tt := range tests {

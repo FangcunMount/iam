@@ -35,13 +35,13 @@ func (phoneOTPMethod) CredentialKind() CredentialKind {
 func (phoneOTPMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
 	payload, ok := cmd.Payload.(PhoneOTPPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid phone otp payload")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "invalid phone otp payload")
 	}
 	if payload.PhoneE164 == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "phone is required for phone otp authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "phone is required for phone otp authentication")
 	}
 	if payload.OTP == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "otp_code is required for phone otp authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "otp_code is required for phone otp authentication")
 	}
 	return payload, nil
 }

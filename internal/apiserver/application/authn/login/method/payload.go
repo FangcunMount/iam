@@ -3,6 +3,9 @@ package method
 import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 // CommonPayload 是所有登录方式共享的请求上下文。
+//
+// 它只能从 LoginRequest 顶层字段提取。具体 method Payload 不应包含
+// TenantID、RemoteIP、UserAgent，避免同一上下文出现两套来源。
 type CommonPayload struct {
 	TenantID  meta.ID
 	RemoteIP  string

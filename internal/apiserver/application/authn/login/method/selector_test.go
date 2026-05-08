@@ -67,7 +67,7 @@ func TestSelectorUsesAuthMethodAsAuthority(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
+	require.Equal(t, code.ErrPayloadInvalid, perrors.ParseCoder(err).Code())
 	require.Equal(t, LoginMethodSelection{}, selected)
 }
 
@@ -119,7 +119,7 @@ func TestSelectorRequiresSelectedMethodFields(t *testing.T) {
 			_, err := selector.Select(context.Background(), tc.cmd)
 
 			require.Error(t, err)
-			require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
+			require.Equal(t, code.ErrPayloadInvalid, perrors.ParseCoder(err).Code())
 		})
 	}
 }

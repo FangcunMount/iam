@@ -26,7 +26,7 @@ func (passwordBuilder) CredentialKind() method.CredentialKind {
 func (passwordBuilder) Build(_ context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
 	passwordPayload, ok := payload.(method.PasswordPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid password payload")
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid password payload")
 	}
 	return authentication.NewPasswordCredential(authentication.PasswordProofSpec{
 		TenantID:  common.TenantID,

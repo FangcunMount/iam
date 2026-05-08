@@ -41,10 +41,10 @@ type WecomWirePayload struct {
 func BuildExplicitWireLoginRequest(rawMethod string, payload json.RawMessage) (method.LoginRequest, error) {
 	authMethod := method.AuthMethod(strings.TrimSpace(rawMethod))
 	if !isExplicitWireAuthMethod(authMethod) {
-		return method.LoginRequest{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", rawMethod)
+		return method.LoginRequest{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "unsupported authentication method: %s", rawMethod)
 	}
 	if len(payload) == 0 {
-		return method.LoginRequest{}, perrors.WithCode(code.ErrInvalidArgument, "method_payload is required")
+		return method.LoginRequest{}, perrors.WithCode(code.ErrPayloadInvalid, "method_payload is required")
 	}
 
 	switch authMethod {
@@ -57,7 +57,7 @@ func BuildExplicitWireLoginRequest(rawMethod string, payload json.RawMessage) (m
 	case method.AuthMethodWecom:
 		return buildWecomRequest(payload)
 	default:
-		return method.LoginRequest{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", rawMethod)
+		return method.LoginRequest{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "unsupported authentication method: %s", rawMethod)
 	}
 }
 

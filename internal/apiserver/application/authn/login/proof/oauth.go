@@ -33,7 +33,7 @@ func (*wechatBuilder) CredentialKind() method.CredentialKind {
 func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
 	wechatPayload, ok := payload.(method.WechatPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid wechat payload")
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid wechat payload")
 	}
 	// 准备微信小程序应用密钥
 	appSecret, err := b.prepareWechatAppSecret(ctx, wechatPayload)
@@ -60,7 +60,7 @@ func (b *wechatBuilder) prepareWechatAppSecret(ctx context.Context, payload meth
 			"action", logger.ActionLogin,
 			"credential_type", string(credDomain.CredOAuthWxMinip),
 		)
-		return "", perrors.WithCode(code.ErrInvalidArgument, "wechat app configuration service not available")
+		return "", perrors.WithCode(code.ErrProofBuildFailed, "wechat app configuration service not available")
 	}
 
 	wechatApp, err := b.wechatAppQuerier.GetByAppID(ctx, payload.AppID)
@@ -71,7 +71,7 @@ func (b *wechatBuilder) prepareWechatAppSecret(ctx context.Context, payload meth
 			"app_id", payload.AppID,
 			"error", err.Error(),
 		)
-		return "", perrors.WithCode(code.ErrInvalidArgument, "failed to query wechat app: %v", err)
+		return "", perrors.WithCode(code.ErrProofBuildFailed, "failed to query wechat app: %v", err)
 	}
 	if wechatApp == nil {
 		l.Warnw("微信应用不存在",
@@ -79,7 +79,7 @@ func (b *wechatBuilder) prepareWechatAppSecret(ctx context.Context, payload meth
 			"credential_type", string(credDomain.CredOAuthWxMinip),
 			"app_id", payload.AppID,
 		)
-		return "", perrors.WithCode(code.ErrInvalidArgument, "wechat app not found: %s", payload.AppID)
+		return "", perrors.WithCode(code.ErrProofBuildFailed, "wechat app not found: %s", payload.AppID)
 	}
 	if !wechatApp.IsEnabled() {
 		l.Warnw("微信应用已禁用",
@@ -87,7 +87,7 @@ func (b *wechatBuilder) prepareWechatAppSecret(ctx context.Context, payload meth
 			"credential_type", string(credDomain.CredOAuthWxMinip),
 			"app_id", payload.AppID,
 		)
-		return "", perrors.WithCode(code.ErrInvalidArgument, "wechat app is disabled: %s", payload.AppID)
+		return "", perrors.WithCode(code.ErrProofBuildFailed, "wechat app is disabled: %s", payload.AppID)
 	}
 	if wechatApp.Cred == nil || wechatApp.Cred.Auth == nil {
 		l.Errorw("微信应用凭据缺失",
@@ -95,7 +95,7 @@ func (b *wechatBuilder) prepareWechatAppSecret(ctx context.Context, payload meth
 			"credential_type", string(credDomain.CredOAuthWxMinip),
 			"app_id", payload.AppID,
 		)
-		return "", perrors.WithCode(code.ErrInvalidArgument, "wechat app credentials not found")
+		return "", perrors.WithCode(code.ErrProofBuildFailed, "wechat app credentials not found")
 	}
 
 	appSecretPlain, err := b.secretVault.Decrypt(ctx, wechatApp.Cred.Auth.AppSecretCipher)
@@ -106,7 +106,7 @@ func (b *wechatBuilder) prepareWechatAppSecret(ctx context.Context, payload meth
 			"app_id", payload.AppID,
 			"error", err.Error(),
 		)
-		return "", perrors.WithCode(code.ErrInvalidArgument, "failed to decrypt app secret: %v", err)
+		return "", perrors.WithCode(code.ErrProofBuildFailed, "failed to decrypt app secret: %v", err)
 	}
 	return string(appSecretPlain), nil
 }
@@ -132,7 +132,7 @@ func (*wecomBuilder) CredentialKind() method.CredentialKind {
 func (b *wecomBuilder) Build(ctx context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
 	wecomPayload, ok := payload.(method.WecomPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid wecom payload")
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid wecom payload")
 	}
 	// 准备企业微信应用配置
 	appConfig, err := b.prepareWecomAppConfig(ctx, wecomPayload)
@@ -166,7 +166,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"action", logger.ActionLogin,
 			"credential_type", string(credDomain.CredOAuthWecom),
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app configuration service not available")
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "wecom app configuration service not available")
 	}
 
 	agentID := strings.TrimSpace(b.config.AgentID)
@@ -176,7 +176,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom agent_id is required in server configuration")
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "wecom agent_id is required in server configuration")
 	}
 
 	wechatApp, err := b.wechatAppQuerier.GetByAppID(ctx, payload.CorpID)
@@ -187,7 +187,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"corp_id", payload.CorpID,
 			"error", err.Error(),
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "failed to query wecom app: %v", err)
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "failed to query wecom app: %v", err)
 	}
 	if wechatApp == nil {
 		l.Warnw("企业微信应用不存在",
@@ -195,7 +195,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app not found: %s", payload.CorpID)
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "wecom app not found: %s", payload.CorpID)
 	}
 	if !wechatApp.IsEnabled() {
 		l.Warnw("企业微信应用已禁用",
@@ -203,7 +203,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app is disabled: %s", payload.CorpID)
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "wecom app is disabled: %s", payload.CorpID)
 	}
 	if wechatApp.Cred == nil || wechatApp.Cred.Auth == nil {
 		l.Errorw("企业微信应用凭据缺失",
@@ -211,7 +211,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"credential_type", string(credDomain.CredOAuthWecom),
 			"corp_id", payload.CorpID,
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app credentials not found")
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "wecom app credentials not found")
 	}
 
 	corpSecretPlain, err := b.secretVault.Decrypt(ctx, wechatApp.Cred.Auth.AppSecretCipher)
@@ -222,7 +222,7 @@ func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method
 			"corp_id", payload.CorpID,
 			"error", err.Error(),
 		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrInvalidArgument, "failed to decrypt wecom corp secret: %v", err)
+		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "failed to decrypt wecom corp secret: %v", err)
 	}
 	return wecomAppConfig{agentID: agentID, corpSecret: string(corpSecretPlain)}, nil
 }

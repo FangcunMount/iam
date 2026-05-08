@@ -74,11 +74,11 @@ func DefaultFactory(repo idpPort.Repository, vault idpPort.SecretVault, wecomCon
 // Build 构建证明
 func (f *Factory) Build(ctx context.Context, selection method.LoginMethodSelection) (authentication.AuthCredential, error) {
 	if selection.Payload == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "method payload is required")
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "method payload is required")
 	}
 	builder := f.builderFor(selection.CredentialKind)
 	if builder == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "unsupported credential kind: %s", selection.CredentialKind)
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "unsupported credential kind: %s", selection.CredentialKind)
 	}
 	return builder.Build(ctx, selection.Payload, selection.Common)
 }

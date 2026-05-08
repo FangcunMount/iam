@@ -26,7 +26,7 @@ func (phoneOTPBuilder) CredentialKind() method.CredentialKind {
 func (phoneOTPBuilder) Build(_ context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
 	phonePayload, ok := payload.(method.PhoneOTPPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid phone otp payload")
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid phone otp payload")
 	}
 	return authentication.NewPhoneOTPCredential(authentication.PhoneOTPProofSpec{
 		TenantID:  common.TenantID,

@@ -35,13 +35,13 @@ func (wecomMethod) CredentialKind() CredentialKind {
 func (wecomMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
 	payload, ok := cmd.Payload.(WecomPayload)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid wecom payload")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "invalid wecom payload")
 	}
 	if payload.CorpID == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "corp_id is required for wecom authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "corp_id is required for wecom authentication")
 	}
 	if payload.Code == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "auth_code is required for wecom authentication")
+		return nil, perrors.WithCode(code.ErrPayloadInvalid, "auth_code is required for wecom authentication")
 	}
 	return payload, nil
 }

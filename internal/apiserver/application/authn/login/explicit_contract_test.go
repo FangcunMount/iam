@@ -91,5 +91,5 @@ func TestBuildExplicitLoginRequestMapsPublicV2Payloads(t *testing.T) {
 func TestBuildExplicitLoginRequestRejectsNonPublicCatalogMethod(t *testing.T) {
 	_, err := BuildExplicitLoginRequest("unsupported", json.RawMessage(`{"value":"x"}`))
 	require.Error(t, err)
-	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+	require.True(t, perrors.IsCode(err, code.ErrUnsupportedAuthMethod))
 }

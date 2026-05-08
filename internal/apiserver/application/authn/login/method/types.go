@@ -16,6 +16,11 @@ const (
 )
 
 // CredentialKind 是登录方式最终构造出的领域凭据类型。
+//
+// 它是 application/method 层的选择结果字段，取值必须与领域层
+// credential.CredentialType 一一对应。这里保留独立类型，是为了让
+// AuthMethod（对外登录方式）与领域凭据类型在应用层语义上分开；
+// 真正构造领域 AuthCredential 时由 proof 层按该值选择 Builder。
 type CredentialKind string
 
 const (
@@ -33,6 +38,10 @@ type LoginMethod interface {
 }
 
 // LoginRequest 是 application login 用例的结构化请求。
+//
+// TenantID、RemoteIP、UserAgent 是请求上下文，必须由上游 transport /
+// compatibility 装配到 LoginRequest 顶层字段。Payload 只允许携带具体登录
+// 方式需要的字段，领域层和 proof 层不得再从 Payload 中读取这些公共上下文。
 type LoginRequest struct {
 	AuthMethod AuthMethod
 	TenantID   meta.ID

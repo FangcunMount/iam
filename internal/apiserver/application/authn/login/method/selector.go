@@ -92,12 +92,12 @@ func (s *Registry) LoginMethods() []LoginMethod {
 func (s *Registry) Select(_ context.Context, cmd LoginRequest) (LoginMethodSelection, error) {
 	authMethod := AuthMethod(strings.TrimSpace(string(cmd.AuthMethod)))
 	if authMethod == "" {
-		return LoginMethodSelection{}, perrors.WithCode(code.ErrInvalidArgument, "auth method is required")
+		return LoginMethodSelection{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "auth method is required")
 	}
 
 	loginMethod, ok := s.findMethod(authMethod)
 	if !ok {
-		return LoginMethodSelection{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication method: %s", authMethod)
+		return LoginMethodSelection{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "unsupported authentication method: %s", authMethod)
 	}
 
 	common := CommonPayloadFromLoginRequest(cmd)
