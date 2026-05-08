@@ -33,6 +33,7 @@ type Token struct {
 	ExpiresAt     time.Time
 }
 
+// NewAccessToken 创建访问令牌
 func NewAccessToken(id, value, sessionID string, userID meta.ID, accountID meta.ID, tenantID meta.ID, expiresIn time.Duration) *Token {
 	now := time.Now()
 	return &Token{
@@ -49,6 +50,7 @@ func NewAccessToken(id, value, sessionID string, userID meta.ID, accountID meta.
 	}
 }
 
+// NewServiceToken 创建服务令牌
 func NewServiceToken(id, value, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) *Token {
 	now := time.Now()
 	return &Token{
@@ -63,6 +65,7 @@ func NewServiceToken(id, value, subject string, audience []string, attributes ma
 	}
 }
 
+// NewRefreshToken 创建刷新令牌
 func NewRefreshToken(id, value, sessionID string, userID meta.ID, accountID meta.ID, tenantID meta.ID, amr []string, sessionClaims map[string]string, expiresIn time.Duration) *Token {
 	now := time.Now()
 	return &Token{
@@ -80,10 +83,12 @@ func NewRefreshToken(id, value, sessionID string, userID meta.ID, accountID meta
 	}
 }
 
+// IsExpired 检查令牌是否已过期
 func (t *Token) IsExpired() bool {
 	return time.Now().After(t.ExpiresAt)
 }
 
+// RemainingDuration 返回令牌剩余时间
 func (t *Token) RemainingDuration() time.Duration {
 	if t.IsExpired() {
 		return 0
@@ -91,11 +96,13 @@ func (t *Token) RemainingDuration() time.Duration {
 	return time.Until(t.ExpiresAt)
 }
 
+// TokenPair 令牌对
 type TokenPair struct {
 	AccessToken  *Token
 	RefreshToken *Token
 }
 
+// NewTokenPair 创建令牌对
 func NewTokenPair(accessToken, refreshToken *Token) *TokenPair {
 	return &TokenPair{
 		AccessToken:  accessToken,
@@ -103,7 +110,7 @@ func NewTokenPair(accessToken, refreshToken *Token) *TokenPair {
 	}
 }
 
-// TokenClaims 是应用层验签结果，不暴露 JWT Header/Signature 等编码细节。
+// TokenClaims 是应用层验签结果，不暴露 JWT Header/Signature 等编码细节
 type TokenClaims struct {
 	TokenID    string
 	TokenType  TokenType
@@ -120,6 +127,7 @@ type TokenClaims struct {
 	ExpiresAt  time.Time
 }
 
+// NewTokenClaims 创建令牌声明
 func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID meta.ID, accountID meta.ID, tenantID meta.ID, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *TokenClaims {
 	return &TokenClaims{
 		TokenID:    tokenID,
@@ -138,10 +146,12 @@ func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, use
 	}
 }
 
+// IsExpired 检查令牌声明是否已过期
 func (c *TokenClaims) IsExpired() bool {
 	return time.Now().After(c.ExpiresAt)
 }
 
+// cloneStrings 克隆字符串切片
 func cloneStrings(in []string) []string {
 	if len(in) == 0 {
 		return nil
@@ -151,6 +161,7 @@ func cloneStrings(in []string) []string {
 	return out
 }
 
+// cloneStringMap 克隆字符串映射
 func cloneStringMap(in map[string]string) map[string]string {
 	if len(in) == 0 {
 		return nil
@@ -160,4 +171,14 @@ func cloneStringMap(in map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// Principal 是 access token 编码所需的应用层身份快照
+type Principal struct {
+	UserID    meta.ID
+	AccountID meta.ID
+	TenantID  meta.ID
+	SessionID string
+	AMR       []string
+	Claims    map[string]any
 }

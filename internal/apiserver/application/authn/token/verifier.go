@@ -4,19 +4,23 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/component-base/pkg/log"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
+// verifier 验证访问令牌
 type verifier struct {
-	tokenCodec    AccessTokenCodec
-	tokenStore    Store
-	sessionManger SessionManager
-	accessChecker SubjectAccessEvaluator
+	tokenCodec     AccessTokenCodec
+	tokenStore     Store
+	sessionManager SessionManager
+	accessChecker  SubjectAccessEvaluator
 }
 
+// 确保 verifier 实现 Verifier 接口
+var _ Verifier = (*verifier)(nil)
+
+// NewVerifier 创建 verifier
 func NewVerifier(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
@@ -24,52 +28,88 @@ func NewVerifier(
 	accessChecker SubjectAccessEvaluator,
 ) Verifier {
 	return &verifier{
-		tokenCodec:    tokenCodec,
-		tokenStore:    tokenStore,
-		sessionManger: sessionManager,
-		accessChecker: accessChecker,
+		tokenCodec:     tokenCodec,
+		tokenStore:     tokenStore,
+		sessionManager: sessionManager,
+		accessChecker:  accessChecker,
 	}
 }
 
+// VerifyAccessToken 验证访问令牌
+// 职责：验证访问令牌是否有效：1. 令牌是否已撤销；2. 会话是否活跃；3. 主体访问权限是否允许。
+// 返回值：访问令牌声明
 func (s *verifier) VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error) {
+	// 解析访问令牌
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
 	if err != nil {
-		log.Warnw("failed to parse access token", "error", err, "token_hint", sanitize.MaskToken(tokenValue))
 		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse access token")
 	}
-	if claims.IsExpired() {
-		return nil, perrors.WithCode(code.ErrExpired, "access token has expired")
-	}
+	// 如果令牌类型为服务令牌，则直接返回
 	if claims.TokenType == TokenTypeService {
 		return claims, nil
 	}
-	isRevoked, err := s.tokenStore.IsAccessTokenRevoked(ctx, claims.TokenID)
-	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to check revoked access token")
+
+	// 检查令牌合法性
+	if err := s.checkTokenValid(ctx, claims); err != nil {
+		return nil, err
 	}
-	if isRevoked {
-		return nil, perrors.WithCode(code.ErrTokenInvalid, "access token has been revoked")
+
+	// 检查会话是否活跃
+	if err := s.checkSessionActive(ctx, claims.SessionID); err != nil {
+		return nil, err
 	}
-	if claims.SessionID == "" {
-		return nil, perrors.WithCode(code.ErrTokenInvalid, "access token session is missing")
+
+	// 检查主体访问权限
+	if err := s.checkSubjectAccessAllowed(ctx, claims.UserID, claims.AccountID); err != nil {
+		return nil, err
 	}
-	sess, err := s.sessionManger.Get(ctx, claims.SessionID)
-	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to load session")
-	}
-	if sess == nil || !sess.IsActive() {
-		return nil, perrors.WithCode(code.ErrTokenInvalid, "session has been revoked or expired")
-	}
-	decision, err := s.accessChecker.Evaluate(ctx, claims.UserID, claims.AccountID)
-	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate subject access")
-	}
-	if !decision.IsAllowed() {
-		return nil, subjectAccessVerifyError(decision.Status)
-	}
+
 	return claims, nil
 }
 
+// checkTokenValid 检查令牌合法性
+func (s *verifier) checkTokenValid(ctx context.Context, claims *TokenClaims) error {
+	// 检查令牌是否已撤销
+	isRevoked, err := s.tokenStore.IsAccessTokenRevoked(ctx, claims.TokenID)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to check revoked access token")
+	}
+	if isRevoked {
+		return perrors.WithCode(code.ErrTokenInvalid, "access token has been revoked")
+	}
+	return nil
+}
+
+// checkSessionActive 检查会话是否活跃
+func (s *verifier) checkSessionActive(ctx context.Context, sessionID string) error {
+	// 加载会话
+	sess, err := s.sessionManager.Get(ctx, sessionID)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to load session")
+	}
+	// 检查会话是否活跃
+	if sess == nil || !sess.IsActive() {
+		return perrors.WithCode(code.ErrTokenInvalid, "session has been revoked or expired")
+	}
+	return nil
+}
+
+// checkSubjectAccessAllowed 检查主体访问权限
+func (s *verifier) checkSubjectAccessAllowed(ctx context.Context, userID meta.ID, accountID meta.ID) error {
+	// 检查主体访问权限
+	decision, err := s.accessChecker.Evaluate(ctx, userID, accountID)
+	if err != nil {
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate subject access")
+	}
+
+	// 检查主体访问权限是否允许
+	if !decision.IsAllowed() {
+		return subjectAccessVerifyError(decision.Status)
+	}
+	return nil
+}
+
+// subjectAccessError 转换主体访问状态为错误
 func subjectAccessVerifyError(status sessiondomain.SubjectAccessStatus) error {
 	switch status {
 	case sessiondomain.SubjectAccessBlocked:

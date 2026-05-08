@@ -68,8 +68,6 @@ func (m *AuthnModule) initializeApplication(
 		domain.sessionManager,
 		infra.accessChecker,
 		infra.jwtGenerator.ClaimMapper(),
-		domain.accessTTL,
-		domain.refreshTTL,
 	)
 	tokenVerifier := token.NewVerifier(
 		infra.jwtGenerator,

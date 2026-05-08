@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -94,20 +96,21 @@ func (s *refreshOrderAccessChecker) Evaluate(context.Context, meta.ID, meta.ID) 
 
 type refreshOrderPairIssuer struct {
 	recorder *refreshOrderRecorder
+	pair     *TokenPair
 }
 
-func (s *refreshOrderPairIssuer) issueTokenPair(context.Context, *authentication.Principal, *sessiondomain.Session) (*TokenPair, error) {
+func (s *refreshOrderPairIssuer) IssueTokenPair(context.Context, *authentication.Principal, *sessiondomain.Session) (*TokenPair, error) {
 	s.recorder.record("issue_pair")
+	if s.pair != nil {
+		return s.pair, nil
+	}
 	return NewTokenPair(
 		NewAccessToken("new-access", "new-access-value", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3), time.Minute),
 		NewRefreshToken("new-refresh", "new-refresh-value", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3), []string{"pwd"}, nil, time.Hour),
 	), nil
 }
 
-func TestRefresherRefreshTokenKeepsRotationOrder(t *testing.T) {
-	t.Parallel()
-
-	recorder := &refreshOrderRecorder{}
+func newRefreshOrderFixture(recorder *refreshOrderRecorder, pairIssuer SessionTokenPairIssuer) (Refresher, *Token) {
 	refreshToken := NewRefreshToken(
 		"refresh-id",
 		"old-refresh-value",
@@ -121,14 +124,20 @@ func TestRefresherRefreshTokenKeepsRotationOrder(t *testing.T) {
 	)
 	sess := sessiondomain.New("session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3), []string{"pwd"}, nil, time.Now().Add(time.Hour))
 	refresher := NewRefresher(
-		&refreshOrderPairIssuer{recorder: recorder},
+		pairIssuer,
 		&refreshOrderStore{recorder: recorder, refreshToken: refreshToken},
 		&refreshOrderSessionManager{recorder: recorder, session: sess},
 		&refreshOrderAccessChecker{recorder: recorder},
 		NewStringClaimMapper(),
-		time.Minute,
-		time.Hour,
 	)
+	return refresher, refreshToken
+}
+
+func TestRefresherRefreshTokenKeepsRotationOrder(t *testing.T) {
+	t.Parallel()
+
+	recorder := &refreshOrderRecorder{}
+	refresher, _ := newRefreshOrderFixture(recorder, &refreshOrderPairIssuer{recorder: recorder})
 
 	pair, err := refresher.RefreshToken(context.Background(), "old-refresh-value")
 
@@ -141,5 +150,31 @@ func TestRefresherRefreshTokenKeepsRotationOrder(t *testing.T) {
 		"issue_pair",
 		"delete_refresh",
 		"extend_session",
+	}, recorder.events)
+}
+
+func TestRefresherRefreshTokenRejectsIncompleteIssuedPair(t *testing.T) {
+	t.Parallel()
+
+	recorder := &refreshOrderRecorder{}
+	incompletePair := NewTokenPair(
+		NewAccessToken("new-access", "new-access-value", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3), time.Minute),
+		nil,
+	)
+	refresher, _ := newRefreshOrderFixture(recorder, &refreshOrderPairIssuer{
+		recorder: recorder,
+		pair:     incompletePair,
+	})
+
+	pair, err := refresher.RefreshToken(context.Background(), "old-refresh-value")
+
+	require.Error(t, err)
+	require.Nil(t, pair)
+	require.True(t, perrors.IsCode(err, code.ErrInternalServerError))
+	require.Equal(t, []string{
+		"load_refresh",
+		"load_session",
+		"evaluate_access",
+		"issue_pair",
 	}, recorder.events)
 }

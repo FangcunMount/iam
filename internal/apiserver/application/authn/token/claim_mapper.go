@@ -5,6 +5,48 @@ import (
 	"fmt"
 )
 
+// ClaimMapper 将认证主体附加信息转换为 refresh token 可持久化的字符串快照。
+type ClaimMapper interface {
+	// Encode 编码声明
+	Encode(map[string]any) map[string]string
+	// Decode 解码声明
+	Decode(map[string]string) map[string]any
+}
+
+// stringClaimMapper 字符串声明映射器
+type stringClaimMapper struct{}
+
+// NewStringClaimMapper 创建字符串声明映射器
+func NewStringClaimMapper() ClaimMapper {
+	return stringClaimMapper{}
+}
+
+// Encode 编码声明
+func (stringClaimMapper) Encode(in map[string]any) map[string]string {
+	return stringifyClaims(in)
+}
+
+// Decode 解码声明
+func (stringClaimMapper) Decode(in map[string]string) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+// normalizeClaimMapper 规范化声明映射器
+func normalizeClaimMapper(mapper ClaimMapper) ClaimMapper {
+	if mapper == nil {
+		return stringClaimMapper{}
+	}
+	return mapper
+}
+
+// stringifyClaims 将任意映射转换为字符串映射
 func stringifyClaims(in map[string]any) map[string]string {
 	if len(in) == 0 {
 		return nil
