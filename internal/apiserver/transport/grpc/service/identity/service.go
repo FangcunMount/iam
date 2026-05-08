@@ -12,6 +12,7 @@ import (
 // Service 聚合 identity 模块的 gRPC 服务
 type Service struct {
 	identityRead      identityReadServer
+	profileCmd        profileCommandServer
 	profileLinkQry    profileLinkQueryServer
 	profileLinkCmd    profileLinkCommandServer
 	identityLifecycle identityLifecycleServer
@@ -25,6 +26,7 @@ type Service struct {
 //   - userSvc: 用户应用服务
 //   - userProfileSvc: 用户资料应用服务
 //   - userStatusSvc: 用户状态应用服务
+//   - profileCommandSvc: 当前用户视角档案创建用例
 //   - profileLinkSvc: 档案关系应用服务
 //   - profileLinkAccessSvc: 当前用户视角档案关系访问用例
 func NewService(
@@ -34,6 +36,7 @@ func NewService(
 	userSvc userApp.Creator,
 	userProfileSvc userApp.Editor,
 	userStatusSvc userApp.StatusChanger,
+	profileCommandSvc profileApp.MyProfiles,
 	profileLinkSvc profileLinkApp.Commands,
 	profileLinkAccessSvc profileLinkApp.MyProfileLinks,
 ) *Service {
@@ -45,6 +48,9 @@ func NewService(
 		profileLinkQry: profileLinkQueryServer{
 			profileLinkQuerySvc: profileLinkQuerySvc,
 			userQuerySvc:        userQuerySvc,
+		},
+		profileCmd: profileCommandServer{
+			profileCommandSvc: profileCommandSvc,
 		},
 		profileLinkCmd: profileLinkCommandServer{
 			profileLinkSvc:       profileLinkSvc,
@@ -67,6 +73,7 @@ func (s *Service) Register(server *grpc.Server) {
 	}
 	identityv2.RegisterIdentityReadServer(server, &s.identityRead)
 	identityv2.RegisterProfileLinkQueryServer(server, &s.profileLinkQry)
+	identityv2.RegisterProfileCommandServer(server, &s.profileCmd)
 	identityv2.RegisterProfileLinkCommandServer(server, &s.profileLinkCmd)
 	identityv2.RegisterIdentityLifecycleServer(server, &s.identityLifecycle)
 }
@@ -85,6 +92,12 @@ type profileLinkQueryServer struct {
 	identityv2.UnimplementedProfileLinkQueryServer
 	profileLinkQuerySvc profileLinkApp.Directory
 	userQuerySvc        userApp.Directory
+}
+
+// profileCommandServer 档案命令服务（写操作）
+type profileCommandServer struct {
+	identityv2.UnimplementedProfileCommandServer
+	profileCommandSvc profileApp.MyProfiles
 }
 
 // profileLinkCommandServer 档案关系命令服务（写操作）

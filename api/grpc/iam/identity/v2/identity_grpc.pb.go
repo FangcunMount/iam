@@ -451,6 +451,108 @@ var ProfileLinkQuery_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	ProfileCommand_CreateProfile_FullMethodName = "/iam.identity.v2.ProfileCommand/CreateProfile"
+)
+
+// ProfileCommandClient is the client API for ProfileCommand service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ProfileCommandClient interface {
+	CreateProfile(ctx context.Context, in *CreateProfileRequest, opts ...grpc.CallOption) (*CreateProfileResponse, error)
+}
+
+type profileCommandClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewProfileCommandClient(cc grpc.ClientConnInterface) ProfileCommandClient {
+	return &profileCommandClient{cc}
+}
+
+func (c *profileCommandClient) CreateProfile(ctx context.Context, in *CreateProfileRequest, opts ...grpc.CallOption) (*CreateProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateProfileResponse)
+	err := c.cc.Invoke(ctx, ProfileCommand_CreateProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ProfileCommandServer is the server API for ProfileCommand service.
+// All implementations must embed UnimplementedProfileCommandServer
+// for forward compatibility.
+type ProfileCommandServer interface {
+	CreateProfile(context.Context, *CreateProfileRequest) (*CreateProfileResponse, error)
+	mustEmbedUnimplementedProfileCommandServer()
+}
+
+// UnimplementedProfileCommandServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedProfileCommandServer struct{}
+
+func (UnimplementedProfileCommandServer) CreateProfile(context.Context, *CreateProfileRequest) (*CreateProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateProfile not implemented")
+}
+func (UnimplementedProfileCommandServer) mustEmbedUnimplementedProfileCommandServer() {}
+func (UnimplementedProfileCommandServer) testEmbeddedByValue()                        {}
+
+// UnsafeProfileCommandServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ProfileCommandServer will
+// result in compilation errors.
+type UnsafeProfileCommandServer interface {
+	mustEmbedUnimplementedProfileCommandServer()
+}
+
+func RegisterProfileCommandServer(s grpc.ServiceRegistrar, srv ProfileCommandServer) {
+	// If the following call panics, it indicates UnimplementedProfileCommandServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ProfileCommand_ServiceDesc, srv)
+}
+
+func _ProfileCommand_CreateProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfileCommandServer).CreateProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProfileCommand_CreateProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfileCommandServer).CreateProfile(ctx, req.(*CreateProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ProfileCommand_ServiceDesc is the grpc.ServiceDesc for ProfileCommand service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ProfileCommand_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.identity.v2.ProfileCommand",
+	HandlerType: (*ProfileCommandServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateProfile",
+			Handler:    _ProfileCommand_CreateProfile_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/identity/v2/identity.proto",
+}
+
+const (
 	ProfileLinkCommand_EstablishProfileLink_FullMethodName    = "/iam.identity.v2.ProfileLinkCommand/EstablishProfileLink"
 	ProfileLinkCommand_RevokeProfileLink_FullMethodName       = "/iam.identity.v2.ProfileLinkCommand/RevokeProfileLink"
 	ProfileLinkCommand_BatchRevokeProfileLinks_FullMethodName = "/iam.identity.v2.ProfileLinkCommand/BatchRevokeProfileLinks"

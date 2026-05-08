@@ -35,7 +35,7 @@ func TestCommands_Establish_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "小明",
 		Gender:   1,
@@ -78,7 +78,7 @@ func TestCommands_Establish_DuplicateLink(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "小红",
 		Gender:   2,
@@ -119,7 +119,7 @@ func TestCommands_Revoke_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "小强",
 		Gender:   1,
@@ -194,7 +194,7 @@ func TestDirectory_HasProfileLink_True(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "小虎",
 		Gender:   1,
@@ -250,7 +250,7 @@ func TestDirectory_GetByUserIDAndProfileID_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "小龙",
 		Gender:   1,
@@ -310,7 +310,7 @@ func TestDirectory_ListProfilesByUserID_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 创建多个档案
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profile1, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "大宝",
 		Gender:   1,
@@ -376,7 +376,7 @@ func TestDirectory_ListProfileLinksByProfileID_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 创建档案
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "宝宝",
 		Gender:   2,
@@ -425,7 +425,7 @@ func TestCommands_Establish_ConcurrentPersistence_10(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "并发档案",
 		Gender:   1,
@@ -484,7 +484,7 @@ func TestDirectory_ListProfilesByUserID_ExcludesRevokedByDefault(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "小舟",
 		Gender:   1,
@@ -530,7 +530,7 @@ func TestMyProfileLinks_GrantAndList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "档案",
 		Gender:   1,
@@ -607,7 +607,7 @@ func TestMyProfileLinks_RevokeBySelectorReturnsRevokedResult(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "档案",
 		Gender:   1,
@@ -648,7 +648,7 @@ func TestMyProfileLinks_RevokeBySelectorRejectsAlreadyRevokedProfileLinkID(t *te
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "档案",
 		Gender:   1,
@@ -699,7 +699,7 @@ func TestMyProfileLinks_RevokeRejectsOtherUsersProfileLink(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "档案",
 		Gender:   1,

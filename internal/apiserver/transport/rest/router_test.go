@@ -243,9 +243,11 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profile-links")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/identity/profiles")
+	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profiles/:id")
+	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profiles/search")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profiles")
 }
 
 func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {

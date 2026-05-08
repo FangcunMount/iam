@@ -1,15 +1,5 @@
 package request
 
-// ProfileCreateRequest 创建档案请求（身份证可选）
-type ProfileCreateRequest struct {
-	LegalName string `json:"legalName" binding:"required"`
-	Gender    *uint8 `json:"gender" binding:"required"`
-	DOB       string `json:"dob" binding:"required"`
-	IDType    string `json:"idType,omitempty"`
-	IDNo      string `json:"idNo,omitempty"`
-	Relation  string `json:"relation" binding:"required,oneof=self parent grandparent other"`
-}
-
 // ProfileUpdateRequest 更新档案请求
 type ProfileUpdateRequest struct {
 	LegalName *string `json:"legalName,omitempty"`

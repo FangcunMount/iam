@@ -9,11 +9,6 @@ import (
 
 // ============= 当前调用者用例接口（Driving Ports）=============
 
-// Creator 创建档案。
-type Creator interface {
-	Create(ctx context.Context, dto CreateProfileDTO) (*ProfileResult, error)
-}
-
 // Editor 编辑档案资料。
 type Editor interface {
 	// Rename 重命名档案
@@ -50,15 +45,6 @@ type MyProfiles interface {
 
 // CreateProfileDTO 创建档案 DTO。
 type CreateProfileDTO struct {
-	Name     string
-	Gender   uint8
-	Birthday string
-	IDCard   string
-	Relation string
-}
-
-// CreateMyProfileDTO 当前用户创建档案并建立关系 DTO。
-type CreateMyProfileDTO struct {
 	Name     string
 	Gender   uint8
 	Birthday string

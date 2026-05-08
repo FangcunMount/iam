@@ -197,6 +197,20 @@ message HasProfileLinkResponse {
 
 // ============= Command Models =============
 
+message CreateProfileRequest {
+  string user_id = 1;
+  string legal_name = 2;
+  Gender gender = 3;
+  string dob = 4; // YYYY-MM-DD
+  string id_card_number = 5;
+  ProfileLinkRelation relation = 6;
+  OperatorContext operator = 10;
+}
+message CreateProfileResponse {
+  Profile profile = 1;
+  ProfileLink profile_link = 2;
+}
+
 message EstablishProfileLinkRequest {
   string user_id = 1;
   string profile_id = 2;
@@ -291,6 +305,10 @@ service ProfileLinkQuery {
   rpc HasProfileLink(HasProfileLinkRequest) returns (HasProfileLinkResponse);
   rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
   rpc ListProfileLinks(ListProfileLinksRequest) returns (ListProfileLinksResponse);
+}
+
+service ProfileCommand {
+  rpc CreateProfile(CreateProfileRequest) returns (CreateProfileResponse);
 }
 
 service ProfileLinkCommand {

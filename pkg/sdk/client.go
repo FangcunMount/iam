@@ -25,6 +25,7 @@ type Client struct {
 	authClient        *authclient.Client
 	authzClient       *authz.Client
 	identityClient    *identity.Client
+	profileClient     *identity.ProfileClient
 	profileLinkClient *identity.ProfileLinkClient
 	idpClient         *idp.Client
 }
@@ -75,6 +76,9 @@ func (c *Client) initSubClients() {
 	lifecycleService := identityv2.NewIdentityLifecycleClient(c.conn)
 	c.identityClient = identity.NewClient(readService, lifecycleService)
 
+	profileCommandService := identityv2.NewProfileCommandClient(c.conn)
+	c.profileClient = identity.NewProfileClient(profileCommandService)
+
 	queryService := identityv2.NewProfileLinkQueryClient(c.conn)
 	commandService := identityv2.NewProfileLinkCommandClient(c.conn)
 	c.profileLinkClient = identity.NewProfileLinkClient(queryService, commandService)
@@ -93,6 +97,10 @@ func (c *Client) Authz() *authz.Client {
 
 func (c *Client) Identity() *identity.Client {
 	return c.identityClient
+}
+
+func (c *Client) Profile() *identity.ProfileClient {
+	return c.profileClient
 }
 
 func (c *Client) ProfileLink() *identity.ProfileLinkClient {

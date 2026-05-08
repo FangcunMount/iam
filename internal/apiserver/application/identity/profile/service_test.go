@@ -11,113 +11,116 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/testutil"
+	identityuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// ==================== Editor 测试 ====================
+// ==================== MyProfiles 创建测试 ====================
 
-func TestCreator_Create_Success(t *testing.T) {
-	// Arrange
+func TestMyProfiles_Create_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := profile.NewCreator(unitOfWork)
+	appService := profile.NewMyProfiles(unitOfWork)
 	ctx := context.Background()
+	currentUser := createCurrentUser(t, ctx, unitOfWork, "创建用户", "13800139201", "create1@example.com")
 
 	dto := profile.CreateProfileDTO{
 		Name:     "小明",
 		Gender:   1, // 1=男
 		Birthday: "2020-01-15",
+		Relation: "self",
 	}
 
-	// Act - 执行创建
-	result, err := appService.Create(ctx, dto)
+	result, err := appService.Create(ctx, mustID(t, currentUser.ID), dto)
 
-	// Assert - 验证结果
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotEmpty(t, result.ID)
-	assert.Equal(t, dto.Name, result.Name)
-	assert.Equal(t, uint8(1), result.Gender) // 1=男
-	assert.Equal(t, dto.Birthday, result.Birthday)
+	require.NotNil(t, result.Profile)
+	require.NotNil(t, result.ProfileLink)
+	assert.NotEmpty(t, result.Profile.ID)
+	assert.Equal(t, dto.Name, result.Profile.Name)
+	assert.Equal(t, uint8(1), result.Profile.Gender)
+	assert.Equal(t, dto.Birthday, result.Profile.Birthday)
+	assert.Equal(t, "self", result.ProfileLink.Relation)
 }
 
-func TestCreator_Create_WithOptionalFields(t *testing.T) {
-	// Arrange
+func TestMyProfiles_Create_WithOptionalFields(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := profile.NewCreator(unitOfWork)
+	appService := profile.NewMyProfiles(unitOfWork)
 	ctx := context.Background()
+	currentUser := createCurrentUser(t, ctx, unitOfWork, "创建用户2", "13800139202", "create2@example.com")
 
 	dto := profile.CreateProfileDTO{
 		Name:     "小红",
 		Gender:   2, // 2=女
 		Birthday: "2019-05-20",
 		IDCard:   "110101201905201236",
+		Relation: "parent",
 	}
 
-	// Act
-	result, err := appService.Create(ctx, dto)
+	result, err := appService.Create(ctx, mustID(t, currentUser.ID), dto)
 
-	// Assert
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotEmpty(t, result.ID)
-	assert.Equal(t, dto.Name, result.Name)
-	assert.Equal(t, uint8(2), result.Gender) // 2=女
-	assert.Equal(t, dto.Birthday, result.Birthday)
-	assert.Equal(t, dto.IDCard, result.IDCard)
+	require.NotNil(t, result.Profile)
+	require.NotNil(t, result.ProfileLink)
+	assert.NotEmpty(t, result.Profile.ID)
+	assert.Equal(t, dto.Name, result.Profile.Name)
+	assert.Equal(t, uint8(2), result.Profile.Gender)
+	assert.Equal(t, dto.Birthday, result.Profile.Birthday)
+	assert.Equal(t, dto.IDCard, result.Profile.IDCard)
+	assert.Equal(t, "parent", result.ProfileLink.Relation)
 }
 
-func TestCreator_Create_EmptyName_ShouldFail(t *testing.T) {
-	// Arrange
+func TestMyProfiles_Create_EmptyName_ShouldFail(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := profile.NewCreator(unitOfWork)
+	appService := profile.NewMyProfiles(unitOfWork)
 	ctx := context.Background()
+	currentUser := createCurrentUser(t, ctx, unitOfWork, "创建用户3", "13800139203", "create3@example.com")
 
 	dto := profile.CreateProfileDTO{
 		Name:     "", // 空姓名
 		Gender:   1,  // 1=男
 		Birthday: "2020-01-15",
+		Relation: "parent",
 	}
 
-	// Act
-	result, err := appService.Create(ctx, dto)
+	result, err := appService.Create(ctx, mustID(t, currentUser.ID), dto)
 
-	// Assert
 	require.Error(t, err)
 	assert.Nil(t, result)
 }
 
-func TestCreator_Create_DuplicateIDCard(t *testing.T) {
-	// Arrange
+func TestMyProfiles_Create_DuplicateIDCard(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
-	appService := profile.NewCreator(unitOfWork)
+	appService := profile.NewMyProfiles(unitOfWork)
 	ctx := context.Background()
+	currentUser := createCurrentUser(t, ctx, unitOfWork, "创建用户4", "13800139204", "create4@example.com")
 
-	// 先创建一个档案
 	dto1 := profile.CreateProfileDTO{
 		Name:     "小明",
 		Gender:   1, // 1=男
 		Birthday: "2020-01-15",
 		IDCard:   "110101202001151234",
+		Relation: "parent",
 	}
-	_, err := appService.Create(ctx, dto1)
+	_, err := appService.Create(ctx, mustID(t, currentUser.ID), dto1)
 	require.NoError(t, err)
 
-	// Act - 尝试创建相同身份证的档案
 	dto2 := profile.CreateProfileDTO{
 		Name:     "小红",
 		Gender:   2, // 2=女
 		Birthday: "2020-01-15",
 		IDCard:   "110101202001151234", // 重复身份证
+		Relation: "parent",
 	}
-	result, err := appService.Create(ctx, dto2)
+	result, err := appService.Create(ctx, mustID(t, currentUser.ID), dto2)
 
-	// Assert - 应该失败
 	require.Error(t, err)
 	assert.Nil(t, result)
 }
@@ -129,7 +132,7 @@ func TestEditor_Rename_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
@@ -159,7 +162,7 @@ func TestEditor_Rename_EmptyName(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
@@ -188,7 +191,7 @@ func TestEditor_UpdateIDCard_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
@@ -218,7 +221,7 @@ func TestEditor_UpdateProfile_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
@@ -270,7 +273,7 @@ func TestDirectory_GetByID_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
@@ -312,7 +315,7 @@ func TestDirectory_GetByIDCard_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	created, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
@@ -340,7 +343,7 @@ func TestDirectory_FindSimilar_Success(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)
 
-	createUseCase := profile.NewCreator(unitOfWork)
+	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
 	ctx := context.Background()
 
 	// 创建多个档案 (使用不同的身份证号或不设置)
@@ -398,7 +401,7 @@ func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "旧名",
 		Gender:   1,
@@ -453,7 +456,7 @@ func TestMyProfiles_PatchRollsBackEarlierUpdatesWhenLaterUpdateFails(t *testing.
 	})
 	require.NoError(t, err)
 
-	profileResult, err := profile.NewCreator(unitOfWork).Create(ctx, profile.CreateProfileDTO{
+	profileResult, err := testutil.NewProfileFixture(t, unitOfWork).Create(ctx, profile.CreateProfileDTO{
 		Name:     "旧名",
 		Gender:   1,
 		Birthday: "2020-01-15",
@@ -508,7 +511,7 @@ func TestMyProfiles_GetForProfileLinkRejectsUnlinkedUser(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	profileService := profile.NewCreator(unitOfWork)
+	profileService := testutil.NewProfileFixture(t, unitOfWork)
 	profileResult, err := profileService.Create(ctx, profile.CreateProfileDTO{
 		Name:     "档案",
 		Gender:   1,
@@ -536,4 +539,22 @@ func mustID(t *testing.T, raw string) meta.ID {
 	id, err := meta.ParseID(raw)
 	require.NoError(t, err)
 	return id
+}
+
+func createCurrentUser(
+	t *testing.T,
+	ctx context.Context,
+	unitOfWork identityuow.UnitOfWork,
+	name string,
+	phone string,
+	email string,
+) *user.UserResult {
+	t.Helper()
+	result, err := user.NewCreator(unitOfWork).Create(ctx, user.CreateUserDTO{
+		Name:  name,
+		Phone: phone,
+		Email: email,
+	})
+	require.NoError(t, err)
+	return result
 }

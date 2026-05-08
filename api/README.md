@@ -35,7 +35,7 @@ POST /api/v2/authn/logout
 GET  /.well-known/jwks.json
 POST /api/v2/authz/check
 GET  /api/v2/identity/me
-POST /api/v2/identity/profiles
+GET  /api/v2/identity/profiles/search
 GET  /api/v2/identity/profile-links
 GET  /api/v2/suggest/profile
 ```
@@ -48,7 +48,7 @@ GET  /api/v2/suggest/profile
 | ---- | ---- |
 | [grpc/iam/authn/v2/authn.proto](grpc/iam/authn/v2/authn.proto) | `AuthService`、`AccountOnboardingService`、`JWKSService` |
 | [grpc/iam/authz/v2/authz.proto](grpc/iam/authz/v2/authz.proto) | `AuthorizationService` |
-| [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileLinkCommand`、`IdentityLifecycle` |
+| [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileCommand`、`ProfileLinkCommand`、`IdentityLifecycle` |
 | [grpc/iam/idp/v2/idp.proto](grpc/iam/idp/v2/idp.proto) | `IDPService` |
 
 服务注册位置在 [internal/apiserver/transport/grpc/registry.go](../internal/apiserver/transport/grpc/registry.go)，proto 与注册关系由 [internal/apiserver/transport/grpc/proto_contract_test.go](../internal/apiserver/transport/grpc/proto_contract_test.go) 保护。

@@ -40,7 +40,8 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodPost, "/api/v2/authz/check"},
 		{http.MethodGet, "/api/v2/authz/roles"},
 		{http.MethodGet, "/api/v2/identity/me"},
-		{http.MethodPost, "/api/v2/identity/profiles"},
+		{http.MethodGet, "/api/v2/identity/profiles/:id"},
+		{http.MethodGet, "/api/v2/identity/profile-links"},
 		{http.MethodGet, "/api/v2/idp/health"},
 		{http.MethodGet, "/api/v2/idp/wechat-apps"},
 		{http.MethodGet, "/api/v2/suggest/profile"},
@@ -50,6 +51,9 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		assertRoutePresent(t, routes, route.method, route.path)
 	}
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/authn/accounts/wechat/register")
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profiles")
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links")
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
 }
 
 func TestRouterOpenAPIContractCoversRegisteredPublicRoutes(t *testing.T) {

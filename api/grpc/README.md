@@ -24,6 +24,7 @@ api/grpc/iam/
 | [iam/authz/v2/authz.proto](iam/authz/v2/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
+| [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileCommand` | CreateProfile |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkCommand` | EstablishProfileLink、RevokeProfileLink、BatchRevokeProfileLinks、ImportProfileLinks |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityLifecycle` | CreateUser、UpdateUser、DeactivateUser、BlockUser |
 | [iam/idp/v2/idp.proto](iam/idp/v2/idp.proto) | `IDPService` | GetWechatApp |
@@ -36,7 +37,7 @@ api/grpc/iam/
 
 ## Identity 关系术语
 
-当前 proto 的关系服务是 `ProfileLinkQuery` 与 `ProfileLinkCommand`。`ProfileLink` 表示用户和 profile 之间的档案关系，可承载自有档案和亲属/监护类关系语义。旧关系名只保留为历史语义，不作为当前合同名。
+当前 proto 的关系服务是 `ProfileLinkQuery` 与 `ProfileLinkCommand`。`ProfileCommand.CreateProfile` 是创建 Profile 并建立 User -> ProfileLink 的组合门面，保证 Profile 与 ProfileLink 在同一个应用工作单元中提交。`ProfileLink` 表示用户和 profile 之间的档案关系，可承载自有档案和亲属/监护类关系语义。旧关系名只保留为历史语义，不作为当前合同名。
 
 ## Go 调用示例
 

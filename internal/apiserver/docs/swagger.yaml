@@ -644,48 +644,6 @@ definitions:
       valid:
         type: boolean
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.ProfileCreateRequest:
-    properties:
-      dob:
-        type: string
-      gender:
-        type: integer
-      idNo:
-        type: string
-      idType:
-        type: string
-      legalName:
-        type: string
-      relation:
-        enum:
-        - self
-        - parent
-        - grandparent
-        - other
-        type: string
-    required:
-    - dob
-    - gender
-    - legalName
-    - relation
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.ProfileLinkCreateRequest:
-    properties:
-      profileId:
-        type: string
-      relation:
-        enum:
-        - self
-        - parent
-        - grandparent
-        - other
-        type: string
-      userId:
-        type: string
-    required:
-    - profileId
-    - relation
-    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.ProfileUpdateRequest:
     properties:
       dob:
@@ -718,13 +676,6 @@ definitions:
         type: array
       nickname:
         type: string
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileCreateResponse:
-    properties:
-      profile:
-        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileResponse'
-      profileLink:
-        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkPageResponse:
     properties:
@@ -2311,120 +2262,6 @@ paths:
       summary: 查询档案关系
       tags:
       - Identity-ProfileLink
-    post:
-      consumes:
-      - application/json
-      description: 将用户设置为档案的关系用户
-      parameters:
-      - description: 授予关系请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.ProfileLinkCreateRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: 授予成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "401":
-          description: 未授权
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "409":
-          description: 档案关系已存在
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-      security:
-      - BearerAuth: []
-      summary: 授予档案关系
-      tags:
-      - Identity-ProfileLink
-  /identity/profile-links/{id}/revoke:
-    post:
-      consumes:
-      - application/json
-      description: 根据关系 ID 撤销当前用户可见的档案关系
-      parameters:
-      - description: 关系 ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 撤销成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse'
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "401":
-          description: 未授权
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-      security:
-      - BearerAuth: []
-      summary: 撤销档案关系
-      tags:
-      - Identity-ProfileLink
-  /identity/profiles:
-    post:
-      consumes:
-      - application/json
-      description: 创建档案并自动将当前用户关联到该档案（身份证可不填写）
-      parameters:
-      - description: 创建档案请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.ProfileCreateRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: 创建成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileCreateResponse'
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "401":
-          description: 未授权
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "409":
-          description: 档案已存在
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-      security:
-      - BearerAuth: []
-      summary: 创建档案并建立关系
-      tags:
-      - Identity-Profiles
   /identity/profiles/{id}:
     get:
       consumes:

@@ -38,8 +38,11 @@ type Directory interface {
 
 // MyProfileLinks 当前用户视角的档案关系访问用例。
 type MyProfileLinks interface {
+	// Grant 建立当前用户与指定档案的关系。
 	Grant(ctx context.Context, currentUserID meta.ID, dto CreateProfileLinkDTO) (*ProfileLinkResult, error)
+	// List 列出当前用户与档案的关系。
 	List(ctx context.Context, currentUserID meta.ID, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error)
+	// Revoke 撤销当前用户与指定档案的关系。
 	Revoke(ctx context.Context, currentUserID meta.ID, dto RevokeProfileLinkBySelectorDTO) (*ProfileLinkResult, error)
 }
 

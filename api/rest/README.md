@@ -8,7 +8,7 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | ---- | ---- |
 | [authn.v2.yaml](authn.v2.yaml) | v2 认证、Token、JWKS、账户和 signup |
 | [authz.v2.yaml](authz.v2.yaml) | 授权判定、角色、assignment、策略、资源 |
-| [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links |
+| [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links 查询；Profile/ProfileLink 创建命令走 gRPC |
 | [idp.v2.yaml](idp.v2.yaml) | IDP 健康检查和微信应用配置 |
 | [suggest.v2.yaml](suggest.v2.yaml) | 儿童档案联想搜索 |
 
@@ -22,12 +22,12 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | JWKS | `GET /.well-known/jwks.json`、`GET /api/v2/.well-known/jwks.json` |
 | 账户 | `/api/v2/authn/accounts/*`、`/api/v2/authn/signups/wechat-miniprogram` |
 | 授权 | `/api/v2/authz/health`、`/api/v2/authz/check`、`/api/v2/authz/{roles,assignments,policies,resources}` |
-| Identity | `/api/v2/identity/me`、`/api/v2/identity/profiles`、`/api/v2/identity/profile-links` |
+| Identity | `/api/v2/identity/me`、`/api/v2/identity/me/profiles`、`GET /api/v2/identity/profiles/*`、`GET /api/v2/identity/profile-links` |
 | IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` |
 | Suggest | `GET /api/v2/suggest/profile` |
 | Debug | `/debug/routes`、`/debug/modules`、`/debug/cache-governance/*` |
 
-Identity 的当前关系术语是 `ProfileLink`。REST 路由使用 `/profile-links`，不再使用旧关系路由。
+Identity 的当前关系术语是 `ProfileLink`。REST 路由使用 `/profile-links`，不再使用旧关系路由。Profile 与 ProfileLink 的创建/撤销命令由 gRPC `ProfileCommand`、`ProfileLinkCommand` 承接，REST 仅保留查询和当前用户资料更新能力。
 
 ## 运行时注册
 

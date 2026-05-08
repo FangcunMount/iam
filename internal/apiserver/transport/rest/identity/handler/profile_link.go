@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,7 @@ import (
 	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
@@ -17,101 +19,21 @@ var _ = core.ErrResponse{}
 // ProfileLinkHandler 档案关系 REST 处理器
 type ProfileLinkHandler struct {
 	*BaseHandler
-	profileLinkAccess appprofilelink.MyProfileLinks
+	profileLinkAccess profileLinkLister
+}
+
+type profileLinkLister interface {
+	List(ctx context.Context, currentUserID meta.ID, dto appprofilelink.ListProfileLinksDTO) ([]*appprofilelink.ProfileLinkResult, error)
 }
 
 // NewProfileLinkHandler 创建关系处理器
 func NewProfileLinkHandler(
-	profileLinkAccess appprofilelink.MyProfileLinks,
+	profileLinkAccess profileLinkLister,
 ) *ProfileLinkHandler {
 	return &ProfileLinkHandler{
 		BaseHandler:       NewBaseHandler(),
 		profileLinkAccess: profileLinkAccess,
 	}
-}
-
-// Grant 授予档案关系
-// @Summary 授予档案关系
-// @Description 将用户设置为档案的关系用户
-// @Tags Identity-ProfileLink
-// @Accept json
-// @Produce json
-// @Param request body requestdto.ProfileLinkCreateRequest true "授予关系请求"
-// @Success 201 {object} responsedto.ProfileLinkResponse "授予成功"
-// @Failure 400 {object} core.ErrResponse "参数错误"
-// @Failure 401 {object} core.ErrResponse "未授权"
-// @Failure 409 {object} core.ErrResponse "档案关系已存在"
-// @Failure 500 {object} core.ErrResponse "服务器内部错误"
-// @Router /identity/profile-links [post]
-// @Security BearerAuth
-func (h *ProfileLinkHandler) Grant(c *gin.Context) {
-	var req requestdto.ProfileLinkCreateRequest
-	if err := h.BindJSON(c, &req); err != nil {
-		h.Error(c, err)
-		return
-	}
-
-	currentUserID, err := requestctx.RequiredUserID(c)
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-	userID, err := parseOptionalID(req.UserID, "user id")
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-	profileID, err := parseProfileID(req.ProfileID)
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-
-	result, err := h.profileLinkAccess.Grant(c.Request.Context(), currentUserID, appprofilelink.CreateProfileLinkDTO{
-		UserID:    userID,
-		ProfileID: profileID,
-		Relation:  req.Relation,
-	})
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-
-	h.Created(c, profileLinkResultToResponse(result))
-}
-
-// Revoke 撤销关系。
-// @Summary 撤销档案关系
-// @Description 根据关系 ID 撤销当前用户可见的档案关系
-// @Tags Identity-ProfileLink
-// @Accept json
-// @Produce json
-// @Param id path string true "关系 ID"
-// @Success 200 {object} responsedto.ProfileLinkResponse "撤销成功"
-// @Failure 400 {object} core.ErrResponse "参数错误"
-// @Failure 401 {object} core.ErrResponse "未授权"
-// @Failure 500 {object} core.ErrResponse "服务器内部错误"
-// @Router /identity/profile-links/{id}/revoke [post]
-// @Security BearerAuth
-func (h *ProfileLinkHandler) Revoke(c *gin.Context) {
-	profileLinkID, err := parseProfileLinkID(c.Param("id"))
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-	currentUserID, err := requestctx.RequiredUserID(c)
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-	result, err := h.profileLinkAccess.Revoke(c.Request.Context(), currentUserID, appprofilelink.RevokeProfileLinkBySelectorDTO{
-		ProfileLinkID: profileLinkID,
-	})
-	if err != nil {
-		h.Error(c, err)
-		return
-	}
-	h.Success(c, profileLinkResultToResponse(result))
 }
 
 // List 查询档案关系

@@ -40,12 +40,13 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 			caps.UserCreator,
 			caps.UserEditor,
 			caps.UserStatusChanger,
+			caps.MyProfiles,
 			caps.ProfileLinkCommands,
 			caps.MyProfileLinks,
 		)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "user",
-			Description: "IdentityRead, ProfileLinkQuery, ProfileLinkCommand, IdentityLifecycle",
+			Description: "IdentityRead, ProfileLinkQuery, ProfileCommand, ProfileLinkCommand, IdentityLifecycle",
 			Register:    service.Register,
 		})
 	}

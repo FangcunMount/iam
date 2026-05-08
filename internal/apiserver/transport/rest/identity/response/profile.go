@@ -21,9 +21,3 @@ type ProfilePageResponse struct {
 	Offset int               `json:"offset"`
 	Items  []ProfileResponse `json:"items"`
 }
-
-// ProfileCreateResponse 档案创建响应。
-type ProfileCreateResponse struct {
-	Profile     ProfileResponse     `json:"profile"`
-	ProfileLink ProfileLinkResponse `json:"profileLink"`
-}

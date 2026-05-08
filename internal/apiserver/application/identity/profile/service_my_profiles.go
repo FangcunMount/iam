@@ -39,11 +39,6 @@ func (s *myProfiles) Create(ctx context.Context, currUserID meta.ID, dto CreateP
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
-		// 确保是 本人档案关系时，relation 字段必须为 "self"
-		if dto.Relation != "self" {
-			return perrors.WithCode(code.ErrInvalidArgument, "relation must be 'self' for my profile")
-		}
-
 		// 构建创建信息
 		info, err := buildProfileCreationInfo(dto)
 		if err != nil {
@@ -60,9 +55,16 @@ func (s *myProfiles) Create(ctx context.Context, currUserID meta.ID, dto CreateP
 			return err
 		}
 
-		// 确保可以创建个人档案关系（self 关系，确保当前用户没有 active self 关系）
-		if err := profileLinkDomain.NewSelfProfileGuard(tx.ProfileLinks).EnsureCanCreateSelf(txCtx, currUserID); err != nil {
+		// 解析关系类型；self 关系需要额外保护唯一性，relation 关系允许多个。
+		relation, err := parseCreateProfileRelation(dto.Relation)
+		if err != nil {
 			return err
+		}
+		if relation == profileLinkDomain.RelSelf {
+			// 确保可以创建个人档案关系（self 关系，确保当前用户没有 active self 关系）
+			if err := profileLinkDomain.NewSelfProfileGuard(tx.ProfileLinks).EnsureCanCreateSelf(txCtx, currUserID); err != nil {
+				return err
+			}
 		}
 
 		// 创建档案记录
@@ -72,7 +74,7 @@ func (s *myProfiles) Create(ctx context.Context, currUserID meta.ID, dto CreateP
 		}
 
 		// 创建用户与档案的关系
-		newProfileLink, err := createProfileLinkRecord(txCtx, tx.ProfileLinks, currUserID, newProfile.ID, profileLinkDomain.RelSelf)
+		newProfileLink, err := createProfileLinkRecord(txCtx, tx.ProfileLinks, currUserID, newProfile.ID, relation)
 		if err != nil {
 			return err
 		}
@@ -112,6 +114,18 @@ func ensureUserExists(txCtx context.Context, tx uow.TxRepositories, userID meta.
 		return perrors.WithCode(code.ErrUserInvalid, "user not found")
 	}
 	return nil
+}
+
+// parseCreateProfileRelation 解析创建档案请求中的关系类型，并进行基本的验证。
+func parseCreateProfileRelation(raw string) (profileLinkDomain.Relation, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", perrors.WithCode(code.ErrInvalidArgument, "profile relation is required")
+	}
+	relation := profileLinkDomain.ParseRelation(raw)
+	if !relation.IsValid() {
+		return "", perrors.WithCode(code.ErrInvalidArgument, "unsupported profile relation: %s", raw)
+	}
+	return relation, nil
 }
 
 // ============================================

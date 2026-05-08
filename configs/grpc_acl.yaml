@@ -29,6 +29,9 @@ services:
       - /iam.identity.v2.ProfileLinkQuery/HasProfileLink
       - /iam.identity.v2.ProfileLinkQuery/ListProfiles
       - /iam.identity.v2.ProfileLinkQuery/ListProfileLinks
+
+      # ProfileCommand - 档案创建
+      - /iam.identity.v2.ProfileCommand/CreateProfile
       
       # ProfileLinkCommand - 档案关系管理
       - /iam.identity.v2.ProfileLinkCommand/EstablishProfileLink
@@ -77,6 +80,9 @@ services:
       - /iam.identity.v2.ProfileLinkQuery/HasProfileLink
       - /iam.identity.v2.ProfileLinkQuery/ListProfiles
       - /iam.identity.v2.ProfileLinkQuery/ListProfileLinks
+
+      # ProfileCommand - 档案创建
+      - /iam.identity.v2.ProfileCommand/CreateProfile
       
       # ProfileLinkCommand - 档案关系管理
       - /iam.identity.v2.ProfileLinkCommand/EstablishProfileLink
@@ -111,6 +117,7 @@ services:
       # 所有 Identity 服务方法
       - /iam.identity.v2.IdentityRead/*
       - /iam.identity.v2.ProfileLinkQuery/*
+      - /iam.identity.v2.ProfileCommand/*
       - /iam.identity.v2.ProfileLinkCommand/*
       - /iam.identity.v2.IdentityLifecycle/*
       # 所有 Authn 服务方法

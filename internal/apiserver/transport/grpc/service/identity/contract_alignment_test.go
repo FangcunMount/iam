@@ -13,11 +13,12 @@ import (
 
 func TestIdentityGRPCRuntimeRegistersOnlyImplementedServices(t *testing.T) {
 	server := grpc.NewServer()
-	NewService(nil, nil, nil, nil, nil, nil, nil, nil).Register(server)
+	NewService(nil, nil, nil, nil, nil, nil, nil, nil, nil).Register(server)
 
 	info := server.GetServiceInfo()
 	require.Contains(t, info, "iam.identity.v2.IdentityRead")
 	require.Contains(t, info, "iam.identity.v2.ProfileLinkQuery")
+	require.Contains(t, info, "iam.identity.v2.ProfileCommand")
 	require.Contains(t, info, "iam.identity.v2.ProfileLinkCommand")
 	require.Contains(t, info, "iam.identity.v2.IdentityLifecycle")
 	assert.NotContains(t, info, "iam.identity.v2.IdentityStream")
@@ -28,6 +29,9 @@ func TestIdentityGRPCRuntimeRegistersOnlyImplementedServices(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		"HasProfileLink", "ListProfiles", "ListProfileLinks",
 	}, methodNames(info["iam.identity.v2.ProfileLinkQuery"]))
+	assert.ElementsMatch(t, []string{
+		"CreateProfile",
+	}, methodNames(info["iam.identity.v2.ProfileCommand"]))
 	assert.ElementsMatch(t, []string{
 		"EstablishProfileLink", "RevokeProfileLink", "BatchRevokeProfileLinks", "ImportProfileLinks",
 	}, methodNames(info["iam.identity.v2.ProfileLinkCommand"]))
