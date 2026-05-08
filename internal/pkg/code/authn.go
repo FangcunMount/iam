@@ -133,6 +133,9 @@ const (
 	ErrUnsupportedAuthMethod = 102407
 	ErrPayloadInvalid        = 102408
 	ErrProofBuildFailed      = 102409
+	ErrRefreshTokenNotFound  = 102410
+	ErrRefreshTokenExpired   = 102411
+	ErrSessionInactive       = 102412
 )
 
 // nolint: gochecknoinits
@@ -201,6 +204,9 @@ func registerAuthn() {
 	errors.MustRegister(&authnCoder{code: ErrUnsupportedAuthMethod, status: http.StatusBadRequest, msg: "Unsupported authentication method"})
 	errors.MustRegister(&authnCoder{code: ErrPayloadInvalid, status: http.StatusBadRequest, msg: "Authentication payload is invalid"})
 	errors.MustRegister(&authnCoder{code: ErrProofBuildFailed, status: http.StatusBadRequest, msg: "Failed to build authentication proof"})
+	errors.MustRegister(&authnCoder{code: ErrRefreshTokenNotFound, status: http.StatusUnauthorized, msg: "Refresh token not found"})
+	errors.MustRegister(&authnCoder{code: ErrRefreshTokenExpired, status: http.StatusUnauthorized, msg: "Refresh token expired"})
+	errors.MustRegister(&authnCoder{code: ErrSessionInactive, status: http.StatusUnauthorized, msg: "Session inactive"})
 }
 
 // authnCoder 实现 errors.Coder 接口

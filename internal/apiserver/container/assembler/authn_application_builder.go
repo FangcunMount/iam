@@ -63,7 +63,7 @@ func (m *AuthnModule) initializeApplication(
 		domain.refreshTTL,
 	)
 	tokenRefresher := token.NewRefresher(
-		tokenIssuer,
+		tokenIssuer.SessionTokenPairIssuer(),
 		infra.tokenStore,
 		domain.sessionManager,
 		infra.accessChecker,

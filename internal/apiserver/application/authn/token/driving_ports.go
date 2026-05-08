@@ -5,22 +5,11 @@ import (
 	"time"
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 )
 
 // ====================================================
 // ================== Driving Ports ===================
 // ====================================================
-
-// SessionTokenPairIssuer 基于已存在的 session 签发 access token 并保存 refresh token。
-//
-// Login 会先创建 session 再调用该组件；Refresh 会复用已有 session 后调用该组件。
-type SessionTokenPairIssuer interface {
-	// IssueTokenPair 颁发令牌对
-	// 职责：根据认证主体和会话信息签发 access token，并保存新的 refresh token。
-	// 返回值必须包含 access token 和 refresh token。
-	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
-}
 
 // SessionTokenIssuer 是登录成功后对上层提供的用户会话令牌签发用例。
 //

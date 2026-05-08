@@ -11,6 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// sessionTokenPairIssuer 基于已存在的 session 签发 access token 并保存 refresh token。
+//
+// Login 会先创建 session 再调用该组件；Refresh 会复用已有 session 后调用该组件。
+type SessionTokenPairIssuer interface {
+	// IssueTokenPair 根据认证主体和会话信息签发 access token，并保存新的 refresh token。
+	// 返回值必须包含 access token 和 refresh token。
+	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
+}
+
 // sessionTokenPairIssuer  基于已存在的 session 签发 access token 并保存 refresh token。
 type sessionTokenPairIssuer struct {
 	tokenCodec  AccessTokenCodec
@@ -86,4 +95,15 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 
 	// 返回令牌对
 	return NewTokenPair(accessToken, refreshToken), nil
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }

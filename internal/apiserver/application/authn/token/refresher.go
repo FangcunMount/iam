@@ -112,7 +112,7 @@ func (s *refresher) loadRefreshToken(ctx context.Context, refreshTokenValue stri
 		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "refresh token not found or invalid")
 	}
 	if refreshToken == nil {
-		return nil, perrors.WithCode(code.ErrTokenInvalid, "refresh token not found")
+		return nil, perrors.WithCode(code.ErrRefreshTokenNotFound, "refresh token not found")
 	}
 	return refreshToken, nil
 }
@@ -124,7 +124,7 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to load session")
 	}
 	if sess == nil || !sess.IsActive() {
-		return nil, perrors.WithCode(code.ErrTokenInvalid, "session has been revoked or expired")
+		return nil, perrors.WithCode(code.ErrSessionInactive, "session has been revoked or expired")
 	}
 	return sess, nil
 }
@@ -147,7 +147,7 @@ func (s *refresher) ensureRefreshTokenUsable(ctx context.Context, refreshTokenVa
 		return nil
 	}
 	_ = s.tokenStore.DeleteRefreshToken(ctx, refreshTokenValue)
-	return perrors.WithCode(code.ErrExpired, "refresh token has expired")
+	return perrors.WithCode(code.ErrRefreshTokenExpired, "refresh token has expired")
 }
 
 // principalFromRefreshToken 从刷新令牌创建主体

@@ -4,20 +4,14 @@ import (
 	"context"
 	"time"
 
-	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// issuer 实现 Issuer 接口
+// issuer 是对外兼容的 token 签发门面，实际职责委托给更小的用例组件。
 type issuer struct {
-	tokenCodec     AccessTokenCodec
-	tokenStore     Store
-	sessionManager SessionManager
-	pairIssuer     SessionTokenPairIssuer
-	accessTTL      time.Duration
-	refreshTTL     time.Duration
+	sessionIssuer *sessionTokenIssuer
+	serviceIssuer ServiceTokenIssuer
+	accessRevoker AccessRevoker
 }
 
 // 确保 issuer 实现 Issuer 接口
@@ -33,88 +27,33 @@ func NewIssuer(
 	refreshTTL time.Duration,
 ) *issuer {
 	claimMapper = normalizeClaimMapper(claimMapper)
+	pairIssuer := newSessionTokenPairIssuer(tokenCodec, tokenStore, claimMapper, accessTTL, refreshTTL)
 	return &issuer{
-		tokenCodec:     tokenCodec,
-		tokenStore:     tokenStore,
-		sessionManager: sessionManager,
-		pairIssuer:     newSessionTokenPairIssuer(tokenCodec, tokenStore, claimMapper, accessTTL, refreshTTL),
-		accessTTL:      accessTTL,
-		refreshTTL:     refreshTTL,
+		sessionIssuer: newSessionTokenIssuer(sessionManager, pairIssuer, refreshTTL),
+		serviceIssuer: newServiceTokenIssuer(tokenCodec, accessTTL),
+		accessRevoker: newAccessTokenRevoker(tokenCodec, tokenStore, sessionManager),
 	}
 }
 
-// IssueToken 颁发令牌
+// SessionTokenPairIssuer 返回基于既有 session 签发 token pair 的内部协作者。
+func (s *issuer) SessionTokenPairIssuer() SessionTokenPairIssuer {
+	if s == nil || s.sessionIssuer == nil {
+		return nil
+	}
+	return s.sessionIssuer.pairIssuer
+}
+
+// IssueToken 颁发用户会话令牌。
 func (s *issuer) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
-	if principal == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
-	}
-
-	sessionExpiresAt := time.Now().Add(s.refreshTTL)
-	sess, err := s.sessionManager.Create(ctx, principal, sessionExpiresAt)
-	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to create session")
-	}
-
-	return s.pairIssuer.IssueTokenPair(ctx, principal, sess)
+	return s.sessionIssuer.IssueToken(ctx, principal)
 }
 
-// IssueTokenPair 颁发令牌对
-func (s *issuer) IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
-	if s == nil || s.pairIssuer == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "session token pair issuer is not configured")
-	}
-	return s.pairIssuer.IssueTokenPair(ctx, principal, sess)
-}
-
-// IssueServiceToken 颁发服务令牌
+// IssueServiceToken 颁发服务令牌。
 func (s *issuer) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error) {
-	if subject == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
-	}
-	if ttl <= 0 {
-		ttl = s.accessTTL
-	}
-
-	serviceToken, err := s.tokenCodec.IssueServiceToken(ctx, subject, audience, attributes, ttl)
-	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate service token")
-	}
-	return NewTokenPair(serviceToken, nil), nil
+	return s.serviceIssuer.IssueServiceToken(ctx, subject, audience, attributes, ttl)
 }
 
-// RevokeAccessToken 撤销访问令牌
+// RevokeAccessToken 撤销访问令牌。
 func (s *issuer) RevokeAccessToken(ctx context.Context, tokenValue string) error {
-	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
-	if err != nil {
-		return perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse token for revocation")
-	}
-	if claims.IsExpired() {
-		return nil
-	}
-
-	expiry := time.Until(claims.ExpiresAt)
-	if expiry <= 0 {
-		return nil
-	}
-	if err := s.tokenStore.MarkAccessTokenRevoked(ctx, claims.TokenID, expiry); err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to mark access token revoked")
-	}
-	if claims.SessionID != "" {
-		if err := s.sessionManager.Revoke(ctx, claims.SessionID, "access_token_revoked", claims.Subject); err != nil {
-			return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke token session")
-		}
-	}
-	return nil
-}
-
-// cloneAnyMap 克隆任意映射
-func cloneAnyMap(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
-	return out
+	return s.accessRevoker.RevokeAccessToken(ctx, tokenValue)
 }

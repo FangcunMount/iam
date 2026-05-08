@@ -95,6 +95,24 @@ func TestAuthnErrorCodesUsage(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			shouldRegister: true,
 		},
+		{
+			name:           "ErrRefreshTokenNotFound",
+			errorCode:      code.ErrRefreshTokenNotFound,
+			expectedStatus: http.StatusUnauthorized,
+			shouldRegister: true,
+		},
+		{
+			name:           "ErrRefreshTokenExpired",
+			errorCode:      code.ErrRefreshTokenExpired,
+			expectedStatus: http.StatusUnauthorized,
+			shouldRegister: true,
+		},
+		{
+			name:           "ErrSessionInactive",
+			errorCode:      code.ErrSessionInactive,
+			expectedStatus: http.StatusUnauthorized,
+			shouldRegister: true,
+		},
 	}
 
 	for _, tt := range tests {

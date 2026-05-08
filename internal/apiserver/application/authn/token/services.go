@@ -107,7 +107,7 @@ func (s *tokenApplicationService) IssueServiceToken(ctx context.Context, req Iss
 func (s *tokenApplicationService) RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error) {
 	tokenPair, err := s.tokenRefresher.RefreshToken(ctx, refreshToken)
 	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "failed to refresh token")
+		return nil, err
 	}
 
 	return &TokenRefreshResult{

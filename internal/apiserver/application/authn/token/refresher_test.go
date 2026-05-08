@@ -123,6 +123,10 @@ func newRefreshOrderFixture(recorder *refreshOrderRecorder, pairIssuer SessionTo
 		time.Hour,
 	)
 	sess := sessiondomain.New("session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3), []string{"pwd"}, nil, time.Now().Add(time.Hour))
+	return newRefreshOrderFixtureWithState(recorder, pairIssuer, refreshToken, sess), refreshToken
+}
+
+func newRefreshOrderFixtureWithState(recorder *refreshOrderRecorder, pairIssuer SessionTokenPairIssuer, refreshToken *Token, sess *sessiondomain.Session) Refresher {
 	refresher := NewRefresher(
 		pairIssuer,
 		&refreshOrderStore{recorder: recorder, refreshToken: refreshToken},
@@ -130,7 +134,7 @@ func newRefreshOrderFixture(recorder *refreshOrderRecorder, pairIssuer SessionTo
 		&refreshOrderAccessChecker{recorder: recorder},
 		NewStringClaimMapper(),
 	)
-	return refresher, refreshToken
+	return refresher
 }
 
 func TestRefresherRefreshTokenKeepsRotationOrder(t *testing.T) {
@@ -177,4 +181,95 @@ func TestRefresherRefreshTokenRejectsIncompleteIssuedPair(t *testing.T) {
 		"evaluate_access",
 		"issue_pair",
 	}, recorder.events)
+}
+
+func TestRefresherRefreshTokenUsesSpecificErrorCodes(t *testing.T) {
+	t.Parallel()
+
+	activeRefreshToken := func() *Token {
+		return NewRefreshToken(
+			"refresh-id",
+			"old-refresh-value",
+			"session-id",
+			meta.FromUint64(1),
+			meta.FromUint64(2),
+			meta.FromUint64(3),
+			[]string{"pwd"},
+			nil,
+			time.Hour,
+		)
+	}
+	expiredRefreshToken := func() *Token {
+		return NewRefreshToken(
+			"refresh-id",
+			"old-refresh-value",
+			"session-id",
+			meta.FromUint64(1),
+			meta.FromUint64(2),
+			meta.FromUint64(3),
+			[]string{"pwd"},
+			nil,
+			-time.Hour,
+		)
+	}
+	activeSession := func() *sessiondomain.Session {
+		return sessiondomain.New("session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3), []string{"pwd"}, nil, time.Now().Add(time.Hour))
+	}
+	revokedSession := func() *sessiondomain.Session {
+		sess := activeSession()
+		sess.Revoke("test", "test")
+		return sess
+	}
+
+	tests := []struct {
+		name         string
+		refreshToken *Token
+		session      *sessiondomain.Session
+		wantCode     int
+		wantEvents   []string
+	}{
+		{
+			name:         "refresh token not found",
+			refreshToken: nil,
+			session:      activeSession(),
+			wantCode:     code.ErrRefreshTokenNotFound,
+			wantEvents:   []string{"load_refresh"},
+		},
+		{
+			name:         "refresh token expired",
+			refreshToken: expiredRefreshToken(),
+			session:      activeSession(),
+			wantCode:     code.ErrRefreshTokenExpired,
+			wantEvents:   []string{"load_refresh", "load_session", "evaluate_access", "delete_refresh"},
+		},
+		{
+			name:         "session inactive",
+			refreshToken: activeRefreshToken(),
+			session:      revokedSession(),
+			wantCode:     code.ErrSessionInactive,
+			wantEvents:   []string{"load_refresh", "load_session"},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			recorder := &refreshOrderRecorder{}
+			refresher := newRefreshOrderFixtureWithState(
+				recorder,
+				&refreshOrderPairIssuer{recorder: recorder},
+				tt.refreshToken,
+				tt.session,
+			)
+
+			pair, err := refresher.RefreshToken(context.Background(), "old-refresh-value")
+
+			require.Error(t, err)
+			require.Nil(t, pair)
+			require.Equal(t, tt.wantCode, perrors.ParseCoder(err).Code())
+			require.Equal(t, tt.wantEvents, recorder.events)
+		})
+	}
 }

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +34,18 @@ func (s *serviceTokenIssuerStub) IssueServiceToken(_ context.Context, subject st
 	s.attributes = attributes
 	s.ttl = ttl
 	return s.pair, nil
+}
+
+type refreshTokenRefresherStub struct {
+	err error
+}
+
+func (s *refreshTokenRefresherStub) RefreshToken(context.Context, string) (*TokenPair, error) {
+	return nil, s.err
+}
+
+func (s *refreshTokenRefresherStub) RevokeRefreshToken(context.Context, string) error {
+	return nil
 }
 
 func TestTokenApplicationServiceVerifyTokenHonorsExpectedIssuerAndAudience(t *testing.T) {
@@ -110,4 +124,20 @@ func TestTokenApplicationServiceIssueServiceTokenUsesServiceIssuer(t *testing.T)
 	require.Equal(t, []string{"iam-api"}, issuer.audience)
 	require.Equal(t, map[string]string{"scope": "send"}, issuer.attributes)
 	require.Equal(t, time.Minute, issuer.ttl)
+}
+
+func TestTokenApplicationServiceRefreshTokenPreservesRefresherErrorCode(t *testing.T) {
+	t.Parallel()
+
+	svc := &tokenApplicationService{
+		tokenRefresher: &refreshTokenRefresherStub{
+			err: perrors.WithCode(code.ErrInternalServerError, "session store unavailable"),
+		},
+	}
+
+	result, err := svc.RefreshToken(context.Background(), "refresh-token")
+
+	require.Error(t, err)
+	require.Nil(t, result)
+	require.Equal(t, code.ErrInternalServerError, perrors.ParseCoder(err).Code())
 }
