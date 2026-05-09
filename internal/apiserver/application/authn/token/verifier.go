@@ -12,7 +12,7 @@ import (
 // ====================================================
 // ================== Driving Ports ===================
 // ====================================================
-// verifierPort 在线验证 access token。
+// verifierPort 在线验证 access token，
 type verifierPort interface {
 	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
 }
@@ -22,10 +22,10 @@ type verifierPort interface {
 // ====================================================
 // verifier 验证访问令牌
 type verifier struct {
-	tokenCodec     AccessTokenCodec
-	tokenStore     Store
-	sessionManager SessionManager
-	accessChecker  SubjectAccessEvaluator
+	tokenCodec     AccessTokenCodec       // 令牌编码器
+	tokenStore     Store                  // 令牌存储
+	sessionManager SessionManager         // 会话管理器
+	accessChecker  SubjectAccessEvaluator // 主体访问状态评估器
 }
 
 // 确保 verifier 实现 verifierPort 接口。

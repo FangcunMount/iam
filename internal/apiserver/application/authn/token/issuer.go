@@ -10,11 +10,10 @@ import (
 // ====================================================
 // ================== Driving Ports ===================
 // ====================================================
-// issuerPort 聚合 token 签发/撤销能力，仅供 token 包内部装配。
+// issuerPort 聚合 token 签发能力，仅供 token 包内部装配。
 type issuerPort interface {
 	sessionTokenIssuerPort
 	serviceTokenIssuerPort
-	accessRevokerPort
 }
 
 // ====================================================
@@ -22,9 +21,8 @@ type issuerPort interface {
 // ====================================================
 // issuer 是 token 包内部的签发门面，实际职责委托给更小的用例组件。
 type issuer struct {
-	sessionIssuer *sessionTokenIssuer
-	serviceIssuer serviceTokenIssuerPort
-	accessRevoker accessRevokerPort
+	sessionIssuer *sessionTokenIssuer // 用户会话令牌签发器
+	serviceIssuer *serviceTokenIssuer // 服务令牌签发器
 }
 
 // 确保 issuer 实现 issuerPort 接口。
@@ -44,7 +42,6 @@ func newIssuer(
 	return &issuer{
 		sessionIssuer: newSessionTokenIssuer(sessionManager, pairIssuer, refreshTTL),
 		serviceIssuer: newServiceTokenIssuer(tokenCodec, accessTTL),
-		accessRevoker: newAccessTokenRevoker(tokenCodec, tokenStore, sessionManager),
 	}
 }
 
@@ -64,9 +61,4 @@ func (s *issuer) IssueToken(ctx context.Context, principal *authentication.Princ
 // IssueServiceToken 颁发服务令牌。
 func (s *issuer) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error) {
 	return s.serviceIssuer.IssueServiceToken(ctx, subject, audience, attributes, ttl)
-}
-
-// RevokeAccessToken 撤销访问令牌。
-func (s *issuer) RevokeAccessToken(ctx context.Context, tokenValue string) error {
-	return s.accessRevoker.RevokeAccessToken(ctx, tokenValue)
 }

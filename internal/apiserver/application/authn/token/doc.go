@@ -4,25 +4,29 @@
 //
 // TokenApplicationService 是 token 应用服务的接口，实际职责委托给更小的用例组件。
 //
-//		TokenApplicationService
-//		  -> serviceTokenIssuer	签发服务令牌
-//		  -> refresher	刷新访问令牌和刷新令牌
-//		  -> verifier	验证访问令牌
-//		  -> accessTokenRevoker	撤销访问令牌
+//	TokenApplicationService
+//	  -> sessionTokenIssuer	签发用户会话令牌
+//	  -> serviceTokenIssuer	签发服务间访问令牌
+//	  -> refresher	刷新令牌
+//	  -> verifier	验证令牌
+//	  -> revoker	撤销令牌和关联会话
 //
-//	 issuer 是 token 包内部的门面，装配并负责驱动以下组件：
-//		issuer
-//		  -> sessionTokenIssuer	签发用户会话令牌
-//		  -> serviceTokenIssuer 签发服务令牌
-//		  -> accessTokenRevoker 撤销访问令牌
+// issuer 是 token 包内部的签发门面，实际职责委托给更小的用例组件。
+//	issuer
+//	  -> sessionTokenIssuer	签发用户会话令牌
+//	  -> serviceTokenIssuer	签发服务间访问令牌
 //
-//	 sessionTokenIssuer 是 token 包内部的门面，装配并负责驱动以下组件：
-//		sessionTokenIssuer
-//		  -> SessionManager.Create 创建会话
-//		  -> sessionTokenPairIssuer.IssueTokenPair 签发 token pair
+// revoker 是 token 包内部的撤销门面，实际职责委托给更小的用例组件。
+//	revoker
+//	  -> revokeAccessToken	撤销令牌和关联会话
 //
-//	 sessionTokenPairIssuer 是 token 包内部的门面，装配并负责驱动以下组件：
-//		sessionTokenPairIssuer
-//		  -> AccessTokenCodec.IssueAccessToken 签发访问令牌
-//		  -> Store.SaveRefreshToken 保存刷新令牌
+// verifier 是 token 包内部的验证门面，实际职责委托给更小的用例组件。
+//	verifier
+//	  -> verifyAccessToken	验证令牌
+//
+// refresher 是 token 包内部的刷新门面，实际职责委托给更小的用例组件。
+//	refresher
+//	  -> refreshToken	刷新令牌
+//	  -> revokeRefreshToken	删除刷新令牌
+
 package token

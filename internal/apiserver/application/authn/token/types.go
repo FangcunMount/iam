@@ -3,16 +3,23 @@ package token
 import (
 	"time"
 
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
+
+// SessionManager 是 token 用例依赖的会话领域协作者。
+type SessionManager = sessiondomain.Manager
+
+// SubjectAccessEvaluator 是 token 用例依赖的主体访问状态领域协作者。
+type SubjectAccessEvaluator = sessiondomain.SubjectAccessEvaluator
 
 // TokenType 表示 IAM 内部令牌用途。
 type TokenType string
 
 const (
-	TokenTypeAccess  TokenType = "access"
-	TokenTypeRefresh TokenType = "refresh"
-	TokenTypeService TokenType = "service"
+	TokenTypeAccess  TokenType = "access"  // 访问令牌
+	TokenTypeRefresh TokenType = "refresh" // 刷新令牌
+	TokenTypeService TokenType = "service" // 服务令牌
 )
 
 // Token 是应用层令牌结果模型；具体编码格式由 infra token adapter 决定。

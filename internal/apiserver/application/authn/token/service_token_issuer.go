@@ -11,9 +11,7 @@ import (
 // ====================================================
 // ================== Driving Ports ===================
 // ====================================================
-// serviceTokenIssuerPort 签发服务间访问令牌；服务令牌不创建 session 或 refresh token。
-//
-// 返回值必须包含 access token 和 refresh token。
+// serviceTokenIssuerPort 签发服务间访问令牌；服务令牌不创建会话或 refresh token。
 type serviceTokenIssuerPort interface {
 	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error)
 }
@@ -24,8 +22,8 @@ type serviceTokenIssuerPort interface {
 
 // serviceTokenIssuer 签发服务令牌
 type serviceTokenIssuer struct {
-	tokenCodec AccessTokenCodec
-	accessTTL  time.Duration
+	tokenCodec AccessTokenCodec // 令牌编码器
+	accessTTL  time.Duration    // 令牌有效期
 }
 
 // 确保 serviceTokenIssuer 实现 serviceTokenIssuerPort 接口。

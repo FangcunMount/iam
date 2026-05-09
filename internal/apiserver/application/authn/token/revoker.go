@@ -12,8 +12,8 @@ import (
 // ================== Driving Ports ===================
 // ====================================================
 
-// accessRevokerPort 撤销单个 access token 及其关联会话。
-type accessRevokerPort interface {
+// revokerPort 撤销令牌和关联会话。
+type revokerPort interface {
 	RevokeAccessToken(ctx context.Context, tokenValue string) error
 }
 
@@ -21,19 +21,19 @@ type accessRevokerPort interface {
 // ================== Implementation ==================
 // ====================================================
 
-// accessTokenRevoker 撤销访问令牌
-type accessTokenRevoker struct {
+// revoker 撤销令牌和关联会话
+type revoker struct {
 	tokenCodec     AccessTokenCodec
 	tokenStore     Store
 	sessionManager SessionManager
 }
 
-// 确保 accessTokenRevoker 实现 accessRevokerPort 接口。
-var _ accessRevokerPort = (*accessTokenRevoker)(nil)
+// 确保 revoker 实现 revokerPort 接口。
+var _ revokerPort = (*revoker)(nil)
 
-// newAccessTokenRevoker 创建 accessTokenRevoker。
-func newAccessTokenRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionManager SessionManager) *accessTokenRevoker {
-	return &accessTokenRevoker{
+// newRevoker 创建 revoker。
+func newRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionManager SessionManager) *revoker {
+	return &revoker{
 		tokenCodec:     tokenCodec,
 		tokenStore:     tokenStore,
 		sessionManager: sessionManager,
@@ -41,7 +41,7 @@ func newAccessTokenRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessio
 }
 
 // RevokeAccessToken 撤销访问令牌。
-func (s *accessTokenRevoker) RevokeAccessToken(ctx context.Context, tokenValue string) error {
+func (s *revoker) RevokeAccessToken(ctx context.Context, tokenValue string) error {
 	// 验证访问令牌
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
 	if err != nil {

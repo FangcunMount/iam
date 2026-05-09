@@ -22,11 +22,11 @@ type sessionTokenPairIssuerPort interface {
 
 // sessionTokenPairIssuer 基于已存在的 session 签发 access token 并保存 refresh token。
 type sessionTokenPairIssuer struct {
-	tokenCodec  AccessTokenCodec
-	tokenStore  Store
-	claimMapper ClaimMapper
-	accessTTL   time.Duration
-	refreshTTL  time.Duration
+	tokenCodec  AccessTokenCodec // 令牌编码器
+	tokenStore  Store            // 令牌存储
+	claimMapper ClaimMapper      // 声明映射器
+	accessTTL   time.Duration    // 令牌有效期
+	refreshTTL  time.Duration    // 刷新令牌有效期
 }
 
 // 确保 sessionTokenPairIssuer 实现 sessionTokenPairIssuerPort 接口。

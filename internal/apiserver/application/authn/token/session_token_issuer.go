@@ -25,9 +25,9 @@ type sessionTokenIssuerPort interface {
 
 // sessionTokenIssuer 签发用户会话令牌
 type sessionTokenIssuer struct {
-	sessionManager SessionManager
-	pairIssuer     sessionTokenPairIssuerPort
-	refreshTTL     time.Duration
+	sessionManager SessionManager             // 会话管理器
+	pairIssuer     sessionTokenPairIssuerPort // 令牌对签发器
+	refreshTTL     time.Duration              // 刷新令牌有效期
 }
 
 // 确保 sessionTokenIssuer 实现 sessionTokenIssuerPort 接口。

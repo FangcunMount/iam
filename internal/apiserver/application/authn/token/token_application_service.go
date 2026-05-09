@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"strings"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -38,11 +39,22 @@ type TokenApplicationService interface {
 
 // tokenApplicationService 实现 TokenApplicationService 接口
 type tokenApplicationService struct {
-	sessionTokenIssuer sessionTokenIssuerPort
-	serviceTokenIssuer serviceTokenIssuerPort
-	refresher          refresherPort
-	verifier           verifierPort
-	accessRevoker      accessRevokerPort
+	sessionTokenIssuer sessionTokenIssuerPort // 用户会话令牌签发器
+	serviceTokenIssuer serviceTokenIssuerPort // 服务令牌签发器
+	refresher          refresherPort          // 令牌刷新器
+	verifier           verifierPort           // 令牌验证器
+	revoker            revokerPort            // 令牌撤销器
+}
+
+// TokenApplicationDependencies 是 TokenApplicationService 的装配依赖。
+type TokenApplicationDependencies struct {
+	AccessTokenCodec AccessTokenCodec       // 令牌编码器
+	TokenStore       Store                  // 令牌存储
+	SessionManager   SessionManager         // 会话管理器
+	AccessChecker    SubjectAccessEvaluator // 主体访问状态评估器
+	ClaimMapper      ClaimMapper            // 声明映射器
+	AccessTTL        time.Duration          // 令牌有效期
+	RefreshTTL       time.Duration          // 刷新令牌有效期
 }
 
 // 确保 tokenApplicationService 实现 TokenApplicationService 接口
@@ -50,7 +62,7 @@ var _ TokenApplicationService = (*tokenApplicationService)(nil)
 
 // NewTokenApplicationService 创建 TokenApplicationService。
 func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicationService {
-	tokenIssuer := newIssuer(
+	issuer := newIssuer(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
 		deps.SessionManager,
@@ -59,7 +71,7 @@ func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicat
 		deps.RefreshTTL,
 	)
 	tokenRefresher := newRefresher(
-		tokenIssuer.sessionTokenPairIssuer(),
+		issuer.sessionTokenPairIssuer(),
 		deps.TokenStore,
 		deps.SessionManager,
 		deps.AccessChecker,
@@ -71,22 +83,17 @@ func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicat
 		deps.SessionManager,
 		deps.AccessChecker,
 	)
-	return newTokenApplicationService(tokenIssuer, tokenIssuer, tokenRefresher, tokenVerifier, tokenIssuer)
-}
-
-func newTokenApplicationService(
-	sessionTokenIssuer sessionTokenIssuerPort,
-	serviceTokenIssuer serviceTokenIssuerPort,
-	refresher refresherPort,
-	verifier verifierPort,
-	accessRevoker accessRevokerPort,
-) TokenApplicationService {
+	revoker := newRevoker(
+		deps.AccessTokenCodec,
+		deps.TokenStore,
+		deps.SessionManager,
+	)
 	return &tokenApplicationService{
-		sessionTokenIssuer: sessionTokenIssuer,
-		serviceTokenIssuer: serviceTokenIssuer,
-		refresher:          refresher,
-		verifier:           verifier,
-		accessRevoker:      accessRevoker,
+		sessionTokenIssuer: issuer.sessionIssuer,
+		serviceTokenIssuer: issuer.serviceIssuer,
+		refresher:          tokenRefresher,
+		verifier:           tokenVerifier,
+		revoker:            revoker,
 	}
 }
 
@@ -121,7 +128,7 @@ func (s *tokenApplicationService) RefreshToken(ctx context.Context, refreshToken
 
 // RevokeAccessToken 撤销单个 access token 及其关联会话。
 func (s *tokenApplicationService) RevokeAccessToken(ctx context.Context, accessToken string) error {
-	err := s.accessRevoker.RevokeAccessToken(ctx, accessToken)
+	err := s.revoker.RevokeAccessToken(ctx, accessToken)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrTokenRevokeFailed, "failed to revoke access token")
 	}
