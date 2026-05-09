@@ -17,7 +17,7 @@ type Manager interface {
 	Get(ctx context.Context, sessionID string) (*Session, error)
 	Revoke(ctx context.Context, sessionID string, reason string, revokedBy string) error
 	RevokeByUser(ctx context.Context, userID meta.ID, reason string, revokedBy string) error
-	RevokeByAccount(ctx context.Context, accountID meta.ID, reason string, revokedBy string) error
+	RevokeByLoginIdentity(ctx context.Context, loginIdentityID meta.ID, reason string, revokedBy string) error
 	Extend(ctx context.Context, sessionID string, expiresAt time.Time) error
 }
 
@@ -34,7 +34,9 @@ func (m *manager) Create(ctx context.Context, principal *authentication.Principa
 	if principal == nil {
 		return nil, fmt.Errorf("principal is nil")
 	}
-	session := New(uuid.NewString(), principal.UserID, principal.AccountID, principal.TenantID, principal.AMR, toStringClaims(principal.Claims), expiresAt)
+	session := New(uuid.NewString(), principal.UserID, principal.LoginIdentityID, principal.TenantID, principal.AMR, toStringClaims(principal.Claims), expiresAt)
+	session.AuthMethod = principal.AuthMethod
+	session.Realm = principal.Realm
 	if err := m.store.Save(ctx, session); err != nil {
 		return nil, err
 	}
@@ -53,8 +55,8 @@ func (m *manager) RevokeByUser(ctx context.Context, userID meta.ID, reason strin
 	return m.store.RevokeByUser(ctx, userID, reason, revokedBy)
 }
 
-func (m *manager) RevokeByAccount(ctx context.Context, accountID meta.ID, reason string, revokedBy string) error {
-	return m.store.RevokeByAccount(ctx, accountID, reason, revokedBy)
+func (m *manager) RevokeByLoginIdentity(ctx context.Context, loginIdentityID meta.ID, reason string, revokedBy string) error {
+	return m.store.RevokeByLoginIdentity(ctx, loginIdentityID, reason, revokedBy)
 }
 
 func (m *manager) Extend(ctx context.Context, sessionID string, expiresAt time.Time) error {

@@ -20,24 +20,24 @@ func (a *Authenticator) logAuthAttempt(ctx context.Context, credential AuthCrede
 func authAuditEvent(credential AuthCredential, decision AuthDecision) AuthAuditEvent {
 	remoteIP, userAgent := authAuditClientInfo(credential)
 	return AuthAuditEvent{
-		AccountID:      authAuditAccountID(decision),
-		CredentialID:   decision.CredentialID,
-		CredentialType: credential.CredentialType(),
-		Success:        decision.OK,
-		Code:           authAuditCode(decision),
-		RemoteIP:       remoteIP,
-		UserAgent:      userAgent,
-		Timestamp:      time.Now(),
+		LoginIdentityID: authAuditLoginIdentityID(decision),
+		CredentialID:    decision.CredentialID,
+		CredentialType:  credential.CredentialType(),
+		Success:         decision.OK,
+		Code:            authAuditCode(decision),
+		RemoteIP:        remoteIP,
+		UserAgent:       userAgent,
+		Timestamp:       time.Now(),
 	}
 }
 
-// authAuditAccountID 构建审计账号ID
-func authAuditAccountID(decision AuthDecision) meta.ID {
-	if !decision.AccountID.IsZero() {
-		return decision.AccountID
+// authAuditLoginIdentityID 构建审计登录身份ID
+func authAuditLoginIdentityID(decision AuthDecision) meta.ID {
+	if !decision.LoginIdentityID.IsZero() {
+		return decision.LoginIdentityID
 	}
 	if decision.Principal != nil {
-		return decision.Principal.AccountID
+		return decision.Principal.LoginIdentityID
 	}
 	return meta.ZeroID
 }

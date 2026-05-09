@@ -88,7 +88,7 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AccountHandler: authhandler.NewAccountHandler(nil, nil),
+		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
 	deps.ModuleStatus.Authn = true
 
@@ -153,14 +153,13 @@ func TestRouterRegistersAuthnSignupRouteAndRetiresOldWechatRegister(t *testing.T
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AccountHandler: authhandler.NewAccountHandler(nil, nil),
+		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
 	deps.ModuleStatus.Authn = true
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/signups/wechat-miniprogram")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/authn/accounts/wechat/register")
 }
 
 func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
@@ -185,7 +184,7 @@ func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AccountHandler: authhandler.NewAccountHandler(nil, nil),
+		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
 	deps.ModuleStatus.Authn = true
 
@@ -207,7 +206,7 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, casbinStub{}))
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
-	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/accounts/:accountId/sessions/revoke")
+	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/login-identities/:loginIdentityId/sessions/revoke")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/users/:userId/sessions/revoke")
 }
 
@@ -222,7 +221,7 @@ func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
 	router.registerAdminRoutes(engine, nil)
 
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/accounts/:accountId/sessions/revoke")
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/login-identities/:loginIdentityId/sessions/revoke")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/users/:userId/sessions/revoke")
 }
 
@@ -405,7 +404,7 @@ func (sessionServiceStub) RevokeSession(_ context.Context, _ string, _ string, _
 	return nil
 }
 
-func (sessionServiceStub) RevokeAllSessionsByAccount(_ context.Context, _ string, _ string, _ string) error {
+func (sessionServiceStub) RevokeAllSessionsByLoginIdentity(_ context.Context, _ string, _ string, _ string) error {
 	return nil
 }
 

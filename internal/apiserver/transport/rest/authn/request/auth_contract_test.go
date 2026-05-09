@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,7 @@ type openAPISchema struct {
 func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 	spec := loadOpenAPISpec(t, "api/rest/authn.v2.yaml")
 
-	loginSchema := spec.Components.Schemas["LoginV2Request"]
+	loginSchema := spec.schema(t, "LoginV2Request")
 	require.ElementsMatch(t, []string{"password", "phone_otp", "wechat", "wecom"}, loginSchema.Properties["auth_method"].Enum)
 
 	for _, method := range loginSchema.Properties["auth_method"].Enum {
@@ -66,7 +67,21 @@ func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 	require.Equal(t, "wecom", examples["wecom"].Value["auth_method"])
 
 	okSchema := spec.Paths["/authn/login"]["post"].Responses["200"].Content["application/json"].Schema
-	require.Equal(t, "#/components/schemas/LoginV2Response", okSchema.Ref)
+	require.Contains(t, okSchema.Ref, "TokenPair")
+}
+
+func (s openAPISpec) schema(t *testing.T, name string) openAPISchema {
+	t.Helper()
+	if schema, ok := s.Components.Schemas[name]; ok {
+		return schema
+	}
+	for key, schema := range s.Components.Schemas {
+		if strings.HasSuffix(key, "."+name) {
+			return schema
+		}
+	}
+	t.Fatalf("schema %s not found", name)
+	return openAPISchema{}
 }
 
 func loadOpenAPISpec(t *testing.T, rel string) openAPISpec {

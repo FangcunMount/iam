@@ -60,12 +60,14 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 
 	// 创建主体与会话信息
 	principalWithSession := &Principal{
-		UserID:    principal.UserID,
-		AccountID: principal.AccountID,
-		TenantID:  principal.TenantID,
-		SessionID: sess.SessionID,
-		AMR:       append([]string(nil), principal.AMR...),
-		Claims:    cloneAnyMap(principal.Claims),
+		UserID:          principal.UserID,
+		LoginIdentityID: principal.LoginIdentityID,
+		TenantID:        principal.TenantID,
+		SessionID:       sess.SessionID,
+		AuthMethod:      principal.AuthMethod,
+		Realm:           principal.Realm,
+		AMR:             append([]string(nil), principal.AMR...),
+		Claims:          cloneAnyMap(principal.Claims),
 	}
 
 	// 颁发访问令牌
@@ -81,12 +83,14 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 		refreshTokenValue,
 		sess.SessionID,
 		principal.UserID,
-		principal.AccountID,
+		principal.LoginIdentityID,
 		principal.TenantID,
 		principal.AMR,
 		s.claimMapper.Encode(principal.Claims),
 		s.refreshTTL,
 	)
+	refreshToken.AuthMethod = principal.AuthMethod
+	refreshToken.Realm = principal.Realm
 
 	// 保存刷新令牌
 	if err := s.tokenStore.SaveRefreshToken(ctx, refreshToken); err != nil {

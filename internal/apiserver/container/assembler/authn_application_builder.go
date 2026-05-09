@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	accountApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
@@ -28,9 +27,7 @@ func (m *AuthnModule) initializeApplication(
 	idpOptions apiserveroptions.IDPOptions,
 	smsOptions apiserveroptions.SMSOptions,
 ) error {
-	m.accountService = accountApp.NewAccountApplicationService(infra.unitOfWork, domain.sessionManager)
-
-	m.accountOnboarder = onboardingApp.NewAccountOnboarder(
+	m.loginIdentityOnboarder = onboardingApp.NewLoginIdentityOnboarder(
 		infra.unitOfWork,
 		hasher,
 		infra.idp,
@@ -64,10 +61,10 @@ func (m *AuthnModule) initializeApplication(
 	})
 
 	authenticator := authentication.NewAuthenticator(
-		authentication.NewPasswordAuthStrategy(infra.credentialRepo, infra.accountRepo, hasher),
-		authentication.NewPhoneOTPAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.otpVerifier),
-		authentication.NewOAuthWechatMinipAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
-		authentication.NewOAuthWeChatComAuthStrategy(infra.credentialRepo, infra.accountRepo, infra.idp),
+		authentication.NewPasswordAuthStrategyWithLoginIdentity(infra.credentialRepo, infra.loginIdentityRepo, hasher),
+		authentication.NewPhoneOTPAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.otpVerifier),
+		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
+		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 	)
 
 	loginService, err := login.NewLoginApplicationService(login.Dependencies{

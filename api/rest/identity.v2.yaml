@@ -446,21 +446,6 @@ components:
         total:
           type: integer
       type: object
-    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse:
-      properties:
-        id:
-          type: integer
-        profileId:
-          type: string
-        relation:
-          type: string
-        revokedAt:
-          type: string
-        since:
-          type: string
-        userId:
-          type: string
-      type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfilePageResponse:
       properties:
         items:

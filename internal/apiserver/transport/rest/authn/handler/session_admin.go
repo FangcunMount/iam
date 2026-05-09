@@ -38,18 +38,18 @@ func (h *SessionAdminHandler) RevokeSession(c *gin.Context) {
 	h.Success(c, resp.MessageResponse{Message: "session revoked"})
 }
 
-// RevokeAccountSessions 撤销某账号全部会话。
-func (h *SessionAdminHandler) RevokeAccountSessions(c *gin.Context) {
+// RevokeLoginIdentitySessions 撤销某登录身份全部会话。
+func (h *SessionAdminHandler) RevokeLoginIdentitySessions(c *gin.Context) {
 	if h == nil || h.service == nil {
 		h.Error(c, perrors.WithCode(code.ErrInternalServerError, "session service not initialized"))
 		return
 	}
-	accountID := c.Param("accountId")
-	if err := h.service.RevokeAllSessionsByAccount(c.Request.Context(), accountID, c.Query("reason"), currentActor(c)); err != nil {
+	loginIdentityID := c.Param("loginIdentityId")
+	if err := h.service.RevokeAllSessionsByLoginIdentity(c.Request.Context(), loginIdentityID, c.Query("reason"), currentActor(c)); err != nil {
 		h.Error(c, err)
 		return
 	}
-	h.Success(c, resp.MessageResponse{Message: "account sessions revoked"})
+	h.Success(c, resp.MessageResponse{Message: "login identity sessions revoked"})
 }
 
 // RevokeUserSessions 撤销某用户全部会话。
@@ -70,7 +70,7 @@ func currentActor(c *gin.Context) string {
 	if c == nil {
 		return ""
 	}
-	if actor, ok := requestctx.AccountID(c); ok {
+	if actor, ok := requestctx.LoginIdentityID(c); ok {
 		return actor.String()
 	}
 	if actor, ok := requestctx.UserID(c); ok {

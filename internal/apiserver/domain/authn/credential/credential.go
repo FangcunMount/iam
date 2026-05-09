@@ -8,13 +8,9 @@ import (
 
 // Credential 凭据实体
 type Credential struct {
-	ID        meta.ID
-	AccountID meta.ID
-
-	// —— 外部身份三元组：仅 OAuth/Phone 有值；password 留空 —— //
-	IDP           *string // "wechat"|"wecom"|"phone" | nil(本地)
-	IDPIdentifier string  // unionid | openid@appid | open_userid | +E164 | ""(password)
-	AppID         *string // wechat=appid | wecom=corp_id | nil(本地)
+	ID              meta.ID
+	LoginIdentityID meta.ID
+	Type            CredentialType
 
 	// —— 三件套（仅 password 会使用；其余类型为空） —— //
 	Material   []byte  // PHC 哈希（password）；其余类型 NULL
@@ -51,21 +47,9 @@ func (c *Credential) IsUsable(now time.Time) bool {
 	return c.IsEnabled() && !c.IsLockedByTime(now)
 }
 
-// ==================== 类型判断方法 ====================
-
 // IsPasswordType 是否为密码类型凭据
 func (c *Credential) IsPasswordType() bool {
-	return c.IDP == nil && len(c.Material) > 0 && c.Algo != nil
-}
-
-// IsOAuthType 是否为 OAuth 类型凭据
-func (c *Credential) IsOAuthType() bool {
-	return c.IDP != nil && c.AppID != nil && c.IDPIdentifier != ""
-}
-
-// IsPhoneOTPType 是否为手机号 OTP 类型凭据
-func (c *Credential) IsPhoneOTPType() bool {
-	return c.IDP != nil && *c.IDP == "phone" && c.IDPIdentifier != ""
+	return c.Type == CredPassword
 }
 
 // ==================== 行为方法 ====================
@@ -135,48 +119,16 @@ func (c *Credential) RotateMaterial(newMaterial []byte, newAlgo *string) {
 	}
 }
 
-// UpdateIDPIdentifier 更新 IDP 标识符（用于 OAuth 场景的 unionid 更新等）
-func (c *Credential) UpdateIDPIdentifier(identifier string) {
-	c.IDPIdentifier = identifier
-}
-
-// UpdateParams 更新参数（用于更新扩展信息）
-func (c *Credential) UpdateParams(params []byte) {
-	c.ParamsJSON = params
-}
-
 // ==================== 工厂方法 ====================
 
-// NewPasswordCredential 创建密码类型凭据
-func NewPasswordCredential(accountID meta.ID, material []byte, algo string) *Credential {
+// NewPasswordCredential 创建密码类型凭据。
+func NewPasswordCredential(loginIdentityID meta.ID, material []byte, algo string) *Credential {
 	return &Credential{
-		AccountID:      accountID,
-		Material:       material,
-		Algo:           &algo,
-		Status:         CredStatusEnabled,
-		FailedAttempts: 0,
-	}
-}
-
-// NewOAuthCredential 创建 OAuth 类型凭据
-func NewOAuthCredential(accountID meta.ID, idp, identifier, appID string, params []byte) *Credential {
-	return &Credential{
-		AccountID:     accountID,
-		IDP:           &idp,
-		IDPIdentifier: identifier,
-		AppID:         &appID,
-		ParamsJSON:    params,
-		Status:        CredStatusEnabled,
-	}
-}
-
-// NewPhoneOTPCredential 创建手机号 OTP 凭据
-func NewPhoneOTPCredential(accountID meta.ID, phoneNumber string) *Credential {
-	idp := "phone"
-	return &Credential{
-		AccountID:     accountID,
-		IDP:           &idp,
-		IDPIdentifier: phoneNumber,
-		Status:        CredStatusEnabled,
+		LoginIdentityID: loginIdentityID,
+		Type:            CredPassword,
+		Material:        material,
+		Algo:            &algo,
+		Status:          CredStatusEnabled,
+		FailedAttempts:  0,
 	}
 }

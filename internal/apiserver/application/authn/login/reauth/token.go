@@ -80,12 +80,12 @@ func principalFromTokenClaims(claims *tokenapp.TokenClaims) *authentication.Prin
 		return nil
 	}
 	return &authentication.Principal{
-		UserID:    claims.UserID,
-		AccountID: claims.AccountID,
-		TenantID:  claims.TenantID,
-		SessionID: claims.SessionID,
-		AMR:       cloneStrings(claims.AMR),
-		Claims:    tokenAttributeClaims(claims.Attributes),
+		UserID:          claims.UserID,
+		LoginIdentityID: claims.LoginIdentityID,
+		TenantID:        claims.TenantID,
+		SessionID:       claims.SessionID,
+		AMR:             cloneStrings(claims.AMR),
+		Claims:          tokenAttributeClaims(claims.Attributes),
 	}
 }
 

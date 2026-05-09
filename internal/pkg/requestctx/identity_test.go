@@ -41,17 +41,17 @@ func TestUserIDKeepsStringCompatibilityForLegacyContextValues(t *testing.T) {
 	require.Equal(t, meta.FromUint64(1001), id)
 }
 
-func TestAccountIDUsesMetaIDAsPrimaryContextValue(t *testing.T) {
+func TestLoginIdentityIDUsesMetaIDAsPrimaryContextValue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 
-	SetAccountID(c, meta.FromUint64(2002))
+	SetLoginIdentityID(c, meta.FromUint64(2002))
 
-	raw, exists := c.Get(KeyAccountID)
+	raw, exists := c.Get(KeyLoginIdentityID)
 	require.True(t, exists)
 	require.Equal(t, meta.FromUint64(2002), raw)
 
-	id, ok := AccountID(c)
+	id, ok := LoginIdentityID(c)
 	require.True(t, ok)
 	require.Equal(t, meta.FromUint64(2002), id)
 

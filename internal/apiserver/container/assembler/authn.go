@@ -9,7 +9,6 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	accountApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
@@ -28,8 +27,7 @@ import (
 // AuthnModule 认证模块
 type AuthnModule struct {
 	// 应用服务
-	accountService          accountApp.AccountApplicationService
-	accountOnboarder        onboardingApp.AccountOnboarder
+	loginIdentityOnboarder  onboardingApp.LoginIdentityOnboarder
 	loginService            login.LoginApplicationService
 	loginPreparationService loginprep.LoginPreparationService
 	tokenService            token.TokenApplicationService
@@ -136,8 +134,7 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 		return AuthnApplicationCapabilities{}
 	}
 	return AuthnApplicationCapabilities{
-		AccountService:          m.accountService,
-		AccountOnboarder:        m.accountOnboarder,
+		LoginIdentityOnboarder:  m.loginIdentityOnboarder,
 		LoginService:            m.loginService,
 		LoginPreparationService: m.loginPreparationService,
 		TokenService:            m.tokenService,

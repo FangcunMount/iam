@@ -48,8 +48,8 @@ func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv2.TokenClaims {
 	if !claims.UserID.IsZero() {
 		resp.UserId = claims.UserID.String()
 	}
-	if !claims.AccountID.IsZero() {
-		resp.AccountId = claims.AccountID.String()
+	if !claims.LoginIdentityID.IsZero() {
+		resp.LoginIdentityId = claims.LoginIdentityID.String()
 	}
 	if !claims.TenantID.IsZero() {
 		resp.TenantId = claims.TenantID.String()

@@ -63,7 +63,7 @@ func (cu *usage) RecordSuccess(c *Credential, now time.Time) {
 
 	log.Infow("Credential authentication succeeded",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 		"lastSuccessAt", now,
 	)
 }
@@ -81,7 +81,7 @@ func (cu *usage) RecordFailure(c *Credential, now time.Time, p LockoutPolicy) (l
 
 	log.Infow("Credential authentication failed",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 		"failedAttempts", failedAttempts,
 		"lastFailureAt", now,
 	)
@@ -90,7 +90,7 @@ func (cu *usage) RecordFailure(c *Credential, now time.Time, p LockoutPolicy) (l
 	if c.ApplyLockPolicy(now, p) {
 		log.Warnw("Credential locked due to too many failed attempts",
 			"credentialID", c.ID,
-			"accountID", c.AccountID,
+			"loginIdentityID", c.LoginIdentityID,
 			"failedAttempts", failedAttempts,
 			"threshold", p.Threshold,
 			"lockedUntil", c.LockedUntil,

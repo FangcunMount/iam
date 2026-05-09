@@ -128,7 +128,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		"action", logger.ActionLogin,
 		"credential_type", string(credentialType),
 		"user_id", decision.Principal.UserID.String(),
-		"account_id", decision.Principal.AccountID.String(),
+		"login_identity_id", decision.Principal.LoginIdentityID.String(),
 		"tenant_id", decision.Principal.TenantID.String(),
 	)
 

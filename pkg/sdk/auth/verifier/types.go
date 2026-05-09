@@ -38,22 +38,22 @@ type VerifyMetadata struct {
 
 // TokenClaims Token 声明。
 type TokenClaims struct {
-	TokenID   string
-	Subject   string
-	SessionID string
-	Issuer    string
-	Audience  []string
-	ExpiresAt time.Time
-	IssuedAt  time.Time
-	NotBefore time.Time
-	UserID    string
-	AccountID string
-	TenantID  string
-	Roles     []string
-	Scopes    []string
-	TokenType string
-	AMR       []string
-	Extra     map[string]interface{}
+	TokenID         string
+	Subject         string
+	SessionID       string
+	Issuer          string
+	Audience        []string
+	ExpiresAt       time.Time
+	IssuedAt        time.Time
+	NotBefore       time.Time
+	UserID          string
+	LoginIdentityID string
+	TenantID        string
+	Roles           []string
+	Scopes          []string
+	TokenType       string
+	AMR             []string
+	Extra           map[string]interface{}
 }
 
 // VerifyOptions 验证选项。

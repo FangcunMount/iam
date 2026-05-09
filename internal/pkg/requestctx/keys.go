@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	KeyClaims    = "claims"
-	KeyUserID    = "user_id"
-	KeyAccountID = "account_id"
-	KeyTenantID  = "tenant_id"
-	KeyTokenID   = "token_id"
-	KeyRequestID = "request_id"
+	KeyClaims          = "claims"
+	KeyUserID          = "user_id"
+	KeyLoginIdentityID = "login_identity_id"
+	KeyTenantID        = "tenant_id"
+	KeyTokenID         = "token_id"
+	KeyRequestID       = "request_id"
 )
 
 func stringValue(c *gin.Context, key string) (string, bool) {

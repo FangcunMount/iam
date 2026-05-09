@@ -41,14 +41,16 @@ func (s *RedisStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 
 // refreshTokenData 刷新令牌存储数据结构
 type refreshTokenData struct {
-	TokenID       string            `json:"token_id"`
-	SessionID     string            `json:"session_id"`
-	UserID        uint64            `json:"user_id"`
-	AccountID     uint64            `json:"account_id"`
-	TenantID      uint64            `json:"tenant_id"`
-	Amr           []string          `json:"amr,omitempty"`
-	SessionClaims map[string]string `json:"session_claims,omitempty"`
-	ExpiresAt     time.Time         `json:"expires_at"`
+	TokenID         string            `json:"token_id"`
+	SessionID       string            `json:"session_id"`
+	UserID          uint64            `json:"user_id"`
+	LoginIdentityID uint64            `json:"login_identity_id"`
+	TenantID        uint64            `json:"tenant_id"`
+	AuthMethod      string            `json:"auth_method,omitempty"`
+	Realm           string            `json:"realm,omitempty"`
+	Amr             []string          `json:"amr,omitempty"`
+	SessionClaims   map[string]string `json:"session_claims,omitempty"`
+	ExpiresAt       time.Time         `json:"expires_at"`
 }
 
 // SaveRefreshToken 保存刷新令牌
@@ -58,14 +60,16 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token
 	}
 
 	data := refreshTokenData{
-		TokenID:       token.ID,
-		SessionID:     token.SessionID,
-		UserID:        token.UserID.Uint64(),
-		AccountID:     token.AccountID.Uint64(),
-		TenantID:      token.TenantID.Uint64(),
-		Amr:           token.AMR,
-		SessionClaims: token.SessionClaims,
-		ExpiresAt:     token.ExpiresAt,
+		TokenID:         token.ID,
+		SessionID:       token.SessionID,
+		UserID:          token.UserID.Uint64(),
+		LoginIdentityID: token.LoginIdentityID.Uint64(),
+		TenantID:        token.TenantID.Uint64(),
+		AuthMethod:      token.AuthMethod,
+		Realm:           token.Realm,
+		Amr:             token.AMR,
+		SessionClaims:   token.SessionClaims,
+		ExpiresAt:       token.ExpiresAt,
 	}
 
 	// 保存到 Redis，key 格式: refresh_token:{token_value}
@@ -112,19 +116,21 @@ func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*t
 	// 构造 Token 对象
 	ttl := time.Until(data.ExpiresAt)
 	userID := meta.FromUint64(data.UserID)
-	accountID := meta.FromUint64(data.AccountID)
+	loginIdentityID := meta.FromUint64(data.LoginIdentityID)
 	tenantID := meta.FromUint64(data.TenantID)
 	token := tokenapp.NewRefreshToken(
 		data.TokenID,
 		tokenValue,
 		data.SessionID,
 		userID,
-		accountID,
+		loginIdentityID,
 		tenantID,
 		data.Amr,
 		data.SessionClaims,
 		ttl,
 	)
+	token.AuthMethod = data.AuthMethod
+	token.Realm = data.Realm
 
 	// Redis Hook 已经记录了 GET 命令成功，这里不需要再记录 cache hit
 	return token, nil

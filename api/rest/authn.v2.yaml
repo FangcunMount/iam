@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: IAM · AuthN API v2（认证中心）
   version: 2.0.0
-  description: 身份认证、令牌生命周期、账户管理与 JWKS REST API。公开登录入口使用 auth_method + method_payload
-    显式 v2 契约。
+  description: 身份认证、令牌生命周期、登录身份开通与 JWKS REST API。公开登录入口使用 auth_method + method_payload 显式 v2 契约。
   contact:
     name: API Support
     email: yshujie@163.com
@@ -18,12 +17,9 @@ security:
 tags:
 - name: Authentication-Auth
   description: 认证与令牌生命周期
-- name: Authentication-Accounts
-  description: 账户管理
 - name: Authentication-JWKS
   description: 公钥集管理
 - name: 认证
-- name: 账户管理
 paths:
   /.well-known/jwks.json:
     get:
@@ -58,188 +54,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-  /authn/accounts/{accountId}:
-    get:
-      tags:
-      - 账户管理
-      summary: 获取账户信息
-      description: 根据账户ID获取账户详细信息
-      parameters:
-      - name: accountId
-        in: path
-        description: 账户ID
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: 账户信息
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.Account'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-        '404':
-          description: 账户不存在
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-  /authn/accounts/{accountId}/disable:
-    post:
-      tags:
-      - 账户管理
-      summary: 禁用账户
-      description: 将账户标记为禁用，阻止继续认证
-      parameters:
-      - name: accountId
-        in: path
-        description: 账户ID
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: 禁用成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-        '404':
-          description: 账户不存在
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-  /authn/accounts/{accountId}/enable:
-    post:
-      tags:
-      - 账户管理
-      summary: 启用账户
-      description: 恢复已禁用的账户
-      parameters:
-      - name: accountId
-        in: path
-        description: 账户ID
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: 启用成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-        '404':
-          description: 账户不存在
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-  /authn/accounts/{accountId}/profile:
-    put:
-      tags:
-      - 账户管理
-      summary: 更新账户资料
-      description: 更新微信账户的昵称、头像等资料信息
-      parameters:
-      - name: accountId
-        in: path
-        description: 账户ID
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq'
-      responses:
-        '200':
-          description: 更新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-        '404':
-          description: 账户不存在
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-  /authn/accounts/{accountId}/unionid:
-    put:
-      tags:
-      - 账户管理
-      summary: 设置账户 UnionID
-      description: 将微信账户的 UnionID 与内部账户关联
-      parameters:
-      - name: accountId
-        in: path
-        description: 账户ID
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq'
-      responses:
-        '200':
-          description: 设置成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        '400':
-          description: 请求参数错误
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-        '404':
-          description: 账户不存在
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
   /authn/admin/jwks/keys:
     get:
       tags:
@@ -598,52 +412,54 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginV2Request'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LoginV2Request'
             examples:
               password:
                 value:
                   auth_method: password
                   method_payload:
-                    username: alice
-                    password: secret
+                    username: admin@example.com
+                    password: Admin@123
                     tenant_id: 1
               phone_otp:
                 value:
                   auth_method: phone_otp
                   method_payload:
-                    phone: '+8613800138000'
+                    phone: '+8613811112222'
                     otp_code: '123456'
               wechat:
                 value:
                   auth_method: wechat
                   method_payload:
-                    app_id: wx-app-id
-                    code: wx-js-code
+                    app_id: wx_appid
+                    code: js_code
               wecom:
                 value:
                   auth_method: wecom
                   method_payload:
-                    corp_id: corp-id
-                    auth_code: wecom-auth-code
+                    corp_id: corp_id
+                    auth_code: auth_code
       responses:
         '200':
-          description: 登录成功，返回统一响应包装后的访问令牌和刷新令牌
+          description: 登录成功，返回访问令牌和刷新令牌
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginV2Response'
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.TokenPair'
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                additionalProperties: true
+                type: object
         '401':
           description: 认证失败
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                additionalProperties: true
+                type: object
   /authn/login/prep/phone-otp:
     post:
       tags:
@@ -724,10 +540,9 @@ paths:
   /authn/signups/wechat-miniprogram:
     post:
       tags:
-      - 账户管理
-      summary: 微信小程序账号开通
-      description: 使用微信 JS Code 开通账号，服务端根据 AppID 查询 AppSecret 并自动调用 code2session 获取
-        OpenID 和 UnionID
+      - 认证
+      summary: 微信小程序登录身份开通
+      description: 通过微信小程序 code 建立 User 与 LoginIdentity 绑定。
       requestBody:
         required: true
         content:
@@ -735,7 +550,7 @@ paths:
             schema:
               $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest'
       responses:
-        '201':
+        '200':
           description: 开通成功
           content:
             application/json:
@@ -749,7 +564,7 @@ paths:
                 additionalProperties: true
                 type: object
         '409':
-          description: 用户已存在
+          description: 登录身份已绑定到其他用户
           content:
             application/json:
               schema:
@@ -795,12 +610,6 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
-    AccountId:
-      in: path
-      name: accountId
-      required: true
-      schema:
-        type: string
     KeyId:
       in: path
       name: kid
@@ -878,6 +687,28 @@ components:
       required:
       - algorithm
       type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LoginV2Request:
+      properties:
+        auth_method:
+          description: 认证方式：password | phone_otp | wechat | wecom
+          enum:
+          - password
+          - phone_otp
+          - wechat
+          - wecom
+          type: string
+        device_id:
+          description: 设备 ID
+          type: string
+        method_payload:
+          description: 凭证（根据 auth_method 不同而不同）
+          items:
+            type: integer
+          type: array
+      required:
+      - auth_method
+      - method_payload
+      type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LogoutRequest:
       properties:
         access_token:
@@ -902,52 +733,29 @@ components:
       required:
       - refresh_token
       type: object
-    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq:
-      properties:
-        unionId:
-          type: string
-      type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest:
       properties:
         appId:
-          description: 微信应用ID
           type: string
         avatar:
-          description: 微信头像（可选）
           type: string
         email:
-          description: 邮箱（可选）
           type: string
         jsCode:
-          description: 微信登录凭证（临时登录凭证）
           type: string
         meta:
           additionalProperties: true
-          description: 微信元数据（可选）
           type: object
         name:
-          description: 用户名
           type: string
         nickname:
-          description: 微信昵称（可选）
           type: string
         phone:
-          description: 手机号（可选）
           type: string
       required:
       - appId
       - jsCode
       - name
-      type: object
-    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq:
-      properties:
-        avatar:
-          type: string
-        meta:
-          additionalProperties: true
-          type: object
-        nickname:
-          type: string
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.VerifyTokenRequest:
       properties:
@@ -961,21 +769,6 @@ components:
           type: string
       required:
       - access_token
-      type: object
-    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.Account:
-      properties:
-        appId:
-          type: string
-        externalId:
-          type: string
-        id:
-          type: string
-        provider:
-          type: string
-        status:
-          type: string
-        userId:
-          type: string
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.CleanupResponse:
       properties:
@@ -1043,20 +836,16 @@ components:
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult:
       properties:
-        accountId:
-          type: integer
-        accountType:
-          type: string
         credentialID:
           type: integer
         email:
           type: string
-        externalId:
-          type: string
-        isNewAccount:
+        isNewIdentity:
           type: boolean
         isNewUser:
           type: boolean
+        loginIdentityId:
+          type: integer
         phone:
           type: string
         userId:
@@ -1103,111 +892,3 @@ components:
           description: Reference 返回参考文档，可能有助于解决此错误
           type: string
       type: object
-    LoginV2Request:
-      type: object
-      required:
-      - auth_method
-      - method_payload
-      properties:
-        auth_method:
-          type: string
-          enum:
-          - password
-          - phone_otp
-          - wechat
-          - wecom
-          description: 显式认证方式。
-        device_id:
-          type: string
-          description: 设备 ID，可选。
-        method_payload:
-          oneOf:
-          - $ref: '#/components/schemas/PasswordPayload'
-          - $ref: '#/components/schemas/PhoneOTPPayload'
-          - $ref: '#/components/schemas/WechatPayload'
-          - $ref: '#/components/schemas/WecomPayload'
-          description: 与 auth_method 对应的认证负载。服务端按 auth_method 显式解析。
-    LoginV2Response:
-      type: object
-      required:
-      - code
-      - message
-      - data
-      properties:
-        code:
-          type: integer
-          example: 0
-          description: 业务状态码，0 表示成功。
-        message:
-          type: string
-          example: success
-        data:
-          $ref: '#/components/schemas/TokenPair'
-    PasswordPayload:
-      type: object
-      required:
-      - username
-      - password
-      properties:
-        username:
-          type: string
-        password:
-          type: string
-        tenant_id:
-          type: integer
-          format: uint64
-    PhoneOTPPayload:
-      type: object
-      required:
-      - phone
-      - otp_code
-      properties:
-        phone:
-          type: string
-          description: E.164 格式手机号。
-        otp_code:
-          type: string
-    WechatPayload:
-      type: object
-      required:
-      - app_id
-      - code
-      properties:
-        app_id:
-          type: string
-        code:
-          type: string
-          description: wx.login 返回的 JS Code。
-    WecomPayload:
-      type: object
-      required:
-      - corp_id
-      - auth_code
-      properties:
-        corp_id:
-          type: string
-        auth_code:
-          type: string
-    TokenPair:
-      type: object
-      properties:
-        access_token:
-          type: string
-        token_type:
-          type: string
-          example: Bearer
-        expires_in:
-          type: integer
-          format: int64
-        refresh_token:
-          type: string
-    ErrorResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-        message:
-          type: string
-        reference:
-          type: string
-          description: 可选参考文档地址。

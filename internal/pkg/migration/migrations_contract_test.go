@@ -31,13 +31,6 @@ func TestSchemaDriftMigrationsUseIdempotentDDLGuards(t *testing.T) {
 		needsIndex bool
 	}{
 		{
-			name:       "auth account scoped tenant",
-			file:       "000004_add_auth_accounts_scoped_tenant.up.sql",
-			column:     "`scoped_tenant_id`",
-			index:      "`idx_scoped_tenant_id`",
-			needsIndex: true,
-		},
-		{
 			name:       "profile link self key",
 			file:       "000007_add_active_self_profile_link_guard.up.sql",
 			column:     "`self_key`",
@@ -65,6 +58,15 @@ func TestSchemaDriftMigrationsUseIdempotentDDLGuards(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthNLoginIdentityMigrationUsesIdempotentCreateTableGuards(t *testing.T) {
+	sql := migrationSQL(t, "000001_init_schema.up.sql")
+
+	assertSQLContains(t, sql, "auth_login_identities")
+	assertSQLContains(t, sql, "auth_credentials")
+	assertSQLContains(t, sql, "`uk_provider_realm_identifier`")
+	assertSQLContains(t, sql, "`uk_identity_type`")
 }
 
 func migrationSQL(t *testing.T, name string) string {

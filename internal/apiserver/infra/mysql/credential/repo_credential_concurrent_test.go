@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 并发创建相同的 credential（相同 account_id + idp + idp_identifier），期望只有 1 条记录被写入，
+// 并发创建相同的 credential（相同 login_identity_id + type），期望只有 1 条记录被写入，
 // 其余并发请求因唯一约束被 translator 映射为业务错误 code.ErrCredentialExists。
 func TestCredentialRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	require.NoError(t, db.AutoMigrate(&PO{}))
+	require.NoError(t, db.AutoMigrate(&V2PO{}))
 
 	repo := NewRepository(db)
 	ctx := context.Background()
@@ -40,8 +40,8 @@ func TestCredentialRepository_Create_ConcurrentDuplicateDetection(t *testing.T) 
 			defer wg.Done()
 			// add tiny random delay to reduce SQLITE table-lock contention
 			time.Sleep(time.Millisecond * time.Duration(d))
-			accountID := m.FromUint64(1) // 测试用 ID，必定有效
-			cred := domain.NewPhoneOTPCredential(accountID, "+8613800000000")
+			loginIdentityID := m.FromUint64(1) // 测试用 ID，必定有效
+			cred := domain.NewPasswordCredential(loginIdentityID, []byte("hash"), "argon2id")
 			if err := testhelpers.RetryOnDBLocked(func() error { return repo.Create(ctx, cred) }); err != nil {
 				errs <- err
 				return
@@ -76,8 +76,8 @@ func TestCredentialRepository_Create_ConcurrentDuplicateDetection(t *testing.T) 
 	require.GreaterOrEqual(t, mappedCount, 1, "at least one error should be mapped to ErrCredentialExists")
 
 	var cnt int64
-	require.NoError(t, db.Model(&PO{}).
-		Where("account_id = ? AND idp = ? AND idp_identifier = ?", 1, "phone", "+8613800000000").
+	require.NoError(t, db.Model(&V2PO{}).
+		Where("login_identity_id = ? AND type = ?", 1, string(domain.CredPassword)).
 		Count(&cnt).Error)
 	require.Equal(t, int64(1), cnt)
 }

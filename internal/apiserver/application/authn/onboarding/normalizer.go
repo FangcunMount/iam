@@ -33,8 +33,6 @@ func (n *requestNormalizer) Normalize(ctx context.Context, req OnboardingRequest
 		return nil, err
 	}
 	prepared.Scenario = plan.Scenario
-	prepared.AccountType = plan.AccountType
-	prepared.CredentialType = plan.CredentialType
 
 	prepared, err = strategy.Normalize(ctx, onboardingStrategyDeps{
 		wechatIdentityResolver: n.wechatIdentityResolver,

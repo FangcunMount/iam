@@ -50,13 +50,15 @@ func NewGenerator(
 }
 
 type CustomClaims struct {
-	TokenType  string            `json:"token_type,omitempty"`
-	SessionID  string            `json:"sid,omitempty"`
-	UserID     string            `json:"user_id,omitempty"`
-	AccountID  string            `json:"account_id,omitempty"`
-	TenantID   string            `json:"tenant_id,omitempty"`
-	Attributes map[string]string `json:"attributes,omitempty"`
-	AMR        []string          `json:"amr,omitempty"`
+	TokenType       string            `json:"token_type,omitempty"`
+	SessionID       string            `json:"sid,omitempty"`
+	UserID          string            `json:"user_id,omitempty"`
+	LoginIdentityID string            `json:"login_identity_id,omitempty"`
+	TenantID        string            `json:"tenant_id,omitempty"`
+	AuthMethod      string            `json:"auth_method,omitempty"`
+	Realm           string            `json:"realm,omitempty"`
+	Attributes      map[string]string `json:"attributes,omitempty"`
+	AMR             []string          `json:"amr,omitempty"`
 	jwtv4.RegisteredClaims
 }
 
@@ -69,15 +71,20 @@ func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Pr
 	l.Debugw("IssueAccessToken", "principal", fmt.Sprintf("%+v", principal), "expiresIn", expiresIn)
 	now := time.Now()
 	tokenID := uuid.NewString()
+	loginIdentityID := principal.LoginIdentityID
+	authMethod := principal.AuthMethod
+	realm := principal.Realm
 
 	claims := CustomClaims{
-		TokenType:  string(tokenapp.TokenTypeAccess),
-		SessionID:  principal.SessionID,
-		UserID:     principal.UserID.String(),
-		AccountID:  principal.AccountID.String(),
-		TenantID:   principal.TenantID.String(),
-		Attributes: cloneStringMap(g.claimsMapper.Encode(principal.Claims)),
-		AMR:        cloneStrings(principal.AMR),
+		TokenType:       string(tokenapp.TokenTypeAccess),
+		SessionID:       principal.SessionID,
+		UserID:          principal.UserID.String(),
+		LoginIdentityID: loginIdentityID.String(),
+		TenantID:        principal.TenantID.String(),
+		AuthMethod:      authMethod,
+		Realm:           realm,
+		Attributes:      cloneStringMap(g.claimsMapper.Encode(principal.Claims)),
+		AMR:             cloneStrings(principal.AMR),
 		RegisteredClaims: jwtv4.RegisteredClaims{
 			ID:        tokenID,
 			Subject:   principal.UserID.String(),
@@ -94,15 +101,19 @@ func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Pr
 		return nil, err
 	}
 
-	return tokenapp.NewAccessToken(
+	token := tokenapp.NewAccessToken(
 		tokenID,
 		tokenString,
 		principal.SessionID,
 		principal.UserID,
-		principal.AccountID,
+		loginIdentityID,
 		principal.TenantID,
 		expiresIn,
-	), nil
+	)
+	token.LoginIdentityID = loginIdentityID
+	token.AuthMethod = authMethod
+	token.Realm = realm
+	return token, nil
 }
 
 func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*tokenapp.Token, error) {
@@ -164,13 +175,14 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 	if tokenType == "" {
 		tokenType = tokenapp.TokenTypeAccess
 	}
-	return tokenapp.NewTokenClaims(
+	loginIdentityID := parseStringID(claims.LoginIdentityID)
+	tokenClaims := tokenapp.NewTokenClaims(
 		tokenType,
 		claims.ID,
 		claims.Subject,
 		claims.SessionID,
 		parseStringID(claims.UserID),
-		parseStringID(claims.AccountID),
+		loginIdentityID,
 		parseStringID(claims.TenantID),
 		claims.Issuer,
 		[]string(claims.Audience),
@@ -178,7 +190,10 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 		claims.AMR,
 		numericDateTime(claims.IssuedAt),
 		numericDateTime(claims.ExpiresAt),
-	), nil
+	)
+	tokenClaims.AuthMethod = claims.AuthMethod
+	tokenClaims.Realm = claims.Realm
+	return tokenClaims, nil
 }
 
 func (g *Generator) signClaims(ctx context.Context, claims CustomClaims) (string, error) {

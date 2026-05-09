@@ -1,3 +1,2 @@
-ALTER TABLE `auth_accounts`
-    DROP INDEX `idx_scoped_tenant_id`,
-    DROP COLUMN `scoped_tenant_id`;
+-- The retired account scoped-tenant patch is intentionally a no-op.
+SELECT 1;

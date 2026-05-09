@@ -47,7 +47,6 @@ services:
       
       # AuthService - Token 验证和管理
       - /iam.authn.v2.AuthService/VerifyToken
-      - /iam.authn.v2.AccountOnboardingService/CreateOperationAccount
       - /iam.authn.v2.AuthService/RefreshToken
       - /iam.authn.v2.AuthService/IssueServiceToken
       
@@ -122,7 +121,6 @@ services:
       - /iam.identity.v2.IdentityLifecycle/*
       # 所有 Authn 服务方法
       - /iam.authn.v2.AuthService/*
-      - /iam.authn.v2.AccountOnboardingService/*
       - /iam.authn.v2.JWKSService/*
       - /iam.idp.v2.IDPService/*
       - /iam.authz.v2.AuthorizationService/*

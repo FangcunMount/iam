@@ -20,33 +20,35 @@ const (
 
 // Session 表示一次登录会话。
 type Session struct {
-	SessionID     string
-	UserID        meta.ID
-	AccountID     meta.ID
-	TenantID      meta.ID
-	Status        Status
-	AMR           []string
-	SessionClaims map[string]string
-	CreatedAt     time.Time
-	ExpiresAt     time.Time
-	RevokedAt     *time.Time
-	RevokeReason  string
-	RevokedBy     string
+	SessionID       string
+	UserID          meta.ID
+	LoginIdentityID meta.ID
+	TenantID        meta.ID
+	AuthMethod      string
+	Realm           string
+	Status          Status
+	AMR             []string
+	SessionClaims   map[string]string
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	RevokedAt       *time.Time
+	RevokeReason    string
+	RevokedBy       string
 }
 
 // New 创建一个新的活跃会话。
-func New(sessionID string, userID, accountID, tenantID meta.ID, amr []string, sessionClaims map[string]string, expiresAt time.Time) *Session {
+func New(sessionID string, userID, loginIdentityID, tenantID meta.ID, amr []string, sessionClaims map[string]string, expiresAt time.Time) *Session {
 	now := time.Now()
 	return &Session{
-		SessionID:     sessionID,
-		UserID:        userID,
-		AccountID:     accountID,
-		TenantID:      tenantID,
-		Status:        StatusActive,
-		AMR:           cloneStrings(amr),
-		SessionClaims: cloneStringMap(sessionClaims),
-		CreatedAt:     now,
-		ExpiresAt:     expiresAt,
+		SessionID:       sessionID,
+		UserID:          userID,
+		LoginIdentityID: loginIdentityID,
+		TenantID:        tenantID,
+		Status:          StatusActive,
+		AMR:             cloneStrings(amr),
+		SessionClaims:   cloneStringMap(sessionClaims),
+		CreatedAt:       now,
+		ExpiresAt:       expiresAt,
 	}
 }
 

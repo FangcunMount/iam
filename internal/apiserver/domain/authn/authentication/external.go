@@ -78,12 +78,12 @@ type AuditLogger interface {
 }
 
 type AuthAuditEvent struct {
-	AccountID      meta.ID
-	CredentialID   meta.ID
-	CredentialType credDomain.CredentialType
-	Success        bool
-	Code           int
-	RemoteIP       string
-	UserAgent      string
-	Timestamp      time.Time
+	LoginIdentityID meta.ID
+	CredentialID    meta.ID
+	CredentialType  credDomain.CredentialType
+	Success         bool
+	Code            int
+	RemoteIP        string
+	UserAgent       string
+	Timestamp       time.Time
 }

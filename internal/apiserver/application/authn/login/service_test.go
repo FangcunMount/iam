@@ -29,7 +29,7 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 		"access-value",
 		"session-id",
 		principal.UserID,
-		principal.AccountID,
+		principal.LoginIdentityID,
 		principal.TenantID,
 		time.Minute,
 	)
@@ -38,7 +38,7 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 		"refresh-value",
 		"session-id",
 		principal.UserID,
-		principal.AccountID,
+		principal.LoginIdentityID,
 		principal.TenantID,
 		nil,
 		nil,
@@ -67,19 +67,6 @@ func (s *loginTokenIssuerStub) VerifyToken(ctx context.Context, req tokenapp.Ver
 	return nil, nil
 }
 
-type loginAccountRepoStub struct {
-	enabled bool
-	locked  bool
-}
-
-func (s *loginAccountRepoStub) FindAccountByUsername(ctx context.Context, tenantID meta.ID, username string) (*authentication.UsernameLoginLookup, error) {
-	return nil, nil
-}
-
-func (s *loginAccountRepoStub) GetAccountStatus(ctx context.Context, accountID meta.ID) (bool, bool, error) {
-	return s.enabled, s.locked, nil
-}
-
 type loginTokenVerifierStub struct {
 	userID    meta.ID
 	accountID meta.ID
@@ -103,12 +90,12 @@ func (s *loginTokenVerifierStub) VerifyToken(ctx context.Context, req tokenapp.V
 	return &tokenapp.TokenVerifyResult{
 		Valid: true,
 		Claims: &tokenapp.TokenClaims{
-			UserID:     s.userID,
-			AccountID:  s.accountID,
-			TenantID:   s.tenantID,
-			SessionID:  s.sessionID,
-			AMR:        s.amr,
-			Attributes: s.attrs,
+			UserID:          s.userID,
+			LoginIdentityID: s.accountID,
+			TenantID:        s.tenantID,
+			SessionID:       s.sessionID,
+			AMR:             s.amr,
+			Attributes:      s.attrs,
 		},
 	}, nil
 }
@@ -173,7 +160,7 @@ func TestReauthenticateDefaultsMissingTenantID(t *testing.T) {
 			require.Equal(t, tc.wantTenant, result.TenantID.Uint64())
 			require.Equal(t, tc.wantTenant, result.Principal.TenantID.Uint64())
 			require.Equal(t, meta.FromUint64(1001), result.UserID)
-			require.Equal(t, meta.FromUint64(2002), result.AccountID)
+			require.Equal(t, meta.FromUint64(2002), result.LoginIdentityID)
 			require.Equal(t, "session-id", result.Principal.SessionID)
 			require.Equal(t, []string{"pwd"}, result.Principal.AMR)
 			require.Equal(t, "profile", result.Principal.Claims["scope"])

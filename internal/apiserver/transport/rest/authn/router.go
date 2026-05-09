@@ -11,10 +11,10 @@ import (
 
 // Dependencies describes the external collaborators needed to expose authn endpoints.
 type Dependencies struct {
-	AuthHandler      *authhandler.AuthHandler    // 新的认证处理器
-	AccountHandler   *authhandler.AccountHandler // 账户管理处理器
-	JWKSHandler      *authhandler.JWKSHandler    // JWKS 处理器
-	AdminMiddlewares []gin.HandlerFunc           // 管理接口中间件
+	AuthHandler       *authhandler.AuthHandler       // 认证处理器
+	OnboardingHandler *authhandler.OnboardingHandler // 登录身份开通处理器
+	JWKSHandler       *authhandler.JWKSHandler       // JWKS 处理器
+	AdminMiddlewares  []gin.HandlerFunc              // 管理接口中间件
 }
 
 // Register exposes the authentication endpoints that issue and refresh tokens.
@@ -28,8 +28,8 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	// 注册符合 v2 API 文档的认证端点
 	registerAuthEndpoints(api.Group(""), deps.AuthHandler)
 
-	// 注册账户管理端点
-	registerAccountEndpoints(api.Group(""), deps.AccountHandler)
+	// 注册登录身份开通端点
+	registerOnboardingEndpoints(api.Group(""), deps.OnboardingHandler)
 
 	// 注册 JWKS 端点（公开端点）
 	registerJWKSPublicEndpoints(engine, deps.JWKSHandler)
@@ -39,8 +39,8 @@ func Register(engine *gin.Engine, deps Dependencies) {
 }
 
 // RegisterSeedMock exposes the internal mock-consumer ensure endpoint when explicitly enabled.
-func RegisterSeedMock(engine *gin.Engine, accountHandler *authhandler.AccountHandler, sharedSecret string) {
-	if engine == nil || accountHandler == nil {
+func RegisterSeedMock(engine *gin.Engine, onboardingHandler *authhandler.OnboardingHandler, sharedSecret string) {
+	if engine == nil || onboardingHandler == nil {
 		return
 	}
 	sharedSecret = strings.TrimSpace(sharedSecret)
@@ -50,7 +50,7 @@ func RegisterSeedMock(engine *gin.Engine, accountHandler *authhandler.AccountHan
 
 	internal := engine.Group("/api/v2/internal/authn")
 	internal.Use(authnMiddleware.RequireSeedMockSecret(sharedSecret))
-	registerInternalMockConsumerEndpoints(internal, accountHandler)
+	registerInternalMockConsumerEndpoints(internal, onboardingHandler)
 }
 
 // registerAuthEndpoints 注册 v2 显式认证端点。
@@ -101,24 +101,16 @@ func registerJWKSAdminEndpoints(admin *gin.RouterGroup, handler *authhandler.JWK
 	}
 }
 
-func registerAccountEndpoints(api *gin.RouterGroup, h *authhandler.AccountHandler) {
+func registerOnboardingEndpoints(api *gin.RouterGroup, h *authhandler.OnboardingHandler) {
 	if api == nil || h == nil {
 		return
 	}
 
 	signups := api.Group("/signups")
 	signups.POST("/wechat-miniprogram", h.SignUpWithWeChatMiniProgram)
-
-	// 账户查询和管理（需要认证）
-	accounts := api.Group("/accounts")
-	accounts.GET("/:accountId", h.GetAccountByID)
-	accounts.PUT("/:accountId/profile", h.UpdateProfile)
-	accounts.PUT("/:accountId/unionid", h.SetUnionID)
-	accounts.POST("/:accountId/enable", h.EnableAccount)
-	accounts.POST("/:accountId/disable", h.DisableAccount)
 }
 
-func registerInternalMockConsumerEndpoints(api *gin.RouterGroup, h *authhandler.AccountHandler) {
+func registerInternalMockConsumerEndpoints(api *gin.RouterGroup, h *authhandler.OnboardingHandler) {
 	if api == nil || h == nil {
 		return
 	}

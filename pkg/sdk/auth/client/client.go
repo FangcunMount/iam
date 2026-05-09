@@ -12,25 +12,21 @@ import (
 //
 // 提供认证相关功能，包括：
 //   - Token 验证和管理（VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken）
-//   - 账号开通（CreateOperationAccount）
 //   - 服务间认证（IssueServiceToken）
 //   - JWKS 管理（GetJWKS）
 type Client struct {
-	authService              authnv2.AuthServiceClient
-	accountOnboardingService authnv2.AccountOnboardingServiceClient
-	jwksService              authnv2.JWKSServiceClient
+	authService authnv2.AuthServiceClient
+	jwksService authnv2.JWKSServiceClient
 }
 
 // NewClient 创建认证服务客户端。
 func NewClient(
 	authService authnv2.AuthServiceClient,
-	accountOnboardingService authnv2.AccountOnboardingServiceClient,
 	jwksService authnv2.JWKSServiceClient,
 ) *Client {
 	return &Client{
-		authService:              authService,
-		accountOnboardingService: accountOnboardingService,
-		jwksService:              jwksService,
+		authService: authService,
+		jwksService: jwksService,
 	}
 }
 
@@ -46,15 +42,6 @@ func (c *Client) VerifyToken(ctx context.Context, req *authnv2.VerifyTokenReques
 // Login 使用 v2 explicit auth_method + method_payload 契约登录。
 func (c *Client) Login(ctx context.Context, req *authnv2.LoginRequest) (*authnv2.LoginResponse, error) {
 	resp, err := c.authService.Login(ctx, req)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-	return resp, nil
-}
-
-// CreateOperationAccount 创建运营后台账号，并按需创建用户、账户和密码凭据。
-func (c *Client) CreateOperationAccount(ctx context.Context, req *authnv2.CreateOperationAccountRequest) (*authnv2.CreateOperationAccountResponse, error) {
-	resp, err := c.accountOnboardingService.CreateOperationAccount(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -109,11 +96,6 @@ func (c *Client) GetJWKS(ctx context.Context, req *authnv2.GetJWKSRequest) (*aut
 // Raw 返回原始认证服务 gRPC 客户端。
 func (c *Client) Raw() authnv2.AuthServiceClient {
 	return c.authService
-}
-
-// AccountOnboardingRaw 返回原始账号开通 gRPC 客户端。
-func (c *Client) AccountOnboardingRaw() authnv2.AccountOnboardingServiceClient {
-	return c.accountOnboardingService
 }
 
 // JWKSRaw 返回原始 JWKS 服务 gRPC 客户端。

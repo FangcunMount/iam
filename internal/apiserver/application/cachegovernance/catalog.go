@@ -6,16 +6,16 @@ import cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 type Family = cachemodel.Family
 
 const (
-	FamilyAuthnRefreshToken        = cachemodel.FamilyAuthnRefreshToken
-	FamilyAuthnRevokedAccessToken  = cachemodel.FamilyAuthnRevokedAccessToken
-	FamilyAuthnSession             = cachemodel.FamilyAuthnSession
-	FamilyAuthnUserSessionIndex    = cachemodel.FamilyAuthnUserSessionIndex
-	FamilyAuthnAccountSessionIndex = cachemodel.FamilyAuthnAccountSessionIndex
-	FamilyAuthnLoginOTP            = cachemodel.FamilyAuthnLoginOTP
-	FamilyAuthnLoginOTPSendGate    = cachemodel.FamilyAuthnLoginOTPSendGate
-	FamilyIDPWechatAccessToken     = cachemodel.FamilyIDPWechatAccessToken
-	FamilyIDPWechatSDK             = cachemodel.FamilyIDPWechatSDK
-	FamilyAuthnJWKSPublishSnapshot = cachemodel.FamilyAuthnJWKSPublishSnapshot
+	FamilyAuthnRefreshToken              = cachemodel.FamilyAuthnRefreshToken
+	FamilyAuthnRevokedAccessToken        = cachemodel.FamilyAuthnRevokedAccessToken
+	FamilyAuthnSession                   = cachemodel.FamilyAuthnSession
+	FamilyAuthnUserSessionIndex          = cachemodel.FamilyAuthnUserSessionIndex
+	FamilyAuthnLoginIdentitySessionIndex = cachemodel.FamilyAuthnLoginIdentitySessionIndex
+	FamilyAuthnLoginOTP                  = cachemodel.FamilyAuthnLoginOTP
+	FamilyAuthnLoginOTPSendGate          = cachemodel.FamilyAuthnLoginOTPSendGate
+	FamilyIDPWechatAccessToken           = cachemodel.FamilyIDPWechatAccessToken
+	FamilyIDPWechatSDK                   = cachemodel.FamilyIDPWechatSDK
+	FamilyAuthnJWKSPublishSnapshot       = cachemodel.FamilyAuthnJWKSPublishSnapshot
 )
 
 // BackendKind 表示缓存后端类型。

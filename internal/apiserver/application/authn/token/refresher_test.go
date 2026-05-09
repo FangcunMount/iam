@@ -75,8 +75,8 @@ func (s *refreshOrderSessionManager) RevokeByUser(context.Context, meta.ID, stri
 	return nil
 }
 
-func (s *refreshOrderSessionManager) RevokeByAccount(context.Context, meta.ID, string, string) error {
-	s.recorder.record("revoke_account_sessions")
+func (s *refreshOrderSessionManager) RevokeByLoginIdentity(context.Context, meta.ID, string, string) error {
+	s.recorder.record("revoke_login_identity_sessions")
 	return nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	idpWechatApp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -157,17 +158,23 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 	t.Parallel()
 
-	credRepo := &wecomCredentialRepoStub{
-		accountID:    meta.FromUint64(1001),
-		userID:       meta.FromUint64(2002),
-		credentialID: meta.FromUint64(3003),
+	loginIdentityID := meta.FromUint64(1001)
+	userID := meta.FromUint64(2002)
+	identityRepo := &wecomLoginIdentityRepoStub{
+		lookup: &authentication.LoginIdentityLookup{
+			LoginIdentityID: loginIdentityID,
+			UserID:          userID,
+			Provider:        loginidentity.ProviderWecom,
+			Realm:           "corp-id",
+			Identifier:      "wecom-user-id",
+			Status:          loginidentity.StatusActive,
+		},
 	}
-	accountRepo := &loginAccountRepoStub{enabled: true}
 	idp := &wecomIdentityProviderStub{
 		openUserID: "open-user-id",
 		userID:     "wecom-user-id",
 	}
-	auth := authentication.NewAuthenticator(authentication.NewOAuthWeChatComAuthStrategy(credRepo, accountRepo, idp))
+	auth := authentication.NewAuthenticator(authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(identityRepo, idp))
 	factory := proof.DefaultFactory(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
@@ -195,16 +202,16 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 	decision, err := auth.Authenticate(context.Background(), credential)
 	require.NoError(t, err)
 	require.True(t, decision.OK)
-	require.Equal(t, meta.FromUint64(1001), decision.Principal.AccountID)
-	require.Equal(t, meta.FromUint64(2002), decision.Principal.UserID)
-	require.Equal(t, meta.FromUint64(3003), decision.CredentialID)
+	require.Equal(t, loginIdentityID, decision.Principal.LoginIdentityID)
+	require.Equal(t, userID, decision.Principal.UserID)
+	require.True(t, decision.CredentialID.IsZero())
 	require.Equal(t, "corp-id", idp.corpID)
 	require.Equal(t, "agent-id", idp.agentID)
 	require.Equal(t, "corp-secret", idp.corpSecret)
 	require.Equal(t, "auth-code", idp.code)
-	require.Equal(t, "wecom", credRepo.idpType)
-	require.Equal(t, "corp-id", credRepo.appID)
-	require.Equal(t, "wecom-user-id", credRepo.idpIdentifier)
+	require.Equal(t, loginidentity.ProviderWecom, identityRepo.provider)
+	require.Equal(t, "corp-id", identityRepo.realm)
+	require.Equal(t, "wecom-user-id", identityRepo.identifier)
 }
 
 type wecomAppRepoStub struct {
@@ -252,30 +259,6 @@ func (s wecomSecretVaultStub) Sign(context.Context, string, []byte) ([]byte, err
 	return nil, nil
 }
 
-type wecomCredentialRepoStub struct {
-	accountID     meta.ID
-	userID        meta.ID
-	credentialID  meta.ID
-	idpType       string
-	appID         string
-	idpIdentifier string
-}
-
-func (s *wecomCredentialRepoStub) FindPasswordCredential(context.Context, meta.ID) (meta.ID, string, error) {
-	return meta.ZeroID, "", nil
-}
-
-func (s *wecomCredentialRepoStub) FindPhoneOTPCredential(context.Context, string) (meta.ID, meta.ID, meta.ID, error) {
-	return meta.ZeroID, meta.ZeroID, meta.ZeroID, nil
-}
-
-func (s *wecomCredentialRepoStub) FindOAuthCredential(_ context.Context, idpType, appID, idpIdentifier string) (meta.ID, meta.ID, meta.ID, error) {
-	s.idpType = idpType
-	s.appID = appID
-	s.idpIdentifier = idpIdentifier
-	return s.accountID, s.userID, s.credentialID, nil
-}
-
 type wecomIdentityProviderStub struct {
 	corpID     string
 	agentID    string
@@ -296,4 +279,33 @@ func (s *wecomIdentityProviderStub) ExchangeWecomCode(_ context.Context, corpID,
 	s.corpSecret = corpSecret
 	s.code = code
 	return s.openUserID, s.userID, s.err
+}
+
+type wecomLoginIdentityRepoStub struct {
+	lookup     *authentication.LoginIdentityLookup
+	provider   loginidentity.Provider
+	realm      string
+	identifier string
+}
+
+func (s *wecomLoginIdentityRepoStub) FindUsernameIdentity(context.Context, meta.ID, string) (*authentication.LoginIdentityLookup, error) {
+	return nil, nil
+}
+
+func (s *wecomLoginIdentityRepoStub) FindLoginIdentityByProviderKey(_ context.Context, provider loginidentity.Provider, realm, identifier string) (*authentication.LoginIdentityLookup, error) {
+	s.provider = provider
+	s.realm = realm
+	s.identifier = identifier
+	if s.lookup == nil || s.lookup.Provider != provider || s.lookup.Realm != realm || s.lookup.Identifier != identifier {
+		return nil, nil
+	}
+	return s.lookup, nil
+}
+
+func (s *wecomLoginIdentityRepoStub) FindLoginIdentityByGlobalIdentifier(context.Context, loginidentity.Provider, string) (*authentication.LoginIdentityLookup, error) {
+	return nil, nil
+}
+
+func (s *wecomLoginIdentityRepoStub) GetLoginIdentityStatus(context.Context, meta.ID) (bool, bool, error) {
+	return true, false, nil
 }

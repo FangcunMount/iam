@@ -14,9 +14,8 @@ type AuthDecision struct {
 	// 只有 OK=true 时有效。
 	Principal *Principal
 
-	// AccountID 表示本次认证判决关联的账号。
-	// 失败时可用于失败次数统计、锁定策略、登录审计；成功时可由 Principal 推导。
-	AccountID meta.ID
+	// LoginIdentityID 表示本次认证命中的登录身份。
+	LoginIdentityID meta.ID
 
 	// CredentialID 表示本次命中的凭据。
 	// 可用于失败次数统计、锁定策略、成功登录审计。

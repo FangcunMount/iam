@@ -578,7 +578,7 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 	}
 	forbiddenTokens := []string{
 		"AuthnModule.AuthHandler",
-		"AuthnModule.AccountHandler",
+		"AuthnModule.OnboardingHandler",
 		"AuthnModule.JWKSHandler",
 		"AuthnModule.SessionAdminHandler",
 		"AuthnModule.TokenService",
@@ -1088,11 +1088,7 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertFileContains(t, root, "api/grpc/iam/authn/v2/authn.proto", "service AccountOnboardingService")
-	assertFileContains(t, root, "api/grpc/iam/authn/v2/authn.proto", "rpc CreateOperationAccount")
-	assertFileLacks(t, root, "api/grpc/iam/authn/v2/authn.proto", "RegisterOperationAccount")
-	assertFileLacks(t, root, "pkg/sdk/auth/client/client.go", "RegisterOperationAccount")
-	assertFileContains(t, root, "pkg/sdk/auth/client/client.go", "CreateOperationAccount")
+	assertFileContains(t, root, "api/grpc/iam/authn/v2/authn.proto", "login_identity_id")
 
 	assertFileContains(t, root, "api/grpc/iam/identity/v2/identity.proto", "rpc EstablishProfileLink")
 	assertFileLacks(t, root, "api/grpc/iam/identity/v2/identity.proto", "CreateProfileLink")
@@ -1103,32 +1099,12 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 		"internal/apiserver/docs/swagger.yaml",
 	} {
 		assertFileContains(t, root, rel, "/authn/signups/wechat-miniprogram")
-		assertFileLacks(t, root, rel, "/authn/accounts/wechat/register")
 	}
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/signups"`)
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/wechat-miniprogram"`)
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", "/wechat/register")
 
-	for _, token := range []string{
-		"CreateOperationAccountReq",
-		"UpdateOperationCredentialReq",
-		"ChangeOperationUsernameReq",
-		"BindWeChatAccountReq",
-		"OperationCredentialPayload",
-	} {
-		assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/request/account.go", token)
-	}
-	for _, token := range []string{
-		"CreateOperationAccount",
-		"UpdateOperationCredential",
-		"ChangeOperationUsername",
-		"BindWeChatAccount",
-		"GetOperationAccountByUsername",
-		"FindAccountByRef",
-		"ListAccountsByUser",
-	} {
-		assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", token)
-	}
+	assertPathAbsent(t, root, "internal/apiserver/transport/rest/authn/request/account.go")
 }
 
 func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
@@ -1229,27 +1205,6 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		for _, token := range forbiddenDomainTokens {
 			if strings.Contains(source, token) {
 				t.Fatalf("%s contains retired JWT-shaped domain token %q; keep JWT claims and strategies in infra/token/jwt", rel, token)
-			}
-		}
-	})
-
-	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "domain", "authn", "account"), func(path string, imports []string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, imp := range imports {
-			if imp == modulePath+"internal/apiserver/domain/authn/authentication" {
-				t.Fatalf("%s imports %s; account creation must consume prepared identity data instead of external authentication exchange ports", rel, imp)
-			}
-		}
-	})
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn", "account"), func(path, source string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, token := range []string{
-			"WechatAppSecret",
-			"WechatJsCode",
-			"ExchangeWxMinipCode",
-		} {
-			if strings.Contains(source, token) {
-				t.Fatalf("%s contains account-domain external identity exchange token %q; resolve WeChat identity in application/onboarding", rel, token)
 			}
 		}
 	})
@@ -1714,6 +1669,15 @@ func assertFileLacks(t *testing.T, root, rel, token string) {
 	}
 	if strings.Contains(string(data), token) {
 		t.Fatalf("%s contains retired token %q", rel, token)
+	}
+}
+
+func assertPathAbsent(t *testing.T, root, rel string) {
+	t.Helper()
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+		t.Fatalf("%s should be removed", rel)
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
 	}
 }
 

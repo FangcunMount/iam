@@ -71,7 +71,7 @@ func (s *verifier) VerifyAccessToken(ctx context.Context, tokenValue string) (*T
 	}
 
 	// 检查主体访问权限
-	if err := s.checkSubjectAccessAllowed(ctx, claims.UserID, claims.AccountID); err != nil {
+	if err := s.checkSubjectAccessAllowed(ctx, claims.UserID, claims.LoginIdentityID); err != nil {
 		return nil, err
 	}
 
@@ -106,9 +106,9 @@ func (s *verifier) checkSessionActive(ctx context.Context, sessionID string) err
 }
 
 // checkSubjectAccessAllowed 检查主体访问权限
-func (s *verifier) checkSubjectAccessAllowed(ctx context.Context, userID meta.ID, accountID meta.ID) error {
+func (s *verifier) checkSubjectAccessAllowed(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) error {
 	// 检查主体访问权限
-	decision, err := s.accessChecker.Evaluate(ctx, userID, accountID)
+	decision, err := s.accessChecker.Evaluate(ctx, userID, loginIdentityID)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate subject access")
 	}

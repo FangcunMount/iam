@@ -23,8 +23,8 @@ func extractClaims(token jwt.Token) *TokenClaims {
 	if v, ok := token.Get("tenant_id"); ok {
 		claims.TenantID = claimString(v)
 	}
-	if v, ok := token.Get("account_id"); ok {
-		claims.AccountID = claimString(v)
+	if v, ok := token.Get("login_identity_id"); ok {
+		claims.LoginIdentityID = claimString(v)
 	}
 	if v, ok := token.Get("roles"); ok {
 		claims.Roles = claimStringSlice(v)

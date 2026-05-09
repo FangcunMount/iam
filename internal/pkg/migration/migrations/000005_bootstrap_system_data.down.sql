@@ -108,14 +108,14 @@ DELETE FROM `idp_wechat_apps`
 WHERE `app_id` = 'wx72ade250b619a649';
 
 DELETE FROM `auth_credentials`
-WHERE (`account_id`, `type`) IN ((910100001, 'password'),
-                                 (910100002, 'password'),
-                                 (910100003, 'password'));
+WHERE (`login_identity_id`, `type`) IN ((910100001, 'password'),
+                                        (910100002, 'password'),
+                                        (910100003, 'password'));
 
-DELETE FROM `auth_accounts`
-WHERE (`type`, `app_id`, `external_id`) IN (('opera', 'opera', 'system@fangcunmount.com'),
-                                            ('opera', 'opera', 'admin@fangcunmount.com'),
-                                            ('opera', 'opera', 'content_manager@fangcunmount.com'));
+DELETE FROM `auth_login_identities`
+WHERE (`provider`, `realm`, `identifier`) IN (('username', '1', 'system@fangcunmount.com'),
+                                              ('username', '1', 'admin@fangcunmount.com'),
+                                              ('username', '1', 'content_manager@fangcunmount.com'));
 
 DELETE FROM `users`
 WHERE `id` IN (10001, 110001, 110002);

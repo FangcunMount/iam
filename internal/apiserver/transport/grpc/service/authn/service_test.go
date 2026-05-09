@@ -8,9 +8,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -29,12 +27,6 @@ type tokenServiceStub struct {
 	verifyErr  error
 	refreshErr error
 	revokeErr  error
-}
-
-type accountOnboarderStub struct {
-	req onboardingApp.OnboardingRequest
-	res *onboardingApp.OnboardingResult
-	err error
 }
 
 type loginServiceStub struct {
@@ -102,20 +94,15 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 	}, nil
 }
 
-func (s *accountOnboarderStub) Onboard(ctx context.Context, req onboardingApp.OnboardingRequest) (*onboardingApp.OnboardingResult, error) {
-	s.req = req
-	return s.res, s.err
-}
-
 func TestAuthServiceServerLoginUsesExplicitV2Contract(t *testing.T) {
 	access := tokenApp.NewAccessToken("access-id", "access-token", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(7), time.Hour)
 	refresh := tokenApp.NewRefreshToken("refresh-id", "refresh-token", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(7), []string{"pwd"}, nil, 24*time.Hour)
 	stub := &loginServiceStub{
 		res: &loginApp.LoginResult{
-			TokenPair: tokenApp.NewTokenPair(access, refresh),
-			UserID:    meta.FromUint64(1),
-			AccountID: meta.FromUint64(2),
-			TenantID:  meta.FromUint64(7),
+			TokenPair:       tokenApp.NewTokenPair(access, refresh),
+			UserID:          meta.FromUint64(1),
+			LoginIdentityID: meta.FromUint64(2),
+			TenantID:        meta.FromUint64(7),
 		},
 	}
 	srv := &authServiceServer{loginSvc: stub}
@@ -257,38 +244,4 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 			require.Equal(t, tc.want, status.Code(err))
 		})
 	}
-}
-
-func TestAccountOnboardingServiceServerCreateOperationAccount(t *testing.T) {
-	password := "Secret123!"
-	stub := &accountOnboarderStub{
-		res: &onboardingApp.OnboardingResult{
-			UserID:       meta.FromUint64(101),
-			AccountID:    meta.FromUint64(202),
-			AccountType:  accountDomain.TypeOpera,
-			ExternalID:   accountDomain.ExternalID("staff@example.com"),
-			CredentialID: meta.FromUint64(303),
-			IsNewUser:    true,
-			IsNewAccount: true,
-		},
-	}
-	srv := &accountOnboardingServer{accountOnboarder: stub}
-
-	resp, err := srv.CreateOperationAccount(context.Background(), &authnv2.CreateOperationAccountRequest{
-		Name:           "张三",
-		Phone:          "13800138000",
-		Email:          "staff@example.com",
-		ScopedTenantId: "1",
-		Password:       password,
-	})
-	require.NoError(t, err)
-	require.Equal(t, "101", resp.GetUserId())
-	require.Equal(t, "202", resp.GetAccountId())
-	require.Equal(t, "303", resp.GetCredentialId())
-	require.Equal(t, "staff@example.com", resp.GetExternalId())
-	require.Equal(t, accountDomain.TypeOpera, stub.req.AccountType)
-	require.Equal(t, onboardingApp.CredTypePassword, stub.req.CredentialType)
-	require.NotNil(t, stub.req.Password)
-	require.Equal(t, password, *stub.req.Password)
-	require.Equal(t, meta.FromUint64(1), stub.req.ScopedTenantID)
 }

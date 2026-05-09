@@ -6,6 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -57,8 +58,7 @@ func NewPhoneOTPCredential(spec PhoneOTPProofSpec) (AuthCredential, error) {
 // PhoneOTPAuthStrategy 手机短信验证码认证策略
 type PhoneOTPAuthStrategy struct {
 	credentialType credDomain.CredentialType
-	credRepo       CredentialRepository
-	accountRepo    AccountRepository
+	identityRepo   LoginIdentityRepository
 	otpVerifier    OTPVerifier
 }
 
@@ -67,16 +67,13 @@ var _ AuthStrategy = (*PhoneOTPAuthStrategy)(nil)
 
 const phoneOTPLoginScene = "login"
 
-// NewPhoneOTPAuthStrategy 构造函数（注入依赖）
-func NewPhoneOTPAuthStrategy(
-	credRepo CredentialRepository,
-	accountRepo AccountRepository,
+func NewPhoneOTPAuthStrategyWithLoginIdentity(
+	identityRepo LoginIdentityRepository,
 	otpVerifier OTPVerifier,
 ) *PhoneOTPAuthStrategy {
 	return &PhoneOTPAuthStrategy{
 		credentialType: credDomain.CredPhoneOTP,
-		credRepo:       credRepo,
-		accountRepo:    accountRepo,
+		identityRepo:   identityRepo,
 		otpVerifier:    otpVerifier,
 	}
 }
@@ -97,8 +94,6 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("phone otp strategy expects *PhoneOTPCredential, got %T", credential)
 	}
-
-	// Step 1: 验证OTP并标记为已使用
 	if !p.verifyLoginOTP(ctx, otpCredential) {
 		return AuthDecision{
 			OK:   false,
@@ -106,20 +101,23 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		}, nil
 	}
 
-	// Step 2: 根据手机号查找凭据绑定
-	accountID, userID, credentialID, found, err := p.findPhoneOTPCredential(ctx, otpCredential.PhoneE164)
+	lookup, err := p.identityRepo.FindLoginIdentityByProviderKey(
+		ctx,
+		loginidentity.ProviderPhone,
+		loginidentity.RealmGlobal,
+		otpCredential.PhoneE164,
+	)
 	if err != nil {
-		return AuthDecision{}, err
+		return AuthDecision{}, fmt.Errorf("failed to find phone login identity: %w", err)
 	}
-	if !found {
+	if lookup == nil || lookup.LoginIdentityID.IsZero() {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrNoBinding,
 		}, nil
 	}
 
-	// Step 3: 检查账户状态
-	statusFailure, err := accountStatusFailureDecision(ctx, p.accountRepo, accountID)
+	statusFailure, err := loginIdentityStatusFailureDecision(ctx, p.identityRepo, lookup.LoginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
@@ -127,25 +125,18 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		return *statusFailure, nil
 	}
 
-	// Step 4: 认证成功，构造Principal
-	return p.buildPhoneOTPSuccessDecision(ctx, otpCredential, accountID, userID, credentialID), nil
+	return p.buildPhoneOTPSuccessDecision(
+		ctx,
+		otpCredential,
+		lookup.LoginIdentityID,
+		lookup.UserID,
+		meta.ZeroID,
+	), nil
 }
 
 // verifyLoginOTP 验证OTP并标记为已使用
 func (p *PhoneOTPAuthStrategy) verifyLoginOTP(ctx context.Context, credential *PhoneOTPCredential) bool {
 	return p.otpVerifier.VerifyAndConsume(ctx, credential.PhoneE164, phoneOTPLoginScene, credential.OTP)
-}
-
-// findPhoneOTPCredential 根据手机号查找凭据绑定
-func (p *PhoneOTPAuthStrategy) findPhoneOTPCredential(ctx context.Context, phoneE164 string) (meta.ID, meta.ID, meta.ID, bool, error) {
-	accountID, userID, credentialID, err := p.credRepo.FindPhoneOTPCredential(ctx, phoneE164)
-	if err != nil {
-		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, fmt.Errorf("failed to find phone OTP credential: %w", err)
-	}
-	if credentialID.IsZero() {
-		return meta.ZeroID, meta.ZeroID, meta.ZeroID, false, nil
-	}
-	return accountID, userID, credentialID, true, nil
 }
 
 // buildPhoneOTPSuccessDecision 认证成功，构造Principal
@@ -157,20 +148,25 @@ func (p *PhoneOTPAuthStrategy) buildPhoneOTPSuccessDecision(
 	credentialID meta.ID,
 ) AuthDecision {
 	principal := &Principal{
-		AccountID: accountID,
-		UserID:    userID,
-		TenantID:  credential.TenantID,
-		AMR:       []string{string(AMROTP)},
+		LoginIdentityID: accountID,
+		UserID:          userID,
+		TenantID:        credential.TenantID,
+		AuthMethod:      "phone_otp",
+		Realm:           loginidentity.RealmGlobal,
+		AMR:             []string{string(AMROTP)},
 		Claims: map[string]any{
-			"phone_number": credential.PhoneE164,
-			"auth_time":    ctx.Value("request_time"),
+			"phone_number":      credential.PhoneE164,
+			"login_identity_id": accountID.String(),
+			"auth_method":       "phone_otp",
+			"realm":             loginidentity.RealmGlobal,
+			"auth_time":         ctx.Value("request_time"),
 		},
 	}
 
 	return AuthDecision{
-		OK:           true,
-		Principal:    principal,
-		AccountID:    accountID,
-		CredentialID: credentialID,
+		OK:              true,
+		Principal:       principal,
+		LoginIdentityID: accountID,
+		CredentialID:    credentialID,
 	}
 }

@@ -21,10 +21,10 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 
 	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api", "collection-api"})
 	principal := &tokenapp.Principal{
-		AccountID: meta.MustFromUint64(1001),
-		UserID:    meta.MustFromUint64(1002),
-		TenantID:  meta.MustFromUint64(1),
-		AMR:       []string{"pwd"},
+		LoginIdentityID: meta.MustFromUint64(1001),
+		UserID:          meta.MustFromUint64(1002),
+		TenantID:        meta.MustFromUint64(1),
+		AMR:             []string{"pwd"},
 		Claims: map[string]any{
 			"display_name": "seed-user",
 			"kid":          "must-not-enter-payload",
@@ -44,7 +44,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	require.NoError(t, err)
 	require.Equal(t, tokenapp.TokenTypeAccess, claims.TokenType)
 	require.Equal(t, principal.UserID, claims.UserID)
-	require.Equal(t, principal.AccountID, claims.AccountID)
+	require.Equal(t, principal.LoginIdentityID, claims.LoginIdentityID)
 	require.Equal(t, principal.TenantID, claims.TenantID)
 	require.Equal(t, []string{"qs-api", "collection-api"}, claims.Audience)
 	require.Equal(t, "https://iam.fangcunmount.cn", claims.Issuer)
@@ -56,9 +56,9 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
 	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.Principal{
-		AccountID: meta.MustFromUint64(1001),
-		UserID:    meta.MustFromUint64(1002),
-		TenantID:  meta.MustFromUint64(1),
+		LoginIdentityID: meta.MustFromUint64(1001),
+		UserID:          meta.MustFromUint64(1002),
+		TenantID:        meta.MustFromUint64(1),
 		Claims: map[string]any{
 			"kid": "payload-kid-is-reserved",
 			"alg": "payload-alg-is-reserved",

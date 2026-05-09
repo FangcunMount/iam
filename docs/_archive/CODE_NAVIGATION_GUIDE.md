@@ -780,7 +780,7 @@ pkg/sdk/
 关键类型定义文件：
 - domain/authn/authentication/repository.go     (CredentialRepository, AccountRepository)
 - domain/authn/authentication/authenticater.go  (Authenticater, AuthDecision)
-- domain/authn/account/account.go              (Account 聚合根)
+- domain/authn/legacyaccount/account.go              (Account 聚合根)
 - domain/authn/session/session.go              (Session 聚合根)
 - domain/authn/token/token.go                  (Token, TokenPair)
 - application/authn/login/services.go          (LoginApplicationService)

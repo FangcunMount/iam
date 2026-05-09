@@ -49,6 +49,8 @@ def map_path(path: str) -> str:
         return "/authn" + path
     if path.startswith("/auth/"):
         return "/authn" + path[5:]
+    if path.startswith("/signups/") or path == "/signups":
+        return "/authn" + path
     if path.startswith("/accounts/") or path == "/accounts":
         return "/authn" + path
     if path.startswith("/authz/") or path.startswith("/idp/"):

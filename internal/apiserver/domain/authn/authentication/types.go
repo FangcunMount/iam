@@ -14,10 +14,12 @@ const (
 
 // 认证主体（输出，用于签 Token/授权）
 type Principal struct {
-	AccountID meta.ID
-	UserID    meta.ID
-	TenantID  meta.ID
-	SessionID string
-	AMR       []string
-	Claims    map[string]any
+	LoginIdentityID meta.ID
+	UserID          meta.ID
+	TenantID        meta.ID
+	SessionID       string
+	AuthMethod      string
+	Realm           string
+	AMR             []string
+	Claims          map[string]any
 }

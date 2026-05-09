@@ -25,7 +25,7 @@ import (
 )
 
 // 集成测试：与登录一致的签发链（IssueToken → JWT）→ 本地解析 tenant_id →
-// gRPC VerifyToken 与 REST POST /verify 返回的 user_id / account_id / tenant_id 一致。
+// gRPC VerifyToken 与 REST POST /verify 返回的 user_id / login_identity_id / tenant_id 一致。
 
 type noopTokenStore struct{}
 
@@ -87,9 +87,9 @@ func (s *memorySessionStore) RevokeByUser(_ context.Context, userID meta.ID, rea
 	return nil
 }
 
-func (s *memorySessionStore) RevokeByAccount(_ context.Context, accountID meta.ID, reason string, revokedBy string) error {
+func (s *memorySessionStore) RevokeByLoginIdentity(_ context.Context, loginIdentityID meta.ID, reason string, revokedBy string) error {
 	for _, sess := range s.sessions {
-		if sess.AccountID == accountID {
+		if sess.LoginIdentityID == loginIdentityID {
 			sess.Revoke(reason, revokedBy)
 		}
 	}
@@ -148,11 +148,11 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	tokenSvc, gen := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
-		UserID:    meta.FromUint64(1001),
-		AccountID: meta.FromUint64(2002),
-		TenantID:  meta.FromUint64(9001),
-		AMR:       []string{string(authentication.AMRPassword)},
-		Claims:    map[string]any{"phone_number": "+8613800138000"},
+		UserID:          meta.FromUint64(1001),
+		LoginIdentityID: meta.FromUint64(2002),
+		TenantID:        meta.FromUint64(9001),
+		AMR:             []string{string(authentication.AMRPassword)},
+		Claims:          map[string]any{"phone_number": "+8613800138000"},
 	}
 
 	// 与登录成功后的签发路径一致：IssueToken → access_token JWT
@@ -167,7 +167,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.NoError(t, err)
 	require.Equal(t, uint64(9001), parsed.TenantID.Uint64(), "JWT 本地解析应含 tenant_id")
 	require.Equal(t, "1001", parsed.UserID.String())
-	require.Equal(t, "2002", parsed.AccountID.String())
+	require.Equal(t, "2002", parsed.LoginIdentityID.String())
 	require.Equal(t, []string{string(authentication.AMRPassword)}, parsed.AMR)
 	require.Equal(t, "+8613800138000", parsed.Attributes["phone_number"])
 
@@ -178,7 +178,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.True(t, gresp.Valid)
 	require.NotNil(t, gresp.Claims)
 	require.Equal(t, "1001", gresp.Claims.UserId)
-	require.Equal(t, "2002", gresp.Claims.AccountId)
+	require.Equal(t, "2002", gresp.Claims.LoginIdentityId)
 	require.Equal(t, "9001", gresp.Claims.TenantId)
 	require.Equal(t, []string{string(authentication.AMRPassword)}, gresp.Claims.Amr)
 	require.Equal(t, "+8613800138000", gresp.Claims.Attributes["phone_number"])
@@ -212,13 +212,13 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.True(t, tv.Valid)
 	require.NotNil(t, tv.Claims)
 	require.Equal(t, "1001", tv.Claims.UserID)
-	require.Equal(t, "2002", tv.Claims.AccountID)
+	require.Equal(t, "2002", tv.Claims.LoginIdentityID)
 	require.NotNil(t, tv.Claims.TenantID)
 	require.Equal(t, int64(9001), *tv.Claims.TenantID)
 
 	// 与 gRPC 声明对齐（时间字段由同一套 claims 产生）
 	require.Equal(t, gresp.Claims.UserId, tv.Claims.UserID)
-	require.Equal(t, gresp.Claims.AccountId, tv.Claims.AccountID)
+	require.Equal(t, gresp.Claims.LoginIdentityId, tv.Claims.LoginIdentityID)
 	require.Equal(t, gresp.Claims.TenantId, meta.FromUint64(uint64(*tv.Claims.TenantID)).String())
 	require.Equal(t, gresp.Claims.Amr, tv.Claims.Amr)
 	require.Equal(t, "+8613800138000", tv.Claims.Attributes["phone_number"])
@@ -229,9 +229,9 @@ func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 	tokenSvc, _ := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
-		UserID:    meta.FromUint64(7),
-		AccountID: meta.FromUint64(8),
-		TenantID:  meta.FromUint64(9),
+		UserID:          meta.FromUint64(7),
+		LoginIdentityID: meta.FromUint64(8),
+		TenantID:        meta.FromUint64(9),
 	}
 	pair, err := tokenSvc.IssueToken(ctx, principal)
 	require.NoError(t, err)
@@ -259,9 +259,9 @@ func TestIntegration_VerifyToken_GRPC_IncludeMetadata(t *testing.T) {
 	tokenSvc, _ := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
-		UserID:    meta.FromUint64(42),
-		AccountID: meta.FromUint64(43),
-		TenantID:  meta.FromUint64(44),
+		UserID:          meta.FromUint64(42),
+		LoginIdentityID: meta.FromUint64(43),
+		TenantID:        meta.FromUint64(44),
 	}
 	pair, err := tokenSvc.IssueToken(ctx, principal)
 	require.NoError(t, err)

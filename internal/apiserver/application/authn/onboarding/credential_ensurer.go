@@ -41,18 +41,24 @@ func newCredentialEnsurer(hasher authentication.PasswordHasher) *credentialEnsur
 func (e *credentialEnsurer) Ensure(
 	ctx context.Context,
 	repo credDomain.Repository,
-	accountResult *AccountEnsureResult,
+	loginIdentityResult *LoginIdentityEnsureResult,
 	req *NormalizedOnboardingRequest,
 ) (*CredentialEnsureResult, error) {
+	if !req.Plan.NeedCredential {
+		return &CredentialEnsureResult{
+			Credential: &credDomain.Credential{},
+			Status:     CredentialReused,
+		}, nil
+	}
 	issuer := credDomain.NewIssuer(e.hasher)
-	credential, err := req.strategy.IssueCredential(ctx, issuer, accountResult.Account.ID, accountResult.CreationParams, req)
+	credential, err := e.issuePasswordCredential(ctx, issuer, loginIdentityResult.Identity.ID, req)
 	if err != nil {
 		return nil, err
 	}
 
 	if err := repo.Create(ctx, credential); err != nil {
 		if perrors.IsCode(err, code.ErrCredentialExists) {
-			return e.reuseExisting(ctx, repo, accountResult.Account.ID, req)
+			return e.reuseExisting(ctx, repo, loginIdentityResult.Identity.ID, req)
 		}
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to save credential: %v", err)
 	}
@@ -63,14 +69,28 @@ func (e *credentialEnsurer) Ensure(
 	}, nil
 }
 
+func (e *credentialEnsurer) issuePasswordCredential(
+	ctx context.Context,
+	issuer credDomain.Issuer,
+	loginIdentityID meta.ID,
+	req *NormalizedOnboardingRequest,
+) (*credDomain.Credential, error) {
+	if req.Password == nil || *req.Password == "" {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "password is required")
+	}
+	return issuer.IssuePassword(ctx, credDomain.IssuePasswordRequest{
+		LoginIdentityID: loginIdentityID,
+		PlainPassword:   *req.Password,
+	})
+}
+
 func (e *credentialEnsurer) reuseExisting(
 	ctx context.Context,
 	repo credDomain.Repository,
-	accountID meta.ID,
+	loginIdentityID meta.ID,
 	req *NormalizedOnboardingRequest,
 ) (*CredentialEnsureResult, error) {
-	credType := req.strategy.CredentialRepositoryType()
-	existing, err := repo.GetByAccountIDAndType(ctx, accountID, credType)
+	existing, err := repo.GetByLoginIdentityIDAndType(ctx, loginIdentityID, credDomain.CredPassword)
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to reuse credential: %v", err)
 	}

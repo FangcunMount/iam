@@ -32,10 +32,10 @@ func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies
 func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies) {
 	if r.deps.ModuleStatus.authnAvailable() && authnRoutesAvailable(deps.authn) {
 		authnDeps := authnhttp.Dependencies{
-			AuthHandler:      deps.authn.AuthHandler,
-			AccountHandler:   deps.authn.AccountHandler,
-			JWKSHandler:      deps.authn.JWKSHandler,
-			AdminMiddlewares: deps.adminMiddlewares,
+			AuthHandler:       deps.authn.AuthHandler,
+			OnboardingHandler: deps.authn.OnboardingHandler,
+			JWKSHandler:       deps.authn.JWKSHandler,
+			AdminMiddlewares:  deps.adminMiddlewares,
 		}
 		authnhttp.Register(engine, authnDeps)
 		if r.deps.SeedMockAuth.Enabled {
@@ -43,7 +43,7 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies)
 			if secret == "" {
 				log.Warn("⚠️  seed_mock_auth.enabled=true but seed_mock_auth.shared_secret is empty; internal mock-consumer route not registered")
 			} else {
-				authnhttp.RegisterSeedMock(engine, deps.authn.AccountHandler, secret)
+				authnhttp.RegisterSeedMock(engine, deps.authn.OnboardingHandler, secret)
 				log.Info("✅ Authn seed mock routes registered")
 			}
 		}
@@ -125,7 +125,7 @@ func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, aut
 
 // authnRoutesAvailable 认证路由是否可用
 func authnRoutesAvailable(deps AuthnDeps) bool {
-	return deps.AuthHandler != nil || deps.AccountHandler != nil || deps.JWKSHandler != nil
+	return deps.AuthHandler != nil || deps.OnboardingHandler != nil || deps.JWKSHandler != nil
 }
 
 // authzRoutesAvailable 授权路由是否可用

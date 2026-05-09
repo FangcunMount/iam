@@ -72,9 +72,9 @@ func (s *authenticatorStrategyStub) Authenticate(context.Context, AuthCredential
 	return AuthDecision{
 		OK: true,
 		Principal: &Principal{
-			UserID:    meta.FromUint64(1001),
-			AccountID: meta.FromUint64(2002),
-			TenantID:  meta.FromUint64(1),
+			UserID:          meta.FromUint64(1001),
+			LoginIdentityID: meta.FromUint64(2002),
+			TenantID:        meta.FromUint64(1),
 		},
 	}, nil
 }
@@ -131,7 +131,7 @@ func TestAuthenticatorLogsSuccessfulAuthAttempt(t *testing.T) {
 	require.True(t, event.Success)
 	require.Equal(t, 0, event.Code)
 	require.Equal(t, credDomain.CredPassword, event.CredentialType)
-	require.Equal(t, meta.FromUint64(2002), event.AccountID)
+	require.Equal(t, meta.FromUint64(2002), event.LoginIdentityID)
 	require.Equal(t, "10.0.0.1", event.RemoteIP)
 	require.Equal(t, "iam-test", event.UserAgent)
 	require.False(t, event.Timestamp.IsZero())
@@ -144,10 +144,10 @@ func TestAuthenticatorLogsFailedAuthAttempt(t *testing.T) {
 		kind:        credDomain.CredPassword,
 		hasDecision: true,
 		decision: AuthDecision{
-			OK:           false,
-			Code:         code.ErrCredentialLocked,
-			AccountID:    meta.FromUint64(2002),
-			CredentialID: meta.FromUint64(3003),
+			OK:              false,
+			Code:            code.ErrCredentialLocked,
+			LoginIdentityID: meta.FromUint64(2002),
+			CredentialID:    meta.FromUint64(3003),
 		},
 	}
 	auditLogger := &authenticatorAuditLoggerStub{}
@@ -170,7 +170,7 @@ func TestAuthenticatorLogsFailedAuthAttempt(t *testing.T) {
 	require.False(t, event.Success)
 	require.Equal(t, code.ErrCredentialLocked, event.Code)
 	require.Equal(t, credDomain.CredPassword, event.CredentialType)
-	require.Equal(t, meta.FromUint64(2002), event.AccountID)
+	require.Equal(t, meta.FromUint64(2002), event.LoginIdentityID)
 	require.Equal(t, meta.FromUint64(3003), event.CredentialID)
 	require.Equal(t, "10.0.0.2", event.RemoteIP)
 	require.Equal(t, "iam-test", event.UserAgent)

@@ -144,7 +144,7 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 
 // ensureSubjectAccessAllowed 确保主体访问权限允许
 func (s *refresher) ensureSubjectAccessAllowed(ctx context.Context, refreshToken *Token) error {
-	decision, err := s.accessChecker.Evaluate(ctx, refreshToken.UserID, refreshToken.AccountID)
+	decision, err := s.accessChecker.Evaluate(ctx, refreshToken.UserID, refreshToken.LoginIdentityID)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate subject access")
 	}
@@ -174,12 +174,14 @@ func (s *refresher) principalFromRefreshToken(refreshToken *Token) *authenticati
 		claims = make(map[string]any)
 	}
 	return &authentication.Principal{
-		UserID:    refreshToken.UserID,
-		AccountID: refreshToken.AccountID,
-		TenantID:  refreshToken.TenantID,
-		SessionID: refreshToken.SessionID,
-		AMR:       amr,
-		Claims:    claims,
+		UserID:          refreshToken.UserID,
+		LoginIdentityID: refreshToken.LoginIdentityID,
+		TenantID:        refreshToken.TenantID,
+		SessionID:       refreshToken.SessionID,
+		AuthMethod:      refreshToken.AuthMethod,
+		Realm:           refreshToken.Realm,
+		AMR:             amr,
+		Claims:          claims,
 	}
 }
 

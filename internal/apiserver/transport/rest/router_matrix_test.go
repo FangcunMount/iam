@@ -50,7 +50,6 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 	} {
 		assertRoutePresent(t, routes, route.method, route.path)
 	}
-	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/authn/accounts/wechat/register")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profiles")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
@@ -84,7 +83,7 @@ func routeMatrixDeps() Deps {
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
 		AuthHandler:         authhandler.NewAuthHandler(nil, nil, nil),
-		AccountHandler:      authhandler.NewAccountHandler(nil, nil),
+		OnboardingHandler:   authhandler.NewOnboardingHandler(nil),
 		JWKSHandler:         authhandler.NewJWKSHandler(nil, nil),
 		SessionAdminHandler: authhandler.NewSessionAdminHandler(sessionServiceStub{}),
 		TokenService:        tokenServiceStub{},
@@ -168,7 +167,7 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 		"/api/v2/public/",
 		"/api/v2/internal/",
 		"/api/v2/admin/sessions/",
-		"/api/v2/admin/accounts/",
+		"/api/v2/admin/login-identities/",
 		"/api/v2/admin/users/",
 	} {
 		if strings.HasPrefix(route.Path, prefix) {
@@ -191,7 +190,7 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 
 func normalizeOpenAPIPath(path string) string {
 	path = strings.TrimPrefix(path, "/api/v2")
-	path = strings.ReplaceAll(path, ":accountId", "{accountId}")
+	path = strings.ReplaceAll(path, ":loginIdentityId", "{loginIdentityId}")
 	path = strings.ReplaceAll(path, ":sessionId", "{sessionId}")
 	path = strings.ReplaceAll(path, ":userId", "{userId}")
 	path = strings.ReplaceAll(path, ":app_id", "{app_id}")

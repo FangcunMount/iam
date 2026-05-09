@@ -27,6 +27,7 @@ const (
 	MatchedByWechatUnionID  UserMatchMethod = "wechat_union_id"
 	MatchedByWechatOpenID   UserMatchMethod = "wechat_openid_appid"
 	MatchedByPhone          UserMatchMethod = "phone"
+	MatchedByLoginIdentity  UserMatchMethod = "login_identity"
 	MatchedByNone           UserMatchMethod = "none"
 )
 
@@ -65,13 +66,43 @@ func (r *userResolver) Resolve(
 	if !req.ExistingUserID.IsZero() {
 		return r.resolveExistingUser(ctx, userRepo, req.ExistingUserID)
 	}
-	if result, matched, err := req.strategy.ResolveUserByAccount(ctx, r, userRepo, repos.Accounts, req); matched || err != nil {
+	if result, matched, err := r.resolveByLoginIdentity(ctx, userRepo, repos, req); matched || err != nil {
 		return result, err
 	}
 	if result, matched, err := r.resolveByPhone(ctx, userRepo, req); matched || err != nil {
 		return result, err
 	}
 	return r.createUser(ctx, userRepo, req)
+}
+
+func (r *userResolver) resolveByLoginIdentity(
+	ctx context.Context,
+	userRepo userDomain.Repository,
+	repos registrationRepositories,
+	req *NormalizedOnboardingRequest,
+) (*UserResolveResult, bool, error) {
+	if repos.LoginIdentities == nil {
+		return nil, false, nil
+	}
+	key, ok := loginIdentityLookupKey(req)
+	if !ok {
+		return nil, false, nil
+	}
+	identity, err := repos.LoginIdentities.GetByProviderKey(ctx, key.Provider, key.Realm, key.Identifier)
+	if err != nil && !isRepositoryNotFound(err) {
+		return nil, true, err
+	}
+	if identity == nil && key.GlobalIdentifier != "" {
+		identity, err = repos.LoginIdentities.GetByGlobalIdentifier(ctx, key.Provider, key.GlobalIdentifier)
+		if err != nil && !isRepositoryNotFound(err) {
+			return nil, true, err
+		}
+	}
+	if identity == nil {
+		return nil, false, nil
+	}
+	result, err := r.loadOrRepairUserForLoginIdentity(ctx, userRepo, identity.UserID, req, MatchedByLoginIdentity)
+	return result, true, err
 }
 
 func (r *userResolver) resolveExistingUser(
@@ -138,7 +169,7 @@ func (r *userResolver) createUser(
 	}, nil
 }
 
-func (r *userResolver) loadOrRepairUserForAccount(
+func (r *userResolver) loadOrRepairUserForLoginIdentity(
 	ctx context.Context,
 	repo userDomain.Repository,
 	userID meta.ID,
@@ -157,7 +188,7 @@ func (r *userResolver) loadOrRepairUserForAccount(
 		return nil, err
 	}
 	if !req.Plan.AllowUserRepair {
-		return nil, perrors.WithCode(code.ErrUserNotFound, "account user not found: %s", userID.String())
+		return nil, perrors.WithCode(code.ErrUserNotFound, "login identity user not found: %s", userID.String())
 	}
 
 	recovered, err := r.repairMissingUser(ctx, repo, userID, req)

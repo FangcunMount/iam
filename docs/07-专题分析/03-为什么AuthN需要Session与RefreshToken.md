@@ -1162,7 +1162,7 @@ internal/apiserver/infra/cache/redis/session_store.go
 ```text
 internal/apiserver/domain/identity/user/user.go
 internal/apiserver/domain/identity/user/types.go
-internal/apiserver/domain/authn/account/account.go
+internal/apiserver/domain/authn/legacyaccount/account.go
 ```
 
 目标：理解 User/Account 状态如何影响旧 token。
@@ -1185,7 +1185,7 @@ go test ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
   ./internal/apiserver/infra/cache/redis \
   ./internal/apiserver/domain/identity/user \
-  ./internal/apiserver/domain/authn/account
+  ./internal/apiserver/domain/authn/legacyaccount
 
 make docs-hygiene
 ```

@@ -4,16 +4,16 @@ package cache
 type Family string
 
 const (
-	FamilyAuthnRefreshToken        Family = "authn.refresh_token"
-	FamilyAuthnRevokedAccessToken  Family = "authn.revoked_access_token"
-	FamilyAuthnSession             Family = "authn.session"
-	FamilyAuthnUserSessionIndex    Family = "authn.user_session_index"
-	FamilyAuthnAccountSessionIndex Family = "authn.account_session_index"
-	FamilyAuthnLoginOTP            Family = "authn.login_otp"
-	FamilyAuthnLoginOTPSendGate    Family = "authn.login_otp_send_gate"
-	FamilyIDPWechatAccessToken     Family = "idp.wechat_access_token"
-	FamilyIDPWechatSDK             Family = "idp.wechat_sdk"
-	FamilyAuthnJWKSPublishSnapshot Family = "authn.jwks_publish_snapshot"
+	FamilyAuthnRefreshToken              Family = "authn.refresh_token"
+	FamilyAuthnRevokedAccessToken        Family = "authn.revoked_access_token"
+	FamilyAuthnSession                   Family = "authn.session"
+	FamilyAuthnUserSessionIndex          Family = "authn.user_session_index"
+	FamilyAuthnLoginIdentitySessionIndex Family = "authn.login_identity_session_index"
+	FamilyAuthnLoginOTP                  Family = "authn.login_otp"
+	FamilyAuthnLoginOTPSendGate          Family = "authn.login_otp_send_gate"
+	FamilyIDPWechatAccessToken           Family = "idp.wechat_access_token"
+	FamilyIDPWechatSDK                   Family = "idp.wechat_sdk"
+	FamilyAuthnJWKSPublishSnapshot       Family = "authn.jwks_publish_snapshot"
 )
 
 // BackendKind 表示缓存后端类型。
@@ -162,15 +162,15 @@ var catalog = []FamilyDescriptor{
 		Capabilities: inspectOnly,
 	},
 	{
-		Family:          FamilyAuthnAccountSessionIndex,
+		Family:          FamilyAuthnLoginIdentitySessionIndex,
 		Backend:         BackendKindRedis,
 		RedisType:       RedisDataTypeZSet,
 		Codec:           ValueCodecKindString,
 		Role:            DataRoleAuthoritativeState,
 		OwnerModule:     "authn",
-		KeyPattern:      "account_session_index:{accountID}",
+		KeyPattern:      "login_identity_session_index:{loginIdentityID}",
 		TTLSource:       "不设置独立 TTL，成员 score 取会话过期时间",
-		SelectionReason: "需要按账号批量回收和列举活跃会话，ZSet 适合按过期时间懒清理。",
+		SelectionReason: "需要按登录身份批量回收和列举活跃会话，ZSet 适合按过期时间懒清理。",
 		Policy: FamilyPolicy{
 			TTLSource:                      "成员 score 取会话过期时间",
 			WriteMode:                      "ZADD sid -> expiresAtUnix",

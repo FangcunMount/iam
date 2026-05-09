@@ -50,9 +50,9 @@ func authResultFromPrincipal(principal *authentication.Principal) *AuthResult {
 		return &AuthResult{}
 	}
 	return &AuthResult{
-		Principal: principal,
-		UserID:    principal.UserID,
-		AccountID: principal.AccountID,
-		TenantID:  principal.TenantID,
+		Principal:       principal,
+		UserID:          principal.UserID,
+		LoginIdentityID: principal.LoginIdentityID,
+		TenantID:        principal.TenantID,
 	}
 }

@@ -134,15 +134,15 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 			}
 		}
 		response.Claims = &resp.TokenClaims{
-			UserID:     result.Claims.UserID.String(),
-			AccountID:  result.Claims.AccountID.String(),
-			TenantID:   tenantID,
-			Issuer:     result.Claims.Issuer,
-			IssuedAt:   result.Claims.IssuedAt,
-			ExpiresAt:  result.Claims.ExpiresAt,
-			JTI:        result.Claims.TokenID,
-			Amr:        amr,
-			Attributes: attrCopy,
+			UserID:          result.Claims.UserID.String(),
+			LoginIdentityID: result.Claims.LoginIdentityID.String(),
+			TenantID:        tenantID,
+			Issuer:          result.Claims.Issuer,
+			IssuedAt:        result.Claims.IssuedAt,
+			ExpiresAt:       result.Claims.ExpiresAt,
+			JTI:             result.Claims.TokenID,
+			Amr:             amr,
+			Attributes:      attrCopy,
 		}
 	}
 

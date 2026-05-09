@@ -7,15 +7,15 @@ import (
 )
 
 var (
-	refreshTokenKeyspace          = rediskeyspace.New("refresh_token")
-	revokedAccessTokenKeyspace    = rediskeyspace.New("revoked_access_token")
-	sessionKeyspace               = rediskeyspace.New("session")
-	userSessionIndexKeyspace      = rediskeyspace.New("user_session_index")
-	accountSessionIndexKeyspace   = rediskeyspace.New("account_session_index")
-	otpKeyspace                   = rediskeyspace.New("otp")
-	otpSendGateKeyspace           = otpKeyspace.Child("sendgate")
-	wechatAccessTokenKeyspace     = rediskeyspace.New("idp").Child("wechat").Child("token")
-	wechatAccessTokenLockKeyspace = wechatAccessTokenKeyspace.Child("lock")
+	refreshTokenKeyspace              = rediskeyspace.New("refresh_token")
+	revokedAccessTokenKeyspace        = rediskeyspace.New("revoked_access_token")
+	sessionKeyspace                   = rediskeyspace.New("session")
+	userSessionIndexKeyspace          = rediskeyspace.New("user_session_index")
+	loginIdentitySessionIndexKeyspace = rediskeyspace.New("login_identity_session_index")
+	otpKeyspace                       = rediskeyspace.New("otp")
+	otpSendGateKeyspace               = otpKeyspace.Child("sendgate")
+	wechatAccessTokenKeyspace         = rediskeyspace.New("idp").Child("wechat").Child("token")
+	wechatAccessTokenLockKeyspace     = wechatAccessTokenKeyspace.Child("lock")
 )
 
 func refreshTokenRedisKey(tokenValue string) string {
@@ -34,8 +34,8 @@ func userSessionIndexRedisKey(userID string) string {
 	return userSessionIndexKeyspace.Prefix(userID)
 }
 
-func accountSessionIndexRedisKey(accountID string) string {
-	return accountSessionIndexKeyspace.Prefix(accountID)
+func loginIdentitySessionIndexRedisKey(loginIdentityID string) string {
+	return loginIdentitySessionIndexKeyspace.Prefix(loginIdentityID)
 }
 
 func otpRedisKey(phoneE164, scene, code string) string {

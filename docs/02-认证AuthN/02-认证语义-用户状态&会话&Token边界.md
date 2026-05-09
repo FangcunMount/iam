@@ -81,7 +81,7 @@ load refresh token
 - [../../internal/apiserver/domain/authn/session/manager.go](../../internal/apiserver/domain/authn/session/manager.go)
 - [../../internal/apiserver/domain/authn/session/subject_access.go](../../internal/apiserver/domain/authn/session/subject_access.go)
 - [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go)
-- [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go)
+- [../../internal/apiserver/domain/authn/legacyaccount/account.go](../../internal/apiserver/domain/authn/legacyaccount/account.go)
 - [../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go)
 - [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 - [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
@@ -179,7 +179,7 @@ flowchart TD
 | 问题 | 当前答案 | 代码证据 |
 | --- | --- | --- |
 | User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)、[../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
-| Account 状态有哪些 | active、disabled、archived、deleted 等。 | [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go) |
+| Account 状态有哪些 | active、disabled、archived、deleted 等。 | [../../internal/apiserver/domain/authn/legacyaccount/account.go](../../internal/apiserver/domain/authn/legacyaccount/account.go) |
 | Session 状态有哪些 | `active`、`revoked`、`expired`。 | [../../internal/apiserver/domain/authn/session/session.go](../../internal/apiserver/domain/authn/session/session.go) |
 | Session 何时创建 | 登录成功后 `SessionTokenIssuer.IssueToken` 调用 `SessionManager.Create`。 | [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go) |
 | Access Token 如何创建 | `SessionTokenPairIssuer.IssueTokenPair` 调用 `AccessTokenCodec.IssueAccessToken`，当前 infra 是 JWT/JWS。 | [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)、[../../internal/apiserver/infra/token/jwt/generator.go](../../internal/apiserver/infra/token/jwt/generator.go) |
@@ -336,7 +336,7 @@ phone_otp、wechat、wecom strategy 在找到绑定账号后，也会检查 acco
 
 核心源码：
 
-- [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go)
+- [../../internal/apiserver/domain/authn/legacyaccount/account.go](../../internal/apiserver/domain/authn/legacyaccount/account.go)
 - [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go)
 
 ---
@@ -1060,7 +1060,7 @@ internal/apiserver/domain/authn/session/evaluator.go
 internal/apiserver/domain/identity/user/types.go
 internal/apiserver/domain/identity/user/user.go
 internal/apiserver/application/identity/user/service_lifecycle.go
-internal/apiserver/domain/authn/account/account.go
+internal/apiserver/domain/authn/legacyaccount/account.go
 ```
 
 目标：看清 User/Account 状态如何影响在线认证。

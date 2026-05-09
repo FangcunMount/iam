@@ -30,7 +30,7 @@ func (cl *locker) LockUntil(c *Credential, until time.Time) {
 
 	log.Infow("Credential locked administratively",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 		"lockedUntil", until,
 	)
 }
@@ -47,6 +47,6 @@ func (cl *locker) Unlock(c *Credential) {
 
 	log.Infow("Credential unlocked",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 	)
 }

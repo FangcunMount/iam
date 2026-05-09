@@ -5,59 +5,11 @@ import (
 	"testing"
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
-
-// local stubs
-type accRepoStub struct {
-	accountID      meta.ID
-	userID         meta.ID
-	accountType    string
-	scopedTenantID meta.ID
-	enabled        bool
-	locked         bool
-	err            error
-}
-
-func (s *accRepoStub) FindAccountByUsername(ctx context.Context, tenantID meta.ID, username string) (*authentication.UsernameLoginLookup, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	if s.accountID.IsZero() {
-		return nil, nil
-	}
-	typ := s.accountType
-	if typ == "" {
-		typ = "wc-minip"
-	}
-	return &authentication.UsernameLoginLookup{
-		AccountID:      s.accountID,
-		UserID:         s.userID,
-		AccountType:    typ,
-		ScopedTenantID: s.scopedTenantID,
-	}, nil
-}
-func (s *accRepoStub) GetAccountStatus(ctx context.Context, accountID meta.ID) (bool, bool, error) {
-	return s.enabled, s.locked, s.err
-}
-
-type credRepoStub struct {
-	credID meta.ID
-	stored string
-	err    error
-}
-
-func (s *credRepoStub) FindPasswordCredential(ctx context.Context, accountID meta.ID) (meta.ID, string, error) {
-	return s.credID, s.stored, s.err
-}
-func (s *credRepoStub) FindPhoneOTPCredential(ctx context.Context, phoneE164 string) (meta.ID, meta.ID, meta.ID, error) {
-	return 0, 0, 0, nil
-}
-func (s *credRepoStub) FindOAuthCredential(ctx context.Context, idpType, appID, idpIdentifier string) (meta.ID, meta.ID, meta.ID, error) {
-	return 0, 0, 0, nil
-}
 
 type hasherStub struct {
 	pepper string
@@ -72,10 +24,23 @@ func (h *hasherStub) Pepper() string                           { return h.pepper
 
 func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	ctx := context.Background()
+	loginIdentityID := meta.FromUint64(12)
+	userID := meta.FromUint64(22)
+	tenantID := meta.FromUint64(1)
 
-	// helper to build Authenticator
-	makeAuth := func(acc *accRepoStub, cred *credRepoStub, hasher *hasherStub) *authentication.Authenticator {
-		return authentication.NewAuthenticator(authentication.NewPasswordAuthStrategy(cred, acc, hasher))
+	makeLookup := func(status loginidentity.Status) *authentication.LoginIdentityLookup {
+		return &authentication.LoginIdentityLookup{
+			LoginIdentityID: loginIdentityID,
+			UserID:          userID,
+			Provider:        loginidentity.ProviderUsername,
+			Realm:           tenantID.String(),
+			Identifier:      "u",
+			Status:          status,
+			ScopedTenantID:  tenantID,
+		}
+	}
+	makeAuth := func(identityRepo *loginIdentityRepoTestDouble, credRepo *loginIdentityCredentialRepoTestDouble, hasher *hasherStub) *authentication.Authenticator {
+		return authentication.NewAuthenticator(authentication.NewPasswordAuthStrategyWithLoginIdentity(credRepo, identityRepo, hasher))
 	}
 	makeProof := func(username, password string, tenantID meta.ID) authentication.AuthCredential {
 		proof, err := authentication.NewPasswordCredential(authentication.PasswordProofSpec{
@@ -87,84 +52,90 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 		return proof
 	}
 
-	// 1. account not found -> invalid credential
-	acc1 := &accRepoStub{accountID: 0}
-	cred1 := &credRepoStub{}
-	hasher1 := &hasherStub{pepper: "p"}
-	a1 := makeAuth(acc1, cred1, hasher1)
-	d1, err := a1.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
+	credRepo := func(credentialID meta.ID, material string) *loginIdentityCredentialRepoTestDouble {
+		return &loginIdentityCredentialRepoTestDouble{
+			passwordByLoginIdentity: map[meta.ID]credentialMaterial{
+				loginIdentityID: {credentialID: credentialID, material: material},
+			},
+		}
+	}
+
+	// 1. login identity not found -> invalid credential
+	a1 := makeAuth(newLoginIdentityRepoTestDouble(), credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})
+	d1, err := a1.Authenticate(ctx, makeProof("u", "p", tenantID))
 	require.NoError(t, err)
 	require.False(t, d1.OK)
 	require.Equal(t, code.ErrInvalidCredentials, d1.Code)
 
-	// 2. disabled or locked
-	acc2 := &accRepoStub{accountID: meta.ID(10), userID: meta.ID(20), enabled: false}
-	a2 := makeAuth(acc2, cred1, hasher1)
-	d2, err := a2.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
+	// 2. disabled or locked identity
+	a2 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusDisabled)), credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})
+	d2, err := a2.Authenticate(ctx, makeProof("u", "p", tenantID))
 	require.NoError(t, err)
 	require.False(t, d2.OK)
 	require.Equal(t, code.ErrCredentialDisabled, d2.Code)
 
-	acc3 := &accRepoStub{accountID: meta.ID(11), userID: meta.ID(21), enabled: true, locked: true}
-	a3 := makeAuth(acc3, cred1, hasher1)
-	d3, err := a3.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
+	lockedRepo := newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive))
+	lockedRepo.lockedByID[loginIdentityID] = true
+	a3 := makeAuth(lockedRepo, credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})
+	d3, err := a3.Authenticate(ctx, makeProof("u", "p", tenantID))
 	require.NoError(t, err)
 	require.False(t, d3.OK)
 	require.Equal(t, code.ErrCredentialLocked, d3.Code)
 
-	// 3. no credential set
-	acc4 := &accRepoStub{accountID: meta.ID(12), userID: meta.ID(22), enabled: true}
-	cred4 := &credRepoStub{credID: 0}
-	a4 := makeAuth(acc4, cred4, hasher1)
-	d4, err := a4.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
+	// 3. no password credential set
+	a4 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})
+	d4, err := a4.Authenticate(ctx, makeProof("u", "p", tenantID))
 	require.NoError(t, err)
 	require.False(t, d4.OK)
 	require.Equal(t, code.ErrInvalidCredentials, d4.Code)
 
 	// 4. wrong password -> invalid credential with CredentialID
-	storedWrong := "some-other"
-	cred5 := &credRepoStub{credID: meta.ID(100), stored: storedWrong}
-	a5 := makeAuth(acc4, cred5, hasher1)
-	d5, err := a5.Authenticate(ctx, makeProof("u", "p", meta.ID(1)))
+	a5 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.FromUint64(100), "some-other"), &hasherStub{pepper: "p"})
+	d5, err := a5.Authenticate(ctx, makeProof("u", "p", tenantID))
 	require.NoError(t, err)
 	require.False(t, d5.OK)
 	require.Equal(t, code.ErrInvalidCredentials, d5.Code)
-	require.Equal(t, meta.ID(100), d5.CredentialID)
+	require.Equal(t, meta.FromUint64(100), d5.CredentialID)
 
 	// 5. success, need rehash -> ShouldRotate true and NewMaterial set
 	pepper := "pep"
 	pass := "pwd"
-	// stored hash == plaintextWithPepper
 	stored := pass + pepper
-	cred6 := &credRepoStub{credID: meta.ID(200), stored: stored}
-	hasher6 := &hasherStub{pepper: pepper, need: true, newh: "new-hash"}
-	a6 := makeAuth(acc4, cred6, hasher6)
-	d6, err := a6.Authenticate(ctx, makeProof("u", pass, meta.ID(1)))
+	a6 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.FromUint64(200), stored), &hasherStub{pepper: pepper, need: true, newh: "new-hash"})
+	d6, err := a6.Authenticate(ctx, makeProof("u", pass, tenantID))
 	require.NoError(t, err)
 	require.True(t, d6.OK)
 	require.True(t, d6.ShouldRotate)
 	require.Equal(t, []byte("new-hash"), d6.NewMaterial)
 
 	// 6. success, no rehash
-	hasher7 := &hasherStub{pepper: pepper, need: false}
-	a7 := makeAuth(acc4, cred6, hasher7)
-	d7, err := a7.Authenticate(ctx, makeProof("u", pass, meta.ID(1)))
+	a7 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.FromUint64(200), stored), &hasherStub{pepper: pepper, need: false})
+	d7, err := a7.Authenticate(ctx, makeProof("u", pass, tenantID))
 	require.NoError(t, err)
 	require.True(t, d7.OK)
 	require.False(t, d7.ShouldRotate)
 
-	// 7. mock-consumer should follow non-opera branch and not require tenant scope
-	acc8 := &accRepoStub{
-		accountID:   meta.ID(13),
-		userID:      meta.ID(23),
-		accountType: "mock-consumer",
-		enabled:     true,
+	// 7. mock-consumer maps to username/default and does not require tenant scope.
+	mockIdentityID := meta.FromUint64(13)
+	mockRepo := newLoginIdentityRepoTestDouble(&authentication.LoginIdentityLookup{
+		LoginIdentityID: mockIdentityID,
+		UserID:          meta.FromUint64(23),
+		Provider:        loginidentity.ProviderUsername,
+		Realm:           loginidentity.RealmDefault,
+		Identifier:      "ref@example.com",
+		Status:          loginidentity.StatusActive,
+	})
+	mockCreds := &loginIdentityCredentialRepoTestDouble{
+		passwordByLoginIdentity: map[meta.ID]credentialMaterial{
+			mockIdentityID: {credentialID: meta.FromUint64(201), material: stored},
+		},
 	}
-	a8 := makeAuth(acc8, cred6, hasher7)
-	d8, err := a8.Authenticate(ctx, makeProof("ref@example.com", pass, meta.ID(0)))
+	a8 := makeAuth(mockRepo, mockCreds, &hasherStub{pepper: pepper, need: false})
+	d8, err := a8.Authenticate(ctx, makeProof("ref@example.com", pass, meta.ZeroID))
 	require.NoError(t, err)
 	require.True(t, d8.OK)
 	require.NotNil(t, d8.Principal)
-	require.Equal(t, meta.ID(13), d8.Principal.AccountID)
-	require.Equal(t, meta.ID(23), d8.Principal.UserID)
+	require.Equal(t, mockIdentityID, d8.Principal.LoginIdentityID)
+	require.Equal(t, meta.FromUint64(23), d8.Principal.UserID)
+	require.Equal(t, loginidentity.RealmDefault, d8.Principal.Realm)
 }

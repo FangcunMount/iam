@@ -16,14 +16,6 @@ func TestCredential_TypeChecksAndFactories(t *testing.T) {
 	require.NotNil(t, pwd)
 	assert.True(t, pwd.IsPasswordType())
 	assert.True(t, pwd.IsEnabled())
-
-	oauth := NewOAuthCredential(accID, "wechat", "union1", "appid", []byte("{}"))
-	require.NotNil(t, oauth)
-	assert.True(t, oauth.IsOAuthType())
-
-	phone := NewPhoneOTPCredential(accID, "+861001")
-	require.NotNil(t, phone)
-	assert.True(t, phone.IsPhoneOTPType())
 }
 
 func TestCredential_SuccessFailureAndLocking(t *testing.T) {
@@ -70,11 +62,4 @@ func TestCredential_UpdateAndRotate(t *testing.T) {
 	c.RotateMaterial(newMat, &newAlg)
 	assert.Equal(t, newMat, c.Material)
 	assert.Equal(t, &newAlg, c.Algo)
-
-	c.UpdateIDPIdentifier("newid")
-	assert.Equal(t, "newid", c.IDPIdentifier)
-
-	params := []byte(`{"a":1}`)
-	c.UpdateParams(params)
-	assert.Equal(t, params, c.ParamsJSON)
 }

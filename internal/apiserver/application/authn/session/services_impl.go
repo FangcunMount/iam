@@ -33,18 +33,18 @@ func (s *sessionApplicationService) RevokeSession(ctx context.Context, sessionID
 	return s.manager.Revoke(ctx, sessionID, normalizeReason(reason, "admin_revoked_session"), revokedBy)
 }
 
-func (s *sessionApplicationService) RevokeAllSessionsByAccount(ctx context.Context, accountID string, reason string, revokedBy string) error {
+func (s *sessionApplicationService) RevokeAllSessionsByLoginIdentity(ctx context.Context, loginIdentityID string, reason string, revokedBy string) error {
 	l := logger.L(ctx)
-	id, err := parseMetaID(accountID)
+	id, err := parseMetaID(loginIdentityID)
 	if err != nil {
 		return err
 	}
-	l.Debugw("按账号撤销全部会话",
+	l.Debugw("按登录身份撤销全部会话",
 		"action", logger.ActionRevoke,
 		"resource", "session",
-		"account_id", accountID,
+		"login_identity_id", loginIdentityID,
 	)
-	return s.manager.RevokeByAccount(ctx, id, normalizeReason(reason, "admin_revoked_account_sessions"), revokedBy)
+	return s.manager.RevokeByLoginIdentity(ctx, id, normalizeReason(reason, "admin_revoked_login_identity_sessions"), revokedBy)
 }
 
 func (s *sessionApplicationService) RevokeAllSessionsByUser(ctx context.Context, userID string, reason string, revokedBy string) error {

@@ -51,17 +51,17 @@ func TestRemoteVerifyStrategyPassesConfiguredIssuerAndAudience(t *testing.T) {
 		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
 			Claims: &authnv2.TokenClaims{
-				TokenId:   "jti-1",
-				Subject:   "user:1",
-				SessionId: "sid-1",
-				UserId:    "1",
-				AccountId: "2",
-				TenantId:  "3",
-				Issuer:    "https://iam.fangcunmount.cn",
-				Audience:  []string{"qs-api", "collection-api"},
-				Amr:       []string{"pwd"},
-				IssuedAt:  timestamppb.New(time.Now()),
-				ExpiresAt: timestamppb.New(time.Now().Add(time.Minute)),
+				TokenId:         "jti-1",
+				Subject:         "user:1",
+				SessionId:       "sid-1",
+				UserId:          "1",
+				LoginIdentityId: "2",
+				TenantId:        "3",
+				Issuer:          "https://iam.fangcunmount.cn",
+				Audience:        []string{"qs-api", "collection-api"},
+				Amr:             []string{"pwd"},
+				IssuedAt:        timestamppb.New(time.Now()),
+				ExpiresAt:       timestamppb.New(time.Now().Add(time.Minute)),
 			},
 		},
 	}
@@ -83,17 +83,17 @@ func TestRemoteVerifyStrategyOptionsOverrideConfig(t *testing.T) {
 		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
 			Claims: &authnv2.TokenClaims{
-				TokenId:   "jti-2",
-				Subject:   "user:1",
-				SessionId: "sid-override",
-				UserId:    "1",
-				AccountId: "2",
-				TenantId:  "3",
-				Issuer:    "https://issuer.override",
-				Audience:  []string{"collection-api"},
-				Amr:       []string{"pwd"},
-				IssuedAt:  timestamppb.New(time.Now()),
-				ExpiresAt: timestamppb.New(time.Now().Add(time.Minute)),
+				TokenId:         "jti-2",
+				Subject:         "user:1",
+				SessionId:       "sid-override",
+				UserId:          "1",
+				LoginIdentityId: "2",
+				TenantId:        "3",
+				Issuer:          "https://issuer.override",
+				Audience:        []string{"collection-api"},
+				Amr:             []string{"pwd"},
+				IssuedAt:        timestamppb.New(time.Now()),
+				ExpiresAt:       timestamppb.New(time.Now().Add(time.Minute)),
 			},
 		},
 	}
@@ -122,17 +122,17 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 		verifyResp: &authnv2.VerifyTokenResponse{
 			Valid: true,
 			Claims: &authnv2.TokenClaims{
-				TokenId:   "jti-remote",
-				Subject:   "user:1",
-				SessionId: "sid-remote",
-				UserId:    "1",
-				AccountId: "2",
-				TenantId:  "3",
-				Issuer:    "https://iam.fangcunmount.cn",
-				Audience:  []string{"qs-api"},
-				Amr:       []string{"pwd", "otp"},
-				IssuedAt:  timestamppb.New(time.Now()),
-				ExpiresAt: timestamppb.New(time.Now().Add(time.Minute)),
+				TokenId:         "jti-remote",
+				Subject:         "user:1",
+				SessionId:       "sid-remote",
+				UserId:          "1",
+				LoginIdentityId: "2",
+				TenantId:        "3",
+				Issuer:          "https://iam.fangcunmount.cn",
+				Audience:        []string{"qs-api"},
+				Amr:             []string{"pwd", "otp"},
+				IssuedAt:        timestamppb.New(time.Now()),
+				ExpiresAt:       timestamppb.New(time.Now().Add(time.Minute)),
 			},
 			Metadata: &authnv2.TokenMetadata{
 				TokenType: authnv2.TokenType_TOKEN_TYPE_ACCESS,
@@ -163,7 +163,7 @@ func TestExtractClaimsIncludesSessionID(t *testing.T) {
 	require.NoError(t, token.Set(jwt.SubjectKey, "user:1"))
 	require.NoError(t, token.Set("sid", "sid-local"))
 	require.NoError(t, token.Set("user_id", "1"))
-	require.NoError(t, token.Set("account_id", "2"))
+	require.NoError(t, token.Set("login_identity_id", "2"))
 	require.NoError(t, token.Set("tenant_id", "3"))
 
 	claims := extractClaims(token)
@@ -171,7 +171,7 @@ func TestExtractClaimsIncludesSessionID(t *testing.T) {
 	require.Equal(t, "jti-local", claims.TokenID)
 	require.Equal(t, "sid-local", claims.SessionID)
 	require.Equal(t, "1", claims.UserID)
-	require.Equal(t, "2", claims.AccountID)
+	require.Equal(t, "2", claims.LoginIdentityID)
 	require.Equal(t, "3", claims.TenantID)
 }
 

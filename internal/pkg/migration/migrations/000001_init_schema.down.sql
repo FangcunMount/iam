@@ -30,7 +30,7 @@ DROP TABLE IF EXISTS `authz_resources`;
 DROP TABLE IF EXISTS `jwks_keys`;
 DROP TABLE IF EXISTS `auth_token_audit`;
 DROP TABLE IF EXISTS `auth_credentials`;
-DROP TABLE IF EXISTS `auth_accounts`;
+DROP TABLE IF EXISTS `auth_login_identities`;
 
 -- Identity module
 DROP TABLE IF EXISTS `profile_links`;

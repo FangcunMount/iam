@@ -35,7 +35,7 @@ func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testi
 		t.Fatalf("auth enabled = true, want false when token service capability is nil")
 	}
 
-	if deps.Authn.AuthHandler == nil || deps.Authn.AccountHandler == nil || deps.Authn.JWKSHandler == nil || deps.Authn.SessionAdminHandler == nil {
+	if deps.Authn.AuthHandler == nil || deps.Authn.OnboardingHandler == nil || deps.Authn.JWKSHandler == nil || deps.Authn.SessionAdminHandler == nil {
 		t.Fatalf("authn transport handlers were not constructed: %#v", deps.Authn)
 	}
 	if deps.Authz.RoleHandler == nil || deps.Authz.RoleBindingHandler == nil || deps.Authz.PolicyHandler == nil || deps.Authz.ResourceHandler == nil || deps.Authz.CheckHandler == nil {
@@ -88,7 +88,7 @@ func TestBuildRESTDepsDerivesLegacyBooleansFromModuleStateAvailability(t *testin
 	if deps.ModuleStatus.Authn {
 		t.Fatalf("legacy authn status = true, want derived false when ModuleState is unavailable")
 	}
-	if deps.Authn.AuthHandler != nil || deps.Authn.AccountHandler != nil || deps.Authn.JWKSHandler != nil {
+	if deps.Authn.AuthHandler != nil || deps.Authn.OnboardingHandler != nil || deps.Authn.JWKSHandler != nil {
 		t.Fatalf("authn handlers were constructed before module availability: %#v", deps.Authn)
 	}
 }

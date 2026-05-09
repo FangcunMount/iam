@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	accountApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/account"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
@@ -37,8 +36,7 @@ type KeyRotationScheduler interface {
 // AuthnApplicationCapabilities contains authn application collaborators used
 // by transports without exposing concrete transport objects from assembler.
 type AuthnApplicationCapabilities struct {
-	AccountService          accountApp.AccountApplicationService
-	AccountOnboarder        onboardingApp.AccountOnboarder
+	LoginIdentityOnboarder  onboardingApp.LoginIdentityOnboarder
 	LoginService            login.LoginApplicationService
 	LoginPreparationService loginprep.LoginPreparationService
 	TokenService            token.TokenApplicationService

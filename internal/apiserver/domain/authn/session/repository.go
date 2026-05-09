@@ -14,5 +14,5 @@ type Store interface {
 	Revoke(ctx context.Context, sessionID string, reason string, revokedBy string) error
 	Extend(ctx context.Context, sessionID string, expiresAt time.Time) error
 	RevokeByUser(ctx context.Context, userID meta.ID, reason string, revokedBy string) error
-	RevokeByAccount(ctx context.Context, accountID meta.ID, reason string, revokedBy string) error
+	RevokeByLoginIdentity(ctx context.Context, loginIdentityID meta.ID, reason string, revokedBy string) error
 }

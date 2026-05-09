@@ -59,242 +59,6 @@
                 }
             }
         },
-        "/authn/accounts/{accountId}": {
-            "get": {
-                "description": "根据账户ID获取账户详细信息",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "账户管理"
-                ],
-                "summary": "获取账户信息",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "账户ID",
-                        "name": "accountId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "账户信息",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.Account"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "账户不存在",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/authn/accounts/{accountId}/disable": {
-            "post": {
-                "description": "将账户标记为禁用，阻止继续认证",
-                "tags": [
-                    "账户管理"
-                ],
-                "summary": "禁用账户",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "账户ID",
-                        "name": "accountId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "禁用成功",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "账户不存在",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/authn/accounts/{accountId}/enable": {
-            "post": {
-                "description": "恢复已禁用的账户",
-                "tags": [
-                    "账户管理"
-                ],
-                "summary": "启用账户",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "账户ID",
-                        "name": "accountId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "启用成功",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "账户不存在",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/authn/accounts/{accountId}/profile": {
-            "put": {
-                "description": "更新微信账户的昵称、头像等资料信息",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "账户管理"
-                ],
-                "summary": "更新账户资料",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "账户ID",
-                        "name": "accountId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "更新资料请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "更新成功",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "账户不存在",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/authn/accounts/{accountId}/unionid": {
-            "put": {
-                "description": "将微信账户的 UnionID 与内部账户关联",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "账户管理"
-                ],
-                "summary": "设置账户 UnionID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "账户ID",
-                        "name": "accountId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "设置 UnionID 请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "设置成功",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "账户不存在",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/authn/admin/jwks/keys": {
             "get": {
                 "security": [
@@ -932,7 +696,7 @@
         },
         "/authn/signups/wechat-miniprogram": {
             "post": {
-                "description": "使用微信 JS Code 开通账号，服务端根据 AppID 查询 AppSecret 并自动调用 code2session 获取 OpenID 和 UnionID",
+                "description": "通过微信小程序 code 建立 User 与 LoginIdentity 绑定。",
                 "consumes": [
                     "application/json"
                 ],
@@ -940,12 +704,12 @@
                     "application/json"
                 ],
                 "tags": [
-                    "账户管理"
+                    "认证"
                 ],
-                "summary": "微信小程序账号开通",
+                "summary": "微信小程序登录身份开通",
                 "parameters": [
                     {
-                        "description": "微信小程序账号开通请求",
+                        "description": "微信小程序登录身份开通请求",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -955,7 +719,7 @@
                     }
                 ],
                 "responses": {
-                    "201": {
+                    "200": {
                         "description": "开通成功",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult"
@@ -969,7 +733,7 @@
                         }
                     },
                     "409": {
-                        "description": "用户已存在",
+                        "description": "登录身份已绑定到其他用户",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2979,7 +2743,13 @@
             "properties": {
                 "auth_method": {
                     "description": "认证方式：password | phone_otp | wechat | wecom",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "password",
+                        "phone_otp",
+                        "wechat",
+                        "wecom"
+                    ]
                 },
                 "device_id": {
                     "description": "设备 ID",
@@ -3030,14 +2800,6 @@
                 }
             }
         },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq": {
-            "type": "object",
-            "properties": {
-                "unionId": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest": {
             "type": "object",
             "required": [
@@ -3047,51 +2809,28 @@
             ],
             "properties": {
                 "appId": {
-                    "description": "微信应用ID",
                     "type": "string"
                 },
                 "avatar": {
-                    "description": "微信头像（可选）",
                     "type": "string"
                 },
                 "email": {
-                    "description": "邮箱（可选）",
                     "type": "string"
                 },
                 "jsCode": {
-                    "description": "微信登录凭证（临时登录凭证）",
                     "type": "string"
                 },
                 "meta": {
-                    "description": "微信元数据（可选）",
                     "type": "object",
                     "additionalProperties": true
                 },
                 "name": {
-                    "description": "用户名",
                     "type": "string"
                 },
                 "nickname": {
-                    "description": "微信昵称（可选）",
                     "type": "string"
                 },
                 "phone": {
-                    "description": "手机号（可选）",
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq": {
-            "type": "object",
-            "properties": {
-                "avatar": {
-                    "type": "string"
-                },
-                "meta": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "nickname": {
                     "type": "string"
                 }
             }
@@ -3112,29 +2851,6 @@
                     }
                 },
                 "expected_issuer": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.Account": {
-            "type": "object",
-            "properties": {
-                "appId": {
-                    "type": "string"
-                },
-                "externalId": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "userId": {
                     "type": "string"
                 }
             }
@@ -3310,26 +3026,20 @@
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult": {
             "type": "object",
             "properties": {
-                "accountId": {
-                    "type": "integer"
-                },
-                "accountType": {
-                    "type": "string"
-                },
                 "credentialID": {
                     "type": "integer"
                 },
                 "email": {
                     "type": "string"
                 },
-                "externalId": {
-                    "type": "string"
-                },
-                "isNewAccount": {
+                "isNewIdentity": {
                     "type": "boolean"
                 },
                 "isNewUser": {
                     "type": "boolean"
+                },
+                "loginIdentityId": {
+                    "type": "integer"
                 },
                 "phone": {
                     "type": "string"
@@ -3345,10 +3055,6 @@
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.TokenClaims": {
             "type": "object",
             "properties": {
-                "account_id": {
-                    "description": "账户 ID",
-                    "type": "string"
-                },
                 "amr": {
                     "type": "array",
                     "items": {
@@ -3379,6 +3085,10 @@
                 },
                 "kid": {
                     "description": "Key ID（可选）",
+                    "type": "string"
+                },
+                "login_identity_id": {
+                    "description": "登录身份 ID",
                     "type": "string"
                 },
                 "tenant_id": {

@@ -3,6 +3,7 @@ package rest
 import (
 	"time"
 
+	onboardingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
@@ -46,11 +47,12 @@ type Deps struct {
 
 // AuthnDeps 认证依赖
 type AuthnDeps struct {
-	AuthHandler         *authhandler.AuthHandler
-	AccountHandler      *authhandler.AccountHandler
-	JWKSHandler         *authhandler.JWKSHandler
-	SessionAdminHandler *authhandler.SessionAdminHandler
-	TokenService        tokenapp.TokenApplicationService
+	AuthHandler            *authhandler.AuthHandler
+	OnboardingHandler      *authhandler.OnboardingHandler
+	JWKSHandler            *authhandler.JWKSHandler
+	SessionAdminHandler    *authhandler.SessionAdminHandler
+	LoginIdentityOnboarder onboardingapp.LoginIdentityOnboarder
+	TokenService           tokenapp.TokenApplicationService
 }
 
 // AuthzDeps 授权依赖

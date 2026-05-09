@@ -8,26 +8,24 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// accountStatusFailureDecision 检查账户状态是否失败
-func accountStatusFailureDecision(ctx context.Context, accountRepo AccountRepository, accountID meta.ID) (*AuthDecision, error) {
-	enabled, locked, err := accountRepo.GetAccountStatus(ctx, accountID)
+func loginIdentityStatusFailureDecision(ctx context.Context, identityRepo LoginIdentityRepository, loginIdentityID meta.ID) (*AuthDecision, error) {
+	enabled, locked, err := identityRepo.GetLoginIdentityStatus(ctx, loginIdentityID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account status: %w", err)
+		return nil, fmt.Errorf("failed to get login identity status: %w", err)
 	}
 	if !enabled {
 		return &AuthDecision{
-			OK:        false,
-			Code:      code.ErrCredentialDisabled,
-			AccountID: accountID,
+			OK:              false,
+			Code:            code.ErrCredentialDisabled,
+			LoginIdentityID: loginIdentityID,
 		}, nil
 	}
 	if locked {
 		return &AuthDecision{
-			OK:        false,
-			Code:      code.ErrCredentialLocked,
-			AccountID: accountID,
+			OK:              false,
+			Code:            code.ErrCredentialLocked,
+			LoginIdentityID: loginIdentityID,
 		}, nil
 	}
-
 	return nil, nil
 }

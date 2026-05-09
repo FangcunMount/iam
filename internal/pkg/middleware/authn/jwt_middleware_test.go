@@ -45,8 +45,8 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 	if got, exists := c.Get(requestctx.KeyUserID); !exists || got != meta.ID(110001) {
 		t.Fatalf("gin user_id = %v exists=%v, want %v", got, exists, meta.ID(110001))
 	}
-	if got, exists := c.Get(requestctx.KeyAccountID); !exists || got != meta.ID(613486856213901870) {
-		t.Fatalf("gin account_id = %v exists=%v, want %v", got, exists, meta.ID(613486856213901870))
+	if got, exists := c.Get(requestctx.KeyLoginIdentityID); !exists || got != meta.ID(613486856213901870) {
+		t.Fatalf("gin login_identity_id = %v exists=%v, want %v", got, exists, meta.ID(613486856213901870))
 	}
 	if got, exists := c.Get(requestctx.KeyTokenID); !exists || got != "token-1" {
 		t.Fatalf("gin token_id = %v exists=%v, want %q", got, exists, "token-1")

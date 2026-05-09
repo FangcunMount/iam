@@ -27,9 +27,8 @@ type Repository interface {
 
 	// GetBy*** 查询凭据
 	GetByID(ctx context.Context, id meta.ID) (*Credential, error)
-	GetByAccountIDAndType(ctx context.Context, accountID meta.ID, credType CredentialType) (*Credential, error)
-	GetByIDPIdentifier(ctx context.Context, idpIdentifier string, credType CredentialType) (*Credential, error)
-	ListByAccountID(ctx context.Context, accountID meta.ID) ([]*Credential, error)
+	GetByLoginIdentityIDAndType(ctx context.Context, loginIdentityID meta.ID, credType CredentialType) (*Credential, error)
+	ListByLoginIdentityID(ctx context.Context, loginIdentityID meta.ID) ([]*Credential, error)
 
 	// Delete 删除凭据
 	Delete(ctx context.Context, id meta.ID) error

@@ -30,11 +30,11 @@ type WecomConfig = proof.WecomConfig
 
 // SignInResult 登录结果
 type SignInResult struct {
-	Principal *authentication.Principal
-	TokenPair *tokenapp.TokenPair
-	UserID    meta.ID
-	AccountID meta.ID
-	TenantID  meta.ID
+	Principal       *authentication.Principal
+	TokenPair       *tokenapp.TokenPair
+	UserID          meta.ID
+	LoginIdentityID meta.ID
+	TenantID        meta.ID
 }
 
 // LoginResult 登录结果
@@ -42,10 +42,10 @@ type LoginResult = SignInResult
 
 // AuthResult 认证结果
 type AuthResult struct {
-	Principal *authentication.Principal
-	UserID    meta.ID
-	AccountID meta.ID
-	TenantID  meta.ID
+	Principal       *authentication.Principal
+	UserID          meta.ID
+	LoginIdentityID meta.ID
+	TenantID        meta.ID
 }
 
 // SignOutCommand 登出命令

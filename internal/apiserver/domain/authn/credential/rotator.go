@@ -52,7 +52,7 @@ func (cr *rotator) Rotate(c *Credential, newMaterial []byte, newAlgo *string) {
 
 	log.Infow("Credential material rotated",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 		"oldAlgo", oldAlgo,
 		"newAlgo", newAlgoStr,
 	)

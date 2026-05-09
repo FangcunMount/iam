@@ -58,11 +58,11 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 
 	// 返回结果
 	return &SignInResult{
-		Principal: decision.Principal,
-		TokenPair: tokenPair,
-		UserID:    decision.Principal.UserID,
-		AccountID: decision.Principal.AccountID,
-		TenantID:  decision.Principal.TenantID,
+		Principal:       decision.Principal,
+		TokenPair:       tokenPair,
+		UserID:          decision.Principal.UserID,
+		LoginIdentityID: decision.Principal.LoginIdentityID,
+		TenantID:        decision.Principal.TenantID,
 	}, nil
 }
 

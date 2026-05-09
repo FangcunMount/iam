@@ -16,9 +16,9 @@ import (
 	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	redisInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
-	acctrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/account"
 	credentialrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/credential"
 	jwksMysql "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/jwks"
+	loginidentityrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/loginidentity"
 	mysqlAuthnUow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/authn"
 	mysqluser "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
 	jwtinfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/token/jwt"
@@ -33,12 +33,12 @@ type authnInfrastructureComponents struct {
 	redis      *redis.Client
 	unitOfWork authnUow.UnitOfWork
 
-	accountRepo    *acctrepo.AccountRepository
-	credentialRepo authentication.CredentialRepository
-	otpVerifier    authentication.OTPVerifier
-	otpRedis       *redisInfra.OTPVerifierImpl
-	idp            authentication.IdentityProvider
-	accessChecker  sessionDomain.SubjectAccessEvaluator
+	credentialRepo    authentication.LoginIdentityCredentialRepository
+	loginIdentityRepo authentication.LoginIdentityRepository
+	otpVerifier       authentication.OTPVerifier
+	otpRedis          *redisInfra.OTPVerifierImpl
+	idp               authentication.IdentityProvider
+	accessChecker     sessionDomain.SubjectAccessEvaluator
 
 	keyRepo           keyset.Repository
 	privateKeyStorage keyset.PrivateKeyStorage
@@ -79,8 +79,9 @@ func (m *AuthnModule) initializeInfrastructure(
 	}
 
 	infra.unitOfWork = mysqlAuthnUow.NewUnitOfWork(db)
-	infra.accountRepo = acctrepo.NewAccountRepository(db)
 	infra.credentialRepo = credentialrepo.NewRepository(db)
+	loginIdentityRepo := loginidentityrepo.NewRepository(db)
+	infra.loginIdentityRepo = loginIdentityRepo
 
 	otpRedis := redisInfra.NewOTPVerifier(redisClient)
 	infra.otpVerifier = otpRedis
@@ -108,7 +109,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	m.sessionStoreInspector = infra.sessionStore
 
 	infra.userRepo = mysqluser.NewRepository(db)
-	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(infra.userRepo, infra.accountRepo)
+	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(infra.userRepo, loginIdentityRepo)
 
 	return infra
 }

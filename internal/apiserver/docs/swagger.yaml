@@ -55,6 +55,11 @@ definitions:
     properties:
       auth_method:
         description: 认证方式：password | phone_otp | wechat | wecom
+        enum:
+        - password
+        - phone_otp
+        - wechat
+        - wecom
         type: string
       device_id:
         description: 设备 ID
@@ -92,52 +97,29 @@ definitions:
     required:
     - refresh_token
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq:
-    properties:
-      unionId:
-        type: string
-    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest:
     properties:
       appId:
-        description: 微信应用ID
         type: string
       avatar:
-        description: 微信头像（可选）
         type: string
       email:
-        description: 邮箱（可选）
         type: string
       jsCode:
-        description: 微信登录凭证（临时登录凭证）
         type: string
       meta:
         additionalProperties: true
-        description: 微信元数据（可选）
         type: object
       name:
-        description: 用户名
         type: string
       nickname:
-        description: 微信昵称（可选）
         type: string
       phone:
-        description: 手机号（可选）
         type: string
     required:
     - appId
     - jsCode
     - name
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq:
-    properties:
-      avatar:
-        type: string
-      meta:
-        additionalProperties: true
-        type: object
-      nickname:
-        type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.VerifyTokenRequest:
     properties:
@@ -151,21 +133,6 @@ definitions:
         type: string
     required:
     - access_token
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.Account:
-    properties:
-      appId:
-        type: string
-      externalId:
-        type: string
-      id:
-        type: string
-      provider:
-        type: string
-      status:
-        type: string
-      userId:
-        type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.CleanupResponse:
     properties:
@@ -283,20 +250,16 @@ definitions:
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult:
     properties:
-      accountId:
-        type: integer
-      accountType:
-        type: string
       credentialID:
         type: integer
       email:
         type: string
-      externalId:
-        type: string
-      isNewAccount:
+      isNewIdentity:
         type: boolean
       isNewUser:
         type: boolean
+      loginIdentityId:
+        type: integer
       phone:
         type: string
       userId:
@@ -306,9 +269,6 @@ definitions:
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.TokenClaims:
     properties:
-      account_id:
-        description: 账户 ID
-        type: string
       amr:
         items:
           type: string
@@ -331,6 +291,9 @@ definitions:
         type: string
       kid:
         description: Key ID（可选）
+        type: string
+      login_identity_id:
+        description: 登录身份 ID
         type: string
       tenant_id:
         description: 租户 ID（可选）
@@ -941,165 +904,6 @@ paths:
       summary: 获取 JWKS
       tags:
       - Authentication-JWKS
-  /authn/accounts/{accountId}:
-    get:
-      consumes:
-      - application/json
-      description: 根据账户ID获取账户详细信息
-      parameters:
-      - description: 账户ID
-        in: path
-        name: accountId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 账户信息
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.Account'
-        "400":
-          description: 请求参数错误
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: 账户不存在
-          schema:
-            additionalProperties: true
-            type: object
-      summary: 获取账户信息
-      tags:
-      - 账户管理
-  /authn/accounts/{accountId}/disable:
-    post:
-      description: 将账户标记为禁用，阻止继续认证
-      parameters:
-      - description: 账户ID
-        in: path
-        name: accountId
-        required: true
-        type: string
-      responses:
-        "200":
-          description: 禁用成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        "400":
-          description: 请求参数错误
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: 账户不存在
-          schema:
-            additionalProperties: true
-            type: object
-      summary: 禁用账户
-      tags:
-      - 账户管理
-  /authn/accounts/{accountId}/enable:
-    post:
-      description: 恢复已禁用的账户
-      parameters:
-      - description: 账户ID
-        in: path
-        name: accountId
-        required: true
-        type: string
-      responses:
-        "200":
-          description: 启用成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        "400":
-          description: 请求参数错误
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: 账户不存在
-          schema:
-            additionalProperties: true
-            type: object
-      summary: 启用账户
-      tags:
-      - 账户管理
-  /authn/accounts/{accountId}/profile:
-    put:
-      consumes:
-      - application/json
-      description: 更新微信账户的昵称、头像等资料信息
-      parameters:
-      - description: 账户ID
-        in: path
-        name: accountId
-        required: true
-        type: string
-      - description: 更新资料请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.UpsertWeChatProfileReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 更新成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        "400":
-          description: 请求参数错误
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: 账户不存在
-          schema:
-            additionalProperties: true
-            type: object
-      summary: 更新账户资料
-      tags:
-      - 账户管理
-  /authn/accounts/{accountId}/unionid:
-    put:
-      consumes:
-      - application/json
-      description: 将微信账户的 UnionID 与内部账户关联
-      parameters:
-      - description: 账户ID
-        in: path
-        name: accountId
-        required: true
-        type: string
-      - description: 设置 UnionID 请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SetWeChatUnionIDReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 设置成功
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-        "400":
-          description: 请求参数错误
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: 账户不存在
-          schema:
-            additionalProperties: true
-            type: object
-      summary: 设置账户 UnionID
-      tags:
-      - 账户管理
   /authn/admin/jwks/keys:
     get:
       description: 分页列出所有密钥
@@ -1513,10 +1317,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用微信 JS Code 开通账号，服务端根据 AppID 查询 AppSecret 并自动调用 code2session 获取
-        OpenID 和 UnionID
+      description: 通过微信小程序 code 建立 User 与 LoginIdentity 绑定。
       parameters:
-      - description: 微信小程序账号开通请求
+      - description: 微信小程序登录身份开通请求
         in: body
         name: request
         required: true
@@ -1525,7 +1328,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        "200":
           description: 开通成功
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult'
@@ -1535,13 +1338,13 @@ paths:
             additionalProperties: true
             type: object
         "409":
-          description: 用户已存在
+          description: 登录身份已绑定到其他用户
           schema:
             additionalProperties: true
             type: object
-      summary: 微信小程序账号开通
+      summary: 微信小程序登录身份开通
       tags:
-      - 账户管理
+      - 认证
   /authn/verify:
     post:
       consumes:

@@ -11,9 +11,9 @@ import (
 
 // LoginV2Request 是 v2 显式登录请求。
 type LoginV2Request struct {
-	AuthMethod    string          `json:"auth_method" binding:"required"`    // 认证方式：password | phone_otp | wechat | wecom
-	DeviceID      string          `json:"device_id,omitempty"`               // 设备 ID
-	MethodPayload json.RawMessage `json:"method_payload" binding:"required"` // 凭证（根据 auth_method 不同而不同）
+	AuthMethod    string          `json:"auth_method" binding:"required" enums:"password,phone_otp,wechat,wecom"` // 认证方式：password | phone_otp | wechat | wecom
+	DeviceID      string          `json:"device_id,omitempty"`                                                    // 设备 ID
+	MethodPayload json.RawMessage `json:"method_payload" binding:"required"`                                      // 凭证（根据 auth_method 不同而不同）
 }
 
 // Validate 验证 v2 登录请求。
@@ -29,7 +29,7 @@ func (r *LoginV2Request) Validate() error {
 
 // PasswordCredentials 密码认证凭证
 type PasswordCredentials struct {
-	// Username 登录名：须与创建账号时写入的 auth_accounts.external_id 一致（例如配置的登录名或邮箱）
+	// Username 登录名：须与登录身份 identifier 一致（例如配置的登录名或邮箱）
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 	TenantID uint64 `json:"tenant_id,omitempty"`

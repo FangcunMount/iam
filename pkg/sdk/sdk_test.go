@@ -50,12 +50,6 @@ func (s *sdkAuthServiceClientStub) IssueServiceToken(context.Context, *authnv2.I
 	return s.issueResp, s.issueErr
 }
 
-type sdkAccountOnboardingServiceClientStub struct{}
-
-func (s *sdkAccountOnboardingServiceClientStub) CreateOperationAccount(context.Context, *authnv2.CreateOperationAccountRequest, ...grpc.CallOption) (*authnv2.CreateOperationAccountResponse, error) {
-	return nil, nil
-}
-
 type sdkJWKSServiceClientStub struct {
 	resp *authnv2.GetJWKSResponse
 	err  error
@@ -85,7 +79,7 @@ func TestClientAuthUsesTypedAuthClient(t *testing.T) {
 	}
 
 	client := &Client{
-		authClient: authclient.NewClient(authStub, &sdkAccountOnboardingServiceClientStub{}, &sdkJWKSServiceClientStub{}),
+		authClient: authclient.NewClient(authStub, &sdkJWKSServiceClientStub{}),
 	}
 
 	resp, err := client.Auth().VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{
@@ -122,7 +116,7 @@ func TestAuthSubpackagesComposeWithSDKClient(t *testing.T) {
 	}
 
 	client := &Client{
-		authClient: authclient.NewClient(authStub, &sdkAccountOnboardingServiceClientStub{}, &sdkJWKSServiceClientStub{
+		authClient: authclient.NewClient(authStub, &sdkJWKSServiceClientStub{
 			resp: &authnv2.GetJWKSResponse{Jwks: []byte(`{"keys":[]}`)},
 		}),
 	}

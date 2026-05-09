@@ -24,10 +24,10 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	registrations := make([]grpctransport.Registration, 0, 4)
 	if c.ModuleState(moduleAuthn).Available {
 		caps := c.AuthnModule.ApplicationCapabilities()
-		service := authngrpc.NewService(caps.LoginService, caps.TokenService, caps.AccountOnboarder, caps.KeyPublishApp)
+		service := authngrpc.NewService(caps.LoginService, caps.TokenService, caps.KeyPublishApp)
 		registrations = append(registrations, grpctransport.Registration{
 			Module:      "authn",
-			Description: "AuthService, AccountOnboardingService, JWKSService",
+			Description: "AuthService, JWKSService",
 			Register:    service.Register,
 		})
 	}

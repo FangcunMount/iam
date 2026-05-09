@@ -37,7 +37,7 @@ func (r *Router) registerAdminRoutes(engine *gin.Engine, authMiddleware *authnMi
 		// 如果会话管理器不为空，则注册会话管理路由
 		if r.deps.Authn.SessionAdminHandler != nil {
 			admin.POST("/sessions/:sessionId/revoke", r.deps.Authn.SessionAdminHandler.RevokeSession)
-			admin.POST("/accounts/:accountId/sessions/revoke", r.deps.Authn.SessionAdminHandler.RevokeAccountSessions)
+			admin.POST("/login-identities/:loginIdentityId/sessions/revoke", r.deps.Authn.SessionAdminHandler.RevokeLoginIdentitySessions)
 			admin.POST("/users/:userId/sessions/revoke", r.deps.Authn.SessionAdminHandler.RevokeUserSessions)
 		}
 	}

@@ -16,11 +16,11 @@ const (
 	SubjectAccessLocked   SubjectAccessStatus = "locked"
 )
 
-// SubjectAccessDecision 汇总 user/account 的访问判定。
+// SubjectAccessDecision 汇总 user/login identity 的访问判定。
 type SubjectAccessDecision struct {
-	Status    SubjectAccessStatus
-	UserID    meta.ID
-	AccountID meta.ID
+	Status          SubjectAccessStatus
+	UserID          meta.ID
+	LoginIdentityID meta.ID
 }
 
 // IsAllowed 返回当前主体是否允许继续访问。
@@ -28,7 +28,7 @@ func (d SubjectAccessDecision) IsAllowed() bool {
 	return d.Status == SubjectAccessActive
 }
 
-// SubjectAccessEvaluator 负责汇总 user/account 访问状态。
+// SubjectAccessEvaluator 负责汇总 user/login identity 访问状态。
 type SubjectAccessEvaluator interface {
-	Evaluate(ctx context.Context, userID meta.ID, accountID meta.ID) (SubjectAccessDecision, error)
+	Evaluate(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (SubjectAccessDecision, error)
 }

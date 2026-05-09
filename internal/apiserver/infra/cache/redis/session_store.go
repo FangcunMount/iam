@@ -14,7 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// SessionStore 基于 Redis 承载认证会话与用户/账号索引。
+// SessionStore 基于 Redis 承载认证会话与用户/登录身份索引。
 type SessionStore struct {
 	client       *redis.Client
 	sessionStore *redisstore.ValueStore[*sessiondomain.Session]
@@ -30,7 +30,7 @@ func NewSessionStore(client *redis.Client) *SessionStore {
 	}
 }
 
-// Save 保存或覆盖会话主对象，并维护用户/账号索引。
+// Save 保存或覆盖会话主对象，并维护用户/登录身份索引。
 func (s *SessionStore) Save(ctx context.Context, sess *sessiondomain.Session) error {
 	if s == nil || s.client == nil {
 		return fmt.Errorf("redis client is nil")
@@ -74,7 +74,7 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (*sessiondomai
 	return sess, nil
 }
 
-// Revoke 撤销指定会话，并移除 user/account 索引。
+// Revoke 撤销指定会话，并移除 user/login identity 索引。
 func (s *SessionStore) Revoke(ctx context.Context, sessionID string, reason string, revokedBy string) error {
 	if s == nil || s.client == nil {
 		return fmt.Errorf("redis client is nil")
@@ -119,9 +119,9 @@ func (s *SessionStore) RevokeByUser(ctx context.Context, userID meta.ID, reason 
 	return s.revokeByIndex(ctx, userSessionIndexRedisKey(userID.String()), reason, revokedBy)
 }
 
-// RevokeByAccount 撤销指定账号下的全部活跃会话。
-func (s *SessionStore) RevokeByAccount(ctx context.Context, accountID meta.ID, reason string, revokedBy string) error {
-	return s.revokeByIndex(ctx, accountSessionIndexRedisKey(accountID.String()), reason, revokedBy)
+// RevokeByLoginIdentity 撤销指定登录身份下的全部活跃会话。
+func (s *SessionStore) RevokeByLoginIdentity(ctx context.Context, loginIdentityID meta.ID, reason string, revokedBy string) error {
+	return s.revokeByIndex(ctx, loginIdentitySessionIndexRedisKey(loginIdentityID.String()), reason, revokedBy)
 }
 
 func (s *SessionStore) revokeByIndex(ctx context.Context, indexKey string, reason string, revokedBy string) error {
@@ -142,21 +142,21 @@ func (s *SessionStore) revokeByIndex(ctx context.Context, indexKey string, reaso
 
 func (s *SessionStore) addIndexes(ctx context.Context, sess *sessiondomain.Session) error {
 	userIndexKey := userSessionIndexRedisKey(sess.UserID.String())
-	accountIndexKey := accountSessionIndexRedisKey(sess.AccountID.String())
+	loginIdentityIndexKey := loginIdentitySessionIndexRedisKey(sess.LoginIdentityID.String())
 	score := float64(sess.ExpiresAt.Unix())
 	pipe := s.client.TxPipeline()
 	pipe.ZAdd(ctx, userIndexKey, redis.Z{Score: score, Member: sess.SessionID})
-	pipe.ZAdd(ctx, accountIndexKey, redis.Z{Score: score, Member: sess.SessionID})
+	pipe.ZAdd(ctx, loginIdentityIndexKey, redis.Z{Score: score, Member: sess.SessionID})
 	_, err := pipe.Exec(ctx)
 	return err
 }
 
 func (s *SessionStore) removeIndexes(ctx context.Context, sess *sessiondomain.Session) error {
 	userIndexKey := userSessionIndexRedisKey(sess.UserID.String())
-	accountIndexKey := accountSessionIndexRedisKey(sess.AccountID.String())
+	loginIdentityIndexKey := loginIdentitySessionIndexRedisKey(sess.LoginIdentityID.String())
 	pipe := s.client.TxPipeline()
 	pipe.ZRem(ctx, userIndexKey, sess.SessionID)
-	pipe.ZRem(ctx, accountIndexKey, sess.SessionID)
+	pipe.ZRem(ctx, loginIdentityIndexKey, sess.SessionID)
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -174,6 +174,6 @@ func (s *SessionStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
 		newRedisFamilyInspector(cachemodel.FamilyAuthnSession, s.client, "会话主对象使用 Redis String(JSON) 存储。"),
 		newRedisFamilyInspector(cachemodel.FamilyAuthnUserSessionIndex, s.client, "用户维度会话索引使用 Redis ZSet。"),
-		newRedisFamilyInspector(cachemodel.FamilyAuthnAccountSessionIndex, s.client, "账号维度会话索引使用 Redis ZSet。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginIdentitySessionIndex, s.client, "登录身份维度会话索引使用 Redis ZSet。"),
 	}
 }

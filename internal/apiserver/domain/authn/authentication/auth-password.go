@@ -6,6 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -57,26 +58,23 @@ func NewPasswordCredential(spec PasswordProofSpec) (AuthCredential, error) {
 // PasswordAuthStrategy 用户名+密码认证策略
 type PasswordAuthStrategy struct {
 	credentialType credDomain.CredentialType
-	credRepo       CredentialRepository
-	accountRepo    AccountRepository
+	credRepo       LoginIdentityCredentialRepository
+	identityRepo   LoginIdentityRepository
 	hasher         PasswordHasher
 }
 
 // 实现认证策略接口
 var _ AuthStrategy = (*PasswordAuthStrategy)(nil)
 
-const passwordLoginOperaAccountType = "opera"
-
-// NewPasswordAuthStrategy 构造函数（注入依赖）
-func NewPasswordAuthStrategy(
-	credRepo CredentialRepository,
-	accountRepo AccountRepository,
+func NewPasswordAuthStrategyWithLoginIdentity(
+	credRepo LoginIdentityCredentialRepository,
+	identityRepo LoginIdentityRepository,
 	hasher PasswordHasher,
 ) *PasswordAuthStrategy {
 	return &PasswordAuthStrategy{
 		credentialType: credDomain.CredPassword,
 		credRepo:       credRepo,
-		accountRepo:    accountRepo,
+		identityRepo:   identityRepo,
 		hasher:         hasher,
 	}
 }
@@ -99,31 +97,28 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("password strategy expects *PasswordCredential, got %T", credential)
 	}
-
-	// Step 1: 根据用户名查找账户
-	lookup, err := p.accountRepo.FindAccountByUsername(ctx, passwordCredential.TenantID, passwordCredential.Username)
+	lookup, err := p.identityRepo.FindUsernameIdentity(ctx, passwordCredential.TenantID, passwordCredential.Username)
 	if err != nil {
-		return AuthDecision{}, fmt.Errorf("failed to find account: %w", err)
+		return AuthDecision{}, fmt.Errorf("failed to find login identity: %w", err)
 	}
-	if lookup == nil || lookup.AccountID.IsZero() {
+	if lookup == nil || lookup.LoginIdentityID.IsZero() {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrInvalidCredentials,
 		}, nil
 	}
-	accountID, userID := lookup.AccountID, lookup.UserID
+	loginIdentityID, userID := lookup.LoginIdentityID, lookup.UserID
 
-	principalTenant, ok := resolvePasswordPrincipalTenant(passwordCredential.TenantID, lookup)
+	principalTenant, ok := resolvePasswordPrincipalTenantFromIdentity(passwordCredential.TenantID, lookup)
 	if !ok {
 		return AuthDecision{
-			OK:        false,
-			Code:      code.ErrInvalidCredentials,
-			AccountID: accountID,
+			OK:              false,
+			Code:            code.ErrInvalidCredentials,
+			LoginIdentityID: loginIdentityID,
 		}, nil
 	}
 
-	// Step 2: 检查账户状态
-	statusFailure, err := accountStatusFailureDecision(ctx, p.accountRepo, accountID)
+	statusFailure, err := loginIdentityStatusFailureDecision(ctx, p.identityRepo, loginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
@@ -131,80 +126,77 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		return *statusFailure, nil
 	}
 
-	// Step 3: 查找密码凭据
-	credentialID, storedHash, found, err := p.findPasswordCredential(ctx, accountID)
+	credentialID, storedHash, found, err := p.findPasswordCredential(ctx, loginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
 	if !found {
 		return AuthDecision{
-			OK:        false,
-			Code:      code.ErrInvalidCredentials,
-			AccountID: accountID,
+			OK:              false,
+			Code:            code.ErrInvalidCredentials,
+			LoginIdentityID: loginIdentityID,
 		}, nil
 	}
 
-	// Step 4: 验证密码（加上全局pepper）
 	plaintextWithPepper := passwordCredential.Password + p.hasher.Pepper()
 	if !p.passwordMatches(storedHash, plaintextWithPepper) {
-		// 密码错误（返回凭据ID用于失败次数统计）
 		return AuthDecision{
-			OK:           false,
-			Code:         code.ErrInvalidCredentials,
-			AccountID:    accountID,
-			CredentialID: credentialID,
+			OK:              false,
+			Code:            code.ErrInvalidCredentials,
+			LoginIdentityID: loginIdentityID,
+			CredentialID:    credentialID,
 		}, nil
 	}
 
-	// Step 5: 检查是否需要密码rehash（例如算法参数升级）
 	shouldRotate, newMaterial := p.rotationMaterial(storedHash, plaintextWithPepper)
-
-	// Step 6: 认证成功，构造Principal
-	principal := &Principal{
-		AccountID: accountID,
-		UserID:    userID,
-		TenantID:  principalTenant,
-		AMR:       []string{string(AMRPassword)},
-		Claims: map[string]any{
-			"auth_time": ctx.Value("request_time"),
-		},
-	}
+	principal := buildLoginIdentityPrincipal(
+		loginIdentityID,
+		userID,
+		principalTenant,
+		"password",
+		lookup.Realm,
+		[]string{string(AMRPassword)},
+		map[string]any{"auth_time": ctx.Value("request_time")},
+	)
 
 	return AuthDecision{
-		OK:           true,
-		Principal:    principal,
-		AccountID:    accountID,
-		CredentialID: credentialID,
-		ShouldRotate: shouldRotate,
-		NewMaterial:  newMaterial,
+		OK:              true,
+		Principal:       principal,
+		LoginIdentityID: loginIdentityID,
+		CredentialID:    credentialID,
+		ShouldRotate:    shouldRotate,
+		NewMaterial:     newMaterial,
 	}, nil
 }
 
 // ================= 辅助方法 ========================
 
-// 解析密码认证主体的租户ID
-func resolvePasswordPrincipalTenant(requestTenantID meta.ID, lookup *UsernameLoginLookup) (meta.ID, bool) {
-	if lookup.AccountType == passwordLoginOperaAccountType {
-		if lookup.ScopedTenantID.IsZero() {
-			return meta.ZeroID, false
-		}
+func resolvePasswordPrincipalTenantFromIdentity(requestTenantID meta.ID, lookup *LoginIdentityLookup) (meta.ID, bool) {
+	if lookup == nil {
+		return meta.ZeroID, false
+	}
+	if !lookup.ScopedTenantID.IsZero() {
 		if !requestTenantID.IsZero() && requestTenantID != lookup.ScopedTenantID {
 			return meta.ZeroID, false
 		}
 		return lookup.ScopedTenantID, true
 	}
-
-	if !lookup.ScopedTenantID.IsZero() {
-		return meta.ZeroID, false
+	if lookup.Provider == loginidentity.ProviderUsername && lookup.Realm != "" && lookup.Realm != loginidentity.RealmDefault {
+		realmTenantID, err := meta.ParseID(lookup.Realm)
+		if err == nil && !realmTenantID.IsZero() {
+			if !requestTenantID.IsZero() && requestTenantID != realmTenantID {
+				return meta.ZeroID, false
+			}
+			return realmTenantID, true
+		}
 	}
 	return requestTenantID, true
 }
 
-// findPasswordCredential 查找密码凭据
-func (p *PasswordAuthStrategy) findPasswordCredential(ctx context.Context, accountID meta.ID) (meta.ID, string, bool, error) {
-	credentialID, storedHash, err := p.credRepo.FindPasswordCredential(ctx, accountID)
+func (p *PasswordAuthStrategy) findPasswordCredential(ctx context.Context, loginIdentityID meta.ID) (meta.ID, string, bool, error) {
+	credentialID, storedHash, err := p.credRepo.FindPasswordCredentialByLoginIdentity(ctx, loginIdentityID)
 	if err != nil {
-		return meta.ZeroID, "", false, fmt.Errorf("failed to find password credential: %w", err)
+		return meta.ZeroID, "", false, fmt.Errorf("failed to find password credential by login identity: %w", err)
 	}
 	if credentialID.IsZero() {
 		return meta.ZeroID, "", false, nil

@@ -33,12 +33,12 @@ func TestTokenReAuthenticatorMapsClaimsToPrincipal(t *testing.T) {
 	t.Parallel()
 
 	verifier := &tokenVerifierStub{claims: &tokenapp.TokenClaims{
-		UserID:     meta.FromUint64(1001),
-		AccountID:  meta.FromUint64(2002),
-		TenantID:   meta.FromUint64(3003),
-		SessionID:  "session-id",
-		AMR:        []string{"pwd"},
-		Attributes: map[string]string{"scope": "profile"},
+		UserID:          meta.FromUint64(1001),
+		LoginIdentityID: meta.FromUint64(2002),
+		TenantID:        meta.FromUint64(3003),
+		SessionID:       "session-id",
+		AMR:             []string{"pwd"},
+		Attributes:      map[string]string{"scope": "profile"},
 	}}
 	authenticator := NewTokenReAuthenticator(verifier)
 
@@ -48,7 +48,7 @@ func TestTokenReAuthenticatorMapsClaimsToPrincipal(t *testing.T) {
 	require.True(t, decision.OK)
 	require.Equal(t, "access-token", verifier.token)
 	require.Equal(t, meta.FromUint64(1001), decision.Principal.UserID)
-	require.Equal(t, meta.FromUint64(2002), decision.Principal.AccountID)
+	require.Equal(t, meta.FromUint64(2002), decision.Principal.LoginIdentityID)
 	require.Equal(t, meta.FromUint64(3003), decision.Principal.TenantID)
 	require.Equal(t, "session-id", decision.Principal.SessionID)
 	require.Equal(t, []string{"pwd"}, decision.Principal.AMR)

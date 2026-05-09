@@ -24,7 +24,7 @@ flowchart TD
     OnboardApp["application/authn/onboarding"]
 
     DomainAuth["domain/authn/authentication"]
-    DomainAccount["domain/authn/account"]
+    DomainAccount["domain/authn/legacyaccount"]
     DomainCredential["domain/authn/credential"]
     DomainSession["domain/authn/session"]
 
@@ -53,7 +53,7 @@ flowchart TD
 
 | 关注点 | 当前答案 | 代码证据 |
 | ---- | ---- | ---- |
-| 账户模型 | Account 表达外部/本地账号、绑定 User、状态和扩展信息。 | [../../internal/apiserver/domain/authn/account](../../internal/apiserver/domain/authn/account) |
+| 账户模型 | Account 表达外部/本地账号、绑定 User、状态和扩展信息。 | [../../internal/apiserver/domain/authn/legacyaccount](../../internal/apiserver/domain/authn/legacyaccount) |
 | 凭据模型 | Credential 表达 password、OAuth、phone OTP 等凭据类型和可用性。 | [../../internal/apiserver/domain/authn/credential](../../internal/apiserver/domain/authn/credential) |
 | 认证策略 | Authenticator 根据 CredentialType 选择 AuthStrategy。 | [../../internal/apiserver/domain/authn/authentication](../../internal/apiserver/domain/authn/authentication) |
 | 登录应用服务 | LoginApplicationService 选择登录方式、构造 proof、调用认证并签发 token。 | [../../internal/apiserver/application/authn/login](../../internal/apiserver/application/authn/login) |
@@ -122,7 +122,7 @@ classDiagram
 | 领域服务 | 解决的问题 | 落地位置 |
 | ---- | ---- | ---- |
 | `Authenticator` | 多种凭据认证流程不能塞进一个 switch；按 credential type 选择策略。 | [../../internal/apiserver/domain/authn/authentication/authenticater.go](../../internal/apiserver/domain/authn/authentication/authenticater.go) |
-| `AccountCreator` / `Editor` / `Lifecycler` | 账户创建、资料变更、状态变更需要统一规则。 | [../../internal/apiserver/domain/authn/account](../../internal/apiserver/domain/authn/account) |
+| `AccountCreator` / `Editor` / `Lifecycler` | 账户创建、资料变更、状态变更需要统一规则。 | [../../internal/apiserver/domain/authn/legacyaccount](../../internal/apiserver/domain/authn/legacyaccount) |
 | `Binder` / `Usage` / `Locker` / `Rotator` / `Lifecycle` | 凭据绑定、失败计数、锁定、轮换和启停各自是独立变化点。 | [../../internal/apiserver/domain/authn/credential](../../internal/apiserver/domain/authn/credential) |
 | `SubjectAccessEvaluator` | Verify/Refresh 需要判断用户和账号当前是否仍可访问。 | [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go) |
 

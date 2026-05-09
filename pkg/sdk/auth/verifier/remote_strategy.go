@@ -54,16 +54,16 @@ func (s *RemoteVerifyStrategy) Verify(ctx context.Context, tokenString string, o
 	}
 
 	claims := &TokenClaims{
-		TokenID:   resp.Claims.TokenId,
-		Subject:   resp.Claims.Subject,
-		SessionID: resp.Claims.SessionId,
-		UserID:    resp.Claims.UserId,
-		AccountID: resp.Claims.AccountId,
-		TenantID:  resp.Claims.TenantId,
-		Issuer:    resp.Claims.Issuer,
-		Audience:  resp.Claims.Audience,
-		AMR:       append([]string(nil), resp.Claims.Amr...),
-		Extra:     make(map[string]interface{}),
+		TokenID:         resp.Claims.TokenId,
+		Subject:         resp.Claims.Subject,
+		SessionID:       resp.Claims.SessionId,
+		UserID:          resp.Claims.UserId,
+		LoginIdentityID: resp.Claims.LoginIdentityId,
+		TenantID:        resp.Claims.TenantId,
+		Issuer:          resp.Claims.Issuer,
+		Audience:        resp.Claims.Audience,
+		AMR:             append([]string(nil), resp.Claims.Amr...),
+		Extra:           make(map[string]interface{}),
 	}
 	if resp.Claims.ExpiresAt != nil {
 		claims.ExpiresAt = resp.Claims.ExpiresAt.AsTime()

@@ -284,8 +284,8 @@ func applyVerifiedClaims(c *gin.Context, claims *token.TokenClaims) {
 	if !claims.UserID.IsZero() {
 		requestctx.SetUserID(c, claims.UserID)
 	}
-	if !claims.AccountID.IsZero() {
-		requestctx.SetAccountID(c, claims.AccountID)
+	if !claims.LoginIdentityID.IsZero() {
+		requestctx.SetLoginIdentityID(c, claims.LoginIdentityID)
 	}
 	if !claims.TenantID.IsZero() {
 		requestctx.SetTenantID(c, claims.TenantID.String())

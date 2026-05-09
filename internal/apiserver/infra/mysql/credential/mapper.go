@@ -4,84 +4,65 @@ import (
 	"time"
 
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	base "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 )
 
-// Mapper 负责领域模型与持久化对象之间的转换。
 type Mapper struct{}
 
-// NewMapper 创建新的映射器实例。
-func NewMapper() *Mapper {
-	return &Mapper{}
-}
+func NewMapper() *Mapper { return &Mapper{} }
 
-// ToPO 将凭据领域模型转换为持久化对象。
-func (m *Mapper) ToPO(cred *domain.Credential) *PO {
+func (m *Mapper) ToPO(cred *domain.Credential) *V2PO {
 	if cred == nil {
 		return nil
 	}
-
-	credType := inferCredentialType(cred)
-
-	po := &PO{
-		AccountID:      cred.AccountID,
-		Type:           string(credType),
-		IDP:            copyStringPtr(cred.IDP),
-		IDPIdentifier:  cred.IDPIdentifier,
-		AppID:          copyStringPtr(cred.AppID),
-		Material:       cloneBytes(cred.Material),
-		Algo:           copyStringPtr(cred.Algo),
-		Params:         cloneBytes(cred.ParamsJSON),
-		Status:         int8(cred.Status),
-		FailedAttempts: cred.FailedAttempts,
-		LockedUntil:    copyTimePtr(cred.LockedUntil),
-		LastSuccessAt:  copyTimePtr(cred.LastSuccessAt),
-		LastFailureAt:  copyTimePtr(cred.LastFailureAt),
+	return &V2PO{
+		AuditFields:     auditFieldsFromCredential(cred),
+		LoginIdentityID: cred.LoginIdentityID,
+		Type:            string(cred.Type),
+		Material:        cloneBytes(cred.Material),
+		Algo:            copyStringPtr(cred.Algo),
+		Params:          cloneBytes(cred.ParamsJSON),
+		Status:          cred.Status.String(),
+		FailedAttempts:  cred.FailedAttempts,
+		LockedUntil:     copyTimePtr(cred.LockedUntil),
+		LastSuccessAt:   copyTimePtr(cred.LastSuccessAt),
+		LastFailureAt:   copyTimePtr(cred.LastFailureAt),
 	}
-
-	if !cred.ID.IsZero() {
-		po.ID = cred.ID
-	}
-
-	return po
 }
 
-// ToDO 将持久化对象转换为凭据领域模型。
-func (m *Mapper) ToDO(po *PO) *domain.Credential {
+func (m *Mapper) ToDO(po *V2PO) *domain.Credential {
 	if po == nil {
 		return nil
 	}
-
 	return &domain.Credential{
-		ID:             po.ID,
-		AccountID:      po.AccountID,
-		IDP:            po.IDP,
-		IDPIdentifier:  po.IDPIdentifier,
-		AppID:          po.AppID,
-		Material:       cloneBytes(po.Material),
-		Algo:           po.Algo,
-		ParamsJSON:     cloneBytes(po.Params),
-		Status:         domain.CredentialStatus(po.Status),
-		FailedAttempts: po.FailedAttempts,
-		LockedUntil:    copyTimePtr(po.LockedUntil),
-		LastSuccessAt:  copyTimePtr(po.LastSuccessAt),
-		LastFailureAt:  copyTimePtr(po.LastFailureAt),
+		ID:              po.ID,
+		LoginIdentityID: po.LoginIdentityID,
+		Type:            domain.CredentialType(po.Type),
+		Material:        cloneBytes(po.Material),
+		Algo:            po.Algo,
+		ParamsJSON:      cloneBytes(po.Params),
+		Status:          statusFromString(po.Status),
+		FailedAttempts:  po.FailedAttempts,
+		LockedUntil:     copyTimePtr(po.LockedUntil),
+		LastSuccessAt:   copyTimePtr(po.LastSuccessAt),
+		LastFailureAt:   copyTimePtr(po.LastFailureAt),
 	}
 }
 
-func inferCredentialType(cred *domain.Credential) domain.CredentialType {
-	if cred.IDP == nil && len(cred.Material) > 0 && cred.Algo != nil {
-		return domain.CredPassword
+func auditFieldsFromCredential(cred *domain.Credential) base.AuditFields {
+	if cred == nil || cred.ID.IsZero() {
+		return base.AuditFields{}
 	}
-	if cred.IDP != nil && *cred.IDP == "phone" {
-		return domain.CredPhoneOTP
+	return base.AuditFields{ID: cred.ID}
+}
+
+func statusFromString(status string) domain.CredentialStatus {
+	switch status {
+	case domain.CredStatusEnabled.String():
+		return domain.CredStatusEnabled
+	default:
+		return domain.CredStatusDisabled
 	}
-	if cred.IDP != nil && *cred.IDP == "wechat" {
-		return domain.CredOAuthWxMinip
-	}
-	if cred.IDP != nil && *cred.IDP == "wecom" {
-		return domain.CredOAuthWecom
-	}
-	return domain.CredPassword
 }
 
 func cloneBytes(src []byte) []byte {

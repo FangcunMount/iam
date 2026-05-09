@@ -28,7 +28,7 @@ func (cl *lifecycle) Enable(c *Credential) {
 
 	log.Infow("Credential enabled",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 		"oldStatus", oldStatus.String(),
 		"newStatus", c.Status.String(),
 	)
@@ -46,7 +46,7 @@ func (cl *lifecycle) Disable(c *Credential) {
 
 	log.Infow("Credential disabled",
 		"credentialID", c.ID,
-		"accountID", c.AccountID,
+		"loginIdentityID", c.LoginIdentityID,
 		"oldStatus", oldStatus.String(),
 		"newStatus", c.Status.String(),
 	)

@@ -6,8 +6,8 @@ import (
 	"gorm.io/gorm"
 
 	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
-	acctrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/account"
 	credentialrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/credential"
+	loginidentityrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/loginidentity"
 	profilerepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profile"
 	profileLinkRepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profilelink"
 	userrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
@@ -41,11 +41,11 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context
 			return err
 		}
 		repos := appuow.TxRepositories{
-			Accounts:     acctrepo.NewAccountRepository(tx),
-			Credentials:  credentialrepo.NewRepository(tx),
-			Profiles:     profilerepo.NewRepository(tx),
-			ProfileLinks: profileLinkRepo.NewRepository(tx),
-			Users:        userrepo.NewRepository(tx),
+			Credentials:     credentialrepo.NewRepository(tx),
+			LoginIdentities: loginidentityrepo.NewRepository(tx),
+			Profiles:        profilerepo.NewRepository(tx),
+			ProfileLinks:    profileLinkRepo.NewRepository(tx),
+			Users:           userrepo.NewRepository(tx),
 		}
 		return fn(txCtx, repos)
 	})
