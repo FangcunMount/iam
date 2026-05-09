@@ -124,7 +124,7 @@ flowchart TB
 | 问题 | 普通用户中心 | IAM 当前答案 | 代码入口 |
 | --- | --- | --- | --- |
 | 用户是谁 | User 表 | User 是 Identity 身份锚点 | `internal/apiserver/domain/identity/user` |
-| 如何登录 | 用户名密码查表 | AuthN SignInAdapter + AuthStrategy + Session + TokenIssuer | `internal/apiserver/application/authn/login` |
+| 如何登录 | 用户名密码查表 | AuthN LoginMethod + ProofFactory + AuthStrategy + SessionTokenIssuer | `internal/apiserver/application/authn/login` |
 | token 是什么 | 通常只发 JWT | Access Token + Refresh Token + Session + Verify/Revoke | `internal/apiserver/application/authn/token` |
 | 是否支持离线验签 | 不一定 | JWKS + KeyRotation | `internal/apiserver/application/authn/jwks`、`internal/apiserver/infra/token/keyset` |
 | 权限怎么做 | user.role 字段 | Role/Resource/Permission/RoleBinding + Casbin facts | `internal/apiserver/domain/authz`、`internal/apiserver/infra/casbin` |
@@ -269,8 +269,9 @@ IAM 的 AuthN 链路明显更复杂：
 ```text
 LoginV2Request
   -> auth_method + method_payload
-  -> SignInAdapterCatalog
-  -> MethodSelector
+  -> MethodRegistry.Select
+  -> LoginMethod.BuildPayload
+  -> ProofFactory.Build
   -> AuthCredential proof
   -> Authenticator / AuthStrategy
   -> Principal
@@ -855,7 +856,7 @@ AuthN 只负责认证和登录态。
 ### 13.4 IDP 不签 IAM token
 
 IDP 只提供第三方身份源基础设施。  
-IAM token 由 AuthN TokenIssuer 统一签发。
+IAM 登录态 token 由 AuthN `SessionTokenIssuer` / `SessionTokenPairIssuer` 统一签发。
 
 ### 13.5 Casbin 不是业务语言
 
@@ -1013,8 +1014,9 @@ internal/apiserver/application/identity
 internal/apiserver/domain/idp/wechatapp
 internal/apiserver/application/idp/wechatapp
 internal/apiserver/container/assembler/idp.go
-internal/apiserver/application/authn/login/adapter_wechat_mini.go
-internal/apiserver/application/authn/login/adapter_wecom.go
+internal/apiserver/application/authn/login/method/wechat.go
+internal/apiserver/application/authn/login/method/wecom.go
+internal/apiserver/application/authn/login/proof/oauth.go
 ```
 
 目标：理解 IDP 与 AuthN 的协作边界。

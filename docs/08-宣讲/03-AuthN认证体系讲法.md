@@ -33,7 +33,7 @@ AuthN 负责“你如何证明你是谁”，以及“这次登录态和 token �
 ## 2. 30 秒讲法
 
 ```text
-IAM 的 AuthN 不是简单登录接口，而是一套认证与登录态管理体系。它把密码、手机号验证码、微信、企微、Service Token 等不同认证方式统一到同一条链路：先通过 SignInAdapter 选择登录方式并构造 proof，再由领域 Authenticator 认证出 Principal，之后 TokenIssuer 创建 Session，并签发 Access Token 和 Refresh Token。Access Token 是短期访问凭证，Refresh Token 是服务端可控的续期凭证，Session 是在线登录态锚点。后续 Verify 不只是验 JWT，还会检查 token 是否撤销、Session 是否 active、User/Account 是否仍可用。
+IAM 的 AuthN 不是简单登录接口，而是一套认证与登录态管理体系。它把密码、手机号验证码、微信、企微、Service Token 等不同认证方式统一到同一条链路：先通过 MethodRegistry / LoginMethod 选择登录方式并构造 payload，再由 ProofFactory 构造领域 proof，领域 Authenticator 认证出 Principal，之后 SessionTokenIssuer 创建 Session，并由 SessionTokenPairIssuer 签发 Access Token 和 Refresh Token。Access Token 是短期访问凭证，Refresh Token 是服务端可控的续期凭证，Session 是在线登录态锚点。后续 Verify 不只是验 JWT，还会检查 token 是否撤销、Session 是否 active、User/Account 是否仍可用。
 ```
 
 ---
@@ -43,9 +43,9 @@ IAM 的 AuthN 不是简单登录接口，而是一套认证与登录态管理体
 ```text
 AuthN 认证体系的核心不是“登录成功后发一个 JWT”，而是把多种登录方式统一成一套可撤销、可刷新、可验签、可治理的登录态模型。
 
-在登录阶段，请求会先进入 LoginApplicationService。SignIn 会通过 MethodSelector 和 SignInAdapterCatalog 选择登录方式，比如 password、phone_otp、wechat、wecom，适配器把不同 payload 转换成领域 proof。然后领域 Authenticator 根据 proof 做认证，认证成功后得到 Principal，包含 UserID、AccountID、TenantID、AMR 和 claims。
+在登录阶段，请求会先进入 LoginApplicationService。SignIn 会通过 MethodRegistry 和 LoginMethod 选择登录方式，比如 password、phone_otp、wechat、wecom，并由 ProofFactory 把 payload 转换成领域 proof。然后领域 Authenticator 根据 proof 做认证，认证成功后得到 Principal，包含 UserID、AccountID、TenantID、AMR 和 claims。
 
-接下来 TokenIssuer 不会直接只发 JWT，而是先创建 Session，再签发短期 Access Token，并把 Refresh Token 保存到服务端 store。这样后续登出、封禁、账号禁用、token 撤销都能影响登录态。
+接下来 SessionTokenIssuer 不会直接只发 JWT，而是先创建 Session，再由 SessionTokenPairIssuer 签发短期 Access Token，并把 Refresh Token 保存到服务端 store。这样后续登出、封禁、账号禁用、token 撤销都能影响登录态。
 
 验证阶段分两类：低风险高吞吐场景可以用 JWKS 本地验签；高风险或需要状态强一致的场景要调用在线 Verify。在线 Verify 会在 JWT 验签之外继续检查 revoked marker、Session active 和 User/Account 状态。
 ```
@@ -57,9 +57,9 @@ AuthN 认证体系的核心不是“登录成功后发一个 JWT”，而是把�
 ```text
 IAM 的 AuthN 模块我会从三个层次讲：登录编排、凭证生命周期、验证策略。
 
-第一层是登录编排。外部请求不会直接进入某个固定登录函数，而是进入 LoginApplicationService。这里会通过 SignInAdapterCatalog 和 MethodSelector 根据 auth_method 选择登录方式，例如 password、phone_otp、wechat、wecom。不同登录方式的 payload 会被适配成领域 proof，然后交给 domain Authenticator。Authenticator 不关心 HTTP 或 JSON，它只关心这个 proof 是否能认证出一个 Principal。Principal 是 IAM 内部认证主体，包含 UserID、AccountID、TenantID、认证方式 AMR 和扩展 claims。
+第一层是登录编排。外部请求不会直接进入某个固定登录函数，而是进入 LoginApplicationService。这里会通过 MethodRegistry 和 LoginMethod 根据 auth_method 选择登录方式，例如 password、phone_otp、wechat、wecom；再由 ProofFactory 把 payload 构造成领域 proof，然后交给 domain Authenticator。Authenticator 不关心 HTTP 或 JSON，它只关心这个 proof 是否能认证出一个 Principal。Principal 是 IAM 内部认证主体，包含 UserID、AccountID、TenantID、认证方式 AMR 和扩展 claims。
 
-第二层是凭证生命周期。认证成功后，TokenIssuer 不只是发一个 JWT。它会先创建 Session，Session 是在线登录态锚点；再基于 Principal + SessionID 签发短期 Access Token；同时生成随机 Refresh Token，并保存到服务端 token store。Access Token 适合请求携带和 JWKS 验签，Refresh Token 适合续期，但必须服务端可控；Session 用来支持登出、撤销、用户封禁、账号禁用和批量下线。
+第二层是凭证生命周期。认证成功后，SessionTokenIssuer 不只是发一个 JWT。它会先创建 Session，Session 是在线登录态锚点；再由 SessionTokenPairIssuer 基于 Principal + SessionID 签发短期 Access Token，同时生成随机 Refresh Token，并保存到服务端 token store。Access Token 适合请求携带和 JWKS 验签，Refresh Token 适合续期，但必须服务端可控；Session 用来支持登出、撤销、用户封禁、账号禁用和批量下线。
 
 第三层是验证策略。IAM 同时支持 JWKS 离线验签和在线 Verify。JWKS 负责把公钥发布出去，让业务服务本地验证 JWT 签名、kid、exp、issuer、audience；在线 Verify 则负责判断这个 token 当前还能不能用。在线 Verify 会先验 JWT，再检查 access token revoked marker，再根据 session_id 加载 Session，确认 Session active，最后重新检查 User/Account 状态。也就是说，JWT 只能证明 token 是 IAM 签的，在线 Verify 才能证明登录态当前仍有效。
 
@@ -76,28 +76,32 @@ IAM 的 AuthN 模块我会从三个层次讲：登录编排、凭证生命周期
 sequenceDiagram
     participant Client as Client
     participant Login as LoginApplicationService
-    participant Adapter as SignInAdapter
+    participant Method as MethodRegistry / LoginMethod
+    participant Proof as ProofFactory
     participant Authenticator as Domain Authenticator
-    participant Issuer as TokenIssuer
+    participant SessionIssuer as SessionTokenIssuer
     participant Session as SessionManager
+    participant PairIssuer as SessionTokenPairIssuer
     participant Store as TokenStore
 
     Client->>Login: Login(auth_method, payload)
-    Login->>Adapter: Select + PrepareProof
-    Adapter-->>Login: AuthCredential proof
+    Login->>Method: Select + BuildPayload
+    Method-->>Login: MethodPayload
+    Login->>Proof: Build
+    Proof-->>Login: AuthCredential proof
     Login->>Authenticator: Authenticate(proof)
     Authenticator-->>Login: Principal
-    Login->>Issuer: IssueToken(principal)
-    Issuer->>Session: Create(principal, refreshTTL)
-    Issuer->>Issuer: Issue AccessToken(sessionID)
-    Issuer->>Store: Save RefreshToken(sessionID)
-    Issuer-->>Client: TokenPair
+    Login->>SessionIssuer: IssueToken(principal)
+    SessionIssuer->>Session: Create(principal, refreshTTL)
+    SessionIssuer->>PairIssuer: IssueTokenPair(principal, session)
+    PairIssuer->>Store: Save RefreshToken(sessionID)
+    SessionIssuer-->>Client: TokenPair
 ```
 
 讲图时说：
 
 ```text
-这张图体现的是 AuthN 的统一登录模型。不同登录方式通过 adapter 适配成 proof，领域认证器输出 Principal，TokenIssuer 再创建 Session 并签发 token pair。
+这张图体现的是 AuthN 的统一登录模型。不同登录方式通过 MethodRegistry、LoginMethod 和 ProofFactory 统一成 proof，领域认证器输出 Principal，SessionTokenIssuer 再创建 Session，并由 SessionTokenPairIssuer 签发 token pair。
 ```
 
 ---
@@ -236,13 +240,13 @@ JWKS 负责离线验签，Verify 负责在线状态。JWKS 证明 token 是 IAM 
 ### 7.1 多登录方式统一
 
 ```text
-通过 SignInAdapterCatalog + MethodSelector，把 password、phone_otp、wechat、wecom 等方式统一到同一条 SignIn 链路。
+通过 MethodRegistry + LoginMethod + ProofFactory，把 password、phone_otp、wechat、wecom 等方式统一到同一条 SignIn 链路。
 ```
 
 价值：
 
 ```text
-新增登录方式时，不需要改 TokenIssuer、Session、Verify 等后续链路。
+新增登录方式时，不需要改 SessionTokenIssuer、SessionTokenPairIssuer、Session、Verify 等后续链路。
 ```
 
 ---
@@ -366,7 +370,7 @@ AuthN 是登录注册模块。
 ### Q1：你的登录流程怎么设计？
 
 ```text
-登录流程不是直接查用户发 JWT，而是先通过 auth_method 选择登录方式，SignInAdapter 把不同 payload 转成领域 proof，再交给 Authenticator 做认证。认证成功后得到 Principal，TokenIssuer 先创建 Session，再签发 Access Token，并保存 Refresh Token。这样后续 Verify、Refresh、Revoke 都能围绕同一个 Session 做状态控制。
+登录流程不是直接查用户发 JWT，而是先通过 auth_method 选择登录方式，LoginMethod 校验 payload，ProofFactory 把 payload 转成领域 proof，再交给 Authenticator 做认证。认证成功后得到 Principal，SessionTokenIssuer 先创建 Session，再由 SessionTokenPairIssuer 签发 Access Token，并保存 Refresh Token。这样后续 Verify、Refresh、Revoke 都能围绕同一个 Session 做状态控制。
 ```
 
 ---
@@ -490,9 +494,9 @@ SDK 是业务服务接入 AuthN 的产品化封装，不是 AuthN 业务层。
 | 讲法 | 证据 |
 | --- | --- |
 | AuthN module 包含 account/login/token/session/JWKS/key rotation | `AuthnModule` 装配 |
-| LoginApplicationService 构造 SignIn/SignOut，并使用 adapter catalog | `application/authn/login/services_impl.go` |
+| LoginApplicationService 构造 SignIn/SignOut，并装配 MethodRegistry 与 ProofFactory | `application/authn/login/service.go` |
 | SignIn 选择登录方式、准备 proof、调用 Authenticator、签发 token | `application/authn/login/sign_in.go` |
-| TokenIssuer 先创建 Session，再签 access token 和保存 refresh token | `application/authn/token/issuer.go` |
+| SessionTokenIssuer 先创建 Session，再由 SessionTokenPairIssuer 签 access token 和保存 refresh token | `application/authn/token/session_issuer.go`、`application/authn/token/pair_issuer.go` |
 | Verify 检查 JWT、revoked marker、Session、User/Account 状态 | `application/authn/token/verifier.go` |
 | Refresh 检查 refresh token、Session、User/Account 状态，并轮换旧 refresh token | `application/authn/token/refresher.go` |
 | JWKS 公开 endpoint 用于验证 JWT 签名，并带 ETag/Cache-Control | `transport/rest/authn/handler/jwks_public.go` |
@@ -503,7 +507,7 @@ SDK 是业务服务接入 AuthN 的产品化封装，不是 AuthN 业务层。
 ## 12. 简历项目描述版本
 
 ```text
-设计并实现 IAM AuthN 认证体系，支持多登录方式统一认证、Session 登录态、Access Token / Refresh Token 生命周期、Token 撤销、在线 Verify、JWKS 公钥发布与 KeyRotation。登录链路通过 SignInAdapterCatalog 适配 password、phone_otp、wechat、wecom 等方式，认证成功后生成 Principal，并由 TokenIssuer 创建 Session、签发短期 Access Token、保存服务端 Refresh Token；在线 Verify 在 JWT 验签之外继续检查 revoked marker、Session active 和 User/Account 状态。
+设计并实现 IAM AuthN 认证体系，支持多登录方式统一认证、Session 登录态、Access Token / Refresh Token 生命周期、Token 撤销、在线 Verify、JWKS 公钥发布与 KeyRotation。登录链路通过 MethodRegistry、LoginMethod 和 ProofFactory 接入 password、phone_otp、wechat、wecom 等方式，认证成功后生成 Principal，并由 SessionTokenIssuer 创建 Session、SessionTokenPairIssuer 签发短期 Access Token 和保存服务端 Refresh Token；在线 Verify 在 JWT 验签之外继续检查 revoked marker、Session active 和 User/Account 状态。
 ```
 
 ---
@@ -552,5 +556,5 @@ AuthN 认证体系讲法的核心是：
 推荐最终表达：
 
 ```text
-IAM 的 AuthN 是认证与登录态管理体系。它通过 SignInAdapter 把 password、phone_otp、wechat、wecom 等不同登录方式统一成领域 proof，由 Authenticator 认证出 Principal，再由 TokenIssuer 创建 Session、签发 Access Token 并保存 Refresh Token。后续既可以通过 JWKS 做本地验签，也可以通过在线 Verify 检查 revoked marker、Session 和 User/Account 状态。这样既支持性能，也支持登录态可撤销和安全治理。
+IAM 的 AuthN 是认证与登录态管理体系。它通过 MethodRegistry、LoginMethod 和 ProofFactory 把 password、phone_otp、wechat、wecom 等不同登录方式统一成领域 proof，由 Authenticator 认证出 Principal，再由 SessionTokenIssuer 创建 Session、SessionTokenPairIssuer 签发 Access Token 并保存 Refresh Token。后续既可以通过 JWKS 做本地验签，也可以通过在线 Verify 检查 revoked marker、Session 和 User/Account 状态。这样既支持性能，也支持登录态可撤销和安全治理。
 ```

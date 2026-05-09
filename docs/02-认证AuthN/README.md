@@ -43,7 +43,8 @@ Login request
   -> MethodRegistry.Select
   -> ProofFactory.Build
   -> Authenticator.Authenticate
-  -> TokenIssuer.IssueToken
+  -> SessionTokenIssuer.IssueToken
+  -> SessionTokenPairIssuer.IssueTokenPair
   -> Session + Access Token + Refresh Token
 ```
 
@@ -67,7 +68,12 @@ Access Token
 | ProofFactory | 把 method selection 转成领域 `AuthCredential` |
 | Authenticator | 按 credential type 调用领域 `AuthStrategy` |
 | Principal | 认证成功后的主体快照 |
-| TokenIssuer | 创建 Session，签发 access token，保存 refresh token |
+| SessionTokenIssuer | 登录成功后的 token 签发用例，创建 Session 并调用 `SessionTokenPairIssuer` |
+| SessionTokenPairIssuer | 内部组件，基于既有 Session 签发 access token、保存 refresh token |
+| ServiceTokenIssuer | 签发不绑定 session、无 refresh token 的服务间 access token |
+| Refresher | 管理 refresh token 轮换：加载 refresh、检查 session/subject、签发新 token pair、删除旧 refresh 并延长 session |
+| AccessRevoker / RefreshRevoker | 撤销 access token 或 refresh token，并按 token 中的 session 关系同步撤销会话 |
+| TokenApplicationService | token lifecycle façade，统一暴露服务 token 签发、刷新、撤销和在线验证 |
 | TokenVerifier | 在线验证 access token 的签名、撤销、session 和 subject access |
 | IDP | 第三方身份源基础设施，不直接签发 IAM token |
 
@@ -90,7 +96,7 @@ Access Token
 
 | 文档 | 作用 | 读完后应该能回答 |
 | --- | --- | --- |
-| `01-登录链路-从Login请求到Session与Token.md` | 解释一次登录如何被编排 | Login request 如何经过 MethodRegistry、ProofFactory、Authenticator、TokenIssuer |
+| `01-登录链路-从Login请求到Session与Token.md` | 解释一次登录如何被编排 | Login request 如何经过 MethodRegistry、ProofFactory、Authenticator、SessionTokenIssuer |
 | `02-认证语义-用户状态&会话&Token边界.md` | 解释认证对象边界 | Account/User/Session/Access Token/Refresh Token 的职责和状态变化 |
 | `03-JWKS与KeyRotation.md` | 解释 JWT 验签和密钥轮换 | JWKS、本地验签、`kid`、active/grace/retired key 如何工作 |
 | `04-第三方登录与IDP协作.md` | 解释微信/企微登录如何融入 AuthN | IDP 为什么只提供身份源基础设施，IAM token 为什么仍由 AuthN 签发 |
@@ -117,13 +123,15 @@ flowchart TD
     Login --> Method["MethodRegistry / LoginMethod"]
     Login --> Proof["ProofFactory / AuthCredential"]
     Login --> Principal["Principal"]
-    Login --> Issuer["TokenIssuer"]
+    Login --> SessionIssuer["SessionTokenIssuer"]
+    SessionIssuer --> PairIssuer["SessionTokenPairIssuer"]
     Login --> Reauth["Reauthenticate"]
 
     Semantics --> Account["Account"]
     Semantics --> User["User"]
     Semantics --> Session["Session"]
     Semantics --> Token["Access / Refresh Token"]
+    Semantics --> TokenFacade["TokenApplicationService"]
     Semantics --> Verify["TokenVerifier"]
 
     JWKS --> JWT["JWT / kid"]
@@ -149,8 +157,10 @@ sequenceDiagram
     participant Method as "LoginMethod"
     participant Proof as "ProofFactory"
     participant Authenticator as "Domain Authenticator"
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
     participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
+    participant Codec as "AccessTokenCodec"
     participant Store as "TokenStore"
 
     Client->>Transport: login(auth_method, method_payload)
@@ -164,11 +174,16 @@ sequenceDiagram
     Proof-->>Login: AuthCredential
     Login->>Authenticator: Authenticate(ctx, credential)
     Authenticator-->>Login: AuthDecision + Principal
-    Login->>Issuer: IssueToken(ctx, Principal)
-    Issuer->>Session: Create(ctx, Principal, refreshTTL)
-    Issuer->>Issuer: IssueAccessToken(principal + sessionID)
-    Issuer->>Store: SaveRefreshToken(sessionID)
-    Issuer-->>Client: TokenPair
+    Login->>SessionIssuer: IssueToken(ctx, Principal)
+    SessionIssuer->>Session: Create(ctx, Principal, refreshTTL)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(ctx, Principal, Session)
+    PairIssuer->>Codec: IssueAccessToken(ctx, Principal+SessionID, accessTTL)
+    Codec-->>PairIssuer: AccessToken
+    PairIssuer->>Store: SaveRefreshToken(ctx, RefreshToken)
+    Store-->>PairIssuer: ok
+    PairIssuer-->>SessionIssuer: TokenPair
+    SessionIssuer-->>Client: TokenPair
 ```
 
 这条链路表达的是：
@@ -287,9 +302,13 @@ Session / Token
 | proof 构造工厂 | `internal/apiserver/application/authn/login/proof/factory.go` |
 | proof 构造实现 | `internal/apiserver/application/authn/login/proof/` |
 | 领域认证入口 | `internal/apiserver/domain/authn/authentication/authenticater.go` |
-| token 签发 | `internal/apiserver/application/authn/token/issuer.go` |
+| 登录后 session token 签发 | `internal/apiserver/application/authn/token/session_issuer.go` |
+| 内部 token pair 签发 | `internal/apiserver/application/authn/token/pair_issuer.go` |
+| 服务间 token 签发 | `internal/apiserver/application/authn/token/service_issuer.go` |
+| token lifecycle façade | `internal/apiserver/application/authn/token/services.go` |
 | token 在线验证 | `internal/apiserver/application/authn/token/verifier.go` |
 | refresh token 轮换 | `internal/apiserver/application/authn/token/refresher.go` |
+| access token 撤销 | `internal/apiserver/application/authn/token/access_revoker.go` |
 | AuthN 应用装配 | `internal/apiserver/container/assembler/authn_application_builder.go` |
 
 ---

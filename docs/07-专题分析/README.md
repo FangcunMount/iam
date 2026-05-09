@@ -326,12 +326,12 @@ _archive 不作为当前事实源
 | --- | --- |
 | IAM 不是普通用户中心 | `README.md`、`docs/README.md`、`internal/apiserver/container` |
 | 拆分 AuthN/AuthZ/Identity/IDP | `internal/apiserver/container/assembler/authn.go`、`authz.go`、`user.go`、`idp.go` |
-| Session 与 RefreshToken | `application/authn/token/issuer.go`、`verifier.go`、`refresher.go`、`domain/authn/session` |
+| Session 与 RefreshToken | `application/authn/token/session_issuer.go`、`pair_issuer.go`、`verifier.go`、`refresher.go`、`domain/authn/session` |
 | JWKS 与在线 Verify | `infra/token/jwt`、`infra/token/keyset`、`transport/rest/authn/handler/jwks_public.go`、`token/verifier.go` |
 | AuthZ 写入不是 CRUD | `application/authz/policy/committer.go`、`application/authz/uow`、`infra/mysql/uow/authz` |
 | RoleBinding 与 Assignment | `domain/authz/model.go`、`domain/authz/rolebinding`、`transport/rest/authz/dto`、`api/grpc/iam/authz/v2/authz.proto` |
 | ProfileLink 不是 User 字段 | `domain/identity/user`、`domain/identity/profile`、`domain/identity/profilelink`、`application/identity/profile` |
-| IDP 只做基础设施 | `container/assembler/idp.go`、`domain/idp/wechatapp`、`application/authn/login/adapter_wechat_mini.go` |
+| IDP 只做基础设施 | `container/assembler/idp.go`、`domain/idp/wechatapp`、`application/authn/login/method/wechat.go`、`application/authn/login/proof/oauth.go` |
 | Transactional Outbox | `application/authz/shared/version_event.go`、`infra/mysql/eventoutbox`、`infra/messaging/outbox_relay.go` |
 | SDK 是接入产品层 | `pkg/sdk/README.md`、`pkg/sdk/client.go`、`pkg/sdk/public_api_compile_test.go` |
 | 系统演进路线 | `README.md`、`docs/README.md`、`08-宣讲/*`、`06-架构护栏/*` |

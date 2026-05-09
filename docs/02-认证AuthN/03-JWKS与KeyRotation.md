@@ -29,7 +29,8 @@ IAM 当前使用 RSA/JWT/JWKS 体系签发和验证 access token。
 
 ```text
 登录成功
-  -> TokenIssuer
+  -> SessionTokenIssuer
+  -> SessionTokenPairIssuer
   -> AccessTokenCodec
   -> JWT Generator
   -> JWTKeySource.ActiveSigningKey()
@@ -94,7 +95,8 @@ MaxKeysInJWKS    = 3
 ```mermaid
 flowchart TD
     Login["Login Success"]
-    Issuer["TokenIssuer"]
+    SessionIssuer["SessionTokenIssuer"]
+    PairIssuer["SessionTokenPairIssuer"]
     JWTGen["JWT Generator"]
     ActiveKey["JWTKeySource.ActiveSigningKey"]
     KeyManager["KeyManager.GetActiveKey"]
@@ -111,7 +113,7 @@ flowchart TD
     VerifyKey["JWTKeySource.VerificationKey(kid)"]
     SessionCheck["Session + Revocation + SubjectAccess"]
 
-    Login --> Issuer --> JWTGen --> ActiveKey --> KeyManager
+    Login --> SessionIssuer --> PairIssuer --> JWTGen --> ActiveKey --> KeyManager
     KeyManager --> KeyRepo
     ActiveKey --> PrivateResolver --> PrivatePEM
     JWTGen --> JWT
@@ -971,7 +973,8 @@ Grace key 的用途是验旧 token 和继续公开发布。
 ```text
 internal/apiserver/infra/token/jwt/generator.go
 internal/apiserver/infra/token/keyset/jwt_key_source.go
-internal/apiserver/application/authn/token/issuer.go
+internal/apiserver/application/authn/token/session_issuer.go
+internal/apiserver/application/authn/token/pair_issuer.go
 internal/apiserver/application/authn/token/verifier.go
 ```
 

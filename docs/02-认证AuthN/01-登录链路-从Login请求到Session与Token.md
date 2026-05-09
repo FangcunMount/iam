@@ -46,7 +46,8 @@ REST / gRPC Login
   -> AuthCredential
   -> domain Authenticator.Authenticate
   -> AuthDecision / Principal
-  -> TokenIssuer.IssueToken
+  -> SessionTokenIssuer.IssueToken
+  -> SessionTokenPairIssuer.IssueTokenPair
   -> Session + AccessToken + RefreshToken
   -> TokenPair
 ```
@@ -92,7 +93,8 @@ LoginApplicationService.Reauthenticate
 - [../../internal/apiserver/application/authn/login/method/selector.go](../../internal/apiserver/application/authn/login/method/selector.go)
 - [../../internal/apiserver/application/authn/login/proof/factory.go](../../internal/apiserver/application/authn/login/proof/factory.go)
 - [../../internal/apiserver/domain/authn/authentication/authenticater.go](../../internal/apiserver/domain/authn/authentication/authenticater.go)
-- [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
+- [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go)
+- [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)
 
 ---
 
@@ -110,8 +112,9 @@ sequenceDiagram
     participant Proof as "ProofFactory"
     participant Authenticator as "Domain Authenticator"
     participant Strategy as "AuthStrategy"
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
     participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
     participant Codec as "AccessTokenCodec"
     participant Store as "TokenStore"
 
@@ -130,11 +133,16 @@ sequenceDiagram
     Authenticator->>Strategy: Authenticate(ctx, credential)
     Strategy-->>Authenticator: AuthDecision
     Authenticator-->>SignIn: AuthDecision + Principal
-    SignIn->>Issuer: IssueToken(ctx, Principal)
-    Issuer->>Session: Create(ctx, Principal, refreshTTL)
-    Issuer->>Codec: IssueAccessToken(ctx, Principal+SessionID, accessTTL)
-    Issuer->>Store: SaveRefreshToken(ctx, RefreshToken)
-    Issuer-->>SignIn: TokenPair
+    SignIn->>SessionIssuer: IssueToken(ctx, Principal)
+    SessionIssuer->>Session: Create(ctx, Principal, refreshTTL)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(ctx, Principal, Session)
+    PairIssuer->>Codec: IssueAccessToken(ctx, Principal+SessionID, accessTTL)
+    Codec-->>PairIssuer: AccessToken
+    PairIssuer->>Store: SaveRefreshToken(ctx, RefreshToken)
+    Store-->>PairIssuer: ok
+    PairIssuer-->>SessionIssuer: TokenPair
+    SessionIssuer-->>SignIn: TokenPair
     SignIn-->>Transport: LoginResult
     Transport-->>C: access_token + refresh_token
 ```
@@ -155,7 +163,7 @@ sequenceDiagram
 | 方法 payload | `LoginMethod.BuildPayload` 校验并返回 method-specific payload。 | [../../internal/apiserver/application/authn/login/method/](../../internal/apiserver/application/authn/login/method/) |
 | 领域 proof 构造 | `ProofFactory.Build` 按 `CredentialKind` 选择 proof builder。 | [../../internal/apiserver/application/authn/login/proof/factory.go](../../internal/apiserver/application/authn/login/proof/factory.go) |
 | 领域认证入口 | `Authenticator.Authenticate(ctx, proof)` 按 `CredentialType()` 选择 strategy。 | [../../internal/apiserver/domain/authn/authentication/authenticater.go](../../internal/apiserver/domain/authn/authentication/authenticater.go) |
-| Token issue | `TokenIssuer.IssueToken` 创建 session、签 access token、保存 refresh token。 | [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go) |
+| Token issue | `SessionTokenIssuer.IssueToken` 创建 session，并委托 `SessionTokenPairIssuer.IssueTokenPair` 签 access token、保存 refresh token。 | [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go)、[../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go) |
 | bearer 再验证 | `Reauthenticate` 通过 `TokenVerifier.VerifyAccessToken` 校验已有 access token。 | [../../internal/apiserver/application/authn/login/re_authenticate.go](../../internal/apiserver/application/authn/login/re_authenticate.go)、[../../internal/apiserver/application/authn/login/reauth/token.go](../../internal/apiserver/application/authn/login/reauth/token.go) |
 
 ---
@@ -226,7 +234,7 @@ wecom
 }
 ```
 
-`device_id` 当前是 wire contract 字段，但登录 application request 尚未消费它。当前 session/token 的事实来源仍是 `Principal` 和 `TokenIssuer`。
+`device_id` 当前是 wire contract 字段，但登录 application request 尚未消费它。当前 session/token 的事实来源仍是 `Principal`、`SessionTokenIssuer` 和 `SessionTokenPairIssuer`。
 
 Transport 层只做协议适配：
 
@@ -408,12 +416,12 @@ AuthDecision{OK: false, Code: ...}
 
 ---
 
-## 7. TokenIssuer：创建登录态与 token
+## 7. SessionTokenIssuer：创建登录态并签发 token pair
 
 认证成功后，`SignIn` 调用：
 
 ```go
-TokenIssuer.IssueToken(ctx, principal)
+SessionTokenIssuer.IssueToken(ctx, principal)
 ```
 
 当前签发顺序是：
@@ -421,6 +429,7 @@ TokenIssuer.IssueToken(ctx, principal)
 ```text
 Principal
   -> SessionManager.Create(ctx, principal, sessionExpiresAt)
+  -> SessionTokenPairIssuer.IssueTokenPair(ctx, principal, session)
   -> AccessTokenCodec.IssueAccessToken(ctx, principalWithSession, accessTTL)
   -> TokenStore.SaveRefreshToken(ctx, refreshToken)
   -> TokenPair
@@ -430,13 +439,14 @@ Principal
 
 | 对象 | 创建位置 | 说明 |
 | --- | --- | --- |
-| Session | `TokenIssuer.IssueToken` | 一次在线登录态锚点，过期时间按 refresh TTL |
-| Access Token | `TokenIssuer.issueTokenPair` | 当前 infra 是 JWT/JWS，包含 session ID |
-| Refresh Token | `TokenIssuer.issueTokenPair` | uuid value，保存到 Redis token store，绑定 session |
+| Session | `SessionTokenIssuer.IssueToken` | 一次在线登录态锚点，过期时间按 refresh TTL |
+| Access Token | `SessionTokenPairIssuer.IssueTokenPair` | 当前 infra 是 JWT/JWS，包含 session ID |
+| Refresh Token | `SessionTokenPairIssuer.IssueTokenPair` | uuid value，保存到 Redis token store，绑定 session |
 
 核心源码：
 
-- [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
+- [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go)
+- [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)
 - [../../internal/apiserver/domain/authn/session/manager.go](../../internal/apiserver/domain/authn/session/manager.go)
 - [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 
@@ -491,7 +501,7 @@ REST `/authn/verify` 和 gRPC `VerifyToken` 当前仍属于 token lifecycle faca
 - [../../internal/apiserver/application/authn/login/re_authenticate.go](../../internal/apiserver/application/authn/login/re_authenticate.go)
 - [../../internal/apiserver/application/authn/login/reauth/token.go](../../internal/apiserver/application/authn/login/reauth/token.go)
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
-- [../../internal/apiserver/application/authn/token/service_verify.go](../../internal/apiserver/application/authn/token/service_verify.go)
+- [../../internal/apiserver/application/authn/token/services.go](../../internal/apiserver/application/authn/token/services.go)
 
 ---
 
@@ -581,9 +591,11 @@ internal/apiserver/domain/authn/authentication/auth-wechat-com.go
 ### 第五轮：登录态和 token
 
 ```text
-internal/apiserver/application/authn/token/issuer.go
+internal/apiserver/application/authn/token/session_issuer.go
+internal/apiserver/application/authn/token/pair_issuer.go
 internal/apiserver/application/authn/token/verifier.go
 internal/apiserver/application/authn/token/refresher.go
+internal/apiserver/application/authn/token/services.go
 internal/apiserver/domain/authn/session/
 internal/apiserver/infra/cache/redis/token-store.go
 internal/apiserver/infra/cache/redis/session_store.go

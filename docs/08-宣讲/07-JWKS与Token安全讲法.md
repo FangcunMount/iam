@@ -38,7 +38,7 @@ JWKS 证明 token 签名可信，在线 Verify 证明 token 当前可用，Sessi
 ## 2. 30 秒讲法
 
 ```text
-IAM 的 Token 安全不是简单发一个 JWT。登录成功后，TokenIssuer 会先创建 Session，再签发短期 Access Token，并把 Refresh Token 保存到服务端。Access Token 是 JWT，适合业务请求携带和通过 JWKS 本地验签；Refresh Token 是随机凭证，服务端保存、可撤销、可轮换，用来续期；Session 是在线登录态锚点，在线 Verify 和 Refresh 都会检查 Session 是否 active。JWKS 负责把公钥发布给业务服务做本地验签，在线 Verify 则在验签之外检查 token 是否 revoked、Session 是否 active、User/Account 是否仍可用。
+IAM 的 Token 安全不是简单发一个 JWT。登录成功后，SessionTokenIssuer 会先创建 Session，再由 SessionTokenPairIssuer 签发短期 Access Token，并把 Refresh Token 保存到服务端。Access Token 是 JWT，适合业务请求携带和通过 JWKS 本地验签；Refresh Token 是随机凭证，服务端保存、可撤销、可轮换，用来续期；Session 是在线登录态锚点，在线 Verify 和 Refresh 都会检查 Session 是否 active。JWKS 负责把公钥发布给业务服务做本地验签，在线 Verify 则在验签之外检查 token 是否 revoked、Session 是否 active、User/Account 是否仍可用。
 ```
 
 ---
@@ -60,7 +60,7 @@ Token 安全这块，我主要从三层讲。第一层是凭证分工：Access T
 ```text
 IAM 的 Token 安全设计，我会先强调一个前提：JWT 本身只能证明 token 没被篡改，并且是某个私钥签发的，但它不能证明用户当前仍然允许访问系统。因此我没有把登录态设计成一个长期 JWT，而是拆成 Session、Access Token、Refresh Token、JWKS 和在线 Verify。
 
-登录签发时，AuthN 认证成功会得到 Principal。TokenIssuer 首先基于 Principal 创建 Session，Session 的生命周期和 refresh 窗口绑定；然后在 Access Token 里写入 UserID、AccountID、TenantID、SessionID、AMR 等 claims，使用当前 active signing key 签名，并把 kid 写到 JWT header；最后生成随机 Refresh Token，并把 Refresh Token 和 SessionID、UserID、AccountID、TenantID 等信息保存到服务端 store。
+登录签发时，AuthN 认证成功会得到 Principal。SessionTokenIssuer 首先基于 Principal 创建 Session，Session 的生命周期和 refresh 窗口绑定；然后 SessionTokenPairIssuer 在 Access Token 里写入 UserID、AccountID、TenantID、SessionID、AMR 等 claims，使用当前 active signing key 签名，并把 kid 写到 JWT header；最后生成随机 Refresh Token，并把 Refresh Token 和 SessionID、UserID、AccountID、TenantID 等信息保存到服务端 store。
 
 验证时有两种模式。第一种是 JWKS 本地验签。业务服务拿到 token 后，根据 header 里的 kid 从 JWKS 找公钥，验证签名和 exp、aud、iss 等静态 claims。这种方式性能好，适合低风险高吞吐场景。第二种是在线 Verify。在线 Verify 先验 JWT，再检查 revoked access token marker，然后通过 session_id 加载 Session，确认 Session active，最后检查 User/Account 状态。如果用户被 block、账号 disabled、session revoked，即使 JWT 签名有效，在线 Verify 也会失败。
 
@@ -78,18 +78,21 @@ Refresh 时也不是简单换一个 token。系统会从服务端 store 读取 R
 ```mermaid
 sequenceDiagram
     participant AuthN as "AuthN"
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
     participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
     participant JWT as "JWT Generator"
     participant Store as "TokenStore"
 
-    AuthN->>Issuer: IssueToken(principal)
-    Issuer->>Session: Create(principal, refreshTTL)
-    Session-->>Issuer: SessionID
-    Issuer->>JWT: IssueAccessToken(principal + sessionID, accessTTL)
-    JWT-->>Issuer: AccessToken(JWT + kid)
-    Issuer->>Store: SaveRefreshToken(refreshToken + sessionID)
-    Issuer-->>AuthN: TokenPair
+    AuthN->>SessionIssuer: IssueToken(principal)
+    SessionIssuer->>Session: Create(principal, refreshTTL)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(principal, session)
+    PairIssuer->>JWT: IssueAccessToken(principal + sessionID, accessTTL)
+    JWT-->>PairIssuer: AccessToken(JWT + kid)
+    PairIssuer->>Store: SaveRefreshToken(refreshToken + sessionID)
+    PairIssuer-->>SessionIssuer: TokenPair
+    SessionIssuer-->>AuthN: TokenPair
 ```
 
 讲图时说：
@@ -502,7 +505,7 @@ Token 安全是 AuthN 的核心能力。
 讲法：
 
 ```text
-Login 认证出 Principal，TokenIssuer 创建 Session 并签发 token，Verifier 负责在线状态判断。
+Login 认证出 Principal，SessionTokenIssuer 创建 Session，SessionTokenPairIssuer 签发 token，Verifier 负责在线状态判断。
 ```
 
 ---
@@ -553,7 +556,7 @@ SDK 让业务服务按风险选择本地验签、在线 Verify 或 fallback 策�
 
 | 讲法 | 证据 |
 | --- | --- |
-| IssueToken 先创建 Session，再签发 Access Token 和保存 Refresh Token | `application/authn/token/issuer.go` |
+| SessionTokenIssuer 先创建 Session，SessionTokenPairIssuer 再签发 Access Token 和保存 Refresh Token | `application/authn/token/session_issuer.go`、`application/authn/token/pair_issuer.go` |
 | Access Token 带 SessionID/UserID/AccountID/TenantID | `infra/token/jwt/generator.go` |
 | JWT header 带 kid，并通过 active signing key 签名 | `infra/token/jwt/generator.go` |
 | Verify 检查 expired、revoked marker、Session active、User/Account 状态 | `application/authn/token/verifier.go` |
@@ -561,7 +564,7 @@ SDK 让业务服务按风险选择本地验签、在线 Verify 或 fallback 策�
 | Key 有 active/grace/retired 状态 | `infra/token/keyset/key.go` |
 | JWKS 只发布 active/grace 且未过期的 key | `infra/token/keyset/key.go` |
 | JWKS endpoint 返回 ETag/Last-Modified/Cache-Control | `transport/rest/authn/handler/jwks_public.go` |
-| Service Token 由 IssueServiceToken 签发，不带 refresh token | `application/authn/token/issuer.go` |
+| Service Token 由 ServiceTokenIssuer.IssueServiceToken 签发，不带 refresh token | `application/authn/token/service_issuer.go` |
 
 ---
 

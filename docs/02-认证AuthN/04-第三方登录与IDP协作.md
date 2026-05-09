@@ -47,7 +47,8 @@ REST / gRPC Login
   -> IdentityProvider code exchange
   -> OAuth credential binding lookup
   -> Principal
-  -> TokenIssuer
+  -> SessionTokenIssuer
+  -> SessionTokenPairIssuer
   -> Session + IAM Access Token + Refresh Token
 ```
 
@@ -101,7 +102,8 @@ flowchart TD
     CredentialRepo["OAuth Credential Repository"]
     AccountRepo["Account Repository"]
     Principal["Principal"]
-    TokenIssuer["TokenIssuer"]
+    SessionIssuer["SessionTokenIssuer"]
+    PairIssuer["SessionTokenPairIssuer"]
     SessionToken["Session + IAM Tokens"]
 
     Client --> Login --> LoginRequest --> Registry --> LoginMethod --> ProofFactory
@@ -111,7 +113,7 @@ flowchart TD
     Strategy --> IdentityProvider
     Strategy --> CredentialRepo
     Strategy --> AccountRepo
-    Strategy --> Principal --> TokenIssuer --> SessionToken
+    Strategy --> Principal --> SessionIssuer --> PairIssuer --> SessionToken
 ```
 
 ---
@@ -319,7 +321,8 @@ BuildExplicitLoginRequest
   -> CredentialRepository.FindOAuthCredential
   -> account status check
   -> Principal
-  -> TokenIssuer.IssueToken
+  -> SessionTokenIssuer.IssueToken
+  -> SessionTokenPairIssuer.IssueTokenPair
 ```
 
 ```mermaid
@@ -333,7 +336,9 @@ sequenceDiagram
     participant Strategy as "OAuthWechatMinipAuthStrategy"
     participant IDP as "IdentityProvider"
     participant CredRepo as "OAuth Credential Repository"
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
+    participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
 
     C->>Login: auth_method=wechat, app_id, code
     Login->>Registry: Select(LoginRequest)
@@ -346,7 +351,10 @@ sequenceDiagram
     Strategy->>IDP: ExchangeWxMinipCode(app_id, secret, code)
     Strategy->>CredRepo: FindOAuthCredential(openid/unionid)
     Strategy-->>Login: Principal
-    Login->>Issuer: IssueToken(Principal)
+    Login->>SessionIssuer: IssueToken(Principal)
+    SessionIssuer->>Session: Create(Principal)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(Principal, Session)
 ```
 
 关键点：
@@ -355,7 +363,7 @@ sequenceDiagram
 - `ProofFactory` 查询 WechatApp 并解密 AppSecret；
 - `OAuthWechatMinipAuthStrategy` 调用外部 `IdentityProvider` 做 code exchange；
 - OAuth binding 缺失时返回 `ErrNoBinding`，不会自动创建用户；
-- AuthN 最终统一签发 IAM Session 和 tokens。
+- AuthN 最终通过 `SessionTokenIssuer` 创建 IAM Session，并由 `SessionTokenPairIssuer` 签发 access/refresh token。
 
 ---
 
@@ -392,7 +400,8 @@ BuildExplicitLoginRequest
   -> CredentialRepository.FindOAuthCredential
   -> account status check
   -> Principal
-  -> TokenIssuer.IssueToken
+  -> SessionTokenIssuer.IssueToken
+  -> SessionTokenPairIssuer.IssueTokenPair
 ```
 
 ```mermaid
@@ -406,7 +415,9 @@ sequenceDiagram
     participant Strategy as "OAuthWeChatComAuthStrategy"
     participant IDP as "IdentityProvider"
     participant CredRepo as "OAuth Credential Repository"
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
+    participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
 
     C->>Login: auth_method=wecom, corp_id, auth_code
     Login->>Registry: Select(LoginRequest)
@@ -420,7 +431,10 @@ sequenceDiagram
     Strategy->>IDP: ExchangeWecomCode(corp_id, agent_id, secret, code)
     Strategy->>CredRepo: FindOAuthCredential(user_id/open_user_id)
     Strategy-->>Login: Principal
-    Login->>Issuer: IssueToken(Principal)
+    Login->>SessionIssuer: IssueToken(Principal)
+    SessionIssuer->>Session: Create(Principal)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(Principal, Session)
 ```
 
 关键点：
@@ -430,7 +444,7 @@ sequenceDiagram
 - `ProofFactory` 负责准备 `corp_id + agent_id + corp_secret + code`；
 - `OAuthWeChatComAuthStrategy` 调用企业微信 code exchange；
 - OAuth binding 缺失时返回 `ErrNoBinding`；
-- AuthN 仍然统一创建 Session 和 IAM tokens。
+- AuthN 仍然通过 `SessionTokenIssuer` 创建 Session，并通过 `SessionTokenPairIssuer` 签发 IAM tokens。
 
 ---
 
@@ -453,7 +467,7 @@ sequenceDiagram
 
 IAM access token：
 
-- 由 AuthN `TokenIssuer` 签发；
+- 由 AuthN `SessionTokenIssuer` 触发签发，并由内部 `SessionTokenPairIssuer` 调用 access token codec；
 - 当前实现为 JWT/JWS；
 - 携带 IAM user/account/session 信息；
 - 可通过 JWKS 本地验签；
@@ -559,7 +573,8 @@ internal/apiserver/domain/authn/authentication/external.go
 ### 第五轮：登录态签发
 
 ```text
-internal/apiserver/application/authn/token/issuer.go
+internal/apiserver/application/authn/token/session_issuer.go
+internal/apiserver/application/authn/token/pair_issuer.go
 internal/apiserver/application/authn/token/verifier.go
 internal/apiserver/application/authn/token/refresher.go
 ```
@@ -576,6 +591,6 @@ internal/apiserver/application/authn/token/refresher.go
 2. application 层只描述 `MethodRegistry`、`LoginMethod`、`ProofFactory`；
 3. code exchange 写在 domain strategy；
 4. IDP 只写基础设施能力；
-5. IAM token 只由 AuthN `TokenIssuer` 签发；
+5. IAM 登录态 token 只由 AuthN `SessionTokenIssuer` / `SessionTokenPairIssuer` 签发；
 6. OAuth binding 缺失不自动登录成功；
 7. Mermaid 图中不出现已移除的旧应用层组件。

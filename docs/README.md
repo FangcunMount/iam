@@ -233,7 +233,8 @@ docs/
 - ProofFactory / AuthCredential；
 - Authenticator / AuthStrategy；
 - Principal；
-- TokenIssuer；
+- SessionTokenIssuer / SessionTokenPairIssuer；
+- TokenApplicationService；
 - Reauthenticate；
 - Session；
 - Refresh Token；

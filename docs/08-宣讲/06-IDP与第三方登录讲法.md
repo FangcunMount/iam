@@ -37,7 +37,7 @@ IDP 证明外部身份源如何接入，AuthN 决定外部身份能不能登录 
 ## 2. 30 秒讲法
 
 ```text
-IAM 里的 IDP 不是登录模块，而是第三方身份源基础设施模块。它负责微信/企微应用配置、AppSecret 或 CorpSecret 的 SecretVault 加密管理、微信平台 access_token 缓存和微信 API 适配。真正的登录链路仍然走 AuthN：微信或企微登录时，AuthN adapter 会向 IDP 查询应用配置、解密 secret、调用外部身份源完成 code exchange，然后再由 AuthN 做账号绑定、Principal、Session 和 IAM Token 签发。这样能保证密码登录、微信登录、企微登录最终都走同一套 Session、Refresh、Verify、Revoke 和 JWKS 语义。
+IAM 里的 IDP 不是登录模块，而是第三方身份源基础设施模块。它负责微信/企微应用配置、AppSecret 或 CorpSecret 的 SecretVault 加密管理、微信平台 access_token 缓存和微信 API 适配。真正的登录链路仍然走 AuthN：微信或企微登录时，AuthN LoginMethod / ProofFactory 会向 IDP 查询应用配置、解密 secret、调用外部身份源完成 code exchange，然后再由 AuthN 做账号绑定、Principal、Session 和 IAM Token 签发。这样能保证密码登录、微信登录、企微登录最终都走同一套 Session、Refresh、Verify、Revoke 和 JWKS 语义。
 ```
 
 ---
@@ -49,7 +49,7 @@ IDP 这块最重要的是边界。第三方登录很容易被写成“微信 cod
 
 所以在 IAM 中，IDP 只做第三方身份源基础设施。比如微信应用的 AppID、AppSecret、应用状态、凭据轮换、微信 access_token 缓存、微信/企微 API 调用都归 IDP 管。IDP 通过 Repository、SecretVault、WechatAuthProvider 这些能力提供给 AuthN 使用。
 
-真正的登录入口仍在 AuthN。用户提交微信 code 或企微 auth_code 后，AuthN 的 adapter 会先从 IDP 拿应用配置和密钥，再构造领域 proof，交给 Authenticator 做认证。认证成功后得到 Principal，最后由 AuthN 的 TokenIssuer 创建 Session、签发 Access Token 和 Refresh Token。
+真正的登录入口仍在 AuthN。用户提交微信 code 或企微 auth_code 后，AuthN 的登录方法和 ProofFactory 会先从 IDP 拿应用配置和密钥，再构造领域 proof，交给 Authenticator 做认证。认证成功后得到 Principal，最后由 AuthN 的 SessionTokenIssuer 创建 Session，并由 SessionTokenPairIssuer 签发 Access Token 和 Refresh Token。
 
 这样做的价值是：外部身份源可以独立治理，但 IAM 登录态保持统一。
 ```
@@ -109,20 +109,23 @@ IDP 只提供外部身份源能力，AuthN 仍然是登录编排者和 IAM token
 sequenceDiagram
     participant Client as "Mini Program"
     participant AuthN as "AuthN Login"
-    participant Adapter as "WechatMiniAdapter"
+    participant Method as "Wechat LoginMethod"
+    participant Proof as "ProofFactory"
     participant IDP as "IDP Repository / SecretVault"
     participant WeChat as "WeChat API"
-    participant Token as "TokenIssuer"
+    participant Token as "SessionTokenIssuer / SessionTokenPairIssuer"
 
     Client->>AuthN: login(app_id, js_code)
-    AuthN->>Adapter: PrepareProof
-    Adapter->>IDP: GetByAppID(app_id)
-    Adapter->>IDP: Decrypt(AppSecretCipher)
-    Adapter->>WeChat: code2Session
-    WeChat-->>Adapter: openid / unionid
-    Adapter-->>AuthN: WechatMiniCredential
+    AuthN->>Method: BuildPayload
+    Method-->>AuthN: WechatPayload
+    AuthN->>Proof: Build
+    Proof->>IDP: GetByAppID(app_id)
+    Proof->>IDP: Decrypt(AppSecretCipher)
+    Proof->>WeChat: code2Session
+    WeChat-->>Proof: openid / unionid
+    Proof-->>AuthN: WechatMiniCredential
     AuthN->>AuthN: Account binding + Principal
-    AuthN->>Token: IssueToken(principal)
+    AuthN->>Token: IssueToken + IssueTokenPair
     Token-->>Client: IAM AccessToken + RefreshToken
 ```
 
@@ -228,14 +231,14 @@ AuthN 不直接散落微信 SDK 逻辑，而是通过 IDP 提供的 AuthProvider
 
 ---
 
-### 6.5 AuthN Adapter
+### 6.5 AuthN LoginMethod / ProofFactory
 
-AuthN adapter 是第三方登录进入 AuthN 的适配层。
+AuthN LoginMethod / ProofFactory 是第三方登录进入 AuthN 的应用层入口。
 
 讲法：
 
 ```text
-adapter 从 IDP 拿配置和密钥，把微信/企微 payload 转成 AuthN 领域 proof，后续仍由 AuthN 完成账号绑定、Principal、Session 和 Token。
+LoginMethod 校验微信/企微 payload，ProofFactory 从 IDP 拿配置和密钥并构造 AuthN 领域 proof，后续仍由 AuthN 完成账号绑定、Principal、Session 和 Token。
 ```
 
 ---
@@ -371,7 +374,7 @@ IDP 登录后发 JWT。
 问题：
 
 ```text
-错误。IAM JWT 由 AuthN TokenIssuer 统一签发。
+错误。IAM 登录态 JWT 由 AuthN SessionTokenIssuer / SessionTokenPairIssuer 统一签发。
 ```
 
 ---
@@ -403,7 +406,7 @@ IDP 负责第三方身份源基础设施，比如微信/企微应用配置、Sec
 ### Q2：为什么不让 IDP 直接签发 IAM token？
 
 ```text
-如果 IDP 直接签发 token，就会导致微信登录、企微登录、密码登录各自形成一套 token/session/refresh/revoke 语义。IAM 需要所有登录方式最终走同一套 AuthN 登录态，所以 IAM access token 必须由 AuthN TokenIssuer 统一签发。
+如果 IDP 直接签发 token，就会导致微信登录、企微登录、密码登录各自形成一套 token/session/refresh/revoke 语义。IAM 需要所有登录方式最终走同一套 AuthN 登录态，所以 IAM 登录态 access token 必须由 AuthN SessionTokenIssuer / SessionTokenPairIssuer 统一签发。
 ```
 
 ---
@@ -427,7 +430,7 @@ code2Session 只能证明这个 code 对应某个微信 openid/unionid，不能�
 ### Q5：SecretVault 在这里解决什么问题？
 
 ```text
-SecretVault 负责 AppSecret、CorpSecret 等外部身份源密钥的加密、解密和后续托管。这样登录 adapter 只在需要构造 proof 时借用解密结果，不负责密钥生命周期，后续也可以替换成 KMS/HSM。
+SecretVault 负责 AppSecret、CorpSecret 等外部身份源密钥的加密、解密和后续托管。这样 AuthN ProofFactory 只在需要构造 proof 时借用解密结果，不负责密钥生命周期，后续也可以替换成 KMS/HSM。
 ```
 
 ---
@@ -435,7 +438,7 @@ SecretVault 负责 AppSecret、CorpSecret 等外部身份源密钥的加密、�
 ### Q6：企业微信登录有什么安全点？
 
 ```text
-企业微信登录里，corp_id 和 auth_code 来自客户端，但 agent_id 使用服务端配置，不信任客户端传入。AuthN adapter 会查询 IDP 中的应用配置，检查启用状态，再通过 SecretVault 解密 CorpSecret，最后才构造 WecomCredential。
+企业微信登录里，corp_id 和 auth_code 来自客户端，但 agent_id 使用服务端配置，不信任客户端传入。AuthN ProofFactory 会查询 IDP 中的应用配置，检查启用状态，再通过 SecretVault 解密 CorpSecret，最后才构造 WecomCredential。
 ```
 
 ---
@@ -522,8 +525,8 @@ IDP 不只是代码逻辑，还需要密钥治理、缓存治理和管理面保�
 | IDP 暴露 Repository / SecretVault / WechatAuthProvider | `IDPModule` 方法 |
 | WechatApp 包含 AppID、Name、Type、Status、Credentials | `domain/idp/wechatapp/wechatapp.go` |
 | SecretVault 定义 Encrypt / Decrypt / Sign | `domain/idp/wechatapp/external.go` |
-| 微信小程序 adapter 从 IDP 查询 App、检查启用、解密 AppSecret | `application/authn/login/adapter_wechat_mini.go` |
-| 企业微信 adapter 从 IDP 查询 App、检查启用、解密 CorpSecret，并使用服务端 AgentID | `application/authn/login/adapter_wecom.go` |
+| 微信小程序 ProofFactory 从 IDP 查询 App、检查启用、解密 AppSecret | `application/authn/login/method/wechat.go`、`application/authn/login/proof/oauth.go` |
+| 企业微信 ProofFactory 从 IDP 查询 App、检查启用、解密 CorpSecret，并使用服务端 AgentID | `application/authn/login/method/wecom.go`、`application/authn/login/proof/oauth.go` |
 | IDP REST 明确认证由 AuthN 提供 | `transport/rest/idp/router.go` |
 | IDP 管理路由需要 admin middleware | `transport/rest/idp/router.go` |
 
@@ -532,7 +535,7 @@ IDP 不只是代码逻辑，还需要密钥治理、缓存治理和管理面保�
 ## 12. 简历项目描述版本
 
 ```text
-设计并实现 IAM IDP 与第三方登录协作边界，将微信/企微应用配置、SecretVault 密钥托管、微信平台 access_token 缓存和外部 API 适配放在 IDP 模块中，认证登录态统一由 AuthN 处理。微信/企微登录通过 AuthN adapter 从 IDP 查询应用配置、解密 AppSecret/CorpSecret、构造领域 proof，再由 AuthN 完成账号绑定、Principal、Session 和 IAM Token 签发，避免第三方身份源直接污染登录态模型。
+设计并实现 IAM IDP 与第三方登录协作边界，将微信/企微应用配置、SecretVault 密钥托管、微信平台 access_token 缓存和外部 API 适配放在 IDP 模块中，认证登录态统一由 AuthN 处理。微信/企微登录通过 AuthN LoginMethod 和 ProofFactory 从 IDP 查询应用配置、解密 AppSecret/CorpSecret、构造领域 proof，再由 AuthN 完成账号绑定、Principal、Session 和 IAM Token 签发，避免第三方身份源直接污染登录态模型。
 ```
 
 ---
@@ -577,5 +580,5 @@ AuthN 管 IAM 登录态
 推荐最终表达：
 
 ```text
-IAM 中的 IDP 负责微信/企微应用配置、SecretVault、微信平台 access_token 和外部 API 适配。微信或企微登录时，AuthN adapter 会向 IDP 查询应用配置、解密 secret、调用外部身份源构造 proof，但真正的账号绑定、Principal、Session、Access Token 和 Refresh Token 仍由 AuthN 统一处理。这样既能独立治理第三方身份源，又能保证所有登录方式最终共享同一套 IAM 登录态和 Token 生命周期。
+IAM 中的 IDP 负责微信/企微应用配置、SecretVault、微信平台 access_token 和外部 API 适配。微信或企微登录时，AuthN LoginMethod / ProofFactory 会向 IDP 查询应用配置、解密 secret、调用外部身份源构造 proof，但真正的账号绑定、Principal、Session、Access Token 和 Refresh Token 仍由 AuthN 统一处理。这样既能独立治理第三方身份源，又能保证所有登录方式最终共享同一套 IAM 登录态和 Token 生命周期。
 ```

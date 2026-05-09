@@ -70,9 +70,13 @@ load refresh token
 
 核心源码入口：
 
-- [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
+- [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go)
+- [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)
+- [../../internal/apiserver/application/authn/token/service_issuer.go](../../internal/apiserver/application/authn/token/service_issuer.go)
+- [../../internal/apiserver/application/authn/token/services.go](../../internal/apiserver/application/authn/token/services.go)
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
 - [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go)
+- [../../internal/apiserver/application/authn/token/access_revoker.go](../../internal/apiserver/application/authn/token/access_revoker.go)
 - [../../internal/apiserver/domain/authn/session/session.go](../../internal/apiserver/domain/authn/session/session.go)
 - [../../internal/apiserver/domain/authn/session/manager.go](../../internal/apiserver/domain/authn/session/manager.go)
 - [../../internal/apiserver/domain/authn/session/subject_access.go](../../internal/apiserver/domain/authn/session/subject_access.go)
@@ -93,27 +97,49 @@ LoginApplicationService.Login
   -> MethodRegistry.Select
   -> ProofFactory.Build
   -> Authenticator.Authenticate
-  -> TokenIssuer.IssueToken
+  -> SessionTokenIssuer.IssueToken
+  -> SessionTokenPairIssuer.IssueTokenPair
 
 LoginApplicationService.Reauthenticate
   -> ReAuthenticator
   -> TokenVerifier.VerifyAccessToken
   -> AuthResult
+
+TokenApplicationService.IssueServiceToken
+  -> ServiceTokenIssuer.IssueServiceToken
+
+TokenApplicationService.RefreshToken
+  -> Refresher.RefreshToken
+  -> SessionTokenPairIssuer.IssueTokenPair
+
+TokenApplicationService.RevokeAccessToken
+  -> AccessRevoker.RevokeAccessToken
+
+TokenApplicationService.RevokeRefreshToken
+  -> RefreshRevoker.RevokeRefreshToken
+
+TokenApplicationService.VerifyToken
+  -> TokenVerifier.VerifyAccessToken
+  -> expected issuer/audience check
 ```
 
 因此：
 
 - `Login` 只处理 password、phone_otp、wechat、wecom 这类凭据登录，并在认证成功后签发新的 Session/Token；
 - `Reauthenticate` 用于 bearer access token 再验证，不创建 session，也不签发新 token；
-- REST `/authn/verify` 和 gRPC `VerifyToken` 属于 token lifecycle facade，底层同样依赖 `TokenVerifier`，并可额外检查 expected issuer/audience；
+- `TokenApplicationService` 是 token lifecycle façade，`IssueServiceToken`、`RefreshToken`、`RevokeAccessToken`、`RevokeRefreshToken`、`VerifyToken` 分别委托给 `ServiceTokenIssuer`、`Refresher`、`AccessRevoker`、`RefreshRevoker` 和 `TokenVerifier`；
+- REST `/authn/verify` 和 gRPC `VerifyToken` 属于 token lifecycle façade，底层同样依赖 `TokenVerifier`，并可额外检查 expected issuer/audience；
 - 无论通过 `Reauthenticate` 还是 `VerifyToken`，在线验证都必须回查 revoked marker、session、User/Account subject access。
 
 核心源码：
 
 - [../../internal/apiserver/application/authn/login/re_authenticate.go](../../internal/apiserver/application/authn/login/re_authenticate.go)
 - [../../internal/apiserver/application/authn/login/reauth/token.go](../../internal/apiserver/application/authn/login/reauth/token.go)
+- [../../internal/apiserver/application/authn/token/services.go](../../internal/apiserver/application/authn/token/services.go)
+- [../../internal/apiserver/application/authn/token/service_issuer.go](../../internal/apiserver/application/authn/token/service_issuer.go)
+- [../../internal/apiserver/application/authn/token/access_revoker.go](../../internal/apiserver/application/authn/token/access_revoker.go)
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
-- [../../internal/apiserver/application/authn/token/service_verify.go](../../internal/apiserver/application/authn/token/service_verify.go)
+- [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go)
 
 ---
 
@@ -155,9 +181,9 @@ flowchart TD
 | User 状态有哪些 | `active`、`inactive`、`blocked`。 | [../../internal/apiserver/domain/identity/user/types.go](../../internal/apiserver/domain/identity/user/types.go)、[../../internal/apiserver/domain/identity/user/user.go](../../internal/apiserver/domain/identity/user/user.go) |
 | Account 状态有哪些 | active、disabled、archived、deleted 等。 | [../../internal/apiserver/domain/authn/account/account.go](../../internal/apiserver/domain/authn/account/account.go) |
 | Session 状态有哪些 | `active`、`revoked`、`expired`。 | [../../internal/apiserver/domain/authn/session/session.go](../../internal/apiserver/domain/authn/session/session.go) |
-| Session 何时创建 | 登录成功后 `TokenIssuer.IssueToken` 调用 `SessionManager.Create`。 | [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go) |
-| Access Token 如何创建 | `AccessTokenCodec.IssueAccessToken`，当前 infra 是 JWT/JWS。 | [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)、[../../internal/apiserver/infra/token/jwt/generator.go](../../internal/apiserver/infra/token/jwt/generator.go) |
-| Refresh Token 如何创建 | `uuid` value + Redis store，关联 session/user/account/tenant/amr/claims。 | [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)、[../../internal/apiserver/application/authn/token/types.go](../../internal/apiserver/application/authn/token/types.go) |
+| Session 何时创建 | 登录成功后 `SessionTokenIssuer.IssueToken` 调用 `SessionManager.Create`。 | [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go) |
+| Access Token 如何创建 | `SessionTokenPairIssuer.IssueTokenPair` 调用 `AccessTokenCodec.IssueAccessToken`，当前 infra 是 JWT/JWS。 | [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)、[../../internal/apiserver/infra/token/jwt/generator.go](../../internal/apiserver/infra/token/jwt/generator.go) |
+| Refresh Token 如何创建 | `SessionTokenPairIssuer.IssueTokenPair` 生成 `uuid` value 并保存到 Redis，关联 session/user/account/tenant/amr/claims。 | [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)、[../../internal/apiserver/application/authn/token/types.go](../../internal/apiserver/application/authn/token/types.go) |
 | 在线 Verify 检查什么 | JWT、过期、撤销标记、session active、user/account access。 | [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go) |
 | Refresh 检查什么 | refresh token、session active、user/account access、refresh token expiry。 | [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go) |
 | User/Account 访问状态在哪里汇总 | `SubjectAccessEvaluator`。 | [../../internal/apiserver/domain/authn/session/evaluator.go](../../internal/apiserver/domain/authn/session/evaluator.go) |
@@ -412,7 +438,7 @@ stateDiagram-v2
 
 ### Session 什么时候创建
 
-登录成功后，TokenIssuer 调用：
+登录成功后，`SessionTokenIssuer` 调用：
 
 ```text
 SessionManager.Create(ctx, principal, now + refreshTTL)
@@ -435,7 +461,7 @@ Redis SessionStore 保存：
 
 - [../../internal/apiserver/domain/authn/session/session.go](../../internal/apiserver/domain/authn/session/session.go)
 - [../../internal/apiserver/domain/authn/session/manager.go](../../internal/apiserver/domain/authn/session/manager.go)
-- [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
+- [../../internal/apiserver/application/authn/token/session_issuer.go](../../internal/apiserver/application/authn/token/session_issuer.go)
 - [../../internal/apiserver/infra/cache/redis/session_store.go](../../internal/apiserver/infra/cache/redis/session_store.go)
 
 ---
@@ -487,7 +513,7 @@ JWT 自身可以离线验签，但在线 Verify 还会检查：
 
 核心源码：
 
-- [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
+- [../../internal/apiserver/application/authn/token/pair_issuer.go](../../internal/apiserver/application/authn/token/pair_issuer.go)
 - [../../internal/apiserver/application/authn/token/types.go](../../internal/apiserver/application/authn/token/types.go)
 - [../../internal/apiserver/infra/token/jwt/generator.go](../../internal/apiserver/infra/token/jwt/generator.go)
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
@@ -517,12 +543,12 @@ Refresh Token 的 Redis key 基于 token value，TTL 为 refresh token 剩余有
 
 ```mermaid
 flowchart TD
-    Issuer["TokenIssuer"]
+    PairIssuer["SessionTokenPairIssuer"]
     UUID["uuid refresh token value"]
     Token["RefreshToken model"]
     Redis["Redis refresh_token:{value}"]
 
-    Issuer --> UUID --> Token --> Redis
+    PairIssuer --> UUID --> Token --> Redis
 ```
 
 ### Refresh Token 与 Session 的关系
@@ -549,7 +575,7 @@ Refresh Token 绑定 session。
 
 ## 8. 登录成功后的状态关系
 
-登录成功时，TokenIssuer 做三件事：
+登录成功时，`SessionTokenIssuer` 和 `SessionTokenPairIssuer` 分工完成三件事：
 
 ```text
 create session
@@ -559,17 +585,20 @@ save refresh token
 
 ```mermaid
 sequenceDiagram
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
     participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
     participant Codec as "AccessTokenCodec"
     participant Store as "TokenStore"
 
-    Issuer->>Session: Create(principal, now + refreshTTL)
-    Session-->>Issuer: SessionID
-    Issuer->>Codec: IssueAccessToken(principal + sessionID, accessTTL)
-    Codec-->>Issuer: AccessToken
-    Issuer->>Store: SaveRefreshToken(refreshToken)
-    Store-->>Issuer: ok
+    SessionIssuer->>Session: Create(principal, now + refreshTTL)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(principal, session)
+    PairIssuer->>Codec: IssueAccessToken(principal + sessionID, accessTTL)
+    Codec-->>PairIssuer: AccessToken
+    PairIssuer->>Store: SaveRefreshToken(refreshToken)
+    Store-->>PairIssuer: ok
+    PairIssuer-->>SessionIssuer: TokenPair
 ```
 
 结果是：
@@ -600,6 +629,8 @@ tokenCodec.VerifyAccessToken
   -> accessChecker.Evaluate(userID, accountID)
   -> return claims
 ```
+
+`TokenApplicationService.VerifyToken` 会在该结果之上追加可选的 expected issuer/audience 检查，并返回 `Valid + Claims` 形式的统一结果。
 
 ```mermaid
 flowchart TD
@@ -641,7 +672,6 @@ flowchart TD
 
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
 - [../../internal/apiserver/application/authn/token/services.go](../../internal/apiserver/application/authn/token/services.go)
-- [../../internal/apiserver/application/authn/token/service_verify.go](../../internal/apiserver/application/authn/token/service_verify.go)
 
 ---
 
@@ -664,11 +694,11 @@ load refresh token
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Refresher as "TokenRefresher"
+    participant Refresher as "Refresher"
     participant Store as "TokenStore"
     participant Session as "SessionManager"
     participant Access as "SubjectAccessEvaluator"
-    participant Issuer as "TokenIssuer"
+    participant PairIssuer as "SessionTokenPairIssuer"
 
     Client->>Refresher: refresh_token
     Refresher->>Store: GetRefreshToken(value)
@@ -677,8 +707,8 @@ sequenceDiagram
     Session-->>Refresher: Session
     Refresher->>Access: Evaluate(userID, accountID)
     Access-->>Refresher: decision
-    Refresher->>Issuer: issueTokenPair(principal, session)
-    Issuer-->>Refresher: new TokenPair
+    Refresher->>PairIssuer: IssueTokenPair(principal, session)
+    PairIssuer-->>Refresher: new TokenPair
     Refresher->>Store: DeleteRefreshToken(old)
     Refresher->>Session: Extend(sessionID, new refresh expiresAt)
 ```
@@ -753,7 +783,7 @@ flowchart TD
 
 核心源码：
 
-- [../../internal/apiserver/application/authn/token/issuer.go](../../internal/apiserver/application/authn/token/issuer.go)
+- [../../internal/apiserver/application/authn/token/access_revoker.go](../../internal/apiserver/application/authn/token/access_revoker.go)
 - [../../internal/apiserver/infra/cache/redis/token-store.go](../../internal/apiserver/infra/cache/redis/token-store.go)
 
 ---
@@ -904,7 +934,6 @@ subject access
 
 - [../../internal/apiserver/infra/token/jwt/generator.go](../../internal/apiserver/infra/token/jwt/generator.go)
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
-- [../../internal/apiserver/application/authn/token/service_verify.go](../../internal/apiserver/application/authn/token/service_verify.go)
 
 ---
 
@@ -953,7 +982,7 @@ REST `VerifyToken` 的外层行为是：
 
 - [../../internal/apiserver/application/authn/token/verifier.go](../../internal/apiserver/application/authn/token/verifier.go)
 - [../../internal/apiserver/application/authn/token/refresher.go](../../internal/apiserver/application/authn/token/refresher.go)
-- [../../internal/apiserver/application/authn/token/service_verify.go](../../internal/apiserver/application/authn/token/service_verify.go)
+- [../../internal/apiserver/application/authn/token/services.go](../../internal/apiserver/application/authn/token/services.go)
 
 ---
 
@@ -1001,10 +1030,14 @@ JWKS 离线验签只处理认证凭证有效性的一部分。
 
 ```text
 internal/apiserver/application/authn/token/services.go
-internal/apiserver/application/authn/token/service_verify.go
-internal/apiserver/application/authn/token/issuer.go
+internal/apiserver/application/authn/token/session_issuer.go
+internal/apiserver/application/authn/token/pair_issuer.go
+internal/apiserver/application/authn/token/service_issuer.go
+internal/apiserver/application/authn/token/access_revoker.go
 internal/apiserver/application/authn/token/verifier.go
 internal/apiserver/application/authn/token/refresher.go
+internal/apiserver/application/authn/token/driving_ports.go
+internal/apiserver/application/authn/token/driven_ports.go
 internal/apiserver/application/authn/token/types.go
 ```
 

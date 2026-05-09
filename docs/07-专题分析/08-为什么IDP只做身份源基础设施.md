@@ -108,8 +108,8 @@ flowchart TD
 | IDP module 职责是什么 | 微信应用管理、向 AuthN 提供基础设施服务，认证由 AuthN 统一提供。 | `container/assembler/idp.go` |
 | IDP 对外应用服务有哪些 | WechatApp 管理、凭据轮换、微信 access_token 获取/刷新。 | `application/idp/wechatapp/services.go` |
 | IDP 暴露给 AuthN 什么 | Repository、SecretVault、WechatAuthProvider。 | `container/assembler/idp.go` |
-| 微信小程序登录如何使用 IDP | AuthN adapter 查询 WechatApp，检查启用状态，解密 AppSecret，构造 WechatMiniCredential。 | `application/authn/login/adapter_wechat_mini.go` |
-| 企业微信登录如何使用 IDP | AuthN adapter 查询 WechatApp，检查启用状态，解密 CorpSecret，并使用 server-side AgentID。 | `application/authn/login/adapter_wecom.go` |
+| 微信小程序登录如何使用 IDP | AuthN `LoginMethod` 校验 payload，`ProofFactory` 查询 WechatApp、检查启用状态、解密 AppSecret 并构造 WechatMiniCredential。 | `application/authn/login/method/wechat.go`、`application/authn/login/proof/oauth.go` |
+| 企业微信登录如何使用 IDP | AuthN `LoginMethod` 校验 payload，`ProofFactory` 查询 WechatApp、解密 CorpSecret，并使用 server-side AgentID。 | `application/authn/login/method/wecom.go`、`application/authn/login/proof/oauth.go` |
 | SecretVault 是什么 | IDP 领域依赖的外部服务接口，支持 Encrypt/Decrypt/Sign。 | `domain/idp/wechatapp/external.go` |
 | WechatApp 是什么 | IDP 的微信应用领域对象，包含 AppID、Name、Type、Status、Credentials。 | `domain/idp/wechatapp/wechatapp.go` |
 | IDP REST 路由是否做登录 | 不做；源码注释明确认证功能由 AuthN 模块统一提供。 | `transport/rest/idp/router.go` |
@@ -140,7 +140,7 @@ IDP cache family inspector
 登录服务
 账号服务
 Session 服务
-TokenIssuer
+SessionTokenIssuer / SessionTokenPairIssuer
 RefreshToken 服务
 OAuth account binding 服务
 ```
@@ -367,19 +367,22 @@ Client 提交 app_id + code
 sequenceDiagram
     participant Client as "Client"
     participant AuthN as "AuthN Login"
-    participant Adapter as "WechatMiniAdapter"
+    participant Method as "Wechat LoginMethod"
+    participant Proof as "ProofFactory"
     participant IDP as "IDP Repository / SecretVault"
     participant Strategy as "WechatMiniStrategy"
-    participant Token as "TokenIssuer"
+    participant Token as "SessionTokenIssuer / SessionTokenPairIssuer"
 
     Client->>AuthN: login(app_id, code)
-    AuthN->>Adapter: PrepareProof
-    Adapter->>IDP: GetByAppID(app_id)
-    Adapter->>IDP: Decrypt(AppSecretCipher)
-    Adapter-->>AuthN: WechatMiniCredential
+    AuthN->>Method: BuildPayload
+    Method-->>AuthN: WechatPayload
+    AuthN->>Proof: Build
+    Proof->>IDP: GetByAppID(app_id)
+    Proof->>IDP: Decrypt(AppSecretCipher)
+    Proof-->>AuthN: WechatMiniCredential
     AuthN->>Strategy: Authenticate(proof)
     Strategy-->>AuthN: Principal
-    AuthN->>Token: IssueToken(principal)
+    AuthN->>Token: IssueToken + IssueTokenPair
 ```
 
 IDP 在这个链路中只提供：
@@ -478,7 +481,7 @@ AccessTokenCache
 由 AuthN 的：
 
 ```text
-TokenIssuer
+SessionTokenIssuer / SessionTokenPairIssuer
 ```
 
 签发，用于：
@@ -548,7 +551,7 @@ Sign
 
 ### 8.1 AuthN 为什么不能持有密钥生命周期
 
-AuthN 登录 adapter 只在 `PrepareProof` 阶段需要：
+AuthN 登录链路只在 `ProofFactory.Build` 阶段需要：
 
 ```text
 解密后的 AppSecret / CorpSecret
@@ -657,7 +660,7 @@ SecretVault()
 WechatAuthProvider()
 ```
 
-AuthN wechat/wecom adapter 使用这些能力构造 proof。
+AuthN wechat/wecom 的 `ProofFactory` 使用这些能力构造 proof。
 
 ### 10.1 为什么方向不能反
 
@@ -665,7 +668,7 @@ AuthN wechat/wecom adapter 使用这些能力构造 proof。
 
 - IDP 需要知道 Principal；
 - IDP 需要知道 Session；
-- IDP 需要知道 TokenIssuer；
+- IDP 需要知道 SessionTokenIssuer / SessionTokenPairIssuer；
 - IDP 需要知道 RefreshToken；
 - IDP 需要知道 Account binding；
 - IDP 变成登录 orchestrator。
@@ -782,7 +785,7 @@ access_token 缓存
 
 问题：
 
-- TokenIssuer 分散；
+- SessionTokenIssuer / SessionTokenPairIssuer 分散；
 - Session 语义分裂；
 - Refresh/Revoke/JWKS 分裂；
 - Account/User binding 分散；
@@ -823,7 +826,7 @@ access_token 缓存
 - 外部身份源配置独立治理；
 - SecretVault 可替换为 KMS/HSM；
 - IDP 管理面可独立授权；
-- AuthN adapter 只借用 IDP 端口能力。
+- AuthN ProofFactory 只借用 IDP 端口能力。
 
 代价：
 
@@ -907,13 +910,13 @@ AuthN 不需要关心底层实现。
 微信登录要跨：
 
 ```text
-AuthN adapter
+AuthN LoginMethod / ProofFactory
 IDP repo
 SecretVault
 WechatAuthProvider
 AuthN strategy
 Credential binding
-TokenIssuer
+SessionTokenIssuer / SessionTokenPairIssuer
 ```
 
 不是一个函数完成。
@@ -959,7 +962,7 @@ code2Session != login success
 
 ### 16.1 IDP 不签发 IAM token
 
-IAM access token 只能由 AuthN TokenIssuer 统一签发。
+IAM 登录态 access token 只能由 AuthN `SessionTokenIssuer` / `SessionTokenPairIssuer` 统一签发。
 
 ### 16.2 IDP 不创建 Session
 
@@ -1034,7 +1037,7 @@ IDP 只负责第三方身份源配置、密钥和外部 API；真正的登录判
 
 ### Q4：AuthN 为什么要解密 AppSecret？
 
-AuthN adapter 需要构造微信登录 proof。但它不拥有 AppSecret 生命周期，只是通过 IDP SecretVault 获取必要的解密结果。
+AuthN ProofFactory 需要构造微信登录 proof。但它不拥有 AppSecret 生命周期，只是通过 IDP SecretVault 获取必要的解密结果。
 
 ### Q5：IDP REST 为什么要 admin middleware？
 
@@ -1052,8 +1055,8 @@ AuthN adapter 需要构造微信登录 proof。但它不拥有 AppSecret 生命�
 | --- | --- |
 | IDP module 明确认证由 AuthN 统一提供 | `container/assembler/idp.go` |
 | IDP 暴露 Repository/SecretVault/WechatAuthProvider 给 AuthN | `container/assembler/idp.go` |
-| 微信小程序 AuthN adapter 使用 IDP repo/vault | `application/authn/login/adapter_wechat_mini.go` |
-| 企业微信 AuthN adapter 使用 IDP repo/vault 和 server-side AgentID | `application/authn/login/adapter_wecom.go` |
+| 微信小程序 ProofFactory 使用 IDP repo/vault | `application/authn/login/method/wechat.go`、`application/authn/login/proof/oauth.go` |
+| 企业微信 ProofFactory 使用 IDP repo/vault 和 server-side AgentID | `application/authn/login/method/wecom.go`、`application/authn/login/proof/oauth.go` |
 | WechatApp 是 IDP 领域对象 | `domain/idp/wechatapp/wechatapp.go` |
 | SecretVault 是 IDP 外部服务端口 | `domain/idp/wechatapp/external.go` |
 | IDP 应用服务是 WechatApp 管理、凭据轮换、微信 access_token | `application/idp/wechatapp/services.go` |
@@ -1084,8 +1087,9 @@ internal/apiserver/application/idp/wechatapp/services.go
 ### 第三轮：AuthN 如何使用 IDP
 
 ```text
-internal/apiserver/application/authn/login/adapter_wechat_mini.go
-internal/apiserver/application/authn/login/adapter_wecom.go
+internal/apiserver/application/authn/login/method/wechat.go
+internal/apiserver/application/authn/login/method/wecom.go
+internal/apiserver/application/authn/login/proof/oauth.go
 internal/apiserver/domain/authn/authentication/auth-wechat-mini.go
 internal/apiserver/domain/authn/authentication/auth-wechat-com.go
 ```
@@ -1132,9 +1136,9 @@ make docs-hygiene
 | 测试方向 | 目的 |
 | --- | --- |
 | IDP init without DB/Redis/key | 初始化失败，边界明确 |
-| WechatApp disabled | AuthN adapter 拒绝登录 proof |
-| WechatApp missing | AuthN adapter 返回错误 |
-| SecretVault decrypt failed | AuthN adapter 返回错误 |
+| WechatApp disabled | AuthN ProofFactory 拒绝登录 proof |
+| WechatApp missing | AuthN ProofFactory 返回错误 |
+| SecretVault decrypt failed | AuthN ProofFactory 返回错误 |
 | Wecom AgentID missing | 企业微信 proof 准备失败 |
 | IDP management route without admin middleware | 不注册管理路由 |
 | GetAccessToken cache | 微信 access_token 缓存与刷新 |

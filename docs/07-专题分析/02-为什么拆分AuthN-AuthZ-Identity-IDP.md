@@ -473,7 +473,7 @@ AuthN 使用这些能力：
 企微登录一套 token
 Session 管理分散
 账号绑定分散
-TokenIssuer 分散
+SessionTokenIssuer / SessionTokenPairIssuer 分散
 Refresh/Revoke 语义分散
 ```
 
@@ -518,7 +518,7 @@ AuthZ
 ```text
 Client
   -> AuthN Login(wechat)
-  -> AuthN wechat adapter
+  -> AuthN wechat LoginMethod / ProofFactory
   -> IDP Repository 查询 WechatApp
   -> IDP SecretVault 解密 AppSecret
   -> IDP AuthProvider code2Session
@@ -707,7 +707,7 @@ IDP：第三方身份源
 
 例如：
 
-- 新增企微登录，主要影响 AuthN adapter/strategy 和 IDP 配置；
+- 新增企微登录，主要影响 AuthN LoginMethod / ProofFactory / strategy 和 IDP 配置；
 - 新增授权 scope，主要影响 AuthZ；
 - 新增 ProfileLink relation，主要影响 Identity；
 - 更换微信 SDK，主要影响 IDP infra；
@@ -824,7 +824,7 @@ Account/Credential 属于 AuthN。
 ### 10.4 IDP 不签 IAM token
 
 IDP 只提供第三方身份源基础设施。  
-IAM token 由 AuthN TokenIssuer 统一签发。
+IAM 登录态 token 由 AuthN `SessionTokenIssuer` / `SessionTokenPairIssuer` 统一签发。
 
 ### 10.5 ProfileLink 不是 AuthZ Permission
 
@@ -938,8 +938,9 @@ internal/apiserver/container/assembler/idp.go
 
 ```text
 internal/apiserver/container/assembler/authn_infra_builder.go
-internal/apiserver/application/authn/login/adapter_wechat_mini.go
-internal/apiserver/application/authn/login/adapter_wecom.go
+internal/apiserver/application/authn/login/method/wechat.go
+internal/apiserver/application/authn/login/method/wecom.go
+internal/apiserver/application/authn/login/proof/oauth.go
 internal/apiserver/domain/authn/authentication/auth-wechat-mini.go
 internal/apiserver/domain/authn/authentication/auth-wechat-com.go
 ```

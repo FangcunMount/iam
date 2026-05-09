@@ -90,16 +90,17 @@ load refresh token from store
 当前应用层实现里，Refresh Token 是 Redis 中保存的服务端续期凭证，并且始终绑定 Session：
 
 ```text
-TokenIssuer.IssueToken
+SessionTokenIssuer.IssueToken
   -> SessionManager.Create
+  -> SessionTokenPairIssuer.IssueTokenPair
   -> AccessTokenCodec.IssueAccessToken
   -> TokenStore.SaveRefreshToken(sessionID)
 
-TokenRefresher.RefreshToken
+Refresher.RefreshToken
   -> TokenStore.GetRefreshToken
   -> SessionManager.Get + session.IsActive
   -> SubjectAccessEvaluator.Evaluate
-  -> issue new access/refresh pair
+  -> SessionTokenPairIssuer.IssueTokenPair
   -> TokenStore.DeleteRefreshToken(old)
   -> SessionManager.Extend
 ```
@@ -146,9 +147,9 @@ flowchart TD
 
 | 问题 | 当前答案 | 源码入口 |
 | --- | --- | --- |
-| 登录成功后是否先创建 Session | 是，`IssueToken` 先 `sessionManager.Create`，再生成 token pair。 | `application/authn/token/issuer.go` |
-| Session 过期时间依据什么 | 使用 `refreshTTL`，即 session 生命周期与 refresh 续期窗口绑定。 | `issuer.go` |
-| Access Token 是否携带 SessionID | 是，`issueTokenPair` 构造 `principalWithSession`。 | `issuer.go` |
+| 登录成功后是否先创建 Session | 是，`SessionTokenIssuer.IssueToken` 先 `sessionManager.Create`，再生成 token pair。 | `application/authn/token/session_issuer.go` |
+| Session 过期时间依据什么 | 使用 `refreshTTL`，即 session 生命周期与 refresh 续期窗口绑定。 | `session_issuer.go` |
+| Access Token 是否携带 SessionID | 是，`SessionTokenPairIssuer.IssueTokenPair` 构造 `principalWithSession`。 | `pair_issuer.go` |
 | Refresh Token 是否服务端保存 | 是，Redis 保存 `refresh_token:{value}` JSON。 | `infra/cache/redis/token-store.go` |
 | Access Token 撤销如何实现 | Redis 写 revoked access token marker，TTL 为 token 剩余有效期。 | `infra/cache/redis/token-store.go` |
 | Verify 是否只验 JWT | 否，还检查 revoked marker、session、subject access。 | `application/authn/token/verifier.go` |
@@ -457,16 +458,16 @@ SessionID
 
 ## 5. 登录签发链路为什么这样设计
 
-当前 `IssueToken` 流程是：
+当前 `SessionTokenIssuer.IssueToken` 流程是：
 
 ```text
 principal required
 sessionExpiresAt = now + refreshTTL
 sessionManager.Create(principal, sessionExpiresAt)
-issueTokenPair(principal, session)
+SessionTokenPairIssuer.IssueTokenPair(principal, session)
 ```
 
-`issueTokenPair` 流程是：
+`SessionTokenPairIssuer.IssueTokenPair` 流程是：
 
 ```text
 principal + sessionID
@@ -479,20 +480,23 @@ principal + sessionID
 ```mermaid
 sequenceDiagram
     participant SignIn as "SignIn"
-    participant Issuer as "TokenIssuer"
+    participant SessionIssuer as "SessionTokenIssuer"
     participant Session as "SessionManager"
+    participant PairIssuer as "SessionTokenPairIssuer"
     participant Codec as "AccessTokenCodec"
     participant Store as "TokenStore"
 
-    SignIn->>Issuer: IssueToken(principal)
-    Issuer->>Session: Create(principal, now + refreshTTL)
-    Session-->>Issuer: Session
-    Issuer->>Codec: IssueAccessToken(principal + sessionID, accessTTL)
-    Codec-->>Issuer: AccessToken
-    Issuer->>Issuer: Generate refresh token uuid
-    Issuer->>Store: SaveRefreshToken(refreshToken)
-    Store-->>Issuer: ok
-    Issuer-->>SignIn: TokenPair
+    SignIn->>SessionIssuer: IssueToken(principal)
+    SessionIssuer->>Session: Create(principal, now + refreshTTL)
+    Session-->>SessionIssuer: Session
+    SessionIssuer->>PairIssuer: IssueTokenPair(principal, session)
+    PairIssuer->>Codec: IssueAccessToken(principal + sessionID, accessTTL)
+    Codec-->>PairIssuer: AccessToken
+    PairIssuer->>PairIssuer: Generate refresh token uuid
+    PairIssuer->>Store: SaveRefreshToken(refreshToken)
+    Store-->>PairIssuer: ok
+    PairIssuer-->>SessionIssuer: TokenPair
+    SessionIssuer-->>SignIn: TokenPair
 ```
 
 ### 为什么先创建 Session
@@ -661,11 +665,11 @@ GetRefreshToken
 ```mermaid
 sequenceDiagram
     participant Client as "Client"
-    participant Refresher as "TokenRefresher"
+    participant Refresher as "Refresher"
     participant Store as "TokenStore"
     participant Session as "SessionManager"
     participant Access as "SubjectAccessEvaluator"
-    participant Issuer as "TokenIssuer"
+    participant PairIssuer as "SessionTokenPairIssuer"
 
     Client->>Refresher: RefreshToken(refreshToken)
     Refresher->>Store: GetRefreshToken(value)
@@ -674,8 +678,8 @@ sequenceDiagram
     Session-->>Refresher: Session
     Refresher->>Access: Evaluate(userID, accountID)
     Access-->>Refresher: active / blocked / disabled
-    Refresher->>Issuer: issueTokenPair(principal, session)
-    Issuer-->>Refresher: new TokenPair
+    Refresher->>PairIssuer: IssueTokenPair(principal, session)
+    PairIssuer-->>Refresher: new TokenPair
     Refresher->>Store: DeleteRefreshToken(old)
     Refresher->>Session: Extend(sessionID, newRefresh.ExpiresAt)
 ```
@@ -1103,15 +1107,15 @@ User block 还要让在线 Verify 失败，并主动 revoke sessions。
 
 | 结论 | 代码入口 |
 | --- | --- |
-| IssueToken 先创建 Session，再 issue token pair | `application/authn/token/issuer.go` |
-| Access Token 签发时带 SessionID | `issuer.go` |
-| Refresh Token 用 uuid value，并保存 SessionID/UserID/AccountID/TenantID | `issuer.go`、`infra/cache/redis/token-store.go` |
+| SessionTokenIssuer 先创建 Session，再委托 SessionTokenPairIssuer issue token pair | `application/authn/token/session_issuer.go`、`application/authn/token/pair_issuer.go` |
+| Access Token 签发时带 SessionID | `pair_issuer.go` |
+| Refresh Token 用 uuid value，并保存 SessionID/UserID/AccountID/TenantID | `pair_issuer.go`、`infra/cache/redis/token-store.go` |
 | Verify 检查 revoked marker、Session、SubjectAccess | `application/authn/token/verifier.go` |
 | Refresh 检查 refresh token、Session、SubjectAccess，并轮换旧 refresh token | `application/authn/token/refresher.go` |
 | Session 状态包括 active/revoked/expired | `domain/authn/session/session.go` |
 | SessionStore 支持 RevokeByUser/RevokeByAccount | `infra/cache/redis/session_store.go` |
 | SubjectAccessEvaluator 检查 Account 和 User 状态 | `domain/authn/session/evaluator.go` |
-| AuthN module 装配 tokenIssuer/tokenRefresher/tokenVerifier | `container/assembler/authn_application_builder.go` |
+| AuthN module 装配 session/service issuer、refresher、revoker、verifier 与 TokenApplicationService | `container/assembler/authn_application_builder.go` |
 
 ---
 
@@ -1130,11 +1134,16 @@ internal/apiserver/domain/authn/session/evaluator.go
 ### 第二轮：Token 应用层
 
 ```text
-internal/apiserver/application/authn/token/issuer.go
+internal/apiserver/application/authn/token/session_issuer.go
+internal/apiserver/application/authn/token/pair_issuer.go
+internal/apiserver/application/authn/token/service_issuer.go
 internal/apiserver/application/authn/token/verifier.go
 internal/apiserver/application/authn/token/refresher.go
+internal/apiserver/application/authn/token/access_revoker.go
+internal/apiserver/application/authn/token/services.go
 internal/apiserver/application/authn/token/types.go
-internal/apiserver/application/authn/token/ports.go
+internal/apiserver/application/authn/token/driving_ports.go
+internal/apiserver/application/authn/token/driven_ports.go
 ```
 
 目标：理解 Issue、Verify、Refresh、Revoke。
