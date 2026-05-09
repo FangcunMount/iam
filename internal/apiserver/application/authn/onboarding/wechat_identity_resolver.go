@@ -4,7 +4,6 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -34,9 +33,6 @@ func newWechatIdentityResolver(
 }
 
 func (r *wechatIdentityResolver) ResolveMiniProgram(ctx context.Context, req OnboardingRequest) (wechatIdentity, error) {
-	if req.AccountType != accountDomain.TypeWcMinip {
-		return wechatIdentity{}, nil
-	}
 	if req.WechatOpenID != nil && *req.WechatOpenID != "" {
 		identity := wechatIdentity{OpenID: *req.WechatOpenID}
 		if req.WechatUnionID != nil {
@@ -47,7 +43,7 @@ func (r *wechatIdentityResolver) ResolveMiniProgram(ctx context.Context, req Onb
 	if req.WechatAppID == nil || *req.WechatAppID == "" || req.WechatJsCode == nil || *req.WechatJsCode == "" {
 		return wechatIdentity{}, nil
 	}
-	if r == nil || r.wechatAppQuerier == nil || r.secretVault == nil {
+	if r == nil || r.idp == nil || r.wechatAppQuerier == nil || r.secretVault == nil {
 		return wechatIdentity{}, perrors.WithCode(code.ErrInvalidArgument, "wechat app configuration service not available")
 	}
 

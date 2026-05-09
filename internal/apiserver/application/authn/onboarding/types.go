@@ -1,25 +1,18 @@
 package onboarding
 
 import (
-	"context"
-
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
 	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// ============= 应用服务接口（Driving Ports）=============
-
-// AccountOnboarder 负责账号开通流程。
-type AccountOnboarder interface {
-	// Onboard 完成：1) 创建或复用 User 2) 创建 Account 3) 绑定 Credential 4) 返回账号开通结果。
-	Onboard(ctx context.Context, req OnboardingRequest) (*OnboardingResult, error)
-}
-
 // ============= DTOs =============
 
 // OnboardingRequest 统一账号开通请求
 type OnboardingRequest struct {
+	// Scenario 开通场景；为空时为了兼容旧调用方，会从 AccountType + CredentialType 推导。
+	Scenario OnboardingScenario
+
 	// ========== 用户基本信息（必须）==========
 	Name  string     // 用户姓名
 	Phone meta.Phone // 手机号（E.164格式）

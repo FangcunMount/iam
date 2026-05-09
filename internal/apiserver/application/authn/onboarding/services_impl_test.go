@@ -6,21 +6,21 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	accountdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
-	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	idpwechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	idpWechatApp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
 type userRepoStub struct {
-	users map[uint64]*userdomain.User
+	users map[uint64]*userDomain.User
 }
 
-func (s *userRepoStub) Create(_ context.Context, user *userdomain.User) error {
+func (s *userRepoStub) Create(_ context.Context, user *userDomain.User) error {
 	if s.users == nil {
-		s.users = make(map[uint64]*userdomain.User)
+		s.users = make(map[uint64]*userDomain.User)
 	}
 	if _, exists := s.users[user.ID.Uint64()]; exists {
 		return perrors.WithCode(code.ErrUserAlreadyExists, "user already exists")
@@ -29,7 +29,7 @@ func (s *userRepoStub) Create(_ context.Context, user *userdomain.User) error {
 	return nil
 }
 
-func (s *userRepoStub) FindByID(_ context.Context, id meta.ID) (*userdomain.User, error) {
+func (s *userRepoStub) FindByID(_ context.Context, id meta.ID) (*userDomain.User, error) {
 	if s.users == nil {
 		return nil, perrors.WithCode(code.ErrUserNotFound, "user not found")
 	}
@@ -40,8 +40,8 @@ func (s *userRepoStub) FindByID(_ context.Context, id meta.ID) (*userdomain.User
 	return user, nil
 }
 
-func (s *userRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[meta.ID]*userdomain.User, error) {
-	out := make(map[meta.ID]*userdomain.User, len(ids))
+func (s *userRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[meta.ID]*userDomain.User, error) {
+	out := make(map[meta.ID]*userDomain.User, len(ids))
 	for _, id := range ids {
 		if s.users == nil {
 			continue
@@ -53,7 +53,7 @@ func (s *userRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[meta.ID]
 	return out, nil
 }
 
-func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userdomain.User, error) {
+func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userDomain.User, error) {
 	for _, user := range s.users {
 		if user.Phone.String() == phone.String() {
 			return user, nil
@@ -62,78 +62,94 @@ func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userdo
 	return nil, nil
 }
 
-func (s *userRepoStub) Update(_ context.Context, user *userdomain.User) error {
+func (s *userRepoStub) Update(_ context.Context, user *userDomain.User) error {
 	if s.users == nil {
-		s.users = make(map[uint64]*userdomain.User)
+		s.users = make(map[uint64]*userDomain.User)
 	}
 	s.users[user.ID.Uint64()] = user
 	return nil
 }
 
 type accountRepoStub struct {
-	byUniqueID      map[string]*accountdomain.Account
-	byExternalIDApp map[string]*accountdomain.Account
+	byUniqueID      map[string]*accountDomain.Account
+	byExternalIDApp map[string]*accountDomain.Account
 }
 
-func (s *accountRepoStub) Create(context.Context, *accountdomain.Account) error { return nil }
-func (s *accountRepoStub) UpdateUniqueID(context.Context, meta.ID, accountdomain.UnionID) error {
+func (s *accountRepoStub) Create(context.Context, *accountDomain.Account) error { return nil }
+func (s *accountRepoStub) UpdateUniqueID(context.Context, meta.ID, accountDomain.UnionID) error {
 	return nil
 }
-func (s *accountRepoStub) UpdateStatus(context.Context, meta.ID, accountdomain.AccountStatus) error {
+func (s *accountRepoStub) UpdateStatus(context.Context, meta.ID, accountDomain.AccountStatus) error {
 	return nil
 }
 func (s *accountRepoStub) UpdateProfile(context.Context, meta.ID, map[string]string) error {
 	return nil
 }
 func (s *accountRepoStub) UpdateMeta(context.Context, meta.ID, map[string]string) error { return nil }
-func (s *accountRepoStub) GetByID(context.Context, meta.ID) (*accountdomain.Account, error) {
+func (s *accountRepoStub) GetByID(context.Context, meta.ID) (*accountDomain.Account, error) {
 	return nil, perrors.WithCode(code.ErrNotFoundAccount, "account not found")
 }
-func (s *accountRepoStub) GetByUniqueID(_ context.Context, uniqueID accountdomain.UnionID) (*accountdomain.Account, error) {
+func (s *accountRepoStub) GetByUniqueID(_ context.Context, uniqueID accountDomain.UnionID) (*accountDomain.Account, error) {
 	if account, ok := s.byUniqueID[string(uniqueID)]; ok {
 		return account, nil
 	}
 	return nil, perrors.WithCode(code.ErrNotFoundAccount, "account not found")
 }
-func (s *accountRepoStub) GetByExternalIDAppId(_ context.Context, externalID accountdomain.ExternalID, appID accountdomain.AppId) (*accountdomain.Account, error) {
+func (s *accountRepoStub) GetByExternalIDAppId(_ context.Context, externalID accountDomain.ExternalID, appID accountDomain.AppId) (*accountDomain.Account, error) {
 	if account, ok := s.byExternalIDApp[string(externalID)+"|"+string(appID)]; ok {
 		return account, nil
 	}
 	return nil, perrors.WithCode(code.ErrNotFoundAccount, "account not found")
 }
 
-func TestCreateOrGetUser_RepairsDanglingWechatAccountUser(t *testing.T) {
+func TestUserResolverRepairsDanglingWechatAccountUser(t *testing.T) {
 	t.Parallel()
 
-	provisioner := newUserProvisioner(nil, nil)
-	userRepo := &userRepoStub{users: make(map[uint64]*userdomain.User)}
+	resolver := newUserResolver(nil)
+	userRepo := &userRepoStub{users: make(map[uint64]*userDomain.User)}
 	accountUserID := meta.FromUint64(615206334492586542)
 	accountRepo := &accountRepoStub{
-		byUniqueID: map[string]*accountdomain.Account{
-			"union-1": accountdomain.NewAccount(accountUserID, accountdomain.TypeWcMinip, accountdomain.ExternalID("openid@app"), accountdomain.WithID(meta.FromUint64(1))),
+		byUniqueID: map[string]*accountDomain.Account{
+			"union-1": accountDomain.NewAccount(accountUserID, accountDomain.TypeWcMinip, accountDomain.ExternalID("openid@app"), accountDomain.WithID(meta.FromUint64(1))),
 		},
 	}
 	email, err := meta.NewEmail("clack@fangcunmount.com")
 	require.NoError(t, err)
+	unionID := "union-1"
 
-	req := OnboardingRequest{
-		Name:           "clack",
-		Email:          email,
-		AccountType:    accountdomain.TypeWcMinip,
-		CredentialType: CredTypeWechat,
-		Profile: map[string]string{
-			"nickname": "clack",
+	req := &NormalizedOnboardingRequest{
+		OnboardingRequest: OnboardingRequest{
+			Name:           "clack",
+			Email:          email,
+			AccountType:    accountDomain.TypeWcMinip,
+			CredentialType: CredTypeWechat,
+			WechatUnionID:  &unionID,
+			Profile: map[string]string{
+				"nickname": "clack",
+			},
 		},
+		Plan: OnboardingPlan{
+			Scenario:        OnboardWechatMini,
+			AccountType:     accountDomain.TypeWcMinip,
+			CredentialType:  CredTypeWechat,
+			AllowUserRepair: true,
+		},
+		strategy: defaultStrategies.byScenario[OnboardWechatMini],
 	}
 
-	user, isNew, err := provisioner.createOrGetUser(context.Background(), userRepo, accountRepo, req, "", "union-1")
+	result, err := resolver.Resolve(context.Background(), registrationRepositories{
+		Users:    userRepo,
+		Accounts: accountRepo,
+	}, req)
 	require.NoError(t, err)
-	require.False(t, isNew)
-	require.NotNil(t, user)
-	require.Equal(t, accountUserID.Uint64(), user.ID.Uint64())
-	require.Equal(t, "clack", user.Name)
-	require.Equal(t, "clack", user.Nickname)
-	require.Equal(t, "clack@fangcunmount.com", user.Email.String())
+	require.NotNil(t, result)
+	require.Equal(t, UserRepaired, result.Status)
+	require.Equal(t, MatchedByWechatUnionID, result.MatchedBy)
+	require.False(t, result.IsNewUser())
+	require.Equal(t, accountUserID.Uint64(), result.User.ID.Uint64())
+	require.Equal(t, "clack", result.User.Name)
+	require.Equal(t, "clack", result.User.Nickname)
+	require.Equal(t, "clack@fangcunmount.com", result.User.Email.String())
 
 	stored, err := userRepo.FindByID(context.Background(), accountUserID)
 	require.NoError(t, err)
@@ -146,7 +162,7 @@ func TestPrepareWechatIdentityDoesNotMutateOriginalRequest(t *testing.T) {
 	appID := "wx-app"
 	jsCode := "js-code"
 	req := OnboardingRequest{
-		AccountType:  accountdomain.TypeWcMinip,
+		AccountType:  accountDomain.TypeWcMinip,
 		WechatAppID:  &appID,
 		WechatJsCode: &jsCode,
 	}
@@ -177,11 +193,11 @@ func TestWechatIdentityResolverUsesAppConfigAndExchangesCode(t *testing.T) {
 	resolver := newWechatIdentityResolver(
 		idp,
 		&onboardingWechatAppRepoStub{
-			app: &idpwechatapp.WechatApp{
+			app: &idpWechatApp.WechatApp{
 				AppID:  appID,
-				Status: idpwechatapp.StatusEnabled,
-				Cred: &idpwechatapp.Credentials{
-					Auth: &idpwechatapp.AuthSecret{AppSecretCipher: []byte("cipher")},
+				Status: idpWechatApp.StatusEnabled,
+				Cred: &idpWechatApp.Credentials{
+					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
 				},
 			},
 		},
@@ -189,7 +205,7 @@ func TestWechatIdentityResolverUsesAppConfigAndExchangesCode(t *testing.T) {
 	)
 
 	identity, err := resolver.ResolveMiniProgram(context.Background(), OnboardingRequest{
-		AccountType:  accountdomain.TypeWcMinip,
+		AccountType:  accountDomain.TypeWcMinip,
 		WechatAppID:  &appID,
 		WechatJsCode: &jsCode,
 	})
@@ -202,28 +218,94 @@ func TestWechatIdentityResolverUsesAppConfigAndExchangesCode(t *testing.T) {
 	require.Equal(t, "js-code", idp.jsCode)
 }
 
+func TestRequestNormalizerResolvesWechatIdentityOutsidePersistenceFlow(t *testing.T) {
+	t.Parallel()
+
+	appID := " wx-app "
+	jsCode := " js-code "
+	idp := &onboardingIDPStub{openID: "openid-1", unionID: "union-1"}
+	normalizer := newRequestNormalizer(newWechatIdentityResolver(
+		idp,
+		&onboardingWechatAppRepoStub{
+			app: &idpWechatApp.WechatApp{
+				AppID:  "wx-app",
+				Status: idpWechatApp.StatusEnabled,
+				Cred: &idpWechatApp.Credentials{
+					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
+				},
+			},
+		},
+		onboardingSecretVaultStub{plaintext: "app-secret"},
+	))
+
+	normalized, err := normalizer.Normalize(context.Background(), OnboardingRequest{
+		AccountType:    accountDomain.TypeWcMinip,
+		CredentialType: CredTypeWechat,
+		WechatAppID:    &appID,
+		WechatJsCode:   &jsCode,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, OnboardWechatMini, normalized.Plan.Scenario)
+	require.Equal(t, accountDomain.TypeWcMinip, normalized.Plan.AccountType)
+	require.Equal(t, CredTypeWechat, normalized.Plan.CredentialType)
+	require.Equal(t, "openid-1", *normalized.WechatOpenID)
+	require.Equal(t, "union-1", *normalized.WechatUnionID)
+	require.Nil(t, normalized.WechatJsCode)
+	require.Equal(t, "wx-app", idp.appID)
+	require.Equal(t, "js-code", idp.jsCode)
+}
+
+func TestBuildPlanRejectsInvalidAccountCredentialCombination(t *testing.T) {
+	t.Parallel()
+
+	_, err := BuildPlan(OnboardingRequest{
+		AccountType:    accountDomain.TypeOpera,
+		CredentialType: CredTypeWechat,
+	})
+
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+}
+
+func TestBuildPlanSelectsStrategyByAccountType(t *testing.T) {
+	t.Parallel()
+
+	plan, err := BuildPlan(OnboardingRequest{
+		AccountType:    accountDomain.TypeWcMinip,
+		CredentialType: CredTypeWechat,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, OnboardWechatMini, plan.Scenario)
+	require.Equal(t, accountDomain.TypeWcMinip, plan.AccountType)
+	require.Equal(t, CredTypeWechat, plan.CredentialType)
+	require.True(t, plan.AllowUserRepair)
+	require.True(t, plan.AllowCredentialReuse)
+}
+
 type onboardingWechatAppRepoStub struct {
-	app *idpwechatapp.WechatApp
+	app *idpWechatApp.WechatApp
 	err error
 }
 
-func (s *onboardingWechatAppRepoStub) Create(context.Context, *idpwechatapp.WechatApp) error {
+func (s *onboardingWechatAppRepoStub) Create(context.Context, *idpWechatApp.WechatApp) error {
 	return nil
 }
 
-func (s *onboardingWechatAppRepoStub) GetByID(context.Context, idutil.ID) (*idpwechatapp.WechatApp, error) {
+func (s *onboardingWechatAppRepoStub) GetByID(context.Context, idutil.ID) (*idpWechatApp.WechatApp, error) {
 	return nil, nil
 }
 
-func (s *onboardingWechatAppRepoStub) GetByAppID(context.Context, string) (*idpwechatapp.WechatApp, error) {
+func (s *onboardingWechatAppRepoStub) GetByAppID(context.Context, string) (*idpWechatApp.WechatApp, error) {
 	return s.app, s.err
 }
 
-func (s *onboardingWechatAppRepoStub) List(context.Context, idpwechatapp.ListFilter) ([]*idpwechatapp.WechatApp, error) {
+func (s *onboardingWechatAppRepoStub) List(context.Context, idpWechatApp.ListFilter) ([]*idpWechatApp.WechatApp, error) {
 	return nil, nil
 }
 
-func (s *onboardingWechatAppRepoStub) Update(context.Context, *idpwechatapp.WechatApp) error {
+func (s *onboardingWechatAppRepoStub) Update(context.Context, *idpWechatApp.WechatApp) error {
 	return nil
 }
 
