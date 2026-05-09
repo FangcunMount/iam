@@ -47,7 +47,11 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 	return tokenapp.NewTokenPair(access, refresh), nil
 }
 
-func (s *loginTokenIssuerStub) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*tokenapp.TokenPair, error) {
+func (s *loginTokenIssuerStub) IssueServiceToken(ctx context.Context, req tokenapp.IssueServiceTokenRequest) (*tokenapp.TokenIssueResult, error) {
+	return nil, nil
+}
+
+func (s *loginTokenIssuerStub) RefreshToken(ctx context.Context, refreshToken string) (*tokenapp.TokenRefreshResult, error) {
 	return nil, nil
 }
 
@@ -55,14 +59,12 @@ func (s *loginTokenIssuerStub) RevokeAccessToken(ctx context.Context, tokenValue
 	return nil
 }
 
-type loginTokenRevokerStub struct{}
-
-func (s loginTokenRevokerStub) RevokeAccessToken(ctx context.Context, tokenValue string) error {
+func (s *loginTokenIssuerStub) RevokeRefreshToken(ctx context.Context, tokenValue string) error {
 	return nil
 }
 
-func (s loginTokenRevokerStub) RevokeRefreshToken(ctx context.Context, tokenValue string) error {
-	return nil
+func (s *loginTokenIssuerStub) VerifyToken(ctx context.Context, req tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
+	return nil, nil
 }
 
 type loginAccountRepoStub struct {
@@ -87,29 +89,35 @@ type loginTokenVerifierStub struct {
 	attrs     map[string]string
 	token     string
 	err       error
+	code      int
 }
 
-func (s *loginTokenVerifierStub) VerifyAccessToken(ctx context.Context, tokenValue string) (*tokenapp.TokenClaims, error) {
-	s.token = tokenValue
+func (s *loginTokenVerifierStub) VerifyToken(ctx context.Context, req tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
+	s.token = req.AccessToken
 	if s.err != nil {
 		return nil, s.err
 	}
-	return &tokenapp.TokenClaims{
-		UserID:     s.userID,
-		AccountID:  s.accountID,
-		TenantID:   s.tenantID,
-		SessionID:  s.sessionID,
-		AMR:        s.amr,
-		Attributes: s.attrs,
+	if s.code != 0 {
+		return &tokenapp.TokenVerifyResult{Valid: false, FailureCode: s.code}, nil
+	}
+	return &tokenapp.TokenVerifyResult{
+		Valid: true,
+		Claims: &tokenapp.TokenClaims{
+			UserID:     s.userID,
+			AccountID:  s.accountID,
+			TenantID:   s.tenantID,
+			SessionID:  s.sessionID,
+			AMR:        s.amr,
+			Attributes: s.attrs,
+		},
 	}, nil
 }
 
-func newLoginServiceForTest(t *testing.T, issuer tokenapp.Issuer, auth *authentication.Authenticator, reauth ReAuthenticator) LoginApplicationService {
+func newLoginServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicationService, auth *authentication.Authenticator, reauth ReAuthenticator) LoginApplicationService {
 	t.Helper()
 
 	svc, err := NewLoginApplicationService(Dependencies{
-		TokenIssuer:     issuer,
-		TokenRevoker:    loginTokenRevokerStub{},
+		TokenService:    tokenService,
 		Authenticator:   auth,
 		MethodRegistry:  method.DefaultSelector(),
 		ProofFactory:    proof.DefaultFactory(nil, nil, WecomConfig{}),
@@ -180,7 +188,7 @@ func TestReauthenticateTokenVerifierFailureMapsToAuthFailure(t *testing.T) {
 
 	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
-	verifier := &loginTokenVerifierStub{err: perrors.WithCode(code.ErrExpired, "expired")}
+	verifier := &loginTokenVerifierStub{code: code.ErrExpired}
 	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(verifier))
 
 	result, err := svc.Reauthenticate(context.Background(), "expired-token")

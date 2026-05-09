@@ -11,14 +11,19 @@ import (
 
 // tokenReAuthenticator 是 token 再验证器。
 type tokenReAuthenticator struct {
-	tokenVerifier tokenapp.Verifier
+	tokenVerifier TokenVerifier
+}
+
+// TokenVerifier 是再验证需要的 token 能力。
+type TokenVerifier interface {
+	VerifyToken(ctx context.Context, req tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error)
 }
 
 // 确保 tokenReAuthenticator 实现了 ReAuthenticator 接口。
 var _ ReAuthenticator = (*tokenReAuthenticator)(nil)
 
 // NewTokenReAuthenticator 将已有 token verifier 适配为登录态再验证用例依赖。
-func NewTokenReAuthenticator(tokenVerifier tokenapp.Verifier) ReAuthenticator {
+func NewTokenReAuthenticator(tokenVerifier TokenVerifier) ReAuthenticator {
 	if tokenVerifier == nil {
 		return nil
 	}
@@ -32,22 +37,25 @@ func (r *tokenReAuthenticator) Reauthenticate(ctx context.Context, tokenValue st
 	}
 
 	// 验证 access token 是否仍然有效
-	claims, err := r.tokenVerifier.VerifyAccessToken(ctx, tokenValue)
+	result, err := r.tokenVerifier.VerifyToken(ctx, tokenapp.VerifyTokenRequest{AccessToken: tokenValue})
 	if err != nil {
-		codeValue := perrors.ParseCoder(err).Code()
+		return authentication.AuthDecision{}, err
+	}
+	if result == nil || !result.Valid || result.Claims == nil {
+		codeValue := code.ErrTokenInvalid
+		if result != nil && result.FailureCode != 0 {
+			codeValue = result.FailureCode
+		}
 		if isReauthenticationFailureCode(codeValue) {
 			return authentication.AuthDecision{OK: false, Code: codeValue}, nil
 		}
-		return authentication.AuthDecision{}, err
-	}
-	if claims == nil {
 		return authentication.AuthDecision{OK: false, Code: code.ErrTokenInvalid}, nil
 	}
 
 	// 构造认证决策
 	return authentication.AuthDecision{
 		OK:        true,
-		Principal: principalFromTokenClaims(claims),
+		Principal: principalFromTokenClaims(result.Claims),
 	}, nil
 }
 

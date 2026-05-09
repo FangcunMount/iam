@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -16,14 +15,18 @@ type tokenVerifierStub struct {
 	claims *tokenapp.TokenClaims
 	token  string
 	err    error
+	code   int
 }
 
-func (s *tokenVerifierStub) VerifyAccessToken(_ context.Context, tokenValue string) (*tokenapp.TokenClaims, error) {
-	s.token = tokenValue
+func (s *tokenVerifierStub) VerifyToken(_ context.Context, req tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
+	s.token = req.AccessToken
 	if s.err != nil {
 		return nil, s.err
 	}
-	return s.claims, nil
+	if s.code != 0 {
+		return &tokenapp.TokenVerifyResult{Valid: false, FailureCode: s.code}, nil
+	}
+	return &tokenapp.TokenVerifyResult{Valid: s.claims != nil, Claims: s.claims}, nil
 }
 
 func TestTokenReAuthenticatorMapsClaimsToPrincipal(t *testing.T) {
@@ -55,7 +58,7 @@ func TestTokenReAuthenticatorMapsClaimsToPrincipal(t *testing.T) {
 func TestTokenReAuthenticatorMapsTokenFailureToDecision(t *testing.T) {
 	t.Parallel()
 
-	verifier := &tokenVerifierStub{err: perrors.WithCode(code.ErrExpired, "expired")}
+	verifier := &tokenVerifierStub{code: code.ErrExpired}
 	authenticator := NewTokenReAuthenticator(verifier)
 
 	decision, err := authenticator.Reauthenticate(context.Background(), "expired-token")

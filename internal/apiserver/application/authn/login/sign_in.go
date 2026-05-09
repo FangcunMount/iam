@@ -13,7 +13,7 @@ import (
 
 // SignIn 编排一次登录：选择登录方式、准备领域 proof、调用领域认证并签发令牌。
 type SignIn struct {
-	tokenIssuer         tokenapp.Issuer
+	tokenService        tokenapp.TokenApplicationService
 	methodRegistry      MethodRegistry
 	proofFactory        ProofFactory
 	domainAuthenticator *authentication.Authenticator
@@ -22,7 +22,7 @@ type SignIn struct {
 // Execute 执行登录
 func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, error) {
 	// 检查登录服务是否初始化
-	if s == nil || s.methodRegistry == nil || s.proofFactory == nil || s.domainAuthenticator == nil {
+	if s == nil || s.tokenService == nil || s.methodRegistry == nil || s.proofFactory == nil || s.domainAuthenticator == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "login service is not initialized")
 	}
 
@@ -51,7 +51,7 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 	ensurePrincipalTenantID(decision.Principal)
 
 	// 颁发令牌
-	tokenPair, err := s.tokenIssuer.IssueToken(ctx, decision.Principal)
+	tokenPair, err := s.tokenService.IssueToken(ctx, decision.Principal)
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "failed to issue token: %w", err)
 	}

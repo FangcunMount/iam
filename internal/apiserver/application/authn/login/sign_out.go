@@ -11,7 +11,7 @@ import (
 
 // SignOut 编排登出：撤销调用者提供的访问令牌或刷新令牌。
 type SignOut struct {
-	tokenRevoker tokenapp.Revoker
+	tokenService tokenapp.TokenApplicationService
 }
 
 func (s *SignOut) Execute(ctx context.Context, cmd SignOutCommand) error {
@@ -27,10 +27,10 @@ func (s *SignOut) Execute(ctx context.Context, cmd SignOutCommand) error {
 	}
 
 	if cmd.RefreshToken != nil && *cmd.RefreshToken != "" {
-		if s == nil || s.tokenRevoker == nil {
-			return perrors.WithCode(code.ErrInvalidArgument, "token revoker is not initialized")
+		if s == nil || s.tokenService == nil {
+			return perrors.WithCode(code.ErrInvalidArgument, "token service is not initialized")
 		}
-		if err := s.tokenRevoker.RevokeRefreshToken(ctx, *cmd.RefreshToken); err != nil {
+		if err := s.tokenService.RevokeRefreshToken(ctx, *cmd.RefreshToken); err != nil {
 			l.Errorw("撤销刷新令牌失败",
 				"action", logger.ActionLogout,
 				"error", err.Error(),
@@ -45,10 +45,10 @@ func (s *SignOut) Execute(ctx context.Context, cmd SignOutCommand) error {
 	}
 
 	if cmd.AccessToken != nil && *cmd.AccessToken != "" {
-		if s == nil || s.tokenRevoker == nil {
-			return perrors.WithCode(code.ErrInvalidArgument, "token revoker is not initialized")
+		if s == nil || s.tokenService == nil {
+			return perrors.WithCode(code.ErrInvalidArgument, "token service is not initialized")
 		}
-		if err := s.tokenRevoker.RevokeAccessToken(ctx, *cmd.AccessToken); err != nil {
+		if err := s.tokenService.RevokeAccessToken(ctx, *cmd.AccessToken); err != nil {
 			l.Errorw("撤销访问令牌失败",
 				"action", logger.ActionLogout,
 				"error", err.Error(),

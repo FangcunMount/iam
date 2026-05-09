@@ -32,8 +32,7 @@ type LoginApplicationService interface {
 // service.go 只装配 use case，不直接装配具体登录方式。
 // 具体 method 注册由外部完成后注入 MethodRegistry。
 type Dependencies struct {
-	TokenIssuer  tokenapp.Issuer
-	TokenRevoker tokenapp.Revoker
+	TokenService tokenapp.TokenApplicationService
 
 	Authenticator *authentication.Authenticator
 
@@ -54,11 +53,8 @@ var _ LoginApplicationService = (*service)(nil)
 
 // NewLoginApplicationService 创建登录应用服务。
 func NewLoginApplicationService(deps Dependencies) (LoginApplicationService, error) {
-	if deps.TokenIssuer == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "token issuer is required")
-	}
-	if deps.TokenRevoker == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "token revoker is required")
+	if deps.TokenService == nil {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "token service is required")
 	}
 	if deps.Authenticator == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "authenticator is required")
@@ -75,7 +71,7 @@ func NewLoginApplicationService(deps Dependencies) (LoginApplicationService, err
 
 	return &service{
 		signIn: &SignIn{
-			tokenIssuer:         deps.TokenIssuer,
+			tokenService:        deps.TokenService,
 			methodRegistry:      deps.MethodRegistry,
 			proofFactory:        deps.ProofFactory,
 			domainAuthenticator: deps.Authenticator,
@@ -84,7 +80,7 @@ func NewLoginApplicationService(deps Dependencies) (LoginApplicationService, err
 			reAuthenticator: deps.ReAuthenticator,
 		},
 		signOut: &SignOut{
-			tokenRevoker: deps.TokenRevoker,
+			tokenService: deps.TokenService,
 		},
 	}, nil
 }

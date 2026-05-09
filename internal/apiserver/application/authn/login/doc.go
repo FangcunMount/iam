@@ -4,7 +4,7 @@
 //  1. MethodRegistry 根据 AuthMethod 选择登录方式并校验 method payload；
 //  2. ProofFactory 根据 CredentialKind 构造领域 AuthCredential；
 //  3. 领域 Authenticator 完成凭据认证并返回 Principal；
-//  4. TokenIssuer 为 Principal 签发 TokenPair。
+//  4. TokenApplicationService 为 Principal 签发 TokenPair。
 //
 // 请求上下文规范：
 // TenantID、RemoteIP、UserAgent 必须由 transport / compatibility 层写入
