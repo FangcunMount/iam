@@ -110,7 +110,7 @@ func (s *refreshOrderPairIssuer) IssueTokenPair(context.Context, *authentication
 	), nil
 }
 
-func newRefreshOrderFixture(recorder *refreshOrderRecorder, pairIssuer SessionTokenPairIssuer) (Refresher, *Token) {
+func newRefreshOrderFixture(recorder *refreshOrderRecorder, pairIssuer sessionTokenPairIssuerPort) (refresherPort, *Token) {
 	refreshToken := NewRefreshToken(
 		"refresh-id",
 		"old-refresh-value",
@@ -126,8 +126,8 @@ func newRefreshOrderFixture(recorder *refreshOrderRecorder, pairIssuer SessionTo
 	return newRefreshOrderFixtureWithState(recorder, pairIssuer, refreshToken, sess), refreshToken
 }
 
-func newRefreshOrderFixtureWithState(recorder *refreshOrderRecorder, pairIssuer SessionTokenPairIssuer, refreshToken *Token, sess *sessiondomain.Session) Refresher {
-	refresher := NewRefresher(
+func newRefreshOrderFixtureWithState(recorder *refreshOrderRecorder, pairIssuer sessionTokenPairIssuerPort, refreshToken *Token, sess *sessiondomain.Session) refresherPort {
+	refresher := newRefresher(
 		pairIssuer,
 		&refreshOrderStore{recorder: recorder, refreshToken: refreshToken},
 		&refreshOrderSessionManager{recorder: recorder, session: sess},

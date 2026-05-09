@@ -1,7 +1,6 @@
 package assembler
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -54,27 +53,15 @@ func (m *AuthnModule) initializeApplication(
 	}
 	m.loginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)
 
-	tokenIssuer := token.NewIssuer(
-		infra.jwtGenerator,
-		infra.tokenStore,
-		domain.sessionManager,
-		infra.jwtGenerator.ClaimMapper(),
-		domain.accessTTL,
-		domain.refreshTTL,
-	)
-	tokenRefresher := token.NewRefresher(
-		tokenIssuer.SessionTokenPairIssuer(),
-		infra.tokenStore,
-		domain.sessionManager,
-		infra.accessChecker,
-		infra.jwtGenerator.ClaimMapper(),
-	)
-	tokenVerifier := token.NewVerifier(
-		infra.jwtGenerator,
-		infra.tokenStore,
-		domain.sessionManager,
-		infra.accessChecker,
-	)
+	tokenService := token.NewTokenApplicationService(token.TokenApplicationDependencies{
+		AccessTokenCodec: infra.jwtGenerator,
+		TokenStore:       infra.tokenStore,
+		SessionManager:   domain.sessionManager,
+		AccessChecker:    infra.accessChecker,
+		ClaimMapper:      infra.jwtGenerator.ClaimMapper(),
+		AccessTTL:        domain.accessTTL,
+		RefreshTTL:       domain.refreshTTL,
+	})
 
 	authenticator := authentication.NewAuthenticator(
 		authentication.NewPasswordAuthStrategy(infra.credentialRepo, infra.accountRepo, hasher),
@@ -84,11 +71,10 @@ func (m *AuthnModule) initializeApplication(
 	)
 
 	loginService, err := login.NewLoginApplicationService(login.Dependencies{
-		TokenIssuer:     tokenIssuer,
-		TokenRevoker:    loginTokenRevoker{access: tokenIssuer, refresh: tokenRefresher},
+		TokenService:    tokenService,
 		Authenticator:   authenticator,
 		MethodRegistry:  method.DefaultSelector(),
-		ReAuthenticator: reauth.NewTokenReAuthenticator(tokenVerifier),
+		ReAuthenticator: reauth.NewTokenReAuthenticator(tokenService),
 		ProofFactory: proof.DefaultFactory(
 			infra.wechatAppQuerier,
 			infra.secretVault,
@@ -100,11 +86,7 @@ func (m *AuthnModule) initializeApplication(
 	}
 	m.loginService = loginService
 
-	m.tokenService = token.NewTokenApplicationService(
-		tokenIssuer,
-		tokenRefresher,
-		tokenVerifier,
-	)
+	m.tokenService = tokenService
 	m.sessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
 
 	logger := log.New(log.NewOptions())
@@ -114,19 +96,6 @@ func (m *AuthnModule) initializeApplication(
 	m.jwksSnapshotReporter = keyset.NewApplicationSnapshotReporter(infra.keySetBuilder)
 
 	return nil
-}
-
-type loginTokenRevoker struct {
-	access  token.AccessRevoker
-	refresh token.RefreshRevoker
-}
-
-func (r loginTokenRevoker) RevokeAccessToken(ctx context.Context, tokenValue string) error {
-	return r.access.RevokeAccessToken(ctx, tokenValue)
-}
-
-func (r loginTokenRevoker) RevokeRefreshToken(ctx context.Context, tokenValue string) error {
-	return r.refresh.RevokeRefreshToken(ctx, tokenValue)
 }
 
 func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiserveroptions.SMSOptions) (authentication.SMSSender, error) {

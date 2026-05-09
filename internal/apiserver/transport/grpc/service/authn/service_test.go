@@ -11,6 +11,7 @@ import (
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	accountDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/account"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -52,6 +53,10 @@ func (s *loginServiceStub) Logout(ctx context.Context, req loginApp.LogoutReques
 }
 
 func (s *loginServiceStub) Reauthenticate(context.Context, string) (*loginApp.AuthResult, error) {
+	return nil, nil
+}
+
+func (s *tokenServiceStub) IssueToken(ctx context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
 	return nil, nil
 }
 

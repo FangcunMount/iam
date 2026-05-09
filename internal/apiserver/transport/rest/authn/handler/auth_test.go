@@ -13,6 +13,7 @@ import (
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -42,6 +43,10 @@ type tokenServiceCaptureStub struct {
 	refreshErr    error
 	verifyErr     error
 	revokeErr     error
+}
+
+func (s *tokenServiceCaptureStub) IssueToken(context.Context, *authentication.Principal) (*token.TokenPair, error) {
+	return nil, nil
 }
 
 func (s *tokenServiceCaptureStub) IssueServiceToken(context.Context, token.IssueServiceTokenRequest) (*token.TokenIssueResult, error) {

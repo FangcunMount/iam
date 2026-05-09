@@ -3,9 +3,9 @@ package token
 import (
 	"context"
 	"strings"
-	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -13,6 +13,9 @@ import (
 
 // TokenApplicationService 令牌应用服务 - 令牌管理
 type TokenApplicationService interface {
+	// IssueToken 在登录完成后签发用户会话令牌。
+	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+
 	// IssueServiceToken 签发服务间访问令牌。
 	IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error)
 
@@ -29,66 +32,67 @@ type TokenApplicationService interface {
 	VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error)
 }
 
-// ============= DTOs =============
-
-// IssueServiceTokenRequest 服务令牌签发请求。
-type IssueServiceTokenRequest struct {
-	Subject    string
-	Audience   []string
-	TTL        time.Duration
-	Attributes map[string]string
-}
-
-// TokenIssueResult 令牌签发结果 DTO。
-type TokenIssueResult struct {
-	TokenPair *TokenPair
-}
-
-// TokenRefreshResult 令牌刷新结果DTO
-type TokenRefreshResult struct {
-	TokenPair *TokenPair // 新的令牌对
-}
-
-// VerifyTokenRequest 令牌验证请求 DTO。
-type VerifyTokenRequest struct {
-	AccessToken      string
-	ExpectedIssuer   string
-	ExpectedAudience []string
-}
-
-// TokenVerifyResult 令牌验证结果DTO
-type TokenVerifyResult struct {
-	Valid  bool         // 是否有效
-	Claims *TokenClaims // 令牌声明（如果有效）
-}
-
 // ========================================================
 // ============= TokenApplicationService 实现 =============
 // ========================================================
 
 // tokenApplicationService 实现 TokenApplicationService 接口
 type tokenApplicationService struct {
-	serviceTokenIssuer ServiceTokenIssuer
-	accessRevoker      AccessRevoker
-	tokenRefresher     Refresher
-	tokenVerifier      Verifier
+	sessionTokenIssuer sessionTokenIssuerPort
+	serviceTokenIssuer serviceTokenIssuerPort
+	refresher          refresherPort
+	verifier           verifierPort
+	accessRevoker      accessRevokerPort
 }
 
 // 确保 tokenApplicationService 实现 TokenApplicationService 接口
 var _ TokenApplicationService = (*tokenApplicationService)(nil)
 
-// NewTokenApplicationService 创建 TokenApplicationService
-func NewTokenApplicationService(
-	tokenIssuer Issuer,
-	tokenRefresher Refresher,
-	tokenVerifier Verifier,
+// NewTokenApplicationService 创建 TokenApplicationService。
+func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicationService {
+	tokenIssuer := newIssuer(
+		deps.AccessTokenCodec,
+		deps.TokenStore,
+		deps.SessionManager,
+		deps.ClaimMapper,
+		deps.AccessTTL,
+		deps.RefreshTTL,
+	)
+	tokenRefresher := newRefresher(
+		tokenIssuer.sessionTokenPairIssuer(),
+		deps.TokenStore,
+		deps.SessionManager,
+		deps.AccessChecker,
+		deps.ClaimMapper,
+	)
+	tokenVerifier := newVerifier(
+		deps.AccessTokenCodec,
+		deps.TokenStore,
+		deps.SessionManager,
+		deps.AccessChecker,
+	)
+	return newTokenApplicationService(tokenIssuer, tokenIssuer, tokenRefresher, tokenVerifier, tokenIssuer)
+}
+
+func newTokenApplicationService(
+	sessionTokenIssuer sessionTokenIssuerPort,
+	serviceTokenIssuer serviceTokenIssuerPort,
+	refresher refresherPort,
+	verifier verifierPort,
+	accessRevoker accessRevokerPort,
 ) TokenApplicationService {
 	return &tokenApplicationService{
-		serviceTokenIssuer: tokenIssuer,
-		accessRevoker:      tokenIssuer,
-		tokenRefresher:     tokenRefresher,
-		tokenVerifier:      tokenVerifier,
+		sessionTokenIssuer: sessionTokenIssuer,
+		serviceTokenIssuer: serviceTokenIssuer,
+		refresher:          refresher,
+		verifier:           verifier,
+		accessRevoker:      accessRevoker,
 	}
+}
+
+// IssueToken 在登录完成后签发用户会话令牌。
+func (s *tokenApplicationService) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
+	return s.sessionTokenIssuer.IssueToken(ctx, principal)
 }
 
 // IssueServiceToken 签发服务间访问令牌。
@@ -103,9 +107,9 @@ func (s *tokenApplicationService) IssueServiceToken(ctx context.Context, req Iss
 }
 
 // RefreshToken 使用 refresh token 轮换出新的 access/refresh token pair。
-// 具体流程由 Refresher 完成，包括 refresh token 读取、旧 token 删除和 session 延期。
+// 具体流程由内部 refresher 完成，包括 refresh token 读取、旧 token 删除和 session 延期。
 func (s *tokenApplicationService) RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error) {
-	tokenPair, err := s.tokenRefresher.RefreshToken(ctx, refreshToken)
+	tokenPair, err := s.refresher.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +131,7 @@ func (s *tokenApplicationService) RevokeAccessToken(ctx context.Context, accessT
 
 // RevokeRefreshToken 删除 refresh token；如果 refresh token 关联 session，则同步撤销 session。
 func (s *tokenApplicationService) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
-	err := s.tokenRefresher.RevokeRefreshToken(ctx, refreshToken)
+	err := s.refresher.RevokeRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrTokenRevokeFailed, "failed to revoke refresh token")
 	}
@@ -136,11 +140,16 @@ func (s *tokenApplicationService) RevokeRefreshToken(ctx context.Context, refres
 
 // VerifyToken 在线验证 access token，并检查可选的 issuer/audience 约束。
 func (s *tokenApplicationService) VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error) {
-	claims, err := s.tokenVerifier.VerifyAccessToken(ctx, req.AccessToken)
+	claims, err := s.verifier.VerifyAccessToken(ctx, req.AccessToken)
 	if err != nil {
+		failureCode := tokenVerificationFailureCode(err)
+		if failureCode == 0 {
+			return nil, err
+		}
 		return &TokenVerifyResult{
-			Valid:  false,
-			Claims: nil,
+			Valid:       false,
+			Claims:      nil,
+			FailureCode: failureCode,
 		}, nil
 	}
 
@@ -176,4 +185,20 @@ func containsAnyAudience(actual []string, expected []string) bool {
 	}
 
 	return false
+}
+
+func tokenVerificationFailureCode(err error) int {
+	codeValue := perrors.ParseCoder(err).Code()
+	switch codeValue {
+	case code.ErrTokenInvalid,
+		code.ErrExpired,
+		code.ErrUserBlocked,
+		code.ErrUserInactive,
+		code.ErrCredentialDisabled,
+		code.ErrCredentialLocked,
+		code.ErrSessionInactive:
+		return codeValue
+	default:
+		return 0
+	}
 }

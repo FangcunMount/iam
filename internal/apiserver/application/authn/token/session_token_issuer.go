@@ -9,18 +9,32 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
+// ====================================================
+// ================== Driving Ports ===================
+// ====================================================
+// sessionTokenIssuerPort 是登录成功后签发用户会话令牌的内部端口。
+//
+// 实现会创建 session、签发 access token，并保存 refresh token。
+type sessionTokenIssuerPort interface {
+	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+}
+
+// ====================================================
+// ================== Implementation ==================
+// ====================================================
+
 // sessionTokenIssuer 签发用户会话令牌
 type sessionTokenIssuer struct {
 	sessionManager SessionManager
-	pairIssuer     SessionTokenPairIssuer
+	pairIssuer     sessionTokenPairIssuerPort
 	refreshTTL     time.Duration
 }
 
-// 确保 sessionTokenIssuer 实现 SessionTokenIssuer 接口
-var _ SessionTokenIssuer = (*sessionTokenIssuer)(nil)
+// 确保 sessionTokenIssuer 实现 sessionTokenIssuerPort 接口。
+var _ sessionTokenIssuerPort = (*sessionTokenIssuer)(nil)
 
-// NewSessionTokenIssuer 创建 sessionTokenIssuer
-func newSessionTokenIssuer(sessionManager SessionManager, pairIssuer SessionTokenPairIssuer, refreshTTL time.Duration) *sessionTokenIssuer {
+// newSessionTokenIssuer 创建 sessionTokenIssuer。
+func newSessionTokenIssuer(sessionManager SessionManager, pairIssuer sessionTokenPairIssuerPort, refreshTTL time.Duration) *sessionTokenIssuer {
 	return &sessionTokenIssuer{
 		sessionManager: sessionManager,
 		pairIssuer:     pairIssuer,
@@ -28,7 +42,7 @@ func newSessionTokenIssuer(sessionManager SessionManager, pairIssuer SessionToke
 	}
 }
 
-// IssueToken 签发用户会话令牌
+// IssueToken 签发用户会话令牌。
 func (s *sessionTokenIssuer) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
 	if principal == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")

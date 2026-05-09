@@ -8,16 +8,30 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
+// ====================================================
+// ================== Driving Ports ===================
+// ====================================================
+// serviceTokenIssuerPort 签发服务间访问令牌；服务令牌不创建 session 或 refresh token。
+//
+// 返回值必须包含 access token 和 refresh token。
+type serviceTokenIssuerPort interface {
+	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error)
+}
+
+// ====================================================
+// ================== Implementation ==================
+// ====================================================
+
 // serviceTokenIssuer 签发服务令牌
 type serviceTokenIssuer struct {
 	tokenCodec AccessTokenCodec
 	accessTTL  time.Duration
 }
 
-// 确保 serviceTokenIssuer 实现 ServiceTokenIssuer 接口
-var _ ServiceTokenIssuer = (*serviceTokenIssuer)(nil)
+// 确保 serviceTokenIssuer 实现 serviceTokenIssuerPort 接口。
+var _ serviceTokenIssuerPort = (*serviceTokenIssuer)(nil)
 
-// NewServiceTokenIssuer 创建 serviceTokenIssuer
+// newServiceTokenIssuer 创建 serviceTokenIssuer。
 func newServiceTokenIssuer(tokenCodec AccessTokenCodec, accessTTL time.Duration) *serviceTokenIssuer {
 	return &serviceTokenIssuer{
 		tokenCodec: tokenCodec,
@@ -25,7 +39,7 @@ func newServiceTokenIssuer(tokenCodec AccessTokenCodec, accessTTL time.Duration)
 	}
 }
 
-// IssueServiceToken 签发服务令牌
+// IssueServiceToken 签发服务令牌。
 func (s *serviceTokenIssuer) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error) {
 	// 如果主题为空，则返回错误
 	if subject == "" {

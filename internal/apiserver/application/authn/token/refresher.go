@@ -12,26 +12,39 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 )
 
+// ====================================================
+// ================== Driving Ports ===================
+// ====================================================
+// refresherPort 根据 refresh token 刷新 access token 和 refresh token。
+type refresherPort interface {
+	RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error)
+	RevokeRefreshToken(ctx context.Context, tokenValue string) error
+}
+
+// ====================================================
+// ================== Implementation ==================
+// ====================================================
+
 // refresher 刷新令牌
 type refresher struct {
-	pairIssuer     SessionTokenPairIssuer
+	pairIssuer     sessionTokenPairIssuerPort
 	tokenStore     Store
 	sessionManager SessionManager
 	accessChecker  SubjectAccessEvaluator
 	claimMapper    ClaimMapper
 }
 
-// 确保 refresher 实现 Refresher 接口
-var _ Refresher = (*refresher)(nil)
+// 确保 refresher 实现 refresherPort 接口。
+var _ refresherPort = (*refresher)(nil)
 
-// NewRefresher 创建 refresher
-func NewRefresher(
-	pairIssuer SessionTokenPairIssuer,
+// newRefresher 创建 refresher。
+func newRefresher(
+	pairIssuer sessionTokenPairIssuerPort,
 	tokenStore Store,
 	sessionManager SessionManager,
 	accessChecker SubjectAccessEvaluator,
 	claimMapper ClaimMapper,
-) Refresher {
+) refresherPort {
 	return &refresher{
 		pairIssuer:     pairIssuer,
 		tokenStore:     tokenStore,

@@ -7,18 +7,31 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 )
 
-// issuer 是对外兼容的 token 签发门面，实际职责委托给更小的用例组件。
-type issuer struct {
-	sessionIssuer *sessionTokenIssuer
-	serviceIssuer ServiceTokenIssuer
-	accessRevoker AccessRevoker
+// ====================================================
+// ================== Driving Ports ===================
+// ====================================================
+// issuerPort 聚合 token 签发/撤销能力，仅供 token 包内部装配。
+type issuerPort interface {
+	sessionTokenIssuerPort
+	serviceTokenIssuerPort
+	accessRevokerPort
 }
 
-// 确保 issuer 实现 Issuer 接口
-var _ Issuer = (*issuer)(nil)
+// ====================================================
+// ================== Implementation ==================
+// ====================================================
+// issuer 是 token 包内部的签发门面，实际职责委托给更小的用例组件。
+type issuer struct {
+	sessionIssuer *sessionTokenIssuer
+	serviceIssuer serviceTokenIssuerPort
+	accessRevoker accessRevokerPort
+}
 
-// NewIssuer 创建 token 签发器。
-func NewIssuer(
+// 确保 issuer 实现 issuerPort 接口。
+var _ issuerPort = (*issuer)(nil)
+
+// newIssuer 创建 token 签发器。
+func newIssuer(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
 	sessionManager SessionManager,
@@ -35,8 +48,8 @@ func NewIssuer(
 	}
 }
 
-// SessionTokenPairIssuer 返回基于既有 session 签发 token pair 的内部协作者。
-func (s *issuer) SessionTokenPairIssuer() SessionTokenPairIssuer {
+// sessionTokenPairIssuer 返回基于既有 session 签发 token pair 的内部协作者。
+func (s *issuer) sessionTokenPairIssuer() sessionTokenPairIssuerPort {
 	if s == nil || s.sessionIssuer == nil {
 		return nil
 	}

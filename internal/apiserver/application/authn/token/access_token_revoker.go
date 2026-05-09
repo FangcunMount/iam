@@ -8,6 +8,19 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
+// ====================================================
+// ================== Driving Ports ===================
+// ====================================================
+
+// accessRevokerPort 撤销单个 access token 及其关联会话。
+type accessRevokerPort interface {
+	RevokeAccessToken(ctx context.Context, tokenValue string) error
+}
+
+// ====================================================
+// ================== Implementation ==================
+// ====================================================
+
 // accessTokenRevoker 撤销访问令牌
 type accessTokenRevoker struct {
 	tokenCodec     AccessTokenCodec
@@ -15,10 +28,10 @@ type accessTokenRevoker struct {
 	sessionManager SessionManager
 }
 
-// 确保 accessTokenRevoker 实现 AccessRevoker 接口
-var _ AccessRevoker = (*accessTokenRevoker)(nil)
+// 确保 accessTokenRevoker 实现 accessRevokerPort 接口。
+var _ accessRevokerPort = (*accessTokenRevoker)(nil)
 
-// NewAccessTokenRevoker 创建 accessTokenRevoker
+// newAccessTokenRevoker 创建 accessTokenRevoker。
 func newAccessTokenRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionManager SessionManager) *accessTokenRevoker {
 	return &accessTokenRevoker{
 		tokenCodec:     tokenCodec,
@@ -27,7 +40,7 @@ func newAccessTokenRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessio
 	}
 }
 
-// RevokeAccessToken 撤销访问令牌
+// RevokeAccessToken 撤销访问令牌。
 func (s *accessTokenRevoker) RevokeAccessToken(ctx context.Context, tokenValue string) error {
 	// 验证访问令牌
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)

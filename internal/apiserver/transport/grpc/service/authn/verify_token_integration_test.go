@@ -118,7 +118,6 @@ func (s fixedSigningKeySource) VerificationKey(context.Context, string) (*rsa.Pu
 func newTestTokenStack(t *testing.T) (
 	tokenapp.TokenApplicationService,
 	*tokenjwt.Generator,
-	tokenapp.Issuer,
 ) {
 	t.Helper()
 
@@ -130,17 +129,23 @@ func newTestTokenStack(t *testing.T) (
 	store := noopTokenStore{}
 	sessionStore := &memorySessionStore{}
 	sessionManager := sessiondomain.NewManager(sessionStore)
-	issuer := tokenapp.NewIssuer(gen, store, sessionManager, gen.ClaimMapper(), time.Hour, 24*time.Hour)
-	verifier := tokenapp.NewVerifier(gen, store, sessionManager, allowAllSubjectAccessEvaluator{})
-	svc := tokenapp.NewTokenApplicationService(issuer, nil, verifier)
-	return svc, gen, issuer
+	svc := tokenapp.NewTokenApplicationService(tokenapp.TokenApplicationDependencies{
+		AccessTokenCodec: gen,
+		TokenStore:       store,
+		SessionManager:   sessionManager,
+		AccessChecker:    allowAllSubjectAccessEvaluator{},
+		ClaimMapper:      gen.ClaimMapper(),
+		AccessTTL:        time.Hour,
+		RefreshTTL:       24 * time.Hour,
+	})
+	return svc, gen
 }
 
 func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx := context.Background()
 
-	tokenSvc, gen, issuer := newTestTokenStack(t)
+	tokenSvc, gen := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
 		UserID:    meta.FromUint64(1001),
@@ -151,7 +156,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	}
 
 	// 与登录成功后的签发路径一致：IssueToken → access_token JWT
-	pair, err := issuer.IssueToken(ctx, principal)
+	pair, err := tokenSvc.IssueToken(ctx, principal)
 	require.NoError(t, err)
 	require.NotNil(t, pair)
 	require.NotNil(t, pair.AccessToken)
@@ -221,14 +226,14 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 
 func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 	ctx := context.Background()
-	tokenSvc, _, issuer := newTestTokenStack(t)
+	tokenSvc, _ := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
 		UserID:    meta.FromUint64(7),
 		AccountID: meta.FromUint64(8),
 		TenantID:  meta.FromUint64(9),
 	}
-	pair, err := issuer.IssueToken(ctx, principal)
+	pair, err := tokenSvc.IssueToken(ctx, principal)
 	require.NoError(t, err)
 
 	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
@@ -251,14 +256,14 @@ func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 // 可选：gRPC VerifyToken 在 IncludeMetadata 时返回元数据（与 Claims 同源签发链）。
 func TestIntegration_VerifyToken_GRPC_IncludeMetadata(t *testing.T) {
 	ctx := context.Background()
-	tokenSvc, _, issuer := newTestTokenStack(t)
+	tokenSvc, _ := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
 		UserID:    meta.FromUint64(42),
 		AccountID: meta.FromUint64(43),
 		TenantID:  meta.FromUint64(44),
 	}
-	pair, err := issuer.IssueToken(ctx, principal)
+	pair, err := tokenSvc.IssueToken(ctx, principal)
 	require.NoError(t, err)
 
 	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}

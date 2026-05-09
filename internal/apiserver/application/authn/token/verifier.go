@@ -9,6 +9,17 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
+// ====================================================
+// ================== Driving Ports ===================
+// ====================================================
+// verifierPort 在线验证 access token。
+type verifierPort interface {
+	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+}
+
+// ====================================================
+// ================== Implementation ==================
+// ====================================================
 // verifier 验证访问令牌
 type verifier struct {
 	tokenCodec     AccessTokenCodec
@@ -17,16 +28,16 @@ type verifier struct {
 	accessChecker  SubjectAccessEvaluator
 }
 
-// 确保 verifier 实现 Verifier 接口
-var _ Verifier = (*verifier)(nil)
+// 确保 verifier 实现 verifierPort 接口。
+var _ verifierPort = (*verifier)(nil)
 
-// NewVerifier 创建 verifier
-func NewVerifier(
+// newVerifier 创建 verifier。
+func newVerifier(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
 	sessionManager SessionManager,
 	accessChecker SubjectAccessEvaluator,
-) Verifier {
+) verifierPort {
 	return &verifier{
 		tokenCodec:     tokenCodec,
 		tokenStore:     tokenStore,

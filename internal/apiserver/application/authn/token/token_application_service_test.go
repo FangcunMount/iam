@@ -50,7 +50,7 @@ func (s *refreshTokenRefresherStub) RevokeRefreshToken(context.Context, string) 
 
 func TestTokenApplicationServiceVerifyTokenHonorsExpectedIssuerAndAudience(t *testing.T) {
 	svc := &tokenApplicationService{
-		tokenVerifier: &verifyerStub{
+		verifier: &verifyerStub{
 			claims: NewTokenClaims(
 				TokenTypeAccess,
 				"tid",
@@ -130,7 +130,7 @@ func TestTokenApplicationServiceRefreshTokenPreservesRefresherErrorCode(t *testi
 	t.Parallel()
 
 	svc := &tokenApplicationService{
-		tokenRefresher: &refreshTokenRefresherStub{
+		refresher: &refreshTokenRefresherStub{
 			err: perrors.WithCode(code.ErrInternalServerError, "session store unavailable"),
 		},
 	}
@@ -140,4 +140,21 @@ func TestTokenApplicationServiceRefreshTokenPreservesRefresherErrorCode(t *testi
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.Equal(t, code.ErrInternalServerError, perrors.ParseCoder(err).Code())
+}
+
+func TestTokenApplicationServiceVerifyTokenPreservesVerifierFailureCode(t *testing.T) {
+	t.Parallel()
+
+	svc := &tokenApplicationService{
+		verifier: &verifyerStub{
+			err: perrors.WithCode(code.ErrExpired, "expired"),
+		},
+	}
+
+	result, err := svc.VerifyToken(context.Background(), VerifyTokenRequest{AccessToken: "expired-token"})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.False(t, result.Valid)
+	require.Equal(t, code.ErrExpired, result.FailureCode)
 }

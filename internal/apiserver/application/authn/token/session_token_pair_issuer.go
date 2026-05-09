@@ -11,16 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// sessionTokenPairIssuer 基于已存在的 session 签发 access token 并保存 refresh token。
+// sessionTokenPairIssuerPort 基于已存在的 session 签发 access token 并保存 refresh token。
 //
 // Login 会先创建 session 再调用该组件；Refresh 会复用已有 session 后调用该组件。
-type SessionTokenPairIssuer interface {
+type sessionTokenPairIssuerPort interface {
 	// IssueTokenPair 根据认证主体和会话信息签发 access token，并保存新的 refresh token。
 	// 返回值必须包含 access token 和 refresh token。
 	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
 }
 
-// sessionTokenPairIssuer  基于已存在的 session 签发 access token 并保存 refresh token。
+// sessionTokenPairIssuer 基于已存在的 session 签发 access token 并保存 refresh token。
 type sessionTokenPairIssuer struct {
 	tokenCodec  AccessTokenCodec
 	tokenStore  Store
@@ -29,10 +29,10 @@ type sessionTokenPairIssuer struct {
 	refreshTTL  time.Duration
 }
 
-// 确保 sessionTokenPairIssuer 实现 SessionTokenPairIssuer 接口
-var _ SessionTokenPairIssuer = (*sessionTokenPairIssuer)(nil)
+// 确保 sessionTokenPairIssuer 实现 sessionTokenPairIssuerPort 接口。
+var _ sessionTokenPairIssuerPort = (*sessionTokenPairIssuer)(nil)
 
-// newSessionTokenPairIssuer 创建 sessionTokenPairIssuer
+// newSessionTokenPairIssuer 创建 sessionTokenPairIssuer。
 func newSessionTokenPairIssuer(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
@@ -49,7 +49,7 @@ func newSessionTokenPairIssuer(
 	}
 }
 
-// IssueTokenPair 颁发令牌对
+// IssueTokenPair 颁发令牌对。
 func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
 	if principal == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")

@@ -13,6 +13,7 @@ import (
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
@@ -425,6 +426,10 @@ func (casbinStub) DirectRoleKeys(_ context.Context, _, _ string) ([]string, erro
 }
 
 type tokenServiceStub struct{}
+
+func (tokenServiceStub) IssueToken(context.Context, *authentication.Principal) (*tokenapp.TokenPair, error) {
+	return nil, nil
+}
 
 func (tokenServiceStub) IssueServiceToken(context.Context, tokenapp.IssueServiceTokenRequest) (*tokenapp.TokenIssueResult, error) {
 	return nil, nil
