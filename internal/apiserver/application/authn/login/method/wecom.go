@@ -26,7 +26,7 @@ func (wecomMethod) Method() AuthMethod {
 	return AuthMethodWecom
 }
 
-// CredentialKind 返回凭据类型
+// CredentialKind 返回认证证明类型
 func (wecomMethod) CredentialKind() CredentialKind {
 	return CredentialKindWecom
 }

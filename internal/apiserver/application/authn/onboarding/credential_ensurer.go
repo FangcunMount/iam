@@ -50,8 +50,8 @@ func (e *credentialEnsurer) Ensure(
 			Status:     CredentialReused,
 		}, nil
 	}
-	issuer := credDomain.NewIssuer(e.hasher)
-	credential, err := e.issuePasswordCredential(ctx, issuer, loginIdentityResult.Identity.ID, req)
+	issuer := credDomain.NewPasswordIssuer(e.hasher)
+	credential, err := e.issuePasswordCredential(issuer, loginIdentityResult.Identity.ID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -70,15 +70,14 @@ func (e *credentialEnsurer) Ensure(
 }
 
 func (e *credentialEnsurer) issuePasswordCredential(
-	ctx context.Context,
-	issuer credDomain.Issuer,
+	issuer *credDomain.PasswordIssuer,
 	loginIdentityID meta.ID,
 	req *NormalizedOnboardingRequest,
 ) (*credDomain.Credential, error) {
 	if req.Password == nil || *req.Password == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "password is required")
 	}
-	return issuer.IssuePassword(ctx, credDomain.IssuePasswordRequest{
+	return issuer.IssuePassword(credDomain.IssuePasswordRequest{
 		LoginIdentityID: loginIdentityID,
 		PlainPassword:   *req.Password,
 	})

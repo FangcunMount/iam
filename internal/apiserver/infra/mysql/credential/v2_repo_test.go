@@ -51,11 +51,14 @@ func TestCredentialRepositoryUpdatesV2PasswordAuthState(t *testing.T) {
 	lockedUntil := time.Now().Add(time.Minute).Truncate(time.Second)
 	lastSuccessAt := time.Now().Add(2 * time.Minute).Truncate(time.Second)
 	lastFailureAt := time.Now().Add(3 * time.Minute).Truncate(time.Second)
-	require.NoError(t, repo.UpdateStatus(ctx, cred.ID, credDomain.CredStatusDisabled))
-	require.NoError(t, repo.UpdateFailedAttempts(ctx, cred.ID, 3))
-	require.NoError(t, repo.UpdateLockedUntil(ctx, cred.ID, &lockedUntil))
-	require.NoError(t, repo.UpdateLastSuccessAt(ctx, cred.ID, lastSuccessAt))
-	require.NoError(t, repo.UpdateLastFailureAt(ctx, cred.ID, lastFailureAt))
+	cred.Status = credDomain.CredStatusDisabled
+	cred.FailedAttempts = 3
+	cred.LockedUntil = &lockedUntil
+	cred.LastSuccessAt = &lastSuccessAt
+	cred.LastFailureAt = &lastFailureAt
+
+	require.NoError(t, repo.UpdateStatus(ctx, cred.ID, cred.Status))
+	require.NoError(t, repo.UpdateAuthState(ctx, cred))
 
 	found, err := repo.GetByID(ctx, cred.ID)
 	require.NoError(t, err)

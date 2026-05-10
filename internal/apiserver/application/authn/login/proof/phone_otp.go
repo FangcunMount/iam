@@ -17,7 +17,7 @@ func NewPhoneOTPBuilder() Builder {
 	return phoneOTPBuilder{}
 }
 
-// CredentialKind 返回凭据类型
+// CredentialKind 返回认证证明类型
 func (phoneOTPBuilder) CredentialKind() method.CredentialKind {
 	return method.CredentialKindPhoneOTP
 }

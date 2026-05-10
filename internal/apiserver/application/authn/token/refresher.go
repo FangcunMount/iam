@@ -227,9 +227,7 @@ func subjectAccessError(status sessiondomain.SubjectAccessStatus) error {
 	case sessiondomain.SubjectAccessBlocked:
 		return perrors.WithCode(code.ErrUserBlocked, "user is blocked")
 	case sessiondomain.SubjectAccessDisabled:
-		return perrors.WithCode(code.ErrCredentialDisabled, "account is disabled")
-	case sessiondomain.SubjectAccessLocked:
-		return perrors.WithCode(code.ErrCredentialLocked, "account is locked")
+		return perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is disabled")
 	default:
 		return perrors.WithCode(code.ErrUserInactive, "subject is inactive")
 	}

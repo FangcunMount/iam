@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -80,7 +79,7 @@ type AuditLogger interface {
 type AuthAuditEvent struct {
 	LoginIdentityID meta.ID
 	CredentialID    meta.ID
-	CredentialType  credDomain.CredentialType
+	CredentialKind  CredentialKind
 	Success         bool
 	Code            int
 	RemoteIP        string

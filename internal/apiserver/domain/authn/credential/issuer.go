@@ -1,24 +1,10 @@
 package credential
 
 import (
-	"context"
-
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
-
-// ==================== 凭据颁发器接口 ====================
-
-// Issuer 凭据颁发器接口（领域服务）
-// 职责：为 LoginIdentity 创建长期认证材料实体。
-// 注意：Issuer 不负责持久化；应用层在事务中保存返回的 Credential。
-type Issuer interface {
-	// IssuePassword 颁发密码凭据
-	IssuePassword(ctx context.Context, req IssuePasswordRequest) (*Credential, error)
-}
-
-// ==================== 颁发请求 DTOs ====================
 
 // IssuePasswordRequest 密码凭据颁发请求
 type IssuePasswordRequest struct {
@@ -28,27 +14,20 @@ type IssuePasswordRequest struct {
 	Algo            string  // 哈希算法（如果使用 HashedPassword，必须提供）
 }
 
-// ==================== 颁发器实现 ====================
-
-// issuer 凭据颁发器实现
-type issuer struct {
-	binder Binder
+// PasswordIssuer 为 LoginIdentity 创建 password Credential。
+//
+// Issuer 不负责持久化；应用层在事务中保存返回的 Credential。
+type PasswordIssuer struct {
 	hasher PasswordHasher // 用于密码哈希
 }
 
-var _ Issuer = (*issuer)(nil)
-
-// NewIssuer 创建凭据颁发器
-// 注意：不再依赖 Repository，持久化由应用层负责
-func NewIssuer(hasher PasswordHasher) Issuer {
-	return &issuer{
-		binder: NewBinder(),
-		hasher: hasher,
-	}
+// NewPasswordIssuer 创建 password credential issuer。
+func NewPasswordIssuer(hasher PasswordHasher) *PasswordIssuer {
+	return &PasswordIssuer{hasher: hasher}
 }
 
 // IssuePassword 颁发密码凭据（创建凭据实体，不包含持久化）
-func (i *issuer) IssuePassword(ctx context.Context, req IssuePasswordRequest) (*Credential, error) {
+func (i *PasswordIssuer) IssuePassword(req IssuePasswordRequest) (*Credential, error) {
 	// 参数验证
 	if req.LoginIdentityID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "login_identity_id is required")
@@ -77,23 +56,18 @@ func (i *issuer) IssuePassword(ctx context.Context, req IssuePasswordRequest) (*
 		algo = "argon2id"
 	}
 
-	// 创建凭据实体
-	credential, err := i.binder.Bind(BindSpec{
-		LoginIdentityID: req.LoginIdentityID,
-		Type:            CredPassword,
-		Material:        []byte(hashedPassword),
-		Algo:            &algo,
-	})
-	if err != nil {
-		return nil, err
+	if hashedPassword == "" {
+		return nil, perrors.WithCode(code.ErrInvalidCredential, "password credential requires material")
+	}
+	if algo == "" {
+		return nil, perrors.WithCode(code.ErrInvalidCredential, "password credential requires algo")
 	}
 
-	// 注意：凭据持久化由应用层负责
-	return credential, nil
+	return NewPasswordCredential(req.LoginIdentityID, []byte(hashedPassword), algo), nil
 }
 
 // hashPassword 使用 PHC 格式哈希密码
-func (i *issuer) hashPassword(plainPassword string) (string, error) {
+func (i *PasswordIssuer) hashPassword(plainPassword string) (string, error) {
 	plaintextWithPepper := plainPassword + i.hasher.Pepper()
 	return i.hasher.Hash(plaintextWithPepper)
 }

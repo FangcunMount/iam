@@ -166,7 +166,6 @@ type loginIdentityRepoTestDouble struct {
 	providerLookups map[string]*authentication.LoginIdentityLookup
 	globalLookups   map[string]*authentication.LoginIdentityLookup
 	statusByID      map[meta.ID]loginidentity.Status
-	lockedByID      map[meta.ID]bool
 }
 
 func newLoginIdentityRepoTestDouble(lookups ...*authentication.LoginIdentityLookup) *loginIdentityRepoTestDouble {
@@ -174,7 +173,6 @@ func newLoginIdentityRepoTestDouble(lookups ...*authentication.LoginIdentityLook
 		providerLookups: map[string]*authentication.LoginIdentityLookup{},
 		globalLookups:   map[string]*authentication.LoginIdentityLookup{},
 		statusByID:      map[meta.ID]loginidentity.Status{},
-		lockedByID:      map[meta.ID]bool{},
 	}
 	for _, lookup := range lookups {
 		repo.providerLookups[providerLookupKey(lookup.Provider, lookup.Realm, lookup.Identifier)] = lookup
@@ -195,12 +193,12 @@ func (s *loginIdentityRepoTestDouble) FindLoginIdentityByProviderKey(_ context.C
 func (s *loginIdentityRepoTestDouble) FindLoginIdentityByGlobalIdentifier(_ context.Context, provider loginidentity.Provider, globalIdentifier string) (*authentication.LoginIdentityLookup, error) {
 	return s.globalLookups[globalLookupKey(provider, globalIdentifier)], nil
 }
-func (s *loginIdentityRepoTestDouble) GetLoginIdentityStatus(_ context.Context, loginIdentityID meta.ID) (bool, bool, error) {
+func (s *loginIdentityRepoTestDouble) IsLoginIdentityActive(_ context.Context, loginIdentityID meta.ID) (bool, error) {
 	status, ok := s.statusByID[loginIdentityID]
 	if !ok {
-		return false, false, nil
+		return false, nil
 	}
-	return status == loginidentity.StatusActive, s.lockedByID[loginIdentityID], nil
+	return status == loginidentity.StatusActive, nil
 }
 
 func providerLookupKey(provider loginidentity.Provider, realm, identifier string) string {

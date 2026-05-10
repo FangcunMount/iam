@@ -11,9 +11,10 @@ import (
 )
 
 func TestCredential_TypeChecksAndFactories(t *testing.T) {
-	accID := meta.FromUint64(1)
-	pwd := NewPasswordCredential(accID, []byte("hash"), "argon2id")
+	loginIdentityID := meta.FromUint64(1)
+	pwd := NewPasswordCredential(loginIdentityID, []byte("hash"), "argon2id")
 	require.NotNil(t, pwd)
+	assert.Equal(t, loginIdentityID, pwd.LoginIdentityID)
 	assert.True(t, pwd.IsPasswordType())
 	assert.True(t, pwd.IsEnabled())
 }

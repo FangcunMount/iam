@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -30,9 +29,9 @@ type PasswordProofSpec struct {
 	Password  string
 }
 
-// CredentialType 返回凭据类型。
-func (c *PasswordCredential) CredentialType() credDomain.CredentialType {
-	return credDomain.CredPassword
+// CredentialKind 返回认证证明类型。
+func (c *PasswordCredential) CredentialKind() CredentialKind {
+	return CredentialKindPassword
 }
 
 // NewPasswordCredential 构造密码认证凭据
@@ -57,7 +56,7 @@ func NewPasswordCredential(spec PasswordProofSpec) (AuthCredential, error) {
 
 // PasswordAuthStrategy 用户名+密码认证策略
 type PasswordAuthStrategy struct {
-	credentialType credDomain.CredentialType
+	credentialKind CredentialKind
 	credRepo       LoginIdentityCredentialRepository
 	identityRepo   LoginIdentityRepository
 	hasher         PasswordHasher
@@ -72,7 +71,7 @@ func NewPasswordAuthStrategyWithLoginIdentity(
 	hasher PasswordHasher,
 ) *PasswordAuthStrategy {
 	return &PasswordAuthStrategy{
-		credentialType: credDomain.CredPassword,
+		credentialKind: CredentialKindPassword,
 		credRepo:       credRepo,
 		identityRepo:   identityRepo,
 		hasher:         hasher,
@@ -80,14 +79,14 @@ func NewPasswordAuthStrategyWithLoginIdentity(
 }
 
 // Kind 返回认证策略类型
-func (p *PasswordAuthStrategy) Kind() credDomain.CredentialType {
-	return p.credentialType
+func (p *PasswordAuthStrategy) Kind() CredentialKind {
+	return p.credentialKind
 }
 
 // Authenticate 执行用户名+密码认证
 // 认证流程：
-// 1. 根据用户名查找账户
-// 2. 检查账户状态（是否锁定/禁用）
+// 1. 根据用户名查找 LoginIdentity
+// 2. 检查 LoginIdentity 状态
 // 3. 查找密码凭据
 // 4. 验证密码（带pepper）
 // 5. 检查是否需要密码rehash（算法升级）

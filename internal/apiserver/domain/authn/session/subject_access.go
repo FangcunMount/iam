@@ -13,7 +13,6 @@ const (
 	SubjectAccessActive   SubjectAccessStatus = "active"
 	SubjectAccessBlocked  SubjectAccessStatus = "blocked"
 	SubjectAccessDisabled SubjectAccessStatus = "disabled"
-	SubjectAccessLocked   SubjectAccessStatus = "locked"
 )
 
 // SubjectAccessDecision 汇总 user/login identity 的访问判定。

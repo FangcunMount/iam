@@ -12,12 +12,12 @@ type Credential struct {
 	LoginIdentityID meta.ID
 	Type            CredentialType
 
-	// —— 三件套（仅 password 会使用；其余类型为空） —— //
-	Material   []byte  // PHC 哈希（password）；其余类型 NULL
-	Algo       *string // "argon2id"/"bcrypt"；其余类型 NULL
-	ParamsJSON []byte  // 低频元数据（如 wx.profile / wecom.agentid / phone 场景）
+	// —— 长期认证材料 —— //
+	Material   []byte  // password hash；未来可承载 passkey public key / encrypted secret
+	Algo       *string // argon2id / bcrypt / es256 等
+	ParamsJSON []byte  // hash params / authenticator metadata
 
-	// —— 通用状态；只有 password 实际用到失败计数/锁定 —— //
+	// —— 认证材料状态 —— //
 	Status         CredentialStatus
 	FailedAttempts int        // 失败尝试次数
 	LockedUntil    *time.Time // 锁定截止时间
@@ -37,7 +37,7 @@ func (c *Credential) IsDisabled() bool {
 	return c.Status == CredStatusDisabled
 }
 
-// IsLockedByTime 是否被时间锁定（主要用于 password）
+// IsLockedByTime 是否被时间锁定
 func (c *Credential) IsLockedByTime(now time.Time) bool {
 	return c.LockedUntil != nil && now.Before(*c.LockedUntil)
 }
@@ -111,7 +111,7 @@ func (c *Credential) Disable() {
 	c.Status = CredStatusDisabled
 }
 
-// RotateMaterial 轮换凭据材料（主要用于 password）
+// RotateMaterial 轮换凭据材料
 func (c *Credential) RotateMaterial(newMaterial []byte, newAlgo *string) {
 	c.Material = newMaterial
 	if newAlgo != nil {

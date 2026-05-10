@@ -9,21 +9,14 @@ import (
 )
 
 func loginIdentityStatusFailureDecision(ctx context.Context, identityRepo LoginIdentityRepository, loginIdentityID meta.ID) (*AuthDecision, error) {
-	enabled, locked, err := identityRepo.GetLoginIdentityStatus(ctx, loginIdentityID)
+	active, err := identityRepo.IsLoginIdentityActive(ctx, loginIdentityID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get login identity status: %w", err)
 	}
-	if !enabled {
+	if !active {
 		return &AuthDecision{
 			OK:              false,
-			Code:            code.ErrCredentialDisabled,
-			LoginIdentityID: loginIdentityID,
-		}, nil
-	}
-	if locked {
-		return &AuthDecision{
-			OK:              false,
-			Code:            code.ErrCredentialLocked,
+			Code:            code.ErrLoginIdentityDisabled,
 			LoginIdentityID: loginIdentityID,
 		}, nil
 	}

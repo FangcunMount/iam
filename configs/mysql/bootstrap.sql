@@ -2,7 +2,7 @@
 -- IAM - System Bootstrap Data
 -- Description: Idempotent baseline data migrated from the retired seeddata flow.
 -- Scope:
---   - baseline tenants / users / opera accounts / password credentials
+--   - baseline tenants / users / operation login identities / password credentials
 --   - IAM + QS roles / resources / assignments / Casbin policies
 --   - default dictionaries and default WeChat app metadata
 -- Non-scope:
@@ -173,8 +173,8 @@ VALUES (901000001, 'iam:profile', '个人资料', 'iam', 'identity', 'instance',
         NOW(), 0, 0, 0, 1),
        (901000009, 'iam:check', '权限判定', 'iam', 'authz', 'action', JSON_ARRAY('check'), '单次 PDP 权限判定', NOW(),
         NOW(), 0, 0, 0, 1),
-       (901000010, 'iam:accounts', '账号管理', 'iam', 'authn', 'collection',
-        JSON_ARRAY('read', 'update', 'enable', 'disable', 'set_unionid'), '认证账号读取、资料更新与启停用', NOW(), NOW(),
+       (901000010, 'iam:login_identities', '登录身份管理', 'iam', 'authn', 'collection',
+        JSON_ARRAY('read', 'update', 'enable', 'disable', 'set_unionid'), '登录身份读取、资料更新与启停用', NOW(), NOW(),
         0, 0, 0, 1),
        (901000011, 'iam:jwks', 'JWKS 密钥管理', 'iam', 'authn', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'retire', 'force_retire', 'enter_grace', 'cleanup', 'list_publishable'),
@@ -297,7 +297,7 @@ FROM (SELECT 'p'                  AS `ptype`,
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:check', 'check', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:accounts', 'read|update|enable|disable', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:login_identities', 'read|update|enable|disable', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'read', 'all:*', NULL
       UNION ALL

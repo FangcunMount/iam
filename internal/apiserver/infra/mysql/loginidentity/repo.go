@@ -23,7 +23,7 @@ type Repository struct {
 func NewRepository(db *gorm.DB) *Repository {
 	base := mysql.NewBaseRepository[*PO](db)
 	base.SetErrorTranslator(mysql.NewDuplicateToTranslator(func(e error) error {
-		return perrors.WithCode(code.ErrAccountExists, "login identity already exists")
+		return perrors.WithCode(code.ErrLoginIdentityExists, "login identity already exists")
 	}))
 	return &Repository{
 		BaseRepository: base,
@@ -150,15 +150,15 @@ func (r *Repository) FindLoginIdentityByGlobalIdentifier(ctx context.Context, pr
 	return nil, nil
 }
 
-func (r *Repository) GetLoginIdentityStatus(ctx context.Context, loginIdentityID meta.ID) (enabled, locked bool, err error) {
+func (r *Repository) IsLoginIdentityActive(ctx context.Context, loginIdentityID meta.ID) (bool, error) {
 	identity, err := r.GetByID(ctx, loginIdentityID)
 	if err != nil {
-		return false, false, err
+		return false, err
 	}
 	if identity != nil {
-		return identity.Status == domain.StatusActive, identity.Status == domain.StatusDisabled, nil
+		return identity.Status == domain.StatusActive, nil
 	}
-	return false, false, nil
+	return false, nil
 }
 
 func toLookup(identity *domain.LoginIdentity) *authn.LoginIdentityLookup {

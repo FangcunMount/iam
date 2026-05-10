@@ -66,7 +66,7 @@ func isReauthenticationFailureCode(codeValue int) bool {
 		code.ErrExpired,
 		code.ErrUserBlocked,
 		code.ErrUserInactive,
-		code.ErrCredentialDisabled,
+		code.ErrLoginIdentityDisabled,
 		code.ErrCredentialLocked:
 		return true
 	default:

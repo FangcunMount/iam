@@ -22,7 +22,7 @@ func authAuditEvent(credential AuthCredential, decision AuthDecision) AuthAuditE
 	return AuthAuditEvent{
 		LoginIdentityID: authAuditLoginIdentityID(decision),
 		CredentialID:    decision.CredentialID,
-		CredentialType:  credential.CredentialType(),
+		CredentialKind:  credential.CredentialKind(),
 		Success:         decision.OK,
 		Code:            authAuditCode(decision),
 		RemoteIP:        remoteIP,

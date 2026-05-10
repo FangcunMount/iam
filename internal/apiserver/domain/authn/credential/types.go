@@ -6,10 +6,7 @@ import "time"
 type CredentialType string
 
 const (
-	CredPassword     CredentialType = "password"       // 用户名+密码
-	CredPhoneOTP     CredentialType = "phone_otp"      // 手机号+短信码（OTP 不落库）
-	CredOAuthWxMinip CredentialType = "oauth_wx_minip" // wx.login
-	CredOAuthWecom   CredentialType = "oauth_wecom"    // qwx.login / 扫码
+	CredPassword CredentialType = "password"
 )
 
 // CredentialStatus 凭据状态

@@ -201,7 +201,7 @@ func tokenVerificationFailureCode(err error) int {
 		code.ErrExpired,
 		code.ErrUserBlocked,
 		code.ErrUserInactive,
-		code.ErrCredentialDisabled,
+		code.ErrLoginIdentityDisabled,
 		code.ErrCredentialLocked,
 		code.ErrSessionInactive:
 		return codeValue

@@ -4,24 +4,23 @@ import (
 	"context"
 	"testing"
 
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
-func TestProofConstructorsValidateRequiredFieldsAndMapCredentialType(t *testing.T) {
+func TestProofConstructorsValidateRequiredFieldsAndMapCredentialKind(t *testing.T) {
 	t.Parallel()
 
 	password, err := NewPasswordCredential(PasswordProofSpec{TenantID: meta.FromUint64(1), Username: "alice", Password: "secret"})
 	require.NoError(t, err)
-	require.Equal(t, credDomain.CredPassword, password.CredentialType())
+	require.Equal(t, CredentialKindPassword, password.CredentialKind())
 	_, err = NewPasswordCredential(PasswordProofSpec{})
 	require.Error(t, err)
 
 	phone, err := NewPhoneOTPCredential(PhoneOTPProofSpec{TenantID: meta.FromUint64(1), PhoneE164: "+8613800138000", OTP: "123456"})
 	require.NoError(t, err)
-	require.Equal(t, credDomain.CredPhoneOTP, phone.CredentialType())
+	require.Equal(t, CredentialKindPhoneOTP, phone.CredentialKind())
 	_, err = NewPhoneOTPCredential(PhoneOTPProofSpec{})
 	require.Error(t, err)
 
@@ -32,7 +31,7 @@ func TestProofConstructorsValidateRequiredFieldsAndMapCredentialType(t *testing.
 		Code:      "code",
 	})
 	require.NoError(t, err)
-	require.Equal(t, credDomain.CredOAuthWxMinip, wechat.CredentialType())
+	require.Equal(t, CredentialKindWechatMinip, wechat.CredentialKind())
 	_, err = NewWechatMiniCredential(WechatMiniProofSpec{})
 	require.Error(t, err)
 
@@ -44,20 +43,20 @@ func TestProofConstructorsValidateRequiredFieldsAndMapCredentialType(t *testing.
 		Code:       "code",
 	})
 	require.NoError(t, err)
-	require.Equal(t, credDomain.CredOAuthWecom, wecom.CredentialType())
+	require.Equal(t, CredentialKindWecom, wecom.CredentialKind())
 	_, err = NewWecomCredential(WecomProofSpec{})
 	require.Error(t, err)
 }
 
 type authenticatorStrategyStub struct {
-	kind        credDomain.CredentialType
+	kind        CredentialKind
 	called      bool
 	hasDecision bool
 	decision    AuthDecision
 	err         error
 }
 
-func (s *authenticatorStrategyStub) Kind() credDomain.CredentialType {
+func (s *authenticatorStrategyStub) Kind() CredentialKind {
 	return s.kind
 }
 
@@ -90,7 +89,7 @@ func (s *authenticatorAuditLoggerStub) LogAuthAttempt(_ context.Context, event A
 func TestAuthenticatorUsesInjectedStrategyMapping(t *testing.T) {
 	t.Parallel()
 
-	strategy := &authenticatorStrategyStub{kind: credDomain.CredPassword}
+	strategy := &authenticatorStrategyStub{kind: CredentialKindPassword}
 	a := NewAuthenticator(strategy)
 	proof, err := NewPasswordCredential(PasswordProofSpec{
 		TenantID: meta.FromUint64(1),
@@ -104,13 +103,13 @@ func TestAuthenticatorUsesInjectedStrategyMapping(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, decision.OK)
 	require.True(t, strategy.called)
-	require.Nil(t, a.strategyFor(credDomain.CredentialType("unknown")))
+	require.Nil(t, a.strategyFor(CredentialKind("unknown")))
 }
 
 func TestAuthenticatorLogsSuccessfulAuthAttempt(t *testing.T) {
 	t.Parallel()
 
-	strategy := &authenticatorStrategyStub{kind: credDomain.CredPassword}
+	strategy := &authenticatorStrategyStub{kind: CredentialKindPassword}
 	auditLogger := &authenticatorAuditLoggerStub{}
 	a := NewAuthenticator(strategy).WithAuditLogger(auditLogger)
 	proof, err := NewPasswordCredential(PasswordProofSpec{
@@ -130,7 +129,7 @@ func TestAuthenticatorLogsSuccessfulAuthAttempt(t *testing.T) {
 	event := auditLogger.events[0]
 	require.True(t, event.Success)
 	require.Equal(t, 0, event.Code)
-	require.Equal(t, credDomain.CredPassword, event.CredentialType)
+	require.Equal(t, CredentialKindPassword, event.CredentialKind)
 	require.Equal(t, meta.FromUint64(2002), event.LoginIdentityID)
 	require.Equal(t, "10.0.0.1", event.RemoteIP)
 	require.Equal(t, "iam-test", event.UserAgent)
@@ -141,7 +140,7 @@ func TestAuthenticatorLogsFailedAuthAttempt(t *testing.T) {
 	t.Parallel()
 
 	strategy := &authenticatorStrategyStub{
-		kind:        credDomain.CredPassword,
+		kind:        CredentialKindPassword,
 		hasDecision: true,
 		decision: AuthDecision{
 			OK:              false,
@@ -169,7 +168,7 @@ func TestAuthenticatorLogsFailedAuthAttempt(t *testing.T) {
 	event := auditLogger.events[0]
 	require.False(t, event.Success)
 	require.Equal(t, code.ErrCredentialLocked, event.Code)
-	require.Equal(t, credDomain.CredPassword, event.CredentialType)
+	require.Equal(t, CredentialKindPassword, event.CredentialKind)
 	require.Equal(t, meta.FromUint64(2002), event.LoginIdentityID)
 	require.Equal(t, meta.FromUint64(3003), event.CredentialID)
 	require.Equal(t, "10.0.0.2", event.RemoteIP)

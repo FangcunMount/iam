@@ -51,8 +51,6 @@ def map_path(path: str) -> str:
         return "/authn" + path[5:]
     if path.startswith("/signups/") or path == "/signups":
         return "/authn" + path
-    if path.startswith("/accounts/") or path == "/accounts":
-        return "/authn" + path
     if path.startswith("/authz/") or path.startswith("/idp/"):
         return path
     if path.startswith("/api/v2/suggest/") or path.startswith("/suggest/"):
@@ -233,6 +231,58 @@ def collect_schema_refs(obj: Any, out: set[str]) -> None:
             collect_schema_refs(v, out)
 
 
+def add_authn_login_examples(spec: Dict[str, Any]) -> None:
+    login = spec.get("paths", {}).get("/authn/login", {}).get("post")
+    if not isinstance(login, dict):
+        return
+    content = (
+        login.get("requestBody", {})
+        .get("content", {})
+        .get("application/json")
+    )
+    if not isinstance(content, dict):
+        return
+    content["examples"] = {
+        "password": {
+            "value": {
+                "auth_method": "password",
+                "method_payload": {
+                    "username": "admin@example.com",
+                    "password": "Admin@123",
+                    "tenant_id": 1,
+                },
+            }
+        },
+        "phone_otp": {
+            "value": {
+                "auth_method": "phone_otp",
+                "method_payload": {
+                    "phone": "+8613811112222",
+                    "otp_code": "123456",
+                },
+            }
+        },
+        "wechat": {
+            "value": {
+                "auth_method": "wechat",
+                "method_payload": {
+                    "app_id": "wx_appid",
+                    "code": "js_code",
+                },
+            }
+        },
+        "wecom": {
+            "value": {
+                "auth_method": "wecom",
+                "method_payload": {
+                    "corp_id": "corp_id",
+                    "auth_code": "auth_code",
+                },
+            }
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--swagger", default=str(DEFAULT_SWAGGER), help="Path to swagger.yaml")
@@ -280,6 +330,8 @@ def main() -> int:
         components = spec.get("components", {})
         components["schemas"] = schemas
         spec["components"] = components
+        if module == "authn":
+            add_authn_login_examples(spec)
         if args.dry_run:
             print(f"{spec_path.name}: {len(module_paths[module])} paths, {len(schemas)} schemas")
         else:

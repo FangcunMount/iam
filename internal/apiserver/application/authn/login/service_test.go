@@ -68,15 +68,15 @@ func (s *loginTokenIssuerStub) VerifyToken(ctx context.Context, req tokenapp.Ver
 }
 
 type loginTokenVerifierStub struct {
-	userID    meta.ID
-	accountID meta.ID
-	tenantID  meta.ID
-	sessionID string
-	amr       []string
-	attrs     map[string]string
-	token     string
-	err       error
-	code      int
+	userID          meta.ID
+	loginIdentityID meta.ID
+	tenantID        meta.ID
+	sessionID       string
+	amr             []string
+	attrs           map[string]string
+	token           string
+	err             error
+	code            int
 }
 
 func (s *loginTokenVerifierStub) VerifyToken(ctx context.Context, req tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
@@ -91,7 +91,7 @@ func (s *loginTokenVerifierStub) VerifyToken(ctx context.Context, req tokenapp.V
 		Valid: true,
 		Claims: &tokenapp.TokenClaims{
 			UserID:          s.userID,
-			LoginIdentityID: s.accountID,
+			LoginIdentityID: s.loginIdentityID,
 			TenantID:        s.tenantID,
 			SessionID:       s.sessionID,
 			AMR:             s.amr,
@@ -143,12 +143,12 @@ func TestReauthenticateDefaultsMissingTenantID(t *testing.T) {
 
 			issuer := &loginTokenIssuerStub{}
 			verifier := &loginTokenVerifierStub{
-				userID:    meta.FromUint64(1001),
-				accountID: meta.FromUint64(2002),
-				tenantID:  tc.tokenTenant,
-				sessionID: "session-id",
-				amr:       []string{"pwd"},
-				attrs:     map[string]string{"scope": "profile"},
+				userID:          meta.FromUint64(1001),
+				loginIdentityID: meta.FromUint64(2002),
+				tenantID:        tc.tokenTenant,
+				sessionID:       "session-id",
+				amr:             []string{"pwd"},
+				attrs:           map[string]string{"scope": "profile"},
 			}
 			svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(verifier))
 

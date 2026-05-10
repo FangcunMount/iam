@@ -10,7 +10,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	idpWechatApp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -28,7 +27,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	require.NoError(t, err)
 	password, ok := passwordProof.(*authentication.PasswordCredential)
 	require.True(t, ok)
-	require.Equal(t, credDomain.CredPassword, password.CredentialType())
+	require.Equal(t, authentication.CredentialKindPassword, password.CredentialKind())
 	require.Equal(t, uint64(42), password.TenantID.Uint64())
 	require.Equal(t, "alice", password.Username)
 
@@ -39,7 +38,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	require.NoError(t, err)
 	phone, ok := phoneProof.(*authentication.PhoneOTPCredential)
 	require.True(t, ok)
-	require.Equal(t, credDomain.CredPhoneOTP, phone.CredentialType())
+	require.Equal(t, authentication.CredentialKindPhoneOTP, phone.CredentialKind())
 	require.Equal(t, "+8613800138000", phone.PhoneE164)
 }
 
@@ -306,6 +305,6 @@ func (s *wecomLoginIdentityRepoStub) FindLoginIdentityByGlobalIdentifier(context
 	return nil, nil
 }
 
-func (s *wecomLoginIdentityRepoStub) GetLoginIdentityStatus(context.Context, meta.ID) (bool, bool, error) {
-	return true, false, nil
+func (s *wecomLoginIdentityRepoStub) IsLoginIdentityActive(context.Context, meta.ID) (bool, error) {
+	return true, nil
 }

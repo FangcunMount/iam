@@ -26,12 +26,14 @@ func authFailureMessage(codeValue int) string {
 		return "token expired"
 	case code.ErrUserNotRegistered:
 		return "user not registered"
+	case code.ErrLoginIdentityDisabled:
+		return "login identity is disabled"
 	case code.ErrCredentialLocked:
-		return "account is locked"
+		return "credential is locked"
 	case code.ErrCredentialExpired:
 		return "credential has expired"
 	case code.ErrCredentialDisabled:
-		return "account is disabled"
+		return "credential is disabled"
 	case code.ErrInvalidCredential:
 		return "invalid credential"
 	case code.ErrCredentialNotUsable:
@@ -45,7 +47,7 @@ func authFailureMessage(codeValue int) string {
 	case code.ErrIDPExchangeFailed:
 		return "failed to exchange code with identity provider"
 	case code.ErrNoBinding:
-		return "no account binding found"
+		return "no login identity binding found"
 	case code.ErrOTPSendTooFrequent:
 		return "OTP send too frequent"
 	case code.ErrUnsupportedAuthMethod:

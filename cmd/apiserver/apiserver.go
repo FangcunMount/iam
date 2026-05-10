@@ -20,8 +20,8 @@
 
 // @tag.name 认证
 // @tag.description 认证 - 用户登录
-// @tag.name 账户管理
-// @tag.description 账号管理 - 创建、查询、绑定第三方账号
+// @tag.name 登录身份管理
+// @tag.description 登录身份管理 - 开通、查询、绑定外部登录身份
 // @tag.name Authentication-JWKS
 // @tag.description 密钥管理 - JWT 签名验证公钥集
 

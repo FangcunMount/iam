@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -30,9 +29,9 @@ type PhoneOTPProofSpec struct {
 	OTP       string
 }
 
-// CredentialType 返回凭据类型。
-func (c *PhoneOTPCredential) CredentialType() credDomain.CredentialType {
-	return credDomain.CredPhoneOTP
+// CredentialKind 返回认证证明类型。
+func (c *PhoneOTPCredential) CredentialKind() CredentialKind {
+	return CredentialKindPhoneOTP
 }
 
 // NewPhoneOTPCredential 构造手机号验证码认证凭据
@@ -57,7 +56,7 @@ func NewPhoneOTPCredential(spec PhoneOTPProofSpec) (AuthCredential, error) {
 
 // PhoneOTPAuthStrategy 手机短信验证码认证策略
 type PhoneOTPAuthStrategy struct {
-	credentialType credDomain.CredentialType
+	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
 	otpVerifier    OTPVerifier
 }
@@ -72,22 +71,22 @@ func NewPhoneOTPAuthStrategyWithLoginIdentity(
 	otpVerifier OTPVerifier,
 ) *PhoneOTPAuthStrategy {
 	return &PhoneOTPAuthStrategy{
-		credentialType: credDomain.CredPhoneOTP,
+		credentialKind: CredentialKindPhoneOTP,
 		identityRepo:   identityRepo,
 		otpVerifier:    otpVerifier,
 	}
 }
 
 // Kind 返回认证策略类型
-func (p *PhoneOTPAuthStrategy) Kind() credDomain.CredentialType {
-	return p.credentialType
+func (p *PhoneOTPAuthStrategy) Kind() CredentialKind {
+	return p.credentialKind
 }
 
 // Authenticate 执行手机验证码认证
 // 认证流程：
 // 1. 验证并消费OTP（防止重放攻击）
 // 2. 根据手机号查找凭据绑定
-// 3. 检查账户状态
+// 3. 检查 LoginIdentity 状态
 // 4. 返回认证判决
 func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	otpCredential, ok := credential.(*PhoneOTPCredential)
@@ -143,12 +142,12 @@ func (p *PhoneOTPAuthStrategy) verifyLoginOTP(ctx context.Context, credential *P
 func (p *PhoneOTPAuthStrategy) buildPhoneOTPSuccessDecision(
 	ctx context.Context,
 	credential *PhoneOTPCredential,
-	accountID meta.ID,
+	loginIdentityID meta.ID,
 	userID meta.ID,
 	credentialID meta.ID,
 ) AuthDecision {
 	principal := &Principal{
-		LoginIdentityID: accountID,
+		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
 		AuthMethod:      "phone_otp",
@@ -156,7 +155,7 @@ func (p *PhoneOTPAuthStrategy) buildPhoneOTPSuccessDecision(
 		AMR:             []string{string(AMROTP)},
 		Claims: map[string]any{
 			"phone_number":      credential.PhoneE164,
-			"login_identity_id": accountID.String(),
+			"login_identity_id": loginIdentityID.String(),
 			"auth_method":       "phone_otp",
 			"realm":             loginidentity.RealmGlobal,
 			"auth_time":         ctx.Value("request_time"),
@@ -166,7 +165,7 @@ func (p *PhoneOTPAuthStrategy) buildPhoneOTPSuccessDecision(
 	return AuthDecision{
 		OK:              true,
 		Principal:       principal,
-		LoginIdentityID: accountID,
+		LoginIdentityID: loginIdentityID,
 		CredentialID:    credentialID,
 	}
 }

@@ -67,20 +67,12 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	require.False(t, d1.OK)
 	require.Equal(t, code.ErrInvalidCredentials, d1.Code)
 
-	// 2. disabled or locked identity
+	// 2. disabled identity
 	a2 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusDisabled)), credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})
 	d2, err := a2.Authenticate(ctx, makeProof("u", "p", tenantID))
 	require.NoError(t, err)
 	require.False(t, d2.OK)
-	require.Equal(t, code.ErrCredentialDisabled, d2.Code)
-
-	lockedRepo := newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive))
-	lockedRepo.lockedByID[loginIdentityID] = true
-	a3 := makeAuth(lockedRepo, credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})
-	d3, err := a3.Authenticate(ctx, makeProof("u", "p", tenantID))
-	require.NoError(t, err)
-	require.False(t, d3.OK)
-	require.Equal(t, code.ErrCredentialLocked, d3.Code)
+	require.Equal(t, code.ErrLoginIdentityDisabled, d2.Code)
 
 	// 3. no password credential set
 	a4 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.ZeroID, ""), &hasherStub{pepper: "p"})

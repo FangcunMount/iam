@@ -101,13 +101,14 @@ const (
 	ErrKeyAlreadyExists = 102118
 )
 
-// Authn: 账号相关错误码 (102200～102299).
+// Authn: 登录身份相关错误码 (102200～102299).
 const (
-	ErrAccountExists   = 102200
-	ErrExternalExists  = 102201
-	ErrNotFoundAccount = 102202
-	ErrUniqueIDExists  = 102203
-	ErrInvalidUniqueID = 102204
+	ErrLoginIdentityExists     = 102200
+	ErrExternalIdentityExists  = 102201
+	ErrLoginIdentityNotFound   = 102202
+	ErrGlobalIdentifierExists  = 102203
+	ErrInvalidGlobalIdentifier = 102204
+	ErrLoginIdentityDisabled   = 102205
 )
 
 // Authn: 凭据相关错误码 (102300～102399).
@@ -177,12 +178,13 @@ func registerAuthn() {
 	errors.MustRegister(&authnCoder{code: ErrNoActiveKey, status: http.StatusNotFound, msg: "No active key available"})
 	errors.MustRegister(&authnCoder{code: ErrKeyAlreadyExists, status: http.StatusConflict, msg: "Key with this kid already exists"})
 
-	// Account-related errors
-	errors.MustRegister(&authnCoder{code: ErrAccountExists, status: http.StatusConflict, msg: "Account already exists"})
-	errors.MustRegister(&authnCoder{code: ErrExternalExists, status: http.StatusConflict, msg: "External ID already exists"})
-	errors.MustRegister(&authnCoder{code: ErrNotFoundAccount, status: http.StatusNotFound, msg: "Account not found"})
-	errors.MustRegister(&authnCoder{code: ErrUniqueIDExists, status: http.StatusConflict, msg: "UniqueID already exists"})
-	errors.MustRegister(&authnCoder{code: ErrInvalidUniqueID, status: http.StatusBadRequest, msg: "Invalid UniqueID"})
+	// LoginIdentity-related errors
+	errors.MustRegister(&authnCoder{code: ErrLoginIdentityExists, status: http.StatusConflict, msg: "Login identity already exists"})
+	errors.MustRegister(&authnCoder{code: ErrExternalIdentityExists, status: http.StatusConflict, msg: "External identity already exists"})
+	errors.MustRegister(&authnCoder{code: ErrLoginIdentityNotFound, status: http.StatusNotFound, msg: "Login identity not found"})
+	errors.MustRegister(&authnCoder{code: ErrGlobalIdentifierExists, status: http.StatusConflict, msg: "Global identifier already exists"})
+	errors.MustRegister(&authnCoder{code: ErrInvalidGlobalIdentifier, status: http.StatusBadRequest, msg: "Invalid global identifier"})
+	errors.MustRegister(&authnCoder{code: ErrLoginIdentityDisabled, status: http.StatusForbidden, msg: "Login identity is disabled"})
 
 	// Credential-related errors
 	errors.MustRegister(&authnCoder{code: ErrCredentialExists, status: http.StatusConflict, msg: "Credential already exists"})
@@ -198,7 +200,7 @@ func registerAuthn() {
 	errors.MustRegister(&authnCoder{code: ErrOTPInvalid, status: http.StatusUnauthorized, msg: "OTP is invalid or expired"})
 	errors.MustRegister(&authnCoder{code: ErrStateMismatch, status: http.StatusUnauthorized, msg: "OAuth state mismatch"})
 	errors.MustRegister(&authnCoder{code: ErrIDPExchangeFailed, status: http.StatusBadGateway, msg: "Failed to exchange code with identity provider"})
-	errors.MustRegister(&authnCoder{code: ErrNoBinding, status: http.StatusUnauthorized, msg: "No account binding found"})
+	errors.MustRegister(&authnCoder{code: ErrNoBinding, status: http.StatusUnauthorized, msg: "No login identity binding found"})
 	errors.MustRegister(&authnCoder{code: ErrOTPSendTooFrequent, status: http.StatusTooManyRequests, msg: "OTP send too frequent"})
 	errors.MustRegister(&authnCoder{code: ErrTokenRevokeFailed, status: http.StatusInternalServerError, msg: "Token revoke failed"})
 	errors.MustRegister(&authnCoder{code: ErrUnsupportedAuthMethod, status: http.StatusBadRequest, msg: "Unsupported authentication method"})

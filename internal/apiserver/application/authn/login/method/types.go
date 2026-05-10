@@ -1,33 +1,29 @@
 package method
 
-import (
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-)
+import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 
 // AuthMethod 是对外登录方式，来自 REST/gRPC auth_method。
 type AuthMethod string
 
 const (
-	AuthMethodPassword AuthMethod = AuthMethod(credDomain.CredPassword)
-	AuthMethodPhoneOTP AuthMethod = AuthMethod(credDomain.CredPhoneOTP)
+	AuthMethodPassword AuthMethod = "password"
+	AuthMethodPhoneOTP AuthMethod = "phone_otp"
 	AuthMethodWechat   AuthMethod = "wechat"
 	AuthMethodWecom    AuthMethod = "wecom"
 )
 
-// CredentialKind 是登录方式最终构造出的领域凭据类型。
+// CredentialKind 是登录方式最终构造出的领域认证证明类型。
 //
-// 它是 application/method 层的选择结果字段，取值必须与领域层
-// credential.CredentialType 一一对应。这里保留独立类型，是为了让
-// AuthMethod（对外登录方式）与领域凭据类型在应用层语义上分开；
+// 它是 application/method 层的选择结果字段。这里保留独立类型，是为了让
+// AuthMethod（对外登录方式）与领域认证证明类型在应用层语义上分开；
 // 真正构造领域 AuthCredential 时由 proof 层按该值选择 Builder。
 type CredentialKind string
 
 const (
-	CredentialKindPassword    CredentialKind = CredentialKind(credDomain.CredPassword)
-	CredentialKindPhoneOTP    CredentialKind = CredentialKind(credDomain.CredPhoneOTP)
-	CredentialKindWechatMinip CredentialKind = CredentialKind(credDomain.CredOAuthWxMinip)
-	CredentialKindWecom       CredentialKind = CredentialKind(credDomain.CredOAuthWecom)
+	CredentialKindPassword    CredentialKind = "password"
+	CredentialKindPhoneOTP    CredentialKind = "phone_otp"
+	CredentialKindWechatMinip CredentialKind = "oauth_wx_minip"
+	CredentialKindWecom       CredentialKind = "oauth_wecom"
 )
 
 // LoginMethod 表示一种可被选择的登录方式。

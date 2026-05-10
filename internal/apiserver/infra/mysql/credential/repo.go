@@ -3,7 +3,6 @@ package credential
 import (
 	"context"
 	"fmt"
-	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
@@ -55,24 +54,16 @@ func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain
 	return r.updateCredential(ctx, id, map[string]interface{}{"status": status.String()}, "status")
 }
 
-func (r *Repository) UpdateFailedAttempts(ctx context.Context, id meta.ID, attempts int) error {
-	return r.updateCredential(ctx, id, map[string]interface{}{"failed_attempts": attempts}, "failed_attempts")
-}
-
-func (r *Repository) UpdateLockedUntil(ctx context.Context, id meta.ID, lockedUntil *time.Time) error {
-	return r.updateCredential(ctx, id, map[string]interface{}{"locked_until": lockedUntil}, "locked_until")
-}
-
-func (r *Repository) UpdateLastSuccessAt(ctx context.Context, id meta.ID, lastSuccessAt time.Time) error {
-	return r.updateCredential(ctx, id, map[string]interface{}{"last_success_at": lastSuccessAt}, "last_success_at")
-}
-
-func (r *Repository) UpdateLastFailureAt(ctx context.Context, id meta.ID, lastFailureAt time.Time) error {
-	return r.updateCredential(ctx, id, map[string]interface{}{"last_failure_at": lastFailureAt}, "last_failure_at")
-}
-
-func (r *Repository) UpdateExpiresAt(ctx context.Context, id meta.ID, expiresAt *time.Time) error {
-	return fmt.Errorf("UpdateExpiresAt not implemented: expires_at field not defined in credential PO")
+func (r *Repository) UpdateAuthState(ctx context.Context, cred *domain.Credential) error {
+	if cred == nil || cred.ID.IsZero() {
+		return perrors.WithCode(code.ErrInvalidArgument, "credential id is required")
+	}
+	return r.updateCredential(ctx, cred.ID, map[string]interface{}{
+		"failed_attempts": cred.FailedAttempts,
+		"locked_until":    cred.LockedUntil,
+		"last_success_at": cred.LastSuccessAt,
+		"last_failure_at": cred.LastFailureAt,
+	}, "auth_state")
 }
 
 func (r *Repository) GetByID(ctx context.Context, id meta.ID) (*domain.Credential, error) {
@@ -97,33 +88,6 @@ func (r *Repository) GetByLoginIdentityIDAndType(ctx context.Context, loginIdent
 		return nil, fmt.Errorf("failed to get credential by login identity/type: %w", err)
 	}
 	return r.mapper.ToDO(&po), nil
-}
-
-func (r *Repository) ListByLoginIdentityID(ctx context.Context, loginIdentityID meta.ID) ([]*domain.Credential, error) {
-	var pos []V2PO
-	if err := r.WithContext(ctx).
-		Where("login_identity_id = ?", loginIdentityID.Uint64()).
-		Find(&pos).Error; err != nil {
-		return nil, fmt.Errorf("failed to list credential by login identity: %w", err)
-	}
-	result := make([]*domain.Credential, 0, len(pos))
-	for i := range pos {
-		result = append(result, r.mapper.ToDO(&pos[i]))
-	}
-	return result, nil
-}
-
-func (r *Repository) Delete(ctx context.Context, id meta.ID) error {
-	result := r.WithContext(ctx).
-		Where("id = ?", id.Uint64()).
-		Delete(&V2PO{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to delete credential: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return credentialNotFoundError()
-	}
-	return nil
 }
 
 func (r *Repository) FindPasswordCredentialByLoginIdentity(ctx context.Context, loginIdentityID meta.ID) (credentialID meta.ID, passwordHash string, err error) {

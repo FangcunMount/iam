@@ -207,7 +207,7 @@ func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	forbidden := regexp.MustCompile(`(?m)^\s*(AccountService|AccountOnboarder|LoginService|LoginPreparationService|TokenService|SessionService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
+	forbidden := regexp.MustCompile(`(?m)^\s*(LoginService|LoginPreparationService|TokenService|SessionService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
 	if match := forbidden.FindString(string(source)); match != "" {
 		t.Fatalf("AuthnModule exposes concrete application field %q; use ApplicationCapabilities instead", strings.TrimSpace(match))
 	}
@@ -1103,8 +1103,6 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/signups"`)
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authn/router.go", `"/wechat-miniprogram"`)
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", "/wechat/register")
-
-	assertPathAbsent(t, root, "internal/apiserver/transport/rest/authn/request/account.go")
 }
 
 func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
@@ -1669,15 +1667,6 @@ func assertFileLacks(t *testing.T, root, rel, token string) {
 	}
 	if strings.Contains(string(data), token) {
 		t.Fatalf("%s contains retired token %q", rel, token)
-	}
-}
-
-func assertPathAbsent(t *testing.T, root, rel string) {
-	t.Helper()
-	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
-		t.Fatalf("%s should be removed", rel)
-	} else if !os.IsNotExist(err) {
-		t.Fatal(err)
 	}
 }
 

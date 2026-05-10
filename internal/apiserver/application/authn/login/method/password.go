@@ -26,7 +26,7 @@ func (passwordMethod) Method() AuthMethod {
 	return AuthMethodPassword
 }
 
-// CredentialKind 返回凭据类型
+// CredentialKind 返回认证证明类型
 func (passwordMethod) CredentialKind() CredentialKind {
 	return CredentialKindPassword
 }

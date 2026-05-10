@@ -1,7 +1,18 @@
 package authentication
 
-import "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+// CredentialKind is the authentication proof routing key.
+//
+// It is intentionally separate from persistent Credential record types: phone OTP,
+// WeChat, and WeCom are login proofs, not persistent Credential records.
+type CredentialKind string
+
+const (
+	CredentialKindPassword    CredentialKind = "password"
+	CredentialKindPhoneOTP    CredentialKind = "phone_otp"
+	CredentialKindWechatMinip CredentialKind = "oauth_wx_minip"
+	CredentialKindWecom       CredentialKind = "oauth_wecom"
+)
 
 type AuthCredential interface {
-	CredentialType() credential.CredentialType
+	CredentialKind() CredentialKind
 }

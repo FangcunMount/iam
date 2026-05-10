@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -36,9 +35,9 @@ type WecomProofSpec struct {
 	State      string
 }
 
-// CredentialType 返回凭据类型。
-func (c *WecomCredential) CredentialType() credDomain.CredentialType {
-	return credDomain.CredOAuthWecom
+// CredentialKind 返回认证证明类型。
+func (c *WecomCredential) CredentialKind() CredentialKind {
+	return CredentialKindWecom
 }
 
 // NewWecomCredential 构造企业微信认证凭据
@@ -71,7 +70,7 @@ func NewWecomCredential(spec WecomProofSpec) (AuthCredential, error) {
 
 // OAuthWeChatComAuthStrategy 企业微信认证策略
 type OAuthWeChatComAuthStrategy struct {
-	credentialType credDomain.CredentialType
+	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
 	idp            IdentityProvider
 }
@@ -84,22 +83,22 @@ func NewOAuthWeChatComAuthStrategyWithLoginIdentity(
 	idp IdentityProvider,
 ) *OAuthWeChatComAuthStrategy {
 	return &OAuthWeChatComAuthStrategy{
-		credentialType: credDomain.CredOAuthWecom,
+		credentialKind: CredentialKindWecom,
 		identityRepo:   identityRepo,
 		idp:            idp,
 	}
 }
 
 // Kind 返回认证策略类型
-func (o *OAuthWeChatComAuthStrategy) Kind() credDomain.CredentialType {
-	return o.credentialType
+func (o *OAuthWeChatComAuthStrategy) Kind() CredentialKind {
+	return o.credentialKind
 }
 
 // Authenticate 执行企业微信认证
 // 认证流程：
 // 1. 调用企业微信API用code换取用户信息
 // 2. 根据UserID查找凭据绑定
-// 3. 检查账户状态
+// 3. 检查 LoginIdentity 状态
 // 4. 返回认证判决
 func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	wecomCred, ok := credential.(*WecomCredential)
@@ -171,12 +170,12 @@ func (o *OAuthWeChatComAuthStrategy) buildWecomSuccessDecision(
 	ctx context.Context,
 	credential *WecomCredential,
 	identity wecomIdentity,
-	accountID meta.ID,
+	loginIdentityID meta.ID,
 	userID meta.ID,
 	credentialID meta.ID,
 ) AuthDecision {
 	principal := &Principal{
-		LoginIdentityID: accountID,
+		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
 		AuthMethod:      "wecom",
@@ -187,7 +186,7 @@ func (o *OAuthWeChatComAuthStrategy) buildWecomSuccessDecision(
 			"wecom_state":        credential.State,
 			"wecom_user_id":      identity.userID,
 			"wecom_open_user_id": identity.openUserID,
-			"login_identity_id":  accountID.String(),
+			"login_identity_id":  loginIdentityID.String(),
 			"auth_method":        "wecom",
 			"realm":              credential.CorpID,
 			"auth_time":          ctx.Value("request_time"),
@@ -197,7 +196,7 @@ func (o *OAuthWeChatComAuthStrategy) buildWecomSuccessDecision(
 	return AuthDecision{
 		OK:              true,
 		Principal:       principal,
-		LoginIdentityID: accountID,
+		LoginIdentityID: loginIdentityID,
 		CredentialID:    credentialID,
 	}
 }

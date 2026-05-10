@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -32,9 +31,9 @@ type WechatMiniProofSpec struct {
 	Code      string
 }
 
-// CredentialType 返回凭据类型。
-func (c *WechatMinipCredential) CredentialType() credDomain.CredentialType {
-	return credDomain.CredOAuthWxMinip
+// CredentialKind 返回认证证明类型。
+func (c *WechatMinipCredential) CredentialKind() CredentialKind {
+	return CredentialKindWechatMinip
 }
 
 // NewWechatMiniCredential 构造微信小程序认证凭据
@@ -62,7 +61,7 @@ func NewWechatMiniCredential(spec WechatMiniProofSpec) (AuthCredential, error) {
 
 // OAuthWechatMinipAuthStrategy 微信小程序认证策略
 type OAuthWechatMinipAuthStrategy struct {
-	credentialType credDomain.CredentialType
+	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
 	idp            IdentityProvider
 }
@@ -75,22 +74,22 @@ func NewOAuthWechatMinipAuthStrategyWithLoginIdentity(
 	idp IdentityProvider,
 ) *OAuthWechatMinipAuthStrategy {
 	return &OAuthWechatMinipAuthStrategy{
-		credentialType: credDomain.CredOAuthWxMinip,
+		credentialKind: CredentialKindWechatMinip,
 		identityRepo:   identityRepo,
 		idp:            idp,
 	}
 }
 
 // Kind 返回认证策略类型
-func (o *OAuthWechatMinipAuthStrategy) Kind() credDomain.CredentialType {
-	return o.credentialType
+func (o *OAuthWechatMinipAuthStrategy) Kind() CredentialKind {
+	return o.credentialKind
 }
 
 // Authenticate 执行微信小程序认证
 // 认证流程：
 // 1. 调用微信API用jsCode换取openID/unionID
 // 2. 根据openID查找凭据绑定
-// 3. 检查账户状态
+// 3. 检查 LoginIdentity 状态
 // 4. 返回认证判决
 func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	wechatCred, ok := credential.(*WechatMinipCredential)
@@ -167,12 +166,12 @@ func (o *OAuthWechatMinipAuthStrategy) buildWechatMinipSuccessDecision(
 	ctx context.Context,
 	credential *WechatMinipCredential,
 	identity wechatMinipIdentity,
-	accountID meta.ID,
+	loginIdentityID meta.ID,
 	userID meta.ID,
 	credentialID meta.ID,
 ) AuthDecision {
 	principal := &Principal{
-		LoginIdentityID: accountID,
+		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
 		AuthMethod:      "wechat_minip",
@@ -181,7 +180,7 @@ func (o *OAuthWechatMinipAuthStrategy) buildWechatMinipSuccessDecision(
 		Claims: map[string]any{
 			"wx_openid":         identity.openID,
 			"wx_unionid":        identity.unionID,
-			"login_identity_id": accountID.String(),
+			"login_identity_id": loginIdentityID.String(),
 			"auth_method":       "wechat_minip",
 			"realm":             credential.AppID,
 			"auth_time":         ctx.Value("request_time"),
@@ -191,7 +190,7 @@ func (o *OAuthWechatMinipAuthStrategy) buildWechatMinipSuccessDecision(
 	return AuthDecision{
 		OK:              true,
 		Principal:       principal,
-		LoginIdentityID: accountID,
+		LoginIdentityID: loginIdentityID,
 		CredentialID:    credentialID,
 	}
 }

@@ -33,5 +33,5 @@ type LoginIdentityRepository interface {
 	FindUsernameIdentity(ctx context.Context, tenantID meta.ID, username string) (*LoginIdentityLookup, error)
 	FindLoginIdentityByProviderKey(ctx context.Context, provider loginidentity.Provider, realm, identifier string) (*LoginIdentityLookup, error)
 	FindLoginIdentityByGlobalIdentifier(ctx context.Context, provider loginidentity.Provider, globalIdentifier string) (*LoginIdentityLookup, error)
-	GetLoginIdentityStatus(ctx context.Context, loginIdentityID meta.ID) (enabled, locked bool, err error)
+	IsLoginIdentityActive(ctx context.Context, loginIdentityID meta.ID) (bool, error)
 }
