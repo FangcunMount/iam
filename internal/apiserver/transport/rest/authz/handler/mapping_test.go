@@ -9,17 +9,19 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRoleHandlerToRoleResponse(t *testing.T) {
 	handler := &RoleHandler{}
-	source := role.NewRole(
+	source, err := role.NewRole(
 		"admin",
 		"Administrator",
 		"tenant-a",
 		role.WithID(meta.FromUint64(11)),
 		role.WithDescription("full access"),
 	)
+	require.NoError(t, err)
 
 	resp := handler.toRoleResponse(&source)
 
@@ -71,25 +73,26 @@ func TestConvertToSubjectType(t *testing.T) {
 
 func TestResourceHandlerToResourceResponse(t *testing.T) {
 	handler := &ResourceHandler{}
-	source := resource.NewResource(
-		"scale:form:*",
+	source, err := resource.NewResource(
+		"scale:form:template:*",
 		[]string{"read", "write"},
 		resource.WithID(resource.NewResourceID(13)),
 		resource.WithDisplayName("Form"),
 		resource.WithAppName("scale"),
 		resource.WithDomain("form"),
-		resource.WithType("*"),
+		resource.WithType("template"),
 		resource.WithDescription("form resource"),
 	)
+	require.NoError(t, err)
 
 	resp := handler.toResourceResponse(&source)
 
 	if resp.ID.Uint64() != 13 ||
-		resp.Key != "scale:form:*" ||
+		resp.Key != "scale:form:template:*" ||
 		resp.DisplayName != "Form" ||
 		resp.AppName != "scale" ||
 		resp.Domain != "form" ||
-		resp.Type != "*" ||
+		resp.Type != "template" ||
 		resp.Description != "form resource" ||
 		len(resp.Actions) != 2 ||
 		resp.Actions[0] != "read" ||
@@ -99,7 +102,7 @@ func TestResourceHandlerToResourceResponse(t *testing.T) {
 }
 
 func TestPolicyRuleAndVersionResponses(t *testing.T) {
-	permission, err := authzDomain.NewPermission("admin", "tenant-a", "scale:form:*", "read")
+	permission, err := authzDomain.NewPermission("admin", "tenant-a", "scale:form:template:*", "read")
 	if err != nil {
 		t.Fatalf("new permission: %v", err)
 	}
@@ -108,7 +111,7 @@ func TestPolicyRuleAndVersionResponses(t *testing.T) {
 	if len(ruleResponses) != 1 ||
 		ruleResponses[0].Subject != "role:admin" ||
 		ruleResponses[0].Domain != "tenant-a" ||
-		ruleResponses[0].Object != "scale:form:*" ||
+		ruleResponses[0].Object != "scale:form:template:*" ||
 		ruleResponses[0].Action != "read" ||
 		ruleResponses[0].ScopeType != "all" ||
 		ruleResponses[0].ScopeValue != "*" {

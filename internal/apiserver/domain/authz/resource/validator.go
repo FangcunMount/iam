@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -65,14 +65,14 @@ func (v *validator) CheckKeyUnique(ctx context.Context, key string) error {
 // - Actions 至少有一个
 // - AppName、Domain、Type 都不能为空
 func (v *validator) ValidateCreateParameters(key string, displayName string, appName string, domain string, resourceType string, actions []string) error {
-	if key == "" {
-		return errors.WithCode(code.ErrInvalidArgument, "资源键不能为空")
+	if _, err := NewKey(key); err != nil {
+		return err
 	}
 	if displayName == "" {
 		return errors.WithCode(code.ErrInvalidArgument, "显示名称不能为空")
 	}
-	if len(actions) == 0 {
-		return errors.WithCode(code.ErrInvalidArgument, "动作列表不能为空")
+	if _, err := NormalizeActions(actions); err != nil {
+		return err
 	}
 	if appName == "" {
 		return errors.WithCode(code.ErrInvalidArgument, "应用名称不能为空")
@@ -91,16 +91,18 @@ func (v *validator) ValidateCreateParameters(key string, displayName string, app
 // 业务规则：
 // - 如果更新 Actions，至少要保留一个
 func (v *validator) ValidateUpdateParameters(actions []string) error {
-	if actions != nil && len(actions) == 0 {
-		return errors.WithCode(code.ErrInvalidArgument, "动作列表不能为空")
+	if actions != nil {
+		if _, err := NormalizeActions(actions); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (v *validator) ValidateScopeKinds(kinds []authzDomain.ScopeKind) error {
+func (v *validator) ValidateScopeKinds(kinds []scope.Kind) error {
 	for _, kind := range kinds {
 		switch kind {
-		case authzDomain.ScopeKindAll, authzDomain.ScopeKindOrigin:
+		case scope.KindAll, scope.KindOrigin:
 		default:
 			return errors.WithCode(code.ErrInvalidArgument, "unsupported scope kind: %s", kind)
 		}

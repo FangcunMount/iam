@@ -22,19 +22,19 @@ func TestAuthorizationBusinessModelsValidateRequiredFields(t *testing.T) {
 	_, err = NewTenantScope("")
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 
-	permission, err := NewPermission(" iam:admin ", " tenant-a ", " iam:user:* ", " read ")
+	permission, err := NewPermission(" iam:admin ", " tenant-a ", " iam:identity:collection:users ", " read ")
 	require.NoError(t, err)
 	require.Equal(t, Permission{
 		RoleName:    "iam:admin",
 		TenantID:    "tenant-a",
-		ResourceKey: "iam:user:*",
+		ResourceKey: "iam:identity:collection:users",
 		Action:      "read",
 		Scope:       DefaultScope(),
 	}, permission)
 
 	originScope, err := NewScope(ScopeKindOrigin, "1")
 	require.NoError(t, err)
-	permission, err = NewPermission("iam:admin", "tenant-a", "iam:user:*", "read", WithPermissionScope(originScope))
+	permission, err = NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read", WithPermissionScope(originScope))
 	require.NoError(t, err)
 	require.Equal(t, originScope, permission.Scope)
 
@@ -47,17 +47,17 @@ func TestAuthorizationBusinessModelsValidateRequiredFields(t *testing.T) {
 		GrantedBy: "operator-1",
 	}, binding)
 
-	request, err := NewAuthorizationRequest(subject, "tenant-a", "iam:user:*", "read")
+	request, err := NewAuthorizationRequest(subject, "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.Equal(t, AuthorizationRequest{
 		Subject:     subject,
 		TenantID:    "tenant-a",
-		ResourceKey: "iam:user:*",
+		ResourceKey: "iam:identity:collection:users",
 		Action:      "read",
 		ObjectScope: DefaultScope(),
 	}, request)
 
-	request, err = NewAuthorizationRequest(subject, "tenant-a", "iam:user:*", "read", WithObjectScope(originScope))
+	request, err = NewAuthorizationRequest(subject, "tenant-a", "iam:identity:collection:users", "read", WithObjectScope(originScope))
 	require.NoError(t, err)
 	require.Equal(t, originScope, request.ObjectScope)
 }

@@ -17,7 +17,7 @@ func TestRepositoryStoresPolicyRulesWithCasbinFieldOrder(t *testing.T) {
 	db := setupCasbinRuleDB(t)
 	repo := NewRepository(db)
 
-	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:user:*", "read")
+	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.NoError(t, repo.AddPermission(context.Background(), permission))
 
@@ -27,7 +27,7 @@ func TestRepositoryStoresPolicyRulesWithCasbinFieldOrder(t *testing.T) {
 	require.Equal(t, "p", rows[0].PType)
 	require.Equal(t, "role:iam:admin", valueOf(rows[0].V0))
 	require.Equal(t, "tenant-a", valueOf(rows[0].V1))
-	require.Equal(t, "iam:user:*", valueOf(rows[0].V2))
+	require.Equal(t, "iam:identity:collection:users", valueOf(rows[0].V2))
 	require.Equal(t, "read", valueOf(rows[0].V3))
 	require.Equal(t, "all:*", valueOf(rows[0].V4))
 
@@ -47,7 +47,7 @@ func TestRepositoryStoresScopedPolicyRulesWithCasbinFieldOrder(t *testing.T) {
 	permission, err := authzDomain.NewPermission(
 		"iam:admin",
 		"tenant-a",
-		"iam:user:*",
+		"iam:identity:collection:users",
 		"update",
 		authzDomain.WithPermissionScope(scope),
 	)
@@ -74,12 +74,12 @@ func TestRepositoryRemovesLegacyEmptyScopePolicyAsDefaultAllScope(t *testing.T) 
 		PType: "p",
 		V0:    stringPtr("role:iam:admin"),
 		V1:    stringPtr("tenant-a"),
-		V2:    stringPtr("iam:user:*"),
+		V2:    stringPtr("iam:identity:collection:users"),
 		V3:    stringPtr("read"),
 		V4:    stringPtr(""),
 	}).Error)
 
-	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:user:*", "read")
+	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.NoError(t, repo.RemovePermission(context.Background(), permission))
 

@@ -469,7 +469,7 @@ POST /api/v2/authz/check
 
 ```json
 {
-  "object": "scale:form:*",
+  "object": "scale:form:template:*",
   "action": "read",
   "scope_type": "origin",
   "scope_value": "school-a"
@@ -482,7 +482,7 @@ POST /api/v2/authz/check
 {
   "subject_type": "user",
   "subject_id": "123",
-  "object": "scale:form:*",
+  "object": "scale:form:template:*",
   "action": "read"
 }
 ```
@@ -900,7 +900,7 @@ curl -X POST http://localhost:18081/api/v2/authz/check \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
-    "object": "scale:form:*",
+    "object": "scale:form:template:*",
     "action": "read",
     "scope_type": "origin",
     "scope_value": "school-a"

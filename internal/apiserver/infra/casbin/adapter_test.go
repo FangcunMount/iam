@@ -19,9 +19,9 @@ func TestCasbinAdapterEnforcesMemoryPolicyFacts(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, adapter.addGroupingFacts(ctx, GroupingRule{Sub: "user:100", Dom: "tenant-a", Role: "role:iam:admin"}))
-	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:user:*", Act: "read"}))
+	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:identity:collection:users", Act: "read"}))
 
-	allowed, err := adapter.AuthorizeRoute(ctx, "user:100", "tenant-a", "iam:user:*", "read")
+	allowed, err := adapter.AuthorizeRoute(ctx, "user:100", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.True(t, allowed)
 
@@ -32,14 +32,19 @@ func TestCasbinAdapterEnforcesMemoryPolicyFacts(t *testing.T) {
 	permissions, err := adapter.implicitPermissionsForUser(ctx, "user:100", "tenant-a")
 	require.NoError(t, err)
 	require.Equal(t, []PolicyRule{
-		{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:user:*", Act: "read", Scope: "all:*"},
+		{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:identity:collection:users", Act: "read", Scope: "all:*"},
 	}, permissions)
 
 	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
-	decision, err := adapter.Check(ctx, mustAuthorizationRequest(t, subject, "tenant-a", "iam:user:*", "read"))
+	decision, err := adapter.Check(ctx, mustAuthorizationRequest(t, subject, "tenant-a", "iam:identity:collection:users", "read"))
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
+	require.Equal(t, "allowed", string(decision.Reason))
+	require.Equal(t, "iam:admin", decision.MatchedRole)
+	require.NotNil(t, decision.MatchedPermission)
+	require.Equal(t, "iam:identity:collection:users", decision.MatchedPermission.ResourceKey)
+	require.False(t, decision.EvaluatedAt.IsZero())
 
 	roleNames, err := adapter.RoleNamesForSubject(ctx, subject, "tenant-a")
 	require.NoError(t, err)
@@ -48,18 +53,18 @@ func TestCasbinAdapterEnforcesMemoryPolicyFacts(t *testing.T) {
 	businessPermissions, err := adapter.PermissionsForSubject(ctx, subject, "tenant-a")
 	require.NoError(t, err)
 	require.Equal(t, []authzDomain.Permission{
-		mustPermission(t, "iam:admin", "tenant-a", "iam:user:*", "read"),
+		mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
 	}, businessPermissions)
 
 	rolePermissions, err := adapter.PermissionsForRole(ctx, "iam:admin", "tenant-a")
 	require.NoError(t, err)
 	require.Equal(t, []authzDomain.Permission{
-		mustPermission(t, "iam:admin", "tenant-a", "iam:user:*", "read"),
+		mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
 	}, rolePermissions)
 
-	require.NoError(t, adapter.removePolicyFacts(ctx, PolicyRule{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:user:*", Act: "read"}))
+	require.NoError(t, adapter.removePolicyFacts(ctx, PolicyRule{Sub: "role:iam:admin", Dom: "tenant-a", Obj: "iam:identity:collection:users", Act: "read"}))
 	adapter.InvalidateCache()
-	allowed, err = adapter.AuthorizeRoute(ctx, "user:100", "tenant-a", "iam:user:*", "read")
+	allowed, err = adapter.AuthorizeRoute(ctx, "user:100", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.False(t, allowed)
 }
@@ -73,7 +78,7 @@ func TestCasbinAdapterReloadsPolicyFactsFromDatabase(t *testing.T) {
 
 	require.NoError(t, db.Exec(
 		"INSERT INTO casbin_rule (ptype, v0, v1, v2, v3, v4) VALUES (?, ?, ?, ?, ?, ?)",
-		"p", "role:iam:admin", "tenant-a", "iam:user:*", "read", "all:*",
+		"p", "role:iam:admin", "tenant-a", "iam:identity:collection:users", "read", "all:*",
 	).Error)
 	require.NoError(t, db.Exec(
 		"INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES (?, ?, ?, ?)",
@@ -82,7 +87,7 @@ func TestCasbinAdapterReloadsPolicyFactsFromDatabase(t *testing.T) {
 
 	require.NoError(t, adapter.LoadPolicy(ctx))
 
-	allowed, err := adapter.AuthorizeRoute(ctx, "user:100", "tenant-a", "iam:user:*", "read")
+	allowed, err := adapter.AuthorizeRoute(ctx, "user:100", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.True(t, allowed)
 
@@ -100,7 +105,7 @@ func TestCasbinAdapterNormalizesLegacyEmptyPolicyScope(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(
 		"INSERT INTO casbin_rule (ptype, v0, v1, v2, v3, v4) VALUES (?, ?, ?, ?, ?, ?)",
-		"p", "role:origin-admin", "tenant-a", "iam:users", "update", "",
+		"p", "role:origin-admin", "tenant-a", "iam:identity:collection:users", "update", "",
 	).Error)
 	require.NoError(t, db.Exec(
 		"INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES (?, ?, ?, ?)",
@@ -120,7 +125,7 @@ func TestCasbinAdapterNormalizesLegacyEmptyPolicyScope(t *testing.T) {
 	require.NoError(t, err)
 	originScope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
 	require.NoError(t, err)
-	decision, err := adapter.Check(context.Background(), mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:users", "update", originScope))
+	decision, err := adapter.Check(context.Background(), mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:identity:collection:users", "update", originScope))
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
 }
@@ -131,7 +136,7 @@ func TestCasbinAdapterEnforcesScopedPolicyFacts(t *testing.T) {
 	adapter := setupCasbinAdapter(t)
 	ctx := context.Background()
 	require.NoError(t, adapter.addGroupingFacts(ctx, GroupingRule{Sub: "user:100", Dom: "tenant-a", Role: "role:origin-admin"}))
-	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:origin-admin", Dom: "tenant-a", Obj: "iam:users", Act: "update", Scope: "origin:1"}))
+	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:origin-admin", Dom: "tenant-a", Obj: "iam:identity:collection:users", Act: "update", Scope: "origin:1"}))
 
 	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
@@ -140,18 +145,65 @@ func TestCasbinAdapterEnforcesScopedPolicyFacts(t *testing.T) {
 	scope2, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "2")
 	require.NoError(t, err)
 
-	allowed, err := adapter.Check(ctx, mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:users", "update", scope1))
+	allowed, err := adapter.Check(ctx, mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:identity:collection:users", "update", scope1))
 	require.NoError(t, err)
 	require.True(t, allowed.Allowed)
 
-	denied, err := adapter.Check(ctx, mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:users", "update", scope2))
+	denied, err := adapter.Check(ctx, mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:identity:collection:users", "update", scope2))
 	require.NoError(t, err)
 	require.False(t, denied.Allowed)
+	require.Equal(t, "not_matched", string(denied.Reason))
+	require.Equal(t, "policy_not_matched", denied.DenyCode)
 
-	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:origin-admin", Dom: "tenant-a", Obj: "iam:profiles", Act: "read", Scope: "all:*"}))
-	allAllowed, err := adapter.Check(ctx, mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:profiles", "read", scope2))
+	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:origin-admin", Dom: "tenant-a", Obj: "iam:identity:collection:profiles", Act: "read", Scope: "all:*"}))
+	allAllowed, err := adapter.Check(ctx, mustAuthorizationRequestWithScope(t, subject, "tenant-a", "iam:identity:collection:profiles", "read", scope2))
 	require.NoError(t, err)
 	require.True(t, allAllowed.Allowed)
+}
+
+func TestCasbinAdapterEnforcesFourSegmentWildcardResourcePatterns(t *testing.T) {
+	t.Parallel()
+
+	adapter := setupCasbinAdapter(t)
+	ctx := context.Background()
+	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
+	require.NoError(t, err)
+
+	require.NoError(t, adapter.addGroupingFacts(ctx, GroupingRule{Sub: "user:100", Dom: "tenant-a", Role: "role:super"}))
+	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:super", Dom: "tenant-a", Obj: "*:*:*:*", Act: ".*", Scope: "all:*"}))
+
+	allowed, err := adapter.Check(ctx, mustAuthorizationRequest(t, subject, "tenant-a", "iam:identity:collection:users", "read"))
+	require.NoError(t, err)
+	require.True(t, allowed.Allowed)
+
+	require.NoError(t, adapter.addGroupingFacts(ctx, GroupingRule{Sub: "user:200", Dom: "tenant-a", Role: "role:qs:admin"}))
+	qsSubject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(200))
+	require.NoError(t, err)
+	require.NoError(t, adapter.addPolicyFacts(ctx, PolicyRule{Sub: "role:qs:admin", Dom: "tenant-a", Obj: "qs:*:*:*", Act: "read|list", Scope: "all:*"}))
+
+	qsAllowed, err := adapter.Check(ctx, mustAuthorizationRequest(t, qsSubject, "tenant-a", "qs:actor:collection:testees", "read"))
+	require.NoError(t, err)
+	require.True(t, qsAllowed.Allowed)
+
+	qsListAllowed, err := adapter.Check(ctx, mustAuthorizationRequest(t, qsSubject, "tenant-a", "qs:actor:collection:testees", "list"))
+	require.NoError(t, err)
+	require.True(t, qsListAllowed.Allowed)
+
+	iamDenied, err := adapter.Check(ctx, mustAuthorizationRequest(t, qsSubject, "tenant-a", "iam:identity:collection:users", "read"))
+	require.NoError(t, err)
+	require.False(t, iamDenied.Allowed)
+}
+
+func TestCasbinResourceAndActionMatchers(t *testing.T) {
+	require.True(t, resourceMatch("iam:identity:collection:users", "*:*:*:*"))
+	require.True(t, resourceMatch("qs:actor:collection:testees", "qs:*:*:*"))
+	require.False(t, resourceMatch("iam:identity:collection:users", "qs:*:*:*"))
+	require.False(t, resourceMatch("legacy:key", "*:*:*:*"))
+
+	require.True(t, actionMatch("read", "read|list"))
+	require.True(t, actionMatch("delete", ".*"))
+	require.False(t, actionMatch("reader", "read|list"))
+	require.False(t, actionMatch("read", "["))
 }
 
 func setupCasbinAdapter(t *testing.T) *CasbinAdapter {

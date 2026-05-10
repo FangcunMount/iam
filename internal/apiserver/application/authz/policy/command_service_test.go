@@ -28,7 +28,7 @@ func TestPolicyCommandServiceAddPermission_CommitsFactsWhenRuntimeReloadFails(t 
 	resourceRepo := &resourceRepoStub{
 		resource: &resourceDomain.Resource{
 			ID:      resourceDomain.NewResourceID(20),
-			Key:     "iam:user:*",
+			Key:     "iam:identity:collection:users",
 			Actions: []string{"read"},
 		},
 	}
@@ -61,7 +61,7 @@ func TestPolicyCommandServiceAddPermission_CommitsFactsWhenRuntimeReloadFails(t 
 	require.Len(t, ruleStore.policyAdds, 1)
 	assert.Equal(t, "iam:admin", ruleStore.policyAdds[0].RoleName)
 	assert.Equal(t, "tenant-a", ruleStore.policyAdds[0].TenantID)
-	assert.Equal(t, "iam:user:*", ruleStore.policyAdds[0].ResourceKey)
+	assert.Equal(t, "iam:identity:collection:users", ruleStore.policyAdds[0].ResourceKey)
 	assert.Equal(t, "read", ruleStore.policyAdds[0].Action)
 	assert.Equal(t, authzDomain.DefaultScope(), ruleStore.policyAdds[0].Scope)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
@@ -81,7 +81,7 @@ func TestPolicyCommandServiceAddPermission_ValidatesResourceScopeKind(t *testing
 	resourceRepo := &resourceRepoStub{
 		resource: &resourceDomain.Resource{
 			ID:         resourceDomain.NewResourceID(20),
-			Key:        "iam:user:*",
+			Key:        "iam:identity:collection:users",
 			Actions:    []string{"read"},
 			ScopeKinds: []authzDomain.ScopeKind{authzDomain.ScopeKindAll, authzDomain.ScopeKindOrigin},
 		},
@@ -126,7 +126,7 @@ func TestPolicyCommandServiceAddPermission_RejectsUnsupportedScopeKind(t *testin
 	resourceRepo := &resourceRepoStub{
 		resource: &resourceDomain.Resource{
 			ID:      resourceDomain.NewResourceID(20),
-			Key:     "iam:user:*",
+			Key:     "iam:identity:collection:users",
 			Actions: []string{"read"},
 		},
 	}

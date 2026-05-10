@@ -1,6 +1,13 @@
 package rolebinding
 
 import (
+	"strings"
+
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -61,4 +68,28 @@ const (
 
 func (st SubjectType) String() string {
 	return string(st)
+}
+
+// Fact states that a subject holds a role inside a tenant.
+type Fact struct {
+	Subject   subject.Ref
+	RoleName  string
+	TenantID  string
+	GrantedBy string
+}
+
+func NewFact(sub subject.Ref, roleName, tenantID, grantedBy string) (Fact, error) {
+	roleName = strings.TrimSpace(roleName)
+	tenantID = strings.TrimSpace(tenantID)
+	grantedBy = strings.TrimSpace(grantedBy)
+	if sub.IsZero() {
+		return Fact{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
+	}
+	if _, err := role.NewName(roleName); err != nil {
+		return Fact{}, err
+	}
+	if _, err := tenant.NewID(tenantID); err != nil {
+		return Fact{}, err
+	}
+	return Fact{Subject: sub, RoleName: roleName, TenantID: tenantID, GrantedBy: grantedBy}, nil
 }

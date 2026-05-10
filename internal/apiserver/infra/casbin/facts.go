@@ -61,15 +61,14 @@ func GroupingRuleFromRoleBinding(binding authzDomain.RoleBinding) GroupingRule {
 	}
 }
 
-func PermissionFromPolicyRule(rule PolicyRule) authzDomain.Permission {
-	permission, _ := authzDomain.NewPermission(
+func PermissionFromPolicyRule(rule PolicyRule) (authzDomain.Permission, error) {
+	return authzDomain.NewPermission(
 		RoleNameFromKey(rule.Sub),
 		rule.Dom,
 		rule.Obj,
 		rule.Act,
 		authzDomain.WithPermissionScope(ScopeFromKey(rule.Scope)),
 	)
-	return permission
 }
 
 func ScopeKey(scope authzDomain.Scope) string {

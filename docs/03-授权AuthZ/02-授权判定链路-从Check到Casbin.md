@@ -208,7 +208,7 @@ REST request：
 
 ```json
 {
-  "object": "scale:form:*",
+  "object": "scale:form:template:*",
   "action": "read",
   "scope_type": "origin",
   "scope_value": "school-a",
@@ -221,7 +221,7 @@ REST request：
 
 | 字段 | 是否必填 | 含义 |
 | --- | ---: | --- |
-| `object` | 是 | ResourceKey，例如 `scale:form:*` |
+| `object` | 是 | ResourceKey，例如 `scale:form:template:*` |
 | `action` | 是 | 操作，例如 `read` |
 | `scope_type` | 否 | scope kind，例如 `all` / `origin` |
 | `scope_value` | 否 | scope value，例如 `*` / `school-a` |
@@ -319,7 +319,7 @@ authz.NewSubject(subject_type, subject_id)
 {
   "subject_type": "user",
   "subject_id": "123",
-  "object": "scale:form:*",
+  "object": "scale:form:template:*",
   "action": "read"
 }
 ```
@@ -934,13 +934,13 @@ regexMatch(r.act, p.act)
 例如，假设 policy resource 是：
 
 ```text
-scale:form:*
+scale:form:template:*
 ```
 
 请求 resource 是：
 
 ```text
-scale:form:123
+scale:form:template:123
 ```
 
 就可以通过 keyMatch 的模式语义匹配。

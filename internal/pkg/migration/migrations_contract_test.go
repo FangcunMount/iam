@@ -86,6 +86,21 @@ func TestAuthNLoginIdentitySchemaMigrationPreservesLegacyCredentialTable(t *test
 	assertSQLContains(t, sql, "DEALLOCATE PREPARE iam_stmt")
 }
 
+func TestAuthZResourceKeyMigrationMapsCatalogAndPolicyFacts(t *testing.T) {
+	upSQL := migrationSQL(t, "000012_authz_four_segment_resource_keys.up.sql")
+	downSQL := migrationSQL(t, "000012_authz_four_segment_resource_keys.down.sql")
+
+	assertSQLContains(t, upSQL, "UPDATE `authz_resources`")
+	assertSQLContains(t, upSQL, "UPDATE `casbin_rule`")
+	assertSQLContains(t, upSQL, "WHEN 'iam:users' THEN 'iam:identity:collection:users'")
+	assertSQLContains(t, upSQL, "WHEN 'qs:*' THEN 'qs:*:*:*'")
+	assertSQLContains(t, upSQL, "WHEN 'qs:codes' THEN 'qs:code:collection:codes'")
+
+	assertSQLContains(t, downSQL, "WHEN 'iam:identity:collection:users' THEN 'iam:users'")
+	assertSQLContains(t, downSQL, "WHEN 'qs:*:*:*' THEN 'qs:*'")
+	assertSQLContains(t, downSQL, "WHEN 'qs:code:collection:codes' THEN 'qs:codes'")
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 

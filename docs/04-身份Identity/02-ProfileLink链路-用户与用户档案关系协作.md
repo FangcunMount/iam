@@ -1092,7 +1092,7 @@ AuthZ 用于权限判定：
 | 能力 | 回答的问题 | 示例 |
 | --- | --- | --- |
 | ProfileLink | user 和 profile 有没有关系 | 用户是不是这个儿童档案的 parent |
-| AuthZ | subject 能不能操作某资源 | 用户能不能 read scale:form:* |
+| AuthZ | subject 能不能操作某资源 | 用户能不能 read scale:form:template:* |
 | MyProfiles guard | 当前用户能不能访问这个 profile | 没有 active link 则拒绝 |
 | AuthZ Check | 角色和策略是否允许操作 | role teacher can read resource |
 
@@ -1102,7 +1102,7 @@ AuthZ 用于权限判定：
 未来如果要把 Profile access 纳入 AuthZ，可以设计：
 
 ```text
-ResourceKey = identity:profile:*
+ResourceKey = iam:identity:instance:profile
 Action = read / update
 Scope = origin:<profile-id> 或 profile:<id>
 ```

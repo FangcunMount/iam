@@ -396,7 +396,7 @@ subject 能不能对 resource 执行 action？
 例如：
 
 ```text
-user:123 can read identity:profile:456
+user:123 can read iam:identity:instance:profile
 ```
 
 ### 当前边界

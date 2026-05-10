@@ -13,17 +13,17 @@ func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
 
 	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
-	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:user:*", "read")
+	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	binding, err := authzDomain.NewRoleBinding(subject, "iam:admin", "tenant-a", "operator-1")
 	require.NoError(t, err)
-	request, err := authzDomain.NewAuthorizationRequest(subject, "tenant-a", "iam:user:*", "read")
+	request, err := authzDomain.NewAuthorizationRequest(subject, "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 
 	require.Equal(t, Request{
 		Sub:   "user:100",
 		Dom:   "tenant-a",
-		Obj:   "iam:user:*",
+		Obj:   "iam:identity:collection:users",
 		Act:   "read",
 		Scope: "all:*",
 	}, RequestFromAuthorizationRequest(request))
@@ -31,7 +31,7 @@ func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
 	require.Equal(t, PolicyRule{
 		Sub:   "role:iam:admin",
 		Dom:   "tenant-a",
-		Obj:   "iam:user:*",
+		Obj:   "iam:identity:collection:users",
 		Act:   "read",
 		Scope: "all:*",
 	}, PolicyRuleFromPermission(permission))

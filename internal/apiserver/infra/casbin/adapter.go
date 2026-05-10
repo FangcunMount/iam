@@ -2,11 +2,14 @@ package casbin
 
 import (
 	"context"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"
@@ -36,6 +39,8 @@ func NewCasbinAdapter(db *gorm.DB, modelPath string) (*CasbinAdapter, error) {
 		return nil, err
 	}
 	enforcer.AddFunction("scopeMatch", scopeMatchFunc)
+	enforcer.AddFunction("resourceMatch", resourceMatchFunc)
+	enforcer.AddFunction("actionMatch", actionMatchFunc)
 
 	// DB 是授权事实源；运行时 Enforcer 只负责内存加载与判定。
 	enforcer.EnableAutoSave(false)
@@ -199,19 +204,39 @@ func (c *CasbinAdapter) AuthorizeRoute(ctx context.Context, sub, tenantID, resou
 // Check implements the application authorization decision port using Casbin.
 func (c *CasbinAdapter) Check(ctx context.Context, request authzDomain.AuthorizationRequest) (authzDomain.AuthorizationDecision, error) {
 	fact := RequestFromAuthorizationRequest(request)
-	allowed, err := c.enforceFact(ctx, fact)
+	allowed, matched, err := c.enforceFact(ctx, fact)
 	if err != nil {
 		return authzDomain.AuthorizationDecision{}, err
 	}
-	return authzDomain.AuthorizationDecision{Allowed: allowed}, nil
+	if !allowed {
+		return decision.Deny(time.Now()), nil
+	}
+	permission, err := PermissionFromPolicyRule(matched)
+	if err != nil {
+		return authzDomain.AuthorizationDecision{}, err
+	}
+	return decision.Allow(&permission, time.Now()), nil
 }
 
-func (c *CasbinAdapter) enforceFact(ctx context.Context, fact Request) (bool, error) {
+func (c *CasbinAdapter) enforceFact(ctx context.Context, fact Request) (bool, PolicyRule, error) {
 	_ = ctx
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.enforcer.Enforce(fact.Sub, fact.Dom, fact.Obj, fact.Act, normalizeScopeKey(fact.Scope))
+	allowed, matched, err := c.enforcer.EnforceEx(fact.Sub, fact.Dom, fact.Obj, fact.Act, normalizeScopeKey(fact.Scope))
+	if err != nil {
+		return false, PolicyRule{}, err
+	}
+	if !allowed || len(matched) < 4 {
+		return allowed, PolicyRule{}, nil
+	}
+	return allowed, PolicyRule{
+		Sub:   matched[0],
+		Dom:   matched[1],
+		Obj:   matched[2],
+		Act:   matched[3],
+		Scope: policyScopeAt(matched, 4),
+	}, nil
 }
 
 // DirectRoleKeys 返回主体在指定租户域下的直接角色键。
@@ -278,13 +303,7 @@ func (c *CasbinAdapter) PermissionsForSubject(ctx context.Context, subject authz
 	}
 	permissions := make([]authzDomain.Permission, 0, len(rules))
 	for _, rule := range rules {
-		permission, err := authzDomain.NewPermission(
-			RoleNameFromKey(rule.Sub),
-			rule.Dom,
-			rule.Obj,
-			rule.Act,
-			authzDomain.WithPermissionScope(ScopeFromKey(rule.Scope)),
-		)
+		permission, err := PermissionFromPolicyRule(rule)
 		if err != nil {
 			return nil, err
 		}
@@ -301,13 +320,7 @@ func (c *CasbinAdapter) PermissionsForRole(ctx context.Context, roleName, tenant
 	}
 	permissions := make([]authzDomain.Permission, 0, len(rules))
 	for _, rule := range rules {
-		permission, err := authzDomain.NewPermission(
-			RoleNameFromKey(rule.Sub),
-			rule.Dom,
-			rule.Obj,
-			rule.Act,
-			authzDomain.WithPermissionScope(ScopeFromKey(rule.Scope)),
-		)
+		permission, err := PermissionFromPolicyRule(rule)
 		if err != nil {
 			return nil, err
 		}
@@ -356,4 +369,55 @@ func scopeMatch(requestScope, policyScope string) bool {
 		return true
 	}
 	return requestScope == policyScope
+}
+
+func resourceMatchFunc(args ...interface{}) (interface{}, error) {
+	if len(args) != 2 {
+		return false, nil
+	}
+	requestResource, _ := args[0].(string)
+	policyResource, _ := args[1].(string)
+	return resourceMatch(requestResource, policyResource), nil
+}
+
+func resourceMatch(requestResource, policyResource string) bool {
+	requestParts := strings.Split(strings.TrimSpace(requestResource), ":")
+	policyParts := strings.Split(strings.TrimSpace(policyResource), ":")
+	if len(requestParts) != 4 || len(policyParts) != 4 {
+		return false
+	}
+	for i := range requestParts {
+		if policyParts[i] == "*" {
+			continue
+		}
+		if requestParts[i] != policyParts[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func actionMatchFunc(args ...interface{}) (interface{}, error) {
+	if len(args) != 2 {
+		return false, nil
+	}
+	requestAction, _ := args[0].(string)
+	policyAction, _ := args[1].(string)
+	return actionMatch(requestAction, policyAction), nil
+}
+
+func actionMatch(requestAction, policyAction string) bool {
+	requestAction = strings.TrimSpace(requestAction)
+	policyAction = strings.TrimSpace(policyAction)
+	if requestAction == "" || policyAction == "" {
+		return false
+	}
+	if requestAction == policyAction {
+		return true
+	}
+	matched, err := regexp.MatchString("^(?:"+policyAction+")$", requestAction)
+	if err != nil {
+		return false
+	}
+	return matched
 }

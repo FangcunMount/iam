@@ -17,28 +17,36 @@ func NewMapper() *Mapper {
 }
 
 // ToBO 将 PO 转换为 BO
-func (m *Mapper) ToBO(po *ResourcePO) *resource.Resource {
+func (m *Mapper) ToBO(po *ResourcePO) (*resource.Resource, error) {
 	if po == nil {
-		return nil
+		return nil, nil
 	}
 
 	// 解析 Actions JSON
-	actions, _ := m.parseActions(po.Actions)
-	scopeKinds, _ := m.parseScopeKinds(po.ScopeKinds)
-
-	r := &resource.Resource{
-		ID:          resource.NewResourceID(po.ID.Uint64()),
-		Key:         po.Key,
-		DisplayName: po.DisplayName,
-		AppName:     po.AppName,
-		Domain:      po.Domain,
-		Type:        po.Type,
-		Actions:     actions,
-		ScopeKinds:  scopeKinds,
-		Description: po.Description,
+	actions, err := m.parseActions(po.Actions)
+	if err != nil {
+		return nil, err
+	}
+	scopeKinds, err := m.parseScopeKinds(po.ScopeKinds)
+	if err != nil {
+		return nil, err
 	}
 
-	return r
+	r, err := resource.NewResource(
+		po.Key,
+		actions,
+		resource.WithID(resource.NewResourceID(po.ID.Uint64())),
+		resource.WithDisplayName(po.DisplayName),
+		resource.WithAppName(po.AppName),
+		resource.WithDomain(po.Domain),
+		resource.WithType(po.Type),
+		resource.WithScopeKinds(scopeKinds),
+		resource.WithDescription(po.Description),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // ToPO 将 BO 转换为 PO
@@ -68,19 +76,23 @@ func (m *Mapper) ToPO(bo *resource.Resource) *ResourcePO {
 }
 
 // ToBOList 将 PO 列表转换为 BO 列表
-func (m *Mapper) ToBOList(pos []*ResourcePO) []*resource.Resource {
+func (m *Mapper) ToBOList(pos []*ResourcePO) ([]*resource.Resource, error) {
 	if len(pos) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	bos := make([]*resource.Resource, 0, len(pos))
 	for _, po := range pos {
-		if bo := m.ToBO(po); bo != nil {
+		bo, err := m.ToBO(po)
+		if err != nil {
+			return nil, err
+		}
+		if bo != nil {
 			bos = append(bos, bo)
 		}
 	}
 
-	return bos
+	return bos, nil
 }
 
 // serializeActions 序列化动作列表为 JSON

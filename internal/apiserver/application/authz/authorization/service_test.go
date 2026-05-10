@@ -22,7 +22,7 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	decision, err := checker.Check(context.Background(), CheckCommand{
 		Subject:     subject,
 		TenantID:    "tenant-a",
-		ResourceKey: "iam:user:*",
+		ResourceKey: "iam:identity:collection:users",
 		Action:      "read",
 	})
 
@@ -31,7 +31,7 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	require.Equal(t, []authzDomain.AuthorizationRequest{{
 		Subject:     subject,
 		TenantID:    "tenant-a",
-		ResourceKey: "iam:user:*",
+		ResourceKey: "iam:identity:collection:users",
 		Action:      "read",
 		ObjectScope: authzDomain.DefaultScope(),
 	}}, engine.requests)
@@ -46,10 +46,10 @@ func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 		&snapshotStoreFake{
 			roles: []string{"iam:admin", "qs:admin", "iam:admin"},
 			permissions: []authzDomain.Permission{
-				mustPermission(t, "iam:admin", "tenant-a", "iam:user:*", "read"),
-				mustPermission(t, "iam:admin", "tenant-a", "qs:course:*", "read"),
-				mustPermission(t, "iam:admin", "tenant-a", "iam:user:*", "read"),
-				mustPermission(t, "iam:admin", "tenant-a", "iam:user:*", "write"),
+				mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
+				mustPermission(t, "iam:admin", "tenant-a", "qs:course:collection:*", "read"),
+				mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
+				mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "write"),
 			},
 		},
 		&versionRepoFake{version: &policyDomain.PolicyVersion{Version: 9}},
@@ -64,8 +64,8 @@ func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"iam:admin"}, snapshot.Roles)
 	require.Equal(t, []PermissionEntry{
-		{ResourceKey: "iam:user:*", Action: "read", Scope: authzDomain.DefaultScope()},
-		{ResourceKey: "iam:user:*", Action: "write", Scope: authzDomain.DefaultScope()},
+		{ResourceKey: "iam:identity:collection:users", Action: "read", Scope: authzDomain.DefaultScope()},
+		{ResourceKey: "iam:identity:collection:users", Action: "write", Scope: authzDomain.DefaultScope()},
 	}, snapshot.Permissions)
 	require.Equal(t, int64(9), snapshot.AuthzVersion)
 }

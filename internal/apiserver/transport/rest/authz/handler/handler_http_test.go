@@ -109,7 +109,7 @@ func (f *roleCommanderFake) CreateRole(ctx context.Context, cmd roleApp.CreateRo
 	if f.createFn != nil {
 		return f.createFn(ctx, cmd)
 	}
-	result := roleDomain.NewRole(cmd.Name, cmd.DisplayName, cmd.TenantID, roleDomain.WithID(meta.FromUint64(11)), roleDomain.WithDescription(cmd.Description))
+	result, _ := roleDomain.NewRole(cmd.Name, cmd.DisplayName, cmd.TenantID, roleDomain.WithID(meta.FromUint64(11)), roleDomain.WithDescription(cmd.Description))
 	return &result, nil
 }
 
@@ -118,7 +118,7 @@ func (f *roleCommanderFake) UpdateRole(ctx context.Context, cmd roleApp.UpdateRo
 	if f.updateFn != nil {
 		return f.updateFn(ctx, cmd)
 	}
-	result := roleDomain.NewRole("admin", valueOrEmpty(cmd.DisplayName), "tenant-a", roleDomain.WithID(cmd.ID), roleDomain.WithDescription(valueOrEmpty(cmd.Description)))
+	result, _ := roleDomain.NewRole("admin", valueOrEmpty(cmd.DisplayName), "tenant-a", roleDomain.WithID(cmd.ID), roleDomain.WithDescription(valueOrEmpty(cmd.Description)))
 	return &result, nil
 }
 
@@ -143,7 +143,7 @@ func (f *roleQueryerFake) GetRoleByID(ctx context.Context, roleID meta.ID) (*rol
 	if f.getFn != nil {
 		return f.getFn(ctx, roleID)
 	}
-	result := roleDomain.NewRole("admin", "Admin", "tenant-a", roleDomain.WithID(roleID))
+	result, _ := roleDomain.NewRole("admin", "Admin", "tenant-a", roleDomain.WithID(roleID))
 	return &result, nil
 }
 
@@ -156,7 +156,7 @@ func (f *roleQueryerFake) ListRoles(ctx context.Context, query roleApp.ListRoles
 	if f.listFn != nil {
 		return f.listFn(ctx, query)
 	}
-	result := roleDomain.NewRole("admin", "Admin", query.TenantID, roleDomain.WithID(meta.FromUint64(11)))
+	result, _ := roleDomain.NewRole("admin", "Admin", query.TenantID, roleDomain.WithID(meta.FromUint64(11)))
 	return &roleApp.ListRolesResult{Roles: []*roleDomain.Role{&result}, Total: 1}, nil
 }
 
@@ -179,7 +179,7 @@ func (f *resourceCommanderFake) CreateResource(ctx context.Context, cmd resource
 	if f.createFn != nil {
 		return f.createFn(ctx, cmd)
 	}
-	result := resourceDomain.NewResource(cmd.Key, cmd.Actions,
+	result, _ := resourceDomain.NewResource(cmd.Key, cmd.Actions,
 		resourceDomain.WithID(resourceDomain.NewResourceID(21)),
 		resourceDomain.WithDisplayName(cmd.DisplayName),
 		resourceDomain.WithAppName(cmd.AppName),
@@ -195,7 +195,7 @@ func (f *resourceCommanderFake) UpdateResource(ctx context.Context, cmd resource
 	if f.updateFn != nil {
 		return f.updateFn(ctx, cmd)
 	}
-	result := resourceDomain.NewResource("scale:form:*", cmd.Actions,
+	result, _ := resourceDomain.NewResource("scale:form:template:*", cmd.Actions,
 		resourceDomain.WithID(cmd.ID),
 		resourceDomain.WithDisplayName(valueOrEmpty(cmd.DisplayName)),
 		resourceDomain.WithDescription(valueOrEmpty(cmd.Description)),
@@ -231,7 +231,7 @@ func (f *resourceQueryerFake) GetResourceByID(ctx context.Context, resourceID re
 	if f.getByIDFn != nil {
 		return f.getByIDFn(ctx, resourceID)
 	}
-	result := resourceDomain.NewResource("scale:form:*", []string{"read"}, resourceDomain.WithID(resourceID))
+	result, _ := resourceDomain.NewResource("scale:form:template:*", []string{"read"}, resourceDomain.WithID(resourceID))
 	return &result, nil
 }
 
@@ -240,7 +240,7 @@ func (f *resourceQueryerFake) GetResourceByKey(ctx context.Context, key string) 
 	if f.getByKeyFn != nil {
 		return f.getByKeyFn(ctx, key)
 	}
-	result := resourceDomain.NewResource(key, []string{"read"}, resourceDomain.WithID(resourceDomain.NewResourceID(21)))
+	result, _ := resourceDomain.NewResource(key, []string{"read"}, resourceDomain.WithID(resourceDomain.NewResourceID(21)))
 	return &result, nil
 }
 
@@ -249,7 +249,7 @@ func (f *resourceQueryerFake) ListResources(ctx context.Context, query resourceA
 	if f.listFn != nil {
 		return f.listFn(ctx, query)
 	}
-	result := resourceDomain.NewResource("scale:form:*", []string{"read"}, resourceDomain.WithID(resourceDomain.NewResourceID(21)))
+	result, _ := resourceDomain.NewResource("scale:form:template:*", []string{"read"}, resourceDomain.WithID(resourceDomain.NewResourceID(21)))
 	return &resourceApp.ListResourcesResult{Resources: []*resourceDomain.Resource{&result}, Total: 1}, nil
 }
 
@@ -365,7 +365,7 @@ func (f *policyQueryerFake) GetPermissionsForRole(ctx context.Context, query pol
 	if f.getPoliciesFn != nil {
 		return f.getPoliciesFn(ctx, query)
 	}
-	permission, err := authzDomain.NewPermission("admin", query.TenantID, "scale:form:*", "read")
+	permission, err := authzDomain.NewPermission("admin", query.TenantID, "scale:form:template:*", "read")
 	if err != nil {
 		return nil, err
 	}

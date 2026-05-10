@@ -1,7 +1,10 @@
 package role
 
 import (
+	"strings"
+
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -15,17 +18,29 @@ type Role struct {
 	Description string // 描述
 }
 
-// NewRole 创建新角色
-func NewRole(name, displayName, tenantID string, opts ...RoleOption) Role {
+// NewRole 创建新角色。
+func NewRole(name, displayName, tenantID string, opts ...RoleOption) (Role, error) {
+	roleName, err := NewName(name)
+	if err != nil {
+		return Role{}, err
+	}
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" {
+		return Role{}, perrors.WithCode(code.ErrInvalidArgument, "显示名称不能为空")
+	}
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
+		return Role{}, err
+	}
 	role := Role{
-		Name:        name,
+		Name:        roleName.String(),
 		DisplayName: displayName,
-		TenantID:    tenantID,
+		TenantID:    tenantIDValue.String(),
 	}
 	for _, opt := range opts {
 		opt(&role)
 	}
-	return role
+	return role, nil
 }
 
 // RoleOption 角色选项
@@ -39,6 +54,7 @@ func (r Role) BelongsToTenant(tenantID string) bool {
 }
 
 func (r *Role) Rename(displayName string) error {
+	displayName = strings.TrimSpace(displayName)
 	if displayName == "" {
 		return perrors.WithCode(code.ErrInvalidArgument, "显示名称不能为空")
 	}

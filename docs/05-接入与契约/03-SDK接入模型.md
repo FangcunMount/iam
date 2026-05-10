@@ -774,7 +774,7 @@ GetAuthorizationSnapshot
 resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
     Subject:    "user:1024",
     Domain:     "tenant-a",
-    Object:     "scale:form:*",
+    Object:     "scale:form:template:*",
     Action:     "read",
     ScopeType:  "origin",
     ScopeValue: "school-a",
@@ -790,7 +790,7 @@ allowed, err := client.Authz().Allow(
     ctx,
     "user:1024",
     "tenant-a",
-    "scale:form:*",
+    "scale:form:template:*",
     "read",
 )
 ```
@@ -804,7 +804,7 @@ allowed, err := client.Authz().AllowScoped(
     ctx,
     "user:1024",
     "tenant-a",
-    "scale:form:*",
+    "scale:form:template:*",
     "read",
     "origin",
     "school-a",
@@ -1158,7 +1158,7 @@ allowed, err := client.Authz().AllowScoped(
     ctx,
     subject,
     verify.GetClaims().GetTenantId(),
-    "scale:form:*",
+    "scale:form:template:*",
     "read",
     "origin",
     "school-a",

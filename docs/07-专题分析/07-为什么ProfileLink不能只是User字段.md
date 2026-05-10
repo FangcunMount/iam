@@ -785,7 +785,7 @@ subject 是否能对 resource 执行 action？
 例如：
 
 ```text
-user:123 can read identity:profile:* in scope origin:school-a
+user:123 can read iam:identity:instance:profile in scope origin:school-a
 ```
 
 ### 10.3 为什么不能把 ProfileLink 当权限
@@ -809,7 +809,7 @@ AuthZ 表达资源权限
 未来如果要把 Profile 访问纳入统一 AuthZ，应新增：
 
 ```text
-Resource: identity:profile:*
+Resource: iam:identity:instance:profile
 Action: read / update / link / revoke
 Scope: profile:<id> 或 origin:<value>
 ```

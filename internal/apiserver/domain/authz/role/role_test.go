@@ -11,18 +11,20 @@ import (
 
 func TestNewRole(t *testing.T) {
 	id := meta.FromUint64(10)
-	r := NewRole("admin", "管理员", "tenant1", WithID(id), WithDescription("desc"))
+	r, err := NewRole("admin", "管理员", "tenant1", WithID(id), WithDescription("desc"))
+	assert.NoError(t, err)
 	assert.Equal(t, "admin", r.Name)
 	assert.Equal(t, "管理员", r.DisplayName)
 	assert.Equal(t, "desc", r.Description)
 }
 
 func TestRoleDomainBehavior(t *testing.T) {
-	r := NewRole("admin", "管理员", "tenant1")
+	r, err := NewRole("admin", "管理员", "tenant1")
+	assert.NoError(t, err)
 	assert.True(t, r.BelongsToTenant("tenant1"))
 	assert.False(t, r.BelongsToTenant("tenant2"))
 
-	err := r.Rename("系统管理员")
+	err = r.Rename("系统管理员")
 	assert.NoError(t, err)
 	assert.Equal(t, "系统管理员", r.DisplayName)
 
@@ -31,4 +33,15 @@ func TestRoleDomainBehavior(t *testing.T) {
 
 	r.ChangeDescription("new desc")
 	assert.Equal(t, "new desc", r.Description)
+}
+
+func TestNewRoleRejectsInvalidState(t *testing.T) {
+	_, err := NewRole("", "管理员", "tenant1")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	_, err = NewRole("admin", "", "tenant1")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	_, err = NewRole("admin", "管理员", "")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }

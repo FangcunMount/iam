@@ -14,7 +14,7 @@ import (
 )
 
 func TestPolicyChangeCommitterCommitsPermissionAndKeepsFactsWhenReloadFails(t *testing.T) {
-	permission := mustCommitterPermission(t, "iam:admin", "tenant-a", "iam:user:*", "read")
+	permission := mustCommitterPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	actor := mustPolicyActor(t, "operator-1")
 	versionRepo := &policyVersionRepoForCommandStub{}
 	facts := &policyAuthorizationFactStoreStub{}

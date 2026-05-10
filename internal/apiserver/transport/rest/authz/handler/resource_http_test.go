@@ -32,7 +32,7 @@ func TestResourceHandlerCreateResourceHTTPBranches(t *testing.T) {
 		}
 		handler := NewResourceHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/resources", `{"key":"scale:form:*","display_name":"Form","app_name":"scale","domain":"form","type":"*","actions":["read"]}`, handler.CreateResource)
+		recorder, _ := performAuthzRequest(http.MethodPost, "/resources", `{"key":"scale:form:template:*","display_name":"Form","app_name":"scale","domain":"form","type":"template","actions":["read"]}`, handler.CreateResource)
 
 		requireAuthzCode(t, recorder, http.StatusConflict, code.ErrResourceAlreadyExists)
 		require.Len(t, commander.createCalls, 1)
@@ -42,16 +42,16 @@ func TestResourceHandlerCreateResourceHTTPBranches(t *testing.T) {
 		commander := &resourceCommanderFake{}
 		handler := NewResourceHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/resources", `{"key":"scale:form:*","display_name":"Form","app_name":"scale","domain":"form","type":"*","actions":["read","write"],"description":"desc"}`, handler.CreateResource)
+		recorder, _ := performAuthzRequest(http.MethodPost, "/resources", `{"key":"scale:form:template:*","display_name":"Form","app_name":"scale","domain":"form","type":"template","actions":["read","write"],"description":"desc"}`, handler.CreateResource)
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, commander.createCalls, 1)
 		require.Equal(t, resourceApp.CreateResourceCommand{
-			Key:         "scale:form:*",
+			Key:         "scale:form:template:*",
 			DisplayName: "Form",
 			AppName:     "scale",
 			Domain:      "form",
-			Type:        "*",
+			Type:        "template",
 			Actions:     []string{"read", "write"},
 			Description: "desc",
 		}, commander.createCalls[0])
@@ -167,10 +167,10 @@ func TestResourceHandlerReadAndDeleteHTTPBranches(t *testing.T) {
 		}
 		handler := NewResourceHandler(nil, queryer)
 
-		recorder, _ := performAuthzRequest(http.MethodGet, "/resources/key/scale:form:*", "", handler.GetResourceByKey, withPathParam("key", "scale:form:*"))
+		recorder, _ := performAuthzRequest(http.MethodGet, "/resources/key/scale:form:template:*", "", handler.GetResourceByKey, withPathParam("key", "scale:form:template:*"))
 
 		requireAuthzCode(t, recorder, http.StatusNotFound, code.ErrResourceNotFound)
-		require.Equal(t, []string{"scale:form:*"}, queryer.getByKeyCalls)
+		require.Equal(t, []string{"scale:form:template:*"}, queryer.getByKeyCalls)
 	})
 }
 
@@ -228,7 +228,7 @@ func TestResourceHandlerValidateActionHTTPBranches(t *testing.T) {
 		}
 		handler := NewResourceHandler(nil, queryer)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/resources/validate-action", `{"resource_key":"scale:form:*","action":"delete"}`, handler.ValidateAction)
+		recorder, _ := performAuthzRequest(http.MethodPost, "/resources/validate-action", `{"resource_key":"scale:form:template:*","action":"delete"}`, handler.ValidateAction)
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrInvalidAction)
 		require.Len(t, queryer.validateCalls, 1)
@@ -238,11 +238,11 @@ func TestResourceHandlerValidateActionHTTPBranches(t *testing.T) {
 		queryer := &resourceQueryerFake{}
 		handler := NewResourceHandler(nil, queryer)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/resources/validate-action", `{"resource_key":"scale:form:*","action":"read"}`, handler.ValidateAction)
+		recorder, _ := performAuthzRequest(http.MethodPost, "/resources/validate-action", `{"resource_key":"scale:form:template:*","action":"read"}`, handler.ValidateAction)
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, queryer.validateCalls, 1)
-		require.Equal(t, "scale:form:*", queryer.validateCalls[0].resourceKey)
+		require.Equal(t, "scale:form:template:*", queryer.validateCalls[0].resourceKey)
 		require.Equal(t, "read", queryer.validateCalls[0].action)
 	})
 }

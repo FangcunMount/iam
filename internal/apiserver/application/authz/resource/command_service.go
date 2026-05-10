@@ -33,7 +33,7 @@ func (s *ResourceCatalog) CreateResource(
 		return nil, err
 	}
 
-	newResource := resourceDomain.NewResource(
+	newResource, err := resourceDomain.NewResource(
 		cmd.Key,
 		cmd.Actions,
 		resourceDomain.WithDisplayName(cmd.DisplayName),
@@ -43,6 +43,9 @@ func (s *ResourceCatalog) CreateResource(
 		resourceDomain.WithScopeKinds(cmd.ScopeKinds),
 		resourceDomain.WithDescription(cmd.Description),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := s.resourceRepo.Create(ctx, &newResource); err != nil {
 		return nil, err
@@ -73,10 +76,14 @@ func (s *ResourceCatalog) UpdateResource(
 		existingResource.DisplayName = *cmd.DisplayName
 	}
 	if len(cmd.Actions) > 0 {
-		existingResource.Actions = cmd.Actions
+		if err := existingResource.ChangeCatalog(cmd.Actions, existingResource.ScopeKinds); err != nil {
+			return nil, err
+		}
 	}
 	if len(cmd.ScopeKinds) > 0 {
-		existingResource.ScopeKinds = resourceDomain.NormalizeScopeKinds(cmd.ScopeKinds)
+		if err := existingResource.ChangeCatalog(existingResource.Actions, cmd.ScopeKinds); err != nil {
+			return nil, err
+		}
 	}
 	if cmd.Description != nil {
 		existingResource.Description = *cmd.Description

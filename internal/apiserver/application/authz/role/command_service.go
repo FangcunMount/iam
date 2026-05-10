@@ -35,12 +35,15 @@ func (s *RoleCatalog) CreateRole(
 	}
 
 	// 2. 创建角色领域对象
-	newRole := roleDomain.NewRole(
+	newRole, err := roleDomain.NewRole(
 		cmd.Name,
 		cmd.DisplayName,
 		cmd.TenantID,
 		roleDomain.WithDescription(cmd.Description),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// 3. 持久化到仓储
 	if err := s.roleRepo.Create(ctx, &newRole); err != nil {
@@ -64,7 +67,9 @@ func (s *RoleCatalog) UpdateRole(
 
 	// 3. 更新领域对象属性
 	if cmd.DisplayName != nil {
-		existingRole.DisplayName = *cmd.DisplayName
+		if err := existingRole.Rename(*cmd.DisplayName); err != nil {
+			return nil, err
+		}
 	}
 	if cmd.Description != nil {
 		existingRole.Description = *cmd.Description

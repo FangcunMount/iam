@@ -59,7 +59,10 @@ func (r *ResourceRepository) FindByID(ctx context.Context, id domain.ResourceID)
 		return nil, fmt.Errorf("failed to find resource: %w", err)
 	}
 
-	bo := r.mapper.ToBO(po)
+	bo, err := r.mapper.ToBO(po)
+	if err != nil {
+		return nil, err
+	}
 	if bo == nil {
 		return nil, gorm.ErrRecordNotFound
 	}
@@ -80,7 +83,10 @@ func (r *ResourceRepository) FindByKey(ctx context.Context, key string) (*domain
 		return nil, fmt.Errorf("failed to find resource by key: %w", err)
 	}
 
-	bo := r.mapper.ToBO(&po)
+	bo, err := r.mapper.ToBO(&po)
+	if err != nil {
+		return nil, err
+	}
 	return bo, nil
 }
 
@@ -106,7 +112,10 @@ func (r *ResourceRepository) ListByApp(ctx context.Context, appName string, offs
 		return nil, 0, fmt.Errorf("failed to list resources: %w", err)
 	}
 
-	bos := r.mapper.ToBOList(pos)
+	bos, err := r.mapper.ToBOList(pos)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	return bos, total, nil
 }
@@ -133,7 +142,10 @@ func (r *ResourceRepository) ListByDomain(ctx context.Context, domain string, of
 		return nil, 0, fmt.Errorf("failed to list resources: %w", err)
 	}
 
-	bos := r.mapper.ToBOList(pos)
+	bos, err := r.mapper.ToBOList(pos)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	return bos, total, nil
 }
@@ -170,7 +182,10 @@ func (r *ResourceRepository) List(ctx context.Context, query domain.ResourceFilt
 		return nil, 0, fmt.Errorf("failed to list resources: %w", err)
 	}
 
-	bos := r.mapper.ToBOList(pos)
+	bos, err := r.mapper.ToBOList(pos)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	return bos, total, nil
 }

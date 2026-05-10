@@ -464,7 +464,7 @@ allowed, err := client.Authz().AllowScoped(
     ctx,
     "user:1024",
     "tenant-a",
-    "scale:form:*",
+    "scale:form:template:*",
     "read",
     "origin",
     "school-a",

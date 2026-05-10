@@ -25,7 +25,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		srv := &authorizationServer{}
 
 		_, err := srv.Check(context.Background(), &authzv2.CheckRequest{
-			Subject: "user:1", Domain: "tenant-a", Object: "iam:user:*", Action: "read",
+			Subject: "user:1", Domain: "tenant-a", Object: "iam:identity:collection:users", Action: "read",
 		})
 
 		require.Equal(t, codes.Unavailable, status.Code(err))
@@ -46,7 +46,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		srv := &authorizationServer{checker: checker}
 
 		resp, err := srv.Check(context.Background(), &authzv2.CheckRequest{
-			Subject: "user:1", Domain: "tenant-a", Object: "iam:user:*", Action: "read", ScopeType: "origin", ScopeValue: "1",
+			Subject: "user:1", Domain: "tenant-a", Object: "iam:identity:collection:users", Action: "read", ScopeType: "origin", ScopeValue: "1",
 		})
 
 		require.NoError(t, err)
@@ -55,7 +55,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		require.Equal(t, authzDomain.SubjectTypeUser, checker.calls[0].Subject.Type)
 		require.Equal(t, meta.FromUint64(1), checker.calls[0].Subject.ID)
 		require.Equal(t, "tenant-a", checker.calls[0].TenantID)
-		require.Equal(t, "iam:user:*", checker.calls[0].ResourceKey)
+		require.Equal(t, "iam:identity:collection:users", checker.calls[0].ResourceKey)
 		require.Equal(t, "read", checker.calls[0].Action)
 		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, checker.calls[0].ObjectScope)
 	})
@@ -65,7 +65,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		srv := &authorizationServer{checker: &authzCheckerFake{err: errors.New("boom")}}
 
 		_, err := srv.Check(context.Background(), &authzv2.CheckRequest{
-			Subject: "user:1", Domain: "tenant-a", Object: "iam:user:*", Action: "read",
+			Subject: "user:1", Domain: "tenant-a", Object: "iam:identity:collection:users", Action: "read",
 		})
 
 		require.Equal(t, codes.Internal, status.Code(err))
@@ -79,8 +79,8 @@ func TestAuthorizationServerSnapshotUsesApplicationReader(t *testing.T) {
 		snapshot: &authzapp.Snapshot{
 			Roles: []string{"iam:admin"},
 			Permissions: []authzapp.PermissionEntry{
-				{ResourceKey: "iam:user:*", Action: "read"},
-				{ResourceKey: "iam:user:*", Action: "write"},
+				{ResourceKey: "iam:identity:collection:users", Action: "read"},
+				{ResourceKey: "iam:identity:collection:users", Action: "write"},
 			},
 			AuthzVersion: 12,
 		},
@@ -97,8 +97,8 @@ func TestAuthorizationServerSnapshotUsesApplicationReader(t *testing.T) {
 	require.Equal(t, []string{"iam:admin"}, resp.Roles)
 	require.Equal(t, int64(12), resp.AuthzVersion)
 	require.Equal(t, []*authzv2.PermissionEntry{
-		{Resource: "iam:user:*", Action: "read", ScopeType: "all", ScopeValue: "*"},
-		{Resource: "iam:user:*", Action: "write", ScopeType: "all", ScopeValue: "*"},
+		{Resource: "iam:identity:collection:users", Action: "read", ScopeType: "all", ScopeValue: "*"},
+		{Resource: "iam:identity:collection:users", Action: "write", ScopeType: "all", ScopeValue: "*"},
 	}, resp.Permissions)
 	require.Len(t, reader.calls, 1)
 	require.Equal(t, authzDomain.SubjectTypeUser, reader.calls[0].Subject.Type)

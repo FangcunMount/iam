@@ -118,68 +118,68 @@ ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
 
 INSERT INTO `authz_resources` (`id`, `key`, `display_name`, `app_name`, `domain`, `type`, `actions`, `description`,
                                `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted_by`, `version`)
-VALUES (901000001, 'iam:profile', '个人资料', 'iam', 'identity', 'instance', JSON_ARRAY('read', 'update'),
+VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'identity', 'instance', JSON_ARRAY('read', 'update'),
         '当前用户自服务资料读取与更新', NOW(), NOW(), 0, 0, 0, 1),
-       (901000002, 'iam:users', '用户管理', 'iam', 'identity', 'collection',
+       (901000002, 'iam:identity:collection:users', '用户管理', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'search', 'create', 'update', 'deactivate', 'block', 'link_external_identity'),
         '用户资料、状态和外部身份关联管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000003, 'iam:profiles', '档案', 'iam', 'identity', 'collection',
+       (901000003, 'iam:identity:collection:profiles', '档案', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'list', 'search', 'create', 'update'), '档案查询、注册与更新', NOW(), NOW(), 0, 0, 0, 1),
-       (901000004, 'iam:profile-links', '档案关系', 'iam', 'identity', 'collection',
+       (901000004, 'iam:identity:collection:profile-links', '档案关系', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'list', 'grant', 'update_relation', 'revoke', 'bulk_revoke', 'import'),
         '档案关系授予、更新、撤销与导入', NOW(), NOW(), 0, 0, 0, 1),
-       (901000005, 'iam:roles', '角色管理', 'iam', 'authz', 'collection',
+       (901000005, 'iam:authz:collection:roles', '角色管理', 'iam', 'authz', 'collection',
         JSON_ARRAY('create', 'read', 'update', 'delete', 'list'), '角色目录管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000006, 'iam:assignments', '角色分配', 'iam', 'authz', 'collection',
+       (901000006, 'iam:authz:collection:assignments', '角色分配', 'iam', 'authz', 'collection',
         JSON_ARRAY('grant', 'revoke', 'delete', 'read'), '主体与角色分配管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000007, 'iam:policies', '策略管理', 'iam', 'authz', 'collection',
+       (901000007, 'iam:authz:collection:policies', '策略管理', 'iam', 'authz', 'collection',
         JSON_ARRAY('read', 'write', 'delete'), 'Casbin 策略规则管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000008, 'iam:resources', '资源目录', 'iam', 'authz', 'collection',
+       (901000008, 'iam:authz:collection:resources', '资源目录', 'iam', 'authz', 'collection',
         JSON_ARRAY('create', 'read', 'update', 'delete', 'list', 'validate_action'), '资源目录定义和动作校验', NOW(),
         NOW(), 0, 0, 0, 1),
-       (901000009, 'iam:check', '权限判定', 'iam', 'authz', 'action', JSON_ARRAY('check'), '单次 PDP 权限判定', NOW(),
+       (901000009, 'iam:authz:action:check', '权限判定', 'iam', 'authz', 'action', JSON_ARRAY('check'), '单次 PDP 权限判定', NOW(),
         NOW(), 0, 0, 0, 1),
-       (901000010, 'iam:login_identities', '登录身份管理', 'iam', 'authn', 'collection',
+       (901000010, 'iam:authn:collection:login_identities', '登录身份管理', 'iam', 'authn', 'collection',
         JSON_ARRAY('read', 'update', 'enable', 'disable', 'set_unionid'), '登录身份读取、资料更新与启停用', NOW(), NOW(),
         0, 0, 0, 1),
-       (901000011, 'iam:jwks', 'JWKS 密钥管理', 'iam', 'authn', 'collection',
+       (901000011, 'iam:authn:collection:jwks', 'JWKS 密钥管理', 'iam', 'authn', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'retire', 'force_retire', 'enter_grace', 'cleanup', 'list_publishable'),
         'JWT 签名密钥与发布管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000012, 'iam:wechat_apps', '微信应用管理', 'iam', 'idp', 'collection',
+       (901000012, 'iam:idp:collection:wechat_apps', '微信应用管理', 'iam', 'idp', 'collection',
         JSON_ARRAY('create', 'read', 'rotate_auth_secret', 'rotate_msg_secret', 'refresh_access_token',
                    'get_access_token'),
         '微信应用与令牌管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000013, 'qs:questionnaires', '问卷管理', 'qs', 'questionnaire', 'collection',
+       (901000013, 'qs:questionnaire:collection:questionnaires', '问卷管理', 'qs', 'questionnaire', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'update', 'delete', 'publish', 'unpublish', 'archive', 'statistics'),
         '问卷创建、维护、发布与统计', NOW(), NOW(), 0, 0, 0, 1),
-       (901000014, 'qs:scales', '量表管理', 'qs', 'scale', 'collection',
+       (901000014, 'qs:scale:collection:scales', '量表管理', 'qs', 'scale', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'update', 'delete', 'publish', 'unpublish', 'archive'),
         '量表创建、维护与发布', NOW(), NOW(), 0, 0, 0, 1),
-       (901000015, 'qs:answersheets', '答卷管理', 'qs', 'answersheet', 'collection',
+       (901000015, 'qs:answersheet:collection:answersheets', '答卷管理', 'qs', 'answersheet', 'collection',
         JSON_ARRAY('read', 'list', 'statistics', 'admin_submit'), '答卷查询、统计与管理员提交', NOW(), NOW(), 0, 0, 0,
         1),
-       (901000016, 'qs:assessments', '测评执行', 'qs', 'evaluation', 'collection',
+       (901000016, 'qs:evaluation:collection:assessments', '测评执行', 'qs', 'evaluation', 'collection',
         JSON_ARRAY('read', 'list', 'retry', 'batch_evaluate', 'statistics'), '测评任务、结果重试与批量执行', NOW(), NOW(),
         0, 0, 0, 1),
-       (901000017, 'qs:reports', '测评报告', 'qs', 'evaluation', 'collection', JSON_ARRAY('read', 'list'),
+       (901000017, 'qs:evaluation:collection:reports', '测评报告', 'qs', 'evaluation', 'collection', JSON_ARRAY('read', 'list'),
         '测评报告查询', NOW(), NOW(), 0, 0, 0, 1),
-       (901000018, 'qs:testees', '受试者管理', 'qs', 'actor', 'collection',
+       (901000018, 'qs:actor:collection:testees', '受试者管理', 'qs', 'actor', 'collection',
         JSON_ARRAY('read', 'list', 'update', 'analyze', 'statistics'), '受试者资料、分析与统计', NOW(), NOW(), 0, 0, 0,
         1),
-       (901000019, 'qs:staff', '员工管理', 'qs', 'actor', 'collection',
+       (901000019, 'qs:actor:collection:staff', '员工管理', 'qs', 'actor', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'delete'), '员工创建、查询与删除', NOW(), NOW(), 0, 0, 0, 1),
-       (901000020, 'qs:evaluation_plans', '测评计划', 'qs', 'plan', 'collection',
+       (901000020, 'qs:plan:collection:evaluation_plans', '测评计划', 'qs', 'plan', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'update', 'pause', 'resume', 'cancel', 'enroll', 'terminate',
                    'statistics'),
         '测评计划生命周期与统计', NOW(), NOW(), 0, 0, 0, 1),
-       (901000021, 'qs:evaluation_plan_tasks', '测评计划任务', 'qs', 'plan_task', 'collection',
+       (901000021, 'qs:plan_task:collection:evaluation_plan_tasks', '测评计划任务', 'qs', 'plan_task', 'collection',
         JSON_ARRAY('schedule', 'read', 'list', 'open', 'complete', 'expire', 'cancel'),
         '测评计划任务调度与状态流转', NOW(), NOW(), 0, 0, 0, 1),
-       (901000022, 'qs:system_statistics', '系统统计', 'qs', 'statistics', 'collection', JSON_ARRAY('read'),
+       (901000022, 'qs:statistics:collection:system_statistics', '系统统计', 'qs', 'statistics', 'collection', JSON_ARRAY('read'),
         '后台系统统计查询', NOW(), NOW(), 0, 0, 0, 1),
-       (901000023, 'qs:statistics_jobs', '统计作业', 'qs', 'statistics', 'collection',
+       (901000023, 'qs:statistics:collection:statistics_jobs', '统计作业', 'qs', 'statistics', 'collection',
         JSON_ARRAY('sync', 'validate'), '统计同步与一致性校验', NOW(), NOW(), 0, 0, 0, 1),
-       (901000024, 'qs:codes', '邀请码申请', 'qs', 'code', 'collection', JSON_ARRAY('apply'), '邀请码申请', NOW(), NOW(),
+       (901000024, 'qs:code:collection:codes', '邀请码申请', 'qs', 'code', 'collection', JSON_ARRAY('apply'), '邀请码申请', NOW(), NOW(),
         0, 0, 0, 1)
 ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
                         `app_name`     = VALUES(`app_name`),
@@ -233,58 +233,58 @@ SELECT `seed`.*
 FROM (SELECT 'p'                  AS `ptype`,
              'role:super_admin'   AS `v0`,
              'platform'           AS `v1`,
-             '*'                  AS `v2`,
+             '*:*:*:*'            AS `v2`,
              '.*'                 AS `v3`,
              'all:*'                 AS `v4`,
              NULL                 AS `v5`
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:users',
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:identity:collection:users',
              'read|search|create|update|deactivate|block|link_external_identity', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profiles', 'read|list|search|create|update', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:identity:collection:profiles', 'read|list|search|create|update', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:profile-links',
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:identity:collection:profile-links',
              'read|list|grant|update_relation|revoke|bulk_revoke|import', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:roles', 'create|read|update|delete|list', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:authz:collection:roles', 'create|read|update|delete|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:assignments', 'grant|revoke|delete|read', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:authz:collection:assignments', 'grant|revoke|delete|read', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:policies', 'read|write|delete', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:authz:collection:policies', 'read|write|delete', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:resources',
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:authz:collection:resources',
              'create|read|update|delete|list|validate_action', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:check', 'check', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:authz:action:check', 'check', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:login_identities', 'read|update|enable|disable', 'all:*', NULL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:authn:collection:login_identities', 'read|update|enable|disable', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'read', 'all:*', NULL
+      SELECT 'p', 'role:user', 'fangcun', 'iam:identity:instance:profile', 'read', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:user', 'fangcun', 'iam:profile', 'update', 'all:*', NULL
+      SELECT 'p', 'role:user', 'fangcun', 'iam:identity:instance:profile', 'update', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:admin', '1', 'qs:*', '.*', 'all:*', NULL
+      SELECT 'p', 'role:qs:admin', '1', 'qs:*:*:*', '.*', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:content_manager', '1', 'qs:questionnaires',
+      SELECT 'p', 'role:qs:content_manager', '1', 'qs:questionnaire:collection:questionnaires',
              'create|read|list|update|delete|publish|unpublish|archive|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:content_manager', '1', 'qs:scales',
+      SELECT 'p', 'role:qs:content_manager', '1', 'qs:scale:collection:scales',
              'create|read|list|update|delete|publish|unpublish|archive', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:answersheets', 'read|list|statistics', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:answersheet:collection:answersheets', 'read|list|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:assessments', 'read|list|retry|batch_evaluate|statistics', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:evaluation:collection:assessments', 'read|list|retry|batch_evaluate|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:reports', 'read|list', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:evaluation:collection:reports', 'read|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:testees', 'read|list|analyze|statistics', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', '1', 'qs:actor:collection:testees', 'read|list|analyze|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:staff', '1', 'qs:testees', 'read|list', 'all:*', NULL
+      SELECT 'p', 'role:qs:staff', '1', 'qs:actor:collection:testees', 'read|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:evaluation_plans',
+      SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:plan:collection:evaluation_plans',
              'create|read|list|update|pause|resume|cancel|enroll|terminate|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:evaluation_plan_tasks',
+      SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:plan_task:collection:evaluation_plan_tasks',
              'schedule|read|list|open|complete|expire|cancel', 'all:*', NULL
       UNION ALL
       SELECT 'g', 'role:tenant_admin', 'role:user', 'fangcun', NULL, NULL, NULL

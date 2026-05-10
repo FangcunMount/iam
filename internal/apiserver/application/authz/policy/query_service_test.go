@@ -23,7 +23,7 @@ func TestPolicyQueryServiceReturnsBusinessPermissionsForRole(t *testing.T) {
 	}
 	store := &rolePermissionStoreStub{
 		permissions: []authzDomain.Permission{
-			mustPolicyPermission(t, "iam:admin", "tenant-a", "iam:user:*", "read"),
+			mustPolicyPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
 		},
 	}
 	service := NewPolicyQueryService(&policyVersionRepoForCommandStub{}, store, roleRepo)

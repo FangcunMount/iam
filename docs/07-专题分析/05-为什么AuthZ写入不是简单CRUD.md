@@ -169,7 +169,7 @@ INSERT INTO permissions ...
 当前设计中，它要产生：
 
 ```text
-p(role:teacher, tenant-a, scale:form:*, read, origin:school-a)
+p(role:teacher, tenant-a, scale:form:template:*, read, origin:school-a)
 PolicyVersion(tenant-a, version+1)
 iam.authz.version_changed(tenant-a, version)
 runtime LoadPolicy()

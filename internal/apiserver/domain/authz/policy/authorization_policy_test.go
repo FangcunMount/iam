@@ -16,9 +16,9 @@ func TestAuthorizationPolicyGrantPermissionBuildsBusinessChange(t *testing.T) {
 	actor := mustActor(t, "operator-1")
 	originScope := mustScope(t, authz.ScopeKindOrigin, "1")
 	change, err := NewAuthorizationPolicy().GrantPermission(
-		role.NewRole("iam:origin_admin", "Origin Admin", "tenant-a"),
-		resource.NewResource(
-			"iam:users",
+		mustRole(t, "iam:origin_admin", "Origin Admin", "tenant-a"),
+		mustResource(t,
+			"iam:identity:collection:users",
 			[]string{"update"},
 			resource.WithScopeKinds([]authz.ScopeKind{authz.ScopeKindAll, authz.ScopeKindOrigin}),
 		),
@@ -36,7 +36,7 @@ func TestAuthorizationPolicyGrantPermissionBuildsBusinessChange(t *testing.T) {
 	require.Equal(t, authz.Permission{
 		RoleName:    "iam:origin_admin",
 		TenantID:    "tenant-a",
-		ResourceKey: "iam:users",
+		ResourceKey: "iam:identity:collection:users",
 		Action:      "update",
 		Scope:       originScope,
 	}, *change.Permission)
@@ -47,10 +47,10 @@ func TestAuthorizationPolicyRejectsUnsupportedResourceActionOrScope(t *testing.T
 
 	actor := mustActor(t, "operator-1")
 	originScope := mustScope(t, authz.ScopeKindOrigin, "1")
-	catalog := resource.NewResource("iam:users", []string{"read"})
+	catalog := mustResource(t, "iam:identity:collection:users", []string{"read"})
 
 	_, err := NewAuthorizationPolicy().GrantPermission(
-		role.NewRole("iam:origin_admin", "Origin Admin", "tenant-a"),
+		mustRole(t, "iam:origin_admin", "Origin Admin", "tenant-a"),
 		catalog,
 		"update",
 		authz.DefaultScope(),
@@ -60,7 +60,7 @@ func TestAuthorizationPolicyRejectsUnsupportedResourceActionOrScope(t *testing.T
 	require.Error(t, err)
 
 	_, err = NewAuthorizationPolicy().GrantPermission(
-		role.NewRole("iam:origin_admin", "Origin Admin", "tenant-a"),
+		mustRole(t, "iam:origin_admin", "Origin Admin", "tenant-a"),
 		catalog,
 		"read",
 		originScope,
@@ -79,7 +79,7 @@ func TestAuthorizationPolicyBindRoleBuildsBusinessChange(t *testing.T) {
 
 	change, err := NewAuthorizationPolicy().BindRole(
 		subject,
-		role.NewRole("iam:admin", "Admin", "tenant-a"),
+		mustRole(t, "iam:admin", "Admin", "tenant-a"),
 		actor,
 		"bind admin",
 	)
@@ -108,4 +108,18 @@ func mustScope(t *testing.T, kind authz.ScopeKind, value string) authz.Scope {
 	scope, err := authz.NewScope(kind, value)
 	require.NoError(t, err)
 	return scope
+}
+
+func mustRole(t *testing.T, name, displayName, tenantID string) role.Role {
+	t.Helper()
+	r, err := role.NewRole(name, displayName, tenantID)
+	require.NoError(t, err)
+	return r
+}
+
+func mustResource(t *testing.T, key string, actions []string, opts ...resource.ResourceOption) resource.Resource {
+	t.Helper()
+	r, err := resource.NewResource(key, actions, opts...)
+	require.NoError(t, err)
+	return r
 }

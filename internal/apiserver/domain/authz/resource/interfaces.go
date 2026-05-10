@@ -4,7 +4,7 @@ package resource
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 )
 
 // ResourceFilter describes repository-level resource filtering.
@@ -30,7 +30,7 @@ type ResourceFilter struct {
 type Validator interface {
 	ValidateCreateParameters(key string, displayName string, appName string, domain string, resourceType string, actions []string) error
 	ValidateUpdateParameters(actions []string) error
-	ValidateScopeKinds(kinds []authzDomain.ScopeKind) error
+	ValidateScopeKinds(kinds []scope.Kind) error
 	// CheckKeyUnique 检查键唯一性
 	CheckKeyUnique(ctx context.Context, key string) error
 }

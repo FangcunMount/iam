@@ -155,7 +155,7 @@ insert permission
 而是：
 
 ```text
-p(role:teacher, tenant-a, scale:form:*, read, origin:school-a)
+p(role:teacher, tenant-a, scale:form:template:*, read, origin:school-a)
 policy version + 1
 authz.version.changed event
 runtime policy reload

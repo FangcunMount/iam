@@ -989,7 +989,7 @@ authzClient := authzv2.NewAuthorizationServiceClient(conn)
 resp, err := authzClient.Check(ctx, &authzv2.CheckRequest{
     Subject:    "user:1024",
     Domain:     "tenant-a",
-    Object:     "scale:form:*",
+    Object:     "scale:form:template:*",
     Action:     "read",
     ScopeType:  "origin",
     ScopeValue: "school-a",

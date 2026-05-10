@@ -61,7 +61,10 @@ func (r *RoleRepository) FindByID(ctx context.Context, id meta.ID) (*domain.Role
 	if err != nil {
 		return nil, err
 	}
-	role := r.mapper.ToRoleBO(po)
+	role, err := r.mapper.ToRoleBO(po)
+	if err != nil {
+		return nil, err
+	}
 	if role == nil {
 		return nil, gorm.ErrRecordNotFound
 	}
@@ -75,7 +78,10 @@ func (r *RoleRepository) FindByName(ctx context.Context, tenantID, name string) 
 	if err != nil {
 		return nil, err
 	}
-	role := r.mapper.ToRoleBO(&po)
+	role, err := r.mapper.ToRoleBO(&po)
+	if err != nil {
+		return nil, err
+	}
 	if role == nil {
 		return nil, gorm.ErrRecordNotFound
 	}
@@ -101,7 +107,11 @@ func (r *RoleRepository) List(ctx context.Context, tenantID string, offset, limi
 
 	roles := make([]*domain.Role, 0, len(pos))
 	for _, po := range pos {
-		if role := r.mapper.ToRoleBO(po); role != nil {
+		role, err := r.mapper.ToRoleBO(po)
+		if err != nil {
+			return nil, 0, err
+		}
+		if role != nil {
 			roles = append(roles, role)
 		}
 	}

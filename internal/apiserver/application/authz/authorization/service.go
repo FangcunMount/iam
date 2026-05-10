@@ -7,6 +7,8 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -117,9 +119,9 @@ type SnapshotProjector struct{}
 func (SnapshotProjector) RolesForApp(roleNames []string, appName string) []string {
 	seen := make(map[string]struct{}, len(roleNames))
 	roles := make([]string, 0, len(roleNames))
-	appPrefix := appName + ":"
 	for _, roleName := range roleNames {
-		if !strings.HasPrefix(roleName, appPrefix) {
+		roleApp, ok := roleDomain.AppName(roleName)
+		if !ok || roleApp != appName {
 			continue
 		}
 		if _, exists := seen[roleName]; exists {
@@ -134,9 +136,9 @@ func (SnapshotProjector) RolesForApp(roleNames []string, appName string) []strin
 func (SnapshotProjector) PermissionsForApp(permissions []authzDomain.Permission, appName string) []PermissionEntry {
 	seen := make(map[string]struct{}, len(permissions))
 	result := make([]PermissionEntry, 0, len(permissions))
-	appPrefix := appName + ":"
 	for _, permission := range permissions {
-		if !strings.HasPrefix(permission.ResourceKey, appPrefix) {
+		resourceApp, ok := resourceDomain.AppNameFromKey(permission.ResourceKey)
+		if !ok || resourceApp != appName {
 			continue
 		}
 		key := permission.ResourceKey + "\x00" + permission.Action + "\x00" + permission.Scope.Normalized().String()

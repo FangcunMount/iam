@@ -14,17 +14,21 @@ func NewMapper() *Mapper {
 }
 
 // ToRoleBO 将PO转换为领域对象
-func (m *Mapper) ToRoleBO(po *RolePO) *domain.Role {
+func (m *Mapper) ToRoleBO(po *RolePO) (*domain.Role, error) {
 	if po == nil {
-		return nil
+		return nil, nil
 	}
-	return &domain.Role{
-		ID:          po.ID,
-		Name:        po.Name,
-		DisplayName: po.DisplayName,
-		TenantID:    po.TenantID,
-		Description: po.Description,
+	role, err := domain.NewRole(
+		po.Name,
+		po.DisplayName,
+		po.TenantID,
+		domain.WithID(po.ID),
+		domain.WithDescription(po.Description),
+	)
+	if err != nil {
+		return nil, err
 	}
+	return &role, nil
 }
 
 // ToRolePO 将领域对象转换为PO

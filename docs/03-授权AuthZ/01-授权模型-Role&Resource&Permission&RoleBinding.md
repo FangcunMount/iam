@@ -42,7 +42,7 @@ Subject
 | 模型 | 作用 |
 | --- | --- |
 | `Role` | 租户内的角色目录，例如 `teacher`、`school_admin` |
-| `Resource` | 可被保护的资源目录，例如 `scale:form:*` |
+| `Resource` | 可被保护的资源目录，例如 `scale:form:template:*` |
 | `Permission` | 某个 role 在某个 tenant 下，可以对某个 resource 执行某个 action，且限定 scope |
 | `RoleBinding` | 某个 subject 在某个 tenant 下持有某个 role |
 | `Subject` | 被授权主体，类型包括 user/group/service；当前 REST 写操作只支持 user |
@@ -208,7 +208,7 @@ ObjectScope
 也就是：
 
 ```text
-(user:123, tenant=school-a, resource=scale:form:*, action=read, scope=origin:school-a)
+(user:123, tenant=school-a, resource=scale:form:template:*, action=read, scope=origin:school-a)
 ```
 
 这个问题不能简化成“用户有没有某个权限”。  
@@ -394,7 +394,7 @@ Resource 有 `ScopeKinds`，表示这个资源允许哪些 scope kind。
 例如：
 
 ```text
-Resource(scale:form:*) supports [all, origin]
+Resource(scale:form:template:*) supports [all, origin]
 ```
 
 那么对该 resource 授权时，只能使用它支持的 scope kind。  
@@ -499,7 +499,7 @@ Resource 是可被授权系统保护的资源目录项。
 | 字段 | 含义 |
 | --- | --- |
 | `ID` | 内部 ID |
-| `Key` | 资源键，例如 `scale:form:*` |
+| `Key` | 资源键，例如 `scale:form:template:*` |
 | `DisplayName` | 展示名 |
 | `AppName` | 所属应用 |
 | `Domain` | 业务域 |
@@ -557,7 +557,7 @@ Resource 不只是一个字符串 key。
 
 ```text
 Resource:
-  key: scale:form:*
+  key: scale:form:template:*
   actions: [read, write]
   scopeKinds: [all, origin]
 ```
@@ -565,13 +565,13 @@ Resource:
 那么以下 permission 合法：
 
 ```text
-teacher can read scale:form:* in origin:school-a
+teacher can read scale:form:template:* in origin:school-a
 ```
 
 以下 permission 不合法：
 
 ```text
-teacher can delete scale:form:* in origin:school-a
+teacher can delete scale:form:template:* in origin:school-a
 ```
 
 因为 `delete` 不在 actions 中。
@@ -1135,7 +1135,7 @@ Resource key 当前类似：
 例如：
 
 ```text
-scale:form:*
+scale:form:template:*
 ```
 
 具体某个对象实例范围通过 Scope 表达，而不是在 Resource 中展开。
