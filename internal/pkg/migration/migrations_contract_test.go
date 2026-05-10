@@ -69,6 +69,23 @@ func TestAuthNLoginIdentityMigrationUsesIdempotentCreateTableGuards(t *testing.T
 	assertSQLContains(t, sql, "`uk_identity_type`")
 }
 
+func TestAuthNLoginIdentitySchemaMigrationPreservesLegacyCredentialTable(t *testing.T) {
+	sql := migrationSQL(t, "000011_ensure_authn_login_identity_schema.up.sql")
+
+	assertSQLContains(t, sql, "information_schema.TABLES")
+	assertSQLContains(t, sql, "information_schema.COLUMNS")
+	assertSQLContains(t, sql, "auth_credentials_legacy")
+	assertSQLContains(t, sql, "RENAME TABLE `auth_credentials` TO `auth_credentials_legacy`")
+	assertSQLContains(t, sql, "CREATE TABLE IF NOT EXISTS `auth_login_identities`")
+	assertSQLContains(t, sql, "CREATE TABLE IF NOT EXISTS `auth_credentials`")
+	assertSQLContains(t, sql, "`login_identity_id`")
+	assertSQLContains(t, sql, "`uk_provider_realm_identifier`")
+	assertSQLContains(t, sql, "`uk_identity_type`")
+	assertSQLContains(t, sql, "PREPARE iam_stmt FROM @iam_sql")
+	assertSQLContains(t, sql, "EXECUTE iam_stmt")
+	assertSQLContains(t, sql, "DEALLOCATE PREPARE iam_stmt")
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 
