@@ -122,7 +122,10 @@ func (m *Mapper) parseActions(jsonStr string) ([]string, error) {
 }
 
 func (m *Mapper) serializeScopeKinds(kinds []authzDomain.ScopeKind) (string, error) {
-	normalized := resource.NormalizeScopeKinds(kinds)
+	normalized, err := resource.NormalizeAndValidateScopeKinds(kinds)
+	if err != nil {
+		return `["all"]`, err
+	}
 	values := make([]string, 0, len(normalized))
 	for _, kind := range normalized {
 		values = append(values, string(kind))
@@ -146,5 +149,5 @@ func (m *Mapper) parseScopeKinds(jsonStr string) ([]authzDomain.ScopeKind, error
 	for _, value := range values {
 		kinds = append(kinds, authzDomain.ScopeKind(value))
 	}
-	return resource.NormalizeScopeKinds(kinds), nil
+	return kinds, nil
 }

@@ -14,21 +14,23 @@ func NewMapper() *Mapper {
 }
 
 // ToBO 将 PO 转换为 BO
-func (m *Mapper) ToBO(po *BindingPO) *binding.Binding {
+func (m *Mapper) ToBO(po *BindingPO) (*binding.Binding, error) {
 	if po == nil {
-		return nil
+		return nil, nil
 	}
 
-	a := &binding.Binding{
-		ID:          binding.BindingID(po.ID),
-		SubjectType: binding.SubjectType(po.SubjectType),
-		SubjectID:   meta.MustFromUint64(parseStoredID(po.SubjectID)),
-		RoleID:      meta.FromUint64(po.RoleID),
-		TenantID:    po.TenantID,
-		GrantedBy:   po.GrantedBy,
+	a, err := binding.NewBinding(
+		binding.SubjectType(po.SubjectType),
+		meta.MustFromUint64(parseStoredID(po.SubjectID)),
+		meta.FromUint64(po.RoleID),
+		po.TenantID,
+		binding.WithID(binding.BindingID(po.ID)),
+		binding.WithGrantedBy(po.GrantedBy),
+	)
+	if err != nil {
+		return nil, err
 	}
-
-	return a
+	return &a, nil
 }
 
 // ToPO 将 BO 转换为 PO
@@ -59,17 +61,21 @@ func parseStoredID(value string) uint64 {
 }
 
 // ToBOList 将 PO 列表转换为 BO 列表
-func (m *Mapper) ToBOList(pos []*BindingPO) []*binding.Binding {
+func (m *Mapper) ToBOList(pos []*BindingPO) ([]*binding.Binding, error) {
 	if len(pos) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	bos := make([]*binding.Binding, 0, len(pos))
 	for _, po := range pos {
-		if bo := m.ToBO(po); bo != nil {
+		bo, err := m.ToBO(po)
+		if err != nil {
+			return nil, err
+		}
+		if bo != nil {
 			bos = append(bos, bo)
 		}
 	}
 
-	return bos
+	return bos, nil
 }

@@ -716,7 +716,11 @@ func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
 
 	assertFileContains(t, root, "configs/casbin_model.conf", "r = sub, dom, obj, act, scope")
 	assertFileContains(t, root, "configs/casbin_model.conf", "p = sub, dom, obj, act, scope")
+	assertFileContains(t, root, "configs/casbin_model.conf", "resourceMatch(r.obj, p.obj)")
+	assertFileContains(t, root, "configs/casbin_model.conf", "actionMatch(r.act, p.act)")
 	assertFileContains(t, root, "configs/casbin_model.conf", "scopeMatch(r.scope, p.scope)")
+	assertFileLacks(t, root, "configs/casbin_model.conf", "keyMatch(r.obj, p.obj)")
+	assertFileLacks(t, root, "configs/casbin_model.conf", "regexMatch(r.act, p.act)")
 	assertFileContains(t, root, "api/grpc/iam/authz/v2/authz.proto", "scope_type")
 	assertFileContains(t, root, "api/grpc/iam/authz/v2/authz.proto", "scope_value")
 	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/policy.go", "ScopeType")
@@ -762,6 +766,24 @@ func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
 		t.Fatal(err)
 	} else if len(matches) > 0 {
 		t.Fatalf("internal/apiserver/application/authz/version is retired; version changes must flow through PolicyChangeCommitter")
+	}
+}
+
+func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		"configs/mysql/bootstrap.sql",
+		"internal/pkg/migration/migrations/000005_bootstrap_system_data.up.sql",
+	} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sql := string(data)
+		assertFourSegmentResourceValues(t, rel+" authz_resources.key", extractAuthzResourceKeysFromSQL(t, sql))
+		assertFourSegmentResourceValues(t, rel+" casbin_rule.v2", extractCasbinPolicyObjectsFromSQL(t, sql))
 	}
 }
 
@@ -1667,6 +1689,56 @@ func assertFileLacks(t *testing.T, root, rel, token string) {
 	}
 	if strings.Contains(string(data), token) {
 		t.Fatalf("%s contains retired token %q", rel, token)
+	}
+}
+
+func extractAuthzResourceKeysFromSQL(t *testing.T, sql string) []string {
+	t.Helper()
+	start := strings.Index(sql, "INSERT INTO `authz_resources`")
+	if start < 0 {
+		t.Fatal("authz_resources bootstrap insert not found")
+	}
+	block := sql[start:]
+	if end := strings.Index(block, "ON DUPLICATE KEY UPDATE"); end >= 0 {
+		block = block[:end]
+	}
+	matches := regexp.MustCompile(`\(\s*\d+\s*,\s*'([^']+)'`).FindAllStringSubmatch(block, -1)
+	values := make([]string, 0, len(matches))
+	for _, match := range matches {
+		values = append(values, match[1])
+	}
+	if len(values) == 0 {
+		t.Fatal("authz_resources bootstrap keys not found")
+	}
+	return values
+}
+
+func extractCasbinPolicyObjectsFromSQL(t *testing.T, sql string) []string {
+	t.Helper()
+	re := regexp.MustCompile(`(?is)SELECT\s+'p'\s*(?:AS\s+` + "`ptype`" + `)?\s*,\s*'[^']+'\s*(?:AS\s+` + "`v0`" + `)?\s*,\s*'[^']+'\s*(?:AS\s+` + "`v1`" + `)?\s*,\s*'([^']+)'\s*(?:AS\s+` + "`v2`" + `)?`)
+	matches := re.FindAllStringSubmatch(sql, -1)
+	values := make([]string, 0, len(matches))
+	for _, match := range matches {
+		values = append(values, match[1])
+	}
+	if len(values) == 0 {
+		t.Fatal("casbin p-rule bootstrap objects not found")
+	}
+	return values
+}
+
+func assertFourSegmentResourceValues(t *testing.T, label string, values []string) {
+	t.Helper()
+	for _, value := range values {
+		parts := strings.Split(value, ":")
+		if len(parts) != 4 {
+			t.Fatalf("%s contains non-four-segment resource %q", label, value)
+		}
+		for _, part := range parts {
+			if strings.TrimSpace(part) == "" {
+				t.Fatalf("%s contains empty resource segment in %q", label, value)
+			}
+		}
 	}
 }
 

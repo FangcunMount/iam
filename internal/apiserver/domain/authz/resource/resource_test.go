@@ -44,3 +44,37 @@ func TestResourceRejectsLegacyTwoSegmentKey(t *testing.T) {
 	_, err := NewResource("iam:users", []string{"read"})
 	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }
+
+func TestResourceKeyAndPatternHaveDifferentWildcardSemantics(t *testing.T) {
+	key, err := NewKey("scale:form:template:*")
+	assert.NoError(t, err)
+	assert.Equal(t, "scale:form:template:*", key.String())
+
+	_, err = NewKey("*:*:*:*")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	_, err = NewKey("qs:*:*:*")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	pattern, err := NewPattern("*:*:*:*")
+	assert.NoError(t, err)
+	assert.Equal(t, "*:*:*:*", pattern.String())
+
+	pattern, err = NewPattern("qs:*:*:*")
+	assert.NoError(t, err)
+	assert.Equal(t, "qs", pattern.App())
+}
+
+func TestResourceRejectsUnsupportedScopeKindInsideEntity(t *testing.T) {
+	_, err := NewResource(
+		"iam:identity:collection:users",
+		[]string{"read"},
+		WithScopeKinds([]scope.Kind{"project"}),
+	)
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	r, err := NewResource("iam:identity:collection:users", []string{"read"})
+	assert.NoError(t, err)
+	err = r.ChangeCatalog([]string{"read"}, []scope.Kind{"project"})
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+}

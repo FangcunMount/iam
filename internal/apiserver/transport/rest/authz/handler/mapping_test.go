@@ -36,7 +36,7 @@ func TestRoleHandlerToRoleResponse(t *testing.T) {
 
 func TestRoleBindingHandlerToBindingResponse(t *testing.T) {
 	handler := &RoleBindingHandler{}
-	source := binding.NewBinding(
+	source, err := binding.NewBinding(
 		binding.SubjectTypeUser,
 		meta.FromUint64(1),
 		meta.FromUint64(22),
@@ -44,6 +44,7 @@ func TestRoleBindingHandlerToBindingResponse(t *testing.T) {
 		binding.WithID(binding.NewBindingID(12)),
 		binding.WithGrantedBy("operator-1"),
 	)
+	require.NoError(t, err)
 
 	resp := handler.toAssignmentResponse(&source)
 

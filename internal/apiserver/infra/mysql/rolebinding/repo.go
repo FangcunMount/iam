@@ -51,7 +51,10 @@ func (r *BindingRepository) FindByID(ctx context.Context, id domain.BindingID) (
 		return nil, fmt.Errorf("failed to find domain: %w", err)
 	}
 
-	bo := r.mapper.ToBO(po)
+	bo, err := r.mapper.ToBO(po)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map domain: %w", err)
+	}
 	if bo == nil {
 		return nil, gorm.ErrRecordNotFound
 	}
@@ -69,7 +72,10 @@ func (r *BindingRepository) ListBySubject(ctx context.Context, subjectType domai
 		return nil, fmt.Errorf("failed to list domains by subject: %w", err)
 	}
 
-	bos := r.mapper.ToBOList(pos)
+	bos, err := r.mapper.ToBOList(pos)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map domains by subject: %w", err)
+	}
 
 	return bos, nil
 }
@@ -84,7 +90,10 @@ func (r *BindingRepository) ListByRole(ctx context.Context, roleID meta.ID, tena
 		return nil, fmt.Errorf("failed to list domains by role: %w", err)
 	}
 
-	bos := r.mapper.ToBOList(pos)
+	bos, err := r.mapper.ToBOList(pos)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map domains by role: %w", err)
+	}
 
 	return bos, nil
 }

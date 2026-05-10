@@ -42,7 +42,17 @@ func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 		go func(d int) {
 			defer wg.Done()
 			time.Sleep(time.Millisecond * time.Duration(d))
-			a := domain.NewBinding(domain.SubjectTypeUser, meta.FromUint64(123), meta.FromUint64(42), "tenant-1")
+			a, err := domain.NewBinding(
+				domain.SubjectTypeUser,
+				meta.FromUint64(123),
+				meta.FromUint64(42),
+				"tenant-1",
+				domain.WithGrantedBy("admin"),
+			)
+			if err != nil {
+				errs <- err
+				return
+			}
 			if err := testhelpers.RetryOnDBLocked(func() error { return repo.Create(ctx, &a) }); err != nil {
 				errs <- err
 				return

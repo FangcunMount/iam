@@ -100,14 +100,8 @@ func (v *validator) ValidateUpdateParameters(actions []string) error {
 }
 
 func (v *validator) ValidateScopeKinds(kinds []scope.Kind) error {
-	for _, kind := range kinds {
-		switch kind {
-		case scope.KindAll, scope.KindOrigin:
-		default:
-			return errors.WithCode(code.ErrInvalidArgument, "unsupported scope kind: %s", kind)
-		}
-	}
-	return nil
+	_, err := NormalizeAndValidateScopeKinds(kinds)
+	return err
 }
 
 // CheckResourceExists 检查资源是否存在

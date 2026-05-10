@@ -22,7 +22,9 @@ type Binding struct {
 }
 
 // NewBinding 创建新赋权
-func NewBinding(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, tenantID string, opts ...BindingOption) Binding {
+func NewBinding(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, tenantID string, opts ...BindingOption) (Binding, error) {
+	subjectType = SubjectType(strings.TrimSpace(string(subjectType)))
+	tenantID = strings.TrimSpace(tenantID)
 	a := Binding{
 		SubjectType: subjectType,
 		SubjectID:   subjectID,
@@ -32,7 +34,20 @@ func NewBinding(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, tena
 	for _, opt := range opts {
 		opt(&a)
 	}
-	return a
+	a.GrantedBy = strings.TrimSpace(a.GrantedBy)
+	if _, err := subject.NewRef(subject.Type(subjectType), subjectID); err != nil {
+		return Binding{}, err
+	}
+	if roleID.IsZero() {
+		return Binding{}, perrors.WithCode(code.ErrInvalidArgument, "role id is required")
+	}
+	if _, err := tenant.NewID(tenantID); err != nil {
+		return Binding{}, err
+	}
+	if a.GrantedBy == "" {
+		return Binding{}, perrors.WithCode(code.ErrInvalidArgument, "granted by is required")
+	}
+	return a, nil
 }
 
 // BindingOption 赋权选项

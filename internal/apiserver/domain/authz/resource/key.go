@@ -17,34 +17,45 @@ type Pattern string
 
 func NewKey(value string) (Key, error) {
 	value = strings.TrimSpace(value)
-	if err := validateFourSegmentResource(value, "resource key"); err != nil {
+	parts, err := parseFourSegmentResource(value, "resource key")
+	if err != nil {
 		return "", err
+	}
+	for i := 0; i < keySegmentCount-1; i++ {
+		if parts[i] == "*" {
+			return "", perrors.WithCode(code.ErrInvalidArgument, "resource key wildcard is only allowed in name segment")
+		}
 	}
 	return Key(value), nil
 }
 
 func NewPattern(value string) (Pattern, error) {
 	value = strings.TrimSpace(value)
-	if err := validateFourSegmentResource(value, "resource pattern"); err != nil {
+	if _, err := parseFourSegmentResource(value, "resource pattern"); err != nil {
 		return "", err
 	}
 	return Pattern(value), nil
 }
 
-func validateFourSegmentResource(value, label string) error {
+func parseFourSegmentResource(value, label string) ([]string, error) {
 	if value == "" {
-		return perrors.WithCode(code.ErrInvalidArgument, "%s is required", label)
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "%s is required", label)
 	}
 	parts := strings.Split(value, ":")
 	if len(parts) != keySegmentCount {
-		return perrors.WithCode(code.ErrInvalidArgument, "%s must use <app>:<domain>:<type>:<name-or-pattern>", label)
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "%s must use <app>:<domain>:<type>:<name-or-pattern>", label)
 	}
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "" {
-			return perrors.WithCode(code.ErrInvalidArgument, "%s contains empty segment", label)
+	for index, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			return nil, perrors.WithCode(code.ErrInvalidArgument, "%s contains empty segment", label)
 		}
+		if trimmed != part {
+			return nil, perrors.WithCode(code.ErrInvalidArgument, "%s contains untrimmed segment", label)
+		}
+		parts[index] = trimmed
 	}
-	return nil
+	return parts, nil
 }
 
 func (k Key) String() string {

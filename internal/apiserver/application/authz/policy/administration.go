@@ -122,13 +122,16 @@ func (s *PolicyAdministration) BindRoleToSubject(
 		}
 		return policyDomain.NewAuthorizationPolicy().BindRole(subject, *targetRole, actor, "binding grant")
 	}, BeforeFacts(func(txCtx context.Context, tx authzuow.TxRepositories, change policyDomain.PolicyChange) error {
-		created := bindingDomain.NewBinding(
+		created, err := bindingDomain.NewBinding(
 			subjectType,
 			subjectID,
 			roleID,
 			tenantID,
 			bindingDomain.WithGrantedBy(grantedBy),
 		)
+		if err != nil {
+			return err
+		}
 		if err := tx.Bindings.Create(txCtx, &created); err != nil {
 			return errors.Wrap(err, "创建赋权失败")
 		}

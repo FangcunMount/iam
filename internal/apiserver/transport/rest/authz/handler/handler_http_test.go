@@ -279,10 +279,13 @@ func (f *bindingCommanderFake) Grant(ctx context.Context, cmd bindingApp.GrantCo
 	if f.grantFn != nil {
 		return f.grantFn(ctx, cmd)
 	}
-	result := bindingDomain.NewBinding(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID,
+	result, err := bindingDomain.NewBinding(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID,
 		bindingDomain.WithID(bindingDomain.NewBindingID(31)),
 		bindingDomain.WithGrantedBy(cmd.GrantedBy),
 	)
+	if err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -315,7 +318,17 @@ func (f *bindingQueryerFake) ListBySubject(ctx context.Context, query bindingApp
 	if f.listBySubjectFn != nil {
 		return f.listBySubjectFn(ctx, query)
 	}
-	result := bindingDomain.NewBinding(query.SubjectType, query.SubjectID, meta.FromUint64(11), query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
+	result, err := bindingDomain.NewBinding(
+		query.SubjectType,
+		query.SubjectID,
+		meta.FromUint64(11),
+		query.TenantID,
+		bindingDomain.WithID(bindingDomain.NewBindingID(31)),
+		bindingDomain.WithGrantedBy("test"),
+	)
+	if err != nil {
+		return nil, err
+	}
 	return []*bindingDomain.Binding{&result}, nil
 }
 
@@ -324,7 +337,17 @@ func (f *bindingQueryerFake) ListByRole(ctx context.Context, query bindingApp.Li
 	if f.listByRoleFn != nil {
 		return f.listByRoleFn(ctx, query)
 	}
-	result := bindingDomain.NewBinding(bindingDomain.SubjectTypeUser, meta.FromUint64(1), query.RoleID, query.TenantID, bindingDomain.WithID(bindingDomain.NewBindingID(31)))
+	result, err := bindingDomain.NewBinding(
+		bindingDomain.SubjectTypeUser,
+		meta.FromUint64(1),
+		query.RoleID,
+		query.TenantID,
+		bindingDomain.WithID(bindingDomain.NewBindingID(31)),
+		bindingDomain.WithGrantedBy("test"),
+	)
+	if err != nil {
+		return nil, err
+	}
 	return []*bindingDomain.Binding{&result}, nil
 }
 

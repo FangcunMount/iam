@@ -58,7 +58,11 @@ func NewResource(key string, actions []string, opts ...ResourceOption) (Resource
 	if r.Domain != resourceKey.Domain() || r.Type != resourceKey.Type() {
 		return Resource{}, perrors.WithCode(code.ErrInvalidArgument, "resource domain/type does not match key")
 	}
-	r.ScopeKinds = NormalizeScopeKinds(r.ScopeKinds)
+	scopeKinds, err := NormalizeAndValidateScopeKinds(r.ScopeKinds)
+	if err != nil {
+		return Resource{}, err
+	}
+	r.ScopeKinds = scopeKinds
 	return r, nil
 }
 
@@ -72,7 +76,7 @@ func WithDomain(domain string) ResourceOption    { return func(r *Resource) { r.
 func WithType(typ string) ResourceOption         { return func(r *Resource) { r.Type = typ } }
 func WithDescription(desc string) ResourceOption { return func(r *Resource) { r.Description = desc } }
 func WithScopeKinds(kinds []scope.Kind) ResourceOption {
-	return func(r *Resource) { r.ScopeKinds = NormalizeScopeKinds(kinds) }
+	return func(r *Resource) { r.ScopeKinds = append([]scope.Kind(nil), kinds...) }
 }
 
 // HasAction 检查资源是否包含指定动作
@@ -86,7 +90,10 @@ func (r *Resource) HasAction(action string) bool {
 }
 
 func (r *Resource) AllowsScopeKind(kind scope.Kind) bool {
-	allowed := NormalizeScopeKinds(r.ScopeKinds)
+	allowed, err := NormalizeAndValidateScopeKinds(r.ScopeKinds)
+	if err != nil {
+		return false
+	}
 	for _, candidate := range allowed {
 		if candidate == kind {
 			return true
@@ -106,8 +113,12 @@ func (r *Resource) ChangeCatalog(actions []string, scopeKinds []scope.Kind) erro
 	if err != nil {
 		return err
 	}
+	normalizedScopeKinds, err := NormalizeAndValidateScopeKinds(scopeKinds)
+	if err != nil {
+		return err
+	}
 	r.Actions = normalizedActions
-	r.ScopeKinds = NormalizeScopeKinds(scopeKinds)
+	r.ScopeKinds = normalizedScopeKinds
 	return nil
 }
 
@@ -132,14 +143,33 @@ func NormalizeActions(actions []string) ([]string, error) {
 }
 
 func NormalizeScopeKinds(kinds []scope.Kind) []scope.Kind {
-	if len(kinds) == 0 {
+	normalized, err := normalizeScopeKinds(kinds, false)
+	if err != nil {
 		return []scope.Kind{scope.KindAll}
+	}
+	return normalized
+}
+
+func NormalizeAndValidateScopeKinds(kinds []scope.Kind) ([]scope.Kind, error) {
+	return normalizeScopeKinds(kinds, true)
+}
+
+func normalizeScopeKinds(kinds []scope.Kind, validate bool) ([]scope.Kind, error) {
+	if len(kinds) == 0 {
+		return []scope.Kind{scope.KindAll}, nil
 	}
 	seen := make(map[scope.Kind]struct{}, len(kinds))
 	normalized := make([]scope.Kind, 0, len(kinds))
 	for _, kind := range kinds {
 		if kind == "" {
 			continue
+		}
+		if validate {
+			switch kind {
+			case scope.KindAll, scope.KindOrigin:
+			default:
+				return nil, perrors.WithCode(code.ErrInvalidArgument, "unsupported scope kind: %s", kind)
+			}
 		}
 		if _, ok := seen[kind]; ok {
 			continue
@@ -148,9 +178,9 @@ func NormalizeScopeKinds(kinds []scope.Kind) []scope.Kind {
 		normalized = append(normalized, kind)
 	}
 	if len(normalized) == 0 {
-		return []scope.Kind{scope.KindAll}
+		return []scope.Kind{scope.KindAll}, nil
 	}
-	return normalized
+	return normalized, nil
 }
 
 // ResourceID 资源ID值对象

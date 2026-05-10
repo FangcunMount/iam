@@ -2,6 +2,9 @@ package casbin
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
@@ -206,6 +209,16 @@ func TestCasbinResourceAndActionMatchers(t *testing.T) {
 	require.False(t, actionMatch("read", "["))
 }
 
+func TestCasbinModelConfigContainsFourSegmentMatchers(t *testing.T) {
+	data, err := os.ReadFile(casbinModelPathForTest(t))
+	require.NoError(t, err)
+	model := string(data)
+	require.Contains(t, model, "resourceMatch(r.obj, p.obj)")
+	require.Contains(t, model, "actionMatch(r.act, p.act)")
+	require.NotContains(t, model, "keyMatch(r.obj, p.obj)")
+	require.NotContains(t, model, "regexMatch(r.act, p.act)")
+}
+
 func setupCasbinAdapter(t *testing.T) *CasbinAdapter {
 	t.Helper()
 	return newCasbinAdapterForTest(t, setupCasbinDB(t))
@@ -214,9 +227,33 @@ func setupCasbinAdapter(t *testing.T) *CasbinAdapter {
 func newCasbinAdapterForTest(t *testing.T, db *gorm.DB) *CasbinAdapter {
 	t.Helper()
 
-	adapter, err := NewCasbinAdapter(db, "model.conf")
+	adapter, err := NewCasbinAdapter(db, casbinModelPathForTest(t))
 	require.NoError(t, err)
 	return adapter
+}
+
+func casbinModelPathForTest(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(casbinRepoRoot(t), "configs", "casbin_model.conf")
+}
+
+func casbinRepoRoot(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve current file")
+	}
+	dir := filepath.Dir(file)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod not found")
+		}
+		dir = parent
+	}
 }
 
 func setupCasbinDB(t *testing.T) *gorm.DB {
