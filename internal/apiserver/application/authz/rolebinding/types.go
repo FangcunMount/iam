@@ -41,12 +41,16 @@ type RevokeCommand struct {
 	SubjectID   meta.ID
 	RoleID      meta.ID
 	TenantID    string
+	ChangedBy   string
+	Reason      string
 }
 
 // RevokeByIDCommand 根据 ID 撤销授权命令。
 type RevokeByIDCommand struct {
 	BindingID bindingDomain.BindingID
 	TenantID  string
+	ChangedBy string
+	Reason    string
 }
 
 // ListBySubjectQuery 根据主体列出角色绑定查询。

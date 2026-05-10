@@ -147,11 +147,13 @@ func (s *PolicyAdministration) UnbindRoleFromSubject(
 	subjectID meta.ID,
 	roleID meta.ID,
 	tenantID string,
+	changedBy string,
+	reason string,
 ) error {
 	if err := s.roleBindingValidator.ValidateRevokeParameters(subjectType, subjectID, roleID, tenantID); err != nil {
 		return err
 	}
-	actor, err := policyDomain.NewActor("system")
+	actor, err := policyDomain.NewActor(changedBy)
 	if err != nil {
 		return err
 	}
@@ -169,7 +171,7 @@ func (s *PolicyAdministration) UnbindRoleFromSubject(
 		if err != nil {
 			return policyDomain.PolicyChange{}, err
 		}
-		return policyDomain.NewAuthorizationPolicy().UnbindRole(subject, *targetRole, actor, "binding revoke")
+		return policyDomain.NewAuthorizationPolicy().UnbindRole(subject, *targetRole, actor, reason)
 	}, BeforeFacts(func(txCtx context.Context, tx authzuow.TxRepositories, change policyDomain.PolicyChange) error {
 		if err := tx.Bindings.DeleteBySubjectAndRole(txCtx, subjectType, subjectID, roleID, tenantID); err != nil {
 			return errors.Wrap(err, "删除赋权记录失败")
@@ -178,8 +180,14 @@ func (s *PolicyAdministration) UnbindRoleFromSubject(
 	}))
 }
 
-func (s *PolicyAdministration) UnbindRoleBindingByID(ctx context.Context, bindingID bindingDomain.BindingID, tenantID string) error {
-	actor, err := policyDomain.NewActor("system")
+func (s *PolicyAdministration) UnbindRoleBindingByID(
+	ctx context.Context,
+	bindingID bindingDomain.BindingID,
+	tenantID string,
+	changedBy string,
+	reason string,
+) error {
+	actor, err := policyDomain.NewActor(changedBy)
 	if err != nil {
 		return err
 	}
@@ -203,7 +211,7 @@ func (s *PolicyAdministration) UnbindRoleBindingByID(ctx context.Context, bindin
 		if err != nil {
 			return policyDomain.PolicyChange{}, err
 		}
-		return policyDomain.NewAuthorizationPolicy().UnbindRole(subject, *targetRole, actor, "binding revoke")
+		return policyDomain.NewAuthorizationPolicy().UnbindRole(subject, *targetRole, actor, reason)
 	}, AfterFacts(func(txCtx context.Context, tx authzuow.TxRepositories, change policyDomain.PolicyChange) error {
 		if err := tx.Bindings.Delete(txCtx, targetBinding.ID); err != nil {
 			return errors.Wrap(err, "删除赋权记录失败")

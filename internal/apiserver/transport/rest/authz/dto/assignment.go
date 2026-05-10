@@ -16,6 +16,7 @@ type RevokeRequest struct {
 	SubjectType string  `json:"subject_type" binding:"required,oneof=user"`
 	SubjectID   meta.ID `json:"subject_id" binding:"required" swaggertype:"string"`
 	RoleID      meta.ID `json:"role_id" binding:"required" swaggertype:"string"`
+	Reason      string  `json:"reason,omitempty"`
 }
 
 // AssignmentResponse 赋权响应

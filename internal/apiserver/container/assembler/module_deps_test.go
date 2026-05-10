@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	"gorm.io/gorm"
 )
 
 func TestSuggestModuleInitializeWithDepsDisabledDoesNotRequireDB(t *testing.T) {
@@ -46,5 +47,13 @@ func TestAuthzModuleInitializeWithDepsRequiresDB(t *testing.T) {
 
 	if err := module.InitializeWithDeps(AuthzModuleDeps{}); err == nil {
 		t.Fatalf("InitializeWithDeps() error = nil, want missing DB error")
+	}
+}
+
+func TestAuthzModuleInitializeWithDepsRequiresEventStager(t *testing.T) {
+	module := NewAuthzModule()
+
+	if err := module.InitializeWithDeps(AuthzModuleDeps{DB: &gorm.DB{}}); err == nil {
+		t.Fatalf("InitializeWithDeps() error = nil, want missing event stager error")
 	}
 }

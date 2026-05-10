@@ -82,7 +82,7 @@ func TestRoleBindingHandlerRevokeRoleHTTPBranches(t *testing.T) {
 		commander := &bindingCommanderFake{}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{}`, handler.RevokeRoleBinding, withTenant("tenant-a"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{}`, handler.RevokeRoleBinding, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusBadRequest, code.ErrBind)
 		require.Empty(t, commander.revokeCalls)
@@ -106,10 +106,28 @@ func TestRoleBindingHandlerRevokeRoleHTTPBranches(t *testing.T) {
 		}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.RevokeRoleBinding, withTenant("tenant-a"))
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"1","role_id":"11"}`, handler.RevokeRoleBinding, withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusNotFound, code.ErrAssignmentNotFound)
 		require.Len(t, commander.revokeCalls, 1)
+	})
+
+	t.Run("success forwards audit fields", func(t *testing.T) {
+		commander := &bindingCommanderFake{}
+		handler := NewRoleBindingHandler(commander, nil)
+
+		recorder, _ := performAuthzRequest(http.MethodPost, "/assignments/revoke", `{"subject_type":"user","subject_id":"1","role_id":"11","reason":"manual revoke"}`, handler.RevokeRoleBinding, withTenantUser("tenant-a", "1001"))
+
+		requireAuthzCode(t, recorder, http.StatusOK, 200)
+		require.Len(t, commander.revokeCalls, 1)
+		require.Equal(t, bindingApp.RevokeCommand{
+			SubjectType: bindingDomain.SubjectTypeUser,
+			SubjectID:   meta.FromUint64(1),
+			RoleID:      meta.FromUint64(11),
+			TenantID:    "tenant-a",
+			ChangedBy:   "1001",
+			Reason:      "manual revoke",
+		}, commander.revokeCalls[0])
 	})
 }
 
@@ -142,12 +160,13 @@ func TestRoleBindingHandlerRevokeRoleBindingByIDHTTPBranches(t *testing.T) {
 		}
 		handler := NewRoleBindingHandler(commander, nil)
 
-		recorder, _ := performAuthzRequest(http.MethodDelete, "/assignments/31", "", handler.RevokeRoleBindingByID, withPathParam("id", "31"), withTenant("tenant-a"))
+		recorder, _ := performAuthzRequest(http.MethodDelete, "/assignments/31", "", handler.RevokeRoleBindingByID, withPathParam("id", "31"), withTenantUser("tenant-a", "1001"))
 
 		requireAuthzCode(t, recorder, http.StatusNotFound, code.ErrAssignmentNotFound)
 		require.Len(t, commander.revokeByIDCalls, 1)
 		require.Equal(t, uint64(31), commander.revokeByIDCalls[0].BindingID.Uint64())
 		require.Equal(t, "tenant-a", commander.revokeByIDCalls[0].TenantID)
+		require.Equal(t, "1001", commander.revokeByIDCalls[0].ChangedBy)
 	})
 }
 

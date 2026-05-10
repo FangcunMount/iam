@@ -448,6 +448,8 @@ type RevokeAssignmentRequest struct {
 	Subject       string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
 	Domain        string                 `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	RoleName      string                 `protobuf:"bytes,3,opt,name=role_name,json=roleName,proto3" json:"role_name,omitempty"`
+	RevokedBy     string                 `protobuf:"bytes,4,opt,name=revoked_by,json=revokedBy,proto3" json:"revoked_by,omitempty"`
+	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -499,6 +501,20 @@ func (x *RevokeAssignmentRequest) GetDomain() string {
 func (x *RevokeAssignmentRequest) GetRoleName() string {
 	if x != nil {
 		return x.RoleName
+	}
+	return ""
+}
+
+func (x *RevokeAssignmentRequest) GetRevokedBy() string {
+	if x != nil {
+		return x.RevokedBy
+	}
+	return ""
+}
+
+func (x *RevokeAssignmentRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
 	}
 	return ""
 }
@@ -576,11 +592,14 @@ const file_iam_authz_v2_authz_proto_rawDesc = "" +
 	"\trole_name\x18\x03 \x01(\tR\broleName\x12\x1d\n" +
 	"\n" +
 	"granted_by\x18\x04 \x01(\tR\tgrantedBy\"\x19\n" +
-	"\x17GrantAssignmentResponse\"h\n" +
+	"\x17GrantAssignmentResponse\"\x9f\x01\n" +
 	"\x17RevokeAssignmentRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x1b\n" +
-	"\trole_name\x18\x03 \x01(\tR\broleName\"\x1a\n" +
+	"\trole_name\x18\x03 \x01(\tR\broleName\x12\x1d\n" +
+	"\n" +
+	"revoked_by\x18\x04 \x01(\tR\trevokedBy\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\"\x1a\n" +
 	"\x18RevokeAssignmentResponse2\x96\x03\n" +
 	"\x14AuthorizationService\x12@\n" +
 	"\x05Check\x12\x1a.iam.authz.v2.CheckRequest\x1a\x1b.iam.authz.v2.CheckResponse\x12y\n" +

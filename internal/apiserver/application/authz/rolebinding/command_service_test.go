@@ -118,6 +118,55 @@ func TestBindingCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *testin
 	assert.Equal(t, 3, runtime.loadCalls)
 }
 
+func TestBindingCommandServiceRevoke_UsesCommandAuditActorAndReason(t *testing.T) {
+	roleRepo := &bindingRoleRepoStub{
+		role: &roleDomain.Role{
+			ID:       meta.FromUint64(10),
+			Name:     "iam:admin",
+			TenantID: "tenant-a",
+		},
+	}
+	bindingRepo := &bindingRepoStub{}
+	userRepo := testhelpers.NewUserRepoStub()
+	versionRepo := &policyVersionRepoStub{}
+	ruleStore := &ruleStoreStub{}
+	runtime := &casbinAdapterStub{}
+	stager := &bindingEventStagerStub{}
+
+	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userRepo)
+	service := NewCommandService(
+		validator,
+		roleRepo,
+		&uowStub{tx: authzuow.TxRepositories{
+			Bindings:           bindingRepo,
+			Roles:              roleRepo,
+			Users:              userRepo,
+			PolicyVersions:     versionRepo,
+			AuthorizationFacts: ruleStore,
+			Events:             stager,
+		}},
+		runtime,
+	)
+
+	err := service.Revoke(context.Background(), RevokeCommand{
+		SubjectType: bindingDomain.SubjectTypeUser,
+		SubjectID:   meta.FromUint64(123),
+		RoleID:      meta.FromUint64(10),
+		TenantID:    "tenant-a",
+		ChangedBy:   "operator-2",
+		Reason:      "manual revoke",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, ruleStore.groupingRemoves, 1)
+	assert.Equal(t, authzDomain.SubjectTypeUser, ruleStore.groupingRemoves[0].Subject.Type)
+	assert.Equal(t, meta.FromUint64(123), ruleStore.groupingRemoves[0].Subject.ID)
+	assert.Equal(t, "iam:admin", ruleStore.groupingRemoves[0].RoleName)
+	assert.Equal(t, 1, versionRepo.incrementCalls)
+	assert.Equal(t, "operator-2", versionRepo.lastChangedBy)
+	assert.Equal(t, "manual revoke", versionRepo.lastReason)
+}
+
 type uowStub struct {
 	tx authzuow.TxRepositories
 }
@@ -198,6 +247,8 @@ func (r *bindingRoleRepoStub) List(context.Context, string, int, int) ([]*roleDo
 type policyVersionRepoStub struct {
 	currentVersion int64
 	incrementCalls int
+	lastChangedBy  string
+	lastReason     string
 }
 
 func (r *policyVersionRepoStub) GetOrCreate(_ context.Context, tenantID string) (*policyDomain.PolicyVersion, error) {
@@ -207,6 +258,8 @@ func (r *policyVersionRepoStub) GetOrCreate(_ context.Context, tenantID string) 
 
 func (r *policyVersionRepoStub) Increment(_ context.Context, tenantID, changedBy, reason string) (*policyDomain.PolicyVersion, error) {
 	r.incrementCalls++
+	r.lastChangedBy = changedBy
+	r.lastReason = reason
 	r.currentVersion++
 	version := policyDomain.NewPolicyVersion(
 		tenantID,
@@ -223,7 +276,8 @@ func (r *policyVersionRepoStub) GetCurrent(_ context.Context, tenantID string) (
 }
 
 type ruleStoreStub struct {
-	groupingAdds []authzDomain.RoleBinding
+	groupingAdds    []authzDomain.RoleBinding
+	groupingRemoves []authzDomain.RoleBinding
 }
 
 func (r *ruleStoreStub) AddPermission(context.Context, authzDomain.Permission) error { return nil }
@@ -234,7 +288,8 @@ func (r *ruleStoreStub) AddRoleBinding(_ context.Context, binding authzDomain.Ro
 	r.groupingAdds = append(r.groupingAdds, binding)
 	return nil
 }
-func (r *ruleStoreStub) RemoveRoleBinding(context.Context, authzDomain.RoleBinding) error {
+func (r *ruleStoreStub) RemoveRoleBinding(_ context.Context, binding authzDomain.RoleBinding) error {
+	r.groupingRemoves = append(r.groupingRemoves, binding)
 	return nil
 }
 

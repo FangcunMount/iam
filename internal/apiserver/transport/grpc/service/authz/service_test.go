@@ -163,15 +163,19 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 	}}, commands.grants)
 
 	_, err = srv.RevokeAssignment(context.Background(), &authzv2.RevokeAssignmentRequest{
-		Subject:  "user:100",
-		Domain:   "tenant-a",
-		RoleName: "iam:admin",
+		Subject:   "user:100",
+		Domain:    "tenant-a",
+		RoleName:  "iam:admin",
+		RevokedBy: "operator-2",
+		Reason:    "manual revoke",
 	})
 	require.NoError(t, err)
 	require.Equal(t, []rolebindingApp.RevokeByRoleNameCommand{{
-		Subject:  authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: meta.FromUint64(100)},
-		TenantID: "tenant-a",
-		RoleName: "iam:admin",
+		Subject:   authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: meta.FromUint64(100)},
+		TenantID:  "tenant-a",
+		RoleName:  "iam:admin",
+		ChangedBy: "operator-2",
+		Reason:    "manual revoke",
 	}}, commands.revokes)
 }
 

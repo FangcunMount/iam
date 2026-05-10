@@ -148,12 +148,20 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv2
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if err := s.roleBindings.RevokeByRoleName(ctx, rolebindingApp.RevokeByRoleNameCommand{
-		Subject: subject, TenantID: req.Domain, RoleName: req.RoleName,
+		Subject: subject, TenantID: req.Domain, RoleName: req.RoleName, ChangedBy: revokeActor(req.GetRevokedBy()), Reason: req.GetReason(),
 	}); err != nil {
 		return nil, authzGRPCError(codes.Internal, "revoke assignment", err)
 	}
 
 	return &authzv2.RevokeAssignmentResponse{}, nil
+}
+
+func revokeActor(revokedBy string) string {
+	revokedBy = strings.TrimSpace(revokedBy)
+	if revokedBy == "" {
+		return "system"
+	}
+	return revokedBy
 }
 
 func parseSubjectKey(subject string) (authzDomain.Subject, error) {

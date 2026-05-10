@@ -3,6 +3,7 @@ package rolebinding
 
 import (
 	"context"
+	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
@@ -20,9 +21,11 @@ type GrantByRoleNameCommand struct {
 }
 
 type RevokeByRoleNameCommand struct {
-	Subject  authzDomain.Subject
-	TenantID string
-	RoleName string
+	Subject   authzDomain.Subject
+	TenantID  string
+	RoleName  string
+	ChangedBy string
+	Reason    string
 }
 
 // CommandService 协调领域服务、仓储和授权事实端口，处理角色绑定写操作。
@@ -55,12 +58,12 @@ func (s *CommandService) Grant(ctx context.Context, cmd GrantCommand) (*bindingD
 
 // Revoke 撤销授权（移除角色）
 func (s *CommandService) Revoke(ctx context.Context, cmd RevokeCommand) error {
-	return s.admin.UnbindRoleFromSubject(ctx, cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID)
+	return s.admin.UnbindRoleFromSubject(ctx, cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID, cmd.ChangedBy, revokeReason(cmd.Reason))
 }
 
 // RevokeByID 根据ID撤销授权
 func (s *CommandService) RevokeByID(ctx context.Context, cmd RevokeByIDCommand) error {
-	return s.admin.UnbindRoleBindingByID(ctx, cmd.BindingID, cmd.TenantID)
+	return s.admin.UnbindRoleBindingByID(ctx, cmd.BindingID, cmd.TenantID, cmd.ChangedBy, revokeReason(cmd.Reason))
 }
 
 func (s *CommandService) GrantByRoleName(ctx context.Context, cmd GrantByRoleNameCommand) error {
@@ -94,5 +97,15 @@ func (s *CommandService) RevokeByRoleName(ctx context.Context, cmd RevokeByRoleN
 		SubjectID:   cmd.Subject.ID,
 		RoleID:      role.ID,
 		TenantID:    cmd.TenantID,
+		ChangedBy:   cmd.ChangedBy,
+		Reason:      cmd.Reason,
 	})
+}
+
+func revokeReason(reason string) string {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return "binding revoke"
+	}
+	return reason
 }

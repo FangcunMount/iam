@@ -110,6 +110,11 @@ func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 		handleError(c, err)
 		return
 	}
+	changedBy, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 
 	subjectType, err := convertToSubjectType(req.SubjectType)
 	if err != nil {
@@ -122,6 +127,8 @@ func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 		SubjectID:   req.SubjectID,
 		RoleID:      req.RoleID,
 		TenantID:    tenantID,
+		ChangedBy:   changedBy.String(),
+		Reason:      req.Reason,
 	}
 
 	err = h.commander.Revoke(c.Request.Context(), cmd)
@@ -150,10 +157,16 @@ func (h *RoleBindingHandler) RevokeRoleBindingByID(c *gin.Context) {
 		handleError(c, err)
 		return
 	}
+	changedBy, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 
 	cmd := bindingApp.RevokeByIDCommand{
 		BindingID: bindingDomain.NewBindingID(bindingID.Uint64()),
 		TenantID:  tenantID,
+		ChangedBy: changedBy.String(),
 	}
 
 	err = h.commander.RevokeByID(c.Request.Context(), cmd)

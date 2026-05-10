@@ -82,3 +82,45 @@ func TestPolicyVersionRepository_Create_ConcurrentDuplicateDetection(t *testing.
 		Count(&cnt).Error)
 	require.Equal(t, int64(1), cnt)
 }
+
+func TestPolicyVersionRepository_Increment_ConcurrentCallsCreateSequentialVersions(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	require.NoError(t, db.AutoMigrate(&PolicyVersionPO{}))
+
+	repoIface := NewPolicyVersionRepository(db)
+	repo, ok := repoIface.(*PolicyVersionRepository)
+	require.True(t, ok)
+	ctx := context.Background()
+
+	seed := domain.NewPolicyVersion("tenant-increment", 1)
+	require.NoError(t, repo.Create(ctx, &seed))
+
+	const concurrency = 8
+	var wg sync.WaitGroup
+	wg.Add(concurrency)
+	errs := make(chan error, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			defer wg.Done()
+			_, err := repo.Increment(ctx, "tenant-increment", "operator", "concurrent increment")
+			errs <- err
+		}()
+	}
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	current, err := repo.GetCurrent(ctx, "tenant-increment")
+	require.NoError(t, err)
+	require.NotNil(t, current)
+	require.Equal(t, int64(1+concurrency), current.Version)
+
+	var count int64
+	require.NoError(t, db.Model(&PolicyVersionPO{}).Where("tenant_id = ?", "tenant-increment").Count(&count).Error)
+	require.Equal(t, int64(1+concurrency), count)
+}

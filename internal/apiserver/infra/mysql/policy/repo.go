@@ -3,12 +3,14 @@ package policy
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // PolicyVersionRepository PolicyVersion 仓储实现
@@ -108,25 +110,35 @@ func (r *PolicyVersionRepository) GetOrCreate(ctx context.Context, tenantID stri
 
 // Increment 递增版本号并记录变更
 func (r *PolicyVersionRepository) Increment(ctx context.Context, tenantID, changedBy, reason string) (*domain.PolicyVersion, error) {
-	// 获取当前版本号
-	currentVersion, err := r.GetVersionNumber(ctx, tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current version: %w", err)
+	const maxAttempts = 16
+	var lastErr error
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		currentVersion, err := r.getVersionNumberForUpdate(ctx, tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current version: %w", err)
+		}
+
+		newVersion := domain.NewPolicyVersion(
+			tenantID,
+			currentVersion+1,
+			domain.WithChangedBy(changedBy),
+			domain.WithReason(reason),
+		)
+
+		if err := r.Create(ctx, &newVersion); err != nil {
+			if !perrors.IsCode(err, code.ErrPolicyVersionAlreadyExists) {
+				return nil, fmt.Errorf("failed to create new version: %w", err)
+			}
+			lastErr = err
+			time.Sleep(time.Duration(attempt) * 10 * time.Millisecond)
+			continue
+		}
+
+		return &newVersion, nil
 	}
 
-	// 创建新版本
-	newVersion := domain.NewPolicyVersion(
-		tenantID,
-		currentVersion+1,
-		domain.WithChangedBy(changedBy),
-		domain.WithReason(reason),
-	)
-
-	if err := r.Create(ctx, &newVersion); err != nil {
-		return nil, fmt.Errorf("failed to create new version: %w", err)
-	}
-
-	return &newVersion, nil
+	return nil, fmt.Errorf("failed to create new version after retry: %w", lastErr)
 }
 
 // GetVersionNumber 获取租户当前版本号
@@ -141,6 +153,28 @@ func (r *PolicyVersionRepository) GetVersionNumber(ctx context.Context, tenantID
 	}
 
 	return pv.Version, nil
+}
+
+// getVersionNumberForUpdate reads the tenant's latest version under a row lock
+// when the database dialect supports it. It is used by Increment inside the
+// caller's authorization policy transaction.
+func (r *PolicyVersionRepository) getVersionNumberForUpdate(ctx context.Context, tenantID string) (int64, error) {
+	var po PolicyVersionPO
+	query := r.WithContext(ctx).
+		Where("tenant_id = ?", tenantID).
+		Order("policy_version DESC")
+	if r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() != "sqlite" {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+
+	err := query.First(&po).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return po.PolicyVersion, nil
 }
 
 // ListByTenant 列出租户的版本历史
