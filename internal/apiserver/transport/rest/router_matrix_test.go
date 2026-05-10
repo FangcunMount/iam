@@ -33,6 +33,12 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodGet, "/.well-known/jwks.json"},
 		{http.MethodPost, "/api/v2/authn/login"},
 		{http.MethodPost, "/api/v2/authn/login/prep/phone-otp"},
+		{http.MethodGet, "/api/v2/authn/login-identities"},
+		{http.MethodPost, "/api/v2/authn/login-identities/phone/challenge"},
+		{http.MethodPost, "/api/v2/authn/login-identities/phone"},
+		{http.MethodPost, "/api/v2/authn/login-identities/wechat-miniprogram"},
+		{http.MethodPost, "/api/v2/authn/login-identities/wecom"},
+		{http.MethodDelete, "/api/v2/authn/login-identities/:id"},
 		{http.MethodPost, "/api/v2/authn/refresh_token"},
 		{http.MethodPost, "/api/v2/authn/signups/wechat-miniprogram"},
 		{http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure"},
@@ -82,11 +88,12 @@ func TestRouterOpenAPIContractCoversRegisteredPublicRoutes(t *testing.T) {
 func routeMatrixDeps() Deps {
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AuthHandler:         authhandler.NewAuthHandler(nil, nil, nil),
-		OnboardingHandler:   authhandler.NewOnboardingHandler(nil),
-		JWKSHandler:         authhandler.NewJWKSHandler(nil, nil),
-		SessionAdminHandler: authhandler.NewSessionAdminHandler(sessionServiceStub{}),
-		TokenService:        tokenServiceStub{},
+		AuthHandler:          authhandler.NewAuthHandler(nil, nil, nil),
+		OnboardingHandler:    authhandler.NewOnboardingHandler(nil),
+		LoginIdentityHandler: authhandler.NewLoginIdentityHandler(nil),
+		JWKSHandler:          authhandler.NewJWKSHandler(nil, nil),
+		SessionAdminHandler:  authhandler.NewSessionAdminHandler(sessionServiceStub{}),
+		TokenService:         tokenServiceStub{},
 	}
 	deps.Authz = AuthzDeps{
 		RoleHandler:        authzhandler.NewRoleHandler(nil, nil),

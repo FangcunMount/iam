@@ -41,7 +41,6 @@ func NewOTPVerifier(client *redis.Client) *OTPVerifierImpl {
 // FamilyInspectors 返回 OTP 相关缓存族的状态读取器。
 func (v *OTPVerifierImpl) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
-		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTP, v.client, "OTP 采用一次性 marker String 存储。"),
 		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendGate, v.client, "发送频控采用 SET NX EX 的 cooldown marker。"),
 	}
 }

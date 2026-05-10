@@ -51,6 +51,43 @@ definitions:
     required:
     - algorithm
     type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneChallengeRequest:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneRequest:
+    properties:
+      otp_code:
+        type: string
+      phone:
+        type: string
+    required:
+    - otp_code
+    - phone
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatMiniProgramRequest:
+    properties:
+      app_id:
+        type: string
+      code:
+        type: string
+    required:
+    - app_id
+    - code
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWecomRequest:
+    properties:
+      code:
+        type: string
+      corp_id:
+        type: string
+    required:
+    - code
+    - corp_id
+    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LoginV2Request:
     properties:
       auth_method:
@@ -213,6 +250,39 @@ definitions:
         description: 更新时间
         type: string
     type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse:
+    properties:
+      login_identity:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse'
+      reused:
+        type: boolean
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse'
+        type: array
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse:
+    properties:
+      global_identifier:
+        type: string
+      id:
+        type: string
+      identifier:
+        type: string
+      linked_at:
+        type: string
+      provider:
+        type: string
+      realm:
+        type: string
+      status:
+        type: string
+      verified_at:
+        type: string
+    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse:
     properties:
       message:
@@ -248,10 +318,17 @@ definitions:
           $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublishableKeyInfo'
         type: array
     type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupCredential:
+    properties:
+      id:
+        type: integer
+      type:
+        type: string
+    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult:
     properties:
-      credentialID:
-        type: integer
+      credential:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupCredential'
       email:
         type: string
       isNewIdentity:
@@ -1233,6 +1310,132 @@ paths:
       summary: 显式登录
       tags:
       - Authentication-Auth
+  /authn/login-identities:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 当前用户已绑定的登录身份
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityListResponse'
+      security:
+      - BearerAuth: []
+      summary: 列出当前用户登录身份
+      tags:
+      - 认证
+  /authn/login-identities/{id}:
+    delete:
+      parameters:
+      - description: 登录身份 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 已解绑
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
+      security:
+      - BearerAuth: []
+      summary: 解绑登录身份
+      tags:
+      - 认证
+  /authn/login-identities/phone:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 手机号与验证码
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定结果
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse'
+      security:
+      - BearerAuth: []
+      summary: 绑定手机号登录身份
+      tags:
+      - 认证
+  /authn/login-identities/phone/challenge:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 手机号
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneChallengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 已发送
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
+      security:
+      - BearerAuth: []
+      summary: 发送手机号绑定验证码
+      tags:
+      - 认证
+  /authn/login-identities/wechat-miniprogram:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 微信小程序 code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatMiniProgramRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定结果
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse'
+      security:
+      - BearerAuth: []
+      summary: 绑定微信小程序登录身份
+      tags:
+      - 认证
+  /authn/login-identities/wecom:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 企业微信 code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWecomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定结果
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse'
+      security:
+      - BearerAuth: []
+      summary: 绑定企业微信登录身份
+      tags:
+      - 认证
   /authn/login/prep/phone-otp:
     post:
       consumes:

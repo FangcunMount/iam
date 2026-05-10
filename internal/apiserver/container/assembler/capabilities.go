@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
+	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
@@ -36,14 +37,15 @@ type KeyRotationScheduler interface {
 // AuthnApplicationCapabilities contains authn application collaborators used
 // by transports without exposing concrete transport objects from assembler.
 type AuthnApplicationCapabilities struct {
-	LoginIdentityOnboarder  onboardingApp.LoginIdentityOnboarder
-	LoginService            login.LoginApplicationService
-	LoginPreparationService loginprep.LoginPreparationService
-	TokenService            token.TokenApplicationService
-	SessionService          sessionApp.SessionApplicationService
-	KeyManagementApp        *jwksApp.KeyManagementAppService
-	KeyPublishApp           *jwksApp.KeyPublishAppService
-	KeyRotationApp          *jwksApp.KeyRotationAppService
+	LoginIdentityOnboarder onboardingApp.LoginIdentityOnboarder
+	LoginIdentityLinking   linkingApp.Service
+	LoginService           login.LoginApplicationService
+	ChallengeService       challengeApp.Service
+	TokenService           token.TokenApplicationService
+	SessionService         sessionApp.SessionApplicationService
+	KeyManagementApp       *jwksApp.KeyManagementAppService
+	KeyPublishApp          *jwksApp.KeyPublishAppService
+	KeyRotationApp         *jwksApp.KeyRotationAppService
 }
 
 type AuthnRuntimeCapabilities struct {

@@ -33,12 +33,14 @@ type authnInfrastructureComponents struct {
 	redis      *redis.Client
 	unitOfWork authnUow.UnitOfWork
 
-	credentialRepo    authentication.LoginIdentityCredentialRepository
-	loginIdentityRepo authentication.LoginIdentityRepository
-	otpVerifier       authentication.OTPVerifier
-	otpRedis          *redisInfra.OTPVerifierImpl
-	idp               authentication.IdentityProvider
-	accessChecker     sessionDomain.SubjectAccessEvaluator
+	credentialRepo     authentication.LoginIdentityCredentialRepository
+	loginIdentityRepo  authentication.LoginIdentityRepository
+	loginIdentityStore *loginidentityrepo.Repository
+	challengeRepo      *redisInfra.ChallengeRepository
+	otpVerifier        authentication.OTPVerifier
+	otpRedis           *redisInfra.OTPVerifierImpl
+	idp                authentication.IdentityProvider
+	accessChecker      sessionDomain.SubjectAccessEvaluator
 
 	keyRepo           keyset.Repository
 	privateKeyStorage keyset.PrivateKeyStorage
@@ -82,11 +84,14 @@ func (m *AuthnModule) initializeInfrastructure(
 	infra.credentialRepo = credentialrepo.NewRepository(db)
 	loginIdentityRepo := loginidentityrepo.NewRepository(db)
 	infra.loginIdentityRepo = loginIdentityRepo
+	infra.loginIdentityStore = loginIdentityRepo
 
 	otpRedis := redisInfra.NewOTPVerifier(redisClient)
 	infra.otpVerifier = otpRedis
 	infra.otpRedis = otpRedis
 	m.otpInspectorSource = otpRedis
+	infra.challengeRepo = redisInfra.NewChallengeRepository(redisClient)
+	m.challengeInspectorSource = infra.challengeRepo
 
 	if idpDeps != nil {
 		infra.wechatAppQuerier = idpDeps.Repository()

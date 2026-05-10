@@ -578,6 +578,215 @@ const docTemplate = `{
                 }
             }
         },
+        "/authn/login-identities": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "列出当前用户登录身份",
+                "responses": {
+                    "200": {
+                        "description": "当前用户已绑定的登录身份",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/login-identities/phone": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "绑定手机号登录身份",
+                "parameters": [
+                    {
+                        "description": "手机号与验证码",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "绑定结果",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/login-identities/phone/challenge": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "发送手机号绑定验证码",
+                "parameters": [
+                    {
+                        "description": "手机号",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneChallengeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已发送",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/login-identities/wechat-miniprogram": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "绑定微信小程序登录身份",
+                "parameters": [
+                    {
+                        "description": "微信小程序 code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatMiniProgramRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "绑定结果",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/login-identities/wecom": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "绑定企业微信登录身份",
+                "parameters": [
+                    {
+                        "description": "企业微信 code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWecomRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "绑定结果",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/login-identities/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "解绑登录身份",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录身份 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已解绑",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/authn/login/prep/phone-otp": {
             "post": {
                 "consumes": [
@@ -2740,6 +2949,62 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneChallengeRequest": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkPhoneRequest": {
+            "type": "object",
+            "required": [
+                "otp_code",
+                "phone"
+            ],
+            "properties": {
+                "otp_code": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatMiniProgramRequest": {
+            "type": "object",
+            "required": [
+                "app_id",
+                "code"
+            ],
+            "properties": {
+                "app_id": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWecomRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "corp_id"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "corp_id": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LoginV2Request": {
             "type": "object",
             "required": [
@@ -2976,6 +3241,57 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse": {
+            "type": "object",
+            "properties": {
+                "login_identity": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse"
+                },
+                "reused": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse"
+                    }
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse": {
+            "type": "object",
+            "properties": {
+                "global_identifier": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "identifier": {
+                    "type": "string"
+                },
+                "linked_at": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "realm": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "verified_at": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse": {
             "type": "object",
             "properties": {
@@ -3029,11 +3345,22 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupCredential": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupResult": {
             "type": "object",
             "properties": {
-                "credentialID": {
-                    "type": "integer"
+                "credential": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupCredential"
                 },
                 "email": {
                     "type": "string"

@@ -2,7 +2,6 @@ package onboarding
 
 import (
 	"context"
-	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
@@ -10,132 +9,85 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
+// LoginIdentityEnsureStatus 登录身份确保状态。
 type LoginIdentityEnsureStatus string
 
 const (
-	LoginIdentityCreated LoginIdentityEnsureStatus = "created"
-	LoginIdentityReused  LoginIdentityEnsureStatus = "reused"
+	LoginIdentityCreated LoginIdentityEnsureStatus = "created" // 创建
+	LoginIdentityReused  LoginIdentityEnsureStatus = "reused"  // 重用
 )
 
+// LoginIdentityEnsureResult 登录身份确保结果。
 type LoginIdentityEnsureResult struct {
-	Identity *loginidentity.LoginIdentity
-	Status   LoginIdentityEnsureStatus
+	Identity *loginidentity.LoginIdentity // 登录身份
+	Status   LoginIdentityEnsureStatus    // 确保状态
 }
 
+// IsNewLoginIdentity 是否是新登录身份。
 func (r LoginIdentityEnsureResult) IsNewLoginIdentity() bool {
 	return r.Status == LoginIdentityCreated
 }
 
+// loginIdentityEnsurer 登录身份确保者。
 type loginIdentityEnsurer struct{}
 
+// newLoginIdentityEnsurer 创建登录身份确保者。
 func newLoginIdentityEnsurer() *loginIdentityEnsurer { return &loginIdentityEnsurer{} }
 
-func (e *loginIdentityEnsurer) Ensure(
-	ctx context.Context,
-	repo loginidentity.Repository,
-	req *NormalizedOnboardingRequest,
-	userID meta.ID,
-) (*LoginIdentityEnsureResult, error) {
-	identity, err := e.toDomainIdentity(req, userID)
+// Ensure 确保 ProviderKey 对应的 LoginIdentity 存在，并保护身份归属不被跨 User 复用。
+func (e *loginIdentityEnsurer) Ensure(ctx context.Context, repo loginidentity.Repository, req *preparedOnboarding, userID meta.ID) (*LoginIdentityEnsureResult, error) {
+	// 构建领域登录身份。
+	identity, err := buildDomainIdentity(req, userID)
 	if err != nil {
 		return nil, err
 	}
-	existing, err := repo.GetByProviderKey(ctx, identity.Provider, identity.Realm, identity.Identifier)
-	if err != nil {
-		return nil, perrors.WithCode(code.ErrDatabase, "failed to query login identity: %v", err)
-	}
-	if existing != nil {
+
+	// 若登录身份已存在，则复用现有登录身份。
+	if existing, err := findExistingLoginIdentity(ctx, repo, identity); err != nil {
+		return nil, err
+	} else if existing != nil {
 		return &LoginIdentityEnsureResult{Identity: existing, Status: LoginIdentityReused}, nil
 	}
+
+	// 若登录身份不存在，则创建新登录身份。
+	if created, err := createLoginIdentity(ctx, repo, identity); err != nil {
+		return nil, err
+	} else {
+		return &LoginIdentityEnsureResult{Identity: created, Status: LoginIdentityCreated}, nil
+	}
+}
+
+// buildDomainIdentity 构建领域登录身份。
+func buildDomainIdentity(req *preparedOnboarding, userID meta.ID) (*loginidentity.LoginIdentity, error) {
+	return loginidentity.NewBuilder(userID).
+		FromProviderKey(req.LoginIdentity.ProviderKey).
+		WithProfile(req.LoginIdentity.Profile).
+		WithMeta(req.LoginIdentity.Meta).
+		Build()
+}
+
+// findExistingLoginIdentity 查找现有登录身份。
+func findExistingLoginIdentity(ctx context.Context, repo loginidentity.Repository, identity *loginidentity.LoginIdentity) (*loginidentity.LoginIdentity, error) {
+	existing, err := repo.GetByProviderKey(ctx, identity.Provider, identity.Realm, identity.Identifier)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		if existing.UserID != identity.UserID {
+			return nil, perrors.WithCode(code.ErrLoginIdentityExists, "login identity already belongs to another user")
+		}
+		if !existing.IsActive() {
+			return nil, perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is not active")
+		}
+		return existing, nil
+	}
+	return nil, nil
+}
+
+// createLoginIdentity 创建登录身份。
+func createLoginIdentity(ctx context.Context, repo loginidentity.Repository, identity *loginidentity.LoginIdentity) (*loginidentity.LoginIdentity, error) {
 	if err := repo.Create(ctx, identity); err != nil {
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to save login identity: %v", err)
 	}
-	return &LoginIdentityEnsureResult{Identity: identity, Status: LoginIdentityCreated}, nil
-}
-
-func (e *loginIdentityEnsurer) toDomainIdentity(
-	req *NormalizedOnboardingRequest,
-	userID meta.ID,
-) (*loginidentity.LoginIdentity, error) {
-	switch req.Plan.Scenario {
-	case OnboardOperaPassword:
-		key := loginidentity.UsernameProviderKey(req.ScopedTenantID, usernameIdentifier(req))
-		return loginidentity.NewUsernameIdentity(userID, key.Realm, key.Identifier, loginidentity.WithProfile(req.Profile), loginidentity.WithMeta(req.Meta))
-	case OnboardMockConsumerPassword:
-		key := loginidentity.MockConsumerProviderKey(usernameIdentifier(req))
-		return loginidentity.NewUsernameIdentity(userID, key.Realm, key.Identifier, loginidentity.WithProfile(req.Profile), loginidentity.WithMeta(req.Meta))
-	case OnboardPhoneOTP:
-		key := loginidentity.PhoneProviderKey(req.Phone.String())
-		return loginidentity.NewPhoneIdentity(userID, key.Identifier, loginidentity.WithProfile(req.Profile), loginidentity.WithMeta(req.Meta))
-	case OnboardWechatMini:
-		key := loginidentity.WechatMinipProviderKey(
-			valueOfStringPtr(req.WechatAppID),
-			valueOfStringPtr(req.WechatOpenID),
-			valueOfStringPtr(req.WechatUnionID),
-		)
-		return loginidentity.NewWechatMinipIdentity(
-			userID,
-			key.Realm,
-			key.Identifier,
-			key.GlobalIdentifier,
-			loginidentity.WithProfile(req.Profile),
-			loginidentity.WithMeta(req.Meta),
-		)
-	case OnboardWecom:
-		key := loginidentity.WecomProviderKey(
-			valueOfStringPtr(req.WecomCorpID),
-			valueOfStringPtr(req.WecomUserID),
-		)
-		return loginidentity.NewWecomIdentity(
-			userID,
-			key.Realm,
-			key.Identifier,
-			loginidentity.WithProfile(req.Profile),
-			loginidentity.WithMeta(req.Meta),
-		)
-	default:
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "unsupported onboarding scenario: %s", req.Plan.Scenario)
-	}
-}
-
-func usernameIdentifier(req *NormalizedOnboardingRequest) string {
-	if req != nil && strings.TrimSpace(req.OperaLoginID) != "" {
-		return strings.TrimSpace(req.OperaLoginID)
-	}
-	if req != nil && !req.Email.IsEmpty() {
-		return strings.TrimSpace(req.Email.String())
-	}
-	if req != nil && !req.Phone.IsEmpty() {
-		return strings.TrimSpace(req.Phone.String())
-	}
-	return ""
-}
-
-func loginIdentityLookupKey(req *NormalizedOnboardingRequest) (loginidentity.ProviderKey, bool) {
-	if req == nil {
-		return loginidentity.ProviderKey{}, false
-	}
-	var key loginidentity.ProviderKey
-	switch req.Plan.Scenario {
-	case OnboardOperaPassword:
-		key = loginidentity.UsernameProviderKey(req.ScopedTenantID, usernameIdentifier(req))
-	case OnboardMockConsumerPassword:
-		key = loginidentity.MockConsumerProviderKey(usernameIdentifier(req))
-	case OnboardPhoneOTP:
-		key = loginidentity.PhoneProviderKey(req.Phone.String())
-	case OnboardWechatMini:
-		key = loginidentity.WechatMinipProviderKey(
-			valueOfStringPtr(req.WechatAppID),
-			valueOfStringPtr(req.WechatOpenID),
-			valueOfStringPtr(req.WechatUnionID),
-		)
-	case OnboardWecom:
-		key = loginidentity.WecomProviderKey(
-			valueOfStringPtr(req.WecomCorpID),
-			valueOfStringPtr(req.WecomUserID),
-		)
-	default:
-		return loginidentity.ProviderKey{}, false
-	}
-	return key, key.IsValid()
+	return identity, nil
 }

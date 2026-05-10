@@ -1,15 +1,15 @@
 # Authn Application Layer
 
 Authn application code owns caller-facing use cases. It coordinates domain
-authentication, account onboarding, token lifecycle, and JWKS publication without
+authentication, login identity onboarding, token lifecycle, and JWKS publication without
 owning JWT encoding or signing-key lifecycle behavior.
 
 ## Boundaries
 
-- Domain owns account, credential, session, authentication proof, and
+- Domain owns login identity, credential, session, authentication proof, and
   authentication decision rules.
 - Application owns sign-in method selection, proof construction, internal bearer
-  reauthentication, token lifecycle orchestration, onboarding, account
+  reauthentication, token lifecycle orchestration, onboarding, login identity
   administration, and JWKS public/admin use cases.
 - Infra owns JWT/JWS compact encoding, claims mapping, signing-key lifecycle,
   Redis stores, MySQL repositories, and external provider adapters.
@@ -21,10 +21,11 @@ login contract and is not a domain authentication strategy.
 
 ## Use Cases
 
-### AccountOnboarder
+### LoginIdentityOnboarder
 
-Creates or reuses the identity user, guarantees the self profile link invariant, and
-creates or reuses the Authn account and credential in one application flow.
+Prepares the requested login identity data, then runs one fixed flow: resolve or
+create the User, create or reuse the LoginIdentity, and create a password
+Credential only when the chosen login identity kind needs one.
 
 ### LoginApplicationService
 

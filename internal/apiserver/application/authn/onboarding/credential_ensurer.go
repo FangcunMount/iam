@@ -14,87 +14,108 @@ import (
 type CredentialEnsureStatus string
 
 const (
-	CredentialCreated  CredentialEnsureStatus = "created"
-	CredentialReused   CredentialEnsureStatus = "reused"
-	CredentialConflict CredentialEnsureStatus = "conflict"
-	CredentialRotated  CredentialEnsureStatus = "rotated"
+	CredentialCreated     CredentialEnsureStatus = "created"      // 创建
+	CredentialReused      CredentialEnsureStatus = "reused"       // 重用
+	CredentialNotRequired CredentialEnsureStatus = "not_required" // 不需要
 )
 
-// CredentialEnsureResult 是凭据确保阶段的显式结果。
+// CredentialEnsureResult 凭据确保阶段的结果
 type CredentialEnsureResult struct {
 	Credential *credDomain.Credential
 	Status     CredentialEnsureStatus
 }
 
-func (r CredentialEnsureResult) IsNewCredential() bool {
-	return r.Status == CredentialCreated
+// HasCredential 是否存在凭据
+func (r CredentialEnsureResult) HasCredential() bool {
+	return r.Credential != nil && !r.Credential.ID.IsZero()
 }
 
+// credentialEnsurer 凭据确保者
 type credentialEnsurer struct {
 	hasher authentication.PasswordHasher
 }
 
+// newCredentialEnsurer 创建凭据确保者
 func newCredentialEnsurer(hasher authentication.PasswordHasher) *credentialEnsurer {
 	return &credentialEnsurer{hasher: hasher}
 }
 
-func (e *credentialEnsurer) Ensure(
-	ctx context.Context,
-	repo credDomain.Repository,
-	loginIdentityResult *LoginIdentityEnsureResult,
-	req *NormalizedOnboardingRequest,
-) (*CredentialEnsureResult, error) {
-	if !req.Plan.NeedCredential {
+// Ensure 确保凭据，创建或重用凭据
+func (e *credentialEnsurer) Ensure(ctx context.Context, repo credDomain.Repository,
+	loginIdentityResult *LoginIdentityEnsureResult, req *preparedOnboarding) (*CredentialEnsureResult, error) {
+
+	if req.LoginIdentity.NeedPasswordCredential {
+		return e.ensurePasswordCredential(ctx, repo, loginIdentityResult, req)
+	}
+	return &CredentialEnsureResult{
+		Credential: nil,
+		Status:     CredentialNotRequired,
+	}, nil
+}
+
+// ensurePasswordCredential 确保密码凭据
+func (e *credentialEnsurer) ensurePasswordCredential(ctx context.Context, repo credDomain.Repository, loginIdentityResult *LoginIdentityEnsureResult, req *preparedOnboarding) (*CredentialEnsureResult, error) {
+	// 若密码凭据已存在，则重用现有凭据
+	credential, err := e.findExistingCredential(ctx, repo, loginIdentityResult.Identity.ID)
+	if err != nil {
+		return nil, err
+	}
+	if credential != nil {
 		return &CredentialEnsureResult{
-			Credential: &credDomain.Credential{},
+			Credential: credential,
 			Status:     CredentialReused,
 		}, nil
 	}
+
+	// 若密码凭据不存在，则颁发新凭据
 	issuer := credDomain.NewPasswordIssuer(e.hasher)
-	credential, err := e.issuePasswordCredential(issuer, loginIdentityResult.Identity.ID, req)
+	credential, err = e.issuePasswordCredential(issuer, loginIdentityResult.Identity.ID, req)
 	if err != nil {
 		return nil, err
 	}
 
+	// 保存凭据
 	if err := repo.Create(ctx, credential); err != nil {
-		if perrors.IsCode(err, code.ErrCredentialExists) {
-			return e.reuseExisting(ctx, repo, loginIdentityResult.Identity.ID, req)
-		}
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to save credential: %v", err)
 	}
 
+	// 返回凭据确保结果
 	return &CredentialEnsureResult{
 		Credential: credential,
 		Status:     CredentialCreated,
 	}, nil
 }
 
+// issuePasswordCredential 颁发密码凭据
 func (e *credentialEnsurer) issuePasswordCredential(
 	issuer *credDomain.PasswordIssuer,
 	loginIdentityID meta.ID,
-	req *NormalizedOnboardingRequest,
+	req *preparedOnboarding,
 ) (*credDomain.Credential, error) {
-	if req.Password == nil || *req.Password == "" {
+	// 如果凭据不存在或密码为空，则无法颁发
+	if req.Credential == nil || req.Credential.Password == nil || req.Credential.Password.Plaintext == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "password is required")
 	}
+
+	// 颁发密码凭据
 	return issuer.IssuePassword(credDomain.IssuePasswordRequest{
 		LoginIdentityID: loginIdentityID,
-		PlainPassword:   *req.Password,
+		PlainPassword:   req.Credential.Password.Plaintext,
 	})
 }
 
-func (e *credentialEnsurer) reuseExisting(
+// 查找现有凭据
+func (e *credentialEnsurer) findExistingCredential(
 	ctx context.Context,
 	repo credDomain.Repository,
 	loginIdentityID meta.ID,
-	req *NormalizedOnboardingRequest,
-) (*CredentialEnsureResult, error) {
-	existing, err := repo.GetByLoginIdentityIDAndType(ctx, loginIdentityID, credDomain.CredPassword)
+) (*credDomain.Credential, error) {
+	credential, err := repo.GetByLoginIdentityIDAndType(ctx, loginIdentityID, credDomain.CredPassword)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrDatabase, "failed to reuse credential: %v", err)
+		if perrors.IsCode(err, code.ErrCredentialNotFound) {
+			return nil, nil
+		}
+		return nil, perrors.WithCode(code.ErrDatabase, "failed to find credential: %v", err)
 	}
-	return &CredentialEnsureResult{
-		Credential: existing,
-		Status:     CredentialReused,
-	}, nil
+	return credential, err
 }

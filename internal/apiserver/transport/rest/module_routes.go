@@ -17,7 +17,7 @@ import (
 // registerModuleRoutes 注册模块路由
 func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	// 注册 AuthN 模块 认证路由
-	r.registerAuthnRoutes(engine, deps)
+	r.registerAuthnRoutes(engine, deps, authMiddleware)
 	// 注册 AuthZ 模块 授权路由
 	r.registerAuthzRoutes(engine, deps.authz, authMiddleware)
 	// 注册 IDP 模块 IDP路由
@@ -29,13 +29,19 @@ func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies
 }
 
 // registerAuthnRoutes 注册 AuthN 模块 认证路由
-func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies) {
+func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if r.deps.ModuleStatus.authnAvailable() && authnRoutesAvailable(deps.authn) {
+		var authRequired gin.HandlerFunc
+		if authMiddleware != nil {
+			authRequired = authMiddleware.AuthRequired()
+		}
 		authnDeps := authnhttp.Dependencies{
-			AuthHandler:       deps.authn.AuthHandler,
-			OnboardingHandler: deps.authn.OnboardingHandler,
-			JWKSHandler:       deps.authn.JWKSHandler,
-			AdminMiddlewares:  deps.adminMiddlewares,
+			AuthHandler:          deps.authn.AuthHandler,
+			OnboardingHandler:    deps.authn.OnboardingHandler,
+			LoginIdentityHandler: deps.authn.LoginIdentityHandler,
+			JWKSHandler:          deps.authn.JWKSHandler,
+			AdminMiddlewares:     deps.adminMiddlewares,
+			AuthMiddleware:       authRequired,
 		}
 		authnhttp.Register(engine, authnDeps)
 		if r.deps.SeedMockAuth.Enabled {
@@ -125,7 +131,7 @@ func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, aut
 
 // authnRoutesAvailable 认证路由是否可用
 func authnRoutesAvailable(deps AuthnDeps) bool {
-	return deps.AuthHandler != nil || deps.OnboardingHandler != nil || deps.JWKSHandler != nil
+	return deps.AuthHandler != nil || deps.OnboardingHandler != nil || deps.LoginIdentityHandler != nil || deps.JWKSHandler != nil
 }
 
 // authzRoutesAvailable 授权路由是否可用

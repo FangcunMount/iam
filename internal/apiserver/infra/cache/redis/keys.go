@@ -12,6 +12,7 @@ var (
 	sessionKeyspace                   = rediskeyspace.New("session")
 	userSessionIndexKeyspace          = rediskeyspace.New("user_session_index")
 	loginIdentitySessionIndexKeyspace = rediskeyspace.New("login_identity_session_index")
+	challengeKeyspace                 = rediskeyspace.New("authn").Child("challenge")
 	otpKeyspace                       = rediskeyspace.New("otp")
 	otpSendGateKeyspace               = otpKeyspace.Child("sendgate")
 	wechatAccessTokenKeyspace         = rediskeyspace.New("idp").Child("wechat").Child("token")
@@ -36,6 +37,10 @@ func userSessionIndexRedisKey(userID string) string {
 
 func loginIdentitySessionIndexRedisKey(loginIdentityID string) string {
 	return loginIdentitySessionIndexKeyspace.Prefix(loginIdentityID)
+}
+
+func challengeRedisKey(challengeID string) string {
+	return challengeKeyspace.Prefix(challengeID)
 }
 
 func otpRedisKey(phoneE164, scene, code string) string {

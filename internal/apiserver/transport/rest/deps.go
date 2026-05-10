@@ -3,6 +3,7 @@ package rest
 import (
 	"time"
 
+	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	onboardingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
@@ -49,9 +50,11 @@ type Deps struct {
 type AuthnDeps struct {
 	AuthHandler            *authhandler.AuthHandler
 	OnboardingHandler      *authhandler.OnboardingHandler
+	LoginIdentityHandler   *authhandler.LoginIdentityHandler
 	JWKSHandler            *authhandler.JWKSHandler
 	SessionAdminHandler    *authhandler.SessionAdminHandler
 	LoginIdentityOnboarder onboardingapp.LoginIdentityOnboarder
+	LoginIdentityLinking   linkingapp.Service
 	TokenService           tokenapp.TokenApplicationService
 }
 

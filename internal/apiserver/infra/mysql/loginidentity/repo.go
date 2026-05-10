@@ -106,7 +106,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain
 		return fmt.Errorf("failed to update login identity status: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return domain.NotFoundError()
+		return perrors.WithCode(code.ErrLoginIdentityNotFound, "login identity not found")
 	}
 	return nil
 }

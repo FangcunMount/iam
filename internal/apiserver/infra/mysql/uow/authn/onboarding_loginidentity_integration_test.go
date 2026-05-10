@@ -33,17 +33,23 @@ func TestOnboardingPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 	tenantID := meta.FromUint64(9001)
 
 	result, err := onboarder.Onboard(context.Background(), onboardingapp.OnboardingRequest{
-		Scenario:       onboardingapp.OnboardOperaPassword,
-		Name:           "zhangsan",
-		Phone:          phone,
-		Email:          email,
-		OperaLoginID:   "zhangsan",
-		ScopedTenantID: tenantID,
-		Password:       &password,
+		User: onboardingapp.OnboardingUserInput{
+			Name:  "zhangsan",
+			Phone: phone,
+			Email: email,
+		},
+		LoginIdentity: onboardingapp.UsernameLoginIdentityInput{
+			Username:      "zhangsan",
+			RealmTenantID: tenantID,
+		},
+		Credential: &onboardingapp.OnboardingCredentialInput{
+			Password: &onboardingapp.PasswordCredentialInput{Plaintext: password},
+		},
 	})
 	require.NoError(t, err)
 	require.False(t, result.LoginIdentityID.IsZero())
-	require.False(t, result.CredentialID.IsZero())
+	require.NotNil(t, result.Credential)
+	require.False(t, result.Credential.ID.IsZero())
 
 	var identityCount int64
 	require.NoError(t, db.Table("auth_login_identities").
@@ -53,12 +59,12 @@ func TestOnboardingPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 
 	var credentialCount int64
 	require.NoError(t, db.Table("auth_credentials").
-		Where("id = ? AND login_identity_id = ? AND type = ?", result.CredentialID, result.LoginIdentityID, "password").
+		Where("id = ? AND login_identity_id = ? AND type = ?", result.Credential.ID, result.LoginIdentityID, "password").
 		Count(&credentialCount).Error)
 	require.Equal(t, int64(1), credentialCount)
 }
 
-func TestOnboardingPersistsPhoneLoginIdentityWithoutCredential(t *testing.T) {
+func TestOnboardingPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T) {
 	t.Parallel()
 
 	db := testhelpers.SetupTempSQLiteDB(t)
@@ -71,22 +77,31 @@ func TestOnboardingPersistsPhoneLoginIdentityWithoutCredential(t *testing.T) {
 
 	phone, err := meta.NewPhone("13811113333")
 	require.NoError(t, err)
-	email, err := meta.NewEmail("phone-loginidentity@example.com")
+	email, err := meta.NewEmail("wechat-loginidentity@example.com")
 	require.NoError(t, err)
+	appID := "wx-app"
+	openID := "openid-1"
+	unionID := "union-1"
 
 	result, err := onboarder.Onboard(context.Background(), onboardingapp.OnboardingRequest{
-		Scenario: onboardingapp.OnboardPhoneOTP,
-		Name:     "phone-user",
-		Phone:    phone,
-		Email:    email,
+		User: onboardingapp.OnboardingUserInput{
+			Name:  "wechat-user",
+			Phone: phone,
+			Email: email,
+		},
+		LoginIdentity: onboardingapp.WechatMiniLoginIdentityInput{
+			AppID:   &appID,
+			OpenID:  &openID,
+			UnionID: &unionID,
+		},
 	})
 	require.NoError(t, err)
 	require.False(t, result.LoginIdentityID.IsZero())
-	require.True(t, result.CredentialID.IsZero())
+	require.Nil(t, result.Credential)
 
 	var identityCount int64
 	require.NoError(t, db.Table("auth_login_identities").
-		Where("id = ? AND provider = ? AND realm = ? AND identifier = ?", result.LoginIdentityID, "phone", "global", phone.String()).
+		Where("id = ? AND provider = ? AND realm = ? AND identifier = ? AND global_identifier = ?", result.LoginIdentityID, "wechat_minip", appID, openID, unionID).
 		Count(&identityCount).Error)
 	require.Equal(t, int64(1), identityCount)
 

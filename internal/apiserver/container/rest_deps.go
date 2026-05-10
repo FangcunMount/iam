@@ -52,9 +52,11 @@ func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
 	if c.ModuleState(moduleAuthn).Available {
 		caps := c.AuthnModule.ApplicationCapabilities()
 		deps.ModuleStatus.Authn = deps.ModuleStatus.Modules[moduleAuthn].Available
-		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.LoginService, caps.TokenService, caps.LoginPreparationService)
+		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.LoginService, caps.TokenService, caps.ChallengeService)
 		deps.Authn.OnboardingHandler = authnhandler.NewOnboardingHandler(caps.LoginIdentityOnboarder)
+		deps.Authn.LoginIdentityHandler = authnhandler.NewLoginIdentityHandler(caps.LoginIdentityLinking)
 		deps.Authn.LoginIdentityOnboarder = caps.LoginIdentityOnboarder
+		deps.Authn.LoginIdentityLinking = caps.LoginIdentityLinking
 		deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyPublishApp)
 		deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionService)
 		deps.Authn.TokenService = caps.TokenService

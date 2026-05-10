@@ -9,9 +9,10 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
+	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
@@ -27,11 +28,12 @@ import (
 // AuthnModule 认证模块
 type AuthnModule struct {
 	// 应用服务
-	loginIdentityOnboarder  onboardingApp.LoginIdentityOnboarder
-	loginService            login.LoginApplicationService
-	loginPreparationService loginprep.LoginPreparationService
-	tokenService            token.TokenApplicationService
-	sessionService          sessionApp.SessionApplicationService
+	loginIdentityOnboarder onboardingApp.LoginIdentityOnboarder
+	loginIdentityLinking   linkingApp.Service
+	loginService           login.LoginApplicationService
+	challengeService       challengeApp.Service
+	tokenService           token.TokenApplicationService
+	sessionService         sessionApp.SessionApplicationService
 
 	// JWKS 应用服务
 	keyManagementApp *jwksApp.KeyManagementAppService
@@ -43,6 +45,7 @@ type AuthnModule struct {
 
 	tokenStoreInspectorSource *redisInfra.RedisStore
 	sessionStoreInspector     *redisInfra.SessionStore
+	challengeInspectorSource  *redisInfra.ChallengeRepository
 	otpInspectorSource        *redisInfra.OTPVerifierImpl
 	jwksSnapshotReporter      jwksApp.SnapshotReporter
 	sessionManager            sessionDomain.Manager
@@ -117,6 +120,7 @@ func (m *AuthnModule) CacheFamilyInspectors() []cachegovernance.FamilyInspector 
 	inspectors := make([]cachegovernance.FamilyInspector, 0, 8)
 	inspectors = append(inspectors, redisInfra.RedisStoreInspectors(m.tokenStoreInspectorSource)...)
 	inspectors = append(inspectors, redisInfra.SessionStoreInspectors(m.sessionStoreInspector)...)
+	inspectors = append(inspectors, redisInfra.ChallengeRepositoryInspectors(m.challengeInspectorSource)...)
 	inspectors = append(inspectors, redisInfra.OTPVerifierInspectors(m.otpInspectorSource)...)
 	if m.jwksSnapshotReporter != nil {
 		inspectors = append(inspectors, cachegovernance.NewJWKSPublishSnapshotInspector(m.jwksSnapshotReporter))
@@ -134,14 +138,15 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 		return AuthnApplicationCapabilities{}
 	}
 	return AuthnApplicationCapabilities{
-		LoginIdentityOnboarder:  m.loginIdentityOnboarder,
-		LoginService:            m.loginService,
-		LoginPreparationService: m.loginPreparationService,
-		TokenService:            m.tokenService,
-		SessionService:          m.sessionService,
-		KeyManagementApp:        m.keyManagementApp,
-		KeyPublishApp:           m.keyPublishApp,
-		KeyRotationApp:          m.keyRotationApp,
+		LoginIdentityOnboarder: m.loginIdentityOnboarder,
+		LoginIdentityLinking:   m.loginIdentityLinking,
+		LoginService:           m.loginService,
+		ChallengeService:       m.challengeService,
+		TokenService:           m.tokenService,
+		SessionService:         m.sessionService,
+		KeyManagementApp:       m.keyManagementApp,
+		KeyPublishApp:          m.keyPublishApp,
+		KeyRotationApp:         m.keyRotationApp,
 	}
 }
 

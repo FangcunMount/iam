@@ -207,7 +207,7 @@ func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	forbidden := regexp.MustCompile(`(?m)^\s*(LoginService|LoginPreparationService|TokenService|SessionService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
+	forbidden := regexp.MustCompile(`(?m)^\s*(LoginService|TokenService|SessionService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
 	if match := forbidden.FindString(string(source)); match != "" {
 		t.Fatalf("AuthnModule exposes concrete application field %q; use ApplicationCapabilities instead", strings.TrimSpace(match))
 	}

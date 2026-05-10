@@ -173,8 +173,10 @@ AuthN 回答的问题是：
 它的核心对象和能力包括：
 
 ```text
-Account
+User
+LoginIdentity
 Credential
+Challenge
 AuthCredential proof
 Authenticator / AuthStrategy
 Principal
@@ -183,18 +185,18 @@ Access Token
 Refresh Token
 JWKS
 KeyRotation
-LoginPreparation
-AccountOnboarding
+LoginIdentityOnboarding
+LoginIdentityLinking
 ServiceToken
 ```
 
 当前 AuthN module 装配了：
 
 ```text
-accountService
-accountOnboarder
+loginIdentityOnboarder
+loginIdentityLinking
+challengeService
 loginService
-loginPreparationService
 tokenService
 sessionService
 keyManagementApp

@@ -42,8 +42,11 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	}
 
 	caps := module.ApplicationCapabilities()
-	if caps.LoginPreparationService == nil {
-		t.Fatalf("expected LoginPreparationService to be initialized")
+	if caps.ChallengeService == nil {
+		t.Fatalf("expected ChallengeService to be initialized")
+	}
+	if caps.LoginIdentityLinking == nil {
+		t.Fatalf("expected LoginIdentityLinking to be initialized")
 	}
 	if caps.TokenService == nil {
 		t.Fatalf("expected TokenService to be initialized")
@@ -54,7 +57,7 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 		cachemodel.FamilyAuthnSession,
 		cachemodel.FamilyAuthnUserSessionIndex,
 		cachemodel.FamilyAuthnLoginIdentitySessionIndex,
-		cachemodel.FamilyAuthnLoginOTP,
+		cachemodel.FamilyAuthnChallenge,
 		cachemodel.FamilyAuthnLoginOTPSendGate,
 		cachemodel.FamilyAuthnJWKSPublishSnapshot,
 	})

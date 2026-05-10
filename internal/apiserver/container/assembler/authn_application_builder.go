@@ -5,12 +5,13 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/reauth"
-	loginprep "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/loginprep"
 	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
@@ -35,20 +36,26 @@ func (m *AuthnModule) initializeApplication(
 		infra.wechatAppQuerier,
 		infra.secretVault,
 	)
-
 	smsSender, err := buildLoginSMSSender(infra, smsOptions)
 	if err != nil {
 		return err
 	}
-	phoneOTP := &loginprep.PhoneOTPDeps{
-		Store:    infra.otpRedis,
+	challengeService := challengeApp.NewService(infra.challengeRepo, challengeApp.WithSMSOTPDelivery(challengeApp.SMSOTPDelivery{
 		Gate:     infra.otpRedis,
 		SMS:      smsSender,
 		TTL:      smsOptions.LoginOTPTTL,
 		Cooldown: smsOptions.LoginOTPSendCooldown,
 		CodeLen:  smsOptions.LoginOTPCodeLength,
-	}
-	m.loginPreparationService = loginprep.NewLoginPreparationService(phoneOTP)
+	}))
+	m.challengeService = challengeService
+	m.loginIdentityLinking = linkingApp.NewService(linkingApp.Dependencies{
+		LoginIdentities: infra.loginIdentityStore,
+		Challenge:       challengeService,
+		IDP:             infra.idp,
+		WechatApps:      infra.wechatAppQuerier,
+		SecretVault:     infra.secretVault,
+		WecomAgentID:    idpOptions.WeCom.AgentID,
+	})
 
 	tokenService := token.NewTokenApplicationService(token.TokenApplicationDependencies{
 		AccessTokenCodec: infra.jwtGenerator,
@@ -62,7 +69,7 @@ func (m *AuthnModule) initializeApplication(
 
 	authenticator := authentication.NewAuthenticator(
 		authentication.NewPasswordAuthStrategyWithLoginIdentity(infra.credentialRepo, infra.loginIdentityRepo, hasher),
-		authentication.NewPhoneOTPAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.otpVerifier),
+		authentication.NewPhoneOTPAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, challengeService),
 		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 	)

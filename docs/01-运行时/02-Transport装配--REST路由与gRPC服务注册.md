@@ -365,8 +365,9 @@ AuthN module capabilities 会被转换成：
 
 | REST 依赖 | 来源能力 | 用途 |
 | --- | --- | --- |
-| `AuthHandler` | LoginService、TokenService、LoginPreparationService | 登录、刷新、登出、验证、登录预准备 |
-| `AccountHandler` | AccountService、AccountOnboarder | 账号查询、账号资料更新、signup、mock consumer seed |
+| `AuthHandler` | LoginService、TokenService、ChallengeService | 登录、刷新、登出、验证、登录验证码发码 |
+| `OnboardingHandler` | LoginIdentityOnboarder | signup、mock consumer seed |
+| `LoginIdentityHandler` | LoginIdentityLinking | 登录身份列表、绑定、解绑 |
 | `JWKSHandler` | KeyManagementApp、KeyPublishApp | JWKS public endpoint、admin key management |
 | `SessionAdminHandler` | SessionService | admin session revoke |
 | `TokenService` | TokenApplicationService | 构造 JWT middleware |

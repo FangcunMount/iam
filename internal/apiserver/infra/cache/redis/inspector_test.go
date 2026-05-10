@@ -18,10 +18,12 @@ func TestRedisAdapterFamilyInspectors(t *testing.T) {
 	ctx := context.Background()
 	tokenStore := NewRedisStore(client)
 	otpVerifier := NewOTPVerifier(client)
+	challengeRepo := NewChallengeRepository(client)
 	accessTokenCache := NewAccessTokenCache(client).(*accessTokenCache)
 	wechatSDKCache := NewWechatSDKCache(client).(*WechatSDKCache)
 
 	familyInspectors := append(tokenStore.FamilyInspectors(), otpVerifier.FamilyInspectors()...)
+	familyInspectors = append(familyInspectors, ChallengeRepositoryInspectors(challengeRepo)...)
 	familyInspectors = append(familyInspectors, accessTokenCache.FamilyInspectors()...)
 	familyInspectors = append(familyInspectors, wechatSDKCache.FamilyInspectors()...)
 

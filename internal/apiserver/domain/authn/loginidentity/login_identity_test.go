@@ -7,48 +7,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoginIdentityFactoriesBuildProviderKeys(t *testing.T) {
+func TestLoginIdentityBuilderBuildsProviderKeys(t *testing.T) {
 	userID := meta.FromUint64(1001)
 
-	username, err := NewUsernameIdentity(userID, "tenant-A", "zhangsan")
+	username, err := NewBuilder(userID).Username("tenant-A", "zhangsan").Build()
 	require.NoError(t, err)
 	require.Equal(t, ProviderUsername, username.Provider)
 	require.Equal(t, "tenant-A", username.Realm)
 	require.Equal(t, "zhangsan", username.Identifier)
 	require.True(t, username.IsActive())
 
-	phone, err := NewPhoneIdentity(userID, "+8613811112222")
+	phone, err := NewBuilder(userID).Phone("+8613811112222").Build()
 	require.NoError(t, err)
 	require.Equal(t, ProviderPhone, phone.Provider)
 	require.Equal(t, RealmGlobal, phone.Realm)
 	require.Equal(t, "+8613811112222", phone.Identifier)
 
-	wechat, err := NewWechatMinipIdentity(userID, "wx-app", "openid-1", "union-1")
+	wechat, err := NewBuilder(userID).WechatMinip("wx-app", "openid-1", "union-1").Build()
 	require.NoError(t, err)
 	require.Equal(t, ProviderWechatMinip, wechat.Provider)
 	require.Equal(t, "wx-app", wechat.Realm)
 	require.Equal(t, "openid-1", wechat.Identifier)
 	require.Equal(t, "union-1", wechat.GlobalIdentifier)
 
-	wecom, err := NewWecomIdentity(userID, "corp-1", "userid-1")
+	wecom, err := NewBuilder(userID).Wecom("corp-1", "userid-1").Build()
 	require.NoError(t, err)
 	require.Equal(t, ProviderWecom, wecom.Provider)
 	require.Equal(t, "corp-1", wecom.Realm)
 	require.Equal(t, "userid-1", wecom.Identifier)
 }
 
-func TestLoginIdentityFactoryRejectsIncompleteProviderKey(t *testing.T) {
+func TestLoginIdentityBuilderRejectsIncompleteProviderKey(t *testing.T) {
 	userID := meta.FromUint64(1001)
 
-	_, err := NewUsernameIdentity(meta.ZeroID, "tenant-A", "zhangsan")
+	_, err := NewBuilder(meta.ZeroID).Username("tenant-A", "zhangsan").Build()
 	require.Error(t, err)
 
-	_, err = NewUsernameIdentity(userID, "", "zhangsan")
+	_, err = NewBuilder(userID).Username("", "zhangsan").Build()
 	require.NoError(t, err)
 
-	_, err = NewWechatMinipIdentity(userID, "", "openid", "")
+	_, err = NewBuilder(userID).WechatMinip("", "openid", "").Build()
 	require.Error(t, err)
 
-	_, err = NewWechatMinipIdentity(userID, "wx-app", "", "")
+	_, err = NewBuilder(userID).WechatMinip("wx-app", "", "").Build()
 	require.Error(t, err)
 }

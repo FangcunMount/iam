@@ -9,7 +9,7 @@ const (
 	FamilyAuthnSession                   Family = "authn.session"
 	FamilyAuthnUserSessionIndex          Family = "authn.user_session_index"
 	FamilyAuthnLoginIdentitySessionIndex Family = "authn.login_identity_session_index"
-	FamilyAuthnLoginOTP                  Family = "authn.login_otp"
+	FamilyAuthnChallenge                 Family = "authn.challenge"
 	FamilyAuthnLoginOTPSendGate          Family = "authn.login_otp_send_gate"
 	FamilyIDPWechatAccessToken           Family = "idp.wechat_access_token"
 	FamilyIDPWechatSDK                   Family = "idp.wechat_sdk"
@@ -180,18 +180,18 @@ var catalog = []FamilyDescriptor{
 		Capabilities: inspectOnly,
 	},
 	{
-		Family:          FamilyAuthnLoginOTP,
+		Family:          FamilyAuthnChallenge,
 		Backend:         BackendKindRedis,
 		RedisType:       RedisDataTypeString,
-		Codec:           ValueCodecKindMarker,
+		Codec:           ValueCodecKindJSON,
 		Role:            DataRoleMarkerState,
 		OwnerModule:     "authn",
-		KeyPattern:      "otp:{scene}:{phoneE164}:{code}",
-		TTLSource:       "OTP 有效期",
-		SelectionReason: "一次性存在性语义，适合单 key String 和原子消费。",
+		KeyPattern:      "authn:challenge:{type}:{scene}:{target}",
+		TTLSource:       "challenge.ExpiresAt",
+		SelectionReason: "短期认证挑战需要保存哈希后的 secret、场景和过期时间，按 challenge 独立 TTL 即可。",
 		Policy: FamilyPolicy{
-			TTLSource:                      "OTP 有效期",
-			WriteMode:                      "marker 写入 + 原子消费",
+			TTLSource:                      "challenge.ExpiresAt",
+			WriteMode:                      "整体写入 + 原子消费删除",
 			InvalidationMode:               "消费删除或 TTL 到期",
 			HasInternalRefreshCoordination: false,
 		},

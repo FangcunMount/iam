@@ -11,10 +11,12 @@ import (
 
 // Dependencies describes the external collaborators needed to expose authn endpoints.
 type Dependencies struct {
-	AuthHandler       *authhandler.AuthHandler       // 认证处理器
-	OnboardingHandler *authhandler.OnboardingHandler // 登录身份开通处理器
-	JWKSHandler       *authhandler.JWKSHandler       // JWKS 处理器
-	AdminMiddlewares  []gin.HandlerFunc              // 管理接口中间件
+	AuthHandler          *authhandler.AuthHandler          // 认证处理器
+	OnboardingHandler    *authhandler.OnboardingHandler    // 登录身份开通处理器
+	LoginIdentityHandler *authhandler.LoginIdentityHandler // 登录身份绑定处理器
+	JWKSHandler          *authhandler.JWKSHandler          // JWKS 处理器
+	AdminMiddlewares     []gin.HandlerFunc                 // 管理接口中间件
+	AuthMiddleware       gin.HandlerFunc                   // 当前用户认证中间件
 }
 
 // Register exposes the authentication endpoints that issue and refresh tokens.
@@ -30,6 +32,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 
 	// 注册登录身份开通端点
 	registerOnboardingEndpoints(api.Group(""), deps.OnboardingHandler)
+	registerLoginIdentityEndpoints(api.Group(""), deps.LoginIdentityHandler, deps.AuthMiddleware)
 
 	// 注册 JWKS 端点（公开端点）
 	registerJWKSPublicEndpoints(engine, deps.JWKSHandler)
@@ -108,6 +111,20 @@ func registerOnboardingEndpoints(api *gin.RouterGroup, h *authhandler.Onboarding
 
 	signups := api.Group("/signups")
 	signups.POST("/wechat-miniprogram", h.SignUpWithWeChatMiniProgram)
+}
+
+func registerLoginIdentityEndpoints(api *gin.RouterGroup, h *authhandler.LoginIdentityHandler, authMiddleware gin.HandlerFunc) {
+	if api == nil || h == nil || authMiddleware == nil {
+		return
+	}
+	identities := api.Group("/login-identities")
+	identities.Use(authMiddleware)
+	identities.GET("", h.List)
+	identities.POST("/phone/challenge", h.SendPhoneLinkChallenge)
+	identities.POST("/phone", h.LinkPhone)
+	identities.POST("/wechat-miniprogram", h.LinkWechatMiniProgram)
+	identities.POST("/wecom", h.LinkWecom)
+	identities.DELETE("/:id", h.Unlink)
 }
 
 func registerInternalMockConsumerEndpoints(api *gin.RouterGroup, h *authhandler.OnboardingHandler) {

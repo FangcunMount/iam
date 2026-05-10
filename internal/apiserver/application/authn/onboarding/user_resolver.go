@@ -23,12 +23,8 @@ const (
 type UserMatchMethod string
 
 const (
-	MatchedByExistingUserID UserMatchMethod = "existing_user_id"
-	MatchedByWechatUnionID  UserMatchMethod = "wechat_union_id"
-	MatchedByWechatOpenID   UserMatchMethod = "wechat_openid_appid"
-	MatchedByPhone          UserMatchMethod = "phone"
-	MatchedByLoginIdentity  UserMatchMethod = "login_identity"
-	MatchedByNone           UserMatchMethod = "none"
+	MatchedByLoginIdentity UserMatchMethod = "login_identity"
+	MatchedByNone          UserMatchMethod = "none"
 )
 
 // UserResolveResult 是用户解析阶段的显式结果。
@@ -38,22 +34,26 @@ type UserResolveResult struct {
 	MatchedBy UserMatchMethod
 }
 
+// IsNewUser 是否新建用户
 func (r UserResolveResult) IsNewUser() bool {
 	return r.Status == UserCreated
 }
 
+// userResolver 用户解析器
 type userResolver struct {
 	fallbackUserRepo userDomain.Repository
 }
 
+// newUserResolver 创建用户解析器
 func newUserResolver(fallbackUserRepo userDomain.Repository) *userResolver {
 	return &userResolver{fallbackUserRepo: fallbackUserRepo}
 }
 
+// Resolve 解析用户
 func (r *userResolver) Resolve(
 	ctx context.Context,
 	repos registrationRepositories,
-	req *NormalizedOnboardingRequest,
+	req *preparedOnboarding,
 ) (*UserResolveResult, error) {
 	userRepo := repos.Users
 	if userRepo == nil {
@@ -63,105 +63,68 @@ func (r *userResolver) Resolve(
 		return nil, perrors.WithCode(code.ErrInternalServerError, "user repository is not initialized")
 	}
 
-	if !req.ExistingUserID.IsZero() {
-		return r.resolveExistingUser(ctx, userRepo, req.ExistingUserID)
+	// 如果存在登录身份，则解析登录身份
+	if result, matched, err := r.resolveByLoginIdentity(ctx, userRepo, repos, req); err != nil {
+		return nil, err
+	} else if matched {
+		return result, nil
 	}
-	if result, matched, err := r.resolveByLoginIdentity(ctx, userRepo, repos, req); matched || err != nil {
-		return result, err
-	}
-	if result, matched, err := r.resolveByPhone(ctx, userRepo, req); matched || err != nil {
-		return result, err
-	}
+
+	// 如果以上都不匹配，则创建新用户并返回用户解析结果
 	return r.createUser(ctx, userRepo, req)
 }
 
-func (r *userResolver) resolveByLoginIdentity(
-	ctx context.Context,
-	userRepo userDomain.Repository,
-	repos registrationRepositories,
-	req *NormalizedOnboardingRequest,
-) (*UserResolveResult, bool, error) {
-	if repos.LoginIdentities == nil {
-		return nil, false, nil
-	}
-	key, ok := loginIdentityLookupKey(req)
-	if !ok {
-		return nil, false, nil
-	}
-	identity, err := repos.LoginIdentities.GetByProviderKey(ctx, key.Provider, key.Realm, key.Identifier)
+// resolveByLoginIdentity 解析登录身份
+func (r *userResolver) resolveByLoginIdentity(ctx context.Context, userRepo userDomain.Repository,
+	repos registrationRepositories, req *preparedOnboarding) (*UserResolveResult, bool, error) {
+	providerKey := req.LoginIdentity.ProviderKey
+	identity, err := repos.LoginIdentities.GetByProviderKey(ctx, providerKey.Provider, providerKey.Realm, providerKey.Identifier)
 	if err != nil && !isRepositoryNotFound(err) {
 		return nil, true, err
 	}
-	if identity == nil && key.GlobalIdentifier != "" {
-		identity, err = repos.LoginIdentities.GetByGlobalIdentifier(ctx, key.Provider, key.GlobalIdentifier)
+
+	// 如果登录身份不存在，则根据全局标识符获取登录身份
+	if identity == nil && providerKey.GlobalIdentifier != "" {
+		identity, err = repos.LoginIdentities.GetByGlobalIdentifier(ctx, providerKey.Provider, providerKey.GlobalIdentifier)
 		if err != nil && !isRepositoryNotFound(err) {
 			return nil, true, err
 		}
 	}
+
+	// 如果登录身份不存在，则返回空结果
 	if identity == nil {
 		return nil, false, nil
 	}
+
+	// 加载或修复用户
 	result, err := r.loadOrRepairUserForLoginIdentity(ctx, userRepo, identity.UserID, req, MatchedByLoginIdentity)
-	return result, true, err
-}
-
-func (r *userResolver) resolveExistingUser(
-	ctx context.Context,
-	repo userDomain.Repository,
-	userID meta.ID,
-) (*UserResolveResult, error) {
-	user, err := repo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, err
-	}
-	if user == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "existing user not found: %s", userID.String())
-	}
-	return &UserResolveResult{
-		User:      user,
-		Status:    UserReused,
-		MatchedBy: MatchedByExistingUserID,
-	}, nil
-}
-
-func (r *userResolver) resolveByPhone(
-	ctx context.Context,
-	repo userDomain.Repository,
-	req *NormalizedOnboardingRequest,
-) (*UserResolveResult, bool, error) {
-	if req.Phone.IsEmpty() {
-		return nil, false, nil
-	}
-	existingUser, err := repo.FindByPhone(ctx, req.Phone)
-	if err != nil && !isRepositoryNotFound(err) {
 		return nil, true, err
 	}
-	if existingUser == nil {
-		return nil, false, nil
-	}
-	return &UserResolveResult{
-		User:      existingUser,
-		Status:    UserReused,
-		MatchedBy: MatchedByPhone,
-	}, true, nil
+	return result, true, nil
 }
 
+// createUser 创建新用户
 func (r *userResolver) createUser(
 	ctx context.Context,
 	repo userDomain.Repository,
-	req *NormalizedOnboardingRequest,
+	req *preparedOnboarding,
 ) (*UserResolveResult, error) {
-	user, err := userDomain.NewUser(req.Name, req.Phone, func(u *userDomain.User) {
-		if !req.Email.IsEmpty() {
-			u.Email = req.Email
+	user, err := userDomain.NewUser(req.User.Name, req.User.Phone, func(u *userDomain.User) {
+		if !req.User.Email.IsEmpty() {
+			u.Email = req.User.Email
 		}
 	})
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrUserBasicInfoInvalid, "failed to create user: %v", err)
 	}
+
+	// 创建用户
 	if err := repo.Create(ctx, user); err != nil {
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to save user: %v", err)
 	}
+
+	// 返回用户解析结果
 	return &UserResolveResult{
 		User:      user,
 		Status:    UserCreated,
@@ -169,11 +132,12 @@ func (r *userResolver) createUser(
 	}, nil
 }
 
+// loadOrRepairUserForLoginIdentity 加载或修复用户
 func (r *userResolver) loadOrRepairUserForLoginIdentity(
 	ctx context.Context,
 	repo userDomain.Repository,
 	userID meta.ID,
-	req *NormalizedOnboardingRequest,
+	req *preparedOnboarding,
 	matchedBy UserMatchMethod,
 ) (*UserResolveResult, error) {
 	user, err := repo.FindByID(ctx, userID)
@@ -187,7 +151,7 @@ func (r *userResolver) loadOrRepairUserForLoginIdentity(
 	if err != nil && !isRepositoryNotFound(err) {
 		return nil, err
 	}
-	if !req.Plan.AllowUserRepair {
+	if !req.LoginIdentity.AllowUserRepair {
 		return nil, perrors.WithCode(code.ErrUserNotFound, "login identity user not found: %s", userID.String())
 	}
 
@@ -206,17 +170,17 @@ func (r *userResolver) repairMissingUser(
 	ctx context.Context,
 	repo userDomain.Repository,
 	userID meta.ID,
-	req *NormalizedOnboardingRequest,
+	req *preparedOnboarding,
 ) (*userDomain.User, error) {
 	opts := []userDomain.UserOption{userDomain.WithID(userID)}
-	if !req.Email.IsEmpty() {
-		opts = append(opts, userDomain.WithEmail(req.Email))
+	if !req.User.Email.IsEmpty() {
+		opts = append(opts, userDomain.WithEmail(req.User.Email))
 	}
-	if nickname := strings.TrimSpace(req.Profile["nickname"]); nickname != "" {
+	if nickname := strings.TrimSpace(req.LoginIdentity.Profile["nickname"]); nickname != "" {
 		opts = append(opts, userDomain.WithNickname(nickname))
 	}
 
-	recovered, err := userDomain.NewUser(req.Name, req.Phone, opts...)
+	recovered, err := userDomain.NewUser(req.User.Name, req.User.Phone, opts...)
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrUserBasicInfoInvalid, "failed to recreate missing user: %v", err)
 	}
