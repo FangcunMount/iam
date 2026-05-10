@@ -8,8 +8,10 @@ import (
 	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
 	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
 	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
+	authloginidentity "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginidentity"
 	authloginv2 "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginv2"
 	authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
+	authsignup "github.com/FangcunMount/iam/v2/pkg/sdk/auth/signup"
 	authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
 	"github.com/FangcunMount/iam/v2/pkg/sdk/authz"
 	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
@@ -85,6 +87,37 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	var _ = authloginv2.WechatPayload{}
 	var _ = authloginv2.WecomPayload{}
 	var _ = authloginv2.TokenPair{}
+	var _ *authsignup.Client
+	var _ = authsignup.NewClient
+	var _ = (*authsignup.Client).SignUpWithWechatMiniProgram
+	var _ = (*authsignup.Client).EnsureMockConsumer
+	var _ = authsignup.WithHTTPClient
+	var _ = authsignup.WithHeader
+	var _ = authsignup.WithSeedMockSecret
+	var _ = authsignup.WechatMiniProgramRequest{}
+	var _ = authsignup.SignupResult{}
+	var _ = authsignup.SignupCredential{}
+	var _ = authsignup.EnsureMockConsumerRequest{}
+	var _ = authsignup.EnsureMockConsumerResult{}
+	var _ *authloginidentity.Client
+	var _ = authloginidentity.NewClient
+	var _ = (*authloginidentity.Client).List
+	var _ = (*authloginidentity.Client).SendPhoneLinkChallenge
+	var _ = (*authloginidentity.Client).LinkPhone
+	var _ = (*authloginidentity.Client).LinkWechatMiniProgram
+	var _ = (*authloginidentity.Client).LinkWecom
+	var _ = (*authloginidentity.Client).Unlink
+	var _ = authloginidentity.WithHTTPClient
+	var _ = authloginidentity.WithHeader
+	var _ = authloginidentity.WithBearerToken
+	var _ = authloginidentity.LoginIdentity{}
+	var _ = authloginidentity.ListResponse{}
+	var _ = authloginidentity.LinkResponse{}
+	var _ = authloginidentity.MessageResponse{}
+	var _ = authloginidentity.LinkPhoneChallengeRequest{}
+	var _ = authloginidentity.LinkPhoneRequest{}
+	var _ = authloginidentity.LinkWechatMiniProgramRequest{}
+	var _ = authloginidentity.LinkWecomRequest{}
 	var _ = authjwks.NewJWKSManager
 	var _ = authverifier.NewTokenVerifier
 	var _ = authserviceauth.NewServiceAuthHelper

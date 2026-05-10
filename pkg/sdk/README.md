@@ -10,8 +10,11 @@
 - `pkg/sdk/config`
 - `pkg/sdk/auth/client`
 - `pkg/sdk/auth/jwks`
+- `pkg/sdk/auth/loginidentity`
+- `pkg/sdk/auth/loginv2`
 - `pkg/sdk/auth/verifier`
 - `pkg/sdk/auth/serviceauth`
+- `pkg/sdk/auth/signup`
 - `pkg/sdk/authz`
 - `pkg/sdk/identity`
 - `pkg/sdk/idp`
@@ -39,6 +42,9 @@ pkg/sdk/
 ├── auth/                      # 认证领域子包
 │   ├── client/
 │   ├── jwks/
+│   ├── loginidentity/
+│   ├── loginv2/
+│   ├── signup/
 │   ├── verifier/
 │   └── serviceauth/
 ├── authz/                     # 授权判定 client
@@ -123,12 +129,18 @@ if err != nil {
 import (
     authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
     authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
+    authloginidentity "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginidentity"
+    authloginv2 "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginv2"
     authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
+    authsignup "github.com/FangcunMount/iam/v2/pkg/sdk/auth/signup"
     authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
 )
 
 _ = authclient.NewClient
 _ = authjwks.NewJWKSManager
+_ = authloginidentity.NewClient
+_ = authloginv2.NewClient
+_ = authsignup.NewClient
 _ = authverifier.NewTokenVerifier
 _ = authserviceauth.NewServiceAuthHelper
 ```
