@@ -573,11 +573,12 @@ AuthN 路由在 `authnRoutesAvailable(deps.authn)` 为 true 时注册。
 | 路由组 | 条件 | 说明 |
 | --- | --- | --- |
 | `/api/v2/authn/login` | `AuthHandler` 存在 | 登录 |
-| `/api/v2/authn/login/prep/phone-otp` | `AuthHandler` 存在 | 登录预准备 |
+| `/api/v2/authn/challenges/phone-otp` | `AuthHandler` 存在 | 手机登录挑战 |
 | `/api/v2/authn/refresh_token` | `AuthHandler` 存在 | 刷新 token |
 | `/api/v2/authn/logout` | `AuthHandler` 存在 | 登出 |
 | `/api/v2/authn/verify` | `AuthHandler` 存在 | 在线 verify |
-| `/api/v2/authn/signups/wechat-miniprogram` | `AccountHandler` 存在 | 微信小程序 signup |
+| `/api/v2/authn/signups/wechat-miniprogram` | `OnboardingHandler` 存在 | 微信小程序 signup |
+| `/api/v2/authn/login-identities/*` | `LoginIdentityHandler` 存在 | 登录身份绑定/解绑 |
 | `/.well-known/jwks.json` | `JWKSHandler` 存在 | public JWKS |
 | `/api/v2/.well-known/jwks.json` | `JWKSHandler` 存在 | public JWKS |
 | `/api/v2/authn/admin/jwks/*` | `JWKSHandler` + admin middlewares | JWKS 管理 |

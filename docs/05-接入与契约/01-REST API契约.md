@@ -392,13 +392,13 @@ expires_in
 refresh_token
 ```
 
-### 5.2 登录预准备
+### 5.2 登录挑战
 
 ```http
-POST /api/v2/authn/login/prep/phone-otp
+POST /api/v2/authn/challenges/phone-otp
 ```
 
-用于发送手机 OTP。  
+用于发送手机 OTP 登录验证码。
 它不是登录成功，只是为 `phone_otp` 登录方式准备验证码。
 
 ### 5.3 Token 生命周期
