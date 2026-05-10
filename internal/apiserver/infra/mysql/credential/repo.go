@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
@@ -90,18 +91,23 @@ func (r *Repository) GetByLoginIdentityIDAndType(ctx context.Context, loginIdent
 	return r.mapper.ToDO(&po), nil
 }
 
-func (r *Repository) FindPasswordCredentialByLoginIdentity(ctx context.Context, loginIdentityID meta.ID) (credentialID meta.ID, passwordHash string, err error) {
+func (r *Repository) FindPasswordCredentialByLoginIdentity(ctx context.Context, loginIdentityID meta.ID) (*authentication.PasswordCredentialLookup, error) {
 	var po V2PO
 	if err := r.WithContext(ctx).
-		Select("id", "material").
-		Where("login_identity_id = ? AND type = ?", loginIdentityID, string(domain.CredPassword)).
+		Select("id", "material", "status", "locked_until").
+		Where("login_identity_id = ? AND type = ?", loginIdentityID.Uint64(), string(domain.CredPassword)).
 		First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return meta.ZeroID, "", nil
+			return nil, nil
 		}
-		return meta.ZeroID, "", fmt.Errorf("failed to find password credential: %w", err)
+		return nil, fmt.Errorf("failed to find password credential: %w", err)
 	}
-	return po.ID, string(po.Material), nil
+	return &authentication.PasswordCredentialLookup{
+		CredentialID: po.ID,
+		PasswordHash: string(po.Material),
+		Status:       statusFromString(po.Status),
+		LockedUntil:  po.LockedUntil,
+	}, nil
 }
 
 func credentialNotFoundError() error {

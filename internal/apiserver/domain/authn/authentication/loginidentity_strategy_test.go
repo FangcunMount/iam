@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -149,6 +151,8 @@ func TestWecomAuthStrategyWithLoginIdentityDoesNotRequireLongTermCredential(t *t
 type credentialMaterial struct {
 	credentialID meta.ID
 	material     string
+	disabled     bool
+	lockedUntil  *time.Time
 }
 
 type loginIdentityCredentialRepoTestDouble struct {
@@ -156,10 +160,25 @@ type loginIdentityCredentialRepoTestDouble struct {
 	findByLoginIdentityCalls int
 }
 
-func (s *loginIdentityCredentialRepoTestDouble) FindPasswordCredentialByLoginIdentity(_ context.Context, loginIdentityID meta.ID) (meta.ID, string, error) {
+func (s *loginIdentityCredentialRepoTestDouble) FindPasswordCredentialByLoginIdentity(_ context.Context, loginIdentityID meta.ID) (*authentication.PasswordCredentialLookup, error) {
 	s.findByLoginIdentityCalls++
 	material := s.passwordByLoginIdentity[loginIdentityID]
-	return material.credentialID, material.material, nil
+	if material.credentialID.IsZero() {
+		return nil, nil
+	}
+	return &authentication.PasswordCredentialLookup{
+		CredentialID: material.credentialID,
+		PasswordHash: material.material,
+		Status:       material.statusOrEnabled(),
+		LockedUntil:  material.lockedUntil,
+	}, nil
+}
+
+func (m credentialMaterial) statusOrEnabled() credDomain.CredentialStatus {
+	if m.disabled {
+		return credDomain.CredStatusDisabled
+	}
+	return credDomain.CredStatusEnabled
 }
 
 type loginIdentityRepoTestDouble struct {

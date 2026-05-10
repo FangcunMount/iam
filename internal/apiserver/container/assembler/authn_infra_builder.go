@@ -33,7 +33,7 @@ type authnInfrastructureComponents struct {
 	redis      *redis.Client
 	unitOfWork authnUow.UnitOfWork
 
-	credentialRepo     authentication.LoginIdentityCredentialRepository
+	credentialRepo     *credentialrepo.Repository
 	loginIdentityRepo  authentication.LoginIdentityRepository
 	loginIdentityStore *loginidentityrepo.Repository
 	challengeRepo      *redisInfra.ChallengeRepository

@@ -7,12 +7,16 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
+	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -46,6 +50,51 @@ func (s *loginServiceStub) Logout(ctx context.Context, req loginApp.LogoutReques
 
 func (s *loginServiceStub) Reauthenticate(context.Context, string) (*loginApp.AuthResult, error) {
 	return nil, nil
+}
+
+type onboardingServiceStub struct{}
+
+func (s onboardingServiceStub) Onboard(context.Context, onboardingApp.OnboardingRequest) (*onboardingApp.OnboardingResult, error) {
+	return &onboardingApp.OnboardingResult{}, nil
+}
+
+type challengeServiceStub struct{}
+
+func (s challengeServiceStub) SendSMSOTP(context.Context, string, string) error {
+	return nil
+}
+func (s challengeServiceStub) CreateSMSOTP(context.Context, string, string, ...challengeApp.SMSOTPOption) (*challengeApp.SMSOTP, error) {
+	return &challengeApp.SMSOTP{}, nil
+}
+func (s challengeServiceStub) VerifyAndConsumeSMSOTP(context.Context, string, string, string) (bool, error) {
+	return true, nil
+}
+func (s challengeServiceStub) VerifyAndConsume(context.Context, string, string, string) bool {
+	return true
+}
+func (s challengeServiceStub) DeleteSMSOTP(context.Context, string, string) error {
+	return nil
+}
+
+type linkingServiceStub struct{}
+
+func (s linkingServiceStub) List(context.Context, meta.ID) ([]linkingApp.LoginIdentityView, error) {
+	return nil, nil
+}
+func (s linkingServiceStub) SendPhoneLinkChallenge(context.Context, meta.ID, string) error {
+	return nil
+}
+func (s linkingServiceStub) LinkPhone(context.Context, linkingApp.LinkPhoneCommand) (*linkingApp.LinkResult, error) {
+	return &linkingApp.LinkResult{}, nil
+}
+func (s linkingServiceStub) LinkWechatMini(context.Context, linkingApp.LinkWechatMiniCommand) (*linkingApp.LinkResult, error) {
+	return &linkingApp.LinkResult{}, nil
+}
+func (s linkingServiceStub) LinkWecom(context.Context, linkingApp.LinkWecomCommand) (*linkingApp.LinkResult, error) {
+	return &linkingApp.LinkResult{}, nil
+}
+func (s linkingServiceStub) Unlink(context.Context, linkingApp.UnlinkCommand) error {
+	return nil
 }
 
 func (s *tokenServiceStub) IssueToken(ctx context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
@@ -92,6 +141,25 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 			time.Now().Add(time.Minute),
 		),
 	}, nil
+}
+
+func TestAuthNGRPCRuntimeRegistersProductionServices(t *testing.T) {
+	server := grpc.NewServer()
+	NewService(
+		&loginServiceStub{},
+		&tokenServiceStub{},
+		onboardingServiceStub{},
+		challengeServiceStub{},
+		linkingServiceStub{},
+		nil,
+	).Register(server)
+
+	info := server.GetServiceInfo()
+	require.Contains(t, info, "iam.authn.v2.AuthService")
+	require.Contains(t, info, "iam.authn.v2.AuthSignupService")
+	require.Contains(t, info, "iam.authn.v2.AuthChallengeService")
+	require.Contains(t, info, "iam.authn.v2.LoginIdentityService")
+	require.NotContains(t, info, "iam.authn.v2.AccountOnboardingService")
 }
 
 func TestAuthServiceServerLoginUsesExplicitV2Contract(t *testing.T) {

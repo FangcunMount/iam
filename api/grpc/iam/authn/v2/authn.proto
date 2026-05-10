@@ -131,6 +131,123 @@ service AuthService {
   rpc IssueServiceToken(IssueServiceTokenRequest) returns (IssueServiceTokenResponse);
 }
 
+// ============= AuthSignupService =============
+
+message SignupCredential {
+  string id = 1;
+  string type = 2;
+}
+
+message SignUpWithWechatMiniProgramRequest {
+  string name = 1;
+  string phone = 2;
+  string email = 3;
+  string app_id = 4;
+  string js_code = 5;
+  string nickname = 6;
+  string avatar = 7;
+  map<string, string> meta = 20;
+}
+
+message SignupResult {
+  string user_id = 1;
+  string user_name = 2;
+  string phone = 3;
+  string email = 4;
+  string login_identity_id = 5;
+  SignupCredential credential = 6;
+  bool is_new_user = 7;
+  bool is_new_identity = 8;
+}
+
+service AuthSignupService {
+  rpc SignUpWithWechatMiniProgram(SignUpWithWechatMiniProgramRequest) returns (SignupResult);
+}
+
+// ============= AuthChallengeService =============
+
+message SendLoginPhoneOTPRequest {
+  string phone = 1;
+}
+
+message MessageResponse {
+  string message = 1;
+}
+
+service AuthChallengeService {
+  rpc SendLoginPhoneOTP(SendLoginPhoneOTPRequest) returns (MessageResponse);
+}
+
+// ============= LoginIdentityService =============
+
+message AuthenticatedUserContext {
+  string user_id = 1;
+  string current_login_identity_id = 2;
+  google.protobuf.Timestamp authenticated_at = 3;
+}
+
+message LoginIdentity {
+  string id = 1;
+  string user_id = 2;
+  string provider = 3;
+  string realm = 4;
+  string identifier = 5;
+  string global_identifier = 6;
+  string status = 7;
+  google.protobuf.Timestamp verified_at = 8;
+  google.protobuf.Timestamp linked_at = 9;
+}
+
+message ListLoginIdentitiesRequest {
+  AuthenticatedUserContext actor = 1;
+}
+
+message ListLoginIdentitiesResponse {
+  repeated LoginIdentity items = 1;
+}
+
+message SendPhoneLinkChallengeRequest {
+  AuthenticatedUserContext actor = 1;
+  string phone = 2;
+}
+
+message LinkPhoneRequest {
+  AuthenticatedUserContext actor = 1;
+  string phone = 2;
+  string otp_code = 3;
+}
+
+message LinkWechatMiniProgramRequest {
+  AuthenticatedUserContext actor = 1;
+  string app_id = 2;
+  string code = 3;
+}
+
+message LinkWecomRequest {
+  AuthenticatedUserContext actor = 1;
+  string corp_id = 2;
+  string code = 3;
+}
+
+message UnlinkLoginIdentityRequest {
+  AuthenticatedUserContext actor = 1;
+  string login_identity_id = 2;
+}
+
+message LinkLoginIdentityResponse {
+  LoginIdentity login_identity = 1;
+  bool reused = 2;
+}
+
+service LoginIdentityService {
+  rpc ListLoginIdentities(ListLoginIdentitiesRequest) returns (ListLoginIdentitiesResponse);
+  rpc SendPhoneLinkChallenge(SendPhoneLinkChallengeRequest) returns (MessageResponse);
+  rpc LinkPhone(LinkPhoneRequest) returns (LinkLoginIdentityResponse);
+  rpc LinkWechatMiniProgram(LinkWechatMiniProgramRequest) returns (LinkLoginIdentityResponse);
+  rpc LinkWecom(LinkWecomRequest) returns (LinkLoginIdentityResponse);
+  rpc UnlinkLoginIdentity(UnlinkLoginIdentityRequest) returns (MessageResponse);
+}
+
 // ============= JWKSService =============
 
 message GetJWKSRequest {}

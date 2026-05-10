@@ -2,7 +2,9 @@ package authentication
 
 import (
 	"context"
+	"time"
 
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -13,7 +15,15 @@ import (
 // LoginIdentityCredentialRepository 凭据仓储（查询认证凭据）
 // 职责：提供 LoginIdentity 绑定的长期认证材料查询能力
 type LoginIdentityCredentialRepository interface {
-	FindPasswordCredentialByLoginIdentity(ctx context.Context, loginIdentityID meta.ID) (credentialID meta.ID, passwordHash string, err error)
+	FindPasswordCredentialByLoginIdentity(ctx context.Context, loginIdentityID meta.ID) (*PasswordCredentialLookup, error)
+}
+
+// PasswordCredentialLookup 是密码认证所需的长期 Credential 读模型。
+type PasswordCredentialLookup struct {
+	CredentialID meta.ID
+	PasswordHash string
+	Status       credDomain.CredentialStatus
+	LockedUntil  *time.Time
 }
 
 // LoginIdentityLookup is the authentication read model for LoginIdentity.

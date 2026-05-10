@@ -311,6 +311,502 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	AuthSignupService_SignUpWithWechatMiniProgram_FullMethodName = "/iam.authn.v2.AuthSignupService/SignUpWithWechatMiniProgram"
+)
+
+// AuthSignupServiceClient is the client API for AuthSignupService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthSignupServiceClient interface {
+	SignUpWithWechatMiniProgram(ctx context.Context, in *SignUpWithWechatMiniProgramRequest, opts ...grpc.CallOption) (*SignupResult, error)
+}
+
+type authSignupServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthSignupServiceClient(cc grpc.ClientConnInterface) AuthSignupServiceClient {
+	return &authSignupServiceClient{cc}
+}
+
+func (c *authSignupServiceClient) SignUpWithWechatMiniProgram(ctx context.Context, in *SignUpWithWechatMiniProgramRequest, opts ...grpc.CallOption) (*SignupResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SignupResult)
+	err := c.cc.Invoke(ctx, AuthSignupService_SignUpWithWechatMiniProgram_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthSignupServiceServer is the server API for AuthSignupService service.
+// All implementations must embed UnimplementedAuthSignupServiceServer
+// for forward compatibility.
+type AuthSignupServiceServer interface {
+	SignUpWithWechatMiniProgram(context.Context, *SignUpWithWechatMiniProgramRequest) (*SignupResult, error)
+	mustEmbedUnimplementedAuthSignupServiceServer()
+}
+
+// UnimplementedAuthSignupServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthSignupServiceServer struct{}
+
+func (UnimplementedAuthSignupServiceServer) SignUpWithWechatMiniProgram(context.Context, *SignUpWithWechatMiniProgramRequest) (*SignupResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method SignUpWithWechatMiniProgram not implemented")
+}
+func (UnimplementedAuthSignupServiceServer) mustEmbedUnimplementedAuthSignupServiceServer() {}
+func (UnimplementedAuthSignupServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeAuthSignupServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthSignupServiceServer will
+// result in compilation errors.
+type UnsafeAuthSignupServiceServer interface {
+	mustEmbedUnimplementedAuthSignupServiceServer()
+}
+
+func RegisterAuthSignupServiceServer(s grpc.ServiceRegistrar, srv AuthSignupServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthSignupServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthSignupService_ServiceDesc, srv)
+}
+
+func _AuthSignupService_SignUpWithWechatMiniProgram_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignUpWithWechatMiniProgramRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthSignupServiceServer).SignUpWithWechatMiniProgram(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthSignupService_SignUpWithWechatMiniProgram_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthSignupServiceServer).SignUpWithWechatMiniProgram(ctx, req.(*SignUpWithWechatMiniProgramRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthSignupService_ServiceDesc is the grpc.ServiceDesc for AuthSignupService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthSignupService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.authn.v2.AuthSignupService",
+	HandlerType: (*AuthSignupServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SignUpWithWechatMiniProgram",
+			Handler:    _AuthSignupService_SignUpWithWechatMiniProgram_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/authn/v2/authn.proto",
+}
+
+const (
+	AuthChallengeService_SendLoginPhoneOTP_FullMethodName = "/iam.authn.v2.AuthChallengeService/SendLoginPhoneOTP"
+)
+
+// AuthChallengeServiceClient is the client API for AuthChallengeService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthChallengeServiceClient interface {
+	SendLoginPhoneOTP(ctx context.Context, in *SendLoginPhoneOTPRequest, opts ...grpc.CallOption) (*MessageResponse, error)
+}
+
+type authChallengeServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthChallengeServiceClient(cc grpc.ClientConnInterface) AuthChallengeServiceClient {
+	return &authChallengeServiceClient{cc}
+}
+
+func (c *authChallengeServiceClient) SendLoginPhoneOTP(ctx context.Context, in *SendLoginPhoneOTPRequest, opts ...grpc.CallOption) (*MessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MessageResponse)
+	err := c.cc.Invoke(ctx, AuthChallengeService_SendLoginPhoneOTP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthChallengeServiceServer is the server API for AuthChallengeService service.
+// All implementations must embed UnimplementedAuthChallengeServiceServer
+// for forward compatibility.
+type AuthChallengeServiceServer interface {
+	SendLoginPhoneOTP(context.Context, *SendLoginPhoneOTPRequest) (*MessageResponse, error)
+	mustEmbedUnimplementedAuthChallengeServiceServer()
+}
+
+// UnimplementedAuthChallengeServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthChallengeServiceServer struct{}
+
+func (UnimplementedAuthChallengeServiceServer) SendLoginPhoneOTP(context.Context, *SendLoginPhoneOTPRequest) (*MessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendLoginPhoneOTP not implemented")
+}
+func (UnimplementedAuthChallengeServiceServer) mustEmbedUnimplementedAuthChallengeServiceServer() {}
+func (UnimplementedAuthChallengeServiceServer) testEmbeddedByValue()                              {}
+
+// UnsafeAuthChallengeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthChallengeServiceServer will
+// result in compilation errors.
+type UnsafeAuthChallengeServiceServer interface {
+	mustEmbedUnimplementedAuthChallengeServiceServer()
+}
+
+func RegisterAuthChallengeServiceServer(s grpc.ServiceRegistrar, srv AuthChallengeServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthChallengeServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthChallengeService_ServiceDesc, srv)
+}
+
+func _AuthChallengeService_SendLoginPhoneOTP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendLoginPhoneOTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthChallengeServiceServer).SendLoginPhoneOTP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthChallengeService_SendLoginPhoneOTP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthChallengeServiceServer).SendLoginPhoneOTP(ctx, req.(*SendLoginPhoneOTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthChallengeService_ServiceDesc is the grpc.ServiceDesc for AuthChallengeService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthChallengeService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.authn.v2.AuthChallengeService",
+	HandlerType: (*AuthChallengeServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SendLoginPhoneOTP",
+			Handler:    _AuthChallengeService_SendLoginPhoneOTP_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/authn/v2/authn.proto",
+}
+
+const (
+	LoginIdentityService_ListLoginIdentities_FullMethodName    = "/iam.authn.v2.LoginIdentityService/ListLoginIdentities"
+	LoginIdentityService_SendPhoneLinkChallenge_FullMethodName = "/iam.authn.v2.LoginIdentityService/SendPhoneLinkChallenge"
+	LoginIdentityService_LinkPhone_FullMethodName              = "/iam.authn.v2.LoginIdentityService/LinkPhone"
+	LoginIdentityService_LinkWechatMiniProgram_FullMethodName  = "/iam.authn.v2.LoginIdentityService/LinkWechatMiniProgram"
+	LoginIdentityService_LinkWecom_FullMethodName              = "/iam.authn.v2.LoginIdentityService/LinkWecom"
+	LoginIdentityService_UnlinkLoginIdentity_FullMethodName    = "/iam.authn.v2.LoginIdentityService/UnlinkLoginIdentity"
+)
+
+// LoginIdentityServiceClient is the client API for LoginIdentityService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LoginIdentityServiceClient interface {
+	ListLoginIdentities(ctx context.Context, in *ListLoginIdentitiesRequest, opts ...grpc.CallOption) (*ListLoginIdentitiesResponse, error)
+	SendPhoneLinkChallenge(ctx context.Context, in *SendPhoneLinkChallengeRequest, opts ...grpc.CallOption) (*MessageResponse, error)
+	LinkPhone(ctx context.Context, in *LinkPhoneRequest, opts ...grpc.CallOption) (*LinkLoginIdentityResponse, error)
+	LinkWechatMiniProgram(ctx context.Context, in *LinkWechatMiniProgramRequest, opts ...grpc.CallOption) (*LinkLoginIdentityResponse, error)
+	LinkWecom(ctx context.Context, in *LinkWecomRequest, opts ...grpc.CallOption) (*LinkLoginIdentityResponse, error)
+	UnlinkLoginIdentity(ctx context.Context, in *UnlinkLoginIdentityRequest, opts ...grpc.CallOption) (*MessageResponse, error)
+}
+
+type loginIdentityServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLoginIdentityServiceClient(cc grpc.ClientConnInterface) LoginIdentityServiceClient {
+	return &loginIdentityServiceClient{cc}
+}
+
+func (c *loginIdentityServiceClient) ListLoginIdentities(ctx context.Context, in *ListLoginIdentitiesRequest, opts ...grpc.CallOption) (*ListLoginIdentitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLoginIdentitiesResponse)
+	err := c.cc.Invoke(ctx, LoginIdentityService_ListLoginIdentities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *loginIdentityServiceClient) SendPhoneLinkChallenge(ctx context.Context, in *SendPhoneLinkChallengeRequest, opts ...grpc.CallOption) (*MessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MessageResponse)
+	err := c.cc.Invoke(ctx, LoginIdentityService_SendPhoneLinkChallenge_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *loginIdentityServiceClient) LinkPhone(ctx context.Context, in *LinkPhoneRequest, opts ...grpc.CallOption) (*LinkLoginIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkLoginIdentityResponse)
+	err := c.cc.Invoke(ctx, LoginIdentityService_LinkPhone_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *loginIdentityServiceClient) LinkWechatMiniProgram(ctx context.Context, in *LinkWechatMiniProgramRequest, opts ...grpc.CallOption) (*LinkLoginIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkLoginIdentityResponse)
+	err := c.cc.Invoke(ctx, LoginIdentityService_LinkWechatMiniProgram_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *loginIdentityServiceClient) LinkWecom(ctx context.Context, in *LinkWecomRequest, opts ...grpc.CallOption) (*LinkLoginIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkLoginIdentityResponse)
+	err := c.cc.Invoke(ctx, LoginIdentityService_LinkWecom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *loginIdentityServiceClient) UnlinkLoginIdentity(ctx context.Context, in *UnlinkLoginIdentityRequest, opts ...grpc.CallOption) (*MessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MessageResponse)
+	err := c.cc.Invoke(ctx, LoginIdentityService_UnlinkLoginIdentity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LoginIdentityServiceServer is the server API for LoginIdentityService service.
+// All implementations must embed UnimplementedLoginIdentityServiceServer
+// for forward compatibility.
+type LoginIdentityServiceServer interface {
+	ListLoginIdentities(context.Context, *ListLoginIdentitiesRequest) (*ListLoginIdentitiesResponse, error)
+	SendPhoneLinkChallenge(context.Context, *SendPhoneLinkChallengeRequest) (*MessageResponse, error)
+	LinkPhone(context.Context, *LinkPhoneRequest) (*LinkLoginIdentityResponse, error)
+	LinkWechatMiniProgram(context.Context, *LinkWechatMiniProgramRequest) (*LinkLoginIdentityResponse, error)
+	LinkWecom(context.Context, *LinkWecomRequest) (*LinkLoginIdentityResponse, error)
+	UnlinkLoginIdentity(context.Context, *UnlinkLoginIdentityRequest) (*MessageResponse, error)
+	mustEmbedUnimplementedLoginIdentityServiceServer()
+}
+
+// UnimplementedLoginIdentityServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedLoginIdentityServiceServer struct{}
+
+func (UnimplementedLoginIdentityServiceServer) ListLoginIdentities(context.Context, *ListLoginIdentitiesRequest) (*ListLoginIdentitiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLoginIdentities not implemented")
+}
+func (UnimplementedLoginIdentityServiceServer) SendPhoneLinkChallenge(context.Context, *SendPhoneLinkChallengeRequest) (*MessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendPhoneLinkChallenge not implemented")
+}
+func (UnimplementedLoginIdentityServiceServer) LinkPhone(context.Context, *LinkPhoneRequest) (*LinkLoginIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LinkPhone not implemented")
+}
+func (UnimplementedLoginIdentityServiceServer) LinkWechatMiniProgram(context.Context, *LinkWechatMiniProgramRequest) (*LinkLoginIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LinkWechatMiniProgram not implemented")
+}
+func (UnimplementedLoginIdentityServiceServer) LinkWecom(context.Context, *LinkWecomRequest) (*LinkLoginIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LinkWecom not implemented")
+}
+func (UnimplementedLoginIdentityServiceServer) UnlinkLoginIdentity(context.Context, *UnlinkLoginIdentityRequest) (*MessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnlinkLoginIdentity not implemented")
+}
+func (UnimplementedLoginIdentityServiceServer) mustEmbedUnimplementedLoginIdentityServiceServer() {}
+func (UnimplementedLoginIdentityServiceServer) testEmbeddedByValue()                              {}
+
+// UnsafeLoginIdentityServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LoginIdentityServiceServer will
+// result in compilation errors.
+type UnsafeLoginIdentityServiceServer interface {
+	mustEmbedUnimplementedLoginIdentityServiceServer()
+}
+
+func RegisterLoginIdentityServiceServer(s grpc.ServiceRegistrar, srv LoginIdentityServiceServer) {
+	// If the following call panics, it indicates UnimplementedLoginIdentityServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&LoginIdentityService_ServiceDesc, srv)
+}
+
+func _LoginIdentityService_ListLoginIdentities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLoginIdentitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoginIdentityServiceServer).ListLoginIdentities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoginIdentityService_ListLoginIdentities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoginIdentityServiceServer).ListLoginIdentities(ctx, req.(*ListLoginIdentitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LoginIdentityService_SendPhoneLinkChallenge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendPhoneLinkChallengeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoginIdentityServiceServer).SendPhoneLinkChallenge(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoginIdentityService_SendPhoneLinkChallenge_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoginIdentityServiceServer).SendPhoneLinkChallenge(ctx, req.(*SendPhoneLinkChallengeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LoginIdentityService_LinkPhone_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkPhoneRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoginIdentityServiceServer).LinkPhone(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoginIdentityService_LinkPhone_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoginIdentityServiceServer).LinkPhone(ctx, req.(*LinkPhoneRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LoginIdentityService_LinkWechatMiniProgram_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkWechatMiniProgramRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoginIdentityServiceServer).LinkWechatMiniProgram(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoginIdentityService_LinkWechatMiniProgram_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoginIdentityServiceServer).LinkWechatMiniProgram(ctx, req.(*LinkWechatMiniProgramRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LoginIdentityService_LinkWecom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkWecomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoginIdentityServiceServer).LinkWecom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoginIdentityService_LinkWecom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoginIdentityServiceServer).LinkWecom(ctx, req.(*LinkWecomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LoginIdentityService_UnlinkLoginIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlinkLoginIdentityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoginIdentityServiceServer).UnlinkLoginIdentity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoginIdentityService_UnlinkLoginIdentity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoginIdentityServiceServer).UnlinkLoginIdentity(ctx, req.(*UnlinkLoginIdentityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LoginIdentityService_ServiceDesc is the grpc.ServiceDesc for LoginIdentityService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LoginIdentityService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "iam.authn.v2.LoginIdentityService",
+	HandlerType: (*LoginIdentityServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListLoginIdentities",
+			Handler:    _LoginIdentityService_ListLoginIdentities_Handler,
+		},
+		{
+			MethodName: "SendPhoneLinkChallenge",
+			Handler:    _LoginIdentityService_SendPhoneLinkChallenge_Handler,
+		},
+		{
+			MethodName: "LinkPhone",
+			Handler:    _LoginIdentityService_LinkPhone_Handler,
+		},
+		{
+			MethodName: "LinkWechatMiniProgram",
+			Handler:    _LoginIdentityService_LinkWechatMiniProgram_Handler,
+		},
+		{
+			MethodName: "LinkWecom",
+			Handler:    _LoginIdentityService_LinkWecom_Handler,
+		},
+		{
+			MethodName: "UnlinkLoginIdentity",
+			Handler:    _LoginIdentityService_UnlinkLoginIdentity_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "iam/authn/v2/authn.proto",
+}
+
+const (
 	JWKSService_GetJWKS_FullMethodName = "/iam.authn.v2.JWKSService/GetJWKS"
 )
 

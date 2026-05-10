@@ -111,11 +111,114 @@ func TestUnlinkMarksIdentityDeletedWhenAnotherActiveIdentityRemains(t *testing.T
 		Identifier: "zhangsan",
 		Status:     loginidentity.StatusActive,
 	})
-	service := NewService(Dependencies{LoginIdentities: repo})
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	authenticatedAt := now.Add(-time.Minute)
+	service := NewService(Dependencies{
+		LoginIdentities:  repo,
+		Now:              func() time.Time { return now },
+		RecentAuthWindow: 10 * time.Minute,
+	})
 
 	err := service.Unlink(context.Background(), UnlinkCommand{
 		UserID:          meta.FromUint64(100),
 		LoginIdentityID: meta.FromUint64(1),
+		AuthenticatedAt: &authenticatedAt,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, loginidentity.StatusDeleted, repo.byID[meta.FromUint64(1)].Status)
+}
+
+func TestUnlinkSensitiveIdentityRequiresRecentAuthentication(t *testing.T) {
+	t.Parallel()
+
+	repo := newLinkingIdentityRepoStub()
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(1),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderUsername,
+		Realm:      loginidentity.RealmDefault,
+		Identifier: "zhangsan",
+		Status:     loginidentity.StatusActive,
+	})
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(2),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderWechatMinip,
+		Realm:      "wx-app",
+		Identifier: "openid",
+		Status:     loginidentity.StatusActive,
+	})
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	service := NewService(Dependencies{
+		LoginIdentities:  repo,
+		Now:              func() time.Time { return now },
+		RecentAuthWindow: 10 * time.Minute,
+	})
+
+	err := service.Unlink(context.Background(), UnlinkCommand{
+		UserID:          meta.FromUint64(100),
+		LoginIdentityID: meta.FromUint64(1),
+	})
+
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
+	require.Equal(t, loginidentity.StatusActive, repo.byID[meta.FromUint64(1)].Status)
+}
+
+func TestUnlinkCurrentSessionIdentityRequiresRecentAuthentication(t *testing.T) {
+	t.Parallel()
+
+	repo := newLinkingIdentityRepoStub()
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(1),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderWechatMinip,
+		Realm:      "wx-app",
+		Identifier: "openid",
+		Status:     loginidentity.StatusActive,
+	})
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(2),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderWecom,
+		Realm:      "corp",
+		Identifier: "userid",
+		Status:     loginidentity.StatusActive,
+	})
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	service := NewService(Dependencies{
+		LoginIdentities:  repo,
+		Now:              func() time.Time { return now },
+		RecentAuthWindow: 10 * time.Minute,
+	})
+
+	err := service.Unlink(context.Background(), UnlinkCommand{
+		UserID:                 meta.FromUint64(100),
+		LoginIdentityID:        meta.FromUint64(1),
+		CurrentLoginIdentityID: meta.FromUint64(1),
+	})
+
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
+
+	oldAuthTime := now.Add(-time.Hour)
+	err = service.Unlink(context.Background(), UnlinkCommand{
+		UserID:                 meta.FromUint64(100),
+		LoginIdentityID:        meta.FromUint64(1),
+		CurrentLoginIdentityID: meta.FromUint64(1),
+		AuthenticatedAt:        &oldAuthTime,
+	})
+
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
+
+	recentAuthTime := now.Add(-time.Minute)
+	err = service.Unlink(context.Background(), UnlinkCommand{
+		UserID:                 meta.FromUint64(100),
+		LoginIdentityID:        meta.FromUint64(1),
+		CurrentLoginIdentityID: meta.FromUint64(1),
+		AuthenticatedAt:        &recentAuthTime,
 	})
 
 	require.NoError(t, err)

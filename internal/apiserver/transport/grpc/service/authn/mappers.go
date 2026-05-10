@@ -2,10 +2,14 @@ package authn
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
+	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -88,6 +92,108 @@ func parseOptionalMetaID(text string) (meta.ID, error) {
 	return meta.ParseID(text)
 }
 
+func parseRequiredMetaID(text, field string) (meta.ID, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return meta.ZeroID, fmt.Errorf("%s is required", field)
+	}
+	id, err := meta.ParseID(text)
+	if err != nil {
+		return meta.ZeroID, fmt.Errorf("invalid %s: %w", field, err)
+	}
+	if id.IsZero() {
+		return meta.ZeroID, fmt.Errorf("%s is required", field)
+	}
+	return id, nil
+}
+
+func parseAuthenticatedUserContext(actor *authnv2.AuthenticatedUserContext) (meta.ID, meta.ID, *time.Time, error) {
+	if actor == nil {
+		return meta.ZeroID, meta.ZeroID, nil, fmt.Errorf("actor is required")
+	}
+	userID, err := parseRequiredMetaID(actor.GetUserId(), "actor.user_id")
+	if err != nil {
+		return meta.ZeroID, meta.ZeroID, nil, err
+	}
+	currentID, err := parseOptionalMetaID(strings.TrimSpace(actor.GetCurrentLoginIdentityId()))
+	if err != nil {
+		return meta.ZeroID, meta.ZeroID, nil, fmt.Errorf("invalid actor.current_login_identity_id: %w", err)
+	}
+	var authenticatedAt *time.Time
+	if ts := actor.GetAuthenticatedAt(); ts != nil {
+		t := ts.AsTime()
+		authenticatedAt = &t
+	}
+	return userID, currentID, authenticatedAt, nil
+}
+
+func toProtoSignupResult(result *onboardingApp.OnboardingResult) *authnv2.SignupResult {
+	if result == nil {
+		return &authnv2.SignupResult{}
+	}
+	return &authnv2.SignupResult{
+		UserId:          result.UserID.String(),
+		UserName:        result.UserName,
+		Phone:           result.Phone.String(),
+		Email:           result.Email.String(),
+		LoginIdentityId: result.LoginIdentityID.String(),
+		Credential:      toProtoSignupCredential(result.Credential),
+		IsNewUser:       result.IsNewUser,
+		IsNewIdentity:   result.IsNewLoginIdentity,
+	}
+}
+
+func toProtoSignupCredential(credential *onboardingApp.OnboardingCredential) *authnv2.SignupCredential {
+	if credential == nil {
+		return nil
+	}
+	return &authnv2.SignupCredential{
+		Id:   credential.ID.String(),
+		Type: credentialTypeString(credential.Type),
+	}
+}
+
+func toProtoLoginIdentityView(identity linkingApp.LoginIdentityView) *authnv2.LoginIdentity {
+	return &authnv2.LoginIdentity{
+		Id:               identity.ID.String(),
+		UserId:           identity.UserID.String(),
+		Provider:         string(identity.Provider),
+		Realm:            identity.Realm,
+		Identifier:       identity.Identifier,
+		GlobalIdentifier: identity.GlobalIdentifier,
+		Status:           string(identity.Status),
+		VerifiedAt:       optionalTimestamp(identity.VerifiedAt),
+		LinkedAt:         timestamppb.New(identity.LinkedAt),
+	}
+}
+
+func toProtoLinkResult(result *linkingApp.LinkResult) *authnv2.LinkLoginIdentityResponse {
+	if result == nil || result.Identity == nil {
+		return &authnv2.LinkLoginIdentityResponse{}
+	}
+	return &authnv2.LinkLoginIdentityResponse{
+		LoginIdentity: toProtoLoginIdentityView(linkingApp.LoginIdentityView{
+			ID:               result.Identity.ID,
+			UserID:           result.Identity.UserID,
+			Provider:         result.Identity.Provider,
+			Realm:            result.Identity.Realm,
+			Identifier:       result.Identity.Identifier,
+			GlobalIdentifier: result.Identity.GlobalIdentifier,
+			Status:           result.Identity.Status,
+			VerifiedAt:       result.Identity.VerifiedAt,
+			LinkedAt:         result.Identity.LinkedAt,
+		}),
+		Reused: result.Reused,
+	}
+}
+
+func optionalTimestamp(t *time.Time) *timestamppb.Timestamp {
+	if t == nil || t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(*t)
+}
+
 func toGRPCError(err error) error {
 	return iamgrpc.ToStatusError(err)
 }
@@ -121,4 +227,11 @@ func structToStringMap(s map[string]any) map[string]string {
 		out[k] = fmt.Sprint(v)
 	}
 	return out
+}
+
+func credentialTypeString(typ credDomain.CredentialType) string {
+	if typ == "" {
+		return ""
+	}
+	return string(typ)
 }

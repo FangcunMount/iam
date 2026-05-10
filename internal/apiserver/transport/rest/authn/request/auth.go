@@ -41,13 +41,13 @@ type PhoneOTPCredentials struct {
 	OTPCode string `json:"otp_code" binding:"required"` // 验证码
 }
 
-// PreparePhoneOTPLoginRequest 登录预准备：请求发送手机登录短信验证码
-type PreparePhoneOTPLoginRequest struct {
+// SendLoginPhoneOTPRequest 请求发送手机登录短信验证码。
+type SendLoginPhoneOTPRequest struct {
 	Phone string `json:"phone" binding:"required"` // 支持 E.164 或国内手机号，服务端规范为 E.164
 }
 
-// Validate 校验发送登录 OTP 请求
-func (r *PreparePhoneOTPLoginRequest) Validate() error {
+// Validate 校验发送登录 OTP 请求。
+func (r *SendLoginPhoneOTPRequest) Validate() error {
 	if strings.TrimSpace(r.Phone) == "" {
 		return perrors.WithCode(code.ErrInvalidArgument, "phone is required")
 	}

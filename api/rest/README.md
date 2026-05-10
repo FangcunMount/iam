@@ -6,7 +6,7 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 
 | 文件 | 说明 |
 | ---- | ---- |
-| [authn.v2.yaml](authn.v2.yaml) | v2 认证、Token、JWKS、账户和 signup |
+| [authn.v2.yaml](authn.v2.yaml) | v2 认证、Challenge、LoginIdentity、Token、JWKS 和 signup |
 | [authz.v2.yaml](authz.v2.yaml) | 授权判定、角色、assignment、策略、资源 |
 | [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links 查询；Profile/ProfileLink 创建命令走 gRPC |
 | [idp.v2.yaml](idp.v2.yaml) | IDP 健康检查和微信应用配置 |
@@ -17,10 +17,11 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | 能力 | 路由 |
 | ---- | ---- |
 | 登录 | `POST /api/v2/authn/login` |
-| 登录准备 | `POST /api/v2/authn/login/prep/phone-otp` |
+| 登录挑战 | `POST /api/v2/authn/challenges/phone-otp` |
 | Token | `POST /api/v2/authn/refresh_token`、`POST /api/v2/authn/logout`、`POST /api/v2/authn/verify` |
 | JWKS | `GET /.well-known/jwks.json`、`GET /api/v2/.well-known/jwks.json` |
-| 账户 | `/api/v2/authn/accounts/*`、`/api/v2/authn/signups/wechat-miniprogram` |
+| LoginIdentity | `GET /api/v2/authn/login-identities`、`POST /api/v2/authn/login-identities/*`、`DELETE /api/v2/authn/login-identities/{id}` |
+| Signup | `POST /api/v2/authn/signups/wechat-miniprogram` |
 | 授权 | `/api/v2/authz/health`、`/api/v2/authz/check`、`/api/v2/authz/{roles,assignments,policies,resources}` |
 | Identity | `/api/v2/identity/me`、`/api/v2/identity/me/profiles`、`GET /api/v2/identity/profiles/*`、`GET /api/v2/identity/profile-links` |
 | IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` |

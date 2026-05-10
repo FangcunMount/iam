@@ -6,6 +6,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
+	credentialApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/credential"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
@@ -75,10 +76,11 @@ func (m *AuthnModule) initializeApplication(
 	)
 
 	loginService, err := login.NewLoginApplicationService(login.Dependencies{
-		TokenService:    tokenService,
-		Authenticator:   authenticator,
-		MethodRegistry:  method.DefaultSelector(),
-		ReAuthenticator: reauth.NewTokenReAuthenticator(tokenService),
+		TokenService:       tokenService,
+		Authenticator:      authenticator,
+		MethodRegistry:     method.DefaultSelector(),
+		ReAuthenticator:    reauth.NewTokenReAuthenticator(tokenService),
+		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{Credentials: infra.credentialRepo}),
 		ProofFactory: proof.DefaultFactory(
 			infra.wechatAppQuerier,
 			infra.secretVault,

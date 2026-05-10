@@ -3,6 +3,7 @@ package authentication_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
@@ -89,7 +90,34 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	require.Equal(t, code.ErrInvalidCredentials, d5.Code)
 	require.Equal(t, meta.FromUint64(100), d5.CredentialID)
 
-	// 5. success, need rehash -> ShouldRotate true and NewMaterial set
+	// 5. disabled password credential
+	disabledCreds := &loginIdentityCredentialRepoTestDouble{
+		passwordByLoginIdentity: map[meta.ID]credentialMaterial{
+			loginIdentityID: {credentialID: meta.FromUint64(101), material: "irrelevant", disabled: true},
+		},
+	}
+	aDisabled := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), disabledCreds, &hasherStub{pepper: "p"})
+	dDisabled, err := aDisabled.Authenticate(ctx, makeProof("u", "p", tenantID))
+	require.NoError(t, err)
+	require.False(t, dDisabled.OK)
+	require.Equal(t, code.ErrCredentialDisabled, dDisabled.Code)
+	require.Equal(t, meta.FromUint64(101), dDisabled.CredentialID)
+
+	// 6. locked password credential
+	lockedUntil := time.Now().Add(time.Hour)
+	lockedCreds := &loginIdentityCredentialRepoTestDouble{
+		passwordByLoginIdentity: map[meta.ID]credentialMaterial{
+			loginIdentityID: {credentialID: meta.FromUint64(102), material: "irrelevant", lockedUntil: &lockedUntil},
+		},
+	}
+	aLocked := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), lockedCreds, &hasherStub{pepper: "p"})
+	dLocked, err := aLocked.Authenticate(ctx, makeProof("u", "p", tenantID))
+	require.NoError(t, err)
+	require.False(t, dLocked.OK)
+	require.Equal(t, code.ErrCredentialLocked, dLocked.Code)
+	require.Equal(t, meta.FromUint64(102), dLocked.CredentialID)
+
+	// 7. success, need rehash -> ShouldRotate true and NewMaterial set
 	pepper := "pep"
 	pass := "pwd"
 	stored := pass + pepper
@@ -100,14 +128,14 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	require.True(t, d6.ShouldRotate)
 	require.Equal(t, []byte("new-hash"), d6.NewMaterial)
 
-	// 6. success, no rehash
+	// 8. success, no rehash
 	a7 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.FromUint64(200), stored), &hasherStub{pepper: pepper, need: false})
 	d7, err := a7.Authenticate(ctx, makeProof("u", pass, tenantID))
 	require.NoError(t, err)
 	require.True(t, d7.OK)
 	require.False(t, d7.ShouldRotate)
 
-	// 7. mock-consumer maps to username/default and does not require tenant scope.
+	// 9. mock-consumer maps to username/default and does not require tenant scope.
 	mockIdentityID := meta.FromUint64(13)
 	mockRepo := newLoginIdentityRepoTestDouble(&authentication.LoginIdentityLookup{
 		LoginIdentityID: mockIdentityID,

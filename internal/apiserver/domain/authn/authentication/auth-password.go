@@ -3,8 +3,10 @@ package authentication
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -125,7 +127,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		return *statusFailure, nil
 	}
 
-	credentialID, storedHash, found, err := p.findPasswordCredential(ctx, loginIdentityID)
+	passwordRecord, found, err := p.findPasswordCredential(ctx, loginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
@@ -136,8 +138,26 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			LoginIdentityID: loginIdentityID,
 		}, nil
 	}
+	credentialID := passwordRecord.CredentialID
+	if passwordRecord.Status == credDomain.CredStatusDisabled {
+		return AuthDecision{
+			OK:              false,
+			Code:            code.ErrCredentialDisabled,
+			LoginIdentityID: loginIdentityID,
+			CredentialID:    credentialID,
+		}, nil
+	}
+	if passwordRecord.LockedUntil != nil && time.Now().Before(*passwordRecord.LockedUntil) {
+		return AuthDecision{
+			OK:              false,
+			Code:            code.ErrCredentialLocked,
+			LoginIdentityID: loginIdentityID,
+			CredentialID:    credentialID,
+		}, nil
+	}
 
 	plaintextWithPepper := passwordCredential.Password + p.hasher.Pepper()
+	storedHash := passwordRecord.PasswordHash
 	if !p.passwordMatches(storedHash, plaintextWithPepper) {
 		return AuthDecision{
 			OK:              false,
@@ -192,15 +212,15 @@ func resolvePasswordPrincipalTenantFromIdentity(requestTenantID meta.ID, lookup 
 	return requestTenantID, true
 }
 
-func (p *PasswordAuthStrategy) findPasswordCredential(ctx context.Context, loginIdentityID meta.ID) (meta.ID, string, bool, error) {
-	credentialID, storedHash, err := p.credRepo.FindPasswordCredentialByLoginIdentity(ctx, loginIdentityID)
+func (p *PasswordAuthStrategy) findPasswordCredential(ctx context.Context, loginIdentityID meta.ID) (*PasswordCredentialLookup, bool, error) {
+	record, err := p.credRepo.FindPasswordCredentialByLoginIdentity(ctx, loginIdentityID)
 	if err != nil {
-		return meta.ZeroID, "", false, fmt.Errorf("failed to find password credential by login identity: %w", err)
+		return nil, false, fmt.Errorf("failed to find password credential by login identity: %w", err)
 	}
-	if credentialID.IsZero() {
-		return meta.ZeroID, "", false, nil
+	if record == nil || record.CredentialID.IsZero() {
+		return nil, false, nil
 	}
-	return credentialID, storedHash, true, nil
+	return record, true, nil
 }
 
 // 验证密码是否匹配

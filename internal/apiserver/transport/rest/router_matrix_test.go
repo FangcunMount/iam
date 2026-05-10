@@ -32,7 +32,7 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodGet, "/health"},
 		{http.MethodGet, "/.well-known/jwks.json"},
 		{http.MethodPost, "/api/v2/authn/login"},
-		{http.MethodPost, "/api/v2/authn/login/prep/phone-otp"},
+		{http.MethodPost, "/api/v2/authn/challenges/phone-otp"},
 		{http.MethodGet, "/api/v2/authn/login-identities"},
 		{http.MethodPost, "/api/v2/authn/login-identities/phone/challenge"},
 		{http.MethodPost, "/api/v2/authn/login-identities/phone"},
@@ -56,6 +56,7 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 	} {
 		assertRoutePresent(t, routes, route.method, route.path)
 	}
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/authn/login/prep/phone-otp")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profiles")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")

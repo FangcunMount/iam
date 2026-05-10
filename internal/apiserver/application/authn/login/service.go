@@ -4,6 +4,7 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	credentialapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/credential"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -36,9 +37,10 @@ type Dependencies struct {
 
 	Authenticator *authentication.Authenticator
 
-	MethodRegistry  MethodRegistry
-	ProofFactory    ProofFactory
-	ReAuthenticator ReAuthenticator
+	MethodRegistry     MethodRegistry
+	ProofFactory       ProofFactory
+	ReAuthenticator    ReAuthenticator
+	CredentialRecorder credentialapp.Recorder
 }
 
 // service 是 LoginApplicationService 的默认实现。
@@ -75,6 +77,7 @@ func NewLoginApplicationService(deps Dependencies) (LoginApplicationService, err
 			methodRegistry:      deps.MethodRegistry,
 			proofFactory:        deps.ProofFactory,
 			domainAuthenticator: deps.Authenticator,
+			credentialRecorder:  deps.CredentialRecorder,
 		},
 		reauthenticate: &Reauthenticate{
 			reAuthenticator: deps.ReAuthenticator,

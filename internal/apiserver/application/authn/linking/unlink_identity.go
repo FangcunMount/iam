@@ -2,6 +2,7 @@ package linking
 
 import (
 	"context"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
@@ -11,8 +12,10 @@ import (
 
 // UnlinkCommand 是解绑登录身份命令。
 type UnlinkCommand struct {
-	UserID          meta.ID
-	LoginIdentityID meta.ID
+	UserID                 meta.ID
+	LoginIdentityID        meta.ID
+	CurrentLoginIdentityID meta.ID
+	AuthenticatedAt        *time.Time
 }
 
 // Unlink 解绑登录身份；最后一个 active 登录身份不允许解绑。
@@ -39,7 +42,37 @@ func (s *service) Unlink(ctx context.Context, cmd UnlinkCommand) error {
 			return perrors.WithCode(code.ErrInvalidArgument, "cannot unlink the last active login identity")
 		}
 	}
+	if s.requiresRecentAuthentication(identity, cmd) && !s.hasRecentAuthentication(cmd.AuthenticatedAt) {
+		return perrors.WithCode(code.ErrReauthenticationRequired, "recent authentication required")
+	}
 	return s.repo().UpdateStatus(ctx, identity.ID, loginidentity.StatusDeleted)
+}
+
+func (s *service) requiresRecentAuthentication(identity *loginidentity.LoginIdentity, cmd UnlinkCommand) bool {
+	if identity == nil {
+		return false
+	}
+	if !cmd.CurrentLoginIdentityID.IsZero() && identity.ID == cmd.CurrentLoginIdentityID {
+		return true
+	}
+	switch identity.Provider {
+	case loginidentity.ProviderUsername, loginidentity.ProviderPhone:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *service) hasRecentAuthentication(authenticatedAt *time.Time) bool {
+	if authenticatedAt == nil || authenticatedAt.IsZero() {
+		return false
+	}
+	now := s.now().UTC()
+	authAt := authenticatedAt.UTC()
+	if authAt.After(now.Add(time.Minute)) {
+		return false
+	}
+	return now.Sub(authAt) <= s.recentAuthWindow()
 }
 
 func countActive(identities []*loginidentity.LoginIdentity) int {

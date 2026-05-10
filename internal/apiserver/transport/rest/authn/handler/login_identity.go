@@ -2,10 +2,12 @@ package handler
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -209,13 +211,40 @@ func (h *LoginIdentityHandler) Unlink(c *gin.Context) {
 		return
 	}
 	if err := h.linking.Unlink(c.Request.Context(), linkingapp.UnlinkCommand{
-		UserID:          userID,
-		LoginIdentityID: id,
+		UserID:                 userID,
+		LoginIdentityID:        id,
+		CurrentLoginIdentityID: currentLoginIdentityID(c),
+		AuthenticatedAt:        currentAuthenticatedAt(c),
 	}); err != nil {
 		h.Error(c, err)
 		return
 	}
 	h.Success(c, resp.MessageResponse{Message: "login identity unlinked"})
+}
+
+func currentLoginIdentityID(c *gin.Context) meta.ID {
+	id, _ := requestctx.LoginIdentityID(c)
+	return id
+}
+
+func currentAuthenticatedAt(c *gin.Context) *time.Time {
+	raw, ok := requestctx.Claims(c)
+	if !ok {
+		return nil
+	}
+	claims, ok := raw.(*tokenapp.TokenClaims)
+	if !ok || claims == nil || len(claims.Attributes) == 0 {
+		return nil
+	}
+	authTime := strings.TrimSpace(claims.Attributes["auth_time"])
+	if authTime == "" {
+		return nil
+	}
+	parsed, err := time.Parse(time.RFC3339, authTime)
+	if err != nil {
+		return nil
+	}
+	return &parsed
 }
 
 func loginIdentityViewToResponse(identity linkingapp.LoginIdentityView) resp.LoginIdentityResponse {

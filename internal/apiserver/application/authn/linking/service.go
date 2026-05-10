@@ -32,13 +32,14 @@ type Service interface {
 
 // Dependencies 是登录身份绑定应用服务依赖。
 type Dependencies struct {
-	LoginIdentities loginidentity.Repository
-	Challenge       challengeapp.Service
-	IDP             authentication.IdentityProvider
-	WechatApps      idpPort.Repository
-	SecretVault     idpPort.SecretVault
-	WecomAgentID    string
-	Now             func() time.Time
+	LoginIdentities  loginidentity.Repository
+	Challenge        challengeapp.Service
+	IDP              authentication.IdentityProvider
+	WechatApps       idpPort.Repository
+	SecretVault      idpPort.SecretVault
+	WecomAgentID     string
+	RecentAuthWindow time.Duration
+	Now              func() time.Time
 }
 
 // LinkResult 是绑定登录身份后的结果。
@@ -134,6 +135,13 @@ func (s *service) now() time.Time {
 		return s.deps.Now()
 	}
 	return time.Now()
+}
+
+func (s *service) recentAuthWindow() time.Duration {
+	if s.deps.RecentAuthWindow > 0 {
+		return s.deps.RecentAuthWindow
+	}
+	return 10 * time.Minute
 }
 
 func requireUserID(userID meta.ID) error {

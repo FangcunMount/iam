@@ -530,6 +530,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/authn/challenges/phone-otp": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "发送登录短信验证码",
+                "parameters": [
+                    {
+                        "description": "手机号",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SendLoginPhoneOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已受理",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/authn/login": {
             "post": {
                 "description": "使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wecom。",
@@ -780,39 +813,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "已解绑",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/authn/login/prep/phone-otp": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "登录预准备-发送手机验证码",
-                "parameters": [
-                    {
-                        "description": "手机号",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.PreparePhoneOTPLoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "已受理",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse"
                         }
@@ -3048,18 +3048,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.PreparePhoneOTPLoginRequest": {
-            "type": "object",
-            "required": [
-                "phone"
-            ],
-            "properties": {
-                "phone": {
-                    "description": "支持 E.164 或国内手机号，服务端规范为 E.164",
-                    "type": "string"
-                }
-            }
-        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.RefreshTokenRequest": {
             "type": "object",
             "required": [
@@ -3067,6 +3055,18 @@ const docTemplate = `{
             ],
             "properties": {
                 "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SendLoginPhoneOTPRequest": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "description": "支持 E.164 或国内手机号，服务端规范为 E.164",
                     "type": "string"
                 }
             }

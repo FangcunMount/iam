@@ -57,6 +57,9 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 	if sess == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "session is required")
 	}
+	now := time.Now().UTC()
+	claims := cloneAnyMap(principal.Claims)
+	ensureAuthTime(claims, now)
 
 	// 创建主体与会话信息
 	principalWithSession := &Principal{
@@ -67,7 +70,7 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 		AuthMethod:      principal.AuthMethod,
 		Realm:           principal.Realm,
 		AMR:             append([]string(nil), principal.AMR...),
-		Claims:          cloneAnyMap(principal.Claims),
+		Claims:          claims,
 	}
 
 	// 颁发访问令牌
@@ -86,7 +89,7 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 		principal.LoginIdentityID,
 		principal.TenantID,
 		principal.AMR,
-		s.claimMapper.Encode(principal.Claims),
+		s.claimMapper.Encode(claims),
 		s.refreshTTL,
 	)
 	refreshToken.AuthMethod = principal.AuthMethod
@@ -101,10 +104,23 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 	return NewTokenPair(accessToken, refreshToken), nil
 }
 
-func cloneAnyMap(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
+func ensureAuthTime(claims map[string]any, now time.Time) {
+	if claims == nil {
+		return
 	}
+	if value, ok := claims["auth_time"]; ok && value != nil {
+		if text, ok := value.(string); ok && text != "" {
+			return
+		}
+		if t, ok := value.(time.Time); ok && !t.IsZero() {
+			claims["auth_time"] = t.UTC().Format(time.RFC3339)
+			return
+		}
+	}
+	claims["auth_time"] = now.Format(time.RFC3339)
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
 	for key, value := range in {
 		out[key] = value

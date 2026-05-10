@@ -121,6 +121,9 @@ services:
       - /iam.identity.v2.IdentityLifecycle/*
       # 所有 Authn 服务方法
       - /iam.authn.v2.AuthService/*
+      - /iam.authn.v2.AuthSignupService/*
+      - /iam.authn.v2.AuthChallengeService/*
+      - /iam.authn.v2.LoginIdentityService/*
       - /iam.authn.v2.JWKSService/*
       - /iam.idp.v2.IDPService/*
       - /iam.authz.v2.AuthorizationService/*

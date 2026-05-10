@@ -9,6 +9,7 @@
 - `pkg/sdk`
 - `pkg/sdk/config`
 - `pkg/sdk/auth/client`
+- `pkg/sdk/auth/challenge`
 - `pkg/sdk/auth/jwks`
 - `pkg/sdk/auth/loginidentity`
 - `pkg/sdk/auth/loginv2`
@@ -40,6 +41,7 @@ pkg/sdk/
 ├── config/                    # 公开配置定义、加载器、option
 ├── errors/                    # 公开错误 facade
 ├── auth/                      # 认证领域子包
+│   ├── challenge/
 │   ├── client/
 │   ├── jwks/
 │   ├── loginidentity/

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	credentialapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/credential"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -17,6 +18,7 @@ type SignIn struct {
 	methodRegistry      MethodRegistry
 	proofFactory        ProofFactory
 	domainAuthenticator *authentication.Authenticator
+	credentialRecorder  credentialapp.Recorder
 }
 
 // Execute 执行登录
@@ -44,11 +46,13 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to authenticate")
 	}
 	if !decision.OK {
+		_ = s.recordCredential(ctx, decision)
 		return nil, authFailureError(decision.Code)
 	}
 
 	// 补齐认证主体的默认租户ID
 	ensurePrincipalTenantID(decision.Principal)
+	_ = s.recordCredential(ctx, decision)
 
 	// 颁发令牌
 	tokenPair, err := s.tokenService.IssueToken(ctx, decision.Principal)
@@ -64,6 +68,13 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 		LoginIdentityID: decision.Principal.LoginIdentityID,
 		TenantID:        decision.Principal.TenantID,
 	}, nil
+}
+
+func (s *SignIn) recordCredential(ctx context.Context, decision authentication.AuthDecision) error {
+	if s == nil || s.credentialRecorder == nil {
+		return nil
+	}
+	return s.credentialRecorder.Record(ctx, decision)
 }
 
 func wrapLoginStageError(err error, fallbackCode int, message string) error {

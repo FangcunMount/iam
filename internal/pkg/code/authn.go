@@ -124,19 +124,20 @@ const (
 
 // Authn: 认证流程相关错误码 (102400～102499).
 const (
-	ErrAuthenticationFailed  = 102400
-	ErrOTPInvalid            = 102401
-	ErrStateMismatch         = 102402
-	ErrIDPExchangeFailed     = 102403
-	ErrNoBinding             = 102404
-	ErrOTPSendTooFrequent    = 102405
-	ErrTokenRevokeFailed     = 102406
-	ErrUnsupportedAuthMethod = 102407
-	ErrPayloadInvalid        = 102408
-	ErrProofBuildFailed      = 102409
-	ErrRefreshTokenNotFound  = 102410
-	ErrRefreshTokenExpired   = 102411
-	ErrSessionInactive       = 102412
+	ErrAuthenticationFailed     = 102400
+	ErrOTPInvalid               = 102401
+	ErrStateMismatch            = 102402
+	ErrIDPExchangeFailed        = 102403
+	ErrNoBinding                = 102404
+	ErrOTPSendTooFrequent       = 102405
+	ErrTokenRevokeFailed        = 102406
+	ErrUnsupportedAuthMethod    = 102407
+	ErrPayloadInvalid           = 102408
+	ErrProofBuildFailed         = 102409
+	ErrRefreshTokenNotFound     = 102410
+	ErrRefreshTokenExpired      = 102411
+	ErrSessionInactive          = 102412
+	ErrReauthenticationRequired = 102413
 )
 
 // nolint: gochecknoinits
@@ -209,6 +210,7 @@ func registerAuthn() {
 	errors.MustRegister(&authnCoder{code: ErrRefreshTokenNotFound, status: http.StatusUnauthorized, msg: "Refresh token not found"})
 	errors.MustRegister(&authnCoder{code: ErrRefreshTokenExpired, status: http.StatusUnauthorized, msg: "Refresh token expired"})
 	errors.MustRegister(&authnCoder{code: ErrSessionInactive, status: http.StatusUnauthorized, msg: "Session inactive"})
+	errors.MustRegister(&authnCoder{code: ErrReauthenticationRequired, status: http.StatusUnauthorized, msg: "Recent authentication required"})
 }
 
 // authnCoder 实现 errors.Coder 接口

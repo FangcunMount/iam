@@ -30,10 +30,12 @@ func TestCredentialRepositoryCreatesAndFindsV2PasswordCredential(t *testing.T) {
 	require.Equal(t, loginIdentityID, found.LoginIdentityID)
 	require.Equal(t, credDomain.CredPassword, found.Type)
 
-	credentialID, material, err := repo.FindPasswordCredentialByLoginIdentity(context.Background(), loginIdentityID)
+	passwordRecord, err := repo.FindPasswordCredentialByLoginIdentity(context.Background(), loginIdentityID)
 	require.NoError(t, err)
-	require.Equal(t, found.ID, credentialID)
-	require.Equal(t, "hash", material)
+	require.NotNil(t, passwordRecord)
+	require.Equal(t, found.ID, passwordRecord.CredentialID)
+	require.Equal(t, "hash", passwordRecord.PasswordHash)
+	require.Equal(t, credDomain.CredStatusEnabled, passwordRecord.Status)
 }
 
 func TestCredentialRepositoryUpdatesV2PasswordAuthState(t *testing.T) {

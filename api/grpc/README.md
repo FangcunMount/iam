@@ -18,8 +18,10 @@ api/grpc/iam/
 
 | Proto | Service | 当前能力 |
 | ---- | ---- | ---- |
-| [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AuthService` | VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken、IssueServiceToken |
-| [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AccountOnboardingService` | CreateOperationAccount |
+| [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AuthService` | Login、VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken、IssueServiceToken |
+| [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AuthSignupService` | SignUpWithWechatMiniProgram |
+| [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AuthChallengeService` | SendLoginPhoneOTP |
+| [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `LoginIdentityService` | ListLoginIdentities、SendPhoneLinkChallenge、LinkPhone、LinkWechatMiniProgram、LinkWecom、UnlinkLoginIdentity |
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `JWKSService` | GetJWKS |
 | [iam/authz/v2/authz.proto](iam/authz/v2/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |

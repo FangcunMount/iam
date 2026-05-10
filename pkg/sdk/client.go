@@ -64,8 +64,17 @@ func NewClient(ctx context.Context, cfg *Config, opts ...ClientOption) (*Client,
 
 func (c *Client) initSubClients() {
 	authService := authnv2.NewAuthServiceClient(c.conn)
+	authSignupService := authnv2.NewAuthSignupServiceClient(c.conn)
+	authChallengeService := authnv2.NewAuthChallengeServiceClient(c.conn)
+	loginIdentityService := authnv2.NewLoginIdentityServiceClient(c.conn)
 	jwksService := authnv2.NewJWKSServiceClient(c.conn)
-	c.authClient = authclient.NewClient(authService, jwksService)
+	c.authClient = authclient.NewClient(
+		authService,
+		jwksService,
+		authSignupService,
+		authChallengeService,
+		loginIdentityService,
+	)
 
 	authorizationService := authzv2.NewAuthorizationServiceClient(c.conn)
 	c.authzClient = authz.NewClient(authorizationService)

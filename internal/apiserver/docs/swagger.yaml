@@ -119,20 +119,20 @@ definitions:
         description: 可选，撤销刷新令牌
         type: string
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.PreparePhoneOTPLoginRequest:
-    properties:
-      phone:
-        description: 支持 E.164 或国内手机号，服务端规范为 E.164
-        type: string
-    required:
-    - phone
-    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.RefreshTokenRequest:
     properties:
       refresh_token:
         type: string
     required:
     - refresh_token
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SendLoginPhoneOTPRequest:
+    properties:
+      phone:
+        description: 支持 E.164 或国内手机号，服务端规范为 E.164
+        type: string
+    required:
+    - phone
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SignUpWithWeChatMiniProgramRequest:
     properties:
@@ -1278,6 +1278,27 @@ paths:
       summary: 获取可发布的密钥
       tags:
       - Authentication-JWKS
+  /authn/challenges/phone-otp:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 手机号
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.SendLoginPhoneOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 已受理
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
+      summary: 发送登录短信验证码
+      tags:
+      - 认证
   /authn/login:
     post:
       consumes:
@@ -1434,27 +1455,6 @@ paths:
       security:
       - BearerAuth: []
       summary: 绑定企业微信登录身份
-      tags:
-      - 认证
-  /authn/login/prep/phone-otp:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 手机号
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.PreparePhoneOTPLoginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 已受理
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.MessageResponse'
-      summary: 登录预准备-发送手机验证码
       tags:
       - 认证
   /authn/logout:
