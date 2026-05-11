@@ -4,15 +4,15 @@
 
 本文是 `03-授权AuthZ/` 文档组中关于 **Casbin 运行时模型** 的文档。
 
-前面几篇文档已经解释了 AuthZ 的领域模型、读链路和写链路：
+前面几篇文档已经解释了 AuthZ 的领域模型、写入链路、版本传播链路和读链路：
 
 ```text
 00-AuthZ模型总览：Subject -> RoleBinding -> Role -> Permission -> Resource / Action / Scope
-01-授权资源与动作模型：ResourceKey / ResourcePattern / Action / Scope
-02-授权角色与绑定模型：Role / RoleBinding / Subject
-03-Check与Snapshot读链路：Check / Snapshot
-04-授权写入链路：PolicyAdministration 与 PolicyChange
-05-PolicyChangeCommitter 与 AuthZ UoW
+01-资源模型：ResourceKey / ResourcePattern / Action / ActionPattern / Scope
+02-角色模型：Role / RoleBinding / Subject
+03-授权写入链路：PolicyAdministration / PolicyChange / PolicyChangeCommitter
+04-授权版本与事件传播链路：PolicyVersion / Outbox / RuntimeReload
+05-权限检查链路：Check / Snapshot
 ```
 
 本文进入 infra/runtime 层，回答：
@@ -30,7 +30,7 @@ resourceMatch / actionMatch / scopeMatch 如何支持四段资源模型？
 ```text
 Casbin Runtime
 p facts
- g facts
+g facts
 r request
 resourceMatch
 actionMatch
@@ -38,10 +38,14 @@ scopeMatch
 RuntimeAdapters
 ```
 
-PolicyVersion、Outbox、RuntimeReload 的传播机制会在下一篇展开：
+PolicyVersion、Outbox、RuntimeReload 的传播机制已在第 04 篇展开。
+
+本文只说明 RuntimeReload 后进入 Casbin Runtime 的 p/g facts 与 matcher 如何工作。
+
+后续第 07 篇会统一收口 AuthZ 分层架构与事实源索引：
 
 ```text
-07-PolicyVersion-Outbox与RuntimeReload.md
+07-AuthZ分层架构与事实源索引.md
 ```
 
 ---
@@ -477,30 +481,36 @@ g = _, _, _
 领域中的 AuthorizationRequest 表达：
 
 ```text
-Subject 在 Tenant 下，能不能对 ResourcePattern 执行 Action，并且满足 ObjectScope？
+Subject 在 Tenant 下，能不能对某个请求侧 Resource 执行 Action，并且满足 ObjectScope？
 ```
 
-结构是：
+结构可以理解为：
 
 ```text
 AuthorizationRequest(
   Subject,
   TenantID,
-  ResourcePattern,
+  ResourceKey,
   Action,
   ObjectScope,
 )
 ```
+
+这里的 `ResourceKey` 表示请求侧的具体授权资源语义。
+
+判定时，它会被拿去和 Permission 侧的 `ResourcePattern` 做匹配。
 
 例如：
 
 ```text
 Subject: user:1001
 TenantID: tenant-a
-ResourcePattern: iam:identity:user:*
+ResourceKey: iam:identity:user:*
 Action: read
 ObjectScope: all:*
 ```
+
+如果当前代码使用 `resource.Pattern` 类型承载 r.obj，那更多是实现层对四段资源解析与 matcher 输入的复用；从文档语义上，r.obj 是请求侧资源语义，p.obj 才是授权事实中的 ResourcePattern。
 
 ---
 
@@ -509,7 +519,7 @@ ObjectScope: all:*
 运行时 request 可以表示为：
 
 ```text
-r, subject, tenantID, resourcePattern, action, objectScope
+r, subject, tenantID, resourceKey, action, objectScope
 ```
 
 例如：
@@ -518,7 +528,14 @@ r, subject, tenantID, resourcePattern, action, objectScope
 r, user:1001, tenant-a, iam:identity:user:*, read, all:*
 ```
 
-进入 matcher 后，会与 p/g facts 组合判定。
+进入 matcher 后，`r.obj` 会被拿来和 `p.obj` 做 `resourceMatch`：
+
+```text
+r.obj = request resource
+p.obj = policy resource pattern
+```
+
+然后再与 p/g facts 组合判定。
 
 ---
 
@@ -601,11 +618,9 @@ matcher 对应关系是：
 g(r.sub, p.sub, r.dom)           -> Subject -> RoleBinding -> Role
 r.dom == p.dom                   -> Tenant 边界
 resourceMatch(r.obj, p.obj)      -> Resource / ResourcePattern
-ActionMatch(r.act, p.act)        -> Action / ActionPattern
+actionMatch(r.act, p.act)        -> Action / ActionPattern
 scopeMatch(r.scope, p.scope)     -> Scope 覆盖
 ```
-
-注意：上面 `ActionMatch` 在配置中应是 `actionMatch`，这里大小写只是在解释文字中突出概念。
 
 ---
 
@@ -990,6 +1005,13 @@ Casbin Runtime
 
 而应用层不受影响。
 
+还需要注意：
+
+```text
+Snapshot 是授权事实视图，不是 Check 的替代品；
+访问控制仍应走 Check / DecisionEngine。
+```
+
 ---
 
 ## 14. RuntimeAdapters：隔离 CasbinAdapter
@@ -1112,7 +1134,7 @@ Outbox relay
 Runtime reload subscriber
 ```
 
-这些会在下一篇展开。
+这些已在第 04 篇展开。
 
 ---
 
@@ -1222,6 +1244,8 @@ PolicyReconciler
   -> PolicyChangeCommitter
 ```
 
+PolicyLinter 作为授权事实治理能力，统一放入第 07 篇事实源索引中说明。
+
 ---
 
 ## 18. 常见误区
@@ -1306,23 +1330,20 @@ Transport / Application 不应直接依赖 Casbin API。
 
 ## 19. 代码事实源
 
-本文涉及的主要代码事实源：
+本文只列 Casbin Runtime 相关入口，更完整的事实源索引见：
+
+```text
+07-AuthZ分层架构与事实源索引.md
+```
+
+主要代码事实源：
 
 ```text
 configs/casbin_model.conf
-
 internal/apiserver/infra/casbin
 internal/apiserver/infra/mysql/casbinrule
-
-internal/apiserver/domain/authz/permission
-internal/apiserver/domain/authz/rolebinding
-internal/apiserver/domain/authz/decision
-internal/apiserver/domain/authz/resource
-internal/apiserver/domain/authz/scope
-
-internal/apiserver/application/authz/authorization
-internal/apiserver/application/authz/policy
-internal/apiserver/application/authz/policylint
+internal/apiserver/domain/authz
+internal/apiserver/application/authz
 ```
 
 重点关注：
@@ -1330,22 +1351,45 @@ internal/apiserver/application/authz/policylint
 | 主题 | 事实源 |
 | --- | --- |
 | Casbin model | `configs/casbin_model.conf` |
-| p/g facts mapping | `infra/casbin` |
-| fact persistence | `infra/mysql/casbinrule` |
-| Permission | `domain/authz/permission` |
-| RoleBinding fact | `domain/authz/rolebinding` |
-| AuthorizationRequest / Decision | `domain/authz/decision` |
-| ResourcePattern / ActionPattern | `domain/authz/resource` |
-| Scope | `domain/authz/scope` |
-| Check / Snapshot | `application/authz/authorization` |
-| PolicyChangeCommitter | `application/authz/policy` |
-| PolicyLinter | `application/authz/policylint` |
+| p/g facts mapping | `internal/apiserver/infra/casbin` |
+| fact persistence | `internal/apiserver/infra/mysql/casbinrule` |
+| Permission / RoleBinding / AuthorizationRequest | `internal/apiserver/domain/authz` |
+| Check / Snapshot | `internal/apiserver/application/authz` |
+| RuntimeReload / RuntimeHealth | `internal/apiserver/application/authz`、`internal/apiserver/infra/casbin` |
 
-如果本文与代码不一致，以代码事实源为准。
+如果本文与代码不一致，以代码事实源为准，并同步更新本文档。
+
+## 20. 后续文档入口
+
+本文说明 Casbin Runtime 中 p/g facts 与四段 matcher。
+
+后续继续阅读：
+
+```text
+07-AuthZ分层架构与事实源索引.md
+```
+
+也可以回看：
+
+```text
+03-授权写入链路-PolicyAdministration-PolicyChange-PolicyChangeCommitter.md
+04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md
+05-权限检查链路-Check-Snapshot.md
+```
+
+其中：
+
+```text
+第 03 篇说明 Permission / RoleBinding facts 如何由写入链路产生；
+第 04 篇说明 facts 写入后如何通过 PolicyVersion / Outbox / RuntimeReload 进入运行时；
+第 05 篇说明 Check 如何通过 DecisionEngine 消费 Casbin Runtime。
+```
 
 ---
 
-## 20. 本文总结
+---
+
+## 21. 本文总结
 
 本文讲的是 AuthZ 的 Casbin 运行时模型。
 

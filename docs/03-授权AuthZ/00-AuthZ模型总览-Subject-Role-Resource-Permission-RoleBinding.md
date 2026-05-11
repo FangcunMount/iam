@@ -2,9 +2,7 @@
 
 ## 1. 本文定位
 
-本文是 `03-授权AuthZ/` 文档组的模型总览文档。
-
-它不先讲 Casbin，不先讲数据库表，也不先讲 REST/gRPC 接口，而是先回答一个更基础的问题：
+本文是 `03-授权AuthZ/` 文档组的模型总览文档。本篇先回答一个基础的问题：
 
 ```text
 IAM 的 AuthZ 模块到底在建模什么？
@@ -13,22 +11,12 @@ IAM 的 AuthZ 模块到底在建模什么？
 在当前 IAM 项目中，AuthZ 关注的是：
 
 ```text
-某个 Subject，在某个 Tenant 下，能不能对某个 Resource 执行某个 Action，并且满足某个 Scope？
+某个 Subject，在某个 Tenant / Authorization Domain 下，
+能不能对某个 Resource 执行某个 Action，
+并且满足某个 Scope？
 ```
 
-因此，AuthZ 的核心模型不是：
-
-```text
-user.role == "admin"
-```
-
-也不是：
-
-```text
-直接增删改查 casbin_rule
-```
-
-而是：
+AuthZ 的核心模型：
 
 ```text
 Subject
@@ -39,20 +27,18 @@ Subject
   -> AuthorizationDecision
 ```
 
-本文负责建立这条主线。
+本文负责建立这条主线，并为后续文档提供统一领域语言。
 
 后续文档会在本文基础上继续展开：
 
 ```text
-01-授权资源与动作模型：ResourceKey、ResourcePattern、Action、Scope
-02-授权角色与绑定模型：Role、RoleBinding、Subject
-03-Check与Snapshot读链路
-04-授权写入链路：PolicyAdministration 与 PolicyChange
-05-PolicyChangeCommitter 与 AuthZ UoW
-06-Casbin 运行时模型：p/g Facts 与四段 Matcher
-07-PolicyVersion、Outbox 与 RuntimeReload
-08-PolicyLinter 与授权事实治理
-09-AuthZ 分层架构与事实源索引
+01-资源模型-ResourceKey-ResourcePattern-Action-Scope.md
+02-角色模型-Role-RoleBinding-Subject.md
+03-授权写入链路-PolicyAdministration-PolicyChange-PolicyChangeCommitter.md
+04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md
+05-权限检查链路-Check-Snapshot.md
+06-Casbin运行时模型-pgFacts与四段Matcher.md
+07-AuthZ分层架构与事实源索引.md
 ```
 
 ---
@@ -69,7 +55,7 @@ AuthZ 负责回答：
 
 ```text
 Subject：谁
-Tenant：在哪个授权域下
+Tenant / Authorization Domain：在哪个授权域下
 Resource：什么资源
 Action：什么动作
 Scope：什么作用范围
@@ -77,6 +63,8 @@ Role：权限聚合点
 Permission：Role 对 Resource / Action / Scope 的能力声明
 RoleBinding：Subject 在 Tenant 下持有某个 Role
 AuthorizationDecision：一次授权判定的结果
+PolicyChange：一次授权事实变更意图
+PolicyVersion：授权事实版本
 ```
 
 核心关系是：
@@ -143,7 +131,10 @@ Subject 通过 RoleBinding 持有 Role
 Role 通过 Permission 获得 Resource / Action / Scope 能力
 ```
 
-这也是 RBAC 的核心思想：访问权通过角色进行中介，而不是把权限逐条直接散落到用户身上。
+这也是 RBAC 的核心思想：
+> **访问权通过角色进行中介，而不是把权限逐条直接散落到用户身上。**
+
+在 Casbin 的 RBAC with domains 模型中，运行时也会把 user-role-domain 关系表达为三元 `g = _, _, _`，从而支持同一用户在不同 domain / tenant 下持有不同角色；但这属于 infra runtime 表达，不应该替代 AuthZ 的领域模型语言。
 
 ---
 
@@ -152,7 +143,7 @@ Role 通过 Permission 获得 Resource / Action / Scope 能力
 ```mermaid
 flowchart LR
     Subject["Subject<br/>user / group / service"]
-    Tenant["Tenant<br/>authorization domain"]
+    Tenant["Tenant / Domain<br/>authorization boundary"]
     RoleBinding["RoleBinding<br/>subject holds role in tenant"]
     Role["Role<br/>permission aggregation"]
     Permission["Permission<br/>resource + action + scope"]
@@ -175,7 +166,7 @@ flowchart LR
 
 ```text
 Subject 不直接拥有 Permission。
-Subject 先在 Tenant 下通过 RoleBinding 持有 Role。
+Subject 先在 Tenant / Domain 下通过 RoleBinding 持有 Role。
 Role 再通过 Permission 声明 Resource / Action / Scope 能力。
 最终一次 Check 返回 AuthorizationDecision。
 ```
@@ -198,8 +189,8 @@ Role 再通过 Permission 声明 Resource / Action / Scope 能力。
 
 ```text
 user
- group
- service
+group
+service
 ```
 
 其中当前写入侧主要开放 `user`，`group/service` 是模型和 resolver 层面的扩展方向。
@@ -218,9 +209,9 @@ group:789
 
 ---
 
-### 5.2 Tenant
+### 5.2 Tenant / Authorization Domain
 
-`Tenant` 是授权域边界。
+`Tenant` 或 `Authorization Domain` 是授权域边界。
 
 它回答：
 
@@ -237,67 +228,17 @@ user:1001 在 tenant-a 下是 admin
 user:1001 在 tenant-b 下只是 viewer
 ```
 
-因此，AuthZ 的核心问题不是：
-
-```text
-user:1001 是不是 admin？
-```
-
-而是：
+因此，AuthZ 的核心问题是：
 
 ```text
 user:1001 在 tenant-a 下是否持有某个能访问目标资源的 role？
 ```
 
-Tenant 是隔离授权事实的关键维度。
+Tenant / Domain 是隔离授权事实的关键维度。
 
 ---
 
-### 5.3 Role
-
-`Role` 是权限聚合点。
-
-它回答：
-
-```text
-一组权限应该以什么业务角色被管理？
-```
-
-Role 不应该理解成 User 表上的一个字符串字段。
-
-在 IAM 中，Role 是独立领域对象，具有：
-
-```text
-RoleName
-DisplayName
-TenantID
-Description
-```
-
-Role 的职责是承载一组 Permission。
-
-例如：
-
-```text
-iam:admin
-iam:viewer
-qs:evaluator
-qs:operator
-```
-
-Role 的稳定性通常高于用户和权限明细：
-
-```text
-用户会频繁加入/离开角色
-资源和动作会逐步演进
-但业务角色本身相对稳定
-```
-
-这也是使用 RBAC 的主要原因之一。
-
----
-
-### 5.4 Resource
+### 5.3 Resource
 
 `Resource` 是被保护资源。
 
@@ -322,18 +263,16 @@ qs:survey:questionnaire:*
 qs:evaluation:report:*
 ```
 
-Resource 不是 HTTP path。
-
-HTTP path 是接入层协议细节：
-
-```text
-GET /api/v1/users/:id
-```
-
 Resource 是授权语义：
 
 ```text
 iam:identity:user:*
+```
+
+而不是 HTTP path，HTTP path 是接入层协议细节：
+
+```text
+GET /api/v1/users/:id
 ```
 
 这样做的好处是：
@@ -346,7 +285,7 @@ REST / gRPC / SDK 可以共享同一套资源授权模型
 
 ---
 
-### 5.5 Action
+### 5.4 Action
 
 `Action` 是对 Resource 执行的操作。
 
@@ -395,7 +334,7 @@ ActionPattern: .*
 
 ---
 
-### 5.6 Scope
+### 5.5 Scope
 
 `Scope` 是权限作用范围。
 
@@ -429,6 +368,48 @@ Scope 解决的问题是：
 Resource 负责表达“什么资源类型”，Scope 负责表达“资源对象范围”。
 
 不要把对象范围强行塞进 ResourceKey 的第五段。
+
+---
+
+### 5.6 Role
+
+`Role` 是权限聚合点。
+
+它回答：
+
+```text
+一组权限应该以什么业务角色被管理？
+```
+
+在 IAM 中，Role 是独立领域对象，通常具有：
+
+```text
+RoleName
+DisplayName
+TenantID
+Description
+```
+
+Role 的职责是承载一组 Permission。
+
+例如：
+
+```text
+iam:admin
+iam:viewer
+qs:evaluator
+qs:operator
+```
+
+Role 的稳定性通常高于用户和权限明细：
+
+```text
+用户会频繁加入/离开角色
+资源和动作会逐步演进
+但业务角色本身相对稳定
+```
+
+这也是使用 RBAC 的主要原因之一。
 
 ---
 
@@ -469,6 +450,10 @@ scope: all:*
 ```text
 iam:admin 在 default tenant 下，可以对 iam:identity:user:* 资源执行 read/update/delete，并且作用范围是 all:*
 ```
+
+在运行时，Permission 会被转换为 Casbin `p` fact。
+
+但在领域语言中，应该优先叫 Permission，而不是 p rule。
 
 ---
 
@@ -529,7 +514,7 @@ GrantedBy
 ```text
 Subject
 TenantID
-ResourcePattern
+ResourcePattern / ResourceKey
 Action
 ObjectScope
 ```
@@ -588,6 +573,38 @@ false
 ```
 
 更适合排查问题。
+
+---
+
+### 5.11 PolicyChange / PolicyVersion
+
+`PolicyChange` 表示一次授权事实变更意图。
+
+它回答：
+
+```text
+这次管理面操作要改变哪些授权事实？
+```
+
+例如：
+
+```text
+GrantPermission
+RevokePermission
+BindRole
+UnbindRole
+```
+
+`PolicyVersion` 表示授权事实版本。
+
+它回答：
+
+```text
+当前运行时授权事实处于哪个版本？
+下游实例或 SDK 是否已经感知到最新授权变更？
+```
+
+PolicyChange 和 PolicyVersion 不属于 Check 请求模型，但它们是 AuthZ 写入、传播、RuntimeReload 的关键模型。
 
 ---
 
@@ -752,63 +769,50 @@ Subject 在 Tenant 下持有 Role
 
 ---
 
-## 7. AuthZ 读模型与写模型
+### 6.6 Casbin p/g fact 是运行时术语，不是领域术语
 
-AuthZ 同时有读模型和写模型。
-
-### 7.1 读模型：Check 与 Snapshot
-
-读模型回答：
+在领域模型中，应该表示：
 
 ```text
-当前是否允许访问？
-当前 subject 有哪些角色和权限快照？
+BindRole
+GrantPermission
 ```
 
-核心服务是：
+Runtime 层再转换：
 
 ```text
-Checker
-SnapshotReader
+RoleBinding -> g fact
+Permission -> p fact
 ```
 
-读链路包括：
-
-```text
-CheckCommand
-AuthorizationRequest
-DecisionEngine
-AuthorizationDecision
-```
-
-以及：
-
-```text
-SnapshotQuery
-AuthorizationSnapshot
-AuthzVersion
-```
-
-读模型主要服务于：
-
-```text
-REST / gRPC Check
-业务服务授权判断
-SDK Allow / AllowScoped
-SDK AuthorizationSnapshot
-```
+这样可以避免领域层被 Casbin 的存储格式绑死。
 
 ---
 
-### 7.2 写模型：PolicyAdministration 与 PolicyChange
+## 7. AuthZ 链路总览
 
-写模型回答：
+新版 AuthZ 文档按授权系统生命周期组织：
+
+```text
+模型
+  -> 资源模型
+  -> 角色模型
+  -> 授权写入
+  -> 版本与事件传播
+  -> 权限检查
+  -> Casbin Runtime
+  -> 分层架构与事实源
+```
+
+### 7.1 授权写入链路
+
+授权写入链路回答：
 
 ```text
 如何改变授权事实？
 ```
 
-核心用例是：
+典型命令：
 
 ```text
 GrantPermission
@@ -817,39 +821,121 @@ BindRole
 UnbindRole
 ```
 
-写链路包括：
+主线：
 
 ```text
-Application Command
-AuthorizationPolicy
-PolicyChange
+PolicyAdministration
+  -> PolicyChange
+  -> PolicyChangeCommitter
+  -> AuthZ UoW
+  -> AuthorizationFacts
+  -> PolicyVersion
+```
+
+它不应该直接操作 Casbin Enforcer。
+
+它也不应该让业务 Handler 直接 insert/delete `casbin_rule`。
+
+---
+
+### 7.2 授权版本与事件传播链路
+
+授权传播链路回答：
+
+```text
+授权事实改变后，运行时如何感知？
+多实例如何最终一致？
+```
+
+主线：
+
+```text
 PolicyChangeCommitter
-AuthZ UoW
-AuthorizationFacts
-PolicyVersion
-Outbox Event
-Runtime Reload
+  -> PolicyVersion
+  -> Outbox Event
+  -> OutboxRelay
+  -> RuntimeReload / AuthzPolicySync
+  -> Casbin LoadPolicy
 ```
 
-写模型不应该直接 insert/delete `casbin_rule`。
-
-因为一次授权写入同时影响：
+其中：
 
 ```text
-管理面记录
-运行时授权事实
-授权版本
-版本事件
-运行时策略缓存
+PolicyVersion 表示授权事实版本；
+Outbox Event 用于可靠发布授权变更；
+RuntimeReload 让本地运行时策略重新加载；
+AuthzPolicySync / Relay 让多实例最终感知策略变更。
 ```
+
+---
+
+### 7.3 权限检查链路
+
+权限检查链路回答：
+
+```text
+当前请求是否允许访问？
+当前 Subject 的授权快照是什么？
+```
+
+主线：
+
+```text
+CheckCommand
+  -> AuthorizationRequest
+  -> DecisionEngine
+  -> AuthorizationDecision
+```
+
+Snapshot 主线：
+
+```text
+SnapshotQuery
+  -> SnapshotReader
+  -> AuthorizationSnapshot
+  -> AuthzVersion
+```
+
+Check / Snapshot 是 Application 能力。
+
+Casbin 是底层 runtime adapter。
+
+业务代码不应该直接调用 Casbin `Enforce`。
+
+---
+
+### 7.4 Casbin Runtime 链路
+
+Casbin Runtime 链路回答：
+
+```text
+领域授权事实如何转换为运行时 matcher 可判定的 p/g facts？
+```
+
+映射关系：
+
+```text
+Permission   -> p fact
+RoleBinding  -> g fact
+Check Request -> r request
+```
+
+四段 ResourceKey 与 Action / Scope 会进入 matcher：
+
+```text
+ResourcePattern match ResourceKey
+ActionPattern match Action
+Scope match ObjectScope
+Domain/Tenant match Tenant
+```
+
+Casbin Runtime 文档只讲 infra 层事实，不替代领域模型文档。
 
 ---
 
 ## 8. AuthZ 与 Casbin 的关系
 
 Casbin 是 AuthZ 的 infra runtime engine。
-
-它不是 AuthZ 的领域模型。
 
 领域语言是：
 
@@ -865,19 +951,20 @@ RoleBinding
 AuthorizationRequest
 AuthorizationDecision
 PolicyChange
+PolicyVersion
 ```
 
 Casbin 技术语言是：
 
 ```text
 p
- g
- sub
- dom
- obj
- act
- scope
- matcher
+g
+sub
+dom
+obj
+act
+scope
+matcher
 ```
 
 两者关系是：
@@ -899,11 +986,11 @@ Enforce
 GetRolesForUser
 ```
 
-这些边界由架构测试保护。
+这些边界应由架构测试保护。
 
 ---
 
-## 9. AuthZ 与 AuthN、Identity 的关系
+## 9. AuthZ 与 AuthN、Identity、业务系统的关系
 
 ### 9.1 AuthN 与 AuthZ
 
@@ -969,6 +1056,26 @@ Scope: origin:<profile-or-owner>
 
 ---
 
+### 9.3 业务系统与 AuthZ
+
+业务系统不应该把权限判断硬编码成：
+
+```text
+if user.Role == "admin"
+```
+
+更合理的方式是：
+
+```text
+AuthZ Check(subject, tenant, resource, action, scope)
+```
+
+业务系统负责提供资源语义和对象上下文。
+
+AuthZ 负责判定是否允许访问。
+
+---
+
 ## 10. 当前模型的阶段性边界
 
 当前 AuthZ 已经完成：
@@ -1002,7 +1109,9 @@ PolicyReconciler 自动治理
 
 ```text
 模型预留 group/service，但写入侧当前主要开放 user。
+PolicyLinter 是授权事实治理能力，用于诊断 ResourceCatalog 与 PermissionFacts 之间的不一致。
 PolicyLinter 是 read-only diagnosis，不是自动修复器。
+自动修复属于未来 PolicyReconciler，且必须通过 PolicyChangeCommitter。
 ResourceCatalog 变更不自动删除已有 PermissionFacts。
 Runtime reload 当前以本实例 best-effort 为主，多实例闭环属于后续生产化增强。
 ```
@@ -1083,36 +1192,73 @@ PolicyLinter 是只读诊断工具。
 
 ---
 
+### 11.8 p/g fact 就是领域模型
+
+错误。
+
+p/g fact 是 Casbin runtime 事实。
+
+领域模型应该使用 Permission 和 RoleBinding。
+
+---
+
 ## 12. 代码事实源
 
-本文涉及的核心事实源包括：
+本文只列总入口，详细路径由第 07 篇统一维护。
+
+核心事实源包括：
 
 ```text
-internal/apiserver/domain/authz/subject
-internal/apiserver/domain/authz/tenant
-internal/apiserver/domain/authz/role
-internal/apiserver/domain/authz/resource
-internal/apiserver/domain/authz/permission
-internal/apiserver/domain/authz/rolebinding
-internal/apiserver/domain/authz/decision
-internal/apiserver/domain/authz/policy
-
-internal/apiserver/application/authz/authorization
-internal/apiserver/application/authz/policy
-internal/apiserver/application/authz/role
-internal/apiserver/application/authz/resource
-internal/apiserver/application/authz/rolebinding
-internal/apiserver/application/authz/policylint
-
+internal/apiserver/domain/authz
+internal/apiserver/application/authz
 internal/apiserver/infra/casbin
 configs/casbin_model.conf
+```
+
+建议阅读方向：
+
+```text
+想理解领域模型：读 internal/apiserver/domain/authz
+想理解写入链路：读 internal/apiserver/application/authz 下的 policy / role / resource / rolebinding 相关用例
+想理解检查链路：读 internal/apiserver/application/authz 下的 authorization / checker / snapshot 相关用例
+想理解运行时：读 internal/apiserver/infra/casbin 与 configs/casbin_model.conf
+想理解事实源索引：读 07-AuthZ分层架构与事实源索引.md
 ```
 
 如果本文与代码不一致，以代码事实源为准，并同步更新本文档。
 
 ---
 
-## 13. 本文总结
+## 13. 后续文档入口
+
+理解本文模型后，继续阅读：
+
+```text
+01-资源模型-ResourceKey-ResourcePattern-Action-Scope.md
+02-角色模型-Role-RoleBinding-Subject.md
+03-授权写入链路-PolicyAdministration-PolicyChange-PolicyChangeCommitter.md
+04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md
+05-权限检查链路-Check-Snapshot.md
+06-Casbin运行时模型-pgFacts与四段Matcher.md
+07-AuthZ分层架构与事实源索引.md
+```
+
+阅读顺序建议：
+
+```text
+00 建立总模型；
+01 讲 Resource / Action / Scope；
+02 讲 Subject / Role / RoleBinding；
+03 讲授权事实如何写入；
+04 讲授权版本如何传播并触发 RuntimeReload；
+05 讲权限如何检查、Snapshot 如何读取；
+06 讲领域事实如何映射为 Casbin p/g facts；
+07 统一收口分层架构、代码路径、表结构、坏味道和维护原则。
+```
+
+---
+
+## 14. 本文总结
 
 AuthZ 的核心模型可以压缩成一句话：
 
@@ -1134,13 +1280,13 @@ Subject
 理解这条链路后，再看后续文档就会清晰很多：
 
 ```text
-资源模型讲 ResourceKey / Action / Scope
-角色模型讲 Role / RoleBinding / Subject
-读链路讲 Check / Snapshot
-写链路讲 PolicyAdministration / PolicyChange
-事务链路讲 PolicyChangeCommitter / UoW
-infra 链路讲 Casbin p/g facts
-治理链路讲 PolicyVersion / Outbox / PolicyLinter
+资源模型讲 ResourceKey / ResourcePattern / Action / Scope；
+角色模型讲 Role / RoleBinding / Subject；
+授权写入链路讲 PolicyAdministration / PolicyChange / PolicyChangeCommitter；
+授权版本与事件传播链路讲 PolicyVersion / Outbox / RuntimeReload；
+权限检查链路讲 Check / Snapshot；
+Casbin 运行时模型讲 p/g facts 与四段 matcher；
+分层架构与事实源索引统一收口代码、表结构、运行时和坏味道。
 ```
 
 如果只记住一句话：

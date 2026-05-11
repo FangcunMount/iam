@@ -1,4 +1,4 @@
-# 01-授权资源与动作模型：ResourceKey、ResourcePattern、Action、Scope
+# 01-资源模型：ResourceKey、ResourcePattern、Action、Scope
 
 ## 1. 本文定位
 
@@ -31,18 +31,21 @@ Permission
 ResourceKey 和 ResourcePattern 为什么要分开？
 Action 和 ActionPattern 为什么要分开？
 Scope 为什么不能直接拼进 ResourceKey？
+ResourceCatalog 与 PermissionFact 的关系是什么？
+PolicyLinter 在资源治理中起什么作用？
 ```
 
-本文不展开 RoleBinding、PolicyChange、UoW、Outbox、Casbin 运行时细节。
+本文不展开 RoleBinding、PolicyChange、Outbox、RuntimeReload、Casbin p/g facts 的细节。
 
 这些内容分别放在：
 
 ```text
-02-授权角色与绑定模型-Role-RoleBinding-Subject.md
-04-授权写入链路-PolicyAdministration与PolicyChange.md
-05-PolicyChangeCommitter与AuthZUoW.md
+02-角色模型-Role-RoleBinding-Subject.md
+03-授权写入链路-PolicyAdministration-PolicyChange-PolicyChangeCommitter.md
+04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md
+05-权限检查链路-Check-Snapshot.md
 06-Casbin运行时模型-pgFacts与四段Matcher.md
-07-PolicyVersion-Outbox与RuntimeReload.md
+07-AuthZ分层架构与事实源索引.md
 ```
 
 ---
@@ -53,7 +56,7 @@ AuthZ 中资源与动作模型的核心是：
 
 ```text
 ResourceKey      表示资源目录中的资源或资源族
-ResourcePattern  表示授权事实或判定请求中的资源匹配模式
+ResourcePattern  表示授权事实中的资源匹配模式
 Action           表示一次请求要执行的具体动作
 ActionPattern    表示授权事实中可匹配的动作表达式
 Scope            表示权限作用的对象范围
@@ -68,10 +71,10 @@ Permission = RoleName + TenantID + ResourcePattern + ActionPattern + Scope
 一次 Check 请求则使用：
 
 ```text
-AuthorizationRequest = Subject + TenantID + ResourcePattern + Action + ObjectScope
+AuthorizationRequest = Subject + TenantID + ResourceKey/ResourcePattern + Action + ObjectScope
 ```
 
-注意两个关键分离：
+注意三个关键分离：
 
 ```text
 ResourceKey != ResourcePattern
@@ -81,7 +84,7 @@ ResourceKey != Scope
 
 一句话：
 
-> Resource 表达“什么资源”，Action 表达“做什么动作”，Scope 表达“作用到哪些对象范围”；ResourceKey 和 Action 是具体语义，ResourcePattern 和 ActionPattern 是授权匹配语义。
+> Resource 表达“什么资源”，Action 表达“做什么动作”，Scope 表达“作用到哪些对象范围”；ResourceKey 和 Action 是相对具体的请求/目录语义，ResourcePattern 和 ActionPattern 是授权匹配语义。
 
 ---
 
@@ -123,8 +126,8 @@ HTTP path、gRPC method、SDK method 都可以映射到同一套 Resource / Acti
 因此：
 
 ```text
-协议接口是接入层事实
-ResourceKey 是授权领域事实
+协议接口是接入层事实。
+ResourceKey 是授权领域事实。
 ```
 
 两者不能混为一谈。
@@ -182,12 +185,12 @@ iam:role
 会遇到几个问题：
 
 ```text
-资源命名空间不够清楚
-跨业务域后容易冲突
-无法区分 app / domain / type / name
-Snapshot 按 app 投影困难
-PolicyLinter 很难判断 resource 是否属于某个资源族
-Casbin matcher 很难表达稳定的业务匹配规则
+资源命名空间不够清楚；
+跨业务域后容易冲突；
+无法区分 app / domain / type / name；
+Snapshot 按 app 投影困难；
+PolicyLinter 很难判断 resource 是否属于某个资源族；
+Casbin matcher 很难表达稳定的业务匹配规则。
 ```
 
 四段结构让资源语义更稳定：
@@ -225,10 +228,10 @@ name: *
 推荐约束是：
 
 ```text
-必须是四段
-每段不能为空
-app/domain/type 不应为 *
-name 可以是具体名称，也可以是 * 表示资源族
+必须是四段；
+每段不能为空；
+app/domain/type 不应为 *；
+name 可以是具体名称，也可以是 * 表示资源族。
 ```
 
 合法示例：
@@ -261,7 +264,7 @@ ResourceKey 的职责是进入 ResourceCatalog，作为可管理的资源事实�
 
 ### 5.1 ResourcePattern 是什么
 
-`ResourcePattern` 是授权事实或判定请求中的资源匹配表达式。
+`ResourcePattern` 是授权事实中的资源匹配表达式。
 
 它回答：
 
@@ -291,9 +294,9 @@ ResourcePattern 也使用四段结构：
 ### 5.2 ResourceKey 与 ResourcePattern 的区别
 
 | 概念 | 主要场景 | 是否偏目录事实 | 是否偏匹配语义 | 示例 |
-| --- | --- | --- | --- | --- |
-| ResourceKey | ResourceCatalog | 是 | 否 | `iam:identity:user:*` |
-| ResourcePattern | Permission / Check / Casbin fact | 否 | 是 | `iam:*:*:*`、`*:*:*:*` |
+| --- | --- | ---: | ---: | --- |
+| ResourceKey | ResourceCatalog / Check 请求中的具体资源语义 | 是 | 否 | `iam:identity:user:*` |
+| ResourcePattern | Permission / Casbin p fact | 否 | 是 | `iam:*:*:*`、`*:*:*:*` |
 
 可以这样理解：
 
@@ -352,16 +355,17 @@ iam:*:*:*
 第二，权限事实会被限制得过死：
 
 ```text
-只能精确匹配某个 ResourceKey
-无法表达 app 级 / domain 级 / type 级通配授权
+只能精确匹配某个 ResourceKey；
+无法表达 app 级 / domain 级 / type 级通配授权。
 ```
 
 因此，应该明确分层：
 
 ```text
-ResourceCatalog 使用 ResourceKey
-Permission / AuthorizationRequest 使用 ResourcePattern
-Casbin p/r fact 使用 ResourcePattern 字符串
+ResourceCatalog 使用 ResourceKey；
+Permission 使用 ResourcePattern；
+Casbin p fact 使用 ResourcePattern 字符串；
+Check 请求使用具体 ResourceKey / Object Resource，并在 runtime 中与 ResourcePattern 匹配。
 ```
 
 ---
@@ -383,6 +387,7 @@ Subject 想对 Resource 做什么？
 ```text
 create
 read
+list
 read_all
 read_own
 update
@@ -480,7 +485,7 @@ create|update|delete 表示允许 create/update/delete
 | 概念 | 主要场景 | 示例 | 语义 |
 | --- | --- | --- | --- |
 | Action | Check 请求 | `read` | 本次请求要执行的具体动作 |
-| ActionPattern | Permission fact | `read&list` | 授权事实可匹配的动作集合或模式 |
+| ActionPattern | Permission fact | `read|list` | 授权事实可匹配的动作集合或模式 |
 
 一次判定可以理解为：
 
@@ -611,10 +616,10 @@ Scope: origin:1001
 这样做的好处是：
 
 ```text
-ResourceKey 结构稳定
-Scope matcher 独立演进
-PolicyLinter 可以独立检查 resource/action/scope
-未来扩展 scope hierarchy 时不破坏 resource model
+ResourceKey 结构稳定；
+Scope matcher 独立演进；
+PolicyLinter 可以独立检查 resource/action/scope；
+未来扩展 scope hierarchy 时不破坏 resource model。
 ```
 
 ---
@@ -631,7 +636,7 @@ policy scope = origin:x    只能覆盖 request scope = origin:x
 也就是：
 
 | Policy Scope | Request Scope | 是否匹配 |
-| --- | --- | --- |
+| --- | --- | ---: |
 | `all:*` | `all:*` | 是 |
 | `all:*` | `origin:1001` | 是 |
 | `origin:1001` | `origin:1001` | 是 |
@@ -694,7 +699,7 @@ iam:admin 在 default tenant 下，
 AuthorizationRequest(
   subject = user:1001,
   tenant = default,
-  resource_pattern = iam:identity:user:*,
+  resource_key = iam:identity:user:*,
   action = read,
   object_scope = all:*
 )
@@ -703,11 +708,11 @@ AuthorizationRequest(
 判定时会检查：
 
 ```text
-subject 是否通过 RoleBinding 持有 iam:admin
-request tenant 是否匹配 permission tenant
-request resource 是否匹配 permission resource_pattern
-request action 是否匹配 permission action_pattern
-request scope 是否被 permission scope 覆盖
+subject 是否通过 RoleBinding 持有 iam:admin；
+request tenant 是否匹配 permission tenant；
+request resource 是否匹配 permission resource_pattern；
+request action 是否匹配 permission action_pattern；
+request scope 是否被 permission scope 覆盖。
 ```
 
 ---
@@ -754,10 +759,10 @@ ScopeKinds: all, origin
 ResourceCatalog 主要用于：
 
 ```text
-资源登记
-授权写入时校验 action 是否被资源支持
-授权写入时校验 scope kind 是否被资源支持
-PolicyLinter 检查已有 permission facts 是否与资源目录一致
+资源登记；
+授权写入时校验 action 是否被资源支持；
+授权写入时校验 scope kind 是否被资源支持；
+PolicyLinter 检查已有 permission facts 是否与资源目录一致。
 ```
 
 但是，ResourceCatalog 变更不会自动删除已有 PermissionFacts。
@@ -772,8 +777,8 @@ ResourceCatalog 是 grant-time validation catalog。
 例如：
 
 ```text
-某个 Resource 原本支持 export
-后来 ResourceCatalog 移除了 export
+某个 Resource 原本支持 export。
+后来 ResourceCatalog 移除了 export。
 ```
 
 这不会自动删除旧 Permission。
@@ -781,9 +786,9 @@ ResourceCatalog 是 grant-time validation catalog。
 正确治理方式是：
 
 ```text
-PolicyLinter 发现 unsupported_action
-人工确认或未来 PolicyReconciler 生成修复计划
-修复必须通过 PolicyChangeCommitter 进入写入链路
+PolicyLinter 发现 unsupported_action；
+人工确认或未来 PolicyReconciler 生成修复计划；
+修复必须通过 PolicyChangeCommitter 进入写入链路。
 ```
 
 不能直接手动删除 `casbin_rule`。
@@ -797,11 +802,11 @@ Resource / Action / Scope 模型建立后，还需要治理已有授权事实。
 因为现实中可能出现：
 
 ```text
-ResourceCatalog 被修改
-旧 PermissionFacts 仍存在
-某个 action 已经不被资源支持
-某个 scope kind 已经不被资源支持
-某条 casbin_rule 是历史脏数据
+ResourceCatalog 被修改；
+旧 PermissionFacts 仍存在；
+某个 action 已经不被资源支持；
+某个 scope kind 已经不被资源支持；
+某条 casbin_rule 是历史脏数据。
 ```
 
 PolicyLinter 负责做只读诊断。
@@ -854,10 +859,12 @@ scopeMatch(r.scope, p.scope)
 含义是：
 
 ```text
-request resource 是否匹配 policy resource pattern
-request action 是否匹配 policy action pattern
-request scope 是否被 policy scope 覆盖
+request resource 是否匹配 policy resource pattern；
+request action 是否匹配 policy action pattern；
+request scope 是否被 policy scope 覆盖。
 ```
+
+Casbin 的 RBAC with domains 使用三元 `g = _, _, _` 表达 subject-role-domain 关系，并在 matcher 中把 domain/tenant 纳入角色匹配；IAM 在此基础上继续加入 resource/action/scope 三个匹配维度。
 
 但本文只解释领域模型。
 
@@ -959,9 +966,9 @@ Scope: all:*
 这表示：
 
 ```text
-所有 app / domain / type / name 的资源
-所有 action
-所有 scope
+所有 app / domain / type / name 的资源；
+所有 action；
+所有 scope。
 ```
 
 这种权限很强，应该谨慎使用，并且不应把 `*:*:*:*` 当成普通 ResourceCatalog 的 ResourceKey。
@@ -1047,7 +1054,13 @@ Matcher 是 infra runtime 机制。
 
 ## 15. 代码事实源
 
-本文涉及的主要代码事实源：
+本文只列资源模型相关入口，更完整的事实源索引见：
+
+```text
+07-AuthZ分层架构与事实源索引.md
+```
+
+主要代码事实源：
 
 ```text
 internal/apiserver/domain/authz/resource
@@ -1079,11 +1092,39 @@ configs/casbin_model.conf
 | PolicyLinter | `application/authz/policylint` |
 | runtime matcher | `infra/casbin`、`configs/casbin_model.conf` |
 
-如果本文与代码不一致，以代码事实源为准。
+如果本文与代码不一致，以代码事实源为准，并同步更新本文档。
 
 ---
 
-## 16. 本文总结
+## 16. 后续文档入口
+
+本文说明资源、动作、作用范围模型。
+
+后续继续阅读：
+
+```text
+02-角色模型-Role-RoleBinding-Subject.md
+03-授权写入链路-PolicyAdministration-PolicyChange-PolicyChangeCommitter.md
+04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md
+05-权限检查链路-Check-Snapshot.md
+06-Casbin运行时模型-pgFacts与四段Matcher.md
+07-AuthZ分层架构与事实源索引.md
+```
+
+其中：
+
+```text
+角色模型说明 Subject 如何通过 RoleBinding 持有 Role；
+授权写入链路说明 Resource / Action / Scope 如何进入 PermissionFacts；
+版本传播链路说明权限变更如何触发 PolicyVersion / Outbox / RuntimeReload；
+权限检查链路说明 Check 请求如何使用 Resource / Action / Scope；
+Casbin Runtime 文档说明 ResourcePattern / ActionPattern / Scope 如何被 matcher 执行；
+分层架构与事实源索引统一收口代码路径、表结构和维护原则。
+```
+
+---
+
+## 17. 本文总结
 
 本文讲的是 AuthZ 中最容易混淆的一组模型：
 
@@ -1114,9 +1155,9 @@ Permission = RoleName + TenantID + ResourcePattern + ActionPattern + Scope
 Check 请求则使用：
 
 ```text
-AuthorizationRequest = Subject + TenantID + ResourcePattern + Action + ObjectScope
+AuthorizationRequest = Subject + TenantID + ResourceKey/ResourcePattern + Action + ObjectScope
 ```
 
 如果只记住一句话：
 
-> Resource 表达“什么资源”，Action 表达“做什么动作”，Scope 表达“作用到哪些对象范围”；ResourceKey 和 Action 是具体语义，ResourcePattern 和 ActionPattern 是授权匹配语义。
+> Resource 表达“什么资源”，Action 表达“做什么动作”，Scope 表达“作用到哪些对象范围”；ResourceKey 和 Action 是相对具体的请求/目录语义，ResourcePattern 和 ActionPattern 是授权匹配语义。
