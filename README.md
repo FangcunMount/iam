@@ -1,8 +1,9 @@
 # IAM
 
-IAM 是面向业务系统接入的身份与访问管理服务，统一提供认证、授权、身份关系、第三方身份源集成，以及 REST / gRPC / Go SDK 接入能力。
+IAM 是一个面向业务系统接入的身份与访问管理服务，统一提供认证、授权、身份关系、第三方身份源集成，以及 REST / gRPC / Go SDK 接入能力。
 
-它不是普通用户中心，也不是单纯 JWT 登录系统。  
+它不是普通用户中心，也不是单纯 JWT 登录系统。
+
 它的核心职责是把：
 
 ```text
@@ -39,10 +40,10 @@ IAM 不是普通用户中心，而是统一处理认证、授权、身份关系�
 
 | 能力 | 说明 |
 | --- | --- |
-| AuthN 认证 | 显式登录、账号、Session、Access Token、Refresh Token、Verify、Revoke、JWKS、KeyRotation、Service Token |
-| AuthZ 授权 | Role、Resource、Permission、RoleBinding、Scope、Check、AuthorizationSnapshot、PolicyVersion、Transactional Outbox |
+| AuthN 认证 | 登录身份、凭证、挑战、Principal、Session、AccessToken、RefreshToken、Verify、Revoke、JWKS、KeyRotation、Service Token |
+| AuthZ 授权 | Subject、Role、Resource、Permission、RoleBinding、Action、Scope、Check、AuthorizationSnapshot、PolicyVersion、Transactional Outbox |
 | Identity 身份关系 | User、Profile、ProfileLink、MyProfiles、MyProfileLinks、self profile link |
-| IDP 第三方身份源 | 微信/企微应用配置、SecretVault、微信 access_token、外部身份源协作 |
+| IDP 第三方身份源 | 微信/企微应用配置、SecretVault、平台 access_token、外部身份源 API 适配 |
 | REST API | 面向 Web、App、管理后台、登录和 HTTP 调试 |
 | gRPC API | 面向可信服务间调用，例如 VerifyToken、AuthZ Check、Identity/ProfileLink 查询 |
 | Go SDK | 面向 Go 业务服务，封装 REST/gRPC/JWKS/Verifier/ServiceAuth/AuthZ/Identity/IDP |
@@ -96,7 +97,7 @@ flowchart LR
     AuthN["AuthN<br/>Login / Session / Token / JWKS"]
     AuthZ["AuthZ<br/>Role / Resource / Permission / Check"]
     Identity["Identity<br/>User / Profile / ProfileLink"]
-    IDP["IDP<br/>WechatApp / SecretVault / Provider API"]
+    IDP["IDP<br/>Provider App / SecretVault / Provider API"]
     Access["REST / gRPC / SDK"]
     Outbox["Transactional Outbox"]
 
@@ -105,15 +106,15 @@ flowchart LR
     Access --> Identity
     Access --> IDP
 
-    AuthN -->|"User status / onboarding"| Identity
-    AuthN -->|"Wechat config / secret"| IDP
+    AuthN -->|"User status / principal anchor"| Identity
+    AuthN -->|"external identity source"| IDP
     AuthZ -->|"subject=user:<id>"| Identity
-    AuthZ -->|"version changed"| Outbox
+    AuthZ -->|"version_changed"| Outbox
 ```
 
 ### AuthN：认证态
 
-AuthN 负责：
+AuthN 负责回答：
 
 ```text
 你如何证明你是谁？
@@ -124,19 +125,31 @@ AuthN 负责：
 
 ```text
 Login request
-  -> SignInAdapter / MethodSelector
-  -> AuthCredential proof
-  -> Authenticator / AuthStrategy
+  -> LoginMethod / ProofFactory
+  -> Auth proof
+  -> Authenticator
   -> Principal
   -> Session
-  -> Access Token
-  -> Refresh Token
+  -> AccessToken
+  -> RefreshToken
   -> JWKS / Verify / Revoke / Refresh
 ```
 
+关键边界：
+
+```text
+JWT 只是短期 AccessToken 的实现；
+Session 是在线登录态锚点；
+RefreshToken 是服务端可控的续期凭证；
+JWKS 证明签名可信；
+Online Verify 证明 token 当前可用。
+```
+
+---
+
 ### AuthZ：访问权
 
-AuthZ 负责：
+AuthZ 负责回答：
 
 ```text
 某个 subject 在某个 tenant 下，能不能对某个 resource 执行某个 action，并且满足某个 scope？
@@ -153,9 +166,20 @@ Subject
   -> AuthorizationDecision
 ```
 
+关键边界：
+
+```text
+AuthZ 不是 user.role；
+Casbin 是 infra runtime engine，不是领域模型；
+PolicyVersion 表达授权事实版本变化；
+Transactional Outbox 保证授权版本变化最终可靠传播。
+```
+
+---
+
 ### Identity：身份与档案关系
 
-Identity 负责：
+Identity 负责回答：
 
 ```text
 系统内部这个人是谁？
@@ -173,26 +197,30 @@ User -- ProfileLink -- Profile
 
 - `User` 是登录主体和身份锚点；
 - `Profile` 是业务档案；
-- `ProfileLink` 是 User 与 Profile 之间的关系事实。
+- `ProfileLink` 是 User 与 Profile 之间的关系事实；
+- `ProfileLink` 可以作为当前用户访问档案的关系 guard，但不是 AuthZ permission。
+
+---
 
 ### IDP：第三方身份源基础设施
 
-IDP 负责：
+IDP 负责回答：
 
 ```text
 第三方身份源如何接入？
 微信/企微应用、secret、access_token 如何管理？
 ```
 
-IDP 不直接签发 IAM token。  
+IDP 不直接签发 IAM token。
+
 微信/企微登录最终仍回到 AuthN 的：
 
 ```text
-Account binding
+LoginIdentity / account binding
 Principal
 Session
-Access Token
-Refresh Token
+AccessToken
+RefreshToken
 ```
 
 ---
@@ -224,13 +252,13 @@ sequenceDiagram
 核心原则：
 
 ```text
-main 很薄
-process 管生命周期
-container 管组合装配
-transport 管协议适配
-application 管用例编排
-domain 管业务规则
-infra 管外部资源
+main 很薄；
+process 管生命周期；
+container 管组合装配；
+transport 管协议适配；
+application 管用例编排；
+domain 管业务规则；
+infra 管外部资源。
 ```
 
 ---
@@ -274,6 +302,8 @@ Go 服务端推荐通过官方 SDK 接入 IAM。
 示例：
 
 ```go
+package main
+
 import (
     "context"
     "log"
@@ -304,7 +334,8 @@ func main() {
 }
 ```
 
-SDK 是接入产品层，不是业务层。  
+SDK 是接入产品层，不是业务层。
+
 它封装 REST/gRPC/JWKS/ServiceAuth/AuthZ Check 等接入复杂度，但不定义 IAM 业务规则。
 
 ---
@@ -384,8 +415,10 @@ go test ./internal/apiserver/transport/grpc
 | User、Profile、ProfileLink 如何建模 | [docs/04-身份Identity/README.md](docs/04-身份Identity/README.md) |
 | REST/gRPC/SDK 如何接入 | [docs/05-接入与契约/README.md](docs/05-接入与契约/README.md) |
 | 架构和文档如何防漂移 | [docs/06-架构护栏/README.md](docs/06-架构护栏/README.md) |
-| 为什么这样设计 | [docs/07-专题分析/README.md](docs/07-专题分析/README.md) |
-| 面试和技术分享怎么讲 | [docs/08-宣讲/README.md](docs/08-宣讲/README.md) |
+| 面试和技术分享怎么讲 | [docs/07-宣讲/README.md](docs/07-宣讲/README.md) |
+| 30 分钟技术分享脚本 | [docs/07-宣讲/11-30分钟技术分享脚本.md](docs/07-宣讲/11-30分钟技术分享脚本.md) |
+| 架构图素材 | [docs/07-宣讲/12-架构图素材索引.md](docs/07-宣讲/12-架构图素材索引.md) |
+| 面试追问证据 | [docs/07-宣讲/13-面试追问证据索引.md](docs/07-宣讲/13-面试追问证据索引.md) |
 
 ---
 
@@ -401,16 +434,14 @@ docs/
 ├── 04-身份Identity/
 ├── 05-接入与契约/
 ├── 06-架构护栏/
-├── 07-专题分析/
-├── 08-宣讲/
+├── 07-宣讲/
 └── _archive/
 ```
 
 说明：
 
 - `00-06` 是事实层，解释当前系统如何实现；
-- `07-专题分析` 是设计取舍层，解释为什么这样做；
-- `08-宣讲` 是表达层，服务技术分享和面试准备；
+- `07-宣讲` 是表达层，服务技术分享、面试准备、架构图和追问证据；
 - `_archive` 只保存历史材料，不作为当前事实源。
 
 ---
@@ -423,15 +454,18 @@ docs/
    `cmd/`、`internal/apiserver/`、`internal/pkg/`、`pkg/`
 
 2. 机器契约、配置和迁移  
-   `api/rest`、`api/grpc`、`configs`、`internal/pkg/migration/migrations`
+   `api/rest`、`api/grpc`、`configs`、`internal/pkg/migration/migrations`、`pkg/sdk` public API
 
 3. 测试与架构护栏  
-   `internal/pkg/architecture`、REST/gRPC transport tests、SDK public API compile tests
+   `internal/pkg/architecture`、REST/gRPC transport tests、SDK public API compile tests、docs-hygiene
 
-4. 当前维护文档  
-   `docs/00-概览` 到 `docs/08-宣讲`
+4. 当前事实层文档  
+   `docs/00-概览` 到 `docs/06-架构护栏`
 
-5. 历史文档与归档材料  
+5. 表达层文档  
+   `docs/07-宣讲`
+
+6. 历史文档与归档材料  
    `docs/_archive` 只用于历史追溯，不作为当前事实源
 
 ---
@@ -484,8 +518,6 @@ go test ./pkg/sdk/...
    - REST 检查：`make api-validate`
    - gRPC 检查：`make proto-gen`
    - SDK 检查：`go test ./pkg/sdk/...`
-
-更多文档维护规则见：[docs/CONTRIBUTING-DOCS.md](docs/CONTRIBUTING-DOCS.md)。
 
 ---
 
