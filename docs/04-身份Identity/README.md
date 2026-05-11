@@ -1,224 +1,283 @@
 # 04-身份 Identity
 
-## 本文回答
+## 1. 本目录定位
 
-`04-身份Identity/` 是 IAM 文档体系中解释 **User、Profile、ProfileLink 身份关系模型** 的模块。
+`04-身份Identity/` 是 IAM 文档体系中解释 **User、Profile、ProfileLink 身份事实模型** 的模块。
 
-它回答：
-
-1. User 为什么是登录主体和 IAM 内部身份锚点；
-2. Profile 为什么是业务档案，而不是登录用户；
-3. ProfileLink 为什么是 User 与 Profile 之间的关系事实；
-4. 为什么 ProfileLink 不能只是 `User.profile_id` 或 `Profile.user_id`；
-5. self / parent / grandparent / other 等关系如何表达；
-6. active / revoked 关系状态如何影响当前用户访问；
-7. MyProfiles 与 MyProfileLinks 如何保护当前用户视角；
-8. active self ProfileLink 的唯一性如何由领域检查和 DB 兜底共同维护；
-9. Identity 与 AuthN、AuthZ、IDP、SDK 的边界分别是什么。
-
-本目录只解释 **身份主体与业务档案关系**。  
-认证登录态属于 `02-认证AuthN/`；资源级授权属于 `03-授权AuthZ/`；REST/gRPC/SDK 接入属于 `05-接入与契约/`。
-
----
-
-## 30 秒结论
-
-Identity 负责回答：
+它回答的是：
 
 ```text
 系统内部这个人是谁？
-这个人和哪些业务档案有关？
-这些关系是否仍然有效？
+这个人关联了哪些业务身份资料或业务档案？
+这些关系如何表达、查询、撤销和治理？
 ```
 
-IAM 的 Identity 不是普通：
+Identity 不是认证模块。
+
+认证身份识别、登录凭据校验、ProviderIdentity 解析、Principal 构造、Token / Session 签发属于：
 
 ```text
-User CRUD
+02-认证AuthN/
 ```
 
-也不是：
+Identity 也不是授权模块。
+
+Subject、Role、Resource、Permission、RoleBinding、Check、PolicyVersion、Outbox 授权版本传播属于：
 
 ```text
-User.profile_id
+03-授权AuthZ/
 ```
 
-而是把三个概念分开：
+REST/gRPC/SDK 的完整接口契约属于：
+
+```text
+05-接入与契约/
+```
+
+本目录专注于 Identity 自身：
 
 ```text
 User
-  -> 登录主体 / 身份锚点
-
 Profile
-  -> 业务档案 / 被记录对象
-
 ProfileLink
-  -> User 与 Profile 之间的关系事实
+User 与 Profile 的关系
+Identity 与 AuthN / AuthZ 的边界
+Identity 分层架构与事实源
+```
+
+---
+
+## 2. 30 秒结论
+
+Identity 负责身份事实。
+
+它回答：
+
+```text
+谁是 IAM 内部稳定身份主体？
+这个身份主体关联了哪些 Profile？
+User 与 Profile 之间是什么关系？
 ```
 
 核心模型是：
 
 ```text
-User -- ProfileLink -- Profile
+User
+  -> ProfileLink
+  -> Profile
 ```
 
-其中 ProfileLink 支持：
+其中：
+
+| 模型 | 一句话解释 |
+| --- | --- |
+| User | IAM 内部稳定身份主体 |
+| Profile | 业务身份资料、业务档案或被服务对象 |
+| ProfileLink | User 与 Profile 之间的身份关系 |
+
+跨模块边界是：
 
 ```text
-self
-parent
-grandparent
-other
-active / revoked
+AuthN 认证成功后通过 Principal.UserID 指向 Identity.User。
+AuthZ 通过 user:<userID> 引用 Identity.User。
+ProfileLink 是身份关系，不是 AuthZ Permission。
 ```
 
 一句话：
 
-> **Identity 把登录主体 User、业务档案 Profile、关系实体 ProfileLink 分开建模，用于表达本人档案、儿童档案、亲属关系和当前用户访问边界。**
+> **Identity 负责维护稳定身份主体 User、业务身份资料 Profile，以及二者之间的关系 ProfileLink；AuthN 通过 Principal.UserID 指向 User，AuthZ 通过 user:< userID > 引用 User，但二者都不应该绕过 Identity 直接修改身份事实。**
 
 ---
 
-## 本目录文档
+## 3. 文档目录
 
-当前 `04-身份Identity/` 建议包含 2 篇正文文档：
+新版 `04-身份Identity/` 采用 5 篇核心文档结构：
 
 ```text
 04-身份Identity/
 ├── README.md
-├── 01-User与Profile模型.md
-└── 02-ProfileLink链路--用户与儿童档案关系协作.md
+├── 00-Identity模型总览-User-Profile-ProfileLink.md
+├── 01-ProfileLink链路-User与Profile关系协作.md
+├── 02-Identity与AuthN-认证身份-Principal-User边界.md
+├── 03-Identity与AuthZ-Subject-Resource-Permission边界.md
+└── 04-Identity分层架构与事实源索引.md
 ```
 
-| 文档 | 作用 | 读完后应该能回答 |
-| --- | --- | --- |
-| `01-User与Profile模型.md` | 解释 User 与 Profile 的领域边界 | User 为什么是登录主体，Profile 为什么是业务档案，二者为什么不能合并 |
-| `02-ProfileLink链路--用户与儿童档案关系协作.md` | 解释 ProfileLink 关系链路 | ProfileLink 如何建立/撤销，MyProfiles/MyProfileLinks 如何保护当前用户视角 |
+| 文档 | 主题 |
+| --- | --- |
+| `00-Identity模型总览` | User、Profile、ProfileLink 核心模型 |
+| `01-ProfileLink链路` | User 与 Profile 关系协作、创建、查询、撤销 |
+| `02-Identity与AuthN边界` | 认证身份 / 登录凭据 / ProviderIdentity、Principal、User 的边界 |
+| `03-Identity与AuthZ边界` | Principal.UserID、Identity.User、AuthZ Subject / Resource / Permission 的边界 |
+| `04-Identity分层架构与事实源索引` | 分层架构、依赖规则、事实源、维护检查清单 |
 
 ---
 
-## Identity 知识地图
+## 4. Identity 知识地图
 
 ```mermaid
 flowchart TD
     Identity["04-身份 Identity"]
 
-    UserProfile["01 User 与 Profile 模型"]
-    ProfileLinkDoc["02 ProfileLink 链路"]
+    Overview["00 模型总览"]
+    LinkDoc["01 ProfileLink 链路"]
+    AuthNBoundary["02 Identity 与 AuthN 边界"]
+    AuthZBoundary["03 Identity 与 AuthZ 边界"]
+    Architecture["04 分层架构与事实源"]
 
-    Identity --> UserProfile
-    Identity --> ProfileLinkDoc
+    Identity --> Overview
+    Identity --> LinkDoc
+    Identity --> AuthNBoundary
+    Identity --> AuthZBoundary
+    Identity --> Architecture
 
-    UserProfile --> User["User<br/>登录主体 / 身份锚点"]
-    UserProfile --> Profile["Profile<br/>业务档案"]
-    UserProfile --> Status["UserStatus<br/>active / inactive / blocked"]
+    Overview --> User["User<br/>稳定身份主体"]
+    Overview --> Profile["Profile<br/>业务身份资料 / 档案"]
+    Overview --> ProfileLink["ProfileLink<br/>身份关系"]
 
-    ProfileLinkDoc --> Link["ProfileLink"]
-    ProfileLinkDoc --> Rel["Relation<br/>self / parent / grandparent / other"]
-    ProfileLinkDoc --> State["active / revoked"]
-    ProfileLinkDoc --> Self["Active self guard"]
-    ProfileLinkDoc --> MyProfiles["MyProfiles"]
-    ProfileLinkDoc --> MyLinks["MyProfileLinks"]
+    LinkDoc --> Relation["RelationType"]
+    LinkDoc --> LinkStatus["Link Status"]
+    LinkDoc --> ListByUser["ListProfilesByUser"]
+    LinkDoc --> ListByProfile["ListUsersByProfile"]
 
-    User --> Link
-    Link --> Profile
+    AuthNBoundary --> AuthnIdentity["认证身份 / 登录凭据 / ProviderIdentity"]
+    AuthNBoundary --> Principal["Principal(UserID)"]
+
+    AuthZBoundary --> Subject["Subject user:&lt;userID&gt;"]
+    AuthZBoundary --> Resource["Resource / Scope Context"]
+    AuthZBoundary --> Permission["Permission"]
+
+    Architecture --> Domain["Domain"]
+    Architecture --> Application["Application"]
+    Architecture --> Infra["Infra"]
+    Architecture --> Transport["Transport"]
+    Architecture --> Container["Container"]
 ```
 
 ---
 
-## 推荐阅读顺序
+## 5. 推荐阅读顺序
 
-### 标准顺序
+### 5.1 标准顺序
+
+如果你是第一次系统阅读 Identity，推荐按顺序读：
 
 ```text
-01-User与Profile模型
-  -> 02-ProfileLink链路--用户与儿童档案关系协作
+00-Identity模型总览
+  -> 01-ProfileLink链路
+  -> 02-Identity与AuthN边界
+  -> 03-Identity与AuthZ边界
+  -> 04-Identity分层架构与事实源索引
 ```
 
-原因：
+原因是：
 
-1. 先理解 User 与 Profile 为什么分开；
-2. 再理解二者之间为什么需要 ProfileLink；
-3. 最后理解当前用户访问边界和 self link 不变量。
+```text
+先理解 User / Profile / ProfileLink 模型
+再理解关系链路
+再理解 Identity 与 AuthN 的边界
+再理解 Identity 与 AuthZ 的边界
+最后用分层架构和事实源索引收束
+```
 
 ---
 
-### 如果你只想理解“User 和 Profile 为什么分开”
+### 5.2 只想理解核心模型
 
 推荐路径：
 
 ```text
-01-User与Profile模型.md
-  -> ../07-专题分析/07-为什么ProfileLink不能只是User字段.md
-  -> ../08-宣讲/05-Identity与ProfileLink讲法.md
+00-Identity模型总览-User-Profile-ProfileLink.md
+  -> 01-ProfileLink链路-User与Profile关系协作.md
 ```
 
 重点关注：
 
 ```text
-User 是登录主体
-Profile 是业务档案
-二者不是一对一
-ProfileLink 是关系实体
-```
-
----
-
-### 如果你只想理解“当前用户如何访问档案”
-
-推荐路径：
-
-```text
-02-ProfileLink链路--用户与儿童档案关系协作.md
-  -> ../08-宣讲/05-Identity与ProfileLink讲法.md
-```
-
-重点关注：
-
-```text
-MyProfiles.Create
-MyProfiles.Get / Patch
-MyProfileLinks.Grant / List / Revoke
-active ProfileLink guard
-permission denied
-```
-
----
-
-### 如果你只想理解“Identity 和 AuthN/AuthZ 的边界”
-
-推荐路径：
-
-```text
-01-User与Profile模型.md
-  -> 02-ProfileLink链路--用户与儿童档案关系协作.md
-  -> ../02-认证AuthN/02-认证语义--用户状态&会话&Token边界.md
-  -> ../03-授权AuthZ/01-授权模型--Role&Resource&Permission&RoleBinding.md
-```
-
-重点关注：
-
-```text
-User status 影响 AuthN Verify
-user:<id> 作为 AuthZ subject
-ProfileLink 是关系 guard
+User 是稳定身份主体
+Profile 是业务身份资料或业务档案
+ProfileLink 是 User 与 Profile 的关系
+ProfileLink 不是 User.profile_id
 ProfileLink 不是 AuthZ Permission
 ```
 
 ---
 
-## 核心模型主图
+### 5.3 只想理解 Identity 与 AuthN 的边界
+
+推荐路径：
+
+```text
+02-Identity与AuthN-认证身份-Principal-User边界.md
+  -> ../02-认证AuthN/README.md
+```
+
+重点关注：
+
+```text
+AuthN 认证身份 / 登录凭据 / ProviderIdentity 属于 AuthN
+Principal 属于 AuthN
+Principal.UserID 指向 Identity.User
+Identity.User 不保存 password / openid / OAuth subject
+Identity.User 不负责 Token / Session 签发
+```
+
+---
+
+### 5.4 只想理解 Identity 与 AuthZ 的边界
+
+推荐路径：
+
+```text
+03-Identity与AuthZ-Subject-Resource-Permission边界.md
+  -> ../03-授权AuthZ/README.md
+```
+
+重点关注：
+
+```text
+Principal.UserID -> Identity.User.ID
+Identity.User.ID -> AuthZ Subject user:<userID>
+Profile 可以作为 Resource 或 Scope 上下文
+ProfileLink 是身份关系，不是 Permission
+资源访问权必须通过 AuthZ Check 判定
+```
+
+---
+
+### 5.5 只想维护代码和文档
+
+推荐路径：
+
+```text
+04-Identity分层架构与事实源索引.md
+```
+
+重点关注：
+
+```text
+Domain / Application / Infra / Transport / Container 分层
+AuthN / AuthZ 依赖 Identity 的方式
+代码事实源入口
+架构护栏
+修改检查清单
+```
+
+---
+
+## 6. 核心模型主图
 
 ```mermaid
 flowchart LR
-    UserA["User A<br/>登录主体"]
-    UserB["User B<br/>登录主体"]
+    UserA["User A<br/>稳定身份主体"]
+    UserB["User B<br/>稳定身份主体"]
 
-    Link1["ProfileLink<br/>self"]
-    Link2["ProfileLink<br/>parent"]
-    Link3["ProfileLink<br/>grandparent"]
+    Link1["ProfileLink<br/>self / owner / guardian"]
+    Link2["ProfileLink<br/>guardian / parent"]
+    Link3["ProfileLink<br/>operator / viewer"]
 
-    ProfileA["Profile A<br/>本人档案"]
-    ProfileB["Profile B<br/>儿童/业务档案"]
+    ProfileA["Profile A<br/>本人资料 / 业务档案"]
+    ProfileB["Profile B<br/>儿童档案 / 被服务对象"]
 
     UserA --> Link1 --> ProfileA
     UserA --> Link2 --> ProfileB
@@ -228,89 +287,99 @@ flowchart LR
 这张图表达的是：
 
 ```text
-User 和 Profile 不是一对一
-User 通过 ProfileLink 关联 Profile
-一个 User 可以关联多个 Profile
-一个 Profile 可以被多个 User 关联
-关系本身有类型和生命周期
+User 和 Profile 不是一对一强绑定。
+User 通过 ProfileLink 关联 Profile。
+一个 User 可以关联多个 Profile。
+一个 Profile 可以被多个 User 关联。
+关系本身有类型、状态和生命周期。
 ```
 
 ---
 
-## 当前用户访问 guard
+## 7. 跨模块主图
 
 ```mermaid
-flowchart TD
-    Req["GET / PATCH my profile"]
-    CurrentUser["current user id"]
-    ProfileID["profile id"]
-    LinkCheck["Find active ProfileLink<br/>by userID + profileID"]
-    Deny["permission denied"]
-    LoadProfile["Load Profile"]
-    Return["Return / Patch Profile"]
+flowchart LR
+    AuthnIdentity["AuthN<br/>认证身份 / 登录凭据 / ProviderIdentity"]
+    Principal["Principal<br/>Principal.UserID"]
+    User["Identity.User"]
+    ProfileLink["ProfileLink"]
+    Profile["Profile"]
+    Subject["AuthZ Subject<br/>user:&lt;userID&gt;"]
+    RoleBinding["RoleBinding"]
+    Role["Role"]
+    Permission["Permission"]
+    Resource["Resource / Action / Scope"]
 
-    Req --> CurrentUser
-    Req --> ProfileID
-    CurrentUser --> LinkCheck
-    ProfileID --> LinkCheck
-    LinkCheck -->|"not found"| Deny
-    LinkCheck -->|"active link exists"| LoadProfile --> Return
+    AuthnIdentity --> Principal
+    Principal -->|UserID| User
+    User --> ProfileLink --> Profile
+    User -->|user:&lt;userID&gt;| Subject
+    Subject --> RoleBinding --> Role --> Permission --> Resource
 ```
 
 这张图表达的是：
 
 ```text
-当前用户不能直接按 profile_id 访问档案
-必须先确认 currentUser 和 profile 之间有 active ProfileLink
+AuthN 认证成功后得到 Principal.UserID。
+Principal.UserID 指向 Identity.User。
+Identity.User 通过 ProfileLink 关联 Profile。
+Identity.User 可以映射为 AuthZ Subject user:<userID>。
+资源访问权由 AuthZ RoleBinding / Role / Permission 判定。
 ```
 
 ---
 
-## Identity 核心概念
+## 8. Identity 核心概念速查
 
-| 概念 | 当前职责 | 常见误解 |
-| --- | --- | --- |
-| User | 登录主体，IAM 内部身份锚点，带状态 | 误以为 User 等于所有业务档案 |
-| UserStatus | User 的可用状态，例如 active、inactive、blocked | 误以为只影响资料显示，不影响认证 |
-| Profile | 业务档案，例如本人档案、儿童档案、被测评者档案 | 误以为 Profile 是登录账号 |
-| ProfileLink | User 与 Profile 的关系事实 | 误以为只是 `user.profile_id` |
-| Relation | 关系语义，例如 self、parent、grandparent、other | 误以为所有关系都是 parent-child |
-| Type | 关系主类别，例如 self、relation | 误以为和 Relation 完全重复 |
-| RevokedAt | 关系撤销时间，nil 表示 active | 误以为撤销就是物理删除 |
-| Active self guard | 维护一个 User 最多一个 active self link | 误以为 User 天然拥有 self profile |
-| MyProfiles | 当前用户视角的 Profile 用例 | 误以为是系统侧 Profile 管理接口 |
-| MyProfileLinks | 当前用户视角的 ProfileLink 用例 | 误以为可操作任意用户的关系 |
+| 概念 | 当前职责 |
+| --- | --- |
+| User | IAM 内部稳定身份主体 |
+| UserID | AuthN Principal 与 AuthZ Subject 引用 Identity.User 的稳定标识 |
+| Profile | 业务身份资料、业务档案或被服务对象 |
+| ProfileLink | User 与 Profile 之间的身份关系 |
+| RelationType | User 与 Profile 的关系类型 |
+| LinkStatus | ProfileLink 的当前状态 |
+| Principal | AuthN 认证成功后的当前调用主体表达 |
+| Subject | AuthZ 中的授权主体引用，如 `user:<userID>` |
+| Permission | AuthZ 中的资源访问能力，不属于 Identity |
+| Resource / Scope | AuthZ 中的资源与对象范围，Profile 可作为上下文 |
 
 ---
 
-## User / Profile / ProfileLink 的边界
+## 9. User / Profile / ProfileLink 的边界
 
-### User
+### 9.1 User
 
 User 是：
 
 ```text
-登录主体
-IAM 内部身份锚点
-AuthN Principal 的 UserID 来源
-AuthZ subject 的来源之一
+IAM 内部稳定身份主体
+AuthN Principal.UserID 指向的身份事实
+AuthZ subject user:<userID> 的来源
+ProfileLink.UserID 的关联对象
 ```
 
 User 不是：
 
 ```text
-所有业务档案的容器
-儿童档案本身
-第三方平台 openid
+登录凭据
+ProviderIdentity
+微信 openid
+OAuth subject
+Token / Session
+Role / Permission 集合
+所有业务资料字段的容器
 ```
 
 ---
 
-### Profile
+### 9.2 Profile
 
 Profile 是：
 
 ```text
+业务身份资料
 业务档案
 被记录、被测评、被关联的业务对象
 ```
@@ -319,19 +388,20 @@ Profile 不是：
 
 ```text
 登录主体
-账号凭据
-Session 主体
+认证凭据
+Principal
 AuthZ subject 本身
+Permission
 ```
 
 ---
 
-### ProfileLink
+### 9.3 ProfileLink
 
 ProfileLink 是：
 
 ```text
-User 与 Profile 的关系实体
+User 与 Profile 的身份关系实体
 ```
 
 它回答：
@@ -355,240 +425,303 @@ Casbin fact
 
 ---
 
-## Identity 与其他模块的关系
+## 10. Identity 与其他模块的关系
 
 | 模块 | 关系 |
 | --- | --- |
-| AuthN | AuthN 使用 UserID 作为 Principal 身份锚点；Verify 会检查 User 状态 |
-| AuthZ | AuthZ 使用 `user:<id>` 等 subject 做资源权限判定；ProfileLink 不等于 Permission |
-| IDP | 外部身份源通过 AuthN 绑定 Account/User；微信 openid 不是 IAM User |
-| REST | REST 提供当前用户视角的 Identity / Profile / ProfileLink 接口 |
-| gRPC | gRPC 提供系统侧 IdentityRead、ProfileCommand、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle |
-| SDK | SDK 封装系统侧 Identity/Profile/ProfileLink gRPC 能力，但不替代当前用户 guard |
-| Suggest | Suggest 只提供 Profile 候选发现，不建立关系、不判断权限 |
-| Session | UserStatusChanger 可依赖 SessionManager 影响用户会话状态 |
+| AuthN | AuthN 认证成功后通过 Principal.UserID 指向 Identity.User |
+| AuthZ | AuthZ 通过 `user:<userID>` 引用 Identity.User，并用 Check 判定资源访问 |
+| REST | REST 提供 Identity / Profile / ProfileLink 接口适配 |
+| gRPC | gRPC 提供服务间 Identity 能力 |
+| SDK | SDK 封装 Identity/Profile/ProfileLink 接入能力 |
+| 业务系统 | 业务系统可以使用 Profile / ProfileLink 作为业务上下文，但资源访问仍应走 AuthZ |
 
 ---
 
-## ProfileLink 与 AuthZ 的边界
+## 11. ProfileLink 与 AuthZ 的边界
 
-这是 Identity 模块最容易被问到的问题。
+这是 Identity 模块最容易混淆的问题。
 
-### ProfileLink 回答
+### 11.1 ProfileLink 回答
 
 ```text
-User 和 Profile 有没有 active relationship？
+User 和 Profile 有没有关系？
 关系是什么？
+关系是否有效？
 ```
 
 例如：
 
 ```text
-user:123 是 profile:456 的 parent
+user:123 是 profile:456 的 guardian
 ```
 
-### AuthZ 回答
+### 11.2 AuthZ 回答
 
 ```text
-subject 能不能对 resource 执行 action？
+Subject 能不能对 Resource 执行 Action？
+作用范围 Scope 是什么？
 ```
 
 例如：
 
 ```text
-user:123 can read iam:identity:instance:profile
+Subject: user:123
+Resource: qs:evaluation:report:*
+Action: read
+Scope: origin:456
 ```
 
-### 当前边界
+### 11.3 当前边界
 
 ```text
-ProfileLink = 身份关系 guard
-AuthZ = 资源权限系统
+ProfileLink = 身份关系事实
+AuthZ Permission = 资源访问能力
+AuthZ Check = 权威访问判定
 ```
 
 因此：
 
 ```text
-MyProfiles 可以用 active ProfileLink 判断当前用户是否能访问自己的关联档案
-但平台级资源授权仍应走 AuthZ Resource/Action/Scope
-```
-
-不要把 ProfileLink 写成通用权限表。
-
----
-
-## Active Self Guard 的意义
-
-Identity 维护一个重要不变量：
-
-```text
-一个 User 最多只能有一个 active self ProfileLink
-```
-
-它不再做自动补档案。当前规则是：
-
-1. User 创建和 AuthN onboarding 不自动创建 self Profile；
-2. 用户主动选择“为自己创建档案”时，`MyProfiles.Create` 创建 Profile 和 self ProfileLink；
-3. 如果已有 active self ProfileLink，则拒绝重复创建；
-4. relation ProfileLink 可以有多个。
-
-这个设计的价值是：
-
-```text
-本人档案也走 ProfileLink 统一关系模型
-不需要额外 User.self_profile_id 字段
-当前用户可以稳定找到自己的 self profile
-User 可以没有 self Profile，但仍可拥有 relation Profile
-active self 唯一性由 SelfProfileGuard 和 self_key 唯一索引共同保护
+ProfileLink 可以作为授权上下文。
+ProfileLink 可以作为授权写入的显式触发条件。
+ProfileLink 不能直接替代 Permission。
+Identity repository 不能直接写 AuthZ facts。
 ```
 
 ---
 
-## 代码证据入口
+## 12. Identity 与 AuthN 的边界
+
+新版 AuthN 模型不再以 `Account` 作为领域对象。
+
+因此 Identity 文档统一使用：
+
+```text
+认证身份 / 登录凭据 / ProviderIdentity
+  -> Principal(UserID)
+  -> Identity.User
+```
+
+边界是：
+
+```text
+AuthN 负责认证身份识别、凭据校验与 Principal 构造。
+Identity 负责 User / Profile / ProfileLink 身份事实。
+```
+
+Identity 不应该保存：
+
+```text
+password hash
+openid
+OAuth subject
+refresh token
+jwt key id
+provider credential
+```
+
+这些属于 AuthN。
+
+---
+
+## 13. 代码证据入口
 
 | 主题 | 代码入口 |
 | --- | --- |
-| UserModule 装配 | `internal/apiserver/container/assembler/user.go` |
-| User 领域模型 | `internal/apiserver/domain/identity/user/user.go` |
-| UserStatus | `internal/apiserver/domain/identity/user/status.go` |
-| Profile 领域模型 | `internal/apiserver/domain/identity/profile/profile.go` |
-| ProfileLink 领域模型 | `internal/apiserver/domain/identity/profilelink/profile_link.go` |
-| Relation parser | `internal/apiserver/domain/identity/profilelink/relation.go` |
-| ProfileLinker | `internal/apiserver/domain/identity/profilelink/linker.go` |
-| SelfProfileGuard | `internal/apiserver/domain/identity/profilelink/self_profile_guard.go` |
-| Active self guard | `internal/apiserver/domain/identity/profilelink/self_profile_guard.go`、`internal/apiserver/infra/mysql/profilelink/mapper.go` |
-| User application | `internal/apiserver/application/identity/user` |
-| Profile application | `internal/apiserver/application/identity/profile` |
-| MyProfiles | `internal/apiserver/application/identity/profile/service_my_profiles.go`、`service_access.go` |
-| ProfileLink application | `internal/apiserver/application/identity/profilelink` |
-| MyProfileLinks | `internal/apiserver/application/identity/profilelink/service_access.go` |
+| UserModule 装配 | `internal/apiserver/container/assembler/user.go` 或当前 Identity assembler |
+| User 领域模型 | `internal/apiserver/domain/identity/user` 或 `internal/apiserver/domain/identity` |
+| Profile 领域模型 | `internal/apiserver/domain/identity/profile` 或 `internal/apiserver/domain/identity` |
+| ProfileLink 领域模型 | `internal/apiserver/domain/identity/profilelink` 或 `internal/apiserver/domain/identity` |
+| User application | `internal/apiserver/application/identity/user` 或 `internal/apiserver/application/identity` |
+| Profile application | `internal/apiserver/application/identity/profile` 或 `internal/apiserver/application/identity` |
+| ProfileLink application | `internal/apiserver/application/identity/profilelink` 或 `internal/apiserver/application/identity` |
 | Identity UoW | `internal/apiserver/application/identity/uow` |
 | MySQL Identity UoW | `internal/apiserver/infra/mysql/uow/identity` |
-| ProfileLink MySQL repo | `internal/apiserver/infra/mysql/profilelink` |
+| ProfileLink MySQL repo | `internal/apiserver/infra/mysql/profilelink` 或 `internal/apiserver/infra/mysql/identity/profilelink` |
 | REST Identity | `internal/apiserver/transport/rest/identity` |
 | gRPC Identity | `internal/apiserver/transport/grpc/service/identity` |
 | Identity proto | `api/grpc/iam/identity/v2/identity.proto` |
 | SDK Identity | `pkg/sdk/identity` |
+| AuthN Principal | `internal/apiserver/domain/authn/principal` 或 `internal/apiserver/domain/authn` |
+| AuthN Login / Onboarding | `internal/apiserver/application/authn/login`、`internal/apiserver/application/authn/onboarding` |
+| AuthZ Subject | `internal/apiserver/domain/authz/subject` |
+| AuthZ Check | `internal/apiserver/application/authz/authorization` |
 
 ---
 
-## 事实源优先级
+## 14. 事实源优先级
 
 Identity 相关事实冲突时，按以下顺序判断：
 
-1. **源码运行行为**  
-   `internal/apiserver/domain/identity`、`application/identity`、`infra/mysql/uow/identity`、`transport/rest/identity`、`transport/grpc/service/identity`。
+1. **源码运行行为**
 
-2. **机器契约与迁移**  
-   `api/rest/identity.v2.yaml`、`api/grpc/iam/identity/v2/identity.proto`、`internal/pkg/migration/migrations`。
+   ```text
+   internal/apiserver/domain/identity
+   internal/apiserver/application/identity
+   internal/apiserver/infra/mysql
+   internal/apiserver/transport/rest/identity
+   internal/apiserver/transport/grpc/service/identity
+   ```
 
-3. **架构与契约测试**  
-   `internal/pkg/architecture`、REST/gRPC contract tests、SDK public API compile test。
+2. **机器契约与迁移**
 
-4. **当前维护文档**  
-   `docs/04-身份Identity`、`docs/05-接入与契约`、`docs/07-专题分析`、`docs/08-宣讲`。
+   ```text
+   api/rest/identity.v2.yaml
+   api/grpc/iam/identity/v2/identity.proto
+   internal/pkg/migration/migrations
+   ```
 
-5. **历史归档材料**  
-   `_archive/` 只用于历史追溯，不作为当前事实源。
+3. **架构与契约测试**
+
+   ```text
+   internal/pkg/architecture
+   REST/gRPC contract tests
+   SDK public API compile test
+   domain / application / infra tests
+   ```
+
+4. **当前维护文档**
+
+   ```text
+   docs/04-身份Identity
+   docs/05-接入与契约
+   docs/07-专题分析
+   docs/08-宣讲
+   ```
+
+5. **历史归档材料**
+
+   ```text
+   _archive/
+   ```
+
+历史归档只用于追溯，不作为当前事实源。
 
 ---
 
-## 与专题分析、宣讲文档的关系
+## 15. 与专题分析、宣讲文档的关系
 
-### 事实层
+### 15.1 事实层
 
 `04-身份Identity/` 是事实层，回答：
 
 ```text
-当前源码如何表达 User/Profile/ProfileLink
-当前 MyProfiles/MyProfileLinks 如何保护当前用户视角
-当前 Identity 与 AuthN/AuthZ 的边界是什么
-```
-
-### 专题分析层
-
-`07-专题分析/` 回答：
-
-```text
-为什么 ProfileLink 不能只是 User 字段
-为什么 User/Profile/ProfileLink 要分开
-为什么 ProfileLink 不能直接替代 AuthZ
-```
-
-推荐阅读：
-
-```text
-../07-专题分析/07-为什么ProfileLink不能只是User字段.md
-```
-
-### 宣讲层
-
-`08-宣讲/` 回答：
-
-```text
-如何把 Identity 与 ProfileLink 讲给别人听
-如何准备面试追问
-如何画图说明 User/Profile/ProfileLink
-```
-
-推荐阅读：
-
-```text
-../08-宣讲/05-Identity与ProfileLink讲法.md
-../08-宣讲/12-架构图素材索引.md
-../08-宣讲/13-面试追问证据索引.md
+当前源码如何表达 User / Profile / ProfileLink？
+当前 ProfileLink 如何表达身份关系？
+当前 Identity 与 AuthN / AuthZ 的边界是什么？
+当前 Identity 分层架构和事实源在哪里？
 ```
 
 ---
 
-## 常见误区
+### 15.2 专题分析层
 
-### 误区一：Identity = 用户资料 CRUD
+`07-专题分析/` 更适合回答：
 
-错误。  
+```text
+为什么 ProfileLink 不能只是 User 字段？
+为什么 User / Profile / ProfileLink 要分开？
+为什么 ProfileLink 不能直接替代 AuthZ？
+```
+
+专题分析偏设计取舍。
+
+事实层文档偏当前实现。
+
+---
+
+### 15.3 宣讲层
+
+`08-宣讲/` 更适合回答：
+
+```text
+如何把 Identity 与 ProfileLink 讲给别人听？
+如何准备面试追问？
+如何画图说明 User / Profile / ProfileLink？
+```
+
+宣讲层可以使用事实层作为证据索引。
+
+---
+
+## 16. 常见误区
+
+### 16.1 Identity = 用户资料 CRUD
+
+错误。
+
 Identity 不只是 User 资料，还包括 Profile 与 ProfileLink 关系模型。
 
 ---
 
-### 误区二：User = Profile
+### 16.2 User = Profile
 
-错误。  
-User 是登录主体；Profile 是业务档案。  
+错误。
+
+User 是稳定身份主体。
+
+Profile 是业务身份资料或业务档案。
+
 一个 User 可以关联多个 Profile，一个 Profile 也可以被多个 User 关联。
 
 ---
 
-### 误区三：ProfileLink = User.profile_id
+### 16.3 User = AuthN 认证身份
 
-错误。  
-`user.profile_id` 只能表达一对一关系，无法表达多档案、多用户、关系类型、撤销历史和 active guard。
+错误。
+
+AuthN 认证身份、登录凭据、ProviderIdentity 属于 AuthN。
+
+User 属于 Identity。
+
+AuthN 认证成功后通过 Principal.UserID 指向 User。
 
 ---
 
-### 误区四：ProfileLink = AuthZ Permission
+### 16.4 Principal = User = Subject
 
-错误。  
-ProfileLink 是身份关系，不是资源权限。  
+错误。
+
+Principal 是 AuthN 认证结果。
+
+User 是 Identity 稳定身份主体。
+
+Subject 是 AuthZ 授权主体引用。
+
+三者通过 UserID 串联，但不是同一个对象。
+
+---
+
+### 16.5 ProfileLink = User.profile_id
+
+错误。
+
+`user.profile_id` 只能表达简单一对一关系，无法表达多档案、多用户、关系类型、状态和审计。
+
+---
+
+### 16.6 ProfileLink = AuthZ Permission
+
+错误。
+
+ProfileLink 是身份关系，不是资源权限。
+
 资源级权限仍应进入 AuthZ。
 
 ---
 
-### 误区五：Suggest 找到 Profile 就代表可访问
+### 16.7 ProfileID 应该直接拼进 ResourceKey
 
-错误。  
-Suggest 只提供候选发现。  
-能否访问要看 active ProfileLink 或 AuthZ 判定。
+不推荐。
 
----
+ResourceKey 表达资源类型或资源族。
 
-### 误区六：self profile 应该直接存在 User 字段
-
-不推荐。  
-当前设计中 self 也是 ProfileLink 的一种关系，只是带更强不变量。这样模型统一，不需要两套 Profile 关联机制。
+ProfileID 更适合作为 Scope 中的对象范围。
 
 ---
 
-## 验证建议
+## 17. 验证建议
 
 修改 Identity 文档或相关代码后，建议运行：
 
@@ -639,46 +772,48 @@ make proto-gen
 
 ---
 
-## 维护规则
+## 18. 维护规则
 
-### 1. README 只做 Identity 模块入口
+### 18.1 README 只做 Identity 模块入口
 
 本 README 负责：
 
 ```text
 说明 Identity 模块回答什么
-列出两篇正文
+列出 5 篇核心文档
 提供阅读路径
-提供术语表和证据入口
-说明和专题/宣讲/接入文档的关系
+提供知识地图和事实源入口
+说明常见误区和维护规则
 ```
 
 详细模型与链路放到对应正文。
 
 ---
 
-### 2. 不把 AuthN 写成 Identity
+### 18.2 不把 AuthN 写成 Identity
 
 Identity 不负责：
 
 ```text
-登录方式选择
+认证身份识别
+登录凭据校验
+ProviderIdentity 解析
 Session 创建
 Access Token 签发
 Refresh Token 轮换
 JWKS 发布
-Online Verify
 ```
 
 这些属于 `02-认证AuthN/`。
 
 ---
 
-### 3. 不把 AuthZ 写成 Identity
+### 18.3 不把 AuthZ 写成 Identity
 
 Identity 不负责：
 
 ```text
+Subject
 Role
 Resource
 Permission
@@ -692,9 +827,10 @@ Outbox 授权版本传播
 
 ---
 
-### 4. 不把 ProfileLink 写成权限表
+### 18.4 不把 ProfileLink 写成权限表
 
-ProfileLink 是关系实体。  
+ProfileLink 是身份关系实体。
+
 如果未来 Profile 操作要纳入统一资源权限，应通过：
 
 ```text
@@ -705,45 +841,40 @@ AuthZ Resource / Action / Scope
 
 ---
 
-### 5. 不恢复旧命名
+### 18.5 文档必须跟随代码事实源
 
-当前标准术语是：
-
-```text
-User
-Profile
-ProfileLink
-MyProfiles
-MyProfileLinks
-Active self guard
-```
-
-不要恢复或混用旧术语：
+如果这些事实变化，必须同步更新文档：
 
 ```text
-GuardianRef
-ChildRef
-ProfileRef
+User 状态
+Profile 状态
+RelationType
+ProfileLink Status
+AuthN Principal.UserID 语义
+User -> AuthZ Subject 映射规则
+ProfileLink 与 AuthZ 的协作方式
+REST/gRPC response 字段
+Identity capabilities
 ```
-
-除非是在 `_archive` 或历史迁移说明中明确标注。
 
 ---
 
-## 本文总结
+## 19. 本文总结
 
-`04-身份Identity/` 解释的是 IAM 如何表达内部身份与业务档案关系。
+`04-身份Identity/` 解释 IAM 如何表达内部身份主体与业务身份资料关系。
 
 核心心智是：
 
 ```text
-Identity 不只是用户资料
-User 不是 Profile
-ProfileLink 不是 User 字段
-ProfileLink 不是 AuthZ Permission
+Identity 不只是用户资料 CRUD。
+User 不是 Profile。
+User 不是 AuthN 认证身份。
+Principal 不是 User。
+ProfileLink 不是 User 字段。
+ProfileLink 不是 AuthZ Permission。
 ```
 
-它的主线是：
+Identity 的主线是：
 
 ```text
 User
@@ -751,12 +882,13 @@ User
   -> Profile
 ```
 
-当前用户视角主线是：
+跨模块主线是：
 
 ```text
-currentUserID
-  -> active ProfileLink guard
-  -> Profile access
+AuthN 认证身份 / 登录凭据 / ProviderIdentity
+  -> Principal(UserID)
+  -> Identity.User
+  -> AuthZ Subject user:<userID>
 ```
 
 读完本目录后，读者应该能回答：
@@ -764,13 +896,12 @@ currentUserID
 ```text
 User 和 Profile 为什么分开？
 ProfileLink 为什么是独立关系实体？
-self / parent / grandparent / other 如何表达？
-active / revoked 关系状态如何影响访问？
-MyProfiles / MyProfileLinks 如何防止越权？
+Identity.User 与 AuthN Principal 是什么关系？
+Identity.User 与 AuthZ Subject 是什么关系？
 ProfileLink 与 AuthZ Permission 有什么区别？
-Identity 如何与 AuthN/AuthZ/IDP 协作？
+Identity 如何与 AuthN/AuthZ 协作？
 ```
 
 如果只记一句话：
 
-> **Identity 负责把登录主体 User、业务档案 Profile 和关系实体 ProfileLink 分开建模，用 active ProfileLink 保护当前用户档案访问边界，并与 AuthN 登录态、AuthZ 资源权限保持清晰分工。**
+> **Identity 负责把稳定身份主体 User、业务身份资料 Profile 和关系实体 ProfileLink 分开建模；AuthN 通过 Principal.UserID 指向 User，AuthZ 通过 user:< userID > 引用 User，ProfileLink 可以提供关系上下文，但不能替代 AuthZ Permission。**
