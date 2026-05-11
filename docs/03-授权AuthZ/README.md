@@ -1,36 +1,65 @@
 # 03-授权 AuthZ
 
-## 本文回答
+## 1. 本目录定位
 
-`03-授权AuthZ/` 是 IAM 文档体系中解释 **资源授权模型、授权判定链路、授权写入事务与授权版本传播** 的模块。
+`03-授权AuthZ/` 是 IAM 文档体系中解释 **资源授权模型、授权读写链路、运行时判定、授权版本传播与授权事实治理** 的模块。
 
-它回答：
+它回答的是：
 
-1. IAM 如何表达“某个主体能不能访问某个资源”；
-2. 为什么 AuthZ 不能只是 `user.role` 或普通 CRUD；
-3. Role、Resource、Permission、RoleBinding、Scope 分别是什么；
-4. 一次 `Check` 请求如何变成 `AuthorizationRequest` 并走到 Casbin；
-5. Casbin 在 IAM 中为什么只是 infra runtime engine，而不是领域模型；
-6. 授权写入为什么需要 `PolicyChangeCommitter + UoW`；
-7. 为什么每次授权变更都要递增 `PolicyVersion`；
-8. 为什么授权版本事件需要通过 Transactional Outbox 传播；
-9. `assignment` 和 `rolebinding` 的分层边界是什么；
-10. AuthZ 与 AuthN、Identity、REST/gRPC/SDK、架构护栏之间如何协作。
+```text
+某个 Subject，在某个 Tenant 下，能不能对某个 Resource 执行某个 Action，并且满足某个 Scope？
+```
 
-本目录只解释 **授权与访问权**。  
-认证登录态属于 `02-认证AuthN/`；User/Profile/ProfileLink 身份关系属于 `04-身份Identity/`；接入协议属于 `05-接入与契约/`。
+换句话说，AuthZ 负责：
+
+```text
+访问权建模
+访问权判定
+访问权写入
+访问权传播
+访问权治理
+```
+
+本目录不解释认证登录态。
+
+认证登录、Token 签发、Session、Refresh、JWKS 等属于：
+
+```text
+02-认证AuthN/
+```
+
+User、Profile、ProfileLink 等身份关系属于：
+
+```text
+04-身份Identity/
+```
+
+REST/gRPC/SDK 的完整接口契约属于：
+
+```text
+05-接入与契约/
+```
+
+本目录专注于 AuthZ 自身：
+
+```text
+Role
+Resource
+Permission
+RoleBinding
+Check
+Snapshot
+PolicyChange
+PolicyVersion
+Casbin Runtime
+PolicyLinter
+```
 
 ---
 
-## 30 秒结论
+## 2. 30 秒结论
 
-AuthZ 负责回答：
-
-```text
-某个 subject 在某个 tenant 下，能不能对某个 resource 执行某个 action，并且满足某个 scope？
-```
-
-IAM 的 AuthZ 不是：
+AuthZ 不是：
 
 ```text
 user.role == "admin"
@@ -39,7 +68,7 @@ user.role == "admin"
 也不是：
 
 ```text
-简单增删改查权限表
+直接增删改查 casbin_rule
 ```
 
 而是：
@@ -53,20 +82,19 @@ Subject
   -> AuthorizationDecision
 ```
 
-授权判定链路是：
+读链路分为两类：
 
 ```text
-CheckCommand
-  -> AuthorizationRequest
-  -> DecisionEngine
-  -> CasbinAdapter
-  -> AuthorizationDecision
+Check：权威实时判定，回答“能不能访问？”
+Snapshot：授权事实投影，回答“当前有哪些角色和权限？”
 ```
 
-授权写入链路是：
+写链路是：
 
 ```text
 Grant / Revoke / Bind / Unbind
+  -> Application Command
+  -> PolicyAdministration
   -> AuthorizationPolicy
   -> PolicyChange
   -> PolicyChangeCommitter
@@ -74,109 +102,12 @@ Grant / Revoke / Bind / Unbind
   -> AuthorizationFacts
   -> PolicyVersion
   -> Outbox Event
-  -> Runtime Reload
+  -> RuntimeReload
 ```
 
-一句话：
+运行时判定由 Casbin 完成，但 Casbin 不是领域模型。
 
-> **AuthZ 用 Role、Resource、Permission、RoleBinding 建模访问权，用 Casbin 做运行时判定，用 UoW + PolicyVersion + Outbox 保证授权写入和版本传播的一致性。**
-
----
-
-## 本目录文档
-
-当前 `03-授权AuthZ/` 建议包含 4 篇正文文档：
-
-```text
-03-授权AuthZ/
-├── README.md
-├── 01-授权模型--Role&Resource&Permission&RoleBinding.md
-├── 02-授权判定链路--从Check到Casbin.md
-├── 03-PolicyChangeCommitter与UoW.md
-└── 04-授权版本事件与Outbox.md
-```
-
-| 文档 | 作用 | 读完后应该能回答 |
-| --- | --- | --- |
-| `01-授权模型--Role&Resource&Permission&RoleBinding.md` | 解释授权领域模型 | Role、Resource、Permission、RoleBinding、Scope 如何组织 |
-| `02-授权判定链路--从Check到Casbin.md` | 解释一次授权判定 | Check 如何变成 AuthorizationRequest，如何通过 CasbinAdapter 得到 Decision |
-| `03-PolicyChangeCommitter与UoW.md` | 解释授权写入事务 | 为什么授权写入不是 CRUD，PolicyChangeCommitter 如何编排 UoW |
-| `04-授权版本事件与Outbox.md` | 解释版本传播 | PolicyVersion、version_changed event、Transactional Outbox、runtime reload 如何协作 |
-
----
-
-## AuthZ 知识地图
-
-```mermaid
-flowchart TD
-    AuthZ["03-授权 AuthZ"]
-
-    Model["01 授权模型"]
-    Check["02 授权判定链路"]
-    Write["03 PolicyChangeCommitter 与 UoW"]
-    Event["04 授权版本事件与 Outbox"]
-
-    AuthZ --> Model
-    AuthZ --> Check
-    AuthZ --> Write
-    AuthZ --> Event
-
-    Model --> Subject["Subject"]
-    Model --> Role["Role"]
-    Model --> Resource["Resource"]
-    Model --> Permission["Permission"]
-    Model --> RoleBinding["RoleBinding"]
-    Model --> Scope["Scope"]
-
-    Check --> Request["AuthorizationRequest"]
-    Check --> Decision["AuthorizationDecision"]
-    Check --> Engine["DecisionEngine"]
-    Check --> Casbin["CasbinAdapter"]
-
-    Write --> Policy["AuthorizationPolicy"]
-    Write --> Change["PolicyChange"]
-    Write --> Committer["PolicyChangeCommitter"]
-    Write --> UOW["AuthZ UnitOfWork"]
-    Write --> Facts["AuthorizationFacts"]
-
-    Event --> Version["PolicyVersion"]
-    Event --> VersionEvent["iam.authz.version_changed"]
-    Event --> Outbox["Transactional Outbox"]
-    Event --> Reload["Runtime Reload"]
-```
-
----
-
-## 推荐阅读顺序
-
-### 标准顺序
-
-```text
-01-授权模型--Role&Resource&Permission&RoleBinding
-  -> 02-授权判定链路--从Check到Casbin
-  -> 03-PolicyChangeCommitter与UoW
-  -> 04-授权版本事件与Outbox
-```
-
-原因：
-
-1. 先理解授权模型；
-2. 再理解读链路，也就是 Check；
-3. 再理解写链路，也就是授权策略变更；
-4. 最后理解授权版本如何传播给下游。
-
----
-
-### 如果你只想理解“权限模型”
-
-推荐路径：
-
-```text
-01-授权模型--Role&Resource&Permission&RoleBinding.md
-  -> ../07-专题分析/06-为什么RoleBinding与Assignment要分层.md
-```
-
-重点关注：
+领域模型是：
 
 ```text
 Subject
@@ -185,21 +116,186 @@ Resource
 Permission
 RoleBinding
 Scope
-assignment wire term
-rolebinding internal term
+AuthorizationRequest
+AuthorizationDecision
+PolicyChange
+```
+
+Casbin 只是 infra/runtime 层的策略匹配引擎。
+
+一句话：
+
+> **AuthZ 用 Role、Resource、Permission、RoleBinding 建模访问权，用 Check 和 Snapshot 提供读能力，用 PolicyChangeCommitter + UoW + PolicyVersion + Outbox 保证写入一致性，用 Casbin 做运行时判定，用 PolicyLinter 做授权事实治理。**
+
+---
+
+## 3. 文档目录
+
+新版 `03-授权AuthZ/` 采用 9 篇核心文档结构：
+
+```text
+03-授权AuthZ/
+├── README.md
+├── 00-AuthZ模型总览-Subject-Role-Resource-Permission-RoleBinding.md
+├── 01-授权资源与动作模型-ResourceKey-ResourcePattern-Action-Scope.md
+├── 02-授权角色与绑定模型-Role-RoleBinding-Subject.md
+├── 03-Check与Snapshot读链路.md
+├── 04-授权写入链路-PolicyAdministration与PolicyChange.md
+├── 05-PolicyChangeCommitter与AuthZUoW.md
+├── 06-Casbin运行时模型-pgFacts与四段Matcher.md
+├── 07-PolicyVersion-Outbox与RuntimeReload.md
+├── 08-PolicyLinter与授权事实治理.md
+└── 09-AuthZ分层架构与事实源索引.md
+```
+
+| 文档 | 主题 |
+| --- | --- |
+| `00-AuthZ模型总览` | AuthZ 核心模型与主线 |
+| `01-授权资源与动作模型` | ResourceKey、ResourcePattern、Action、Scope |
+| `02-授权角色与绑定模型` | Role、RoleBinding、Subject、Assignment 边界 |
+| `03-Check与Snapshot读链路` | Check 判定与 Snapshot 快照 |
+| `04-授权写入链路` | PolicyAdministration 与 PolicyChange |
+| `05-PolicyChangeCommitter与AuthZUoW` | 事务提交、facts、version、outbox、reload |
+| `06-Casbin运行时模型` | p/g facts 与四段 matcher |
+| `07-PolicyVersion-Outbox与RuntimeReload` | 授权版本传播与运行时刷新 |
+| `08-PolicyLinter与授权事实治理` | 授权事实只读诊断与治理边界 |
+| `09-AuthZ分层架构与事实源索引` | 分层架构、事实源、架构护栏 |
+
+---
+
+## 4. AuthZ 知识地图
+
+```mermaid
+flowchart TD
+    AuthZ["03-授权 AuthZ"]
+
+    Overview["00 模型总览"]
+    Resource["01 资源与动作模型"]
+    Role["02 角色与绑定模型"]
+    Read["03 Check 与 Snapshot"]
+    Write["04 授权写入链路"]
+    Commit["05 Committer 与 UoW"]
+    Runtime["06 Casbin Runtime"]
+    Version["07 Version / Outbox / Reload"]
+    Linter["08 PolicyLinter"]
+    Architecture["09 分层架构与事实源"]
+
+    AuthZ --> Overview
+    AuthZ --> Resource
+    AuthZ --> Role
+    AuthZ --> Read
+    AuthZ --> Write
+    AuthZ --> Commit
+    AuthZ --> Runtime
+    AuthZ --> Version
+    AuthZ --> Linter
+    AuthZ --> Architecture
+
+    Overview --> Subject["Subject"]
+    Overview --> RoleBinding["RoleBinding"]
+    Overview --> Permission["Permission"]
+    Overview --> Decision["AuthorizationDecision"]
+
+    Resource --> ResourceKey["ResourceKey / Pattern"]
+    Resource --> Action["Action / Pattern"]
+    Resource --> Scope["Scope"]
+
+    Role --> RoleName["RoleName"]
+    Role --> SubjectRef["SubjectRef"]
+    Role --> Assignment["Assignment wire term"]
+
+    Read --> Check["Check"]
+    Read --> Snapshot["Snapshot"]
+
+    Write --> Admin["PolicyAdministration"]
+    Write --> Policy["AuthorizationPolicy"]
+    Write --> Change["PolicyChange"]
+
+    Commit --> UOW["AuthZ UoW"]
+    Commit --> Facts["AuthorizationFacts"]
+
+    Runtime --> Casbin["CasbinAdapter"]
+    Runtime --> Matcher["resource/action/scope matcher"]
+
+    Version --> PolicyVersion["PolicyVersion"]
+    Version --> Outbox["Transactional Outbox"]
+    Version --> Reload["RuntimeReload"]
+
+    Linter --> Findings["LintFindings"]
+    Architecture --> Guard["Architecture Guards"]
 ```
 
 ---
 
-### 如果你只想理解“业务服务如何做权限判定”
+## 5. 推荐阅读顺序
+
+### 5.1 标准顺序
+
+如果你是第一次系统阅读 AuthZ，推荐按顺序读：
+
+```text
+00-AuthZ模型总览
+  -> 01-授权资源与动作模型
+  -> 02-授权角色与绑定模型
+  -> 03-Check与Snapshot读链路
+  -> 04-授权写入链路
+  -> 05-PolicyChangeCommitter与AuthZUoW
+  -> 06-Casbin运行时模型
+  -> 07-PolicyVersion-Outbox与RuntimeReload
+  -> 08-PolicyLinter与授权事实治理
+  -> 09-AuthZ分层架构与事实源索引
+```
+
+原因是：
+
+```text
+先理解模型
+再理解读链路
+再理解写链路
+再理解运行时
+再理解版本传播和治理
+最后用分层架构与事实源索引收束
+```
+
+---
+
+### 5.2 只想理解领域模型
 
 推荐路径：
 
 ```text
-02-授权判定链路--从Check到Casbin.md
-  -> ../05-接入与契约/02-gRPC API契约.md
-  -> ../05-接入与契约/03-SDK接入模型.md
-  -> ../08-宣讲/04-AuthZ授权体系讲法.md
+00-AuthZ模型总览
+  -> 01-授权资源与动作模型
+  -> 02-授权角色与绑定模型
+```
+
+重点关注：
+
+```text
+Subject
+Tenant
+Role
+RoleName
+ResourceKey
+ResourcePattern
+Action
+ActionPattern
+Scope
+Permission
+RoleBinding
+Assignment
+```
+
+---
+
+### 5.3 只想理解业务服务如何接入授权
+
+推荐路径：
+
+```text
+03-Check与Snapshot读链路
+  -> 06-Casbin运行时模型
+  -> ../05-接入与契约/
 ```
 
 重点关注：
@@ -209,170 +305,378 @@ CheckCommand
 AuthorizationRequest
 DecisionEngine
 AuthorizationDecision
-Authz().Check / Allow / AllowScoped
+SnapshotQuery
+AuthorizationSnapshot
+SDK Check / Allow / GetAuthorizationSnapshot
 ```
 
 ---
 
-### 如果你只想理解“授权写入为什么复杂”
+### 5.4 只想理解授权写入为什么复杂
 
 推荐路径：
 
 ```text
-03-PolicyChangeCommitter与UoW.md
-  -> 04-授权版本事件与Outbox.md
-  -> ../07-专题分析/05-为什么AuthZ写入不是简单CRUD.md
-  -> ../07-专题分析/09-为什么需要TransactionalOutbox传播授权版本.md
+04-授权写入链路
+  -> 05-PolicyChangeCommitter与AuthZUoW
+  -> 07-PolicyVersion-Outbox与RuntimeReload
 ```
 
 重点关注：
 
 ```text
+Application Command
+PolicyAdministration
+AuthorizationPolicy
 PolicyChange
-beforeFacts / afterFacts
+PolicyChangeCommitter
+AuthZ UoW
 AuthorizationFacts
 PolicyVersion
-StagePolicyVersionChanged
-Runtime Reload
-Outbox Relay
+Outbox Event
+RuntimeReload
 ```
 
 ---
 
-## 授权模型主图
+### 5.5 只想理解 Casbin 在项目中的位置
+
+推荐路径：
+
+```text
+06-Casbin运行时模型
+  -> 09-AuthZ分层架构与事实源索引
+```
+
+重点关注：
+
+```text
+Permission -> p fact
+RoleBinding -> g fact
+Check Request -> r request
+resourceMatch
+actionMatch
+scopeMatch
+RuntimeAdapters
+```
+
+---
+
+### 5.6 只想理解授权事实治理
+
+推荐路径：
+
+```text
+08-PolicyLinter与授权事实治理
+  -> 07-PolicyVersion-Outbox与RuntimeReload
+  -> 09-AuthZ分层架构与事实源索引
+```
+
+重点关注：
+
+```text
+PermissionFacts
+ResourceCatalog
+PolicyLinter
+LintFinding
+PolicyReconciler boundary
+```
+
+---
+
+## 6. 授权模型主图
 
 ```mermaid
 flowchart LR
     Subject["Subject<br/>user / group / service"]
+    Tenant["Tenant<br/>authorization domain"]
     RoleBinding["RoleBinding<br/>subject holds role in tenant"]
-    Role["Role"]
+    Role["Role<br/>permission aggregation"]
     Permission["Permission<br/>resource + action + scope"]
     Resource["Resource"]
+    Action["Action"]
+    Scope["Scope"]
     Decision["AuthorizationDecision<br/>allowed / denied"]
 
-    Subject --> RoleBinding --> Role --> Permission --> Resource
+    Subject --> RoleBinding
+    Tenant --> RoleBinding
+    RoleBinding --> Role
+    Role --> Permission
+    Permission --> Resource
+    Permission --> Action
+    Permission --> Scope
     Permission --> Decision
 ```
 
 这张图表达的是：
 
 ```text
-subject 不是直接拥有权限
-subject 通过 RoleBinding 持有 Role
-Role 通过 Permission 关联 Resource / Action / Scope
-最终 Check 返回 AuthorizationDecision
+Subject 不直接拥有 Permission。
+Subject 在 Tenant 下通过 RoleBinding 持有 Role。
+Role 通过 Permission 声明 Resource / Action / Scope 能力。
+最终 Check 返回 AuthorizationDecision。
 ```
 
 ---
 
-## 授权判定主链路
+## 7. 读链路主图
 
 ```mermaid
-sequenceDiagram
-    participant Client as "Business Service / REST / gRPC / SDK"
-    participant Checker as "Authorization Checker"
-    participant Domain as "AuthorizationRequest"
-    participant Engine as "DecisionEngine"
-    participant Casbin as "CasbinAdapter"
+flowchart TD
+    Client["REST / gRPC / SDK"]
+    CheckCommand["NewCheckCommand"]
+    Checker["Checker.Check"]
+    Request["AuthorizationRequest"]
+    Engine["DecisionEngine"]
+    Runtime["Casbin Runtime"]
+    Decision["AuthorizationDecision"]
 
-    Client->>Checker: Check(subject, tenant, resource, action, scope)
-    Checker->>Domain: NewAuthorizationRequest(...)
-    Checker->>Engine: Check(request)
-    Engine->>Casbin: Enforce(sub, dom, obj, act, scope)
-    Casbin-->>Engine: allowed / denied
-    Engine-->>Client: AuthorizationDecision
+    SnapshotQuery["NewSnapshotQuery"]
+    SnapshotReader["SnapshotReader.Read"]
+    SnapshotStore["SnapshotStore"]
+    Snapshot["AuthorizationSnapshot"]
+
+    Client --> CheckCommand --> Checker --> Request --> Engine --> Runtime --> Decision
+    Client --> SnapshotQuery --> SnapshotReader --> SnapshotStore --> Snapshot
 ```
 
-这条链路表达的是：
+读链路分为：
 
 ```text
-业务服务不直接判断 user.role
-业务服务把授权问题交给 AuthZ Check
-AuthZ 用领域请求表达问题
-CasbinAdapter 作为 DecisionEngine 实现运行时判定
+Check：权威实时判定
+Snapshot：授权事实投影
 ```
+
+Check 用于安全准入。
+
+Snapshot 用于菜单展示、SDK 缓存、管理界面和批量判断。
 
 ---
 
-## 授权写入主链路
+## 8. 写链路主图
 
 ```mermaid
 flowchart TD
     Command["Grant / Revoke / Bind / Unbind"]
-    Policy["AuthorizationPolicy"]
+    AppCommand["Application Command"]
+    Admin["PolicyAdministration"]
+    DomainPolicy["AuthorizationPolicy"]
     Change["PolicyChange"]
     Committer["PolicyChangeCommitter"]
     UOW["AuthZ UoW Transaction"]
-    Mgmt["Management Record<br/>rolebinding.Binding"]
-    Facts["Casbin p/g Facts"]
+    Mgmt["Management Records"]
+    Facts["AuthorizationFacts<br/>p/g facts"]
     Version["PolicyVersion +1"]
-    Event["Outbox Event<br/>iam.authz.version_changed"]
-    Reload["Runtime Policy Reload"]
+    Event["Outbox Event<br/>version_changed"]
+    Reload["RuntimeReload"]
 
-    Command --> Policy --> Change --> Committer --> UOW
+    Command --> AppCommand --> Admin --> DomainPolicy --> Change --> Committer --> UOW
     UOW --> Mgmt
     UOW --> Facts
     UOW --> Version
     UOW --> Event
-    UOW --> Reload
+    Committer --> Reload
 ```
 
 这条链路表达的是：
 
 ```text
-授权写入不是单表 CRUD
-它改变的是运行时授权事实
-同时要保证管理面、判定面、版本传播和 runtime reload 的一致性
+授权写入不是 CRUD。
+授权写入的本质是生成 PolicyChange，并由统一提交链路保证管理记录、运行时事实、策略版本、事件传播和 runtime reload 的一致性。
 ```
 
 ---
 
-## AuthZ 核心概念
+## 9. Runtime 主图
 
-| 概念 | 当前职责 | 常见误解 |
-| --- | --- | --- |
-| Subject | 被授权主体，如 user/group/service | 误以为只能是用户 |
-| Tenant | 授权域 / domain 边界 | 误以为所有权限都是全局的 |
-| Resource | 被保护资源，例如业务对象或功能 | 误以为只需要接口路径 |
-| Action | 对资源执行的动作，如 read/write/delete | 误以为 CRUD 动作能覆盖所有业务语义 |
-| Scope | 权限作用范围，如 all:*、origin:<value> | 误以为权限只能全局生效 |
-| Role | 权限聚合点 | 误以为 User 表里一个 role 字段就够 |
-| Permission | Role 对 Resource/Action/Scope 的能力声明 | 误以为 Permission 是直接挂在 User 上 |
-| RoleBinding | Subject 在 Tenant 下持有 Role 的授权事实 | 误以为就是 REST assignment DTO |
-| Assignment | REST/proto 对外 wire term，表示角色分配 | 误以为内部 domain 也应该叫 assignment |
-| AuthorizationRequest | 一次授权判定的领域请求 | 误以为就是 HTTP request |
-| AuthorizationDecision | 授权判定结果 | 误以为是 Casbin 原始返回值 |
-| CasbinAdapter | infra runtime policy engine | 误以为是 AuthZ 领域模型 |
-| PolicyChange | 授权写入的领域变更对象 | 误以为直接 insert/delete 表 |
-| PolicyVersion | tenant 级授权事实版本 | 误以为只是普通更新时间 |
-| Outbox | 授权版本事件可靠传播机制 | 误以为只是 MQ publish |
+```mermaid
+flowchart LR
+    Permission["Permission"]
+    RoleBinding["RoleBinding"]
+    PFact["p fact"]
+    GFact["g fact"]
+    Request["Check Request<br/>r request"]
+    Matcher["Matcher<br/>resource/action/scope"]
+    Decision["AuthorizationDecision"]
 
----
+    Permission --> PFact
+    RoleBinding --> GFact
+    Request --> Matcher
+    PFact --> Matcher
+    GFact --> Matcher
+    Matcher --> Decision
+```
 
-## AuthZ 与其他模块的关系
-
-| 模块 | 关系 |
-| --- | --- |
-| AuthN | AuthN 证明“你是谁”，AuthZ 判断“你能做什么” |
-| Identity | Identity 提供 User / ProfileLink 等身份关系；AuthZ 使用 `user:<id>` 等 subject 做资源权限判定 |
-| IDP | IDP 不参与资源授权；外部身份最终通过 AuthN 映射为 IAM subject |
-| REST | REST 暴露 AuthZ Check、Role、Resource、Assignment/Policy 管理等 HTTP 接口 |
-| gRPC | gRPC 暴露 AuthorizationService，适合服务间 Check 和 Snapshot |
-| SDK | SDK 封装 `Authz().Check / Allow / AllowScoped / GetAuthorizationSnapshot` |
-| Outbox | AuthZ 写入通过 PolicyVersion + Outbox 通知下游授权版本变化 |
-| 架构护栏 | 防止 Casbin facts、assignment 包、infra 细节进入 domain/application/transport |
-
----
-
-## Casbin 的边界
-
-AuthZ README 必须明确这一点：
+核心映射是：
 
 ```text
-Casbin 是 infra 层运行时策略引擎，不是 IAM 的业务模型。
+Permission   -> p fact
+RoleBinding  -> g fact
+Check Request -> r request
 ```
 
-当前业务语言是：
+核心 matcher 是：
+
+```text
+g(r.sub, p.sub, r.dom)
+&& r.dom == p.dom
+&& resourceMatch(r.obj, p.obj)
+&& actionMatch(r.act, p.act)
+&& scopeMatch(r.scope, p.scope)
+```
+
+---
+
+## 10. 核心概念速查
+
+| 概念 | 含义 |
+| --- | --- |
+| Subject | 被授权主体，如 user/group/service |
+| Tenant | 授权域边界 |
+| Role | 权限聚合点 |
+| RoleName | 稳定业务角色标识 |
+| ResourceKey | 资源目录中的资源标识 |
+| ResourcePattern | 授权事实或请求中的资源匹配模式 |
+| Action | 请求侧具体动作 |
+| ActionPattern | 权限事实中的动作匹配表达式 |
+| Scope | 权限作用范围 |
+| Permission | Role 对 Resource / Action / Scope 的能力声明 |
+| RoleBinding | Subject 在 Tenant 下持有 Role 的授权事实 |
+| Assignment | REST/proto/SDK 对外 wire term |
+| AuthorizationRequest | 一次 Check 的领域请求 |
+| AuthorizationDecision | 授权判定结果 |
+| AuthorizationSnapshot | Subject 当前角色和权限快照 |
+| PolicyChange | 授权事实变更计划 |
+| PolicyChangeCommitter | 授权变更统一提交器 |
+| PolicyVersion | Tenant 级授权事实版本 |
+| Outbox | 事实与事件同事务机制 |
+| RuntimeReload | 运行时策略刷新 |
+| PolicyLinter | 授权事实只读诊断工具 |
+
+---
+
+## 11. AuthZ 与其他模块的关系
+
+### 11.1 与 AuthN
+
+AuthN 回答：
+
+```text
+你是谁？
+你如何证明你是谁？
+认证成功后如何表达 Principal？
+```
+
+AuthZ 回答：
+
+```text
+你能访问什么资源？
+你能执行什么动作？
+你的权限范围是什么？
+```
+
+典型关系是：
+
+```text
+AuthN 认证出 Principal
+AuthZ 将 Principal 映射为 Subject
+AuthZ Check 判断是否允许访问 Resource
+```
+
+---
+
+### 11.2 与 Identity
+
+Identity 负责：
+
+```text
+User
+Profile
+ProfileLink
+身份关系
+```
+
+AuthZ 负责：
+
+```text
+Subject
+Role
+Permission
+Resource access
+```
+
+ProfileLink 不是 Permission。
+
+如果 Profile 操作需要资源权限，应通过：
+
+```text
+Resource
+Action
+Scope
+Check
+```
+
+进入 AuthZ。
+
+---
+
+### 11.3 与 REST / gRPC / SDK
+
+REST / gRPC / SDK 是接入层。
+
+它们负责：
+
+```text
+协议请求 -> application command/query
+application result -> 协议响应
+```
+
+它们不应该：
+
+```text
+直接调用 Casbin Enforce
+直接操作 casbin_rule
+直接生成 PolicyChange
+直接打开 AuthZ UoW
+```
+
+---
+
+### 11.4 与 Outbox
+
+AuthZ 写入会产生：
+
+```text
+authz.policy.version_changed
+```
+
+这类事件用于：
+
+```text
+缓存失效
+跨实例 runtime reload
+下游系统感知授权版本变化
+```
+
+Outbox 的关键是：
+
+```text
+授权事实和事件记录同事务提交
+relay 异步发布
+consumer 按 at-least-once 语义幂等消费
+```
+
+---
+
+## 12. Casbin 的边界
+
+必须明确：
+
+```text
+Casbin 是 infra 层 runtime policy engine，不是 IAM 的领域模型。
+```
+
+业务语言是：
 
 ```text
 Subject
@@ -395,155 +699,198 @@ sub
 dom
 obj
 act
-scopeMatch
+scope
+matcher
 ```
 
-它们的边界是：
+边界是：
 
 ```text
 domain/application 使用业务语言
 infra/casbin 负责把业务事实映射成 p/g facts
 transport 不直接调用 Casbin Enforce
+业务系统不理解 p/g facts
 ```
 
-这条边界由架构测试保护，不能只靠约定。
+这条边界不能只靠约定，必须由架构测试保护。
 
 ---
 
-## assignment 与 rolebinding 的边界
+## 13. Assignment 与 RoleBinding 的边界
 
 当前约定：
 
 ```text
-assignment = REST/proto 对外 wire term
-rolebinding = 内部 application/domain 标准术语
+assignment = REST / proto / SDK 对外 wire term
+rolebinding = application / domain 内部标准术语
 ```
 
-为什么要分层：
+分层关系是：
+
+| 层次 | 名称 |
+| --- | --- |
+| REST / proto / SDK | Assignment |
+| Application / Domain | RoleBinding |
+| Management DB | Binding record |
+| Runtime Casbin | g fact |
+
+不要恢复内部 `assignment` 包。
+
+内部统一使用：
 
 ```text
-外部 API 保留 assignment 兼容和易懂
-内部领域使用 rolebinding 保持 RBAC 语义准确
+rolebinding
 ```
 
-对应模型：
-
-| 层次 | 名称 | 用途 |
-| --- | --- | --- |
-| REST/proto | Assignment | 对外表示“角色分配” |
-| application/domain | RoleBinding | 表示 subject 在 tenant 下持有 role |
-| DB management record | rolebinding.Binding | 便于后台查询、按 ID 撤销、审计 |
-| runtime fact | Casbin g fact | 用于运行时授权判定 |
+这样 RBAC 语义更准确。
 
 ---
 
-## 代码证据入口
+## 14. 代码事实源入口
 
 | 主题 | 代码入口 |
 | --- | --- |
 | AuthZ module 装配 | `internal/apiserver/container/assembler/authz.go` |
-| AuthZ 领域模型 | `internal/apiserver/domain/authz/model.go` |
+| AuthZ capabilities | `internal/apiserver/container/assembler` |
+| AuthZ domain root facade | `internal/apiserver/domain/authz/model.go` |
+| Subject domain | `internal/apiserver/domain/authz/subject` |
+| Tenant domain | `internal/apiserver/domain/authz/tenant` |
 | Role domain | `internal/apiserver/domain/authz/role` |
 | Resource domain | `internal/apiserver/domain/authz/resource` |
-| RoleBinding management domain | `internal/apiserver/domain/authz/rolebinding` |
+| Scope domain | `internal/apiserver/domain/authz/scope` |
+| Permission domain | `internal/apiserver/domain/authz/permission` |
+| RoleBinding domain | `internal/apiserver/domain/authz/rolebinding` |
+| Decision domain | `internal/apiserver/domain/authz/decision` |
 | Policy domain | `internal/apiserver/domain/authz/policy` |
-| Authorization Checker / SnapshotReader | `internal/apiserver/application/authz/authorization/service.go` |
-| PolicyAdministration | `internal/apiserver/application/authz/policy/administration.go` |
-| PolicyChangeCommitter | `internal/apiserver/application/authz/policy/committer.go` |
-| AuthZ UoW ports | `internal/apiserver/application/authz/uow/uow.go` |
-| MySQL AuthZ UoW | `internal/apiserver/infra/mysql/uow/authz/uow.go` |
-| Casbin adapter | `internal/apiserver/infra/casbin/adapter.go` |
-| Casbin facts mapper | `internal/apiserver/infra/casbin/facts.go` |
-| PolicyVersion repo | `internal/apiserver/infra/mysql/policy` |
-| Version event staging | `internal/apiserver/application/authz/shared/version_event.go` |
-| Runtime reload | `internal/apiserver/application/authz/shared/reloader.go` |
-| Outbox store | `internal/apiserver/infra/mysql/eventoutbox` |
-| Outbox relay | `internal/apiserver/infra/messaging/outbox_relay.go` |
+| Check / Snapshot | `internal/apiserver/application/authz/authorization` |
+| PolicyAdministration | `internal/apiserver/application/authz/policy` |
+| PolicyChangeCommitter | `internal/apiserver/application/authz/policy` |
+| Role app service | `internal/apiserver/application/authz/role` |
+| Resource app service | `internal/apiserver/application/authz/resource` |
+| RoleBinding app service | `internal/apiserver/application/authz/rolebinding` |
+| PolicyLinter | `internal/apiserver/application/authz/policylint` |
+| AuthZ UoW port | `internal/apiserver/application/authz/uow` |
+| Casbin runtime | `internal/apiserver/infra/casbin` |
+| Casbin model | `configs/casbin_model.conf` |
+| Casbin facts store | `internal/apiserver/infra/mysql/casbinrule` |
+| Role repository | `internal/apiserver/infra/mysql/role` |
+| Resource repository | `internal/apiserver/infra/mysql/resource` |
+| RoleBinding repository | `internal/apiserver/infra/mysql/rolebinding` |
+| PolicyVersion repository | `internal/apiserver/infra/mysql/policy` |
+| MySQL UoW | `internal/apiserver/infra/mysql/uow` |
 | REST AuthZ | `internal/apiserver/transport/rest/authz` |
 | gRPC AuthZ | `internal/apiserver/transport/grpc/service/authz` |
-| AuthZ proto | `api/grpc/iam/authz/v2/authz.proto` |
-| REST AuthZ OpenAPI | `api/rest/authz.v2.yaml` |
-| SDK AuthZ | `pkg/sdk/authz` |
 | 架构测试 | `internal/pkg/architecture/architecture_test.go` |
 
 ---
 
-## 事实源优先级
+## 15. 事实源优先级
 
 AuthZ 相关事实冲突时，按以下顺序判断：
 
-1. **源码运行行为**  
-   `internal/apiserver/domain/authz`、`application/authz`、`infra/casbin`、`infra/mysql/uow/authz`。
+1. **源码运行行为**
 
-2. **机器契约与配置**  
-   `api/rest/authz.v2.yaml`、`api/grpc/iam/authz/v2/authz.proto`、`configs/casbin_model.conf`、`configs/events.yaml`。
+   ```text
+   internal/apiserver/domain/authz
+   internal/apiserver/application/authz
+   internal/apiserver/infra/casbin
+   internal/apiserver/infra/mysql
+   ```
 
-3. **架构与契约测试**  
-   `internal/pkg/architecture`、REST/gRPC contract tests、SDK public API compile test。
+2. **机器契约与配置**
 
-4. **当前维护文档**  
-   `docs/03-授权AuthZ`、`docs/05-接入与契约`、`docs/07-专题分析`、`docs/08-宣讲`。
+   ```text
+   REST / OpenAPI contract
+   gRPC proto
+   SDK public API
+   configs/casbin_model.conf
+   migrations
+   ```
 
-5. **历史归档材料**  
-   `_archive/` 只用于历史追溯，不作为当前事实源。
+3. **架构与契约测试**
 
----
+   ```text
+   internal/pkg/architecture
+   REST / gRPC contract tests
+   SDK compile tests
+   domain / application / infra tests
+   ```
 
-## 与专题分析、宣讲文档的关系
+4. **当前维护文档**
 
-### 事实层
+   ```text
+   docs/03-授权AuthZ
+   docs/05-接入与契约
+   docs/07-专题分析
+   docs/08-宣讲
+   ```
 
-`03-授权AuthZ/` 是事实层，回答：
+5. **历史归档材料**
 
-```text
-当前 AuthZ 源码如何建模
-当前 Check 链路如何运行
-当前写入链路如何保证事务和传播
-```
+   ```text
+   _archive/
+   ```
 
-### 专题分析层
-
-`07-专题分析/` 回答：
-
-```text
-为什么 AuthZ 写入不是 CRUD
-为什么 RoleBinding 与 Assignment 要分层
-为什么需要 Transactional Outbox 传播授权版本
-```
-
-推荐阅读：
-
-```text
-../07-专题分析/05-为什么AuthZ写入不是简单CRUD.md
-../07-专题分析/06-为什么RoleBinding与Assignment要分层.md
-../07-专题分析/09-为什么需要TransactionalOutbox传播授权版本.md
-```
-
-### 宣讲层
-
-`08-宣讲/` 回答：
-
-```text
-如何把 AuthZ 授权体系讲给别人听
-如何准备面试追问
-如何组织技术分享
-```
-
-推荐阅读：
-
-```text
-../08-宣讲/04-AuthZ授权体系讲法.md
-../08-宣讲/08-Outbox与授权版本传播讲法.md
-../08-宣讲/13-面试追问证据索引.md
-```
+历史归档只用于追溯，不作为当前事实源。
 
 ---
 
-## 常见误区
+## 16. 与专题分析、宣讲文档的关系
 
-### 误区一：AuthZ = user.role
+### 16.1 事实层
 
-错误。  
+`03-授权AuthZ/` 是事实层。
+
+它回答：
+
+```text
+当前 AuthZ 源码如何建模？
+当前 Check / Snapshot 如何运行？
+当前写入链路如何保证事务和传播？
+当前 Casbin runtime 如何映射 facts？
+当前 PolicyLinter 如何治理授权事实？
+```
+
+---
+
+### 16.2 专题分析层
+
+`07-专题分析/` 更适合回答：
+
+```text
+为什么 AuthZ 写入不是 CRUD？
+为什么 RoleBinding 与 Assignment 要分层？
+为什么需要 Transactional Outbox 传播授权版本？
+为什么 Casbin 不是领域模型？
+为什么 ResourceKey 要做四段结构？
+```
+
+专题分析偏设计取舍。
+
+事实层文档偏当前实现。
+
+---
+
+### 16.3 宣讲层
+
+`08-宣讲/` 更适合回答：
+
+```text
+如何把 AuthZ 授权体系讲给别人听？
+如何准备面试追问？
+如何组织技术分享？
+```
+
+宣讲层可以使用事实层作为证据索引。
+
+---
+
+## 17. 常见误区
+
+### 17.1 AuthZ = user.role
+
+错误。
+
 IAM 的授权模型是：
 
 ```text
@@ -558,63 +905,89 @@ Subject
 
 ---
 
-### 误区二：AuthZ = Casbin
+### 17.2 AuthZ = Casbin
 
-错误。  
-Casbin 是 runtime policy engine。  
-IAM 的领域模型是 Role、Resource、Permission、RoleBinding、Scope。  
-Casbin p/g facts 只应该出现在 infra/casbin 和数据库授权事实层，不应该污染 domain。
+错误。
+
+Casbin 是 runtime policy engine。
+
+IAM 的领域模型是 Role、Resource、Permission、RoleBinding、Scope。
+
+Casbin p/g facts 只应该出现在 infra/casbin 和数据库授权事实层。
 
 ---
 
-### 误区三：授权写入就是 CRUD
+### 17.3 授权写入就是 CRUD
 
-错误。  
-授权写入改变的是运行时授权事实。  
+错误。
+
+授权写入改变的是运行时授权事实。
+
 一次写入可能同时影响：
 
 ```text
-rolebinding 管理记录
-Casbin p/g facts
+management records
+Permission / RoleBinding facts
 PolicyVersion
 Outbox event
-Runtime policy reload
+RuntimeReload
 ```
 
 ---
 
-### 误区四：assignment 和 rolebinding 是同一个概念
+### 17.4 Assignment 和 RoleBinding 是完全相同概念
 
-不准确。  
-`assignment` 是对外契约术语，`rolebinding` 是内部领域术语。  
-README 和事实层文档必须保持这条边界。
+不准确。
 
----
+`assignment` 是对外契约术语。
 
-### 误区五：ProfileLink 可以替代 AuthZ
-
-错误。  
-ProfileLink 是 Identity 关系 guard，不是资源权限。  
-资源级访问仍应通过 AuthZ Resource/Action/Scope 判定。
+`rolebinding` 是内部领域术语。
 
 ---
 
-### 误区六：Outbox 就是普通 MQ publish
+### 17.5 ProfileLink 可以替代 AuthZ
 
-错误。  
+错误。
+
+ProfileLink 是 Identity 关系，不是资源权限。
+
+资源级访问仍应通过 AuthZ Resource / Action / Scope 判定。
+
+---
+
+### 17.6 Outbox 就是普通 MQ publish
+
+错误。
+
 Transactional Outbox 的关键是：
 
 ```text
 业务事实和事件记录同事务提交
 relay 异步发布
-消费者按 at-least-once 幂等处理
+consumer 按 at-least-once 语义幂等处理
 ```
 
 ---
 
-## 验证建议
+### 17.7 PolicyLinter 会自动修复权限
 
-修改 AuthZ 文档或相关代码后，建议运行：
+错误。
+
+PolicyLinter 是只读诊断工具。
+
+修复必须通过未来：
+
+```text
+PolicyReconciler
+  -> PolicyChange
+  -> PolicyChangeCommitter
+```
+
+---
+
+## 18. 验证建议
+
+修改 AuthZ 文档或相关代码后，建议至少运行：
 
 ```bash
 make docs-hygiene
@@ -627,13 +1000,13 @@ go test ./internal/apiserver/application/authz/... \
   ./internal/apiserver/domain/authz/...
 ```
 
-Casbin / UoW / Outbox 相关：
+Casbin / UoW / PolicyVersion 相关：
 
 ```bash
 go test ./internal/apiserver/infra/casbin \
-  ./internal/apiserver/infra/mysql/uow/authz \
-  ./internal/apiserver/infra/mysql/eventoutbox \
-  ./internal/apiserver/infra/messaging
+  ./internal/apiserver/infra/mysql/casbinrule \
+  ./internal/apiserver/infra/mysql/policy \
+  ./internal/apiserver/infra/mysql/uow/...
 ```
 
 REST/gRPC 接入相关：
@@ -643,19 +1016,13 @@ go test ./internal/apiserver/transport/rest/authz \
   ./internal/apiserver/transport/grpc/service/authz
 ```
 
-SDK AuthZ 接入相关：
-
-```bash
-go test ./pkg/sdk/authz
-```
-
 架构边界相关：
 
 ```bash
 go test ./internal/pkg/architecture
 ```
 
-涉及 REST/gRPC 契约时：
+涉及契约时，按项目当前命令运行：
 
 ```bash
 make docs-swagger
@@ -665,25 +1032,25 @@ make proto-gen
 
 ---
 
-## 维护规则
+## 19. 维护规则
 
-### 1. README 只做 AuthZ 模块入口
+### 19.1 README 只做 AuthZ 模块入口
 
 本 README 负责：
 
 ```text
 说明 AuthZ 模块回答什么
-列出四篇正文
+列出 9 篇核心文档
 提供阅读路径
-提供术语表和证据入口
-说明和专题/宣讲/接入文档的关系
+提供知识地图和事实源入口
+说明常见误区和维护规则
 ```
 
-详细模型、判定、写入、事件传播放到对应正文。
+详细模型和链路放到对应正文。
 
 ---
 
-### 2. 不把 AuthN 问题写进 AuthZ
+### 19.2 不把 AuthN 问题写进 AuthZ
 
 AuthZ 不负责：
 
@@ -700,9 +1067,10 @@ JWKS 发布
 
 ---
 
-### 3. 不把 Identity 关系写成权限模型
+### 19.3 不把 Identity 关系写成权限模型
 
-ProfileLink 是 Identity 关系，不是 AuthZ Permission。  
+ProfileLink 是 Identity 关系，不是 AuthZ Permission。
+
 如果 Profile 操作需要资源权限，应通过：
 
 ```text
@@ -716,9 +1084,11 @@ Check
 
 ---
 
-### 4. 不把 Casbin 写成领域语言
+### 19.4 不把 Casbin 写成领域语言
 
-文档中可以解释 Casbin 映射，但领域语言必须优先使用：
+文档中可以解释 Casbin 映射。
+
+但领域语言必须优先使用：
 
 ```text
 Subject
@@ -736,7 +1106,7 @@ PolicyChange
 
 ---
 
-### 5. 不恢复旧 assignment 包
+### 19.5 不恢复旧 assignment 包
 
 当前内部标准术语是：
 
@@ -754,7 +1124,7 @@ infra/mysql/assignment
 
 ---
 
-### 6. 不把 Outbox 讲成 exactly-once
+### 19.6 不把 Outbox 讲成 exactly-once
 
 当前 Outbox 语义应按：
 
@@ -767,23 +1137,40 @@ consumer idempotency required
 
 ---
 
-## 本文总结
+### 19.7 文档必须跟随代码事实源
 
-`03-授权AuthZ/` 解释的是 IAM 如何处理访问权。
+如果这些事实变化，必须同步更新文档：
+
+```text
+ResourceKey 规则
+ActionPattern 规则
+Scope 匹配语义
+PolicyChange 结构
+Casbin matcher
+PolicyLinter findings
+REST/gRPC response 字段
+AuthZ capabilities
+```
+
+---
+
+## 20. 本文总结
+
+`03-授权AuthZ/` 解释 IAM 如何处理资源级访问权。
 
 核心心智是：
 
 ```text
-AuthZ 不验证你是谁
-AuthZ 判断你能不能访问资源
+AuthZ 不验证你是谁。
+AuthZ 判断你能不能访问资源。
 
-AuthZ 不是 user.role
-AuthZ 不是 Casbin 本身
-AuthZ 写入不是 CRUD
-AuthZ 版本传播不是普通 MQ publish
+AuthZ 不是 user.role。
+AuthZ 不是 Casbin 本身。
+AuthZ 写入不是 CRUD。
+AuthZ 版本传播不是普通 MQ publish。
 ```
 
-它的主线是：
+模型主线是：
 
 ```text
 Subject
@@ -794,7 +1181,17 @@ Subject
   -> AuthorizationDecision
 ```
 
-写入主线是：
+读链路主线是：
+
+```text
+Check / Snapshot
+  -> Application Command / Query
+  -> Checker / SnapshotReader
+  -> Runtime / Store
+  -> Decision / Snapshot
+```
+
+写链路主线是：
 
 ```text
 PolicyChange
@@ -802,22 +1199,9 @@ PolicyChange
   -> AuthorizationFacts
   -> PolicyVersion
   -> Outbox Event
-  -> Runtime Reload
-```
-
-读完本目录后，读者应该能回答：
-
-```text
-授权模型如何组织？
-一次 Check 如何走到 Casbin？
-Casbin 为什么只是 infra adapter？
-RoleBinding 与 Assignment 如何分层？
-授权写入为什么不是 CRUD？
-PolicyVersion 有什么用？
-Outbox 为什么必要？
-业务系统如何接入 AuthZ Check？
+  -> RuntimeReload
 ```
 
 如果只记一句话：
 
-> **AuthZ 负责资源级访问判定，用 Role/Resource/Permission/RoleBinding 建模，用 Casbin 做运行时判定，用 UoW + PolicyVersion + Outbox 保证授权写入和版本传播的一致性。**
+> **AuthZ 负责资源级访问判定，用 Role / Resource / Permission / RoleBinding 建模，用 Check / Snapshot 提供读能力，用 PolicyChangeCommitter + UoW + PolicyVersion + Outbox 保证授权写入和版本传播一致性，用 Casbin 做运行时判定，用 PolicyLinter 做授权事实治理。**
