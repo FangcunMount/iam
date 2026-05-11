@@ -2,25 +2,38 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/FangcunMount/component-base/pkg/errors"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 )
 
+type policyLinter interface {
+	Lint(ctx context.Context) (policylint.Report, error)
+}
+
 // PolicyHandler 策略处理器
 type PolicyHandler struct {
 	commander policyApp.PermissionCommands
 	queryer   policyApp.PermissionReader
+	linter    policyLinter
 }
 
 // NewPolicyHandler 创建策略处理器
-func NewPolicyHandler(commander policyApp.PermissionCommands, queryer policyApp.PermissionReader) *PolicyHandler {
+func NewPolicyHandler(commander policyApp.PermissionCommands, queryer policyApp.PermissionReader, linters ...policyLinter) *PolicyHandler {
+	var linter policyLinter
+	if len(linters) > 0 {
+		linter = linters[0]
+	}
 	return &PolicyHandler{
 		commander: commander,
 		queryer:   queryer,
+		linter:    linter,
 	}
 }
 
@@ -65,14 +78,10 @@ func (h *PolicyHandler) AddPermission(c *gin.Context) {
 		return
 	}
 
-	cmd := policyApp.AddPermissionCommand{
-		RoleID:     roleID,
-		ResourceID: resource.NewResourceID(resourceID.Uint64()),
-		Action:     req.Action,
-		Scope:      scope,
-		TenantID:   tenantID,
-		ChangedBy:  changedBy.String(),
-		Reason:     req.Reason,
+	cmd, err := policyApp.NewAddPermissionCommand(roleID, resource.NewResourceID(resourceID.Uint64()), req.Action, scope, tenantID, changedBy.String(), req.Reason)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	err = h.commander.AddPermission(c.Request.Context(), cmd)
@@ -125,14 +134,10 @@ func (h *PolicyHandler) RemovePermission(c *gin.Context) {
 		return
 	}
 
-	cmd := policyApp.RemovePermissionCommand{
-		RoleID:     roleID,
-		ResourceID: resource.NewResourceID(resourceID.Uint64()),
-		Action:     req.Action,
-		Scope:      scope,
-		TenantID:   tenantID,
-		ChangedBy:  changedBy.String(),
-		Reason:     req.Reason,
+	cmd, err := policyApp.NewRemovePermissionCommand(roleID, resource.NewResourceID(resourceID.Uint64()), req.Action, scope, tenantID, changedBy.String(), req.Reason)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	err = h.commander.RemovePermission(c.Request.Context(), cmd)
@@ -206,4 +211,23 @@ func (h *PolicyHandler) GetCurrentVersion(c *gin.Context) {
 	}
 
 	success(c, toPolicyVersionResponse(version))
+}
+
+// LintPolicies runs the read-only authorization policy linter.
+// @Summary 检查授权策略事实
+// @Tags Authorization-Policies
+// @Produce json
+// @Success 200 {object} dto.Response{data=dto.PolicyLintResponse}
+// @Router /authz/policies/lint [get]
+func (h *PolicyHandler) LintPolicies(c *gin.Context) {
+	if h.linter == nil {
+		handleError(c, errors.WithCode(code.ErrInternalServerError, "authorization policy linter not available"))
+		return
+	}
+	report, err := h.linter.Lint(c.Request.Context())
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	success(c, toPolicyLintResponse(report))
 }

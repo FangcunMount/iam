@@ -72,6 +72,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		{
 			policies.POST("", deps.PolicyHandler.AddPermission)
 			policies.DELETE("", deps.PolicyHandler.RemovePermission)
+			policies.GET("/lint", deps.PolicyHandler.LintPolicies)
 			policies.GET("/version", deps.PolicyHandler.GetCurrentVersion)
 		}
 

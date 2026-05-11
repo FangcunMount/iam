@@ -176,6 +176,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+  /authz/policies/lint:
+    get:
+      tags:
+      - Authorization-Policies
+      summary: 检查授权策略事实
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse'
+                  type: object
   /authz/policies/version:
     get:
       tags:
@@ -757,6 +774,13 @@ components:
           type: string
         subject:
           type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse:
+      properties:
+        findings:
+          items:
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse'
+          type: array
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse:
       properties:

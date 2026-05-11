@@ -108,37 +108,15 @@ func (r *RoleNameReader) RoleNamesForSubject(ctx context.Context, sub subject.Re
 }
 
 func (c *CasbinAdapter) RecordPolicyVersionEvent(tenantID string, version int64, eventAt time.Time) {
-	if c == nil {
+	if c == nil || c.health == nil {
 		return
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.lastEventTenantID = tenantID
-	c.lastEventVersion = version
-	c.lastEventAt = eventAt
+	c.health.recordPolicyVersionEvent(tenantID, version, eventAt)
 }
 
 func (c *CasbinAdapter) RuntimeHealthDetails() map[string]any {
-	if c == nil {
+	if c == nil || c.health == nil {
 		return nil
 	}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	reloadLag := time.Duration(0)
-	if !c.lastEventAt.IsZero() && (c.lastReloadAt.IsZero() || c.lastEventAt.After(c.lastReloadAt)) {
-		reloadLag = time.Since(c.lastEventAt)
-	}
-	details := map[string]any{
-		"last_event_tenant_id": c.lastEventTenantID,
-		"last_event_version":   c.lastEventVersion,
-		"reload_lag_ms":        reloadLag.Milliseconds(),
-	}
-	if !c.lastEventAt.IsZero() {
-		details["last_event_at"] = c.lastEventAt.Format(time.RFC3339)
-	}
-	if !c.lastReloadAt.IsZero() {
-		details["reloaded_at"] = c.lastReloadAt.Format(time.RFC3339)
-	}
-	return details
+	return c.health.details(time.Now())
 }

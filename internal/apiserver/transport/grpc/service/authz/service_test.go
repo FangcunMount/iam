@@ -60,9 +60,9 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		require.Len(t, checker.calls, 1)
 		require.Equal(t, authzDomain.SubjectTypeUser, checker.calls[0].Subject.Type)
 		require.Equal(t, meta.FromUint64(1), checker.calls[0].Subject.ID)
-		require.Equal(t, "tenant-a", checker.calls[0].TenantID)
-		require.Equal(t, "iam:identity:collection:users", checker.calls[0].ResourceKey)
-		require.Equal(t, "read", checker.calls[0].Action)
+		require.Equal(t, "tenant-a", checker.calls[0].TenantIDString())
+		require.Equal(t, "iam:identity:collection:users", checker.calls[0].ResourceKeyString())
+		require.Equal(t, "read", checker.calls[0].ActionString())
 		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, checker.calls[0].ObjectScope)
 	})
 

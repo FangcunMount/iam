@@ -12,6 +12,7 @@ import (
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -39,10 +40,51 @@ func NewChecker(engine DecisionEngine, versions ...policyDomain.Repository) *Che
 
 type CheckCommand struct {
 	Subject     subject.Ref
-	TenantID    string
-	ResourceKey string
-	Action      string
+	TenantID    tenant.ID
+	ResourceKey resourceDomain.Pattern
+	Action      resourceDomain.Action
 	ObjectScope scope.Scope
+}
+
+func NewCheckCommand(sub subject.Ref, tenantID, resourceKey, action string, objectScope scope.Scope) (CheckCommand, error) {
+	if sub.IsZero() {
+		return CheckCommand{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
+	}
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
+		return CheckCommand{}, err
+	}
+	resourcePattern, err := resourceDomain.NewPattern(resourceKey)
+	if err != nil {
+		return CheckCommand{}, err
+	}
+	actionValue, err := resourceDomain.NewAction(action)
+	if err != nil {
+		return CheckCommand{}, err
+	}
+	objectScope = objectScope.Normalized()
+	if _, err := scope.New(objectScope.Kind, objectScope.Value); err != nil {
+		return CheckCommand{}, err
+	}
+	return CheckCommand{
+		Subject:     sub,
+		TenantID:    tenantIDValue,
+		ResourceKey: resourcePattern,
+		Action:      actionValue,
+		ObjectScope: objectScope,
+	}, nil
+}
+
+func (cmd CheckCommand) TenantIDString() string {
+	return cmd.TenantID.String()
+}
+
+func (cmd CheckCommand) ResourceKeyString() string {
+	return cmd.ResourceKey.String()
+}
+
+func (cmd CheckCommand) ActionString() string {
+	return cmd.Action.String()
 }
 
 func (c *Checker) Check(ctx context.Context, cmd CheckCommand) (decision.Decision, error) {
@@ -50,7 +92,7 @@ func (c *Checker) Check(ctx context.Context, cmd CheckCommand) (decision.Decisio
 		return decision.Decision{}, perrors.WithCode(code.ErrInternalServerError, "authorization engine not available")
 	}
 	scope := cmd.ObjectScope.Normalized()
-	request, err := decision.NewRequest(cmd.Subject, cmd.TenantID, cmd.ResourceKey, cmd.Action, decision.WithObjectScope(scope))
+	request, err := decision.NewRequest(cmd.Subject, cmd.TenantIDString(), cmd.ResourceKeyString(), cmd.ActionString(), decision.WithObjectScope(scope))
 	if err != nil {
 		return decision.Decision{}, err
 	}
@@ -59,7 +101,7 @@ func (c *Checker) Check(ctx context.Context, cmd CheckCommand) (decision.Decisio
 		return decision.Decision{}, err
 	}
 	if c.versions != nil {
-		if version, err := c.versions.GetCurrent(ctx, cmd.TenantID); err == nil && version != nil {
+		if version, err := c.versions.GetCurrent(ctx, cmd.TenantIDString()); err == nil && version != nil {
 			result.PolicyVersion = version.Version
 		}
 	}

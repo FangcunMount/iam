@@ -1,6 +1,8 @@
 package process
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -50,4 +52,52 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 	if !reflect.DeepEqual(order, want) {
 		t.Fatalf("shutdown order = %#v, want %#v", order, want)
 	}
+}
+
+func TestStartAuthzPolicySyncRegistersShutdownHook(t *testing.T) {
+	var lifecycle processruntime.Lifecycle
+	sync := &authzPolicySyncFake{}
+
+	startAuthzPolicySync(&lifecycle, sync)
+
+	if sync.started != 1 {
+		t.Fatalf("start count = %d, want 1", sync.started)
+	}
+	if lifecycle.Len() != 1 {
+		t.Fatalf("shutdown hooks = %d, want 1", lifecycle.Len())
+	}
+	lifecycle.Run(func(string, error) {})
+	if sync.stopped != 1 {
+		t.Fatalf("stop count = %d, want 1", sync.stopped)
+	}
+}
+
+func TestStartAuthzPolicySyncDoesNotRegisterHookWhenStartFails(t *testing.T) {
+	var lifecycle processruntime.Lifecycle
+	sync := &authzPolicySyncFake{startErr: errors.New("boom")}
+
+	startAuthzPolicySync(&lifecycle, sync)
+
+	if sync.started != 1 {
+		t.Fatalf("start count = %d, want 1", sync.started)
+	}
+	if lifecycle.Len() != 0 {
+		t.Fatalf("shutdown hooks = %d, want 0", lifecycle.Len())
+	}
+}
+
+type authzPolicySyncFake struct {
+	startErr error
+	started  int
+	stopped  int
+}
+
+func (f *authzPolicySyncFake) Start(context.Context) error {
+	f.started++
+	return f.startErr
+}
+
+func (f *authzPolicySyncFake) Stop() error {
+	f.stopped++
+	return nil
 }

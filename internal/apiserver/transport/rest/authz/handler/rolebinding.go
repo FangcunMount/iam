@@ -74,12 +74,10 @@ func (h *RoleBindingHandler) GrantRoleBinding(c *gin.Context) {
 		return
 	}
 
-	cmd := bindingApp.GrantCommand{
-		SubjectType: subjectType,
-		SubjectID:   req.SubjectID,
-		RoleID:      req.RoleID,
-		TenantID:    tenantID,
-		GrantedBy:   grantedBy.String(),
+	cmd, err := bindingApp.NewGrantCommand(subjectType, req.SubjectID, req.RoleID, tenantID, grantedBy.String())
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	grantedBinding, err := h.commander.Grant(c.Request.Context(), cmd)
@@ -122,13 +120,10 @@ func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 		return
 	}
 
-	cmd := bindingApp.RevokeCommand{
-		SubjectType: subjectType,
-		SubjectID:   req.SubjectID,
-		RoleID:      req.RoleID,
-		TenantID:    tenantID,
-		ChangedBy:   changedBy.String(),
-		Reason:      req.Reason,
+	cmd, err := bindingApp.NewRevokeCommand(subjectType, req.SubjectID, req.RoleID, tenantID, changedBy.String(), req.Reason)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	err = h.commander.Revoke(c.Request.Context(), cmd)
@@ -163,10 +158,10 @@ func (h *RoleBindingHandler) RevokeRoleBindingByID(c *gin.Context) {
 		return
 	}
 
-	cmd := bindingApp.RevokeByIDCommand{
-		BindingID: bindingDomain.NewBindingID(bindingID.Uint64()),
-		TenantID:  tenantID,
-		ChangedBy: changedBy.String(),
+	cmd, err := bindingApp.NewRevokeByIDCommand(bindingDomain.NewBindingID(bindingID.Uint64()), tenantID, changedBy.String(), "")
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	err = h.commander.RevokeByID(c.Request.Context(), cmd)

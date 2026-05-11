@@ -2,6 +2,7 @@ package rolebinding
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
@@ -13,6 +14,19 @@ import (
 type SubjectResolver interface {
 	Supports(subjectType subject.Type) bool
 	Resolve(ctx context.Context, sub subject.Ref, tenantID tenant.ID) error
+}
+
+type UnsupportedSubjectTypeError struct {
+	SubjectType subject.Type
+}
+
+func (e UnsupportedSubjectTypeError) Error() string {
+	return fmt.Sprintf("subject type %s has no configured resolver", e.SubjectType)
+}
+
+func IsUnsupportedSubjectType(err error) bool {
+	var target UnsupportedSubjectTypeError
+	return errors.As(err, &target)
 }
 
 type SubjectResolverRegistry struct {
@@ -50,7 +64,7 @@ func (r *SubjectResolverRegistry) Resolve(ctx context.Context, sub subject.Ref, 
 			return resolver.Resolve(ctx, sub, tenantID)
 		}
 	}
-	return errors.WithCode(code.ErrInvalidArgument, "主体类型 %s 当前不支持写操作", sub.Type)
+	return errors.WrapC(UnsupportedSubjectTypeError{SubjectType: sub.Type}, code.ErrInvalidArgument, "主体类型 %s 未配置真实 resolver", sub.Type)
 }
 
 type UserSubjectResolver struct {

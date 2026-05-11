@@ -70,7 +70,7 @@ func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
 		deps.ModuleStatus.Authz = deps.ModuleStatus.Modules[moduleAuthz].Available
 		deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCatalog, caps.RoleDirectory)
 		deps.Authz.RoleBindingHandler = authzhandler.NewRoleBindingHandler(caps.RoleBindingCommands, caps.RoleBindingDirectory)
-		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PermissionCommands, caps.PermissionReader)
+		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PermissionCommands, caps.PermissionReader, caps.PolicyLinter)
 		deps.Authz.ResourceHandler = authzhandler.NewResourceHandler(caps.ResourceCatalog, caps.ResourceDirectory)
 		deps.Authz.CheckHandler = authzhandler.NewCheckHandler(caps.AuthorizationChecker)
 		deps.Authz.RouteAuthorization = caps.RouteAuthorization

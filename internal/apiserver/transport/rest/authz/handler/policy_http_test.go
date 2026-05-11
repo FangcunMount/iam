@@ -7,6 +7,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/stretchr/testify/require"
 
@@ -230,5 +231,54 @@ func TestPolicyHandlerGetCurrentVersionHTTPBranches(t *testing.T) {
 		require.Contains(t, string(envelope.Data), `"version":0`)
 		require.Len(t, queryer.getCurrentVersionCalls, 1)
 		require.Equal(t, policyApp.CurrentVersionQuery{TenantID: "tenant-a"}, queryer.getCurrentVersionCalls[0])
+	})
+}
+
+func TestPolicyHandlerLintPoliciesHTTPBranches(t *testing.T) {
+	t.Run("missing linter returns internal error", func(t *testing.T) {
+		handler := NewPolicyHandler(nil, nil)
+
+		recorder, _ := performAuthzRequest(http.MethodGet, "/policies/lint", "", handler.LintPolicies, withTenant("tenant-a"))
+
+		requireAuthzCode(t, recorder, http.StatusInternalServerError, code.ErrInternalServerError)
+	})
+
+	t.Run("application error is propagated", func(t *testing.T) {
+		linter := &policyLinterFake{
+			lintFn: func(context.Context) (policylint.Report, error) {
+				return policylint.Report{}, perrors.WithCode(code.ErrPermissionDenied, "denied")
+			},
+		}
+		handler := NewPolicyHandler(nil, nil, linter)
+
+		recorder, _ := performAuthzRequest(http.MethodGet, "/policies/lint", "", handler.LintPolicies, withTenant("tenant-a"))
+
+		requireAuthzCode(t, recorder, http.StatusForbidden, code.ErrPermissionDenied)
+		require.Equal(t, 1, linter.calls)
+	})
+
+	t.Run("success returns findings", func(t *testing.T) {
+		linter := &policyLinterFake{
+			lintFn: func(context.Context) (policylint.Report, error) {
+				return policylint.Report{Findings: []policylint.Finding{{
+					Code:        policylint.FindingMissingResource,
+					RoleName:    "iam:admin",
+					TenantID:    "tenant-a",
+					ResourceKey: "iam:identity:collection:users",
+					Action:      "read",
+					Scope:       "all:*",
+					Message:     "resource catalog has no matching resource",
+				}}}, nil
+			},
+		}
+		handler := NewPolicyHandler(nil, nil, linter)
+
+		recorder, _ := performAuthzRequest(http.MethodGet, "/policies/lint", "", handler.LintPolicies, withTenant("tenant-a"))
+
+		envelope := requireAuthzCode(t, recorder, http.StatusOK, 200)
+		require.Contains(t, string(envelope.Data), `"findings"`)
+		require.Contains(t, string(envelope.Data), `"code":"missing_resource"`)
+		require.Contains(t, string(envelope.Data), `"resource_key":"iam:identity:collection:users"`)
+		require.Equal(t, 1, linter.calls)
 	})
 }

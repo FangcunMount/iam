@@ -15,11 +15,17 @@ type Repository interface {
 	// Create 创建凭据
 	Create(ctx context.Context, c *Credential) error
 
+	// —— 更新凭据 ——
+	// UpdateMaterial 更新凭据材料
 	UpdateMaterial(ctx context.Context, id meta.ID, material []byte, algo string) error
+	// UpdateStatus 更新凭据状态
 	UpdateStatus(ctx context.Context, id meta.ID, status CredentialStatus) error
+	// UpdateAuthState 更新凭据认证状态
 	UpdateAuthState(ctx context.Context, c *Credential) error
 
-	// GetBy*** 查询凭据
+	// —— 查询凭据 ——
+	// GetByID 根据凭据ID查询凭据
 	GetByID(ctx context.Context, id meta.ID) (*Credential, error)
+	// GetByLoginIdentityIDAndType 根据登录身份ID和凭据类型查询密码类型凭据
 	GetByLoginIdentityIDAndType(ctx context.Context, loginIdentityID meta.ID, credType CredentialType) (*Credential, error)
 }

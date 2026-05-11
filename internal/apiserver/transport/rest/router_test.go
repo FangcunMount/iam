@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -176,6 +177,49 @@ func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
 
 	assertRouteRegistered(t, engine, http.MethodGet, "/.well-known/jwks.json")
 	assertRouteBefore(t, engine, http.MethodGet, "/health", http.MethodGet, "/.well-known/jwks.json")
+}
+
+func TestHealthCheckIncludesAuthzRuntimeReloadEventDetails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.ModuleStatus.AuthEnabled = true
+	deps.Authz.HealthReporter = authzHealthReporterStub{
+		reloadedAt: time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		details: map[string]any{
+			"last_event_tenant_id": "tenant-a",
+			"last_event_version":   int64(12),
+			"reload_lag_ms":        int64(34),
+		},
+	}
+
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	engine.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /health status = %d, want 200; body=%s", recorder.Code, recorder.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("GET /health should return valid json: %v", err)
+	}
+	authzRuntime, ok := body["authz_runtime"].(map[string]any)
+	if !ok {
+		t.Fatalf("authz_runtime missing or invalid: %#v", body["authz_runtime"])
+	}
+	if authzRuntime["last_event_tenant_id"] != "tenant-a" {
+		t.Fatalf("last_event_tenant_id = %#v, want tenant-a", authzRuntime["last_event_tenant_id"])
+	}
+	if authzRuntime["last_event_version"] != float64(12) {
+		t.Fatalf("last_event_version = %#v, want 12", authzRuntime["last_event_version"])
+	}
+	if authzRuntime["reload_lag_ms"] != float64(34) {
+		t.Fatalf("reload_lag_ms = %#v, want 34", authzRuntime["reload_lag_ms"])
+	}
 }
 
 func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
@@ -422,6 +466,25 @@ func (casbinStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, er
 
 func (casbinStub) DirectRoleKeys(_ context.Context, _, _ string) ([]string, error) {
 	return []string{"role:admin"}, nil
+}
+
+type authzHealthReporterStub struct {
+	healthy    bool
+	err        error
+	reloadedAt time.Time
+	details    map[string]any
+}
+
+func (s authzHealthReporterStub) ReloadHealth() (bool, error, time.Time) {
+	healthy := s.healthy
+	if !healthy && s.err == nil {
+		healthy = true
+	}
+	return healthy, s.err, s.reloadedAt
+}
+
+func (s authzHealthReporterStub) RuntimeHealthDetails() map[string]any {
+	return s.details
 }
 
 type tokenServiceStub struct{}

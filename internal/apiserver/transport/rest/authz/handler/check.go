@@ -60,13 +60,12 @@ func (h *CheckHandler) Check(c *gin.Context) {
 	if !ok {
 		return
 	}
-	decision, err := h.checker.Check(c.Request.Context(), authzapp.CheckCommand{
-		Subject:     sub,
-		TenantID:    dom,
-		ResourceKey: req.Object,
-		Action:      req.Action,
-		ObjectScope: scope,
-	})
+	cmd, err := authzapp.NewCheckCommand(sub, dom, req.Object, req.Action, scope)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	decision, err := h.checker.Check(c.Request.Context(), cmd)
 	if err != nil {
 		handleError(c, err)
 		return

@@ -75,13 +75,11 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv2.CheckReque
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	decision, err := s.checker.Check(ctx, authzapp.CheckCommand{
-		Subject:     subject,
-		TenantID:    req.Domain,
-		ResourceKey: req.Object,
-		Action:      req.Action,
-		ObjectScope: scopeValue,
-	})
+	cmd, err := authzapp.NewCheckCommand(subject, req.Domain, req.Object, req.Action, scopeValue)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	decision, err := s.checker.Check(ctx, cmd)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "enforce: %v", err)
 	}
@@ -133,9 +131,11 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv2.
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if err := s.roleBindings.GrantByRoleName(ctx, rolebindingApp.GrantByRoleNameCommand{
-		Subject: subject, TenantID: req.Domain, RoleName: req.RoleName, GrantedBy: req.GrantedBy,
-	}); err != nil {
+	cmd, err := rolebindingApp.NewGrantByRoleNameCommand(subject, req.Domain, req.RoleName, req.GrantedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := s.roleBindings.GrantByRoleName(ctx, cmd); err != nil {
 		return nil, authzGRPCError(codes.Internal, "grant assignment", err)
 	}
 
@@ -154,9 +154,11 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv2
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if err := s.roleBindings.RevokeByRoleName(ctx, rolebindingApp.RevokeByRoleNameCommand{
-		Subject: subject, TenantID: req.Domain, RoleName: req.RoleName, ChangedBy: revokeActor(req.GetRevokedBy()), Reason: req.GetReason(),
-	}); err != nil {
+	cmd, err := rolebindingApp.NewRevokeByRoleNameCommand(subject, req.Domain, req.RoleName, revokeActor(req.GetRevokedBy()), req.GetReason())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := s.roleBindings.RevokeByRoleName(ctx, cmd); err != nil {
 		return nil, authzGRPCError(codes.Internal, "revoke assignment", err)
 	}
 

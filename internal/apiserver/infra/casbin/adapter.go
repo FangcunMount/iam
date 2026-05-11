@@ -4,7 +4,6 @@ import (
 	"context"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
@@ -18,13 +17,8 @@ import (
 
 // CasbinAdapter Casbin 适配器实现
 type CasbinAdapter struct {
-	enforcer          *casbin.CachedEnforcer
-	mu                sync.RWMutex
-	lastReloadErr     error
-	lastReloadAt      time.Time
-	lastEventTenantID string
-	lastEventVersion  int64
-	lastEventAt       time.Time
+	holder *enforcerHolder
+	health *runtimeHealthState
 }
 
 // NewCasbinAdapter 创建 Casbin 适配器。
@@ -55,7 +49,8 @@ func NewCasbinAdapter(db *gorm.DB, modelPath string) (*CasbinAdapter, error) {
 	}
 
 	return &CasbinAdapter{
-		enforcer: enforcer,
+		holder: newEnforcerHolder(enforcer),
+		health: newRuntimeHealthState(),
 	}, nil
 }
 
@@ -71,11 +66,11 @@ func normalizePersistedPolicyScopes(db *gorm.DB) error {
 }
 
 func (c *CasbinAdapter) addPolicyFacts(ctx context.Context, rules ...PolicyRule) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.holder.mu.Lock()
+	defer c.holder.mu.Unlock()
 
 	for _, rule := range rules {
-		_, err := c.enforcer.AddPolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
+		_, err := c.holder.enforcer.AddPolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
 		if err != nil {
 			return err
 		}
@@ -84,11 +79,11 @@ func (c *CasbinAdapter) addPolicyFacts(ctx context.Context, rules ...PolicyRule)
 }
 
 func (c *CasbinAdapter) removePolicyFacts(ctx context.Context, rules ...PolicyRule) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.holder.mu.Lock()
+	defer c.holder.mu.Unlock()
 
 	for _, rule := range rules {
-		_, err := c.enforcer.RemovePolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
+		_, err := c.holder.enforcer.RemovePolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
 		if err != nil {
 			return err
 		}
@@ -97,11 +92,11 @@ func (c *CasbinAdapter) removePolicyFacts(ctx context.Context, rules ...PolicyRu
 }
 
 func (c *CasbinAdapter) addGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.holder.mu.Lock()
+	defer c.holder.mu.Unlock()
 
 	for _, rule := range rules {
-		_, err := c.enforcer.AddGroupingPolicy(rule.Sub, rule.Role, rule.Dom)
+		_, err := c.holder.enforcer.AddGroupingPolicy(rule.Sub, rule.Role, rule.Dom)
 		if err != nil {
 			return err
 		}
@@ -109,24 +104,11 @@ func (c *CasbinAdapter) addGroupingFacts(ctx context.Context, rules ...GroupingR
 	return nil
 }
 
-// func (c *CasbinAdapter) removeGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
-// 	c.mu.Lock()
-// 	defer c.mu.Unlock()
-
-// 	for _, rule := range rules {
-// 		_, err := c.enforcer.RemoveGroupingPolicy(rule.Sub, rule.Role, rule.Dom)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
-
 func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domainStr string) ([]PolicyRule, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.holder.mu.RLock()
+	defer c.holder.mu.RUnlock()
 
-	policies, err := c.enforcer.GetFilteredPolicy(0, RoleKey(roleName), domainStr)
+	policies, err := c.holder.enforcer.GetFilteredPolicy(0, RoleKey(roleName), domainStr)
 	if err != nil {
 		return nil, err
 	}
@@ -147,39 +129,15 @@ func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domain
 	return rules, nil
 }
 
-// func (c *CasbinAdapter) groupingFactsForSubject(ctx context.Context, subject, domainStr string) ([]GroupingRule, error) {
-// 	c.mu.RLock()
-// 	defer c.mu.RUnlock()
-
-// 	groupings, err := c.enforcer.GetFilteredGroupingPolicy(0, subject, "", domainStr)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	rules := make([]GroupingRule, 0, len(groupings))
-
-// 	for _, g := range groupings {
-// 		if len(g) >= 3 {
-// 			rules = append(rules, GroupingRule{
-// 				Sub:  g[0],
-// 				Role: g[1],
-// 				Dom:  g[2],
-// 			})
-// 		}
-// 	}
-
-// 	return rules, nil
-// }
-
 // LoadPolicy 重新加载策略（用于缓存刷新）
 func (c *CasbinAdapter) LoadPolicy(ctx context.Context) error {
 	started := time.Now()
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.holder.mu.Lock()
+	defer c.holder.mu.Unlock()
 
-	_ = c.enforcer.InvalidateCache()
-	err := c.enforcer.LoadPolicy()
-	c.lastReloadAt = time.Now()
-	c.lastReloadErr = err
+	_ = c.holder.enforcer.InvalidateCache()
+	err := c.holder.enforcer.LoadPolicy()
+	c.health.recordReload(err, time.Now())
 	duration := time.Since(started)
 	if err != nil {
 		log.ErrorContext(ctx, "authz runtime policy reload failed",
@@ -199,10 +157,10 @@ func (c *CasbinAdapter) LoadPolicy(ctx context.Context) error {
 // AuthorizeRoute 执行路由级授权判定；路由守卫只使用租户内 all:* 范围。
 func (c *CasbinAdapter) AuthorizeRoute(ctx context.Context, sub, tenantID, resourceKey, action string) (bool, error) {
 	_ = ctx
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.holder.mu.RLock()
+	defer c.holder.mu.RUnlock()
 
-	return c.enforcer.Enforce(sub, tenantID, resourceKey, action, defaultScopeKey)
+	return c.holder.enforcer.Enforce(sub, tenantID, resourceKey, action, defaultScopeKey)
 }
 
 // Check implements the application authorization decision port using Casbin.
@@ -224,10 +182,10 @@ func (c *CasbinAdapter) Check(ctx context.Context, request decision.Request) (de
 
 func (c *CasbinAdapter) enforceFact(ctx context.Context, fact Request) (bool, PolicyRule, error) {
 	_ = ctx
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.holder.mu.RLock()
+	defer c.holder.mu.RUnlock()
 
-	allowed, matched, err := c.enforcer.EnforceEx(fact.Sub, fact.Dom, fact.Obj, fact.Act, normalizeScopeKey(fact.Scope))
+	allowed, matched, err := c.holder.enforcer.EnforceEx(fact.Sub, fact.Dom, fact.Obj, fact.Act, normalizeScopeKey(fact.Scope))
 	if err != nil {
 		return false, PolicyRule{}, err
 	}
@@ -246,18 +204,18 @@ func (c *CasbinAdapter) enforceFact(ctx context.Context, fact Request) (bool, Po
 // DirectRoleKeys 返回主体在指定租户域下的直接角色键。
 func (c *CasbinAdapter) DirectRoleKeys(ctx context.Context, subject, tenantID string) ([]string, error) {
 	_ = ctx
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.holder.mu.RLock()
+	defer c.holder.mu.RUnlock()
 
-	return c.enforcer.GetRolesForUser(subject, tenantID)
+	return c.holder.enforcer.GetRolesForUser(subject, tenantID)
 }
 
 func (c *CasbinAdapter) implicitRolesForUser(ctx context.Context, user, domain string) ([]string, error) {
 	_ = ctx
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.holder.mu.RLock()
+	defer c.holder.mu.RUnlock()
 
-	return c.enforcer.GetImplicitRolesForUser(user, domain)
+	return c.holder.enforcer.GetImplicitRolesForUser(user, domain)
 }
 
 // RoleNamesForSubject returns business role names for a subject inside a tenant.
@@ -275,10 +233,10 @@ func (c *CasbinAdapter) RoleNamesForSubject(ctx context.Context, sub subject.Ref
 
 func (c *CasbinAdapter) implicitPermissionsForUser(ctx context.Context, user, dom string) ([]PolicyRule, error) {
 	_ = ctx
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.holder.mu.RLock()
+	defer c.holder.mu.RUnlock()
 
-	permissions, err := c.enforcer.GetImplicitPermissionsForUser(user, dom)
+	permissions, err := c.holder.enforcer.GetImplicitPermissionsForUser(user, dom)
 	if err != nil {
 		return nil, err
 	}
@@ -335,14 +293,14 @@ func (c *CasbinAdapter) PermissionsForRole(ctx context.Context, roleName, tenant
 
 // InvalidateCache 清除缓存
 func (c *CasbinAdapter) InvalidateCache() {
-	_ = c.enforcer.InvalidateCache()
+	c.holder.mu.Lock()
+	defer c.holder.mu.Unlock()
+	_ = c.holder.enforcer.InvalidateCache()
 }
 
 // ReloadHealth 返回最近一次策略加载结果。
 func (c *CasbinAdapter) ReloadHealth() (bool, error, time.Time) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.lastReloadErr == nil, c.lastReloadErr, c.lastReloadAt
+	return c.health.reloadHealth()
 }
 
 func policyScopeAt(values []string, idx int) string {

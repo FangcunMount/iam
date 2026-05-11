@@ -74,13 +74,11 @@ func (s *CommandService) GrantByRoleName(ctx context.Context, cmd GrantByRoleNam
 	if err != nil {
 		return err
 	}
-	_, err = s.Grant(ctx, GrantCommand{
-		SubjectType: bindingDomain.SubjectType(cmd.Subject.Type),
-		SubjectID:   cmd.Subject.ID,
-		RoleID:      role.ID,
-		TenantID:    cmd.TenantID,
-		GrantedBy:   cmd.GrantedBy,
-	})
+	grant, err := NewGrantCommand(bindingDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, role.ID, cmd.TenantID, cmd.GrantedBy)
+	if err != nil {
+		return err
+	}
+	_, err = s.Grant(ctx, grant)
 	return err
 }
 
@@ -92,14 +90,11 @@ func (s *CommandService) RevokeByRoleName(ctx context.Context, cmd RevokeByRoleN
 	if err != nil {
 		return err
 	}
-	return s.Revoke(ctx, RevokeCommand{
-		SubjectType: bindingDomain.SubjectType(cmd.Subject.Type),
-		SubjectID:   cmd.Subject.ID,
-		RoleID:      role.ID,
-		TenantID:    cmd.TenantID,
-		ChangedBy:   cmd.ChangedBy,
-		Reason:      cmd.Reason,
-	})
+	revoke, err := NewRevokeCommand(bindingDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, role.ID, cmd.TenantID, cmd.ChangedBy, cmd.Reason)
+	if err != nil {
+		return err
+	}
+	return s.Revoke(ctx, revoke)
 }
 
 func revokeReason(reason string) string {

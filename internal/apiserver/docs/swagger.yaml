@@ -559,6 +559,30 @@ definitions:
       subject:
         type: string
     type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse:
+    properties:
+      action:
+        type: string
+      code:
+        type: string
+      message:
+        type: string
+      resource_key:
+        type: string
+      role_name:
+        type: string
+      scope:
+        type: string
+      tenant_id:
+        type: string
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse:
+    properties:
+      findings:
+        items:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse'
+        type: array
+    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse:
     properties:
       changed_by:
@@ -1748,6 +1772,23 @@ paths:
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
       summary: 添加权限
+      tags:
+      - Authorization-Policies
+  /authz/policies/lint:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse'
+              type: object
+      summary: 检查授权策略事实
       tags:
       - Authorization-Policies
   /authz/policies/version:

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
@@ -37,4 +38,20 @@ func toPolicyVersionResponse(version *policyDomain.PolicyVersion) dto.PolicyVers
 		ChangedBy: version.ChangedBy,
 		Reason:    version.Reason,
 	}
+}
+
+func toPolicyLintResponse(report policylint.Report) dto.PolicyLintResponse {
+	findings := make([]dto.PolicyLintFindingResponse, 0, len(report.Findings))
+	for _, finding := range report.Findings {
+		findings = append(findings, dto.PolicyLintFindingResponse{
+			Code:        string(finding.Code),
+			RoleName:    finding.RoleName,
+			TenantID:    finding.TenantID,
+			ResourceKey: finding.ResourceKey,
+			Action:      finding.Action,
+			Scope:       finding.Scope,
+			Message:     finding.Message,
+		})
+	}
+	return dto.PolicyLintResponse{Findings: findings}
 }

@@ -44,15 +44,19 @@ func (h *ResourceHandler) CreateResource(c *gin.Context) {
 		return
 	}
 
-	cmd := resourceApp.CreateResourceCommand{
-		Key:         req.Key,
-		DisplayName: req.DisplayName,
-		AppName:     req.AppName,
-		Domain:      req.Domain,
-		Type:        req.Type,
-		Actions:     req.Actions,
-		ScopeKinds:  toDomainScopeKinds(req.ScopeKinds),
-		Description: req.Description,
+	cmd, err := resourceApp.NewCreateResourceCommand(
+		req.Key,
+		req.DisplayName,
+		req.AppName,
+		req.Domain,
+		req.Type,
+		req.Actions,
+		toDomainScopeKinds(req.ScopeKinds),
+		req.Description,
+	)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	createdResource, err := h.commander.CreateResource(c.Request.Context(), cmd)
@@ -84,12 +88,16 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	cmd := resourceApp.UpdateResourceCommand{
-		ID:          resourceDomain.NewResourceID(resourceID.Uint64()),
-		DisplayName: &req.DisplayName,
-		Actions:     req.Actions,
-		ScopeKinds:  toDomainScopeKinds(req.ScopeKinds),
-		Description: &req.Description,
+	cmd, err := resourceApp.NewUpdateResourceCommand(
+		resourceDomain.NewResourceID(resourceID.Uint64()),
+		&req.DisplayName,
+		req.Actions,
+		toDomainScopeKinds(req.ScopeKinds),
+		&req.Description,
+	)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	updatedResource, err := h.commander.UpdateResource(c.Request.Context(), cmd)

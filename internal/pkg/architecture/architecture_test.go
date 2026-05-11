@@ -18,6 +18,24 @@ const modulePath = "github.com/FangcunMount/iam/v2/"
 
 var activeLegacyApplicationInfrastructureImports = map[string]string{}
 
+var activeAuthzRootFacadeTestImports = map[string]string{
+	"internal/apiserver/application/authz/authorization/service_test.go":       "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/application/authz/policy/command_service_test.go":      "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/application/authz/policy/committer_test.go":            "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/application/authz/policy/query_service_test.go":        "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/application/authz/rolebinding/command_service_test.go": "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/domain/authz/policy/authorization_policy_test.go":      "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/infra/casbin/adapter_test.go":                          "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/infra/casbin/facts_test.go":                            "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/infra/mysql/casbinrule/repo_test.go":                   "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/transport/grpc/service/authz/service_test.go":          "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/transport/rest/authz/handler/check_http_test.go":       "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/transport/rest/authz/handler/handler_http_test.go":     "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/transport/rest/authz/handler/mapping_test.go":          "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/transport/rest/authz/handler/policy_http_test.go":      "legacy authz characterization test awaiting semantic child package migration",
+	"internal/apiserver/transport/rest/identity/handler/user_test.go":          "legacy identity transport test awaiting semantic authz child package migration",
+}
+
 var retiredArchitectureExceptionReasonParts = [][]string{
 	{"application", "test", "support"},
 	{"legacy", "uow", "factory", "to", "invert", "in", "phase", "3"},
@@ -804,6 +822,35 @@ func TestAuthzProductionCodeUsesSemanticDomainPackages(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthzTestsDoNotAddRootDomainFacadeImports(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	assertAllowlistReasons(t, activeAuthzRootFacadeTestImports)
+	retiredFacade := modulePath + "internal/apiserver/domain/authz"
+	seen := map[string]struct{}{}
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if !strings.HasSuffix(rel, "_test.go") {
+			return
+		}
+		if rel == "internal/apiserver/domain/authz/model_test.go" || strings.Contains(rel, "compatibility") {
+			return
+		}
+		for _, imp := range imports {
+			if imp != retiredFacade {
+				continue
+			}
+			if _, ok := activeAuthzRootFacadeTestImports[rel]; ok {
+				seen[rel] = struct{}{}
+				continue
+			}
+			t.Fatalf("%s imports root authz facade; new tests must use semantic child packages or be explicit compatibility tests", rel)
+		}
+	})
+	assertAllowlistStillUsed(t, activeAuthzRootFacadeTestImports, seen)
 }
 
 func TestSuggestProfileSuggestionBoundaries(t *testing.T) {

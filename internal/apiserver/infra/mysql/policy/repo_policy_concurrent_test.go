@@ -123,4 +123,11 @@ func TestPolicyVersionRepository_Increment_ConcurrentCallsCreateSequentialVersio
 	var count int64
 	require.NoError(t, db.Model(&PolicyVersionPO{}).Where("tenant_id = ?", "tenant-increment").Count(&count).Error)
 	require.Equal(t, int64(1+concurrency), count)
+
+	var versions []int64
+	require.NoError(t, db.Model(&PolicyVersionPO{}).
+		Where("tenant_id = ?", "tenant-increment").
+		Order("policy_version ASC").
+		Pluck("policy_version", &versions).Error)
+	require.Equal(t, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}, versions)
 }

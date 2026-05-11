@@ -12,6 +12,7 @@ import (
 
 	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
@@ -404,6 +405,19 @@ func (f *policyQueryerFake) GetCurrentVersion(ctx context.Context, query policyA
 	return &result, nil
 }
 
+type policyLinterFake struct {
+	lintFn func(context.Context) (policylint.Report, error)
+	calls  int
+}
+
+func (f *policyLinterFake) Lint(ctx context.Context) (policylint.Report, error) {
+	f.calls++
+	if f.lintFn != nil {
+		return f.lintFn(ctx)
+	}
+	return policylint.Report{}, nil
+}
+
 type casbinFake struct {
 	enforceFn func(context.Context, string, string, string, string) (bool, error)
 
@@ -432,7 +446,7 @@ func (f *casbinFake) AuthorizeRoute(ctx context.Context, sub, dom, obj, act stri
 
 func (f *casbinFake) Check(ctx context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error) {
 	sub := string(cmd.Subject.Type) + ":" + cmd.Subject.ID.String()
-	allowed, err := f.AuthorizeRoute(ctx, sub, cmd.TenantID, cmd.ResourceKey, cmd.Action)
+	allowed, err := f.AuthorizeRoute(ctx, sub, cmd.TenantIDString(), cmd.ResourceKeyString(), cmd.ActionString())
 	if err != nil {
 		return authzDomain.AuthorizationDecision{}, err
 	}

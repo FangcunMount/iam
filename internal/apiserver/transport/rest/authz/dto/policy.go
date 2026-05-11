@@ -42,3 +42,17 @@ type PolicyVersionResponse struct {
 	ChangedBy string `json:"changed_by"`
 	Reason    string `json:"reason"`
 }
+
+type PolicyLintResponse struct {
+	Findings []PolicyLintFindingResponse `json:"findings"`
+}
+
+type PolicyLintFindingResponse struct {
+	Code        string `json:"code"`
+	RoleName    string `json:"role_name"`
+	TenantID    string `json:"tenant_id"`
+	ResourceKey string `json:"resource_key"`
+	Action      string `json:"action"`
+	Scope       string `json:"scope"`
+	Message     string `json:"message"`
+}

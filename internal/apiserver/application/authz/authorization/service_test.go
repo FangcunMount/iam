@@ -19,23 +19,19 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	engine := &decisionEngineFake{decision: authzDomain.AuthorizationDecision{Allowed: true}}
 	checker := NewChecker(engine, &versionRepoFake{version: &policyDomain.PolicyVersion{Version: 11}})
 
-	decision, err := checker.Check(context.Background(), CheckCommand{
-		Subject:     subject,
-		TenantID:    "tenant-a",
-		ResourceKey: "iam:identity:collection:users",
-		Action:      "read",
-	})
+	cmd, err := NewCheckCommand(subject, "tenant-a", "iam:identity:collection:users", "read", authzDomain.DefaultScope())
+	require.NoError(t, err)
+	decision, err := checker.Check(context.Background(), cmd)
 
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
 	require.Equal(t, int64(11), decision.PolicyVersion)
-	require.Equal(t, []authzDomain.AuthorizationRequest{{
-		Subject:     subject,
-		TenantID:    "tenant-a",
-		ResourceKey: "iam:identity:collection:users",
-		Action:      "read",
-		ObjectScope: authzDomain.DefaultScope(),
-	}}, engine.requests)
+	require.Len(t, engine.requests, 1)
+	require.Equal(t, subject, engine.requests[0].Subject)
+	require.Equal(t, "tenant-a", engine.requests[0].TenantIDString())
+	require.Equal(t, "iam:identity:collection:users", engine.requests[0].ResourceKeyString())
+	require.Equal(t, "read", engine.requests[0].ActionString())
+	require.Equal(t, authzDomain.DefaultScope(), engine.requests[0].ObjectScope)
 }
 
 func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {

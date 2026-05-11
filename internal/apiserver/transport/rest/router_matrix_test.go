@@ -45,6 +45,7 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodGet, "/api/v2/authz/health"},
 		{http.MethodPost, "/api/v2/authz/check"},
 		{http.MethodGet, "/api/v2/authz/roles"},
+		{http.MethodGet, "/api/v2/authz/policies/lint"},
 		{http.MethodGet, "/api/v2/identity/me"},
 		{http.MethodGet, "/api/v2/identity/profiles/:id"},
 		{http.MethodGet, "/api/v2/identity/profile-links"},
