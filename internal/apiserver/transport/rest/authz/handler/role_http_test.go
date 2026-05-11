@@ -57,12 +57,10 @@ func TestRoleHandlerCreateRoleHTTPBranches(t *testing.T) {
 
 		requireAuthzCode(t, recorder, http.StatusOK, 200)
 		require.Len(t, commander.createCalls, 1)
-		require.Equal(t, roleApp.CreateRoleCommand{
-			Name:        "admin",
-			DisplayName: "Admin",
-			TenantID:    "tenant-a",
-			Description: "desc",
-		}, commander.createCalls[0])
+		require.Equal(t, "admin", commander.createCalls[0].NameString())
+		require.Equal(t, "Admin", commander.createCalls[0].DisplayName)
+		require.Equal(t, "tenant-a", commander.createCalls[0].TenantIDString())
+		require.Equal(t, "desc", commander.createCalls[0].Description)
 	})
 }
 
@@ -214,6 +212,8 @@ func TestRoleHandlerListRolesHTTPBranches(t *testing.T) {
 		require.Equal(t, 2, envelope.Offset)
 		require.Equal(t, 5, envelope.Limit)
 		require.Len(t, queryer.listCalls, 1)
-		require.Equal(t, roleApp.ListRolesQuery{TenantID: "tenant-a", Offset: 2, Limit: 5}, queryer.listCalls[0])
+		require.Equal(t, "tenant-a", queryer.listCalls[0].TenantIDString())
+		require.Equal(t, 2, queryer.listCalls[0].Offset)
+		require.Equal(t, 5, queryer.listCalls[0].Limit)
 	})
 }

@@ -2,13 +2,16 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/stretchr/testify/require"
 
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
@@ -91,10 +94,10 @@ func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {
 		require.Len(t, commander.addCalls, 1)
 		require.Equal(t, meta.FromUint64(11), commander.addCalls[0].RoleID)
 		require.Equal(t, uint64(21), commander.addCalls[0].ResourceID.Uint64())
-		require.Equal(t, "read", commander.addCalls[0].Action)
-		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, commander.addCalls[0].Scope)
-		require.Equal(t, "tenant-a", commander.addCalls[0].TenantID)
-		require.Equal(t, "1001", commander.addCalls[0].ChangedBy)
+		require.Equal(t, "read", commander.addCalls[0].ActionString())
+		require.Equal(t, scope.Scope{Kind: scope.KindOrigin, Value: "1"}, commander.addCalls[0].Scope)
+		require.Equal(t, "tenant-a", commander.addCalls[0].TenantIDString())
+		require.Equal(t, "1001", commander.addCalls[0].ChangedByString())
 		require.Equal(t, "test", commander.addCalls[0].Reason)
 	})
 }
@@ -178,7 +181,7 @@ func TestPolicyHandlerGetPoliciesByRoleHTTPBranches(t *testing.T) {
 
 	t.Run("application error is propagated", func(t *testing.T) {
 		queryer := &policyQueryerFake{
-			getPoliciesFn: func(context.Context, policyApp.RolePermissionsQuery) ([]authzDomain.Permission, error) {
+			getPoliciesFn: func(context.Context, policyApp.RolePermissionsQuery) ([]permission.Permission, error) {
 				return nil, perrors.WithCode(code.ErrPermissionDenied, "denied")
 			},
 		}
@@ -257,18 +260,42 @@ func TestPolicyHandlerLintPoliciesHTTPBranches(t *testing.T) {
 		require.Equal(t, 1, linter.calls)
 	})
 
-	t.Run("success returns findings", func(t *testing.T) {
+	t.Run("success returns empty report", func(t *testing.T) {
+		linter := &policyLinterFake{}
+		handler := NewPolicyHandler(nil, nil, linter)
+
+		recorder, _ := performAuthzRequest(http.MethodGet, "/policies/lint", "", handler.LintPolicies, withTenant("tenant-a"))
+
+		envelope := requireAuthzCode(t, recorder, http.StatusOK, 200)
+		var response dto.PolicyLintResponse
+		require.NoError(t, json.Unmarshal(envelope.Data, &response))
+		require.Empty(t, response.Findings)
+		require.Equal(t, 1, linter.calls)
+	})
+
+	t.Run("success returns findings contract", func(t *testing.T) {
 		linter := &policyLinterFake{
 			lintFn: func(context.Context) (policylint.Report, error) {
-				return policylint.Report{Findings: []policylint.Finding{{
-					Code:        policylint.FindingMissingResource,
-					RoleName:    "iam:admin",
-					TenantID:    "tenant-a",
-					ResourceKey: "iam:identity:collection:users",
-					Action:      "read",
-					Scope:       "all:*",
-					Message:     "resource catalog has no matching resource",
-				}}}, nil
+				return policylint.Report{Findings: []policylint.Finding{
+					{
+						Code:        policylint.FindingMissingResource,
+						RoleName:    "iam:admin",
+						TenantID:    "tenant-a",
+						ResourceKey: "iam:identity:collection:users",
+						Action:      "read",
+						Scope:       "all:*",
+						Message:     "resource catalog has no matching resource",
+					},
+					{
+						Code:        policylint.FindingUnsupportedAction,
+						RoleName:    "qs:admin",
+						TenantID:    "tenant-b",
+						ResourceKey: "qs:actor:collection:testees",
+						Action:      "export",
+						Scope:       "origin:1",
+						Message:     "resource catalog does not support action",
+					},
+				}}, nil
 			},
 		}
 		handler := NewPolicyHandler(nil, nil, linter)
@@ -276,9 +303,28 @@ func TestPolicyHandlerLintPoliciesHTTPBranches(t *testing.T) {
 		recorder, _ := performAuthzRequest(http.MethodGet, "/policies/lint", "", handler.LintPolicies, withTenant("tenant-a"))
 
 		envelope := requireAuthzCode(t, recorder, http.StatusOK, 200)
-		require.Contains(t, string(envelope.Data), `"findings"`)
-		require.Contains(t, string(envelope.Data), `"code":"missing_resource"`)
-		require.Contains(t, string(envelope.Data), `"resource_key":"iam:identity:collection:users"`)
+		var response dto.PolicyLintResponse
+		require.NoError(t, json.Unmarshal(envelope.Data, &response))
+		require.Equal(t, []dto.PolicyLintFindingResponse{
+			{
+				Code:        "missing_resource",
+				RoleName:    "iam:admin",
+				TenantID:    "tenant-a",
+				ResourceKey: "iam:identity:collection:users",
+				Action:      "read",
+				Scope:       "all:*",
+				Message:     "resource catalog has no matching resource",
+			},
+			{
+				Code:        "unsupported_action",
+				RoleName:    "qs:admin",
+				TenantID:    "tenant-b",
+				ResourceKey: "qs:actor:collection:testees",
+				Action:      "export",
+				Scope:       "origin:1",
+				Message:     "resource catalog does not support action",
+			},
+		}, response.Findings)
 		require.Equal(t, 1, linter.calls)
 	})
 }

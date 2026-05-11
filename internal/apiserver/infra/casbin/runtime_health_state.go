@@ -12,6 +12,7 @@ type runtimeHealthState struct {
 	lastEventTenantID string
 	lastEventVersion  int64
 	lastEventAt       time.Time
+	policySyncChannel string
 }
 
 func newRuntimeHealthState() *runtimeHealthState {
@@ -39,6 +40,12 @@ func (s *runtimeHealthState) recordPolicyVersionEvent(tenantID string, version i
 	s.lastEventAt = eventAt
 }
 
+func (s *runtimeHealthState) setPolicySyncChannel(channel string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.policySyncChannel = channel
+}
+
 func (s *runtimeHealthState) details(now time.Time) map[string]any {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -51,6 +58,7 @@ func (s *runtimeHealthState) details(now time.Time) map[string]any {
 		"last_event_tenant_id": s.lastEventTenantID,
 		"last_event_version":   s.lastEventVersion,
 		"reload_lag_ms":        reloadLag.Milliseconds(),
+		"policy_sync_channel":  s.policySyncChannel,
 	}
 	if !s.lastEventAt.IsZero() {
 		details["last_event_at"] = s.lastEventAt.Format(time.RFC3339)

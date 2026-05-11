@@ -7,10 +7,11 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
@@ -109,7 +110,7 @@ func TestBindingCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *testin
 	assert.Equal(t, uint64(1), result.ID.Uint64())
 	assert.Equal(t, 1, bindingRepo.createCalls)
 	require.Len(t, ruleStore.groupingAdds, 1)
-	assert.Equal(t, authzDomain.SubjectTypeUser, ruleStore.groupingAdds[0].Subject.Type)
+	assert.Equal(t, subject.TypeUser, ruleStore.groupingAdds[0].Subject.Type)
 	assert.Equal(t, meta.FromUint64(123), ruleStore.groupingAdds[0].Subject.ID)
 	assert.Equal(t, "iam:admin", ruleStore.groupingAdds[0].RoleNameString())
 	assert.Equal(t, 1, versionRepo.incrementCalls)
@@ -159,7 +160,7 @@ func TestBindingCommandServiceRevoke_UsesCommandAuditActorAndReason(t *testing.T
 
 	require.NoError(t, err)
 	require.Len(t, ruleStore.groupingRemoves, 1)
-	assert.Equal(t, authzDomain.SubjectTypeUser, ruleStore.groupingRemoves[0].Subject.Type)
+	assert.Equal(t, subject.TypeUser, ruleStore.groupingRemoves[0].Subject.Type)
 	assert.Equal(t, meta.FromUint64(123), ruleStore.groupingRemoves[0].Subject.ID)
 	assert.Equal(t, "iam:admin", ruleStore.groupingRemoves[0].RoleNameString())
 	assert.Equal(t, 1, versionRepo.incrementCalls)
@@ -276,19 +277,19 @@ func (r *policyVersionRepoStub) GetCurrent(_ context.Context, tenantID string) (
 }
 
 type ruleStoreStub struct {
-	groupingAdds    []authzDomain.RoleBinding
-	groupingRemoves []authzDomain.RoleBinding
+	groupingAdds    []bindingDomain.Fact
+	groupingRemoves []bindingDomain.Fact
 }
 
-func (r *ruleStoreStub) AddPermission(context.Context, authzDomain.Permission) error { return nil }
-func (r *ruleStoreStub) RemovePermission(context.Context, authzDomain.Permission) error {
+func (r *ruleStoreStub) AddPermission(context.Context, permission.Permission) error { return nil }
+func (r *ruleStoreStub) RemovePermission(context.Context, permission.Permission) error {
 	return nil
 }
-func (r *ruleStoreStub) AddRoleBinding(_ context.Context, binding authzDomain.RoleBinding) error {
+func (r *ruleStoreStub) AddRoleBinding(_ context.Context, binding bindingDomain.Fact) error {
 	r.groupingAdds = append(r.groupingAdds, binding)
 	return nil
 }
-func (r *ruleStoreStub) RemoveRoleBinding(_ context.Context, binding authzDomain.RoleBinding) error {
+func (r *ruleStoreStub) RemoveRoleBinding(_ context.Context, binding bindingDomain.Fact) error {
 	r.groupingRemoves = append(r.groupingRemoves, binding)
 	return nil
 }

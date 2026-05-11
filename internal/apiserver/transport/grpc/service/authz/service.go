@@ -103,11 +103,11 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	snapshot, err := s.snapshotReader.Read(ctx, authzapp.SnapshotQuery{
-		Subject:  subject,
-		TenantID: req.Domain,
-		AppName:  req.AppName,
-	})
+	query, err := authzapp.NewSnapshotQuery(subject, req.Domain, req.AppName)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	snapshot, err := s.snapshotReader.Read(ctx, query)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "get authorization snapshot: %v", err)
 	}

@@ -12,15 +12,21 @@ func (m *AuthzModule) PolicySyncSubscriber(subscriber cbmessaging.Subscriber) *p
 		return nil
 	}
 	recorder, _ := m.runtimeHealth.(policysync.PolicyVersionEventRecorder)
+	channel := policysync.CurrentInstanceChannel()
+	if setter, ok := m.runtimeHealth.(interface{ SetPolicySyncChannel(string) }); ok {
+		setter.SetPolicySyncChannel(channel)
+	}
 	return &policySyncSubscriber{
 		subscriber: subscriber,
 		handler:    policysync.NewHandler(m.policyReloader, recorder),
+		channel:    channel,
 	}
 }
 
 type policySyncSubscriber struct {
 	subscriber cbmessaging.Subscriber
 	handler    *policysync.VersionEventHandler
+	channel    string
 }
 
 func (s *policySyncSubscriber) Start(ctx context.Context) error {
@@ -28,12 +34,20 @@ func (s *policySyncSubscriber) Start(ctx context.Context) error {
 	if s == nil || s.subscriber == nil || s.handler == nil {
 		return nil
 	}
-	return s.subscriber.Subscribe(policysync.Topic, policysync.Channel, func(ctx context.Context, msg *cbmessaging.Message) error {
+	channel := s.Channel()
+	return s.subscriber.Subscribe(policysync.Topic, channel, func(ctx context.Context, msg *cbmessaging.Message) error {
 		if msg == nil {
 			return nil
 		}
 		return s.handler.Handle(ctx, msg.Payload, msg.Metadata["event_type"])
 	})
+}
+
+func (s *policySyncSubscriber) Channel() string {
+	if s == nil || s.channel == "" {
+		return policysync.CurrentInstanceChannel()
+	}
+	return s.channel
 }
 
 func (s *policySyncSubscriber) Stop() error {

@@ -3,7 +3,10 @@ package casbin
 import (
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -11,13 +14,13 @@ import (
 func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
-	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
+	permission, err := permission.New("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
-	binding, err := authzDomain.NewRoleBinding(subject, "iam:admin", "tenant-a", "operator-1")
+	binding, err := rolebinding.NewFact(subject, "iam:admin", "tenant-a", "operator-1")
 	require.NoError(t, err)
-	request, err := authzDomain.NewAuthorizationRequest(subject, "tenant-a", "iam:identity:collection:users", "read")
+	request, err := decision.NewRequest(subject, "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 
 	require.Equal(t, Request{
@@ -48,7 +51,7 @@ func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
 func TestCasbinFactsPreserveActionPatternStrings(t *testing.T) {
 	t.Parallel()
 
-	permission, err := authzDomain.NewPermission("qs:admin", "tenant-a", "qs:*:*:*", "read|list")
+	permission, err := permission.New("qs:admin", "tenant-a", "qs:*:*:*", "read|list")
 	require.NoError(t, err)
 	rule := PolicyRuleFromPermission(permission)
 	require.Equal(t, PolicyRule{

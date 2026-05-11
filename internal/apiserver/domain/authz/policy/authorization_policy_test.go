@@ -3,9 +3,12 @@ package policy
 import (
 	"testing"
 
-	authz "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -14,13 +17,13 @@ func TestAuthorizationPolicyGrantPermissionBuildsBusinessChange(t *testing.T) {
 	t.Parallel()
 
 	actor := mustActor(t, "operator-1")
-	originScope := mustScope(t, authz.ScopeKindOrigin, "1")
+	originScope := mustScope(t, scope.KindOrigin, "1")
 	change, err := NewAuthorizationPolicy().GrantPermission(
 		mustRole(t, "iam:origin_admin", "Origin Admin", "tenant-a"),
 		mustResource(t,
 			"iam:identity:collection:users",
 			[]string{"update"},
-			resource.WithScopeKinds([]authz.ScopeKind{authz.ScopeKindAll, authz.ScopeKindOrigin}),
+			resource.WithScopeKinds([]scope.Kind{scope.KindAll, scope.KindOrigin}),
 		),
 		"update",
 		originScope,
@@ -33,7 +36,7 @@ func TestAuthorizationPolicyGrantPermissionBuildsBusinessChange(t *testing.T) {
 	require.Equal(t, "tenant-a", change.TenantIDString())
 	require.Equal(t, actor, change.Actor)
 	require.NotNil(t, change.Permission)
-	require.Equal(t, authz.Permission{
+	require.Equal(t, permission.Permission{
 		RoleName:    "iam:origin_admin",
 		TenantID:    "tenant-a",
 		ResourceKey: "iam:identity:collection:users",
@@ -46,14 +49,14 @@ func TestAuthorizationPolicyRejectsUnsupportedResourceActionOrScope(t *testing.T
 	t.Parallel()
 
 	actor := mustActor(t, "operator-1")
-	originScope := mustScope(t, authz.ScopeKindOrigin, "1")
+	originScope := mustScope(t, scope.KindOrigin, "1")
 	catalog := mustResource(t, "iam:identity:collection:users", []string{"read"})
 
 	_, err := NewAuthorizationPolicy().GrantPermission(
 		mustRole(t, "iam:origin_admin", "Origin Admin", "tenant-a"),
 		catalog,
 		"update",
-		authz.DefaultScope(),
+		scope.Default(),
 		actor,
 		"grant",
 	)
@@ -74,7 +77,7 @@ func TestAuthorizationPolicyBindRoleBuildsBusinessChange(t *testing.T) {
 	t.Parallel()
 
 	actor := mustActor(t, "operator-1")
-	subject, err := authz.NewSubject(authz.SubjectTypeUser, meta.FromUint64(100))
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 
 	change, err := NewAuthorizationPolicy().BindRole(
@@ -88,7 +91,7 @@ func TestAuthorizationPolicyBindRoleBuildsBusinessChange(t *testing.T) {
 	require.Equal(t, PolicyChangeBindRole, change.Kind)
 	require.Equal(t, "tenant-a", change.TenantIDString())
 	require.NotNil(t, change.RoleBinding)
-	require.Equal(t, authz.RoleBinding{
+	require.Equal(t, rolebinding.Fact{
 		Subject:   subject,
 		RoleName:  "iam:admin",
 		TenantID:  "tenant-a",
@@ -103,9 +106,9 @@ func mustActor(t *testing.T, id string) Actor {
 	return actor
 }
 
-func mustScope(t *testing.T, kind authz.ScopeKind, value string) authz.Scope {
+func mustScope(t *testing.T, kind scope.Kind, value string) scope.Scope {
 	t.Helper()
-	scope, err := authz.NewScope(kind, value)
+	scope, err := scope.New(kind, value)
 	require.NoError(t, err)
 	return scope
 }

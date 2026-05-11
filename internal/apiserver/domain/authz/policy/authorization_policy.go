@@ -27,6 +27,10 @@ func NewActor(id string) (Actor, error) {
 	return Actor{ID: id}, nil
 }
 
+func (a Actor) String() string {
+	return a.ID
+}
+
 // PolicyChangeKind describes a business authorization policy mutation.
 type PolicyChangeKind string
 

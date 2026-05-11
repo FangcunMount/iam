@@ -16,11 +16,13 @@ import (
 	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
@@ -110,7 +112,7 @@ func (f *roleCommanderFake) CreateRole(ctx context.Context, cmd roleApp.CreateRo
 	if f.createFn != nil {
 		return f.createFn(ctx, cmd)
 	}
-	result, _ := roleDomain.NewRole(cmd.Name, cmd.DisplayName, cmd.TenantID, roleDomain.WithID(meta.FromUint64(11)), roleDomain.WithDescription(cmd.Description))
+	result, _ := roleDomain.NewRole(cmd.NameString(), cmd.DisplayName, cmd.TenantIDString(), roleDomain.WithID(meta.FromUint64(11)), roleDomain.WithDescription(cmd.Description))
 	return &result, nil
 }
 
@@ -157,7 +159,7 @@ func (f *roleQueryerFake) ListRoles(ctx context.Context, query roleApp.ListRoles
 	if f.listFn != nil {
 		return f.listFn(ctx, query)
 	}
-	result, _ := roleDomain.NewRole("admin", "Admin", query.TenantID, roleDomain.WithID(meta.FromUint64(11)))
+	result, _ := roleDomain.NewRole("admin", "Admin", query.TenantIDString(), roleDomain.WithID(meta.FromUint64(11)))
 	return &roleApp.ListRolesResult{Roles: []*roleDomain.Role{&result}, Total: 1}, nil
 }
 
@@ -377,23 +379,23 @@ func (f *policyCommanderFake) RemovePermission(ctx context.Context, cmd policyAp
 }
 
 type policyQueryerFake struct {
-	getPoliciesFn       func(context.Context, policyApp.RolePermissionsQuery) ([]authzDomain.Permission, error)
+	getPoliciesFn       func(context.Context, policyApp.RolePermissionsQuery) ([]permission.Permission, error)
 	getCurrentVersionFn func(context.Context, policyApp.CurrentVersionQuery) (*policyDomain.PolicyVersion, error)
 
 	getPoliciesCalls       []policyApp.RolePermissionsQuery
 	getCurrentVersionCalls []policyApp.CurrentVersionQuery
 }
 
-func (f *policyQueryerFake) GetPermissionsForRole(ctx context.Context, query policyApp.RolePermissionsQuery) ([]authzDomain.Permission, error) {
+func (f *policyQueryerFake) GetPermissionsForRole(ctx context.Context, query policyApp.RolePermissionsQuery) ([]permission.Permission, error) {
 	f.getPoliciesCalls = append(f.getPoliciesCalls, query)
 	if f.getPoliciesFn != nil {
 		return f.getPoliciesFn(ctx, query)
 	}
-	permission, err := authzDomain.NewPermission("admin", query.TenantID, "scale:form:template:*", "read")
+	perm, err := permission.New("admin", query.TenantID, "scale:form:template:*", "read")
 	if err != nil {
 		return nil, err
 	}
-	return []authzDomain.Permission{permission}, nil
+	return []permission.Permission{perm}, nil
 }
 
 func (f *policyQueryerFake) GetCurrentVersion(ctx context.Context, query policyApp.CurrentVersionQuery) (*policyDomain.PolicyVersion, error) {
@@ -426,7 +428,7 @@ type casbinFake struct {
 		dom   string
 		obj   string
 		act   string
-		scope authzDomain.Scope
+		scope scope.Scope
 	}
 }
 
@@ -436,7 +438,7 @@ func (f *casbinFake) AuthorizeRoute(ctx context.Context, sub, dom, obj, act stri
 		dom   string
 		obj   string
 		act   string
-		scope authzDomain.Scope
+		scope scope.Scope
 	}{sub: sub, dom: dom, obj: obj, act: act})
 	if f.enforceFn != nil {
 		return f.enforceFn(ctx, sub, dom, obj, act)
@@ -444,16 +446,16 @@ func (f *casbinFake) AuthorizeRoute(ctx context.Context, sub, dom, obj, act stri
 	return true, nil
 }
 
-func (f *casbinFake) Check(ctx context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error) {
+func (f *casbinFake) Check(ctx context.Context, cmd authzapp.CheckCommand) (decision.Decision, error) {
 	sub := string(cmd.Subject.Type) + ":" + cmd.Subject.ID.String()
 	allowed, err := f.AuthorizeRoute(ctx, sub, cmd.TenantIDString(), cmd.ResourceKeyString(), cmd.ActionString())
 	if err != nil {
-		return authzDomain.AuthorizationDecision{}, err
+		return decision.Decision{}, err
 	}
 	if len(f.enforceCalls) > 0 {
 		f.enforceCalls[len(f.enforceCalls)-1].scope = cmd.ObjectScope
 	}
-	return authzDomain.AuthorizationDecision{Allowed: allowed}, nil
+	return decision.Decision{Allowed: allowed}, nil
 }
 
 func valueOrEmpty(value *string) string {

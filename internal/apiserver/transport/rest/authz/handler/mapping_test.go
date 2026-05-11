@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
@@ -103,12 +103,12 @@ func TestResourceHandlerToResourceResponse(t *testing.T) {
 }
 
 func TestPolicyRuleAndVersionResponses(t *testing.T) {
-	permission, err := authzDomain.NewPermission("admin", "tenant-a", "scale:form:template:*", "read")
+	perm, err := permission.New("admin", "tenant-a", "scale:form:template:*", "read")
 	if err != nil {
 		t.Fatalf("new permission: %v", err)
 	}
 
-	ruleResponses := toPermissionResponses([]authzDomain.Permission{permission})
+	ruleResponses := toPermissionResponses([]permission.Permission{perm})
 	if len(ruleResponses) != 1 ||
 		ruleResponses[0].Subject != "role:admin" ||
 		ruleResponses[0].Domain != "tenant-a" ||

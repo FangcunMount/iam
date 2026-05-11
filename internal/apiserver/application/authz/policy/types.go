@@ -30,10 +30,10 @@ type RolePermissionStore interface {
 type AddPermissionCommand struct {
 	RoleID     meta.ID
 	ResourceID resourceDomain.ResourceID
-	Action     string
+	Action     resourceDomain.Action
 	Scope      scope.Scope
-	TenantID   string
-	ChangedBy  string
+	TenantID   tenant.ID
+	ChangedBy  policyDomain.Actor
 	Reason     string
 }
 
@@ -48,10 +48,10 @@ func NewAddPermissionCommand(roleID meta.ID, resourceID resourceDomain.ResourceI
 type RemovePermissionCommand struct {
 	RoleID     meta.ID
 	ResourceID resourceDomain.ResourceID
-	Action     string
+	Action     resourceDomain.Action
 	Scope      scope.Scope
-	TenantID   string
-	ChangedBy  string
+	TenantID   tenant.ID
+	ChangedBy  policyDomain.Actor
 	Reason     string
 }
 
@@ -66,10 +66,10 @@ func NewRemovePermissionCommand(roleID meta.ID, resourceID resourceDomain.Resour
 type permissionCommandShape struct {
 	RoleID     meta.ID
 	ResourceID resourceDomain.ResourceID
-	Action     string
+	Action     resourceDomain.Action
 	Scope      scope.Scope
-	TenantID   string
-	ChangedBy  string
+	TenantID   tenant.ID
+	ChangedBy  policyDomain.Actor
 	Reason     string
 }
 
@@ -92,18 +92,43 @@ func newPermissionCommand(roleID meta.ID, resourceID resourceDomain.ResourceID, 
 	if _, err := scope.New(normalizedScope.Kind, normalizedScope.Value); err != nil {
 		return permissionCommandShape{}, err
 	}
-	if _, err := policyDomain.NewActor(changedBy); err != nil {
+	actor, err := policyDomain.NewActor(changedBy)
+	if err != nil {
 		return permissionCommandShape{}, err
 	}
 	return permissionCommandShape{
 		RoleID:     roleID,
 		ResourceID: resourceID,
-		Action:     actionValue.String(),
+		Action:     actionValue,
 		Scope:      normalizedScope,
-		TenantID:   tenantIDValue.String(),
-		ChangedBy:  changedBy,
+		TenantID:   tenantIDValue,
+		ChangedBy:  actor,
 		Reason:     reason,
 	}, nil
+}
+
+func (cmd AddPermissionCommand) ActionString() string {
+	return cmd.Action.String()
+}
+
+func (cmd AddPermissionCommand) TenantIDString() string {
+	return cmd.TenantID.String()
+}
+
+func (cmd AddPermissionCommand) ChangedByString() string {
+	return cmd.ChangedBy.String()
+}
+
+func (cmd RemovePermissionCommand) ActionString() string {
+	return cmd.Action.String()
+}
+
+func (cmd RemovePermissionCommand) TenantIDString() string {
+	return cmd.TenantID.String()
+}
+
+func (cmd RemovePermissionCommand) ChangedByString() string {
+	return cmd.ChangedBy.String()
 }
 
 type RolePermissionsQuery struct {

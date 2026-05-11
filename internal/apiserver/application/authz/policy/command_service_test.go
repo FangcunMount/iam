@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/pkg/event"
@@ -45,21 +47,16 @@ func TestPolicyCommandServiceAddPermission_CommitsFactsWhenRuntimeReloadFails(t 
 		runtime,
 	)
 
-	err := service.AddPermission(context.Background(), AddPermissionCommand{
-		RoleID:     meta.FromUint64(10),
-		ResourceID: resourceDomain.NewResourceID(20),
-		Action:     "read",
-		TenantID:   "tenant-a",
-		ChangedBy:  "1",
-		Reason:     "grant read",
-	})
+	cmd, err := NewAddPermissionCommand(meta.FromUint64(10), resourceDomain.NewResourceID(20), "read", scope.Default(), "tenant-a", "1", "grant read")
+	require.NoError(t, err)
+	err = service.AddPermission(context.Background(), cmd)
 	require.NoError(t, err)
 	require.Len(t, ruleStore.policyAdds, 1)
 	assert.Equal(t, "iam:admin", ruleStore.policyAdds[0].RoleNameString())
 	assert.Equal(t, "tenant-a", ruleStore.policyAdds[0].TenantIDString())
 	assert.Equal(t, "iam:identity:collection:users", ruleStore.policyAdds[0].ResourceKeyString())
 	assert.Equal(t, "read", ruleStore.policyAdds[0].ActionString())
-	assert.Equal(t, authzDomain.DefaultScope(), ruleStore.policyAdds[0].Scope)
+	assert.Equal(t, scope.Default(), ruleStore.policyAdds[0].Scope)
 	assert.Equal(t, 1, versionRepo.incrementCalls)
 	require.Len(t, stager.events, 1)
 	assert.Equal(t, eventing.AuthzVersionChanged, stager.events[0].EventType())
@@ -75,7 +72,7 @@ func TestPolicyCommandServiceAddPermission_ValidatesResourceScopeKind(t *testing
 		},
 	}
 	resourceRepo := &resourceRepoStub{
-		resource: mustResourceForPolicyCommand(t, []authzDomain.ScopeKind{authzDomain.ScopeKindAll, authzDomain.ScopeKindOrigin}),
+		resource: mustResourceForPolicyCommand(t, []scope.Kind{scope.KindAll, scope.KindOrigin}),
 	}
 	ruleStore := &policyAuthorizationFactStoreStub{}
 	service := NewPolicyCommandService(
@@ -89,17 +86,12 @@ func TestPolicyCommandServiceAddPermission_ValidatesResourceScopeKind(t *testing
 		}},
 		&policyCasbinAdapterStub{},
 	)
-	scope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
+	scope, err := scope.New(scope.KindOrigin, "1")
 	require.NoError(t, err)
 
-	err = service.AddPermission(context.Background(), AddPermissionCommand{
-		RoleID:     meta.FromUint64(10),
-		ResourceID: resourceDomain.NewResourceID(20),
-		Action:     "read",
-		Scope:      scope,
-		TenantID:   "tenant-a",
-		ChangedBy:  "1",
-	})
+	cmd, err := NewAddPermissionCommand(meta.FromUint64(10), resourceDomain.NewResourceID(20), "read", scope, "tenant-a", "1", "")
+	require.NoError(t, err)
+	err = service.AddPermission(context.Background(), cmd)
 
 	require.NoError(t, err)
 	require.Len(t, ruleStore.policyAdds, 1)
@@ -128,17 +120,12 @@ func TestPolicyCommandServiceAddPermission_RejectsUnsupportedScopeKind(t *testin
 		}},
 		&policyCasbinAdapterStub{},
 	)
-	scope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
+	scope, err := scope.New(scope.KindOrigin, "1")
 	require.NoError(t, err)
 
-	err = service.AddPermission(context.Background(), AddPermissionCommand{
-		RoleID:     meta.FromUint64(10),
-		ResourceID: resourceDomain.NewResourceID(20),
-		Action:     "read",
-		Scope:      scope,
-		TenantID:   "tenant-a",
-		ChangedBy:  "1",
-	})
+	cmd, err := NewAddPermissionCommand(meta.FromUint64(10), resourceDomain.NewResourceID(20), "read", scope, "tenant-a", "1", "")
+	require.NoError(t, err)
+	err = service.AddPermission(context.Background(), cmd)
 
 	require.Error(t, err)
 }
@@ -223,20 +210,20 @@ func (r *policyVersionRepoForCommandStub) GetCurrent(_ context.Context, tenantID
 }
 
 type policyAuthorizationFactStoreStub struct {
-	policyAdds []authzDomain.Permission
+	policyAdds []permission.Permission
 }
 
-func (r *policyAuthorizationFactStoreStub) AddPermission(_ context.Context, permission authzDomain.Permission) error {
+func (r *policyAuthorizationFactStoreStub) AddPermission(_ context.Context, permission permission.Permission) error {
 	r.policyAdds = append(r.policyAdds, permission)
 	return nil
 }
-func (r *policyAuthorizationFactStoreStub) RemovePermission(context.Context, authzDomain.Permission) error {
+func (r *policyAuthorizationFactStoreStub) RemovePermission(context.Context, permission.Permission) error {
 	return nil
 }
-func (r *policyAuthorizationFactStoreStub) AddRoleBinding(context.Context, authzDomain.RoleBinding) error {
+func (r *policyAuthorizationFactStoreStub) AddRoleBinding(context.Context, rolebinding.Fact) error {
 	return nil
 }
-func (r *policyAuthorizationFactStoreStub) RemoveRoleBinding(context.Context, authzDomain.RoleBinding) error {
+func (r *policyAuthorizationFactStoreStub) RemoveRoleBinding(context.Context, rolebinding.Fact) error {
 	return nil
 }
 
@@ -251,7 +238,7 @@ func (s *policyCasbinAdapterStub) LoadPolicy(context.Context) error {
 }
 func (s *policyCasbinAdapterStub) InvalidateCache() {}
 
-func mustResourceForPolicyCommand(t *testing.T, scopeKinds []authzDomain.ScopeKind) *resourceDomain.Resource {
+func mustResourceForPolicyCommand(t *testing.T, scopeKinds []scope.Kind) *resourceDomain.Resource {
 	t.Helper()
 	opts := []resourceDomain.ResourceOption{resourceDomain.WithID(resourceDomain.NewResourceID(20))}
 	if scopeKinds != nil {

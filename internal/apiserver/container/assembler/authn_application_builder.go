@@ -41,14 +41,13 @@ func (m *AuthnModule) initializeApplication(
 	if err != nil {
 		return err
 	}
-	challengeService := challengeApp.NewService(infra.challengeRepo, challengeApp.WithSMSOTPDelivery(challengeApp.SMSOTPDelivery{
+	challengeService := challengeApp.NewService(infra.challengeRepo, challengeApp.SMSOTPDelivery{
 		Gate:     infra.otpRedis,
 		SMS:      smsSender,
 		TTL:      smsOptions.LoginOTPTTL,
 		Cooldown: smsOptions.LoginOTPSendCooldown,
 		CodeLen:  smsOptions.LoginOTPCodeLength,
-	}))
-	m.challengeService = challengeService
+	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(infra.challengeRepo))
 	m.loginIdentityLinking = linkingApp.NewService(linkingApp.Dependencies{
 		LoginIdentities: infra.loginIdentityStore,
 		Challenge:       challengeService,

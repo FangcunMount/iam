@@ -9,6 +9,12 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
+// SubjectAccessEvaluator 负责汇总 user/login identity 访问状态。
+type SubjectAccessEvaluator interface {
+	Evaluate(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (SubjectAccessDecision, error)
+}
+
+// subjectAccessEvaluator 负责汇总 user/login identity 访问状态。
 type subjectAccessEvaluator struct {
 	userRepo          userdomain.Repository
 	loginIdentityRepo loginidentitydomain.Repository
@@ -22,6 +28,7 @@ func NewSubjectAccessEvaluator(userRepo userdomain.Repository, loginIdentityRepo
 	}
 }
 
+// Evaluate 评估用户/登录身份的访问状态。
 func (e *subjectAccessEvaluator) Evaluate(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (SubjectAccessDecision, error) {
 	if e.loginIdentityRepo == nil {
 		return SubjectAccessDecision{Status: SubjectAccessDisabled, UserID: userID, LoginIdentityID: loginIdentityID}, nil
@@ -42,6 +49,7 @@ func (e *subjectAccessEvaluator) Evaluate(ctx context.Context, userID meta.ID, l
 	return e.evaluateUser(ctx, userID, loginIdentityID)
 }
 
+// evaluateUser 评估用户的状态。
 func (e *subjectAccessEvaluator) evaluateUser(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (SubjectAccessDecision, error) {
 	user, err := e.userRepo.FindByID(ctx, userID)
 	if err != nil {

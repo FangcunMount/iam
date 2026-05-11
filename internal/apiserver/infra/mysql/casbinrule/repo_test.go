@@ -4,7 +4,10 @@ import (
 	"context"
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -17,7 +20,7 @@ func TestRepositoryStoresPolicyRulesWithCasbinFieldOrder(t *testing.T) {
 	db := setupCasbinRuleDB(t)
 	repo := NewRepository(db)
 
-	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
+	permission, err := permission.New("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.NoError(t, repo.AddPermission(context.Background(), permission))
 
@@ -42,14 +45,14 @@ func TestRepositoryStoresScopedPolicyRulesWithCasbinFieldOrder(t *testing.T) {
 
 	db := setupCasbinRuleDB(t)
 	repo := NewRepository(db)
-	scope, err := authzDomain.NewScope(authzDomain.ScopeKindOrigin, "1")
+	scope, err := scope.New(scope.KindOrigin, "1")
 	require.NoError(t, err)
-	permission, err := authzDomain.NewPermission(
+	permission, err := permission.New(
 		"iam:admin",
 		"tenant-a",
 		"iam:identity:collection:users",
 		"update",
-		authzDomain.WithPermissionScope(scope),
+		permission.WithScope(scope),
 	)
 	require.NoError(t, err)
 	require.NoError(t, repo.AddPermission(context.Background(), permission))
@@ -112,7 +115,7 @@ func TestRepositoryRemovesLegacyEmptyScopePolicyAsDefaultAllScope(t *testing.T) 
 		V4:    stringPtr(""),
 	}).Error)
 
-	permission, err := authzDomain.NewPermission("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
+	permission, err := permission.New("iam:admin", "tenant-a", "iam:identity:collection:users", "read")
 	require.NoError(t, err)
 	require.NoError(t, repo.RemovePermission(context.Background(), permission))
 
@@ -127,9 +130,9 @@ func TestRepositoryStoresGroupingRulesWithCasbinFieldOrder(t *testing.T) {
 	db := setupCasbinRuleDB(t)
 	repo := NewRepository(db)
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
-	binding, err := authzDomain.NewRoleBinding(subject, "iam:admin", "tenant-a", "operator-1")
+	binding, err := rolebinding.NewFact(subject, "iam:admin", "tenant-a", "operator-1")
 	require.NoError(t, err)
 	require.NoError(t, repo.AddRoleBinding(context.Background(), binding))
 

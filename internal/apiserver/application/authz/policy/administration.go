@@ -40,46 +40,46 @@ func NewPolicyAdministration(deps PolicyAdministrationDeps) *PolicyAdministratio
 }
 
 func (s *PolicyAdministration) GrantPermissionToRole(ctx context.Context, cmd AddPermissionCommand) error {
-	if err := s.policyValidator.ValidateAddPolicyParameters(cmd.RoleID, cmd.ResourceID, cmd.Action, cmd.TenantID, cmd.ChangedBy); err != nil {
+	if err := s.policyValidator.ValidateAddPolicyParameters(cmd.RoleID, cmd.ResourceID, cmd.ActionString(), cmd.TenantIDString(), cmd.ChangedByString()); err != nil {
 		return err
 	}
 	objectScope := cmd.Scope.Normalized()
 	if _, err := scope.New(objectScope.Kind, objectScope.Value); err != nil {
 		return err
 	}
-	actor, err := policyDomain.NewActor(cmd.ChangedBy)
+	actor, err := policyDomain.NewActor(cmd.ChangedByString())
 	if err != nil {
 		return err
 	}
 
 	return s.committer.Commit(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) (policyDomain.PolicyChange, error) {
-		targetRole, targetResource, err := resolvePermissionTargets(txCtx, tx, cmd.RoleID, cmd.ResourceID, cmd.TenantID)
+		targetRole, targetResource, err := resolvePermissionTargets(txCtx, tx, cmd.RoleID, cmd.ResourceID, cmd.TenantIDString())
 		if err != nil {
 			return policyDomain.PolicyChange{}, err
 		}
-		return policyDomain.NewAuthorizationPolicy().GrantPermission(*targetRole, *targetResource, cmd.Action, objectScope, actor, cmd.Reason)
+		return policyDomain.NewAuthorizationPolicy().GrantPermission(*targetRole, *targetResource, cmd.ActionString(), objectScope, actor, cmd.Reason)
 	})
 }
 
 func (s *PolicyAdministration) RevokePermissionFromRole(ctx context.Context, cmd RemovePermissionCommand) error {
-	if err := s.policyValidator.ValidateRemovePolicyParameters(cmd.RoleID, cmd.ResourceID, cmd.Action, cmd.TenantID, cmd.ChangedBy); err != nil {
+	if err := s.policyValidator.ValidateRemovePolicyParameters(cmd.RoleID, cmd.ResourceID, cmd.ActionString(), cmd.TenantIDString(), cmd.ChangedByString()); err != nil {
 		return err
 	}
 	objectScope := cmd.Scope.Normalized()
 	if _, err := scope.New(objectScope.Kind, objectScope.Value); err != nil {
 		return err
 	}
-	actor, err := policyDomain.NewActor(cmd.ChangedBy)
+	actor, err := policyDomain.NewActor(cmd.ChangedByString())
 	if err != nil {
 		return err
 	}
 
 	return s.committer.Commit(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) (policyDomain.PolicyChange, error) {
-		targetRole, targetResource, err := resolvePermissionTargets(txCtx, tx, cmd.RoleID, cmd.ResourceID, cmd.TenantID)
+		targetRole, targetResource, err := resolvePermissionTargets(txCtx, tx, cmd.RoleID, cmd.ResourceID, cmd.TenantIDString())
 		if err != nil {
 			return policyDomain.PolicyChange{}, err
 		}
-		return policyDomain.NewAuthorizationPolicy().RevokePermission(*targetRole, *targetResource, cmd.Action, objectScope, actor, cmd.Reason)
+		return policyDomain.NewAuthorizationPolicy().RevokePermission(*targetRole, *targetResource, cmd.ActionString(), objectScope, actor, cmd.Reason)
 	})
 }
 

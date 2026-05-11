@@ -46,11 +46,10 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
-	cmd := roleApp.CreateRoleCommand{
-		Name:        req.Name,
-		DisplayName: req.DisplayName,
-		TenantID:    tenantID,
-		Description: req.Description,
+	cmd, err := roleApp.NewCreateRoleCommand(req.Name, req.DisplayName, tenantID, req.Description)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	createdRole, err := h.commander.CreateRole(c.Request.Context(), cmd)
@@ -82,10 +81,10 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	cmd := roleApp.UpdateRoleCommand{
-		ID:          roleID,
-		DisplayName: &req.DisplayName,
-		Description: &req.Description,
+	cmd, err := roleApp.NewUpdateRoleCommand(roleID, &req.DisplayName, &req.Description)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	updatedRole, err := h.commander.UpdateRole(c.Request.Context(), cmd)
@@ -159,10 +158,10 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 		return
 	}
 
-	listQuery := roleApp.ListRolesQuery{
-		TenantID: tenantID,
-		Offset:   query.Offset,
-		Limit:    query.Limit,
+	listQuery, err := roleApp.NewListRolesQuery(tenantID, query.Offset, query.Limit)
+	if err != nil {
+		handleError(c, err)
+		return
 	}
 
 	result, err := h.queryer.ListRoles(c.Request.Context(), listQuery)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -22,7 +22,7 @@ func TestPolicyQueryServiceReturnsBusinessPermissionsForRole(t *testing.T) {
 		},
 	}
 	store := &rolePermissionStoreStub{
-		permissions: []authzDomain.Permission{
+		permissions: []permission.Permission{
 			mustPolicyPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
 		},
 	}
@@ -59,14 +59,14 @@ func (r *permissionRoleRepoStub) List(context.Context, string, int, int) ([]*rol
 }
 
 type rolePermissionStoreStub struct {
-	permissions []authzDomain.Permission
+	permissions []permission.Permission
 	calls       []struct {
 		roleName string
 		tenantID string
 	}
 }
 
-func (s *rolePermissionStoreStub) PermissionsForRole(_ context.Context, roleName, tenantID string) ([]authzDomain.Permission, error) {
+func (s *rolePermissionStoreStub) PermissionsForRole(_ context.Context, roleName, tenantID string) ([]permission.Permission, error) {
 	s.calls = append(s.calls, struct {
 		roleName string
 		tenantID string
@@ -74,9 +74,9 @@ func (s *rolePermissionStoreStub) PermissionsForRole(_ context.Context, roleName
 	return s.permissions, nil
 }
 
-func mustPolicyPermission(t *testing.T, roleName, tenantID, resourceKey, action string) authzDomain.Permission {
+func mustPolicyPermission(t *testing.T, roleName, tenantID, resourceKey, action string) permission.Permission {
 	t.Helper()
-	permission, err := authzDomain.NewPermission(roleName, tenantID, resourceKey, action)
+	permission, err := permission.New(roleName, tenantID, resourceKey, action)
 	require.NoError(t, err)
 	return permission
 }

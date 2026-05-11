@@ -18,23 +18,7 @@ const modulePath = "github.com/FangcunMount/iam/v2/"
 
 var activeLegacyApplicationInfrastructureImports = map[string]string{}
 
-var activeAuthzRootFacadeTestImports = map[string]string{
-	"internal/apiserver/application/authz/authorization/service_test.go":       "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/application/authz/policy/command_service_test.go":      "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/application/authz/policy/committer_test.go":            "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/application/authz/policy/query_service_test.go":        "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/application/authz/rolebinding/command_service_test.go": "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/domain/authz/policy/authorization_policy_test.go":      "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/infra/casbin/adapter_test.go":                          "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/infra/casbin/facts_test.go":                            "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/infra/mysql/casbinrule/repo_test.go":                   "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/transport/grpc/service/authz/service_test.go":          "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/transport/rest/authz/handler/check_http_test.go":       "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/transport/rest/authz/handler/handler_http_test.go":     "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/transport/rest/authz/handler/mapping_test.go":          "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/transport/rest/authz/handler/policy_http_test.go":      "legacy authz characterization test awaiting semantic child package migration",
-	"internal/apiserver/transport/rest/identity/handler/user_test.go":          "legacy identity transport test awaiting semantic authz child package migration",
-}
+var activeAuthzRootFacadeTestImports = map[string]string{}
 
 var retiredArchitectureExceptionReasonParts = [][]string{
 	{"application", "test", "support"},

@@ -43,7 +43,7 @@ func (s *RoleQueryService) ListRoles(
 	ctx context.Context,
 	query ListRolesQuery,
 ) (*ListRolesResult, error) {
-	roles, total, err := s.roleRepo.List(ctx, query.TenantID, query.Offset, query.Limit)
+	roles, total, err := s.roleRepo.List(ctx, query.TenantIDString(), query.Offset, query.Limit)
 	if err != nil {
 		return nil, err
 	}

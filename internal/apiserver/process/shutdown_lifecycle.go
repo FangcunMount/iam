@@ -88,6 +88,10 @@ type authzPolicySyncRuntime interface {
 	Stop() error
 }
 
+type authzPolicySyncChannelReporter interface {
+	Channel() string
+}
+
 func startAuthzPolicySync(lifecycle *processruntime.Lifecycle, sync authzPolicySyncRuntime) {
 	if sync == nil {
 		return
@@ -99,7 +103,11 @@ func startAuthzPolicySync(lifecycle *processruntime.Lifecycle, sync authzPolicyS
 	if lifecycle != nil {
 		lifecycle.AddShutdownHook("stop authz policy sync subscriber", sync.Stop)
 	}
-	log.Infow("Authz policy sync subscriber initialized", "topic", "iam.authz.version", "channel", "iam-policy-sync")
+	channel := "unknown"
+	if reporter, ok := sync.(authzPolicySyncChannelReporter); ok {
+		channel = reporter.Channel()
+	}
+	log.Infow("Authz policy sync subscriber initialized", "topic", "iam.authz.version", "channel", channel)
 }
 
 // runOutboxRelay 运行出box 调度器

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/stretchr/testify/assert"
@@ -53,9 +53,9 @@ func mustPolicyActor(t *testing.T, id string) policyDomain.Actor {
 	return actor
 }
 
-func mustCommitterPermission(t *testing.T, roleName, tenantID, resourceKey, action string) authzDomain.Permission {
+func mustCommitterPermission(t *testing.T, roleName, tenantID, resourceKey, action string) permission.Permission {
 	t.Helper()
-	permission, err := authzDomain.NewPermission(roleName, tenantID, resourceKey, action)
+	permission, err := permission.New(roleName, tenantID, resourceKey, action)
 	require.NoError(t, err)
 	return permission
 }

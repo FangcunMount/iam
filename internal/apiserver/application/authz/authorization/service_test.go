@@ -5,8 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -14,12 +17,12 @@ import (
 func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
-	engine := &decisionEngineFake{decision: authzDomain.AuthorizationDecision{Allowed: true}}
+	engine := &decisionEngineFake{decision: decision.Decision{Allowed: true}}
 	checker := NewChecker(engine, &versionRepoFake{version: &policyDomain.PolicyVersion{Version: 11}})
 
-	cmd, err := NewCheckCommand(subject, "tenant-a", "iam:identity:collection:users", "read", authzDomain.DefaultScope())
+	cmd, err := NewCheckCommand(subject, "tenant-a", "iam:identity:collection:users", "read", scope.Default())
 	require.NoError(t, err)
 	decision, err := checker.Check(context.Background(), cmd)
 
@@ -31,18 +34,18 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	require.Equal(t, "tenant-a", engine.requests[0].TenantIDString())
 	require.Equal(t, "iam:identity:collection:users", engine.requests[0].ResourceKeyString())
 	require.Equal(t, "read", engine.requests[0].ActionString())
-	require.Equal(t, authzDomain.DefaultScope(), engine.requests[0].ObjectScope)
+	require.Equal(t, scope.Default(), engine.requests[0].ObjectScope)
 }
 
 func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	reader := NewSnapshotReader(
 		&snapshotStoreFake{
 			roles: []string{"iam:admin", "qs:admin", "iam:admin"},
-			permissions: []authzDomain.Permission{
+			permissions: []permission.Permission{
 				mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
 				mustPermission(t, "iam:admin", "tenant-a", "qs:course:collection:*", "read"),
 				mustPermission(t, "iam:admin", "tenant-a", "iam:identity:collection:users", "read"),
@@ -52,17 +55,15 @@ func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 		&versionRepoFake{version: &policyDomain.PolicyVersion{Version: 9}},
 	)
 
-	snapshot, err := reader.Read(context.Background(), SnapshotQuery{
-		Subject:  subject,
-		TenantID: "tenant-a",
-		AppName:  "iam",
-	})
+	query, err := NewSnapshotQuery(subject, "tenant-a", "iam")
+	require.NoError(t, err)
+	snapshot, err := reader.Read(context.Background(), query)
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"iam:admin"}, snapshot.Roles)
 	require.Equal(t, []PermissionEntry{
-		{ResourceKey: "iam:identity:collection:users", Action: "read", Scope: authzDomain.DefaultScope()},
-		{ResourceKey: "iam:identity:collection:users", Action: "write", Scope: authzDomain.DefaultScope()},
+		{ResourceKey: "iam:identity:collection:users", Action: "read", Scope: scope.Default()},
+		{ResourceKey: "iam:identity:collection:users", Action: "write", Scope: scope.Default()},
 	}, snapshot.Permissions)
 	require.Equal(t, int64(9), snapshot.AuthzVersion)
 }
@@ -70,49 +71,68 @@ func TestSnapshotReaderFiltersAndDeduplicatesByApp(t *testing.T) {
 func TestSnapshotReaderValidatesDependencies(t *testing.T) {
 	t.Parallel()
 
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 
-	_, err = NewSnapshotReader(nil, &versionRepoFake{}).Read(context.Background(), SnapshotQuery{
-		Subject: subject, TenantID: "tenant-a", AppName: "iam",
-	})
+	query, err := NewSnapshotQuery(subject, "tenant-a", "iam")
+	require.NoError(t, err)
+
+	_, err = NewSnapshotReader(nil, &versionRepoFake{}).Read(context.Background(), query)
 	require.Error(t, err)
 
-	_, err = NewSnapshotReader(&snapshotStoreFake{}, nil).Read(context.Background(), SnapshotQuery{
-		Subject: subject, TenantID: "tenant-a", AppName: "iam",
-	})
+	_, err = NewSnapshotReader(&snapshotStoreFake{}, nil).Read(context.Background(), query)
 	require.Error(t, err)
 
 	_, err = NewSnapshotReader(&snapshotStoreFake{}, &versionRepoFake{}).Read(context.Background(), SnapshotQuery{
-		Subject: subject, TenantID: "tenant-a",
+		Subject:  subject,
+		TenantID: query.TenantID,
 	})
+	require.Error(t, err)
+}
+
+func TestSnapshotQueryUsesTenantValueObject(t *testing.T) {
+	t.Parallel()
+
+	subject, err := subject.NewRef(subject.TypeUser, meta.FromUint64(100))
+	require.NoError(t, err)
+
+	query, err := NewSnapshotQuery(subject, " tenant-a ", " iam ")
+
+	require.NoError(t, err)
+	require.Equal(t, "tenant-a", query.TenantIDString())
+	require.Equal(t, "iam", query.AppName)
+
+	_, err = NewSnapshotQuery(subject, "", "iam")
+	require.Error(t, err)
+
+	_, err = NewSnapshotQuery(subject, "tenant-a", "")
 	require.Error(t, err)
 }
 
 type decisionEngineFake struct {
-	decision authzDomain.AuthorizationDecision
+	decision decision.Decision
 	err      error
-	requests []authzDomain.AuthorizationRequest
+	requests []decision.Request
 }
 
-func (f *decisionEngineFake) Check(_ context.Context, request authzDomain.AuthorizationRequest) (authzDomain.AuthorizationDecision, error) {
+func (f *decisionEngineFake) Check(_ context.Context, request decision.Request) (decision.Decision, error) {
 	f.requests = append(f.requests, request)
 	if f.err != nil {
-		return authzDomain.AuthorizationDecision{}, f.err
+		return decision.Decision{}, f.err
 	}
 	return f.decision, nil
 }
 
 type snapshotStoreFake struct {
 	roles       []string
-	permissions []authzDomain.Permission
+	permissions []permission.Permission
 }
 
-func (f *snapshotStoreFake) RoleNamesForSubject(context.Context, authzDomain.Subject, string) ([]string, error) {
+func (f *snapshotStoreFake) RoleNamesForSubject(context.Context, subject.Ref, string) ([]string, error) {
 	return f.roles, nil
 }
 
-func (f *snapshotStoreFake) PermissionsForSubject(context.Context, authzDomain.Subject, string) ([]authzDomain.Permission, error) {
+func (f *snapshotStoreFake) PermissionsForSubject(context.Context, subject.Ref, string) ([]permission.Permission, error) {
 	return f.permissions, nil
 }
 
@@ -137,9 +157,9 @@ func (f *versionRepoFake) GetCurrent(context.Context, string) (*policyDomain.Pol
 	return f.version, nil
 }
 
-func mustPermission(t *testing.T, roleName, tenantID, resourceKey, action string) authzDomain.Permission {
+func mustPermission(t *testing.T, roleName, tenantID, resourceKey, action string) permission.Permission {
 	t.Helper()
-	permission, err := authzDomain.NewPermission(roleName, tenantID, resourceKey, action)
+	permission, err := permission.New(roleName, tenantID, resourceKey, action)
 	require.NoError(t, err)
 	return permission
 }

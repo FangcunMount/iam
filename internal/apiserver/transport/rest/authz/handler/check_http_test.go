@@ -8,7 +8,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -63,7 +63,7 @@ func TestCheckHandlerHTTPBranches(t *testing.T) {
 		require.Equal(t, "tenant-a", casbin.enforceCalls[0].dom)
 		require.Equal(t, "scale:form:template:*", casbin.enforceCalls[0].obj)
 		require.Equal(t, "read", casbin.enforceCalls[0].act)
-		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, casbin.enforceCalls[0].scope)
+		require.Equal(t, scope.Scope{Kind: scope.KindOrigin, Value: "1"}, casbin.enforceCalls[0].scope)
 	})
 
 	t.Run("current user fallback is used when subject is omitted", func(t *testing.T) {

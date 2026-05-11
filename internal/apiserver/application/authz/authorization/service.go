@@ -120,8 +120,31 @@ func NewSnapshotReader(store SnapshotStore, versions policyDomain.Repository) *S
 
 type SnapshotQuery struct {
 	Subject  subject.Ref
-	TenantID string
+	TenantID tenant.ID
 	AppName  string
+}
+
+func NewSnapshotQuery(sub subject.Ref, tenantID, appName string) (SnapshotQuery, error) {
+	if sub.IsZero() {
+		return SnapshotQuery{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
+	}
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
+		return SnapshotQuery{}, err
+	}
+	appName = strings.TrimSpace(appName)
+	if appName == "" {
+		return SnapshotQuery{}, perrors.WithCode(code.ErrInvalidArgument, "app name is required")
+	}
+	return SnapshotQuery{
+		Subject:  sub,
+		TenantID: tenantIDValue,
+		AppName:  appName,
+	}, nil
+}
+
+func (query SnapshotQuery) TenantIDString() string {
+	return query.TenantID.String()
 }
 
 type PermissionEntry struct {
@@ -146,22 +169,22 @@ func (r *SnapshotReader) Read(ctx context.Context, query SnapshotQuery) (*Snapsh
 	if query.Subject.Type == "" || query.Subject.ID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
-	if strings.TrimSpace(query.TenantID) == "" {
+	if query.TenantID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "tenant id is required")
 	}
 	if strings.TrimSpace(query.AppName) == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "app name is required")
 	}
 
-	roleNames, err := r.store.RoleNamesForSubject(ctx, query.Subject, query.TenantID)
+	roleNames, err := r.store.RoleNamesForSubject(ctx, query.Subject, query.TenantIDString())
 	if err != nil {
 		return nil, err
 	}
-	permissions, err := r.store.PermissionsForSubject(ctx, query.Subject, query.TenantID)
+	permissions, err := r.store.PermissionsForSubject(ctx, query.Subject, query.TenantIDString())
 	if err != nil {
 		return nil, err
 	}
-	version, err := r.versions.GetOrCreate(ctx, query.TenantID)
+	version, err := r.versions.GetOrCreate(ctx, query.TenantIDString())
 	if err != nil {
 		return nil, err
 	}

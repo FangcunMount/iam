@@ -9,7 +9,9 @@ import (
 	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
 	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -42,7 +44,7 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 
 	t.Run("check success", func(t *testing.T) {
 		t.Parallel()
-		checker := &authzCheckerFake{decision: authzDomain.AuthorizationDecision{
+		checker := &authzCheckerFake{decision: decision.Decision{
 			Allowed:       true,
 			Reason:        "allowed",
 			PolicyVersion: 12,
@@ -58,12 +60,12 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 		require.Equal(t, "allowed", resp.Reason)
 		require.Equal(t, int64(12), resp.PolicyVersion)
 		require.Len(t, checker.calls, 1)
-		require.Equal(t, authzDomain.SubjectTypeUser, checker.calls[0].Subject.Type)
+		require.Equal(t, subject.TypeUser, checker.calls[0].Subject.Type)
 		require.Equal(t, meta.FromUint64(1), checker.calls[0].Subject.ID)
 		require.Equal(t, "tenant-a", checker.calls[0].TenantIDString())
 		require.Equal(t, "iam:identity:collection:users", checker.calls[0].ResourceKeyString())
 		require.Equal(t, "read", checker.calls[0].ActionString())
-		require.Equal(t, authzDomain.Scope{Kind: authzDomain.ScopeKindOrigin, Value: "1"}, checker.calls[0].ObjectScope)
+		require.Equal(t, scope.Scope{Kind: scope.KindOrigin, Value: "1"}, checker.calls[0].ObjectScope)
 	})
 
 	t.Run("check error", func(t *testing.T) {
@@ -107,9 +109,9 @@ func TestAuthorizationServerSnapshotUsesApplicationReader(t *testing.T) {
 		{Resource: "iam:identity:collection:users", Action: "write", ScopeType: "all", ScopeValue: "*"},
 	}, resp.Permissions)
 	require.Len(t, reader.calls, 1)
-	require.Equal(t, authzDomain.SubjectTypeUser, reader.calls[0].Subject.Type)
+	require.Equal(t, subject.TypeUser, reader.calls[0].Subject.Type)
 	require.Equal(t, meta.FromUint64(1), reader.calls[0].Subject.ID)
-	require.Equal(t, "tenant-a", reader.calls[0].TenantID)
+	require.Equal(t, "tenant-a", reader.calls[0].TenantIDString())
 	require.Equal(t, "iam", reader.calls[0].AppName)
 }
 
@@ -162,7 +164,7 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []rolebindingApp.GrantByRoleNameCommand{{
-		Subject:   authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: meta.FromUint64(100)},
+		Subject:   subject.Ref{Type: subject.TypeUser, ID: meta.FromUint64(100)},
 		TenantID:  "tenant-a",
 		RoleName:  "iam:admin",
 		GrantedBy: "operator-1",
@@ -177,7 +179,7 @@ func TestAuthorizationServerGrantAndRevokeAssignment(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []rolebindingApp.RevokeByRoleNameCommand{{
-		Subject:   authzDomain.Subject{Type: authzDomain.SubjectTypeUser, ID: meta.FromUint64(100)},
+		Subject:   subject.Ref{Type: subject.TypeUser, ID: meta.FromUint64(100)},
 		TenantID:  "tenant-a",
 		RoleName:  "iam:admin",
 		ChangedBy: "operator-2",
@@ -240,15 +242,15 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 }
 
 type authzCheckerFake struct {
-	decision authzDomain.AuthorizationDecision
+	decision decision.Decision
 	err      error
 	calls    []authzapp.CheckCommand
 }
 
-func (f *authzCheckerFake) Check(_ context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error) {
+func (f *authzCheckerFake) Check(_ context.Context, cmd authzapp.CheckCommand) (decision.Decision, error) {
 	f.calls = append(f.calls, cmd)
 	if f.err != nil {
-		return authzDomain.AuthorizationDecision{}, f.err
+		return decision.Decision{}, f.err
 	}
 	return f.decision, nil
 }

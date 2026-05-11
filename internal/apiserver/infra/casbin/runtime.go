@@ -99,6 +99,10 @@ func (r *RuntimeHealthReporter) RecordPolicyVersionEvent(tenantID string, versio
 	r.adapter.RecordPolicyVersionEvent(tenantID, version, eventAt)
 }
 
+func (r *RuntimeHealthReporter) SetPolicySyncChannel(channel string) {
+	r.adapter.SetPolicySyncChannel(channel)
+}
+
 type RoleNameReader struct {
 	adapter *CasbinAdapter
 }
@@ -112,6 +116,13 @@ func (c *CasbinAdapter) RecordPolicyVersionEvent(tenantID string, version int64,
 		return
 	}
 	c.health.recordPolicyVersionEvent(tenantID, version, eventAt)
+}
+
+func (c *CasbinAdapter) SetPolicySyncChannel(channel string) {
+	if c == nil || c.health == nil {
+		return
+	}
+	c.health.setPolicySyncChannel(channel)
 }
 
 func (c *CasbinAdapter) RuntimeHealthDetails() map[string]any {

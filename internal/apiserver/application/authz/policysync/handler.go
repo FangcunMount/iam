@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
+	"unicode"
 
 	authzshared "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/shared"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
@@ -12,9 +15,39 @@ import (
 )
 
 const (
-	Topic   = "iam.authz.version"
-	Channel = "iam-policy-sync"
+	Topic         = "iam.authz.version"
+	ChannelPrefix = "iam-policy-sync"
 )
+
+func CurrentInstanceChannel() string {
+	hostname, _ := os.Hostname()
+	return InstanceChannel(hostname, os.Getpid())
+}
+
+func InstanceChannel(hostname string, pid int) string {
+	host := sanitizeChannelPart(hostname)
+	if host == "" {
+		host = "unknown"
+	}
+	if pid <= 0 {
+		pid = os.Getpid()
+	}
+	return fmt.Sprintf("%s.%s.%d#ephemeral", ChannelPrefix, host, pid)
+}
+
+func sanitizeChannelPart(value string) string {
+	value = strings.TrimSpace(value)
+	var builder strings.Builder
+	for _, r := range value {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r), r == '-', r == '_', r == '.':
+			builder.WriteRune(r)
+		default:
+			builder.WriteByte('-')
+		}
+	}
+	return strings.Trim(builder.String(), "-_.")
+}
 
 type RuntimePolicyReloader interface {
 	LoadPolicy(ctx context.Context) error

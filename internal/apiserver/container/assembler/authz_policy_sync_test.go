@@ -27,7 +27,10 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 	require.NoError(t, sync.Start(context.Background()))
 
 	require.Equal(t, policysync.Topic, subscriber.topic)
-	require.Equal(t, policysync.Channel, subscriber.channel)
+	require.Equal(t, sync.Channel(), subscriber.channel)
+	require.Contains(t, subscriber.channel, policysync.ChannelPrefix+".")
+	require.Contains(t, subscriber.channel, "#ephemeral")
+	require.Equal(t, subscriber.channel, recorder.policySyncChannel)
 	msg := cbmessaging.NewMessage("msg-1", []byte(`{"tenant_id":"tenant-a","version":12}`))
 	msg.Metadata = map[string]string{"event_type": eventing.AuthzVersionChanged}
 	require.NoError(t, subscriber.handler(context.Background(), msg))
@@ -76,9 +79,10 @@ func (s *policySyncReloaderStub) LoadPolicy(context.Context) error {
 }
 
 type policySyncRuntimeHealthStub struct {
-	tenantID string
-	version  int64
-	eventAt  time.Time
+	tenantID          string
+	version           int64
+	eventAt           time.Time
+	policySyncChannel string
 }
 
 func (s *policySyncRuntimeHealthStub) ReloadHealth() (bool, error, time.Time) {
@@ -93,4 +97,8 @@ func (s *policySyncRuntimeHealthStub) RecordPolicyVersionEvent(tenantID string, 
 	s.tenantID = tenantID
 	s.version = version
 	s.eventAt = eventAt
+}
+
+func (s *policySyncRuntimeHealthStub) SetPolicySyncChannel(channel string) {
+	s.policySyncChannel = channel
 }

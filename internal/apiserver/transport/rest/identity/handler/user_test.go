@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
@@ -62,6 +62,6 @@ type userRoleLookupStub struct {
 	rolesByDomain map[string][]string
 }
 
-func (s userRoleLookupStub) RoleNamesForSubject(_ context.Context, _ authzDomain.Subject, domain string) ([]string, error) {
+func (s userRoleLookupStub) RoleNamesForSubject(_ context.Context, _ subject.Ref, domain string) ([]string, error) {
 	return append([]string(nil), s.rolesByDomain[domain]...), nil
 }

@@ -30,15 +30,15 @@ func (s *RoleCatalog) CreateRole(
 	cmd CreateRoleCommand,
 ) (*roleDomain.Role, error) {
 	// 1. 验证创建命令
-	if err := s.roleValidator.ValidateCreateParameters(cmd.Name, cmd.DisplayName, cmd.TenantID); err != nil {
+	if err := s.roleValidator.ValidateCreateParameters(cmd.NameString(), cmd.DisplayName, cmd.TenantIDString()); err != nil {
 		return nil, err
 	}
 
 	// 2. 创建角色领域对象
 	newRole, err := roleDomain.NewRole(
-		cmd.Name,
+		cmd.NameString(),
 		cmd.DisplayName,
-		cmd.TenantID,
+		cmd.TenantIDString(),
 		roleDomain.WithDescription(cmd.Description),
 	)
 	if err != nil {
