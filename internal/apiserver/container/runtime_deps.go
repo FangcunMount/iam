@@ -12,9 +12,15 @@ type OutboxRelay interface {
 	DispatchDue(context.Context) error
 }
 
+type AuthzPolicySyncSubscriber interface {
+	Start(context.Context) error
+	Stop() error
+}
+
 type RuntimeDeps struct {
 	RotationScheduler RotationScheduler
 	OutboxRelay       OutboxRelay
+	AuthzPolicySync   AuthzPolicySyncSubscriber
 	SuggestCleanup    func() error
 }
 
@@ -33,6 +39,9 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 		deps.RotationScheduler = c.AuthnModule.RuntimeCapabilities().RotationScheduler
 	}
 	deps.OutboxRelay = c.OutboxRelay()
+	if c.AuthzModule != nil && c.eventBus != nil {
+		deps.AuthzPolicySync = c.AuthzModule.PolicySyncSubscriber(c.eventBus.Subscriber())
+	}
 	if c.SuggestModule != nil {
 		deps.SuggestCleanup = c.SuggestModule.RuntimeCapabilities().Cleanup
 	}

@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -90,11 +90,11 @@ func (v *validator) CheckRoleExistsAndTenant(
 	}
 
 	// 检查租户隔离
-	if roleExists.TenantID != tenantID {
+	if !roleExists.BelongsToTenant(tenantID) {
 		return "", errors.WithCode(code.ErrPermissionDenied, "无权操作其他租户的角色")
 	}
 
-	return roleExists.Name, nil
+	return roleExists.NameString(), nil
 }
 
 // CheckResourceExistsAndValidateAction 检查资源是否存在并验证 Action 合法性
@@ -104,14 +104,14 @@ func (v *validator) CheckResourceExistsAndValidateAction(
 	resourceID resource.ResourceID,
 	action string,
 ) (string, error) {
-	return v.CheckResourceExistsActionAndScope(ctx, resourceID, action, authzDomain.DefaultScope())
+	return v.CheckResourceExistsActionAndScope(ctx, resourceID, action, scope.Default())
 }
 
 func (v *validator) CheckResourceExistsActionAndScope(
 	ctx context.Context,
 	resourceID resource.ResourceID,
 	action string,
-	scope authzDomain.Scope,
+	scope scope.Scope,
 ) (string, error) {
 	resourceExists, err := v.resourceRepo.FindByID(ctx, resourceID)
 	if err != nil {
@@ -122,18 +122,18 @@ func (v *validator) CheckResourceExistsActionAndScope(
 	}
 
 	// 验证 Action 是否合法
-	valid, err := v.resourceRepo.ValidateAction(ctx, resourceExists.Key, action)
+	valid, err := v.resourceRepo.ValidateAction(ctx, resourceExists.KeyString(), action)
 	if err != nil {
 		return "", errors.Wrap(err, "验证 Action 失败")
 	}
 	if !valid {
-		return "", errors.WithCode(code.ErrInvalidAction, "Action %s 不被资源 %s 支持", action, resourceExists.Key)
+		return "", errors.WithCode(code.ErrInvalidAction, "Action %s 不被资源 %s 支持", action, resourceExists.KeyString())
 	}
 	if !resourceExists.AllowsScopeKind(scope.Normalized().Kind) {
-		return "", errors.WithCode(code.ErrInvalidArgument, "资源 %s 不支持 scope %s", resourceExists.Key, scope.Normalized().Kind)
+		return "", errors.WithCode(code.ErrInvalidArgument, "资源 %s 不支持 scope %s", resourceExists.KeyString(), scope.Normalized().Kind)
 	}
 
-	return resourceExists.Key, nil
+	return resourceExists.KeyString(), nil
 }
 
 // ValidateGetPoliciesQuery 验证获取策略查询参数

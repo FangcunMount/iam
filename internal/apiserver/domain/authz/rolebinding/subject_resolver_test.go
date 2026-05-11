@@ -1,0 +1,48 @@
+package rolebinding_test
+
+import (
+	"context"
+	"testing"
+
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
+	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/stretchr/testify/require"
+)
+
+func TestSubjectResolverRegistryResolvesUsersAndRejectsUnsupportedSubjects(t *testing.T) {
+	t.Parallel()
+
+	userRepo := testhelpers.NewUserRepoStub()
+	userRepo.UsersByID[123] = &userDomain.User{ID: meta.FromUint64(123)}
+	registry := rolebinding.NewSubjectResolverRegistry(rolebinding.NewUserSubjectResolver(userRepo))
+	tenantID, err := tenant.NewID("tenant-a")
+	require.NoError(t, err)
+
+	userRef, err := subject.NewUserRef(meta.FromUint64(123))
+	require.NoError(t, err)
+	require.NoError(t, registry.Resolve(context.Background(), userRef, tenantID))
+
+	groupRef, err := subject.NewRef(subject.TypeGroup, meta.FromUint64(99))
+	require.NoError(t, err)
+	err = registry.Resolve(context.Background(), groupRef, tenantID)
+	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+}
+
+func TestUserSubjectResolverReportsMissingUsers(t *testing.T) {
+	t.Parallel()
+
+	registry := rolebinding.NewSubjectResolverRegistry(rolebinding.NewUserSubjectResolver(testhelpers.NewUserRepoStub()))
+	tenantID, err := tenant.NewID("tenant-a")
+	require.NoError(t, err)
+	userRef, err := subject.NewUserRef(meta.FromUint64(404))
+	require.NoError(t, err)
+
+	err = registry.Resolve(context.Background(), userRef, tenantID)
+	require.True(t, perrors.IsCode(err, code.ErrUserNotFound))
+}

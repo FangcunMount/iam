@@ -1,19 +1,19 @@
 package handler
 
 import (
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 )
 
-func toPermissionResponses(permissions []authzDomain.Permission) []dto.PermissionResponse {
+func toPermissionResponses(permissions []permission.Permission) []dto.PermissionResponse {
 	policyRules := make([]dto.PermissionResponse, 0, len(permissions))
 	for _, permission := range permissions {
 		policyRules = append(policyRules, dto.PermissionResponse{
-			Subject:    "role:" + permission.RoleName,
-			Domain:     permission.TenantID,
-			Object:     permission.ResourceKey,
-			Action:     permission.Action,
+			Subject:    "role:" + permission.RoleNameString(),
+			Domain:     permission.TenantIDString(),
+			Object:     permission.ResourceKeyString(),
+			Action:     permission.ActionString(),
 			ScopeType:  string(permission.Scope.Normalized().Kind),
 			ScopeValue: permission.Scope.Normalized().Value,
 		})
@@ -32,7 +32,7 @@ func emptyPolicyVersionResponse(tenantID string) dto.PolicyVersionResponse {
 
 func toPolicyVersionResponse(version *policyDomain.PolicyVersion) dto.PolicyVersionResponse {
 	return dto.PolicyVersionResponse{
-		TenantID:  version.TenantID,
+		TenantID:  version.TenantIDString(),
 		Version:   version.Version,
 		ChangedBy: version.ChangedBy,
 		Reason:    version.Reason,

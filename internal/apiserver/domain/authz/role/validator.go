@@ -105,7 +105,7 @@ func (v *validator) CheckTenantOwnership(roleEntity *Role, tenantID string) erro
 		return errors.WithCode(code.ErrInvalidArgument, "租户ID不能为空")
 	}
 
-	if roleEntity.TenantID != tenantID {
+	if !roleEntity.BelongsToTenant(tenantID) {
 		return errors.WithCode(code.ErrPermissionDenied, "无权访问其他租户的角色")
 	}
 

@@ -4,9 +4,13 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authz "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -36,11 +40,15 @@ const (
 // PolicyChange is the domain result of changing authorization policy.
 type PolicyChange struct {
 	Kind        PolicyChangeKind
-	TenantID    string
+	TenantID    tenant.ID
 	Actor       Actor
 	Reason      string
-	Permission  *authz.Permission
-	RoleBinding *authz.RoleBinding
+	Permission  *permission.Permission
+	RoleBinding *rolebinding.Fact
+}
+
+func (c PolicyChange) TenantIDString() string {
+	return c.TenantID.String()
 }
 
 // AuthorizationPolicy owns domain rules for creating authorization facts.
@@ -54,7 +62,7 @@ func (AuthorizationPolicy) GrantPermission(
 	targetRole role.Role,
 	targetResource resource.Resource,
 	action string,
-	scope authz.Scope,
+	scope scope.Scope,
 	actor Actor,
 	reason string,
 ) (PolicyChange, error) {
@@ -65,7 +73,7 @@ func (AuthorizationPolicy) RevokePermission(
 	targetRole role.Role,
 	targetResource resource.Resource,
 	action string,
-	scope authz.Scope,
+	scope scope.Scope,
 	actor Actor,
 	reason string,
 ) (PolicyChange, error) {
@@ -73,7 +81,7 @@ func (AuthorizationPolicy) RevokePermission(
 }
 
 func (AuthorizationPolicy) BindRole(
-	subject authz.Subject,
+	subject subject.Ref,
 	targetRole role.Role,
 	actor Actor,
 	reason string,
@@ -82,7 +90,7 @@ func (AuthorizationPolicy) BindRole(
 }
 
 func (AuthorizationPolicy) UnbindRole(
-	subject authz.Subject,
+	subject subject.Ref,
 	targetRole role.Role,
 	actor Actor,
 	reason string,
@@ -95,25 +103,25 @@ func permissionChange(
 	targetRole role.Role,
 	targetResource resource.Resource,
 	action string,
-	scope authz.Scope,
+	scope scope.Scope,
 	actor Actor,
 	reason string,
 ) (PolicyChange, error) {
-	if strings.TrimSpace(targetRole.TenantID) == "" {
+	if targetRole.TenantID.IsZero() {
 		return PolicyChange{}, perrors.WithCode(code.ErrInvalidArgument, "role tenant id is required")
 	}
 	if !targetResource.HasAction(action) {
-		return PolicyChange{}, perrors.WithCode(code.ErrInvalidAction, "Action %s 不被资源 %s 支持", action, targetResource.Key)
+		return PolicyChange{}, perrors.WithCode(code.ErrInvalidAction, "Action %s 不被资源 %s 支持", action, targetResource.KeyString())
 	}
 	if !targetResource.AllowsScopeKind(scope.Normalized().Kind) {
-		return PolicyChange{}, perrors.WithCode(code.ErrInvalidArgument, "资源 %s 不支持 scope %s", targetResource.Key, scope.Normalized().Kind)
+		return PolicyChange{}, perrors.WithCode(code.ErrInvalidArgument, "资源 %s 不支持 scope %s", targetResource.KeyString(), scope.Normalized().Kind)
 	}
-	permission, err := authz.NewPermission(
-		targetRole.Name,
-		targetRole.TenantID,
-		targetResource.Key,
+	permissionValue, err := permission.New(
+		targetRole.NameString(),
+		targetRole.TenantIDString(),
+		targetResource.KeyString(),
 		action,
-		authz.WithPermissionScope(scope.Normalized()),
+		permission.WithScope(scope.Normalized()),
 	)
 	if err != nil {
 		return PolicyChange{}, err
@@ -123,18 +131,18 @@ func permissionChange(
 		TenantID:   targetRole.TenantID,
 		Actor:      actor,
 		Reason:     reason,
-		Permission: &permission,
+		Permission: &permissionValue,
 	}, nil
 }
 
 func roleBindingChange(
 	kind PolicyChangeKind,
-	subject authz.Subject,
+	subject subject.Ref,
 	targetRole role.Role,
 	actor Actor,
 	reason string,
 ) (PolicyChange, error) {
-	binding, err := authz.NewRoleBinding(subject, targetRole.Name, targetRole.TenantID, actor.ID)
+	binding, err := rolebinding.NewFact(subject, targetRole.NameString(), targetRole.TenantIDString(), actor.ID)
 	if err != nil {
 		return PolicyChange{}, err
 	}

@@ -13,12 +13,12 @@ import (
 // V1：仅域对象类型，格式：<app>:<domain>:<type>:* 例如 scale:form:template:*
 type Resource struct {
 	ID          ResourceID
-	Key         string   // 资源键，如 scale:form:template:*
+	Key         Key      // 资源键，如 scale:form:template:*
 	DisplayName string   // 显示名称
 	AppName     string   // 应用名称
 	Domain      string   // 业务域
 	Type        string   // 对象类型
-	Actions     []string // 允许的动作列表
+	Actions     []Action // 允许的动作列表
 	ScopeKinds  []scope.Kind
 	Description string // 描述
 }
@@ -34,7 +34,7 @@ func NewResource(key string, actions []string, opts ...ResourceOption) (Resource
 		return Resource{}, err
 	}
 	r := Resource{
-		Key:     resourceKey.String(),
+		Key:     resourceKey,
 		Actions: normalizedActions,
 	}
 	for _, opt := range opts {
@@ -79,10 +79,29 @@ func WithScopeKinds(kinds []scope.Kind) ResourceOption {
 	return func(r *Resource) { r.ScopeKinds = append([]scope.Kind(nil), kinds...) }
 }
 
+func (r Resource) KeyString() string {
+	return r.Key.String()
+}
+
+func (r Resource) ActionStrings() []string {
+	if len(r.Actions) == 0 {
+		return nil
+	}
+	actions := make([]string, 0, len(r.Actions))
+	for _, action := range r.Actions {
+		actions = append(actions, action.String())
+	}
+	return actions
+}
+
 // HasAction 检查资源是否包含指定动作
 func (r *Resource) HasAction(action string) bool {
+	target, err := NewAction(action)
+	if err != nil {
+		return false
+	}
 	for _, a := range r.Actions {
-		if a == action {
+		if a == target {
 			return true
 		}
 	}
@@ -122,19 +141,23 @@ func (r *Resource) ChangeCatalog(actions []string, scopeKinds []scope.Kind) erro
 	return nil
 }
 
-func NormalizeActions(actions []string) ([]string, error) {
+func NormalizeActions(actions []string) ([]Action, error) {
 	seen := make(map[string]struct{}, len(actions))
-	normalized := make([]string, 0, len(actions))
+	normalized := make([]Action, 0, len(actions))
 	for _, action := range actions {
-		action = strings.TrimSpace(action)
-		if action == "" {
+		actionValue, err := NewAction(action)
+		if err != nil {
+			if strings.TrimSpace(action) == "" {
+				continue
+			}
+			return nil, err
+		}
+		actionKey := actionValue.String()
+		if _, exists := seen[actionKey]; exists {
 			continue
 		}
-		if _, exists := seen[action]; exists {
-			continue
-		}
-		seen[action] = struct{}{}
-		normalized = append(normalized, action)
+		seen[actionKey] = struct{}{}
+		normalized = append(normalized, actionValue)
 	}
 	if len(normalized) == 0 {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "动作列表不能为空")

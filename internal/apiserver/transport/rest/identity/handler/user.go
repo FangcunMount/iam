@@ -9,7 +9,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
 	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -23,7 +23,7 @@ import (
 var _ = core.ErrResponse{}
 
 type RoleNameReader interface {
-	RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error)
+	RoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
 }
 
 // UserHandler 基础用户 REST 处理器
@@ -152,7 +152,7 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
 	if h.roles == nil || userID.IsZero() {
 		return nil
 	}
-	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, userID)
+	subjectRef, err := subject.NewUserRef(userID)
 	if err != nil {
 		return nil
 	}
@@ -164,9 +164,9 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
 	seen := make(map[string]struct{}, 4)
 	out := make([]string, 0, 4)
 	for idx, dom := range domains {
-		raw, err := h.roles.RoleNamesForSubject(c.Request.Context(), subject, dom)
+		raw, err := h.roles.RoleNamesForSubject(c.Request.Context(), subjectRef, dom)
 		if err != nil {
-			log.Debugw("me: role name lookup failed", "subject_type", string(subject.Type), "subject_id", subject.ID, "domain", dom, "error", err)
+			log.Debugw("me: role name lookup failed", "subject_type", string(subjectRef.Type), "subject_id", subjectRef.ID, "domain", dom, "error", err)
 			if idx == 0 {
 				return nil
 			}
@@ -174,7 +174,7 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
 		}
 		if len(raw) == 0 {
 			if idx == 0 {
-				log.Debugw("me: no roles", "subject_type", string(subject.Type), "subject_id", subject.ID, "domain", dom)
+				log.Debugw("me: no roles", "subject_type", string(subjectRef.Type), "subject_id", subjectRef.ID, "domain", dom)
 			}
 			continue
 		}

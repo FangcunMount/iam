@@ -1,7 +1,6 @@
 package decision
 
 import (
-	"strings"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -24,33 +23,33 @@ func WithObjectScope(s scope.Scope) RequestOption {
 // Request describes the business question "may subject act on resource object range?".
 type Request struct {
 	Subject     subject.Ref
-	TenantID    string
-	ResourceKey string
-	Action      string
+	TenantID    tenant.ID
+	ResourceKey resource.Pattern
+	Action      resource.Action
 	ObjectScope scope.Scope
 }
 
 func NewRequest(sub subject.Ref, tenantID, resourceKey, action string, opts ...RequestOption) (Request, error) {
-	tenantID = strings.TrimSpace(tenantID)
-	resourceKey = strings.TrimSpace(resourceKey)
-	action = strings.TrimSpace(action)
 	if sub.IsZero() {
 		return Request{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
-	if _, err := tenant.NewID(tenantID); err != nil {
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
 		return Request{}, err
 	}
-	if _, err := resource.NewPattern(resourceKey); err != nil {
+	resourcePattern, err := resource.NewPattern(resourceKey)
+	if err != nil {
 		return Request{}, err
 	}
-	if action == "" {
-		return Request{}, perrors.WithCode(code.ErrInvalidArgument, "action is required")
+	actionValue, err := resource.NewAction(action)
+	if err != nil {
+		return Request{}, err
 	}
 	request := Request{
 		Subject:     sub,
-		TenantID:    tenantID,
-		ResourceKey: resourceKey,
-		Action:      action,
+		TenantID:    tenantIDValue,
+		ResourceKey: resourcePattern,
+		Action:      actionValue,
 		ObjectScope: scope.Default(),
 	}
 	for _, opt := range opts {
@@ -61,6 +60,18 @@ func NewRequest(sub subject.Ref, tenantID, resourceKey, action string, opts ...R
 	}
 	request.ObjectScope = request.ObjectScope.Normalized()
 	return request, nil
+}
+
+func (r Request) TenantIDString() string {
+	return r.TenantID.String()
+}
+
+func (r Request) ResourceKeyString() string {
+	return r.ResourceKey.String()
+}
+
+func (r Request) ActionString() string {
+	return r.Action.String()
 }
 
 type Reason string
@@ -90,7 +101,7 @@ func Allow(matched *permission.Permission, evaluatedAt time.Time) Decision {
 	decision := Decision{Allowed: true, Reason: ReasonAllowed, EvaluatedAt: evaluatedAt}
 	if matched != nil {
 		decision.MatchedPermission = matched
-		decision.MatchedRole = matched.RoleName
+		decision.MatchedRole = matched.RoleNameString()
 	}
 	return decision
 }

@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -101,13 +101,13 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 	success(c, h.toResourceResponse(updatedResource))
 }
 
-func toDomainScopeKinds(values []string) []authzDomain.ScopeKind {
+func toDomainScopeKinds(values []string) []scope.Kind {
 	if len(values) == 0 {
 		return nil
 	}
-	kinds := make([]authzDomain.ScopeKind, 0, len(values))
+	kinds := make([]scope.Kind, 0, len(values))
 	for _, value := range values {
-		kinds = append(kinds, authzDomain.ScopeKind(value))
+		kinds = append(kinds, scope.Kind(value))
 	}
 	return kinds
 }

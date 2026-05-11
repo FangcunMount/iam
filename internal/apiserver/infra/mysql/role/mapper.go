@@ -40,9 +40,9 @@ func (m *Mapper) ToRolePO(role *domain.Role) *RolePO {
 		AuditFields: base.AuditFields{
 			ID: role.ID,
 		},
-		Name:        role.Name,
+		Name:        role.NameString(),
 		DisplayName: role.DisplayName,
-		TenantID:    role.TenantID,
+		TenantID:    role.TenantIDString(),
 		Description: role.Description,
 	}
 }

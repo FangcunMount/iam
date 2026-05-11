@@ -3,7 +3,11 @@ package casbin
 import (
 	"strings"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 )
 
 const defaultScopeKey = "all:*"
@@ -33,60 +37,60 @@ type GroupingRule struct {
 	Dom  string
 }
 
-func RequestFromAuthorizationRequest(request authzDomain.AuthorizationRequest) Request {
+func RequestFromAuthorizationRequest(request decision.Request) Request {
 	return Request{
 		Sub:   SubjectKey(request.Subject),
-		Dom:   request.TenantID,
-		Obj:   request.ResourceKey,
-		Act:   request.Action,
+		Dom:   request.TenantIDString(),
+		Obj:   request.ResourceKeyString(),
+		Act:   request.ActionString(),
 		Scope: ScopeKey(request.ObjectScope),
 	}
 }
 
-func PolicyRuleFromPermission(permission authzDomain.Permission) PolicyRule {
+func PolicyRuleFromPermission(perm permission.Permission) PolicyRule {
 	return PolicyRule{
-		Sub:   RoleKey(permission.RoleName),
-		Dom:   permission.TenantID,
-		Obj:   permission.ResourceKey,
-		Act:   permission.Action,
-		Scope: ScopeKey(permission.Scope),
+		Sub:   RoleKey(perm.RoleNameString()),
+		Dom:   perm.TenantIDString(),
+		Obj:   perm.ResourceKeyString(),
+		Act:   perm.ActionString(),
+		Scope: ScopeKey(perm.Scope),
 	}
 }
 
-func GroupingRuleFromRoleBinding(binding authzDomain.RoleBinding) GroupingRule {
+func GroupingRuleFromRoleBinding(binding rolebinding.Fact) GroupingRule {
 	return GroupingRule{
 		Sub:  SubjectKey(binding.Subject),
-		Role: RoleKey(binding.RoleName),
-		Dom:  binding.TenantID,
+		Role: RoleKey(binding.RoleNameString()),
+		Dom:  binding.TenantIDString(),
 	}
 }
 
-func PermissionFromPolicyRule(rule PolicyRule) (authzDomain.Permission, error) {
-	return authzDomain.NewPermission(
+func PermissionFromPolicyRule(rule PolicyRule) (permission.Permission, error) {
+	return permission.New(
 		RoleNameFromKey(rule.Sub),
 		rule.Dom,
 		rule.Obj,
 		rule.Act,
-		authzDomain.WithPermissionScope(ScopeFromKey(rule.Scope)),
+		permission.WithScope(ScopeFromKey(rule.Scope)),
 	)
 }
 
-func ScopeKey(scope authzDomain.Scope) string {
+func ScopeKey(scope scope.Scope) string {
 	if scope.IsZero() {
 		return defaultScopeKey
 	}
 	return scope.Normalized().String()
 }
 
-func ScopeFromKey(value string) authzDomain.Scope {
-	scope, err := authzDomain.ParseScope(value)
+func ScopeFromKey(value string) scope.Scope {
+	scopeValue, err := scope.Parse(value)
 	if err != nil {
-		return authzDomain.DefaultScope()
+		return scope.Default()
 	}
-	return scope.Normalized()
+	return scopeValue.Normalized()
 }
 
-func SubjectKey(subject authzDomain.Subject) string {
+func SubjectKey(subject subject.Ref) string {
 	return string(subject.Type) + ":" + subject.ID.String()
 }
 

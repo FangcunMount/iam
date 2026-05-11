@@ -1,13 +1,16 @@
 package policy
 
 import (
+	"strings"
+
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // PolicyVersion 策略版本（用于缓存失效通知）
 type PolicyVersion struct {
 	ID        PolicyVersionID
-	TenantID  string // 租户ID
+	TenantID  tenant.ID // 租户ID
 	Version   int64  // 版本号
 	ChangedBy string // 变更人
 	Reason    string // 变更原因
@@ -15,8 +18,12 @@ type PolicyVersion struct {
 
 // NewPolicyVersion 创建新版本
 func NewPolicyVersion(tenantID string, version int64, opts ...PolicyVersionOption) PolicyVersion {
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
+		tenantIDValue = tenant.ID(strings.TrimSpace(tenantID))
+	}
 	pv := PolicyVersion{
-		TenantID: tenantID,
+		TenantID: tenantIDValue,
 		Version:  version,
 	}
 	for _, opt := range opts {
@@ -38,12 +45,16 @@ func WithReason(reason string) PolicyVersionOption {
 
 // RedisKey 返回 Redis 中的版本键
 func (pv *PolicyVersion) RedisKey() string {
-	return "authz:policy_version:" + pv.TenantID
+	return "authz:policy_version:" + pv.TenantIDString()
 }
 
 // PubSubChannel 返回发布订阅通道
 func (pv *PolicyVersion) PubSubChannel() string {
 	return "authz:policy_changed"
+}
+
+func (pv PolicyVersion) TenantIDString() string {
+	return pv.TenantID.String()
 }
 
 // PolicyVersionID 策略版本ID值对象

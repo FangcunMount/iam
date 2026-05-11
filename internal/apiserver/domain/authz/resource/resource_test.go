@@ -12,7 +12,8 @@ import (
 func TestResourceAndActions(t *testing.T) {
 	r, err := NewResource("scale:form:template:*", []string{"read", "write"}, WithDisplayName("Form"), WithAppName("scale"))
 	assert.NoError(t, err)
-	assert.Equal(t, "scale:form:template:*", r.Key)
+	assert.Equal(t, "scale:form:template:*", r.KeyString())
+	assert.Equal(t, []string{"read", "write"}, r.ActionStrings())
 	assert.True(t, r.HasAction("read"))
 	assert.False(t, r.HasAction("delete"))
 }
@@ -77,4 +78,24 @@ func TestResourceRejectsUnsupportedScopeKindInsideEntity(t *testing.T) {
 	assert.NoError(t, err)
 	err = r.ChangeCatalog([]string{"read"}, []scope.Kind{"project"})
 	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+}
+
+func TestActionAndActionPatternHaveDifferentSemantics(t *testing.T) {
+	action, err := NewAction(" read ")
+	assert.NoError(t, err)
+	assert.Equal(t, "read", action.String())
+
+	_, err = NewAction("read|list")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	_, err = NewAction(".*")
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+
+	pattern, err := NewActionPattern(" read|list ")
+	assert.NoError(t, err)
+	assert.Equal(t, "read|list", pattern.String())
+
+	pattern, err = NewActionPattern(".*")
+	assert.NoError(t, err)
+	assert.Equal(t, ".*", pattern.String())
 }

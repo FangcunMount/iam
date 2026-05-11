@@ -5,48 +5,65 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
 type DecisionEngine interface {
-	Check(ctx context.Context, request authzDomain.AuthorizationRequest) (authzDomain.AuthorizationDecision, error)
+	Check(ctx context.Context, request decision.Request) (decision.Decision, error)
 }
 
 type SnapshotStore interface {
-	RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error)
-	PermissionsForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]authzDomain.Permission, error)
+	RoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
+	PermissionsForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]permission.Permission, error)
 }
 
 type Checker struct {
-	engine DecisionEngine
+	engine   DecisionEngine
+	versions policyDomain.Repository
 }
 
-func NewChecker(engine DecisionEngine) *Checker {
-	return &Checker{engine: engine}
+func NewChecker(engine DecisionEngine, versions ...policyDomain.Repository) *Checker {
+	checker := &Checker{engine: engine}
+	if len(versions) > 0 {
+		checker.versions = versions[0]
+	}
+	return checker
 }
 
 type CheckCommand struct {
-	Subject     authzDomain.Subject
+	Subject     subject.Ref
 	TenantID    string
 	ResourceKey string
 	Action      string
-	ObjectScope authzDomain.Scope
+	ObjectScope scope.Scope
 }
 
-func (c *Checker) Check(ctx context.Context, cmd CheckCommand) (authzDomain.AuthorizationDecision, error) {
+func (c *Checker) Check(ctx context.Context, cmd CheckCommand) (decision.Decision, error) {
 	if c == nil || c.engine == nil {
-		return authzDomain.AuthorizationDecision{}, perrors.WithCode(code.ErrInternalServerError, "authorization engine not available")
+		return decision.Decision{}, perrors.WithCode(code.ErrInternalServerError, "authorization engine not available")
 	}
 	scope := cmd.ObjectScope.Normalized()
-	request, err := authzDomain.NewAuthorizationRequest(cmd.Subject, cmd.TenantID, cmd.ResourceKey, cmd.Action, authzDomain.WithObjectScope(scope))
+	request, err := decision.NewRequest(cmd.Subject, cmd.TenantID, cmd.ResourceKey, cmd.Action, decision.WithObjectScope(scope))
 	if err != nil {
-		return authzDomain.AuthorizationDecision{}, err
+		return decision.Decision{}, err
 	}
-	return c.engine.Check(ctx, request)
+	result, err := c.engine.Check(ctx, request)
+	if err != nil {
+		return decision.Decision{}, err
+	}
+	if c.versions != nil {
+		if version, err := c.versions.GetCurrent(ctx, cmd.TenantID); err == nil && version != nil {
+			result.PolicyVersion = version.Version
+		}
+	}
+	return result, nil
 }
 
 type SnapshotReader struct {
@@ -60,7 +77,7 @@ func NewSnapshotReader(store SnapshotStore, versions policyDomain.Repository) *S
 }
 
 type SnapshotQuery struct {
-	Subject  authzDomain.Subject
+	Subject  subject.Ref
 	TenantID string
 	AppName  string
 }
@@ -68,7 +85,7 @@ type SnapshotQuery struct {
 type PermissionEntry struct {
 	ResourceKey string
 	Action      string
-	Scope       authzDomain.Scope
+	Scope       scope.Scope
 }
 
 type Snapshot struct {
@@ -133,22 +150,24 @@ func (SnapshotProjector) RolesForApp(roleNames []string, appName string) []strin
 	return roles
 }
 
-func (SnapshotProjector) PermissionsForApp(permissions []authzDomain.Permission, appName string) []PermissionEntry {
+func (SnapshotProjector) PermissionsForApp(permissions []permission.Permission, appName string) []PermissionEntry {
 	seen := make(map[string]struct{}, len(permissions))
 	result := make([]PermissionEntry, 0, len(permissions))
 	for _, permission := range permissions {
-		resourceApp, ok := resourceDomain.AppNameFromKey(permission.ResourceKey)
+		resourceKey := permission.ResourceKeyString()
+		action := permission.ActionString()
+		resourceApp, ok := resourceDomain.AppNameFromKey(resourceKey)
 		if !ok || resourceApp != appName {
 			continue
 		}
-		key := permission.ResourceKey + "\x00" + permission.Action + "\x00" + permission.Scope.Normalized().String()
+		key := resourceKey + "\x00" + action + "\x00" + permission.Scope.Normalized().String()
 		if _, exists := seen[key]; exists {
 			continue
 		}
 		seen[key] = struct{}{}
 		result = append(result, PermissionEntry{
-			ResourceKey: permission.ResourceKey,
-			Action:      permission.Action,
+			ResourceKey: resourceKey,
+			Action:      action,
 			Scope:       permission.Scope,
 		})
 	}

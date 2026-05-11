@@ -1,7 +1,8 @@
 package assembler
 
 func (m *AuthzModule) initializeRuntime(infra *authzInfrastructureComponents) {
-	m.routeAuthorization = infra.casbinAdapter
-	m.roleNames = infra.casbinAdapter
-	m.runtimeHealth = infra.casbinAdapter
+	m.routeAuthorization = infra.casbinRuntime.RouteAuthorizer
+	m.roleNames = infra.casbinRuntime.RoleNameReader
+	m.runtimeHealth = infra.casbinRuntime.RuntimeHealthReporter
+	m.policyReloader = infra.casbinRuntime.PolicyReloader
 }

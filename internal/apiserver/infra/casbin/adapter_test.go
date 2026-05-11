@@ -46,7 +46,7 @@ func TestCasbinAdapterEnforcesMemoryPolicyFacts(t *testing.T) {
 	require.Equal(t, "allowed", string(decision.Reason))
 	require.Equal(t, "iam:admin", decision.MatchedRole)
 	require.NotNil(t, decision.MatchedPermission)
-	require.Equal(t, "iam:identity:collection:users", decision.MatchedPermission.ResourceKey)
+	require.Equal(t, "iam:identity:collection:users", decision.MatchedPermission.ResourceKeyString())
 	require.False(t, decision.EvaluatedAt.IsZero())
 
 	roleNames, err := adapter.RoleNamesForSubject(ctx, subject, "tenant-a")

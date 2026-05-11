@@ -15,10 +15,13 @@ type authzDomainComponents struct {
 }
 
 func (m *AuthzModule) initializeDomain(infra *authzInfrastructureComponents) *authzDomainComponents {
+	subjectResolver := bindingDomain.NewSubjectResolverRegistry(
+		bindingDomain.NewUserSubjectResolver(infra.userRepository),
+	)
 	return &authzDomainComponents{
 		resourceValidator:    resourceDomain.NewValidator(infra.resourceRepository),
 		roleValidator:        roleDomain.NewValidator(infra.roleRepository),
 		policyValidator:      policyDomain.NewValidator(infra.roleRepository, infra.resourceRepository),
-		roleBindingValidator: bindingDomain.NewValidator(infra.bindingRepository, infra.roleRepository, infra.userRepository),
+		roleBindingValidator: bindingDomain.NewValidatorWithSubjectResolver(infra.bindingRepository, infra.roleRepository, subjectResolver),
 	}
 }

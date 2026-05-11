@@ -42,7 +42,11 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 
 	t.Run("check success", func(t *testing.T) {
 		t.Parallel()
-		checker := &authzCheckerFake{decision: authzDomain.AuthorizationDecision{Allowed: true}}
+		checker := &authzCheckerFake{decision: authzDomain.AuthorizationDecision{
+			Allowed:       true,
+			Reason:        "allowed",
+			PolicyVersion: 12,
+		}}
 		srv := &authorizationServer{checker: checker}
 
 		resp, err := srv.Check(context.Background(), &authzv2.CheckRequest{
@@ -51,6 +55,8 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 
 		require.NoError(t, err)
 		require.True(t, resp.Allowed)
+		require.Equal(t, "allowed", resp.Reason)
+		require.Equal(t, int64(12), resp.PolicyVersion)
 		require.Len(t, checker.calls, 1)
 		require.Equal(t, authzDomain.SubjectTypeUser, checker.calls[0].Subject.Type)
 		require.Equal(t, meta.FromUint64(1), checker.calls[0].Subject.ID)

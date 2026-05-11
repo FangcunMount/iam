@@ -19,14 +19,14 @@ func (m *Mapper) ToBO(po *PolicyVersionPO) *policy.PolicyVersion {
 		return nil
 	}
 
-	pv := &policy.PolicyVersion{
-		ID:        policy.PolicyVersionID(po.ID),
-		TenantID:  po.TenantID,
-		Version:   po.PolicyVersion,
-		ChangedBy: po.ChangedBy,
-		Reason:    po.Reason,
-	}
-
+	value := policy.NewPolicyVersion(
+		po.TenantID,
+		po.PolicyVersion,
+		policy.WithID(policy.PolicyVersionID(po.ID)),
+		policy.WithChangedBy(po.ChangedBy),
+		policy.WithReason(po.Reason),
+	)
+	pv := &value
 	return pv
 }
 
@@ -37,7 +37,7 @@ func (m *Mapper) ToPO(bo *policy.PolicyVersion) *PolicyVersionPO {
 	}
 
 	po := &PolicyVersionPO{
-		TenantID:      bo.TenantID,
+		TenantID:      bo.TenantIDString(),
 		PolicyVersion: bo.Version,
 		ChangedBy:     bo.ChangedBy,
 		Reason:        bo.Reason,

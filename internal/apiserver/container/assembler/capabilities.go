@@ -13,6 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	authzAuthorizationApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	authzPolicyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
+	authzPolicylintApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	authzResourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
 	authzRoleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
 	authzRolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
@@ -21,7 +22,7 @@ import (
 	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
@@ -59,6 +60,7 @@ type AuthzApplicationCapabilities struct {
 	RoleDirectory               authzRoleApp.Directory
 	PermissionCommands          authzPolicyApp.PermissionCommands
 	PermissionReader            authzPolicyApp.PermissionReader
+	PolicyLinter                *authzPolicylintApp.Linter
 	RoleBindingCommands         authzRolebindingApp.Commands
 	RoleBindingDirectory        authzRolebindingApp.Directory
 	RouteAuthorization          authn.RouteAuthorizationRuntime
@@ -68,11 +70,12 @@ type AuthzApplicationCapabilities struct {
 }
 
 type RoleNameReader interface {
-	RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error)
+	RoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
 }
 
 type AuthzRuntimeHealthReporter interface {
 	ReloadHealth() (bool, error, time.Time)
+	RuntimeHealthDetails() map[string]any
 }
 
 type UserApplicationCapabilities struct {

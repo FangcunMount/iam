@@ -17,7 +17,7 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 	subject, err := authzDomain.NewSubject(authzDomain.SubjectTypeUser, meta.FromUint64(100))
 	require.NoError(t, err)
 	engine := &decisionEngineFake{decision: authzDomain.AuthorizationDecision{Allowed: true}}
-	checker := NewChecker(engine)
+	checker := NewChecker(engine, &versionRepoFake{version: &policyDomain.PolicyVersion{Version: 11}})
 
 	decision, err := checker.Check(context.Background(), CheckCommand{
 		Subject:     subject,
@@ -28,6 +28,7 @@ func TestCheckerDelegatesToDecisionEngine(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
+	require.Equal(t, int64(11), decision.PolicyVersion)
 	require.Equal(t, []authzDomain.AuthorizationRequest{{
 		Subject:     subject,
 		TenantID:    "tenant-a",

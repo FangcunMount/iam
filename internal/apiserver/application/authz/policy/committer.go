@@ -77,11 +77,11 @@ func (c *PolicyChangeCommitter) Commit(ctx context.Context, build PolicyChangeBu
 				return err
 			}
 		}
-		version, err := tx.PolicyVersions.Increment(txCtx, change.TenantID, change.Actor.ID, change.Reason)
+		version, err := tx.PolicyVersions.Increment(txCtx, change.TenantIDString(), change.Actor.ID, change.Reason)
 		if err != nil {
 			return err
 		}
-		if err := authzshared.StagePolicyVersionChanged(txCtx, tx.Events, change.TenantID, version); err != nil {
+		if err := authzshared.StagePolicyVersionChanged(txCtx, tx.Events, change.TenantIDString(), version); err != nil {
 			return err
 		}
 		committed = change

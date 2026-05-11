@@ -5,6 +5,8 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
 	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -17,9 +19,9 @@ import (
 // 3. 租户隔离检查
 // 4. 赋权记录查找
 type validator struct {
-	bindingRepo Repository
-	roleRepo    role.Repository
-	userRepo    userDomain.Repository
+	bindingRepo     Repository
+	roleRepo        role.Repository
+	subjectResolver SubjectResolver
 }
 
 // NewBindingManager 创建赋权管理器
@@ -28,10 +30,22 @@ func NewValidator(
 	roleRepo role.Repository,
 	userRepo userDomain.Repository,
 ) *validator {
+	return NewValidatorWithSubjectResolver(
+		bindingRepo,
+		roleRepo,
+		NewSubjectResolverRegistry(NewUserSubjectResolver(userRepo)),
+	)
+}
+
+func NewValidatorWithSubjectResolver(
+	bindingRepo Repository,
+	roleRepo role.Repository,
+	subjectResolver SubjectResolver,
+) *validator {
 	return &validator{
-		bindingRepo: bindingRepo,
-		roleRepo:    roleRepo,
-		userRepo:    userRepo,
+		bindingRepo:     bindingRepo,
+		roleRepo:        roleRepo,
+		subjectResolver: subjectResolver,
 	}
 }
 
@@ -100,7 +114,7 @@ func (v *validator) CheckRoleExists(ctx context.Context, roleID meta.ID, tenantI
 	}
 
 	// 验证租户隔离
-	if roleExists.TenantID != tenantID {
+	if !roleExists.BelongsToTenant(tenantID) {
 		return errors.WithCode(code.ErrPermissionDenied, "角色不属于当前租户")
 	}
 
@@ -109,26 +123,18 @@ func (v *validator) CheckRoleExists(ctx context.Context, roleID meta.ID, tenantI
 
 // CheckSubjectExists 检查主体是否存在
 func (v *validator) CheckSubjectExists(ctx context.Context, subjectType SubjectType, subjectID meta.ID, tenantID string) error {
-	if err := validateWritableSubjectType(subjectType); err != nil {
+	sub, err := subject.NewRef(subject.Type(subjectType), subjectID)
+	if err != nil {
 		return err
 	}
-	if v.userRepo == nil {
-		return errors.WithCode(code.ErrInternalServerError, "用户仓储未配置")
-	}
-	if subjectID.IsZero() {
-		return errors.WithCode(code.ErrInvalidArgument, "主体ID格式错误")
-	}
-	userExists, err := v.userRepo.FindByID(ctx, subjectID)
+	tenantIDValue, err := tenant.NewID(tenantID)
 	if err != nil {
-		if errors.IsCode(err, code.ErrUserNotFound) {
-			return errors.WithCode(code.ErrUserNotFound, "用户不存在")
-		}
-		return errors.Wrap(err, "检查用户存在性失败")
+		return err
 	}
-	if userExists == nil {
-		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	if v.subjectResolver == nil {
+		return errors.WithCode(code.ErrInternalServerError, "主体解析器未配置")
 	}
-	return nil
+	return v.subjectResolver.Resolve(ctx, sub, tenantIDValue)
 }
 
 // ValidateRevokeByIDParameters 验证根据ID撤销授权参数
@@ -161,7 +167,7 @@ func (v *validator) CheckRoleExistsAndTenant(
 	}
 
 	// 检查租户隔离
-	if roleExists.TenantID != tenantID {
+	if !roleExists.BelongsToTenant(tenantID) {
 		return nil, errors.WithCode(code.ErrPermissionDenied, "无权操作其他租户的角色")
 	}
 
@@ -208,7 +214,7 @@ func (v *validator) GetBindingByIDAndCheckTenant(
 	}
 
 	// 检查租户隔离
-	if targetBinding.TenantID != tenantID {
+	if !targetBinding.BelongsToTenant(tenantID) {
 		return nil, errors.WithCode(code.ErrPermissionDenied, "无权操作其他租户的赋权记录")
 	}
 

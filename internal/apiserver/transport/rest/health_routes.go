@@ -17,6 +17,7 @@ func (r *Router) healthCheck(c *gin.Context) {
 	authzRuntimeError := ""
 	// 获取认证运行时重载时间
 	var authzReloadedAt time.Time
+	authzRuntimeDetails := gin.H{}
 
 	// 如果认证运行时健康报告器不为空，则获取认证运行时健康状态
 	if r.deps.Authz.HealthReporter != nil {
@@ -26,6 +27,9 @@ func (r *Router) healthCheck(c *gin.Context) {
 		// 如果认证运行时健康状态错误，则设置认证运行时错误
 		if err != nil {
 			authzRuntimeError = err.Error()
+		}
+		for key, value := range r.deps.Authz.HealthReporter.RuntimeHealthDetails() {
+			authzRuntimeDetails[key] = value
 		}
 	}
 
@@ -58,7 +62,7 @@ func (r *Router) healthCheck(c *gin.Context) {
 			"enabled": authEnabled,
 			"module":  "authn (DDD 4-layer)",
 		},
-		"authz_runtime": gin.H{
+		"authz_runtime": mergeHealthDetails(gin.H{
 			"healthy":    authzRuntimeHealthy,
 			"last_error": authzRuntimeError,
 			"reloaded_at": func() string {
@@ -67,8 +71,15 @@ func (r *Router) healthCheck(c *gin.Context) {
 				}
 				return authzReloadedAt.Format(time.RFC3339)
 			}(),
-		},
+		}, authzRuntimeDetails),
 	}
 
 	c.JSON(statusCode, response)
+}
+
+func mergeHealthDetails(base gin.H, details gin.H) gin.H {
+	for key, value := range details {
+		base[key] = value
+	}
+	return base
 }

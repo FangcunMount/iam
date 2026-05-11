@@ -30,7 +30,7 @@ func TestAuthorizationPolicyGrantPermissionBuildsBusinessChange(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, PolicyChangeGrantPermission, change.Kind)
-	require.Equal(t, "tenant-a", change.TenantID)
+	require.Equal(t, "tenant-a", change.TenantIDString())
 	require.Equal(t, actor, change.Actor)
 	require.NotNil(t, change.Permission)
 	require.Equal(t, authz.Permission{
@@ -86,7 +86,7 @@ func TestAuthorizationPolicyBindRoleBuildsBusinessChange(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, PolicyChangeBindRole, change.Kind)
-	require.Equal(t, "tenant-a", change.TenantID)
+	require.Equal(t, "tenant-a", change.TenantIDString())
 	require.NotNil(t, change.RoleBinding)
 	require.Equal(t, authz.RoleBinding{
 		Subject:   subject,

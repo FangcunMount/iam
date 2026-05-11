@@ -7,7 +7,9 @@ import (
 	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
 	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"google.golang.org/grpc"
@@ -16,7 +18,7 @@ import (
 )
 
 type authorizationChecker interface {
-	Check(ctx context.Context, cmd authzapp.CheckCommand) (authzDomain.AuthorizationDecision, error)
+	Check(ctx context.Context, cmd authzapp.CheckCommand) (decision.Decision, error)
 }
 
 type authorizationSnapshotReader interface {
@@ -69,7 +71,7 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv2.CheckReque
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	scope, err := authzDomain.NormalizeScope(req.GetScopeType(), req.GetScopeValue())
+	scopeValue, err := scope.Normalize(req.GetScopeType(), req.GetScopeValue())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -78,12 +80,17 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv2.CheckReque
 		TenantID:    req.Domain,
 		ResourceKey: req.Object,
 		Action:      req.Action,
-		ObjectScope: scope,
+		ObjectScope: scopeValue,
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "enforce: %v", err)
 	}
-	return &authzv2.CheckResponse{Allowed: decision.Allowed}, nil
+	return &authzv2.CheckResponse{
+		Allowed:       decision.Allowed,
+		Reason:        string(decision.Reason),
+		DenyCode:      decision.DenyCode,
+		PolicyVersion: decision.PolicyVersion,
+	}, nil
 }
 
 func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req *authzv2.GetAuthorizationSnapshotRequest) (*authzv2.GetAuthorizationSnapshotResponse, error) {
@@ -164,16 +171,16 @@ func revokeActor(revokedBy string) string {
 	return revokedBy
 }
 
-func parseSubjectKey(subject string) (authzDomain.Subject, error) {
-	parts := strings.SplitN(subject, ":", 2)
+func parseSubjectKey(value string) (subject.Ref, error) {
+	parts := strings.SplitN(value, ":", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return authzDomain.Subject{}, status.Error(codes.InvalidArgument, "subject must be in <type>:<id> format")
+		return subject.Ref{}, status.Error(codes.InvalidArgument, "subject must be in <type>:<id> format")
 	}
 	id, err := meta.ParseID(parts[1])
 	if err != nil || id.IsZero() {
-		return authzDomain.Subject{}, status.Error(codes.InvalidArgument, "subject id must be a valid IAM id")
+		return subject.Ref{}, status.Error(codes.InvalidArgument, "subject id must be a valid IAM id")
 	}
-	return authzDomain.NewSubject(authzDomain.SubjectType(parts[0]), id)
+	return subject.NewRef(subject.Type(parts[0]), id)
 }
 
 func authzGRPCError(defaultCode codes.Code, operation string, err error) error {

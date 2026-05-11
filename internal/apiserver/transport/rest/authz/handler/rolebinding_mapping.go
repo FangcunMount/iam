@@ -10,10 +10,10 @@ import (
 func (h *RoleBindingHandler) toAssignmentResponse(a *bindingDomain.Binding) dto.AssignmentResponse {
 	return dto.AssignmentResponse{
 		ID:          meta.ID(a.ID),
-		SubjectType: a.SubjectType.String(),
+		SubjectType: a.SubjectTypeString(),
 		SubjectID:   a.SubjectID,
 		RoleID:      a.RoleID,
-		TenantID:    a.TenantID,
+		TenantID:    a.TenantIDString(),
 		GrantedBy:   a.GrantedBy,
 	}
 }

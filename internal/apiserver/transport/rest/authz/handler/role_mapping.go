@@ -9,9 +9,9 @@ import (
 func (h *RoleHandler) toRoleResponse(r *roleDomain.Role) dto.RoleResponse {
 	return dto.RoleResponse{
 		ID:          r.ID,
-		Name:        r.Name,
+		Name:        r.NameString(),
 		DisplayName: r.DisplayName,
-		TenantID:    r.TenantID,
+		TenantID:    r.TenantIDString(),
 		Description: r.Description,
 	}
 }

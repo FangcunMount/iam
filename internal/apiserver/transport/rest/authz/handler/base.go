@@ -7,7 +7,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -62,13 +62,13 @@ func parseIDParam(c *gin.Context, name, message string) (meta.ID, bool) {
 	return id, true
 }
 
-func parseScope(c *gin.Context, scopeType, scopeValue string) (authzDomain.Scope, bool) {
-	scope, err := authzDomain.NormalizeScope(scopeType, scopeValue)
+func parseScope(c *gin.Context, scopeType, scopeValue string) (scope.Scope, bool) {
+	scopeValueObject, err := scope.Normalize(scopeType, scopeValue)
 	if err != nil {
 		handleError(c, err)
-		return authzDomain.Scope{}, false
+		return scope.Scope{}, false
 	}
-	return scope, true
+	return scopeValueObject, true
 }
 
 // handleError 统一错误处理 (authz 模块特定的错误格式)

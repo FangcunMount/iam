@@ -15,5 +15,8 @@ type CheckRequest struct {
 
 // CheckResponse PDP 判定结果。
 type CheckResponse struct {
-	Allowed bool `json:"allowed"`
+	Allowed       bool   `json:"allowed"`
+	Reason        string `json:"reason,omitempty"`
+	DenyCode      string `json:"deny_code,omitempty"`
+	PolicyVersion int64  `json:"policy_version,omitempty"`
 }

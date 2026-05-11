@@ -15,11 +15,29 @@ func NewAction(value string) (Action, error) {
 	if value == "" {
 		return "", perrors.WithCode(code.ErrInvalidArgument, "action is required")
 	}
+	if strings.Contains(value, "|") || strings.Contains(value, "*") {
+		return "", perrors.WithCode(code.ErrInvalidArgument, "action must be a concrete operation")
+	}
 	return Action(value), nil
 }
 
 func (a Action) String() string {
 	return string(a)
+}
+
+// ActionPattern identifies an operation expression stored in authorization facts.
+type ActionPattern string
+
+func NewActionPattern(value string) (ActionPattern, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", perrors.WithCode(code.ErrInvalidArgument, "action pattern is required")
+	}
+	return ActionPattern(value), nil
+}
+
+func (p ActionPattern) String() string {
+	return string(p)
 }
 
 // CatalogAction describes a well-known action shape used by catalogs.

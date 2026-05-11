@@ -3,7 +3,7 @@ package uow
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
@@ -13,10 +13,10 @@ import (
 )
 
 type AuthorizationFactStore interface {
-	AddPermission(ctx context.Context, permission authzDomain.Permission) error
-	RemovePermission(ctx context.Context, permission authzDomain.Permission) error
-	AddRoleBinding(ctx context.Context, binding authzDomain.RoleBinding) error
-	RemoveRoleBinding(ctx context.Context, binding authzDomain.RoleBinding) error
+	AddPermission(ctx context.Context, permission permission.Permission) error
+	RemovePermission(ctx context.Context, permission permission.Permission) error
+	AddRoleBinding(ctx context.Context, binding bindingDomain.Fact) error
+	RemoveRoleBinding(ctx context.Context, binding bindingDomain.Fact) error
 }
 
 type TxRepositories struct {

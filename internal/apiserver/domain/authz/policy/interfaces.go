@@ -4,8 +4,8 @@ package policy
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -51,6 +51,6 @@ type Validator interface {
 		ctx context.Context,
 		resourceID resource.ResourceID,
 		action string,
-		scope authzDomain.Scope,
+		scope scope.Scope,
 	) (string, error)
 }

@@ -65,6 +65,39 @@ func TestRepositoryStoresScopedPolicyRulesWithCasbinFieldOrder(t *testing.T) {
 	require.Empty(t, rows)
 }
 
+func TestRepositoryListsPermissionFactsForPolicyLint(t *testing.T) {
+	t.Parallel()
+
+	db := setupCasbinRuleDB(t)
+	repo := NewRepository(db)
+	require.NoError(t, db.Create(&[]rulePO{
+		{
+			PType: "p",
+			V0:    stringPtr("role:iam:admin"),
+			V1:    stringPtr("tenant-a"),
+			V2:    stringPtr("iam:identity:collection:users"),
+			V3:    stringPtr("read|list"),
+			V4:    stringPtr(""),
+		},
+		{
+			PType: "g",
+			V0:    stringPtr("user:100"),
+			V1:    stringPtr("role:iam:admin"),
+			V2:    stringPtr("tenant-a"),
+		},
+	}).Error)
+
+	facts, err := repo.(*Repository).ListPermissionFacts(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+	require.Equal(t, "iam:admin", facts[0].RoleName)
+	require.Equal(t, "tenant-a", facts[0].TenantID)
+	require.Equal(t, "iam:identity:collection:users", facts[0].ResourceKey)
+	require.Equal(t, "read|list", facts[0].Action)
+	require.Equal(t, "all:*", facts[0].Scope)
+}
+
 func TestRepositoryRemovesLegacyEmptyScopePolicyAsDefaultAllScope(t *testing.T) {
 	t.Parallel()
 

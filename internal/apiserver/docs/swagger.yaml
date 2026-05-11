@@ -463,6 +463,12 @@ definitions:
     properties:
       allowed:
         type: boolean
+      deny_code:
+        type: string
+      policy_version:
+        type: integer
+      reason:
+        type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest:
     properties:
@@ -620,6 +626,8 @@ definitions:
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest:
     properties:
+      reason:
+        type: string
       role_id:
         type: string
       subject_id:

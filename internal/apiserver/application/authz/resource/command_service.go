@@ -81,7 +81,7 @@ func (s *ResourceCatalog) UpdateResource(
 		}
 	}
 	if len(cmd.ScopeKinds) > 0 {
-		if err := existingResource.ChangeCatalog(existingResource.Actions, cmd.ScopeKinds); err != nil {
+		if err := existingResource.ChangeCatalog(existingResource.ActionStrings(), cmd.ScopeKinds); err != nil {
 			return nil, err
 		}
 	}

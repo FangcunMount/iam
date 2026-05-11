@@ -3,7 +3,7 @@ package policy
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
 	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 )
@@ -29,7 +29,7 @@ func NewPolicyQueryService(
 func (s *PolicyQueryService) GetPermissionsForRole(
 	ctx context.Context,
 	query RolePermissionsQuery,
-) ([]authzDomain.Permission, error) {
+) ([]permission.Permission, error) {
 	// 1. 获取角色信息
 	role, err := s.roleRepo.FindByID(ctx, query.RoleID)
 	if err != nil {
@@ -37,7 +37,7 @@ func (s *PolicyQueryService) GetPermissionsForRole(
 	}
 
 	// 2. 查询策略规则
-	return s.permissionStore.PermissionsForRole(ctx, role.Name, query.TenantID)
+	return s.permissionStore.PermissionsForRole(ctx, role.NameString(), query.TenantID)
 }
 
 func (s *PolicyQueryService) GetCurrentVersion(

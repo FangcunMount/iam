@@ -110,6 +110,9 @@ func (x *CheckRequest) GetScopeValue() string {
 type CheckResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	DenyCode      string                 `protobuf:"bytes,3,opt,name=deny_code,json=denyCode,proto3" json:"deny_code,omitempty"`
+	PolicyVersion int64                  `protobuf:"varint,4,opt,name=policy_version,json=policyVersion,proto3" json:"policy_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -149,6 +152,27 @@ func (x *CheckResponse) GetAllowed() bool {
 		return x.Allowed
 	}
 	return false
+}
+
+func (x *CheckResponse) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *CheckResponse) GetDenyCode() string {
+	if x != nil {
+		return x.DenyCode
+	}
+	return ""
+}
+
+func (x *CheckResponse) GetPolicyVersion() int64 {
+	if x != nil {
+		return x.PolicyVersion
+	}
+	return 0
 }
 
 type PermissionEntry struct {
@@ -568,9 +592,12 @@ const file_iam_authz_v2_authz_proto_rawDesc = "" +
 	"\n" +
 	"scope_type\x18\x05 \x01(\tR\tscopeType\x12\x1f\n" +
 	"\vscope_value\x18\x06 \x01(\tR\n" +
-	"scopeValue\")\n" +
+	"scopeValue\"\x85\x01\n" +
 	"\rCheckResponse\x12\x18\n" +
-	"\aallowed\x18\x01 \x01(\bR\aallowed\"\x85\x01\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x1b\n" +
+	"\tdeny_code\x18\x03 \x01(\tR\bdenyCode\x12%\n" +
+	"\x0epolicy_version\x18\x04 \x01(\x03R\rpolicyVersion\"\x85\x01\n" +
 	"\x0fPermissionEntry\x12\x1a\n" +
 	"\bresource\x18\x01 \x01(\tR\bresource\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\tR\x06action\x12\x1d\n" +

@@ -147,4 +147,5 @@ func (s ModuleStatus) suggestAvailable() bool {
 // AuthzHealthReporter 授权运行时重载健康报告，不泄露具体的底层适配器到路由
 type AuthzHealthReporter interface {
 	ReloadHealth() (bool, error, time.Time)
+	RuntimeHealthDetails() map[string]any
 }

@@ -12,9 +12,9 @@ import (
 // Role 角色领域对象（聚合根）
 type Role struct {
 	ID          meta.ID
-	Name        string // 角色名称
+	Name        Name   // 角色名称
 	DisplayName string // 显示名称
-	TenantID    string // 租户ID
+	TenantID    tenant.ID
 	Description string // 描述
 }
 
@@ -33,9 +33,9 @@ func NewRole(name, displayName, tenantID string, opts ...RoleOption) (Role, erro
 		return Role{}, err
 	}
 	role := Role{
-		Name:        roleName.String(),
+		Name:        roleName,
 		DisplayName: displayName,
-		TenantID:    tenantIDValue.String(),
+		TenantID:    tenantIDValue,
 	}
 	for _, opt := range opts {
 		opt(&role)
@@ -50,7 +50,15 @@ func WithID(id meta.ID) RoleOption           { return func(r *Role) { r.ID = id 
 func WithDescription(desc string) RoleOption { return func(r *Role) { r.Description = desc } }
 
 func (r Role) BelongsToTenant(tenantID string) bool {
-	return r.TenantID == tenantID
+	return r.TenantIDString() == strings.TrimSpace(tenantID)
+}
+
+func (r Role) NameString() string {
+	return r.Name.String()
+}
+
+func (r Role) TenantIDString() string {
+	return r.TenantID.String()
 }
 
 func (r *Role) Rename(displayName string) error {

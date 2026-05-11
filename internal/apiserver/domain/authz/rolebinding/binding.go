@@ -17,19 +17,22 @@ type Binding struct {
 	SubjectType SubjectType // user/group/service
 	SubjectID   meta.ID     // 用户或组ID
 	RoleID      meta.ID     // 角色ID
-	TenantID    string      // 租户ID（域）
+	TenantID    tenant.ID   // 租户ID（域）
 	GrantedBy   string      // 授权人
 }
 
 // NewBinding 创建新赋权
 func NewBinding(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, tenantID string, opts ...BindingOption) (Binding, error) {
 	subjectType = SubjectType(strings.TrimSpace(string(subjectType)))
-	tenantID = strings.TrimSpace(tenantID)
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
+		return Binding{}, err
+	}
 	a := Binding{
 		SubjectType: subjectType,
 		SubjectID:   subjectID,
 		RoleID:      roleID,
-		TenantID:    tenantID,
+		TenantID:    tenantIDValue,
 	}
 	for _, opt := range opts {
 		opt(&a)
@@ -40,9 +43,6 @@ func NewBinding(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, tena
 	}
 	if roleID.IsZero() {
 		return Binding{}, perrors.WithCode(code.ErrInvalidArgument, "role id is required")
-	}
-	if _, err := tenant.NewID(tenantID); err != nil {
-		return Binding{}, err
 	}
 	if a.GrantedBy == "" {
 		return Binding{}, perrors.WithCode(code.ErrInvalidArgument, "granted by is required")
@@ -73,38 +73,58 @@ func (id BindingID) String() string {
 }
 
 // SubjectType 主体类型
-type SubjectType string
+type SubjectType = subject.Type
 
 const (
-	SubjectTypeUser    SubjectType = "user"
-	SubjectTypeGroup   SubjectType = "group"
-	SubjectTypeService SubjectType = "service"
+	SubjectTypeUser    = subject.TypeUser
+	SubjectTypeGroup   = subject.TypeGroup
+	SubjectTypeService = subject.TypeService
 )
 
-func (st SubjectType) String() string {
-	return string(st)
+func (a Binding) SubjectTypeString() string {
+	return string(a.SubjectType)
+}
+
+func (a Binding) TenantIDString() string {
+	return a.TenantID.String()
+}
+
+func (a Binding) BelongsToTenant(tenantID string) bool {
+	target, err := tenant.NewID(tenantID)
+	if err != nil {
+		return false
+	}
+	return a.TenantID == target
 }
 
 // Fact states that a subject holds a role inside a tenant.
 type Fact struct {
 	Subject   subject.Ref
-	RoleName  string
-	TenantID  string
+	RoleName  role.Name
+	TenantID  tenant.ID
 	GrantedBy string
 }
 
 func NewFact(sub subject.Ref, roleName, tenantID, grantedBy string) (Fact, error) {
-	roleName = strings.TrimSpace(roleName)
-	tenantID = strings.TrimSpace(tenantID)
 	grantedBy = strings.TrimSpace(grantedBy)
 	if sub.IsZero() {
 		return Fact{}, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
-	if _, err := role.NewName(roleName); err != nil {
+	roleNameValue, err := role.NewName(roleName)
+	if err != nil {
 		return Fact{}, err
 	}
-	if _, err := tenant.NewID(tenantID); err != nil {
+	tenantIDValue, err := tenant.NewID(tenantID)
+	if err != nil {
 		return Fact{}, err
 	}
-	return Fact{Subject: sub, RoleName: roleName, TenantID: tenantID, GrantedBy: grantedBy}, nil
+	return Fact{Subject: sub, RoleName: roleNameValue, TenantID: tenantIDValue, GrantedBy: grantedBy}, nil
+}
+
+func (f Fact) RoleNameString() string {
+	return f.RoleName.String()
+}
+
+func (f Fact) TenantIDString() string {
+	return f.TenantID.String()
 }

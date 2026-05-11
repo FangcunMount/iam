@@ -8,20 +8,20 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
 	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 )
 
 type GrantByRoleNameCommand struct {
-	Subject   authzDomain.Subject
+	Subject   subject.Ref
 	TenantID  string
 	RoleName  string
 	GrantedBy string
 }
 
 type RevokeByRoleNameCommand struct {
-	Subject   authzDomain.Subject
+	Subject   subject.Ref
 	TenantID  string
 	RoleName  string
 	ChangedBy string

@@ -63,12 +63,5 @@ func (s *ResourceQueryService) ValidateAction(
 		return false, err
 	}
 
-	// 检查 action 是否在资源的 Actions 列表中
-	for _, a := range resource.Actions {
-		if a == action {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return resource.HasAction(action), nil
 }

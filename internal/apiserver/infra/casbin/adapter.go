@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"
@@ -17,10 +18,13 @@ import (
 
 // CasbinAdapter Casbin 适配器实现
 type CasbinAdapter struct {
-	enforcer      *casbin.CachedEnforcer
-	mu            sync.RWMutex
-	lastReloadErr error
-	lastReloadAt  time.Time
+	enforcer          *casbin.CachedEnforcer
+	mu                sync.RWMutex
+	lastReloadErr     error
+	lastReloadAt      time.Time
+	lastEventTenantID string
+	lastEventVersion  int64
+	lastEventAt       time.Time
 }
 
 // NewCasbinAdapter 创建 Casbin 适配器。
@@ -202,18 +206,18 @@ func (c *CasbinAdapter) AuthorizeRoute(ctx context.Context, sub, tenantID, resou
 }
 
 // Check implements the application authorization decision port using Casbin.
-func (c *CasbinAdapter) Check(ctx context.Context, request authzDomain.AuthorizationRequest) (authzDomain.AuthorizationDecision, error) {
+func (c *CasbinAdapter) Check(ctx context.Context, request decision.Request) (decision.Decision, error) {
 	fact := RequestFromAuthorizationRequest(request)
 	allowed, matched, err := c.enforceFact(ctx, fact)
 	if err != nil {
-		return authzDomain.AuthorizationDecision{}, err
+		return decision.Decision{}, err
 	}
 	if !allowed {
 		return decision.Deny(time.Now()), nil
 	}
 	permission, err := PermissionFromPolicyRule(matched)
 	if err != nil {
-		return authzDomain.AuthorizationDecision{}, err
+		return decision.Decision{}, err
 	}
 	return decision.Allow(&permission, time.Now()), nil
 }
@@ -257,8 +261,8 @@ func (c *CasbinAdapter) implicitRolesForUser(ctx context.Context, user, domain s
 }
 
 // RoleNamesForSubject returns business role names for a subject inside a tenant.
-func (c *CasbinAdapter) RoleNamesForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]string, error) {
-	roleKeys, err := c.implicitRolesForUser(ctx, SubjectKey(subject), tenantID)
+func (c *CasbinAdapter) RoleNamesForSubject(ctx context.Context, sub subject.Ref, tenantID string) ([]string, error) {
+	roleKeys, err := c.implicitRolesForUser(ctx, SubjectKey(sub), tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,12 +300,12 @@ func (c *CasbinAdapter) implicitPermissionsForUser(ctx context.Context, user, do
 }
 
 // PermissionsForSubject returns business permissions for a subject inside a tenant.
-func (c *CasbinAdapter) PermissionsForSubject(ctx context.Context, subject authzDomain.Subject, tenantID string) ([]authzDomain.Permission, error) {
-	rules, err := c.implicitPermissionsForUser(ctx, SubjectKey(subject), tenantID)
+func (c *CasbinAdapter) PermissionsForSubject(ctx context.Context, sub subject.Ref, tenantID string) ([]permission.Permission, error) {
+	rules, err := c.implicitPermissionsForUser(ctx, SubjectKey(sub), tenantID)
 	if err != nil {
 		return nil, err
 	}
-	permissions := make([]authzDomain.Permission, 0, len(rules))
+	permissions := make([]permission.Permission, 0, len(rules))
 	for _, rule := range rules {
 		permission, err := PermissionFromPolicyRule(rule)
 		if err != nil {
@@ -313,12 +317,12 @@ func (c *CasbinAdapter) PermissionsForSubject(ctx context.Context, subject authz
 }
 
 // PermissionsForRole returns business permissions granted to a role inside a tenant.
-func (c *CasbinAdapter) PermissionsForRole(ctx context.Context, roleName, tenantID string) ([]authzDomain.Permission, error) {
+func (c *CasbinAdapter) PermissionsForRole(ctx context.Context, roleName, tenantID string) ([]permission.Permission, error) {
 	rules, err := c.policyFactsForRole(ctx, roleName, tenantID)
 	if err != nil {
 		return nil, err
 	}
-	permissions := make([]authzDomain.Permission, 0, len(rules))
+	permissions := make([]permission.Permission, 0, len(rules))
 	for _, rule := range rules {
 		permission, err := PermissionFromPolicyRule(rule)
 		if err != nil {

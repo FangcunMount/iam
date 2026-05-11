@@ -3,8 +3,10 @@ package casbinrule
 import (
 	"context"
 
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
 	casbinfacts "github.com/FangcunMount/iam/v2/internal/apiserver/infra/casbin"
 	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"gorm.io/gorm"
@@ -31,8 +33,13 @@ type Repository struct {
 }
 
 var _ appuow.AuthorizationFactStore = (*Repository)(nil)
+var _ policylint.FactReader = (*Repository)(nil)
 
 func NewRepository(db *gorm.DB) appuow.AuthorizationFactStore {
+	return &Repository{db: db}
+}
+
+func NewFactReader(db *gorm.DB) policylint.FactReader {
 	return &Repository{db: db}
 }
 
@@ -43,7 +50,7 @@ func (r *Repository) WithContext(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx)
 }
 
-func (r *Repository) AddPermission(ctx context.Context, permission authzDomain.Permission) error {
+func (r *Repository) AddPermission(ctx context.Context, permission permission.Permission) error {
 	if r == nil || r.db == nil {
 		return nil
 	}
@@ -59,7 +66,7 @@ func (r *Repository) AddPermission(ctx context.Context, permission authzDomain.P
 	return r.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error
 }
 
-func (r *Repository) RemovePermission(ctx context.Context, permission authzDomain.Permission) error {
+func (r *Repository) RemovePermission(ctx context.Context, permission permission.Permission) error {
 	rule := casbinfacts.PolicyRuleFromPermission(permission)
 	db := r.WithContext(ctx).
 		Where("ptype = ? AND v0 = ? AND v1 = ? AND v2 = ? AND v3 = ?", "p", rule.Sub, rule.Dom, rule.Obj, rule.Act).
@@ -67,7 +74,7 @@ func (r *Repository) RemovePermission(ctx context.Context, permission authzDomai
 	return db.Delete(&rulePO{}).Error
 }
 
-func (r *Repository) AddRoleBinding(ctx context.Context, binding authzDomain.RoleBinding) error {
+func (r *Repository) AddRoleBinding(ctx context.Context, binding rolebinding.Fact) error {
 	if r == nil || r.db == nil {
 		return nil
 	}
@@ -81,15 +88,50 @@ func (r *Repository) AddRoleBinding(ctx context.Context, binding authzDomain.Rol
 	return r.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error
 }
 
-func (r *Repository) RemoveRoleBinding(ctx context.Context, binding authzDomain.RoleBinding) error {
+func (r *Repository) RemoveRoleBinding(ctx context.Context, binding rolebinding.Fact) error {
 	rule := casbinfacts.GroupingRuleFromRoleBinding(binding)
 	return r.WithContext(ctx).
 		Where("ptype = ? AND v0 = ? AND v1 = ? AND v2 = ?", "g", rule.Sub, rule.Role, rule.Dom).
 		Delete(&rulePO{}).Error
 }
 
+func (r *Repository) ListPermissionFacts(ctx context.Context) ([]policylint.PermissionFact, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var rows []rulePO
+	if err := r.WithContext(ctx).Where("ptype = ?", "p").Order("id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	facts := make([]policylint.PermissionFact, 0, len(rows))
+	for _, row := range rows {
+		rule := casbinfacts.PolicyRule{
+			Sub:   stringValue(row.V0),
+			Dom:   stringValue(row.V1),
+			Obj:   stringValue(row.V2),
+			Act:   stringValue(row.V3),
+			Scope: casbinfacts.ScopeKey(casbinfacts.ScopeFromKey(stringValue(row.V4))),
+		}
+		facts = append(facts, policylint.PermissionFact{
+			RoleName:    casbinfacts.RoleNameFromKey(rule.Sub),
+			TenantID:    rule.Dom,
+			ResourceKey: rule.Obj,
+			Action:      rule.Act,
+			Scope:       rule.Scope,
+		})
+	}
+	return facts, nil
+}
+
 func stringPtr(value string) *string {
 	return &value
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func scopeWhere(scope string) string {

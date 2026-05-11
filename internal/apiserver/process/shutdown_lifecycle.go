@@ -73,6 +73,16 @@ func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) {
 		// 记录出box 调度器初始化信息
 		log.Infow("Outbox relay initialized", "description", "domain event outbox relay started")
 	}
+	if sync := deps.AuthzPolicySync; sync != nil {
+		if err := sync.Start(context.Background()); err != nil {
+			log.Errorf("failed to start authz policy sync subscriber: %v", err)
+		} else {
+			if lifecycle != nil {
+				lifecycle.AddShutdownHook("stop authz policy sync subscriber", sync.Stop)
+			}
+			log.Infow("Authz policy sync subscriber initialized", "topic", "iam.authz.version", "channel", "iam-policy-sync")
+		}
+	}
 	// 如果生命周期不为空，且停止旋转调度器不为空，则添加关闭钩子
 	if lifecycle != nil && stopRotationScheduler != nil {
 		// 添加关闭钩子

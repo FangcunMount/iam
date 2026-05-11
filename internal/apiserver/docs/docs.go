@@ -3559,6 +3559,15 @@ const docTemplate = `{
             "properties": {
                 "allowed": {
                     "type": "boolean"
+                },
+                "deny_code": {
+                    "type": "string"
+                },
+                "policy_version": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
                 }
             }
         },
@@ -3799,6 +3808,9 @@ const docTemplate = `{
                 "subject_type"
             ],
             "properties": {
+                "reason": {
+                    "type": "string"
+                },
                 "role_id": {
                     "type": "string"
                 },

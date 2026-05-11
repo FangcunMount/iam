@@ -787,6 +787,25 @@ func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
 	}
 }
 
+func TestAuthzProductionCodeUsesSemanticDomainPackages(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	retiredFacade := modulePath + "internal/apiserver/domain/authz"
+	for _, relRoot := range []string{
+		"internal/apiserver",
+	} {
+		scanImports(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path string, imports []string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, imp := range imports {
+				if imp == retiredFacade {
+					t.Fatalf("%s imports root authz facade; production code must use semantic child packages", rel)
+				}
+			}
+		})
+	}
+}
+
 func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	t.Parallel()
 

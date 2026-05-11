@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 )
 
 type Catalog interface {
@@ -27,7 +27,7 @@ type CreateResourceCommand struct {
 	Domain      string
 	Type        string
 	Actions     []string
-	ScopeKinds  []authzDomain.ScopeKind
+	ScopeKinds  []scope.Kind
 	Description string
 }
 
@@ -35,7 +35,7 @@ type UpdateResourceCommand struct {
 	ID          resourceDomain.ResourceID
 	DisplayName *string
 	Actions     []string
-	ScopeKinds  []authzDomain.ScopeKind
+	ScopeKinds  []scope.Kind
 	Description *string
 }
 

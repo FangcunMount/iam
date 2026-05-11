@@ -13,7 +13,8 @@ func TestNewRole(t *testing.T) {
 	id := meta.FromUint64(10)
 	r, err := NewRole("admin", "管理员", "tenant1", WithID(id), WithDescription("desc"))
 	assert.NoError(t, err)
-	assert.Equal(t, "admin", r.Name)
+	assert.Equal(t, "admin", r.NameString())
+	assert.Equal(t, "tenant1", r.TenantIDString())
 	assert.Equal(t, "管理员", r.DisplayName)
 	assert.Equal(t, "desc", r.Description)
 }

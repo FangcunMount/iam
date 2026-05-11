@@ -44,3 +44,31 @@ func TestCasbinFactsMapFromAuthorizationBusinessModels(t *testing.T) {
 
 	require.Equal(t, "iam:admin", RoleNameFromKey("role:iam:admin"))
 }
+
+func TestCasbinFactsPreserveActionPatternStrings(t *testing.T) {
+	t.Parallel()
+
+	permission, err := authzDomain.NewPermission("qs:admin", "tenant-a", "qs:*:*:*", "read|list")
+	require.NoError(t, err)
+	rule := PolicyRuleFromPermission(permission)
+	require.Equal(t, PolicyRule{
+		Sub:   "role:qs:admin",
+		Dom:   "tenant-a",
+		Obj:   "qs:*:*:*",
+		Act:   "read|list",
+		Scope: "all:*",
+	}, rule)
+
+	restored, err := PermissionFromPolicyRule(PolicyRule{
+		Sub:   "role:super_admin",
+		Dom:   "platform",
+		Obj:   "*:*:*:*",
+		Act:   ".*",
+		Scope: "all:*",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "super_admin", restored.RoleNameString())
+	require.Equal(t, "platform", restored.TenantIDString())
+	require.Equal(t, "*:*:*:*", restored.ResourceKeyString())
+	require.Equal(t, ".*", restored.ActionString())
+}

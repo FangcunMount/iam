@@ -3,8 +3,8 @@ package resource
 import (
 	"encoding/json"
 
-	authzDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -56,11 +56,11 @@ func (m *Mapper) ToPO(bo *resource.Resource) *ResourcePO {
 	}
 
 	// 序列化 Actions 为 JSON
-	actionsJSON, _ := m.serializeActions(bo.Actions)
+	actionsJSON, _ := m.serializeActions(bo.ActionStrings())
 	scopeKindsJSON, _ := m.serializeScopeKinds(bo.ScopeKinds)
 
 	po := &ResourcePO{
-		Key:         bo.Key,
+		Key:         bo.KeyString(),
 		DisplayName: bo.DisplayName,
 		AppName:     bo.AppName,
 		Domain:      bo.Domain,
@@ -121,7 +121,7 @@ func (m *Mapper) parseActions(jsonStr string) ([]string, error) {
 	return actions, nil
 }
 
-func (m *Mapper) serializeScopeKinds(kinds []authzDomain.ScopeKind) (string, error) {
+func (m *Mapper) serializeScopeKinds(kinds []scope.Kind) (string, error) {
 	normalized, err := resource.NormalizeAndValidateScopeKinds(kinds)
 	if err != nil {
 		return `["all"]`, err
@@ -137,7 +137,7 @@ func (m *Mapper) serializeScopeKinds(kinds []authzDomain.ScopeKind) (string, err
 	return string(data), nil
 }
 
-func (m *Mapper) parseScopeKinds(jsonStr string) ([]authzDomain.ScopeKind, error) {
+func (m *Mapper) parseScopeKinds(jsonStr string) ([]scope.Kind, error) {
 	if jsonStr == "" || jsonStr == "[]" {
 		return resource.NormalizeScopeKinds(nil), nil
 	}
@@ -145,9 +145,9 @@ func (m *Mapper) parseScopeKinds(jsonStr string) ([]authzDomain.ScopeKind, error
 	if err := json.Unmarshal([]byte(jsonStr), &values); err != nil {
 		return resource.NormalizeScopeKinds(nil), err
 	}
-	kinds := make([]authzDomain.ScopeKind, 0, len(values))
+	kinds := make([]scope.Kind, 0, len(values))
 	for _, value := range values {
-		kinds = append(kinds, authzDomain.ScopeKind(value))
+		kinds = append(kinds, scope.Kind(value))
 	}
 	return kinds, nil
 }

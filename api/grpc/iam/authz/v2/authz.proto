@@ -29,6 +29,9 @@ message CheckRequest {
 
 message CheckResponse {
   bool allowed = 1;
+  string reason = 2;
+  string deny_code = 3;
+  int64 policy_version = 4;
 }
 
 message PermissionEntry {

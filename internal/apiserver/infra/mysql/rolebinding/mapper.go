@@ -40,10 +40,10 @@ func (m *Mapper) ToPO(bo *binding.Binding) *BindingPO {
 	}
 
 	po := &BindingPO{
-		SubjectType: string(bo.SubjectType),
+		SubjectType: bo.SubjectTypeString(),
 		SubjectID:   bo.SubjectID.String(),
 		RoleID:      bo.RoleID.Uint64(),
-		TenantID:    bo.TenantID,
+		TenantID:    bo.TenantIDString(),
 		GrantedBy:   bo.GrantedBy,
 	}
 	id := meta.FromUint64(bo.ID.Uint64()) // 来自业务对象，必定有效
