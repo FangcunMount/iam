@@ -5,6 +5,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
+// authFailureError 生成认证失败错误。
 func authFailureError(codeValue int) error {
 	if codeValue == 0 {
 		codeValue = code.ErrAuthenticationFailed
