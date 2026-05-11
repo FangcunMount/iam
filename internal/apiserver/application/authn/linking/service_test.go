@@ -308,7 +308,10 @@ func (s *linkingChallengeStub) VerifyAndConsumeSMSOTP(_ context.Context, scene, 
 	return s.ok, nil
 }
 
-func (s *linkingChallengeStub) VerifyAndConsume(context.Context, string, string, string) bool {
+func (s *linkingChallengeStub) VerifyAndConsume(_ context.Context, scene, phone, code string) bool {
+	s.scene = scene
+	s.phone = phone
+	_ = code
 	return s.ok
 }
 

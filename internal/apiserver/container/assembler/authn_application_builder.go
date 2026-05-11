@@ -48,6 +48,7 @@ func (m *AuthnModule) initializeApplication(
 		Cooldown: smsOptions.LoginOTPSendCooldown,
 		CodeLen:  smsOptions.LoginOTPCodeLength,
 	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(infra.challengeRepo))
+	m.challengeService = challengeService
 	m.loginIdentityLinking = linkingApp.NewService(linkingApp.Dependencies{
 		LoginIdentities: infra.loginIdentityStore,
 		Challenge:       challengeService,

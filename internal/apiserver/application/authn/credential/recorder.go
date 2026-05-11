@@ -51,26 +51,22 @@ func (r *recorder) Record(ctx context.Context, decision authentication.AuthDecis
 	}
 
 	switch decision.Code {
-	case code.ErrInvalidCredentials:
-		// 认证失败，且是无效凭据，直接返回。
-		return nil
-	case code.ErrAuthenticationFailed:
-		// 认证失败，记录认证失败状态。
+	case code.ErrInvalidCredentials, code.ErrAuthenticationFailed:
+		// 认证失败（含密码错误等），记录失败次数与最近失败时间。
 		return r.recordFailure(ctx, cred, r.now())
 	default:
+		if !decision.OK {
+			return nil
+		}
 		// 认证成功，记录认证成功状态。
-		return r.recordSuccess(ctx, cred, r.now())
+		return r.recordSuccess(ctx, cred, decision, r.now())
 	}
 }
 
 // recordSuccess 记录认证成功状态。
-func (r *recorder) recordSuccess(ctx context.Context, cred *credDomain.Credential, now time.Time) error {
+func (r *recorder) recordSuccess(ctx context.Context, cred *credDomain.Credential, decision authentication.AuthDecision, now time.Time) error {
 	// 轮换凭据材料。
-	if err := r.rotateMaterial(ctx, cred, authentication.AuthDecision{
-		ShouldRotate: true,
-		NewMaterial:  cred.Material,
-		NewAlgo:      cred.Algo,
-	}); err != nil {
+	if err := r.rotateMaterial(ctx, cred, decision); err != nil {
 		return err
 	}
 	// 记录认证成功状态。
