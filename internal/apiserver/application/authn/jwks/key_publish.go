@@ -8,13 +8,12 @@ import (
 )
 
 // KeyPublishAppService JWKS 发布应用服务
-// 负责构建和发布 /.well-known/jwks.json
 type KeyPublishAppService struct {
 	keyPublishSvc KeyPublisherPort
 	logger        log.Logger
 }
 
-// NewKeyPublishAppService 创建 JWKS 发布应用服务
+// NewKeyPublishAppService 创建密钥发布应用服务
 func NewKeyPublishAppService(
 	keyPublishSvc KeyPublisherPort,
 	logger log.Logger,
@@ -26,6 +25,7 @@ func NewKeyPublishAppService(
 }
 
 // BuildJWKSResponse 构建 JWKS 响应
+// 用于 GET /.well-known/jwks.json 端点
 type BuildJWKSResponse struct {
 	JWKS         []byte    // JWKS JSON 字节流
 	ETag         string    // 实体标签（用于 HTTP 缓存）
@@ -33,7 +33,8 @@ type BuildJWKSResponse struct {
 }
 
 // BuildJWKS 构建 JWKS JSON
-// 用于 GET /.well-known/jwks.json 端点
+// 查询所有可发布的密钥（Active + Grace 状态且未过期）
+// 返回：JWKS JSON 字节流和缓存标签
 func (s *KeyPublishAppService) BuildJWKS(ctx context.Context) (*BuildJWKSResponse, error) {
 	s.logger.Debugw("Building JWKS")
 
@@ -56,12 +57,13 @@ func (s *KeyPublishAppService) BuildJWKS(ctx context.Context) (*BuildJWKSRespons
 	}, nil
 }
 
-// GetPublishableKeysResponse 获取可发布密钥响应
+// GetPublishableKeysResponse 可发布密钥响应
+// 用于预览或调试，返回当前会被发布到 JWKS 的密钥
 type GetPublishableKeysResponse struct {
 	Keys []*PublishableKeyInfo // 可发布的密钥列表
 }
 
-// PublishableKeyInfo 可发布的密钥信息
+// PublishableKeyInfo 可发布的密钥信息（列表项）
 type PublishableKeyInfo struct {
 	Kid       string     // 密钥 ID
 	Status    KeyStatus  // 密钥状态
@@ -71,7 +73,7 @@ type PublishableKeyInfo struct {
 	PublicJWK *PublicJWK // 公钥 JWK
 }
 
-// GetPublishableKeys 获取可发布的密钥列表
+// GetPublishableKeys 可发布的密钥列表
 // 用于预览或调试，返回当前会被发布到 JWKS 的密钥
 func (s *KeyPublishAppService) GetPublishableKeys(ctx context.Context) (*GetPublishableKeysResponse, error) {
 	s.logger.Debugw("Getting publishable keys")
@@ -101,13 +103,13 @@ func (s *KeyPublishAppService) GetPublishableKeys(ctx context.Context) (*GetPubl
 	}, nil
 }
 
-// ValidateCacheTagRequest 验证缓存标签请求
+// ValidateCacheTagRequest 缓存标签请求
 type ValidateCacheTagRequest struct {
 	ETag         string    // 客户端提供的 ETag
 	LastModified time.Time // 客户端提供的 Last-Modified
 }
 
-// ValidateCacheTag 验证缓存标签
+// ValidateCacheTag 缓存标签
 // 用于实现 HTTP 304 Not Modified 响应
 // 返回 true 表示缓存有效（客户端缓存未过期）
 func (s *KeyPublishAppService) ValidateCacheTag(ctx context.Context, req ValidateCacheTagRequest) (bool, error) {
@@ -132,13 +134,13 @@ func (s *KeyPublishAppService) ValidateCacheTag(ctx context.Context, req Validat
 	return isValid, nil
 }
 
-// GetCurrentCacheTagResponse 获取当前缓存标签响应
+// GetCurrentCacheTagResponse 当前缓存标签响应
 type GetCurrentCacheTagResponse struct {
 	ETag         string    // 当前 ETag
 	LastModified time.Time // 当前最后修改时间
 }
 
-// GetCurrentCacheTag 获取当前缓存标签
+// GetCurrentCacheTag 当前缓存标签
 // 用于生成 HTTP 响应头
 func (s *KeyPublishAppService) GetCurrentCacheTag(ctx context.Context) (*GetCurrentCacheTagResponse, error) {
 	s.logger.Debugw("Getting current cache tag")
@@ -160,7 +162,7 @@ func (s *KeyPublishAppService) GetCurrentCacheTag(ctx context.Context) (*GetCurr
 	}, nil
 }
 
-// RefreshCache 刷新缓存
+// RefreshCache 刷新 JWKS 缓存
 // 用于强制更新缓存（密钥轮换后）
 func (s *KeyPublishAppService) RefreshCache(ctx context.Context) error {
 	s.logger.Infow("Refreshing JWKS cache")

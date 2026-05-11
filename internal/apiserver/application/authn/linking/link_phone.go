@@ -40,10 +40,7 @@ func (s *service) LinkPhone(ctx context.Context, cmd LinkPhoneCommand) (*LinkRes
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
 	}
-	ok, err := s.deps.Challenge.VerifyAndConsumeSMSOTP(ctx, challengeapp.SceneLinkPhoneOTP, phone.String(), cmd.OTPCode)
-	if err != nil {
-		return nil, err
-	}
+	ok := s.deps.Challenge.VerifyAndConsume(ctx, challengeapp.SceneLinkPhoneOTP, phone.String(), cmd.OTPCode)
 	if !ok {
 		return nil, perrors.WithCode(code.ErrInvalidCredential, "invalid phone link challenge")
 	}

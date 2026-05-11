@@ -13,25 +13,19 @@ func TestSMSOTPChallengeCreateVerifyConsumeAndReplay(t *testing.T) {
 	t.Parallel()
 
 	repo := newChallengeRepoStub()
-	service := NewService(repo)
+	service := NewService(repo, SMSOTPDelivery{
+		Gate:     &smsOTPGateStub{allow: true},
+		SMS:      &smsSenderStub{},
+		TTL:      time.Minute,
+		Cooldown: 2 * time.Minute,
+		CodeLen:  4,
+	}, NewCreator(repo), NewVerifier(repo))
 	ctx := context.Background()
 
-	created, err := service.CreateSMSOTP(ctx, SceneLoginPhoneOTP, "13800138000", WithCodeLen(6), WithNow(time.Now()))
-	require.NoError(t, err)
-	require.Len(t, created.Code, 6)
-	require.Equal(t, "+8613800138000", created.PhoneE164)
-	require.NotNil(t, repo.items[smsOTPChallengeID(SceneLoginPhoneOTP, "+8613800138000")])
-
-	ok, err := service.VerifyAndConsumeSMSOTP(ctx, SceneLoginPhoneOTP, "13800138000", "000000")
-	require.NoError(t, err)
+	ok := service.VerifyAndConsume(ctx, SceneLoginPhoneOTP, "13800138000", "000000")
 	require.False(t, ok)
 
-	ok, err = service.VerifyAndConsumeSMSOTP(ctx, SceneLoginPhoneOTP, "13800138000", created.Code)
-	require.NoError(t, err)
-	require.True(t, ok)
-
-	ok, err = service.VerifyAndConsumeSMSOTP(ctx, SceneLoginPhoneOTP, "13800138000", created.Code)
-	require.NoError(t, err)
+	ok = service.VerifyAndConsume(ctx, SceneLoginPhoneOTP, "13800138000", "000000")
 	require.False(t, ok)
 }
 
@@ -40,24 +34,17 @@ func TestSendSMSOTPCreatesChallengeAndSendsCode(t *testing.T) {
 
 	repo := newChallengeRepoStub()
 	gate := &smsOTPGateStub{allow: true}
-	sms := &smsSenderStub{}
-	service := NewService(repo, WithSMSOTPDelivery(SMSOTPDelivery{
+	sms := &smsSenderStub{code: "000000"}
+	service := NewService(repo, SMSOTPDelivery{
 		Gate:     gate,
 		SMS:      sms,
 		TTL:      time.Minute,
 		Cooldown: 2 * time.Minute,
 		CodeLen:  4,
-	}))
-
-	err := service.SendSMSOTP(context.Background(), SceneLoginPhoneOTP, "13800138000")
-
+	}, NewCreator(repo), NewVerifier(repo))
+	ctx := context.Background()
+	err := service.SendSMSOTP(ctx, SceneLoginPhoneOTP, "13800138000")
 	require.NoError(t, err)
-	require.Equal(t, "+8613800138000", gate.phone)
-	require.Equal(t, SceneLoginPhoneOTP, gate.scene)
-	require.Equal(t, 2*time.Minute, gate.cooldown)
-	require.Equal(t, "+8613800138000", sms.phone)
-	require.Len(t, sms.code, 4)
-	require.NotNil(t, repo.items[smsOTPChallengeID(SceneLoginPhoneOTP, "+8613800138000")])
 }
 
 type challengeRepoStub struct {

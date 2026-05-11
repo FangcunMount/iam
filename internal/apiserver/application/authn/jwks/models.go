@@ -18,6 +18,7 @@ const (
 	KeyRetired                      // 已下线，不发布
 )
 
+// String 返回 KeyStatus 的字符串表示。
 func (s KeyStatus) String() string {
 	switch s {
 	case KeyActive:
@@ -31,7 +32,7 @@ func (s KeyStatus) String() string {
 	}
 }
 
-// PublicJWK 是 JWKS 对外发布的公钥表示。
+// PublicJWK 表示 JWKS 对外发布的公钥。
 type PublicJWK struct {
 	Kty string  `json:"kty"`
 	Use string  `json:"use"`
@@ -44,6 +45,7 @@ type PublicJWK struct {
 	Y   *string `json:"y,omitempty"`
 }
 
+// Validate 验证 PublicJWK 是否有效。
 func (p *PublicJWK) Validate() error {
 	if p.Kid == "" {
 		return errors.WithCode(code.ErrInvalidKid, "kid cannot be empty")
@@ -76,11 +78,12 @@ func (p *PublicJWK) Validate() error {
 	return nil
 }
 
-// JWKS 表示 JSON Web Key Set。
+// JWKS 表示 JWKS 的 JSON 表示。
 type JWKS struct {
 	Keys []PublicJWK `json:"keys"`
 }
 
+// Validate 验证 JWKS 是否有效。
 func (j *JWKS) Validate() error {
 	if len(j.Keys) == 0 {
 		return errors.WithCode(code.ErrEmptyJWKS, "JWKS cannot be empty")
@@ -93,6 +96,7 @@ func (j *JWKS) Validate() error {
 	return nil
 }
 
+// FindByKid 根据 kid 查找 PublicJWK。
 func (j *JWKS) FindByKid(kid string) *PublicJWK {
 	for i := range j.Keys {
 		if j.Keys[i].Kid == kid {
@@ -102,40 +106,46 @@ func (j *JWKS) FindByKid(kid string) *PublicJWK {
 	return nil
 }
 
+// Count 返回 JWKS 中的公钥数量。
 func (j *JWKS) Count() int {
 	return len(j.Keys)
 }
 
+// IsEmpty 判断 JWKS 是否为空。
 func (j *JWKS) IsEmpty() bool {
 	return len(j.Keys) == 0
 }
 
-// CacheTag 保存 JWKS 发布缓存标签。
+// CacheTag 表示 JWKS 发布缓存标签。
 type CacheTag struct {
 	ETag         string
 	LastModified time.Time
 }
 
+// IsZero 判断 CacheTag 是否为空。
 func (c *CacheTag) IsZero() bool {
 	return c.ETag == "" && c.LastModified.IsZero()
 }
 
+// Matches 判断 CacheTag 是否与另一个 CacheTag 匹配。
 func (c *CacheTag) Matches(other CacheTag) bool {
 	return c.ETag == other.ETag
 }
 
+// GenerateETag 生成 ETag。
 func GenerateETag(content []byte) string {
 	hash := sha256.Sum256(content)
 	return `"` + hex.EncodeToString(hash[:]) + `"`
 }
 
-// RotationPolicy 描述 JWKS signing key 的轮换策略。
+// RotationPolicy 表示 JWKS 签名密钥的轮换策略。
 type RotationPolicy struct {
 	RotationInterval time.Duration
 	GracePeriod      time.Duration
 	MaxKeysInJWKS    int
 }
 
+// DefaultRotationPolicy 返回默认的轮换策略。
 func DefaultRotationPolicy() RotationPolicy {
 	return RotationPolicy{
 		RotationInterval: 30 * 24 * time.Hour,
@@ -144,6 +154,7 @@ func DefaultRotationPolicy() RotationPolicy {
 	}
 }
 
+// Validate 验证 RotationPolicy 是否有效。
 func (p *RotationPolicy) Validate() error {
 	if p.RotationInterval <= 0 {
 		return errors.WithCode(code.ErrInvalidRotationInterval, "rotation interval must be positive")
@@ -160,7 +171,7 @@ func (p *RotationPolicy) Validate() error {
 	return nil
 }
 
-// ManagedKey 是 application 层暴露给密钥管理用例的签名密钥快照。
+// ManagedKey 表示密钥管理用例的签名密钥快照。
 type ManagedKey struct {
 	Kid       string
 	Status    KeyStatus
@@ -171,6 +182,7 @@ type ManagedKey struct {
 	UpdatedAt time.Time
 }
 
+// NewKey 创建 ManagedKey。
 func NewKey(kid string, jwk PublicJWK, opts ...KeyOption) *ManagedKey {
 	now := time.Now()
 	key := &ManagedKey{
@@ -186,38 +198,45 @@ func NewKey(kid string, jwk PublicJWK, opts ...KeyOption) *ManagedKey {
 	return key
 }
 
+// KeyOption 表示 ManagedKey 的选项。
 type KeyOption func(*ManagedKey)
 
+// WithNotBefore 设置 NotBefore。
 func WithNotBefore(t time.Time) KeyOption {
 	return func(k *ManagedKey) {
 		k.NotBefore = &t
 	}
 }
 
+// WithNotAfter 设置 NotAfter。
 func WithNotAfter(t time.Time) KeyOption {
 	return func(k *ManagedKey) {
 		k.NotAfter = &t
 	}
 }
 
+// WithStatus 设置 Status。
 func WithStatus(status KeyStatus) KeyOption {
 	return func(k *ManagedKey) {
 		k.Status = status
 	}
 }
 
+// WithCreatedAt 设置 CreatedAt。
 func WithCreatedAt(t time.Time) KeyOption {
 	return func(k *ManagedKey) {
 		k.CreatedAt = t
 	}
 }
 
+// WithUpdatedAt 设置 UpdatedAt。
 func WithUpdatedAt(t time.Time) KeyOption {
 	return func(k *ManagedKey) {
 		k.UpdatedAt = t
 	}
 }
 
+// SnapshotStatus 表示 JWKS 快照的状态。
 type SnapshotStatus struct {
 	Cached        bool
 	KeyCount      int

@@ -7,8 +7,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 )
 
-// KeyManagementAppService exposes JWKS admin commands to transport.
-// Signing-key lifecycle behavior is implemented by the KeyManagerPort adapter.
+// KeyManagementAppService JWKS 管理应用服务
 type KeyManagementAppService struct {
 	keyMgmtSvc KeyManagerPort
 	logger     log.Logger
@@ -75,6 +74,7 @@ func (s *KeyManagementAppService) CreateKey(ctx context.Context, req CreateKeyRe
 }
 
 // GetActiveKeyResponse 获取激活密钥响应
+// 用于获取当前激活的密钥
 type GetActiveKeyResponse struct {
 	Kid       string     // 密钥 ID
 	Status    KeyStatus  // 密钥状态
@@ -146,6 +146,8 @@ func (s *KeyManagementAppService) GetKeyByKid(ctx context.Context, kid string) (
 }
 
 // RetireKey 退役密钥（Grace → Retired）
+// 只能对 Grace 状态的密钥执行
+// kid: 密钥 ID
 func (s *KeyManagementAppService) RetireKey(ctx context.Context, kid string) error {
 	s.logger.Infow("Retiring key", "kid", kid)
 
@@ -159,6 +161,8 @@ func (s *KeyManagementAppService) RetireKey(ctx context.Context, kid string) err
 }
 
 // ForceRetireKey 强制退役密钥（任何状态 → Retired）
+// 只能对 Grace 状态的密钥执行
+// kid: 密钥 ID
 func (s *KeyManagementAppService) ForceRetireKey(ctx context.Context, kid string) error {
 	s.logger.Warnw("Force retiring key", "kid", kid)
 
@@ -172,6 +176,8 @@ func (s *KeyManagementAppService) ForceRetireKey(ctx context.Context, kid string
 }
 
 // EnterGracePeriod 进入宽限期（Active → Grace）
+// 只能对 Active 状态的密钥执行
+// kid: 密钥 ID
 func (s *KeyManagementAppService) EnterGracePeriod(ctx context.Context, kid string) error {
 	s.logger.Infow("Moving key to grace period", "kid", kid)
 
@@ -185,11 +191,13 @@ func (s *KeyManagementAppService) EnterGracePeriod(ctx context.Context, kid stri
 }
 
 // CleanupExpiredKeysResponse 清理过期密钥响应
+// 用于清理过期密钥
 type CleanupExpiredKeysResponse struct {
 	DeletedCount int // 清理的密钥数量
 }
 
 // CleanupExpiredKeys 清理过期密钥
+// 删除 NotAfter < now 且 Status = Retired 的密钥
 func (s *KeyManagementAppService) CleanupExpiredKeys(ctx context.Context) (*CleanupExpiredKeysResponse, error) {
 	s.logger.Infow("Cleaning up expired keys")
 

@@ -7,14 +7,13 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 )
 
-// KeyRotationAppService exposes JWKS rotation use cases to transport and
-// schedulers. Rotation rules are implemented by the KeyRotatorPort adapter.
+// KeyRotationAppService 表示 JWKS 轮换应用服务。
 type KeyRotationAppService struct {
 	keyRotationSvc KeyRotatorPort
 	logger         log.Logger
 }
 
-// NewKeyRotationAppService 创建密钥轮换应用服务
+// NewKeyRotationAppService 创建 JWKS 轮换应用服务。
 func NewKeyRotationAppService(
 	keyRotationSvc KeyRotatorPort,
 	logger log.Logger,
@@ -25,12 +24,12 @@ func NewKeyRotationAppService(
 	}
 }
 
-// RotateKeyResponse 轮换密钥响应
+// RotateKeyResponse 表示轮换密钥响应。
 type RotateKeyResponse struct {
 	NewKey *RotatedKeyInfo // 新生成的密钥信息
 }
 
-// RotatedKeyInfo 轮换后的密钥信息
+// RotatedKeyInfo 表示轮换后的密钥信息。
 type RotatedKeyInfo struct {
 	Kid       string     // 密钥 ID
 	Status    KeyStatus  // 密钥状态
