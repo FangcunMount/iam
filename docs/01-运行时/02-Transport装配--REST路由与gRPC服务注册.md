@@ -620,6 +620,8 @@ AuthZ handlers 存在
 
 ### 8.3 Identity 路由
 
+Identity 路由由运行时代码中的 User module capabilities 投影而来；这里的 User module 是实现命名，语义上归入 Identity。
+
 Identity 路由注册条件：
 
 ```text
@@ -770,7 +772,7 @@ IAM 的 REST route registration 遵循 fail-closed。
 | TokenService 缺失 | JWT middleware 不创建，protected routes 不注册 | 没有权威 token verify，不能暴露受保护接口 |
 | RouteAuthorization 缺失 | middleware 可认证，但不支持 role check；admin routes 不注册 | 没有角色判定就不能暴露管理面 |
 | AuthZ handlers 缺失 | AuthZ module routes 不注册 | 避免暴露无处理能力的路由 |
-| User handlers 缺失 | Identity routes 不注册 | 避免用户/档案接口半可用 |
+| User handlers 缺失 | Identity routes 不注册 | 避免用户/档案接口半可用；这里的 User handlers 是 Identity 能力的运行时投影 |
 | WechatAppHandler 缺失 | IDP 管理路由不注册 | 避免 IDP 管理能力空转 |
 | Suggest service 缺失 | Suggest route 不注册 | Suggest 禁用或初始化失败时不暴露 |
 | Admin middlewares 缺失 | Admin/JWKS admin/IDP management/cache debug protected routes 不注册 | 管理面必须有管理员保护 |
@@ -850,6 +852,8 @@ AuthN module 会创建 authn gRPC 聚合服务。
 
 ### 12.2 Identity / User gRPC
 
+`Identity / User` 的命名规则和 REST 一致：User module 是运行时代码命名，Identity 是文档语义和对外能力边界。
+
 User module 会创建 identity gRPC 聚合服务。
 
 它注册：
@@ -864,7 +868,6 @@ User module 会创建 identity gRPC 聚合服务。
 核心源码：
 
 - [../../internal/apiserver/container/grpc_registry.go](../../internal/apiserver/container/grpc_registry.go)
-- [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go)
 - [../../internal/apiserver/transport/grpc/service/identity/service.go](../../internal/apiserver/transport/grpc/service/identity/service.go)
 - [../../api/grpc/iam/identity/v2/identity.proto](../../api/grpc/iam/identity/v2/identity.proto)
 
@@ -904,6 +907,8 @@ api/grpc/iam/*/v2/*.proto
 ```
 
 `docs/` 只解释契约如何接入、为什么这样组织、运行时如何注册，不重复维护字段事实。
+
+如果要从接入方视角理解 REST/gRPC 的使用方式，请阅读 [../05-接入与契约/01-REST API契约-前端与管理端接入.md](../05-接入与契约/01-REST API契约-前端与管理端接入.md) 与 [../05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md](../05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md)。
 
 ### REST 防漂移
 
@@ -959,6 +964,12 @@ REST 和 gRPC 都是 transport，但注册方式不同：
 
 - REST 的注册逻辑需要综合多个模块能力、JWT middleware、admin middlewares、debug options，所以适合集中在 Router 中决策。
 - gRPC 服务注册更接近“模块服务列表”，container 根据模块生成 registration，transport registry 逐个注册即可。
+
+### gRPC transport 安全边界
+
+gRPC 运行时的 transport security、mTLS、ACL、interceptor、metadata 处理不在本篇展开。本篇只说明 service registration 如何由 container 投影并由 registry 注册。
+
+具体运行模式、mTLS/ACL/metadata 以 [../05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md](../05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md) 和 [../../internal/pkg/grpc](../../internal/pkg/grpc) 为准。
 
 ---
 
@@ -1036,7 +1047,6 @@ internal/apiserver/container/grpc_registry.go
 internal/apiserver/transport/grpc/registry.go
 internal/apiserver/transport/grpc/service/authn/service.go
 internal/apiserver/transport/grpc/service/identity/service.go
-internal/apiserver/transport/grpc/service/identity/service.go
 internal/apiserver/transport/grpc/service/authz
 internal/apiserver/transport/grpc/service/idp
 ```
@@ -1103,3 +1113,5 @@ BuildGRPCDeps
 ```
 
 理解这篇文档后，再读 AuthN 登录链路、AuthZ 授权链路、Identity/ProfileLink 链路时，就能明确知道：请求是如何进入业务用例的，认证中间件在哪里生效，模块能力是如何从 container 投影到协议层的。
+
+另外需要记住一个命名边界：运行时代码中的 `User Module / UserDeps / User handlers`，在新版文档语义中统一归入 Identity 能力边界。

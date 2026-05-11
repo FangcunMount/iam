@@ -11,7 +11,7 @@
 3. MySQL、Redis、EventBus、IDP encryption key 等运行时资源如何进入业务模块；
 4. REST 路由与 gRPC 服务如何从 container 投影出来；
 5. 配置、运行模式、降级启动、健康检查之间是什么关系；
-6. key rotation、outbox relay 等后台任务如何纳入生命周期；
+6. key rotation、outbox relay、AuthZ policy sync、suggest cleanup 等后台任务如何纳入生命周期；
 7. graceful shutdown 的边界和关闭顺序是什么。
 
 本目录只解释 **运行时装配与生命周期**。  
@@ -49,7 +49,7 @@ cmd/apiserver
 | `container` | 组合根，装配 AuthN/AuthZ/Identity/IDP/Suggest/Outbox 等模块 |
 | `transport/rest` | HTTP 协议适配、路由注册、JWT middleware、DTO/错误映射 |
 | `transport/grpc` | gRPC 协议适配、service registration、mTLS/ACL/audit 链 |
-| `runtime tasks` | key rotation scheduler、outbox relay 等后台任务 |
+| `runtime tasks` | key rotation scheduler、outbox relay、AuthZ policy sync、suggest cleanup 等后台任务 |
 | `graceful shutdown` | 停止后台任务、清理模块、关闭 DB/HTTP/gRPC |
 
 一句话：
@@ -77,7 +77,7 @@ cmd/apiserver
 | [01-服务入口与生命周期装配.md](01-服务入口与生命周期装配.md) | 解释从 `main()` 到 prepared server 的完整生命周期 | 服务如何从入口启动、准备资源、初始化 container、启动 HTTP/gRPC、注册 shutdown |
 | [02-Transport装配--REST路由与gRPC服务注册.md](02-Transport装配--REST路由与gRPC服务注册.md) | 解释 REST/gRPC 如何从 container 获取模块能力 | REST deps、gRPC registrations、路由注册、service registration 如何工作 |
 | [03-配置与运行模式.md](03-配置与运行模式.md) | 解释 options/config/server mode/app mode/degradedAllowed | 配置如何进入运行时，不同运行模式如何影响启动策略 |
-| [04-后台任务与优雅关闭.md](04-后台任务与优雅关闭.md) | 解释 runtime tasks 与 shutdown lifecycle | key rotation、outbox relay、suggest cleanup、DB/HTTP/gRPC 关闭顺序 |
+| [04-后台任务与优雅关闭.md](04-后台任务与优雅关闭.md) | 解释 runtime tasks 与 shutdown lifecycle | key rotation、outbox relay、AuthZ policy sync、suggest cleanup、DB/HTTP/gRPC 关闭顺序 |
 | [05-降级启动与健康检查.md](05-降级启动与健康检查.md) | 解释 degraded startup、health、debug、fail-closed | 什么时候允许半可用启动，健康检查能证明什么、不能证明什么 |
 
 ---
@@ -113,6 +113,8 @@ flowchart TD
 
     Tasks --> Scheduler["KeyRotation Scheduler"]
     Tasks --> Relay["Outbox Relay"]
+    Tasks --> PolicySync["AuthZ Policy Sync"]
+    Tasks --> SuggestCleanup["Suggest Cleanup"]
     Tasks --> Shutdown["Graceful Shutdown"]
 
     Health --> Probes["/health / ready / live"]
@@ -194,8 +196,8 @@ health / debug 输出
 ```text
 02-Transport装配--REST路由与gRPC服务注册.md
   -> 01-服务入口与生命周期装配.md
-  -> ../05-接入与契约/01-REST API契约.md
-  -> ../05-接入与契约/02-gRPC API契约.md
+  -> ../05-接入与契约/01-REST API契约-前端与管理端接入.md
+  -> ../05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md
 ```
 
 重点关注：
@@ -263,7 +265,7 @@ sequenceDiagram
     Process->>REST: RegisterRoutes(BuildRESTDeps)
     Process->>GRPC: RegisterServices(BuildGRPCDeps)
 
-    Process->>Tasks: start key rotation / outbox relay
+    Process->>Tasks: start key rotation / outbox relay / authz policy sync / suggest cleanup
     Process->>Shutdown: register shutdown callbacks
     Process->>Process: preparedAPIServer.Run()
 ```
@@ -377,11 +379,11 @@ transport 不负责：
 | 业务模块 | 运行时如何装配 | 深潜入口 |
 | --- | --- | --- |
 | AuthN | container 初始化 AuthN module，投影 token service、login service、JWKS、session admin、rotation scheduler | `../02-认证AuthN/` |
-| AuthZ | container 初始化 AuthZ module，投影 role/resource/policy/rolebinding/check/snapshot、route authorization runtime | `../03-授权AuthZ/` |
-| Identity | container 初始化 User module，投影 User/Profile/ProfileLink 相关 capabilities | `../04-身份Identity/` |
-| IDP | container 初始化 IDP module，投影 WechatApp 管理和供 AuthN 使用的 Repository/SecretVault/AuthProvider | `../02-认证AuthN/04-第三方登录与IDP协作.md` |
+| AuthZ | container 初始化 AuthZ module，投影 role/resource/policy/rolebinding/check/snapshot、route authorization runtime，并在 EventBus 可用时构建 AuthZ policy sync subscriber | `../03-授权AuthZ/` |
+| Identity | container 初始化 User module，投影 User/Profile/ProfileLink 相关 capabilities；`User Module` 是运行时代码中的历史/实现命名，在新版文档语义中归入 Identity 能力边界 | `../04-身份Identity/` |
+| IDP | container 初始化 IDP module，投影 WechatApp 管理和供 AuthN 使用的 Repository/SecretVault/AuthProvider | `../02-认证AuthN/07-第三方登录与IDP协作-WeChat-WeCom.md` |
 | Suggest | container 初始化 Suggest module，提供 profile suggest 和 cleanup 能力 | 视后续文档补充 |
-| Outbox | container/eventing 初始化 outbox store 与 relay，process 启动 relay runtime task | `../03-授权AuthZ/04-授权版本事件与Outbox.md` |
+| Outbox | container/eventing 初始化 outbox store 与 relay，process 启动 relay runtime task；AuthZ policy sync 订阅 `iam.authz.version`，负责授权版本事件的运行时同步 | `../03-授权AuthZ/04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md` |
 
 运行时文档只解释这些模块如何进入进程，不展开它们的业务规则。
 
@@ -475,6 +477,8 @@ degraded startup 是开发/诊断能力
 
 生产环境关键资源不可用时应该失败退出，而不是半可用运行。
 
+EventBus 也是运行时边界之一。EventBus 不可用时，Outbox Relay 不完整或不启动，AuthZ Policy Sync Subscriber 也不会构建；授权版本传播需要依赖 EventBus 恢复后的 relay / subscriber 链路，或依赖其他显式 reload 机制。
+
 ---
 
 ## 后台任务与优雅关闭
@@ -493,7 +497,16 @@ Container.BuildRuntimeDeps
 ```text
 KeyRotation Scheduler
 Outbox Relay
+AuthZ Policy Sync Subscriber
 Suggest cleanup
+```
+
+其中：
+
+```text
+Outbox Relay 负责发布 due events；
+AuthZ Policy Sync Subscriber 订阅 iam.authz.version，负责授权版本事件的运行时同步；
+二者都依赖 EventBus 相关能力，但职责不同。
 ```
 
 关闭顺序大致是：
@@ -577,6 +590,7 @@ protected route 是否注册
 | REST deps | `internal/apiserver/container/rest_deps.go` |
 | gRPC registry deps | `internal/apiserver/container/grpc_registry.go` |
 | runtime deps | `internal/apiserver/container/runtime_deps.go` |
+| AuthZ policy sync subscriber | `internal/apiserver/process/shutdown_lifecycle.go`、`internal/apiserver/container/runtime_deps.go` |
 | REST router | `internal/apiserver/transport/rest/router.go` |
 | REST module routes | `internal/apiserver/transport/rest/module_routes.go` |
 | gRPC registry | `internal/apiserver/transport/grpc/registry.go` |
