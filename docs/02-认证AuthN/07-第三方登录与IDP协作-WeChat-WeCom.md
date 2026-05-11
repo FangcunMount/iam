@@ -34,6 +34,7 @@ User
 5. 为什么微信 / 企业微信不创建长期 Credential？
 6. AppSecret、AccessToken、RefreshToken 与 Credential 的边界是什么？
 7. IDP 配置、SecretVault、外部接口调用分别属于哪一层？
+8. 外部 proof、IAM Challenge、Credential、ExternalAuthorization 的边界是什么？
 
 ---
 
@@ -41,7 +42,7 @@ User
 
 ### 2.1 第三方登录证明的是外部身份，不是 IAM Credential
 
-微信、企业微信等外部身份源已经完成了一次身份认证。
+微信、企业微信等外部身份源已经完成了一次外部身份认证。
 
 IAM 要做的是：
 
@@ -50,7 +51,7 @@ IAM 要做的是：
 2. 将外部身份标识归一化为 ProviderKey；
 3. 通过 ProviderKey 查找 IAM LoginIdentity；
 4. 认证成功后构造 Principal；
-5. 签发 IAM 自己的 Token。
+5. Token 链路再将 Principal 转换为 AccessToken / RefreshToken。
 ```
 
 因此，第三方登录不应该创建：
@@ -90,7 +91,7 @@ GlobalIdentifier = unionid(optional)
 | `appid` | `Realm` | 小程序应用 ID，作为 provider namespace |
 | `openid` | `Identifier` | 用户在该小程序下的唯一标识 |
 | `unionid` | `GlobalIdentifier` | 用户在开放平台维度的稳定标识，可用于跨 App 归并 |
-| `session_key` | 不进入 LoginIdentity / Credential | 微信会话密钥，不应下发或当作 IAM Credential |
+| `session_key` | 不进入 LoginIdentity / Credential | 微信会话密钥，不应下发客户端，也不应当作 IAM Credential |
 
 ---
 
@@ -119,6 +120,13 @@ GlobalIdentifier = optional stable subject
 Provider = wecom
 Realm = corp_id
 Identifier = userid
+```
+
+如果未来扩展第三方服务商模式，可以进一步明确：
+
+```text
+自建应用内部身份：corp_id + userid
+第三方应用跨企业身份：corp_id + open_userid 或 provider-specific stable subject
 ```
 
 ---
@@ -161,15 +169,16 @@ flowchart TD
     D --> E[LoginIdentity]
     E --> F[User]
     F --> G[Principal]
-    G --> H[Token]
+    G --> H[Token 链路]
+    H --> I[AccessToken / RefreshToken]
 
-    C -. optional .-> I[GlobalIdentifier]
+    C -. optional .-> J[GlobalIdentifier]
 ```
 
 核心转换：
 
 ```text
-外部 proof -> 外部身份标识 -> ProviderKey -> LoginIdentity -> User -> Principal
+外部 proof -> 外部身份标识 -> ProviderKey -> LoginIdentity -> User -> Principal -> Token 链路
 ```
 
 IAM 不信任前端直接传来的 openid / userid 作为最终认证结果。
@@ -180,14 +189,16 @@ IAM 不信任前端直接传来的 openid / userid 作为最终认证结果。
 前端传 code；
 服务端使用 AppSecret / access_token 与 IDP 交互；
 服务端解析 openid / userid；
-服务端查 LoginIdentity。
+服务端查 LoginIdentity；
+Login 产出 Principal；
+Token 链路签发 AccessToken / RefreshToken。
 ```
 
 ---
 
 ## 4. 微信小程序：code2session 链路
 
-## 4.1 外部接口语义
+### 4.1 外部接口语义
 
 微信小程序登录通常是：
 
@@ -216,13 +227,13 @@ errcode
 errmsg
 ```
 
-`js_code` 是临时登录凭证，只能用于换取微信侧身份信息。
+`js_code` 是临时登录凭证，应该只用于换取微信侧身份信息。
 
 `session_key` 是微信用于用户数据加解密/签名校验的会话密钥，不应该下发给客户端，也不应该作为 IAM Credential。
 
 ---
 
-## 4.2 IAM ProviderKey 映射
+### 4.2 IAM ProviderKey 映射
 
 微信小程序身份映射：
 
@@ -259,7 +270,7 @@ LoginIdentity:
 
 ---
 
-## 4.3 unionid 的作用
+### 4.3 unionid 的作用
 
 `openid` 是用户在某个小程序 appid 下的标识。
 
@@ -282,7 +293,7 @@ IAM 中的推荐策略：
 
 ---
 
-## 4.4 微信小程序不创建 Credential
+### 4.4 微信小程序不创建 Credential
 
 微信小程序场景中：
 
@@ -309,24 +320,24 @@ Credential(type=wechat)
 
 ## 5. 企业微信：OAuth code / auth_code 链路
 
-## 5.1 外部接口语义
+### 5.1 外部接口语义
 
 企业微信常见身份解析链路包括：
 
 ```text
-构造 OAuth 授权链接
-用户在企业微信环境中授权
-企业微信回调 code / auth_code
-服务端使用 access_token / provider token 查询用户身份
-返回 userid / open_userid / corpid 等信息
+构造 OAuth 授权链接；
+用户在企业微信环境中授权；
+企业微信回调 code / auth_code；
+服务端使用 access_token / provider token 查询用户身份；
+返回 userid / open_userid / corpid 等信息。
 ```
 
 不同企业微信应用类型可能使用不同接口：
 
 ```text
-自建应用：根据 code 获取成员信息
-第三方应用：根据 code 获取访问用户身份
-扫码登录：根据 auth_code 获取登录用户信息
+自建应用：根据 code 获取成员信息；
+第三方应用：根据 code 获取访问用户身份；
+扫码登录：根据 auth_code 获取登录用户信息。
 ```
 
 但对 IAM 来说，核心都是：
@@ -337,7 +348,7 @@ code / auth_code -> external wecom identity -> ProviderKey
 
 ---
 
-## 5.2 IAM ProviderKey 映射
+### 5.2 IAM ProviderKey 映射
 
 企业微信身份映射：
 
@@ -371,14 +382,14 @@ LoginIdentity:
 
 ---
 
-## 5.3 userid 与 open_userid
+### 5.3 userid 与 open_userid
 
 企业微信可能返回：
 
 ```text
-UserId
+UserId / userid
 open_userid
-CorpId
+CorpId / corpid
 ```
 
 不同接入模式下字段含义不同。
@@ -404,7 +415,7 @@ Identifier = userid
 
 ---
 
-## 5.4 企业微信不创建 Credential
+### 5.4 企业微信不创建 Credential
 
 企业微信场景中：
 
@@ -426,7 +437,7 @@ Credential(type=wecom)
 
 ## 6. IDP 配置与 SecretVault
 
-## 6.1 为什么 AppSecret 必须服务端保存
+### 6.1 为什么 AppSecret 必须服务端保存
 
 微信 code2session 需要：
 
@@ -449,7 +460,7 @@ js_code
 
 ---
 
-## 6.2 IDP 配置模型
+### 6.2 IDP 配置模型
 
 微信/企微应用配置通常包括：
 
@@ -471,19 +482,21 @@ internal/apiserver/domain/idp/wechatapp
 
 ---
 
-## 6.3 SecretVault 职责
+### 6.3 SecretVault 职责
 
 `SecretVault` 负责：
 
 ```text
-加密保存 AppSecret
-解密 AppSecret
-避免明文 secret 散落在应用层
+加密保存 AppSecret；
+解密 AppSecret；
+避免明文 secret 散落在应用层。
 ```
 
 应用层可以请求解密，但不应该记录明文 secret。
 
 Infra 层可以实现具体加解密策略。
+
+SecretVault 是 IDP 相关 port / adapter 能力，具体路径以当前源码为准。
 
 ---
 
@@ -516,32 +529,38 @@ User U1
         no Credential
 ```
 
+企业微信首次开通也遵循相同结构：
+
+```text
+external proof -> userid -> WecomProviderKey -> User / LoginIdentity -> CredentialNotRequired
+```
+
 ---
 
 ## 8. Login 中的 IDP 协作
 
-Login 负责证明请求者控制某个 LoginIdentity。
+Login 负责证明请求者控制某个 LoginIdentity，并产出 Principal。
 
 微信小程序 Login：
 
 ```text
 1. 请求携带 appid + js_code。
-2. ProofFactory 构造 WechatMinipCredential 作为本次认证 proof。
+2. ProofFactory 构造 WeChat Mini proof。
 3. OAuthWechatMinipAuthStrategy 调用 code2session。
 4. 得到 openid / unionid。
 5. 根据 appid + openid 查 LoginIdentity。
 6. 必要时根据 unionid 查 GlobalIdentifier。
 7. 检查 LoginIdentity 状态。
 8. 构造 Principal。
-9. TokenApplicationService 签发 Token。
+9. Token 链路再基于 Principal 签发 AccessToken / RefreshToken。
 ```
 
-这里的 `WechatMinipCredential` 是本次认证 proof，不是持久化 Credential。
+当前代码中的 `WechatMinipCredential` / `WecomCredential` 属于 authentication proof 类型名，不等于 `domain/authn/credential.Credential`，不进入 `auth_credentials` 表。
 
 企业微信 Login 类似：
 
 ```text
-code / auth_code -> userid -> LoginIdentity(wecom) -> Principal -> Token
+code / auth_code -> userid -> LoginIdentity(wecom) -> Principal -> Token 链路
 ```
 
 ---
@@ -573,17 +592,38 @@ Linking 负责已认证 User 绑定更多 LoginIdentity。
 6. 创建或复用当前 User 的 wecom LoginIdentity。
 ```
 
+Linking 不签发 Token。
+
+Linking 的结果是：
+
+```text
+LinkResult / LoginIdentity
+```
+
 ---
 
-## 10. Onboarding / Login / Linking 的 IDP 差异
+## 10. Onboarding / Login / Linking / Token 的 IDP 差异
 
-| 链路 | 是否已知 User | 是否创建 LoginIdentity | 是否签发 Token | IDP 作用 |
-| --- | ---: | ---: | ---: | --- |
-| Onboarding | 不一定 | 是 | 否 | 解析外部身份，建立初始绑定 |
-| Login | 否 | 否 | 是 | 证明请求者控制外部身份 |
-| Linking | 是 | 是 | 否 | 证明当前 User 控制要绑定的外部身份 |
+| 链路 | 是否已知 User | 是否创建 LoginIdentity | 主要产物 | IDP 作用 |
+| --- | ---: | ---: | --- | --- |
+| Onboarding | 不一定 | 是 | User / LoginIdentity | 解析外部身份，建立初始绑定 |
+| Login | 否 | 否 | Principal | 证明请求者控制外部身份 |
+| Linking | 是 | 是 | LinkResult / LoginIdentity | 证明当前 User 控制要绑定的外部身份 |
+| Token | 是，来自 Principal | 否 | AccessToken / RefreshToken | 不直接参与 IDP proof |
 
-同样是 `appid + js_code -> openid / unionid`，三条链路的目的不同。
+同样是：
+
+```text
+appid + js_code -> openid / unionid
+```
+
+三条链路的目的不同：
+
+```text
+Onboarding：第一次把外部身份接入 IAM。
+Login：用外部身份证明自己，并产出 Principal。
+Linking：已认证用户绑定新的外部身份。
+```
 
 ---
 
@@ -608,17 +648,27 @@ WecomCredential
 domain/authn/credential.Credential
 ```
 
-因此要区分：
+更准确的语义是：
+
+```text
+WechatMinipCredential / WecomCredential 是 authentication proof，
+不是 persisted Credential。
+```
+
+对照：
 
 | 名称 | 层次 | 语义 |
 | --- | --- | --- |
-| `WechatMinipCredential` | authentication proof | 本次登录请求携带的 appid + code + secret 等 proof 输入 |
-| `Credential` | credential domain | IAM 保存的长期认证材料 |
+| `WechatMinipCredential` | authentication proof | 本次登录请求携带的 appid + code 等 proof 输入 |
+| `WecomCredential` | authentication proof | 本次登录请求携带的 corp_id + code/auth_code 等 proof 输入 |
+| `Credential` | credential domain | IAM 保存的长期认证材料，例如 password hash |
 
-更准确的讲法是：
+因此：
 
 ```text
-WechatMinipCredential 是 AuthCredential，不是 persisted Credential。
+WechatMinipCredential / WecomCredential 不进入 auth_credentials 表；
+不表示 IAM 保存了微信/企微长期认证材料；
+不应与 domain/authn/credential.Credential 混用。
 ```
 
 ---
@@ -671,37 +721,49 @@ OAuth state 可以作为 Challenge 扩展方向。
 也就是说：
 
 ```text
-js_code / auth_code 是外部 IdP proof；
+js_code / auth_code 是外部 IDP proof；
 SMS OTP 是 IAM 自己生成和验证的 Challenge。
 ```
 
 两者都不是 Credential。
 
+Challenge 不再单独成篇。
+
+SMS OTP Challenge 在以下文档中展开：
+
+```text
+02-Linking链路-登录身份绑定解绑与安全边界.md
+03-Login链路-从登录请求到Principal.md
+08-AuthN分层架构与事实源索引.md
+```
+
 ---
 
 ## 14. 分层职责
 
-## 14.1 Application 层
+### 14.1 Application 层
 
 | 模块 | 职责 |
 | --- | --- |
 | `onboarding` | 首次解析第三方身份并创建 LoginIdentity |
-| `login` | 使用第三方 proof 完成认证并签发 Token |
+| `login` | 使用第三方 proof 完成认证并产出 Principal；Token 签发由 token 链路承担 |
 | `linking` | 已认证 User 绑定第三方 LoginIdentity |
+| `token` | 基于 Principal 签发 AccessToken / RefreshToken |
 | `challenge` | 处理 IAM 自己生成的短期验证码 |
 
 Application 层负责：
 
 ```text
-编排外部身份解析
-构造 ProviderKey
-调用领域仓储
-处理冲突与幂等
+编排外部身份解析；
+构造 ProviderKey；
+调用领域仓储；
+处理冲突与幂等；
+把外部 proof 转换为 IAM Principal。
 ```
 
 ---
 
-## 14.2 Domain 层
+### 14.2 Domain 层
 
 | 模块 | 职责 |
 | --- | --- |
@@ -712,25 +774,28 @@ Application 层负责：
 
 Domain 层不直接关心 HTTP 接口细节。
 
+Domain 层不保存 AppSecret 明文。
+
 ---
 
-## 14.3 Infra 层
+### 14.3 Infra 层
 
 | 能力 | 实现 |
 | --- | --- |
 | 微信 code2session | IDP adapter |
 | 企业微信身份解析 | IDP adapter |
-| AppSecret 解密 | SecretVault |
+| AppSecret 解密 | SecretVault adapter |
 | IDP app 配置持久化 | MySQL repository |
 | LoginIdentity 持久化 | MySQL loginidentity repository |
 
 Infra 层负责：
 
 ```text
-调用外部 API
-处理 access_token / app_secret 技术细节
-加解密 secret
-网络错误重试或上报
+调用外部 API；
+处理 access_token / app_secret 技术细节；
+加解密 secret；
+网络错误重试或上报；
+把外部响应转换为应用层可用的外部身份结果。
 ```
 
 ---
@@ -762,11 +827,13 @@ Infra 层负责：
 第三方 Linking 链路必须基于当前已认证 User。
 ```
 
+如果产品要支持“首次第三方登录即注册”，应显式进入 Onboarding 或 SignUp flow，而不是让 Login strategy 静默创建 User / LoginIdentity。
+
 ---
 
 ## 16. 安全边界
 
-## 16.1 不信任前端直接传 openid / userid
+### 16.1 不信任前端直接传 openid / userid
 
 前端可以传：
 
@@ -789,20 +856,20 @@ userid
 
 ---
 
-## 16.2 AppSecret 不能下发客户端
+### 16.2 AppSecret 不能下发客户端
 
 AppSecret 只能在服务端保存和使用。
 
 正确边界：
 
 ```text
-客户端：wx.login / 企业微信授权，拿 code
-服务端：查 AppSecret，调用 IDP API
+客户端：wx.login / 企业微信授权，拿 code；
+服务端：查 AppSecret，调用 IDP API。
 ```
 
 ---
 
-## 16.3 session_key 不能作为 IAM Credential
+### 16.3 session_key 不能作为 IAM Credential
 
 微信 `session_key` 是微信侧会话密钥，用于微信用户数据加解密和签名校验。
 
@@ -817,7 +884,7 @@ Refresh Token
 
 ---
 
-## 16.4 unionid / global identifier 需要归属保护
+### 16.4 unionid / global identifier 需要归属保护
 
 如果 unionid 已经绑定到 User A，User B 不应再绑定同一个 unionid。
 
@@ -830,7 +897,7 @@ Refresh Token
 
 ---
 
-## 16.5 外部 token 不进入 Credential
+### 16.5 外部 token 不进入 Credential
 
 第三方 access_token / refresh_token 如果需要保存，应加密后进入独立授权模型。
 
@@ -845,22 +912,41 @@ Token claims
 
 ---
 
+### 16.6 code / auth_code 只能作为一次性外部 proof 使用
+
+`js_code` / `auth_code` 是短期外部 proof。
+
+不应：
+
+```text
+持久化到 LoginIdentity.Meta；
+写入 Token claims；
+作为 Credential；
+记录到业务日志；
+跨场景复用。
+```
+
+失败重试时，应重新发起外部授权或重新获取 code。
+
+---
+
 ## 17. 代码事实源索引
 
 | 主题 | 代码位置 |
 | --- | --- |
 | 微信 Onboarding 身份解析 | `internal/apiserver/application/authn/onboarding/wechat_identity_resolver.go` |
 | Onboarding request prepare | `internal/apiserver/application/authn/onboarding/request_preparer.go` |
-| WeChat Login 策略 | `internal/apiserver/domain/authn/authentication/auth-wechat-mini.go` |
-| WeCom Login 策略 | `internal/apiserver/domain/authn/authentication/auth-wechat-com.go` |
+| WeChat Login 策略 | `internal/apiserver/domain/authn/authentication` |
+| WeCom Login 策略 | `internal/apiserver/domain/authn/authentication` |
 | WeChat Linking | `internal/apiserver/application/authn/linking/link_wechat.go` |
 | WeCom Linking | `internal/apiserver/application/authn/linking/link_wecom.go` |
 | Linking Service | `internal/apiserver/application/authn/linking/service.go` |
 | LoginIdentity 模型 | `internal/apiserver/domain/authn/loginidentity` |
 | ProviderKey | `internal/apiserver/domain/authn/loginidentity/key.go` |
 | IDP 应用配置 | `internal/apiserver/domain/idp/wechatapp` |
-| SecretVault | `internal/apiserver/domain/idp/wechatapp` |
+| SecretVault | IDP application/domain port，以当前源码为准 |
 | IDP adapter | `internal/apiserver/infra/idp` 或实际 IDP infra 包 |
+| Token 链路 | `internal/apiserver/application/authn/token` |
 
 ---
 
@@ -868,7 +954,7 @@ Token claims
 
 可以这样讲：
 
-> IAM 的第三方登录没有把微信或企业微信建模为 Credential，而是把它们建模为 LoginIdentity。微信小程序通过 code2session 得到 openid 和 unionid，映射为 provider=wechat_minip、realm=appid、identifier=openid、global_identifier=unionid；企业微信通过 OAuth code 得到 userid，映射为 provider=wecom、realm=corp_id、identifier=userid。登录时外部 IdP proof 用于证明用户控制该外部身份，IAM 再根据 ProviderKey 查找 LoginIdentity 并构造 Principal。
+> IAM 的第三方登录没有把微信或企业微信建模为 Credential，而是把它们建模为 LoginIdentity。微信小程序通过 code2session 得到 openid 和 unionid，映射为 provider=wechat_minip、realm=appid、identifier=openid、global_identifier=unionid；企业微信通过 OAuth code 得到 userid，映射为 provider=wecom、realm=corp_id、identifier=userid。登录时外部 IDP proof 用于证明用户控制该外部身份，IAM 再根据 ProviderKey 查找 LoginIdentity 并构造 Principal。Token 链路再基于 Principal 签发 AccessToken / RefreshToken。
 
 进一步可以补充：
 
@@ -883,6 +969,7 @@ Token claims
 ```text
 微信小程序 code2Session：js_code -> openid / session_key / unionid(optional)
 企业微信获取访问用户身份：code / auth_code -> userid / open_userid / corpid 等身份信息
+OAuth 2.0 Refresh Token：用于换取新的 Access Token，不应发送给资源服务器
 ```
 
 这些接口返回的外部身份信息只用于构造 IAM 的 ProviderKey，不直接作为 IAM Token 或 Credential。
@@ -903,9 +990,13 @@ Token claims
 
 ```text
 01-Onboarding链路-从身份开通到LoginIdentity与Credential.md
-02-Login链路-从登录请求到Principal与Token.md
-03-Linking链路-登录身份绑定解绑与安全边界.md
-04-Challenge链路-短信验证码与短期认证挑战.md
+02-Linking链路-登录身份绑定解绑与安全边界.md
+03-Login链路-从登录请求到Principal.md
+04-Token链路-从Principal到AccessToken与RefreshToken.md
+05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md
+06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
 ```
 
-这些文档分别说明第三方身份在开通、登录、绑定、短期证明中的不同位置。
+这些文档分别说明第三方身份在开通、绑定、登录、Token、Session、JWT/JWKS 中的不同位置。
+
+Challenge 不再单独成篇；SMS OTP Challenge 在 Login / Linking 中作为支撑机制展开。

@@ -1,4 +1,4 @@
-# 03-Linking 链路：登录身份绑定解绑与安全边界
+# 02-Linking 链路：登录身份绑定解绑与安全边界
 
 ## 1. 本文解决什么问题
 
@@ -21,13 +21,14 @@ User U1
   └── LoginIdentity wecom / corp-id / userid
 ```
 
-Linking 与 Onboarding、Login 的边界不同：
+Linking 与 Onboarding、Login、Token 的边界不同：
 
 | 链路 | 目标 | 典型场景 |
 | --- | --- | --- |
 | Onboarding | 首次建立 User 与初始 LoginIdentity | 微信小程序首次注册、mock consumer 初始化 |
-| Login | 证明请求者控制某个 LoginIdentity 并签发 Token | password 登录、phone_otp 登录、wechat 登录 |
 | Linking | 已认证 User 绑定、解绑、查看更多 LoginIdentity | 绑定手机号、绑定微信、绑定企微、解绑登录身份 |
+| Login | 证明请求者控制某个 LoginIdentity，并产出 Principal | password 登录、phone_otp 登录、wechat 登录 |
+| Token | 将 Principal 转换为访问凭证 | 签发 AccessToken、RefreshToken、刷新、撤销 |
 
 本文重点说明：
 
@@ -36,8 +37,9 @@ Linking 与 Onboarding、Login 的边界不同：
 3. 手机号、微信、企微绑定链路；
 4. 登录身份解绑链路；
 5. 跨 User 绑定保护、最后一个 active identity 保护；
-6. Linking 与 Challenge、IDP、Credential、Token 的边界；
-7. 当前实现的安全边界与后续增强点。
+6. recent authentication 在敏感解绑中的作用；
+7. Linking 与 Challenge、IDP、Credential、Token 的边界；
+8. 当前实现的安全边界与后续增强点。
 
 ---
 
@@ -52,7 +54,7 @@ Linking 不应该允许匿名请求直接绑定登录身份。
 ```text
 请求者已经通过 Login 链路完成认证；
 系统已经知道当前 UserID；
-绑定操作只能发生在这个 UserID 名下。
+绑定或解绑操作只能发生在这个 UserID 名下。
 ```
 
 因此所有 Linking 命令都必须携带或从上下文中解析出：
@@ -82,7 +84,7 @@ LoginIdentity
 家长账号
 ```
 
-业务身份属于业务系统或 AuthZ scope/role，不应在 Linking 中建模。
+业务身份属于业务系统、Identity/ProfileLink 或 AuthZ scope/role，不应在 Linking 中建模。
 
 ---
 
@@ -112,7 +114,14 @@ Provider + Realm + Identifier 全局唯一；
 | wecom | 企业微信 OAuth code 或等价外部证明 |
 | username/password | 通常由 Onboarding 或 Credential 管理链路处理 |
 
-这与成熟身份系统中的账号链接安全原则一致：手动链接账号前应要求对相关账号完成认证，避免恶意用户把别人的身份链接到自己的主体上。
+这里的安全原则是：
+
+```text
+Linking 不是“声明我要绑定某个 identifier”；
+而是“证明我控制该 identifier 后才能绑定”。
+```
+
+否则攻击者可以把别人的手机号、openid、userid 绑定到自己的 User 下，形成账号接管或身份污染。
 
 ---
 
@@ -133,6 +142,36 @@ active LoginIdentity count > 1
 ```
 
 才能解绑当前 active identity。
+
+---
+
+### 2.6 敏感解绑需要 recent authentication
+
+部分解绑动作风险较高，例如：
+
+```text
+解绑当前会话正在使用的 LoginIdentity；
+解绑 username；
+解绑 phone。
+```
+
+这些操作可能直接切断用户的主要登录入口。
+
+因此当前实现要求 recent authentication：
+
+```text
+AuthenticatedAt 必须处于 RecentAuthWindow 内。
+```
+
+默认窗口由应用层依赖控制，当前实现可通过 `Dependencies.RecentAuthWindow` 覆盖。
+
+这个设计用于降低以下风险：
+
+```text
+攻击者拿到一个旧会话后，立即解绑用户的主要登录身份；
+用户离开设备后，旁人利用仍有效的会话修改关键登录入口；
+已登录会话被盗用后，攻击者切断用户找回入口。
+```
 
 ---
 
@@ -188,7 +227,7 @@ sequenceDiagram
         CH-->>T: sent
 
         T->>LS: LinkPhone(userID, phone, otp)
-        LS->>CH: VerifyAndConsumeSMSOTP(link_phone, phone, otp)
+        LS->>CH: VerifyAndConsume(link_phone, phone, otp)
         CH-->>LS: ok
         LS->>Repo: GetByProviderKey(phone/global/phone)
         alt identity belongs to another User
@@ -205,9 +244,11 @@ sequenceDiagram
         LS->>Repo: Check ProviderKey / GlobalIdentifier
         LS->>Repo: Create or reuse LoginIdentity
     else Unlink
-        T->>LS: Unlink(userID, loginIdentityID)
+        T->>LS: Unlink(userID, loginIdentityID, currentLoginIdentityID, authenticatedAt)
         LS->>Repo: GetByID
         LS->>Repo: ListByUserID
+        LS->>LS: Check last active identity
+        LS->>LS: Check recent authentication if sensitive
         LS->>Repo: UpdateStatus(deleted)
     end
 ```
@@ -226,6 +267,7 @@ type Dependencies struct {
     WechatApps      idpPort.Repository
     SecretVault     idpPort.SecretVault
     WecomAgentID    string
+    RecentAuthWindow time.Duration
     Now             func() time.Time
 }
 ```
@@ -240,6 +282,7 @@ type Dependencies struct {
 | `WechatApps` | 查询微信/企微应用配置 |
 | `SecretVault` | 解密 AppSecret 等敏感配置 |
 | `WecomAgentID` | 企业微信链路所需 agent 配置 |
+| `RecentAuthWindow` | 判断敏感解绑是否满足 recent authentication 的时间窗口 |
 | `Now` | 注入当前时间，便于测试 |
 
 ---
@@ -397,7 +440,7 @@ LoginIdentity(provider=phone, realm=global, identifier=+E164)
 ```text
 1. 检查 UserID。
 2. 校验 phone 格式。
-3. 调用 Challenge.VerifyAndConsumeSMSOTP(scene=link_phone, phone, otp)。
+3. 调用 Challenge.VerifyAndConsume(scene=link_phone, phone, otp)。
 4. 如果验证码无效，拒绝绑定。
 5. 构造 PhoneProviderKey。
 6. 调用 ensureProviderKey。
@@ -521,22 +564,34 @@ IAM 只保存 wecom LoginIdentity。
 4. 如果 identity 不存在或不属于当前 User，返回 not found。
 5. 如果 identity 是 active，则列出该 User 的全部 LoginIdentity。
 6. 如果 active 数量 <= 1，拒绝解绑。
-7. 将该 LoginIdentity 状态更新为 deleted。
+7. 判断是否为敏感解绑：
+   - 当前会话使用的 LoginIdentity；
+   - username；
+   - phone。
+8. 如果是敏感解绑，检查 AuthenticatedAt 是否在 RecentAuthWindow 内。
+9. 将该 LoginIdentity 状态更新为 deleted。
 ```
 
 核心安全规则：
 
 ```text
 不能解绑最后一个 active LoginIdentity。
+敏感解绑需要 recent authentication。
 ```
 
-这可以避免用户失去全部登录入口。
+这可以避免：
+
+```text
+用户失去全部登录入口；
+攻击者利用旧会话切断用户主要登录身份；
+被盗会话直接解绑当前登录身份后阻断用户恢复。
+```
 
 ---
 
 ## 14. 安全边界
 
-## 14.1 当前已实现的安全边界
+### 14.1 当前已实现的安全边界
 
 当前 Linking 至少应具备以下边界：
 
@@ -548,27 +603,30 @@ IAM 只保存 wecom LoginIdentity。
 5. 手机号绑定必须通过 link_phone Challenge。
 6. 解绑时禁止删除最后一个 active LoginIdentity。
 7. 微信 unionid 等 GlobalIdentifier 不应被多个 User 占用。
+8. 解绑当前登录身份、username、phone 等敏感 LoginIdentity 时，需要 recent authentication。
 ```
 
----
-
-## 14.2 后续建议增强的安全边界
-
-后续建议补充：
-
-```text
-1. 解绑当前会话使用的 LoginIdentity 时，需要 recent authentication。
-2. 解绑 password / phone 等关键身份时，需要 recent authentication。
-3. 绑定新的高风险 provider 时，可要求 recent authentication。
-4. 对绑定/解绑操作记录审计事件。
-5. 对绑定/解绑操作做频率限制。
-6. 对同一目标手机号、openid、userid 的绑定尝试做风控。
-```
-
-这里的 recent authentication 指：
+recent authentication 指：
 
 ```text
 用户在较短时间内重新完成一次认证，确认当前会话仍由本人控制。
+```
+
+它不是普通 session 存活检查，而是对敏感操作的新鲜认证要求。
+
+---
+
+### 14.2 后续建议增强的安全边界
+
+后续可以继续补充：
+
+```text
+1. 绑定新的高风险 provider 时，可要求 recent authentication。
+2. 对绑定/解绑操作记录审计事件。
+3. 对绑定/解绑操作做频率限制。
+4. 对同一目标手机号、openid、userid 的绑定尝试做风控。
+5. 对频繁失败的 IDP proof 做风险标记。
+6. 绑定或解绑成功后向用户发送通知。
 ```
 
 ---
@@ -582,19 +640,27 @@ IAM 只保存 wecom LoginIdentity。
 | 是否创建 User | 可能创建 | 不应创建 |
 | 是否创建 Credential | 按需 | 通常不创建，除非未来支持绑定 password/passkey |
 | 是否签发 Token | 否 | 否 |
-| 安全重点 | 幂等、冲突、外部身份解析 | 当前 User 归属、二次证明、防账号接管 |
+| 安全重点 | 幂等、冲突、外部身份解析 | 当前 User 归属、二次证明、防账号接管、recent authentication |
 
 ---
 
-## 16. Linking 与 Login 的区别
+## 16. Linking 与 Login / Token 的区别
 
 | 维度 | Login | Linking |
 | --- | --- | --- |
-| 目标 | 证明 LoginIdentity 控制权并签发 Token | 为已认证 User 管理 LoginIdentity |
+| 目标 | 证明 LoginIdentity 控制权并产出 Principal | 为已认证 User 管理 LoginIdentity |
 | 是否需要当前 User | 不一定，登录前未知 | 必须已知 |
 | 是否创建 LoginIdentity | 否 | 可能创建 |
 | 是否消费 Challenge | phone_otp 登录会消费 login scene | phone 绑定会消费 link_phone scene |
-| 结果 | Principal + Token | LinkResult / list / unlink result |
+| 结果 | Principal | LinkResult / list / unlink result |
+
+Token 签发不属于 Linking，也不属于 Login 的核心模型边界。
+
+它属于 Token 链路：
+
+```text
+Principal -> TokenService.IssueToken -> TokenPair
+```
 
 ---
 
@@ -607,7 +673,7 @@ SendPhoneLinkChallenge
   -> Challenge.SendSMSOTP(scene=link_phone)
 
 LinkPhone
-  -> Challenge.VerifyAndConsumeSMSOTP(scene=link_phone)
+  -> Challenge.VerifyAndConsume(scene=link_phone)
   -> Create LoginIdentity(phone)
 ```
 
@@ -619,6 +685,16 @@ login scene 的验证码不能用于 link_phone scene。
 ```
 
 scene 是 Challenge 防误用的重要边界。
+
+Challenge 不再单独成篇。
+
+它作为 Login / Linking 的支撑机制展开：
+
+```text
+03-Login：phone_otp login scene
+02-Linking：link_phone scene
+08-AuthN分层架构与事实源索引：Challenge 代码入口
+```
 
 ---
 
@@ -675,11 +751,13 @@ ExternalAuthorization 是 IAM 代表用户访问外部系统的授权材料。
 | 主题 | 代码位置 |
 | --- | --- |
 | Linking 应用服务接口 | `internal/apiserver/application/authn/linking/service.go` |
+| Linking 依赖与 recent auth window | `internal/apiserver/application/authn/linking/service.go` |
 | 手机号绑定 | `internal/apiserver/application/authn/linking/link_phone.go` |
 | 微信绑定 | `internal/apiserver/application/authn/linking/link_wechat.go` |
 | 企业微信绑定 | `internal/apiserver/application/authn/linking/link_wecom.go` |
 | 登录身份列表 | `internal/apiserver/application/authn/linking/list_identities.go` |
 | 登录身份解绑 | `internal/apiserver/application/authn/linking/unlink_identity.go` |
+| Recent authentication 规则 | `internal/apiserver/application/authn/linking/unlink_identity.go` |
 | Linking 测试 | `internal/apiserver/application/authn/linking/service_test.go` |
 | LoginIdentity 模型 | `internal/apiserver/domain/authn/loginidentity` |
 | ProviderKey | `internal/apiserver/domain/authn/loginidentity/key.go` |
@@ -700,6 +778,10 @@ ExternalAuthorization 是 IAM 代表用户访问外部系统的授权材料。
 
 > Linking 的核心不是创建业务账号，而是维护 User 与 LoginIdentity 的关系。手机号、微信、企业微信都是 LoginIdentity；短信验证码是 Challenge；外部 OAuth proof 是 IdP 协作；这些场景通常都不创建 Credential。Credential 只在 password、passkey、TOTP 等需要 IAM 保存长期认证材料的场景中存在。
 
+如果面试官继续追问安全边界，可以这样回答：
+
+> 解绑链路不只是做一条状态更新。当前实现会防止删除最后一个 active LoginIdentity，同时对当前登录身份、username、phone 等敏感解绑要求 recent authentication。这样可以避免攻击者拿到一个旧会话后，立即切断用户的主要登录入口。recent authentication 关注的是认证事件的新鲜度，不等同于普通 session 仍然存活。
+
 ---
 
 ## 22. 后续文档入口
@@ -709,16 +791,21 @@ ExternalAuthorization 是 IAM 代表用户访问外部系统的授权材料。
 后续应继续阅读：
 
 ```text
-04-Challenge链路-短信验证码与短期认证挑战.md
-05-Session与Token边界-Principal-Session-JWT-RefreshToken.md
-06-JWT-JWS-JWKS与KeyRotation.md
+03-Login链路-从登录请求到Principal.md
+04-Token链路-从Principal到AccessToken与RefreshToken.md
+05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md
+06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
 07-第三方登录与IDP协作-WeChat-WeCom.md
+08-AuthN分层架构与事实源索引.md
 ```
 
 其中：
 
 ```text
-Challenge 文档说明短信验证码如何创建、发送、校验与消费。
-第三方登录文档说明微信、企微等外部身份源如何与 IAM 协作。
-Session/Token 文档说明认证成功后的访问上下文如何表达。
+Login 说明如何证明 LoginIdentity 并产出 Principal。
+Token 说明 Principal 如何转换为 AccessToken / RefreshToken。
+Session 说明 Principal / Session / AccessToken / RefreshToken 的边界。
+JWT/JWS/JWK/JWKS 说明 Token 的安全表达与密钥治理。
+IDP 说明 WeChat / WeCom 如何参与 Onboarding、Linking、Login。
+Challenge 不再单独成篇，而是作为 Login / Linking 的支撑机制展开。
 ```

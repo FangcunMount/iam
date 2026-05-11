@@ -27,7 +27,7 @@ User
 
 本文重点说明：
 
-1. Onboarding 与 Login、Linking 的边界；
+1. Onboarding 与 Linking、Login、Token 的边界；
 2. Onboarding 输入模型如何从 `User + LoginIdentity + Credential` 进入应用层；
 3. `requestPreparer` 如何在事务外准备数据；
 4. `userResolver`、`loginIdentityEnsurer`、`credentialEnsurer` 如何在事务内协作；
@@ -48,18 +48,25 @@ LoginIdentity
 Credential(optional)
 ```
 
-Login 负责证明请求者控制某个登录身份，并签发 Token：
+Login 负责证明请求者控制某个登录身份，并产出 `Principal`：
 
 ```text
-LoginRequest -> Proof -> Authenticator -> Principal -> Token
+LoginRequest -> Proof -> Authenticator -> Principal
 ```
 
-两者边界不同：
+Token 链路负责把 `Principal` 转换为访问凭证：
 
-| 链路 | 目标 | 是否签发 Token |
-|---|---|---:|
-| Onboarding | 建立 User 与 LoginIdentity，并按需创建 Credential | 否 |
-| Login | 验证 LoginIdentity 的控制权，生成 Principal 与 Token | 是 |
+```text
+Principal -> TokenService.IssueToken -> AccessToken / RefreshToken
+```
+
+三者边界不同：
+
+| 链路 | 目标 | 主要产物 |
+|---|---|---|
+| Onboarding | 建立 User 与 LoginIdentity，并按需创建 Credential | User / LoginIdentity / Credential |
+| Login | 验证 LoginIdentity 的控制权 | Principal |
+| Token | 将 Principal 转换为访问凭证 | AccessToken / RefreshToken |
 
 ---
 
@@ -80,6 +87,8 @@ Linking：已有 User 绑定/解绑更多 LoginIdentity
 已登录用户绑定企业微信 -> Linking
 已登录用户解绑微信 -> Linking
 ```
+
+因此新版 AuthN 文档中，Linking 紧跟 Onboarding 之后展开：先讲 LoginIdentity 如何首次建立，再讲已认证 User 如何继续绑定或解绑 LoginIdentity。
 
 这样可以避免 Onboarding 重新膨胀成“所有身份操作的大杂烩”。
 
@@ -136,6 +145,12 @@ LoginIdentity input
 Credential input(optional)
 ```
 
+具体字段以当前代码为准：
+
+```text
+internal/apiserver/application/authn/onboarding/port.go
+```
+
 ---
 
 ## 4. OnboardingUserInput：用户主体输入
@@ -164,6 +179,15 @@ corp_id
 ```
 
 这些分别属于 `LoginIdentity`、`Credential` 或 `Challenge`。
+
+需要注意：
+
+```text
+Name、Phone、Email 是当前 OnboardingUserInput 的用户资料输入；
+是否必填、如何归一化、如何校验，应以 requestPreparer 和 User 领域构造逻辑为准。
+```
+
+不要把 `OnboardingUserInput` 误解为所有登录方式都天然要求完整用户资料。
 
 ---
 
@@ -351,7 +375,7 @@ sequenceDiagram
 
 ## 8. 分层职责
 
-## 8.1 Application 层职责
+### 8.1 Application 层职责
 
 Onboarding 应用层负责用例编排。
 
@@ -377,7 +401,7 @@ Application 层不应该：
 
 ---
 
-## 8.2 Domain 层职责
+### 8.2 Domain 层职责
 
 Domain 层负责模型和规则。
 
@@ -401,7 +425,7 @@ Credential(optional)
 
 ---
 
-## 8.3 Infra 层职责
+### 8.3 Infra 层职责
 
 Infra 层负责具体存储与外部系统适配。
 
@@ -428,7 +452,7 @@ Infra 层应保证：
 
 Onboarding 分为事务外和事务内两段。
 
-## 9.1 事务外：requestPreparer
+### 9.1 事务外：requestPreparer
 
 事务外处理：
 
@@ -451,7 +475,7 @@ trim 输入
 
 ---
 
-## 9.2 事务内：User + LoginIdentity + Credential
+### 9.2 事务内：User + LoginIdentity + Credential
 
 事务内处理：
 
@@ -489,7 +513,7 @@ LoginIdentity 创建成功但 Credential 创建失败 -> 回滚
 5. 如果没有找到 LoginIdentity，则创建新 User。
 ```
 
-## 10.1 为什么不再按手机号直接找 User
+### 10.1 为什么不再按手机号直接找 User
 
 手机号是否用于登录，应该由 `LoginIdentity(provider=phone)` 表达。
 
@@ -506,7 +530,7 @@ LoginIdentity 创建成功但 Credential 创建失败 -> 回滚
 
 ---
 
-## 10.2 GlobalIdentifier 的作用
+### 10.2 GlobalIdentifier 的作用
 
 微信小程序场景中：
 
@@ -571,7 +595,7 @@ appid + openid 未命中
 
 当前主要处理 password credential。
 
-## 12.1 需要 Credential 的场景
+### 12.1 需要 Credential 的场景
 
 ```text
 username/password
@@ -588,7 +612,7 @@ mock consumer password
 5. 返回 CredentialCreated。
 ```
 
-## 12.2 不需要 Credential 的场景
+### 12.2 不需要 Credential 的场景
 
 ```text
 wechat_minip
@@ -609,7 +633,7 @@ Status = CredentialNotRequired
 
 ## 13. 典型场景
 
-## 13.1 用户名密码开通
+### 13.1 用户名密码开通
 
 输入：
 
@@ -646,7 +670,7 @@ User U1
 
 ---
 
-## 13.2 Mock consumer password 开通
+### 13.2 Mock consumer password 开通
 
 输入：
 
@@ -677,7 +701,7 @@ Credential(password)
 
 ---
 
-## 13.3 微信小程序开通
+### 13.3 微信小程序开通
 
 输入：
 
@@ -713,7 +737,7 @@ User U1
 
 ## 14. 幂等与冲突规则
 
-## 14.1 幂等规则
+### 14.1 幂等规则
 
 Onboarding 应支持幂等：
 
@@ -723,7 +747,7 @@ Onboarding 应支持幂等：
 微信 unionid 命中已有 User 时，应复用 User。
 ```
 
-## 14.2 冲突规则
+### 14.2 冲突规则
 
 以下情况必须报错：
 
@@ -735,7 +759,7 @@ User 创建失败。
 LoginIdentity 创建唯一键冲突且无法确认属于当前 User。
 ```
 
-## 14.3 不应做的事情
+### 14.3 不应做的事情
 
 ```text
 不应因为 User.Phone 相同就默认复用 User。
@@ -748,7 +772,7 @@ LoginIdentity 创建唯一键冲突且无法确认属于当前 User。
 
 ## 15. Onboarding 与其他链路的关系
 
-## 15.1 与 Login 的关系
+### 15.1 与 Login / Token 的关系
 
 Onboarding 之后，系统具备登录所需的模型基础：
 
@@ -758,17 +782,23 @@ LoginIdentity
 Credential(optional)
 ```
 
-但 Onboarding 不签发 Token。
+但 Onboarding 不认证请求者，也不签发 Token。
 
-用户要获得 Token，仍需走 Login：
+用户要获得认证结果，仍需走 Login：
 
 ```text
-LoginIdentity proof -> Authenticator -> Principal -> Token
+LoginIdentity proof -> Authenticator -> Principal
+```
+
+用户要获得访问凭证，还需经过 Token 链路：
+
+```text
+Principal -> TokenService.IssueToken -> TokenPair
 ```
 
 ---
 
-## 15.2 与 Linking 的关系
+### 15.2 与 Linking 的关系
 
 Onboarding 负责初始身份开通。
 
@@ -782,7 +812,7 @@ Linking 负责已认证用户绑定更多身份。
 
 ---
 
-## 15.3 与 Challenge 的关系
+### 15.3 与 Challenge 的关系
 
 Onboarding 本身不直接等同 Challenge。
 
@@ -792,13 +822,23 @@ Onboarding 本身不直接等同 Challenge。
 
 ```text
 SendPhoneLinkChallenge
-VerifyAndConsumeSMSOTP
+VerifyAndConsume
 Create LoginIdentity(phone)
+```
+
+Challenge 不再单独作为 AuthN 主链路文档存在。
+
+它作为短期认证挑战机制，被放入：
+
+```text
+02-Linking：link_phone scene
+03-Login：phone_otp login scene
+08-事实源索引：Challenge 代码入口
 ```
 
 ---
 
-## 15.4 与 AuthZ 的关系
+### 15.4 与 AuthZ 的关系
 
 Onboarding 不授予权限。
 
@@ -807,7 +847,9 @@ Onboarding 只建立认证基础。
 权限应由 AuthZ 模块通过以下结构表达：
 
 ```text
-User + Scope + Role / Permission
+Subject = user:<UserID>
+Tenant / Scope = xxx
+Role / Permission = xxx
 ```
 
 不要在 Onboarding 中创建业务角色或业务账号。
@@ -842,7 +884,7 @@ User + Scope + Role / Permission
 
 进一步可以补充：
 
-> 这个模型的关键点是 LoginIdentity 与 Credential 解耦。用户名密码场景会创建 username LoginIdentity 和 password Credential；微信小程序场景只创建 wechat_minip LoginIdentity，不创建 Credential，因为微信已经完成外部认证。手机号验证码也不应该建 Credential，验证码应由 Challenge 承载。
+> 这个模型的关键点是 LoginIdentity 与 Credential 解耦。用户名密码场景会创建 username LoginIdentity 和 password Credential；微信小程序场景只创建 wechat_minip LoginIdentity，不创建 Credential，因为微信已经完成外部认证。手机号验证码也不应该建 Credential，验证码应由 Challenge 承载。Onboarding 完成后只具备登录模型基础；Login 负责产出 Principal，Token 链路负责把 Principal 签发为 AccessToken / RefreshToken。
 
 ---
 
@@ -853,16 +895,22 @@ User + Scope + Role / Permission
 后续应继续阅读：
 
 ```text
-02-Login链路-从登录请求到Principal与Token.md
-03-Linking链路-登录身份绑定解绑与安全边界.md
-04-Challenge链路-短信验证码与短期认证挑战.md
-05-Session与Token边界-Principal-Session-JWT-RefreshToken.md
+02-Linking链路-登录身份绑定解绑与安全边界.md
+03-Login链路-从登录请求到Principal.md
+04-Token链路-从Principal到AccessToken与RefreshToken.md
+05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md
+06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
+07-第三方登录与IDP协作-WeChat-WeCom.md
+08-AuthN分层架构与事实源索引.md
 ```
 
 其中：
 
 ```text
-Login 说明如何证明 LoginIdentity 并签发 Token。
-Linking 说明已认证 User 如何绑定更多 LoginIdentity。
-Challenge 说明 OTP 等短期认证挑战如何创建、校验与消费。
+Linking 说明已认证 User 如何绑定或解绑更多 LoginIdentity。
+Login 说明如何证明 LoginIdentity 并产出 Principal。
+Token 说明 Principal 如何转换为 AccessToken / RefreshToken。
+Session 说明 Principal / Session / AccessToken / RefreshToken 的边界。
+JWT/JWS/JWK/JWKS 说明 Token 的安全表达与密钥治理。
+IDP 说明 WeChat / WeCom 如何参与 Onboarding、Linking、Login。
 ```

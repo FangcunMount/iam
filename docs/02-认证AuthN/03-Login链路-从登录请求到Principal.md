@@ -1,13 +1,13 @@
-# 02-Login 链路：从登录请求到 Principal 与 Token
+# 03-Login 链路：从登录请求到 Principal
 
 ## 1. 本文解决什么问题
 
 本文说明 IAM AuthN 模块中的 **Login（登录认证）链路**。
 
-Login 的职责不是创建 User，也不是绑定新的 LoginIdentity，而是：
+Login 的职责不是创建 User，也不是绑定新的 LoginIdentity，也不是讲完整 Token 生命周期，而是：
 
 ```text
-证明请求者控制某个 LoginIdentity，认证成功后构造 Principal，并签发 Token。
+证明请求者控制某个 LoginIdentity，认证成功后构造 Principal。
 ```
 
 Login 链路承接前置模型：
@@ -20,7 +20,7 @@ User
 
 不同登录方式的证明材料不同：
 
-| 登录方式 | 定位主体的对象 | 证明方式 | 是否使用 Credential |
+| 登录方式 | 定位主体的对象 | 证明方式 | 是否使用 persisted Credential |
 | --- | --- | --- | ---: |
 | username/password | LoginIdentity(username) | password hash 校验 | 是 |
 | phone_otp | LoginIdentity(phone) | Challenge 校验 | 否 |
@@ -29,14 +29,15 @@ User
 
 本文重点说明：
 
-1. Login 与 Onboarding、Linking 的边界；
+1. Login 与 Onboarding、Linking、Token 的边界；
 2. 登录请求如何选择认证方式；
-3. ProofFactory 如何把请求转成领域认证凭据；
+3. ProofFactory 如何把请求转成领域认证 proof；
 4. Authenticator 如何选择领域认证策略；
-5. 不同认证策略如何查找 LoginIdentity 与 Credential；
+5. 不同认证策略如何查找 LoginIdentity、Credential、Challenge 或外部 IDP；
 6. 认证成功后如何构造 Principal；
-7. TokenApplicationService 如何签发 Token；
-8. Application、Domain、Infra 三层在 Login 链路中的职责。
+7. CredentialRecorder 如何记录长期 Credential 的认证结果；
+8. Login 与 Token 链路的交界面；
+9. Application、Domain、Infra 三层在 Login 链路中的职责。
 
 ---
 
@@ -57,13 +58,19 @@ Login 只做一件事：
 如果验证成功：
 
 ```text
-LoginIdentity -> User -> Principal -> Token
+LoginIdentity -> User -> Principal
 ```
 
 如果验证失败：
 
 ```text
 返回认证失败，不创建任何身份结构。
+```
+
+Token 链路从 Principal 之后开始：
+
+```text
+Principal -> TokenApplicationService.IssueToken -> TokenPair
 ```
 
 ---
@@ -79,6 +86,7 @@ LoginIdentity -> User -> Principal -> Token
 ```text
 UserID
 LoginIdentityID
+TenantID
 AuthMethod
 Realm
 AMR
@@ -89,18 +97,19 @@ Claims
 
 | 字段 | 语义 |
 | --- | --- |
-| `UserID` | IAM 认证主体，Token subject |
+| `UserID` | IAM 认证主体，后续可作为 Token subject |
 | `LoginIdentityID` | 本次认证使用的登录身份 |
+| `TenantID` | 当前认证上下文中的租户 |
 | `AuthMethod` | 本次认证方式，例如 password、phone_otp、wechat_minip、wecom |
 | `Realm` | Provider 所在命名空间，例如 tenant_id、global、appid、corp_id |
 | `AMR` | Authentication Method References |
-| `Claims` | 用于 Token 的扩展声明 |
+| `Claims` | 认证结果携带的扩展声明来源 |
 
 ---
 
 ### 2.3 Credential 只在需要长期认证材料时参与 Login
 
-Password 登录需要 Credential：
+Password 登录需要 persisted Credential：
 
 ```text
 username + password
@@ -113,7 +122,7 @@ Phone OTP 不需要长期 Credential：
 
 ```text
 phone + otp
-  -> Challenge verify
+  -> Challenge verify and consume
   -> LoginIdentity(phone)
 ```
 
@@ -121,7 +130,7 @@ WeChat / WeCom 不需要长期 Credential：
 
 ```text
 external code
-  -> external IdP proof
+  -> external IDP proof
   -> LoginIdentity(wechat_minip / wecom)
 ```
 
@@ -133,7 +142,43 @@ LoginIdentity 0..N Credential
 
 ---
 
-### 2.4 Token 不是领域模型，Token 是认证结果的安全表达
+### 2.4 Challenge 支撑 phone_otp login
+
+手机号验证码登录使用 Challenge。
+
+```text
+phone_otp login
+  -> Challenge(scene=login)
+  -> VerifyAndConsume
+  -> LoginIdentity(phone)
+  -> Principal
+```
+
+Challenge 不是 Credential。
+
+验证码不应该进入 `auth_credentials` 表，也不应该被当成长期认证材料。
+
+---
+
+### 2.5 IDP proof 支撑 wechat / wecom login
+
+微信、企业微信登录依赖外部身份源 proof。
+
+```text
+wechat_minip:
+  appid + js_code -> code2session -> openid / unionid
+
+wecom:
+  corp_id + oauth_code -> userid
+```
+
+外部身份源完成外部认证，IAM 根据解析结果查找本地 LoginIdentity。
+
+IAM 不为 wechat_minip / wecom 创建长期 Credential。
+
+---
+
+### 2.6 Login 的领域结果是 Principal，不是 JWT
 
 Login 领域层产出的是：
 
@@ -142,15 +187,11 @@ AuthDecision
 Principal
 ```
 
-应用层再把 Principal 交给 Token 服务，签发：
+Application 层可以在登录成功后调用 `TokenApplicationService`，但 Token 的签发、刷新、撤销、TokenStore、SessionManager、TokenAudit 应进入第 04 篇 Token 链路。
 
-```text
-Access Token
-Refresh Token
-Session
-```
+JWT/JWS/JWK/JWKS 是 Token 的标准表达和验签基础设施，不是 Login 领域模型。
 
-JWT 是一种紧凑的 claims 表达格式；当 JWT 作为 JWS payload 时，claims 会被签名或完整性保护。本文不把 JWT 当作领域模型，而是把它作为 Principal 的安全表达形式。
+标准语义上，JWT 是 claims 的紧凑表达；JWS 则表示用数字签名或 MAC 保护的内容。Login 文档只说明 Principal 如何产生，不展开 JWT/JWS 的具体结构。
 
 ---
 
@@ -166,15 +207,16 @@ sequenceDiagram
     participant Strategy as AuthStrategy
     participant LIRepo as LoginIdentityRepository
     participant CRepo as CredentialRepository
-    participant CH as ChallengeService / IdP
-    participant Token as TokenApplicationService
+    participant CH as ChallengeService / IDP
+    participant Recorder as CredentialRecorder
+    participant Token as TokenApplicationService\n(Token Boundary)
 
     API->>SignIn: Execute(LoginCommand)
     SignIn->>Selector: Select login method
     Selector-->>SignIn: LoginMethodSelection
-    SignIn->>Proof: Build proof
-    Proof-->>SignIn: AuthCredential
-    SignIn->>Auth: Authenticate(AuthCredential)
+    SignIn->>Proof: Build authentication proof
+    Proof-->>SignIn: AuthCredential / Proof
+    SignIn->>Auth: Authenticate(proof)
     Auth->>Strategy: Dispatch by CredentialKind
 
     alt password
@@ -182,19 +224,35 @@ sequenceDiagram
         Strategy->>CRepo: FindPasswordCredentialByLoginIdentity
         Strategy-->>Auth: AuthDecision(Principal)
     else phone_otp
-        Strategy->>CH: VerifyAndConsume OTP
+        Strategy->>CH: VerifyAndConsume OTP(scene=login)
         Strategy->>LIRepo: Find phone LoginIdentity
         Strategy-->>Auth: AuthDecision(Principal)
     else wechat_minip / wecom
-        Strategy->>CH: External IdP proof
+        Strategy->>CH: Resolve external IDP proof
         Strategy->>LIRepo: Find external LoginIdentity
         Strategy-->>Auth: AuthDecision(Principal)
     end
 
     Auth-->>SignIn: AuthDecision
+    SignIn->>Recorder: Record credential result(optional)
+    Recorder-->>SignIn: recorded / skipped
+    SignIn->>SignIn: Extract Principal
     SignIn->>Token: IssueToken(Principal)
     Token-->>SignIn: TokenPair
     SignIn-->>API: SignInResult
+```
+
+说明：
+
+```text
+Login 主边界：LoginRequest -> AuthDecision -> Principal。
+Token 边界：Principal -> TokenApplicationService.IssueToken -> TokenPair。
+```
+
+图中的 `TokenApplicationService` 是 Login 成功后的下游边界调用点，不是 Login 领域认证规则的一部分。Token 细节见：
+
+```text
+04-Token链路-从Principal到AccessToken与RefreshToken.md
 ```
 
 ---
@@ -212,12 +270,14 @@ internal/apiserver/application/authn/login
 它负责编排一次登录：
 
 ```text
-1. 选择登录方式
-2. 构造领域认证凭据 proof
-3. 调用领域认证器 Authenticator
-4. 判断认证结果
-5. 构造 Principal 后签发 Token
-6. 返回 SignInResult
+1. 选择登录方式。
+2. 构造领域认证 proof。
+3. 调用领域认证器 Authenticator。
+4. 判断认证结果。
+5. 记录长期 Credential 的认证结果。
+6. 提取 Principal。
+7. 将 Principal 交给 Token 链路生成 TokenPair。
+8. 返回 SignInResult。
 ```
 
 典型流程：
@@ -227,7 +287,9 @@ LoginCommand
   -> methodRegistry.Select
   -> proofFactory.Build
   -> domainAuthenticator.Authenticate
-  -> tokenService.IssueToken
+  -> credentialRecorder.Record(optional)
+  -> Principal
+  -> tokenService.IssueToken(boundary call)
   -> SignInResult
 ```
 
@@ -239,14 +301,16 @@ Application 层不直接校验密码、不直接查询 MySQL、不直接拼 JWT�
 method selection
 proof build
 domain authentication
-token issue
+credential result record
+principal extraction
+token boundary call
 ```
 
 ---
 
 ## 5. LoginCommand：登录请求输入
 
-LoginCommand 表达一次登录请求。
+`LoginCommand` 表达一次登录请求。
 
 它通常包含：
 
@@ -264,7 +328,7 @@ tenant / realm context
 | --- | --- |
 | password | username、password、tenant_id |
 | phone_otp | phone、otp |
-| wechat | appid、js_code |
+| wechat_minip | appid、js_code |
 | wecom | corp_id、oauth_code |
 
 Transport 层负责把 REST/gRPC 请求转换为 LoginCommand。
@@ -291,37 +355,37 @@ CredentialKind
 Payload
 ```
 
-这样后续 ProofFactory 就可以根据选择结果构造领域层的 `AuthCredential`。
+这样后续 ProofFactory 就可以根据选择结果构造领域层 authentication proof。
 
 ---
 
-## 7. ProofFactory：从应用请求到领域凭据
+## 7. ProofFactory：从应用请求到领域认证 proof
 
-`ProofFactory` 负责把应用层请求转换成领域层认证凭据。
+`ProofFactory` 负责把应用层请求转换成领域层认证 proof。
 
-例如：
+从文档语义上看，可以理解为：
 
 ```text
-PasswordPayload -> PasswordCredential
-PhoneOTPPayload -> PhoneOTPCredential
-WechatMiniPayload -> WechatMinipCredential
-WecomPayload -> WecomCredential
+PasswordPayload -> Password proof
+PhoneOTPPayload -> Phone OTP proof
+WechatMiniPayload -> WeChat Mini proof
+WecomPayload -> WeCom proof
 ```
 
-这里的“Credential”是认证证明输入，不等同于持久化领域模型 `domain/authn/credential.Credential`。
+当前代码中的 `PasswordCredential`、`PhoneOTPCredential`、`WechatMinipCredential`、`WecomCredential` 属于 authentication proof 类型名，不等于 persisted Credential。
 
 需要区分：
 
 | 名称 | 所在层 | 语义 |
 | --- | --- | --- |
-| `AuthCredential` | authentication 领域认证输入 | 本次认证请求携带的证明材料 |
+| `AuthCredential` / proof | authentication 领域认证输入 | 本次认证请求携带的证明材料 |
 | `Credential` | credential 领域模型 | IAM 长期保存的认证材料 |
 
 例如 password 登录：
 
 ```text
-AuthCredential = 本次输入的 username + password
-Credential = 数据库里保存的 password hash
+AuthCredential / proof = 本次输入的 username + password
+persisted Credential = 数据库里保存的 password hash
 ```
 
 ---
@@ -345,23 +409,23 @@ CredentialKindWecom -> OAuthWeComAuthStrategy
 AuthDecision
 ```
 
-`AuthDecision` 表达：
+`AuthDecision` 至少表达：
 
 ```text
-认证是否成功
-失败原因 code
-认证成功后的 Principal
-本次使用的 LoginIdentityID
-本次使用的 CredentialID(optional)
-是否需要轮换认证材料
-新认证材料(optional)
+认证是否成功；
+失败原因；
+成功后的 Principal；
+本次使用的 LoginIdentity；
+可选的 Credential 认证结果或轮换提示。
 ```
+
+具体字段以当前 `domain/authn/authentication` 代码为准。
 
 ---
 
 ## 9. Password 登录链路
 
-## 9.1 输入
+### 9.1 输入
 
 ```text
 tenant_id / realm
@@ -371,15 +435,15 @@ remote_ip
 user_agent
 ```
 
-## 9.2 领域凭据
+### 9.2 认证 proof
 
 ```text
-PasswordCredential
+Password proof
 ```
 
-它是本次登录请求携带的证明材料。
+它是本次登录请求携带的证明材料，不是数据库中的 persisted Credential。
 
-## 9.3 认证流程
+### 9.3 认证流程
 
 ```text
 1. 根据 tenant_id + username 查找 LoginIdentity(username)。
@@ -387,17 +451,18 @@ PasswordCredential
 3. 检查 LoginIdentity 状态是否 active。
 4. 根据 LoginIdentityID 查找 password Credential。
 5. 检查 Credential 是否存在。
-6. 校验 password hash。
-7. 判断是否需要 rehash / rotate material。
-8. 构造 Principal。
-9. 返回 AuthDecision。
+6. 检查 Credential 是否可用，例如 enabled / not locked。
+7. 校验 password hash。
+8. 判断是否需要 rehash / rotate material。
+9. 构造 Principal。
+10. 返回 AuthDecision。
 ```
 
-## 9.4 Password 登录的关键边界
+### 9.4 Password 登录的关键边界
 
 ```text
 username 是 LoginIdentity.Identifier。
-password hash 是 Credential.Material。
+password hash 是 persisted Credential.Material。
 tenant_id 或 default realm 是 LoginIdentity.Realm。
 ```
 
@@ -415,7 +480,7 @@ User
 
 ## 10. Phone OTP 登录链路
 
-## 10.1 输入
+### 10.1 输入
 
 ```text
 phone
@@ -424,15 +489,15 @@ remote_ip
 user_agent
 ```
 
-## 10.2 领域凭据
+### 10.2 认证 proof
 
 ```text
-PhoneOTPCredential
+Phone OTP proof
 ```
 
 它表达本次请求携带的手机号和验证码。
 
-## 10.3 认证流程
+### 10.3 认证流程
 
 ```text
 1. 校验并消费 Challenge(scene=login, target=phone)。
@@ -443,7 +508,7 @@ PhoneOTPCredential
 6. 返回 AuthDecision。
 ```
 
-## 10.4 Phone OTP 的关键边界
+### 10.4 Phone OTP 的关键边界
 
 ```text
 phone 是 LoginIdentity。
@@ -457,7 +522,7 @@ phone_otp 不创建长期 Credential。
 
 ## 11. WeChat Mini 登录链路
 
-## 11.1 输入
+### 11.1 输入
 
 ```text
 appid
@@ -466,15 +531,15 @@ remote_ip
 user_agent
 ```
 
-## 11.2 领域凭据
+### 11.2 认证 proof
 
 ```text
-WechatMinipCredential
+WeChat Mini proof
 ```
 
-它表达本次登录请求携带的外部 IdP proof 所需信息。
+它表达本次登录请求携带的外部 IDP proof 所需信息。
 
-## 11.3 认证流程
+### 11.3 认证流程
 
 ```text
 1. 使用 appid + js_code 调用微信 code2session。
@@ -486,13 +551,13 @@ WechatMinipCredential
 7. 返回 AuthDecision。
 ```
 
-## 11.4 WeChat 登录的关键边界
+### 11.4 WeChat 登录的关键边界
 
 ```text
 openid 是 LoginIdentity.Identifier。
 appid 是 LoginIdentity.Realm。
 unionid 是 LoginIdentity.GlobalIdentifier。
-微信 code2session 是外部 IdP proof。
+微信 code2session 是外部 IDP proof。
 微信登录不创建长期 Credential。
 ```
 
@@ -500,7 +565,7 @@ unionid 是 LoginIdentity.GlobalIdentifier。
 
 ## 12. WeCom 登录链路
 
-## 12.1 输入
+### 12.1 输入
 
 ```text
 corp_id
@@ -510,13 +575,13 @@ remote_ip
 user_agent
 ```
 
-## 12.2 领域凭据
+### 12.2 认证 proof
 
 ```text
-WecomCredential
+WeCom proof
 ```
 
-## 12.3 认证流程
+### 12.3 认证流程
 
 ```text
 1. 使用企业微信 OAuth code 解析 userid。
@@ -526,7 +591,7 @@ WecomCredential
 5. 返回 AuthDecision。
 ```
 
-## 12.4 WeCom 登录的关键边界
+### 12.4 WeCom 登录的关键边界
 
 ```text
 corp_id 是 LoginIdentity.Realm。
@@ -545,7 +610,7 @@ IAM 不保存企业微信 Credential。
 
 ```text
 active -> 可以继续认证
- disabled / archived / deleted -> 认证失败
+disabled / archived / deleted -> 认证失败
 ```
 
 这样可以支持：
@@ -565,7 +630,7 @@ active -> 可以继续认证
 
 ---
 
-## 14. Credential 状态检查
+## 14. Credential 状态与 CredentialRecorder
 
 Password 登录除了检查 LoginIdentity，还必须检查 password Credential。
 
@@ -597,6 +662,15 @@ LockedUntil = nil
 ```
 
 如果 password hash 算法需要升级，应通过 `ShouldRotate / NewMaterial` 等机制触发 material rotation。
+
+当前 Login 应用层通过 CredentialRecorder 记录长期 Credential 的认证结果。
+
+需要注意：
+
+```text
+只有 password 等 persisted Credential 场景需要记录 Credential 认证结果。
+phone_otp / wechat_minip / wecom 通常没有 persisted Credential，因此记录动作应跳过或为空。
+```
 
 ---
 
@@ -650,41 +724,41 @@ Claims = {
 }
 ```
 
-Principal 是 Token 签发的输入。
+Principal 是 Token 签发的输入，但不是 Token 本身。
 
 ---
 
-## 16. Token 签发
+## 16. Login 与 Token 的交界面
 
-Application 层在认证成功后调用：
-
-```text
-TokenApplicationService.IssueToken(ctx, principal)
-```
-
-Token 服务负责：
+Login 成功后，Application 层会把 Principal 交给 TokenApplicationService：
 
 ```text
-1. 将 Principal 映射为 JWT claims。
-2. 签发 Access Token。
-3. 签发 Refresh Token。
-4. 写入 TokenStore / SessionManager。
-5. 返回 TokenPair。
+Principal -> TokenApplicationService.IssueToken -> TokenPair
 ```
 
-Login 链路本身不直接拼 JWT。
+本文只说明这个交界面。
 
-JWT / JWS / JWKS 细节由后续文档展开：
+Token 签发、刷新、撤销、TokenStore、SessionManager、TokenAudit 由第 04 篇展开：
 
 ```text
-06-JWT-JWS-JWKS与KeyRotation.md
+04-Token链路-从Principal到AccessToken与RefreshToken.md
 ```
+
+JWT/JWS/JWK/JWKS 和 KeyRotation 由第 06 篇展开：
+
+```text
+06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
+```
+
+Login 链路本身不直接拼 JWT，也不直接管理签名私钥。
 
 ---
 
 ## 17. 返回结果 SignInResult
 
-登录成功后，应用层返回：
+`SignInResult` 是 Login + Token 边界处的应用返回对象。
+
+它可以包含：
 
 ```text
 Principal
@@ -694,7 +768,18 @@ LoginIdentityID
 TenantID
 ```
 
-这说明 Login 的结果既包含认证主体，也包含本次登录上下文。
+这表示应用层一次登录操作已经完成：
+
+```text
+认证主体识别 -> Principal
+访问凭证签发 -> TokenPair
+```
+
+但需要注意：
+
+```text
+SignInResult 包含 TokenPair，不代表 Token 签发属于 Login 领域模型。
+```
 
 外部响应通常应包含：
 
@@ -713,14 +798,15 @@ auth_method
 
 ## 18. 分层职责
 
-## 18.1 Application 层职责
+### 18.1 Application 层职责
 
 | 组件 | 职责 |
 | --- | --- |
 | `SignIn` | 编排登录流程 |
 | `MethodRegistry` | 选择登录方式 |
-| `ProofFactory` | 构造领域认证凭据 |
-| `TokenApplicationService` | 签发 Token |
+| `ProofFactory` | 构造领域认证 proof |
+| `CredentialRecorder` | 记录 persisted Credential 的认证结果 |
+| `TokenApplicationService` | Login 成功后的下游 Token 边界调用，具体签发细节见第 04 篇 |
 | `ReAuthenticator` | 二次认证或重新认证 |
 
 Application 层不负责：
@@ -735,7 +821,7 @@ Application 层不负责：
 
 ---
 
-## 18.2 Domain 层职责
+### 18.2 Domain 层职责
 
 | 组件 | 职责 |
 | --- | --- |
@@ -761,7 +847,7 @@ OTP 是否有效
 
 ---
 
-## 18.3 Infra 层职责
+### 18.3 Infra 层职责
 
 | 能力 | Infra 实现 |
 | --- | --- |
@@ -769,7 +855,7 @@ OTP 是否有效
 | Credential 查询与更新 | `infra/mysql/credential` |
 | Challenge 存储与消费 | `infra/cache/redis/challenge_repository.go` |
 | Token 存储 | Redis TokenStore |
-| JWT 签发 | JWT generator / token codec |
+| JWT/JWS 签发 | JWT generator / token codec |
 | 微信/企微外部身份解析 | IDP adapter |
 | AppSecret 解密 | SecretVault |
 
@@ -784,14 +870,14 @@ Login 常见失败包括：
 | 场景 | 语义 |
 | --- | --- |
 | unsupported auth method | 不支持的登录方式 |
-| proof build failed | 请求无法构造认证凭据 |
+| proof build failed | 请求无法构造认证 proof |
 | login identity not found | 登录身份不存在或未绑定 |
 | login identity disabled | 登录身份不可用 |
 | credential not found | 需要 Credential 但不存在 |
 | credential locked | 凭据被临时锁定 |
 | invalid credentials | 密码错误或外部 proof 无效 |
 | otp invalid | 验证码无效或已过期 |
-| token issue failed | 认证成功但 Token 签发失败 |
+| token issue failed | 认证已成功，但下游 Token 签发失败 |
 
 注意：
 
@@ -807,7 +893,7 @@ Login 常见失败包括：
 
 ## 20. Login 与其他链路的关系
 
-## 20.1 与 Onboarding 的关系
+### 20.1 与 Onboarding 的关系
 
 Onboarding 建立登录所需模型：
 
@@ -819,7 +905,7 @@ Login 使用这些模型完成认证。
 
 ---
 
-## 20.2 与 Linking 的关系
+### 20.2 与 Linking 的关系
 
 Linking 为已认证 User 增加更多 LoginIdentity。
 
@@ -827,22 +913,38 @@ Login 可以使用任意 active LoginIdentity 完成认证。
 
 ---
 
-## 20.3 与 Challenge 的关系
+### 20.3 与 Challenge 的关系
 
 Phone OTP Login 依赖 Challenge。
 
 ```text
 SendSMSOTP(scene=login)
-VerifyAndConsumeSMSOTP(scene=login)
+VerifyAndConsume(scene=login)
 ```
 
 Challenge 校验成功后，Login 再根据 phone LoginIdentity 构造 Principal。
 
+Challenge 不再单独成篇；在 Login 中只讲 phone_otp login scene，在 Linking 中只讲 link_phone scene。
+
 ---
 
-## 20.4 与 Session / Token 的关系
+### 20.4 与 Token 的关系
 
-Login 认证成功后，通过 Token 服务创建 Token 与 Session。
+Login 到 Principal 为止。
+
+Token 链路从 Principal 开始：
+
+```text
+Principal -> TokenApplicationService.IssueToken -> TokenPair
+```
+
+---
+
+### 20.5 与 Session 的关系
+
+Session 是服务端认证上下文，由 Token / Session 链路管理。
+
+Login 不直接定义 Session 生命周期。
 
 Session/Token 不是 LoginIdentity，也不是 Credential。
 
@@ -850,13 +952,13 @@ Session/Token 不是 LoginIdentity，也不是 Credential。
 
 ---
 
-## 20.5 与 AuthZ 的关系
+### 20.6 与 AuthZ 的关系
 
 Login 不做授权决策。
 
 Login 只产生 Principal。
 
-AuthZ 使用 Principal 中的 `UserID`、`TenantID`、claims 等信息进行权限判断。
+AuthZ 可以使用 Principal 中的 `UserID`、`TenantID`、claims 等信息进行权限判断。
 
 ---
 
@@ -867,14 +969,16 @@ AuthZ 使用 Principal 中的 `UserID`、`TenantID`、claims 等信息进行权�
 | Login 应用服务 | `internal/apiserver/application/authn/login` |
 | SignIn 编排 | `internal/apiserver/application/authn/login/sign_in.go` |
 | Login 类型定义 | `internal/apiserver/application/authn/login/types.go` |
-| Method 选择 | `internal/apiserver/application/authn/login/method` |
-| ProofFactory | `internal/apiserver/application/authn/login/proof` |
-| ReAuthenticate | `internal/apiserver/application/authn/login/reauth` |
+| Method 选择 | `internal/apiserver/application/authn/login` |
+| ProofFactory | `internal/apiserver/application/authn/login` |
+| CredentialRecorder | `internal/apiserver/application/authn/login` |
+| Credential 认证结果记录 | `internal/apiserver/application/authn/login/sign_in.go` |
+| ReAuthenticate | `internal/apiserver/application/authn/login` |
 | Authenticator | `internal/apiserver/domain/authn/authentication` |
-| Password 策略 | `internal/apiserver/domain/authn/authentication/auth-password.go` |
-| Phone OTP 策略 | `internal/apiserver/domain/authn/authentication/auth-phone-otp.go` |
-| WeChat 策略 | `internal/apiserver/domain/authn/authentication/auth-wechat-mini.go` |
-| WeCom 策略 | `internal/apiserver/domain/authn/authentication/auth-wechat-com.go` |
+| Password 策略 | `internal/apiserver/domain/authn/authentication` |
+| Phone OTP 策略 | `internal/apiserver/domain/authn/authentication` |
+| WeChat 策略 | `internal/apiserver/domain/authn/authentication` |
+| WeCom 策略 | `internal/apiserver/domain/authn/authentication` |
 | Principal | `internal/apiserver/domain/authn/authentication/principal.go` |
 | LoginIdentity 模型 | `internal/apiserver/domain/authn/loginidentity` |
 | Credential 模型 | `internal/apiserver/domain/authn/credential` |
@@ -889,11 +993,11 @@ AuthZ 使用 Principal 中的 `UserID`、`TenantID`、claims 等信息进行权�
 
 可以这样讲：
 
-> IAM 的 Login 链路不是创建用户，而是验证某个 LoginIdentity 的控制权。应用层先根据请求选择登录方式，再通过 ProofFactory 构造领域认证凭据，交给领域层 Authenticator。不同策略分别处理 password、phone_otp、wechat_minip、wecom。认证成功后领域层返回 Principal，应用层再用 TokenApplicationService 签发 Token。这样 Login 链路把“认证语义”和“Token 技术实现”解耦开了。
+> IAM 的 Login 链路不是创建用户，也不是绑定登录身份，而是验证某个 LoginIdentity 的控制权。应用层先根据请求选择登录方式，再通过 ProofFactory 构造领域认证 proof，交给领域层 Authenticator。不同策略分别处理 password、phone_otp、wechat_minip、wecom。认证成功后，领域层返回 Principal；TokenApplicationService 是登录成功后的下游边界调用，用于把 Principal 转换为 AccessToken / RefreshToken。
 
 进一步可以补充：
 
-> 在这个模型中，User 是最终主体，LoginIdentity 是本次认证入口，Credential 只在 password 等长期认证材料场景参与。手机号验证码不走 Credential，而是 Challenge；微信和企业微信通过外部 IdP 完成证明，IAM 只根据解析出的外部身份查找 LoginIdentity。
+> 在这个模型中，User 是最终主体，LoginIdentity 是本次认证入口，Credential 只在 password 等长期认证材料场景参与。手机号验证码不走 Credential，而是 Challenge；微信和企业微信通过外部 IDP 完成证明，IAM 只根据解析出的外部身份查找 LoginIdentity。Login 的领域终点是 Principal，JWT/JWS/JWK/JWKS 属于 Token 安全表达与密钥治理，不属于 Login 领域模型。
 
 ---
 
@@ -904,17 +1008,19 @@ AuthZ 使用 Principal 中的 `UserID`、`TenantID`、claims 等信息进行权�
 后续应继续阅读：
 
 ```text
-03-Linking链路-登录身份绑定解绑与安全边界.md
-04-Challenge链路-短信验证码与短期认证挑战.md
-05-Session与Token边界-Principal-Session-JWT-RefreshToken.md
-06-JWT-JWS-JWKS与KeyRotation.md
+04-Token链路-从Principal到AccessToken与RefreshToken.md
+05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md
+06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
+07-第三方登录与IDP协作-WeChat-WeCom.md
+08-AuthN分层架构与事实源索引.md
 ```
 
 其中：
 
 ```text
-Linking 说明已认证 User 如何绑定更多 LoginIdentity。
-Challenge 说明 OTP 等短期认证挑战如何创建、校验与消费。
-Session 与 Token 文档说明 Principal 如何变成访问上下文。
-JWT/JWS/JWKS 文档说明 Token 的签名和密钥轮换机制。
+Token 说明 Principal 如何转换为 AccessToken / RefreshToken。
+Session 说明 Principal / Session / AccessToken / RefreshToken 的边界。
+JWT/JWS/JWK/JWKS 说明 Token 的标准表达、签名、验签和密钥治理。
+IDP 说明 WeChat / WeCom 如何参与 Onboarding、Linking、Login。
+Challenge 不再单独成篇，Login 中只讲 phone_otp login scene。
 ```

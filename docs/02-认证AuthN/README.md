@@ -12,7 +12,8 @@ AuthN 关注的是：
 谁是主体？
 系统如何找到这个主体？
 请求者如何证明自己控制某个登录身份？
-认证成功后如何表达主体并签发访问凭证？
+认证成功后如何表达主体？
+认证结果如何转换为访问凭证？
 ```
 
 因此新版 AuthN 文档不再以旧的 `Account` 语义为中心，而是围绕以下核心对象展开：
@@ -23,14 +24,15 @@ User / Principal
         └── Credential 0..N
 
 Challenge 独立承载短期认证挑战。
-Session / Token 承载认证后的访问上下文。
-JWKS / KeyRotation 承载 JWT 签名密钥治理。
+Session 承载服务端认证上下文。
+AccessToken / RefreshToken 承载认证后的访问凭证。
+JWT / JWS / JWK / JWKS / KeyRotation 承载 AccessToken 的安全表达、验签与密钥治理。
 ```
 
 这套模型的核心目标是：
 
 ```text
-区分 IAM 主体、登录身份、长期认证材料、短期认证挑战、认证结果表达。
+区分 IAM 主体、登录身份、长期认证材料、短期认证挑战、认证结果表达、服务端认证上下文、访问凭证与密钥治理。
 ```
 
 ---
@@ -91,6 +93,8 @@ recovery code hash
 
 不是所有 `LoginIdentity` 都有 `Credential`。
 
+微信、企微、手机号验证码等场景通常没有长期 Credential。
+
 ---
 
 ### 2.4 Challenge
@@ -112,6 +116,15 @@ oauth state
 reset password code
 ```
 
+在新版文档体系中，Challenge 是一级模型对象和支撑能力，但不再单独作为主链路文档。
+
+它主要支撑：
+
+```text
+Login.phone_otp scene
+Linking.link_phone scene
+```
+
 ---
 
 ### 2.5 Principal
@@ -126,17 +139,43 @@ reset password code
 使用了什么认证方式？
 ```
 
+Principal 是 Login 的领域终点。
+
+Principal 不是 JWT，也不是 AccessToken。
+
 ---
 
-### 2.6 Session / Token
+### 2.6 Session / AccessToken / RefreshToken
 
 `Session` 是服务端认证上下文。
 
-`Access Token` 是短期访问凭证。
+`AccessToken` 是短期访问凭证。
 
-`Refresh Token` 是换取新 Access Token 的凭证。
+`RefreshToken` 是用于换取新 AccessToken 的续期凭证。
 
-JWT/JWS/JWKS 是 Token 的安全表达和验签基础设施，不是 AuthN 领域模型本身。
+三者边界是：
+
+```text
+Session = 服务端认证状态
+AccessToken = 客户端访问资源时携带的短期凭证
+RefreshToken = 客户端向 IAM Token endpoint 换取新 AccessToken 的凭证
+```
+
+---
+
+### 2.7 JWT / JWS / JWK / JWKS / KeyRotation
+
+JWT / JWS / JWK / JWKS 属于 Token 安全表达和密钥治理相关概念。
+
+简化理解：
+
+```text
+JWT = claims 的紧凑表达
+JWS = 对 payload 的签名或 MAC 保护结构
+JWK = JSON 密钥对象
+JWKS = 一组 JWK，公开 JWKS endpoint 只应发布可公开的验签公钥
+KeyRotation = 签名密钥 active / grace / retired 生命周期治理
+```
 
 ---
 
@@ -149,13 +188,27 @@ JWT/JWS/JWKS 是 Token 的安全表达和验签基础设施，不是 AuthN 领�
 ├── README.md
 ├── 00-AuthN模型总览-User-LoginIdentity-Credential-Challenge.md
 ├── 01-Onboarding链路-从身份开通到LoginIdentity与Credential.md
-├── 02-Login链路-从登录请求到Principal与Token.md
-├── 03-Linking链路-登录身份绑定解绑与安全边界.md
-├── 04-Challenge链路-短信验证码与短期认证挑战.md
-├── 05-Session与Token边界-Principal-Session-JWT-RefreshToken.md
-├── 06-JWT-JWS-JWKS与KeyRotation.md
+├── 02-Linking链路-登录身份绑定解绑与安全边界.md
+├── 03-Login链路-从登录请求到Principal.md
+├── 04-Token链路-从Principal到AccessToken与RefreshToken.md
+├── 05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md
+├── 06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
 ├── 07-第三方登录与IDP协作-WeChat-WeCom.md
 └── 08-AuthN分层架构与事实源索引.md
+```
+
+目录顺序表达的是 AuthN 的模型生命周期：
+
+```text
+模型总览
+  -> 首次开通 LoginIdentity
+  -> 已认证 User 绑定/解绑 LoginIdentity
+  -> 登录认证产出 Principal
+  -> Principal 转换为 AccessToken / RefreshToken
+  -> Session / Token 状态边界
+  -> JWT/JWS/JWK/JWKS 与 KeyRotation
+  -> WeChat / WeCom 外部 IDP 协作
+  -> 分层架构与事实源索引
 ```
 
 ---
@@ -173,7 +226,7 @@ JWT/JWS/JWKS 是 Token 的安全表达和验签基础设施，不是 AuthN 领�
 原因：
 
 ```text
-先建立模型，再理解链路，再理解 Token/JWKS，最后回到代码事实源。
+先建立模型，再理解 LoginIdentity 如何建立和维护，再理解 Login 如何产出 Principal，再理解 Token / Session / JWT / IDP，最后回到代码事实源。
 ```
 
 ---
@@ -196,7 +249,9 @@ Credential
 Challenge
 Principal
 Session
-Token
+AccessToken
+RefreshToken
+JWT / JWS / JWK / JWKS
 ```
 
 ---
@@ -219,69 +274,151 @@ credentialEnsurer
 UnitOfWork
 ```
 
+核心问题：
+
+```text
+如何首次建立 User + LoginIdentity？
+什么时候创建 Credential？
+为什么微信/企微通常不创建 Credential？
+为什么外部 IDP 调用应在事务外？
+```
+
 ---
 
-### 4.4 想理解登录认证
+### 4.4 想理解多登录身份绑定
 
 阅读：
 
 ```text
-02-Login链路-从登录请求到Principal与Token.md
-05-Session与Token边界-Principal-Session-JWT-RefreshToken.md
-06-JWT-JWS-JWKS与KeyRotation.md
+02-Linking链路-登录身份绑定解绑与安全边界.md
 ```
 
-它们分别说明：
+它说明：
 
 ```text
-Login 如何证明 LoginIdentity
-Principal 如何进入 Token
-JWT/JWS/JWKS 如何完成签名与验签
+已认证 User 如何绑定手机号 / 微信 / 企业微信；
+手机号绑定为什么需要 link_phone Challenge；
+如何防止 LoginIdentity 被跨 User 绑定；
+为什么不能解绑最后一个 active LoginIdentity；
+为什么敏感解绑需要 recent authentication。
 ```
 
 ---
 
-### 4.5 想理解多登录身份绑定
+### 4.5 想理解登录认证
 
 阅读：
 
 ```text
-03-Linking链路-登录身份绑定解绑与安全边界.md
-04-Challenge链路-短信验证码与短期认证挑战.md
+03-Login链路-从登录请求到Principal.md
 ```
 
-它们说明：
+它说明：
 
 ```text
-已认证 User 如何绑定手机号 / 微信 / 企业微信
-手机号绑定为什么需要 link_phone Challenge
-为什么不能解绑最后一个 active LoginIdentity
+Login 如何证明 LoginIdentity；
+ProofFactory 如何构造 authentication proof；
+Authenticator 如何选择策略；
+Password / Phone OTP / WeChat / WeCom 如何认证；
+Principal 如何产生；
+CredentialRecorder 如何记录 password 等 persisted Credential 的认证结果。
+```
+
+注意：
+
+```text
+Login 到 Principal 为止；
+Token 链路从 Principal 开始。
 ```
 
 ---
 
-### 4.6 想理解微信 / 企业微信登录
+### 4.6 想理解 Token 签发、刷新、撤销
+
+阅读：
+
+```text
+04-Token链路-从Principal到AccessToken与RefreshToken.md
+```
+
+它说明：
+
+```text
+Principal 如何转换为 AccessToken / RefreshToken；
+AccessToken 与 RefreshToken 的职责；
+RefreshToken 如何存储、轮换、撤销；
+TokenAudit 如何记录签发、刷新、撤销事件；
+Local Verify / Online Verify 的边界。
+```
+
+---
+
+### 4.7 想理解 Session / Token 状态边界
+
+阅读：
+
+```text
+05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md
+```
+
+它说明：
+
+```text
+Principal 是认证结果；
+Session 是服务端认证上下文；
+AccessToken 是短期访问凭证；
+RefreshToken 是续期凭证；
+Logout / Revoke 与 Session 的关系；
+Recent Authentication 与 Session 的关系。
+```
+
+---
+
+### 4.8 想理解 JWT / JWKS / KeyRotation
+
+阅读：
+
+```text
+06-JWT-JWS-JWK-JWKS边界与KeyRotation.md
+```
+
+它说明：
+
+```text
+JWT / JWS / JWK / JWKS 分别是什么；
+kid / alg / typ 的职责是什么；
+公开 JWKS endpoint 为什么只能发布可公开的验签公钥；
+KeyRotation 为什么需要 active / grace / retired；
+资源服务如何通过 JWKS 验签；
+为什么验签方必须使用自己的算法白名单。
+```
+
+---
+
+### 4.9 想理解微信 / 企业微信登录
 
 阅读：
 
 ```text
 07-第三方登录与IDP协作-WeChat-WeCom.md
 01-Onboarding链路-从身份开通到LoginIdentity与Credential.md
-02-Login链路-从登录请求到Principal与Token.md
-03-Linking链路-登录身份绑定解绑与安全边界.md
+02-Linking链路-登录身份绑定解绑与安全边界.md
+03-Login链路-从登录请求到Principal.md
 ```
 
 因为第三方身份源会同时出现在：
 
 ```text
 Onboarding
-Login
 Linking
+Login
 ```
+
+Token 链路不直接参与 IDP proof。
 
 ---
 
-### 4.7 要改 AuthN 代码
+### 4.10 要改 AuthN 代码
 
 先读：
 
@@ -307,6 +444,7 @@ LoginIdentity 是什么？
 Credential 是什么？
 Challenge 是什么？
 Principal 是什么？
+Token / Session 在模型中处于什么位置？
 为什么 IAM 不建业务 Account？
 ```
 
@@ -335,7 +473,32 @@ Prepare -> Resolve User -> Ensure LoginIdentity -> Ensure Credential -> Onboardi
 
 ---
 
-### 5.3 `02-Login链路-从登录请求到Principal与Token.md`
+### 5.3 `02-Linking链路-登录身份绑定解绑与安全边界.md`
+
+这是登录身份绑定/解绑文档。
+
+它回答：
+
+```text
+已认证 User 如何绑定新的 LoginIdentity？
+手机号绑定为什么需要 link_phone Challenge？
+微信/企微绑定如何证明外部身份？
+如何防止 LoginIdentity 被跨 User 绑定？
+为什么不能解绑最后一个 active LoginIdentity？
+为什么敏感解绑需要 recent authentication？
+```
+
+核心边界：
+
+```text
+Linking 基于已认证 User；
+Linking 不签发 Token；
+Linking 维护的是 User 与 LoginIdentity 的关系。
+```
+
+---
+
+### 5.4 `03-Login链路-从登录请求到Principal.md`
 
 这是登录认证链路文档。
 
@@ -347,76 +510,82 @@ ProofFactory 如何构造认证证明？
 Authenticator 如何选择策略？
 Password / Phone OTP / WeChat / WeCom 如何认证？
 Principal 如何产生？
-Token 如何签发？
+CredentialRecorder 如何记录 Credential 认证结果？
 ```
 
 核心流程：
 
 ```text
-LoginCommand -> MethodSelector -> ProofFactory -> Authenticator -> Principal -> Token
+LoginCommand -> MethodSelector -> ProofFactory -> Authenticator -> AuthDecision -> CredentialRecorder(optional) -> Principal
 ```
+
+Token 只是 Login 之后的边界调用：
+
+```text
+Principal -> TokenApplicationService -> TokenPair
+```
+
+完整 Token 链路见第 04 篇。
 
 ---
 
-### 5.4 `03-Linking链路-登录身份绑定解绑与安全边界.md`
+### 5.5 `04-Token链路-从Principal到AccessToken与RefreshToken.md`
 
-这是登录身份绑定/解绑文档。
+这是 Token 应用链路文档。
 
 它回答：
 
 ```text
-已认证 User 如何绑定新的 LoginIdentity？
-手机号绑定为什么需要 Challenge？
-微信/企微绑定如何证明外部身份？
-如何防止 LoginIdentity 被跨 User 绑定？
-为什么不能解绑最后一个 active LoginIdentity？
+Principal 如何转换为 AccessToken / RefreshToken？
+AccessToken 与 RefreshToken 的边界是什么？
+RefreshToken 为什么需要服务端控制点？
+Refresh / Revoke / Logout 如何理解？
+TokenAudit 如何记录 Token 事件？
+Local Verify / Online Verify 的差异是什么？
 ```
 
----
-
-### 5.5 `04-Challenge链路-短信验证码与短期认证挑战.md`
-
-这是短期认证挑战文档。
-
-它回答：
+核心流程：
 
 ```text
-为什么 SMS OTP 不是 Credential？
-Challenge 的 scene / target / secret hash / TTL / consumed_at 分别是什么？
-如何创建、发送、校验、消费 SMS OTP？
-login 与 link_phone scene 如何隔离？
+Principal -> Claims -> AccessToken -> RefreshToken -> TokenStore / SessionStore -> TokenPair
 ```
 
 ---
 
-### 5.6 `05-Session与Token边界-Principal-Session-JWT-RefreshToken.md`
+### 5.6 `05-Session与Token边界-Principal-Session-AccessToken-RefreshToken.md`
 
-这是认证结果表达文档。
+这是认证状态边界文档。
 
 它回答：
 
 ```text
 Principal 是什么？
 Session 是什么？
-Access Token 与 Refresh Token 的边界是什么？
-TokenStore 与 SessionManager 分别负责什么？
-Logout / Revoke / Refresh / ReAuthenticate 如何理解？
+AccessToken 是什么？
+RefreshToken 是什么？
+它们之间是什么关系？
+Logout / Revoke 与 Session 有什么关系？
+Recent Authentication 与 Session 有什么关系？
+Session / Token 与 AuthZ 的边界是什么？
 ```
+
+这篇不重复 Token 签发、刷新、撤销的完整应用链路。
 
 ---
 
-### 5.7 `06-JWT-JWS-JWKS与KeyRotation.md`
+### 5.7 `06-JWT-JWS-JWK-JWKS边界与KeyRotation.md`
 
-这是 JWT/JWS/JWKS 和密钥轮换文档。
+这是 JWT/JWS/JWK/JWKS 与密钥轮换文档。
 
 它回答：
 
 ```text
 JWT / JWS / JWK / JWKS 分别是什么？
 kid / alg / typ 的职责是什么？
-JWKS 为什么只能发布公钥？
+公开 JWKS endpoint 为什么只能发布可公开的验签公钥？
 KeyRotation 为什么需要 active / grace / retired？
 资源服务如何通过 JWKS 验签？
+为什么不能盲目信任 token header.alg？
 ```
 
 ---
@@ -432,7 +601,7 @@ KeyRotation 为什么需要 active / grace / retired？
 企业微信 code / auth_code 如何映射为 LoginIdentity？
 为什么微信/企微不创建 Credential？
 AppSecret、session_key、access_token 与 Credential 的边界是什么？
-Onboarding / Login / Linking 中 IDP 的作用有何不同？
+Onboarding / Linking / Login 中 IDP 的作用有何不同？
 ```
 
 ---
@@ -448,6 +617,7 @@ Transport / Application / Domain / Infra 分别负责什么？
 每条链路的事实源文件在哪里？
 Repository / Port / 数据表 / 测试如何定位？
 如何避免跨层污染？
+AuthN 与 Identity / AuthZ / IDP / 业务系统的边界是什么？
 ```
 
 ---
@@ -472,12 +642,12 @@ internal/apiserver/domain/identity/user
 
 ```text
 internal/apiserver/application/authn/onboarding
-internal/apiserver/application/authn/login
 internal/apiserver/application/authn/linking
-internal/apiserver/application/authn/challenge
+internal/apiserver/application/authn/login
 internal/apiserver/application/authn/token
 internal/apiserver/application/authn/session
 internal/apiserver/application/authn/jwks
+internal/apiserver/application/authn/challenge
 internal/apiserver/application/authn/uow
 ```
 
@@ -510,6 +680,7 @@ internal/apiserver/transport/grpc
 
 ```text
 internal/apiserver/container/assembler
+internal/apiserver/container/assembler/capabilities.go
 ```
 
 如果想理解某个应用服务使用了哪些仓储、IDP adapter、TokenStore、SessionManager，应优先查看装配层。
@@ -524,19 +695,23 @@ internal/apiserver/container/assembler
 internal/pkg/migration/migrations/000001_init_schema.up.sql
 ```
 
-核心表：
+AuthN 关键表：
 
 | 表 | 语义 |
 | --- | --- |
-| `users` | IAM User 主体 |
+| `users` | IAM User 主体，属于 Identity 事实源，但 AuthN 会引用 |
 | `auth_login_identities` | User 与 LoginIdentity 的绑定 |
 | `auth_credentials` | LoginIdentity 的长期认证材料 |
-| `auth_token_audit` | Token 签发与撤销审计 |
-| `jwks_keys` | JWKS / KeyRotation 密钥记录 |
+| `auth_token_audit` | Token 签发、刷新、撤销等审计记录 |
+| `jwks_keys` | JWK/JWKS / KeyRotation 密钥记录 |
 | `idp_wechat_apps` | 微信/企微应用配置与 secret 密文 |
-| `authz_roles` | 授权角色 |
-| `authz_assignments` | User / Group 的角色赋权 |
-| `casbin_rule` | Casbin 策略规则 |
+
+注意：
+
+```text
+authz_* 表和 casbin_rule 属于 AuthZ 事实源，不属于 AuthN 事实源。
+AuthN 文档不应把 authz_roles / authz_assignments / casbin_rule 当作认证模块数据表索引。
+```
 
 ---
 
@@ -553,7 +728,7 @@ DoctorAccount
 GuardianAccount
 ```
 
-业务身份应由业务系统或 AuthZ 表达。
+业务身份应由业务系统、Identity/ProfileLink 或 AuthZ scope/role 表达。
 
 AuthN 只建：
 
@@ -564,7 +739,7 @@ Credential
 Challenge
 Principal
 Session
-Token
+AccessToken / RefreshToken
 ```
 
 ---
@@ -593,21 +768,49 @@ Password hash 是 Credential。
 
 ---
 
-### 8.4 Principal 不等于 JWT
+### 8.4 Principal 不等于 JWT / AccessToken
 
 ```text
 Principal：领域认证结果。
 JWT：Token 层对 Principal 的 claims 表达。
 JWS：对 JWT claims 的签名保护。
+AccessToken：客户端访问资源时携带的短期凭证。
 ```
+
+Login 的终点是 Principal。
+
+Token 链路从 Principal 开始。
 
 ---
 
-### 8.5 JWKS 不发布私钥
+### 8.5 Session 不等于 AccessToken
 
-JWKS 只发布公钥。
+```text
+Session：服务端认证上下文。
+AccessToken：客户端携带的短期访问凭证。
+RefreshToken：客户端向 IAM 换取新 AccessToken 的续期凭证。
+```
 
-私钥只能由 Token 签发组件使用。
+Session 是服务端控制点。
+
+AccessToken 可以短期自包含。
+
+---
+
+### 8.6 JWKS 不发布私钥
+
+公开 JWKS endpoint 只发布可公开的验签公钥。
+
+不能发布：
+
+```text
+private key material
+HMAC / oct symmetric secret
+AppSecret
+RefreshToken secret
+```
+
+JWKS 是内部 KeyStore 的 public verification key set 投影，不是内部 KeyStore 全量导出。
 
 ---
 
@@ -635,6 +838,7 @@ Credential
 Challenge
 Principal
 Session
+AccessToken / RefreshToken
 ```
 
 应先更新：
@@ -660,20 +864,43 @@ README.md
 
 ---
 
+### 9.4 不把旧目录边界带回新文档
+
+新版目录已经确立：
+
+```text
+Login 到 Principal 为止；
+Token 从 Principal 开始；
+Challenge 是支撑能力，不再单独成篇；
+JWT/JWS/JWK/JWKS 属于 Token 安全表达与密钥治理。
+```
+
+后续维护文档时，不要再写回：
+
+```text
+Login = Principal + Token 主链路
+Challenge = 独立主链路文档
+JWT/JWKS = Session 文档主内容
+AuthZ 表 = AuthN 数据表事实源
+```
+
+---
+
 ## 10. 推荐讲解顺序
 
 面试或项目讲解时，可以按这个顺序讲：
 
 ```text
-1. IAM 不建业务 Account，只建 User / LoginIdentity / Credential / Challenge。
+1. IAM 不建业务 Account，只建 User / LoginIdentity / Credential / Challenge 等认证模型。
 2. LoginIdentity 表示登录身份绑定，Credential 表示长期认证材料。
 3. Onboarding 负责首次创建 User + LoginIdentity + optional Credential。
-4. Login 负责证明 LoginIdentity 并产出 Principal / Token。
-5. Linking 负责已认证 User 绑定/解绑更多 LoginIdentity。
-6. Challenge 负责 SMS OTP 等短期证明。
-7. Session / Token 承载认证成功后的访问上下文。
-8. JWT/JWS/JWKS 负责 Token 的签名、验签和密钥轮换。
-9. 分层架构保证模型、用例和技术实现解耦。
+4. Linking 负责已认证 User 绑定/解绑更多 LoginIdentity。
+5. Login 负责证明 LoginIdentity 并产出 Principal。
+6. Token 链路负责把 Principal 转换为 AccessToken / RefreshToken。
+7. Session 是服务端认证上下文，用于 refresh、logout、revoke、recent authentication。
+8. Challenge 负责 SMS OTP 等短期证明，支撑 phone_otp login 和 link_phone linking。
+9. JWT/JWS/JWK/JWKS 负责 AccessToken 的签名、验签、公钥发布和密钥轮换。
+10. 分层架构保证模型、用例和技术实现解耦。
 ```
 
 ---
@@ -683,7 +910,7 @@ README.md
 本文档组涉及以下外部标准和架构思想：
 
 ```text
-NIST SP 800-63B：认证器生命周期、认证器绑定、OTP 等认证要求
+NIST SP 800-63B：认证器生命周期、认证会话、OTP、reauthentication 等认证要求
 RFC 7519：JSON Web Token (JWT)
 RFC 7515：JSON Web Signature (JWS)
 RFC 7517：JSON Web Key (JWK)
@@ -703,11 +930,13 @@ Ports & Adapters / Hexagonal Architecture：应用核心与外部适配器解耦
 
 ```text
 用 User / LoginIdentity / Credential / Challenge 建立稳定模型；
-用 Onboarding / Login / Linking / Challenge 描述核心链路；
-用 Principal / Session / Token / JWT / JWKS 描述认证结果表达；
+用 Onboarding / Linking / Login 描述登录身份的建立、维护和认证；
+用 Principal / Token / Session 描述认证结果、访问凭证和服务端状态；
+用 JWT / JWS / JWK / JWKS / KeyRotation 描述 AccessToken 的安全表达和密钥治理；
+用 IDP 文档说明微信/企微等外部身份源如何参与 AuthN；
 用分层架构与事实源索引保证文档和代码一致。
 ```
 
 一句话：
 
-> AuthN 不再围绕业务 Account 展开，而是围绕 IAM 主体、登录身份、认证材料、短期挑战、会话与 Token 展开。
+> AuthN 不再围绕业务 Account 展开，而是围绕 IAM 主体、登录身份、认证材料、短期挑战、认证结果、会话、Token 与密钥治理展开。
