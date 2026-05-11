@@ -1,550 +1,703 @@
 # 05-接入与契约
 
-## 本文回答
+## 1. 模块定位
 
-`05-接入与契约/` 是 IAM 文档体系中解释 **外部系统如何接入 IAM，以及 REST、gRPC、SDK 三类契约如何分工** 的模块。
+`05-接入与契约/` 是 IAM 文档体系中解释 **外部系统如何接入 IAM** 的文档组。
 
-它回答：
+它不是单纯的接口列表，也不是 OpenAPI / proto / SDK GoDoc 的替代品。
 
-1. IAM 为什么同时提供 REST、gRPC 和 Go SDK；
-2. REST 适合哪些调用方，哪些场景应该走 REST；
-3. gRPC 适合哪些调用方，哪些场景应该走 gRPC；
-4. SDK 为什么是 Go 服务端接入产品层，而不是业务层；
-5. JWT、JWKS、在线 Verify、Service Token、AuthZ Check 应该如何选择；
-6. REST OpenAPI、gRPC proto、SDK public API 分别是什么事实源；
-7. 接入契约如何通过测试和文档机制防止漂移；
-8. 业务系统接入 IAM 时应该遵守哪些边界。
+它回答的是：
 
-本目录只解释 **接入方式、机器契约和集成边界**。  
-AuthN 登录态属于 `02-认证AuthN/`；AuthZ 权限模型属于 `03-授权AuthZ/`；Identity/ProfileLink 关系属于 `04-身份Identity/`。
+```text
+业务系统为什么要接入 IAM？
+前端、管理后台、业务后端、worker 分别如何接入 IAM？
+REST、gRPC、Go SDK 分别适合什么场景？
+qs-server 如何完整接入 IAM？
+REST / gRPC / SDK 的事实源在哪里？
+接入契约如何防止随着代码演进发生漂移？
+```
+
+IAM 对外提供的是统一身份与授权中心能力：
+
+```text
+AuthN：登录、Token、Session、Principal；
+Identity：User、Profile、ProfileLink；
+AuthZ：Subject、Role、Resource、Permission、RoleBinding、Check、Snapshot；
+IDP：WeChat / WeCom 等外部身份源配置；
+SDK：Go 服务端接入封装。
+```
+
+这些能力可以通过三种形态接入：
+
+```text
+REST；
+gRPC；
+Go SDK。
+```
+
+但三者不是三套业务实现。
+
+它们是同一套 IAM 能力面向不同调用方的三种接入投影。
 
 ---
 
-## 30 秒结论
+## 2. 30 秒结论
 
-IAM 对外提供三层接入：
+业务系统接入 IAM，不是简单调用一个登录接口。
+
+完整接入链路通常包括：
 
 ```text
-REST
-  -> 面向 Web、App、管理后台、登录、HTTP 调试
-
-gRPC
-  -> 面向可信服务间调用、VerifyToken、AuthZ Check、Identity 查询、IDP 内部能力
-
-Go SDK
-  -> 面向 Go 业务服务，封装 REST/gRPC/JWKS/Verifier/ServiceAuth/AuthZ/Identity/IDP
+前端登录；
+AccessToken / RefreshToken 获取；
+业务请求携带 Bearer Token；
+业务后端验证 Token；
+Principal 注入请求上下文；
+User / Profile / ProfileLink 查询；
+业务对象映射为 Resource / Action / Scope；
+调用 IAM AuthZ Check；
+根据 AuthorizationDecision 放行或拒绝；
+服务间调用使用 service identity；
+REST / gRPC / SDK 契约持续防漂移。
 ```
 
-三者不是三套业务实现，而是同一套 IAM 能力面向不同调用方的接入投影。
+三种接入形态的定位是：
 
-事实源分别是：
-
-| 接入方式 | 事实源 |
+| 接入形态 | 主要使用者 |
 | --- | --- |
-| REST | `api/rest/*.yaml` |
-| gRPC | `api/grpc/iam/*/v2/*.proto` |
-| SDK | `pkg/sdk` 公开稳定 API |
+| REST | 前端、管理后台、调试、非 Go 调用方 |
+| gRPC | 服务间调用、内部系统集成 |
+| Go SDK | Go 服务端项目的工程化封装 |
+
+核心原则：
+
+```text
+REST 服务前端和管理端；
+gRPC 服务可信服务间调用；
+SDK 服务 Go 业务系统低成本接入；
+OpenAPI 是 REST 字段级事实源；
+proto 是 gRPC 字段级事实源；
+pkg/sdk public API 是 SDK 事实源；
+server implementation 和 tests 决定真实行为；
+docs/05 负责解释接入链路，不替代机器契约。
+```
 
 一句话：
 
-> **REST 服务前端和管理面，gRPC 服务可信服务间调用，SDK 服务 Go 业务系统低成本接入；业务规则仍然在 IAM Server 的 AuthN/AuthZ/Identity/IDP 中。**
+> IAM 是其他业务系统的身份与授权中心；REST、gRPC、SDK 是三种接入投影，业务语义仍由 IAM Server 的 AuthN、Identity、AuthZ、IDP 模块实现。
 
 ---
 
-## 本目录文档
+## 3. 文档目录
 
-当前 `05-接入与契约/` 建议包含 3 篇正文文档：
+新版 `05-接入与契约/` 采用 00～05 的核心文档结构：
 
 ```text
 05-接入与契约/
 ├── README.md
-├── 01-REST API契约.md
-├── 02-gRPC API契约.md
-└── 03-SDK接入模型.md
+├── 00-接入总览-业务系统如何接入IAM.md
+├── 01-REST API契约-前端与管理端接入.md
+├── 02-gRPC API契约-服务间调用与内部集成.md
+├── 03-SDK接入模型-Go服务端集成.md
+├── 04-业务系统接入链路-qs-server接入 IAM 详解.md
+└── 05-契约事实源与防漂移机制.md
 ```
 
-| 文档 | 作用 | 读完后应该能回答 |
-| --- | --- | --- |
-| `01-REST API契约.md` | 解释 REST OpenAPI 与 HTTP 接入边界 | REST 面向哪些调用方，哪些路由公开/受保护/admin/debug |
-| `02-gRPC API契约.md` | 解释 gRPC proto 与服务间调用边界 | gRPC service 矩阵、metadata、安全边界和 registration 如何组织 |
-| `03-SDK接入模型.md` | 解释 Go SDK 的定位与接入方式 | SDK 封装什么、不封装什么，为什么它不是业务层 |
+| 文档 | 主题 |
+| --- | --- |
+| `00-接入总览-业务系统如何接入IAM.md` | 从业务系统接入角度说明 IAM 的整体接入链路 |
+| `01-REST API契约-前端与管理端接入.md` | 说明 REST API 的场景、分组、Header、错误语义、安全边界和 OpenAPI 事实源 |
+| `02-gRPC API契约-服务间调用与内部集成.md` | 说明 gRPC 的服务间调用边界、metadata、deadline、retry、status code 和 proto 事实源 |
+| `03-SDK接入模型-Go服务端集成.md` | 说明 Go SDK 的定位、初始化、AuthN/Identity/AuthZ 封装、中间件、错误、缓存和测试 |
+| `04-业务系统接入链路-qs-server接入 IAM 详解.md` | 以 qs-server 为落地样板，说明登录、验 Token、身份查询、AuthZ Check、worker 接入和部署配置 |
+| `05-契约事实源与防漂移机制.md` | 收口 REST/gRPC/SDK/业务接入/文档的事实源优先级、Breaking Change 和防漂移机制 |
 
 ---
 
-## 接入知识地图
+## 4. 推荐阅读顺序
+
+### 4.1 标准顺序
+
+第一次系统阅读，推荐按顺序读：
+
+```text
+00-接入总览-业务系统如何接入IAM.md
+  -> 01-REST API契约-前端与管理端接入.md
+  -> 02-gRPC API契约-服务间调用与内部集成.md
+  -> 03-SDK接入模型-Go服务端集成.md
+  -> 04-业务系统接入链路-qs-server接入 IAM 详解.md
+  -> 05-契约事实源与防漂移机制.md
+```
+
+原因是：
+
+```text
+先理解业务系统为什么接入 IAM；
+再理解 REST 如何服务前端和管理端；
+再理解 gRPC 如何服务内部服务间调用；
+再理解 Go SDK 如何封装接入；
+再用 qs-server 串起完整落地链路；
+最后理解事实源和防漂移机制。
+```
+
+---
+
+### 4.2 业务项目第一次接入 IAM
+
+推荐路径：
+
+```text
+00-接入总览-业务系统如何接入IAM.md
+  -> 04-业务系统接入链路-qs-server接入 IAM 详解.md
+  -> 03-SDK接入模型-Go服务端集成.md
+  -> 02-gRPC API契约-服务间调用与内部集成.md
+```
+
+重点关注：
+
+```text
+Token 验证；
+Principal 注入；
+Identity 查询；
+ProfileLink 边界；
+Resource / Action / Scope 构造；
+AuthZ Check；
+service identity；
+配置和部署。
+```
+
+---
+
+### 4.3 前端或管理后台接入
+
+推荐路径：
+
+```text
+00-接入总览-业务系统如何接入IAM.md
+  -> 01-REST API契约-前端与管理端接入.md
+```
+
+重点关注：
+
+```text
+登录；
+刷新 Token；
+退出登录；
+Me / 当前 Principal；
+User / Profile / ProfileLink；
+AuthZ 管理接口；
+Check / Snapshot；
+错误响应；
+Bearer Token 安全。
+```
+
+---
+
+### 4.4 后端服务间调用
+
+推荐路径：
+
+```text
+00-接入总览-业务系统如何接入IAM.md
+  -> 02-gRPC API契约-服务间调用与内部集成.md
+  -> 03-SDK接入模型-Go服务端集成.md
+```
+
+重点关注：
+
+```text
+VerifyToken；
+GetUser / GetProfile / ListProfileLinks；
+AuthorizationService.Check；
+GetAuthorizationSnapshot；
+service token；
+gRPC metadata；
+deadline；
+retry；
+status code。
+```
+
+---
+
+### 4.5 Go 服务端接入
+
+推荐路径：
+
+```text
+03-SDK接入模型-Go服务端集成.md
+  -> 04-业务系统接入链路-qs-server接入 IAM 详解.md
+  -> 05-契约事实源与防漂移机制.md
+```
+
+重点关注：
+
+```text
+sdk.NewClient；
+sdk.Config；
+AuthN().VerifyToken；
+Identity().GetUser / GetProfile / ListProfileLinks；
+AuthZ().Check / Allow / AllowScoped；
+HTTP middleware；
+gRPC interceptor；
+SDK fake client；
+error mapping。
+```
+
+---
+
+### 4.6 维护接口契约
+
+推荐路径：
+
+```text
+05-契约事实源与防漂移机制.md
+  -> 01-REST API契约-前端与管理端接入.md
+  -> 02-gRPC API契约-服务间调用与内部集成.md
+  -> 03-SDK接入模型-Go服务端集成.md
+```
+
+重点关注：
+
+```text
+OpenAPI；
+proto；
+pkg/sdk public API；
+server implementation；
+contract tests；
+Breaking Change；
+Deprecated 机制；
+qs-server 接入验证。
+```
+
+---
+
+## 5. 接入知识地图
 
 ```mermaid
 flowchart TD
-    Access["05-接入与契约"]
+    Access["05 接入与契约"]
 
-    REST["01 REST API 契约"]
-    GRPC["02 gRPC API 契约"]
-    SDK["03 SDK 接入模型"]
+    Overview["00 接入总览"]
+    REST["01 REST API"]
+    GRPC["02 gRPC API"]
+    SDK["03 Go SDK"]
+    QS["04 qs-server 接入"]
+    Drift["05 事实源与防漂移"]
 
+    Access --> Overview
     Access --> REST
     Access --> GRPC
     Access --> SDK
+    Access --> QS
+    Access --> Drift
 
-    REST --> OpenAPI["api/rest/*.yaml"]
-    REST --> HTTP["Web / App / Admin / Login"]
-    REST --> Middleware["JWT Middleware / Admin Guard"]
+    Overview --> Client["Client / Frontend"]
+    Overview --> Backend["Business Backend"]
+    Overview --> Worker["Worker / Service"]
 
-    GRPC --> Proto["api/grpc/iam/*/v2/*.proto"]
+    REST --> OpenAPI["OpenAPI"]
+    REST --> Admin["Admin Console"]
+    REST --> Login["Login / Refresh / Me"]
+
+    GRPC --> Proto["proto"]
     GRPC --> S2S["Service-to-Service"]
-    GRPC --> Metadata["mTLS / service token / ACL / audit"]
+    GRPC --> Metadata["metadata / deadline / status"]
 
-    SDK --> Client["sdk.NewClient"]
-    SDK --> LoginV2["auth/loginv2"]
-    SDK --> JWKS["JWKSManager / TokenVerifier"]
-    SDK --> ServiceAuth["ServiceAuthHelper"]
-    SDK --> AuthZ["Authz().Check / Allow / Snapshot"]
+    SDK --> GoClient["sdk.Client"]
+    SDK --> Middleware["middleware / interceptor"]
+    SDK --> Fake["testing fake"]
+
+    QS --> Verify["VerifyToken"]
+    QS --> Identity["User / Profile / ProfileLink"]
+    QS --> Check["AuthZ Check"]
+
+    Drift --> Contract["OpenAPI / proto / pkg/sdk"]
+    Drift --> Tests["contract tests"]
 ```
 
 ---
 
-## 推荐阅读顺序
-
-### 标准顺序
-
-```text
-01-REST API契约
-  -> 02-gRPC API契约
-  -> 03-SDK接入模型
-```
-
-原因：
-
-1. 先理解面向用户侧和管理面的 REST；
-2. 再理解服务间调用的 gRPC；
-3. 最后理解 Go 服务如何通过 SDK 降低接入成本。
-
----
-
-### 如果你是前端 / 管理后台接入方
-
-推荐路径：
-
-```text
-01-REST API契约.md
-  -> api/rest/README.md
-  -> api/rest/authn.v2.yaml
-  -> api/rest/identity.v2.yaml
-  -> api/rest/authz.v2.yaml
-```
-
-重点关注：
-
-```text
-登录
-token refresh / logout / verify
-当前用户 me
-profiles / profile-links
-authz check
-admin 管理路由
-错误响应
-```
-
----
-
-### 如果你是后端服务接入方
-
-推荐路径：
-
-```text
-02-gRPC API契约.md
-  -> api/grpc/README.md
-  -> api/grpc/iam/authn/v2/authn.proto
-  -> api/grpc/iam/authz/v2/authz.proto
-  -> api/grpc/iam/identity/v2/identity.proto
-```
-
-重点关注：
-
-```text
-VerifyToken
-IssueServiceToken
-AuthorizationService.Check
-GetAuthorizationSnapshot
-ProfileLinkQuery
-IdentityRead
-metadata authorization
-mTLS / ACL / audit
-```
-
----
-
-### 如果你是 Go 服务接入方
-
-推荐路径：
-
-```text
-03-SDK接入模型.md
-  -> pkg/sdk/README.md
-  -> pkg/sdk/_examples
-  -> pkg/sdk/auth
-  -> pkg/sdk/authz
-  -> pkg/sdk/identity
-```
-
-重点关注：
-
-```text
-sdk.NewClient
-ConfigFromEnv / ConfigFromViper
-auth/loginv2
-auth/jwks
-auth/verifier
-auth/serviceauth
-Authz().Check / Allow / AllowScoped
-Identity / ProfileLink client
-sdk/errors
-```
-
----
-
-## 三层接入主图
+## 6. 三层接入主图
 
 ```mermaid
 flowchart TD
     Web["Web / App / Admin UI"]
-    Service["Backend Service / Worker"]
+    Backend["Backend Service / Worker"]
     GoService["Go Business Service"]
 
     REST["REST API<br/>OpenAPI"]
     GRPC["gRPC API<br/>Proto"]
-    SDK["Go SDK<br/>接入产品层"]
+    SDK["Go SDK<br/>Client Facade"]
 
-    IAM["IAM Server<br/>AuthN / AuthZ / Identity / IDP"]
+    IAM["IAM Server<br/>AuthN / Identity / AuthZ / IDP"]
 
     Web --> REST --> IAM
-    Service --> GRPC --> IAM
+    Backend --> GRPC --> IAM
     GoService --> SDK
     SDK --> REST
     SDK --> GRPC
+    SDK --> IAM
 ```
 
-这张图表达的是：
+这张图表达：
 
 ```text
-REST、gRPC、SDK 是同一套 IAM Server 能力的不同接入方式
-不是三套业务逻辑
+REST、gRPC、SDK 都指向同一套 IAM Server 能力；
+REST 更适合前端和管理端；
+gRPC 更适合服务间调用；
+SDK 更适合 Go 服务端低成本接入；
+SDK 可以封装 REST / gRPC，但不改变 IAM 业务语义。
 ```
 
 ---
 
-## 接入方式选择规则
+## 7. 业务系统接入主图
 
-| 场景 | 推荐接入 | 原因 |
-| --- | --- | --- |
-| 用户显式登录 | REST / SDK loginv2 | 当前登录事实源是 REST AuthN v2 |
-| Web/App 当前用户接口 | REST | HTTP 友好，JWT middleware，current-user 语义清晰 |
-| 管理后台 | REST | OpenAPI、调试、管理面友好 |
-| 服务间 VerifyToken | gRPC / SDK | 强类型、内部调用、适合 service token |
-| AuthZ Check | gRPC / SDK | 高频服务间判定 |
-| AuthorizationSnapshot | gRPC / SDK | 服务间授权快照与缓存治理 |
-| Identity 系统侧查询 | gRPC / SDK | 后端服务查 User/Profile/ProfileLink |
-| IDP 内部读取 | gRPC / SDK | 高信任内部能力 |
-| Go 业务服务接入 | SDK | 减少重复 client、JWKS、Verify、ServiceAuth 代码 |
-| API Gateway 本地验签 | JWKS | 标准公钥分发 |
-| curl / 脚本调试 | REST | 直接可调、易观察 |
+```mermaid
+sequenceDiagram
+    participant Client as Client / Frontend
+    participant IAMRest as IAM REST AuthN
+    participant QS as qs-server
+    participant IAMSDK as IAM SDK / gRPC
+    participant IAM as IAM Server
+
+    Client->>IAMRest: Login
+    IAMRest-->>Client: AccessToken + RefreshToken
+    Client->>QS: Business API with Bearer Token
+    QS->>IAMSDK: VerifyToken
+    IAMSDK->>IAM: AuthN Verify
+    IAM-->>IAMSDK: Principal
+    IAMSDK-->>QS: Principal
+    QS->>IAMSDK: Identity Query if needed
+    IAMSDK->>IAM: GetUser / GetProfile / ListProfileLinks
+    IAM-->>IAMSDK: Identity data
+    QS->>IAMSDK: AuthZ Check(resource, action, scope)
+    IAMSDK->>IAM: Check
+    IAM-->>IAMSDK: AuthorizationDecision
+    IAMSDK-->>QS: allow / deny
+    QS-->>Client: business response
+```
+
+这张图是 `05-接入与契约/` 的核心心智：
+
+```text
+前端登录 IAM；
+业务请求进 qs-server；
+qs-server 通过 SDK / gRPC 验 Token、查身份、做权限判定；
+IAM 维护身份事实、认证状态、授权事实和判定逻辑；
+qs-server 维护业务对象和业务流程。
+```
 
 ---
 
-## REST 契约边界
+## 8. 接入方式选择规则
 
-### REST 定位
+| 场景 | 推荐接入 |
+| --- | --- |
+| 用户登录 | REST |
+| 前端刷新 Token | REST |
+| 当前用户页面 | REST / 后端聚合 |
+| 管理后台 | REST |
+| 服务间 VerifyToken | gRPC / SDK |
+| 服务间 AuthZ Check | gRPC / SDK |
+| 批量 Identity 查询 | gRPC / SDK |
+| Go 业务服务接入 | SDK |
+| Worker 调用 IAM | gRPC / SDK |
+| curl / 脚本调试 | REST |
+| 本地 JWKS 验签 | SDK TokenVerifier / JWKS |
+| 契约字段确认 | OpenAPI / proto / pkg/sdk |
+
+简单规则：
+
+```text
+用户侧和管理侧优先 REST；
+服务间调用优先 gRPC；
+Go 服务端优先 SDK；
+字段级事实回到机器契约；
+业务语义回到 IAM Server 模块。
+```
+
+---
+
+## 9. REST 契约边界
 
 REST 面向：
 
 ```text
-Web
-App
-管理后台
-登录
-当前用户视角
-HTTP 调试
+Web；
+App；
+管理后台；
+登录；
+当前用户视角；
+HTTP 调试；
+低门槛外部接入。
 ```
 
 REST 的事实源是：
 
 ```text
-api/rest/*.yaml
-```
-
-REST runtime 注册在：
-
-```text
+api/rest
+OpenAPI YAML / JSON
 internal/apiserver/transport/rest
+REST tests
 ```
 
-### REST 覆盖能力
-
-| 能力 | 契约 |
-| --- | --- |
-| AuthN | `api/rest/authn.v2.yaml` |
-| AuthZ | `api/rest/authz.v2.yaml` |
-| Identity | `api/rest/identity.v2.yaml` |
-| IDP | `api/rest/idp.v2.yaml` |
-| Suggest | `api/rest/suggest.v2.yaml` |
-
-### REST 重要边界
+REST 覆盖能力：
 
 ```text
-OpenAPI 是路径、字段、schema、认证和错误响应事实源
-transport/rest 只做协议适配
-protected routes 依赖 JWT middleware
-admin routes 依赖平台管理员授权
-debug routes 是诊断面，不是业务能力承诺
+AuthN：Login、Refresh、Logout、Verify、JWKS、Me；
+Identity：User、Profile、ProfileLink；
+AuthZ：Resource、Role、Permission、Assignment、Check、Snapshot、PolicyLinter；
+IDP：WeChat / WeCom app 管理；
+System：health、ready、metrics。
 ```
 
-不要把 REST 文档写成源码事实源，也不要让 REST handler 承担业务规则。
+REST 重要边界：
+
+```text
+OpenAPI 是字段级事实源；
+REST handler 只做协议适配；
+管理接口仍需 AuthZ；
+敏感字段必须脱敏；
+REST 不适合所有高频服务间调用。
+```
+
+详细说明见：
+
+```text
+01-REST API契约-前端与管理端接入.md
+```
 
 ---
 
-## gRPC 契约边界
-
-### gRPC 定位
+## 10. gRPC 契约边界
 
 gRPC 面向：
 
 ```text
-可信服务间调用
-后端服务
-worker
-内部集成
-SDK 底层调用
+可信服务间调用；
+后端服务；
+worker；
+内部集成；
+SDK 底层调用。
 ```
 
 gRPC 的事实源是：
 
 ```text
-api/grpc/iam/*/v2/*.proto
-```
-
-gRPC runtime 注册在：
-
-```text
+api/grpc
+.proto files
+generated code
 internal/apiserver/transport/grpc
+gRPC tests
 ```
 
-### gRPC 服务矩阵
-
-| Proto | Service | 当前能力 |
-| --- | --- | --- |
-| `authn/v2/authn.proto` | `AuthService` | VerifyToken、RefreshToken、RevokeToken、RevokeRefreshToken、IssueServiceToken |
-| `authn/v2/authn.proto` | `AccountOnboardingService` | CreateOperationAccount |
-| `authn/v2/authn.proto` | `JWKSService` | GetJWKS |
-| `authz/v2/authz.proto` | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
-| `identity/v2/identity.proto` | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
-| `identity/v2/identity.proto` | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
-| `identity/v2/identity.proto` | `ProfileLinkCommand` | EstablishProfileLink、RevokeProfileLink、BatchRevokeProfileLinks、ImportProfileLinks |
-| `identity/v2/identity.proto` | `IdentityLifecycle` | CreateUser、UpdateUser、DeactivateUser、BlockUser |
-| `idp/v2/idp.proto` | `IDPService` | GetWechatApp |
-
-### gRPC 重要边界
+gRPC 覆盖能力：
 
 ```text
-proto 字段只能追加，禁止复用 field number
-proto service 必须有 runtime registration
-gRPC 面向可信服务间调用，不是前端公网入口
-调用方应携带 authorization metadata 和 x-request-id
-mTLS / service token / ACL / audit 是服务间安全边界
+AuthN：Login、RefreshToken、VerifyToken、Service Token；
+Identity：User、Profile、ProfileLink 查询；
+AuthZ：Check、Snapshot、Assignment、Permission 管理；
+IDP：外部身份源配置；
+System：内部 health / runtime 状态。
+```
+
+gRPC 重要边界：
+
+```text
+proto 是字段级事实源；
+gRPC service 只做协议适配；
+所有调用应设置 deadline；
+metadata 传递认证、caller、trace；
+gRPC 不应直接公网暴露给不可信客户端；
+管理 RPC 必须认证和授权。
+```
+
+详细说明见：
+
+```text
+02-gRPC API契约-服务间调用与内部集成.md
 ```
 
 ---
 
-## SDK 接入边界
+## 11. SDK 接入边界
 
-### SDK 定位
-
-SDK 是：
+SDK 面向：
 
 ```text
-Go 服务端接入 IAM 的产品化封装
+Go 业务服务；
+Go worker；
+Go gateway；
+Go internal service。
 ```
 
-SDK 不是：
-
-```text
-新的业务层
-本地 AuthZ 引擎
-本地 Identity 规则
-本地 IDP 登录模块
-```
-
-### SDK 公开稳定面
-
-当前公开稳定包包括：
+SDK 的事实源是：
 
 ```text
 pkg/sdk
-pkg/sdk/config
-pkg/sdk/auth/client
-pkg/sdk/auth/jwks
-pkg/sdk/auth/verifier
-pkg/sdk/auth/serviceauth
-pkg/sdk/authz
-pkg/sdk/identity
-pkg/sdk/idp
-pkg/sdk/errors
+pkg/sdk public API
+SDK tests
+SDK examples
 ```
 
-`transport`、`observability` 和高级错误分析能力已经收回 internal，不作为公开稳定 API。
-
-### SDK 封装能力
-
-| SDK 子包 | 作用 |
-| --- | --- |
-| `sdk.NewClient` | 初始化 gRPC conn 和 Auth/Authz/Identity/Profile/ProfileLink/IDP 子客户端 |
-| `auth/loginv2` | REST AuthN v2 显式登录 |
-| `auth/client` | gRPC AuthN client |
-| `auth/jwks` | JWKSManager |
-| `auth/verifier` | TokenVerifier，本地/远程/fallback 验证 |
-| `auth/serviceauth` | 服务间 token 获取、刷新和上下文注入 |
-| `authz` | Check、Allow、AllowScoped、AuthorizationSnapshot |
-| `identity` | User / ProfileCommand / ProfileLink 系统侧查询与命令 |
-| `idp` | 高信任 IDP 内部能力 |
-| `errors` | IAMError、IsNotFound、IsUnauthorized、IsPermissionDenied 等稳定错误 facade |
-
-### SDK 重要边界
+SDK 封装能力：
 
 ```text
-SDK 只封装调用
-SDK 不定义业务规则
-SDK 不替代 OpenAPI/proto
-SDK 不进入 IAM Server domain/application
-SDK public API 必须通过 compile test 保护
+AuthN：Login、RefreshToken、VerifyToken、TokenVerifier、JWKS；
+Identity：User、Profile、ProfileLink 查询；
+AuthZ：Check、Allow、AllowScoped、Snapshot；
+IDP：外部身份源配置封装；
+Middleware：HTTP / gRPC Principal 注入；
+Testing：fake client、stub、test helper。
 ```
 
----
-
-## 接入与 AuthN/AuthZ/Identity/IDP 的关系
-
-| 模块 | REST | gRPC | SDK |
-| --- | --- | --- | --- |
-| AuthN | 登录、refresh、logout、verify、JWKS、account | VerifyToken、RefreshToken、RevokeToken、IssueServiceToken、JWKS | LoginV2、Auth client、JWKSManager、TokenVerifier、ServiceAuthHelper |
-| AuthZ | check、roles、assignments、policies、resources | AuthorizationService.Check、Snapshot、Grant/RevokeAssignment | Authz().Check / Allow / AllowScoped / Snapshot |
-| Identity | me、profiles、profile-links 当前用户视角 | IdentityRead、ProfileCommand、ProfileLinkQuery、ProfileLinkCommand、IdentityLifecycle | Identity/Profile/ProfileLink client |
-| IDP | WechatApp 管理、IDP health、secret rotation、provider token 管理 | IDPService.GetWechatApp | IDP client，高信任内部能力 |
-| Suggest | profile suggest | 当前无主 gRPC 入口 | 当前不作为主要 SDK 稳定面 |
-
----
-
-## 机器契约与防漂移
-
-| 契约 | 防漂移机制 |
-| --- | --- |
-| REST OpenAPI | `make docs-swagger`、`make api-validate`、REST router matrix tests |
-| gRPC proto | `make proto-gen`、`proto_contract_test.go` |
-| SDK public API | `pkg/sdk/public_api_compile_test.go` |
-| 文档链接与旧事实 | `make docs-hygiene`、`scripts/check-docs-links.py` |
-
-接入文档必须遵守：
+SDK 重要边界：
 
 ```text
-REST 路径、字段、schema 以 api/rest 为准
-gRPC service、message、RPC 以 api/grpc 为准
-SDK 公开 API 以 pkg/sdk 为准
-运行行为以源码和测试为准
+SDK 封装 REST / gRPC；
+SDK 不复制 IAM 数据库；
+SDK 不直接操作 Casbin；
+SDK 不本地维护 Role / Permission / RoleBinding；
+SDK 不替代 IAM Server；
+SDK public API 必须通过测试保护。
+```
+
+详细说明见：
+
+```text
+03-SDK接入模型-Go服务端集成.md
 ```
 
 ---
 
-## 代码证据入口
+## 12. qs-server 接入边界
 
-| 主题 | 代码 / 契约入口 |
+qs-server 是 IAM 的典型业务接入方。
+
+推荐链路：
+
+```text
+Client Login at IAM
+  -> Client calls qs-server with Bearer Token
+  -> qs-server VerifyToken
+  -> Principal in context
+  -> qs-server loads business object
+  -> qs-server builds Resource / Action / Scope
+  -> IAM AuthZ Check
+  -> allow / deny
+```
+
+qs-server 应保存：
+
+```text
+iam_user_id；
+iam_profile_id；
+tenant_id；
+业务对象 owner / origin；
+业务对象与 IAM 主体的引用关系。
+```
+
+qs-server 不应保存：
+
+```text
+LoginIdentity；
+Credential；
+AccessToken / RefreshToken；
+Role；
+Permission；
+RoleBinding；
+Casbin rule；
+IDP AppSecret。
+```
+
+关键边界：
+
+```text
+ProfileLink 是身份关系，不是最终权限判定；
+敏感业务操作必须调用 AuthZ Check；
+业务状态判断留在 qs-server；
+认证、身份事实、授权事实和判定留在 IAM。
+```
+
+详细说明见：
+
+```text
+04-业务系统接入链路-qs-server接入 IAM 详解.md
+```
+
+---
+
+## 13. 机器契约与防漂移
+
+接入契约事实源包括：
+
+```text
+REST：OpenAPI + REST handler + REST tests；
+gRPC：proto + generated code + gRPC tests；
+SDK：pkg/sdk public API + SDK tests + examples；
+业务接入：qs-server 接入代码 + 集成测试；
+文档：docs/05 作为人类理解入口。
+```
+
+事实源优先级：
+
+```text
+机器契约 / 源码 / 测试
+  > 人类文档
+  > 历史讨论
+  > 旧 README / 旧示例
+```
+
+常见防漂移机制：
+
+```text
+OpenAPI 校验；
+proto 生成；
+SDK public API compile test；
+REST / gRPC transport tests；
+qs-server integration tests；
+docs-hygiene；
+示例代码编译测试。
+```
+
+详细说明见：
+
+```text
+05-契约事实源与防漂移机制.md
+```
+
+---
+
+## 14. 代码与契约入口
+
+| 主题 | 入口 |
 | --- | --- |
-| REST 契约总览 | `api/rest/README.md` |
-| REST OpenAPI | `api/rest/*.yaml` |
+| REST 契约 | `api/rest` |
 | REST runtime | `internal/apiserver/transport/rest` |
-| REST router | `internal/apiserver/transport/rest/router.go` |
-| REST module routes | `internal/apiserver/transport/rest/module_routes.go` |
-| REST contract tests | `internal/apiserver/transport/rest/router_matrix_test.go` |
-| gRPC 契约总览 | `api/grpc/README.md` |
-| gRPC proto | `api/grpc/iam/*/v2/*.proto` |
-| gRPC runtime registry | `internal/apiserver/transport/grpc/registry.go` |
-| gRPC services | `internal/apiserver/transport/grpc/service` |
-| gRPC proto contract test | `internal/apiserver/transport/grpc/proto_contract_test.go` |
-| SDK 总入口 | `pkg/sdk/README.md` |
-| SDK Client | `pkg/sdk/client.go` |
-| SDK config | `pkg/sdk/config` |
-| SDK auth | `pkg/sdk/auth` |
-| SDK authz | `pkg/sdk/authz` |
-| SDK identity | `pkg/sdk/identity` |
-| SDK idp | `pkg/sdk/idp` |
-| SDK errors | `pkg/sdk/errors` |
-| SDK public API test | `pkg/sdk/public_api_compile_test.go` |
-| 文档检查 | `scripts/check-docs-links.py` |
+| gRPC 契约 | `api/grpc` |
+| gRPC runtime | `internal/apiserver/transport/grpc` |
+| SDK public API | `pkg/sdk` |
+| SDK examples | `pkg/sdk` / `examples`，以当前代码为准 |
+| AuthN 文档 | `docs/02-认证AuthN` |
+| AuthZ 文档 | `docs/03-授权AuthZ` |
+| Identity 文档 | `docs/04-身份Identity` |
+| 接入文档 | `docs/05-接入与契约` |
+| qs-server 接入 | qs-server 仓库接入代码与配置 |
 
----
-
-## 事实源优先级
-
-接入与契约相关事实冲突时，按以下顺序判断：
-
-1. **机器契约**  
-   REST 看 `api/rest/*.yaml`；gRPC 看 `api/grpc/iam/*/v2/*.proto`；SDK 看 `pkg/sdk` 公开 API。
-
-2. **运行时代码**  
-   `internal/apiserver/transport/rest`、`internal/apiserver/transport/grpc`、`pkg/sdk`。
-
-3. **契约测试**  
-   REST router matrix、gRPC proto contract、SDK public API compile test。
-
-4. **当前维护文档**  
-   `docs/05-接入与契约`、`docs/08-宣讲/09-REST-gRPC-SDK接入讲法.md`。
-
-5. **历史归档材料**  
-   `_archive/` 只用于历史追溯，不作为当前事实源。
-
----
-
-## 常见误区
-
-### 误区一：REST、gRPC、SDK 是三套业务逻辑
-
-错误。  
-它们是同一套 IAM Server 能力的不同接入方式。
-
----
-
-### 误区二：gRPC 比 REST 高级，所以都应该走 gRPC
-
-错误。  
-登录、前端、管理后台、HTTP 调试仍然更适合 REST。  
-gRPC 更适合可信服务间调用。
-
----
-
-### 误区三：SDK 是业务层
-
-错误。  
-SDK 只是接入产品层，不定义业务规则。
-
----
-
-### 误区四：SDK 可以让业务方不用理解安全边界
-
-错误。  
-SDK 降低接入成本，但调用方仍要理解：
+事实冲突时：
 
 ```text
-JWKS local verify != Online Verify
-ProfileLink != AuthZ Permission
-IDP.GetWechatApp 是高信任接口
-Service Token != User Token
+先看 OpenAPI / proto / pkg/sdk public API；
+再看 server implementation；
+再看 tests；
+再看接入方代码；
+最后更新 docs。
 ```
 
 ---
 
-### 误区五：文档中的路径可以替代机器契约
-
-错误。  
-路径、字段、RPC、message 必须回到 OpenAPI/proto/SDK 源码确认。
-
----
-
-## 验证建议
+## 15. 验证建议
 
 修改接入文档或相关代码后，建议运行：
 
@@ -557,14 +710,15 @@ REST 契约相关：
 ```bash
 make docs-swagger
 make api-validate
-go test ./internal/apiserver/transport/rest
+go test ./internal/apiserver/transport/rest/...
 ```
 
 gRPC 契约相关：
 
 ```bash
 make proto-gen
-go test ./internal/apiserver/transport/grpc
+make api-validate
+go test ./internal/apiserver/transport/grpc/...
 ```
 
 SDK 相关：
@@ -573,117 +727,203 @@ SDK 相关：
 go test ./pkg/sdk/...
 ```
 
-架构边界相关：
+如果有 examples：
 
 ```bash
-go test ./internal/pkg/architecture
+go test ./examples/...
 ```
+
+具体命令以项目 Makefile 和 CI 为准。
 
 ---
 
-## 维护规则
+## 16. 常见误区
 
-### 1. README 只做接入模块入口
+### 16.1 REST、gRPC、SDK 是三套业务逻辑
+
+错误。
+
+它们是同一套 IAM Server 能力的三种接入投影。
+
+---
+
+### 16.2 gRPC 更高级，所以所有场景都应该走 gRPC
+
+错误。
+
+前端、登录、管理后台、HTTP 调试仍然更适合 REST。
+
+gRPC 更适合可信服务间调用。
+
+---
+
+### 16.3 SDK 是业务层
+
+错误。
+
+SDK 是 Go 客户端封装，不定义业务规则。
+
+业务规则仍在业务服务和 IAM Server 各自边界内。
+
+---
+
+### 16.4 SDK 可以替代 IAM Server
+
+错误。
+
+SDK 不拥有身份事实、认证状态、授权事实和权限判定事实源。
+
+这些仍由 IAM Server 维护。
+
+---
+
+### 16.5 ProfileLink 可以替代 AuthZ Check
+
+错误。
+
+ProfileLink 是身份关系。
+
+敏感资源访问必须通过 Resource / Action / Scope 做 AuthZ Check。
+
+---
+
+### 16.6 文档中的接口字段可以替代机器契约
+
+错误。
+
+字段、schema、RPC、message、SDK 方法必须回到 OpenAPI、proto 和 `pkg/sdk` 确认。
+
+---
+
+### 16.7 IAM 调用失败可以当成权限拒绝
+
+错误。
+
+`Allowed=false` 是权限拒绝。
+
+网络错误、timeout、IAM unavailable 是系统错误。
+
+业务系统必须区分 401、403、500 / Unavailable。
+
+---
+
+## 17. 维护规则
+
+### 17.1 README 只做接入模块入口
 
 本 README 负责：
 
 ```text
-说明 REST/gRPC/SDK 分工
-列出三篇正文
-提供阅读路径
-提供契约事实源
-说明验证与防漂移机制
+说明接入模块定位；
+列出 00～05 文档；
+提供阅读路径；
+提供接入知识地图；
+说明 REST / gRPC / SDK / qs-server / 防漂移的总边界。
 ```
 
-详细协议字段和 RPC message 以机器契约为准。
+详细协议字段、RPC message、SDK method 以对应正文和机器契约为准。
 
 ---
 
-### 2. 不把 REST/gRPC/SDK 写成业务事实源
+### 17.2 不把接入文档写成接口全集
 
-业务规则仍然在：
+接口全集由机器契约维护：
 
 ```text
-application
-domain
-infra adapter
+REST 字段看 OpenAPI；
+gRPC 字段看 proto；
+SDK 方法看 pkg/sdk public API。
 ```
 
-REST/gRPC/SDK 只表达接入契约和调用方式。
+接入文档负责解释：
+
+```text
+场景；
+链路；
+边界；
+事实源；
+排查；
+维护规则。
+```
 
 ---
 
-### 3. 不鼓励外部调用 internal SDK 包
+### 17.3 不把 AuthN / AuthZ / Identity 细节重复写一遍
 
-对外稳定 API 只能使用 `pkg/sdk` README 中声明的公开包。  
+本目录只解释接入。
+
+模块内部模型分别见：
+
+```text
+02-认证AuthN；
+03-授权AuthZ；
+04-身份Identity。
+```
+
+---
+
+### 17.4 不鼓励外部调用 internal 包
+
+业务服务应使用：
+
+```text
+pkg/sdk public API；
+REST API；
+gRPC API。
+```
+
 不要在文档中建议业务服务 import：
 
 ```text
-pkg/sdk/internal/transport
-pkg/sdk/internal/observability
-pkg/sdk/internal/errorsx
+internal/apiserver/...；
+internal/pkg/...；
+infra/mysql；
+infra/casbin。
 ```
 
 ---
 
-### 4. 不把 IDP SDK 写成普通低风险接口
+### 17.5 旧接口、旧文档名、旧术语必须清理
 
-`IDPService.GetWechatApp` 和 SDK IDP client 属于高信任内部能力。  
-文档中必须提醒：
+新版目录已经确立：
 
 ```text
-mTLS
-service token
-ACL
-audit
-secret 脱敏
+00 接入总览；
+01 REST；
+02 gRPC；
+03 SDK；
+04 qs-server 接入；
+05 契约事实源与防漂移。
 ```
 
----
-
-### 5. 不恢复旧路由和旧关系术语
-
-当前 Identity 关系术语是：
+不要再恢复旧目录：
 
 ```text
-ProfileLink
-/profile-links
-ProfileLinkQuery
-ProfileLinkCommand
+01-REST API契约.md；
+02-gRPC API契约.md；
+03-SDK接入模型.md；
 ```
 
-不要恢复旧关系路由或旧合同名作为 active 入口。
+如果历史文档仍存在，应迁移或归档。
 
 ---
 
-## 本文总结
+## 18. 本文总结
 
-`05-接入与契约/` 解释的是 IAM 如何被外部系统使用。
+`05-接入与契约/` 的核心不是写接口说明书，而是解释 IAM 如何被其他系统稳定接入。
 
 核心心智是：
 
 ```text
-REST 面向 Web/App/Admin/Login
-gRPC 面向可信服务间调用
-SDK 面向 Go 业务服务低成本接入
+REST 面向前端、管理后台、调试和非 Go 调用方；
+gRPC 面向可信服务间调用和内部集成；
+Go SDK 面向 Go 服务端低成本接入；
+qs-server 是业务系统接入 IAM 的落地样板；
+OpenAPI、proto、pkg/sdk public API 和 server implementation 是契约事实源；
+docs/05 是人类理解入口；
+tests 和 CI 负责防漂移。
 ```
 
-但它们都不是业务规则来源。  
-业务规则仍然回到 IAM Server 的 AuthN、AuthZ、Identity、IDP。
+如果只记住一句话：
 
-读完本目录后，读者应该能回答：
-
-```text
-什么时候用 REST？
-什么时候用 gRPC？
-什么时候用 SDK？
-OpenAPI/proto/SDK 哪个是事实源？
-JWT/JWKS/Online Verify 如何选择？
-AuthZ Check 如何接入？
-SDK 为什么不是业务层？
-如何防止契约漂移？
-```
-
-如果只记一句话：
-
-> **REST、gRPC、SDK 是 IAM 面向不同调用方的三种接入投影；REST 以 OpenAPI 为准，gRPC 以 proto 为准，SDK 以公开 Go API 为准，业务语义仍由 IAM Server 内部模块实现。**
+> IAM 通过 REST、gRPC、Go SDK 三种投影服务外部系统；前端通过 REST 登录，业务后端通过 gRPC / SDK 验 Token、查身份、做 AuthZ Check，契约事实源分别回到 OpenAPI、proto、pkg/sdk 和 server implementation。
