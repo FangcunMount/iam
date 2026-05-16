@@ -225,12 +225,14 @@ suggest:
   max_results: 20
   key_pad_len: 25
   # trie_wildcard_key_cap: 200
-  # 建议显式开启：例如 per_operator_qps: 30、mobile_keyword_per_operator_qps: 6
+  # 建议显式开启；多副本部署用 backend: redis 共享配额（固定窗口约 1s，与令牌桶略有差异）。
   # rate_limit:
   #   per_operator_qps: 30
   #   per_operator_burst: 60
   #   mobile_keyword_per_operator_qps: 6
   #   mobile_keyword_per_operator_burst: 12
+  #   backend: redis
+  # visibility_cache_ttl_seconds: 60
   snapshot: true
 
 # ----------------------------------------------------------------------------

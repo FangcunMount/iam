@@ -109,61 +109,88 @@ func (s *Store) SuggestProfile(query suggest.Query, scope suggest.ProfileAccessS
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var matchedIDs []int64
+	var matched []suggest.RankedProfileSearchTerm
 	if query.Keyword.IsDigits() {
-		matchedIDs = s.hash.Match(query.Keyword.String(), query.InternalLimit)
+		matched = s.hashMatchedRanked(query)
 	} else {
-		matchedIDs = s.trieMatchedProfileIDs(query)
+		matched = s.trieMatchedRanked(query)
 	}
 
-	visible := make([]suggest.ProfileSearchTerm, 0, min(len(matchedIDs), query.Limit))
+	visible := make([]suggest.RankedProfileSearchTerm, 0, min(len(matched), query.Limit))
 	policy := suggest.ScopePolicy{}
 	compiled := suggest.CompileProfileAccessScope(scope)
-	for _, id := range matchedIDs {
+	for _, rt := range matched {
+		if !policy.AllowsCompiled(compiled, rt.Term) {
+			continue
+		}
+		visible = append(visible, rt)
+	}
+	suggestmetrics.ObserveIndexFilter(len(matched), len(visible))
+	return suggest.RankingPolicy{}.RankRankedForQuery(visible, query)
+}
+
+func (s *Store) hashMatchedRanked(q suggest.Query) []suggest.RankedProfileSearchTerm {
+	ids := s.hash.Match(q.Keyword.String(), q.InternalLimit)
+	out := make([]suggest.RankedProfileSearchTerm, 0, len(ids))
+	for _, id := range ids {
 		term, ok := s.terms[id]
 		if !ok {
 			continue
 		}
-		if !policy.AllowsCompiled(compiled, term) {
-			continue
-		}
-		visible = append(visible, term)
+		out = append(out, suggest.RankedProfileSearchTerm{Term: term, Kind: suggest.MatchKindExact})
 	}
-	suggestmetrics.ObserveIndexFilter(len(matchedIDs), len(visible))
-	return suggest.RankingPolicy{}.RankForQuery(visible, query)
+	return out
 }
 
-func (s *Store) trieMatchedProfileIDs(q suggest.Query) []int64 {
-	keyPadLen := q.KeyPadLen
-	internalLimit := q.InternalLimit
-	k := q.Keyword.String()
-	if keyPadLen <= 0 {
-		keyPadLen = suggest.DefaultKeyPadLen
-	}
-	maxKeys := q.TrieWildcardKeyCap
-	if maxKeys <= 0 {
-		maxKeys = suggest.DefaultTrieWildcardKeyCap
-	}
-	rk := []rune(k)
-	if len(rk) < keyPadLen {
-		k = k + strings.Repeat("*", keyPadLen-len(rk))
-	}
-	keys := s.trie.Wildcard(k, maxKeys)
-	var ids []int64
-	seen := make(map[int64]struct{}, internalLimit)
+func (s *Store) trieMatchedRanked(q suggest.Query) []suggest.RankedProfileSearchTerm {
+	padded := paddedTrieQueryKey(q)
+	keys := s.trie.Wildcard(padded, trieWildcardCap(q))
+	rawKeyword := q.Keyword.String()
+
+	var out []suggest.RankedProfileSearchTerm
+	seen := make(map[int64]struct{}, q.InternalLimit)
 	for _, prefixKey := range keys {
+		kind := suggest.MatchKindWildcard
+		if prefixKey == padded || prefixKey == rawKeyword {
+			kind = suggest.MatchKindPrefix
+		}
 		for _, id := range s.trie.ProfileIDs(prefixKey) {
 			if _, ok := seen[id]; ok {
 				continue
 			}
+			term, ok := s.terms[id]
+			if !ok {
+				continue
+			}
 			seen[id] = struct{}{}
-			ids = append(ids, id)
-			if internalLimit > 0 && len(ids) >= internalLimit {
-				return ids
+			out = append(out, suggest.RankedProfileSearchTerm{Term: term, Kind: kind})
+			if q.InternalLimit > 0 && len(out) >= q.InternalLimit {
+				return out
 			}
 		}
 	}
-	return ids
+	return out
+}
+
+func paddedTrieQueryKey(q suggest.Query) string {
+	keyPadLen := q.KeyPadLen
+	if keyPadLen <= 0 {
+		keyPadLen = suggest.DefaultKeyPadLen
+	}
+	k := q.Keyword.String()
+	rk := []rune(k)
+	if len(rk) < keyPadLen {
+		return k + strings.Repeat("*", keyPadLen-len(rk))
+	}
+	return k
+}
+
+func trieWildcardCap(q suggest.Query) int {
+	maxKeys := q.TrieWildcardKeyCap
+	if maxKeys <= 0 {
+		return suggest.DefaultTrieWildcardKeyCap
+	}
+	return maxKeys
 }
 
 func min(a, b int) int {

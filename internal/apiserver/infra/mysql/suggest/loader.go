@@ -1,3 +1,6 @@
+// Package suggest 从 MySQL 加载档案联想索引项。
+// 默认 SQL 为过渡读模型：tenant_id 来自 PlaceholderTenantID（profiles 表尚无租户列），
+// org_id 固定为 0（IAM 尚无机构列），owner_operator_ids 来自 profiles.created_by。
 package suggest
 
 import (
@@ -20,7 +23,7 @@ SELECT
   %d AS tenant_id,
   0 AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
-  '' AS owner_operator_ids,
+  CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
 FROM profiles c
 INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
@@ -28,6 +31,7 @@ INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
 WHERE c.deleted_at IS NULL
 GROUP BY c.id;
 `
+	// 活跃档案 upsert + 软删除 tombstone（name 为空，索引层会 RemoveProfile）。
 	defaultDeltaSQLTemplate = `
 SELECT
   c.id,
@@ -35,13 +39,24 @@ SELECT
   %d AS tenant_id,
   0 AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
-  '' AS owner_operator_ids,
+  CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
 FROM profiles c
 INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
 INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
 WHERE c.deleted_at IS NULL AND GREATEST(c.updated_at, g.updated_at, u.updated_at) > ?
-GROUP BY c.id;
+GROUP BY c.id
+UNION ALL
+SELECT
+  c.id,
+  '' AS name,
+  %d AS tenant_id,
+  0 AS org_id,
+  '' AS mobiles,
+  CAST(c.created_by AS CHAR) AS owner_operator_ids,
+  1 AS weight
+FROM profiles c
+WHERE c.deleted_at IS NOT NULL AND c.deleted_at > ?;
 `
 )
 
@@ -68,7 +83,7 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 	}
 	deltaSQL := strings.TrimSpace(cfg.DeltaSQL)
 	if deltaSQL == "" {
-		deltaSQL = strings.TrimSpace(fmt.Sprintf(defaultDeltaSQLTemplate, cfg.PlaceholderTenantID))
+		deltaSQL = strings.TrimSpace(fmt.Sprintf(defaultDeltaSQLTemplate, cfg.PlaceholderTenantID, cfg.PlaceholderTenantID))
 	}
 
 	return &Loader{
@@ -87,12 +102,14 @@ func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileSearchTerm, e
 }
 
 // Delta 增量拉取，按时间过滤。
-// 当前索引实现仅追加键、不删除旧键；生产建议 delta_sync_cron 留空，仅全量刷新。
+// 索引层：同一 profileID 会先撤销旧 Trie/Hash 键；DisplayName 为空视为删除。
+// 默认 Delta SQL：返回 since 之后更新的活跃档案，以及 since 之后软删除的 tombstone（name=”）。
+// 自定义 DeltaSQL 须自行保证 tombstone 协议，或仅全量刷新。
 func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
 	}
-	return l.query(ctx, l.config.DeltaSQL, since)
+	return l.query(ctx, l.config.DeltaSQL, since, since)
 }
 
 type record struct {

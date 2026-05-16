@@ -58,6 +58,15 @@ var (
 			Help:      "当前内存索引中的档案条数。",
 		},
 	)
+	rateLimitedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "iam",
+			Subsystem: "suggest",
+			Name:      "rate_limited_total",
+			Help:      "因限流被拒绝的 suggest 请求次数。",
+		},
+		[]string{"kind"},
+	)
 	refreshDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "iam",
@@ -100,6 +109,15 @@ func SetIndexTerms(n int) {
 		n = 0
 	}
 	indexTerms.Set(float64(n))
+}
+
+// RecordRateLimited 记录一次 429 限流拒绝。
+func RecordRateLimited(mobileKeyword bool) {
+	kind := "std"
+	if mobileKeyword {
+		kind = "mobile"
+	}
+	rateLimitedTotal.WithLabelValues(kind).Inc()
 }
 
 // ObserveRefresh 记录索引刷新耗时（秒）。

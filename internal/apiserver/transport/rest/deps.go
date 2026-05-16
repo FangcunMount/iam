@@ -3,6 +3,8 @@ package rest
 import (
 	"time"
 
+	redis "github.com/redis/go-redis/v9"
+
 	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	onboardingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
@@ -83,8 +85,9 @@ type UserDeps struct {
 
 // SuggestDeps 建议依赖
 type SuggestDeps struct {
-	Service   appsuggest.ProfileSuggestor
-	RateLimit appsuggest.RateLimitConfig
+	Service     appsuggest.ProfileSuggestor
+	RateLimit   appsuggest.RateLimitConfig
+	RedisClient *redis.Client
 }
 
 // ModuleStatus 模块状态，用于/debug/modules和/health

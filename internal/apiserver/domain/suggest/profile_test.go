@@ -66,6 +66,18 @@ func TestRankingPolicyKeepsBestWeightSortsAndLimits(t *testing.T) {
 	}
 }
 
+func TestRankingMatchKindPriority(t *testing.T) {
+	terms := []RankedProfileSearchTerm{
+		{Term: ProfileSearchTerm{ProfileID: 1, DisplayName: "wildcard-hit", Weight: 5}, Kind: MatchKindWildcard},
+		{Term: ProfileSearchTerm{ProfileID: 2, DisplayName: "exact-hit", Weight: 5}, Kind: MatchKindExact},
+	}
+	q := NewQuery("张", 10, 50, 8, 0)
+	got := RankingPolicy{}.RankRankedForQuery(terms, q)
+	if len(got) != 2 || got[0].ProfileID != 2 {
+		t.Fatalf("got %+v, want exact match first", got)
+	}
+}
+
 func TestRankingPrefixBoost(t *testing.T) {
 	terms := []ProfileSearchTerm{
 		{ProfileID: 1, DisplayName: "三张", Weight: 5},

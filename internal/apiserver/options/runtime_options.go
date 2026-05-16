@@ -107,7 +107,11 @@ type SuggestOptions struct {
 		PerOperatorBurst              int     `json:"per_operator_burst" mapstructure:"per_operator_burst"`
 		MobileKeywordPerOperatorQPS   float64 `json:"mobile_keyword_per_operator_qps" mapstructure:"mobile_keyword_per_operator_qps"`
 		MobileKeywordPerOperatorBurst int     `json:"mobile_keyword_per_operator_burst" mapstructure:"mobile_keyword_per_operator_burst"`
+		Backend                       string  `json:"backend" mapstructure:"backend"`
+		OperatorMapMaxEntries         int     `json:"operator_map_max_entries" mapstructure:"operator_map_max_entries"`
 	} `json:"rate_limit" mapstructure:"rate_limit"`
+	// VisibilityCacheTTLSeconds 可见 ProfileID 查询缓存秒数；0=关闭。
+	VisibilityCacheTTLSeconds int `json:"visibility_cache_ttl_seconds" mapstructure:"visibility_cache_ttl_seconds"`
 }
 
 func NewSuggestOptions() *SuggestOptions {

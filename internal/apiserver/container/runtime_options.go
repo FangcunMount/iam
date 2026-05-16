@@ -44,9 +44,10 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 			DeltaSQL:                  defaults.Suggest.DeltaSQL,
 			DisableMobileMask:         defaults.Suggest.DisableMobileMask,
 			LoaderPlaceholderTenantID: defaults.Suggest.LoaderPlaceholderTenantID,
-			TrieWildcardKeyCap:        defaults.Suggest.TrieWildcardKeyCap,
-			RateLimit:                 suggestRateLimitConfig(*defaults.Suggest),
-			Snapshot:                  suggestSnapshot(*defaults.Suggest),
+			TrieWildcardKeyCap:          defaults.Suggest.TrieWildcardKeyCap,
+			VisibilityCacheTTLSeconds:   defaults.Suggest.VisibilityCacheTTLSeconds,
+			RateLimit:                   suggestRateLimitConfig(*defaults.Suggest),
+			Snapshot:                    suggestSnapshot(*defaults.Suggest),
 		}.WithDefaults(),
 	}
 	if opts.Auth != nil {
@@ -79,8 +80,9 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 			DisableMobileMask:         opts.Suggest.DisableMobileMask,
 			LoaderPlaceholderTenantID: opts.Suggest.LoaderPlaceholderTenantID,
 			TrieWildcardKeyCap:          opts.Suggest.TrieWildcardKeyCap,
+			VisibilityCacheTTLSeconds: opts.Suggest.VisibilityCacheTTLSeconds,
 			RateLimit:                   suggestRateLimitConfig(*opts.Suggest),
-			Snapshot:                  suggestSnapshot(*opts.Suggest),
+			Snapshot:                    suggestSnapshot(*opts.Suggest),
 		}.WithDefaults()
 	}
 	if runtime.Events.CatalogPath == "" {
@@ -98,6 +100,8 @@ func suggestRateLimitConfig(o apiserveroptions.SuggestOptions) appsuggest.RateLi
 		PerOperatorBurst:              o.RateLimit.PerOperatorBurst,
 		MobileKeywordPerOperatorQPS:   o.RateLimit.MobileKeywordPerOperatorQPS,
 		MobileKeywordPerOperatorBurst: o.RateLimit.MobileKeywordPerOperatorBurst,
+		Backend:                       o.RateLimit.Backend,
+		OperatorMapMaxEntries:         o.RateLimit.OperatorMapMaxEntries,
 	}
 }
 

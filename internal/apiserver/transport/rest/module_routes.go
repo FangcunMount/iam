@@ -127,6 +127,7 @@ func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, aut
 			Service:     deps.Service,
 			Middlewares: middlewares,
 			RateLimit:   deps.RateLimit,
+			RedisClient: deps.RedisClient,
 		})
 		log.Info("✅ Suggest module routes registered")
 		return

@@ -3,6 +3,8 @@ package assembler
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
@@ -35,6 +37,7 @@ type SuggestModuleDeps struct {
 	DB                 *gorm.DB
 	Config             appsuggest.Config
 	RouteAuthorization authn.RouteAuthorizationRuntime
+	AppMode            string
 }
 
 // InitializeWithDeps 初始化联想模块。
@@ -50,8 +53,18 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	if deps.DB == nil {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
+	if strings.EqualFold(strings.TrimSpace(deps.AppMode), "production") && cfg.DisableMobileMask {
+		return fmt.Errorf("suggest.disable_mobile_mask is forbidden in production")
+	}
 
-	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization, nil)
+	var visibility appsuggest.ProfileVisibilityIDsResolver = mysqlsuggest.NewProfileVisibilityResolver(deps.DB)
+	if cfg.VisibilityCacheTTLSeconds > 0 {
+		visibility = suggestaccess.NewCachedProfileVisibilityResolver(
+			visibility,
+			time.Duration(cfg.VisibilityCacheTTLSeconds)*time.Second,
+		)
+	}
+	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization, visibility)
 	runtime := searchruntime.NewRuntime()
 	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider)
 

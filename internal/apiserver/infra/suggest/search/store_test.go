@@ -97,6 +97,25 @@ func TestSuggestProfileScopeFiltersByOrgOperatorProfileIDs(t *testing.T) {
 	}
 }
 
+func TestSuggestProfileScopeFiltersByOwnerOperator(t *testing.T) {
+	terms := []domainsuggest.ProfileSearchTerm{
+		domainsuggest.NewProfileSearchTerm(1, "张伟", nil, 5, 1, 0, []int64{100}),
+		domainsuggest.NewProfileSearchTerm(2, "张磊", nil, 5, 1, 0, []int64{200}),
+	}
+	store := Load(terms)
+	q := domainsuggest.NewQuery("张", 5, 50, 8, 0)
+
+	outOp := store.SuggestProfile(q, domainsuggest.ProfileAccessScope{OperatorID: 100})
+	if len(outOp) != 1 || outOp[0].ProfileID != 1 {
+		t.Fatalf("operator scope got %+v", outOp)
+	}
+
+	outPID := store.SuggestProfile(q, domainsuggest.ProfileAccessScope{ProfileIDs: []int64{2}})
+	if len(outPID) != 1 || outPID[0].ProfileID != 2 {
+		t.Fatalf("profileIDs scope got %+v", outPID)
+	}
+}
+
 func TestImportTermsClearsStaleTrieKeys(t *testing.T) {
 	s := Load([]domainsuggest.ProfileSearchTerm{
 		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),

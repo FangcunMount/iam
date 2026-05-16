@@ -5,9 +5,12 @@ import (
 
 	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
+	redis "github.com/redis/go-redis/v9"
 
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
+	suggestratelimit "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
@@ -17,6 +20,7 @@ type Dependencies struct {
 	Service     appsuggest.ProfileSuggestor
 	Middlewares []gin.HandlerFunc
 	RateLimit   appsuggest.RateLimitConfig
+	RedisClient *redis.Client
 }
 
 // Register registers routes onto the engine.
@@ -28,7 +32,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	group := engine.Group("/api/v2/suggest")
 	group.Use(deps.Middlewares...)
 
-	lim := NewPerOperatorRateLimiterFromConfig(deps.RateLimit)
+	lim := suggestratelimit.NewFromConfig(deps.RateLimit, deps.RedisClient)
 	h := NewHandler(deps.Service, lim)
 	group.GET("/profile", h.Profile)
 }
@@ -37,11 +41,11 @@ func Register(engine *gin.Engine, deps Dependencies) {
 type Handler struct {
 	*core.BaseHandler
 	svc    appsuggest.ProfileSuggestor
-	limits *PerOperatorRateLimiter
+	limits suggestratelimit.RateLimiter
 }
 
 // NewHandler creates a suggest handler.
-func NewHandler(svc appsuggest.ProfileSuggestor, limits *PerOperatorRateLimiter) *Handler {
+func NewHandler(svc appsuggest.ProfileSuggestor, limits suggestratelimit.RateLimiter) *Handler {
 	return &Handler{
 		BaseHandler: core.NewBaseHandler(),
 		svc:         svc,
@@ -83,6 +87,7 @@ func (h *Handler) Profile(c *gin.Context) {
 		kw := domainsuggest.NewKeyword(query.K)
 		mobile := kw.IsDigits() && domainsuggest.LooksLikeMobile(kw.String())
 		if !h.limits.Allow(principal.OperatorID, mobile) {
+			suggestmetrics.RecordRateLimited(mobile)
 			h.Error(c, pkgerrors.WithCode(code.ErrRateLimited, "%s", "suggest rate limit exceeded"))
 			return
 		}

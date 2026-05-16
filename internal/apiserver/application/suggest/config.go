@@ -12,6 +12,10 @@ type RateLimitConfig struct {
 	PerOperatorBurst              int     `json:"per_operator_burst" mapstructure:"per_operator_burst"`
 	MobileKeywordPerOperatorQPS   float64 `json:"mobile_keyword_per_operator_qps" mapstructure:"mobile_keyword_per_operator_qps"`
 	MobileKeywordPerOperatorBurst int     `json:"mobile_keyword_per_operator_burst" mapstructure:"mobile_keyword_per_operator_burst"`
+	// Backend memory（默认）| redis；redis 需 REST 注入 Redis 客户端。
+	Backend string `json:"backend" mapstructure:"backend"`
+	// OperatorMapMaxEntries memory 后端 operator→limiter 映射上限，超限 LRU 淘汰。
+	OperatorMapMaxEntries int `json:"operator_map_max_entries" mapstructure:"operator_map_max_entries"`
 }
 
 func (r RateLimitConfig) withDefaults() RateLimitConfig {
@@ -27,6 +31,12 @@ func (r RateLimitConfig) withDefaults() RateLimitConfig {
 	}
 	if out.MobileKeywordPerOperatorBurst <= 0 {
 		out.MobileKeywordPerOperatorBurst = max(3, int(math.Ceil(out.MobileKeywordPerOperatorQPS*2)))
+	}
+	if out.OperatorMapMaxEntries <= 0 {
+		out.OperatorMapMaxEntries = 10000
+	}
+	if out.Backend == "" {
+		out.Backend = "memory"
 	}
 	return out
 }
@@ -48,10 +58,12 @@ type Config struct {
 	DisableMobileMask bool
 	// LoaderPlaceholderTenantID 注入内建 Loader SQL 的 tenant_id 占位；0=不虚构租户维度。
 	LoaderPlaceholderTenantID int64
-	// RateLimit 控制 suggest HTTP 限流（进程内、按 operator）。
+	// RateLimit 控制 suggest HTTP 限流（按 operator；backend 可选 redis）。
 	RateLimit RateLimitConfig
 	// TrieWildcardKeyCap Trie 通配符展开的最大终端键数；0 表示使用领域默认值。
 	TrieWildcardKeyCap int
+	// VisibilityCacheTTLSeconds ProfileVisibilityIDsResolver 结果缓存秒数；0=关闭。
+	VisibilityCacheTTLSeconds int
 }
 
 // DefaultConfig returns the behavior-preserving defaults for suggest.
@@ -97,5 +109,6 @@ func (c Config) WithDefaults() Config {
 	}
 	cfg.RateLimit = c.RateLimit.withDefaults()
 	cfg.TrieWildcardKeyCap = c.TrieWildcardKeyCap
+	cfg.VisibilityCacheTTLSeconds = c.VisibilityCacheTTLSeconds
 	return cfg
 }
