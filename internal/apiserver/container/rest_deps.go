@@ -113,5 +113,6 @@ func (c *Container) collectSuggestRESTDeps(deps *resttransport.Deps) {
 		caps := c.SuggestModule.ApplicationCapabilities()
 		deps.ModuleStatus.Suggest = deps.ModuleStatus.Modules[moduleSuggest].Available
 		deps.Suggest.Service = caps.Service
+		deps.Suggest.RateLimit = caps.RateLimit
 	}
 }

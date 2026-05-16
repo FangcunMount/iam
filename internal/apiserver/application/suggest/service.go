@@ -3,7 +3,9 @@ package suggest
 import (
 	"context"
 
+	"github.com/FangcunMount/component-base/pkg/log"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
 )
 
 // Service 提供 suggest 查询
@@ -65,6 +67,15 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 		return nil, err
 	}
 
+	if keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String()) {
+		log.Infow("suggest mobile-shaped keyword",
+			"operator_id", req.Principal.OperatorID,
+			"tenant_domain", req.Principal.TenantDomain,
+			"allow_mobile_search", scope.AllowMobileSearch,
+			"keyword_len", len([]rune(keyword.String())),
+		)
+	}
+
 	index := s.runtime.Current()
 	if index == nil {
 		return []ProfileSuggestItem{}, nil
@@ -75,12 +86,18 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 		limit = s.cfg.MaxResults
 	}
 
-	query := domainsuggest.NewQuery(req.Keyword, limit, s.cfg.InternalMaxResults, s.cfg.KeyPadLen)
+	query := domainsuggest.NewQuery(req.Keyword, limit, s.cfg.InternalMaxResults, s.cfg.KeyPadLen, s.cfg.TrieWildcardKeyCap)
 	strategy := selectProfileSearchStrategy(s.strategies, keyword, scope)
 	if strategy == nil {
 		return []ProfileSuggestItem{}, nil
 	}
 	terms := strategy.Search(ctx, index, query, scope)
+	mobile := keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String())
+	strategyName := "none"
+	if strategy != nil {
+		strategyName = strategy.Name()
+	}
+	suggestmetrics.RecordQuery(strategyName, len(terms), mobile)
 	return toProfileSuggestItems(terms, s.cfg.DisableMobileMask), nil
 }
 

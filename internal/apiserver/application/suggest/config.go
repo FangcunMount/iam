@@ -1,6 +1,35 @@
 package suggest
 
-import domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+import (
+	"math"
+
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+)
+
+// RateLimitConfig REST 层按操作员限流；PerOperatorQPS<=0 表示关闭。
+type RateLimitConfig struct {
+	PerOperatorQPS                float64 `json:"per_operator_qps" mapstructure:"per_operator_qps"`
+	PerOperatorBurst              int     `json:"per_operator_burst" mapstructure:"per_operator_burst"`
+	MobileKeywordPerOperatorQPS   float64 `json:"mobile_keyword_per_operator_qps" mapstructure:"mobile_keyword_per_operator_qps"`
+	MobileKeywordPerOperatorBurst int     `json:"mobile_keyword_per_operator_burst" mapstructure:"mobile_keyword_per_operator_burst"`
+}
+
+func (r RateLimitConfig) withDefaults() RateLimitConfig {
+	if r.PerOperatorQPS <= 0 {
+		return RateLimitConfig{}
+	}
+	out := r
+	if out.PerOperatorBurst <= 0 {
+		out.PerOperatorBurst = max(5, int(math.Ceil(out.PerOperatorQPS*2)))
+	}
+	if out.MobileKeywordPerOperatorQPS <= 0 {
+		out.MobileKeywordPerOperatorQPS = out.PerOperatorQPS
+	}
+	if out.MobileKeywordPerOperatorBurst <= 0 {
+		out.MobileKeywordPerOperatorBurst = max(3, int(math.Ceil(out.MobileKeywordPerOperatorQPS*2)))
+	}
+	return out
+}
 
 // Config 控制 suggest 模块行为
 type Config struct {
@@ -17,6 +46,12 @@ type Config struct {
 	Snapshot           bool
 	// DisableMobileMask 为 true 时返回明文手机号（仅特殊排障；默认应关闭）。
 	DisableMobileMask bool
+	// LoaderPlaceholderTenantID 注入内建 Loader SQL 的 tenant_id 占位；0=不虚构租户维度。
+	LoaderPlaceholderTenantID int64
+	// RateLimit 控制 suggest HTTP 限流（进程内、按 operator）。
+	RateLimit RateLimitConfig
+	// TrieWildcardKeyCap Trie 通配符展开的最大终端键数；0 表示使用领域默认值。
+	TrieWildcardKeyCap int
 }
 
 // DefaultConfig returns the behavior-preserving defaults for suggest.
@@ -41,6 +76,7 @@ func (c Config) WithDefaults() Config {
 	cfg.DeltaSQL = c.DeltaSQL
 	cfg.Snapshot = c.Snapshot
 	cfg.DisableMobileMask = c.DisableMobileMask
+	cfg.LoaderPlaceholderTenantID = c.LoaderPlaceholderTenantID
 	if c.FullSyncCron != "" {
 		cfg.FullSyncCron = c.FullSyncCron
 	}
@@ -59,5 +95,7 @@ func (c Config) WithDefaults() Config {
 	if c.KeyPadLen > 0 {
 		cfg.KeyPadLen = c.KeyPadLen
 	}
+	cfg.RateLimit = c.RateLimit.withDefaults()
+	cfg.TrieWildcardKeyCap = c.TrieWildcardKeyCap
 	return cfg
 }

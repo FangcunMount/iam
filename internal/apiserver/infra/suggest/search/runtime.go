@@ -6,6 +6,7 @@ import (
 
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
 )
 
 // Runtime 持有进程内 suggest Store 快照指针。
@@ -39,6 +40,7 @@ func (r *Runtime) Replace(terms []domainsuggest.ProfileSearchTerm) appsuggest.Pr
 	}
 	store := Load(terms)
 	r.active.Store(store)
+	suggestmetrics.SetIndexTerms(store.Len())
 	return store
 }
 
@@ -56,5 +58,6 @@ func (r *Runtime) ImportDelta(terms []domainsuggest.ProfileSearchTerm) error {
 		return fmt.Errorf("invalid suggest store")
 	}
 	store.ImportTerms(terms)
+	suggestmetrics.SetIndexTerms(store.Len())
 	return nil
 }

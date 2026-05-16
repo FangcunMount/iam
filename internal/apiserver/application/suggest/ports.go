@@ -17,6 +17,11 @@ type ProfileAccessScopeProvider interface {
 	ResolveProfileAccessScope(ctx context.Context, principal domainsuggest.OperatingPrincipal) (domainsuggest.ProfileAccessScope, error)
 }
 
+// ProfileVisibilityIDsResolver 可选：为复杂数据权限补充可见 ProfileID（预计算、缓存等），结果并入 ProfileAccessScope.ProfileIDs。
+type ProfileVisibilityIDsResolver interface {
+	VisibleProfileIDs(ctx context.Context, principal domainsuggest.OperatingPrincipal) ([]int64, error)
+}
+
 // ProfileCandidateSource provides profile candidates for index refreshes.
 type ProfileCandidateSource interface {
 	Full(ctx context.Context) ([]domainsuggest.ProfileSearchTerm, error)

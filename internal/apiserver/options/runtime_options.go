@@ -97,6 +97,17 @@ type SuggestOptions struct {
 	DeltaSQL           string `json:"delta_sql" mapstructure:"delta_sql"`
 	Snapshot           *bool  `json:"snapshot" mapstructure:"snapshot"`
 	DisableMobileMask  bool   `json:"disable_mobile_mask" mapstructure:"disable_mobile_mask"`
+	// LoaderPlaceholderTenantID 内建 Loader 注入的 tenant_id；0 表示与 Principal.TenantID 对齐前索引无租户维度假装。
+	LoaderPlaceholderTenantID int64 `json:"loader_placeholder_tenant_id" mapstructure:"loader_placeholder_tenant_id"`
+	// TrieWildcardKeyCap Trie 通配符展开的最大终端键数；0 使用领域默认。
+	TrieWildcardKeyCap int `json:"trie_wildcard_key_cap" mapstructure:"trie_wildcard_key_cap"`
+	// RateLimit REST 按操作员限流；全零表示关闭。
+	RateLimit struct {
+		PerOperatorQPS                float64 `json:"per_operator_qps" mapstructure:"per_operator_qps"`
+		PerOperatorBurst              int     `json:"per_operator_burst" mapstructure:"per_operator_burst"`
+		MobileKeywordPerOperatorQPS   float64 `json:"mobile_keyword_per_operator_qps" mapstructure:"mobile_keyword_per_operator_qps"`
+		MobileKeywordPerOperatorBurst int     `json:"mobile_keyword_per_operator_burst" mapstructure:"mobile_keyword_per_operator_burst"`
+	} `json:"rate_limit" mapstructure:"rate_limit"`
 }
 
 func NewSuggestOptions() *SuggestOptions {

@@ -210,10 +210,21 @@ suggest:
   enable: true
   data_dir: "./data/suggest"
   full_sync_cron: "@every 1h"
-  delta_sync_cron: "@every 5m"
+  # 增量刷新会追加索引键但无法清理旧键，生产建议留空，仅全量刷新；见 Loader.Delta 注释。
+  delta_sync_cron: ""
   max_results: 20
   key_pad_len: 25
+  # Trie 通配符展开的最大终端键数；0=领域默认 100。
+  # trie_wildcard_key_cap: 200
   snapshot: true
+  # 进程内按 operator 限流；默认关闭（全零）。手机号形态关键词可走更严 mobile_* 配额。
+  # rate_limit:
+  #   per_operator_qps: 30
+  #   per_operator_burst: 60
+  #   mobile_keyword_per_operator_qps: 6
+  #   mobile_keyword_per_operator_burst: 12
+  # 与默认租户 Principal.TenantID=1 对齐；真实库有 profiles.tenant_id 后应改 FullSQL 或置 0。
+  loader_placeholder_tenant_id: 1
 
 # ----------------------------------------------------------------------------
 # 4.6 调试治理接口

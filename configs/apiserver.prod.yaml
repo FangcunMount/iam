@@ -220,9 +220,17 @@ suggest:
   enable: true
   data_dir: "/app/data/suggest"
   full_sync_cron: "@every 6h"
-  delta_sync_cron: "@every 30m"
+  # 增量合并不会清理旧 Trie/Hash key，生产环境建议留空，仅全量刷新保证索引一致。
+  delta_sync_cron: ""
   max_results: 20
   key_pad_len: 25
+  # trie_wildcard_key_cap: 200
+  # 建议显式开启：例如 per_operator_qps: 30、mobile_keyword_per_operator_qps: 6
+  # rate_limit:
+  #   per_operator_qps: 30
+  #   per_operator_burst: 60
+  #   mobile_keyword_per_operator_qps: 6
+  #   mobile_keyword_per_operator_burst: 12
   snapshot: true
 
 # ----------------------------------------------------------------------------

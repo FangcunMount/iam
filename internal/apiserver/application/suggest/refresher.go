@@ -7,6 +7,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
 )
 
 // ProfileIndexRefresher refreshes the profile suggestion index.
@@ -35,6 +36,9 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) error {
 	}
 
 	started := time.Now()
+	defer func() {
+		suggestmetrics.ObserveRefresh("full", time.Since(started).Seconds())
+	}()
 	candidates, err := r.source.Full(ctx)
 	if err != nil {
 		return err
@@ -62,6 +66,9 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) error {
 	}
 
 	started := time.Now()
+	defer func() {
+		suggestmetrics.ObserveRefresh("delta", time.Since(started).Seconds())
+	}()
 	candidates, err := r.source.Delta(ctx, r.lastFetch)
 	if err != nil {
 		return err

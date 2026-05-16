@@ -83,7 +83,8 @@ type UserDeps struct {
 
 // SuggestDeps 建议依赖
 type SuggestDeps struct {
-	Service appsuggest.ProfileSuggestor
+	Service   appsuggest.ProfileSuggestor
+	RateLimit appsuggest.RateLimitConfig
 }
 
 // ModuleStatus 模块状态，用于/debug/modules和/health

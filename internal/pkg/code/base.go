@@ -71,6 +71,9 @@ const (
 
 	// ErrModuleNotFound - 404: Module not found.
 	ErrModuleNotFound = 100302
+
+	// ErrRateLimited - 429: Too many requests.
+	ErrRateLimited = 100303
 )
 
 func init() {
@@ -93,6 +96,7 @@ func init() {
 	registerBase(ErrDecodingYaml, 500, "Yaml data could not be decoded")
 	registerBase(ErrModuleInitializationFailed, 500, "Module initialization failed")
 	registerBase(ErrModuleNotFound, 404, "Module not found")
+	registerBase(ErrRateLimited, 429, "Too many requests")
 }
 
 func registerBase(code int, httpStatus int, message string) {

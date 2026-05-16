@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	mysqlsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/suggest"
+	suggestaccess "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/access"
 	searchruntime "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/search"
 	authn "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
@@ -50,13 +51,14 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
 
-	scopeProvider := appsuggest.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization)
+	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization, nil)
 	runtime := searchruntime.NewRuntime()
 	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider)
 
 	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
-		FullSQL:  cfg.FullSQL,
-		DeltaSQL: cfg.DeltaSQL,
+		FullSQL:             cfg.FullSQL,
+		DeltaSQL:            cfg.DeltaSQL,
+		PlaceholderTenantID: cfg.LoaderPlaceholderTenantID,
 	})
 	var snapshot appsuggest.SnapshotWriter
 	if cfg.Snapshot {
@@ -113,7 +115,7 @@ func (m *SuggestModule) ApplicationCapabilities() SuggestApplicationCapabilities
 	if m == nil {
 		return SuggestApplicationCapabilities{}
 	}
-	return SuggestApplicationCapabilities{Service: m.service}
+	return SuggestApplicationCapabilities{Service: m.service, RateLimit: m.config.RateLimit}
 }
 
 func (m *SuggestModule) RuntimeCapabilities() SuggestRuntimeCapabilities {

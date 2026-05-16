@@ -1,11 +1,14 @@
 package suggest
 
 import (
-	"errors"
+	stderrors "errors"
 
+	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
@@ -13,6 +16,7 @@ import (
 type Dependencies struct {
 	Service     appsuggest.ProfileSuggestor
 	Middlewares []gin.HandlerFunc
+	RateLimit   appsuggest.RateLimitConfig
 }
 
 // Register registers routes onto the engine.
@@ -24,21 +28,24 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	group := engine.Group("/api/v2/suggest")
 	group.Use(deps.Middlewares...)
 
-	h := NewHandler(deps.Service)
+	lim := NewPerOperatorRateLimiterFromConfig(deps.RateLimit)
+	h := NewHandler(deps.Service, lim)
 	group.GET("/profile", h.Profile)
 }
 
 // Handler 提供 suggest 接口
 type Handler struct {
 	*core.BaseHandler
-	svc appsuggest.ProfileSuggestor
+	svc    appsuggest.ProfileSuggestor
+	limits *PerOperatorRateLimiter
 }
 
 // NewHandler creates a suggest handler.
-func NewHandler(svc appsuggest.ProfileSuggestor) *Handler {
+func NewHandler(svc appsuggest.ProfileSuggestor, limits *PerOperatorRateLimiter) *Handler {
 	return &Handler{
 		BaseHandler: core.NewBaseHandler(),
 		svc:         svc,
+		limits:      limits,
 	}
 }
 
@@ -54,6 +61,7 @@ func NewHandler(svc appsuggest.ProfileSuggestor) *Handler {
 // @Failure 400 {object} core.ErrResponse "参数缺失"
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无搜索权限"
+// @Failure 429 {object} core.ErrResponse "请求过于频繁"
 // @Router /suggest/profile [get]
 // @Security BearerAuth
 func (h *Handler) Profile(c *gin.Context) {
@@ -71,13 +79,22 @@ func (h *Handler) Profile(c *gin.Context) {
 		return
 	}
 
+	if h.limits != nil {
+		kw := domainsuggest.NewKeyword(query.K)
+		mobile := kw.IsDigits() && domainsuggest.LooksLikeMobile(kw.String())
+		if !h.limits.Allow(principal.OperatorID, mobile) {
+			h.Error(c, pkgerrors.WithCode(code.ErrRateLimited, "%s", "suggest rate limit exceeded"))
+			return
+		}
+	}
+
 	list, err := h.svc.SuggestProfile(c, appsuggest.SuggestProfileRequest{
 		Principal: principal,
 		Keyword:   query.K,
 		Limit:     query.Limit,
 	})
 	if err != nil {
-		if errors.Is(err, appsuggest.ErrUnauthenticated) {
+		if stderrors.Is(err, appsuggest.ErrUnauthenticated) {
 			h.UnauthorizedResponse(c, "unauthenticated operating principal")
 			return
 		}

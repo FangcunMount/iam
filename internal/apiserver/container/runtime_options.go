@@ -32,18 +32,21 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 		SMS:     *defaults.SMS,
 		Events:  *defaults.Events,
 		Suggest: appsuggest.Config{
-			Enable:             defaults.Suggest.Enable,
-			Required:           defaults.Suggest.Required,
-			DataDir:            defaults.Suggest.DataDir,
-			FullSyncCron:       defaults.Suggest.FullSyncCron,
-			DeltaSyncCron:      defaults.Suggest.DeltaSyncCron,
-			MaxResults:         defaults.Suggest.MaxResults,
-			InternalMaxResults: defaults.Suggest.InternalMaxResults,
-			KeyPadLen:          defaults.Suggest.KeyPadLen,
-			FullSQL:            defaults.Suggest.FullSQL,
-			DeltaSQL:           defaults.Suggest.DeltaSQL,
-			DisableMobileMask:  defaults.Suggest.DisableMobileMask,
-			Snapshot:           suggestSnapshot(*defaults.Suggest),
+			Enable:                    defaults.Suggest.Enable,
+			Required:                  defaults.Suggest.Required,
+			DataDir:                   defaults.Suggest.DataDir,
+			FullSyncCron:              defaults.Suggest.FullSyncCron,
+			DeltaSyncCron:             defaults.Suggest.DeltaSyncCron,
+			MaxResults:                defaults.Suggest.MaxResults,
+			InternalMaxResults:        defaults.Suggest.InternalMaxResults,
+			KeyPadLen:                 defaults.Suggest.KeyPadLen,
+			FullSQL:                   defaults.Suggest.FullSQL,
+			DeltaSQL:                  defaults.Suggest.DeltaSQL,
+			DisableMobileMask:         defaults.Suggest.DisableMobileMask,
+			LoaderPlaceholderTenantID: defaults.Suggest.LoaderPlaceholderTenantID,
+			TrieWildcardKeyCap:        defaults.Suggest.TrieWildcardKeyCap,
+			RateLimit:                 suggestRateLimitConfig(*defaults.Suggest),
+			Snapshot:                  suggestSnapshot(*defaults.Suggest),
 		}.WithDefaults(),
 	}
 	if opts.Auth != nil {
@@ -63,18 +66,21 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 	}
 	if opts.Suggest != nil {
 		runtime.Suggest = appsuggest.Config{
-			Enable:             opts.Suggest.Enable,
-			Required:           opts.Suggest.Required,
-			DataDir:            opts.Suggest.DataDir,
-			FullSyncCron:       opts.Suggest.FullSyncCron,
-			DeltaSyncCron:      opts.Suggest.DeltaSyncCron,
-			MaxResults:         opts.Suggest.MaxResults,
-			InternalMaxResults: opts.Suggest.InternalMaxResults,
-			KeyPadLen:          opts.Suggest.KeyPadLen,
-			FullSQL:            opts.Suggest.FullSQL,
-			DeltaSQL:           opts.Suggest.DeltaSQL,
-			DisableMobileMask:  opts.Suggest.DisableMobileMask,
-			Snapshot:           suggestSnapshot(*opts.Suggest),
+			Enable:                    opts.Suggest.Enable,
+			Required:                  opts.Suggest.Required,
+			DataDir:                   opts.Suggest.DataDir,
+			FullSyncCron:              opts.Suggest.FullSyncCron,
+			DeltaSyncCron:             opts.Suggest.DeltaSyncCron,
+			MaxResults:                opts.Suggest.MaxResults,
+			InternalMaxResults:        opts.Suggest.InternalMaxResults,
+			KeyPadLen:                 opts.Suggest.KeyPadLen,
+			FullSQL:                   opts.Suggest.FullSQL,
+			DeltaSQL:                  opts.Suggest.DeltaSQL,
+			DisableMobileMask:         opts.Suggest.DisableMobileMask,
+			LoaderPlaceholderTenantID: opts.Suggest.LoaderPlaceholderTenantID,
+			TrieWildcardKeyCap:          opts.Suggest.TrieWildcardKeyCap,
+			RateLimit:                   suggestRateLimitConfig(*opts.Suggest),
+			Snapshot:                  suggestSnapshot(*opts.Suggest),
 		}.WithDefaults()
 	}
 	if runtime.Events.CatalogPath == "" {
@@ -84,6 +90,15 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 		runtime.Events.OutboxRelayInterval = defaults.Events.OutboxRelayInterval
 	}
 	return runtime
+}
+
+func suggestRateLimitConfig(o apiserveroptions.SuggestOptions) appsuggest.RateLimitConfig {
+	return appsuggest.RateLimitConfig{
+		PerOperatorQPS:                o.RateLimit.PerOperatorQPS,
+		PerOperatorBurst:              o.RateLimit.PerOperatorBurst,
+		MobileKeywordPerOperatorQPS:   o.RateLimit.MobileKeywordPerOperatorQPS,
+		MobileKeywordPerOperatorBurst: o.RateLimit.MobileKeywordPerOperatorBurst,
+	}
 }
 
 func suggestSnapshot(opts apiserveroptions.SuggestOptions) bool {

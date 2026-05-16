@@ -6,9 +6,10 @@ import (
 )
 
 const (
-	DefaultLimit        = 20
-	DefaultKeyPadLen    = 25
-	DefaultInternalMult = 10
+	DefaultLimit              = 20
+	DefaultKeyPadLen          = 25
+	DefaultInternalMult       = 10
+	DefaultTrieWildcardKeyCap = 100
 )
 
 // ProfileSearchTerm 是索引中的档案读模型项（搜索字段 + 权限过滤最小维度）。
@@ -97,14 +98,15 @@ func (k Keyword) IsDigits() bool {
 
 // Query 表达一次档案联想查询及其限制。
 type Query struct {
-	Keyword       Keyword
-	Limit         int
-	InternalLimit int
-	KeyPadLen     int
+	Keyword            Keyword
+	Limit              int
+	InternalLimit      int
+	KeyPadLen          int
+	TrieWildcardKeyCap int // Trie 通配符展开的最大终端键数量；<=0 使用 DefaultTrieWildcardKeyCap。
 }
 
-// NewQuery 构造 Query；internalLimit<=0 时使用 limit*DefaultInternalMult 与 DefaultInternalFallback 的较大者逻辑在应用层配置亦可覆盖。
-func NewQuery(keyword string, limit, internalLimit, keyPadLen int) Query {
+// NewQuery 构造 Query；trieWildcardKeyCap<=0 时使用 DefaultTrieWildcardKeyCap。
+func NewQuery(keyword string, limit, internalLimit, keyPadLen, trieWildcardKeyCap int) Query {
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
@@ -117,10 +119,14 @@ func NewQuery(keyword string, limit, internalLimit, keyPadLen int) Query {
 	if keyPadLen <= 0 {
 		keyPadLen = DefaultKeyPadLen
 	}
+	if trieWildcardKeyCap <= 0 {
+		trieWildcardKeyCap = DefaultTrieWildcardKeyCap
+	}
 	return Query{
-		Keyword:       NewKeyword(keyword),
-		Limit:         limit,
-		InternalLimit: internalLimit,
-		KeyPadLen:     keyPadLen,
+		Keyword:            NewKeyword(keyword),
+		Limit:              limit,
+		InternalLimit:      internalLimit,
+		KeyPadLen:          keyPadLen,
+		TrieWildcardKeyCap: trieWildcardKeyCap,
 	}
 }

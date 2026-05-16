@@ -8,8 +8,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
-const maxSearchLen = 100
-
 // Trie 实现一个三元搜索树用于前缀/通配符查找
 type Trie struct {
 	root *node
@@ -30,24 +28,39 @@ func NewTrie() *Trie {
 	return &Trie{}
 }
 
-// ImportTerm inserts profile search keys for one profile.
-func (t *Trie) ImportTerm(term suggest.ProfileSearchTerm) {
+// ImportTerm inserts profile search keys for one profile and返回本 term 写入的键（去重）。
+func (t *Trie) ImportTerm(term suggest.ProfileSearchTerm) []string {
 	if t == nil {
-		return
+		return nil
 	}
 	name := strings.TrimSpace(term.DisplayName)
 	if name == "" || term.ProfileID <= 0 {
-		return
+		return nil
 	}
 	pid := term.ProfileID
 	pyArgs := pinyin.NewArgs()
+	seen := make(map[string]struct{})
+	var keys []string
+	addKey := func(k string) {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			return
+		}
+		if _, ok := seen[k]; ok {
+			return
+		}
+		seen[k] = struct{}{}
+		keys = append(keys, k)
+	}
+	put := func(key string) {
+		addKey(key)
+		t.Put(key, pid)
+	}
 
-	// 原始中文名
-	t.Put(name, pid)
-	// 拼音/简拼
+	put(name)
 	py := pinyin.Pinyin(name, pyArgs)
 	if len(py) == 0 {
-		return
+		return keys
 	}
 	py[0] = uniq(py[0])
 	for _, a := range py[0] {
@@ -56,9 +69,10 @@ func (t *Trie) ImportTerm(term suggest.ProfileSearchTerm) {
 			full += b[0]
 			abbr += string(b[0][0])
 		}
-		t.Put(full, pid)
-		t.Put(abbr, pid)
+		put(full)
+		put(abbr)
 	}
+	return keys
 }
 
 // uniq 去重
@@ -130,58 +144,112 @@ func (t *Trie) ProfileIDs(key string) []int64 {
 	return nil
 }
 
-// Wildcard 支持 '*' 或 '.' 通配符用于前缀匹配
-func (t *Trie) Wildcard(key string) []string {
-	if key == "" {
+// RemoveProfileID 从精确键的终端列表中移除 profileID（用于增量修正）。
+func (t *Trie) RemoveProfileID(key string, profileID int64) {
+	if t == nil || key == "" || profileID <= 0 {
+		return
+	}
+	n := t.terminalNode(key)
+	if n == nil || !n.end {
+		return
+	}
+	n.value = stripProfileID(n.value, profileID)
+}
+
+func (t *Trie) terminalNode(key string) *node {
+	n := t.root
+	rkey := []rune(key)
+	for i, r := range rkey {
+		for n != nil {
+			if r < n.r {
+				n = n.small
+			} else if r > n.r {
+				n = n.large
+			} else {
+				if i == len(rkey)-1 {
+					if n.end {
+						return n
+					}
+					return nil
+				}
+				n = n.equal
+				break
+			}
+		}
+		if n == nil {
+			return nil
+		}
+	}
+	return nil
+}
+
+func stripProfileID(ids []int64, pid int64) []int64 {
+	if len(ids) == 0 {
+		return ids
+	}
+	out := ids[:0]
+	for _, id := range ids {
+		if id != pid {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// Wildcard 支持 '*' 或 '.' 通配符用于前缀匹配；maxKeys<=0 时使用 domain 默认值。
+func (t *Trie) Wildcard(key string, maxKeys int) []string {
+	if key == "" || t == nil {
 		return nil
 	}
+	if maxKeys <= 0 {
+		maxKeys = suggest.DefaultTrieWildcardKeyCap
+	}
 	realLen := len([]rune(strings.TrimRight(key, "*")))
-	return t.wildcardRecursive(t.root, []rune(key), realLen, 0, "")
+	return t.wildcardRecursive(t.root, []rune(key), realLen, 0, "", maxKeys)
 }
 
 // wildcardRecursive 递归通配符匹配
-func (t *Trie) wildcardRecursive(n *node, key []rune, realLen, idx int, prefix string) (matches []string) {
+func (t *Trie) wildcardRecursive(n *node, key []rune, realLen, idx int, prefix string, maxKeys int) (matches []string) {
 	if n == nil {
 		return
 	}
 	if idx == len(key) {
-		t.collectAll(n, prefix, &matches)
+		t.collectAll(n, prefix, &matches, maxKeys)
 		return
 	}
 	r := key[idx]
 	isWild := r == '*' || r == '.'
-	if (isWild || r < n.r) && len(matches) < maxSearchLen {
-		matches = append(matches, t.wildcardRecursive(n.small, key, realLen, idx, prefix)...)
+	if (isWild || r < n.r) && len(matches) < maxKeys {
+		matches = append(matches, t.wildcardRecursive(n.small, key, realLen, idx, prefix, maxKeys)...)
 	}
-	if (isWild || r > n.r) && len(matches) < maxSearchLen {
-		matches = append(matches, t.wildcardRecursive(n.large, key, realLen, idx, prefix)...)
+	if (isWild || r > n.r) && len(matches) < maxKeys {
+		matches = append(matches, t.wildcardRecursive(n.large, key, realLen, idx, prefix, maxKeys)...)
 	}
-	if (isWild || r == n.r) && len(matches) < maxSearchLen {
+	if (isWild || r == n.r) && len(matches) < maxKeys {
 		newPrefix := prefix + string(n.r)
 		if n.end && idx >= realLen-1 {
 			matches = append(matches, newPrefix)
 		}
-		matches = append(matches, t.wildcardRecursive(n.equal, key, realLen, idx+1, newPrefix)...)
+		matches = append(matches, t.wildcardRecursive(n.equal, key, realLen, idx+1, newPrefix, maxKeys)...)
 	}
 	return
 }
 
-// collectAll 收集所有终端键，最多 maxSearchLen 个
-func (t *Trie) collectAll(n *node, prefix string, matches *[]string) {
-	if n == nil || len(*matches) >= maxSearchLen {
+// collectAll 收集所有终端键，最多 maxKeys 个
+func (t *Trie) collectAll(n *node, prefix string, matches *[]string, maxKeys int) {
+	if n == nil || len(*matches) >= maxKeys {
 		return
 	}
-	// explore smaller branch without adding current rune
-	t.collectAll(n.small, prefix, matches)
+	t.collectAll(n.small, prefix, matches, maxKeys)
 
 	cur := prefix + string(n.r)
 	if n.end {
 		*matches = append(*matches, cur)
-		if len(*matches) >= maxSearchLen {
+		if len(*matches) >= maxKeys {
 			return
 		}
 	}
 
-	t.collectAll(n.equal, cur, matches)
-	t.collectAll(n.large, prefix, matches)
+	t.collectAll(n.equal, cur, matches, maxKeys)
+	t.collectAll(n.large, prefix, matches, maxKeys)
 }

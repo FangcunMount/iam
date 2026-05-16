@@ -158,7 +158,7 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
         JSON_ARRAY('read', 'search', 'create', 'update', 'deactivate', 'block', 'link_external_identity'),
         '用户资料、状态和外部身份关联管理', NOW(), NOW(), 0, 0, 0, 1),
        (901000003, 'iam:identity:collection:profiles', '档案', 'iam', 'identity', 'collection',
-        JSON_ARRAY('read', 'list', 'search', 'create', 'update'), '档案查询、注册与更新', NOW(), NOW(), 0, 0, 0, 1),
+        JSON_ARRAY('read', 'list', 'search', 'create', 'update', 'search_by_mobile'), '档案查询、注册与更新', NOW(), NOW(), 0, 0, 0, 1),
        (901000004, 'iam:identity:collection:profile-links', '档案关系', 'iam', 'identity', 'collection',
         JSON_ARRAY('read', 'list', 'grant', 'update_relation', 'revoke', 'bulk_revoke', 'import'),
         '档案关系授予、更新、撤销与导入', NOW(), NOW(), 0, 0, 0, 1),
@@ -282,6 +282,10 @@ FROM (SELECT 'p'                  AS `ptype`,
              'read|search|create|update|deactivate|block|link_external_identity', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:identity:collection:profiles', 'read|list|search|create|update', 'all:*', NULL
+      UNION ALL
+      SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:identity:collection:profiles', 'search_by_mobile', 'all:*', NULL
+      UNION ALL
+      SELECT 'p', 'role:super_admin', 'fangcun', 'iam:identity:collection:profiles', 'search_by_mobile', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:tenant_admin', 'fangcun', 'iam:identity:collection:profile-links',
              'read|list|grant|update_relation|revoke|bulk_revoke|import', 'all:*', NULL

@@ -20,7 +20,7 @@ func TestProfileSearchTermNormalizes(t *testing.T) {
 }
 
 func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
-	query := NewQuery(" 123 ", 0, 0, 0)
+	query := NewQuery(" 123 ", 0, 0, 0, 0)
 
 	if query.Keyword.String() != "123" {
 		t.Fatalf("Keyword = %q, want 123", query.Keyword.String())
@@ -30,6 +30,9 @@ func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
 	}
 	if query.Limit != DefaultLimit || query.KeyPadLen != DefaultKeyPadLen {
 		t.Fatalf("defaults = (%d,%d), want (%d,%d)", query.Limit, query.KeyPadLen, DefaultLimit, DefaultKeyPadLen)
+	}
+	if query.TrieWildcardKeyCap != DefaultTrieWildcardKeyCap {
+		t.Fatalf("TrieWildcardKeyCap = %d, want %d", query.TrieWildcardKeyCap, DefaultTrieWildcardKeyCap)
 	}
 	if query.InternalLimit < query.Limit {
 		t.Fatalf("InternalLimit = %d < limit %d", query.InternalLimit, query.Limit)
@@ -60,5 +63,27 @@ func TestRankingPolicyKeepsBestWeightSortsAndLimits(t *testing.T) {
 	}
 	if got[0].Weight != 99 {
 		t.Fatalf("id1 weight = %d, want 99", got[0].Weight)
+	}
+}
+
+func TestRankingPrefixBoost(t *testing.T) {
+	terms := []ProfileSearchTerm{
+		{ProfileID: 1, DisplayName: "三张", Weight: 5},
+		{ProfileID: 2, DisplayName: "张三丰", Weight: 5},
+	}
+	q := NewQuery("张", 10, 50, 8, 0)
+	got := RankingPolicy{}.RankForQuery(terms, q)
+	if len(got) != 2 {
+		t.Fatalf("len = %d", len(got))
+	}
+	if got[0].ProfileID != 2 {
+		t.Fatalf("got order %+v, want 张三丰 first", got)
+	}
+}
+
+func TestQueryCustomTrieWildcardCap(t *testing.T) {
+	q := NewQuery("a", 5, 50, 8, 77)
+	if q.TrieWildcardKeyCap != 77 {
+		t.Fatalf("TrieWildcardKeyCap = %d", q.TrieWildcardKeyCap)
 	}
 }
