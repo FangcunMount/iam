@@ -27,6 +27,7 @@ ProfileLink 到底表达什么？
 ProfileLink 如何支持多用户、多档案、多关系？
 ProfileLink 与 AuthN 认证身份 / 登录凭据 / Principal 有什么关系？
 ProfileLink 与 AuthZ Permission 有什么边界？
+ProfileLink 与 Suggest ProfileAccessScope 有什么边界？
 ```
 
 本文不深入展开 AuthN 登录、认证入口绑定、Token 签发。
@@ -43,6 +44,14 @@ ProfileLink 与 AuthZ Permission 有什么边界？
 
 ```text
 03-Identity与AuthZ-Subject-Resource-Permission边界.md
+```
+
+本文也不深入展开 Suggest 的 Profile 联想搜索、ProfileSearchTerm、ProfileAccessScope、Trie / Hash / Runtime、Full / Delta refresh。
+
+这些内容放在：
+
+```text
+../08-Suggest/README.md
 ```
 
 ---
@@ -67,6 +76,8 @@ User
 
 ProfileLink 不是简单外键。
 
+ProfileLink 也不是 AuthZ Permission，更不是 Suggest 的 ProfileAccessScope。
+
 它是一个可以承载关系语义的对象：
 
 ```text
@@ -90,7 +101,7 @@ ExpiredAt
 
 一句话：
 
-> ProfileLink 的价值是把“User 与 Profile 的关系”从一个简单外键提升为可建模、可查询、可审计、可演进的身份关系对象。
+> ProfileLink 的价值是把“User 与 Profile 的关系”从一个简单外键提升为可建模、可查询、可审计、可演进的身份关系对象；它可以为 AuthZ 和 Suggest 提供关系上下文，但不能替代 AuthZ Permission，也不能直接替代 Suggest 的 ProfileAccessScope。
 
 ---
 
@@ -126,6 +137,7 @@ profiles.user_id = users.id
 关系本身需要审计
 关系可能有生效时间和失效时间
 关系可能由管理员、系统或邀请流程创建
+关系变化可能影响后续权限上下文或搜索可见性读模型
 ```
 
 这时，单个 `user_id` 字段就不够了。
@@ -164,6 +176,12 @@ ProfileLink 的语义不是：
 
 ```text
 这个 User 拥有什么权限？
+```
+
+也不是：
+
+```text
+这个 User 在 Suggest 中能看到哪些 Profile？
 ```
 
 而是：
@@ -408,13 +426,16 @@ REST / gRPC / Application Caller
 什么时候撤销
 是否保留历史记录
 是否影响 AuthZ 权限
+是否影响 Suggest 可见性读模型
 ```
 
-最后一点非常重要。
+最后两点非常重要。
 
 ProfileLink 撤销不应该默认直接删除 AuthZ Permission。
 
 如果某些权限依赖 ProfileLink，需要通过明确的业务流程触发 AuthZ 写入。
+
+如果某些 Suggest 可见范围依赖 ProfileLink，也需要通过明确的 visibility read model、ProfileAccessScopeProvider 或 Full / Delta refresh 机制显式同步。
 
 ---
 
@@ -451,6 +472,8 @@ Permission:
 ### 6.2 ProfileLink 可以作为授权上下文
 
 ProfileLink 虽然不是 Permission，但可以成为授权判断的上下文。
+
+同理，ProfileLink 虽然不是 Suggest 的 ProfileAccessScope，但也可以成为构建 Profile visibility read model 的事实来源之一。
 
 例如业务服务在执行授权前，可能先查询：
 
@@ -578,9 +601,168 @@ AuthZ 只处理标准 Subject / Resource / Action / Scope。
 
 ---
 
-## 9. ProfileLink 的一致性边界
+## 9. ProfileLink 与 Suggest 的边界
 
-### 9.1 Identity 内部一致性
+Suggest 使用 Profile 联想搜索读模型服务 operating 后台 autocomplete。
+
+它回答的是：
+
+```text
+当前操作员输入关键词时，能快速看到哪些可见 Profile 候选？
+```
+
+ProfileLink 回答的是：
+
+```text
+某个 User 与某个 Profile 是否存在身份关系，以及是什么关系？
+```
+
+这两个问题不同。
+
+---
+
+### 9.1 两者核心模型不同
+
+ProfileLink 的核心模型是：
+
+```text
+User
+  -> ProfileLink
+  -> Profile
+```
+
+Suggest 的核心模型是：
+
+```text
+OperatingPrincipal
+  -> ProfileAccessScope
+  -> ProfileSearchTerm
+  -> Trie / Hash / Runtime
+```
+
+其中：
+
+| 概念 | 所属模块 | 含义 |
+| --- | --- | --- |
+| ProfileLink | Identity | User 与 Profile 的身份关系事实 |
+| ProfileSearchTerm | Suggest | Profile 为搜索构建的读模型投影 |
+| ProfileAccessScope | Suggest | 当前操作员在 Suggest 查询中的可见范围 |
+| Trie / Hash / Runtime | Suggest | Profile 联想搜索索引运行时 |
+
+---
+
+### 9.2 ProfileLink 可以成为可见性事实来源
+
+ProfileLink 可以参与构建 Suggest 可见性。
+
+例如：
+
+```text
+user:1001 是 profile:2001 的 guardian
+user:3001 是 profile:2001 的 operator
+```
+
+这些关系可以被投影到：
+
+```text
+Profile visibility read model
+```
+
+再由：
+
+```text
+ProfileAccessScopeProvider
+```
+
+解析成：
+
+```text
+ProfileAccessScope
+```
+
+最后由 Suggest Store 执行：
+
+```text
+match -> scope filter -> rank
+```
+
+---
+
+### 9.3 ProfileLink 不能直接替代 ProfileAccessScope
+
+不要把 Suggest 设计成：
+
+```text
+每次 autocomplete 查询
+  -> 直接扫描 ProfileLink
+  -> 得到当前用户关联 Profile
+  -> 返回结果
+```
+
+问题是：
+
+```text
+ProfileLink 只表达身份关系，不表达完整 operating 数据权限；
+ProfileLink 不一定覆盖组织管理员、超级管理员、临时授权等场景；
+高频 autocomplete 不适合每次扫描关系表；
+Suggest Store 应只消费 ProfileAccessScope，不计算完整权限；
+ProfileLink 直接查询会把 Identity、Suggest、权限边界耦合在一起。
+```
+
+正确方向是：
+
+```text
+ProfileLink changed
+  -> visibility read model / ProfileAccessScopeProvider / Refresh pipeline
+  -> ProfileAccessScope
+  -> Suggest Store scope filter
+```
+
+---
+
+### 9.4 ProfileLink 变化如何影响 Suggest
+
+如果业务规则认为 ProfileLink 变化会影响 Suggest 可见性，应通过显式机制同步。
+
+可能方案：
+
+```text
+1. ProfileLink 变化后更新 Profile visibility read model；
+2. ProfileAccessScopeProvider 查询可见性读模型；
+3. Suggest Full refresh 定期兜底；
+4. Suggest Delta refresh 接收变化 term 或 tombstone；
+5. 需要时通过领域事件 / Outbox 触发异步同步。
+```
+
+不推荐：
+
+```text
+在 ProfileLink repository 中直接操作 Suggest Store；
+在 Suggest Store 中直接查询 ProfileLink repository；
+在 REST handler 中手写 ProfileLink 过滤；
+绕过 ProfileAccessScope 返回全局索引结果。
+```
+
+---
+
+### 9.5 一句话边界
+
+```text
+ProfileLink = 身份关系事实；
+ProfileAccessScope = Suggest 查询可见范围；
+ProfileSearchTerm = Suggest 搜索读模型；
+Suggest Store = 只消费 scope filter，不计算完整权限。
+```
+
+因此：
+
+> ProfileLink 可以影响 Suggest 可见性，但不能直接替代 Suggest 可见性。
+
+---
+
+## 10. ProfileLink 的一致性边界
+
+### 10.1 Identity 内部一致性
 
 ProfileLink 创建时至少要保证：
 
@@ -596,7 +778,7 @@ RelationType 合法
 
 ---
 
-### 9.2 与 AuthZ 的一致性
+### 10.2 与 AuthZ 的一致性
 
 如果某些 ProfileLink 变化会影响权限，需要明确触发 AuthZ 写入。
 
@@ -623,7 +805,37 @@ ProfileLink changed
 
 ---
 
-### 9.3 与业务数据的一致性
+### 10.3 与 Suggest 的一致性
+
+如果某些 ProfileLink 变化会影响 Suggest 可见性，需要明确触发可见性读模型或索引刷新。
+
+例如：
+
+```text
+创建 operator 关系后，该 operator 应该能在 suggest 中搜索到对应 Profile；
+撤销 operator 关系后，该 operator 不应该继续在 suggest 中搜索到对应 Profile；
+guardian / viewer 等关系变化影响后台可见性时，也应显式同步。
+```
+
+这不应该隐式发生在 repository 层。
+
+推荐方向是：
+
+```text
+ProfileLink changed
+  -> Application policy / domain event
+  -> Profile visibility read model update
+  -> ProfileAccessScopeProvider reads visibility
+  -> Suggest Full / Delta refresh updates searchable terms
+```
+
+不要在 ProfileLink repository 里直接修改 Suggest Store。
+
+不要在 Suggest Store 里直接查询 ProfileLink repository。
+
+---
+
+### 10.4 与业务数据的一致性
 
 Profile 可能代表业务档案。
 
@@ -645,9 +857,9 @@ ProfileLink 只表达身份关系。
 
 ---
 
-## 10. ProfileLink 的建模示例
+## 11. ProfileLink 的建模示例
 
-### 10.1 家长与儿童档案
+### 11.1 家长与儿童档案
 
 ```text
 User: user:1001
@@ -668,7 +880,7 @@ user:1001 是 profile:2001 的监护人。
 
 ---
 
-### 10.2 运营人员与业务档案
+### 11.2 运营人员与业务档案
 
 ```text
 User: user:3001
@@ -689,7 +901,7 @@ user:3001 是 profile:2001 的运营处理人。
 
 ---
 
-### 10.3 一个 Profile 多个关联 User
+### 11.3 一个 Profile 多个关联 User
 
 ```text
 profile:2001
@@ -704,7 +916,7 @@ ProfileLink 可以自然支持多关系。
 
 ---
 
-### 10.4 一个 User 多个 Profile
+### 11.4 一个 User 多个 Profile
 
 ```text
 user:1001
@@ -723,7 +935,7 @@ user:1001
 
 ---
 
-## 11. Application Service 设计建议
+## 12. Application Service 设计建议
 
 ProfileLink 的应用服务应该围绕用例组织。
 
@@ -736,6 +948,16 @@ ListProfilesByUser
 ListUsersByProfile
 GetProfileLink
 ChangeProfileLinkStatus
+```
+
+如果 ProfileLink 变化会影响 Suggest 可见性，应用服务还应显式考虑：
+
+```text
+是否发布 ProfileLink changed event；
+是否更新 Profile visibility read model；
+是否触发或等待 Suggest Delta refresh；
+是否需要 Full refresh 兜底；
+是否需要清理旧 owner/operator 可见性。
 ```
 
 Command / Query 可以包括：
@@ -773,7 +995,7 @@ Infra 层负责持久化。
 
 ---
 
-## 12. Repository 设计建议
+## 13. Repository 设计建议
 
 ProfileLinkRepository 至少应支持：
 
@@ -818,7 +1040,7 @@ active 唯一 + 历史记录保留
 
 ---
 
-## 13. REST / gRPC 接入建议
+## 14. REST / gRPC 接入建议
 
 REST 可以提供管理型接口：
 
@@ -852,9 +1074,9 @@ Domain 使用 ProfileLink 领域对象
 
 ---
 
-## 14. 常见误区
+## 15. 常见误区
 
-### 14.1 ProfileLink 只是中间表
+### 15.1 ProfileLink 只是中间表
 
 不准确。
 
@@ -864,7 +1086,7 @@ Domain 使用 ProfileLink 领域对象
 
 ---
 
-### 14.2 ProfileLink 可以替代 AuthZ Permission
+### 15.2 ProfileLink 可以替代 AuthZ Permission
 
 错误。
 
@@ -874,7 +1096,7 @@ Permission 是资源访问权。
 
 ---
 
-### 14.3 Profile 上放 user_id 就永远够用
+### 15.3 Profile 上放 user_id 就永远够用
 
 不一定。
 
@@ -882,7 +1104,7 @@ Permission 是资源访问权。
 
 ---
 
-### 14.4 ProfileLink 创建后必须自动授权
+### 15.4 ProfileLink 创建后必须自动授权
 
 不一定。
 
@@ -892,7 +1114,7 @@ Permission 是资源访问权。
 
 ---
 
-### 14.5 ProfileLink 撤销后可以直接删 AuthZ facts
+### 15.5 ProfileLink 撤销后可以直接删 AuthZ facts
 
 错误。
 
@@ -900,7 +1122,7 @@ Permission 是资源访问权。
 
 ---
 
-### 14.6 ProfileLink 应该参与登录认证
+### 15.6 ProfileLink 应该参与登录认证
 
 错误。
 
@@ -910,7 +1132,41 @@ ProfileLink 是登录成功后的身份关系查询或业务上下文。
 
 ---
 
-## 15. 代码事实源
+### 15.7 ProfileLink 可以直接替代 Suggest ProfileAccessScope
+
+错误。
+
+ProfileLink 是 User 与 Profile 的身份关系事实。
+
+Suggest 的查询可见范围由 ProfileAccessScope 表达。
+
+ProfileLink 可以参与构建可见性读模型，但不应直接替代 ProfileAccessScope。
+
+---
+
+### 15.8 Suggest 每次查询应该直接查 ProfileLink
+
+错误。
+
+Suggest 是高频 autocomplete 读模型。
+
+每次查询直接扫描 ProfileLink 会破坏读模型边界，也会把 Identity 与 Suggest 强耦合。
+
+正确方向是通过 visibility read model、ProfileAccessScopeProvider、Full / Delta refresh 显式同步。
+
+---
+
+### 15.9 ProfileLink 变化会自动更新 Suggest 索引
+
+不一定。
+
+除非代码中已经有明确的事件、读模型更新或刷新链路，否则不能假设自动发生。
+
+文档中如果写 ProfileLink 影响 Suggest，必须同时说明同步机制。
+
+---
+
+## 16. 代码事实源
 
 本文涉及的主要代码事实源：
 
@@ -937,6 +1193,10 @@ internal/apiserver/domain/identity/user
 internal/apiserver/domain/identity/profile
 internal/apiserver/domain/authz/subject
 internal/apiserver/application/authz/policy
+internal/apiserver/domain/suggest
+internal/apiserver/application/suggest
+internal/apiserver/infra/suggest
+internal/apiserver/infra/mysql/suggest
 ```
 
 重点关注：
@@ -953,12 +1213,15 @@ internal/apiserver/application/authz/policy
 | Profile 事实源 | `domain/identity/profile` 或 `domain/identity` |
 | AuthZ Subject | `domain/authz/subject` |
 | AuthZ 写入链路 | `application/authz/policy` |
+| Suggest ProfileAccessScope | `domain/suggest`、`application/suggest` |
+| Suggest ProfileSearchTerm | `domain/suggest`、`infra/mysql/suggest` |
+| Suggest search runtime | `infra/suggest` |
 
 如果本文与代码不一致，以代码事实源为准，并同步修正文档。
 
 ---
 
-## 16. 本文总结
+## 17. 本文总结
 
 ProfileLink 是 Identity 模块中连接 User 与 Profile 的关系模型。
 
@@ -978,10 +1241,11 @@ ProfileLink 的价值是：
 承载 Status
 支持查询和审计
 为 AuthZ 提供关系上下文，但不替代 Permission
+为 Suggest 可见性读模型提供事实来源之一，但不替代 ProfileAccessScope
 ```
 
-它不是简单中间表，也不是 AuthZ 权限事实。
+它不是简单中间表，也不是 AuthZ 权限事实，也不是 Suggest 查询可见范围。
 
 如果只记住一句话：
 
-> ProfileLink 负责表达 User 与 Profile 的身份关系；它可以为授权提供上下文，但不能替代 AuthZ Permission，任何资源访问权仍应通过 AuthZ 的 Subject / Resource / Action / Scope 判定。
+> ProfileLink 负责表达 User 与 Profile 的身份关系；它可以为授权提供上下文，但不能替代 AuthZ Permission，任何资源访问权仍应通过 AuthZ 的 Subject / Resource / Action / Scope 判定；它也可以为 Suggest 可见性读模型提供事实来源之一，但不能直接替代 ProfileAccessScope。

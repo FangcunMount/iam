@@ -4,7 +4,7 @@
 
 本文是 `04-身份Identity/` 文档组的模型总览文档。
 
-它不先讲数据库表，不先讲 REST/gRPC 接口，也不先讲 AuthN 登录链路或 AuthZ 授权链路，而是先回答一个更基础的问题：
+它不先讲数据库表，不先讲 REST/gRPC 接口，也不先讲 AuthN 登录链路、AuthZ 授权链路或 Suggest 搜索链路，而是先回答一个更基础的问题：
 
 ```text
 IAM 的 Identity 模块到底在建模什么？
@@ -24,6 +24,7 @@ IAM 的 Identity 模块到底在建模什么？
 账号登录方式
 Token 签发
 资源权限判定
+Profile 联想搜索索引
 ```
 
 而是：
@@ -42,11 +43,13 @@ Profile：业务身份资料 / 业务档案
 ProfileLink：User 与 Profile 的关系
 ```
 
+> 注意：ProfileSearchTerm / ProfileAccessScope / Trie / Hash / Runtime 属于 Suggest 读模型，不属于 Identity 核心模型。
+
 后续文档会在本文基础上继续展开：
 
 ```text
 01-ProfileLink链路-User与Profile关系协作.md
-02-Identity与AuthN-Account-Principal-User边界.md
+02-Identity与AuthN-认证身份-Principal-User边界.md
 03-Identity与AuthZ-Subject-Resource-Permission边界.md
 04-Identity分层架构与事实源索引.md
 ```
@@ -81,6 +84,8 @@ User
 | Profile | 业务身份资料、业务档案或被服务对象 |
 | ProfileLink | User 与 Profile 之间的关系 |
 
+注意：ProfileSearchTerm / ProfileAccessScope / Trie / Hash / Runtime 属于 Suggest 读模型，不是 Identity 核心模型。 |
+
 需要特别区分：
 
 ```text
@@ -88,11 +93,13 @@ AuthN 负责认证身份识别、凭据校验与 Principal 构造。
 User 属于 Identity，是稳定身份主体。
 Subject 属于 AuthZ，是授权主体引用。
 ProfileLink 属于 Identity 关系，不是 AuthZ Permission。
+ProfileSearchTerm 属于 Suggest 索引项读模型，不是 Profile 聚合本体。
+ProfileAccessScope 属于 Suggest 查询可见范围，不是 ProfileLink。
 ```
 
 一句话：
 
-> Identity 不负责证明你是谁，也不负责判断你能访问什么；Identity 负责沉淀“系统中的人是谁、关联了哪些业务资料、这些关系如何表达”。
+> Identity 不负责证明你是谁，也不负责判断你能访问什么，也不负责做 Profile autocomplete；Identity 负责沉淀“系统中的人是谁、关联了哪些业务资料、这些关系如何表达”。
 
 ---
 
@@ -137,9 +144,14 @@ Refresh Token 轮换
 JWKS 发布
 资源权限判定
 Casbin policy 匹配
+Profile autocomplete
+ProfileSearchTerm 索引
+ProfileAccessScope 过滤
+Trie / Hash / Runtime
+手机号搜索安全
 ```
 
-这些分别属于 AuthN 或 AuthZ。
+这些分别属于 AuthN、AuthZ 或 Suggest。
 
 Identity 只负责提供稳定身份事实。
 
@@ -149,6 +161,7 @@ Identity 只负责提供稳定身份事实。
 AuthN 认证成功后关联 User。
 AuthZ 将 User 映射为 user:<userID> Subject。
 业务系统通过 Profile / ProfileLink 理解用户关联的业务档案。
+Suggest 可以使用 Profile 投影出的 ProfileSearchTerm 做联想搜索，但 Suggest 可见范围由 ProfileAccessScope 表达。
 ```
 
 ---
@@ -163,12 +176,18 @@ flowchart LR
     Profile["Profile<br/>业务身份资料 / 业务档案"]
     Subject["AuthZ Subject<br/>user:&lt;userID&gt;"]
     Permission["AuthZ Permission<br/>Resource / Action / Scope"]
+    Suggest["Suggest<br/>Profile联想搜索"]
+    SearchTerm["ProfileSearchTerm<br/>Suggest读模型"]
+    AccessScope["ProfileAccessScope<br/>Suggest可见范围"]
 
     AuthnIdentity -->|认证成功后得到 UserID| User
     User --> ProfileLink
     ProfileLink --> Profile
     User -->|映射为| Subject
     Subject --> Permission
+    Profile -.投影.-> SearchTerm
+    SearchTerm --> Suggest
+    AccessScope --> Suggest
 ```
 
 这张图表达的是：
@@ -180,6 +199,8 @@ Profile 是业务身份资料或业务档案。
 ProfileLink 表达 User 与 Profile 的关系。
 User 可以在 AuthZ 中被引用为 user:<userID> Subject。
 Subject 再通过 AuthZ 参与资源权限判定。
+Profile 可以被投影成 Suggest 的 ProfileSearchTerm。
+Suggest 查询可见范围由 ProfileAccessScope 表达，而不是直接由 ProfileLink 替代。
 ```
 
 不要把这些概念混在一个模型里。
@@ -417,6 +438,8 @@ Profile 不是 AuthN 认证身份。
 
 Profile 也不是 Permission。
 
+Profile 也不是 Suggest 索引项本身。
+
 它不直接表达资源访问权。
 
 例如：
@@ -440,6 +463,10 @@ Resource: iam:identity:profile:* 或 qs:evaluation:report:*
 Action: read
 Scope: origin:<profileID>
 ```
+
+Permission
+ProfileSearchTerm
+ProfileAccessScope
 
 ---
 
@@ -559,7 +586,11 @@ User A 能否读取 Profile P 相关报告？
 
 ProfileLink 可以成为授权判断的上下文。
 
+ProfileLink 也可以成为构建 Profile visibility read model 的事实来源之一。
+
 但它不应该直接替代 AuthZ Permission。
+
+它也不应该直接替代 Suggest 的 ProfileAccessScope。
 
 例如：
 
@@ -626,7 +657,7 @@ deleted
 详细内容会放到：
 
 ```text
-02-Identity与AuthN-Account-Principal-User边界.md
+02-Identity与AuthN-认证身份-Principal-User边界.md
 ```
 
 本文先给出核心关系。
@@ -720,7 +751,81 @@ Scope: origin:<profileID>
 
 ---
 
-## 10. 当前阶段性边界
+## 10. Identity 与 Suggest 的关系预览
+
+详细内容会放到：
+
+```text
+../08-Suggest/README.md
+../08-Suggest/02-权限范围-OperatingPrincipal与ProfileAccessScope.md
+../08-Suggest/03-索引模型-ProfileSearchTerm-Trie-Hash-Runtime.md
+```
+
+本文先给出核心关系。
+
+Suggest 负责：
+
+```text
+Profile autocomplete
+ProfileSearchTerm read model
+ProfileAccessScope filter
+Trie / Hash / Runtime
+Full / Delta refresh
+手机号搜索安全
+```
+
+Identity 负责：
+
+```text
+User
+Profile
+ProfileLink
+```
+
+二者的关系是：
+
+```text
+Identity.Profile
+  -> ProfileSearchTerm read model
+  -> Suggest index
+  -> ProfileAccessScope filter
+  -> autocomplete result
+```
+
+ProfileLink 可能参与构建可见性读模型。
+
+例如：
+
+```text
+ProfileLink 表示 user:1001 与 profile:2001 存在 guardian 关系。
+```
+
+这条身份关系可以作为 Profile visibility read model 的事实来源之一。
+
+但是当前边界必须保持清楚：
+
+```text
+ProfileLink = 身份关系事实；
+ProfileSearchTerm = Suggest 索引项读模型；
+ProfileAccessScope = Suggest 查询可见范围；
+Suggest Store = 只消费 scope filter，不计算完整权限。
+```
+
+因此：
+
+```text
+Suggest 不应在每次 autocomplete 查询中直接扫描 ProfileLink。
+Suggest 不应把 ProfileLink 直接解释成当前操作员可见全部关联 Profile。
+ProfileLink 变化如果影响 Suggest 可见性，应通过 visibility read model / ScopeProvider / Delta refresh 显式同步。
+```
+
+一句话：
+
+> **Identity 维护 Profile 事实和 ProfileLink 关系；Suggest 使用 Profile 投影出的搜索读模型，并通过 ProfileAccessScope 控制当前操作员可见范围。**
+
+---
+
+## 11. 当前阶段性边界
 
 当前 Identity 模型的核心边界应该保持清晰：
 
@@ -731,13 +836,16 @@ ProfileLink 是 User 与 Profile 的关系。
 AuthN 认证身份、登录凭据、ProviderIdentity 属于 AuthN，不属于 Identity。
 Subject 属于 AuthZ，不属于 Identity。
 Permission 属于 AuthZ，不属于 Identity。
+ProfileSearchTerm 属于 Suggest，不属于 Identity。
+ProfileAccessScope 属于 Suggest，不属于 Identity。
+Suggest 是辅助读模型，不是 Identity 核心域。
 ```
 
 当前文档先按这条边界建模。
 
 具体字段、枚举和接口以代码事实源为准。
 
-如果后续新增更多能力，例如：
+如果后续 Identity 新增更多能力，例如：
 
 ```text
 多 Profile 类型
@@ -745,15 +853,16 @@ Profile 审批
 ProfileLink 邀请流程
 ProfileLink 审计事件
 Profile 作为 AuthZ resource 的更细粒度 scope
+ProfileLink 变化触发 Suggest visibility read model 刷新
 ```
 
 应在后续文档或专题中补充。
 
 ---
 
-## 11. 常见误区
+## 12. 常见误区
 
-### 11.1 Identity = AuthN
+### 12.1 Identity = AuthN
 
 错误。
 
@@ -763,7 +872,7 @@ Identity 负责身份主体和身份资料关系。
 
 ---
 
-### 11.2 User = AuthN 认证身份
+### 12.2 User = AuthN 认证身份
 
 错误。
 
@@ -775,7 +884,7 @@ User 是 Identity 的稳定身份主体。
 
 ---
 
-### 11.3 User = Principal
+### 12.3 User = Principal
 
 不准确。
 
@@ -787,7 +896,7 @@ Principal 通常包含 UserID，但它不是 User 聚合本身。
 
 ---
 
-### 11.4 User = AuthZ Subject
+### 12.4 User = AuthZ Subject
 
 不准确。
 
@@ -805,7 +914,7 @@ user:<userID>
 
 ---
 
-### 11.5 Profile = User 的扩展字段
+### 12.5 Profile = User 的扩展字段
 
 不准确。
 
@@ -817,7 +926,7 @@ Profile 是独立业务资料或业务档案。
 
 ---
 
-### 11.6 ProfileLink = Permission
+### 12.6 ProfileLink = Permission
 
 错误。
 
@@ -829,7 +938,41 @@ Permission 是资源访问权。
 
 ---
 
-### 11.7 在 Profile 上放 user_id 就足够
+### 12.7 ProfileLink = Suggest 可见范围
+
+错误。
+
+ProfileLink 是 User 与 Profile 的身份关系事实。
+
+Suggest 的 operating 后台可见范围由 ProfileAccessScope 表达。
+
+ProfileLink 可以参与构建可见性读模型，但不能直接替代 ProfileAccessScope。
+
+---
+
+### 12.8 Suggest 属于 Identity 核心模型
+
+错误。
+
+Suggest 使用 Profile 相关读模型，但它是辅助搜索读模型，不是 Identity 核心模型。
+
+Identity 仍然只负责 User / Profile / ProfileLink 身份事实。
+
+---
+
+### 12.9 ProfileSearchTerm = Profile
+
+错误。
+
+Profile 是 Identity 的业务身份资料或业务档案。
+
+ProfileSearchTerm 是 Suggest 为搜索构建的读模型投影。
+
+二者不能混用。
+
+---
+
+### 12.10 在 Profile 上放 user_id 就足够
 
 不一定。
 
@@ -839,7 +982,7 @@ Permission 是资源访问权。
 
 ---
 
-## 12. 代码事实源
+## 13. 代码事实源
 
 本文涉及的主要代码事实源：
 
@@ -873,6 +1016,15 @@ internal/apiserver/domain/authz/subject
 internal/apiserver/application/authz/authorization
 ```
 
+与 Suggest 的协作事实源：
+
+```text
+internal/apiserver/domain/suggest
+internal/apiserver/application/suggest
+internal/apiserver/infra/suggest
+internal/apiserver/infra/mysql/suggest
+```
+
 重点关注：
 
 | 主题 | 事实源 |
@@ -888,12 +1040,15 @@ internal/apiserver/application/authz/authorization
 | gRPC Identity 接口 | `transport/grpc/service/identity` |
 | AuthN Principal -> User | `domain/authn`、`application/authn` |
 | User -> Subject | `domain/authz/subject` |
+| Profile -> ProfileSearchTerm | `domain/suggest`、`infra/mysql/suggest` |
+| ProfileAccessScope | `domain/suggest`、`application/suggest` |
+| Suggest visibility / search runtime | `infra/suggest`、`infra/mysql/suggest` |
 
 如果本文与代码不一致，以代码事实源为准，并同步修正文档。
 
 ---
 
-## 13. 本文总结
+## 14. 本文总结
 
 Identity 的核心模型可以压缩成一句话：
 
@@ -916,17 +1071,20 @@ AuthN 认证身份、登录凭据、ProviderIdentity 不等于 User。
 Principal 通过 UserID 指向 Identity.User。
 Subject 属于 AuthZ，是 User 的授权引用。
 ProfileLink 属于 Identity 关系，不等于 Permission。
+ProfileSearchTerm / ProfileAccessScope 属于 Suggest，不属于 Identity。
+ProfileLink 不等于 Suggest 可见范围。
 ```
 
 理解这条主线后，后续文档会继续展开：
 
 ```text
 ProfileLink 如何协作 User 与 Profile
-Identity 如何与 AuthN 的 Account / Principal 协作
+Identity 如何与 AuthN 的认证身份 / Principal 协作
 Identity 如何与 AuthZ 的 Subject / Resource / Permission 协作
+Identity 如何与 Suggest 的 ProfileSearchTerm / ProfileAccessScope 协作
 Identity 的分层架构与事实源在哪里
 ```
 
 如果只记住一句话：
 
-> Identity 不负责登录认证，也不负责资源授权；Identity 负责沉淀稳定身份主体 User、业务身份资料 Profile，以及二者之间的关系 ProfileLink。
+> Identity 不负责登录认证，也不负责资源授权，也不负责 Profile 联想搜索；Identity 负责沉淀稳定身份主体 User、业务身份资料 Profile，以及二者之间的关系 ProfileLink。Suggest 可以使用 Profile 投影出的 ProfileSearchTerm，但不能把 ProfileLink 直接当作 ProfileAccessScope。

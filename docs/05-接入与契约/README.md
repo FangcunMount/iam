@@ -12,6 +12,7 @@
 业务系统为什么要接入 IAM？
 前端、管理后台、业务后端、worker 分别如何接入 IAM？
 REST、gRPC、Go SDK 分别适合什么场景？
+Suggest REST 这类管理端辅助查询接口如何接入？
 qs-server 如何完整接入 IAM？
 REST / gRPC / SDK 的事实源在哪里？
 接入契约如何防止随着代码演进发生漂移？
@@ -24,16 +25,19 @@ AuthN：登录、Token、Session、Principal；
 Identity：User、Profile、ProfileLink；
 AuthZ：Subject、Role、Resource、Permission、RoleBinding、Check、Snapshot；
 IDP：WeChat / WeCom 等外部身份源配置；
+Suggest：Profile 联想搜索读模型，用于 operating 后台 autocomplete；
 SDK：Go 服务端接入封装。
 ```
 
-这些能力可以通过三种形态接入：
+这些能力可以通过三种主要形态接入：
 
 ```text
 REST；
 gRPC；
 Go SDK。
 ```
+
+其中 Suggest 当前主要通过 REST 暴露给管理后台 / operating 后台。
 
 但三者不是三套业务实现。
 
@@ -57,17 +61,18 @@ User / Profile / ProfileLink 查询；
 业务对象映射为 Resource / Action / Scope；
 调用 IAM AuthZ Check；
 根据 AuthorizationDecision 放行或拒绝；
+管理后台按需调用 Suggest REST 做 Profile 联想搜索；
 服务间调用使用 service identity；
 REST / gRPC / SDK 契约持续防漂移。
 ```
 
 三种接入形态的定位是：
 
-| 接入形态 | 主要使用者 |
-| --- | --- |
-| REST | 前端、管理后台、调试、非 Go 调用方 |
-| gRPC | 服务间调用、内部系统集成 |
-| Go SDK | Go 服务端项目的工程化封装 |
+| 接入形态 | 主要使用者 | 典型场景 |
+| --- | --- | --- |
+| REST | 前端、管理后台、调试、非 Go 调用方 | 登录、刷新 Token、管理接口、Suggest autocomplete、HTTP 调试 |
+| gRPC | 服务间调用、内部系统集成 | VerifyToken、AuthZ Check、批量查询、worker 调用 |
+| Go SDK | Go 服务端项目的工程化封装 | 封装 REST/gRPC、middleware、interceptor、fake client |
 
 核心原则：
 
@@ -75,6 +80,7 @@ REST / gRPC / SDK 契约持续防漂移。
 REST 服务前端和管理端；
 gRPC 服务可信服务间调用；
 SDK 服务 Go 业务系统低成本接入；
+Suggest REST 服务 operating 后台 Profile autocomplete；
 OpenAPI 是 REST 字段级事实源；
 proto 是 gRPC 字段级事实源；
 pkg/sdk public API 是 SDK 事实源；
@@ -84,7 +90,7 @@ docs/05 负责解释接入链路，不替代机器契约。
 
 一句话：
 
-> IAM 是其他业务系统的身份与授权中心；REST、gRPC、SDK 是三种接入投影，业务语义仍由 IAM Server 的 AuthN、Identity、AuthZ、IDP 模块实现。
+> IAM 是其他业务系统的身份与授权中心；REST、gRPC、SDK 是三种接入投影，业务语义仍由 IAM Server 的 AuthN、Identity、AuthZ、IDP、Suggest 等模块实现。
 
 ---
 
@@ -106,11 +112,19 @@ docs/05 负责解释接入链路，不替代机器契约。
 | 文档 | 主题 |
 | --- | --- |
 | `00-接入总览-业务系统如何接入IAM.md` | 从业务系统接入角度说明 IAM 的整体接入链路 |
-| `01-REST API契约-前端与管理端接入.md` | 说明 REST API 的场景、分组、Header、错误语义、安全边界和 OpenAPI 事实源 |
+| `01-REST API契约-前端与管理端接入.md` | 说明 REST API 的场景、分组、Header、错误语义、安全边界、Suggest REST 和 OpenAPI 事实源 |
 | `02-gRPC API契约-服务间调用与内部集成.md` | 说明 gRPC 的服务间调用边界、metadata、deadline、retry、status code 和 proto 事实源 |
 | `03-SDK接入模型-Go服务端集成.md` | 说明 Go SDK 的定位、初始化、AuthN/Identity/AuthZ 封装、中间件、错误、缓存和测试 |
 | `04-业务系统接入链路-qs-server接入 IAM 详解.md` | 以 qs-server 为落地样板，说明登录、验 Token、身份查询、AuthZ Check、worker 接入和部署配置 |
 | `05-契约事实源与防漂移机制.md` | 收口 REST/gRPC/SDK/业务接入/文档的事实源优先级、Breaking Change 和防漂移机制 |
+
+Suggest 的实现细节不在本目录展开。
+
+如果要理解 Profile 联想搜索读模型，请阅读：
+
+```text
+../08-Suggest/README.md
+```
 
 ---
 
@@ -187,8 +201,17 @@ Me / 当前 Principal；
 User / Profile / ProfileLink；
 AuthZ 管理接口；
 Check / Snapshot；
+Suggest Profile 联想搜索；
 错误响应；
 Bearer Token 安全。
+```
+
+如果重点是 Suggest autocomplete，再继续阅读：
+
+```text
+../08-Suggest/README.md
+../08-Suggest/01-查询链路-SuggestProfile从请求到索引过滤.md
+../08-Suggest/05-安全与运维-手机号搜索-限流-指标-降级.md
 ```
 
 ---
@@ -266,7 +289,8 @@ server implementation；
 contract tests；
 Breaking Change；
 Deprecated 机制；
-qs-server 接入验证。
+qs-server 接入验证；
+Suggest REST 变更时同步 docs/08-Suggest。
 ```
 
 ---
@@ -283,6 +307,7 @@ flowchart TD
     SDK["03 Go SDK"]
     QS["04 qs-server 接入"]
     Drift["05 事实源与防漂移"]
+    SuggestDoc["08-Suggest"]
 
     Access --> Overview
     Access --> REST
@@ -290,6 +315,7 @@ flowchart TD
     Access --> SDK
     Access --> QS
     Access --> Drift
+    REST --> SuggestDoc
 
     Overview --> Client["Client / Frontend"]
     Overview --> Backend["Business Backend"]
@@ -298,6 +324,7 @@ flowchart TD
     REST --> OpenAPI["OpenAPI"]
     REST --> Admin["Admin Console"]
     REST --> Login["Login / Refresh / Me"]
+    REST --> SuggestREST["Suggest Profile API"]
 
     GRPC --> Proto["proto"]
     GRPC --> S2S["Service-to-Service"]
@@ -329,7 +356,7 @@ flowchart TD
     GRPC["gRPC API<br/>Proto"]
     SDK["Go SDK<br/>Client Facade"]
 
-    IAM["IAM Server<br/>AuthN / Identity / AuthZ / IDP"]
+    IAM["IAM Server<br/>AuthN / Identity / AuthZ / IDP / Suggest"]
 
     Web --> REST --> IAM
     Backend --> GRPC --> IAM
@@ -346,7 +373,8 @@ REST、gRPC、SDK 都指向同一套 IAM Server 能力；
 REST 更适合前端和管理端；
 gRPC 更适合服务间调用；
 SDK 更适合 Go 服务端低成本接入；
-SDK 可以封装 REST / gRPC，但不改变 IAM 业务语义。
+SDK 可以封装 REST / gRPC，但不改变 IAM 业务语义；
+Suggest 是 IAM Server 内部辅助读模型，通过 REST 服务管理端 autocomplete。
 ```
 
 ---
@@ -398,6 +426,7 @@ qs-server 维护业务对象和业务流程。
 | 前端刷新 Token | REST |
 | 当前用户页面 | REST / 后端聚合 |
 | 管理后台 | REST |
+| Profile 联想搜索 | REST / Suggest REST |
 | 服务间 VerifyToken | gRPC / SDK |
 | 服务间 AuthZ Check | gRPC / SDK |
 | 批量 Identity 查询 | gRPC / SDK |
@@ -413,6 +442,7 @@ qs-server 维护业务对象和业务流程。
 用户侧和管理侧优先 REST；
 服务间调用优先 gRPC；
 Go 服务端优先 SDK；
+Suggest autocomplete 作为管理端辅助查询优先走 REST；
 字段级事实回到机器契约；
 业务语义回到 IAM Server 模块。
 ```
@@ -429,6 +459,7 @@ App；
 管理后台；
 登录；
 当前用户视角；
+Profile 联想搜索；
 HTTP 调试；
 低门槛外部接入。
 ```
@@ -437,8 +468,10 @@ REST 的事实源是：
 
 ```text
 api/rest
+api/rest/suggest.v2.yaml
 OpenAPI YAML / JSON
 internal/apiserver/transport/rest
+internal/apiserver/transport/rest/suggest
 REST tests
 ```
 
@@ -449,6 +482,7 @@ AuthN：Login、Refresh、Logout、Verify、JWKS、Me；
 Identity：User、Profile、ProfileLink；
 AuthZ：Resource、Role、Permission、Assignment、Check、Snapshot、PolicyLinter；
 IDP：WeChat / WeCom app 管理；
+Suggest：Profile 联想搜索，返回经过 ProfileAccessScope 过滤的 mobile_mask 候选；
 System：health、ready、metrics。
 ```
 
@@ -458,6 +492,8 @@ REST 重要边界：
 OpenAPI 是字段级事实源；
 REST handler 只做协议适配；
 管理接口仍需 AuthZ；
+Suggest 接口仍需认证、接口权限和 ProfileAccessScope 过滤；
+手机号字段必须返回 mobile_mask，不返回明文 mobile；
 敏感字段必须脱敏；
 REST 不适合所有高频服务间调用。
 ```
@@ -466,6 +502,12 @@ REST 不适合所有高频服务间调用。
 
 ```text
 01-REST API契约-前端与管理端接入.md
+```
+
+Suggest 细节见：
+
+```text
+../08-Suggest/README.md
 ```
 
 ---
@@ -593,7 +635,8 @@ qs-server 应保存：
 ```text
 iam_user_id；
 iam_profile_id；
-tenant_id；
+tenant_domain；
+org_id；
 业务对象 owner / origin；
 业务对象与 IAM 主体的引用关系。
 ```
@@ -617,7 +660,8 @@ IDP AppSecret。
 ProfileLink 是身份关系，不是最终权限判定；
 敏感业务操作必须调用 AuthZ Check；
 业务状态判断留在 qs-server；
-认证、身份事实、授权事实和判定留在 IAM。
+认证、身份事实、授权事实和判定留在 IAM；
+tenant_domain 是 IAM 授权域，org_id 是业务组织范围，不应混用。
 ```
 
 详细说明见：
@@ -628,7 +672,62 @@ ProfileLink 是身份关系，不是最终权限判定；
 
 ---
 
-## 13. 机器契约与防漂移
+## 13. Suggest REST 接入边界
+
+Suggest REST 是管理端辅助查询入口。
+
+它用于：
+
+```text
+Profile autocomplete；
+姓名 / 拼音 / 简拼搜索；
+ProfileID 精确搜索；
+受控手机号形态关键词搜索。
+```
+
+它不用于：
+
+```text
+完整全文检索；
+完整组织权限系统；
+逐条 AuthZ Check；
+服务间高频内部调用；
+返回明文手机号。
+```
+
+核心链路：
+
+```text
+GET /api/v2/suggest/profile?k={keyword}&limit={limit}
+  -> REST Handler
+  -> OperatingPrincipal
+  -> ProfileAccessScopeProvider
+  -> ProfileSuggestionRuntime
+  -> Trie / Hash match
+  -> ScopePolicy filter
+  -> RankingPolicy
+  -> mobile_mask DTO
+```
+
+关键边界：
+
+```text
+能调用 suggest 接口，不等于能看到所有 Profile；
+手机号形态关键词需要 AllowMobileSearch；
+手机号搜索仍必须经过 ProfileAccessScope 过滤；
+生产环境只返回 mobile_mask；
+限流、指标和降级属于 Suggest 运行时护栏。
+```
+
+详细说明见：
+
+```text
+../08-Suggest/README.md
+```
+
+---
+
+## 14. 机器契约与防漂移
 
 接入契约事实源包括：
 
@@ -637,6 +736,7 @@ REST：OpenAPI + REST handler + REST tests；
 gRPC：proto + generated code + gRPC tests；
 SDK：pkg/sdk public API + SDK tests + examples；
 业务接入：qs-server 接入代码 + 集成测试；
+Suggest：api/rest/suggest.v2.yaml + transport/rest/suggest + docs/08-Suggest；
 文档：docs/05 作为人类理解入口。
 ```
 
@@ -656,6 +756,7 @@ OpenAPI 校验；
 proto 生成；
 SDK public API compile test；
 REST / gRPC transport tests；
+Suggest REST / application / domain tests；
 qs-server integration tests；
 docs-hygiene；
 示例代码编译测试。
@@ -669,19 +770,25 @@ docs-hygiene；
 
 ---
 
-## 14. 代码与契约入口
+## 15. 代码与契约入口
 
 | 主题 | 入口 |
 | --- | --- |
 | REST 契约 | `api/rest` |
+| Suggest REST 契约 | `api/rest/suggest.v2.yaml` |
 | REST runtime | `internal/apiserver/transport/rest` |
+| Suggest REST runtime | `internal/apiserver/transport/rest/suggest` |
 | gRPC 契约 | `api/grpc` |
 | gRPC runtime | `internal/apiserver/transport/grpc` |
 | SDK public API | `pkg/sdk` |
 | SDK examples | `pkg/sdk` / `examples`，以当前代码为准 |
+| Suggest application | `internal/apiserver/application/suggest` |
+| Suggest domain | `internal/apiserver/domain/suggest` |
+| Suggest infra/search | `internal/apiserver/infra/suggest` |
 | AuthN 文档 | `docs/02-认证AuthN` |
 | AuthZ 文档 | `docs/03-授权AuthZ` |
 | Identity 文档 | `docs/04-身份Identity` |
+| Suggest 文档 | `docs/08-Suggest` |
 | 接入文档 | `docs/05-接入与契约` |
 | qs-server 接入 | qs-server 仓库接入代码与配置 |
 
@@ -697,7 +804,7 @@ docs-hygiene；
 
 ---
 
-## 15. 验证建议
+## 16. 验证建议
 
 修改接入文档或相关代码后，建议运行：
 
@@ -727,6 +834,15 @@ SDK 相关：
 go test ./pkg/sdk/...
 ```
 
+Suggest REST 相关：
+
+```bash
+go test ./internal/apiserver/transport/rest/suggest/... \
+  ./internal/apiserver/application/suggest/... \
+  ./internal/apiserver/domain/suggest/... \
+  ./internal/apiserver/infra/suggest/...
+```
+
 如果有 examples：
 
 ```bash
@@ -737,9 +853,9 @@ go test ./examples/...
 
 ---
 
-## 16. 常见误区
+## 17. 常见误区
 
-### 16.1 REST、gRPC、SDK 是三套业务逻辑
+### 17.1 REST、gRPC、SDK 是三套业务逻辑
 
 错误。
 
@@ -747,7 +863,7 @@ go test ./examples/...
 
 ---
 
-### 16.2 gRPC 更高级，所以所有场景都应该走 gRPC
+### 17.2 gRPC 更高级，所以所有场景都应该走 gRPC
 
 错误。
 
@@ -757,7 +873,7 @@ gRPC 更适合可信服务间调用。
 
 ---
 
-### 16.3 SDK 是业务层
+### 17.3 SDK 是业务层
 
 错误。
 
@@ -767,7 +883,7 @@ SDK 是 Go 客户端封装，不定义业务规则。
 
 ---
 
-### 16.4 SDK 可以替代 IAM Server
+### 17.4 SDK 可以替代 IAM Server
 
 错误。
 
@@ -777,7 +893,7 @@ SDK 不拥有身份事实、认证状态、授权事实和权限判定事实源�
 
 ---
 
-### 16.5 ProfileLink 可以替代 AuthZ Check
+### 17.5 ProfileLink 可以替代 AuthZ Check
 
 错误。
 
@@ -787,7 +903,27 @@ ProfileLink 是身份关系。
 
 ---
 
-### 16.6 文档中的接口字段可以替代机器契约
+### 17.6 Suggest 可以替代 AuthZ
+
+错误。
+
+Suggest 只消费 `ProfileAccessScope` 做索引过滤。
+
+它不逐条调用 Casbin，不承载完整权限中心，也不应该被业务系统当成授权判定接口。
+
+---
+
+### 17.7 Suggest 可以返回明文手机号
+
+错误。
+
+Suggest REST 生产环境只能返回 `mobile_mask`。
+
+手机号形态关键词还需要 `AllowMobileSearch`、限流、日志脱敏和 ProfileAccessScope 过滤。
+
+---
+
+### 17.8 文档中的接口字段可以替代机器契约
 
 错误。
 
@@ -795,7 +931,7 @@ ProfileLink 是身份关系。
 
 ---
 
-### 16.7 IAM 调用失败可以当成权限拒绝
+### 17.9 IAM 调用失败可以当成权限拒绝
 
 错误。
 
@@ -807,9 +943,9 @@ ProfileLink 是身份关系。
 
 ---
 
-## 17. 维护规则
+## 18. 维护规则
 
-### 17.1 README 只做接入模块入口
+### 18.1 README 只做接入模块入口
 
 本 README 负责：
 
@@ -818,14 +954,14 @@ ProfileLink 是身份关系。
 列出 00～05 文档；
 提供阅读路径；
 提供接入知识地图；
-说明 REST / gRPC / SDK / qs-server / 防漂移的总边界。
+说明 REST / gRPC / SDK / qs-server / Suggest / 防漂移的总边界。
 ```
 
 详细协议字段、RPC message、SDK method 以对应正文和机器契约为准。
 
 ---
 
-### 17.2 不把接入文档写成接口全集
+### 18.2 不把接入文档写成接口全集
 
 接口全集由机器契约维护：
 
@@ -848,7 +984,7 @@ SDK 方法看 pkg/sdk public API。
 
 ---
 
-### 17.3 不把 AuthN / AuthZ / Identity 细节重复写一遍
+### 18.3 不把 AuthN / AuthZ / Identity / Suggest 细节重复写一遍
 
 本目录只解释接入。
 
@@ -857,12 +993,13 @@ SDK 方法看 pkg/sdk public API。
 ```text
 02-认证AuthN；
 03-授权AuthZ；
-04-身份Identity。
+04-身份Identity；
+08-Suggest。
 ```
 
 ---
 
-### 17.4 不鼓励外部调用 internal 包
+### 18.4 不鼓励外部调用 internal 包
 
 业务服务应使用：
 
@@ -878,12 +1015,13 @@ gRPC API。
 internal/apiserver/...；
 internal/pkg/...；
 infra/mysql；
-infra/casbin。
+infra/casbin；
+infra/suggest/search。
 ```
 
 ---
 
-### 17.5 旧接口、旧文档名、旧术语必须清理
+### 18.5 旧接口、旧文档名、旧术语必须清理
 
 新版目录已经确立：
 
@@ -906,9 +1044,30 @@ infra/casbin。
 
 如果历史文档仍存在，应迁移或归档。
 
+Suggest 相关术语应保持：
+
+```text
+Suggest REST；
+OperatingPrincipal；
+ProfileAccessScope；
+ProfileSearchTerm；
+ProfileSuggestionRuntime；
+mobile_mask。
+```
+
+不要退回：
+
+```text
+tenant_id 冒充 org_id；
+明文 mobile；
+Suggest 逐条调用 Casbin；
+Suggest 是完整搜索服务；
+Suggest 是 IAM 核心身份域。
+```
+
 ---
 
-## 18. 本文总结
+## 19. 本文总结
 
 `05-接入与契约/` 的核心不是写接口说明书，而是解释 IAM 如何被其他系统稳定接入。
 
@@ -918,6 +1077,7 @@ infra/casbin。
 REST 面向前端、管理后台、调试和非 Go 调用方；
 gRPC 面向可信服务间调用和内部集成；
 Go SDK 面向 Go 服务端低成本接入；
+Suggest REST 面向 operating 后台 Profile autocomplete；
 qs-server 是业务系统接入 IAM 的落地样板；
 OpenAPI、proto、pkg/sdk public API 和 server implementation 是契约事实源；
 docs/05 是人类理解入口；
@@ -926,4 +1086,4 @@ tests 和 CI 负责防漂移。
 
 如果只记住一句话：
 
-> IAM 通过 REST、gRPC、Go SDK 三种投影服务外部系统；前端通过 REST 登录，业务后端通过 gRPC / SDK 验 Token、查身份、做 AuthZ Check，契约事实源分别回到 OpenAPI、proto、pkg/sdk 和 server implementation。
+> IAM 通过 REST、gRPC、Go SDK 三种投影服务外部系统；前端通过 REST 登录，管理后台通过 REST 管理 IAM 并使用 Suggest 做 Profile 联想搜索，业务后端通过 gRPC / SDK 验 Token、查身份、做 AuthZ Check，契约事实源分别回到 OpenAPI、proto、pkg/sdk 和 server implementation。

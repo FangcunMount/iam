@@ -59,6 +59,7 @@ IAM 是一个面向业务系统接入的身份与访问管理服务。
   -> 05-接入与契约
   -> 06-架构护栏
   -> 07-宣讲
+  -> 08-Suggest
   -> _archive
 ```
 
@@ -74,6 +75,7 @@ IAM 是一个面向业务系统接入的身份与访问管理服务。
 | `05-接入与契约` | 解释 REST、gRPC、SDK 三类接入方式、qs-server 接入链路和契约防漂移 |
 | `06-架构护栏` | 解释架构测试、契约测试、SDK compile test、docs-hygiene 如何防漂移 |
 | `07-宣讲` | 准备技术分享、面试表达、架构图和追问证据链 |
+| `08-Suggest` | 解释 Profile 联想搜索读模型，包括查询链路、权限范围、索引模型、刷新链路、安全与运维 |
 | `_archive` | 保存历史材料，不作为当前事实源 |
 
 ---
@@ -158,11 +160,20 @@ docs/
 │   ├── 12-架构图素材索引.md
 │   └── 13-面试追问证据索引.md
 │
+├── 08-Suggest/
+│   ├── README.md
+│   ├── 00-Suggest模块总览-Profile联想搜索读模型.md
+│   ├── 01-查询链路-SuggestProfile从请求到索引过滤.md
+│   ├── 02-权限范围-OperatingPrincipal与ProfileAccessScope.md
+│   ├── 03-索引模型-ProfileSearchTerm-Trie-Hash-Runtime.md
+│   ├── 04-刷新链路-Loader-Refresher-FullDelta-Snapshot.md
+│   └── 05-安全与运维-手机号搜索-限流-指标-降级.md
+│
 └── _archive/
     └── README.md
 ```
 
-> 注意：`07-专题分析/` 已归档，`08-宣讲/` 已调整为当前的 `07-宣讲/`。旧的 `02-业务域/`、`03-接口与集成/`、`04-基础设施与运维/`、旧 `05-专题分析/` 不再作为新版 active 文档入口。
+> 注意：`07-专题分析/` 已归档，旧 `08-宣讲/` 已调整为当前的 `07-宣讲/`。当前 `08-Suggest/` 是新建的 active 文档入口，用于说明 Profile 联想搜索读模型。旧的 `02-业务域/`、`03-接口与集成/`、`04-基础设施与运维/`、旧 `05-专题分析/` 不再作为新版 active 文档入口。
 
 ---
 
@@ -188,6 +199,7 @@ docs/
 | 一次权限 Check 如何判定 | [03-授权AuthZ/05-权限检查链路-Check-Snapshot.md](03-授权AuthZ/05-权限检查链路-Check-Snapshot.md) |
 | Casbin 在 AuthZ 中是什么角色 | [03-授权AuthZ/06-Casbin运行时模型-pgFacts与四段Matcher.md](03-授权AuthZ/06-Casbin运行时模型-pgFacts与四段Matcher.md) |
 | User、Profile、ProfileLink 如何建模 | [04-身份Identity/README.md](04-身份Identity/README.md)、[04-身份Identity/01-User与Profile模型.md](04-身份Identity/01-User与Profile模型.md)、[04-身份Identity/02-ProfileLink链路--用户与儿童档案关系协作.md](04-身份Identity/02-ProfileLink链路--用户与儿童档案关系协作.md) |
+| Profile 联想搜索如何工作 | [08-Suggest/README.md](08-Suggest/README.md)、[08-Suggest/00-Suggest模块总览-Profile联想搜索读模型.md](08-Suggest/00-Suggest模块总览-Profile联想搜索读模型.md)、[08-Suggest/01-查询链路-SuggestProfile从请求到索引过滤.md](08-Suggest/01-查询链路-SuggestProfile从请求到索引过滤.md) |
 | 业务系统如何接入 IAM | [05-接入与契约/README.md](05-接入与契约/README.md)、[05-接入与契约/00-接入总览-业务系统如何接入IAM.md](05-接入与契约/00-接入总览-业务系统如何接入IAM.md) |
 | REST/gRPC/SDK 如何划分 | [05-接入与契约/01-REST API契约-前端与管理端接入.md](05-接入与契约/01-REST API契约-前端与管理端接入.md)、[05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md](05-接入与契约/02-gRPC API契约-服务间调用与内部集成.md)、[05-接入与契约/03-SDK接入模型-Go服务端集成.md](05-接入与契约/03-SDK接入模型-Go服务端集成.md) |
 | qs-server 如何接入 IAM | [05-接入与契约/04-业务系统接入链路-qs-server接入 IAM 详解.md](05-接入与契约/04-业务系统接入链路-qs-server接入 IAM 详解.md) |
@@ -390,6 +402,28 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 
 ---
 
+### 5.9 08-Suggest
+
+回答：
+
+```text
+Profile 联想搜索读模型如何工作？
+```
+
+重点说明：
+
+- Suggest 是暂存于 IAM apiserver 内的 Profile 联想搜索读模型，不是 IAM 核心身份域；
+- OperatingPrincipal 如何进入 Suggest 查询；
+- ProfileAccessScope 如何表达可见范围；
+- ProfileSearchTerm 如何被写入 Trie / Hash；
+- 三叉搜索树如何支持中文名、拼音、简拼前缀搜索；
+- Hash 如何支持 ProfileID / 手机号精确匹配；
+- Runtime 如何执行全量替换与增量导入；
+- Loader / Refresher / Snapshot 如何维护索引生命周期；
+- 手机号搜索、限流、指标、降级和生产安全护栏如何设计。
+
+---
+
 ## 6. 推荐阅读路径
 
 ### 6.1 第一次了解 IAM
@@ -497,7 +531,27 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 
 ---
 
-### 6.6 面试准备路径
+### 6.6 Suggest 模块阅读路径
+
+```text
+08-Suggest/README.md
+  -> 08-Suggest/00-Suggest模块总览-Profile联想搜索读模型.md
+  -> 08-Suggest/01-查询链路-SuggestProfile从请求到索引过滤.md
+  -> 08-Suggest/02-权限范围-OperatingPrincipal与ProfileAccessScope.md
+  -> 08-Suggest/03-索引模型-ProfileSearchTerm-Trie-Hash-Runtime.md
+  -> 08-Suggest/04-刷新链路-Loader-Refresher-FullDelta-Snapshot.md
+  -> 08-Suggest/05-安全与运维-手机号搜索-限流-指标-降级.md
+```
+
+目标：
+
+```text
+理解 Suggest 为什么是 Profile 联想搜索读模型，如何在不拆独立服务的情况下完成高频 autocomplete、权限过滤、索引刷新、手机号安全、限流、指标和降级。
+```
+
+---
+
+### 6.7 面试准备路径
 
 ```text
 07-宣讲/README.md
@@ -522,7 +576,7 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 
 ---
 
-### 6.7 技术分享路径
+### 6.8 技术分享路径
 
 ```text
 07-宣讲/11-30分钟技术分享脚本.md
@@ -543,7 +597,7 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 
 ---
 
-### 6.8 架构评审路径
+### 6.9 架构评审路径
 
 ```text
 00-概览/01-系统架构总览.md
@@ -576,7 +630,7 @@ User、Profile、ProfileLink 如何表达业务身份关系？
    `internal/pkg/architecture`、REST/gRPC transport tests、SDK public API compile tests、docs-hygiene。
 
 4. **当前事实层文档**  
-   `docs/00-概览` 到 `docs/06-架构护栏`。
+   `docs/00-概览` 到 `docs/06-架构护栏`，以及 `docs/08-Suggest` 中的 Suggest 模块事实文档。
 
 5. **表达层文档**  
    `docs/07-宣讲`。
@@ -602,6 +656,12 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 | Principal | Login 成功后的认证主体摘要，是 Login 与 Token 链路的边界对象 |
 | Profile | 业务档案，例如本人档案、儿童档案、被测评者档案 |
 | ProfileLink | User 与 Profile 的关系事实 |
+| Suggest | Profile 联想搜索读模型，用于 operating 后台快速搜索可见 Profile 候选 |
+| OperatingPrincipal | Suggest 查询中的后台操作员身份视图，回答“谁在查” |
+| ProfileAccessScope | Suggest 查询中的可见范围，回答“能看哪些 Profile” |
+| ProfileSearchTerm | Suggest 索引项读模型，包含 ProfileID、DisplayName、Mobiles、OrgID、OwnerOperatorIDs 等搜索与过滤字段 |
+| ProfileSuggestionRuntime | Suggest 当前活动索引运行时，负责 Current、Replace、ImportDelta |
+| mobile_mask | Suggest REST 返回的脱敏手机号字段，生产环境不返回明文 mobile |
 | Assignment | REST/proto/SDK 对外 wire term，表示角色分配 |
 | RoleBinding | 内部 application/domain 标准术语，表示 subject 与 role 的绑定 |
 | Session | 在线登录态锚点 |
@@ -639,6 +699,11 @@ User、Profile、ProfileLink 如何表达业务身份关系？
 | 应用层 | [`../internal/apiserver/application`](../internal/apiserver/application) |
 | 领域层 | [`../internal/apiserver/domain`](../internal/apiserver/domain) |
 | 基础设施层 | [`../internal/apiserver/infra`](../internal/apiserver/infra) |
+| Suggest application | [`../internal/apiserver/application/suggest`](../internal/apiserver/application/suggest) |
+| Suggest domain | [`../internal/apiserver/domain/suggest`](../internal/apiserver/domain/suggest) |
+| Suggest infra/search | [`../internal/apiserver/infra/suggest`](../internal/apiserver/infra/suggest) |
+| Suggest MySQL loader | [`../internal/apiserver/infra/mysql/suggest`](../internal/apiserver/infra/mysql/suggest) |
+| Suggest REST transport | [`../internal/apiserver/transport/rest/suggest`](../internal/apiserver/transport/rest/suggest) |
 | REST 契约 | [`../api/rest`](../api/rest) |
 | gRPC 契约 | [`../api/grpc`](../api/grpc) |
 | SDK | [`../pkg/sdk`](../pkg/sdk) |
@@ -707,6 +772,10 @@ SDK 不要被写成业务层；
 IDP 不要被写成登录态所有者；
 JWKS 不要被写成在线状态判断；
 Outbox 不要被写成 exactly-once。
+Suggest 不要被写成 AuthN/AuthZ/Identity 核心域；
+ProfileAccessScope 不要被写成逐条 Casbin 检查；
+TenantDomain 不要被写成业务 org_id；
+mobile_mask 不要退回明文 mobile；
 ```
 
 ---
@@ -724,6 +793,7 @@ Outbox 不要被写成 exactly-once。
 05-接入与契约
 06-架构护栏
 07-宣讲
+08-Suggest
 _archive
 ```
 
@@ -755,9 +825,13 @@ _archive
 6. Mermaid 图能解释核心链路；
 7. 没有把旧目录作为 active 入口；
 8. 没有把 _archive 当成当前事实源；
-9. 术语统一：ProfileLink / RoleBinding / Assignment / Session / Outbox / SDK / IDP；
+9. 术语统一：ProfileLink / RoleBinding / Assignment / Session / Outbox / SDK / IDP / Suggest / ProfileAccessScope；
 10. OpenAPI / proto / SDK README 不互相矛盾；
 11. make docs-hygiene 通过。
+12. Suggest 文档入口可从 docs/README.md 访问；
+13. active docs 中没有 tenant_id 冒充 org_id 的描述；
+14. active docs 中没有把 Suggest 写成 IAM 核心身份域；
+15. active docs 中没有把 mobile_mask 写成明文 mobile。
 ```
 
 ---
@@ -810,6 +884,16 @@ go test ./internal/apiserver/application/authn/... \
   ./internal/apiserver/application/idp/...
 ```
 
+Suggest 链路按需检查：
+
+```bash
+go test ./internal/apiserver/domain/suggest/... \
+  ./internal/apiserver/application/suggest/... \
+  ./internal/apiserver/infra/suggest/... \
+  ./internal/apiserver/infra/mysql/suggest/... \
+  ./internal/apiserver/transport/rest/suggest/...
+```
+
 ---
 
 ## 13. 本文总结
@@ -827,6 +911,7 @@ go test ./internal/apiserver/application/authn/... \
 05-接入与契约：解释 REST、gRPC、SDK 和业务系统接入；
 06-架构护栏：解释如何防止边界、契约和文档漂移；
 07-宣讲：解释如何对外讲清楚；
+08-Suggest：解释 Profile 联想搜索读模型的查询、权限、索引、刷新、安全与运维；
 _archive：保存历史材料，不作为当前事实源。
 ```
 

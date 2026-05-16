@@ -14,6 +14,7 @@ Profile 是什么；
 ProfileLink 是什么；
 User / Profile / ProfileLink 如何协作；
 ProfileLink 与 AuthN / AuthZ 的边界是什么；
+ProfileLink 与 Suggest ProfileAccessScope 的边界是什么；
 Identity 的事实源在哪里。
 ```
 
@@ -24,13 +25,14 @@ Identity 的事实源在哪里。
 为什么 User 和 Profile 要分开？
 为什么 ProfileLink 不能只是 User 字段？
 ProfileLink 和 AuthZ 权限有什么区别？
+ProfileLink 和 Suggest ProfileAccessScope 有什么区别？
 当前用户视角如何保护档案访问？
-Identity 如何与 AuthN、AuthZ、IDP、SDK、qs-server 协作？
+Identity 如何与 AuthN、AuthZ、Suggest、IDP、SDK、qs-server 协作？
 ```
 
 一句话：
 
-> 本文负责把 Identity 的事实层设计，整理成一套能面试、能白板、能技术分享、能被追问的身份关系建模表达。
+> 本文负责把 Identity 的事实层设计，整理成一套能面试、能白板、能技术分享、能被追问的身份关系建模表达；其中 ProfileLink 可以为 AuthZ 和 Suggest 提供关系上下文，但不能替代 AuthZ Permission，也不能直接替代 Suggest 的 ProfileAccessScope。
 
 ---
 
@@ -39,7 +41,7 @@ Identity 如何与 AuthN、AuthZ、IDP、SDK、qs-server 协作？
 最推荐说法：
 
 ```text
-Identity 是 IAM 的身份关系模块，负责把登录主体 User、业务档案 Profile、以及二者之间的 ProfileLink 关系分开建模，用来支持本人档案、儿童档案、亲属关系和业务系统中的档案访问边界。
+Identity 是 IAM 的身份关系模块，负责把登录主体 User、业务档案 Profile、以及二者之间的 ProfileLink 关系分开建模，用来支持本人档案、儿童档案、亲属关系、业务系统中的档案访问边界，以及后续可见性读模型的关系事实来源。
 ```
 
 更短版：
@@ -61,7 +63,9 @@ User 是登录主体，Profile 是业务档案，ProfileLink 是二者之间的�
 儿童档案模块；
 Profile 权限表；
 AuthN 登录表；
-AuthZ 权限表。
+AuthZ 权限表；
+Suggest 可见范围；
+Profile autocomplete 模块。
 ```
 
 ---
@@ -69,7 +73,7 @@ AuthZ 权限表。
 ## 3. 30 秒讲法
 
 ```text
-IAM 的 Identity 不是普通用户资料模块。它把 User 和 Profile 分开：User 是登录主体，是 AuthN Principal、Session、Token 和 AuthZ subject 的身份锚点；Profile 是业务档案，可以表示本人档案、儿童档案或被测评者档案；ProfileLink 是 User 和 Profile 之间的关系事实，可以表达 self、parent、grandparent、other 等关系，并支持 active / revoked 生命周期。这样一个 User 可以关联多个 Profile，一个 Profile 也可以被多个 User 关联。ProfileLink 可以作为当前用户访问档案的关系 guard，但它不是 AuthZ permission，资源级访问仍然应该走 AuthZ Check。
+IAM 的 Identity 不是普通用户资料模块。它把 User 和 Profile 分开：User 是登录主体，是 AuthN Principal、Session、Token 和 AuthZ subject 的身份锚点；Profile 是业务档案，可以表示本人档案、儿童档案或被测评者档案；ProfileLink 是 User 和 Profile 之间的关系事实，可以表达 self、parent、grandparent、other 等关系，并支持 active / revoked 生命周期。这样一个 User 可以关联多个 Profile，一个 Profile 也可以被多个 User 关联。ProfileLink 可以作为当前用户访问档案的关系 guard，但它不是 AuthZ permission，资源级访问仍然应该走 AuthZ Check；它也不是 Suggest 的 ProfileAccessScope，最多只能作为构建可见性读模型的事实来源之一。
 ```
 
 适合场景：
@@ -77,7 +81,7 @@ IAM 的 Identity 不是普通用户资料模块。它把 User 和 Profile 分开
 ```text
 面试官问“用户和档案怎么建模”；
 技术分享中快速介绍 Identity；
-从 AuthN/AuthZ 过渡到业务身份关系。
+从 AuthN/AuthZ/Suggest 过渡到业务身份关系。
 ```
 
 ---
@@ -90,6 +94,8 @@ Identity 主要解决的是 User、Profile、ProfileLink 的关系建模问题�
 User 是能登录系统的人，是 AuthN 中 Principal、Session、Token 的身份锚点，也可以作为 AuthZ 的 subject。Profile 是业务档案，比如本人档案、儿童档案或被测评者档案，它不直接登录，也不签发 token。ProfileLink 是 User 和 Profile 之间的关系事实，比如 self、parent、grandparent、other，并且有 active、revoked 等生命周期。
 
 这样设计可以支持一个 User 关联多个 Profile，也支持一个 Profile 被多个 User 关联。对于当前用户视角，读取或修改档案时可以先检查当前用户与该 Profile 是否存在 active ProfileLink，避免用户直接按 profile_id 越权访问。这里要注意，ProfileLink 是身份关系 guard，不是 AuthZ 权限；如果是资源级访问控制，仍然应该进入 AuthZ Check。
+
+同时，ProfileLink 也不能直接等同于 Suggest 的 ProfileAccessScope。Suggest 是后台 Profile 联想搜索读模型，它可以消费由 ProfileLink 等事实投影出来的可见性读模型，但查询时真正使用的是 ProfileAccessScope，而不是每次 autocomplete 直接扫描 ProfileLink。
 ```
 
 适合场景：
@@ -97,7 +103,8 @@ User 是能登录系统的人，是 AuthN 中 Principal、Session、Token 的身
 ```text
 面试项目介绍中的 Identity 部分；
 技术分享身份建模章节；
-回答“为什么 User 和 Profile 要拆”。
+回答“为什么 User 和 Profile 要拆”；
+回答“ProfileLink 和 Suggest 可见范围是不是一回事”。
 ```
 
 ---
@@ -116,6 +123,8 @@ User 是能登录系统的人，是 AuthN 中 Principal、Session、Token 的身
 应用层上，Identity 会提供系统侧能力和当前用户视角能力。系统侧能力可以创建 User、维护 Profile、建立或撤销 ProfileLink；当前用户视角，例如 MyProfiles / MyProfileLinks，会限制用户只能访问与自己有 active link 的 Profile，不能通过猜 profile_id 或 user_id 操作别人的档案关系。
 
 最后要强调边界：ProfileLink 可以作为身份关系 guard，但它不是 AuthZ permission。AuthZ 判断的是 subject 能否对 resource 执行 action，并满足 scope；ProfileLink 判断的是 user 和 profile 是否存在关系。未来如果要把 Profile 操作纳入统一资源权限系统，应通过 AuthZ Resource / Action / Scope 扩展，而不是把 ProfileLink 当成权限表。
+
+新增 Suggest 后，还要补充一个边界：ProfileLink 也不是 Suggest 的 ProfileAccessScope。Suggest 解决的是 operating 后台输入关键词时如何快速返回当前操作员可见的 Profile 候选。ProfileLink 可以作为构建 Profile visibility read model 的事实来源之一，但 Suggest 查询时应消费 ProfileAccessScope，并在 Trie/Hash 索引结果上执行 scope filter。不要让 Suggest 每次查询直接扫描 ProfileLink，也不要把 ProfileLink 直接解释为“当前操作员可见全部 Profile”。
 ```
 
 适合场景：
@@ -123,7 +132,8 @@ User 是能登录系统的人，是 AuthN 中 Principal、Session、Token 的身
 ```text
 面试深聊 Identity；
 技术分享身份关系建模章节；
-回答“ProfileLink 为什么是一等实体”。
+回答“ProfileLink 为什么是一等实体”；
+回答“ProfileLink 如何影响 Suggest 但不等于 Suggest 权限”。
 ```
 
 ---
@@ -141,7 +151,8 @@ User 是能登录系统的人，是 AuthN 中 Principal、Session、Token 的身
 4. 再讲 ProfileLink：User 与 Profile 的关系事实；
 5. 再讲当前用户视角 guard；
 6. 再讲 ProfileLink 与 AuthZ 的边界；
-7. 最后讲 Identity 与 AuthN / AuthZ / IDP / SDK / qs-server 的协作。
+7. 再讲 ProfileLink 与 Suggest ProfileAccessScope 的边界；
+8. 最后讲 Identity 与 AuthN / AuthZ / Suggest / IDP / SDK / qs-server 的协作。
 ```
 
 ### 6.1 先讲问题
@@ -168,10 +179,16 @@ Profile 是业务档案，不直接登录，不直接签发 token。
 ProfileLink 是 User 和 Profile 之间的关系边，承载 relation、status 和生命周期。
 ```
 
-### 6.5 最后讲边界
+### 6.5 再讲 AuthZ 边界
 
 ```text
 ProfileLink 是身份关系；AuthZ Check 是资源权限判定。
+```
+
+### 6.6 再讲 Suggest 边界
+
+```text
+ProfileLink 可以参与构建可见性读模型；ProfileAccessScope 才是 Suggest 查询时的可见范围表达。
 ```
 
 ---
@@ -231,7 +248,7 @@ flowchart TD
 
 ---
 
-### 7.3 图三：Identity 与 AuthN / AuthZ / IDP 的边界
+### 7.3 图三：Identity 与 AuthN / AuthZ / Suggest / IDP 的边界
 
 ```mermaid
 flowchart LR
@@ -239,6 +256,9 @@ flowchart LR
     AuthN["AuthN<br/>Login / Principal / Session / Token"]
     Identity["Identity<br/>User / Profile / ProfileLink"]
     AuthZ["AuthZ<br/>Subject / Resource / Action / Scope"]
+    Suggest["Suggest<br/>Profile autocomplete"]
+    ProfileSearchTerm["ProfileSearchTerm<br/>search read model"]
+    ProfileAccessScope["ProfileAccessScope<br/>visible scope"]
     Business["Business System<br/>qs-server"]
 
     IDP -->|"external identity"| AuthN
@@ -247,17 +267,46 @@ flowchart LR
     Business -->|"query Profile / ProfileLink"| Identity
     Business -->|"Check resource/action/scope"| AuthZ
     Identity -. "ProfileLink is relation guard" .-> Business
+    Identity -. "Profile projection" .-> ProfileSearchTerm --> Suggest
+    ProfileAccessScope --> Suggest
 ```
 
 讲图时说：
 
 ```text
-Identity 提供 User、Profile、ProfileLink。AuthN 使用 UserID 作为登录主体，AuthZ 使用 user:<id> 作为 subject，业务系统可以查询 ProfileLink 做身份关系判断，但最终资源访问仍应走 AuthZ Check。
+Identity 提供 User、Profile、ProfileLink。AuthN 使用 UserID 作为登录主体，AuthZ 使用 user:<id> 作为 subject，业务系统可以查询 ProfileLink 做身份关系判断，但最终资源访问仍应走 AuthZ Check。Suggest 可以使用 Profile 投影出的 ProfileSearchTerm 做联想搜索，但可见范围由 ProfileAccessScope 表达，不是直接由 ProfileLink 替代。
 ```
 
 ---
 
-### 7.4 图四：qs-server 中的身份引用
+### 7.4 图四：ProfileLink 与 Suggest 可见性边界
+
+```mermaid
+flowchart TD
+    Link["ProfileLink<br/>identity relation fact"]
+    Visibility["Profile visibility read model"]
+    ScopeProvider["ProfileAccessScopeProvider"]
+    Scope["ProfileAccessScope"]
+    Keyword["keyword"]
+    Store["Suggest Store<br/>Trie / Hash"]
+    Filter["scope filter"]
+    Result["mobile_mask result"]
+
+    Link -."may contribute".-> Visibility
+    Visibility --> ScopeProvider --> Scope
+    Keyword --> Store --> Filter --> Result
+    Scope --> Filter
+```
+
+讲图时说：
+
+```text
+ProfileLink 可以是可见性读模型的事实来源之一，但 Suggest 查询时不应该直接扫描 ProfileLink。更好的边界是：ProfileLink 变化显式影响 visibility read model 或 ProfileAccessScopeProvider，然后 Suggest Store 只消费 ProfileAccessScope 做过滤。
+```
+
+---
+
+### 7.5 图五：qs-server 中的身份引用
 
 ```mermaid
 flowchart TD
@@ -330,6 +379,7 @@ identity info。
 
 ```text
 Profile 只保存通用身份档案信息，不应该承载所有业务属性。
+Profile 可以被投影成 Suggest 的 ProfileSearchTerm，但 ProfileSearchTerm 不是 Profile 聚合本体。
 ```
 
 ---
@@ -355,9 +405,45 @@ active；
 revoked。
 ```
 
+注意：
+
+```text
+ProfileLink 不是 AuthZ Permission；
+ProfileLink 不是 Suggest ProfileAccessScope；
+ProfileLink 可以参与构建可见性读模型，但不能直接替代可见范围。
+```
+
 ---
 
-### 8.4 MyProfiles / MyProfileLinks
+### 8.4 ProfileAccessScope
+
+ProfileAccessScope 是 Suggest 查询可见范围表达。
+
+讲法：
+
+```text
+ProfileAccessScope 回答 operating 后台当前操作员在 suggest 查询中能看到哪些 Profile 候选。
+```
+
+关键词：
+
+```text
+OperatingPrincipal；
+OrgIDs；
+OperatorID；
+ProfileIDs；
+AllowMobileSearch。
+```
+
+注意：
+
+```text
+ProfileAccessScope 属于 Suggest，不属于 Identity。
+```
+
+---
+
+### 8.5 MyProfiles / MyProfileLinks
 
 MyProfiles / MyProfileLinks 是当前用户视角的访问用例。
 
@@ -451,7 +537,23 @@ ProfileLink 是身份关系，不是资源权限。
 
 ---
 
-### 9.6 亮点六：业务系统只保存 IAM 引用
+### 9.6 亮点六：ProfileLink 与 Suggest 边界清楚
+
+推荐说法：
+
+```text
+ProfileLink 可以为 Suggest 可见性读模型提供事实来源之一，但不能直接替代 ProfileAccessScope。
+```
+
+价值：
+
+```text
+避免把 Identity 关系模型和高频 autocomplete 查询模型耦合在一起。Suggest 查询只消费 ProfileAccessScope 做过滤，不每次扫描 ProfileLink，也不把 ProfileLink 当成权限结果。
+```
+
+---
+
+### 9.7 亮点七：业务系统只保存 IAM 引用
 
 推荐说法：
 
@@ -499,7 +601,23 @@ Identity 提供身份和关系上下文，AuthZ 判断资源访问权。ProfileL
 
 ---
 
-### 10.3 Identity 与 IDP
+### 10.3 Identity 与 Suggest
+
+```text
+Suggest 使用 ProfileSearchTerm 读模型做 Profile autocomplete；
+ProfileAccessScope 表达当前操作员可见范围；
+ProfileLink 可以成为可见性读模型的事实来源之一。
+```
+
+讲法：
+
+```text
+Identity 维护 User/Profile/ProfileLink 事实，Suggest 维护 Profile 联想搜索读模型。ProfileLink 如果影响后台可见范围，应通过 visibility read model、ProfileAccessScopeProvider 或 Full/Delta refresh 显式同步，而不是让 Suggest 每次直接扫 ProfileLink。
+```
+
+---
+
+### 10.4 Identity 与 IDP
 
 ```text
 IDP 解析外部身份；
@@ -515,7 +633,7 @@ Identity 提供 IAM 内部 User。
 
 ---
 
-### 10.4 Identity 与 SDK
+### 10.5 Identity 与 SDK
 
 ```text
 SDK 可以封装 GetUser、GetProfile、ListProfileLinks 等查询能力。
@@ -529,7 +647,7 @@ SDK 可以封装 GetUser、GetProfile、ListProfileLinks 等查询能力。
 
 ---
 
-### 10.5 Identity 与 qs-server
+### 10.6 Identity 与 qs-server
 
 ```text
 qs-server 引用 IAM User/Profile；
@@ -570,7 +688,23 @@ ProfileLink 是身份关系，表达 user 和 profile 有没有关系以及是�
 
 ---
 
-### Q4：怎么防止用户访问别人的 Profile？
+### Q4：ProfileLink 和 Suggest ProfileAccessScope 有什么区别？
+
+```text
+ProfileLink 是 Identity 里的身份关系事实，回答 User 和 Profile 是否有关联、是什么关系。ProfileAccessScope 是 Suggest 查询时的可见范围，回答当前 operating 操作员在 autocomplete 中能看到哪些 Profile 候选。ProfileLink 可以参与构建可见性读模型，但不能直接替代 ProfileAccessScope。
+```
+
+---
+
+### Q5：为什么 Suggest 不应该每次直接查 ProfileLink？
+
+```text
+因为 Suggest 是高频 autocomplete 读模型，每次查询直接扫 ProfileLink 会把 Identity 和 Suggest 强耦合，也无法覆盖组织管理员、运营人员、临时授权等更复杂的可见性来源。更合理的边界是 ProfileLink 等事实进入 visibility read model 或 ProfileAccessScopeProvider，Suggest Store 只消费 ProfileAccessScope 做 scope filter。
+```
+
+---
+
+### Q6：怎么防止用户访问别人的 Profile？
 
 ```text
 当前用户视角可以通过 MyProfiles / MyProfileLinks 做 guard。比如读取或修改某个 Profile 前，先按 currentUserID + profileID 查询 active ProfileLink。如果没有 active link，就拒绝访问。这样不能直接靠猜 profile_id 访问别人档案。
@@ -578,7 +712,7 @@ ProfileLink 是身份关系，表达 user 和 profile 有没有关系以及是�
 
 ---
 
-### Q5：创建档案和建立关系怎么保证一致？
+### Q7：创建档案和建立关系怎么保证一致？
 
 ```text
 创建 Profile 和建立 ProfileLink 应放在同一个应用用例和事务边界中处理。先创建业务档案，再建立当前用户与 Profile 的关系，避免出现 Profile 创建成功但关系没有建立的孤立状态。
@@ -586,7 +720,7 @@ ProfileLink 是身份关系，表达 user 和 profile 有没有关系以及是�
 
 ---
 
-### Q6：为什么关系撤销不是直接删除？
+### Q8：为什么关系撤销不是直接删除？
 
 ```text
 ProfileLink 是关系事实，撤销关系后仍然可能需要审计和追溯。如果直接删除，历史关系会丢失。所以更好的方式是软撤销，例如记录 revokedAt 或状态，让 active 关系和历史关系可以区分。
@@ -594,7 +728,7 @@ ProfileLink 是关系事实，撤销关系后仍然可能需要审计和追溯�
 
 ---
 
-### Q7：self profile link 是什么？
+### Q9：self profile link 是什么？
 
 ```text
 self profile link 表示用户和自己本人档案之间的关系。它也是 ProfileLink 的一种，只是有更强不变量：一个 User 最多只能有一个 active self link，但可以没有 self Profile。这样既保持模型统一，又避免注册或登录时强行补档案。
@@ -602,7 +736,7 @@ self profile link 表示用户和自己本人档案之间的关系。它也是 P
 
 ---
 
-### Q8：用户被 block 和 Identity 有什么关系？
+### Q10：用户被 block 和 Identity 有什么关系？
 
 ```text
 User 是 Identity 的身份锚点，它有 active、inactive、blocked 等状态。AuthN 在线 Verify 可以检查 User 状态，User 被 blocked 后旧 token 应该不能继续通过在线 Verify；同时也可以结合 SessionManager 撤销该用户的会话。
@@ -610,7 +744,7 @@ User 是 Identity 的身份锚点，它有 active、inactive、blocked 等状态
 
 ---
 
-### Q9：业务系统为什么不直接存完整 Profile？
+### Q11：业务系统为什么不直接存完整 Profile？
 
 ```text
 IAM 是身份事实源，qs-server 这类业务系统更适合保存 iam_user_id、iam_profile_id 这样的引用，而不是复制 IAM 的完整 User/Profile 表。业务系统只保存自己的业务对象和业务状态，需要身份信息时通过 Identity 查询，需要访问控制时通过 AuthZ Check。
@@ -618,7 +752,7 @@ IAM 是身份事实源，qs-server 这类业务系统更适合保存 iam_user_id
 
 ---
 
-### Q10：ProfileLink 能不能直接当权限用？
+### Q12：ProfileLink 能不能直接当权限用？
 
 ```text
 不建议。ProfileLink 最多可以作为当前用户视角的身份关系 guard，但它不是完整资源权限模型。资源级权限需要 subject、tenant、resource、action、scope 这些维度，应该由 AuthZ Check 判定。
@@ -690,7 +824,47 @@ ProfileLink 可以用于当前用户视角的关系检查，但资源级权限�
 
 ---
 
-### 12.5 把微信 openid 当成 User
+### 12.5 把 ProfileLink 说成 Suggest 可见范围
+
+```text
+ProfileLink 表示用户在 Suggest 里能看到哪些 Profile。
+```
+
+问题：
+
+```text
+不准确。ProfileLink 是身份关系事实，ProfileAccessScope 才是 Suggest 查询可见范围。
+```
+
+更准确说法：
+
+```text
+ProfileLink 可以参与构建可见性读模型，但 Suggest 查询时消费的是 ProfileAccessScope。
+```
+
+---
+
+### 12.6 说 Suggest 直接查 ProfileLink 最简单
+
+```text
+Suggest 每次查询时直接查 ProfileLink 就行。
+```
+
+问题：
+
+```text
+会破坏读模型边界，也无法覆盖更复杂的 operating 后台可见性来源。
+```
+
+更准确说法：
+
+```text
+ProfileLink 变化如果影响 Suggest，应通过 visibility read model、ProfileAccessScopeProvider 或 Full/Delta refresh 显式同步。
+```
+
+---
+
+### 12.7 把微信 openid 当成 User
 
 ```text
 微信 openid 就是用户。
@@ -708,13 +882,20 @@ ProfileLink 可以用于当前用户视角的关系检查，但资源级权限�
 
 | 讲法 | 证据 |
 | --- | --- |
-| Identity 模型总览 | `docs/04-身份Identity/README.md` |
-| User 与 Profile 模型 | `docs/04-身份Identity/01-User与Profile模型.md` |
-| ProfileLink 链路 | `docs/04-身份Identity/02-ProfileLink链路--用户与儿童档案关系协作.md` |
+| Identity 模型总览 | `docs/04-身份Identity/README.md`、`docs/04-身份Identity/00-Identity模型总览-User-Profile-ProfileLink.md` |
+| User 与 Profile 模型 | `docs/04-身份Identity/00-Identity模型总览-User-Profile-ProfileLink.md` |
+| ProfileLink 链路 | `docs/04-身份Identity/01-ProfileLink链路-User与Profile关系协作.md` |
+| Identity 与 AuthN 边界 | `docs/04-身份Identity/02-Identity与AuthN-认证身份-Principal-User边界.md`、`docs/02-认证AuthN` |
+| Identity 与 AuthZ 边界 | `docs/04-身份Identity/03-Identity与AuthZ-Subject-Resource-Permission边界.md`、`docs/03-授权AuthZ` |
+| ProfileLink 与 Suggest 边界 | `docs/04-身份Identity/README.md`、`docs/04-身份Identity/01-ProfileLink链路-User与Profile关系协作.md`、`docs/08-Suggest/02-权限范围-OperatingPrincipal与ProfileAccessScope.md` |
+| Suggest 查询链路 | `docs/08-Suggest/01-查询链路-SuggestProfile从请求到索引过滤.md` |
+| Suggest 索引模型 | `docs/08-Suggest/03-索引模型-ProfileSearchTerm-Trie-Hash-Runtime.md` |
+| Suggest 刷新链路 | `docs/08-Suggest/04-刷新链路-Loader-Refresher-FullDelta-Snapshot.md` |
 | AuthN 使用 User 作为 Principal 身份锚点 | `docs/02-认证AuthN` |
 | AuthZ 使用 subject 做资源访问判定 | `docs/03-授权AuthZ` |
 | qs-server 接入 IAM 时引用 User/Profile | `docs/05-接入与契约/04-业务系统接入链路-qs-server接入 IAM 详解.md` |
 | 架构护栏与事实源规则 | `docs/06-架构护栏` |
+| Suggest 事实源 | `internal/apiserver/domain/suggest`、`internal/apiserver/application/suggest`、`internal/apiserver/infra/suggest` |
 
 不要把已归档的专题分析作为当前证据源。
 
@@ -723,12 +904,18 @@ ProfileLink 可以用于当前用户视角的关系检查，但资源级权限�
 ## 14. 简历项目描述版本
 
 ```text
-设计并实现 IAM Identity 身份关系模型，将登录主体 User、业务档案 Profile 和关系实体 ProfileLink 分开建模，支持 self、parent、grandparent、other 等关系类型以及 active/revoked 生命周期。通过 ProfileLink 支持一个 User 关联多个 Profile、一个 Profile 被多个 User 关联，并在当前用户视角用 active ProfileLink 做档案访问 guard；同时保持 ProfileLink 与 AuthZ 权限边界清晰，ProfileLink 表达身份关系，资源级访问仍由 AuthZ Check 判定。
+设计并实现 IAM Identity 身份关系模型，将登录主体 User、业务档案 Profile 和关系实体 ProfileLink 分开建模，支持 self、parent、grandparent、other 等关系类型以及 active/revoked 生命周期。通过 ProfileLink 支持一个 User 关联多个 Profile、一个 Profile 被多个 User 关联，并在当前用户视角用 active ProfileLink 做档案访问 guard；同时保持 ProfileLink 与 AuthZ 权限、Suggest 可见范围边界清晰：ProfileLink 表达身份关系，资源级访问仍由 AuthZ Check 判定，Suggest 查询可见性由 ProfileAccessScope 表达。
+```
+
+更保守版本：
+
+```text
+负责 IAM Identity 身份关系模型设计，将 User、Profile、ProfileLink 分开建模，支持多档案、多关系类型和关系生命周期；并明确 ProfileLink 与 AuthZ Permission、Suggest ProfileAccessScope 的边界，避免将身份关系误用为资源权限或搜索可见范围。
 ```
 
 可以按真实贡献再压缩。
 
-不要把尚未完整实现的业务侧档案权限、管理后台能力或复杂家庭协作能力说成已完成能力。
+不要把尚未完整实现的业务侧档案权限、管理后台能力、复杂家庭协作能力或自动同步 Suggest 可见性能力说成已完成能力。
 
 ---
 
@@ -747,17 +934,19 @@ ProfileLink 可以用于当前用户视角的关系检查，但资源级权限�
 1 分钟：ProfileLink 为什么是关系实体；
 1 分钟：当前用户视角 guard；
 1 分钟：ProfileLink 与 AuthZ 边界；
-1 分钟：qs-server 如何引用 IAM User/Profile。
+30 秒：ProfileLink 与 Suggest ProfileAccessScope 边界；
+30 秒：qs-server 如何引用 IAM User/Profile。
 ```
 
-不要在 Identity 部分讲太多 AuthN 或 AuthZ。
+不要在 Identity 部分讲太多 AuthN、AuthZ 或 Suggest 实现细节。
 
 只需要记住：
 
 ```text
 AuthN 证明 User 登录态；
 Identity 管 User/Profile/ProfileLink；
-AuthZ 判断资源访问权。
+AuthZ 判断资源访问权；
+Suggest 使用 ProfileSearchTerm / ProfileAccessScope 做联想搜索读模型。
 ```
 
 ---
@@ -781,11 +970,11 @@ ProfileLink 是关系事实。
 最推荐的表达：
 
 ```text
-IAM 的 Identity 模块把 User、Profile、ProfileLink 分开建模。User 是登录主体和身份锚点，参与 AuthN 和 AuthZ；Profile 是业务档案，可以表示本人档案、儿童档案或被测评者档案；ProfileLink 是 User 与 Profile 之间的关系事实，支持 self、parent、grandparent、other 以及 active/revoked 状态。当前用户访问档案时，可以通过 active ProfileLink 做关系 guard。ProfileLink 是身份关系，不是 AuthZ 权限，资源级访问仍由 AuthZ Check 判定。
+IAM 的 Identity 模块把 User、Profile、ProfileLink 分开建模。User 是登录主体和身份锚点，参与 AuthN 和 AuthZ；Profile 是业务档案，可以表示本人档案、儿童档案或被测评者档案；ProfileLink 是 User 与 Profile 之间的关系事实，支持 self、parent、grandparent、other 以及 active/revoked 状态。当前用户访问档案时，可以通过 active ProfileLink 做关系 guard。ProfileLink 是身份关系，不是 AuthZ 权限，资源级访问仍由 AuthZ Check 判定；它也不是 Suggest 的 ProfileAccessScope，Suggest 可见范围应由 ProfileAccessScope 表达。
 ```
 
 如果只记住一句话：
 
 ```text
-Identity 不是用户资料 CRUD，而是用 User、Profile、ProfileLink 三个模型，把登录主体、业务档案和二者关系拆清楚，并为 AuthN、AuthZ 和业务系统接入提供稳定身份事实。
+Identity 不是用户资料 CRUD，而是用 User、Profile、ProfileLink 三个模型，把登录主体、业务档案和二者关系拆清楚，并为 AuthN、AuthZ、Suggest 和业务系统接入提供稳定身份事实与关系上下文。
 ```

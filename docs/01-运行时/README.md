@@ -11,11 +11,11 @@
 3. MySQL、Redis、EventBus、IDP encryption key 等运行时资源如何进入业务模块；
 4. REST 路由与 gRPC 服务如何从 container 投影出来；
 5. 配置、运行模式、降级启动、健康检查之间是什么关系；
-6. key rotation、outbox relay、AuthZ policy sync、suggest cleanup 等后台任务如何纳入生命周期；
+6. key rotation、outbox relay、AuthZ policy sync、Suggest Full/Delta refresh 等后台任务如何纳入生命周期；
 7. graceful shutdown 的边界和关闭顺序是什么。
 
 本目录只解释 **运行时装配与生命周期**。  
-AuthN、AuthZ、Identity、IDP 的业务规则不在这里展开。
+AuthN、AuthZ、Identity、IDP、Suggest 的业务规则不在这里展开。
 
 ---
 
@@ -49,8 +49,8 @@ cmd/apiserver
 | `container` | 组合根，装配 AuthN/AuthZ/Identity/IDP/Suggest/Outbox 等模块 |
 | `transport/rest` | HTTP 协议适配、路由注册、JWT middleware、DTO/错误映射 |
 | `transport/grpc` | gRPC 协议适配、service registration、mTLS/ACL/audit 链 |
-| `runtime tasks` | key rotation scheduler、outbox relay、AuthZ policy sync、suggest cleanup 等后台任务 |
-| `graceful shutdown` | 停止后台任务、清理模块、关闭 DB/HTTP/gRPC |
+| `runtime tasks` | key rotation scheduler、outbox relay、AuthZ policy sync、Suggest Full/Delta refresh 等后台任务 |
+| `graceful shutdown` | 停止后台任务、关闭 Suggest runtime hooks、清理模块、关闭 DB/HTTP/gRPC |
 
 一句话：
 
@@ -77,7 +77,7 @@ cmd/apiserver
 | [01-服务入口与生命周期装配.md](01-服务入口与生命周期装配.md) | 解释从 `main()` 到 prepared server 的完整生命周期 | 服务如何从入口启动、准备资源、初始化 container、启动 HTTP/gRPC、注册 shutdown |
 | [02-Transport装配--REST路由与gRPC服务注册.md](02-Transport装配--REST路由与gRPC服务注册.md) | 解释 REST/gRPC 如何从 container 获取模块能力 | REST deps、gRPC registrations、路由注册、service registration 如何工作 |
 | [03-配置与运行模式.md](03-配置与运行模式.md) | 解释 options/config/server mode/app mode/degradedAllowed | 配置如何进入运行时，不同运行模式如何影响启动策略 |
-| [04-后台任务与优雅关闭.md](04-后台任务与优雅关闭.md) | 解释 runtime tasks 与 shutdown lifecycle | key rotation、outbox relay、AuthZ policy sync、suggest cleanup、DB/HTTP/gRPC 关闭顺序 |
+| [04-后台任务与优雅关闭.md](04-后台任务与优雅关闭.md) | 解释 runtime tasks 与 shutdown lifecycle | key rotation、outbox relay、AuthZ policy sync、Suggest Full/Delta refresh、DB/HTTP/gRPC 关闭顺序 |
 | [05-降级启动与健康检查.md](05-降级启动与健康检查.md) | 解释 degraded startup、health、debug、fail-closed | 什么时候允许半可用启动，健康检查能证明什么、不能证明什么 |
 
 ---
@@ -114,7 +114,7 @@ flowchart TD
     Tasks --> Scheduler["KeyRotation Scheduler"]
     Tasks --> Relay["Outbox Relay"]
     Tasks --> PolicySync["AuthZ Policy Sync"]
-    Tasks --> SuggestCleanup["Suggest Cleanup"]
+    Tasks --> SuggestRefresh["Suggest Full/Delta Refresh"]
     Tasks --> Shutdown["Graceful Shutdown"]
 
     Health --> Probes["/health / ready / live"]
@@ -231,6 +231,7 @@ startRuntimeTasks
 processruntime.Lifecycle
 shutdown hooks
 任务停止语义
+Suggest Full/Delta refresh 与降级策略
 ```
 
 ---
@@ -265,7 +266,7 @@ sequenceDiagram
     Process->>REST: RegisterRoutes(BuildRESTDeps)
     Process->>GRPC: RegisterServices(BuildGRPCDeps)
 
-    Process->>Tasks: start key rotation / outbox relay / authz policy sync / suggest cleanup
+    Process->>Tasks: start key rotation / outbox relay / authz policy sync / suggest full-delta refresh
     Process->>Shutdown: register shutdown callbacks
     Process->>Process: preparedAPIServer.Run()
 ```
@@ -382,7 +383,7 @@ transport 不负责：
 | AuthZ | container 初始化 AuthZ module，投影 role/resource/policy/rolebinding/check/snapshot、route authorization runtime，并在 EventBus 可用时构建 AuthZ policy sync subscriber | `../03-授权AuthZ/` |
 | Identity | container 初始化 User module，投影 User/Profile/ProfileLink 相关 capabilities；`User Module` 是运行时代码中的历史/实现命名，在新版文档语义中归入 Identity 能力边界 | `../04-身份Identity/` |
 | IDP | container 初始化 IDP module，投影 WechatApp 管理和供 AuthN 使用的 Repository/SecretVault/AuthProvider | `../02-认证AuthN/07-第三方登录与IDP协作-WeChat-WeCom.md` |
-| Suggest | container 初始化 Suggest module，提供 profile suggest 和 cleanup 能力 | 视后续文档补充 |
+| Suggest | container 初始化 Suggest module，装配 ProfileSuggestor、ProfileAccessScopeProvider、ProfileSuggestionRuntime、MySQL Loader、Full/Delta Refresher、RateLimiter、Metrics、DegradedService 等能力 | `../08-Suggest/README.md` |
 | Outbox | container/eventing 初始化 outbox store 与 relay，process 启动 relay runtime task；AuthZ policy sync 订阅 `iam.authz.version`，负责授权版本事件的运行时同步 | `../03-授权AuthZ/04-授权版本与事件传播链路-PolicyVersion-Outbox-RuntimeReload.md` |
 
 运行时文档只解释这些模块如何进入进程，不展开它们的业务规则。
@@ -498,7 +499,7 @@ Container.BuildRuntimeDeps
 KeyRotation Scheduler
 Outbox Relay
 AuthZ Policy Sync Subscriber
-Suggest cleanup
+Suggest Full/Delta Refresh
 ```
 
 其中：
@@ -509,12 +510,14 @@ AuthZ Policy Sync Subscriber 订阅 iam.authz.version，负责授权版本事件
 二者都依赖 EventBus 相关能力，但职责不同。
 ```
 
+Suggest Full/Delta Refresh 负责维护 Profile 联想搜索读模型索引。Full refresh 构建新的 Search Store 并通过 Runtime 原子替换当前活动索引；Delta refresh 在当前 Store 上导入变更 term。Suggest 失败时可以在 `Required=false` 场景下降级为空结果，不应该阻断 AuthN/AuthZ/Identity 主链路。
+
 关闭顺序大致是：
 
 ```text
 lifecycle hooks
   -> stop runtime tasks
-  -> suggest cleanup
+  -> stop suggest refresh/runtime hooks
   -> close database manager
   -> close HTTP server
   -> close gRPC server
@@ -551,6 +554,7 @@ outbox / runtime 诊断信息如何
 所有业务路由都可用
 AuthN/AuthZ 全功能可用
 IDP 外部平台可用
+Suggest 索引一定已刷新到最新
 业务权限一定正确
 ```
 
@@ -590,6 +594,11 @@ protected route 是否注册
 | REST deps | `internal/apiserver/container/rest_deps.go` |
 | gRPC registry deps | `internal/apiserver/container/grpc_registry.go` |
 | runtime deps | `internal/apiserver/container/runtime_deps.go` |
+| Suggest module assembler | `internal/apiserver/container/assembler/suggest.go` |
+| Suggest application | `internal/apiserver/application/suggest` |
+| Suggest search runtime | `internal/apiserver/infra/suggest/search` |
+| Suggest MySQL loader | `internal/apiserver/infra/mysql/suggest` |
+| Suggest REST transport | `internal/apiserver/transport/rest/suggest` |
 | AuthZ policy sync subscriber | `internal/apiserver/process/shutdown_lifecycle.go`、`internal/apiserver/container/runtime_deps.go` |
 | REST router | `internal/apiserver/transport/rest/router.go` |
 | REST module routes | `internal/apiserver/transport/rest/module_routes.go` |
@@ -638,6 +647,16 @@ go test ./internal/apiserver/transport/grpc
 go test ./internal/apiserver/infra/messaging \
   ./internal/apiserver/infra/mysql/eventoutbox \
   ./pkg/outboxcore
+```
+
+如果涉及 Suggest runtime、刷新、限流或降级：
+
+```bash
+go test ./internal/apiserver/application/suggest/... \
+  ./internal/apiserver/domain/suggest/... \
+  ./internal/apiserver/infra/suggest/... \
+  ./internal/apiserver/infra/mysql/suggest/... \
+  ./internal/apiserver/transport/rest/suggest/...
 ```
 
 ---
@@ -717,6 +736,42 @@ infra 是外部资源适配层
 
 ---
 
+### 5. Suggest 运行时术语必须准确
+
+当前 Suggest 不是简单 cleanup 任务。
+
+运行时文档中应使用：
+
+```text
+Suggest module；
+ProfileSuggestionRuntime；
+ProfileIndexRefresher；
+Full refresh；
+Delta refresh；
+DegradedService；
+RateLimiter；
+Metrics；
+mobile_mask。
+```
+
+不要退回：
+
+```text
+suggest cleanup 代表全部 Suggest 运行时；
+Suggest 直接查 MySQL 返回 autocomplete；
+Suggest 逐条调用 Casbin；
+Suggest 返回明文 mobile；
+Suggest 是 AuthN/AuthZ/Identity 核心域。
+```
+
+Suggest 的业务规则和索引细节应链接到：
+
+```text
+../08-Suggest/README.md
+```
+
+---
+
 ## 本文总结
 
 `01-运行时/` 解释的是 IAM 如何从代码入口运行成服务。
@@ -730,6 +785,7 @@ process 统一生命周期
 container 装配业务模块
 transport 注册 REST/gRPC
 runtime tasks 纳入 lifecycle
+Suggest refresh / degraded runtime 纳入 lifecycle
 shutdown 统一关闭资源
 ```
 
@@ -742,6 +798,7 @@ shutdown 统一关闭资源
 模块如何装配？
 REST/gRPC 如何注册？
 后台任务如何启动？
+Suggest 索引刷新和降级如何纳入生命周期？
 健康检查能证明什么？
 降级启动允许什么？
 服务如何优雅关闭？

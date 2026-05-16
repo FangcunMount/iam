@@ -35,7 +35,7 @@ REST API 如何分组？
 哪些接口属于管理端接口？
 请求 Header、Token、Tenant、Trace 如何传递？
 REST API 的错误结构如何理解？
-AuthN / Identity / AuthZ / IDP 在 REST 层如何暴露？
+AuthN / Identity / AuthZ / IDP / Suggest 在 REST 层如何暴露？
 业务系统，例如 qs-server，应该如何使用 IAM REST？
 REST 契约的事实源在哪里？
 ```
@@ -50,7 +50,7 @@ REST 的机器契约事实源应以项目中的 OpenAPI、REST handler 和 REST 
 REST API 的接入方式；
 REST API 的分组方式；
 REST API 的安全边界；
-REST API 与 AuthN / Identity / AuthZ / IDP 的对应关系；
+REST API 与 AuthN / Identity / AuthZ / IDP / Suggest 的对应关系；
 REST API 与 gRPC / SDK 的分工。
 ```
 
@@ -69,6 +69,7 @@ AuthN REST：登录、刷新、退出、Token 验证、JWKS、当前 Principal�
 Identity REST：User、Profile、ProfileLink；
 AuthZ REST：Resource、Role、Permission、RoleBinding/Assignment、Check、Snapshot、PolicyLinter；
 IDP REST：WeChat / WeCom app 管理与外部身份源配置；
+Suggest REST：Profile 联想搜索，用于 operating 后台 autocomplete；
 System REST：health、ready、metrics、debug-only endpoint。
 ```
 
@@ -90,6 +91,7 @@ Client
 REST 负责协议适配，不承载领域规则；
 前端可以使用 REST 登录、刷新 Token、查询当前用户、调用管理端接口；
 管理端可以使用 REST 管理用户、角色、资源、权限和角色绑定；
+管理端可以使用 Suggest REST 做 Profile 联想搜索，但返回结果必须经过 ProfileAccessScope 过滤；
 业务服务间高频调用优先使用 gRPC 或 SDK；
 REST 文档解释接口语义，字段细节以 OpenAPI / handler / tests 为准。
 ```
@@ -119,6 +121,7 @@ REST API 适合：
 管理后台给角色授予权限；
 管理后台给用户绑定角色；
 前端查询当前用户和 ProfileLink；
+管理后台通过 suggest 接口做 Profile autocomplete；
 调试人员通过 curl 检查 AuthZ Check 返回。
 ```
 
@@ -187,7 +190,9 @@ REST 契约必须以机器事实源为准。
 
 ```text
 api/rest
+api/rest/suggest.v2.yaml
 internal/apiserver/transport/rest
+internal/apiserver/transport/rest/suggest
 internal/apiserver/application
 internal/apiserver/domain
 REST integration tests
@@ -1092,7 +1097,173 @@ PATCH  /api/v3/idp/wechat-apps/{app_id}
 
 ---
 
-## 12. System REST API
+## 12. Suggest REST API
+
+Suggest REST API 面向 operating 后台和管理端 autocomplete 场景。
+
+它主要服务：
+
+```text
+后台输入姓名搜索 Profile；
+后台输入拼音 / 简拼搜索 Profile；
+后台输入 ProfileID 精确搜索 Profile；
+具备权限的后台用户输入手机号精确搜索 Profile；
+管理端在创建计划、分配任务、查看档案时快速定位 Profile。
+```
+
+Suggest REST 不是完整搜索服务，也不是 AuthZ 权限中心。
+
+它是 IAM apiserver 内置的 Profile 联想搜索读模型入口。
+
+### 12.1 Profile Suggest
+
+当前主要接口是：
+
+```http
+GET /api/v2/suggest/profile?k={keyword}&limit={limit}
+```
+
+参数：
+
+| 参数 | 必填 | 说明 |
+| ---- | ---- | ---- |
+| `k` | 是 | 搜索关键词，支持中文名、拼音、简拼、ProfileID、手机号形态关键词 |
+| `limit` | 否 | 返回数量上限，服务端会按配置截断 |
+
+典型请求：
+
+```http
+GET /api/v2/suggest/profile?k=zhang&limit=20
+Authorization: Bearer <access_token>
+```
+
+典型响应：
+
+```json
+[
+  {
+    "id": "10001",
+    "name": "张三",
+    "mobile_mask": "138****0000",
+    "weight": 1
+  }
+]
+```
+
+字段语义：
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `id` | Profile ID，通常以字符串形式返回，避免前端数字精度问题 |
+| `name` | Profile 展示名 |
+| `mobile_mask` | 脱敏手机号；生产环境不返回明文手机号 |
+| `weight` | 排序权重 |
+
+### 12.2 Suggest REST 的安全边界
+
+Suggest REST 至少有三层边界：
+
+```text
+1. 认证边界：必须携带有效 Bearer Token；
+2. 接口权限边界：必须具备 Profile suggest/search 接口权限；
+3. 数据权限边界：返回结果必须经过 ProfileAccessScope 过滤。
+```
+
+也就是说：
+
+```text
+能调用 suggest 接口
+  ≠
+能看到所有 Profile。
+```
+
+查询链路应遵循：
+
+```text
+OperatingPrincipal
+  -> ProfileAccessScopeProvider
+  -> ProfileAccessScope
+  -> SearchIndex match
+  -> scope filter
+  -> rank
+  -> mobile_mask DTO
+```
+
+### 12.3 手机号搜索
+
+手机号形态关键词是高敏感能力。
+
+规则：
+
+```text
+keyword 看起来像手机号
+  ↓
+需要 AllowMobileSearch=true
+  ↓
+Hash 精确匹配
+  ↓
+仍然经过 ProfileAccessScope 过滤
+  ↓
+只返回 mobile_mask
+```
+
+没有手机号搜索权限时，建议返回：
+
+```json
+[]
+```
+
+而不是暴露更详细的拒绝原因。
+
+原因是手机号搜索容易被用于：
+
+```text
+手机号枚举；
+用户存在性探测；
+跨组织数据探测；
+敏感日志泄露。
+```
+
+### 12.4 Suggest REST 的错误语义
+
+| 场景 | 建议返回 |
+| ---- | -------- |
+| 缺少或无效 Token | `401` |
+| 接口级权限不足 | `403` |
+| 请求参数错误 | `400` |
+| 触发限流 | `429` |
+| 手机号形态无权限 | `200 + []` |
+| 无可见结果 | `200 + []` |
+| 索引未初始化 / 降级服务 | `200 + []` |
+
+Suggest 是辅助查询能力。
+
+在索引不可用或模块降级时，返回空数组比绕过权限直接查全局数据更安全。
+
+### 12.5 Suggest REST 的事实源
+
+字段级事实源应以：
+
+```text
+api/rest/suggest.v2.yaml
+internal/apiserver/transport/rest/suggest
+internal/apiserver/application/suggest
+internal/apiserver/domain/suggest
+```
+
+为准。
+
+详细设计见：
+
+```text
+docs/08-Suggest/README.md
+docs/08-Suggest/01-查询链路-SuggestProfile从请求到索引过滤.md
+docs/08-Suggest/05-安全与运维-手机号搜索-限流-指标-降级.md
+```
+
+---
+
+## 13. System REST API
 
 System API 用于运行时健康检查、就绪检查和观测。
 
@@ -1122,9 +1293,9 @@ ready 应覆盖关键依赖，例如 MySQL、Redis、Casbin runtime、Outbox rel
 
 ---
 
-## 13. 前端接入建议
+## 14. 前端接入建议
 
-### 13.1 前端登录
+### 14.1 前端登录
 
 前端通过 REST 调用登录接口。
 
@@ -1140,7 +1311,7 @@ ready 应覆盖关键依赖，例如 MySQL、Redis、Casbin runtime、Outbox rel
 
 ---
 
-### 13.2 前端保存 Token
+### 14.2 前端保存 Token
 
 前端保存 Token 必须考虑安全风险。
 
@@ -1159,7 +1330,7 @@ RefreshToken 存储要比 AccessToken 更谨慎；
 
 ---
 
-### 13.3 前端权限展示
+### 14.3 前端权限展示
 
 前端可以使用 Snapshot 或后端聚合接口控制按钮展示。
 
@@ -1173,7 +1344,7 @@ RefreshToken 存储要比 AccessToken 更谨慎；
 
 ---
 
-## 14. 管理后台接入建议
+## 15. 管理后台接入建议
 
 管理后台通常需要：
 
@@ -1187,6 +1358,7 @@ RefreshToken 存储要比 AccessToken 更谨慎；
 角色绑定管理；
 PolicyLinter；
 授权快照；
+Profile 联想搜索；
 ```
 
 管理后台自身也必须经过 AuthZ。
@@ -1197,6 +1369,7 @@ PolicyLinter；
 只有 iam:admin 可以创建角色；
 只有 iam:admin 可以给用户绑定角色；
 只有 iam:security_admin 可以查看 PolicyLinter；
+只有具备 Profile suggest/search 权限的操作员可以使用 Profile 联想搜索。
 ```
 
 不要认为管理后台登录成功就拥有所有管理权限。
@@ -1205,9 +1378,11 @@ PolicyLinter；
 
 管理操作仍应进入 AuthZ。
 
+Suggest 查询也必须经过接口级权限和 ProfileAccessScope 数据级过滤。
+
 ---
 
-## 15. qs-server 使用 REST 的边界
+## 16. qs-server 使用 REST 的边界
 
 qs-server 作为 Go 后端服务，推荐优先使用 SDK / gRPC。
 
@@ -1247,7 +1422,7 @@ Go SDK；
 
 ---
 
-## 16. REST 与 gRPC / SDK 的关系
+## 17. REST 与 gRPC / SDK 的关系
 
 REST、gRPC、SDK 不是三套业务模型。
 
@@ -1265,7 +1440,8 @@ SDK  -> Go client projection
 AuthN Application；
 Identity Application；
 AuthZ Application；
-IDP Application。
+IDP Application；
+Suggest Application。
 ```
 
 如果 REST 和 gRPC 表达同一能力，应保证：
@@ -1275,16 +1451,16 @@ IDP Application。
 错误语义一致；
 权限要求一致；
 版本策略一致；
-审计行为一致；
+审计行为一致。
 ```
 
 字段命名可以因协议风格不同而有所差异，但业务语义不能漂移。
 
 ---
 
-## 17. 安全边界
+## 18. 安全边界
 
-### 17.1 公开接口与管理接口
+### 18.1 公开接口与管理接口
 
 REST API 应区分：
 
@@ -1306,7 +1482,7 @@ Metrics：内部观测接口。
 
 ---
 
-### 17.2 管理接口必须二次授权
+### 18.2 管理接口必须二次授权
 
 管理员登录成功不等于拥有所有权限。
 
@@ -1321,7 +1497,7 @@ POST /authz/roles
 
 ---
 
-### 17.3 敏感信息不出现在响应中
+### 18.3 敏感信息不出现在响应中
 
 REST response 不应返回：
 
@@ -1338,7 +1514,7 @@ Challenge secret；
 
 ---
 
-### 17.4 日志中不记录敏感字段
+### 18.4 日志中不记录敏感字段
 
 REST middleware 和 handler 不应记录：
 
@@ -1367,9 +1543,43 @@ error code。
 
 ---
 
-## 18. REST 契约维护规则
+### 18.5 Suggest 不返回明文手机号
 
-### 18.1 REST 文档不替代 OpenAPI
+Suggest REST response 应返回：
+
+```text
+mobile_mask
+```
+
+不应返回：
+
+```text
+mobile
+明文手机号数组
+完整手机号命中的 profileIDs
+```
+
+生产环境禁止开启 `DisableMobileMask=true`。
+
+手机号形态关键词也不应写入日志。
+
+如果需要排障，应通过：
+
+```text
+request_id；
+operator_id；
+tenant_domain；
+keyword_len；
+rate limit 日志；
+metrics；
+受控环境复现。
+```
+
+---
+
+## 19. REST 契约维护规则
+
+### 19.1 REST 文档不替代 OpenAPI
 
 本文只解释 REST 契约。
 
@@ -1385,9 +1595,11 @@ docs/05-接入与契约/01-REST API契约-前端与管理端接入.md；
 README / 00 接入总览中的相关入口。
 ```
 
+如果变更 Suggest REST，还应同步 `docs/08-Suggest` 相关文档。
+
 ---
 
-### 18.2 Breaking Change
+### 19.2 Breaking Change
 
 以下通常属于 breaking change：
 
@@ -1408,7 +1620,7 @@ README / 00 接入总览中的相关入口。
 
 ---
 
-### 18.3 Deprecated endpoint
+### 19.3 Deprecated endpoint
 
 如果接口废弃，应在 OpenAPI 和文档中标明：
 
@@ -1423,7 +1635,7 @@ migration guide。
 
 ---
 
-## 19. 验证建议
+## 20. 验证建议
 
 修改 REST 契约后，建议运行：
 
@@ -1436,6 +1648,15 @@ make api-validate
 
 ```bash
 go test ./internal/apiserver/transport/rest/...
+```
+
+如果变更 Suggest REST，还应运行：
+
+```bash
+go test ./internal/apiserver/transport/rest/suggest/... \
+  ./internal/apiserver/application/suggest/... \
+  ./internal/apiserver/domain/suggest/... \
+  ./internal/apiserver/infra/suggest/...
 ```
 
 如果变更影响 Application command / query，还应运行：
@@ -1454,7 +1675,7 @@ go test ./pkg/sdk/...
 
 ---
 
-## 20. 后续文档入口
+## 21. 后续文档入口
 
 本文说明 REST API 契约。
 
@@ -1465,6 +1686,7 @@ go test ./pkg/sdk/...
 03-SDK接入模型-Go服务端集成.md
 04-业务系统接入链路-以qs-server为例.md
 05-契约事实源与防漂移机制.md
+../08-Suggest/README.md
 ```
 
 其中：
@@ -1473,12 +1695,13 @@ go test ./pkg/sdk/...
 第 02 篇说明服务间调用契约；
 第 03 篇说明 Go 服务端 SDK 封装；
 第 04 篇说明 qs-server 如何组合 REST / gRPC / SDK 接入 IAM；
-第 05 篇说明 OpenAPI / proto / SDK / docs 如何防漂移。
+第 05 篇说明 OpenAPI / proto / SDK / docs 如何防漂移；
+Suggest 目录说明 Profile 联想搜索 REST 的查询、权限、索引、安全与运维边界。
 ```
 
 ---
 
-## 21. 本文总结
+## 22. 本文总结
 
 REST API 是 IAM 面向前端、管理后台、调试和外部低门槛接入方的 HTTP 契约。
 
@@ -1489,6 +1712,7 @@ AuthN：登录、刷新、退出、Token 验证、JWKS、Me；
 Identity：User、Profile、ProfileLink；
 AuthZ：Resource、Role、Permission、Assignment、Check、Snapshot、PolicyLinter；
 IDP：WeChat / WeCom app 管理；
+Suggest：Profile 联想搜索，返回经过 ProfileAccessScope 过滤的 mobile_mask 候选；
 System：health、ready、metrics。
 ```
 
@@ -1504,4 +1728,4 @@ OpenAPI 是 REST 字段级机器契约事实源。
 
 如果只记住一句话：
 
-> REST API 是 IAM 面向前端与管理端的 HTTP 接入投影，它解释“如何通过 HTTP 使用 IAM”，但字段级事实源必须以 OpenAPI、REST handler 和测试为准。
+> REST API 是 IAM 面向前端与管理端的 HTTP 接入投影，它解释“如何通过 HTTP 使用 IAM”，其中 Suggest REST 是 Profile 联想搜索的管理端辅助查询入口；字段级事实源必须以 OpenAPI、REST handler 和测试为准。
