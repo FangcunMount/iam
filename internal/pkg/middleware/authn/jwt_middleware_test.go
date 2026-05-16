@@ -29,6 +29,7 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 		meta.ID(110001),
 		meta.ID(613486856213901870),
 		meta.ID(1),
+		tenant.DefaultID,
 		"https://iam.fangcunmount.cn",
 		[]string{"qs-api"},
 		nil,
@@ -39,8 +40,8 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 
 	applyVerifiedClaims(c, claims)
 
-	if got := requestctx.TenantIDOrDefault(c); got != "1" {
-		t.Fatalf("TenantIDOrDefault() = %q, want %q", got, "1")
+	if got := requestctx.TenantIDOrDefault(c); got != tenant.DefaultID {
+		t.Fatalf("TenantIDOrDefault() = %q, want %q", got, tenant.DefaultID)
 	}
 	if got, exists := c.Get(requestctx.KeyUserID); !exists || got != meta.ID(110001) {
 		t.Fatalf("gin user_id = %v exists=%v, want %v", got, exists, meta.ID(110001))
@@ -59,13 +60,13 @@ func TestRequirePlatformAdminAllowsSuperAdminFromPlatformDomain(t *testing.T) {
 	engine := gin.New()
 	engine.Use(func(c *gin.Context) {
 		requestctx.SetUserID(c, meta.FromUint64(10001))
-		requestctx.SetTenantID(c, "1")
+		requestctx.SetTenantID(c, tenant.DefaultID)
 		c.Next()
 	})
 
 	middleware := NewJWTAuthMiddleware(nil, routeAuthorizationStub{
 		rolesByDomain: map[string][]string{
-			"1":               {"role:qs:admin"},
+			tenant.DefaultID:  {"role:qs:admin"},
 			tenant.PlatformID: {"role:super_admin"},
 		},
 	})
@@ -89,13 +90,13 @@ func TestRequirePlatformAdminRejectsTenantOnlyRoles(t *testing.T) {
 	engine := gin.New()
 	engine.Use(func(c *gin.Context) {
 		requestctx.SetUserID(c, meta.FromUint64(10001))
-		requestctx.SetTenantID(c, "1")
+		requestctx.SetTenantID(c, tenant.DefaultID)
 		c.Next()
 	})
 
 	middleware := NewJWTAuthMiddleware(nil, routeAuthorizationStub{
 		rolesByDomain: map[string][]string{
-			"1": {"role:qs:admin"},
+			tenant.DefaultID: {"role:qs:admin"},
 		},
 	})
 

@@ -127,7 +127,8 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 				SessionId:       "sid-remote",
 				UserId:          "1",
 				LoginIdentityId: "2",
-				TenantId:        "3",
+				TenantId:        "fangcun",
+				OrgId:           "42",
 				Issuer:          "https://iam.fangcunmount.cn",
 				Audience:        []string{"qs-api"},
 				Amr:             []string{"pwd", "otp"},
@@ -151,6 +152,8 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 	require.NotNil(t, result.Claims)
 	require.Equal(t, "jti-remote", result.Claims.TokenID)
 	require.Equal(t, "sid-remote", result.Claims.SessionID)
+	require.Equal(t, "fangcun", result.Claims.TenantDomain)
+	require.Equal(t, "42", result.Claims.OrgID)
 	require.Equal(t, []string{"pwd", "otp"}, result.Claims.AMR)
 	require.NotNil(t, result.Metadata)
 	require.Equal(t, authnv2.TokenType_TOKEN_TYPE_ACCESS, result.Metadata.TokenType)
@@ -164,7 +167,8 @@ func TestExtractClaimsIncludesSessionID(t *testing.T) {
 	require.NoError(t, token.Set("sid", "sid-local"))
 	require.NoError(t, token.Set("user_id", "1"))
 	require.NoError(t, token.Set("login_identity_id", "2"))
-	require.NoError(t, token.Set("tenant_id", "3"))
+	require.NoError(t, token.Set("tenant_id", "fangcun"))
+	require.NoError(t, token.Set("org_id", "3"))
 
 	claims := extractClaims(token)
 	require.NotNil(t, claims)
@@ -172,7 +176,9 @@ func TestExtractClaimsIncludesSessionID(t *testing.T) {
 	require.Equal(t, "sid-local", claims.SessionID)
 	require.Equal(t, "1", claims.UserID)
 	require.Equal(t, "2", claims.LoginIdentityID)
-	require.Equal(t, "3", claims.TenantID)
+	require.Equal(t, "fangcun", claims.TenantDomain)
+	require.Equal(t, "fangcun", claims.TenantID)
+	require.Equal(t, "3", claims.OrgID)
 }
 
 func TestBuildVerifyMetadataFromClaimsDefaultsAccessToken(t *testing.T) {

@@ -48,7 +48,12 @@ type TokenClaims struct {
 	NotBefore       time.Time
 	UserID          string
 	LoginIdentityID string
-	TenantID        string
+	// TenantDomain IAM 授权域（JWT tenant_id claim，如 fangcun）。
+	TenantDomain string
+	// OrgID 业务组织 ID（JWT org_id claim 透传）。
+	OrgID string
+	// TenantID Deprecated: 与 TenantDomain 相同，表示 IAM 授权域，非业务 org。
+	TenantID string
 	Roles           []string
 	Scopes          []string
 	TokenType       string

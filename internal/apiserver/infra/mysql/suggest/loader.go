@@ -1,6 +1,6 @@
 // Package suggest 从 MySQL 加载档案联想索引项。
-// 默认 SQL 为过渡读模型：tenant_id 来自 PlaceholderTenantID（profiles 表尚无租户列），
-// org_id 固定为 0（IAM 尚无机构列），owner_operator_ids 来自 profiles.created_by。
+// 默认 SQL 为过渡读模型：org_id 来自 PlaceholderOrgID（profiles 表尚无 org 列），
+// tenant_id 固定为 0（授权域由 JWT tenant domain 承担，不入索引），owner_operator_ids 来自 profiles.created_by。
 package suggest
 
 import (
@@ -20,8 +20,8 @@ const (
 SELECT
   c.id,
   c.name,
-  %d AS tenant_id,
-  0 AS org_id,
+  0 AS tenant_id,
+  %d AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
@@ -36,8 +36,8 @@ GROUP BY c.id;
 SELECT
   c.id,
   c.name,
-  %d AS tenant_id,
-  0 AS org_id,
+  0 AS tenant_id,
+  %d AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
@@ -50,8 +50,8 @@ UNION ALL
 SELECT
   c.id,
   '' AS name,
-  %d AS tenant_id,
-  0 AS org_id,
+  0 AS tenant_id,
+  %d AS org_id,
   '' AS mobiles,
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
@@ -61,12 +61,13 @@ WHERE c.deleted_at IS NOT NULL AND c.deleted_at > ?;
 )
 
 // LoaderConfig 提供 SQL 可配置能力。
-// PlaceholderTenantID：当 profiles 尚无真实 tenant_id 列时，内建 SQL 使用的占位租户 ID。
-// 0 表示不在索引中虚构租户——此时 tenant 维度的 scope 与索引需一致才命中；单租户开发可配置为非 0（与 Principal.TenantID 对齐），或改用 FullSQL 读取真实列。
+// PlaceholderOrgID：当 profiles 尚无 org_id 列时，内建 SQL 注入的占位业务组织 ID。
+// 0 表示不在索引中虚构 org；单组织部署由业务配置占位值，或改用 FullSQL。
 type LoaderConfig struct {
-	FullSQL             string
-	DeltaSQL            string
-	PlaceholderTenantID int64
+	FullSQL            string
+	DeltaSQL           string
+	PlaceholderOrgID   int64
+	PlaceholderTenantID int64 // Deprecated: 与 PlaceholderOrgID 同义，仅配置兼容。
 }
 
 // Loader 从业务库拉取档案联想候选
@@ -77,13 +78,17 @@ type Loader struct {
 
 // NewLoader 创建 Loader，SQL 为空时使用默认值。
 func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
+	placeholderOrg := cfg.PlaceholderOrgID
+	if placeholderOrg == 0 {
+		placeholderOrg = cfg.PlaceholderTenantID
+	}
 	fullSQL := strings.TrimSpace(cfg.FullSQL)
 	if fullSQL == "" {
-		fullSQL = strings.TrimSpace(fmt.Sprintf(defaultFullSQLTemplate, cfg.PlaceholderTenantID))
+		fullSQL = strings.TrimSpace(fmt.Sprintf(defaultFullSQLTemplate, placeholderOrg))
 	}
 	deltaSQL := strings.TrimSpace(cfg.DeltaSQL)
 	if deltaSQL == "" {
-		deltaSQL = strings.TrimSpace(fmt.Sprintf(defaultDeltaSQLTemplate, cfg.PlaceholderTenantID, cfg.PlaceholderTenantID))
+		deltaSQL = strings.TrimSpace(fmt.Sprintf(defaultDeltaSQLTemplate, placeholderOrg, placeholderOrg))
 	}
 
 	return &Loader{
@@ -91,6 +96,7 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 		config: LoaderConfig{
 			FullSQL:             fullSQL,
 			DeltaSQL:            deltaSQL,
+			PlaceholderOrgID:    placeholderOrg,
 			PlaceholderTenantID: cfg.PlaceholderTenantID,
 		},
 	}

@@ -20,9 +20,14 @@ func extractClaims(token jwt.Token) *TokenClaims {
 	if v, ok := token.Get("sid"); ok {
 		claims.SessionID = claimString(v)
 	}
+	var tenantRaw, orgRaw string
 	if v, ok := token.Get("tenant_id"); ok {
-		claims.TenantID = claimString(v)
+		tenantRaw = claimString(v)
 	}
+	if v, ok := token.Get("org_id"); ok {
+		orgRaw = claimString(v)
+	}
+	applyTenantAndOrg(claims, tenantRaw, orgRaw)
 	if v, ok := token.Get("login_identity_id"); ok {
 		claims.LoginIdentityID = claimString(v)
 	}

@@ -97,7 +97,9 @@ type SuggestOptions struct {
 	DeltaSQL           string `json:"delta_sql" mapstructure:"delta_sql"`
 	Snapshot           *bool  `json:"snapshot" mapstructure:"snapshot"`
 	DisableMobileMask  bool   `json:"disable_mobile_mask" mapstructure:"disable_mobile_mask"`
-	// LoaderPlaceholderTenantID 内建 Loader 注入的 tenant_id；0 表示与 Principal.TenantID 对齐前索引无租户维度假装。
+	// LoaderPlaceholderOrgID 内建 Loader 注入的 org_id；0 表示索引不虚构组织维度。
+	LoaderPlaceholderOrgID int64 `json:"loader_placeholder_org_id" mapstructure:"loader_placeholder_org_id"`
+	// LoaderPlaceholderTenantID Deprecated: 与 loader_placeholder_org_id 同义。
 	LoaderPlaceholderTenantID int64 `json:"loader_placeholder_tenant_id" mapstructure:"loader_placeholder_tenant_id"`
 	// TrieWildcardKeyCap Trie 通配符展开的最大终端键数；0 使用领域默认。
 	TrieWildcardKeyCap int `json:"trie_wildcard_key_cap" mapstructure:"trie_wildcard_key_cap"`

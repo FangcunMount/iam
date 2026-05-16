@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
@@ -54,6 +55,7 @@ type CustomClaims struct {
 	SessionID       string            `json:"sid,omitempty"`
 	UserID          string            `json:"user_id,omitempty"`
 	LoginIdentityID string            `json:"login_identity_id,omitempty"`
+	OrgID           string            `json:"org_id,omitempty"`
 	TenantID        string            `json:"tenant_id,omitempty"`
 	AuthMethod      string            `json:"auth_method,omitempty"`
 	Realm           string            `json:"realm,omitempty"`
@@ -80,7 +82,8 @@ func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Pr
 		SessionID:       principal.SessionID,
 		UserID:          principal.UserID.String(),
 		LoginIdentityID: loginIdentityID.String(),
-		TenantID:        principal.TenantID.String(),
+		OrgID:           businessOrgIDClaim(principal.Claims),
+		TenantID:        tokenapp.TenantDomainFromClaims(principal.Claims, principal.Realm),
 		AuthMethod:      authMethod,
 		Realm:           realm,
 		Attributes:      cloneStringMap(g.claimsMapper.Encode(principal.Claims)),
@@ -107,7 +110,7 @@ func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Pr
 		principal.SessionID,
 		principal.UserID,
 		loginIdentityID,
-		principal.TenantID,
+		meta.ZeroID,
 		expiresIn,
 	)
 	token.LoginIdentityID = loginIdentityID
@@ -176,6 +179,8 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 		tokenType = tokenapp.TokenTypeAccess
 	}
 	loginIdentityID := parseStringID(claims.LoginIdentityID)
+	orgID := parseStringID(claims.OrgID)
+	tenantDomain, _ := parseTenantIDClaim(claims.TenantID)
 	tokenClaims := tokenapp.NewTokenClaims(
 		tokenType,
 		claims.ID,
@@ -183,7 +188,8 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 		claims.SessionID,
 		parseStringID(claims.UserID),
 		loginIdentityID,
-		parseStringID(claims.TenantID),
+		orgID,
+		tenantDomain,
 		claims.Issuer,
 		[]string(claims.Audience),
 		claims.Attributes,
@@ -205,6 +211,25 @@ func (g *Generator) signClaims(ctx context.Context, claims CustomClaims) (string
 	token.Header["typ"] = headerTypeJWT
 	token.Header["kid"] = kid
 	return token.SignedString(rsaPrivKey)
+}
+
+// businessOrgIDClaim 从 Principal.Claims 读取业务侧提供的 org_id，IAM 不生成默认值。
+func businessOrgIDClaim(claims map[string]any) string {
+	if len(claims) == 0 {
+		return ""
+	}
+	v, ok := claims["org_id"]
+	if !ok || v == nil {
+		return ""
+	}
+	switch t := v.(type) {
+	case string:
+		return strings.TrimSpace(t)
+	case fmt.Stringer:
+		return strings.TrimSpace(t.String())
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
 }
 
 func cloneStrings(in []string) []string {

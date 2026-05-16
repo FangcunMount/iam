@@ -8,6 +8,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/google/uuid"
 )
 
@@ -65,7 +66,6 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 	principalWithSession := &Principal{
 		UserID:          principal.UserID,
 		LoginIdentityID: principal.LoginIdentityID,
-		TenantID:        principal.TenantID,
 		SessionID:       sess.SessionID,
 		AuthMethod:      principal.AuthMethod,
 		Realm:           principal.Realm,
@@ -87,7 +87,7 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 		sess.SessionID,
 		principal.UserID,
 		principal.LoginIdentityID,
-		principal.TenantID,
+		meta.ZeroID,
 		principal.AMR,
 		s.claimMapper.Encode(claims),
 		s.refreshTTL,

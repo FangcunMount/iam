@@ -8,8 +8,6 @@ import (
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
 // SignIn 编排一次登录：选择登录方式、准备领域 proof、调用领域认证并签发令牌。
@@ -56,8 +54,7 @@ func (s *SignIn) Execute(ctx context.Context, cmd LoginCommand) (*LoginResult, e
 		return nil, authFailureError(decision.Code)
 	}
 
-	// 补齐认证主体的默认租户ID
-	ensurePrincipalTenantID(decision.Principal)
+	ensurePrincipalTokenContext(decision.Principal)
 
 	// 颁发令牌
 	tokenPair, err := s.tokenService.IssueToken(ctx, decision.Principal)
@@ -97,10 +94,3 @@ func wrapLoginStageError(err error, fallbackCode int, message string) error {
 	return perrors.WrapC(err, codeValue, "%s", message)
 }
 
-// ensurePrincipalTenantID 补齐认证主体的默认租户ID
-func ensurePrincipalTenantID(principal *authentication.Principal) {
-	if principal == nil || !principal.TenantID.IsZero() {
-		return
-	}
-	principal.TenantID = meta.FromUint64(tenant.DefaultTenantID)
-}

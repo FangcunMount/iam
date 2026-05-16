@@ -226,9 +226,10 @@ suggest:
   #   backend: redis
   #   operator_map_max_entries: 10000
   # visibility_cache_ttl_seconds: 60
-  # 占位 tenant_id，与 Principal.TenantID=1 对齐；负责人维度来自 profiles.created_by（见默认 Loader SQL）。
-  # profiles 尚无 tenant/org 列时勿指望 org 过滤；多租户生产请配置 full_sql。
-  loader_placeholder_tenant_id: 1
+  # 占位 org_id（业务组织）；tenant 授权域见 JWT tenant_id=fangcun，勿与 org 混用。
+  # 负责人维度来自 profiles.created_by；多组织生产请配置 full_sql。
+  loader_placeholder_org_id: 1
+  # loader_placeholder_tenant_id: 1  # Deprecated: 同 loader_placeholder_org_id
 
 # ----------------------------------------------------------------------------
 # 4.6 调试治理接口

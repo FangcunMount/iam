@@ -11,8 +11,8 @@ const (
 // NormalizeRoleName 将 Casbin `role:<name>` 规整为前端 / 业务层使用的角色名。
 func NormalizeRoleName(role string) string {
 	role = strings.TrimSpace(role)
-	if strings.HasPrefix(role, "role:") {
-		role = strings.TrimPrefix(role, "role:")
+	if after, ok := strings.CutPrefix(role, "role:"); ok {
+		return after
 	}
 	return role
 }

@@ -82,8 +82,10 @@ func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
 	}
 
 	out := p.scopeOperatorAndOrg(principal, mobileOK)
-	if tenantWideDataRoleKeys(roles) && principal.TenantID > 0 {
-		out.TenantIDs = []int64{principal.TenantID}
+	if tenantWideDataRoleKeys(roles) {
+		if ids := principalOrgIDs(principal); len(ids) > 0 {
+			out.OrgIDs = mergeUniqueInt64(out.OrgIDs, ids)
+		}
 	}
 	if err := p.mergeVisibility(ctx, principal, &out); err != nil {
 		return domainsuggest.ProfileAccessScope{}, err
@@ -135,6 +137,16 @@ func (p *OperatingProfileAccessScopeProvider) mergeVisibility(ctx context.Contex
 		return err
 	}
 	out.ProfileIDs = mergeUniqueInt64(out.ProfileIDs, ids)
+	return nil
+}
+
+func principalOrgIDs(principal domainsuggest.OperatingPrincipal) []int64 {
+	if len(principal.OrgIDs) > 0 {
+		return append([]int64(nil), principal.OrgIDs...)
+	}
+	if principal.OrgID > 0 {
+		return []int64{principal.OrgID}
+	}
 	return nil
 }
 

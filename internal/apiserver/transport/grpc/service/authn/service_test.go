@@ -133,6 +133,7 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 			meta.FromUint64(1),
 			meta.FromUint64(2),
 			meta.FromUint64(3),
+			"fangcun",
 			"iam",
 			[]string{"test"},
 			map[string]string{"scope": "internal", "level": "2"},

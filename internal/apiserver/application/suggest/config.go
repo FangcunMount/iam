@@ -56,7 +56,9 @@ type Config struct {
 	Snapshot           bool
 	// DisableMobileMask 为 true 时返回明文手机号（仅特殊排障；默认应关闭）。
 	DisableMobileMask bool
-	// LoaderPlaceholderTenantID 注入内建 Loader SQL 的 tenant_id 占位；0=不虚构租户维度。
+	// LoaderPlaceholderOrgID 注入内建 Loader SQL 的 org_id 占位；0=不虚构组织维度。
+	LoaderPlaceholderOrgID int64
+	// LoaderPlaceholderTenantID Deprecated: 与 LoaderPlaceholderOrgID 同义，配置兼容。
 	LoaderPlaceholderTenantID int64
 	// RateLimit 控制 suggest HTTP 限流（按 operator；backend 可选 redis）。
 	RateLimit RateLimitConfig
@@ -88,7 +90,11 @@ func (c Config) WithDefaults() Config {
 	cfg.DeltaSQL = c.DeltaSQL
 	cfg.Snapshot = c.Snapshot
 	cfg.DisableMobileMask = c.DisableMobileMask
+	cfg.LoaderPlaceholderOrgID = c.LoaderPlaceholderOrgID
 	cfg.LoaderPlaceholderTenantID = c.LoaderPlaceholderTenantID
+	if cfg.LoaderPlaceholderOrgID == 0 && cfg.LoaderPlaceholderTenantID != 0 {
+		cfg.LoaderPlaceholderOrgID = cfg.LoaderPlaceholderTenantID
+	}
 	if c.FullSyncCron != "" {
 		cfg.FullSyncCron = c.FullSyncCron
 	}

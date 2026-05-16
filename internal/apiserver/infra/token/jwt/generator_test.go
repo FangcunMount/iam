@@ -12,6 +12,7 @@ import (
 
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/pkg/tenant"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
 )
@@ -23,11 +24,12 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	principal := &tokenapp.Principal{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
-		TenantID:        meta.MustFromUint64(1),
 		AMR:             []string{"pwd"},
 		Claims: map[string]any{
-			"display_name": "seed-user",
-			"kid":          "must-not-enter-payload",
+			"display_name":  "seed-user",
+			"tenant_domain": "fangcun",
+			"org_id":        "1",
+			"kid":           "must-not-enter-payload",
 		},
 	}
 
@@ -45,7 +47,8 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	require.Equal(t, tokenapp.TokenTypeAccess, claims.TokenType)
 	require.Equal(t, principal.UserID, claims.UserID)
 	require.Equal(t, principal.LoginIdentityID, claims.LoginIdentityID)
-	require.Equal(t, principal.TenantID, claims.TenantID)
+	require.Equal(t, meta.MustFromUint64(1), claims.OrgID)
+	require.Equal(t, "fangcun", claims.TenantDomain)
 	require.Equal(t, []string{"qs-api", "collection-api"}, claims.Audience)
 	require.Equal(t, "https://iam.fangcunmount.cn", claims.Issuer)
 	require.Equal(t, []string{"pwd"}, claims.AMR)
@@ -58,8 +61,8 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.Principal{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
-		TenantID:        meta.MustFromUint64(1),
 		Claims: map[string]any{
+			"tenant_domain": "fangcun",
 			"kid": "payload-kid-is-reserved",
 			"alg": "payload-alg-is-reserved",
 			"typ": "payload-typ-is-reserved",
@@ -90,6 +93,26 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 	require.Contains(t, payload, "exp")
 	require.Contains(t, payload, "iat")
 	require.Contains(t, payload, "nbf")
+}
+
+func TestGeneratorLegacyNumericTenantIDDoesNotInferOrg(t *testing.T) {
+	t.Parallel()
+
+	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.Principal{
+		UserID:          meta.MustFromUint64(1002),
+		LoginIdentityID: meta.MustFromUint64(1001),
+		Claims:          map[string]any{"tenant_domain": "fangcun"},
+	}, time.Minute)
+	require.NoError(t, err)
+
+	// 模拟历史 token：tenant_id 为数值、无 org_id。
+	legacy := strings.Replace(token.Value, `"tenant_id":"fangcun"`, `"tenant_id":"1"`, 1)
+
+	claims, err := generator.VerifyAccessToken(context.Background(), legacy)
+	require.NoError(t, err)
+	require.Equal(t, tenant.DefaultID, claims.TenantDomain)
+	require.True(t, claims.OrgID.IsZero())
 }
 
 func TestGeneratorRejectsNoneAlgorithm(t *testing.T) {

@@ -139,7 +139,7 @@ if result.Valid {
 
 - 签名正确
 - `exp` / `nbf` / `iss` / `aud` 等本地可判定声明正确
-- JWT 内自带 claims 可直接读取，例如 `user_id`、`account_id`、`tenant_id`、`sid`
+- JWT 内自带 claims 可直接读取，例如 `user_id`、`tenant_id`（IAM 授权域，如 `fangcun`）、`org_id`（业务组织透传）、`sid`
 
 但它**不能保证**这些状态的即时生效：
 
@@ -352,23 +352,28 @@ type VerifyResult struct {
 }
 
 type TokenClaims struct {
-    TokenID   string
-    Subject   string
-    SessionID string
-    UserID    string
-    AccountID string
-    TenantID  string
-    Issuer    string
-    Audience  []string
-    IssuedAt  time.Time
-    ExpiresAt time.Time
-    NotBefore time.Time
-    Roles     []string
-    Scopes    []string
-    TokenType string
-    AMR       []string
-    Extra     map[string]interface{}
+    TokenID         string
+    Subject         string
+    SessionID       string
+    UserID          string
+    LoginIdentityID string
+    TenantDomain    string // IAM 授权域（JWT tenant_id）
+    OrgID           string // 业务组织（JWT org_id 透传）
+    TenantID        string // Deprecated: 与 TenantDomain 相同，非业务 org
+    Issuer          string
+    Audience        []string
+    IssuedAt        time.Time
+    ExpiresAt       time.Time
+    NotBefore       time.Time
+    Roles           []string
+    Scopes          []string
+    TokenType       string
+    AMR             []string
+    Extra           map[string]interface{}
 }
+
+// AuthorizationDomain() 返回 IAM 授权域
+// BusinessOrgID() (uint64, bool) 读取业务 org_id；无 claim 时 ok=false
 ```
 
 ### 使用示例
@@ -378,6 +383,11 @@ result, err := verifier.Verify(ctx, token, nil)
 if err != nil {
     log.Printf("验证错误: %v", err)
     return
+}
+
+domain := result.Claims.AuthorizationDomain()
+if orgID, ok := result.Claims.BusinessOrgID(); ok {
+    log.Printf("org_id=%d domain=%s", orgID, domain)
 }
 
 // 检查角色

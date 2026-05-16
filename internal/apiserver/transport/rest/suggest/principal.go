@@ -1,6 +1,8 @@
 package suggest
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
@@ -18,18 +20,27 @@ func OperatingPrincipalFromGin(c *gin.Context) (domainsuggest.OperatingPrincipal
 		return domainsuggest.OperatingPrincipal{}, false
 	}
 	dom := requestctx.TenantIDOrDefault(c)
-	return domainsuggest.OperatingPrincipal{
+	principal := domainsuggest.OperatingPrincipal{
 		OperatorID:   int64(uid),
-		TenantID:     tenantNumericID(dom),
-		TenantDomain: dom,
-	}, true
+		TenantDomain: resolveAuthorizationDomain(dom),
+	}
+	if orgID, ok := requestctx.BusinessOrgID(c); ok {
+		principal.OrgID = int64(orgID)
+	}
+	return principal, true
 }
 
-func tenantNumericID(domain string) int64 {
-	if domain == tenant.DefaultID || domain == "" {
-		return int64(tenant.DefaultTenantID)
+// resolveAuthorizationDomain 将 JWT 上下文中的 tenant 标识解析为授权域 string。
+// 数值 tenant_id（历史误用为 org_id）映射回默认业务域 fangcun。
+func resolveAuthorizationDomain(raw string) string {
+	if raw == "" || raw == tenant.DefaultID || raw == tenant.PlatformID {
+		if raw == "" {
+			return tenant.DefaultID
+		}
+		return raw
 	}
-	// 非默认租户且无映射时返回 0，由后续权限维度的 Org/Profile/负责人兜底；
-	// 单租户部署应使用 fangcun 或显式在 Loader SQL 中写入 tenant_id。
-	return 0
+	if _, err := strconv.ParseUint(raw, 10, 64); err == nil {
+		return tenant.DefaultID
+	}
+	return raw
 }

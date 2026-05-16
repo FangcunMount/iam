@@ -17,8 +17,10 @@ type ProfileSearchTerm struct {
 	ProfileID        int64
 	DisplayName      string
 	Mobiles          []string
-	Weight           int
-	TenantID         int64
+	Weight int
+	// TenantID Deprecated: 预留给未来 SaaS 授权域隔离；suggest 数据权限勿依赖。
+	TenantID int64
+	// OrgID 业务组织可见范围（读模型字段，来自业务侧/Loader，非 IAM 核心身份概念）。
 	OrgID            int64
 	OwnerOperatorIDs []int64
 }

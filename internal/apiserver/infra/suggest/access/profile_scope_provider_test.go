@@ -77,21 +77,24 @@ func TestOperatingProfileAccessScope_platformAdmin(t *testing.T) {
 	}
 }
 
-func TestOperatingProfileAccessScope_tenantAdminGetsTenantIDs(t *testing.T) {
+func TestOperatingProfileAccessScope_tenantAdminGetsOrgIDs(t *testing.T) {
 	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
 		tenantRoles: map[string][]string{"fangcun": {"role:tenant_admin"}},
 		allowMobile: true,
 	}, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
-		TenantID:     1,
+		OrgID:        1,
 		TenantDomain: "fangcun",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(scope.TenantIDs) != 1 || scope.TenantIDs[0] != 1 {
-		t.Fatalf("TenantIDs = %v", scope.TenantIDs)
+	if len(scope.OrgIDs) != 1 || scope.OrgIDs[0] != 1 {
+		t.Fatalf("OrgIDs = %v", scope.OrgIDs)
+	}
+	if len(scope.TenantIDs) != 0 {
+		t.Fatalf("TenantIDs = %v, want empty", scope.TenantIDs)
 	}
 	if !scope.AllowMobileSearch {
 		t.Fatal("AllowMobileSearch false")
@@ -138,40 +141,41 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 		visibility     appsuggest.ProfileVisibilityIDsResolver
 		wantAll        bool
 		wantTenantIDs  int
+		wantOrgIDs     int
 		wantOperatorID int64
 		wantProfileIDs int
 		wantMobile     bool
 	}{
 		{
 			name:           "route_auth_nil",
-			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, TenantID: 1, TenantDomain: "fangcun"},
+			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			wantOperatorID: 100,
 		},
 		{
 			name:       "platform_admin",
 			routeAuth:  stubRouteAuth{platformRoles: []string{"role:iam:admin"}},
-			principal:  domainsuggest.OperatingPrincipal{OperatorID: 100, TenantID: 1, TenantDomain: "fangcun"},
+			principal:  domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			wantAll:    true,
 			wantMobile: true,
 		},
 		{
 			name:           "tenant_admin",
 			routeAuth:      stubRouteAuth{tenantRoles: map[string][]string{"fangcun": {"role:tenant_admin"}}, allowMobile: true},
-			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, TenantID: 1, TenantDomain: "fangcun"},
-			wantTenantIDs:  1,
+			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
+			wantOrgIDs:     1,
 			wantOperatorID: 100,
 			wantMobile:     true,
 		},
 		{
 			name:           "plain_user",
 			routeAuth:      stubRouteAuth{tenantRoles: map[string][]string{"fangcun": {"role:user"}}},
-			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, TenantID: 1, TenantDomain: "fangcun"},
+			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			wantOperatorID: 100,
 		},
 		{
 			name:           "plain_user_with_visibility",
 			routeAuth:      stubRouteAuth{tenantRoles: map[string][]string{"fangcun": {"role:user"}}},
-			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, TenantID: 1, TenantDomain: "fangcun"},
+			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			visibility:     visibilityStub{ids: []int64{7, 9}},
 			wantOperatorID: 100,
 			wantProfileIDs: 2,
@@ -194,6 +198,9 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 			}
 			if len(scope.TenantIDs) != tc.wantTenantIDs {
 				t.Fatalf("TenantIDs = %v, want len %d", scope.TenantIDs, tc.wantTenantIDs)
+			}
+			if len(scope.OrgIDs) != tc.wantOrgIDs {
+				t.Fatalf("OrgIDs = %v, want len %d", scope.OrgIDs, tc.wantOrgIDs)
 			}
 			if scope.OperatorID != tc.wantOperatorID {
 				t.Fatalf("OperatorID = %d, want %d", scope.OperatorID, tc.wantOperatorID)

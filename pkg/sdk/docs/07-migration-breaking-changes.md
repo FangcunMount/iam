@@ -19,6 +19,23 @@
 - 2026-05 的契约整理仍在 v2 下进行：`AuthService.Login`、`IDPService.GetWechatAccessToken/RefreshWechatAccessToken`、ProfileLink `include_revoked` 已进入 v2 proto 和 SDK
 - `sdk.NewTokenVerifier(...)`、`sdk.NewJWKSManager(...)`、`sdk.NewJWKSManagerWithClient(...)`、`sdk.NewServiceAuthHelper(...)` 已删除
 - `sdk.NewClient(...)` 不再隐式启用 request-id / metrics / circuit breaker；这些能力现在由 `Config.Observability` 显式控制
+- JWT `tenant_id` claim 现表示 **IAM 授权域**（string，如 `fangcun`）；业务组织请读 `org_id` claim 或 `TokenClaims.BusinessOrgID()`
+
+## JWT tenant_id 语义变更
+
+| 字段 / 方法 | 含义 |
+| ----------- | ---- |
+| `TokenClaims.TenantDomain` / `AuthorizationDomain()` | IAM 授权域（Casbin domain） |
+| `TokenClaims.OrgID` / `BusinessOrgID()` | 业务组织 ID（JWT `org_id` 透传） |
+| `TokenClaims.TenantID` | **Deprecated**：与 `TenantDomain` 相同，**不要**再 `ParseUint` 当 org |
+
+迁移建议：
+
+- 旧代码：`strconv.ParseUint(claims.TenantID, 10, 64)` → 改为 `claims.BusinessOrgID()`
+- 授权域判断：使用 `claims.AuthorizationDomain()` 或 `claims.TenantDomain`
+- 历史 token（`tenant_id` 为数值且无 `org_id`）：SDK 将 tenant 归一化为 `fangcun`，**不会**从 tenant 推导 org
+
+gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22）。
 
 ## 新的公开边界
 

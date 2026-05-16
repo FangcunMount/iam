@@ -2,9 +2,10 @@ package suggest
 
 // ProfileAccessScope 表示权限侧解析后的 Profile 可见范围（不是权限规则本身）。
 type ProfileAccessScope struct {
-	AllProfile        bool
+	AllProfile bool
+	// TenantIDs Deprecated: 未来 SaaS 授权域隔离预留；当前请使用 OrgIDs（业务组织范围）。
 	TenantIDs         []int64
-	OrgIDs            []int64
+	OrgIDs            []int64 // 业务组织可见范围，非 IAM tenant。
 	OperatorID        int64
 	ProfileIDs        []int64
 	AllowMobileSearch bool

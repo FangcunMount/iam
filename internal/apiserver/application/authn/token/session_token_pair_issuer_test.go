@@ -57,7 +57,7 @@ type accessTokenCodecStub struct {
 
 func (s *accessTokenCodecStub) IssueAccessToken(_ context.Context, principal *Principal, expiresIn time.Duration) (*Token, error) {
 	s.principal = principal
-	return NewAccessToken("access-id", "access-token", principal.SessionID, principal.UserID, principal.LoginIdentityID, principal.TenantID, expiresIn), nil
+	return NewAccessToken("access-id", "access-token", principal.SessionID, principal.UserID, principal.LoginIdentityID, meta.ZeroID, expiresIn), nil
 }
 
 func (s *accessTokenCodecStub) IssueServiceToken(context.Context, string, []string, map[string]string, time.Duration) (*Token, error) {

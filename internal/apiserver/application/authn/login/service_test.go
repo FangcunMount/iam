@@ -14,7 +14,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +29,7 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 		"session-id",
 		principal.UserID,
 		principal.LoginIdentityID,
-		principal.TenantID,
+		meta.ZeroID,
 		time.Minute,
 	)
 	refresh := tokenapp.NewRefreshToken(
@@ -39,7 +38,7 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 		"session-id",
 		principal.UserID,
 		principal.LoginIdentityID,
-		principal.TenantID,
+		meta.ZeroID,
 		nil,
 		nil,
 		time.Hour,
@@ -70,7 +69,7 @@ func (s *loginTokenIssuerStub) VerifyToken(ctx context.Context, req tokenapp.Ver
 type loginTokenVerifierStub struct {
 	userID          meta.ID
 	loginIdentityID meta.ID
-	tenantID        meta.ID
+	tenantDomain    string
 	sessionID       string
 	amr             []string
 	attrs           map[string]string
@@ -92,7 +91,7 @@ func (s *loginTokenVerifierStub) VerifyToken(ctx context.Context, req tokenapp.V
 		Claims: &tokenapp.TokenClaims{
 			UserID:          s.userID,
 			LoginIdentityID: s.loginIdentityID,
-			TenantID:        s.tenantID,
+			TenantDomain:    s.tenantDomain,
 			SessionID:       s.sessionID,
 			AMR:             s.amr,
 			Attributes:      s.attrs,
@@ -114,23 +113,23 @@ func newLoginServiceForTest(t *testing.T, tokenService tokenapp.TokenApplication
 	return svc
 }
 
-func TestReauthenticateDefaultsMissingTenantID(t *testing.T) {
+func TestReauthenticateDefaultsMissingTenantDomain(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		tokenTenant meta.ID
-		wantTenant  uint64
+		name       string
+		tokenDomain string
+		wantDomain string
 	}{
 		{
-			name:        "fills default tenant for zero tenant",
-			tokenTenant: meta.FromUint64(0),
-			wantTenant:  tenant.DefaultTenantID,
+			name:       "fills default tenant domain when missing",
+			tokenDomain: "",
+			wantDomain: "fangcun",
 		},
 		{
-			name:        "keeps explicit tenant",
-			tokenTenant: meta.FromUint64(77),
-			wantTenant:  77,
+			name:       "keeps explicit tenant domain",
+			tokenDomain: "platform",
+			wantDomain: "platform",
 		},
 	}
 
@@ -145,7 +144,7 @@ func TestReauthenticateDefaultsMissingTenantID(t *testing.T) {
 			verifier := &loginTokenVerifierStub{
 				userID:          meta.FromUint64(1001),
 				loginIdentityID: meta.FromUint64(2002),
-				tenantID:        tc.tokenTenant,
+				tenantDomain:    tc.tokenDomain,
 				sessionID:       "session-id",
 				amr:             []string{"pwd"},
 				attrs:           map[string]string{"scope": "profile"},
@@ -157,8 +156,7 @@ func TestReauthenticateDefaultsMissingTenantID(t *testing.T) {
 			require.NotNil(t, result)
 			require.NotNil(t, result.Principal)
 
-			require.Equal(t, tc.wantTenant, result.TenantID.Uint64())
-			require.Equal(t, tc.wantTenant, result.Principal.TenantID.Uint64())
+			require.Equal(t, tc.wantDomain, result.Principal.Claims["tenant_domain"])
 			require.Equal(t, meta.FromUint64(1001), result.UserID)
 			require.Equal(t, meta.FromUint64(2002), result.LoginIdentityID)
 			require.Equal(t, "session-id", result.Principal.SessionID)

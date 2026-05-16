@@ -21,7 +21,7 @@ func TestResolveRolesIncludesPlatformRoles(t *testing.T) {
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/me", nil)
-	requestctx.SetTenantID(c, "1")
+	requestctx.SetTenantID(c, "fangcun")
 
 	h := &UserHandler{
 		roles: userRoleLookupStub{

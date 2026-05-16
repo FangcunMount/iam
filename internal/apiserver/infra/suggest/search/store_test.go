@@ -55,13 +55,13 @@ func TestSuggestNumericDedupAndSort(t *testing.T) {
 	}
 }
 
-func TestSuggestProfileScopeFiltersByTenant(t *testing.T) {
+func TestSuggestProfileScopeFiltersByOrg(t *testing.T) {
 	terms := []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(2, "李四", nil, 3, 2, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, 1, nil),
+		domainsuggest.NewProfileSearchTerm(2, "李四", nil, 3, 0, 2, nil),
 	}
 	store := Load(terms)
-	scope := domainsuggest.ProfileAccessScope{TenantIDs: []int64{1}}
+	scope := domainsuggest.ProfileAccessScope{OrgIDs: []int64{1}}
 	out := store.SuggestProfile(domainsuggest.NewQuery("张", 5, 50, 8, 0), scope)
 	if len(out) != 1 || out[0].ProfileID != 1 {
 		t.Fatalf("got %+v", out)

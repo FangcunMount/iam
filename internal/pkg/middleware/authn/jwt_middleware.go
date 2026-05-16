@@ -287,8 +287,11 @@ func applyVerifiedClaims(c *gin.Context, claims *token.TokenClaims) {
 	if !claims.LoginIdentityID.IsZero() {
 		requestctx.SetLoginIdentityID(c, claims.LoginIdentityID)
 	}
-	if !claims.TenantID.IsZero() {
-		requestctx.SetTenantID(c, claims.TenantID.String())
+	if domain := claims.TenantDomain; domain != "" {
+		requestctx.SetTenantID(c, domain)
+	}
+	if !claims.OrgID.IsZero() {
+		requestctx.SetOrgID(c, claims.OrgID.Uint64())
 	}
 	if claims.TokenID != "" {
 		requestctx.SetTokenID(c, claims.TokenID)

@@ -55,8 +55,11 @@ func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv2.TokenClaims {
 	if !claims.LoginIdentityID.IsZero() {
 		resp.LoginIdentityId = claims.LoginIdentityID.String()
 	}
-	if !claims.TenantID.IsZero() {
-		resp.TenantId = claims.TenantID.String()
+	if domain := claims.TenantDomain; domain != "" {
+		resp.TenantId = domain
+	}
+	if !claims.OrgID.IsZero() {
+		resp.OrgId = claims.OrgID.String()
 	}
 	return resp
 }

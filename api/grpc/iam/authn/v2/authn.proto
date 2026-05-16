@@ -47,6 +47,7 @@ message TokenClaims {
   google.protobuf.Timestamp expires_at = 11;
   map<string, string> attributes = 20;
   repeated string amr = 21;
+  string org_id = 22;
 }
 
 message TokenPair {

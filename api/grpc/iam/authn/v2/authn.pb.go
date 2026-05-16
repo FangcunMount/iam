@@ -218,6 +218,7 @@ type TokenClaims struct {
 	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	Attributes      map[string]string      `protobuf:"bytes,20,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Amr             []string               `protobuf:"bytes,21,rep,name=amr,proto3" json:"amr,omitempty"`
+	OrgId           string                 `protobuf:"bytes,22,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -334,6 +335,13 @@ func (x *TokenClaims) GetAmr() []string {
 		return x.Amr
 	}
 	return nil
+}
+
+func (x *TokenClaims) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
 }
 
 type TokenPair struct {
@@ -2164,7 +2172,7 @@ const file_iam_authn_v2_authn_proto_rawDesc = "" +
 	"\n" +
 	"ExtraEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x87\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x9e\x04\n" +
 	"\vTokenClaims\x12\x19\n" +
 	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x17\n" +
@@ -2182,7 +2190,8 @@ const file_iam_authn_v2_authn_proto_rawDesc = "" +
 	"\n" +
 	"attributes\x18\x14 \x03(\v2).iam.authn.v2.TokenClaims.AttributesEntryR\n" +
 	"attributes\x12\x10\n" +
-	"\x03amr\x18\x15 \x03(\tR\x03amr\x1a=\n" +
+	"\x03amr\x18\x15 \x03(\tR\x03amr\x12\x15\n" +
+	"\x06org_id\x18\x16 \x01(\tR\x05orgId\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xac\x01\n" +

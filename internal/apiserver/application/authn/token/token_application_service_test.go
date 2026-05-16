@@ -59,6 +59,7 @@ func TestTokenApplicationServiceVerifyTokenHonorsExpectedIssuerAndAudience(t *te
 				meta.FromUint64(1),
 				meta.FromUint64(2),
 				meta.FromUint64(3),
+				"fangcun",
 				"https://iam.fangcunmount.cn",
 				[]string{"qs-api", "collection-api"},
 				nil,

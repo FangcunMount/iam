@@ -79,13 +79,22 @@ func principalFromTokenClaims(claims *tokenapp.TokenClaims) *authentication.Prin
 	if claims == nil {
 		return nil
 	}
+	merged := tokenAttributeClaims(claims.Attributes)
+	if merged == nil {
+		merged = make(map[string]any)
+	}
+	if domain := claims.TenantDomain; domain != "" {
+		merged["tenant_domain"] = domain
+	}
+	if !claims.OrgID.IsZero() {
+		merged["org_id"] = claims.OrgID.String()
+	}
 	return &authentication.Principal{
 		UserID:          claims.UserID,
 		LoginIdentityID: claims.LoginIdentityID,
-		TenantID:        claims.TenantID,
 		SessionID:       claims.SessionID,
 		AMR:             cloneStrings(claims.AMR),
-		Claims:          tokenAttributeClaims(claims.Attributes),
+		Claims:          merged,
 	}
 }
 

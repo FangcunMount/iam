@@ -16,10 +16,11 @@ const (
 type Principal struct {
 	LoginIdentityID meta.ID
 	UserID          meta.ID
-	TenantID        meta.ID
-	SessionID       string
-	AuthMethod      string
-	Realm           string
-	AMR             []string
-	Claims          map[string]any
+	// TenantID Deprecated: 凭证/会话内部作用域；JWT 授权域见 Claims["tenant_domain"]，业务 org 见 Claims["org_id"]。
+	TenantID meta.ID
+	SessionID  string
+	AuthMethod string
+	Realm      string
+	AMR        []string
+	Claims     map[string]any
 }

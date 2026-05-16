@@ -59,12 +59,12 @@ func (s *RemoteVerifyStrategy) Verify(ctx context.Context, tokenString string, o
 		SessionID:       resp.Claims.SessionId,
 		UserID:          resp.Claims.UserId,
 		LoginIdentityID: resp.Claims.LoginIdentityId,
-		TenantID:        resp.Claims.TenantId,
 		Issuer:          resp.Claims.Issuer,
 		Audience:        resp.Claims.Audience,
 		AMR:             append([]string(nil), resp.Claims.Amr...),
 		Extra:           make(map[string]interface{}),
 	}
+	applyTenantAndOrg(claims, resp.Claims.TenantId, resp.Claims.OrgId)
 	if resp.Claims.ExpiresAt != nil {
 		claims.ExpiresAt = resp.Claims.ExpiresAt.AsTime()
 	}
@@ -77,7 +77,7 @@ func (s *RemoteVerifyStrategy) Verify(ctx context.Context, tokenString string, o
 		}
 	}
 
-	logger.L(ctx).Debugw("RemoteVerifyStrategy verify success", "strategy", s.Name(), "subject", claims.Subject, "tenant_id", claims.TenantID)
+	logger.L(ctx).Debugw("RemoteVerifyStrategy verify success", "strategy", s.Name(), "subject", claims.Subject, "tenant_domain", claims.TenantDomain, "org_id", claims.OrgID)
 	metadata := buildVerifyMetadataFromProto(resp.Metadata)
 	if metadata == nil {
 		metadata = buildVerifyMetadataFromClaims(claims)

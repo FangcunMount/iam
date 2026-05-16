@@ -150,9 +150,12 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	principal := &authentication.Principal{
 		UserID:          meta.FromUint64(1001),
 		LoginIdentityID: meta.FromUint64(2002),
-		TenantID:        meta.FromUint64(9001),
 		AMR:             []string{string(authentication.AMRPassword)},
-		Claims:          map[string]any{"phone_number": "+8613800138000"},
+		Claims: map[string]any{
+			"phone_number":  "+8613800138000",
+			"tenant_domain": "fangcun",
+			"org_id":        "9001",
+		},
 	}
 
 	// 与登录成功后的签发路径一致：IssueToken → access_token JWT
@@ -165,7 +168,8 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	// 本地解析（与 apiserver 验签链相同的 Generator）
 	parsed, err := gen.VerifyAccessToken(ctx, access)
 	require.NoError(t, err)
-	require.Equal(t, uint64(9001), parsed.TenantID.Uint64(), "JWT 本地解析应含 tenant_id")
+	require.Equal(t, "fangcun", parsed.TenantDomain)
+	require.Equal(t, meta.FromUint64(9001), parsed.OrgID)
 	require.Equal(t, "1001", parsed.UserID.String())
 	require.Equal(t, "2002", parsed.LoginIdentityID.String())
 	require.Equal(t, []string{string(authentication.AMRPassword)}, parsed.AMR)
@@ -179,7 +183,8 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.NotNil(t, gresp.Claims)
 	require.Equal(t, "1001", gresp.Claims.UserId)
 	require.Equal(t, "2002", gresp.Claims.LoginIdentityId)
-	require.Equal(t, "9001", gresp.Claims.TenantId)
+	require.Equal(t, "fangcun", gresp.Claims.TenantId)
+	require.Equal(t, "9001", gresp.Claims.OrgId)
 	require.Equal(t, []string{string(authentication.AMRPassword)}, gresp.Claims.Amr)
 	require.Equal(t, "+8613800138000", gresp.Claims.Attributes["phone_number"])
 
@@ -213,13 +218,12 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.NotNil(t, tv.Claims)
 	require.Equal(t, "1001", tv.Claims.UserID)
 	require.Equal(t, "2002", tv.Claims.LoginIdentityID)
-	require.NotNil(t, tv.Claims.TenantID)
-	require.Equal(t, int64(9001), *tv.Claims.TenantID)
+	// REST verify 仍暴露 legacy *int64 tenant_id；新 token 授权域/org 以 gRPC 为准
+	require.Nil(t, tv.Claims.TenantID)
 
 	// 与 gRPC 声明对齐（时间字段由同一套 claims 产生）
 	require.Equal(t, gresp.Claims.UserId, tv.Claims.UserID)
 	require.Equal(t, gresp.Claims.LoginIdentityId, tv.Claims.LoginIdentityID)
-	require.Equal(t, gresp.Claims.TenantId, meta.FromUint64(uint64(*tv.Claims.TenantID)).String())
 	require.Equal(t, gresp.Claims.Amr, tv.Claims.Amr)
 	require.Equal(t, "+8613800138000", tv.Claims.Attributes["phone_number"])
 }

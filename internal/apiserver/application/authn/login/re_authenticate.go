@@ -37,8 +37,7 @@ func (r *Reauthenticate) Execute(ctx context.Context, tokenValue string) (*AuthR
 		return nil, authFailureError(decision.Code)
 	}
 
-	// 补齐认证主体的默认租户ID
-	ensurePrincipalTenantID(decision.Principal)
+	ensurePrincipalTokenContext(decision.Principal)
 
 	// 返回认证结果
 	return authResultFromPrincipal(decision.Principal), nil

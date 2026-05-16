@@ -71,6 +71,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
 		FullSQL:             cfg.FullSQL,
 		DeltaSQL:            cfg.DeltaSQL,
+		PlaceholderOrgID:    cfg.LoaderPlaceholderOrgID,
 		PlaceholderTenantID: cfg.LoaderPlaceholderTenantID,
 	})
 	var snapshot appsuggest.SnapshotWriter

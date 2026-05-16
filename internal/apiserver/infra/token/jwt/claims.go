@@ -25,7 +25,7 @@ func NewClaimsMapper() ClaimsMapper {
 }
 
 var jwtReservedClaimKeys = map[string]struct{}{
-	"token_type": {}, "user_id": {}, "login_identity_id": {}, "tenant_id": {},
+	"token_type": {}, "user_id": {}, "login_identity_id": {}, "org_id": {}, "tenant_id": {},
 	"jti": {}, "sub": {}, "iss": {}, "aud": {}, "exp": {}, "iat": {}, "nbf": {},
 	"amr": {}, "attributes": {}, "audience": {}, "kid": {}, "alg": {}, "typ": {},
 }

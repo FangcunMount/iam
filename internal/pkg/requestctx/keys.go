@@ -11,6 +11,7 @@ const (
 	KeyUserID          = "user_id"
 	KeyLoginIdentityID = "login_identity_id"
 	KeyTenantID        = "tenant_id"
+	KeyOrgID           = "org_id"
 	KeyTokenID         = "token_id"
 	KeyRequestID       = "request_id"
 )

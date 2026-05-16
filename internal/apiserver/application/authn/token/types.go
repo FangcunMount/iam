@@ -127,7 +127,12 @@ type TokenClaims struct {
 	SessionID       string
 	UserID          meta.ID
 	LoginIdentityID meta.ID
-	TenantID        meta.ID
+	// OrgID 来自 JWT org_id claim 的业务上下文透传，非 IAM 身份域字段。
+	OrgID meta.ID
+	// TenantDomain IAM 授权域（JWT tenant_id claim，string，如 fangcun）。
+	TenantDomain string
+	// TenantID Deprecated: 历史误将数值 org 写入 tenant_id；新 token 请读 TenantDomain。
+	TenantID meta.ID
 	AuthMethod      string
 	Realm           string
 	Issuer          string
@@ -139,7 +144,7 @@ type TokenClaims struct {
 }
 
 // NewTokenClaims 创建令牌声明
-func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID meta.ID, loginIdentityID meta.ID, tenantID meta.ID, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *TokenClaims {
+func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID meta.ID, loginIdentityID meta.ID, orgID meta.ID, tenantDomain string, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *TokenClaims {
 	return &TokenClaims{
 		TokenID:         tokenID,
 		TokenType:       tokenType,
@@ -147,7 +152,8 @@ func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, use
 		SessionID:       sessionID,
 		UserID:          userID,
 		LoginIdentityID: loginIdentityID,
-		TenantID:        tenantID,
+		OrgID:           orgID,
+		TenantDomain:    tenantDomain,
 		Issuer:          issuer,
 		Audience:        cloneStrings(audience),
 		Attributes:      cloneStringMap(attributes),
@@ -184,11 +190,11 @@ func cloneStringMap(in map[string]string) map[string]string {
 	return out
 }
 
-// Principal 是 access token 编码所需的应用层身份快照
+// Principal 是 access token 编码所需的应用层身份快照（IAM 身份域，不含 org）。
+// 授权域见 Claims["tenant_domain"] 或 Realm；业务 org 见 Claims["org_id"]。
 type Principal struct {
 	UserID          meta.ID
 	LoginIdentityID meta.ID
-	TenantID        meta.ID
 	SessionID       string
 	AuthMethod      string
 	Realm           string
