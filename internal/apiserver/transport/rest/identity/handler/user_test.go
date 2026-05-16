@@ -26,8 +26,8 @@ func TestResolveRolesIncludesPlatformRoles(t *testing.T) {
 	h := &UserHandler{
 		roles: userRoleLookupStub{
 			rolesByDomain: map[string][]string{
-				"1":               {"role:qs:admin"},
-				tenant.PlatformID: {"role:super_admin", "role:qs:admin"},
+				tenant.DefaultID:  {"role:qs:admin"},
+				tenant.PlatformID: {"role:super_admin"},
 			},
 		},
 	}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
 )
 
 // Service 提供 suggest 查询
@@ -14,20 +13,21 @@ type Service struct {
 	runtime       ProfileSuggestionRuntime
 	scopeProvider ProfileAccessScopeProvider
 	strategies    []ProfileSearchStrategy
+	metrics       SuggestMetrics
 }
 
 // NewService 创建（无运行时索引）Service。
 func NewService(cfg Config) *Service {
-	return NewServiceWithRuntime(cfg, nil, nil)
+	return NewServiceWithRuntime(cfg, nil, nil, nil)
 }
 
 // NewServiceWithRuntime creates a suggest service with an explicit index runtime.
-func NewServiceWithRuntime(cfg Config, runtime ProfileSuggestionRuntime, scope ProfileAccessScopeProvider) *Service {
-	return NewServiceWithRuntimeStrategies(cfg, runtime, scope, nil)
+func NewServiceWithRuntime(cfg Config, runtime ProfileSuggestionRuntime, scope ProfileAccessScopeProvider, metrics SuggestMetrics) *Service {
+	return NewServiceWithRuntimeStrategies(cfg, runtime, scope, nil, metrics)
 }
 
 // NewServiceWithRuntimeStrategies 与 NewServiceWithRuntime 相同，但可注入自定义策略链；strategies 为 nil 时使用 DefaultProfileSearchStrategies。
-func NewServiceWithRuntimeStrategies(cfg Config, runtime ProfileSuggestionRuntime, scope ProfileAccessScopeProvider, strategies []ProfileSearchStrategy) *Service {
+func NewServiceWithRuntimeStrategies(cfg Config, runtime ProfileSuggestionRuntime, scope ProfileAccessScopeProvider, strategies []ProfileSearchStrategy, metrics SuggestMetrics) *Service {
 	cfg = cfg.WithDefaults()
 	strat := strategies
 	if len(strat) == 0 {
@@ -42,7 +42,10 @@ func NewServiceWithRuntimeStrategies(cfg Config, runtime ProfileSuggestionRuntim
 	if len(out) == 0 {
 		out = DefaultProfileSearchStrategies()
 	}
-	return &Service{cfg: cfg, runtime: runtime, scopeProvider: scope, strategies: out}
+	if metrics == nil {
+		metrics = noopSuggestMetrics{}
+	}
+	return &Service{cfg: cfg, runtime: runtime, scopeProvider: scope, strategies: out, metrics: metrics}
 }
 
 // SuggestProfile 按当前操作员可见范围查询档案联想。
@@ -92,7 +95,7 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 	}
 
 	// 6. 构建查询
-	query := domainsuggest.NewQuery(req.Keyword, limit, s.cfg.InternalMaxResults, s.cfg.KeyPadLen, s.cfg.TrieWildcardKeyCap)
+	query := domainsuggest.NewQuery(req.Keyword, limit, s.cfg.InternalMaxResults, s.cfg.KeyPadLen, s.cfg.WildcardKeyCap)
 
 	// 7. 选择搜索策略
 	strategy := selectProfileSearchStrategy(s.strategies, keyword, scope)
@@ -104,7 +107,7 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 	terms := strategy.Search(ctx, index, query, scope)
 
 	// 9. 记录指标
-	suggestmetrics.RecordQuery(strategy.Name(), len(terms), keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String()))
+	s.metrics.RecordQuery(strategy.Name(), len(terms), keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String()))
 	return toProfileSuggestItems(terms, s.cfg.DisableMobileMask), nil
 }
 

@@ -8,14 +8,9 @@ import (
 	redis "github.com/redis/go-redis/v9"
 )
 
-// RateLimiter 按 operator 限流；nil 实现表示关闭。
-type RateLimiter interface {
-	Allow(operatorID int64, mobileKeyword bool) bool
-}
-
 // NewFromConfig 根据配置构造限流器；PerOperatorQPS<=0 时返回 nil。
 // backend=redis 且 client 非空时用 Redis 固定窗口；Redis 不可用时降级 memory。
-func NewFromConfig(cfg appsuggest.RateLimitConfig, redisClient *redis.Client) RateLimiter {
+func NewFromConfig(cfg appsuggest.RateLimitConfig, redisClient *redis.Client) appsuggest.RateLimiter {
 	if cfg.PerOperatorQPS <= 0 {
 		return nil
 	}

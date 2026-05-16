@@ -101,8 +101,8 @@ type SuggestOptions struct {
 	LoaderPlaceholderOrgID int64 `json:"loader_placeholder_org_id" mapstructure:"loader_placeholder_org_id"`
 	// LoaderPlaceholderTenantID Deprecated: 与 loader_placeholder_org_id 同义。
 	LoaderPlaceholderTenantID int64 `json:"loader_placeholder_tenant_id" mapstructure:"loader_placeholder_tenant_id"`
-	// TrieWildcardKeyCap Trie 通配符展开的最大终端键数；0 使用领域默认。
-	TrieWildcardKeyCap int `json:"trie_wildcard_key_cap" mapstructure:"trie_wildcard_key_cap"`
+	// WildcardKeyCap 通配符展开的最大终端键数；0 使用领域默认。
+	WildcardKeyCap int `json:"trie_wildcard_key_cap" mapstructure:"trie_wildcard_key_cap"`
 	// RateLimit REST 按操作员限流；全零表示关闭。
 	RateLimit struct {
 		PerOperatorQPS                float64 `json:"per_operator_qps" mapstructure:"per_operator_qps"`

@@ -87,6 +87,8 @@ type UserDeps struct {
 type SuggestDeps struct {
 	Service     appsuggest.ProfileSuggestor
 	RateLimit   appsuggest.RateLimitConfig
+	Metrics     appsuggest.SuggestMetrics
+	RateLimiter appsuggest.RateLimiter
 	RedisClient *redis.Client
 }
 

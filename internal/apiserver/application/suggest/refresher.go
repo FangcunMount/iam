@@ -7,7 +7,6 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
 )
 
 // ProfileIndexRefresher refreshes the profile suggestion index.
@@ -15,16 +14,21 @@ type ProfileIndexRefresher struct {
 	source    ProfileCandidateSource
 	runtime   ProfileSuggestionRuntime
 	snapshot  SnapshotWriter
+	metrics   SuggestMetrics
 	lastFetch time.Time
 	now       func() time.Time
 }
 
 // NewProfileIndexRefresher creates a profile suggestion index refresher.
-func NewProfileIndexRefresher(source ProfileCandidateSource, runtime ProfileSuggestionRuntime, snapshot SnapshotWriter) *ProfileIndexRefresher {
+func NewProfileIndexRefresher(source ProfileCandidateSource, runtime ProfileSuggestionRuntime, snapshot SnapshotWriter, metrics SuggestMetrics) *ProfileIndexRefresher {
+	if metrics == nil {
+		metrics = noopSuggestMetrics{}
+	}
 	return &ProfileIndexRefresher{
 		source:   source,
 		runtime:  runtime,
 		snapshot: snapshot,
+		metrics:  metrics,
 		now:      time.Now,
 	}
 }
@@ -37,7 +41,7 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) error {
 
 	started := time.Now()
 	defer func() {
-		suggestmetrics.ObserveRefresh("full", time.Since(started).Seconds())
+		r.metrics.ObserveRefresh("full", time.Since(started).Seconds())
 	}()
 	candidates, err := r.source.Full(ctx)
 	if err != nil {
@@ -67,7 +71,7 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) error {
 
 	started := time.Now()
 	defer func() {
-		suggestmetrics.ObserveRefresh("delta", time.Since(started).Seconds())
+		r.metrics.ObserveRefresh("delta", time.Since(started).Seconds())
 	}()
 	candidates, err := r.source.Delta(ctx, r.lastFetch)
 	if err != nil {

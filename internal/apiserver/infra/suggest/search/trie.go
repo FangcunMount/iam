@@ -202,7 +202,7 @@ func (t *Trie) Wildcard(key string, maxKeys int) []string {
 		return nil
 	}
 	if maxKeys <= 0 {
-		maxKeys = suggest.DefaultTrieWildcardKeyCap
+		maxKeys = suggest.DefaultWildcardKeyCap
 	}
 	realLen := len([]rune(strings.TrimRight(key, "*")))
 	return t.wildcardRecursive(t.root, []rune(key), realLen, 0, "", maxKeys)

@@ -44,3 +44,8 @@ type ProfileSuggestionRuntime interface {
 type SnapshotWriter interface {
 	Write(ctx context.Context, terms []domainsuggest.ProfileSearchTerm) error
 }
+
+// RateLimiter 按 operator 限流；nil 表示关闭（由 infra 实现）。
+type RateLimiter interface {
+	Allow(operatorID int64, mobileKeyword bool) bool
+}

@@ -31,8 +31,8 @@ func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
 	if query.Limit != DefaultLimit || query.KeyPadLen != DefaultKeyPadLen {
 		t.Fatalf("defaults = (%d,%d), want (%d,%d)", query.Limit, query.KeyPadLen, DefaultLimit, DefaultKeyPadLen)
 	}
-	if query.TrieWildcardKeyCap != DefaultTrieWildcardKeyCap {
-		t.Fatalf("TrieWildcardKeyCap = %d, want %d", query.TrieWildcardKeyCap, DefaultTrieWildcardKeyCap)
+	if query.WildcardKeyCap != DefaultWildcardKeyCap {
+		t.Fatalf("WildcardKeyCap = %d, want %d", query.WildcardKeyCap, DefaultWildcardKeyCap)
 	}
 	if query.InternalLimit < query.Limit {
 		t.Fatalf("InternalLimit = %d < limit %d", query.InternalLimit, query.Limit)
@@ -93,9 +93,9 @@ func TestRankingPrefixBoost(t *testing.T) {
 	}
 }
 
-func TestQueryCustomTrieWildcardCap(t *testing.T) {
+func TestQueryCustomWildcardCap(t *testing.T) {
 	q := NewQuery("a", 5, 50, 8, 77)
-	if q.TrieWildcardKeyCap != 77 {
-		t.Fatalf("TrieWildcardKeyCap = %d", q.TrieWildcardKeyCap)
+	if q.WildcardKeyCap != 77 {
+		t.Fatalf("WildcardKeyCap = %d", q.WildcardKeyCap)
 	}
 }

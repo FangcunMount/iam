@@ -100,8 +100,10 @@ type IDPApplicationCapabilities struct {
 }
 
 type SuggestApplicationCapabilities struct {
-	Service   appsuggest.ProfileSuggestor
-	RateLimit appsuggest.RateLimitConfig
+	Service     appsuggest.ProfileSuggestor
+	RateLimit   appsuggest.RateLimitConfig
+	Metrics     appsuggest.SuggestMetrics
+	RateLimiter appsuggest.RateLimiter
 }
 
 type SuggestRuntimeCapabilities struct {

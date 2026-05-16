@@ -4,11 +4,11 @@ package suggest
 type MatchKind int
 
 const (
-	// MatchKindWildcard Trie 通配展开键命中。
+	// MatchKindWildcard 通配展开键命中。
 	MatchKindWildcard MatchKind = iota
-	// MatchKindPrefix Trie 前缀键直接命中（含补齐后的查询键）。
+	// MatchKindPrefix 前缀键直接命中（含补齐后的查询键）。
 	MatchKindPrefix
-	// MatchKindExact Hash 精确匹配（档案 ID 或手机号）。
+	// MatchKindExact 精确匹配（档案 ID 或手机号）。
 	MatchKindExact
 )
 

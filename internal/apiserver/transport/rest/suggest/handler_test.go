@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
@@ -93,16 +94,12 @@ func TestProfileRateLimitedSecondRequest(t *testing.T) {
 	engine := gin.New()
 	Register(engine, Dependencies{
 		Service: suggestorStub{},
-		RateLimit: appsuggest.RateLimitConfig{
+		RateLimiter: ratelimit.NewMemoryLimiter(appsuggest.RateLimitConfig{
 			PerOperatorQPS:                1,
 			PerOperatorBurst:              1,
 			MobileKeywordPerOperatorQPS:   1,
 			MobileKeywordPerOperatorBurst: 1,
-		},
-		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
-			requestctx.SetUserID(c, meta.ID(100))
-			c.Next()
-		}},
+		}),
 	})
 
 	reqFactory := func() *http.Request {

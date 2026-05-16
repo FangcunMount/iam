@@ -17,7 +17,7 @@ func (scopeStub) ResolveProfileAccessScope(context.Context, domainsuggest.Operat
 }
 
 func TestServiceSuggestProfileReturnsEmptyWhenRuntimeHasNoCurrentIndex(t *testing.T) {
-	service := NewServiceWithRuntime(Config{}, &suggestRuntimeStub{}, scopeStub{})
+	service := NewServiceWithRuntime(Config{}, &suggestRuntimeStub{}, scopeStub{}, nil)
 
 	got, err := service.SuggestProfile(context.Background(), SuggestProfileRequest{
 		Principal: domainsuggest.OperatingPrincipal{OperatorID: 1, TenantID: 1, TenantDomain: "fangcun"},
@@ -38,7 +38,7 @@ func TestProfileIndexRefresherFullSyncReplacesRuntimeIndex(t *testing.T) {
 			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, runtime, nil)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil, nil)
 
 	if err := refresher.RunFull(context.Background()); err != nil {
 		t.Fatalf("RunFull() error = %v", err)
@@ -60,7 +60,7 @@ func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *test
 			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, runtime, nil)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil, nil)
 	refresher.lastFetch = time.Now().Add(-time.Minute)
 
 	err := refresher.RunDelta(context.Background())
@@ -80,7 +80,7 @@ func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, runtime, nil)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil, nil)
 	refresher.lastFetch = time.Now().Add(-time.Minute)
 
 	if err := refresher.RunDelta(context.Background()); err != nil {
@@ -100,7 +100,7 @@ func TestRefresherWritesSnapshotAfterFullSync(t *testing.T) {
 		},
 	}
 	snapshot := &snapshotWriterStub{}
-	refresher := NewProfileIndexRefresher(loader, runtime, snapshot)
+	refresher := NewProfileIndexRefresher(loader, runtime, snapshot, nil)
 
 	if err := refresher.RunFull(context.Background()); err != nil {
 		t.Fatalf("RunFull() error = %v", err)

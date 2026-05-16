@@ -186,9 +186,9 @@ func paddedTrieQueryKey(q suggest.Query) string {
 }
 
 func trieWildcardCap(q suggest.Query) int {
-	maxKeys := q.TrieWildcardKeyCap
+	maxKeys := q.WildcardKeyCap
 	if maxKeys <= 0 {
-		return suggest.DefaultTrieWildcardKeyCap
+		return suggest.DefaultWildcardKeyCap
 	}
 	return maxKeys
 }

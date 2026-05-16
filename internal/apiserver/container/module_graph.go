@@ -53,9 +53,10 @@ func (g *moduleGraph) authzModuleDependencies() assembler.AuthzModuleDeps {
 
 func (g *moduleGraph) suggestModuleDependencies() assembler.SuggestModuleDeps {
 	deps := assembler.SuggestModuleDeps{
-		DB:      g.container.mysqlDB,
-		Config:  g.container.runtimeOptions.Suggest,
-		AppMode: g.container.runtimeOptions.AppMode,
+		DB:          g.container.mysqlDB,
+		Config:      g.container.runtimeOptions.Suggest,
+		AppMode:     g.container.runtimeOptions.AppMode,
+		RedisClient: g.container.redisClient,
 	}
 	if g.container.AuthzModule != nil {
 		deps.RouteAuthorization = g.container.AuthzModule.ApplicationCapabilities().RouteAuthorization

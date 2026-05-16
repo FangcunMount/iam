@@ -9,7 +9,7 @@ const (
 	DefaultLimit              = 20
 	DefaultKeyPadLen          = 25
 	DefaultInternalMult       = 10
-	DefaultTrieWildcardKeyCap = 100
+	DefaultWildcardKeyCap = 100
 )
 
 // ProfileSearchTerm 是索引中的档案读模型项（搜索字段 + 权限过滤最小维度）。
@@ -104,11 +104,11 @@ type Query struct {
 	Limit              int
 	InternalLimit      int
 	KeyPadLen          int
-	TrieWildcardKeyCap int // Trie 通配符展开的最大终端键数量；<=0 使用 DefaultTrieWildcardKeyCap。
+	WildcardKeyCap int // 通配符展开的最大终端键数量；<=0 使用 DefaultWildcardKeyCap。
 }
 
-// NewQuery 构造 Query；trieWildcardKeyCap<=0 时使用 DefaultTrieWildcardKeyCap。
-func NewQuery(keyword string, limit, internalLimit, keyPadLen, trieWildcardKeyCap int) Query {
+// NewQuery 构造 Query；wildcardKeyCap<=0 时使用 DefaultWildcardKeyCap。
+func NewQuery(keyword string, limit, internalLimit, keyPadLen, wildcardKeyCap int) Query {
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
@@ -121,14 +121,14 @@ func NewQuery(keyword string, limit, internalLimit, keyPadLen, trieWildcardKeyCa
 	if keyPadLen <= 0 {
 		keyPadLen = DefaultKeyPadLen
 	}
-	if trieWildcardKeyCap <= 0 {
-		trieWildcardKeyCap = DefaultTrieWildcardKeyCap
+	if wildcardKeyCap <= 0 {
+		wildcardKeyCap = DefaultWildcardKeyCap
 	}
 	return Query{
-		Keyword:            NewKeyword(keyword),
-		Limit:              limit,
-		InternalLimit:      internalLimit,
-		KeyPadLen:          keyPadLen,
-		TrieWildcardKeyCap: trieWildcardKeyCap,
+		Keyword:        NewKeyword(keyword),
+		Limit:          limit,
+		InternalLimit:  internalLimit,
+		KeyPadLen:      keyPadLen,
+		WildcardKeyCap: wildcardKeyCap,
 	}
 }

@@ -62,8 +62,8 @@ type Config struct {
 	LoaderPlaceholderTenantID int64
 	// RateLimit 控制 suggest HTTP 限流（按 operator；backend 可选 redis）。
 	RateLimit RateLimitConfig
-	// TrieWildcardKeyCap Trie 通配符展开的最大终端键数；0 表示使用领域默认值。
-	TrieWildcardKeyCap int
+	// WildcardKeyCap 通配符展开的最大终端键数；0 表示使用领域默认值。
+	WildcardKeyCap int
 	// VisibilityCacheTTLSeconds ProfileVisibilityIDsResolver 结果缓存秒数；0=关闭。
 	VisibilityCacheTTLSeconds int
 }
@@ -114,7 +114,7 @@ func (c Config) WithDefaults() Config {
 		cfg.KeyPadLen = c.KeyPadLen
 	}
 	cfg.RateLimit = c.RateLimit.withDefaults()
-	cfg.TrieWildcardKeyCap = c.TrieWildcardKeyCap
+	cfg.WildcardKeyCap = c.WildcardKeyCap
 	cfg.VisibilityCacheTTLSeconds = c.VisibilityCacheTTLSeconds
 	return cfg
 }

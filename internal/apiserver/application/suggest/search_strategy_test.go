@@ -30,14 +30,14 @@ func TestSelectProfileSearchStrategyDefaults(t *testing.T) {
 }
 
 func TestNewServiceWithRuntimeStrategiesFiltersNil(t *testing.T) {
-	svc := NewServiceWithRuntimeStrategies(Config{}, nil, nil, []ProfileSearchStrategy{nil, mobileDeniedStrategy{}})
+	svc := NewServiceWithRuntimeStrategies(Config{}, nil, nil, []ProfileSearchStrategy{nil, mobileDeniedStrategy{}}, nil)
 	if len(svc.strategies) != 1 {
 		t.Fatalf("strategies len = %d", len(svc.strategies))
 	}
 }
 
 func TestNewServiceWithRuntimeStrategiesEmptyFallsBackToDefault(t *testing.T) {
-	svc := NewServiceWithRuntimeStrategies(Config{}, nil, nil, []ProfileSearchStrategy{})
+	svc := NewServiceWithRuntimeStrategies(Config{}, nil, nil, []ProfileSearchStrategy{}, nil)
 	if len(svc.strategies) < 3 {
 		t.Fatalf("expected default chain, got len %d", len(svc.strategies))
 	}

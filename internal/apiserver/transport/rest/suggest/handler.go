@@ -5,12 +5,8 @@ import (
 
 	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
-	redis "github.com/redis/go-redis/v9"
-
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
-	suggestratelimit "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
@@ -19,8 +15,8 @@ import (
 type Dependencies struct {
 	Service     appsuggest.ProfileSuggestor
 	Middlewares []gin.HandlerFunc
-	RateLimit   appsuggest.RateLimitConfig
-	RedisClient *redis.Client
+	Metrics     appsuggest.SuggestMetrics
+	RateLimiter appsuggest.RateLimiter
 }
 
 // Register registers routes onto the engine.
@@ -32,26 +28,36 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	group := engine.Group("/api/v2/suggest")
 	group.Use(deps.Middlewares...)
 
-	lim := suggestratelimit.NewFromConfig(deps.RateLimit, deps.RedisClient)
-	h := NewHandler(deps.Service, lim)
+	h := NewHandler(deps.Service, deps.RateLimiter, deps.Metrics)
 	group.GET("/profile", h.Profile)
 }
 
 // Handler 提供 suggest 接口
 type Handler struct {
 	*core.BaseHandler
-	svc    appsuggest.ProfileSuggestor
-	limits suggestratelimit.RateLimiter
+	svc     appsuggest.ProfileSuggestor
+	limits  appsuggest.RateLimiter
+	metrics appsuggest.SuggestMetrics
 }
 
 // NewHandler creates a suggest handler.
-func NewHandler(svc appsuggest.ProfileSuggestor, limits suggestratelimit.RateLimiter) *Handler {
+func NewHandler(svc appsuggest.ProfileSuggestor, limits appsuggest.RateLimiter, metrics appsuggest.SuggestMetrics) *Handler {
+	if metrics == nil {
+		metrics = noopSuggestMetrics{}
+	}
 	return &Handler{
 		BaseHandler: core.NewBaseHandler(),
 		svc:         svc,
 		limits:      limits,
+		metrics:     metrics,
 	}
 }
+
+type noopSuggestMetrics struct{}
+
+func (noopSuggestMetrics) RecordQuery(string, int, bool)   {}
+func (noopSuggestMetrics) ObserveRefresh(string, float64) {}
+func (noopSuggestMetrics) RecordRateLimited(bool)         {}
 
 // Profile 处理档案联想查询
 // @Summary 档案联想搜索
@@ -87,7 +93,7 @@ func (h *Handler) Profile(c *gin.Context) {
 		kw := domainsuggest.NewKeyword(query.K)
 		mobile := kw.IsDigits() && domainsuggest.LooksLikeMobile(kw.String())
 		if !h.limits.Allow(principal.OperatorID, mobile) {
-			suggestmetrics.RecordRateLimited(mobile)
+			h.metrics.RecordRateLimited(mobile)
 			h.Error(c, pkgerrors.WithCode(code.ErrRateLimited, "%s", "suggest rate limit exceeded"))
 			return
 		}

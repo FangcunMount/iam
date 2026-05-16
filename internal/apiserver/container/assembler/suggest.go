@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	redis "github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 
@@ -13,15 +14,18 @@ import (
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	mysqlsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/suggest"
 	suggestaccess "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/access"
+	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
+	suggestratelimit "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
 	searchruntime "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/search"
 	authn "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 // SuggestModule 联想搜索模块
 type SuggestModule struct {
-	service   appsuggest.ProfileSuggestor
-	refresher *appsuggest.ProfileIndexRefresher
-	cron      *cron.Cron
+	service     appsuggest.ProfileSuggestor
+	refresher   *appsuggest.ProfileIndexRefresher
+	rateLimiter appsuggest.RateLimiter
+	cron        *cron.Cron
 
 	config appsuggest.Config
 	cancel context.CancelFunc
@@ -38,6 +42,7 @@ type SuggestModuleDeps struct {
 	Config             appsuggest.Config
 	RouteAuthorization authn.RouteAuthorizationRuntime
 	AppMode            string
+	RedisClient        *redis.Client
 }
 
 // InitializeWithDeps 初始化联想模块。
@@ -66,7 +71,8 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	}
 	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization, visibility)
 	runtime := searchruntime.NewRuntime()
-	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider)
+	metrics := suggestmetrics.Recorder{}
+	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider, metrics)
 
 	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
 		FullSQL:             cfg.FullSQL,
@@ -78,7 +84,8 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	if cfg.Snapshot {
 		snapshot = searchruntime.NewFileSnapshotWriter(cfg.DataDir)
 	}
-	m.refresher = appsuggest.NewProfileIndexRefresher(loader, runtime, snapshot)
+	m.refresher = appsuggest.NewProfileIndexRefresher(loader, runtime, snapshot, metrics)
+	m.rateLimiter = suggestratelimit.NewFromConfig(cfg.RateLimit, deps.RedisClient)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := m.startRefresher(ctx, cfg); err != nil {
@@ -129,7 +136,12 @@ func (m *SuggestModule) ApplicationCapabilities() SuggestApplicationCapabilities
 	if m == nil {
 		return SuggestApplicationCapabilities{}
 	}
-	return SuggestApplicationCapabilities{Service: m.service, RateLimit: m.config.RateLimit}
+	return SuggestApplicationCapabilities{
+		Service:     m.service,
+		RateLimit:   m.config.RateLimit,
+		Metrics:     suggestmetrics.Recorder{},
+		RateLimiter: m.rateLimiter,
+	}
 }
 
 func (m *SuggestModule) RuntimeCapabilities() SuggestRuntimeCapabilities {
