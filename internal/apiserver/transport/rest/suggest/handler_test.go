@@ -100,6 +100,10 @@ func TestProfileRateLimitedSecondRequest(t *testing.T) {
 			MobileKeywordPerOperatorQPS:   1,
 			MobileKeywordPerOperatorBurst: 1,
 		}),
+		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
+			requestctx.SetUserID(c, meta.ID(100))
+			c.Next()
+		}},
 	})
 
 	reqFactory := func() *http.Request {
