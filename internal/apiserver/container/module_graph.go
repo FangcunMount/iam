@@ -52,10 +52,14 @@ func (g *moduleGraph) authzModuleDependencies() assembler.AuthzModuleDeps {
 }
 
 func (g *moduleGraph) suggestModuleDependencies() assembler.SuggestModuleDeps {
-	return assembler.SuggestModuleDeps{
+	deps := assembler.SuggestModuleDeps{
 		DB:     g.container.mysqlDB,
 		Config: g.container.runtimeOptions.Suggest,
 	}
+	if g.container.AuthzModule != nil {
+		deps.RouteAuthorization = g.container.AuthzModule.ApplicationCapabilities().RouteAuthorization
+	}
+	return deps
 }
 
 func (g *moduleGraph) roleNameReader() assembler.RoleNameReader {

@@ -22,25 +22,42 @@ paths:
       tags:
       - Suggest
       summary: 档案联想搜索
-      description: 支持中文/拼音前缀联想，数字关键词走手机号/ID 精确匹配
+      description: 基于索引召回并按调用方数据权限过滤；纯数字可为档案 ID 或手机号（手机号需额外授权）
       parameters:
       - name: k
         in: query
-        description: 关键词；数字=精确匹配手机号/ID，其他=前缀联想
+        description: 关键词
         required: true
         schema:
           type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
       responses:
         '200':
-          description: 联想结果（按权重降序，去重）
+          description: 联想结果（按权重降序，去重）；mobile_mask 为脱敏手机号
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term'
+                  $ref: '#/components/schemas/ProfileSuggestResponseItem'
                 type: array
         '400':
           description: 参数缺失
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
+        '401':
+          description: 未认证或缺少用户上下文
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
+        '403':
+          description: 无档案搜索权限
           content:
             application/json:
               schema:
@@ -52,15 +69,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
-    github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term:
+    ProfileSuggestResponseItem:
       properties:
         id:
-          example: ''
           type: string
-        mobile:
-          type: string
+          description: Profile ID
         name:
           type: string
+        mobile_mask:
+          type: string
+          description: 脱敏后的首个手机号
         weight:
           type: integer
       type: object

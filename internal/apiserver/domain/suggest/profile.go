@@ -1,25 +1,37 @@
 package suggest
 
 import (
-	"sort"
 	"strings"
 	"unicode"
 )
 
 const (
-	DefaultLimit     = 20
-	DefaultKeyPadLen = 25
+	DefaultLimit        = 20
+	DefaultKeyPadLen    = 25
+	DefaultInternalMult = 10
 )
 
-// ProfileCandidate 是档案联想索引的领域输入候选。
-type ProfileCandidate struct {
-	ProfileID   int64
-	DisplayName string
-	Mobiles     []string
-	Weight      int
+// ProfileSearchTerm 是索引中的档案读模型项（搜索字段 + 权限过滤最小维度）。
+type ProfileSearchTerm struct {
+	ProfileID        int64
+	DisplayName      string
+	Mobiles          []string
+	Weight           int
+	TenantID         int64
+	OrgID            int64
+	OwnerOperatorIDs []int64
 }
 
-func NewProfileCandidate(profileID int64, displayName string, mobiles []string, weight int) ProfileCandidate {
+// NewProfileSearchTerm 构建并规范化 ProfileSearchTerm。
+func NewProfileSearchTerm(
+	profileID int64,
+	displayName string,
+	mobiles []string,
+	weight int,
+	tenantID int64,
+	orgID int64,
+	ownerOperatorIDs []int64,
+) ProfileSearchTerm {
 	cleanMobiles := make([]string, 0, len(mobiles))
 	for _, mobile := range mobiles {
 		mobile = strings.TrimSpace(mobile)
@@ -28,21 +40,34 @@ func NewProfileCandidate(profileID int64, displayName string, mobiles []string, 
 		}
 		cleanMobiles = append(cleanMobiles, mobile)
 	}
-	return ProfileCandidate{
-		ProfileID:   profileID,
-		DisplayName: strings.TrimSpace(displayName),
-		Mobiles:     cleanMobiles,
-		Weight:      weight,
+	return ProfileSearchTerm{
+		ProfileID:        profileID,
+		DisplayName:      strings.TrimSpace(displayName),
+		Mobiles:          cleanMobiles,
+		Weight:           weight,
+		TenantID:         tenantID,
+		OrgID:            orgID,
+		OwnerOperatorIDs: uniqueInt64(ownerOperatorIDs),
 	}
 }
 
-func (c ProfileCandidate) Term() Term {
-	return Term{
-		Name:   c.DisplayName,
-		ID:     c.ProfileID,
-		Mobile: strings.Join(c.Mobiles, ","),
-		Weight: c.Weight,
+func uniqueInt64(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
 	}
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 // Keyword 表达一次档案联想查询的关键字。
@@ -72,46 +97,30 @@ func (k Keyword) IsDigits() bool {
 
 // Query 表达一次档案联想查询及其限制。
 type Query struct {
-	Keyword   Keyword
-	Limit     int
-	KeyPadLen int
+	Keyword       Keyword
+	Limit         int
+	InternalLimit int
+	KeyPadLen     int
 }
 
-func NewQuery(keyword string, limit int, keyPadLen int) Query {
+// NewQuery 构造 Query；internalLimit<=0 时使用 limit*DefaultInternalMult 与 DefaultInternalFallback 的较大者逻辑在应用层配置亦可覆盖。
+func NewQuery(keyword string, limit, internalLimit, keyPadLen int) Query {
 	if limit <= 0 {
 		limit = DefaultLimit
+	}
+	if internalLimit <= 0 {
+		internalLimit = limit * DefaultInternalMult
+	}
+	if internalLimit < limit {
+		internalLimit = limit
 	}
 	if keyPadLen <= 0 {
 		keyPadLen = DefaultKeyPadLen
 	}
 	return Query{
-		Keyword:   NewKeyword(keyword),
-		Limit:     limit,
-		KeyPadLen: keyPadLen,
+		Keyword:       NewKeyword(keyword),
+		Limit:         limit,
+		InternalLimit: internalLimit,
+		KeyPadLen:     keyPadLen,
 	}
-}
-
-// RankingPolicy 保持档案联想结果的去重与排序规则。
-type RankingPolicy struct{}
-
-func (RankingPolicy) Rank(terms []Term, limit int) []Term {
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	seen := make(map[int64]struct{}, len(terms))
-	unique := make([]Term, 0, len(terms))
-	for _, term := range terms {
-		if _, exists := seen[term.ID]; exists {
-			continue
-		}
-		seen[term.ID] = struct{}{}
-		unique = append(unique, term)
-	}
-	sort.Slice(unique, func(i, j int) bool {
-		return unique[i].Weight > unique[j].Weight
-	})
-	if len(unique) > limit {
-		unique = unique[:limit]
-	}
-	return unique
 }

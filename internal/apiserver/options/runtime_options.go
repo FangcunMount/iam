@@ -85,15 +85,18 @@ func NewSMSOptions() *SMSOptions {
 
 // SuggestOptions configures the suggest module and its refresh loop.
 type SuggestOptions struct {
-	Enable        bool   `json:"enable" mapstructure:"enable"`
-	DataDir       string `json:"data_dir" mapstructure:"data_dir"`
-	FullSyncCron  string `json:"full_sync_cron" mapstructure:"full_sync_cron"`
-	DeltaSyncCron string `json:"delta_sync_cron" mapstructure:"delta_sync_cron"`
-	MaxResults    int    `json:"max_results" mapstructure:"max_results"`
-	KeyPadLen     int    `json:"key_pad_len" mapstructure:"key_pad_len"`
-	FullSQL       string `json:"full_sql" mapstructure:"full_sql"`
-	DeltaSQL      string `json:"delta_sql" mapstructure:"delta_sql"`
-	Snapshot      *bool  `json:"snapshot" mapstructure:"snapshot"`
+	Enable             bool   `json:"enable" mapstructure:"enable"`
+	Required           bool   `json:"required" mapstructure:"required"`
+	DataDir            string `json:"data_dir" mapstructure:"data_dir"`
+	FullSyncCron       string `json:"full_sync_cron" mapstructure:"full_sync_cron"`
+	DeltaSyncCron      string `json:"delta_sync_cron" mapstructure:"delta_sync_cron"`
+	MaxResults         int    `json:"max_results" mapstructure:"max_results"`
+	InternalMaxResults int    `json:"internal_max_results" mapstructure:"internal_max_results"`
+	KeyPadLen          int    `json:"key_pad_len" mapstructure:"key_pad_len"`
+	FullSQL            string `json:"full_sql" mapstructure:"full_sql"`
+	DeltaSQL           string `json:"delta_sql" mapstructure:"delta_sql"`
+	Snapshot           *bool  `json:"snapshot" mapstructure:"snapshot"`
+	DisableMobileMask  bool   `json:"disable_mobile_mask" mapstructure:"disable_mobile_mask"`
 }
 
 func NewSuggestOptions() *SuggestOptions {

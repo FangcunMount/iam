@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	authnhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn"
 	authzhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz"
 	userhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity"
@@ -115,9 +116,16 @@ func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authM
 // registerSuggestRoutes 注册 Suggest 模块 建议路由
 func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if r.deps.ModuleStatus.suggestAvailable() && deps.Service != nil && authMiddleware != nil {
+		middlewares := []gin.HandlerFunc{authMiddleware.AuthRequired()}
+		if r.deps.ModuleStatus.authzAvailable() {
+			middlewares = append(middlewares, authMiddleware.RequirePermission(
+				appsuggest.ResourceIAMProfileCollection,
+				appsuggest.ActionSearch,
+			))
+		}
 		suggesthttp.Register(engine, suggesthttp.Dependencies{
-			Service:        deps.Service,
-			AuthMiddleware: authMiddleware.AuthRequired(),
+			Service:     deps.Service,
+			Middlewares: middlewares,
 		})
 		log.Info("✅ Suggest module routes registered")
 		return

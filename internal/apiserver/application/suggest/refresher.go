@@ -85,7 +85,7 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) error {
 	return nil
 }
 
-func (r *ProfileIndexRefresher) writeSnapshot(ctx context.Context, candidates []domainsuggest.ProfileCandidate) {
+func (r *ProfileIndexRefresher) writeSnapshot(ctx context.Context, candidates []domainsuggest.ProfileSearchTerm) {
 	if r.snapshot == nil || len(candidates) == 0 {
 		return
 	}

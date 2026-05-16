@@ -2,24 +2,25 @@ package suggest
 
 import "testing"
 
-func TestProfileCandidateNormalizesAndProjectsTerm(t *testing.T) {
-	candidate := NewProfileCandidate(42, " 张三 ", []string{" 13800138000 ", "", "13900139000"}, 7)
+func TestProfileSearchTermNormalizes(t *testing.T) {
+	term := NewProfileSearchTerm(42, " 张三 ", []string{" 13800138000 ", "", "13900139000"}, 7, 1, 0, []int64{99, 99, 0})
 
-	term := candidate.Term()
-
-	if candidate.DisplayName != "张三" {
-		t.Fatalf("DisplayName = %q, want 张三", candidate.DisplayName)
+	if term.DisplayName != "张三" {
+		t.Fatalf("DisplayName = %q, want 张三", term.DisplayName)
 	}
-	if len(candidate.Mobiles) != 2 || candidate.Mobiles[0] != "13800138000" || candidate.Mobiles[1] != "13900139000" {
-		t.Fatalf("Mobiles = %#v, want normalized non-empty mobiles", candidate.Mobiles)
+	if len(term.Mobiles) != 2 || term.Mobiles[0] != "13800138000" || term.Mobiles[1] != "13900139000" {
+		t.Fatalf("Mobiles = %#v, want normalized non-empty mobiles", term.Mobiles)
 	}
-	if term.Name != "张三" || term.ID != 42 || term.Mobile != "13800138000,13900139000" || term.Weight != 7 {
-		t.Fatalf("Term() = %#v", term)
+	if term.ProfileID != 42 || term.Weight != 7 || term.TenantID != 1 || term.OrgID != 0 {
+		t.Fatalf("fields = (%d,%d,%d,%d)", term.ProfileID, term.Weight, term.TenantID, term.OrgID)
+	}
+	if len(term.OwnerOperatorIDs) != 1 || term.OwnerOperatorIDs[0] != 99 {
+		t.Fatalf("OwnerOperatorIDs = %#v", term.OwnerOperatorIDs)
 	}
 }
 
 func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
-	query := NewQuery(" 123 ", 0, 0)
+	query := NewQuery(" 123 ", 0, 0, 0)
 
 	if query.Keyword.String() != "123" {
 		t.Fatalf("Keyword = %q, want 123", query.Keyword.String())
@@ -30,6 +31,9 @@ func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
 	if query.Limit != DefaultLimit || query.KeyPadLen != DefaultKeyPadLen {
 		t.Fatalf("defaults = (%d,%d), want (%d,%d)", query.Limit, query.KeyPadLen, DefaultLimit, DefaultKeyPadLen)
 	}
+	if query.InternalLimit < query.Limit {
+		t.Fatalf("InternalLimit = %d < limit %d", query.InternalLimit, query.Limit)
+	}
 	if NewKeyword("12a").IsDigits() {
 		t.Fatalf("non-numeric keyword reported as digits")
 	}
@@ -38,12 +42,12 @@ func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
 	}
 }
 
-func TestRankingPolicyDeduplicatesSortsAndLimits(t *testing.T) {
-	terms := []Term{
-		{ID: 1, Name: "first", Weight: 1},
-		{ID: 2, Name: "second", Weight: 9},
-		{ID: 1, Name: "duplicate", Weight: 99},
-		{ID: 3, Name: "third", Weight: 5},
+func TestRankingPolicyKeepsBestWeightSortsAndLimits(t *testing.T) {
+	terms := []ProfileSearchTerm{
+		{ProfileID: 1, DisplayName: "first", Weight: 1},
+		{ProfileID: 2, DisplayName: "second", Weight: 9},
+		{ProfileID: 1, DisplayName: "duplicate", Weight: 99},
+		{ProfileID: 3, DisplayName: "third", Weight: 5},
 	}
 
 	got := RankingPolicy{}.Rank(terms, 2)
@@ -51,7 +55,10 @@ func TestRankingPolicyDeduplicatesSortsAndLimits(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("len = %d, want 2", len(got))
 	}
-	if got[0].ID != 2 || got[1].ID != 3 {
-		t.Fatalf("ranked ids = [%d,%d], want [2,3]", got[0].ID, got[1].ID)
+	if got[0].ProfileID != 1 || got[1].ProfileID != 2 {
+		t.Fatalf("ranked ids = [%d,%d], want [1,2]", got[0].ProfileID, got[1].ProfileID)
+	}
+	if got[0].Weight != 99 {
+		t.Fatalf("id1 weight = %d, want 99", got[0].Weight)
 	}
 }

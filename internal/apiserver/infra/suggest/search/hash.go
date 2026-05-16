@@ -7,42 +7,44 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
-// Hash 支持手机号/ID 精确匹配
+// Hash 支持手机号/档案 ID 的字符串精确匹配 -> profileID 列表
 type Hash struct {
-	table map[int64][]suggest.Term
+	table map[string][]int64
 }
 
 // NewHash constructs a Hash store.
 func NewHash() *Hash {
-	return &Hash{table: make(map[int64][]suggest.Term)}
+	return &Hash{table: make(map[string][]int64)}
 }
 
-// ImportCandidates loads profile candidates into the exact numeric index.
-func (h *Hash) ImportCandidates(candidates []suggest.ProfileCandidate) {
-	for _, candidate := range candidates {
-		term := candidate.Term()
-		if candidate.ProfileID != 0 {
-			h.table[candidate.ProfileID] = append(h.table[candidate.ProfileID], term)
+// ImportTerm 将档案项写入精确匹配索引。
+func (h *Hash) ImportTerm(term suggest.ProfileSearchTerm) {
+	if h == nil {
+		return
+	}
+	if term.ProfileID <= 0 {
+		return
+	}
+	idKey := strconv.FormatInt(term.ProfileID, 10)
+	h.table[idKey] = append(h.table[idKey], term.ProfileID)
+	for _, m := range term.Mobiles {
+		m = strings.TrimSpace(m)
+		if m == "" {
+			continue
 		}
-		for _, m := range candidate.Mobiles {
-			m = strings.TrimSpace(m)
-			if m == "" {
-				continue
-			}
-			mid, err := strconv.ParseInt(m, 10, 64)
-			if err != nil {
-				continue
-			}
-			h.table[mid] = append(h.table[mid], term)
-		}
+		h.table[m] = append(h.table[m], term.ProfileID)
 	}
 }
 
-// Search returns entries for an exact numeric key.
-func (h *Hash) Search(key string) []suggest.Term {
-	k, err := strconv.ParseInt(key, 10, 64)
-	if err != nil {
+// Match 返回关键词对应的 profileID 列表（可截断）。
+func (h *Hash) Match(keyword string, limit int) []int64 {
+	if h == nil {
 		return nil
 	}
-	return h.table[k]
+	key := strings.TrimSpace(keyword)
+	ids := h.table[key]
+	if limit > 0 && len(ids) > limit {
+		return ids[:limit]
+	}
+	return ids
 }

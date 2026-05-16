@@ -9,17 +9,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
-func TestProfileReturnsSuggestTerms(t *testing.T) {
+func TestProfileReturnsSuggestItems(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	Register(engine, Dependencies{
-		Service: suggestorStub{terms: []domainsuggest.Term{{Name: "张三", ID: 1, Mobile: "13800138000", Weight: 5}}},
-		AuthMiddleware: func(c *gin.Context) {
+		Service: suggestorStub{items: []appsuggest.ProfileSuggestItem{{
+			ProfileID:   1,
+			DisplayName: "张三",
+			MobileMask:  "138****8000",
+			Weight:      5,
+		}}},
+		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
+			requestctx.SetUserID(c, meta.ID(100))
 			c.Next()
-		},
+		}},
 	})
 
 	w := httptest.NewRecorder()
@@ -30,13 +38,13 @@ func TestProfileReturnsSuggestTerms(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
 	var body struct {
-		Code int                  `json:"code"`
-		Data []domainsuggest.Term `json:"data"`
+		Code int                          `json:"code"`
+		Data []ProfileSuggestResponseItem `json:"data"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("Unmarshal() error = %v", err)
 	}
-	if body.Code != 0 || len(body.Data) != 1 || body.Data[0].Name != "张三" {
+	if body.Code != 0 || len(body.Data) != 1 || body.Data[0].Name != "张三" || body.Data[0].ID != "1" {
 		t.Fatalf("body = %#v", body)
 	}
 }
@@ -46,9 +54,10 @@ func TestProfileMissingKeywordReturnsBindError(t *testing.T) {
 	engine := gin.New()
 	Register(engine, Dependencies{
 		Service: suggestorStub{},
-		AuthMiddleware: func(c *gin.Context) {
+		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
+			requestctx.SetUserID(c, meta.ID(100))
 			c.Next()
-		},
+		}},
 	})
 
 	w := httptest.NewRecorder()
@@ -60,10 +69,29 @@ func TestProfileMissingKeywordReturnsBindError(t *testing.T) {
 	}
 }
 
-type suggestorStub struct {
-	terms []domainsuggest.Term
+func TestProfileMissingUserReturnsUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	Register(engine, Dependencies{
+		Service: suggestorStub{},
+		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
+			c.Next()
+		}},
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/suggest/profile?k=a", nil)
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
 }
 
-func (s suggestorStub) Suggest(context.Context, string) []domainsuggest.Term {
-	return append([]domainsuggest.Term(nil), s.terms...)
+type suggestorStub struct {
+	items []appsuggest.ProfileSuggestItem
+}
+
+func (s suggestorStub) SuggestProfile(context.Context, appsuggest.SuggestProfileRequest) ([]appsuggest.ProfileSuggestItem, error) {
+	return append([]appsuggest.ProfileSuggestItem(nil), s.items...), nil
 }

@@ -3,6 +3,7 @@ package suggest
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +17,10 @@ const (
 SELECT
   c.id,
   c.name,
+  1 AS tenant_id,
+  0 AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
+  '' AS owner_operator_ids,
   1 AS weight
 FROM profiles c
 INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
@@ -28,7 +32,10 @@ GROUP BY c.id;
 SELECT
   c.id,
   c.name,
+  1 AS tenant_id,
+  0 AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
+  '' AS owner_operator_ids,
   1 AS weight
 FROM profiles c
 INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
@@ -71,12 +78,12 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 }
 
 // Full 全量拉取
-func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileCandidate, error) {
+func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileSearchTerm, error) {
 	return l.query(ctx, l.config.FullSQL)
 }
 
 // Delta 增量拉取，按时间过滤
-func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileCandidate, error) {
+func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
 	}
@@ -84,13 +91,16 @@ func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.Pr
 }
 
 type record struct {
-	ID      int64   `gorm:"column:id"`
-	Name    string  `gorm:"column:name"`
-	Mobiles *string `gorm:"column:mobiles"`
-	Weight  int     `gorm:"column:weight"`
+	ID               int64   `gorm:"column:id"`
+	Name             string  `gorm:"column:name"`
+	TenantID         int64   `gorm:"column:tenant_id"`
+	OrgID            int64   `gorm:"column:org_id"`
+	Mobiles          *string `gorm:"column:mobiles"`
+	OwnerOperatorIDs *string `gorm:"column:owner_operator_ids"`
+	Weight           int     `gorm:"column:weight"`
 }
 
-func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]domainsuggest.ProfileCandidate, error) {
+func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]domainsuggest.ProfileSearchTerm, error) {
 	if l.db == nil {
 		return nil, fmt.Errorf("suggest loader db is nil")
 	}
@@ -100,22 +110,55 @@ func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]
 		return nil, err
 	}
 
-	candidates := make([]domainsuggest.ProfileCandidate, 0, len(rows))
+	out := make([]domainsuggest.ProfileSearchTerm, 0, len(rows))
 	for _, row := range rows {
-		candidates = append(candidates, row.profileCandidate())
+		out = append(out, row.profileSearchTerm())
 	}
 
-	log.Infow("suggest loader finished query", "sql", sanitizeSQL(sql), "count", len(candidates))
+	log.Infow("suggest loader finished query", "sql", sanitizeSQL(sql), "count", len(out))
 
-	return candidates, nil
+	return out, nil
 }
 
-func (r record) profileCandidate() domainsuggest.ProfileCandidate {
+func (r record) profileSearchTerm() domainsuggest.ProfileSearchTerm {
 	mobiles := ""
 	if r.Mobiles != nil {
 		mobiles = *r.Mobiles
 	}
-	return domainsuggest.NewProfileCandidate(r.ID, r.Name, splitMobiles(mobiles), r.Weight)
+	owners := ""
+	if r.OwnerOperatorIDs != nil {
+		owners = *r.OwnerOperatorIDs
+	}
+	return domainsuggest.NewProfileSearchTerm(
+		r.ID,
+		r.Name,
+		splitMobiles(mobiles),
+		r.Weight,
+		r.TenantID,
+		r.OrgID,
+		splitInt64CSV(owners),
+	)
+}
+
+func splitInt64CSV(value string) []int64 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]int64, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.ParseInt(p, 10, 64)
+		if err != nil || n == 0 {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 func splitMobiles(value string) []string {

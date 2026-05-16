@@ -10,18 +10,33 @@ import (
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 )
 
-func TestServiceSuggestReturnsNilWhenRuntimeHasNoCurrentIndex(t *testing.T) {
-	service := NewServiceWithRuntime(Config{}, &suggestRuntimeStub{})
+type scopeStub struct{}
 
-	if got := service.Suggest(context.Background(), "张"); got != nil {
-		t.Fatalf("Suggest() = %#v, want nil", got)
+func (scopeStub) ResolveProfileAccessScope(context.Context, domainsuggest.OperatingPrincipal) (domainsuggest.ProfileAccessScope, error) {
+	return domainsuggest.ProfileAccessScope{AllProfile: true, AllowMobileSearch: true}, nil
+}
+
+func TestServiceSuggestProfileReturnsEmptyWhenRuntimeHasNoCurrentIndex(t *testing.T) {
+	service := NewServiceWithRuntime(Config{}, &suggestRuntimeStub{}, scopeStub{})
+
+	got, err := service.SuggestProfile(context.Background(), SuggestProfileRequest{
+		Principal: domainsuggest.OperatingPrincipal{OperatorID: 1, TenantID: 1, TenantDomain: "fangcun"},
+		Keyword:   "张",
+	})
+	if err != nil {
+		t.Fatalf("SuggestProfile() err = %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("SuggestProfile() = %#v, want empty", got)
 	}
 }
 
 func TestProfileIndexRefresherFullSyncReplacesRuntimeIndex(t *testing.T) {
 	runtime := &suggestRuntimeStub{}
 	loader := &suggestLoaderStub{
-		full: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(1, "张三", []string{"13800138000"}, 5)},
+		full: []domainsuggest.ProfileSearchTerm{
+			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
+		},
 	}
 	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 
@@ -41,7 +56,9 @@ func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *test
 	wantErr := errors.New("suggest store not initialized")
 	runtime := &suggestRuntimeStub{importErr: wantErr}
 	loader := &suggestLoaderStub{
-		delta: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(2, "李四", []string{"13900139000"}, 3)},
+		delta: []domainsuggest.ProfileSearchTerm{
+			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
+		},
 	}
 	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 	refresher.lastFetch = time.Now().Add(-time.Minute)
@@ -54,10 +71,14 @@ func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *test
 
 func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 	runtime := &suggestRuntimeStub{
-		current: suggestIndexStub{terms: []domainsuggest.Term{{Name: "张三", ID: 1, Weight: 5}}},
+		current: suggestIndexStub{terms: []domainsuggest.ProfileSearchTerm{
+			domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
+		}},
 	}
 	loader := &suggestLoaderStub{
-		delta: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(2, "李四", []string{"13900139000"}, 3)},
+		delta: []domainsuggest.ProfileSearchTerm{
+			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
+		},
 	}
 	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 	refresher.lastFetch = time.Now().Add(-time.Minute)
@@ -74,7 +95,9 @@ func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 func TestRefresherWritesSnapshotAfterFullSync(t *testing.T) {
 	runtime := &suggestRuntimeStub{}
 	loader := &suggestLoaderStub{
-		full: []domainsuggest.ProfileCandidate{domainsuggest.NewProfileCandidate(1, "张三", []string{"13800138000"}, 5)},
+		full: []domainsuggest.ProfileSearchTerm{
+			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
+		},
 	}
 	snapshot := &snapshotWriterStub{}
 	refresher := NewProfileIndexRefresher(loader, runtime, snapshot)
@@ -89,22 +112,22 @@ func TestRefresherWritesSnapshotAfterFullSync(t *testing.T) {
 }
 
 type suggestLoaderStub struct {
-	full  []domainsuggest.ProfileCandidate
-	delta []domainsuggest.ProfileCandidate
+	full  []domainsuggest.ProfileSearchTerm
+	delta []domainsuggest.ProfileSearchTerm
 }
 
-func (l *suggestLoaderStub) Full(context.Context) ([]domainsuggest.ProfileCandidate, error) {
-	return append([]domainsuggest.ProfileCandidate(nil), l.full...), nil
+func (l *suggestLoaderStub) Full(context.Context) ([]domainsuggest.ProfileSearchTerm, error) {
+	return append([]domainsuggest.ProfileSearchTerm(nil), l.full...), nil
 }
 
-func (l *suggestLoaderStub) Delta(context.Context, time.Time) ([]domainsuggest.ProfileCandidate, error) {
-	return append([]domainsuggest.ProfileCandidate(nil), l.delta...), nil
+func (l *suggestLoaderStub) Delta(context.Context, time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
+	return append([]domainsuggest.ProfileSearchTerm(nil), l.delta...), nil
 }
 
 type suggestRuntimeStub struct {
 	current   ProfileSuggestionIndex
-	replaced  []domainsuggest.ProfileCandidate
-	imported  []domainsuggest.ProfileCandidate
+	replaced  []domainsuggest.ProfileSearchTerm
+	imported  []domainsuggest.ProfileSearchTerm
 	importErr error
 }
 
@@ -112,33 +135,35 @@ func (r *suggestRuntimeStub) Current() ProfileSuggestionIndex {
 	return r.current
 }
 
-func (r *suggestRuntimeStub) Replace(candidates []domainsuggest.ProfileCandidate) ProfileSuggestionIndex {
-	r.replaced = append([]domainsuggest.ProfileCandidate(nil), candidates...)
-	r.current = suggestIndexStub{terms: []domainsuggest.Term{{Name: "张三", ID: 1, Weight: 5}}}
+func (r *suggestRuntimeStub) Replace(candidates []domainsuggest.ProfileSearchTerm) ProfileSuggestionIndex {
+	r.replaced = append([]domainsuggest.ProfileSearchTerm(nil), candidates...)
+	r.current = suggestIndexStub{terms: []domainsuggest.ProfileSearchTerm{
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
+	}}
 	return r.current
 }
 
-func (r *suggestRuntimeStub) ImportDelta(candidates []domainsuggest.ProfileCandidate) error {
+func (r *suggestRuntimeStub) ImportDelta(candidates []domainsuggest.ProfileSearchTerm) error {
 	if r.importErr != nil {
 		return r.importErr
 	}
-	r.imported = append([]domainsuggest.ProfileCandidate(nil), candidates...)
+	r.imported = append([]domainsuggest.ProfileSearchTerm(nil), candidates...)
 	return nil
 }
 
 type suggestIndexStub struct {
-	terms []domainsuggest.Term
+	terms []domainsuggest.ProfileSearchTerm
 }
 
-func (s suggestIndexStub) Suggest(domainsuggest.Query) []domainsuggest.Term {
-	return append([]domainsuggest.Term(nil), s.terms...)
+func (s suggestIndexStub) SuggestProfile(domainsuggest.Query, domainsuggest.ProfileAccessScope) []domainsuggest.ProfileSearchTerm {
+	return append([]domainsuggest.ProfileSearchTerm(nil), s.terms...)
 }
 
 type snapshotWriterStub struct {
-	written []domainsuggest.ProfileCandidate
+	written []domainsuggest.ProfileSearchTerm
 }
 
-func (s *snapshotWriterStub) Write(_ context.Context, candidates []domainsuggest.ProfileCandidate) error {
-	s.written = append([]domainsuggest.ProfileCandidate(nil), candidates...)
+func (s *snapshotWriterStub) Write(_ context.Context, candidates []domainsuggest.ProfileSearchTerm) error {
+	s.written = append([]domainsuggest.ProfileSearchTerm(nil), candidates...)
 	return nil
 }

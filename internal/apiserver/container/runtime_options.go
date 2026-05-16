@@ -32,15 +32,18 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 		SMS:     *defaults.SMS,
 		Events:  *defaults.Events,
 		Suggest: appsuggest.Config{
-			Enable:        defaults.Suggest.Enable,
-			DataDir:       defaults.Suggest.DataDir,
-			FullSyncCron:  defaults.Suggest.FullSyncCron,
-			DeltaSyncCron: defaults.Suggest.DeltaSyncCron,
-			MaxResults:    defaults.Suggest.MaxResults,
-			KeyPadLen:     defaults.Suggest.KeyPadLen,
-			FullSQL:       defaults.Suggest.FullSQL,
-			DeltaSQL:      defaults.Suggest.DeltaSQL,
-			Snapshot:      suggestSnapshot(*defaults.Suggest),
+			Enable:             defaults.Suggest.Enable,
+			Required:           defaults.Suggest.Required,
+			DataDir:            defaults.Suggest.DataDir,
+			FullSyncCron:       defaults.Suggest.FullSyncCron,
+			DeltaSyncCron:      defaults.Suggest.DeltaSyncCron,
+			MaxResults:         defaults.Suggest.MaxResults,
+			InternalMaxResults: defaults.Suggest.InternalMaxResults,
+			KeyPadLen:          defaults.Suggest.KeyPadLen,
+			FullSQL:            defaults.Suggest.FullSQL,
+			DeltaSQL:           defaults.Suggest.DeltaSQL,
+			DisableMobileMask:  defaults.Suggest.DisableMobileMask,
+			Snapshot:           suggestSnapshot(*defaults.Suggest),
 		}.WithDefaults(),
 	}
 	if opts.Auth != nil {
@@ -60,15 +63,18 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 	}
 	if opts.Suggest != nil {
 		runtime.Suggest = appsuggest.Config{
-			Enable:        opts.Suggest.Enable,
-			DataDir:       opts.Suggest.DataDir,
-			FullSyncCron:  opts.Suggest.FullSyncCron,
-			DeltaSyncCron: opts.Suggest.DeltaSyncCron,
-			MaxResults:    opts.Suggest.MaxResults,
-			KeyPadLen:     opts.Suggest.KeyPadLen,
-			FullSQL:       opts.Suggest.FullSQL,
-			DeltaSQL:      opts.Suggest.DeltaSQL,
-			Snapshot:      suggestSnapshot(*opts.Suggest),
+			Enable:             opts.Suggest.Enable,
+			Required:           opts.Suggest.Required,
+			DataDir:            opts.Suggest.DataDir,
+			FullSyncCron:       opts.Suggest.FullSyncCron,
+			DeltaSyncCron:      opts.Suggest.DeltaSyncCron,
+			MaxResults:         opts.Suggest.MaxResults,
+			InternalMaxResults: opts.Suggest.InternalMaxResults,
+			KeyPadLen:          opts.Suggest.KeyPadLen,
+			FullSQL:            opts.Suggest.FullSQL,
+			DeltaSQL:           opts.Suggest.DeltaSQL,
+			DisableMobileMask:  opts.Suggest.DisableMobileMask,
+			Snapshot:           suggestSnapshot(*opts.Suggest),
 		}.WithDefaults()
 	}
 	if runtime.Events.CatalogPath == "" {

@@ -11,6 +11,7 @@ import (
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	mysqlsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/suggest"
 	searchruntime "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/search"
+	authn "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
 // SuggestModule 联想搜索模块
@@ -28,9 +29,11 @@ func NewSuggestModule() *SuggestModule {
 	return &SuggestModule{}
 }
 
+// SuggestModuleDeps 初始化依赖
 type SuggestModuleDeps struct {
-	DB     *gorm.DB
-	Config appsuggest.Config
+	DB                 *gorm.DB
+	Config             appsuggest.Config
+	RouteAuthorization authn.RouteAuthorizationRuntime
 }
 
 // InitializeWithDeps 初始化联想模块。
@@ -47,11 +50,9 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
 
+	scopeProvider := appsuggest.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization)
 	runtime := searchruntime.NewRuntime()
-	m.service = appsuggest.NewServiceWithRuntime(appsuggest.Config{
-		MaxResults: cfg.MaxResults,
-		KeyPadLen:  cfg.KeyPadLen,
-	}, runtime)
+	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider)
 
 	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
 		FullSQL:  cfg.FullSQL,
@@ -66,7 +67,12 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := m.startRefresher(ctx, cfg); err != nil {
 		cancel()
-		return fmt.Errorf("start suggest refresher: %w", err)
+		if cfg.Required {
+			return fmt.Errorf("start suggest refresher: %w", err)
+		}
+		log.Errorw("suggest module degraded", "error", err)
+		m.service = appsuggest.DegradedService{}
+		return nil
 	}
 	m.cancel = cancel
 

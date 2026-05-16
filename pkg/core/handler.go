@@ -133,7 +133,7 @@ func (h *BaseHandler) ValidationErrorResponse(c *gin.Context, field, message str
 
 // UnauthorizedResponse 401错误响应
 func (h *BaseHandler) UnauthorizedResponse(c *gin.Context, message string) {
-	h.ErrorResponseWithCode(c, 100004, "%s", message) // ErrTokenInvalid
+	h.ErrorResponseWithCode(c, code.ErrTokenInvalid, "%s", message)
 }
 
 // ForbiddenResponse 403错误响应
