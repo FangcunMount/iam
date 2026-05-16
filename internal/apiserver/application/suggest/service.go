@@ -57,16 +57,19 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 		return nil, ErrUnauthenticated
 	}
 
+	// 1. 构建关键词
 	keyword := domainsuggest.NewKeyword(req.Keyword)
 	if keyword.String() == "" {
 		return []ProfileSuggestItem{}, nil
 	}
 
+	// 2. 构建权限范围
 	scope, err := s.scopeProvider.ResolveProfileAccessScope(ctx, req.Principal)
 	if err != nil {
 		return nil, err
 	}
 
+	// 3. 日志记录
 	if keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String()) {
 		log.Infow("suggest mobile-shaped keyword",
 			"operator_id", req.Principal.OperatorID,
@@ -76,28 +79,32 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 		)
 	}
 
+	// 4. 获取索引
 	index := s.runtime.Current()
 	if index == nil {
 		return []ProfileSuggestItem{}, nil
 	}
 
+	// 5. 限制返回结果数量
 	limit := req.Limit
 	if limit <= 0 || limit > s.cfg.MaxResults {
 		limit = s.cfg.MaxResults
 	}
 
+	// 6. 构建查询
 	query := domainsuggest.NewQuery(req.Keyword, limit, s.cfg.InternalMaxResults, s.cfg.KeyPadLen, s.cfg.TrieWildcardKeyCap)
+
+	// 7. 选择搜索策略
 	strategy := selectProfileSearchStrategy(s.strategies, keyword, scope)
 	if strategy == nil {
 		return []ProfileSuggestItem{}, nil
 	}
+
+	// 8. 执行搜索
 	terms := strategy.Search(ctx, index, query, scope)
-	mobile := keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String())
-	strategyName := "none"
-	if strategy != nil {
-		strategyName = strategy.Name()
-	}
-	suggestmetrics.RecordQuery(strategyName, len(terms), mobile)
+
+	// 9. 记录指标
+	suggestmetrics.RecordQuery(strategy.Name(), len(terms), keyword.IsDigits() && domainsuggest.LooksLikeMobile(keyword.String()))
 	return toProfileSuggestItems(terms, s.cfg.DisableMobileMask), nil
 }
 
