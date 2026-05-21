@@ -70,8 +70,7 @@ container 管组合装配；
 transport 管协议适配；
 application 管用例编排；
 domain 管业务规则；
-infra 管外部资源；
-Suggest 是辅助读模型，不越权替代 Identity 或 AuthZ。
+infra 管外部资源。
 ```
 
 #### 模块边界
