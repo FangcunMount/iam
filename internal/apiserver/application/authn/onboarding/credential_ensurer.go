@@ -88,7 +88,7 @@ func (e *credentialEnsurer) ensurePasswordCredential(ctx context.Context, repo c
 
 // issuePasswordCredential 颁发密码凭据
 func (e *credentialEnsurer) issuePasswordCredential(
-	issuer *credDomain.PasswordIssuer,
+	issuer credDomain.CredentialIssuer,
 	loginIdentityID meta.ID,
 	req *preparedOnboarding,
 ) (*credDomain.Credential, error) {
@@ -98,7 +98,7 @@ func (e *credentialEnsurer) issuePasswordCredential(
 	}
 
 	// 颁发密码凭据
-	return issuer.IssuePassword(credDomain.IssuePasswordRequest{
+	return issuer.IssuePasswordCredential(credDomain.PasswordCredentialRequest{
 		LoginIdentityID: loginIdentityID,
 		PlainPassword:   req.Credential.Password.Plaintext,
 	})

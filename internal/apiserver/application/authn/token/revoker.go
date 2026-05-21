@@ -8,35 +8,22 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// ====================================================
-// ================== Driving Ports ===================
-// ====================================================
-
-// revokerPort 撤销令牌和关联会话。
-type revokerPort interface {
-	RevokeAccessToken(ctx context.Context, tokenValue string) error
-}
-
-// ====================================================
-// ================== Implementation ==================
-// ====================================================
-
-// revoker 撤销令牌和关联会话
+// revoker 用于撤销令牌和关联会话。
 type revoker struct {
 	tokenCodec     AccessTokenCodec
 	tokenStore     Store
-	sessionManager SessionManager
+	sessionRevoker SessionRevoker
 }
 
 // 确保 revoker 实现 revokerPort 接口。
 var _ revokerPort = (*revoker)(nil)
 
 // newRevoker 创建 revoker。
-func newRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionManager SessionManager) *revoker {
+func newRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionRevoker SessionRevoker) *revoker {
 	return &revoker{
 		tokenCodec:     tokenCodec,
 		tokenStore:     tokenStore,
-		sessionManager: sessionManager,
+		sessionRevoker: sessionRevoker,
 	}
 }
 
@@ -63,7 +50,7 @@ func (s *revoker) RevokeAccessToken(ctx context.Context, tokenValue string) erro
 	}
 	// 如果访问令牌有会话ID，则撤销会话
 	if claims.SessionID != "" {
-		if err := s.sessionManager.Revoke(ctx, claims.SessionID, "access_token_revoked", claims.Subject); err != nil {
+		if err := s.sessionRevoker.Revoke(ctx, claims.SessionID, "access_token_revoked", claims.Subject); err != nil {
 			return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke token session")
 		}
 	}

@@ -14,19 +14,20 @@ import (
 
 // PhoneOTPCredential 认证凭据（手机号+验证码）
 type PhoneOTPCredential struct {
-	TenantID  meta.ID
-	RemoteIP  string
-	UserAgent string
-	PhoneE164 string
-	OTP       string
+	TenantID  meta.ID // 认证域
+	RemoteIP  string  // 认证客户端IP
+	UserAgent string  // 认证客户端UA
+	PhoneE164 string  // 手机号
+	OTP       string  // 验证码
 }
 
+// PhoneOTPProofSpec 手机号验证码认证凭据规格
 type PhoneOTPProofSpec struct {
-	TenantID  meta.ID
-	RemoteIP  string
-	UserAgent string
-	PhoneE164 string
-	OTP       string
+	TenantID  meta.ID // 认证域
+	RemoteIP  string  // 认证客户端IP
+	UserAgent string  // 认证客户端UA
+	PhoneE164 string  // 手机号
+	OTP       string  // 验证码
 }
 
 // CredentialKind 返回认证证明类型。

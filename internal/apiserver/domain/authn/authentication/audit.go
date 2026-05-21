@@ -7,6 +7,19 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
+// AuthAuditEvent 认证审计事件
+// 职责：记录认证事件（成功/失败/锁定）
+type AuthAuditEvent struct {
+	LoginIdentityID meta.ID
+	CredentialID    meta.ID
+	CredentialKind  CredentialKind
+	Success         bool
+	Code            int
+	RemoteIP        string
+	UserAgent       string
+	Timestamp       time.Time
+}
+
 // logAuthAttempt 记录审计日志
 func (a *Authenticator) logAuthAttempt(ctx context.Context, credential AuthCredential, decision AuthDecision) {
 	if a == nil || a.auditLogger == nil || credential == nil {

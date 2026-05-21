@@ -2,7 +2,8 @@
 
 IAM（Identity and Access Management，身份识别与访问管理）是一个面向业务系统接入的身份与访问管理服务。
 
-它围绕“用户是谁、如何证明用户身份、用户能访问什么资源”三个核心问题，统一提供用户身份建模、账号认证、访问授权、第三方身份源接入、Profile 联想搜索读模型，以及 REST / gRPC / Go SDK 等多种接入能力。
+它围绕“用户是谁、如何证明用户身份、用户能访问什么资源”三个核心问题，统一提供用户身份建模、账号认证、访问授权、第三方身份源接入、Profile 联想搜索读模型。
+同时，它还提供 REST / gRPC / Go SDK 等多种接入方式，以便于业务系统接入和集成。
 
 ## 功能特性
 
@@ -79,8 +80,8 @@ infra 管外部资源。
 
 | 模块 | 边界 |
 | --- | --- |
-| AuthN | AuthN 负责认证态，负责 LoginIdentity、Credential、Challenge、Principal、Session、Token、JWKS |
-| AuthZ | AuthZ 负责访问权，负责 Subject、Role、Resource、Permission、RoleBinding、Check、PolicyVersion、Outbox |
+| AuthN | AuthN 负责认证态，负责 LoginIdentity、Credential、Session、Token、JWKS |
+| AuthZ | AuthZ 负责访问权，负责 Subject、Role、Resource、Permission、RoleBinding |
 | Identity | Identity 负责用户和业务档案关系，负责 User、Profile、ProfileLink |
 | IDP | IDP 负责外部身份源基础设施，负责微信、企微等外部身份源适配 |
 | Suggest | Suggest 负责 Profile 联想搜索读模型，负责 Profile 联想搜索读模型 |

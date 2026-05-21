@@ -8,12 +8,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// AuthStrategy 认证策略（领域服务接口）
-type AuthStrategy interface {
-	Kind() CredentialKind
-	Authenticate(ctx context.Context, proof AuthCredential) (AuthDecision, error)
-}
-
 // Authenticator 认证器
 type Authenticator struct {
 	strategies  map[CredentialKind]AuthStrategy
@@ -60,52 +54,24 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 	if proof == nil {
 		return AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "authentication credential is required")
 	}
+
+	// 获取认证凭据类型
 	credentialKind := proof.CredentialKind()
-
-	l.Debugw("开始认证流程（域层）",
-		"action", logger.ActionLogin,
-		"credential_kind", string(credentialKind),
-		"amr", []string{string(credentialKind)},
-		"claims", make(map[string]any),
-	)
-
-	l.Debugw("认证凭据构建完成",
-		"action", logger.ActionLogin,
-		"credential_kind", credentialKind,
-		"amr", []string{string(credentialKind)},
-		"claims", make(map[string]any),
-	)
+	if credentialKind == "" {
+		return AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication credential kind: %s", credentialKind)
+	}
 
 	// 获取认证策略
 	strategy := a.strategyFor(credentialKind)
 	if strategy == nil {
-		l.Errorw("不支持的认证场景",
-			"action", logger.ActionLogin,
-			"credential_kind", string(credentialKind),
-		)
+		l.Errorw("不支持的认证场景", "action", logger.ActionLogin, "credential_kind", string(credentialKind))
 		return AuthDecision{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported authentication credential kind: %s", credentialKind)
 	}
 
-	l.Debugw("认证策略已创建",
-		"action", logger.ActionLogin,
-		"credential_kind", string(credentialKind),
-		"strategy", credentialKind,
-	)
-
 	// 执行认证
-	l.Debugw("开始执行认证策略",
-		"action", logger.ActionLogin,
-		"credential_kind", string(credentialKind),
-	)
-
-	// 执行认证策略
 	decision, err := strategy.Authenticate(ctx, proof)
 	if err != nil {
-		l.Errorw("认证策略执行出错",
-			"action", logger.ActionLogin,
-			"credential_kind", string(credentialKind),
-			"error", err.Error(),
-		)
+		l.Errorw("认证策略执行出错", "action", logger.ActionLogin, "credential_kind", string(credentialKind), "error", err.Error())
 		return AuthDecision{}, err
 	}
 
@@ -114,22 +80,12 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 
 	// 认证不通过
 	if !decision.OK {
-		l.Warnw("认证不通过（域层）",
-			"action", logger.ActionLogin,
-			"credential_kind", string(credentialKind),
-			"code", decision.Code,
-		)
+		l.Warnw("认证不通过（域层）", "action", logger.ActionLogin, "credential_kind", string(credentialKind), "code", decision.Code)
 		return decision, nil
 	}
 
 	// 认证通过
-	l.Debugw("认证成功（域层）",
-		"action", logger.ActionLogin,
-		"credential_kind", string(credentialKind),
-		"user_id", decision.Principal.UserID.String(),
-		"login_identity_id", decision.Principal.LoginIdentityID.String(),
-		"tenant_id", decision.Principal.TenantID.String(),
-	)
+	l.Debugw("认证成功（域层）", "action", logger.ActionLogin, "credential_kind", string(credentialKind), "user_id", decision.Principal.UserID.String(), "login_identity_id", decision.Principal.LoginIdentityID.String(), "tenant_id", decision.Principal.TenantID.String())
 
 	return decision, nil
 }

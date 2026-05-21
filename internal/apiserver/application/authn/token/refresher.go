@@ -2,7 +2,6 @@ package token
 
 import (
 	"context"
-	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
@@ -12,26 +11,15 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 )
 
-// ====================================================
-// ================== Driving Ports ===================
-// ====================================================
-// refresherPort 根据 refresh token 刷新 access token 和 refresh token。
-type refresherPort interface {
-	RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error)
-	RevokeRefreshToken(ctx context.Context, tokenValue string) error
-}
-
-// ====================================================
-// ================== Implementation ==================
-// ====================================================
-
-// refresher 刷新令牌
+// refresher 用于根据 refresh token 刷新 access token 和 refresh token。
 type refresher struct {
-	pairIssuer     sessionTokenPairIssuerPort
-	tokenStore     Store
-	sessionManager SessionManager
-	accessChecker  SubjectAccessEvaluator
-	claimMapper    ClaimMapper
+	pairIssuer      sessionTokenPairIssuerPort
+	tokenStore      Store
+	sessionLoader   SessionLoader
+	sessionRevoker  SessionRevoker
+	sessionExtender SessionExtender
+	accessChecker   SubjectAccessEvaluator
+	claimMapper     ClaimMapper
 }
 
 // 确保 refresher 实现 refresherPort 接口。
@@ -41,16 +29,20 @@ var _ refresherPort = (*refresher)(nil)
 func newRefresher(
 	pairIssuer sessionTokenPairIssuerPort,
 	tokenStore Store,
-	sessionManager SessionManager,
+	sessionLoader SessionLoader,
+	sessionRevoker SessionRevoker,
+	sessionExtender SessionExtender,
 	accessChecker SubjectAccessEvaluator,
 	claimMapper ClaimMapper,
 ) refresherPort {
 	return &refresher{
-		pairIssuer:     pairIssuer,
-		tokenStore:     tokenStore,
-		sessionManager: sessionManager,
-		accessChecker:  accessChecker,
-		claimMapper:    normalizeClaimMapper(claimMapper),
+		pairIssuer:      pairIssuer,
+		tokenStore:      tokenStore,
+		sessionLoader:   sessionLoader,
+		sessionRevoker:  sessionRevoker,
+		sessionExtender: sessionExtender,
+		accessChecker:   accessChecker,
+		claimMapper:     normalizeClaimMapper(claimMapper),
 	}
 }
 
@@ -89,8 +81,11 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 
 	// 删除过期刷新令牌
 	s.deleteStaleRefreshToken(ctx, refreshTokenValue)
-	if err := s.extendSessionToRefreshExpiry(ctx, sess.SessionID, newTokenPair.RefreshToken.ExpiresAt); err != nil {
-		return nil, err
+	if err := s.sessionExtender.ExtendToRefreshExpiry(ctx, sess, newTokenPair.RefreshToken.ExpiresAt); err != nil {
+		if perrors.IsCode(err, code.ErrSessionInactive) || perrors.IsCode(err, code.ErrInvalidArgument) {
+			return nil, err
+		}
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to extend session ttl")
 	}
 
 	// 返回新的令牌对
@@ -107,7 +102,7 @@ func (s *refresher) RevokeRefreshToken(ctx context.Context, refreshTokenValue st
 	}
 	// 如果刷新令牌存在且有会话ID，则撤销会话
 	if refreshToken != nil && refreshToken.SessionID != "" {
-		if err := s.sessionManager.Revoke(ctx, refreshToken.SessionID, "refresh_token_revoked", refreshToken.UserID.String()); err != nil {
+		if err := s.sessionRevoker.Revoke(ctx, refreshToken.SessionID, "refresh_token_revoked", refreshToken.UserID.String()); err != nil {
 			return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke refresh token session")
 		}
 	}
@@ -132,12 +127,12 @@ func (s *refresher) loadRefreshToken(ctx context.Context, refreshTokenValue stri
 
 // loadActiveSession 加载活跃会话
 func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*sessiondomain.Session, error) {
-	sess, err := s.sessionManager.Get(ctx, sessionID)
+	sess, err := s.sessionLoader.GetActive(ctx, sessionID)
 	if err != nil {
+		if perrors.IsCode(err, code.ErrSessionInactive) {
+			return nil, err
+		}
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to load session")
-	}
-	if sess == nil || !sess.IsActive() {
-		return nil, perrors.WithCode(code.ErrSessionInactive, "session has been revoked or expired")
 	}
 	return sess, nil
 }
@@ -211,14 +206,6 @@ func (s *refresher) deleteStaleRefreshToken(ctx context.Context, refreshTokenVal
 			"error", err.Error(),
 		)
 	}
-}
-
-// extendSessionToRefreshExpiry 延长会话到刷新令牌过期时间
-func (s *refresher) extendSessionToRefreshExpiry(ctx context.Context, sessionID string, expiresAt time.Time) error {
-	if err := s.sessionManager.Extend(ctx, sessionID, expiresAt); err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to extend session ttl")
-	}
-	return nil
 }
 
 // subjectAccessError 转换 subject access 状态为错误

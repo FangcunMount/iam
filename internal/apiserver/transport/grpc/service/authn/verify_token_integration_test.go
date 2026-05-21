@@ -128,15 +128,18 @@ func newTestTokenStack(t *testing.T) (
 	gen := tokenjwt.NewGenerator("https://iam.integration.test", []string{"qs-api", "collection-api"}, fixedSigningKeySource{kid: kid, key: priv})
 	store := noopTokenStore{}
 	sessionStore := &memorySessionStore{}
-	sessionManager := sessiondomain.NewManager(sessionStore)
+	lifetime := sessiondomain.NewLifetimePolicy(24*time.Hour, 24*time.Hour)
 	svc := tokenapp.NewTokenApplicationService(tokenapp.TokenApplicationDependencies{
-		AccessTokenCodec: gen,
-		TokenStore:       store,
-		SessionManager:   sessionManager,
-		AccessChecker:    allowAllSubjectAccessEvaluator{},
-		ClaimMapper:      gen.ClaimMapper(),
-		AccessTTL:        time.Hour,
-		RefreshTTL:       24 * time.Hour,
+		AccessTokenCodec:      gen,
+		TokenStore:            store,
+		SessionCreator:        sessiondomain.NewCreator(sessionStore, lifetime),
+		SessionLoader:         sessiondomain.NewLoader(sessionStore, lifetime),
+		SessionRevoker:        sessiondomain.NewRevoker(sessionStore),
+		SessionExtender:       sessiondomain.NewExtender(sessionStore, lifetime),
+		SessionRefreshExpirer: sessiondomain.NewRefreshExpirer(lifetime),
+		AccessChecker:         allowAllSubjectAccessEvaluator{},
+		ClaimMapper:           gen.ClaimMapper(),
+		AccessTTL:             time.Hour,
 	})
 	return svc, gen
 }

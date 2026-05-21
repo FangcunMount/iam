@@ -10,22 +10,14 @@ import (
 )
 
 // ====================================================
-// ================== Driving Ports ===================
-// ====================================================
-// verifierPort 在线验证 access token，
-type verifierPort interface {
-	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
-}
-
-// ====================================================
 // ================== Implementation ==================
 // ====================================================
 // verifier 验证访问令牌
 type verifier struct {
-	tokenCodec     AccessTokenCodec       // 令牌编码器
-	tokenStore     Store                  // 令牌存储
-	sessionManager SessionManager         // 会话管理器
-	accessChecker  SubjectAccessEvaluator // 主体访问状态评估器
+	tokenCodec    AccessTokenCodec       // 令牌编码器
+	tokenStore    Store                  // 令牌存储
+	sessionLoader SessionLoader          // 会话加载器
+	accessChecker SubjectAccessEvaluator // 主体访问状态评估器
 }
 
 // 确保 verifier 实现 verifierPort 接口。
@@ -35,14 +27,14 @@ var _ verifierPort = (*verifier)(nil)
 func newVerifier(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
-	sessionManager SessionManager,
+	sessionLoader SessionLoader,
 	accessChecker SubjectAccessEvaluator,
 ) verifierPort {
 	return &verifier{
-		tokenCodec:     tokenCodec,
-		tokenStore:     tokenStore,
-		sessionManager: sessionManager,
-		accessChecker:  accessChecker,
+		tokenCodec:    tokenCodec,
+		tokenStore:    tokenStore,
+		sessionLoader: sessionLoader,
+		accessChecker: accessChecker,
 	}
 }
 
@@ -93,14 +85,13 @@ func (s *verifier) checkTokenValid(ctx context.Context, claims *TokenClaims) err
 
 // checkSessionActive 检查会话是否活跃
 func (s *verifier) checkSessionActive(ctx context.Context, sessionID string) error {
-	// 加载会话
-	sess, err := s.sessionManager.Get(ctx, sessionID)
+	// 加载活跃会话
+	_, err := s.sessionLoader.GetActive(ctx, sessionID)
 	if err != nil {
+		if perrors.IsCode(err, code.ErrSessionInactive) {
+			return err
+		}
 		return perrors.WrapC(err, code.ErrInternalServerError, "failed to load session")
-	}
-	// 检查会话是否活跃
-	if sess == nil || !sess.IsActive() {
-		return perrors.WithCode(code.ErrTokenInvalid, "session has been revoked or expired")
 	}
 	return nil
 }

@@ -454,9 +454,10 @@ device context(optional)
 9. 构造新的 Principal 或 TokenSubject。
 10. 签发新的 Access Token。
 11. 按策略轮换 Refresh Token。
-12. 更新 TokenStore。
-13. 记录 TokenAudit refresh event。
-14. 返回新的 TokenPair 或 Access Token。
+12. 按 Session 领域生命周期截断新的 RefreshToken / Session 过期时间。
+13. 更新 TokenStore。
+14. 记录 TokenAudit refresh event。
+15. 返回新的 TokenPair 或 Access Token。
 ```
 
 ### 10.3 Refresh Token Rotation

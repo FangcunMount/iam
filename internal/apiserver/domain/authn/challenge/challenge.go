@@ -2,16 +2,19 @@ package challenge
 
 import "time"
 
+// AuthChallenge 认证挑战
 type AuthChallenge struct {
-	ID         string
-	Type       ChallengeType
-	Scene      string
-	Target     string
-	SecretHash []byte
-	ExpiresAt  time.Time
-	Attempts   int
-	ConsumedAt *time.Time
-	CreatedAt  time.Time
+	ID         string        // 挑战ID
+	Type       ChallengeType // 挑战类型
+	Scene      string        // 场景
+	Target     string        // 目标
+	SecretHash []byte        // 密钥哈希
+
+	// challenge
+	Attempts   int        // 尝试次数
+	ConsumedAt *time.Time // 消费时间
+	ExpiresAt  time.Time  // 过期时间
+	CreatedAt  time.Time  // 创建时间
 }
 
 func (c *AuthChallenge) IsExpired(now time.Time) bool {

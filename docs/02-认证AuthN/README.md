@@ -116,20 +116,16 @@ oauth state
 reset password code
 ```
 
-在新版文档体系中，Challenge 是一级模型对象和支撑能力，但不再单独作为主链路文档。
+Challenge 主要支撑：
 
-它主要支撑：
-
-```text
-Login.phone_otp scene
-Linking.link_phone scene
-```
+- Login.phone_otp scene
+- Linking.link_phone scene
 
 ---
 
 ### 2.5 Principal
 
-`Principal` 是认证成功后的运行时主体表达。
+`Principal` 是认证成功后的运行时主体表达，是 Login 的领域终点。
 
 它回答：
 
@@ -139,27 +135,22 @@ Linking.link_phone scene
 使用了什么认证方式？
 ```
 
-Principal 是 Login 的领域终点。
-
-Principal 不是 JWT，也不是 AccessToken。
+> 注意：
+> Principal 是认证结果，不是 JWT，也不是 AccessToken。
 
 ---
 
 ### 2.6 Session / AccessToken / RefreshToken
 
-`Session` 是服务端认证上下文。
-
-`AccessToken` 是短期访问凭证。
-
-`RefreshToken` 是用于换取新 AccessToken 的续期凭证。
+- `Session` 是服务端认证上下文。
+- `AccessToken` 是短期访问凭证。
+- `RefreshToken` 是用于换取新 AccessToken 的续期凭证。
 
 三者边界是：
 
-```text
-Session = 服务端认证状态
-AccessToken = 客户端访问资源时携带的短期凭证
-RefreshToken = 客户端向 IAM Token endpoint 换取新 AccessToken 的凭证
-```
+> Session = 服务端认证状态
+> AccessToken = 客户端访问资源时携带的短期凭证
+> RefreshToken = 客户端向 IAM Token endpoint 换取新 AccessToken 的凭证
 
 ---
 

@@ -7,11 +7,13 @@ import (
 )
 
 // ProviderKey 唯一键，用于解析登录身份
+// 用于唯一标识一个登录身份，包括提供者、域、标识和全局标识。
+// 例如：username:tenant_id:username、phone:global:+1234567890、wechat_minip:appid:openid:unionid、wecom:corp_id:userid。
 type ProviderKey struct {
-	Provider         Provider
-	Realm            string
-	Identifier       string
-	GlobalIdentifier string
+	Provider         Provider // 提供者
+	Realm            string   // 域
+	Identifier       string   // 标识
+	GlobalIdentifier string   // 全局标识
 }
 
 // NewProviderKey 创建唯一键

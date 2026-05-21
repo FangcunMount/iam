@@ -110,15 +110,6 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 	loginIdentityID, userID := lookup.LoginIdentityID, lookup.UserID
 
-	principalTenant, ok := resolvePasswordPrincipalTenantFromIdentity(passwordCredential.TenantID, lookup)
-	if !ok {
-		return AuthDecision{
-			OK:              false,
-			Code:            code.ErrInvalidCredentials,
-			LoginIdentityID: loginIdentityID,
-		}, nil
-	}
-
 	statusFailure, err := loginIdentityStatusFailureDecision(ctx, p.identityRepo, loginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
@@ -168,28 +159,12 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	shouldRotate, newMaterial := p.rotationMaterial(storedHash, plaintextWithPepper)
-	principal := buildLoginIdentityPrincipal(
-		loginIdentityID,
-		userID,
-		principalTenant,
-		"password",
-		lookup.Realm,
-		[]string{string(AMRPassword)},
-		map[string]any{"auth_time": ctx.Value("request_time")},
-	)
-
-	return AuthDecision{
-		OK:              true,
-		Principal:       principal,
-		LoginIdentityID: loginIdentityID,
-		CredentialID:    credentialID,
-		ShouldRotate:    shouldRotate,
-		NewMaterial:     newMaterial,
-	}, nil
+	return p.buildPasswordSuccessDecision(ctx, passwordCredential, loginIdentityID, userID, credentialID, shouldRotate, newMaterial), nil
 }
 
 // ================= 辅助方法 ========================
 
+// resolvePasswordPrincipalTenantFromIdentity 解析密码认证主体的租户ID
 func resolvePasswordPrincipalTenantFromIdentity(requestTenantID meta.ID, lookup *LoginIdentityLookup) (meta.ID, bool) {
 	if lookup == nil {
 		return meta.ZeroID, false
@@ -239,4 +214,39 @@ func (p *PasswordAuthStrategy) rotationMaterial(storedHash string, plaintextWith
 		return false, nil
 	}
 	return true, []byte(newHash)
+}
+
+// buildPhoneOTPSuccessDecision 认证成功，构造Principal
+func (p *PasswordAuthStrategy) buildPasswordSuccessDecision(
+	ctx context.Context,
+	credential *PasswordCredential,
+	loginIdentityID meta.ID,
+	userID meta.ID,
+	credentialID meta.ID,
+	shouldRotate bool,
+	newMaterial []byte,
+) AuthDecision {
+	principal := &Principal{
+		LoginIdentityID: loginIdentityID,
+		UserID:          userID,
+		TenantID:        credential.TenantID,
+		AuthMethod:      "password",
+		Realm:           loginidentity.RealmGlobal,
+		AMR:             []string{string(AMRPassword)},
+		Claims: map[string]any{
+			"login_identity_id": loginIdentityID.String(),
+			"auth_method":       "password",
+			"realm":             loginidentity.RealmGlobal,
+			"auth_time":         ctx.Value("request_time"),
+		},
+	}
+
+	return AuthDecision{
+		OK:              true,
+		Principal:       principal,
+		LoginIdentityID: loginIdentityID,
+		CredentialID:    credentialID,
+		ShouldRotate:    shouldRotate,
+		NewMaterial:     newMaterial,
+	}
 }

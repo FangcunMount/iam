@@ -23,12 +23,14 @@ type AuthOptions struct {
 	AccessTokenAudience []string      `json:"access_token_audience" mapstructure:"access_token_audience"`
 	AccessTokenTTL      time.Duration `json:"access_token_ttl" mapstructure:"access_token_ttl"`
 	RefreshTokenTTL     time.Duration `json:"refresh_token_ttl" mapstructure:"refresh_token_ttl"`
+	SessionMaxTTL       time.Duration `json:"session_max_ttl" mapstructure:"session_max_ttl"`
 }
 
 func NewAuthOptions() *AuthOptions {
 	return &AuthOptions{
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
+		SessionMaxTTL:   24 * time.Hour,
 	}
 }
 

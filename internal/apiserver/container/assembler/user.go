@@ -35,7 +35,7 @@ func NewUserModule() *UserModule {
 type UserModuleDeps struct {
 	DB             *gorm.DB
 	RoleNames      RoleNameReader
-	SessionManager sessiondomain.Manager
+	SessionRevoker sessiondomain.Revoker
 }
 
 // InitializeWithDeps 初始化用户模块。
@@ -49,7 +49,7 @@ func (m *UserModule) InitializeWithDeps(deps UserModuleDeps) error {
 
 	userCreator := appuser.NewCreator(uow)
 	userEditor := appuser.NewEditor(uow)
-	userStatusChanger := appuser.NewStatusChanger(uow, deps.SessionManager)
+	userStatusChanger := appuser.NewStatusChanger(uow, deps.SessionRevoker)
 	userDirectory := appuser.NewDirectory(uow)
 	profileDirectory := appprofile.NewDirectory(uow)
 	myProfiles := appprofile.NewMyProfiles(uow)

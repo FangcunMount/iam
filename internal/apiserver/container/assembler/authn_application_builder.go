@@ -59,13 +59,16 @@ func (m *AuthnModule) initializeApplication(
 	})
 
 	tokenService := token.NewTokenApplicationService(token.TokenApplicationDependencies{
-		AccessTokenCodec: infra.jwtGenerator,
-		TokenStore:       infra.tokenStore,
-		SessionManager:   domain.sessionManager,
-		AccessChecker:    infra.accessChecker,
-		ClaimMapper:      infra.jwtGenerator.ClaimMapper(),
-		AccessTTL:        domain.accessTTL,
-		RefreshTTL:       domain.refreshTTL,
+		AccessTokenCodec:      infra.jwtGenerator,
+		TokenStore:            infra.tokenStore,
+		SessionCreator:        domain.sessionCreator,
+		SessionLoader:         domain.sessionLoader,
+		SessionRevoker:        domain.sessionRevoker,
+		SessionExtender:       domain.sessionExtender,
+		SessionRefreshExpirer: domain.sessionRefreshExpirer,
+		AccessChecker:         infra.accessChecker,
+		ClaimMapper:           infra.jwtGenerator.ClaimMapper(),
+		AccessTTL:             domain.accessTTL,
 	})
 
 	authenticator := authentication.NewAuthenticator(
@@ -93,7 +96,7 @@ func (m *AuthnModule) initializeApplication(
 	m.loginService = loginService
 
 	m.tokenService = tokenService
-	m.sessionService = sessionApp.NewSessionApplicationService(domain.sessionManager)
+	m.sessionService = sessionApp.NewSessionApplicationService(domain.sessionRevoker)
 
 	logger := log.New(log.NewOptions())
 	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)

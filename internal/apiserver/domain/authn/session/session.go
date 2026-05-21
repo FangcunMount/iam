@@ -20,20 +20,26 @@ const (
 
 // Session 表示一次登录会话。
 type Session struct {
-	SessionID       string
-	UserID          meta.ID
-	LoginIdentityID meta.ID
-	TenantID        meta.ID
-	AuthMethod      string
-	Realm           string
-	Status          Status
-	AMR             []string
-	SessionClaims   map[string]string
-	CreatedAt       time.Time
-	ExpiresAt       time.Time
-	RevokedAt       *time.Time
-	RevokeReason    string
-	RevokedBy       string
+	SessionID string
+
+	// —— 身份信息 —— //
+	UserID          meta.ID // 用户ID
+	LoginIdentityID meta.ID // 登录身份ID
+	TenantID        meta.ID // 租户ID
+
+	// —— 认证信息 —— //
+	AuthMethod    string            // 认证方式
+	Realm         string            // 认证域
+	Status        Status            // 状态
+	AMR           []string          // 认证方法引用
+	SessionClaims map[string]string // 认证声明
+
+	// —— 状态信息 —— //
+	CreatedAt    time.Time  // 创建时间
+	ExpiresAt    time.Time  // 过期时间
+	RevokedAt    *time.Time // 撤销时间
+	RevokeReason string     // 撤销原因
+	RevokedBy    string     // 撤销者
 }
 
 // New 创建一个新的活跃会话。

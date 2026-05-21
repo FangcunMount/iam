@@ -9,19 +9,19 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// Builder 以领域语义构造 LoginIdentity。
+// Builder 用于构建 LoginIdentity 对象的构建器。
 type Builder struct {
 	userID           meta.ID
-	provider         Provider
-	realm            string
-	identifier       string
-	globalIdentifier string
-	id               meta.ID
-	status           Status
-	verifiedAt       *time.Time
-	linkedAt         time.Time
-	profile          map[string]string
-	meta             map[string]string
+	provider         Provider          // 提供者
+	realm            string            // 域
+	identifier       string            // 标识
+	globalIdentifier string            // 全局标识
+	id               meta.ID           // 登录身份ID
+	status           Status            // 状态
+	verifiedAt       *time.Time        // 验证时间
+	linkedAt         time.Time         // 绑定时间
+	profile          map[string]string // 资料
+	meta             map[string]string // 元数据
 }
 
 // NewBuilder 创建登录身份构造器。

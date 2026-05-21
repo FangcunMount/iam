@@ -113,6 +113,7 @@ auth:
     - "collection-api"
   access_token_ttl: 15m
   refresh_token_ttl: 168h
+  session_max_ttl: 24h
 
 # ============================================================================
 # 3. 数据存储配置

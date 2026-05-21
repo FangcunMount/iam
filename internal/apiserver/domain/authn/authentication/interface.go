@@ -3,9 +3,28 @@ package authentication
 import (
 	"context"
 	"time"
-
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
+
+// ================== Interface Interfaces (Driving Ports) ==================
+// 这些接口由领域层（领域服务）实现，供应用层调用
+// 按照功能职责拆分，遵循接口隔离原则
+
+// AuthCredential 认证凭据接口
+type AuthCredential interface {
+	// CredentialKind 返回认证凭据类型
+	CredentialKind() CredentialKind
+}
+
+// AuthStrategy 认证策略（领域服务接口）
+type AuthStrategy interface {
+	// Kind 返回认证策略类型
+	Kind() CredentialKind
+	// Authenticate 执行认证
+	// 参数：ctx 上下文, proof 认证凭据
+	// 返回：认证决策, 错误
+	// 职责：执行认证逻辑，返回认证决策
+	Authenticate(ctx context.Context, proof AuthCredential) (AuthDecision, error)
+}
 
 // ================== External Service Interfaces (Driven Ports) ==================
 // 定义领域模型所依赖的外部服务接口，由基础设施层提供实现
@@ -73,16 +92,7 @@ type IdentityProvider interface {
 // AuditLogger 审计日志（可选）
 // 职责：记录认证事件（成功/失败/锁定）
 type AuditLogger interface {
+	// LogAuthAttempt 记录认证事件
+	// 参数：ctx 上下文, event 认证事件
 	LogAuthAttempt(ctx context.Context, event AuthAuditEvent)
-}
-
-type AuthAuditEvent struct {
-	LoginIdentityID meta.ID
-	CredentialID    meta.ID
-	CredentialKind  CredentialKind
-	Success         bool
-	Code            int
-	RemoteIP        string
-	UserAgent       string
-	Timestamp       time.Time
 }

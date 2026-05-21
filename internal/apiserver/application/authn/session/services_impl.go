@@ -11,15 +11,17 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
+// sessionApplicationService 是 SessionApplicationService 的实现
 type sessionApplicationService struct {
-	manager sessiondomain.Manager
+	revoker sessiondomain.Revoker
 }
 
-// NewSessionApplicationService 创建会话应用服务。
-func NewSessionApplicationService(manager sessiondomain.Manager) SessionApplicationService {
-	return &sessionApplicationService{manager: manager}
+// NewSessionApplicationService 创建会话应用服务
+func NewSessionApplicationService(revoker sessiondomain.Revoker) SessionApplicationService {
+	return &sessionApplicationService{revoker: revoker}
 }
 
+// RevokeSession 撤销单个会话
 func (s *sessionApplicationService) RevokeSession(ctx context.Context, sessionID string, reason string, revokedBy string) error {
 	l := logger.L(ctx)
 	if sessionID == "" {
@@ -30,9 +32,10 @@ func (s *sessionApplicationService) RevokeSession(ctx context.Context, sessionID
 		"resource", "session",
 		"session_id", sessionID,
 	)
-	return s.manager.Revoke(ctx, sessionID, normalizeReason(reason, "admin_revoked_session"), revokedBy)
+	return s.revoker.Revoke(ctx, sessionID, normalizeReason(reason, "admin_revoked_session"), revokedBy)
 }
 
+// RevokeAllSessionsByLoginIdentity 撤销指定登录身份下的全部活跃会话
 func (s *sessionApplicationService) RevokeAllSessionsByLoginIdentity(ctx context.Context, loginIdentityID string, reason string, revokedBy string) error {
 	l := logger.L(ctx)
 	id, err := parseMetaID(loginIdentityID)
@@ -44,9 +47,10 @@ func (s *sessionApplicationService) RevokeAllSessionsByLoginIdentity(ctx context
 		"resource", "session",
 		"login_identity_id", loginIdentityID,
 	)
-	return s.manager.RevokeByLoginIdentity(ctx, id, normalizeReason(reason, "admin_revoked_login_identity_sessions"), revokedBy)
+	return s.revoker.RevokeByLoginIdentity(ctx, id, normalizeReason(reason, "admin_revoked_login_identity_sessions"), revokedBy)
 }
 
+// RevokeAllSessionsByUser 撤销指定用户下的全部活跃会话
 func (s *sessionApplicationService) RevokeAllSessionsByUser(ctx context.Context, userID string, reason string, revokedBy string) error {
 	l := logger.L(ctx)
 	id, err := parseMetaID(userID)
@@ -58,9 +62,10 @@ func (s *sessionApplicationService) RevokeAllSessionsByUser(ctx context.Context,
 		"resource", "session",
 		"user_id", userID,
 	)
-	return s.manager.RevokeByUser(ctx, id, normalizeReason(reason, "admin_revoked_user_sessions"), revokedBy)
+	return s.revoker.RevokeByUser(ctx, id, normalizeReason(reason, "admin_revoked_user_sessions"), revokedBy)
 }
 
+// parseMetaID 解析元数据ID
 func parseMetaID(raw string) (meta.ID, error) {
 	var id uint64
 	if _, err := fmt.Sscanf(raw, "%d", &id); err != nil {
@@ -69,6 +74,7 @@ func parseMetaID(raw string) (meta.ID, error) {
 	return meta.FromUint64(id), nil
 }
 
+// normalizeReason 规范化撤销原因
 func normalizeReason(reason string, fallback string) string {
 	if reason == "" {
 		return fallback

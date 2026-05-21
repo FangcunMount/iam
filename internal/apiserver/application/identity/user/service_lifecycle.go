@@ -16,12 +16,12 @@ import (
 // statusChanger 用户状态用例实现
 type statusChanger struct {
 	uow            uow.UnitOfWork
-	sessionManager session.Manager
+	sessionRevoker session.Revoker
 }
 
 // NewStatusChanger 创建用户状态用例
-func NewStatusChanger(uow uow.UnitOfWork, sessionManager session.Manager) StatusChanger {
-	return &statusChanger{uow: uow, sessionManager: sessionManager}
+func NewStatusChanger(uow uow.UnitOfWork, sessionRevoker session.Revoker) StatusChanger {
+	return &statusChanger{uow: uow, sessionRevoker: sessionRevoker}
 }
 
 // Activate 激活用户
@@ -138,8 +138,8 @@ func (s *statusChanger) Block(ctx context.Context, userID meta.ID) error {
 	if err != nil {
 		return err
 	}
-	if s.sessionManager == nil {
+	if s.sessionRevoker == nil {
 		return nil
 	}
-	return s.sessionManager.RevokeByUser(ctx, userID, "user_blocked", userID.String())
+	return s.sessionRevoker.RevokeByUser(ctx, userID, "user_blocked", userID.String())
 }

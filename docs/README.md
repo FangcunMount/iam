@@ -2,9 +2,7 @@
 
 ## 1. 文档中心定位
 
-`docs/` 是 IAM 项目的解释层。
-
-它负责说明：
+`docs/` 是 IAM 项目的解释层，它负责说明：
 
 ```text
 系统边界；
@@ -17,28 +15,21 @@
 对外表达材料。
 ```
 
-它不是机器契约本身。
-
-机器契约与运行事实以这些内容为准：
+它不是机器契约本身，机器契约与运行事实以这些内容为准：
 
 - REST 路径、字段、schema、错误响应以 [`../api/rest`](../api/rest) 为准。
 - gRPC service、message、RPC 以 [`../api/grpc`](../api/grpc) 为准。
 - Go SDK 公开 API 以 [`../pkg/sdk`](../pkg/sdk) 为准。
 - 运行行为以源码和测试为准。
-- `_archive/` 只保存历史材料，不作为当前事实源。
 
-文档的职责不是逐行转述源码，而是帮助读者回答：
+文档的职责不是逐行转述源码，而是帮助读者建立心智模型，回答：
 
-```text
-IAM 是什么；
-为什么这样分层；
-为什么这样建模；
-服务如何启动和装配；
-AuthN / AuthZ / Identity / IDP 如何协作；
-业务系统如何接入 IAM；
-如何防止代码、契约和文档漂移；
-如何对外讲清楚这个项目。
-```
+- IAM 是什么
+- 为什么这样分层，为什么这样建模
+- 服务如何启动和装配和关闭
+- AuthN / AuthZ / Identity / IDP 如何协作
+- 业务系统如何接入 IAM，如何防止代码、契约和文档漂移
+- 如何对外讲清楚这个项目
 
 ---
 
@@ -46,37 +37,29 @@ AuthN / AuthZ / Identity / IDP 如何协作；
 
 IAM 是一个面向业务系统接入的身份与访问管理服务。
 
-它不是普通用户中心、登录系统、权限 CRUD 系统或微信登录模块。
+它不是普通用户中心、登录系统、权限 CRUD 系统或微信登录模块，而是围绕“用户是谁、如何证明用户身份、用户能访问什么资源”三个核心问题，统一提供：
 
-当前文档体系按下面顺序建立心智模型：
+- 用户身份建模
+- 账号认证
+- 访问授权
+- 第三方身份源接入
+- Profile 联想搜索读模型
 
-```text
-00-概览
-  -> 01-运行时
-  -> 02-认证AuthN
-  -> 03-授权AuthZ
-  -> 04-身份Identity
-  -> 05-接入与契约
-  -> 06-架构护栏
-  -> 07-宣讲
-  -> 08-Suggest
-  -> _archive
-```
+同时，它还提供 REST / gRPC / Go SDK 等多种接入方式，以便于业务系统接入和集成。
 
-其中：
+当前文档体系按下面目录结构组织：
 
 | 目录 | 作用 |
 | --- | --- |
-| `00-概览` | 建立系统总览，说明 IAM 是什么、如何分层、核心模块如何协作 |
+| `00-概览` | 说明 IAM 是什么、如何分层、核心模块如何协作 |
 | `01-运行时` | 解释服务如何启动、装配 REST/gRPC、运行后台任务、优雅关闭和资源释放 |
-| `02-认证AuthN` | 解释 User、LoginIdentity、Credential、Challenge、Principal、Session、Token、JWKS、Verify、IDP 协作 |
-| `03-授权AuthZ` | 解释 Subject、Role、Resource、Permission、RoleBinding、Check、PolicyVersion、Outbox、Casbin runtime |
-| `04-身份Identity` | 解释 User、Profile、ProfileLink 及当前用户档案访问边界 |
-| `05-接入与契约` | 解释 REST、gRPC、SDK 三类接入方式、qs-server 接入链路和契约防漂移 |
-| `06-架构护栏` | 解释架构测试、契约测试、SDK compile test、docs-hygiene 如何防漂移 |
-| `07-宣讲` | 准备技术分享、面试表达、架构图和追问证据链 |
-| `08-Suggest` | 解释 Profile 联想搜索读模型，包括查询链路、权限范围、索引模型、刷新链路、安全与运维 |
-| `_archive` | 保存历史材料，不作为当前事实源 |
+| `02-认证AuthN` | - 讲解 LoginIdentity、Credential、Session、Token、JWKS 核心领域模型；<br/>- 说明 Onboarding、Linking、Login、Token、Session 链路 |
+| `03-授权AuthZ` | - 讲解 Subject、Role、Resource、Permission 核心领域模型；<br/>-描述授权写入链路、授权版本与事件传播链路、权限检查链路；<br/>- 说明 Casbin 在 AuthZ 中的角色 |
+| `04-身份Identity` | - 讲解 User、Profile、ProfileLink 核心领域模型；<br/>-描述 ProfileLink 链路，以及与 AuthN、AuthZ 模块的边界 |
+| `05-接入与契约` | - 说明 REST、gRPC、SDK 三类接入方式；<br/> - 说明 qs-server 接入链路；<br/> - 说明契约防漂移 |
+| `06-架构护栏` | - 说明架构测试、契约测试、SDK compile test、docs-hygiene 如何防漂移 |
+| `07-宣讲` | - 技术分享、对外讲解的表达和追问证据链 |
+| `08-Suggest` | - 说明 Suggest Profile 联想搜索读模型 |
 
 ---
 
@@ -173,8 +156,6 @@ docs/
     └── README.md
 ```
 
-> 注意：`07-专题分析/` 已归档，旧 `08-宣讲/` 已调整为当前的 `07-宣讲/`。当前 `08-Suggest/` 是新建的 active 文档入口，用于说明 Profile 联想搜索读模型。旧的 `02-业务域/`、`03-接口与集成/`、`04-基础设施与运维/`、旧 `05-专题分析/` 不再作为新版 active 文档入口。
-
 ---
 
 ## 4. 快速导航
@@ -211,222 +192,9 @@ docs/
 
 ---
 
-## 5. 分层说明
+## 5. 推荐阅读路径
 
-### 5.1 00-概览
-
-回答：
-
-```text
-这个系统是什么？
-整体架构怎么分层？
-新读者从哪里开始？
-```
-
-重点说明：
-
-- IAM 的系统定位；
-- 系统外部关系；
-- 代码分层；
-- 核心模块；
-- 读者路径；
-- 事实源优先级。
-
----
-
-### 5.2 01-运行时
-
-回答：
-
-```text
-服务如何启动、装配、协作和关闭？
-```
-
-重点说明：
-
-- 服务入口与生命周期；
-- qs-apiserver 启动与组合根；
-- collection-server 运行时；
-- qs-worker 运行时；
-- 进程间 gRPC 调用；
-- IAM 认证与身份链路；
-- 后台任务与调度；
-- 优雅关闭与资源释放。
-
----
-
-### 5.3 02-认证 AuthN
-
-回答：
-
-```text
-用户如何登录，登录态如何被管理和验证？
-```
-
-重点说明：
-
-- User / LoginIdentity / Credential / Challenge；
-- Onboarding；
-- Linking；
-- Login -> Principal；
-- Principal -> Session / AccessToken / RefreshToken；
-- JWT / JWS / JWK / JWKS；
-- KeyRotation；
-- Online Verify；
-- IDP / WeChat / WeCom 协作；
-- AuthN 分层架构与事实源。
-
----
-
-### 5.4 03-授权 AuthZ
-
-回答：
-
-```text
-某个 Subject 能不能访问某个 Resource？
-```
-
-重点说明：
-
-- Subject；
-- Tenant；
-- ResourceKey / ResourcePattern；
-- Action；
-- Scope；
-- Role；
-- Permission；
-- RoleBinding；
-- Assignment wire term；
-- AuthorizationRequest；
-- AuthorizationDecision；
-- Check；
-- Snapshot；
-- Casbin runtime；
-- PolicyAdministration；
-- PolicyChangeCommitter；
-- Unit of Work；
-- PolicyVersion；
-- Transactional Outbox；
-- RuntimeReload。
-
----
-
-### 5.5 04-身份 Identity
-
-回答：
-
-```text
-User、Profile、ProfileLink 如何表达业务身份关系？
-```
-
-重点说明：
-
-- User 是登录主体；
-- Profile 是业务档案；
-- ProfileLink 是 User 与 Profile 的关系事实；
-- self / parent / grandparent / other 等关系类型；
-- active / revoked 生命周期；
-- MyProfiles / MyProfileLinks 当前用户视角 guard；
-- ProfileLink 不等于 AuthZ Permission；
-- AuthZ 才负责资源级权限判定。
-
----
-
-### 5.6 05-接入与契约
-
-回答：
-
-```text
-外部系统如何接入 IAM？
-```
-
-重点说明：
-
-- REST 适合 Web、App、管理后台、登录和 HTTP 调试；
-- gRPC 适合可信服务间调用；
-- SDK 适合 Go 业务服务低成本接入；
-- qs-server 如何接入 IAM；
-- JWT 如何传递；
-- JWKS 何时用于本地验签；
-- 在线 Verify 何时必须使用；
-- AuthZ Check 如何接入；
-- public / protected / admin / debug 能力边界；
-- OpenAPI / proto / SDK public API 是各自事实源。
-
----
-
-### 5.7 06-架构护栏
-
-回答：
-
-```text
-架构和契约为什么不会轻易漂移？
-```
-
-重点说明：
-
-- domain 不依赖 infra/database；
-- application 不依赖 transport；
-- transport 不绕过 application；
-- container 只是组合根；
-- SDK 不 import internal；
-- AuthZ 内部统一 rolebinding；
-- Casbin facts 不进入 domain/transport；
-- REST/gRPC/SDK 契约测试；
-- docs-hygiene；
-- `_archive` 不作为当前事实源。
-
----
-
-### 5.8 07-宣讲
-
-回答：
-
-```text
-如何对外讲清楚 IAM？
-```
-
-重点说明：
-
-- 项目一句话定位；
-- 业务背景；
-- 系统架构讲法；
-- AuthN / AuthZ / Identity / IDP 讲法；
-- JWKS / Token 安全讲法；
-- Outbox 讲法；
-- REST/gRPC/SDK 讲法；
-- 工程质量讲法；
-- 30 分钟技术分享脚本；
-- 架构图素材；
-- 面试追问证据索引。
-
----
-
-### 5.9 08-Suggest
-
-回答：
-
-```text
-Profile 联想搜索读模型如何工作？
-```
-
-重点说明：
-
-- Suggest 是暂存于 IAM apiserver 内的 Profile 联想搜索读模型，不是 IAM 核心身份域；
-- OperatingPrincipal 如何进入 Suggest 查询；
-- ProfileAccessScope 如何表达可见范围；
-- ProfileSearchTerm 如何被写入 Trie / Hash；
-- 三叉搜索树如何支持中文名、拼音、简拼前缀搜索；
-- Hash 如何支持 ProfileID / 手机号精确匹配；
-- Runtime 如何执行全量替换与增量导入；
-- Loader / Refresher / Snapshot 如何维护索引生命周期；
-- 手机号搜索、限流、指标、降级和生产安全护栏如何设计。
-
----
-
-## 6. 推荐阅读路径
-
-### 6.1 第一次了解 IAM
+### 5.1 第一次了解 IAM
 
 ```text
 00-概览/README.md
@@ -443,7 +211,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.2 后端开发读源码
+### 5.2 后端开发读源码
 
 ```text
 00-概览/01-系统架构总览.md
@@ -463,7 +231,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.3 AuthN 重写 / 学习路径
+### 5.3 AuthN 学习路径
 
 ```text
 02-认证AuthN/README.md
@@ -486,7 +254,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.4 AuthZ 重写 / 学习路径
+### 5.4 AuthZ 学习路径
 
 ```text
 03-授权AuthZ/README.md
@@ -508,7 +276,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.5 接入方阅读路径
+### 5.5 接入方学习路径
 
 ```text
 05-接入与契约/README.md
@@ -531,7 +299,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.6 Suggest 模块阅读路径
+### 5.6 Suggest 模块学习路径
 
 ```text
 08-Suggest/README.md
@@ -551,7 +319,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.7 面试准备路径
+### 5.7 宣讲准备路径
 
 ```text
 07-宣讲/README.md
@@ -571,12 +339,12 @@ Profile 联想搜索读模型如何工作？
 目标：
 
 ```text
-把项目讲清楚，并能回答追问。
+把项目讲清楚，能回答追问。
 ```
 
 ---
 
-### 6.8 技术分享路径
+### 5.8 技术分享路径
 
 ```text
 07-宣讲/11-30分钟技术分享脚本.md
@@ -597,7 +365,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 6.9 架构评审路径
+### 5.9 架构评审路径
 
 ```text
 00-概览/01-系统架构总览.md
@@ -616,7 +384,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-## 7. 事实源优先级
+## 6. 事实源优先级
 
 文档中出现事实冲突时，按以下优先级判断：
 
@@ -640,81 +408,9 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-## 8. 核心术语
+## 7. 文档维护规则
 
-| 术语 | 当前约定 |
-| --- | --- |
-| IAM | Identity and Access Management 服务，不等同于单纯用户管理后台 |
-| AuthN | Authentication，负责登录、登录身份、凭证、Session、Token、JWKS、Verify |
-| AuthZ | Authorization，负责 Subject、Role、Resource、Permission、RoleBinding、Check、PolicyVersion |
-| Identity | 身份主体与业务档案关系，负责 User、Profile、ProfileLink |
-| IDP | 第三方身份源基础设施，负责 Provider App、SecretVault、外部 API |
-| User | 登录主体，IAM 内部身份锚点 |
-| LoginIdentity | 某个 User 可使用的一种登录身份 |
-| Credential | 稳定认证材料，如密码哈希、外部账号绑定、服务凭证等 |
-| Challenge | 一次性或短期认证挑战，如验证码、OAuth code、微信 code |
-| Principal | Login 成功后的认证主体摘要，是 Login 与 Token 链路的边界对象 |
-| Profile | 业务档案，例如本人档案、儿童档案、被测评者档案 |
-| ProfileLink | User 与 Profile 的关系事实 |
-| Suggest | Profile 联想搜索读模型，用于 operating 后台快速搜索可见 Profile 候选 |
-| OperatingPrincipal | Suggest 查询中的后台操作员身份视图，回答“谁在查” |
-| ProfileAccessScope | Suggest 查询中的可见范围，回答“能看哪些 Profile” |
-| ProfileSearchTerm | Suggest 索引项读模型，包含 ProfileID、DisplayName、Mobiles、OrgID、OwnerOperatorIDs 等搜索与过滤字段 |
-| ProfileSuggestionRuntime | Suggest 当前活动索引运行时，负责 Current、Replace、ImportDelta |
-| mobile_mask | Suggest REST 返回的脱敏手机号字段，生产环境不返回明文 mobile |
-| Assignment | REST/proto/SDK 对外 wire term，表示角色分配 |
-| RoleBinding | 内部 application/domain 标准术语，表示 subject 与 role 的绑定 |
-| Session | 在线登录态锚点 |
-| AccessToken | 短期访问凭证，当前实现为 JWT |
-| RefreshToken | 服务端可控的续期凭证 |
-| JWS | JWT 的签名表示形式 |
-| JWK | 单个 JSON Web Key |
-| JWKS | JWK Set，公钥发布机制，用于业务服务本地验签 |
-| Online Verify | 在线认证状态判断，用于检查 revoked/session/user/account 状态 |
-| PolicyVersion | tenant 级授权事实版本 |
-| Transactional Outbox | 业务事实和事件记录同事务提交，再由 relay 异步发布 |
-| RuntimeReload | 授权变更提交后刷新当前进程 runtime policy |
-| process | 生命周期编排层 |
-| container | 组合根，不处理请求，不写业务规则 |
-| transport | REST/gRPC 协议适配层 |
-| application | 用例编排层 |
-| domain | 领域规则层 |
-| infra | MySQL、Redis、Casbin、JWT、Outbox、WeChat API 等外部资源适配层 |
-| SDK | Go 服务端接入产品层，不是业务层 |
-| docs-hygiene | 活跃文档断链和退役事实引用检查 |
-| `_archive` | 历史材料区，不作为当前事实源 |
-
----
-
-## 9. 代码与契约入口
-
-| 主题 | 入口 |
-| --- | --- |
-| 根项目说明 | [`../README.md`](../README.md) |
-| 进程入口 | [`../cmd/apiserver`](../cmd/apiserver) |
-| 运行时生命周期 | [`../internal/apiserver/process`](../internal/apiserver/process) |
-| 组合根 | [`../internal/apiserver/container`](../internal/apiserver/container) |
-| REST transport | [`../internal/apiserver/transport/rest`](../internal/apiserver/transport/rest) |
-| gRPC transport | [`../internal/apiserver/transport/grpc`](../internal/apiserver/transport/grpc) |
-| 应用层 | [`../internal/apiserver/application`](../internal/apiserver/application) |
-| 领域层 | [`../internal/apiserver/domain`](../internal/apiserver/domain) |
-| 基础设施层 | [`../internal/apiserver/infra`](../internal/apiserver/infra) |
-| Suggest application | [`../internal/apiserver/application/suggest`](../internal/apiserver/application/suggest) |
-| Suggest domain | [`../internal/apiserver/domain/suggest`](../internal/apiserver/domain/suggest) |
-| Suggest infra/search | [`../internal/apiserver/infra/suggest`](../internal/apiserver/infra/suggest) |
-| Suggest MySQL loader | [`../internal/apiserver/infra/mysql/suggest`](../internal/apiserver/infra/mysql/suggest) |
-| Suggest REST transport | [`../internal/apiserver/transport/rest/suggest`](../internal/apiserver/transport/rest/suggest) |
-| REST 契约 | [`../api/rest`](../api/rest) |
-| gRPC 契约 | [`../api/grpc`](../api/grpc) |
-| SDK | [`../pkg/sdk`](../pkg/sdk) |
-| 架构测试 | [`../internal/pkg/architecture`](../internal/pkg/architecture) |
-| 文档检查脚本 | [`../scripts/check-docs-links.py`](../scripts/check-docs-links.py) |
-
----
-
-## 10. 文档维护规则
-
-### 10.1 不把文档写成源码转述
+### 7.1 不把文档写成源码转述
 
 文档不是逐行解释代码。
 
@@ -730,7 +426,7 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 10.2 不把 API 文档重复成字段清单
+### 7.2 不把 API 文档重复成字段清单
 
 字段、路径、RPC 以 OpenAPI、proto、SDK public API 为准。
 
@@ -738,13 +434,13 @@ Profile 联想搜索读模型如何工作？
 
 ---
 
-### 10.3 不从 `_archive` 复制当前事实
+### 7.3 不从 `_archive` 复制当前事实
 
 `_archive/` 可以用于历史追溯，但不能作为当前架构、当前代码、当前接口事实源。
 
 ---
 
-### 10.4 每篇文档必须能回链证据
+### 7.4 每篇文档必须能回链证据
 
 文档中出现关键判断，应该能指向：
 
@@ -758,7 +454,7 @@ API 契约；
 
 ---
 
-### 10.5 术语必须统一
+### 7.5 术语必须统一
 
 尤其注意：
 
@@ -780,39 +476,7 @@ mobile_mask 不要退回明文 mobile；
 
 ---
 
-### 10.6 不恢复旧 active 目录体系
-
-当前 active 文档入口是：
-
-```text
-00-概览
-01-运行时
-02-认证AuthN
-03-授权AuthZ
-04-身份Identity
-05-接入与契约
-06-架构护栏
-07-宣讲
-08-Suggest
-_archive
-```
-
-不要恢复旧入口：
-
-```text
-02-业务域
-03-接口与集成
-04-基础设施与运维
-05-专题分析
-07-专题分析
-08-宣讲
-```
-
-历史材料应归档到 `_archive/`。
-
----
-
-## 11. 发布检查清单
+## 8. 发布检查清单
 
 文档发布前至少检查：
 
@@ -836,7 +500,7 @@ _archive
 
 ---
 
-## 12. 验证命令
+## 9. 验证命令
 
 基础文档卫生检查：
 
@@ -896,7 +560,7 @@ go test ./internal/apiserver/domain/suggest/... \
 
 ---
 
-## 13. 本文总结
+## 10. 本文总结
 
 `docs/` 是 IAM 的解释层，不是机器契约本身。
 

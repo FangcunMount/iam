@@ -10,29 +10,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// ============= 应用服务接口（Driving Ports）=============
-
-// TokenApplicationService 令牌应用服务 - 令牌管理
-type TokenApplicationService interface {
-	// IssueToken 在登录完成后签发用户会话令牌。
-	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
-
-	// IssueServiceToken 签发服务间访问令牌。
-	IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error)
-
-	// RefreshToken 刷新访问令牌
-	RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error)
-
-	// RevokeAccessToken 撤销访问令牌
-	RevokeAccessToken(ctx context.Context, accessToken string) error
-
-	// RevokeRefreshToken 撤销刷新令牌
-	RevokeRefreshToken(ctx context.Context, refreshToken string) error
-
-	// VerifyToken 验证访问令牌
-	VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error)
-}
-
 // ========================================================
 // ============= TokenApplicationService 实现 =============
 // ========================================================
@@ -48,13 +25,16 @@ type tokenApplicationService struct {
 
 // TokenApplicationDependencies 是 TokenApplicationService 的装配依赖。
 type TokenApplicationDependencies struct {
-	AccessTokenCodec AccessTokenCodec       // 令牌编码器
-	TokenStore       Store                  // 令牌存储
-	SessionManager   SessionManager         // 会话管理器
-	AccessChecker    SubjectAccessEvaluator // 主体访问状态评估器
-	ClaimMapper      ClaimMapper            // 声明映射器
-	AccessTTL        time.Duration          // 令牌有效期
-	RefreshTTL       time.Duration          // 刷新令牌有效期
+	AccessTokenCodec      AccessTokenCodec       // 令牌编码器
+	TokenStore            Store                  // 令牌存储
+	SessionCreator        SessionCreator         // 会话创建器
+	SessionLoader         SessionLoader          // 会话加载器
+	SessionRevoker        SessionRevoker         // 会话撤销器
+	SessionExtender       SessionExtender        // 会话延期器
+	SessionRefreshExpirer SessionRefreshExpirer  // refresh token 过期时间计算器
+	AccessChecker         SubjectAccessEvaluator // 主体访问状态评估器
+	ClaimMapper           ClaimMapper            // 声明映射器
+	AccessTTL             time.Duration          // 令牌有效期
 }
 
 // 确保 tokenApplicationService 实现 TokenApplicationService 接口
@@ -65,28 +45,30 @@ func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicat
 	issuer := newIssuer(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
-		deps.SessionManager,
+		deps.SessionCreator,
+		deps.SessionRefreshExpirer,
 		deps.ClaimMapper,
 		deps.AccessTTL,
-		deps.RefreshTTL,
 	)
 	tokenRefresher := newRefresher(
 		issuer.sessionTokenPairIssuer(),
 		deps.TokenStore,
-		deps.SessionManager,
+		deps.SessionLoader,
+		deps.SessionRevoker,
+		deps.SessionExtender,
 		deps.AccessChecker,
 		deps.ClaimMapper,
 	)
 	tokenVerifier := newVerifier(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
-		deps.SessionManager,
+		deps.SessionLoader,
 		deps.AccessChecker,
 	)
 	revoker := newRevoker(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
-		deps.SessionManager,
+		deps.SessionRevoker,
 	)
 	return &tokenApplicationService{
 		sessionTokenIssuer: issuer.sessionIssuer,

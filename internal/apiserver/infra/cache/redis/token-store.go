@@ -114,11 +114,10 @@ func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*t
 	}
 
 	// 构造 Token 对象
-	ttl := time.Until(data.ExpiresAt)
 	userID := meta.FromUint64(data.UserID)
 	loginIdentityID := meta.FromUint64(data.LoginIdentityID)
 	tenantID := meta.FromUint64(data.TenantID)
-	token := tokenapp.NewRefreshToken(
+	token := tokenapp.NewRefreshTokenWithExpiry(
 		data.TokenID,
 		tokenValue,
 		data.SessionID,
@@ -127,7 +126,7 @@ func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*t
 		tenantID,
 		data.Amr,
 		data.SessionClaims,
-		ttl,
+		data.ExpiresAt,
 	)
 	token.AuthMethod = data.AuthMethod
 	token.Realm = data.Realm

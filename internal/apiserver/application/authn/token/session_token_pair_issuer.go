@@ -12,22 +12,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// sessionTokenPairIssuerPort 基于已存在的 session 签发 access token 并保存 refresh token。
-//
-// Login 会先创建 session 再调用该组件；Refresh 会复用已有 session 后调用该组件。
-type sessionTokenPairIssuerPort interface {
-	// IssueTokenPair 根据认证主体和会话信息签发 access token，并保存新的 refresh token。
-	// 返回值必须包含 access token 和 refresh token。
-	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
-}
-
 // sessionTokenPairIssuer 基于已存在的 session 签发 access token 并保存 refresh token。
 type sessionTokenPairIssuer struct {
-	tokenCodec  AccessTokenCodec // 令牌编码器
-	tokenStore  Store            // 令牌存储
-	claimMapper ClaimMapper      // 声明映射器
-	accessTTL   time.Duration    // 令牌有效期
-	refreshTTL  time.Duration    // 刷新令牌有效期
+	tokenCodec     AccessTokenCodec      // 令牌编码器
+	tokenStore     Store                 // 令牌存储
+	refreshExpirer SessionRefreshExpirer // refresh token 过期时间计算器
+	claimMapper    ClaimMapper           // 声明映射器
+	accessTTL      time.Duration         // 令牌有效期
 }
 
 // 确保 sessionTokenPairIssuer 实现 sessionTokenPairIssuerPort 接口。
@@ -37,16 +28,16 @@ var _ sessionTokenPairIssuerPort = (*sessionTokenPairIssuer)(nil)
 func newSessionTokenPairIssuer(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
+	refreshExpirer SessionRefreshExpirer,
 	claimMapper ClaimMapper,
 	accessTTL time.Duration,
-	refreshTTL time.Duration,
 ) *sessionTokenPairIssuer {
 	return &sessionTokenPairIssuer{
-		tokenCodec:  tokenCodec,
-		tokenStore:  tokenStore,
-		claimMapper: normalizeClaimMapper(claimMapper),
-		accessTTL:   accessTTL,
-		refreshTTL:  refreshTTL,
+		tokenCodec:     tokenCodec,
+		tokenStore:     tokenStore,
+		refreshExpirer: refreshExpirer,
+		claimMapper:    normalizeClaimMapper(claimMapper),
+		accessTTL:      accessTTL,
 	}
 }
 
@@ -58,12 +49,16 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 	if sess == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "session is required")
 	}
-	now := time.Now().UTC()
+
+	// 克隆认证主体声明
 	claims := cloneAnyMap(principal.Claims)
+
+	// 确保认证时间声明存在
+	now := time.Now().UTC()
 	ensureAuthTime(claims, now)
 
-	// 创建主体与会话信息
-	principalWithSession := &Principal{
+	// 颁发访问令牌
+	accessToken, err := s.tokenCodec.IssueAccessToken(ctx, &Principal{
 		UserID:          principal.UserID,
 		LoginIdentityID: principal.LoginIdentityID,
 		SessionID:       sess.SessionID,
@@ -71,39 +66,57 @@ func (s *sessionTokenPairIssuer) IssueTokenPair(ctx context.Context, principal *
 		Realm:           principal.Realm,
 		AMR:             append([]string(nil), principal.AMR...),
 		Claims:          claims,
-	}
-
-	// 颁发访问令牌
-	accessToken, err := s.tokenCodec.IssueAccessToken(ctx, principalWithSession, s.accessTTL)
+	}, s.accessTTL)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate access token")
 	}
 
 	// 颁发刷新令牌
-	refreshTokenValue := uuid.New().String()
-	refreshToken := NewRefreshToken(
-		uuid.New().String(),
-		refreshTokenValue,
-		sess.SessionID,
-		principal.UserID,
-		principal.LoginIdentityID,
-		meta.ZeroID,
-		principal.AMR,
-		s.claimMapper.Encode(claims),
-		s.refreshTTL,
-	)
-	refreshToken.AuthMethod = principal.AuthMethod
-	refreshToken.Realm = principal.Realm
-
-	// 保存刷新令牌
-	if err := s.tokenStore.SaveRefreshToken(ctx, refreshToken); err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to save refresh token")
+	refreshToken, err := s.issueRefreshToken(ctx, principal, sess, claims, now)
+	if err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate refresh token")
 	}
 
 	// 返回令牌对
 	return NewTokenPair(accessToken, refreshToken), nil
 }
 
+// issueRefreshToken 颁发刷新令牌。
+func (s *sessionTokenPairIssuer) issueRefreshToken(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*Token, error) {
+	// 计算下一次 refresh token 的过期时间
+	refreshExpiresAt, err := s.refreshExpirer.NextRefreshExpiresAt(now, sess)
+	if err != nil {
+		return nil, err
+	}
+	// 创建刷新令牌
+	refreshToken := NewRefreshTokenWithExpiry(
+		uuid.New().String(),
+		uuid.New().String(),
+		sess.SessionID,
+		principal.UserID,
+		principal.LoginIdentityID,
+		meta.ZeroID,
+		principal.AMR,
+		s.claimMapper.Encode(claims),
+		refreshExpiresAt,
+	)
+
+	// 设置颁发时间
+	refreshToken.IssuedAt = now
+	// 设置认证方法
+	refreshToken.AuthMethod = principal.AuthMethod
+	// 设置认证域
+	refreshToken.Realm = principal.Realm
+
+	// 保存刷新令牌到存储
+	if err := s.tokenStore.SaveRefreshToken(ctx, refreshToken); err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to save refresh token")
+	}
+
+	return refreshToken, nil
+}
+
+// ensureAuthTime 确保认证时间声明存在。
 func ensureAuthTime(claims map[string]any, now time.Time) {
 	if claims == nil {
 		return
@@ -120,6 +133,7 @@ func ensureAuthTime(claims map[string]any, now time.Time) {
 	claims["auth_time"] = now.Format(time.RFC3339)
 }
 
+// cloneAnyMap 克隆任意映射。
 func cloneAnyMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
 	for key, value := range in {

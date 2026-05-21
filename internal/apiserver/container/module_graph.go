@@ -17,7 +17,7 @@ func (g *moduleGraph) userModuleDependencies() assembler.UserModuleDeps {
 	return assembler.UserModuleDeps{
 		DB:             g.container.mysqlDB,
 		RoleNames:      g.roleNameReader(),
-		SessionManager: g.sessionManager(),
+		SessionRevoker: g.sessionRevoker(),
 	}
 }
 
@@ -71,9 +71,9 @@ func (g *moduleGraph) roleNameReader() assembler.RoleNameReader {
 	return g.container.AuthzModule.RoleNameReader()
 }
 
-func (g *moduleGraph) sessionManager() sessiondomain.Manager {
+func (g *moduleGraph) sessionRevoker() sessiondomain.Revoker {
 	if g == nil || g.container == nil || g.container.AuthnModule == nil {
 		return nil
 	}
-	return g.container.AuthnModule.SessionManager()
+	return g.container.AuthnModule.SessionRevoker()
 }

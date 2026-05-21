@@ -451,6 +451,8 @@ Session -> UserID / LoginIdentityID / Device / Status
 根据 User / LoginIdentity 状态使 refresh 失效。
 ```
 
+Session 的过期边界属于 Session 领域规则，由 SessionManager / LifetimePolicy 统一判断。RefreshToken rotation 可以延长当前 session 的可用时间，但不能突破本次登录的绝对最大生命周期；新的 RefreshToken 过期时间也应被这个 session 边界截断。
+
 ---
 
 ## 6. AccessToken：短期访问凭证
@@ -581,6 +583,7 @@ RefreshToken 通常比 AccessToken 生命周期更长。
 过期；
 轮换；
 与 Session 绑定；
+不能超过 Session 最大生命周期；
 与设备/客户端绑定；
 异常使用检测。
 ```

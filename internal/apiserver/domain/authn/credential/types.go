@@ -6,7 +6,7 @@ import "time"
 type CredentialType string
 
 const (
-	CredPassword CredentialType = "password"
+	CredPassword CredentialType = "password" // 密码
 )
 
 // CredentialStatus 凭据状态

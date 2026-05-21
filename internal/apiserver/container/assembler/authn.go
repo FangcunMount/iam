@@ -48,7 +48,11 @@ type AuthnModule struct {
 	challengeInspectorSource  *redisInfra.ChallengeRepository
 	otpInspectorSource        *redisInfra.OTPVerifierImpl
 	jwksSnapshotReporter      jwksApp.SnapshotReporter
-	sessionManager            sessionDomain.Manager
+	sessionCreator            sessionDomain.Creator
+	sessionLoader             sessionDomain.Loader
+	sessionRevoker            sessionDomain.Revoker
+	sessionExtender           sessionDomain.Extender
+	sessionRefreshExpirer     sessionDomain.RefreshExpirer
 }
 
 // NewAuthnModule 创建认证模块
@@ -128,9 +132,9 @@ func (m *AuthnModule) CacheFamilyInspectors() []cachegovernance.FamilyInspector 
 	return inspectors
 }
 
-// SessionManager 返回认证模块创建的会话管理器。
-func (m *AuthnModule) SessionManager() sessionDomain.Manager {
-	return m.sessionManager
+// SessionRevoker 返回认证模块创建的会话撤销器。
+func (m *AuthnModule) SessionRevoker() sessionDomain.Revoker {
+	return m.sessionRevoker
 }
 
 func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {

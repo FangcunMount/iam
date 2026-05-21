@@ -9,19 +9,24 @@ import (
 
 // LoginIdentity 绑定 IAM 用户到具体的登录标识
 type LoginIdentity struct {
-	ID               meta.ID           // 登录身份ID
-	UserID           meta.ID           // 用户ID
-	Provider         Provider          // 提供者
-	Realm            string            // 域
-	Identifier       string            // 标识
-	GlobalIdentifier string            // 全局标识
-	Status           Status            // 状态
-	VerifiedAt       *time.Time        // 验证时间
-	LinkedAt         time.Time         // 绑定时间
-	Profile          map[string]string // 资料
-	Meta             map[string]string // 元数据
-	CreatedAt        time.Time         // 创建时间
-	UpdatedAt        time.Time         // 更新时间
+	// —— 基础信息 —— //
+	ID     meta.ID // 登录身份ID
+	UserID meta.ID // 用户ID
+
+	// —— 身份信息 —— //
+	Provider         Provider // 提供者
+	Realm            string   // 域
+	Identifier       string   // 标识
+	GlobalIdentifier string   // 全局标识
+
+	// —— 状态信息 —— //
+	Status     Status            // 状态
+	VerifiedAt *time.Time        // 验证时间
+	LinkedAt   time.Time         // 绑定时间
+	Profile    map[string]string // 资料
+	Meta       map[string]string // 元数据
+	CreatedAt  time.Time         // 创建时间
+	UpdatedAt  time.Time         // 更新时间
 }
 
 // UniqueKey 唯一键

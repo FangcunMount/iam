@@ -5,14 +5,6 @@ import (
 	"fmt"
 )
 
-// ClaimMapper 将认证主体附加信息转换为 refresh token 可持久化的字符串快照。
-type ClaimMapper interface {
-	// Encode 编码声明
-	Encode(map[string]any) map[string]string
-	// Decode 解码声明
-	Decode(map[string]string) map[string]any
-}
-
 // stringClaimMapper 字符串声明映射器
 type stringClaimMapper struct{}
 
