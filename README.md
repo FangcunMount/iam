@@ -257,13 +257,11 @@ SDK 是接入产品层，不是业务层。
 | --- | --- |
 | IAM 是什么，整体架构怎么分层 | [docs/00-概览/README.md](docs/00-概览/README.md) |
 | 服务如何启动、装配和关闭 | [docs/01-运行时/README.md](docs/01-运行时/README.md) |
+| User、Profile、ProfileLink 如何建模 | [docs/04-身份Identity/README.md](docs/04-身份Identity/README.md) |
 | 登录、Session、Token、JWKS 如何工作 | [docs/02-认证AuthN/README.md](docs/02-认证AuthN/README.md) |
 | 授权模型、Check、Outbox 如何工作 | [docs/03-授权AuthZ/README.md](docs/03-授权AuthZ/README.md) |
-| User、Profile、ProfileLink 如何建模 | [docs/04-身份Identity/README.md](docs/04-身份Identity/README.md) |
+| Suggest Profile 联想搜索读模型如何工作 | [docs/08-Suggest/README.md](docs/08-Suggest/README.md) |
 | REST/gRPC/SDK 如何接入 | [docs/05-接入与契约/README.md](docs/05-接入与契约/README.md) |
-| 架构和文档如何防漂移 | [docs/06-架构护栏/README.md](docs/06-架构护栏/README.md) |
-| 面试和技术分享怎么讲 | [docs/07-宣讲/README.md](docs/07-宣讲/README.md) |
-| Suggest Profile 联想搜索读模型 | [docs/08-Suggest/README.md](docs/08-Suggest/README.md) |
 
 ```text
 docs/
