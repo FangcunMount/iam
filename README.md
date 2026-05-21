@@ -1,104 +1,67 @@
 # IAM
 
-IAM 是一个面向业务系统接入的身份与访问管理服务，统一提供认证、授权、身份关系、第三方身份源集成、Profile 联想搜索辅助读模型，以及 REST / gRPC / Go SDK 接入能力。
+IAM（Identity and Access Management，身份识别与访问管理）是一个面向业务系统接入的身份与访问管理服务。
 
-它不是普通用户中心，也不是单纯 JWT 登录系统，更不是完整搜索服务。
+它围绕“用户是谁、如何证明用户身份、用户能访问什么资源”三个核心问题，统一提供用户身份建模、账号认证、访问授权、第三方身份源接入、Profile 联想搜索读模型，以及 REST / gRPC / Go SDK 等多种接入能力。
 
-它的核心职责是把：
+## 功能特性
 
-```text
-AuthN 认证
-AuthZ 授权
-Identity 身份关系
-IDP 第三方身份源
-Suggest Profile 联想搜索辅助读模型
-REST / gRPC / SDK 接入
-架构与契约护栏
-```
+IAM 可以拆解为三个核心模块和两个辅助模块。
 
-收敛成一个可装配、可接入、可治理、可持续演进的 Go 服务。
+### 核心模块
 
-[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+1. **Identity：用户身份与档案关系**
 
----
+- 回答“系统中的用户是谁”、“用户与业务档案是什么关系”。
+- 主要负责 User、Profile、ProfileLink 等身份关系模型。
 
-## 30 秒定位
+2.**AuthN：认证**
 
-```text
-IAM 是一个面向业务系统接入的身份与访问管理服务，统一提供登录认证、Session 与 Token 管理、资源授权判定、User/Profile/ProfileLink 身份关系、第三方身份源集成、Profile 联想搜索辅助读模型，以及 REST/gRPC/SDK 接入能力。
-```
+- 回答“如何证明当前请求者是某个系统用户”。
+- 主要负责账号体系、登录方式、凭证校验、Session、Token 签发与校验、JWKS、RefreshToken 等认证能力。
 
-更短一点：
+3.**AuthZ：授权**
 
-```text
-IAM 不是普通用户中心，而是统一处理认证、授权、身份关系、业务系统接入和后台辅助查询的基础服务。
-```
+- 回答“当前用户能否对某个资源执行某个操作”。
+- 主要负责角色、资源、权限、角色绑定、策略判定、策略变更传播等授权能力。
 
-Suggest 的定位需要特别说明：
+### 辅助模块
 
-```text
-Suggest 是 iam-apiserver 内置的 Profile autocomplete 辅助读模型；
-它服务 operating 后台快速搜索当前可见 Profile；
-它不是 IAM 核心身份域、不是完整搜索服务、也不是 AuthZ 权限中心。
-```
+1. **IDP：第三方身份源接入**
 
----
+- 回答“如何接入外部身份提供方，并将外部身份映射为系统内账号或用户”。
+- 主要服务于 AuthN，例如微信、小程序、公众号、企业微信、OAuth Provider 等身份源接入。
 
-## 核心能力
+2.**Suggest：Profile 联想搜索读模型**
 
-| 能力 | 说明 |
-| --- | --- |
-| AuthN 认证 | 登录身份、凭证、挑战、Principal、Session、AccessToken、RefreshToken、Verify、Revoke、JWKS、KeyRotation、Service Token |
-| AuthZ 授权 | Subject、Role、Resource、Permission、RoleBinding、Action、Scope、Check、AuthorizationSnapshot、PolicyVersion、Transactional Outbox |
-| Identity 身份关系 | User、Profile、ProfileLink、MyProfiles、MyProfileLinks、self profile link |
-| IDP 第三方身份源 | 微信/企微应用配置、SecretVault、平台 access_token、外部身份源 API 适配 |
-| Suggest 辅助读模型 | ProfileSearchTerm、OperatingPrincipal、ProfileAccessScope、Trie/Hash Runtime、Full/Delta refresh、mobile_mask、限流、指标、降级 |
-| REST API | 面向 Web、App、管理后台、登录、HTTP 调试和 Suggest Profile autocomplete |
-| gRPC API | 面向可信服务间调用，例如 VerifyToken、AuthZ Check、Identity/ProfileLink 查询 |
-| Go SDK | 面向 Go 业务服务，封装 REST/gRPC/JWKS/Verifier/ServiceAuth/AuthZ/Identity/IDP |
-| CacheGovernance | token、session、OTP、JWKS、IDP 等缓存族状态读取与 debug |
-| Transactional Outbox | 授权版本事件和其他领域事件的可靠发布机制 |
-| 架构护栏 | architecture tests、REST/gRPC contract tests、SDK compile test、Suggest tests、docs-hygiene |
+- 回答“如何根据关键词快速搜索候选用户档案”。
+- 主要作为面向管理端、运营端或业务系统的辅助查询能力，不直接承担核心身份语义。
 
----
+## 软件架构
 
-## 系统架构
+### 分层架构
 
-IAM 采用分层与六边形架构组织代码。
+![IAM 分层架构图](docs/_images/architecture/layer-architecture.png)
 
-```mermaid
-flowchart TD
-    Clients["External Clients<br/>Web / App / Backend / Admin / SDK"]
-    Access["REST / gRPC / SDK"]
-    Transport["Transport<br/>REST handlers / gRPC services / middleware"]
-    Application["Application<br/>Use cases / UoW / orchestration"]
-    Domain["Domain<br/>AuthN / AuthZ / Identity / Suggest rules"]
-    Infra["Infrastructure<br/>MySQL / Redis / Casbin / JWT / Outbox / WeChat API / Suggest Search"]
+![IAM 数据流架构](docs/_images/architecture/dataflow-architecture.png)
 
-    Clients --> Access
-    Access --> Transport
-    Transport --> Application
-    Application --> Domain
-    Application --> Infra
-    Infra --> Domain
-```
+### 六边形架构
 
-分层职责：
+![IAM 六边形架构图](docs/_images/architecture/hexagonal-architecture.png)
 
 | 层次 | 位置 | 职责 |
 | --- | --- | --- |
-| 进程入口 | [`cmd/apiserver`](cmd/apiserver) | `iam-apiserver` 服务入口 |
-| 生命周期管理 | [`internal/apiserver/process`](internal/apiserver/process) | 配置、资源初始化、container、REST/gRPC、后台任务、优雅关闭 |
-| 组合根 | [`internal/apiserver/container`](internal/apiserver/container) | 装配 AuthN、AuthZ、Identity、IDP、Suggest、Outbox 等模块 |
-| REST 适配层 | [`internal/apiserver/transport/rest`](internal/apiserver/transport/rest) | HTTP 路由、中间件、DTO、错误映射、debug 接口、Suggest REST |
-| gRPC 适配层 | [`internal/apiserver/transport/grpc`](internal/apiserver/transport/grpc) | Proto service 注册、interceptor、mapper |
-| 应用层 | [`internal/apiserver/application`](internal/apiserver/application) | 用例编排、事务边界、命令/查询、跨模块协作 |
-| 领域层 | [`internal/apiserver/domain`](internal/apiserver/domain) | 实体、值对象、领域服务、业务规则、端口定义 |
-| 基础设施层 | [`internal/apiserver/infra`](internal/apiserver/infra) | MySQL、Redis、Casbin、JWT、Outbox、微信 API、Suggest Trie/Hash Runtime 等适配器 |
-| SDK | [`pkg/sdk`](pkg/sdk) | Go 服务端接入 IAM 的产品化封装 |
+| 进程入口 | [cmd/apiserver](cmd/apiserver) | iam-apiserver 服务入口 |
+| 生命周期管理 | [internal/apiserver/process](internal/apiserver/process) | 配置、资源初始化、container、REST/gRPC、后台任务、优雅关闭 |
+| 组合根 | [internal/apiserver/container](internal/apiserver/container) | 装配 AuthN、AuthZ、Identity、IDP、Suggest、Outbox 等模块 |
+| REST 适配层 | [internal/apiserver/transport/rest](internal/apiserver/transport/rest) | HTTP 路由、中间件、DTO、错误映射、debug 接口、Suggest REST |
+| gRPC 适配层 | [internal/apiserver/transport/grpc](internal/apiserver/transport/grpc) | Proto service 注册、interceptor、mapper |
+| 应用层 | [internal/apiserver/application](internal/apiserver/application) | 用例编排、事务边界、命令/查询、跨模块协作 |
+| 领域层 | [internal/apiserver/domain](internal/apiserver/domain) | 实体、值对象、领域服务、业务规则、端口定义 |
+| 基础设施层 | [internal/apiserver/infra](internal/apiserver/infra) | MySQL、Redis、Casbin、JWT、Outbox、微信 API、Suggest Trie/Hash Runtime 等适配器 |
+| SDK | [pkg/sdk](pkg/sdk) | Go 服务端接入 IAM 的产品化封装 |
 
-核心原则：
+**核心原则：**
 
 ```text
 main 很薄；
@@ -111,224 +74,95 @@ infra 管外部资源；
 Suggest 是辅助读模型，不越权替代 Identity 或 AuthZ。
 ```
 
----
+#### 模块边界
 
-## 模块边界
+![IAM 模块边界图](docs/_images/architecture/module-boundary.png)
 
-```mermaid
-flowchart LR
-    AuthN["AuthN<br/>Login / Session / Token / JWKS"]
-    AuthZ["AuthZ<br/>Role / Resource / Permission / Check"]
-    Identity["Identity<br/>User / Profile / ProfileLink"]
-    IDP["IDP<br/>Provider App / SecretVault / Provider API"]
-    Suggest["Suggest<br/>Profile autocomplete read model"]
-    Access["REST / gRPC / SDK"]
-    Outbox["Transactional Outbox"]
+| 模块 | 边界 |
+| --- | --- |
+| AuthN | AuthN 负责认证态，负责 LoginIdentity、Credential、Challenge、Principal、Session、Token、JWKS |
+| AuthZ | AuthZ 负责访问权，负责 Subject、Role、Resource、Permission、RoleBinding、Check、PolicyVersion、Outbox |
+| Identity | Identity 负责用户和业务档案关系，负责 User、Profile、ProfileLink |
+| IDP | IDP 负责外部身份源基础设施，负责微信、企微等外部身份源适配 |
+| Suggest | Suggest 负责 Profile 联想搜索读模型，负责 Profile 联想搜索读模型 |
 
-    Access --> AuthN
-    Access --> AuthZ
-    Access --> Identity
-    Access --> IDP
-    Access --> Suggest
+## 快速开始
 
-    AuthN -->|"User status / principal anchor"| Identity
-    AuthN -->|"external identity source"| IDP
-    AuthZ -->|"subject=user:<id>"| Identity
-    AuthZ -->|"version_changed"| Outbox
-    Identity -."ProfileSearchTerm projection".-> Suggest
-    AuthZ -."ProfileAccessScope context".-> Suggest
+### 依赖检查
+
+运行 IAM 前，请确保本地环境已经安装以下依赖：
+
+- Go 1.25+
+- Make
+- MySQL
+- Redis
+- Docker，可选，运行 API 契约校验时需要
+
+### 构建
+
+```bash
+make deps
+make build
 ```
 
----
+### 运行
 
-### AuthN：认证态
-
-AuthN 负责回答：
-
-```text
-你如何证明你是谁？
-这次登录态和 token 当前是否仍然有效？
+```bash
+make run APISERVER_CONFIG=configs/apiserver.dev.yaml
 ```
 
-核心链路：
+### 健康检查
 
-```text
-Login request
-  -> LoginMethod / ProofFactory
-  -> Auth proof
-  -> Authenticator
-  -> Principal
-  -> Session
-  -> AccessToken
-  -> RefreshToken
-  -> JWKS / Verify / Revoke / Refresh
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/.well-known/jwks.json
 ```
 
-关键边界：
+### 测试
 
-```text
-JWT 只是短期 AccessToken 的实现；
-Session 是在线登录态锚点；
-RefreshToken 是服务端可控的续期凭证；
-JWKS 证明签名可信；
-Online Verify 证明 token 当前可用。
+```bash
+make test
 ```
 
----
+常用质量检查：
 
-### AuthZ：访问权
-
-AuthZ 负责回答：
-
-```text
-某个 subject 在某个 tenant domain 下，能不能对某个 resource 执行某个 action，并且满足某个 scope？
+```bash
+make docs-hygiene
+go test ./internal/pkg/architecture
+go test ./pkg/sdk/...
 ```
 
-核心模型：
+涉及 REST 契约：
 
-```text
-Subject
-  -> RoleBinding
-  -> Role
-  -> Permission
-  -> Resource / Action / Scope
-  -> AuthorizationDecision
+```bash
+make docs-swagger
+make api-validate
 ```
 
-关键边界：
+涉及 gRPC 契约：
 
-```text
-AuthZ 不是 user.role；
-Casbin 是 infra runtime engine，不是领域模型；
-PolicyVersion 表达授权事实版本变化；
-Transactional Outbox 保证授权版本变化最终可靠传播。
+```bash
+make proto-gen
+go test ./internal/apiserver/transport/grpc
 ```
 
----
+涉及 Suggest：
 
-### Identity：身份与档案关系
-
-Identity 负责回答：
-
-```text
-系统内部这个人是谁？
-这个人和哪些业务档案有关？
-这些关系是否仍然有效？
+```bash
+go test ./internal/apiserver/domain/suggest/... \
+  ./internal/apiserver/application/suggest/... \
+  ./internal/apiserver/infra/suggest/... \
+  ./internal/apiserver/infra/mysql/suggest/... \
+  ./internal/apiserver/transport/rest/suggest/...
 ```
 
-核心模型：
+## 使用指南
 
-```text
-User -- ProfileLink -- Profile
-```
-
-其中：
-
-- `User` 是登录主体和身份锚点；
-- `Profile` 是业务档案；
-- `ProfileLink` 是 User 与 Profile 之间的关系事实；
-- `ProfileLink` 可以作为当前用户访问档案的关系 guard，但不是 AuthZ permission；
-- `ProfileLink` 也不是 Suggest 的 `ProfileAccessScope`。
-
----
-
-### IDP：第三方身份源基础设施
-
-IDP 负责回答：
-
-```text
-第三方身份源如何接入？
-微信/企微应用、secret、access_token 如何管理？
-```
-
-IDP 不直接签发 IAM token。
-
-微信/企微登录最终仍回到 AuthN 的：
-
-```text
-LoginIdentity / account binding
-Principal
-Session
-AccessToken
-RefreshToken
-```
-
----
-
-### Suggest：Profile 联想搜索辅助读模型
-
-Suggest 负责回答：
-
-```text
-当前 operating 操作员输入关键词时，如何快速返回他有权看到的 Profile 候选？
-```
-
-它服务管理后台 autocomplete，典型入口是：
-
-```http
-GET /api/v2/suggest/profile?k={keyword}&limit={limit}
-```
-
-核心链路：
-
-```text
-Suggest REST
-  -> OperatingPrincipal
-  -> ProfileAccessScopeProvider
-  -> ProfileAccessScope
-  -> ProfileSuggestionRuntime
-  -> Trie / Hash match
-  -> scope filter
-  -> ranking
-  -> mobile_mask DTO
-```
-
-关键边界：
-
-```text
-Suggest 不是完整搜索服务；
-Suggest 不是 AuthZ 权限中心；
-Suggest 不是 Identity 核心域；
-ProfileSearchTerm 不是 Profile 聚合本体；
-ProfileAccessScope 不是 ProfileLink；
-手机号搜索必须授权、限流、脱敏；
-响应返回 mobile_mask，不返回明文 mobile；
-索引不可用时可降级为空结果，不能绕过权限直接查全局 MySQL。
-```
-
----
-
-## 运行时主链路
-
-```mermaid
-sequenceDiagram
-    participant Main as "cmd/apiserver"
-    participant App as "internal/apiserver/app.go"
-    participant Process as "process"
-    participant Container as "container"
-    participant REST as "transport/rest"
-    participant GRPC as "transport/grpc"
-    participant Tasks as "runtime tasks"
-
-    Main->>App: NewApp("iam-apiserver").Run()
-    App->>Process: Run(cfg)
-    Process->>Process: createAPIServer()
-    Process->>Process: PrepareRun()
-    Process->>Container: Initialize()
-    Container-->>Process: capabilities
-    Process->>REST: RegisterRoutes(BuildRESTDeps)
-    Process->>GRPC: RegisterServices(BuildGRPCDeps)
-    Process->>Tasks: key rotation / outbox relay / suggest refresh
-    Process->>Process: preparedAPIServer.Run()
-```
-
----
-
-## API 与 SDK
+IAM 支持 REST、gRPC 和 Go SDK 三种接入方式。
 
 ### REST API
 
-REST 使用 OpenAPI 3.1，适合 Web、App、管理后台、登录、HTTP 调试和 Suggest Profile autocomplete。
+REST API 适合 Web、App、管理后台、登录、HTTP 调试和 Suggest Profile autocomplete。
 
 契约入口：
 
@@ -353,8 +187,6 @@ GET /api/v2/suggest/profile?k={keyword}&limit={limit}
 响应只返回 mobile_mask，不返回明文 mobile。
 ```
 
----
-
 ### gRPC API
 
 gRPC 面向可信服务间调用，当前发布 v2 proto。
@@ -366,8 +198,6 @@ gRPC 面向可信服务间调用，当前发布 v2 proto。
 - [api/grpc/iam/authz/v2/authz.proto](api/grpc/iam/authz/v2/authz.proto)
 - [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto)
 - [api/grpc/iam/idp/v2/idp.proto](api/grpc/iam/idp/v2/idp.proto)
-
----
 
 ### Go SDK
 
@@ -417,78 +247,6 @@ SDK 是接入产品层，不是业务层。
 
 它封装 REST/gRPC/JWKS/ServiceAuth/AuthZ Check 等接入复杂度，但不定义 IAM 业务规则。
 
----
-
-## 快速开始
-
-### 环境依赖
-
-- Go 1.25+
-- Make
-- MySQL
-- Redis
-- Docker（可选，运行 API 契约校验时需要）
-
-### 构建
-
-```bash
-make deps
-make build
-```
-
-### 运行
-
-```bash
-make run APISERVER_CONFIG=configs/apiserver.dev.yaml
-```
-
-### 健康检查
-
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/.well-known/jwks.json
-```
-
-### 测试
-
-```bash
-make test
-```
-
-### 常用质量检查
-
-```bash
-make docs-hygiene
-go test ./internal/pkg/architecture
-go test ./pkg/sdk/...
-```
-
-涉及 REST 契约：
-
-```bash
-make docs-swagger
-make api-validate
-```
-
-涉及 gRPC 契约：
-
-```bash
-make proto-gen
-go test ./internal/apiserver/transport/grpc
-```
-
-涉及 Suggest：
-
-```bash
-go test ./internal/apiserver/domain/suggest/... \
-  ./internal/apiserver/application/suggest/... \
-  ./internal/apiserver/infra/suggest/... \
-  ./internal/apiserver/infra/mysql/suggest/... \
-  ./internal/apiserver/transport/rest/suggest/...
-```
-
----
-
 ## 文档导航
 
 新版文档中心位于 [docs/README.md](docs/README.md)。
@@ -506,17 +264,9 @@ go test ./internal/apiserver/domain/suggest/... \
 | 架构和文档如何防漂移 | [docs/06-架构护栏/README.md](docs/06-架构护栏/README.md) |
 | 面试和技术分享怎么讲 | [docs/07-宣讲/README.md](docs/07-宣讲/README.md) |
 | Suggest Profile 联想搜索读模型 | [docs/08-Suggest/README.md](docs/08-Suggest/README.md) |
-| 30 分钟技术分享脚本 | [docs/07-宣讲/11-30分钟技术分享脚本.md](docs/07-宣讲/11-30分钟技术分享脚本.md) |
-| 架构图素材 | [docs/07-宣讲/12-架构图素材索引.md](docs/07-宣讲/12-架构图素材索引.md) |
-| 面试追问证据 | [docs/07-宣讲/13-面试追问证据索引.md](docs/07-宣讲/13-面试追问证据索引.md) |
-
----
-
-## 文档体系
 
 ```text
 docs/
-├── README.md
 ├── 00-概览/
 ├── 01-运行时/
 ├── 02-认证AuthN/
@@ -526,117 +276,61 @@ docs/
 ├── 06-架构护栏/
 ├── 07-宣讲/
 ├── 08-Suggest/
-└── _archive/
+└── README.md
 ```
 
-说明：
+## 如何贡献
 
-- `00-06` 是主事实层，解释当前系统核心能力如何实现；
-- `07-宣讲` 是表达层，服务技术分享、面试准备、架构图和追问证据；
-- `08-Suggest` 是 Profile 联想搜索辅助读模型事实层；
-- `_archive` 只保存历史材料，不作为当前事实源。
+提交代码或文档时，请遵守以下规则。
 
----
+### 保持分层边界
 
-## 事实源优先级
+- domain 不依赖 infra/database；
+- application 不依赖 transport/infra；
+- transport 不直接访问 container 或全局配置；
+- container 只做组合根，不处理请求；
+- Suggest REST handler 不直接操作 Trie/Hash；
+- Suggest domain 不依赖 infra/search。
 
-当 README、docs、API、代码出现不一致时，按以下优先级判断：
+### 同步机器契约
 
-1. 源码与运行时行为  
-   `cmd/`、`internal/apiserver/`、`internal/pkg/`、`pkg/`
+- 修改 REST 路由时同步 `api/rest`；
+- 修改 Suggest REST 时同步 `api/rest/suggest.v2.yaml`；
+- 修改 gRPC service/message 时同步 `api/grpc`；
+- 修改 SDK 公开 API 时同步 `pkg/sdk` 文档和 compile test。
 
-2. 机器契约、配置和迁移  
-   `api/rest`、`api/grpc`、`configs`、`internal/pkg/migration/migrations`、`pkg/sdk` public API
+### 同步文档
 
-3. 测试与架构护栏  
-   `internal/pkg/architecture`、REST/gRPC transport tests、SDK public API compile tests、Suggest tests、docs-hygiene
+- 代码行为变化时更新 `docs/`；
+- Suggest 行为变化时同步 `docs/08-Suggest` 和 `docs/07-宣讲` 中相关表达；
+- 不从 `_archive` 复制当前事实；
+- 不恢复旧目录作为 active 文档入口。
 
-4. 当前事实层文档  
-   `docs/00-概览` 到 `docs/06-架构护栏`、`docs/08-Suggest`
+### 保护安全边界
 
-5. 表达层文档  
-   `docs/07-宣讲`
+- Suggest 查询必须经过 `ProfileAccessScope` 过滤；
+- 不把 `ProfileLink` 写成 `ProfileAccessScope`；
+- 不返回明文 mobile，只返回 `mobile_mask`；
+- 降级时不能绕过权限直接查全局 MySQL。
 
-6. 历史文档与归档材料  
-   `docs/_archive` 只用于历史追溯，不作为当前事实源
-
-特别说明：
-
-```text
-Suggest 相关事实优先看：
-api/rest/suggest.v2.yaml；
-internal/apiserver/transport/rest/suggest；
-internal/apiserver/application/suggest；
-internal/apiserver/domain/suggest；
-internal/apiserver/infra/suggest；
-internal/apiserver/infra/mysql/suggest；
-docs/08-Suggest。
-```
-
----
-
-## 工程质量与架构护栏
-
-IAM 使用自动化护栏防止系统长期演进成大泥球。
-
-| 护栏 | 作用 |
-| --- | --- |
-| architecture tests | 保护 domain/application/transport/container 的依赖方向 |
-| REST contract tests | 保护 OpenAPI 与运行时路由一致 |
-| gRPC proto contract tests | 保护 proto service 与 runtime registration 一致 |
-| SDK public API compile test | 保护 Go SDK 对外公开稳定面 |
-| Suggest tests | 保护 ProfileAccessScope、mobile_mask、降级和索引刷新语义 |
-| docs-hygiene | 保护活跃文档链接、术语和事实源不漂移 |
-
-常用命令：
+### 运行验证
 
 ```bash
-go test ./internal/pkg/architecture
 make docs-hygiene
+go test ./internal/pkg/architecture
+make api-validate
+make proto-gen
 go test ./pkg/sdk/...
+go test ./internal/apiserver/domain/suggest/... \
+  ./internal/apiserver/application/suggest/... \
+  ./internal/apiserver/infra/suggest/... \
+  ./internal/apiserver/infra/mysql/suggest/... \
+  ./internal/apiserver/transport/rest/suggest/...
 ```
 
----
+## 关于作者
 
-## 贡献指南
-
-提交代码或文档时，请遵守以下规则：
-
-1. **保持分层边界**
-   - domain 不依赖 infra/database；
-   - application 不依赖 transport/infra；
-   - transport 不直接访问 container 或全局配置；
-   - container 只做组合根，不处理请求；
-   - Suggest REST handler 不直接操作 Trie/Hash；
-   - Suggest domain 不依赖 infra/search。
-
-2. **同步机器契约**
-   - 修改 REST 路由时同步 `api/rest`；
-   - 修改 Suggest REST 时同步 `api/rest/suggest.v2.yaml`；
-   - 修改 gRPC service/message 时同步 `api/grpc`；
-   - 修改 SDK 公开 API 时同步 `pkg/sdk` 文档和 compile test。
-
-3. **同步文档**
-   - 代码行为变化时更新 `docs/`；
-   - Suggest 行为变化时同步 `docs/08-Suggest` 和 `docs/07-宣讲` 中相关表达；
-   - 不从 `_archive` 复制当前事实；
-   - 不恢复旧目录作为 active 文档入口。
-
-4. **保护安全边界**
-   - Suggest 查询必须经过 `ProfileAccessScope` 过滤；
-   - 不把 `ProfileLink` 写成 `ProfileAccessScope`；
-   - 不返回明文 mobile，只返回 `mobile_mask`；
-   - 降级时不能绕过权限直接查全局 MySQL。
-
-5. **运行验证**
-   - 基础检查：`make docs-hygiene`
-   - 架构检查：`go test ./internal/pkg/architecture`
-   - REST 检查：`make api-validate`
-   - gRPC 检查：`make proto-gen`
-   - SDK 检查：`go test ./pkg/sdk/...`
-   - Suggest 检查：`go test ./internal/apiserver/domain/suggest/... ./internal/apiserver/application/suggest/... ./internal/apiserver/infra/suggest/... ./internal/apiserver/infra/mysql/suggest/... ./internal/apiserver/transport/rest/suggest/...`
-
----
+本项目由 FangcunMount 维护。
 
 ## 许可证
 
