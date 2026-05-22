@@ -1,5 +1,11 @@
 -- Migration: bridge pre-000012 identity resource aliases and normalize legacy Casbin tenant domain "1".
--- Idempotent and conflict-safe for dirty-state recovery.
+-- 000014-v2: delete-legacy-before-update (idempotent, conflict-safe).
+
+DELETE `extra` FROM `authz_resources` AS `extra`
+INNER JOIN `authz_resources` AS `keep`
+    ON `extra`.`key` = `keep`.`key`
+   AND `extra`.`id` > `keep`.`id`
+WHERE `extra`.`key` IN ('iam:accounts', 'iam:children', 'iam:guardianships');
 
 DELETE `legacy` FROM `authz_resources` AS `legacy`
 WHERE `legacy`.`key` IN ('iam:accounts', 'iam:children', 'iam:guardianships')
@@ -23,6 +29,19 @@ SET `key` = CASE `key`
     ELSE `key`
 END
 WHERE `key` IN ('iam:accounts', 'iam:children', 'iam:guardianships');
+
+DELETE `extra` FROM `casbin_rule` AS `extra`
+INNER JOIN `casbin_rule` AS `keep`
+    ON `extra`.`ptype` = `keep`.`ptype`
+   AND `extra`.`v0` = `keep`.`v0`
+   AND `extra`.`v1` = `keep`.`v1`
+   AND `extra`.`v2` = `keep`.`v2`
+   AND `extra`.`v3` = `keep`.`v3`
+   AND COALESCE(`extra`.`v4`, '') = COALESCE(`keep`.`v4`, '')
+   AND COALESCE(`extra`.`v5`, '') = COALESCE(`keep`.`v5`, '')
+   AND `extra`.`id` > `keep`.`id`
+WHERE `extra`.`ptype` = 'p'
+  AND `extra`.`v2` IN ('iam:accounts', 'iam:children', 'iam:guardianships');
 
 DELETE `legacy` FROM `casbin_rule` AS `legacy`
 INNER JOIN `casbin_rule` AS `canonical`
