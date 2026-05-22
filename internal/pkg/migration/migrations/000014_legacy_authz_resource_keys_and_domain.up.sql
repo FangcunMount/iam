@@ -1,6 +1,20 @@
 -- Migration: bridge pre-000012 identity resource aliases and normalize legacy Casbin tenant domain "1".
 -- Idempotent and conflict-safe for dirty-state recovery.
 
+DELETE `legacy` FROM `authz_resources` AS `legacy`
+WHERE `legacy`.`key` IN ('iam:accounts', 'iam:children', 'iam:guardianships')
+  AND EXISTS (
+      SELECT 1
+      FROM `authz_resources` AS `canonical`
+      WHERE `canonical`.`key` = CASE `legacy`.`key`
+          WHEN 'iam:accounts' THEN 'iam:authn:collection:login_identities'
+          WHEN 'iam:children' THEN 'iam:identity:collection:profiles'
+          WHEN 'iam:guardianships' THEN 'iam:identity:collection:profile-links'
+          ELSE `legacy`.`key`
+      END
+        AND `canonical`.`deleted_at` IS NULL
+  );
+
 UPDATE `authz_resources`
 SET `key` = CASE `key`
     WHEN 'iam:accounts' THEN 'iam:authn:collection:login_identities'
@@ -9,6 +23,23 @@ SET `key` = CASE `key`
     ELSE `key`
 END
 WHERE `key` IN ('iam:accounts', 'iam:children', 'iam:guardianships');
+
+DELETE `legacy` FROM `casbin_rule` AS `legacy`
+INNER JOIN `casbin_rule` AS `canonical`
+    ON `canonical`.`ptype` = 'p'
+   AND `canonical`.`v0` = `legacy`.`v0`
+   AND `canonical`.`v1` = `legacy`.`v1`
+   AND `canonical`.`v3` = `legacy`.`v3`
+   AND COALESCE(`canonical`.`v4`, '') = COALESCE(`legacy`.`v4`, '')
+   AND COALESCE(`canonical`.`v5`, '') = COALESCE(`legacy`.`v5`, '')
+   AND `canonical`.`v2` = CASE `legacy`.`v2`
+       WHEN 'iam:accounts' THEN 'iam:authn:collection:login_identities'
+       WHEN 'iam:children' THEN 'iam:identity:collection:profiles'
+       WHEN 'iam:guardianships' THEN 'iam:identity:collection:profile-links'
+       ELSE `legacy`.`v2`
+   END
+WHERE `legacy`.`ptype` = 'p'
+  AND `legacy`.`v2` IN ('iam:accounts', 'iam:children', 'iam:guardianships');
 
 UPDATE `casbin_rule`
 SET `v2` = CASE `v2`
