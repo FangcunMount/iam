@@ -47,16 +47,14 @@ type PasswordHasher interface {
 	Pepper() string
 }
 
-// OTPVerifier OTP验证服务（一次性密码验证）
-// 职责：验证OTP并消费（防止重放）
-type OTPVerifier interface {
-	// VerifyAndConsume 验证OTP并标记为已使用
-	// scene: "login" | "register" | ...
-	// 返回：是否验证通过
-	VerifyAndConsume(ctx context.Context, phoneE164, scene, code string) bool
+// LoginPhoneOTPVerifier 登录短信验证码验证服务。
+// 职责：验证登录 OTP 并消费（防止重放）。
+type LoginPhoneOTPVerifier interface {
+	// VerifyAndConsumeLoginPhoneOTP 验证登录 OTP 并标记为已使用。
+	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, code string) bool
 }
 
-// OTPCodeStore 写入待校验的 OTP（与 OTPVerifier 使用相同的 Redis key 约定）
+// OTPCodeStore 写入待校验的 OTP（与 Redis OTP 消费实现使用相同的 key 约定）
 type OTPCodeStore interface {
 	// Put 写入验证码，TTL 到期后自动失效
 	Put(ctx context.Context, phoneE164, scene, code string, ttl time.Duration) error

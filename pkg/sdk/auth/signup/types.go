@@ -4,6 +4,7 @@ package signup
 import (
 	"strings"
 
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/pkg/sdk/auth/internal/restclient"
 )
 
@@ -27,6 +28,16 @@ func (r WechatMiniProgramRequest) Validate() error {
 	}
 	if strings.TrimSpace(r.JsCode) == "" {
 		return restclient.InvalidArgument("jsCode is required")
+	}
+	if phone := strings.TrimSpace(r.Phone); phone != "" {
+		if _, err := meta.NewPhone(phone); err != nil {
+			return restclient.InvalidArgument("invalid phone: " + err.Error())
+		}
+	}
+	if email := strings.TrimSpace(r.Email); email != "" {
+		if _, err := meta.NewEmail(email); err != nil {
+			return restclient.InvalidArgument("invalid email: " + err.Error())
+		}
 	}
 	return nil
 }

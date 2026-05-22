@@ -50,7 +50,7 @@ func (m *AuthnModule) initializeApplication(
 	m.challengeService = challengeService
 	m.loginIdentityLinking = linkingApp.NewLinker(linkingApp.Dependencies{
 		LoginIdentities: infra.loginIdentityStore,
-		Challenge:       challengeService,
+		PhoneLinkOTP:    newPhoneLinkOTPVerifierAdapter(challengeService),
 		IDP:             infra.idp,
 		WechatApps:      infra.wechatAppQuerier,
 		SecretVault:     infra.secretVault,
@@ -72,7 +72,7 @@ func (m *AuthnModule) initializeApplication(
 
 	authenticator := authentication.NewAuthenticator(
 		authentication.NewPasswordAuthStrategyWithLoginIdentity(infra.credentialRepo, infra.loginIdentityRepo, hasher),
-		authentication.NewPhoneOTPAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, challengeService),
+		newPhoneOTPAuthStrategy(infra.loginIdentityRepo, challengeService),
 		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 	)

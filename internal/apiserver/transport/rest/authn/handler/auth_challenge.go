@@ -2,7 +2,6 @@ package handler
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/gin-gonic/gin"
 
@@ -28,11 +27,11 @@ func (h *AuthHandler) SendLoginPhoneOTP(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
-	if h.challenge == nil {
+	if h.loginPhoneOTPSender == nil {
 		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "login phone OTP is not configured"))
 		return
 	}
-	if err := h.challenge.SendSMSOTP(c.Request.Context(), challengeapp.SceneLoginPhoneOTP, reqBody.Phone); err != nil {
+	if err := h.loginPhoneOTPSender.SendLoginPhoneOTP(c.Request.Context(), reqBody.Phone); err != nil {
 		h.Error(c, err)
 		return
 	}

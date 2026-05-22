@@ -19,15 +19,15 @@ import (
 
 type LoginIdentityHandler struct {
 	*BaseHandler
-	linking   linkingapp.Linker
-	challenge challengeapp.Service
+	linking            linkingapp.Linker
+	phoneLinkOTPSender challengeapp.PhoneLinkOTPSender
 }
 
-func NewLoginIdentityHandler(linking linkingapp.Linker, challenge challengeapp.Service) *LoginIdentityHandler {
+func NewLoginIdentityHandler(linking linkingapp.Linker, phoneLinkOTPSender challengeapp.PhoneLinkOTPSender) *LoginIdentityHandler {
 	return &LoginIdentityHandler{
-		BaseHandler: NewBaseHandler(),
-		linking:     linking,
-		challenge:   challenge,
+		BaseHandler:        NewBaseHandler(),
+		linking:            linking,
+		phoneLinkOTPSender: phoneLinkOTPSender,
 	}
 }
 
@@ -80,11 +80,11 @@ func (h *LoginIdentityHandler) SendPhoneLinkChallenge(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
-	if h.challenge == nil {
+	if h.phoneLinkOTPSender == nil {
 		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "phone link challenge is not configured"))
 		return
 	}
-	if err := h.challenge.SendSMSOTP(c.Request.Context(), challengeapp.SceneLinkPhoneOTP, body.Phone); err != nil {
+	if err := h.phoneLinkOTPSender.SendPhoneLinkOTP(c.Request.Context(), body.Phone); err != nil {
 		h.Error(c, err)
 		return
 	}

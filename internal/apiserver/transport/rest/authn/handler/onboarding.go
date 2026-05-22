@@ -43,6 +43,10 @@ func (h *OnboardingHandler) SignUpWithWeChatMiniProgram(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
+	if err := reqBody.Validate(); err != nil {
+		h.Error(c, err)
+		return
+	}
 
 	signupReq, err := wechatMiniProgramSignupRequestFromHTTP(reqBody)
 	if err != nil {
@@ -117,11 +121,19 @@ func (h *OnboardingHandler) EnsureMockConsumer(c *gin.Context) {
 func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProgramRequest) (signupApp.SignupRequest, error) {
 	var phone meta.Phone
 	if strings.TrimSpace(reqBody.Phone) != "" {
-		phone, _ = meta.NewPhone(strings.TrimSpace(reqBody.Phone))
+		parsed, err := meta.NewPhone(strings.TrimSpace(reqBody.Phone))
+		if err != nil {
+			return signupApp.SignupRequest{}, perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
+		}
+		phone = parsed
 	}
 	var email meta.Email
 	if strings.TrimSpace(reqBody.Email) != "" {
-		email, _ = meta.NewEmail(strings.TrimSpace(reqBody.Email))
+		parsed, err := meta.NewEmail(strings.TrimSpace(reqBody.Email))
+		if err != nil {
+			return signupApp.SignupRequest{}, perrors.WithCode(code.ErrInvalidArgument, "invalid email: %v", err)
+		}
+		email = parsed
 	}
 
 	appID := strings.TrimSpace(reqBody.AppID)

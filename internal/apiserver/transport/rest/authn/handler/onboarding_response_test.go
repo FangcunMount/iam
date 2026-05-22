@@ -3,8 +3,11 @@ package handler
 import (
 	"testing"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
+	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -29,4 +32,42 @@ func TestSignupResultToResponseUsesNullableCredential(t *testing.T) {
 	require.NotNil(t, withCredential.Credential)
 	require.Equal(t, uint64(3), withCredential.Credential.ID)
 	require.Equal(t, "password", withCredential.Credential.Type)
+}
+
+func TestWechatMiniProgramSignupRequestFromHTTPRejectsInvalidOptionalContacts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   req.SignUpWithWeChatMiniProgramRequest
+	}{
+		{
+			name: "invalid phone",
+			in: req.SignUpWithWeChatMiniProgramRequest{
+				Name:   "alice",
+				Phone:  "not-a-phone",
+				AppID:  "wx-app",
+				JsCode: "js-code",
+			},
+		},
+		{
+			name: "invalid email",
+			in: req.SignUpWithWeChatMiniProgramRequest{
+				Name:   "alice",
+				Email:  "not-an-email",
+				AppID:  "wx-app",
+				JsCode: "js-code",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := wechatMiniProgramSignupRequestFromHTTP(tc.in)
+
+			require.Error(t, err)
+			require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
+		})
+	}
 }

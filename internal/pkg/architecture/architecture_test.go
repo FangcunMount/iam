@@ -1474,6 +1474,35 @@ func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/handler/auth_login.go", "ScenarioSelection")
 }
 
+func TestAuthnChallengeScenesStayBehindChallengeUseCases(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	challengeImport := modulePath + "internal/apiserver/application/authn/challenge"
+
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "application", "authn", "linking"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if imp == challengeImport {
+				t.Fatalf("%s imports %s; linking must depend on its local phone-link challenge verifier port", rel, imp)
+			}
+		}
+	})
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasPrefix(rel, "internal/apiserver/application/authn/challenge/") ||
+			strings.HasPrefix(rel, "internal/pkg/architecture/") {
+			return
+		}
+		for _, token := range []string{"SceneLoginPhoneOTP", "SceneLinkPhoneOTP"} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s references %s; challenge scene selection must stay behind explicit challenge use cases", rel, token)
+			}
+		}
+	})
+}
+
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
 	t.Parallel()
 

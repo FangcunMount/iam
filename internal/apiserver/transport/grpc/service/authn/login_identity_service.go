@@ -4,7 +4,6 @@ import (
 	"context"
 
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,10 +35,10 @@ func (s *loginIdentityServiceServer) SendPhoneLinkChallenge(ctx context.Context,
 	if _, _, _, err := parseAuthenticatedUserContext(req.GetActor()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if s.challenge == nil {
+	if s.phoneLinkOTPSender == nil {
 		return nil, status.Error(codes.Unimplemented, "phone link challenge is not configured")
 	}
-	if err := s.challenge.SendSMSOTP(ctx, challengeApp.SceneLinkPhoneOTP, req.GetPhone()); err != nil {
+	if err := s.phoneLinkOTPSender.SendPhoneLinkOTP(ctx, req.GetPhone()); err != nil {
 		return nil, toGRPCError(err)
 	}
 	return &authnv2.MessageResponse{Message: "verification code sent"}, nil

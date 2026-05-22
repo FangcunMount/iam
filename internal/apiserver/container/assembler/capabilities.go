@@ -7,8 +7,8 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	authzAuthorizationApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	authzPolicyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
@@ -37,15 +37,16 @@ type KeyRotationScheduler interface {
 // AuthnApplicationCapabilities contains authn application collaborators used
 // by transports without exposing concrete transport objects from assembler.
 type AuthnApplicationCapabilities struct {
-	SignupService signupApp.SignupService
-	LoginIdentityLinking   linkingApp.Linker
-	SessionService      sessionApp.ApplicationService
-	SessionRevoker sessionApp.Revoker
-	ChallengeService    challengeApp.Service
-	TokenService        token.TokenApplicationService
-	KeyManagementApp       *jwksApp.KeyManagementAppService
-	KeyPublishApp          *jwksApp.KeyPublishAppService
-	KeyRotationApp         *jwksApp.KeyRotationAppService
+	SignupService        signupApp.SignupService
+	LoginIdentityLinking linkingApp.Linker
+	SessionService       sessionApp.ApplicationService
+	SessionRevoker       sessionApp.Revoker
+	LoginPhoneOTPSender  challengeApp.LoginPhoneOTPSender
+	PhoneLinkOTPSender   challengeApp.PhoneLinkOTPSender
+	TokenService         token.TokenApplicationService
+	KeyManagementApp     *jwksApp.KeyManagementAppService
+	KeyPublishApp        *jwksApp.KeyPublishAppService
+	KeyRotationApp       *jwksApp.KeyRotationAppService
 }
 
 type AuthnRuntimeCapabilities struct {

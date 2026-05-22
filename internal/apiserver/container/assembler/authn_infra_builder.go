@@ -37,7 +37,6 @@ type authnInfrastructureComponents struct {
 	loginIdentityRepo  authentication.LoginIdentityRepository
 	loginIdentityStore *loginidentityrepo.Repository
 	challengeRepo      *redisInfra.ChallengeRepository
-	otpVerifier        authentication.OTPVerifier
 	otpRedis           *redisInfra.OTPVerifierImpl
 	idp                authentication.IdentityProvider
 	accessChecker      sessionDomain.SubjectAccessEvaluator
@@ -87,7 +86,6 @@ func (m *AuthnModule) initializeInfrastructure(
 	infra.loginIdentityStore = loginIdentityRepo
 
 	otpRedis := redisInfra.NewOTPVerifier(redisClient)
-	infra.otpVerifier = otpRedis
 	infra.otpRedis = otpRedis
 	m.otpInspectorSource = otpRedis
 	infra.challengeRepo = redisInfra.NewChallengeRepository(redisClient)

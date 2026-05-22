@@ -8,5 +8,5 @@
 //	  → ensureProviderKey（查重 / 复用 / 创建，见 link_ensure.go）
 //
 // prepare 仅依赖 linkPrepareDeps，不依赖 *linker。对外契约见 interface.go。
-// 手机号发码由 transport 直调 challenge（SceneLinkPhoneOTP）。
+// 手机号发码由 transport 调用 challenge 发送用例；linking 只依赖手机号绑定验证码消费端口。
 package linking

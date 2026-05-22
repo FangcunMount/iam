@@ -34,9 +34,9 @@ func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *test
 	module := NewAuthnModule()
 	require.NoError(t, module.InitializeWithDeps(authnEventingDeps(db, redisClient, eventBusStub{}, publisher)))
 	caps := module.ApplicationCapabilities()
-	require.NotNil(t, caps.ChallengeService)
+	require.NotNil(t, caps.LoginPhoneOTPSender)
 
-	require.NoError(t, caps.ChallengeService.SendSMSOTP(context.Background(), "login", "13800138000"))
+	require.NoError(t, caps.LoginPhoneOTPSender.SendLoginPhoneOTP(context.Background(), "13800138000"))
 
 	require.Len(t, publisher.events, 1)
 	require.Equal(t, eventing.LoginOTPSMS, publisher.events[0].EventType())

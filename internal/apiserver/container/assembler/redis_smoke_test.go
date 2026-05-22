@@ -42,8 +42,11 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	}
 
 	caps := module.ApplicationCapabilities()
-	if caps.ChallengeService == nil {
-		t.Fatalf("expected ChallengeService to be initialized")
+	if caps.LoginPhoneOTPSender == nil {
+		t.Fatalf("expected LoginPhoneOTPSender to be initialized")
+	}
+	if caps.PhoneLinkOTPSender == nil {
+		t.Fatalf("expected PhoneLinkOTPSender to be initialized")
 	}
 	if caps.LoginIdentityLinking == nil {
 		t.Fatalf("expected LoginIdentityLinking to be initialized")

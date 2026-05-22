@@ -9,21 +9,21 @@ import (
 // AuthHandler 认证 HTTP 处理器
 type AuthHandler struct {
 	*BaseHandler
-	sessionService session.ApplicationService
-	tokenService token.TokenApplicationService
-	challenge    challengeapp.Service
+	sessionService      session.ApplicationService
+	tokenService        token.TokenApplicationService
+	loginPhoneOTPSender challengeapp.LoginPhoneOTPSender
 }
 
 // NewAuthHandler 创建认证处理器
 func NewAuthHandler(
 	sessionService session.ApplicationService,
 	tokenService token.TokenApplicationService,
-	challenge challengeapp.Service,
+	loginPhoneOTPSender challengeapp.LoginPhoneOTPSender,
 ) *AuthHandler {
 	return &AuthHandler{
-		BaseHandler:  NewBaseHandler(),
-		sessionService: sessionService,
-		tokenService: tokenService,
-		challenge:    challenge,
+		BaseHandler:         NewBaseHandler(),
+		sessionService:      sessionService,
+		tokenService:        tokenService,
+		loginPhoneOTPSender: loginPhoneOTPSender,
 	}
 }

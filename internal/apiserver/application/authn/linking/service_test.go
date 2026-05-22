@@ -6,7 +6,6 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -20,7 +19,7 @@ func TestLinkPhoneRequiresChallengeAndCreatesIdentity(t *testing.T) {
 	challenge := &linkingChallengeStub{ok: true}
 	linker := NewLinker(Dependencies{
 		LoginIdentities: repo,
-		Challenge:       challenge,
+		PhoneLinkOTP:    challenge,
 		Now:             func() time.Time { return time.Unix(100, 0) },
 	})
 
@@ -36,8 +35,8 @@ func TestLinkPhoneRequiresChallengeAndCreatesIdentity(t *testing.T) {
 	require.False(t, result.Reused)
 	require.Equal(t, loginidentity.ProviderPhone, result.Identity.Provider)
 	require.Equal(t, "+8613800138000", result.Identity.Identifier)
-	require.Equal(t, challengeapp.SceneLinkPhoneOTP, challenge.scene)
 	require.Equal(t, "+8613800138000", challenge.phone)
+	require.Equal(t, "123456", challenge.code)
 }
 
 func TestLinkPhoneRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
@@ -55,7 +54,7 @@ func TestLinkPhoneRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
 	}
 	linker := NewLinker(Dependencies{
 		LoginIdentities: repo,
-		Challenge:       &linkingChallengeStub{ok: true},
+		PhoneLinkOTP:    &linkingChallengeStub{ok: true},
 	})
 
 	_, err := linker.Link(context.Background(), LinkRequest{
@@ -292,33 +291,12 @@ func linkingProviderKey(provider loginidentity.Provider, realm, identifier strin
 
 type linkingChallengeStub struct {
 	ok    bool
-	scene string
 	phone string
+	code  string
 }
 
-func (s *linkingChallengeStub) SendSMSOTP(_ context.Context, scene, phone string) error {
-	s.scene = scene
+func (s *linkingChallengeStub) VerifyAndConsumePhoneLinkOTP(_ context.Context, phone, code string) bool {
 	s.phone = phone
-	return nil
-}
-
-func (s *linkingChallengeStub) CreateSMSOTP(context.Context, string, string, ...challengeapp.SMSOTPOption) (*challengeapp.SMSOTP, error) {
-	return &challengeapp.SMSOTP{Code: "123456"}, nil
-}
-
-func (s *linkingChallengeStub) VerifyAndConsumeSMSOTP(_ context.Context, scene, phone, _ string) (bool, error) {
-	s.scene = scene
-	s.phone = phone
-	return s.ok, nil
-}
-
-func (s *linkingChallengeStub) VerifyAndConsume(_ context.Context, scene, phone, code string) bool {
-	s.scene = scene
-	s.phone = phone
-	_ = code
+	s.code = code
 	return s.ok
-}
-
-func (s *linkingChallengeStub) DeleteSMSOTP(context.Context, string, string) error {
-	return nil
 }

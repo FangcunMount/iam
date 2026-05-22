@@ -9,32 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSMSOTPChallengeCreateVerifyConsumeAndReplay(t *testing.T) {
-	t.Parallel()
-
-	repo := newChallengeRepoStub()
-	service := NewService(repo, SMSOTPDelivery{
-		Gate:     &smsOTPGateStub{allow: true},
-		SMS:      &smsSenderStub{},
-		TTL:      time.Minute,
-		Cooldown: 2 * time.Minute,
-		CodeLen:  4,
-	}, NewCreator(repo), NewVerifier(repo))
-	ctx := context.Background()
-
-	ok := service.VerifyAndConsume(ctx, SceneLoginPhoneOTP, "13800138000", "000000")
-	require.False(t, ok)
-
-	ok = service.VerifyAndConsume(ctx, SceneLoginPhoneOTP, "13800138000", "000000")
-	require.False(t, ok)
-}
-
-func TestSendSMSOTPCreatesChallengeAndSendsCode(t *testing.T) {
+func TestLoginPhoneOTPCreatesChallengeAndConsumesOnce(t *testing.T) {
 	t.Parallel()
 
 	repo := newChallengeRepoStub()
 	gate := &smsOTPGateStub{allow: true}
-	sms := &smsSenderStub{code: "000000"}
+	sms := &smsSenderStub{}
 	service := NewService(repo, SMSOTPDelivery{
 		Gate:     gate,
 		SMS:      sms,
@@ -43,8 +23,71 @@ func TestSendSMSOTPCreatesChallengeAndSendsCode(t *testing.T) {
 		CodeLen:  4,
 	}, NewCreator(repo), NewVerifier(repo))
 	ctx := context.Background()
-	err := service.SendSMSOTP(ctx, SceneLoginPhoneOTP, "13800138000")
+
+	err := service.SendLoginPhoneOTP(ctx, "13800138000")
 	require.NoError(t, err)
+	require.Equal(t, SceneLoginPhoneOTP, gate.scene)
+	require.Equal(t, "+8613800138000", sms.phone)
+	require.NotEmpty(t, sms.code)
+
+	ok := service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	require.True(t, ok)
+
+	ok = service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	require.False(t, ok)
+}
+
+func TestPhoneLinkOTPCreatesChallengeAndConsumesOnce(t *testing.T) {
+	t.Parallel()
+
+	repo := newChallengeRepoStub()
+	gate := &smsOTPGateStub{allow: true}
+	sms := &smsSenderStub{}
+	service := NewService(repo, SMSOTPDelivery{
+		Gate:     gate,
+		SMS:      sms,
+		TTL:      time.Minute,
+		Cooldown: 2 * time.Minute,
+		CodeLen:  4,
+	}, NewCreator(repo), NewVerifier(repo))
+	ctx := context.Background()
+
+	err := service.SendPhoneLinkOTP(ctx, "13800138000")
+	require.NoError(t, err)
+	require.Equal(t, SceneLinkPhoneOTP, gate.scene)
+	require.Equal(t, "+8613800138000", sms.phone)
+	require.NotEmpty(t, sms.code)
+
+	ok := service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
+	require.True(t, ok)
+
+	ok = service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
+	require.False(t, ok)
+}
+
+func TestPhoneOTPVerifiersDoNotConsumeOtherScenes(t *testing.T) {
+	t.Parallel()
+
+	repo := newChallengeRepoStub()
+	sms := &smsSenderStub{}
+	service := NewService(repo, SMSOTPDelivery{
+		Gate:     &smsOTPGateStub{allow: true},
+		SMS:      sms,
+		TTL:      time.Minute,
+		Cooldown: 2 * time.Minute,
+		CodeLen:  4,
+	}, NewCreator(repo), NewVerifier(repo))
+	ctx := context.Background()
+
+	require.NoError(t, service.SendLoginPhoneOTP(ctx, "13800138000"))
+	loginCode := sms.code
+	require.False(t, service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", loginCode))
+	require.True(t, service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", loginCode))
+
+	require.NoError(t, service.SendPhoneLinkOTP(ctx, "13800138000"))
+	linkCode := sms.code
+	require.False(t, service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", linkCode))
+	require.True(t, service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", linkCode))
 }
 
 type challengeRepoStub struct {

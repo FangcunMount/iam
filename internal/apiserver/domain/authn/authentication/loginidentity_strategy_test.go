@@ -232,7 +232,7 @@ type otpVerifierTestDouble struct {
 	ok bool
 }
 
-func (s otpVerifierTestDouble) VerifyAndConsume(context.Context, string, string, string) bool {
+func (s otpVerifierTestDouble) VerifyAndConsumeLoginPhoneOTP(context.Context, string, string) bool {
 	return s.ok
 }
 
@@ -253,5 +253,5 @@ func (s idpTestDouble) ExchangeWecomCode(context.Context, string, string, string
 
 var _ authentication.LoginIdentityCredentialRepository = (*loginIdentityCredentialRepoTestDouble)(nil)
 var _ authentication.LoginIdentityRepository = (*loginIdentityRepoTestDouble)(nil)
-var _ authentication.OTPVerifier = otpVerifierTestDouble{}
+var _ authentication.LoginPhoneOTPVerifier = otpVerifierTestDouble{}
 var _ authentication.IdentityProvider = idpTestDouble{}

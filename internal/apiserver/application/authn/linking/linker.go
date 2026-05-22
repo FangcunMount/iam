@@ -58,7 +58,7 @@ func (l *linker) link(ctx context.Context, req LinkRequest) (*LinkResult, error)
 // prepareDeps 准备依赖。
 func (l *linker) prepareDeps() linkPrepareDeps {
 	return linkPrepareDeps{
-		challenge:    l.deps.Challenge,
+		phoneLinkOTP: l.deps.PhoneLinkOTP,
 		idp:          l.deps.IDP,
 		wechatApps:   l.deps.WechatApps,
 		secretVault:  l.deps.SecretVault,

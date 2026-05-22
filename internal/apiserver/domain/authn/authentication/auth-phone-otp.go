@@ -59,17 +59,15 @@ func NewPhoneOTPCredential(spec PhoneOTPProofSpec) (AuthCredential, error) {
 type PhoneOTPAuthStrategy struct {
 	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
-	otpVerifier    OTPVerifier
+	otpVerifier    LoginPhoneOTPVerifier
 }
 
 // 实现认证策略接口
 var _ AuthStrategy = (*PhoneOTPAuthStrategy)(nil)
 
-const phoneOTPLoginScene = "login"
-
 func NewPhoneOTPAuthStrategyWithLoginIdentity(
 	identityRepo LoginIdentityRepository,
-	otpVerifier OTPVerifier,
+	otpVerifier LoginPhoneOTPVerifier,
 ) *PhoneOTPAuthStrategy {
 	return &PhoneOTPAuthStrategy{
 		credentialKind: CredentialKindPhoneOTP,
@@ -136,7 +134,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 
 // verifyLoginOTP 验证OTP并标记为已使用
 func (p *PhoneOTPAuthStrategy) verifyLoginOTP(ctx context.Context, credential *PhoneOTPCredential) bool {
-	return p.otpVerifier.VerifyAndConsume(ctx, credential.PhoneE164, phoneOTPLoginScene, credential.OTP)
+	return p.otpVerifier.VerifyAndConsumeLoginPhoneOTP(ctx, credential.PhoneE164, credential.OTP)
 }
 
 // buildPhoneOTPSuccessDecision 认证成功，构造Principal

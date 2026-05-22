@@ -4,7 +4,6 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -13,7 +12,7 @@ import (
 // PrepareLink 准备手机号登录身份。
 func (in LinkPhoneInput) prepareLink(ctx context.Context, deps linkPrepareDeps, userID meta.ID) (preparedLink, error) {
 	// 检查挑战服务是否配置。
-	if deps.challenge == nil {
+	if deps.phoneLinkOTP == nil {
 		return preparedLink{}, perrors.WithCode(code.ErrInternalServerError, "challenge service is not configured")
 	}
 
@@ -24,7 +23,7 @@ func (in LinkPhoneInput) prepareLink(ctx context.Context, deps linkPrepareDeps, 
 	}
 
 	// 验证挑战码。
-	ok := deps.challenge.VerifyAndConsume(ctx, challengeapp.SceneLinkPhoneOTP, phone.String(), in.OTPCode)
+	ok := deps.phoneLinkOTP.VerifyAndConsumePhoneLinkOTP(ctx, phone.String(), in.OTPCode)
 	if !ok {
 		return preparedLink{}, perrors.WithCode(code.ErrInvalidCredential, "invalid phone link challenge")
 	}

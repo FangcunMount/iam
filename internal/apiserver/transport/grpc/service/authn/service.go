@@ -25,24 +25,25 @@ func NewService(
 	sessionSvc sessionApp.ApplicationService,
 	tokenSvc tokenApp.TokenApplicationService,
 	signupSvc signupApp.SignupService,
-	challengeSvc challengeApp.Service,
+	loginPhoneOTPSender challengeApp.LoginPhoneOTPSender,
+	phoneLinkOTPSender challengeApp.PhoneLinkOTPSender,
 	linkingSvc linkingApp.Linker,
 	keyPublish *jwksApp.KeyPublishAppService,
 ) *Service {
 	return &Service{
 		auth: authServiceServer{
 			sessionSvc: sessionSvc,
-			tokenSvc: tokenSvc,
+			tokenSvc:   tokenSvc,
 		},
 		signup: authSignupServiceServer{
 			signupService: signupSvc,
 		},
 		challenge: authChallengeServiceServer{
-			challenge: challengeSvc,
+			loginPhoneOTPSender: loginPhoneOTPSender,
 		},
 		loginIdentity: loginIdentityServiceServer{
-			linking:   linkingSvc,
-			challenge: challengeSvc,
+			linking:            linkingSvc,
+			phoneLinkOTPSender: phoneLinkOTPSender,
 		},
 		jwks: jwksServiceServer{
 			keyPublish: keyPublish,
@@ -61,7 +62,7 @@ func (s *Service) Register(server *grpc.Server) {
 	if s.signup.signupService != nil {
 		authnv2.RegisterAuthSignupServiceServer(server, &s.signup)
 	}
-	if s.challenge.challenge != nil {
+	if s.challenge.loginPhoneOTPSender != nil {
 		authnv2.RegisterAuthChallengeServiceServer(server, &s.challenge)
 	}
 	if s.loginIdentity.linking != nil {
@@ -75,7 +76,7 @@ func (s *Service) Register(server *grpc.Server) {
 type authServiceServer struct {
 	authnv2.UnimplementedAuthServiceServer
 	sessionSvc sessionApp.ApplicationService
-	tokenSvc tokenApp.TokenApplicationService
+	tokenSvc   tokenApp.TokenApplicationService
 }
 
 type jwksServiceServer struct {
@@ -90,11 +91,11 @@ type authSignupServiceServer struct {
 
 type authChallengeServiceServer struct {
 	authnv2.UnimplementedAuthChallengeServiceServer
-	challenge challengeApp.Service
+	loginPhoneOTPSender challengeApp.LoginPhoneOTPSender
 }
 
 type loginIdentityServiceServer struct {
 	authnv2.UnimplementedLoginIdentityServiceServer
-	linking   linkingApp.Linker
-	challenge challengeApp.Service
+	linking            linkingApp.Linker
+	phoneLinkOTPSender challengeApp.PhoneLinkOTPSender
 }

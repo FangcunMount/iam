@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	idpprepare "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/prepare"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
@@ -12,7 +11,7 @@ import (
 
 // linkPrepareDeps 是 prepare 阶段可用的依赖快照，避免各 Input 依赖 *linker。
 type linkPrepareDeps struct {
-	challenge    challengeapp.Service
+	phoneLinkOTP PhoneLinkChallengeVerifier
 	idp          authentication.IdentityProvider
 	wechatApps   idpPort.Repository
 	secretVault  idpPort.SecretVault

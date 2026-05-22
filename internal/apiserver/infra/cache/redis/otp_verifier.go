@@ -24,7 +24,6 @@ type OTPVerifierImpl struct {
 
 // 确保实现了接口
 var (
-	_ authentication.OTPVerifier  = (*OTPVerifierImpl)(nil)
 	_ authentication.OTPCodeStore = (*OTPVerifierImpl)(nil)
 	_ authentication.OTPSendGate  = (*OTPVerifierImpl)(nil)
 )

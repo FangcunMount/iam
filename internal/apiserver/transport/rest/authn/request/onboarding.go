@@ -6,6 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // SignUpWithWeChatMiniProgramRequest 微信小程序登录身份开通请求。
@@ -46,7 +47,28 @@ func (r *EnsureMockConsumerReq) Validate() error {
 	return nil
 }
 
-func (r *SignUpWithWeChatMiniProgramRequest) Validate() error { return nil }
+func (r *SignUpWithWeChatMiniProgramRequest) Validate() error {
+	if strings.TrimSpace(r.Name) == "" {
+		return perrors.WithCode(code.ErrInvalidArgument, "name is required")
+	}
+	if strings.TrimSpace(r.AppID) == "" {
+		return perrors.WithCode(code.ErrInvalidArgument, "appId is required")
+	}
+	if strings.TrimSpace(r.JsCode) == "" {
+		return perrors.WithCode(code.ErrInvalidArgument, "jsCode is required")
+	}
+	if phone := strings.TrimSpace(r.Phone); phone != "" {
+		if _, err := meta.NewPhone(phone); err != nil {
+			return perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
+		}
+	}
+	if email := strings.TrimSpace(r.Email); email != "" {
+		if _, err := meta.NewEmail(email); err != nil {
+			return perrors.WithCode(code.ErrInvalidArgument, "invalid email: %v", err)
+		}
+	}
+	return nil
+}
 
 func (r *SignUpWithWeChatMiniProgramRequest) MetaJSON() (map[string]string, error) {
 	if r.Meta == nil {

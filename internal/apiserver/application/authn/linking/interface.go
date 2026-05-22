@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
@@ -19,7 +18,7 @@ import (
 
 // Linker 管理已认证用户的登录身份绑定。
 //
-// 手机号绑定发码由 transport 直调 challenge.Service（SceneLinkPhoneOTP），不在本接口暴露。
+// 手机号绑定发码由 transport 通过 challenge 发送用例完成，不在本接口暴露。
 type Linker interface {
 	// List 列出当前用户登录身份。
 	List(ctx context.Context, userID meta.ID) ([]LoginIdentityView, error)
@@ -29,10 +28,15 @@ type Linker interface {
 	Unlink(ctx context.Context, cmd UnlinkCommand) error
 }
 
+// PhoneLinkChallengeVerifier 是手机号绑定用例依赖的短期挑战消费端口。
+type PhoneLinkChallengeVerifier interface {
+	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) bool
+}
+
 // Dependencies 是登录身份绑定应用服务依赖。
 type Dependencies struct {
 	LoginIdentities  loginidentity.Repository
-	Challenge        challengeapp.Service
+	PhoneLinkOTP     PhoneLinkChallengeVerifier
 	IDP              authentication.IdentityProvider
 	WechatApps       idpPort.Repository
 	SecretVault      idpPort.SecretVault
@@ -104,9 +108,9 @@ type LinkWecomInput struct {
 
 // UnlinkCommand 是解绑登录身份命令。
 type UnlinkCommand struct {
-	UserID                 meta.ID    // 用户 ID。
-	LoginIdentityID        meta.ID    // 登录身份 ID。
-	CurrentLoginIdentityID meta.ID    // 当前登录身份 ID。
+	UserID                 meta.ID // 用户 ID。
+	LoginIdentityID        meta.ID // 登录身份 ID。
+	CurrentLoginIdentityID meta.ID // 当前登录身份 ID。
 	// AuthenticatedAt 由 transport 从已验 access token 的 auth_time（或等价 claim）填入，用于敏感解绑的近期认证窗口。
 	// 当前无独立 application 再认证 API；调用方须先完成 token 验票或等价门禁，勿伪造时间戳。
 	AuthenticatedAt *time.Time

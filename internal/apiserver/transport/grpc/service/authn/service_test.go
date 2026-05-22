@@ -7,7 +7,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
@@ -67,19 +66,11 @@ func (s signupServiceStub) SignUp(context.Context, signupApp.SignupRequest) (*si
 
 type challengeServiceStub struct{}
 
-func (s challengeServiceStub) SendSMSOTP(context.Context, string, string) error {
+func (s challengeServiceStub) SendLoginPhoneOTP(context.Context, string) error {
 	return nil
 }
-func (s challengeServiceStub) CreateSMSOTP(context.Context, string, string, ...challengeApp.SMSOTPOption) (*challengeApp.SMSOTP, error) {
-	return &challengeApp.SMSOTP{}, nil
-}
-func (s challengeServiceStub) VerifyAndConsumeSMSOTP(context.Context, string, string, string) (bool, error) {
-	return true, nil
-}
-func (s challengeServiceStub) VerifyAndConsume(context.Context, string, string, string) bool {
-	return true
-}
-func (s challengeServiceStub) DeleteSMSOTP(context.Context, string, string) error {
+
+func (s challengeServiceStub) SendPhoneLinkOTP(context.Context, string) error {
 	return nil
 }
 
@@ -148,6 +139,7 @@ func TestAuthNGRPCRuntimeRegistersProductionServices(t *testing.T) {
 		&loginServiceStub{},
 		&tokenServiceStub{},
 		signupServiceStub{},
+		challengeServiceStub{},
 		challengeServiceStub{},
 		linkerStub{},
 		nil,

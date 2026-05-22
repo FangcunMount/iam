@@ -21,6 +21,8 @@ func TestClientSignsUpWithWechatMiniProgram(t *testing.T) {
 		var req WechatMiniProgramRequest
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 		require.Equal(t, "Alice", req.Name)
+		require.Equal(t, "+8613800138000", req.Phone)
+		require.Equal(t, "alice@example.com", req.Email)
 		require.Equal(t, "wx-app", req.AppID)
 		require.Equal(t, "js-code", req.JsCode)
 
@@ -47,6 +49,8 @@ func TestClientSignsUpWithWechatMiniProgram(t *testing.T) {
 
 	resp, err := client.SignUpWithWechatMiniProgram(context.Background(), WechatMiniProgramRequest{
 		Name:   "Alice",
+		Phone:  "+8613800138000",
+		Email:  "alice@example.com",
 		AppID:  "wx-app",
 		JsCode: "js-code",
 	})
@@ -140,4 +144,52 @@ func TestClientValidatesRequestBeforeHTTPCall(t *testing.T) {
 
 	require.Error(t, err)
 	require.False(t, called)
+}
+
+func TestClientValidatesWechatMiniProgramOptionalContactsBeforeHTTPCall(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name string
+		req  WechatMiniProgramRequest
+	}{
+		{
+			name: "invalid phone",
+			req: WechatMiniProgramRequest{
+				Name:   "Alice",
+				Phone:  "not-a-phone",
+				AppID:  "wx-app",
+				JsCode: "js-code",
+			},
+		},
+		{
+			name: "invalid email",
+			req: WechatMiniProgramRequest{
+				Name:   "Alice",
+				Email:  "not-an-email",
+				AppID:  "wx-app",
+				JsCode: "js-code",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := client.SignUpWithWechatMiniProgram(context.Background(), tc.req)
+
+			require.Error(t, err)
+			require.True(t, sdkerrors.IsInvalidArgument(err))
+			require.False(t, called)
+		})
+	}
 }

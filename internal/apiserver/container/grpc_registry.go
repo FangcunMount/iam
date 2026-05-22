@@ -28,7 +28,8 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 			caps.SessionService,
 			caps.TokenService,
 			caps.SignupService,
-			caps.ChallengeService,
+			caps.LoginPhoneOTPSender,
+			caps.PhoneLinkOTPSender,
 			caps.LoginIdentityLinking,
 			caps.KeyPublishApp,
 		)

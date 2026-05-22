@@ -20,14 +20,32 @@ const (
 	defaultSMSOTPCodeLen = 6               // 默认短信验证码长度
 )
 
-// Service 短信验证码服务
+// LoginPhoneOTPSender 发送登录短信验证码。
+type LoginPhoneOTPSender interface {
+	SendLoginPhoneOTP(ctx context.Context, phone string) error
+}
+
+// PhoneLinkOTPSender 发送手机号绑定短信验证码。
+type PhoneLinkOTPSender interface {
+	SendPhoneLinkOTP(ctx context.Context, phone string) error
+}
+
+// LoginPhoneOTPVerifier 验证并消费登录短信验证码。
+type LoginPhoneOTPVerifier interface {
+	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, otp string) bool
+}
+
+// PhoneLinkOTPVerifier 验证并消费手机号绑定短信验证码。
+type PhoneLinkOTPVerifier interface {
+	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) bool
+}
+
+// Service 是 challenge 包内部组装出的短信验证码用例集合。
 type Service interface {
-	// SendSMSOTP 创建并发送短信验证码
-	SendSMSOTP(ctx context.Context, scene, phone string) error
-	// VerifyAndConsume 验证并消费短信验证码
-	VerifyAndConsume(ctx context.Context, scene, rawPhone, otp string) bool
-	// DeleteSMSOTP 删除短信验证码
-	DeleteSMSOTP(ctx context.Context, scene, phone string) error
+	LoginPhoneOTPSender
+	PhoneLinkOTPSender
+	LoginPhoneOTPVerifier
+	PhoneLinkOTPVerifier
 }
 
 // service 短信验证码服务
@@ -46,8 +64,18 @@ func NewService(repo challengeDomain.Repository, delivery SMSOTPDelivery, creato
 	return &service{repo: repo, delivery: &delivery, creator: creator, verifier: verifier}
 }
 
-// SendSMSOTP 创建并发送短信验证码
-func (s *service) SendSMSOTP(ctx context.Context, scene, rawPhone string) error {
+// SendLoginPhoneOTP 创建并发送登录短信验证码。
+func (s *service) SendLoginPhoneOTP(ctx context.Context, rawPhone string) error {
+	return s.sendSMSOTP(ctx, SceneLoginPhoneOTP, rawPhone)
+}
+
+// SendPhoneLinkOTP 创建并发送手机号绑定短信验证码。
+func (s *service) SendPhoneLinkOTP(ctx context.Context, rawPhone string) error {
+	return s.sendSMSOTP(ctx, SceneLinkPhoneOTP, rawPhone)
+}
+
+// sendSMSOTP 创建并发送短信验证码。
+func (s *service) sendSMSOTP(ctx context.Context, scene, rawPhone string) error {
 	if s.delivery == nil || s.delivery.Gate == nil || s.delivery.SMS == nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "sms otp delivery is not configured")
 	}
@@ -80,14 +108,24 @@ func (s *service) SendSMSOTP(ctx context.Context, scene, rawPhone string) error 
 		return err
 	}
 	if err := s.delivery.SMS.SendLoginOTP(ctx, e164, challenge.Code); err != nil {
-		_ = s.DeleteSMSOTP(ctx, scene, e164)
+		_ = s.deleteSMSOTP(ctx, scene, e164)
 		return fmt.Errorf("send sms otp: %w", err)
 	}
 	return nil
 }
 
-// VerifyAndConsume 验证并消费短信验证码
-func (s *service) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp string) bool {
+// VerifyAndConsumeLoginPhoneOTP 验证并消费登录短信验证码。
+func (s *service) VerifyAndConsumeLoginPhoneOTP(ctx context.Context, rawPhone, otp string) bool {
+	return s.verifyAndConsume(ctx, SceneLoginPhoneOTP, rawPhone, otp)
+}
+
+// VerifyAndConsumePhoneLinkOTP 验证并消费手机号绑定短信验证码。
+func (s *service) VerifyAndConsumePhoneLinkOTP(ctx context.Context, rawPhone, otp string) bool {
+	return s.verifyAndConsume(ctx, SceneLinkPhoneOTP, rawPhone, otp)
+}
+
+// verifyAndConsume 验证并消费短信验证码。
+func (s *service) verifyAndConsume(ctx context.Context, scene, rawPhone, otp string) bool {
 	ok, err := s.verifier.VerifyAndConsume(ctx, scene, rawPhone, otp)
 	if err != nil {
 		return false
@@ -95,8 +133,8 @@ func (s *service) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp str
 	return ok
 }
 
-// DeleteSMSOTP 删除短信验证码
-func (s *service) DeleteSMSOTP(ctx context.Context, scene, rawPhone string) error {
+// deleteSMSOTP 删除短信验证码。
+func (s *service) deleteSMSOTP(ctx context.Context, scene, rawPhone string) error {
 	if s.repo == nil {
 		return perrors.WithCode(code.ErrInternalServerError, "challenge repository is not configured")
 	}
