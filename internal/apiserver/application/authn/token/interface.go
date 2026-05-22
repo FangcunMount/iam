@@ -8,9 +8,11 @@ import (
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 )
 
+// ==========================================================================
 // ================== Interface Interfaces (Driving Ports) ==================
+// ==========================================================================
 
-// TokenApplicationService 令牌应用服务
+// TokenApplicationService 令牌应用服务，对外门面接口
 // 职责：管理用户会话令牌和服务间访问令牌的签发、刷新、撤销和验证。
 type TokenApplicationService interface {
 	// IssueToken 在登录完成后签发用户会话令牌。
@@ -32,71 +34,50 @@ type TokenApplicationService interface {
 	VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error)
 }
 
-// ClaimMapper 将认证主体附加信息转换为 refresh token 可持久化的字符串快照。
-type ClaimMapper interface {
-	// Encode 编码声明
+// RefreshClaimsCodec 将认证主体附加 claims 编码为 refresh/session 共用的字符串快照。
+type RefreshClaimsCodec interface {
 	Encode(map[string]any) map[string]string
-	// Decode 解码声明
 	Decode(map[string]string) map[string]any
 }
 
-// sessionTokenPairIssuerPort 基于已存在的 session 签发 access token 并保存 refresh token。
-//
-// Login 会先创建 session 再调用该组件；Refresh 会复用已有 session 后调用该组件。
-type sessionTokenPairIssuerPort interface {
-	// IssueTokenPair 根据认证主体和会话信息签发 access token，并保存新的 refresh token。
-	// 职责：根据认证主体和会话信息签发 access token，并保存新的 refresh token。
-	// 返回值：访问令牌对
-	IssueTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
-}
-
-// issuerPort 用于聚合 token 签发能力，仅供 token 包内部装配。
-type issuerPort interface {
-	sessionTokenIssuerPort
-	serviceTokenIssuerPort
-}
-
-// sessionTokenIssuerPort 用于签发用户会话令牌。
-type sessionTokenIssuerPort interface {
-	// IssueToken 签发用户会话令牌
-	// 职责：签发用户会话令牌。
-	// 返回值：访问令牌对
+// accessTokenIssuerPort 用户 access/refresh 令牌签发：登录建 session 并签发，或在既有 session 上轮换 mint。
+type accessTokenIssuerPort interface {
+	// IssueToken 登录：创建 session 并签发 access/refresh token pair。
 	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+	// MintTokenPair 在既有 session 上签发 access token 并保存新的 refresh token（Refresh 复用）。
+	MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
 }
 
 // serviceTokenIssuerPort 用于签发服务间访问令牌。
 type serviceTokenIssuerPort interface {
 	// IssueServiceToken 签发服务间访问令牌
-	// 职责：签发服务间访问令牌。
+	// 职责：签发服务间访问令牌
 	// 返回值：访问令牌对
 	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error)
-}
-
-// revokerPort 撤销令牌和关联会话。
-type revokerPort interface {
-	// RevokeAccessToken 撤销访问令牌
-	// 职责：撤销单个 access token 及其关联会话。
-	RevokeAccessToken(ctx context.Context, tokenValue string) error
 }
 
 // refresherPort 根据 refresh token 刷新 access token 和 refresh token。
 type refresherPort interface {
 	// RefreshToken 刷新访问令牌
-	// 职责：根据 refresh token 刷新 access token 和 refresh token。
+	// 职责：根据 refresh token 刷新 access token 和 refresh token
 	// 返回值：访问令牌对
 	RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error)
 
 	// RevokeRefreshToken 删除刷新令牌
-	// 职责：删除刷新令牌
+	// 职责：删除刷新令牌，并标记访问令牌已撤销
 	RevokeRefreshToken(ctx context.Context, refreshTokenValue string) error
 }
 
-// verifierPort 在线验证 access token，并检查可选的 issuer/audience 约束。
+// verifierPort 在线验证 JWT bearer（用户 access 或 service access）。
 type verifierPort interface {
-	// VerifyAccessToken 验证访问令牌
-	// 职责：验证访问令牌是否有效：1. 令牌是否已撤销；2. 会话是否活跃；3. 主体访问权限是否允许。
-	// 返回值：访问令牌声明
-	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+	// VerifyToken 验证 bearer：解析 JWT；用户令牌另查撤销表、session 与主体状态。
+	VerifyToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+}
+
+// revokerPort 撤销 JWT bearer 并视情况撤销关联会话。
+type revokerPort interface {
+	// RevokeBearerToken 撤销 JWT bearer（用户 access 或 service access）。
+	RevokeBearerToken(ctx context.Context, tokenValue string) error
 }
 
 // ================== DTOs ==================

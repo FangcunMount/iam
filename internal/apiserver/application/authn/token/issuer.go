@@ -6,77 +6,77 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/google/uuid"
 )
 
-// issuer 用于聚合 token 签发能力，仅供 token 包内部装配。
-type issuer struct {
-	sessionIssuer *sessionTokenIssuer // 用户会话令牌签发器
-	serviceIssuer *serviceTokenIssuer // 服务令牌签发器
+// issuerComponents 暴露装配所需的用户会话令牌与服务令牌协作者。
+type issuerComponents struct {
+	accessTokenIssuer  accessTokenIssuerPort
+	serviceTokenIssuer serviceTokenIssuerPort
 }
 
-// 确保 issuer 实现 issuerPort 接口。
-var _ issuerPort = (*issuer)(nil)
-
-// newIssuer 创建 token 签发器。
+// newIssuer 创建令牌签发器
 func newIssuer(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
 	sessionCreator SessionCreator,
 	refreshExpirer SessionRefreshExpirer,
-	claimMapper ClaimMapper,
+	refreshClaimsCodec RefreshClaimsCodec,
 	accessTTL time.Duration,
-) *issuer {
-	claimMapper = normalizeClaimMapper(claimMapper)
-	pairIssuer := newSessionTokenPairIssuer(tokenCodec, tokenStore, refreshExpirer, claimMapper, accessTTL)
-	return &issuer{
-		sessionIssuer: newSessionTokenIssuer(sessionCreator, pairIssuer),
-		serviceIssuer: newServiceTokenIssuer(tokenCodec, accessTTL),
+) issuerComponents {
+	return issuerComponents{
+		accessTokenIssuer: newAccessTokenIssuer(
+			sessionCreator,
+			tokenCodec,
+			tokenStore,
+			refreshExpirer,
+			refreshClaimsCodec,
+			accessTTL,
+		),
+		serviceTokenIssuer: newServiceTokenIssuer(tokenCodec, accessTTL),
 	}
 }
 
-// sessionTokenPairIssuer 返回基于既有 session 签发 token pair 的内部协作者。
-func (s *issuer) sessionTokenPairIssuer() sessionTokenPairIssuerPort {
-	if s == nil || s.sessionIssuer == nil {
-		return nil
-	}
-	return s.sessionIssuer.pairIssuer
+// accessTokenIssuer 实现用户 access/refresh 令牌的登录签发与 refresh 轮换 mint。
+type accessTokenIssuer struct {
+	sessionCreator     SessionCreator
+	tokenCodec         AccessTokenCodec
+	tokenStore         Store
+	refreshExpirer     SessionRefreshExpirer
+	refreshClaimsCodec RefreshClaimsCodec
+	accessTTL          time.Duration
 }
 
-// IssueToken 颁发用户会话令牌。
-func (s *issuer) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
-	return s.sessionIssuer.IssueToken(ctx, principal)
-}
+// 确保 accessTokenIssuer 实现 accessTokenIssuerPort 接口。
+var _ accessTokenIssuerPort = (*accessTokenIssuer)(nil)
 
-// IssueServiceToken 颁发服务令牌。
-func (s *issuer) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error) {
-	return s.serviceIssuer.IssueServiceToken(ctx, subject, audience, attributes, ttl)
-}
-
-// sessionTokenIssuer 用于签发用户会话令牌。
-type sessionTokenIssuer struct {
-	sessionCreator SessionCreator             // 会话创建器
-	pairIssuer     sessionTokenPairIssuerPort // 令牌对签发器
-}
-
-// 确保 sessionTokenIssuer 实现 sessionTokenIssuerPort 接口。
-var _ sessionTokenIssuerPort = (*sessionTokenIssuer)(nil)
-
-// newSessionTokenIssuer 创建 sessionTokenIssuer。
-func newSessionTokenIssuer(sessionCreator SessionCreator, pairIssuer sessionTokenPairIssuerPort) *sessionTokenIssuer {
-	return &sessionTokenIssuer{
-		sessionCreator: sessionCreator,
-		pairIssuer:     pairIssuer,
+// newAccessTokenIssuer 创建 accessTokenIssuer。
+func newAccessTokenIssuer(
+	sessionCreator SessionCreator,
+	tokenCodec AccessTokenCodec,
+	tokenStore Store,
+	refreshExpirer SessionRefreshExpirer,
+	refreshClaimsCodec RefreshClaimsCodec,
+	accessTTL time.Duration,
+) *accessTokenIssuer {
+	return &accessTokenIssuer{
+		sessionCreator:     sessionCreator,
+		tokenCodec:         tokenCodec,
+		tokenStore:         tokenStore,
+		refreshExpirer:     refreshExpirer,
+		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
+		accessTTL:          accessTTL,
 	}
 }
 
-// IssueToken 颁发用户会话令牌。
-func (s *sessionTokenIssuer) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
+// IssueToken 登录：创建 session 并签发 access/refresh token pair。
+func (s *accessTokenIssuer) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
 	if principal == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
 	}
 
-	// 创建 session
 	sess, err := s.sessionCreator.Create(ctx, principal)
 	if err != nil {
 		if perrors.IsCode(err, code.ErrInvalidArgument) {
@@ -85,14 +85,108 @@ func (s *sessionTokenIssuer) IssueToken(ctx context.Context, principal *authenti
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to create session")
 	}
 
-	// 颁发令牌对
-	return s.pairIssuer.IssueTokenPair(ctx, principal, sess)
+	return s.MintTokenPair(ctx, principal, sess)
+}
+
+// MintTokenPair 在既有 session 上签发 access token 并保存新的 refresh token（Refresh 复用）。
+func (s *accessTokenIssuer) MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
+	if principal == nil {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
+	}
+	if sess == nil {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "session is required")
+	}
+	if err := validatePrincipalSessionAlignment(principal, sess); err != nil {
+		return nil, err
+	}
+
+	subject := accessTokenSubjectFromAuth(principal, sess)
+	claims := cloneAnyMap(subject.Claims)
+
+	now := time.Now().UTC()
+	ensureAuthTime(claims, now)
+
+	accessToken, err := s.tokenCodec.IssueAccessToken(ctx, &AccessTokenSubject{
+		UserID:          subject.UserID,
+		LoginIdentityID: subject.LoginIdentityID,
+		SessionID:       subject.SessionID,
+		TenantID:        subject.TenantID,
+		AuthMethod:      subject.AuthMethod,
+		Realm:           subject.Realm,
+		AMR:             append([]string(nil), subject.AMR...),
+		Claims:          claims,
+	}, s.accessTTL)
+	if err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate access token")
+	}
+
+	refreshToken, err := s.issueRefreshToken(ctx, subject, sess, claims, now)
+	if err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate refresh token")
+	}
+
+	return NewTokenPair(accessToken, refreshToken), nil
+}
+
+// issueRefreshToken 在既有 session 上签发 refresh token。
+func (s *accessTokenIssuer) issueRefreshToken(ctx context.Context, subject *AccessTokenSubject, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*Token, error) {
+	refreshExpiresAt, err := s.refreshExpirer.NextRefreshExpiresAt(now, sess)
+	if err != nil {
+		return nil, err
+	}
+	refreshToken := NewRefreshTokenWithExpiry(
+		uuid.New().String(),
+		uuid.New().String(),
+		sess.SessionID,
+		subject.UserID,
+		subject.LoginIdentityID,
+		subject.TenantID,
+		subject.AMR,
+		s.refreshClaimsCodec.Encode(claims),
+		refreshExpiresAt,
+	)
+
+	refreshToken.IssuedAt = now
+	refreshToken.AuthMethod = subject.AuthMethod
+	refreshToken.Realm = subject.Realm
+
+	if err := s.tokenStore.SaveRefreshToken(ctx, refreshToken); err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to save refresh token")
+	}
+
+	return refreshToken, nil
+}
+
+// ensureAuthTime 确保 auth_time 声明存在
+func ensureAuthTime(claims map[string]any, now time.Time) {
+	if claims == nil {
+		return
+	}
+	if value, ok := claims["auth_time"]; ok && value != nil {
+		if text, ok := value.(string); ok && text != "" {
+			return
+		}
+		if t, ok := value.(time.Time); ok && !t.IsZero() {
+			claims["auth_time"] = t.UTC().Format(time.RFC3339)
+			return
+		}
+	}
+	claims["auth_time"] = now.Format(time.RFC3339)
+}
+
+// cloneAnyMap 克隆任意映射。
+func cloneAnyMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 // serviceTokenIssuer 用于签发服务令牌。
 type serviceTokenIssuer struct {
-	tokenCodec AccessTokenCodec // 令牌编码器
-	accessTTL  time.Duration    // 令牌有效期
+	tokenCodec AccessTokenCodec
+	accessTTL  time.Duration
 }
 
 // 确保 serviceTokenIssuer 实现 serviceTokenIssuerPort 接口。
@@ -106,17 +200,14 @@ func newServiceTokenIssuer(tokenCodec AccessTokenCodec, accessTTL time.Duration)
 	}
 }
 
-// IssueServiceToken 颁发服务令牌。
+// IssueServiceToken 签发服务间访问令牌。
 func (s *serviceTokenIssuer) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error) {
-	// 如果主题为空，则返回错误
 	if subject == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
 	}
-	// 如果有效期小于等于0，则使用默认有效期
 	if ttl <= 0 {
 		ttl = s.accessTTL
 	}
-	// 颁发服务令牌
 	serviceToken, err := s.tokenCodec.IssueServiceToken(ctx, subject, audience, attributes, ttl)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate service token")

@@ -67,7 +67,7 @@ func (m *AuthnModule) initializeApplication(
 		SessionExtender:       domain.sessionExtender,
 		SessionRefreshExpirer: domain.sessionRefreshExpirer,
 		AccessChecker:         infra.accessChecker,
-		ClaimMapper:           infra.jwtGenerator.ClaimMapper(),
+		RefreshClaimsCodec:    token.NewDefaultRefreshClaimsCodec(),
 		AccessTTL:             domain.accessTTL,
 	})
 

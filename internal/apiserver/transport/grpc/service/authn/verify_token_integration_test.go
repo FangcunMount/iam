@@ -138,7 +138,7 @@ func newTestTokenStack(t *testing.T) (
 		SessionExtender:       sessiondomain.NewExtender(sessionStore, lifetime),
 		SessionRefreshExpirer: sessiondomain.NewRefreshExpirer(lifetime),
 		AccessChecker:         allowAllSubjectAccessEvaluator{},
-		ClaimMapper:           gen.ClaimMapper(),
+		RefreshClaimsCodec:    tokenapp.NewDefaultRefreshClaimsCodec(),
 		AccessTTL:             time.Hour,
 	})
 	return svc, gen

@@ -25,11 +25,10 @@ type Generator struct {
 	issuer              string
 	accessTokenAudience []string
 	keySource           SigningKeySource
-	claimsMapper        ClaimsMapper
+	attributeEncoder jwtAttributeEncoder
 }
 
 var _ tokenapp.AccessTokenCodec = (*Generator)(nil)
-var _ tokenapp.ClaimMapper = ClaimsMapper{}
 
 func NewGenerator(
 	issuer string,
@@ -46,7 +45,7 @@ func NewGenerator(
 		issuer:              issuer,
 		accessTokenAudience: cloneStrings(accessTokenAudience),
 		keySource:           keySource,
-		claimsMapper:        NewClaimsMapper(),
+		attributeEncoder: newJWTAttributeEncoder(),
 	}
 }
 
@@ -64,33 +63,29 @@ type CustomClaims struct {
 	jwtv4.RegisteredClaims
 }
 
-func (g *Generator) ClaimMapper() tokenapp.ClaimMapper {
-	return g.claimsMapper
-}
-
-func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Principal, expiresIn time.Duration) (*tokenapp.Token, error) {
+func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokenapp.AccessTokenSubject, expiresIn time.Duration) (*tokenapp.Token, error) {
 	l := logger.L(ctx)
-	l.Debugw("IssueAccessToken", "principal", fmt.Sprintf("%+v", principal), "expiresIn", expiresIn)
+	l.Debugw("IssueAccessToken", "subject", fmt.Sprintf("%+v", subject), "expiresIn", expiresIn)
 	now := time.Now()
 	tokenID := uuid.NewString()
-	loginIdentityID := principal.LoginIdentityID
-	authMethod := principal.AuthMethod
-	realm := principal.Realm
+	loginIdentityID := subject.LoginIdentityID
+	authMethod := subject.AuthMethod
+	realm := subject.Realm
 
 	claims := CustomClaims{
 		TokenType:       string(tokenapp.TokenTypeAccess),
-		SessionID:       principal.SessionID,
-		UserID:          principal.UserID.String(),
+		SessionID:       subject.SessionID,
+		UserID:          subject.UserID.String(),
 		LoginIdentityID: loginIdentityID.String(),
-		OrgID:           businessOrgIDClaim(principal.Claims),
-		TenantID:        tokenapp.TenantDomainFromClaims(principal.Claims, principal.Realm),
+		OrgID:           businessOrgIDClaim(subject.Claims),
+		TenantID:        tokenapp.TenantDomainFromClaims(subject.Claims, subject.Realm),
 		AuthMethod:      authMethod,
 		Realm:           realm,
-		Attributes:      cloneStringMap(g.claimsMapper.Encode(principal.Claims)),
-		AMR:             cloneStrings(principal.AMR),
+		Attributes:      cloneStringMap(g.attributeEncoder.EncodeAttributes(subject.Claims)),
+		AMR:             cloneStrings(subject.AMR),
 		RegisteredClaims: jwtv4.RegisteredClaims{
 			ID:        tokenID,
-			Subject:   principal.UserID.String(),
+			Subject:   subject.UserID.String(),
 			Issuer:    g.issuer,
 			Audience:  jwtv4.ClaimStrings(cloneStrings(g.accessTokenAudience)),
 			IssuedAt:  jwtv4.NewNumericDate(now),
@@ -107,10 +102,10 @@ func (g *Generator) IssueAccessToken(ctx context.Context, principal *tokenapp.Pr
 	token := tokenapp.NewAccessToken(
 		tokenID,
 		tokenString,
-		principal.SessionID,
-		principal.UserID,
+		subject.SessionID,
+		subject.UserID,
 		loginIdentityID,
-		meta.ZeroID,
+		subject.TenantID,
 		expiresIn,
 	)
 	token.LoginIdentityID = loginIdentityID

@@ -2,7 +2,6 @@ package token
 
 import (
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // SessionCreator 是 token 用例依赖的会话创建协作者。
@@ -52,16 +51,4 @@ func cloneStringMap(in map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
-}
-
-// Principal 是 access token 编码所需的应用层身份快照（IAM 身份域）。
-// 授权域见 Claims["tenant_domain"] 或 Realm。
-type Principal struct {
-	UserID          meta.ID        // 用户ID
-	LoginIdentityID meta.ID        // 登录身份ID
-	SessionID       string         // 会话ID
-	AuthMethod      string         // 认证方法
-	Realm           string         // 认证域
-	AMR             []string       // 认证方法引用
-	Claims          map[string]any // 声明
 }

@@ -38,10 +38,8 @@ func newVerifier(
 	}
 }
 
-// VerifyAccessToken 验证访问令牌
-// 职责：验证访问令牌是否有效：1. 令牌是否已撤销；2. 会话是否活跃；3. 主体访问权限是否允许。
-// 返回值：访问令牌声明
-func (s *verifier) VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error) {
+// VerifyToken 验证 JWT bearer（用户 access 或 service access）。
+func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*TokenClaims, error) {
 	// 解析访问令牌
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
 	if err != nil {

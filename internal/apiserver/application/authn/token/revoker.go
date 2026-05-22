@@ -27,8 +27,8 @@ func newRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionRevoker Se
 	}
 }
 
-// RevokeAccessToken 撤销访问令牌。
-func (s *revoker) RevokeAccessToken(ctx context.Context, tokenValue string) error {
+// RevokeBearerToken 撤销 JWT bearer。
+func (s *revoker) RevokeBearerToken(ctx context.Context, tokenValue string) error {
 	// 验证访问令牌
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
 	if err != nil {

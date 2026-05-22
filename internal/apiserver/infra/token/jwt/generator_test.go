@@ -21,7 +21,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	t.Parallel()
 
 	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api", "collection-api"})
-	principal := &tokenapp.Principal{
+	subject := &tokenapp.AccessTokenSubject{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
 		AMR:             []string{"pwd"},
@@ -33,7 +33,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 		},
 	}
 
-	token, err := generator.IssueAccessToken(context.Background(), principal, 15*time.Minute)
+	token, err := generator.IssueAccessToken(context.Background(), subject, 15*time.Minute)
 	require.NoError(t, err)
 
 	parsedJWT, rawClaims := parseRawClaims(t, token.Value, signingKey)
@@ -45,8 +45,8 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	claims, err := generator.VerifyAccessToken(context.Background(), token.Value)
 	require.NoError(t, err)
 	require.Equal(t, tokenapp.TokenTypeAccess, claims.TokenType)
-	require.Equal(t, principal.UserID, claims.UserID)
-	require.Equal(t, principal.LoginIdentityID, claims.LoginIdentityID)
+	require.Equal(t, subject.UserID, claims.UserID)
+	require.Equal(t, subject.LoginIdentityID, claims.LoginIdentityID)
 	require.Equal(t, meta.MustFromUint64(1), claims.OrgID)
 	require.Equal(t, "fangcun", claims.TenantDomain)
 	require.Equal(t, []string{"qs-api", "collection-api"}, claims.Audience)
@@ -58,7 +58,7 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 	t.Parallel()
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
-	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.Principal{
+	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.AccessTokenSubject{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
 		Claims: map[string]any{
@@ -99,7 +99,7 @@ func TestGeneratorLegacyNumericTenantIDDoesNotInferOrg(t *testing.T) {
 	t.Parallel()
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
-	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.Principal{
+	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.AccessTokenSubject{
 		UserID:          meta.MustFromUint64(1002),
 		LoginIdentityID: meta.MustFromUint64(1001),
 		Claims:          map[string]any{"tenant_domain": "fangcun"},

@@ -2,13 +2,13 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v2/internal/pkg/authnclaims"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -36,7 +36,7 @@ func (c *creator) Create(ctx context.Context, principal *authentication.Principa
 		return nil, err
 	}
 
-	session := New(uuid.NewString(), principal.UserID, principal.LoginIdentityID, principal.TenantID, principal.AMR, toStringClaims(principal.Claims), expiresAt)
+	session := New(uuid.NewString(), principal.UserID, principal.LoginIdentityID, principal.TenantID, principal.AMR, authnclaims.EncodeSnapshot(principal.Claims), expiresAt)
 	session.AuthMethod = principal.AuthMethod
 	session.Realm = principal.Realm
 
@@ -44,21 +44,4 @@ func (c *creator) Create(ctx context.Context, principal *authentication.Principa
 		return nil, err
 	}
 	return session, nil
-}
-
-func toStringClaims(claims map[string]any) map[string]string {
-	if len(claims) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(claims))
-	for key, value := range claims {
-		if key == "" || value == nil {
-			continue
-		}
-		out[key] = fmt.Sprint(value)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }

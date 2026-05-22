@@ -3,6 +3,8 @@ package token
 import (
 	"context"
 	"time"
+
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // ==================================================
@@ -26,9 +28,22 @@ type Store interface {
 // AccessTokenCodec 是 access/service token 编码适配端口；JWT 只是其中一种实现。
 type AccessTokenCodec interface {
 	// IssueAccessToken 颁发访问令牌
-	IssueAccessToken(ctx context.Context, principal *Principal, expiresIn time.Duration) (*Token, error)
+	IssueAccessToken(ctx context.Context, subject *AccessTokenSubject, expiresIn time.Duration) (*Token, error)
 	// IssueServiceToken 颁发服务令牌
 	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*Token, error)
 	// VerifyAccessToken 验证访问令牌
 	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
+}
+
+// AccessTokenSubject 是 access token 编码所需的应用层身份快照（已绑定 session）。
+// JWT 授权域见 Claims["tenant_domain"] 或 Realm；TenantID 为 IAM 数值租户上下文。
+type AccessTokenSubject struct {
+	UserID          meta.ID        // 用户ID
+	LoginIdentityID meta.ID        // 登录身份ID
+	TenantID        meta.ID        // 租户ID
+	SessionID       string         // 会话ID
+	AuthMethod      string         // 认证方法
+	Realm           string         // 认证域
+	AMR             []string       // 认证方法引用
+	Claims          map[string]any // 声明
 }

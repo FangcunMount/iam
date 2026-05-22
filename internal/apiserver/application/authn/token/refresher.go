@@ -13,13 +13,13 @@ import (
 
 // refresher 用于根据 refresh token 刷新 access token 和 refresh token。
 type refresher struct {
-	pairIssuer      sessionTokenPairIssuerPort
+	accessTokenIssuer accessTokenIssuerPort
 	tokenStore      Store
 	sessionLoader   SessionLoader
 	sessionRevoker  SessionRevoker
 	sessionExtender SessionExtender
 	accessChecker   SubjectAccessEvaluator
-	claimMapper     ClaimMapper
+	refreshClaimsCodec RefreshClaimsCodec
 }
 
 // 确保 refresher 实现 refresherPort 接口。
@@ -27,22 +27,22 @@ var _ refresherPort = (*refresher)(nil)
 
 // newRefresher 创建 refresher。
 func newRefresher(
-	pairIssuer sessionTokenPairIssuerPort,
+	accessTokenIssuer accessTokenIssuerPort,
 	tokenStore Store,
 	sessionLoader SessionLoader,
 	sessionRevoker SessionRevoker,
 	sessionExtender SessionExtender,
 	accessChecker SubjectAccessEvaluator,
-	claimMapper ClaimMapper,
+	refreshClaimsCodec RefreshClaimsCodec,
 ) refresherPort {
 	return &refresher{
-		pairIssuer:      pairIssuer,
+		accessTokenIssuer: accessTokenIssuer,
 		tokenStore:      tokenStore,
 		sessionLoader:   sessionLoader,
 		sessionRevoker:  sessionRevoker,
 		sessionExtender: sessionExtender,
 		accessChecker:   accessChecker,
-		claimMapper:     normalizeClaimMapper(claimMapper),
+		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
 	}
 }
 
@@ -164,7 +164,7 @@ func (s *refresher) principalFromRefreshToken(refreshToken *Token) *authenticati
 	if len(amr) == 0 {
 		amr = []string{"jwt"}
 	}
-	claims := s.claimMapper.Decode(refreshToken.SessionClaims)
+	claims := s.refreshClaimsCodec.Decode(refreshToken.SessionClaims)
 	if claims == nil {
 		claims = make(map[string]any)
 	}
@@ -182,15 +182,15 @@ func (s *refresher) principalFromRefreshToken(refreshToken *Token) *authenticati
 
 // issueRotatedTokenPair 颁发新的令牌对
 func (s *refresher) issueRotatedTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
-	if s.pairIssuer == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "session token pair issuer is not configured")
+	if s.accessTokenIssuer == nil {
+		return nil, perrors.WithCode(code.ErrInternalServerError, "access token issuer is not configured")
 	}
-	newTokenPair, err := s.pairIssuer.IssueTokenPair(ctx, principal, sess)
+	newTokenPair, err := s.accessTokenIssuer.MintTokenPair(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}
 	if newTokenPair == nil || newTokenPair.AccessToken == nil || newTokenPair.RefreshToken == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "session token pair issuer returned incomplete token pair")
+		return nil, perrors.WithCode(code.ErrInternalServerError, "access token issuer returned incomplete token pair")
 	}
 	return newTokenPair, nil
 }

@@ -121,26 +121,32 @@ func NewTokenPair(accessToken, refreshToken *Token) *TokenPair {
 
 // TokenClaims 是应用层验签结果，不暴露 JWT Header/Signature 等编码细节
 type TokenClaims struct {
-	TokenID         string    // 令牌ID
-	TokenType       TokenType // 令牌类型
-	Subject         string    // 令牌主体
-	SessionID       string    // 会话ID
-	UserID          meta.ID   // 用户ID
-	LoginIdentityID meta.ID   // 登录身份ID
-	// OrgID 来自 JWT org_id claim 的业务上下文透传，非 IAM 身份域字段。
-	OrgID meta.ID // 组织ID
-	// TenantDomain IAM 授权域（JWT tenant_id claim，string，如 fangcun）。
-	TenantDomain string // 租户域
-	// TenantID Deprecated: 历史误将数值 org 写入 tenant_id；新 token 请读 TenantDomain。
-	TenantID   meta.ID           // 租户ID
-	AuthMethod string            // 认证方法
-	Realm      string            // 认证域
-	Issuer     string            // 签发者
-	Audience   []string          // 受众
-	Attributes map[string]string // 属性
-	AMR        []string          // 认证方法引用
-	IssuedAt   time.Time         // 颁发时间
-	ExpiresAt  time.Time         // 过期时间
+	// --- 令牌元数据 ---
+	TokenID   string    // 令牌ID
+	TokenType TokenType // 令牌类型
+	Subject   string    // 令牌主体
+
+	// --- 令牌主体会话信息 ---
+	SessionID string
+
+	// --- 令牌主体用户信息 ---
+	UserID          meta.ID // 用户ID
+	LoginIdentityID meta.ID // 登录身份ID
+
+	// --- 令牌主体租户信息 ---
+	TenantDomain string  // 租户域
+	TenantID     meta.ID // 租户ID
+	OrgID        meta.ID // 组织ID（非 IAM 领域字段，用于业务上下文透传）
+
+	// --- 令牌主体认证信息 ---
+	AuthMethod string            // 认证方法（可选）
+	Realm      string            // 认证域（可选）
+	Issuer     string            // 签发者（可选）
+	Audience   []string          // 受众（可选）
+	Attributes map[string]string // 属性（可选）
+	AMR        []string          // 认证方法引用（可选）
+	IssuedAt   time.Time         // 颁发时间（可选）
+	ExpiresAt  time.Time         // 过期时间（可选）
 }
 
 // NewTokenClaims 创建令牌声明

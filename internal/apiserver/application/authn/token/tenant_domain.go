@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
 
-// TenantDomainFromClaims 从 Principal.Claims 解析 IAM 授权域；缺省为 tenant.DefaultID。
+// TenantDomainFromClaims 从 AccessTokenSubject.Claims 解析 IAM 授权域；缺省为 tenant.DefaultID。
 func TenantDomainFromClaims(claims map[string]any, realm string) string {
 	if domain := stringClaim(claims, "tenant_domain"); domain != "" {
 		return domain
