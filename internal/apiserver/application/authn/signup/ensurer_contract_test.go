@@ -1,4 +1,4 @@
-package onboarding
+package signup
 
 import (
 	"context"
@@ -14,11 +14,11 @@ import (
 func TestCredentialEnsurerReturnsNotRequiredWithoutPlaceholderCredential(t *testing.T) {
 	t.Parallel()
 
-	result, err := newCredentialEnsurer(onboardingPasswordHasherStubLocal{}).Ensure(
+	result, err := newEnsureCredentialStep(onboardingPasswordHasherStubLocal{}).Run(
 		context.Background(),
 		nil,
-		&LoginIdentityEnsureResult{Identity: &loginidentity.LoginIdentity{ID: meta.FromUint64(10)}},
-		&preparedOnboarding{},
+		&ensureLoginIdentityStepResult{Identity: &loginidentity.LoginIdentity{ID: meta.FromUint64(10)}},
+		&preparedSignup{},
 	)
 
 	require.NoError(t, err)
@@ -44,10 +44,10 @@ func TestLoginIdentityEnsurerRejectsProviderKeyOwnedByAnotherUser(t *testing.T) 
 		},
 	}
 
-	_, err := newLoginIdentityEnsurer().Ensure(
+	_, err := newEnsureLoginIdentityStep().Run(
 		context.Background(),
 		repo,
-		&preparedOnboarding{
+		&preparedSignup{
 			LoginIdentity: preparedLoginIdentity{
 				ProviderKey: key,
 			},
@@ -77,10 +77,10 @@ func TestLoginIdentityEnsurerReusesActiveProviderKeyOwnedBySameUser(t *testing.T
 		},
 	}
 
-	result, err := newLoginIdentityEnsurer().Ensure(
+	result, err := newEnsureLoginIdentityStep().Run(
 		context.Background(),
 		repo,
-		&preparedOnboarding{
+		&preparedSignup{
 			LoginIdentity: preparedLoginIdentity{
 				ProviderKey: key,
 			},
@@ -111,10 +111,10 @@ func TestLoginIdentityEnsurerRejectsInactiveExistingProviderKey(t *testing.T) {
 		},
 	}
 
-	_, err := newLoginIdentityEnsurer().Ensure(
+	_, err := newEnsureLoginIdentityStep().Run(
 		context.Background(),
 		repo,
-		&preparedOnboarding{
+		&preparedSignup{
 			LoginIdentity: preparedLoginIdentity{
 				ProviderKey: key,
 			},

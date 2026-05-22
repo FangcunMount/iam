@@ -6,23 +6,23 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	appOnboarding "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// OnboardingHandler exposes LoginIdentity onboarding endpoints.
+// OnboardingHandler exposes /authn/signups and internal mock-consumer ensure endpoints.
 type OnboardingHandler struct {
 	*BaseHandler
-	loginIdentityOnboarder appOnboarding.LoginIdentityOnboarder
+	signupService signupApp.SignupService
 }
 
-func NewOnboardingHandler(loginIdentityOnboarder appOnboarding.LoginIdentityOnboarder) *OnboardingHandler {
+func NewOnboardingHandler(signupService signupApp.SignupService) *OnboardingHandler {
 	return &OnboardingHandler{
-		BaseHandler:            NewBaseHandler(),
-		loginIdentityOnboarder: loginIdentityOnboarder,
+		BaseHandler:   NewBaseHandler(),
+		signupService: signupService,
 	}
 }
 
@@ -44,13 +44,13 @@ func (h *OnboardingHandler) SignUpWithWeChatMiniProgram(c *gin.Context) {
 		return
 	}
 
-	onboardingReq, err := wechatMiniProgramSignupRequestFromHTTP(reqBody)
+	signupReq, err := wechatMiniProgramSignupRequestFromHTTP(reqBody)
 	if err != nil {
 		h.Error(c, err)
 		return
 	}
 
-	result, err := h.loginIdentityOnboarder.Onboard(c.Request.Context(), onboardingReq)
+	result, err := h.signupService.SignUp(c.Request.Context(), signupReq)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -83,23 +83,23 @@ func (h *OnboardingHandler) EnsureMockConsumer(c *gin.Context) {
 	}
 
 	password := strings.TrimSpace(reqBody.Password)
-	onboardingReq := appOnboarding.OnboardingRequest{
-		User: appOnboarding.OnboardingUserInput{
+	signupReq := signupApp.SignupRequest{
+		User: signupApp.SignupUserInput{
 			Name:  strings.TrimSpace(reqBody.Name),
 			Phone: phone,
 			Email: email,
 		},
-		LoginIdentity: appOnboarding.MockConsumerUsernameLoginIdentityInput{
+		LoginIdentity: signupApp.MockConsumerUsernameLoginIdentityInput{
 			Username: strings.TrimSpace(reqBody.Email),
 			Profile:  reqBody.Profile,
 			Meta:     reqBody.Meta,
 		},
-		Credential: &appOnboarding.OnboardingCredentialInput{
-			Password: &appOnboarding.PasswordCredentialInput{Plaintext: password},
+		Credential: &signupApp.SignupCredentialInput{
+			Password: &signupApp.PasswordCredentialInput{Plaintext: password},
 		},
 	}
 
-	result, err := h.loginIdentityOnboarder.Onboard(c.Request.Context(), onboardingReq)
+	result, err := h.signupService.SignUp(c.Request.Context(), signupReq)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -114,9 +114,7 @@ func (h *OnboardingHandler) EnsureMockConsumer(c *gin.Context) {
 	})
 }
 
-// wechatMiniProgramSignupRequestFromHTTP 微信小程序登录身份开通请求转换为领域请求
-func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProgramRequest) (appOnboarding.OnboardingRequest, error) {
-	// 转换手机号和邮箱
+func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProgramRequest) (signupApp.SignupRequest, error) {
 	var phone meta.Phone
 	if strings.TrimSpace(reqBody.Phone) != "" {
 		phone, _ = meta.NewPhone(strings.TrimSpace(reqBody.Phone))
@@ -126,11 +124,9 @@ func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProg
 		email, _ = meta.NewEmail(strings.TrimSpace(reqBody.Email))
 	}
 
-	// 转换微信小程序应用ID和登录码
 	appID := strings.TrimSpace(reqBody.AppID)
 	jsCode := strings.TrimSpace(reqBody.JsCode)
 
-	// 转换用户昵称和头像
 	profile := make(map[string]string)
 	if reqBody.Nickname != nil && strings.TrimSpace(*reqBody.Nickname) != "" {
 		profile["nickname"] = strings.TrimSpace(*reqBody.Nickname)
@@ -139,20 +135,18 @@ func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProg
 		profile["avatar"] = strings.TrimSpace(*reqBody.Avatar)
 	}
 
-	// 转换元数据
 	metaMap, err := reqBody.MetaJSON()
 	if err != nil {
-		return appOnboarding.OnboardingRequest{}, err
+		return signupApp.SignupRequest{}, err
 	}
 
-	// 返回领域请求
-	return appOnboarding.OnboardingRequest{
-		User: appOnboarding.OnboardingUserInput{
+	return signupApp.SignupRequest{
+		User: signupApp.SignupUserInput{
 			Name:  strings.TrimSpace(reqBody.Name),
 			Phone: phone,
 			Email: email,
 		},
-		LoginIdentity: appOnboarding.WechatMiniLoginIdentityInput{
+		LoginIdentity: signupApp.WechatMiniLoginIdentityInput{
 			AppID:   &appID,
 			JsCode:  &jsCode,
 			Profile: profile,
@@ -161,7 +155,7 @@ func wechatMiniProgramSignupRequestFromHTTP(reqBody req.SignUpWithWeChatMiniProg
 	}, nil
 }
 
-func signupResultToResponse(result *appOnboarding.OnboardingResult) resp.SignupResult {
+func signupResultToResponse(result *signupApp.SignupResult) resp.SignupResult {
 	var credential *resp.SignupCredential
 	if result.Credential != nil {
 		credential = &resp.SignupCredential{

@@ -27,7 +27,7 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 		service := authngrpc.NewService(
 			caps.LoginService,
 			caps.TokenService,
-			caps.LoginIdentityOnboarder,
+			caps.SignupService,
 			caps.ChallengeService,
 			caps.LoginIdentityLinking,
 			caps.KeyPublishApp,

@@ -1,4 +1,4 @@
-package onboarding
+package signup
 
 import (
 	"context"
@@ -8,44 +8,38 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// preparedOnboarding 准备好的开通数据。
-type preparedOnboarding struct {
-	User          OnboardingUserInput
-	LoginIdentity preparedLoginIdentity
-	Credential    *OnboardingCredentialInput
-}
-
-// requestPreparer 请求准备器。
-type requestPreparer struct {
+// prepareStep 准备步骤，用于准备登录身份和凭据。
+type prepareStep struct {
 	wechatIdentityResolver *wechatIdentityResolver
 }
 
-// newRequestPreparer 创建请求准备器。
-func newRequestPreparer(wechatIdentityResolver *wechatIdentityResolver) *requestPreparer {
-	return &requestPreparer{wechatIdentityResolver: wechatIdentityResolver}
+// newPrepareStep 创建准备步骤。
+func newPrepareStep(wechatIdentityResolver *wechatIdentityResolver) *prepareStep {
+	return &prepareStep{wechatIdentityResolver: wechatIdentityResolver}
 }
 
-// Prepare 在数据库事务外裁剪输入、解析外部身份，并生成后续固定流程需要的创建数据。
-func (p *requestPreparer) Prepare(ctx context.Context, req OnboardingRequest) (*preparedOnboarding, error) {
-	// 修剪用户输入。
+// Run 在事务外裁剪输入、解析外部身份，生成后续步骤需要的 preparedSignup。
+// 参数：
+//   - ctx: 上下文
+//   - req: 登录请求
+//
+// 返回：
+//   - *preparedSignup: 准备后的登录身份和凭据
+//   - error: 错误
+func (s *prepareStep) Run(ctx context.Context, req SignupRequest) (*preparedSignup, error) {
 	user := trimUserInput(req.User)
-
-	// 修剪凭据输入。
 	credential := trimCredentialInput(req.Credential)
 
-	// 验证登录身份输入是否为空。
 	if req.LoginIdentity == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "login identity input is required")
 	}
 
-	// 准备登录身份。
-	identity, err := req.LoginIdentity.prepareOnboardingLoginIdentity(ctx, p.prepareDeps(), user)
+	identity, err := req.LoginIdentity.prepareSignupLoginIdentity(ctx, s.prepareDeps(), user)
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "failed to prepare login identity: %v", err)
 	}
 
-	// 返回准备好的开通数据。
-	return &preparedOnboarding{
+	return &preparedSignup{
 		User:          user,
 		LoginIdentity: identity,
 		Credential:    credential,
@@ -53,21 +47,21 @@ func (p *requestPreparer) Prepare(ctx context.Context, req OnboardingRequest) (*
 }
 
 // prepareDeps 准备依赖。
-func (p *requestPreparer) prepareDeps() loginIdentityPrepareDeps {
-	if p == nil {
+func (s *prepareStep) prepareDeps() loginIdentityPrepareDeps {
+	if s == nil {
 		return loginIdentityPrepareDeps{}
 	}
-	return loginIdentityPrepareDeps{wechatIdentityResolver: p.wechatIdentityResolver}
+	return loginIdentityPrepareDeps{wechatIdentityResolver: s.wechatIdentityResolver}
 }
 
 // trimUserInput 修剪用户输入。
-func trimUserInput(user OnboardingUserInput) OnboardingUserInput {
+func trimUserInput(user SignupUserInput) SignupUserInput {
 	user.Name = strings.TrimSpace(user.Name)
 	return user
 }
 
 // trimCredentialInput 修剪凭据输入。
-func trimCredentialInput(in *OnboardingCredentialInput) *OnboardingCredentialInput {
+func trimCredentialInput(in *SignupCredentialInput) *SignupCredentialInput {
 	if in == nil {
 		return nil
 	}
@@ -78,6 +72,14 @@ func trimCredentialInput(in *OnboardingCredentialInput) *OnboardingCredentialInp
 		out.Password = &password
 	}
 	return &out
+}
+
+// valueOfStringPtr 获取字符串指针的值。
+func valueOfStringPtr(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }
 
 // trimStringPtr 修剪字符串指针。

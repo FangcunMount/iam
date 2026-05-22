@@ -8,7 +8,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	authzAuthorizationApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
@@ -38,7 +38,7 @@ type KeyRotationScheduler interface {
 // AuthnApplicationCapabilities contains authn application collaborators used
 // by transports without exposing concrete transport objects from assembler.
 type AuthnApplicationCapabilities struct {
-	LoginIdentityOnboarder onboardingApp.LoginIdentityOnboarder
+	SignupService signupApp.SignupService
 	LoginIdentityLinking   linkingApp.Service
 	LoginService           login.LoginApplicationService
 	ChallengeService       challengeApp.Service

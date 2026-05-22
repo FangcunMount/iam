@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	appOnboarding "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -12,16 +12,16 @@ import (
 func TestSignupResultToResponseUsesNullableCredential(t *testing.T) {
 	t.Parallel()
 
-	withoutCredential := signupResultToResponse(&appOnboarding.OnboardingResult{
+	withoutCredential := signupResultToResponse(&signupApp.SignupResult{
 		UserID:          meta.FromUint64(1),
 		LoginIdentityID: meta.FromUint64(2),
 	})
 	require.Nil(t, withoutCredential.Credential)
 
-	withCredential := signupResultToResponse(&appOnboarding.OnboardingResult{
+	withCredential := signupResultToResponse(&signupApp.SignupResult{
 		UserID:          meta.FromUint64(1),
 		LoginIdentityID: meta.FromUint64(2),
-		Credential: &appOnboarding.OnboardingCredential{
+		Credential: &signupApp.SignupCredential{
 			ID:   meta.FromUint64(3),
 			Type: credDomain.CredPassword,
 		},

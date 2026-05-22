@@ -1,4 +1,4 @@
-package onboarding
+package signup
 
 import (
 	"context"
@@ -13,52 +13,56 @@ import (
 type LoginIdentityEnsureStatus string
 
 const (
-	LoginIdentityCreated LoginIdentityEnsureStatus = "created" // 创建
-	LoginIdentityReused  LoginIdentityEnsureStatus = "reused"  // 重用
+	LoginIdentityCreated LoginIdentityEnsureStatus = "created"
+	LoginIdentityReused  LoginIdentityEnsureStatus = "reused"
 )
 
-// LoginIdentityEnsureResult 登录身份确保结果。
-type LoginIdentityEnsureResult struct {
-	Identity *loginidentity.LoginIdentity // 登录身份
-	Status   LoginIdentityEnsureStatus    // 确保状态
+// ensureLoginIdentityStepResult 登录身份确保步骤结果。
+type ensureLoginIdentityStepResult struct {
+	Identity *loginidentity.LoginIdentity
+	Status   LoginIdentityEnsureStatus
 }
 
-// IsNewLoginIdentity 是否是新登录身份。
-func (r LoginIdentityEnsureResult) IsNewLoginIdentity() bool {
+// IsNewLoginIdentity 判断是否是新的登录身份。
+func (r ensureLoginIdentityStepResult) IsNewLoginIdentity() bool {
 	return r.Status == LoginIdentityCreated
 }
 
-// loginIdentityEnsurer 登录身份确保者。
-type loginIdentityEnsurer struct{}
+// ensureLoginIdentityStep 登录身份确保步骤。
+type ensureLoginIdentityStep struct{}
 
-// newLoginIdentityEnsurer 创建登录身份确保者。
-func newLoginIdentityEnsurer() *loginIdentityEnsurer { return &loginIdentityEnsurer{} }
+// newEnsureLoginIdentityStep 创建登录身份确保步骤。
+func newEnsureLoginIdentityStep() *ensureLoginIdentityStep {
+	return &ensureLoginIdentityStep{}
+}
 
-// Ensure 确保 ProviderKey 对应的 LoginIdentity 存在，并保护身份归属不被跨 User 复用。
-func (e *loginIdentityEnsurer) Ensure(ctx context.Context, repo loginidentity.Repository, req *preparedOnboarding, userID meta.ID) (*LoginIdentityEnsureResult, error) {
-	// 构建领域登录身份。
+// Run 执行登录身份确保步骤。
+func (s *ensureLoginIdentityStep) Run(
+	ctx context.Context,
+	repo loginidentity.Repository,
+	req *preparedSignup,
+	userID meta.ID,
+) (*ensureLoginIdentityStepResult, error) {
 	identity, err := buildDomainIdentity(req, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 若登录身份已存在，则复用现有登录身份。
 	if existing, err := findExistingLoginIdentity(ctx, repo, identity); err != nil {
 		return nil, err
 	} else if existing != nil {
-		return &LoginIdentityEnsureResult{Identity: existing, Status: LoginIdentityReused}, nil
+		return &ensureLoginIdentityStepResult{Identity: existing, Status: LoginIdentityReused}, nil
 	}
 
-	// 若登录身份不存在，则创建新登录身份。
-	if created, err := createLoginIdentity(ctx, repo, identity); err != nil {
+	created, err := createLoginIdentity(ctx, repo, identity)
+	if err != nil {
 		return nil, err
-	} else {
-		return &LoginIdentityEnsureResult{Identity: created, Status: LoginIdentityCreated}, nil
 	}
+	return &ensureLoginIdentityStepResult{Identity: created, Status: LoginIdentityCreated}, nil
 }
 
 // buildDomainIdentity 构建领域登录身份。
-func buildDomainIdentity(req *preparedOnboarding, userID meta.ID) (*loginidentity.LoginIdentity, error) {
+func buildDomainIdentity(req *preparedSignup, userID meta.ID) (*loginidentity.LoginIdentity, error) {
 	return loginidentity.NewBuilder(userID).
 		FromProviderKey(req.LoginIdentity.ProviderKey).
 		WithProfile(req.LoginIdentity.Profile).

@@ -6,7 +6,7 @@ import (
 	redis "github.com/redis/go-redis/v9"
 
 	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	onboardingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
@@ -55,7 +55,7 @@ type AuthnDeps struct {
 	LoginIdentityHandler   *authhandler.LoginIdentityHandler
 	JWKSHandler            *authhandler.JWKSHandler
 	SessionAdminHandler    *authhandler.SessionAdminHandler
-	LoginIdentityOnboarder onboardingapp.LoginIdentityOnboarder
+	SignupService signupapp.SignupService
 	LoginIdentityLinking   linkingapp.Service
 	TokenService           tokenapp.TokenApplicationService
 }

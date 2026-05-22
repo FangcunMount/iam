@@ -10,7 +10,7 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -52,10 +52,10 @@ func (s *loginServiceStub) Reauthenticate(context.Context, string) (*loginApp.Au
 	return nil, nil
 }
 
-type onboardingServiceStub struct{}
+type signupServiceStub struct{}
 
-func (s onboardingServiceStub) Onboard(context.Context, onboardingApp.OnboardingRequest) (*onboardingApp.OnboardingResult, error) {
-	return &onboardingApp.OnboardingResult{}, nil
+func (s signupServiceStub) SignUp(context.Context, signupApp.SignupRequest) (*signupApp.SignupResult, error) {
+	return &signupApp.SignupResult{}, nil
 }
 
 type challengeServiceStub struct{}
@@ -149,7 +149,7 @@ func TestAuthNGRPCRuntimeRegistersProductionServices(t *testing.T) {
 	NewService(
 		&loginServiceStub{},
 		&tokenServiceStub{},
-		onboardingServiceStub{},
+		signupServiceStub{},
 		challengeServiceStub{},
 		linkingServiceStub{},
 		nil,

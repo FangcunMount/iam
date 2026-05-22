@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	onboardingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	credentialinfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/credential"
 	loginidentityinfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/loginidentity"
 	mysqlauthnuow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/authn"
@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOnboardingPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
+func TestSignupPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 	t.Parallel()
 
 	db := testhelpers.SetupTempSQLiteDB(t)
@@ -23,7 +23,7 @@ func TestOnboardingPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 		&loginidentityinfra.PO{},
 		&credentialinfra.V2PO{},
 	))
-	onboarder := onboardingapp.NewLoginIdentityOnboarder(mysqlauthnuow.NewUnitOfWork(db), onboardingPasswordHasherStub{}, nil, mysqluser.NewRepository(db), nil, nil)
+	svc := signupapp.NewSignupService(mysqlauthnuow.NewUnitOfWork(db), signupPasswordHasherStub{}, nil, mysqluser.NewRepository(db), nil, nil)
 
 	phone, err := meta.NewPhone("13811112222")
 	require.NoError(t, err)
@@ -32,18 +32,18 @@ func TestOnboardingPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 	password := "secret"
 	tenantID := meta.FromUint64(9001)
 
-	result, err := onboarder.Onboard(context.Background(), onboardingapp.OnboardingRequest{
-		User: onboardingapp.OnboardingUserInput{
+	result, err := svc.SignUp(context.Background(), signupapp.SignupRequest{
+		User: signupapp.SignupUserInput{
 			Name:  "zhangsan",
 			Phone: phone,
 			Email: email,
 		},
-		LoginIdentity: onboardingapp.UsernameLoginIdentityInput{
+		LoginIdentity: signupapp.UsernameLoginIdentityInput{
 			Username:      "zhangsan",
 			RealmTenantID: tenantID,
 		},
-		Credential: &onboardingapp.OnboardingCredentialInput{
-			Password: &onboardingapp.PasswordCredentialInput{Plaintext: password},
+		Credential: &signupapp.SignupCredentialInput{
+			Password: &signupapp.PasswordCredentialInput{Plaintext: password},
 		},
 	})
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestOnboardingPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 	require.Equal(t, int64(1), credentialCount)
 }
 
-func TestOnboardingPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T) {
+func TestSignupPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T) {
 	t.Parallel()
 
 	db := testhelpers.SetupTempSQLiteDB(t)
@@ -73,7 +73,7 @@ func TestOnboardingPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T
 		&loginidentityinfra.PO{},
 		&credentialinfra.V2PO{},
 	))
-	onboarder := onboardingapp.NewLoginIdentityOnboarder(mysqlauthnuow.NewUnitOfWork(db), onboardingPasswordHasherStub{}, nil, mysqluser.NewRepository(db), nil, nil)
+	svc := signupapp.NewSignupService(mysqlauthnuow.NewUnitOfWork(db), signupPasswordHasherStub{}, nil, mysqluser.NewRepository(db), nil, nil)
 
 	phone, err := meta.NewPhone("13811113333")
 	require.NoError(t, err)
@@ -83,13 +83,13 @@ func TestOnboardingPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T
 	openID := "openid-1"
 	unionID := "union-1"
 
-	result, err := onboarder.Onboard(context.Background(), onboardingapp.OnboardingRequest{
-		User: onboardingapp.OnboardingUserInput{
+	result, err := svc.SignUp(context.Background(), signupapp.SignupRequest{
+		User: signupapp.SignupUserInput{
 			Name:  "wechat-user",
 			Phone: phone,
 			Email: email,
 		},
-		LoginIdentity: onboardingapp.WechatMiniLoginIdentityInput{
+		LoginIdentity: signupapp.WechatMiniLoginIdentityInput{
 			AppID:   &appID,
 			OpenID:  &openID,
 			UnionID: &unionID,
@@ -110,11 +110,11 @@ func TestOnboardingPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T
 	require.Equal(t, int64(0), credentialCount)
 }
 
-type onboardingPasswordHasherStub struct{}
+type signupPasswordHasherStub struct{}
 
-func (onboardingPasswordHasherStub) Verify(string, string) bool { return true }
-func (onboardingPasswordHasherStub) NeedRehash(string) bool     { return false }
-func (onboardingPasswordHasherStub) Hash(plaintext string) (string, error) {
+func (signupPasswordHasherStub) Verify(string, string) bool { return true }
+func (signupPasswordHasherStub) NeedRehash(string) bool     { return false }
+func (signupPasswordHasherStub) Hash(plaintext string) (string, error) {
 	return "hash:" + plaintext, nil
 }
-func (onboardingPasswordHasherStub) Pepper() string { return "pepper" }
+func (signupPasswordHasherStub) Pepper() string { return "pepper" }

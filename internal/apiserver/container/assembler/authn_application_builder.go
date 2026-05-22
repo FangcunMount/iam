@@ -13,7 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/reauth"
-	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -29,7 +29,7 @@ func (m *AuthnModule) initializeApplication(
 	idpOptions apiserveroptions.IDPOptions,
 	smsOptions apiserveroptions.SMSOptions,
 ) error {
-	m.loginIdentityOnboarder = onboardingApp.NewLoginIdentityOnboarder(
+	m.signupService = signupApp.NewSignupService(
 		infra.unitOfWork,
 		hasher,
 		infra.idp,

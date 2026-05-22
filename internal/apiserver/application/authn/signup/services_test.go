@@ -1,4 +1,4 @@
-package onboarding
+package signup
 
 import (
 	"context"
@@ -107,19 +107,19 @@ func TestOnboardPreservesLoginIdentityDisabledErrorCode(t *testing.T) {
 			},
 		},
 	}
-	onboarder := &loginIdentityOnboarder{
+	onboarder := &signupService{
 		uow: onboardingUoWStub{tx: uow.TxRepositories{
 			Users:           userRepo,
 			LoginIdentities: identityRepo,
 		}},
-		preparer:             newRequestPreparer(nil),
-		userResolver:         newUserResolver(userRepo),
-		loginIdentityEnsurer: newLoginIdentityEnsurer(),
-		credentialEnsurer:    newCredentialEnsurer(onboardingPasswordHasherStubLocal{}),
+		prepareStep:             newPrepareStep(nil),
+		resolveUserStep:         newResolveUserStep(userRepo),
+		ensureLoginIdentityStep: newEnsureLoginIdentityStep(),
+		ensureCredentialStep:    newEnsureCredentialStep(onboardingPasswordHasherStubLocal{}),
 	}
 
-	_, err = onboarder.Onboard(context.Background(), OnboardingRequest{
-		User: OnboardingUserInput{
+	_, err = onboarder.SignUp(context.Background(), SignupRequest{
+		User: SignupUserInput{
 			Name:  "existing",
 			Phone: phone,
 		},
@@ -148,7 +148,7 @@ func TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity(t *testing.T) {
 	}
 
 	key := loginidentity.UsernameProviderKey(meta.FromUint64(9001), "new-login")
-	result, err := newUserResolver(userRepo).Resolve(
+	result, err := newResolveUserStep(userRepo).Run(
 		context.Background(),
 		registrationRepositories{
 			Users: userRepo,
@@ -156,8 +156,8 @@ func TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity(t *testing.T) {
 				byKey: map[string]*loginidentity.LoginIdentity{},
 			},
 		},
-		&preparedOnboarding{
-			User: OnboardingUserInput{
+		&preparedSignup{
+			User: SignupUserInput{
 				Name:  "new user",
 				Phone: phone,
 			},
@@ -272,13 +272,13 @@ func TestWechatIdentityResolverRejectsMissingOpenIDAndCodeExchangeInput(t *testi
 	require.Error(t, err)
 }
 
-func TestRequestPreparerResolvesWechatIdentityBeforePersistenceFlow(t *testing.T) {
+func TestPrepareStepResolvesWechatIdentityBeforePersistenceFlow(t *testing.T) {
 	t.Parallel()
 
 	appID := " wx-app "
 	jsCode := " js-code "
 	idp := &onboardingIDPStub{openID: "openid-1", unionID: "union-1"}
-	preparer := newRequestPreparer(newWechatIdentityResolver(
+	preparer := newPrepareStep(newWechatIdentityResolver(
 		idp,
 		&onboardingWechatAppRepoStub{
 			app: &idpWechatApp.WechatApp{
@@ -292,7 +292,7 @@ func TestRequestPreparerResolvesWechatIdentityBeforePersistenceFlow(t *testing.T
 		onboardingSecretVaultStub{plaintext: "app-secret"},
 	))
 
-	prepared, err := preparer.Prepare(context.Background(), OnboardingRequest{
+	prepared, err := preparer.Run(context.Background(), SignupRequest{
 		LoginIdentity: WechatMiniLoginIdentityInput{
 			AppID:  &appID,
 			JsCode: &jsCode,

@@ -1155,7 +1155,7 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 
 	root := repoRoot(t)
 	if _, err := os.Stat(filepath.Join(root, "internal", "apiserver", "application", "authn", "register")); err == nil {
-		t.Fatal("internal/apiserver/application/authn/register is retired; use application/authn/onboarding")
+		t.Fatal("internal/apiserver/application/authn/register is retired; use application/authn/signup")
 	} else if !os.IsNotExist(err) {
 		t.Fatal(err)
 	}

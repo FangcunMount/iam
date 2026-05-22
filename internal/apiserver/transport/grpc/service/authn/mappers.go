@@ -7,7 +7,7 @@ import (
 
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
@@ -130,7 +130,7 @@ func parseAuthenticatedUserContext(actor *authnv2.AuthenticatedUserContext) (met
 	return userID, currentID, authenticatedAt, nil
 }
 
-func toProtoSignupResult(result *onboardingApp.OnboardingResult) *authnv2.SignupResult {
+func toProtoSignupResult(result *signupApp.SignupResult) *authnv2.SignupResult {
 	if result == nil {
 		return &authnv2.SignupResult{}
 	}
@@ -146,7 +146,7 @@ func toProtoSignupResult(result *onboardingApp.OnboardingResult) *authnv2.Signup
 	}
 }
 
-func toProtoSignupCredential(credential *onboardingApp.OnboardingCredential) *authnv2.SignupCredential {
+func toProtoSignupCredential(credential *signupApp.SignupCredential) *authnv2.SignupCredential {
 	if credential == nil {
 		return nil
 	}

@@ -13,7 +13,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	onboardingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/onboarding"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
@@ -28,7 +28,7 @@ import (
 // AuthnModule 认证模块
 type AuthnModule struct {
 	// 应用服务
-	loginIdentityOnboarder onboardingApp.LoginIdentityOnboarder
+	signupService signupApp.SignupService
 	loginIdentityLinking   linkingApp.Service
 	loginService           login.LoginApplicationService
 	challengeService       challengeApp.Service
@@ -142,7 +142,7 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 		return AuthnApplicationCapabilities{}
 	}
 	return AuthnApplicationCapabilities{
-		LoginIdentityOnboarder: m.loginIdentityOnboarder,
+		SignupService: m.signupService,
 		LoginIdentityLinking:   m.loginIdentityLinking,
 		LoginService:           m.loginService,
 		ChallengeService:       m.challengeService,

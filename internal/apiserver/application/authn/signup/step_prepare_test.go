@@ -1,4 +1,4 @@
-package onboarding
+package signup
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
+func TestPrepareStepBuildsLoginIdentityData(t *testing.T) {
 	t.Parallel()
 
 	email, err := meta.NewEmail("mock@example.com")
@@ -21,7 +21,7 @@ func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
 
 	tests := []struct {
 		name                   string
-		req                    OnboardingRequest
+		req                    SignupRequest
 		needPasswordCredential bool
 		allowUserRepair        bool
 		provider               loginidentity.Provider
@@ -31,7 +31,7 @@ func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
 	}{
 		{
 			name: "opera password",
-			req: OnboardingRequest{
+			req: SignupRequest{
 				LoginIdentity: UsernameLoginIdentityInput{
 					Username:      "zhangsan",
 					RealmTenantID: tenantID,
@@ -44,8 +44,8 @@ func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
 		},
 		{
 			name: "mock consumer password",
-			req: OnboardingRequest{
-				User:          OnboardingUserInput{Email: email},
+			req: SignupRequest{
+				User:          SignupUserInput{Email: email},
 				LoginIdentity: MockConsumerUsernameLoginIdentityInput{},
 			},
 			needPasswordCredential: true,
@@ -55,7 +55,7 @@ func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
 		},
 		{
 			name: "wechat mini",
-			req: OnboardingRequest{
+			req: SignupRequest{
 				LoginIdentity: WechatMiniLoginIdentityInput{
 					AppID:   &appID,
 					OpenID:  &openID,
@@ -75,7 +75,7 @@ func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			prepared, err := newRequestPreparer(nil).Prepare(context.Background(), tt.req)
+			prepared, err := newPrepareStep(nil).Run(context.Background(), tt.req)
 			require.NoError(t, err)
 			require.Equal(t, tt.needPasswordCredential, prepared.LoginIdentity.NeedPasswordCredential)
 			require.Equal(t, tt.allowUserRepair, prepared.LoginIdentity.AllowUserRepair)
@@ -87,15 +87,15 @@ func TestRequestPreparerBuildsLoginIdentityData(t *testing.T) {
 	}
 }
 
-func TestRequestPreparerRejectsUnsupportedOrIncompleteLoginIdentity(t *testing.T) {
+func TestPrepareStepRejectsUnsupportedOrIncompleteLoginIdentity(t *testing.T) {
 	t.Parallel()
 
-	_, err := newRequestPreparer(nil).Prepare(context.Background(), OnboardingRequest{
+	_, err := newPrepareStep(nil).Run(context.Background(), SignupRequest{
 		LoginIdentity: nil,
 	})
 	require.Error(t, err)
 
-	_, err = newRequestPreparer(nil).Prepare(context.Background(), OnboardingRequest{
+	_, err = newPrepareStep(nil).Run(context.Background(), SignupRequest{
 		LoginIdentity: WechatMiniLoginIdentityInput{},
 	})
 	require.Error(t, err)
