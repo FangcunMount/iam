@@ -745,7 +745,7 @@ SMS OTP Challenge 在以下文档中展开：
 
 | 模块 | 职责 |
 | --- | --- |
-| `onboarding` | 首次解析第三方身份并创建 LoginIdentity |
+| `signup` | 首次解析第三方身份并创建 LoginIdentity |
 | `login` | 使用第三方 proof 完成认证并产出 Principal；Token 签发由 token 链路承担 |
 | `linking` | 已认证 User 绑定第三方 LoginIdentity |
 | `token` | 基于 Principal 签发 AccessToken / RefreshToken |
@@ -934,8 +934,8 @@ Token claims
 
 | 主题 | 代码位置 |
 | --- | --- |
-| 微信 Onboarding 身份解析 | `internal/apiserver/application/authn/onboarding/wechat_identity_resolver.go` |
-| Onboarding request prepare | `internal/apiserver/application/authn/onboarding/request_preparer.go` |
+| 微信 Signup 身份解析 | `internal/apiserver/application/authn/signup/wechat_signup.go` |
+| Signup prepare | `internal/apiserver/application/authn/signup/step_prepare.go` |
 | WeChat Login 策略 | `internal/apiserver/domain/authn/authentication` |
 | WeCom Login 策略 | `internal/apiserver/domain/authn/authentication` |
 | WeChat Linking | `internal/apiserver/application/authn/linking/link_wechat.go` |

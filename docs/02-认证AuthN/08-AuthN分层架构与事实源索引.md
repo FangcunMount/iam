@@ -103,13 +103,15 @@ JWK / JWKS serialization
 AuthN 的用例事实源在 Application 层：
 
 ```text
-internal/apiserver/application/authn/onboarding
+internal/apiserver/application/authn/signup
 internal/apiserver/application/authn/linking
-internal/apiserver/application/authn/login
-internal/apiserver/application/authn/token
+internal/apiserver/application/authn/signin
 internal/apiserver/application/authn/session
-internal/apiserver/application/authn/jwks
+internal/apiserver/application/authn/token
 internal/apiserver/application/authn/challenge
+internal/apiserver/application/authn/jwks
+internal/apiserver/application/authn/credential
+internal/apiserver/application/authn/uow
 ```
 
 Application 层回答：
@@ -223,11 +225,11 @@ flowchart TB
     end
 
     subgraph Application[Application 层]
-        ONB[onboarding]
+        SIGNUP[signup]
         LINK[linking]
-        LOGIN[login]
-        TOKEN[token]
+        SIGNIN[signin]
         SESSIONAPP[session]
+        TOKEN[token]
         JWKSAPP[jwks]
         CHAPP[challenge<br/>supporting capability]
     end
@@ -427,8 +429,8 @@ Session 是服务端状态。
 | 项 | 内容 |
 | --- | --- |
 | 职责 | 首次建立 User + LoginIdentity + Credential(optional) |
-| 应用目录 | `internal/apiserver/application/authn/onboarding` |
-| 入口 | `LoginIdentityOnboarder.Onboard` |
+| 应用目录 | `internal/apiserver/application/authn/signup` |
+| 入口 | `SignupService.SignUp` |
 | 事务边界 | `UnitOfWork.WithinTx` |
 
 关键文件：
@@ -490,8 +492,9 @@ Unlink -> check last active LoginIdentity -> check recent authentication if sens
 | 项 | 内容 |
 | --- | --- |
 | 职责 | 认证 LoginIdentity 控制权并产出 Principal |
-| 应用目录 | `internal/apiserver/application/authn/login` |
-| 入口 | `SignIn.Execute` |
+| 登录实现 | `internal/apiserver/application/authn/signin` |
+| Transport 门面 | `internal/apiserver/application/authn/session` |
+| 入口 | `session.ApplicationService.Login` → `signin.SignIn.Execute` |
 | 领域入口 | `domain/authn/authentication.Authenticator` |
 
 关键文件/目录：
@@ -500,7 +503,7 @@ Unlink -> check last active LoginIdentity -> check recent authentication if sens
 | --- | --- |
 | `sign_in.go` | 登录主编排 |
 | `types.go` | LoginCommand / SignInResult 等类型 |
-| `application/authn/login` | Method 选择、ProofFactory、CredentialRecorder、ReAuthenticate 等登录应用能力 |
+| `signin` | Method、ProofFactory、CredentialRecorder；由 assembler 构建后注入 session |
 | `domain/authn/authentication` | Password / Phone OTP / WeChat / WeCom 等认证策略 |
 | `domain/authn/authentication/principal.go` | Principal 模型 |
 
@@ -628,7 +631,7 @@ Linking.link_phone scene
 | 项 | 内容 |
 | --- | --- |
 | 职责 | 外部身份源 proof 解析与 LoginIdentity 映射 |
-| Onboarding | `internal/apiserver/application/authn/onboarding/wechat_identity_resolver.go` |
+| Signup | `internal/apiserver/application/authn/signup/wechat_signup.go` |
 | Linking | `internal/apiserver/application/authn/linking/link_wechat.go`, `link_wecom.go` |
 | Login | `internal/apiserver/domain/authn/authentication` |
 | IDP 配置 | `internal/apiserver/domain/idp/wechatapp` |
@@ -1087,12 +1090,12 @@ internal/apiserver/domain/authn/session
 ### 13.2 想理解 Onboarding
 
 ```text
-internal/apiserver/application/authn/onboarding/port.go
-internal/apiserver/application/authn/onboarding/service.go
-internal/apiserver/application/authn/onboarding/request_preparer.go
-internal/apiserver/application/authn/onboarding/user_resolver.go
-internal/apiserver/application/authn/onboarding/login_identity_ensurer.go
-internal/apiserver/application/authn/onboarding/credential_ensurer.go
+internal/apiserver/application/authn/signup/interface.go
+internal/apiserver/application/authn/signup/service.go
+internal/apiserver/application/authn/signup/step_prepare.go
+internal/apiserver/application/authn/signup/step_resolve_user.go
+internal/apiserver/application/authn/signup/step_ensure_login_identity.go
+internal/apiserver/application/authn/signup/step_ensure_credential.go
 ```
 
 ---
@@ -1113,9 +1116,10 @@ internal/apiserver/application/authn/linking/list_identities.go
 ### 13.4 想理解 Login
 
 ```text
-internal/apiserver/application/authn/login/sign_in.go
-internal/apiserver/application/authn/login/types.go
-internal/apiserver/application/authn/login
+internal/apiserver/application/authn/session/service.go
+internal/apiserver/application/authn/signin/sign_in.go
+internal/apiserver/application/authn/signin/method
+internal/apiserver/application/authn/signin/proof
 internal/apiserver/domain/authn/authentication
 internal/apiserver/domain/authn/authentication/principal.go
 ```
@@ -1164,7 +1168,7 @@ internal/apiserver/infra/cache/redis/challenge_repository.go
 ### 13.9 想理解 IDP 协作
 
 ```text
-internal/apiserver/application/authn/onboarding/wechat_identity_resolver.go
+internal/apiserver/application/authn/signup/wechat_signup.go
 internal/apiserver/application/authn/linking/link_wechat.go
 internal/apiserver/application/authn/linking/link_wecom.go
 internal/apiserver/domain/idp/wechatapp
@@ -1199,8 +1203,9 @@ Assembler 装配行为。
 
 ```text
 internal/apiserver/domain/authn/loginidentity/*_test.go
-internal/apiserver/application/authn/onboarding/*_test.go
-internal/apiserver/application/authn/login/*_test.go
+internal/apiserver/application/authn/signup/*_test.go
+internal/apiserver/application/authn/signin/method/*_test.go
+internal/apiserver/application/authn/session/*_test.go
 internal/apiserver/application/authn/linking/*_test.go
 internal/apiserver/application/authn/challenge/*_test.go
 internal/apiserver/application/authn/token/*_test.go

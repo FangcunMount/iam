@@ -1,5 +1,7 @@
 # 05-Session 与 Token 边界：Principal、Session、AccessToken、RefreshToken
 
+> **续期命名**：应用门面 `session.RenewSession`；HTTP `POST /authn/refresh_token`；机制 `token.RefreshToken`。
+
 ## 1. 本文解决什么问题
 
 本文说明 IAM AuthN 模块中认证成功之后的状态边界。
@@ -25,7 +27,7 @@ RefreshToken 是什么？
 它们之间有什么关系？
 Local Verify 和 Online Verify 对 Session 有什么影响？
 Logout / Revoke 与 Session 有什么关系？
-ReAuthenticate / Recent Authentication 与 Session 有什么关系？
+Recent Authentication 与 Session 有什么关系？
 Session / Token 与 AuthZ 的边界是什么？
 ```
 
@@ -777,46 +779,15 @@ User 的全部 Session；
 
 ---
 
-## 11. ReAuthenticate / Recent Authentication 与 Session 的关系
+## 11. Recent Authentication 与 Session 的关系
 
-ReAuthenticate 用于敏感操作前的近期认证。
+**当前无**独立 `Reauthenticate` 应用用例。敏感解绑（linking）检查 `UnlinkCommand.AuthenticatedAt` 是否落在 `RecentAuthWindow` 内。
 
-典型场景：
+Transport 契约：在调用解绑前，用 `token.VerifyToken`（或网关已验票上下文）取得 `auth_time`，写入 `AuthenticatedAt`。应用层不二次验 access token。
 
-```text
-修改密码；
-解绑当前登录身份；
-解绑 username / phone；
-绑定高风险登录身份；
-查看敏感资料；
-关闭 MFA。
-```
+与 Session active 的区别：关注的是**认证事件发生时间**，不是会话记录是否仍存在。
 
-ReAuthenticate 不一定创建新的长期 Session，也不一定签发新的 Token。
-
-它可以只证明：
-
-```text
-当前用户在最近一段时间内重新完成过认证。
-```
-
-常见实现：
-
-```text
-session 上记录 last_reauth_at；
-签发短期 reauth token；
-要求再次输入 password / OTP / passkey。
-```
-
-在当前 AuthN Linking 文档中，敏感解绑已经使用 recent authentication 边界：
-
-```text
-解绑当前会话使用的 LoginIdentity；
-解绑 username；
-解绑 phone。
-```
-
-这类检查关注的是“认证事件的新鲜度”，不等同于普通 Session 仍然 active。
+未来若统一敏感操作门禁，可演进为 session 记录 `LastReAuthAt` 或 step-up token；现阶段以 linking 请求字段为准。
 
 ---
 
@@ -935,8 +906,9 @@ Recent authentication 说明用户在较近时间内重新完成过认证。
 
 | 主题 | 代码位置 |
 | --- | --- |
-| SignIn 编排 | `internal/apiserver/application/authn/login/sign_in.go` |
-| ReAuthenticate | `internal/apiserver/application/authn/login/re_authenticate.go` |
+| 会话门面 | `internal/apiserver/application/authn/session/service.go` |
+| 续期 | `internal/apiserver/application/authn/session/renew.go` |
+| SignIn 编排 | `internal/apiserver/application/authn/signin/sign_in.go` |
 | Linking recent authentication | `internal/apiserver/application/authn/linking/unlink_identity.go` |
 | Principal | `internal/apiserver/domain/authn/authentication/principal.go` |
 | AuthDecision | `internal/apiserver/domain/authn/authentication` |

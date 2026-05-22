@@ -4,10 +4,8 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	credentialapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
@@ -19,12 +17,10 @@ type ApplicationService interface {
 }
 
 // Dependencies 是 ApplicationService 的装配依赖。
+// SignIn 由 assembler 构建并注入，避免门面重复暴露 Authenticator / ProofFactory 等登录专用依赖。
 type Dependencies struct {
-	TokenService       tokenapp.TokenApplicationService
-	Authenticator      *authentication.Authenticator
-	MethodRegistry     MethodRegistry
-	ProofFactory       ProofFactory
-	CredentialRecorder credentialapp.Recorder
+	TokenService tokenapp.TokenApplicationService
+	SignIn       *signin.SignIn
 }
 
 type service struct {
@@ -40,24 +36,12 @@ func NewApplicationService(deps Dependencies) (ApplicationService, error) {
 	if deps.TokenService == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "token service is required")
 	}
-	if deps.Authenticator == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "authenticator is required")
-	}
-	if deps.MethodRegistry == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "method registry is required")
-	}
-	if deps.ProofFactory == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "proof factory is required")
+	if deps.SignIn == nil {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "sign-in use case is required")
 	}
 
 	return &service{
-		signIn: signin.New(signin.Dependencies{
-			TokenService:       deps.TokenService,
-			MethodRegistry:     deps.MethodRegistry,
-			ProofFactory:       deps.ProofFactory,
-			Authenticator:      deps.Authenticator,
-			CredentialRecorder: deps.CredentialRecorder,
-		}),
+		signIn:  deps.SignIn,
 		renewal: &Renewal{tokenService: deps.TokenService},
 		signOut: &SignOut{tokenService: deps.TokenService},
 	}, nil

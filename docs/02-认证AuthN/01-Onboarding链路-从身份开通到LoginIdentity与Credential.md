@@ -1,5 +1,7 @@
 # 01-Onboarding 链路：从身份开通到 LoginIdentity 与 Credential
 
+> **代码事实源**：`application/authn/signup`（`SignupService.SignUp`）。REST：`POST /api/v2/authn/signups/*`，Handler 类型名 `OnboardingHandler` 为历史命名。
+
 ## 1. 本文解决什么问题
 
 本文说明 IAM AuthN 模块中的 **Onboarding（登录身份开通）链路**。
@@ -115,7 +117,7 @@ Onboarding 并不总是创建 Credential。
 当前 Onboarding 应用入口是：
 
 ```text
-internal/apiserver/application/authn/onboarding
+internal/apiserver/application/authn/signup
 ```
 
 Driving Port：
@@ -148,7 +150,7 @@ Credential input(optional)
 具体字段以当前代码为准：
 
 ```text
-internal/apiserver/application/authn/onboarding/port.go
+internal/apiserver/application/authn/signup/port.go
 ```
 
 ---
@@ -860,13 +862,13 @@ Role / Permission = xxx
 
 | 主题 | 代码位置 |
 |---|---|
-| Onboarding Driving Port | `internal/apiserver/application/authn/onboarding/port.go` |
-| Onboarding 主服务 | `internal/apiserver/application/authn/onboarding/service.go` |
-| 请求准备 | `internal/apiserver/application/authn/onboarding/request_preparer.go` |
-| 用户解析 | `internal/apiserver/application/authn/onboarding/user_resolver.go` |
-| 登录身份确保 | `internal/apiserver/application/authn/onboarding/login_identity_ensurer.go` |
-| 凭据确保 | `internal/apiserver/application/authn/onboarding/credential_ensurer.go` |
-| 微信身份解析 | `internal/apiserver/application/authn/onboarding/wechat_identity_resolver.go` |
+| Signup 契约 | `internal/apiserver/application/authn/signup/interface.go` |
+| Signup 主服务 | `internal/apiserver/application/authn/signup/service.go` |
+| 请求准备 | `internal/apiserver/application/authn/signup/step_prepare.go` |
+| 用户解析 | `internal/apiserver/application/authn/signup/step_resolve_user.go` |
+| 登录身份确保 | `internal/apiserver/application/authn/signup/step_ensure_login_identity.go` |
+| 凭据确保 | `internal/apiserver/application/authn/signup/step_ensure_credential.go` |
+| 微信身份解析 | `internal/apiserver/application/authn/signup/wechat_signup.go` |
 | UoW 接口 | `internal/apiserver/application/authn/uow/uow.go` |
 | LoginIdentity 领域模型 | `internal/apiserver/domain/authn/loginidentity` |
 | Credential 领域模型 | `internal/apiserver/domain/authn/credential` |

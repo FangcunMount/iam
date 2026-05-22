@@ -10,6 +10,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
@@ -76,7 +77,7 @@ func (m *AuthnModule) initializeApplication(
 		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 	)
 
-	userSessionService, err := session.NewApplicationService(session.Dependencies{
+	signIn := signin.New(signin.Dependencies{
 		TokenService:       tokenService,
 		Authenticator:      authenticator,
 		MethodRegistry:     method.DefaultSelector(),
@@ -86,6 +87,11 @@ func (m *AuthnModule) initializeApplication(
 			infra.secretVault,
 			proof.WecomConfig{AgentID: idpOptions.WeCom.AgentID},
 		),
+	})
+
+	userSessionService, err := session.NewApplicationService(session.Dependencies{
+		TokenService: tokenService,
+		SignIn:       signIn,
 	})
 	if err != nil {
 		return err

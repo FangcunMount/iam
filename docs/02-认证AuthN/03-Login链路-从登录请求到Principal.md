@@ -1,5 +1,7 @@
 # 03-Login 链路：从登录请求到 Principal
 
+> **代码事实源**：`signin.SignIn`；Transport 经 `session.ApplicationService.Login` 委托。无 `application/authn/login` 包。
+
 ## 1. 本文解决什么问题
 
 本文说明 IAM AuthN 模块中的 **Login（登录认证）链路**。
@@ -262,7 +264,7 @@ Token 边界：Principal -> TokenApplicationService.IssueToken -> TokenPair。
 Login 应用层入口位于：
 
 ```text
-internal/apiserver/application/authn/login
+internal/apiserver/application/authn/signin
 ```
 
 核心服务是 `SignIn`。
@@ -807,7 +809,6 @@ auth_method
 | `ProofFactory` | 构造领域认证 proof |
 | `CredentialRecorder` | 记录 persisted Credential 的认证结果 |
 | `TokenApplicationService` | Login 成功后的下游 Token 边界调用，具体签发细节见第 04 篇 |
-| `ReAuthenticator` | 二次认证或重新认证 |
 
 Application 层不负责：
 
@@ -966,14 +967,13 @@ AuthZ 可以使用 Principal 中的 `UserID`、`TenantID`、claims 等信息进�
 
 | 主题 | 代码位置 |
 | --- | --- |
-| Login 应用服务 | `internal/apiserver/application/authn/login` |
-| SignIn 编排 | `internal/apiserver/application/authn/login/sign_in.go` |
-| Login 类型定义 | `internal/apiserver/application/authn/login/types.go` |
-| Method 选择 | `internal/apiserver/application/authn/login` |
-| ProofFactory | `internal/apiserver/application/authn/login` |
-| CredentialRecorder | `internal/apiserver/application/authn/login` |
-| Credential 认证结果记录 | `internal/apiserver/application/authn/login/sign_in.go` |
-| ReAuthenticate | `internal/apiserver/application/authn/login` |
+| Login 应用服务 | `internal/apiserver/application/authn/signin` |
+| SignIn 编排 | `internal/apiserver/application/authn/signin/sign_in.go` |
+| Login 类型定义 | `internal/apiserver/application/authn/signin/types.go` |
+| Method 选择 | `internal/apiserver/application/authn/signin` |
+| ProofFactory | `internal/apiserver/application/authn/signin` |
+| CredentialRecorder | `internal/apiserver/application/authn/signin` |
+| Credential 认证结果记录 | `internal/apiserver/application/authn/signin/sign_in.go` |
 | Authenticator | `internal/apiserver/domain/authn/authentication` |
 | Password 策略 | `internal/apiserver/domain/authn/authentication` |
 | Phone OTP 策略 | `internal/apiserver/domain/authn/authentication` |

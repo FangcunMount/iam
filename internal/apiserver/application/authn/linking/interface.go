@@ -107,5 +107,7 @@ type UnlinkCommand struct {
 	UserID                 meta.ID    // 用户 ID。
 	LoginIdentityID        meta.ID    // 登录身份 ID。
 	CurrentLoginIdentityID meta.ID    // 当前登录身份 ID。
-	AuthenticatedAt        *time.Time // 认证时间。
+	// AuthenticatedAt 由 transport 从已验 access token 的 auth_time（或等价 claim）填入，用于敏感解绑的近期认证窗口。
+	// 当前无独立 application 再认证 API；调用方须先完成 token 验票或等价门禁，勿伪造时间戳。
+	AuthenticatedAt *time.Time
 }

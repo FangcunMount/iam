@@ -789,7 +789,7 @@ Onboarding 负责：
 应用层入口：
 
 ```text
-internal/apiserver/application/authn/onboarding
+internal/apiserver/application/authn/signup
 ```
 
 核心流程：
@@ -875,7 +875,7 @@ Login 负责：
 应用层入口：
 
 ```text
-internal/apiserver/application/authn/login
+internal/apiserver/application/authn/signin
 ```
 
 核心流程：
@@ -1007,9 +1007,10 @@ Application 层负责编排用例，不直接表达领域核心不变量。
 
 | 模块 | 职责 |
 | --- | --- |
-| `application/authn/onboarding` | 首次开通 User + LoginIdentity + optional Credential |
+| `application/authn/signup` | 首次开通 User + LoginIdentity + optional Credential |
 | `application/authn/linking` | 已认证 User 绑定/解绑 LoginIdentity |
-| `application/authn/login` | 登录认证、构造 Principal |
+| `application/authn/signin` | 登录认证、构造 Principal |
+| `application/authn/session` | 用户会话门面：Login / RenewSession / Logout |
 | `application/authn/challenge` | 创建、发送、校验、消费短期 Challenge |
 | `application/authn/token` | Token 签发、刷新、撤销 |
 | `application/authn/session` | Session 查询与管理 |
@@ -1269,8 +1270,8 @@ Credential 是内部认证材料记录，不是对外主体上下文。
 | Credential 模型 | `internal/apiserver/domain/authn/credential` |
 | Challenge 模型 | `internal/apiserver/domain/authn/challenge` |
 | Challenge 应用服务 | `internal/apiserver/application/authn/challenge` |
-| Onboarding 应用服务 | `internal/apiserver/application/authn/onboarding` |
-| Login 应用服务 | `internal/apiserver/application/authn/login` |
+| Onboarding 应用服务 | `internal/apiserver/application/authn/signup` |
+| Login 应用服务 | `internal/apiserver/application/authn/signin` |
 | Linking 应用服务 | `internal/apiserver/application/authn/linking` |
 | Principal / AuthDecision | `internal/apiserver/domain/authn/authentication` |
 | Token 应用服务 | `internal/apiserver/application/authn/token` |

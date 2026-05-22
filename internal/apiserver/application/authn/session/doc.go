@@ -1,19 +1,8 @@
-// Package session 编排 AuthN 用户会话用例：signin 委托、续期（RenewSession）、signout；管理员撤销见 Revoker。
+// Package session 编排 AuthN 用户会话用例门面。
 //
-// 登录主线固定为：
-//  1. MethodRegistry 根据 AuthMethod 选择登录方式并校验 method payload；
-//  2. ProofFactory 根据 CredentialKind 构造领域 AuthCredential；
-//  3. 领域 Authenticator 完成凭据认证并返回 Principal；
-//  4. TokenApplicationService 为 Principal 签发 TokenPair。
+//   - Login：委托 signin.SignIn（Method → Proof → Authenticate → IssueToken）
+//   - RenewSession：委托 token.RefreshToken（HTTP 路由仍为 /refresh_token）
+//   - Logout：委托 token 撤销
 //
-// 请求上下文规范：
-// TenantID、RemoteIP、UserAgent 必须由 transport / compatibility 层写入
-// LoginRequest 顶层字段。method.Payload 只保存具体登录方式自己的字段，
-// 不承载公共请求上下文。
-//
-// 新增登录方式时必须同步扩展：
-// method.AuthMethod、method.LoginMethod、method.Payload、proof.Builder、
-// proof.Factory/assembler 注册、领域 authentication 策略，以及公开协议需要的
-// compatibility wire payload 解析。漏掉 proof.Builder 注册会在运行时得到
-// ErrProofBuildFailed / unsupported credential kind。
+// 管理员撤销见 Revoker。登录实现细节与依赖装配在 signin 包，不在本门面 Dependencies 中重复展开。
 package session

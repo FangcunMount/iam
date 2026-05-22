@@ -163,6 +163,14 @@ active LoginIdentity count > 1
 AuthenticatedAt 必须处于 RecentAuthWindow 内。
 ```
 
+**实现契约（与代码对齐）**：
+
+```text
+1. 无独立 application「再认证」API；不重新走 signin。
+2. Transport 在解绑前应对 access token 做验票（token.VerifyToken 或网关等价能力），将 claims 中的 auth_time 填入 UnlinkCommand.AuthenticatedAt。
+3. linking 只校验时间戳窗口，不持有 access token 字符串。
+```
+
 默认窗口由应用层依赖控制，当前实现可通过 `Dependencies.RecentAuthWindow` 覆盖。
 
 这个设计用于降低以下风险：

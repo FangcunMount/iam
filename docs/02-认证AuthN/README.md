@@ -632,15 +632,18 @@ internal/apiserver/domain/identity/user
 ### 6.2 Application 层
 
 ```text
-internal/apiserver/application/authn/onboarding
+internal/apiserver/application/authn/signup
 internal/apiserver/application/authn/linking
-internal/apiserver/application/authn/login
-internal/apiserver/application/authn/token
+internal/apiserver/application/authn/signin
 internal/apiserver/application/authn/session
-internal/apiserver/application/authn/jwks
+internal/apiserver/application/authn/token
 internal/apiserver/application/authn/challenge
+internal/apiserver/application/authn/jwks
+internal/apiserver/application/authn/credential
 internal/apiserver/application/authn/uow
 ```
+
+文档用语与代码包对照见 `internal/apiserver/application/authn/README.md`（含 RenewSession / RefreshToken 命名说明）。
 
 ---
 
@@ -915,7 +918,19 @@ Ports & Adapters / Hexagonal Architecture：应用核心与外部适配器解耦
 
 ---
 
-## 12. 最终总结
+## 12. 维护备忘（与实现对齐）
+
+| 主题 | 当前做法 |
+| --- | --- |
+| 开通 | 仅 `signup` 包；`onboarding/` 已删除 |
+| 登录 | `signin` 实现，`session.Login` 门面；`login/` 已删除 |
+| 续期命名 | 应用 `RenewSession`，HTTP/token 仍 `refresh_token` / `RefreshToken` |
+| session 装配 | assembler 构建 `signin.SignIn` 后注入 session，门面不重复挂 Authenticator |
+| 敏感再认证 | linking 用 `UnlinkCommand.AuthenticatedAt`；无独立 Reauthenticate；验票用 `token.VerifyToken` |
+
+---
+
+## 13. 最终总结
 
 新版 AuthN 文档体系的核心是：
 

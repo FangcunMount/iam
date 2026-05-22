@@ -798,7 +798,8 @@ Infra 层负责：
 | Keyset / JWKS infra | `internal/apiserver/infra/token/keyset` |
 | Token audit schema | `internal/pkg/migration/migrations/000001_init_schema.up.sql` |
 | Token application capability | `internal/apiserver/container/assembler/capabilities.go` |
-| Login 到 Token 边界 | `internal/apiserver/application/authn/login/sign_in.go` |
+| Login 到 Token 边界 | `internal/apiserver/application/authn/signin/sign_in.go` |
+| 用户续期门面 | `session.RenewSession` → `token/refresher.go` |
 | REST AuthN token endpoint | `internal/apiserver/transport/rest/authn` |
 | SDK AuthN token client | `pkg/sdk/authn` |
 

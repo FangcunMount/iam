@@ -6,6 +6,7 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
@@ -67,11 +68,16 @@ func (s *loginTokenIssuerStub) VerifyToken(ctx context.Context, req tokenapp.Ver
 func newSessionServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicationService, auth *authentication.Authenticator) ApplicationService {
 	t.Helper()
 
+	signIn := signin.New(signin.Dependencies{
+		TokenService:       tokenService,
+		Authenticator:      auth,
+		MethodRegistry:     method.DefaultSelector(),
+		ProofFactory:       proof.DefaultFactory(nil, nil, proof.WecomConfig{}),
+		CredentialRecorder: nil,
+	})
 	svc, err := NewApplicationService(Dependencies{
-		TokenService:   tokenService,
-		Authenticator:  auth,
-		MethodRegistry: method.DefaultSelector(),
-		ProofFactory:   proof.DefaultFactory(nil, nil, WecomConfig{}),
+		TokenService: tokenService,
+		SignIn:       signIn,
 	})
 	require.NoError(t, err)
 	return svc

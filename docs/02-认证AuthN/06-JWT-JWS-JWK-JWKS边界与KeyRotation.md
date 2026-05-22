@@ -810,7 +810,7 @@ reuse detection；
 | --- | --- |
 | `internal/apiserver/application/authn/token` | 调用 Token codec 完成 AccessToken 签发边界，完整 token 链路见第 04 篇 |
 | `internal/apiserver/application/authn/jwks` | KeyPublish、KeyManagement、KeyRotation 的应用编排 |
-| `internal/apiserver/application/authn/login` | 登录成功后调用 Token 服务，传入 Principal |
+| `internal/apiserver/application/authn/signin` | 登录成功后调用 Token 服务，传入 Principal |
 | `internal/apiserver/application/authn/session` | Session 查询与管理，完整边界见第 05 篇 |
 
 Application 层负责组织流程。
@@ -991,7 +991,7 @@ RefreshToken 应只给 IAM refresh endpoint 使用。
 | Keyset infra | `internal/apiserver/infra/token/keyset` |
 | JWKS keys 表 | `jwks_keys` in migration schema |
 | Token audit 表 | `auth_token_audit` in migration schema |
-| Login 调用 Token | `internal/apiserver/application/authn/login/sign_in.go` |
+| Login 调用 Token | `internal/apiserver/application/authn/signin/sign_in.go` |
 | AuthN capabilities | `internal/apiserver/container/assembler/capabilities.go` |
 | AuthN application assembly | `internal/apiserver/container/assembler` |
 
