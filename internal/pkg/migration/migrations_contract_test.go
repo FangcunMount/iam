@@ -112,9 +112,12 @@ func TestLegacyAuthZResourceKeyMigrationMapsIdentityAliasesAndTenantDomain(t *te
 	assertSQLContains(t, upSQL, "SET `v1` = 'fangcun'")
 	assertSQLContains(t, upSQL, "SET `v2` = 'fangcun'")
 	assertSQLContains(t, upSQL, "WHERE `tenant_id` = '1'")
-	assertSQLContains(t, upSQL, "000014-v2: delete-legacy-before-update")
+	assertSQLContains(t, upSQL, "000014-v4: MySQL-safe")
+	assertSQLNotContains(t, upSQL, "EXISTS (")
 	assertSQLContains(t, upSQL, "DELETE `legacy` FROM `authz_resources`")
+	assertSQLContains(t, upSQL, "DELETE `later` FROM `casbin_rule`")
 	assertSQLContains(t, upSQL, "DELETE `legacy` FROM `casbin_rule`")
+	assertSQLContains(t, upSQL, "DELETE `old` FROM `authz_policy_versions`")
 	assertSQLContains(t, upSQL, "DELETE `dup` FROM `authz_roles`")
 	assertSQLContains(t, upSQL, "DELETE `dup` FROM `casbin_rule`")
 
