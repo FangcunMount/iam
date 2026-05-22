@@ -1,19 +1,20 @@
-package login
+package authfailure
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// authFailureError 生成认证失败错误。
-func authFailureError(codeValue int) error {
+// Error 根据领域认证失败码生成应用层错误。
+func Error(codeValue int) error {
 	if codeValue == 0 {
 		codeValue = code.ErrAuthenticationFailed
 	}
-	return perrors.WithCode(codeValue, "%s", authFailureMessage(codeValue))
+	return perrors.WithCode(codeValue, "%s", Message(codeValue))
 }
 
-func authFailureMessage(codeValue int) string {
+// Message 返回认证失败文案（供测试与日志使用）。
+func Message(codeValue int) string {
 	switch codeValue {
 	case code.ErrUnauthenticated:
 		return "authentication failed"

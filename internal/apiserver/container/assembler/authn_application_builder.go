@@ -10,11 +10,10 @@ import (
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/reauth"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	smsInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
@@ -82,7 +81,7 @@ func (m *AuthnModule) initializeApplication(
 		TokenService:       tokenService,
 		Authenticator:      authenticator,
 		MethodRegistry:     method.DefaultSelector(),
-		ReAuthenticator:    reauth.NewTokenReAuthenticator(tokenService),
+		ReAuthenticator:    login.NewTokenReAuthenticator(tokenService),
 		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{Credentials: infra.credentialRepo}),
 		ProofFactory: proof.DefaultFactory(
 			infra.wechatAppQuerier,

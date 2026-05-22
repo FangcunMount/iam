@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -39,10 +39,10 @@ type WecomWirePayload struct {
 //
 // compatibility 只处理 wire-level 字段名与历史负载兼容；登录方式选择与 payload 校验由 method 层完成。
 func BuildExplicitWireLoginRequest(rawMethod string, payload json.RawMessage) (method.LoginRequest, error) {
-	authMethod := method.AuthMethod(strings.TrimSpace(rawMethod))
-	if !isExplicitWireAuthMethod(authMethod) {
+	if !method.IsPublicAuthMethod(rawMethod) {
 		return method.LoginRequest{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "unsupported authentication method: %s", rawMethod)
 	}
+	authMethod := method.AuthMethod(strings.TrimSpace(rawMethod))
 	if len(payload) == 0 {
 		return method.LoginRequest{}, perrors.WithCode(code.ErrPayloadInvalid, "method_payload is required")
 	}
@@ -58,18 +58,6 @@ func BuildExplicitWireLoginRequest(rawMethod string, payload json.RawMessage) (m
 		return buildWecomRequest(payload)
 	default:
 		return method.LoginRequest{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "unsupported authentication method: %s", rawMethod)
-	}
-}
-
-func isExplicitWireAuthMethod(authMethod method.AuthMethod) bool {
-	switch authMethod {
-	case method.AuthMethodPassword,
-		method.AuthMethodPhoneOTP,
-		method.AuthMethodWechat,
-		method.AuthMethodWecom:
-		return true
-	default:
-		return false
 	}
 }
 

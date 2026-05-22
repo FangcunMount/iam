@@ -7,9 +7,8 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/reauth"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -99,7 +98,7 @@ func (s *loginTokenVerifierStub) VerifyToken(ctx context.Context, req tokenapp.V
 	}, nil
 }
 
-func newLoginServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicationService, auth *authentication.Authenticator, reauth ReAuthenticator) LoginApplicationService {
+func newLoginServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicationService, auth *authentication.Authenticator, reAuthenticator ReAuthenticator) LoginApplicationService {
 	t.Helper()
 
 	svc, err := NewLoginApplicationService(Dependencies{
@@ -107,7 +106,7 @@ func newLoginServiceForTest(t *testing.T, tokenService tokenapp.TokenApplication
 		Authenticator:   auth,
 		MethodRegistry:  method.DefaultSelector(),
 		ProofFactory:    proof.DefaultFactory(nil, nil, WecomConfig{}),
-		ReAuthenticator: reauth,
+		ReAuthenticator: reAuthenticator,
 	})
 	require.NoError(t, err)
 	return svc
@@ -117,19 +116,19 @@ func TestReauthenticateDefaultsMissingTenantDomain(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
+		name        string
 		tokenDomain string
-		wantDomain string
+		wantDomain  string
 	}{
 		{
-			name:       "fills default tenant domain when missing",
+			name:        "fills default tenant domain when missing",
 			tokenDomain: "",
-			wantDomain: "fangcun",
+			wantDomain:  "fangcun",
 		},
 		{
-			name:       "keeps explicit tenant domain",
+			name:        "keeps explicit tenant domain",
 			tokenDomain: "platform",
-			wantDomain: "platform",
+			wantDomain:  "platform",
 		},
 	}
 
@@ -149,7 +148,7 @@ func TestReauthenticateDefaultsMissingTenantDomain(t *testing.T) {
 				amr:             []string{"pwd"},
 				attrs:           map[string]string{"scope": "profile"},
 			}
-			svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(verifier))
+			svc := newLoginServiceForTest(t, issuer, auth, NewTokenReAuthenticator(verifier))
 
 			result, err := svc.Reauthenticate(context.Background(), " access-token-value ")
 			require.NoError(t, err)
@@ -174,7 +173,7 @@ func TestReauthenticateTokenVerifierFailureMapsToAuthFailure(t *testing.T) {
 	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
 	verifier := &loginTokenVerifierStub{code: code.ErrExpired}
-	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(verifier))
+	svc := newLoginServiceForTest(t, issuer, auth, NewTokenReAuthenticator(verifier))
 
 	result, err := svc.Reauthenticate(context.Background(), "expired-token")
 
@@ -191,7 +190,7 @@ func TestReauthenticateTokenVerifierSystemErrorReturnsError(t *testing.T) {
 	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
 	verifier := &loginTokenVerifierStub{err: boom}
-	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(verifier))
+	svc := newLoginServiceForTest(t, issuer, auth, NewTokenReAuthenticator(verifier))
 
 	result, err := svc.Reauthenticate(context.Background(), "access-token")
 
@@ -225,7 +224,7 @@ func TestLoginPayloadFailureUsesPayloadInvalidCode(t *testing.T) {
 
 	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
-	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(&loginTokenVerifierStub{}))
+	svc := newLoginServiceForTest(t, issuer, auth, NewTokenReAuthenticator(&loginTokenVerifierStub{}))
 
 	result, err := svc.Login(context.Background(), LoginRequest{
 		AuthMethod: AuthMethodPassword,
@@ -246,7 +245,7 @@ func TestLoginProofFailureUsesProofBuildFailedCode(t *testing.T) {
 
 	auth := authentication.NewAuthenticator()
 	issuer := &loginTokenIssuerStub{}
-	svc := newLoginServiceForTest(t, issuer, auth, reauth.NewTokenReAuthenticator(&loginTokenVerifierStub{}))
+	svc := newLoginServiceForTest(t, issuer, auth, NewTokenReAuthenticator(&loginTokenVerifierStub{}))
 
 	result, err := svc.Login(context.Background(), LoginRequest{
 		AuthMethod: AuthMethodWecom,

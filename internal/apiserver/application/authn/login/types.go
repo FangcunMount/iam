@@ -1,9 +1,9 @@
 package login
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -28,19 +28,19 @@ type WechatMiniPayload = method.WechatPayload
 type WecomPayload = method.WecomPayload
 type WecomConfig = proof.WecomConfig
 
-// SignInResult 登录结果
-type SignInResult struct {
-	Principal       *authentication.Principal
-	TokenPair       *tokenapp.TokenPair
-	UserID          meta.ID
-	LoginIdentityID meta.ID
-	TenantID        meta.ID
+type SignInResult = signin.Result
+type LoginResult = signin.Result
+
+// SignOutCommand 登出命令。
+type SignOutCommand struct {
+	AccessToken  *string
+	RefreshToken *string
 }
 
-// LoginResult 登录结果
-type LoginResult = SignInResult
+type LogoutCommand = SignOutCommand
+type LogoutRequest = SignOutCommand
 
-// AuthResult 认证结果
+// AuthResult 认证结果。
 type AuthResult struct {
 	Principal       *authentication.Principal
 	UserID          meta.ID
@@ -48,14 +48,26 @@ type AuthResult struct {
 	TenantID        meta.ID
 }
 
-// SignOutCommand 登出命令
-type SignOutCommand struct {
-	AccessToken  *string
-	RefreshToken *string
+func PublicAuthMethods() []AuthMethod {
+	return method.PublicAuthMethods()
 }
 
-// LogoutCommand 登出命令
-type LogoutCommand = SignOutCommand
+func IsPublicAuthMethod(raw string) bool {
+	return method.IsPublicAuthMethod(raw)
+}
 
-// LogoutRequest 登出请求
-type LogoutRequest = LogoutCommand
+// authResultFromPrincipal 由 Principal 构造认证结果
+// 参数：principal 认证主体
+// 返回：认证结果
+// 职责：由认证主体构造认证结果
+func authResultFromPrincipal(principal *authentication.Principal) *AuthResult {
+	if principal == nil {
+		return &AuthResult{}
+	}
+	return &AuthResult{
+		Principal:       principal,
+		UserID:          principal.UserID,
+		LoginIdentityID: principal.LoginIdentityID,
+		TenantID:        principal.TenantID,
+	}
+}

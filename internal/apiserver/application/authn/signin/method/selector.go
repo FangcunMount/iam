@@ -123,7 +123,7 @@ func (s *Registry) findMethod(authMethod AuthMethod) (LoginMethod, bool) {
 	return loginMethod, ok
 }
 
-// PublicAuthMethods 返回公开认证方法。
+// PublicAuthMethods 返回公开认证方法（全仓库唯一白名单，compatibility 与 login 门面均引用此处）。
 func PublicAuthMethods() []AuthMethod {
 	return []AuthMethod{
 		AuthMethodPassword,

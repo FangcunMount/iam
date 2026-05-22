@@ -4,7 +4,7 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )

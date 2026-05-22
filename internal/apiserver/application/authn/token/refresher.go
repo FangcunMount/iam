@@ -13,12 +13,12 @@ import (
 
 // refresher 用于根据 refresh token 刷新 access token 和 refresh token。
 type refresher struct {
-	accessTokenIssuer accessTokenIssuerPort
-	tokenStore      Store
-	sessionLoader   SessionLoader
-	sessionRevoker  SessionRevoker
-	sessionExtender SessionExtender
-	accessChecker   SubjectAccessEvaluator
+	accessTokenIssuer  accessTokenIssuerPort
+	tokenStore         Store
+	sessionLoader      SessionLoader
+	sessionRevoker     SessionRevoker
+	sessionExtender    SessionExtender
+	accessChecker      SubjectAccessEvaluator
 	refreshClaimsCodec RefreshClaimsCodec
 }
 
@@ -36,12 +36,12 @@ func newRefresher(
 	refreshClaimsCodec RefreshClaimsCodec,
 ) refresherPort {
 	return &refresher{
-		accessTokenIssuer: accessTokenIssuer,
-		tokenStore:      tokenStore,
-		sessionLoader:   sessionLoader,
-		sessionRevoker:  sessionRevoker,
-		sessionExtender: sessionExtender,
-		accessChecker:   accessChecker,
+		accessTokenIssuer:  accessTokenIssuer,
+		tokenStore:         tokenStore,
+		sessionLoader:      sessionLoader,
+		sessionRevoker:     sessionRevoker,
+		sessionExtender:    sessionExtender,
+		accessChecker:      accessChecker,
 		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
 	}
 }

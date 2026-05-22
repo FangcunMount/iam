@@ -1,4 +1,4 @@
-package login
+package proof
 
 import (
 	"context"
@@ -7,8 +7,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/method"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login/proof"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	idpWechatApp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
@@ -20,7 +19,7 @@ import (
 func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	t.Parallel()
 
-	passwordProof, err := proof.NewPasswordBuilder().Build(context.Background(), method.PasswordPayload{
+	passwordProof, err := NewPasswordBuilder().Build(context.Background(), method.PasswordPayload{
 		Username: "alice",
 		Password: "secret",
 	}, method.CommonPayload{TenantID: meta.FromUint64(42)})
@@ -31,7 +30,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 	require.Equal(t, uint64(42), password.TenantID.Uint64())
 	require.Equal(t, "alice", password.Username)
 
-	phoneProof, err := proof.NewPhoneOTPBuilder().Build(context.Background(), method.PhoneOTPPayload{
+	phoneProof, err := NewPhoneOTPBuilder().Build(context.Background(), method.PhoneOTPPayload{
 		PhoneE164: "+8613800138000",
 		OTP:       "123456",
 	}, method.CommonPayload{TenantID: meta.FromUint64(7)})
@@ -45,7 +44,7 @@ func TestMethodProofPreparersMapPayloads(t *testing.T) {
 func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 	t.Parallel()
 
-	factory := proof.DefaultFactory(
+	factory := DefaultFactory(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
 				AppID:  "corp-id",
@@ -133,7 +132,7 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			factory := proof.DefaultFactory(
+			factory := DefaultFactory(
 				tc.repo,
 				tc.vault,
 				WecomConfig{AgentID: "agent-id"},
@@ -174,7 +173,7 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 		userID:     "wecom-user-id",
 	}
 	auth := authentication.NewAuthenticator(authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(identityRepo, idp))
-	factory := proof.DefaultFactory(
+	factory := DefaultFactory(
 		&wecomAppRepoStub{
 			app: &idpWechatApp.WechatApp{
 				AppID:  "corp-id",

@@ -1,4 +1,4 @@
-package login
+package authfailure
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAuthFailureMessageCoversKnownAuthnCodes(t *testing.T) {
+func TestMessageCoversKnownAuthnCodes(t *testing.T) {
 	t.Parallel()
 
 	tests := map[int]string{
@@ -40,8 +40,7 @@ func TestAuthFailureMessageCoversKnownAuthnCodes(t *testing.T) {
 		codeValue, want := codeValue, want
 		t.Run(want, func(t *testing.T) {
 			t.Parallel()
-
-			require.Equal(t, want, authFailureMessage(codeValue))
+			require.Equal(t, want, Message(codeValue))
 		})
 	}
 }
