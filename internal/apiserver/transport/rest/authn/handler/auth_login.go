@@ -3,7 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
 )
@@ -33,7 +33,7 @@ func (h *AuthHandler) LoginV2(c *gin.Context) {
 		return
 	}
 
-	loginReq, err := login.BuildExplicitLoginRequest(reqBody.AuthMethod, reqBody.MethodPayload)
+	loginReq, err := session.BuildExplicitLoginRequest(reqBody.AuthMethod, reqBody.MethodPayload)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -44,9 +44,8 @@ func (h *AuthHandler) LoginV2(c *gin.Context) {
 }
 
 // executeLogin 执行登录并返回令牌
-func (h *AuthHandler) executeLogin(c *gin.Context, loginReq login.LoginRequest) {
-	// 调用登录服务
-	result, err := h.loginService.Login(c.Request.Context(), loginReq)
+func (h *AuthHandler) executeLogin(c *gin.Context, loginReq session.LoginRequest) {
+	result, err := h.sessionService.Login(c.Request.Context(), loginReq)
 	if err != nil {
 		h.Error(c, err)
 		return

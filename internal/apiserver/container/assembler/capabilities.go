@@ -7,7 +7,6 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
@@ -40,10 +39,10 @@ type KeyRotationScheduler interface {
 type AuthnApplicationCapabilities struct {
 	SignupService signupApp.SignupService
 	LoginIdentityLinking   linkingApp.Linker
-	LoginService           login.LoginApplicationService
-	ChallengeService       challengeApp.Service
-	TokenService           token.TokenApplicationService
-	SessionService         sessionApp.SessionApplicationService
+	SessionService      sessionApp.ApplicationService
+	SessionRevoker sessionApp.Revoker
+	ChallengeService    challengeApp.Service
+	TokenService        token.TokenApplicationService
 	KeyManagementApp       *jwksApp.KeyManagementAppService
 	KeyPublishApp          *jwksApp.KeyPublishAppService
 	KeyRotationApp         *jwksApp.KeyRotationAppService

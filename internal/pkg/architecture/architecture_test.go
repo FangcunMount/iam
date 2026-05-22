@@ -209,7 +209,7 @@ func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	forbidden := regexp.MustCompile(`(?m)^\s*(LoginService|TokenService|SessionService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
+	forbidden := regexp.MustCompile(`(?m)^\s*(SessionService|SessionRevoker|TokenService|KeyManagementApp|KeyPublishApp|KeyRotationApp)\s+`)
 	if match := forbidden.FindString(string(source)); match != "" {
 		t.Fatalf("AuthnModule exposes concrete application field %q; use ApplicationCapabilities instead", strings.TrimSpace(match))
 	}
@@ -350,10 +350,10 @@ func TestRESTLoginDoesNotOwnAuthMethodDispatch(t *testing.T) {
 		"wecomLoginRequest",
 	} {
 		if strings.Contains(source, token) {
-			t.Fatalf("%s contains REST-owned login dispatch %q; public auth methods must come from application/authn/login", rel, token)
+			t.Fatalf("%s contains REST-owned login dispatch %q; public auth methods must come from application/authn/session", rel, token)
 		}
 	}
-	assertFileContains(t, root, rel, "login.BuildExplicitLoginRequest")
+	assertFileContains(t, root, rel, "session.BuildExplicitLoginRequest")
 }
 
 func TestIDPTokenAppNotFoundUsesStructuredError(t *testing.T) {
@@ -1350,43 +1350,43 @@ func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T
 
 	root := repoRoot(t)
 	if _, err := os.Stat(filepath.Join(root, "internal", "apiserver", "application", "authn", "login", "method_authenticator.go")); err == nil {
-		t.Fatal("application/authn/login/method_authenticator.go is retired; sign-in methods prepare domain credentials and domain Authenticator dispatches normal authentication")
+		t.Fatal("application/authn/session/method_authenticator.go is retired; sign-in methods prepare domain credentials and domain Authenticator dispatches normal authentication")
 	} else if !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{
-		"internal/apiserver/application/authn/login/scenario_selector.go",
-		"internal/apiserver/application/authn/login/scenario_selector_explicit.go",
-		"internal/apiserver/application/authn/login/scenario_selector_legacy.go",
-		"internal/apiserver/application/authn/login/method_catalog.go",
-		"internal/apiserver/application/authn/login/method_password.go",
-		"internal/apiserver/application/authn/login/method_phone_otp.go",
-		"internal/apiserver/application/authn/login/method_wechat.go",
-		"internal/apiserver/application/authn/login/method_wecom.go",
-		"internal/apiserver/application/authn/login/method_bearer.go",
-		"internal/apiserver/application/authn/login/method_authenticator_test.go",
-		"internal/apiserver/application/authn/login/signin_method_catalog_test.go",
-		"internal/apiserver/application/authn/login/method_proof_preparer_test.go",
-		"internal/apiserver/application/authn/login/adapter_bearer.go",
-		"internal/apiserver/application/authn/login/adapter_catalog.go",
-		"internal/apiserver/application/authn/login/adapter_password.go",
-		"internal/apiserver/application/authn/login/adapter_phone_otp.go",
-		"internal/apiserver/application/authn/login/adapter_wechat_mini.go",
-		"internal/apiserver/application/authn/login/adapter_wecom.go",
-		"internal/apiserver/application/authn/login/explicit_payload_adapter.go",
-		"internal/apiserver/application/authn/login/method_selector.go",
-		"internal/apiserver/application/authn/login/method_selector_explicit.go",
-		"internal/apiserver/application/authn/login/method_selector_legacy.go",
-		"internal/apiserver/application/authn/login/services.go",
-		"internal/apiserver/application/authn/login/services_impl.go",
-		"internal/apiserver/application/authn/login/method/bearer.go",
-		"internal/apiserver/application/authn/login/proof/bearer.go",
-		"internal/apiserver/application/authn/login/compatibility/bearer_strategy.go",
-		"internal/apiserver/application/authn/login/compatibility/bearer_strategy_test.go",
-		"internal/apiserver/application/authn/login/signin/sign_in.go",
-		"internal/apiserver/application/authn/login/signin/deps.go",
-		"internal/apiserver/application/authn/login/signin/method/selector.go",
-		"internal/apiserver/application/authn/login/signin/proof/factory.go",
+		"internal/apiserver/application/authn/session/scenario_selector.go",
+		"internal/apiserver/application/authn/session/scenario_selector_explicit.go",
+		"internal/apiserver/application/authn/session/scenario_selector_legacy.go",
+		"internal/apiserver/application/authn/session/method_catalog.go",
+		"internal/apiserver/application/authn/session/method_password.go",
+		"internal/apiserver/application/authn/session/method_phone_otp.go",
+		"internal/apiserver/application/authn/session/method_wechat.go",
+		"internal/apiserver/application/authn/session/method_wecom.go",
+		"internal/apiserver/application/authn/session/method_bearer.go",
+		"internal/apiserver/application/authn/session/method_authenticator_test.go",
+		"internal/apiserver/application/authn/session/signin_method_catalog_test.go",
+		"internal/apiserver/application/authn/session/method_proof_preparer_test.go",
+		"internal/apiserver/application/authn/session/adapter_bearer.go",
+		"internal/apiserver/application/authn/session/adapter_catalog.go",
+		"internal/apiserver/application/authn/session/adapter_password.go",
+		"internal/apiserver/application/authn/session/adapter_phone_otp.go",
+		"internal/apiserver/application/authn/session/adapter_wechat_mini.go",
+		"internal/apiserver/application/authn/session/adapter_wecom.go",
+		"internal/apiserver/application/authn/session/explicit_payload_adapter.go",
+		"internal/apiserver/application/authn/session/method_selector.go",
+		"internal/apiserver/application/authn/session/method_selector_explicit.go",
+		"internal/apiserver/application/authn/session/method_selector_legacy.go",
+		"internal/apiserver/application/authn/session/services.go",
+		"internal/apiserver/application/authn/session/services_impl.go",
+		"internal/apiserver/application/authn/session/method/bearer.go",
+		"internal/apiserver/application/authn/session/proof/bearer.go",
+		"internal/apiserver/application/authn/session/compatibility/bearer_strategy.go",
+		"internal/apiserver/application/authn/session/compatibility/bearer_strategy_test.go",
+		"internal/apiserver/application/authn/session/signin/sign_in.go",
+		"internal/apiserver/application/authn/session/signin/deps.go",
+		"internal/apiserver/application/authn/session/signin/method/selector.go",
+		"internal/apiserver/application/authn/session/signin/proof/factory.go",
 	} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
 			t.Fatalf("%s is retired login wording; use method registry, proof factory, and SignIn/SignOut use cases", rel)
@@ -1405,16 +1405,17 @@ func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T
 	assertFileContains(t, root, "internal/apiserver/application/authn/signin/compatibility/explicit_payload.go", "BuildExplicitWireLoginRequest")
 	assertFileContains(t, root, "internal/apiserver/application/authn/signin/method/selector.go", "func (s *Registry) Select")
 	assertFileContains(t, root, "internal/apiserver/application/authn/signin/proof/factory.go", "type Factory struct")
-	assertFileContains(t, root, "internal/apiserver/application/authn/login/service.go", "type Dependencies struct")
-	assertFileContains(t, root, "internal/apiserver/application/authn/login/service.go", "Reauthenticate(ctx context.Context, token string)")
+	assertFileContains(t, root, "internal/apiserver/application/authn/session/service.go", "type Dependencies struct")
+	assertFileContains(t, root, "internal/apiserver/application/authn/session/service.go", "RenewSession(ctx context.Context, refreshToken string)")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/session/service.go", "Reauthenticate(ctx context.Context")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/payload.go", "Common() CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/password.go", "CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/phone_otp.go", "CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/wechat.go", "CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/wecom.go", "CommonPayload")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/service.go", "method.DefaultSelector")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/service.go", "proof.DefaultFactory")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/service.go", "NewBearerTokenAuthStrategy")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/session/service.go", "method.DefaultSelector")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/session/service.go", "proof.DefaultFactory")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/session/service.go", "NewBearerTokenAuthStrategy")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/sign_in.go", "DefaultSelector")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/sign_in.go", "DefaultFactory")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/selector.go", "type AuthType")
@@ -1427,13 +1428,13 @@ func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/types.go", "type Command struct")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/types.go", "LoginMethodCommand")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/compatibility/explicit_payload.go", "BuildExplicitLoginMethodCommand")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/login/types.go", "SignInAttempt")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/session/types.go", "SignInAttempt")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/types.go", "AuthMethodJWTToken")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/types.go", "CredentialKindAccessToken")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/selector.go", "NewBearer")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/proof/factory.go", "NewBearerBuilder")
 
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "authn", "login"), func(path, source string) {
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "authn", "session"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, token := range []string{
 			"type MethodAuthenticator interface",

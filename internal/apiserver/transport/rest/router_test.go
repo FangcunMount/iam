@@ -456,7 +456,7 @@ func (sessionServiceStub) RevokeAllSessionsByUser(_ context.Context, _ string, _
 	return nil
 }
 
-var _ sessionapp.SessionApplicationService = sessionServiceStub{}
+var _ sessionapp.Revoker = sessionServiceStub{}
 
 type casbinStub struct{}
 

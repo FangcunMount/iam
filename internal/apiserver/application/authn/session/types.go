@@ -1,11 +1,10 @@
-package login
+package session
 
 import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 )
 
 type AuthMethod = method.AuthMethod
@@ -40,13 +39,8 @@ type SignOutCommand struct {
 type LogoutCommand = SignOutCommand
 type LogoutRequest = SignOutCommand
 
-// AuthResult 认证结果。
-type AuthResult struct {
-	Principal       *authentication.Principal
-	UserID          meta.ID
-	LoginIdentityID meta.ID
-	TenantID        meta.ID
-}
+// RenewResult 会话续期结果。
+type RenewResult = tokenapp.TokenRefreshResult
 
 func PublicAuthMethods() []AuthMethod {
 	return method.PublicAuthMethods()
@@ -54,20 +48,4 @@ func PublicAuthMethods() []AuthMethod {
 
 func IsPublicAuthMethod(raw string) bool {
 	return method.IsPublicAuthMethod(raw)
-}
-
-// authResultFromPrincipal 由 Principal 构造认证结果
-// 参数：principal 认证主体
-// 返回：认证结果
-// 职责：由认证主体构造认证结果
-func authResultFromPrincipal(principal *authentication.Principal) *AuthResult {
-	if principal == nil {
-		return &AuthResult{}
-	}
-	return &AuthResult{
-		Principal:       principal,
-		UserID:          principal.UserID,
-		LoginIdentityID: principal.LoginIdentityID,
-		TenantID:        principal.TenantID,
-	}
 }

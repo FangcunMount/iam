@@ -5,7 +5,7 @@
 //
 //	PrepareStep → ResolveUserStep → EnsureLoginIdentityStep → EnsureCredentialStep
 //
-// 与 application/authn/login 的边界：
+// 与 application/authn/session 的边界：
 //
 //   - login：已有 LoginIdentity + Credential，认证并签发 TokenPair
 //   - signup（本包）：创建或复用 User、LoginIdentity，按需创建长期 Credential

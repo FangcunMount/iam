@@ -5,7 +5,7 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"google.golang.org/grpc"
@@ -22,7 +22,7 @@ type Service struct {
 
 // NewService 创建 authn gRPC 服务
 func NewService(
-	loginSvc loginApp.LoginApplicationService,
+	sessionSvc sessionApp.ApplicationService,
 	tokenSvc tokenApp.TokenApplicationService,
 	signupSvc signupApp.SignupService,
 	challengeSvc challengeApp.Service,
@@ -31,7 +31,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		auth: authServiceServer{
-			loginSvc: loginSvc,
+			sessionSvc: sessionSvc,
 			tokenSvc: tokenSvc,
 		},
 		signup: authSignupServiceServer{
@@ -55,7 +55,7 @@ func (s *Service) Register(server *grpc.Server) {
 	if s == nil || server == nil {
 		return
 	}
-	if s.auth.loginSvc != nil || s.auth.tokenSvc != nil {
+	if s.auth.sessionSvc != nil || s.auth.tokenSvc != nil {
 		authnv2.RegisterAuthServiceServer(server, &s.auth)
 	}
 	if s.signup.signupService != nil {
@@ -74,7 +74,7 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authServiceServer struct {
 	authnv2.UnimplementedAuthServiceServer
-	loginSvc loginApp.LoginApplicationService
+	sessionSvc sessionApp.ApplicationService
 	tokenSvc tokenApp.TokenApplicationService
 }
 

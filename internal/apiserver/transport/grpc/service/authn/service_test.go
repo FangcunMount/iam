@@ -9,7 +9,7 @@ import (
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -34,22 +34,29 @@ type tokenServiceStub struct {
 }
 
 type loginServiceStub struct {
-	req loginApp.LoginRequest
-	res *loginApp.LoginResult
-	err error
+	req        sessionApp.LoginRequest
+	res        *sessionApp.LoginResult
+	err        error
+	refreshErr error
 }
 
-func (s *loginServiceStub) Login(ctx context.Context, req loginApp.LoginRequest) (*loginApp.LoginResult, error) {
+func (s *loginServiceStub) Login(ctx context.Context, req sessionApp.LoginRequest) (*sessionApp.LoginResult, error) {
 	s.req = req
 	return s.res, s.err
 }
 
-func (s *loginServiceStub) Logout(ctx context.Context, req loginApp.LogoutRequest) error {
-	return nil
+func (s *loginServiceStub) RenewSession(context.Context, string) (*sessionApp.RenewResult, error) {
+	if s.refreshErr != nil {
+		return nil, s.refreshErr
+	}
+	if s.res != nil {
+		return &sessionApp.RenewResult{TokenPair: s.res.TokenPair}, nil
+	}
+	return &sessionApp.RenewResult{}, nil
 }
 
-func (s *loginServiceStub) Reauthenticate(context.Context, string) (*loginApp.AuthResult, error) {
-	return nil, nil
+func (s *loginServiceStub) Logout(ctx context.Context, req sessionApp.LogoutRequest) error {
+	return nil
 }
 
 type signupServiceStub struct{}
@@ -158,14 +165,14 @@ func TestAuthServiceServerLoginUsesExplicitV2Contract(t *testing.T) {
 	access := tokenApp.NewAccessToken("access-id", "access-token", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(7), time.Hour)
 	refresh := tokenApp.NewRefreshToken("refresh-id", "refresh-token", "session-id", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(7), []string{"pwd"}, nil, 24*time.Hour)
 	stub := &loginServiceStub{
-		res: &loginApp.LoginResult{
+		res: &sessionApp.LoginResult{
 			TokenPair:       tokenApp.NewTokenPair(access, refresh),
 			UserID:          meta.FromUint64(1),
 			LoginIdentityID: meta.FromUint64(2),
 			TenantID:        meta.FromUint64(7),
 		},
 	}
-	srv := &authServiceServer{loginSvc: stub}
+	srv := &authServiceServer{sessionSvc: stub}
 	payload, err := structpb.NewStruct(map[string]any{
 		"username":  "alice",
 		"password":  "secret",
@@ -182,16 +189,16 @@ func TestAuthServiceServerLoginUsesExplicitV2Contract(t *testing.T) {
 	require.NotNil(t, resp.GetTokenPair())
 	require.Equal(t, "access-token", resp.GetTokenPair().GetAccessToken())
 	require.Equal(t, "refresh-token", resp.GetTokenPair().GetRefreshToken())
-	require.Equal(t, loginApp.AuthMethodPassword, stub.req.AuthMethod)
+	require.Equal(t, sessionApp.AuthMethodPassword, stub.req.AuthMethod)
 	require.Equal(t, meta.FromUint64(7), stub.req.TenantID)
-	loginPayload, ok := stub.req.Payload.(loginApp.PasswordPayload)
+	loginPayload, ok := stub.req.Payload.(sessionApp.PasswordPayload)
 	require.True(t, ok)
 	require.Equal(t, "alice", loginPayload.Username)
 	require.Equal(t, "secret", loginPayload.Password)
 }
 
 func TestAuthServiceServerLoginRejectsNonPublicMethod(t *testing.T) {
-	srv := &authServiceServer{loginSvc: &loginServiceStub{}}
+	srv := &authServiceServer{sessionSvc: &loginServiceStub{}}
 	payload, err := structpb.NewStruct(map[string]any{"token": "jwt"})
 	require.NoError(t, err)
 
@@ -259,10 +266,11 @@ func TestAuthServiceServerVerifyTokenPassesExpectationGuards(t *testing.T) {
 
 func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 	tests := []struct {
-		name string
-		call func(*authServiceServer) error
-		stub *tokenServiceStub
-		want codes.Code
+		name       string
+		call       func(*authServiceServer) error
+		sessionSvc sessionApp.ApplicationService
+		tokenSvc   *tokenServiceStub
+		want       codes.Code
 	}{
 		{
 			name: "verify token app unauthenticated",
@@ -270,8 +278,8 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 				_, err := s.VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{AccessToken: "access-token"})
 				return err
 			},
-			stub: &tokenServiceStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
-			want: codes.Unauthenticated,
+			tokenSvc: &tokenServiceStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			want:     codes.Unauthenticated,
 		},
 		{
 			name: "refresh token app unauthenticated",
@@ -279,8 +287,8 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 				_, err := s.RefreshToken(context.Background(), &authnv2.RefreshTokenRequest{RefreshToken: "refresh-token"})
 				return err
 			},
-			stub: &tokenServiceStub{refreshErr: perrors.WithCode(code.ErrTokenInvalid, "invalid refresh")},
-			want: codes.Unauthenticated,
+			sessionSvc: &loginServiceStub{refreshErr: perrors.WithCode(code.ErrTokenInvalid, "invalid refresh")},
+			want:       codes.Unauthenticated,
 		},
 		{
 			name: "revoke token app unauthenticated",
@@ -288,15 +296,15 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 				_, err := s.RevokeToken(context.Background(), &authnv2.RevokeTokenRequest{AccessToken: "access-token"})
 				return err
 			},
-			stub: &tokenServiceStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
-			want: codes.Unauthenticated,
+			tokenSvc: &tokenServiceStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			want:     codes.Unauthenticated,
 		},
 	}
 
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			srv := &authServiceServer{tokenSvc: tc.stub}
+			srv := &authServiceServer{sessionSvc: tc.sessionSvc, tokenSvc: tc.tokenSvc}
 
 			err := tc.call(srv)
 

@@ -1,4 +1,4 @@
-// Package login 编排 AuthN 登录与已有 access token 再验证用例。
+// Package session 编排 AuthN 用户会话用例：signin 委托、续期（RenewSession）、signout；管理员撤销见 Revoker。
 //
 // 登录主线固定为：
 //  1. MethodRegistry 根据 AuthMethod 选择登录方式并校验 method payload；
@@ -16,4 +16,4 @@
 // proof.Factory/assembler 注册、领域 authentication 策略，以及公开协议需要的
 // compatibility wire payload 解析。漏掉 proof.Builder 注册会在运行时得到
 // ErrProofBuildFailed / unsupported credential kind。
-package login
+package session

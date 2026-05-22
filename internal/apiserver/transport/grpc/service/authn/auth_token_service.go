@@ -46,14 +46,14 @@ func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv2.Verify
 }
 
 func (s *authServiceServer) RefreshToken(ctx context.Context, req *authnv2.RefreshTokenRequest) (*authnv2.RefreshTokenResponse, error) {
-	if s.tokenSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "token service not configured")
+	if s.sessionSvc == nil {
+		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
 	if req == nil || strings.TrimSpace(req.GetRefreshToken()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "refresh_token is required")
 	}
 
-	result, err := s.tokenSvc.RefreshToken(ctx, req.GetRefreshToken())
+	result, err := s.sessionSvc.RenewSession(ctx, req.GetRefreshToken())
 	if err != nil {
 		return nil, toGRPCError(err)
 	}

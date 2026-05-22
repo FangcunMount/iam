@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	loginApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -14,7 +14,7 @@ import (
 
 // Login implements the v2 explicit auth_method + method_payload login contract.
 func (s *authServiceServer) Login(ctx context.Context, req *authnv2.LoginRequest) (*authnv2.LoginResponse, error) {
-	if s.loginSvc == nil {
+	if s.sessionSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "login service not configured")
 	}
 	if req == nil {
@@ -32,11 +32,11 @@ func (s *authServiceServer) Login(ctx context.Context, req *authnv2.LoginRequest
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid method_payload: %v", err)
 	}
-	loginReq, err := loginApp.BuildExplicitLoginRequest(method, json.RawMessage(payload))
+	loginReq, err := sessionApp.BuildExplicitLoginRequest(method, json.RawMessage(payload))
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
-	result, err := s.loginSvc.Login(ctx, loginReq)
+	result, err := s.sessionSvc.Login(ctx, loginReq)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}

@@ -25,7 +25,7 @@ func (c *Container) grpcRegistrations() []grpctransport.Registration {
 	if c.ModuleState(moduleAuthn).Available {
 		caps := c.AuthnModule.ApplicationCapabilities()
 		service := authngrpc.NewService(
-			caps.LoginService,
+			caps.SessionService,
 			caps.TokenService,
 			caps.SignupService,
 			caps.ChallengeService,

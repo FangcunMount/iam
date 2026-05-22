@@ -13,11 +13,11 @@ import (
 // SessionAdminHandler 暴露管理员会话控制接口。
 type SessionAdminHandler struct {
 	*BaseHandler
-	service sessionapp.SessionApplicationService
+	service sessionapp.Revoker
 }
 
 // NewSessionAdminHandler 创建管理员会话处理器。
-func NewSessionAdminHandler(service sessionapp.SessionApplicationService) *SessionAdminHandler {
+func NewSessionAdminHandler(service sessionapp.Revoker) *SessionAdminHandler {
 	return &SessionAdminHandler{
 		BaseHandler: NewBaseHandler(),
 		service:     service,

@@ -15,9 +15,8 @@ owning JWT encoding or signing-key lifecycle behavior.
   Redis stores, MySQL repositories, and external provider adapters.
 - Transport owns REST/gRPC binding, DTO conversion, and error mapping.
 
-`jwt_token` is an internal bearer reauthentication method. It is understood by
-`application/authn/login` only; it is not exposed through the public REST/gRPC
-login contract and is not a domain authentication strategy.
+Access token validation for callers uses `token.VerifyToken` (introspection);
+it is not a domain authentication strategy.
 
 ## Use Cases
 
@@ -27,14 +26,19 @@ Prepares the requested login identity data, then runs one fixed flow: resolve or
 create the User, create or reuse the LoginIdentity, and create a password
 Credential only when the chosen login identity kind needs one.
 
-### LoginApplicationService
+### Session ApplicationService
 
-Selects the sign-in method from the request, constructs a method-specific proof
-or bearer verification request, calls the domain authenticator when appropriate,
-and asks the token use case to create the session token pair.
+User session facade: sign-in (delegates to `signin`), session renewal (`RenewSession`), and logout.
+Selects the sign-in method from the request, constructs a method-specific proof,
+calls the domain authenticator when appropriate, and asks the token use case to
+create the session token pair.
+
+### Session Revoker
+
+Administrator session revocation (single session, by login identity, or by user).
 
 Supported public method kinds are password, phone OTP, WeChat mini program, and
-WeCom. Bearer-token reauthentication remains an internal application concern.
+WeCom.
 
 ### TokenApplicationService
 

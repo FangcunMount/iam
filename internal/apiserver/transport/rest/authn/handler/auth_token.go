@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
@@ -34,12 +34,12 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	logoutReq := login.LogoutRequest{
+	logoutReq := session.LogoutRequest{
 		AccessToken:  reqBody.AccessToken,
 		RefreshToken: &reqBody.RefreshToken,
 	}
 
-	if err := h.loginService.Logout(c.Request.Context(), logoutReq); err != nil {
+	if err := h.sessionService.Logout(c.Request.Context(), logoutReq); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -70,7 +70,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	result, err := h.tokenService.RefreshToken(c.Request.Context(), reqBody.RefreshToken)
+	result, err := h.sessionService.RenewSession(c.Request.Context(), reqBody.RefreshToken)
 	if err != nil {
 		h.Error(c, err)
 		return

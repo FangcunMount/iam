@@ -12,9 +12,8 @@ import (
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -30,10 +29,10 @@ type AuthnModule struct {
 	// 应用服务
 	signupService signupApp.SignupService
 	loginIdentityLinking   linkingApp.Linker
-	loginService           login.LoginApplicationService
-	challengeService       challengeApp.Service
-	tokenService           token.TokenApplicationService
-	sessionService         sessionApp.SessionApplicationService
+	sessionService     session.ApplicationService
+	sessionRevokeApp   session.Revoker
+	challengeService   challengeApp.Service
+	tokenService        token.TokenApplicationService
 
 	// JWKS 应用服务
 	keyManagementApp *jwksApp.KeyManagementAppService
@@ -144,10 +143,10 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 	return AuthnApplicationCapabilities{
 		SignupService: m.signupService,
 		LoginIdentityLinking:   m.loginIdentityLinking,
-		LoginService:           m.loginService,
-		ChallengeService:       m.challengeService,
-		TokenService:           m.tokenService,
-		SessionService:         m.sessionService,
+		SessionService:      m.sessionService,
+		SessionRevoker: m.sessionRevokeApp,
+		ChallengeService:    m.challengeService,
+		TokenService:        m.tokenService,
 		KeyManagementApp:       m.keyManagementApp,
 		KeyPublishApp:          m.keyPublishApp,
 		KeyRotationApp:         m.keyRotationApp,

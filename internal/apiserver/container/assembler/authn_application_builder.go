@@ -9,10 +9,9 @@ import (
 	credentialApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/credential"
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/login"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
-	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -77,11 +76,10 @@ func (m *AuthnModule) initializeApplication(
 		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
 	)
 
-	loginService, err := login.NewLoginApplicationService(login.Dependencies{
+	userSessionService, err := session.NewApplicationService(session.Dependencies{
 		TokenService:       tokenService,
 		Authenticator:      authenticator,
 		MethodRegistry:     method.DefaultSelector(),
-		ReAuthenticator:    login.NewTokenReAuthenticator(tokenService),
 		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{Credentials: infra.credentialRepo}),
 		ProofFactory: proof.DefaultFactory(
 			infra.wechatAppQuerier,
@@ -92,10 +90,10 @@ func (m *AuthnModule) initializeApplication(
 	if err != nil {
 		return err
 	}
-	m.loginService = loginService
+	m.sessionService = userSessionService
 
 	m.tokenService = tokenService
-	m.sessionService = sessionApp.NewSessionApplicationService(domain.sessionRevoker)
+	m.sessionRevokeApp = session.NewRevoker(domain.sessionRevoker)
 
 	logger := log.New(log.NewOptions())
 	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)
