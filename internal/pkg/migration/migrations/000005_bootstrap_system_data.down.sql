@@ -18,52 +18,51 @@ WHERE (`ptype`, `v0`, `v1`, `v2`, `v3`) IN (('p', 'role:super_admin', 'platform'
                                              'read|update|enable|disable'),
                                             ('p', 'role:user', 'fangcun', 'iam:identity:instance:profile', 'read'),
                                             ('p', 'role:user', 'fangcun', 'iam:identity:instance:profile', 'update'),
-                                            ('p', 'role:qs:admin', '1', 'qs:*:*:*', '.*'),
-                                            ('p', 'role:qs:content_manager', '1', 'qs:questionnaire:collection:questionnaires',
+                                            ('p', 'role:qs:admin', 'fangcun', 'qs:*:*:*', '.*'),
+                                            ('p', 'role:qs:content_manager', 'fangcun', 'qs:questionnaire:collection:questionnaires',
                                              'create|read|list|update|delete|publish|unpublish|archive|statistics'),
-                                            ('p', 'role:qs:content_manager', '1', 'qs:scale:collection:scales',
+                                            ('p', 'role:qs:content_manager', 'fangcun', 'qs:scale:collection:scales',
                                              'create|read|list|update|delete|publish|unpublish|archive'),
-                                            ('p', 'role:qs:evaluator', '1', 'qs:answersheet:collection:answersheets',
+                                            ('p', 'role:qs:evaluator', 'fangcun', 'qs:answersheet:collection:answersheets',
                                              'read|list|statistics'),
-                                            ('p', 'role:qs:evaluator', '1', 'qs:evaluation:collection:assessments',
+                                            ('p', 'role:qs:evaluator', 'fangcun', 'qs:evaluation:collection:assessments',
                                              'read|list|retry|batch_evaluate|statistics'),
-                                            ('p', 'role:qs:evaluator', '1', 'qs:evaluation:collection:reports', 'read|list'),
-                                            ('p', 'role:qs:evaluator', '1', 'qs:actor:collection:testees',
+                                            ('p', 'role:qs:evaluator', 'fangcun', 'qs:evaluation:collection:reports', 'read|list'),
+                                            ('p', 'role:qs:evaluator', 'fangcun', 'qs:actor:collection:testees',
                                              'read|list|analyze|statistics'),
-                                            ('p', 'role:qs:staff', '1', 'qs:actor:collection:testees', 'read|list'),
-                                            ('p', 'role:qs:evaluation_plan_manager', '1', 'qs:plan:collection:evaluation_plans',
+                                            ('p', 'role:qs:staff', 'fangcun', 'qs:actor:collection:testees', 'read|list'),
+                                            ('p', 'role:qs:evaluation_plan_manager', 'fangcun', 'qs:plan:collection:evaluation_plans',
                                              'create|read|list|update|pause|resume|cancel|enroll|terminate|statistics'),
-                                            ('p', 'role:qs:evaluation_plan_manager', '1',
+                                            ('p', 'role:qs:evaluation_plan_manager', 'fangcun',
                                              'qs:plan_task:collection:evaluation_plan_tasks',
                                              'schedule|read|list|open|complete|expire|cancel'));
 
 DELETE FROM `casbin_rule`
 WHERE `ptype` = 'g'
   AND (`v0`, `v1`, `v2`) IN (('role:tenant_admin', 'role:user', 'fangcun'),
-                             ('role:qs:admin', 'role:qs:content_manager', '1'),
-                             ('role:qs:admin', 'role:qs:evaluator', '1'),
-                             ('role:qs:admin', 'role:qs:evaluation_plan_manager', '1'),
-                             ('role:qs:evaluator', 'role:qs:staff', '1'),
-                             ('role:qs:evaluation_plan_manager', 'role:qs:staff', '1'),
+                             ('role:qs:admin', 'role:qs:content_manager', 'fangcun'),
+                             ('role:qs:admin', 'role:qs:evaluator', 'fangcun'),
+                             ('role:qs:admin', 'role:qs:evaluation_plan_manager', 'fangcun'),
+                             ('role:qs:evaluator', 'role:qs:staff', 'fangcun'),
+                             ('role:qs:evaluation_plan_manager', 'role:qs:staff', 'fangcun'),
                              ('user:10001', 'role:super_admin', 'platform'),
                              ('user:10001', 'role:tenant_admin', 'fangcun'),
-                             ('user:10001', 'role:qs:admin', '1'),
+                             ('user:10001', 'role:qs:admin', 'fangcun'),
                              ('user:110001', 'role:tenant_admin', 'fangcun'),
-                             ('user:110001', 'role:qs:admin', '1'),
-                             ('user:110002', 'role:qs:content_manager', '1'));
+                             ('user:110001', 'role:qs:admin', 'fangcun'),
+                             ('user:110002', 'role:qs:content_manager', 'fangcun'));
 
 DELETE FROM `authz_assignments`
 WHERE (`subject_type`, `subject_id`, `role_id`, `tenant_id`) IN (('user', '10001', 900000001, 'platform'),
                                                                  ('user', '10001', 2, 'fangcun'),
-                                                                 ('user', '10001', 900000101, '1'),
+                                                                 ('user', '10001', 900000101, 'fangcun'),
                                                                  ('user', '110001', 2, 'fangcun'),
-                                                                 ('user', '110001', 900000101, '1'),
-                                                                 ('user', '110002', 900000102, '1'));
+                                                                 ('user', '110001', 900000101, 'fangcun'),
+                                                                 ('user', '110002', 900000102, 'fangcun'));
 
 DELETE FROM `authz_policy_versions`
 WHERE (`tenant_id`, `policy_version`) IN (('platform', 1),
-                                          ('fangcun', 1),
-                                          ('1', 1));
+                                          ('fangcun', 1));
 
 DELETE FROM `authz_resources`
 WHERE `key` IN ('iam:identity:instance:profile',
@@ -98,11 +97,11 @@ WHERE (`tenant_id`, `name`) IN (('platform', 'super_admin'),
                                 ('fangcun', 'super_admin'),
                                 ('fangcun', 'tenant_admin'),
                                 ('fangcun', 'user'),
-                                ('1', 'qs:admin'),
-                                ('1', 'qs:content_manager'),
-                                ('1', 'qs:evaluator'),
-                                ('1', 'qs:staff'),
-                                ('1', 'qs:evaluation_plan_manager'));
+                                ('fangcun', 'qs:admin'),
+                                ('fangcun', 'qs:content_manager'),
+                                ('fangcun', 'qs:evaluator'),
+                                ('fangcun', 'qs:staff'),
+                                ('fangcun', 'qs:evaluation_plan_manager'));
 
 DELETE FROM `idp_wechat_apps`
 WHERE `app_id` = 'wx72ade250b619a649';

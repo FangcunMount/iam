@@ -101,6 +101,23 @@ func TestAuthZResourceKeyMigrationMapsCatalogAndPolicyFacts(t *testing.T) {
 	assertSQLContains(t, downSQL, "WHEN 'qs:code:collection:codes' THEN 'qs:codes'")
 }
 
+func TestLegacyAuthZResourceKeyMigrationMapsIdentityAliasesAndTenantDomain(t *testing.T) {
+	upSQL := migrationSQL(t, "000014_legacy_authz_resource_keys_and_domain.up.sql")
+	downSQL := migrationSQL(t, "000014_legacy_authz_resource_keys_and_domain.down.sql")
+
+	assertSQLContains(t, upSQL, "WHEN 'iam:accounts' THEN 'iam:authn:collection:login_identities'")
+	assertSQLContains(t, upSQL, "WHEN 'iam:children' THEN 'iam:identity:collection:profiles'")
+	assertSQLContains(t, upSQL, "WHEN 'iam:guardianships' THEN 'iam:identity:collection:profile-links'")
+	assertSQLContains(t, upSQL, "UPDATE `casbin_rule`")
+	assertSQLContains(t, upSQL, "SET `v1` = 'fangcun'")
+	assertSQLContains(t, upSQL, "SET `v2` = 'fangcun'")
+	assertSQLContains(t, upSQL, "WHERE `tenant_id` = '1'")
+
+	assertSQLContains(t, downSQL, "WHEN 'iam:authn:collection:login_identities' THEN 'iam:accounts'")
+	assertSQLContains(t, downSQL, "SET `v1` = '1'")
+	assertSQLContains(t, downSQL, "SET `v2` = '1'")
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 
