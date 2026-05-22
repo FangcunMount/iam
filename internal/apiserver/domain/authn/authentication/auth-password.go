@@ -159,7 +159,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	shouldRotate, newMaterial := p.rotationMaterial(storedHash, plaintextWithPepper)
-	return p.buildPasswordSuccessDecision(ctx, passwordCredential, loginIdentityID, userID, credentialID, shouldRotate, newMaterial), nil
+	return p.buildPasswordSuccessDecision(ctx, passwordCredential, lookup, loginIdentityID, userID, credentialID, shouldRotate, newMaterial), nil
 }
 
 // ================= 辅助方法 ========================
@@ -216,27 +216,29 @@ func (p *PasswordAuthStrategy) rotationMaterial(storedHash string, plaintextWith
 	return true, []byte(newHash)
 }
 
-// buildPhoneOTPSuccessDecision 认证成功，构造Principal
 func (p *PasswordAuthStrategy) buildPasswordSuccessDecision(
 	ctx context.Context,
 	credential *PasswordCredential,
+	lookup *LoginIdentityLookup,
 	loginIdentityID meta.ID,
 	userID meta.ID,
 	credentialID meta.ID,
 	shouldRotate bool,
 	newMaterial []byte,
 ) AuthDecision {
+	tenantID, _ := resolvePasswordPrincipalTenantFromIdentity(credential.TenantID, lookup)
+	realm := lookup.Realm
 	principal := &Principal{
 		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
-		TenantID:        credential.TenantID,
+		TenantID:        tenantID,
 		AuthMethod:      "password",
-		Realm:           loginidentity.RealmGlobal,
+		Realm:           realm,
 		AMR:             []string{string(AMRPassword)},
 		Claims: map[string]any{
 			"login_identity_id": loginIdentityID.String(),
 			"auth_method":       "password",
-			"realm":             loginidentity.RealmGlobal,
+			"realm":             realm,
 			"auth_time":         ctx.Value("request_time"),
 		},
 	}
