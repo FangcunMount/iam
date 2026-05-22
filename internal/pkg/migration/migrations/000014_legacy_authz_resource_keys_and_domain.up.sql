@@ -1,5 +1,5 @@
 -- Migration: bridge pre-000012 identity resource aliases and normalize legacy Casbin tenant domain "1".
--- Fixes GetAuthorizationSnapshot InvalidArgument when tenant_admin still carries iam:accounts|children|guardianships.
+-- Idempotent and conflict-safe for dirty-state recovery.
 
 UPDATE `authz_resources`
 SET `key` = CASE `key`
@@ -20,9 +20,27 @@ END
 WHERE `ptype` = 'p'
   AND `v2` IN ('iam:accounts', 'iam:children', 'iam:guardianships');
 
+DELETE `dup` FROM `authz_roles` AS `dup`
+INNER JOIN `authz_roles` AS `keep`
+    ON `keep`.`tenant_id` = 'fangcun'
+   AND `keep`.`name` = `dup`.`name`
+   AND `keep`.`deleted_at` IS NULL
+WHERE `dup`.`tenant_id` = '1'
+  AND `dup`.`deleted_at` IS NULL;
+
 UPDATE `authz_roles`
 SET `tenant_id` = 'fangcun'
 WHERE `tenant_id` = '1';
+
+DELETE `dup` FROM `authz_assignments` AS `dup`
+INNER JOIN `authz_assignments` AS `keep`
+    ON `keep`.`tenant_id` = 'fangcun'
+   AND `keep`.`subject_type` = `dup`.`subject_type`
+   AND `keep`.`subject_id` = `dup`.`subject_id`
+   AND `keep`.`role_id` = `dup`.`role_id`
+   AND `keep`.`deleted_at` IS NULL
+WHERE `dup`.`tenant_id` = '1'
+  AND `dup`.`deleted_at` IS NULL;
 
 UPDATE `authz_assignments`
 SET `tenant_id` = 'fangcun'
@@ -39,10 +57,34 @@ UPDATE `authz_policy_versions`
 SET `tenant_id` = 'fangcun'
 WHERE `tenant_id` = '1';
 
+DELETE `dup` FROM `casbin_rule` AS `dup`
+INNER JOIN `casbin_rule` AS `keep`
+    ON `keep`.`ptype` = 'p'
+   AND `keep`.`v1` = 'fangcun'
+   AND `keep`.`v0` = `dup`.`v0`
+   AND `keep`.`v2` = `dup`.`v2`
+   AND `keep`.`v3` = `dup`.`v3`
+   AND COALESCE(`keep`.`v4`, '') = COALESCE(`dup`.`v4`, '')
+   AND COALESCE(`keep`.`v5`, '') = COALESCE(`dup`.`v5`, '')
+WHERE `dup`.`ptype` = 'p'
+  AND `dup`.`v1` = '1';
+
 UPDATE `casbin_rule`
 SET `v1` = 'fangcun'
 WHERE `ptype` = 'p'
   AND `v1` = '1';
+
+DELETE `dup` FROM `casbin_rule` AS `dup`
+INNER JOIN `casbin_rule` AS `keep`
+    ON `keep`.`ptype` = 'g'
+   AND `keep`.`v2` = 'fangcun'
+   AND `keep`.`v0` = `dup`.`v0`
+   AND `keep`.`v1` = `dup`.`v1`
+   AND COALESCE(`keep`.`v3`, '') = COALESCE(`dup`.`v3`, '')
+   AND COALESCE(`keep`.`v4`, '') = COALESCE(`dup`.`v4`, '')
+   AND COALESCE(`keep`.`v5`, '') = COALESCE(`dup`.`v5`, '')
+WHERE `dup`.`ptype` = 'g'
+  AND `dup`.`v2` = '1';
 
 UPDATE `casbin_rule`
 SET `v2` = 'fangcun'

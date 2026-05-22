@@ -112,6 +112,8 @@ func TestLegacyAuthZResourceKeyMigrationMapsIdentityAliasesAndTenantDomain(t *te
 	assertSQLContains(t, upSQL, "SET `v1` = 'fangcun'")
 	assertSQLContains(t, upSQL, "SET `v2` = 'fangcun'")
 	assertSQLContains(t, upSQL, "WHERE `tenant_id` = '1'")
+	assertSQLContains(t, upSQL, "DELETE `dup` FROM `authz_roles`")
+	assertSQLContains(t, upSQL, "DELETE `dup` FROM `casbin_rule`")
 
 	assertSQLContains(t, downSQL, "WHEN 'iam:authn:collection:login_identities' THEN 'iam:accounts'")
 	assertSQLContains(t, downSQL, "SET `v1` = '1'")
