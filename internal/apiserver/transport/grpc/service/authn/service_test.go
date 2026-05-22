@@ -76,24 +76,15 @@ func (s challengeServiceStub) DeleteSMSOTP(context.Context, string, string) erro
 	return nil
 }
 
-type linkingServiceStub struct{}
+type linkerStub struct{}
 
-func (s linkingServiceStub) List(context.Context, meta.ID) ([]linkingApp.LoginIdentityView, error) {
+func (s linkerStub) List(context.Context, meta.ID) ([]linkingApp.LoginIdentityView, error) {
 	return nil, nil
 }
-func (s linkingServiceStub) SendPhoneLinkChallenge(context.Context, meta.ID, string) error {
-	return nil
-}
-func (s linkingServiceStub) LinkPhone(context.Context, linkingApp.LinkPhoneCommand) (*linkingApp.LinkResult, error) {
+func (s linkerStub) Link(context.Context, linkingApp.LinkRequest) (*linkingApp.LinkResult, error) {
 	return &linkingApp.LinkResult{}, nil
 }
-func (s linkingServiceStub) LinkWechatMini(context.Context, linkingApp.LinkWechatMiniCommand) (*linkingApp.LinkResult, error) {
-	return &linkingApp.LinkResult{}, nil
-}
-func (s linkingServiceStub) LinkWecom(context.Context, linkingApp.LinkWecomCommand) (*linkingApp.LinkResult, error) {
-	return &linkingApp.LinkResult{}, nil
-}
-func (s linkingServiceStub) Unlink(context.Context, linkingApp.UnlinkCommand) error {
+func (s linkerStub) Unlink(context.Context, linkingApp.UnlinkCommand) error {
 	return nil
 }
 
@@ -151,7 +142,7 @@ func TestAuthNGRPCRuntimeRegistersProductionServices(t *testing.T) {
 		&tokenServiceStub{},
 		signupServiceStub{},
 		challengeServiceStub{},
-		linkingServiceStub{},
+		linkerStub{},
 		nil,
 	).Register(server)
 

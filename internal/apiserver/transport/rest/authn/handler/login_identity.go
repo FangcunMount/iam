@@ -6,23 +6,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
 	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
 type LoginIdentityHandler struct {
 	*BaseHandler
-	linking linkingapp.Service
+	linking   linkingapp.Linker
+	challenge challengeapp.Service
 }
 
-func NewLoginIdentityHandler(linking linkingapp.Service) *LoginIdentityHandler {
+func NewLoginIdentityHandler(linking linkingapp.Linker, challenge challengeapp.Service) *LoginIdentityHandler {
 	return &LoginIdentityHandler{
 		BaseHandler: NewBaseHandler(),
 		linking:     linking,
+		challenge:   challenge,
 	}
 }
 
@@ -61,8 +66,7 @@ func (h *LoginIdentityHandler) List(c *gin.Context) {
 // @Success 200 {object} resp.MessageResponse "已发送"
 // @Router /authn/login-identities/phone/challenge [post]
 func (h *LoginIdentityHandler) SendPhoneLinkChallenge(c *gin.Context) {
-	userID, err := requestctx.RequiredUserID(c)
-	if err != nil {
+	if _, err := requestctx.RequiredUserID(c); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -76,7 +80,11 @@ func (h *LoginIdentityHandler) SendPhoneLinkChallenge(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
-	if err := h.linking.SendPhoneLinkChallenge(c.Request.Context(), userID, body.Phone); err != nil {
+	if h.challenge == nil {
+		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "phone link challenge is not configured"))
+		return
+	}
+	if err := h.challenge.SendSMSOTP(c.Request.Context(), challengeapp.SceneLinkPhoneOTP, body.Phone); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -107,10 +115,12 @@ func (h *LoginIdentityHandler) LinkPhone(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
-	result, err := h.linking.LinkPhone(c.Request.Context(), linkingapp.LinkPhoneCommand{
-		UserID:  userID,
-		Phone:   body.Phone,
-		OTPCode: body.OTPCode,
+	result, err := h.linking.Link(c.Request.Context(), linkingapp.LinkRequest{
+		UserID: userID,
+		Input: linkingapp.LinkPhoneInput{
+			Phone:   body.Phone,
+			OTPCode: body.OTPCode,
+		},
 	})
 	if err != nil {
 		h.Error(c, err)
@@ -143,10 +153,12 @@ func (h *LoginIdentityHandler) LinkWechatMiniProgram(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
-	result, err := h.linking.LinkWechatMini(c.Request.Context(), linkingapp.LinkWechatMiniCommand{
+	result, err := h.linking.Link(c.Request.Context(), linkingapp.LinkRequest{
 		UserID: userID,
-		AppID:  body.AppID,
-		Code:   body.Code,
+		Input: linkingapp.LinkWechatMiniInput{
+			AppID: body.AppID,
+			Code:  body.Code,
+		},
 	})
 	if err != nil {
 		h.Error(c, err)
@@ -179,10 +191,12 @@ func (h *LoginIdentityHandler) LinkWecom(c *gin.Context) {
 		h.Error(c, err)
 		return
 	}
-	result, err := h.linking.LinkWecom(c.Request.Context(), linkingapp.LinkWecomCommand{
+	result, err := h.linking.Link(c.Request.Context(), linkingapp.LinkRequest{
 		UserID: userID,
-		CorpID: body.CorpID,
-		Code:   body.Code,
+		Input: linkingapp.LinkWecomInput{
+			CorpID: body.CorpID,
+			Code:   body.Code,
+		},
 	})
 	if err != nil {
 		h.Error(c, err)

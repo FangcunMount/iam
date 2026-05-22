@@ -56,7 +56,7 @@ type AuthnDeps struct {
 	JWKSHandler            *authhandler.JWKSHandler
 	SessionAdminHandler    *authhandler.SessionAdminHandler
 	SignupService signupapp.SignupService
-	LoginIdentityLinking   linkingapp.Service
+	LoginIdentityLinking   linkingapp.Linker
 	TokenService           tokenapp.TokenApplicationService
 }
 

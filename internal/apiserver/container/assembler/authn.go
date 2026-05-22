@@ -29,7 +29,7 @@ import (
 type AuthnModule struct {
 	// 应用服务
 	signupService signupApp.SignupService
-	loginIdentityLinking   linkingApp.Service
+	loginIdentityLinking   linkingApp.Linker
 	loginService           login.LoginApplicationService
 	challengeService       challengeApp.Service
 	tokenService           token.TokenApplicationService

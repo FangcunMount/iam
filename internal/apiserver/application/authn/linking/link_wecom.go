@@ -10,37 +10,36 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// LinkWecomCommand 是企业微信登录身份绑定命令。
-type LinkWecomCommand struct {
-	UserID meta.ID
-	CorpID string
-	Code   string
-}
-
-// LinkWecom 通过企业微信外部认证结果为当前用户绑定企业微信身份。
-func (s *service) LinkWecom(ctx context.Context, cmd LinkWecomCommand) (*LinkResult, error) {
-	if err := requireUserID(cmd.UserID); err != nil {
-		return nil, err
-	}
-	corpID := strings.TrimSpace(cmd.CorpID)
-	authCode := strings.TrimSpace(cmd.Code)
-	agentID := strings.TrimSpace(s.deps.WecomAgentID)
+// PrepareLink 准备企业微信登录身份。
+func (in LinkWecomInput) prepareLink(ctx context.Context, deps linkPrepareDeps, userID meta.ID) (preparedLink, error) {
+	// 检查企业微信 Corp ID、认证码和企业微信 Agent ID 是否有效。
+	corpID := strings.TrimSpace(in.CorpID)
+	authCode := strings.TrimSpace(in.Code)
+	agentID := strings.TrimSpace(deps.wecomAgentID)
 	if corpID == "" || authCode == "" || agentID == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "corp_id, code and wecom agent_id are required")
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidArgument, "corp_id, code and wecom agent_id are required")
 	}
-	corpSecret, err := s.appSecret(ctx, corpID, "wecom")
+	// 检查企业微信身份提供者是否配置。
+	if deps.idp == nil {
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidArgument, "wecom app configuration service not available")
+	}
+	// 解析企业微信应用密钥。
+	corpSecret, err := deps.resolveAppSecret(ctx, corpID, "wecom")
 	if err != nil {
-		return nil, err
+		return preparedLink{}, err
 	}
-	_, userIDInWecom, err := s.idp().ExchangeWecomCode(ctx, corpID, agentID, corpSecret, authCode)
+	// 交换企业微信认证码。
+	_, userIDInWecom, err := deps.idp.ExchangeWecomCode(ctx, corpID, agentID, corpSecret, authCode)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrInvalidCredential, "failed to exchange wecom code: %v", err)
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidCredential, "failed to exchange wecom code: %v", err)
 	}
+	// 构建提供者密钥。
 	key := loginidentity.WecomProviderKey(corpID, userIDInWecom)
-	return s.ensureProviderKey(ctx, cmd.UserID, key, func() (*loginidentity.LoginIdentity, error) {
-		return loginidentity.NewBuilder(cmd.UserID).
-			FromProviderKey(key).
-			WithVerifiedAt(s.now()).
-			Build()
-	})
+
+	// 构建已验证登录身份。
+	verifiedAt := deps.currentTime()
+	return preparedLink{
+		key:   key,
+		build: verifiedIdentityBuild(userID, key, verifiedAt),
+	}, nil
 }

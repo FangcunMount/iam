@@ -26,7 +26,7 @@ func NewService(
 	tokenSvc tokenApp.TokenApplicationService,
 	signupSvc signupApp.SignupService,
 	challengeSvc challengeApp.Service,
-	linkingSvc linkingApp.Service,
+	linkingSvc linkingApp.Linker,
 	keyPublish *jwksApp.KeyPublishAppService,
 ) *Service {
 	return &Service{
@@ -41,7 +41,8 @@ func NewService(
 			challenge: challengeSvc,
 		},
 		loginIdentity: loginIdentityServiceServer{
-			linking: linkingSvc,
+			linking:   linkingSvc,
+			challenge: challengeSvc,
 		},
 		jwks: jwksServiceServer{
 			keyPublish: keyPublish,
@@ -94,5 +95,6 @@ type authChallengeServiceServer struct {
 
 type loginIdentityServiceServer struct {
 	authnv2.UnimplementedLoginIdentityServiceServer
-	linking linkingApp.Service
+	linking   linkingApp.Linker
+	challenge challengeApp.Service
 }

@@ -39,7 +39,7 @@ type KeyRotationScheduler interface {
 // by transports without exposing concrete transport objects from assembler.
 type AuthnApplicationCapabilities struct {
 	SignupService signupApp.SignupService
-	LoginIdentityLinking   linkingApp.Service
+	LoginIdentityLinking   linkingApp.Linker
 	LoginService           login.LoginApplicationService
 	ChallengeService       challengeApp.Service
 	TokenService           token.TokenApplicationService

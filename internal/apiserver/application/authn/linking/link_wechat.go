@@ -10,39 +10,39 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// LinkWechatMiniCommand 是微信小程序登录身份绑定命令。
-type LinkWechatMiniCommand struct {
-	UserID meta.ID
-	AppID  string
-	Code   string
-}
-
-// LinkWechatMini 通过微信 code2session 结果为当前用户绑定微信小程序身份。
-func (s *service) LinkWechatMini(ctx context.Context, cmd LinkWechatMiniCommand) (*LinkResult, error) {
-	if err := requireUserID(cmd.UserID); err != nil {
-		return nil, err
-	}
-	appID := strings.TrimSpace(cmd.AppID)
-	jsCode := strings.TrimSpace(cmd.Code)
+// PrepareLink 准备微信小程序登录身份。
+func (in LinkWechatMiniInput) prepareLink(ctx context.Context, deps linkPrepareDeps, userID meta.ID) (preparedLink, error) {
+	// 检查微信小程序应用 ID 和认证码是否有效。
+	appID := strings.TrimSpace(in.AppID)
+	jsCode := strings.TrimSpace(in.Code)
 	if appID == "" || jsCode == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "app_id and code are required")
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidArgument, "app_id and code are required")
 	}
-	appSecret, err := s.appSecret(ctx, appID, "wechat")
+	// 检查微信小程序身份提供者是否配置。
+	if deps.idp == nil {
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidArgument, "wechat app configuration service not available")
+	}
+
+	// 解析微信小程序应用密钥。
+	appSecret, err := deps.resolveAppSecret(ctx, appID, "wechat")
 	if err != nil {
-		return nil, err
+		return preparedLink{}, err
 	}
-	openID, unionID, err := s.idp().ExchangeWxMinipCode(ctx, appID, appSecret, jsCode)
+
+	// 交换微信小程序认证码。
+	openID, unionID, err := deps.idp.ExchangeWxMinipCode(ctx, appID, appSecret, jsCode)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrInvalidCredential, "failed to exchange wechat code: %v", err)
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidCredential, "failed to exchange wechat code: %v", err)
 	}
+
+	// 构建提供者密钥。
 	key := loginidentity.WechatMinipProviderKey(appID, openID, unionID)
-	if err := s.ensureGlobalIdentifierAvailable(ctx, cmd.UserID, key); err != nil {
-		return nil, err
-	}
-	return s.ensureProviderKey(ctx, cmd.UserID, key, func() (*loginidentity.LoginIdentity, error) {
-		return loginidentity.NewBuilder(cmd.UserID).
-			FromProviderKey(key).
-			WithVerifiedAt(s.now()).
-			Build()
-	})
+
+	// 构建已验证登录身份。
+	verifiedAt := deps.currentTime()
+	return preparedLink{
+		key:                     key,
+		build:                   verifiedIdentityBuild(userID, key, verifiedAt),
+		requireGlobalUniqueness: true,
+	}, nil
 }

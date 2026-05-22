@@ -10,45 +10,32 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
-// LinkPhoneCommand 是手机号登录身份绑定命令。
-type LinkPhoneCommand struct {
-	UserID  meta.ID
-	Phone   string
-	OTPCode string
-}
+// PrepareLink 准备手机号登录身份。
+func (in LinkPhoneInput) prepareLink(ctx context.Context, deps linkPrepareDeps, userID meta.ID) (preparedLink, error) {
+	// 检查挑战服务是否配置。
+	if deps.challenge == nil {
+		return preparedLink{}, perrors.WithCode(code.ErrInternalServerError, "challenge service is not configured")
+	}
 
-// SendPhoneLinkChallenge 为当前已认证用户发送手机号绑定验证码。
-func (s *service) SendPhoneLinkChallenge(ctx context.Context, userID meta.ID, rawPhone string) error {
-	if err := requireUserID(userID); err != nil {
-		return err
-	}
-	if s.deps.Challenge == nil {
-		return perrors.WithCode(code.ErrInvalidArgument, "phone link challenge is not configured")
-	}
-	return s.deps.Challenge.SendSMSOTP(ctx, challengeapp.SceneLinkPhoneOTP, rawPhone)
-}
-
-// LinkPhone 在验证码通过后为当前用户绑定手机号登录身份。
-func (s *service) LinkPhone(ctx context.Context, cmd LinkPhoneCommand) (*LinkResult, error) {
-	if err := requireUserID(cmd.UserID); err != nil {
-		return nil, err
-	}
-	if s.deps.Challenge == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "challenge service is not configured")
-	}
-	phone, err := meta.NewPhone(cmd.Phone)
+	// 检查手机号是否有效。
+	phone, err := meta.NewPhone(in.Phone)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
 	}
-	ok := s.deps.Challenge.VerifyAndConsume(ctx, challengeapp.SceneLinkPhoneOTP, phone.String(), cmd.OTPCode)
+
+	// 验证挑战码。
+	ok := deps.challenge.VerifyAndConsume(ctx, challengeapp.SceneLinkPhoneOTP, phone.String(), in.OTPCode)
 	if !ok {
-		return nil, perrors.WithCode(code.ErrInvalidCredential, "invalid phone link challenge")
+		return preparedLink{}, perrors.WithCode(code.ErrInvalidCredential, "invalid phone link challenge")
 	}
+
+	// 构建提供者密钥。
 	key := loginidentity.PhoneProviderKey(phone.String())
-	return s.ensureProviderKey(ctx, cmd.UserID, key, func() (*loginidentity.LoginIdentity, error) {
-		return loginidentity.NewBuilder(cmd.UserID).
-			FromProviderKey(key).
-			WithVerifiedAt(s.now()).
-			Build()
-	})
+
+	// 构建已验证登录身份。
+	verifiedAt := deps.currentTime()
+	return preparedLink{
+		key:   key,
+		build: verifiedIdentityBuild(userID, key, verifiedAt),
+	}, nil
 }

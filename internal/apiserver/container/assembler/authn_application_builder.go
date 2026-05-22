@@ -49,7 +49,7 @@ func (m *AuthnModule) initializeApplication(
 		CodeLen:  smsOptions.LoginOTPCodeLength,
 	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(infra.challengeRepo))
 	m.challengeService = challengeService
-	m.loginIdentityLinking = linkingApp.NewService(linkingApp.Dependencies{
+	m.loginIdentityLinking = linkingApp.NewLinker(linkingApp.Dependencies{
 		LoginIdentities: infra.loginIdentityStore,
 		Challenge:       challengeService,
 		IDP:             infra.idp,

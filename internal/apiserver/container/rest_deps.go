@@ -54,7 +54,7 @@ func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
 		deps.ModuleStatus.Authn = deps.ModuleStatus.Modules[moduleAuthn].Available
 		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.LoginService, caps.TokenService, caps.ChallengeService)
 		deps.Authn.OnboardingHandler = authnhandler.NewOnboardingHandler(caps.SignupService)
-		deps.Authn.LoginIdentityHandler = authnhandler.NewLoginIdentityHandler(caps.LoginIdentityLinking)
+		deps.Authn.LoginIdentityHandler = authnhandler.NewLoginIdentityHandler(caps.LoginIdentityLinking, caps.ChallengeService)
 		deps.Authn.SignupService = caps.SignupService
 		deps.Authn.LoginIdentityLinking = caps.LoginIdentityLinking
 		deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyPublishApp)

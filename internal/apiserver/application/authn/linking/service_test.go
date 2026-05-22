@@ -18,16 +18,18 @@ func TestLinkPhoneRequiresChallengeAndCreatesIdentity(t *testing.T) {
 
 	repo := newLinkingIdentityRepoStub()
 	challenge := &linkingChallengeStub{ok: true}
-	service := NewService(Dependencies{
+	linker := NewLinker(Dependencies{
 		LoginIdentities: repo,
 		Challenge:       challenge,
 		Now:             func() time.Time { return time.Unix(100, 0) },
 	})
 
-	result, err := service.LinkPhone(context.Background(), LinkPhoneCommand{
-		UserID:  meta.FromUint64(100),
-		Phone:   "13800138000",
-		OTPCode: "123456",
+	result, err := linker.Link(context.Background(), LinkRequest{
+		UserID: meta.FromUint64(100),
+		Input: LinkPhoneInput{
+			Phone:   "13800138000",
+			OTPCode: "123456",
+		},
 	})
 
 	require.NoError(t, err)
@@ -51,15 +53,17 @@ func TestLinkPhoneRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
 		Identifier: phone,
 		Status:     loginidentity.StatusActive,
 	}
-	service := NewService(Dependencies{
+	linker := NewLinker(Dependencies{
 		LoginIdentities: repo,
 		Challenge:       &linkingChallengeStub{ok: true},
 	})
 
-	_, err := service.LinkPhone(context.Background(), LinkPhoneCommand{
-		UserID:  meta.FromUint64(100),
-		Phone:   phone,
-		OTPCode: "123456",
+	_, err := linker.Link(context.Background(), LinkRequest{
+		UserID: meta.FromUint64(100),
+		Input: LinkPhoneInput{
+			Phone:   phone,
+			OTPCode: "123456",
+		},
 	})
 
 	require.Error(t, err)
@@ -79,9 +83,9 @@ func TestUnlinkRejectsLastActiveLoginIdentity(t *testing.T) {
 		Status:     loginidentity.StatusActive,
 	}
 	repo.store(identity)
-	service := NewService(Dependencies{LoginIdentities: repo})
+	linker := NewLinker(Dependencies{LoginIdentities: repo})
 
-	err := service.Unlink(context.Background(), UnlinkCommand{
+	err := linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:          meta.FromUint64(100),
 		LoginIdentityID: meta.FromUint64(1),
 	})
@@ -113,13 +117,13 @@ func TestUnlinkMarksIdentityDeletedWhenAnotherActiveIdentityRemains(t *testing.T
 	})
 	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
 	authenticatedAt := now.Add(-time.Minute)
-	service := NewService(Dependencies{
+	linker := NewLinker(Dependencies{
 		LoginIdentities:  repo,
 		Now:              func() time.Time { return now },
 		RecentAuthWindow: 10 * time.Minute,
 	})
 
-	err := service.Unlink(context.Background(), UnlinkCommand{
+	err := linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:          meta.FromUint64(100),
 		LoginIdentityID: meta.FromUint64(1),
 		AuthenticatedAt: &authenticatedAt,
@@ -150,13 +154,13 @@ func TestUnlinkSensitiveIdentityRequiresRecentAuthentication(t *testing.T) {
 		Status:     loginidentity.StatusActive,
 	})
 	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
-	service := NewService(Dependencies{
+	linker := NewLinker(Dependencies{
 		LoginIdentities:  repo,
 		Now:              func() time.Time { return now },
 		RecentAuthWindow: 10 * time.Minute,
 	})
 
-	err := service.Unlink(context.Background(), UnlinkCommand{
+	err := linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:          meta.FromUint64(100),
 		LoginIdentityID: meta.FromUint64(1),
 	})
@@ -187,13 +191,13 @@ func TestUnlinkCurrentSessionIdentityRequiresRecentAuthentication(t *testing.T) 
 		Status:     loginidentity.StatusActive,
 	})
 	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
-	service := NewService(Dependencies{
+	linker := NewLinker(Dependencies{
 		LoginIdentities:  repo,
 		Now:              func() time.Time { return now },
 		RecentAuthWindow: 10 * time.Minute,
 	})
 
-	err := service.Unlink(context.Background(), UnlinkCommand{
+	err := linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:                 meta.FromUint64(100),
 		LoginIdentityID:        meta.FromUint64(1),
 		CurrentLoginIdentityID: meta.FromUint64(1),
@@ -203,7 +207,7 @@ func TestUnlinkCurrentSessionIdentityRequiresRecentAuthentication(t *testing.T) 
 	require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
 
 	oldAuthTime := now.Add(-time.Hour)
-	err = service.Unlink(context.Background(), UnlinkCommand{
+	err = linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:                 meta.FromUint64(100),
 		LoginIdentityID:        meta.FromUint64(1),
 		CurrentLoginIdentityID: meta.FromUint64(1),
@@ -214,7 +218,7 @@ func TestUnlinkCurrentSessionIdentityRequiresRecentAuthentication(t *testing.T) 
 	require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
 
 	recentAuthTime := now.Add(-time.Minute)
-	err = service.Unlink(context.Background(), UnlinkCommand{
+	err = linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:                 meta.FromUint64(100),
 		LoginIdentityID:        meta.FromUint64(1),
 		CurrentLoginIdentityID: meta.FromUint64(1),

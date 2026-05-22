@@ -4,6 +4,7 @@ import (
 	"context"
 
 	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,11 +33,13 @@ func (s *loginIdentityServiceServer) SendPhoneLinkChallenge(ctx context.Context,
 	if s.linking == nil {
 		return nil, status.Error(codes.Unimplemented, "login identity service not configured")
 	}
-	userID, _, _, err := parseAuthenticatedUserContext(req.GetActor())
-	if err != nil {
+	if _, _, _, err := parseAuthenticatedUserContext(req.GetActor()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if err := s.linking.SendPhoneLinkChallenge(ctx, userID, req.GetPhone()); err != nil {
+	if s.challenge == nil {
+		return nil, status.Error(codes.Unimplemented, "phone link challenge is not configured")
+	}
+	if err := s.challenge.SendSMSOTP(ctx, challengeApp.SceneLinkPhoneOTP, req.GetPhone()); err != nil {
 		return nil, toGRPCError(err)
 	}
 	return &authnv2.MessageResponse{Message: "verification code sent"}, nil
@@ -50,10 +53,12 @@ func (s *loginIdentityServiceServer) LinkPhone(ctx context.Context, req *authnv2
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	result, err := s.linking.LinkPhone(ctx, linkingApp.LinkPhoneCommand{
-		UserID:  userID,
-		Phone:   req.GetPhone(),
-		OTPCode: req.GetOtpCode(),
+	result, err := s.linking.Link(ctx, linkingApp.LinkRequest{
+		UserID: userID,
+		Input: linkingApp.LinkPhoneInput{
+			Phone:   req.GetPhone(),
+			OTPCode: req.GetOtpCode(),
+		},
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -69,10 +74,12 @@ func (s *loginIdentityServiceServer) LinkWechatMiniProgram(ctx context.Context, 
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	result, err := s.linking.LinkWechatMini(ctx, linkingApp.LinkWechatMiniCommand{
+	result, err := s.linking.Link(ctx, linkingApp.LinkRequest{
 		UserID: userID,
-		AppID:  req.GetAppId(),
-		Code:   req.GetCode(),
+		Input: linkingApp.LinkWechatMiniInput{
+			AppID: req.GetAppId(),
+			Code:  req.GetCode(),
+		},
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -88,10 +95,12 @@ func (s *loginIdentityServiceServer) LinkWecom(ctx context.Context, req *authnv2
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	result, err := s.linking.LinkWecom(ctx, linkingApp.LinkWecomCommand{
+	result, err := s.linking.Link(ctx, linkingApp.LinkRequest{
 		UserID: userID,
-		CorpID: req.GetCorpId(),
-		Code:   req.GetCode(),
+		Input: linkingApp.LinkWecomInput{
+			CorpID: req.GetCorpId(),
+			Code:   req.GetCode(),
+		},
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
