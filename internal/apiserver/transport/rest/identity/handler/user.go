@@ -239,10 +239,6 @@ func parseProfileID(raw string) (meta.ID, error) {
 	return parseRequiredID(raw, "profile id")
 }
 
-func parseProfileLinkID(raw string) (meta.ID, error) {
-	return parseRequiredID(raw, "profile link id")
-}
-
 func parseRequiredID(raw string, field string) (meta.ID, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
