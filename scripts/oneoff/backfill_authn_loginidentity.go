@@ -158,7 +158,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "open mysql: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	if err := db.PingContext(ctx); err != nil {
@@ -258,7 +258,7 @@ func run(ctx context.Context, db *sql.DB, opts options) (summary, error) {
 	if err != nil {
 		return sum, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	resolvedIdentityIDs := make(map[uint64]uint64, len(accountIdentities))
 	for accountID, row := range accountIdentities {
@@ -474,7 +474,7 @@ FROM auth_accounts`, scopedExpr)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make(map[uint64]legacyAccount)
 	for rows.Next() {
@@ -518,7 +518,7 @@ FROM %s`, table)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var result []legacyCredential
 	for rows.Next() {
