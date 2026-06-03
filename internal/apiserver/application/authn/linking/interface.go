@@ -100,6 +100,12 @@ type LinkWechatMiniInput struct {
 	Code  string // 微信小程序认证码。
 }
 
+// LinkWechatOpenInput 微信开放平台绑定输入。
+type LinkWechatOpenInput struct {
+	AppID string // 微信开放平台应用 ID。
+	Code  string // 微信开放平台认证码。
+}
+
 // LinkWecomInput 企业微信绑定输入。
 type LinkWecomInput struct {
 	CorpID string // 企业微信 Corp ID。

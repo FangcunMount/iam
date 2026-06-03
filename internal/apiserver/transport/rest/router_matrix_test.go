@@ -92,7 +92,7 @@ func routeMatrixDeps() Deps {
 	deps.Authn = AuthnDeps{
 		AuthHandler:          authhandler.NewAuthHandler(nil, nil, nil),
 		OnboardingHandler:    authhandler.NewOnboardingHandler(nil),
-		LoginIdentityHandler: authhandler.NewLoginIdentityHandler(nil, nil),
+		LoginIdentityHandler: authhandler.NewLoginIdentityHandler(nil, nil, nil, nil, authhandler.WechatOpenLinkConfig{}),
 		JWKSHandler:          authhandler.NewJWKSHandler(nil, nil),
 		SessionAdminHandler:  authhandler.NewSessionAdminHandler(sessionServiceStub{}),
 		TokenService:         tokenServiceStub{},

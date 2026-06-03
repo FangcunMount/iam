@@ -56,6 +56,7 @@ func TestWecomMethodFailsWhenServerAgentIDIsMissing(t *testing.T) {
 		},
 		wecomSecretVaultStub{plaintext: "corp-secret"},
 		WecomConfig{},
+		nil,
 	)
 	credential, err := factory.Build(context.Background(), method.LoginMethodSelection{
 		CredentialKind: method.CredentialKindWecom,
@@ -136,6 +137,7 @@ func TestWecomMethodAppConfigErrorBranches(t *testing.T) {
 				tc.repo,
 				tc.vault,
 				WecomConfig{AgentID: "agent-id"},
+				nil,
 			)
 			credential, err := factory.Build(context.Background(), method.LoginMethodSelection{
 				CredentialKind: method.CredentialKindWecom,
@@ -185,6 +187,7 @@ func TestWecomMethodUsesServerSideAppConfigAndAuthenticates(t *testing.T) {
 		},
 		wecomSecretVaultStub{plaintext: "corp-secret"},
 		WecomConfig{AgentID: "agent-id"},
+		nil,
 	)
 
 	credential, err := factory.Build(context.Background(), method.LoginMethodSelection{
@@ -268,6 +271,10 @@ type wecomIdentityProviderStub struct {
 }
 
 func (s *wecomIdentityProviderStub) ExchangeWxMinipCode(context.Context, string, string, string) (string, string, error) {
+	return "", "", nil
+}
+
+func (s *wecomIdentityProviderStub) ExchangeWxOpenCode(context.Context, string, string, string) (string, string, error) {
 	return "", "", nil
 }
 

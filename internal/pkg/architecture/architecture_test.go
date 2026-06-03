@@ -1301,7 +1301,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		"Strategy" + "Factory",
 	}
 	for _, rel := range []string{
-		"internal/apiserver/domain/authn/authentication/README.md",
+		"internal/apiserver/domain/authn/authentication/doc.go",
 		"internal/apiserver/application/authn/README.md",
 	} {
 		authnDocBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
@@ -1411,7 +1411,8 @@ func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/payload.go", "Common() CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/password.go", "CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/phone_otp.go", "CommonPayload")
-	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/wechat.go", "CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/wechat_mini.go", "CommonPayload")
+	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/wechat_scan.go", "CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/signin/method/wecom.go", "CommonPayload")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/session/service.go", "method.DefaultSelector")
 	assertFileLacks(t, root, "internal/apiserver/application/authn/session/service.go", "proof.DefaultFactory")

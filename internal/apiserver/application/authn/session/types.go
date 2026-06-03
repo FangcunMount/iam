@@ -10,10 +10,11 @@ import (
 type AuthMethod = method.AuthMethod
 
 const (
-	AuthMethodPassword = method.AuthMethodPassword
-	AuthMethodPhoneOTP = method.AuthMethodPhoneOTP
-	AuthMethodWechat   = method.AuthMethodWechat
-	AuthMethodWecom    = method.AuthMethodWecom
+	AuthMethodPassword   = method.AuthMethodPassword
+	AuthMethodPhoneOTP   = method.AuthMethodPhoneOTP
+	AuthMethodWechatMini = method.AuthMethodWechatMini
+	AuthMethodWechatScan = method.AuthMethodWechatScan
+	AuthMethodWecom      = method.AuthMethodWecom
 )
 
 type CredentialKind = method.CredentialKind
@@ -23,7 +24,8 @@ type LoginMethodSelection = method.LoginMethodSelection
 type MethodPayload = method.Payload
 type PasswordPayload = method.PasswordPayload
 type PhoneOTPPayload = method.PhoneOTPPayload
-type WechatMiniPayload = method.WechatPayload
+type WechatMiniPayload = method.WechatMiniPayload
+type WechatScanPayload = method.WechatScanPayload
 type WecomPayload = method.WecomPayload
 type WecomConfig = proof.WecomConfig
 

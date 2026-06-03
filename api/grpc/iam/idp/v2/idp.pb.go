@@ -25,9 +25,10 @@ const (
 type WechatAppType int32
 
 const (
-	WechatAppType_WECHAT_APP_TYPE_UNSPECIFIED  WechatAppType = 0
-	WechatAppType_WECHAT_APP_TYPE_MINI_PROGRAM WechatAppType = 1 // 小程序
-	WechatAppType_WECHAT_APP_TYPE_MP           WechatAppType = 2 // 公众号
+	WechatAppType_WECHAT_APP_TYPE_UNSPECIFIED           WechatAppType = 0
+	WechatAppType_WECHAT_APP_TYPE_MINI_PROGRAM          WechatAppType = 1 // 小程序
+	WechatAppType_WECHAT_APP_TYPE_MP                    WechatAppType = 2 // 公众号
+	WechatAppType_WECHAT_APP_TYPE_OPEN_PLATFORM_WEBSITE WechatAppType = 3 // 微信开放平台网站应用（PC Web 扫码登录）
 )
 
 // Enum value maps for WechatAppType.
@@ -36,11 +37,13 @@ var (
 		0: "WECHAT_APP_TYPE_UNSPECIFIED",
 		1: "WECHAT_APP_TYPE_MINI_PROGRAM",
 		2: "WECHAT_APP_TYPE_MP",
+		3: "WECHAT_APP_TYPE_OPEN_PLATFORM_WEBSITE",
 	}
 	WechatAppType_value = map[string]int32{
-		"WECHAT_APP_TYPE_UNSPECIFIED":  0,
-		"WECHAT_APP_TYPE_MINI_PROGRAM": 1,
-		"WECHAT_APP_TYPE_MP":           2,
+		"WECHAT_APP_TYPE_UNSPECIFIED":           0,
+		"WECHAT_APP_TYPE_MINI_PROGRAM":          1,
+		"WECHAT_APP_TYPE_MP":                    2,
+		"WECHAT_APP_TYPE_OPEN_PLATFORM_WEBSITE": 3,
 	}
 )
 
@@ -500,11 +503,12 @@ const file_iam_idp_v2_idp_proto_rawDesc = "" +
 	"\x1fRefreshWechatAccessTokenRequest\x12\x15\n" +
 	"\x06app_id\x18\x01 \x01(\tR\x05appId\"E\n" +
 	" RefreshWechatAccessTokenResponse\x12!\n" +
-	"\faccess_token\x18\x01 \x01(\tR\vaccessToken*j\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken*\x95\x01\n" +
 	"\rWechatAppType\x12\x1f\n" +
 	"\x1bWECHAT_APP_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cWECHAT_APP_TYPE_MINI_PROGRAM\x10\x01\x12\x16\n" +
-	"\x12WECHAT_APP_TYPE_MP\x10\x02*\x93\x01\n" +
+	"\x12WECHAT_APP_TYPE_MP\x10\x02\x12)\n" +
+	"%WECHAT_APP_TYPE_OPEN_PLATFORM_WEBSITE\x10\x03*\x93\x01\n" +
 	"\x0fWechatAppStatus\x12!\n" +
 	"\x1dWECHAT_APP_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19WECHAT_APP_STATUS_ENABLED\x10\x01\x12\x1e\n" +

@@ -106,6 +106,8 @@ func appTypeToProto(t domain.AppType) idpv2.WechatAppType {
 		return idpv2.WechatAppType_WECHAT_APP_TYPE_MINI_PROGRAM
 	case domain.MP:
 		return idpv2.WechatAppType_WECHAT_APP_TYPE_MP
+	case domain.OpenPlatformWebsite:
+		return idpv2.WechatAppType_WECHAT_APP_TYPE_OPEN_PLATFORM_WEBSITE
 	default:
 		return idpv2.WechatAppType_WECHAT_APP_TYPE_UNSPECIFIED
 	}

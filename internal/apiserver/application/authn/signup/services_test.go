@@ -370,6 +370,10 @@ func (s *onboardingIDPStub) ExchangeWxMinipCode(_ context.Context, appID, appSec
 	return s.openID, s.unionID, nil
 }
 
+func (s *onboardingIDPStub) ExchangeWxOpenCode(context.Context, string, string, string) (string, string, error) {
+	return "", "", nil
+}
+
 func (s *onboardingIDPStub) ExchangeWecomCode(context.Context, string, string, string, string) (string, string, error) {
 	return "", "", nil
 }

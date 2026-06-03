@@ -26,8 +26,11 @@ func TestChallengeRepositoryCreateGetConsume(t *testing.T) {
 		Scene:      "login",
 		Target:     "+8613800138000",
 		SecretHash: []byte("hash"),
-		ExpiresAt:  time.Now().Add(time.Minute),
-		CreatedAt:  time.Now(),
+		Payload: map[string]string{
+			"app_id": "wx-app",
+		},
+		ExpiresAt: time.Now().Add(time.Minute),
+		CreatedAt: time.Now(),
 	}
 
 	if err := repo.Create(ctx, challenge); err != nil {
@@ -44,6 +47,9 @@ func TestChallengeRepositoryCreateGetConsume(t *testing.T) {
 	}
 	if loaded == nil || loaded.ID != challenge.ID {
 		t.Fatalf("loaded challenge = %#v", loaded)
+	}
+	if loaded.Payload["app_id"] != "wx-app" {
+		t.Fatalf("payload app_id = %q", loaded.Payload["app_id"])
 	}
 
 	if err := repo.Consume(ctx, challenge.ID); err != nil {

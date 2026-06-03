@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS `idp_wechat_apps`
     `id`                     BIGINT UNSIGNED NOT NULL COMMENT '主键 ID (Snowflake)',
     `app_id`                 VARCHAR(64)     NOT NULL COMMENT '微信应用 ID (AppID)',
     `name`                   VARCHAR(255)    NOT NULL COMMENT '应用名称',
-    `type`                   VARCHAR(32)     NOT NULL COMMENT '应用类型 (MiniProgram/MP/OpenPlatform)',
+    `type`                   VARCHAR(32)     NOT NULL COMMENT '应用类型 (MiniProgram/MP/OpenPlatformWebsite)',
     `status`                 VARCHAR(32)     NOT NULL DEFAULT 'Enabled' COMMENT '应用状态 (Enabled/Disabled/Archived)',
     `auth_secret_cipher`     BLOB                     DEFAULT NULL COMMENT 'AppSecret 密文 (AES-GCM 加密)',
     `auth_secret_fp`         VARCHAR(128)             DEFAULT NULL COMMENT 'AppSecret 指纹 (SHA256)',

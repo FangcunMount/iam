@@ -22,27 +22,27 @@ paths:
       tags:
       - Suggest
       summary: 档案联想搜索
-      description: 基于索引召回并按调用方数据权限过滤；纯数字可为档案 ID 或手机号（手机号需额外授权）
+      description: 基于索引召回并按当前用户数据权限过滤；数字关键词支持档案 ID，手机号搜索需额外授权
       parameters:
       - name: k
         in: query
-        description: 关键词
+        description: 关键词；纯数字可为档案 ID 或手机号（手机号需授权）
         required: true
         schema:
           type: string
       - name: limit
         in: query
-        required: false
+        description: 返回条数上限
         schema:
           type: integer
       responses:
         '200':
-          description: 联想结果（按权重降序，去重）；mobile_mask 为脱敏手机号
+          description: 联想结果（按权重降序，去重）
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/ProfileSuggestResponseItem'
+                  $ref: '#/components/schemas/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem'
                 type: array
         '400':
           description: 参数缺失
@@ -51,13 +51,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
         '401':
-          description: 未认证或缺少用户上下文
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
         '403':
-          description: 无档案搜索权限
+          description: 无搜索权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
+        '429':
+          description: 请求过于频繁
           content:
             application/json:
               schema:
@@ -69,19 +75,6 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
-    ProfileSuggestResponseItem:
-      properties:
-        id:
-          type: string
-          description: Profile ID
-        name:
-          type: string
-        mobile_mask:
-          type: string
-          description: 脱敏后的首个手机号
-        weight:
-          type: integer
-      type: object
     github_com_FangcunMount_iam_v2_pkg_core.ErrResponse:
       properties:
         code:
@@ -95,4 +88,15 @@ components:
         reference:
           description: Reference 返回参考文档，可能有助于解决此错误
           type: string
+      type: object
+    internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem:
+      properties:
+        id:
+          type: string
+        mobile_mask:
+          type: string
+        name:
+          type: string
+        weight:
+          type: integer
       type: object

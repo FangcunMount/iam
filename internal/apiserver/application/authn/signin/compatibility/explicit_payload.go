@@ -2,7 +2,6 @@ package compatibility
 
 import (
 	"encoding/json"
-	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
@@ -24,9 +23,16 @@ type PhoneOTPWirePayload struct {
 }
 
 // WechatWirePayload 微信登录负载
-type WechatWirePayload struct {
+type WechatMiniWirePayload struct {
 	AppID string `json:"app_id"`
 	Code  string `json:"code"`
+}
+
+// WechatScanWirePayload 微信扫码登录负载
+type WechatScanWirePayload struct {
+	AppID string `json:"app_id"`
+	Code  string `json:"code"`
+	State string `json:"state"`
 }
 
 // WecomWirePayload 企业微信登录负载
@@ -42,7 +48,7 @@ func BuildExplicitWireLoginRequest(rawMethod string, payload json.RawMessage) (m
 	if !method.IsPublicAuthMethod(rawMethod) {
 		return method.LoginRequest{}, perrors.WithCode(code.ErrUnsupportedAuthMethod, "unsupported authentication method: %s", rawMethod)
 	}
-	authMethod := method.AuthMethod(strings.TrimSpace(rawMethod))
+	authMethod := method.NormalizeWireAuthMethod(rawMethod)
 	if len(payload) == 0 {
 		return method.LoginRequest{}, perrors.WithCode(code.ErrPayloadInvalid, "method_payload is required")
 	}
@@ -52,8 +58,10 @@ func BuildExplicitWireLoginRequest(rawMethod string, payload json.RawMessage) (m
 		return buildPasswordRequest(payload)
 	case method.AuthMethodPhoneOTP:
 		return buildPhoneOTPRequest(payload)
-	case method.AuthMethodWechat:
-		return buildWechatRequest(payload)
+	case method.AuthMethodWechatMini:
+		return buildWechatMiniRequest(payload)
+	case method.AuthMethodWechatScan:
+		return buildWechatScanRequest(payload)
 	case method.AuthMethodWecom:
 		return buildWecomRequest(payload)
 	default:
@@ -96,17 +104,33 @@ func buildPhoneOTPRequest(payload json.RawMessage) (method.LoginRequest, error) 
 	}, nil
 }
 
-// buildWechatRequest 构建微信登录请求
-func buildWechatRequest(payload json.RawMessage) (method.LoginRequest, error) {
-	var creds WechatWirePayload
+// buildWechatMiniRequest 构建微信小程序登录请求
+func buildWechatMiniRequest(payload json.RawMessage) (method.LoginRequest, error) {
+	var creds WechatMiniWirePayload
 	if err := json.Unmarshal(payload, &creds); err != nil {
 		return method.LoginRequest{}, perrors.WithCode(code.ErrBind, "invalid wechat method_payload: %v", err)
 	}
 	return method.LoginRequest{
-		AuthMethod: method.AuthMethodWechat,
-		Payload: method.WechatPayload{
+		AuthMethod: method.AuthMethodWechatMini,
+		Payload: method.WechatMiniPayload{
 			AppID:  creds.AppID,
 			JSCode: creds.Code,
+		},
+	}, nil
+}
+
+// buildWechatScanRequest 构建微信扫码登录请求
+func buildWechatScanRequest(payload json.RawMessage) (method.LoginRequest, error) {
+	var creds WechatScanWirePayload
+	if err := json.Unmarshal(payload, &creds); err != nil {
+		return method.LoginRequest{}, perrors.WithCode(code.ErrBind, "invalid wechat scan method_payload: %v", err)
+	}
+	return method.LoginRequest{
+		AuthMethod: method.AuthMethodWechatScan,
+		Payload: method.WechatScanPayload{
+			AppID: creds.AppID,
+			Code:  creds.Code,
+			State: creds.State,
 		},
 	}, nil
 }

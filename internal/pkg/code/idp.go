@@ -19,6 +19,9 @@ const (
 
 	// ErrWechatAppStatusInvalid - 400: Wechat app status is invalid.
 	ErrWechatAppStatusInvalid = 104003
+
+	// ErrWechatAppTypeMismatch - 400: Wechat app type does not match the expected type for this flow.
+	ErrWechatAppTypeMismatch = 104004
 )
 
 // nolint: gochecknoinits
@@ -31,6 +34,7 @@ func registerIDP() {
 	registerIDPCode(ErrWechatAppAlreadyExists, http.StatusConflict, "Wechat app already exists")
 	registerIDPCode(ErrWechatAppTypeInvalid, http.StatusBadRequest, "Wechat app type is invalid")
 	registerIDPCode(ErrWechatAppStatusInvalid, http.StatusBadRequest, "Wechat app status is invalid")
+	registerIDPCode(ErrWechatAppTypeMismatch, http.StatusBadRequest, "Wechat app type does not match")
 }
 
 func registerIDPCode(code int, httpStatus int, message string) {

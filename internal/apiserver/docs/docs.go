@@ -749,6 +749,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/authn/login-identities/wechat-open": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "完成微信开放平台扫码绑定",
+                "parameters": [
+                    {
+                        "description": "微信回调 code 与 state",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "绑定结果",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/login-identities/wechat-open/authorize": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "发起微信开放平台扫码绑定授权",
+                "parameters": [
+                    {
+                        "description": "可选 nonce",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "授权地址与 state",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/authn/login-identities/wecom": {
             "post": {
                 "security": [
@@ -1000,6 +1075,38 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/authn/wechat-open/authorize": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "发起微信开放平台扫码登录授权",
+                "parameters": [
+                    {
+                        "description": "可选 nonce",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "授权地址与 state",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse"
                         }
                     }
                 }
@@ -2864,7 +2971,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "支持中文/拼音前缀联想，数字关键词走手机号/ID 精确匹配",
+                "description": "基于索引召回并按当前用户数据权限过滤；数字关键词支持档案 ID，手机号搜索需额外授权",
                 "consumes": [
                     "application/json"
                 ],
@@ -2878,10 +2985,16 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "关键词；数字=精确匹配手机号/ID，其他=前缀联想",
+                        "description": "关键词；纯数字可为档案 ID 或手机号（手机号需授权）",
                         "name": "k",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "返回条数上限",
+                        "name": "limit",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2890,12 +3003,30 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term"
+                                "$ref": "#/definitions/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem"
                             }
                         }
                     },
                     "400": {
                         "description": "参数缺失",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无搜索权限",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
                         }
@@ -2934,24 +3065,6 @@ const docTemplate = `{
                 },
                 "y": {
                     "type": "string"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "example": ""
-                },
-                "mobile": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "weight": {
-                    "type": "integer"
                 }
             }
         },
@@ -3017,6 +3130,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest": {
+            "type": "object",
+            "properties": {
+                "nonce": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "state"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "state": {
                     "type": "string"
                 }
             }
@@ -3500,6 +3636,26 @@ const docTemplate = `{
                 "valid": {
                     "description": "令牌是否有效",
                     "type": "boolean"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse": {
+            "type": "object",
+            "properties": {
+                "app_id": {
+                    "type": "string"
+                },
+                "authorize_url": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "nonce": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         },
@@ -4342,6 +4498,23 @@ const docTemplate = `{
                 "reference": {
                     "description": "Reference 返回参考文档，可能有助于解决此错误",
                     "type": "string"
+                }
+            }
+        },
+        "internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "mobile_mask": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "integer"
                 }
             }
         }

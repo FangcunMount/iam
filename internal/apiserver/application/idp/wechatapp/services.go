@@ -46,7 +46,7 @@ type WechatAppTokenApplicationService interface {
 type CreateWechatAppDTO struct {
 	AppID     string         // 微信应用 ID（必填）
 	Name      string         // 应用名称（必填）
-	Type      domain.AppType // 应用类型（必填：MiniProgram/MP）
+	Type      domain.AppType // 应用类型（必填：MiniProgram/MP/OpenPlatformWebsite）
 	AppSecret string         // AppSecret（可选，创建时设置）
 }
 

@@ -7,8 +7,9 @@ type AuthChallenge struct {
 	ID         string        // 挑战ID
 	Type       ChallengeType // 挑战类型
 	Scene      string        // 场景
-	Target     string        // 目标
-	SecretHash []byte        // 密钥哈希
+	Target     string            // 目标
+	SecretHash []byte            // 密钥哈希
+	Payload    map[string]string // 附加上下文（如 OAuth state 的 app_id、redirect_uri）
 
 	// challenge
 	Attempts   int        // 尝试次数

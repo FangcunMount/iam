@@ -46,8 +46,9 @@ func NewJWKSOptions() *JWKSOptions {
 
 // IDPOptions configures identity provider bootstrap secrets.
 type IDPOptions struct {
-	EncryptionKey string       `json:"encryption-key" mapstructure:"encryption-key"`
-	WeCom         WeComOptions `json:"wecom" mapstructure:"wecom"`
+	EncryptionKey string            `json:"encryption-key" mapstructure:"encryption-key"`
+	WeCom         WeComOptions      `json:"wecom" mapstructure:"wecom"`
+	WechatOpen    WechatOpenOptions `json:"wechat_open" mapstructure:"wechat_open"`
 }
 
 func NewIDPOptions() *IDPOptions {
@@ -58,6 +59,19 @@ func NewIDPOptions() *IDPOptions {
 // should not be supplied by public login requests.
 type WeComOptions struct {
 	AgentID string `json:"agent_id" mapstructure:"agent_id"`
+}
+
+// WechatOpenOptions configures server-side WeChat Open Platform (website QR
+// login) material. AppID and redirect URIs must be configured server-side and
+// never be supplied by public login or linking requests; app_secret is resolved
+// via the WeChat app store keyed by AppID.
+//
+// 登录与绑定使用不同的回调地址：登录回调是公开页面，绑定回调是登录态页面，
+// 两者分开便于各自锁死白名单与页面路由。
+type WechatOpenOptions struct {
+	AppID            string `json:"app_id" mapstructure:"app_id"`
+	LoginRedirectURI string `json:"login_redirect_uri" mapstructure:"login_redirect_uri"`
+	LinkRedirectURI  string `json:"link_redirect_uri" mapstructure:"link_redirect_uri"`
 }
 
 // SMSOptions configures login OTP delivery.

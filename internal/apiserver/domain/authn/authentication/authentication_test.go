@@ -35,6 +35,16 @@ func TestProofConstructorsValidateRequiredFieldsAndMapCredentialKind(t *testing.
 	_, err = NewWechatMiniCredential(WechatMiniProofSpec{})
 	require.Error(t, err)
 
+	wechatOpen, err := NewWechatOpenCredential(WechatOpenProofSpec{
+		AppID:     "wx-app",
+		AppSecret: "secret",
+		Code:      "code",
+	})
+	require.NoError(t, err)
+	require.Equal(t, CredentialKindWechatOpen, wechatOpen.CredentialKind())
+	_, err = NewWechatOpenCredential(WechatOpenProofSpec{})
+	require.Error(t, err)
+
 	wecom, err := NewWecomCredential(WecomProofSpec{
 		TenantID:   meta.FromUint64(1),
 		CorpID:     "corp",

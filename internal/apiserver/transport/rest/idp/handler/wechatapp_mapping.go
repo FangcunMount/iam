@@ -74,7 +74,7 @@ func updateDTOFromRequest(req request.UpdateWechatAppRequest) (wechatapp.UpdateW
 
 func parseAppType(raw string) (domain.AppType, error) {
 	switch domain.AppType(raw) {
-	case domain.MiniProgram, domain.MP:
+	case domain.MiniProgram, domain.MP, domain.OpenPlatformWebsite:
 		return domain.AppType(raw), nil
 	default:
 		return "", perrors.WithCode(code.ErrWechatAppTypeInvalid, "invalid wechat app type: %s", raw)

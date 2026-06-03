@@ -5,35 +5,35 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// WechatPayload 是微信小程序登录 payload。
-type WechatPayload struct {
+// WechatMiniPayload 是微信小程序登录 payload。
+type WechatMiniPayload struct {
 	AppID  string
 	JSCode string
 }
 
-func (WechatPayload) loginMethodPayload() {}
+func (WechatMiniPayload) loginMethodPayload() {}
 
 // wechatMethod 微信小程序登录方式
-type wechatMethod struct{}
+type wechatMiniMethod struct{}
 
-// NewWechatMethod 创建微信小程序登录方式。
-func NewWechatMethod() LoginMethod {
-	return wechatMethod{}
+// NewWechatMiniMethod 创建微信小程序登录方式。
+func NewWechatMiniMethod() LoginMethod {
+	return wechatMiniMethod{}
 }
 
 // Method 返回方法
-func (wechatMethod) Method() AuthMethod {
-	return AuthMethodWechat
+func (wechatMiniMethod) Method() AuthMethod {
+	return AuthMethodWechatMini
 }
 
 // CredentialKind 返回认证证明类型
-func (wechatMethod) CredentialKind() CredentialKind {
+func (wechatMiniMethod) CredentialKind() CredentialKind {
 	return CredentialKindWechatMinip
 }
 
 // BuildPayload 构建 payload
-func (wechatMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
-	payload, ok := cmd.Payload.(WechatPayload)
+func (wechatMiniMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
+	payload, ok := cmd.Payload.(WechatMiniPayload)
 	if !ok {
 		return nil, perrors.WithCode(code.ErrPayloadInvalid, "invalid wechat payload")
 	}

@@ -11,6 +11,7 @@ enum WechatAppType {
   WECHAT_APP_TYPE_UNSPECIFIED = 0;
   WECHAT_APP_TYPE_MINI_PROGRAM = 1; // 小程序
   WECHAT_APP_TYPE_MP = 2;           // 公众号
+  WECHAT_APP_TYPE_OPEN_PLATFORM_WEBSITE = 3; // 微信开放平台网站应用（PC Web 扫码登录）
 }
 
 // 微信应用状态

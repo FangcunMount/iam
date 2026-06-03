@@ -37,12 +37,13 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies,
 			authRequired = authMiddleware.AuthRequired()
 		}
 		authnDeps := authnhttp.Dependencies{
-			AuthHandler:          deps.authn.AuthHandler,
-			OnboardingHandler:    deps.authn.OnboardingHandler,
-			LoginIdentityHandler: deps.authn.LoginIdentityHandler,
-			JWKSHandler:          deps.authn.JWKSHandler,
-			AdminMiddlewares:     deps.adminMiddlewares,
-			AuthMiddleware:       authRequired,
+			AuthHandler:            deps.authn.AuthHandler,
+			OnboardingHandler:      deps.authn.OnboardingHandler,
+			LoginIdentityHandler:   deps.authn.LoginIdentityHandler,
+			WechatOpenLoginHandler: deps.authn.WechatOpenLoginHandler,
+			JWKSHandler:            deps.authn.JWKSHandler,
+			AdminMiddlewares:       deps.adminMiddlewares,
+			AuthMiddleware:         authRequired,
 		}
 		authnhttp.Register(engine, authnDeps)
 		if r.deps.SeedMockAuth.Enabled {

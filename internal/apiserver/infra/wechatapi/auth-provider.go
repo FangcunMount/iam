@@ -9,6 +9,7 @@ import (
 	"github.com/silenceper/wechat/v2"
 	"github.com/silenceper/wechat/v2/cache"
 	miniConfig "github.com/silenceper/wechat/v2/miniprogram/config"
+	offiaConfig "github.com/silenceper/wechat/v2/officialaccount/config"
 
 	wechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi/port"
 )
@@ -103,6 +104,39 @@ func (p *AuthProvider) DecryptPhone(ctx context.Context, appID, appSecret, sessi
 	result.PhoneNumber = phoneInfo.PhoneNumber
 	result.PurePhoneNumber = phoneInfo.PurePhoneNumber
 	result.CountryCode = phoneInfo.CountryCode
+
+	return result, nil
+}
+
+// ExchangeOAuthCode 用授权 code 换取 openid（网站应用微信登录 / 公众号网页授权共用 sns 接口）。
+// 文档: https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
+func (p *AuthProvider) ExchangeOAuthCode(ctx context.Context, appID, appSecret, code string) (wechatapp.OpenOAuthResult, error) {
+	result := wechatapp.OpenOAuthResult{}
+	if appID == "" || appSecret == "" {
+		return result, errors.New("appID and appSecret cannot be empty")
+	}
+	if code == "" {
+		return result, errors.New("code cannot be empty")
+	}
+
+	// 通过code获取access_token
+	cfg := &offiaConfig.Config{
+		AppID:     appID,
+		AppSecret: appSecret,
+		Cache:     p.cache,
+	}
+	accessToken, err := wechat.NewWechat().GetOfficialAccount(cfg).GetOauth().GetUserAccessTokenContext(ctx, code)
+	if err != nil {
+		return result, fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	// 填充结果
+	result.AccessToken = accessToken.AccessToken
+	result.ExpiresIn = accessToken.ExpiresIn
+	result.RefreshToken = accessToken.RefreshToken
+	result.OpenID = accessToken.OpenID
+	result.Scope = accessToken.Scope
+	result.UnionID = accessToken.UnionID
 
 	return result, nil
 }

@@ -38,6 +38,9 @@ type Options struct {
 	Surface        Surface
 	AppID          string
 	CredentialKind string
+	// ExpectedAppType 非空时强校验微信应用类型（如微信开放平台网站应用扫码登录/绑定），
+	// 不匹配则拒绝，避免把公众号(MP)/小程序应用误用于扫码登录边界。
+	ExpectedAppType idpPort.AppType
 }
 
 // ResolveAppSecret 从应用仓库查询并解密应用密钥。
@@ -56,6 +59,9 @@ func ResolveAppSecret(ctx context.Context, deps Dependencies, opts Options) (str
 	}
 	if app == nil {
 		return "", appNotFound(ctx, opts, errCode, logProof)
+	}
+	if opts.ExpectedAppType != "" && app.Type != opts.ExpectedAppType {
+		return "", appTypeMismatch(ctx, opts, logProof, app.Type)
 	}
 	if !app.IsEnabled() {
 		return "", appDisabled(ctx, opts, errCode, logProof)
@@ -156,6 +162,21 @@ func decryptFailed(ctx context.Context, opts Options, errCode int, logProof bool
 		return proofDecryptFailed(errCode, opts.Provider, err)
 	}
 	return perrors.WithCode(errCode, "failed to decrypt %s app secret: %v", opts.Provider, err)
+}
+
+func appTypeMismatch(ctx context.Context, opts Options, logProof bool, actual idpPort.AppType) error {
+	if logProof {
+		l := logger.L(ctx)
+		l.Warnw(proofProviderLabel(opts.Provider)+"应用类型不匹配",
+			"action", logger.ActionLogin,
+			"credential_kind", opts.CredentialKind,
+			proofAppIDKey(opts.Provider), opts.AppID,
+			"expected_type", opts.ExpectedAppType.String(),
+			"actual_type", actual.String(),
+		)
+	}
+	return perrors.WithCode(code.ErrWechatAppTypeMismatch,
+		"wechat app type mismatch: expected %s, got %s", opts.ExpectedAppType, actual)
 }
 
 func proofProviderLabel(provider Provider) string {

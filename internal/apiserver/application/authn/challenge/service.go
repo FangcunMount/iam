@@ -40,28 +40,57 @@ type PhoneLinkOTPVerifier interface {
 	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) bool
 }
 
-// Service 是 challenge 包内部组装出的短信验证码用例集合。
+// Service 是 challenge 包对外暴露的验证码与 OAuth state 用例集合。
 type Service interface {
 	LoginPhoneOTPSender
 	PhoneLinkOTPSender
 	LoginPhoneOTPVerifier
 	PhoneLinkOTPVerifier
+	WechatOpenOAuthStateStarter
+	WechatOpenOAuthStateVerifier
+	WechatOpenLinkOAuthStateStarter
+	WechatOpenLinkOAuthStateVerifier
 }
 
-// service 短信验证码服务
+// service 短信验证码与 OAuth state 服务
 type service struct {
-	repo     challengeDomain.Repository
-	delivery *SMSOTPDelivery
-	creator  Creator
-	verifier Verifier
+	repo          challengeDomain.Repository
+	delivery      *SMSOTPDelivery
+	creator       Creator
+	verifier      Verifier
+	oauthCreator  *oauthStateCreator
+	oauthVerifier *oauthStateVerifier
 }
 
 // 确保 service 实现了 Service 接口
 var _ Service = (*service)(nil)
 
-// NewService 创建短信验证码服务
+// NewService 创建 challenge 应用服务。
 func NewService(repo challengeDomain.Repository, delivery SMSOTPDelivery, creator Creator, verifier Verifier) Service {
-	return &service{repo: repo, delivery: &delivery, creator: creator, verifier: verifier}
+	return &service{
+		repo:          repo,
+		delivery:      &delivery,
+		creator:       creator,
+		verifier:      verifier,
+		oauthCreator:  newOAuthStateCreator(repo, defaultOAuthStateTTL),
+		oauthVerifier: newOAuthStateVerifier(repo),
+	}
+}
+
+func (s *service) StartWechatOpenLogin(ctx context.Context, input StartWechatOpenLoginInput) (*StartWechatOpenLoginResult, error) {
+	return s.oauthCreator.StartWechatOpenLogin(ctx, input)
+}
+
+func (s *service) VerifyAndConsumeWechatOpenLogin(ctx context.Context, state string) (WechatOpenOAuthStateContext, error) {
+	return s.oauthVerifier.VerifyAndConsumeWechatOpenLogin(ctx, state)
+}
+
+func (s *service) StartWechatOpenLink(ctx context.Context, input StartWechatOpenLinkInput) (*StartWechatOpenLinkResult, error) {
+	return s.oauthCreator.StartWechatOpenLink(ctx, input)
+}
+
+func (s *service) VerifyAndConsumeWechatOpenLink(ctx context.Context, state string) (WechatOpenOAuthStateContext, error) {
+	return s.oauthVerifier.VerifyAndConsumeWechatOpenLink(ctx, state)
 }
 
 // SendLoginPhoneOTP 创建并发送登录短信验证码。

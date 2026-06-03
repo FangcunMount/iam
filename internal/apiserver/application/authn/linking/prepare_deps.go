@@ -42,3 +42,16 @@ func (d linkPrepareDeps) resolveAppSecret(ctx context.Context, appID, providerNa
 		AppID:    appID,
 	})
 }
+
+// resolveWechatAppSecretTyped 解析微信应用密钥并强校验应用类型。
+func (d linkPrepareDeps) resolveWechatAppSecretTyped(ctx context.Context, appID string, expectedType idpPort.AppType) (string, error) {
+	return idpprepare.ResolveAppSecret(ctx, idpprepare.Dependencies{
+		Apps:  d.wechatApps,
+		Vault: d.secretVault,
+	}, idpprepare.Options{
+		Provider:        idpprepare.ProviderWechat,
+		Surface:         idpprepare.SurfaceLinking,
+		AppID:           appID,
+		ExpectedAppType: expectedType,
+	})
+}

@@ -52,7 +52,7 @@ func TestPhoneOTPLoginConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 		TokenService:   tokenService,
 		Authenticator:  authenticator,
 		MethodRegistry: method.DefaultSelector(),
-		ProofFactory:   proof.DefaultFactory(nil, nil, proof.WecomConfig{}),
+		ProofFactory:   proof.DefaultFactory(nil, nil, proof.WecomConfig{}, nil),
 	})
 
 	result, err := signIn.Execute(ctx, method.LoginRequest{

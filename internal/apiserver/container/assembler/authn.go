@@ -13,6 +13,7 @@ import (
 	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
@@ -27,12 +28,16 @@ import (
 // AuthnModule 认证模块
 type AuthnModule struct {
 	// 应用服务
-	signupService        signupApp.SignupService
-	loginIdentityLinking linkingApp.Linker
-	sessionService       session.ApplicationService
-	sessionRevokeApp     session.Revoker
-	challengeService     challengeApp.Service
-	tokenService         token.TokenApplicationService
+	signupService                signupApp.SignupService
+	loginIdentityLinking         linkingApp.Linker
+	sessionService               session.ApplicationService
+	sessionRevokeApp             session.Revoker
+	challengeService             challengeApp.Service
+	startWechatOpenAuthorize     *signin.StartWechatOpenAuthorize
+	startWechatOpenLinkAuthorize *linkingApp.StartWechatOpenLinkAuthorize
+	completeWechatOpenLink       *linkingApp.CompleteWechatOpenLink
+	wechatOpenConfig             WechatOpenConfig
+	tokenService                 token.TokenApplicationService
 
 	// JWKS 应用服务
 	keyManagementApp *jwksApp.KeyManagementAppService
@@ -141,16 +146,20 @@ func (m *AuthnModule) ApplicationCapabilities() AuthnApplicationCapabilities {
 		return AuthnApplicationCapabilities{}
 	}
 	return AuthnApplicationCapabilities{
-		SignupService:        m.signupService,
-		LoginIdentityLinking: m.loginIdentityLinking,
-		SessionService:       m.sessionService,
-		SessionRevoker:       m.sessionRevokeApp,
-		LoginPhoneOTPSender:  m.challengeService,
-		PhoneLinkOTPSender:   m.challengeService,
-		TokenService:         m.tokenService,
-		KeyManagementApp:     m.keyManagementApp,
-		KeyPublishApp:        m.keyPublishApp,
-		KeyRotationApp:       m.keyRotationApp,
+		SignupService:                m.signupService,
+		LoginIdentityLinking:         m.loginIdentityLinking,
+		SessionService:               m.sessionService,
+		SessionRevoker:               m.sessionRevokeApp,
+		LoginPhoneOTPSender:          m.challengeService,
+		PhoneLinkOTPSender:           m.challengeService,
+		StartWechatOpenAuthorize:     m.startWechatOpenAuthorize,
+		StartWechatOpenLinkAuthorize: m.startWechatOpenLinkAuthorize,
+		CompleteWechatOpenLink:       m.completeWechatOpenLink,
+		WechatOpen:                   m.wechatOpenConfig,
+		TokenService:                 m.tokenService,
+		KeyManagementApp:             m.keyManagementApp,
+		KeyPublishApp:                m.keyPublishApp,
+		KeyRotationApp:               m.keyRotationApp,
 	}
 }
 

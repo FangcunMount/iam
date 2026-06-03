@@ -30,6 +30,14 @@ func TestLoginIdentityBuilderBuildsProviderKeys(t *testing.T) {
 	require.Equal(t, "openid-1", wechat.Identifier)
 	require.Equal(t, "union-1", wechat.GlobalIdentifier)
 
+	// 测试微信开放平台登录身份
+	wechatOpen, err := NewBuilder(userID).WechatOpen("wx-app", "openid-1", "union-1").Build()
+	require.NoError(t, err)
+	require.Equal(t, ProviderWechatOpen, wechatOpen.Provider)
+	require.Equal(t, "wx-app", wechatOpen.Realm)
+	require.Equal(t, "openid-1", wechatOpen.Identifier)
+	require.Equal(t, "union-1", wechatOpen.GlobalIdentifier)
+
 	wecom, err := NewBuilder(userID).Wecom("corp-1", "userid-1").Build()
 	require.NoError(t, err)
 	require.Equal(t, ProviderWecom, wecom.Provider)

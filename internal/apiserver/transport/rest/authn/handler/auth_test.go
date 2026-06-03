@@ -150,12 +150,29 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 					"code": "js-code"
 				}
 			}`,
-			wantMethod: session.AuthMethodWechat,
+			wantMethod: session.AuthMethodWechatMini,
 			assert: func(t *testing.T, req session.LoginRequest) {
 				payload, ok := req.Payload.(session.WechatMiniPayload)
 				require.True(t, ok)
 				require.Equal(t, "wx-app", payload.AppID)
 				require.Equal(t, "js-code", payload.JSCode)
+			},
+		},
+		{
+			name: "wechat_scan",
+			body: `{
+				"auth_method": "wechat_scan",
+				"method_payload": {
+					"app_id": "wx-app",
+					"code": "scan-code"
+				}
+			}`,
+			wantMethod: session.AuthMethodWechatScan,
+			assert: func(t *testing.T, req session.LoginRequest) {
+				payload, ok := req.Payload.(session.WechatScanPayload)
+				require.True(t, ok)
+				require.Equal(t, "wx-app", payload.AppID)
+				require.Equal(t, "scan-code", payload.Code)
 			},
 		},
 		{

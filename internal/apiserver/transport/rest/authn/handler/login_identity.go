@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"io"
 	"strings"
 	"time"
 
@@ -17,17 +19,36 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 )
 
+// WechatOpenLinkConfig 微信开放平台扫码绑定的服务端配置（app_id/redirect_uri 不来自前端）。
+type WechatOpenLinkConfig struct {
+	AppID       string
+	RedirectURI string
+}
+
 type LoginIdentityHandler struct {
 	*BaseHandler
 	linking            linkingapp.Linker
 	phoneLinkOTPSender challengeapp.PhoneLinkOTPSender
+
+	wechatOpenAuthorize *linkingapp.StartWechatOpenLinkAuthorize
+	wechatOpenComplete  *linkingapp.CompleteWechatOpenLink
+	wechatOpenConfig    WechatOpenLinkConfig
 }
 
-func NewLoginIdentityHandler(linking linkingapp.Linker, phoneLinkOTPSender challengeapp.PhoneLinkOTPSender) *LoginIdentityHandler {
+func NewLoginIdentityHandler(
+	linking linkingapp.Linker,
+	phoneLinkOTPSender challengeapp.PhoneLinkOTPSender,
+	wechatOpenAuthorize *linkingapp.StartWechatOpenLinkAuthorize,
+	wechatOpenComplete *linkingapp.CompleteWechatOpenLink,
+	wechatOpenConfig WechatOpenLinkConfig,
+) *LoginIdentityHandler {
 	return &LoginIdentityHandler{
-		BaseHandler:        NewBaseHandler(),
-		linking:            linking,
-		phoneLinkOTPSender: phoneLinkOTPSender,
+		BaseHandler:         NewBaseHandler(),
+		linking:             linking,
+		phoneLinkOTPSender:  phoneLinkOTPSender,
+		wechatOpenAuthorize: wechatOpenAuthorize,
+		wechatOpenComplete:  wechatOpenComplete,
+		wechatOpenConfig:    wechatOpenConfig,
 	}
 }
 
@@ -159,6 +180,89 @@ func (h *LoginIdentityHandler) LinkWechatMiniProgram(c *gin.Context) {
 			AppID: body.AppID,
 			Code:  body.Code,
 		},
+	})
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	h.Success(c, linkResultToResponse(result))
+}
+
+// StartWechatOpenLink 发起微信开放平台扫码绑定授权，返回授权地址与 state。
+// @Summary 发起微信开放平台扫码绑定授权
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body req.LinkWechatOpenAuthorizeRequest false "可选 nonce"
+// @Success 200 {object} resp.WechatOpenAuthorizeResponse "授权地址与 state"
+// @Router /authn/login-identities/wechat-open/authorize [post]
+func (h *LoginIdentityHandler) StartWechatOpenLink(c *gin.Context) {
+	userID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	if h.wechatOpenAuthorize == nil {
+		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "wechat open link is not configured"))
+		return
+	}
+	var body req.LinkWechatOpenAuthorizeRequest
+	if err := c.ShouldBindJSON(&body); err != nil && !errors.Is(err, io.EOF) {
+		h.Error(c, perrors.WithCode(code.ErrBind, "invalid request body: %v", err))
+		return
+	}
+	result, err := h.wechatOpenAuthorize.Execute(c.Request.Context(), linkingapp.StartWechatOpenLinkAuthorizeInput{
+		UserID:      userID,
+		AppID:       h.wechatOpenConfig.AppID,
+		RedirectURI: h.wechatOpenConfig.RedirectURI,
+		Nonce:       body.Nonce,
+	})
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	h.Success(c, resp.WechatOpenAuthorizeResponse{
+		State:        result.State,
+		Nonce:        result.Nonce,
+		AppID:        h.wechatOpenConfig.AppID,
+		AuthorizeURL: result.AuthorizeURL,
+		ExpiresAt:    result.ExpiresAt,
+	})
+}
+
+// CompleteWechatOpenLink 处理微信开放平台扫码绑定回调（code/state）。
+// @Summary 完成微信开放平台扫码绑定
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body req.LinkWechatOpenRequest true "微信回调 code 与 state"
+// @Success 200 {object} resp.LinkLoginIdentityResponse "绑定结果"
+// @Router /authn/login-identities/wechat-open [post]
+func (h *LoginIdentityHandler) CompleteWechatOpenLink(c *gin.Context) {
+	userID, err := requestctx.RequiredUserID(c)
+	if err != nil {
+		h.Error(c, err)
+		return
+	}
+	if h.wechatOpenComplete == nil {
+		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "wechat open link is not configured"))
+		return
+	}
+	var body req.LinkWechatOpenRequest
+	if err := h.BindJSON(c, &body); err != nil {
+		h.Error(c, err)
+		return
+	}
+	if err := body.Validate(); err != nil {
+		h.Error(c, err)
+		return
+	}
+	result, err := h.wechatOpenComplete.Execute(c.Request.Context(), linkingapp.CompleteWechatOpenLinkInput{
+		State:          body.State,
+		Code:           body.Code,
+		ExpectedUserID: userID,
 	})
 	if err != nil {
 		h.Error(c, err)

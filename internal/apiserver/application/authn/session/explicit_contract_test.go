@@ -14,7 +14,8 @@ func TestPublicAuthMethodsDerivedFromApplicationCatalog(t *testing.T) {
 	require.ElementsMatch(t, []AuthMethod{
 		AuthMethodPassword,
 		AuthMethodPhoneOTP,
-		AuthMethodWechat,
+		AuthMethodWechatMini,
+		AuthMethodWechatScan,
 		AuthMethodWecom,
 	}, PublicAuthMethods())
 	require.False(t, IsPublicAuthMethod("unsupported"))
@@ -54,14 +55,26 @@ func TestBuildExplicitLoginRequestMapsPublicV2Payloads(t *testing.T) {
 		},
 		{
 			name:    "wechat",
-			method:  AuthMethodWechat,
+			method:  AuthMethodWechatMini,
 			payload: `{"app_id":"wx-app","code":"js-code"}`,
 			assert: func(t *testing.T, req LoginRequest) {
-				require.Equal(t, AuthMethodWechat, req.AuthMethod)
+				require.Equal(t, AuthMethodWechatMini, req.AuthMethod)
 				payload, ok := req.Payload.(WechatMiniPayload)
 				require.True(t, ok)
 				require.Equal(t, "wx-app", payload.AppID)
 				require.Equal(t, "js-code", payload.JSCode)
+			},
+		},
+		{
+			name:    "wechat_scan",
+			method:  AuthMethodWechatScan,
+			payload: `{"app_id":"wx-app","code":"scan-code"}`,
+			assert: func(t *testing.T, req LoginRequest) {
+				require.Equal(t, AuthMethodWechatScan, req.AuthMethod)
+				payload, ok := req.Payload.(WechatScanPayload)
+				require.True(t, ok)
+				require.Equal(t, "wx-app", payload.AppID)
+				require.Equal(t, "scan-code", payload.Code)
 			},
 		},
 		{

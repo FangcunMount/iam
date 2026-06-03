@@ -30,7 +30,7 @@ func (*wechatBuilder) CredentialKind() method.CredentialKind {
 
 // Build 构建微信小程序登录方式
 func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
-	wechatPayload, ok := payload.(method.WechatPayload)
+	wechatMiniPayload, ok := payload.(method.WechatMiniPayload)
 	if !ok {
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid wechat payload")
 	}
@@ -38,7 +38,7 @@ func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, commo
 	appSecret, err := idpprepare.ResolveAppSecret(ctx, b.deps, idpprepare.Options{
 		Provider:       idpprepare.ProviderWechat,
 		Surface:        idpprepare.SurfaceLoginProof,
-		AppID:          wechatPayload.AppID,
+		AppID:          wechatMiniPayload.AppID,
 		CredentialKind: string(method.CredentialKindWechatMinip),
 	})
 	if err != nil {
@@ -49,9 +49,9 @@ func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, commo
 		TenantID:  common.TenantID,
 		RemoteIP:  common.RemoteIP,
 		UserAgent: common.UserAgent,
-		AppID:     wechatPayload.AppID,
+		AppID:     wechatMiniPayload.AppID,
 		AppSecret: appSecret,
-		Code:      wechatPayload.JSCode,
+		Code:      wechatMiniPayload.JSCode,
 	})
 }
 

@@ -73,7 +73,8 @@ func DefaultSelector() Selector {
 	return MustSelector(
 		NewPasswordMethod(),
 		NewPhoneOTPMethod(),
-		NewWechatMethod(),
+		NewWechatMiniMethod(),
+		NewWechatScanMethod(),
 		NewWecomMethod(),
 	)
 }
@@ -128,14 +129,30 @@ func PublicAuthMethods() []AuthMethod {
 	return []AuthMethod{
 		AuthMethodPassword,
 		AuthMethodPhoneOTP,
-		AuthMethodWechat,
+		AuthMethodWechatMini,
+		AuthMethodWechatScan,
 		AuthMethodWecom,
 	}
 }
 
-// IsPublicAuthMethod 判断是否是公开认证方法。
-func IsPublicAuthMethod(raw string) bool {
+// wireAliasWechat 是历史对外 wire 名："wechat" 即微信小程序登录（内部 wechat_mini）。
+// 保留该别名是为了兼容既有客户端与 OpenAPI 契约，内部统一收敛为 AuthMethodWechatMini。
+const wireAliasWechat = "wechat"
+
+// NormalizeWireAuthMethod 将对外 wire auth_method 归一为内部 AuthMethod。
+//
+// 仅处理 wire 名与内部名的差异（如 "wechat" -> "wechat_mini"），不做白名单校验。
+func NormalizeWireAuthMethod(raw string) AuthMethod {
 	authMethod := AuthMethod(strings.TrimSpace(raw))
+	if authMethod == wireAliasWechat {
+		return AuthMethodWechatMini
+	}
+	return authMethod
+}
+
+// IsPublicAuthMethod 判断是否是公开认证方法（接受 wire 别名）。
+func IsPublicAuthMethod(raw string) bool {
+	authMethod := NormalizeWireAuthMethod(raw)
 	for _, allowed := range PublicAuthMethods() {
 		if authMethod == allowed {
 			return true

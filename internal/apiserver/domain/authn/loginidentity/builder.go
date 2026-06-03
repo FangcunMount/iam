@@ -47,19 +47,30 @@ func (b *Builder) WechatMinip(appID, openID, unionID string) *Builder {
 	return b.FromProviderKey(WechatMinipProviderKey(appID, openID, unionID))
 }
 
+// WechatOpen 使用微信开放平台 provider 构造登录身份。
+func (b *Builder) WechatOpen(appID, openID, unionID string) *Builder {
+	return b.FromProviderKey(WechatOpenProviderKey(appID, openID, unionID))
+}
+
 // Wecom 使用企业微信 provider 构造登录身份。
 func (b *Builder) Wecom(corpID, userIDInWecom string) *Builder {
 	return b.FromProviderKey(WecomProviderKey(corpID, userIDInWecom))
 }
 
 // FromProviderKey 使用已经解析好的 ProviderKey 构造登录身份。
+// 该方法用于从已经解析好的 ProviderKey 构造登录身份，通常用于从外部系统导入登录身份。
 func (b *Builder) FromProviderKey(key ProviderKey) *Builder {
 	if b == nil {
 		return b
 	}
+
+	// 设置登录身份的提供者
 	b.provider = key.Provider
+	// 设置登录身份的域
 	b.realm = key.Realm
+	// 设置登录身份的标识
 	b.identifier = key.Identifier
+	// 设置登录身份的全局标识
 	b.globalIdentifier = key.GlobalIdentifier
 	return b
 }

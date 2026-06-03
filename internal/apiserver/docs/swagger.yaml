@@ -21,18 +21,6 @@ definitions:
       "y":
         type: string
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term:
-    properties:
-      id:
-        example: ""
-        type: string
-      mobile:
-        type: string
-      name:
-        type: string
-      weight:
-        type: integer
-    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.CreateKeyRequest:
     properties:
       algorithm:
@@ -77,6 +65,21 @@ definitions:
     required:
     - app_id
     - code
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest:
+    properties:
+      nonce:
+        type: string
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenRequest:
+    properties:
+      code:
+        type: string
+      state:
+        type: string
+    required:
+    - code
+    - state
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWecomRequest:
     properties:
@@ -403,6 +406,19 @@ definitions:
       valid:
         description: 令牌是否有效
         type: boolean
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse:
+    properties:
+      app_id:
+        type: string
+      authorize_url:
+        type: string
+      expires_at:
+        type: string
+      nonce:
+        type: string
+      state:
+        type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest:
     properties:
@@ -971,6 +987,17 @@ definitions:
         description: Reference 返回参考文档，可能有助于解决此错误
         type: string
     type: object
+  internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem:
+    properties:
+      id:
+        type: string
+      mobile_mask:
+        type: string
+      name:
+        type: string
+      weight:
+        type: integer
+    type: object
 host: iam.fangcunmount.cn
 info:
   contact:
@@ -1466,6 +1493,51 @@ paths:
       summary: 绑定微信小程序登录身份
       tags:
       - 认证
+  /authn/login-identities/wechat-open:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 微信回调 code 与 state
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定结果
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse'
+      security:
+      - BearerAuth: []
+      summary: 完成微信开放平台扫码绑定
+      tags:
+      - 认证
+  /authn/login-identities/wechat-open/authorize:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 可选 nonce
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 授权地址与 state
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse'
+      security:
+      - BearerAuth: []
+      summary: 发起微信开放平台扫码绑定授权
+      tags:
+      - 认证
   /authn/login-identities/wecom:
     post:
       consumes:
@@ -1610,6 +1682,26 @@ paths:
             additionalProperties: true
             type: object
       summary: 验证访问令牌
+      tags:
+      - 认证
+  /authn/wechat-open/authorize:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 可选 nonce
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 授权地址与 state
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse'
+      summary: 发起微信开放平台扫码登录授权
       tags:
       - 认证
   /authz/assignments/{id}:
@@ -2767,13 +2859,17 @@ paths:
     get:
       consumes:
       - application/json
-      description: 支持中文/拼音前缀联想，数字关键词走手机号/ID 精确匹配
+      description: 基于索引召回并按当前用户数据权限过滤；数字关键词支持档案 ID，手机号搜索需额外授权
       parameters:
-      - description: 关键词；数字=精确匹配手机号/ID，其他=前缀联想
+      - description: 关键词；纯数字可为档案 ID 或手机号（手机号需授权）
         in: query
         name: k
         required: true
         type: string
+      - description: 返回条数上限
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -2781,10 +2877,22 @@ paths:
           description: 联想结果（按权重降序，去重）
           schema:
             items:
-              $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_suggest.Term'
+              $ref: '#/definitions/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem'
             type: array
         "400":
           description: 参数缺失
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
+        "403":
+          description: 无搜索权限
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
+        "429":
+          description: 请求过于频繁
           schema:
             $ref: '#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
       security:

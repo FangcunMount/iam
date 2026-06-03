@@ -106,7 +106,8 @@ func TestSelectorRequiresSelectedMethodFields(t *testing.T) {
 	}{
 		{name: "password", cmd: LoginRequest{AuthMethod: AuthMethodPassword}},
 		{name: "phone", cmd: LoginRequest{AuthMethod: AuthMethodPhoneOTP}},
-		{name: "wechat", cmd: LoginRequest{AuthMethod: AuthMethodWechat}},
+		{name: "wechat_mini", cmd: LoginRequest{AuthMethod: AuthMethodWechatMini}},
+		{name: "wechat_scan", cmd: LoginRequest{AuthMethod: AuthMethodWechatScan}},
 		{name: "wecom", cmd: LoginRequest{AuthMethod: AuthMethodWecom}},
 	}
 

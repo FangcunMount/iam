@@ -47,6 +47,13 @@ func WechatMinipProviderKey(appID, openID, unionID string) ProviderKey {
 	return key
 }
 
+// WechatOpenProviderKey 微信开放平台唯一键
+func WechatOpenProviderKey(appID, openID, unionID string) ProviderKey {
+	key := NewProviderKey(ProviderWechatOpen, appID, openID)
+	key.GlobalIdentifier = strings.TrimSpace(unionID)
+	return key
+}
+
 // WecomProviderKey 企业微信唯一键
 func WecomProviderKey(corpID, userIDInWecom string) ProviderKey {
 	return NewProviderKey(ProviderWecom, corpID, userIDInWecom)

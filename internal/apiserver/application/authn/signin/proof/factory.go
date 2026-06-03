@@ -4,6 +4,7 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
@@ -62,13 +63,22 @@ func MustFactory(builders ...Builder) *Factory {
 }
 
 // DefaultFactory 创建默认证明工厂
-func DefaultFactory(repo idpPort.Repository, vault idpPort.SecretVault, wecomConfig WecomConfig) *Factory {
-	return MustFactory(
+func DefaultFactory(
+	repo idpPort.Repository,
+	vault idpPort.SecretVault,
+	wecomConfig WecomConfig,
+	oauthStates challenge.WechatOpenOAuthStateVerifier,
+) *Factory {
+	builders := []Builder{
 		NewPasswordBuilder(),
 		NewPhoneOTPBuilder(),
 		newWechatBuilder(repo, vault),
 		newWecomBuilder(repo, vault, wecomConfig),
-	)
+	}
+	if oauthStates != nil {
+		builders = append(builders, newWechatScanBuilder(repo, vault, oauthStates))
+	}
+	return MustFactory(builders...)
 }
 
 // Build 构建证明

@@ -6,10 +6,11 @@ import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
 type AuthMethod string
 
 const (
-	AuthMethodPassword AuthMethod = "password"
-	AuthMethodPhoneOTP AuthMethod = "phone_otp"
-	AuthMethodWechat   AuthMethod = "wechat"
-	AuthMethodWecom    AuthMethod = "wecom"
+	AuthMethodPassword   AuthMethod = "password"
+	AuthMethodPhoneOTP   AuthMethod = "phone_otp"
+	AuthMethodWechatMini AuthMethod = "wechat_mini"
+	AuthMethodWechatScan AuthMethod = "wechat_scan"
+	AuthMethodWecom      AuthMethod = "wecom"
 )
 
 // CredentialKind 是登录方式最终构造出的领域认证证明类型。
@@ -23,6 +24,7 @@ const (
 	CredentialKindPassword    CredentialKind = "password"
 	CredentialKindPhoneOTP    CredentialKind = "phone_otp"
 	CredentialKindWechatMinip CredentialKind = "oauth_wx_minip"
+	CredentialKindWechatScan  CredentialKind = "oauth_wx_scan"
 	CredentialKindWecom       CredentialKind = "oauth_wecom"
 )
 

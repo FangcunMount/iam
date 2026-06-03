@@ -53,9 +53,10 @@ type AuthnDeps struct {
 	AuthHandler            *authhandler.AuthHandler
 	OnboardingHandler      *authhandler.OnboardingHandler
 	LoginIdentityHandler   *authhandler.LoginIdentityHandler
+	WechatOpenLoginHandler *authhandler.WechatOpenLoginAuthorizeHandler
 	JWKSHandler            *authhandler.JWKSHandler
 	SessionAdminHandler    *authhandler.SessionAdminHandler
-	SignupService signupapp.SignupService
+	SignupService          signupapp.SignupService
 	LoginIdentityLinking   linkingapp.Linker
 	TokenService           tokenapp.TokenApplicationService
 }

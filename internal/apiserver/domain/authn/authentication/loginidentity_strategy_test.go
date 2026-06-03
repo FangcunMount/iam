@@ -83,6 +83,41 @@ func TestPhoneOTPAuthStrategyWithLoginIdentityDoesNotRequireLongTermCredential(t
 	require.Equal(t, loginidentity.RealmGlobal, decision.Principal.Realm)
 }
 
+func TestWechatOpenAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T) {
+	ctx := context.Background()
+	loginIdentityID := meta.FromUint64(2001)
+	userID := meta.FromUint64(1001)
+	identityRepo := newLoginIdentityRepoTestDouble(&authentication.LoginIdentityLookup{
+		LoginIdentityID:  loginIdentityID,
+		UserID:           userID,
+		Provider:         loginidentity.ProviderWechatOpen,
+		Realm:            "wx-app",
+		Identifier:       "openid-1",
+		GlobalIdentifier: "union-1",
+		Status:           loginidentity.StatusActive,
+	})
+	identityRepo.providerLookups = map[string]*authentication.LoginIdentityLookup{}
+	authenticator := authentication.NewAuthenticator(
+		authentication.NewOAuthWechatOpenAuthStrategyWithLoginIdentity(identityRepo, idpTestDouble{wxOpenID: "openid-1", wxUnionID: "union-1"}),
+	)
+	proof, err := authentication.NewWechatOpenCredential(authentication.WechatOpenProofSpec{
+		AppID:     "wx-app",
+		AppSecret: "secret",
+		Code:      "code",
+	})
+	require.NoError(t, err)
+
+	decision, err := authenticator.Authenticate(ctx, proof)
+	require.NoError(t, err)
+	require.True(t, decision.OK)
+	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
+	require.True(t, decision.CredentialID.IsZero())
+	require.Equal(t, "oauth_wx_open", decision.Principal.AuthMethod)
+	require.Equal(t, "wx-app", decision.Principal.Realm)
+	require.Equal(t, "openid-1", decision.Principal.Claims["wx_openid"])
+	require.Equal(t, "union-1", decision.Principal.Claims["wx_unionid"])
+}
+
 func TestWechatMinipAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T) {
 	ctx := context.Background()
 	loginIdentityID := meta.FromUint64(2001)
@@ -244,6 +279,10 @@ type idpTestDouble struct {
 }
 
 func (s idpTestDouble) ExchangeWxMinipCode(context.Context, string, string, string) (string, string, error) {
+	return s.wxOpenID, s.wxUnionID, nil
+}
+
+func (s idpTestDouble) ExchangeWxOpenCode(context.Context, string, string, string) (string, string, error) {
 	return s.wxOpenID, s.wxUnionID, nil
 }
 

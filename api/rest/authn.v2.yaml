@@ -563,6 +563,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse'
+  /authn/login-identities/wechat-open:
+    post:
+      tags:
+      - 认证
+      summary: 完成微信开放平台扫码绑定
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenRequest'
+      responses:
+        '200':
+          description: 绑定结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LinkLoginIdentityResponse'
+  /authn/login-identities/wechat-open/authorize:
+    post:
+      tags:
+      - 认证
+      summary: 发起微信开放平台扫码绑定授权
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest'
+      responses:
+        '200':
+          description: 授权地址与 state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse'
   /authn/login-identities/wecom:
     post:
       tags:
@@ -706,6 +742,24 @@ paths:
               schema:
                 additionalProperties: true
                 type: object
+  /authn/wechat-open/authorize:
+    post:
+      tags:
+      - 认证
+      summary: 发起微信开放平台扫码登录授权
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest'
+      responses:
+        '200':
+          description: 授权地址与 state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -816,6 +870,21 @@ components:
       required:
       - app_id
       - code
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest:
+      properties:
+        nonce:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenRequest:
+      properties:
+        code:
+          type: string
+        state:
+          type: string
+      required:
+      - code
+      - state
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWecomRequest:
       properties:
@@ -1031,6 +1100,19 @@ components:
         valid:
           description: 令牌是否有效
           type: boolean
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.WechatOpenAuthorizeResponse:
+      properties:
+        app_id:
+          type: string
+        authorize_url:
+          type: string
+        expires_at:
+          type: string
+        nonce:
+          type: string
+        state:
+          type: string
       type: object
     github_com_FangcunMount_iam_v2_pkg_core.ErrResponse:
       properties:

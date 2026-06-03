@@ -11,12 +11,13 @@ import (
 
 // Dependencies describes the external collaborators needed to expose authn endpoints.
 type Dependencies struct {
-	AuthHandler          *authhandler.AuthHandler          // 认证处理器
-	OnboardingHandler    *authhandler.OnboardingHandler    // 登录身份开通处理器
-	LoginIdentityHandler *authhandler.LoginIdentityHandler // 登录身份绑定处理器
-	JWKSHandler          *authhandler.JWKSHandler          // JWKS 处理器
-	AdminMiddlewares     []gin.HandlerFunc                 // 管理接口中间件
-	AuthMiddleware       gin.HandlerFunc                   // 当前用户认证中间件
+	AuthHandler            *authhandler.AuthHandler                     // 认证处理器
+	OnboardingHandler      *authhandler.OnboardingHandler               // 登录身份开通处理器
+	LoginIdentityHandler   *authhandler.LoginIdentityHandler            // 登录身份绑定处理器
+	WechatOpenLoginHandler *authhandler.WechatOpenLoginAuthorizeHandler // 微信扫码登录授权处理器（公开）
+	JWKSHandler            *authhandler.JWKSHandler                     // JWKS 处理器
+	AdminMiddlewares       []gin.HandlerFunc                            // 管理接口中间件
+	AuthMiddleware         gin.HandlerFunc                              // 当前用户认证中间件
 }
 
 // Register exposes the authentication endpoints that issue and refresh tokens.
@@ -29,6 +30,9 @@ func Register(engine *gin.Engine, deps Dependencies) {
 
 	// 注册符合 v2 API 文档的认证端点
 	registerAuthEndpoints(api.Group(""), deps.AuthHandler)
+
+	// 注册微信扫码登录授权端点（公开，无需鉴权）
+	registerWechatOpenLoginEndpoints(api.Group(""), deps.WechatOpenLoginHandler)
 
 	// 注册登录身份开通端点
 	registerOnboardingEndpoints(api.Group(""), deps.OnboardingHandler)
@@ -68,6 +72,14 @@ func registerAuthEndpoints(group *gin.RouterGroup, handler *authhandler.AuthHand
 	group.POST("/refresh_token", handler.RefreshToken)
 	group.POST("/logout", handler.Logout)
 	group.POST("/verify", handler.VerifyToken)
+}
+
+// registerWechatOpenLoginEndpoints 注册微信扫码登录授权端点（公开）。
+func registerWechatOpenLoginEndpoints(group *gin.RouterGroup, handler *authhandler.WechatOpenLoginAuthorizeHandler) {
+	if group == nil || handler == nil {
+		return
+	}
+	group.POST("/wechat-open/authorize", handler.StartAuthorize)
 }
 
 // registerJWKSPublicEndpoints 注册 JWKS 公开端点
@@ -122,6 +134,8 @@ func registerLoginIdentityEndpoints(api *gin.RouterGroup, h *authhandler.LoginId
 	identities.POST("/phone/challenge", h.SendPhoneLinkChallenge)
 	identities.POST("/phone", h.LinkPhone)
 	identities.POST("/wechat-miniprogram", h.LinkWechatMiniProgram)
+	identities.POST("/wechat-open/authorize", h.StartWechatOpenLink)
+	identities.POST("/wechat-open", h.CompleteWechatOpenLink)
 	identities.POST("/wecom", h.LinkWecom)
 	identities.DELETE("/:id", h.Unlink)
 }
