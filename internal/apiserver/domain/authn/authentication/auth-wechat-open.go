@@ -150,15 +150,14 @@ func (o *OAuthWechatOpenAuthStrategy) exchangeWechatOpenIdentity(ctx context.Con
 
 // findWechatOpenIdentity 根据 openID 查找 LoginIdentity，必要时用 unionID 回退。
 func (o *OAuthWechatOpenAuthStrategy) findWechatOpenIdentity(ctx context.Context, credential *WechatOpenCredential, identity wechatOpenIdentity) (*LoginIdentityLookup, error) {
-	identifier := identity.unionID
-	if identifier == "" {
-		identifier = identity.openID
-	}
-	lookup, err := o.identityRepo.FindLoginIdentityByProviderKey(ctx, loginidentity.ProviderWechatOpen, credential.AppID, identifier)
-	if err != nil || lookup != nil {
-		return lookup, err
-	}
-	return o.identityRepo.FindLoginIdentityByGlobalIdentifier(ctx, loginidentity.ProviderWechatOpen, identity.unionID)
+	return findWechatIdentityByOpenIDThenUnionID(
+		ctx,
+		o.identityRepo,
+		loginidentity.ProviderWechatOpen,
+		credential.AppID,
+		identity.openID,
+		identity.unionID,
+	)
 }
 
 // buildWechatOpenSuccessDecision 认证成功，构造Principal

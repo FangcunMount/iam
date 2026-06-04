@@ -68,13 +68,14 @@ func TestBuildExplicitLoginRequestMapsPublicV2Payloads(t *testing.T) {
 		{
 			name:    "wechat_scan",
 			method:  AuthMethodWechatScan,
-			payload: `{"app_id":"wx-app","code":"scan-code"}`,
+			payload: `{"app_id":"wx-app","code":"scan-code","state":"oauth-state"}`,
 			assert: func(t *testing.T, req LoginRequest) {
 				require.Equal(t, AuthMethodWechatScan, req.AuthMethod)
 				payload, ok := req.Payload.(WechatScanPayload)
 				require.True(t, ok)
 				require.Equal(t, "wx-app", payload.AppID)
 				require.Equal(t, "scan-code", payload.Code)
+				require.Equal(t, "oauth-state", payload.State)
 			},
 		},
 		{

@@ -146,19 +146,14 @@ func (o *OAuthWechatMinipAuthStrategy) findWechatMinipIdentity(
 	credential *WechatMinipCredential,
 	identity wechatMinipIdentity,
 ) (*LoginIdentityLookup, error) {
-	lookup, err := o.identityRepo.FindLoginIdentityByProviderKey(
+	return findWechatIdentityByOpenIDThenUnionID(
 		ctx,
+		o.identityRepo,
 		loginidentity.ProviderWechatMinip,
 		credential.AppID,
 		identity.openID,
+		identity.unionID,
 	)
-	if err != nil || lookup != nil {
-		return lookup, err
-	}
-	if identity.unionID == "" {
-		return nil, nil
-	}
-	return o.identityRepo.FindLoginIdentityByGlobalIdentifier(ctx, loginidentity.ProviderWechatMinip, identity.unionID)
 }
 
 // buildWechatMinipSuccessDecision 认证成功，构造Principal

@@ -118,6 +118,49 @@ func TestWechatOpenAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T)
 	require.Equal(t, "union-1", decision.Principal.Claims["wx_unionid"])
 }
 
+func TestWechatOpenAuthStrategyWithLoginIdentityPrefersOpenIDOverUnionIDFallback(t *testing.T) {
+	ctx := context.Background()
+	openIDLoginIdentityID := meta.FromUint64(2001)
+	unionIDLoginIdentityID := meta.FromUint64(2002)
+	userID := meta.FromUint64(1001)
+	identityRepo := newLoginIdentityRepoTestDouble(
+		&authentication.LoginIdentityLookup{
+			LoginIdentityID:  openIDLoginIdentityID,
+			UserID:           userID,
+			Provider:         loginidentity.ProviderWechatOpen,
+			Realm:            "wx-app",
+			Identifier:       "openid-1",
+			GlobalIdentifier: "union-1",
+			Status:           loginidentity.StatusActive,
+		},
+		&authentication.LoginIdentityLookup{
+			LoginIdentityID:  unionIDLoginIdentityID,
+			UserID:           meta.FromUint64(1002),
+			Provider:         loginidentity.ProviderWechatOpen,
+			Realm:            "wx-app",
+			Identifier:       "openid-old",
+			GlobalIdentifier: "union-1",
+			Status:           loginidentity.StatusActive,
+		},
+	)
+	authenticator := authentication.NewAuthenticator(
+		authentication.NewOAuthWechatOpenAuthStrategyWithLoginIdentity(identityRepo, idpTestDouble{wxOpenID: "openid-1", wxUnionID: "union-1"}),
+	)
+	proof, err := authentication.NewWechatOpenCredential(authentication.WechatOpenProofSpec{
+		AppID:     "wx-app",
+		AppSecret: "secret",
+		Code:      "code",
+	})
+	require.NoError(t, err)
+
+	decision, err := authenticator.Authenticate(ctx, proof)
+	require.NoError(t, err)
+	require.True(t, decision.OK)
+	require.Equal(t, openIDLoginIdentityID, decision.LoginIdentityID)
+	require.Equal(t, openIDLoginIdentityID, decision.Principal.LoginIdentityID)
+	require.Equal(t, userID, decision.Principal.UserID)
+}
+
 func TestWechatMinipAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T) {
 	ctx := context.Background()
 	loginIdentityID := meta.FromUint64(2001)

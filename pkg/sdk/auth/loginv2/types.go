@@ -13,10 +13,11 @@ import (
 type AuthMethod string
 
 const (
-	AuthMethodPassword AuthMethod = "password"
-	AuthMethodPhoneOTP AuthMethod = "phone_otp"
-	AuthMethodWechat   AuthMethod = "wechat"
-	AuthMethodWecom    AuthMethod = "wecom"
+	AuthMethodPassword   AuthMethod = "password"
+	AuthMethodPhoneOTP   AuthMethod = "phone_otp"
+	AuthMethodWechat     AuthMethod = "wechat"
+	AuthMethodWechatScan AuthMethod = "wechat_scan"
+	AuthMethodWecom      AuthMethod = "wecom"
 )
 
 // LoginRequest is the REST AuthN v2 login request.
@@ -29,7 +30,7 @@ type LoginRequest struct {
 // Validate checks only the public REST v2 contract boundary.
 func (r LoginRequest) Validate() error {
 	switch r.AuthMethod {
-	case AuthMethodPassword, AuthMethodPhoneOTP, AuthMethodWechat, AuthMethodWecom:
+	case AuthMethodPassword, AuthMethodPhoneOTP, AuthMethodWechat, AuthMethodWechatScan, AuthMethodWecom:
 	default:
 		return invalidArgument("invalid authentication method")
 	}
@@ -56,6 +57,13 @@ type PhoneOTPPayload struct {
 type WechatPayload struct {
 	AppID string `json:"app_id"`
 	Code  string `json:"code"`
+}
+
+// WechatScanPayload is the WeChat Open Platform website QR login payload.
+type WechatScanPayload struct {
+	AppID string `json:"app_id"`
+	Code  string `json:"code"`
+	State string `json:"state"`
 }
 
 // WecomPayload is the WeCom login payload.

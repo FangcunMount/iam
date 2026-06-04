@@ -200,6 +200,10 @@ idp:
   encryption-key: "CHANGE_ME_WITH_32_BYTE_BASE64_SECRET"  # 占位符，请通过安全渠道注入32字节密钥
   wecom:
     agent_id: ""  # 通过安全配置注入企业微信应用 AgentID
+  wechat_open:
+    app_id: ""  # 通过安全配置注入微信开放平台网站应用 AppID
+    login_redirect_uri: ""  # 扫码登录回调地址
+    link_redirect_uri: ""  # 登录身份绑定回调地址
 
 # ----------------------------------------------------------------------------
 # 4.4 短信登录 OTP（发码）

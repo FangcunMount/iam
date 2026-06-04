@@ -94,18 +94,19 @@ definitions:
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LoginV2Request:
     properties:
       auth_method:
-        description: 认证方式：password | phone_otp | wechat | wecom
+        description: 认证方式：password | phone_otp | wechat | wechat_scan | wecom
         enum:
         - password
         - phone_otp
         - wechat
+        - wechat_scan
         - wecom
         type: string
       device_id:
         description: 设备 ID
         type: string
       method_payload:
-        description: 凭证（根据 auth_method 不同而不同）
+        description: 凭证（wechat_scan 需要 app_id/code/state；其他方式按 auth_method 解析）
         items:
           type: integer
         type: array
@@ -173,6 +174,11 @@ definitions:
         type: string
     required:
     - access_token
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.WechatOpenLoginAuthorizeRequest:
+    properties:
+      nonce:
+        type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.CleanupResponse:
     properties:
@@ -1362,7 +1368,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wecom。
+      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wechat_scan、wecom。
       parameters:
       - description: 显式登录请求
         in: body
@@ -1693,7 +1699,7 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest'
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.WechatOpenLoginAuthorizeRequest'
       produces:
       - application/json
       responses:

@@ -82,6 +82,38 @@ func TestClientLoginDoesNotDoubleAppendAPIV2(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestClientLoginPostsWechatScanPayload(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v2/authn/login", r.URL.Path)
+
+		var req struct {
+			AuthMethod    AuthMethod        `json:"auth_method"`
+			MethodPayload WechatScanPayload `json:"method_payload"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		require.Equal(t, AuthMethodWechatScan, req.AuthMethod)
+		require.Equal(t, "wx-open-app", req.MethodPayload.AppID)
+		require.Equal(t, "oauth-code", req.MethodPayload.Code)
+		require.Equal(t, "oauth-state", req.MethodPayload.State)
+
+		_, _ = w.Write([]byte(`{"code":0,"message":"success","data":{"access_token":"token","token_type":"Bearer","expires_in":1}}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL)
+	require.NoError(t, err)
+
+	_, err = client.Login(context.Background(), LoginRequest{
+		AuthMethod: AuthMethodWechatScan,
+		MethodPayload: WechatScanPayload{
+			AppID: "wx-open-app",
+			Code:  "oauth-code",
+			State: "oauth-state",
+		},
+	})
+	require.NoError(t, err)
+}
+
 func TestClientLoginReturnsIAMErrorFromRESTEnvelope(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -119,4 +151,17 @@ func TestClientLoginValidatesRequestBeforeHTTPCall(t *testing.T) {
 
 	require.Error(t, err)
 	require.False(t, called)
+}
+
+func TestLoginRequestValidateAcceptsWechatScan(t *testing.T) {
+	req := LoginRequest{
+		AuthMethod: AuthMethodWechatScan,
+		MethodPayload: WechatScanPayload{
+			AppID: "wx-open-app",
+			Code:  "oauth-code",
+			State: "oauth-state",
+		},
+	}
+
+	require.NoError(t, req.Validate())
 }

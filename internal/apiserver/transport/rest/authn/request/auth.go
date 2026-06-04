@@ -11,9 +11,9 @@ import (
 
 // LoginV2Request 是 v2 显式登录请求。
 type LoginV2Request struct {
-	AuthMethod    string          `json:"auth_method" binding:"required" enums:"password,phone_otp,wechat,wecom"` // 认证方式：password | phone_otp | wechat | wecom
-	DeviceID      string          `json:"device_id,omitempty"`                                                    // 设备 ID
-	MethodPayload json.RawMessage `json:"method_payload" binding:"required"`                                      // 凭证（根据 auth_method 不同而不同）
+	AuthMethod    string          `json:"auth_method" binding:"required" enums:"password,phone_otp,wechat,wechat_scan,wecom"` // 认证方式：password | phone_otp | wechat | wechat_scan | wecom
+	DeviceID      string          `json:"device_id,omitempty"`                                                                // 设备 ID
+	MethodPayload json.RawMessage `json:"method_payload" binding:"required"`                                                  // 凭证（wechat_scan 需要 app_id/code/state；其他方式按 auth_method 解析）
 }
 
 // Validate 验证 v2 登录请求。

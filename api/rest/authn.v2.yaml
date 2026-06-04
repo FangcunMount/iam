@@ -424,7 +424,7 @@ paths:
       tags:
       - Authentication-Auth
       summary: 显式登录
-      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wecom。
+      description: 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wechat_scan、wecom。
       requestBody:
         required: true
         content:
@@ -451,6 +451,13 @@ paths:
                   method_payload:
                     app_id: wx_appid
                     code: js_code
+              wechat_scan:
+                value:
+                  auth_method: wechat_scan
+                  method_payload:
+                    app_id: wx_open_appid
+                    code: oauth_code
+                    state: oauth_state
               wecom:
                 value:
                   auth_method: wecom
@@ -752,7 +759,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LinkWechatOpenAuthorizeRequest'
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.WechatOpenLoginAuthorizeRequest'
       responses:
         '200':
           description: 授权地址与 state
@@ -899,24 +906,30 @@ components:
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LoginV2Request:
       properties:
         auth_method:
-          description: 认证方式：password | phone_otp | wechat | wecom
+          description: 认证方式：password | phone_otp | wechat | wechat_scan | wecom
           enum:
           - password
           - phone_otp
           - wechat
+          - wechat_scan
           - wecom
           type: string
         device_id:
           description: 设备 ID
           type: string
         method_payload:
-          description: 凭证（根据 auth_method 不同而不同）
+          description: 凭证（wechat_scan 需要 app_id/code/state；其他方式按 auth_method 解析）
           items:
             type: integer
           type: array
       required:
       - auth_method
       - method_payload
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.WechatOpenLoginAuthorizeRequest:
+      properties:
+        nonce:
+          type: string
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.LogoutRequest:
       properties:

@@ -39,7 +39,7 @@ func NewWechatOpenLoginAuthorizeHandler(authorize *signin.StartWechatOpenAuthori
 // @Tags 认证
 // @Accept json
 // @Produce json
-// @Param request body req.LinkWechatOpenAuthorizeRequest false "可选 nonce"
+// @Param request body req.WechatOpenLoginAuthorizeRequest false "可选 nonce"
 // @Success 200 {object} resp.WechatOpenAuthorizeResponse "授权地址与 state"
 // @Router /authn/wechat-open/authorize [post]
 func (h *WechatOpenLoginAuthorizeHandler) StartAuthorize(c *gin.Context) {
@@ -47,7 +47,7 @@ func (h *WechatOpenLoginAuthorizeHandler) StartAuthorize(c *gin.Context) {
 		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "wechat open login is not configured"))
 		return
 	}
-	var body req.LinkWechatOpenAuthorizeRequest
+	var body req.WechatOpenLoginAuthorizeRequest
 	if err := c.ShouldBindJSON(&body); err != nil && !errors.Is(err, io.EOF) {
 		h.Error(c, perrors.WithCode(code.ErrBind, "invalid request body: %v", err))
 		return

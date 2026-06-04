@@ -164,7 +164,8 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 				"auth_method": "wechat_scan",
 				"method_payload": {
 					"app_id": "wx-app",
-					"code": "scan-code"
+					"code": "scan-code",
+					"state": "oauth-state"
 				}
 			}`,
 			wantMethod: session.AuthMethodWechatScan,
@@ -173,6 +174,7 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, "wx-app", payload.AppID)
 				require.Equal(t, "scan-code", payload.Code)
+				require.Equal(t, "oauth-state", payload.State)
 			},
 		},
 		{

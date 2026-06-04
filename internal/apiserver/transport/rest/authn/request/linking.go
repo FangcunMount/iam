@@ -53,6 +53,11 @@ type LinkWechatOpenAuthorizeRequest struct {
 	Nonce string `json:"nonce"`
 }
 
+// WechatOpenLoginAuthorizeRequest 发起微信开放平台扫码登录授权（可选 nonce）。
+type WechatOpenLoginAuthorizeRequest struct {
+	Nonce string `json:"nonce"`
+}
+
 // LinkWechatOpenRequest 完成微信开放平台扫码绑定回调（code/state 来自微信回调）。
 type LinkWechatOpenRequest struct {
 	Code  string `json:"code" binding:"required"`

@@ -79,12 +79,14 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	var _ authloginv2.AuthMethod = authloginv2.AuthMethodPassword
 	var _ authloginv2.AuthMethod = authloginv2.AuthMethodPhoneOTP
 	var _ authloginv2.AuthMethod = authloginv2.AuthMethodWechat
+	var _ authloginv2.AuthMethod = authloginv2.AuthMethodWechatScan
 	var _ authloginv2.AuthMethod = authloginv2.AuthMethodWecom
 	var loginReq authloginv2.LoginRequest
 	var _ = loginReq.Validate
 	var _ = authloginv2.PasswordPayload{}
 	var _ = authloginv2.PhoneOTPPayload{}
 	var _ = authloginv2.WechatPayload{}
+	var _ = authloginv2.WechatScanPayload{}
 	var _ = authloginv2.WecomPayload{}
 	var _ = authloginv2.TokenPair{}
 	var _ *authsignup.Client

@@ -124,3 +124,18 @@ func TestSelectorRequiresSelectedMethodFields(t *testing.T) {
 		})
 	}
 }
+
+func TestWechatScanMethodRequiresOAuthState(t *testing.T) {
+	t.Parallel()
+
+	_, err := DefaultSelector().Select(context.Background(), LoginRequest{
+		AuthMethod: AuthMethodWechatScan,
+		Payload: WechatScanPayload{
+			AppID: "wx-open-app",
+			Code:  "oauth-code",
+		},
+	})
+
+	require.Error(t, err)
+	require.Equal(t, code.ErrPayloadInvalid, perrors.ParseCoder(err).Code())
+}

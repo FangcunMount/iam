@@ -12,7 +12,7 @@ var _ *resp.TokenPair
 
 // LoginV2 显式登录端点。
 // @Summary 显式登录
-// @Description 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wecom。
+// @Description 使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wechat_scan、wecom。
 // @Tags Authentication-Auth
 // @Accept json
 // @Produce json

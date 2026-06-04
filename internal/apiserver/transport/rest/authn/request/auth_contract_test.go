@@ -22,6 +22,7 @@ type openAPIOperation struct {
 	Description string `yaml:"description"`
 	RequestBody struct {
 		Content map[string]struct {
+			Schema   openAPISchema `yaml:"schema"`
 			Examples map[string]struct {
 				Value map[string]any `yaml:"value"`
 			} `yaml:"examples"`
@@ -46,7 +47,8 @@ func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 	spec := loadOpenAPISpec(t, "api/rest/authn.v2.yaml")
 
 	loginSchema := spec.schema(t, "LoginV2Request")
-	require.ElementsMatch(t, []string{"password", "phone_otp", "wechat", "wecom"}, loginSchema.Properties["auth_method"].Enum)
+	require.ElementsMatch(t, []string{"password", "phone_otp", "wechat", "wechat_scan", "wecom"}, loginSchema.Properties["auth_method"].Enum)
+	require.Contains(t, loginSchema.Properties["method_payload"].Description, "wechat_scan")
 
 	for _, method := range loginSchema.Properties["auth_method"].Enum {
 		req := LoginV2Request{
@@ -63,11 +65,19 @@ func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 	require.Error(t, req.Validate(), "jwt_token must stay out of the public REST v2 login contract")
 
 	examples := spec.Paths["/authn/login"]["post"].RequestBody.Content["application/json"].Examples
+	require.Contains(t, examples, "wechat_scan")
+	require.Equal(t, "wechat_scan", examples["wechat_scan"].Value["auth_method"])
 	require.Contains(t, examples, "wecom")
 	require.Equal(t, "wecom", examples["wecom"].Value["auth_method"])
 
 	okSchema := spec.Paths["/authn/login"]["post"].Responses["200"].Content["application/json"].Schema
 	require.Contains(t, okSchema.Ref, "TokenPair")
+
+	loginAuthorizeSchema := spec.Paths["/authn/wechat-open/authorize"]["post"].RequestBody.Content["application/json"].Schema
+	require.Contains(t, loginAuthorizeSchema.Ref, "WechatOpenLoginAuthorizeRequest")
+
+	linkAuthorizeSchema := spec.Paths["/authn/login-identities/wechat-open/authorize"]["post"].RequestBody.Content["application/json"].Schema
+	require.Contains(t, linkAuthorizeSchema.Ref, "LinkWechatOpenAuthorizeRequest")
 }
 
 func (s openAPISpec) schema(t *testing.T, name string) openAPISchema {
