@@ -86,7 +86,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
 				assertEqual(t, "idp encryption key", opts.IDP.EncryptionKey, "CHANGE_ME_WITH_32_BYTE_BASE64_SECRET")
 				assertEqual(t, "idp wecom agent id", opts.IDP.WeCom.AgentID, "")
-				assertEqual(t, "sms provider", opts.SMS.Provider, "log")
+				assertEqual(t, "sms provider", opts.SMS.Provider, "aliyun")
 				assertEqual(t, "sms hourly limit", opts.SMS.LoginOTPHourlyLimit, 5)
 				assertEqual(t, "sms daily limit", opts.SMS.LoginOTPDailyLimit, 10)
 				assertEqual(t, "sms mq topic", opts.SMS.MQ.Topic, "iam.notify.sms")
