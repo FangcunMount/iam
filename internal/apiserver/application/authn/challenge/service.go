@@ -117,12 +117,22 @@ func (s *service) sendSMSOTP(ctx context.Context, scene, rawPhone string) error 
 		return perrors.WithCode(code.ErrInvalidArgument, "challenge scene is required")
 	}
 	e164 := phone.String()
+	// L1 冷却：同号同场景在冷却窗口内不可重复发送（失败不回退，防重试轰炸）。
 	ok, err := s.delivery.Gate.TryAcquire(ctx, e164, scene, s.delivery.effectiveCooldown())
 	if err != nil {
 		return fmt.Errorf("sms otp send gate: %w", err)
 	}
 	if !ok {
 		return perrors.WithCode(code.ErrOTPSendTooFrequent, "please wait before requesting another code")
+	}
+
+	// L2/L3 限量：小时/天固定窗口计数；发送失败时回退计数。
+	rollbackQuota, ok, err := s.acquireSendQuota(ctx, e164, scene)
+	if err != nil {
+		return fmt.Errorf("sms otp send quota: %w", err)
+	}
+	if !ok {
+		return perrors.WithCode(code.ErrOTPSendTooFrequent, "sms quota exceeded, please try again later")
 	}
 
 	// 创建短信验证码
@@ -134,13 +144,69 @@ func (s *service) sendSMSOTP(ctx context.Context, scene, rawPhone string) error 
 		WithCodeLen(s.delivery.effectiveCodeLen()),
 	)
 	if err != nil {
+		rollbackQuota()
 		return err
 	}
 	if err := s.delivery.SMS.SendLoginOTP(ctx, e164, challenge.Code); err != nil {
+		rollbackQuota()
 		_ = s.deleteSMSOTP(ctx, scene, e164)
 		return fmt.Errorf("send sms otp: %w", err)
 	}
 	return nil
+}
+
+const (
+	quotaDimensionHourly = "hourly"
+	quotaDimensionDaily  = "daily"
+	quotaWindowHourly    = time.Hour
+	quotaWindowDaily     = 24 * time.Hour
+)
+
+// acquireSendQuota 按小时/天维度累计发送次数，任一维度超限即拒绝。
+// 返回的 rollback 用于在后续步骤失败时回退已累计的计数（无副作用、可安全多次调用）。
+func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rollback func(), ok bool, err error) {
+	noop := func() {}
+	if s.delivery == nil || s.delivery.Quota == nil {
+		return noop, true, nil
+	}
+
+	type consumed struct {
+		dimension string
+		window    time.Duration
+	}
+	var acquired []consumed
+	rollback = func() {
+		for _, c := range acquired {
+			_ = s.delivery.Quota.Rollback(ctx, e164, scene, c.dimension, c.window)
+		}
+		acquired = nil
+	}
+
+	dims := []consumed{
+		{quotaDimensionHourly, quotaWindowHourly},
+		{quotaDimensionDaily, quotaWindowDaily},
+	}
+	limits := map[string]int{
+		quotaDimensionHourly: s.delivery.effectiveHourlyLimit(),
+		quotaDimensionDaily:  s.delivery.effectiveDailyLimit(),
+	}
+	for _, d := range dims {
+		limit := limits[d.dimension]
+		if limit <= 0 {
+			continue
+		}
+		allowed, err := s.delivery.Quota.TryConsume(ctx, e164, scene, d.dimension, limit, d.window)
+		if err != nil {
+			rollback()
+			return noop, false, err
+		}
+		if !allowed {
+			rollback()
+			return noop, false, nil
+		}
+		acquired = append(acquired, d)
+	}
+	return rollback, true, nil
 }
 
 // VerifyAndConsumeLoginPhoneOTP 验证并消费登录短信验证码。

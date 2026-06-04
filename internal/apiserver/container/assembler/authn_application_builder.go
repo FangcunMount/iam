@@ -41,11 +41,14 @@ func (m *AuthnModule) initializeApplication(
 		return err
 	}
 	challengeService := challengeApp.NewService(infra.challengeRepo, challengeApp.SMSOTPDelivery{
-		Gate:     infra.otpRedis,
-		SMS:      smsSender,
-		TTL:      smsOptions.LoginOTPTTL,
-		Cooldown: smsOptions.LoginOTPSendCooldown,
-		CodeLen:  smsOptions.LoginOTPCodeLength,
+		Gate:        infra.otpRedis,
+		Quota:       infra.otpRedis,
+		SMS:         smsSender,
+		TTL:         smsOptions.LoginOTPTTL,
+		Cooldown:    smsOptions.LoginOTPSendCooldown,
+		CodeLen:     smsOptions.LoginOTPCodeLength,
+		HourlyLimit: smsOptions.LoginOTPHourlyLimit,
+		DailyLimit:  smsOptions.LoginOTPDailyLimit,
 	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(infra.challengeRepo))
 	m.challengeService = challengeService
 	m.loginIdentityLinking = linkingApp.NewLinker(linkingApp.Dependencies{

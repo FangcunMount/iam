@@ -68,6 +68,16 @@ type OTPSendGate interface {
 	TryAcquire(ctx context.Context, phoneE164, scene string, cooldown time.Duration) (bool, error)
 }
 
+// OTPSendQuota 限制同一手机号、同一场景在固定时间窗口内的累计发送次数。
+// dimension 仅用于区分不同窗口维度的计数器（如 "hourly"/"daily"）。
+type OTPSendQuota interface {
+	// TryConsume 在窗口内累计一次发送；返回 true 表示未超过 limit。
+	// limit<=0 或 window<=0 视为不限制，直接返回 true。
+	TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (bool, error)
+	// Rollback 回退一次计数（发送失败时使用），不应使计数低于 0。
+	Rollback(ctx context.Context, phoneE164, scene, dimension string, window time.Duration) error
+}
+
 // SMSSender 登录 OTP 触达通道：实现通常为「投递 MQ / 事件」，由下游真正发短信，IAM 不直连运营商
 type SMSSender interface {
 	SendLoginOTP(ctx context.Context, phoneE164, code string) error

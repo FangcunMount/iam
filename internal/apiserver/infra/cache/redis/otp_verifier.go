@@ -26,6 +26,7 @@ type OTPVerifierImpl struct {
 var (
 	_ authentication.OTPCodeStore = (*OTPVerifierImpl)(nil)
 	_ authentication.OTPSendGate  = (*OTPVerifierImpl)(nil)
+	_ authentication.OTPSendQuota = (*OTPVerifierImpl)(nil)
 )
 
 // NewOTPVerifier 创建 OTP Redis 适配器（验证、写入、发送频控共用同一实现）
@@ -98,4 +99,53 @@ func (v *OTPVerifierImpl) TryAcquire(ctx context.Context, phoneE164, scene strin
 		return false, fmt.Errorf("otp send gate: %w", err)
 	}
 	return ok, nil
+}
+
+// TryConsume 固定窗口计数：INCR 当前窗口计数器，首次写入时设置过期时间。
+func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (bool, error) {
+	if limit <= 0 || window <= 0 {
+		return true, nil
+	}
+	key := otpSendQuotaRedisKey(phoneE164, scene, dimension, otpQuotaBucket(window))
+	n, err := v.client.Incr(ctx, key).Result()
+	if err != nil {
+		return false, fmt.Errorf("otp send quota incr: %w", err)
+	}
+	if n == 1 {
+		if err := v.client.Expire(ctx, key, window).Err(); err != nil {
+			return false, fmt.Errorf("otp send quota expire: %w", err)
+		}
+	}
+	if n > int64(limit) {
+		// 超限拒绝时回退本次 INCR，避免“探测性请求”占用配额。
+		if _, err := v.client.Decr(ctx, key).Result(); err != nil {
+			return false, fmt.Errorf("otp send quota rollback incr: %w", err)
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
+// Rollback 回退一次计数（发送失败时调用）；DECR 不应使计数低于 0。
+func (v *OTPVerifierImpl) Rollback(ctx context.Context, phoneE164, scene, dimension string, window time.Duration) error {
+	if window <= 0 {
+		return nil
+	}
+	key := otpSendQuotaRedisKey(phoneE164, scene, dimension, otpQuotaBucket(window))
+	n, err := v.client.Decr(ctx, key).Result()
+	if err != nil {
+		return fmt.Errorf("otp send quota decr: %w", err)
+	}
+	if n < 0 {
+		// 计数器异常（窗口已过期重建），归零并保留 TTL 由后续写入重置。
+		if err := v.client.Set(ctx, key, 0, window).Err(); err != nil {
+			return fmt.Errorf("otp send quota reset: %w", err)
+		}
+	}
+	return nil
+}
+
+// otpQuotaBucket 将当前时间按窗口长度对齐，作为固定窗口的桶标识。
+func otpQuotaBucket(window time.Duration) string {
+	return fmt.Sprintf("%d", time.Now().Truncate(window).Unix())
 }

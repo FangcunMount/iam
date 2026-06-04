@@ -94,3 +94,64 @@ func TestOTPVerifierTryAcquire(t *testing.T) {
 		t.Fatalf("expected second TryAcquire() to fail during cooldown")
 	}
 }
+
+func TestOTPVerifierTryConsumeQuota(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	verifier := NewOTPVerifier(client)
+	ctx := context.Background()
+
+	const limit = 2
+	for i := 1; i <= limit; i++ {
+		ok, err := verifier.TryConsume(ctx, "+8613800138000", "login", "hourly", limit, time.Hour)
+		if err != nil {
+			t.Fatalf("TryConsume() #%d error = %v", i, err)
+		}
+		if !ok {
+			t.Fatalf("expected TryConsume() #%d to be allowed within limit", i)
+		}
+	}
+
+	ok, err := verifier.TryConsume(ctx, "+8613800138000", "login", "hourly", limit, time.Hour)
+	if err != nil {
+		t.Fatalf("TryConsume() over-limit error = %v", err)
+	}
+	if ok {
+		t.Fatalf("expected TryConsume() to be rejected when exceeding limit")
+	}
+
+	// 回退一次后，应重新允许一次发送。
+	if err := verifier.Rollback(ctx, "+8613800138000", "login", "hourly", time.Hour); err != nil {
+		t.Fatalf("Rollback() error = %v", err)
+	}
+	ok, err = verifier.TryConsume(ctx, "+8613800138000", "login", "hourly", limit, time.Hour)
+	if err != nil {
+		t.Fatalf("TryConsume() after rollback error = %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected TryConsume() to be allowed again after rollback")
+	}
+}
+
+func TestOTPVerifierQuotaDisabled(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	verifier := NewOTPVerifier(client)
+	ctx := context.Background()
+
+	ok, err := verifier.TryConsume(ctx, "+8613800138000", "login", "hourly", 0, time.Hour)
+	if err != nil {
+		t.Fatalf("TryConsume() disabled error = %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected TryConsume() with limit<=0 to always allow")
+	}
+}

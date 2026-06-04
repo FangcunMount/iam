@@ -15,6 +15,7 @@ var (
 	challengeKeyspace                 = rediskeyspace.New("authn").Child("challenge")
 	otpKeyspace                       = rediskeyspace.New("otp")
 	otpSendGateKeyspace               = otpKeyspace.Child("sendgate")
+	otpSendQuotaKeyspace              = otpKeyspace.Child("quota")
 	wechatAccessTokenKeyspace         = rediskeyspace.New("idp").Child("wechat").Child("token")
 	wechatAccessTokenLockKeyspace     = wechatAccessTokenKeyspace.Child("lock")
 )
@@ -49,6 +50,10 @@ func otpRedisKey(phoneE164, scene, code string) string {
 
 func otpSendGateRedisKey(phoneE164, scene string) string {
 	return otpSendGateKeyspace.Prefix(fmt.Sprintf("%s:%s", scene, phoneE164))
+}
+
+func otpSendQuotaRedisKey(phoneE164, scene, dimension, bucket string) string {
+	return otpSendQuotaKeyspace.Prefix(fmt.Sprintf("%s:%s:%s:%s", scene, phoneE164, dimension, bucket))
 }
 
 func wechatAccessTokenRedisKey(appID string) string {

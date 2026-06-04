@@ -76,12 +76,15 @@ type WechatOpenOptions struct {
 
 // SMSOptions configures login OTP delivery.
 type SMSOptions struct {
-	Provider             string           `json:"provider" mapstructure:"provider"`
-	LoginOTPTTL          time.Duration    `json:"login_otp_ttl" mapstructure:"login_otp_ttl"`
-	LoginOTPSendCooldown time.Duration    `json:"login_otp_send_cooldown" mapstructure:"login_otp_send_cooldown"`
-	LoginOTPCodeLength   int              `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
-	MQ                   SMSMQOptions     `json:"mq" mapstructure:"mq"`
-	Aliyun               SMSAliyunOptions `json:"aliyun" mapstructure:"aliyun"`
+	Provider             string        `json:"provider" mapstructure:"provider"`
+	LoginOTPTTL          time.Duration `json:"login_otp_ttl" mapstructure:"login_otp_ttl"`
+	LoginOTPSendCooldown time.Duration `json:"login_otp_send_cooldown" mapstructure:"login_otp_send_cooldown"`
+	LoginOTPCodeLength   int           `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
+	// 限量：单号码+场景固定窗口发送上限。<0 关闭，0 取默认（小时 5、每天 10）。
+	LoginOTPHourlyLimit int              `json:"login_otp_hourly_limit" mapstructure:"login_otp_hourly_limit"`
+	LoginOTPDailyLimit  int              `json:"login_otp_daily_limit" mapstructure:"login_otp_daily_limit"`
+	MQ                  SMSMQOptions     `json:"mq" mapstructure:"mq"`
+	Aliyun              SMSAliyunOptions `json:"aliyun" mapstructure:"aliyun"`
 }
 
 type SMSMQOptions struct {
@@ -107,6 +110,8 @@ func NewSMSOptions() *SMSOptions {
 		LoginOTPTTL:          5 * time.Minute,
 		LoginOTPSendCooldown: 60 * time.Second,
 		LoginOTPCodeLength:   6,
+		LoginOTPHourlyLimit:  5,
+		LoginOTPDailyLimit:   10,
 		MQ: SMSMQOptions{
 			Topic: "iam.notify.sms",
 		},
