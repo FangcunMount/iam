@@ -195,6 +195,8 @@ go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -c
 | `WWW_UID` | 必需 | 容器运行 UID |
 | `WWW_GID` | 必需 | 容器运行 GID |
 | `CODECOV_TOKEN` | 可选 | Codecov 上传 token |
+| `SMS_ALIYUN_ACCESS_KEY_ID` | 可选 | 阿里云短信 AK；仅当短信 provider 配置为 `aliyun` 且不走 RAM 角色时需要 |
+| `SMS_ALIYUN_ACCESS_KEY_SECRET` | 可选 | 阿里云短信 SK；必须与 `SMS_ALIYUN_ACCESS_KEY_ID` 同时配置或同时留空 |
 
 NSQ 事件发布相关 secret 仍为可选：
 

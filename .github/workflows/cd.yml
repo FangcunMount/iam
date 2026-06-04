@@ -16,6 +16,7 @@ name: Production Deploy
 #   MYSQL_PORT
 #   REDIS_PORT, REDIS_DB, REDIS_USERNAME, REDIS_PASSWORD, REDIS_USE_SSL, REDIS_SSL_INSECURE_SKIP_VERIFY
 #   NSQ_LOOKUPD_HOST, NSQ_LOOKUPD_PORT, NSQ_NSQD_HOST, NSQ_NSQD_PORT
+#   SMS_ALIYUN_ACCESS_KEY_ID, SMS_ALIYUN_ACCESS_KEY_SECRET
 # 注意：JWT 签名使用 JWKS (RS256) 非对称密钥，密钥在运行时自动生成并持久化到 /app/data/keys。
 
 on:
@@ -130,6 +131,8 @@ jobs:
           NSQ_LOOKUPD_PORT: ${{ secrets.NSQ_LOOKUPD_PORT || 4161 }}
           NSQ_NSQD_HOST: ${{ secrets.NSQ_NSQD_HOST }}
           NSQ_NSQD_PORT: ${{ secrets.NSQ_NSQD_PORT || 4150 }}
+          SMS_ALIYUN_ACCESS_KEY_ID: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_ID }}
+          SMS_ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_SECRET }}
         run: |
           make cd-package SERVICE="${SERVICE}"
 
