@@ -292,7 +292,7 @@ func (s *smsOTPQuotaStub) TryConsume(_ context.Context, phoneE164, scene, dimens
 		PhoneE164: phoneE164,
 		Scene:     scene,
 		Dimension: dimension,
-		Bucket:    dimension + "-bucket",
+		Member:    dimension + "-member",
 		Window:    window,
 	}, true, nil
 }

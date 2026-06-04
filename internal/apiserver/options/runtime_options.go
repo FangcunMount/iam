@@ -80,7 +80,7 @@ type SMSOptions struct {
 	LoginOTPTTL          time.Duration `json:"login_otp_ttl" mapstructure:"login_otp_ttl"`
 	LoginOTPSendCooldown time.Duration `json:"login_otp_send_cooldown" mapstructure:"login_otp_send_cooldown"`
 	LoginOTPCodeLength   int           `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
-	// 限量：单号码+场景固定窗口发送上限。<0 关闭，0 取默认（小时 5、每天 10）。
+	// 限量：单号码+场景滑动窗口发送上限。<0 关闭，0 取默认（小时 5、每天 10）。
 	LoginOTPHourlyLimit int              `json:"login_otp_hourly_limit" mapstructure:"login_otp_hourly_limit"`
 	LoginOTPDailyLimit  int              `json:"login_otp_daily_limit" mapstructure:"login_otp_daily_limit"`
 	MQ                  SMSMQOptions     `json:"mq" mapstructure:"mq"`

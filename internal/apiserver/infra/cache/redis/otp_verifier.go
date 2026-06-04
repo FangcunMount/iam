@@ -7,6 +7,7 @@ import (
 
 	redisops "github.com/FangcunMount/component-base/pkg/redis/ops"
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
@@ -51,7 +52,7 @@ func newOTPVerifierWithClock(client *redis.Client, now func() time.Time) *OTPVer
 func (v *OTPVerifierImpl) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
 		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendGate, v.client, "发送频控采用 SET NX EX 的 cooldown marker。"),
-		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendQuota, v.client, "发送限量采用 Redis Lua 维护固定窗口计数器。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendQuota, v.client, "发送限量采用 Redis Lua 维护滑动窗口 ZSET。"),
 	}
 }
 
@@ -111,48 +112,52 @@ func (v *OTPVerifierImpl) TryAcquire(ctx context.Context, phoneE164, scene strin
 	return ok, nil
 }
 
+// otpQuotaTryConsumeLua 滑动窗口计数：清理窗口外记录后，原子追加本次发送记录并设置 TTL。
 const otpQuotaTryConsumeLua = `
-local n = redis.call("INCR", KEYS[1])
-local ttl = redis.call("PTTL", KEYS[1])
-if n == 1 or ttl < 0 then
-  redis.call("PEXPIRE", KEYS[1], ARGV[1])
-end
-if n > tonumber(ARGV[2]) then
-  local rolled = redis.call("DECR", KEYS[1])
-  if rolled <= 0 then
-    redis.call("DEL", KEYS[1])
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+local cutoff = now - window
+redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", cutoff)
+local count = redis.call("ZCARD", KEYS[1])
+if count >= limit then
+  local ttl = redis.call("PTTL", KEYS[1])
+  if ttl < 0 then
+    redis.call("PEXPIRE", KEYS[1], window)
   end
   return 0
 end
+redis.call("ZADD", KEYS[1], now, member)
+redis.call("PEXPIRE", KEYS[1], window)
 return 1
 `
 
+// otpQuotaRollbackLua 回退 lease 对应的一次滑动窗口成员（发送失败时调用）；不会产生负数或长期空 key。
 const otpQuotaRollbackLua = `
-local current = redis.call("GET", KEYS[1])
-if not current then
-  return 0
-end
-local n = tonumber(current)
-if not n or n <= 1 then
+redis.call("ZREM", KEYS[1], ARGV[1])
+local count = redis.call("ZCARD", KEYS[1])
+if count <= 0 then
   redis.call("DEL", KEYS[1])
   return 0
 end
-redis.call("DECR", KEYS[1])
+redis.call("PEXPIRE", KEYS[1], ARGV[2])
 return 1
 `
 
-// TryConsume 固定窗口计数：原子累计当前窗口计数器并确保 TTL 存在。
+// TryConsume 滑动窗口计数：清理窗口外记录后，原子追加本次发送记录并设置 TTL。
 func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (authentication.OTPSendQuotaLease, bool, error) {
 	if limit <= 0 || window <= 0 {
 		return authentication.OTPSendQuotaLease{}, true, nil
 	}
-	bucket := otpQuotaBucketAt(v.now(), window)
-	key := otpSendQuotaRedisKey(phoneE164, scene, dimension, bucket)
-	ttlMillis := int64(window / time.Millisecond)
-	if ttlMillis <= 0 {
-		ttlMillis = 1
+	nowMillis := v.now().UnixMilli()
+	windowMillis := int64(window / time.Millisecond)
+	if windowMillis <= 0 {
+		windowMillis = 1
 	}
-	res, err := v.client.Eval(ctx, otpQuotaTryConsumeLua, []string{key}, ttlMillis, limit).Int()
+	member := otpQuotaMember(nowMillis)
+	key := otpSendQuotaRedisKey(phoneE164, scene, dimension)
+	res, err := v.client.Eval(ctx, otpQuotaTryConsumeLua, []string{key}, nowMillis, windowMillis, limit, member).Int()
 	if err != nil {
 		return authentication.OTPSendQuotaLease{}, false, fmt.Errorf("otp send quota consume: %w", err)
 	}
@@ -163,25 +168,25 @@ func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dime
 		PhoneE164: phoneE164,
 		Scene:     scene,
 		Dimension: dimension,
-		Bucket:    bucket,
+		Member:    member,
 		Window:    window,
 	}, true, nil
 }
 
-// Rollback 回退 lease 对应的一次计数（发送失败时调用）；不会产生负数或长期 0 key。
+// Rollback 回退 lease 对应的一次滑动窗口成员（发送失败时调用）；不会产生负数或长期空 key。
 func (v *OTPVerifierImpl) Rollback(ctx context.Context, lease authentication.OTPSendQuotaLease) error {
 	if lease.IsZero() {
 		return nil
 	}
-	key := otpSendQuotaRedisKey(lease.PhoneE164, lease.Scene, lease.Dimension, lease.Bucket)
-	return v.client.Eval(ctx, otpQuotaRollbackLua, []string{key}).Err()
+	windowMillis := int64(lease.Window / time.Millisecond)
+	if windowMillis <= 0 {
+		windowMillis = 1
+	}
+	key := otpSendQuotaRedisKey(lease.PhoneE164, lease.Scene, lease.Dimension)
+	return v.client.Eval(ctx, otpQuotaRollbackLua, []string{key}, lease.Member, windowMillis).Err()
 }
 
-// otpQuotaBucket 将当前时间按窗口长度对齐，作为固定窗口的桶标识。
-func otpQuotaBucket(window time.Duration) string {
-	return otpQuotaBucketAt(time.Now(), window)
-}
-
-func otpQuotaBucketAt(now time.Time, window time.Duration) string {
-	return fmt.Sprintf("%d", now.Truncate(window).Unix())
+// otpQuotaMember 构造滑动窗口成员的唯一标识符（时间戳 + 随机数）。
+func otpQuotaMember(nowMillis int64) string {
+	return fmt.Sprintf("%d:%s", nowMillis, uuid.NewString())
 }

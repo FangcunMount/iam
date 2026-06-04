@@ -31,8 +31,11 @@ func TestGetFamily(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetFamily(%s) ok = false, want true", FamilyAuthnLoginOTPSendQuota)
 	}
-	if quota.KeyPattern != "otp:quota:{scene}:{phoneE164}:{dimension}:{bucket}" {
+	if quota.KeyPattern != "otp:quota:{scene}:{phoneE164}:{dimension}" {
 		t.Fatalf("quota KeyPattern = %q", quota.KeyPattern)
+	}
+	if quota.RedisType != RedisDataTypeZSet {
+		t.Fatalf("quota RedisType = %q, want %q", quota.RedisType, RedisDataTypeZSet)
 	}
 
 	descriptor, ok := GetFamily(FamilyIDPWechatAccessToken)

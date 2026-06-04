@@ -68,18 +68,18 @@ type OTPSendGate interface {
 	TryAcquire(ctx context.Context, phoneE164, scene string, cooldown time.Duration) (bool, error)
 }
 
-// OTPSendQuota 限制同一手机号、同一场景在固定时间窗口内的累计发送次数。
+// OTPSendQuota 限制同一手机号、同一场景在滑动时间窗口内的累计发送次数。
 // dimension 仅用于区分不同窗口维度的计数器（如 "hourly"/"daily"）。
 type OTPSendQuotaLease struct {
 	PhoneE164 string
 	Scene     string
 	Dimension string
-	Bucket    string
+	Member    string
 	Window    time.Duration
 }
 
 func (l OTPSendQuotaLease) IsZero() bool {
-	return l.PhoneE164 == "" || l.Scene == "" || l.Dimension == "" || l.Bucket == "" || l.Window <= 0
+	return l.PhoneE164 == "" || l.Scene == "" || l.Dimension == "" || l.Member == "" || l.Window <= 0
 }
 
 type OTPSendQuota interface {

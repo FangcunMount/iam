@@ -52,8 +52,8 @@ func otpSendGateRedisKey(phoneE164, scene string) string {
 	return otpSendGateKeyspace.Prefix(fmt.Sprintf("%s:%s", scene, phoneE164))
 }
 
-func otpSendQuotaRedisKey(phoneE164, scene, dimension, bucket string) string {
-	return otpSendQuotaKeyspace.Prefix(fmt.Sprintf("%s:%s:%s:%s", scene, phoneE164, dimension, bucket))
+func otpSendQuotaRedisKey(phoneE164, scene, dimension string) string {
+	return otpSendQuotaKeyspace.Prefix(fmt.Sprintf("%s:%s:%s", scene, phoneE164, dimension))
 }
 
 func wechatAccessTokenRedisKey(appID string) string {

@@ -201,7 +201,7 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 					"scene", lease.Scene,
 					"phone", lease.PhoneE164,
 					"dimension", lease.Dimension,
-					"bucket", lease.Bucket,
+					"member", lease.Member,
 				)
 			}
 		}
