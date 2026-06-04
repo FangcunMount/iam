@@ -76,15 +76,29 @@ type WechatOpenOptions struct {
 
 // SMSOptions configures login OTP delivery.
 type SMSOptions struct {
-	Provider             string        `json:"provider" mapstructure:"provider"`
-	LoginOTPTTL          time.Duration `json:"login_otp_ttl" mapstructure:"login_otp_ttl"`
-	LoginOTPSendCooldown time.Duration `json:"login_otp_send_cooldown" mapstructure:"login_otp_send_cooldown"`
-	LoginOTPCodeLength   int           `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
-	MQ                   SMSMQOptions  `json:"mq" mapstructure:"mq"`
+	Provider             string           `json:"provider" mapstructure:"provider"`
+	LoginOTPTTL          time.Duration    `json:"login_otp_ttl" mapstructure:"login_otp_ttl"`
+	LoginOTPSendCooldown time.Duration    `json:"login_otp_send_cooldown" mapstructure:"login_otp_send_cooldown"`
+	LoginOTPCodeLength   int              `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
+	MQ                   SMSMQOptions     `json:"mq" mapstructure:"mq"`
+	Aliyun               SMSAliyunOptions `json:"aliyun" mapstructure:"aliyun"`
 }
 
 type SMSMQOptions struct {
 	Topic string `json:"topic" mapstructure:"topic"`
+}
+
+// SMSAliyunOptions configures Aliyun Dysmsapi direct delivery.
+// AccessKeyID/AccessKeySecret 应通过环境变量注入，禁止明文写入配置文件。
+type SMSAliyunOptions struct {
+	// AccessKeyID/AccessKeySecret 留空时走阿里云默认凭据链（环境变量/RAM 角色等）。
+	AccessKeyID     string `json:"access_key_id" mapstructure:"access_key_id"`
+	AccessKeySecret string `json:"access_key_secret" mapstructure:"access_key_secret"`
+	SignName        string `json:"sign_name" mapstructure:"sign_name"`
+	TemplateCode    string `json:"template_code" mapstructure:"template_code"`
+	Endpoint        string `json:"endpoint" mapstructure:"endpoint"`
+	CodeParamName   string `json:"code_param_name" mapstructure:"code_param_name"`
+	TimeoutMillis   int    `json:"timeout_millis" mapstructure:"timeout_millis"`
 }
 
 func NewSMSOptions() *SMSOptions {
@@ -95,6 +109,10 @@ func NewSMSOptions() *SMSOptions {
 		LoginOTPCodeLength:   6,
 		MQ: SMSMQOptions{
 			Topic: "iam.notify.sms",
+		},
+		Aliyun: SMSAliyunOptions{
+			Endpoint:      "dysmsapi.aliyuncs.com",
+			CodeParamName: "code",
 		},
 	}
 }

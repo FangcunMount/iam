@@ -138,6 +138,16 @@ func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiser
 		}
 		topic := strings.TrimSpace(smsOptions.MQ.Topic)
 		return smsInfra.NewMQLoginOTPSender(infra.eventBus, topic), nil
+	case "aliyun":
+		return smsInfra.NewAliyunSender(smsInfra.AliyunConfig{
+			AccessKeyID:     smsOptions.Aliyun.AccessKeyID,
+			AccessKeySecret: smsOptions.Aliyun.AccessKeySecret,
+			SignName:        smsOptions.Aliyun.SignName,
+			TemplateCode:    smsOptions.Aliyun.TemplateCode,
+			Endpoint:        smsOptions.Aliyun.Endpoint,
+			CodeParamName:   smsOptions.Aliyun.CodeParamName,
+			TimeoutMillis:   smsOptions.Aliyun.TimeoutMillis,
+		})
 	default:
 		log.Warnw("unknown sms.provider, fallback to log", "sms.provider", smsProvider)
 		return smsInfra.LogSender{}, nil
