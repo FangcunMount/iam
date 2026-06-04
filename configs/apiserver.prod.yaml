@@ -211,7 +211,7 @@ idp:
 sms:
   # provider: log | mq | aliyun
   # 生产直发短信改为 aliyun；切换前确认下方 aliyun 段已配置且 AK/SK 已通过环境变量注入。
-  provider: log
+  provider: aliyun
   login_otp_ttl: 5m
   login_otp_send_cooldown: 60s
   login_otp_code_length: 6
