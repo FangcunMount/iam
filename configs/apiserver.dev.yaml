@@ -196,17 +196,30 @@ idp:
 # ----------------------------------------------------------------------------
 # 4.4 短信登录 OTP（发码）
 # ----------------------------------------------------------------------------
-# provider: log（仅打日志）| mq（经 NSQ 发布 iam.notify.sms，由下游真正发短信）
+# provider: log（仅打日志）| mq（经 NSQ 发布 iam.notify.sms，由下游真正发短信）| aliyun（直连阿里云短信）
 # mq 需同时开启下方 nsq.enabled
 sms:
   provider: log
   login_otp_ttl: 5m
   login_otp_send_cooldown: 60s
   login_otp_code_length: 6
+  # 限量：单号码+场景固定窗口发送上限。-1 关闭，0 取默认（小时 5、每天 10）。
+  login_otp_hourly_limit: 5
+  login_otp_daily_limit: 10
   mq:
     # Deprecated: 主路径以 configs/events.yaml 中 iam.login_otp_sms 的 topic 为准；
     # 仅 legacy fallback 构造器继续读取该值。
     topic: iam.notify.sms
+  aliyun:
+    # 推荐：留空 access_key_id/access_key_secret，走阿里云默认凭据链
+    # （ENV: ALIBABA_CLOUD_ACCESS_KEY_ID/SECRET，或 RAM 角色/ECS 元数据）。
+    access_key_id: ""
+    access_key_secret: ""
+    sign_name: ""
+    template_code: ""
+    endpoint: dysmsapi.aliyuncs.com
+    code_param_name: code
+    timeout_millis: 10000
 
 # ----------------------------------------------------------------------------
 # 4.5 Suggest 联想模块

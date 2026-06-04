@@ -11,6 +11,7 @@ const (
 	FamilyAuthnLoginIdentitySessionIndex Family = "authn.login_identity_session_index"
 	FamilyAuthnChallenge                 Family = "authn.challenge"
 	FamilyAuthnLoginOTPSendGate          Family = "authn.login_otp_send_gate"
+	FamilyAuthnLoginOTPSendQuota         Family = "authn.login_otp_send_quota"
 	FamilyIDPWechatAccessToken           Family = "idp.wechat_access_token"
 	FamilyIDPWechatSDK                   Family = "idp.wechat_sdk"
 	FamilyAuthnJWKSPublishSnapshot       Family = "authn.jwks_publish_snapshot"
@@ -211,6 +212,24 @@ var catalog = []FamilyDescriptor{
 			TTLSource:                      "发送冷却时间",
 			WriteMode:                      "SET NX EX",
 			InvalidationMode:               "TTL 到期",
+			HasInternalRefreshCoordination: false,
+		},
+		Capabilities: inspectOnly,
+	},
+	{
+		Family:          FamilyAuthnLoginOTPSendQuota,
+		Backend:         BackendKindRedis,
+		RedisType:       RedisDataTypeString,
+		Codec:           ValueCodecKindString,
+		Role:            DataRoleMarkerState,
+		OwnerModule:     "authn",
+		KeyPattern:      "otp:quota:{scene}:{phoneE164}:{dimension}:{bucket}",
+		TTLSource:       "固定窗口长度",
+		SelectionReason: "同号码同场景的小时/天发送限量计数器，需要按固定窗口独立过期。",
+		Policy: FamilyPolicy{
+			TTLSource:                      "固定窗口长度",
+			WriteMode:                      "Lua INCR + PEXPIRE",
+			InvalidationMode:               "TTL 到期或失败补偿删除/递减",
 			HasInternalRefreshCoordination: false,
 		},
 		Capabilities: inspectOnly,

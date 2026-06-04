@@ -27,6 +27,18 @@ func TestAuthnModuleInitializeSMSMQRequiresEventBusEvenWithPublisher(t *testing.
 	require.ErrorContains(t, err, "sms.provider=mq requires EventBus")
 }
 
+func TestAuthnModuleInitializeRejectsUnknownSMSProvider(t *testing.T) {
+	db, redisClient := setupAuthnEventingTest(t)
+	deps := authnEventingDeps(db, redisClient, eventBusStub{}, &capturingEventPublisher{})
+	deps.SMS.Provider = "aliun"
+
+	module := NewAuthnModule()
+	err := module.InitializeWithDeps(deps)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "unknown sms.provider")
+}
+
 func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
 

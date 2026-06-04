@@ -24,7 +24,7 @@ const (
 // AliyunSender 直连阿里云 Dysmsapi 发送登录 OTP 短信。
 // 验证码仍由 IAM 自行生成/存储/校验，阿里云仅负责投递。
 type AliyunSender struct {
-	client         *dysmsapi.Client
+	client         aliyunSMSClient
 	signName       string
 	templateCode   string
 	codeParamName  string
@@ -33,6 +33,10 @@ type AliyunSender struct {
 }
 
 var _ authentication.SMSSender = (*AliyunSender)(nil)
+
+type aliyunSMSClient interface {
+	SendSmsWithOptions(request *dysmsapi.SendSmsRequest, runtime *util.RuntimeOptions) (*dysmsapi.SendSmsResponse, error)
+}
 
 // AliyunConfig 构造 AliyunSender 所需的配置。
 // AccessKeyID/AccessKeySecret 留空时走阿里云默认凭据链（环境变量/RAM 角色等），推荐生产使用。

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/log"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -105,28 +107,13 @@ func (s *service) SendPhoneLinkOTP(ctx context.Context, rawPhone string) error {
 
 // sendSMSOTP 创建并发送短信验证码。
 func (s *service) sendSMSOTP(ctx context.Context, scene, rawPhone string) error {
-	if s.delivery == nil || s.delivery.Gate == nil || s.delivery.SMS == nil {
-		return perrors.WithCode(code.ErrInvalidArgument, "sms otp delivery is not configured")
-	}
-	phone, err := meta.NewPhone(rawPhone)
+	e164, scene, err := s.prepareSMSOTPRequest(rawPhone, scene)
 	if err != nil {
-		return perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
+		return err
 	}
-	scene = strings.TrimSpace(scene)
-	if scene == "" {
-		return perrors.WithCode(code.ErrInvalidArgument, "challenge scene is required")
+	if err := s.acquireSendGate(ctx, e164, scene); err != nil {
+		return err
 	}
-	e164 := phone.String()
-	// L1 冷却：同号同场景在冷却窗口内不可重复发送（失败不回退，防重试轰炸）。
-	ok, err := s.delivery.Gate.TryAcquire(ctx, e164, scene, s.delivery.effectiveCooldown())
-	if err != nil {
-		return fmt.Errorf("sms otp send gate: %w", err)
-	}
-	if !ok {
-		return perrors.WithCode(code.ErrOTPSendTooFrequent, "please wait before requesting another code")
-	}
-
-	// L2/L3 限量：小时/天固定窗口计数；发送失败时回退计数。
 	rollbackQuota, ok, err := s.acquireSendQuota(ctx, e164, scene)
 	if err != nil {
 		return fmt.Errorf("sms otp send quota: %w", err)
@@ -135,14 +122,7 @@ func (s *service) sendSMSOTP(ctx context.Context, scene, rawPhone string) error 
 		return perrors.WithCode(code.ErrOTPSendTooFrequent, "sms quota exceeded, please try again later")
 	}
 
-	// 创建短信验证码
-	challenge, err := s.creator.CreateSMSOTP(
-		ctx,
-		scene,
-		e164,
-		WithTTL(s.delivery.effectiveTTL()),
-		WithCodeLen(s.delivery.effectiveCodeLen()),
-	)
+	challenge, err := s.createSMSOTP(ctx, e164, scene)
 	if err != nil {
 		rollbackQuota()
 		return err
@@ -153,6 +133,44 @@ func (s *service) sendSMSOTP(ctx context.Context, scene, rawPhone string) error 
 		return fmt.Errorf("send sms otp: %w", err)
 	}
 	return nil
+}
+
+func (s *service) prepareSMSOTPRequest(rawPhone, scene string) (string, string, error) {
+	if s.delivery == nil || s.delivery.Gate == nil || s.delivery.SMS == nil {
+		return "", "", perrors.WithCode(code.ErrInvalidArgument, "sms otp delivery is not configured")
+	}
+	phone, err := meta.NewPhone(rawPhone)
+	if err != nil {
+		return "", "", perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
+	}
+	scene = strings.TrimSpace(scene)
+	if scene == "" {
+		return "", "", perrors.WithCode(code.ErrInvalidArgument, "challenge scene is required")
+	}
+	return phone.String(), scene, nil
+}
+
+func (s *service) acquireSendGate(ctx context.Context, e164, scene string) error {
+	// L1 冷却：同号同场景在冷却窗口内不可重复发送（失败不回退，防重试轰炸）。
+	ok, err := s.delivery.Gate.TryAcquire(ctx, e164, scene, s.delivery.effectiveCooldown())
+	if err != nil {
+		return fmt.Errorf("sms otp send gate: %w", err)
+	}
+	if !ok {
+		return perrors.WithCode(code.ErrOTPSendTooFrequent, "please wait before requesting another code")
+	}
+	return nil
+}
+
+func (s *service) createSMSOTP(ctx context.Context, e164, scene string) (*SMSOTP, error) {
+	// 创建短信验证码
+	return s.creator.CreateSMSOTP(
+		ctx,
+		scene,
+		e164,
+		WithTTL(s.delivery.effectiveTTL()),
+		WithCodeLen(s.delivery.effectiveCodeLen()),
+	)
 }
 
 const (
@@ -174,12 +192,20 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 		dimension string
 		window    time.Duration
 	}
-	var acquired []consumed
+	var leases []authentication.OTPSendQuotaLease
 	rollback = func() {
-		for _, c := range acquired {
-			_ = s.delivery.Quota.Rollback(ctx, e164, scene, c.dimension, c.window)
+		for _, lease := range leases {
+			if err := s.delivery.Quota.Rollback(ctx, lease); err != nil {
+				log.Warnw("sms otp send quota rollback failed",
+					"error", err,
+					"scene", lease.Scene,
+					"phone", lease.PhoneE164,
+					"dimension", lease.Dimension,
+					"bucket", lease.Bucket,
+				)
+			}
 		}
-		acquired = nil
+		leases = nil
 	}
 
 	dims := []consumed{
@@ -195,7 +221,7 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 		if limit <= 0 {
 			continue
 		}
-		allowed, err := s.delivery.Quota.TryConsume(ctx, e164, scene, d.dimension, limit, d.window)
+		lease, allowed, err := s.delivery.Quota.TryConsume(ctx, e164, scene, d.dimension, limit, d.window)
 		if err != nil {
 			rollback()
 			return noop, false, err
@@ -204,7 +230,9 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 			rollback()
 			return noop, false, nil
 		}
-		acquired = append(acquired, d)
+		if !lease.IsZero() {
+			leases = append(leases, lease)
+		}
 	}
 	return rollback, true, nil
 }

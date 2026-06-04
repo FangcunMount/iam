@@ -20,6 +20,7 @@ type OTPVerifierImpl struct {
 	client    *redis.Client
 	otpCodes  *redisstore.ValueStore[string]
 	sendGates *redisstore.ValueStore[string]
+	now       func() time.Time
 }
 
 // 确保实现了接口
@@ -31,10 +32,18 @@ var (
 
 // NewOTPVerifier 创建 OTP Redis 适配器（验证、写入、发送频控共用同一实现）
 func NewOTPVerifier(client *redis.Client) *OTPVerifierImpl {
+	return newOTPVerifierWithClock(client, time.Now)
+}
+
+func newOTPVerifierWithClock(client *redis.Client, now func() time.Time) *OTPVerifierImpl {
+	if now == nil {
+		now = time.Now
+	}
 	return &OTPVerifierImpl{
 		client:    client,
 		otpCodes:  newStringStore(client),
 		sendGates: newStringStore(client),
+		now:       now,
 	}
 }
 
@@ -42,6 +51,7 @@ func NewOTPVerifier(client *redis.Client) *OTPVerifierImpl {
 func (v *OTPVerifierImpl) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
 		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendGate, v.client, "发送频控采用 SET NX EX 的 cooldown marker。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnLoginOTPSendQuota, v.client, "发送限量采用 Redis Lua 维护固定窗口计数器。"),
 	}
 }
 
@@ -101,51 +111,77 @@ func (v *OTPVerifierImpl) TryAcquire(ctx context.Context, phoneE164, scene strin
 	return ok, nil
 }
 
-// TryConsume 固定窗口计数：INCR 当前窗口计数器，首次写入时设置过期时间。
-func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (bool, error) {
+const otpQuotaTryConsumeLua = `
+local n = redis.call("INCR", KEYS[1])
+local ttl = redis.call("PTTL", KEYS[1])
+if n == 1 or ttl < 0 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+if n > tonumber(ARGV[2]) then
+  local rolled = redis.call("DECR", KEYS[1])
+  if rolled <= 0 then
+    redis.call("DEL", KEYS[1])
+  end
+  return 0
+end
+return 1
+`
+
+const otpQuotaRollbackLua = `
+local current = redis.call("GET", KEYS[1])
+if not current then
+  return 0
+end
+local n = tonumber(current)
+if not n or n <= 1 then
+  redis.call("DEL", KEYS[1])
+  return 0
+end
+redis.call("DECR", KEYS[1])
+return 1
+`
+
+// TryConsume 固定窗口计数：原子累计当前窗口计数器并确保 TTL 存在。
+func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (authentication.OTPSendQuotaLease, bool, error) {
 	if limit <= 0 || window <= 0 {
-		return true, nil
+		return authentication.OTPSendQuotaLease{}, true, nil
 	}
-	key := otpSendQuotaRedisKey(phoneE164, scene, dimension, otpQuotaBucket(window))
-	n, err := v.client.Incr(ctx, key).Result()
+	bucket := otpQuotaBucketAt(v.now(), window)
+	key := otpSendQuotaRedisKey(phoneE164, scene, dimension, bucket)
+	ttlMillis := int64(window / time.Millisecond)
+	if ttlMillis <= 0 {
+		ttlMillis = 1
+	}
+	res, err := v.client.Eval(ctx, otpQuotaTryConsumeLua, []string{key}, ttlMillis, limit).Int()
 	if err != nil {
-		return false, fmt.Errorf("otp send quota incr: %w", err)
+		return authentication.OTPSendQuotaLease{}, false, fmt.Errorf("otp send quota consume: %w", err)
 	}
-	if n == 1 {
-		if err := v.client.Expire(ctx, key, window).Err(); err != nil {
-			return false, fmt.Errorf("otp send quota expire: %w", err)
-		}
+	if res == 0 {
+		return authentication.OTPSendQuotaLease{}, false, nil
 	}
-	if n > int64(limit) {
-		// 超限拒绝时回退本次 INCR，避免“探测性请求”占用配额。
-		if _, err := v.client.Decr(ctx, key).Result(); err != nil {
-			return false, fmt.Errorf("otp send quota rollback incr: %w", err)
-		}
-		return false, nil
-	}
-	return true, nil
+	return authentication.OTPSendQuotaLease{
+		PhoneE164: phoneE164,
+		Scene:     scene,
+		Dimension: dimension,
+		Bucket:    bucket,
+		Window:    window,
+	}, true, nil
 }
 
-// Rollback 回退一次计数（发送失败时调用）；DECR 不应使计数低于 0。
-func (v *OTPVerifierImpl) Rollback(ctx context.Context, phoneE164, scene, dimension string, window time.Duration) error {
-	if window <= 0 {
+// Rollback 回退 lease 对应的一次计数（发送失败时调用）；不会产生负数或长期 0 key。
+func (v *OTPVerifierImpl) Rollback(ctx context.Context, lease authentication.OTPSendQuotaLease) error {
+	if lease.IsZero() {
 		return nil
 	}
-	key := otpSendQuotaRedisKey(phoneE164, scene, dimension, otpQuotaBucket(window))
-	n, err := v.client.Decr(ctx, key).Result()
-	if err != nil {
-		return fmt.Errorf("otp send quota decr: %w", err)
-	}
-	if n < 0 {
-		// 计数器异常（窗口已过期重建），归零并保留 TTL 由后续写入重置。
-		if err := v.client.Set(ctx, key, 0, window).Err(); err != nil {
-			return fmt.Errorf("otp send quota reset: %w", err)
-		}
-	}
-	return nil
+	key := otpSendQuotaRedisKey(lease.PhoneE164, lease.Scene, lease.Dimension, lease.Bucket)
+	return v.client.Eval(ctx, otpQuotaRollbackLua, []string{key}).Err()
 }
 
 // otpQuotaBucket 将当前时间按窗口长度对齐，作为固定窗口的桶标识。
 func otpQuotaBucket(window time.Duration) string {
-	return fmt.Sprintf("%d", time.Now().Truncate(window).Unix())
+	return otpQuotaBucketAt(time.Now(), window)
+}
+
+func otpQuotaBucketAt(now time.Time, window time.Duration) string {
+	return fmt.Sprintf("%d", now.Truncate(window).Unix())
 }

@@ -13,6 +13,7 @@ const (
 	FamilyAuthnLoginIdentitySessionIndex = cachemodel.FamilyAuthnLoginIdentitySessionIndex
 	FamilyAuthnChallenge                 = cachemodel.FamilyAuthnChallenge
 	FamilyAuthnLoginOTPSendGate          = cachemodel.FamilyAuthnLoginOTPSendGate
+	FamilyAuthnLoginOTPSendQuota         = cachemodel.FamilyAuthnLoginOTPSendQuota
 	FamilyIDPWechatAccessToken           = cachemodel.FamilyIDPWechatAccessToken
 	FamilyIDPWechatSDK                   = cachemodel.FamilyIDPWechatSDK
 	FamilyAuthnJWKSPublishSnapshot       = cachemodel.FamilyAuthnJWKSPublishSnapshot

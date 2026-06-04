@@ -24,8 +24,8 @@ func TestReadServiceOverview(t *testing.T) {
 		t.Fatalf("Overview() error = %v", err)
 	}
 
-	if len(overview.Families) != 10 {
-		t.Fatalf("family count = %d, want 10", len(overview.Families))
+	if len(overview.Families) != 11 {
+		t.Fatalf("family count = %d, want 11", len(overview.Families))
 	}
 	if len(overview.RuntimeStatuses) != 2 {
 		t.Fatalf("runtime status count = %d, want 2", len(overview.RuntimeStatuses))
@@ -57,8 +57,8 @@ func TestReadServiceDegradesWithoutInspectors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Overview() error = %v", err)
 	}
-	if len(overview.Families) != 10 {
-		t.Fatalf("family count = %d, want 10", len(overview.Families))
+	if len(overview.Families) != 11 {
+		t.Fatalf("family count = %d, want 11", len(overview.Families))
 	}
 
 	for _, view := range overview.Families {

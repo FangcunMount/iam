@@ -229,8 +229,8 @@ sms:
     # 如确需显式指定，二者必须同时提供，且严禁明文落盘，请用环境变量注入。
     access_key_id: ""
     access_key_secret: ""
-    sign_name: "请填写已审核通过的短信签名"
-    template_code: "请填写登录验证码模板 CODE"
+    sign_name: "速通互联验证码"
+    template_code: "100001"
     endpoint: dysmsapi.aliyuncs.com
     # 模板变量名，对应模板内 ${code}
     code_param_name: code

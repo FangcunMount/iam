@@ -152,7 +152,6 @@ func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiser
 			TimeoutMillis:   smsOptions.Aliyun.TimeoutMillis,
 		})
 	default:
-		log.Warnw("unknown sms.provider, fallback to log", "sms.provider", smsProvider)
-		return smsInfra.LogSender{}, nil
+		return nil, fmt.Errorf("unknown sms.provider=%q, expected one of log, mq, aliyun", smsProvider)
 	}
 }

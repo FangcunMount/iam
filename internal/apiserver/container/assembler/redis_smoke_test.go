@@ -62,6 +62,7 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 		cachemodel.FamilyAuthnLoginIdentitySessionIndex,
 		cachemodel.FamilyAuthnChallenge,
 		cachemodel.FamilyAuthnLoginOTPSendGate,
+		cachemodel.FamilyAuthnLoginOTPSendQuota,
 		cachemodel.FamilyAuthnJWKSPublishSnapshot,
 	})
 }

@@ -27,8 +27,8 @@ func TestRedisAdapterFamilyInspectors(t *testing.T) {
 	familyInspectors = append(familyInspectors, accessTokenCache.FamilyInspectors()...)
 	familyInspectors = append(familyInspectors, wechatSDKCache.FamilyInspectors()...)
 
-	if len(familyInspectors) != 6 {
-		t.Fatalf("inspector count = %d, want 6", len(familyInspectors))
+	if len(familyInspectors) != 7 {
+		t.Fatalf("inspector count = %d, want 7", len(familyInspectors))
 	}
 
 	for _, inspector := range familyInspectors {

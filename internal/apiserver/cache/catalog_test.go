@@ -4,8 +4,8 @@ import "testing"
 
 func TestFamiliesReturnsCatalogSnapshot(t *testing.T) {
 	families := Families()
-	if len(families) != 10 {
-		t.Fatalf("family count = %d, want 10", len(families))
+	if len(families) != 11 {
+		t.Fatalf("family count = %d, want 11", len(families))
 	}
 	if families[0].Family != FamilyAuthnRefreshToken {
 		t.Fatalf("first family = %s, want %s", families[0].Family, FamilyAuthnRefreshToken)
@@ -27,6 +27,14 @@ func TestFamiliesReturnsCopy(t *testing.T) {
 }
 
 func TestGetFamily(t *testing.T) {
+	quota, ok := GetFamily(FamilyAuthnLoginOTPSendQuota)
+	if !ok {
+		t.Fatalf("GetFamily(%s) ok = false, want true", FamilyAuthnLoginOTPSendQuota)
+	}
+	if quota.KeyPattern != "otp:quota:{scene}:{phoneE164}:{dimension}:{bucket}" {
+		t.Fatalf("quota KeyPattern = %q", quota.KeyPattern)
+	}
+
 	descriptor, ok := GetFamily(FamilyIDPWechatAccessToken)
 	if !ok {
 		t.Fatalf("GetFamily(%s) ok = false, want true", FamilyIDPWechatAccessToken)
