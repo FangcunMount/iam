@@ -1,6 +1,8 @@
 package method
 
 import (
+	"strings"
+
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
@@ -38,6 +40,9 @@ func (wechatScanMethod) BuildPayload(cmd LoginRequest) (Payload, error) {
 	if !ok {
 		return nil, perrors.WithCode(code.ErrPayloadInvalid, "invalid wechat scan payload")
 	}
+	payload.AppID = strings.TrimSpace(payload.AppID)
+	payload.Code = strings.TrimSpace(payload.Code)
+	payload.State = strings.TrimSpace(payload.State)
 	if payload.AppID == "" {
 		return nil, perrors.WithCode(code.ErrPayloadInvalid, "app_id is required for wechat scan authentication")
 	}

@@ -139,3 +139,23 @@ func TestWechatScanMethodRequiresOAuthState(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, code.ErrPayloadInvalid, perrors.ParseCoder(err).Code())
 }
+
+func TestWechatScanMethodTrimsPayloadFields(t *testing.T) {
+	t.Parallel()
+
+	selected, err := DefaultSelector().Select(context.Background(), LoginRequest{
+		AuthMethod: AuthMethodWechatScan,
+		Payload: WechatScanPayload{
+			AppID: " wx-open-app ",
+			Code:  " oauth-code ",
+			State: " oauth-state ",
+		},
+	})
+
+	require.NoError(t, err)
+	payload, ok := selected.Payload.(WechatScanPayload)
+	require.True(t, ok)
+	require.Equal(t, "wx-open-app", payload.AppID)
+	require.Equal(t, "oauth-code", payload.Code)
+	require.Equal(t, "oauth-state", payload.State)
+}

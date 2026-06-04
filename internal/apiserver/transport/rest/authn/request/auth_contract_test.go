@@ -49,6 +49,7 @@ func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 	loginSchema := spec.schema(t, "LoginV2Request")
 	require.ElementsMatch(t, []string{"password", "phone_otp", "wechat", "wechat_scan", "wecom"}, loginSchema.Properties["auth_method"].Enum)
 	require.Contains(t, loginSchema.Properties["method_payload"].Description, "wechat_scan")
+	require.Equal(t, "object", loginSchema.Properties["method_payload"].Type)
 
 	for _, method := range loginSchema.Properties["auth_method"].Enum {
 		req := LoginV2Request{
@@ -67,6 +68,11 @@ func TestLoginV2OpenAPIContractMatchesRequestValidation(t *testing.T) {
 	examples := spec.Paths["/authn/login"]["post"].RequestBody.Content["application/json"].Examples
 	require.Contains(t, examples, "wechat_scan")
 	require.Equal(t, "wechat_scan", examples["wechat_scan"].Value["auth_method"])
+	wechatScanPayload, ok := examples["wechat_scan"].Value["method_payload"].(map[string]any)
+	require.True(t, ok)
+	require.Contains(t, wechatScanPayload, "app_id")
+	require.Contains(t, wechatScanPayload, "code")
+	require.Contains(t, wechatScanPayload, "state")
 	require.Contains(t, examples, "wecom")
 	require.Equal(t, "wecom", examples["wecom"].Value["auth_method"])
 

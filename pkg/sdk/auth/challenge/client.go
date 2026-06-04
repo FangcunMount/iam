@@ -53,6 +53,17 @@ func (c *Client) SendLoginPhoneOTP(ctx context.Context, req SendLoginPhoneOTPReq
 	return &out, nil
 }
 
+func (c *Client) StartWechatOpenAuthorize(ctx context.Context, req WechatOpenAuthorizeRequest) (*WechatOpenAuthorizeResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	var out WechatOpenAuthorizeResponse
+	if err := c.do(ctx, http.MethodPost, "/authn/wechat-open/authorize", req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) do(ctx context.Context, method, path string, in any, out any) error {
 	if c == nil || c.rest == nil {
 		return fmt.Errorf("challenge: client is nil")

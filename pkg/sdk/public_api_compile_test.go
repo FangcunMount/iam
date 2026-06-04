@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+	authchallenge "github.com/FangcunMount/iam/v2/pkg/sdk/auth/challenge"
 	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
 	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
 	authloginidentity "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginidentity"
@@ -71,6 +72,16 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	_ = opt
 
 	var _ = authclient.NewClient
+	var _ *authchallenge.Client
+	var _ = authchallenge.NewClient
+	var _ = (*authchallenge.Client).SendLoginPhoneOTP
+	var _ = (*authchallenge.Client).StartWechatOpenAuthorize
+	var _ = authchallenge.WithHTTPClient
+	var _ = authchallenge.WithHeader
+	var _ = authchallenge.SendLoginPhoneOTPRequest{}
+	var _ = authchallenge.WechatOpenAuthorizeRequest{}
+	var _ = authchallenge.WechatOpenAuthorizeResponse{}
+	var _ = authchallenge.MessageResponse{}
 	var _ *authloginv2.Client
 	var _ = authloginv2.NewClient
 	var _ = (*authloginv2.Client).Login

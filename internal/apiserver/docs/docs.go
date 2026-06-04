@@ -3196,10 +3196,7 @@ const docTemplate = `{
                 },
                 "method_payload": {
                     "description": "凭证（wechat_scan 需要 app_id/code/state；其他方式按 auth_method 解析）",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 }
             }
         },
