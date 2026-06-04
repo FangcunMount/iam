@@ -142,6 +142,10 @@ func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiser
 		topic := strings.TrimSpace(smsOptions.MQ.Topic)
 		return smsInfra.NewMQLoginOTPSender(infra.eventBus, topic), nil
 	case "aliyun":
+		validMinutes := int(smsOptions.LoginOTPTTL.Minutes())
+		if validMinutes <= 0 {
+			validMinutes = 5
+		}
 		return smsInfra.NewAliyunSender(smsInfra.AliyunConfig{
 			AccessKeyID:     smsOptions.Aliyun.AccessKeyID,
 			AccessKeySecret: smsOptions.Aliyun.AccessKeySecret,
@@ -149,6 +153,8 @@ func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiser
 			TemplateCode:    smsOptions.Aliyun.TemplateCode,
 			Endpoint:        smsOptions.Aliyun.Endpoint,
 			CodeParamName:   smsOptions.Aliyun.CodeParamName,
+			MinParamName:    smsOptions.Aliyun.MinParamName,
+			ValidMinutes:    validMinutes,
 			TimeoutMillis:   smsOptions.Aliyun.TimeoutMillis,
 		})
 	default:

@@ -224,16 +224,18 @@ sms:
     # 仅 legacy fallback 构造器继续读取该值。
     topic: iam.notify.sms
   aliyun:
+    # 号码认证服务（Dypns）SendSmsVerifyCode；个人开发者免短信资质。
     # 推荐：留空 access_key_id/access_key_secret，走阿里云默认凭据链
     # （ENV: ALIBABA_CLOUD_ACCESS_KEY_ID/SECRET，或 RAM 角色/ECS 元数据）。
-    # 如确需显式指定，二者必须同时提供，且严禁明文落盘，请用环境变量注入。
+    # RAM 需授权 dypns:SendSmsVerifyCode。
     access_key_id: ""
     access_key_secret: ""
     sign_name: "速通互联验证码"
-    template_code: "100001"
-    endpoint: dysmsapi.aliyuncs.com
-    # 模板变量名，对应模板内 ${code}
+    template_code: 100001
+    endpoint: dypnsapi.aliyuncs.com
+    # 模板变量名，对应模板内 ${code} / ${min}
     code_param_name: code
+    min_param_name: min
     # 调用读超时（毫秒），<=0 使用默认 10000
     timeout_millis: 10000
 

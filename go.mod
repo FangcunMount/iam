@@ -4,9 +4,11 @@ go 1.25.9
 
 require (
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.2.1
-	github.com/alibabacloud-go/dysmsapi-20170525/v4 v4.1.3
+	github.com/alibabacloud-go/dypnsapi-20170525/v3 v3.0.0
 	github.com/alibabacloud-go/tea v1.5.0
+	github.com/alibabacloud-go/tea-utils/v2 v2.0.9
 	github.com/alicebob/miniredis/v2 v2.30.0
+	github.com/aliyun/credentials-go v1.4.5
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
@@ -37,11 +39,8 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
 	github.com/alibabacloud-go/debug v1.0.1 // indirect
-	github.com/alibabacloud-go/endpoint-util v1.1.0 // indirect
 	github.com/alibabacloud-go/openapi-util v0.1.1 // indirect
-	github.com/alibabacloud-go/tea-utils/v2 v2.0.9 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
-	github.com/aliyun/credentials-go v1.4.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20220106215444-fb4bf637b56d // indirect

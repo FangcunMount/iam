@@ -91,7 +91,7 @@ type SMSMQOptions struct {
 	Topic string `json:"topic" mapstructure:"topic"`
 }
 
-// SMSAliyunOptions configures Aliyun Dysmsapi direct delivery.
+// SMSAliyunOptions configures Aliyun Dypns (号码认证) SendSmsVerifyCode delivery.
 // AccessKeyID/AccessKeySecret 应通过环境变量注入，禁止明文写入配置文件。
 type SMSAliyunOptions struct {
 	// AccessKeyID/AccessKeySecret 留空时走阿里云默认凭据链（环境变量/RAM 角色等）。
@@ -101,6 +101,7 @@ type SMSAliyunOptions struct {
 	TemplateCode    string `json:"template_code" mapstructure:"template_code"`
 	Endpoint        string `json:"endpoint" mapstructure:"endpoint"`
 	CodeParamName   string `json:"code_param_name" mapstructure:"code_param_name"`
+	MinParamName    string `json:"min_param_name" mapstructure:"min_param_name"`
 	TimeoutMillis   int    `json:"timeout_millis" mapstructure:"timeout_millis"`
 }
 
@@ -116,8 +117,9 @@ func NewSMSOptions() *SMSOptions {
 			Topic: "iam.notify.sms",
 		},
 		Aliyun: SMSAliyunOptions{
-			Endpoint:      "dysmsapi.aliyuncs.com",
+			Endpoint:      "dypnsapi.aliyuncs.com",
 			CodeParamName: "code",
+			MinParamName:  "min",
 		},
 	}
 }

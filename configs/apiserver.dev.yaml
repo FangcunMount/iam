@@ -211,14 +211,16 @@ sms:
     # 仅 legacy fallback 构造器继续读取该值。
     topic: iam.notify.sms
   aliyun:
+    # 号码认证服务（Dypns）SendSmsVerifyCode；个人开发者免短信资质。
     # 推荐：留空 access_key_id/access_key_secret，走阿里云默认凭据链
     # （ENV: ALIBABA_CLOUD_ACCESS_KEY_ID/SECRET，或 RAM 角色/ECS 元数据）。
     access_key_id: ""
     access_key_secret: ""
     sign_name: ""
     template_code: ""
-    endpoint: dysmsapi.aliyuncs.com
+    endpoint: dypnsapi.aliyuncs.com
     code_param_name: code
+    min_param_name: min
     timeout_millis: 10000
 
 # ----------------------------------------------------------------------------
