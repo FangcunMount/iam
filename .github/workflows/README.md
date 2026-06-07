@@ -28,12 +28,13 @@ ci.yml
   -> build
 
 cd.yml
-  -> make cd-image
-  -> make cd-package
-  -> remote scripts/cd/remote-deploy.sh
+  -> make cd-image（GHCR + Docker Hub + 阿里云 ACR）
+  -> deploy on ServerD（QS_DEPLOY_RUNNER=serverd）
+       -> ACR pull + save tarball
+       -> SCP -> serverB docker load + compose up
 ```
 
-GitHub Actions 只负责传递 GitHub secrets、checkout、镜像仓库登录、SSH/SCP 编排；镜像构建、Docker Hub 同步、部署包生成、远端部署步骤都落在仓库脚本和 `Makefile` 目标中。
+与 `qs-server` 共用组织级 ServerD runner、ACR Secrets 和 `QS_DEPLOY_*` Variables；不再使用 `appleboy/ssh-action`。
 
 脚本入口：
 
@@ -42,17 +43,24 @@ GitHub Actions 只负责传递 GitHub secrets、checkout、镜像仓库登录、
 | `scripts/cd/image-metadata.sh` | 统一 `SERVICE=apiserver` 的镜像名、compose service、包名和健康检查元数据 |
 | `scripts/cd/build-image.sh` | 使用 buildx 构建并推送 GHCR 镜像，带 `latest` 和提交 SHA tag |
 | `scripts/cd/push-dockerhub.sh` | 将 GHCR 镜像同步到 Docker Hub |
+| `scripts/cd/push-acr.sh` | 将 GHCR 镜像同步到阿里云 ACR |
+| `scripts/cd/export-image.sh` | ServerD 从 ACR pull 并导出 tarball |
+| `scripts/cd/setup-runner-*.sh` | ServerD 代理 + 到 serverB 的 SSH |
+| `scripts/cd/runner-upload-and-deploy.sh` | SCP 部署包与镜像 tarball 到 serverB |
 | `scripts/cd/prepare-package.sh` | 生成 `deploy-package-apiserver.tar.gz` 和生产 `config.prod.env` |
-| `scripts/cd/remote-deploy.sh` | 在 serverB 解包、同步配置、登录镜像仓库、`docker compose up` 并健康检查 |
+| `scripts/cd/remote-deploy.sh` | 在 serverB 解包、`docker load`、compose up 并健康检查 |
 
 对应 `Makefile` 入口：
 
 ```bash
 make cd-validate SERVICE=apiserver
 make cd-image SERVICE=apiserver DEPLOY_SHA=<sha> DEPLOY_REF=<ref>
+make cd-export-image SERVICE=apiserver DEPLOY_SHA=<sha>
 make cd-package SERVICE=apiserver
 make cd-remote-deploy SERVICE=apiserver IMAGE_TAG=<sha>
 ```
+
+组织 Secrets（与 qs-server 共用）：`ALIYUN_ACR_*`、`QS_DEPLOY_RUNNER`（Variable）、`IAM_SERVER_DEPLOY_KEY`（iam 仓库 Deploy Key 私钥）。
 
 ## 当前生产架构假设
 

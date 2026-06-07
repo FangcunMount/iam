@@ -1,23 +1,15 @@
 name: Production Deploy
 
-# 必需/可选 Secrets 说明：
-# 必需（部署 main 分支或手动部署时强制校验）：
-#   SVRB_HOST (serverB: iam-apiserver)
-#   SVRA_USERNAME, SVRA_SSH_KEY（默认复用到 serverB）
-#   MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DBNAME
-#   REDIS_HOST
-#   IPD_ENCRYPTION_KEY
+# 组织 Secrets（与 qs-server 共用）:
+#   SVRB_HOST, SVRB_USERNAME, SVRB_SSH_KEY, SVRB_SSH_PORT, SVRB_SUDO_PASSWORD
+#   SVRA_* 可选 fallback
+#   ALIYUN_ACR_REGISTRY, ALIYUN_ACR_NAMESPACE, ALIYUN_ACR_USERNAME, ALIYUN_ACR_PASSWORD
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
-#   WWW_UID, WWW_GID
-# 可选（缺失时使用默认或跳过）：
-#   SVRB_USERNAME/SVRB_SSH_KEY/SVRB_SSH_PORT 可选，缺省复用 SVRA_*
-#   SVRB_SUDO_PASSWORD 可选，缺省复用 SVRA_SUDO_PASSWORD
-#   SVRA_SSH_PORT, SVRA_SUDO_PASSWORD
-#   MYSQL_PORT
-#   REDIS_PORT, REDIS_DB, REDIS_USERNAME, REDIS_PASSWORD, REDIS_USE_SSL, REDIS_SSL_INSECURE_SKIP_VERIFY
-#   NSQ_LOOKUPD_HOST, NSQ_LOOKUPD_PORT, NSQ_NSQD_HOST, NSQ_NSQD_PORT
-#   SMS_ALIYUN_ACCESS_KEY_ID, SMS_ALIYUN_ACCESS_KEY_SECRET
-# 注意：JWT 签名使用 JWKS (RS256) 非对称密钥，密钥在运行时自动生成并持久化到 /app/data/keys。
+#   IAM_SERVER_DEPLOY_KEY（iam 仓库 Deploy Key 私钥，SSH checkout）
+# 组织 Variables:
+#   QS_DEPLOY_RUNNER=serverd
+#   QS_DEPLOY_EXPORT_REGISTRY=acr
+#   QS_DEPLOY_HTTP_PROXY, QS_DEPLOY_NO_PROXY
 
 on:
   workflow_run:
@@ -41,6 +33,11 @@ env:
   DEPLOY_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
   DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
   BUILD_TIME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.updated_at || github.event.repository.updated_at }}
+  DEPLOY_EXPORT_REGISTRY: ${{ vars.QS_DEPLOY_EXPORT_REGISTRY || 'acr' }}
+  SELF_HOSTED_HTTP_PROXY: ${{ vars.QS_DEPLOY_HTTP_PROXY || 'http://127.0.0.1:7890' }}
+  SELF_HOSTED_HTTPS_PROXY: ${{ vars.QS_DEPLOY_HTTPS_PROXY || vars.QS_DEPLOY_HTTP_PROXY || 'http://127.0.0.1:7890' }}
+  SELF_HOSTED_ALL_PROXY: ${{ vars.QS_DEPLOY_ALL_PROXY || 'socks5://127.0.0.1:7891' }}
+  SELF_HOSTED_NO_PROXY: ${{ vars.QS_DEPLOY_NO_PROXY || '127.0.0.1,localhost,100.64.0.0/10,.aliyuncs.com,.personal.cr.aliyuncs.com' }}
 
 jobs:
   docker:
@@ -57,6 +54,8 @@ jobs:
       WWW_UID: ${{ secrets.WWW_UID }}
       WWW_GID: ${{ secrets.WWW_GID }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+      ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
     permissions:
       contents: read
       packages: write
@@ -82,6 +81,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          username: ${{ secrets.ALIYUN_ACR_USERNAME }}
+          password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+
       - name: Build and publish image
         run: |
           make cd-image \
@@ -93,7 +99,7 @@ jobs:
   deploy:
     name: Deploy to Production
     needs: [docker]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.QS_DEPLOY_RUNNER || 'ubuntu-latest' }}
     environment:
       name: production
       url: https://iam.fangcunmount.cn
@@ -105,12 +111,52 @@ jobs:
       WWW_GID: ${{ secrets.WWW_GID }}
     permissions:
       contents: read
-      packages: read
     steps:
-      - name: Checkout
+      - name: Configure runner network (proxy + GitHub SSH)
+        if: vars.QS_DEPLOY_RUNNER != ''
+        env:
+          HTTP_PROXY: ${{ env.SELF_HOSTED_HTTP_PROXY }}
+          HTTPS_PROXY: ${{ env.SELF_HOSTED_HTTPS_PROXY }}
+          ALL_PROXY: ${{ env.SELF_HOSTED_ALL_PROXY }}
+          NO_PROXY: ${{ env.SELF_HOSTED_NO_PROXY }}
+          DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
+        run: |
+          script_ref="${NETWORK_SCRIPT_REF:-${DEPLOY_SHA:-main}}"
+          curl -fsSL --proxy "${HTTP_PROXY}" \
+            "https://raw.githubusercontent.com/FangcunMount/iam/${script_ref}/scripts/cd/setup-runner-network.sh" \
+            | bash
+
+      - name: Checkout (self-hosted SSH)
+        if: vars.QS_DEPLOY_RUNNER != ''
         uses: actions/checkout@v6
         with:
           ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 1
+          ssh-key: ${{ secrets.IAM_SERVER_DEPLOY_KEY }}
+
+      - name: Checkout (GitHub-hosted HTTPS)
+        if: vars.QS_DEPLOY_RUNNER == ''
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 1
+
+      - name: Login to Aliyun ACR
+        if: env.DEPLOY_EXPORT_REGISTRY == 'acr'
+        env:
+          ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ALIYUN_ACR_USERNAME: ${{ secrets.ALIYUN_ACR_USERNAME }}
+          ALIYUN_ACR_PASSWORD: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+        run: echo "$ALIYUN_ACR_PASSWORD" | docker login "$ALIYUN_ACR_REGISTRY" -u "$ALIYUN_ACR_USERNAME" --password-stdin
+
+      - name: Export deployment image tarball
+        if: env.DEPLOY_EXPORT_REGISTRY == 'acr'
+        env:
+          DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
+          EXPORT_IMAGE_REGISTRY: acr
+          ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
+        run: make cd-export-image SERVICE="${SERVICE}"
 
       - name: Prepare deployment package
         env:
@@ -136,22 +182,23 @@ jobs:
         run: |
           make cd-package SERVICE="${SERVICE}"
 
-      - name: Upload deployment package
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.SVRB_HOST }}
-          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
-          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
-          source: "deploy-package-apiserver.tar.gz"
-          target: "/tmp"
-
-      - name: Deploy to Production Server
-        uses: appleboy/ssh-action@v1.2.5
+      - name: Setup deploy SSH
         env:
+          RUNNER_SSH_KEY: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          RUNNER_SSH_HOST: ${{ secrets.SVRB_HOST }}
+          RUNNER_SSH_USER: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          RUNNER_SSH_PORT: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          RUNNER_SSH_ALIAS: deploy-target
+        run: bash scripts/cd/setup-runner-ssh.sh
+
+      - name: Upload and deploy
+        env:
+          RUNNER_SSH_ALIAS: deploy-target
           SERVICE: ${{ env.SERVICE }}
           DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
           DOCKER_REPOSITORY: ${{ env.DOCKER_REPOSITORY }}
+          ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
+          ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
           GHCR_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -160,20 +207,8 @@ jobs:
           WWW_UID: ${{ env.WWW_UID }}
           WWW_GID: ${{ env.WWW_GID }}
           IMAGE_TAG: ${{ env.DEPLOY_SHA }}
-        with:
-          host: ${{ secrets.SVRB_HOST }}
-          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
-          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
-          command_timeout: 30m
-          envs: SERVICE,DOCKER_REGISTRY,DOCKER_REPOSITORY,GHCR_USERNAME,GITHUB_TOKEN,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,SUDO_PASSWORD,WWW_UID,WWW_GID,IMAGE_TAG
-          script: |
-            set -Eeuo pipefail
-            BOOTSTRAP_TMP="/tmp/iam-deploy-bootstrap-${SERVICE}-$$"
-            mkdir -p "$BOOTSTRAP_TMP"
-            trap 'rm -rf "$BOOTSTRAP_TMP"' EXIT
-            tar -xzf "/tmp/deploy-package-apiserver.tar.gz" -C "$BOOTSTRAP_TMP"
-            bash "$BOOTSTRAP_TMP/scripts/cd/remote-deploy.sh"
+          DEPLOY_IMAGE_SOURCE: tarball
+        run: bash scripts/cd/runner-upload-and-deploy.sh
 
   notify:
     name: Deployment Summary

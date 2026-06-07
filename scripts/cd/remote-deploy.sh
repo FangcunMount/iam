@@ -175,13 +175,55 @@ setup_grpc_certs() {
   echo "gRPC certs found under $grpc_dir"
 }
 
+image_tarball_path() {
+  printf '%s' "${IMAGE_TARBALL:-/tmp/deploy-image-${PACKAGE_SUFFIX}.tar.gz}"
+}
+
+load_image_from_tarball() {
+  local tarball
+  tarball="$(image_tarball_path)"
+  if [ ! -f "$tarball" ]; then
+    return 1
+  fi
+
+  echo "Loading ${IMAGE_NAME} from tarball ${tarball}..."
+  local load_started load_elapsed
+  load_started=$(date +%s)
+  gzip -dc "$tarball" | $SUDO docker load
+  load_elapsed=$(($(date +%s) - load_started))
+  echo "Loaded ${IMAGE_NAME} from tarball in ${load_elapsed}s"
+  rm -f "$tarball"
+  IMAGE_LOADED_FROM_TARBALL=1
+  export IMAGE_LOADED_FROM_TARBALL
+  return 0
+}
+
+write_compose_env() {
+  local compose_registry="$1"
+  local compose_image_name="$2"
+  local compose_env_file="/opt/iam/.env"
+  local local_compose_env
+
+  local_compose_env="$(mktemp)"
+  cat > "$local_compose_env" <<EOF
+DOCKER_REGISTRY=${compose_registry}
+IMAGE_NAME=${compose_image_name}
+IMAGE_TAG=${IMAGE_TAG}
+WWW_UID=${APP_UID}
+WWW_GID=${APP_GID}
+EOF
+  $SUDO rsync -a "$local_compose_env" "$compose_env_file"
+  rm -f "$local_compose_env"
+  $SUDO chmod 0640 "$compose_env_file"
+  $SUDO chown "$APP_UID:$APP_GID" "$compose_env_file"
+  COMPOSE_ENV_FILE="$compose_env_file"
+  export COMPOSE_ENV_FILE
+}
+
 select_image_and_write_compose_env() {
   local ghcr_login_ok=0
   local compose_registry="$DOCKER_REGISTRY"
   local compose_image_name="${DOCKER_REPOSITORY}/${IMAGE_NAME}"
-  local compose_env_file="/opt/iam/.env"
-  local local_compose_env
-
   echo "Checking registry login for ${DOCKER_REPOSITORY}/${IMAGE_NAME}"
   if [ -n "${GITHUB_TOKEN:-}" ]; then
     docker_login_with_token "$GHCR_USERNAME" "$GITHUB_TOKEN" "$DOCKER_REGISTRY" && ghcr_login_ok=1 || ghcr_login_ok=0
@@ -203,20 +245,43 @@ select_image_and_write_compose_env() {
     fi
   fi
 
-  local_compose_env="$(mktemp)"
-  cat > "$local_compose_env" <<EOF
-DOCKER_REGISTRY=${compose_registry}
-IMAGE_NAME=${compose_image_name}
-IMAGE_TAG=${IMAGE_TAG}
-WWW_UID=${APP_UID}
-WWW_GID=${APP_GID}
-EOF
-  $SUDO rsync -a "$local_compose_env" "$compose_env_file"
-  rm -f "$local_compose_env"
-  $SUDO chmod 0640 "$compose_env_file"
-  $SUDO chown "$APP_UID:$APP_GID" "$compose_env_file"
-  COMPOSE_ENV_FILE="$compose_env_file"
-  export COMPOSE_ENV_FILE
+  write_compose_env "$compose_registry" "$compose_image_name"
+}
+
+resolve_image_source() {
+  local source="${DEPLOY_IMAGE_SOURCE:-auto}"
+
+  case "$source" in
+    tarball)
+      if ! load_image_from_tarball; then
+        echo "DEPLOY_IMAGE_SOURCE=tarball but tarball not found: $(image_tarball_path)" >&2
+        exit 1
+      fi
+      if [ -n "${ALIYUN_ACR_REGISTRY:-}" ] && [ -n "${ALIYUN_ACR_NAMESPACE:-}" ]; then
+        write_compose_env "$ALIYUN_ACR_REGISTRY" "${ALIYUN_ACR_NAMESPACE}/${IMAGE_NAME}"
+      else
+        write_compose_env "$DOCKER_REGISTRY" "${DOCKER_REPOSITORY}/${IMAGE_NAME}"
+      fi
+      ;;
+    auto)
+      if load_image_from_tarball; then
+        if [ -n "${ALIYUN_ACR_REGISTRY:-}" ] && [ -n "${ALIYUN_ACR_NAMESPACE:-}" ]; then
+          write_compose_env "$ALIYUN_ACR_REGISTRY" "${ALIYUN_ACR_NAMESPACE}/${IMAGE_NAME}"
+        else
+          write_compose_env "$DOCKER_REGISTRY" "${DOCKER_REPOSITORY}/${IMAGE_NAME}"
+        fi
+        return 0
+      fi
+      select_image_and_write_compose_env
+      ;;
+    registry)
+      select_image_and_write_compose_env
+      ;;
+    *)
+      echo "DEPLOY_IMAGE_SOURCE must be auto, tarball, or registry; got: ${source}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 docker_compose_pull_supports_quiet() {
@@ -241,15 +306,19 @@ deploy_service() {
     exit 1
   fi
 
-  echo "Pulling ${COMPOSE_SERVICE} image tag ${IMAGE_TAG}..."
-  pull_started=$(date +%s)
-  if docker_compose_pull_supports_quiet; then
-    docker_compose -f "$compose_file" pull --quiet "$COMPOSE_SERVICE"
+  if [ "${IMAGE_LOADED_FROM_TARBALL:-0}" = "1" ]; then
+    echo "Image already loaded from tarball; skipping registry pull for ${COMPOSE_SERVICE}"
   else
-    docker_compose -f "$compose_file" pull "$COMPOSE_SERVICE"
+    echo "Pulling ${COMPOSE_SERVICE} image tag ${IMAGE_TAG}..."
+    pull_started=$(date +%s)
+    if docker_compose_pull_supports_quiet; then
+      docker_compose -f "$compose_file" pull --quiet "$COMPOSE_SERVICE"
+    else
+      docker_compose -f "$compose_file" pull "$COMPOSE_SERVICE"
+    fi
+    pull_elapsed=$(($(date +%s) - pull_started))
+    echo "Pulled ${COMPOSE_SERVICE} image in ${pull_elapsed}s"
   fi
-  pull_elapsed=$(($(date +%s) - pull_started))
-  echo "Pulled ${COMPOSE_SERVICE} image in ${pull_elapsed}s"
 
   docker_compose -f "$compose_file" up -d --force-recreate --remove-orphans "$COMPOSE_SERVICE"
 }
@@ -310,7 +379,7 @@ extract_package
 sync_package
 ensure_network
 setup_grpc_certs
-select_image_and_write_compose_env
+resolve_image_source
 deploy_service
 verify_service
 cleanup_old_backups

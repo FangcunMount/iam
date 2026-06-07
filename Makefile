@@ -92,7 +92,7 @@ COLOR_RED := \033[31m
 .PHONY: docker-dev-up docker-dev-down docker-dev-restart docker-dev-logs docker-dev-clean
 .PHONY: docker-compose-build docker-compose-up docker-compose-down docker-compose-restart docker-compose-logs
 .PHONY: deploy deploy-local deploy-prod deploy-nginx deploy-systemd
-.PHONY: cd-validate cd-image cd-package cd-remote-deploy
+.PHONY: cd-validate cd-export-image cd-image cd-package cd-remote-deploy
 
 # ============================================================================
 # 帮助信息
@@ -551,13 +551,22 @@ cd-validate: ## 校验 CD 服务元数据和脚本入口 (SERVICE=apiserver)
 	@SERVICE="$(SERVICE)" IMAGE_METADATA_PRINT=1 "$(CD_SCRIPT_DIR)/image-metadata.sh" >/dev/null
 	@test -x "$(CD_SCRIPT_DIR)/build-image.sh"
 	@test -x "$(CD_SCRIPT_DIR)/push-dockerhub.sh"
+	@test -x "$(CD_SCRIPT_DIR)/push-acr.sh"
+	@test -x "$(CD_SCRIPT_DIR)/export-image.sh"
+	@test -x "$(CD_SCRIPT_DIR)/setup-runner-network.sh"
+	@test -x "$(CD_SCRIPT_DIR)/setup-runner-ssh.sh"
+	@test -x "$(CD_SCRIPT_DIR)/runner-upload-and-deploy.sh"
 	@test -x "$(CD_SCRIPT_DIR)/prepare-package.sh"
 	@test -x "$(CD_SCRIPT_DIR)/remote-deploy.sh"
 	@echo "$(COLOR_GREEN)✅ CD metadata validated for SERVICE=$(SERVICE)$(COLOR_RESET)"
 
-cd-image: cd-validate ## 构建并发布 IAM 镜像到 GHCR 和 Docker Hub
+cd-export-image: cd-validate ## 拉取并导出镜像 tarball（供 SCP 到 serverB docker load）
+	@SERVICE="$(SERVICE)" DEPLOY_SHA="$(DEPLOY_SHA)" "$(CD_SCRIPT_DIR)/export-image.sh"
+
+cd-image: cd-validate ## 构建并发布 IAM 镜像到 GHCR、Docker Hub 和阿里云 ACR
 	@SERVICE="$(SERVICE)" DOCKER_REGISTRY="$(DOCKER_REGISTRY)" DOCKER_REPOSITORY="$(DOCKER_REPOSITORY)" DEPLOY_REF="$(DEPLOY_REF)" DEPLOY_SHA="$(DEPLOY_SHA)" BUILD_TIME="$(BUILD_TIME)" BUILD_CACHE_REF="$(BUILD_CACHE_REF)" WWW_UID="$(WWW_UID)" WWW_GID="$(WWW_GID)" "$(CD_SCRIPT_DIR)/build-image.sh"
 	@SERVICE="$(SERVICE)" DOCKER_REGISTRY="$(DOCKER_REGISTRY)" DOCKER_REPOSITORY="$(DOCKER_REPOSITORY)" DOCKERHUB_USERNAME="$(DOCKERHUB_USERNAME)" DEPLOY_SHA="$(DEPLOY_SHA)" "$(CD_SCRIPT_DIR)/push-dockerhub.sh"
+	@SERVICE="$(SERVICE)" DEPLOY_SHA="$(DEPLOY_SHA)" "$(CD_SCRIPT_DIR)/push-acr.sh"
 
 cd-package: cd-validate ## 生成 IAM 生产部署包
 	@SERVICE="$(SERVICE)" "$(CD_SCRIPT_DIR)/prepare-package.sh"
