@@ -25,7 +25,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - GO_ENV=production
-      - GOMEMLIMIT=384MiB
+      - GOMEMLIMIT=768MiB
       - GOGC=75
     # serverB runs in Aliyun; use Aliyun VPC DNS first so cloud RDS/Redis
     # hostnames resolve reliably from containers attached to overlay networks.
@@ -37,16 +37,16 @@ services:
     networks:
       - infra-network
     # docker compose (非 swarm) 资源限制
-    mem_limit: 512M
-    cpus: "0.5"
+    mem_limit: 1G
+    cpus: "1"
     deploy:
       resources:
         limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
           cpus: "0.5"
           memory: 512M
-        reservations:
-          cpus: "0.3"
-          memory: 384M
       placement:
         constraints:
           - node.hostname == serverB

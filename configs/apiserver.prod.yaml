@@ -139,9 +139,9 @@ mysql:
   username: "iam"
   password: "iam_pass123"
   database: "iam"
-  max-idle-conns: 10
-  max-open-conns: 60
-  conn-max-lifetime: 3600  # 秒
+  max-idle-connections: 20
+  max-open-connections: 80
+  max-connection-life-time: 1h
   log-level: 4 # GORM log level, 1: silent, 2:error, 3:warn, 4:info (生产环境使用 silent)
 
 # ----------------------------------------------------------------------------
@@ -162,9 +162,9 @@ redis:
     username: ""  # Redis 6.0+ ACL 用户名，留空表示使用 default 用户
     password: ""
     database: 0  # 缓存使用 DB 0
-    max-idle: 20
-    max-active: 160
-    min-idle-conns: 5
+    max-idle: 40
+    max-active: 256
+    min-idle-conns: 10
     timeout: 10
     pool-timeout: 10
     dial-timeout: 5
@@ -315,5 +315,5 @@ log:
 events:
   catalog_path: /app/configs/events.yaml
   outbox_relay_interval: 2s
-  outbox_relay_batch_size: 50
+  outbox_relay_batch_size: 100
   outbox_relay_retry_delay: 10s
