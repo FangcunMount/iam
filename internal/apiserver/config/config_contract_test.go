@@ -77,6 +77,12 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "grpc acl enabled", opts.GRPCOptions.ACL.Enabled, true)
 				assertEqual(t, "grpc acl config file", opts.GRPCOptions.ACL.ConfigFile, "/app/configs/grpc_acl.yaml")
 				assertEqual(t, "mysql database", opts.MySQLOptions.Database, "iam")
+				assertEqual(t, "mysql max open connections", opts.MySQLOptions.MaxOpenConnections, 80)
+				assertEqual(t, "mysql max idle connections", opts.MySQLOptions.MaxIdleConnections, 20)
+				assertEqual(t, "mysql connection lifetime", opts.MySQLOptions.MaxConnectionLifeTime, time.Hour)
+				assertEqual(t, "redis cache max active", opts.RedisOptions.Cache.MaxActive, 256)
+				assertEqual(t, "redis cache max idle", opts.RedisOptions.Cache.MaxIdle, 40)
+				assertEqual(t, "redis cache min idle conns", opts.RedisOptions.Cache.MinIdleConns, 10)
 				assertEqual(t, "redis cache logging", opts.RedisOptions.Cache.EnableLogging, false)
 				assertEqual(t, "migration database", opts.MigrationOptions.Database, "iam")
 				assertEqual(t, "app mode", opts.App.Mode, "production")
@@ -104,7 +110,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "seed mock secret", opts.SeedMockAuth.SharedSecret, "N&#$Xds8sz72s0!8wkzsdcbWCnfJ6S5")
 				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "/app/configs/events.yaml")
 				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
-				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 50)
+				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 100)
 				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
 			},
 		},
