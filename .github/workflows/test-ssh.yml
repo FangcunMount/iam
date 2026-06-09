@@ -1,9 +1,10 @@
 name: Production SSH Diagnostics
 
 # Manual diagnostic workflow for the production host.
-# Uses SVRB first and falls back to SVRA while secrets are being migrated.
-# Required Secrets: SVRB_HOST, SVRA_USERNAME, SVRA_SSH_KEY
-# Optional Secrets: SVRB_USERNAME, SVRB_SSH_KEY, SVRB_SSH_PORT, SVRA_SSH_PORT
+# Uses SVRB first and falls back to SVRA.
+# Required Variables: SVRB_HOST (or SVRA_HOST), SVRB_USERNAME or SVRA_USERNAME
+# Required Secrets: SVRB_SSH_KEY or SVRA_SSH_KEY
+# Optional Variables: SVRB_SSH_PORT, SVRA_SSH_PORT
 
 on:
   workflow_dispatch:
@@ -28,10 +29,10 @@ jobs:
       - name: Test SSH Connection
         uses: appleboy/ssh-action@v1.2.5
         with:
-          host: ${{ secrets.SVRB_HOST || secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           script: |
             set -euo pipefail
 

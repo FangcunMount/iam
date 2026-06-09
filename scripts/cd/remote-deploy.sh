@@ -391,11 +391,24 @@ cleanup_old_backups() {
   fi
 }
 
+assert_deploy_hostname() {
+  local expected="${DEPLOY_NODE_HOSTNAME:-serverB}"
+  local actual
+  actual="$(hostname -s 2>/dev/null || hostname)"
+  echo "Deploy target hostname: ${actual} (expected: ${expected})"
+  if [ "$actual" != "$expected" ]; then
+    echo "Refusing deploy on ${actual}; IAM production must run on ${expected}." >&2
+    echo "Check organization variable SVRB_HOST points to serverB, not serverA." >&2
+    exit 1
+  fi
+}
+
 echo "=========================================="
 echo "Deploying ${CONTAINER_NAME}"
 echo "Image tag: ${IMAGE_TAG}"
 echo "=========================================="
 
+assert_deploy_hostname
 prepare_dirs_and_backup
 extract_package
 sync_package

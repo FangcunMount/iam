@@ -172,19 +172,24 @@ go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -c
 
 已废弃。旧 workflow 曾每 6 小时运行一次快速 ping，但它与 `server-check.yml` 重复，并且旧逻辑依赖宿主机端口探测。当前文件保留为手动提示，避免继续定时误报。
 
-## Secrets
+## Variables 与 Secrets
 
-生产部署和运维推荐配置：
+生产 SSH 目标的主机/账号/端口使用组织 **Variables**；私钥与 sudo 密码使用 **Secrets**。
+
+| Variable | 必需性 | 用途 |
+| --- | --- | --- |
+| `SVRB_HOST` | 部署必需 | serverB 主机地址（如 `100.91.31.24`） |
+| `SVRB_USERNAME` | 推荐 | serverB SSH 用户；缺省用 `SVRA_USERNAME` |
+| `SVRB_SSH_PORT` | 可选 | serverB SSH 端口；缺省用 `SVRA_SSH_PORT` 或 22 |
+| `SVRA_HOST` | 可选 | fallback 主机地址 |
+| `SVRA_USERNAME` | 推荐 | fallback SSH 用户 |
+| `SVRA_SSH_PORT` | 可选 | fallback SSH 端口 |
 
 | Secret | 必需性 | 用途 |
 | --- | --- | --- |
-| `SVRB_HOST` | 部署必需 | serverB 主机地址 |
-| `SVRB_USERNAME` | 可选 | serverB SSH 用户；缺省用 `SVRA_USERNAME` |
-| `SVRB_SSH_KEY` | 可选 | serverB SSH 私钥；缺省用 `SVRA_SSH_KEY` |
-| `SVRB_SSH_PORT` | 可选 | serverB SSH 端口；缺省用 `SVRA_SSH_PORT` 或 22 |
+| `SVRB_SSH_KEY` | 推荐 | serverB SSH 私钥；缺省用 `SVRA_SSH_KEY` |
 | `SVRB_SUDO_PASSWORD` | 可选 | serverB sudo 密码；缺省用 `SVRA_SUDO_PASSWORD` |
-| `SVRA_USERNAME` | 必需 | fallback SSH 用户 |
-| `SVRA_SSH_KEY` | 必需 | fallback SSH 私钥 |
+| `SVRA_SSH_KEY` | 推荐 | fallback SSH 私钥 |
 | `MYSQL_HOST` | 必需 | MySQL 主机 |
 | `MYSQL_PORT` | 可选 | MySQL 端口，默认 3306 |
 | `MYSQL_USERNAME` | 必需 | MySQL 用户 |
@@ -255,7 +260,7 @@ Actions -> Production SSH Diagnostics -> Run workflow
 ## 维护原则
 
 - 新 workflow 应优先读取 `go.mod`，不要硬编码 Go 版本。
-- 生产 SSH 目标使用 `SVRB_*` 优先，`SVRA_*` 只作为迁移期 fallback。
+- 生产 SSH 主机/账号/端口使用组织 Variables（`SVRB_*` 优先，`SVRA_*` fallback）；私钥与 sudo 密码仍用 Secrets。
 - GitHub secrets 只在 workflow 中解引用；脚本通过普通环境变量接收。
 - CI/CD 运行步骤应优先放入 `scripts/cd` 和 `Makefile cd-*`，避免在 YAML 里堆叠长脚本。
 - 健康检查应贴合 compose 真实网络模型：容器内探测 `9080`，不要恢复宿主机 `8080/9444` 探测。

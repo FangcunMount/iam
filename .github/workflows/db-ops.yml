@@ -1,10 +1,10 @@
 name: Database Operations
 
-# Production target uses serverB (SVRB) first. SVRA values remain as a fallback
-# while repository/org secrets are being migrated.
-# Required Secrets: SVRB_HOST, SVRA_USERNAME, SVRA_SSH_KEY
+# Production target uses serverB (SVRB) first. SVRA variables remain as fallback.
+# Required Variables: SVRB_HOST (or SVRA_HOST), SVRB_USERNAME or SVRA_USERNAME
+# Required Secrets: SVRB_SSH_KEY or SVRA_SSH_KEY
 # Required Secrets: MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DBNAME
-# Optional Secrets: SVRB_USERNAME, SVRB_SSH_KEY, SVRB_SSH_PORT, SVRA_SSH_PORT, MYSQL_PORT
+# Optional Variables: SVRB_SSH_PORT, SVRA_SSH_PORT; Optional Secrets: MYSQL_PORT
 
 on:
   workflow_dispatch:
@@ -44,10 +44,10 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
         with:
-          host: ${{ secrets.SVRB_HOST || secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           envs: MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script: |
             set -euo pipefail
@@ -126,10 +126,10 @@ jobs:
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
           BACKUP_FILE_INPUT: ${{ github.event.inputs.backup_name }}
         with:
-          host: ${{ secrets.SVRB_HOST || secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           envs: MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME,BACKUP_FILE_INPUT
           script: |
             set -euo pipefail
@@ -204,10 +204,10 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
         with:
-          host: ${{ secrets.SVRB_HOST || secrets.SVRA_HOST }}
-          username: ${{ secrets.SVRB_USERNAME || secrets.SVRA_USERNAME }}
+          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ secrets.SVRB_SSH_PORT || secrets.SVRA_SSH_PORT || 22 }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           envs: MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script: |
             set -euo pipefail

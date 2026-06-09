@@ -43,6 +43,7 @@ emit_export() {
 } >"$LOCAL_BOOT"
 
 emit_export SERVICE              "$SERVICE"
+emit_export DEPLOY_NODE_HOSTNAME "${DEPLOY_NODE_HOSTNAME:-serverB}"
 emit_export IMAGE_TAG            "$IMAGE_TAG"
 emit_export DEPLOY_IMAGE_SOURCE  "${DEPLOY_IMAGE_SOURCE:-tarball}"
 emit_export IMAGE_TARBALL        "$REMOTE_IMAGE"
