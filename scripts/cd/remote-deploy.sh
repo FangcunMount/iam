@@ -207,6 +207,15 @@ write_compose_env() {
   local compose_env_file="/opt/iam/.env"
   local local_compose_env
 
+  # docker compose 插值时 shell 环境变量优先级高于 --env-file。bootstrap 已 export
+  # DOCKER_REGISTRY=ghcr.io，image-metadata.sh 已 export IMAGE_NAME=iam，若不覆盖，
+  # compose 会用这些旧值拼出 ghcr.io/iam:tag（丢掉 repository/namespace 且指向错误
+  # registry），导致 tarball 加载的镜像对不上 "No such image"。这里把解析后的值同步
+  # export 到 shell，让高优先级的环境变量持有正确的镜像坐标，与 .env 保持一致。
+  DOCKER_REGISTRY="$compose_registry"
+  IMAGE_NAME="$compose_image_name"
+  export DOCKER_REGISTRY IMAGE_NAME
+
   local_compose_env="$(mktemp)"
   cat > "$local_compose_env" <<EOF
 DOCKER_REGISTRY=${compose_registry}
