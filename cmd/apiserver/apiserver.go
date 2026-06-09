@@ -46,6 +46,12 @@
 // @tag.name Health
 // @tag.description 健康检查 - 各模块健康状态
 
+// @schemes https
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT 认证令牌，格式: Bearer {access_token}
+
 package main
 
 import (
