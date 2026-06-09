@@ -44,6 +44,7 @@ emit_export() {
 
 emit_export SERVICE              "$SERVICE"
 emit_export DEPLOY_NODE_HOSTNAME "${DEPLOY_NODE_HOSTNAME:-serverB}"
+emit_export DEPLOY_SSH_EXPECTED_HOST "${RUNNER_SSH_HOST:-}"
 emit_export IMAGE_TAG            "$IMAGE_TAG"
 emit_export DEPLOY_IMAGE_SOURCE  "${DEPLOY_IMAGE_SOURCE:-tarball}"
 emit_export IMAGE_TARBALL        "$REMOTE_IMAGE"
@@ -92,6 +93,14 @@ upload_and_verify() {
   echo "Failed to upload intact $(basename "$local_file") to ${RUNNER_SSH_ALIAS} after ${attempts} attempts" >&2
   return 1
 }
+
+resolved_host="$(ssh -G "${RUNNER_SSH_ALIAS}" 2>/dev/null | awk '$1 == "hostname" { print $2; exit }')"
+echo "Upload target SSH HostName: ${resolved_host:-<unknown>} (expected: ${RUNNER_SSH_HOST:-unset})"
+if [ -n "${RUNNER_SSH_HOST:-}" ] && [ "${resolved_host:-}" != "$RUNNER_SSH_HOST" ]; then
+  echo "FATAL: ${RUNNER_SSH_ALIAS} resolves to ${resolved_host:-<empty>}, expected ${RUNNER_SSH_HOST}" >&2
+  echo "Re-run setup-runner-ssh.sh; stale ~/.ssh/config on the runner is the usual cause." >&2
+  exit 1
+fi
 
 echo "Uploading ${PACKAGE_FILE} and ${IMAGE_FILE} to ${RUNNER_SSH_ALIAS}..."
 upload_and_verify "$IMAGE_FILE" "$REMOTE_IMAGE"

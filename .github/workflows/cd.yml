@@ -187,11 +187,13 @@ jobs:
           RUNNER_SSH_USER: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           RUNNER_SSH_PORT: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           RUNNER_SSH_ALIAS: deploy-target
+          DEPLOY_NODE_HOSTNAME: serverB
         run: bash scripts/cd/setup-runner-ssh.sh
 
       - name: Upload and deploy
         env:
           RUNNER_SSH_ALIAS: deploy-target
+          RUNNER_SSH_HOST: ${{ vars.SVRB_HOST }}
           DEPLOY_NODE_HOSTNAME: serverB
           SERVICE: ${{ env.SERVICE }}
           DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}

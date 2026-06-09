@@ -398,8 +398,21 @@ assert_deploy_hostname() {
   echo "Deploy target hostname: ${actual} (expected: ${expected})"
   if [ "$actual" != "$expected" ]; then
     echo "Refusing deploy on ${actual}; IAM production must run on ${expected}." >&2
-    echo "Check organization variable SVRB_HOST points to serverB, not serverA." >&2
+    if [ -n "${DEPLOY_SSH_EXPECTED_HOST:-}" ]; then
+      echo "Workflow configured SVRB_HOST=${DEPLOY_SSH_EXPECTED_HOST}, but SSH landed on ${actual}." >&2
+      echo "Stale runner ~/.ssh/config for deploy-target is the usual cause; setup-runner-ssh.sh now refreshes it each run." >&2
+    else
+      echo "Check organization variable SVRB_HOST and runner SSH config for deploy-target." >&2
+    fi
     exit 1
+  fi
+
+  if [ -n "${DEPLOY_SSH_EXPECTED_HOST:-}" ]; then
+    if command -v ip >/dev/null 2>&1; then
+      if ! ip -4 addr show | grep -q "inet ${DEPLOY_SSH_EXPECTED_HOST}/"; then
+        echo "Warning: this host has hostname ${actual} but no IPv4 address ${DEPLOY_SSH_EXPECTED_HOST}" >&2
+      fi
+    fi
   fi
 }
 
