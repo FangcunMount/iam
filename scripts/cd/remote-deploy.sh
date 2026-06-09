@@ -189,7 +189,10 @@ load_image_from_tarball() {
   echo "Loading ${IMAGE_NAME} from tarball ${tarball}..."
   local load_started load_elapsed
   load_started=$(date +%s)
-  gzip -dc "$tarball" | $SUDO docker load
+  # 不能用 `gzip -dc | $SUDO docker load`：带密码 sudo 是 `sudo -S ... <<<"$PASSWORD"`，
+  # here-string 会把 docker load 的 stdin 改成密码串、冲掉管道里的镜像数据，导致
+  # "unexpected EOF"。改用 docker load -i（自动解压 gzip），stdin 不被占用。
+  $SUDO docker load -i "$tarball"
   load_elapsed=$(($(date +%s) - load_started))
   echo "Loaded ${IMAGE_NAME} from tarball in ${load_elapsed}s"
   rm -f "$tarball"
@@ -297,6 +300,15 @@ docker_compose() {
   (cd /opt/iam && $SUDO docker compose --env-file "$COMPOSE_ENV_FILE" "$@")
 }
 
+# 镜像要么已通过 tarball docker load，要么已由 pull 步骤拉好，compose up 不应再回源
+# 拉取（否则会因 registry 无凭据而 "error from registry: denied"）。老版本 compose
+# 不支持 --pull 时返回空，保持兼容。
+compose_up_pull_never_flag() {
+  if $SUDO docker compose up --help 2>/dev/null | grep -q -- '--pull'; then
+    printf '%s' '--pull never'
+  fi
+}
+
 deploy_service() {
   local compose_file="/opt/iam/build/docker/docker-compose.prod.yml"
   local pull_started pull_elapsed
@@ -320,7 +332,8 @@ deploy_service() {
     echo "Pulled ${COMPOSE_SERVICE} image in ${pull_elapsed}s"
   fi
 
-  docker_compose -f "$compose_file" up -d --force-recreate --remove-orphans "$COMPOSE_SERVICE"
+  # shellcheck disable=SC2046
+  docker_compose -f "$compose_file" up -d $(compose_up_pull_never_flag) --force-recreate --remove-orphans "$COMPOSE_SERVICE"
 }
 
 verify_service() {
