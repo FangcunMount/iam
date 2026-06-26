@@ -1,7 +1,6 @@
 package idp
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -77,16 +76,4 @@ func validateInspectorFamilies(inspectors []cachegovernance.FamilyInspector, wan
 		}
 	}
 	return nil
-}
-
-type inspectorFamilyStub struct {
-	family cachemodel.Family
-}
-
-func (s inspectorFamilyStub) Descriptor() cachegovernance.FamilyDescriptor {
-	return cachegovernance.FamilyDescriptor{Family: s.family}
-}
-
-func (s inspectorFamilyStub) Status(context.Context) (cachegovernance.FamilyStatus, error) {
-	return cachegovernance.FamilyStatus{Family: s.family}, nil
 }
