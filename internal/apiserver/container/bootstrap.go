@@ -15,9 +15,9 @@ func (c *Container) bootstrapPlan() []bootstrapStep {
 	return []bootstrapStep{
 		{name: moduleEventRuntime, run: c.initEventing},
 		{name: moduleIDP, run: c.initIDPModule},
-		{name: moduleAuthn, run: c.initAuthModule},
+		{name: moduleAuthn, run: c.initAuthnModule},
 		{name: moduleAuthz, run: c.initAuthzModule},
-		{name: moduleUser, run: c.initUserModule},
+		{name: moduleIdentity, run: c.initIdentityModule},
 		{name: moduleSuggest, run: c.initSuggestModule},
 		{name: moduleCacheGovernance, run: func() error {
 			c.initCacheGovernance()
@@ -53,10 +53,10 @@ func (c *Container) logBootstrapStatus() {
 	} else {
 		log.Warn("   ❌ Authn module failed")
 	}
-	if c.UserModule != nil {
-		log.Info("   ✅ User module")
+	if c.IdentityModule != nil {
+		log.Info("   ✅ Identity module")
 	} else {
-		log.Warn("   ❌ User module failed")
+		log.Warn("   ❌ Identity module failed")
 	}
 	if c.AuthzModule != nil {
 		log.Info("   ✅ Authz module")

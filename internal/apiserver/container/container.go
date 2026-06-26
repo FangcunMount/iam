@@ -3,21 +3,21 @@ package container
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	messagingInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/messaging"
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
+	messagingInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/messaging"
 	eventoutbox "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v2/pkg/event"
 	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/v2/pkg/eventruntime"
 )
 
 // Container 容器
@@ -37,11 +37,11 @@ type Container struct {
 	outboxRelay    messagingInfra.OutboxRelay
 
 	// 业务模块
-	AuthnModule            *assembler.AuthnModule
-	UserModule             *assembler.UserModule
-	AuthzModule            *assembler.AuthzModule
-	IDPModule              *assembler.IDPModule
-	SuggestModule          *assembler.SuggestModule
+	AuthnModule            *authn.AuthnModule
+	IdentityModule         *identity.IdentityModule
+	AuthzModule            *authz.AuthzModule
+	IDPModule              *idp.IDPModule
+	SuggestModule          *suggest.SuggestModule
 	CacheGovernanceService *cachegovernance.ReadService
 
 	// IDP 模块加密密钥（32 字节 AES-256）
@@ -93,118 +93,14 @@ func (c *Container) Initialize() error {
 	return nil
 }
 
-func (c *Container) initEventing() error {
-	catalogPath := strings.TrimSpace(c.runtimeOptions.Events.CatalogPath)
-	if catalogPath == "" {
-		catalogPath = "configs/events.yaml"
-	}
-	cfg, err := eventcatalog.Load(catalogPath)
-	if err != nil {
-		return fmt.Errorf("load event catalog %q: %w", catalogPath, err)
-	}
-	catalog := eventcatalog.NewCatalog(cfg)
-	c.eventCatalog = catalog
-	c.eventPublisher = eventruntime.NewPublisherForBus(catalog, c.eventBus, eventing.SourceAPIServer)
-	if c.mysqlDB == nil {
-		return nil
-	}
-	c.outboxStore = eventoutbox.NewStore(c.mysqlDB, catalog)
-	if c.eventBus == nil {
-		log.Warnw("event outbox relay not started: event bus unavailable", "store", "iam.domain_event_outbox")
-		return nil
-	}
-	c.outboxRelay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", c.outboxStore, c.eventBus, c.outboxRelayOptions())
-	return nil
-}
-
-func (c *Container) outboxRelayOptions() messagingInfra.OutboxRelayOptions {
-	return messagingInfra.OutboxRelayOptions{
-		BatchSize:  c.runtimeOptions.Events.OutboxRelayBatchSize,
-		RetryDelay: c.runtimeOptions.Events.OutboxRelayRetryDelay,
-	}
-}
-
-// initAuthModule 初始化认证模块（依赖 IDP 模块）
-// 认证模块使用 Redis 进行 Token 持久化存储
-func (c *Container) initAuthModule() error {
-	authModule := assembler.NewAuthnModule()
-	if err := authModule.InitializeWithDeps(c.moduleGraph().authnModuleDependencies()); err != nil {
-		return fmt.Errorf("failed to initialize auth module: %w", err)
-	}
-	c.AuthnModule = authModule
-	return nil
-}
-
-// initUserModule 初始化用户模块
-func (c *Container) initUserModule() error {
-	userModule := assembler.NewUserModule()
-	if err := userModule.InitializeWithDeps(c.moduleGraph().userModuleDependencies()); err != nil {
-		return fmt.Errorf("failed to initialize user module: %w", err)
-	}
-	c.UserModule = userModule
-	return nil
-}
-
-// initAuthzModule 初始化授权模块
-// 授权模块通过 outbox stager 记录 durable 策略版本事件
-func (c *Container) initAuthzModule() error {
-	authzModule := assembler.NewAuthzModule()
-	if err := authzModule.InitializeWithDeps(c.moduleGraph().authzModuleDependencies()); err != nil {
-		return fmt.Errorf("failed to initialize authz module: %w", err)
-	}
-	c.AuthzModule = authzModule
-	return nil
-}
-
-// initSuggestModule 初始化联想模块
-func (c *Container) initSuggestModule() error {
-	suggestModule := assembler.NewSuggestModule()
-	if err := suggestModule.InitializeWithDeps(c.moduleGraph().suggestModuleDependencies()); err != nil {
-		return fmt.Errorf("failed to initialize suggest module: %w", err)
-	}
-	// 可能因配置关闭而 service 为空
-	if suggestModule.IsInitialized() {
-		c.SuggestModule = suggestModule
-	}
-	return nil
-}
-
-// initIDPModule 初始化 IDP 模块（Identity Provider）
-// IDP 模块使用 Redis 缓存 Access Token
-func (c *Container) initIDPModule() error {
-	idpModule := assembler.NewIDPModule()
-	if err := idpModule.InitializeWithDeps(c.moduleGraph().idpModuleDependencies()); err != nil {
-		return fmt.Errorf("failed to initialize idp module: %w", err)
-	}
-	c.IDPModule = idpModule
-	return nil
-}
-
-type cacheInspectorProvider interface {
-	CacheFamilyInspectors() []cachegovernance.FamilyInspector
-}
-
-func (c *Container) initCacheGovernance() {
-	inspectors := make([]cachegovernance.FamilyInspector, 0, 8)
-	for _, provider := range []cacheInspectorProvider{c.AuthnModule, c.IDPModule} {
-		if provider == nil {
-			continue
-		}
-		inspectors = append(inspectors, provider.CacheFamilyInspectors()...)
-	}
-	c.CacheGovernanceService = cachegovernance.NewReadService(inspectors)
-}
-
 // HealthCheck 健康检查
 func (c *Container) HealthCheck(ctx context.Context) error {
-	// 检查MySQL连接
 	if c.mysqlDB != nil {
 		if err := c.mysqlDB.WithContext(ctx).Raw("SELECT 1").Error; err != nil {
 			return fmt.Errorf("mysql health check failed: %w", err)
 		}
 	}
 
-	// 检查 Redis 连接
 	if c.redisClient != nil {
 		if err := c.redisClient.Ping(ctx).Err(); err != nil {
 			return fmt.Errorf("redis health check failed: %w", err)
@@ -259,8 +155,8 @@ func (c *Container) PrintStatus() {
 		fmt.Printf("❌\n")
 	}
 
-	fmt.Printf("   • User Module: ")
-	if c.UserModule != nil {
+	fmt.Printf("   • Identity Module: ")
+	if c.IdentityModule != nil {
 		fmt.Printf("✅\n")
 	} else {
 		fmt.Printf("❌\n")

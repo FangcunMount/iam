@@ -370,7 +370,7 @@ func normalizeModuleStatusForTest(status *ModuleStatus) {
 		markModuleAvailableForTest(status, moduleStateIDP)
 	}
 	if status.User {
-		markModuleAvailableForTest(status, moduleStateUser)
+		markModuleAvailableForTest(status, moduleStateIdentity)
 	}
 	if status.Suggest {
 		markModuleAvailableForTest(status, moduleStateSuggest)

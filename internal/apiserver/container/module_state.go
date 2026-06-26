@@ -5,7 +5,7 @@ const (
 	moduleIDP             = "idp module"
 	moduleAuthn           = "authn module"
 	moduleAuthz           = "authz module"
-	moduleUser            = "user module"
+	moduleIdentity        = "identity module"
 	moduleSuggest         = "suggest module"
 	moduleCacheGovernance = "cache governance"
 )
@@ -67,8 +67,8 @@ func (c *Container) moduleAvailable(name string) bool {
 		return c.AuthnModule != nil
 	case moduleAuthz:
 		return c.AuthzModule != nil
-	case moduleUser:
-		return c.UserModule != nil
+	case moduleIdentity:
+		return c.IdentityModule != nil
 	case moduleSuggest:
 		return c.SuggestModule != nil && c.SuggestModule.IsInitialized()
 	case moduleCacheGovernance:

@@ -2,10 +2,11 @@ package container
 
 import (
 	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
-	authnhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
-	identityhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
-	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
 )
 
 // BuildRESTDeps exposes only the collaborators required by the REST transport.
@@ -21,11 +22,11 @@ func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttrans
 	deps.ModuleStatus.Container = toRESTModuleState(c.ContainerState())
 	deps.ModuleStatus.ContainerInitialized = deps.ModuleStatus.Container.Bootstrapped
 	deps.ModuleStatus.Modules = toRESTModuleStates(c.ModuleStates())
-	c.collectAuthnRESTDeps(&deps)
-	c.collectAuthzRESTDeps(&deps)
-	c.collectIDPRESTDeps(&deps)
-	c.collectIdentityRESTDeps(&deps)
-	c.collectSuggestRESTDeps(&deps)
+	authn.CollectREST(c.ModuleState(moduleAuthn).Available, c.AuthnModule, moduleAuthn, &deps)
+	authz.CollectREST(c.ModuleState(moduleAuthz).Available, c.AuthzModule, moduleAuthz, &deps)
+	idp.CollectREST(c.ModuleState(moduleIDP).Available, c.IDPModule, moduleIDP, &deps)
+	identity.CollectREST(c.ModuleState(moduleIdentity).Available, c.IdentityModule, moduleIdentity, &deps)
+	suggest.CollectREST(c.ModuleState(moduleSuggest).Available, c.SuggestModule, moduleSuggest, &deps, c.redisClient)
 	return deps
 }
 
@@ -45,91 +46,5 @@ func toRESTModuleState(state ModuleState) resttransport.ModuleState {
 		Bootstrapped:   state.Bootstrapped,
 		Available:      state.Available,
 		DegradedReason: state.DegradedReason,
-	}
-}
-
-func (c *Container) collectAuthnRESTDeps(deps *resttransport.Deps) {
-	if c.ModuleState(moduleAuthn).Available {
-		caps := c.AuthnModule.ApplicationCapabilities()
-		deps.ModuleStatus.Authn = deps.ModuleStatus.Modules[moduleAuthn].Available
-		deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.SessionService, caps.TokenService, caps.LoginPhoneOTPSender)
-		deps.Authn.OnboardingHandler = authnhandler.NewOnboardingHandler(caps.SignupService)
-		deps.Authn.LoginIdentityHandler = authnhandler.NewLoginIdentityHandler(
-			caps.LoginIdentityLinking,
-			caps.PhoneLinkOTPSender,
-			caps.StartWechatOpenLinkAuthorize,
-			caps.CompleteWechatOpenLink,
-			authnhandler.WechatOpenLinkConfig{
-				AppID:       caps.WechatOpen.AppID,
-				RedirectURI: caps.WechatOpen.LinkRedirectURI,
-			},
-		)
-		deps.Authn.WechatOpenLoginHandler = authnhandler.NewWechatOpenLoginAuthorizeHandler(
-			caps.StartWechatOpenAuthorize,
-			caps.WechatOpen.AppID,
-			caps.WechatOpen.LoginRedirectURI,
-		)
-		deps.Authn.SignupService = caps.SignupService
-		deps.Authn.LoginIdentityLinking = caps.LoginIdentityLinking
-		deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyPublishApp)
-		deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionRevoker)
-		deps.Authn.TokenService = caps.TokenService
-		deps.ModuleStatus.AuthEnabled = caps.TokenService != nil
-	}
-}
-
-func (c *Container) collectAuthzRESTDeps(deps *resttransport.Deps) {
-	if c.ModuleState(moduleAuthz).Available {
-		caps := c.AuthzModule.ApplicationCapabilities()
-		deps.ModuleStatus.Authz = deps.ModuleStatus.Modules[moduleAuthz].Available
-		deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCatalog, caps.RoleDirectory)
-		deps.Authz.RoleBindingHandler = authzhandler.NewRoleBindingHandler(caps.RoleBindingCommands, caps.RoleBindingDirectory)
-		deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PermissionCommands, caps.PermissionReader, caps.PolicyLinter)
-		deps.Authz.ResourceHandler = authzhandler.NewResourceHandler(caps.ResourceCatalog, caps.ResourceDirectory)
-		deps.Authz.CheckHandler = authzhandler.NewCheckHandler(caps.AuthorizationChecker)
-		deps.Authz.RouteAuthorization = caps.RouteAuthorization
-		deps.Authz.HealthReporter = caps.RuntimeHealth
-	}
-}
-
-func (c *Container) collectIDPRESTDeps(deps *resttransport.Deps) {
-	if c.ModuleState(moduleIDP).Available {
-		caps := c.IDPModule.ApplicationCapabilities()
-		deps.ModuleStatus.IDP = deps.ModuleStatus.Modules[moduleIDP].Available
-		deps.IDP.WechatAppHandler = idphandler.NewWechatAppHandler(
-			caps.WechatAppService,
-			caps.WechatAppCredentialService,
-			caps.WechatAppTokenService,
-		)
-	}
-}
-
-func (c *Container) collectIdentityRESTDeps(deps *resttransport.Deps) {
-	if c.ModuleState(moduleUser).Available {
-		caps := c.UserModule.ApplicationCapabilities()
-		deps.ModuleStatus.User = deps.ModuleStatus.Modules[moduleUser].Available
-		deps.User.UserHandler = identityhandler.NewUserHandler(
-			caps.UserCreator,
-			caps.UserEditor,
-			caps.UserDirectory,
-			caps.RoleNames,
-		)
-		deps.User.ProfileHandler = identityhandler.NewProfileHandler(
-			caps.MyProfiles,
-			caps.ProfileDirectory,
-		)
-		deps.User.ProfileLinkHandler = identityhandler.NewProfileLinkHandler(caps.MyProfileLinks)
-	}
-}
-
-func (c *Container) collectSuggestRESTDeps(deps *resttransport.Deps) {
-	if c.ModuleState(moduleSuggest).Available {
-		caps := c.SuggestModule.ApplicationCapabilities()
-		deps.ModuleStatus.Suggest = deps.ModuleStatus.Modules[moduleSuggest].Available
-		deps.Suggest.Service = caps.Service
-		deps.Suggest.RateLimit = caps.RateLimit
-		deps.Suggest.Metrics = caps.Metrics
-		deps.Suggest.RateLimiter = caps.RateLimiter
-		deps.Suggest.RedisClient = c.redisClient
 	}
 }

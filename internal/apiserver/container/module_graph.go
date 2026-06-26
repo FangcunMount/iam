@@ -1,7 +1,11 @@
 package container
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 )
 
@@ -13,24 +17,24 @@ func (c *Container) moduleGraph() *moduleGraph {
 	return &moduleGraph{container: c}
 }
 
-func (g *moduleGraph) userModuleDependencies() assembler.UserModuleDeps {
-	return assembler.UserModuleDeps{
+func (g *moduleGraph) identityModuleDependencies() identity.IdentityModuleDeps {
+	return identity.IdentityModuleDeps{
 		DB:             g.container.mysqlDB,
 		RoleNames:      g.roleNameReader(),
 		SessionRevoker: g.sessionRevoker(),
 	}
 }
 
-func (g *moduleGraph) idpModuleDependencies() assembler.IDPModuleDeps {
-	return assembler.IDPModuleDeps{
+func (g *moduleGraph) idpModuleDependencies() idp.IDPModuleDeps {
+	return idp.IDPModuleDeps{
 		DB:            g.container.mysqlDB,
 		RedisClient:   g.container.redisClient,
 		EncryptionKey: g.container.idpEncryptionKey,
 	}
 }
 
-func (g *moduleGraph) authnModuleDependencies() assembler.AuthnModuleDeps {
-	return assembler.AuthnModuleDeps{
+func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
+	return authn.AuthnModuleDeps{
 		DB:             g.container.mysqlDB,
 		RedisClient:    g.container.redisClient,
 		IDPModule:      g.container.IDPModule,
@@ -44,15 +48,15 @@ func (g *moduleGraph) authnModuleDependencies() assembler.AuthnModuleDeps {
 	}
 }
 
-func (g *moduleGraph) authzModuleDependencies() assembler.AuthzModuleDeps {
-	return assembler.AuthzModuleDeps{
+func (g *moduleGraph) authzModuleDependencies() authz.AuthzModuleDeps {
+	return authz.AuthzModuleDeps{
 		DB:          g.container.mysqlDB,
 		EventStager: g.container.outboxStore,
 	}
 }
 
-func (g *moduleGraph) suggestModuleDependencies() assembler.SuggestModuleDeps {
-	deps := assembler.SuggestModuleDeps{
+func (g *moduleGraph) suggestModuleDependencies() suggest.SuggestModuleDeps {
+	deps := suggest.SuggestModuleDeps{
 		DB:          g.container.mysqlDB,
 		Config:      g.container.runtimeOptions.Suggest,
 		AppMode:     g.container.runtimeOptions.AppMode,
@@ -64,7 +68,7 @@ func (g *moduleGraph) suggestModuleDependencies() assembler.SuggestModuleDeps {
 	return deps
 }
 
-func (g *moduleGraph) roleNameReader() assembler.RoleNameReader {
+func (g *moduleGraph) roleNameReader() identity.RoleNameReader {
 	if g == nil || g.container == nil || g.container.AuthzModule == nil {
 		return nil
 	}

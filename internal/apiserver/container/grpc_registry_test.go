@@ -4,17 +4,20 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
 	googlegrpc "google.golang.org/grpc"
 )
 
 func TestBuildGRPCDepsReturnsModuleRegistrarsInStartupOrder(t *testing.T) {
 	c := &Container{
-		AuthnModule: &assembler.AuthnModule{},
-		UserModule:  &assembler.UserModule{},
-		IDPModule:   &assembler.IDPModule{},
-		AuthzModule: &assembler.AuthzModule{},
-		initialized: true,
+		AuthnModule:    &authn.AuthnModule{},
+		IdentityModule: &identity.IdentityModule{},
+		IDPModule:      &idp.IDPModule{},
+		AuthzModule:    &authz.AuthzModule{},
+		initialized:    true,
 	}
 
 	deps := c.BuildGRPCDeps(nil)
@@ -34,7 +37,7 @@ func TestBuildGRPCDepsReturnsModuleRegistrarsInStartupOrder(t *testing.T) {
 		registration.Register(server)
 	}
 
-	want := []string{"authn", "user", "idp", "authz"}
+	want := []string{"authn", "identity", "idp", "authz"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("registrations = %#v, want %#v", got, want)
 	}

@@ -130,11 +130,54 @@ func TestRuntimeCompositionDoesNotReadGlobalConfigDirectly(t *testing.T) {
 	}
 }
 
+func containerModuleRoots() []string {
+	return []string{
+		"identity",
+		"authn",
+		"authz",
+		"idp",
+		"suggest",
+	}
+}
+
+func scanContainerModuleSources(t *testing.T, visit func(path, source string)) {
+	t.Helper()
+	root := repoRoot(t)
+	for _, mod := range containerModuleRoots() {
+		scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", mod), visit)
+	}
+}
+
+func scanContainerModuleImports(t *testing.T, visit func(path string, imports []string)) {
+	t.Helper()
+	root := repoRoot(t)
+	for _, mod := range containerModuleRoots() {
+		scanImports(t, filepath.Join(root, "internal", "apiserver", "container", mod), visit)
+	}
+}
+
+func scanContainerModuleGoFiles(t *testing.T, visit func(path string, file *ast.File)) {
+	t.Helper()
+	root := repoRoot(t)
+	for _, mod := range containerModuleRoots() {
+		scanGoFiles(t, filepath.Join(root, "internal", "apiserver", "container", mod), visit)
+	}
+}
+
+func isContainerModulePackage(rel string) bool {
+	for _, mod := range containerModuleRoots() {
+		if strings.HasPrefix(rel, "internal/apiserver/container/"+mod+"/") {
+			return true
+		}
+	}
+	return strings.HasPrefix(rel, "internal/apiserver/container/platform/")
+}
+
 func TestAssemblerModulesUseTypedDependencies(t *testing.T) {
 	t.Parallel()
 
-	root := repoRoot(t)
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path, source string) {
+	scanContainerModuleSources(t, func(path, source string) {
+		root := repoRoot(t)
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		if strings.Contains(source, "params ...interface{}") {
 			t.Fatalf("%s uses variadic interface module initialization; use typed deps instead", rel)
@@ -148,7 +191,6 @@ func TestAssemblerModulesUseTypedDependencies(t *testing.T) {
 func TestAssemblerComponentHoldersDoNotReturn(t *testing.T) {
 	t.Parallel()
 
-	root := repoRoot(t)
 	forbiddenTokens := []string{
 		"type Module interface",
 		"type ModuleInfo struct",
@@ -159,7 +201,8 @@ func TestAssemblerComponentHoldersDoNotReturn(t *testing.T) {
 		"Service     interface{}",
 		"Handler     interface{}",
 	}
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path, source string) {
+	scanContainerModuleSources(t, func(path, source string) {
+		root := repoRoot(t)
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, token := range forbiddenTokens {
 			if strings.Contains(source, token) {
@@ -172,12 +215,15 @@ func TestAssemblerComponentHoldersDoNotReturn(t *testing.T) {
 func TestAssemblerDoesNotConstructTransportImplementations(t *testing.T) {
 	t.Parallel()
 
-	root := repoRoot(t)
-	scanImports(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path string, imports []string) {
+	scanContainerModuleImports(t, func(path string, imports []string) {
+		root := repoRoot(t)
 		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasSuffix(rel, "/rest.go") || strings.HasSuffix(rel, "/grpc.go") {
+			return
+		}
 		for _, imp := range imports {
 			if strings.HasPrefix(imp, modulePath+"internal/apiserver/transport/") {
-				t.Fatalf("%s imports %s; assembler must expose application/domain capabilities and leave REST/gRPC construction to container transport deps builders", rel, imp)
+				t.Fatalf("%s imports %s; module assembly must expose application/domain capabilities and leave REST/gRPC construction to module collectors", rel, imp)
 			}
 		}
 	})
@@ -186,13 +232,16 @@ func TestAssemblerDoesNotConstructTransportImplementations(t *testing.T) {
 func TestAssemblerModulesDoNotExposeTransportFields(t *testing.T) {
 	t.Parallel()
 
-	root := repoRoot(t)
 	forbidden := []*regexp.Regexp{
 		regexp.MustCompile(`(?m)^\s*\w*Handler\s+\*`),
 		regexp.MustCompile(`(?m)^\s*GRPCService\s+\*`),
 	}
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path, source string) {
+	scanContainerModuleSources(t, func(path, source string) {
+		root := repoRoot(t)
 		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasSuffix(rel, "/rest.go") || strings.HasSuffix(rel, "/grpc.go") {
+			return
+		}
 		for _, pattern := range forbidden {
 			if match := pattern.FindString(source); match != "" {
 				t.Fatalf("%s exposes transport field %q; expose application/domain capability methods instead", rel, strings.TrimSpace(match))
@@ -205,7 +254,7 @@ func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	source, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "container", "assembler", "authn.go"))
+	source, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "container", "authn", "module.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,10 +622,22 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 
 	root := repoRoot(t)
 	allowed := map[string]struct{}{
-		"internal/apiserver/container/rest_deps.go":     {},
-		"internal/apiserver/container/grpc_registry.go": {},
-		"internal/apiserver/container/runtime_deps.go":  {},
-		"internal/apiserver/container/module_graph.go":  {},
+		"internal/apiserver/container/rest_deps.go":          {},
+		"internal/apiserver/container/grpc_registry.go":      {},
+		"internal/apiserver/container/runtime_deps.go":       {},
+		"internal/apiserver/container/module_graph.go":       {},
+		"internal/apiserver/container/identity/rest.go":      {},
+		"internal/apiserver/container/identity/grpc.go":    {},
+		"internal/apiserver/container/authn/rest.go":         {},
+		"internal/apiserver/container/authn/grpc.go":         {},
+		"internal/apiserver/container/authn/runtime.go":      {},
+		"internal/apiserver/container/authz/rest.go":         {},
+		"internal/apiserver/container/authz/grpc.go":         {},
+		"internal/apiserver/container/authz/runtime.go":      {},
+		"internal/apiserver/container/idp/rest.go":           {},
+		"internal/apiserver/container/idp/grpc.go":           {},
+		"internal/apiserver/container/suggest/rest.go":       {},
+		"internal/apiserver/container/suggest/runtime.go":  {},
 	}
 	forbiddenTokens := []string{
 		"AuthnModule.AuthHandler",
@@ -593,6 +654,10 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 		"AuthzModule.CheckHandler",
 		"AuthzModule.CasbinAdapter",
 		"AuthzModule.GRPCService",
+		"IdentityModule.UserHandler",
+		"IdentityModule.ProfileHandler",
+		"IdentityModule.ProfileLinkHandler",
+		"IdentityModule.GRPCService",
 		"UserModule.UserHandler",
 		"UserModule.ProfileHandler",
 		"UserModule.ProfileLinkHandler",
@@ -607,7 +672,7 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 		if _, ok := allowed[rel]; ok {
 			return
 		}
-		if strings.HasPrefix(rel, "internal/apiserver/container/assembler/") {
+		if isContainerModulePackage(rel) {
 			return
 		}
 		for _, token := range forbiddenTokens {
@@ -758,10 +823,10 @@ func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
 	assertFileLacks(t, root, "internal/apiserver/application/authz/policy/command_service.go", "BuildPolicyRule")
 	assertFileLacks(t, root, "internal/apiserver/application/authz/policy/command_service.go", ".AddPolicy(")
 	assertFileLacks(t, root, "internal/apiserver/application/authz/rolebinding/command_service.go", ".AddGroupingPolicy(")
-	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.CasbinAdapter")
-	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.Commander")
-	assertFileLacks(t, root, "internal/apiserver/container/assembler/capabilities.go", "policyDomain.Queryer")
-	assertFileLacks(t, root, "internal/apiserver/container/assembler/authz.go", "CasbinAdapter *casbinInfra.CasbinAdapter")
+	assertFileLacks(t, root, "internal/apiserver/container/authz/capabilities.go", "policyDomain.CasbinAdapter")
+	assertFileLacks(t, root, "internal/apiserver/container/authz/capabilities.go", "policyDomain.Commander")
+	assertFileLacks(t, root, "internal/apiserver/container/authz/capabilities.go", "policyDomain.Queryer")
+	assertFileLacks(t, root, "internal/apiserver/container/authz/module.go", "CasbinAdapter *casbinInfra.CasbinAdapter")
 	assertFileLacks(t, root, "internal/apiserver/container/module_graph.go", "AuthzModule.CasbinAdapter")
 	assertFileLacks(t, root, "internal/apiserver/infra/casbin/adapter.go", "func (c *CasbinAdapter) Enforcer(")
 	if matches, err := filepath.Glob(filepath.Join(root, "internal", "apiserver", "application", "authz", "version", "*.go")); err != nil {
@@ -903,8 +968,8 @@ func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
 func TestAPIServerCompositionSettersAreAllowlisted(t *testing.T) {
 	t.Parallel()
 
-	root := repoRoot(t)
-	scanGoFiles(t, filepath.Join(root, "internal", "apiserver", "container", "assembler"), func(path string, file *ast.File) {
+	scanContainerModuleGoFiles(t, func(path string, file *ast.File) {
+		root := repoRoot(t)
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)

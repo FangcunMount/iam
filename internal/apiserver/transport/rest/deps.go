@@ -118,7 +118,7 @@ const (
 	moduleStateAuthn   = "authn module"
 	moduleStateAuthz   = "authz module"
 	moduleStateIDP     = "idp module"
-	moduleStateUser    = "user module"
+	moduleStateIdentity = "identity module"
 	moduleStateSuggest = "suggest module"
 )
 
@@ -143,8 +143,8 @@ func (s ModuleStatus) idpAvailable() bool {
 	return s.moduleAvailable(moduleStateIDP)
 }
 
-func (s ModuleStatus) userAvailable() bool {
-	return s.moduleAvailable(moduleStateUser)
+func (s ModuleStatus) identityAvailable() bool {
+	return s.moduleAvailable(moduleStateIdentity)
 }
 
 func (s ModuleStatus) suggestAvailable() bool {

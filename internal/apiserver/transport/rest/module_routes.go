@@ -97,7 +97,7 @@ func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
 
 // registerIdentityRoutes 注册 Identity 模块 身份路由
 func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
-	if r.deps.ModuleStatus.userAvailable() && userRoutesAvailable(deps) && authMiddleware != nil {
+	if r.deps.ModuleStatus.identityAvailable() && userRoutesAvailable(deps) && authMiddleware != nil {
 		userhttp.Register(engine, userhttp.Dependencies{
 			UserHandler:        deps.UserHandler,
 			ProfileHandler:     deps.ProfileHandler,
@@ -107,7 +107,7 @@ func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authM
 		log.Info("✅ User module routes registered")
 		return
 	}
-	if r.deps.ModuleStatus.userAvailable() && userRoutesAvailable(deps) {
+	if r.deps.ModuleStatus.identityAvailable() && userRoutesAvailable(deps) {
 		log.Warn("⚠️  User module initialized but JWT middleware unavailable; protected routes not registered")
 		return
 	}

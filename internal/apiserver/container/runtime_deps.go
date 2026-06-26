@@ -1,6 +1,12 @@
 package container
 
-import "context"
+import (
+	"context"
+
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
+)
 
 type RotationScheduler interface {
 	Start(context.Context) error
@@ -12,15 +18,10 @@ type OutboxRelay interface {
 	DispatchDue(context.Context) error
 }
 
-type AuthzPolicySyncSubscriber interface {
-	Start(context.Context) error
-	Stop() error
-}
-
 type RuntimeDeps struct {
 	RotationScheduler RotationScheduler
 	OutboxRelay       OutboxRelay
-	AuthzPolicySync   AuthzPolicySyncSubscriber
+	AuthzPolicySync   authz.PolicySyncSubscriber
 	SuggestCleanup    func() error
 }
 
@@ -35,16 +36,16 @@ func (c *Container) BuildRuntimeDeps() RuntimeDeps {
 
 func (c *Container) runtimeHooks() RuntimeDeps {
 	var deps RuntimeDeps
-	if c.AuthnModule != nil {
-		deps.RotationScheduler = c.AuthnModule.RuntimeCapabilities().RotationScheduler
-	}
+	var rotation authn.KeyRotationScheduler
+	authn.CollectRuntime(c.AuthnModule, &rotation)
+	deps.RotationScheduler = rotation
 	deps.OutboxRelay = c.OutboxRelay()
-	if c.AuthzModule != nil && c.eventBus != nil {
-		deps.AuthzPolicySync = c.AuthzModule.PolicySyncSubscriber(c.eventBus.Subscriber())
+	if c.eventBus != nil {
+		authz.CollectRuntime(c.AuthzModule, c.eventBus.Subscriber(), &deps.AuthzPolicySync)
 	}
-	if c.SuggestModule != nil {
-		deps.SuggestCleanup = c.SuggestModule.RuntimeCapabilities().Cleanup
-	}
+	var cleanup func() error
+	suggest.CollectRuntime(c.SuggestModule, &cleanup)
+	deps.SuggestCleanup = cleanup
 	return deps
 }
 
@@ -63,8 +64,8 @@ func (c *Container) CriticalModulesMissing() []string {
 	if c.AuthzModule == nil {
 		missing = append(missing, "authz")
 	}
-	if c.UserModule == nil {
-		missing = append(missing, "user")
+	if c.IdentityModule == nil {
+		missing = append(missing, "identity")
 	}
 	return missing
 }

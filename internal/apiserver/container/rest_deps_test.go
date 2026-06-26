@@ -3,18 +3,22 @@ package container
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/assembler"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
 	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
 )
 
 func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testing.T) {
 	c := &Container{
-		AuthnModule:   &assembler.AuthnModule{},
-		AuthzModule:   &assembler.AuthzModule{},
-		IDPModule:     &assembler.IDPModule{},
-		UserModule:    &assembler.UserModule{},
-		SuggestModule: &assembler.SuggestModule{},
-		initialized:   true,
+		AuthnModule:    &authn.AuthnModule{},
+		AuthzModule:    &authz.AuthzModule{},
+		IDPModule:      &idp.IDPModule{},
+		IdentityModule: &identity.IdentityModule{},
+		SuggestModule:  &suggest.SuggestModule{},
+		initialized:    true,
 	}
 
 	deps := c.BuildRESTDeps(resttransport.RouterOptions{})
@@ -47,6 +51,10 @@ func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testi
 	if deps.User.UserHandler == nil || deps.User.ProfileHandler == nil || deps.User.ProfileLinkHandler == nil {
 		t.Fatalf("identity transport handlers were not constructed: %#v", deps.User)
 	}
+	identityState := deps.ModuleStatus.Modules["identity module"]
+	if !identityState.Bootstrapped || !identityState.Available {
+		t.Fatalf("identity module state = %#v, want bootstrapped and available", identityState)
+	}
 }
 
 func TestBuildRESTDepsExposesModuleDegradedReasons(t *testing.T) {
@@ -73,7 +81,7 @@ func TestBuildRESTDepsExposesModuleDegradedReasons(t *testing.T) {
 
 func TestBuildRESTDepsDerivesLegacyBooleansFromModuleStateAvailability(t *testing.T) {
 	c := &Container{
-		AuthnModule: &assembler.AuthnModule{},
+		AuthnModule: &authn.AuthnModule{},
 		initialized: false,
 	}
 
