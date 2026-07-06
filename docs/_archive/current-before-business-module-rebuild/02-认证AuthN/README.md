@@ -86,6 +86,13 @@ wecom + corp_id + userid
 
 ```text
 password hash
+```
+
+当前实现仅支持 `password` 类型（见 `internal/apiserver/domain/authn/credential/types.go`）。
+
+以下为扩展方向，尚未落地：
+
+```text
 passkey public key credential
 TOTP encrypted secret
 recovery code hash

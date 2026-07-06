@@ -36,8 +36,8 @@ AuthZ 完整模型见：
 
 ```text
 ../03-授权AuthZ/00-AuthZ模型总览-Subject-Role-Resource-Permission-RoleBinding.md
-../03-授权AuthZ/01-授权资源与动作模型-ResourceKey-ResourcePattern-Action-Scope.md
-../03-授权AuthZ/03-Check与Snapshot读链路.md
+../03-授权AuthZ/01-资源模型-ResourceKey-ResourcePattern-Action-Scope.md
+../03-授权AuthZ/05-权限检查链路-Check-Snapshot.md
 ```
 
 本文只聚焦 Identity 与 AuthZ 的边界。

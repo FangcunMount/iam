@@ -147,6 +147,13 @@ IAM 自己需要保存并校验的长期认证材料。
 
 ```text
 password hash
+```
+
+当前实现仅支持 `password`（`CredPassword`，见 `internal/apiserver/domain/authn/credential/types.go`）。
+
+以下为扩展方向，尚未落地：
+
+```text
 passkey public key credential
 TOTP encrypted secret
 recovery code hash
@@ -160,8 +167,8 @@ recovery code hash
 | `phone` | 通常否 | SMS OTP 是短期 Challenge，不是长期 Credential |
 | `wechat_minip` | 否 | 微信完成外部认证，IAM 保存 identity binding |
 | `wecom` | 否 | 企业微信完成外部认证，IAM 保存 identity binding |
-| `passkey` | 是 | IAM 需要保存 public key credential record |
-| `totp` | 是 | IAM 需要保存加密后的 TOTP secret |
+| `passkey` | 规划 | 扩展方向，IAM 需保存 public key credential record |
+| `totp` | 规划 | 扩展方向，IAM 需保存加密后的 TOTP secret |
 
 因此 `LoginIdentity -> Credential` 的关系不是 `1:1`，而是：
 

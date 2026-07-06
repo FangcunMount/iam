@@ -12,6 +12,7 @@
 
 | 文件 | 说明 |
 | ---- | ---- |
+| [current-before-business-module-rebuild/](current-before-business-module-rebuild/) | 业务模块文档体系重构前的 active docs 快照，包含重构前 `00-概览` 到 `08-Suggest` 和旧 `docs/README.md` |
 | [CODE_EXPLORATION_REPORT.md](CODE_EXPLORATION_REPORT.md) | 早期代码探索报告 |
 | [CODE_NAVIGATION_GUIDE.md](CODE_NAVIGATION_GUIDE.md) | 早期代码导航指南 |
 | [DOC_SOURCE_CODE_ANALYSIS.md](DOC_SOURCE_CODE_ANALYSIS.md) | 旧文档与源码分析记录 |

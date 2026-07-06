@@ -257,23 +257,28 @@ SDK 是接入产品层，不是业务层。
 | --- | --- |
 | IAM 是什么，整体架构怎么分层 | [docs/00-概览/README.md](docs/00-概览/README.md) |
 | 服务如何启动、装配和关闭 | [docs/01-运行时/README.md](docs/01-运行时/README.md) |
-| User、Profile、ProfileLink 如何建模 | [docs/04-身份Identity/README.md](docs/04-身份Identity/README.md) |
-| 登录、Session、Token、JWKS 如何工作 | [docs/02-认证AuthN/README.md](docs/02-认证AuthN/README.md) |
-| 授权模型、Check、Outbox 如何工作 | [docs/03-授权AuthZ/README.md](docs/03-授权AuthZ/README.md) |
-| Suggest Profile 联想搜索读模型如何工作 | [docs/08-Suggest/README.md](docs/08-Suggest/README.md) |
-| REST/gRPC/SDK 如何接入 | [docs/05-接入与契约/README.md](docs/05-接入与契约/README.md) |
+| User、Profile、ProfileLink 如何建模 | [docs/02-业务模块/01-Identity/README.md](docs/02-业务模块/01-Identity/README.md) |
+| 登录、Session、Token、JWKS 如何工作 | [docs/02-业务模块/02-AuthN/README.md](docs/02-业务模块/02-AuthN/README.md) |
+| 授权模型、Check、Outbox 如何工作 | [docs/02-业务模块/03-AuthZ/README.md](docs/02-业务模块/03-AuthZ/README.md) |
+| IDP 与第三方身份源如何协作 | [docs/02-业务模块/04-IDP/README.md](docs/02-业务模块/04-IDP/README.md) |
+| Suggest Profile 联想搜索读模型如何工作 | [docs/02-业务模块/05-Suggest/README.md](docs/02-业务模块/05-Suggest/README.md) |
+| REST/gRPC/SDK 如何接入 | [docs/03-接入与契约/README.md](docs/03-接入与契约/README.md) |
 
 ```text
 docs/
 ├── 00-概览/
 ├── 01-运行时/
-├── 02-认证AuthN/
-├── 03-授权AuthZ/
-├── 04-身份Identity/
-├── 05-接入与契约/
-├── 06-架构护栏/
-├── 07-宣讲/
-├── 08-Suggest/
+├── 02-业务模块/
+│   ├── 01-Identity/
+│   ├── 02-AuthN/
+│   ├── 03-AuthZ/
+│   ├── 04-IDP/
+│   └── 05-Suggest/
+├── 03-接入与契约/
+├── 04-架构护栏/
+├── 05-专题设计/
+├── 06-宣讲/
+├── _archive/
 └── README.md
 ```
 
@@ -300,7 +305,7 @@ docs/
 ### 同步文档
 
 - 代码行为变化时更新 `docs/`；
-- Suggest 行为变化时同步 `docs/08-Suggest` 和 `docs/07-宣讲` 中相关表达；
+- Suggest 行为变化时同步 `docs/02-业务模块/05-Suggest` 和 `docs/06-宣讲` 中相关表达；
 - 不从 `_archive` 复制当前事实；
 - 不恢复旧目录作为 active 文档入口。
 

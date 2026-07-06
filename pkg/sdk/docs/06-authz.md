@@ -106,8 +106,8 @@ allowed, err := client.Authz().Allow(
 
 如果你需要的是授权管理面或接入边界，回看仓库主文档：
 
-- [../../../docs/03-接口与集成/03-授权接入与边界.md](../../../docs/03-接口与集成/03-授权接入与边界.md)
-- [../../../docs/05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md](../../../docs/05-专题分析/03-授权判定链路--角色&策略&资源&Assignment&Casbin.md)
+- [../../../docs/03-接入与契约/README.md](../../../docs/03-接入与契约/README.md)
+- [../../../docs/02-业务模块/03-AuthZ/README.md](../../../docs/02-业务模块/03-AuthZ/README.md)
 
 ## 2. 快速开始
 
@@ -346,4 +346,4 @@ _ = allowed
 - [Token 生命周期](./03-token-lifecycle.md)
 - [服务间认证](./05-service-auth.md)
 - [../README.md](../README.md)
-- [../../../docs/03-接口与集成/03-授权接入与边界.md](../../../docs/03-接口与集成/03-授权接入与边界.md)
+- [../../../docs/03-接入与契约/README.md](../../../docs/03-接入与契约/README.md)
