@@ -1,5 +1,7 @@
 # Docs Hygiene
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 `docs-hygiene` 检查 active Markdown 链接和退役事实引用，防止旧路径、旧术语和 archive 事实回流。

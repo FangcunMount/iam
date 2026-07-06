@@ -1,5 +1,7 @@
 # 领域模型：LoginIdentity / Credential / Challenge / Principal / Session / Token
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 模型定义
 
 | 模型 | 定义 |

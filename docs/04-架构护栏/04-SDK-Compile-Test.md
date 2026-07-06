@@ -1,5 +1,7 @@
 # SDK Compile Test
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 SDK 是外部 Go 服务接入 IAM 的稳定面。公开 API 不能只靠 README 约定，需要 compile test 保护。

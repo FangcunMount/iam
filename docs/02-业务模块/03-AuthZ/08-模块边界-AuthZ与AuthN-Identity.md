@@ -1,5 +1,7 @@
 # 模块边界：AuthZ 与 AuthN / Identity
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 与 AuthN
 
 AuthN 负责认证并产出 Principal。AuthZ 只消费授权主体引用，不决定登录是否成功。

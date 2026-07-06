@@ -1,5 +1,7 @@
 # Casbin 运行时模型
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 Casbin 是 AuthZ 的 infra runtime engine，不是 AuthZ 的领域模型。

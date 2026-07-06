@@ -1,5 +1,7 @@
 # 领域模型：WechatApp / Credentials / AppToken / ExternalIdentity
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## WechatApp
 
 `WechatApp` 是外部微信应用配置聚合，包含 appID、名称、类型、状态和凭据集合。

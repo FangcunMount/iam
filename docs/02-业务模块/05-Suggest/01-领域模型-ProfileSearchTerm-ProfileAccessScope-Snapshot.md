@@ -1,5 +1,7 @@
 # 领域模型：ProfileSearchTerm / ProfileAccessScope / Snapshot
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 | 模型 | 定义 |
 | --- | --- |
 | OperatingPrincipal | 当前后台操作者 |

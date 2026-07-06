@@ -1,5 +1,7 @@
 # AuthZ 讲法
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 AuthZ 负责判断 Subject 是否能对 Resource 执行 Action。
 
 讲解主线：

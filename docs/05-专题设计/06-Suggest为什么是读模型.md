@@ -1,5 +1,7 @@
 # Suggest 为什么是读模型
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 Suggest 是为 Profile autocomplete 构建的辅助读模型。它使用 Identity 的 Profile 事实和权限范围生成候选结果，但不拥有 Profile 写模型。

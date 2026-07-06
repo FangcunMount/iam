@@ -1,5 +1,7 @@
 # 关键链路：Onboarding 身份开通
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 链路目标
 
 首次开通 User、LoginIdentity，并在需要时创建 Credential。

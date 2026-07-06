@@ -1,5 +1,7 @@
 # 模块边界：Identity 与 AuthN / AuthZ / Suggest
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 与 AuthN
 
 AuthN 通过 `Principal.UserID` 指向 Identity.User。AuthN 不拥有 User 写模型。

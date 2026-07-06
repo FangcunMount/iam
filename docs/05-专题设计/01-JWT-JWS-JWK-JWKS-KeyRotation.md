@@ -1,5 +1,7 @@
 # JWT / JWS / JWK / JWKS / KeyRotation
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 - JWT 是 claims 的紧凑表达。

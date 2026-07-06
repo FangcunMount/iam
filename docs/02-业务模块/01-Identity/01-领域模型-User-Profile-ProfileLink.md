@@ -1,5 +1,7 @@
 # 领域模型：User / Profile / ProfileLink
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## User
 
 `User` 是 IAM 内部稳定身份主体。它可以被 AuthN 的 `Principal.UserID` 指向，也可以被 AuthZ 表达为 `Subject`。

@@ -1,5 +1,7 @@
 # ProfileLink 为什么不是 Permission
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 ProfileLink 是身份关系事实，Permission 是访问权声明。两者解决的问题不同：

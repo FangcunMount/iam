@@ -1,5 +1,7 @@
 # Transactional Outbox 设计
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 Transactional Outbox 用于解决授权事实写入和事件发布之间的双写问题。

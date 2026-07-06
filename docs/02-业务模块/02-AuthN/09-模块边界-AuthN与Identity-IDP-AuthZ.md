@@ -1,5 +1,7 @@
 # 模块边界：AuthN 与 Identity / IDP / AuthZ
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 与 Identity
 
 AuthN 通过 UserID 引用 Identity.User。AuthN 不拥有 User/Profile/ProfileLink 写模型。

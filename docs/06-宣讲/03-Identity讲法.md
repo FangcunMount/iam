@@ -1,5 +1,7 @@
 # Identity 讲法
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 Identity 负责身份事实：`User -> ProfileLink -> Profile`。
 
 讲解时重点区分：

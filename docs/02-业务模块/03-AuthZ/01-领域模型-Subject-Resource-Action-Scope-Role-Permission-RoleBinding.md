@@ -1,5 +1,7 @@
 # 领域模型：Subject / Resource / Action / Scope / Role / Permission / RoleBinding
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 | 模型 | 定义 |
 | --- | --- |
 | Subject | 授权主体引用，不是 User 本体 |

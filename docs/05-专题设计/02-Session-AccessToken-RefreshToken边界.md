@@ -1,5 +1,7 @@
 # Session / AccessToken / RefreshToken 边界
 
+> 状态：待补证据 · 骨架初稿，待与代码/契约核对。
+
 ## 30 秒结论
 
 - Session 是服务端认证上下文。
