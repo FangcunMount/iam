@@ -19,7 +19,10 @@
 - 授权检查、授权写入、策略传播分别应该如何跨模块协作？
 - 修改 AuthZ 边界时应该核对哪些代码和测试？
 
-本文只讲模块边界，不重复完整领域模型和关键链路。AuthZ 领域模型见 [01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md](01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md)，权限检查见 [02-关键链路-权限检查Check.md](02-关键链路-权限检查Check.md)，Casbin 运行时见 [05-Casbin运行时模型.md](05-Casbin运行时模型.md)。
+本文只讲模块边界，不重复完整领域模型和关键链路。
+AuthZ 领域模型见 [01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md](01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md)；
+权限检查见 [02-关键链路-权限检查Check.md](02-关键链路-权限检查Check.md)；
+Casbin 运行时见 [05-Casbin运行时模型.md](05-Casbin运行时模型.md)。
 
 ---
 

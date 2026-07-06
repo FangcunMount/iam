@@ -19,7 +19,10 @@
 - Check 链路如何感知 loaded PolicyVersion？
 - 修改该链路时应该核对哪些代码和测试？
 
-本文只讲授权版本传播链路。授权写入链路见 [03-关键链路-授权写入Grant-Revoke-Bind-Unbind.md](03-关键链路-授权写入Grant-Revoke-Bind-Unbind.md)，权限检查链路见 [02-关键链路-权限检查Check.md](02-关键链路-权限检查Check.md)，Transactional Outbox 设计取舍见 [../../05-专题设计/03-Transactional-Outbox设计.md](../../05-专题设计/03-Transactional-Outbox设计.md)。
+本文只讲授权版本传播链路。
+授权写入链路见 [03-关键链路-授权写入Grant-Revoke-Bind-Unbind.md](03-关键链路-授权写入Grant-Revoke-Bind-Unbind.md)；
+权限检查链路见 [02-关键链路-权限检查Check.md](02-关键链路-权限检查Check.md)；
+Transactional Outbox 设计取舍见 [../../05-专题设计/03-Transactional-Outbox设计.md](../../05-专题设计/03-Transactional-Outbox设计.md)。
 
 ---
 

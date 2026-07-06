@@ -20,7 +20,11 @@
 - Casbin runtime 的幂等、并发、reload、故障和安全边界如何处理？
 - 修改 Casbin runtime 时应该核对哪些代码和测试？
 
-本文只讲 Casbin 运行时模型。AuthZ 领域模型见 [01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md](01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md)，权限检查链路见 [02-关键链路-权限检查Check.md](02-关键链路-权限检查Check.md)，授权版本传播链路见 [04-关键链路-授权版本传播PolicyVersion-Outbox-RuntimeReload.md](04-关键链路-授权版本传播PolicyVersion-Outbox-RuntimeReload.md)，设计取舍见 [../../05-专题设计/04-Casbin在AuthZ中的定位.md](../../05-专题设计/04-Casbin在AuthZ中的定位.md)。
+本文只讲 Casbin 运行时模型。
+AuthZ 领域模型见 [01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md](01-领域模型-Subject-Resource-Action-Scope-Role-Permission-RoleBinding.md)；
+权限检查链路见 [02-关键链路-权限检查Check.md](02-关键链路-权限检查Check.md)；
+授权版本传播链路见 [04-关键链路-授权版本传播PolicyVersion-Outbox-RuntimeReload.md](04-关键链路-授权版本传播PolicyVersion-Outbox-RuntimeReload.md)；
+设计取舍见 [../../05-专题设计/04-Casbin在AuthZ中的定位.md](../../05-专题设计/04-Casbin在AuthZ中的定位.md)。
 
 ---
 
