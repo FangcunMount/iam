@@ -19,7 +19,10 @@
 - 安全、幂等、并发、可观测性如何治理？
 - 修改该链路时应该核对哪些代码和测试？
 
-本文只讲 IDP 解析外部身份并交给 AuthN 的协作链路。IDP 领域模型见 [01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md](01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md)，微信 AccessToken 获取与缓存见 [03-关键链路-微信AccessToken获取与缓存.md](03-关键链路-微信AccessToken获取与缓存.md)，AuthN 登录链路见 [../02-AuthN/04-关键链路-Login登录认证.md](../02-AuthN/04-关键链路-Login登录认证.md)。
+本文只讲 IDP 解析外部身份并交给 AuthN 的协作链路。
+IDP 领域模型见 [01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md](01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md)；
+微信 AccessToken 获取与缓存见 [03-关键链路-微信AccessToken获取与缓存.md](03-关键链路-微信AccessToken获取与缓存.md)；
+AuthN 登录链路见 [../02-AuthN/04-关键链路-Login登录认证.md](../02-AuthN/04-关键链路-Login登录认证.md)。
 
 ---
 

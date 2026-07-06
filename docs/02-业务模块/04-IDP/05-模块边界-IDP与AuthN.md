@@ -19,7 +19,9 @@
 - 哪些跨模块协作是允许的，哪些属于边界漂移？
 - 修改 IDP 边界时应该核对哪些代码和测试？
 
-本文重点讲 IDP 与 AuthN 的边界，同时补充 IDP 与 Identity、AuthZ、Suggest、provider adapter 的协作边界。IDP 领域模型见 [01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md](01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md)，外部身份解析链路见 [04-关键链路-外部身份解析与AuthN协作.md](04-关键链路-外部身份解析与AuthN协作.md)。
+本文重点讲 IDP 与 AuthN 的边界，同时补充 IDP 与 Identity、AuthZ、Suggest、provider adapter 的协作边界。
+IDP 领域模型见 [01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md](01-领域模型-WechatApp-Credentials-AppToken-ExternalIdentity.md)；
+外部身份解析链路见 [04-关键链路-外部身份解析与AuthN协作.md](04-关键链路-外部身份解析与AuthN协作.md)；
 
 ---
 

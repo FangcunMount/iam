@@ -1,6 +1,7 @@
 # 领域模型：WechatApp / Credentials / AppToken / ExternalIdentity
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/domain/idp`、`application/idp`、微信/企微 provider adapter、AppToken 缓存、凭据加密存储、REST/gRPC 契约和测试逐项核对。
+> 状态：待补证据
+> 第一版正文，待继续按 `internal/apiserver/domain/idp`、`application/idp`、微信/企微 provider adapter、AppToken 缓存、凭据加密存储、REST/gRPC 契约和测试逐项核对。
 
 ---
 

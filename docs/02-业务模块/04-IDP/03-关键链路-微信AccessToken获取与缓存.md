@@ -1,7 +1,8 @@
 
 # 关键链路：微信 AccessToken 获取与缓存
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/idp`、`domain/idp`、WechatApp repository、Credentials store、AppToken cache、微信/企微 provider adapter、singleflight/lock、REST/gRPC 契约和测试逐项核对。
+> 状态：待补证据
+> 第一版正文，待继续按 `application/idp`、`domain/idp`、WechatApp repository、Credentials store、AppToken cache、微信/企微 provider adapter、singleflight/lock、REST/gRPC 契约和测试逐项核对。
 
 ---
 
