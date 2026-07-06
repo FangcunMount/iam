@@ -18,7 +18,9 @@
 - transport、application、domain、repository 在链路中各自负责什么？
 - 修改该链路时应该核对哪些代码和测试？
 
-本文只讲 `ProfileLink` 建立、查询、撤销。创建 `User` 与 `Profile` 见 [02-关键链路-创建User与Profile.md](02-关键链路-创建User与Profile.md)，领域模型见 [01-领域模型-User-Profile-ProfileLink.md](01-领域模型-User-Profile-ProfileLink.md)。
+本文只讲 `ProfileLink` 建立、查询、撤销。
+创建 `User` 与 `Profile` 见 [02-关键链路-创建User与Profile.md](02-关键链路-创建User与Profile.md)；
+领域模型见 [01-领域模型-User-Profile-ProfileLink.md](01-领域模型-User-Profile-ProfileLink.md)。
 
 ---
 
@@ -718,4 +720,5 @@ ProfileLink 不是 Permission；
 ProfileLink 不是 Suggest 可见范围。
 ```
 
-下一篇 [04-模块边界-Identity与AuthN-AuthZ-Suggest.md](04-模块边界-Identity与AuthN-AuthZ-Suggest.md) 将继续从模块协作角度说明：Identity 如何向 AuthN、AuthZ、IDP、Suggest 提供身份事实，同时避免边界漂移。
+下一篇 [04-模块边界-Identity与AuthN-AuthZ-Suggest.md](04-模块边界-Identity与AuthN-AuthZ-Suggest.md) 将继续说明：
+将继续从模块协作角度说明：Identity 如何向 AuthN、AuthZ、IDP、Suggest 提供身份事实，同时避免边界漂移。
