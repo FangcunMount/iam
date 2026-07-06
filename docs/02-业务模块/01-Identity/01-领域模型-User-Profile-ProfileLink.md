@@ -19,7 +19,7 @@
 
 本文是 Identity 模型主文档，集中说明模型定义、模型图、状态流转和核心生命周期。
 模块总览见 [00-模块总览.md](00-模块总览.md)；
-关键链路见 [04-关键链路-创建User与Profile.md](04-关键链路-创建User与Profile.md) 和 [05-关键链路-建立与撤销ProfileLink.md](05-关键链路-建立与撤销ProfileLink.md)。
+关键链路见 [02-关键链路-创建User与Profile.md](02-关键链路-创建User与Profile.md) 和 [03-关键链路-建立与撤销ProfileLink.md](03-关键链路-建立与撤销ProfileLink.md)。
 
 ---
 

@@ -1,8 +1,6 @@
 # 领域模型：Subject / Resource / Action / Scope / Role / Permission / RoleBinding
 
-> 状态：待补证据 · 第一版正文，待继续按 ：
-> `internal/apiserver/domain/authz`、`application/authz`、Casbin runtime、Outbox/PolicyVersion、REST/gRPC 契约和测试逐项核对；
-> 本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthZ 模型主文档维护。
+> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/domain/authz`、`application/authz`、Casbin runtime、Outbox/PolicyVersion、REST/gRPC 契约和测试逐项核对；本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthZ 模型主文档维护。
 
 ---
 

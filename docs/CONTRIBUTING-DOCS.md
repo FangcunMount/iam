@@ -332,8 +332,8 @@ docs/02-业务模块/03-AuthZ/03-核心对象生命周期.md
 Identity：
 
 ```text
-04-关键链路-创建User与Profile.md
-05-关键链路-建立与撤销ProfileLink.md
+02-关键链路-创建User与Profile.md
+03-关键链路-建立与撤销ProfileLink.md
 ```
 
 AuthN：
@@ -351,8 +351,8 @@ AuthZ：
 ```text
 04-关键链路-权限检查Check.md
 05-关键链路-授权写入Grant-Revoke-Bind-Unbind.md
-06-关键链路-授权版本传播PolicyVersion-Outbox-RuntimeReload.md
-07-Casbin运行时模型.md
+04-关键链路-授权版本传播PolicyVersion-Outbox-RuntimeReload.md
+05-Casbin运行时模型.md
 ```
 
 验收标准：
