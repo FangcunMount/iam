@@ -133,7 +133,7 @@ VALUES (900000001, 'super_admin', '平台超级管理员', 'platform', 1, '平�
        (2, 'tenant_admin', '租户管理员', 'fangcun', 1, '管理本租户内的所有资源', NOW(), NOW(), 0, 0, 0, 1),
        (3, 'user', '普通用户', 'fangcun', 1, '普通用户权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000101, 'qs:admin', 'QS管理员', '1', 1, 'QS服务所有资源的管理权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000102, 'qs:content_manager', '内容管理员', '1', 1, '问卷和量表的管理权限', NOW(), NOW(), 0, 0, 0, 1),
+       (900000102, 'qs:content_manager', '内容管理员', '1', 1, '问卷、量表和常模表的管理权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000103, 'qs:evaluator', '评估员', '1', 1, '测评相关只读权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000104, 'qs:staff', '普通员工', '1', 1, '基本查看权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000105, 'qs:evaluation_plan_manager', '测评计划管理员', '1', 1, '测评计划的管理权限', NOW(), NOW(), 0, 0, 0,
@@ -214,7 +214,9 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
        (901000023, 'qs:statistics:collection:statistics_jobs', '统计作业', 'qs', 'statistics', 'collection',
         JSON_ARRAY('sync', 'validate'), '统计同步与一致性校验', NOW(), NOW(), 0, 0, 0, 1),
        (901000024, 'qs:code:collection:codes', '邀请码申请', 'qs', 'code', 'collection', JSON_ARRAY('apply'), '邀请码申请', NOW(), NOW(),
-        0, 0, 0, 1)
+        0, 0, 0, 1),
+       (901000025, 'qs:modelcatalog:collection:norm_tables', '常模表管理', 'qs', 'modelcatalog', 'collection',
+        JSON_ARRAY('read', 'list', 'import'), '版本化常模表的查询、详情读取与幂等导入', NOW(), NOW(), 0, 0, 0, 1)
 ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
                         `app_name`     = VALUES(`app_name`),
                         `domain`       = VALUES(`domain`),
@@ -314,6 +316,9 @@ FROM (SELECT 'p'                  AS `ptype`,
       UNION ALL
       SELECT 'p', 'role:qs:content_manager', '1', 'qs:scale:collection:scales',
              'create|read|list|update|delete|publish|unpublish|archive', 'all:*', NULL
+      UNION ALL
+      SELECT 'p', 'role:qs:content_manager', '1', 'qs:modelcatalog:collection:norm_tables',
+             'read|list|import', 'all:*', NULL
       UNION ALL
       SELECT 'p', 'role:qs:evaluator', '1', 'qs:answersheet:collection:answersheets', 'read|list|statistics', 'all:*', NULL
       UNION ALL

@@ -126,6 +126,19 @@ func TestLegacyAuthZResourceKeyMigrationMapsIdentityAliasesAndTenantDomain(t *te
 	assertSQLContains(t, downSQL, "SET `v2` = '1'")
 }
 
+func TestNormTableMigrationRegistersCatalogAndContentManagerPolicy(t *testing.T) {
+	upSQL := migrationSQL(t, "000015_add_norm_table_content_manager_policy.up.sql")
+	downSQL := migrationSQL(t, "000015_add_norm_table_content_manager_policy.down.sql")
+
+	assertSQLContains(t, upSQL, "qs:modelcatalog:collection:norm_tables")
+	assertSQLContains(t, upSQL, "JSON_ARRAY('read', 'list', 'import')")
+	assertSQLContains(t, upSQL, "role:qs:content_manager")
+	assertSQLContains(t, upSQL, "read|list|import")
+	assertSQLContains(t, upSQL, "WHERE NOT EXISTS")
+	assertSQLContains(t, downSQL, "DELETE FROM `casbin_rule`")
+	assertSQLContains(t, downSQL, "DELETE FROM `authz_resources`")
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 
