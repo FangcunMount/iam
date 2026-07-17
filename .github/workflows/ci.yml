@@ -27,6 +27,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Run documentation hygiene
+        run: make docs-hygiene
+
       - name: Download dependencies
         run: go mod download
 

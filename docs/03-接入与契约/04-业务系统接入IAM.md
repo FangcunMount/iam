@@ -473,7 +473,7 @@ keyword
   -> Identity/AuthZ visibility filter
   -> rank / limit
   -> mask
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 ---
@@ -484,11 +484,11 @@ keyword
 Suggest 不创建 Profile；
 Suggest 不写 ProfileLink；
 Suggest 不管理 RoleBinding；
-SuggestSnapshot 不是 Profile 主数据；
+ProfileSuggestionIndex 不是 Profile 主数据；
 索引命中不等于可见；
 业务系统不应绕过 Suggest 直接查索引；
 手机号搜索不能绕过 scope、可见性过滤、限流和审计；
-SuggestResult 不返回明文手机号或证件号，只返回 mobile_mask 等脱敏字段。
+ProfileSuggestItem 不返回明文手机号或证件号，只返回 mobile_mask 等脱敏字段。
 ```
 
 业务语义见 [Suggest](../02-业务模块/05-Suggest/README.md)。

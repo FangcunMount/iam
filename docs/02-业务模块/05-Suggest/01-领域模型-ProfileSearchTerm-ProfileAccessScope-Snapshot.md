@@ -1,7 +1,7 @@
 # 领域模型：ProfileSearchTerm / ProfileAccessScope / Snapshot
 
-> 状态：待补证据
-> 第一版正文，待继续按 `internal/apiserver/domain/suggest`、`application/suggest`、Profile 索引构建、Identity Profile/ProfileLink、AuthZ 可见性过滤、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造
+> `ProfileSuggestionIndex` 是 application port，`ProfileSuggestItem` 是 application 返回类型；`SnapshotWriter` 负责可选快照写入。本文把它们提升为独立领域模型的部分仍属待收敛设计。
 
 ---
 
@@ -14,8 +14,8 @@
 - `ProfileSearchTerm` 如何表达 Profile 的可搜索词条？
 - `ProfileAccessScope` 为什么不是 Identity `ProfileLink`，也不是 AuthZ `Scope`？
 - `Query` 如何表达规范化后的搜索请求？
-- `SuggestSnapshot` 为什么是读模型快照，不是 Profile 主数据？
-- `SuggestResult` 如何表达脱敏后的候选结果？
+- `ProfileSuggestionIndex` 为什么是读模型快照，不是 Profile 主数据？
+- `ProfileSuggestItem` 如何表达脱敏后的候选结果？
 - Suggest 模型的生命周期、状态流转和不变量是什么？
 - Suggest 与 Identity、AuthZ、AuthN、IDP 的边界在哪里？
 - 修改 Suggest 模型时应该核对哪些代码、契约和测试？
@@ -33,9 +33,9 @@ OperatingPrincipal
   -> ProfileAccessScope
   -> Query
   -> ProfileSearchTerm
-  -> SuggestSnapshot
+  -> ProfileSuggestionIndex
   -> visibility filter
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 每个对象回答的问题不同：
@@ -46,8 +46,8 @@ OperatingPrincipal
 | `ProfileAccessScope` | 可见范围输入 | 本次搜索允许在哪个范围内找 Profile | 不是 `ProfileLink`，也不是 AuthZ `Scope` 本体 |
 | `ProfileSearchTerm` | 可搜索词条 | Profile 派生出的搜索 token | 不是 `Profile` 写模型，不是敏感字段明文仓库 |
 | `Query` | 规范化搜索请求 | keyword 归一化后的查询条件 | 不是原始 HTTP request |
-| `SuggestSnapshot` | 索引快照 | 某个版本的搜索读模型 | 不是 Profile 主数据 |
-| `SuggestResult` | 脱敏候选结果 | 对外展示的可选 Profile 候选项 | 不是 Profile 写模型，不应包含敏感明文 |
+| `ProfileSuggestionIndex` | 索引快照 | 某个版本的搜索读模型 | 不是 Profile 主数据 |
+| `ProfileSuggestItem` | 脱敏候选结果 | 对外展示的可选 Profile 候选项 | 不是 Profile 写模型，不应包含敏感明文 |
 
 如果只记一句话：
 
@@ -85,9 +85,9 @@ Suggest 的模型是读侧搜索模型，适合表达：
 ```text
 Identity Profile
   -> derive ProfileSearchTerm
-  -> build SuggestSnapshot
+  -> build ProfileSuggestionIndex
   -> query by Query + ProfileAccessScope
-  -> return SuggestResult
+  -> return ProfileSuggestItem
 ```
 
 ---
@@ -103,10 +103,10 @@ flowchart TD
     Query["Query\nnormalized keyword / options"]
     Identity["Identity Profile\n主数据"]
     Term["ProfileSearchTerm\n可搜索词条"]
-    Snapshot["SuggestSnapshot\n索引快照"]
+    Snapshot["ProfileSuggestionIndex\n索引快照"]
     Candidate["Candidate Profile IDs"]
     Filter["Visibility Filter\nIdentity facts + AuthZ Check/filter"]
-    Result["SuggestResult\nmasked candidate"]
+    Result["ProfileSuggestItem\nmasked candidate"]
 
     AuthNPrincipal --> OP
     OP --> Scope
@@ -127,9 +127,9 @@ AuthN Principal 进入 Suggest 后应转换为 OperatingPrincipal；
 OperatingPrincipal 只保留搜索所需身份引用；
 ProfileAccessScope 表达搜索范围输入，不直接等于授权通过；
 ProfileSearchTerm 从 Identity Profile 派生；
-SuggestSnapshot 是读模型快照，可以重建；
+ProfileSuggestionIndex 是读模型快照，可以重建；
 候选集必须经过可见性过滤；
-最终返回 SuggestResult，而不是 Profile 写模型。
+最终返回 ProfileSuggestItem，而不是 Profile 写模型。
 ```
 
 ---
@@ -176,7 +176,7 @@ classDiagram
         +UpdatedAt
     }
 
-    class SuggestSnapshot {
+    class ProfileSuggestionIndex {
         +SnapshotID
         +Version
         +ProfileID
@@ -185,7 +185,7 @@ classDiagram
         +UpdatedAt
     }
 
-    class SuggestResult {
+    class ProfileSuggestItem {
         +ProfileID
         +DisplayName
         +MaskedPhone
@@ -196,8 +196,8 @@ classDiagram
 
     OperatingPrincipal --> ProfileAccessScope : builds
     Query --> ProfileSearchTerm : matches
-    ProfileSearchTerm --> SuggestSnapshot : included in
-    SuggestSnapshot --> SuggestResult : projects to
+    ProfileSearchTerm --> ProfileSuggestionIndex : included in
+    ProfileSuggestionIndex --> ProfileSuggestItem : projects to
 ```
 
 注意：
@@ -431,11 +431,11 @@ limit 有服务端最大值，不能完全信任客户端。
 
 ---
 
-## 10. SuggestSnapshot
+## 10. ProfileSuggestionIndex
 
 ### 10.1 定位
 
-`SuggestSnapshot` 是某一版本的 Profile 搜索读模型快照。
+`ProfileSuggestionIndex` 是某一版本的 Profile 搜索读模型快照。
 
 它回答：
 
@@ -491,21 +491,21 @@ stateDiagram-v2
 ### 10.4 边界
 
 ```text
-SuggestSnapshot 是读模型；
-SuggestSnapshot 不是 Profile 主数据；
-SuggestSnapshot 不应成为权限事实源；
-SuggestSnapshot 可以最终一致；
-SuggestSnapshot 可以被重建；
-SuggestSnapshot 中敏感字段必须最小化、脱敏或 hash 化。
+ProfileSuggestionIndex 是读模型；
+ProfileSuggestionIndex 不是 Profile 主数据；
+ProfileSuggestionIndex 不应成为权限事实源；
+ProfileSuggestionIndex 可以最终一致；
+ProfileSuggestionIndex 可以被重建；
+ProfileSuggestionIndex 中敏感字段必须最小化、脱敏或 hash 化。
 ```
 
 ---
 
-## 11. SuggestResult
+## 11. ProfileSuggestItem
 
 ### 11.1 定位
 
-`SuggestResult` 是对外返回的脱敏候选项。
+`ProfileSuggestItem` 是对外返回的脱敏候选项。
 
 它回答：
 
@@ -533,12 +533,12 @@ SuggestSnapshot 中敏感字段必须最小化、脱敏或 hash 化。
 ### 11.3 边界
 
 ```text
-SuggestResult 不是 Profile 写模型；
-SuggestResult 不应包含明文手机号；
-SuggestResult 不应包含明文证件号；
-SuggestResult 不应暴露完整搜索 token；
-SuggestResult 不应泄露无权限 Profile 的存在性；
-SuggestResult 字段应根据调用方和权限策略最小化。
+ProfileSuggestItem 不是 Profile 写模型；
+ProfileSuggestItem 不应包含明文手机号；
+ProfileSuggestItem 不应包含明文证件号；
+ProfileSuggestItem 不应暴露完整搜索 token；
+ProfileSuggestItem 不应泄露无权限 Profile 的存在性；
+ProfileSuggestItem 字段应根据调用方和权限策略最小化。
 ```
 
 ---
@@ -552,11 +552,11 @@ SuggestResult 字段应根据调用方和权限策略最小化。
 | ProfileSearchTerm 是读模型词条 | ProfileSearchTerm | 不等于 Profile 写模型 |
 | ProfileSearchTerm 命中不等于可见 | ProfileSearchTerm | 必须继续做可见性过滤 |
 | Query 必须归一化和限流 | Query | 防枚举和性能风险 |
-| SuggestSnapshot 是可重建读模型 | SuggestSnapshot | 不等于 Profile 主数据 |
-| SuggestSnapshot 不作为权限事实源 | SuggestSnapshot | 可见性由 Identity/AuthZ 决定 |
-| SuggestResult 必须脱敏 | SuggestResult | 不返回明文手机号/证件号 |
+| ProfileSuggestionIndex 是可重建读模型 | ProfileSuggestionIndex | 不等于 Profile 主数据 |
+| ProfileSuggestionIndex 不作为权限事实源 | ProfileSuggestionIndex | 可见性由 Identity/AuthZ 决定 |
+| ProfileSuggestItem 必须脱敏 | ProfileSuggestItem | 不返回明文手机号/证件号 |
 | 先过滤再排序截断 | Query chain | 防越权和结果挤占 |
-| 无权限候选不得泄露存在性 | SuggestResult | 结果数量和 reason 都要克制 |
+| 无权限候选不得泄露存在性 | ProfileSuggestItem | 结果数量和 reason 都要克制 |
 
 ---
 
@@ -583,7 +583,7 @@ SuggestResult 字段应根据调用方和权限策略最小化。
 
 ```text
 Identity 负责 User/Profile/ProfileLink 写模型；
-Suggest 从 Identity Profile 派生 ProfileSearchTerm / SuggestSnapshot；
+Suggest 从 Identity Profile 派生 ProfileSearchTerm / ProfileSuggestionIndex；
 Suggest 不创建或修改 User/Profile/ProfileLink；
 Suggest 索引丢失时应能从 Identity 重建；
 ProfileLink 可以作为可见性过滤事实输入，但不是 ProfileAccessScope 本身。
@@ -630,7 +630,7 @@ IDP 不直接写 Suggest index。
 | ProfileAccessScope 当 AuthZ Scope | 搜索输入和授权模型混淆 | 明确映射到 AuthZ Check context |
 | 搜索命中直接返回 | 越权泄露 | 先可见性过滤 |
 | 先 limit 再过滤 | 可见结果被挤掉 | 先过滤再排序截断 |
-| SuggestResult 返回明文手机号 | 敏感泄露 | 返回 maskedPhone |
+| ProfileSuggestItem 返回明文手机号 | 敏感泄露 | 返回 maskedPhone |
 | 索引保存完整证件号明文 | 高风险泄露 | 使用 suffix/hash/最小化字段 |
 | 无权限结果返回 matchReason | 泄露存在性 | deny 后不进入结果 |
 | keyword 太短全局搜索 | 枚举风险 | 最小长度、限流、范围限制 |
@@ -647,8 +647,8 @@ IDP 不直接写 Suggest index。
 | ProfileAccessScope | `../../../internal/apiserver/domain/suggest` |
 | ProfileSearchTerm | `../../../internal/apiserver/domain/suggest` |
 | Query | `../../../internal/apiserver/domain/suggest` |
-| SuggestSnapshot | `../../../internal/apiserver/domain/suggest` |
-| SuggestResult | `../../../internal/apiserver/domain/suggest` |
+| ProfileSuggestionIndex | `../../../internal/apiserver/application/suggest` |
+| ProfileSuggestItem | `../../../internal/apiserver/application/suggest` |
 | Suggest application | `../../../internal/apiserver/application/suggest` |
 | Suggest index / repository | `../../../internal/apiserver/infra` |
 | Identity Profile / ProfileLink | `../../../internal/apiserver/domain/identity` |
@@ -733,9 +733,9 @@ OperatingPrincipal
   -> ProfileAccessScope
   -> Query
   -> ProfileSearchTerm
-  -> SuggestSnapshot
+  -> ProfileSuggestionIndex
   -> visibility filter
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 每个对象的职责是：
@@ -745,8 +745,8 @@ OperatingPrincipal：当前搜索操作者引用；
 ProfileAccessScope：本次搜索的可见范围输入；
 Query：规范化后的搜索请求；
 ProfileSearchTerm：从 Profile 派生的可搜索词条；
-SuggestSnapshot：某一版本的搜索读模型快照；
-SuggestResult：脱敏后的候选展示结果。
+ProfileSuggestionIndex：某一版本的搜索读模型快照；
+ProfileSuggestItem：脱敏后的候选展示结果。
 ```
 
 最重要的边界是：
@@ -754,8 +754,8 @@ SuggestResult：脱敏后的候选展示结果。
 ```text
 ProfileSearchTerm 不是 Profile 写模型；
 ProfileAccessScope 不是 ProfileLink，也不是 AuthZ Scope 本体；
-SuggestSnapshot 不是 Profile 主数据，也不是权限事实源；
-SuggestResult 必须脱敏；
+ProfileSuggestionIndex 不是 Profile 主数据，也不是权限事实源；
+ProfileSuggestItem 必须脱敏；
 索引命中不等于可见；
 必须先过滤再排序截断；
 Suggest 不创建 User/Profile/ProfileLink，不写 RoleBinding，不签发 Token。

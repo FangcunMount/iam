@@ -1,7 +1,7 @@
 
 # 关键链路：SuggestProfile 查询
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/suggest`、`domain/suggest`、Runtime Snapshot、Identity Profile/ProfileLink、AuthZ 可见性过滤、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 当前查询只通过 REST 暴露，application 返回 `ProfileSuggestItem`；本文中的 gRPC/SDK 与 `ProfileSuggestItem` 描述不是现行代码事实。
 
 ---
 
@@ -774,7 +774,7 @@ provider claims 如需进入搜索结果，应先经过 Identity 确认。
 | --- | --- |
 | Suggest domain | `../../../internal/apiserver/domain/suggest` |
 | OperatingPrincipal / Query / ProfileAccessScope | `../../../internal/apiserver/domain/suggest` |
-| SuggestResult | `../../../internal/apiserver/domain/suggest` |
+| ProfileSuggestItem | `../../../internal/apiserver/application/suggest` |
 | Suggest application query use case | `../../../internal/apiserver/application/suggest` |
 | Runtime Snapshot / index | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/suggest`，具体以代码为准 |
 | Visibility filter | `../../../internal/apiserver/application/suggest` |

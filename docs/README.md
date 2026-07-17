@@ -318,8 +318,8 @@ Suggest 管搜索读模型；
 | ProfileLink vs Permission | ProfileLink 是身份关系，Permission 是访问权声明 |
 | Casbin vs AuthZ domain | Casbin 是 infra runtime engine，不是领域模型 |
 | Outbox vs MQ | Outbox 记录待发布事件，MQ 负责投递 |
-| SuggestSnapshot vs Profile | SuggestSnapshot 是派生读模型，Profile 是 Identity 主数据 |
-| SuggestResult vs AuthorizationDecision | SuggestResult 是候选展示，AuthorizationDecision 是授权决策 |
+| ProfileSuggestionIndex vs Profile | ProfileSuggestionIndex 是派生读模型，Profile 是 Identity 主数据 |
+| ProfileSuggestItem vs AuthorizationDecision | ProfileSuggestItem 是候选展示，AuthorizationDecision 是授权决策 |
 | docs vs machine contract | 文档解释语义，OpenAPI/proto/SDK 才是机器契约事实源 |
 
 ---

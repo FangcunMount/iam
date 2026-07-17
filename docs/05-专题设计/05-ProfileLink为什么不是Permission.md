@@ -426,13 +426,13 @@ keyword
   -> Identity facts / AuthZ visibility check
   -> rank / limit
   -> mask
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 边界：
 
 ```text
-ProfileLink 不是 SuggestResult；
+ProfileLink 不是 ProfileSuggestItem；
 ProfileLink 不是 ProfileAccessScope；
 ProfileLink 不替代 AuthZ visibility check；
 Suggest 不应直接返回明文手机号或证件号。

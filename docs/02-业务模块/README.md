@@ -64,7 +64,7 @@ LoginIdentity 不是 User；
 Principal 不是 User，也不是 Subject；
 ProfileLink 不是 RoleBinding；
 ProfileAccessScope 不是 AuthZ Scope 本体；
-SuggestSnapshot 不是 Profile 主数据；
+ProfileSuggestionIndex 不是 Profile 主数据；
 AppToken 不是 IAM AccessToken；
 Token 验签成功不等于授权通过。
 ```
@@ -83,7 +83,7 @@ flowchart TD
     AuthN["AuthN\nLoginIdentity / Credential\nPrincipal / Session / Token"]
     Identity["Identity\nUser / Profile / ProfileLink"]
     AuthZ["AuthZ\nSubject / Role / Permission\nRoleBinding / Check"]
-    Suggest["Suggest\nQuery / ProfileSearchTerm\nSnapshot / SuggestResult"]
+    Suggest["Suggest\nQuery / ProfileSearchTerm\nSnapshot / ProfileSuggestItem"]
 
     Client["Client / App / Backend"]
     Provider["External Provider\nWeChat / WeCom"]
@@ -124,7 +124,7 @@ API 入口通常先经过 AuthN，再按场景进入 AuthZ、Identity、Suggest 
 | AuthN | [02-AuthN](02-AuthN/README.md) | 认证中心 | `LoginIdentity` / `Credential` / `Challenge` / `Principal` / `Session` / `Token` / `JWKS` |
 | AuthZ | [03-AuthZ](03-AuthZ/README.md) | 授权中心 | `Subject` / `Resource` / `Action` / `Scope` / `Role` / `Permission` / `RoleBinding` / `PolicyVersion` |
 | IDP | [04-IDP](04-IDP/README.md) | 外部身份源基础设施 | `WechatApp` / `Credentials` / `AppToken` / `ExternalIdentity` |
-| Suggest | [05-Suggest](05-Suggest/README.md) | Profile 联想搜索读模型 | `OperatingPrincipal` / `ProfileAccessScope` / `Query` / `ProfileSearchTerm` / `SuggestSnapshot` / `SuggestResult` |
+| Suggest | [05-Suggest](05-Suggest/README.md) | Profile 联想搜索读模型 | `OperatingPrincipal` / `ProfileAccessScope` / `Query` / `ProfileSearchTerm` / `ProfileSuggestionIndex` / `ProfileSuggestItem` |
 
 ---
 
@@ -228,7 +228,7 @@ Suggest 回答：
 
 ```text
 当前请求者在可见范围内，根据 keyword 能看到哪些 Profile 候选？
-ProfileSearchTerm 和 SuggestSnapshot 如何从 Identity 主数据派生？
+ProfileSearchTerm 和 ProfileSuggestionIndex 如何从 Identity 主数据派生？
 候选结果如何经过可见性过滤、排序、截断和脱敏？
 手机号搜索如何限流、审计并只返回 mobile_mask？
 ```
@@ -317,22 +317,22 @@ Suggest 只消费 Profile/ProfileLink 事实，不修改 Identity 主数据。
 
 ```text
 Identity Profile facts
-  -> Suggest ProfileSearchTerm / SuggestSnapshot
+  -> Suggest ProfileSearchTerm / ProfileSuggestionIndex
   -> Query matches candidate profileIDs
   -> Identity facts + AuthZ Check/filter
   -> visible candidates
   -> rank / limit / mask
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 边界：
 
 ```text
-SuggestSnapshot 不是 Profile 主数据；
+ProfileSuggestionIndex 不是 Profile 主数据；
 索引命中不等于可见；
 ProfileAccessScope 不是 AuthZ Scope 本体；
 手机号搜索不能绕过 scope 和可见性过滤；
-SuggestResult 不返回明文手机号或证件号。
+ProfileSuggestItem 不返回明文手机号或证件号。
 ```
 
 ---
@@ -352,7 +352,7 @@ SuggestResult 不返回明文手机号或证件号。
 | `ProfileLink` 与 `RoleBinding` | ProfileLink 是身份关系事实 | ProfileLink 是授权绑定 |
 | `ProfileAccessScope` 与 AuthZ `Scope` | Suggest Scope 是搜索范围输入 | Suggest Scope 等于授权通过 |
 | `ProfileSearchTerm` 与 `Profile` | SearchTerm 是搜索读模型词条 | SearchTerm 是 Profile 主数据 |
-| `SuggestSnapshot` 与 Profile 主数据 | Snapshot 是可重建读模型 | Snapshot 可回写 Identity 主数据 |
+| `ProfileSuggestionIndex` 与 Profile 主数据 | Snapshot 是可重建读模型 | Snapshot 可回写 Identity 主数据 |
 
 ---
 

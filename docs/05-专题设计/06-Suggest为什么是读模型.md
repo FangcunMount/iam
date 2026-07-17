@@ -1,6 +1,6 @@
 # Suggest 为什么是读模型
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/domain/suggest`、`application/suggest`、Identity Profile 事实源、Suggest Snapshot、索引刷新、可见性过滤、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · “读模型”方向与代码一致；`ProfileSuggestionIndex` / `ProfileSuggestItem` 是 application 符号，不是 domain entity。Suggest 当前没有 gRPC/proto/SDK，本文的对应描述属于目标设计。
 
 ---
 
@@ -11,7 +11,7 @@
 - Suggest 是什么？
 - 为什么 Suggest 是读模型，而不是 Identity 写模型？
 - 为什么 Profile autocomplete 不应该直接查 Identity 主表？
-- SuggestSnapshot、ProfileSearchTerm、ProfileAccessScope、SuggestResult 分别解决什么问题？
+- ProfileSuggestionIndex、ProfileSearchTerm、ProfileAccessScope、ProfileSuggestItem 分别解决什么问题？
 - Suggest 如何使用 Identity/Profile 事实，但不拥有 Profile？
 - Suggest 如何使用 AuthZ/Identity 可见性事实，但不替代 AuthZ？
 - 为什么 Suggest 可以最终一致、可降级？
@@ -38,7 +38,7 @@ Suggest 是 IAM 为 Profile autocomplete 构建的辅助读模型。
 把 keyword 归一化成查询条件；
 从 Snapshot 中匹配候选 Profile；
 结合 ProfileAccessScope / Identity facts / AuthZ visibility 做可见性过滤；
-排序、截断、脱敏后返回 SuggestResult。
+排序、截断、脱敏后返回 ProfileSuggestItem。
 ```
 
 它不负责：
@@ -57,10 +57,10 @@ Suggest 是 IAM 为 Profile autocomplete 构建的辅助读模型。
 ```text
 Identity 拥有 Profile 写模型；
 Suggest 拥有 Profile 搜索读模型；
-SuggestSnapshot 是派生快照，不是 Profile 主数据；
+ProfileSuggestionIndex 是派生快照，不是 Profile 主数据；
 ProfileSearchTerm 是搜索 token，不是 Profile 字段本身；
 ProfileAccessScope 是查询可见范围输入，不是 ProfileLink，也不是 AuthZ Scope 本体；
-SuggestResult 是脱敏候选结果，不是 Profile entity；
+ProfileSuggestItem 是脱敏候选结果，不是 Profile entity；
 索引命中不等于可见；
 可见不等于有任意资源权限。
 ```
@@ -79,12 +79,12 @@ flowchart TD
     Facts["Profile Facts\nname / mobile / relation / status"]
     Builder["Suggest Index Builder\nfull / delta refresh"]
     Terms["ProfileSearchTerm\nnormalized tokens"]
-    Snapshot["SuggestSnapshot\nread model"]
+    Snapshot["ProfileSuggestionIndex\nread model"]
     Query["SuggestProfile Query\nkeyword / scope / limit"]
     Scope["ProfileAccessScope"]
     Visibility["Visibility Filter\nIdentity facts + AuthZ"]
     Mask["Mask / Rank / Limit"]
-    Result["SuggestResult\nmasked candidates"]
+    Result["ProfileSuggestItem\nmasked candidates"]
 
     Identity --> Facts
     Facts --> Builder
@@ -105,7 +105,7 @@ Identity 是 Profile 主数据事实源；
 Suggest 从 Identity 派生搜索索引；
 Snapshot 是运行时读模型；
 查询时先匹配候选，再做可见性过滤；
-最终返回脱敏 SuggestResult；
+最终返回脱敏 ProfileSuggestItem；
 任何时候 Suggest 都不反向成为 Profile 主数据源。
 ```
 
@@ -163,7 +163,7 @@ Suggest 核心问题是：
 | 维度 | Identity | Suggest |
 | --- | --- | --- |
 | 模型类型 | 写模型 / 事实源 | 派生读模型 |
-| 核心对象 | User / Profile / ProfileLink | ProfileSearchTerm / ProfileAccessScope / SuggestSnapshot / SuggestResult |
+| 核心对象 | User / Profile / ProfileLink | ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex / ProfileSuggestItem |
 | 核心职责 | 维护身份事实和关系不变量 | 快速、安全、脱敏地搜索候选 |
 | 一致性要求 | 强一致或事务一致，具体以实现为准 | 可最终一致 |
 | 可降级性 | 核心能力，不应轻易降级 | 可降级，不应阻断核心身份认证授权 |
@@ -201,11 +201,11 @@ Suggest 可以做：
 ```text
 读取 Profile facts；
 构建搜索 token；
-构建 SuggestSnapshot；
+构建 ProfileSuggestionIndex；
 保存或缓存索引；
 根据 keyword 匹配候选；
 过滤不可见候选；
-返回脱敏 SuggestResult。
+返回脱敏 ProfileSuggestItem。
 ```
 
 核心规则：
@@ -213,15 +213,15 @@ Suggest 可以做：
 ```text
 Identity -> Suggest 是事实派生方向；
 Suggest -> Identity 不应反向写主数据；
-SuggestSnapshot 可丢弃重建；
-Profile 主数据不可从 SuggestSnapshot 反推恢复。
+ProfileSuggestionIndex 可丢弃重建；
+Profile 主数据不可从 ProfileSuggestionIndex 反推恢复。
 ```
 
 ---
 
-## 7. SuggestSnapshot 是什么
+## 7. ProfileSuggestionIndex 是什么
 
-SuggestSnapshot 是某一时刻的搜索读模型快照。
+ProfileSuggestionIndex 是某一时刻的搜索读模型快照。
 
 它解决：
 
@@ -337,9 +337,9 @@ ProfileAccessScope 是 Suggest 查询层的范围参数；
 
 ---
 
-## 10. SuggestResult 是什么
+## 10. ProfileSuggestItem 是什么
 
-SuggestResult 是联想搜索返回给调用方的候选结果。
+ProfileSuggestItem 是联想搜索返回给调用方的候选结果。
 
 它应该包含：
 
@@ -368,7 +368,7 @@ password / token / secret；
 边界：
 
 ```text
-SuggestResult 是展示候选；
+ProfileSuggestItem 是展示候选；
 不是 Profile 详情；
 不是权限凭证；
 不是下一步业务操作的授权证明；
@@ -441,7 +441,7 @@ AuthZ 回答：
 ```text
 能搜索到候选，不代表能读取详情；
 能搜索到候选，不代表能修改、删除、导出；
-SuggestResult 不能作为授权凭证；
+ProfileSuggestItem 不能作为授权凭证；
 后续业务操作必须重新 AuthZ Check；
 Suggest visibility filter 不能绕过 AuthZ/Identity facts。
 ```
@@ -478,7 +478,7 @@ ProfileLink 不表达搜索脱敏策略。
 ProfileLink 是 Identity 关系事实；
 ProfileAccessScope 是 Suggest 查询范围；
 VisibilityFilter 是查询时安全过滤；
-SuggestResult 是脱敏候选；
+ProfileSuggestItem 是脱敏候选；
 四者不能混用。
 ```
 
@@ -615,7 +615,7 @@ load Identity facts
   -> extract searchable fields
   -> normalize terms
   -> build ProfileSearchTerm
-  -> build SuggestSnapshot
+  -> build ProfileSuggestionIndex
   -> validate snapshot
   -> atomic swap
   -> expose version/metrics
@@ -683,12 +683,12 @@ Suggest 不返回内部 search token；
 | 反模式 | 问题 | 推荐做法 |
 | --- | --- | --- |
 | Suggest 写 Profile 主数据 | 读写模型混淆 | Profile 写入归 Identity |
-| 直接查 Identity 主表做模糊搜索 | 性能和安全策略难控 | 派生 SuggestSnapshot |
+| 直接查 Identity 主表做模糊搜索 | 性能和安全策略难控 | 派生 ProfileSuggestionIndex |
 | Snapshot 命中直接返回 | 可能越权 | 先可见性过滤再返回 |
 | 先 limit 再过滤 | 可见候选被挤掉 | filter -> rank -> limit |
 | 返回明文手机号 | 隐私泄露 | 只返回 mobile_mask |
 | ProfileLink 命中即返回 | 可见性过宽 | ProfileAccessScope + VisibilityFilter |
-| SuggestResult 当授权凭证 | 后续接口越权 | 后续操作重新 AuthZ Check |
+| ProfileSuggestItem 当授权凭证 | 后续接口越权 | 后续操作重新 AuthZ Check |
 | 索引刷新失败覆盖旧索引 | 查询不可用或数据错乱 | 构建成功后原子切换 |
 | 索引滞后无监控 | 问题不可见 | 监控 version/lag/failure |
 | 降级时跳过权限过滤 | 安全事故 | 降级只能更保守 |
@@ -709,7 +709,7 @@ Suggest 不返回内部 search token；
 | REST transport | `../../internal/apiserver/transport/rest` |
 | gRPC transport | `../../internal/apiserver/transport/grpc` |
 | REST OpenAPI | `../../api/rest/suggest.v2.yaml`，若已存在 |
-| gRPC proto | `../../api/grpc/iam/suggest/v2/suggest.proto`，若已存在 |
+| gRPC 暴露 | 当前未提供 Suggest proto 或 gRPC service |
 | 架构测试 | `../../internal/pkg/architecture` |
 | Suggest 文档 | `../02-业务模块/05-Suggest/README.md` |
 
@@ -760,13 +760,13 @@ make docs-hygiene
 
 ```text
 Suggest 不创建 Profile；
-SuggestSnapshot 可由 Identity facts 重建；
+ProfileSuggestionIndex 可由 Identity facts 重建；
 刷新失败不污染当前 Snapshot；
 Snapshot 命中后仍做可见性过滤；
 先过滤再排序截断；
 手机号搜索只返回 mobile_mask；
 手机号搜索触发限流和审计；
-SuggestResult 不能作为详情读取授权；
+ProfileSuggestItem 不能作为详情读取授权；
 降级时不跳过可见性过滤；
 索引滞后指标可观测。
 ```
@@ -780,9 +780,9 @@ Suggest 作为读模型可以压缩成：
 ```text
 Identity 拥有 Profile 写模型；
 Suggest 从 Identity facts 派生 ProfileSearchTerm；
-SuggestSnapshot 是可重建、可最终一致、可降级的搜索读模型；
+ProfileSuggestionIndex 是可重建、可最终一致、可降级的搜索读模型；
 Suggest 查询先匹配候选，再做可见性过滤、排序、截断和脱敏；
-SuggestResult 是候选展示，不是 Profile entity，也不是授权凭证。
+ProfileSuggestItem 是候选展示，不是 Profile entity，也不是授权凭证。
 ```
 
 最重要的工程规则是：

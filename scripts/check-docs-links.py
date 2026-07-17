@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check active IAM documentation links and retired fact references."""
+"""Check active IAM documentation links, repo paths, and retired references."""
 
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ SKIP_DIRS = {
     ".git",
     "node_modules",
     "vendor",
-    "_archive",
 }
 
 RETIRED_REFERENCES = [
@@ -51,10 +50,35 @@ RETIRED_REFERENCES = [
     "IsRef",
     "AddRef",
     "ListRefs",
+    "SuggestSnapshot",
+    "SuggestResult",
+    "ProfileSuggestResult",
 ]
 
 INLINE_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)\n]+)\)")
 REFERENCE_LINK_RE = re.compile(r"^\s*\[[^\]]+\]:\s+(\S+)", re.MULTILINE)
+BACKTICK_RE = re.compile(r"`([^`\n]+)`")
+REPO_PATH_PREFIXES = (
+    ".github/",
+    "api/",
+    "build/",
+    "cmd/",
+    "configs/",
+    "internal/",
+    "pkg/",
+    "scripts/",
+    "web/",
+)
+SOURCE_PATH_SUFFIXES = {
+    ".go",
+    ".md",
+    ".proto",
+    ".py",
+    ".sh",
+    ".sql",
+    ".yaml",
+    ".yml",
+}
 
 
 def active_markdown_files(root: Path, inputs: list[str]) -> list[Path]:
@@ -73,7 +97,11 @@ def active_markdown_files(root: Path, inputs: list[str]) -> list[Path]:
 
 
 def is_skipped(path: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.parts)
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+    if "_archive" not in path.parts:
+        return False
+    return not (path.name == "README.md" and path.parent.name == "_archive")
 
 
 def is_external(dest: str) -> bool:
@@ -124,6 +152,42 @@ def collect_link_issues(files: list[Path], root: Path) -> list[str]:
     return issues
 
 
+def normalize_code_path(raw: str) -> str | None:
+    candidate = raw.strip().rstrip(".,;:，。；：")
+    is_relative = candidate.startswith(("./", "../"))
+    is_repo_source_file = (
+        candidate.startswith(REPO_PATH_PREFIXES)
+        and Path(candidate).suffix in SOURCE_PATH_SUFFIXES
+    )
+    if not (is_relative or is_repo_source_file):
+        return None
+    if any(char.isspace() for char in candidate):
+        return None
+    if any(token in candidate for token in ("*", "{", "}", "<", ">", "$", "|", "...")):
+        return None
+    return re.sub(r":\d+(?:-\d+)?$", "", candidate)
+
+
+def collect_code_path_issues(files: list[Path], root: Path) -> list[str]:
+    issues: list[str] = []
+    for file_path in files:
+        text = file_path.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            for raw in BACKTICK_RE.findall(line):
+                candidate = normalize_code_path(raw)
+                if candidate is None:
+                    continue
+                target = (
+                    file_path.parent / candidate
+                    if candidate.startswith(("./", "../"))
+                    else root / candidate
+                )
+                if not target.resolve().exists():
+                    rel_file = file_path.relative_to(root)
+                    issues.append(f"{rel_file}:{lineno}: stale repo path -> {raw}")
+    return issues
+
+
 def collect_retired_reference_issues(files: list[Path], root: Path) -> list[str]:
     issues: list[str] = []
     for file_path in files:
@@ -145,6 +209,7 @@ def main() -> int:
     files = active_markdown_files(root, args.paths)
     issues = []
     issues.extend(collect_link_issues(files, root))
+    issues.extend(collect_code_path_issues(files, root))
     issues.extend(collect_retired_reference_issues(files, root))
 
     if issues:
@@ -153,7 +218,10 @@ def main() -> int:
             print(f"- {issue}")
         return 1
 
-    print(f"Documentation hygiene passed: {len(files)} active Markdown files checked.")
+    print(
+        f"Documentation hygiene passed: {len(files)} active and archive-index "
+        "Markdown files checked."
+    )
     return 0
 
 

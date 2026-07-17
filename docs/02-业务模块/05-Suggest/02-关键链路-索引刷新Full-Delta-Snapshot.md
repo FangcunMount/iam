@@ -1,8 +1,8 @@
 
 # 关键链路：索引刷新 Full / Delta / Snapshot
 
-> 状态：待补证据
-> 第一版正文，待继续按 `application/suggest`、`domain/suggest`、Identity Profile/ProfileLink 事实源、索引 repository、Snapshot runtime、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造
+> 当前实现以 `ProfileIndexRefresher`、`ProfileSuggestionRuntime` 和 `SnapshotWriter` 为事实源；本文把快照描述成独立领域模型的部分属于待收敛设计。
 
 ---
 
@@ -13,7 +13,7 @@
 - Suggest 索引刷新链路解决什么问题？
 - 为什么 Suggest 索引是读模型，不是 Identity Profile 主数据？
 - Full rebuild、Delta refresh、Snapshot 分别承担什么职责？
-- Profile 主数据变化后，如何派生 `ProfileSearchTerm` 和 `SuggestSnapshot`？
+- Profile 主数据变化后，如何派生 `ProfileSearchTerm` 和 `ProfileSuggestionIndex`？
 - 刷新过程中如何避免运行时读到半更新索引？
 - Full 与 Delta 如何处理一致性、幂等、并发和失败回滚？
 - 索引中敏感字段如何最小化、hash 化或脱敏？
@@ -47,7 +47,7 @@ Identity Profile source
   -> extract searchable fields
   -> normalize terms
   -> build ProfileSearchTerm
-  -> build SuggestSnapshot
+  -> build ProfileSuggestionIndex
   -> validate snapshot
   -> atomic swap runtime index
   -> expose snapshot version
@@ -113,7 +113,7 @@ Identity Profile facts
 | `ProfileSearchTerm` | 从 Profile 派生的搜索词条 | 不是 Profile 本体，不表达授权通过 |
 | `FullRefresh` | 全量重建索引 | 用于冷启动、修复、重建 |
 | `DeltaRefresh` | 增量刷新索引 | 用于 Profile 变化后的局部更新 |
-| `SuggestSnapshot` | 某个版本的只读索引快照 | 不是 Profile 主数据，可重建 |
+| `ProfileSuggestionIndex` | 某个版本的只读索引快照 | 不是 Profile 主数据，可重建 |
 | `RuntimeIndex` | 查询链路使用的运行时索引 | 必须避免半更新状态 |
 | `SnapshotVersion` | 索引版本 | 用于一致性、排查和观测 |
 | `IndexBuildResult` | 刷新结果 | 成功、失败、跳过、部分失败等 |
@@ -194,7 +194,7 @@ FullRefresh
   -> extract searchable fields
   -> normalize terms
   -> build all ProfileSearchTerm
-  -> build full SuggestSnapshot
+  -> build full ProfileSuggestionIndex
   -> validate full snapshot
   -> persist snapshot/index if needed
   -> atomic swap runtime index
@@ -265,7 +265,7 @@ ProfileLink 或可见性相关事实变化；
 ```text
 如果变化只影响可见性，不一定需要重建搜索词条；
 如果变化影响搜索字段，需要重建该 Profile 的 ProfileSearchTerm；
-如果变化影响展示字段，需要更新 SuggestResult 所需 display snapshot；
+如果变化影响展示字段，需要更新 ProfileSuggestItem 所需 display snapshot；
 如果变化影响权限策略，可能只影响查询时过滤，不一定影响索引。
 ```
 
@@ -742,7 +742,7 @@ Suggest 不读取 WechatApp / Credentials / AppToken / ExternalIdentity。
 | --- | --- |
 | Suggest domain | `../../../internal/apiserver/domain/suggest` |
 | ProfileSearchTerm | `../../../internal/apiserver/domain/suggest` |
-| SuggestSnapshot | `../../../internal/apiserver/domain/suggest` |
+| ProfileSuggestionIndex / ProfileSuggestionRuntime | `../../../internal/apiserver/application/suggest` |
 | Suggest application | `../../../internal/apiserver/application/suggest` |
 | Full / Delta refresh use case | `../../../internal/apiserver/application/suggest` |
 | Normalizer / TermBuilder | `../../../internal/apiserver/application/suggest`、`../../../internal/apiserver/domain/suggest`，具体以代码为准 |
@@ -836,7 +836,7 @@ Identity Profile source
   -> extract searchable fields
   -> normalize terms
   -> build ProfileSearchTerm
-  -> build SuggestSnapshot
+  -> build ProfileSuggestionIndex
   -> validate snapshot
   -> atomic swap runtime index
   -> expose snapshot version

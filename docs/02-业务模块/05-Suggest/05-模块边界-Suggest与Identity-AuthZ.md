@@ -1,6 +1,6 @@
 # 模块边界：Suggest 与 Identity / AuthZ
 
-> 状态：待补证据 · 第一版正文，待继续按源码、组合根、跨模块 port、Identity Profile/ProfileLink 事实源、AuthZ Check/filter、索引 infra、REST/gRPC 契约和架构测试逐项核对。
+> 状态：规划改造 · 当前边界需以源码 port、组合根和测试为准；`ProfileSuggestionIndex` / `ProfileSuggestItem` 是 application 符号，Suggest gRPC/SDK 不是现行能力。
 
 ---
 
@@ -9,7 +9,7 @@
 本文回答 10 个问题：
 
 - Suggest 的模块边界是什么？
-- Suggest 与 Identity 如何协作，为什么 `ProfileSearchTerm / SuggestSnapshot` 不是 `Profile` 主数据？
+- Suggest 与 Identity 如何协作，为什么 `ProfileSearchTerm / ProfileSuggestionIndex` 不是 `Profile` 主数据？
 - Suggest 与 AuthZ 如何协作，为什么 `ProfileAccessScope` 不是 AuthZ `Scope` 本体？
 - Suggest 与 AuthN 如何协作，为什么 `OperatingPrincipal` 不是 AuthN `Principal` 本体？
 - Suggest 与 IDP 如何协作，为什么外部 provider claims 不能直接写 Suggest 索引？
@@ -37,8 +37,8 @@ OperatingPrincipal；
 ProfileAccessScope；
 Query；
 ProfileSearchTerm；
-SuggestSnapshot；
-SuggestResult；
+ProfileSuggestionIndex；
+ProfileSuggestItem；
 搜索候选集；
 脱敏展示结果。
 ```
@@ -57,7 +57,7 @@ Index infra 只负责搜索存储和匹配，不负责授权决策。
 
 ```text
 ProfileSearchTerm 不是 Profile；
-SuggestSnapshot 不是 Profile 主数据；
+ProfileSuggestionIndex 不是 Profile 主数据；
 ProfileAccessScope 不是 ProfileLink；
 ProfileAccessScope 不是 AuthZ Scope 本体；
 ProfileAccessScope 不等于授权通过；
@@ -65,7 +65,7 @@ ProfileLink 不是 RoleBinding；
 OperatingPrincipal 不是 AuthN Principal 本体；
 索引命中不等于可见；
 Store / Index 不应直接调用 AuthZ；
-SuggestResult 不应返回明文手机号或证件号。
+ProfileSuggestItem 不应返回明文手机号或证件号。
 ```
 
 如果只记一句话：
@@ -124,7 +124,7 @@ Suggest 负责：
 | OperatingPrincipal 建模 | 将 AuthN Principal 转成搜索操作者引用 |
 | ProfileAccessScope 建模 | 表达本次搜索的可见范围输入 |
 | ProfileSearchTerm 构建 | 从 Identity Profile 派生搜索 token |
-| SuggestSnapshot 构建 | 维护可重建的搜索读模型快照 |
+| ProfileSuggestionIndex 构建 | 维护可重建的搜索读模型快照 |
 | SuggestProfile 查询 | 命中候选、过滤、排序、截断、脱敏返回 |
 | 手机号安全策略 | AllowMobileSearch、脱敏、限流、审计、指标 |
 | 索引刷新 | Full / Delta / Snapshot 构建和原子切换 |
@@ -155,8 +155,8 @@ Suggest 从 Identity 消费事实，派生搜索读模型。
 ```text
 Identity Profile
   -> ProfileSearchTerm
-  -> SuggestSnapshot
-  -> SuggestResult
+  -> ProfileSuggestionIndex
+  -> ProfileSuggestItem
 ```
 
 Identity 还可以提供可见性事实：
@@ -199,28 +199,28 @@ ProfileSearchTerm 中敏感字段应最小化、脱敏或 hash 化。
 
 ---
 
-### 5.3 SuggestSnapshot 不是 Profile 主数据
+### 5.3 ProfileSuggestionIndex 不是 Profile 主数据
 
-`SuggestSnapshot` 是某一版本的搜索读模型快照。
+`ProfileSuggestionIndex` 是某一版本的搜索读模型快照。
 
 它不等于 Identity 的 Profile 表。
 
 边界：
 
 ```text
-SuggestSnapshot 可以 stale；
-SuggestSnapshot 可以重建；
-SuggestSnapshot 可以丢弃后从 Identity 重建；
-SuggestSnapshot 不应作为权限事实源；
-SuggestSnapshot 不应作为 Profile 主数据回写 Identity；
-SuggestSnapshot 命中不等于 Profile 对当前操作者可见。
+ProfileSuggestionIndex 可以 stale；
+ProfileSuggestionIndex 可以重建；
+ProfileSuggestionIndex 可以丢弃后从 Identity 重建；
+ProfileSuggestionIndex 不应作为权限事实源；
+ProfileSuggestionIndex 不应作为 Profile 主数据回写 Identity；
+ProfileSuggestionIndex 命中不等于 Profile 对当前操作者可见。
 ```
 
 正确关系：
 
 ```text
 Identity Profile committed
-  -> SuggestSnapshot eventually refreshed
+  -> ProfileSuggestionIndex eventually refreshed
   -> Query reads snapshot
   -> VisibilityFilter confirms visibility
 ```
@@ -525,7 +525,7 @@ Infra 负责：
 
 ```text
 存取 ProfileSearchTerm；
-存取 SuggestSnapshot；
+存取 ProfileSuggestionIndex；
 按 Query 返回 candidate profileIDs；
 处理 index store 读写；
 处理 cache / snapshot / lock；
@@ -669,7 +669,7 @@ Suggest domain import AuthZ concrete；
 Index store 直接调用 AuthZ Check；
 ProfileAccessScope 被当作授权通过；
 ProfileLink 被当作 ProfileAccessScope；
-SuggestSnapshot 被当作 Profile 主数据；
+ProfileSuggestionIndex 被当作 Profile 主数据；
 搜索索引被当作权限事实源；
 响应 DTO 出现明文 mobile/id_no；
 手机号搜索不走限流；
@@ -695,7 +695,7 @@ transport handler 直接查 index 并返回结果。
 | 反模式 | 问题 | 推荐做法 |
 | --- | --- | --- |
 | Suggest 直接创建 Profile | 读模型吞并写模型 | Profile 写入归 Identity |
-| SuggestSnapshot 当 Profile 主数据 | 主从倒置 | Snapshot 可重建，Profile 归 Identity |
+| ProfileSuggestionIndex 当 Profile 主数据 | 主从倒置 | Snapshot 可重建，Profile 归 Identity |
 | ProfileAccessScope 当 ProfileLink | 查询范围和身份关系混淆 | Scope 是查询输入，ProfileLink 是 Identity 事实 |
 | ProfileAccessScope 当 AuthZ Scope | 搜索输入和授权模型混淆 | 映射成 AuthZ context 后 Check |
 | ProfileLink 当 RoleBinding | 身份关系和授权事实混淆 | RoleBinding 归 AuthZ |
@@ -713,7 +713,8 @@ transport handler 直接查 index 并返回结果。
 | --- | --- |
 | Suggest domain | `../../../internal/apiserver/domain/suggest` |
 | OperatingPrincipal / Query / ProfileAccessScope | `../../../internal/apiserver/domain/suggest` |
-| ProfileSearchTerm / SuggestSnapshot / SuggestResult | `../../../internal/apiserver/domain/suggest` |
+| ProfileSearchTerm / ProfileAccessScope / Query | `../../../internal/apiserver/domain/suggest` |
+| ProfileSuggestionIndex / ProfileSuggestItem | `../../../internal/apiserver/application/suggest` |
 | Suggest application | `../../../internal/apiserver/application/suggest` |
 | Suggest query use case | `../../../internal/apiserver/application/suggest` |
 | Suggest refresh use case | `../../../internal/apiserver/application/suggest` |
@@ -795,7 +796,7 @@ Suggest 与 Identity / AuthZ 的边界可以压缩成：
 
 ```text
 Identity：User / Profile / ProfileLink 主数据和身份关系事实；
-Suggest：Query / ProfileAccessScope / ProfileSearchTerm / SuggestSnapshot / SuggestResult；
+Suggest：Query / ProfileAccessScope / ProfileSearchTerm / ProfileSuggestionIndex / ProfileSuggestItem；
 AuthZ：Subject / Role / Permission / RoleBinding / Check / PolicyVersion。
 ```
 
@@ -808,7 +809,7 @@ Identity Profile facts
   -> Identity facts + AuthZ Check/filter
   -> visible candidates
   -> rank / limit / mask
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 最重要的工程规则是：
@@ -817,7 +818,7 @@ Identity Profile facts
 Suggest 不创建或修改 Profile/ProfileLink；
 Suggest 不管理 Role/Permission/RoleBinding；
 ProfileAccessScope 不是 ProfileLink，也不是 AuthZ Scope 本体；
-ProfileSearchTerm/SuggestSnapshot 不是 Profile 主数据；
+ProfileSearchTerm/ProfileSuggestionIndex 不是 Profile 主数据；
 索引命中不等于可见；
 Store / Index 不应直接调用 AuthZ；
 手机号搜索必须经过 scope、可见性过滤、限流、审计和脱敏。

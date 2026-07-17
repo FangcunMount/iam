@@ -162,7 +162,7 @@ health/readiness/degraded 反映运行状态，不替代业务修复。
   -> 02-组合根与依赖装配.md
 ```
 
-目标：理解 `cmd/app/process/config/container` 的职责边界。
+目标：理解 cmd、app、process、config、container 的职责边界。
 
 ---
 

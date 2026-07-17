@@ -18,7 +18,7 @@ Suggest 模块在 IAM 中负责什么？
 面试讲解 Suggest；
 解释为什么 Suggest 是读模型；
 解释 Suggest 与 Identity 的边界；
-解释 ProfileSearchTerm / SuggestSnapshot / ProfileAccessScope；
+解释 ProfileSearchTerm / ProfileSuggestionIndex / ProfileAccessScope；
 解释手机号搜索为什么要权限控制、脱敏和限流；
 解释搜索命中、可见性和授权之间的区别。
 ```
@@ -50,7 +50,7 @@ Suggest 管“安全地找候选 Profile”，不管 Profile 主数据写入，�
 ## 3. 30 秒版本
 
 ```text
-Suggest 模块负责 Profile 联想搜索，它不是 Identity 的核心身份域，而是从 Identity 的 Profile facts 派生出来的读模型。它会把姓名、拼音、手机号 token 等字段构造成 ProfileSearchTerm，再生成 SuggestSnapshot。查询时先对 keyword 做 normalize，再命中索引候选，然后结合 ProfileAccessScope、Identity facts 和 AuthZ 可见性过滤，最后排序、截断、脱敏返回 SuggestResult。这里最重要的边界是：索引命中不等于可见，可见候选也不等于拥有详情读取权限。
+Suggest 模块负责 Profile 联想搜索，它不是 Identity 的核心身份域，而是从 Identity 的 Profile facts 派生出来的读模型。它会把姓名、拼音、手机号 token 等字段构造成 ProfileSearchTerm，再生成 ProfileSuggestionIndex。查询时先对 keyword 做 normalize，再命中索引候选，然后结合 ProfileAccessScope、Identity facts 和 AuthZ 可见性过滤，最后排序、截断、脱敏返回 ProfileSuggestItem。这里最重要的边界是：索引命中不等于可见，可见候选也不等于拥有详情读取权限。
 ```
 
 ---
@@ -60,7 +60,7 @@ Suggest 模块负责 Profile 联想搜索，它不是 Identity 的核心身份�
 ```text
 Suggest 是 IAM 的 Profile 联想搜索读模型，核心问题是“当前请求者在允许范围内，根据 keyword 能看到哪些 Profile 候选项”。它不负责创建 Profile，也不维护 ProfileLink，这些都属于 Identity。Suggest 只是从 Identity 的 Profile facts 中派生搜索 token 和 Snapshot，用来优化查询体验。
 
-查询链路上，Suggest 会先 normalize keyword，再从 SuggestSnapshot 中匹配候选，然后必须做 ProfileAccessScope 和可见性过滤，再排序、limit、脱敏返回结果。手机号搜索是这里最需要强调的安全点：手机号可以作为匹配方式，但不能扩大可见范围；响应只能返回 mobile_mask，不能返回明文手机号；同时要有限流和审计。后续如果用户点击某个候选进入详情，仍然要重新走 AuthZ Check。
+查询链路上，Suggest 会先 normalize keyword，再从 ProfileSuggestionIndex 中匹配候选，然后必须做 ProfileAccessScope 和可见性过滤，再排序、limit、脱敏返回结果。手机号搜索是这里最需要强调的安全点：手机号可以作为匹配方式，但不能扩大可见范围；响应只能返回 mobile_mask，不能返回明文手机号；同时要有限流和审计。后续如果用户点击某个候选进入详情，仍然要重新走 AuthZ Check。
 ```
 
 ---
@@ -72,13 +72,13 @@ Suggest 是 IAM 中的 Profile 联想搜索读模型。它的核心价值不是�
 
 我把 Suggest 的讲解分成四层。
 
-第一层是数据来源。Profile 主数据属于 Identity，比如儿童档案、患者档案、User 与 Profile 的关系等。Suggest 不拥有这些写模型，它只是读取或订阅这些身份事实，然后派生出搜索用的 ProfileSearchTerm 和 SuggestSnapshot。
+第一层是数据来源。Profile 主数据属于 Identity，比如儿童档案、患者档案、User 与 Profile 的关系等。Suggest 不拥有这些写模型，它只是读取或订阅这些身份事实，然后派生出搜索用的 ProfileSearchTerm 和 ProfileSuggestionIndex。
 
-第二层是索引模型。ProfileSearchTerm 是为了搜索而产生的 token，比如姓名归一化、拼音、手机号后缀或 hash token 等。SuggestSnapshot 是某一时刻可用于查询的索引快照。它可以 full refresh 重建，也可以 delta refresh 更新，构建完成后再原子切换，避免查询读到半构建状态。
+第二层是索引模型。ProfileSearchTerm 是为了搜索而产生的 token，比如姓名归一化、拼音、手机号后缀或 hash token 等。ProfileSuggestionIndex 是某一时刻可用于查询的索引快照。它可以 full refresh 重建，也可以 delta refresh 更新，构建完成后再原子切换，避免查询读到半构建状态。
 
 第三层是查询链路。用户输入 keyword 后，Suggest 先做 normalize，再从 Snapshot 里匹配候选。但候选命中后不能直接返回，必须先做 ProfileAccessScope 和可见性过滤，再对可见候选排序、截断和脱敏。这里顺序很重要：应该先过滤再 limit，否则不可见候选会挤掉真正可见的候选，甚至产生安全侧信号。
 
-第四层是安全边界。SuggestResult 只是脱敏候选展示，不是 Profile entity，也不是授权凭证。能搜索到某个 Profile，不代表可以读取详情、修改档案、导出数据。后续业务操作仍然要用 Resource、Action、Scope 重新走 AuthZ Check。手机号搜索也只能扩大匹配方式，不能扩大可见范围，并且必须脱敏、限流和审计。
+第四层是安全边界。ProfileSuggestItem 只是脱敏候选展示，不是 Profile entity，也不是授权凭证。能搜索到某个 Profile，不代表可以读取详情、修改档案、导出数据。后续业务操作仍然要用 Resource、Action、Scope 重新走 AuthZ Check。手机号搜索也只能扩大匹配方式，不能扩大可见范围，并且必须脱敏、限流和审计。
 
 所以 Suggest 的定位很清楚：它是一个可重建、可最终一致、可降级的读侧搜索能力，而不是 Identity 主数据，也不是 AuthZ 授权结果。
 ```
@@ -100,12 +100,12 @@ Suggest 是 Profile 联想搜索读模型。
 ```text
 keyword
   -> normalize
-  -> match SuggestSnapshot candidates
+  -> match ProfileSuggestionIndex candidates
   -> ProfileAccessScope / visibility filter
   -> rank
   -> limit
   -> mask
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 ---
@@ -115,9 +115,9 @@ keyword
 | 对象 | 一句话 | 不是什么 |
 | --- | --- | --- |
 | `ProfileSearchTerm` | 从 Profile facts 派生的搜索 token | 不是 Profile 主字段本体，不是敏感字段明文仓库 |
-| `SuggestSnapshot` | 可查询的搜索索引快照 | 不是 Profile 主数据，不是授权事实源 |
+| `ProfileSuggestionIndex` | 可查询的搜索索引快照 | 不是 Profile 主数据，不是授权事实源 |
 | `ProfileAccessScope` | 本次查询允许搜索的范围输入 | 不是 ProfileLink，不是 AuthZ Scope 本体 |
-| `SuggestResult` | 脱敏后的候选展示结果 | 不是 Profile entity，不是 AuthorizationDecision |
+| `ProfileSuggestItem` | 脱敏后的候选展示结果 | 不是 Profile entity，不是 AuthorizationDecision |
 
 ---
 
@@ -152,12 +152,12 @@ ProfileSearchTerm 不拥有 Profile 主数据；
 
 ---
 
-### 7.2 SuggestSnapshot
+### 7.2 ProfileSuggestionIndex
 
 讲法：
 
 ```text
-SuggestSnapshot 是某一时刻的搜索读模型快照。查询链路读取 Snapshot，刷新链路构建新的 Snapshot，构建完成后再原子切换。
+ProfileSuggestionIndex 是某一时刻的搜索读模型快照。查询链路读取 Snapshot，刷新链路构建新的 Snapshot，构建完成后再原子切换。
 ```
 
 重点：
@@ -193,20 +193,20 @@ ProfileAccessScope 不是 AuthZ Scope 本体；
 
 ---
 
-### 7.4 SuggestResult
+### 7.4 ProfileSuggestItem
 
 讲法：
 
 ```text
-SuggestResult 是返回给调用方的脱敏候选结果，比如 profile_id、display_name、mobile_mask 等安全可展示字段。
+ProfileSuggestItem 是返回给调用方的脱敏候选结果，比如 profile_id、display_name、mobile_mask 等安全可展示字段。
 ```
 
 重点：
 
 ```text
-SuggestResult 不是 Profile entity；
-SuggestResult 不是授权凭证；
-SuggestResult 不应包含明文手机号、证件号、内部 search token；
+ProfileSuggestItem 不是 Profile entity；
+ProfileSuggestItem 不是授权凭证；
+ProfileSuggestItem 不应包含明文手机号、证件号、内部 search token；
 用户选择候选后，后续详情或操作仍要 AuthZ Check。
 ```
 
@@ -221,13 +221,13 @@ SuggestProfile request
   -> validate keyword / limit
   -> normalize keyword
   -> detect mobile-like keyword，若需要
-  -> match candidates from SuggestSnapshot
+  -> match candidates from ProfileSuggestionIndex
   -> apply ProfileAccessScope
   -> visibility filter with Identity/AuthZ facts
   -> rank visible candidates
   -> limit
   -> mask sensitive fields
-  -> return SuggestResult
+  -> return ProfileSuggestItem
 ```
 
 讲解重点：
@@ -247,7 +247,7 @@ mask 是隐私保护；
 不能索引命中直接返回；
 不能先全局 limit 再过滤；
 不能返回明文手机号；
-不能把 SuggestResult 当授权结果。
+不能把 ProfileSuggestItem 当授权结果。
 ```
 
 ---
@@ -350,9 +350,9 @@ Suggest 回答：
 ```text
 Identity Profile facts
   -> Suggest index builder
-  -> ProfileSearchTerm / SuggestSnapshot
+  -> ProfileSearchTerm / ProfileSuggestionIndex
   -> Suggest query
-  -> masked SuggestResult
+  -> masked ProfileSuggestItem
 ```
 
 禁止混用：
@@ -360,8 +360,8 @@ Identity Profile facts
 ```text
 Suggest 创建 Profile；
 Suggest 修改 ProfileLink；
-SuggestSnapshot 当 Profile 主数据；
-SuggestResult 当 Profile entity；
+ProfileSuggestionIndex 当 Profile 主数据；
+ProfileSuggestItem 当 Profile entity；
 把搜索索引反写回 Identity 主表。
 ```
 
@@ -390,7 +390,7 @@ Suggest 回答：
 正确关系：
 
 ```text
-SuggestResult(profile_id=P1)
+ProfileSuggestItem(profile_id=P1)
   -> user selects candidate
   -> detail API builds Resource(profile:P1) + Action(profile.read)
   -> AuthZ Check
@@ -401,7 +401,7 @@ SuggestResult(profile_id=P1)
 
 ```text
 搜索到候选就允许读取详情；
-SuggestResult 当 AuthorizationDecision；
+ProfileSuggestItem 当 AuthorizationDecision；
 可见性过滤替代所有 AuthZ Check；
 手机号搜索绕过 AuthZ；
 JWT claims 直接决定 Suggest 可见性。
@@ -434,7 +434,7 @@ ProfileAccessScope 回答：
 ```text
 ProfileLink may be one fact
   -> ProfileAccessScope / VisibilityFilter
-  -> SuggestResult
+  -> ProfileSuggestItem
 ```
 
 禁止混用：
@@ -595,7 +595,7 @@ export 和 read 是不同 Action。
 | 为什么不直接查 Profile 主表？ | 模糊搜索、拼音、手机号安全搜索、排序、脱敏和限流会污染 Identity 写模型 |
 | Snapshot 命中能不能直接返回？ | 不能。命中只是候选召回，必须做可见性过滤和脱敏 |
 | ProfileAccessScope 是不是 ProfileLink？ | 不是。ProfileAccessScope 是查询范围输入，ProfileLink 是身份关系事实 |
-| SuggestResult 能不能当授权凭证？ | 不能。它只是候选展示，后续详情或操作仍要 AuthZ Check |
+| ProfileSuggestItem 能不能当授权凭证？ | 不能。它只是候选展示，后续详情或操作仍要 AuthZ Check |
 | 手机号搜索如何保证安全？ | token 化/脱敏、权限控制、限流、审计、可见性过滤，只返回 mobile_mask |
 | Suggest 延迟会不会影响业务？ | 可能影响搜索体验，但不应影响 Identity 主数据和安全边界 |
 | Suggest 失败怎么办？ | 可以保守降级，例如返回空候选、禁用手机号搜索，不能跳过安全过滤 |
@@ -607,12 +607,12 @@ export 和 read 是不同 Action。
 | 反模式 | 问题 | 推荐做法 |
 | --- | --- | --- |
 | Suggest 写 Profile 主数据 | 读写模型混淆 | Profile 写入归 Identity |
-| 直接查 Identity 主表模糊搜索 | 性能和安全策略污染写模型 | 构建 SuggestSnapshot |
+| 直接查 Identity 主表模糊搜索 | 性能和安全策略污染写模型 | 构建 ProfileSuggestionIndex |
 | Snapshot 命中直接返回 | 可能越权 | 先可见性过滤再返回 |
 | 先 limit 再过滤 | 可见候选被不可见候选挤掉 | filter -> rank -> limit |
 | 返回明文手机号 | 隐私泄露 | 只返回 mobile_mask |
 | ProfileAccessScope 当 ProfileLink | 查询范围和关系事实混淆 | Scope 由多种 facts 计算 |
-| SuggestResult 当授权凭证 | 后续接口可能越权 | 后续操作重新 AuthZ Check |
+| ProfileSuggestItem 当授权凭证 | 后续接口可能越权 | 后续操作重新 AuthZ Check |
 | 索引刷新失败覆盖旧 Snapshot | 查询不可用或数据错乱 | 构建成功后原子切换 |
 | 降级时跳过权限过滤 | 安全事故 | 只能保守降级 |
 | 手机号搜索无限流无审计 | 枚举风险 | 严格限流和审计 |
@@ -626,7 +626,7 @@ export 和 read 是不同 Action。
 ```text
 1. 先说 Suggest 是 Profile 联想搜索读模型；
 2. 说明它不拥有 Profile 写模型；
-3. 讲 ProfileSearchTerm / SuggestSnapshot；
+3. 讲 ProfileSearchTerm / ProfileSuggestionIndex；
 4. 讲查询链路：normalize -> match -> filter -> rank -> limit -> mask；
 5. 强调先过滤再截断；
 6. 讲手机号搜索安全；
@@ -641,7 +641,7 @@ export 和 read 是不同 Action。
 把 Suggest 讲成 Profile 主数据；
 只讲性能，不讲安全；
 把 ProfileAccessScope 讲成权限；
-把 SuggestResult 讲成授权结果；
+把 ProfileSuggestItem 讲成授权结果；
 忽略手机号搜索的隐私风险。
 ```
 
@@ -694,9 +694,9 @@ Suggest 讲法可以压缩成：
 ```text
 Suggest 是 Profile 联想搜索读模型；
 ProfileSearchTerm 是搜索 token；
-SuggestSnapshot 是可重建快照；
+ProfileSuggestionIndex 是可重建快照；
 ProfileAccessScope 是查询范围输入；
-SuggestResult 是脱敏候选展示；
+ProfileSuggestItem 是脱敏候选展示；
 索引命中不等于可见；
 可见候选不等于有详情权限；
 手机号搜索必须权限控制、脱敏、限流和审计。

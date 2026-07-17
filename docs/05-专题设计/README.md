@@ -60,7 +60,7 @@ RefreshToken 不进普通 API；
 Outbox 不等于 MQ，也不承诺 exactly-once；
 Casbin 不进入 domain；
 ProfileLink 不等于 Permission；
-SuggestSnapshot 不等于 Profile 主数据；
+ProfileSuggestionIndex 不等于 Profile 主数据；
 读模型可以最终一致，但不能牺牲安全边界。
 ```
 
@@ -79,7 +79,7 @@ SuggestSnapshot 不等于 Profile 主数据；
 | [03-Transactional-Outbox设计.md](03-Transactional-Outbox设计.md) | 授权版本传播中的 Outbox | 双写一致性、PolicyVersion、Relay、at-least-once、消费者幂等、积压治理 |
 | [04-Casbin在AuthZ中的定位.md](04-Casbin在AuthZ中的定位.md) | Casbin 作为 AuthZ infra runtime | Casbin 与 AuthZ 领域模型边界、p/g/r 映射、PolicyVersion、RuntimeReload |
 | [05-ProfileLink为什么不是Permission.md](05-ProfileLink为什么不是Permission.md) | 身份关系和权限事实边界 | ProfileLink、RoleBinding、Permission、Subject、Resource、Action、Scope 的区别 |
-| [06-Suggest为什么是读模型.md](06-Suggest为什么是读模型.md) | Suggest 辅助读模型定位 | SuggestSnapshot、ProfileSearchTerm、ProfileAccessScope、SuggestResult、最终一致和降级 |
+| [06-Suggest为什么是读模型.md](06-Suggest为什么是读模型.md) | Suggest 辅助读模型定位 | ProfileSuggestionIndex、ProfileSearchTerm、ProfileAccessScope、ProfileSuggestItem、最终一致和降级 |
 
 ---
 
@@ -315,8 +315,8 @@ UserID 直接当 Subject；
 ```text
 Identity 拥有 Profile 写模型；
 Suggest 从 Identity facts 派生 ProfileSearchTerm；
-SuggestSnapshot 是可重建、可最终一致、可降级的搜索读模型；
-SuggestResult 是脱敏候选展示，不是 Profile entity，也不是授权凭证。
+ProfileSuggestionIndex 是可重建、可最终一致、可降级的搜索读模型；
+ProfileSuggestItem 是脱敏候选展示，不是 Profile entity，也不是授权凭证。
 ```
 
 工程取舍：
@@ -335,7 +335,7 @@ Suggest 写 Profile 主数据；
 Snapshot 命中直接返回；
 先 limit 再过滤；
 返回明文手机号；
-SuggestResult 当授权凭证；
+ProfileSuggestItem 当授权凭证；
 降级时跳过权限过滤。
 ```
 
@@ -357,8 +357,8 @@ SuggestResult 当授权凭证；
 | Casbin vs AuthZ domain | Casbin 是 runtime engine，AuthZ domain 是业务授权模型 |
 | ProfileLink vs Permission | ProfileLink 是身份关系，Permission 是访问权声明 |
 | RoleBinding vs ProfileLink | RoleBinding 是授权绑定，ProfileLink 是身份/档案关系 |
-| SuggestSnapshot vs Profile | SuggestSnapshot 是派生读模型，Profile 是 Identity 主数据 |
-| SuggestResult vs AuthorizationDecision | SuggestResult 是候选展示，AuthorizationDecision 是授权决策 |
+| ProfileSuggestionIndex vs Profile | ProfileSuggestionIndex 是派生读模型，Profile 是 Identity 主数据 |
+| ProfileSuggestItem vs AuthorizationDecision | ProfileSuggestItem 是候选展示，AuthorizationDecision 是授权决策 |
 
 ---
 
@@ -437,7 +437,7 @@ SuggestResult 当授权凭证；
 | 宣称 Outbox exactly-once | 语义不真实 | 明确 at-least-once 和幂等 |
 | Casbin 进入 domain | 领域模型被 runtime 污染 | Casbin 留在 infra adapter |
 | ProfileLink 当 Permission | 身份关系和授权策略耦合 | ProfileLink 作为事实输入，AuthZ Check 决策 |
-| Suggest 当 Identity 主数据 | 读写模型混淆 | SuggestSnapshot 可重建，不反写 Profile |
+| Suggest 当 Identity 主数据 | 读写模型混淆 | ProfileSuggestionIndex 可重建，不反写 Profile |
 | 搜索命中直接返回 | 可能越权 | 先可见性过滤，再排序截断脱敏 |
 | 文档写成已实现但代码未实现 | 事实漂移 | 标注规划或待核对，机器契约以代码为准 |
 

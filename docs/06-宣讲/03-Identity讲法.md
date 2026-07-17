@@ -291,18 +291,18 @@ Profile 主数据是什么？User 和 Profile 的关系是什么？
 ```text
 Identity Profile facts
   -> Suggest index builder
-  -> ProfileSearchTerm / SuggestSnapshot
+  -> ProfileSearchTerm / ProfileSuggestionIndex
   -> SuggestProfile query
   -> visibility filter
-  -> masked SuggestResult
+  -> masked ProfileSuggestItem
 ```
 
 禁止混用：
 
 ```text
 Suggest 写 Profile 主数据；
-SuggestSnapshot 当 Profile 主数据；
-SuggestResult 当 Profile entity；
+ProfileSuggestionIndex 当 Profile 主数据；
+ProfileSuggestItem 当 Profile entity；
 索引命中直接返回；
 搜索结果绕过可见性过滤；
 返回明文手机号或证件号。
@@ -363,7 +363,7 @@ Identity 维护 Profile 主数据；
 Suggest 从 Profile facts 派生搜索索引；
 查询时根据 keyword 命中候选；
 再结合 ProfileAccessScope 和可见性过滤；
-最后返回脱敏 SuggestResult。
+最后返回脱敏 ProfileSuggestItem。
 ```
 
 重点：
@@ -400,7 +400,7 @@ Suggest 从 Profile facts 派生搜索索引；
 | ProfileLink 等于 Permission | 身份关系和授权策略混淆 | ProfileLink 作为事实输入，AuthZ Check 决策 |
 | Identity 处理密码校验 | 模块职责混乱 | Credential 校验归 AuthN |
 | Identity 表承载权限 | 授权事实散落 | Role/Permission/RoleBinding 归 AuthZ |
-| SuggestSnapshot 当 Profile 主数据 | 读写模型混淆 | Profile 主数据归 Identity |
+| ProfileSuggestionIndex 当 Profile 主数据 | 读写模型混淆 | Profile 主数据归 Identity |
 | 业务系统直接查 Identity DB | 绕过契约和治理 | 通过 REST/gRPC/SDK 接入 |
 
 ---

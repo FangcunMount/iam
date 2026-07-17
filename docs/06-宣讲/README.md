@@ -124,7 +124,7 @@ IAM 是统一身份与访问管理服务。
 | [04-AuthN讲法.md](04-AuthN讲法.md) | LoginIdentity / Credential / Principal / Session / Token / JWKS | 登录认证与 Token 设计追问 |
 | [05-AuthZ讲法.md](05-AuthZ讲法.md) | Subject / Resource / Action / Scope / Role / Permission / RoleBinding / Casbin | 权限模型、Casbin、Outbox 追问 |
 | [06-IDP与第三方登录讲法.md](06-IDP与第三方登录讲法.md) | 外部身份源、微信/企业微信登录、ExternalIdentity 与 LoginIdentity | 第三方登录追问 |
-| [07-Suggest读模型讲法.md](07-Suggest读模型讲法.md) | ProfileSearchTerm / SuggestSnapshot / 可见性过滤 / 手机号脱敏 | 搜索读模型、隐私安全追问 |
+| [07-Suggest读模型讲法.md](07-Suggest读模型讲法.md) | ProfileSearchTerm / ProfileSuggestionIndex / 可见性过滤 / 手机号脱敏 | 搜索读模型、隐私安全追问 |
 | [08-工程质量与架构护栏讲法.md](08-工程质量与架构护栏讲法.md) | architecture tests / contract tests / SDK compile test / docs hygiene | 工程质量、CI、长期演进追问 |
 | [09-30分钟技术分享脚本.md](09-30分钟技术分享脚本.md) | 30 分钟完整分享节奏和逐段话术 | 技术分享、面试深讲 |
 | [10-架构图素材索引.md](10-架构图素材索引.md) | 架构图素材、Mermaid 图、讲图话术、配图顺序 | PPT / 白板 / 架构图准备 |
@@ -264,8 +264,8 @@ IDP ExternalIdentity
 | ProfileLink vs Permission | ProfileLink 是身份关系，Permission 是访问权声明 |
 | Casbin vs AuthZ domain | Casbin 是 infra runtime，不是领域模型 |
 | Outbox vs MQ | Outbox 记录待发布事件，MQ 负责投递 |
-| SuggestSnapshot vs Profile | SuggestSnapshot 是派生读模型，Profile 是 Identity 主数据 |
-| SuggestResult vs AuthorizationDecision | SuggestResult 是候选展示，AuthorizationDecision 是授权决策 |
+| ProfileSuggestionIndex vs Profile | ProfileSuggestionIndex 是派生读模型，Profile 是 Identity 主数据 |
+| ProfileSuggestItem vs AuthorizationDecision | ProfileSuggestItem 是候选展示，AuthorizationDecision 是授权决策 |
 | docs vs machine contract | 文档解释语义，OpenAPI/proto/SDK 才是机器契约事实源 |
 
 ---

@@ -17,9 +17,9 @@ docker run --rm -v "${ROOT_DIR}:/workspace" -w /workspace "${SPECTRAL_IMAGE}" \
   lint -r "${RULESET}" api/rest/*.yaml
 
 echo "Comparing swagger definitions with OpenAPI components..."
-python "${ROOT_DIR}/scripts/check-openapi-contracts.py"
+python3 "${ROOT_DIR}/scripts/check-openapi-contracts.py"
 
 echo "Comparing routes (swagger paths) with OpenAPI paths..."
-python "${ROOT_DIR}/scripts/check-route-contracts.py"
+python3 "${ROOT_DIR}/scripts/check-route-contracts.py"
 
 echo "OpenAPI validation completed."

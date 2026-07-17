@@ -484,14 +484,14 @@ AuthZ 回答：
 SuggestProfile
   -> candidate match
   -> visibility filter may call AuthZ / Identity facts
-  -> masked SuggestResult
+  -> masked ProfileSuggestItem
   -> later detail API still needs AuthZ Check
 ```
 
 禁止混用：
 
 ```text
-SuggestResult 当授权凭证；
+ProfileSuggestItem 当授权凭证；
 搜索到候选就允许读取详情；
 索引命中直接返回；
 可见性过滤替代所有资源权限判断；

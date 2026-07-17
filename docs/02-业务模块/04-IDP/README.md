@@ -509,7 +509,7 @@ transport/rest + transport/grpc
 | WeChat / WeCom provider adapter | `../../../internal/apiserver/infra/wechatapi` |
 | Credential store / AppToken cache | `../../../internal/apiserver/infra` |
 | IDP REST transport | `../../../internal/apiserver/transport/rest/idp` |
-| IDP gRPC transport | `../../../internal/apiserver/transport/grpc/idp`，若已实现 |
+| IDP gRPC transport | `../../../internal/apiserver/transport/grpc/service/idp` |
 | IDP container | `../../../internal/apiserver/container/idp` |
 | REST 契约 | `../../../api/rest/idp.v2.yaml` |
 | gRPC 契约 | `../../../api/grpc/iam/idp/v2/idp.proto` |
@@ -578,10 +578,10 @@ go test ./internal/apiserver/container/idp
 go test ./internal/apiserver/transport/rest/idp
 ```
 
-如果 gRPC 已实现：
+涉及 gRPC transport：
 
 ```bash
-go test ./internal/apiserver/transport/grpc/idp/...
+go test ./internal/apiserver/transport/grpc/service/idp/...
 ```
 
 涉及 infra repository / provider adapter / cache：

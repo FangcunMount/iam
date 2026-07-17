@@ -10,7 +10,7 @@
 
 - IAM gRPC 接入契约以什么为准？
 - 为什么本文不手写完整 service/message schema？
-- gRPC API 如何按 Identity / AuthN / AuthZ / IDP / Suggest 拆分？
+- gRPC API 当前暴露哪些业务模块？
 - gRPC 请求如何携带认证信息？
 - gRPC 中认证成功和授权通过如何区分？
 - gRPC status code 应如何表达参数错误、认证错误、授权错误和系统错误？
@@ -30,8 +30,9 @@ api/grpc/iam/identity/v2/identity.proto
 api/grpc/iam/authn/v2/authn.proto
 api/grpc/iam/authz/v2/authz.proto
 api/grpc/iam/idp/v2/idp.proto
-api/grpc/iam/suggest/v2/suggest.proto，若已存在
 ```
+
+当前没有 Suggest gRPC proto、service 注册或 SDK；Suggest 只暴露 REST 契约。
 
 gRPC runtime 入口：
 
@@ -85,7 +86,7 @@ gRPC 契约以 proto 文件为准：
 | AuthN | `../../api/grpc/iam/authn/v2/authn.proto` | [AuthN](../02-业务模块/02-AuthN/README.md) |
 | AuthZ | `../../api/grpc/iam/authz/v2/authz.proto` | [AuthZ](../02-业务模块/03-AuthZ/README.md) |
 | IDP | `../../api/grpc/iam/idp/v2/idp.proto` | [IDP](../02-业务模块/04-IDP/README.md) |
-| Suggest | `../../api/grpc/iam/suggest/v2/suggest.proto`，若已存在 | [Suggest](../02-业务模块/05-Suggest/README.md) |
+| Suggest | 当前未提供 gRPC 契约（仅 REST） | [Suggest](../02-业务模块/05-Suggest/README.md) |
 
 注意：如果某个模块尚未暴露 gRPC 契约，应以当前 `api/grpc` 目录为准，不要在文档中把未实现 RPC 写成已存在事实。
 
@@ -286,29 +287,9 @@ provider AppToken 不能作为 IAM AccessToken 暴露给调用方。
 
 ---
 
-### 5.5 Suggest gRPC
+### 5.5 Suggest 当前不是 gRPC 能力
 
-Suggest gRPC 如果存在，应负责 Profile 联想搜索的服务间接入。
-
-典型语义：
-
-```text
-SuggestProfile；
-keyword 查询；
-ProfileAccessScope；
-手机号搜索安全策略；
-masked result。
-```
-
-边界：
-
-```text
-Suggest gRPC 不创建 Profile；
-Suggest gRPC 不写 ProfileLink；
-Suggest gRPC 不管理 RoleBinding；
-Suggest gRPC 不返回明文手机号或证件号；
-Suggest gRPC 不允许 Store / Index 绕过 application 直接返回结果。
-```
+当前仓库没有 Suggest proto、gRPC service 注册或 SDK。Suggest 通过 REST 暴露；如果未来新增 gRPC，必须先增加机器契约、service 注册、错误映射和测试，再把本节改成现行契约说明。
 
 业务语义见 [Suggest](../02-业务模块/05-Suggest/README.md)。
 

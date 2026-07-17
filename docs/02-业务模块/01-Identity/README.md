@@ -400,7 +400,7 @@ transport/rest + transport/grpc
 | ProfileLink application | `../../../internal/apiserver/application/identity/profilelink` |
 | Identity infra | `../../../internal/apiserver/infra/mysql/user`、`../../../internal/apiserver/infra/mysql/profile`、`../../../internal/apiserver/infra/mysql/profilelink` |
 | Identity REST transport | `../../../internal/apiserver/transport/rest/identity` |
-| Identity gRPC transport | `../../../internal/apiserver/transport/grpc/identity` |
+| Identity gRPC transport | `../../../internal/apiserver/transport/grpc/service/identity` |
 | Identity container | `../../../internal/apiserver/container/identity` |
 | REST 契约 | `../../../api/rest/identity.v2.yaml` |
 | gRPC 契约 | `../../../api/grpc/iam/identity/v2/identity.proto` |
