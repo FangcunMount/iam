@@ -1,195 +1,39 @@
 # 领域模型：User / Profile / ProfileLink
 
-> 状态：已实现 · 已与 `internal/apiserver/domain/identity` 代码核对；本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 Identity 模型主文档维护。
-
----
+> 状态：已实现 · 已核对 domain、application、MySQL repository、migration 和测试；设计动机按“已确认决策”与“待确认决策”分开记录。
 
 ## 1. 本文回答
 
-本文回答 8 个问题：
-
-- `User`、`Profile`、`ProfileLink` 分别是什么？
-- 三者为什么要拆成独立领域对象，而不是合并成一个“用户档案”？
-- 三个对象各自有哪些字段、行为、不变量和生命周期？
-- `User` 与 `Profile` 如何通过 `ProfileLink` 建立关系？
-- `Rel` 与 `Type` 如何表达本人档案和关系档案？
-- `ProfileLink` 如何通过 `RevokedAt` 表达软撤销？
-- 为什么 `ProfileLink` 不是 `Permission`，`User` 不是 `Principal` / `Subject`？
-- 修改 Identity 领域模型时应该核对哪些代码和测试？
-
-本文是 Identity 模型主文档，集中说明模型定义、模型图、状态流转和核心生命周期。
-模块总览见 [00-模块总览.md](00-模块总览.md)；
-关键链路见 [02-关键链路-创建User与Profile.md](02-关键链路-创建User与Profile.md) 和 [03-关键链路-建立与撤销ProfileLink.md](03-关键链路-建立与撤销ProfileLink.md)。
-
----
+- 为什么一个 `User` 模型不够？
+- `User`、`Profile`、`ProfileLink` 分别代表什么事实？
+- 为什么 self 是一种关系，而不是 User 的固有 Profile？
+- 为什么 ProfileLink 是独立实体，而不是 ID 集合或 Permission？
+- `Type` 和 `Rel` 为什么同时存在？
+- 三个模型当前有哪些字段、行为和不变量？
+- Domain、Application 和 Database 各自保护哪些规则？
+- 当前实现中哪些地方仍需要业务决策？
 
 ## 2. 30 秒结论
 
-Identity 的领域模型由 3 个核心对象组成：
-
-| 对象 | 一句话 | 核心字段 | 领域含义 |
-| --- | --- | --- | --- |
-| `User` | IAM 内部稳定身份主体 | `ID, Name, Nickname, Phone, Email, Status` | 系统内部“这个用户是谁” |
-| `Profile` | 业务档案 / 被服务对象 | `ID, Name, IDCard, Gender, Birthday` | 业务上真正被服务、被管理、被搜索的档案 |
-| `ProfileLink` | User 与 Profile 之间的一条关系事实 | `ID, User, Profile, Type, Rel, EstablishedAt, RevokedAt` | 某个用户与某个档案之间是什么关系 |
-
-三者的关系是：
-
 ```text
-User 与 Profile 是两个独立实体；
-User 通过 ProfileLink 关联一个或多个 Profile；
-ProfileLink 只表达身份关系，不表达访问权限；
-认证能力属于 AuthN；
-授权能力属于 AuthZ。
+User        = 谁在 IAM 中拥有稳定的 UserID
+Profile     = 谁是业务服务对象
+ProfileLink = 这个 User 与这份 Profile 是什么关系
 ```
 
-如果只记一句话：
-
-> User 是身份锚点，Profile 是业务档案，ProfileLink 是二者之间的身份关系事实；它们都不承载认证凭证和授权权限。
-
----
-
-## 3. 为什么拆成 User / Profile / ProfileLink
-
-Identity 不是简单的“用户表”。
-
-在 IAM 场景中，需要同时表达两类对象：
-
-```text
-系统内部稳定身份主体：谁在使用系统；
-业务档案或被服务对象：业务实际服务、管理、搜索和关联的对象。
-```
-
-如果把二者合成一个对象，会带来几个问题：
-
-```text
-无法表达一个登录用户关联多个业务档案；
-无法表达家长、本人、祖辈、其他等关系；
-无法独立维护登录主体和业务档案；
-容易把身份关系误写成权限关系；
-容易让 AuthN/AuthZ 直接污染 Identity 写模型。
-```
-
-因此 Identity 拆成 3 个对象：
-
-```text
-User：稳定身份主体；
-Profile：业务档案；
-ProfileLink：User 与 Profile 的关系事实。
-```
-
-该拆分让 Identity 能清楚回答：
-
-```text
-谁是系统内部用户？
-业务档案是谁？
-用户与档案是什么关系？
-关系是否仍然有效？
-```
-
----
-
-## 4. 模型总览图
-
-```mermaid
-flowchart LR
-    User["User\nIAM 内部稳定身份主体\nID / Name / Phone / Status"]
-    Profile["Profile\n业务档案 / 被服务对象\nID / Name / IDCard / Gender / Birthday"]
-    Link["ProfileLink\n身份关系事实\nUserID / ProfileID / Type / Rel / EstablishedAt / RevokedAt"]
-
-    User -- "1 : 0..*" --> Link
-    Profile -- "1 : 0..*" --> Link
-
-    Link -. "Rel = self" .-> Self["本人档案关系\nType = self\n每个 User 至多一条 active self"]
-    Link -. "Rel = parent / grandparent / other" .-> Relation["关系档案\nType = relation"]
-```
-
-读图规则：
-
-```text
-User 是 IAM 内部稳定身份主体；
-Profile 是业务档案或被服务对象；
-ProfileLink 只保存 User/Profile 的 ID 引用，不内嵌实体；
-Rel 表达关系语义，Type 由 Rel 推导；
-RevokedAt 表达关系是否 active；
-ProfileLink 不是 Permission；
-User 不是 Principal，也不是 Subject。
-```
-
----
-
-## 5. 类图：字段与行为
-
-```mermaid
-classDiagram
-    class User {
-        +meta.ID ID
-        +string Name
-        +string Nickname
-        +meta.Phone Phone
-        +meta.Email Email
-        +Status Status
-        +Rename(name)
-        +ChangeNickname(nickname)
-        +ChangePhone(phone)
-        +ChangeEmail(email)
-        +Activate()
-        +Deactivate()
-        +Block()
-        +IsUsable()
-    }
-
-    class Profile {
-        +meta.ID ID
-        +string Name
-        +meta.IDCard IDCard
-        +meta.Gender Gender
-        +meta.Birthday Birthday
-        +Rename(name)
-        +UpdateIDCard(idCard)
-        +UpdateProfile(gender, birthday)
-    }
-
-    class ProfileLink {
-        +meta.ID ID
-        +meta.ID User
-        +meta.ID Profile
-        +Type Type
-        +Relation Rel
-        +time EstablishedAt
-        +*time RevokedAt
-        +IsActive()
-        +Revoke(at)
-    }
-
-    User "1" --> "0..*" ProfileLink : User ID 引用
-    Profile "1" --> "0..*" ProfileLink : Profile ID 引用
-```
-
-要点：
-
-```text
-ProfileLink.User 是 meta.ID，不是 User 实体；
-ProfileLink.Profile 是 meta.ID，不是 Profile 实体；
-Identity 用 ID 引用组合关系，不把 User/Profile/ProfileLink 做成内嵌对象树；
-User 有状态机；
-Profile 当前没有状态机；
-ProfileLink 的 active/revoked 状态由 RevokedAt 表达。
-```
-
----
-
-## 6. 关系基数图
+这三个问题彼此关联，但不等价。因此当前模型使用两个独立实体和一个显式关系实体，而不是一个包含所有字段的大 User：
 
 ```mermaid
 erDiagram
-    USER ||--o{ PROFILE_LINK : has
-    PROFILE ||--o{ PROFILE_LINK : linked_by
+    USER ||--o{ PROFILE_LINK : "participates"
+    PROFILE ||--o{ PROFILE_LINK : "is linked by"
 
     USER {
         string id
         string name
+        string nickname
         string phone
+        string email
         string status
     }
 
@@ -197,7 +41,7 @@ erDiagram
         string id
         string name
         string id_card
-        string gender
+        int gender
         string birthday
     }
 
@@ -206,850 +50,594 @@ erDiagram
         string user_id
         string profile_id
         string type
-        string rel
+        string relation
         datetime established_at
         datetime revoked_at
     }
 ```
 
-这张图强调关系基数：
+关系基数是：
 
 ```text
-一个 User 可以有多条 ProfileLink；
-一个 Profile 可以被多条 ProfileLink 引用；
-每条 ProfileLink 表达一条独立关系事实；
-撤销 ProfileLink 不删除 User；
-撤销 ProfileLink 不删除 Profile。
+User 1 ---- 0..N ProfileLink
+Profile 1 - 0..N ProfileLink
+
+因此：
+User <-> Profile 是多对多
+User 可以没有 self Profile
+Profile 也不内嵌“所有者”
 ```
 
-注意：
+当前最重要的不变量是：同一 User 最多一条 active self ProfileLink。它由 application 在事务中调用 `SelfProfileGuard`，并由数据库 `self_key` 唯一索引兜底。
+
+## 3. 问题背景：为什么一个 User 不够
+
+### 3.1 身份主体不等于业务档案
+
+User 是 IAM 内部稳定引用的主体。Profile 是业务用来记录姓名、身份证、性别、出生日期等事实的档案。
+
+两者合并会立刻产生几个问题：
+
+- 用户刚注册但尚未建档时，User 必须承担一批不完整的 Profile 字段；
+- 用户要管理关系人时，只能复制 User，或将关系人塞进 User 的子集合；
+- 同一 Profile 被多个 User 关联时，固定 owner 字段无法表达；
+- 登录资料修改会与业务档案修改混在同一生命周期中。
+
+### 3.2 关系本身也是需要管理的事实
+
+User 与 Profile 之间不只有“有/无”两种状态。当前系统至少需要知道：
+
+- 是本人还是关系人；
+- 如果是关系人，是 parent、grandparent 还是 other；
+- 关系何时建立；
+- 关系是否已撤销，何时撤销；
+- 同一 User 是否已经有 active self Profile。
+
+这些字段和规则不属于 User 或 Profile 任何一方，因此关系需要成为独立模型。
+
+## 4. 设计目标与约束
+
+| 设计目标 | 模型回应 |
+| --- | --- |
+| UserID 不被特定登录方式绑定 | User 不包含 provider/identifier/credential/session |
+| 注册和建档可以分步完成 | User 不自动创建 self Profile |
+| 一个用户可以管理多份档案 | User 通过多条 ProfileLink 关联 Profile |
+| 一份档案可以有多个关系用户 | Profile 不内嵌单一 owner |
+| 关系类型和历史可追踪 | ProfileLink 持有 Type、Rel、EstablishedAt、RevokedAt |
+| 关键不变量可抵御并发 | application guard 与 DB unique constraint 共同保护 |
+| 身份关系不直接等于授权 | ProfileLink 不持有 Resource、Action、Scope、Permission |
+
+## 5. 设计决策与替代方案
+
+### 5.1 决策 1：拆分 User 与 Profile
+
+> 标签：设计决策 · 当前领域模型、建档用例和旧模型退役护栏可证明
+
+**要解决的问题**
+
+登录主体和业务档案的属性、生命周期和关系基数不一致。
+
+**当前选择**
+
+- User 作为 IAM 内部身份锚点；
+- Profile 作为被业务服务的人员档案；
+- 两者不通过内嵌字段直接包含，而是通过 ProfileLink 关联。
+
+**未采用的方案**
+
+| 方案 | 为什么不适合当前场景 |
+| --- | --- |
+| 一个 `UserProfile` 包含所有字段 | 无法自然表达未建档 User、多份 Profile 和 Profile 被多 User 关联 |
+| Profile 是 User 的可选扩展表 | 仍默认一对一，关系人场景需要额外例外模型 |
+| 每个业务角色一个实体，如 Child/Guardian | 重复自然人事实，并为每个新关系增加平行用例和表 |
+| 用 AuthN LoginIdentity 代表 User | 外部登录标识可变且可多个，不适合成为业务稳定主键 |
+
+**后果**
+
+- User 和 Profile 可以分别创建、更新和被引用；
+- 任何代码都不应假设 `userID == profileID` 或 User 必然有 Profile；
+- User 资料和 Profile 档案中同名的“姓名”字段也不应被自动双向同步，除非新增明确用例。
+
+### 5.2 决策 2：将 ProfileLink 建模为独立关系实体
+
+> 标签：设计决策 · 当前模型和数据库结构可证明
+
+**要解决的问题**
+
+关系不只是一个 ProfileID，它有自己的语义、标识和生命周期。
+
+**当前选择**
+
+ProfileLink 持有：
 
 ```text
-这里是领域关系图，不等同于数据库物理表结构；
-具体持久化字段、索引、唯一约束必须以 repository、migration 或 schema 为准。
+ID
+UserID
+ProfileID
+Type
+Relation
+EstablishedAt
+RevokedAt
 ```
 
----
+它可以独立建立、查询和撤销，并成为 User/Profile 多对多关系的承载者。
 
-## 7. User
+**未采用的方案**
 
-### 7.1 定位
+| 方案 | 丢失的能力 |
+| --- | --- |
+| `User.profile_ids` | 难以表达关系类型、建立/撤销时间和反向查询 |
+| `Profile.owner_user_id` | 只能表达单一所有者，不支持多对多 |
+| 两个集合分别维护 | 产生双写一致性问题，仍无处存放关系属性 |
+| AuthZ RoleBinding/Permission | 只能表达授权关系，不能作为业务身份关系的主事实 |
 
-`User` 是 IAM 内部稳定身份主体。
+**后果**
 
-它用于回答：
+ProfileLink 的存在可以作为某些业务访问的身份事实输入，但不直接说明 Subject 能对哪个 Resource 执行哪个 Action。最终权限仍应由 AuthZ 决定。
+
+详见 [ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)。
+
+### 5.3 决策 3：self 是关系，不是 User 的内嵌档案
+
+> 标签：设计决策 · 历史提交 `0d62d27d`、`SelfProfileGuard` 和测试可证明
+
+**要解决的问题**
+
+User 注册时可能不具备完整建档信息，也可能首次要建立的是关系人 Profile。
+
+**当前选择**
+
+- User 创建不产生 ProfileLink；
+- 创建 Profile 时必须显式提供 relation；
+- relation 是 `self` 时调用 `SelfProfileGuard`；
+- 每个 User 允许零或一条 active self，不允许多条 active self。
+
+**未采用的方案**
+
+- User 创建时自动创建空 self Profile；
+- User 上保留唯一 `self_profile_id`；
+- 用 `userID == profileID` 作为 self 规则。
+
+**决策带来的代码规则**
 
 ```text
-系统内部这个人是谁？
-其他模块应该通过什么稳定 ID 引用这个人？
-多个登录身份最终归属到哪个内部用户？
+不能从 User 的存在推导 self Profile 存在；
+不能把“没有 self Profile”视为数据损坏；
+不能在 User repository 中隐式生成 Profile；
+self 唯一性必须在建关系时保护。
 ```
 
-`User` 是 Identity 的身份锚点。
-AuthN 的 `LoginIdentity` 最终指向 `UserID`；
-AuthZ 的 `Subject` 可以引用 `UserID`；
-Suggest 可以通过 Profile 事实间接关联 User。
+### 5.4 决策 4：关系使用软撤销保留历史
 
----
+> 标签：设计决策 · 当前实体、repository 和 schema 可证明；重建政策仍待确认
 
-### 7.2 字段
+**要解决的问题**
 
-代码事实源：`internal/apiserver/domain/identity/user/user.go`
+关系失效不等于它从未存在。物理删除无法回答过去何时建立、何时失效。
 
-| 字段 | 含义 | 说明 |
+**当前选择**
+
+`ProfileLink.Revoke(at)` 首次调用写入 `RevokedAt`，后续实体级重复调用保留第一次时间。active 关系由 `RevokedAt == nil` 表示。
+
+**未采用的方案**
+
+- 物理删除 ProfileLink；
+- 只保存 active boolean；
+- 把历史全部外包给审计日志，主模型不留生命周期。
+
+**当前代价**
+
+软撤销要求所有读模型都明确 active-only 语义。当前 Suggest Loader 对 `revoked_at` 的过滤不完整，说明生命周期规则需要被每个派生链路显式消费。
+
+### 5.5 Type 与 Rel 的双层语义
+
+> 标签：当前实现 + 待确认决策
+
+当前映射是：
+
+| `Rel` | `Type` |
+| --- | --- |
+| `self` | `self` |
+| `parent` | `relation` |
+| `grandparent` | `relation` |
+| `other` | `relation` |
+
+从当前代码和索引可以确认：
+
+- `Rel` 表达较细的业务关系；
+- `Type` 将关系粗分为本人和普通 relation；
+- active self 唯一性依赖 `TypeSelf` 和 `RelSelf`；
+- 历史组合唯一键使用 `type` 而不是 `relation`。
+
+但当前缺少一条可核对的决策记录，来说明为什么必须持久化两个字段，而不是仅持久化 `Rel` 并在查询时派生 `Type`。因此：
+
+```text
+“当前存在双字段”是已验证事实；
+“双字段是长期最优模型”尚未被证明。
+```
+
+复议时应比较：
+
+1. 保留 Type + Rel，由构造器统一派生并检查一致性；
+2. 只持久化 Rel，Type 改为计算属性；
+3. Type 升格为稳定分类，Rel 改为可扩展元数据。
+
+## 6. User 模型
+
+### 6.1 设计职责
+
+User 是 IAM 内部的稳定身份锚点，供 AuthN、AuthZ 和业务模块以 UserID 引用。它可以有联系资料和运营状态，但不拥有登录凭证或 Session。
+
+代码入口：`internal/apiserver/domain/identity/user/user.go`
+
+### 6.2 字段语义
+
+| 字段 | 当前语义 | 规则所在 |
 | --- | --- | --- |
-| `ID` | User 标识 | IAM 内部稳定身份 ID |
-| `Name` | 姓名 | 创建时必填 |
-| `Nickname` | 昵称 | 可选展示信息 |
-| `Phone` | 手机号 | 创建时必填，创建用例中校验唯一 |
-| `Email` | 邮箱 | 可选联系信息 |
-| `Status` | 状态 | `active / inactive / blocked` |
+| `ID` | IAM 内部稳定标识；创建时可由调用方指定，也可由持久化层生成 | application option + repository |
+| `Name` | 必填用户名称 | domain 构造/Rename 会 TrimSpace 并拒绝空值 |
+| `Nickname` | 可选展示名 | 构造 option 会 TrimSpace，`ChangeNickname` 不会 |
+| `Phone` | 可选联系手机号 | application 解析；非空时执行唯一性预检查 |
+| `Email` | 可选应用输入 | application 解析；当前 domain 不检查唯一性 |
+| `Status` | `active`、`inactive`、`blocked` | domain 枚举与行为 |
 
----
+### 6.3 构造与编辑行为
 
-### 7.3 创建入口与不变量
+`NewUser(name, phone, opts...)` 保证：
 
-创建入口：
+- Name 经过 `TrimSpace` 后非空；
+- Status 是合法枚举，默认 `active`；
+- Nickname 如通过 `WithNickname` 设置则会 TrimSpace。
 
-```go
-NewUser(name, phone, opts...)
-```
+它不保证：
 
-当前不变量：
+- Phone 必填；
+- Phone 唯一；
+- Email 唯一；
+- 创建 self Profile。
 
-```text
-Name 必填；
-Phone 必填；
-Status 默认 active；
-手机号唯一由应用层创建用例调用 user.UniquenessChecker.CheckPhoneUnique 保证。
-```
+领域行为：
 
-代码事实源：
+| 行为 | 结果 | 当前边界 |
+| --- | --- | --- |
+| `Rename` | 规范化并更换 Name | 拒绝空值 |
+| `ChangeNickname` | 替换 Nickname | 方法本身不 TrimSpace |
+| `ChangePhone` | 替换 Phone | 唯一性必须由 application 先检查 |
+| `ChangeEmail` | 替换 Email | 无唯一性规则 |
+| `Activate` | 转为 active | 不检查前置状态 |
+| `Deactivate` | 转为 inactive | 不撤销 Session |
+| `Block` | 转为 blocked | application 提交后撤销 Session |
 
-```text
-internal/apiserver/domain/identity/user/user.go
-internal/apiserver/application/identity/user
-```
-
----
-
-### 7.4 行为
-
-`User` 当前提供以下可变行为：
-
-```text
-Rename；
-ChangeNickname；
-ChangePhone；
-ChangeEmail；
-Activate；
-Deactivate；
-Block；
-IsUsable。
-```
-
-这些行为表达的是 Identity 内部身份主体生命周期，不表达登录态和授权能力。
-
----
-
-### 7.5 状态机
-
-代码事实源：`internal/apiserver/domain/identity/user/types.go`
-
-| 值 | 常量 | 含义 | `IsUsable()` |
-| --- | --- | --- | --- |
-| 1 | `UserActive` | 活跃 | true |
-| 2 | `UserInactive` | 非活跃 | false |
-| 3 | `UserBlocked` | 被封禁 | false |
-
-状态迁移图：
+### 6.4 状态模型
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active : NewUser()
-    Active --> Inactive : Deactivate()
-    Inactive --> Active : Activate()
-    Active --> Blocked : Block()
-    Inactive --> Blocked : Block()
-    Blocked --> Active : Activate()
-    Blocked --> Inactive : Deactivate()
-
-    Active : IsUsable() = true
-    Inactive : IsUsable() = false
-    Blocked : IsUsable() = false
+    [*] --> active: NewUser default
+    active --> inactive: Deactivate
+    active --> blocked: Block
+    inactive --> active: Activate
+    inactive --> blocked: Block
+    blocked --> active: Activate
+    blocked --> inactive: Deactivate
 ```
 
-注意：
+> 标签：当前实现。这张图表示领域方法允许直接切换，不代表业务已正式确认“任意状态都可直达任意状态”。
+
+application 层的 `Block` 顺序是：
 
 ```text
-User 状态不是 Session 状态；
-User 被封禁后是否连带撤销 Session，属于 application 层跨模块协作；
-Session / Token 生命周期仍属于 AuthN。
+在 Identity 事务中保存 blocked
+  -> 提交
+  -> 调用 AuthN SessionRevoker
 ```
 
----
+因此数据库状态和 Session 撤销不是一个原子事务。
 
-### 7.6 生命周期
+### 6.5 手机号唯一性
 
-`User` 的生命周期可以压缩为：
+`optionalPhone("")` 返回空值，`UniquenessChecker` 跳过空手机号。非空手机号在创建或修改时执行 application 预检查。
+
+当前 `users.phone` 只有 `idx_phone` 普通索引，没有唯一索引。所以：
 
 ```text
-创建 -> 资料变更 -> 状态变更 -> 被其他模块引用
+业务意图：非空 Phone 唯一
+当前保护：事务内先查后写
+并发结果：可能穿透预检查写入重复值
 ```
 
-| 阶段 | 说明 | 关键规则 |
+> 标签：已知缺口。如果 Phone 确实是全局唯一业务键，需要 DB 唯一约束兜底。
+
+> 标签：待确认决策。“Phone 为什么可选”在当前文档和历史证据中没有明确记录。
+
+## 7. Profile 模型
+
+### 7.1 设计职责
+
+Profile 表示业务服务对象的基础档案。它不需要拥有登录能力，也不通过 owner 字段限定只能被一个 User 关联。
+
+代码入口：`internal/apiserver/domain/identity/profile/profile.go`
+
+### 7.2 字段语义
+
+| 字段 | 当前语义 | 规则所在 |
 | --- | --- | --- |
-| 创建 | 通过 `NewUser` 创建 User | Name、Phone 必填，默认 active |
-| 资料变更 | 改名、改昵称、改手机、改邮箱 | 手机号变更应保持唯一性校验 |
-| 激活/停用/封禁 | 通过状态迁移方法改变可用性 | 只有 active 可用 |
-| 被引用 | AuthN/AuthZ/Suggest 通过 ID 引用 | User 不复制到其他模块写模型 |
+| `ID` | Profile 稳定标识 | repository 生成/保存 |
+| `Name` | 档案姓名，必填 | domain 构造/Rename 只拒绝空字符串 |
+| `IDCard` | 可选身份证值对象 | application 解析和查重，DB 唯一索引兜底 |
+| `Gender` | `meta.Gender` | 创建用例在非零值时检查合法性 |
+| `Birthday` | `meta.Birthday` | 创建用例在非空值时检查合法性 |
 
----
+领域行为：
 
-## 8. Profile
-
-### 8.1 定位
-
-`Profile` 是业务身份资料、业务档案或被服务对象。
-
-它用于回答：
-
-```text
-业务系统真正服务或管理的对象是谁？
-管理端搜索、选择、操作的业务档案是什么？
-一个 User 关联了哪些业务档案？
-```
-
-`Profile` 不等于 `User`。一个 `User` 可以通过 `ProfileLink` 关联多个 `Profile`。
-
----
-
-### 8.2 字段
-
-代码事实源：`internal/apiserver/domain/identity/profile/profile.go`
-
-| 字段 | 含义 | 说明 |
+| 行为 | 结果 | 当前边界 |
 | --- | --- | --- |
-| `ID` | Profile 标识 | 业务档案 ID |
-| `Name` | 姓名 | 创建时必填 |
-| `IDCard` | 身份证 | 可选；提供时需要唯一性校验 |
-| `Gender` | 性别 | 可选业务资料 |
-| `Birthday` | 生日 | 可选业务资料 |
+| `Rename` | 修改 Name | 只拒绝 `""`，不 TrimSpace |
+| `UpdateIDCard` | 替换 IDCard | 唯一性由 application 负责 |
+| `UpdateProfile` | 同时替换 Gender/Birthday | domain 方法本身不做合法性校验 |
 
----
+### 7.3 为什么 IDCard 可以为空
 
-### 8.3 创建入口与不变量
+> 标签：当前实现。
 
-创建入口：
+建档用例明确支持空 IDCard：`optionalIDCard` 在原始值为空时返回“未提供”，持久化层将空 IDCard 映射为 SQL `NULL`。
 
-```go
-NewProfile(name, opts...)
-```
+当前可确认的规则是：
 
-当前不变量：
+- IDCard 非必填；
+- 非空时必须能构造合法 `meta.IDCard`；
+- 非空时在 application 做友好错误的唯一性预检查；
+- `profiles.id_card` 唯一索引兜底并发冲突；
+- 多个 SQL `NULL` 不会互相冲突。
 
-```text
-Name 必填；
-IDCard 可选；
-提供 IDCard 时，身份证唯一由 application 层调用 profile.IDCardUniquenessChecker 保证。
-```
+> 标签：待确认决策。为什么业务允许无 IDCard 建档，当前缺少独立的业务决策记录；本文不自行推导年龄、地区或证件类型理由。
 
-代码事实源：
+### 7.4 创建 Profile 不是单表写入
 
-```text
-internal/apiserver/domain/identity/profile/profile.go
-internal/apiserver/application/identity/profile
-```
+当前公开创建用例是 `MyProfiles.Create`，返回 `CreatedProfileResult{Profile, ProfileLink}`。它在同一事务中：
 
----
+1. 解析和检查 Profile 字段；
+2. 检查 IDCard 唯一性；
+3. 确认 User 存在；
+4. 解析 relation，self 时检查 active self 唯一；
+5. 保存 Profile；
+6. 保存 ProfileLink；
+7. 统一提交。
 
-### 8.4 行为
+因此“Profile 可以与 User 独立建模”不等于“当前公开用例允许创建孤立 Profile”。
 
-`Profile` 当前提供以下可变行为：
+## 8. ProfileLink 模型
 
-```text
-Rename；
-UpdateIDCard；
-UpdateProfile(gender, birthday)。
-```
+### 8.1 设计职责
 
-这些行为只修改业务档案资料。
+ProfileLink 是 User 与 Profile 之间的关系事实。它提供关系语义和生命周期，不提供资源 Action 授权。
 
-`Profile` 当前没有：
+代码入口：
 
-```text
-登录凭证；
-Session；
-Token；
-权限字段；
-状态机。
-```
+- `internal/apiserver/domain/identity/profilelink/profile_link.go`
+- `internal/apiserver/domain/identity/profilelink/types.go`
+- `internal/apiserver/domain/identity/profilelink/linker.go`
+- `internal/apiserver/domain/identity/profilelink/self_profile_guard.go`
 
-因此，`Profile` 不能登录，不能被当成账号，也不能被直接当成权限主体。
+### 8.2 字段语义
 
----
+| 字段 | 当前语义 |
+| --- | --- |
+| `ID` | 关系记录的稳定标识 |
+| `User` | 关系一端的 UserID |
+| `Profile` | 关系另一端的 ProfileID |
+| `Type` | `self` 或 `relation`，由 Rel 派生 |
+| `Rel` | `self`、`parent`、`grandparent`、`other` |
+| `EstablishedAt` | 由服务端 clock 确定的建立时间 |
+| `RevokedAt` | `nil` 表示 active，非空表示已撤销 |
 
-### 8.5 生命周期
+### 8.3 Relation 解析语义
 
-`Profile` 的生命周期可以压缩为：
+`ParseRelation` 会将字符串转小写并 TrimSpace，然后识别 `self / parent / grandparent`。其他值，包括字符串 `other`、空值和未知值，都会被解析为 `RelOther`。
 
-```text
-创建 -> 资料变更 -> 被 ProfileLink 引用 -> 被 Suggest 读取为读模型来源
-```
-
-| 阶段 | 说明 | 关键规则 |
-| --- | --- | --- |
-| 创建 | 通过 `NewProfile` 创建档案 | Name 必填，IDCard 可选且需要唯一性校验 |
-| 资料变更 | 改名、更新身份证、更新性别生日 | 只表达业务档案资料变化 |
-| 被关联 | 通过 ProfileLink 和 User 建立关系 | Profile 本身不表示关系 |
-| 被读取 | Suggest 可读取 Profile 事实构建索引 | Suggest 不拥有 Profile 写模型 |
-
----
-
-## 9. ProfileLink
-
-### 9.1 定位
-
-`ProfileLink` 是 `User` 与 `Profile` 之间的一条关系事实。
-
-它用于回答：
+这产生两个当前行为：
 
 ```text
-某个 User 和某个 Profile 是否有关联？
-这个关联是什么关系？
-关系什么时候建立？
-关系是否已经撤销？
+EstablishProfileLink 传入未知 relation -> 按 other 建立，不拒绝
+CreateProfile 传入空 relation           -> 应用用例在 Parse 前拒绝
 ```
 
-`ProfileLink` 是 Identity 领域中最容易被误解的对象。它不是权限，也不是角色绑定。
+> 标签：已知风险 + 待确认决策。将未知 relation 宽容降级为 `other` 可能有兼容性价值，也可能隐藏调用方拼写错误。当前没有足够证据说明这是经过确认的长期契约。
 
----
+### 8.4 建立关系
 
-### 9.2 字段
-
-代码事实源：
-
-```text
-internal/apiserver/domain/identity/profilelink/profile_link.go
-internal/apiserver/domain/identity/profilelink/types.go
-```
-
-| 字段 | 含义 | 说明 |
-| --- | --- | --- |
-| `ID` | ProfileLink 标识 | 关系事实 ID |
-| `User` | User 引用 | 存储双方 `meta.ID`，不内嵌 User 实体 |
-| `Profile` | Profile 引用 | 存储双方 `meta.ID`，不内嵌 Profile 实体 |
-| `Type` | 档案类型 | 由 `Rel` 推导 |
-| `Rel` | 关系 | `self / parent / grandparent / other` |
-| `EstablishedAt` | 建立时间 | 关系建立时间 |
-| `RevokedAt` | 撤销时间 | `nil` 表示 active，非 nil 表示已撤销 |
-
----
-
-### 9.3 Type 与 Rel
-
-`Rel` 表达用户与档案之间的业务关系。
-
-| Relation `Rel` | 对应 Type | 说明 |
-| --- | --- | --- |
-| `self` | `self` | 本人档案 |
-| `parent` | `relation` | 家长 |
-| `grandparent` | `relation` | 祖辈 |
-| `other` | `relation` | 其他；`ParseRelation` 的兜底值 |
-
-`Type` 由 `Rel` 推导：
-
-```text
-RelSelf -> TypeSelf；
-其他 Rel -> TypeRelation。
-```
-
-推导图：
+建立用例在 Identity 事务中执行：
 
 ```mermaid
 flowchart TD
-    Rel{Relation Rel}
-    Rel -->|self| SelfType["Type = self\n本人档案"]
-    Rel -->|parent| RelationType["Type = relation\n关系档案"]
-    Rel -->|grandparent| RelationType
-    Rel -->|other| RelationType
-
-    SelfType --> Guard["SelfProfileGuard\n同一 User 至多一条 active self"]
-    RelationType --> Multi["允许多条关系档案\n具体重复关系仍受 Linker active link 检查"]
+    A["ensure User exists"] --> B["ensure Profile exists"]
+    B --> C{"relation == self?"}
+    C -- yes --> D["SelfProfileGuard:\nno active self"]
+    C -- no --> E["ProfileLinker.LinkRelation"]
+    D --> F["ProfileLinker.LinkSelf"]
+    E --> G["repository.Create"]
+    F --> G
+    G --> H["commit"]
 ```
 
-关键边界：
+责任分配：
 
-```text
-self 是身份关系，不是登录账号；
-parent / grandparent / other 是身份关系，不是权限；
-Type = relation 不代表拥有访问权；
-是否能访问 Profile 仍由 AuthZ 判断。
-```
-
----
-
-### 9.4 生命周期状态
-
-`ProfileLink` 没有单独的状态枚举。
-
-它的有效性由 `RevokedAt` 表达：
-
-| `RevokedAt` | 状态 | `IsActive()` |
+| 规则 | 实现位置 | 为什么放在这里 |
 | --- | --- | --- |
-| `nil` | active | true |
-| 非 `nil` | revoked | false |
+| User/Profile 必须存在 | application | 两者是独立聚合/repository，domain link 只持有 ID |
+| relation 必须是领域枚举 | domain `validateRelation` | 属于关系实体的自身合法性 |
+| 同 User/Profile 不能重复 active link | domain `ProfileLinker` 查 repository | 跨现有关系集合的业务规则 |
+| 同 User 最多一条 active self | `SelfProfileGuard` + DB unique index | 需要集合查询并抵御并发 |
+| 新 link 与前置检查同事务 | application UnitOfWork | 避免检查和写入分离 |
 
-状态图：
+当前 schema 没有 User/Profile 外键，所以“参与者必须存在”完全依赖所有写入都经过 application 用例。如果有任意 SQL 直写或新 adapter 绕过用例，数据库不会自动阻止孤立 link。
 
-```mermaid
-stateDiagram-v2
-    [*] --> Active : Linker.Link() / EstablishedAt
-    Active --> Revoked : Revoke(at) / RevokedAt = at
-    Revoked --> Revoked : Revoke(at) / 幂等，不覆盖首次 RevokedAt
+### 8.5 active self 唯一性
 
-    Active : IsActive() = true
-    Revoked : IsActive() = false
-```
+active self 有两层保护：
 
-`Revoke(at)` 是软撤销且幂等：
+1. `SelfProfileGuard.EnsureCanCreateSelf` 查询当前 User 的 active `TypeSelf` link，提供领域错误；
+2. migration 为 active self 生成 `self_key = user_id`，并建立 `uk_active_self_profile_link(self_key)` 唯一索引，兜底并发写入。
 
-```text
-首次撤销时写入 RevokedAt；
-已经撤销后再次调用，不覆盖首次 RevokedAt；
-关系记录保留，用于历史追溯。
-```
+撤销 self link 后，repository 将 `self_key` 释放为 `NULL`，因此“每个 User 最多一条 active self”不等于“历史上最多一条 self”。
 
----
+但还有另一个约束：`uk_user_profile_link(user_id, profile_id, type)`。它会阻止同一 User 与同一 Profile 在撤销后再建立同 Type 关系。
 
-### 9.5 建立关系规则
+### 8.6 撤销关系
 
-建立关系的领域能力由 `profilelink.Linker` 表达。
+实体与公开用例的幂等语义不同：
 
-当前规则：
-
-```text
-已存在 active ProfileLink 时，不可重复建立；
-重复 active 关系会返回 ErrIdentityProfileLinkExists；
-Rel 决定 Type；
-建立时间写入 EstablishedAt。
-```
-
-代码事实源：
-
-```text
-internal/apiserver/domain/identity/profilelink/linker.go
-```
-
----
-
-### 9.6 self 档案唯一性
-
-同一个 `User` 至多只能有一条 active 的 `self` 档案关系。
-
-该规则由 `SelfProfileGuard.EnsureCanCreateSelf` 表达。
-
-代码事实源：
-
-```text
-internal/apiserver/domain/identity/profilelink/self_profile_guard.go
-```
-
-该规则的业务含义是：
-
-```text
-一个 User 可以关联多个 Profile；
-但其中“本人档案”只能有一个 active 关系；
-其他 parent / grandparent / other 关系不等于 self。
-```
-
----
-
-### 9.7 建立关系流程图
-
-```mermaid
-sequenceDiagram
-    participant App as application/identity/profilelink
-    participant Guard as SelfProfileGuard
-    participant Linker as profilelink.Linker
-    participant Repo as ProfileLink Repository
-
-    App->>Guard: EnsureCanCreateSelf(userID, rel)
-    Guard-->>App: ok / error
-    App->>Linker: Link(userID, profileID, rel, now)
-    Linker->>Repo: FindActive(userID, profileID)
-    Repo-->>Linker: none / active link
-    alt active link exists
-        Linker-->>App: ErrIdentityProfileLinkExists
-    else no active link
-        Linker-->>App: New ProfileLink
-        App->>Repo: Save(ProfileLink)
-        Repo-->>App: saved
-    end
-```
-
-读图要点：
-
-```text
-self 唯一性由 SelfProfileGuard 负责；
-重复 active link 检查由 Linker 负责；
-Linker 创建的是 ProfileLink 关系事实；
-保存由 repository 完成；
-具体事务边界属于 application 层。
-```
-
-注意：上图是领域流程图，具体函数名和 repository 方法名以后续代码索引文档为准。
-
----
-
-### 9.8 生命周期
-
-`ProfileLink` 的生命周期可以压缩为：
-
-```text
-建立 -> active -> 撤销 -> revoked 历史记录
-```
-
-| 阶段 | 说明 | 关键规则 |
-| --- | --- | --- |
-| 建立 | 创建 User 与 Profile 的关系事实 | 不能重复建立 active link |
-| active | `RevokedAt = nil` | `IsActive() = true` |
-| 撤销 | 调用 `Revoke(at)` | 软撤销，写入 RevokedAt |
-| revoked | `RevokedAt != nil` | `IsActive() = false`，重复撤销幂等 |
-
----
-
-## 10. 三者之间的关系
-
-### 10.1 User 与 Profile 是独立实体
-
-`User` 与 `Profile` 不是父子包含关系。
-
-```text
-User 不内嵌 Profile；
-Profile 不内嵌 User；
-二者通过 ProfileLink 建立关系。
-```
-
-这样做的原因是：
-
-```text
-同一个 User 可以关联多个 Profile；
-同一个 Profile 的关系可以被历史追溯；
-关系可以被建立和撤销；
-身份主体和业务档案可以独立演进。
-```
-
----
-
-### 10.2 ProfileLink 是多对多关系事实
-
-从模型上看：
-
-```text
-User 1 -> 0..* ProfileLink；
-Profile 1 -> 0..* ProfileLink。
-```
-
-这意味着：
-
-```text
-一个 User 可以关联多个 Profile；
-一个 Profile 理论上可以被多个 User 以不同 Rel 关联；
-每条 ProfileLink 都是一条独立关系事实；
-撤销关系不删除 User，也不删除 Profile。
-```
-
----
-
-### 10.3 ProfileLink 不是权限
-
-`ProfileLink` 回答的是：
-
-```text
-User 和 Profile 是什么身份关系？
-```
-
-`Permission` 回答的是：
-
-```text
-Subject 能否对 Resource 执行 Action，并满足 Scope？
-```
-
-对比图：
-
-```mermaid
-flowchart LR
-    subgraph Identity["Identity"]
-        PL["ProfileLink\nUserID + ProfileID + Rel + RevokedAt"]
-    end
-
-    subgraph AuthZ["AuthZ"]
-        RB["RoleBinding\nSubject + Role + Scope"]
-        P["Permission\nResource + Action + Scope"]
-        C["Check\nSubject can Action Resource ?"]
-    end
-
-    PL -.身份关系事实.-> Identity
-    RB --> P
-    P --> C
-```
-
-区别：
-
-| 概念 | 所属模块 | 回答的问题 |
-| --- | --- | --- |
-| `ProfileLink` | Identity | User 和 Profile 是什么身份关系？ |
-| `Permission` | AuthZ | Role 对 Resource / Action / Scope 有什么能力？ |
-| `RoleBinding` | AuthZ | Subject 拥有哪些 Role？ |
-| `Check` | AuthZ | Subject 能否访问某个 Resource？ |
-
-关键结论：
-
-```text
-有 ProfileLink 不等于有访问权限；
-没有 ProfileLink 也不等于一定没有任何授权，具体取决于 AuthZ 模型；
-ProfileLink 不能替代 Permission；
-Permission 不能替代 ProfileLink。
-```
-
----
-
-## 11. 与 AuthN / AuthZ / IDP / Suggest 的边界
-
-### 11.1 跨模块边界图
-
-```mermaid
-flowchart TD
-    Identity["Identity\nUser / Profile / ProfileLink"]
-    AuthN["AuthN\nLoginIdentity / Credential / Principal / Session / Token"]
-    AuthZ["AuthZ\nSubject / Role / Permission / RoleBinding / Check"]
-    IDP["IDP\nWechatApp / Credentials / AppToken / ExternalIdentity"]
-    Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / Snapshot"]
-
-    AuthN -->|UserID 引用| Identity
-    AuthZ -->|Subject 引用 User/Profile 事实| Identity
-    IDP -->|ExternalIdentity 供 AuthN 消费| AuthN
-    Suggest -->|读取 Profile 事实| Identity
-    Suggest -->|可见范围过滤| AuthZ
-
-    Identity -.不负责.-> AuthN
-    Identity -.不负责.-> AuthZ
-    Identity -.不负责.-> IDP
-    Identity -.不负责.-> Suggest
-```
-
----
-
-### 11.2 User 不是 Principal
-
-`Principal` 是 AuthN 认证成功后的运行时主体表达。
-
-对比：
-
-| 概念 | 所属模块 | 生命周期 | 含义 |
-| --- | --- | --- | --- |
-| `User` | Identity | 长期持久化 | 系统内部稳定身份主体 |
-| `Principal` | AuthN | 随认证上下文产生 | 当前请求者的认证结果表达 |
-
-关键边界：
-
-```text
-Principal 可以携带 UserID；
-Principal 不是 User 实体；
-User 不包含认证方法、AMR、Session 等运行时认证上下文。
-```
-
-代码事实源：
-
-```text
-internal/apiserver/domain/authn/authentication/principal.go
-```
-
----
-
-### 11.3 User 不是 Subject
-
-`Subject` 是 AuthZ 授权域中的主体引用。
-
-对比：
-
-| 概念 | 所属模块 | 形态 | 含义 |
-| --- | --- | --- | --- |
-| `User` | Identity | User 实体 | 系统内部稳定身份主体 |
-| `Subject` | AuthZ | `{Type, ID}` 引用 | 授权判断中的主体引用 |
-
-关键边界：
-
-```text
-Subject.Ref 可以引用 UserID；
-user 只是 Subject 的一种类型；
-Subject 不拥有 User 写模型；
-AuthZ 通过 Subject 做权限判定，不维护 User 实体。
-```
-
-代码事实源：
-
-```text
-internal/apiserver/domain/authz/subject/subject.go
-```
-
----
-
-### 11.4 Profile 不是登录账号
-
-`Profile` 只是业务档案事实，不具备登录能力。
-
-Profile 没有：
-
-```text
-LoginIdentity；
-Credential；
-Challenge；
-Session；
-Token；
-JWKS。
-```
-
-登录账号和认证材料属于 AuthN。
-
----
-
-### 11.5 IDP ExternalIdentity 不是 User
-
-IDP 输出外部身份声明，AuthN 决定如何把外部身份绑定到 `LoginIdentity`，再通过 `LoginIdentity.UserID` 指向 Identity 的 `User`。
-
-关键边界：
-
-```text
-ExternalIdentity 是外部身份声明；
-User 是 IAM 内部身份主体；
-openid 不是 Profile；
-IDP AppToken 不是 IAM AccessToken；
-IDP 不拥有 Identity 写模型。
-```
-
----
-
-### 11.6 Suggest Snapshot 不是 Profile 主表
-
-Suggest 可以读取 Identity 的 `Profile` 事实构建读模型。
-
-关键边界：
-
-```text
-Profile 主事实属于 Identity；
-Suggest Snapshot 是读模型；
-Suggest 不写 Profile 主事实；
-Suggest 降级不能泄露不可见 Profile。
-```
-
----
-
-## 12. 领域不变量汇总
-
-| 不变量 | 所属对象 | 说明 | 代码事实源 |
-| --- | --- | --- | --- |
-| `User.Name` 非空 | User | 创建 User 时必须提供姓名 | `user.NewUser` |
-| `User.Phone` 非空 | User | 创建 User 时必须提供手机号 | `user.NewUser` |
-| `User.Status` 默认 active | User | 新建 User 默认可用 | `user.NewUser` |
-| User 手机号唯一 | User / application | 创建用例中调用唯一性检查 | `user.UniquenessChecker` |
-| `Profile.Name` 非空 | Profile | 创建 Profile 时必须提供姓名 | `profile.NewProfile` |
-| Profile 身份证唯一 | Profile / application | 提供 IDCard 时调用唯一性检查 | `profile.IDCardUniquenessChecker` |
-| active ProfileLink 不可重复 | ProfileLink | 已存在 active 关系时不可重复建立 | `profilelink.Linker` |
-| ProfileLink 软撤销 | ProfileLink | 通过 `RevokedAt` 标记撤销 | `ProfileLink.Revoke` |
-| ProfileLink 撤销幂等 | ProfileLink | 已撤销后不覆盖首次 `RevokedAt` | `ProfileLink.Revoke` |
-| 同一 User 至多一条 active self 档案 | ProfileLink | 由 self guard 校验 | `SelfProfileGuard.EnsureCanCreateSelf` |
-
----
-
-## 13. 失败边界
-
-Identity 领域模型中的失败边界应尽量清晰。
-
-| 场景 | 期望行为 | 说明 |
-| --- | --- | --- |
-| 创建 User 时 Name 为空 | 返回领域错误 | User 必须有姓名 |
-| 创建 User 时 Phone 为空 | 返回领域错误 | User 必须有手机号 |
-| 创建 User 时 Phone 已存在 | 返回冲突错误 | 唯一性由 application 层检查 |
-| 创建 Profile 时 Name 为空 | 返回领域错误 | Profile 必须有姓名 |
-| 创建 Profile 时 IDCard 已存在 | 返回冲突错误 | 唯一性由 application 层检查 |
-| 建立已存在 active ProfileLink | 返回 `ErrIdentityProfileLinkExists` | 防止重复 active 关系 |
-| 同一 User 创建第二条 active self link | 返回冲突错误 | 由 SelfProfileGuard 保证 |
-| 重复撤销 ProfileLink | 幂等成功或保持已撤销状态 | 不覆盖首次 RevokedAt |
-| User blocked 后继续认证 | AuthN 应拒绝或撤销相关 Session | 属于 application 跨模块协作，不是 User 实体内部逻辑 |
-
----
-
-## 14. 读图和改代码时的高频误解
-
-| 误解 | 正确理解 |
+| 层次 | 重复撤销的结果 |
 | --- | --- |
-| User 包含 Profile | User 和 Profile 独立，通过 ProfileLink 关联 |
-| Profile 是登录账号 | Profile 是业务档案，不能登录 |
-| ProfileLink 是权限 | ProfileLink 是身份关系事实，不是 Permission |
-| self ProfileLink 表示本人拥有所有权限 | self 只是本人档案关系，访问仍由 AuthZ 判断 |
-| User 就是 Principal | Principal 是 AuthN 认证成功后的运行时主体表达 |
-| User 就是 Subject | Subject 是 AuthZ 授权域中的主体引用 |
-| Suggest 索引就是 Profile 主表 | Suggest 是读模型，Profile 主事实属于 Identity |
-| IDP ExternalIdentity 就是 User | ExternalIdentity 是外部身份声明，User 是 IAM 内部身份主体 |
-| 删除 ProfileLink 表示撤销 | 撤销应通过 RevokedAt 软撤销，保留历史关系事实 |
-| 重复撤销覆盖 RevokedAt | Revoke 幂等，应保留首次撤销时间 |
+| `ProfileLink.Revoke(at)` | 幂等；保留首次 `RevokedAt` |
+| `ProfileLinker.RevokeLink(entity)` | 对已加载实体幂等 |
+| application/gRPC Revoke | 只解析 active link；已撤销或不存在返回错误 |
 
----
+因此不应在 API 文档中仅根据 domain 方法宣称“撤销接口幂等成功”。
 
-## 15. 代码事实源
+## 9. 不变量归属
 
-| 事实 | 路径 |
+模型的规则不应因为“领域驱动”而全部放进 domain。当前分配遵循三个原则：
+
+```text
+单个实体自身可判断 -> Domain entity/value
+需要查询其他记录或编排多实体 -> Domain checker/guard + Application
+需要抵御并发竞态 -> Database constraint
+```
+
+| 不变量 | Domain | Application | Database | 当前评价 |
+| --- | --- | --- | --- | --- |
+| User Name 非空、Status 合法 | 是 | 调用构造/行为 | NOT NULL/数值列 | 实体自身规则 |
+| Phone 可选、非空时唯一 | `UniquenessChecker` 端口 | 创建/修改时调用 | 无唯一键 | 并发缺口 |
+| Profile Name 非空 | 是 | 调用构造/行为 | NOT NULL | 空白字符串处理不一致 |
+| IDCard 可选、非空时唯一 | checker 抽象 | 创建/修改时调用 | `uk_id_card` | 有 DB 兜底 |
+| 建 link 前 User/Profile 存在 | 无实体引用 | 事务内显式查询 | 无外键 | 依赖写入边界不被绕过 |
+| relation 是合法枚举 | `validateRelation` | 输入解析 | VARCHAR | 未知输入会先降级 other |
+| 同 User/Profile 无重复 active link | `ProfileLinker` | 事务内调用 | 历史组合唯一 | DB 实际更严格 |
+| 同 User 最多一条 active self | `SelfProfileGuard` | self 写链路显式调用 | `uk_active_self_profile_link` | 双层保护 |
+| 撤销保留首次时间 | `ProfileLink.Revoke` | 加载、修改、保存 | `revoked_at` | entity 幂等，API 非成功幂等 |
+
+## 10. 聚合、事务与失败边界
+
+### 10.1 为什么不把三个对象做成一个大聚合
+
+如果 User 作为聚合根内嵌所有 Profile 和 ProfileLink，每次更改一份档案都要加载用户的整个关系集合，同一 Profile 被多个 User 关联时还会出现聚合归属冲突。
+
+当前选择是：
+
+- User、Profile、ProfileLink 各有 repository；
+- 实体内规则由实体保护；
+- 跨实体用例由 application + UnitOfWork 保证事务一致性；
+- 集合间只保存 ID 引用。
+
+这不是“每张表一个聚合”的机械规则，而是由多对多基数、独立生命周期和事务边界共同推导出来的当前选择。
+
+### 10.2 失败时会发生什么
+
+| 用例 | 失败点 | 当前结果 |
+| --- | --- | --- |
+| Create User | Phone 解析/查重/保存失败 | 事务回滚，不会创建 Profile |
+| Create Profile | Profile 或 ProfileLink 任一保存失败 | 整个 Identity 事务回滚 |
+| Establish ProfileLink | 参与者不存在/重复/self 冲突 | 事务失败，不保存 link |
+| Revoke ProfileLink | active link 不存在 | 返回 not found 类错误，不视为成功 |
+| Block User | Identity 保存失败 | 不调用 SessionRevoker |
+| Block User | Identity 已提交，Session 撤销失败 | User 仍 blocked，调用方收到错误 |
+| Batch revoke/import | 其中一项失败 | 已成功项不回滚，返回分项结果 |
+
+## 11. 模型边界：不要从关系事实跳到权限结论
+
+```text
+ProfileLink 回答：User 与 Profile 是什么关系？
+AuthZ 回答：Subject 能对 Resource 执行什么 Action？
+```
+
+因此：
+
+- 有 ProfileLink 不等于拥有该 Profile 相关的所有资源权限；
+- 没有 ProfileLink 也不必然意味着没有任何通过机构角色获得的权限；
+- REST `MyProfiles.Get/Patch` 当前用 active ProfileLink 作为局部访问前置，这是具体用例的当前策略，不能推广成通用 AuthZ 模型；
+- Suggest 的 `ProfileAccessScope` 是搜索读模型的范围投影，不是 ProfileLink 的别名。
+
+## 12. 已知缺口与决策待办
+
+| 项目 | 类型 | 当前事实 | 需要的决策 |
+| --- | --- | --- | --- |
+| Phone 可选 | 待确认决策 | DTO、值解析和仓储支持空值 | 明确哪些入站场景允许无手机号 |
+| Phone 唯一 | 已知缺口 | 只有 application 预检查 | 是否加 DB 唯一约束及如何处理空值 |
+| User 状态迁移 | 待确认决策 | 任意合法状态可直接切换 | blocked 是否允许直接 Activate，Deactivate 是否应撤销 Session |
+| Profile 名称规范化 | 已知不一致 | User Name TrimSpace，Profile Name 只拒绝空字符串 | 是否统一空白字符串政策 |
+| IDCard 可选 | 待确认决策 | application 允许空值 | 记录允许无证件建档的业务条件 |
+| Type + Rel | 待确认决策 | 同时持久化，Type 由 Rel 派生 | 是否长期保留冗余字段，如何防止不一致 |
+| 未知 Relation | 待确认决策 | `ParseRelation` 降级为 other | 选择宽容兼容还是严格拒绝 |
+| 撤销后重建 | 模型/存储偏移 | domain 查 active，DB 禁止同 Type 历史重复 | 关系是一次性事实还是可多周期建立 |
+| 参与者完整性 | 已知风险 | application 检查，DB 无外键 | 是否接受严格写入边界，或增加 DB FK |
+| API 撤销幂等 | 待确认决策 | entity 幂等，公开用例重复撤销返错 | 契约是否要求重复调用成功 |
+
+## 13. 常见误解
+
+### 误解 1：每个 User 都必须有 self Profile
+
+不对。当前模型明确允许 User 没有 self Profile；User 创建用例也不会自动建档。
+
+### 误解 2：Profile 就是 User 的详细资料
+
+不对。Profile 可以与多个 User 关联；User 也可以关联多个 Profile。它不是一对一扩展表。
+
+### 误解 3：ProfileLink 就是 Profile 的所有权
+
+不对。它记录关系事实，而且同一 Profile 可以有多个 User 关系。“关系”不能简化成单一所有者。
+
+### 误解 4：有 ProfileLink 就可以读写所有 Profile 资源
+
+不对。当前某些 REST 自助用例使用 active ProfileLink 作为访问前置，但通用访问决策属于 AuthZ。
+
+### 误解 5：因为 `Revoke` 方法幂等，所以 API 重复撤销也成功
+
+不对。application 只加载 active link，因此已撤销关系会返回错误。
+
+### 误解 6：撤销后可以立即重建相同关系
+
+不对。当前 DB 历史组合唯一键会阻止同一 User/Profile/Type 再建立。这一行为是否符合长期业务需求尚待确认。
+
+## 14. 事实源与 Verify
+
+### 14.1 事实源
+
+| 内容 | 路径 |
 | --- | --- |
-| User 字段与行为 | `internal/apiserver/domain/identity/user/user.go` |
-| User 状态定义 | `internal/apiserver/domain/identity/user/types.go` |
-| User 创建用例与手机号唯一 | `internal/apiserver/application/identity/user` |
-| User 封禁连带撤销 Session | `internal/apiserver/application/identity/user/service_lifecycle.go` |
-| Profile 字段与行为 | `internal/apiserver/domain/identity/profile/profile.go` |
-| Profile 创建用例与身份证唯一 | `internal/apiserver/application/identity/profile` |
-| ProfileLink 字段与软撤销 | `internal/apiserver/domain/identity/profilelink/profile_link.go` |
-| Type / Relation 定义与推导 | `internal/apiserver/domain/identity/profilelink/types.go` |
-| 建立关系领域服务 | `internal/apiserver/domain/identity/profilelink/linker.go` |
-| self 档案唯一性守卫 | `internal/apiserver/domain/identity/profilelink/self_profile_guard.go` |
-| ProfileLink 用例编排 | `internal/apiserver/application/identity/profilelink` |
-| Principal 形态 | `internal/apiserver/domain/authn/authentication/principal.go` |
-| Subject 形态 | `internal/apiserver/domain/authz/subject/subject.go` |
+| User 实体和状态 | `internal/apiserver/domain/identity/user` |
+| Profile 实体和 IDCard checker | `internal/apiserver/domain/identity/profile` |
+| ProfileLink 实体、Linker、SelfProfileGuard | `internal/apiserver/domain/identity/profilelink` |
+| User 创建/编辑/生命周期 | `internal/apiserver/application/identity/user` |
+| Profile 组合创建 | `internal/apiserver/application/identity/profile/service_my_profiles.go` |
+| ProfileLink 建立/撤销 | `internal/apiserver/application/identity/profilelink` |
+| 事务边界 | `internal/apiserver/application/identity/uow`、`internal/apiserver/infra/mysql/uow/identity` |
+| 数据库约束 | `internal/pkg/migration/migrations/000001_init_schema.up.sql`、`000007_add_active_self_profile_link_guard.up.sql`、`000009_remove_identity_misplaced_profile_attrs.up.sql` |
+| 退役模型和命名护栏 | `internal/pkg/architecture/architecture_test.go` |
 
----
+### 14.2 重点测试
 
-## 16. Verify
+- `internal/apiserver/domain/identity/user/uniqueness_checker_test.go`
+- `internal/apiserver/domain/identity/profile/idcard_uniqueness_checker_test.go`
+- `internal/apiserver/domain/identity/profilelink/profile_link_test.go`
+- `internal/apiserver/domain/identity/profilelink/linker_test.go`
+- `internal/apiserver/domain/identity/profilelink/self_profile_guard_test.go`
+- `internal/apiserver/application/identity/profile/service_test.go`
+- `internal/apiserver/application/identity/profilelink/service_test.go`
+- `internal/apiserver/infra/mysql/profilelink/repo_test.go`
 
-修改本文后至少执行：
+### 14.3 验证命令
 
 ```bash
-make docs-hygiene
 go test ./internal/apiserver/domain/identity/...
-```
-
-涉及创建、更新、唯一性、关系建立或撤销用例时，执行：
-
-```bash
 go test ./internal/apiserver/application/identity/...
-```
-
-涉及 AuthN/AuthZ/Suggest 边界说明时，按实际影响执行：
-
-```bash
-go test ./internal/apiserver/domain/authn/...
-go test ./internal/apiserver/domain/authz/...
+go test ./internal/apiserver/infra/mysql/user ./internal/apiserver/infra/mysql/profile ./internal/apiserver/infra/mysql/profilelink
 go test ./internal/pkg/architecture
+make docs-hygiene
 ```
 
-涉及 REST/gRPC 契约时，执行：
+## 15. 继续阅读
 
-```bash
-make api-validate
-make proto-gen
-go test ./internal/apiserver/transport/rest/...
-go test ./internal/apiserver/transport/grpc/...
-```
-
----
-
-## 17. 本文总结
-
-Identity 的领域模型可以压缩成：
-
-```text
-User：系统内部稳定身份主体；
-Profile：业务档案 / 被服务对象；
-ProfileLink：User 与 Profile 的身份关系事实。
-```
-
-三者共同表达：
-
-```text
-谁是系统内部用户；
-业务档案是谁；
-用户和档案之间是什么关系；
-关系是否仍然有效。
-```
-
-三者都不表达：
-
-```text
-登录凭证；
-认证上下文；
-Session / Token；
-Role / Permission；
-授权判定。
-```
-
-最重要的边界是：
-
-```text
-ProfileLink 不是 Permission；
-Principal 不是 User；
-Subject 不是 User；
-Profile 不是登录账号；
-Suggest Snapshot 不是 Profile 主表；
-IDP ExternalIdentity 不是 User。
-```
-
-由于本文已经合并模型图和生命周期内容，后续可以将独立的 `02-领域模型图.md` 和 `03-核心对象生命周期.md` 调整为删除、归档或轻量索引页，避免三处重复维护。
+- 模块定位、设计决策和能力映射：[00-模块总览](00-模块总览.md)
+- 创建 User 和组合创建 Profile 的时序：[02-创建 User 与 Profile](02-关键链路-创建User与Profile.md)
+- ProfileLink 建立、撤销和批处理：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
+- ProfileLink 与 Permission 的区别：[ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)

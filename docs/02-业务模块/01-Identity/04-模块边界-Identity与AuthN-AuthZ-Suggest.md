@@ -1,750 +1,378 @@
 # 模块边界：Identity 与 AuthN / AuthZ / IDP / Suggest
 
-> 状态：待补证据 · 第一版正文，待继续按源码、组合根、跨模块端口、REST/gRPC 契约和架构测试逐项核对。
-
----
+> 状态：已实现 · 已核对跨模块事务、container 装配、REST/gRPC、IDP provider 链路、Suggest Loader/Scope 和架构护栏。
 
 ## 1. 本文回答
 
-本文回答 8 个问题：
-
-- Identity 的模块边界是什么？
-- Identity 与 AuthN 如何协作，为什么 `User` 不是 `Principal`？
-- Identity 与 AuthZ 如何协作，为什么 `User` 不是 `Subject`，`ProfileLink` 不是 `Permission`？
-- Identity 与 IDP 如何协作，为什么 `ExternalIdentity` 不是 `User`？
-- Identity 与 Suggest 如何协作，为什么 `Suggest Snapshot` 不是 `Profile` 主表？
-- 哪些跨模块协作是允许的，哪些是边界漂移？
-- Identity 是否可以触发 AuthN Session 撤销？这个例外如何约束？
-- 修改模块边界时应该核对哪些代码和测试？
-
-本文只讲模块边界，不重复完整领域模型。领域模型见 [01-领域模型-User-Profile-ProfileLink.md](01-领域模型-User-Profile-ProfileLink.md)，ProfileLink 链路见 [03-关键链路-建立与撤销ProfileLink.md](03-关键链路-建立与撤销ProfileLink.md)。
-
----
+- Identity 在 IAM 中拥有哪些事实，不拥有哪些事实？
+- Identity 与 AuthN、AuthZ、IDP、Suggest 今天通过什么方式协作？
+- AuthN signup 为什么可以在自己的事务中创建 Identity User？
+- 为什么 Identity Block 同步调用 AuthN SessionRevoker，却不直接管理 Session？
+- Identity REST 读取角色名称是否意味着 Identity 拥有 AuthZ？
+- IDP 是否已经产出通用 `ExternalIdentity`？
+- Suggest 是事件驱动读模型，还是直接读取 Identity 数据表？
+- 哪些跨模块依赖是当前有意识的取舍，哪些是已知缺口？
 
 ## 2. 30 秒结论
 
-Identity 是 IAM 的身份事实中心，只维护：
+Identity 是 User、Profile、ProfileLink 的主事实边界，但不是完全不与其他模块交互的孤岛。当前存在四类不同的协作：
+
+| 协作方 | Identity 与它的真实关系 | 一致性/失败语义 |
+| --- | --- | --- |
+| AuthN | LoginIdentity/Session 以 UserID 引用 User；AuthN signup 在自己 UOW 中使用 Identity User repository port；Identity Block 调用 SessionRevoker | signup 与 User 同 MySQL 事务；Block 先提交 DB，再撤销 Session，非原子 |
+| AuthZ | Identity REST `/me` 用 `RoleNameReader` 补充角色名；Profile REST 的 ProfileLink 前置是局部访问规则 | 角色读取失败时返回无 roles 的 User；不执行通用 AuthZ Check |
+| IDP | IDP 管理 WechatApp/Credential/AppAccessToken；AuthN 读取配置并直接编排 code exchange | 当前没有通用 IDP `ExternalIdentity` 领域对象传给 Identity |
+| Suggest | Suggest infra 直接从 Identity MySQL 表 Full/Delta 派生索引，再结合 AuthZ runtime 与可见 ProfileID 生成 scope | 最终一致；当前无 Profile event/outbox，Loader 对 revoked link 过滤不完整 |
+
+边界的核心不是“不许任何依赖”，而是：
 
 ```text
-User；
-Profile；
-ProfileLink。
+事实归属不混淆；
+依赖方向和一致性代价可见；
+跨模块协作通过窄端口、事务 port 或派生读模型完成；
+一个模块不借协作之名修改另一个模块的任意事实。
 ```
 
-它向其他模块提供可引用的身份事实，但不吞并其他模块职责：
+## 3. 问题背景
+
+### 3.1 同一个 UserID 会出现在多个上下文，但它们回答的问题不同
 
 ```text
-AuthN 证明“当前请求者是谁”；
-AuthZ 判断“是否允许访问”；
-IDP 提供“外部身份来源”；
-Suggest 提供“Profile 联想搜索读模型”。
+Identity.User       -> 这个稳定主体是谁，状态如何？
+AuthN.Principal     -> 本次请求通过什么证据认证了谁？
+AuthZ.Subject       -> 本次授权决策的主体引用是谁？
+IDP provider result -> 外部平台声明的 openid/unionid 是什么？
+Suggest principal   -> 联想查询的操作者和数据范围是什么？
 ```
 
-核心边界：
+如果把它们都放进 User，User 就会被认证方式、Token、Permission、外部 provider 和搜索索引同时污染。如果又绝对禁止跨模块协作，则 signup、Block 和派生搜索等必要用例无法完成。
 
-```text
-User 不是 Principal；
-User 不是 Subject；
-Profile 不是登录账号；
-ProfileLink 不是 Permission；
-ExternalIdentity 不是 User；
-Suggest Snapshot 不是 Profile 主表；
-ProfileAccessScope 不是 ProfileLink。
-```
+### 3.2 模块边界同时是一致性边界
 
-如果只记一句话：
+不同协作的事务条件不同：
 
-> Identity 提供身份事实，其他模块只能引用或消费这些事实，不能复制、改写或把自己的业务语义塞回 Identity。
+- User、LoginIdentity、Credential 今天位于同一 MySQL 基础，AuthN signup 可以使用一个本地事务；
+- User status 在 MySQL，Session 存储不在同一事务中，Block 无法用普通 DB transaction 实现原子性；
+- Suggest 索引是派生数据，可以最终一致，但不能反向写主事实；
+- 角色名是 `/me` 展示增强，不应在读取失败时使 User 基础资料不可用。
 
----
+## 4. 设计目标与约束
 
-## 3. 模块边界总图
+| 目标或约束 | 边界策略 |
+| --- | --- |
+| Identity 事实只有一个主模型 | User/Profile/ProfileLink 只在 Identity domain 定义 |
+| 认证和授权可独立演进 | User 不存 LoginIdentity/Session/Permission；只共享 ID/reference |
+| signup 不留半完成账号 | AuthN UOW 显式使用 User repository port 参与本地事务 |
+| 封禁后应尽快失效 Session | Identity application 在提交后调用窄 `SessionRevoker` port |
+| 展示信息不得倒置主从关系 | `/me` 角色读取失败时降级为无 roles |
+| 身份关系不等于权限 | ProfileLink 不保存 RoleBinding/Permission，不自动生成 policy |
+| 搜索性能不污染写模型 | Suggest 维护 ProfileSearchTerm 和进程内索引 |
+| 现有运行时不得被理想图覆盖 | 直接 SQL、同步 port、忽略的 proto 字段均明确记录 |
+
+## 5. 当前上下文映射
 
 ```mermaid
-flowchart TD
-    Identity["Identity\nUser / Profile / ProfileLink\n身份事实中心"]
+flowchart LR
+    AUTHN["AuthN\nLoginIdentity / Credential / Principal / Session"]
+    IDENTITY["Identity\nUser / Profile / ProfileLink"]
+    AUTHZ["AuthZ\nSubject / Role / Permission / Check"]
+    IDP["IDP\nWechatApp / Credential / AppAccessToken"]
+    SUGGEST["Suggest\nProfileSearchTerm / Index / AccessScope"]
 
-    AuthN["AuthN\nLoginIdentity / Credential / Principal / Session / Token\n认证中心"]
-    AuthZ["AuthZ\nSubject / Resource / Action / Scope\nRole / Permission / RoleBinding\n授权中心"]
-    IDP["IDP\nWechatApp / Credentials / AppToken / ExternalIdentity\n外部身份源"]
-    Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / Snapshot\n联想搜索读模型"]
+    AUTHN -->|"LoginIdentity.UserID"| IDENTITY
+    AUTHN -->|"signup UOW uses User repository port"| IDENTITY
+    IDENTITY -->|"post-commit SessionRevoker"| AUTHN
 
-    AuthN -->|UserID 引用 User| Identity
-    AuthZ -->|Subject 引用 User/Profile 事实| Identity
-    IDP -->|ExternalIdentity 供 AuthN 消费| AuthN
-    Suggest -->|读取 Profile 事实| Identity
-    Suggest -->|可见范围过滤| AuthZ
+    IDENTITY -->|"REST /me RoleNameReader"| AUTHZ
+    SUGGEST -->|"route roles and mobile-search authorization"| AUTHZ
 
-    Identity -.不维护.-> AuthN
-    Identity -.不维护.-> AuthZ
-    Identity -.不维护.-> IDP
-    Identity -.不维护.-> Suggest
+    AUTHN -->|"read app + decrypt secret + exchange code"| IDP
+    SUGGEST -->|"Full/Delta read Identity tables"| IDENTITY
 ```
 
-读图规则：
+箭头只表示当前存在的依赖或数据引用，不表示被依赖方将模型所有权转交给调用方。
 
-```text
-Identity 是身份事实源；
-AuthN/AuthZ/IDP/Suggest 可以引用或消费 Identity 事实；
-Identity 不拥有认证、授权、外部身份源和搜索索引模型；
-跨模块协作必须通过 application service、port、query service 或组合根显式装配。
-```
+## 6. 核心设计决策
 
----
+### 6.1 决策 A：共享稳定 ID，不共享大实体
 
-## 4. Identity 的职责边界
+> 标签：设计决策 · 当前模型和持久化引用可证明
 
-Identity 负责：
+**解决的问题**
 
-| 能力 | 说明 |
+让多个上下文能引用同一个主体，又不迫使 User 同时包含认证、授权和搜索字段。
+
+**选择**
+
+AuthN LoginIdentity/Session 保存 UserID；AuthZ Subject 使用 `{Type, ID}` 引用；Suggest 使用 ProfileID 和局部搜索投影。
+
+**替代方案**
+
+1. 所有模块传递并共享完整 User/Profile domain entity；
+2. 在各模块复制一份 User 主数据；
+3. 用外部 openid、username 或 phone 作为跨模块主键。
+
+**取舍**
+
+ID/reference 可以维持语义和生命周期独立，但消费方需要查询、缓存或派生自己的读模型，并处理主数据不可用或滞后。
+
+### 6.2 决策 B：AuthN signup 作为跨模块本地事务的明确例外
+
+> 标签：设计决策 · AuthN UOW、signup steps 和提交历史可证明
+
+AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当前它们都使用同一 MySQL 事务基础，因此 AuthN UOW 提供 Identity `user.Repository` port，signup 直接使用 Identity domain 构造和 repository port。
+
+**为什么不先调 Identity gRPC**
+
+这会把一个本地原子事务拆成两次服务调用，并引入 User 已创建、LoginIdentity 失败后的补偿状态。
+
+**接受的代价**
+
+- AuthN application/UOW 依赖 Identity domain repository port；
+- Identity `user.Creator` 中的 Phone checker 不会自动被 signup 复用；
+- 三个模型如果未来拆到不同数据库，当前事务设计必须复议。
+
+**护栏**
+
+这个例外仅支持 signup 所需的 User 解析/创建。它不授权 AuthN 任意修改 Profile、ProfileLink 或 User lifecycle。
+
+### 6.3 决策 C：Block 先提交 Identity 状态，再通过窄端口撤销 Session
+
+> 标签：当前设计决策 + 已知一致性缺口
+
+Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而不依赖 Session repository concrete。`Block` 先在 Identity UOW 中保存 blocked，提交成功后再调用 `RevokeByUser`。
+
+**替代方案**
+
+1. Identity 直接删除 Redis/Session 数据；
+2. 把 User status 和 Session 强行放入同一个技术事务；
+3. UserBlocked 事件/outbox 异步撤销；
+4. 每次 Session/Token 使用时实时查 User status。
+
+**当前方案的好处**
+
+依赖面窄，Identity 不需要了解 AuthN 存储细节；同步调用也能立即向调用方暴露撤销失败。
+
+**当前方案的代价**
+
+如果 SessionRevoker 失败，User 已经 blocked，但调用方收到错误；当前没有 outbox、持久化重试或补偿记录。`Deactivate` 则完全不调用 SessionRevoker。
+
+### 6.4 决策 D：`/identity/me` 的 roles 是可降级展示增强
+
+> 标签：当前实现；设计动机可从降级语义推导，尚无独立 ADR
+
+Identity REST `UserHandler` 接收 `RoleNameReader`，按当前 tenant domain 和 platform domain 查询并去重角色名。如果 reader 为 nil、subject 构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
+
+这说明当前 roles 是 response enrichment，不是 Identity User 事实，也不是 `/me` 请求的授权决策。
+
+**风险**
+
+消费方如果将“roles 为空”理解为“用户确实无角色”，无法区分无角色与 AuthZ 查询失败。若这一区别对产品有意义，需要显式的降级状态或独立角色查询。
+
+### 6.5 决策 E：Suggest 是 Identity 事实的派生读模型
+
+> 标签：设计决策 · Suggest 领域/application 护栏与专题设计可证明
+
+Identity 保持 Profile 写模型简洁；Suggest 将 Profile 姓名、手机号等派生为 `ProfileSearchTerm`，并维护 Trie/Hash 进程内索引。
+
+**为什么不直接用 Identity repository 做模糊搜索**
+
+- 拼音、前缀、手机号精确匹配的数据形态不同于事务写模型；
+- 排序、限流、脱敏和降级不应进入 Profile 实体；
+- 索引可重建，可以接受最终一致。
+
+**当前实现代价**
+
+Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直接 SQL 读取 `profiles/profile_links/users`。这是对 Identity 存储 schema 的读依赖，任何表结构或 revoked 语义变化都必须同步 Suggest Loader。
+
+详见 [Suggest 为什么是读模型](../../05-专题设计/06-Suggest为什么是读模型.md)。
+
+## 7. Identity 与 AuthN
+
+### 7.1 模型边界
+
+| Identity | AuthN |
 | --- | --- |
-| User 写模型 | 创建、更新、状态变更、手机号唯一性等 |
-| Profile 写模型 | 创建、更新、身份证唯一性等 |
-| ProfileLink 写模型 | 建立、查询、撤销 User/Profile 关系 |
-| 身份不变量 | User 必填字段、Profile 必填字段、active link 去重、self 档案唯一性 |
-| 身份事实查询 | 按 ID、手机号、身份证、ProfileLink 等查询身份事实 |
+| User、UserStatus | LoginIdentity、Credential、Challenge |
+| Profile、ProfileLink | Principal、Session、Token、JWKS |
 
-Identity 不负责：
+`User` 是长期持久主体；`Principal` 是一次认证结果。User 不保存 provider、realm、identifier、AMR、Session 或 Token。
 
-| 不负责 | 所属模块 |
+### 7.2 已实现协作
+
+1. LoginIdentity、Session 和 Token 通过 UserID 引用 Identity User；
+2. AuthN signup 在 AuthN UOW 内使用 Identity User repository port 创建、复用或修复 User；
+3. AuthN signup 按 LoginIdentity provider key/global identifier 解析 User，不按 Phone 自动合并；
+4. Identity Block 提交后调用 `session.Revoker.RevokeByUser`；
+5. Identity Deactivate 只修改 User status。
+
+### 7.3 不得越过的边界
+
+- Identity 不应存 password、openid、sessionID、token 或 AMR；
+- Identity 不应直接读写 AuthN repository concrete 或 Redis key；
+- AuthN signup 使用 User repository port 是明确事务例外，不应演变为 AuthN 接管 Identity application；
+- Principal 不应被持久化成 User。
+
+## 8. Identity 与 AuthZ
+
+### 8.1 模型边界
+
+| Identity | AuthZ |
 | --- | --- |
-| LoginIdentity / Credential / Challenge | AuthN |
-| Principal / Session / Token / JWKS | AuthN |
-| Subject / Resource / Action / Scope | AuthZ |
-| Role / Permission / RoleBinding / Check | AuthZ |
-| WechatApp / Credentials / AppToken / ExternalIdentity | IDP |
-| ProfileSearchTerm / ProfileAccessScope / Snapshot | Suggest |
-| 联想搜索索引构建、刷新、降级 | Suggest |
+| User | Subject Ref |
+| Profile | Resource/Scope 可能引用的 ID |
+| ProfileLink | RoleBinding、Permission、AuthorizationDecision |
 
----
+User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`。ProfileLink 不是 Permission，也不自动变成 Casbin policy。
 
-## 5. Identity 与 AuthN
+### 8.2 已实现协作
 
-### 5.1 协作关系
+- Identity container 接收 `RoleNameReader`；
+- REST `GET/PATCH /identity/me` 查询 tenant/platform 角色名并补充响应；
+- `/identity/me/profiles` 和 `/identity/profiles/:id` 用当前 User 的 active ProfileLink 做局部访问前置；
+- Suggest scope provider 使用 AuthZ route runtime 获取角色和手机号搜索能力。
 
-AuthN 负责证明当前请求者身份。
+### 8.3 局部 ProfileLink 前置不等于通用 AuthZ
 
-AuthN 可以通过 `UserID` 引用 Identity 的 `User`：
+Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有 Resource/Action/Scope 输入，不能代替通用授权。
 
-```text
-LoginIdentity -> UserID -> Identity.User
-Principal.UserID -> Identity.User
-Session.UserID -> Identity.User
-Token subject/user claim -> Identity.UserID
-```
+REST `/identity/profiles/search` 当前只有认证中间件，直接调用 `ProfileDirectory.FindSimilar`，没有 ProfileLink 或 AuthZ scope 过滤。这是已知访问控制缺口。
 
-Identity 提供：
+详见 [ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)。
 
-```text
-UserID；
-User 状态；
-必要的 User 查询能力；
-User lifecycle 事件或受控协作点。
-```
+## 9. Identity 与 IDP
 
-AuthN 提供：
+### 9.1 当前模型
 
-```text
-登录身份；
-认证凭据；
-认证挑战；
-认证结果 Principal；
-Session；
-AccessToken / RefreshToken；
-JWKS。
-```
+IDP 当前主要模型位于 `internal/apiserver/domain/idp/wechatapp`：
 
----
+- `WechatApp`；
+- IDP `Credentials`；
+- `AppAccessToken`；
+- `SecretVault`、`AppTokenProvider`、token cache 等 ports。
 
-### 5.2 User 不是 Principal
+代码中没有通用 `domain/idp/ExternalIdentity` 类型。Identity v2 proto 虽然定义 `ExternalIdentity` message 和 User request/response 字段，Identity handler 当前忽略输入，response mapper 返回空列表。
 
-| 概念 | 所属模块 | 生命周期 | 含义 |
-| --- | --- | --- | --- |
-| `User` | Identity | 长期持久化 | IAM 内部稳定身份主体 |
-| `Principal` | AuthN | 随认证上下文产生 | 当前请求者的认证结果表达 |
-
-关键边界：
+### 9.2 实际微信小程序 signup 链路
 
 ```text
-Principal 可以携带 UserID；
-Principal 不是 User 实体；
-User 不包含认证方式、AMR、Session、Token 等运行时认证上下文；
-Identity 不签发 Token；
-Identity 不校验密码、验证码、外部登录票据。
+AuthN signup
+  -> 从 IDP WechatApp repository 查 app config
+  -> SecretVault 解密 app secret
+  -> AuthN IdentityProvider.ExchangeWxMinipCode
+  -> 得到 openid / unionid
+  -> AuthN 构造 LoginIdentity ProviderKey
+  -> 解析/创建 Identity User
+  -> 建立 LoginIdentity.UserID 引用
 ```
 
----
+这条链路由 AuthN application 编排。IDP 不直接创建 User、Session 或 IAM Token；Identity 也不需要知道 app secret 和 provider code exchange。
 
-### 5.3 允许的协作
+### 9.3 未实现的中间抽象
 
-允许：
+“IDP 统一产出 ExternalIdentity，AuthN 只消费通用对象”可以是未来方向，但当前微信身份只是 AuthN signup 内部的 `wechatIdentity{OpenID, UnionID}` 和 LoginIdentity ProviderKey。不应将 proto message 当成已存在的领域聚合。
 
-```text
-AuthN 通过 UserID 查询 User 状态；
-AuthN 登录成功后把 UserID 写入 Principal / Session / Token；
-AuthN 注册或绑定流程通过 Identity application service 创建或查找 User；
-Identity 在 User 被封禁时，通过受控 port 触发 AuthN Session 撤销。
-```
+## 10. Identity 与 Suggest
 
-当前已知例外协作：
+### 10.1 读模型与主事实的区别
 
-```text
-封禁 User 会连带撤销该用户的 AuthN Session。
-```
-
-该协作应通过注入的端口完成，例如 `session.Revoker`，而不是 Identity 直接访问 AuthN repository 或 token store。
-
-代码事实源：
-
-```text
-internal/apiserver/application/identity/user/service_lifecycle.go
-```
-
----
-
-### 5.4 禁止的耦合
-
-禁止：
-
-```text
-AuthN 直接写 Identity repository；
-Identity 直接写 LoginIdentity / Credential；
-Identity 直接签发 Token；
-Identity 直接操作 RefreshToken store；
-User 实体中出现 password、openid、sessionID、token、amr 等认证字段；
-Principal 被持久化成 User；
-LoginIdentity 被写成 User。
-```
-
----
-
-## 6. Identity 与 AuthZ
-
-### 6.1 协作关系
-
-AuthZ 负责授权判断。
-
-AuthZ 可以通过 `Subject` 引用 Identity 的身份事实：
-
-```text
-Subject{Type: user, ID: UserID}
-Subject{Type: profile, ID: ProfileID}，如果当前模型允许
-```
-
-Identity 提供：
-
-```text
-User / Profile / ProfileLink 身份事实；
-必要的身份查询能力；
-可供 AuthZ 构造 Subject 或 Scope 的引用 ID。
-```
-
-AuthZ 提供：
-
-```text
-Subject；
-Resource；
-Action；
-Scope；
-Role；
-Permission；
-RoleBinding；
-AuthorizationDecision；
-Check。
-```
-
----
-
-### 6.2 User 不是 Subject
-
-| 概念 | 所属模块 | 形态 | 含义 |
-| --- | --- | --- | --- |
-| `User` | Identity | 实体 | IAM 内部稳定身份主体 |
-| `Subject` | AuthZ | `{Type, ID}` 引用 | 授权判断中的主体引用 |
-
-关键边界：
-
-```text
-Subject 可以引用 UserID；
-user 只是 Subject 的一种类型；
-Subject 不拥有 User 写模型；
-AuthZ 不维护 User/Profile/ProfileLink；
-Identity 不维护 Subject/Role/Permission/RoleBinding。
-```
-
----
-
-### 6.3 ProfileLink 不是 Permission
-
-`ProfileLink` 回答：
-
-```text
-User 和 Profile 是什么身份关系？
-```
-
-`Permission` 回答：
-
-```text
-某个 Role 对某个 Resource / Action / Scope 有什么能力？
-```
-
-`Check` 回答：
-
-```text
-Subject 能否对 Resource 执行 Action？
-```
-
-对比：
-
-| 概念 | 所属模块 | 核心字段 | 回答的问题 |
-| --- | --- | --- | --- |
-| `ProfileLink` | Identity | `UserID, ProfileID, Rel, RevokedAt` | 身份关系是什么 |
-| `RoleBinding` | AuthZ | `Subject, Role, Scope` | 主体绑定了什么角色 |
-| `Permission` | AuthZ | `Resource, Action, Scope` | 角色拥有什么能力 |
-| `Check` | AuthZ | `Subject, Resource, Action, Scope` | 是否允许访问 |
-
-结论：
-
-```text
-有 ProfileLink 不等于有访问权；
-没有 ProfileLink 也不必然等于无任何访问权；
-是否能访问资源仍由 AuthZ Check 判定；
-ProfileLink 不应该出现 Resource / Action / Scope / Effect 字段。
-```
-
----
-
-### 6.4 允许的协作
-
-允许：
-
-```text
-AuthZ 使用 UserID 构造 Subject；
-AuthZ 使用 ProfileID 构造 Resource 或 Scope，具体以 AuthZ 模型为准；
-AuthZ 在授权判断前通过受控查询确认 User/Profile 是否存在；
-Identity 查询结果作为 AuthZ 决策输入之一；
-Identity 事件触发 AuthZ runtime reload 或策略清理，前提是通过事件/port 显式表达。
-```
-
----
-
-### 6.5 禁止的耦合
-
-禁止：
-
-```text
-Identity 直接执行 AuthZ Check；
-Identity 写 Role / Permission / RoleBinding；
-AuthZ 直接写 User / Profile / ProfileLink；
-ProfileLink 兼任 RoleBinding；
-ProfileLink.Rel 直接决定 Resource/Action 权限；
-在 User/Profile 实体上塞权限字段；
-把 Casbin policy 当作 Identity 事实源。
-```
-
----
-
-## 7. Identity 与 IDP
-
-### 7.1 协作关系
-
-IDP 是外部身份源辅助模块。
-
-IDP 负责：
-
-```text
-外部 provider 应用配置；
-外部 provider 凭据；
-外部 access token / AppToken 获取和刷新；
-外部身份声明 ExternalIdentity。
-```
-
-IDP 不直接创建 IAM 登录态，也不直接拥有 User。
-
-典型协作链路：
-
-```text
-IDP provider ticket/code
-  -> IDP 解析 ExternalIdentity
-  -> AuthN 消费 ExternalIdentity
-  -> AuthN 绑定或查找 LoginIdentity
-  -> LoginIdentity.UserID 指向 Identity.User
-```
-
----
-
-### 7.2 ExternalIdentity 不是 User
-
-| 概念 | 所属模块 | 含义 |
-| --- | --- | --- |
-| `ExternalIdentity` | IDP | 外部身份源返回的身份声明 |
-| `LoginIdentity` | AuthN | IAM 登录身份，绑定 UserID |
-| `User` | Identity | IAM 内部稳定身份主体 |
-
-关键边界：
-
-```text
-ExternalIdentity 是外部身份声明；
-openid/unionid 不是 UserID；
-ExternalIdentity 不等于 Profile；
-IDP AppToken 不是 IAM AccessToken；
-IDP 不写 Identity.User；
-IDP 不签发 IAM Session / Token。
-```
-
----
-
-### 7.3 允许的协作
-
-允许：
-
-```text
-AuthN 调用 IDP 解析外部身份；
-AuthN 根据 ExternalIdentity 绑定 LoginIdentity；
-AuthN 通过 Identity application service 创建或查找 User；
-Identity 只接收明确的创建/查询命令，不理解 provider 内部 token 细节。
-```
-
----
-
-### 7.4 禁止的耦合
-
-禁止：
-
-```text
-IDP 直接写 User repository；
-IDP 直接创建 Session / Token；
-Identity 存储 provider app secret；
-User 实体出现 openid/unionid/appid/provider token 字段；
-Profile 被外部 openid 直接替代；
-ExternalIdentity 被当成 User 持久化。
-```
-
----
-
-## 8. Identity 与 Suggest
-
-### 8.1 协作关系
-
-Suggest 是 Profile 联想搜索读模型模块。
-
-Suggest 可以消费 Identity 的 Profile 事实：
-
-```text
-Profile.ID；
-Profile.Name；
-Profile.IDCard；
-必要的脱敏展示字段；
-必要的 ProfileLink 或 AuthZ 范围输入。
-```
-
-Suggest 自己维护：
-
-```text
-ProfileSearchTerm；
-ProfileAccessScope；
-Snapshot；
-进程内索引；
-刷新任务；
-查询限流、脱敏、降级策略。
-```
-
----
-
-### 8.2 Suggest Snapshot 不是 Profile 主表
-
-| 概念 | 所属模块 | 含义 |
-| --- | --- | --- |
-| `Profile` | Identity | 业务档案主事实 |
-| `ProfileSearchTerm` | Suggest | 搜索项 / 归一化检索文本 |
-| `ProfileAccessScope` | Suggest / AuthZ 协作边界 | 查询可见范围输入 |
-| `Snapshot` | Suggest | 搜索读模型快照 |
-
-关键边界：
-
-```text
-Profile 主事实属于 Identity；
-Suggest Snapshot 是读模型；
-Suggest 不写 Profile 主事实；
-Suggest 索引滞后不改变 Identity 事实；
-Suggest 降级不能泄露不可见 Profile。
-```
-
----
-
-### 8.3 ProfileAccessScope 不是 ProfileLink
-
-`ProfileLink` 回答：
-
-```text
-User 与 Profile 是什么身份关系？
-```
-
-`ProfileAccessScope` 回答：
-
-```text
-当前查询者在 Suggest 搜索中能看到哪些 Profile 范围？
-```
-
-二者可以有关联，但不能等同。
-
-结论：
-
-```text
-存在 ProfileLink 不代表一定可被搜索返回；
-没有 ProfileLink 不代表一定不能被管理端授权搜索；
-Suggest 查询结果必须经过可见范围、脱敏、限流、审计等策略；
-ProfileLink 不应直接变成 Suggest 的唯一可见性规则。
-```
-
----
-
-### 8.4 允许的协作
-
-允许：
-
-```text
-Suggest 读取 Profile 事实构建索引；
-Suggest 订阅 Profile 变化事件刷新 Snapshot；
-Suggest 根据 AuthZ 或受控查询计算 ProfileAccessScope；
-Suggest 返回脱敏后的 Profile 搜索结果；
-Identity 提供 Profile 查询能力或事件，不理解搜索索引细节。
-```
-
----
-
-### 8.5 禁止的耦合
-
-禁止：
-
-```text
-Suggest 直接写 Profile repository；
-Identity 直接维护 Suggest Snapshot；
-Profile 实体出现 search_term、snapshot_version、index_status 等搜索字段；
-ProfileLink 直接等同 ProfileAccessScope；
-Suggest 绕过 AuthZ/AccessScope 返回不可见 Profile；
-搜索降级时返回未脱敏敏感信息。
-```
-
----
-
-## 9. 跨模块协作方式
-
-跨模块协作应显式，而不是隐式共享 repository 或全局变量。
-
-推荐方式：
-
-| 方式 | 适用场景 | 说明 |
-| --- | --- | --- |
-| application service 调用 | 同进程同步用例协作 | 通过组合根注入依赖 |
-| domain port | 领域规则需要外部能力 | 只暴露最小接口 |
-| query service | 只读跨模块查询 | 明确查询语义和返回模型 |
-| event / outbox | 异步传播事实变化 | 消费方幂等处理 |
-| runtime adapter | 技术运行时能力 | 不泄露到 domain |
-
-禁止方式：
-
-```text
-跨模块直接 import 对方 repository concrete；
-跨模块直接写对方数据库表；
-通过全局变量访问对方 service；
-为了方便查询在 Identity 实体上冗余认证/授权/搜索字段；
-绕过 application 层直接访问 domain 内部对象并保存。
-```
-
----
-
-## 10. 允许依赖与禁止依赖
-
-### 10.1 允许依赖
-
-Identity application 可以依赖：
-
-```text
-Identity domain；
-Identity repository port；
-必要的跨模块最小 port，例如 session.Revoker；
-事务管理 port；
-事件/outbox port；
-时钟、ID 生成器等基础能力。
-```
-
-Identity domain 可以依赖：
-
-```text
-Identity 内部 value object；
-通用 meta value object；
-本领域定义的 port interface。
-```
-
-Identity transport 可以依赖：
-
-```text
-Identity application service；
-DTO/proto mapper；
-认证上下文中的 Principal 引用，但不解释 AuthN 内部细节。
-```
-
----
-
-### 10.2 禁止依赖
-
-Identity domain 不应依赖：
-
-```text
-AuthN domain concrete；
-AuthZ domain concrete；
-IDP domain concrete；
-Suggest domain concrete；
-transport/rest 或 transport/grpc；
-infra repository concrete；
-Casbin / Redis / JWT / WeChat SDK。
-```
-
-Identity application 不应直接依赖：
-
-```text
-AuthN repository concrete；
-AuthZ repository concrete；
-Suggest index concrete；
-IDP provider concrete；
-transport handler；
-数据库 client concrete，除非通过 infra adapter/transaction abstraction。
-```
-
----
-
-## 11. 边界漂移检查清单
-
-如果出现以下变化，需要警惕 Identity 边界漂移：
-
-```text
-User 增加 password/openid/session/token 字段；
-User 增加 role/permission/scope 字段；
-Profile 增加 login_identity 或 credential 字段；
-ProfileLink 增加 resource/action/effect 字段；
-ProfileLink 被 AuthZ 直接当 RoleBinding 使用；
-Identity service 直接调用 Casbin Enforce；
-Identity service 直接维护 Suggest Snapshot；
-Suggest service 直接 Save Profile；
-IDP provider 直接 Insert User；
-AuthN service 直接操作 Identity repository concrete；
-Identity domain import 了 authn/authz/suggest/idp 包。
-```
-
-一旦发现，应回到以下问题：
-
-```text
-这是身份事实吗？
-这是认证上下文吗？
-这是授权判断吗？
-这是外部身份源吗？
-这是搜索读模型吗？
-应该通过哪个 application service、port 或事件协作？
-```
-
----
-
-## 12. 常见反模式
-
-| 反模式 | 问题 | 推荐做法 |
-| --- | --- | --- |
-| User 就是 Principal | 持久身份和认证结果混淆 | User 属于 Identity，Principal 属于 AuthN |
-| User 就是 Subject | 身份实体和授权引用混淆 | Subject 属于 AuthZ，可引用 UserID |
-| Profile 是登录账号 | 业务档案被误写成账号 | 登录身份归 AuthN LoginIdentity |
-| ProfileLink 是 Permission | 身份关系和访问权混淆 | 授权由 AuthZ Role/Permission/Check 判断 |
-| ExternalIdentity 直接写 User | 外部身份和内部身份混淆 | ExternalIdentity 由 AuthN 绑定 LoginIdentity，再指向 User |
-| Suggest Snapshot 当 Profile 主表 | 读模型吞并写模型 | Profile 主事实归 Identity |
-| ProfileAccessScope 等于 ProfileLink | 可见范围被身份关系简化 | Suggest 结合 AuthZ/AccessScope 判断可见性 |
-| Identity 直接调用 Casbin | Identity 吞并授权运行时 | AuthZ application/runtime 负责 Check |
-| AuthN 直接写 User repository | AuthN 绕过 Identity 写模型 | 通过 Identity application service 或 port 协作 |
-| Suggest 直接写 Profile | Suggest 吞并 Identity 写模型 | Suggest 只读 Profile 事实构建索引 |
-
----
-
-## 13. 代码事实源
-
-| 事实 | 路径 |
+| Identity | Suggest |
 | --- | --- |
-| Identity User 模型 | `internal/apiserver/domain/identity/user` |
-| Identity Profile 模型 | `internal/apiserver/domain/identity/profile` |
-| Identity ProfileLink 模型 | `internal/apiserver/domain/identity/profilelink` |
-| Identity application | `internal/apiserver/application/identity` |
-| User lifecycle 与 Session 撤销协作 | `internal/apiserver/application/identity/user/service_lifecycle.go` |
-| AuthN Principal | `internal/apiserver/domain/authn/authentication/principal.go` |
-| AuthN Session / Token | `internal/apiserver/domain/authn` |
-| AuthZ Subject / Permission / RoleBinding | `internal/apiserver/domain/authz` |
-| IDP ExternalIdentity / AppToken | `internal/apiserver/domain/idp` |
-| Suggest ProfileSearchTerm / ProfileAccessScope / Snapshot | `internal/apiserver/domain/suggest` |
-| 组合根装配 | `internal/apiserver/container` |
-| 架构测试 | `internal/pkg/architecture` |
+| Profile 主事实 | `ProfileSearchTerm` |
+| ProfileLink 关系事实 | `ProfileAccessScope` 所需的局部可见投影 |
+| MySQL 事务写模型 | Trie/Hash 进程内索引与 Full/Delta runtime |
 
----
+Suggest Snapshot/Index 可以从 Identity facts 重建，但不是 Profile 主表，也不能回写 Identity。
 
-## 14. Verify
+### 10.2 当前数据来源
 
-修改本文后至少执行：
+默认 Loader 直接执行 SQL：
+
+- 从 `profiles` 读取 ID、Name、created_by；
+- 联结 `profile_links` 和 `users` 聚合 Phone；
+- Full 构建新 Store 并原子切换 runtime；
+- Delta 按 updated_at 读取变化，Profile 软删除通过空 Name tombstone 从索引移除。
+
+当前没有订阅 Identity Profile/ProfileLink domain event 或 durable outbox topic。
+
+默认 SQL 只过滤 `profile_links.deleted_at IS NULL`，没有过滤 `revoked_at IS NULL`。因此已撤销 link 的 User Phone 仍可能进入 ProfileSearchTerm。
+
+### 10.3 当前可见范围
+
+Suggest `OperatingProfileAccessScopeProvider` 结合：
+
+- platform admin/super admin 标记；
+- AuthZ route runtime 返回的 direct roles；
+- 手机号搜索 route authorization；
+- principal 的 OperatorID/OrgIDs；
+- `ProfileVisibilityResolver` 按 `profiles.created_by` 返回的 ProfileID。
+
+`profiles.created_by` 可见性是当前过渡读模型，不是 Identity 领域中的所有权规则。ProfileLink 参与候选构建，但不等于最终 `ProfileAccessScope`。
+
+## 11. 允许的依赖与禁止的耦合
+
+### 11.1 允许的当前依赖
+
+| 调用方 | 被调用方 | 方式 | 理由 |
+| --- | --- | --- | --- |
+| AuthN signup | Identity User | domain repository port + shared MySQL UOW | 保证 signup 原子性 |
+| Identity lifecycle | AuthN Session | `session.Revoker` port | 封禁后失效会话 |
+| Identity REST | AuthZ | `RoleNameReader` | `/me` 响应展示增强 |
+| Suggest infra | Identity storage | read-only Full/Delta SQL | 派生搜索索引 |
+| Suggest scope infra | AuthZ runtime | route/role query | 生成搜索范围和 mobile capability |
+| AuthN signup/linking | IDP config/provider ports | app lookup、secret decrypt、code exchange | 将外部身份转为 LoginIdentity ProviderKey |
+
+### 11.2 禁止的耦合
+
+- Identity domain import AuthN/AuthZ/IDP/Suggest concrete；
+- Identity domain 存储 Principal、Subject、Permission、provider token 或 search index 字段；
+- Identity application 直接读写 AuthN/AuthZ/Suggest repository concrete；
+- AuthN 因 signup 特例而接管 Profile/ProfileLink 任意写入；
+- ProfileLink.Rel 直接生成通用 Permission/RoleBinding；
+- Suggest 回写 Profile 主数据；
+- 把 proto `ExternalIdentity` 字段宣称为已落地 IDP/Identity 能力；
+- 把 Suggest SQL 直读描述为已实现事件订阅。
+
+## 12. 已知缺口与复议条件
+
+| 主题 | 当前状态 | 复议或修复触发条件 |
+| --- | --- | --- |
+| AuthN signup 的 Phone 规则 | 不复用 Identity checker，不按 Phone 合并 | Phone 被确认为系统级唯一键时，统一 UOW 中的检查与 DB 约束 |
+| AuthN/Identity 数据库拆分 | 当前 signup 依赖同 MySQL 事务 | 拆库前必须设计 saga/outbox/补偿和幂等 |
+| Block + Session | DB 提交后同步调用，无持久化重试 | 安全要求不接受撤销失败窗口时，引入 outbox/重试或验证时 status check |
+| `/me` roles 降级 | 无 roles 不区分“无角色”与“查询失败” | 客户端需要可观测降级语义时 |
+| REST Profile search | 无 ProfileLink/AuthZ scope | 在对外继续使用前收敛可见范围 |
+| IDP ExternalIdentity | 只有 proto 字段和 AuthN 内部 provider result | 多 provider 需要统一中间契约时，决定其归属 IDP 还是 AuthN |
+| Suggest 同步 | 定时 Full/Delta SQL，无 Profile event | 新鲜度或 schema 耦合成本不可接受时，引入稳定事件/outbox |
+| Suggest revoked link | 默认 Loader 未过滤 | 修正 SQL 并增加撤销关系不贡献 Phone 的测试 |
+| ProfileLink 与 AuthZ | 彼此独立 | 只有出现明确 Resource/Action/Scope 规则时才设计受控映射 |
+
+## 13. 事实源与 Verify
+
+| 内容 | 路径 |
+| --- | --- |
+| Identity 跨模块依赖 | `internal/apiserver/container/identity/deps.go`、`module.go`、`rest.go`、`grpc.go` |
+| Block/Session | `internal/apiserver/application/identity/user/service_lifecycle.go` |
+| `/me` roles | `internal/apiserver/transport/rest/identity/handler/user.go` |
+| AuthN signup/User | `internal/apiserver/application/authn/signup`、`internal/apiserver/application/authn/uow/uow.go`、`internal/apiserver/infra/mysql/uow/authn/uow.go` |
+| IDP 微信模型 | `internal/apiserver/domain/idp/wechatapp` |
+| 微信 signup 解析 | `internal/apiserver/application/authn/signup/wechat_signup.go` |
+| Suggest Loader | `internal/apiserver/infra/mysql/suggest/loader.go` |
+| Suggest scope | `internal/apiserver/infra/suggest/access/profile_scope_provider.go`、`internal/apiserver/infra/mysql/suggest/profile_visibility_resolver.go` |
+| 依赖护栏 | `internal/pkg/architecture/architecture_test.go` |
 
 ```bash
-make docs-hygiene
-```
-
-涉及 Identity 领域或应用层边界时，执行：
-
-```bash
-go test ./internal/apiserver/domain/identity/...
-go test ./internal/apiserver/application/identity/...
-```
-
-涉及 AuthN/AuthZ/IDP/Suggest 边界时，按实际影响执行：
-
-```bash
-go test ./internal/apiserver/domain/authn/...
-go test ./internal/apiserver/domain/authz/...
-go test ./internal/apiserver/domain/idp/...
-go test ./internal/apiserver/domain/suggest/...
-```
-
-涉及组合根和依赖方向时，执行：
-
-```bash
+go test ./internal/apiserver/application/identity/user
+go test ./internal/apiserver/application/authn/signup
+go test ./internal/apiserver/application/suggest
+go test ./internal/apiserver/infra/mysql/suggest ./internal/apiserver/infra/suggest/access ./internal/apiserver/infra/suggest/search
+go test ./internal/apiserver/container/identity
 go test ./internal/pkg/architecture
-go test ./internal/apiserver/...
 ```
 
-涉及 REST/gRPC 契约时，执行：
+## 14. 继续阅读
 
-```bash
-make api-validate
-make proto-gen
-go test ./internal/apiserver/transport/rest/...
-go test ./internal/apiserver/transport/grpc/...
-```
-
----
-
-## 15. 本文总结
-
-Identity 的模块边界可以压缩成：
-
-```text
-Identity 只拥有 User / Profile / ProfileLink 身份事实。
-```
-
-与其他模块的关系是：
-
-```text
-AuthN 通过 UserID 引用 User，但 User 不是 Principal；
-AuthZ 通过 Subject 引用身份事实，但 User 不是 Subject，ProfileLink 不是 Permission；
-IDP 输出 ExternalIdentity，但 ExternalIdentity 不是 User；
-Suggest 读取 Profile 事实构建读模型，但 Snapshot 不是 Profile 主表，ProfileAccessScope 不是 ProfileLink。
-```
-
-最重要的工程规则是：
-
-```text
-跨模块协作必须通过 application service、port、query service 或 event 显式表达；
-不允许为了方便查询，把认证、授权、外部身份源或搜索读模型字段塞回 Identity。
-```
-
-下一篇 [05-分层架构与代码索引.md](05-分层架构与代码索引.md) 将从代码组织角度说明 Identity 的 domain、application、infra、transport、container 入口，以及维护时应该从哪些文件开始读。
+- Identity 总体定位和宏观决策：[00-模块总览](00-模块总览.md)
+- AuthN signup 与 Identity 创建链路：[02-创建 User 与 Profile](02-关键链路-创建User与Profile.md)
+- ProfileLink 关系语义：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
+- Suggest 主从取舍：[Suggest 为什么是读模型](../../05-专题设计/06-Suggest为什么是读模型.md)

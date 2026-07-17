@@ -1,718 +1,429 @@
 # 关键链路：创建 User 与 Profile
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/identity/user`、`application/identity/profile`、REST/gRPC 契约和测试逐项核对。
-
----
+> 状态：已实现 · 已核对 Identity gRPC、AuthN signup、application、UnitOfWork、repository、migration 和测试。
 
 ## 1. 本文回答
 
-本文回答 7 个问题：
-
-- 创建 `User` 和创建 `Profile` 分别解决什么问题？
-- 为什么二者要拆成两条链路，而不是一次性创建“用户档案”？
-- 创建 User 时有哪些输入、领域规则、唯一性约束和失败边界？
-- 创建 Profile 时有哪些输入、领域规则、唯一性约束和失败边界？
-- transport、application、domain、repository 在链路中各自负责什么？
-- AuthN、AuthZ、IDP、Suggest 为什么不应该绕过 Identity 创建 User/Profile？
-- 修改该链路时应该核对哪些代码和测试？
-
-本文只讲创建 `User` 与 `Profile`。`User` 与 `Profile` 建立关系的链路见 [03-关键链路-建立与撤销ProfileLink.md](03-关键链路-建立与撤销ProfileLink.md)，领域模型见 [01-领域模型-User-Profile-ProfileLink.md](01-领域模型-User-Profile-ProfileLink.md)。
-
----
+- User 当前会从哪些入口被创建？
+- 为什么 Identity 不提供“同时创建 User + Profile”的通用命令？
+- 为什么 `CreateProfile` 必须同时创建 ProfileLink？
+- Identity 创建 User 与 AuthN signup 创建 User 有什么不同？
+- 哪些校验在 transport、domain、application 或 database 中完成？
+- 两条创建链路的事务、并发和失败边界是什么？
 
 ## 2. 30 秒结论
 
-创建 `User` 与创建 `Profile` 是两条不同链路。
+当前没有一个通用的“同时创建 User + Profile” Identity 用例。真实创建语义是：
 
 ```text
-User    = IAM 内部稳定身份主体
-Profile = 业务档案 / 被服务对象
+Identity CreateUser
+  -> 只创建 User
+
+Identity CreateProfile
+  -> 为已存在 User 创建 Profile
+  -> 同事务创建 ProfileLink
+
+AuthN SignUp
+  -> 解析或创建 User
+  -> 同事务创建/复用 LoginIdentity
+  -> 按需创建 Credential
+  -> 不创建 Profile
 ```
 
-创建 User 回答：
+对外协议上：
+
+- Identity 自身的 `CreateUser` 和 `CreateProfile` 只通过 gRPC 暴露；
+- Identity REST 没有 User、Profile 或 ProfileLink 创建路由；
+- AuthN REST/gRPC signup 是另一条会产生 User 记录的跨模块链路，不能被忽略。
+
+最重要的一致性差异是：Identity `CreateUser` 会对非空 Phone 执行唯一性预检查；AuthN signup 会根据 LoginIdentity 复用 User，不按 Phone 复用，也不调用该 checker。数据库又没有 Phone 唯一键，所以“非空 Phone 全局唯一”并不是当前系统级保证。
+
+## 3. 问题背景
+
+### 3.1 注册主体、开通登录和业务建档是三件事
+
+User、LoginIdentity 和 Profile 的生命周期不同：
+
+- User 是 IAM 内部稳定主体；
+- LoginIdentity 表达 username、phone、wechat 等可用于登录的 provider key；
+- Profile 表达业务服务对象的档案事实。
+
+将它们绑成一个固定创建流程会引入错误假设：
+
+- 创建 User 必然已获得完整档案资料；
+- 一个 User 必然要为本人建档；
+- 创建 User 必然已经选定登录 provider；
+- 注册失败、建档失败和登录开通失败必须共享一个补偿模型。
+
+因此当前系统保留了不同的创建边界，并只在必须原子成功的地方组合对象。
+
+### 3.2 Profile 可以独立建模，但当前创建用例不允许孤立落库
+
+Profile 不是 User 的内嵌子对象，但当前的业务命令是“为某个 User 建档”。这意味着：
 
 ```text
-系统内部这个用户是谁？
-后续 AuthN/AuthZ/Suggest 应该通过哪个稳定 UserID 引用他？
+模型可独立 != 当前公开用例允许独立创建
 ```
 
-创建 Profile 回答：
+如果先保存 Profile，再由调用方建立 ProfileLink，第二步失败就会留下孤立 Profile。当前 `MyProfiles.Create` 因此将两次写入收敛到同一 Identity UnitOfWork。
 
-```text
-业务系统真正服务、管理、搜索的档案是谁？
-后续 User 如何通过 ProfileLink 与该档案建立关系？
-```
+## 4. 设计目标与约束
 
-核心规则：
+| 目标或约束 | 对创建链路的影响 |
+| --- | --- |
+| User 可在未建档时存在 | `CreateUser` 不隐式创建 Profile |
+| Profile 创建后必须有明确关系 | `CreateProfile` 同事务创建 ProfileLink |
+| User 不一定为本人建档 | relation 由创建命令显式提供 |
+| AuthN signup 不能留下孤立 User 或 LoginIdentity | AuthN UOW 同事务使用 User、LoginIdentity、Credential repository ports |
+| 对终端用户收窄身份写入面 | Identity 创建命令仅暴露 gRPC，REST 仅自助查改 |
+| 唯一性预检查无法抵御并发 | IDCard 有 DB 唯一键兜底；Phone 当前存在缺口 |
+| 契约字段不能超前于实现 | operator、contacts、external identities 等未消费字段单独标记为缺口 |
 
-```text
-User 创建时 Name、Phone 必填；
-User 默认 active；
-User 手机号唯一性由 Identity 应用层治理；
-Profile 创建时 Name 必填；
-Profile 提供 IDCard 时需要身份证唯一性校验；
-创建 User 不等于创建 LoginIdentity；
-创建 Profile 不等于建立 ProfileLink；
-创建 Profile 不等于赋权。
-```
-
-如果只记一句话：
-
-> User 和 Profile 都属于 Identity 写模型；前者是内部身份主体，后者是业务档案，它们的关系必须通过 ProfileLink 明确建立。
-
----
-
-## 3. 链路总览
+## 5. 当前创建入口总图
 
 ```mermaid
-flowchart TD
-    T["Transport\nREST / gRPC"]
-    AU["Application\nidentity/user"]
-    AP["Application\nidentity/profile"]
-    DU["Domain\nuser.NewUser"]
-    DP["Domain\nprofile.NewProfile"]
-    UC["UniquenessChecker\nPhone unique"]
-    PC["IDCardUniquenessChecker\nIDCard unique"]
-    RU["User Repository"]
-    RP["Profile Repository"]
+flowchart LR
+    Internal["internal caller"] --> IL["IdentityLifecycle.CreateUser"]
+    IL --> IC["identity/user.Creator"]
+    IC --> IUOW["Identity UOW"]
+    IUOW --> USER[(users)]
 
-    T -->|CreateUser command| AU
-    AU --> UC
-    AU --> DU
-    AU --> RU
+    Internal --> PC["ProfileCommand.CreateProfile"]
+    PC --> MP["identity/profile.MyProfiles"]
+    MP --> IUOW
+    IUOW --> PROFILE[(profiles)]
+    IUOW --> LINK[(profile_links)]
 
-    T -->|CreateProfile command| AP
-    AP --> PC
-    AP --> DP
-    AP --> RP
+    Client["signup caller"] --> SIGNUP["AuthN SignUp"]
+    SIGNUP --> AUOW["AuthN UOW"]
+    AUOW --> USER
+    AUOW --> LOGIN[(auth_login_identities)]
+    AUOW --> CRED[(auth_credentials)]
 ```
 
-这张图表达 4 个边界：
+| 创建场景 | 对外入口 | 事务中的主要写入 | 是否建 Profile |
+| --- | --- | --- | --- |
+| Identity User 生命周期 | gRPC `IdentityLifecycle.CreateUser` | User | 否 |
+| 为已存在 User 建档 | gRPC `ProfileCommand.CreateProfile` | Profile + ProfileLink | 是 |
+| AuthN 登录身份开通 | AuthN REST/gRPC signup | User + LoginIdentity + 可选 Credential | 否 |
 
-```text
-transport 只解析请求并调用 application；
-application 负责编排唯一性检查、领域对象创建和持久化；
-domain 负责表达 User/Profile 的构造规则；
-repository 负责保存 Identity 事实。
-```
+## 6. 核心设计决策
 
----
+### 6.1 决策 A：User 创建不隐式创建 Profile
 
-## 4. 为什么 User 和 Profile 分开创建
+> 标签：设计决策 · 提交 `0d62d27d` 和当前测试可证明
 
-`User` 和 `Profile` 表达的是两类不同事实。
+**解决的问题**
 
-| 对象 | 事实类型 | 说明 |
+允许“已有 IAM User，尚未建档”，并让建档流程区分本人和关系人。
+
+**选择**
+
+`user.Creator.Create` 只构造和保存 User。Profile 必须由后续明确用例创建。
+
+**替代方案**
+
+1. User 创建时自动创建空 self Profile；
+2. 将 User 资料直接当成 Profile；
+3. 对外只暴露固定的 User + self Profile 组合命令。
+
+**未采用原因**
+
+这些方案都默认注册信息足以建档，且首次 Profile 必然是 self，不符合当前允许关系人建档的模型。
+
+**代价与后果**
+
+调用方必须显式处理“无 self Profile”，也不能将 User 创建成功当成建档成功。
+
+### 6.2 决策 B：Profile 和 ProfileLink 是一个组合建档用例
+
+> 标签：设计决策 · 提交 `5dd54232`、`MyProfiles.Create` 和 Identity UOW 可证明
+
+**解决的问题**
+
+防止 Profile 成功落库、ProfileLink 创建失败后留下孤立档案。
+
+**选择**
+
+`MyProfiles.Create` 使用同一个 Identity UnitOfWork 完成 Profile 和 ProfileLink 写入，并同时返回两个结果。
+
+**替代方案**
+
+1. 暴露 standalone `CreateProfile` 和 `EstablishProfileLink`，由调用方编排；
+2. 先建 Profile，链接失败后删除或异步补偿；
+3. 允许孤立 Profile，由后续归属任务处理。
+
+**未采用原因**
+
+当前建档语义已经知道 User 和 relation，没有必要为一个本地 MySQL 可原子完成的写入引入孤立状态和补偿机制。
+
+**代价与后果**
+
+如果未来出现“先批量导入档案，之后再建立归属”的需求，应新增专门用例和孤立数据治理，而不是把当前组合用例拆散。
+
+### 6.3 决策 C：Identity 创建命令只暴露 gRPC
+
+> 标签：设计决策 · 提交 `5dd54232`、当前 router 和 proto 可证明
+
+**解决的问题**
+
+区分面向当前登录用户的自助查改，与受信内部服务的身份创建和编排。
+
+**选择**
+
+Identity REST 仅保留 `/identity/me`、Profile 和 ProfileLink 查改；Identity 创建 User/Profile 只位于 gRPC `IdentityLifecycle` 和 `ProfileCommand`。
+
+**替代方案**
+
+- REST 和 gRPC 暴露完全对称的写入能力；
+- 客户端直接调用 application；
+- 所有写入都收敛到 AuthN signup。
+
+**代价与后果**
+
+能力不对称降低了外部写入面，但接入方和文档必须明确区分 Identity API 与 AuthN signup，不能从 application 已有类型推导 REST 也有同名路由。
+
+### 6.4 决策 D：AuthN signup 用一个跨模型 MySQL 事务开通登录身份
+
+> 标签：设计决策 · AuthN UOW、signup steps 和契约测试可证明
+
+**解决的问题**
+
+避免创建 User 后 LoginIdentity/Credential 失败，或 LoginIdentity 成功后 User 不存在的半完成账号。
+
+**选择**
+
+AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN LoginIdentity 和 Credential repository ports。signup 先按 LoginIdentity provider key 解析 User，未命中时创建 User，再确保 LoginIdentity/Credential。
+
+**替代方案**
+
+1. AuthN 先调用 Identity gRPC，再开始 AuthN 本地事务；
+2. 通过事件异步创建 User 或 LoginIdentity；
+3. 允许部分成功并建立补偿工作流。
+
+**未采用原因**
+
+当前三类记录使用同一 MySQL 事务基础，可直接获得原子性；分布式调用或异步补偿会增加中间状态和运维成本。
+
+**边界代价**
+
+AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，不应扩展成 AuthN 可以任意编辑 User/Profile/ProfileLink。
+
+### 6.5 决策 E：唯一性使用“业务预检查 + DB 兜底”，但 Phone 尚未完成闭环
+
+> 标签：设计决策 + 已知缺口
+
+application checker 能返回稳定的业务错误，数据库唯一键才能在并发下做最终裁决。当前两个字段的落地程度不同：
+
+| 字段 | Identity application 预检查 | DB 唯一键 | 其他写入链路 |
+| --- | --- | --- | --- |
+| Profile IDCard | 非空时检查 | `profiles.uk_id_card` | 当前 Profile 公开创建收敛到组合用例 |
+| User Phone | Identity Create/Patch 非空时检查 | 无，只有 `idx_phone` | AuthN signup 不调用 checker，也不按 Phone 复用 User |
+
+因此 IDCard 已基本实现这一策略；Phone 尚未实现系统级唯一。
+
+## 7. Identity `CreateUser` 当前实现
+
+### 7.1 协议输入语义
+
+gRPC `CreateUserRequest` 中当前真正被 handler 消费的是：
+
+| proto 字段 | application 映射 | 当前语义 |
 | --- | --- | --- |
-| `User` | 内部身份主体 | IAM 内部稳定身份锚点，AuthN/AuthZ 通过 UserID 引用 |
-| `Profile` | 业务档案 | 被服务、被管理、被搜索的业务对象 |
-| `ProfileLink` | 身份关系事实 | 连接 User 与 Profile，表达 self/parent/grandparent/other 等关系 |
+| `nickname` | `CreateUserDTO.Name` | 必填；实际写入 User.Name，不是 User.Nickname |
+| `phone` | `CreateUserDTO.Phone` | 可选；非空时解析并查重 |
+| `email` | `CreateUserDTO.Email` | 可选；非空时解析 |
+| `avatar_url` | 无 | 当前忽略 |
+| `contacts` | 无 | 当前忽略 |
+| `external_identities` | 无 | 当前忽略 |
+| `operator` | 无 | 当前未校验、未传递 |
 
-如果创建 User 时强行内嵌 Profile，会导致：
+`nickname -> Name` 是当前契约与模型的语义不对称，不应根据字段名误以为它会写入 User.Nickname。
 
-```text
-无法表达一个 User 关联多个 Profile；
-无法表达 User 与 Profile 的关系类型；
-无法独立撤销关系；
-无法保留关系历史；
-容易把 Profile 当成登录账号；
-容易把 ProfileLink 当成权限。
-```
-
-因此创建链路应保持拆分：
-
-```text
-创建 User：创建内部身份主体；
-创建 Profile：创建业务档案；
-创建 ProfileLink：建立二者关系。
-```
-
----
-
-## 5. 创建 User 链路
-
-### 5.1 链路目标
-
-创建 User 的目标是生成 IAM 内部稳定身份主体。
-
-它不负责：
-
-```text
-创建登录身份 LoginIdentity；
-创建密码或验证码 Credential / Challenge；
-创建 Session；
-签发 Token；
-创建 Profile；
-建立 ProfileLink；
-写入权限 RoleBinding。
-```
-
----
-
-### 5.2 输入与输出
-
-输入通常包括：
-
-```text
-Name；
-Phone；
-Nickname；
-Email。
-```
-
-其中：
-
-```text
-Name 必填；
-Phone 必填；
-Nickname 可选；
-Email 可选。
-```
-
-输出通常包括：
-
-```text
-UserID；
-Name；
-Phone；
-Nickname；
-Email；
-Status。
-```
-
-具体字段必须以 REST OpenAPI、gRPC proto 和当前 application DTO 为准。
-
----
-
-### 5.3 时序图
+### 7.2 调用链
 
 ```mermaid
 sequenceDiagram
-    participant T as Transport
-    participant A as application/identity/user
-    participant UQ as user.UniquenessChecker
+    participant G as IdentityLifecycle gRPC
+    participant A as user.Creator
+    participant U as Identity UOW
+    participant C as User UniquenessChecker
     participant D as user.NewUser
-    participant R as User Repository
+    participant R as UserRepository
 
-    T->>A: CreateUser command
-    A->>A: validate command shape
-    A->>UQ: CheckPhoneUnique(phone)
-    alt phone already exists
-        UQ-->>A: conflict
-        A-->>T: phone conflict error
-    else phone unique
-        UQ-->>A: ok
-        A->>D: NewUser(name, phone, opts...)
-        alt invalid domain input
-            D-->>A: domain error
-            A-->>T: validation error
-        else valid
-            D-->>A: User(active)
-            A->>R: Save(User)
-            R-->>A: saved
-            A-->>T: CreateUser result
-        end
-    end
+    G->>A: Create(Name=nickname, Phone, Email)
+    A->>U: WithinTx
+    U->>C: CheckPhoneUnique
+    C-->>U: empty skips / non-empty queries
+    U->>D: NewUser
+    U->>R: Create
+    R-->>G: UserResult
 ```
 
----
+事务内依次完成：
 
-### 5.4 分层职责
+1. 空 Phone 解析为空值；非空 Phone 解析为 `meta.Phone`；
+2. 对 Phone 调用 `UniquenessChecker.CheckPhoneUnique`；
+3. `user.NewUser` 校验 Name，Status 默认 active；
+4. 按需解析 Email；
+5. 保存 User 并返回结果。
 
-| 层 | 职责 |
+### 7.3 失败边界
+
+| 失败点 | 结果 |
 | --- | --- |
-| transport | 解析 REST/gRPC 请求，构造 CreateUser command，映射响应和错误 |
-| application | 编排手机号唯一性检查、调用领域构造、保存 User、控制事务边界 |
-| domain | `NewUser` 校验 Name/Phone 必填，默认 active，提供状态和行为方法 |
-| repository | 持久化 User，按 ID/Phone 等查询 User |
+| nickname 空白 | transport 返回 gRPC `InvalidArgument` |
+| Phone/Email 格式无效 | application 返回编码错误，transport 映射 gRPC status |
+| Phone 预检查冲突 | 事务不写入 User |
+| repository 写入失败 | 事务回滚 |
+| 并发写入同 Phone | DB 无唯一键，可能都成功 |
 
-关键边界：
+Identity `CreateUser` 当前没有请求幂等键。重试是否会创建新 User，取决于 Phone 是否非空且预检查能否命中，不应宣称为幂等接口。
 
-```text
-transport 不直接调用 repository；
-repository 不定义 User 领域规则；
-手机号唯一性属于 Identity 写模型治理；
-AuthN 不应绕过 Identity 创建 User。
-```
+## 8. AuthN `SignUp` 中的 User 创建
 
----
-
-### 5.5 领域规则
-
-创建 User 的领域规则：
-
-| 规则 | 说明 | 事实源 |
-| --- | --- | --- |
-| Name 必填 | 空姓名不允许创建 User | `user.NewUser` |
-| Phone 必填 | 空手机号不允许创建 User | `user.NewUser` |
-| Status 默认 active | 新建 User 默认可用 | `user.NewUser` |
-| Phone 唯一 | 同一手机号不能重复创建 User | `user.UniquenessChecker` + application |
-
-注意：
-
-```text
-Name/Phone 必填是领域构造规则；
-Phone 唯一通常需要 repository 或唯一索引支撑；
-application 层应在写入前做唯一性检查；
-数据库层仍应有最终唯一性保护，避免并发竞态。
-```
-
----
-
-### 5.6 失败边界
-
-| 场景 | 期望行为 | 错误类型 |
-| --- | --- | --- |
-| Name 为空 | 拒绝创建 | validation / domain error |
-| Phone 为空 | 拒绝创建 | validation / domain error |
-| Phone 已存在 | 拒绝创建 | conflict error |
-| repository 保存失败 | 返回服务端错误 | infrastructure error |
-| 并发创建同手机号 | 至多一个成功 | conflict / unique constraint error |
-
-对外错误映射应由 transport 负责：
-
-```text
-参数错误 -> HTTP 400 / gRPC InvalidArgument；
-唯一性冲突 -> HTTP 409 / gRPC AlreadyExists 或 FailedPrecondition；
-内部错误 -> HTTP 500 / gRPC Internal。
-```
-
-具体错误码以 OpenAPI/proto 和当前实现为准。
-
----
-
-## 6. 创建 Profile 链路
-
-### 6.1 链路目标
-
-创建 Profile 的目标是生成业务档案或被服务对象。
-
-它不负责：
-
-```text
-创建 User；
-创建登录身份；
-创建 Session / Token；
-建立 ProfileLink；
-赋予访问权限；
-写入 Suggest 索引。
-```
-
----
-
-### 6.2 输入与输出
-
-输入通常包括：
-
-```text
-Name；
-IDCard；
-Gender；
-Birthday。
-```
-
-其中：
-
-```text
-Name 必填；
-IDCard 可选；
-Gender 可选；
-Birthday 可选。
-```
-
-输出通常包括：
-
-```text
-ProfileID；
-Name；
-IDCard；
-Gender；
-Birthday。
-```
-
-具体字段必须以 REST OpenAPI、gRPC proto 和当前 application DTO 为准。
-
----
-
-### 6.3 时序图
+### 8.1 调用链
 
 ```mermaid
 sequenceDiagram
-    participant T as Transport
-    participant A as application/identity/profile
-    participant IQ as profile.IDCardUniquenessChecker
-    participant D as profile.NewProfile
-    participant R as Profile Repository
+    participant T as AuthN REST/gRPC
+    participant S as signup.SignUp
+    participant U as AuthN UOW
+    participant LI as LoginIdentityRepository
+    participant UR as UserRepository port
+    participant CR as CredentialRepository
 
-    T->>A: CreateProfile command
-    A->>A: validate command shape
-    alt IDCard provided
-        A->>IQ: CheckIDCardUnique(idCard)
-        alt idCard already exists
-            IQ-->>A: conflict
-            A-->>T: idCard conflict error
-        else idCard unique
-            IQ-->>A: ok
-        end
+    T->>S: SignupRequest
+    S->>S: Prepare provider key / user values
+    S->>U: WithinTx
+    U->>LI: find by provider key / global identifier
+    alt existing LoginIdentity
+        U->>UR: load or repair referenced User
+    else no LoginIdentity
+        U->>UR: create User
     end
-    A->>D: NewProfile(name, opts...)
-    alt invalid domain input
-        D-->>A: domain error
-        A-->>T: validation error
-    else valid
-        D-->>A: Profile
-        A->>R: Save(Profile)
-        R-->>A: saved
-        A-->>T: CreateProfile result
-    end
+    U->>LI: ensure LoginIdentity
+    U->>CR: ensure optional Credential
+    U-->>T: SignupResult
 ```
 
----
+### 8.2 User 解析语义
 
-### 6.4 分层职责
+`resolveUserStep` 的顺序是：
 
-| 层 | 职责 |
+1. 按 LoginIdentity provider key 查询；
+2. 未命中时，如果有 global identifier 则再查询；
+3. 命中 LoginIdentity 时加载其 UserID；允许 repair 的 provider 可在 User 缺失时按原 ID 重建；
+4. 没有命中 LoginIdentity 时创建新 User；
+5. 不会仅因 Phone 相同就复用旧 User。
+
+测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，但也意味着 Phone 在这条链路中不是用户合并键。
+
+### 8.3 当前一致性缺口
+
+AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有调用 Identity `user.Creator` 或 `UniquenessChecker`。由于 `users.phone` 也无唯一键，同 Phone 可以经由不同 LoginIdentity 创建多个 User。
+
+> 标签：待确认决策。需要明确 Phone 是“可重复联系字段”、“Identity 创建入口局部唯一”，还是“系统级唯一业务键”。三种语义对数据库约束、signup 解析和账号合并政策的要求完全不同。
+
+## 9. Identity `CreateProfile` 当前实现
+
+### 9.1 协议输入语义
+
+| proto 字段 | 当前语义 |
 | --- | --- |
-| transport | 解析 REST/gRPC 请求，构造 CreateProfile command，映射响应和错误 |
-| application | 编排身份证唯一性检查、调用领域构造、保存 Profile、控制事务边界 |
-| domain | `NewProfile` 校验 Name 必填，提供资料修改方法 |
-| repository | 持久化 Profile，按 ID/IDCard/Name 等查询 Profile |
+| `user_id` | 必填且必须指向已存在 User |
+| `legal_name` | 必填；transport TrimSpace 后传入 application |
+| `gender` | 可选；male/female 映射 1/2，other/unspecified 映射 0 |
+| `dob` | 可选；非空时检查日期值 |
+| `id_card_number` | 可选；非空时用 Name + Number 构造 IDCard |
+| `relation` | unspecified 映射 `other`；运行时不拒绝 |
+| `operator` | 当前未校验、未传递 |
 
-关键边界：
-
-```text
-Profile 主事实属于 Identity；
-Suggest 只能读取 Profile 构建读模型，不应写 Profile；
-创建 Profile 不自动建立 ProfileLink；
-创建 Profile 不自动赋权。
-```
-
----
-
-### 6.5 领域规则
-
-创建 Profile 的领域规则：
-
-| 规则 | 说明 | 事实源 |
-| --- | --- | --- |
-| Name 必填 | 空姓名不允许创建 Profile | `profile.NewProfile` |
-| IDCard 可选 | 无身份证时仍可创建 Profile | `profile.NewProfile` |
-| IDCard 唯一 | 提供身份证时应保证唯一 | `profile.IDCardUniquenessChecker` + application |
-
-注意：
-
-```text
-IDCard 唯一只在提供 IDCard 时校验；
-身份证唯一性通常需要 repository 或唯一索引支撑；
-数据库层仍应有最终唯一性保护，避免并发竞态；
-Profile 没有登录凭证，也没有授权字段。
-```
-
----
-
-### 6.6 失败边界
-
-| 场景 | 期望行为 | 错误类型 |
-| --- | --- | --- |
-| Name 为空 | 拒绝创建 | validation / domain error |
-| IDCard 已存在 | 拒绝创建 | conflict error |
-| IDCard 格式非法 | 按 meta/domain 规则拒绝 | validation / domain error |
-| repository 保存失败 | 返回服务端错误 | infrastructure error |
-| 并发创建同身份证 Profile | 至多一个成功 | conflict / unique constraint error |
-
-对外错误映射应由 transport 负责，具体状态码以 OpenAPI/proto 和当前实现为准。
-
----
-
-## 7. User 与 Profile 的创建顺序
-
-User 与 Profile 可以独立创建，也可以在更高层用例中被连续创建。
-
-但是语义上必须区分：
-
-```text
-创建 User：产生内部身份主体；
-创建 Profile：产生业务档案；
-建立 ProfileLink：声明二者关系。
-```
-
-常见组合流程：
+### 9.2 组合事务
 
 ```mermaid
 sequenceDiagram
-    participant T as Transport
-    participant U as identity/user application
-    participant P as identity/profile application
-    participant L as identity/profilelink application
+    participant G as ProfileCommand gRPC
+    participant A as profile.MyProfiles
+    participant U as Identity UOW
+    participant P as ProfileRepository
+    participant Guard as SelfProfileGuard
+    participant L as ProfileLinker
+    participant R as ProfileLinkRepository
 
-    T->>U: CreateUser
-    U-->>T: UserID
-    T->>P: CreateProfile
-    P-->>T: ProfileID
-    T->>L: LinkProfile(userID, profileID, rel)
-    L-->>T: ProfileLinkID
+    G->>A: Create(userID, profile fields, relation)
+    A->>U: WithinTx
+    U->>U: build and validate profile info
+    U->>P: check non-empty IDCard unique
+    U->>U: ensure User exists
+    opt relation = self
+        U->>Guard: EnsureCanCreateSelf
+    end
+    U->>P: Create Profile
+    U->>L: Link(userID, profileID, relation)
+    U->>R: Create ProfileLink
+    U-->>G: Profile + ProfileLink
 ```
 
-注意：
+任意一步返回错误都使整个事务回滚，包括 Profile repository 已经执行 insert、但 Link 检查或保存失败的情况。
 
-```text
-如果业务上需要“一次性创建用户本人档案”，也应在 application 用例中显式编排 User、Profile、ProfileLink；
-不要在 User 实体内部偷偷创建 Profile；
-不要在 Profile 实体内部偷偷创建 User；
-不要跳过 ProfileLink。
-```
+### 9.3 失败边界
 
----
-
-## 8. 事务边界
-
-创建 User 和创建 Profile 通常各自是一个独立写用例。
-
-推荐原则：
-
-```text
-一个用例明确一个事务边界；
-唯一性检查和写入应在同一写流程内完成；
-数据库唯一约束应兜底并发竞态；
-跨对象组合创建时，由 application 明确事务范围；
-transport 不持有事务。
-```
-
-如果一个上层用例需要同时创建：
-
-```text
-User + Profile + ProfileLink
-```
-
-则需要明确：
-
-```text
-是一个事务全部成功；
-还是允许部分成功并通过补偿处理；
-失败时如何返回；
-是否需要幂等键；
-是否需要 Outbox 或事件通知。
-```
-
-当前本文不假设已经存在该组合用例。没有代码事实支撑时，不应写成已实现。
-
----
-
-## 9. 与其他模块的边界
-
-### 9.1 与 AuthN
-
-AuthN 可以引用 `UserID`，但不应绕过 Identity 创建 User。
-
-边界：
-
-```text
-创建 User 属于 Identity；
-创建 LoginIdentity / Credential / Challenge 属于 AuthN；
-创建 Session / Token 属于 AuthN；
-登录成功后 Principal 可以携带 UserID；
-User 不是 Principal。
-```
-
-常见错误：
-
-```text
-在 AuthN 注册流程中直接写 User repository；
-把 LoginIdentity 当 User；
-把手机号登录账号和 User 主体混为一谈。
-```
-
-正确方式：
-
-```text
-AuthN onboarding 如果需要创建 User，应通过 Identity application service 或受控 port 协作。
-```
-
----
-
-### 9.2 与 AuthZ
-
-AuthZ 可以通过 `Subject` 引用 User，但不拥有 User 写模型。
-
-边界：
-
-```text
-创建 User/Profile 不等于授权；
-创建 Profile 不等于允许访问 Profile；
-ProfileLink 不等于 Permission；
-是否可访问资源仍由 AuthZ Check 判定。
-```
-
----
-
-### 9.3 与 IDP
-
-IDP 输出 `ExternalIdentity`，不直接创建 User。
-
-边界：
-
-```text
-ExternalIdentity 是外部身份声明；
-LoginIdentity 由 AuthN 绑定到 User；
-User 属于 Identity；
-IDP AppToken 不是 IAM AccessToken。
-```
-
----
-
-### 9.4 与 Suggest
-
-Suggest 消费 Profile 事实构建读模型。
-
-边界：
-
-```text
-Profile 主事实由 Identity 创建和维护；
-Suggest 不写 Profile；
-Suggest Snapshot 不是 Profile 主表；
-Profile 创建后是否同步到 Suggest，属于读模型刷新或事件传播问题。
-```
-
----
-
-## 10. 并发与幂等
-
-创建 User/Profile 都涉及唯一性约束，因此需要考虑并发。
-
-### 10.1 User 手机号并发创建
-
-风险：
-
-```text
-两个请求同时用同一 Phone 创建 User；
-应用层唯一性检查都通过；
-最终写入产生重复数据。
-```
-
-建议：
-
-```text
-application 先做唯一性检查；
-repository/database 用唯一索引兜底；
-捕获唯一约束冲突并映射为 conflict；
-需要对外幂等时引入幂等键或按 Phone 做幂等查询返回。
-```
-
-### 10.2 Profile 身份证并发创建
-
-风险：
-
-```text
-两个请求同时用同一 IDCard 创建 Profile；
-应用层唯一性检查都通过；
-最终写入产生重复档案。
-```
-
-建议：
-
-```text
-提供 IDCard 时 application 先做唯一性检查；
-repository/database 用唯一索引兜底；
-捕获唯一约束冲突并映射为 conflict；
-无 IDCard 的 Profile 需要依靠业务流程避免重复档案。
-```
-
----
-
-## 11. 常见反模式
-
-| 反模式 | 问题 | 推荐做法 |
-| --- | --- | --- |
-| 创建 User 时内嵌创建 Profile | 混淆身份主体和业务档案 | 显式创建 Profile，再通过 ProfileLink 建立关系 |
-| 创建 Profile 时顺手创建 User | 业务档案反向吞并身份主体 | User 创建归 Identity user 用例 |
-| AuthN 直接写 User repository | AuthN 绕过 Identity 边界 | AuthN 通过 Identity application/port 协作 |
-| Suggest 直接写 Profile | 读模型吞并写模型 | Profile 主事实归 Identity |
-| 创建 Profile 后默认拥有访问权 | 身份事实和授权事实混淆 | 权限由 AuthZ Role/Permission/RoleBinding/Check 决定 |
-| 只做应用层唯一性检查 | 并发下可能重复 | 应用检查 + 数据库唯一约束兜底 |
-| transport 持有事务 | 协议层污染用例边界 | 事务边界归 application |
-| repository 里写业务规则 | 持久化层吞并领域规则 | 必填、状态、关系规则放 domain/application |
-
----
-
-## 12. 代码事实源
-
-| 事实 | 路径 |
+| 失败点 | 结果 |
 | --- | --- |
-| User 实体与构造规则 | `internal/apiserver/domain/identity/user/user.go` |
-| User 状态定义 | `internal/apiserver/domain/identity/user/types.go` |
-| User 手机号唯一性接口 | `internal/apiserver/domain/identity/user` |
-| User 创建用例 | `internal/apiserver/application/identity/user` |
-| Profile 实体与构造规则 | `internal/apiserver/domain/identity/profile/profile.go` |
-| Profile 身份证唯一性接口 | `internal/apiserver/domain/identity/profile` |
-| Profile 创建用例 | `internal/apiserver/application/identity/profile` |
-| ProfileLink 关系模型 | `internal/apiserver/domain/identity/profilelink` |
-| Identity 模块装配 | `internal/apiserver/container/identity` |
-| REST transport | `internal/apiserver/transport/rest` |
-| gRPC transport | `internal/apiserver/transport/grpc` |
-| REST 契约 | `api/rest` |
-| gRPC 契约 | `api/grpc` |
+| `user_id`/`legal_name` 缺失 | transport 返回 `InvalidArgument` |
+| User 不存在 | application 拒绝，不创建 Profile |
+| Gender/Birthday/IDCard 无效 | application 拒绝 |
+| IDCard 已存在 | application 预检查拒绝；并发冲突由 DB 唯一键兜底 |
+| User 已有 active self | `SelfProfileGuard` 拒绝；DB self key 兜底并发 |
+| ProfileLink 保存失败 | Profile insert 一起回滚 |
 
----
+### 9.4 不存在 standalone production creator
 
-## 13. Verify
+production container 只装配 `profile.NewMyProfiles(uow)` 作为创建能力。测试的 `ProfileFixture` 可直接建 Profile 来准备数据，但它不是运行时应用用例。
 
-修改本文后至少执行：
+## 10. 事务、并发与幂等矩阵
 
-```bash
-make docs-hygiene
-```
+| 链路 | 事务边界 | 并发兜底 | 幂等语义 |
+| --- | --- | --- | --- |
+| Identity CreateUser | 单个 Identity MySQL 事务 | Phone 无 DB 唯一键 | 无请求幂等键 |
+| AuthN SignUp | User + LoginIdentity + Credential 同一 AuthN MySQL 事务 | LoginIdentity repository 唯一约束；Phone 非合并键 | 按 provider key 复用 LoginIdentity/User，不是通用请求幂等 |
+| Identity CreateProfile | Profile + ProfileLink 同一 Identity MySQL 事务 | IDCard 唯一键、active self 唯一键、ProfileLink 组合唯一键 | 无请求幂等键 |
 
-涉及 User/Profile 领域构造规则时，执行：
+## 11. 已知缺口与复议条件
 
-```bash
-go test ./internal/apiserver/domain/identity/...
-```
+| 项目 | 当前状态 | 需要决策或修复 |
+| --- | --- | --- |
+| Phone 唯一性 | Identity 局部预检查；AuthN signup 不检查；DB 无唯一键 | 先确认系统级 Phone 语义，再统一所有写入链路 |
+| CreateUser `nickname` | 实际写入 User.Name | 契约重命名或修正 mapper，并制定兼容政策 |
+| User 扩展字段 | avatar、contacts、external identities 当前忽略 | 删除超前契约，或完成模型/映射/存储 |
+| OperatorContext | Identity 写 handler 不强制也不传递 | 确认审计主体模型后端到端落地 |
+| CreateProfile relation | unspecified 降级 `other` | 确认宽容兼容还是强制显式语义 |
+| 孤立 Profile 导入 | 当前无 production 用例 | 只在出现真实导入/预建档需求时复议组合事务 |
+| User + Profile 一次建立 | 当前无通用组合用例 | 需求确立时明确原子性、relation、幂等与失败补偿 |
 
-涉及 User/Profile 创建用例、唯一性检查或事务边界时，执行：
+## 12. 事实源与 Verify
 
-```bash
-go test ./internal/apiserver/application/identity/...
-```
-
-涉及 REST/gRPC 契约或 handler/service 时，执行：
-
-```bash
-make api-validate
-make proto-gen
-go test ./internal/apiserver/transport/rest/...
-go test ./internal/apiserver/transport/grpc/...
-```
-
-涉及分层边界时，执行：
+| 内容 | 路径 |
+| --- | --- |
+| Identity User gRPC | `api/grpc/iam/identity/v2/identity.proto`、`internal/apiserver/transport/grpc/service/identity/identity_lifecycle.go` |
+| Identity User 创建 | `internal/apiserver/application/identity/user/service_create.go` |
+| Profile 组合建档 | `internal/apiserver/application/identity/profile/service_my_profiles.go`、`profile_creation.go` |
+| Identity 事务 | `internal/apiserver/application/identity/uow/uow.go`、`internal/apiserver/infra/mysql/uow/identity/uow.go` |
+| AuthN signup | `internal/apiserver/application/authn/signup/service.go`、`step_resolve_user.go` |
+| AuthN 跨模型事务 | `internal/apiserver/application/authn/uow/uow.go`、`internal/apiserver/infra/mysql/uow/authn/uow.go` |
+| 唯一性和表结构 | `internal/pkg/migration/migrations` |
 
 ```bash
-go test ./internal/pkg/architecture
+go test ./internal/apiserver/application/identity/user
+go test ./internal/apiserver/application/identity/profile
+go test ./internal/apiserver/application/authn/signup
+go test ./internal/apiserver/transport/grpc/service/identity
+go test ./internal/apiserver/infra/mysql/user ./internal/apiserver/infra/mysql/profile ./internal/apiserver/infra/mysql/profilelink
 ```
 
----
+## 13. 继续阅读
 
-## 14. 本文总结
-
-创建 User 与 Profile 可以压缩成两条链路：
-
-```text
-CreateUser:
-transport -> application/identity/user -> user.NewUser -> UserRepository
-
-CreateProfile:
-transport -> application/identity/profile -> profile.NewProfile -> ProfileRepository
-```
-
-最重要的边界是：
-
-```text
-User 是内部身份主体；
-Profile 是业务档案；
-二者关系必须通过 ProfileLink 建立；
-创建 User 不等于创建 LoginIdentity；
-创建 Profile 不等于赋权；
-AuthN/AuthZ/IDP/Suggest 不应绕过 Identity 写模型。
-```
-
-下一篇 [03-关键链路-建立与撤销ProfileLink.md](03-关键链路-建立与撤销ProfileLink.md) 将继续说明：
-User 和 Profile 创建后，如何通过 `ProfileLink` 建立、查询、撤销关系，以及如何保证 self 档案唯一性。
+- 为什么拆分 User/Profile/ProfileLink：[01-领域模型](01-领域模型-User-Profile-ProfileLink.md)
+- ProfileLink 的建立、撤销、查询和批处理：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
+- AuthN/Identity 的跨模块事务边界：[04-模块边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md)
