@@ -12,7 +12,10 @@ Identity facts -> ProfileSearchTerm -> process-local search index -> safe candid
 
 这个选择换来了查询性能、写模型隔离和可重建性，也引入了最终一致、索引敏感数据保护和运行时恢复问题。
 
-当前事实见 [Suggest 模块](../02-业务模块/05-Suggest/README.md)，模型见 [模型与应用端口](../02-业务模块/05-Suggest/01-模型与应用端口.md)，刷新和查询链路分别见 [索引刷新](../02-业务模块/05-Suggest/02-关键链路-索引刷新Full-Delta-Snapshot.md) 与 [SuggestProfile 查询](../02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md)。
+- 当前事实见 [Suggest 模块](../02-业务模块/05-Suggest/README.md)，
+- 模型见 [模型与应用端口](../02-业务模块/05-Suggest/01-模型与应用端口.md)；
+- 刷新链路见 [索引刷新](../02-业务模块/05-Suggest/02-关键链路-索引刷新Full-Delta-Snapshot.md) 与；
+- 查询链路见 [SuggestProfile 查询](../02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md)；
 
 ## 2. 写模型和读模型的差异
 

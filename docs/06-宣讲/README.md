@@ -102,11 +102,11 @@ IAM 是统一身份与访问管理服务。
 
 ```text
 0-3 分钟：项目定位和问题背景；
-3-7 分钟：系统架构总图；
-7-15 分钟：Identity / AuthN / AuthZ；
-15-19 分钟：IDP / Suggest；
-19-23 分钟：REST / gRPC / Go SDK；
-23-27 分钟：专题设计与架构护栏；
+3-7 分钟：运行时与分层；
+7-16 分钟：Identity / AuthN / AuthZ；
+16-20 分钟：IDP / Suggest；
+20-24 分钟：REST / gRPC / Go SDK；
+24-27 分钟：设计取舍与架构护栏；
 27-30 分钟：总结和追问入口。
 ```
 
