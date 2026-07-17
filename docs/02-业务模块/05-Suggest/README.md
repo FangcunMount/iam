@@ -1,657 +1,147 @@
-
 # Suggest
 
-> 状态：规划改造 · 当前代码只提供 REST；现行符号是 application `ProfileSuggestionIndex` 和 `ProfileSuggestItem`。本文仍含待收敛的 gRPC/SDK 与目标设计描述，完成逐段核对前不得当作已实现事实。
+> 状态：已实现 · 已按当前 domain、application、infra、REST、container、配置和测试核对。Suggest 当前只提供 REST，没有 gRPC proto、gRPC service 或 Go SDK。
 
----
+## 1. 30 秒结论
 
-## 1. 本目录定位
+Suggest 是从 Identity 数据派生的 Profile 联想搜索读模型，不拥有 User、Profile 或 ProfileLink 主数据。
 
-`05-Suggest/` 是 IAM Suggest 模块的文档入口。
-
-Suggest 是 IAM 的 **Profile 联想搜索读模型模块**，负责回答：
+当前主线：
 
 ```text
-当前请求者在允许的可见范围内，
-根据 keyword 能看到哪些可选择的 Profile 候选项？
+MySQL profiles / profile_links / users
+  -> Loader 构造 ProfileSearchTerm
+  -> Full / Delta 刷新进程内 Store
+  -> GET /api/v2/suggest/profile?k=...
+  -> 解析 OperatingPrincipal 和 ProfileAccessScope
+  -> 数字精确匹配或姓名/拼音匹配
+  -> scope 过滤
+  -> 排序、截断、手机号脱敏
+  -> ProfileSuggestResponseItem[]
 ```
 
-Suggest 维护和产生：
+必须记住：
 
-```text
-OperatingPrincipal；
-ProfileAccessScope；
-Query；
-ProfileSearchTerm；
-ProfileSuggestionIndex；
-ProfileSuggestItem；
-搜索候选集；
-脱敏展示结果。
-```
+- 索引命中不等于可见，`Store` 在排序截断前执行 scope 过滤。
+- `ProfileAccessScope` 是本次查询的可见范围，不是 ProfileLink，也不是通用 AuthZ 决策。
+- 手机号形态查询需要 `search_by_mobile` 权限；没有权限时当前返回空结果。
+- 当前索引和可选快照都保存原始手机号，只有输出 DTO 做脱敏。
+- Suggest 没有 gRPC 或 SDK 接口。
 
-Suggest 不负责 Profile 写模型、不负责登录认证、不负责通用授权策略管理、不解析外部 provider 身份，也不返回明文手机号、证件号等敏感字段。
+## 2. 文档入口
 
-对应边界：
+本目录只保留一篇总览和三篇事实文档：
 
-```text
-Identity 负责 User / Profile / ProfileLink；
-AuthZ 负责 Subject / Role / Permission / RoleBinding / Check / PolicyVersion；
-AuthN 负责 Principal / Credential / Challenge / Session / Token / JWKS；
-IDP 负责 WechatApp / Credentials / AppToken / ExternalIdentity；
-Index infra 只负责搜索存储和匹配，不负责授权决策。
-```
+| 文档 | 回答的问题 |
+| --- | --- |
+| [README.md](README.md) | 模块职责、边界、分层、代码入口和当前限制 |
+| [01-模型与应用端口.md](01-模型与应用端口.md) | 现行对象、端口和不变量是什么 |
+| [02-关键链路-索引刷新Full-Delta-Snapshot.md](02-关键链路-索引刷新Full-Delta-Snapshot.md) | Full、Delta、运行时切换和文件快照如何工作 |
+| [03-关键链路-SuggestProfile查询.md](03-关键链路-SuggestProfile查询.md) | 查询、权限范围、手机号安全、限流和脱敏如何工作 |
 
----
+设计取舍见 [Suggest 为什么是读模型](../../05-专题设计/06-Suggest为什么是读模型.md)，但当前行为以本目录和代码为准。
 
-## 2. 30 秒结论
+## 3. 职责与边界
 
-Suggest 的核心主线可以压缩成：
+| Suggest 负责 | Suggest 不负责 |
+| --- | --- |
+| 从 Profile 事实构建搜索读模型 | 创建或修改 Profile、User、ProfileLink |
+| 姓名、拼音、档案 ID、手机号匹配 | 登录、Token 签发或身份源解析 |
+| 解析本次查询的 ProfileAccessScope | 管理 Role、Permission、RoleBinding |
+| scope 过滤、排序、截断和输出脱敏 | 把索引命中当作详情访问授权 |
+| Full/Delta 刷新和进程内索引生命周期 | 提供 gRPC 或 Go SDK |
 
-```text
-keyword
-  -> normalize
-  -> search terms / snapshot
-  -> candidate profileIDs
-  -> visibility filter
-  -> rank
-  -> limit
-  -> mask
-  -> ProfileSuggestItem
-```
+跨模块关系：
 
-每个核心对象的职责是：
+- Identity 提供 `profiles`、`profile_links`、`users` 数据；Suggest 只读取。
+- AuthN middleware 把 JWT 上下文转换成 `OperatingPrincipal`。
+- AuthZ runtime 提供角色和 `search_by_mobile` 判断；当前不会对每个候选逐条调用 AuthZ Check。
+- IDP 不参与 Suggest 查询链路。
 
-| 对象 | 一句话 | 不是什么 |
-| --- | --- | --- |
-| `OperatingPrincipal` | 当前搜索操作者引用 | 不是 AuthN `Principal` 本体，也不是 User 写模型 |
-| `ProfileAccessScope` | 本次搜索的可见范围输入 | 不是 `ProfileLink`，也不是 AuthZ `Scope` 本体 |
-| `Query` | 规范化后的搜索请求 | 不是原始 HTTP/gRPC request |
-| `ProfileSearchTerm` | 从 Profile 派生出的可搜索词条 | 不是 `Profile` 写模型，不是权限事实源 |
-| `ProfileSuggestionIndex` | 某一版本的搜索读模型快照 | 不是 Profile 主数据 |
-| `ProfileSuggestItem` | 脱敏后的候选展示结果 | 不是 Profile 写模型，不应包含敏感明文 |
-
-最重要的边界：
-
-```text
-ProfileSearchTerm 不是 Profile；
-ProfileSuggestionIndex 不是 Profile 主数据；
-ProfileAccessScope 不是 ProfileLink；
-ProfileAccessScope 不是 AuthZ Scope 本体；
-ProfileAccessScope 不等于授权通过；
-ProfileLink 不是 RoleBinding；
-OperatingPrincipal 不是 AuthN Principal 本体；
-索引命中不等于可见；
-Store / Index 不应直接调用 AuthZ；
-ProfileSuggestItem 不应返回明文手机号或证件号。
-```
-
-如果只记一句话：
-
-> Suggest 负责“搜索候选”，Identity 负责“档案事实”，AuthZ 负责“可见性判断”。
-
----
-
-## 3. 文档结构
-
-当前 Suggest 模块保留 6 篇主文档：
-
-| 文档 | 作用 | 阅读重点 |
-| --- | --- | --- |
-| [00-模块总览.md](00-模块总览.md) | Suggest 职责、核心对象、关键链路和模块协作总览 | 建立对 Suggest 的整体认知 |
-| [01-领域模型-ProfileSearchTerm-ProfileAccessScope-Snapshot.md](01-领域模型-ProfileSearchTerm-ProfileAccessScope-Snapshot.md) | Suggest 核心模型、模型图、生命周期、状态流转和不变量 | 唯一模型主文档 |
-| [02-关键链路-索引刷新Full-Delta-Snapshot.md](02-关键链路-索引刷新Full-Delta-Snapshot.md) | Profile 搜索索引刷新链路 | Full rebuild、Delta refresh、Snapshot 原子切换、敏感字段治理 |
-| [03-关键链路-SuggestProfile查询.md](03-关键链路-SuggestProfile查询.md) | SuggestProfile 在线查询链路 | OperatingPrincipal、Query、Snapshot 命中、可见性过滤、排序截断、脱敏返回 |
-| [04-安全策略-手机号搜索-脱敏-限流.md](04-安全策略-手机号搜索-脱敏-限流.md) | 手机号搜索安全专题 | `AllowMobileSearch`、`mobile_mask`、限流、审计、Store/AuthZ 边界 |
-| [05-模块边界-Suggest与Identity-AuthZ.md](05-模块边界-Suggest与Identity-AuthZ.md) | Suggest 与 Identity、AuthZ、AuthN、IDP、Index infra 的边界 | 防止 Profile/SearchTerm、Scope/ProfileLink、Index/AuthZ 混淆 |
-| [06-分层架构与代码索引.md](06-分层架构与代码索引.md) | domain/application/infra/transport/container/contract 代码索引 | 修改代码时的导航入口和 Verify |
-
-注意：
-
-```text
-原 02-领域模型图.md 的核心内容已经合并进 01-领域模型-ProfileSearchTerm-ProfileAccessScope-Snapshot.md。
-后续如果该文件仍存在，应考虑删除、归档或改成跳转说明，避免重复维护。
-```
-
----
-
-## 4. Suggest 模块总图
+## 4. 运行时与分层
 
 ```mermaid
-flowchart TD
-    Suggest["Suggest\nProfile 联想搜索读模型"]
-
-    Principal["OperatingPrincipal\n搜索操作者"]
-    Scope["ProfileAccessScope\n可见范围输入"]
-    Query["Query\nnormalized keyword"]
-    Term["ProfileSearchTerm\n可搜索词条"]
-    Snapshot["ProfileSuggestionIndex\n搜索读模型快照"]
-    Result["ProfileSuggestItem\n脱敏候选结果"]
-
-    Identity["Identity\nProfile / ProfileLink"]
-    AuthZ["AuthZ\nCheck / BatchFilter"]
-    AuthN["AuthN\nPrincipal"]
-    IDP["IDP\nExternalIdentity / claims"]
-    Index["Index Infra\nstore / runtime snapshot"]
-
-    Suggest --> Principal
-    Suggest --> Scope
-    Suggest --> Query
-    Suggest --> Term
-    Suggest --> Snapshot
-    Suggest --> Result
-
-    AuthN --> Principal
-    Identity --> Term
-    Identity --> Snapshot
-    Query --> Index
-    Index --> Snapshot
-    Snapshot --> Result
-    Scope --> AuthZ
-    AuthZ --> Result
-    IDP --> Identity
+flowchart LR
+    REST["REST handler"] --> App["application Service"]
+    App --> Scope["ProfileAccessScopeProvider"]
+    App --> Runtime["ProfileSuggestionRuntime"]
+    Runtime --> Store["search.Store"]
+    Store --> Domain["domain Query / Scope / Ranking"]
+    Refresher["ProfileIndexRefresher"] --> Loader["MySQL Loader"]
+    Refresher --> Runtime
+    Refresher -. optional .-> File["snapshot.txt"]
 ```
 
-读图规则：
-
-```text
-AuthN 提供 Principal，Suggest 内部转换为 OperatingPrincipal；
-Identity 提供 Profile/ProfileLink 等身份事实；
-Suggest 从 Identity 派生 ProfileSearchTerm 和 ProfileSuggestionIndex；
-Index infra 只返回候选 profileIDs；
-候选必须经过 ProfileAccessScope 与 AuthZ/Identity 可见性过滤；
-最终返回 ProfileSuggestItem，而不是 Profile 写模型；
-IDP claims 如需影响搜索，必须先经过 Identity 确认。
-```
-
----
-
-## 5. 核心对象
-
-### 5.1 OperatingPrincipal
-
-`OperatingPrincipal` 是 Suggest 内部使用的当前搜索操作者引用。
-
-它回答：
-
-```text
-谁在发起本次 Profile 联想搜索？
-搜索可见范围应该以哪个主体为中心构造？
-审计和限流应该归属到哪个操作者？
-```
-
-关键边界：
-
-```text
-OperatingPrincipal 不是 AuthN Principal 本体；
-OperatingPrincipal 不校验 Credential / Challenge；
-OperatingPrincipal 不签发 Token；
-OperatingPrincipal 不应携带完整 JWT claims；
-OperatingPrincipal 只保留 Suggest 查询和审计所需的最小身份引用。
-```
-
----
-
-### 5.2 ProfileAccessScope
-
-`ProfileAccessScope` 是 Suggest 查询时的可见范围输入。
-
-它回答：
-
-```text
-本次联想搜索应该在哪个 Profile 范围内寻找候选项？
-```
-
-关键边界：
-
-```text
-ProfileAccessScope 不是 Identity.ProfileLink；
-ProfileAccessScope 不是 AuthZ Scope 本体；
-ProfileAccessScope 不等于授权通过；
-ProfileAccessScope 可以作为 AuthZ Check/filter 的 context；
-ProfileAccessScope 不应替代 RoleBinding；
-ProfileAccessScope 不应绕过 Identity.ProfileLink 或 AuthZ Check。
-```
-
----
-
-### 5.3 ProfileSearchTerm
-
-`ProfileSearchTerm` 是从 Identity `Profile` 派生出的可搜索词条。
-
-它回答：
-
-```text
-某个 Profile 可以被哪些 keyword 命中？
-这些 keyword 应该如何规范化、加权和匹配？
-哪些词条具有敏感属性，需要限制展示或日志？
-```
-
-关键边界：
-
-```text
-ProfileSearchTerm 是读模型词条；
-ProfileSearchTerm 不是 Profile 写模型；
-ProfileSearchTerm 不应保存不必要的敏感明文；
-ProfileSearchTerm 不表达授权通过；
-ProfileSearchTerm 命中只产生候选集；
-ProfileSearchTerm 应能由 Identity Profile 事实重建。
-```
-
----
-
-### 5.4 ProfileSuggestionIndex
-
-`ProfileSuggestionIndex` 是某一版本的 Profile 搜索读模型快照。
-
-它回答：
-
-```text
-当前搜索索引基于哪个 Profile 版本构建？
-某个 Profile 的可搜索词条和展示字段是什么？
-索引是否需要刷新或重建？
-```
-
-关键边界：
-
-```text
-ProfileSuggestionIndex 是读模型；
-ProfileSuggestionIndex 不是 Profile 主数据；
-ProfileSuggestionIndex 不应成为权限事实源；
-ProfileSuggestionIndex 可以最终一致；
-ProfileSuggestionIndex 可以被重建；
-ProfileSuggestionIndex 中敏感字段必须最小化、脱敏或 hash 化。
-```
-
----
-
-### 5.5 ProfileSuggestItem
-
-`ProfileSuggestItem` 是对外返回的脱敏候选项。
-
-它回答：
-
-```text
-当前请求者最终可以看到哪些 Profile 候选？
-每个候选项可以展示哪些安全字段？
-```
-
-关键边界：
-
-```text
-ProfileSuggestItem 不是 Profile 写模型；
-ProfileSuggestItem 不应包含明文手机号；
-ProfileSuggestItem 不应包含明文证件号；
-ProfileSuggestItem 不应暴露完整搜索 token；
-ProfileSuggestItem 不应泄露无权限 Profile 的存在性；
-ProfileSuggestItem 字段应根据调用方和权限策略最小化。
-```
-
----
-
-## 6. 关键链路
-
-### 6.1 索引刷新 Full / Delta / Snapshot
-
-索引刷新负责从 Identity 主数据派生 Suggest 搜索读模型。
-
-主线：
-
-```text
-Identity Profile source
-  -> load profile facts
-  -> extract searchable fields
-  -> normalize terms
-  -> build ProfileSearchTerm
-  -> build ProfileSuggestionIndex
-  -> validate snapshot
-  -> atomic swap runtime index
-  -> expose snapshot version
-```
-
-Full / Delta / Snapshot 的职责：
-
-```text
-Full：从 Identity 事实源完整重建索引；
-Delta：根据 Profile 变化局部刷新索引；
-Snapshot：提供运行时只读索引视图，并通过原子切换避免半更新状态。
-```
-
-详细说明见 [02-关键链路-索引刷新Full-Delta-Snapshot.md](02-关键链路-索引刷新Full-Delta-Snapshot.md)。
-
----
-
-### 6.2 SuggestProfile 查询
-
-SuggestProfile 查询是 Suggest 的核心读链路。
-
-主线：
-
-```text
-GET /api/v2/suggest/profile
-  -> extract OperatingPrincipal
-  -> validate and normalize Query
-  -> resolve ProfileAccessScope
-  -> read Runtime Snapshot
-  -> match candidate profileIDs
-  -> visibility filter
-  -> rank visible candidates
-  -> limit
-  -> mask fields
-  -> return SuggestProfileResult
-```
-
-重点边界：
-
-```text
-Snapshot 命中不等于可见；
-ProfileAccessScope 不等于授权通过；
-不能先全局 limit 再过滤 scope；
-手机号/证件号形态 keyword 需要额外权限、限流和审计；
-响应只返回脱敏字段，例如 mobile_mask；
-查询链路不创建 Profile；
-查询链路不写 RoleBinding；
-查询链路不签发 Token；
-查询链路不刷新全量索引。
-```
-
-详细说明见 [03-关键链路-SuggestProfile查询.md](03-关键链路-SuggestProfile查询.md)。
-
----
-
-### 6.3 手机号搜索 / 脱敏 / 限流
-
-手机号搜索是高风险能力。
-
-主线：
-
-```text
-keyword
-  -> detect mobile-like keyword
-  -> check AllowMobileSearch
-  -> normalize / suffix / hash token
-  -> match mobile index terms
-  -> ProfileAccessScope filter
-  -> AuthZ / Identity visibility filter
-  -> rank visible candidates
-  -> limit with stricter cap
-  -> return mobile_mask only
-  -> audit + metrics
-```
-
-重点边界：
-
-```text
-AllowMobileSearch 只允许“使用手机号索引命中候选”，不代表候选可见；
-手机号搜索不能绕过 ProfileAccessScope；
-手机号搜索不能绕过 AuthZ / Identity 可见性过滤；
-响应 DTO 不应包含明文 mobile；
-Store / Index 不应直接调用 AuthZ；
-ProfileLink 不是 ProfileAccessScope；
-手机号搜索必须限流和审计。
-```
-
-详细说明见 [04-安全策略-手机号搜索-脱敏-限流.md](04-安全策略-手机号搜索-脱敏-限流.md)。
-
----
-
-## 7. 模块边界
-
-| 边界 | 正确理解 | 错误理解 |
+| 层 | 当前职责 | 主要入口 |
 | --- | --- | --- |
-| `ProfileSearchTerm` 与 `Profile` | SearchTerm 是从 Profile 派生的读模型词条 | SearchTerm 就是 Profile 主数据 |
-| `ProfileSuggestionIndex` 与 Profile 主数据 | Snapshot 可最终一致、可重建 | Snapshot 可回写 Identity 主数据 |
-| `ProfileAccessScope` 与 `ProfileLink` | Scope 是搜索范围输入，ProfileLink 是 Identity 关系事实 | Scope 就是 ProfileLink |
-| `ProfileAccessScope` 与 AuthZ `Scope` | Scope 可映射为 AuthZ context | Suggest Scope 等于授权通过 |
-| `ProfileLink` 与 `RoleBinding` | ProfileLink 是身份关系，RoleBinding 是授权绑定 | 有 ProfileLink 就等于有授权 |
-| `OperatingPrincipal` 与 AuthN `Principal` | Suggest 内部最小操作者引用 | OperatingPrincipal 是完整 JWT claims |
-| Index 与 AuthZ | Index 只返回候选 | Store / Index 直接调用 AuthZ 并返回结果 |
-| `ProfileSuggestItem` 与 Profile | Result 是脱敏展示结果 | Result 返回完整 Profile 明文 |
+| domain | Principal、Scope、SearchTerm、Query、匹配类型、排序和手机号脱敏规则 | `internal/apiserver/domain/suggest` |
+| application | 查询用例、刷新用例、策略链、端口、返回项和配置 | `internal/apiserver/application/suggest` |
+| infra | Trie/Hash/Store、原子 runtime、MySQL loader、scope adapter、限流和指标 | `internal/apiserver/infra/suggest`、`internal/apiserver/infra/mysql/suggest` |
+| transport | REST 参数、Principal 转换、限流和响应映射 | `internal/apiserver/transport/rest/suggest` |
+| container | 装配 DB、AuthZ runtime、Redis、刷新任务和 REST 能力 | `internal/apiserver/container/suggest` |
+| contract | 当前唯一外部机器契约 | `api/rest/suggest.v2.yaml` |
 
-详细说明见 [05-模块边界-Suggest与Identity-AuthZ.md](05-模块边界-Suggest与Identity-AuthZ.md)。
-
----
-
-## 8. 分层架构
-
-Suggest 代码按以下分层维护：
+## 5. 当前对外契约
 
 ```text
-transport/rest + transport/grpc
-  -> application/suggest
-  -> domain/suggest
-  -> infra/suggest/search + access + ratelimit + metrics + mysql loader
-  -> container/suggest
-  -> api/rest + api/grpc + pkg/sdk
+GET /api/v2/suggest/profile?k=<keyword>&limit=<n>
+Authorization: Bearer <token>
 ```
 
-| 层 | 职责 |
-| --- | --- |
-| domain | 定义 OperatingPrincipal / ProfileAccessScope / Query / ProfileSearchTerm / ranking policy |
-| application | 定义 ProfileSuggestionIndex port、ProfileSuggestItem，并编排查询和刷新用例 |
-| infra | 实现 search runtime、snapshot store、access adapter、ratelimit、metrics、mysql loader |
-| transport | 适配 REST/gRPC 请求、响应、AuthN Principal 接入和错误映射 |
-| container | 装配 Suggest 模块依赖和跨模块 port |
-| contract | 约束 REST/gRPC/SDK 对外接入语义 |
+REST 返回项：
 
-详细代码索引见 [06-分层架构与代码索引.md](06-分层架构与代码索引.md)。
-
----
-
-## 9. 推荐阅读路径
-
-### 9.1 新读者
-
-```text
-00-模块总览.md
-  -> 01-领域模型-ProfileSearchTerm-ProfileAccessScope-Snapshot.md
-  -> 05-模块边界-Suggest与Identity-AuthZ.md
-```
-
-目标：先理解 Suggest 是什么，以及它不是什么。
-
----
-
-### 9.2 准备实现搜索查询
-
-```text
-03-关键链路-SuggestProfile查询.md
-  -> 01-领域模型-ProfileSearchTerm-ProfileAccessScope-Snapshot.md
-  -> 04-安全策略-手机号搜索-脱敏-限流.md
-  -> 06-分层架构与代码索引.md
-```
-
-目标：理解 Query 如何命中 Snapshot，以及候选项如何过滤、排序、脱敏。
-
----
-
-### 9.3 准备实现索引刷新
-
-```text
-02-关键链路-索引刷新Full-Delta-Snapshot.md
-  -> ../01-Identity/README.md
-  -> 06-分层架构与代码索引.md
-```
-
-目标：理解 Suggest 如何从 Identity 主数据派生、刷新和修复搜索读模型。
-
----
-
-### 9.4 准备排查越权或结果缺失
-
-```text
-03-关键链路-SuggestProfile查询.md
-  -> 05-模块边界-Suggest与Identity-AuthZ.md
-  -> ../03-AuthZ/02-关键链路-权限检查Check.md
-  -> ../01-Identity/README.md
-```
-
-目标：确认是索引缺失、可见性过滤、排序截断、脱敏策略还是 AuthZ/Identity 事实导致的问题。
-
----
-
-### 9.5 准备修改手机号搜索
-
-```text
-04-安全策略-手机号搜索-脱敏-限流.md
-  -> 03-关键链路-SuggestProfile查询.md
-  -> 06-分层架构与代码索引.md
-```
-
-目标：确认 `AllowMobileSearch`、`mobile_mask`、限流、审计、指标、Store/AuthZ 边界都没有漂移。
-
----
-
-## 10. 代码事实源
-
-| 事实 | 路径 |
-| --- | --- |
-| Suggest domain | `../../../internal/apiserver/domain/suggest` |
-| Suggest application | `../../../internal/apiserver/application/suggest` |
-| Search runtime | `../../../internal/apiserver/infra/suggest/search` |
-| Access scope infra | `../../../internal/apiserver/infra/suggest/access` |
-| Rate limit | `../../../internal/apiserver/infra/suggest/ratelimit` |
-| Metrics | `../../../internal/apiserver/infra/suggest/metrics` |
-| MySQL loader | `../../../internal/apiserver/infra/mysql/suggest` |
-| REST transport | `../../../internal/apiserver/transport/rest/suggest` |
-| gRPC transport | 当前未提供 Suggest gRPC service |
-| Suggest container | `../../../internal/apiserver/container/suggest` |
-| REST 契约 | `../../../api/rest/suggest.v2.yaml` |
-| gRPC 契约 | 当前未提供 Suggest proto |
-| 架构测试 | `../../../internal/pkg/architecture` |
-
-注意：上表中的具体路径需要继续与当前源码核对。如果源码目录已调整，应以代码为准并同步更新本文。
-
----
-
-## 11. 常见反模式
-
-| 反模式 | 问题 | 推荐做法 |
+| JSON 字段 | application 字段 | 说明 |
 | --- | --- | --- |
-| handler 直接查 index store | 绕过 application 安全链路 | handler 调 Suggest application |
-| index store 直接调用 AuthZ | infra 吞并授权决策 | application 编排 VisibilityFilter |
-| Suggest 创建 Profile | 读模型吞并 Identity | Profile 写入归 Identity |
-| Suggest 写 RoleBinding | Suggest 吞并 AuthZ | 授权归 AuthZ |
-| ProfileAccessScope 当 ProfileLink | 查询范围和身份关系混淆 | Scope 是查询输入，ProfileLink 是 Identity 事实 |
-| ProfileAccessScope 当授权通过 | 越权风险 | Scope 还需映射到 Identity/AuthZ filter |
-| DTO 返回 mobile 明文 | 敏感泄露 | 只返回 mobile_mask |
-| 手机号搜索绕过限流 | 枚举风险 | RateLimit + Audit |
-| Full refresh 失败清空 runtime | 大面积不可用 | 保留旧 Snapshot |
-| limit 先于 visibility filter | 结果侧信道和体验问题 | 先 filter，再 rank/limit |
+| `id` | `ProfileID` | 字符串形式的 Profile ID |
+| `name` | `DisplayName` | 展示名 |
+| `mobile_mask` | `MobileMask` | 默认脱敏手机号，可为空 |
+| `weight` | `Weight` | 排序权重 |
 
----
+错误入口：缺少参数为 `400`，缺少有效 Principal 为 `401`，REST 限流为 `429`。手机号搜索无权限当前由策略返回空列表，不是专门的 `403`。
 
-## 12. Verify
+## 6. 装配和降级
 
-修改本目录文档后至少执行：
+启动时 `SuggestModule`：
+
+1. `enable=false` 时跳过初始化；
+2. 校验 DB，以及生产环境不能开启 `disable_mobile_mask`；
+3. 创建 scope provider、runtime、loader、refresher 和 rate limiter；
+4. 先执行一次 Full refresh；
+5. 再启动 Full/Delta cron。
+
+首次刷新失败时，`required=true` 返回错误；`required=false` 改用始终返回空列表的 `DegradedService`。后续 cron 失败只记录日志，不替换为 degraded service。
+
+主要配置见 `configs/apiserver.dev.yaml`、`configs/apiserver.prod.yaml` 和 `internal/apiserver/application/suggest/config.go`。
+
+## 7. 当前限制与风险
+
+| 现状 | 影响 |
+| --- | --- |
+| 默认 Loader 通过占位 `org_id` 适配当前表结构 | 多组织部署需要配置正确的 Loader SQL，不能把 IAM tenant 当业务 org |
+| 可见 ProfileID 的过渡实现按 `profiles.created_by` 查询 | 这是当前数据权限读模型，不等于完整业务授权模型 |
+| `snapshot.txt` 只写不读，Delta 后写入的是本次增量 | 它不是启动恢复源，也不能当作完整持久化快照 |
+| 索引和文件快照包含原始手机号 | 数据目录必须按敏感数据保护；当前没有 hash 化 |
+| Redis 限流器异常时 fail-open | Redis 故障期间不会拒绝请求，只记录 warn |
+| `CheckHealth` 只检查 service 是否存在 | 不代表索引新鲜度或刷新任务健康 |
+
+## 8. 修改导航
+
+| 要修改什么 | 先看哪里 |
+| --- | --- |
+| ProfileSearchTerm、Query、Scope 或排序 | 领域模型文档 + `domain/suggest` 测试 |
+| Full/Delta、Loader、Store 或 snapshot | 索引刷新文档 + application/infra 测试 |
+| 查询、手机号权限、限流或脱敏 | 查询链路文档 + REST/application 测试 |
+| REST 字段或状态码 | `api/rest/suggest.v2.yaml` + REST handler/DTO |
+| 模块启停和降级 | `container/suggest/module.go` + 配置 |
+
+## 9. Verify
 
 ```bash
 make docs-hygiene
-```
-
-涉及 Suggest domain：
-
-```bash
 go test ./internal/apiserver/domain/suggest/...
-```
-
-涉及 Suggest application：
-
-```bash
 go test ./internal/apiserver/application/suggest/...
-```
-
-涉及 Suggest infra：
-
-```bash
 go test ./internal/apiserver/infra/suggest/...
-go test ./internal/apiserver/infra/suggest/search/...
-go test ./internal/apiserver/infra/suggest/access/...
-go test ./internal/apiserver/infra/suggest/ratelimit/...
-go test ./internal/apiserver/infra/suggest/metrics/...
 go test ./internal/apiserver/infra/mysql/suggest/...
-```
-
-涉及 transport / container：
-
-```bash
-go test ./internal/apiserver/container/suggest
 go test ./internal/apiserver/transport/rest/suggest/...
+go test ./internal/apiserver/container/suggest/...
 ```
-
-当前没有 Suggest gRPC transport，不执行对应测试。
-
-涉及 Identity/AuthZ/AuthN/IDP 边界：
-
-```bash
-go test ./internal/apiserver/domain/identity/...
-go test ./internal/apiserver/application/identity/...
-go test ./internal/apiserver/domain/authz/...
-go test ./internal/apiserver/application/authz/...
-go test ./internal/apiserver/domain/authn/...
-go test ./internal/apiserver/domain/idp/...
-```
-
-涉及 REST/gRPC 契约：
-
-```bash
-make api-validate
-make proto-gen
-```
-
-涉及 SDK：
-
-```bash
-go test ./pkg/sdk/...
-```
-
-涉及分层依赖边界：
-
-```bash
-go test ./internal/pkg/architecture
-```
-
----
-
-## 13. 本目录总结
-
-Suggest 模块的主线是：
-
-```text
-keyword
-  -> normalize
-  -> search terms / snapshot
-  -> candidate profileIDs
-  -> visibility filter
-  -> rank
-  -> limit
-  -> mask
-  -> ProfileSuggestItem
-```
-
-Suggest 的核心职责是：
-
-```text
-维护 Profile 搜索读模型；
-把 keyword 归一化并命中候选 Profile；
-根据 Identity/AuthZ 事实过滤可见范围；
-对可见候选排序、截断和脱敏；
-返回安全的 ProfileSuggestItem；
-治理手机号搜索、脱敏、限流、审计和指标。
-```
-
-Suggest 的核心边界是：
-
-```text
-不创建 User/Profile/ProfileLink；
-不做登录认证；
-不签发 Token；
-不管理 Role/Permission/RoleBinding；
-不解析外部 provider 身份；
-不返回明文手机号或证件号；
-不把搜索索引当主数据；
-不把搜索索引当权限事实源；
-不绕过 AuthZ/Identity 可见性过滤；
-不让 Store / Index 直接调用 AuthZ。
-```
-
-读完本目录后，应能清楚说明 Suggest 的模型、链路、边界和代码入口，并能在修改代码时避免把 Identity、AuthZ、AuthN、IDP 或 Index infra 的职责混入 Suggest。

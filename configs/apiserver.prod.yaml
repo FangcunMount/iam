@@ -246,7 +246,7 @@ suggest:
   enable: true
   data_dir: "/app/data/suggest"
   full_sync_cron: "@every 6h"
-  # 增量合并不会清理旧 Trie/Hash key，生产环境建议留空，仅全量刷新保证索引一致。
+  # 默认 Delta 支持活跃项 upsert 和软删 tombstone，并会清理旧 Trie/Hash key；自定义 SQL 必须保持 tombstone 协议。
   delta_sync_cron: ""
   max_results: 20
   key_pad_len: 25
