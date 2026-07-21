@@ -28,13 +28,13 @@ ci.yml
   -> build
 
 cd.yml
-  -> make cd-image（GHCR + Docker Hub + 阿里云 ACR）
-  -> deploy on ServerD（QS_DEPLOY_RUNNER=serverd）
-       -> ACR pull + save tarball
-       -> SCP -> serverB docker load + compose up
+  -> make cd-image（GHCR + Docker Hub + 阿里云 ACR）【GitHub-hosted】
+  -> deploy on Mac mini（group: qlume, macOS/ARM64）
+       -> ACR pull --platform linux/amd64 + save tarball
+       -> 公网 SCP -> serverB docker load + compose up
 ```
 
-与 `qs-server` 共用组织级 ServerD runner、ACR Secrets 和 `QS_DEPLOY_*` Variables；不再使用 `appleboy/ssh-action`。
+与 qs-operating-system / qlume 共用组织级 Mac mini runner（`qlume` group）、ACR Secrets；大文件上传优先 `SVRB_PUBLIC_HOST`。
 
 脚本入口：
 
@@ -44,8 +44,8 @@ cd.yml
 | `scripts/cd/build-image.sh` | 使用 buildx 构建并推送 GHCR 镜像，带 `latest` 和提交 SHA tag |
 | `scripts/cd/push-dockerhub.sh` | 将 GHCR 镜像同步到 Docker Hub |
 | `scripts/cd/push-acr.sh` | 将 GHCR 镜像同步到阿里云 ACR |
-| `scripts/cd/export-image.sh` | ServerD 从 ACR pull 并导出 tarball |
-| `scripts/cd/setup-runner-*.sh` | ServerD 代理 + 到 serverB 的 SSH |
+| `scripts/cd/export-image.sh` | Mac mini 从 ACR pull 并导出 tarball |
+| `scripts/cd/setup-runner-ssh.sh` | 隔离 SSH config（`$RUNNER_TEMP`）+ serverB 主机名校验 |
 | `scripts/cd/runner-upload-and-deploy.sh` | SCP 部署包与镜像 tarball 到 serverB |
 | `scripts/cd/prepare-package.sh` | 生成 `deploy-package-apiserver.tar.gz` 和生产 `config.prod.env` |
 | `scripts/cd/remote-deploy.sh` | 在 serverB 解包、`docker load`、compose up 并健康检查 |
@@ -60,7 +60,7 @@ make cd-package SERVICE=apiserver
 make cd-remote-deploy SERVICE=apiserver IMAGE_TAG=<sha>
 ```
 
-组织 Secrets（与 qs-server 共用）：`ALIYUN_ACR_*`、`QS_DEPLOY_RUNNER`（Variable）、`IAM_SERVER_DEPLOY_KEY`（iam 仓库 Deploy Key 私钥）。
+组织 Secrets / Variables（与 qs-ops / qlume 共用）：`ALIYUN_ACR_*`、`SVRB_PUBLIC_HOST`、`SVR_MINI_SSH_KEY`（可选）、`SVRB_*`。原 `QS_DEPLOY_RUNNER=serverd` 与 `IAM_SERVER_DEPLOY_KEY` 已不再需要（Mac mini 用 HTTPS checkout）。
 
 ## 当前生产架构假设
 
@@ -178,7 +178,8 @@ go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -c
 
 | Variable | 必需性 | 用途 |
 | --- | --- | --- |
-| `SVRB_HOST` | 部署必需 | serverB 主机地址（如 `100.91.31.24`） |
+| `SVRB_PUBLIC_HOST` | 推荐 | serverB 公网 IP（大文件上传优先；避免 Tailscale DERP） |
+| `SVRB_HOST` | 回退 | serverB Tailscale 地址（如 `100.91.31.24`） |
 | `SVRB_USERNAME` | 推荐 | serverB SSH 用户；缺省用 `SVRA_USERNAME` |
 | `SVRB_SSH_PORT` | 可选 | serverB SSH 端口；缺省用 `SVRA_SSH_PORT` 或 22 |
 | `SVRA_HOST` | 可选 | fallback 主机地址 |
@@ -187,7 +188,8 @@ go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -c
 
 | Secret | 必需性 | 用途 |
 | --- | --- | --- |
-| `SVRB_SSH_KEY` | 推荐 | serverB SSH 私钥；缺省用 `SVRA_SSH_KEY` |
+| `SVR_MINI_SSH_KEY` | 推荐 | Mac mini 部署优先使用的 SSH 私钥 |
+| `SVRB_SSH_KEY` | 回退 | serverB SSH 私钥；缺省用 `SVRA_SSH_KEY` |
 | `SVRB_SUDO_PASSWORD` | 可选 | serverB sudo 密码；缺省用 `SVRA_SUDO_PASSWORD` |
 | `SVRA_SSH_KEY` | 推荐 | fallback SSH 私钥 |
 | `MYSQL_HOST` | 必需 | MySQL 主机 |

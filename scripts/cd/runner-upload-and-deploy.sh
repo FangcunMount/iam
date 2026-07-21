@@ -25,6 +25,14 @@ for f in "$PACKAGE_FILE" "$IMAGE_FILE"; do
   fi
 done
 
+# 使用 setup-runner-ssh.sh 写出的隔离 config（Mac mini 场景必需）
+SSH=(ssh)
+SCP=(scp)
+if [ -n "${RUNNER_SSH_CONFIG:-}" ] && [ -f "${RUNNER_SSH_CONFIG}" ]; then
+  SSH=(ssh -F "${RUNNER_SSH_CONFIG}")
+  SCP=(scp -F "${RUNNER_SSH_CONFIG}")
+fi
+
 # 把部署所需的环境变量用 printf %q 安全转义后写进 bootstrap 脚本的 export 段。
 # 这样变量不会经过 ssh 命令行传递（inline `VAR=val ... bash file` 在含特殊字符的
 # secret（如 SUDO_PASSWORD 含空格/#/;）上会被远端 shell 截断，导致脚本被忽略、命令
@@ -82,8 +90,8 @@ upload_and_verify() {
   local local_file="$1" remote_path="$2" attempts="${3:-3}" i
   for ((i = 1; i <= attempts; i++)); do
     echo "Uploading $(basename "$local_file") -> ${RUNNER_SSH_ALIAS}:${remote_path} (attempt ${i}/${attempts})..."
-    if scp "$local_file" "${RUNNER_SSH_ALIAS}:${remote_path}" \
-      && ssh "${RUNNER_SSH_ALIAS}" "gzip -t ${remote_path}"; then
+    if "${SCP[@]}" "$local_file" "${RUNNER_SSH_ALIAS}:${remote_path}" \
+      && "${SSH[@]}" "${RUNNER_SSH_ALIAS}" "gzip -t ${remote_path}"; then
       echo "Verified ${remote_path} integrity (gzip -t ok)"
       return 0
     fi
@@ -94,11 +102,11 @@ upload_and_verify() {
   return 1
 }
 
-resolved_host="$(ssh -G "${RUNNER_SSH_ALIAS}" 2>/dev/null | awk '$1 == "hostname" { print $2; exit }')"
+resolved_host="$("${SSH[@]}" -G "${RUNNER_SSH_ALIAS}" 2>/dev/null | awk '$1 == "hostname" { print $2; exit }')"
 echo "Upload target SSH HostName: ${resolved_host:-<unknown>} (expected: ${RUNNER_SSH_HOST:-unset})"
 if [ -n "${RUNNER_SSH_HOST:-}" ] && [ "${resolved_host:-}" != "$RUNNER_SSH_HOST" ]; then
   echo "FATAL: ${RUNNER_SSH_ALIAS} resolves to ${resolved_host:-<empty>}, expected ${RUNNER_SSH_HOST}" >&2
-  echo "Re-run setup-runner-ssh.sh; stale ~/.ssh/config on the runner is the usual cause." >&2
+  echo "Re-run setup-runner-ssh.sh; stale SSH config on the runner is the usual cause." >&2
   exit 1
 fi
 
@@ -108,14 +116,14 @@ upload_and_verify "$PACKAGE_FILE" "$REMOTE_PACKAGE"
 
 REMOTE_BOOT="/tmp/iam-cd-bootstrap-${SERVICE}-$$.sh"
 echo "Uploading bootstrap script to ${RUNNER_SSH_ALIAS}:${REMOTE_BOOT} ..."
-scp "$LOCAL_BOOT" "${RUNNER_SSH_ALIAS}:${REMOTE_BOOT}"
-ssh "${RUNNER_SSH_ALIAS}" "chmod 600 ${REMOTE_BOOT}" || true
+"${SCP[@]}" "$LOCAL_BOOT" "${RUNNER_SSH_ALIAS}:${REMOTE_BOOT}"
+"${SSH[@]}" "${RUNNER_SSH_ALIAS}" "chmod 600 ${REMOTE_BOOT}" || true
 
 # 远端只执行脚本本身，不在命令行 inline 任何变量（变量已写进脚本的 export 段）。
 echo "Running remote-deploy.sh on ${RUNNER_SSH_ALIAS}..."
 rc=0
-ssh "${RUNNER_SSH_ALIAS}" "bash ${REMOTE_BOOT}" || rc=$?
-ssh "${RUNNER_SSH_ALIAS}" "rm -f ${REMOTE_BOOT}" || true
+"${SSH[@]}" "${RUNNER_SSH_ALIAS}" "bash ${REMOTE_BOOT}" || rc=$?
+"${SSH[@]}" "${RUNNER_SSH_ALIAS}" "rm -f ${REMOTE_BOOT}" || true
 if [ "$rc" -ne 0 ]; then
   echo "remote-deploy.sh failed on ${RUNNER_SSH_ALIAS} (exit ${rc})" >&2
   exit "$rc"
