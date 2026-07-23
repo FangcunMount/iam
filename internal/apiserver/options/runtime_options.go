@@ -46,7 +46,7 @@ func NewJWKSOptions() *JWKSOptions {
 
 // IDPOptions configures identity provider bootstrap secrets.
 type IDPOptions struct {
-	EncryptionKey string            `json:"encryption-key" mapstructure:"encryption-key"`
+	EncryptionKey string            `json:"-" mapstructure:"encryption-key"`
 	WeCom         WeComOptions      `json:"wecom" mapstructure:"wecom"`
 	WechatOpen    WechatOpenOptions `json:"wechat_open" mapstructure:"wechat_open"`
 }
@@ -95,8 +95,8 @@ type SMSMQOptions struct {
 // AccessKeyID/AccessKeySecret 应通过环境变量注入，禁止明文写入配置文件。
 type SMSAliyunOptions struct {
 	// AccessKeyID/AccessKeySecret 留空时走阿里云默认凭据链（环境变量/RAM 角色等）。
-	AccessKeyID     string `json:"access_key_id" mapstructure:"access_key_id"`
-	AccessKeySecret string `json:"access_key_secret" mapstructure:"access_key_secret"`
+	AccessKeyID     string `json:"-" mapstructure:"access_key_id"`
+	AccessKeySecret string `json:"-" mapstructure:"access_key_secret"`
 	SignName        string `json:"sign_name" mapstructure:"sign_name"`
 	TemplateCode    string `json:"template_code" mapstructure:"template_code"`
 	Endpoint        string `json:"endpoint" mapstructure:"endpoint"`
@@ -182,7 +182,7 @@ func NewDebugOptions() *DebugOptions {
 // SeedMockAuthOptions controls the internal seed/mock consumer auth route.
 type SeedMockAuthOptions struct {
 	Enabled      bool   `json:"enabled" mapstructure:"enabled"`
-	SharedSecret string `json:"shared_secret" mapstructure:"shared_secret"`
+	SharedSecret string `json:"-" mapstructure:"shared_secret"`
 }
 
 func NewSeedMockAuthOptions() *SeedMockAuthOptions {

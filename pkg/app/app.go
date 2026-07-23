@@ -205,15 +205,6 @@ func (a *App) runCommand(cmd *cobra.Command, args []string) error {
 		if err := viper.Unmarshal(a.options); err != nil {
 			return err
 		}
-
-		// 打印选项信息
-		fmt.Printf("Options: %+v\n", a.options)
-
-		// 打印 secure 配置
-		fmt.Printf("Secure Config: %+v\n", viper.Get("secure"))
-		fmt.Printf("Secure TLS Config: %+v\n", viper.Get("secure.tls"))
-		fmt.Printf("Secure TLS Cert File: %+v\n", viper.Get("secure.tls.cert-file"))
-		fmt.Printf("Secure TLS Private Key File: %+v\n", viper.Get("secure.tls.private-key-file"))
 	}
 
 	// 如果静默标志不为空，则打印日志
@@ -263,11 +254,7 @@ func (a *App) applyOptionRules() error {
 
 // printViperConfig 输出当前 viper 读取到的配置以及关键环境变量，用于调试覆盖行为
 func printViperConfig(basename string) {
-	settings := viper.AllSettings()
-	settingKeys := make([]string, 0, len(settings))
-	for key := range settings {
-		settingKeys = append(settingKeys, key)
-	}
+	settingKeys := append([]string(nil), viper.AllKeys()...)
 	sort.Strings(settingKeys)
 	fmt.Printf("Viper Config keys loaded: %v\n", settingKeys)
 
@@ -289,26 +276,22 @@ func printViperConfig(basename string) {
 		"IAM_APISERVER_REDIS_STORE_USERNAME",
 		"IAM_APISERVER_REDIS_STORE_PASSWORD",
 		"IAM_APISERVER_IDP_ENCRYPTION_KEY",
+		"IAM_APISERVER_SMS_ALIYUN_ACCESS_KEY_ID",
+		"IAM_APISERVER_SMS_ALIYUN_ACCESS_KEY_SECRET",
+		"IAM_APISERVER_SEED_MOCK_AUTH_ENABLED",
+		"IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET",
 	}
 	for _, key := range keys {
-		fmt.Printf("ENV %s=%s\n", key, redactEnvValue(key, os.Getenv(key)))
+		_, set := os.LookupEnv(key)
+		fmt.Printf("ENV %s=%s\n", key, envPresence(set))
 	}
 }
 
-func redactEnvValue(key, value string) string {
-	if value == "" {
-		return ""
+func envPresence(set bool) string {
+	if set {
+		return "<set>"
 	}
-
-	upperKey := strings.ToUpper(key)
-	sensitiveTokens := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL"}
-	for _, token := range sensitiveTokens {
-		if strings.Contains(upperKey, token) {
-			return "***REDACTED***"
-		}
-	}
-
-	return value
+	return "<unset>"
 }
 
 // printWorkingDir 打印工作目录

@@ -133,6 +133,7 @@ sync_package() {
   $SUDO rsync -a "$DEPLOY_TMP/configs/" /opt/iam/configs/
   $SUDO rsync -a "$DEPLOY_TMP/scripts/cd/" /opt/iam/scripts/cd/
   $SUDO chown -R "$APP_UID:$APP_GID" /opt/iam/configs
+  $SUDO chmod 0640 /opt/iam/configs/env/config.prod.env
   $SUDO chown -R "$APP_UID:$APP_GID" /data/logs/iam /data/ops/iam-keys
   $SUDO chmod 0750 /data/ops/iam-keys
 }

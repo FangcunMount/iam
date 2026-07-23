@@ -42,10 +42,30 @@ validate_sms_aliyun_credentials() {
   fi
 }
 
+validate_seed_mock_auth() {
+  case "$SEED_MOCK_AUTH_ENABLED" in
+    true)
+      if [ -z "${SEED_MOCK_AUTH_SHARED_SECRET//[[:space:]]/}" ]; then
+        echo "Missing required env: SEED_MOCK_AUTH_SHARED_SECRET" >&2
+        exit 1
+      fi
+      ;;
+    false)
+      # 关闭时不把可能残留的 secret 写入部署包。
+      SEED_MOCK_AUTH_SHARED_SECRET=""
+      ;;
+    *)
+      echo "SEED_MOCK_AUTH_ENABLED must be true or false" >&2
+      exit 1
+      ;;
+  esac
+}
+
 redact_env_file() {
   sed \
     -e 's/ACCESS_KEY_ID=.*/ACCESS_KEY_ID=***REDACTED***/g' \
     -e 's/ACCESS_KEY_SECRET=.*/ACCESS_KEY_SECRET=***REDACTED***/g' \
+    -e 's/SHARED_SECRET=.*/SHARED_SECRET=***REDACTED***/g' \
     -e 's/PASSWORD=.*/PASSWORD=***REDACTED***/g' \
     -e 's/ENCRYPTION_KEY=.*/ENCRYPTION_KEY=***REDACTED***/g' \
     "$1"
@@ -57,7 +77,10 @@ NSQ_NSQD_PORT="${NSQ_NSQD_PORT:-4150}"
 default_redis_ssl
 SMS_ALIYUN_ACCESS_KEY_ID="${SMS_ALIYUN_ACCESS_KEY_ID:-}"
 SMS_ALIYUN_ACCESS_KEY_SECRET="${SMS_ALIYUN_ACCESS_KEY_SECRET:-}"
+SEED_MOCK_AUTH_ENABLED="${SEED_MOCK_AUTH_ENABLED:-false}"
+SEED_MOCK_AUTH_SHARED_SECRET="${SEED_MOCK_AUTH_SHARED_SECRET:-}"
 validate_sms_aliyun_credentials
+validate_seed_mock_auth
 
 require_env \
   MYSQL_HOST MYSQL_PORT MYSQL_USERNAME MYSQL_PASSWORD MYSQL_DBNAME \
@@ -100,14 +123,20 @@ IAM_APISERVER_IDP_ENCRYPTION_KEY=${IPD_ENCRYPTION_KEY}
 IAM_APISERVER_SMS_ALIYUN_ACCESS_KEY_ID=${SMS_ALIYUN_ACCESS_KEY_ID}
 IAM_APISERVER_SMS_ALIYUN_ACCESS_KEY_SECRET=${SMS_ALIYUN_ACCESS_KEY_SECRET}
 
+# Internal seed/mock consumer route. Disabled unless explicitly enabled.
+IAM_APISERVER_SEED_MOCK_AUTH_ENABLED=${SEED_MOCK_AUTH_ENABLED}
+IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET=${SEED_MOCK_AUTH_SHARED_SECRET}
+
 # NSQ configuration
 IAM_APISERVER_NSQ_ENABLED=${NSQ_ENABLED}
 IAM_APISERVER_NSQ_LOOKUPD_ADDRS=${NSQ_LOOKUPD_HOST:-}:${NSQ_LOOKUPD_PORT}
 IAM_APISERVER_NSQ_NSQD_ADDR=${NSQ_NSQD_HOST:-}:${NSQ_NSQD_PORT}
 EOF
+chmod 0600 "$ENV_FILE"
 
 echo "Generated config.prod.env for ${SERVICE}:"
 redact_env_file "$ENV_FILE"
 
 tar -czf "$DEPLOY_PACKAGE" -C "$PACKAGE_DIR" .
+chmod 0600 "$DEPLOY_PACKAGE"
 echo "Created ${DEPLOY_PACKAGE}"

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,6 +99,67 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 	}).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure")
+}
+
+func TestSeedMockRouteAuthenticatesBeforeValidatingPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{
+		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: "expected-secret"},
+	}).RegisterRoutes(engine)
+
+	tests := []struct {
+		name       string
+		secret     string
+		wantStatus int
+	}{
+		{name: "missing secret", wantStatus: http.StatusUnauthorized},
+		{name: "wrong secret", secret: "wrong-secret", wantStatus: http.StatusUnauthorized},
+		{name: "correct secret invalid payload", secret: "expected-secret", wantStatus: http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/v2/internal/authn/mock-consumers/ensure",
+				strings.NewReader("{}"),
+			)
+			req.Header.Set("Content-Type", "application/json")
+			if tt.secret != "" {
+				req.Header.Set(authnMiddleware.SeedMockSecretHeader, tt.secret)
+			}
+
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, req)
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d; body = %s", recorder.Code, tt.wantStatus, recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestRouterSkipsSeedMockRouteWhenDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	engine := gin.New()
+	deps := restDepsForTest()
+	deps.Authn = AuthnDeps{
+		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
+	}
+	deps.ModuleStatus.Authn = true
+
+	newRouterForTest(deps, RouterOptions{
+		SeedMockAuth: SeedMockAuthOptions{Enabled: false, SharedSecret: "test-secret"},
+	}).RegisterRoutes(engine)
+
+	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure")
 }
 
 func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {

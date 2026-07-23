@@ -75,6 +75,5 @@ func addConfigFlag(basename string, fs *pflag.FlagSet) {
 
 		// 打印配置信息
 		fmt.Printf("[config] ConfigFileUsed -> %s\n", viper.ConfigFileUsed())
-		fmt.Printf("[config] AllSettings -> %+v\n", viper.AllSettings())
 	})
 }

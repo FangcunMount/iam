@@ -15,8 +15,10 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 PACKAGE_FILE="${DEPLOY_PACKAGE:-deploy-package-${PACKAGE_SUFFIX}.tar.gz}"
 IMAGE_FILE="${DEPLOY_IMAGE_PACKAGE:-deploy-image-${PACKAGE_SUFFIX}.tar.gz}"
-REMOTE_PACKAGE="/tmp/deploy-package-${PACKAGE_SUFFIX}.tar.gz"
-REMOTE_IMAGE="/tmp/deploy-image-${PACKAGE_SUFFIX}.tar.gz"
+REMOTE_PACKAGE="/tmp/deploy-package-${PACKAGE_SUFFIX}-$$.tar.gz"
+REMOTE_IMAGE="/tmp/deploy-image-${PACKAGE_SUFFIX}-$$.tar.gz"
+REMOTE_BOOT="/tmp/iam-cd-bootstrap-${SERVICE}-$$.sh"
+REMOTE_CLEANUP_ENABLED=false
 
 for f in "$PACKAGE_FILE" "$IMAGE_FILE"; do
   if [ ! -f "$f" ]; then
@@ -38,7 +40,15 @@ fi
 # secret（如 SUDO_PASSWORD 含空格/#/;）上会被远端 shell 截断，导致脚本被忽略、命令
 # 静默成功），从根本上避免"看似成功实则空跑"的问题。
 LOCAL_BOOT="$(mktemp)"
-trap 'rm -f "$LOCAL_BOOT"' EXIT
+
+cleanup() {
+  rm -f "$LOCAL_BOOT"
+  if [ "$REMOTE_CLEANUP_ENABLED" = true ]; then
+    "${SSH[@]}" "${RUNNER_SSH_ALIAS}" \
+      "rm -f -- ${REMOTE_BOOT} ${REMOTE_PACKAGE} ${REMOTE_IMAGE}" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 emit_export() {
   printf 'export %s=%q\n' "$1" "$2" >>"$LOCAL_BOOT"
@@ -91,7 +101,7 @@ upload_and_verify() {
   for ((i = 1; i <= attempts; i++)); do
     echo "Uploading $(basename "$local_file") -> ${RUNNER_SSH_ALIAS}:${remote_path} (attempt ${i}/${attempts})..."
     if "${SCP[@]}" "$local_file" "${RUNNER_SSH_ALIAS}:${remote_path}" \
-      && "${SSH[@]}" "${RUNNER_SSH_ALIAS}" "gzip -t ${remote_path}"; then
+      && "${SSH[@]}" "${RUNNER_SSH_ALIAS}" "chmod 600 ${remote_path} && gzip -t ${remote_path}"; then
       echo "Verified ${remote_path} integrity (gzip -t ok)"
       return 0
     fi
@@ -110,11 +120,11 @@ if [ -n "${RUNNER_SSH_HOST:-}" ] && [ "${resolved_host:-}" != "$RUNNER_SSH_HOST"
   exit 1
 fi
 
+REMOTE_CLEANUP_ENABLED=true
 echo "Uploading ${PACKAGE_FILE} and ${IMAGE_FILE} to ${RUNNER_SSH_ALIAS}..."
 upload_and_verify "$IMAGE_FILE" "$REMOTE_IMAGE"
 upload_and_verify "$PACKAGE_FILE" "$REMOTE_PACKAGE"
 
-REMOTE_BOOT="/tmp/iam-cd-bootstrap-${SERVICE}-$$.sh"
 echo "Uploading bootstrap script to ${RUNNER_SSH_ALIAS}:${REMOTE_BOOT} ..."
 "${SCP[@]}" "$LOCAL_BOOT" "${RUNNER_SSH_ALIAS}:${REMOTE_BOOT}"
 "${SSH[@]}" "${RUNNER_SSH_ALIAS}" "chmod 600 ${REMOTE_BOOT}" || true

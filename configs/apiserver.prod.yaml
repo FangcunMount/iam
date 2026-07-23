@@ -124,8 +124,10 @@ auth:
 # 2.4 内部 Seed/Mock C 端建号接口
 # ============================================================================
 seed_mock_auth:
-  enabled: true
-  shared_secret: "N&#$Xds8sz72s0!8wkzsdcbWCnfJ6S5"
+  # 生产默认关闭；仅通过 IAM_APISERVER_SEED_MOCK_AUTH_ENABLED 显式开启。
+  enabled: false
+  # 禁止提交明文；启用时通过 IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET 注入。
+  shared_secret: ""
 
 # ============================================================================
 # 3. 数据存储配置
@@ -137,7 +139,7 @@ seed_mock_auth:
 mysql:
   host: "your-rds.mysql.rds.aliyuncs.com:3306"  # 生产环境使用云 RDS 内网地址
   username: "iam"
-  password: "iam_pass123"
+  password: ""
   database: "iam"
   max-idle-connections: 20
   max-open-connections: 80
@@ -197,7 +199,7 @@ tls:
 # 4.3 IDP 身份提供商
 # ----------------------------------------------------------------------------
 idp:
-  encryption-key: "CHANGE_ME_WITH_32_BYTE_BASE64_SECRET"  # 占位符，请通过安全渠道注入32字节密钥
+  encryption-key: ""  # 生产环境必须通过 IAM_APISERVER_IDP_ENCRYPTION_KEY 注入
   wecom:
     agent_id: ""  # 通过安全配置注入企业微信应用 AgentID
   wechat_open:

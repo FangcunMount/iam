@@ -40,6 +40,19 @@ func WarnWordSepNormalizeFunc(f *pflag.FlagSet, name string) pflag.NormalizedNam
 // 可以打印所有的命令行参数
 func PrintFlags(flags *pflag.FlagSet) {
 	flags.VisitAll(func(flag *pflag.Flag) {
-		log.Debugf("FLAG: --%s=%q", flag.Name, flag.Value)
+		log.Debugf("FLAG: --%s=%q", flag.Name, flagValueForLog(flag.Name, flag.Value.String()))
 	})
+}
+
+func flagValueForLog(name, value string) string {
+	normalizedName := strings.ToLower(name)
+	for _, token := range []string{"password", "secret", "token", "key", "credential"} {
+		if strings.Contains(normalizedName, token) {
+			if value == "" {
+				return "<unset>"
+			}
+			return "<set>"
+		}
+	}
+	return value
 }
