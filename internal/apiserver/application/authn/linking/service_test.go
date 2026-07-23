@@ -82,11 +82,17 @@ func TestUnlinkRejectsLastActiveLoginIdentity(t *testing.T) {
 		Status:     loginidentity.StatusActive,
 	}
 	repo.store(identity)
-	linker := NewLinker(Dependencies{LoginIdentities: repo})
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	authenticatedAt := now.Add(-time.Minute)
+	linker := NewLinker(Dependencies{
+		LoginIdentities: repo,
+		Now:             func() time.Time { return now },
+	})
 
 	err := linker.Unlink(context.Background(), UnlinkCommand{
 		UserID:          meta.FromUint64(100),
 		LoginIdentityID: meta.FromUint64(1),
+		AuthenticatedAt: &authenticatedAt,
 	})
 
 	require.Error(t, err)
@@ -278,6 +284,28 @@ func (s *linkingIdentityRepoStub) UpdateStatus(_ context.Context, id meta.ID, st
 		identity.Status = status
 	}
 	return nil
+}
+
+func (s *linkingIdentityRepoStub) UnlinkOwnedUnlessLastActive(
+	_ context.Context,
+	userID meta.ID,
+	loginIdentityID meta.ID,
+) (UnlinkOutcome, error) {
+	identity := s.byID[loginIdentityID]
+	if identity == nil || identity.UserID != userID {
+		return UnlinkOutcomeNotFound, nil
+	}
+	activeCount := 0
+	for _, candidate := range s.byID {
+		if candidate.UserID == userID && candidate.Status == loginidentity.StatusActive {
+			activeCount++
+		}
+	}
+	if identity.Status == loginidentity.StatusActive && activeCount <= 1 {
+		return UnlinkOutcomeLastActive, nil
+	}
+	identity.Status = loginidentity.StatusDeleted
+	return UnlinkOutcomeUnlinked, nil
 }
 
 func (s *linkingIdentityRepoStub) store(identity *loginidentity.LoginIdentity) {

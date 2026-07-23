@@ -38,7 +38,7 @@ func TestCredentialRepositoryCreatesAndFindsV2PasswordCredential(t *testing.T) {
 	require.Equal(t, credDomain.CredStatusEnabled, passwordRecord.Status)
 }
 
-func TestCredentialRepositoryUpdatesV2PasswordAuthState(t *testing.T) {
+func TestCredentialRepositoryUpdatesStatusAndRecordsFailure(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -50,27 +50,52 @@ func TestCredentialRepositoryUpdatesV2PasswordAuthState(t *testing.T) {
 	cred := credDomain.NewPasswordCredential(loginIdentityID, []byte("hash"), "argon2id")
 	require.NoError(t, repo.Create(ctx, cred))
 
-	lockedUntil := time.Now().Add(time.Minute).Truncate(time.Second)
-	lastSuccessAt := time.Now().Add(2 * time.Minute).Truncate(time.Second)
-	lastFailureAt := time.Now().Add(3 * time.Minute).Truncate(time.Second)
 	cred.Status = credDomain.CredStatusDisabled
-	cred.FailedAttempts = 3
-	cred.LockedUntil = &lockedUntil
-	cred.LastSuccessAt = &lastSuccessAt
-	cred.LastFailureAt = &lastFailureAt
 
 	require.NoError(t, repo.UpdateStatus(ctx, cred.ID, cred.Status))
-	require.NoError(t, repo.UpdateAuthState(ctx, cred))
+	now := time.Now().UTC().Truncate(time.Second)
+	state, err := repo.RecordAuthenticationFailure(ctx, cred.ID, now, credDomain.LockoutPolicy{})
+	require.NoError(t, err)
+	require.Equal(t, 1, state.FailedAttempts)
 
 	found, err := repo.GetByID(ctx, cred.ID)
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.Equal(t, credDomain.CredStatusDisabled, found.Status)
-	require.Equal(t, 3, found.FailedAttempts)
-	require.NotNil(t, found.LockedUntil)
-	require.True(t, found.LockedUntil.Equal(lockedUntil))
-	require.NotNil(t, found.LastSuccessAt)
-	require.True(t, found.LastSuccessAt.Equal(lastSuccessAt))
+	require.Equal(t, 1, found.FailedAttempts)
+	require.Nil(t, found.LockedUntil)
+	require.Nil(t, found.LastSuccessAt)
 	require.NotNil(t, found.LastFailureAt)
-	require.True(t, found.LastFailureAt.Equal(lastFailureAt))
+	require.True(t, found.LastFailureAt.Equal(now))
+}
+
+func TestCredentialRepositoryRecordsAuthenticationSuccessAtomically(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&V2PO{}))
+	repo := NewRepository(db)
+	cred := credDomain.NewPasswordCredential(meta.FromUint64(2001), []byte("old-hash"), "argon2id")
+	require.NoError(t, repo.Create(ctx, cred))
+	for range 4 {
+		_, err := repo.RecordAuthenticationFailure(ctx, cred.ID, time.Now(), credDomain.LockoutPolicy{})
+		require.NoError(t, err)
+	}
+
+	newAlgo := "argon2id-v2"
+	now := time.Now().UTC().Truncate(time.Second)
+	require.NoError(t, repo.RecordAuthenticationSuccess(ctx, cred.ID, now, &credDomain.MaterialRotation{
+		Material: []byte("new-hash"),
+		Algo:     &newAlgo,
+	}))
+
+	found, err := repo.GetByID(ctx, cred.ID)
+	require.NoError(t, err)
+	require.Equal(t, 0, found.FailedAttempts)
+	require.Equal(t, []byte("new-hash"), found.Material)
+	require.NotNil(t, found.Algo)
+	require.Equal(t, newAlgo, *found.Algo)
+	require.NotNil(t, found.LastSuccessAt)
+	require.True(t, found.LastSuccessAt.Equal(now))
 }

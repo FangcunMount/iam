@@ -72,6 +72,14 @@ func (l *linker) repo() loginidentity.Repository {
 	return l.deps.LoginIdentities
 }
 
+func (l *linker) identityUnlinker() AtomicIdentityUnlinker {
+	if l.deps.IdentityUnlinker != nil {
+		return l.deps.IdentityUnlinker
+	}
+	unlinker, _ := l.deps.LoginIdentities.(AtomicIdentityUnlinker)
+	return unlinker
+}
+
 // now 获取当前时间。
 func (l *linker) now() time.Time {
 	return l.prepareDeps().currentTime()

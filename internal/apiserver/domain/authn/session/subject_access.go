@@ -11,6 +11,7 @@ const (
 	SubjectAccessActive   SubjectAccessStatus = "active"   // 用户/登录身份处于活跃状态。
 	SubjectAccessBlocked  SubjectAccessStatus = "blocked"  // 用户/登录身份处于封禁状态。
 	SubjectAccessDisabled SubjectAccessStatus = "disabled" // 用户/登录身份处于禁用状态。
+	SubjectAccessInactive SubjectAccessStatus = "inactive" // 用户处于未激活状态。
 )
 
 // SubjectAccessDecision 表示用户/登录身份的访问状态。

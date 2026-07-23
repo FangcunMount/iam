@@ -57,7 +57,7 @@ func (e *subjectAccessEvaluator) evaluateUser(ctx context.Context, userID meta.I
 		return SubjectAccessDecision{Status: SubjectAccessBlocked, UserID: userID, LoginIdentityID: loginIdentityID}, nil
 	}
 	if user.IsInactive() {
-		return SubjectAccessDecision{Status: SubjectAccessDisabled, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+		return SubjectAccessDecision{Status: SubjectAccessInactive, UserID: userID, LoginIdentityID: loginIdentityID}, nil
 	}
 
 	return SubjectAccessDecision{

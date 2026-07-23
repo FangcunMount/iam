@@ -90,7 +90,7 @@ func (c *Credential) ApplyLockPolicy(now time.Time, policy LockoutPolicy) bool {
 		return false
 	}
 
-	if c.ShouldLock(policy.Threshold) {
+	if !c.IsLockedByTime(now) && c.ShouldLock(policy.Threshold) {
 		until := now.Add(policy.LockDuration)
 		c.LockUntil(until)
 		return true

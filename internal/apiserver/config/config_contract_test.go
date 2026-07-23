@@ -40,6 +40,9 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "auth access ttl", opts.Auth.AccessTokenTTL, 15*time.Minute)
 				assertEqual(t, "auth refresh ttl", opts.Auth.RefreshTokenTTL, 168*time.Hour)
 				assertEqual(t, "auth session max ttl", opts.Auth.SessionMaxTTL, 24*time.Hour)
+				assertEqual(t, "password lockout enabled", opts.Auth.PasswordLockout.Enabled, false)
+				assertEqual(t, "password lockout threshold", opts.Auth.PasswordLockout.Threshold, 5)
+				assertEqual(t, "password lockout duration", opts.Auth.PasswordLockout.LockDuration, 15*time.Minute)
 				assertEqual(t, "jwks keys dir", opts.JWKS.KeysDir, "./configs/keys")
 				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
 				assertEqual(t, "idp encryption key", opts.IDP.EncryptionKey, "")
@@ -91,6 +94,9 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "auth issuer", opts.Auth.JWTIssuer, "https://iam.fangcunmount.cn")
 				assertEqual(t, "auth audience count", len(opts.Auth.AccessTokenAudience), 2)
 				assertEqual(t, "auth session max ttl", opts.Auth.SessionMaxTTL, 24*time.Hour)
+				assertEqual(t, "password lockout enabled", opts.Auth.PasswordLockout.Enabled, true)
+				assertEqual(t, "password lockout threshold", opts.Auth.PasswordLockout.Threshold, 5)
+				assertEqual(t, "password lockout duration", opts.Auth.PasswordLockout.LockDuration, 15*time.Minute)
 				assertEqual(t, "jwks keys dir", opts.JWKS.KeysDir, "/app/data/keys")
 				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
 				assertEqual(t, "mysql password", opts.MySQLOptions.Password, "")
@@ -243,6 +249,28 @@ func TestServerModeConfigurationPrecedence(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPasswordLockoutEnvironmentOverridesYAML(t *testing.T) {
+	t.Setenv("IAM_APISERVER_AUTH_PASSWORD_LOCKOUT_ENABLED", "true")
+	t.Setenv("IAM_APISERVER_AUTH_PASSWORD_LOCKOUT_THRESHOLD", "7")
+	t.Setenv("IAM_APISERVER_AUTH_PASSWORD_LOCKOUT_LOCK_DURATION", "20m")
+
+	reader := viper.New()
+	reader.SetConfigFile(filepath.Join(repoRoot(t), "configs/apiserver.dev.yaml"))
+	reader.SetEnvPrefix("IAM_APISERVER")
+	reader.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	reader.AutomaticEnv()
+	if err := reader.ReadInConfig(); err != nil {
+		t.Fatal(err)
+	}
+	opts := apiserveroptions.NewOptions()
+	if err := reader.Unmarshal(opts); err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, "password lockout enabled", opts.Auth.PasswordLockout.Enabled, true)
+	assertEqual(t, "password lockout threshold", opts.Auth.PasswordLockout.Threshold, 7)
+	assertEqual(t, "password lockout duration", opts.Auth.PasswordLockout.LockDuration, 20*time.Minute)
 }
 
 func loadOptionsFromConfigFile(t *testing.T, file string) *apiserveroptions.Options {

@@ -7,6 +7,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 )
 
 // MethodRegistry 选择登录方式并解析 payload。
@@ -26,4 +27,5 @@ type Dependencies struct {
 	ProofFactory       ProofFactory
 	Authenticator      *authentication.Authenticator
 	CredentialRecorder credentialapp.Recorder
+	AccessChecker      sessiondomain.SubjectAccessEvaluator
 }

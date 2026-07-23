@@ -111,6 +111,10 @@ auth:
   access_token_ttl: 60m
   refresh_token_ttl: 168h
   session_max_ttl: 24h
+  password_lockout:
+    enabled: true
+    threshold: 5
+    lock_duration: 15m
 
 # ============================================================================
 # 2.4 内部 Seed/Mock C 端建号接口

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/logger"
 	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -243,8 +244,16 @@ func (v *oauthStateVerifier) verifyAndConsume(ctx context.Context, scene, state 
 	if subtle.ConstantTimeCompare(challenge.SecretHash, oauthStateSecretHash(state)) != 1 {
 		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state mismatch")
 	}
-	if err := v.repo.Consume(ctx, challengeID); err != nil {
+	consumed, err := v.repo.ConsumeIfSecretMatches(ctx, challengeID, challenge.SecretHash)
+	if err != nil {
 		return empty, err
+	}
+	if !consumed {
+		logger.L(ctx).Infow("oauth state consumption rejected because it was already consumed",
+			"challenge_type", challengeDomain.TypeOAuthState,
+			"scene", scene,
+		)
+		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state already used")
 	}
 	return wechatOpenOAuthStateContextFromPayload(challenge.Payload), nil
 }

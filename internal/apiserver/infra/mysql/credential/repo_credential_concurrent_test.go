@@ -81,3 +81,52 @@ func TestCredentialRepository_Create_ConcurrentDuplicateDetection(t *testing.T) 
 		Count(&cnt).Error)
 	require.Equal(t, int64(1), cnt)
 }
+
+func TestCredentialRepository_RecordAuthenticationFailure_ConcurrentLockout(t *testing.T) {
+	db := testutil.OpenDBForIntegrationTest(t, &V2PO{})
+	repo := NewRepository(db)
+	ctx := context.Background()
+	cred := domain.NewPasswordCredential(m.FromUint64(uint64(time.Now().UnixNano())), []byte("hash"), "argon2id")
+	require.NoError(t, repo.Create(ctx, cred))
+	t.Cleanup(func() {
+		_ = db.Unscoped().Where("id = ?", cred.ID.Uint64()).Delete(&V2PO{}).Error
+	})
+
+	const concurrency = 10
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	policy := domain.LockoutPolicy{Enabled: true, Threshold: 5, LockDuration: 15 * time.Minute}
+	var wg sync.WaitGroup
+	wg.Add(concurrency)
+	results := make(chan domain.AuthenticationState, concurrency)
+	errs := make(chan error, concurrency)
+	for range concurrency {
+		go func() {
+			defer wg.Done()
+			state, err := repo.RecordAuthenticationFailure(ctx, cred.ID, now, policy)
+			if err != nil {
+				errs <- err
+				return
+			}
+			results <- state
+		}()
+	}
+	wg.Wait()
+	close(results)
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	newLocks := 0
+	for state := range results {
+		if state.NewlyLocked {
+			newLocks++
+		}
+	}
+	require.Equal(t, 1, newLocks)
+	found, err := repo.GetByID(ctx, cred.ID)
+	require.NoError(t, err)
+	require.Equal(t, concurrency, found.FailedAttempts)
+	require.NotNil(t, found.LockedUntil)
+	require.WithinDuration(t, now.Add(15*time.Minute), *found.LockedUntil, time.Second)
+}

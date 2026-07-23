@@ -2,10 +2,10 @@ package redis
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"time"
 
-	redisops "github.com/FangcunMount/component-base/pkg/redis/ops"
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
 	"github.com/redis/go-redis/v9"
 
@@ -18,6 +18,17 @@ type ChallengeRepository struct {
 	client     *redis.Client
 	challenges *redisstore.ValueStore[*challengeDomain.AuthChallenge]
 }
+
+var consumeChallengeIfSecretMatchesScript = redis.NewScript(`
+local payload = redis.call("GET", KEYS[1])
+if not payload then
+	return 0
+end
+if not string.find(payload, ARGV[1], 1, true) then
+	return 0
+end
+return redis.call("DEL", KEYS[1])
+`)
 
 var _ challengeDomain.Repository = (*ChallengeRepository)(nil)
 
@@ -58,9 +69,22 @@ func (r *ChallengeRepository) Get(ctx context.Context, id string) (*challengeDom
 	return challenge, nil
 }
 
-func (r *ChallengeRepository) Consume(ctx context.Context, id string) error {
-	_, err := redisops.ConsumeIfExists(ctx, r.client, challengeRedisKey(id))
-	return err
+func (r *ChallengeRepository) ConsumeIfSecretMatches(ctx context.Context, id string, expectedHash []byte) (bool, error) {
+	if len(expectedHash) == 0 {
+		return false, nil
+	}
+	encoded := base64.StdEncoding.EncodeToString(expectedHash)
+	needle := fmt.Sprintf(`"SecretHash":"%s"`, encoded)
+	result, err := consumeChallengeIfSecretMatchesScript.Run(
+		ctx,
+		r.client,
+		[]string{challengeRedisKey(id)},
+		needle,
+	).Int()
+	if err != nil {
+		return false, fmt.Errorf("consume challenge if secret matches: %w", err)
+	}
+	return result == 1, nil
 }
 
 func (r *ChallengeRepository) Delete(ctx context.Context, id string) error {

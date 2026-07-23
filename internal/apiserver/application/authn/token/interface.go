@@ -44,7 +44,7 @@ type RefreshClaimsCodec interface {
 type accessTokenIssuerPort interface {
 	// IssueToken 登录：创建 session 并签发 access/refresh token pair。
 	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
-	// MintTokenPair 在既有 session 上签发 access token 并保存新的 refresh token（Refresh 复用）。
+	// MintTokenPair 在既有 session 上生成尚未持久化的 access/refresh token pair。
 	MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
 }
 

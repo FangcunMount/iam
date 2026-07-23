@@ -5,6 +5,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/subjectaccess"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -79,13 +80,25 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 		return nil, err
 	}
 
-	// 删除过期刷新令牌
-	s.deleteStaleRefreshToken(ctx, refreshTokenValue)
 	if err := s.sessionExtender.ExtendToRefreshExpiry(ctx, sess, newTokenPair.RefreshToken.ExpiresAt); err != nil {
 		if perrors.IsCode(err, code.ErrSessionInactive) || perrors.IsCode(err, code.ErrInvalidArgument) {
 			return nil, err
 		}
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to extend session ttl")
+	}
+
+	rotated, err := s.tokenStore.RotateRefreshToken(ctx, refreshTokenValue, refreshToken.ID, newTokenPair.RefreshToken)
+	if err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to rotate refresh token")
+	}
+	if !rotated {
+		logger.L(ctx).Infow("refresh token rotation rejected because the old token was already consumed",
+			"action", logger.ActionRefresh,
+			"resource", logger.ResourceToken,
+			"token_type", "refresh",
+			"token_hint", sanitize.MaskToken(refreshTokenValue),
+		)
+		return nil, perrors.WithCode(code.ErrRefreshTokenNotFound, "refresh token not found")
 	}
 
 	// 返回新的令牌对
@@ -139,14 +152,7 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 
 // ensureSubjectAccessAllowed 确保主体访问权限允许
 func (s *refresher) ensureSubjectAccessAllowed(ctx context.Context, refreshToken *Token) error {
-	decision, err := s.accessChecker.Evaluate(ctx, refreshToken.UserID, refreshToken.LoginIdentityID)
-	if err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate subject access")
-	}
-	if !decision.IsAllowed() {
-		return subjectAccessError(decision.Status)
-	}
-	return nil
+	return subjectaccess.RequireAllowed(ctx, s.accessChecker, refreshToken.UserID, refreshToken.LoginIdentityID)
 }
 
 // ensureRefreshTokenUsable 确保刷新令牌可用
@@ -193,29 +199,4 @@ func (s *refresher) issueRotatedTokenPair(ctx context.Context, principal *authen
 		return nil, perrors.WithCode(code.ErrInternalServerError, "access token issuer returned incomplete token pair")
 	}
 	return newTokenPair, nil
-}
-
-// deleteStaleRefreshToken 删除过期刷新令牌
-func (s *refresher) deleteStaleRefreshToken(ctx context.Context, refreshTokenValue string) {
-	if err := s.tokenStore.DeleteRefreshToken(ctx, refreshTokenValue); err != nil {
-		logger.L(ctx).Errorw("failed to delete stale refresh token after rotation",
-			"action", logger.ActionRefresh,
-			"resource", logger.ResourceToken,
-			"token_type", "refresh",
-			"token_hint", sanitize.MaskToken(refreshTokenValue),
-			"error", err.Error(),
-		)
-	}
-}
-
-// subjectAccessError 转换 subject access 状态为错误
-func subjectAccessError(status sessiondomain.SubjectAccessStatus) error {
-	switch status {
-	case sessiondomain.SubjectAccessBlocked:
-		return perrors.WithCode(code.ErrUserBlocked, "user is blocked")
-	case sessiondomain.SubjectAccessDisabled:
-		return perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is disabled")
-	default:
-		return perrors.WithCode(code.ErrUserInactive, "subject is inactive")
-	}
 }

@@ -17,6 +17,8 @@ type Store interface {
 	SaveRefreshToken(ctx context.Context, token *Token) error
 	// GetRefreshToken 获取刷新令牌
 	GetRefreshToken(ctx context.Context, tokenValue string) (*Token, error)
+	// RotateRefreshToken 仅在旧令牌仍匹配时原子写入新令牌并删除旧令牌。
+	RotateRefreshToken(ctx context.Context, oldValue, expectedOldID string, newToken *Token) (bool, error)
 	// DeleteRefreshToken 删除刷新令牌
 	DeleteRefreshToken(ctx context.Context, tokenValue string) error
 	// MarkAccessTokenRevoked 标记访问令牌已撤销

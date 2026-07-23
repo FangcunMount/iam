@@ -1,6 +1,6 @@
 # 关键链路：Token 签发、刷新、吊销
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authn/token`、Session/Token runtime、JWKS 实现、REST/gRPC 契约和测试逐项核对。
+> 状态：已核对 Refresh 单次轮换与 Session Redis 一致性；公开 REST/gRPC 契约未改变。
 
 ---
 
@@ -315,8 +315,7 @@ Refresh 链路用于在 AccessToken 过期后获取新的 AccessToken。
 ```text
 这个 RefreshToken 是否仍然有效？
 对应 Session 是否仍然 active？
-是否需要轮换 RefreshToken？
-是否发现重放风险？
+旧 RefreshToken 是否仍可被原子消费？
 能否签发新的 AccessToken？
 ```
 
@@ -333,7 +332,7 @@ Refresh 输出：
 
 ```text
 new AccessToken；
-可选 new RefreshToken；
+new RefreshToken；
 expiresIn；
 可选 refreshExpiresIn。
 ```
@@ -363,12 +362,16 @@ sequenceDiagram
             A-->>C: refresh failed
         else session active
             SS-->>A: Session / Principal
-            A->>KS: Select signing key(kid)
-            A->>TR: Issue new AccessToken(Session, Principal)
-            opt rotate refresh token
-                A->>TR: Revoke old RefreshToken and issue new RefreshToken
+            A->>A: Check User/LoginIdentity status
+            A->>KS: Mint candidate AccessToken and RefreshToken
+            A->>SS: Extend Session to candidate refresh expiry
+            A->>TR: Atomically replace old RefreshToken with candidate
+            alt old token already consumed
+                TR-->>A: rotation conflict
+                A-->>C: 401 refresh token not found
+            else rotation succeeds
+                A-->>C: new token response
             end
-            A-->>C: new token response
         end
     end
 ```
@@ -417,14 +420,15 @@ stateDiagram-v2
     Expired --> [*]
 ```
 
-建议规则：
+当前规则：
 
 ```text
-每次 refresh 后可选轮换 RefreshToken；
-旧 RefreshToken 被使用时视为重放风险；
-重放风险可触发 token family 或 Session revoke；
-RefreshToken family / rotatedFrom / replacedBy 信息应支持审计；
-轮换策略必须与客户端存储和重试行为兼容。
+每次 refresh 都严格轮换 RefreshToken；
+同一个旧 RefreshToken 只能原子交换成功一次；
+并发失败者不会获得已生成的 AccessToken，并继续得到现有 401 契约；
+Session 延长失败时旧 RefreshToken 保持有效，新 RefreshToken 不落库；
+当前不记录 consumed marker，不实现 token family，也不会因旧 token 重用撤销整个 Session；
+交换成功但响应送达前进程崩溃时，客户端需要重新登录；当前没有重试宽限。
 ```
 
 ---
@@ -533,8 +537,13 @@ Session 不是 User 状态；
 Session 可以被 User blocked 间接撤销；
 Session revoked 后不应 refresh；
 Session expired 后不应 refresh；
+Session 主对象与 User/LoginIdentity 两个 Redis 索引在同一事务保存；
+Revoke 与 Extend 使用乐观事务，Revoke 是终态且 Extend 不能恢复索引；
+批量撤销会清理索引存在但主对象缺失的陈旧成员；
 Session 不表达权限。
 ```
+
+旧版本可能遗留的“有主对象但无索引”Session 不做全库扫描，依靠最大 `session_max_ttl=24h` 自然收敛；在线 Verify 的 User/LoginIdentity 状态检查继续作为安全兜底。
 
 ---
 
@@ -644,7 +653,7 @@ User blocked 必须快速生效；
 | RefreshToken 签发失败 | 整体失败或补偿 | 取决于事务策略 |
 | RefreshToken 无效/过期/撤销 | Refresh 失败 | 需要重新登录 |
 | Session revoked/expired | Refresh 失败 | 不应签发新 AccessToken |
-| RefreshToken 重放 | 触发风险处理 | 可 revoke token family/session |
+| RefreshToken 重复使用 | `ErrRefreshTokenNotFound` / HTTP 401 | 当前不 revoke token family/session |
 | AccessToken 过期 | Verify 失败 | 客户端 refresh |
 | JWT kid 不存在 | Verify 失败 | 可能是伪造 token 或 key rotation 异常 |
 | JWKS 不可用 | 资源服务验签失败或降级 | 具体以运行时策略为准 |
@@ -684,14 +693,14 @@ Login 成功后多次签发可能产生多个 Session。
 两个 refresh 同时轮换，产生多个新 RefreshToken。
 ```
 
-建议：
+当前实现：
 
 ```text
-RefreshToken 验证和轮换使用事务或条件更新；
+RefreshToken 验证和轮换使用 Redis 原子脚本；
 旧 RefreshToken 只能成功使用一次；
-短时间内客户端重试可以设计 grace window，但必须审计；
-检测到重放时 revoke token family 或 Session；
-并发冲突返回明确错误，客户端重新登录或使用最新 token。
+候选 TokenPair 在轮换成功前不会返回；
+并发冲突返回现有未找到错误，客户端使用胜者响应；若胜者响应丢失则重新登录；
+当前没有 grace window、token family 或重放后整会话撤销。
 ```
 
 ---

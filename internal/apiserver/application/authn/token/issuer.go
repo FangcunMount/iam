@@ -85,10 +85,17 @@ func (s *accessTokenIssuer) IssueToken(ctx context.Context, principal *authentic
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to create session")
 	}
 
-	return s.MintTokenPair(ctx, principal, sess)
+	pair, err := s.MintTokenPair(ctx, principal, sess)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.tokenStore.SaveRefreshToken(ctx, pair.RefreshToken); err != nil {
+		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to save refresh token")
+	}
+	return pair, nil
 }
 
-// MintTokenPair 在既有 session 上签发 access token 并保存新的 refresh token（Refresh 复用）。
+// MintTokenPair 在既有 session 上生成尚未持久化的 access/refresh token pair。
 func (s *accessTokenIssuer) MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
 	if principal == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
@@ -120,7 +127,7 @@ func (s *accessTokenIssuer) MintTokenPair(ctx context.Context, principal *authen
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate access token")
 	}
 
-	refreshToken, err := s.issueRefreshToken(ctx, subject, sess, claims, now)
+	refreshToken, err := s.issueRefreshToken(subject, sess, claims, now)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate refresh token")
 	}
@@ -129,7 +136,7 @@ func (s *accessTokenIssuer) MintTokenPair(ctx context.Context, principal *authen
 }
 
 // issueRefreshToken 在既有 session 上签发 refresh token。
-func (s *accessTokenIssuer) issueRefreshToken(ctx context.Context, subject *AccessTokenSubject, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*Token, error) {
+func (s *accessTokenIssuer) issueRefreshToken(subject *AccessTokenSubject, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*Token, error) {
 	refreshExpiresAt, err := s.refreshExpirer.NextRefreshExpiresAt(now, sess)
 	if err != nil {
 		return nil, err
@@ -149,10 +156,6 @@ func (s *accessTokenIssuer) issueRefreshToken(ctx context.Context, subject *Acce
 	refreshToken.IssuedAt = now
 	refreshToken.AuthMethod = subject.AuthMethod
 	refreshToken.Realm = subject.Realm
-
-	if err := s.tokenStore.SaveRefreshToken(ctx, refreshToken); err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to save refresh token")
-	}
 
 	return refreshToken, nil
 }

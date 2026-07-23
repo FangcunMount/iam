@@ -2,9 +2,23 @@ package credential
 
 import (
 	"context"
+	"time"
 
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
+
+// AuthenticationState 是一次原子认证状态更新后的结果。
+type AuthenticationState struct {
+	FailedAttempts int
+	LockedUntil    *time.Time
+	NewlyLocked    bool
+}
+
+// MaterialRotation 描述认证成功时可选的凭据材料轮换。
+type MaterialRotation struct {
+	Material []byte
+	Algo     *string
+}
 
 // ==================== Driven Ports (被驱动端口) ====================
 // 由基础设施层实现，领域层使用
@@ -16,12 +30,12 @@ type Repository interface {
 	Create(ctx context.Context, c *Credential) error
 
 	// —— 更新凭据 ——
-	// UpdateMaterial 更新凭据材料
-	UpdateMaterial(ctx context.Context, id meta.ID, material []byte, algo string) error
 	// UpdateStatus 更新凭据状态
 	UpdateStatus(ctx context.Context, id meta.ID, status CredentialStatus) error
-	// UpdateAuthState 更新凭据认证状态
-	UpdateAuthState(ctx context.Context, c *Credential) error
+	// RecordAuthenticationFailure 原子递增失败次数并应用锁定策略。
+	RecordAuthenticationFailure(ctx context.Context, id meta.ID, now time.Time, policy LockoutPolicy) (AuthenticationState, error)
+	// RecordAuthenticationSuccess 原子清零失败次数并完成可选材料轮换。
+	RecordAuthenticationSuccess(ctx context.Context, id meta.ID, now time.Time, rotation *MaterialRotation) error
 
 	// —— 查询凭据 ——
 	// GetByID 根据凭据ID查询凭据

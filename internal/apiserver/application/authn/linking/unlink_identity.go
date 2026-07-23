@@ -7,7 +7,6 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Unlink 解绑登录身份；最后一个活跃登录身份不允许解绑。
@@ -22,18 +21,29 @@ func (l *linker) Unlink(ctx context.Context, cmd UnlinkCommand) error {
 		return err
 	}
 
-	// 检查是否为最后一个活跃登录身份。
-	if err := l.ensureNotLastActiveIdentity(ctx, cmd.UserID, identity); err != nil {
-		return err
-	}
-
 	// 检查是否需要重新认证。
 	if err := l.ensureUnlinkReauthentication(identity, cmd); err != nil {
 		return err
 	}
 
-	// 更新登录身份状态为已删除。
-	return l.repo().UpdateStatus(ctx, identity.ID, loginidentity.StatusDeleted)
+	unlinker := l.identityUnlinker()
+	if unlinker == nil {
+		return perrors.WithCode(code.ErrInternalServerError, "atomic login identity unlinker is required")
+	}
+	outcome, err := unlinker.UnlinkOwnedUnlessLastActive(ctx, cmd.UserID, identity.ID)
+	if err != nil {
+		return err
+	}
+	switch outcome {
+	case UnlinkOutcomeUnlinked:
+		return nil
+	case UnlinkOutcomeNotFound:
+		return perrors.WithCode(code.ErrLoginIdentityNotFound, "login identity not found")
+	case UnlinkOutcomeLastActive:
+		return perrors.WithCode(code.ErrInvalidArgument, "cannot unlink the last active login identity")
+	default:
+		return perrors.WithCode(code.ErrInternalServerError, "unexpected login identity unlink outcome")
+	}
 }
 
 // validateUnlinkCommand 验证解绑命令。
@@ -61,25 +71,6 @@ func (l *linker) loadOwnedLoginIdentity(ctx context.Context, cmd UnlinkCommand) 
 	}
 	// 返回登录身份。
 	return identity, nil
-}
-
-// ensureNotLastActiveIdentity 检查是否为最后一个活跃登录身份。
-func (l *linker) ensureNotLastActiveIdentity(ctx context.Context, userID meta.ID, identity *loginidentity.LoginIdentity) error {
-	// 检查登录身份是否活跃。
-	if identity.Status != loginidentity.StatusActive {
-		return nil
-	}
-
-	// 查询用户登录身份。
-	identities, err := l.repo().ListByUserID(ctx, userID)
-	if err != nil {
-		return err
-	}
-	// 检查是否为最后一个活跃登录身份。
-	if countActive(identities) <= 1 {
-		return perrors.WithCode(code.ErrInvalidArgument, "cannot unlink the last active login identity")
-	}
-	return nil
 }
 
 // ensureUnlinkReauthentication 检查是否需要重新认证。
@@ -118,15 +109,4 @@ func (l *linker) hasRecentAuthentication(authenticatedAt *time.Time) bool {
 		return false
 	}
 	return now.Sub(authAt) <= l.recentAuthWindow()
-}
-
-// countActive 计算活跃登录身份数量。
-func countActive(identities []*loginidentity.LoginIdentity) int {
-	count := 0
-	for _, identity := range identities {
-		if identity != nil && identity.Status == loginidentity.StatusActive {
-			count++
-		}
-	}
-	return count
 }

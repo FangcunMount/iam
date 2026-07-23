@@ -1,6 +1,6 @@
 # 关键链路：Login 登录认证
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authn`、`domain/authn`、IDP 协作、Token/Session 链路、REST/gRPC 契约和测试逐项核对。
+> 状态：已核对当前安全不变量；公开 REST/gRPC 契约未改变。
 
 ---
 
@@ -336,6 +336,17 @@ sequenceDiagram
 密码认证成功不等于授权通过。
 ```
 
+当前实现保证：
+
+```text
+生产默认连续失败 5 次后锁定 15 分钟，开发默认关闭；
+失败计数由数据库原子递增，并发失败不会读取后覆盖；
+首次真正进入锁定时记录不含证明材料的安全日志；
+成功认证用一次数据库更新清零失败次数、写成功时间并完成可选密码材料升级；
+锁定截止前即使密码正确也返回 ErrCredentialLocked（HTTP 423）；
+锁定过期后的成功登录会清零失败计数。
+```
+
 ---
 
 ## 9. OTP / Challenge 登录链路
@@ -399,11 +410,14 @@ sequenceDiagram
 ```text
 Challenge 必须短期有效；
 Challenge 成功后必须消费，防重放；
-Challenge 验证失败次数应受限；
+同一 SMS Challenge 或 OAuth state 并发验证时只允许一个请求消费成功；
+旧 verifier 不能删除后来覆盖的新 Challenge；
 验证码不应明文保存；
 OTP 通常不是长期 Credential；
 OTP 登录是否允许自动 Onboarding，必须由上层用例明确。
 ```
+
+当前未实现 OTP 错误次数上限；它仍是后续风险治理项，不能把密码 Credential 的锁定策略理解为 OTP 尝试限制。
 
 ---
 
@@ -488,6 +502,8 @@ User 是否 inactive；
 User 是否 blocked。
 ```
 
+当前 SignIn 在 proof 验证和 Credential 状态记录之后、创建 Session/Token 之前统一执行状态检查。`blocked User`、`inactive User`、`disabled LoginIdentity` 和状态查询错误都禁止调用 TokenService；Refresh 和在线 Verify 复用同一错误映射。
+
 边界：
 
 ```text
@@ -547,7 +563,7 @@ Principal 的后续用途：
 | Credential 不存在 | 登录失败 | 不应泄露配置细节 |
 | password 错误 | 登录失败 | 记录失败次数或触发锁定策略 |
 | Challenge 不存在/过期/已消费 | 登录失败 | 需要重新发起 Challenge |
-| OTP 错误次数过多 | 登录失败并锁定 Challenge 或目标 | 防暴力猜测 |
+| OTP 错误 | 登录失败 | 当前未实现 OTP 错误次数上限 |
 | 外部 provider code 无效 | 登录失败 | IDP 返回外部身份错误 |
 | LoginIdentity 未 Onboarding/Linking | 登录失败或提示开通 | 取决于接口语义 |
 | User inactive/blocked | 登录失败 | User 状态来自 Identity |
@@ -611,8 +627,8 @@ Login 通常不是幂等写链路，但会修改安全状态。
 建议：
 
 ```text
-Challenge consume 使用条件更新或事务保证一次性；
-失败次数更新要原子；
+Challenge consume 已使用 Redis 条件删除保证一次性；
+密码失败次数已使用数据库原子递增；
 LoginIdentity 状态读取和认证结果生成需要一致；
 User blocked 后的 Session revoke 应由独立链路保证；
 登录审计可异步，但认证结果必须清晰。

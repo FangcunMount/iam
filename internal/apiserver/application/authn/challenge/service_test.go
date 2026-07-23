@@ -1,6 +1,7 @@
 package challenge
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -65,6 +66,23 @@ func TestPhoneLinkOTPCreatesChallengeAndConsumesOnce(t *testing.T) {
 
 	ok = service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
 	require.False(t, ok)
+}
+
+func TestPhoneOTPConsumeRepositoryErrorFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	repo := newChallengeRepoStub()
+	sms := &smsSenderStub{}
+	service := NewService(repo, SMSOTPDelivery{
+		Gate: &smsOTPGateStub{allow: true},
+		SMS:  sms,
+	}, NewCreator(repo), NewVerifier(repo))
+	ctx := context.Background()
+	require.NoError(t, service.SendLoginPhoneOTP(ctx, "13800138000"))
+	repo.consumeErr = errors.New("redis unavailable")
+
+	require.False(t, service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code))
+	require.NotEmpty(t, repo.items)
 }
 
 func TestPhoneOTPVerifiersDoNotConsumeOtherScenes(t *testing.T) {
@@ -203,10 +221,11 @@ func TestSendLoginPhoneOTPDoesNotConsumeQuotaWhenGateRejects(t *testing.T) {
 }
 
 type challengeRepoStub struct {
-	items     map[string]*challengeDomain.AuthChallenge
-	createErr error
-	deleted   []string
-	events    *[]string
+	items      map[string]*challengeDomain.AuthChallenge
+	createErr  error
+	consumeErr error
+	deleted    []string
+	events     *[]string
 }
 
 func newChallengeRepoStub() *challengeRepoStub {
@@ -228,9 +247,16 @@ func (s *challengeRepoStub) Get(_ context.Context, id string) (*challengeDomain.
 	return s.items[id], nil
 }
 
-func (s *challengeRepoStub) Consume(_ context.Context, id string) error {
+func (s *challengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string, expectedHash []byte) (bool, error) {
+	if s.consumeErr != nil {
+		return false, s.consumeErr
+	}
+	item := s.items[id]
+	if item == nil || !bytes.Equal(item.SecretHash, expectedHash) {
+		return false, nil
+	}
 	delete(s.items, id)
-	return nil
+	return true, nil
 }
 
 func (s *challengeRepoStub) Delete(_ context.Context, id string) error {

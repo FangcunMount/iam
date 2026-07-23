@@ -4,9 +4,12 @@ import (
 	"context"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/logger"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
 // Recorder 记录长期 Credential 的认证生命周期状态。
@@ -39,64 +42,49 @@ func (r *recorder) Record(ctx context.Context, decision authentication.AuthDecis
 	if r == nil || r.deps.Credentials == nil || decision.CredentialID.IsZero() {
 		return nil
 	}
-	// 获取凭据。
-	cred, err := r.deps.Credentials.GetByID(ctx, decision.CredentialID)
-	if err != nil {
-		return err
-	}
-
-	// 凭据不存在，不需要记录认证生命周期状态，直接返回。
-	if cred == nil {
-		return nil
-	}
-
 	switch decision.Code {
 	case code.ErrInvalidCredentials, code.ErrAuthenticationFailed:
 		// 认证失败（含密码错误等），记录失败次数与最近失败时间。
-		return r.recordFailure(ctx, cred, r.now())
+		return r.recordFailure(ctx, decision.CredentialID, r.now())
 	default:
 		if !decision.OK {
 			return nil
 		}
 		// 认证成功，记录认证成功状态。
-		return r.recordSuccess(ctx, cred, decision, r.now())
+		return r.recordSuccess(ctx, decision.CredentialID, decision, r.now())
 	}
 }
 
 // recordSuccess 记录认证成功状态。
-func (r *recorder) recordSuccess(ctx context.Context, cred *credDomain.Credential, decision authentication.AuthDecision, now time.Time) error {
-	// 轮换凭据材料。
-	if err := r.rotateMaterial(ctx, cred, decision); err != nil {
-		return err
+func (r *recorder) recordSuccess(ctx context.Context, credentialID meta.ID, decision authentication.AuthDecision, now time.Time) error {
+	var rotation *credDomain.MaterialRotation
+	if decision.ShouldRotate && len(decision.NewMaterial) > 0 {
+		rotation = &credDomain.MaterialRotation{Material: decision.NewMaterial, Algo: decision.NewAlgo}
 	}
-	// 记录认证成功状态。
-	cred.RecordSuccess(now)
-	// 更新凭据认证状态。
-	return r.deps.Credentials.UpdateAuthState(ctx, cred)
+	err := r.deps.Credentials.RecordAuthenticationSuccess(ctx, credentialID, now, rotation)
+	if perrors.IsCode(err, code.ErrCredentialNotFound) {
+		return nil
+	}
+	return err
 }
 
 // recordFailure 记录认证失败状态。
-func (r *recorder) recordFailure(ctx context.Context, cred *credDomain.Credential, now time.Time) error {
-	// 记录认证失败状态。
-	cred.RecordFailure(now)
-
-	// 更新凭据认证状态。
-	return r.deps.Credentials.UpdateAuthState(ctx, cred)
-}
-
-// rotateMaterial 轮换凭据材料。
-func (r *recorder) rotateMaterial(ctx context.Context, cred *credDomain.Credential, decision authentication.AuthDecision) error {
-	if !decision.ShouldRotate || len(decision.NewMaterial) == 0 {
+func (r *recorder) recordFailure(ctx context.Context, credentialID meta.ID, now time.Time) error {
+	state, err := r.deps.Credentials.RecordAuthenticationFailure(ctx, credentialID, now, r.deps.LockoutPolicy)
+	if perrors.IsCode(err, code.ErrCredentialNotFound) {
 		return nil
 	}
-	algo := ""
-	if cred.Algo != nil {
-		algo = *cred.Algo
+	if err != nil {
+		return err
 	}
-	if decision.NewAlgo != nil {
-		algo = *decision.NewAlgo
+	if state.NewlyLocked {
+		logger.L(ctx).Warnw("credential locked after consecutive authentication failures",
+			"credential_id", credentialID.String(),
+			"failed_attempts", state.FailedAttempts,
+			"locked_until", state.LockedUntil,
+		)
 	}
-	return r.deps.Credentials.UpdateMaterial(ctx, cred.ID, decision.NewMaterial, algo)
+	return nil
 }
 
 // now 获取当前时间。

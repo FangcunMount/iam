@@ -7,6 +7,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/authfailure"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/principal"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/subjectaccess"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
@@ -53,6 +54,18 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 		return nil, authfailure.Error(decision.Code)
 	}
 
+	if decision.Principal == nil {
+		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "authentication principal is missing")
+	}
+	if err := subjectaccess.RequireAllowed(
+		ctx,
+		s.deps.AccessChecker,
+		decision.Principal.UserID,
+		decision.Principal.LoginIdentityID,
+	); err != nil {
+		return nil, err
+	}
+
 	// 签发 TokenPair
 	return s.issueTokenPair(ctx, decision.Principal)
 }
@@ -63,7 +76,7 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 // 职责：确保依赖已准备好，返回错误
 func (s *SignIn) ensureReady() error {
 	d := s.deps
-	if s == nil || d.TokenService == nil || d.MethodRegistry == nil || d.ProofFactory == nil || d.Authenticator == nil {
+	if s == nil || d.TokenService == nil || d.MethodRegistry == nil || d.ProofFactory == nil || d.Authenticator == nil || d.AccessChecker == nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "login service is not initialized")
 	}
 	return nil

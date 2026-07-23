@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	linking "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
 	authn "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct {
@@ -109,6 +111,57 @@ func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain
 		return perrors.WithCode(code.ErrLoginIdentityNotFound, "login identity not found")
 	}
 	return nil
+}
+
+func (r *Repository) UnlinkOwnedUnlessLastActive(
+	ctx context.Context,
+	userID meta.ID,
+	loginIdentityID meta.ID,
+) (linking.UnlinkOutcome, error) {
+	var outcome linking.UnlinkOutcome
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Where("user_id = ?", userID).
+			Order("user_id ASC, id ASC")
+		if tx.Dialector.Name() == "mysql" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		var identities []PO
+		if err := query.Find(&identities).Error; err != nil {
+			return fmt.Errorf("lock login identities for unlink: %w", err)
+		}
+
+		var target *PO
+		activeCount := 0
+		for i := range identities {
+			if domain.Status(identities[i].Status) == domain.StatusActive {
+				activeCount++
+			}
+			if identities[i].ID == loginIdentityID {
+				target = &identities[i]
+			}
+		}
+		if target == nil {
+			outcome = linking.UnlinkOutcomeNotFound
+			return nil
+		}
+		if domain.Status(target.Status) == domain.StatusActive && activeCount <= 1 {
+			outcome = linking.UnlinkOutcomeLastActive
+			return nil
+		}
+		result := tx.Model(&PO{}).
+			Where("user_id = ? AND id = ?", userID, loginIdentityID).
+			Update("status", string(domain.StatusDeleted))
+		if result.Error != nil {
+			return fmt.Errorf("unlink login identity: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			outcome = linking.UnlinkOutcomeNotFound
+			return nil
+		}
+		outcome = linking.UnlinkOutcomeUnlinked
+		return nil
+	})
+	return outcome, err
 }
 
 func (r *Repository) FindUsernameIdentity(ctx context.Context, tenantID meta.ID, username string) (*authn.LoginIdentityLookup, error) {

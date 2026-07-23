@@ -80,7 +80,7 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	domain := m.initializeDomain(infra, deps.Auth)
 
 	// 初始化应用层
-	if err := m.initializeApplication(infra, domain, hasher, deps.IDPOptions, deps.SMS); err != nil {
+	if err := m.initializeApplication(infra, domain, hasher, deps.Auth, deps.IDPOptions, deps.SMS); err != nil {
 		return err
 	}
 

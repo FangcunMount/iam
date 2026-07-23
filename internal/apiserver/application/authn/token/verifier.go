@@ -4,7 +4,7 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/subjectaccess"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -96,27 +96,5 @@ func (s *verifier) checkSessionActive(ctx context.Context, sessionID string) err
 
 // checkSubjectAccessAllowed 检查主体访问权限
 func (s *verifier) checkSubjectAccessAllowed(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) error {
-	// 检查主体访问权限
-	decision, err := s.accessChecker.Evaluate(ctx, userID, loginIdentityID)
-	if err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate subject access")
-	}
-
-	// 检查主体访问权限是否允许
-	if !decision.IsAllowed() {
-		return subjectAccessVerifyError(decision.Status)
-	}
-	return nil
-}
-
-// subjectAccessError 转换主体访问状态为错误
-func subjectAccessVerifyError(status sessiondomain.SubjectAccessStatus) error {
-	switch status {
-	case sessiondomain.SubjectAccessBlocked:
-		return perrors.WithCode(code.ErrUserBlocked, "user is blocked")
-	case sessiondomain.SubjectAccessDisabled:
-		return perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is disabled")
-	default:
-		return perrors.WithCode(code.ErrUserInactive, "user is inactive")
-	}
+	return subjectaccess.RequireAllowed(ctx, s.accessChecker, userID, loginIdentityID)
 }

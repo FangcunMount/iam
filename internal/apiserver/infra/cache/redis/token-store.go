@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -21,6 +22,19 @@ type RedisStore struct {
 	refreshTokens             *redisstore.ValueStore[refreshTokenData]
 	revokedAccessTokenMarkers *redisstore.ValueStore[string]
 }
+
+var rotateRefreshTokenScript = redis.NewScript(`
+local current = redis.call("GET", KEYS[1])
+if not current then
+	return 0
+end
+if not string.find(current, ARGV[1], 1, true) then
+	return 0
+end
+redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
+redis.call("DEL", KEYS[1])
+return 1
+`)
 
 // NewRedisStore 创建 Redis 令牌存储
 func NewRedisStore(client *redis.Client) *RedisStore {
@@ -59,18 +73,7 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token
 		return fmt.Errorf("token is nil")
 	}
 
-	data := refreshTokenData{
-		TokenID:         token.ID,
-		SessionID:       token.SessionID,
-		UserID:          token.UserID.Uint64(),
-		LoginIdentityID: token.LoginIdentityID.Uint64(),
-		TenantID:        token.TenantID.Uint64(),
-		AuthMethod:      token.AuthMethod,
-		Realm:           token.Realm,
-		Amr:             token.AMR,
-		SessionClaims:   token.SessionClaims,
-		ExpiresAt:       token.ExpiresAt,
-	}
+	data := refreshTokenDataFromToken(token)
 
 	// 保存到 Redis，key 格式: refresh_token:{token_value}
 	key := refreshTokenRedisKey(token.Value)
@@ -94,6 +97,53 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token
 		log.Duration("ttl", ttl),
 	)
 	return nil
+}
+
+func refreshTokenDataFromToken(token *tokenapp.Token) refreshTokenData {
+	return refreshTokenData{
+		TokenID:         token.ID,
+		SessionID:       token.SessionID,
+		UserID:          token.UserID.Uint64(),
+		LoginIdentityID: token.LoginIdentityID.Uint64(),
+		TenantID:        token.TenantID.Uint64(),
+		AuthMethod:      token.AuthMethod,
+		Realm:           token.Realm,
+		Amr:             token.AMR,
+		SessionClaims:   token.SessionClaims,
+		ExpiresAt:       token.ExpiresAt,
+	}
+}
+
+// RotateRefreshToken 原子写入新刷新令牌并消费仍匹配的旧令牌。
+func (s *RedisStore) RotateRefreshToken(ctx context.Context, oldValue, expectedOldID string, newToken *tokenapp.Token) (bool, error) {
+	if newToken == nil {
+		return false, fmt.Errorf("new token is nil")
+	}
+	ttl := newToken.RemainingDuration()
+	if ttl <= 0 {
+		return false, fmt.Errorf("new token already expired")
+	}
+	payload, err := json.Marshal(refreshTokenDataFromToken(newToken))
+	if err != nil {
+		return false, fmt.Errorf("encode new refresh token: %w", err)
+	}
+	needleBytes, err := json.Marshal(expectedOldID)
+	if err != nil {
+		return false, fmt.Errorf("encode expected old token id: %w", err)
+	}
+	needle := `"token_id":` + string(needleBytes)
+	result, err := rotateRefreshTokenScript.Run(
+		ctx,
+		s.client,
+		[]string{refreshTokenRedisKey(oldValue), refreshTokenRedisKey(newToken.Value)},
+		needle,
+		payload,
+		ttl.Milliseconds(),
+	).Int()
+	if err != nil {
+		return false, fmt.Errorf("rotate refresh token in redis: %w", err)
+	}
+	return result == 1, nil
 }
 
 // GetRefreshToken 获取刷新令牌

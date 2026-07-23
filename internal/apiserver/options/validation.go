@@ -18,6 +18,14 @@ func (o *Options) Validate() []error {
 	if o.SeedMockAuth != nil && o.SeedMockAuth.Enabled && strings.TrimSpace(o.SeedMockAuth.SharedSecret) == "" {
 		errs = append(errs, errors.New("seed_mock_auth.shared_secret is required when seed_mock_auth.enabled=true"))
 	}
+	if o.Auth != nil && o.Auth.PasswordLockout.Enabled {
+		if o.Auth.PasswordLockout.Threshold < 1 {
+			errs = append(errs, errors.New("auth.password_lockout.threshold must be at least 1 when enabled"))
+		}
+		if o.Auth.PasswordLockout.LockDuration <= 0 {
+			errs = append(errs, errors.New("auth.password_lockout.lock_duration must be positive when enabled"))
+		}
+	}
 
 	return errs
 }

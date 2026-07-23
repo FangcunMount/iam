@@ -12,11 +12,19 @@ type RemovedAppOptions struct {
 
 // AuthOptions configures JWT token issuing and verification.
 type AuthOptions struct {
-	JWTIssuer           string        `json:"jwt_issuer" mapstructure:"jwt_issuer"`
-	AccessTokenAudience []string      `json:"access_token_audience" mapstructure:"access_token_audience"`
-	AccessTokenTTL      time.Duration `json:"access_token_ttl" mapstructure:"access_token_ttl"`
-	RefreshTokenTTL     time.Duration `json:"refresh_token_ttl" mapstructure:"refresh_token_ttl"`
-	SessionMaxTTL       time.Duration `json:"session_max_ttl" mapstructure:"session_max_ttl"`
+	JWTIssuer           string                 `json:"jwt_issuer" mapstructure:"jwt_issuer"`
+	AccessTokenAudience []string               `json:"access_token_audience" mapstructure:"access_token_audience"`
+	AccessTokenTTL      time.Duration          `json:"access_token_ttl" mapstructure:"access_token_ttl"`
+	RefreshTokenTTL     time.Duration          `json:"refresh_token_ttl" mapstructure:"refresh_token_ttl"`
+	SessionMaxTTL       time.Duration          `json:"session_max_ttl" mapstructure:"session_max_ttl"`
+	PasswordLockout     PasswordLockoutOptions `json:"password_lockout" mapstructure:"password_lockout"`
+}
+
+// PasswordLockoutOptions configures consecutive password failure lockout.
+type PasswordLockoutOptions struct {
+	Enabled      bool          `json:"enabled" mapstructure:"enabled"`
+	Threshold    int           `json:"threshold" mapstructure:"threshold"`
+	LockDuration time.Duration `json:"lock_duration" mapstructure:"lock_duration"`
 }
 
 func NewAuthOptions() *AuthOptions {
@@ -24,6 +32,11 @@ func NewAuthOptions() *AuthOptions {
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
 		SessionMaxTTL:   24 * time.Hour,
+		PasswordLockout: PasswordLockoutOptions{
+			Enabled:      false,
+			Threshold:    5,
+			LockDuration: 15 * time.Minute,
+		},
 	}
 }
 

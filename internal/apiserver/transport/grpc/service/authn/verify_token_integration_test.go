@@ -30,6 +30,9 @@ import (
 type noopTokenStore struct{}
 
 func (noopTokenStore) SaveRefreshToken(context.Context, *tokenapp.Token) error { return nil }
+func (noopTokenStore) RotateRefreshToken(context.Context, string, string, *tokenapp.Token) (bool, error) {
+	return true, nil
+}
 func (noopTokenStore) GetRefreshToken(context.Context, string) (*tokenapp.Token, error) {
 	return nil, nil
 }

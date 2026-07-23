@@ -1,6 +1,6 @@
 # 关键链路：Linking 登录身份绑定
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authn`、`domain/authn`、IDP 协作、REST/gRPC 契约和测试逐项核对。
+> 状态：已核对当前解绑安全不变量；公开 REST/gRPC 契约未改变。
 
 ---
 
@@ -403,14 +403,12 @@ sequenceDiagram
         alt belongs to another User
             A-->>T: forbidden / conflict
         else belongs to current User
-            A->>A: ensure user still has another usable LoginIdentity
+            A->>A: complete reauthentication before transaction
+            A->>LIR: lock user's LoginIdentity rows in stable order
             alt last login identity
                 A-->>T: reject unlink
             else safe to unlink
-                A->>LIR: Disable or Unbind LoginIdentity
-                opt credential cleanup
-                    A->>CR: Disable related Credential
-                end
+                A->>LIR: mark target deleted in the same transaction
                 A-->>T: unlinked result
             end
         end
@@ -423,13 +421,17 @@ sequenceDiagram
 
 解绑需要重点保护“账户可恢复性”。
 
-建议规则：
+当前规则：
 
 ```text
 不能解绑其他 User 的 LoginIdentity；
 不能让当前 User 没有任何可用登录方式，除非有管理员恢复机制；
-解绑高风险身份前应要求 reauth；
-解绑后是否 revoke Session 必须有明确策略；
+解绑高风险身份前要求 recent authentication；
+reauthentication 在数据库事务前完成；
+MySQL 事务按 user_id、id 固定顺序锁定该用户的 LoginIdentity 行；
+归属、目标状态、active 数量和 deleted 更新在同一事务中重新确认；
+两个活跃身份并发解绑只允许一个成功，另一个拒绝解绑最后一个活跃身份；
+解绑当前不自动 revoke Session；
 解绑应保留审计记录。
 ```
 
@@ -465,12 +467,10 @@ sequenceDiagram
 解绑幂等需要明确 API 语义：
 
 ```text
-解绑不存在的 LoginIdentity 是返回 not found，还是视为已解绑？
-重复解绑已 disabled 的 LoginIdentity 是成功，还是返回状态冲突？
-解绑最后一个 LoginIdentity 是否永远拒绝？
+解绑不存在或不属于当前 User 的 LoginIdentity 返回 not found；
+重复解绑已非 active 的 LoginIdentity 保持幂等删除；
+解绑最后一个 active LoginIdentity 返回现有 invalid argument 错误。
 ```
-
-本文不假设已实现，必须以当前契约和 application 行为为准。
 
 ---
 
@@ -489,7 +489,7 @@ sequenceDiagram
 ```text
 provider + identifier 建唯一约束；
 绑定与解绑用例应有事务边界；
-解绑最后一个身份的检查和写入需要同一事务语义；
+解绑最后一个身份的检查和写入已由 application-owned 原子端口落到同一 MySQL 事务；
 并发冲突映射为 conflict 或可重试错误；
 重要操作记录审计日志。
 ```

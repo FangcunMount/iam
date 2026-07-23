@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
@@ -57,19 +57,34 @@ func (s *credentialRepoStub) Create(context.Context, *credDomain.Credential) err
 	return nil
 }
 
-func (s *credentialRepoStub) UpdateMaterial(_ context.Context, id meta.ID, material []byte, _ string) error {
-	s.material = append([]byte(nil), material...)
-	if cred := s.items[id]; cred != nil {
-		cred.Material = append([]byte(nil), material...)
-	}
-	return nil
-}
-
 func (s *credentialRepoStub) UpdateStatus(context.Context, meta.ID, credDomain.CredentialStatus) error {
 	return nil
 }
 
-func (s *credentialRepoStub) UpdateAuthState(context.Context, *credDomain.Credential) error {
+func (s *credentialRepoStub) RecordAuthenticationFailure(_ context.Context, id meta.ID, now time.Time, policy credDomain.LockoutPolicy) (credDomain.AuthenticationState, error) {
+	cred := s.items[id]
+	if cred == nil {
+		return credDomain.AuthenticationState{}, nil
+	}
+	cred.RecordFailure(now)
+	newlyLocked := cred.ApplyLockPolicy(now, policy)
+	return credDomain.AuthenticationState{
+		FailedAttempts: cred.FailedAttempts,
+		LockedUntil:    cred.LockedUntil,
+		NewlyLocked:    newlyLocked,
+	}, nil
+}
+
+func (s *credentialRepoStub) RecordAuthenticationSuccess(_ context.Context, id meta.ID, now time.Time, rotation *credDomain.MaterialRotation) error {
+	cred := s.items[id]
+	if cred == nil {
+		return nil
+	}
+	cred.RecordSuccess(now)
+	if rotation != nil {
+		s.material = append([]byte(nil), rotation.Material...)
+		cred.RotateMaterial(rotation.Material, rotation.Algo)
+	}
 	return nil
 }
 

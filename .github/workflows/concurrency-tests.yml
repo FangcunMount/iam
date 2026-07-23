@@ -8,6 +8,8 @@ on:
       - go.mod
       - go.sum
       - internal/apiserver/infra/mysql/**
+      - internal/apiserver/application/authn/**
+      - internal/apiserver/domain/authn/**
       - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
@@ -18,6 +20,8 @@ on:
       - go.mod
       - go.sum
       - internal/apiserver/infra/mysql/**
+      - internal/apiserver/application/authn/**
+      - internal/apiserver/domain/authn/**
       - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**

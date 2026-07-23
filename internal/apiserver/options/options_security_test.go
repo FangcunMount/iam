@@ -3,6 +3,7 @@ package options
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOptionsStringOmitsSecrets(t *testing.T) {
@@ -71,6 +72,45 @@ func TestOptionsValidateSeedMockAuth(t *testing.T) {
 				return
 			}
 
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tt.errMessage) {
+					return
+				}
+			}
+			t.Fatalf("Options.Validate() errors = %v, want one containing %q", errs, tt.errMessage)
+		})
+	}
+}
+
+func TestOptionsValidatePasswordLockout(t *testing.T) {
+	tests := []struct {
+		name       string
+		enabled    bool
+		threshold  int
+		duration   time.Duration
+		wantErr    bool
+		errMessage string
+	}{
+		{name: "disabled allows zero values"},
+		{name: "enabled valid", enabled: true, threshold: 5, duration: 15 * time.Minute},
+		{name: "enabled invalid threshold", enabled: true, duration: time.Minute, wantErr: true, errMessage: "threshold"},
+		{name: "enabled invalid duration", enabled: true, threshold: 5, wantErr: true, errMessage: "lock_duration"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := NewOptions()
+			opts.Auth.PasswordLockout = PasswordLockoutOptions{
+				Enabled:      tt.enabled,
+				Threshold:    tt.threshold,
+				LockDuration: tt.duration,
+			}
+			errs := opts.Validate()
+			if !tt.wantErr {
+				if len(errs) != 0 {
+					t.Fatalf("Options.Validate() errors = %v, want none", errs)
+				}
+				return
+			}
 			for _, err := range errs {
 				if strings.Contains(err.Error(), tt.errMessage) {
 					return

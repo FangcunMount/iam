@@ -16,6 +16,7 @@ import (
 	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	credentialDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
 	smsInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/token/keyset"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
@@ -25,6 +26,7 @@ func (m *AuthnModule) initializeApplication(
 	infra *authnInfrastructureComponents,
 	domain *authnDomainComponents,
 	hasher authentication.PasswordHasher,
+	authOptions apiserveroptions.AuthOptions,
 	idpOptions apiserveroptions.IDPOptions,
 	smsOptions apiserveroptions.SMSOptions,
 ) error {
@@ -52,12 +54,13 @@ func (m *AuthnModule) initializeApplication(
 	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(infra.challengeRepo))
 	m.challengeService = challengeService
 	m.loginIdentityLinking = linkingApp.NewLinker(linkingApp.Dependencies{
-		LoginIdentities: infra.loginIdentityStore,
-		PhoneLinkOTP:    newPhoneLinkOTPVerifierAdapter(challengeService),
-		IDP:             infra.idp,
-		WechatApps:      infra.wechatAppQuerier,
-		SecretVault:     infra.secretVault,
-		WecomAgentID:    idpOptions.WeCom.AgentID,
+		LoginIdentities:  infra.loginIdentityStore,
+		IdentityUnlinker: infra.loginIdentityStore,
+		PhoneLinkOTP:     newPhoneLinkOTPVerifierAdapter(challengeService),
+		IDP:              infra.idp,
+		WechatApps:       infra.wechatAppQuerier,
+		SecretVault:      infra.secretVault,
+		WecomAgentID:     idpOptions.WeCom.AgentID,
 	})
 
 	tokenService := token.NewTokenApplicationService(token.TokenApplicationDependencies{
@@ -91,10 +94,18 @@ func (m *AuthnModule) initializeApplication(
 	}
 
 	signIn := signin.New(signin.Dependencies{
-		TokenService:       tokenService,
-		Authenticator:      authenticator,
-		MethodRegistry:     method.DefaultSelector(),
-		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{Credentials: infra.credentialRepo}),
+		TokenService:   tokenService,
+		Authenticator:  authenticator,
+		MethodRegistry: method.DefaultSelector(),
+		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{
+			Credentials: infra.credentialRepo,
+			LockoutPolicy: credentialDomain.LockoutPolicy{
+				Enabled:      authOptions.PasswordLockout.Enabled,
+				Threshold:    authOptions.PasswordLockout.Threshold,
+				LockDuration: authOptions.PasswordLockout.LockDuration,
+			},
+		}),
+		AccessChecker: infra.accessChecker,
 		ProofFactory: proof.DefaultFactory(
 			infra.wechatAppQuerier,
 			infra.secretVault,

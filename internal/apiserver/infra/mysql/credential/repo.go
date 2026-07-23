@@ -3,6 +3,7 @@ package credential
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -11,6 +12,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct {
@@ -44,27 +46,90 @@ func translateDuplicateCredentialError(err error) error {
 	})(err)
 }
 
-func (r *Repository) UpdateMaterial(ctx context.Context, id meta.ID, material []byte, algo string) error {
-	return r.updateCredential(ctx, id, map[string]interface{}{
-		"material": material,
-		"algo":     algo,
-	}, "material")
-}
-
 func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain.CredentialStatus) error {
 	return r.updateCredential(ctx, id, map[string]interface{}{"status": status.String()}, "status")
 }
 
-func (r *Repository) UpdateAuthState(ctx context.Context, cred *domain.Credential) error {
-	if cred == nil || cred.ID.IsZero() {
+func (r *Repository) RecordAuthenticationFailure(
+	ctx context.Context,
+	id meta.ID,
+	now time.Time,
+	policy domain.LockoutPolicy,
+) (domain.AuthenticationState, error) {
+	if id.IsZero() {
+		return domain.AuthenticationState{}, perrors.WithCode(code.ErrInvalidArgument, "credential id is required")
+	}
+	now = now.UTC()
+	var state domain.AuthenticationState
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Select("failed_attempts", "locked_until").Where("id = ?", id.Uint64())
+		if tx.Dialector.Name() == "mysql" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		var before V2PO
+		if err := query.First(&before).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return credentialNotFoundError()
+			}
+			return fmt.Errorf("lock credential authentication state: %w", err)
+		}
+		wasLocked := before.LockedUntil != nil && now.Before(*before.LockedUntil)
+
+		updates := map[string]interface{}{
+			"failed_attempts": gorm.Expr("failed_attempts + 1"),
+			"last_failure_at": now,
+		}
+		if policy.Enabled {
+			expectedLockUntil := now.Add(policy.LockDuration)
+			updates["locked_until"] = gorm.Expr(
+				"CASE WHEN failed_attempts + 1 >= ? AND (locked_until IS NULL OR locked_until <= ?) THEN ? ELSE locked_until END",
+				policy.Threshold,
+				now,
+				expectedLockUntil,
+			)
+		}
+		result := tx.Model(&V2PO{}).Where("id = ?", id.Uint64()).Updates(updates)
+		if result.Error != nil {
+			return fmt.Errorf("record credential authentication failure: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return credentialNotFoundError()
+		}
+		var po V2PO
+		if err := tx.Select("failed_attempts", "locked_until").Where("id = ?", id.Uint64()).First(&po).Error; err != nil {
+			return fmt.Errorf("load credential authentication state: %w", err)
+		}
+		state.FailedAttempts = po.FailedAttempts
+		state.LockedUntil = po.LockedUntil
+		state.NewlyLocked = policy.Enabled &&
+			!wasLocked &&
+			po.LockedUntil != nil &&
+			now.Before(*po.LockedUntil)
+		return nil
+	})
+	return state, err
+}
+
+func (r *Repository) RecordAuthenticationSuccess(
+	ctx context.Context,
+	id meta.ID,
+	now time.Time,
+	rotation *domain.MaterialRotation,
+) error {
+	if id.IsZero() {
 		return perrors.WithCode(code.ErrInvalidArgument, "credential id is required")
 	}
-	return r.updateCredential(ctx, cred.ID, map[string]interface{}{
-		"failed_attempts": cred.FailedAttempts,
-		"locked_until":    cred.LockedUntil,
-		"last_success_at": cred.LastSuccessAt,
-		"last_failure_at": cred.LastFailureAt,
-	}, "auth_state")
+	updates := map[string]interface{}{
+		"failed_attempts": 0,
+		"last_success_at": now.UTC(),
+	}
+	if rotation != nil && len(rotation.Material) > 0 {
+		updates["material"] = rotation.Material
+		if rotation.Algo != nil {
+			updates["algo"] = *rotation.Algo
+		}
+	}
+	return r.updateCredential(ctx, id, updates, "authentication_success")
 }
 
 func (r *Repository) GetByID(ctx context.Context, id meta.ID) (*domain.Credential, error) {

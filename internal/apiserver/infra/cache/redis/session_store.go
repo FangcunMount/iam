@@ -2,16 +2,26 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/log"
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	sessionTransactionMaxAttempts = 5
+	sessionTransactionBackoff     = 5 * time.Millisecond
 )
 
 // SessionStore 基于 Redis 承载认证会话与用户/登录身份索引。
@@ -38,19 +48,21 @@ func (s *SessionStore) Save(ctx context.Context, sess *sessiondomain.Session) er
 	if sess == nil {
 		return fmt.Errorf("session is nil")
 	}
-	key, err := newStoreKey(sessionRedisKey(sess.SessionID))
-	if err != nil {
-		return err
-	}
 	ttl := sess.RemainingTTL()
 	if ttl <= 0 {
 		return fmt.Errorf("session ttl must be positive")
 	}
-	if err := s.sessionStore.Set(ctx, key, sess, ttl); err != nil {
-		return fmt.Errorf("save session payload: %w", err)
+	payload, err := json.Marshal(sess)
+	if err != nil {
+		return fmt.Errorf("encode session payload: %w", err)
 	}
-	if err := s.addIndexes(ctx, sess); err != nil {
-		return fmt.Errorf("save session indexes: %w", err)
+	_, err = s.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		pipe.Set(ctx, sessionRedisKey(sess.SessionID), payload, ttl)
+		s.addIndexesToPipeline(ctx, pipe, sess)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("save session and indexes: %w", err)
 	}
 	return nil
 }
@@ -79,39 +91,61 @@ func (s *SessionStore) Revoke(ctx context.Context, sessionID string, reason stri
 	if s == nil || s.client == nil {
 		return fmt.Errorf("redis client is nil")
 	}
-	sess, err := s.Get(ctx, sessionID)
-	if err != nil {
+	key := sessionRedisKey(sessionID)
+	return s.withSessionTransactionRetry(ctx, key, func(tx *redis.Tx) error {
+		sess, err := loadSessionForTransaction(ctx, tx, key)
+		if err != nil || sess == nil {
+			return err
+		}
+		sess.Revoke(reason, revokedBy)
+		payload, err := json.Marshal(sess)
+		if err != nil {
+			return fmt.Errorf("encode revoked session: %w", err)
+		}
+		ttl := sess.RemainingTTL()
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			if ttl <= 0 {
+				pipe.Del(ctx, key)
+			} else {
+				pipe.Set(ctx, key, payload, ttl)
+			}
+			s.removeIndexesFromPipeline(ctx, pipe, sess)
+			return nil
+		})
 		return err
-	}
-	if sess == nil {
-		return nil
-	}
-	sess.Revoke(reason, revokedBy)
-	if err := s.removeIndexes(ctx, sess); err != nil {
-		return fmt.Errorf("remove session indexes: %w", err)
-	}
-	ttl := sess.RemainingTTL()
-	key, err := newStoreKey(sessionRedisKey(sessionID))
-	if err != nil {
-		return err
-	}
-	if ttl <= 0 {
-		return s.sessionStore.Delete(ctx, key)
-	}
-	return s.sessionStore.Set(ctx, key, sess, ttl)
+	})
 }
 
 // Extend 延长会话过期时间，并同步索引 score。
 func (s *SessionStore) Extend(ctx context.Context, sessionID string, expiresAt time.Time) error {
-	sess, err := s.Get(ctx, sessionID)
-	if err != nil {
+	if s == nil || s.client == nil {
+		return fmt.Errorf("redis client is nil")
+	}
+	key := sessionRedisKey(sessionID)
+	return s.withSessionTransactionRetry(ctx, key, func(tx *redis.Tx) error {
+		sess, err := loadSessionForTransaction(ctx, tx, key)
+		if err != nil || sess == nil {
+			return err
+		}
+		if !sess.IsActive() {
+			return perrors.WithCode(code.ErrSessionInactive, "session has been revoked or expired")
+		}
+		sess.Extend(expiresAt)
+		ttl := sess.RemainingTTL()
+		if ttl <= 0 {
+			return perrors.WithCode(code.ErrSessionInactive, "session extension must remain active")
+		}
+		payload, err := json.Marshal(sess)
+		if err != nil {
+			return fmt.Errorf("encode extended session: %w", err)
+		}
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			pipe.Set(ctx, key, payload, ttl)
+			s.addIndexesToPipeline(ctx, pipe, sess)
+			return nil
+		})
 		return err
-	}
-	if sess == nil {
-		return nil
-	}
-	sess.Extend(expiresAt)
-	return s.Save(ctx, sess)
+	})
 }
 
 // RevokeByUser 撤销指定用户下的全部活跃会话。
@@ -133,6 +167,16 @@ func (s *SessionStore) revokeByIndex(ctx context.Context, indexKey string, reaso
 		return fmt.Errorf("list indexed sessions: %w", err)
 	}
 	for _, sessionID := range sessionIDs {
+		sess, getErr := s.Get(ctx, sessionID)
+		if getErr != nil {
+			return getErr
+		}
+		if sess == nil {
+			if err := s.client.ZRem(ctx, indexKey, sessionID).Err(); err != nil {
+				return fmt.Errorf("remove stale session index member: %w", err)
+			}
+			continue
+		}
 		if err := s.Revoke(ctx, sessionID, reason, revokedBy); err != nil {
 			return err
 		}
@@ -140,25 +184,67 @@ func (s *SessionStore) revokeByIndex(ctx context.Context, indexKey string, reaso
 	return nil
 }
 
-func (s *SessionStore) addIndexes(ctx context.Context, sess *sessiondomain.Session) error {
+func (s *SessionStore) addIndexesToPipeline(ctx context.Context, pipe redis.Pipeliner, sess *sessiondomain.Session) {
 	userIndexKey := userSessionIndexRedisKey(sess.UserID.String())
 	loginIdentityIndexKey := loginIdentitySessionIndexRedisKey(sess.LoginIdentityID.String())
 	score := float64(sess.ExpiresAt.Unix())
-	pipe := s.client.TxPipeline()
 	pipe.ZAdd(ctx, userIndexKey, redis.Z{Score: score, Member: sess.SessionID})
 	pipe.ZAdd(ctx, loginIdentityIndexKey, redis.Z{Score: score, Member: sess.SessionID})
-	_, err := pipe.Exec(ctx)
-	return err
 }
 
-func (s *SessionStore) removeIndexes(ctx context.Context, sess *sessiondomain.Session) error {
+func (s *SessionStore) removeIndexesFromPipeline(ctx context.Context, pipe redis.Pipeliner, sess *sessiondomain.Session) {
 	userIndexKey := userSessionIndexRedisKey(sess.UserID.String())
 	loginIdentityIndexKey := loginIdentitySessionIndexRedisKey(sess.LoginIdentityID.String())
-	pipe := s.client.TxPipeline()
 	pipe.ZRem(ctx, userIndexKey, sess.SessionID)
 	pipe.ZRem(ctx, loginIdentityIndexKey, sess.SessionID)
-	_, err := pipe.Exec(ctx)
-	return err
+}
+
+func loadSessionForTransaction(ctx context.Context, tx *redis.Tx, key string) (*sessiondomain.Session, error) {
+	payload, err := tx.Get(ctx, key).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load session transaction payload: %w", err)
+	}
+	var sess sessiondomain.Session
+	if err := json.Unmarshal(payload, &sess); err != nil {
+		return nil, fmt.Errorf("decode session transaction payload: %w", err)
+	}
+	return &sess, nil
+}
+
+func (s *SessionStore) withSessionTransactionRetry(
+	ctx context.Context,
+	key string,
+	update func(*redis.Tx) error,
+) error {
+	var lastErr error
+	for attempt := 1; attempt <= sessionTransactionMaxAttempts; attempt++ {
+		err := s.client.Watch(ctx, update, key)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, redis.TxFailedErr) {
+			return err
+		}
+		lastErr = err
+		if attempt == sessionTransactionMaxAttempts {
+			redisError(ctx, "session optimistic transaction retries exhausted",
+				log.Int("attempts", sessionTransactionMaxAttempts))
+			break
+		}
+		timer := time.NewTimer(time.Duration(attempt) * sessionTransactionBackoff)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return fmt.Errorf("session optimistic transaction conflict: %w", lastErr)
 }
 
 func (s *SessionStore) removeExpiredIndexMembers(ctx context.Context, indexKey string) error {

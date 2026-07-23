@@ -58,9 +58,12 @@ func (s *wechatScanOAuthChallengeRepoStub) Get(_ context.Context, id string) (*c
 	return s.items[id], nil
 }
 
-func (s *wechatScanOAuthChallengeRepoStub) Consume(_ context.Context, id string) error {
+func (s *wechatScanOAuthChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string, _ []byte) (bool, error) {
+	if _, ok := s.items[id]; !ok {
+		return false, nil
+	}
 	delete(s.items, id)
-	return nil
+	return true, nil
 }
 
 func (s *wechatScanOAuthChallengeRepoStub) Delete(_ context.Context, id string) error {

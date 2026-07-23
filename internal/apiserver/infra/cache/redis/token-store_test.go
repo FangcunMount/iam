@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -146,6 +147,110 @@ func TestRedisStoreRejectsExpiredRefreshToken(t *testing.T) {
 	}
 	if mr.Exists(refreshTokenRedisKey(expiredToken.Value)) {
 		t.Fatalf("expired token should not be written to redis")
+	}
+}
+
+func TestRedisStoreRotateRefreshTokenIsSingleUse(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	store := NewRedisStore(client)
+	ctx := context.Background()
+	oldToken := tokenapp.NewRefreshToken(
+		"old-id", "old-value", "session-id",
+		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
+		nil, nil, time.Hour,
+	)
+	if err := store.SaveRefreshToken(ctx, oldToken); err != nil {
+		t.Fatalf("SaveRefreshToken() error = %v", err)
+	}
+
+	type result struct {
+		index   int
+		rotated bool
+		err     error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	for i := range 2 {
+		go func(index int) {
+			<-start
+			candidate := tokenapp.NewRefreshToken(
+				fmt.Sprintf("new-id-%d", index),
+				fmt.Sprintf("new-value-%d", index),
+				"session-id",
+				meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
+				nil, nil, time.Hour,
+			)
+			ok, err := store.RotateRefreshToken(ctx, oldToken.Value, oldToken.ID, candidate)
+			results <- result{index: index, rotated: ok, err: err}
+		}(i)
+	}
+	close(start)
+
+	successes := 0
+	winner := -1
+	for range 2 {
+		got := <-results
+		if got.err != nil {
+			t.Fatalf("RotateRefreshToken() error = %v", got.err)
+		}
+		if got.rotated {
+			successes++
+			winner = got.index
+		}
+	}
+	if successes != 1 {
+		t.Fatalf("successful rotations = %d, want 1", successes)
+	}
+	if loaded, err := store.GetRefreshToken(ctx, oldToken.Value); err != nil || loaded != nil {
+		t.Fatalf("old refresh token = %#v, err = %v, want absent", loaded, err)
+	}
+	for i := range 2 {
+		loaded, err := store.GetRefreshToken(ctx, fmt.Sprintf("new-value-%d", i))
+		if err != nil {
+			t.Fatalf("GetRefreshToken(candidate %d) error = %v", i, err)
+		}
+		if (loaded != nil) != (i == winner) {
+			t.Fatalf("candidate %d exists = %t, winner = %d", i, loaded != nil, winner)
+		}
+	}
+}
+
+func TestRedisStoreRotateRefreshTokenRejectsMismatchedOldIDWithoutMutation(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	store := NewRedisStore(client)
+	ctx := context.Background()
+	oldToken := tokenapp.NewRefreshToken(
+		"old-id", "old-value", "session-id",
+		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
+		nil, nil, time.Hour,
+	)
+	candidate := tokenapp.NewRefreshToken(
+		"new-id", "new-value", "session-id",
+		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
+		nil, nil, time.Hour,
+	)
+	if err := store.SaveRefreshToken(ctx, oldToken); err != nil {
+		t.Fatalf("SaveRefreshToken() error = %v", err)
+	}
+
+	rotated, err := store.RotateRefreshToken(ctx, oldToken.Value, "different-old-id", candidate)
+	if err != nil {
+		t.Fatalf("RotateRefreshToken() error = %v", err)
+	}
+	if rotated {
+		t.Fatal("RotateRefreshToken() = true, want false")
+	}
+	if loaded, err := store.GetRefreshToken(ctx, oldToken.Value); err != nil || loaded == nil {
+		t.Fatalf("old refresh token = %#v, err = %v, want preserved", loaded, err)
+	}
+	if loaded, err := store.GetRefreshToken(ctx, candidate.Value); err != nil || loaded != nil {
+		t.Fatalf("new refresh token = %#v, err = %v, want absent", loaded, err)
 	}
 }
 

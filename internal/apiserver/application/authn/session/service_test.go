@@ -11,6 +11,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -74,6 +75,7 @@ func newSessionServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicati
 		MethodRegistry:     method.DefaultSelector(),
 		ProofFactory:       proof.DefaultFactory(nil, nil, proof.WecomConfig{}, nil),
 		CredentialRecorder: nil,
+		AccessChecker:      sessionSubjectAccessEvaluatorStub{},
 	})
 	svc, err := NewApplicationService(Dependencies{
 		TokenService: tokenService,
@@ -81,6 +83,12 @@ func newSessionServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicati
 	})
 	require.NoError(t, err)
 	return svc
+}
+
+type sessionSubjectAccessEvaluatorStub struct{}
+
+func (sessionSubjectAccessEvaluatorStub) Evaluate(context.Context, meta.ID, meta.ID) (sessiondomain.SubjectAccessDecision, error) {
+	return sessiondomain.SubjectAccessDecision{Status: sessiondomain.SubjectAccessActive}, nil
 }
 
 func TestMethodSelectorUsesAuthMethodAsAuthority(t *testing.T) {

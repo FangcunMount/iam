@@ -82,6 +82,33 @@ func TestSubjectAccessEvaluatorRejectsDisabledLoginIdentityAndBlockedUser(t *tes
 	require.Equal(t, SubjectAccessBlocked, decision.Status)
 }
 
+func TestSubjectAccessEvaluatorDistinguishesInactiveUser(t *testing.T) {
+	ctx := context.Background()
+	userID := meta.FromUint64(1001)
+	loginIdentityID := meta.FromUint64(2001)
+	users := &subjectAccessUserRepoStub{
+		byID: map[meta.ID]*userdomain.User{
+			userID: {ID: userID, Name: "inactive", Status: userdomain.UserInactive},
+		},
+	}
+	identities := &subjectAccessLoginIdentityRepoStub{
+		byID: map[meta.ID]*loginidentitydomain.LoginIdentity{
+			loginIdentityID: {
+				ID:         loginIdentityID,
+				UserID:     userID,
+				Provider:   loginidentitydomain.ProviderUsername,
+				Realm:      loginidentitydomain.RealmDefault,
+				Identifier: "inactive-user",
+				Status:     loginidentitydomain.StatusActive,
+			},
+		},
+	}
+
+	decision, err := NewSubjectAccessEvaluator(users, identities).Evaluate(ctx, userID, loginIdentityID)
+	require.NoError(t, err)
+	require.Equal(t, SubjectAccessInactive, decision.Status)
+}
+
 type subjectAccessUserRepoStub struct {
 	byID map[meta.ID]*userdomain.User
 }

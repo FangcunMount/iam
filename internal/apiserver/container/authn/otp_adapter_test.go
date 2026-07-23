@@ -1,6 +1,7 @@
 package authn
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
+	sessionDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -53,6 +55,7 @@ func TestPhoneOTPLoginConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 		Authenticator:  authenticator,
 		MethodRegistry: method.DefaultSelector(),
 		ProofFactory:   proof.DefaultFactory(nil, nil, proof.WecomConfig{}, nil),
+		AccessChecker:  authnSubjectAccessEvaluatorStub{},
 	})
 
 	result, err := signIn.Execute(ctx, method.LoginRequest{
@@ -160,9 +163,13 @@ func (s *authnChallengeRepoStub) Get(_ context.Context, id string) (*challengeDo
 	return s.items[id], nil
 }
 
-func (s *authnChallengeRepoStub) Consume(_ context.Context, id string) error {
+func (s *authnChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string, expectedHash []byte) (bool, error) {
+	item := s.items[id]
+	if item == nil || !bytes.Equal(item.SecretHash, expectedHash) {
+		return false, nil
+	}
 	delete(s.items, id)
-	return nil
+	return true, nil
 }
 
 func (s *authnChallengeRepoStub) Delete(_ context.Context, id string) error {
@@ -275,6 +282,12 @@ func authnLinkingProviderKey(provider loginidentity.Provider, realm, identifier 
 }
 
 type authnTokenServiceStub struct{}
+
+type authnSubjectAccessEvaluatorStub struct{}
+
+func (authnSubjectAccessEvaluatorStub) Evaluate(context.Context, meta.ID, meta.ID) (sessionDomain.SubjectAccessDecision, error) {
+	return sessionDomain.SubjectAccessDecision{Status: sessionDomain.SubjectAccessActive}, nil
+}
 
 func (s *authnTokenServiceStub) IssueToken(_ context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
 	access := tokenApp.NewAccessToken(

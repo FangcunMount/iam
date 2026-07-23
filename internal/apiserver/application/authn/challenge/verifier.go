@@ -7,6 +7,7 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/logger"
 	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
@@ -64,8 +65,16 @@ func (s *verifier) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp st
 		return false, nil
 	}
 	// 校验成功后调用 Repository.Consume
-	if err := s.repo.Consume(ctx, challengeID); err != nil {
+	consumed, err := s.repo.ConsumeIfSecretMatches(ctx, challengeID, expected)
+	if err != nil {
 		return false, err
+	}
+	if !consumed {
+		logger.L(ctx).Infow("challenge consumption rejected because it was replaced or already consumed",
+			"challenge_type", challengeDomain.TypeSMSOTP,
+			"scene", scene,
+		)
+		return false, nil
 	}
 	// 返回 true
 	return true, nil

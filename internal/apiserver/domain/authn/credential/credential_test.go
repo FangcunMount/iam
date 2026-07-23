@@ -43,6 +43,7 @@ func TestCredential_SuccessFailureAndLocking(t *testing.T) {
 	assert.True(t, applied)
 	assert.NotNil(t, c.LockedUntil)
 	assert.True(t, c.IsLockedByTime(now))
+	assert.False(t, c.ApplyLockPolicy(now.Add(time.Minute), policy), "active lock must not be extended")
 
 	// Unlock
 	c.Unlock()

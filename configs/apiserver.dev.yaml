@@ -106,6 +106,10 @@ auth:
   access_token_ttl: 15m
   refresh_token_ttl: 168h
   session_max_ttl: 24h
+  password_lockout:
+    enabled: false
+    threshold: 5
+    lock_duration: 15m
 
 # ============================================================================
 # 3. 数据存储配置

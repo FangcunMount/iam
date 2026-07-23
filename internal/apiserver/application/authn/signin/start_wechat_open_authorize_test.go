@@ -7,8 +7,8 @@ import (
 	"time"
 
 	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
+	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,9 +59,12 @@ func (s *authorizeChallengeRepoStub) Get(_ context.Context, id string) (*challen
 	return s.items[id], nil
 }
 
-func (s *authorizeChallengeRepoStub) Consume(_ context.Context, id string) error {
+func (s *authorizeChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string, _ []byte) (bool, error) {
+	if _, ok := s.items[id]; !ok {
+		return false, nil
+	}
 	delete(s.items, id)
-	return nil
+	return true, nil
 }
 
 func (s *authorizeChallengeRepoStub) Delete(_ context.Context, id string) error {

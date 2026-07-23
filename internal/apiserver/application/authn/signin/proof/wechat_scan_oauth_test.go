@@ -89,9 +89,12 @@ func (s *oauthChallengeRepoStub) Get(_ context.Context, id string) (*challengeDo
 	return s.items[id], nil
 }
 
-func (s *oauthChallengeRepoStub) Consume(_ context.Context, id string) error {
+func (s *oauthChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string, _ []byte) (bool, error) {
+	if _, ok := s.items[id]; !ok {
+		return false, nil
+	}
 	delete(s.items, id)
-	return nil
+	return true, nil
 }
 
 func (s *oauthChallengeRepoStub) Delete(_ context.Context, id string) error {

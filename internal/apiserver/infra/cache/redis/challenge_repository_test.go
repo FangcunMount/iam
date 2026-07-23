@@ -52,10 +52,92 @@ func TestChallengeRepositoryCreateGetConsume(t *testing.T) {
 		t.Fatalf("payload app_id = %q", loaded.Payload["app_id"])
 	}
 
-	if err := repo.Consume(ctx, challenge.ID); err != nil {
-		t.Fatalf("Consume() error = %v", err)
+	consumed, err := repo.ConsumeIfSecretMatches(ctx, challenge.ID, challenge.SecretHash)
+	if err != nil {
+		t.Fatalf("ConsumeIfSecretMatches() error = %v", err)
+	}
+	if !consumed {
+		t.Fatal("ConsumeIfSecretMatches() = false, want true")
 	}
 	if mr.Exists(rawKey) {
 		t.Fatalf("expected challenge key %q to be consumed", rawKey)
+	}
+}
+
+func TestChallengeRepositoryConsumeIfSecretMatchesIsSingleUse(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	repo := NewChallengeRepository(client)
+	ctx := context.Background()
+	challenge := &challengeDomain.AuthChallenge{
+		ID:         "sms_otp:login:+8613800138000",
+		Type:       challengeDomain.TypeSMSOTP,
+		SecretHash: []byte("expected-hash"),
+		ExpiresAt:  time.Now().Add(time.Minute),
+		CreatedAt:  time.Now(),
+	}
+	if err := repo.Create(ctx, challenge); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	type result struct {
+		consumed bool
+		err      error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	for range 2 {
+		go func() {
+			<-start
+			ok, err := repo.ConsumeIfSecretMatches(ctx, challenge.ID, challenge.SecretHash)
+			results <- result{consumed: ok, err: err}
+		}()
+	}
+	close(start)
+
+	successes := 0
+	for range 2 {
+		got := <-results
+		if got.err != nil {
+			t.Fatalf("ConsumeIfSecretMatches() error = %v", got.err)
+		}
+		if got.consumed {
+			successes++
+		}
+	}
+	if successes != 1 {
+		t.Fatalf("successful consumes = %d, want 1", successes)
+	}
+}
+
+func TestChallengeRepositoryStaleSecretDoesNotConsumeReplacement(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	repo := NewChallengeRepository(client)
+	ctx := context.Background()
+	challenge := &challengeDomain.AuthChallenge{
+		ID:         "sms_otp:login:+8613800138000",
+		Type:       challengeDomain.TypeSMSOTP,
+		SecretHash: []byte("replacement-hash"),
+		ExpiresAt:  time.Now().Add(time.Minute),
+		CreatedAt:  time.Now(),
+	}
+	if err := repo.Create(ctx, challenge); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	consumed, err := repo.ConsumeIfSecretMatches(ctx, challenge.ID, []byte("stale-hash"))
+	if err != nil {
+		t.Fatalf("ConsumeIfSecretMatches() error = %v", err)
+	}
+	if consumed {
+		t.Fatal("stale secret consumed replacement challenge")
+	}
+	if !mr.Exists(challengeRedisKey(challenge.ID)) {
+		t.Fatal("replacement challenge was deleted")
 	}
 }
