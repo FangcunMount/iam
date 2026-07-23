@@ -263,6 +263,7 @@ func printViperConfig(basename string) {
 
 	// 打印常用的覆盖变量，便于排查是否生效
 	keys := []string{
+		"IAM_APISERVER_SERVER_MODE",
 		"IAM_APISERVER_MYSQL_HOST",
 		"IAM_APISERVER_MYSQL_DATABASE",
 		"IAM_APISERVER_MYSQL_USERNAME",

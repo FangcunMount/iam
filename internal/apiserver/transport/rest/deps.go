@@ -15,6 +15,7 @@ import (
 	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
 	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
 	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 // RouterOptions 路由选项
@@ -25,7 +26,7 @@ type RouterOptions struct {
 
 // DebugCacheGovernanceOptions 调试缓存治理选项
 type DebugCacheGovernanceOptions struct {
-	AppMode      string
+	Environment  genericapiserver.Environment
 	Enabled      *bool
 	RequireAdmin *bool
 }
@@ -115,11 +116,11 @@ type ModuleState struct {
 }
 
 const (
-	moduleStateAuthn   = "authn module"
-	moduleStateAuthz   = "authz module"
-	moduleStateIDP     = "idp module"
+	moduleStateAuthn    = "authn module"
+	moduleStateAuthz    = "authz module"
+	moduleStateIDP      = "idp module"
 	moduleStateIdentity = "identity module"
-	moduleStateSuggest = "suggest module"
+	moduleStateSuggest  = "suggest module"
 )
 
 func (s ModuleStatus) containerAvailable() bool {

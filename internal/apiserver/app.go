@@ -35,8 +35,6 @@ func run(opts *options.Options) app.RunFunc {
 
 		log.Info("Starting iam contracts API Server ...")
 
-		// 打印配置信息
-		log.Infof("Server mode: %s", opts.GenericServerRunOptions.Mode)
 		log.Infof("Health check enabled: %v", opts.GenericServerRunOptions.Healthz)
 
 		// 根据 options 创建 APIServer 配置

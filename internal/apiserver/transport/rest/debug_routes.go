@@ -7,6 +7,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 // registerCacheGovernanceDebugRoutes 注册缓存治理调试路由
@@ -49,14 +50,14 @@ func (r *Router) cacheGovernanceDebugEnabled() bool {
 	if r.deps.DebugCacheGovernance.Enabled != nil {
 		return *r.deps.DebugCacheGovernance.Enabled
 	}
-	// 如果缓存治理调试应用模式不为生产模式，则返回true
-	return r.deps.DebugCacheGovernance.AppMode != "production"
+	// 非生产环境默认启用缓存治理调试。
+	return r.deps.DebugCacheGovernance.Environment != genericapiserver.EnvironmentProduction
 }
 
 // cacheGovernanceDebugRequireAdmin 缓存治理调试是否需要管理员保护
 func (r *Router) cacheGovernanceDebugRequireAdmin() bool {
-	// 如果缓存治理调试应用模式为生产模式，则返回true
-	if r.deps.DebugCacheGovernance.AppMode == "production" {
+	// 生产环境始终要求管理员保护。
+	if r.deps.DebugCacheGovernance.Environment == genericapiserver.EnvironmentProduction {
 		return true
 	}
 	// 如果缓存治理调试需要管理员保护不为空，则返回缓存治理调试需要管理员保护

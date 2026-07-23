@@ -56,7 +56,11 @@ func (prepareRuntimeStage) Name() string { return "prepare runtime" }
 
 // Run 运行准备运行时阶段
 func (s prepareRuntimeStage) Run(state *prepareState) error {
-	state.runtime = s.server.prepareRuntime()
+	runtime, err := s.server.prepareRuntime()
+	if err != nil {
+		return err
+	}
+	state.runtime = runtime
 	return nil
 }
 
@@ -126,7 +130,9 @@ func (runtimeTaskStage) Name() string { return "start runtime tasks" }
 func (s runtimeTaskStage) Run(state *prepareState) error {
 	s.server.startRuntimeTasks(&state.runtime.lifecycle)
 	log.Infow("hexagonal architecture initialized",
-		"mode", state.runtime.mode,
+		"server_mode", state.runtime.profile.ServerMode,
+		"environment", state.runtime.profile.Environment,
+		"production_like", state.runtime.profile.IsProductionLike(),
 		"degraded_startup_allowed", state.runtime.degradedAllowed,
 	)
 	return nil

@@ -9,6 +9,7 @@ import (
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 	"gorm.io/driver/sqlite"
@@ -33,7 +34,7 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	if err := module.InitializeWithDeps(AuthnModuleDeps{
 		DB:          db,
 		RedisClient: redisClient,
-		AppMode:     "test",
+		Environment: genericapiserver.EnvironmentTest,
 		Auth:        *apiserveroptions.NewAuthOptions(),
 		JWKS:        *apiserveroptions.NewJWKSOptions(),
 		SMS:         *apiserveroptions.NewSMSOptions(),

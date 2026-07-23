@@ -6,6 +6,7 @@ import (
 
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	authn "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 // SuggestModuleDeps contains the runtime dependencies required to assemble the
@@ -14,6 +15,6 @@ type SuggestModuleDeps struct {
 	DB                 *gorm.DB
 	Config             appsuggest.Config
 	RouteAuthorization authn.RouteAuthorizationRuntime
-	AppMode            string
+	Environment        genericapiserver.Environment
 	RedisClient        *redis.Client
 }

@@ -3,34 +3,35 @@ package container
 import (
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 // RuntimeOptions contains typed bootstrap options consumed by the container.
 type RuntimeOptions struct {
-	AppMode string
-	Auth    apiserveroptions.AuthOptions
-	JWKS    apiserveroptions.JWKSOptions
-	IDP     apiserveroptions.IDPOptions
-	SMS     apiserveroptions.SMSOptions
-	Suggest appsuggest.Config
-	Events  apiserveroptions.EventOptions
+	Environment genericapiserver.Environment
+	Auth        apiserveroptions.AuthOptions
+	JWKS        apiserveroptions.JWKSOptions
+	IDP         apiserveroptions.IDPOptions
+	SMS         apiserveroptions.SMSOptions
+	Suggest     appsuggest.Config
+	Events      apiserveroptions.EventOptions
 }
 
 // RuntimeOptionsFromAPIServerOptions converts decoded apiserver options into
 // the narrow config surface needed by module composition.
-func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode string) RuntimeOptions {
+func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environment genericapiserver.Environment) RuntimeOptions {
 	defaults := apiserveroptions.NewOptions()
 	if opts == nil {
 		opts = defaults
 	}
 
 	runtime := RuntimeOptions{
-		AppMode: appMode,
-		Auth:    *defaults.Auth,
-		JWKS:    *defaults.JWKS,
-		IDP:     *defaults.IDP,
-		SMS:     *defaults.SMS,
-		Events:  *defaults.Events,
+		Environment: environment,
+		Auth:        *defaults.Auth,
+		JWKS:        *defaults.JWKS,
+		IDP:         *defaults.IDP,
+		SMS:         *defaults.SMS,
+		Events:      *defaults.Events,
 		Suggest: appsuggest.Config{
 			Enable:                    defaults.Suggest.Enable,
 			Required:                  defaults.Suggest.Required,
@@ -45,10 +46,10 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 			DisableMobileMask:         defaults.Suggest.DisableMobileMask,
 			LoaderPlaceholderOrgID:    defaults.Suggest.LoaderPlaceholderOrgID,
 			LoaderPlaceholderTenantID: defaults.Suggest.LoaderPlaceholderTenantID,
-			WildcardKeyCap:          defaults.Suggest.WildcardKeyCap,
-			VisibilityCacheTTLSeconds:   defaults.Suggest.VisibilityCacheTTLSeconds,
-			RateLimit:                   suggestRateLimitConfig(*defaults.Suggest),
-			Snapshot:                    suggestSnapshot(*defaults.Suggest),
+			WildcardKeyCap:            defaults.Suggest.WildcardKeyCap,
+			VisibilityCacheTTLSeconds: defaults.Suggest.VisibilityCacheTTLSeconds,
+			RateLimit:                 suggestRateLimitConfig(*defaults.Suggest),
+			Snapshot:                  suggestSnapshot(*defaults.Suggest),
 		}.WithDefaults(),
 	}
 	if opts.Auth != nil {
@@ -81,10 +82,10 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, appMode 
 			DisableMobileMask:         opts.Suggest.DisableMobileMask,
 			LoaderPlaceholderOrgID:    opts.Suggest.LoaderPlaceholderOrgID,
 			LoaderPlaceholderTenantID: opts.Suggest.LoaderPlaceholderTenantID,
-			WildcardKeyCap:          opts.Suggest.WildcardKeyCap,
+			WildcardKeyCap:            opts.Suggest.WildcardKeyCap,
 			VisibilityCacheTTLSeconds: opts.Suggest.VisibilityCacheTTLSeconds,
-			RateLimit:                   suggestRateLimitConfig(*opts.Suggest),
-			Snapshot:                    suggestSnapshot(*opts.Suggest),
+			RateLimit:                 suggestRateLimitConfig(*opts.Suggest),
+			Snapshot:                  suggestSnapshot(*opts.Suggest),
 		}.WithDefaults()
 	}
 	if runtime.Events.CatalogPath == "" {

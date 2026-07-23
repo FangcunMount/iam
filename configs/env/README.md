@@ -11,6 +11,17 @@
 
 ## 配置项说明
 
+### 运行模式
+
+- YAML 使用 `server.mode`。
+- 环境变量覆盖使用 `IAM_APISERVER_SERVER_MODE`。
+- 启动参数覆盖使用 `--server.mode`。
+- 只接受 `debug`、`test`、`release`，默认值为 `release`。
+- 显式启动参数优先于环境变量，环境变量优先于 YAML。
+- 生产部署包默认由 `apiserver.prod.yaml` 固定为 `release`，不在生成的 Secret env 文件中重复写入。
+
+`app.*`、`server.run-mode`、`server.name`、`server.read-timeout` 和 `server.write-timeout` 已删除；配置文件或对应环境变量仍设置这些键时，iam-apiserver 会拒绝启动。
+
 ### MySQL 配置
 
 - **MYSQL_ROOT_PASSWORD**: MySQL root 用户密码

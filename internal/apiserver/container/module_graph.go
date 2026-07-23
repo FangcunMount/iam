@@ -40,7 +40,7 @@ func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
 		IDPModule:      g.container.IDPModule,
 		EventBus:       g.container.eventBus,
 		EventPublisher: g.container.eventPublisher,
-		AppMode:        g.container.runtimeOptions.AppMode,
+		Environment:    g.container.runtimeOptions.Environment,
 		Auth:           g.container.runtimeOptions.Auth,
 		JWKS:           g.container.runtimeOptions.JWKS,
 		IDPOptions:     g.container.runtimeOptions.IDP,
@@ -59,7 +59,7 @@ func (g *moduleGraph) suggestModuleDependencies() suggest.SuggestModuleDeps {
 	deps := suggest.SuggestModuleDeps{
 		DB:          g.container.mysqlDB,
 		Config:      g.container.runtimeOptions.Suggest,
-		AppMode:     g.container.runtimeOptions.AppMode,
+		Environment: g.container.runtimeOptions.Environment,
 		RedisClient: g.container.redisClient,
 	}
 	if g.container.AuthzModule != nil {

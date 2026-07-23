@@ -11,7 +11,7 @@ import (
 // Options 包含所有配置项
 type Options struct {
 	Log                     *log.Options                           `json:"log"    mapstructure:"log"`
-	App                     *AppOptions                            `json:"app" mapstructure:"app"`
+	RemovedApp              *RemovedAppOptions                     `json:"-" mapstructure:"app"`
 	GenericServerRunOptions *genericoptions.ServerRunOptions       `json:"server" mapstructure:"server"`
 	GRPCOptions             *genericoptions.GRPCOptions            `json:"grpc"     mapstructure:"grpc"`
 	InsecureServing         *genericoptions.InsecureServingOptions `json:"insecure" mapstructure:"insecure"`
@@ -34,7 +34,7 @@ type Options struct {
 func NewOptions() *Options {
 	return &Options{
 		Log:                     log.NewOptions(),
-		App:                     NewAppOptions(),
+		RemovedApp:              &RemovedAppOptions{},
 		GenericServerRunOptions: genericoptions.NewServerRunOptions(),
 		GRPCOptions:             genericoptions.NewGRPCOptions(),
 		InsecureServing:         genericoptions.NewInsecureServingOptions(),
@@ -72,6 +72,9 @@ func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
 // Complete 完成配置选项
 func (o *Options) Complete() error {
 	o.ApplyDefaults()
+	if err := o.GenericServerRunOptions.Complete(); err != nil {
+		return err
+	}
 	return o.SecureServing.Complete()
 }
 
@@ -86,8 +89,8 @@ func (o *Options) ApplyDefaults() {
 	if o.Log == nil {
 		o.Log = log.NewOptions()
 	}
-	if o.App == nil {
-		o.App = NewAppOptions()
+	if o.RemovedApp == nil {
+		o.RemovedApp = &RemovedAppOptions{}
 	}
 	if o.GenericServerRunOptions == nil {
 		o.GenericServerRunOptions = genericoptions.NewServerRunOptions()

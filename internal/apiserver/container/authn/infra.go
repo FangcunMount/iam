@@ -26,6 +26,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/token/keyset"
 	wechatInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechat"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 	"github.com/FangcunMount/iam/v2/pkg/event"
 )
 
@@ -69,7 +70,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	idpDeps *idp.IDPModule,
 	eventBus messaging.EventBus,
 	eventPublisher event.Publisher,
-	appMode string,
+	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
 	jwksOptions apiserveroptions.JWKSOptions,
 ) *authnInfrastructureComponents {
@@ -105,7 +106,7 @@ func (m *AuthnModule) initializeInfrastructure(
 
 	infra.keyRepo = jwksMysql.NewKeyRepository(db)
 	configureJWKSStorage(infra, jwksOptions)
-	configureKeyServices(infra, appMode, authOptions, jwksOptions)
+	configureKeyServices(infra, environment, authOptions, jwksOptions)
 
 	infra.tokenStore = redisInfra.NewRedisStore(redisClient)
 	m.tokenStoreInspectorSource = infra.tokenStore
@@ -132,7 +133,7 @@ func configureJWKSStorage(infra *authnInfrastructureComponents, jwksOptions apis
 
 func configureKeyServices(
 	infra *authnInfrastructureComponents,
-	appMode string,
+	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
 	jwksOptions apiserveroptions.JWKSOptions,
 ) {
@@ -144,7 +145,7 @@ func configureKeyServices(
 		keyset.DefaultRotationPolicy(),
 		log.New(log.NewOptions()),
 	)
-	autoInitializeJWKS(infra.keyManager, appMode, jwksOptions, log.New(log.NewOptions()))
+	autoInitializeJWKS(infra.keyManager, environment, jwksOptions, log.New(log.NewOptions()))
 	infra.jwtGenerator = jwtinfra.NewGenerator(
 		authOptions.JWTIssuer,
 		authOptions.AccessTokenAudience,
@@ -154,11 +155,11 @@ func configureKeyServices(
 
 func autoInitializeJWKS(
 	keyManager *keyset.KeyManager,
-	appMode string,
+	environment genericapiserver.Environment,
 	jwksOptions apiserveroptions.JWKSOptions,
 	logger log.Logger,
 ) {
-	if !jwksOptions.AutoInit && appMode != "development" {
+	if !shouldAutoInitializeJWKS(environment, jwksOptions.AutoInit) {
 		return
 	}
 
@@ -174,6 +175,10 @@ func autoInitializeJWKS(
 		return
 	}
 	logger.Infow("auto-created initial jwks active key", "alg", "RS256")
+}
+
+func shouldAutoInitializeJWKS(environment genericapiserver.Environment, configured bool) bool {
+	return configured || environment == genericapiserver.EnvironmentDevelopment
 }
 
 func ptrTime(t time.Time) *time.Time {

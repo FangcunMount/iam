@@ -74,7 +74,7 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	}
 
 	// 初始化基础设施层
-	infra := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher, deps.AppMode, deps.Auth, deps.JWKS)
+	infra := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher, deps.Environment, deps.Auth, deps.JWKS)
 
 	// 初始化领域层
 	domain := m.initializeDomain(infra, deps.Auth)

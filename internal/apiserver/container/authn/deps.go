@@ -8,6 +8,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 	"github.com/FangcunMount/iam/v2/pkg/event"
 )
 
@@ -20,7 +21,7 @@ type AuthnModuleDeps struct {
 	IDPModule      *idp.IDPModule
 	EventBus       messaging.EventBus
 	EventPublisher event.Publisher
-	AppMode        string
+	Environment    genericapiserver.Environment
 	Auth           apiserveroptions.AuthOptions
 	JWKS           apiserveroptions.JWKSOptions
 	IDPOptions     apiserveroptions.IDPOptions

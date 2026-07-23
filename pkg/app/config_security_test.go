@@ -13,24 +13,27 @@ func TestPrintViperConfigDoesNotPrintConfigurationOrEnvironmentValues(t *testing
 	const (
 		configSecret = "config-secret-sentinel"
 		envValue     = "environment-value-sentinel"
+		modeValue    = "runtime-mode-value-sentinel"
 	)
 
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 	viper.Set("mysql.password", configSecret)
 	t.Setenv("IAM_APISERVER_MYSQL_HOST", envValue)
+	t.Setenv("IAM_APISERVER_SERVER_MODE", modeValue)
 
 	output := captureStdout(t, func() {
 		printViperConfig("iam-apiserver")
 	})
 
-	for _, secret := range []string{configSecret, envValue} {
+	for _, secret := range []string{configSecret, envValue, modeValue} {
 		if strings.Contains(output, secret) {
 			t.Fatalf("configuration diagnostics leaked %q:\n%s", secret, output)
 		}
 	}
 	for _, want := range []string{
 		"mysql.password",
+		"ENV IAM_APISERVER_SERVER_MODE=<set>",
 		"ENV IAM_APISERVER_MYSQL_HOST=<set>",
 		"ENV IAM_APISERVER_MYSQL_DATABASE=<unset>",
 	} {

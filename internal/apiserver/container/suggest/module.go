@@ -3,7 +3,6 @@ package suggest
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -15,6 +14,7 @@ import (
 	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
 	suggestratelimit "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
 	searchruntime "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/search"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 // SuggestModule 联想搜索模块
@@ -46,7 +46,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	if deps.DB == nil {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
-	if strings.EqualFold(strings.TrimSpace(deps.AppMode), "production") && cfg.DisableMobileMask {
+	if deps.Environment == genericapiserver.EnvironmentProduction && cfg.DisableMobileMask {
 		return fmt.Errorf("suggest.disable_mobile_mask is forbidden in production")
 	}
 

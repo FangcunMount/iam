@@ -3,10 +3,12 @@ package config
 import (
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -33,7 +35,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "redis cache host", opts.RedisOptions.Cache.Host, "127.0.0.1")
 				assertEqual(t, "redis cache port", opts.RedisOptions.Cache.Port, 6379)
 				assertEqual(t, "migration enabled", opts.MigrationOptions.Enabled, true)
-				assertEqual(t, "app mode", opts.App.Mode, "development")
+				assertEqual(t, "server mode", opts.GenericServerRunOptions.Mode, "debug")
 				assertEqual(t, "auth issuer", opts.Auth.JWTIssuer, "https://iam.fangcunmount.cn")
 				assertEqual(t, "auth access ttl", opts.Auth.AccessTokenTTL, 15*time.Minute)
 				assertEqual(t, "auth refresh ttl", opts.Auth.RefreshTokenTTL, 168*time.Hour)
@@ -85,7 +87,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "redis cache min idle conns", opts.RedisOptions.Cache.MinIdleConns, 10)
 				assertEqual(t, "redis cache logging", opts.RedisOptions.Cache.EnableLogging, false)
 				assertEqual(t, "migration database", opts.MigrationOptions.Database, "iam")
-				assertEqual(t, "app mode", opts.App.Mode, "production")
+				assertEqual(t, "server mode", opts.GenericServerRunOptions.Mode, "release")
 				assertEqual(t, "auth issuer", opts.Auth.JWTIssuer, "https://iam.fangcunmount.cn")
 				assertEqual(t, "auth audience count", len(opts.Auth.AccessTokenAudience), 2)
 				assertEqual(t, "auth session max ttl", opts.Auth.SessionMaxTTL, 24*time.Hour)
@@ -128,6 +130,116 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 			}
 			if cfg.Options != opts {
 				t.Fatalf("Config.Options does not preserve the decoded options pointer")
+			}
+		})
+	}
+}
+
+func TestAPIServerYAMLDoesNotContainRemovedRuntimeKeys(t *testing.T) {
+	removedKeys := []string{
+		"app.name",
+		"app.version",
+		"app.mode",
+		"server.run-mode",
+		"server.name",
+		"server.read-timeout",
+		"server.write-timeout",
+	}
+	for _, file := range []string{"configs/apiserver.dev.yaml", "configs/apiserver.prod.yaml"} {
+		t.Run(file, func(t *testing.T) {
+			reader := viper.New()
+			reader.SetConfigFile(filepath.Join(repoRoot(t), file))
+			if err := reader.ReadInConfig(); err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range removedKeys {
+				if reader.IsSet(key) {
+					t.Fatalf("%s contains removed key %s", file, key)
+				}
+			}
+		})
+	}
+}
+
+func TestRemovedRuntimeYAMLKeysDecodeIntoValidationTombstones(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+		yaml string
+	}{
+		{name: "app name", key: "app.name", yaml: "app:\n  name: iam\n"},
+		{name: "app version", key: "app.version", yaml: "app:\n  version: 1.0.0\n"},
+		{name: "app mode", key: "app.mode", yaml: "app:\n  mode: development\n"},
+		{name: "server run mode", key: "server.run-mode", yaml: "server:\n  run-mode: debug\n"},
+		{name: "server name", key: "server.name", yaml: "server:\n  name: iam\n"},
+		{name: "server read timeout", key: "server.read-timeout", yaml: "server:\n  read-timeout: 60\n"},
+		{name: "server write timeout", key: "server.write-timeout", yaml: "server:\n  write-timeout: 60\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := apiserveroptions.NewOptions()
+			reader := viper.New()
+			reader.SetConfigType("yaml")
+			if err := reader.ReadConfig(strings.NewReader(tt.yaml)); err != nil {
+				t.Fatal(err)
+			}
+			if err := reader.Unmarshal(opts); err != nil {
+				t.Fatal(err)
+			}
+			for _, err := range opts.Validate() {
+				if strings.Contains(err.Error(), tt.key) {
+					return
+				}
+			}
+			t.Fatalf("Validate() errors = %v, want removed key %s", opts.Validate(), tt.key)
+		})
+	}
+}
+
+func TestServerModeConfigurationPrecedence(t *testing.T) {
+	tests := []struct {
+		name     string
+		envMode  string
+		flagMode string
+		wantMode string
+	}{
+		{name: "yaml beats unchanged flag default", wantMode: "debug"},
+		{name: "environment beats yaml", envMode: "test", wantMode: "test"},
+		{name: "changed flag beats environment", envMode: "test", flagMode: "release", wantMode: "release"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envMode != "" {
+				t.Setenv("IAM_APISERVER_SERVER_MODE", tt.envMode)
+			}
+			flags := pflag.NewFlagSet(t.Name(), pflag.ContinueOnError)
+			mode := flags.String("server.mode", "release", "")
+			if tt.flagMode != "" {
+				if err := flags.Set("server.mode", tt.flagMode); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			reader := viper.New()
+			reader.SetConfigType("yaml")
+			reader.SetEnvPrefix("IAM_APISERVER")
+			reader.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+			reader.AutomaticEnv()
+			if err := reader.ReadConfig(strings.NewReader("server:\n  mode: debug\n")); err != nil {
+				t.Fatal(err)
+			}
+			if err := reader.BindPFlag("server.mode", flags.Lookup("server.mode")); err != nil {
+				t.Fatal(err)
+			}
+
+			opts := apiserveroptions.NewOptions()
+			if err := reader.Unmarshal(opts); err != nil {
+				t.Fatal(err)
+			}
+			if opts.GenericServerRunOptions.Mode != tt.wantMode {
+				t.Fatalf("Mode = %q, want %q (flag value %q)", opts.GenericServerRunOptions.Mode, tt.wantMode, *mode)
 			}
 		})
 	}

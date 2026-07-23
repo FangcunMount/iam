@@ -16,6 +16,7 @@ import (
 	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
 	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
@@ -125,7 +126,7 @@ func routeMatrixDeps() Deps {
 	}
 	normalizeModuleStatusForTest(&deps.ModuleStatus)
 	deps.SeedMockAuth = SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"}
-	deps.DebugCacheGovernance = DebugCacheGovernanceOptions{AppMode: "development"}
+	deps.DebugCacheGovernance = DebugCacheGovernanceOptions{Environment: genericapiserver.EnvironmentDevelopment}
 	return deps
 }
 

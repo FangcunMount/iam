@@ -2,19 +2,12 @@ package options
 
 import "time"
 
-// AppOptions captures runtime application metadata used by bootstrap code.
-type AppOptions struct {
-	Name    string `json:"name" mapstructure:"name"`
-	Version string `json:"version" mapstructure:"version"`
-	Mode    string `json:"mode" mapstructure:"mode"`
-}
-
-func NewAppOptions() *AppOptions {
-	return &AppOptions{
-		Name:    "iam",
-		Version: "1.0.0",
-		Mode:    "development",
-	}
+// RemovedAppOptions captures removed app.* keys solely so startup can reject
+// stale configuration instead of silently ignoring it.
+type RemovedAppOptions struct {
+	Name    *string `json:"-" mapstructure:"name"`
+	Version *string `json:"-" mapstructure:"version"`
+	Mode    *string `json:"-" mapstructure:"mode"`
 }
 
 // AuthOptions configures JWT token issuing and verification.

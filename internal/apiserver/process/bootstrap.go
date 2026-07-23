@@ -18,8 +18,7 @@ import (
 
 // runtimeOutput 运行时输出
 type runtimeOutput struct {
-	mode            string                   // 运行时模式
-	appMode         string                   // 应用模式
+	profile         genericapiserver.RuntimeProfile
 	degradedAllowed bool                     // 是否允许降级启动
 	lifecycle       processruntime.Lifecycle // 生命周期
 }
@@ -51,17 +50,16 @@ type transportStageDeps struct {
 	registerGRPC    func(*grpcpkg.Server) error                        // 注册 GRPC 服务
 }
 
-// prepareRuntime 准备运行时
-func (s *apiServer) prepareRuntime() runtimeOutput {
-	// 获取运行时模式
-	mode := runtimeMode(s.cfg)
-	appMode := appModeFromServerMode(mode)
-	// 返回运行时输出
-	return runtimeOutput{
-		mode:            mode,
-		appMode:         appMode,
-		degradedAllowed: degradedStartupAllowed(s.cfg),
+// prepareRuntime 准备并验证唯一的运行时模式。
+func (s *apiServer) prepareRuntime() (runtimeOutput, error) {
+	profile, err := resolveRuntimeProfile(s.cfg)
+	if err != nil {
+		return runtimeOutput{}, err
 	}
+	return runtimeOutput{
+		profile:         profile,
+		degradedAllowed: profile.AllowsDegraded(degradedStartupRequested(s.cfg)),
+	}, nil
 }
 
 // prepareResources 准备资源
@@ -71,7 +69,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("initialize database: %w", err)
 		}
-		log.Warnw("degraded startup: database initialization failed", "error", err, "mode", rt.mode)
+		log.Warnw("degraded startup: database initialization failed", "error", err, "server_mode", rt.profile.ServerMode)
 	}
 
 	// 获取 MySQL 数据库
@@ -80,7 +78,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("mysql unavailable: %w", err)
 		}
-		log.Warnw("degraded startup: MySQL unavailable", "error", err, "mode", rt.mode)
+		log.Warnw("degraded startup: MySQL unavailable", "error", err, "server_mode", rt.profile.ServerMode)
 		mysqlDB = nil
 	}
 
@@ -90,7 +88,7 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("cache redis unavailable: %w", err)
 		}
-		log.Warnw("degraded startup: cache redis unavailable", "error", err, "mode", rt.mode)
+		log.Warnw("degraded startup: cache redis unavailable", "error", err, "server_mode", rt.profile.ServerMode)
 		cacheClient = nil
 	}
 
@@ -100,13 +98,13 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("parse idp encryption key: %w", err)
 		}
-		log.Warnw("degraded startup: invalid idp encryption key", "error", err, "mode", rt.mode)
+		log.Warnw("degraded startup: invalid idp encryption key", "error", err, "server_mode", rt.profile.ServerMode)
 	}
 	if !configured {
 		if !rt.degradedAllowed {
 			return resourceOutput{}, fmt.Errorf("idp.encryption-key is required")
 		}
-		log.Warnw("degraded startup: idp.encryption-key missing", "mode", rt.mode)
+		log.Warnw("degraded startup: idp.encryption-key missing", "server_mode", rt.profile.ServerMode)
 	}
 
 	// 创建事件总线
@@ -133,7 +131,7 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 		resources.cacheClient,
 		resources.eventBus,
 		resources.idpEncryptionKey,
-		container.RuntimeOptionsFromAPIServerOptions(s.cfg.Options, rt.appMode),
+		container.RuntimeOptionsFromAPIServerOptions(s.cfg.Options, rt.profile.Environment),
 	)
 
 	// 初始化容器
@@ -141,7 +139,7 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 		if !rt.degradedAllowed {
 			return containerOutput{}, fmt.Errorf("initialize container: %w", err)
 		}
-		log.Warnw("degraded startup: container initialization incomplete", "error", err, "mode", rt.mode)
+		log.Warnw("degraded startup: container initialization incomplete", "error", err, "server_mode", rt.profile.ServerMode)
 	}
 
 	// 验证关键模块
@@ -183,7 +181,7 @@ func (s *apiServer) buildTransportStageDeps(rt runtimeOutput, out containerOutpu
 			return buildGRPCServer(s.cfg)
 		},
 		registerREST: func(httpServer *genericapiserver.GenericAPIServer) {
-			resttransport.NewRouter(out.container.BuildRESTDeps(routerOptionsFromConfig(s.cfg.Options, rt.appMode))).RegisterRoutes(httpServer.Engine)
+			resttransport.NewRouter(out.container.BuildRESTDeps(routerOptionsFromConfig(s.cfg.Options, rt.profile.Environment))).RegisterRoutes(httpServer.Engine)
 		},
 		registerGRPC: func(grpcServer *grpcpkg.Server) error {
 			return grpctransport.NewRegistry(out.container.BuildGRPCDeps(grpcServer)).RegisterServices()
@@ -226,7 +224,7 @@ func bootstrapTransports(deps transportStageDeps) (transportOutput, error) {
 }
 
 // routerOptionsFromConfig 从配置中获取路由选项
-func routerOptionsFromConfig(opts *apiserveroptions.Options, appMode string) resttransport.RouterOptions {
+func routerOptionsFromConfig(opts *apiserveroptions.Options, environment genericapiserver.Environment) resttransport.RouterOptions {
 	// 获取种子模拟认证选项
 	var seed apiserveroptions.SeedMockAuthOptions
 	// 获取调试缓存治理选项
@@ -240,7 +238,7 @@ func routerOptionsFromConfig(opts *apiserveroptions.Options, appMode string) res
 	// 创建路由选项
 	options := resttransport.RouterOptions{
 		DebugCacheGovernance: resttransport.DebugCacheGovernanceOptions{
-			AppMode: appMode,
+			Environment: environment,
 		},
 		SeedMockAuth: resttransport.SeedMockAuthOptions{
 			Enabled:      seed.Enabled,

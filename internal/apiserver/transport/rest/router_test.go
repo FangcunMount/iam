@@ -21,6 +21,7 @@ import (
 	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
 
 	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 )
 
 func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {
@@ -29,7 +30,7 @@ func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *test
 	engine := gin.New()
 
 	newRouterForTest(restDepsForTest(), RouterOptions{
-		DebugCacheGovernance: DebugCacheGovernanceOptions{AppMode: "development"},
+		DebugCacheGovernance: DebugCacheGovernanceOptions{Environment: genericapiserver.EnvironmentDevelopment},
 	}).RegisterRoutes(engine)
 
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusOK, true)
@@ -44,7 +45,7 @@ func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesInProductionByDefault(t 
 	engine := gin.New()
 
 	newRouterForTest(restDepsForTest(), RouterOptions{
-		DebugCacheGovernance: DebugCacheGovernanceOptions{AppMode: "production"},
+		DebugCacheGovernance: DebugCacheGovernanceOptions{Environment: genericapiserver.EnvironmentProduction},
 	}).RegisterRoutes(engine)
 
 	assertDebugRouteStatus(t, engine, http.MethodGet, "/debug/cache-governance/catalog", http.StatusNotFound, false)
@@ -59,7 +60,7 @@ func TestRouterDoesNotRegisterCacheGovernanceDebugRoutesWhenAdminProtectionUnava
 
 	newRouterForTest(restDepsForTest(), RouterOptions{
 		DebugCacheGovernance: DebugCacheGovernanceOptions{
-			AppMode:      "production",
+			Environment:  genericapiserver.EnvironmentProduction,
 			Enabled:      boolPtr(true),
 			RequireAdmin: boolPtr(true),
 		},
@@ -75,7 +76,7 @@ func TestRouterForcesAdminProtectionForCacheGovernanceDebugRoutesInProduction(t 
 
 	newRouterForTest(restDepsForTest(), RouterOptions{
 		DebugCacheGovernance: DebugCacheGovernanceOptions{
-			AppMode:      "production",
+			Environment:  genericapiserver.EnvironmentProduction,
 			Enabled:      boolPtr(true),
 			RequireAdmin: boolPtr(false),
 		},

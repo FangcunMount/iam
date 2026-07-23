@@ -9,6 +9,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 	"github.com/FangcunMount/iam/v2/pkg/event"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
@@ -86,7 +87,7 @@ func authnEventingDeps(db *gorm.DB, redisClient *goredis.Client, eventBus cbmess
 		RedisClient:    redisClient,
 		EventBus:       eventBus,
 		EventPublisher: publisher,
-		AppMode:        "test",
+		Environment:    genericapiserver.EnvironmentTest,
 		Auth:           *apiserveroptions.NewAuthOptions(),
 		JWKS:           *apiserveroptions.NewJWKSOptions(),
 		SMS:            smsOptions,
