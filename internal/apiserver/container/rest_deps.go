@@ -19,6 +19,7 @@ func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttrans
 	}
 
 	deps.CacheGovernance = c.CacheGovernanceService
+	deps.Readiness = c.ReadinessChecker()
 	deps.ModuleStatus.Container = toRESTModuleState(c.ContainerState())
 	deps.ModuleStatus.ContainerInitialized = deps.ModuleStatus.Container.Bootstrapped
 	deps.ModuleStatus.Modules = toRESTModuleStates(c.ModuleStates())

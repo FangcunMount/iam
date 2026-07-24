@@ -25,6 +25,7 @@ type Options struct {
 	IDP                     *IDPOptions                            `json:"idp" mapstructure:"idp"`
 	SMS                     *SMSOptions                            `json:"sms" mapstructure:"sms"`
 	Identity                *IdentityOptions                       `json:"identity" mapstructure:"identity"`
+	Health                  *HealthOptions                         `json:"health" mapstructure:"health"`
 	Suggest                 *SuggestOptions                        `json:"suggest" mapstructure:"suggest"`
 	Debug                   *DebugOptions                          `json:"debug" mapstructure:"debug"`
 	SeedMockAuth            *SeedMockAuthOptions                   `json:"seed_mock_auth" mapstructure:"seed_mock_auth"`
@@ -49,6 +50,7 @@ func NewOptions() *Options {
 		IDP:                     NewIDPOptions(),
 		SMS:                     NewSMSOptions(),
 		Identity:                NewIdentityOptions(),
+		Health:                  NewHealthOptions(),
 		Suggest:                 NewSuggestOptions(),
 		Debug:                   NewDebugOptions(),
 		SeedMockAuth:            NewSeedMockAuthOptions(),
@@ -132,6 +134,9 @@ func (o *Options) ApplyDefaults() {
 	}
 	if o.Identity == nil {
 		o.Identity = NewIdentityOptions()
+	}
+	if o.Health == nil {
+		o.Health = NewHealthOptions()
 	}
 	if o.Suggest == nil {
 		o.Suggest = NewSuggestOptions()

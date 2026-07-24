@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
@@ -54,6 +55,7 @@ type Container struct {
 
 	// typed runtime options
 	runtimeOptions RuntimeOptions
+	readiness      *readinessapp.Checker
 }
 
 // NewContainer 创建容器

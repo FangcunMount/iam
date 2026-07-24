@@ -10,6 +10,7 @@ import (
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
 	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
@@ -46,6 +47,7 @@ type Deps struct {
 	Suggest         SuggestDeps
 	CacheGovernance *cachegovernance.ReadService
 	ModuleStatus    ModuleStatus
+	Readiness       *readinessapp.Checker
 	RouterOptions
 }
 

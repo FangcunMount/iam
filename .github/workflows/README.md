@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-最后检查日期：2026-05-03
+最后检查日期：2026-07-24
 
 本目录维护 IAM 仓库的 CI、生产部署、生产健康检查和数据库运维 workflow。当前生产部署目标以 serverB (`SVRB_*`) 为准；`SVRA_*` 仅作为部分 SSH secret 的迁移期 fallback。
 
@@ -10,12 +10,10 @@
 | --- | --- | --- | --- |
 | `ci.yml` | 保留 | push `main`/`develop`、PR 到 `main`、手动 | lint、test、build、coverage、短期构建 artifact |
 | `cd.yml` | 保留 | `CI` 在 `main` 成功后自动；手动 | 发布镜像、生成部署包、部署 `iam-apiserver` 到 serverB |
-| `cicd.yml` | 已废弃 | 手动，仅输出替代说明 | 旧合并式 CI/CD；已由 `ci.yml` + `cd.yml` 替代 |
 | `concurrency-tests.yml` | 保留 | 手动；相关 MySQL/测试路径变更时 push/PR 到 `main` | MySQL-backed 并发仓储测试 |
 | `db-ops.yml` | 保留，已移除 `migrate` | 每天 17:00 UTC；手动 `backup`/`restore`/`status` | 数据库备份、恢复、状态检查 |
 | `server-check.yml` | 保留 | 每 30 分钟；手动 | 生产容器、内部健康检查、依赖连通性 |
 | `test-ssh.yml` | 保留 | 手动 | 生产主机 SSH 和基础环境诊断 |
-| `ping-runner.yml` | 已废弃 | 手动，仅输出替代说明 | 旧快速 ping；由 `server-check.yml` 替代 |
 
 ## CI/CD 拆分
 
@@ -116,8 +114,8 @@ Build and Push Docker Image
 - `internal/apiserver/domain/authn/**`
 - `internal/apiserver/container/authn/**`
 - `internal/apiserver/infra/token/keyset/**`
+- `internal/apiserver/options/**`
 - `internal/pkg/migration/**`
-- `internal/apiserver/application/uc/**`
 - `internal/apiserver/testhelpers/**`
 - `internal/pkg/code/**`
 - `.github/workflows/concurrency-tests.yml`
@@ -130,6 +128,8 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 ```
 
 ## db-ops.yml
+
+该 workflow 运行在 GitHub-hosted Runner 上，因此 SSH 目标优先使用 `SVRB_PUBLIC_HOST`；只有公网入口未配置时才回退到 `SVRB_HOST` / `SVRA_HOST`。
 
 支持操作：
 
@@ -153,12 +153,12 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 安全约束：
 
 - 使用临时 MySQL defaults file 传递凭据，避免在命令行参数中直接出现密码。
-- `restore` 只接受 `iam_backup_*.sql.gz` 格式的备份文件名。
+- `restore` 只接受 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 精确格式的备份文件名。
 - `mysqldump` stderr 不再写入 `.sql` 文件，避免错误输出污染备份内容。
 
 ## server-check.yml
 
-生产健康检查每 30 分钟运行一次，也可手动触发。目标主机使用 `SVRB_HOST` 优先，缺失时 fallback 到 `SVRA_HOST`。
+生产健康检查每 30 分钟运行一次，也可手动触发。它运行在 GitHub-hosted Runner 上，目标主机优先使用 `SVRB_PUBLIC_HOST`；只有公网入口未配置时才回退到 `SVRB_HOST` / `SVRA_HOST`。
 
 检查项：
 
@@ -172,11 +172,7 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 ## test-ssh.yml
 
-手动 SSH 诊断入口，用于验证生产主机连接、时区、Docker、`iam-apiserver` 容器和基本资源状态。它不替代 `server-check.yml`，只用于排查 SSH secret 或主机基础环境。
-
-## ping-runner.yml
-
-已废弃。旧 workflow 曾每 6 小时运行一次快速 ping，但它与 `server-check.yml` 重复，并且旧逻辑依赖宿主机端口探测。当前文件保留为手动提示，避免继续定时误报。
+手动 SSH 诊断入口，用于验证生产主机连接、时区、Docker、`iam-apiserver` 容器和基本资源状态。它运行在 GitHub-hosted Runner 上，也优先使用 `SVRB_PUBLIC_HOST`。它不替代 `server-check.yml`，只用于排查 SSH secret、网络入口或主机基础环境。
 
 ## Variables 与 Secrets
 
@@ -184,8 +180,8 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 | Variable | 必需性 | 用途 |
 | --- | --- | --- |
-| `SVRB_PUBLIC_HOST` | 推荐 | serverB 公网 IP（大文件上传优先；避免 Tailscale DERP） |
-| `SVRB_HOST` | 回退 | serverB Tailscale 地址（如 `100.91.31.24`） |
+| `SVRB_PUBLIC_HOST` | 推荐 | serverB 公网 SSH 地址；GitHub-hosted 健康检查、数据库运维、SSH 诊断和部署均优先使用 |
+| `SVRB_HOST` | 回退 | serverB Tailscale 地址；GitHub-hosted Runner 通常无法直接访问 |
 | `SVRB_USERNAME` | 推荐 | serverB SSH 用户；缺省用 `SVRA_USERNAME` |
 | `SVRB_SSH_PORT` | 可选 | serverB SSH 端口；缺省用 `SVRA_SSH_PORT` 或 22 |
 | `SVRA_HOST` | 可选 | fallback 主机地址 |
@@ -268,7 +264,7 @@ Actions -> Production SSH Diagnostics -> Run workflow
 ## 维护原则
 
 - 新 workflow 应优先读取 `go.mod`，不要硬编码 Go 版本。
-- 生产 SSH 主机/账号/端口使用组织 Variables（`SVRB_*` 优先，`SVRA_*` fallback）；私钥与 sudo 密码仍用 Secrets。
+- GitHub-hosted workflow 的生产 SSH 目标必须优先使用 `SVRB_PUBLIC_HOST`；`SVRB_HOST` 是 Tailscale 回退地址。账号/端口使用组织 Variables，私钥与 sudo 密码仍用 Secrets。
 - GitHub secrets 只在 workflow 中解引用；脚本通过普通环境变量接收。
 - CI/CD 运行步骤应优先放入 `scripts/cd` 和 `Makefile cd-*`，避免在 YAML 里堆叠长脚本。
 - 健康检查应贴合 compose 真实网络模型：容器内探测 `9080`，不要恢复宿主机 `8080/9444` 探测。

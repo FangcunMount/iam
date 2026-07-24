@@ -60,6 +60,21 @@ func (o *Options) Validate() []error {
 			errs = append(errs, errors.New("identity.session_revocation.stale_processing_after must be positive"))
 		}
 	}
+	if o.Health != nil {
+		readiness := o.Health.Readiness
+		if readiness.ComponentTimeout <= 0 {
+			errs = append(errs, errors.New("health.readiness.component_timeout must be positive"))
+		}
+		if readiness.TotalTimeout <= readiness.ComponentTimeout {
+			errs = append(errs, errors.New("health.readiness.total_timeout must be greater than component_timeout"))
+		}
+		if readiness.OutboxMaxPendingAge <= 0 {
+			errs = append(errs, errors.New("health.readiness.outbox_max_pending_age must be positive"))
+		}
+		if readiness.DrainDelay < 0 {
+			errs = append(errs, errors.New("health.readiness.drain_delay must not be negative"))
+		}
+	}
 	errs = append(errs, o.validateJWKSOptions()...)
 
 	return errs

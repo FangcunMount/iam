@@ -125,6 +125,13 @@ identity:
     retry_max_delay: 5m
     stale_processing_after: 1m
 
+health:
+  readiness:
+    component_timeout: 500ms
+    total_timeout: 2s
+    outbox_max_pending_age: 5m
+    drain_delay: 5s
+
 # ============================================================================
 # 2.4 内部 Seed/Mock C 端建号接口
 # ============================================================================

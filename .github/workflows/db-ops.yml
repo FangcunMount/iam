@@ -1,7 +1,9 @@
 name: Database Operations
 
-# Production target uses serverB (SVRB) first. SVRA variables remain as fallback.
-# Required Variables: SVRB_HOST (or SVRA_HOST), SVRB_USERNAME or SVRA_USERNAME
+# GitHub-hosted runners use the public serverB SSH endpoint first because they
+# cannot route to the Tailscale-only SVRB_HOST address.
+# Required Variables: SVRB_PUBLIC_HOST (preferred), SVRB_HOST, or SVRA_HOST
+# Required Variables: SVRB_USERNAME or SVRA_USERNAME
 # Required Secrets: SVRB_SSH_KEY or SVRA_SSH_KEY
 # Required Secrets: MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DBNAME
 # Optional Variables: SVRB_SSH_PORT, SVRA_SSH_PORT; Optional Secrets: MYSQL_PORT
@@ -44,7 +46,7 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
         with:
-          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
@@ -126,7 +128,7 @@ jobs:
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
           BACKUP_FILE_INPUT: ${{ github.event.inputs.backup_name }}
         with:
-          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
@@ -155,14 +157,11 @@ jobs:
               exit 1
             fi
 
-            case "$BACKUP_FILE" in
-              iam_backup_*.sql.gz) ;;
-              *)
-                echo "Invalid backup name: $BACKUP_FILE"
-                echo "Expected pattern: iam_backup_YYYYMMDD_HHMMSS.sql.gz"
-                exit 1
-                ;;
-            esac
+            if ! printf '%s\n' "$BACKUP_FILE" | grep -Eq '^iam_backup_[0-9]{8}_[0-9]{6}\.sql\.gz$'; then
+              echo "Invalid backup name: $BACKUP_FILE"
+              echo "Expected pattern: iam_backup_YYYYMMDD_HHMMSS.sql.gz"
+              exit 1
+            fi
 
             if [ ! -f "$BACKUP_DIR/$BACKUP_FILE" ]; then
               echo "Backup file not found: $BACKUP_FILE"
@@ -204,7 +203,7 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
         with:
-          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}

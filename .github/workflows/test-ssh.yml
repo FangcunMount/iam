@@ -1,8 +1,10 @@
 name: Production SSH Diagnostics
 
 # Manual diagnostic workflow for the production host.
-# Uses SVRB first and falls back to SVRA.
-# Required Variables: SVRB_HOST (or SVRA_HOST), SVRB_USERNAME or SVRA_USERNAME
+# GitHub-hosted runners use the public serverB endpoint first and fall back to
+# the private/Tailscale and legacy endpoints.
+# Required Variables: SVRB_PUBLIC_HOST (preferred), SVRB_HOST, or SVRA_HOST
+# Required Variables: SVRB_USERNAME or SVRA_USERNAME
 # Required Secrets: SVRB_SSH_KEY or SVRA_SSH_KEY
 # Optional Variables: SVRB_SSH_PORT, SVRA_SSH_PORT
 
@@ -29,7 +31,7 @@ jobs:
       - name: Test SSH Connection
         uses: appleboy/ssh-action@v1.2.5
         with:
-          host: ${{ vars.SVRB_HOST || vars.SVRA_HOST }}
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}

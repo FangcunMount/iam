@@ -14,7 +14,6 @@ on:
       - internal/apiserver/infra/token/keyset/**
       - internal/apiserver/options/**
       - internal/pkg/migration/**
-      - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
       - .github/workflows/concurrency-tests.yml
@@ -30,7 +29,6 @@ on:
       - internal/apiserver/infra/token/keyset/**
       - internal/apiserver/options/**
       - internal/pkg/migration/**
-      - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
       - .github/workflows/concurrency-tests.yml

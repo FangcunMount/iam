@@ -171,6 +171,26 @@ func NewIdentityOptions() *IdentityOptions {
 	}}
 }
 
+type HealthOptions struct {
+	Readiness ReadinessOptions `json:"readiness" mapstructure:"readiness"`
+}
+
+type ReadinessOptions struct {
+	ComponentTimeout   time.Duration `json:"component_timeout" mapstructure:"component_timeout"`
+	TotalTimeout       time.Duration `json:"total_timeout" mapstructure:"total_timeout"`
+	OutboxMaxPendingAge time.Duration `json:"outbox_max_pending_age" mapstructure:"outbox_max_pending_age"`
+	DrainDelay         time.Duration `json:"drain_delay" mapstructure:"drain_delay"`
+}
+
+func NewHealthOptions() *HealthOptions {
+	return &HealthOptions{Readiness: ReadinessOptions{
+		ComponentTimeout:   500 * time.Millisecond,
+		TotalTimeout:       2 * time.Second,
+		OutboxMaxPendingAge: 5 * time.Minute,
+		DrainDelay:         5 * time.Second,
+	}}
+}
+
 // SuggestOptions configures the suggest module and its refresh loop.
 type SuggestOptions struct {
 	Enable             bool   `json:"enable" mapstructure:"enable"`
