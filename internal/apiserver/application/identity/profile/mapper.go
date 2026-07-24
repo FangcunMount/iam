@@ -49,14 +49,3 @@ func myProfileLinkToResult(profileLink *profileLinkDomain.ProfileLink, profile *
 
 	return result
 }
-
-// toProfileResults 将领域实体列表转换为 DTO 列表
-func toProfileResults(profiles []*domain.Profile) []*ProfileResult {
-	results := make([]*ProfileResult, 0, len(profiles))
-	for _, profile := range profiles {
-		if profile != nil {
-			results = append(results, toProfileResult(profile))
-		}
-	}
-	return results
-}

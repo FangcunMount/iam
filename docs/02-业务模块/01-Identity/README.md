@@ -17,11 +17,11 @@ Identity 不负责登录认证、令牌签发、权限判定、外部身份源�
 ## 30 秒结论
 
 - `User`、`Profile`、`ProfileLink` 是三个独立模型。
-- Phone 当前可选；非空时由 application 检查唯一，数据库没有手机号唯一索引。
+- Phone 当前可选；非空时由 application 预检查，并由数据库活跃手机号唯一索引兜底。
 - 对外 `CreateProfile` 会在同一事务中同时创建 `Profile` 和 `ProfileLink`。
 - REST 目前只提供 Identity 查询和更新；创建、关系建立/撤销、批量导入等写能力由 gRPC 提供。
 - `ProfileLink.Revoke` 是实体级幂等；公开撤销接口再次撤销已撤销关系会返回错误。
-- User 被 `Block` 后会触发 AuthN Session 撤销；`Deactivate` 不会。
+- User 被 `Block` 或 `Deactivate` 后，会在同一 MySQL 事务写入本地安全 Outbox，并最终幂等撤销 AuthN Session。
 - Suggest 当前通过 Full/Delta SQL 读取 Identity 表构建索引，不是 Profile 事件订阅。
 
 ## 文档结构

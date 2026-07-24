@@ -2,13 +2,14 @@ package suggest
 
 import (
 	stderrors "errors"
+	"time"
 
 	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/gin-gonic/gin"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/pkg/core"
+	"github.com/gin-gonic/gin"
 )
 
 // Dependencies wires runtime dependencies for the handler.
@@ -55,9 +56,10 @@ func NewHandler(svc appsuggest.ProfileSuggestor, limits appsuggest.RateLimiter, 
 
 type noopSuggestMetrics struct{}
 
-func (noopSuggestMetrics) RecordQuery(string, int, bool)   {}
-func (noopSuggestMetrics) ObserveRefresh(string, float64) {}
-func (noopSuggestMetrics) RecordRateLimited(bool)         {}
+func (noopSuggestMetrics) RecordQuery(string, int, bool)                     {}
+func (noopSuggestMetrics) ObserveRefresh(string, float64)                    {}
+func (noopSuggestMetrics) RecordRefresh(string, string, int, int, time.Time) {}
+func (noopSuggestMetrics) RecordRateLimited(bool)                            {}
 
 // Profile 处理档案联想查询
 // @Summary 档案联想搜索

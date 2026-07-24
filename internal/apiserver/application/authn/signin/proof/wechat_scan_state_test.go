@@ -66,6 +66,15 @@ func (s *wechatScanOAuthChallengeRepoStub) ConsumeIfSecretMatches(_ context.Cont
 	return true, nil
 }
 
+func (s *wechatScanOAuthChallengeRepoStub) RecordFailedAttemptIfCurrent(
+	context.Context,
+	string,
+	[]byte,
+	int,
+) (bool, bool, error) {
+	return true, false, nil
+}
+
 func (s *wechatScanOAuthChallengeRepoStub) Delete(_ context.Context, id string) error {
 	delete(s.items, id)
 	return nil

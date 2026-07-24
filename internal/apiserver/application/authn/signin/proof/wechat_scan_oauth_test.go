@@ -97,6 +97,15 @@ func (s *oauthChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id st
 	return true, nil
 }
 
+func (s *oauthChallengeRepoStub) RecordFailedAttemptIfCurrent(
+	context.Context,
+	string,
+	[]byte,
+	int,
+) (bool, bool, error) {
+	return true, false, nil
+}
+
 func (s *oauthChallengeRepoStub) Delete(_ context.Context, id string) error {
 	delete(s.items, id)
 	return nil

@@ -43,6 +43,7 @@ func (w *Worker) Run(ctx context.Context) {
 }
 
 func (w *Worker) runBatch(ctx context.Context) {
+	defer w.recordState(ctx)
 	tasks, err := w.store.Claim(ctx, w.config.BatchSize, time.Now().UTC().Add(-w.config.StaleProcessingAfter))
 	if err != nil {
 		log.Warnw("session revocation claim failed", "operation", "claim", "result", "failed")
@@ -60,6 +61,18 @@ func (w *Worker) runBatch(ctx context.Context) {
 			log.Warnw("session revocation completion failed", "operation", "complete", "result", "failed")
 		}
 	}
+}
+
+func (w *Worker) recordState(ctx context.Context) {
+	counts, err := w.store.StatusCounts(ctx)
+	if err != nil {
+		return
+	}
+	age, err := w.store.OldestUnfinishedAge(ctx, time.Now().UTC())
+	if err != nil {
+		return
+	}
+	recordTaskState(counts, age.Seconds())
 }
 
 func (w *Worker) retryDelay(attempt uint32) time.Duration {

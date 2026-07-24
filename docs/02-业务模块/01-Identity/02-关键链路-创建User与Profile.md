@@ -209,18 +209,18 @@ AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN Log
 
 AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，不应扩展成 AuthN 可以任意编辑 User/Profile/ProfileLink。
 
-### 6.5 决策 E：唯一性使用“业务预检查 + DB 兜底”，但 Phone 尚未完成闭环
+### 6.5 决策 E：唯一性使用“业务预检查 + DB 兜底”
 
-> 标签：设计决策 + 已知缺口
+> 标签：当前实现
 
-application checker 能返回稳定的业务错误，数据库唯一键才能在并发下做最终裁决。当前两个字段的落地程度不同：
+application checker 能返回稳定的业务错误，数据库唯一键在并发下做最终裁决：
 
 | 字段 | Identity application 预检查 | DB 唯一键 | 其他写入链路 |
 | --- | --- | --- | --- |
 | Profile IDCard | 非空时检查 | `profiles.uk_id_card` | 当前 Profile 公开创建收敛到组合用例 |
-| User Phone | Identity Create/Patch 非空时检查 | 无，只有 `idx_phone` | AuthN signup 不调用 checker，也不按 Phone 复用 User |
+| User Phone | Identity Create/Patch 非空时检查 | `users.uk_users_active_phone`（生成列，仅活跃非空手机号） | AuthN signup 不按 Phone 自动合并 User；数据库仍统一裁决冲突 |
 
-因此 IDCard 已基本实现这一策略；Phone 尚未实现系统级唯一。
+因此 IDCard 与活跃 User Phone 都具备数据库并发兜底；User 软删除后手机号可复用。
 
 ## 7. Identity `CreateUser` 当前实现
 

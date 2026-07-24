@@ -274,12 +274,14 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if m.routeAuth == nil {
+			recordHTTPAuthorization(resourceObj, action, "error")
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
 			c.Abort()
 			return
 		}
 		userID, ok := requestctx.UserID(c)
 		if !ok {
+			recordHTTPAuthorization(resourceObj, action, "unauthenticated")
 			core.WriteResponse(c, errors.WithCode(code.ErrTokenInvalid, "Not authenticated"), nil)
 			c.Abort()
 			return
@@ -295,16 +297,19 @@ func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action
 			action,
 		)
 		if allowed {
+			recordHTTPAuthorization(resourceObj, action, "permission")
 			c.Next()
 			return
 		}
 
 		adminAllowed, adminErr := m.isPlatformAdmin(c.Request.Context(), sub, dom)
 		if adminAllowed {
+			recordHTTPAuthorization(resourceObj, action, "platform_admin")
 			c.Next()
 			return
 		}
 		if permissionErr != nil || adminErr != nil {
+			recordHTTPAuthorization(resourceObj, action, "error")
 			log.Errorw("route authorization check failed",
 				"resource", resourceObj,
 				"action", action,
@@ -314,6 +319,7 @@ func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action
 			return
 		}
 
+		recordHTTPAuthorization(resourceObj, action, "denied")
 		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
 		c.Abort()
 	}

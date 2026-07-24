@@ -14,6 +14,7 @@ import (
 	sessionapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
 	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
+	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
 	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
@@ -242,19 +243,15 @@ func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
 	assertRouteBefore(t, engine, http.MethodGet, "/health", http.MethodGet, "/.well-known/jwks.json")
 }
 
-func TestHealthCheckIncludesAuthzRuntimeReloadEventDetails(t *testing.T) {
+func TestHealthCheckReturnsSanitizedCompatibilitySummary(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.ModuleStatus.AuthEnabled = true
-	deps.Authz.HealthReporter = authzHealthReporterStub{
-		reloadedAt: time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
-		details: map[string]any{
-			"last_event_tenant_id": "tenant-a",
-			"last_event_version":   int64(12),
-			"reload_lag_ms":        int64(34),
-		},
+	deps.ModuleStatus.Modules = map[string]ModuleState{
+		moduleStateAuthn: {Bootstrapped: true, Available: true},
+		moduleStateAuthz: {Bootstrapped: true, Available: false, DegradedReason: "SECRET-SENTINEL"},
 	}
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
@@ -270,18 +267,33 @@ func TestHealthCheckIncludesAuthzRuntimeReloadEventDetails(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
 		t.Fatalf("GET /health should return valid json: %v", err)
 	}
-	authzRuntime, ok := body["authz_runtime"].(map[string]any)
-	if !ok {
-		t.Fatalf("authz_runtime missing or invalid: %#v", body["authz_runtime"])
+	if strings.Contains(recorder.Body.String(), "SECRET-SENTINEL") {
+		t.Fatalf("health response leaked degraded reason: %s", recorder.Body.String())
 	}
-	if authzRuntime["last_event_tenant_id"] != "tenant-a" {
-		t.Fatalf("last_event_tenant_id = %#v, want tenant-a", authzRuntime["last_event_tenant_id"])
+}
+
+func TestReadinessCheckReturns503WhenDraining(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	checker := readinessapp.New(readinessapp.Config{
+		ComponentTimeout: 10 * time.Millisecond,
+		TotalTimeout:     50 * time.Millisecond,
+	}, []readinessapp.Component{{
+		Name: "mysql", Required: true, Check: func(context.Context) error { return nil },
+	}})
+	checker.MarkDraining()
+	deps := restDepsForTest()
+	deps.Readiness = checker
+	engine := gin.New()
+	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("GET /readyz status = %d, want 503; body=%s", recorder.Code, recorder.Body.String())
 	}
-	if authzRuntime["last_event_version"] != float64(12) {
-		t.Fatalf("last_event_version = %#v, want 12", authzRuntime["last_event_version"])
-	}
-	if authzRuntime["reload_lag_ms"] != float64(34) {
-		t.Fatalf("reload_lag_ms = %#v, want 34", authzRuntime["reload_lag_ms"])
+	if strings.Contains(recorder.Body.String(), "error") {
+		t.Fatalf("GET /readyz leaked error detail: %s", recorder.Body.String())
 	}
 }
 
@@ -542,25 +554,6 @@ func (casbinStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, er
 
 func (casbinStub) DirectRoleKeys(_ context.Context, _, _ string) ([]string, error) {
 	return []string{"role:admin"}, nil
-}
-
-type authzHealthReporterStub struct {
-	healthy    bool
-	err        error
-	reloadedAt time.Time
-	details    map[string]any
-}
-
-func (s authzHealthReporterStub) ReloadHealth() (bool, error, time.Time) {
-	healthy := s.healthy
-	if !healthy && s.err == nil {
-		healthy = true
-	}
-	return healthy, s.err, s.reloadedAt
-}
-
-func (s authzHealthReporterStub) RuntimeHealthDetails() map[string]any {
-	return s.details
 }
 
 type tokenServiceStub struct{}

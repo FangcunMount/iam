@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -77,6 +79,33 @@ var (
 		},
 		[]string{"kind"},
 	)
+	refreshTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "iam",
+			Subsystem: "suggest",
+			Name:      "refresh_total",
+			Help:      "Suggest refresh executions by kind and result.",
+		},
+		[]string{"kind", "result"},
+	)
+	refreshItemsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "iam",
+			Subsystem: "suggest",
+			Name:      "refresh_items_total",
+			Help:      "Suggest refresh items by kind and operation.",
+		},
+		[]string{"kind", "operation"},
+	)
+	lastRefreshSuccess = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "iam",
+			Subsystem: "suggest",
+			Name:      "last_success_timestamp_seconds",
+			Help:      "Unix timestamp of the latest successful Suggest refresh.",
+		},
+		[]string{"kind"},
+	)
 )
 
 // RecordQuery 记录一次完成的 suggest 查询（service 层，策略已选定）。
@@ -129,4 +158,26 @@ func ObserveRefresh(kind string, seconds float64) {
 		seconds = 0
 	}
 	refreshDuration.WithLabelValues(kind).Observe(seconds)
+}
+
+func RecordRefresh(kind, result string, upserts, tombstones int, completedAt time.Time) {
+	if kind == "" {
+		kind = "unknown"
+	}
+	if result == "" {
+		result = "failed"
+	}
+	refreshTotal.WithLabelValues(kind, result).Inc()
+	if result != "success" {
+		return
+	}
+	if upserts > 0 {
+		refreshItemsTotal.WithLabelValues(kind, "upsert").Add(float64(upserts))
+	}
+	if tombstones > 0 {
+		refreshItemsTotal.WithLabelValues(kind, "tombstone").Add(float64(tombstones))
+	}
+	if !completedAt.IsZero() {
+		lastRefreshSuccess.WithLabelValues(kind).Set(float64(completedAt.Unix()))
+	}
 }

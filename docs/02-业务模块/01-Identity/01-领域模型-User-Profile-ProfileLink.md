@@ -323,29 +323,31 @@ stateDiagram-v2
 
 > 标签：当前实现。这张图表示领域方法允许直接切换，不代表业务已正式确认“任意状态都可直达任意状态”。
 
-application 层的 `Block` 顺序是：
+application 层的 `Block` 与 `Deactivate` 顺序是：
 
 ```text
-在 Identity 事务中保存 blocked
-  -> 提交
-  -> 调用 AuthN SessionRevoker
+在 Identity 事务中锁定并保存 User 状态
+  -> 同事务写 identity_session_revocation_outbox
+  -> 提交并返回成功
+  -> 后台 Worker 最终幂等调用 AuthN SessionRevoker
 ```
 
-因此数据库状态和 Session 撤销不是一个原子事务。
+因此 User 状态与撤销任务原子提交，但 MySQL 状态与 Redis Session 撤销不是一个原子事务。
+在线 Verify 会实时拒绝 blocked/inactive User，补偿延迟不会使旧 Session 恢复有效。
 
 ### 6.5 手机号唯一性
 
 `optionalPhone("")` 返回空值，`UniquenessChecker` 跳过空手机号。非空手机号在创建或修改时执行 application 预检查。
 
-当前 `users.phone` 只有 `idx_phone` 普通索引，没有唯一索引。所以：
+迁移 `000017_users_active_phone_unique_guard` 为未软删除 User 的非空手机号生成
+`active_phone`，并建立唯一索引。所以：
 
 ```text
 业务意图：非空 Phone 唯一
-当前保护：事务内先查后写
-并发结果：可能穿透预检查写入重复值
+友好错误：application 事务内预检查
+并发兜底：数据库唯一索引
+软删除后：允许手机号复用
 ```
-
-> 标签：已知缺口。如果 Phone 确实是全局唯一业务键，需要 DB 唯一约束兜底。
 
 > 标签：待确认决策。“Phone 为什么可选”在当前文档和历史证据中没有明确记录。
 
@@ -539,8 +541,8 @@ active self 有两层保护：
 | Create Profile | Profile 或 ProfileLink 任一保存失败 | 整个 Identity 事务回滚 |
 | Establish ProfileLink | 参与者不存在/重复/self 冲突 | 事务失败，不保存 link |
 | Revoke ProfileLink | active link 不存在 | 返回 not found 类错误，不视为成功 |
-| Block User | Identity 保存失败 | 不调用 SessionRevoker |
-| Block User | Identity 已提交，Session 撤销失败 | User 仍 blocked，调用方收到错误 |
+| Block/Deactivate User | Identity 保存或任务写入失败 | 同一事务回滚 |
+| Block/Deactivate User | Redis Session 撤销失败 | API 已成功；任务保留并指数退避重试 |
 | Batch revoke/import | 其中一项失败 | 已成功项不回滚，返回分项结果 |
 
 ## 11. 模型边界：不要从关系事实跳到权限结论

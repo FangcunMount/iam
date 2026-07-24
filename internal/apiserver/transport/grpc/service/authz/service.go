@@ -212,20 +212,25 @@ func authorizeAssignmentRequest(
 	request assignmentauth.Request,
 ) (string, error) {
 	if authorizer == nil {
+		recordAssignmentAuthorization("unknown", string(request.Operation), "skipped")
 		return "", nil
 	}
 	identity, ok := interceptors.ServiceIdentityFromContext(ctx)
 	if !ok || identity == nil || strings.TrimSpace(identity.ServiceName) == "" {
+		recordAssignmentAuthorization("unknown", string(request.Operation), "denied")
 		return "", status.Error(codes.PermissionDenied, "assignment caller identity is required")
 	}
 	request.CallerService = strings.TrimSpace(identity.ServiceName)
 	if err := authorizer.AuthorizeAssignment(request); err != nil {
 		var denied *assignmentauth.DeniedError
 		if errors.As(err, &denied) {
+			recordAssignmentAuthorization(request.CallerService, string(request.Operation), "denied")
 			return "", status.Error(codes.PermissionDenied, "assignment request is not allowed")
 		}
+		recordAssignmentAuthorization(request.CallerService, string(request.Operation), "failed")
 		return "", status.Error(codes.Internal, "assignment authorization failed")
 	}
+	recordAssignmentAuthorization(request.CallerService, string(request.Operation), "allowed")
 	return request.CallerService, nil
 }
 

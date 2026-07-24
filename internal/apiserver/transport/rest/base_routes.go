@@ -13,6 +13,7 @@ import (
 func (r *Router) registerBaseRoutes(engine *gin.Engine) {
 	// 注册健康检查路由
 	engine.GET("/health", r.healthCheck)
+	engine.GET("/readyz", r.readinessCheck)
 	// 注册连通性检查路由
 	engine.GET("/ping", r.ping)
 	// 注册路由调试路由

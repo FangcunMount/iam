@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/FangcunMount/component-base/pkg/processruntime"
 )
@@ -23,6 +24,13 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 
 	runShutdownSequence(shutdownSequenceDeps{
 		lifecycle: lifecycle,
+		beginDrain: func() {
+			order = append(order, "begin drain")
+		},
+		drainDelay: time.Second,
+		waitDrain: func(time.Duration) {
+			order = append(order, "drain delay")
+		},
 		suggestCleanup: func() error {
 			order = append(order, "suggest cleanup")
 			return nil
@@ -46,6 +54,8 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 	})
 
 	want := []string{
+		"begin drain",
+		"drain delay",
 		"stop outbox relay",
 		"stop key rotation scheduler",
 		"suggest cleanup",

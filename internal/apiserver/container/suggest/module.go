@@ -110,6 +110,9 @@ func (m *SuggestModule) CheckHealth() error {
 	if m.service == nil {
 		return fmt.Errorf("suggest service not initialized")
 	}
+	if m.refresher == nil || !m.refresher.HasSuccessfulRefresh() {
+		return fmt.Errorf("suggest full refresh has not completed")
+	}
 	return nil
 }
 

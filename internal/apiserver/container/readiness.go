@@ -7,6 +7,7 @@ import (
 	"time"
 
 	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
+	readinessmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/observability/readiness"
 )
 
 func (c *Container) ReadinessChecker() *readinessapp.Checker {
@@ -28,7 +29,7 @@ func (c *Container) ReadinessChecker() *readinessapp.Checker {
 		{Name: "authz", Required: true, Check: c.checkAuthzReady},
 		{Name: "suggest", Required: c.runtimeOptions.Suggest.Required, Check: c.checkSuggestReady},
 		{Name: "session_revocation", Required: true, Check: c.checkSessionRevocationReady},
-	})
+	}, readinessmetrics.Recorder{})
 	return c.readiness
 }
 

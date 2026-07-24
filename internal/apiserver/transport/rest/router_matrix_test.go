@@ -31,6 +31,7 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		path   string
 	}{
 		{http.MethodGet, "/health"},
+		{http.MethodGet, "/readyz"},
 		{http.MethodGet, "/.well-known/jwks.json"},
 		{http.MethodPost, "/api/v2/authn/login"},
 		{http.MethodPost, "/api/v2/authn/challenges/phone-otp"},
@@ -170,12 +171,10 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 	if route.Path == "/.well-known/jwks.json" || route.Path == "/api/v2/.well-known/jwks.json" {
 		return true
 	}
-	if !strings.HasPrefix(route.Path, "/api/v2/") {
-		return false
-	}
 	// Exact operational/internal exceptions. New routes must be documented or
 	// added here with a concrete reason; prefix-wide exemptions are forbidden.
 	exemptions := map[string]string{
+		http.MethodGet + " /readyz":                                                          "internal traffic-readiness probe",
 		http.MethodGet + " /api/v2/public/info":                                              "runtime discovery metadata",
 		http.MethodPost + " /api/v2/internal/authn/mock-consumers/ensure":                    "seeddata-only internal route",
 		http.MethodPost + " /api/v2/admin/sessions/:sessionId/revoke":                        "operator-only session control",
@@ -185,7 +184,10 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 		http.MethodGet + " /api/v2/authz/health":                                             "module-local health probe",
 	}
 	_, exempt := exemptions[route.Method+" "+route.Path]
-	return !exempt
+	if exempt {
+		return false
+	}
+	return strings.HasPrefix(route.Path, "/api/v2/")
 }
 
 func normalizeOpenAPIPath(path string) string {

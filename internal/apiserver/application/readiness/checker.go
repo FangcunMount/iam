@@ -27,6 +27,10 @@ type Snapshot struct {
 
 type CheckFunc func(context.Context) error
 
+type Observer interface {
+	Observe(Snapshot, bool)
+}
+
 type Component struct {
 	Name     string
 	Required bool
@@ -41,11 +45,16 @@ type Config struct {
 type Checker struct {
 	config     Config
 	components []Component
+	observer   Observer
 	draining   atomic.Bool
 }
 
-func New(config Config, components []Component) *Checker {
-	return &Checker{config: config, components: components}
+func New(config Config, components []Component, observers ...Observer) *Checker {
+	checker := &Checker{config: config, components: components}
+	if len(observers) > 0 {
+		checker.observer = observers[0]
+	}
+	return checker
 }
 
 func (c *Checker) MarkDraining() {
@@ -66,6 +75,7 @@ func (c *Checker) Check(ctx context.Context) (Snapshot, bool) {
 	}
 	if c == nil || c.draining.Load() {
 		snapshot.Status = "not_ready"
+		c.observe(snapshot, false)
 		return snapshot, false
 	}
 
@@ -111,7 +121,6 @@ func (c *Checker) Check(ctx context.Context) (Snapshot, bool) {
 			}
 			snapshot.Components[item.name] = ComponentResult{Status: status}
 		case <-totalCtx.Done():
-			ready = false
 			for _, component := range c.components {
 				if _, ok := received[component.Name]; ok {
 					continue
@@ -123,11 +132,19 @@ func (c *Checker) Check(ctx context.Context) (Snapshot, bool) {
 				snapshot.Components[component.Name] = ComponentResult{Status: status}
 			}
 			snapshot.Status = "not_ready"
+			c.observe(snapshot, false)
 			return snapshot, false
 		}
 	}
 	if !ready {
 		snapshot.Status = "not_ready"
 	}
+	c.observe(snapshot, ready)
 	return snapshot, ready
+}
+
+func (c *Checker) observe(snapshot Snapshot, ready bool) {
+	if c != nil && c.observer != nil {
+		c.observer.Observe(snapshot, ready)
+	}
 }

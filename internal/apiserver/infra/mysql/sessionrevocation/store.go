@@ -130,13 +130,39 @@ func (s *Store) Fail(ctx context.Context, taskID uint64, next time.Time) error {
 }
 
 func (s *Store) OldestUnfinishedAge(ctx context.Context, now time.Time) (time.Duration, error) {
-	var createdAt *time.Time
-	err := s.db.WithContext(ctx).Model(&Task{}).
-		Select("MIN(created_at)").
+	var task Task
+	err := s.db.WithContext(ctx).
 		Where("status <> ?", StatusCompleted).
-		Scan(&createdAt).Error
-	if err != nil || createdAt == nil {
+		Order("created_at ASC").
+		First(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if err != nil {
 		return 0, err
 	}
-	return now.Sub(createdAt.UTC()), nil
+	age := now.Sub(task.CreatedAt.UTC())
+	if age < 0 {
+		return 0, nil
+	}
+	return age, nil
+}
+
+func (s *Store) StatusCounts(ctx context.Context) (map[string]int64, error) {
+	type statusCount struct {
+		Status string
+		Count  int64
+	}
+	var rows []statusCount
+	if err := s.db.WithContext(ctx).Model(&Task{}).
+		Select("status, COUNT(*) AS count").
+		Group("status").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.Status] = row.Count
+	}
+	return counts, nil
 }

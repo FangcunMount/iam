@@ -7,7 +7,7 @@
 - Identity 在 IAM 中拥有哪些事实，不拥有哪些事实？
 - Identity 与 AuthN、AuthZ、IDP、Suggest 今天通过什么方式协作？
 - AuthN signup 为什么可以在自己的事务中创建 Identity User？
-- 为什么 Identity Block 同步调用 AuthN SessionRevoker，却不直接管理 Session？
+- 为什么 Identity Block/Deactivate 通过本地安全 Outbox 最终调用 AuthN SessionRevoker，却不直接管理 Session？
 - Identity REST 读取角色名称是否意味着 Identity 拥有 AuthZ？
 - IDP 是否已经产出通用 `ExternalIdentity`？
 - Suggest 是事件驱动读模型，还是直接读取 Identity 数据表？
@@ -19,10 +19,10 @@ Identity 是 User、Profile、ProfileLink 的主事实边界，但不是完全�
 
 | 协作方 | Identity 与它的真实关系 | 一致性/失败语义 |
 | --- | --- | --- |
-| AuthN | LoginIdentity/Session 以 UserID 引用 User；AuthN signup 在自己 UOW 中使用 Identity User repository port；Identity Block 调用 SessionRevoker | signup 与 User 同 MySQL 事务；Block 先提交 DB，再撤销 Session，非原子 |
+| AuthN | LoginIdentity/Session 以 UserID 引用 User；AuthN signup 在自己 UOW 中使用 Identity User repository port；Identity 状态变更写本地安全 Outbox | signup 与 User 同 MySQL 事务；状态与任务同事务，Redis Session 最终幂等撤销 |
 | AuthZ | Identity REST `/me` 用 `RoleNameReader` 补充角色名；Profile REST 的 ProfileLink 前置是局部访问规则 | 角色读取失败时返回无 roles 的 User；不执行通用 AuthZ Check |
 | IDP | IDP 管理 WechatApp/Credential/AppAccessToken；AuthN 读取配置并直接编排 code exchange | 当前没有通用 IDP `ExternalIdentity` 领域对象传给 Identity |
-| Suggest | Suggest infra 直接从 Identity MySQL 表 Full/Delta 派生索引，再结合 AuthZ runtime 与可见 ProfileID 生成 scope | 最终一致；当前无 Profile event/outbox，Loader 对 revoked link 过滤不完整 |
+| Suggest | Suggest infra 直接从 Identity MySQL 表 Full/Delta 派生索引，再结合 AuthZ runtime 与可见 ProfileID 生成 scope | 最终一致；默认 Loader 统一过滤 deleted/revoked Profile、ProfileLink 和 User，并用 tombstone 删除失效项 |
 
 边界的核心不是“不许任何依赖”，而是：
 
@@ -63,7 +63,7 @@ Suggest principal   -> 联想查询的操作者和数据范围是什么？
 | Identity 事实只有一个主模型 | User/Profile/ProfileLink 只在 Identity domain 定义 |
 | 认证和授权可独立演进 | User 不存 LoginIdentity/Session/Permission；只共享 ID/reference |
 | signup 不留半完成账号 | AuthN UOW 显式使用 User repository port 参与本地事务 |
-| 封禁后应尽快失效 Session | Identity application 在提交后调用窄 `SessionRevoker` port |
+| 封禁/停用后应尽快失效 Session | Identity application 同事务写本地任务，Worker 调用窄 `SessionRevoker` port |
 | 展示信息不得倒置主从关系 | `/me` 角色读取失败时降级为无 roles |
 | 身份关系不等于权限 | ProfileLink 不保存 RoleBinding/Permission，不自动生成 policy |
 | 搜索性能不污染写模型 | Suggest 维护 ProfileSearchTerm 和进程内索引 |
@@ -203,8 +203,8 @@ Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直�
 1. LoginIdentity、Session 和 Token 通过 UserID 引用 Identity User；
 2. AuthN signup 在 AuthN UOW 内使用 Identity User repository port 创建、复用或修复 User；
 3. AuthN signup 按 LoginIdentity provider key/global identifier 解析 User，不按 Phone 自动合并；
-4. Identity Block 提交后调用 `session.Revoker.RevokeByUser`；
-5. Identity Deactivate 只修改 User status。
+4. Identity Block/Deactivate 与 Session 撤销任务在同一 MySQL 事务中提交；
+5. Worker 以 at-least-once 语义调用幂等 `session.Revoker.RevokeByUser`，失败指数退避重试。
 
 ### 7.3 不得越过的边界
 

@@ -7,6 +7,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/processruntime"
 	"github.com/FangcunMount/component-base/pkg/shutdown"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // outboxRelayInterval 获取出box 间隔时间
@@ -150,6 +151,9 @@ func (s *apiServer) registerShutdownCallbacks(lifecycle processruntime.Lifecycle
 // shutdownSequenceDeps 关闭序列依赖
 type shutdownSequenceDeps struct {
 	lifecycle       processruntime.Lifecycle
+	beginDrain      func()
+	drainDelay      time.Duration
+	waitDrain       func(time.Duration)
 	suggestCleanup  func() error // 清理建议模块
 	identityCleanup func() error
 	closeDatabase   func() error // 关闭数据库
@@ -167,6 +171,8 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 		runtimeDeps := s.container.BuildRuntimeDeps()
 		deps.suggestCleanup = runtimeDeps.SuggestCleanup
 		deps.identityCleanup = runtimeDeps.IdentityCleanup
+		deps.beginDrain = s.container.MarkDraining
+		deps.drainDelay = s.container.DrainDelay()
 	}
 	if s.dbManager != nil {
 		deps.closeDatabase = s.dbManager.Close // 关闭数据库
@@ -178,6 +184,13 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 		}
 	}
 	if s.grpcServer != nil {
+		previousBeginDrain := deps.beginDrain
+		deps.beginDrain = func() {
+			if previousBeginDrain != nil {
+				previousBeginDrain()
+			}
+			s.grpcServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
+		}
 		deps.closeGRPC = func() error {
 			s.grpcServer.Close() // 关闭 GRPC 服务器
 			return nil
@@ -189,6 +202,16 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 
 // runShutdownSequence 运行关闭序列
 func runShutdownSequence(deps shutdownSequenceDeps) {
+	if deps.beginDrain != nil {
+		deps.beginDrain()
+	}
+	if deps.drainDelay > 0 {
+		wait := deps.waitDrain
+		if wait == nil {
+			wait = time.Sleep
+		}
+		wait(deps.drainDelay)
+	}
 	// 运行生命周期
 	deps.lifecycle.Run(func(name string, err error) {
 		log.Errorf("Failed to run shutdown hook %q: %v", name, err)

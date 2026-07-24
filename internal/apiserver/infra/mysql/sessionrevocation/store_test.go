@@ -71,6 +71,30 @@ func TestWorkerRetriesThenCompletes(t *testing.T) {
 	require.Equal(t, "iam:identity-status", revoker.revokedBy)
 }
 
+func TestStoreOldestUnfinishedAgeAndStatusCounts(t *testing.T) {
+	t.Parallel()
+	db := openTestDB(t)
+	userID := meta.FromUint64(102)
+	require.NoError(t, db.Exec(
+		"INSERT INTO users (id, name, nickname, phone, email, status, version) VALUES (?, ?, '', '', '', 1, 3)",
+		userID.Uint64(), "test",
+	).Error)
+	store := NewStore(db)
+	require.NoError(t, store.Stage(context.Background(), userID, "revoke_all", "user_blocked"))
+
+	now := time.Now().UTC()
+	createdAt := now.Add(-2 * time.Minute)
+	require.NoError(t, db.Model(&Task{}).Where("user_id = ?", userID.Uint64()).
+		Update("created_at", createdAt).Error)
+
+	age, err := store.OldestUnfinishedAge(context.Background(), now)
+	require.NoError(t, err)
+	require.InDelta(t, (2 * time.Minute).Seconds(), age.Seconds(), 1)
+	counts, err := store.StatusCounts(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), counts[StatusPending])
+}
+
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})

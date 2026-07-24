@@ -192,6 +192,50 @@ func TestOptionsValidateJWKSRotation(t *testing.T) {
 	}
 }
 
+func TestOptionsValidateReadiness(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*ReadinessOptions)
+		wantErr string
+	}{
+		{name: "valid"},
+		{name: "component timeout positive", mutate: func(o *ReadinessOptions) {
+			o.ComponentTimeout = 0
+		}, wantErr: "component_timeout"},
+		{name: "total greater than component", mutate: func(o *ReadinessOptions) {
+			o.TotalTimeout = o.ComponentTimeout
+		}, wantErr: "total_timeout"},
+		{name: "outbox age positive", mutate: func(o *ReadinessOptions) {
+			o.OutboxMaxPendingAge = 0
+		}, wantErr: "outbox_max_pending_age"},
+		{name: "drain delay nonnegative", mutate: func(o *ReadinessOptions) {
+			o.DrainDelay = -time.Second
+		}, wantErr: "drain_delay"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := NewOptions()
+			opts.GenericServerRunOptions.Mode = "debug"
+			if tt.mutate != nil {
+				tt.mutate(&opts.Health.Readiness)
+			}
+			errs := opts.Validate()
+			if tt.wantErr == "" {
+				if len(errs) != 0 {
+					t.Fatalf("Validate() errors = %v", errs)
+				}
+				return
+			}
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tt.wantErr) {
+					return
+				}
+			}
+			t.Fatalf("Validate() errors = %v, want %q", errs, tt.wantErr)
+		})
+	}
+}
+
 func TestOptionsValidateRejectsRemovedAppKeysWithoutValues(t *testing.T) {
 	sentinel := "removed-app-sentinel"
 	tests := []struct {

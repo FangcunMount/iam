@@ -143,6 +143,16 @@ jobs:
             fi
             echo "Internal HTTP API is healthy: $http_status"
 
+            readiness_output=$(sudo docker exec iam-apiserver curl -sS -w '\n%{http_code}' http://127.0.0.1:9080/readyz || printf '\n000')
+            readiness_status=$(printf '%s\n' "$readiness_output" | tail -1)
+            readiness_body=$(printf '%s\n' "$readiness_output" | sed '$d')
+            if [ "$readiness_status" != "200" ]; then
+              echo "WARNING: IAM is live but not ready for traffic: $readiness_status"
+              echo "$readiness_body"
+            else
+              echo "Internal HTTP API is ready: $readiness_status"
+            fi
+
       - name: Dependency Connectivity Check
         uses: appleboy/ssh-action@v1.2.5
         with:

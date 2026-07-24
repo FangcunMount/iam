@@ -140,6 +140,66 @@ def check_jwks_lifecycle_wiring() -> None:
             fail(f"JWKS lifecycle wiring is missing {token}")
 
 
+def check_readiness_facts() -> None:
+    routes = (
+        ROOT / "internal/apiserver/transport/rest/base_routes.go"
+    ).read_text(encoding="utf-8")
+    generic_server = (
+        ROOT / "internal/pkg/server/genericapiserver.go"
+    ).read_text(encoding="utf-8")
+    shutdown = (
+        ROOT / "internal/apiserver/process/shutdown_lifecycle.go"
+    ).read_text(encoding="utf-8")
+    server_check = (
+        ROOT / ".github/workflows/server-check.yml"
+    ).read_text(encoding="utf-8")
+    health_doc = (
+        ROOT / "docs/01-运行时/06-健康检查与降级启动.md"
+    ).read_text(encoding="utf-8")
+    metric_sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            ROOT / "internal/pkg/middleware/authn/metrics.go",
+            ROOT / "internal/apiserver/application/authn/challenge/metrics.go",
+            ROOT / "internal/apiserver/transport/grpc/service/authz/metrics.go",
+            ROOT / "internal/apiserver/infra/mysql/sessionrevocation/metrics.go",
+            ROOT / "internal/apiserver/infra/observability/readiness/metrics.go",
+            ROOT / "internal/apiserver/infra/suggest/metrics/metrics.go",
+        )
+    )
+
+    for token in ('engine.GET("/health",', 'engine.GET("/readyz",'):
+        if token not in routes:
+            fail(f"REST health route wiring is missing {token}")
+    if 'GET("/healthz"' not in generic_server:
+        fail("generic server no longer exposes the liveness-only /healthz route")
+    for token in ("MarkDraining", "HealthCheckResponse_NOT_SERVING", "drainDelay"):
+        if token not in shutdown:
+            fail(f"graceful drain wiring is missing {token}")
+    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready"):
+        if token not in server_check:
+            fail(f"server-check probe contract is missing {token}")
+    for fact in (
+        "`/healthz`",
+        "`/readyz`",
+        "不访问 MySQL/Redis",
+        "`/readyz` 失败只告警",
+        "-> 停止后台任务",
+    ):
+        if fact not in health_doc:
+            fail(f"health documentation is missing current readiness fact: {fact}")
+    for metric_token in (
+        'Subsystem: "authz_http"',
+        'Subsystem: "grpc_assignment"',
+        'Subsystem: "authn_otp"',
+        'Subsystem: "identity_session_revocation"',
+        'Subsystem: "readiness"',
+        'Name:      "refresh_total"',
+    ):
+        if metric_token not in metric_sources:
+            fail(f"required low-cardinality IAM metric is missing {metric_token}")
+
+
 def check_active_docs() -> None:
     forbidden = "待补证据"
     for path in (ROOT / "docs").rglob("*.md"):
@@ -150,6 +210,13 @@ def check_active_docs() -> None:
             fail(f"{path.relative_to(ROOT)} contains unowned evidence placeholder {forbidden}")
         if "索引和文件 snapshot 仍保存原始手机号" in text:
             fail(f"{path.relative_to(ROOT)} claims the retired Suggest file snapshot still exists")
+        for stale_identity_fact in (
+            "数据库没有手机号唯一索引",
+            "`Deactivate` 不会",
+            "Identity 已提交，Session 撤销失败 | User 仍 blocked，调用方收到错误",
+        ):
+            if stale_identity_fact in text:
+                fail(f"{path.relative_to(ROOT)} contains stale identity fact: {stale_identity_fact}")
 
     suggest_query = (
         ROOT / "docs/02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md"
@@ -174,6 +241,7 @@ def main() -> int:
         check_event_catalog,
         check_module_wiring,
         check_jwks_lifecycle_wiring,
+        check_readiness_facts,
         check_active_docs,
     )
     try:
