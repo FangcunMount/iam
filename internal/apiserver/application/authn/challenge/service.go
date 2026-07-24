@@ -197,11 +197,8 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 		for _, lease := range leases {
 			if err := s.delivery.Quota.Rollback(ctx, lease); err != nil {
 				log.Warnw("sms otp send quota rollback failed",
-					"error", err,
 					"scene", lease.Scene,
-					"phone", lease.PhoneE164,
 					"dimension", lease.Dimension,
-					"member", lease.Member,
 				)
 			}
 		}

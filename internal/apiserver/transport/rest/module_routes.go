@@ -65,12 +65,13 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies,
 func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if r.deps.ModuleStatus.authzAvailable() && authzRoutesAvailable(deps) && authMiddleware != nil {
 		authzhttp.Register(engine, authzhttp.Dependencies{
-			RoleHandler:        deps.RoleHandler,
-			RoleBindingHandler: deps.RoleBindingHandler,
-			PolicyHandler:      deps.PolicyHandler,
-			ResourceHandler:    deps.ResourceHandler,
-			CheckHandler:       deps.CheckHandler,
-			AuthMiddleware:     authMiddleware.AuthRequired(),
+			RoleHandler:               deps.RoleHandler,
+			RoleBindingHandler:        deps.RoleBindingHandler,
+			PolicyHandler:             deps.PolicyHandler,
+			ResourceHandler:           deps.ResourceHandler,
+			CheckHandler:              deps.CheckHandler,
+			AuthMiddleware:            authMiddleware.AuthRequired(),
+			PermissionOrPlatformAdmin: authMiddleware.RequirePermissionOrPlatformAdmin,
 		})
 		log.Info("✅ Authz module routes registered")
 		return

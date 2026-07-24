@@ -30,6 +30,18 @@ func (o *Options) Validate() []error {
 			errs = append(errs, errors.New("auth.password_lockout.lock_duration must be positive when enabled"))
 		}
 	}
+	if o.SMS != nil {
+		if o.SMS.LoginOTPMaxAttempts < 1 {
+			errs = append(errs, errors.New("sms.login_otp_max_attempts must be at least 1"))
+		}
+		if o.GenericServerRunOptions != nil {
+			if profile, err := o.GenericServerRunOptions.RuntimeProfile(); err == nil &&
+				profile.IsProductionLike() &&
+				strings.EqualFold(strings.TrimSpace(o.SMS.Provider), "log") {
+				errs = append(errs, errors.New("sms.provider=log is not allowed in release mode"))
+			}
+		}
+	}
 	errs = append(errs, o.validateJWKSOptions()...)
 
 	return errs

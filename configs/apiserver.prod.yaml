@@ -62,6 +62,7 @@ grpc:
   bind-address: "0.0.0.0"  # 监听所有接口（容器内网络）
   bind-port: 9090        # gRPC 服务端口
   healthz-port: 9091     # 健康检查端口（独立 HTTP 端口，无需 mTLS）
+  authz-assignment-constraints-file: /app/configs/grpc_assignment_constraints.yaml
   
   # mTLS 双向认证配置（用于内部服务间通信）
   mtls:
@@ -219,6 +220,7 @@ sms:
   login_otp_ttl: 5m
   login_otp_send_cooldown: 60s
   login_otp_code_length: 6
+  login_otp_max_attempts: 5
   # 限量：单号码+场景滑动窗口发送上限。-1 关闭，0 取默认（小时 5、每天 10）。
   # 应 <= 阿里云侧上限（同号默认 5 条/小时、10 条/天），否则会触发阿里云报错。
   login_otp_hourly_limit: 5

@@ -25,8 +25,6 @@ type Directory interface {
 	GetByID(ctx context.Context, profileID meta.ID) (*ProfileResult, error)
 	// GetByIDCard 根据身份证号码查询档案
 	GetByIDCard(ctx context.Context, idCard string) (*ProfileResult, error)
-	// FindSimilar 根据姓名、性别、生日查询可能的匹配档案列表，帮助用户找到可能的重复档案。
-	FindSimilar(ctx context.Context, name string, gender uint8, birthday string) ([]*ProfileResult, error)
 }
 
 // MyProfiles 当前用户视角的档案用例。

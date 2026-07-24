@@ -222,6 +222,7 @@ func TestSendLoginPhoneOTPDoesNotConsumeQuotaWhenGateRejects(t *testing.T) {
 
 type challengeRepoStub struct {
 	items      map[string]*challengeDomain.AuthChallenge
+	attempts   map[string]int
 	createErr  error
 	consumeErr error
 	deleted    []string
@@ -229,7 +230,10 @@ type challengeRepoStub struct {
 }
 
 func newChallengeRepoStub() *challengeRepoStub {
-	return &challengeRepoStub{items: map[string]*challengeDomain.AuthChallenge{}}
+	return &challengeRepoStub{
+		items:    map[string]*challengeDomain.AuthChallenge{},
+		attempts: map[string]int{},
+	}
 }
 
 func (s *challengeRepoStub) Create(_ context.Context, challenge *challengeDomain.AuthChallenge) error {
@@ -257,6 +261,25 @@ func (s *challengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string,
 	}
 	delete(s.items, id)
 	return true, nil
+}
+
+func (s *challengeRepoStub) RecordFailedAttemptIfCurrent(
+	_ context.Context,
+	id string,
+	currentSecretHash []byte,
+	maxAttempts int,
+) (bool, bool, error) {
+	item := s.items[id]
+	if item == nil || !bytes.Equal(item.SecretHash, currentSecretHash) {
+		return false, false, nil
+	}
+	s.attempts[id]++
+	if s.attempts[id] >= maxAttempts {
+		delete(s.items, id)
+		delete(s.attempts, id)
+		return true, true, nil
+	}
+	return true, false, nil
 }
 
 func (s *challengeRepoStub) Delete(_ context.Context, id string) error {

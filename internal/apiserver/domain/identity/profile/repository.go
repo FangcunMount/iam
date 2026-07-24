@@ -21,8 +21,6 @@ type Repository interface {
 	FindByIDCard(ctx context.Context, idCard meta.IDCard) (*Profile, error)
 	FindListByName(ctx context.Context, name string) (profiles []*Profile, err error)
 	FindListByNameAndBirthday(ctx context.Context, name string, birthday meta.Birthday) (profiles []*Profile, err error)
-	FindSimilar(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) (profiles []*Profile, err error)
-
 	// Update 更新档案
 	Update(ctx context.Context, profile *Profile) error
 }

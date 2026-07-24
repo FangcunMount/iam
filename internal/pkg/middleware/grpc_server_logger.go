@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -17,12 +16,6 @@ import (
 
 // GRPCServerLoggerConfig gRPC 服务端日志配置
 type GRPCServerLoggerConfig struct {
-	// LogRequestPayload 是否记录请求载荷
-	LogRequestPayload bool
-	// LogResponsePayload 是否记录响应载荷
-	LogResponsePayload bool
-	// MaxPayloadSize 最大记录的载荷大小
-	MaxPayloadSize int
 	// SkipMethods 跳过日志记录的方法列表
 	SkipMethods []string
 }
@@ -30,9 +23,6 @@ type GRPCServerLoggerConfig struct {
 // DefaultGRPCServerLoggerConfig 默认 gRPC 服务端日志配置
 func DefaultGRPCServerLoggerConfig() GRPCServerLoggerConfig {
 	return GRPCServerLoggerConfig{
-		LogRequestPayload:  true,
-		LogResponsePayload: true,
-		MaxPayloadSize:     2048, // 2KB
 		SkipMethods: []string{
 			"/grpc.health.v1.Health/Check",
 			"/grpc.health.v1.Health/Watch",
@@ -79,11 +69,6 @@ func UnaryServerLoggingInterceptorWithConfig(config GRPCServerLoggerConfig) grpc
 			"grpc.full_method", info.FullMethod,
 			"client_ip", clientIP,
 		}
-		if config.LogRequestPayload && req != nil {
-			if payload := formatGRPCPayload(req, config.MaxPayloadSize); payload != "" {
-				startFields = append(startFields, "request", payload)
-			}
-		}
 		reqLogger.Infow("gRPC request started", startFields...)
 
 		// 执行处理
@@ -103,7 +88,6 @@ func UnaryServerLoggingInterceptorWithConfig(config GRPCServerLoggerConfig) grpc
 			st := status.Convert(err)
 			endFields = append(endFields,
 				"grpc.code", st.Code().String(),
-				"error", st.Message(),
 				"result", logger.ResultFailed,
 			)
 			reqLogger.Errorw("gRPC request failed", endFields...)
@@ -112,11 +96,6 @@ func UnaryServerLoggingInterceptorWithConfig(config GRPCServerLoggerConfig) grpc
 				"grpc.code", "OK",
 				"result", logger.ResultSuccess,
 			)
-			if config.LogResponsePayload && resp != nil {
-				if payload := formatGRPCPayload(resp, config.MaxPayloadSize); payload != "" {
-					endFields = append(endFields, "response", payload)
-				}
-			}
 			reqLogger.Infow("gRPC request completed", endFields...)
 		}
 
@@ -188,7 +167,6 @@ func StreamServerLoggingInterceptorWithConfig(config GRPCServerLoggerConfig) grp
 				"event", logger.EventRequestEnd,
 				"grpc.full_method", info.FullMethod,
 				"grpc.code", st.Code().String(),
-				"error", st.Message(),
 				"duration_ms", latency.Milliseconds(),
 				"result", logger.ResultFailed,
 			)
@@ -223,7 +201,6 @@ func (s *loggingServerStream) SendMsg(m interface{}) error {
 	if err != nil {
 		s.logger.Warnw("gRPC stream send error",
 			"grpc.full_method", s.method,
-			"error", err.Error(),
 		)
 	}
 	return err
@@ -234,7 +211,6 @@ func (s *loggingServerStream) RecvMsg(m interface{}) error {
 	if err != nil {
 		s.logger.Debugw("gRPC stream receive",
 			"grpc.full_method", s.method,
-			"error", err.Error(),
 		)
 	}
 	return err
@@ -305,25 +281,6 @@ func splitMethodName(fullMethod string) (service, method string) {
 		return fullMethod[:idx], fullMethod[idx+1:]
 	}
 	return fullMethod, ""
-}
-
-// formatGRPCPayload 格式化 gRPC 载荷
-func formatGRPCPayload(payload interface{}, maxSize int) string {
-	if payload == nil {
-		return ""
-	}
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return ""
-	}
-
-	result := string(data)
-	if len(result) > maxSize {
-		return result[:maxSize] + "..."
-	}
-
-	return result
 }
 
 // buildSkipMethodsMap 构建跳过方法的 map

@@ -1206,16 +1206,6 @@
       "code": "operation-operationId",
       "path": [
         "paths",
-        "/identity/profiles/search",
-        "get"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/identity.v2.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
         "/identity/profiles/{id}",
         "get"
       ],

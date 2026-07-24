@@ -51,7 +51,10 @@ func (m *AuthnModule) initializeApplication(
 		CodeLen:     smsOptions.LoginOTPCodeLength,
 		HourlyLimit: smsOptions.LoginOTPHourlyLimit,
 		DailyLimit:  smsOptions.LoginOTPDailyLimit,
-	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(infra.challengeRepo))
+	}, challengeApp.NewCreator(infra.challengeRepo), challengeApp.NewVerifier(
+		infra.challengeRepo,
+		smsOptions.LoginOTPMaxAttempts,
+	))
 	m.challengeService = challengeService
 	m.loginIdentityLinking = linkingApp.NewLinker(linkingApp.Dependencies{
 		LoginIdentities:  infra.loginIdentityStore,

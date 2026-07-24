@@ -147,28 +147,6 @@ func (r *Repository) FindListByNameAndBirthday(ctx context.Context, name string,
 	return r.toProfiles(pos), nil
 }
 
-// FindSimilar 根据姓名 + 性别 + 出生日期查找相似档案
-func (r *Repository) FindSimilar(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) ([]*domain.Profile, error) {
-	var pos []*ProfilePO
-
-	db := r.WithContext(ctx)
-	if name != "" {
-		db = db.Where("name = ?", name)
-	}
-	if gender.Value() != 0 {
-		db = db.Where("gender = ?", gender.Value())
-	}
-	if !birthday.IsEmpty() {
-		db = db.Where("birthday = ?", birthday.String())
-	}
-
-	if err := db.Find(&pos).Error; err != nil {
-		return nil, err
-	}
-
-	return r.toProfiles(pos), nil
-}
-
 func (r *Repository) toProfiles(pos []*ProfilePO) []*domain.Profile {
 	bos := r.mapper.ToBOs(pos)
 	profiles := make([]*domain.Profile, 0, len(bos))

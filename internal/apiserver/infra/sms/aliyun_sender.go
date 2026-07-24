@@ -168,7 +168,6 @@ func (s *AliyunSender) SendLoginOTP(ctx context.Context, phoneE164, code string)
 		bizID = tea.StringValue(resp.Body.Model.BizId)
 	}
 	logger.L(ctx).Infow("aliyun sms login otp sent",
-		"phone", phoneE164,
 		"biz_id", bizID,
 		"request_id", tea.StringValue(resp.Body.RequestId),
 	)

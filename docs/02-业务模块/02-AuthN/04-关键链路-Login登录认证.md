@@ -417,7 +417,7 @@ OTP 通常不是长期 Credential；
 OTP 登录是否允许自动 Onboarding，必须由上层用例明确。
 ```
 
-当前未实现 OTP 错误次数上限；它仍是后续风险治理项，不能把密码 Credential 的锁定策略理解为 OTP 尝试限制。
+同一 SMS Challenge 默认最多允许 5 次错误验证。错误次数与 Challenge 的当前 `SecretHash` 版本绑定：Challenge 被覆盖后，旧 verifier 不能消耗或累计到新 Challenge；达到上限时 Challenge 与尝试记录原子删除。Redis 异常时验证 fail closed。该机制不是 IP/device 限流，外围暴力流量仍由 ingress/WAF 治理。
 
 ---
 
@@ -563,7 +563,7 @@ Principal 的后续用途：
 | Credential 不存在 | 登录失败 | 不应泄露配置细节 |
 | password 错误 | 登录失败 | 记录失败次数或触发锁定策略 |
 | Challenge 不存在/过期/已消费 | 登录失败 | 需要重新发起 Challenge |
-| OTP 错误 | 登录失败 | 当前未实现 OTP 错误次数上限 |
+| OTP 错误 | 登录失败 | 同一 SMS Challenge 达到配置上限后原子耗尽；不向客户端暴露剩余次数 |
 | 外部 provider code 无效 | 登录失败 | IDP 返回外部身份错误 |
 | LoginIdentity 未 Onboarding/Linking | 登录失败或提示开通 | 取决于接口语义 |
 | User inactive/blocked | 登录失败 | User 状态来自 Identity |

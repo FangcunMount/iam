@@ -30,8 +30,6 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 	l.Debugw("开始创建用户",
 		"action", logger.ActionCreate,
 		"resource", logger.ResourceUser,
-		"name", dto.Name,
-		"phone", dto.Phone,
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
@@ -46,7 +44,6 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 			l.Warnw("用户手机号唯一性检查失败",
 				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
-				"error", err.Error(),
 				"result", logger.ResultFailed,
 			)
 			return err
@@ -62,7 +59,6 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 			l.Errorw("创建用户实体失败",
 				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
-				"error", err.Error(),
 				"result", logger.ResultFailed,
 			)
 			return err
@@ -75,7 +71,6 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 				l.Warnw("邮箱格式验证失败",
 					"action", logger.ActionCreate,
 					"resource", logger.ResourceUser,
-					"error", err.Error(),
 				)
 				return err
 			}
@@ -87,7 +82,6 @@ func (s *creator) Create(ctx context.Context, dto CreateUserDTO) (*UserResult, e
 			l.Errorw("持久化用户失败",
 				"action", logger.ActionCreate,
 				"resource", logger.ResourceUser,
-				"error", err.Error(),
 				"result", logger.ResultFailed,
 			)
 			return err

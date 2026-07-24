@@ -64,9 +64,9 @@ WHERE c.deleted_at IS NOT NULL AND c.deleted_at > ?;
 // PlaceholderOrgID：当 profiles 尚无 org_id 列时，内建 SQL 注入的占位业务组织 ID。
 // 0 表示不在索引中虚构 org；单组织部署由业务配置占位值，或改用 FullSQL。
 type LoaderConfig struct {
-	FullSQL            string
-	DeltaSQL           string
-	PlaceholderOrgID   int64
+	FullSQL             string
+	DeltaSQL            string
+	PlaceholderOrgID    int64
 	PlaceholderTenantID int64 // Deprecated: 与 PlaceholderOrgID 同义，仅配置兼容。
 }
 
@@ -143,7 +143,7 @@ func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]
 		out = append(out, row.profileSearchTerm())
 	}
 
-	log.Infow("suggest loader finished query", "sql", sanitizeSQL(sql), "count", len(out))
+	log.Infow("suggest loader finished query", "count", len(out))
 
 	return out, nil
 }
@@ -203,9 +203,4 @@ func splitMobiles(value string) []string {
 		mobiles = append(mobiles, part)
 	}
 	return mobiles
-}
-
-// sanitizeSQL 仅用于日志，避免输出换行
-func sanitizeSQL(sql string) string {
-	return strings.Join(strings.Fields(sql), " ")
 }

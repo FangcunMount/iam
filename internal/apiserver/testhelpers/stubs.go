@@ -152,9 +152,6 @@ func (s *ProfileRepoStub) FindListByName(ctx context.Context, name string) ([]*p
 func (s *ProfileRepoStub) FindListByNameAndBirthday(ctx context.Context, name string, birthday meta.Birthday) ([]*profile.Profile, error) {
 	return nil, s.FindErr
 }
-func (s *ProfileRepoStub) FindSimilar(ctx context.Context, name string, gender meta.Gender, birthday meta.Birthday) ([]*profile.Profile, error) {
-	return nil, s.FindErr
-}
 func (s *ProfileRepoStub) Update(ctx context.Context, ch *profile.Profile) error {
 	s.mu.Lock()
 	s.UpdateArgs = append(s.UpdateArgs, ch)

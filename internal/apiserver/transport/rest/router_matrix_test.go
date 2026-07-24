@@ -111,7 +111,7 @@ func routeMatrixDeps() Deps {
 	}
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
-		ProfileHandler:     uchandler.NewProfileHandler(nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Suggest = SuggestDeps{Service: appsuggest.NewService(appsuggest.Config{})}

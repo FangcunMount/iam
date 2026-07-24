@@ -353,7 +353,7 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 	deps.Authn.TokenService = tokenServiceStub{}
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
-		ProfileHandler:     uchandler.NewProfileHandler(nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.ModuleStatus.Authn = true
@@ -364,7 +364,7 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 
 	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profile-links")
 	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profiles/:id")
-	assertRouteRegistered(t, engine, http.MethodGet, "/api/v2/identity/profiles/search")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/identity/profiles/search")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profiles")
@@ -377,7 +377,7 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	deps := restDepsForTest()
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
-		ProfileHandler:     uchandler.NewProfileHandler(nil, nil),
+		ProfileHandler:     uchandler.NewProfileHandler(nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Authz = AuthzDeps{

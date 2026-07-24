@@ -50,8 +50,11 @@ func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
 
 func (g *moduleGraph) authzModuleDependencies() authz.AuthzModuleDeps {
 	return authz.AuthzModuleDeps{
-		DB:          g.container.mysqlDB,
-		EventStager: g.container.outboxStore,
+		DB:                        g.container.mysqlDB,
+		EventStager:               g.container.outboxStore,
+		GRPCACLEnabled:            g.container.runtimeOptions.GRPCACLEnabled,
+		GRPCACLConfigFile:         g.container.runtimeOptions.GRPCACLConfigFile,
+		AssignmentConstraintsFile: g.container.runtimeOptions.GRPCAssignmentConstraintsFile,
 	}
 }
 

@@ -2277,80 +2277,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/profiles/search": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "根据姓名、生日等信息搜索相似的档案（用于运营查询）",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Identity-Profiles"
-                ],
-                "summary": "搜索档案",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "档案姓名",
-                        "name": "name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "出生日期 YYYY-MM-DD",
-                        "name": "dob",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "偏移量",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "每页数量",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "查询成功",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfilePageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "未授权",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/identity/profiles/{id}": {
             "get": {
                 "security": [
@@ -4590,7 +4516,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "1.0.0",
 	Host:             "iam.fangcunmount.cn",
 	BasePath:         "/api/v2",
-	Schemes:          []string{},
+	Schemes:          []string{"https"},
 	Title:            "IAM API Documentation",
 	Description:      "IAM 系统 REST API 文档，包含认证(Authentication)、授权(Authorization)、身份管理(Identity)和身份提供商(IDP)模块",
 	InfoInstanceName: "swagger",

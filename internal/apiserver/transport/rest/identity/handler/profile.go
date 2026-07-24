@@ -8,18 +8,13 @@ import (
 // ProfileHandler 档案 REST 处理器。
 type ProfileHandler struct {
 	*BaseHandler
-	myProfiles       appprofile.MyProfiles
-	profileDirectory appprofile.Directory
+	myProfiles appprofile.MyProfiles
 }
 
 // NewProfileHandler 创建档案处理器。
-func NewProfileHandler(
-	myProfiles appprofile.MyProfiles,
-	profileDirectory appprofile.Directory,
-) *ProfileHandler {
+func NewProfileHandler(myProfiles appprofile.MyProfiles) *ProfileHandler {
 	return &ProfileHandler{
-		BaseHandler:      NewBaseHandler(),
-		myProfiles:       myProfiles,
-		profileDirectory: profileDirectory,
+		BaseHandler: NewBaseHandler(),
+		myProfiles:  myProfiles,
 	}
 }

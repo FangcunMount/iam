@@ -9,7 +9,10 @@ import (
 // AuthzModuleDeps contains the runtime dependencies required to assemble the
 // authorization module.
 type AuthzModuleDeps struct {
-	DB          *gorm.DB
-	EventStager event.Stager
-	ModelPath   string
+	DB                        *gorm.DB
+	EventStager               event.Stager
+	ModelPath                 string
+	GRPCACLEnabled            bool
+	GRPCACLConfigFile         string
+	AssignmentConstraintsFile string
 }

@@ -54,6 +54,7 @@ cors:
 # 2.2 gRPC 服务配置（开发环境）
 # ----------------------------------------------------------------------------
 grpc:
+  authz-assignment-constraints-file: configs/grpc_assignment_constraints.yaml
   bind-address: "0.0.0.0"
   bind-port: 19091
   healthz-port: 19092
@@ -205,6 +206,7 @@ sms:
   login_otp_ttl: 5m
   login_otp_send_cooldown: 60s
   login_otp_code_length: 6
+  login_otp_max_attempts: 5
   # 限量：单号码+场景滑动窗口发送上限。-1 关闭，0 取默认（小时 5、每天 10）。
   login_otp_hourly_limit: 5
   login_otp_daily_limit: 10

@@ -10,14 +10,15 @@ import (
 
 // GRPCOptions GRPC 服务器配置选项
 type GRPCOptions struct {
-	BindAddress string            `json:"bind_address" mapstructure:"bind-address"` // 绑定地址
-	BindPort    int               `json:"bind_port"    mapstructure:"bind-port"`    // 绑定端口
-	HealthzPort int               `json:"healthz_port" mapstructure:"healthz-port"` // 健康检查端口
-	MTLS        *GRPCMTLSOptions  `json:"mtls"         mapstructure:"mtls"`         // mTLS 选项
-	Auth        *GRPCAuthOptions  `json:"auth"         mapstructure:"auth"`         // 应用层认证
-	ACL         *GRPCAclOptions   `json:"acl"          mapstructure:"acl"`          // ACL
-	Audit       *GRPCAuditOptions `json:"audit"        mapstructure:"audit"`        // 审计
-	Insecure    bool              `json:"insecure"     mapstructure:"insecure"`     // 是否允许不安全（默认 true，启用 mTLS 时会强制为 false）
+	BindAddress                    string            `json:"bind_address" mapstructure:"bind-address"` // 绑定地址
+	BindPort                       int               `json:"bind_port"    mapstructure:"bind-port"`    // 绑定端口
+	HealthzPort                    int               `json:"healthz_port" mapstructure:"healthz-port"` // 健康检查端口
+	MTLS                           *GRPCMTLSOptions  `json:"mtls"         mapstructure:"mtls"`         // mTLS 选项
+	Auth                           *GRPCAuthOptions  `json:"auth"         mapstructure:"auth"`         // 应用层认证
+	ACL                            *GRPCAclOptions   `json:"acl"          mapstructure:"acl"`          // ACL
+	Audit                          *GRPCAuditOptions `json:"audit"        mapstructure:"audit"`        // 审计
+	AuthzAssignmentConstraintsFile string            `json:"authz_assignment_constraints_file" mapstructure:"authz-assignment-constraints-file"`
+	Insecure                       bool              `json:"insecure"     mapstructure:"insecure"` // 是否允许不安全（默认 true，启用 mTLS 时会强制为 false）
 }
 
 // GRPCMTLSOptions mTLS 配置

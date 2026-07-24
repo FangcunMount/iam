@@ -125,7 +125,4 @@ func (s *profileRepoStub) FindListByName(context.Context, string) ([]*Profile, e
 func (s *profileRepoStub) FindListByNameAndBirthday(context.Context, string, meta.Birthday) ([]*Profile, error) {
 	return nil, nil
 }
-func (s *profileRepoStub) FindSimilar(context.Context, string, meta.Gender, meta.Birthday) ([]*Profile, error) {
-	return nil, nil
-}
 func (s *profileRepoStub) Update(context.Context, *Profile) error { return nil }

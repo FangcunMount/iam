@@ -68,6 +68,17 @@ mapper 不进入 domain；
 gRPC 更适合可信服务间调用。
 ```
 
+AuthZ Assignment 写入还必须通过请求内容约束：
+
+```text
+mTLS ServiceIdentity
+  -> grpc_acl.yaml 方法 ACL
+  -> grpc_assignment_constraints.yaml domain/subject/role 约束
+  -> GrantAssignment / RevokeAssignment application command
+```
+
+非管理员服务即使通过方法 ACL，也只能操作约束文件列出的 domain、subject type 和 role。Grant 的 `granted_by` 必须是 `user:<id>`，用于记录委托操作者，不替代 mTLS 服务身份；Revoke 未提供操作者时使用调用服务身份。约束缺失、越权或身份缺失返回 `PermissionDenied`，约束加载或执行异常 fail closed。
+
 如果只记一句话：
 
 > gRPC 契约看 proto，业务语义看 02-业务模块，运行时适配看 transport/grpc。

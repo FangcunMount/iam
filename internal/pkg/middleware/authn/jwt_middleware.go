@@ -11,7 +11,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
-	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 	"github.com/FangcunMount/iam/v2/pkg/core"
 	"github.com/FangcunMount/iam/v2/pkg/tenant"
 )
@@ -69,7 +68,6 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 		})
 		if err != nil {
 			log.Errorw("token verification request failed",
-				"error", err,
 				"path", c.FullPath(),
 				"method", c.Request.Method,
 				"token_source", source,
@@ -85,7 +83,6 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 				"method", c.Request.Method,
 				"token_source", source,
 				"request_id", requestIDFromContext(c),
-				"token_hint", sanitize.MaskToken(tokenValue),
 			)
 			core.WriteResponse(c, errors.WithCode(code.ErrTokenInvalid, "Invalid or expired token"), nil)
 			c.Abort()
@@ -119,7 +116,6 @@ func (m *JWTAuthMiddleware) AuthOptional() gin.HandlerFunc {
 		if err != nil {
 			// 验证失败，允许通过（不设置用户信息）
 			log.Debugw("token verification failed in optional auth",
-				"error", err,
 				"path", c.FullPath(),
 				"method", c.Request.Method,
 				"token_source", source,
@@ -136,7 +132,6 @@ func (m *JWTAuthMiddleware) AuthOptional() gin.HandlerFunc {
 				"method", c.Request.Method,
 				"token_source", source,
 				"request_id", requestIDFromContext(c),
-				"token_hint", sanitize.MaskToken(tokenValue),
 			)
 			c.Next()
 			return
@@ -171,7 +166,7 @@ func (m *JWTAuthMiddleware) RequireRole(roleNames ...string) gin.HandlerFunc {
 		dom := requestctx.TenantIDOrDefault(c)
 		roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
 		if err != nil {
-			log.Errorw("route authorization role lookup failed", "error", err, "sub", sub, "dom", dom)
+			log.Errorw("route authorization role lookup failed", "sub", sub, "dom", dom)
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
 			c.Abort()
 			return
@@ -220,7 +215,7 @@ func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
 		for _, dom := range domains {
 			roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
 			if err != nil {
-				log.Errorw("route authorization role lookup failed", "error", err, "sub", sub, "dom", dom)
+				log.Errorw("route authorization role lookup failed", "sub", sub, "dom", dom)
 				core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
 				c.Abort()
 				return
@@ -258,7 +253,7 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 		dom := requestctx.TenantIDOrDefault(c)
 		allowed, err := m.routeAuth.AuthorizeRoute(c.Request.Context(), sub, dom, resourceObj, action)
 		if err != nil {
-			log.Errorw("route authorization failed", "error", err, "sub", sub, "dom", dom)
+			log.Errorw("route authorization failed", "sub", sub, "dom", dom)
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
 			c.Abort()
 			return
@@ -270,6 +265,77 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 		}
 		c.Next()
 	}
+}
+
+// RequirePermissionOrPlatformAdmin allows a route when the current tenant
+// grants the exact permission or when the subject is a platform administrator.
+// Authorization backend failures fail closed unless another branch has already
+// positively authorized the request.
+func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if m.routeAuth == nil {
+			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
+			c.Abort()
+			return
+		}
+		userID, ok := requestctx.UserID(c)
+		if !ok {
+			core.WriteResponse(c, errors.WithCode(code.ErrTokenInvalid, "Not authenticated"), nil)
+			c.Abort()
+			return
+		}
+
+		sub := "user:" + userID.String()
+		dom := requestctx.TenantIDOrDefault(c)
+		allowed, permissionErr := m.routeAuth.AuthorizeRoute(
+			c.Request.Context(),
+			sub,
+			dom,
+			resourceObj,
+			action,
+		)
+		if allowed {
+			c.Next()
+			return
+		}
+
+		adminAllowed, adminErr := m.isPlatformAdmin(c.Request.Context(), sub, dom)
+		if adminAllowed {
+			c.Next()
+			return
+		}
+		if permissionErr != nil || adminErr != nil {
+			log.Errorw("route authorization check failed",
+				"resource", resourceObj,
+				"action", action,
+			)
+			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
+			c.Abort()
+			return
+		}
+
+		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
+		c.Abort()
+	}
+}
+
+func (m *JWTAuthMiddleware) isPlatformAdmin(ctx context.Context, sub, currentDomain string) (bool, error) {
+	domains := []string{currentDomain}
+	if currentDomain != tenant.PlatformID {
+		domains = append(domains, tenant.PlatformID)
+	}
+	for _, dom := range domains {
+		roles, err := m.routeAuth.DirectRoleKeys(ctx, sub, dom)
+		if err != nil {
+			return false, err
+		}
+		for _, role := range roles {
+			if IsPlatformAdminRole(role) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 func applyVerifiedClaims(c *gin.Context, claims *token.TokenClaims) {

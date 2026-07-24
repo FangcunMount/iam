@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	assignmentAuthApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/assignmentauth"
 	authorizationApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
 	policylintApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
 	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
+	assignmentConstraints "github.com/FangcunMount/iam/v2/internal/apiserver/infra/authz/assignmentconstraints"
 	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
 )
 
@@ -30,6 +32,7 @@ type AuthzModule struct {
 	roleBindingDirectory        bindingApp.Directory
 	authorizationChecker        *authorizationApp.Checker
 	authorizationSnapshotReader *authorizationApp.SnapshotReader
+	assignmentRequestAuthorizer assignmentAuthApp.Authorizer
 }
 
 // NewAuthzModule 创建授权模块
@@ -53,6 +56,19 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	domain := m.initializeDomain(infra)
 	m.initializeRuntime(infra)
 	m.initializeApplication(infra, domain)
+	if strings.TrimSpace(deps.AssignmentConstraintsFile) != "" {
+		if deps.GRPCACLEnabled {
+			m.assignmentRequestAuthorizer, err = assignmentConstraints.LoadWithACL(
+				deps.AssignmentConstraintsFile,
+				deps.GRPCACLConfigFile,
+			)
+		} else {
+			m.assignmentRequestAuthorizer, err = assignmentConstraints.Load(deps.AssignmentConstraintsFile)
+		}
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -82,6 +98,7 @@ func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 		RuntimeHealth:               m.runtimeHealth,
 		AuthorizationChecker:        m.authorizationChecker,
 		AuthorizationSnapshotReader: m.authorizationSnapshotReader,
+		AssignmentRequestAuthorizer: m.assignmentRequestAuthorizer,
 	}
 }
 

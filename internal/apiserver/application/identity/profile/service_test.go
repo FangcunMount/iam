@@ -338,56 +338,6 @@ func TestDirectory_GetByIDCard_Success(t *testing.T) {
 	assert.Equal(t, "110101202001151234", result.IDCard)
 }
 
-func TestDirectory_FindSimilar_Success(t *testing.T) {
-	// Arrange
-	db := testutil.SetupTestDB(t)
-	unitOfWork := testutil.NewUnitOfWork(db)
-
-	createUseCase := testutil.NewProfileFixture(t, unitOfWork)
-	ctx := context.Background()
-
-	// 创建多个档案 (使用不同的身份证号或不设置)
-	created1, err := createUseCase.Create(ctx, profile.CreateProfileDTO{
-		Name:     "小强",
-		Gender:   1, // 1=男
-		Birthday: "2020-03-10",
-		IDCard:   "110101202003101118", // 唯一身份证
-	})
-	require.NoError(t, err)
-
-	_, err = createUseCase.Create(ctx, profile.CreateProfileDTO{
-		Name:     "小丽",
-		Gender:   2, // 2=女
-		Birthday: "2020-03-10",
-		IDCard:   "110101202003102225", // 另一个唯一身份证
-	})
-	require.NoError(t, err)
-
-	queryService := profile.NewDirectory(unitOfWork)
-
-	// Act - 查找相似档案（相同生日的男孩）
-	results, err := queryService.FindSimilar(ctx, created1.Name, 1, "2020-03-10")
-
-	// Assert
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(results), 1)
-}
-
-func TestDirectory_FindSimilar_NoMatch(t *testing.T) {
-	// Arrange
-	db := testutil.SetupTestDB(t)
-	unitOfWork := testutil.NewUnitOfWork(db)
-	queryService := profile.NewDirectory(unitOfWork)
-	ctx := context.Background()
-
-	// Act - 查找不存在的相似档案
-	results, err := queryService.FindSimilar(ctx, "不存在", 1, "2000-01-01")
-
-	// Assert
-	require.NoError(t, err)
-	assert.Empty(t, results)
-}
-
 func TestMyProfiles_ListGetAndPatch(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	unitOfWork := testutil.NewUnitOfWork(db)

@@ -236,7 +236,7 @@ User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`�
 
 Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有 Resource/Action/Scope 输入，不能代替通用授权。
 
-REST `/identity/profiles/search` 当前只有认证中间件，直接调用 `ProfileDirectory.FindSimilar`，没有 ProfileLink 或 AuthZ scope 过滤。这是已知访问控制缺口。
+无作用域的 REST `/identity/profiles/search` 已下线。需要候选搜索时使用 `/suggest/profile`，由 Suggest 的 scope provider 和手机号权限控制可见范围与脱敏。
 
 详见 [ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)。
 

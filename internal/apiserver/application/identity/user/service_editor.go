@@ -111,8 +111,6 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 		"action", logger.ActionUpdate,
 		"resource", logger.ResourceUser,
 		"user_id", dto.UserID,
-		"phone", dto.Phone,
-		"email", dto.Email,
 	)
 
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
@@ -123,7 +121,6 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			l.Warnw("手机号格式错误",
 				"action", logger.ActionUpdate,
 				"resource", logger.ResourceUser,
-				"error", err.Error(),
 			)
 			return err
 		}
@@ -132,7 +129,6 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			l.Warnw("邮箱格式错误",
 				"action", logger.ActionUpdate,
 				"resource", logger.ResourceUser,
-				"error", err.Error(),
 			)
 			return err
 		}
@@ -142,7 +138,6 @@ func (s *editor) UpdateContact(ctx context.Context, dto UpdateContactDTO) error 
 			l.Errorw("更新联系方式失败",
 				"action", logger.ActionUpdate,
 				"resource", logger.ResourceUser,
-				"error", err.Error(),
 				"result", logger.ResultFailed,
 			)
 			return err

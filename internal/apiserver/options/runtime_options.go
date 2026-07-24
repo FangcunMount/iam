@@ -103,6 +103,7 @@ type SMSOptions struct {
 	LoginOTPTTL          time.Duration `json:"login_otp_ttl" mapstructure:"login_otp_ttl"`
 	LoginOTPSendCooldown time.Duration `json:"login_otp_send_cooldown" mapstructure:"login_otp_send_cooldown"`
 	LoginOTPCodeLength   int           `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
+	LoginOTPMaxAttempts  int           `json:"login_otp_max_attempts" mapstructure:"login_otp_max_attempts"`
 	// 限量：单号码+场景滑动窗口发送上限。<0 关闭，0 取默认（小时 5、每天 10）。
 	LoginOTPHourlyLimit int              `json:"login_otp_hourly_limit" mapstructure:"login_otp_hourly_limit"`
 	LoginOTPDailyLimit  int              `json:"login_otp_daily_limit" mapstructure:"login_otp_daily_limit"`
@@ -134,6 +135,7 @@ func NewSMSOptions() *SMSOptions {
 		LoginOTPTTL:          5 * time.Minute,
 		LoginOTPSendCooldown: 60 * time.Second,
 		LoginOTPCodeLength:   6,
+		LoginOTPMaxAttempts:  5,
 		LoginOTPHourlyLimit:  5,
 		LoginOTPDailyLimit:   10,
 		MQ: SMSMQOptions{

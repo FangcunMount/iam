@@ -2,9 +2,12 @@ package authz
 
 import (
 	"context"
+	"errors"
 	"strings"
 
+	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
+	assignmentauth "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/assignmentauth"
 	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	rolebindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
@@ -35,12 +38,18 @@ func NewService(
 	checker authorizationChecker,
 	snapshotReader authorizationSnapshotReader,
 	roleBindings rolebindingApp.NamedCommands,
+	assignmentAuthorizers ...assignmentauth.Authorizer,
 ) *Service {
+	var assignmentAuthorizer assignmentauth.Authorizer
+	if len(assignmentAuthorizers) > 0 {
+		assignmentAuthorizer = assignmentAuthorizers[0]
+	}
 	return &Service{
 		srv: authorizationServer{
-			checker:        checker,
-			snapshotReader: snapshotReader,
-			roleBindings:   roleBindings,
+			checker:              checker,
+			snapshotReader:       snapshotReader,
+			roleBindings:         roleBindings,
+			assignmentAuthorizer: assignmentAuthorizer,
 		},
 	}
 }
@@ -55,9 +64,10 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authorizationServer struct {
 	authzv2.UnimplementedAuthorizationServiceServer
-	checker        authorizationChecker
-	snapshotReader authorizationSnapshotReader
-	roleBindings   rolebindingApp.NamedCommands
+	checker              authorizationChecker
+	snapshotReader       authorizationSnapshotReader
+	roleBindings         rolebindingApp.NamedCommands
+	assignmentAuthorizer assignmentauth.Authorizer
 }
 
 func (s *authorizationServer) Check(ctx context.Context, req *authzv2.CheckRequest) (*authzv2.CheckResponse, error) {
@@ -126,6 +136,16 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv2.
 	if req == nil || req.Subject == "" || req.Domain == "" || req.RoleName == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, role_name are required")
 	}
+	_, err := authorizeAssignmentRequest(ctx, s.assignmentAuthorizer, assignmentauth.Request{
+		Operation:      assignmentauth.OperationGrant,
+		Subject:        req.Subject,
+		Domain:         req.Domain,
+		RoleName:       req.RoleName,
+		DelegatedActor: req.GrantedBy,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	subject, err := parseSubjectKey(req.Subject)
 	if err != nil {
@@ -149,12 +169,22 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv2
 	if req == nil || req.Subject == "" || req.Domain == "" || req.RoleName == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, role_name are required")
 	}
+	callerService, err := authorizeAssignmentRequest(ctx, s.assignmentAuthorizer, assignmentauth.Request{
+		Operation:      assignmentauth.OperationRevoke,
+		Subject:        req.Subject,
+		Domain:         req.Domain,
+		RoleName:       req.RoleName,
+		DelegatedActor: req.GetRevokedBy(),
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	subject, err := parseSubjectKey(req.Subject)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	cmd, err := rolebindingApp.NewRevokeByRoleNameCommand(subject, req.Domain, req.RoleName, revokeActor(req.GetRevokedBy()), req.GetReason())
+	cmd, err := rolebindingApp.NewRevokeByRoleNameCommand(subject, req.Domain, req.RoleName, revokeActor(req.GetRevokedBy(), callerService), req.GetReason())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -165,12 +195,38 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv2
 	return &authzv2.RevokeAssignmentResponse{}, nil
 }
 
-func revokeActor(revokedBy string) string {
+func revokeActor(revokedBy, callerService string) string {
 	revokedBy = strings.TrimSpace(revokedBy)
 	if revokedBy == "" {
+		if callerService != "" {
+			return "service:" + callerService
+		}
 		return "system"
 	}
 	return revokedBy
+}
+
+func authorizeAssignmentRequest(
+	ctx context.Context,
+	authorizer assignmentauth.Authorizer,
+	request assignmentauth.Request,
+) (string, error) {
+	if authorizer == nil {
+		return "", nil
+	}
+	identity, ok := interceptors.ServiceIdentityFromContext(ctx)
+	if !ok || identity == nil || strings.TrimSpace(identity.ServiceName) == "" {
+		return "", status.Error(codes.PermissionDenied, "assignment caller identity is required")
+	}
+	request.CallerService = strings.TrimSpace(identity.ServiceName)
+	if err := authorizer.AuthorizeAssignment(request); err != nil {
+		var denied *assignmentauth.DeniedError
+		if errors.As(err, &denied) {
+			return "", status.Error(codes.PermissionDenied, "assignment request is not allowed")
+		}
+		return "", status.Error(codes.Internal, "assignment authorization failed")
+	}
+	return request.CallerService, nil
 }
 
 func parseSubjectKey(value string) (subject.Ref, error) {

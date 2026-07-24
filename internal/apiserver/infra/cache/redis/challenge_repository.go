@@ -27,7 +27,31 @@ end
 if not string.find(payload, ARGV[1], 1, true) then
 	return 0
 end
-return redis.call("DEL", KEYS[1])
+redis.call("DEL", KEYS[1])
+redis.call("DEL", KEYS[2])
+return 1
+`)
+
+var recordChallengeFailureIfCurrentScript = redis.NewScript(`
+local payload = redis.call("GET", KEYS[1])
+if not payload then
+	return {0, 0}
+end
+if not string.find(payload, ARGV[1], 1, true) then
+	return {0, 0}
+end
+local ttl = redis.call("PTTL", KEYS[1])
+if ttl <= 0 then
+	return {0, 0}
+end
+local attempts = redis.call("INCR", KEYS[2])
+redis.call("PEXPIRE", KEYS[2], ttl)
+if attempts >= tonumber(ARGV[2]) then
+	redis.call("DEL", KEYS[1])
+	redis.call("DEL", KEYS[2])
+	return {1, 1}
+end
+return {1, 0}
 `)
 
 var _ challengeDomain.Repository = (*ChallengeRepository)(nil)
@@ -78,13 +102,59 @@ func (r *ChallengeRepository) ConsumeIfSecretMatches(ctx context.Context, id str
 	result, err := consumeChallengeIfSecretMatchesScript.Run(
 		ctx,
 		r.client,
-		[]string{challengeRedisKey(id)},
+		[]string{
+			challengeRedisKey(id),
+			challengeAttemptRedisKey(id, expectedHash),
+		},
 		needle,
 	).Int()
 	if err != nil {
 		return false, fmt.Errorf("consume challenge if secret matches: %w", err)
 	}
 	return result == 1, nil
+}
+
+func (r *ChallengeRepository) RecordFailedAttemptIfCurrent(
+	ctx context.Context,
+	id string,
+	currentSecretHash []byte,
+	maxAttempts int,
+) (bool, bool, error) {
+	if len(currentSecretHash) == 0 || maxAttempts < 1 {
+		return false, false, nil
+	}
+	encoded := base64.StdEncoding.EncodeToString(currentSecretHash)
+	needle := fmt.Sprintf(`"SecretHash":"%s"`, encoded)
+	result, err := recordChallengeFailureIfCurrentScript.Run(
+		ctx,
+		r.client,
+		[]string{
+			challengeRedisKey(id),
+			challengeAttemptRedisKey(id, currentSecretHash),
+		},
+		needle,
+		maxAttempts,
+	).Slice()
+	if err != nil {
+		return false, false, fmt.Errorf("record challenge failure if current: %w", err)
+	}
+	if len(result) != 2 {
+		return false, false, fmt.Errorf("record challenge failure if current: unexpected result")
+	}
+	current, ok := result[0].(int64)
+	if !ok {
+		return false, false, fmt.Errorf("record challenge failure if current: invalid current result")
+	}
+	exhausted, ok := result[1].(int64)
+	if !ok {
+		return false, false, fmt.Errorf("record challenge failure if current: invalid exhausted result")
+	}
+	return current == 1, exhausted == 1, nil
+}
+
+func challengeAttemptRedisKey(id string, secretHash []byte) string {
+	version := base64.RawURLEncoding.EncodeToString(secretHash)
+	return challengeRedisKey(id) + ":attempts:" + version
 }
 
 func (r *ChallengeRepository) Delete(ctx context.Context, id string) error {

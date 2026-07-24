@@ -172,6 +172,16 @@ func (s *authnChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id st
 	return true, nil
 }
 
+func (s *authnChallengeRepoStub) RecordFailedAttemptIfCurrent(
+	_ context.Context,
+	id string,
+	currentSecretHash []byte,
+	_ int,
+) (bool, bool, error) {
+	item := s.items[id]
+	return item != nil && bytes.Equal(item.SecretHash, currentSecretHash), false, nil
+}
+
 func (s *authnChallengeRepoStub) Delete(_ context.Context, id string) error {
 	delete(s.items, id)
 	return nil

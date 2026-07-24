@@ -20,15 +20,20 @@ type Verifier interface {
 
 // Verifier 短信验证码验证器
 type verifier struct {
-	repo challengeDomain.Repository
+	repo        challengeDomain.Repository
+	maxAttempts int
 }
 
 // 确保 verifier 实现 Verifier 接口
 var _ Verifier = (*verifier)(nil)
 
 // NewVerifier 创建短信验证码验证器
-func NewVerifier(repo challengeDomain.Repository) Verifier {
-	return &verifier{repo: repo}
+func NewVerifier(repo challengeDomain.Repository, configuredMaxAttempts ...int) Verifier {
+	maxAttempts := 5
+	if len(configuredMaxAttempts) > 0 && configuredMaxAttempts[0] > 0 {
+		maxAttempts = configuredMaxAttempts[0]
+	}
+	return &verifier{repo: repo, maxAttempts: maxAttempts}
 }
 
 // VerifyAndConsume 验证并消费短信验证码
@@ -62,6 +67,21 @@ func (s *verifier) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp st
 	// 计算请求 OTP 的 SecretHash
 	expected := smsOTPSecretHash(scene, e164, otp)
 	if subtle.ConstantTimeCompare(challenge.SecretHash, expected) != 1 {
+		current, exhausted, recordErr := s.repo.RecordFailedAttemptIfCurrent(
+			ctx,
+			challengeID,
+			challenge.SecretHash,
+			s.maxAttempts,
+		)
+		if recordErr != nil {
+			return false, recordErr
+		}
+		if current && exhausted {
+			logger.L(ctx).Infow("challenge rejected after maximum verification attempts",
+				"challenge_type", challengeDomain.TypeSMSOTP,
+				"scene", scene,
+			)
+		}
 		return false, nil
 	}
 	// 校验成功后调用 Repository.Consume

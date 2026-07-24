@@ -1,0 +1,19 @@
+default_policy: deny
+
+services:
+  qs-apiserver.svc:
+    allow_all: false
+    domains:
+      - fangcun
+    subject_types:
+      - user
+    roles:
+      - qs:admin
+      - qs:content_manager
+      - qs:evaluator
+      - qs:evaluation_plan_manager
+      - qs:staff
+    require_delegated_actor_on_grant: true
+
+  admin:
+    allow_all: true

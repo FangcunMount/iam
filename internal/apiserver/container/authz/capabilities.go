@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	assignmentAuthApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/assignmentauth"
 	authorizationApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
 	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
 	policylintApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
@@ -42,4 +43,5 @@ type ApplicationCapabilities struct {
 	RuntimeHealth               RuntimeHealthReporter
 	AuthorizationChecker        *authorizationApp.Checker
 	AuthorizationSnapshotReader *authorizationApp.SnapshotReader
+	AssignmentRequestAuthorizer assignmentAuthApp.Authorizer
 }

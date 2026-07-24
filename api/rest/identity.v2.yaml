@@ -288,60 +288,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-  /identity/profiles/search:
-    get:
-      tags:
-      - Identity-Profiles
-      summary: 搜索档案
-      description: 根据姓名、生日等信息搜索相似的档案（用于运营查询）
-      parameters:
-      - name: name
-        in: query
-        description: 档案姓名
-        schema:
-          type: string
-      - name: dob
-        in: query
-        description: 出生日期 YYYY-MM-DD
-        schema:
-          type: string
-      - name: offset
-        in: query
-        description: 偏移量
-        schema:
-          type: integer
-          default: 0
-      - name: limit
-        in: query
-        description: 每页数量
-        schema:
-          type: integer
-          default: 20
-      responses:
-        '200':
-          description: 查询成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfilePageResponse'
-        '400':
-          description: 参数错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        '401':
-          description: 未授权
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
 components:
   securitySchemes:
     bearerAuth:

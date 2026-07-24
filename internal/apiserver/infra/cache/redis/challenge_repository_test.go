@@ -141,3 +141,68 @@ func TestChallengeRepositoryStaleSecretDoesNotConsumeReplacement(t *testing.T) {
 		t.Fatal("replacement challenge was deleted")
 	}
 }
+
+func TestChallengeRepositoryFailedAttemptsExhaustCurrentChallenge(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	repo := NewChallengeRepository(client)
+	ctx := context.Background()
+	challenge := &challengeDomain.AuthChallenge{
+		ID:         "sms_otp:login:+8613800138000",
+		Type:       challengeDomain.TypeSMSOTP,
+		SecretHash: []byte("current-hash"),
+		ExpiresAt:  time.Now().Add(time.Minute),
+		CreatedAt:  time.Now(),
+	}
+	if err := repo.Create(ctx, challenge); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	for attempt := 1; attempt <= 5; attempt++ {
+		current, exhausted, err := repo.RecordFailedAttemptIfCurrent(ctx, challenge.ID, challenge.SecretHash, 5)
+		if err != nil {
+			t.Fatalf("attempt %d error = %v", attempt, err)
+		}
+		if !current {
+			t.Fatalf("attempt %d did not match current challenge", attempt)
+		}
+		if got, want := exhausted, attempt == 5; got != want {
+			t.Fatalf("attempt %d exhausted = %t, want %t", attempt, got, want)
+		}
+	}
+	if mr.Exists(challengeRedisKey(challenge.ID)) {
+		t.Fatal("challenge still exists after maximum attempts")
+	}
+}
+
+func TestChallengeRepositoryStaleFailureDoesNotAffectReplacement(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	repo := NewChallengeRepository(client)
+	ctx := context.Background()
+	challenge := &challengeDomain.AuthChallenge{
+		ID:         "sms_otp:login:+8613800138000",
+		Type:       challengeDomain.TypeSMSOTP,
+		SecretHash: []byte("replacement-hash"),
+		ExpiresAt:  time.Now().Add(time.Minute),
+		CreatedAt:  time.Now(),
+	}
+	if err := repo.Create(ctx, challenge); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	current, exhausted, err := repo.RecordFailedAttemptIfCurrent(ctx, challenge.ID, []byte("stale-hash"), 1)
+	if err != nil {
+		t.Fatalf("RecordFailedAttemptIfCurrent() error = %v", err)
+	}
+	if current || exhausted {
+		t.Fatalf("stale failure current=%t exhausted=%t", current, exhausted)
+	}
+	if !mr.Exists(challengeRedisKey(challenge.ID)) {
+		t.Fatal("replacement challenge was deleted")
+	}
+}

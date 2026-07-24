@@ -18,9 +18,6 @@ func CollectREST(available bool, mod *IdentityModule, moduleName string, deps *r
 		caps.UserDirectory,
 		caps.RoleNames,
 	)
-	deps.User.ProfileHandler = identityhandler.NewProfileHandler(
-		caps.MyProfiles,
-		caps.ProfileDirectory,
-	)
+	deps.User.ProfileHandler = identityhandler.NewProfileHandler(caps.MyProfiles)
 	deps.User.ProfileLinkHandler = identityhandler.NewProfileLinkHandler(caps.MyProfileLinks)
 }

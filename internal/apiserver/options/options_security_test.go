@@ -146,8 +146,14 @@ func TestOptionsValidateJWKSRotation(t *testing.T) {
 		mutate  func(*Options)
 		wantErr string
 	}{
-		{name: "valid production", mutate: func(o *Options) { o.JWKS.KeysDir = "/var/lib/iam/keys" }},
-		{name: "release requires absolute keys dir", mutate: func(o *Options) { o.JWKS.KeysDir = "./keys" }, wantErr: "absolute path"},
+		{name: "valid production", mutate: func(o *Options) {
+			o.JWKS.KeysDir = "/var/lib/iam/keys"
+			o.SMS.Provider = "aliyun"
+		}},
+		{name: "release requires absolute keys dir", mutate: func(o *Options) {
+			o.JWKS.KeysDir = "./keys"
+			o.SMS.Provider = "aliyun"
+		}, wantErr: "absolute path"},
 		{name: "invalid cron", mutate: func(o *Options) {
 			o.GenericServerRunOptions.Mode = "debug"
 			o.JWKS.Rotation.CheckCron = "not-a-cron"

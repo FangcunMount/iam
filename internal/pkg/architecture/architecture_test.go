@@ -25,6 +25,36 @@ var retiredArchitectureExceptionReasonParts = [][]string{
 	{"legacy", "uow", "factory", "to", "invert", "in", "phase", "3"},
 }
 
+func TestTransportLoggersRemainMetadataOnly(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	files := []string{
+		"internal/pkg/middleware/api_logger.go",
+		"internal/pkg/middleware/grpc_client_logger.go",
+		"internal/pkg/middleware/grpc_server_logger.go",
+	}
+	forbidden := []string{
+		"Request.Body",
+		"io.ReadAll",
+		"protojson.",
+		"Authorization",
+		"Cookie",
+		"Query()",
+		"RawQuery",
+	}
+	for _, rel := range files {
+		content, err := os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		for _, fragment := range forbidden {
+			if strings.Contains(string(content), fragment) {
+				t.Fatalf("%s contains forbidden payload/header logging fragment %q", rel, fragment)
+			}
+		}
+	}
+}
+
 func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {
 	t.Parallel()
 

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v2/internal/pkg/safelog"
 )
 
 // BaseHandler 基础Handler结构
@@ -65,12 +66,6 @@ func (h *BaseHandler) ErrorResponse(c *gin.Context, err error) {
 		return
 	}
 
-	// 记录错误日志
-	logger.L(c.Request.Context()).Errorw("HTTP Handler Error",
-		"action", "http_error",
-		"error", err.Error(),
-	)
-
 	var httpStatus int
 	var errorCode int
 	var message string
@@ -88,6 +83,15 @@ func (h *BaseHandler) ErrorResponse(c *gin.Context, err error) {
 		errorCode = 100101 // ErrDatabase 默认值
 		message = "内部服务器错误"
 	}
+
+	safeError := safelog.DescribeError(err)
+	logger.L(c.Request.Context()).Errorw("HTTP Handler Error",
+		"action", "http_error",
+		"error_code", safeError.Code,
+		"http_status", safeError.HTTPStatus,
+		"error_category", safeError.Category,
+		"retryable", safeError.Retryable,
+	)
 
 	// 发送响应
 	c.JSON(httpStatus, Response{

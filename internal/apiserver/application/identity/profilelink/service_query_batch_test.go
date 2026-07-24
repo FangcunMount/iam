@@ -85,9 +85,6 @@ func (s *batchProfileRepoStub) FindListByName(context.Context, string) ([]*profi
 func (s *batchProfileRepoStub) FindListByNameAndBirthday(context.Context, string, meta.Birthday) ([]*profiledomain.Profile, error) {
 	return nil, nil
 }
-func (s *batchProfileRepoStub) FindSimilar(context.Context, string, meta.Gender, meta.Birthday) ([]*profiledomain.Profile, error) {
-	return nil, nil
-}
 func (s *batchProfileRepoStub) Update(context.Context, *profiledomain.Profile) error { return nil }
 
 type profileLinkRepoStub struct {

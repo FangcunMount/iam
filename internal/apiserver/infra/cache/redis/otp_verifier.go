@@ -71,7 +71,6 @@ func (v *OTPVerifierImpl) VerifyAndConsume(ctx context.Context, phoneE164, scene
 	if result {
 		redisInfo(ctx, "OTP verified",
 			log.String("scene", scene),
-			log.String("phone", phoneE164),
 		)
 	}
 

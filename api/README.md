@@ -35,7 +35,6 @@ POST /api/v2/authn/logout
 GET  /.well-known/jwks.json
 POST /api/v2/authz/check
 GET  /api/v2/identity/me
-GET  /api/v2/identity/profiles/search
 GET  /api/v2/identity/profile-links
 GET  /api/v2/suggest/profile
 ```
