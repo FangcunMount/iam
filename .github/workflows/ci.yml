@@ -30,6 +30,12 @@ jobs:
       - name: Run documentation hygiene
         run: make docs-hygiene
 
+      - name: Verify documentation facts
+        run: make docs-facts
+
+      - name: Validate OpenAPI contracts
+        run: make api-validate
+
       - name: Download dependencies
         run: go mod download
 

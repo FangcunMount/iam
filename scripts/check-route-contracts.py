@@ -22,8 +22,8 @@ REST_SPECS = [
     ROOT / "api/rest/suggest.v2.yaml",
 ]
 IGNORE_ROUTES = {
-    "get /v2/authz/health",
-    "get /v2/idp/health",
+    "get /v2/authz/health": "module-local health probe",
+    "get /v2/idp/health": "module-local health probe",
 }
 
 
@@ -108,8 +108,9 @@ def main() -> int:
         oas = load_yaml(spec_path)
         oas_routes |= collect_oas_routes(oas)
 
-    missing_in_code = sorted(oas_routes - swagger_routes - IGNORE_ROUTES)
-    undocumented = sorted(swagger_routes - oas_routes - IGNORE_ROUTES)
+    ignored = set(IGNORE_ROUTES)
+    missing_in_code = sorted(oas_routes - swagger_routes - ignored)
+    undocumented = sorted(swagger_routes - oas_routes - ignored)
 
     if missing_in_code or undocumented:
         if missing_in_code:

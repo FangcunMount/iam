@@ -1,6 +1,6 @@
 # 关键链路：授权写入 Grant / Revoke / Bind / Unbind
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authz`、`domain/authz`、repository、PolicyVersion、Outbox、Casbin runtime、REST/gRPC 契约和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `application/authz`、`domain/authz`、repository、PolicyVersion、Outbox、Casbin runtime、REST/gRPC 契约和测试逐项核对。
 
 ---
 
@@ -799,7 +799,7 @@ IDP AppToken 不是授权凭证；
 ### 19.4 与 Suggest
 
 ```text
-授权写入不维护 Suggest Snapshot；
+授权写入不维护 Suggest Index；
 Suggest 可见性可以使用 AuthZ Check；
 Suggest ProfileAccessScope 不是 AuthZ Scope；
 权限变更后是否影响搜索结果，需要由 Suggest 刷新或查询时过滤治理。

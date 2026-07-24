@@ -1,7 +1,7 @@
 
 # 00-概览
 
-> 状态：待补证据 · 目录入口与系统级导航，待继续随业务模块文档补全后校准链接和事实源。
+> 状态：设计目标 · 目录入口与系统级导航，待继续随业务模块文档补全后校准链接和事实源。
 
 ---
 
@@ -87,7 +87,7 @@ flowchart TD
 
     subgraph Support["辅助模块"]
         IDP["IDP\nWechatApp / Credentials / AppToken / ExternalIdentity"]
-        Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / Snapshot"]
+        Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex"]
     end
 
     Client --> Access
@@ -133,7 +133,7 @@ Suggest 消费 Identity 的 Profile 事实，并受 AuthZ 可见范围约束。
 | 模块 | 回答的问题 | 核心事实 | 不负责什么 |
 | --- | --- | --- | --- |
 | IDP | 外部身份来源如何接入 | WechatApp、Credentials、AppToken、ExternalIdentity | IAM 登录态、IAM Token、User 所有权、权限判定 |
-| Suggest | 如何快速搜索可见 Profile | ProfileSearchTerm、ProfileAccessScope、Snapshot、ProfileSuggestItem | Profile 写模型、登录认证、通用授权策略管理 |
+| Suggest | 如何快速搜索可见 Profile | ProfileSearchTerm、ProfileAccessScope、ProfileSuggestionIndex、ProfileSuggestItem | Profile 写模型、登录认证、通用授权策略管理 |
 
 ---
 

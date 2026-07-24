@@ -1,6 +1,6 @@
 # 领域模型：LoginIdentity / Credential / Challenge / Principal / Session / Token
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/domain/authn`、`application/authn`、Token/JWKS 实现、REST/gRPC 契约和测试逐项核对；
+> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/authn`、`application/authn`、Token/JWKS 实现、REST/gRPC 契约和测试逐项核对；
 > 本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthN 模型主文档维护。
 
 ---
@@ -230,7 +230,7 @@ classDiagram
 ```text
 上图是领域语义图，不等于数据库物理表结构；
 字段名称和数量以当前源码、迁移和契约为准；
-如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或待补证据。
+如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或设计目标。
 ```
 
 ---
@@ -861,7 +861,7 @@ IDP 不签发 IAM Token。
 AuthN 提供当前请求 Principal；
 Suggest 可以读取 Principal/UserID 作为查询上下文；
 Suggest 仍需结合 ProfileAccessScope/AuthZ 判断可见范围；
-AuthN 不维护 Suggest Snapshot。
+AuthN 不维护 Suggest Index。
 ```
 
 ---

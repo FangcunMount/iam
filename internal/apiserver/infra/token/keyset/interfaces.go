@@ -96,6 +96,9 @@ type Rotator interface {
 	// 返回：新生成的密钥
 	RotateKey(ctx context.Context) (*Key, error)
 
+	// RotateIfDue performs the due check and active-key switch atomically.
+	RotateIfDue(ctx context.Context) (*Key, bool, error)
+
 	// ShouldRotate 判断是否需要轮换
 	// 根据 RotationPolicy 判断当前 Active 密钥是否已到轮换时间
 	// 返回：true 表示需要轮换

@@ -1,6 +1,6 @@
 # AuthN
 
-> 状态：待补证据 · AuthN 模块入口，已按“模型主文档 + 五条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约和测试核对。
+> 状态：设计目标 · AuthN 模块入口，已按“模型主文档 + 五条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约和测试核对。
 
 ---
 
@@ -36,7 +36,7 @@ AuthN 不负责维护用户档案、不负责外部身份源配置、不负责�
 Identity 负责 User / Profile / ProfileLink；
 IDP 负责外部 provider 配置、凭据、AppToken 和 ExternalIdentity；
 AuthZ 负责 Subject / Resource / Action / Scope / Role / Permission / RoleBinding / Check；
-Suggest 负责 ProfileSearchTerm / ProfileAccessScope / Snapshot。
+Suggest 负责 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex。
 ```
 
 ---
@@ -128,7 +128,7 @@ flowchart TD
     Identity["Identity\nUser / Profile / ProfileLink"]
     IDP["IDP\nExternalIdentity / AppToken"]
     AuthZ["AuthZ\nSubject / Permission / Check"]
-    Suggest["Suggest\nProfileSearchTerm / Snapshot"]
+    Suggest["Suggest\nProfileSearchTerm / ProfileSuggestionIndex"]
 
     AuthN --> LI
     AuthN --> C
@@ -431,7 +431,7 @@ kid 只用于定位 key，不是信任依据；
 | `IDP AppToken` 与 `IAM AccessToken` | IDP AppToken 用于调用外部 provider | IDP AppToken 可访问 IAM API |
 | `AccessToken` 与 AuthZ | AccessToken 只证明认证上下文 | Token 验签成功就是授权通过 |
 | `Session` 与 User 状态 | Session 属于 AuthN 登录态 | Session 状态就是 User 状态 |
-| AuthN 与 Suggest | Suggest 可读取 Principal/UserID 作为上下文 | AuthN 维护 Suggest Snapshot |
+| AuthN 与 Suggest | Suggest 可读取 Principal/UserID 作为上下文 | AuthN 维护 Suggest Index |
 
 详细说明见 [07-模块边界-AuthN与Identity-IDP-AuthZ.md](07-模块边界-AuthN与Identity-IDP-AuthZ.md)。
 
@@ -566,7 +566,7 @@ transport/rest + transport/grpc
 | Token 验签成功直接放行资源 | 认证和授权混淆 | 验签后继续 AuthZ Check |
 | IDP AppToken 当 IAM AccessToken | 外部平台凭证和 IAM 凭证混淆 | IDP AppToken 只用于 provider API |
 | JWKS 暴露 private key | 严重安全事故 | JWKS 只发布 public key |
-| AuthN 直接维护 Suggest Snapshot | AuthN 污染搜索读模型 | Suggest 通过事件/刷新读取事实 |
+| AuthN 直接维护 Suggest Index | AuthN 污染搜索读模型 | Suggest 通过事件/刷新读取事实 |
 
 ---
 

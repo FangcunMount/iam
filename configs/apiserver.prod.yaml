@@ -182,6 +182,12 @@ redis:
 jwks:
   keys_dir: "/app/data/keys"
   auto_init: true  # 启用自动初始化，确保启动时至少有一个活跃密钥
+  rotation:
+    automatic_enabled: true
+    check_cron: "@every 1h"
+    rotation_interval: 720h
+    grace_period: 168h
+    max_publishable_keys: 3
 
 # ----------------------------------------------------------------------------
 # 4.2 TLS 证书（通用）
@@ -242,7 +248,6 @@ sms:
 # ----------------------------------------------------------------------------
 suggest:
   enable: true
-  data_dir: "/app/data/suggest"
   full_sync_cron: "@every 6h"
   # 默认 Delta 支持活跃项 upsert 和软删 tombstone，并会清理旧 Trie/Hash key；自定义 SQL 必须保持 tombstone 协议。
   delta_sync_cron: ""
@@ -257,8 +262,6 @@ suggest:
   #   mobile_keyword_per_operator_burst: 12
   #   backend: redis
   # visibility_cache_ttl_seconds: 60
-  snapshot: true
-
 # ----------------------------------------------------------------------------
 # 4.6 调试治理接口
 # ----------------------------------------------------------------------------

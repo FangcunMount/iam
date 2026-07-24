@@ -1,7 +1,7 @@
 
 # 业务系统接入 IAM
 
-> 状态：待补证据 · 业务系统接入总入口，待继续按 REST/OpenAPI、gRPC/proto、Go SDK、AuthN/AuthZ middleware、业务系统示例和集成测试逐项核对。
+> 状态：设计目标 · 业务系统接入总入口，待继续按 REST/OpenAPI、gRPC/proto、Go SDK、AuthN/AuthZ middleware、业务系统示例和集成测试逐项核对。
 
 ---
 

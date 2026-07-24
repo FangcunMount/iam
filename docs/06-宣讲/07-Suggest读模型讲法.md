@@ -39,7 +39,8 @@ flowchart LR
 
 - Full 刷新先构建新 Store，再通过原子指针替换当前索引。
 - Delta 刷新在当前 Store 上移除旧 key 并导入新 term，不是整仓原子切换。
-- `snapshot.txt` 只是可选的刷新结果写出，当前不参与启动恢复；Delta 写出时也只包含该批数据。
+- Full 与 Delta 共用非阻塞刷新锁；重叠任务直接跳过，不排队。
+- 增量游标使用查询开始时间，空增量成功也推进，失败时不推进。
 
 ### 3.3 查询如何工作
 
@@ -77,7 +78,7 @@ rate limit
 
 不能说成已实现的事项：
 
-- 手机号 hash 或后缀 token：当前 Store 和 `snapshot.txt` 都使用原始手机号；
+- 手机号 hash 或后缀 token：当前 Store 仍使用原始手机号，但不会写入文件；
 - 持久化安全审计：当前有日志和指标，没有专用审计存储；
 - Redis 故障时严格拒绝：当前 Redis 错误采用 fail-open，未配置 Redis 则回退内存限流。
 
@@ -99,7 +100,7 @@ rate limit
 | Suggest 已有 REST / gRPC / Go SDK 完整契约 | 当前只有 `GET /api/v2/suggest/profile` REST 入口 |
 | 候选数据由事件订阅实时同步 | 当前由 MySQL loader 初始加载并定时刷新 |
 | Full 和 Delta 都是整仓原子切换 | 只有 Full 使用新 Store 原子替换，Delta 原地更新 |
-| snapshot 是可恢复的持久化真相 | `snapshot.txt` 目前只写不读，且包含原始手机号 |
+| Suggest 有本地持久化恢复 | 当前只有进程内索引，重启必须从 MySQL Full 重建 |
 | Suggest 命中就代表 AuthZ 通过 | Suggest 只做本地可见范围过滤，后续操作仍需自己授权 |
 
 ## 8. 常见追问
@@ -122,6 +123,6 @@ rate limit
 | --- | --- |
 | 模块定位、REST 契约和降级 | [Suggest 模块](../02-业务模块/05-Suggest/README.md) |
 | Domain 对象和 application 端口 | [模型与应用端口](../02-业务模块/05-Suggest/01-模型与应用端口.md) |
-| Full、Delta 和 `snapshot.txt` | [索引刷新](../02-业务模块/05-Suggest/02-关键链路-索引刷新Full-Delta-Snapshot.md) |
+| Full、Delta、刷新锁和游标 | [索引刷新](../02-业务模块/05-Suggest/02-关键链路-索引刷新Full-Delta.md) |
 | 召回、scope、限流和脱敏 | [SuggestProfile 查询](../02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md) |
 | 为什么选择读模型 | [Suggest 为什么是读模型](../05-专题设计/06-Suggest为什么是读模型.md) |

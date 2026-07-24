@@ -3,7 +3,10 @@ package options
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/robfig/cron/v3"
 )
 
 // Validate 验证命令行参数
@@ -14,6 +17,7 @@ func (o *Options) Validate() []error {
 	errs = append(errs, o.MySQLOptions.Validate()...)
 	errs = append(errs, o.Log.Validate()...)
 	errs = append(errs, o.validateRemovedAppOptions()...)
+	errs = append(errs, o.validateRemovedSuggestOptions()...)
 	errs = append(errs, validateRemovedEnvironmentVariables()...)
 	if o.SeedMockAuth != nil && o.SeedMockAuth.Enabled && strings.TrimSpace(o.SeedMockAuth.SharedSecret) == "" {
 		errs = append(errs, errors.New("seed_mock_auth.shared_secret is required when seed_mock_auth.enabled=true"))
@@ -26,7 +30,58 @@ func (o *Options) Validate() []error {
 			errs = append(errs, errors.New("auth.password_lockout.lock_duration must be positive when enabled"))
 		}
 	}
+	errs = append(errs, o.validateJWKSOptions()...)
 
+	return errs
+}
+
+func (o *Options) validateRemovedSuggestOptions() []error {
+	if o == nil || o.Suggest == nil {
+		return nil
+	}
+	var errs []error
+	if o.Suggest.RemovedDataDir != nil {
+		errs = append(errs, errors.New("suggest.data_dir has been removed; suggest indexes are memory-only"))
+	}
+	if o.Suggest.RemovedSnapshot != nil {
+		errs = append(errs, errors.New("suggest.snapshot has been removed; suggest indexes are not persisted to files"))
+	}
+	return errs
+}
+
+func (o *Options) validateJWKSOptions() []error {
+	if o == nil || o.JWKS == nil {
+		return nil
+	}
+	var errs []error
+	rotation := o.JWKS.Rotation
+	if rotation.RotationInterval <= 0 {
+		errs = append(errs, errors.New("jwks.rotation.rotation_interval must be positive"))
+	}
+	if rotation.GracePeriod <= 0 {
+		errs = append(errs, errors.New("jwks.rotation.grace_period must be positive"))
+	}
+	if rotation.RotationInterval > 0 && rotation.GracePeriod >= rotation.RotationInterval {
+		errs = append(errs, errors.New("jwks.rotation.grace_period must be shorter than rotation_interval"))
+	}
+	if o.Auth != nil && rotation.GracePeriod < o.Auth.AccessTokenTTL {
+		errs = append(errs, errors.New("jwks.rotation.grace_period must be at least auth.access_token_ttl"))
+	}
+	if rotation.MaxPublishableKey < 2 {
+		errs = append(errs, errors.New("jwks.rotation.max_publishable_keys must be at least 2"))
+	}
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	if _, err := parser.Parse(strings.TrimSpace(rotation.CheckCron)); err != nil {
+		errs = append(errs, errors.New("jwks.rotation.check_cron must be a valid cron expression"))
+	}
+	if o.GenericServerRunOptions != nil {
+		if profile, err := o.GenericServerRunOptions.RuntimeProfile(); err == nil && profile.IsProductionLike() {
+			keysDir := strings.TrimSpace(o.JWKS.KeysDir)
+			if keysDir == "" || !filepath.IsAbs(keysDir) {
+				errs = append(errs, errors.New("jwks.keys_dir must be a non-empty absolute path in release mode"))
+			}
+		}
+	}
 	return errs
 }
 
@@ -63,6 +118,8 @@ func validateRemovedEnvironmentVariables() []error {
 		{key: "IAM_APISERVER_SERVER_NAME", message: "IAM_APISERVER_SERVER_NAME has been removed and has no replacement"},
 		{key: "IAM_APISERVER_SERVER_READ_TIMEOUT", message: "IAM_APISERVER_SERVER_READ_TIMEOUT has been removed; HTTP read timeout is not configurable"},
 		{key: "IAM_APISERVER_SERVER_WRITE_TIMEOUT", message: "IAM_APISERVER_SERVER_WRITE_TIMEOUT has been removed; HTTP write timeout is not configurable"},
+		{key: "IAM_APISERVER_SUGGEST_DATA_DIR", message: "IAM_APISERVER_SUGGEST_DATA_DIR has been removed; suggest indexes are memory-only"},
+		{key: "IAM_APISERVER_SUGGEST_SNAPSHOT", message: "IAM_APISERVER_SUGGEST_SNAPSHOT has been removed; suggest indexes are not persisted to files"},
 	} {
 		if _, set := os.LookupEnv(removed.key); set {
 			errs = append(errs, errors.New(removed.message))

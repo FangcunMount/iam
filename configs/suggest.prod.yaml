@@ -1,9 +1,7 @@
 # Suggest 模块生产环境示例配置
 suggest:
   enable: false
-  data_dir: "/app/data/suggest"
   full_sync_cron: "@every 1h"
   delta_sync_cron: "@every 5m"
   max_results: 20
   key_pad_len: 25
-  snapshot: true

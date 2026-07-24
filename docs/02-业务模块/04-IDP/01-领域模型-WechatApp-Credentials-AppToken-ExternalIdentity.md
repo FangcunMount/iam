@@ -1,6 +1,6 @@
 # 领域模型：WechatApp / Credentials / AppToken / ExternalIdentity
 
-> 状态：待补证据
+> 状态：设计目标
 > 第一版正文，待继续按 `internal/apiserver/domain/idp`、`application/idp`、微信/企微 provider adapter、AppToken 缓存、凭据加密存储、REST/gRPC 契约和测试逐项核对。
 
 ---
@@ -182,7 +182,7 @@ classDiagram
 ```text
 上图是领域语义图，不等于数据库物理表结构；
 字段名称和数量以当前源码、迁移和契约为准；
-如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或待补证据。
+如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或设计目标。
 ```
 
 ---
@@ -593,7 +593,7 @@ IDP 不创建 RoleBinding。
 ### 12.4 与 Suggest
 
 ```text
-IDP 不维护 ProfileSearchTerm / ProfileAccessScope / Snapshot；
+IDP 不维护 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex；
 外部 claims 如需进入搜索字段，应先经过 Identity 确认，再由 Suggest 用例更新索引；
 IDP 不直接写 Suggest index。
 ```

@@ -128,8 +128,9 @@ func (m *AuthnModule) initializeApplication(
 
 	logger := log.New(log.NewOptions())
 	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)
-	m.keyPublishApp = jwksApp.NewKeyPublishAppService(keyset.NewApplicationKeyPublisher(infra.keySetBuilder), logger)
-	m.keyRotationApp = jwksApp.NewKeyRotationAppService(keyset.NewApplicationKeyRotator(infra.keyRotation), logger)
+	keyPublisher := keyset.NewApplicationKeyPublisher(infra.keySetBuilder)
+	m.keyPublishApp = jwksApp.NewKeyPublishAppService(keyPublisher, logger)
+	m.keyRotationApp = jwksApp.NewKeyRotationAppService(keyset.NewApplicationKeyRotator(infra.keyRotation), logger, keyPublisher)
 	m.jwksSnapshotReporter = keyset.NewApplicationSnapshotReporter(infra.keySetBuilder)
 
 	return nil

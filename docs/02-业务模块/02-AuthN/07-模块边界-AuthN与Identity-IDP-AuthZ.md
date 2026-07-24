@@ -1,6 +1,6 @@
 # 模块边界：AuthN 与 Identity / IDP / AuthZ
 
-> 状态：待补证据 · 第一版正文，待继续按源码、组合根、跨模块 port、REST/gRPC 契约和架构测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按源码、组合根、跨模块 port、REST/gRPC 契约和架构测试逐项核对。
 
 ---
 
@@ -41,7 +41,7 @@ JWKS / Token verification context。
 Identity 负责 User / Profile / ProfileLink；
 IDP 负责 provider app、credentials、AppToken、ExternalIdentity；
 AuthZ 负责 Subject / Resource / Action / Scope / Role / Permission / RoleBinding / Check；
-Suggest 负责 ProfileSearchTerm / ProfileAccessScope / Snapshot。
+Suggest 负责 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex。
 ```
 
 最重要的边界：
@@ -72,7 +72,7 @@ flowchart TD
     Identity["Identity\nUser / Profile / ProfileLink\n身份事实中心"]
     IDP["IDP\nWechatApp / Credentials / AppToken / ExternalIdentity\n外部身份源"]
     AuthZ["AuthZ\nSubject / Resource / Action / Scope\nRole / Permission / Check\n授权中心"]
-    Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / Snapshot\n联想搜索读模型"]
+    Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex\n联想搜索读模型"]
 
     AuthN -->|UserID 引用 User| Identity
     AuthN -->|调用 IDP 解析外部身份| IDP
@@ -95,7 +95,7 @@ Suggest 可以读取请求上下文中的 Principal/UserID；
 AuthN 不维护 User/Profile/ProfileLink；
 AuthN 不维护 provider app secret 和 AppToken；
 AuthN 不维护 Role/Permission/RoleBinding；
-AuthN 不维护 Suggest Snapshot。
+AuthN 不维护 Suggest Index。
 ```
 
 ---
@@ -125,7 +125,7 @@ AuthN 不负责：
 | Subject / Resource / Action / Scope | AuthZ |
 | Role / Permission / RoleBinding / Check | AuthZ |
 | Profile 联想搜索索引 | Suggest |
-| ProfileSearchTerm / Snapshot | Suggest |
+| ProfileSearchTerm / ProfileSuggestionIndex | Suggest |
 
 ---
 
@@ -495,7 +495,7 @@ session context，可选。
 但 Suggest 的核心边界是：
 
 ```text
-ProfileSearchTerm / ProfileAccessScope / Snapshot 属于 Suggest；
+ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex 属于 Suggest；
 Profile 主事实属于 Identity；
 资源可见性仍需 AuthZ 或访问范围控制；
 AuthN 不维护 Suggest index；
@@ -505,7 +505,7 @@ Suggest 不签发 Token。
 禁止：
 
 ```text
-AuthN Login 时直接写 Suggest Snapshot；
+AuthN Login 时直接写 Suggest Index；
 AccessToken claim 直接包含可搜索 Profile 列表；
 Suggest 只凭 token 存在就返回所有 Profile；
 Suggest 绕过 ProfileAccessScope / AuthZ 可见范围。
@@ -646,7 +646,7 @@ AuthN domain import identity/authz/idp/suggest 包。
 | ExternalIdentity 直接当 LoginIdentity | 外部声明和内部登录身份混淆 | AuthN 显式创建/匹配 LoginIdentity |
 | AuthN 写 User/ProfileLink | AuthN 吞并 Identity | 通过 Identity application/port 协作 |
 | AuthN 写 RoleBinding | AuthN 吞并 AuthZ | 授权开通归 AuthZ 用例 |
-| AuthN 写 Suggest Snapshot | AuthN 污染搜索读模型 | Suggest 通过事件/刷新读取事实 |
+| AuthN 写 Suggest Index | AuthN 污染搜索读模型 | Suggest 通过事件/刷新读取事实 |
 | Token claim 作为权限事实源 | 权限漂移且难撤销 | AuthZ 维护权限事实并实时 Check |
 
 ---
@@ -738,7 +738,7 @@ LoginIdentity / Credential / Challenge / Principal / Session / Token / JWKS。
 Identity 提供 User 事实，但 LoginIdentity / Principal 都不是 User；
 IDP 提供 ExternalIdentity，但 ExternalIdentity 不是 LoginIdentity，IDP AppToken 不是 IAM AccessToken；
 AuthZ 使用 Subject 做授权判断，但 Principal 不是 Subject，Token 验签成功不等于授权通过；
-Suggest 可以读取 Principal/UserID 作为上下文，但 AuthN 不维护 Suggest Snapshot。
+Suggest 可以读取 Principal/UserID 作为上下文，但 AuthN 不维护 Suggest Index。
 ```
 
 最重要的工程规则是：

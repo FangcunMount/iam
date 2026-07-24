@@ -1,6 +1,6 @@
 # 01-运行时
 
-> 状态：待补证据 · 运行时目录入口，待继续按源码、配置、契约和测试核对细节。
+> 状态：设计目标 · 运行时目录入口，待继续按源码、配置、契约和测试核对细节。
 
 ---
 
@@ -239,7 +239,7 @@ Identity：User / Profile / ProfileLink；
 AuthN：LoginIdentity / Credential / Challenge / Principal / Session / Token；
 AuthZ：Subject / Resource / Action / Scope / Role / Permission / RoleBinding；
 IDP：WechatApp / Credentials / AppToken / ExternalIdentity；
-Suggest：ProfileSearchTerm / ProfileAccessScope / Snapshot。
+Suggest：ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex。
 ```
 
 运行时目录只解释这些模块如何被启动、装配、暴露和托管：

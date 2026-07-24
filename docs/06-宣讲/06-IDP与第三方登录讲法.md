@@ -1,6 +1,6 @@
 # IDP 与第三方登录讲法
 
-> 状态：待补证据 · 宣讲第一版，已按金字塔结构重写；后续需要继续结合 `internal/apiserver/domain/idp`、`application/idp`、`application/authn`、微信/企业微信 provider adapter、REST/gRPC 契约、IDP 模块文档和测试逐项核对。
+> 状态：设计目标 · 宣讲第一版，已按金字塔结构重写；后续需要继续结合 `internal/apiserver/domain/idp`、`application/idp`、`application/authn`、微信/企业微信 provider adapter、REST/gRPC 契约、IDP 模块文档和测试逐项核对。
 
 ---
 

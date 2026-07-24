@@ -1,6 +1,6 @@
 # Transactional Outbox 设计
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/application/authz`、AuthZ 授权写入链路、PolicyVersion、Outbox store、relay、MQ/事件发布、RuntimeReload 和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/application/authz`、AuthZ 授权写入链路、PolicyVersion、Outbox store、relay、MQ/事件发布、RuntimeReload 和测试逐项核对。
 
 ---
 

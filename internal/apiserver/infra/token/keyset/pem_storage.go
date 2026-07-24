@@ -45,6 +45,9 @@ func NewPEMPrivateKeyStorageWithMode(keysDir string, fileMode os.FileMode) *PEMP
 
 // SavePrivateKey 保存私钥到 PEM 文件
 func (s *PEMPrivateKeyStorage) SavePrivateKey(ctx context.Context, kid string, privateKey any, alg string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	// 确保目录存在
 	if err := s.ensureDir(); err != nil {
 		return err
@@ -56,19 +59,45 @@ func (s *PEMPrivateKeyStorage) SavePrivateKey(ctx context.Context, kid string, p
 		return err
 	}
 
-	// 构建文件路径
-	filePath := s.getFilePath(kid)
+	return s.writeAtomically(kid, pemData)
+}
 
-	// 写入文件（使用安全的文件权限）
-	if err := os.WriteFile(filePath, pemData, s.fileMode); err != nil {
-		return errors.WithCode(
-			code.ErrUnknown,
-			"failed to write private key file %s: %v",
-			filePath,
-			err,
-		)
+func (s *PEMPrivateKeyStorage) writeAtomically(kid string, pemData []byte) (retErr error) {
+	finalPath := s.getFilePath(kid)
+	tempFile, err := os.CreateTemp(s.keysDir, "."+kid+"-*.tmp")
+	if err != nil {
+		return errors.WithCode(code.ErrUnknown, "failed to create private key temp file: %v", err)
 	}
-
+	tempPath := tempFile.Name()
+	defer func() {
+		if retErr != nil {
+			_ = os.Remove(tempPath)
+		}
+	}()
+	if err := tempFile.Chmod(s.fileMode); err != nil {
+		_ = tempFile.Close()
+		return errors.WithCode(code.ErrUnknown, "failed to protect private key temp file: %v", err)
+	}
+	if _, err := tempFile.Write(pemData); err != nil {
+		_ = tempFile.Close()
+		return errors.WithCode(code.ErrUnknown, "failed to write private key temp file: %v", err)
+	}
+	if err := tempFile.Sync(); err != nil {
+		_ = tempFile.Close()
+		return errors.WithCode(code.ErrUnknown, "failed to sync private key temp file: %v", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		return errors.WithCode(code.ErrUnknown, "failed to close private key temp file: %v", err)
+	}
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		return errors.WithCode(code.ErrUnknown, "failed to publish private key file: %v", err)
+	}
+	if dir, err := os.Open(s.keysDir); err == nil {
+		defer func() { _ = dir.Close() }()
+		if err := dir.Sync(); err != nil {
+			return errors.WithCode(code.ErrUnknown, "failed to sync private key directory: %v", err)
+		}
+	}
 	return nil
 }
 
@@ -120,13 +149,16 @@ func (s *PEMPrivateKeyStorage) KeyExists(ctx context.Context, kid string) (bool,
 
 // ensureDir 确保存储目录存在
 func (s *PEMPrivateKeyStorage) ensureDir() error {
-	if err := os.MkdirAll(s.keysDir, 0755); err != nil {
+	if err := os.MkdirAll(s.keysDir, 0700); err != nil {
 		return errors.WithCode(
 			code.ErrUnknown,
 			"failed to create keys directory %s: %v",
 			s.keysDir,
 			err,
 		)
+	}
+	if err := os.Chmod(s.keysDir, 0700); err != nil {
+		return errors.WithCode(code.ErrUnknown, "failed to protect keys directory %s: %v", s.keysDir, err)
 	}
 	return nil
 }

@@ -1,7 +1,7 @@
 
 # Go SDK 接入模型
 
-> 状态：待补证据 · Go SDK 接入总入口，待继续按 `pkg/sdk`、REST/OpenAPI、gRPC/proto、生成代码、compile test、示例代码和版本策略逐项核对。
+> 状态：设计目标 · Go SDK 接入总入口，待继续按 `pkg/sdk`、REST/OpenAPI、gRPC/proto、生成代码、compile test、示例代码和版本策略逐项核对。
 
 ---
 

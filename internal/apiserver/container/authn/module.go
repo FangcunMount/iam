@@ -39,6 +39,7 @@ type AuthnModule struct {
 
 	// 调度器
 	rotationScheduler KeyRotationScheduler
+	rotationOptions   jwksRotationRuntimeOptions
 
 	tokenStoreInspectorSource *redisInfra.RedisStore
 	sessionStoreInspector     *redisInfra.SessionStore
@@ -74,7 +75,10 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	}
 
 	// 初始化基础设施层
-	infra := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher, deps.Environment, deps.Auth, deps.JWKS)
+	infra, err := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventBus, deps.EventPublisher, deps.Environment, deps.Auth, deps.JWKS)
+	if err != nil {
+		return err
+	}
 
 	// 初始化领域层
 	domain := m.initializeDomain(infra, deps.Auth)
@@ -85,7 +89,7 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	}
 
 	// 初始化调度器
-	m.initializeSchedulers()
+	m.initializeSchedulers(deps.JWKS)
 
 	return nil
 }

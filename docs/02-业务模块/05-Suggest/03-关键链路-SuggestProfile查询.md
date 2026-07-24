@@ -136,7 +136,7 @@ application 用 `MaskMobiles` 处理第一个手机号：
 需要区分两个事实：
 
 - 对外结果默认只有 `mobile_mask`；
-- 内存 SearchTerm、Hash key、MySQL Loader 结果和可选 `snapshot.txt` 仍含原始手机号。
+- 内存 SearchTerm、Hash key 和 MySQL Loader 结果仍含原始手机号，但不会写入文件。
 
 ## 8. 限流
 

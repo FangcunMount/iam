@@ -282,7 +282,7 @@ AuthN signup
 | ProfileLink 关系事实 | `ProfileAccessScope` 所需的局部可见投影 |
 | MySQL 事务写模型 | Trie/Hash 进程内索引与 Full/Delta runtime |
 
-Suggest Snapshot/Index 可以从 Identity facts 重建，但不是 Profile 主表，也不能回写 Identity。
+Suggest Index/Index 可以从 Identity facts 重建，但不是 Profile 主表，也不能回写 Identity。
 
 ### 10.2 当前数据来源
 

@@ -10,6 +10,10 @@ on:
       - internal/apiserver/infra/mysql/**
       - internal/apiserver/application/authn/**
       - internal/apiserver/domain/authn/**
+      - internal/apiserver/container/authn/**
+      - internal/apiserver/infra/token/keyset/**
+      - internal/apiserver/options/**
+      - internal/pkg/migration/migrations/**
       - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
@@ -22,6 +26,10 @@ on:
       - internal/apiserver/infra/mysql/**
       - internal/apiserver/application/authn/**
       - internal/apiserver/domain/authn/**
+      - internal/apiserver/container/authn/**
+      - internal/apiserver/infra/token/keyset/**
+      - internal/apiserver/options/**
+      - internal/pkg/migration/migrations/**
       - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**

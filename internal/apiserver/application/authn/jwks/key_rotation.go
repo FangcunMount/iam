@@ -10,6 +10,7 @@ import (
 // KeyRotationAppService 表示 JWKS 轮换应用服务。
 type KeyRotationAppService struct {
 	keyRotationSvc KeyRotatorPort
+	keyPublisher   KeyPublisherPort
 	logger         log.Logger
 }
 
@@ -17,16 +18,22 @@ type KeyRotationAppService struct {
 func NewKeyRotationAppService(
 	keyRotationSvc KeyRotatorPort,
 	logger log.Logger,
+	publisher ...KeyPublisherPort,
 ) *KeyRotationAppService {
-	return &KeyRotationAppService{
+	service := &KeyRotationAppService{
 		keyRotationSvc: keyRotationSvc,
 		logger:         logger,
 	}
+	if len(publisher) > 0 {
+		service.keyPublisher = publisher[0]
+	}
+	return service
 }
 
 // RotateKeyResponse 表示轮换密钥响应。
 type RotateKeyResponse struct {
-	NewKey *RotatedKeyInfo // 新生成的密钥信息
+	NewKey  *RotatedKeyInfo // 新生成的密钥信息
+	Rotated bool
 }
 
 // RotatedKeyInfo 表示轮换后的密钥信息。
@@ -40,11 +47,7 @@ type RotatedKeyInfo struct {
 }
 
 // RotateKey 执行密钥轮换
-// 轮换流程：
-//  1. 生成新密钥（Active 状态）
-//  2. 将当前 Active 密钥转为 Grace 状态
-//  3. 清理超过 MaxKeys 的密钥（将最老的 Grace 密钥转为 Retired）
-//  4. 清理过期的 Retired 密钥
+// 轮换流程由原子仓储转换 active/grace 状态；提交后刷新当前进程发布缓存。
 func (s *KeyRotationAppService) RotateKey(ctx context.Context) (*RotateKeyResponse, error) {
 	s.logger.Infow("Starting key rotation")
 
@@ -53,6 +56,7 @@ func (s *KeyRotationAppService) RotateKey(ctx context.Context) (*RotateKeyRespon
 		s.logger.Errorw("Key rotation failed", "error", err)
 		return nil, err
 	}
+	s.refreshPublishCache(ctx)
 
 	s.logger.Infow("Key rotation completed successfully",
 		"newKid", newKey.Kid,
@@ -68,7 +72,44 @@ func (s *KeyRotationAppService) RotateKey(ctx context.Context) (*RotateKeyRespon
 			NotAfter:  newKey.NotAfter,
 			CreatedAt: newKey.CreatedAt,
 		},
+		Rotated: true,
 	}, nil
+}
+
+// RotateIfDue checks and rotates in one repository transaction.
+func (s *KeyRotationAppService) RotateIfDue(ctx context.Context) (*RotateKeyResponse, error) {
+	active, rotated, err := s.keyRotationSvc.RotateIfDue(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if active == nil {
+		return &RotateKeyResponse{Rotated: false}, nil
+	}
+	if rotated {
+		s.refreshPublishCache(ctx)
+	}
+	return &RotateKeyResponse{
+		NewKey: &RotatedKeyInfo{
+			Kid:       active.Kid,
+			Status:    active.Status,
+			Algorithm: active.JWK.Alg,
+			NotBefore: active.NotBefore,
+			NotAfter:  active.NotAfter,
+			CreatedAt: active.CreatedAt,
+		},
+		Rotated: rotated,
+	}, nil
+}
+
+func (s *KeyRotationAppService) refreshPublishCache(ctx context.Context) {
+	if s.keyPublisher == nil {
+		return
+	}
+	if err := s.keyPublisher.RefreshCache(ctx); err != nil {
+		// The database transition is already committed. Keep the new signing
+		// key active and make cache refresh observable for retry.
+		s.logger.Warnw("jwks publish cache refresh failed after rotation", "error", err)
+	}
 }
 
 // ShouldRotateResponse 是否需要轮换响应

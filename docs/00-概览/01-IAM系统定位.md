@@ -1,6 +1,6 @@
 # IAM 系统定位
 
-> 状态：待补证据 · 第一版正文，待继续按源码、OpenAPI、proto、测试核对细节。
+> 状态：设计目标 · 第一版正文，待继续按源码、OpenAPI、proto、测试核对细节。
 
 ---
 
@@ -55,7 +55,7 @@ flowchart TD
     AuthN["AuthN\n如何证明身份\nLoginIdentity / Credential / Challenge / Principal / Session / Token"]
     AuthZ["AuthZ\n能访问什么\nSubject / Resource / Action / Scope / Role / Permission / RoleBinding"]
     IDP["IDP\n外部身份来源\nWechatApp / Credentials / AppToken / ExternalIdentity"]
-    Suggest["Suggest\n可见 Profile 联想搜索\nProfileSearchTerm / ProfileAccessScope / Snapshot"]
+    Suggest["Suggest\n可见 Profile 联想搜索\nProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex"]
 
     Client --> Access
     Access --> Identity

@@ -2,6 +2,7 @@ package jwks
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
@@ -9,6 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // KeyRepository MySQL 实现，基于通用的 BaseRepository
@@ -18,9 +20,10 @@ type KeyRepository struct {
 }
 
 var _ domain.Repository = (*KeyRepository)(nil)
+var _ domain.AtomicActivator = (*KeyRepository)(nil)
 
 // NewKeyRepository 创建 KeyRepository 实例
-func NewKeyRepository(db *gorm.DB) domain.Repository {
+func NewKeyRepository(db *gorm.DB) *KeyRepository {
 	base := mysql.NewBaseRepository[*KeyPO](db)
 	base.SetErrorTranslator(mysql.NewDuplicateToTranslator(func(e error) error {
 		return errors.WithCode(code.ErrKeyAlreadyExists, "key with this kid already exists")
@@ -169,4 +172,79 @@ func (r *KeyRepository) CountByStatus(ctx context.Context, status domain.KeyStat
 		Count(&count).Error
 
 	return count, err
+}
+
+// Activate atomically demotes the current active key and promotes a candidate.
+func (r *KeyRepository) Activate(ctx context.Context, request domain.ActivationRequest) (domain.ActivationResult, error) {
+	if request.Candidate == nil {
+		return domain.ActivationResult{}, fmt.Errorf("jwks activation candidate is required")
+	}
+
+	var result domain.ActivationResult
+	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Where("status IN ?", []int8{int8(domain.KeyActive), int8(domain.KeyGrace)}).
+			Order("id ASC")
+		if tx.Dialector.Name() == "mysql" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		var rows []*KeyPO
+		if err := query.Find(&rows).Error; err != nil {
+			return fmt.Errorf("lock jwks lifecycle rows: %w", err)
+		}
+
+		var activePO *KeyPO
+		for _, row := range rows {
+			if domain.KeyStatus(row.Status) != domain.KeyActive {
+				continue
+			}
+			if activePO != nil {
+				return fmt.Errorf("multiple active jwks keys found")
+			}
+			activePO = row
+		}
+
+		if activePO != nil {
+			active, err := r.mapper.ToKeyEntity(activePO)
+			if err != nil {
+				return err
+			}
+			if request.RequireNoActive {
+				result.Active = active
+				return nil
+			}
+			if request.DueBefore != nil && active.NotBefore != nil && active.NotBefore.After(*request.DueBefore) &&
+				(active.NotAfter == nil || active.NotAfter.After(request.Now)) {
+				result.Active = active
+				return nil
+			}
+			if err := tx.Model(&KeyPO{}).
+				Where("kid = ? AND status = ?", activePO.Kid, int8(domain.KeyActive)).
+				Updates(map[string]any{
+					"status":     int8(domain.KeyGrace),
+					"not_after":  request.GraceUntil,
+					"updated_at": request.Now,
+				}).Error; err != nil {
+				return fmt.Errorf("move active jwks key to grace: %w", err)
+			}
+		} else if request.DueBefore != nil && !request.RequireNoActive {
+			// No active key is always due for automatic recovery.
+		}
+
+		candidatePO, err := r.mapper.ToKeyPO(request.Candidate)
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(candidatePO).Error; err != nil {
+			if mysql.IsDuplicateError(err) {
+				return errors.WithCode(code.ErrKeyAlreadyExists, "active jwks key already exists")
+			}
+			return fmt.Errorf("insert active jwks key: %w", err)
+		}
+		request.Candidate.CreatedAt = candidatePO.CreatedAt
+		request.Candidate.UpdatedAt = candidatePO.UpdatedAt
+		result.Activated = true
+		result.Active = request.Candidate
+		return nil
+	})
+	return result, err
 }

@@ -1,6 +1,6 @@
 # 模块边界：IDP 与 AuthN
 
-> 状态：待补证据 · 第一版正文，待继续按源码、组合根、跨模块 port、微信/企微 provider adapter、AuthN 登录/绑定/开通用例、REST/gRPC 契约和架构测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按源码、组合根、跨模块 port、微信/企微 provider adapter、AuthN 登录/绑定/开通用例、REST/gRPC 契约和架构测试逐项核对。
 
 ---
 
@@ -82,7 +82,7 @@ flowchart TD
     AuthN["AuthN\nLoginIdentity / Principal\nSession / IAM Token"]
     Identity["Identity\nUser / Profile / ProfileLink"]
     AuthZ["AuthZ\nSubject / RoleBinding / Check"]
-    Suggest["Suggest\nProfileSearchTerm / Snapshot"]
+    Suggest["Suggest\nProfileSearchTerm / ProfileSuggestionIndex"]
     Provider["Provider Adapter\nWeChat / WeCom API"]
 
     AuthN -->|ResolveExternalIdentity port| IDP

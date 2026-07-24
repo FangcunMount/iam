@@ -277,6 +277,61 @@ func TestKeyRepository_FindExpired(t *testing.T) {
 	assert.Contains(t, kids, "expired-2")
 }
 
+func TestKeyRepositoryActivateMovesCurrentActiveToGraceInOneTransaction(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewKeyRepository(db)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	old := createTestKey("old-active", jwks.KeyActive)
+	require.NoError(t, repo.Save(ctx, old))
+	candidate := createTestKey("new-active", jwks.KeyActive)
+	graceUntil := now.Add(7 * 24 * time.Hour)
+
+	result, err := repo.Activate(ctx, jwks.ActivationRequest{
+		Candidate:  candidate,
+		Now:        now,
+		GraceUntil: graceUntil,
+	})
+	require.NoError(t, err)
+	require.True(t, result.Activated)
+	require.Equal(t, "new-active", result.Active.Kid)
+
+	oldAfter, err := repo.FindByKid(ctx, "old-active")
+	require.NoError(t, err)
+	require.Equal(t, jwks.KeyGrace, oldAfter.Status)
+	require.WithinDuration(t, graceUntil, *oldAfter.NotAfter, time.Second)
+	active, err := repo.FindByStatus(ctx, jwks.KeyActive)
+	require.NoError(t, err)
+	require.Len(t, active, 1)
+	require.Equal(t, "new-active", active[0].Kid)
+}
+
+func TestKeyRepositoryActivateIfDueNoopsAfterConcurrentWinner(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewKeyRepository(db)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	active := createTestKey("fresh-active", jwks.KeyActive)
+	notBefore := now.Add(-time.Hour)
+	active.NotBefore = &notBefore
+	require.NoError(t, repo.Save(ctx, active))
+	candidate := createTestKey("unused-candidate", jwks.KeyActive)
+	dueBefore := now.Add(-30 * 24 * time.Hour)
+
+	result, err := repo.Activate(ctx, jwks.ActivationRequest{
+		Candidate:  candidate,
+		Now:        now,
+		GraceUntil: now.Add(7 * 24 * time.Hour),
+		DueBefore:  &dueBefore,
+	})
+	require.NoError(t, err)
+	require.False(t, result.Activated)
+	require.Equal(t, "fresh-active", result.Active.Kid)
+	found, err := repo.FindByKid(ctx, "unused-candidate")
+	require.NoError(t, err)
+	require.Nil(t, found)
+}
+
 func TestKeyRepository_FindAll(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewKeyRepository(db)

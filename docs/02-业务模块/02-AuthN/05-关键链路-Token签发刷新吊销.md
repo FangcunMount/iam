@@ -768,7 +768,7 @@ RefreshToken 不应刷新 IDP AppToken，除非有明确 provider token 管理�
 ### 16.5 与 Suggest
 
 ```text
-Token 链路不维护 Suggest Snapshot；
+Token 链路不维护 Suggest Index；
 Suggest 可以读取 request context 中的 Principal/UserID；
 Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制；
 AccessToken 不能直接代表可搜索所有 Profile。

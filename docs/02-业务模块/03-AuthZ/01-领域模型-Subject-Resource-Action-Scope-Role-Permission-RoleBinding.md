@@ -1,6 +1,6 @@
 # 领域模型：Subject / Resource / Action / Scope / Role / Permission / RoleBinding
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/domain/authz`、`application/authz`、Casbin runtime、Outbox/PolicyVersion、REST/gRPC 契约和测试逐项核对；本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthZ 模型主文档维护。
+> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/authz`、`application/authz`、Casbin runtime、Outbox/PolicyVersion、REST/gRPC 契约和测试逐项核对；本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthZ 模型主文档维护。
 
 ---
 
@@ -246,7 +246,7 @@ classDiagram
 ```text
 上图是领域语义图，不等于数据库物理表结构；
 字段名称和数量以当前源码、迁移和契约为准；
-如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或待补证据。
+如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或设计目标。
 ```
 
 ---
@@ -968,7 +968,7 @@ IDP 不创建 RoleBinding。
 
 ```text
 Suggest ProfileAccessScope 不是 AuthZ Scope，但可以映射或调用 AuthZ Scope；
-Suggest Snapshot 不是权限事实源；
+Suggest Index 不是权限事实源；
 AuthZ 不维护 Suggest 索引；
 Profile 搜索可见性应结合 Principal/UserID、ProfileAccessScope 和 AuthZ Check。
 ```

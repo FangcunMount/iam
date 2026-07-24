@@ -2,6 +2,7 @@ package authn
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -73,7 +74,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
 	jwksOptions apiserveroptions.JWKSOptions,
-) *authnInfrastructureComponents {
+) (*authnInfrastructureComponents, error) {
 	infra := &authnInfrastructureComponents{
 		db:             db,
 		redis:          redisClient,
@@ -106,7 +107,9 @@ func (m *AuthnModule) initializeInfrastructure(
 
 	infra.keyRepo = jwksMysql.NewKeyRepository(db)
 	configureJWKSStorage(infra, jwksOptions)
-	configureKeyServices(infra, environment, authOptions, jwksOptions)
+	if err := configureKeyServices(infra, environment, authOptions, jwksOptions); err != nil {
+		return nil, err
+	}
 
 	infra.tokenStore = redisInfra.NewRedisStore(redisClient)
 	m.tokenStoreInspectorSource = infra.tokenStore
@@ -116,7 +119,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	infra.userRepo = mysqluser.NewRepository(db)
 	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(infra.userRepo, loginIdentityRepo)
 
-	return infra
+	return infra, nil
 }
 
 func configureJWKSStorage(infra *authnInfrastructureComponents, jwksOptions apiserveroptions.JWKSOptions) {
@@ -127,7 +130,7 @@ func configureJWKSStorage(infra *authnInfrastructureComponents, jwksOptions apis
 		log.Infow("JWKS keys directory", "jwks.keys_dir", keysDir)
 	}
 	infra.privateKeyStorage = keyset.NewPEMPrivateKeyStorage(keysDir)
-	infra.keyGenerator = keyset.NewRSAKeyGeneratorWithStorage(infra.privateKeyStorage)
+	infra.keyGenerator = keyset.NewRSAKeyGenerator()
 	infra.privKeyResolver = keyset.NewPEMPrivateKeyResolver(keysDir)
 }
 
@@ -136,51 +139,69 @@ func configureKeyServices(
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
 	jwksOptions apiserveroptions.JWKSOptions,
-) {
-	infra.keyManager = keyset.NewKeyManager(infra.keyRepo, infra.keyGenerator)
+) error {
+	policy := keyset.RotationPolicy{
+		RotationInterval: jwksOptions.Rotation.RotationInterval,
+		GracePeriod:      jwksOptions.Rotation.GracePeriod,
+		MaxKeysInJWKS:    jwksOptions.Rotation.MaxPublishableKey,
+	}
+	infra.keyManager = keyset.NewKeyManagerWithPolicy(infra.keyRepo, infra.keyGenerator, infra.privateKeyStorage, policy)
 	infra.keySetBuilder = keyset.NewKeySetBuilder(infra.keyRepo)
 	infra.keyRotation = keyset.NewKeyRotation(
-		infra.keyRepo,
-		infra.keyGenerator,
-		keyset.DefaultRotationPolicy(),
+		infra.keyManager,
+		policy,
 		log.New(log.NewOptions()),
 	)
-	autoInitializeJWKS(infra.keyManager, environment, jwksOptions, log.New(log.NewOptions()))
+	if err := ensureJWKSReady(infra, environment, jwksOptions, log.New(log.NewOptions())); err != nil {
+		return err
+	}
 	infra.jwtGenerator = jwtinfra.NewGenerator(
 		authOptions.JWTIssuer,
 		authOptions.AccessTokenAudience,
 		keyset.NewJWTKeySource(infra.keyManager, infra.privKeyResolver),
 	)
+	return nil
 }
 
-func autoInitializeJWKS(
-	keyManager *keyset.KeyManager,
+func ensureJWKSReady(
+	infra *authnInfrastructureComponents,
 	environment genericapiserver.Environment,
 	jwksOptions apiserveroptions.JWKSOptions,
 	logger log.Logger,
-) {
-	if !shouldAutoInitializeJWKS(environment, jwksOptions.AutoInit) {
-		return
-	}
-
+) error {
 	ctx := context.Background()
-	if _, err := keyManager.GetActiveKey(ctx); err == nil {
-		logger.Debugw("active jwks key present, skip auto-init")
-		return
+	activeKeys, err := infra.keyRepo.FindByStatus(ctx, keyset.KeyActive)
+	if err != nil {
+		return fmt.Errorf("load active jwks keys: %w", err)
 	}
-
-	now := time.Now()
-	if _, err := keyManager.CreateKey(ctx, "RS256", &now, ptrTime(now.AddDate(1, 0, 0))); err != nil {
-		logger.Warnw("failed to auto-create jwks active key", "error", err)
-		return
+	if len(activeKeys) > 1 {
+		return fmt.Errorf("expected exactly one active jwks key, found %d", len(activeKeys))
 	}
-	logger.Infow("auto-created initial jwks active key", "alg", "RS256")
+	allowCreate := shouldAutoInitializeJWKS(environment, jwksOptions.AutoInit)
+	if len(activeKeys) == 0 {
+		if !allowCreate {
+			return fmt.Errorf("no active jwks key and automatic initialization is disabled")
+		}
+		if _, _, err := infra.keyManager.BootstrapKey(ctx, "RS256"); err != nil {
+			return fmt.Errorf("bootstrap jwks active key: %w", err)
+		}
+		logger.Infow("auto-created initial jwks active key", "alg", "RS256")
+	} else if !activeKeys[0].IsValidAt(time.Now()) {
+		if !allowCreate || activeKeys[0].IsNotYetValid(time.Now()) {
+			return fmt.Errorf("active jwks key is not currently valid")
+		}
+		if _, err := infra.keyManager.CreateKey(ctx, "RS256", nil, nil); err != nil {
+			return fmt.Errorf("replace expired jwks active key: %w", err)
+		}
+		logger.Infow("replaced expired jwks active key", "alg", "RS256")
+	}
+	if _, err := infra.keyManager.ValidateActiveKey(ctx, infra.privKeyResolver); err != nil {
+		return fmt.Errorf("validate active jwks key material: %w", err)
+	}
+	logger.Debugw("active jwks key and private material validated")
+	return nil
 }
 
 func shouldAutoInitializeJWKS(environment genericapiserver.Environment, configured bool) bool {
 	return configured || environment == genericapiserver.EnvironmentDevelopment
-}
-
-func ptrTime(t time.Time) *time.Time {
-	return &t
 }

@@ -1,0 +1,1345 @@
+{
+  "version": 1,
+  "warnings": [
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "AssignmentId"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "IdempotencyKey"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "KeyId"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "Limit"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "Limit"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "Limit"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "Offset"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "Offset"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "Offset"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "ProfileId"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "ResourceId"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "parameters",
+        "RoleId"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "BadRequest"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "BadRequest"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "Conflict"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "Conflict"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "Forbidden"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "Forbidden"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "InternalServerError"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "InternalServerError"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "NotFound"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "NotFound"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "NotFound"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "NotFound"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "Unauthorized"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "oas3-unused-component",
+      "path": [
+        "components",
+        "responses",
+        "Unauthorized"
+      ],
+      "message": "Potentially unused component has been detected."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/challenges/phone-otp",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/phone",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/phone/challenge",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/wechat-miniprogram",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/wechat-open",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/wechat-open/authorize",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/wecom",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/login-identities/{id}",
+        "delete"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authn/wechat-open/authorize",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/assignments/grant",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/assignments/revoke",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/assignments/subject",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/assignments/{id}",
+        "delete"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/check",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/policies",
+        "delete"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/policies",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/policies/lint",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/policies/version",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources/key/{key}",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources/validate-action",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources/{id}",
+        "delete"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources/{id}",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/resources/{id}",
+        "put"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles/{id}",
+        "delete"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles/{id}",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles/{id}",
+        "put"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles/{id}/assignments",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/authz/roles/{id}/policies",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/refresh-access-token",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/rotate-auth-secret",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/rotate-msg-secret",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}",
+        "patch"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}/access-token",
+        "get"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}/disable",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-description",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}/enable",
+        "post"
+      ],
+      "message": "Operation \"description\" must be present and non-empty string."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/.well-known/jwks.json",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys/cleanup",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys/publishable",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys/{kid}",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys/{kid}/force-retire",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys/{kid}/grace",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/admin/jwks/keys/{kid}/retire",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/challenges/phone-otp",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/phone",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/phone/challenge",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/wechat-miniprogram",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/wechat-open",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/wechat-open/authorize",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/wecom",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/login-identities/{id}",
+        "delete"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/logout",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/refresh_token",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/signups/wechat-miniprogram",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/verify",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authn.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authn/wechat-open/authorize",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/assignments/grant",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/assignments/revoke",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/assignments/subject",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/assignments/{id}",
+        "delete"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/check",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/policies",
+        "delete"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/policies",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/policies/lint",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/policies/version",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources/key/{key}",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources/validate-action",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources/{id}",
+        "delete"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources/{id}",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/resources/{id}",
+        "put"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles/{id}",
+        "delete"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles/{id}",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles/{id}",
+        "put"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles/{id}/assignments",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/authz.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/authz/roles/{id}/policies",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/me",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/me",
+        "patch"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/me/profiles",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/profile-links",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/profiles/search",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/profiles/{id}",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/identity.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/identity/profiles/{id}",
+        "patch"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/refresh-access-token",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/rotate-auth-secret",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/rotate-msg-secret",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}",
+        "patch"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}/access-token",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}/disable",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/idp.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/idp/wechat-apps/{app_id}/enable",
+        "post"
+      ],
+      "message": "Operation must have \"operationId\"."
+    },
+    {
+      "source": "api/rest/suggest.v2.yaml",
+      "code": "operation-operationId",
+      "path": [
+        "paths",
+        "/suggest/profile",
+        "get"
+      ],
+      "message": "Operation must have \"operationId\"."
+    }
+  ]
+}

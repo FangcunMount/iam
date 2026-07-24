@@ -26,6 +26,7 @@ type KeyPublisherPort interface {
 
 type KeyRotatorPort interface {
 	RotateKey(ctx context.Context) (*ManagedKey, error)
+	RotateIfDue(ctx context.Context) (*ManagedKey, bool, error)
 	ShouldRotate(ctx context.Context) (bool, error)
 	GetRotationPolicy() RotationPolicy
 	UpdateRotationPolicy(ctx context.Context, policy RotationPolicy) error

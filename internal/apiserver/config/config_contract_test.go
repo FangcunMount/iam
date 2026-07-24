@@ -45,6 +45,11 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "password lockout duration", opts.Auth.PasswordLockout.LockDuration, 15*time.Minute)
 				assertEqual(t, "jwks keys dir", opts.JWKS.KeysDir, "./configs/keys")
 				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
+				assertEqual(t, "jwks rotation automatic", opts.JWKS.Rotation.AutomaticEnabled, false)
+				assertEqual(t, "jwks rotation cron", opts.JWKS.Rotation.CheckCron, "@every 1h")
+				assertEqual(t, "jwks rotation interval", opts.JWKS.Rotation.RotationInterval, 720*time.Hour)
+				assertEqual(t, "jwks rotation grace", opts.JWKS.Rotation.GracePeriod, 168*time.Hour)
+				assertEqual(t, "jwks rotation max", opts.JWKS.Rotation.MaxPublishableKey, 3)
 				assertEqual(t, "idp encryption key", opts.IDP.EncryptionKey, "")
 				assertEqual(t, "idp wecom agent id", opts.IDP.WeCom.AgentID, "")
 				assertEqual(t, "sms provider", opts.SMS.Provider, "log")
@@ -57,9 +62,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "sms aliyun code param", opts.SMS.Aliyun.CodeParamName, "code")
 				assertEqual(t, "sms aliyun min param", opts.SMS.Aliyun.MinParamName, "min")
 				assertEqual(t, "suggest enabled", opts.Suggest.Enable, true)
-				assertEqual(t, "suggest data dir", opts.Suggest.DataDir, "./data/suggest")
 				assertEqual(t, "suggest delta cron", opts.Suggest.DeltaSyncCron, "")
-				assertBoolPtr(t, "suggest snapshot", opts.Suggest.Snapshot, true)
 				assertBoolPtr(t, "debug cache governance enabled", opts.Debug.CacheGovernance.Enabled, true)
 				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, false)
 				assertEqual(t, "seed mock disabled by default", opts.SeedMockAuth.Enabled, false)
@@ -99,6 +102,11 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "password lockout duration", opts.Auth.PasswordLockout.LockDuration, 15*time.Minute)
 				assertEqual(t, "jwks keys dir", opts.JWKS.KeysDir, "/app/data/keys")
 				assertEqual(t, "jwks auto init", opts.JWKS.AutoInit, true)
+				assertEqual(t, "jwks rotation automatic", opts.JWKS.Rotation.AutomaticEnabled, true)
+				assertEqual(t, "jwks rotation cron", opts.JWKS.Rotation.CheckCron, "@every 1h")
+				assertEqual(t, "jwks rotation interval", opts.JWKS.Rotation.RotationInterval, 720*time.Hour)
+				assertEqual(t, "jwks rotation grace", opts.JWKS.Rotation.GracePeriod, 168*time.Hour)
+				assertEqual(t, "jwks rotation max", opts.JWKS.Rotation.MaxPublishableKey, 3)
 				assertEqual(t, "mysql password", opts.MySQLOptions.Password, "")
 				assertEqual(t, "idp encryption key", opts.IDP.EncryptionKey, "")
 				assertEqual(t, "idp wecom agent id", opts.IDP.WeCom.AgentID, "")
@@ -112,7 +120,6 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "suggest enabled", opts.Suggest.Enable, true)
 				assertEqual(t, "suggest full cron", opts.Suggest.FullSyncCron, "@every 6h")
 				assertEqual(t, "suggest delta cron", opts.Suggest.DeltaSyncCron, "")
-				assertBoolPtr(t, "suggest snapshot", opts.Suggest.Snapshot, true)
 				assertBoolPtr(t, "debug cache governance enabled", opts.Debug.CacheGovernance.Enabled, false)
 				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, true)
 				assertEqual(t, "seed mock disabled by default", opts.SeedMockAuth.Enabled, false)
@@ -150,6 +157,8 @@ func TestAPIServerYAMLDoesNotContainRemovedRuntimeKeys(t *testing.T) {
 		"server.name",
 		"server.read-timeout",
 		"server.write-timeout",
+		"suggest.data_dir",
+		"suggest.snapshot",
 	}
 	for _, file := range []string{"configs/apiserver.dev.yaml", "configs/apiserver.prod.yaml"} {
 		t.Run(file, func(t *testing.T) {
@@ -180,6 +189,8 @@ func TestRemovedRuntimeYAMLKeysDecodeIntoValidationTombstones(t *testing.T) {
 		{name: "server name", key: "server.name", yaml: "server:\n  name: iam\n"},
 		{name: "server read timeout", key: "server.read-timeout", yaml: "server:\n  read-timeout: 60\n"},
 		{name: "server write timeout", key: "server.write-timeout", yaml: "server:\n  write-timeout: 60\n"},
+		{name: "suggest data dir", key: "suggest.data_dir", yaml: "suggest:\n  data_dir: /tmp/private\n"},
+		{name: "suggest snapshot", key: "suggest.snapshot", yaml: "suggest:\n  snapshot: true\n"},
 	}
 
 	for _, tt := range tests {

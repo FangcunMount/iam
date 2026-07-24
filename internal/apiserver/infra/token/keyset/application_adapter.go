@@ -113,6 +113,14 @@ func (a applicationKeyRotator) RotateKey(ctx context.Context) (*appjwks.ManagedK
 	return toAppManagedKey(key), nil
 }
 
+func (a applicationKeyRotator) RotateIfDue(ctx context.Context) (*appjwks.ManagedKey, bool, error) {
+	key, rotated, err := a.rotator.RotateIfDue(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	return toAppManagedKey(key), rotated, nil
+}
+
 func (a applicationKeyRotator) ShouldRotate(ctx context.Context) (bool, error) {
 	return a.rotator.ShouldRotate(ctx)
 }

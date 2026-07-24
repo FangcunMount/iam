@@ -1,6 +1,6 @@
 # 关键链路：授权版本传播 PolicyVersion / Outbox / RuntimeReload
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authz`、`domain/authz`、Outbox、policy relay、Casbin runtime、配置、健康检查、REST/gRPC 契约和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `application/authz`、`domain/authz`、Outbox、policy relay、Casbin runtime、配置、健康检查、REST/gRPC 契约和测试逐项核对。
 
 ---
 
@@ -303,7 +303,7 @@ stateDiagram-v2
 ```text
 状态图是领域语义图；
 具体状态枚举以代码为准；
-如果当前代码只记录 version number，不记录完整状态，也应在文档中标记为待补证据或规划改造。
+如果当前代码只记录 version number，不记录完整状态，也应在文档中标记为设计目标或规划改造。
 ```
 
 ---
@@ -756,7 +756,7 @@ AuthZ 不修改 User/Profile/ProfileLink 写模型。
 
 ```text
 Suggest 可能受授权策略影响；
-AuthZ policy reload 不等于 Suggest Snapshot reload；
+AuthZ policy reload 不等于 Suggest Index reload；
 如果搜索可见性依赖 AuthZ，应明确查询时 Check 还是离线同步过滤；
 Suggest ProfileAccessScope 不是 AuthZ Scope。
 ```

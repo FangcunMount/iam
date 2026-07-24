@@ -45,7 +45,6 @@ func (r RateLimitConfig) withDefaults() RateLimitConfig {
 type Config struct {
 	Enable             bool
 	Required           bool
-	DataDir            string
 	FullSyncCron       string
 	DeltaSyncCron      string
 	MaxResults         int
@@ -53,7 +52,6 @@ type Config struct {
 	KeyPadLen          int
 	FullSQL            string
 	DeltaSQL           string
-	Snapshot           bool
 	// DisableMobileMask 为 true 时返回明文手机号（仅特殊排障；默认应关闭）。
 	DisableMobileMask bool
 	// LoaderPlaceholderOrgID 注入内建 Loader SQL 的 org_id 占位；0=不虚构组织维度。
@@ -85,10 +83,8 @@ func (c Config) WithDefaults() Config {
 	cfg := DefaultConfig()
 	cfg.Enable = c.Enable
 	cfg.Required = c.Required
-	cfg.DataDir = c.DataDir
 	cfg.FullSQL = c.FullSQL
 	cfg.DeltaSQL = c.DeltaSQL
-	cfg.Snapshot = c.Snapshot
 	cfg.DisableMobileMask = c.DisableMobileMask
 	cfg.LoaderPlaceholderOrgID = c.LoaderPlaceholderOrgID
 	cfg.LoaderPlaceholderTenantID = c.LoaderPlaceholderTenantID

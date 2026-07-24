@@ -150,25 +150,14 @@ func (s *KeyRotationCronScheduler) GetNextRunTime() string {
 
 // checkAndRotate 检查并执行密钥轮换
 func (s *KeyRotationCronScheduler) checkAndRotate(ctx context.Context) error {
-	// 检查是否需要轮换
-	shouldRotateResp, err := s.rotationApp.ShouldRotate(ctx)
-	if err != nil {
-		s.logger.Errorw("Failed to check if rotation is needed", "error", err)
-		return err
-	}
-
-	if !shouldRotateResp.ShouldRotate {
-		s.logger.Debugw("Key rotation not needed", "reason", shouldRotateResp.Reason)
-		return nil
-	}
-
-	// 执行轮换
-	s.logger.Infow("Starting automatic key rotation", "reason", shouldRotateResp.Reason)
-
-	resp, err := s.rotationApp.RotateKey(ctx)
+	resp, err := s.rotationApp.RotateIfDue(ctx)
 	if err != nil {
 		s.logger.Errorw("Automatic key rotation failed", "error", err)
 		return err
+	}
+	if resp == nil || !resp.Rotated {
+		s.logger.Debugw("Key rotation not needed", "result", "noop")
+		return nil
 	}
 
 	s.logger.Infow("Automatic key rotation completed successfully",

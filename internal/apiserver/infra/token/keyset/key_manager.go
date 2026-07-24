@@ -2,10 +2,14 @@ package keyset
 
 import (
 	"context"
+	"crypto/rsa"
+	"encoding/base64"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/google/uuid"
 )
@@ -15,17 +19,40 @@ import (
 type KeyManager struct {
 	keyRepo      Repository
 	keyGenerator KeyGenerator
+	privateStore PrivateKeyStorage
+	policy       RotationPolicy
+	now          func() time.Time
 }
 
 // NewKeyManager 创建密钥管理器
 func NewKeyManager(
 	keyRepo Repository,
 	keyGenerator KeyGenerator,
+	privateStore ...PrivateKeyStorage,
 ) *KeyManager {
+	var store PrivateKeyStorage
+	if len(privateStore) > 0 {
+		store = privateStore[0]
+	}
 	return &KeyManager{
 		keyRepo:      keyRepo,
 		keyGenerator: keyGenerator,
+		privateStore: store,
+		policy:       DefaultRotationPolicy(),
+		now:          time.Now,
 	}
+}
+
+// NewKeyManagerWithPolicy creates a lifecycle manager with explicit storage and policy.
+func NewKeyManagerWithPolicy(
+	keyRepo Repository,
+	keyGenerator KeyGenerator,
+	privateStore PrivateKeyStorage,
+	policy RotationPolicy,
+) *KeyManager {
+	manager := NewKeyManager(keyRepo, keyGenerator, privateStore)
+	manager.policy = policy
+	return manager
 }
 
 // Ensure KeyManager implements KeyManagementService
@@ -37,61 +64,128 @@ func (s *KeyManager) CreateKey(
 	alg string,
 	notBefore, notAfter *time.Time,
 ) (*Key, error) {
-	// 生成 kid (UUID)
-	kid := uuid.New().String()
+	result, err := s.createAndActivate(ctx, alg, notBefore, notAfter, activationModeForce)
+	return result.Active, err
+}
 
-	// 使用密钥生成器生成密钥对
+type activationMode uint8
+
+const (
+	activationModeForce activationMode = iota + 1
+	activationModeBootstrap
+	activationModeIfDue
+)
+
+type keyActivationResult struct {
+	Active    *Key
+	Activated bool
+}
+
+func (s *KeyManager) BootstrapKey(ctx context.Context, alg string) (*Key, bool, error) {
+	result, err := s.createAndActivate(ctx, alg, nil, nil, activationModeBootstrap)
+	return result.Active, result.Activated, err
+}
+
+func (s *KeyManager) RotateIfDue(ctx context.Context, alg string) (*Key, bool, error) {
+	result, err := s.createAndActivate(ctx, alg, nil, nil, activationModeIfDue)
+	return result.Active, result.Activated, err
+}
+
+func (s *KeyManager) createAndActivate(
+	ctx context.Context,
+	alg string,
+	notBefore, notAfter *time.Time,
+	mode activationMode,
+) (keyActivationResult, error) {
+	activator, ok := s.keyRepo.(AtomicActivator)
+	if !ok {
+		return keyActivationResult{}, errors.WithCode(code.ErrDatabase, "jwks repository does not support atomic activation")
+	}
+	if s.keyGenerator == nil {
+		return keyActivationResult{}, errors.WithCode(code.ErrUnknown, "jwks key generator is not configured")
+	}
+
+	now := s.now()
+	effectiveNotBefore := now
+	if notBefore != nil {
+		effectiveNotBefore = *notBefore
+	}
+	if effectiveNotBefore.After(now) {
+		return keyActivationResult{}, errors.WithCode(code.ErrInvalidTimeRange, "NotBefore cannot be in the future for an active key")
+	}
+	effectiveNotAfter := now.Add(s.policy.RotationInterval + s.policy.GracePeriod)
+	if notAfter != nil {
+		effectiveNotAfter = *notAfter
+	}
+	if !effectiveNotAfter.After(effectiveNotBefore) {
+		return keyActivationResult{}, errors.WithCode(code.ErrInvalidTimeRange, "NotAfter must be after NotBefore")
+	}
+
+	kid := "key-" + uuid.NewString()
 	keyPair, err := s.keyGenerator.GenerateKeyPair(ctx, alg, kid)
 	if err != nil {
-		return nil, errors.WithCode(code.ErrUnknown, "failed to generate key pair: %v", err)
+		return keyActivationResult{}, errors.WithCode(code.ErrUnknown, "failed to generate key pair: %v", err)
 	}
-
-	// 构建 KeyOption
-	var opts []KeyOption
-	if notBefore != nil {
-		opts = append(opts, WithNotBefore(*notBefore))
-	} else {
-		// 默认立即生效
-		now := time.Now()
-		opts = append(opts, WithNotBefore(now))
+	candidate := NewKey(
+		kid,
+		keyPair.PublicJWK,
+		WithNotBefore(effectiveNotBefore),
+		WithNotAfter(effectiveNotAfter),
+		WithStatus(KeyActive),
+	)
+	if err := candidate.Validate(); err != nil {
+		return keyActivationResult{}, err
 	}
-
-	if notAfter != nil {
-		opts = append(opts, WithNotAfter(*notAfter))
-	}
-
-	// 默认状态为 Active
-	opts = append(opts, WithStatus(KeyActive))
-
-	// 创建密钥实体
-	key := NewKey(kid, keyPair.PublicJWK, opts...)
-
-	// 验证密钥
-	if err := key.Validate(); err != nil {
-		return nil, err
-	}
-
-	// 保存密钥
-	if err := s.keyRepo.Save(ctx, key); err != nil {
-		// 如果是重复键错误（可能由并发创建导致），尝试读取已存在的密钥并返回它，
-		// 这样启动时的竞态不会导致致命错误。
-		if errors.IsCode(err, code.ErrKeyAlreadyExists) {
-			// 直接从仓储查询已有的 key（按 kid）
-			existing, findErr := s.keyRepo.FindByKid(ctx, kid)
-			if findErr != nil {
-				return nil, errors.WithCode(code.ErrDatabase, "failed to save key and failed to fetch existing key: %v; fetch err: %v", err, findErr)
-			}
-			if existing != nil {
-				return existing, nil
-			}
-			// 如果未找到（极不可能），回退为通用数据库错误
-			return nil, errors.WithCode(code.ErrDatabase, "failed to save key: %v", err)
+	if s.privateStore != nil {
+		if err := s.privateStore.SavePrivateKey(ctx, kid, keyPair.PrivateKey, alg); err != nil {
+			return keyActivationResult{}, err
 		}
-
-		return nil, errors.WithCode(code.ErrDatabase, "failed to save key: %v", err)
 	}
 
-	return key, nil
+	request := ActivationRequest{
+		Candidate:  candidate,
+		Now:        now,
+		GraceUntil: now.Add(s.policy.GracePeriod),
+	}
+	switch mode {
+	case activationModeBootstrap:
+		request.RequireNoActive = true
+	case activationModeIfDue:
+		dueBefore := now.Add(-s.policy.RotationInterval)
+		request.DueBefore = &dueBefore
+	}
+	activation, err := activator.Activate(ctx, request)
+	if err != nil {
+		s.deleteCandidatePEM(ctx, kid)
+		if errors.IsCode(err, code.ErrKeyAlreadyExists) && mode != activationModeForce {
+			if active, getErr := s.GetActiveKey(ctx); getErr == nil {
+				return keyActivationResult{Active: active}, nil
+			}
+		}
+		return keyActivationResult{}, errors.WithCode(code.ErrDatabase, "failed to atomically activate key: %v", err)
+	}
+	if !activation.Activated {
+		s.deleteCandidatePEM(ctx, kid)
+	}
+	return keyActivationResult{Active: activation.Active, Activated: activation.Activated}, nil
+}
+
+func (s *KeyManager) deleteCandidatePEM(ctx context.Context, kid string) {
+	if s.privateStore == nil {
+		return
+	}
+	if err := s.privateStore.DeletePrivateKey(ctx, kid); err != nil && !errors.IsCode(err, code.ErrKeyNotFound) {
+		candidateCleanupFailures.Inc()
+		log.Warnw("failed to remove unused jwks candidate", "kid", kid, "error", err)
+	}
+}
+
+func (s *KeyManager) SetRotationPolicy(policy RotationPolicy) error {
+	if err := policy.Validate(); err != nil {
+		return err
+	}
+	s.policy = policy
+	return nil
 }
 
 // GetActiveKey 获取当前激活的密钥
@@ -104,6 +198,9 @@ func (s *KeyManager) GetActiveKey(ctx context.Context) (*Key, error) {
 	if len(keys) == 0 {
 		return nil, errors.WithCode(code.ErrNoActiveKey, "no active key available")
 	}
+	if len(keys) != 1 {
+		return nil, errors.WithCode(code.ErrInvalidStateTransition, "expected exactly one active key, found %d", len(keys))
+	}
 
 	// 过滤出可以用于签名的密钥（未过期且状态正确）
 	now := time.Now()
@@ -114,6 +211,35 @@ func (s *KeyManager) GetActiveKey(ctx context.Context) (*Key, error) {
 	}
 
 	return nil, errors.WithCode(code.ErrNoActiveKey, "no valid active key available")
+}
+
+// ValidateActiveKey verifies that the only active row is currently valid and
+// that its PEM private key matches the public JWK stored in MySQL.
+func (s *KeyManager) ValidateActiveKey(ctx context.Context, resolver PrivateKeyResolver) (*Key, error) {
+	active, err := s.GetActiveKey(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if resolver == nil {
+		return nil, errors.WithCode(code.ErrUnknown, "private key resolver is not configured")
+	}
+	privateKey, err := resolver.ResolveSigningKey(ctx, active.Kid, active.JWK.Alg)
+	if err != nil {
+		materialValidationFailures.WithLabelValues("resolve").Inc()
+		return nil, errors.WithCode(code.ErrUnknown, "resolve active private key %s: %v", active.Kid, err)
+	}
+	rsaKey, ok := privateKey.(*rsa.PrivateKey)
+	if !ok {
+		materialValidationFailures.WithLabelValues("type").Inc()
+		return nil, errors.WithCode(code.ErrInvalidJWK, "active private key %s is not RSA", active.Kid)
+	}
+	expectedN := base64.RawURLEncoding.EncodeToString(rsaKey.PublicKey.N.Bytes())
+	expectedE := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(rsaKey.PublicKey.E)).Bytes())
+	if active.JWK.N == nil || active.JWK.E == nil || *active.JWK.N != expectedN || *active.JWK.E != expectedE {
+		materialValidationFailures.WithLabelValues("mismatch").Inc()
+		return nil, errors.WithCode(code.ErrInvalidJWK, "active private key does not match public JWK for kid %s", active.Kid)
+	}
+	return active, nil
 }
 
 // GetKeyByKid 根据 kid 获取密钥
@@ -140,6 +266,9 @@ func (s *KeyManager) RetireKey(ctx context.Context, kid string) error {
 	if key == nil {
 		return errors.WithCode(code.ErrKeyNotFound, "key not found: %s", kid)
 	}
+	if !key.IsExpired(s.now()) {
+		return errors.WithCode(code.ErrInvalidStateTransition, "grace key cannot be retired before NotAfter")
+	}
 
 	// 状态转换（Grace → Retired）
 	if err := key.Retire(); err != nil {
@@ -164,6 +293,9 @@ func (s *KeyManager) ForceRetireKey(ctx context.Context, kid string) error {
 	if key == nil {
 		return errors.WithCode(code.ErrKeyNotFound, "key not found: %s", kid)
 	}
+	if key.IsActive() {
+		return errors.WithCode(code.ErrInvalidStateTransition, "cannot force-retire the active signing key; activate a replacement first")
+	}
 
 	// 强制状态转换（任何状态 → Retired）
 	key.ForceRetire()
@@ -185,6 +317,9 @@ func (s *KeyManager) EnterGracePeriod(ctx context.Context, kid string) error {
 
 	if key == nil {
 		return errors.WithCode(code.ErrKeyNotFound, "key not found: %s", kid)
+	}
+	if key.IsActive() {
+		return errors.WithCode(code.ErrInvalidStateTransition, "cannot move the only active signing key to grace; activate a replacement first")
 	}
 
 	// 状态转换（Active → Grace）
@@ -213,21 +348,26 @@ func (s *KeyManager) CleanupExpiredKeys(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	// 只删除 Retired 状态的过期密钥
+	// Expired non-active keys are no longer publishable. Retire and delete the
+	// database row first, then remove the private material.
 	deletedCount := 0
 	for _, key := range expiredKeys {
-		if key.Status == KeyRetired {
-			if err := s.keyRepo.Delete(ctx, key.Kid); err != nil {
-				// 继续删除其他密钥，记录错误
-				continue
-			}
-			deletedCount++
-		} else {
-			// 如果过期但不是 Retired 状态，强制退役
+		if key.IsActive() {
+			continue
+		}
+		if !key.IsRetired() {
 			key.ForceRetire()
 			if err := s.keyRepo.Update(ctx, key); err != nil {
-				// 继续处理其他密钥
 				continue
+			}
+		}
+		if err := s.keyRepo.Delete(ctx, key.Kid); err != nil {
+			continue
+		}
+		deletedCount++
+		if s.privateStore != nil {
+			if err := s.privateStore.DeletePrivateKey(ctx, key.Kid); err != nil && !errors.IsCode(err, code.ErrKeyNotFound) {
+				log.Warnw("failed to delete retired jwks private key", "kid", key.Kid, "error", err)
 			}
 		}
 	}

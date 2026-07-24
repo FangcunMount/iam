@@ -1,6 +1,6 @@
 # gRPC 接入契约
 
-> 状态：待补证据 · gRPC 接入总入口，待继续按 `api/grpc/**/*.proto`、`internal/apiserver/transport/grpc`、interceptor、错误模型、proto 生成物、契约测试和 SDK 逐项核对。
+> 状态：设计目标 · gRPC 接入总入口，待继续按 `api/grpc/**/*.proto`、`internal/apiserver/transport/grpc`、interceptor、错误模型、proto 生成物、契约测试和 SDK 逐项核对。
 
 ---
 

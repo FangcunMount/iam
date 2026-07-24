@@ -173,29 +173,19 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 	if !strings.HasPrefix(route.Path, "/api/v2/") {
 		return false
 	}
-	for _, prefix := range []string{
-		"/api/v2/public/",
-		"/api/v2/internal/",
-		"/api/v2/admin/sessions/",
-		"/api/v2/admin/login-identities/",
-		"/api/v2/admin/users/",
-	} {
-		if strings.HasPrefix(route.Path, prefix) {
-			return false
-		}
+	// Exact operational/internal exceptions. New routes must be documented or
+	// added here with a concrete reason; prefix-wide exemptions are forbidden.
+	exemptions := map[string]string{
+		http.MethodGet + " /api/v2/public/info":                                              "runtime discovery metadata",
+		http.MethodPost + " /api/v2/internal/authn/mock-consumers/ensure":                    "seeddata-only internal route",
+		http.MethodPost + " /api/v2/admin/sessions/:sessionId/revoke":                        "operator-only session control",
+		http.MethodPost + " /api/v2/admin/login-identities/:loginIdentityId/sessions/revoke": "operator-only session control",
+		http.MethodPost + " /api/v2/admin/users/:userId/sessions/revoke":                     "operator-only session control",
+		http.MethodGet + " /api/v2/idp/health":                                               "module-local health probe",
+		http.MethodGet + " /api/v2/authz/health":                                             "module-local health probe",
 	}
-	for _, path := range []string{
-		"/api/v2/admin/users",
-		"/api/v2/admin/statistics",
-		"/api/v2/admin/logs",
-		"/api/v2/idp/health",
-		"/api/v2/authz/health",
-	} {
-		if route.Path == path {
-			return false
-		}
-	}
-	return true
+	_, exempt := exemptions[route.Method+" "+route.Path]
+	return !exempt
 }
 
 func normalizeOpenAPIPath(path string) string {

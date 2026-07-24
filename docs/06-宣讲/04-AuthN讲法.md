@@ -1,6 +1,6 @@
 # AuthN 讲法
 
-> 状态：待补证据 · 宣讲第一版，已按金字塔结构重写；后续需要继续结合 `internal/apiserver/domain/authn`、`application/authn`、`application/authn/token`、REST/gRPC 契约、AuthN 模块文档和测试逐项核对。
+> 状态：设计目标 · 宣讲第一版，已按金字塔结构重写；后续需要继续结合 `internal/apiserver/domain/authn`、`application/authn`、`application/authn/token`、REST/gRPC 契约、AuthN 模块文档和测试逐项核对。
 
 ---
 

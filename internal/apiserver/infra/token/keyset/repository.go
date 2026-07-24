@@ -2,6 +2,7 @@ package keyset
 
 import (
 	"context"
+	"time"
 )
 
 // ================== Repository Interface ==================
@@ -39,4 +40,26 @@ type Repository interface {
 
 	// CountByStatus 统计指定状态的密钥数量
 	CountByStatus(ctx context.Context, status KeyStatus) (int64, error)
+}
+
+// ActivationRequest describes one atomic active-key transition.
+type ActivationRequest struct {
+	Candidate       *Key
+	Now             time.Time
+	GraceUntil      time.Time
+	DueBefore       *time.Time
+	RequireNoActive bool
+}
+
+// ActivationResult reports whether the candidate became active. Active always
+// points at the active key observed after the transaction decision.
+type ActivationResult struct {
+	Activated bool
+	Active    *Key
+}
+
+// AtomicActivator is implemented by repositories that can switch the active
+// signing key in one database transaction.
+type AtomicActivator interface {
+	Activate(ctx context.Context, request ActivationRequest) (ActivationResult, error)
 }

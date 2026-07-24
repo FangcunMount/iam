@@ -1,6 +1,6 @@
 # ProfileLink 为什么不是 Permission
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/domain/identity`、`domain/authz`、Identity ProfileLink 写模型、AuthZ RoleBinding/Permission 写模型、Suggest 可见性过滤、REST/gRPC 契约和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/identity`、`domain/authz`、Identity ProfileLink 写模型、AuthZ RoleBinding/Permission 写模型、Suggest 可见性过滤、REST/gRPC 契约和测试逐项核对。
 
 ---
 

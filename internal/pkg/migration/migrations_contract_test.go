@@ -139,6 +139,29 @@ func TestNormTableMigrationRegistersCatalogAndContentManagerPolicy(t *testing.T)
 	assertSQLContains(t, downSQL, "DELETE FROM `authz_resources`")
 }
 
+func TestJWKSSingleActiveGuardMigrationUsesGeneratedUniqueSlot(t *testing.T) {
+	up := migrationSQL(t, "000016_jwks_single_active_guard.up.sql")
+	for _, fragment := range []string{
+		"ADD COLUMN `active_guard` TINYINT",
+		"CASE WHEN `status` = 1 THEN 1 ELSE NULL END",
+		"ADD UNIQUE INDEX `uk_jwks_keys_single_active` (`active_guard`)",
+	} {
+		if !strings.Contains(up, fragment) {
+			t.Fatalf("jwks single-active migration missing %q", fragment)
+		}
+	}
+
+	down := migrationSQL(t, "000016_jwks_single_active_guard.down.sql")
+	for _, fragment := range []string{
+		"DROP INDEX `uk_jwks_keys_single_active`",
+		"DROP COLUMN `active_guard`",
+	} {
+		if !strings.Contains(down, fragment) {
+			t.Fatalf("jwks single-active down migration missing %q", fragment)
+		}
+	}
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 

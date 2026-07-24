@@ -35,7 +35,6 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		Suggest: appsuggest.Config{
 			Enable:                    defaults.Suggest.Enable,
 			Required:                  defaults.Suggest.Required,
-			DataDir:                   defaults.Suggest.DataDir,
 			FullSyncCron:              defaults.Suggest.FullSyncCron,
 			DeltaSyncCron:             defaults.Suggest.DeltaSyncCron,
 			MaxResults:                defaults.Suggest.MaxResults,
@@ -49,7 +48,6 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 			WildcardKeyCap:            defaults.Suggest.WildcardKeyCap,
 			VisibilityCacheTTLSeconds: defaults.Suggest.VisibilityCacheTTLSeconds,
 			RateLimit:                 suggestRateLimitConfig(*defaults.Suggest),
-			Snapshot:                  suggestSnapshot(*defaults.Suggest),
 		}.WithDefaults(),
 	}
 	if opts.Auth != nil {
@@ -71,7 +69,6 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		runtime.Suggest = appsuggest.Config{
 			Enable:                    opts.Suggest.Enable,
 			Required:                  opts.Suggest.Required,
-			DataDir:                   opts.Suggest.DataDir,
 			FullSyncCron:              opts.Suggest.FullSyncCron,
 			DeltaSyncCron:             opts.Suggest.DeltaSyncCron,
 			MaxResults:                opts.Suggest.MaxResults,
@@ -85,7 +82,6 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 			WildcardKeyCap:            opts.Suggest.WildcardKeyCap,
 			VisibilityCacheTTLSeconds: opts.Suggest.VisibilityCacheTTLSeconds,
 			RateLimit:                 suggestRateLimitConfig(*opts.Suggest),
-			Snapshot:                  suggestSnapshot(*opts.Suggest),
 		}.WithDefaults()
 	}
 	if runtime.Events.CatalogPath == "" {
@@ -106,11 +102,4 @@ func suggestRateLimitConfig(o apiserveroptions.SuggestOptions) appsuggest.RateLi
 		Backend:                       o.RateLimit.Backend,
 		OperatorMapMaxEntries:         o.RateLimit.OperatorMapMaxEntries,
 	}
-}
-
-func suggestSnapshot(opts apiserveroptions.SuggestOptions) bool {
-	if opts.Snapshot != nil {
-		return *opts.Snapshot
-	}
-	return opts.DataDir != ""
 }

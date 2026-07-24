@@ -25,7 +25,7 @@ MySQL profiles / profile_links / users
 - 索引命中不等于可见，`Store` 在排序截断前执行 scope 过滤。
 - `ProfileAccessScope` 是本次查询的可见范围，不是 ProfileLink，也不是通用 AuthZ 决策。
 - 手机号形态查询需要 `search_by_mobile` 权限；没有权限时当前返回空结果。
-- 当前索引和可选快照都保存原始手机号，只有输出 DTO 做脱敏。
+- 当前进程内索引可以保存原始手机号，只有输出 DTO 做脱敏；索引数据不写盘。
 - Suggest 没有 gRPC 或 SDK 接口。
 
 ## 2. 文档入口
@@ -36,7 +36,7 @@ MySQL profiles / profile_links / users
 | --- | --- |
 | [README.md](README.md) | 模块职责、边界、分层、代码入口和当前限制 |
 | [01-模型与应用端口.md](01-模型与应用端口.md) | 现行对象、端口和不变量是什么 |
-| [02-关键链路-索引刷新Full-Delta-Snapshot.md](02-关键链路-索引刷新Full-Delta-Snapshot.md) | Full、Delta、运行时切换和文件快照如何工作 |
+| [02-关键链路-索引刷新Full-Delta.md](02-关键链路-索引刷新Full-Delta.md) | Full、Delta、运行时切换、并发锁和增量游标如何工作 |
 | [03-关键链路-SuggestProfile查询.md](03-关键链路-SuggestProfile查询.md) | 查询、权限范围、手机号安全、限流和脱敏如何工作 |
 
 设计取舍见 [Suggest 为什么是读模型](../../05-专题设计/06-Suggest为什么是读模型.md)，但当前行为以本目录和代码为准。
@@ -69,7 +69,6 @@ flowchart LR
     Store --> Domain["domain Query / Scope / Ranking"]
     Refresher["ProfileIndexRefresher"] --> Loader["MySQL Loader"]
     Refresher --> Runtime
-    Refresher -. optional .-> File["snapshot.txt"]
 ```
 
 | 层 | 当前职责 | 主要入口 |
@@ -119,8 +118,9 @@ REST 返回项：
 | --- | --- |
 | 默认 Loader 通过占位 `org_id` 适配当前表结构 | 多组织部署需要配置正确的 Loader SQL，不能把 IAM tenant 当业务 org |
 | 可见 ProfileID 的过渡实现按 `profiles.created_by` 查询 | 这是当前数据权限读模型，不等于完整业务授权模型 |
-| `snapshot.txt` 只写不读，Delta 后写入的是本次增量 | 它不是启动恢复源，也不能当作完整持久化快照 |
-| 索引和文件快照包含原始手机号 | 数据目录必须按敏感数据保护；当前没有 hash 化 |
+| Full/Delta 是进程内索引刷新 | 重启后必须通过 Full 重建，不能依赖本地文件恢复 |
+| 内存索引包含原始手机号 | 当前没有 hash 化；不得写盘、写日志或未经权限返回 |
+| 重叠刷新不会排队 | 后到任务返回 `refresh_in_progress`；应观察跳过频率和单次耗时 |
 | Redis 限流器异常时 fail-open | Redis 故障期间不会拒绝请求，只记录 warn |
 | `CheckHealth` 只检查 service 是否存在 | 不代表索引新鲜度或刷新任务健康 |
 
@@ -129,7 +129,7 @@ REST 返回项：
 | 要修改什么 | 先看哪里 |
 | --- | --- |
 | ProfileSearchTerm、Query、Scope 或排序 | 领域模型文档 + `domain/suggest` 测试 |
-| Full/Delta、Loader、Store 或 snapshot | 索引刷新文档 + application/infra 测试 |
+| Full/Delta、Loader、Store、并发锁或游标 | 索引刷新文档 + application/infra 测试 |
 | 查询、手机号权限、限流或脱敏 | 查询链路文档 + REST/application 测试 |
 | REST 字段或状态码 | `api/rest/suggest.v2.yaml` + REST handler/DTO |
 | 模块启停和降级 | `container/suggest/module.go` + 配置 |

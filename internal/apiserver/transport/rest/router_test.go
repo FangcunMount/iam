@@ -315,6 +315,19 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/login-identities/:loginIdentityId/sessions/revoke")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/users/:userId/sessions/revoke")
+	for _, path := range []string{
+		"/api/v2/admin/users",
+		"/api/v2/admin/statistics",
+		"/api/v2/admin/logs",
+	} {
+		assertRouteNotRegistered(t, engine, http.MethodGet, path)
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("GET %s status = %d, want 404", path, rec.Code)
+		}
+	}
 }
 
 func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {

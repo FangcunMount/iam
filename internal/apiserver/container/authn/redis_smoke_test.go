@@ -8,6 +8,7 @@ import (
 
 	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
 	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
+	jwksmysql "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/jwks"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 	"github.com/alicebob/miniredis/v2"
@@ -23,6 +24,9 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gorm.Open() error = %v", err)
 	}
+	if err := db.AutoMigrate(&jwksmysql.KeyPO{}); err != nil {
+		t.Fatalf("AutoMigrate() error = %v", err)
+	}
 
 	mr := miniredis.RunT(t)
 	redisClient := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
@@ -31,12 +35,15 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	})
 
 	module := NewAuthnModule()
+	jwksOptions := *apiserveroptions.NewJWKSOptions()
+	jwksOptions.AutoInit = true
+	jwksOptions.KeysDir = t.TempDir()
 	if err := module.InitializeWithDeps(AuthnModuleDeps{
 		DB:          db,
 		RedisClient: redisClient,
 		Environment: genericapiserver.EnvironmentTest,
 		Auth:        *apiserveroptions.NewAuthOptions(),
-		JWKS:        *apiserveroptions.NewJWKSOptions(),
+		JWKS:        jwksOptions,
 		SMS:         *apiserveroptions.NewSMSOptions(),
 	}); err != nil {
 		t.Fatalf("AuthnModule.Initialize() error = %v", err)

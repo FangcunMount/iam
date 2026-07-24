@@ -376,7 +376,7 @@ Credential 创建失败时，LoginIdentity 是否保留需要明确事务或补�
 删除 ProfileLink；
 撤销所有 Session，除非有明确安全策略；
 删除 AuthZ RoleBinding；
-删除 Suggest Snapshot。
+删除 Suggest Index。
 ```
 
 ---
@@ -581,7 +581,7 @@ Linking 本身不是授权判定；
 ### 15.4 与 Suggest
 
 ```text
-Linking 不维护 Suggest Snapshot；
+Linking 不维护 Suggest Index；
 绑定手机号或微信不等于创建 Profile 搜索项；
 Suggest 可以使用 Principal/UserID 作为查询上下文；
 搜索可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
@@ -602,7 +602,7 @@ Suggest 可以使用 Principal/UserID 作为查询上下文；
 | 允许解绑最后一个登录方式 | 用户可能无法恢复账户 | 至少保留一个可用登录方式或提供恢复机制 |
 | 绑定成功但 Credential 创建失败 | 产生不可用登录身份 | 事务或补偿保证一致性 |
 | Linking 直接写 RoleBinding | AuthN 吞并 AuthZ | 授权归 AuthZ 用例 |
-| Linking 直接写 Suggest Snapshot | AuthN 污染搜索读模型 | Suggest 通过读模型刷新处理 |
+| Linking 直接写 Suggest Index | AuthN 污染搜索读模型 | Suggest 通过读模型刷新处理 |
 
 ---
 

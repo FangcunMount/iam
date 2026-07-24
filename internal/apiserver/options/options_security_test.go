@@ -61,6 +61,7 @@ func TestOptionsValidateSeedMockAuth(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := NewOptions()
+			opts.GenericServerRunOptions.Mode = "debug"
 			opts.SeedMockAuth.Enabled = tt.enabled
 			opts.SeedMockAuth.SharedSecret = tt.secret
 
@@ -99,6 +100,7 @@ func TestOptionsValidatePasswordLockout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := NewOptions()
+			opts.GenericServerRunOptions.Mode = "debug"
 			opts.Auth.PasswordLockout = PasswordLockoutOptions{
 				Enabled:      tt.enabled,
 				Threshold:    tt.threshold,
@@ -138,6 +140,52 @@ func TestOptionsDefaultsToReleaseProductionProfile(t *testing.T) {
 	}
 }
 
+func TestOptionsValidateJWKSRotation(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*Options)
+		wantErr string
+	}{
+		{name: "valid production", mutate: func(o *Options) { o.JWKS.KeysDir = "/var/lib/iam/keys" }},
+		{name: "release requires absolute keys dir", mutate: func(o *Options) { o.JWKS.KeysDir = "./keys" }, wantErr: "absolute path"},
+		{name: "invalid cron", mutate: func(o *Options) {
+			o.GenericServerRunOptions.Mode = "debug"
+			o.JWKS.Rotation.CheckCron = "not-a-cron"
+		}, wantErr: "check_cron"},
+		{name: "grace covers access ttl", mutate: func(o *Options) {
+			o.GenericServerRunOptions.Mode = "debug"
+			o.JWKS.Rotation.GracePeriod = time.Minute
+		}, wantErr: "access_token_ttl"},
+		{name: "grace shorter than rotation", mutate: func(o *Options) {
+			o.GenericServerRunOptions.Mode = "debug"
+			o.JWKS.Rotation.GracePeriod = o.JWKS.Rotation.RotationInterval
+		}, wantErr: "shorter"},
+		{name: "max at least two", mutate: func(o *Options) {
+			o.GenericServerRunOptions.Mode = "debug"
+			o.JWKS.Rotation.MaxPublishableKey = 1
+		}, wantErr: "at least 2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := NewOptions()
+			tt.mutate(opts)
+			errs := opts.Validate()
+			if tt.wantErr == "" {
+				if len(errs) != 0 {
+					t.Fatalf("Validate() errors = %v", errs)
+				}
+				return
+			}
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tt.wantErr) {
+					return
+				}
+			}
+			t.Fatalf("Validate() errors = %v, want %q", errs, tt.wantErr)
+		})
+	}
+}
+
 func TestOptionsValidateRejectsRemovedAppKeysWithoutValues(t *testing.T) {
 	sentinel := "removed-app-sentinel"
 	tests := []struct {
@@ -170,6 +218,8 @@ func TestOptionsValidateRejectsRemovedEnvironmentVariablesWithoutValues(t *testi
 		"IAM_APISERVER_SERVER_NAME",
 		"IAM_APISERVER_SERVER_READ_TIMEOUT",
 		"IAM_APISERVER_SERVER_WRITE_TIMEOUT",
+		"IAM_APISERVER_SUGGEST_DATA_DIR",
+		"IAM_APISERVER_SUGGEST_SNAPSHOT",
 	} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(key, sentinel)

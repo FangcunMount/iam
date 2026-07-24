@@ -1,6 +1,6 @@
 # AuthZ
 
-> 状态：待补证据 · AuthZ 模块入口，已按“模型主文档 + 四条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约、配置和测试核对。
+> 状态：设计目标 · AuthZ 模块入口，已按“模型主文档 + 四条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约、配置和测试核对。
 
 ---
 
@@ -38,7 +38,7 @@ AuthZ 不负责登录认证、不负责 Token 签发、不负责用户档案写�
 AuthN 负责 Principal / Credential / Challenge / Session / Token / JWKS；
 Identity 负责 User / Profile / ProfileLink；
 IDP 负责 ExternalIdentity / provider app / AppToken；
-Suggest 负责 ProfileSearchTerm / ProfileAccessScope / Snapshot；
+Suggest 负责 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex；
 Casbin 是 infra runtime，不是领域模型。
 ```
 
@@ -133,7 +133,7 @@ flowchart TD
     AuthN["AuthN\nPrincipal / Token"]
     Identity["Identity\nUser / Profile / ProfileLink"]
     IDP["IDP\nExternalIdentity / AppToken"]
-    Suggest["Suggest\nProfileAccessScope / Snapshot"]
+    Suggest["Suggest\nProfileAccessScope / ProfileSuggestionIndex"]
     Runtime["Casbin Runtime\np/g/r facts / matcher"]
 
     AuthZ --> Subject
@@ -162,7 +162,7 @@ Principal 必须显式映射为 Subject；
 Identity 提供 User/Profile/ProfileLink 身份事实；
 AuthZ 可以引用这些事实，但不修改这些事实；
 IDP 不直接进入 AuthZ，必须先经过 AuthN；
-Suggest 可以调用 AuthZ Check 做可见性过滤，但 AuthZ 不维护 Suggest Snapshot；
+Suggest 可以调用 AuthZ Check 做可见性过滤，但 AuthZ 不维护 Suggest Index；
 Casbin runtime 执行策略匹配，但不替代 AuthZ 领域模型。
 ```
 

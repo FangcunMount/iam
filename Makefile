@@ -50,7 +50,7 @@ TMP_DIR := tmp
 PID_DIR := $(TMP_DIR)/pids
 LOG_DIR := logs
 COVERAGE_DIR := coverage
-SPECTRAL_IMAGE ?= stoplight/spectral:latest
+SPECTRAL_IMAGE ?= stoplight/spectral:6.15.0
 CD_SCRIPT_DIR := scripts/cd
 
 # 服务配置
@@ -115,7 +115,7 @@ help: ## 显示帮助信息
 	@grep -E '^(run|start|stop|restart|status|logs|health).*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v "dev" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(COLOR_BOLD)🛠️  开发工具:$(COLOR_RESET)"
-	@grep -E '^(dev|test|lint|fmt|cert|api-validate|docs-hygiene).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
+	@grep -E '^(dev|test|lint|fmt|cert|api-validate|docs-hygiene|docs-facts).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(COLOR_BOLD)🗄️  数据库管理:$(COLOR_RESET)"
 	@grep -E '^(db-|docker-mysql-).*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(COLOR_CYAN)%-20s$(COLOR_RESET) %s\n", $$1, $$2}'
@@ -134,10 +134,13 @@ help: ## 显示帮助信息
 	@echo ""
 
 api-validate: ## Lint OpenAPI (spectral) + compare swagger vs api/rest
-	./scripts/validate-openapi.sh
+	SPECTRAL_IMAGE=$(SPECTRAL_IMAGE) ./scripts/validate-openapi.sh
 
 docs-hygiene: ## Check active Markdown links, repo paths, and retired references
 	python3 scripts/check-docs-links.py
+
+docs-facts: ## Check machine-verifiable configuration, route, migration, event, and wiring facts
+	python3 scripts/check-docs-facts.py
 
 docs-swagger: ## Regenerate swagger (internal/apiserver/docs)
 	swag init -g cmd/apiserver/apiserver.go -o internal/apiserver/docs --parseDependency --parseInternal

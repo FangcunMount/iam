@@ -10,11 +10,11 @@ Suggest 被设计成读模型，是因为 Profile 主数据的正确性和联想
 Identity facts -> ProfileSearchTerm -> process-local search index -> safe candidate
 ```
 
-这个选择换来了查询性能、写模型隔离和可重建性，也引入了最终一致、索引敏感数据保护和运行时恢复问题。
+这个选择换来了查询性能、写模型隔离和可重建性，也引入了最终一致、内存敏感数据保护和重启重建成本。
 
 - 当前事实见 [Suggest 模块](../02-业务模块/05-Suggest/README.md)，
 - 模型见 [模型与应用端口](../02-业务模块/05-Suggest/01-模型与应用端口.md)；
-- 刷新链路见 [索引刷新](../02-业务模块/05-Suggest/02-关键链路-索引刷新Full-Delta-Snapshot.md) 与；
+- 刷新链路见 [索引刷新](../02-业务模块/05-Suggest/02-关键链路-索引刷新Full-Delta.md)；
 - 查询链路见 [SuggestProfile 查询](../02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md)；
 
 ## 2. 写模型和读模型的差异
@@ -88,18 +88,11 @@ recall up to InternalLimit
 
 这里仍有 `InternalLimit` 召回上限，因此它不是无限候选上的完整排序；但权限过滤发生在最终返回截断之前。
 
-## 7. 可重建不等于已持久化恢复
+## 7. 可重建不等于持久化恢复
 
 当前 Full refresh 会构建新 Store 并原子切换，Delta 会修正当前 Store 的键。这个结构在逻辑上可从 Identity facts 重建。
 
-但当前 `snapshot.txt`：
-
-- 只写不读；
-- Delta 后只包含本次增量；
-- 写失败不影响 runtime；
-- 包含原始手机号。
-
-因此“可重建”来自 Loader + Full refresh，而不是一个已完成的 snapshot 恢复机制。
+当前实现已经移除文件快照。重启后的“可重建”只来自 Loader + Full refresh；如果数据源不可用，模块只能按 `required` 策略启动失败或降级为空结果，不能从本地敏感文件恢复。
 
 ## 8. 主要收益与代价
 
@@ -110,13 +103,13 @@ recall up to InternalLimit
 | Full 可整体切换 | Full 前要读取和构建全部候选 |
 | Delta 降低刷新成本 | 自定义 SQL 必须正确处理 tombstone |
 | 可保守降级为空结果 | 空结果无法区分无匹配、无权限和索引不可用 |
-| 输出可统一脱敏 | 原始手机号仍存在于 Loader、内存索引和可选文件 |
+| 输出可统一脱敏 | 原始手机号仍存在于 Loader 和内存索引 |
 
 ## 9. 当前风险，不要讲过头
 
 ```text
 当前没有 Suggest gRPC 或 Go SDK；
-当前没有从 snapshot.txt 启动恢复；
+当前没有文件快照或持久化索引恢复；
 当前没有手机号 hash 索引，Hash 使用原始手机号；
 当前 visibility resolver 按 profiles.created_by，是过渡数据权限读模型；
 当前 Redis 限流异常 fail-open；

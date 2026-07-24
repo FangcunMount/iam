@@ -622,22 +622,22 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 
 	root := repoRoot(t)
 	allowed := map[string]struct{}{
-		"internal/apiserver/container/rest_deps.go":          {},
-		"internal/apiserver/container/grpc_registry.go":      {},
-		"internal/apiserver/container/runtime_deps.go":       {},
-		"internal/apiserver/container/module_graph.go":       {},
-		"internal/apiserver/container/identity/rest.go":      {},
-		"internal/apiserver/container/identity/grpc.go":    {},
-		"internal/apiserver/container/authn/rest.go":         {},
-		"internal/apiserver/container/authn/grpc.go":         {},
-		"internal/apiserver/container/authn/runtime.go":      {},
-		"internal/apiserver/container/authz/rest.go":         {},
-		"internal/apiserver/container/authz/grpc.go":         {},
-		"internal/apiserver/container/authz/runtime.go":      {},
-		"internal/apiserver/container/idp/rest.go":           {},
-		"internal/apiserver/container/idp/grpc.go":           {},
-		"internal/apiserver/container/suggest/rest.go":       {},
-		"internal/apiserver/container/suggest/runtime.go":  {},
+		"internal/apiserver/container/rest_deps.go":       {},
+		"internal/apiserver/container/grpc_registry.go":   {},
+		"internal/apiserver/container/runtime_deps.go":    {},
+		"internal/apiserver/container/module_graph.go":    {},
+		"internal/apiserver/container/identity/rest.go":   {},
+		"internal/apiserver/container/identity/grpc.go":   {},
+		"internal/apiserver/container/authn/rest.go":      {},
+		"internal/apiserver/container/authn/grpc.go":      {},
+		"internal/apiserver/container/authn/runtime.go":   {},
+		"internal/apiserver/container/authz/rest.go":      {},
+		"internal/apiserver/container/authz/grpc.go":      {},
+		"internal/apiserver/container/authz/runtime.go":   {},
+		"internal/apiserver/container/idp/rest.go":        {},
+		"internal/apiserver/container/idp/grpc.go":        {},
+		"internal/apiserver/container/suggest/rest.go":    {},
+		"internal/apiserver/container/suggest/runtime.go": {},
 	}
 	forbiddenTokens := []string{
 		"AuthnModule.AuthHandler",
@@ -922,7 +922,6 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, token := range []string{
 			"name|id|mobiles",
-			"snapshot.txt",
 			"Trie",
 			"Hash",
 			"ImportLines",

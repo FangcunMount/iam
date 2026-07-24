@@ -42,12 +42,29 @@ func NewAuthOptions() *AuthOptions {
 
 // JWKSOptions configures key storage and startup key initialization.
 type JWKSOptions struct {
-	KeysDir  string `json:"keys_dir" mapstructure:"keys_dir"`
-	AutoInit bool   `json:"auto_init" mapstructure:"auto_init"`
+	KeysDir  string              `json:"keys_dir" mapstructure:"keys_dir"`
+	AutoInit bool                `json:"auto_init" mapstructure:"auto_init"`
+	Rotation JWKSRotationOptions `json:"rotation" mapstructure:"rotation"`
+}
+
+// JWKSRotationOptions configures automatic signing-key rotation.
+type JWKSRotationOptions struct {
+	AutomaticEnabled  bool          `json:"automatic_enabled" mapstructure:"automatic_enabled"`
+	CheckCron         string        `json:"check_cron" mapstructure:"check_cron"`
+	RotationInterval  time.Duration `json:"rotation_interval" mapstructure:"rotation_interval"`
+	GracePeriod       time.Duration `json:"grace_period" mapstructure:"grace_period"`
+	MaxPublishableKey int           `json:"max_publishable_keys" mapstructure:"max_publishable_keys"`
 }
 
 func NewJWKSOptions() *JWKSOptions {
-	return &JWKSOptions{}
+	return &JWKSOptions{
+		Rotation: JWKSRotationOptions{
+			CheckCron:         "@every 1h",
+			RotationInterval:  30 * 24 * time.Hour,
+			GracePeriod:       7 * 24 * time.Hour,
+			MaxPublishableKey: 3,
+		},
+	}
 }
 
 // IDPOptions configures identity provider bootstrap secrets.
@@ -134,7 +151,6 @@ func NewSMSOptions() *SMSOptions {
 type SuggestOptions struct {
 	Enable             bool   `json:"enable" mapstructure:"enable"`
 	Required           bool   `json:"required" mapstructure:"required"`
-	DataDir            string `json:"data_dir" mapstructure:"data_dir"`
 	FullSyncCron       string `json:"full_sync_cron" mapstructure:"full_sync_cron"`
 	DeltaSyncCron      string `json:"delta_sync_cron" mapstructure:"delta_sync_cron"`
 	MaxResults         int    `json:"max_results" mapstructure:"max_results"`
@@ -142,8 +158,11 @@ type SuggestOptions struct {
 	KeyPadLen          int    `json:"key_pad_len" mapstructure:"key_pad_len"`
 	FullSQL            string `json:"full_sql" mapstructure:"full_sql"`
 	DeltaSQL           string `json:"delta_sql" mapstructure:"delta_sql"`
-	Snapshot           *bool  `json:"snapshot" mapstructure:"snapshot"`
 	DisableMobileMask  bool   `json:"disable_mobile_mask" mapstructure:"disable_mobile_mask"`
+	// RemovedDataDir and RemovedSnapshot are decode-only tombstones. They make
+	// retired configuration fail closed instead of being silently ignored.
+	RemovedDataDir  *string `json:"-" mapstructure:"data_dir"`
+	RemovedSnapshot *bool   `json:"-" mapstructure:"snapshot"`
 	// LoaderPlaceholderOrgID 内建 Loader 注入的 org_id；0 表示索引不虚构组织维度。
 	LoaderPlaceholderOrgID int64 `json:"loader_placeholder_org_id" mapstructure:"loader_placeholder_org_id"`
 	// LoaderPlaceholderTenantID Deprecated: 与 loader_placeholder_org_id 同义。

@@ -1,6 +1,6 @@
 # 02-业务模块
 
-> 状态：待补证据 · 业务模块总入口，已合并原 `00-模块协作总图.md` 的职责；后续模块协作、阅读路径、边界总览统一维护在本文。
+> 状态：设计目标 · 业务模块总入口，已合并原 `00-模块协作总图.md` 的职责；后续模块协作、阅读路径、边界总览统一维护在本文。
 
 ---
 
@@ -83,7 +83,7 @@ flowchart TD
     AuthN["AuthN\nLoginIdentity / Credential\nPrincipal / Session / Token"]
     Identity["Identity\nUser / Profile / ProfileLink"]
     AuthZ["AuthZ\nSubject / Role / Permission\nRoleBinding / Check"]
-    Suggest["Suggest\nQuery / ProfileSearchTerm\nSnapshot / ProfileSuggestItem"]
+    Suggest["Suggest\nQuery / ProfileSearchTerm\nProfileSuggestionIndex / ProfileSuggestItem"]
 
     Client["Client / App / Backend"]
     Provider["External Provider\nWeChat / WeCom"]

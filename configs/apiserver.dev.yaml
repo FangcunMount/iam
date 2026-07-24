@@ -168,6 +168,12 @@ redis:
 jwks:
   keys_dir: "./configs/keys"  # 私钥存放目录（相对或绝对路径）
   auto_init: true           # 启动时若无 active key 则自动生成（仅建议在开发环境启用）
+  rotation:
+    automatic_enabled: false
+    check_cron: "@every 1h"
+    rotation_interval: 720h
+    grace_period: 168h
+    max_publishable_keys: 3
 
 # ----------------------------------------------------------------------------
 # 4.2 TLS 证书（通用）
@@ -224,7 +230,6 @@ sms:
 # ----------------------------------------------------------------------------
 suggest:
   enable: true
-  data_dir: "./data/suggest"
   full_sync_cron: "@every 1h"
   # 默认 Delta 含活跃 upsert + 软删 tombstone；无 CDC 时仍建议留空，仅全量刷新。
   delta_sync_cron: ""
@@ -232,7 +237,6 @@ suggest:
   key_pad_len: 25
   # Trie 通配符展开的最大终端键数；0=领域默认 100。
   # trie_wildcard_key_cap: 200
-  snapshot: true
   # 按 operator 限流；默认关闭（全零）。backend: memory（单进程令牌桶）| redis（多副本共享固定窗口，约 1s）。
   # rate_limit:
   #   per_operator_qps: 30

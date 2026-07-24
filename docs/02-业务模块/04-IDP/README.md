@@ -1,6 +1,6 @@
 # IDP
 
-> 状态：待补证据 · IDP 模块入口，已按“模型主文档 + 三条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约、配置和测试核对。
+> 状态：设计目标 · IDP 模块入口，已按“模型主文档 + 三条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约、配置和测试核对。
 
 ---
 
@@ -35,7 +35,7 @@ IDP 不负责登录态、不签发 IAM Token、不创建 IAM 内部用户、不�
 AuthN 负责 LoginIdentity / Credential / Challenge / Principal / Session / Token / JWKS；
 Identity 负责 User / Profile / ProfileLink；
 AuthZ 负责 Subject / Role / Permission / RoleBinding / Check；
-Suggest 负责 ProfileSearchTerm / ProfileAccessScope / Snapshot；
+Suggest 负责 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex；
 Provider adapter 是 infra runtime，不是领域模型本身。
 ```
 
@@ -122,7 +122,7 @@ flowchart TD
     AuthN["AuthN\nLoginIdentity / Principal / Token"]
     Identity["Identity\nUser / Profile / ProfileLink"]
     AuthZ["AuthZ\nSubject / RoleBinding / Check"]
-    Suggest["Suggest\nProfileSearchTerm / Snapshot"]
+    Suggest["Suggest\nProfileSearchTerm / ProfileSuggestionIndex"]
 
     IDP --> WechatApp
     IDP --> Credentials

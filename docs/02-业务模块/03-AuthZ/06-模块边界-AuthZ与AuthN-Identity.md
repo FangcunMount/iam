@@ -1,6 +1,6 @@
 # 模块边界：AuthZ 与 AuthN / Identity
 
-> 状态：待补证据 · 第一版正文，待继续按源码、组合根、跨模块 port、Casbin runtime、REST/gRPC middleware、契约和架构测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按源码、组合根、跨模块 port、Casbin runtime、REST/gRPC middleware、契约和架构测试逐项核对。
 
 ---
 
@@ -48,7 +48,7 @@ AuthorizationDecision。
 AuthN 负责 Principal / Credential / Challenge / Session / Token / JWKS；
 Identity 负责 User / Profile / ProfileLink；
 IDP 负责 ExternalIdentity / provider app / AppToken；
-Suggest 负责 ProfileSearchTerm / ProfileAccessScope / Snapshot；
+Suggest 负责 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex；
 Casbin 是 infra runtime，不是领域模型。
 ```
 
@@ -80,7 +80,7 @@ flowchart TD
     AuthN["AuthN\nPrincipal / Credential / Challenge\nSession / Token / JWKS"]
     Identity["Identity\nUser / Profile / ProfileLink"]
     IDP["IDP\nExternalIdentity / AppToken\nprovider config"]
-    Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / Snapshot"]
+    Suggest["Suggest\nProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex"]
     Runtime["Casbin Runtime\np/g/r facts / matcher / enforcer"]
 
     AuthN -->|Principal -> Subject mapping| AuthZ
@@ -104,7 +104,7 @@ Principal 必须显式映射为 Subject；
 Identity 提供 User/Profile/ProfileLink 身份事实；
 AuthZ 可以引用这些事实，但不修改这些事实；
 IDP 不直接进入 AuthZ，必须先经过 AuthN；
-Suggest 可以调用 AuthZ Check 做可见性过滤，但 AuthZ 不维护 Suggest Snapshot；
+Suggest 可以调用 AuthZ Check 做可见性过滤，但 AuthZ 不维护 Suggest Index；
 Casbin runtime 执行策略匹配，但不替代 AuthZ 领域模型。
 ```
 
@@ -549,7 +549,7 @@ Principal/UserID
 ```text
 ProfileAccessScope 不是 AuthZ Scope；
 ProfileAccessScope 可以映射为 AuthZ Scope；
-Suggest Snapshot 不是权限事实源；
+Suggest Index 不是权限事实源；
 AuthZ 不维护 Suggest 索引；
 Suggest 不能只凭 token 存在返回所有 Profile。
 ```
@@ -772,7 +772,7 @@ Outbox reload 失败但 Check 仍宣称使用最新策略。
 | AuthN Principal | `../../../internal/apiserver/domain/authn/authentication/principal.go` |
 | Identity User/Profile/ProfileLink | `../../../internal/apiserver/domain/identity` |
 | IDP ExternalIdentity | `../../../internal/apiserver/domain/idp` |
-| Suggest ProfileAccessScope / Snapshot | `../../../internal/apiserver/domain/suggest` |
+| Suggest ProfileAccessScope / ProfileSuggestionIndex | `../../../internal/apiserver/domain/suggest` |
 | AuthZ REST transport | `../../../internal/apiserver/transport/rest` |
 | AuthZ gRPC transport | `../../../internal/apiserver/transport/grpc` |
 | AuthZ container | `../../../internal/apiserver/container/authz` |

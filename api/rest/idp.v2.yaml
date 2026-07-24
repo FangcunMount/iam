@@ -364,7 +364,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_idp_response.ErrorResponse'
   schemas:
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_idp_request.CreateWechatAppRequest:
       properties:

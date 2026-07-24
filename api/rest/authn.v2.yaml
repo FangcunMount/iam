@@ -801,37 +801,37 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     Forbidden:
       description: 无权限
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     NotFound:
       description: 不存在
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     Conflict:
       description: 冲突
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     BadRequest:
       description: 参数错误
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     InternalServerError:
       description: 服务器内部错误
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
   schemas:
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.CreateKeyRequest:
       properties:
@@ -1123,6 +1123,138 @@ components:
         nonce:
           type: string
         state:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK:
+      properties:
+        alg:
+          type: string
+        crv:
+          type: string
+        e:
+          type: string
+        kid:
+          type: string
+        kty:
+          type: string
+        n:
+          type: string
+        use:
+          type: string
+        x:
+          type: string
+        y:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.KeyInfo:
+      properties:
+        algorithm:
+          description: 签名算法
+          type: string
+        createdAt:
+          description: 创建时间
+          type: string
+        kid:
+          description: 密钥 ID
+          type: string
+        notAfter:
+          description: 过期时间
+          type: string
+        notBefore:
+          description: 生效时间
+          type: string
+        publicJwk:
+          allOf:
+          - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK'
+          description: 公钥 JWK
+        status:
+          description: 密钥状态
+          type: string
+        updatedAt:
+          description: 更新时间
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.LoginIdentityResponse:
+      properties:
+        global_identifier:
+          type: string
+        id:
+          type: string
+        identifier:
+          type: string
+        linked_at:
+          type: string
+        provider:
+          type: string
+        realm:
+          type: string
+        status:
+          type: string
+        verified_at:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublishableKeyInfo:
+      properties:
+        algorithm:
+          description: 签名算法
+          type: string
+        kid:
+          description: 密钥 ID
+          type: string
+        notAfter:
+          description: 过期时间
+          type: string
+        notBefore:
+          description: 生效时间
+          type: string
+        publicJwk:
+          allOf:
+          - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK'
+          description: 公钥 JWK
+        status:
+          description: 密钥状态
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.SignupCredential:
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.TokenClaims:
+      properties:
+        amr:
+          items:
+            type: string
+          type: array
+        attributes:
+          additionalProperties:
+            type: string
+          type: object
+        expires_at:
+          description: 过期时间
+          type: string
+        issued_at:
+          description: 签发时间
+          type: string
+        issuer:
+          description: 签发者
+          type: string
+        jti:
+          description: JWT ID（可选）
+          type: string
+        kid:
+          description: Key ID（可选）
+          type: string
+        login_identity_id:
+          description: 登录身份 ID
+          type: string
+        tenant_id:
+          description: 租户 ID（可选）
+          type: integer
+        user_id:
+          description: 用户 ID
           type: string
       type: object
     github_com_FangcunMount_iam_v2_pkg_core.ErrResponse:

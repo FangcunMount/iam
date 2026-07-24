@@ -381,37 +381,37 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     Forbidden:
       description: 无权限
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     NotFound:
       description: 不存在
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     Conflict:
       description: 冲突
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     BadRequest:
       description: 参数错误
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
     InternalServerError:
       description: 服务器内部错误
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse'
   schemas:
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.ProfileUpdateRequest:
       properties:
@@ -445,6 +445,34 @@ components:
           type: integer
         total:
           type: integer
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.UserContactUpsert:
+      properties:
+        type:
+          enum:
+          - email
+          - phone
+          type: string
+        value:
+          type: string
+      required:
+      - type
+      - value
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse:
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: string
+        relation:
+          type: string
+        revokedAt:
+          type: string
+        since:
+          type: string
+        userId:
+          type: string
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfilePageResponse:
       properties:
@@ -499,6 +527,15 @@ components:
         status:
           type: string
         updatedAt:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.VerifiedContactResponse:
+      properties:
+        type:
+          type: string
+        value:
+          type: string
+        verifiedAt:
           type: string
       type: object
     github_com_FangcunMount_iam_v2_pkg_core.ErrResponse:

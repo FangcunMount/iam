@@ -47,6 +47,9 @@ func TestPEMPrivateKeyStorage_SaveAndExists(t *testing.T) {
 	info, err := os.Stat(expectedPath)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	dirInfo, err := os.Stat(tempDir)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0700), dirInfo.Mode().Perm())
 
 	t.Logf("✅ Private key saved to: %s", expectedPath)
 }

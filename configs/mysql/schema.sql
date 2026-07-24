@@ -197,6 +197,7 @@ CREATE TABLE IF NOT EXISTS `jwks_keys`
     `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '密钥ID',
     `kid`        VARCHAR(64)     NOT NULL COMMENT 'Key ID',
     `status`     TINYINT         NOT NULL DEFAULT 1 COMMENT '1-Active, 2-Grace, 3-Retired',
+    `active_guard` TINYINT GENERATED ALWAYS AS (CASE WHEN `status` = 1 THEN 1 ELSE NULL END) STORED,
     `kty`        VARCHAR(32)     NOT NULL COMMENT 'Key Type: RSA/EC',
     `use`        VARCHAR(16)     NOT NULL COMMENT '密钥用途: sig/enc',
     `alg`        VARCHAR(32)     NOT NULL COMMENT '算法: RS256/RS384/RS512 等',
@@ -206,6 +207,7 @@ CREATE TABLE IF NOT EXISTS `jwks_keys`
     `created_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY `uk_kid` (`kid`),
+    UNIQUE KEY `uk_jwks_keys_single_active` (`active_guard`),
     KEY `idx_status` (`status`),
     KEY `idx_alg` (`alg`),
     KEY `idx_not_after` (`not_after`)

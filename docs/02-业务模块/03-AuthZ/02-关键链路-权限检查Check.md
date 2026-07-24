@@ -1,6 +1,6 @@
 # 关键链路：权限检查 Check
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authz`、`domain/authz`、Casbin runtime、REST/gRPC middleware、SDK 和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `application/authz`、`domain/authz`、Casbin runtime、REST/gRPC middleware、SDK 和测试逐项核对。
 
 ---
 
@@ -703,7 +703,7 @@ Principal/UserID
 
 ```text
 Suggest ProfileAccessScope 不是 AuthZ Scope；
-Suggest Snapshot 不是权限事实源；
+Suggest Index 不是权限事实源；
 AuthZ Check 不维护 Suggest index；
 Suggest 不能只凭 token 存在返回所有 Profile；
 Profile 搜索可见性应结合 Principal/UserID、ProfileAccessScope 和 AuthZ Check。

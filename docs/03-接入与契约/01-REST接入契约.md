@@ -1,6 +1,6 @@
 # REST 接入契约
 
-> 状态：待补证据 · REST 接入总入口，待继续按 `api/rest/*.yaml`、`internal/apiserver/transport/rest`、middleware、错误模型、契约测试和 SDK 生成逐项核对。
+> 状态：设计目标 · REST 接入总入口，待继续按 `api/rest/*.yaml`、`internal/apiserver/transport/rest`、middleware、错误模型、契约测试和 SDK 生成逐项核对。
 
 ---
 

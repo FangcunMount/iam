@@ -7,6 +7,7 @@ import (
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	jwksmysql "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/jwks"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
@@ -22,7 +23,7 @@ func TestAuthnModuleInitializeSMSMQRequiresEventBusEvenWithPublisher(t *testing.
 	db, redisClient := setupAuthnEventingTest(t)
 
 	module := NewAuthnModule()
-	err := module.InitializeWithDeps(authnEventingDeps(db, redisClient, nil, &capturingEventPublisher{}))
+	err := module.InitializeWithDeps(authnEventingDeps(t, db, redisClient, nil, &capturingEventPublisher{}))
 
 	require.Error(t, err)
 	require.ErrorContains(t, err, "sms.provider=mq requires EventBus")
@@ -30,7 +31,7 @@ func TestAuthnModuleInitializeSMSMQRequiresEventBusEvenWithPublisher(t *testing.
 
 func TestAuthnModuleInitializeRejectsUnknownSMSProvider(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
-	deps := authnEventingDeps(db, redisClient, eventBusStub{}, &capturingEventPublisher{})
+	deps := authnEventingDeps(t, db, redisClient, eventBusStub{}, &capturingEventPublisher{})
 	deps.SMS.Provider = "aliun"
 
 	module := NewAuthnModule()
@@ -45,7 +46,7 @@ func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *test
 
 	publisher := &capturingEventPublisher{}
 	module := NewAuthnModule()
-	require.NoError(t, module.InitializeWithDeps(authnEventingDeps(db, redisClient, eventBusStub{}, publisher)))
+	require.NoError(t, module.InitializeWithDeps(authnEventingDeps(t, db, redisClient, eventBusStub{}, publisher)))
 	caps := module.ApplicationCapabilities()
 	require.NotNil(t, caps.LoginPhoneOTPSender)
 
@@ -67,6 +68,7 @@ func setupAuthnEventingTest(t *testing.T) (*gorm.DB, *goredis.Client) {
 
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&jwksmysql.KeyPO{}))
 
 	mr := miniredis.RunT(t)
 	redisClient := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
@@ -76,12 +78,16 @@ func setupAuthnEventingTest(t *testing.T) (*gorm.DB, *goredis.Client) {
 	return db, redisClient
 }
 
-func authnEventingDeps(db *gorm.DB, redisClient *goredis.Client, eventBus cbmessaging.EventBus, publisher event.Publisher) AuthnModuleDeps {
+func authnEventingDeps(t *testing.T, db *gorm.DB, redisClient *goredis.Client, eventBus cbmessaging.EventBus, publisher event.Publisher) AuthnModuleDeps {
+	t.Helper()
 	smsOptions := *apiserveroptions.NewSMSOptions()
 	smsOptions.Provider = "mq"
 	smsOptions.LoginOTPTTL = 5 * time.Minute
 	smsOptions.LoginOTPSendCooldown = time.Minute
 	smsOptions.LoginOTPCodeLength = 6
+	jwksOptions := *apiserveroptions.NewJWKSOptions()
+	jwksOptions.AutoInit = true
+	jwksOptions.KeysDir = t.TempDir()
 	return AuthnModuleDeps{
 		DB:             db,
 		RedisClient:    redisClient,
@@ -89,7 +95,7 @@ func authnEventingDeps(db *gorm.DB, redisClient *goredis.Client, eventBus cbmess
 		EventPublisher: publisher,
 		Environment:    genericapiserver.EnvironmentTest,
 		Auth:           *apiserveroptions.NewAuthOptions(),
-		JWKS:           *apiserveroptions.NewJWKSOptions(),
+		JWKS:           jwksOptions,
 		SMS:            smsOptions,
 	}
 }

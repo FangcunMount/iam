@@ -677,7 +677,7 @@ AuthZ Check 在认证之后执行。
 ### 16.4 与 Suggest
 
 ```text
-Login 不维护 Suggest Snapshot；
+Login 不维护 Suggest Index；
 Login 不创建 ProfileSearchTerm；
 Suggest 可以使用 Principal/UserID 作为查询上下文；
 Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。

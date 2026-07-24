@@ -1,6 +1,6 @@
 # Session / AccessToken / RefreshToken 边界
 
-> 状态：待补证据 · 第一版正文，待继续按 `internal/apiserver/application/authn`、`application/authn/token`、Session/RefreshToken 存储、REST/gRPC 契约、SDK TokenSource 和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/application/authn`、`application/authn/token`、Session/RefreshToken 存储、REST/gRPC 契约、SDK TokenSource 和测试逐项核对。
 
 ---
 

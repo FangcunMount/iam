@@ -38,7 +38,7 @@ func TestProfileIndexRefresherFullSyncReplacesRuntimeIndex(t *testing.T) {
 			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, runtime, nil, nil)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 
 	if err := refresher.RunFull(context.Background()); err != nil {
 		t.Fatalf("RunFull() error = %v", err)
@@ -60,7 +60,7 @@ func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *test
 			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, runtime, nil, nil)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 	refresher.lastFetch = time.Now().Add(-time.Minute)
 
 	err := refresher.RunDelta(context.Background())
@@ -80,7 +80,7 @@ func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, runtime, nil, nil)
+	refresher := NewProfileIndexRefresher(loader, runtime, nil)
 	refresher.lastFetch = time.Now().Add(-time.Minute)
 
 	if err := refresher.RunDelta(context.Background()); err != nil {
@@ -89,25 +89,6 @@ func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 
 	if !reflect.DeepEqual(runtime.imported, loader.delta) {
 		t.Fatalf("imported = %#v, want %#v", runtime.imported, loader.delta)
-	}
-}
-
-func TestRefresherWritesSnapshotAfterFullSync(t *testing.T) {
-	runtime := &suggestRuntimeStub{}
-	loader := &suggestLoaderStub{
-		full: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
-		},
-	}
-	snapshot := &snapshotWriterStub{}
-	refresher := NewProfileIndexRefresher(loader, runtime, snapshot, nil)
-
-	if err := refresher.RunFull(context.Background()); err != nil {
-		t.Fatalf("RunFull() error = %v", err)
-	}
-
-	if !reflect.DeepEqual(snapshot.written, loader.full) {
-		t.Fatalf("snapshot = %#v, want %#v", snapshot.written, loader.full)
 	}
 }
 
@@ -157,13 +138,4 @@ type suggestIndexStub struct {
 
 func (s suggestIndexStub) SuggestProfile(domainsuggest.Query, domainsuggest.ProfileAccessScope) []domainsuggest.ProfileSearchTerm {
 	return append([]domainsuggest.ProfileSearchTerm(nil), s.terms...)
-}
-
-type snapshotWriterStub struct {
-	written []domainsuggest.ProfileSearchTerm
-}
-
-func (s *snapshotWriterStub) Write(_ context.Context, candidates []domainsuggest.ProfileSearchTerm) error {
-	s.written = append([]domainsuggest.ProfileSearchTerm(nil), candidates...)
-	return nil
 }

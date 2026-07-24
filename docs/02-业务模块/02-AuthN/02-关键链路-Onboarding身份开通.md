@@ -1,6 +1,6 @@
 # 关键链路：Onboarding 身份开通
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/authn`、`domain/authn`、`application/identity`、REST/gRPC 契约和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `application/authn`、`domain/authn`、`application/identity`、REST/gRPC 契约和测试逐项核对。
 
 ---
 
@@ -510,7 +510,7 @@ Onboarding 不创建 RoleBinding，除非有明确的授权开通用例；
 ### 13.4 与 Suggest
 
 ```text
-Onboarding 不维护 Suggest Snapshot；
+Onboarding 不维护 Suggest Index；
 如果 Onboarding 创建了 User 但没有创建 Profile，则不应影响 Profile 搜索；
 如果上层注册流程同时创建 Profile，应由 Identity/Suggest 的事件或刷新链路处理；
 Suggest 不能通过 Onboarding 绕过可见范围控制。
@@ -530,7 +530,7 @@ Suggest 不能通过 Onboarding 绕过可见范围控制。
 | LoginIdentity 重复绑定多个 User | 账号串绑风险 | provider + identifier 唯一约束 |
 | Credential 创建失败但返回成功 | 产生不可登录身份 | 用事务或补偿保证一致性 |
 | Onboarding 同时写 RoleBinding | 认证开通吞并授权 | 授权开通应由 AuthZ 明确用例处理 |
-| Onboarding 直接写 Suggest Snapshot | AuthN 污染搜索读模型 | Suggest 通过事件或刷新读取事实 |
+| Onboarding 直接写 Suggest Index | AuthN 污染搜索读模型 | Suggest 通过事件或刷新读取事实 |
 
 ---
 

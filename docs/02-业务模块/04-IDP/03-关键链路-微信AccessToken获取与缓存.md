@@ -1,7 +1,7 @@
 
 # 关键链路：微信 AccessToken 获取与缓存
 
-> 状态：待补证据
+> 状态：设计目标
 > 第一版正文，待继续按 `application/idp`、`domain/idp`、WechatApp repository、Credentials store、AppToken cache、微信/企微 provider adapter、singleflight/lock、REST/gRPC 契约和测试逐项核对。
 
 ---
@@ -653,7 +653,7 @@ provider token 不能作为 IAM 资源访问权限依据。
 ### 18.4 与 Suggest
 
 ```text
-AppToken 获取不维护 Suggest Snapshot；
+AppToken 获取不维护 Suggest Index；
 通过 AppToken 拉到的 provider nickname/avatar 如需进入搜索字段，应先经 Identity 确认，再由 Suggest 用例更新索引。
 ```
 

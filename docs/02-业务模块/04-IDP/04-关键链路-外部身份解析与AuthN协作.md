@@ -1,6 +1,6 @@
 # 关键链路：外部身份解析与 AuthN 协作
 
-> 状态：待补证据 · 第一版正文，待继续按 `application/idp`、`domain/idp`、微信/企微 provider adapter、AuthN 登录/绑定/开通用例、REST/gRPC 契约和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 `application/idp`、`domain/idp`、微信/企微 provider adapter、AuthN 登录/绑定/开通用例、REST/gRPC 契约和测试逐项核对。
 
 ---
 
@@ -604,7 +604,7 @@ IDP 不创建 RoleBinding。
 ### 16.4 与 Suggest
 
 ```text
-IDP 不维护 ProfileSearchTerm / ProfileAccessScope / Snapshot；
+IDP 不维护 ProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex；
 provider nickname/avatar 等 claims 如需进入搜索字段，应经过 Identity 确认和 Suggest 用例更新。
 ```
 

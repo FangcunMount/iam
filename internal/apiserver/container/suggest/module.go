@@ -2,6 +2,7 @@ package suggest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,11 +69,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 		PlaceholderOrgID:    cfg.LoaderPlaceholderOrgID,
 		PlaceholderTenantID: cfg.LoaderPlaceholderTenantID,
 	})
-	var snapshot appsuggest.SnapshotWriter
-	if cfg.Snapshot {
-		snapshot = searchruntime.NewFileSnapshotWriter(cfg.DataDir)
-	}
-	m.refresher = appsuggest.NewProfileIndexRefresher(loader, runtime, snapshot, metrics)
+	m.refresher = appsuggest.NewProfileIndexRefresher(loader, runtime, metrics)
 	m.rateLimiter = suggestratelimit.NewFromConfig(cfg.RateLimit, deps.RedisClient)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -150,6 +147,10 @@ func (m *SuggestModule) startRefresher(ctx context.Context, cfg appsuggest.Confi
 	m.cron = cron.New()
 	if _, err := m.cron.AddFunc(cfg.FullSyncCron, func() {
 		if err := m.refresher.RunFull(ctx); err != nil {
+			if errors.Is(err, appsuggest.ErrRefreshInProgress) {
+				log.Info("suggest full sync skipped: refresh already in progress")
+				return
+			}
 			log.Errorw("suggest full sync failed", "error", err)
 		}
 	}); err != nil {
@@ -158,6 +159,10 @@ func (m *SuggestModule) startRefresher(ctx context.Context, cfg appsuggest.Confi
 	if cfg.DeltaSyncCron != "" {
 		if _, err := m.cron.AddFunc(cfg.DeltaSyncCron, func() {
 			if err := m.refresher.RunDelta(ctx); err != nil {
+				if errors.Is(err, appsuggest.ErrRefreshInProgress) {
+					log.Info("suggest delta sync skipped: refresh already in progress")
+					return
+				}
 				log.Errorw("suggest delta sync failed", "error", err)
 			}
 		}); err != nil {

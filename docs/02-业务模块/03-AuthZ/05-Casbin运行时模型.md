@@ -1,7 +1,7 @@
 
 # Casbin 运行时模型
 
-> 状态：待补证据 · 第一版正文，待继续按 Casbin runtime、policy adapter、model.conf、policy loader、DecisionEngine、RuntimeReload、REST/gRPC 契约和测试逐项核对。
+> 状态：设计目标 · 第一版正文，待继续按 Casbin runtime、policy adapter、model.conf、policy loader、DecisionEngine、RuntimeReload、REST/gRPC 契约和测试逐项核对。
 
 ---
 
@@ -52,7 +52,7 @@ Casbin 是 AuthZ 的 **infra runtime engine**。
 校验 AuthN Credential / Challenge；
 签发 Token；
 维护 Identity ProfileLink；
-维护 Suggest Snapshot。
+维护 Suggest Index。
 ```
 
 核心映射关系：
@@ -378,7 +378,7 @@ matcher 不能反向定义领域模型。
 签发 Token；
 执行 REST/gRPC 错误映射；
 修改 Identity ProfileLink；
-维护 Suggest Snapshot。
+维护 Suggest Index。
 ```
 
 ---
@@ -743,7 +743,7 @@ RoleBinding 才是授权绑定事实。
 ### 19.3 与 Suggest
 
 ```text
-Suggest Snapshot 不是 Casbin policy；
+Suggest Index 不是 Casbin policy；
 Suggest ProfileAccessScope 不是 AuthZ Scope；
 搜索可见性可以调用 AuthZ Check 或使用授权过滤投影；
 Casbin runtime 不维护 Suggest 索引。
