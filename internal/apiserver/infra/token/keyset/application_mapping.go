@@ -2,12 +2,17 @@ package keyset
 
 import appjwks "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
 
-func toAppKeyStatus(status KeyStatus) appjwks.KeyStatus {
-	return appjwks.KeyStatus(status)
-}
-
-func fromAppKeyStatus(status appjwks.KeyStatus) KeyStatus {
-	return KeyStatus(status)
+func keyStatusFromString(status string) KeyStatus {
+	switch status {
+	case "active":
+		return KeyActive
+	case "grace":
+		return KeyGrace
+	case "retired":
+		return KeyRetired
+	default:
+		return 0
+	}
 }
 
 func toAppPublicJWK(jwk PublicJWK) appjwks.PublicJWK {
@@ -45,7 +50,7 @@ func toAppManagedKey(key *Key) *appjwks.ManagedKey {
 	}
 	return &appjwks.ManagedKey{
 		Kid:       key.Kid,
-		Status:    toAppKeyStatus(key.Status),
+		Status:    key.Status.String(),
 		JWK:       toAppPublicJWK(key.JWK),
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
@@ -76,22 +81,6 @@ func fromAppCacheTag(tag appjwks.CacheTag) CacheTag {
 	return CacheTag{
 		ETag:         tag.ETag,
 		LastModified: tag.LastModified,
-	}
-}
-
-func toAppRotationPolicy(policy RotationPolicy) appjwks.RotationPolicy {
-	return appjwks.RotationPolicy{
-		RotationInterval: policy.RotationInterval,
-		GracePeriod:      policy.GracePeriod,
-		MaxKeysInJWKS:    policy.MaxKeysInJWKS,
-	}
-}
-
-func fromAppRotationPolicy(policy appjwks.RotationPolicy) RotationPolicy {
-	return RotationPolicy{
-		RotationInterval: policy.RotationInterval,
-		GracePeriod:      policy.GracePeriod,
-		MaxKeysInJWKS:    policy.MaxKeysInJWKS,
 	}
 }
 

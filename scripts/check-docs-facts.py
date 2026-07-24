@@ -98,6 +98,28 @@ def check_module_wiring() -> None:
             fail(f"composition root no longer wires {constructor}")
 
 
+def check_jwks_lifecycle_wiring() -> None:
+    application = (
+        ROOT / "internal/apiserver/container/authn/application.go"
+    ).read_text(encoding="utf-8")
+    scheduler = (
+        ROOT / "internal/apiserver/container/authn/scheduler.go"
+    ).read_text(encoding="utf-8")
+    rest = (ROOT / "internal/apiserver/container/authn/rest.go").read_text(encoding="utf-8")
+    handler = (
+        ROOT
+        / "internal/apiserver/transport/rest/authn/handler/jwks_admin_keys.go"
+    ).read_text(encoding="utf-8")
+    for token, source in (
+        ("NewKeyLifecycleAppService", application),
+        ("m.keyLifecycleApp", scheduler),
+        ("caps.KeyLifecycleApp", rest),
+        ("keyLifecycleApp.CreateAndActivate", handler),
+    ):
+        if token not in source:
+            fail(f"JWKS lifecycle wiring is missing {token}")
+
+
 def check_active_docs() -> None:
     forbidden = "待补证据"
     for path in (ROOT / "docs").rglob("*.md"):
@@ -106,6 +128,15 @@ def check_active_docs() -> None:
         text = path.read_text(encoding="utf-8")
         if forbidden in text:
             fail(f"{path.relative_to(ROOT)} contains unowned evidence placeholder {forbidden}")
+        if "索引和文件 snapshot 仍保存原始手机号" in text:
+            fail(f"{path.relative_to(ROOT)} claims the retired Suggest file snapshot still exists")
+
+    suggest_query = (
+        ROOT / "docs/02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md"
+    ).read_text(encoding="utf-8")
+    for required in ("原始手机号只存在于进程内索引", "不写入文件或日志"):
+        if required not in suggest_query:
+            fail(f"Suggest query documentation is missing current privacy fact: {required}")
 
 
 def run_contract_check(script: str) -> None:
@@ -122,6 +153,7 @@ def main() -> int:
         check_migrations,
         check_event_catalog,
         check_module_wiring,
+        check_jwks_lifecycle_wiring,
         check_active_docs,
     )
     try:

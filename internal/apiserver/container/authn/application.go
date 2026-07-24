@@ -127,10 +127,15 @@ func (m *AuthnModule) initializeApplication(
 	m.sessionRevokeApp = session.NewRevoker(domain.sessionRevoker)
 
 	logger := log.New(log.NewOptions())
-	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyManager(infra.keyManager), logger)
+	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyReader(infra.keyManager), logger)
 	keyPublisher := keyset.NewApplicationKeyPublisher(infra.keySetBuilder)
 	m.keyPublishApp = jwksApp.NewKeyPublishAppService(keyPublisher, logger)
-	m.keyRotationApp = jwksApp.NewKeyRotationAppService(keyset.NewApplicationKeyRotator(infra.keyRotation), logger, keyPublisher)
+	m.keyLifecycleApp = jwksApp.NewKeyLifecycleAppService(
+		keyset.NewApplicationKeyLifecycle(infra.keyRotation),
+		keyPublisher,
+		keyset.NewApplicationLifecycleObserver(),
+		logger,
+	)
 	m.jwksSnapshotReporter = keyset.NewApplicationSnapshotReporter(infra.keySetBuilder)
 
 	return nil

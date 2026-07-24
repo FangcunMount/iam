@@ -9,29 +9,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// KeyStatus 表示签名密钥的生命周期状态。
-type KeyStatus uint8
-
-const (
-	KeyActive  KeyStatus = iota + 1 // 当前签名用 + 发布
-	KeyGrace                        // 仅验签（并存期），发布
-	KeyRetired                      // 已下线，不发布
-)
-
-// String 返回 KeyStatus 的字符串表示。
-func (s KeyStatus) String() string {
-	switch s {
-	case KeyActive:
-		return "active"
-	case KeyGrace:
-		return "grace"
-	case KeyRetired:
-		return "retired"
-	default:
-		return "unknown"
-	}
-}
-
 // PublicJWK 表示 JWKS 对外发布的公钥。
 type PublicJWK struct {
 	Kty string  `json:"kty"`
@@ -138,102 +115,15 @@ func GenerateETag(content []byte) string {
 	return `"` + hex.EncodeToString(hash[:]) + `"`
 }
 
-// RotationPolicy 表示 JWKS 签名密钥的轮换策略。
-type RotationPolicy struct {
-	RotationInterval time.Duration
-	GracePeriod      time.Duration
-	MaxKeysInJWKS    int
-}
-
-// DefaultRotationPolicy 返回默认的轮换策略。
-func DefaultRotationPolicy() RotationPolicy {
-	return RotationPolicy{
-		RotationInterval: 30 * 24 * time.Hour,
-		GracePeriod:      7 * 24 * time.Hour,
-		MaxKeysInJWKS:    3,
-	}
-}
-
-// Validate 验证 RotationPolicy 是否有效。
-func (p *RotationPolicy) Validate() error {
-	if p.RotationInterval <= 0 {
-		return errors.WithCode(code.ErrInvalidRotationInterval, "rotation interval must be positive")
-	}
-	if p.GracePeriod <= 0 {
-		return errors.WithCode(code.ErrInvalidGracePeriod, "grace period must be positive")
-	}
-	if p.MaxKeysInJWKS < 2 {
-		return errors.WithCode(code.ErrInvalidMaxKeys, "max keys must be at least 2")
-	}
-	if p.GracePeriod >= p.RotationInterval {
-		return errors.WithCode(code.ErrGracePeriodTooLong, "grace period must be shorter than rotation interval")
-	}
-	return nil
-}
-
 // ManagedKey 表示密钥管理用例的签名密钥快照。
 type ManagedKey struct {
 	Kid       string
-	Status    KeyStatus
+	Status    string
 	JWK       PublicJWK
 	NotBefore *time.Time
 	NotAfter  *time.Time
 	CreatedAt time.Time
 	UpdatedAt time.Time
-}
-
-// NewKey 创建 ManagedKey。
-func NewKey(kid string, jwk PublicJWK, opts ...KeyOption) *ManagedKey {
-	now := time.Now()
-	key := &ManagedKey{
-		Kid:       kid,
-		Status:    KeyActive,
-		JWK:       jwk,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	for _, opt := range opts {
-		opt(key)
-	}
-	return key
-}
-
-// KeyOption 表示 ManagedKey 的选项。
-type KeyOption func(*ManagedKey)
-
-// WithNotBefore 设置 NotBefore。
-func WithNotBefore(t time.Time) KeyOption {
-	return func(k *ManagedKey) {
-		k.NotBefore = &t
-	}
-}
-
-// WithNotAfter 设置 NotAfter。
-func WithNotAfter(t time.Time) KeyOption {
-	return func(k *ManagedKey) {
-		k.NotAfter = &t
-	}
-}
-
-// WithStatus 设置 Status。
-func WithStatus(status KeyStatus) KeyOption {
-	return func(k *ManagedKey) {
-		k.Status = status
-	}
-}
-
-// WithCreatedAt 设置 CreatedAt。
-func WithCreatedAt(t time.Time) KeyOption {
-	return func(k *ManagedKey) {
-		k.CreatedAt = t
-	}
-}
-
-// WithUpdatedAt 设置 UpdatedAt。
-func WithUpdatedAt(t time.Time) KeyOption {
-	return func(k *ManagedKey) {
-		k.UpdatedAt = t
-	}
 }
 
 // SnapshotStatus 表示 JWKS 快照的状态。

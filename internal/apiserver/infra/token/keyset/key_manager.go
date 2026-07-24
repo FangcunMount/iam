@@ -176,16 +176,8 @@ func (s *KeyManager) deleteCandidatePEM(ctx context.Context, kid string) {
 	}
 	if err := s.privateStore.DeletePrivateKey(ctx, kid); err != nil && !errors.IsCode(err, code.ErrKeyNotFound) {
 		candidateCleanupFailures.Inc()
-		log.Warnw("failed to remove unused jwks candidate", "kid", kid, "error", err)
+		log.Warnw("failed to remove unused jwks candidate", "kid", kid)
 	}
-}
-
-func (s *KeyManager) SetRotationPolicy(policy RotationPolicy) error {
-	if err := policy.Validate(); err != nil {
-		return err
-	}
-	s.policy = policy
-	return nil
 }
 
 // GetActiveKey 获取当前激活的密钥
@@ -203,7 +195,7 @@ func (s *KeyManager) GetActiveKey(ctx context.Context) (*Key, error) {
 	}
 
 	// 过滤出可以用于签名的密钥（未过期且状态正确）
-	now := time.Now()
+	now := s.now()
 	for _, key := range keys {
 		if key.CanSign() && key.IsValidAt(now) {
 			return key, nil
@@ -367,7 +359,8 @@ func (s *KeyManager) CleanupExpiredKeys(ctx context.Context) (int, error) {
 		deletedCount++
 		if s.privateStore != nil {
 			if err := s.privateStore.DeletePrivateKey(ctx, key.Kid); err != nil && !errors.IsCode(err, code.ErrKeyNotFound) {
-				log.Warnw("failed to delete retired jwks private key", "kid", key.Kid, "error", err)
+				recordPostCommitFailure("private_key_delete")
+				log.Warnw("failed to delete retired jwks private key", "kid", key.Kid)
 			}
 		}
 	}

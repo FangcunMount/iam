@@ -38,6 +38,18 @@ var (
 		Name:      "material_validation_failures_total",
 		Help:      "Active private-key material validation failures.",
 	}, []string{"reason"})
+	lifecycleOperations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "iam",
+		Subsystem: "jwks",
+		Name:      "lifecycle_operations_total",
+		Help:      "JWKS lifecycle application operations by operation and result.",
+	}, []string{"operation", "result"})
+	postCommitFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "iam",
+		Subsystem: "jwks",
+		Name:      "post_commit_failures_total",
+		Help:      "JWKS post-commit failures by stage.",
+	}, []string{"stage"})
 )
 
 func recordRotationResult(result string) {
@@ -51,4 +63,12 @@ func setKeyStateCounts(active, grace, retired int64) {
 	keyStateCount.WithLabelValues("active").Set(float64(active))
 	keyStateCount.WithLabelValues("grace").Set(float64(grace))
 	keyStateCount.WithLabelValues("retired").Set(float64(retired))
+}
+
+func recordLifecycleOperation(operation, result string) {
+	lifecycleOperations.WithLabelValues(operation, result).Inc()
+}
+
+func recordPostCommitFailure(stage string) {
+	postCommitFailures.WithLabelValues(stage).Inc()
 }

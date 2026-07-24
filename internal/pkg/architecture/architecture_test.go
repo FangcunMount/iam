@@ -1409,6 +1409,86 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	})
 }
 
+func TestJWKSMutationsUseSingleApplicationLifecycleBoundary(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	appDir := filepath.Join(root, "internal", "apiserver", "application", "authn", "jwks")
+	for _, retired := range []string{
+		"KeyRotationAppService",
+		"KeyRotatorPort",
+		"Should" + "Rotate",
+		"Get" + "RotationPolicy",
+		"Update" + "RotationPolicy",
+		"Get" + "RotationStatus",
+		"type Rotation" + "Policy struct",
+		"type Key" + "Status ",
+	} {
+		scanGoSources(t, appDir, func(path, source string) {
+			if strings.Contains(source, retired) {
+				rel := filepath.ToSlash(mustRel(t, root, path))
+				t.Fatalf("%s contains retired JWKS application surface %q", rel, retired)
+			}
+		})
+	}
+
+	for _, rel := range []string{
+		"internal/apiserver/transport/rest/authn",
+		"internal/apiserver/infra/scheduler",
+	} {
+		scanImports(t, filepath.Join(root, filepath.FromSlash(rel)), func(path string, imports []string) {
+			for _, imp := range imports {
+				if imp == modulePath+"internal/apiserver/infra/token/keyset" {
+					t.Fatalf("%s imports keyset directly; JWKS mutations must pass through KeyLifecycleAppService", filepath.ToSlash(mustRel(t, root, path)))
+				}
+			}
+		})
+	}
+
+	readSource := func(rel string) string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	handler := readSource("internal/apiserver/transport/rest/authn/handler/jwks_admin_lifecycle.go")
+	for _, retired := range []string{
+		"keyManagementApp.RetireKey",
+		"keyManagementApp.ForceRetireKey",
+		"keyManagementApp.EnterGracePeriod",
+		"keyManagementApp.CleanupExpiredKeys",
+	} {
+		if strings.Contains(handler, retired) {
+			t.Fatalf("JWKS admin lifecycle handler bypasses KeyLifecycleAppService with %q", retired)
+		}
+	}
+	for _, expected := range []string{
+		"keyLifecycleApp.RetireKey",
+		"keyLifecycleApp.ForceRetireKey",
+		"keyLifecycleApp.EnterGracePeriod",
+		"keyLifecycleApp.CleanupExpiredKeys",
+	} {
+		if !strings.Contains(handler, expected) {
+			t.Fatalf("JWKS admin lifecycle handler is missing %q", expected)
+		}
+	}
+
+	createHandler := readSource("internal/apiserver/transport/rest/authn/handler/jwks_admin_keys.go")
+	if !strings.Contains(createHandler, "keyLifecycleApp.CreateAndActivate") {
+		t.Fatal("JWKS admin create does not use KeyLifecycleAppService")
+	}
+	scheduler := readSource("internal/apiserver/container/authn/scheduler.go")
+	if !strings.Contains(scheduler, "m.keyLifecycleApp") {
+		t.Fatal("JWKS scheduler is not wired to the shared KeyLifecycleAppService")
+	}
+	rest := readSource("internal/apiserver/container/authn/rest.go")
+	if !strings.Contains(rest, "caps.KeyLifecycleApp") {
+		t.Fatal("JWKS REST collector is not wired to KeyLifecycleAppService")
+	}
+}
+
 func TestAuthnLoginMethodSelectionUsesMethodRegistryAndProofFactory(t *testing.T) {
 	t.Parallel()
 

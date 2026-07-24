@@ -13,7 +13,7 @@ on:
       - internal/apiserver/container/authn/**
       - internal/apiserver/infra/token/keyset/**
       - internal/apiserver/options/**
-      - internal/pkg/migration/migrations/**
+      - internal/pkg/migration/**
       - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
@@ -29,7 +29,7 @@ on:
       - internal/apiserver/container/authn/**
       - internal/apiserver/infra/token/keyset/**
       - internal/apiserver/options/**
-      - internal/pkg/migration/migrations/**
+      - internal/pkg/migration/**
       - internal/apiserver/application/uc/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
@@ -117,6 +117,25 @@ jobs:
             -v \
             -count=1 \
             2>&1 | tee test-artifacts/mysql-concurrency-tests.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Run JWKS migration tests
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USER: ${{ secrets.CI_MYSQL_USER || 'iam' }}
+          MYSQL_USERNAME: ${{ secrets.CI_MYSQL_USER || 'iam' }}
+          MYSQL_PASSWORD: ${{ secrets.CI_MYSQL_PASSWORD || 'iam_password' }}
+          MYSQL_DATABASE: ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }}
+          MYSQL_DBNAME: ${{ secrets.CI_MYSQL_DATABASE || 'iam_test' }}
+        run: |
+          set -o pipefail
+          export MYSQL_PWD="$MYSQL_PASSWORD"
+          go test ./internal/pkg/migration \
+            -run "TestJWKSSingleActiveMigrationMySQL" \
+            -v \
+            -count=1 \
+            2>&1 | tee test-artifacts/jwks-migration-tests.txt
           exit "${PIPESTATUS[0]}"
 
       - name: Upload test logs on failure

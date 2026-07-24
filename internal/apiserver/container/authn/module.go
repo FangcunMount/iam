@@ -35,7 +35,7 @@ type AuthnModule struct {
 	// JWKS 应用服务
 	keyManagementApp *jwksApp.KeyManagementAppService
 	keyPublishApp    *jwksApp.KeyPublishAppService
-	keyRotationApp   *jwksApp.KeyRotationAppService
+	keyLifecycleApp  *jwksApp.KeyLifecycleAppService
 
 	// 调度器
 	rotationScheduler KeyRotationScheduler
@@ -140,7 +140,7 @@ func (m *AuthnModule) ApplicationCapabilities() ApplicationCapabilities {
 		TokenService:                 m.tokenService,
 		KeyManagementApp:             m.keyManagementApp,
 		KeyPublishApp:                m.keyPublishApp,
-		KeyRotationApp:               m.keyRotationApp,
+		KeyLifecycleApp:              m.keyLifecycleApp,
 	}
 }
 

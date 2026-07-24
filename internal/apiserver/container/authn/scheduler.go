@@ -23,7 +23,7 @@ func (m *AuthnModule) initializeSchedulers(jwksOptions apiserveroptions.JWKSOpti
 	logger := log.New(log.NewOptions())
 
 	m.rotationScheduler = schedulerInfra.NewKeyRotationCronScheduler(
-		m.keyRotationApp,
+		m.keyLifecycleApp,
 		m.rotationOptions.checkCron,
 		logger,
 	)

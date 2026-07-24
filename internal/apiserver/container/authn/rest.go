@@ -31,7 +31,7 @@ func CollectREST(available bool, mod *AuthnModule, moduleName string, deps *rest
 	)
 	deps.Authn.SignupService = caps.SignupService
 	deps.Authn.LoginIdentityLinking = caps.LoginIdentityLinking
-	deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyPublishApp)
+	deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyLifecycleApp, caps.KeyPublishApp)
 	deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionRevoker)
 	deps.Authn.TokenService = caps.TokenService
 	deps.ModuleStatus.AuthEnabled = caps.TokenService != nil

@@ -54,7 +54,7 @@ chmod 600 key-<kid>.pem
 在多数场景下，建议使用系统提供的“创建密钥”接口或服务启动的自动初始化流程：
 
 - 启动服务并设置 `jwks.auto_init: true`，服务会在 `keys_dir` 下写入自动生成的私钥文件并在数据库中登记对应的 JWK/Key 记录。
-- 如果需要主动通过 REST API 创建密钥，请使用 JWKS 管理接口（项目中存在 `Authentication-JWKS` 的 REST 注解，参见 `/internal/apiserver/interface/authn/restful/handler/jwks.go`），该接口会在数据库和 `keys_dir` 中同时创建并保存相应条目。
+- 如果需要主动通过 REST API 创建密钥，请使用 JWKS 管理接口（`internal/apiserver/transport/rest/authn/handler/jwks_admin_keys.go`）。创建操作会原子激活新密钥、把旧 active 转为 grace，并在数据库和 `keys_dir` 中保存对应事实。
 
 ## 文件名约定与解析规则
 
@@ -74,7 +74,7 @@ chmod 600 key-<kid>.pem
 2. 在 `grace`（宽限）期内继续接受用旧密钥签发的令牌，并同时在 JWKS 发布中包含旧公钥。
 3. 宽限期结束后将旧密钥设为 `retired` 并从 `keys_dir` 中安全删除对应私钥（对删除操作请谨慎，确保系统不再需要该私钥）。
 
-注意：多实例部署时请采用集中式密钥存储（KMS/HSM、集中文件共享或 leader election + DB 唯一插入约束）以避免竞态条件。
+注意：当前多实例只支持所有签名实例共享同一个可靠 POSIX 密钥目录；多主机非共享目录部署不受支持。KMS/HSM 是后续演进边界。
 
 ## 故障排查
 

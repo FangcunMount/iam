@@ -112,6 +112,11 @@ Build and Push Docker Image
 - `go.mod`
 - `go.sum`
 - `internal/apiserver/infra/mysql/**`
+- `internal/apiserver/application/authn/**`
+- `internal/apiserver/domain/authn/**`
+- `internal/apiserver/container/authn/**`
+- `internal/apiserver/infra/token/keyset/**`
+- `internal/pkg/migration/**`
 - `internal/apiserver/application/uc/**`
 - `internal/apiserver/testhelpers/**`
 - `internal/pkg/code/**`
@@ -121,6 +126,7 @@ Build and Push Docker Image
 
 ```bash
 go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -count=1
+go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -count=1
 ```
 
 ## db-ops.yml

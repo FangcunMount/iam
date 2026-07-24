@@ -44,7 +44,7 @@ func (h *JWKSHandler) CreateKey(c *gin.Context) {
 		NotAfter:  req.NotAfter,
 	}
 
-	result, err := h.keyManagementApp.CreateKey(ctx, appReq)
+	result, err := h.keyLifecycleApp.CreateAndActivate(ctx, appReq)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -87,14 +87,13 @@ func (h *JWKSHandler) ListKeys(c *gin.Context) {
 		return
 	}
 
-	var status jwksApp.KeyStatus
+	var status string
 	if statusStr != "" {
-		statusUint, err := parseKeyStatus(statusStr)
+		status, err = parseKeyStatus(statusStr)
 		if err != nil {
 			h.Error(c, err)
 			return
 		}
-		status = jwksApp.KeyStatus(statusUint)
 	}
 
 	result, err := h.keyManagementApp.ListKeys(ctx, jwksApp.ListKeysRequest{
@@ -111,7 +110,7 @@ func (h *JWKSHandler) ListKeys(c *gin.Context) {
 	for i, key := range result.Keys {
 		keys[i] = &response.KeyInfo{
 			Kid:       key.Kid,
-			Status:    key.Status.String(),
+			Status:    key.Status,
 			Algorithm: key.Algorithm,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
@@ -167,7 +166,7 @@ func createKeyResponseFromResult(result *jwksApp.CreateKeyResponse) *response.Ke
 	}
 	return &response.KeyResponse{
 		Kid:       result.Kid,
-		Status:    result.Status.String(),
+		Status:    result.Status,
 		Algorithm: result.Algorithm,
 		NotBefore: result.NotBefore,
 		NotAfter:  result.NotAfter,
@@ -182,7 +181,7 @@ func keyByKidResponseFromResult(result *jwksApp.GetKeyByKidResponse) *response.K
 	}
 	return &response.KeyResponse{
 		Kid:       result.Kid,
-		Status:    result.Status.String(),
+		Status:    result.Status,
 		Algorithm: result.Algorithm,
 		NotBefore: result.NotBefore,
 		NotAfter:  result.NotAfter,

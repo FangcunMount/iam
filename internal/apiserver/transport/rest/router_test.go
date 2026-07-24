@@ -232,7 +232,7 @@ func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		JWKSHandler: authhandler.NewJWKSHandler(nil, nil),
+		JWKSHandler: authhandler.NewJWKSHandler(nil, nil, nil),
 	}
 	deps.ModuleStatus.Authn = true
 

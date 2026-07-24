@@ -112,6 +112,29 @@ func TestJWKSHandlerCreateKeyReturnsBindError(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestJWKSHandlerCreateKeyPreservesCreatedResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{}, &jwksPublisherStub{})
+	w := performJWKSAdminRequest(
+		handler.CreateKey,
+		http.MethodPost,
+		"/admin/jwks/keys",
+		[]byte(`{"algorithm":"RS256"}`),
+		nil,
+	)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.JSONEq(t, `{
+		"kid":"created-kid",
+		"status":"active",
+		"algorithm":"RS256",
+		"publicJwk":{"kty":"","use":"","alg":"RS256","kid":"created-kid"},
+		"createdAt":"`+createdKeyTime.Format(time.RFC3339Nano)+`",
+		"updatedAt":"0001-01-01T00:00:00Z"
+	}`, w.Body.String())
+}
+
 func TestJWKSHandlerListKeysRejectsInvalidQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -227,13 +250,15 @@ func TestJWKSHandlerGetPublishableKeysPropagatesApplicationError(t *testing.T) {
 func newJWKSHandlerForTest(publisher jwksApp.KeyPublisherPort) *JWKSHandler {
 	return NewJWKSHandler(
 		nil,
+		nil,
 		jwksApp.NewKeyPublishAppService(publisher, log.NewLogger(zap.NewNop())),
 	)
 }
 
-func newJWKSAdminHandlerForTest(manager jwksApp.KeyManagerPort, publisher jwksApp.KeyPublisherPort) *JWKSHandler {
+func newJWKSAdminHandlerForTest(manager *jwksKeyManagerStub, publisher jwksApp.KeyPublisherPort) *JWKSHandler {
 	return NewJWKSHandler(
 		jwksApp.NewKeyManagementAppService(manager, log.NewLogger(zap.NewNop())),
+		jwksApp.NewKeyLifecycleAppService(manager, publisher, nil, log.NewLogger(zap.NewNop())),
 		jwksApp.NewKeyPublishAppService(publisher, log.NewLogger(zap.NewNop())),
 	)
 }
@@ -275,11 +300,22 @@ type jwksKeyManagerStub struct {
 	listErr        error
 }
 
-func (s *jwksKeyManagerStub) CreateKey(context.Context, string, *time.Time, *time.Time) (*jwksApp.ManagedKey, error) {
+var createdKeyTime = time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)
+
+func (s *jwksKeyManagerStub) CreateAndActivate(context.Context, string, *time.Time, *time.Time) (*jwksApp.ManagedKey, bool, error) {
 	if s.createErr != nil {
-		return nil, s.createErr
+		return nil, false, s.createErr
 	}
-	return nil, nil
+	return &jwksApp.ManagedKey{
+		Kid:       "created-kid",
+		Status:    "active",
+		JWK:       jwksApp.PublicJWK{Kid: "created-kid", Alg: "RS256"},
+		CreatedAt: createdKeyTime,
+	}, true, nil
+}
+
+func (s *jwksKeyManagerStub) RotateIfDue(context.Context) (*jwksApp.ManagedKey, bool, error) {
+	return nil, false, nil
 }
 
 func (s *jwksKeyManagerStub) GetActiveKey(context.Context) (*jwksApp.ManagedKey, error) {
@@ -312,7 +348,7 @@ func (s *jwksKeyManagerStub) CleanupExpiredKeys(context.Context) (int, error) {
 	return 0, nil
 }
 
-func (s *jwksKeyManagerStub) ListKeys(context.Context, jwksApp.KeyStatus, int, int) ([]*jwksApp.ManagedKey, int64, error) {
+func (s *jwksKeyManagerStub) ListKeys(context.Context, string, int, int) ([]*jwksApp.ManagedKey, int64, error) {
 	if s.listErr != nil {
 		return nil, 0, s.listErr
 	}

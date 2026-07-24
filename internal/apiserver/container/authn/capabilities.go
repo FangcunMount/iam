@@ -36,7 +36,7 @@ type ApplicationCapabilities struct {
 	TokenService                 token.TokenApplicationService
 	KeyManagementApp             *jwksApp.KeyManagementAppService
 	KeyPublishApp                *jwksApp.KeyPublishAppService
-	KeyRotationApp               *jwksApp.KeyRotationAppService
+	KeyLifecycleApp              *jwksApp.KeyLifecycleAppService
 }
 
 // RuntimeCapabilities exposes background collaborators owned by authn.

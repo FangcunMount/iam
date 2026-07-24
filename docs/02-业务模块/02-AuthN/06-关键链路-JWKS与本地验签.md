@@ -47,12 +47,14 @@ jwks:
 ```mermaid
 sequenceDiagram
     participant S as Scheduler/Admin
-    participant M as KeyManager
+    participant A as KeyLifecycleAppService
+    participant M as keyset lifecycle
     participant F as PrivateKeyStore
     participant DB as MySQL
     participant C as JWKS Cache
 
-    S->>M: RotateIfDue / CreateKey
+    S->>A: RotateIfDue / CreateAndActivate
+    A->>M: lifecycle mutation
     M->>M: generate key-UUID in memory
     M->>F: temp file 0600, fsync, rename
     M->>DB: transaction + row locks
@@ -60,8 +62,9 @@ sequenceDiagram
     DB->>DB: active -> grace; insert candidate active
     DB-->>M: commit / noop / error
     alt commit
-        M->>C: refresh current-process cache
         M->>M: cleanup expired non-active keys
+        M-->>A: committed key
+        A->>C: refresh current-process snapshot
     else noop or DB failure
         M->>F: remove candidate PEM
     end
@@ -71,7 +74,7 @@ sequenceDiagram
 
 多实例自动任务在事务内重新判断是否到期，只有一个实例完成轮换；并发初始化只有一个胜者。管理员显式创建可以按事务顺序完成多次轮换，但唯一索引保证任意时刻数据库最多一个 active。
 
-数据库提交前失败会补偿删除候选 PEM。提交后 cache 刷新或清理失败不会回滚已经生效的签名密钥，只记录可重试告警。
+数据库提交前失败会补偿删除候选 PEM。提交后 cache 刷新或清理失败不会回滚已经生效的签名密钥，只记录可重试告警。管理端创建、状态变更和 Scheduler 自动轮换都通过同一个 `KeyLifecycleAppService`；查询由只读 management 服务负责。
 
 ## 5. 生命周期规则
 
@@ -97,7 +100,7 @@ GET /.well-known/jwks.json
 GET /api/v2/.well-known/jwks.json
 ```
 
-响应只包含公钥，并保留现有 JSON、ETag 和 Cache-Control 语义。资源服务应固定可信 issuer/JWKS URL，校验算法 allowlist、签名以及 `iss/aud/exp/nbf`；`kid` 未命中时可刷新，但不得跳过验签或接受任意 `jku/jwk`。
+响应只包含公钥，并保留现有 JSON、ETag 和 Cache-Control 语义。公共 JWKS 每次构建以数据库为真相层；当前进程快照只用于 ETag、观测和减少重复构建，不参与决定数据库中的 active 状态。资源服务应固定可信 issuer/JWKS URL，校验算法 allowlist、签名以及 `iss/aud/exp/nbf`；`kid` 未命中时可刷新，但不得跳过验签或接受任意 `jku/jwk`。
 
 管理入口保持原 REST 形状；`POST /authn/admin/jwks/keys` 仍返回 `201 KeyResponse`。
 
@@ -108,6 +111,7 @@ GET /api/v2/.well-known/jwks.json
 - 安全事件下只能 force-retire 非 active key；active 需要先创建并激活新 key，再撤销旧 key。
 - 轮换后至少观察一个完整 AccessToken TTL，确认旧 Token 在 grace 期仍能验证、新 Token 使用新 `kid`。
 - 日志和指标只记录 `kid`、状态、计数和结果，不记录 PEM、Token 或私钥参数。
+- 生命周期指标包括 `iam_jwks_lifecycle_operations_total{operation,result}`、`iam_jwks_post_commit_failures_total{stage}`、`iam_jwks_scheduler_executions_total{result}`；既有轮换结果和最后成功时间指标继续保留。
 
 ## 8. 事实源与验证
 

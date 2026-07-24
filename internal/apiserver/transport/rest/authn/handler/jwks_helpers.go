@@ -30,15 +30,16 @@ func parseNonNegativeInt(value, field string) (int, error) {
 	return result, nil
 }
 
-func parseKeyStatus(status string) (uint8, error) {
-	switch strings.ToLower(status) {
+func parseKeyStatus(status string) (string, error) {
+	normalized := strings.ToLower(status)
+	switch normalized {
 	case "active":
-		return 1, nil
+		return normalized, nil
 	case "grace":
-		return 2, nil
+		return normalized, nil
 	case "retired":
-		return 3, nil
+		return normalized, nil
 	default:
-		return 0, perrors.WithCode(code.ErrInvalidArgument, "invalid status: %s (must be active, grace, or retired)", status)
+		return "", perrors.WithCode(code.ErrInvalidArgument, "invalid status: %s (must be active, grace, or retired)", status)
 	}
 }

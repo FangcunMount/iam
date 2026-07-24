@@ -9,17 +9,20 @@ import (
 type JWKSHandler struct {
 	*BaseHandler
 	keyManagementApp *jwksApp.KeyManagementAppService
+	keyLifecycleApp  *jwksApp.KeyLifecycleAppService
 	keyPublishApp    *jwksApp.KeyPublishAppService
 }
 
 // NewJWKSHandler 创建 JWKS 处理器
 func NewJWKSHandler(
 	keyManagementApp *jwksApp.KeyManagementAppService,
+	keyLifecycleApp *jwksApp.KeyLifecycleAppService,
 	keyPublishApp *jwksApp.KeyPublishAppService,
 ) *JWKSHandler {
 	return &JWKSHandler{
 		BaseHandler:      NewBaseHandler(),
 		keyManagementApp: keyManagementApp,
+		keyLifecycleApp:  keyLifecycleApp,
 		keyPublishApp:    keyPublishApp,
 	}
 }

@@ -2,13 +2,12 @@ package keyset
 
 import (
 	"context"
+	"time"
 
-	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
 
-// KeyRotation coordinates automatic rotation through the atomic KeyManager.
+// KeyRotation is the canonical keyset lifecycle mutation boundary.
 type KeyRotation struct {
 	manager *KeyManager
 	policy  RotationPolicy
@@ -19,44 +18,88 @@ func NewKeyRotation(manager *KeyManager, policy RotationPolicy, logger log.Logge
 	return &KeyRotation{manager: manager, policy: policy, logger: logger}
 }
 
-// RotateKey performs an explicit administrator-requested rotation.
-func (s *KeyRotation) RotateKey(ctx context.Context) (*Key, error) {
-	key, err := s.manager.CreateKey(ctx, "RS256", nil, nil)
+var _ Lifecycle = (*KeyRotation)(nil)
+
+func (s *KeyRotation) CreateAndActivate(
+	ctx context.Context,
+	alg string,
+	notBefore, notAfter *time.Time,
+) (*Key, bool, error) {
+	key, err := s.manager.CreateKey(ctx, alg, notBefore, notAfter)
 	if err != nil {
 		recordRotationResult("failed")
-		s.logger.Errorw("explicit jwks rotation failed", "error", err)
-		return nil, err
+		return nil, false, err
 	}
-	s.afterRotation(ctx, true)
-	return key, nil
+	s.afterActivation(ctx, key, false)
+	return key, true, nil
 }
 
-// RotateIfDue atomically rechecks the policy inside the repository transition.
+func (s *KeyRotation) Bootstrap(ctx context.Context, alg string) (*Key, bool, error) {
+	key, activated, err := s.manager.BootstrapKey(ctx, alg)
+	if err != nil {
+		return nil, false, err
+	}
+	if activated {
+		s.afterActivation(ctx, key, false)
+	}
+	return key, activated, nil
+}
+
 func (s *KeyRotation) RotateIfDue(ctx context.Context) (*Key, bool, error) {
 	key, rotated, err := s.manager.RotateIfDue(ctx, "RS256")
 	if err != nil {
 		recordRotationResult("failed")
-		s.logger.Errorw("scheduled jwks rotation failed", "error", err)
 		return nil, false, err
 	}
-	s.afterRotation(ctx, rotated)
-	return key, rotated, nil
-}
-
-func (s *KeyRotation) afterRotation(ctx context.Context, rotated bool) {
 	if !rotated {
 		recordRotationResult("noop")
-		s.logger.Debugw("jwks rotation check completed", "result", "noop")
-		return
+		s.logger.Debugw("jwks lifecycle operation completed", "operation", "auto_rotate", "result", "noop", "automatic", true)
+		return key, false, nil
 	}
+	s.afterActivation(ctx, key, true)
+	return key, true, nil
+}
+
+func (s *KeyRotation) RetireKey(ctx context.Context, kid string) error {
+	if err := s.manager.RetireKey(ctx, kid); err != nil {
+		return err
+	}
+	_ = s.RefreshStateMetrics(ctx)
+	return nil
+}
+
+func (s *KeyRotation) ForceRetireKey(ctx context.Context, kid string) error {
+	if err := s.manager.ForceRetireKey(ctx, kid); err != nil {
+		return err
+	}
+	_ = s.RefreshStateMetrics(ctx)
+	return nil
+}
+
+func (s *KeyRotation) EnterGracePeriod(ctx context.Context, kid string) error {
+	if err := s.manager.EnterGracePeriod(ctx, kid); err != nil {
+		return err
+	}
+	_ = s.RefreshStateMetrics(ctx)
+	return nil
+}
+
+func (s *KeyRotation) CleanupExpiredKeys(ctx context.Context) (int, error) {
+	count, err := s.manager.CleanupExpiredKeys(ctx)
+	if err != nil {
+		return 0, err
+	}
+	_ = s.RefreshStateMetrics(ctx)
+	return count, nil
+}
+
+func (s *KeyRotation) afterActivation(ctx context.Context, key *Key, automatic bool) {
 	if _, err := s.manager.CleanupExpiredKeys(ctx); err != nil {
-		s.logger.Warnw("jwks expired-key cleanup failed after rotation", "error", err)
+		recordPostCommitFailure("cleanup")
+		s.logger.Warnw("jwks post-commit action failed", "stage", "cleanup")
 	}
-	active, _ := s.manager.keyRepo.CountByStatus(ctx, KeyActive)
-	grace, _ := s.manager.keyRepo.CountByStatus(ctx, KeyGrace)
-	retired, _ := s.manager.keyRepo.CountByStatus(ctx, KeyRetired)
-	setKeyStateCounts(active, grace, retired)
-	if int(active+grace) > s.policy.MaxKeysInJWKS {
+	active, grace, retired, err := s.refreshStateMetrics(ctx)
+	if err == nil && int(active+grace) > s.policy.MaxKeysInJWKS {
 		s.logger.Warnw("jwks publishable key count exceeds soft limit",
 			"active", active,
 			"grace", grace,
@@ -65,77 +108,34 @@ func (s *KeyRotation) afterRotation(ctx context.Context, rotated bool) {
 		)
 	}
 	recordRotationResult("success")
-	s.logger.Infow("jwks rotation completed", "result", "success", "active", active, "grace", grace, "retired", retired)
+	operation := "create_and_activate"
+	if automatic {
+		operation = "auto_rotate"
+	}
+	s.logger.Infow("jwks lifecycle operation completed",
+		"operation", operation,
+		"result", "success",
+		"kid", key.Kid,
+		"automatic", automatic,
+	)
 }
 
-func (s *KeyRotation) ShouldRotate(ctx context.Context) (bool, error) {
-	activeKeys, err := s.manager.keyRepo.FindByStatus(ctx, KeyActive)
+// RefreshStateMetrics initializes or refreshes lifecycle state gauges.
+func (s *KeyRotation) RefreshStateMetrics(ctx context.Context) error {
+	_, _, _, err := s.refreshStateMetrics(ctx)
+	return err
+}
+
+func (s *KeyRotation) refreshStateMetrics(ctx context.Context) (int64, int64, int64, error) {
+	stats, err := s.manager.GetKeyStats(ctx)
 	if err != nil {
-		return false, errors.WithCode(code.ErrDatabase, "failed to find active keys: %v", err)
+		recordPostCommitFailure("state_count")
+		s.logger.Warnw("jwks post-commit action failed", "stage", "state_count")
+		return 0, 0, 0, err
 	}
-	if len(activeKeys) == 0 {
-		return true, nil
-	}
-	if len(activeKeys) != 1 {
-		return false, errors.WithCode(code.ErrInvalidStateTransition, "expected exactly one active key, found %d", len(activeKeys))
-	}
-	active := activeKeys[0]
-	now := s.manager.now()
-	if active.IsExpired(now) {
-		return true, nil
-	}
-	return active.NotBefore == nil || !active.NotBefore.After(now.Add(-s.policy.RotationInterval)), nil
-}
-
-func (s *KeyRotation) GetRotationPolicy() RotationPolicy {
-	return s.policy
-}
-
-func (s *KeyRotation) UpdateRotationPolicy(_ context.Context, policy RotationPolicy) error {
-	if err := policy.Validate(); err != nil {
-		return err
-	}
-	if err := s.manager.SetRotationPolicy(policy); err != nil {
-		return err
-	}
-	s.policy = policy
-	return nil
-}
-
-func (s *KeyRotation) GetRotationStatus(ctx context.Context) (*RotationStatus, error) {
-	activeKeys, err := s.manager.keyRepo.FindByStatus(ctx, KeyActive)
-	if err != nil {
-		return nil, errors.WithCode(code.ErrDatabase, "failed to find active keys: %v", err)
-	}
-	graceKeys, err := s.manager.keyRepo.FindByStatus(ctx, KeyGrace)
-	if err != nil {
-		return nil, errors.WithCode(code.ErrDatabase, "failed to find grace keys: %v", err)
-	}
-	retiredCount, err := s.manager.keyRepo.CountByStatus(ctx, KeyRetired)
-	if err != nil {
-		return nil, errors.WithCode(code.ErrDatabase, "failed to count retired keys: %v", err)
-	}
-	status := &RotationStatus{Policy: s.policy, RetiredKeys: int(retiredCount)}
-	if len(activeKeys) == 1 {
-		status.ActiveKey = rotationKeyInfo(activeKeys[0])
-		if activeKeys[0].NotBefore != nil {
-			status.LastRotation = *activeKeys[0].NotBefore
-			status.NextRotation = activeKeys[0].NotBefore.Add(s.policy.RotationInterval)
-		}
-	}
-	for _, key := range graceKeys {
-		status.GraceKeys = append(status.GraceKeys, rotationKeyInfo(key))
-	}
-	return status, nil
-}
-
-func rotationKeyInfo(key *Key) *KeyInfo {
-	return &KeyInfo{
-		Kid:       key.Kid,
-		Status:    key.Status,
-		Algorithm: key.JWK.Alg,
-		NotBefore: key.NotBefore,
-		NotAfter:  key.NotAfter,
-		CreatedAt: key.CreatedAt,
-	}
+	active := stats[KeyActive]
+	grace := stats[KeyGrace]
+	retired := stats[KeyRetired]
+	setKeyStateCounts(active, grace, retired)
+	return active, grace, retired, nil
 }

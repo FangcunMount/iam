@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
@@ -13,8 +15,8 @@ import (
 // KeyRotationCronScheduler 基于 Cron 表达式的密钥轮换调度器
 // 相比 Ticker 方式，Cron 更适合长周期任务，资源消耗更少
 type KeyRotationCronScheduler struct {
-	rotationApp *jwks.KeyRotationAppService
-	logger      log.Logger
+	lifecycleApp *jwks.KeyLifecycleAppService
+	logger       log.Logger
 
 	cronSpec string     // Cron 表达式，如 "0 2 * * *" 表示每天凌晨2点
 	cron     *cron.Cron // Cron 调度器
@@ -39,7 +41,7 @@ type KeyRotationCronScheduler struct {
 //   - "@every 24h"       每24小时执行（推荐用于密钥轮换）
 //   - "@every 720h"      每30天执行
 func NewKeyRotationCronScheduler(
-	rotationApp *jwks.KeyRotationAppService,
+	lifecycleApp *jwks.KeyLifecycleAppService,
 	cronSpec string,
 	logger log.Logger,
 ) *KeyRotationCronScheduler {
@@ -50,9 +52,9 @@ func NewKeyRotationCronScheduler(
 	}
 
 	return &KeyRotationCronScheduler{
-		rotationApp: rotationApp,
-		logger:      logger,
-		cronSpec:    cronSpec,
+		lifecycleApp: lifecycleApp,
+		logger:       logger,
+		cronSpec:     cronSpec,
 	}
 }
 
@@ -150,16 +152,19 @@ func (s *KeyRotationCronScheduler) GetNextRunTime() string {
 
 // checkAndRotate 检查并执行密钥轮换
 func (s *KeyRotationCronScheduler) checkAndRotate(ctx context.Context) error {
-	resp, err := s.rotationApp.RotateIfDue(ctx)
+	resp, err := s.lifecycleApp.RotateIfDue(ctx)
 	if err != nil {
-		s.logger.Errorw("Automatic key rotation failed", "error", err)
+		schedulerExecutions.WithLabelValues("failed").Inc()
+		s.logger.Errorw("Automatic key rotation failed", "result", "failed")
 		return err
 	}
 	if resp == nil || !resp.Rotated {
+		schedulerExecutions.WithLabelValues("noop").Inc()
 		s.logger.Debugw("Key rotation not needed", "result", "noop")
 		return nil
 	}
 
+	schedulerExecutions.WithLabelValues("success").Inc()
 	s.logger.Infow("Automatic key rotation completed successfully",
 		"kid", resp.NewKey.Kid,
 		"algorithm", resp.NewKey.Algorithm,
@@ -168,3 +173,10 @@ func (s *KeyRotationCronScheduler) checkAndRotate(ctx context.Context) error {
 
 	return nil
 }
+
+var schedulerExecutions = promauto.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "iam",
+	Subsystem: "jwks",
+	Name:      "scheduler_executions_total",
+	Help:      "JWKS scheduler executions by result.",
+}, []string{"result"})

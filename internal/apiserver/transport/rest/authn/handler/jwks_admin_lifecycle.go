@@ -34,7 +34,7 @@ func (h *JWKSHandler) RetireKey(c *gin.Context) {
 		return
 	}
 
-	if err := h.keyManagementApp.RetireKey(ctx, kid); err != nil {
+	if err := h.keyLifecycleApp.RetireKey(ctx, kid); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -65,7 +65,7 @@ func (h *JWKSHandler) ForceRetireKey(c *gin.Context) {
 		return
 	}
 
-	if err := h.keyManagementApp.ForceRetireKey(ctx, kid); err != nil {
+	if err := h.keyLifecycleApp.ForceRetireKey(ctx, kid); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -96,7 +96,7 @@ func (h *JWKSHandler) EnterGracePeriod(c *gin.Context) {
 		return
 	}
 
-	if err := h.keyManagementApp.EnterGracePeriod(ctx, kid); err != nil {
+	if err := h.keyLifecycleApp.EnterGracePeriod(ctx, kid); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -118,7 +118,7 @@ func (h *JWKSHandler) EnterGracePeriod(c *gin.Context) {
 func (h *JWKSHandler) CleanupExpiredKeys(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	result, err := h.keyManagementApp.CleanupExpiredKeys(ctx)
+	result, err := h.keyLifecycleApp.CleanupExpiredKeys(ctx)
 	if err != nil {
 		h.Error(c, err)
 		return
@@ -151,7 +151,7 @@ func (h *JWKSHandler) GetPublishableKeys(c *gin.Context) {
 	for i, key := range result.Keys {
 		keys[i] = &response.PublishableKeyInfo{
 			Kid:       key.Kid,
-			Status:    key.Status.String(),
+			Status:    key.Status,
 			Algorithm: key.Algorithm,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,

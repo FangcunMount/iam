@@ -10,7 +10,9 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -109,6 +111,91 @@ func TestKeyManagerValidateActiveKeyMatchesPEM(t *testing.T) {
 	require.True(t, perrors.IsCode(err, code.ErrInvalidJWK), "error = %v", err)
 }
 
+func TestKeyManagerValidateActiveKeyFailsClosedForMissingAndMalformedPEM(t *testing.T) {
+	now := time.Now()
+	key := lifecycleTestKey("key-material", KeyActive, now.Add(-time.Minute), now.Add(time.Hour))
+	repo := &lifecycleRepositoryStub{keys: map[string]*Key{key.Kid: key}}
+	dir := t.TempDir()
+	manager := NewKeyManagerWithPolicy(repo, NewRSAKeyGenerator(), NewPEMPrivateKeyStorage(dir), DefaultRotationPolicy())
+	resolver := NewPEMPrivateKeyResolver(dir)
+
+	_, err := manager.ValidateActiveKey(context.Background(), resolver)
+	require.Error(t, err, "missing PEM must fail closed")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, key.Kid+".pem"), []byte("not a PEM"), 0o600))
+	_, err = manager.ValidateActiveKey(context.Background(), resolver)
+	require.Error(t, err, "malformed PEM must fail closed")
+}
+
+func TestKeyRotationCreateAndActivateRunsSharedCleanup(t *testing.T) {
+	now := time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)
+	expired := lifecycleTestKey("expired", KeyRetired, now.Add(-48*time.Hour), now.Add(-time.Hour))
+	repo := &lifecycleRepositoryStub{
+		keys:    map[string]*Key{"expired": expired},
+		expired: []*Key{expired},
+	}
+	manager := NewKeyManagerWithPolicy(
+		repo,
+		NewRSAKeyGenerator(),
+		NewPEMPrivateKeyStorage(t.TempDir()),
+		DefaultRotationPolicy(),
+	)
+	manager.now = func() time.Time { return now }
+	lifecycle := NewKeyRotation(manager, DefaultRotationPolicy(), log.New(log.NewOptions()))
+
+	key, changed, err := lifecycle.CreateAndActivate(context.Background(), "RS256", nil, nil)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.True(t, key.IsActive())
+	require.NotContains(t, repo.keys, "expired")
+}
+
+func TestKeyRotationKeepsCommittedActivationWhenCleanupFails(t *testing.T) {
+	repo := &lifecycleRepositoryStub{
+		keys:       map[string]*Key{},
+		expiredErr: errors.New("cleanup unavailable"),
+	}
+	manager := NewKeyManagerWithPolicy(
+		repo,
+		NewRSAKeyGenerator(),
+		NewPEMPrivateKeyStorage(t.TempDir()),
+		DefaultRotationPolicy(),
+	)
+	lifecycle := NewKeyRotation(manager, DefaultRotationPolicy(), log.New(log.NewOptions()))
+
+	key, changed, err := lifecycle.CreateAndActivate(context.Background(), "RS256", nil, nil)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.True(t, key.IsActive())
+	require.Len(t, repo.activeKeys(), 1)
+}
+
+func TestKeyRotationStateCountFailureRetainsGaugeValues(t *testing.T) {
+	setKeyStateCounts(9, 8, 7)
+	repo := &lifecycleRepositoryStub{
+		keys:     map[string]*Key{},
+		countErr: errors.New("count unavailable"),
+	}
+	manager := NewKeyManagerWithPolicy(repo, NewRSAKeyGenerator(), nil, DefaultRotationPolicy())
+	lifecycle := NewKeyRotation(manager, DefaultRotationPolicy(), log.New(log.NewOptions()))
+
+	require.Error(t, lifecycle.RefreshStateMetrics(context.Background()))
+	require.Equal(t, float64(9), gaugeValue(t, keyStateCount.WithLabelValues("active")))
+	require.Equal(t, float64(8), gaugeValue(t, keyStateCount.WithLabelValues("grace")))
+	require.Equal(t, float64(7), gaugeValue(t, keyStateCount.WithLabelValues("retired")))
+}
+
+type metricWriter interface {
+	Write(*dto.Metric) error
+}
+
+func gaugeValue(t *testing.T, gauge metricWriter) float64 {
+	t.Helper()
+	metric := &dto.Metric{}
+	require.NoError(t, gauge.Write(metric))
+	return metric.GetGauge().GetValue()
+}
+
 func lifecycleTestKey(kid string, status KeyStatus, notBefore, notAfter time.Time) *Key {
 	n, e := "modulus", "AQAB"
 	return &Key{
@@ -124,6 +211,9 @@ type lifecycleRepositoryStub struct {
 	mu          sync.Mutex
 	keys        map[string]*Key
 	activateErr error
+	expired     []*Key
+	expiredErr  error
+	countErr    error
 }
 
 func (r *lifecycleRepositoryStub) Activate(_ context.Context, request ActivationRequest) (ActivationResult, error) {
@@ -204,12 +294,15 @@ func (r *lifecycleRepositoryStub) FindPublishable(context.Context) ([]*Key, erro
 	return nil, nil
 }
 func (r *lifecycleRepositoryStub) FindExpired(context.Context) ([]*Key, error) {
-	return nil, nil
+	return r.expired, r.expiredErr
 }
 func (r *lifecycleRepositoryStub) FindAll(context.Context, int, int) ([]*Key, int64, error) {
 	return nil, 0, nil
 }
 func (r *lifecycleRepositoryStub) CountByStatus(ctx context.Context, status KeyStatus) (int64, error) {
+	if r.countErr != nil {
+		return 0, r.countErr
+	}
 	keys, _ := r.FindByStatus(ctx, status)
 	return int64(len(keys)), nil
 }

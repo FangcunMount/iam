@@ -66,7 +66,7 @@ type GetPublishableKeysResponse struct {
 // PublishableKeyInfo 可发布的密钥信息（列表项）
 type PublishableKeyInfo struct {
 	Kid       string     // 密钥 ID
-	Status    KeyStatus  // 密钥状态
+	Status    string     // 密钥状态
 	Algorithm string     // 签名算法
 	NotBefore *time.Time // 生效时间
 	NotAfter  *time.Time // 过期时间

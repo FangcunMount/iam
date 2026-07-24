@@ -182,7 +182,7 @@ func ensureJWKSReady(
 		if !allowCreate {
 			return fmt.Errorf("no active jwks key and automatic initialization is disabled")
 		}
-		if _, _, err := infra.keyManager.BootstrapKey(ctx, "RS256"); err != nil {
+		if _, _, err := infra.keyRotation.Bootstrap(ctx, "RS256"); err != nil {
 			return fmt.Errorf("bootstrap jwks active key: %w", err)
 		}
 		logger.Infow("auto-created initial jwks active key", "alg", "RS256")
@@ -190,13 +190,19 @@ func ensureJWKSReady(
 		if !allowCreate || activeKeys[0].IsNotYetValid(time.Now()) {
 			return fmt.Errorf("active jwks key is not currently valid")
 		}
-		if _, err := infra.keyManager.CreateKey(ctx, "RS256", nil, nil); err != nil {
+		if _, _, err := infra.keyRotation.CreateAndActivate(ctx, "RS256", nil, nil); err != nil {
 			return fmt.Errorf("replace expired jwks active key: %w", err)
 		}
 		logger.Infow("replaced expired jwks active key", "alg", "RS256")
 	}
 	if _, err := infra.keyManager.ValidateActiveKey(ctx, infra.privKeyResolver); err != nil {
 		return fmt.Errorf("validate active jwks key material: %w", err)
+	}
+	if err := infra.keySetBuilder.RefreshCache(ctx); err != nil {
+		return fmt.Errorf("initialize jwks publish snapshot: %w", err)
+	}
+	if err := infra.keyRotation.RefreshStateMetrics(ctx); err != nil {
+		logger.Warnw("initialize jwks state metrics failed")
 	}
 	logger.Debugw("active jwks key and private material validated")
 	return nil
