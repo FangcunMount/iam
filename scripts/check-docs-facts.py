@@ -200,6 +200,92 @@ def check_readiness_facts() -> None:
             fail(f"required low-cardinality IAM metric is missing {metric_token}")
 
 
+def check_security_delivery_facts() -> None:
+    prod = load_yaml("configs/apiserver.prod.yaml")
+    expected_logging = {
+        "mysql.log-level": prod.get("mysql", {}).get("log-level"),
+        "log.format": prod.get("log", {}).get("format"),
+        "log.enable-color": prod.get("log", {}).get("enable-color"),
+        "log.development": prod.get("log", {}).get("development"),
+    }
+    if expected_logging != {
+        "mysql.log-level": 1,
+        "log.format": "json",
+        "log.enable-color": False,
+        "log.development": False,
+    }:
+        fail(f"production logging contract drifted: {expected_logging}")
+
+    metadata = (ROOT / "scripts/cd/image-metadata.sh").read_text(encoding="utf-8")
+    remote = (ROOT / "scripts/cd/remote-deploy.sh").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "build/docker/Dockerfile").read_text(encoding="utf-8")
+    compose = (
+        ROOT / "build/docker/docker-compose.prod.yml"
+    ).read_text(encoding="utf-8")
+    for token in ("HEALTH_PATH", "/healthz", "READINESS_PATH", "/readyz"):
+        if token not in metadata:
+            fail(f"image metadata is missing delivery probe fact {token}")
+    for token in (
+        '${HEALTH_PATH}',
+        '${READINESS_PATH}',
+        'iam_probe_gate_allows "$health_status" "$readiness_status"',
+    ):
+        if token not in remote:
+            fail(f"remote deployment is missing delivery gate {token}")
+    for source, label in ((dockerfile, "Dockerfile"), (compose, "production compose")):
+        if "localhost:9080/healthz" not in source:
+            fail(f"{label} no longer uses /healthz for container liveness")
+    for token in ("./cmd/iam-maintenance/", "/app/iam-maintenance"):
+        if token not in dockerfile:
+            fail(f"production image is missing maintenance binary fact {token}")
+
+    refresh_store = (
+        ROOT / "internal/apiserver/infra/cache/redis/token-store.go"
+    ).read_text(encoding="utf-8")
+    refresher = (
+        ROOT / "internal/apiserver/application/authn/token/refresher.go"
+    ).read_text(encoding="utf-8")
+    profile_link = (
+        ROOT
+        / "internal/apiserver/transport/grpc/service/identity/profile_link_command.go"
+    ).read_text(encoding="utf-8")
+    for source, tokens, label in (
+        (
+            refresh_store,
+            ('log.String("key", key)', 'log.String("error", err.Error())'),
+            "refresh token Redis logging",
+        ),
+        (refresher, ("token_hint", "MaskToken"), "refresh conflict logging"),
+        (profile_link, ("Error: err.Error()",), "batch gRPC error response"),
+    ):
+        for token in tokens:
+            if token in source:
+                fail(f"{label} contains retired unsafe token {token}")
+
+    mapper = (ROOT / "internal/pkg/grpc/error_mapper.go").read_text(
+        encoding="utf-8"
+    )
+    for token in (
+        'return "internal server error"',
+        'return "service unavailable"',
+        "func PublicStatusMessage",
+    ):
+        if token not in mapper:
+            fail(f"gRPC public error mapper is missing {token}")
+
+    operations_doc = (
+        ROOT / "docs/01-运行时/07-安全日志与凭据处置.md"
+    ).read_text(encoding="utf-8")
+    for fact in (
+        "默认 dry-run",
+        "PURGE_REFRESH_TOKENS",
+        "DELETE_PRE_5_4_IAM_LOGS",
+        "至少观察一个 Access Token TTL",
+    ):
+        if fact not in operations_doc:
+            fail(f"security operations documentation is missing {fact}")
+
+
 def check_active_docs() -> None:
     forbidden = "待补证据"
     for path in (ROOT / "docs").rglob("*.md"):
@@ -242,6 +328,7 @@ def main() -> int:
         check_module_wiring,
         check_jwks_lifecycle_wiring,
         check_readiness_facts,
+        check_security_delivery_facts,
         check_active_docs,
     )
     try:

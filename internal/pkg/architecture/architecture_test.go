@@ -55,6 +55,104 @@ func TestTransportLoggersRemainMetadataOnly(t *testing.T) {
 	}
 }
 
+func TestSecuritySensitiveLogsAndGRPCErrorsStayPublicSafe(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	exactGuards := map[string][]string{
+		"internal/apiserver/infra/cache/redis/token-store.go": {
+			`log.String("key", key)`,
+			`log.String("error", err.Error())`,
+		},
+		"internal/apiserver/infra/cache/redis/accesstoken_cache.go": {
+			`log.String("key", key)`,
+			`log.String("error", err.Error())`,
+		},
+		"internal/apiserver/application/authn/token/refresher.go": {
+			"token_hint",
+			"MaskToken",
+		},
+		"internal/apiserver/application/authn/session/sign_out.go": {
+			`"error", err.Error()`,
+		},
+		"internal/apiserver/domain/authn/authentication/authenticater.go": {
+			`"error", err.Error()`,
+		},
+		"internal/apiserver/transport/grpc/service/identity/profile_link_command.go": {
+			`Error: err.Error()`,
+		},
+		"internal/apiserver/transport/grpc/service/idp/service_impl.go": {
+			`status.Error(codes.Internal`,
+			`err.Error()`,
+		},
+	}
+	for rel, forbidden := range exactGuards {
+		source, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range forbidden {
+			if strings.Contains(string(source), token) {
+				t.Fatalf("%s contains forbidden security-boundary token %q", rel, token)
+			}
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "internal", "pkg", "security", "sanitize", "token.go")); err == nil {
+		t.Fatal("partial token masking helper must not return; credentials are omitted from logs")
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	mapper, err := os.ReadFile(filepath.Join(root, "internal", "pkg", "grpc", "error_mapper.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		`codes.Internal, codes.Unknown, codes.DataLoss`,
+		`return "internal server error"`,
+		`return "service unavailable"`,
+	} {
+		if !strings.Contains(string(mapper), required) {
+			t.Fatalf("gRPC mapper is missing safe public mapping %q", required)
+		}
+	}
+}
+
+func TestProductionLoggingAndMaintenanceImageContract(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	productionConfig, err := os.ReadFile(filepath.Join(root, "configs", "apiserver.prod.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"log-level: 1",
+		"format: json",
+		"enable-color: false",
+		"development: false",
+	} {
+		if !strings.Contains(string(productionConfig), required) {
+			t.Fatalf("production configuration is missing %q", required)
+		}
+	}
+
+	dockerfile, err := os.ReadFile(filepath.Join(root, "build", "docker", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"./cmd/iam-maintenance/",
+		"/app/iam-maintenance",
+		"localhost:9080/healthz",
+	} {
+		if !strings.Contains(string(dockerfile), required) {
+			t.Fatalf("production image contract is missing %q", required)
+		}
+	}
+}
+
 func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {
 	t.Parallel()
 

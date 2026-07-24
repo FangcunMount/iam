@@ -5,10 +5,10 @@
 package options
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 // MySQLOptions defines options for mysql database.
@@ -33,14 +33,16 @@ func NewMySQLOptions() *MySQLOptions {
 		MaxIdleConnections:    100,
 		MaxOpenConnections:    100,
 		MaxConnectionLifeTime: time.Duration(10) * time.Second,
-		LogLevel:              viper.GetInt("mysql.log-level"),
+		LogLevel:              1,
 	}
 }
 
 // Validate verifies flags passed to MySQLOptions.
 func (o *MySQLOptions) Validate() []error {
 	errs := []error{}
-
+	if o.LogLevel < 1 || o.LogLevel > 4 {
+		errs = append(errs, fmt.Errorf("mysql.log-level must be between 1 and 4"))
+	}
 	return errs
 }
 

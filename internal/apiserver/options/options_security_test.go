@@ -138,6 +138,62 @@ func TestOptionsDefaultsToReleaseProductionProfile(t *testing.T) {
 	if got := string(profile.Environment); got != "production" {
 		t.Fatalf("Environment = %q, want production", got)
 	}
+	if opts.MySQLOptions.LogLevel != 1 || opts.Log.Format != "json" || opts.Log.EnableColor || opts.Log.Development {
+		t.Fatalf("release defaults are not production-safe: mysql=%d format=%q color=%t development=%t",
+			opts.MySQLOptions.LogLevel, opts.Log.Format, opts.Log.EnableColor, opts.Log.Development)
+	}
+}
+
+func TestOptionsValidateProductionLogging(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*Options)
+		wantErr string
+	}{
+		{name: "valid"},
+		{name: "gorm not silent", mutate: func(o *Options) { o.MySQLOptions.LogLevel = 2 }, wantErr: "mysql.log-level"},
+		{name: "console format", mutate: func(o *Options) { o.Log.Format = "console" }, wantErr: "log.format"},
+		{name: "color enabled", mutate: func(o *Options) { o.Log.EnableColor = true }, wantErr: "log.enable-color"},
+		{name: "development enabled", mutate: func(o *Options) { o.Log.Development = true }, wantErr: "log.development"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := NewOptions()
+			opts.JWKS.KeysDir = "/var/lib/iam/keys"
+			opts.SMS.Provider = "aliyun"
+			if tt.mutate != nil {
+				tt.mutate(opts)
+			}
+			errs := opts.Validate()
+			if tt.wantErr == "" {
+				if len(errs) != 0 {
+					t.Fatalf("Validate() errors = %v", errs)
+				}
+				return
+			}
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tt.wantErr) {
+					if strings.Contains(err.Error(), "console") {
+						t.Fatalf("validation leaked configured value: %v", err)
+					}
+					return
+				}
+			}
+			t.Fatalf("Validate() errors = %v, want %q", errs, tt.wantErr)
+		})
+	}
+}
+
+func TestOptionsValidateDevelopmentLogging(t *testing.T) {
+	opts := NewOptions()
+	opts.GenericServerRunOptions.Mode = "debug"
+	opts.MySQLOptions.LogLevel = 4
+	opts.Log.Format = "console"
+	opts.Log.EnableColor = true
+	opts.Log.Development = true
+	if errs := opts.Validate(); len(errs) != 0 {
+		t.Fatalf("debug logging should remain configurable: %v", errs)
+	}
 }
 
 func TestOptionsValidateJWKSRotation(t *testing.T) {

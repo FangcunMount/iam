@@ -1,12 +1,16 @@
 package grpc
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const componentBaseUnknownErrorCode = 1
 
 // CodeForHTTPStatus maps IAM's registered HTTP-oriented error taxonomy to gRPC.
 func CodeForHTTPStatus(httpStatus int) codes.Code {
@@ -51,7 +55,10 @@ func CodedStatusError(err error) (error, bool) {
 		return nil, false
 	}
 	coder := perrors.ParseCoder(err)
-	if coder == nil {
+	// component-base maps every ordinary Go error to its internal fallback
+	// coder (code 1). That fallback is not a registered IAM business error and
+	// must use this transport's stable public Internal message.
+	if coder == nil || coder.Code() == componentBaseUnknownErrorCode {
 		return nil, false
 	}
 	return status.Error(CodeForHTTPStatus(coder.HTTPStatus()), coder.String()), true
@@ -63,10 +70,40 @@ func ToStatusError(err error) error {
 		return nil
 	}
 	if st, ok := status.FromError(err); ok {
-		return st.Err()
+		return status.Error(st.Code(), publicMessageForStatus(st.Code(), st.Message()))
+	}
+	if errors.Is(err, context.Canceled) {
+		return status.Error(codes.Canceled, publicMessageForStatus(codes.Canceled, ""))
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return status.Error(codes.DeadlineExceeded, publicMessageForStatus(codes.DeadlineExceeded, ""))
 	}
 	if coded, ok := CodedStatusError(err); ok {
 		return coded
 	}
-	return status.Error(codes.Internal, err.Error())
+	return status.Error(codes.Internal, publicMessageForStatus(codes.Internal, ""))
+}
+
+// PublicStatusMessage returns the client-safe message used by ToStatusError.
+// It is intended for batch response fields that cannot carry a gRPC status.
+func PublicStatusMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	return status.Convert(ToStatusError(err)).Message()
+}
+
+func publicMessageForStatus(code codes.Code, message string) string {
+	switch code {
+	case codes.Internal, codes.Unknown, codes.DataLoss:
+		return "internal server error"
+	case codes.Unavailable:
+		return "service unavailable"
+	case codes.DeadlineExceeded:
+		return "deadline exceeded"
+	case codes.Canceled:
+		return "request canceled"
+	default:
+		return message
+	}
 }

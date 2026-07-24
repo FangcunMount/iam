@@ -64,11 +64,11 @@ make cd-remote-deploy SERVICE=apiserver IMAGE_TAG=<sha>
 
 `cd.yml` 部署到 serverB，并通过 `build/docker/docker-compose.prod.yml` 启动 `iam-apiserver`。容器当前只 `expose` Docker 网络内端口：
 
-- `9080`: HTTP REST API 和 `/healthz`
+- `9080`: HTTP REST API、`/healthz` 和内部 `/readyz`
 - `9090`: gRPC 服务
 - `9091`: gRPC 健康检查
 
-因此生产健康检查不再探测宿主机 `localhost:8080` 或 `localhost:9444`，而是在 `iam-apiserver` 容器内访问 `http://127.0.0.1:9080/healthz`。
+因此生产 Docker liveness 不再探测宿主机 `localhost:8080` 或 `localhost:9444`，而是在 `iam-apiserver` 容器内访问 `http://127.0.0.1:9080/healthz`。部署成功还必须在同一容器内通过 `/readyz`。
 
 ## ci.yml
 
@@ -99,7 +99,10 @@ Build and Push Docker Image
 - `deploy` 运行 `make cd-package`，上传 `deploy-package-apiserver.tar.gz` 到 serverB。
 - 远端仅通过部署包内的 `scripts/cd/remote-deploy.sh` 执行部署逻辑。
 - GHCR 登录失败时，远端脚本会尝试回退到 Docker Hub 镜像。
-- 部署后的健康检查在容器内探测 `127.0.0.1:9080/healthz`。
+- 部署脚本先在容器内探测 `127.0.0.1:9080/healthz`，再探测
+  `127.0.0.1:9080/readyz`；两者均返回 `200` 才宣布成功。
+- `/readyz` 失败只让本次发布失败并输出稳定组件状态，不触发自动 restart
+  或自动 rollback。
 
 ## concurrency-tests.yml
 
@@ -168,6 +171,7 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 - Docker healthcheck 是否 healthy；unhealthy 时会输出日志并尝试重启一次。
 - `infra-network` 是否存在。
 - 容器内 `http://127.0.0.1:9080/healthz` 是否返回 200。
+- 容器内 `/readyz` 是否可接流量；失败只告警，不因 readiness 单独重启。
 - 从容器内对 MySQL 和 Redis 做 TCP 连通性检查。
 
 ## test-ssh.yml

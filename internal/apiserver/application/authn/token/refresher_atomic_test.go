@@ -3,11 +3,15 @@ package token
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
@@ -15,7 +19,19 @@ import (
 )
 
 func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
-	old := testRefreshToken("old-id", "old-value")
+	logPath := filepath.Join(t.TempDir(), "refresh-conflict.log")
+	logOptions := log.NewOptions()
+	logOptions.Format = "json"
+	logOptions.OutputPaths = []string{logPath}
+	logOptions.ErrorOutputPaths = []string{logPath}
+	log.Init(logOptions)
+	t.Cleanup(func() {
+		log.Flush()
+		log.Init(log.NewOptions())
+	})
+
+	const tokenSentinel = "refresh-conflict-secret-sentinel"
+	old := testRefreshToken("old-id", tokenSentinel)
 	store := newAtomicTokenStoreStub(old)
 	refresher := newRefresher(
 		&atomicAccessTokenIssuerStub{},
@@ -57,6 +73,16 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 	}
 	if successes != 1 || notFound != 1 {
 		t.Fatalf("successes = %d, not_found = %d, want 1/1", successes, notFound)
+	}
+	log.Flush()
+	output, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{tokenSentinel, "token_hint", "refresh_token:"} {
+		if strings.Contains(string(output), forbidden) {
+			t.Fatalf("refresh conflict log leaked %q: %s", forbidden, output)
+		}
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/security/sanitize"
 )
 
 // refresher 用于根据 refresh token 刷新 access token 和 refresh token。
@@ -96,7 +95,7 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 			"action", logger.ActionRefresh,
 			"resource", logger.ResourceToken,
 			"token_type", "refresh",
-			"token_hint", sanitize.MaskToken(refreshTokenValue),
+			"result", "conflict",
 		)
 		return nil, perrors.WithCode(code.ErrRefreshTokenNotFound, "refresh token not found")
 	}

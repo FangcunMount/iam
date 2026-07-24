@@ -71,6 +71,7 @@ infra：数据库、Redis、JWT、Casbin、IDP、Suggest runtime 等技术实现
 | [04-配置加载与运行模式.md](04-配置加载与运行模式.md) | 说明配置来源、typed config、运行模式、必需/可降级依赖 | 配置控制运行方式，不定义业务事实 |
 | [05-后台任务与优雅关闭.md](05-后台任务与优雅关闭.md) | 说明 Outbox、runtime reload、Suggest refresh、IDP token refresh、scheduler 和 shutdown | 后台任务必须纳入 process 生命周期 |
 | [06-健康检查与降级启动.md](06-健康检查与降级启动.md) | 说明 liveness、readiness、degraded、降级启动和依赖健康 | 核心能力不可静默降级，辅助能力降级必须可观测 |
+| [07-安全日志与凭据处置.md](07-安全日志与凭据处置.md) | 说明生产日志契约、Refresh Token 清理与修复前日志处置 | 默认 dry-run，删除必须使用精确确认 |
 
 ---
 

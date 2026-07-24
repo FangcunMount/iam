@@ -71,7 +71,13 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 	// 执行认证
 	decision, err := strategy.Authenticate(ctx, proof)
 	if err != nil {
-		l.Errorw("认证策略执行出错", "action", logger.ActionLogin, "credential_kind", string(credentialKind), "error", err.Error())
+		l.Errorw("认证策略执行出错",
+			"action", logger.ActionLogin,
+			"credential_kind", string(credentialKind),
+			"result", "failed",
+			"error_category", "authentication",
+			"retryable", false,
+		)
 		return AuthDecision{}, err
 	}
 

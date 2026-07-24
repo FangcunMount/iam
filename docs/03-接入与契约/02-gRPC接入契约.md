@@ -83,6 +83,13 @@ mTLS ServiceIdentity
 
 > gRPC 契约看 proto，业务语义看 02-业务模块，运行时适配看 transport/grpc。
 
+服务端错误响应只暴露稳定消息：已注册 IAM coded error 使用注册表静态消息；
+参数、认证、授权、未找到等客户端状态保留既有稳定文本；`Internal`、
+`Unknown`、`DataLoss` 统一为 `internal server error`，`Unavailable`、
+`DeadlineExceeded`、`Canceled` 分别统一为 `service unavailable`、
+`deadline exceeded`、`request canceled`。底层错误文本不进入 gRPC
+响应；批量 ProfileLink 的 `error` 字段也使用同一安全消息映射。
+
 ---
 
 ## 3. 事实源

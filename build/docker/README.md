@@ -143,7 +143,18 @@ docker inspect --format='{{.State.Health.Status}}' iam-apiserver
 
 # 手动执行健康检查
 docker exec iam-apiserver curl -f http://localhost:9080/healthz
+
+# 检查实例是否可以接收流量
+docker exec iam-apiserver curl -f http://localhost:9080/readyz
 ```
+
+Docker `HEALTHCHECK` 始终使用 `/healthz` 作为 liveness。生产发布脚本会先
+等待 `/healthz=200`，再等待 `/readyz=200`；readiness 未通过时发布失败，
+但不会自动重启或回滚容器。
+
+镜像同时包含 `/app/iam-maintenance`，仅用于受控维护窗口中的 Refresh
+Token 清理和修复前敏感日志处置。该命令默认 dry-run，不由 apiserver
+自动调用。
 
 ## 日志管理
 

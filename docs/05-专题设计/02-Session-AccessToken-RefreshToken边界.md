@@ -507,7 +507,7 @@ Token 验签成功后仍要 AuthZ Check。
 | 本地验签后认为已授权 | 认证授权混淆 | 验签后 AuthZ Check |
 | RefreshToken 不可吊销 | 无法控制长期会话 | 服务端状态管理 |
 | RefreshToken 不轮换 | 泄露后难发现 | 支持 rotation/reuse detection |
-| 日志打印完整 Token | 凭证泄露 | 脱敏或禁止记录 |
+| 日志打印完整或部分 Token | 凭证泄露 | 完全不记录 Token、Redis key 或摘要 |
 | 把 provider access_token 当 IAM AccessToken | 外部/内部 Token 混淆 | 通过 IDP/AuthN 换 IAM Token |
 | 用 JWT 存复杂权限 | 权限更新不及时 | AuthZ 决策 |
 

@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -75,6 +76,63 @@ func TestToStatusErrorPreservesStatusAndDefaultsUnknownErrorsToInternal(t *testi
 	t.Parallel()
 
 	require.Equal(t, codes.Unimplemented, status.Code(ToStatusError(status.Error(codes.Unimplemented, "not implemented"))))
-	require.Equal(t, codes.Internal, status.Code(ToStatusError(errors.New("plain error"))))
+	got := ToStatusError(errors.New("plain-error-sentinel"))
+	require.Equal(t, codes.Internal, status.Code(got))
+	require.Equal(t, "internal server error", status.Convert(got).Message())
 	require.NoError(t, ToStatusError(nil))
+}
+
+func TestToStatusErrorSanitizesServerFailures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		code    codes.Code
+		message string
+		want    string
+	}{
+		{code: codes.Internal, message: "internal-sentinel", want: "internal server error"},
+		{code: codes.Unknown, message: "unknown-sentinel", want: "internal server error"},
+		{code: codes.DataLoss, message: "data-loss-sentinel", want: "internal server error"},
+		{code: codes.Unavailable, message: "unavailable-sentinel", want: "service unavailable"},
+		{code: codes.DeadlineExceeded, message: "deadline-sentinel", want: "deadline exceeded"},
+		{code: codes.Canceled, message: "canceled-sentinel", want: "request canceled"},
+		{code: codes.InvalidArgument, message: "stable client message", want: "stable client message"},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.code.String(), func(t *testing.T) {
+			t.Parallel()
+			got := ToStatusError(status.Error(tt.code, tt.message))
+			require.Equal(t, tt.code, status.Code(got))
+			require.Equal(t, tt.want, status.Convert(got).Message())
+			require.Equal(t, tt.want, PublicStatusMessage(status.Error(tt.code, tt.message)))
+		})
+	}
+}
+
+func TestPublicStatusMessageKeepsRegisteredStaticMessage(t *testing.T) {
+	t.Parallel()
+
+	err := perrors.WithCode(code.ErrPermissionDenied, "dynamic-sentinel")
+	mapped, ok := CodedStatusError(err)
+	require.True(t, ok)
+	require.Equal(t, status.Convert(mapped).Message(), PublicStatusMessage(err))
+	require.NotContains(t, PublicStatusMessage(err), "dynamic-sentinel")
+}
+
+func TestToStatusErrorMapsContextErrorsToStableMessages(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		err     error
+		code    codes.Code
+		message string
+	}{
+		{err: context.Canceled, code: codes.Canceled, message: "request canceled"},
+		{err: context.DeadlineExceeded, code: codes.DeadlineExceeded, message: "deadline exceeded"},
+	} {
+		got := ToStatusError(tt.err)
+		require.Equal(t, tt.code, status.Code(got))
+		require.Equal(t, tt.message, status.Convert(got).Message())
+	}
 }

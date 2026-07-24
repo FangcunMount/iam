@@ -156,7 +156,7 @@ mysql:
   max-idle-connections: 20
   max-open-connections: 80
   max-connection-life-time: 1h
-  log-level: 4 # GORM log level, 1: silent, 2:error, 3:warn, 4:info (生产环境使用 silent)
+  log-level: 1 # GORM log level, 1: silent, 2:error, 3:warn, 4:info
 
 # ----------------------------------------------------------------------------
 # 3.2 数据库迁移配置
@@ -299,9 +299,9 @@ log:
   disable-caller: true          # 生产环境禁用调用者信息（性能优化）
   disable-stacktrace: true      # 仅在 panic 时记录堆栈
   level: info                   # 日志基本级别：debug, info, warn, error, fatal, panic
-  format: console                # 日志格式（json 适合生产环境，console 适合开发环境）
-  enable-color: true           # 文件输出禁用颜色
-  development: true            # 生产模式
+  format: json                   # 生产环境使用结构化 JSON
+  enable-color: false            # 生产日志禁用颜色
+  development: false             # 生产模式关闭开发日志行为
   name: "iam-apiserver"         # 日志名称
   
   # 📊 日志轮转配置

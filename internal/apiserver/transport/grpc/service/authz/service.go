@@ -156,7 +156,7 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv2.
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if err := s.roleBindings.GrantByRoleName(ctx, cmd); err != nil {
-		return nil, authzGRPCError(codes.Internal, "grant assignment", err)
+		return nil, iamgrpc.ToStatusError(err)
 	}
 
 	return &authzv2.GrantAssignmentResponse{}, nil
@@ -189,7 +189,7 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv2
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if err := s.roleBindings.RevokeByRoleName(ctx, cmd); err != nil {
-		return nil, authzGRPCError(codes.Internal, "revoke assignment", err)
+		return nil, iamgrpc.ToStatusError(err)
 	}
 
 	return &authzv2.RevokeAssignmentResponse{}, nil
@@ -244,13 +244,6 @@ func parseSubjectKey(value string) (subject.Ref, error) {
 		return subject.Ref{}, status.Error(codes.InvalidArgument, "subject id must be a valid IAM id")
 	}
 	return subject.NewRef(subject.Type(parts[0]), id)
-}
-
-func authzGRPCError(defaultCode codes.Code, operation string, err error) error {
-	if coded, ok := iamgrpc.CodedStatusError(err); ok {
-		return coded
-	}
-	return status.Errorf(defaultCode, "%s: %v", operation, err)
 }
 
 func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv2.PermissionEntry {

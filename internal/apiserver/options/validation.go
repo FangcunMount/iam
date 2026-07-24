@@ -19,6 +19,7 @@ func (o *Options) Validate() []error {
 	errs = append(errs, o.validateRemovedAppOptions()...)
 	errs = append(errs, o.validateRemovedSuggestOptions()...)
 	errs = append(errs, validateRemovedEnvironmentVariables()...)
+	errs = append(errs, o.validateProductionLogging()...)
 	if o.SeedMockAuth != nil && o.SeedMockAuth.Enabled && strings.TrimSpace(o.SeedMockAuth.SharedSecret) == "" {
 		errs = append(errs, errors.New("seed_mock_auth.shared_secret is required when seed_mock_auth.enabled=true"))
 	}
@@ -77,6 +78,34 @@ func (o *Options) Validate() []error {
 	}
 	errs = append(errs, o.validateJWKSOptions()...)
 
+	return errs
+}
+
+func (o *Options) validateProductionLogging() []error {
+	if o == nil || o.GenericServerRunOptions == nil {
+		return nil
+	}
+	profile, err := o.GenericServerRunOptions.RuntimeProfile()
+	if err != nil || !profile.IsProductionLike() {
+		return nil
+	}
+
+	var errs []error
+	if o.MySQLOptions != nil && o.MySQLOptions.LogLevel != 1 {
+		errs = append(errs, errors.New("mysql.log-level must be 1 in release mode"))
+	}
+	if o.Log == nil {
+		return append(errs, errors.New("log configuration is required in release mode"))
+	}
+	if !strings.EqualFold(strings.TrimSpace(o.Log.Format), "json") {
+		errs = append(errs, errors.New("log.format must be json in release mode"))
+	}
+	if o.Log.EnableColor {
+		errs = append(errs, errors.New("log.enable-color must be false in release mode"))
+	}
+	if o.Log.Development {
+		errs = append(errs, errors.New("log.development must be false in release mode"))
+	}
 	return errs
 }
 

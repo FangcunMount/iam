@@ -33,7 +33,7 @@ func (s *idpServer) GetWechatApp(ctx context.Context, req *idpv2.GetWechatAppReq
 	// 转换为 proto 消息（包含解密后的 appSecret）
 	protoApp, err := wechatAppDomainToProto(ctx, app, s.secretVault)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to decrypt app secret: "+err.Error())
+		return nil, iamgrpc.ToStatusError(err)
 	}
 
 	return &idpv2.GetWechatAppResponse{

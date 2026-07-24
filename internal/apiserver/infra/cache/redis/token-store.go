@@ -93,7 +93,6 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token
 
 	redisInfo(ctx, "refresh token cached",
 		log.String("token_id", token.ID),
-		log.String("key", key),
 		log.Duration("ttl", ttl),
 	)
 	return nil
@@ -156,7 +155,11 @@ func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*t
 
 	data, found, err := s.refreshTokens.Get(ctx, storeKey)
 	if err != nil {
-		redisError(ctx, "failed to load refresh token", log.String("error", err.Error()))
+		redisError(ctx, "failed to load refresh token",
+			log.String("operation", "get"),
+			log.String("error_category", "redis"),
+			log.Bool("retryable", true),
+		)
 		return nil, fmt.Errorf("failed to get refresh token from redis: %w", err)
 	}
 	if !found {
@@ -197,7 +200,7 @@ func (s *RedisStore) DeleteRefreshToken(ctx context.Context, tokenValue string) 
 		return fmt.Errorf("failed to delete refresh token from redis: %w", err)
 	}
 
-	redisInfo(ctx, "refresh token deleted", log.String("key", key))
+	redisInfo(ctx, "refresh token deleted", log.String("operation", "delete"))
 	return nil
 }
 

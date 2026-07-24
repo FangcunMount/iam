@@ -40,6 +40,11 @@ RUN go build \
     -o apiserver \
     ./cmd/apiserver/
 
+RUN go build \
+    -ldflags "-s -w" \
+    -o iam-maintenance \
+    ./cmd/iam-maintenance/
+
 # ============================================================================
 # 运行阶段
 # ============================================================================
@@ -65,6 +70,7 @@ WORKDIR /app
 
 # 从构建阶段复制二进制文件
 COPY --from=builder /build/apiserver /app/apiserver
+COPY --from=builder /build/iam-maintenance /app/iam-maintenance
 
 # 复制配置文件
 COPY --chown=www:www configs /app/configs

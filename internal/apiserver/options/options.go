@@ -35,7 +35,7 @@ type Options struct {
 // NewOptions 创建一个 Options 对象，包含默认参数
 func NewOptions() *Options {
 	return &Options{
-		Log:                     log.NewOptions(),
+		Log:                     newRuntimeLogOptions(),
 		RemovedApp:              &RemovedAppOptions{},
 		GenericServerRunOptions: genericoptions.NewServerRunOptions(),
 		GRPCOptions:             genericoptions.NewGRPCOptions(),
@@ -91,7 +91,7 @@ func (o *Options) String() string {
 // ApplyDefaults fills nil option groups with their default values.
 func (o *Options) ApplyDefaults() {
 	if o.Log == nil {
-		o.Log = log.NewOptions()
+		o.Log = newRuntimeLogOptions()
 	}
 	if o.RemovedApp == nil {
 		o.RemovedApp = &RemovedAppOptions{}
@@ -150,4 +150,14 @@ func (o *Options) ApplyDefaults() {
 	if o.Events == nil {
 		o.Events = NewEventOptions()
 	}
+}
+
+func newRuntimeLogOptions() *log.Options {
+	opts := log.NewOptions()
+	// The server defaults to release mode, so its zero-config logging contract
+	// must also be production-safe. Development YAML explicitly overrides this.
+	opts.Format = "json"
+	opts.EnableColor = false
+	opts.Development = false
+	return opts
 }

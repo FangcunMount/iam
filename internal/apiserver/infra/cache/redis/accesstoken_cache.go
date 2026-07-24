@@ -56,7 +56,12 @@ func (c *accessTokenCache) Get(ctx context.Context, appID string) (*wechatapp.Ap
 
 	aat, found, err := c.tokens.Get(ctx, storeKey)
 	if err != nil {
-		redisError(ctx, "failed to load access token", log.String("error", err.Error()), log.String("key", key))
+		redisError(ctx, "failed to load access token",
+			log.String("cache_family", "idp_access_token"),
+			log.String("operation", "get"),
+			log.String("error_category", "redis"),
+			log.Bool("retryable", true),
+		)
 		return nil, fmt.Errorf("failed to get access token from cache: %w", err)
 	}
 	if !found {

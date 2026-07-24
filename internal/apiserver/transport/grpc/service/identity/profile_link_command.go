@@ -9,6 +9,7 @@ import (
 
 	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
 	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -112,7 +113,7 @@ func (s *profileLinkCommandServer) BatchRevokeProfileLinks(ctx context.Context, 
 		if err != nil {
 			resp.Failures = append(resp.Failures, &identityv2.FailedProfileLinkFailure{
 				Target: target,
-				Error:  err.Error(),
+				Error:  iamgrpc.PublicStatusMessage(err),
 			})
 			continue
 		}
@@ -147,7 +148,7 @@ func (s *profileLinkCommandServer) ImportProfileLinks(ctx context.Context, req *
 		if err != nil {
 			resp.Failures = append(resp.Failures, &identityv2.FailedImportProfileLink{
 				Record: record,
-				Error:  err.Error(),
+				Error:  iamgrpc.PublicStatusMessage(err),
 			})
 			continue
 		}

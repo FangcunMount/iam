@@ -92,7 +92,8 @@ func (s *SignOut) revokeRefreshToken(ctx context.Context, refreshToken string) e
 	if err := s.tokenService.RevokeRefreshToken(ctx, refreshToken); err != nil {
 		l.Errorw("撤销刷新令牌失败",
 			"action", logger.ActionLogout,
-			"error", err.Error(),
+			"error_category", "session_store",
+			"retryable", true,
 			"result", logger.ResultFailed,
 		)
 		return perrors.WithCode(code.ErrTokenRevokeFailed, "failed to revoke refresh token")
@@ -117,7 +118,8 @@ func (s *SignOut) revokeAccessToken(ctx context.Context, accessToken string) err
 	if err := s.tokenService.RevokeAccessToken(ctx, accessToken); err != nil {
 		l.Errorw("撤销访问令牌失败",
 			"action", logger.ActionLogout,
-			"error", err.Error(),
+			"error_category", "token_store",
+			"retryable", true,
 			"result", logger.ResultFailed,
 		)
 		return perrors.WithCode(code.ErrTokenRevokeFailed, "failed to revoke access token")

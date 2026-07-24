@@ -231,8 +231,9 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 
 	t.Run("application error", func(t *testing.T) {
 		t.Parallel()
+		const sentinel = "authz-grant-internal-sentinel"
 		srv := &authorizationServer{
-			roleBindings: &roleBindingCommandsFake{grantErr: errors.New("grant failed")},
+			roleBindings: &roleBindingCommandsFake{grantErr: errors.New(sentinel)},
 		}
 
 		_, err := srv.GrantAssignment(context.Background(), &authzv2.GrantAssignmentRequest{
@@ -240,6 +241,8 @@ func TestAuthorizationServerAssignmentErrors(t *testing.T) {
 		})
 
 		require.Equal(t, codes.Internal, status.Code(err))
+		require.Equal(t, "internal server error", status.Convert(err).Message())
+		require.NotContains(t, err.Error(), sentinel)
 	})
 }
 

@@ -347,25 +347,47 @@ deploy_service() {
 }
 
 verify_service() {
-  echo "Waiting for service to be ready..."
+  echo "Waiting for service liveness and readiness..."
   local attempts=0
   local max_attempts=30
+  local health_status="000"
+  local readiness_status="000"
+  local liveness_seen=0
 
   while [ "$attempts" -lt "$max_attempts" ]; do
-    if $SUDO docker exec "$CONTAINER_NAME" curl -sf "http://127.0.0.1:${INTERNAL_HTTP_PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
-      echo "Health check passed (attempt $attempts)"
+    health_status="$($SUDO docker exec "$CONTAINER_NAME" curl -sS -o /dev/null -w '%{http_code}' \
+      "http://127.0.0.1:${INTERNAL_HTTP_PORT}${HEALTH_PATH}" 2>/dev/null || true)"
+    if [ "$health_status" = "200" ]; then
+      liveness_seen=1
+      readiness_status="$($SUDO docker exec "$CONTAINER_NAME" curl -sS -o /dev/null -w '%{http_code}' \
+        "http://127.0.0.1:${INTERNAL_HTTP_PORT}${READINESS_PATH}" 2>/dev/null || true)"
+    else
+      readiness_status="000"
+    fi
+
+    if iam_probe_gate_allows "$health_status" "$readiness_status"; then
+      echo "Liveness and readiness checks passed (attempt $((attempts + 1)))"
       $SUDO docker ps --filter "name=${CONTAINER_NAME}" --format "table {{.Names}}\t{{.Status}}"
       return 0
     fi
 
     attempts=$((attempts + 1))
     if [ "$attempts" -lt "$max_attempts" ]; then
-      echo "Health check attempt $attempts/$max_attempts failed, retrying in 5 seconds..."
+      echo "Deployment probe attempt $attempts/$max_attempts failed (healthz=${health_status:-000}, readyz=${readiness_status:-000}), retrying in 5 seconds..."
       sleep 5
     fi
   done
 
-  echo "Service failed to start after $max_attempts attempts" >&2
+  if [ "$liveness_seen" = "1" ]; then
+    echo "Deployment failed readiness after $max_attempts attempts (healthz=${health_status:-000}, readyz=${readiness_status:-000})" >&2
+    echo "Stable readiness component states:" >&2
+    $SUDO docker exec "$CONTAINER_NAME" curl -sS \
+      "http://127.0.0.1:${INTERNAL_HTTP_PORT}${READINESS_PATH}" 2>/dev/null |
+      grep -oE '"(mysql|redis|authn|jwks|authz|suggest|session_revocation)"[[:space:]]*:[[:space:]]*\{[[:space:]]*"status"[[:space:]]*:[[:space:]]*"(ok|degraded|failed|skipped)"' >&2 || true
+    exit 1
+  fi
+
+  echo "Service failed liveness after $max_attempts attempts (healthz=${health_status:-000})" >&2
   $SUDO docker ps -a --filter "name=${CONTAINER_NAME}" || true
   $SUDO docker exec "$CONTAINER_NAME" sh -lc '
     echo "--- /etc/resolv.conf ---"

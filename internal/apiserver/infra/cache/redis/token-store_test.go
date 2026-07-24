@@ -4,9 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
@@ -74,6 +78,59 @@ func TestRedisStoreRefreshTokenLifecycle(t *testing.T) {
 	}
 	if mr.Exists(rawKey) {
 		t.Fatalf("expected raw redis key %q to be deleted", rawKey)
+	}
+}
+
+func TestRedisStoreRefreshTokenLogsDoNotContainCredentialOrKey(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	logPath := filepath.Join(t.TempDir(), "redis-security.log")
+	logOptions := log.NewOptions()
+	logOptions.Format = "json"
+	logOptions.OutputPaths = []string{logPath}
+	logOptions.ErrorOutputPaths = []string{logPath}
+	log.Init(logOptions)
+	t.Cleanup(func() {
+		log.Flush()
+		log.Init(log.NewOptions())
+	})
+
+	const sentinel = "refresh-token-secret-sentinel-5-4"
+	token := tokenapp.NewRefreshToken(
+		"rt-security",
+		sentinel,
+		"session-security",
+		meta.FromUint64(1001),
+		meta.FromUint64(2002),
+		meta.FromUint64(3003),
+		nil,
+		nil,
+		time.Hour,
+	)
+	store := NewRedisStore(client)
+	if err := store.SaveRefreshToken(context.Background(), token); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteRefreshToken(context.Background(), token.Value); err != nil {
+		t.Fatal(err)
+	}
+	log.Flush()
+
+	output, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{sentinel, refreshTokenRedisKey(sentinel), "token_hint"} {
+		if strings.Contains(string(output), forbidden) {
+			t.Fatalf("refresh token log contains forbidden value %q: %s", forbidden, output)
+		}
+	}
+	for _, required := range []string{"refresh token cached", `"token_id":"rt-security"`, `"ttl"`} {
+		if !strings.Contains(string(output), required) {
+			t.Fatalf("refresh token log is missing safe metadata %q: %s", required, output)
+		}
 	}
 }
 
