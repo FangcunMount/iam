@@ -1,10 +1,13 @@
 package identity
 
 import (
+	"context"
+
 	"github.com/FangcunMount/component-base/pkg/errors"
 	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
 	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
+	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
 	mysqlIdentityUow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/identity"
 	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 )
@@ -12,16 +15,19 @@ import (
 // IdentityModule 身份模块
 // 负责组装身份相关的所有组件
 type IdentityModule struct {
-	userCreator          appuser.Creator
-	userEditor           appuser.Editor
-	userStatusChanger    appuser.StatusChanger
-	userDirectory        appuser.Directory
-	profileDirectory     appprofile.Directory
-	myProfiles           appprofile.MyProfiles
-	profileLinkCommands  appprofilelink.Commands
-	profileLinkDirectory appprofilelink.Directory
-	myProfileLinks       appprofilelink.MyProfileLinks
-	roleNames            RoleNameReader
+	userCreator            appuser.Creator
+	userEditor             appuser.Editor
+	userStatusChanger      appuser.StatusChanger
+	userDirectory          appuser.Directory
+	profileDirectory       appprofile.Directory
+	myProfiles             appprofile.MyProfiles
+	profileLinkCommands    appprofilelink.Commands
+	profileLinkDirectory   appprofilelink.Directory
+	myProfileLinks         appprofilelink.MyProfileLinks
+	roleNames              RoleNameReader
+	sessionRevocationStore *sessionrevocation.Store
+	stopSessionRevocation  context.CancelFunc
+	sessionRevocationDone  chan struct{}
 }
 
 // NewIdentityModule 创建身份模块
@@ -40,7 +46,7 @@ func (m *IdentityModule) InitializeWithDeps(deps IdentityModuleDeps) error {
 
 	userCreator := appuser.NewCreator(uow)
 	userEditor := appuser.NewEditor(uow)
-	userStatusChanger := appuser.NewStatusChanger(uow, deps.SessionRevoker)
+	userStatusChanger := appuser.NewStatusChanger(uow)
 	userDirectory := appuser.NewDirectory(uow)
 	profileDirectory := appprofile.NewDirectory(uow)
 	myProfiles := appprofile.NewMyProfiles(uow)
@@ -58,14 +64,38 @@ func (m *IdentityModule) InitializeWithDeps(deps IdentityModuleDeps) error {
 	m.profileLinkDirectory = profileLinkDirectory
 	m.myProfileLinks = myProfileLinks
 	m.roleNames = deps.RoleNames
+	m.sessionRevocationStore = sessionrevocation.NewStore(deps.DB)
+	if deps.SessionRevoker != nil && deps.SessionRevocationConfig.PollInterval > 0 {
+		worker := sessionrevocation.NewWorker(m.sessionRevocationStore, deps.SessionRevoker, deps.SessionRevocationConfig)
+		ctx, cancel := context.WithCancel(context.Background())
+		m.stopSessionRevocation = cancel
+		m.sessionRevocationDone = make(chan struct{})
+		go func() {
+			defer close(m.sessionRevocationDone)
+			worker.Run(ctx)
+		}()
+	}
 	return nil
 }
 
 // Cleanup 清理模块资源
 func (m *IdentityModule) Cleanup() error {
-	// 如果有需要清理的资源，在这里进行清理
-	// 比如关闭数据库连接、释放缓存等
+	if m == nil || m.stopSessionRevocation == nil {
+		return nil
+	}
+	m.stopSessionRevocation()
+	if m.sessionRevocationDone != nil {
+		<-m.sessionRevocationDone
+	}
+	m.stopSessionRevocation = nil
 	return nil
+}
+
+func (m *IdentityModule) SessionRevocationStore() *sessionrevocation.Store {
+	if m == nil {
+		return nil
+	}
+	return m.sessionRevocationStore
 }
 
 // CheckHealth 检查模块健康状态

@@ -7,6 +7,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
 )
 
 type moduleGraph struct {
@@ -18,10 +19,18 @@ func (c *Container) moduleGraph() *moduleGraph {
 }
 
 func (g *moduleGraph) identityModuleDependencies() identity.IdentityModuleDeps {
+	revocation := g.container.runtimeOptions.Identity.SessionRevocation
 	return identity.IdentityModuleDeps{
 		DB:             g.container.mysqlDB,
 		RoleNames:      g.roleNameReader(),
 		SessionRevoker: g.sessionRevoker(),
+		SessionRevocationConfig: sessionrevocation.WorkerConfig{
+			PollInterval:         revocation.PollInterval,
+			BatchSize:            revocation.BatchSize,
+			RetryBaseDelay:       revocation.RetryBaseDelay,
+			RetryMaxDelay:        revocation.RetryMaxDelay,
+			StaleProcessingAfter: revocation.StaleProcessingAfter,
+		},
 	}
 }
 

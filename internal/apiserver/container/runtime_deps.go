@@ -23,6 +23,7 @@ type RuntimeDeps struct {
 	OutboxRelay       OutboxRelay
 	AuthzPolicySync   authz.PolicySyncSubscriber
 	SuggestCleanup    func() error
+	IdentityCleanup   func() error
 }
 
 // BuildRuntimeDeps exposes background runtime collaborators without leaking
@@ -46,6 +47,9 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 	var cleanup func() error
 	suggest.CollectRuntime(c.SuggestModule, &cleanup)
 	deps.SuggestCleanup = cleanup
+	if c.IdentityModule != nil {
+		deps.IdentityCleanup = c.IdentityModule.Cleanup
+	}
 	return deps
 }
 

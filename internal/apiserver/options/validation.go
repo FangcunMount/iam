@@ -42,6 +42,24 @@ func (o *Options) Validate() []error {
 			}
 		}
 	}
+	if o.Identity != nil {
+		revocation := o.Identity.SessionRevocation
+		if revocation.PollInterval <= 0 {
+			errs = append(errs, errors.New("identity.session_revocation.poll_interval must be positive"))
+		}
+		if revocation.BatchSize <= 0 {
+			errs = append(errs, errors.New("identity.session_revocation.batch_size must be positive"))
+		}
+		if revocation.RetryBaseDelay <= 0 {
+			errs = append(errs, errors.New("identity.session_revocation.retry_base_delay must be positive"))
+		}
+		if revocation.RetryMaxDelay < revocation.RetryBaseDelay {
+			errs = append(errs, errors.New("identity.session_revocation.retry_max_delay must not be shorter than retry_base_delay"))
+		}
+		if revocation.StaleProcessingAfter <= 0 {
+			errs = append(errs, errors.New("identity.session_revocation.stale_processing_after must be positive"))
+		}
+	}
 	errs = append(errs, o.validateJWKSOptions()...)
 
 	return errs

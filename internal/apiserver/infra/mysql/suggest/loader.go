@@ -26,13 +26,28 @@ SELECT
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
 FROM profiles c
-INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
+INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL AND g.revoked_at IS NULL
 INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
 WHERE c.deleted_at IS NULL
 GROUP BY c.id;
 `
-	// 活跃档案 upsert + 软删除 tombstone（name 为空，索引层会 RemoveProfile）。
+	// 受影响档案重新计算：仍有活跃 User/ProfileLink 时 upsert，否则 tombstone。
 	defaultDeltaSQLTemplate = `
+WITH affected_profiles AS (
+  SELECT c.id AS profile_id
+  FROM profiles c
+  WHERE c.updated_at > ? OR c.deleted_at > ?
+  UNION
+  SELECT g.profile_id
+  FROM profile_links g
+  WHERE g.updated_at > ? OR g.deleted_at > ? OR g.revoked_at > ?
+  UNION
+  SELECT g.profile_id
+  FROM profile_links g
+  INNER JOIN users u ON u.id = g.user_id
+  WHERE u.updated_at > ? OR u.deleted_at > ?
+),
+eligible_profiles AS (
 SELECT
   c.id,
   c.name,
@@ -42,10 +57,14 @@ SELECT
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
 FROM profiles c
-INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL
+INNER JOIN affected_profiles a ON a.profile_id = c.id
+INNER JOIN profile_links g ON g.profile_id = c.id AND g.deleted_at IS NULL AND g.revoked_at IS NULL
 INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
-WHERE c.deleted_at IS NULL AND GREATEST(c.updated_at, g.updated_at, u.updated_at) > ?
-GROUP BY c.id
+WHERE c.deleted_at IS NULL
+GROUP BY c.id, c.name, c.created_by
+)
+SELECT id, name, tenant_id, org_id, mobiles, owner_operator_ids, weight
+FROM eligible_profiles
 UNION ALL
 SELECT
   c.id,
@@ -56,7 +75,10 @@ SELECT
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
   1 AS weight
 FROM profiles c
-WHERE c.deleted_at IS NOT NULL AND c.deleted_at > ?;
+INNER JOIN affected_profiles a ON a.profile_id = c.id
+WHERE NOT EXISTS (
+  SELECT 1 FROM eligible_profiles e WHERE e.id = c.id
+);
 `
 )
 
@@ -72,8 +94,9 @@ type LoaderConfig struct {
 
 // Loader 从业务库拉取档案联想候选
 type Loader struct {
-	db     *gorm.DB
-	config LoaderConfig
+	db           *gorm.DB
+	config       LoaderConfig
+	defaultDelta bool
 }
 
 // NewLoader 创建 Loader，SQL 为空时使用默认值。
@@ -87,7 +110,8 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 		fullSQL = strings.TrimSpace(fmt.Sprintf(defaultFullSQLTemplate, placeholderOrg))
 	}
 	deltaSQL := strings.TrimSpace(cfg.DeltaSQL)
-	if deltaSQL == "" {
+	defaultDelta := deltaSQL == ""
+	if defaultDelta {
 		deltaSQL = strings.TrimSpace(fmt.Sprintf(defaultDeltaSQLTemplate, placeholderOrg, placeholderOrg))
 	}
 
@@ -99,6 +123,7 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 			PlaceholderOrgID:    placeholderOrg,
 			PlaceholderTenantID: cfg.PlaceholderTenantID,
 		},
+		defaultDelta: defaultDelta,
 	}
 }
 
@@ -114,6 +139,9 @@ func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileSearchTerm, e
 func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
+	}
+	if l.defaultDelta {
+		return l.query(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
 	}
 	return l.query(ctx, l.config.DeltaSQL, since, since)
 }

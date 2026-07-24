@@ -14,6 +14,7 @@ type RuntimeOptions struct {
 	JWKS                          apiserveroptions.JWKSOptions
 	IDP                           apiserveroptions.IDPOptions
 	SMS                           apiserveroptions.SMSOptions
+	Identity                      apiserveroptions.IdentityOptions
 	Suggest                       appsuggest.Config
 	Events                        apiserveroptions.EventOptions
 	GRPCACLEnabled                bool
@@ -35,6 +36,7 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		JWKS:                          *defaults.JWKS,
 		IDP:                           *defaults.IDP,
 		SMS:                           *defaults.SMS,
+		Identity:                      *defaults.Identity,
 		Events:                        *defaults.Events,
 		GRPCACLEnabled:                defaults.GRPCOptions.ACL != nil && defaults.GRPCOptions.ACL.Enabled,
 		GRPCACLConfigFile:             grpcACLConfigFile(defaults.GRPCOptions),
@@ -68,6 +70,9 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 	}
 	if opts.SMS != nil {
 		runtime.SMS = *opts.SMS
+	}
+	if opts.Identity != nil {
+		runtime.Identity = *opts.Identity
 	}
 	if opts.Events != nil {
 		runtime.Events = *opts.Events

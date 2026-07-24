@@ -149,6 +149,28 @@ func NewSMSOptions() *SMSOptions {
 	}
 }
 
+type IdentityOptions struct {
+	SessionRevocation SessionRevocationOptions `json:"session_revocation" mapstructure:"session_revocation"`
+}
+
+type SessionRevocationOptions struct {
+	PollInterval         time.Duration `json:"poll_interval" mapstructure:"poll_interval"`
+	BatchSize            int           `json:"batch_size" mapstructure:"batch_size"`
+	RetryBaseDelay       time.Duration `json:"retry_base_delay" mapstructure:"retry_base_delay"`
+	RetryMaxDelay        time.Duration `json:"retry_max_delay" mapstructure:"retry_max_delay"`
+	StaleProcessingAfter time.Duration `json:"stale_processing_after" mapstructure:"stale_processing_after"`
+}
+
+func NewIdentityOptions() *IdentityOptions {
+	return &IdentityOptions{SessionRevocation: SessionRevocationOptions{
+		PollInterval:         2 * time.Second,
+		BatchSize:            50,
+		RetryBaseDelay:       5 * time.Second,
+		RetryMaxDelay:        5 * time.Minute,
+		StaleProcessingAfter: time.Minute,
+	}}
+}
+
 // SuggestOptions configures the suggest module and its refresh loop.
 type SuggestOptions struct {
 	Enable             bool   `json:"enable" mapstructure:"enable"`

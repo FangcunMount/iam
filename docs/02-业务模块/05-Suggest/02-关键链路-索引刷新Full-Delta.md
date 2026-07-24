@@ -45,7 +45,7 @@ Full 使用新 Store 原子替换当前指针；构建期间查询继续读取�
 - Loader 或 Runtime 更新失败时不推进游标。
 - 首次 Full 尚未成功时，Delta 直接结束。
 
-默认 Delta SQL 返回变更的活跃 Profile 和软删除 tombstone。当前 tombstone 协议是 `DisplayName` 为空；自定义 `delta_sql` 必须保持该协议。
+默认 Full/Delta 共用同一 eligibility：Profile 未软删除，至少一个 ProfileLink 未删除且 `revoked_at IS NULL`，关联 User 未软删除。Delta 的 affected set 覆盖 Profile、ProfileLink 和 User 的更新/删除；每个 affected Profile 都重新计算，仍有效时输出完整 upsert，最后一个有效关系失效时输出 `DisplayName` 为空的 tombstone。自定义 `full_sql/delta_sql` 必须承担相同 active-link、active-user 与 tombstone 协议。
 
 ## 4. 敏感数据边界
 

@@ -27,6 +27,10 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 			order = append(order, "suggest cleanup")
 			return nil
 		},
+		identityCleanup: func() error {
+			order = append(order, "identity cleanup")
+			return nil
+		},
 		closeDatabase: func() error {
 			order = append(order, "database close")
 			return nil
@@ -45,6 +49,7 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 		"stop outbox relay",
 		"stop key rotation scheduler",
 		"suggest cleanup",
+		"identity cleanup",
 		"database close",
 		"http close",
 		"grpc close",

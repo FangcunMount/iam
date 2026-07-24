@@ -149,11 +149,12 @@ func (s *apiServer) registerShutdownCallbacks(lifecycle processruntime.Lifecycle
 
 // shutdownSequenceDeps 关闭序列依赖
 type shutdownSequenceDeps struct {
-	lifecycle      processruntime.Lifecycle
-	suggestCleanup func() error // 清理建议模块
-	closeDatabase  func() error // 关闭数据库
-	closeHTTP      func() error // 关闭 HTTP 服务器
-	closeGRPC      func() error // 关闭 GRPC 服务器
+	lifecycle       processruntime.Lifecycle
+	suggestCleanup  func() error // 清理建议模块
+	identityCleanup func() error
+	closeDatabase   func() error // 关闭数据库
+	closeHTTP       func() error // 关闭 HTTP 服务器
+	closeGRPC       func() error // 关闭 GRPC 服务器
 }
 
 // buildShutdownSequenceDeps 构建关闭序列依赖
@@ -163,7 +164,9 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 		return deps
 	}
 	if s.container != nil {
-		deps.suggestCleanup = s.container.BuildRuntimeDeps().SuggestCleanup // 构建建议模块依赖
+		runtimeDeps := s.container.BuildRuntimeDeps()
+		deps.suggestCleanup = runtimeDeps.SuggestCleanup
+		deps.identityCleanup = runtimeDeps.IdentityCleanup
 	}
 	if s.dbManager != nil {
 		deps.closeDatabase = s.dbManager.Close // 关闭数据库
@@ -192,6 +195,7 @@ func runShutdownSequence(deps shutdownSequenceDeps) {
 	})
 	// 运行关闭序列步骤
 	runShutdownStep("cleanup suggest module", deps.suggestCleanup)
+	runShutdownStep("cleanup identity module", deps.identityCleanup)
 	runShutdownStep("close database connections", deps.closeDatabase)
 	runShutdownStep("close HTTP server", deps.closeHTTP) // 运行关闭 HTTP 服务器
 	runShutdownStep("close gRPC server", deps.closeGRPC) // 运行关闭 GRPC 服务器

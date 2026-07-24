@@ -44,29 +44,20 @@ func (s *identityLifecycleServer) UpdateUser(ctx context.Context, req *identityv
 		return nil, err
 	}
 
-	// 更新昵称
+	patch := userApp.PatchUserProfileDTO{UserID: userID}
 	if req.GetNickname() != "" {
-		err := s.userProfileSvc.Renickname(ctx, userID, req.GetNickname())
-		if err != nil {
-			return nil, toGRPCError(err)
-		}
+		value := req.GetNickname()
+		patch.Nickname = &value
 	}
-
-	// 更新联系方式
-	if req.GetPhone() != "" || req.GetEmail() != "" {
-		dto := userApp.UpdateContactDTO{
-			UserID: userID,
-			Phone:  req.GetPhone(),
-			Email:  req.GetEmail(),
-		}
-		err := s.userProfileSvc.UpdateContact(ctx, dto)
-		if err != nil {
-			return nil, toGRPCError(err)
-		}
+	if req.GetPhone() != "" {
+		value := req.GetPhone()
+		patch.Phone = &value
 	}
-
-	// 查询更新后的用户
-	result, err := s.userQuerySvc.GetByID(ctx, userID)
+	if req.GetEmail() != "" {
+		value := req.GetEmail()
+		patch.Email = &value
+	}
+	result, err := s.userProfileSvc.PatchProfile(ctx, patch)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}

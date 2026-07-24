@@ -8,6 +8,7 @@ import (
 	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	profilerepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profile"
 	guardrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profilelink"
+	sessionrevocationrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
 	userrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
 	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
 )
@@ -39,9 +40,10 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context
 			return err
 		}
 		repos := appuow.TxRepositories{
-			ProfileLinks: guardrepo.NewRepository(tx),
-			Profiles:     profilerepo.NewRepository(tx),
-			Users:        userrepo.NewRepository(tx),
+			ProfileLinks:       guardrepo.NewRepository(tx),
+			Profiles:           profilerepo.NewRepository(tx),
+			Users:              userrepo.NewRepository(tx),
+			SessionRevocations: sessionrevocationrepo.NewStore(tx),
 		}
 		return fn(txCtx, repos)
 	})

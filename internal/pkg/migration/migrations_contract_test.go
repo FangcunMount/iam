@@ -162,6 +162,32 @@ func TestJWKSSingleActiveGuardMigrationUsesGeneratedUniqueSlot(t *testing.T) {
 	}
 }
 
+func TestIdentityConsistencyMigrations(t *testing.T) {
+	phoneGuard := migrationSQL(t, "000017_users_active_phone_unique_guard.up.sql")
+	for _, fragment := range []string{
+		"ADD COLUMN `active_phone` VARCHAR(20)",
+		"`deleted_at` IS NULL",
+		"`phone` <> ''",
+		"ADD UNIQUE INDEX `uk_users_active_phone` (`active_phone`)",
+	} {
+		assertSQLContains(t, phoneGuard, fragment)
+	}
+	phoneDown := migrationSQL(t, "000017_users_active_phone_unique_guard.down.sql")
+	assertSQLContains(t, phoneDown, "DROP INDEX `uk_users_active_phone`")
+	assertSQLContains(t, phoneDown, "DROP COLUMN `active_phone`")
+
+	revocation := migrationSQL(t, "000018_identity_session_revocation_outbox.up.sql")
+	for _, fragment := range []string{
+		"CREATE TABLE IF NOT EXISTS `identity_session_revocation_outbox`",
+		"`user_version` INT UNSIGNED NOT NULL",
+		"`status` VARCHAR(16) NOT NULL DEFAULT 'pending'",
+		"`next_attempt_at` DATETIME(3) NOT NULL",
+		"UNIQUE KEY `uk_identity_session_revocation_version_action`",
+	} {
+		assertSQLContains(t, revocation, fragment)
+	}
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 

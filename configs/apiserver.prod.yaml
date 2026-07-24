@@ -117,6 +117,14 @@ auth:
     threshold: 5
     lock_duration: 15m
 
+identity:
+  session_revocation:
+    poll_interval: 2s
+    batch_size: 50
+    retry_base_delay: 5s
+    retry_max_delay: 5m
+    stale_processing_after: 1m
+
 # ============================================================================
 # 2.4 内部 Seed/Mock C 端建号接口
 # ============================================================================

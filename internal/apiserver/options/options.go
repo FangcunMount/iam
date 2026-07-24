@@ -24,6 +24,7 @@ type Options struct {
 	JWKS                    *JWKSOptions                           `json:"jwks" mapstructure:"jwks"`
 	IDP                     *IDPOptions                            `json:"idp" mapstructure:"idp"`
 	SMS                     *SMSOptions                            `json:"sms" mapstructure:"sms"`
+	Identity                *IdentityOptions                       `json:"identity" mapstructure:"identity"`
 	Suggest                 *SuggestOptions                        `json:"suggest" mapstructure:"suggest"`
 	Debug                   *DebugOptions                          `json:"debug" mapstructure:"debug"`
 	SeedMockAuth            *SeedMockAuthOptions                   `json:"seed_mock_auth" mapstructure:"seed_mock_auth"`
@@ -47,6 +48,7 @@ func NewOptions() *Options {
 		JWKS:                    NewJWKSOptions(),
 		IDP:                     NewIDPOptions(),
 		SMS:                     NewSMSOptions(),
+		Identity:                NewIdentityOptions(),
 		Suggest:                 NewSuggestOptions(),
 		Debug:                   NewDebugOptions(),
 		SeedMockAuth:            NewSeedMockAuthOptions(),
@@ -127,6 +129,9 @@ func (o *Options) ApplyDefaults() {
 	}
 	if o.SMS == nil {
 		o.SMS = NewSMSOptions()
+	}
+	if o.Identity == nil {
+		o.Identity = NewIdentityOptions()
 	}
 	if o.Suggest == nil {
 		o.Suggest = NewSuggestOptions()

@@ -1,6 +1,35 @@
 package suggest
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestDefaultSQLUsesSameActiveRelationshipEligibility(t *testing.T) {
+	loader := NewLoader(nil, LoaderConfig{})
+	full := loader.config.FullSQL
+	delta := loader.config.DeltaSQL
+
+	for _, sql := range []string{full, delta} {
+		if !strings.Contains(sql, "g.deleted_at IS NULL AND g.revoked_at IS NULL") {
+			t.Fatalf("query does not require active profile link: %s", sql)
+		}
+		if !strings.Contains(sql, "u.deleted_at IS NULL") {
+			t.Fatalf("query does not require active user: %s", sql)
+		}
+	}
+	for _, fragment := range []string{
+		"FROM profile_links g",
+		"g.revoked_at > ?",
+		"u.deleted_at > ?",
+		"NOT EXISTS",
+		"'' AS name",
+	} {
+		if !strings.Contains(delta, fragment) {
+			t.Fatalf("delta query missing %q", fragment)
+		}
+	}
+}
 
 func TestRecordMapsToProfileSearchTerm(t *testing.T) {
 	mobiles := " 13800138000, ,13900139000 "

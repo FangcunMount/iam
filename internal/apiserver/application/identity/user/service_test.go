@@ -318,7 +318,7 @@ func TestStatusChanger_Activate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// 先停用
-	statusService := user.NewStatusChanger(unitOfWork, nil)
+	statusService := user.NewStatusChanger(unitOfWork)
 	err = statusService.Deactivate(ctx, mustID(t, created.ID))
 	require.NoError(t, err)
 
@@ -348,7 +348,7 @@ func TestStatusChanger_Deactivate_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	statusService := user.NewStatusChanger(unitOfWork, nil)
+	statusService := user.NewStatusChanger(unitOfWork)
 
 	// Act - 停用
 	err = statusService.Deactivate(ctx, mustID(t, created.ID))
@@ -376,7 +376,7 @@ func TestStatusChanger_Block_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	statusService := user.NewStatusChanger(unitOfWork, nil)
+	statusService := user.NewStatusChanger(unitOfWork)
 
 	// Act - 封禁
 	err = statusService.Block(ctx, mustID(t, created.ID))

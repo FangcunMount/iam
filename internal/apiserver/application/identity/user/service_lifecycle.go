@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
+	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/sessionrevocation"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 )
 
@@ -15,13 +15,12 @@ import (
 
 // statusChanger 用户状态用例实现
 type statusChanger struct {
-	uow            uow.UnitOfWork
-	sessionRevoker session.Revoker
+	uow uow.UnitOfWork
 }
 
 // NewStatusChanger 创建用户状态用例
-func NewStatusChanger(uow uow.UnitOfWork, sessionRevoker session.Revoker) StatusChanger {
-	return &statusChanger{uow: uow, sessionRevoker: sessionRevoker}
+func NewStatusChanger(uow uow.UnitOfWork) StatusChanger {
+	return &statusChanger{uow: uow}
 }
 
 // Activate 激活用户
@@ -82,10 +81,23 @@ func (s *statusChanger) Deactivate(ctx context.Context, userID meta.ID) error {
 			)
 			return err
 		}
+		if modifiedUser.IsInactive() {
+			return nil
+		}
 		modifiedUser.Deactivate()
 
-		// 持久化修改
-		return tx.Users.Update(txCtx, modifiedUser)
+		if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
+			return err
+		}
+		if tx.SessionRevocations == nil {
+			return nil
+		}
+		return tx.SessionRevocations.Stage(
+			txCtx,
+			userID,
+			sessionrevocation.ActionRevokeAll,
+			sessionrevocation.ReasonUserDeactivated,
+		)
 	})
 
 	if err == nil {
@@ -120,10 +132,23 @@ func (s *statusChanger) Block(ctx context.Context, userID meta.ID) error {
 			)
 			return err
 		}
+		if modifiedUser.IsBlocked() {
+			return nil
+		}
 		modifiedUser.Block()
 
-		// 持久化修改
-		return tx.Users.Update(txCtx, modifiedUser)
+		if err := tx.Users.Update(txCtx, modifiedUser); err != nil {
+			return err
+		}
+		if tx.SessionRevocations == nil {
+			return nil
+		}
+		return tx.SessionRevocations.Stage(
+			txCtx,
+			userID,
+			sessionrevocation.ActionRevokeAll,
+			sessionrevocation.ReasonUserBlocked,
+		)
 	})
 
 	if err == nil {
@@ -135,11 +160,5 @@ func (s *statusChanger) Block(ctx context.Context, userID meta.ID) error {
 		)
 	}
 
-	if err != nil {
-		return err
-	}
-	if s.sessionRevoker == nil {
-		return nil
-	}
-	return s.sessionRevoker.RevokeByUser(ctx, userID, "user_blocked", userID.String())
+	return err
 }

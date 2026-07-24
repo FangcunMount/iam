@@ -13,6 +13,7 @@ import (
 
 	profilepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profile"
 	profilelinkpo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profilelink"
+	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
 	mysqluow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/identity"
 	userpo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
 )
@@ -57,6 +58,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		&userpo.UserPO{},
 		&profilepo.ProfilePO{},
 		&profilelinkpo.ProfileLinkPO{},
+		&sessionrevocation.Task{},
 	)
 	require.NoError(t, err, "failed to auto-migrate tables")
 

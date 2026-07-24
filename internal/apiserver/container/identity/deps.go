@@ -7,6 +7,7 @@ import (
 
 	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
 )
 
 // RoleNameReader resolves role names for a subject within a tenant.
@@ -17,7 +18,8 @@ type RoleNameReader interface {
 // IdentityModuleDeps contains the runtime dependencies required to assemble the
 // identity module.
 type IdentityModuleDeps struct {
-	DB             *gorm.DB
-	RoleNames      RoleNameReader
-	SessionRevoker sessiondomain.Revoker
+	DB                      *gorm.DB
+	RoleNames               RoleNameReader
+	SessionRevoker          sessiondomain.Revoker
+	SessionRevocationConfig sessionrevocation.WorkerConfig
 }

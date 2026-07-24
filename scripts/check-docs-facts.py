@@ -71,12 +71,26 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 16:
-        fail(f"documented latest migration is 16, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 18:
+        fail(f"documented latest migration is 18, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
             fail(f"migration 000016 is missing {token}")
+    phone = (directory / "000017_users_active_phone_unique_guard.up.sql").read_text(encoding="utf-8")
+    for token in ("active_phone", "uk_users_active_phone"):
+        if token not in phone:
+            fail(f"migration 000017 is missing {token}")
+    revocation = (
+        directory / "000018_identity_session_revocation_outbox.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "identity_session_revocation_outbox",
+        "user_version",
+        "next_attempt_at",
+    ):
+        if token not in revocation:
+            fail(f"migration 000018 is missing {token}")
 
 
 def check_event_catalog() -> None:
@@ -96,6 +110,12 @@ def check_module_wiring() -> None:
     for constructor in ("authn.NewAuthnModule()", "suggest.NewSuggestModule()"):
         if constructor not in source:
             fail(f"composition root no longer wires {constructor}")
+    identity = (
+        ROOT / "internal/apiserver/container/identity/module.go"
+    ).read_text(encoding="utf-8")
+    for token in ("sessionrevocation.NewWorker", "worker.Run", "IdentityModule) Cleanup"):
+        if token not in identity:
+            fail(f"identity session revocation worker wiring is missing {token}")
 
 
 def check_jwks_lifecycle_wiring() -> None:
