@@ -1,7 +1,7 @@
 
 # Casbin 运行时模型
 
-> 状态：设计目标 · 第一版正文，待继续按 Casbin runtime、policy adapter、model.conf、policy loader、DecisionEngine、RuntimeReload、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -857,7 +857,7 @@ runtime error fail closed。
 | Role / Permission / RoleBinding | `../../../internal/apiserver/domain/authz` |
 | AuthorizationRequest / AuthorizationDecision | `../../../internal/apiserver/domain/authz` |
 | AuthZ application checker | `../../../internal/apiserver/application/authz` |
-| DecisionEngine | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/domain/authz`，具体以代码为准 |
+| DecisionEngine | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/domain/authz` |
 | Casbin runtime / policy adapter | `../../../internal/apiserver/infra` |
 | PolicyLoader / RuntimeReload | `../../../internal/apiserver/infra` |
 | model.conf | 配置路径以当前代码为准 |

@@ -1,6 +1,6 @@
 # 领域模型：Subject / Resource / Action / Scope / Role / Permission / RoleBinding
 
-> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/authz`、`application/authz`、Casbin runtime、Outbox/PolicyVersion、REST/gRPC 契约和测试逐项核对；本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthZ 模型主文档维护。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -246,7 +246,7 @@ classDiagram
 ```text
 上图是领域语义图，不等于数据库物理表结构；
 字段名称和数量以当前源码、迁移和契约为准；
-如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或设计目标。
+本文只把当前源码、迁移或契约能够证明的字段写成实现事实；未来字段必须单独标记为规划改造。
 ```
 
 ---
@@ -283,7 +283,7 @@ system:internal-job。
 
 | 字段 | 含义 | 说明 |
 | --- | --- | --- |
-| `Type` | 主体类型 | user / staff / service / organization / tenant 等，具体以代码为准 |
+| `Type` | 主体类型 | user / staff / service / organization / tenant 等 |
 | `ID` | 主体 ID | 对应外部模块的稳定引用 ID |
 | `Domain` | 授权域 | 可选，用于租户、组织或业务域隔离 |
 | `DisplayName` | 展示名 | 可选，只用于展示，不参与核心授权判断 |
@@ -552,7 +552,7 @@ Permission = Resource + Action + Scope + optional condition
 | `Scope` | 授权范围 | self/org/tenant/global 等 |
 | `Effect` | 效果 | allow / deny，具体是否支持 deny 以代码为准 |
 | `Condition` | 条件 | 可选，复杂授权条件 |
-| `Status` | 状态 | active / disabled / revoked，具体以代码为准 |
+| `Status` | 状态 | active / disabled / revoked |
 
 ---
 
@@ -628,7 +628,7 @@ service_account；
 | `Name` | 角色名称 | 人类可读名称 |
 | `Description` | 描述 | 可选 |
 | `Permissions` | 权限集合 | Role 包含的 Permission |
-| `Status` | 状态 | active / disabled / revoked，具体以代码为准 |
+| `Status` | 状态 | active / disabled / revoked |
 
 ---
 
@@ -699,7 +699,7 @@ RoleBinding = Subject + Role + Domain/Scope + lifecycle
 | `Scope` | 生效范围 | 可选，限制 Role 生效范围 |
 | `GrantedAt` | 授予时间 | 授权开始时间 |
 | `RevokedAt` | 撤销时间 | 软撤销语义 |
-| `Status` | 状态 | active / revoked 等，具体以代码为准 |
+| `Status` | 状态 | active / revoked 等 |
 
 ---
 
@@ -1003,7 +1003,7 @@ Profile 搜索可见性应结合 Principal/UserID、ProfileAccessScope 和 AuthZ
 | AuthZ application | `../../../internal/apiserver/application/authz` |
 | AuthZ infra repository | `../../../internal/apiserver/infra` |
 | Casbin runtime / policy adapter | `../../../internal/apiserver/infra` |
-| Outbox / policy relay | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/authz`，具体以代码为准 |
+| Outbox / policy relay | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/authz` |
 | AuthZ REST transport | `../../../internal/apiserver/transport/rest` |
 | AuthZ gRPC transport | `../../../internal/apiserver/transport/grpc` |
 | AuthZ container | `../../../internal/apiserver/container/authz` |

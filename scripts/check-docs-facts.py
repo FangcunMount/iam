@@ -273,6 +273,18 @@ def check_security_delivery_facts() -> None:
         if token not in mapper:
             fail(f"gRPC public error mapper is missing {token}")
 
+    authz_grpc = (
+        ROOT / "internal/apiserver/transport/grpc/service/authz/service.go"
+    ).read_text(encoding="utf-8")
+    for retired in (
+        'status.Errorf(codes.Internal, "enforce:',
+        'status.Errorf(codes.Internal, "get authorization snapshot:',
+    ):
+        if retired in authz_grpc:
+            fail(f"AuthZ gRPC still exposes a dynamic Internal error via {retired}")
+    if authz_grpc.count("iamgrpc.ToStatusError(err)") < 4:
+        fail("AuthZ gRPC mutations and reads no longer share the safe error mapper")
+
     operations_doc = (
         ROOT / "docs/01-运行时/07-安全日志与凭据处置.md"
     ).read_text(encoding="utf-8")
@@ -286,14 +298,86 @@ def check_security_delivery_facts() -> None:
             fail(f"security operations documentation is missing {fact}")
 
 
+def check_database_operations_facts() -> None:
+    workflow = (ROOT / ".github/workflows/db-ops.yml").read_text(encoding="utf-8")
+    integration = (ROOT / ".github/workflows/concurrency-tests.yml").read_text(
+        encoding="utf-8"
+    )
+    script = (ROOT / "scripts/dbops/database-operation.sh").read_text(
+        encoding="utf-8"
+    )
+    operations_doc = (ROOT / ".github/workflows/README.md").read_text(
+        encoding="utf-8"
+    )
+
+    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 3:
+        fail("database workflow no longer routes all operations through the repository script")
+    for forbidden in ("apt-get", "apk add", "script: |", "SHOW TABLES"):
+        if forbidden in workflow:
+            fail(f"database workflow contains retired inline behavior {forbidden}")
+    for token in (
+        "--single-transaction",
+        "--quick",
+        "--routines",
+        "--triggers",
+        "--events",
+        "--no-tablespaces",
+        "--set-gtid-purged=OFF",
+        "gzip -t",
+        "chmod 0700",
+        "chmod 0600",
+        "Ver 8\\.",
+    ):
+        if token not in script:
+            fail(f"database operation script is missing safety contract {token}")
+    for token in (
+        "Verify database backup and restore script with MySQL 8",
+        "IAM_DB_OPS_OPERATION=backup",
+        "IAM_DB_OPS_OPERATION=restore",
+        "SELECT value FROM restore_fixture",
+    ):
+        if token not in integration:
+            fail(f"MySQL 8 synthetic restore gate is missing {token}")
+    for fact in (
+        "MySQL 8.x",
+        "scripts/dbops/database-operation.sh",
+        "原子改名",
+        "只输出 MySQL 客户端版本",
+    ):
+        if fact not in operations_doc:
+            fail(f"database operations documentation is missing {fact}")
+
+
 def check_active_docs() -> None:
-    forbidden = "待补证据"
+    allowed_status = re.compile(r"^> 状态：(已实现|规划改造)(?: · .+)?$", re.MULTILINE)
+    planning_docs: list[Path] = []
     for path in (ROOT / "docs").rglob("*.md"):
         if "_archive" in path.parts:
             continue
         text = path.read_text(encoding="utf-8")
-        if forbidden in text:
-            fail(f"{path.relative_to(ROOT)} contains unowned evidence placeholder {forbidden}")
+        statuses = allowed_status.findall(text)
+        if len(statuses) != 1:
+            fail(
+                f"{path.relative_to(ROOT)} must contain exactly one active status "
+                "(已实现 or 规划改造)"
+            )
+        if statuses[0] == "规划改造":
+            planning_docs.append(path)
+        if path.name != "CONTRIBUTING-DOCS.md":
+            for forbidden in (
+                "待补证据",
+                "待继续按",
+                "仍待逐项",
+                "待逐项代码核对",
+                "若已实现",
+                "若已存在",
+                "具体以代码为准",
+            ):
+                if forbidden in text:
+                    fail(
+                        f"{path.relative_to(ROOT)} contains unowned review placeholder "
+                        f"{forbidden}"
+                    )
         if "索引和文件 snapshot 仍保存原始手机号" in text:
             fail(f"{path.relative_to(ROOT)} claims the retired Suggest file snapshot still exists")
         for stale_identity_fact in (
@@ -303,6 +387,28 @@ def check_active_docs() -> None:
         ):
             if stale_identity_fact in text:
                 fail(f"{path.relative_to(ROOT)} contains stale identity fact: {stale_identity_fact}")
+
+    root_status = allowed_status.findall((ROOT / "docs/README.md").read_text(encoding="utf-8"))
+    if root_status == ["已实现"] and planning_docs:
+        names = ", ".join(str(path.relative_to(ROOT)) for path in planning_docs[:3])
+        fail(f"docs/README.md cannot be 已实现 while child docs remain 规划改造: {names}")
+
+    acceptance = ROOT / "docs/01-运行时/08-IAM重构最终验收记录.md"
+    if not acceptance.exists():
+        fail("final IAM refactor acceptance record is missing")
+    acceptance_text = acceptance.read_text(encoding="utf-8")
+    for required in (
+        "最终源码 SHA",
+        "镜像 digest",
+        "CodeQL",
+        "MySQL 8 workflow",
+        "Production Deploy",
+        "Refresh Token purge",
+        "一个 Access Token TTL 观察",
+        "不得再次执行 purge 来制造历史证据",
+    ):
+        if required not in acceptance_text:
+            fail(f"final acceptance record is missing safe evidence field {required}")
 
     suggest_query = (
         ROOT / "docs/02-业务模块/05-Suggest/03-关键链路-SuggestProfile查询.md"
@@ -329,6 +435,7 @@ def main() -> int:
         check_jwks_lifecycle_wiring,
         check_readiness_facts,
         check_security_delivery_facts,
+        check_database_operations_facts,
         check_active_docs,
     )
     try:

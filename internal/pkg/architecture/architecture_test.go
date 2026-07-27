@@ -117,6 +117,22 @@ func TestSecuritySensitiveLogsAndGRPCErrorsStayPublicSafe(t *testing.T) {
 			t.Fatalf("gRPC mapper is missing safe public mapping %q", required)
 		}
 	}
+
+	forbiddenServerErrorPatterns := []*regexp.Regexp{
+		regexp.MustCompile(`status\.Errorf\(codes\.(Internal|Unknown|DataLoss|Unavailable|DeadlineExceeded|Canceled)`),
+		regexp.MustCompile(`status\.Error\(codes\.(Internal|Unknown|DataLoss|Unavailable|DeadlineExceeded|Canceled),\s*err\.Error\(\)`),
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport", "grpc", "service"), func(path, source string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		for _, pattern := range forbiddenServerErrorPatterns {
+			if match := pattern.FindString(source); match != "" {
+				rel := filepath.ToSlash(mustRel(t, root, path))
+				t.Fatalf("%s exposes a dynamic server-side gRPC error via %q; use internal/pkg/grpc.ToStatusError", rel, match)
+			}
+		}
+	})
 }
 
 func TestProductionLoggingAndMaintenanceImageContract(t *testing.T) {

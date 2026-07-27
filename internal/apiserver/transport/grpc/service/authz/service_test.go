@@ -72,13 +72,17 @@ func TestAuthorizationServerCheckBranches(t *testing.T) {
 
 	t.Run("check error", func(t *testing.T) {
 		t.Parallel()
-		srv := &authorizationServer{checker: &authzCheckerFake{err: errors.New("boom")}}
+		const sentinel = "authz-check-internal-sentinel"
+		srv := &authorizationServer{checker: &authzCheckerFake{err: errors.New(sentinel)}}
 
 		_, err := srv.Check(context.Background(), &authzv2.CheckRequest{
 			Subject: "user:1", Domain: "tenant-a", Object: "iam:identity:collection:users", Action: "read",
 		})
 
 		require.Equal(t, codes.Internal, status.Code(err))
+		require.Equal(t, "internal server error", status.Convert(err).Message())
+		require.NotContains(t, err.Error(), sentinel)
+		require.NotContains(t, err.Error(), "enforce")
 	})
 }
 
@@ -142,13 +146,17 @@ func TestAuthorizationServerSnapshotBranches(t *testing.T) {
 
 	t.Run("application error", func(t *testing.T) {
 		t.Parallel()
-		srv := &authorizationServer{snapshotReader: &authzSnapshotReaderFake{err: errors.New("snapshot failed")}}
+		const sentinel = "authz-snapshot-internal-sentinel"
+		srv := &authorizationServer{snapshotReader: &authzSnapshotReaderFake{err: errors.New(sentinel)}}
 
 		_, err := srv.GetAuthorizationSnapshot(context.Background(), &authzv2.GetAuthorizationSnapshotRequest{
 			Subject: "user:1", Domain: "tenant-a", AppName: "iam",
 		})
 
 		require.Equal(t, codes.Internal, status.Code(err))
+		require.Equal(t, "internal server error", status.Convert(err).Message())
+		require.NotContains(t, err.Error(), sentinel)
+		require.NotContains(t, err.Error(), "get authorization snapshot")
 	})
 }
 

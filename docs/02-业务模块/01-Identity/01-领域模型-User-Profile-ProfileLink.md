@@ -305,8 +305,8 @@ User 是 IAM 内部的稳定身份锚点，供 AuthN、AuthZ 和业务模块以 
 | `ChangePhone` | 替换 Phone | 唯一性必须由 application 先检查 |
 | `ChangeEmail` | 替换 Email | 无唯一性规则 |
 | `Activate` | 转为 active | 不检查前置状态 |
-| `Deactivate` | 转为 inactive | 不撤销 Session |
-| `Block` | 转为 blocked | application 提交后撤销 Session |
+| `Deactivate` | 转为 inactive | application 同事务写入 Session 撤销任务 |
+| `Block` | 转为 blocked | application 同事务写入 Session 撤销任务 |
 
 ### 6.4 状态模型
 
@@ -564,8 +564,8 @@ AuthZ 回答：Subject 能对 Resource 执行什么 Action？
 | 项目 | 类型 | 当前事实 | 需要的决策 |
 | --- | --- | --- | --- |
 | Phone 可选 | 待确认决策 | DTO、值解析和仓储支持空值 | 明确哪些入站场景允许无手机号 |
-| Phone 唯一 | 已知缺口 | 只有 application 预检查 | 是否加 DB 唯一约束及如何处理空值 |
-| User 状态迁移 | 待确认决策 | 任意合法状态可直接切换 | blocked 是否允许直接 Activate，Deactivate 是否应撤销 Session |
+| Phone 唯一 | 已实现不变量 | application 友好预检查 + `uk_users_active_phone` 最终兜底；空值与软删除行不占唯一值 | 保持 duplicate-key 映射和 MySQL 8 迁移测试 |
+| User 状态迁移 | 待确认决策 | 合法状态迁移由 application 控制；Block/Deactivate 同事务写 Session 撤销任务 | blocked 是否允许直接 Activate |
 | Profile 名称规范化 | 已知不一致 | User Name TrimSpace，Profile Name 只拒绝空字符串 | 是否统一空白字符串政策 |
 | IDCard 可选 | 待确认决策 | application 允许空值 | 记录允许无证件建档的业务条件 |
 | Type + Rel | 待确认决策 | 同时持久化，Type 由 Rel 派生 | 是否长期保留冗余字段，如何防止不一致 |

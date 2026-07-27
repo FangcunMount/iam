@@ -1,6 +1,6 @@
 # ProfileLink 为什么不是 Permission
 
-> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/identity`、`domain/authz`、Identity ProfileLink 写模型、AuthZ RoleBinding/Permission 写模型、Suggest 可见性过滤、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 

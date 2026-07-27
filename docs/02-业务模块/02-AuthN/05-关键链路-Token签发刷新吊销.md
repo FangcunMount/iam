@@ -1,6 +1,6 @@
 # 关键链路：Token 签发、刷新、吊销
 
-> 状态：已核对 Refresh 单次轮换与 Session Redis 一致性；公开 REST/gRPC 契约未改变。
+> 状态：已实现 · 已核对 Refresh 单次轮换与 Session Redis 一致性；公开 REST/gRPC 契约未改变。
 
 ---
 

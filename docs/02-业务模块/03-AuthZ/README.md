@@ -1,6 +1,6 @@
 # AuthZ
 
-> 状态：设计目标 · AuthZ 模块入口，已按“模型主文档 + 四条关键链路 + 模块边界 + 代码索引”的结构重写，待继续按源码、契约、配置和测试核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -497,7 +497,7 @@ transport/rest + transport/grpc
 | PolicyVersion / PolicyChange | `../../../internal/apiserver/domain/authz` |
 | AuthZ application | `../../../internal/apiserver/application/authz` |
 | AuthZ checker / DecisionEngine | `../../../internal/apiserver/application/authz` |
-| PolicyVersion / Outbox / runtime reload | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/infra`，具体以代码为准 |
+| PolicyVersion / Outbox / runtime reload | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/infra` |
 | Casbin runtime / PolicyRuntime adapter | `../../../internal/apiserver/infra` |
 | AuthZ REST transport | `../../../internal/apiserver/transport/rest` |
 | AuthZ gRPC transport | `../../../internal/apiserver/transport/grpc` |

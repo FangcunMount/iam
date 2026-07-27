@@ -1,7 +1,6 @@
 # 领域模型：WechatApp / Credentials / AppToken / ExternalIdentity
 
-> 状态：设计目标
-> 第一版正文，待继续按 `internal/apiserver/domain/idp`、`application/idp`、微信/企微 provider adapter、AppToken 缓存、凭据加密存储、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -182,7 +181,7 @@ classDiagram
 ```text
 上图是领域语义图，不等于数据库物理表结构；
 字段名称和数量以当前源码、迁移和契约为准；
-如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或设计目标。
+本文只把当前源码、迁移或契约能够证明的字段写成实现事实；未来字段必须单独标记为规划改造。
 ```
 
 ---
@@ -222,11 +221,11 @@ wecom-agent。
 | 字段 | 含义 | 说明 |
 | --- | --- | --- |
 | `ID` | 内部标识 | IAM 内部 provider app ID |
-| `Provider` | provider 类型 | wechat / wecom 等，具体以代码为准 |
+| `Provider` | provider 类型 | wechat / wecom 等 |
 | `AppID` | 外部应用 ID | 微信 appid、企微 corpid/agentid 等，具体以类型为准 |
 | `Name` | 应用名称 | 人类可读名称 |
 | `Type` | 应用类型 | 小程序、公众号、企微应用等 |
-| `Status` | 状态 | active / disabled / archived 等，具体以代码为准 |
+| `Status` | 状态 | active / disabled / archived 等 |
 | `CallbackURL` | 回调地址 | 可选，用于 provider callback |
 | `CreatedAt` / `UpdatedAt` | 时间戳 | 审计和同步使用 |
 
@@ -307,7 +306,7 @@ private key，若 provider 需要；
 | `TokenRef` | callback token 引用 | 用于消息验签，具体以 provider 为准 |
 | `EncodingAESKeyRef` | 消息加解密密钥引用 | 用于微信/企微消息解密 |
 | `Version` | 凭据版本 | 支持轮换和审计 |
-| `Status` | 状态 | active / rotating / disabled / expired 等，具体以代码为准 |
+| `Status` | 状态 | active / rotating / disabled / expired 等 |
 | `RotatedAt` | 轮换时间 | 可选 |
 | `ExpiresAt` | 过期时间 | 可选，provider 凭据是否有过期语义以 provider 为准 |
 
@@ -388,7 +387,7 @@ provider app access token。
 | `ExpiresAt` | 过期时间 | provider 返回 expires_in 后计算 |
 | `RefreshAfter` | 建议刷新时间 | 早于 ExpiresAt，用于 refresh margin |
 | `FetchedAt` | 获取时间 | 调 provider API 成功时间 |
-| `Status` | 状态 | valid / refreshing / expired / failed 等，具体以代码为准 |
+| `Status` | 状态 | valid / refreshing / expired / failed 等 |
 
 ---
 
@@ -624,7 +623,7 @@ IDP 不直接写 Suggest index。
 | IDP domain | `../../../internal/apiserver/domain/idp` |
 | WechatApp | `../../../internal/apiserver/domain/idp` |
 | Credentials / ProviderCredential | `../../../internal/apiserver/domain/idp` |
-| AppToken / AppAccessToken | `../../../internal/apiserver/domain/idp`、`../../../internal/apiserver/application/idp`，具体以代码为准 |
+| AppToken / AppAccessToken | `../../../internal/apiserver/domain/idp`、`../../../internal/apiserver/application/idp` |
 | ExternalIdentity | `../../../internal/apiserver/domain/idp` |
 | IDP application | `../../../internal/apiserver/application/idp` |
 | WeChat / WeCom provider adapter | `../../../internal/apiserver/infra` |

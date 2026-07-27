@@ -1,6 +1,6 @@
 # 关键链路：授权版本传播 PolicyVersion / Outbox / RuntimeReload
 
-> 状态：设计目标 · 第一版正文，待继续按 `application/authz`、`domain/authz`、Outbox、policy relay、Casbin runtime、配置、健康检查、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -303,7 +303,7 @@ stateDiagram-v2
 ```text
 状态图是领域语义图；
 具体状态枚举以代码为准；
-如果当前代码只记录 version number，不记录完整状态，也应在文档中标记为设计目标或规划改造。
+当前持久化事实以 version number 和 Outbox 状态为准；图中的概念状态不等同于新增数据库状态字段。未来新增状态机字段必须单独标记为规划改造。
 ```
 
 ---
@@ -795,13 +795,13 @@ outbox 积压或 reload lag 可进入 degraded。
 | AuthZ domain | `../../../internal/apiserver/domain/authz` |
 | PolicyVersion / PolicyChange | `../../../internal/apiserver/domain/authz` |
 | AuthZ application | `../../../internal/apiserver/application/authz` |
-| Policy administration / committer | `../../../internal/apiserver/application/authz`，具体以代码为准 |
-| Outbox store / relay | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/authz`，具体以代码为准 |
+| Policy administration / committer | `../../../internal/apiserver/application/authz` |
+| Outbox store / relay | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/authz` |
 | Policy loader / runtime reload | `../../../internal/apiserver/infra` |
 | Casbin runtime / policy adapter | `../../../internal/apiserver/infra` |
 | AuthZ container | `../../../internal/apiserver/container/authz` |
-| Background task / process lifecycle | `../../../internal/apiserver/process`、`../../../internal/apiserver/container`，具体以代码为准 |
-| Health / readiness | `../../../internal/apiserver/transport/rest`、`../../../internal/apiserver/process`，具体以代码为准 |
+| Background task / process lifecycle | `../../../internal/apiserver/process`、`../../../internal/apiserver/container` |
+| Health / readiness | `../../../internal/apiserver/transport/rest`、`../../../internal/apiserver/process` |
 | REST 契约 | `../../../api/rest` |
 | gRPC 契约 | `../../../api/grpc` |
 | 架构测试 | `../../../internal/pkg/architecture` |

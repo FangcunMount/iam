@@ -1,6 +1,6 @@
 # REST 接入契约
 
-> 状态：设计目标 · REST 接入总入口，待继续按 `api/rest/*.yaml`、`internal/apiserver/transport/rest`、middleware、错误模型、契约测试和 SDK 生成逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -101,8 +101,8 @@ REST runtime 入口：
 | --- | --- |
 | REST router / handler | `../../internal/apiserver/transport/rest` |
 | REST DTO / mapper | `../../internal/apiserver/transport/rest` |
-| AuthN middleware | `../../internal/apiserver/transport/rest`、`../../internal/apiserver/application/authn`，具体以代码为准 |
-| AuthZ middleware / RouteAuthorizer | `../../internal/apiserver/transport/rest`、`../../internal/apiserver/application/authz`，具体以代码为准 |
+| AuthN middleware | `../../internal/apiserver/transport/rest`、`../../internal/apiserver/application/authn` |
+| AuthZ middleware / RouteAuthorizer | `../../internal/apiserver/transport/rest`、`../../internal/apiserver/application/authz` |
 | Identity application | `../../internal/apiserver/application/identity` |
 | AuthN application | `../../internal/apiserver/application/authn` |
 | AuthZ application | `../../internal/apiserver/application/authz` |
@@ -259,11 +259,11 @@ IDP REST 负责外部身份源配置和解析接入。
 典型语义：
 
 ```text
-WechatApp / ProviderApp 配置；
-Credentials 轮换；
-AppToken 管理或内部获取，具体是否暴露以 OpenAPI 为准；
-ExternalIdentity 解析；
-provider callback，若通过 REST 接入。
+WechatApp 创建、查询、更新、启用和停用；
+认证密钥与消息密钥轮换；
+AccessToken 获取与强制刷新。
+
+当前 REST 不单独暴露 ExternalIdentity 解析或 provider callback 管理接口。
 ```
 
 边界：
@@ -355,7 +355,7 @@ Authorization: Bearer <access_token>
 ```text
 Authorization header
   -> AuthN middleware
-  -> token verification / blacklist / session context，具体以代码为准
+  -> token verification / blacklist / session context
   -> Principal
   -> attach Principal to request context
 ```

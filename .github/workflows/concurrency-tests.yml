@@ -16,6 +16,8 @@ on:
       - internal/pkg/migration/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
+      - scripts/dbops/**
+      - .github/workflows/db-ops.yml
       - .github/workflows/concurrency-tests.yml
   pull_request:
     branches: [ main ]
@@ -31,6 +33,8 @@ on:
       - internal/pkg/migration/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
+      - scripts/dbops/**
+      - .github/workflows/db-ops.yml
       - .github/workflows/concurrency-tests.yml
 
 env:
@@ -71,7 +75,7 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Install MySQL client
-        run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client-8.0
 
       - name: Wait for MySQL
         env:
@@ -154,6 +158,33 @@ jobs:
             -count=1 \
             2>&1 | tee test-artifacts/identity-migration-tests.txt
           exit "${PIPESTATUS[0]}"
+
+      - name: Verify database backup and restore script with MySQL 8
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: ${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}
+          MYSQL_DBNAME: iam_dbops_fixture
+          IAM_DB_OPS_BACKUP_DIR: ${{ runner.temp }}/iam-dbops-backups
+        run: |
+          set -euo pipefail
+          export MYSQL_PWD="$MYSQL_PASSWORD"
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
+            -e 'DROP DATABASE IF EXISTS iam_dbops_fixture; CREATE DATABASE iam_dbops_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" iam_dbops_fixture \
+            -e 'CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored");'
+
+          IAM_DB_OPS_OPERATION=backup scripts/dbops/database-operation.sh
+          backup_name="$(find "$IAM_DB_OPS_BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_*.sql.gz' -exec basename {} \;)"
+          test -n "$backup_name"
+
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
+            -e 'DROP DATABASE iam_dbops_fixture; CREATE DATABASE iam_dbops_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+          IAM_DB_OPS_OPERATION=restore IAM_DB_OPS_BACKUP_NAME="$backup_name" scripts/dbops/database-operation.sh
+          restored="$(mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" --batch --skip-column-names iam_dbops_fixture -e 'SELECT value FROM restore_fixture WHERE id = 1;')"
+          test "$restored" = "restored"
+          IAM_DB_OPS_OPERATION=status scripts/dbops/database-operation.sh
 
       - name: Upload test logs on failure
         if: failure()

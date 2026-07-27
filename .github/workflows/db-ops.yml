@@ -1,12 +1,9 @@
 name: Database Operations
 
-# GitHub-hosted runners use the public serverB SSH endpoint first because they
-# cannot route to the Tailscale-only SVRB_HOST address.
-# Required Variables: SVRB_PUBLIC_HOST (preferred), SVRB_HOST, or SVRA_HOST
-# Required Variables: SVRB_USERNAME or SVRA_USERNAME
-# Required Secrets: SVRB_SSH_KEY or SVRA_SSH_KEY
-# Required Secrets: MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DBNAME
-# Optional Variables: SVRB_SSH_PORT, SVRA_SSH_PORT; Optional Secrets: MYSQL_PORT
+# Production host contract:
+# - mysql and mysqldump are pre-provisioned official MySQL 8.x clients.
+# - the workflow validates the contract but never installs host packages.
+# - credentials are passed through a temporary 0600 defaults file by the script.
 
 on:
   workflow_dispatch:
@@ -23,7 +20,6 @@ on:
         description: Backup name, required for restore
         required: false
         type: string
-
   schedule:
     - cron: '0 17 * * *'  # Daily 17:00 UTC / 01:00 Asia-Shanghai
 
@@ -37,9 +33,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Backup Database
         uses: appleboy/ssh-action@v1.2.5
         env:
+          IAM_DB_OPS_OPERATION: backup
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -50,67 +50,8 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
-          script: |
-            set -euo pipefail
-
-            : "${MYSQL_HOST:?MYSQL_HOST is required}"
-            : "${MYSQL_USERNAME:?MYSQL_USERNAME is required}"
-            : "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
-            : "${MYSQL_DBNAME:?MYSQL_DBNAME is required}"
-
-            BACKUP_DIR="/opt/backups/iam/database"
-            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            BACKUP_FILE="iam_backup_${TIMESTAMP}.sql"
-            BACKUP_PATH="$BACKUP_DIR/$BACKUP_FILE"
-            ERROR_PATH="$BACKUP_PATH.err"
-            MYSQL_DEFAULTS="$(mktemp)"
-
-            cleanup() {
-              rm -f "$MYSQL_DEFAULTS" "$ERROR_PATH"
-            }
-            trap cleanup EXIT
-
-            sudo mkdir -p "$BACKUP_DIR"
-            sudo chown "$(id -u):$(id -g)" "$BACKUP_DIR"
-            chmod 0700 "$BACKUP_DIR"
-            umask 077
-
-            cat > "$MYSQL_DEFAULTS" <<EOF
-            [client]
-            host=${MYSQL_HOST}
-            port=${MYSQL_PORT:-3306}
-            user=${MYSQL_USERNAME}
-            password=${MYSQL_PASSWORD}
-            EOF
-            chmod 0600 "$MYSQL_DEFAULTS"
-
-            echo "Starting database backup..."
-            echo "Database: $MYSQL_DBNAME"
-            echo "Timestamp: $TIMESTAMP"
-
-            if mysqldump --defaults-extra-file="$MYSQL_DEFAULTS" \
-              --single-transaction \
-              --routines \
-              --triggers \
-              "$MYSQL_DBNAME" > "$BACKUP_PATH" 2> "$ERROR_PATH"; then
-              gzip -f "$BACKUP_PATH"
-              BACKUP_SIZE=$(du -h "${BACKUP_PATH}.gz" | cut -f1)
-              echo "Backup completed: ${BACKUP_FILE}.gz"
-              echo "Size: $BACKUP_SIZE"
-            else
-              echo "Backup failed"
-              sed 's/password=[^ ]*/password=***REDACTED***/g' "$ERROR_PATH" >&2 || true
-              rm -f "$BACKUP_PATH"
-              exit 1
-            fi
-
-            echo "Cleaning old backups, keeping last 3..."
-            cd "$BACKUP_DIR"
-            ls -t iam_backup_*.sql.gz 2>/dev/null | tail -n +4 | xargs -r rm -f
-
-            echo "Current backups:"
-            ls -lht "$BACKUP_DIR"/iam_backup_*.sql.gz 2>/dev/null | head -4 || true
+          envs: IAM_DB_OPS_OPERATION,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
 
   db-restore:
     name: Database Restore
@@ -118,75 +59,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Restore Database
         uses: appleboy/ssh-action@v1.2.5
         env:
+          IAM_DB_OPS_OPERATION: restore
+          IAM_DB_OPS_BACKUP_NAME: ${{ github.event.inputs.backup_name }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
-          BACKUP_FILE_INPUT: ${{ github.event.inputs.backup_name }}
         with:
           host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME,BACKUP_FILE_INPUT
-          script: |
-            set -euo pipefail
-
-            : "${MYSQL_HOST:?MYSQL_HOST is required}"
-            : "${MYSQL_USERNAME:?MYSQL_USERNAME is required}"
-            : "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
-            : "${MYSQL_DBNAME:?MYSQL_DBNAME is required}"
-
-            BACKUP_DIR="/opt/backups/iam/database"
-            BACKUP_FILE="$BACKUP_FILE_INPUT"
-            MYSQL_DEFAULTS="$(mktemp)"
-
-            cleanup() {
-              rm -f "$MYSQL_DEFAULTS"
-            }
-            trap cleanup EXIT
-
-            if [ -z "$BACKUP_FILE" ]; then
-              echo "Backup name is required for restore."
-              echo "Available backups:"
-              ls -lht "$BACKUP_DIR" 2>/dev/null | head -11 || true
-              exit 1
-            fi
-
-            if ! printf '%s\n' "$BACKUP_FILE" | grep -Eq '^iam_backup_[0-9]{8}_[0-9]{6}\.sql\.gz$'; then
-              echo "Invalid backup name: $BACKUP_FILE"
-              echo "Expected pattern: iam_backup_YYYYMMDD_HHMMSS.sql.gz"
-              exit 1
-            fi
-
-            if [ ! -f "$BACKUP_DIR/$BACKUP_FILE" ]; then
-              echo "Backup file not found: $BACKUP_FILE"
-              echo "Available backups:"
-              ls -lht "$BACKUP_DIR" 2>/dev/null | head -11 || true
-              exit 1
-            fi
-
-            cat > "$MYSQL_DEFAULTS" <<EOF
-            [client]
-            host=${MYSQL_HOST}
-            port=${MYSQL_PORT:-3306}
-            user=${MYSQL_USERNAME}
-            password=${MYSQL_PASSWORD}
-            EOF
-            chmod 0600 "$MYSQL_DEFAULTS"
-
-            echo "WARNING: This will overwrite the current database."
-            echo "Backup file: $BACKUP_FILE"
-            echo "Target database: $MYSQL_DBNAME"
-            echo "Restoring in 5 seconds..."
-            sleep 5
-
-            gunzip -c "$BACKUP_DIR/$BACKUP_FILE" | mysql --defaults-extra-file="$MYSQL_DEFAULTS" "$MYSQL_DBNAME"
-            echo "Database restored successfully from $BACKUP_FILE"
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_BACKUP_NAME,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
 
   db-status:
     name: Database Status
@@ -194,9 +86,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Check Database Status
         uses: appleboy/ssh-action@v1.2.5
         env:
+          IAM_DB_OPS_OPERATION: status
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -207,57 +103,5 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
-          script: |
-            set -euo pipefail
-
-            : "${MYSQL_HOST:?MYSQL_HOST is required}"
-            : "${MYSQL_USERNAME:?MYSQL_USERNAME is required}"
-            : "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
-            : "${MYSQL_DBNAME:?MYSQL_DBNAME is required}"
-
-            MYSQL_DEFAULTS="$(mktemp)"
-
-            cleanup() {
-              rm -f "$MYSQL_DEFAULTS"
-            }
-            trap cleanup EXIT
-
-            cat > "$MYSQL_DEFAULTS" <<EOF
-            [client]
-            host=${MYSQL_HOST}
-            port=${MYSQL_PORT:-3306}
-            user=${MYSQL_USERNAME}
-            password=${MYSQL_PASSWORD}
-            EOF
-            chmod 0600 "$MYSQL_DEFAULTS"
-
-            echo "=== Database Status ==="
-            mysql --defaults-extra-file="$MYSQL_DEFAULTS" -e "SELECT VERSION();"
-
-            echo ""
-            echo "Database size:"
-            mysql --defaults-extra-file="$MYSQL_DEFAULTS" -e "SELECT table_schema AS 'Database',
-              ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'Size (MB)'
-              FROM information_schema.tables
-              WHERE table_schema = '$MYSQL_DBNAME'
-              GROUP BY table_schema;"
-
-            echo ""
-            echo "Tables:"
-            mysql --defaults-extra-file="$MYSQL_DEFAULTS" "$MYSQL_DBNAME" -e "SHOW TABLES;"
-
-            echo ""
-            echo "Largest tables:"
-            mysql --defaults-extra-file="$MYSQL_DEFAULTS" "$MYSQL_DBNAME" -e "SELECT table_name AS 'Table',
-              table_rows AS 'Rows',
-              ROUND(data_length / 1024 / 1024, 2) AS 'Data (MB)',
-              ROUND(index_length / 1024 / 1024, 2) AS 'Index (MB)'
-              FROM information_schema.tables
-              WHERE table_schema = '$MYSQL_DBNAME'
-              ORDER BY data_length DESC
-              LIMIT 10;"
-
-            echo ""
-            echo "Available backups:"
-            ls -lht /opt/backups/iam/database/ 2>/dev/null | head -11 || echo "No backups found"
+          envs: IAM_DB_OPS_OPERATION,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh

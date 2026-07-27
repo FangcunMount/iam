@@ -1,6 +1,6 @@
 # Casbin 在 AuthZ 中的定位
 
-> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/authz`、`application/authz`、`infra/authz`、Casbin adapter、PolicyVersion、RuntimeReload、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 

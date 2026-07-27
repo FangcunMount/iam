@@ -138,7 +138,7 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
-- `status`: 查看数据库版本、库大小、表列表、最大表和备份列表。
+- `status`: 只输出 MySQL 客户端版本、连接状态、库总大小、表数量、备份数量和最新备份时间。
 
 已废弃：
 
@@ -155,9 +155,17 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 安全约束：
 
+- 生产宿主机必须预先安装官方 MySQL 8.x `mysql` 与 `mysqldump`；定时 workflow 只校验，不执行包管理器。
+- 三个 job checkout 仓库后统一通过 `scripts/dbops/database-operation.sh` 执行，不在 workflow 内复制数据库脚本。
 - 使用临时 MySQL defaults file 传递凭据，避免在命令行参数中直接出现密码。
+- 备份目录权限固定为 `0700`，defaults file 和最终备份固定为 `0600`。
+- dump 流式写入临时 gzip，只有非空且 `gzip -t` 成功后才原子改名；失败不留下最终文件。
+- 成功落盘后才执行保留最近 3 份；日志只包含 operation、时间、大小、数量和结果。
 - `restore` 只接受 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 精确格式的备份文件名。
-- `mysqldump` stderr 不再写入 `.sql` 文件，避免错误输出污染备份内容。
+- restore 拒绝路径分隔符、符号链接、缺失文件和损坏 gzip；不会自动触发生产恢复。
+- `mysqldump`/`mysql` 的原始 stderr 不进入工作流输出，避免 SQL、地址或凭据泄露。
+
+MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → 数据断言，不接触生产数据，也不上传备份 artifact。
 
 ## server-check.yml
 

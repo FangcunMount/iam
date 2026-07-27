@@ -1,6 +1,6 @@
 # 模块边界：IDP 与 AuthN
 
-> 状态：设计目标 · 第一版正文，待继续按源码、组合根、跨模块 port、微信/企微 provider adapter、AuthN 登录/绑定/开通用例、REST/gRPC 契约和架构测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -314,7 +314,7 @@ AuthN 可以通过 IDP port 使用：
 ResolveExternalIdentity(provider, appID, proof)；
 GetProviderAppMetadata(appID)，可选；
 ValidateProviderProof(proof)，如果与解析拆分；
-GetProviderIdentityClaims，具体以代码为准。
+GetProviderIdentityClaims。
 ```
 
 AuthN 不应该直接使用：

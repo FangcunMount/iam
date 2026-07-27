@@ -91,7 +91,7 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv2.CheckReque
 	}
 	decision, err := s.checker.Check(ctx, cmd)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "enforce: %v", err)
+		return nil, iamgrpc.ToStatusError(err)
 	}
 	return &authzv2.CheckResponse{
 		Allowed:       decision.Allowed,
@@ -119,7 +119,7 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 	}
 	snapshot, err := s.snapshotReader.Read(ctx, query)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get authorization snapshot: %v", err)
+		return nil, iamgrpc.ToStatusError(err)
 	}
 
 	return &authzv2.GetAuthorizationSnapshotResponse{

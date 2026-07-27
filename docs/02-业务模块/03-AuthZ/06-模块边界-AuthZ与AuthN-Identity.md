@@ -1,6 +1,6 @@
 # 模块边界：AuthZ 与 AuthN / Identity
 
-> 状态：设计目标 · 第一版正文，待继续按源码、组合根、跨模块 port、Casbin runtime、REST/gRPC middleware、契约和架构测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -767,7 +767,7 @@ Outbox reload 失败但 Check 仍宣称使用最新策略。
 | AuthorizationRequest / AuthorizationDecision | `../../../internal/apiserver/domain/authz` |
 | AuthZ application | `../../../internal/apiserver/application/authz` |
 | AuthZ checker / DecisionEngine | `../../../internal/apiserver/application/authz` |
-| PolicyVersion / Outbox / runtime reload | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/infra`，具体以代码为准 |
+| PolicyVersion / Outbox / runtime reload | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/infra` |
 | Casbin runtime / PolicyRuntime adapter | `../../../internal/apiserver/infra` |
 | AuthN Principal | `../../../internal/apiserver/domain/authn/authentication/principal.go` |
 | Identity User/Profile/ProfileLink | `../../../internal/apiserver/domain/identity` |

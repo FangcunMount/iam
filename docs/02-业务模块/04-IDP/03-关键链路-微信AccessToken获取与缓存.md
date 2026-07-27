@@ -1,8 +1,7 @@
 
 # 关键链路：微信 AccessToken 获取与缓存
 
-> 状态：设计目标
-> 第一版正文，待继续按 `application/idp`、`domain/idp`、WechatApp repository、Credentials store、AppToken cache、微信/企微 provider adapter、singleflight/lock、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -681,13 +680,13 @@ AppToken 获取不维护 Suggest Index；
 | 事实 | 路径 |
 | --- | --- |
 | IDP domain | `../../../internal/apiserver/domain/idp` |
-| AppToken / AppAccessToken | `../../../internal/apiserver/domain/idp`、`../../../internal/apiserver/application/idp`，具体以代码为准 |
+| AppToken / AppAccessToken | `../../../internal/apiserver/domain/idp`、`../../../internal/apiserver/application/idp` |
 | WechatApp | `../../../internal/apiserver/domain/idp` |
 | Credentials | `../../../internal/apiserver/domain/idp` |
 | IDP AppToken service | `../../../internal/apiserver/application/idp` |
 | AppTokenCache | `../../../internal/apiserver/infra` |
 | AppTokenProvider / WeChat API adapter | `../../../internal/apiserver/infra` |
-| RefreshLock / singleflight | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/idp`，具体以代码为准 |
+| RefreshLock / singleflight | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/idp` |
 | SecretVault / credential store | `../../../internal/apiserver/infra` |
 | IDP REST transport | `../../../internal/apiserver/transport/rest` |
 | IDP gRPC transport | `../../../internal/apiserver/transport/grpc` |

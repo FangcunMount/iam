@@ -81,7 +81,7 @@ flowchart LR
 
     AUTHN -->|"LoginIdentity.UserID"| IDENTITY
     AUTHN -->|"signup UOW uses User repository port"| IDENTITY
-    IDENTITY -->|"post-commit SessionRevoker"| AUTHN
+    IDENTITY -->|"durable revocation task + worker"| AUTHN
 
     IDENTITY -->|"REST /me RoleNameReader"| AUTHZ
     SUGGEST -->|"route roles and mobile-search authorization"| AUTHZ
@@ -146,16 +146,16 @@ Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而�
 
 1. Identity 直接删除 Redis/Session 数据；
 2. 把 User status 和 Session 强行放入同一个技术事务；
-3. UserBlocked 事件/outbox 异步撤销；
+3. UserBlocked/UserDeactivated 本地安全 Outbox 异步撤销；
 4. 每次 Session/Token 使用时实时查 User status。
 
 **当前方案的好处**
 
-依赖面窄，Identity 不需要了解 AuthN 存储细节；同步调用也能立即向调用方暴露撤销失败。
+依赖面窄，Identity 不需要了解 AuthN 存储细节；User 状态和撤销任务在同一 MySQL 事务中提交，在线 Verify 同时实时检查 User 状态。
 
 **当前方案的代价**
 
-如果 SessionRevoker 失败，User 已经 blocked，但调用方收到错误；当前没有 outbox、持久化重试或补偿记录。`Deactivate` 则完全不调用 SessionRevoker。
+Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数退避，超过 `stale_processing_after` 的 processing 任务可重新 claim。API 在 MySQL 状态和任务提交后返回成功；MySQL 与 Redis 之间不宣称原子提交或 exactly-once。
 
 ### 6.4 决策 D：`/identity/me` 的 roles 是可降级展示增强
 
@@ -337,14 +337,14 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 
 | 主题 | 当前状态 | 复议或修复触发条件 |
 | --- | --- | --- |
-| AuthN signup 的 Phone 规则 | 不复用 Identity checker，不按 Phone 合并 | Phone 被确认为系统级唯一键时，统一 UOW 中的检查与 DB 约束 |
+| AuthN signup 的 Phone 规则 | 不复用 Identity checker，也不按 Phone 合并；数据库唯一索引负责最终拒绝重复活跃手机号 | 需要更友好冲突提示时，在 signup 增加同事务预检查，但不能改成隐式账号合并 |
 | AuthN/Identity 数据库拆分 | 当前 signup 依赖同 MySQL 事务 | 拆库前必须设计 saga/outbox/补偿和幂等 |
-| Block + Session | DB 提交后同步调用，无持久化重试 | 安全要求不接受撤销失败窗口时，引入 outbox/重试或验证时 status check |
+| Block/Deactivate + Session | User 状态与本地撤销任务同事务提交；Worker 对 Redis 失败持久化重试，在线 Verify 同时检查状态 | 需要跨 MySQL/Redis 强原子性时另行评估，不宣称 exactly-once |
 | `/me` roles 降级 | 无 roles 不区分“无角色”与“查询失败” | 客户端需要可观测降级语义时 |
-| REST Profile search | 无 ProfileLink/AuthZ scope | 在对外继续使用前收敛可见范围 |
+| REST Profile search | 无作用域 `/identity/profiles/search` 已下线；搜索统一走受授权 Suggest | 新增搜索能力时继续复用显式 scope，不恢复旧入口 |
 | IDP ExternalIdentity | 只有 proto 字段和 AuthN 内部 provider result | 多 provider 需要统一中间契约时，决定其归属 IDP 还是 AuthN |
 | Suggest 同步 | 定时 Full/Delta SQL，无 Profile event | 新鲜度或 schema 耦合成本不可接受时，引入稳定事件/outbox |
-| Suggest revoked link | 默认 Loader 未过滤 | 修正 SQL 并增加撤销关系不贡献 Phone 的测试 |
+| Suggest revoked link | Full/Delta 只接受 active Profile、active ProfileLink 和 active User；最后关联失效生成 tombstone | 保持 Full/Delta 共享 eligibility 和删除传播测试 |
 | ProfileLink 与 AuthZ | 彼此独立 | 只有出现明确 Resource/Action/Scope 规则时才设计受控映射 |
 
 ## 13. 事实源与 Verify

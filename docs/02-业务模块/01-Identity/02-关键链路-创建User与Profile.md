@@ -276,7 +276,7 @@ sequenceDiagram
 | Phone/Email 格式无效 | application 返回编码错误，transport 映射 gRPC status |
 | Phone 预检查冲突 | 事务不写入 User |
 | repository 写入失败 | 事务回滚 |
-| 并发写入同 Phone | DB 无唯一键，可能都成功 |
+| 并发写入同 Phone | `uk_users_active_phone` 只允许一个活跃 User 成功；冲突映射为现有 `ErrUserAlreadyExists` |
 
 Identity `CreateUser` 当前没有请求幂等键。重试是否会创建新 User，取决于 Phone 是否非空且预检查能否命中，不应宣称为幂等接口。
 
@@ -319,11 +319,11 @@ sequenceDiagram
 
 测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，但也意味着 Phone 在这条链路中不是用户合并键。
 
-### 8.3 当前一致性缺口
+### 8.3 当前一致性边界
 
-AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有调用 Identity `user.Creator` 或 `UniquenessChecker`。由于 `users.phone` 也无唯一键，同 Phone 可以经由不同 LoginIdentity 创建多个 User。
+AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有复用 Identity `user.Creator` 的友好预检查；最终并发一致性由 `users.active_phone` 生成列和 `uk_users_active_phone` 唯一索引保证。同 Phone 不能经由不同 LoginIdentity 创建多个活跃 User，数据库冲突统一映射为现有 `ErrUserAlreadyExists`。
 
-> 标签：待确认决策。需要明确 Phone 是“可重复联系字段”、“Identity 创建入口局部唯一”，还是“系统级唯一业务键”。三种语义对数据库约束、signup 解析和账号合并政策的要求完全不同。
+Phone 仍不是账号自动合并键：signup 不会仅凭 Phone 把新 LoginIdentity 绑定到旧 User；唯一索引只负责拒绝重复活跃手机号，不执行隐式账号合并。软删除 User 后，该手机号可被重新使用。
 
 ## 9. Identity `CreateProfile` 当前实现
 
@@ -386,7 +386,7 @@ production container 只装配 `profile.NewMyProfiles(uow)` 作为创建能力�
 
 | 链路 | 事务边界 | 并发兜底 | 幂等语义 |
 | --- | --- | --- | --- |
-| Identity CreateUser | 单个 Identity MySQL 事务 | Phone 无 DB 唯一键 | 无请求幂等键 |
+| Identity CreateUser | 单个 Identity MySQL 事务 | application 友好预检查 + `uk_users_active_phone` 最终兜底 | 无请求幂等键 |
 | AuthN SignUp | User + LoginIdentity + Credential 同一 AuthN MySQL 事务 | LoginIdentity repository 唯一约束；Phone 非合并键 | 按 provider key 复用 LoginIdentity/User，不是通用请求幂等 |
 | Identity CreateProfile | Profile + ProfileLink 同一 Identity MySQL 事务 | IDCard 唯一键、active self 唯一键、ProfileLink 组合唯一键 | 无请求幂等键 |
 
@@ -394,7 +394,7 @@ production container 只装配 `profile.NewMyProfiles(uow)` 作为创建能力�
 
 | 项目 | 当前状态 | 需要决策或修复 |
 | --- | --- | --- |
-| Phone 唯一性 | Identity 局部预检查；AuthN signup 不检查；DB 无唯一键 | 先确认系统级 Phone 语义，再统一所有写入链路 |
+| Phone 唯一性 | 所有写入链路受 `uk_users_active_phone` 约束；Identity 保留友好预检查，AuthN signup 依赖数据库最终兜底 | 保持 duplicate-key 错误映射和 MySQL 8 迁移/并发测试 |
 | CreateUser `nickname` | 实际写入 User.Name | 契约重命名或修正 mapper，并制定兼容政策 |
 | User 扩展字段 | avatar、contacts、external identities 当前忽略 | 删除超前契约，或完成模型/映射/存储 |
 | OperatorContext | Identity 写 handler 不强制也不传递 | 确认审计主体模型后端到端落地 |

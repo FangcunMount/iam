@@ -1,7 +1,7 @@
 
 # Go SDK 接入模型
 
-> 状态：设计目标 · Go SDK 接入总入口，待继续按 `pkg/sdk`、REST/OpenAPI、gRPC/proto、生成代码、compile test、示例代码和版本策略逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -88,7 +88,7 @@ SDK 文档入口：
 | 事实 | 路径 |
 | --- | --- |
 | SDK public API | `../../pkg/sdk` |
-| SDK examples | `../../pkg/sdk/docs`、`../../pkg/sdk`，具体以代码为准 |
+| SDK examples | `../../pkg/sdk/docs`、`../../pkg/sdk` |
 | SDK compile test | `../../pkg/sdk` |
 | REST OpenAPI | `../../api/rest` |
 | gRPC proto | `../../api/grpc` |
@@ -136,7 +136,7 @@ SDK 是业务 Go 服务接入 IAM 的产品化封装。
 封装错误映射；
 提供类型安全的 request/response；
 提供示例和 compile test；
-提供必要的重试、限流或熔断接入点，具体以代码为准。
+提供必要的重试、限流或熔断接入点。
 ```
 
 SDK 不负责：

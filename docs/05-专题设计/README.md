@@ -1,6 +1,6 @@
 # 05-专题设计
 
-> 状态：设计目标 · 专题设计总入口，已按 Token/JWKS、Session/双 Token、Transactional Outbox、Casbin、ProfileLink/Permission、Suggest 读模型六篇专题重写；后续专题设计、边界取舍、替代方案和讲解口径统一维护在本目录。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 

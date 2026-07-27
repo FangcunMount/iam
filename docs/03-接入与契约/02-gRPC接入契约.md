@@ -1,6 +1,6 @@
 # gRPC 接入契约
 
-> 状态：设计目标 · gRPC 接入总入口，待继续按 `api/grpc/**/*.proto`、`internal/apiserver/transport/grpc`、interceptor、错误模型、proto 生成物、契约测试和 SDK 逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -125,8 +125,8 @@ gRPC runtime 入口：
 | gRPC server / service register | `../../internal/apiserver/transport/grpc` |
 | proto mapper | `../../internal/apiserver/transport/grpc` |
 | interceptor | `../../internal/apiserver/transport/grpc` |
-| AuthN interceptor / token verifier | `../../internal/apiserver/transport/grpc`、`../../internal/apiserver/application/authn`，具体以代码为准 |
-| AuthZ interceptor / RouteAuthorizer | `../../internal/apiserver/transport/grpc`、`../../internal/apiserver/application/authz`，具体以代码为准 |
+| AuthN interceptor / token verifier | `../../internal/apiserver/transport/grpc`、`../../internal/apiserver/application/authn` |
+| AuthZ interceptor / RouteAuthorizer | `../../internal/apiserver/transport/grpc`、`../../internal/apiserver/application/authz` |
 | Identity application | `../../internal/apiserver/application/identity` |
 | AuthN application | `../../internal/apiserver/application/authn` |
 | AuthZ application | `../../internal/apiserver/application/authz` |
@@ -180,7 +180,7 @@ iam.identity.v2.*  -> Identity
 iam.authn.v2.*     -> AuthN
 iam.authz.v2.*     -> AuthZ
 iam.idp.v2.*       -> IDP
-iam.suggest.v2.*   -> Suggest，若已存在
+Suggest            -> 当前仅提供 REST，不注册 gRPC service
 ```
 
 具体 package、service、rpc、message 名称以 proto 为准。
@@ -230,7 +230,7 @@ link login identity；
 refresh token；
 logout；
 Principal resolve；
-JWKS 或 token verification related RPC，具体以 proto 为准。
+JWKS 或 token verification related RPC；当前 RPC 以 proto 契约为准。
 ```
 
 边界：
@@ -254,13 +254,10 @@ AuthZ gRPC 负责授权策略管理、权限检查和服务间授权能力。
 典型语义：
 
 ```text
-Role；
-Permission；
-RoleBinding；
-PolicyVersion；
 Check；
-BatchCheck / Filter，若已实现；
-策略发布 / runtime reload，具体以 proto 为准。
+GetAuthorizationSnapshot；
+GrantAssignment；
+RevokeAssignment。
 ```
 
 边界：
@@ -284,11 +281,9 @@ IDP gRPC 负责外部身份源配置、AppToken 内部能力和 ExternalIdentity
 典型语义：
 
 ```text
-WechatApp / ProviderApp 配置；
-Credentials 轮换；
-AppToken 获取，具体是否暴露以 proto 为准；
-ExternalIdentity 解析；
-provider callback 解析结果接入，若已实现。
+GetWechatApp；
+GetWechatAccessToken；
+RefreshWechatAccessToken。
 ```
 
 边界：
@@ -360,7 +355,7 @@ authorization: Bearer <access_token>
 ```text
 gRPC metadata
   -> AuthN interceptor
-  -> token verification / blacklist / session context，具体以代码为准
+  -> token verification / blacklist / session context
   -> Principal
   -> attach Principal to context.Context
 ```
@@ -464,6 +459,8 @@ provider 错误不应暴露 raw provider response；
 手机号搜索被拒绝或限流时不应泄露是否有匹配 Profile；
 内部错误不应暴露 SQL、Redis key、secret、token、stack trace。
 ```
+
+服务端错误消息由 `internal/pkg/grpc.ToStatusError` 统一规范化：IAM coded error 保留注册表中的 code 和静态消息；`Internal`、`Unknown`、`DataLoss` 统一返回 `internal server error`，`Unavailable`、`DeadlineExceeded`、`Canceled` 只返回稳定公开消息。客户端参数校验仍可返回安全、稳定的 `InvalidArgument` 文本。AuthZ `Check` 和 `GetAuthorizationSnapshot` 不拼接 application 底层错误。
 
 ---
 

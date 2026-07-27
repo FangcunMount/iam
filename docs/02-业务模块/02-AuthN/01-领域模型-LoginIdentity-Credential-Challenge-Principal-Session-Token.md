@@ -1,6 +1,6 @@
 # 领域模型：LoginIdentity / Credential / Challenge / Principal / Session / Token
 
-> 状态：设计目标 · 第一版正文，待继续按 `internal/apiserver/domain/authn`、`application/authn`、Token/JWKS 实现、REST/gRPC 契约和测试逐项核对；
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 > 本文合并原“领域模型 / 领域模型图 / 核心对象生命周期”三类内容，作为 AuthN 模型主文档维护。
 
 ---
@@ -230,7 +230,7 @@ classDiagram
 ```text
 上图是领域语义图，不等于数据库物理表结构；
 字段名称和数量以当前源码、迁移和契约为准；
-如果代码尚未完全实现某个字段，应在具体文档中标记为规划改造或设计目标。
+本文只把当前源码、迁移或契约能够证明的字段写成实现事实；未来字段必须单独标记为规划改造。
 ```
 
 ---
@@ -271,10 +271,10 @@ operation account；
 | --- | --- | --- |
 | `ID` | LoginIdentity 标识 | AuthN 内部登录身份 ID |
 | `UserID` | Identity.User 引用 | 指向 IAM 内部稳定身份主体 |
-| `Type` | 登录身份类型 | password / phone / wx_minip / wecom 等，具体以代码为准 |
+| `Type` | 登录身份类型 | password / phone / wx_minip / wecom 等 |
 | `Identifier` | 登录标识 | username、phone、openid、userid 等 |
-| `Provider` | 外部 provider | 微信、企微、operation 等，具体以代码为准 |
-| `Status` | 登录身份状态 | 是否可用、禁用或锁定，具体以代码为准 |
+| `Provider` | 外部 provider | 微信、企微、operation 等 |
+| `Status` | 登录身份状态 | 是否可用、禁用或锁定 |
 
 ---
 
@@ -351,7 +351,7 @@ phone credential material；
 | --- | --- | --- |
 | `ID` | Credential 标识 | AuthN 内部凭据 ID |
 | `LoginIdentityID` | 登录身份引用 | 指向某个 LoginIdentity |
-| `Type` | 凭据类型 | password / oauth / otp material 等，具体以代码为准 |
+| `Type` | 凭据类型 | password / oauth / otp material 等 |
 | `Material` | 凭据材料 | 应为 hash、加密材料或外部绑定信息，不应是明文密码 |
 | `Algo` | 算法 | password hash 算法等 |
 | `Params` | 算法参数 | salt、cost、版本等，具体以实现为准 |
@@ -433,7 +433,7 @@ OAuth state / nonce；
 | --- | --- | --- |
 | `ID` | Challenge 标识 | AuthN 内部挑战 ID |
 | `LoginIdentityID` | 登录身份引用 | 可选，部分挑战在绑定登录身份前产生 |
-| `Type` | 挑战类型 | sms_otp / email_otp / oauth_state / qr_ticket 等，具体以代码为准 |
+| `Type` | 挑战类型 | sms_otp / email_otp / oauth_state / qr_ticket 等 |
 | `Target` | 发送或验证目标 | 手机号、邮箱、provider session 等 |
 | `CodeHash` | 验证码 hash | 不应保存明文验证码 |
 | `State` | 状态参数 | OAuth/扫码等场景可能需要 |
@@ -500,7 +500,7 @@ Challenge 不等于 RefreshToken。
 | --- | --- | --- |
 | `UserID` | Identity.User 引用 | 认证结果最终归属的 User |
 | `LoginIdentityID` | 登录身份引用 | 本次认证使用的登录身份 |
-| `AuthMethod` | 认证方式 | password / otp / oauth 等，具体以代码为准 |
+| `AuthMethod` | 认证方式 | password / otp / oauth 等 |
 | `AMR` | Authentication Methods References | 可选，表达认证强度或方法组合 |
 | `AuthenticatedAt` | 认证时间 | 本次认证成功时间 |
 

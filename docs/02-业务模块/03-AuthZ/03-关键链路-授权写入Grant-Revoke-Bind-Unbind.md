@@ -1,6 +1,6 @@
 # 关键链路：授权写入 Grant / Revoke / Bind / Unbind
 
-> 状态：设计目标 · 第一版正文，待继续按 `application/authz`、`domain/authz`、repository、PolicyVersion、Outbox、Casbin runtime、REST/gRPC 契约和测试逐项核对。
+> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
 
 ---
 
@@ -608,14 +608,13 @@ PolicyChange 应可追踪和可重试。
 
 授权写入应明确事务边界。
 
-建议事务内提交：
+当前事务内提交：
 
 ```text
 管理事实变更；
-运行时投影变更，若当前实现需要同步持久化；
+Casbin runtime projection 的持久化事实变更；
 PolicyVersion bump；
-Outbox event；
-audit record，若要求强一致。
+Outbox event。
 ```
 
 事务外执行：
@@ -851,10 +850,10 @@ Role/Permission/RoleBinding 变更必须有 traceID/operator/reason；
 | Role / Permission / RoleBinding | `../../../internal/apiserver/domain/authz` |
 | PolicyVersion / PolicyChange | `../../../internal/apiserver/domain/authz` |
 | AuthZ application administration | `../../../internal/apiserver/application/authz` |
-| AuthorizationPolicy / PolicyAdministration | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/domain/authz`，具体以代码为准 |
+| AuthorizationPolicy / PolicyAdministration | `../../../internal/apiserver/application/authz`、`../../../internal/apiserver/domain/authz` |
 | AuthZ repository | `../../../internal/apiserver/infra` |
 | Policy projection / Casbin adapter | `../../../internal/apiserver/infra` |
-| Outbox / policy relay | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/authz`，具体以代码为准 |
+| Outbox / policy relay | `../../../internal/apiserver/infra`、`../../../internal/apiserver/application/authz` |
 | AuthZ REST transport | `../../../internal/apiserver/transport/rest` |
 | AuthZ gRPC transport | `../../../internal/apiserver/transport/grpc` |
 | AuthZ container | `../../../internal/apiserver/container/authz` |
