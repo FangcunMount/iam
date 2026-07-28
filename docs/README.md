@@ -1,471 +1,198 @@
 # IAM 文档中心
 
-> 状态：规划改造 · 已完成当前事实盘点；正文仍含待实现或尚未收敛的设计内容，不得作为现有能力承诺。
+> 状态：已实现 · 当前体系已按代码、配置、迁移、机器契约和测试重建；运行/生产结论仍只由对应环境证据支持。
 
----
+## 1. 这套文档解决什么问题
 
-## 1. 30 秒结论
+IAM 不只是“登录 + 权限接口”。它同时处理内部身份、外部身份声明、认证会话、资源授权、派生搜索，以及 MySQL/Redis/事件/密钥/多实例运行时的一致性问题。
 
-IAM 是面向业务系统接入的身份与访问管理服务。
-
-它围绕 5 个核心问题组织能力：
+本体系的目标是让读者能回答三层问题：
 
 ```text
-用户是谁？                  -> Identity
-如何证明当前请求者是谁？      -> AuthN
-用户能访问什么资源、执行什么动作？ -> AuthZ
-外部 provider 说了什么？       -> IDP
-当前请求者能搜索到哪些档案候选？ -> Suggest
+概念层：对象是什么，彼此为什么不能合并？
+设计层：约束和矛盾是什么，候选方案如何演化，为什么选择当前方案？
+实现层：代码如何落地，事务/并发/失败/安全语义在哪里，怎样验证？
 ```
 
-`docs/` 是解释层和导航层，不是机器事实本身。
-
-当前文档的核心事实层是：
+文档不是代码路径清单，也不是“当前事实 + 决策摘要”。每个 canonical 主题应保留完整推理链：
 
 ```text
-02-业务模块/
-  -> 03-接入与契约/
-  -> 04-架构护栏/
-  -> 05-专题设计/
-  -> 06-宣讲/
+问题与场景
+  -> 概念和责任边界
+  -> 不变量与风险
+  -> 候选方案及其失败方式
+  -> 当前选择与代价
+  -> 代码实现和运行时语义
+  -> 已知限制、证据与 Verify
 ```
 
-如果只记一句话：
+## 2. 一张系统地图
 
-> 代码、契约和测试是事实源；文档负责解释事实、组织阅读路径、沉淀设计边界和宣讲口径。
+```mermaid
+flowchart LR
+    Provider["Wechat / WeCom"] --> IDP["IDP\n外部身份与应用凭据"]
+    IDP --> AuthN["AuthN\nLoginIdentity / Principal\nSession / Token"]
+    Identity["Identity\nUser / Profile / ProfileLink"] <--> AuthN
+    AuthN --> AuthZ["AuthZ\nSubject / Role / Permission\nResource Check"]
+    Identity --> Suggest["Suggest\nProfile 派生读模型"]
+    AuthZ --> Suggest
 
----
-
-## 2. 文档中心定位
-
-`docs/` 负责回答 6 类问题：
-
-| 问题 | 对应目录 |
-| --- | --- |
-| IAM 是什么？边界是什么？怎么阅读？ | `00-概览/` |
-| 服务如何启动、装配、运行？ | `01-运行时/` |
-| Identity / AuthN / AuthZ / IDP / Suggest 分别是什么？ | `02-业务模块/` |
-| REST / gRPC / Go SDK 如何接入？ | `03-接入与契约/` |
-| 如何保证分层、契约、SDK、文档不漂移？ | `04-架构护栏/` |
-| Token、Outbox、Casbin、ProfileLink、Suggest 等设计为什么这么做？ | `05-专题设计/` |
-| 如何面试、评审、技术分享时讲清楚？ | `06-宣讲/` |
-
-文档中心不负责：
-
-```text
-替代源码；
-替代 OpenAPI/proto；
-替代测试；
-替代 CI；
-用文档反向定义机器契约；
-把历史归档内容作为当前事实源。
+    MySQL[("MySQL facts")] --> Identity
+    MySQL --> AuthN
+    MySQL --> AuthZ
+    Redis[("Redis runtime state")] --> AuthN
+    Event["Outbox / event"] --> AuthZ
 ```
 
----
+五个模块的最短边界：
 
-## 3. 事实源优先级
-
-当文档、代码、契约、测试或历史材料冲突时，按下面顺序判断：
-
-| 优先级 | 事实源 | 说明 |
+| 模块 | 拥有的核心问题 | 明确不拥有 |
 | --- | --- | --- |
-| 1 | 源码与运行时行为 | 当前实现和真实运行结果优先 |
-| 2 | 机器可读契约与配置 | OpenAPI、proto、配置、迁移、生成源 |
-| 3 | 测试 | 架构测试、契约测试、模块测试、SDK compile test |
-| 4 | 现行 `docs/` 文档 | active 文档用于解释当前事实 |
-| 5 | `_archive/` 历史材料 | 只用于追溯和迁移参考 |
+| Identity | 内部 User、Profile 与业务关系事实 | 凭据验证、Token、Permission |
+| AuthN | 如何证明请求者、维持 Session、签发/验证 Token | Profile 主数据、资源授权 |
+| AuthZ | Subject 在 Tenant/Scope 下能对 Resource 做什么 | 登录凭据、外部 provider、搜索索引 |
+| IDP | provider app/secret/token 与外部声明验证 | IAM User、Session、资源授权 |
+| Suggest | 从 Identity 派生可见、脱敏的联想候选 | 主数据写入、通用授权结论 |
 
-关键规则：
+跨模块完整模型见 [跨模块统一模型](00-概览/06-跨模块统一模型.md)。
 
-```text
-OpenAPI 是 REST 机器契约事实源；
-proto 是 gRPC 机器契约事实源；
-pkg/sdk 是 Go SDK public API 事实源；
-internal/pkg/architecture 是分层依赖规则事实源；
-_archive 不能作为当前事实源引用；
-宣讲文档不能把待实现能力说成已实现事实。
-```
-
----
-
-## 4. 当前目录结构
+## 3. 文档结构
 
 ```text
 docs/
 ├── README.md
 ├── CONTRIBUTING-DOCS.md
-├── 00-概览/
-├── 01-运行时/
-├── 02-业务模块/
-│   ├── 01-Identity/
-│   ├── 02-AuthN/
-│   ├── 03-AuthZ/
-│   ├── 04-IDP/
-│   └── 05-Suggest/
-├── 03-接入与契约/
-├── 04-架构护栏/
-├── 05-专题设计/
-├── 06-宣讲/
-└── _archive/
+├── 00-概览/                 系统定位、术语、架构原则、统一模型
+├── 01-运行时/               启动、组合根、配置、传输、readiness、关闭
+├── 02-业务模块/             Identity / AuthN / AuthZ / IDP / Suggest
+├── 03-基础设施/             MySQL / Redis / Event / Crypto / Transport / Observability
+├── 04-接口与SDK/            REST / gRPC / Go SDK / 契约治理
+├── 05-工程质量与运维/       架构护栏、测试、迁移、发布、安全、文档治理
+├── 06-专题设计/             跨模块概念、方案演化与面试高频专题
+└── _archive/                历史追溯，不是当前事实源
 ```
 
----
-
-## 5. 目录说明
-
-| 目录 | 作用 | 入口 |
+| 目录 | 入口 | 主要问题 |
 | --- | --- | --- |
-| `00-概览/` | IAM 定位、模块关系、术语、阅读路径、事实源 | [00-概览/README.md](00-概览/README.md) |
-| `01-运行时/` | 服务入口、生命周期、组合根、REST/gRPC 装配、配置和后台任务 | [01-运行时/README.md](01-运行时/README.md) |
-| `02-业务模块/` | Identity、AuthN、AuthZ、IDP、Suggest 的当前业务事实层 | [02-业务模块/README.md](02-业务模块/README.md) |
-| `03-接入与契约/` | REST、gRPC、Go SDK 和业务系统接入方式 | [03-接入与契约/README.md](03-接入与契约/README.md) |
-| `04-架构护栏/` | 分层依赖、架构测试、契约测试、SDK compile test、docs hygiene | [04-架构护栏/README.md](04-架构护栏/README.md) |
-| `05-专题设计/` | JWT、Session/Token、Outbox、Casbin、ProfileLink、Suggest 的设计取舍 | [05-专题设计/README.md](05-专题设计/README.md) |
-| `06-宣讲/` | 面试、技术分享、讲法脚本、图素材和追问证据链 | [06-宣讲/README.md](06-宣讲/README.md) |
-| `_archive/` | 历史文档和重构前快照，不作为当前事实源 | [_archive/README.md](_archive/README.md) |
+| `00-概览` | [概览](00-概览/README.md) | IAM 是什么、术语如何统一、模块为什么这样拆 |
+| `01-运行时` | [运行时](01-运行时/README.md) | 进程如何从配置走到可接流量并安全退出 |
+| `02-业务模块` | [业务模块](02-业务模块/README.md) | 每个模块的问题、模型、链路、失败与替代方案 |
+| `03-基础设施` | [基础设施](03-基础设施/README.md) | 事务、缓存、事件、密钥、传输和生命周期怎样成立 |
+| `04-接口与SDK` | [接口与 SDK](04-接口与SDK/README.md) | 契约、注册、实现、SDK 与调用方怎样闭环 |
+| `05-工程质量与运维` | [工程质量与运维](05-工程质量与运维/README.md) | 什么证据能证明什么，怎样迁移、发布、恢复和处置凭据 |
+| `06-专题设计` | [专题设计](06-专题设计/README.md) | 跨模块推理和高频深入追问 |
 
----
+## 4. 推荐阅读路径
 
-## 6. 文档地图
+### 4.1 从零建立 IAM 心智模型
 
-```mermaid
-flowchart TD
-    Docs["docs/README.md\n文档中心"]
+1. [IAM 系统定位](00-概览/01-IAM系统定位.md)
+2. [模块划分与协作关系](00-概览/02-模块划分与协作关系.md)
+3. [核心概念术语表](00-概览/03-核心概念术语表.md)
+4. [跨模块统一模型](00-概览/06-跨模块统一模型.md)
+5. [身份、认证与授权为什么必须分开](06-专题设计/01-身份认证与授权边界.md)
 
-    Overview["00-概览"]
-    Runtime["01-运行时"]
-    Modules["02-业务模块"]
-    Contract["03-接入与契约"]
-    Guard["04-架构护栏"]
-    Topics["05-专题设计"]
-    Talk["06-宣讲"]
-    Archive["_archive"]
+目标：能从 ExternalIdentity 一直解释到 LoginIdentity、User、Principal、Session、Subject 和 Decision，并知道每一步为何存在。
 
-    Docs --> Overview
-    Docs --> Runtime
-    Docs --> Modules
-    Docs --> Contract
-    Docs --> Guard
-    Docs --> Topics
-    Docs --> Talk
-    Docs --> Archive
+### 4.2 深入基础设施和一致性
 
-    Modules --> Identity["Identity"]
-    Modules --> AuthN["AuthN"]
-    Modules --> AuthZ["AuthZ"]
-    Modules --> IDP["IDP"]
-    Modules --> Suggest["Suggest"]
+1. [启动、生命周期与组合根](01-运行时/01-启动与组合根.md)
+2. [MySQL、事务与迁移](03-基础设施/01-MySQL事务与迁移.md)
+3. [Redis 与缓存一致性](03-基础设施/02-Redis与缓存一致性.md)
+4. [事件与 Transactional Outbox](03-基础设施/03-事件与Transactional-Outbox.md)
+5. [事务、缓存与事件的一致性谱系](06-专题设计/02-事务缓存与事件一致性.md)
+6. [后台任务、Readiness 与优雅关闭](01-运行时/03-后台任务就绪与优雅关闭.md)
 
-    Contract --> REST["REST/OpenAPI"]
-    Contract --> GRPC["gRPC/proto"]
-    Contract --> SDK["Go SDK"]
+目标：能逐条说明哪些状态强一致、哪些最终一致、谁重试、陈旧状态偏向越权还是拒绝，以及探针如何发现超限。
 
-    Guard --> ArchTest["architecture tests"]
-    Guard --> ContractTest["contract tests"]
-    Guard --> DocsHygiene["docs hygiene"]
-```
+### 4.3 按业务模块深入
 
-读图规则：
+- [Identity](02-业务模块/01-Identity/README.md)：User/Profile/ProfileLink、不变量、创建与关系链路；
+- [AuthN](02-业务模块/02-AuthN/README.md)：认证模型、登录绑定、Session/Token/JWKS；
+- [AuthZ](02-业务模块/03-AuthZ/README.md)：五元授权、Casbin 投影、写入与多实例一致性；
+- [IDP](02-业务模块/04-IDP/README.md)：外部信任、应用密钥、AppToken 与 provider 边界；
+- [Suggest](02-业务模块/05-Suggest/README.md)：读模型、Full/Delta、授权过滤和敏感数据。
 
-```text
-00/01 建立全局背景和运行时入口；
-02 是业务模块事实层；
-03 是对外接入事实层；
-04 是工程边界事实层；
-05 是跨模块专题解释层；
-06 是宣讲表达层；
-_archive 只用于历史追溯。
-```
+### 4.4 面试与架构评审
 
----
+先读模块正文，再用专题串联：
 
-## 7. 推荐阅读路径
+1. [身份、认证与授权边界](06-专题设计/01-身份认证与授权边界.md)
+2. [事务、缓存与事件的一致性谱系](06-专题设计/02-事务缓存与事件一致性.md)
+3. [IAM 威胁模型与安全边界](06-专题设计/03-IAM威胁模型与安全边界.md)
+4. [JWT/JWS/JWK/JWKS 与密钥轮换](06-专题设计/04-JWT-JWS-JWK-JWKS与密钥轮换.md)
+5. [Suggest 为什么采用派生读模型](06-专题设计/05-Suggest为什么是读模型.md)
+6. [Casbin 为什么只是授权执行引擎](06-专题设计/06-Casbin作为授权执行引擎.md)
 
-### 7.1 新读者
+专题中的“面试追问”只用于检验理解；答案的推理和代码证据仍在正文，不另建一套脱离事实的宣讲文档。
+
+## 5. 事实、设计与建议怎样区分
+
+事实源优先级：
 
 ```text
-00-概览/README.md
-  -> 00-概览/01-IAM系统定位.md
-  -> 00-概览/02-模块划分与协作关系.md
-  -> 02-业务模块/README.md
+当前代码与运行时行为
+  > 机器契约、配置、迁移、生成源
+  > 测试和架构门禁
+  > active docs
+  > _archive 历史材料
 ```
 
-目标：先建立 IAM 的边界、模块关系和核心术语。
+文档中的语气必须区分：
 
----
-
-### 7.2 后端开发
-
-```text
-00-概览/04-阅读路径与事实源优先级.md
-  -> 01-运行时/README.md
-  -> 01-运行时/02-组合根与依赖装配.md
-  -> 02-业务模块/README.md
-  -> 04-架构护栏/01-分层依赖边界.md
-```
-
-目标：先看服务如何装配，再进入模块模型、链路和分层边界。
-
----
-
-### 7.3 业务模块开发
-
-```text
-02-业务模块/README.md
-  -> 02-业务模块/01-Identity/README.md
-  -> 02-业务模块/02-AuthN/README.md
-  -> 02-业务模块/03-AuthZ/README.md
-  -> 02-业务模块/04-IDP/README.md
-  -> 02-业务模块/05-Suggest/README.md
-```
-
-目标：按模块理解领域模型、关键链路、边界和代码索引。
-
----
-
-### 7.4 接入方
-
-```text
-03-接入与契约/README.md
-  -> 03-接入与契约/01-REST接入契约.md
-  -> 03-接入与契约/02-gRPC接入契约.md
-  -> 03-接入与契约/03-Go-SDK接入模型.md
-  -> 03-接入与契约/04-业务系统接入IAM.md
-```
-
-目标：明确接入形态、契约事实源和防漂移规则。
-
----
-
-### 7.5 架构与质量维护者
-
-```text
-04-架构护栏/README.md
-  -> 04-架构护栏/01-分层依赖边界.md
-  -> 04-架构护栏/02-架构测试.md
-  -> 04-架构护栏/03-契约测试.md
-  -> CONTRIBUTING-DOCS.md
-```
-
-目标：明确 import 方向、契约一致性、SDK 边界和文档卫生规则。
-
----
-
-### 7.6 专题设计阅读
-
-```text
-05-专题设计/README.md
-  -> 05-专题设计/01-JWT-JWS-JWK-JWKS-KeyRotation.md
-  -> 05-专题设计/02-Session-AccessToken-RefreshToken边界.md
-  -> 05-专题设计/03-Transactional-Outbox设计.md
-  -> 05-专题设计/04-Casbin在AuthZ中的定位.md
-  -> 05-专题设计/05-ProfileLink为什么不是Permission.md
-  -> 05-专题设计/06-Suggest为什么是读模型.md
-```
-
-目标：理解 Token、会话、事件一致性、授权 runtime、身份关系和读模型等高风险概念边界。
-
----
-
-### 7.7 宣讲与面试
-
-```text
-06-宣讲/README.md
-  -> 06-宣讲/01-项目一句话定位.md
-  -> 06-宣讲/02-系统架构讲法.md
-  -> 06-宣讲/09-30分钟技术分享脚本.md
-  -> 06-宣讲/10-架构图素材索引.md
-  -> 06-宣讲/11-追问回链证据索引.md
-```
-
-目标：先用稳定讲法建立主线，再回链业务模块、专题设计和工程护栏。
-
----
-
-## 8. 业务模块速览
-
-| 模块 | 一句话 | 事实源 |
+| 类别 | 含义 | 示例 |
 | --- | --- | --- |
-| Identity | 身份事实中心，管理 User / Profile / ProfileLink | [02-业务模块/01-Identity/README.md](02-业务模块/01-Identity/README.md) |
-| AuthN | 认证中心，管理 LoginIdentity / Credential / Principal / Session / Token | [02-业务模块/02-AuthN/README.md](02-业务模块/02-AuthN/README.md) |
-| AuthZ | 授权中心，管理 Subject / Resource / Action / Scope / Role / Permission / RoleBinding / Check | [02-业务模块/03-AuthZ/README.md](02-业务模块/03-AuthZ/README.md) |
-| IDP | 外部身份源基础设施，解析 ExternalIdentity | [02-业务模块/04-IDP/README.md](02-业务模块/04-IDP/README.md) |
-| Suggest | Profile 联想搜索读模型，返回脱敏候选 | [02-业务模块/05-Suggest/README.md](02-业务模块/05-Suggest/README.md) |
+| 当前事实 | 代码今天真实执行 | Refresh 当前先延长 Session 再 CAS 轮换 |
+| 设计决策 | 已采用方案及其约束 | DB 是 AuthZ fact truth，Enforcer 是投影 |
+| 当前限制 | 已知失败窗口/缺失能力 | 无 per-tenant loaded-version barrier |
+| 设计建议 | 尚未实现的增强 | KMS envelope encryption、Refresh family reuse detection |
+| 运行证据 | 特定环境和时刻的观察 | 生产 backup restore、部署 digest、时间窗口 |
 
-核心边界：
+无法由当前实现或决策记录确认原始动机时，应写“基于当前约束的设计分析”，不能把合理推断冒充历史事实。
 
-```text
-Identity 管身份事实；
-AuthN 管认证结果；
-AuthZ 管资源访问决策；
-IDP 管外部身份事实解析；
-Suggest 管搜索读模型；
-五者不能互相替代。
-```
+## 6. 五条统一推理原则
 
----
+1. **变化原因决定模块边界**：User、LoginIdentity、Session、Permission 和 provider app 因不同原因变化，不能因都带 ID 就合表。
+2. **强声明必须由足够强的证明推导**：openid、JWT 签名、ProfileLink、UI capability 都不能单独推出资源允许。
+3. **一致性按不变量和风险选择**：同库事务、数据库约束、Redis Lua、Outbox、可重建投影各自解决不同问题。
+4. **投影永远回到事实源**：Casbin Enforcer、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
+5. **安全方向必须显式**：依赖失败时是拒绝、保留旧值、返回空结果还是继续服务，要说明失去的语义和观测方式。
 
-## 9. 关键边界速查
+## 7. 机器事实入口
 
-| 易混概念 | 正确边界 |
+| 事实 | 入口 |
 | --- | --- |
-| User vs LoginIdentity | User 是内部身份事实，LoginIdentity 是登录入口 |
-| openid/unionid vs UserID | openid/unionid 是外部 provider 标识，不是内部 UserID |
-| Principal vs Subject | Principal 是认证结果，Subject 是授权主体 |
-| AuthN vs AuthZ | AuthN 证明是谁，AuthZ 判断能做什么 |
-| AccessToken vs RefreshToken | AccessToken 访问 API，RefreshToken 只用于续期 |
-| JWKS vs private key | JWKS 只发布公钥，不发布私钥 |
-| ProfileLink vs Permission | ProfileLink 是身份关系，Permission 是访问权声明 |
-| Casbin vs AuthZ domain | Casbin 是 infra runtime engine，不是领域模型 |
-| Outbox vs MQ | Outbox 记录待发布事件，MQ 负责投递 |
-| ProfileSuggestionIndex vs Profile | ProfileSuggestionIndex 是派生读模型，Profile 是 Identity 主数据 |
-| ProfileSuggestItem vs AuthorizationDecision | ProfileSuggestItem 是候选展示，AuthorizationDecision 是授权决策 |
-| docs vs machine contract | 文档解释语义，OpenAPI/proto/SDK 才是机器契约事实源 |
+| REST | `api/rest/*.yaml` + runtime router registration |
+| gRPC | `api/grpc/**/*.proto` + service registry |
+| Go SDK | `pkg/sdk` + `public_api_compile_test.go` |
+| 数据结构 | `internal/pkg/migration/migrations` |
+| 事件语义 | `configs/events.yaml` |
+| 授权 matcher | `configs/casbin_model.conf` |
+| 运行模式 | `internal/pkg/server/runtime_profile.go` + dev/prod config |
+| 分层边界 | `internal/pkg/architecture` |
+| 人工/生产证据 | [IAM 重构最终验收记录](01-运行时/08-IAM重构最终验收记录.md) |
 
----
+一个文件存在不等于能力可用：对外接口必须闭合“机器契约、运行时注册、实现、错误语义、调用方和测试”。
 
-## 10. 维护规则
+## 8. 文档维护与验证
 
-### 10.1 新增或修改业务模块文档
-
-必须同步检查：
-
-```text
-02-业务模块/README.md 是否需要更新；
-模块 README 是否需要更新；
-03-接入与契约是否受影响；
-04-架构护栏是否受影响；
-05-专题设计是否需要补充设计取舍；
-06-宣讲是否需要同步讲法和追问回链。
-```
-
----
-
-### 10.2 新增或修改 REST/gRPC/SDK 契约
-
-必须同步检查：
-
-```text
-api/rest 或 api/grpc 机器契约；
-transport/rest 或 transport/grpc 实现；
-pkg/sdk public API；
-03-接入与契约/README.md；
-03-接入与契约/05-契约事实源与防漂移.md；
-04-架构护栏/03-契约测试.md；
-06-宣讲/11-追问回链证据索引.md。
-```
-
----
-
-### 10.3 合并、移动或删除文档
-
-必须同步检查：
-
-```text
-所有 README 入口；
-所有相对链接；
-06-宣讲/10-架构图素材索引.md；
-06-宣讲/11-追问回链证据索引.md；
-_archive 是否需要保留历史快照；
-make docs-hygiene 是否通过。
-```
-
----
-
-## 11. 旧入口处理说明
-
-当前文档中心不再引用：
-
-```text
-02-业务模块/00-模块协作总图.md
-```
-
-原因：
-
-```text
-该内容已合并进 02-业务模块/README.md；
-宣讲层的模块协作图已统一维护在 06-宣讲/10-架构图素材索引.md；
-顶层 README 应引用当前 active 入口，不应继续引用旧骨架或已合并文档。
-```
-
-当前模块协作推荐入口：
-
-```text
-02-业务模块/README.md
-06-宣讲/02-系统架构讲法.md
-06-宣讲/10-架构图素材索引.md
-```
-
----
-
-## 12. 验证入口
-
-### 12.1 文档最小验证
+维护规则见 [CONTRIBUTING-DOCS.md](CONTRIBUTING-DOCS.md)。最小门禁：
 
 ```bash
 make docs-hygiene
+make docs-facts
 ```
 
----
+这两个门禁分别检查链接/路径/结构和已编码的关键事实，但不证明全部业务语义。按改动范围继续运行 module tests、architecture tests、contract validation、SDK compile、MySQL/Redis integration，以及 staging/production observation；每类证据分别报告。
 
-### 12.2 涉及架构边界
+## 9. 当前必须诚实保留的边界
 
-```bash
-go test ./internal/pkg/architecture
-```
+- Suggest 只有 REST，没有 gRPC 或 Go SDK；
+- SDK 本地 JWKS 验签不具备 IAM 在线 Session/主体撤销语义；
+- AuthZ 有 durable version event 和 reload health，但没有请求级/全实例 loaded-version barrier；
+- IDP SecretVault 是本地 AES-GCM，不等价于 KMS，且当前 secret 轮换为单槽覆盖；
+- Refresh 先延长 Session 再轮换 token，失败请求可能改变 Session TTL；
+- Suggest 原始手机号存在于进程内索引，默认输出脱敏，当前没有持久化索引快照；
+- 单元/契约/架构门禁通过不等于生产迁移、备份恢复和发布已验收。
 
----
-
-### 12.3 涉及 REST / gRPC / SDK 契约
-
-```bash
-make api-validate
-make proto-gen
-go test ./internal/apiserver/transport/rest/...
-go test ./internal/apiserver/transport/grpc/...
-go test ./pkg/sdk/...
-```
-
----
-
-### 12.4 涉及业务模块
-
-按影响模块执行对应测试，例如：
-
-```bash
-go test ./internal/apiserver/domain/identity/...
-go test ./internal/apiserver/application/identity/...
-go test ./internal/apiserver/domain/authn/...
-go test ./internal/apiserver/application/authn/...
-go test ./internal/apiserver/domain/authz/...
-go test ./internal/apiserver/application/authz/...
-go test ./internal/apiserver/domain/idp/...
-go test ./internal/apiserver/application/idp/...
-go test ./internal/apiserver/domain/suggest/...
-go test ./internal/apiserver/application/suggest/...
-```
-
----
-
-## 13. 本文总结
-
-`docs/` 的阅读和维护主线是：
-
-```text
-先看 00/01 建立背景和运行时入口；
-再看 02 掌握业务模块事实；
-再看 03 掌握对外接入契约；
-再看 04 掌握工程护栏；
-再看 05 理解关键设计取舍；
-最后看 06 形成可宣讲、可追问、可回链的表达体系。
-```
-
-最重要的工程规则是：
-
-```text
-文档不替代事实源；
-active 不引用 archive 作为当前事实；
-宣讲不新增事实；
-链接、入口、Verify 必须可维护；
-任何重命名、合并、删除都要同步 README 和 docs hygiene。
-```
+这些限制不是文档缺陷，而是当前系统设计的一部分。只有代码、配置、迁移和运行证据改变后，才能把它们从当前事实中移除。

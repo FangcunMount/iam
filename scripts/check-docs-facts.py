@@ -154,7 +154,7 @@ def check_readiness_facts() -> None:
         ROOT / ".github/workflows/server-check.yml"
     ).read_text(encoding="utf-8")
     health_doc = (
-        ROOT / "docs/01-运行时/06-健康检查与降级启动.md"
+        ROOT / "docs/01-运行时/03-后台任务就绪与优雅关闭.md"
     ).read_text(encoding="utf-8")
     metric_sources = "\n".join(
         path.read_text(encoding="utf-8")
@@ -182,9 +182,9 @@ def check_readiness_facts() -> None:
     for fact in (
         "`/healthz`",
         "`/readyz`",
-        "不访问 MySQL/Redis",
-        "`/readyz` 失败只告警",
-        "-> 停止后台任务",
+        "MarkDraining",
+        "NOT_SERVING",
+        "session_revocation",
     ):
         if fact not in health_doc:
             fail(f"health documentation is missing current readiness fact: {fact}")
@@ -286,7 +286,7 @@ def check_security_delivery_facts() -> None:
         fail("AuthZ gRPC mutations and reads no longer share the safe error mapper")
 
     operations_doc = (
-        ROOT / "docs/01-运行时/07-安全日志与凭据处置.md"
+        ROOT / "docs/05-工程质量与运维/04-安全日志与凭据处置.md"
     ).read_text(encoding="utf-8")
     for fact in (
         "默认 dry-run",

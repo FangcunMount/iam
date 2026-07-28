@@ -26,26 +26,27 @@ Identity 不负责登录认证、令牌签发、权限判定、外部身份源�
 
 ## 文档结构
 
-本目录包含 6 篇主文档：
+本目录保留领域模型、用例链路、模块边界和代码导航四种不同知识视角；各篇职责不同，不以摘要替代推理正文：
 
 | 文档 | 唯一职责 |
 | --- | --- |
-| [00-模块总览.md](00-模块总览.md) | 职责、能力矩阵和当前边界 |
-| [01-领域模型-User-Profile-ProfileLink.md](01-领域模型-User-Profile-ProfileLink.md) | 模型字段、状态和持久化不变量 |
-| [02-关键链路-创建User与Profile.md](02-关键链路-创建User与Profile.md) | `CreateUser` 与组合建档真实链路 |
-| [03-关键链路-建立与撤销ProfileLink.md](03-关键链路-建立与撤销ProfileLink.md) | 建立、查询、撤销、批量和历史约束 |
-| [04-模块边界-Identity与AuthN-AuthZ-Suggest.md](04-模块边界-Identity与AuthN-AuthZ-Suggest.md) | 已实现的跨模块协作和未实现能力 |
-| [05-分层架构与代码索引.md](05-分层架构与代码索引.md) | 高价值代码入口、契约和验证命令 |
+| [模块总览](00-模块总览.md) | 问题空间、职责和阅读路线 |
+| [领域模型：User/Profile/ProfileLink](01-领域模型-User-Profile-ProfileLink.md) | 拆分理由、模型关系、不变量、替代方案与代价 |
+| [创建 User 与 Profile](02-关键链路-创建User与Profile.md) | 创建时序、UoW、跨模块协作和失败边界 |
+| [建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md) | self 唯一、并发建立、软撤销与审计语义 |
+| [与 AuthN/AuthZ/Suggest 的边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md) | 关系事实、认证、授权和读模型如何组合 |
+| [分层架构与代码索引](05-分层架构与代码索引.md) | 修改影响面和证据入口 |
 
 ## 按任务阅读
 
 | 任务 | 先读 |
 | --- | --- |
-| 修改模型字段或不变量 | [01-领域模型](01-领域模型-User-Profile-ProfileLink.md) |
-| 修改创建用户或建档流程 | [02-创建链路](02-关键链路-创建User与Profile.md) |
-| 修改关系建立、撤销或查询 | [03-ProfileLink 链路](03-关键链路-建立与撤销ProfileLink.md) |
-| 判断跨模块依赖是否合理 | [04-模块边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md) |
-| 定位代码、契约或测试 | [05-代码索引](05-分层架构与代码索引.md) |
+| 修改模型字段、关系或唯一性 | [领域模型](01-领域模型-User-Profile-ProfileLink.md) |
+| 修改创建流程 | [创建 User 与 Profile](02-关键链路-创建User与Profile.md) |
+| 修改关系建立/撤销 | [ProfileLink 链路](03-关键链路-建立与撤销ProfileLink.md) |
+| 修改状态或跨模块流程 | [模块边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md) |
+| 研究 UoW/数据库约束 | [MySQL、事务与迁移](../../03-基础设施/01-MySQL事务与迁移.md) |
+| 研究 User 状态到 Session 吊销 | [Redis 与缓存一致性](../../03-基础设施/02-Redis与缓存一致性.md) |
 
 ## 事实源
 

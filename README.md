@@ -262,7 +262,7 @@ SDK 是接入产品层，不是业务层。
 | 授权模型、Check、Outbox 如何工作 | [docs/02-业务模块/03-AuthZ/README.md](docs/02-业务模块/03-AuthZ/README.md) |
 | IDP 与第三方身份源如何协作 | [docs/02-业务模块/04-IDP/README.md](docs/02-业务模块/04-IDP/README.md) |
 | Suggest Profile 联想搜索读模型如何工作 | [docs/02-业务模块/05-Suggest/README.md](docs/02-业务模块/05-Suggest/README.md) |
-| REST/gRPC/SDK 如何接入 | [docs/03-接入与契约/README.md](docs/03-接入与契约/README.md) |
+| REST/gRPC/SDK 如何接入 | [docs/04-接口与SDK/README.md](docs/04-接口与SDK/README.md) |
 
 ```text
 docs/
@@ -274,10 +274,10 @@ docs/
 │   ├── 03-AuthZ/
 │   ├── 04-IDP/
 │   └── 05-Suggest/
-├── 03-接入与契约/
-├── 04-架构护栏/
-├── 05-专题设计/
-├── 06-宣讲/
+├── 03-基础设施/
+├── 04-接口与SDK/
+├── 05-工程质量与运维/
+├── 06-专题设计/
 ├── _archive/
 └── README.md
 ```
@@ -305,7 +305,7 @@ docs/
 ### 同步文档
 
 - 代码行为变化时更新 `docs/`；
-- Suggest 行为变化时同步 `docs/02-业务模块/05-Suggest` 和 `docs/06-宣讲` 中相关表达；
+- Suggest 行为变化时同步 `docs/02-业务模块/05-Suggest` 和 `docs/06-专题设计` 中相关表达；
 - 不从 `_archive` 复制当前事实；
 - 不恢复旧目录作为 active 文档入口。
 

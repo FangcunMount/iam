@@ -369,4 +369,4 @@ go test ./internal/pkg/architecture
 - ProfileLink 模型、Type/Rel 和不变量：[01-领域模型](01-领域模型-User-Profile-ProfileLink.md)
 - Profile 组合创建中如何复用 Linker：[02-创建 User 与 Profile](02-关键链路-创建User与Profile.md)
 - ProfileLink 与 AuthZ/Suggest 的边界：[04-模块边界](04-模块边界-Identity与AuthN-AuthZ-Suggest.md)
-- 关系事实不是权限：[ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)
+- 关系事实不是权限：[身份、认证与授权为什么必须分开](../../06-专题设计/01-身份认证与授权边界.md)

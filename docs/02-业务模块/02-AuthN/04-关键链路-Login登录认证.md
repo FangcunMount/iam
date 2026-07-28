@@ -18,9 +18,9 @@
 - 修改该链路时应该核对哪些代码和测试？
 
 本文只讲“登录请求如何被证明为 Principal”。
-Onboarding 身份开通见 [02-关键链路-Onboarding身份开通.md](02-关键链路-Onboarding身份开通.md)；
+注册与身份开通见 [02-注册登录与身份绑定.md](02-注册登录与身份绑定.md)；
 Linking 登录身份绑定见 [03-关键链路-Linking登录身份绑定.md](03-关键链路-Linking登录身份绑定.md)；
-AuthN 领域模型见 [01-领域模型-LoginIdentity-Credential-Challenge-Principal-Session-Token.md](01-领域模型-LoginIdentity-Credential-Challenge-Principal-Session-Token.md)。
+AuthN 领域模型见 [01-领域模型与认证策略.md](01-领域模型与认证策略.md)。
 
 ---
 
@@ -723,7 +723,7 @@ Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
 | gRPC 契约 | `../../../api/grpc` |
 | 架构测试 | `../../../internal/pkg/architecture` |
 
-注意：上表中的具体路径需要继续与当前源码核对。如果源码目录已调整，应以代码为准并同步更新本文。
+上表路径已按当前代码核对；目录调整时必须与本文和链接门禁同步更新。
 
 ---
 

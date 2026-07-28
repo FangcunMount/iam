@@ -185,7 +185,7 @@ Identity 保持 Profile 写模型简洁；Suggest 将 Profile 姓名、手机号
 
 Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直接 SQL 读取 `profiles/profile_links/users`。这是对 Identity 存储 schema 的读依赖，任何表结构或 revoked 语义变化都必须同步 Suggest Loader。
 
-详见 [Suggest 为什么是读模型](../../05-专题设计/06-Suggest为什么是读模型.md)。
+详见 [Suggest 为什么采用派生读模型](../../06-专题设计/05-Suggest为什么是读模型.md)。
 
 ## 7. Identity 与 AuthN
 
@@ -238,7 +238,7 @@ Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 P
 
 无作用域的 REST `/identity/profiles/search` 已下线。需要候选搜索时使用 `/suggest/profile`，由 Suggest 的 scope provider 和手机号权限控制可见范围与脱敏。
 
-详见 [ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)。
+详见 [身份、认证与授权为什么必须分开](../../06-专题设计/01-身份认证与授权边界.md)。
 
 ## 9. Identity 与 IDP
 
@@ -375,4 +375,4 @@ go test ./internal/pkg/architecture
 - Identity 总体定位和宏观决策：[00-模块总览](00-模块总览.md)
 - AuthN signup 与 Identity 创建链路：[02-创建 User 与 Profile](02-关键链路-创建User与Profile.md)
 - ProfileLink 关系语义：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
-- Suggest 主从取舍：[Suggest 为什么是读模型](../../05-专题设计/06-Suggest为什么是读模型.md)
+- Suggest 主从取舍：[Suggest 为什么采用派生读模型](../../06-专题设计/05-Suggest为什么是读模型.md)

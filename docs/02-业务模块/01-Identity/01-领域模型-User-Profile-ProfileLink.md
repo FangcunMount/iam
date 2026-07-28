@@ -175,7 +175,7 @@ RevokedAt
 
 ProfileLink 的存在可以作为某些业务访问的身份事实输入，但不直接说明 Subject 能对哪个 Resource 执行哪个 Action。最终权限仍应由 AuthZ 决定。
 
-详见 [ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)。
+详见 [身份、认证与授权为什么必须分开](../../06-专题设计/01-身份认证与授权边界.md)。
 
 ### 5.3 决策 3：self 是关系，不是 User 的内嵌档案
 
@@ -642,4 +642,4 @@ make docs-hygiene
 - 模块定位、设计决策和能力映射：[00-模块总览](00-模块总览.md)
 - 创建 User 和组合创建 Profile 的时序：[02-创建 User 与 Profile](02-关键链路-创建User与Profile.md)
 - ProfileLink 建立、撤销和批处理：[03-建立与撤销 ProfileLink](03-关键链路-建立与撤销ProfileLink.md)
-- ProfileLink 与 Permission 的区别：[ProfileLink 为什么不是 Permission](../../05-专题设计/05-ProfileLink为什么不是Permission.md)
+- ProfileLink 与 Permission 的区别：[身份、认证与授权为什么必须分开](../../06-专题设计/01-身份认证与授权边界.md)

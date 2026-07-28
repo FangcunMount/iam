@@ -19,7 +19,7 @@
 
 本文只讲 Principal 之后的 Session/Token 治理链路。
 Login 如何生成 Principal 见 [04-关键链路-Login登录认证.md](04-关键链路-Login登录认证.md)；
-AuthN 领域模型见 [01-领域模型-LoginIdentity-Credential-Challenge-Principal-Session-Token.md](01-领域模型-LoginIdentity-Credential-Challenge-Principal-Session-Token.md)。
+AuthN 领域模型见 [01-领域模型与认证策略.md](01-领域模型与认证策略.md)。
 
 ---
 
@@ -638,7 +638,7 @@ User blocked 必须快速生效；
 本文不强制选择，具体取舍见：
 
 ```text
-../../05-专题设计/02-Session-AccessToken-RefreshToken边界.md
+03-Session-Token与JWKS.md
 ```
 
 ---
@@ -811,9 +811,9 @@ AccessToken 不能直接代表可搜索所有 Profile。
 | REST 契约 | `../../../api/rest` |
 | gRPC 契约 | `../../../api/grpc` |
 | 架构测试 | `../../../internal/pkg/architecture` |
-| 设计取舍 | `../../05-专题设计/02-Session-AccessToken-RefreshToken边界.md` |
+| 设计取舍 | `03-Session-Token与JWKS.md`、`../../06-专题设计/02-事务缓存与事件一致性.md` |
 
-注意：上表中的具体路径需要继续与当前源码核对。如果源码目录已调整，应以代码为准并同步更新本文。
+上表路径已按当前代码核对；目录调整时必须与本文和链接门禁同步更新。
 
 ---
 

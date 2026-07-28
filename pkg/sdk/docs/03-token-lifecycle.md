@@ -103,7 +103,7 @@ resp, err := client.Auth().RefreshToken(ctx, &authnv2.RefreshTokenRequest{
 - [JWT 本地验证](./04-jwt-verification.md)
 - [服务间认证](./05-service-auth.md)
 - [../../../docs/02-业务模块/02-AuthN/README.md](../../../docs/02-业务模块/02-AuthN/README.md)
-- [../../../docs/05-专题设计/02-Session-AccessToken-RefreshToken边界.md](../../../docs/05-专题设计/02-Session-AccessToken-RefreshToken边界.md)
+- [Session、Token 与 JWKS](../../../docs/02-业务模块/02-AuthN/03-Session-Token与JWKS.md)
 
 ## 2. 示例约定
 
