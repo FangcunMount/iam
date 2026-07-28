@@ -72,6 +72,9 @@ func TestClientEnsuresMockConsumer(t *testing.T) {
 		var req EnsureMockConsumerRequest
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 		require.Equal(t, "mock@example.com", req.Email)
+		require.Equal(t, "Mock User", req.Profile["nickname"])
+		require.Equal(t, "seeddata_historical", req.Meta["source"])
+		require.Equal(t, "batch", req.Meta["seed_batch_id"])
 
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
@@ -96,6 +99,8 @@ func TestClientEnsuresMockConsumer(t *testing.T) {
 		Phone:    "13800138000",
 		Email:    "mock@example.com",
 		Password: "secret",
+		Profile:  map[string]string{"nickname": "Mock User"},
+		Meta:     map[string]string{"source": "seeddata_historical", "seed_batch_id": "batch"},
 	})
 
 	require.NoError(t, err)

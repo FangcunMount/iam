@@ -73,6 +73,9 @@ func TestMyProfiles_Create_WithOptionalFields(t *testing.T) {
 	assert.Equal(t, dto.Birthday, result.Profile.Birthday)
 	assert.Equal(t, dto.IDCard, result.Profile.IDCard)
 	assert.Equal(t, "parent", result.ProfileLink.Relation)
+	linked, err := profilelink.NewDirectory(unitOfWork).IsLinked(ctx, mustID(t, currentUser.ID), mustID(t, result.Profile.ID))
+	require.NoError(t, err)
+	assert.True(t, linked, "CreateProfile must establish an active link consumable by HasProfileLink")
 }
 
 func TestMyProfiles_Create_EmptyName_ShouldFail(t *testing.T) {
