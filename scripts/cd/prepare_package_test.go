@@ -14,6 +14,7 @@ func TestPreparePackageWritesAliyunSMSCredentialEnv(t *testing.T) {
 	archive := filepath.Join(tmp, "deploy-package-apiserver.tar.gz")
 
 	output, err := runPreparePackage(t, packageDir, archive, []string{
+		"SEED_MOCK_AUTH_ENABLED=false",
 		"SMS_ALIYUN_ACCESS_KEY_ID=ak-test",
 		"SMS_ALIYUN_ACCESS_KEY_SECRET=sk-test",
 	})
@@ -58,6 +59,7 @@ func TestPreparePackageRejectsPartialAliyunCredential(t *testing.T) {
 	archive := filepath.Join(tmp, "deploy-package-apiserver.tar.gz")
 
 	output, err := runPreparePackage(t, packageDir, archive, []string{
+		"SEED_MOCK_AUTH_ENABLED=false",
 		"SMS_ALIYUN_ACCESS_KEY_ID=ak-test",
 	})
 	if err == nil {
@@ -68,7 +70,21 @@ func TestPreparePackageRejectsPartialAliyunCredential(t *testing.T) {
 	}
 }
 
-func TestPreparePackageDisablesSeedMockByDefault(t *testing.T) {
+func TestPreparePackageRequiresSecretByDefault(t *testing.T) {
+	tmp := t.TempDir()
+	packageDir := filepath.Join(tmp, "deploy-package")
+	archive := filepath.Join(tmp, "deploy-package-apiserver.tar.gz")
+
+	output, err := runPreparePackage(t, packageDir, archive, nil)
+	if err == nil {
+		t.Fatalf("prepare-package.sh should require seed mock secret by default\n%s", output)
+	}
+	if !strings.Contains(output, "SEED_MOCK_AUTH_SHARED_SECRET") {
+		t.Fatalf("unexpected prepare-package.sh output:\n%s", output)
+	}
+}
+
+func TestPreparePackageClearsSecretWhenSeedMockDisabled(t *testing.T) {
 	const staleSecret = "stale-seed-secret-sentinel"
 
 	tmp := t.TempDir()
@@ -76,6 +92,7 @@ func TestPreparePackageDisablesSeedMockByDefault(t *testing.T) {
 	archive := filepath.Join(tmp, "deploy-package-apiserver.tar.gz")
 
 	output, err := runPreparePackage(t, packageDir, archive, []string{
+		"SEED_MOCK_AUTH_ENABLED=false",
 		"SEED_MOCK_AUTH_SHARED_SECRET=" + staleSecret,
 	})
 	if err != nil {

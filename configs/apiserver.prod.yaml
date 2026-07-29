@@ -136,7 +136,7 @@ health:
 # 2.4 内部 Seed/Mock C 端建号接口
 # ============================================================================
 seed_mock_auth:
-  # 生产默认关闭；仅通过 IAM_APISERVER_SEED_MOCK_AUTH_ENABLED 显式开启。
+  # 生产默认开启；共享密钥禁止提交明文，必须通过 IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET 注入。
   enabled: true
   # 禁止提交明文；启用时通过 IAM_APISERVER_SEED_MOCK_AUTH_SHARED_SECRET 注入。
   shared_secret: ""

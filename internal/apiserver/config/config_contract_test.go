@@ -136,7 +136,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "readiness drain delay", opts.Health.Readiness.DrainDelay, 5*time.Second)
 				assertBoolPtr(t, "debug cache governance enabled", opts.Debug.CacheGovernance.Enabled, false)
 				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, true)
-				assertEqual(t, "seed mock disabled by default", opts.SeedMockAuth.Enabled, false)
+				assertEqual(t, "seed mock enabled by default", opts.SeedMockAuth.Enabled, true)
 				assertEqual(t, "seed mock secret", opts.SeedMockAuth.SharedSecret, "")
 				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "/app/configs/events.yaml")
 				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)

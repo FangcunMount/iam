@@ -167,7 +167,7 @@ jobs:
           NSQ_NSQD_PORT: ${{ secrets.NSQ_NSQD_PORT || 4150 }}
           SMS_ALIYUN_ACCESS_KEY_ID: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_ID }}
           SMS_ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.SMS_ALIYUN_ACCESS_KEY_SECRET }}
-          SEED_MOCK_AUTH_ENABLED: ${{ vars.SEED_MOCK_AUTH_ENABLED || 'false' }}
+          SEED_MOCK_AUTH_ENABLED: ${{ vars.SEED_MOCK_AUTH_ENABLED || 'true' }}
           SEED_MOCK_AUTH_SHARED_SECRET: ${{ secrets.SEED_MOCK_AUTH_SHARED_SECRET }}
         run: |
           make cd-package SERVICE="${SERVICE}"
