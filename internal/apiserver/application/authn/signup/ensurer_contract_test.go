@@ -71,7 +71,7 @@ func TestLoginIdentityEnsurerReusesActiveProviderKeyOwnedBySameUser(t *testing.T
 		Identifier: key.Identifier,
 		Status:     loginidentity.StatusActive,
 		Profile:    map[string]string{"nickname": "original"},
-		Meta:       map[string]string{"seed_batch_id": "original-batch"},
+		Meta:       map[string]string{"source": "original-source"},
 	}
 	repo := &loginIdentityRepoStub{
 		byKey: map[string]*loginidentity.LoginIdentity{
@@ -86,7 +86,7 @@ func TestLoginIdentityEnsurerReusesActiveProviderKeyOwnedBySameUser(t *testing.T
 			LoginIdentity: preparedLoginIdentity{
 				ProviderKey: key,
 				Profile:     map[string]string{"nickname": "must-not-overwrite"},
-				Meta:        map[string]string{"seed_batch_id": "must-not-overwrite"},
+				Meta:        map[string]string{"source": "must-not-overwrite"},
 			},
 		},
 		existing.UserID,
@@ -96,25 +96,24 @@ func TestLoginIdentityEnsurerReusesActiveProviderKeyOwnedBySameUser(t *testing.T
 	require.Equal(t, LoginIdentityReused, result.Status)
 	require.Same(t, existing, result.Identity)
 	require.Equal(t, "original", result.Identity.Profile["nickname"])
-	require.Equal(t, "original-batch", result.Identity.Meta["seed_batch_id"])
+	require.Equal(t, "original-source", result.Identity.Meta["source"])
 	require.Zero(t, repo.createCalls)
 }
 
 func TestLoginIdentityEnsurerPersistsMockConsumerProfileAndMetaOnCreate(t *testing.T) {
 	t.Parallel()
 
-	key := loginidentity.MockConsumerProviderKey("historical@example.com")
+	key := loginidentity.MockConsumerProviderKey("daily-mock@example.com")
 	repo := &loginIdentityRepoStub{byKey: map[string]*loginidentity.LoginIdentity{}}
 	result, err := newEnsureLoginIdentityStep().Run(
 		context.Background(),
 		repo,
 		&preparedSignup{LoginIdentity: preparedLoginIdentity{
 			ProviderKey: key,
-			Profile:     map[string]string{"nickname": "历史用户"},
+			Profile:     map[string]string{"nickname": "每日模拟用户"},
 			Meta: map[string]string{
-				"source":           "seeddata_historical",
-				"seed_batch_id":    "hist-20250101-20260727-v1",
-				"seed_scenario_id": "2025-01-01/1/register_only/model",
+				"source":   "daily_simulation",
+				"run_date": "2026-08-02",
 			},
 		}},
 		meta.FromUint64(100),
@@ -124,9 +123,9 @@ func TestLoginIdentityEnsurerPersistsMockConsumerProfileAndMetaOnCreate(t *testi
 	require.Equal(t, LoginIdentityCreated, result.Status)
 	require.Equal(t, 1, repo.createCalls)
 	require.NotNil(t, repo.created)
-	require.Equal(t, "历史用户", repo.created.Profile["nickname"])
-	require.Equal(t, "seeddata_historical", repo.created.Meta["source"])
-	require.Equal(t, "hist-20250101-20260727-v1", repo.created.Meta["seed_batch_id"])
+	require.Equal(t, "每日模拟用户", repo.created.Profile["nickname"])
+	require.Equal(t, "daily_simulation", repo.created.Meta["source"])
+	require.Equal(t, "2026-08-02", repo.created.Meta["run_date"])
 }
 
 func TestLoginIdentityEnsurerRejectsInactiveExistingProviderKey(t *testing.T) {
