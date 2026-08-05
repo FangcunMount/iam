@@ -36,9 +36,9 @@ func main() {
 		},
 
 		Keepalive: &sdk.KeepaliveConfig{
-			Time:                30 * time.Second,
-			Timeout:             10 * time.Second,
-			PermitWithoutStream: true,
+			Time:                5 * time.Minute,
+			Timeout:             20 * time.Second,
+			PermitWithoutStream: false,
 		},
 	}
 

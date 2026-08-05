@@ -67,6 +67,7 @@ func NewServer(config *Config) (*Server, error) {
 
 	serverOpts = append(serverOpts, grpc.ChainUnaryInterceptor(unaryInterceptors...))
 	serverOpts = append(serverOpts, grpc.ChainStreamInterceptor(streamInterceptors...))
+	serverOpts = append(serverOpts, grpc.KeepaliveEnforcementPolicy(iamKeepaliveEnforcementPolicy()))
 
 	// 添加消息大小限制
 	if config.MaxMsgSize > 0 {
@@ -159,6 +160,13 @@ func NewServer(config *Config) (*Server, error) {
 		acl:          acl,
 		healthServer: healthSrv,
 	}, nil
+}
+
+func iamKeepaliveEnforcementPolicy() keepalive.EnforcementPolicy {
+	return keepalive.EnforcementPolicy{
+		MinTime:             5 * time.Minute,
+		PermitWithoutStream: false,
+	}
 }
 
 // buildUnaryInterceptors 构建 Unary 拦截器链

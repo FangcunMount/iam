@@ -9,9 +9,9 @@ const (
 	defaultTimeout                      = 30 * time.Second
 	defaultDialTimeout                  = 10 * time.Second
 	defaultLoadBalancer                 = "round_robin"
-	defaultKeepaliveTime                = 30 * time.Second
-	defaultKeepaliveTimeout             = 10 * time.Second
-	defaultKeepalivePermitWithoutStream = true
+	defaultKeepaliveTime                = 5 * time.Minute
+	defaultKeepaliveTimeout             = 20 * time.Second
+	defaultKeepalivePermitWithoutStream = false
 	defaultRetryInitialBackoff          = 100 * time.Millisecond
 	defaultRetryMaxBackoff              = 10 * time.Second
 	defaultRetryBackoffMultiplier       = 2.0

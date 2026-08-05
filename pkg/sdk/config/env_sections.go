@@ -8,9 +8,9 @@ func (l *EnvLoader) loadKeepalive() *KeepaliveConfig {
 	}
 
 	return &KeepaliveConfig{
-		Time:                l.getDuration("KEEPALIVE_TIME", 30*time.Second),
-		Timeout:             l.getDuration("KEEPALIVE_TIMEOUT", 10*time.Second),
-		PermitWithoutStream: l.getBool("KEEPALIVE_PERMIT_WITHOUT_STREAM", true),
+		Time:                l.getDuration("KEEPALIVE_TIME", defaultKeepaliveTime),
+		Timeout:             l.getDuration("KEEPALIVE_TIMEOUT", defaultKeepaliveTimeout),
+		PermitWithoutStream: l.getBool("KEEPALIVE_PERMIT_WITHOUT_STREAM", defaultKeepalivePermitWithoutStream),
 	}
 }
 

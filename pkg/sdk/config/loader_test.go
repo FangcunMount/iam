@@ -132,4 +132,29 @@ func TestWithDefaultsFillsTLSButKeepsObservabilityExplicit(t *testing.T) {
 	require.NotNil(t, cfg.TLS)
 	require.True(t, cfg.TLS.Enabled)
 	require.Nil(t, cfg.Observability)
+	require.NotNil(t, cfg.Keepalive)
+	require.Equal(t, 5*time.Minute, cfg.Keepalive.Time)
+	require.Equal(t, 20*time.Second, cfg.Keepalive.Timeout)
+	require.False(t, cfg.Keepalive.PermitWithoutStream)
+}
+
+func TestKeepaliveLoadersUseContractDefaultsWhenEnabled(t *testing.T) {
+	t.Run("viper", func(t *testing.T) {
+		t.Parallel()
+		cfg, err := FromViper(staticGetter{"iam.endpoint": "iam.example.com:8081", "iam.keepalive": true})
+		require.NoError(t, err)
+		require.Equal(t, 5*time.Minute, cfg.Keepalive.Time)
+		require.Equal(t, 20*time.Second, cfg.Keepalive.Timeout)
+		require.False(t, cfg.Keepalive.PermitWithoutStream)
+	})
+
+	t.Run("env", func(t *testing.T) {
+		t.Setenv("IAM_ENDPOINT", "iam.example.com:8081")
+		t.Setenv("IAM_KEEPALIVE_ENABLED", "true")
+		cfg, err := FromEnv()
+		require.NoError(t, err)
+		require.Equal(t, 5*time.Minute, cfg.Keepalive.Time)
+		require.Equal(t, 20*time.Second, cfg.Keepalive.Timeout)
+		require.False(t, cfg.Keepalive.PermitWithoutStream)
+	})
 }

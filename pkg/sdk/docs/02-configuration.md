@@ -228,9 +228,9 @@ type KeepaliveConfig struct {
 
 ```go
 Keepalive: &KeepaliveConfig{
-    Time:                30 * time.Second,
-    Timeout:             10 * time.Second,
-    PermitWithoutStream: true,
+    Time:                5 * time.Minute,
+    Timeout:             20 * time.Second,
+    PermitWithoutStream: false,
 }
 ```
 
@@ -400,8 +400,9 @@ LoadBalancer: "round_robin"
 | `IAM_RETRY_ENABLED` | `Retry.Enabled` | `true` |
 | `IAM_RETRY_MAX_ATTEMPTS` | `Retry.MaxAttempts` | `3` |
 | `IAM_KEEPALIVE_ENABLED` | `Keepalive` section | disabled |
-| `IAM_KEEPALIVE_TIME` | `Keepalive.Time` | `30s` |
-| `IAM_KEEPALIVE_TIMEOUT` | `Keepalive.Timeout` | `10s` |
+| `IAM_KEEPALIVE_TIME` | `Keepalive.Time` | `5m` |
+| `IAM_KEEPALIVE_TIMEOUT` | `Keepalive.Timeout` | `20s` |
+| `IAM_KEEPALIVE_PERMIT_WITHOUT_STREAM` | `Keepalive.PermitWithoutStream` | `false` |
 | `IAM_JWKS_URL` | `JWKS.URL` | - |
 | `IAM_JWKS_REFRESH_INTERVAL` | `JWKS.RefreshInterval` | `5m` |
 | `IAM_CIRCUIT_BREAKER_ENABLED` | `CircuitBreaker` section | disabled |

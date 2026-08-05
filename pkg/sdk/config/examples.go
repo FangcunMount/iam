@@ -24,10 +24,16 @@ func GenerateEnvExample(prefix string) string {
 %s_RETRY_INITIAL_BACKOFF=100ms
 %s_RETRY_MAX_BACKOFF=10s
 
+# gRPC keepalive 配置（与 IAM 服务端 enforcement 契约一致）
+%s_KEEPALIVE_ENABLED=true
+%s_KEEPALIVE_TIME=5m
+%s_KEEPALIVE_TIMEOUT=20s
+%s_KEEPALIVE_PERMIT_WITHOUT_STREAM=false
+
 # JWKS 配置
 %s_JWKS_URL=https://iam.example.com/.well-known/jwks.json
 %s_JWKS_REFRESH_INTERVAL=5m
-`, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix)
+`, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix)
 }
 
 // GenerateYAMLExample 生成 YAML 配置示例。
@@ -52,6 +58,11 @@ iam:
     max_attempts: 3
     initial_backoff: 100ms
     max_backoff: 10s
+
+  keepalive:
+    time: 5m
+    timeout: 20s
+    permit_without_stream: false
 
   jwks:
     url: "https://iam.example.com/.well-known/jwks.json"
