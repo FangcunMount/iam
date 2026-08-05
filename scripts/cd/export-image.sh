@@ -30,13 +30,42 @@ case "$EXPORT_IMAGE_REGISTRY" in
 esac
 
 OUTPUT="${DEPLOY_IMAGE_PACKAGE:-deploy-image-${PACKAGE_SUFFIX}.tar.gz}"
+PULL_MAX_ATTEMPTS="${PULL_MAX_ATTEMPTS:-4}"
+PULL_RETRY_INITIAL_DELAY_SECONDS="${PULL_RETRY_INITIAL_DELAY_SECONDS:-5}"
+
+case "$PULL_MAX_ATTEMPTS" in
+  ''|*[!0-9]*|0)
+    echo "PULL_MAX_ATTEMPTS must be a positive integer; got: ${PULL_MAX_ATTEMPTS}" >&2
+    exit 1
+    ;;
+esac
+case "$PULL_RETRY_INITIAL_DELAY_SECONDS" in
+  ''|*[!0-9]*)
+    echo "PULL_RETRY_INITIAL_DELAY_SECONDS must be a non-negative integer; got: ${PULL_RETRY_INITIAL_DELAY_SECONDS}" >&2
+    exit 1
+    ;;
+esac
 
 echo "Pulling ${IMAGE} (${EXPORT_IMAGE_REGISTRY}) for tarball export..."
 pull_started=$(date +%s)
 # Mac mini runner 为 ARM64，目标机为 linux/amd64，必须指定平台
-docker pull --platform linux/amd64 "$IMAGE"
+pull_attempt=1
+pull_retry_delay="$PULL_RETRY_INITIAL_DELAY_SECONDS"
+while :; do
+  if docker pull --platform linux/amd64 "$IMAGE"; then
+    break
+  fi
+  if [ "$pull_attempt" -ge "$PULL_MAX_ATTEMPTS" ]; then
+    echo "Pull failed after ${PULL_MAX_ATTEMPTS} attempts: ${IMAGE}" >&2
+    exit 1
+  fi
+  echo "Pull attempt ${pull_attempt}/${PULL_MAX_ATTEMPTS} failed; retrying in ${pull_retry_delay}s..." >&2
+  sleep "$pull_retry_delay"
+  pull_attempt=$((pull_attempt + 1))
+  pull_retry_delay=$((pull_retry_delay * 2))
+done
 pull_elapsed=$(($(date +%s) - pull_started))
-echo "Pulled ${IMAGE} in ${pull_elapsed}s"
+echo "Pulled ${IMAGE} in ${pull_elapsed}s after ${pull_attempt} attempt(s)"
 
 echo "Exporting ${IMAGE} to ${OUTPUT}..."
 export_started=$(date +%s)

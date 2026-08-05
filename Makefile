@@ -92,7 +92,7 @@ COLOR_RED := \033[31m
 .PHONY: docker-dev-up docker-dev-down docker-dev-restart docker-dev-logs docker-dev-clean
 .PHONY: docker-compose-build docker-compose-up docker-compose-down docker-compose-restart docker-compose-logs
 .PHONY: deploy deploy-local deploy-prod deploy-nginx deploy-systemd
-.PHONY: cd-validate cd-export-image cd-image cd-package cd-remote-deploy
+.PHONY: cd-validate cd-test-export-image cd-export-image cd-image cd-package cd-remote-deploy
 
 # ============================================================================
 # 帮助信息
@@ -544,7 +544,7 @@ ports: ## 检查端口占用
 # CI/CD
 # ============================================================================
 
-ci: deps-verify fmt-check lint test ## CI 流程
+ci: deps-verify fmt-check lint test cd-test-export-image ## CI 流程
 	@echo "$(COLOR_GREEN)✅ CI 检查通过$(COLOR_RESET)"
 
 release: clean build ## 发布版本
@@ -562,6 +562,9 @@ cd-validate: ## 校验 CD 服务元数据和脚本入口 (SERVICE=apiserver)
 	@test -x "$(CD_SCRIPT_DIR)/prepare-package.sh"
 	@test -x "$(CD_SCRIPT_DIR)/remote-deploy.sh"
 	@echo "$(COLOR_GREEN)✅ CD metadata validated for SERVICE=$(SERVICE)$(COLOR_RESET)"
+
+cd-test-export-image: ## 验证镜像拉取重试和失败关闭语义
+	@sh "$(CD_SCRIPT_DIR)/export-image_test.sh"
 
 cd-export-image: cd-validate ## 拉取并导出镜像 tarball（供 SCP 到 serverB docker load）
 	@SERVICE="$(SERVICE)" DEPLOY_SHA="$(DEPLOY_SHA)" "$(CD_SCRIPT_DIR)/export-image.sh"
