@@ -111,6 +111,7 @@ jobs:
       WWW_GID: ${{ secrets.WWW_GID }}
     permissions:
       contents: read
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -118,22 +119,27 @@ jobs:
           ref: ${{ env.DEPLOY_SHA }}
           fetch-depth: 1
 
-      - name: Login ACR (isolated config, no keychain)
+      - name: Configure ACR and GHCR auth (isolated config, no keychain)
         if: env.DEPLOY_EXPORT_REGISTRY == 'acr'
         shell: bash
         env:
           ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
           ALIYUN_ACR_USERNAME: ${{ secrets.ALIYUN_ACR_USERNAME }}
           ALIYUN_ACR_PASSWORD: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+          GHCR_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
           # macOS 上 docker login 会默认走 osxkeychain，无 GUI 会话失败 (-25308)。
           # 不跑 docker login，直接把 auth 写进隔离配置。
           DOCKER_CONFIG_DIR="${RUNNER_TEMP}/docker-config-${GITHUB_RUN_ID}"
           mkdir -p "${DOCKER_CONFIG_DIR}"
-          AUTH="$(printf '%s:%s' "${ALIYUN_ACR_USERNAME}" "${ALIYUN_ACR_PASSWORD}" | base64 | tr -d '\n')"
+          ACR_AUTH="$(printf '%s:%s' "${ALIYUN_ACR_USERNAME}" "${ALIYUN_ACR_PASSWORD}" | base64 | tr -d '\n')"
+          GHCR_AUTH="$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 | tr -d '\n')"
           umask 077
-          printf '{"auths":{"%s":{"auth":"%s"}}}\n' "${ALIYUN_ACR_REGISTRY}" "${AUTH}" \
+          printf '{"auths":{"%s":{"auth":"%s"},"%s":{"auth":"%s"}}}\n' \
+            "${ALIYUN_ACR_REGISTRY}" "${ACR_AUTH}" "${GHCR_REGISTRY}" "${GHCR_AUTH}" \
             > "${DOCKER_CONFIG_DIR}/config.json"
           echo "DOCKER_CONFIG=${DOCKER_CONFIG_DIR}" >> "${GITHUB_ENV}"
 
@@ -142,6 +148,7 @@ jobs:
         env:
           DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
           EXPORT_IMAGE_REGISTRY: acr
+          EXPORT_IMAGE_FALLBACK_REGISTRY: ghcr
           ALIYUN_ACR_REGISTRY: ${{ secrets.ALIYUN_ACR_REGISTRY }}
           ALIYUN_ACR_NAMESPACE: ${{ secrets.ALIYUN_ACR_NAMESPACE }}
         run: make cd-export-image SERVICE="${SERVICE}"

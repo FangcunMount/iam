@@ -20,6 +20,7 @@ set -eu
 
 case "${1:-}" in
   pull)
+    printf '%s\n' "$*" >>"$FAKE_DOCKER_PULL_LOG"
     count=0
     if [ -f "$FAKE_DOCKER_STATE" ]; then
       count=$(cat "$FAKE_DOCKER_STATE")
@@ -65,14 +66,17 @@ chmod +x "$FAKE_BIN/docker" "$FAKE_BIN/sleep"
 run_export() {
   failures=$1
   output=$2
+  fallback=${3:-}
   : >"$FAKE_DOCKER_STATE"
   : >"$FAKE_SLEEP_STATE"
+  : >"$FAKE_DOCKER_PULL_LOG"
   PATH="$FAKE_BIN:$PATH" \
     SERVICE=apiserver \
     DOCKER_REGISTRY=ghcr.io \
     DOCKER_REPOSITORY=test \
     DEPLOY_SHA=abcdef \
     EXPORT_IMAGE_REGISTRY=acr \
+    EXPORT_IMAGE_FALLBACK_REGISTRY="$fallback" \
     ALIYUN_ACR_REGISTRY=registry.example.test \
     ALIYUN_ACR_NAMESPACE=test \
     DEPLOY_IMAGE_PACKAGE="$output" \
@@ -81,12 +85,14 @@ run_export() {
     FAKE_DOCKER_STATE="$FAKE_DOCKER_STATE" \
     FAKE_DOCKER_PULL_FAILURES="$failures" \
     FAKE_DOCKER_FIXTURE_DIR="$FIXTURE_DIR" \
+    FAKE_DOCKER_PULL_LOG="$FAKE_DOCKER_PULL_LOG" \
     FAKE_SLEEP_STATE="$FAKE_SLEEP_STATE" \
     "$SCRIPT_DIR/export-image.sh"
 }
 
 FAKE_DOCKER_STATE="$TEST_TMP/docker-state"
 FAKE_SLEEP_STATE="$TEST_TMP/sleep-state"
+FAKE_DOCKER_PULL_LOG="$TEST_TMP/docker-pull-log"
 
 success_output="$TEST_TMP/success.tar.gz"
 run_export 3 "$success_output" >"$TEST_TMP/success.log" 2>&1
@@ -105,4 +111,22 @@ fi
 [ ! -e "$failure_output" ]
 grep -q 'Pull failed after 4 attempts' "$TEST_TMP/failure.log"
 
-echo "export-image retry tests passed"
+fallback_output="$TEST_TMP/fallback.tar.gz"
+run_export 4 "$fallback_output" ghcr >"$TEST_TMP/fallback.log" 2>&1
+[ "$(cat "$FAKE_DOCKER_STATE")" = '5' ]
+[ "$(cat "$FAKE_SLEEP_STATE")" = "$(printf '5\n10\n20')" ]
+[ -s "$fallback_output" ]
+tail -n 1 "$FAKE_DOCKER_PULL_LOG" | grep -q 'ghcr.io/test/iam:abcdef'
+grep -q 'falling back to ghcr' "$TEST_TMP/fallback.log"
+
+fallback_failure_output="$TEST_TMP/fallback-failure.tar.gz"
+if run_export 8 "$fallback_failure_output" ghcr >"$TEST_TMP/fallback-failure.log" 2>&1; then
+  echo "expected both registry pulls to fail after retry exhaustion" >&2
+  exit 1
+fi
+[ "$(cat "$FAKE_DOCKER_STATE")" = '8' ]
+[ "$(cat "$FAKE_SLEEP_STATE")" = "$(printf '5\n10\n20\n5\n10\n20')" ]
+[ ! -e "$fallback_failure_output" ]
+grep -q 'Both primary and fallback registry pulls failed' "$TEST_TMP/fallback-failure.log"
+
+echo "export-image retry and fallback tests passed"

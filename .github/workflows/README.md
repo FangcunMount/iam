@@ -42,7 +42,7 @@ cd.yml
 | `scripts/cd/build-image.sh` | 使用 buildx 构建并推送 GHCR 镜像，带 `latest` 和提交 SHA tag |
 | `scripts/cd/push-dockerhub.sh` | 将 GHCR 镜像同步到 Docker Hub |
 | `scripts/cd/push-acr.sh` | 将 GHCR 镜像同步到阿里云 ACR |
-| `scripts/cd/export-image.sh` | Mac mini 从 ACR pull 并导出 tarball |
+| `scripts/cd/export-image.sh` | Mac mini 从 ACR 有界重试 pull，失败后回退 GHCR，并导出 tarball |
 | `scripts/cd/setup-runner-ssh.sh` | 隔离 SSH config（`$RUNNER_TEMP`）+ serverB 主机名校验 |
 | `scripts/cd/runner-upload-and-deploy.sh` | SCP 部署包与镜像 tarball 到 serverB |
 | `scripts/cd/prepare-package.sh` | 生成 `deploy-package-apiserver.tar.gz` 和生产 `config.prod.env` |
