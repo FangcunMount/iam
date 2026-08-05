@@ -32,7 +32,7 @@ cd.yml
        -> 公网 SCP -> serverB docker load + compose up
 ```
 
-与 qs-operating-system / qlume 共用组织级 Mac mini runner（`qlume` group）、ACR Secrets；大文件上传优先 `SVRB_PUBLIC_HOST`。
+与 qs-operating-system / qlume 共用组织级 Mac mini runner（`qlume` group）、ACR Secrets；大文件上传优先 `SVRB_PUBLIC_HOST`，公网预检失败时自动回退 `SVRB_HOST`。
 
 脚本入口：
 
@@ -43,7 +43,7 @@ cd.yml
 | `scripts/cd/push-dockerhub.sh` | 将 GHCR 镜像同步到 Docker Hub |
 | `scripts/cd/push-acr.sh` | 将 GHCR 镜像同步到阿里云 ACR |
 | `scripts/cd/export-image.sh` | Mac mini 从 ACR 有界重试 pull，失败后回退 GHCR，并导出 tarball |
-| `scripts/cd/setup-runner-ssh.sh` | 隔离 SSH config（`$RUNNER_TEMP`）+ serverB 主机名校验 |
+| `scripts/cd/setup-runner-ssh.sh` | 隔离 SSH config（`$RUNNER_TEMP`）+ serverB 主机名校验；公网不可达时回退 Tailscale 地址 |
 | `scripts/cd/runner-upload-and-deploy.sh` | SCP 部署包与镜像 tarball 到 serverB |
 | `scripts/cd/prepare-package.sh` | 生成 `deploy-package-apiserver.tar.gz` 和生产 `config.prod.env` |
 | `scripts/cd/remote-deploy.sh` | 在 serverB 解包、`docker load`、compose up 并健康检查 |
@@ -193,7 +193,7 @@ MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → 
 | Variable | 必需性 | 用途 |
 | --- | --- | --- |
 | `SVRB_PUBLIC_HOST` | 推荐 | serverB 公网 SSH 地址；GitHub-hosted 健康检查、数据库运维、SSH 诊断和部署均优先使用 |
-| `SVRB_HOST` | 回退 | serverB Tailscale 地址；GitHub-hosted Runner 通常无法直接访问 |
+| `SVRB_HOST` | 回退 | serverB Tailscale 地址；Mac mini 部署在公网预检失败时自动使用，GitHub-hosted Runner 通常无法直接访问 |
 | `SVRB_USERNAME` | 推荐 | serverB SSH 用户；缺省用 `SVRA_USERNAME` |
 | `SVRB_SSH_PORT` | 可选 | serverB SSH 端口；缺省用 `SVRA_SSH_PORT` 或 22 |
 | `SVRA_HOST` | 可选 | fallback 主机地址 |

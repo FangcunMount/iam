@@ -184,6 +184,7 @@ jobs:
           RUNNER_SSH_KEY: ${{ secrets.SVR_MINI_SSH_KEY || secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           # 大文件走公网：Tailscale DERP 中继太慢；打洞成功前优先公网
           RUNNER_SSH_HOST: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          RUNNER_SSH_FALLBACK_HOST: ${{ vars.SVRB_HOST || secrets.SVRB_HOST }}
           RUNNER_SSH_USER: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           RUNNER_SSH_PORT: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           RUNNER_SSH_ALIAS: deploy-target
@@ -193,7 +194,6 @@ jobs:
       - name: Upload and deploy
         env:
           RUNNER_SSH_ALIAS: deploy-target
-          RUNNER_SSH_HOST: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           DEPLOY_NODE_HOSTNAME: serverB
           SERVICE: ${{ env.SERVICE }}
           DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
