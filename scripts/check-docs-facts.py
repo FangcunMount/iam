@@ -358,7 +358,7 @@ def check_database_operations_facts() -> None:
         encoding="utf-8"
     )
 
-    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 3:
+    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 4:
         fail("database workflow no longer routes all operations through the repository script")
     if workflow.count("script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1:
         fail("database status no longer runs the checked-out retirement preflight exactly once")
@@ -370,6 +370,9 @@ def check_database_operations_facts() -> None:
         "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
         "retirement_scope:",
         "IAM_RETIREMENT_SCOPE",
+        "retire-identity-dry-run",
+        "retire-identity-apply",
+        "IAM_DB_OPS_CONFIRMATION",
     ):
         if token not in workflow:
             fail(f"database status retirement preflight is missing {token}")
@@ -390,6 +393,9 @@ def check_database_operations_facts() -> None:
         "Ver 8\\.",
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
+        "RETIRE_CHILDREN_GUARDIANSHIPS",
+        "DROP TABLE children, guardianships;",
+        "canonical_writes=0",
     ):
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
@@ -429,9 +435,11 @@ def check_database_operations_facts() -> None:
         if forbidden in retirement.upper():
             fail(f"legacy retirement preflight contains forbidden token {forbidden}")
     for token in (
-        "Verify database backup and restore script with MySQL 8",
+        "Verify database backup, restore, and Identity retirement with MySQL 8",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",
+        "IAM_DB_OPS_OPERATION=retire-identity-dry-run",
+        "IAM_DB_OPS_OPERATION=retire-identity-apply",
         "SELECT value FROM restore_fixture",
     ):
         if token not in integration:
