@@ -81,7 +81,7 @@ func openMigrationMySQL(t *testing.T) *sql.DB {
 	}
 	database := migrationEnvOr("MYSQL_DATABASE", migrationEnvOr("MYSQL_DBNAME", "iam_test"))
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=UTC",
+		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=UTC&multiStatements=true",
 		migrationEnvOr("MYSQL_USER", migrationEnvOr("MYSQL_USERNAME", "iam")),
 		os.Getenv("MYSQL_PASSWORD"),
 		host,

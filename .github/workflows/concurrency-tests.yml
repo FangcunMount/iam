@@ -140,7 +140,7 @@ jobs:
             2>&1 | tee test-artifacts/jwks-migration-tests.txt
           exit "${PIPESTATUS[0]}"
 
-      - name: Run identity consistency migration tests
+      - name: Run Identity migration tests
         env:
           MYSQL_HOST: 127.0.0.1
           MYSQL_PORT: 3306
@@ -153,7 +153,7 @@ jobs:
           set -o pipefail
           export MYSQL_PWD="$MYSQL_PASSWORD"
           go test ./internal/pkg/migration \
-            -run "TestIdentityConsistencyMigrationsMySQL" \
+            -run "TestIdentityConsistencyMigrationsMySQL|TestRetiredIdentityTablesMigrationMySQL" \
             -v \
             -count=1 \
             2>&1 | tee test-artifacts/identity-migration-tests.txt

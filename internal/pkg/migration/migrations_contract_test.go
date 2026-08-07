@@ -188,6 +188,63 @@ func TestIdentityConsistencyMigrations(t *testing.T) {
 	}
 }
 
+func TestRetiredIdentityTablesMigrationBackfillsAndValidatesBeforeDrop(t *testing.T) {
+	up := migrationSQL(t, "000019_retire_legacy_tables.up.sql")
+
+	assertSQLInOrder(t, up,
+		"CREATE TABLE IF NOT EXISTS profiles",
+		"INSERT IGNORE INTO profiles",
+		"FROM children",
+		"INSERT IGNORE INTO profile_links",
+		"FROM guardianships",
+		"iam_children_mismatches",
+		"iam_guardianship_mismatches",
+		"iam_retirement_dependencies",
+		"DROP TABLE IF EXISTS",
+	)
+	assertSQLNotContains(t, up, "ON DUPLICATE KEY UPDATE")
+	for _, table := range []string{
+		"children",
+		"guardianships",
+	} {
+		assertSQLContains(t, up, table)
+	}
+	for _, outOfScopeTable := range []string{
+		"auth_accounts",
+		"auth_credentials_legacy",
+		"schema_version",
+		"tenants",
+		"data_dictionary",
+		"operation_logs",
+		"audit_logs",
+		"auth_token_audit",
+	} {
+		if strings.Contains(up, outOfScopeTable) {
+			t.Fatalf("retirement migration must not include out-of-scope table %q", outOfScopeTable)
+		}
+	}
+	for _, guard := range []string{
+		"information_schema.KEY_COLUMN_USAGE",
+		"information_schema.TRIGGERS",
+		"information_schema.VIEWS",
+		"information_schema.ROUTINES",
+		"information_schema.EVENTS",
+		"iam_identity_retirement_assertion",
+		"legacy Identity parity is incomplete",
+		"iam_identity_dependency_assertion",
+		"legacy table database dependencies still exist",
+	} {
+		assertSQLContains(t, up, guard)
+	}
+	if strings.Count(up, "DROP TABLE IF EXISTS") != 1 {
+		t.Fatalf("retirement migration must use one final DROP statement, got %d", strings.Count(up, "DROP TABLE IF EXISTS"))
+	}
+
+	down := migrationSQL(t, "000019_retire_legacy_tables.down.sql")
+	assertSQLContains(t, down, "SIGNAL SQLSTATE '45000'")
+	assertSQLContains(t, down, "irreversible")
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 

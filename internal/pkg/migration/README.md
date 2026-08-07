@@ -2,11 +2,11 @@
 
 本目录包含数据库迁移文件和迁移工具。
 
-## ⚠️ 重要说明：迁移不会覆盖数据
+## ⚠️ 重要说明：迁移是增量变更，不是启动时全量重置
 
 **常见误解：每次启动都执行迁移，会不会覆盖线上数据？**
 
-**答案：不会！** 迁移使用 **版本控制机制**：
+**答案：不会重复执行已经成功记录的版本。** 迁移使用 **版本控制机制**：
 
 ```text
 ┌─────────────────────────────────────────┐
@@ -27,7 +27,7 @@
 - ✅ 迁移是**增量的**，不是全量的
 - ✅ 每个版本只执行**一次**
 - ✅ 后续启动会**跳过**已执行的版本
-- ✅ 不会删除或覆盖现有数据
+- ⚠️ 新的 forward migration 仍可能回填、修改或删除数据，必须逐版本审阅并先完成备份/恢复演练
 
 ## 旧库升级：children/guardianships 到 profiles/profile_links
 
@@ -40,8 +40,18 @@
 - 若 `profiles` / `profile_links` 不存在，先创建 v2 运行时表；
 - 若旧表 `children` 存在，把儿童档案复制到 `profiles`；
 - 若旧表 `guardianships` 存在，把监护关系复制到 `profile_links`，旧 `guardian` 关系映射为 v2 的 `other`；
-- 不删除 `children` / `guardianships`，上线后保留作审计和回滚依据；
+- 当时不删除 `children` / `guardianships`，保留作审计和回滚依据；
 - 再幂等补充 `idx_profile_id` 索引。
+
+后续单独授权的 `000019_retire_legacy_tables` 完成 Identity contract 阶段：
+
+- 仅处理 `children` 和 `guardianships`，不夹带 AuthN、tenant、字典或审计表；
+- canonical 表缺失时先创建，并用 `INSERT IGNORE` 只补缺失记录，不以历史快照覆盖当前数据；
+- 对主键、关键字段、关系、撤销/软删除状态做一致性断言，并检查 FK、trigger、view、routine、event 依赖；
+- 所有断言通过后才用一条最终 `DROP TABLE IF EXISTS children, guardianships` 删除旧表；
+- down migration 明确不可逆，只能恢复经过验证的备份，不能伪造空旧表。
+
+`000019` 的仓库与本地 MySQL 8 测试通过不等于生产已执行。生产发布仍要先备份和隔离恢复，使用只读预检确认依赖/对账，并在迁移后核对 `schema_migrations(version=19, dirty=0)`、canonical 行数与旧表不存在。
 
 如果某个环境已经用旧的 `000002` 启动失败，`schema_migrations` 可能处于
 `version=2, dirty=1`。只有在确认失败点是“`profile_links` 不存在导致旧 `000002`
@@ -58,6 +68,8 @@ migration/
 │   ├── 000001_init_schema.down.sql    # 回滚表结构
 │   ├── 000005_bootstrap_system_data.up.sql   # 最小系统初始化数据
 │   ├── 000005_bootstrap_system_data.down.sql # 回滚最小系统初始化数据
+│   ├── 000019_retire_legacy_tables.up.sql     # 退役 Identity 历史表
+│   ├── 000019_retire_legacy_tables.down.sql   # fail-closed，不伪造回滚
 │   └── ...
 └── README.md               # 本文件
 ```

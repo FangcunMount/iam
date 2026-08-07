@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000018 和相关测试核对。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000019 和相关测试核对。
 
 ## 1. 本文回答
 
@@ -186,8 +186,10 @@ DatabaseManager.Initialize
 
 - 迁移使用独立 `sql.DB`，避免关闭 migrator 时影响业务 GORM 连接；
 - dirty version 直接失败，需要人工核查，不能自动 force；
-- up/down 必须成对，当前事实门禁要求最新版本为 18；
+- up/down 必须成对，当前事实门禁要求最新版本为 19；
 - 迁移失败会终止正常启动；MySQL 未配置时开发/显式 degraded 场景可跳过，但 release 模式随后会在资源/关键模块校验处 fail closed。
+
+`000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除 `children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 

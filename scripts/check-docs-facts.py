@@ -71,8 +71,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 18:
-        fail(f"documented latest migration is 18, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 19:
+        fail(f"documented latest migration is 19, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -91,6 +91,33 @@ def check_migrations() -> None:
     ):
         if token not in revocation:
             fail(f"migration 000018 is missing {token}")
+    retirement = (directory / "000019_retire_legacy_tables.up.sql").read_text(
+        encoding="utf-8"
+    )
+    for token in (
+        "INSERT IGNORE INTO profiles",
+        "INSERT IGNORE INTO profile_links",
+        "iam_children_mismatches",
+        "iam_guardianship_mismatches",
+        "iam_retirement_dependencies",
+        "DROP TABLE IF EXISTS",
+        "children",
+        "guardianships",
+    ):
+        if token not in retirement:
+            fail(f"migration 000019 is missing {token}")
+    for forbidden in (
+        "auth_accounts",
+        "auth_credentials_legacy",
+        "schema_version",
+        "tenants",
+        "data_dictionary",
+        "operation_logs",
+        "audit_logs",
+        "auth_token_audit",
+    ):
+        if forbidden in retirement:
+            fail(f"migration 000019 includes out-of-scope table {forbidden}")
 
 
 def check_database_schema_sources() -> None:
