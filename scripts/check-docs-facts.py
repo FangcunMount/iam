@@ -368,6 +368,8 @@ def check_database_operations_facts() -> None:
         "Run Legacy Retirement Preflight",
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+        "retirement_scope:",
+        "IAM_RETIREMENT_SCOPE",
     ):
         if token not in workflow:
             fail(f"database status retirement preflight is missing {token}")
@@ -409,6 +411,8 @@ def check_database_operations_facts() -> None:
         "unknown_credential_rows",
         "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
+        "IAM_RETIREMENT_SCOPE",
+        "schema_contract",
     ):
         if token not in retirement:
             fail(f"legacy retirement preflight is missing safety contract {token}")

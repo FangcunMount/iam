@@ -339,6 +339,7 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	for _, want := range []string{
 		"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
 	} {
 		if !strings.Contains(source, want) {
 			t.Fatalf("database status preflight is missing %q", want)

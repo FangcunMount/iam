@@ -42,6 +42,8 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 		"--defaults-extra-file=",
 		"IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"mysql:8.0",
+		"IAM_RETIREMENT_SCOPE",
+		"schema_contract",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("preflight is missing evidence contract %q", required)
@@ -140,6 +142,7 @@ esac
 		"dependency\tchildren\tfk=0",
 		"exact_rows\tchildren\tstate=available\trows=4",
 		"schema_signature\tchildren\tstate=available",
+		"schema_contract\tchildren\texpected_columns=14",
 		"parity\tchildren_to_profiles\tstate=available\tlegacy_rows=4",
 		"password_material_mismatches=0",
 		"eligibility\tschema_version\tstate=eligible",
@@ -174,5 +177,14 @@ esac
 	assertSafeOutput(t, string(ioOutput))
 	if !strings.Contains(string(ioOutput), "eligibility\tschema_version\tstate=blocked\treason=instantaneous_io_nonzero") {
 		t.Fatalf("nonzero I/O did not fail eligibility closed:\n%s", ioOutput)
+	}
+
+	identityCmd := exec.Command("/bin/bash", script)
+	identityCmd.Env = append(cmd.Env, "IAM_RETIREMENT_SCOPE=identity")
+	identityOutput, err := identityCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(identityOutput))
+	if !strings.Contains(string(identityOutput), "scope=identity") || strings.Contains(string(identityOutput), "parity\tauth_accounts_to_login_identities") {
+		t.Fatalf("identity scope executed an unrelated AuthN parity query:\n%s", identityOutput)
 	}
 }

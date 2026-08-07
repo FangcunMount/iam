@@ -9,6 +9,7 @@ IMAGE_SHA="${IAM_RETIREMENT_IMAGE_SHA:-unknown}"
 SUPPLIED_DEFAULTS="${IAM_RETIREMENT_MYSQL_DEFAULTS_FILE:-}"
 ALLOW_DOCKER_CLIENT="${IAM_RETIREMENT_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_RETIREMENT_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
+RETIREMENT_SCOPE="${IAM_RETIREMENT_SCOPE:-all}"
 
 MYSQL_DEFAULTS=""
 ERROR_PATH=""
@@ -128,6 +129,10 @@ validate_configuration() {
   require_value MYSQL_DBNAME "${MYSQL_DBNAME:-}" || return 1
   validate_label IAM_RETIREMENT_ENVIRONMENT "$ENVIRONMENT" || return 1
   validate_label IAM_RETIREMENT_IMAGE_SHA "$IMAGE_SHA" || return 1
+  case "$RETIREMENT_SCOPE" in
+    all|identity|schema_version|platform|authn) ;;
+    *) fail "retirement scope is invalid"; return 1 ;;
+  esac
   if ! [[ "$MYSQL_DBNAME" =~ ^[A-Za-z0-9_]+$ ]]; then
     fail "database name is invalid"
     return 1
@@ -155,6 +160,29 @@ validate_configuration() {
   fi
   [ -n "$COMMIT_SHA" ] || COMMIT_SHA="unknown"
   validate_label IAM_RETIREMENT_COMMIT_SHA "$COMMIT_SHA" || return 1
+}
+
+emit_identity_schema_contracts() {
+  local table expected expected_count quoted result present_count present_columns
+  while IFS='|' read -r table expected; do
+    expected_count="$(awk -F ',' '{ print NF }' <<<"$expected")"
+    quoted="${expected//,/','}"
+    result="$(mysql_query "SELECT
+      COUNT(*),
+      COALESCE(GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION SEPARATOR ','), 'none')
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = '$table'
+        AND COLUMN_NAME IN ('$quoted');")"
+    IFS=$'\t' read -r present_count present_columns <<<"$result"
+    printf 'schema_contract\t%s\texpected_columns=%s\tpresent_columns=%s\tpresent_required=%s\n' \
+      "$table" "$expected_count" "$present_count" "$present_columns"
+  done <<'EOF'
+children|id,name,id_card,gender,birthday,height,weight,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version
+profiles|id,name,id_card,gender,birthday,height,weight,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version
+guardianships|id,user_id,child_id,relation,established_at,revoked_at,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version
+profile_links|id,user_id,profile_id,type,relation,established_at,revoked_at,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version
+EOF
 }
 
 require_mysql8_client() {
@@ -352,7 +380,9 @@ emit_parity_result() {
 }
 
 emit_parity_summaries() {
-  emit_parity_result children_to_profiles "children profiles" "SELECT
+  if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "identity" ]; then
+    emit_identity_schema_contracts
+    emit_parity_result children_to_profiles "children profiles" "SELECT
     CONCAT('legacy_rows=', COUNT(*)),
     CONCAT('mapped_rows=', COALESCE(SUM(p.id IS NOT NULL), 0)),
     CONCAT('missing_rows=', COALESCE(SUM(p.id IS NULL), 0)),
@@ -362,7 +392,7 @@ emit_parity_summaries() {
       p.deleted_at <=> c.deleted_at AND p.version <=> c.version)), 0))
     FROM children c LEFT JOIN profiles p ON p.id = c.id;"
 
-  emit_parity_result guardianships_to_profile_links "guardianships profile_links" "SELECT
+    emit_parity_result guardianships_to_profile_links "guardianships profile_links" "SELECT
     CONCAT('legacy_rows=', COUNT(*)),
     CONCAT('mapped_rows=', COALESCE(SUM(p.id IS NOT NULL), 0)),
     CONCAT('missing_rows=', COALESCE(SUM(p.id IS NULL), 0)),
@@ -372,8 +402,10 @@ emit_parity_summaries() {
       p.relation <=> CASE LOWER(TRIM(g.relation)) WHEN 'self' THEN 'self' WHEN 'parent' THEN 'parent' WHEN 'grandparent' THEN 'grandparent' ELSE 'other' END AND
       p.revoked_at <=> g.revoked_at AND p.deleted_at <=> g.deleted_at AND p.version <=> g.version)), 0))
     FROM guardianships g LEFT JOIN profile_links p ON p.id = g.id;"
+  fi
 
-  emit_parity_result auth_accounts_to_login_identities "auth_accounts auth_login_identities" "WITH account_facts AS (
+  if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "authn" ]; then
+    emit_parity_result auth_accounts_to_login_identities "auth_accounts auth_login_identities" "WITH account_facts AS (
     SELECT a.*,
       a.type IN ('opera', 'mock-consumer', 'wc-minip', 'wc-com') AS supported,
       (TRIM(a.external_id) <> '' AND (a.type NOT IN ('wc-minip', 'wc-com') OR TRIM(COALESCE(a.app_id, '')) <> '')) AS valid_key,
@@ -406,7 +438,7 @@ emit_parity_summaries() {
     CONCAT('duplicate_mapped_rows=', COALESCE(SUM(supported AND valid_key AND mapping_count > 1), 0))
   FROM account_facts;"
 
-  emit_parity_result legacy_credentials_to_authn "auth_credentials_legacy auth_credentials auth_login_identities auth_accounts" "WITH credential_facts AS (
+    emit_parity_result legacy_credentials_to_authn "auth_credentials_legacy auth_credentials auth_login_identities auth_accounts" "WITH credential_facts AS (
     SELECT lc.*,
       ((lc.type = 'password' OR COALESCE(lc.idp, '') = '')
         AND COALESCE(OCTET_LENGTH(lc.material), 0) > 0 AND COALESCE(lc.algo, '') <> '') AS password_eligible,
@@ -478,6 +510,7 @@ emit_parity_summaries() {
     CONCAT('oauth_unmapped_rows=', COALESCE(SUM(oauth_artifact AND NOT oauth_identity_exists), 0)),
     CONCAT('unknown_credential_rows=', COALESCE(SUM(NOT password_eligible AND NOT invalid_password AND NOT phone_artifact AND NOT oauth_artifact), 0))
   FROM credential_facts;"
+  fi
 }
 
 cached_parity_state() {
@@ -660,11 +693,25 @@ emit_eligibility() {
       printf 'eligibility\t%s\tstate=already_absent\tevidence=instantaneous\n' "$table"
     fi
   done
-  emit_simple_eligibility schema_version retire_schema_version
-  emit_simple_eligibility tenants remove_bootstrap_reference
-  emit_simple_eligibility data_dictionary remove_bootstrap_reference
-  emit_auth_account_eligibility
-  emit_auth_credential_eligibility
+  if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "schema_version" ]; then
+    emit_simple_eligibility schema_version retire_schema_version
+  else
+    printf 'eligibility\tschema_version\tstate=not_evaluated\treason=scope_excluded\n'
+  fi
+  if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "platform" ]; then
+    emit_simple_eligibility tenants remove_bootstrap_reference
+    emit_simple_eligibility data_dictionary remove_bootstrap_reference
+  else
+    printf 'eligibility\ttenants\tstate=not_evaluated\treason=scope_excluded\n'
+    printf 'eligibility\tdata_dictionary\tstate=not_evaluated\treason=scope_excluded\n'
+  fi
+  if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "authn" ]; then
+    emit_auth_account_eligibility
+    emit_auth_credential_eligibility
+  else
+    printf 'eligibility\tauth_accounts\tstate=not_evaluated\treason=scope_excluded\n'
+    printf 'eligibility\tauth_credentials_legacy\tstate=not_evaluated\treason=scope_excluded\n'
+  fi
   for table in operation_logs audit_logs auth_token_audit; do
     present="$(table_present "$table")"
     if [ "$present" = "1" ]; then
@@ -688,7 +735,7 @@ main() {
   chmod 0600 "$ERROR_PATH"
   chmod 0600 "$IO_CACHE_PATH" "$DEPENDENCY_CACHE_PATH" "$PARITY_CACHE_PATH"
 
-  printf 'legacy_retirement_preflight\tformat_version=2\tquery_mode=read_only_aggregate\n'
+  printf 'legacy_retirement_preflight\tformat_version=2\tquery_mode=read_only_aggregate\tscope=%s\n' "$RETIREMENT_SCOPE"
   emit_metadata
   emit_migration_state
   emit_candidate_tables

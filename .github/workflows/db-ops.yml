@@ -25,6 +25,17 @@ on:
         description: Currently deployed IAM image Git SHA, required for retirement preflight evidence
         required: false
         type: string
+      retirement_scope:
+        description: Retirement preflight scope for status
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - identity
+          - schema_version
+          - platform
+          - authn
   schedule:
     - cron: '0 17 * * *'  # Daily 17:00 UTC / 01:00 Asia-Shanghai
 
@@ -91,7 +102,7 @@ jobs:
     name: Database Status
     if: github.event.inputs.operation == 'status'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -121,6 +132,7 @@ jobs:
           IAM_RETIREMENT_ALLOW_DOCKER_CLIENT: "1"
           IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
           IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
+          IAM_RETIREMENT_SCOPE: ${{ github.event.inputs.retirement_scope || 'all' }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -131,5 +143,5 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/legacy-retirement-preflight.sh
