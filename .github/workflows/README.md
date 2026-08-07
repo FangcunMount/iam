@@ -128,6 +128,8 @@ Build and Push Docker Image
 ```bash
 go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -count=1
 go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -count=1
+go test ./internal/pkg/migration -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL" -v -count=1
+go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" -v -count=1
 ```
 
 ## db-ops.yml

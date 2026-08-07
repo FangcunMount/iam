@@ -514,6 +514,9 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	requireNoError(t, err)
 	for _, want := range []string{
 		"Verify database backup, restore, and Identity retirement with MySQL 8",
+		"Run retirement and full-chain migration tests",
+		"TestRetireUnusedPlatformTablesMigrationMySQL",
+		"TestFullMigrationChainAndBootstrapMySQL",
 		"IAM_DB_OPS_OPERATION=backup", "IAM_DB_OPS_OPERATION=restore",
 		"IAM_DB_OPS_OPERATION=retire-identity-dry-run",
 		"IAM_DB_OPS_OPERATION=retire-identity-apply",

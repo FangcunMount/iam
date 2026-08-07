@@ -2,47 +2,27 @@
 -- IAM - System Bootstrap Data
 -- Description: Idempotent baseline data migrated from the retired seeddata flow.
 -- Scope:
---   - baseline tenants / users / operation login identities / password credentials
+--   - baseline users / operation login identities / password credentials
 --   - IAM + QS roles / resources / assignments / Casbin policies
---   - default dictionaries and default WeChat app metadata
+--   - default WeChat app metadata
 -- Non-scope:
 --   - JWKS key material
 --   - family/test/demo business data
 --   - cross-service bootstrap side effects (QS / Collection / gRPC)
 -- ============================================================================
 
-USE `iam`;
-
--- ----------------------------------------------------------------------------
--- Tenants
--- ----------------------------------------------------------------------------
-INSERT INTO `tenants` (`id`, `name`, `code`, `contact_name`, `contact_phone`, `contact_email`, `status`, `max_users`,
-                       `max_roles`)
-VALUES ('fangcun', '方寸', 'fangcun', 'admin', '15711236163', 'yshujie@163.com', 'active', 1000, 100),
-       ('platform', '平台控制面', 'platform', 'system', '', 'system@fangcunmount.com', 'active', 100, 100)
-ON DUPLICATE KEY UPDATE `name`          = VALUES(`name`),
-                        `code`          = VALUES(`code`),
-                        `contact_name`  = VALUES(`contact_name`),
-                        `contact_phone` = VALUES(`contact_phone`),
-                        `contact_email` = VALUES(`contact_email`),
-                        `status`        = VALUES(`status`),
-                        `max_users`     = VALUES(`max_users`),
-                        `max_roles`     = VALUES(`max_roles`),
-                        `updated_at`    = CURRENT_TIMESTAMP;
-
 -- ----------------------------------------------------------------------------
 -- System users
 -- ----------------------------------------------------------------------------
-INSERT INTO `users` (`id`, `name`, `nickname`, `phone`, `email`, `id_card`, `status`, `created_at`, `updated_at`,
+INSERT INTO `users` (`id`, `name`, `nickname`, `phone`, `email`, `status`, `created_at`, `updated_at`,
                      `deleted_at`, `created_by`, `updated_by`, `deleted_by`, `version`)
-VALUES (10001, '系统用户', '', NULL, 'system@fangcunmount.com', NULL, 1, NOW(), NOW(), NULL, 0, 0, 0, 1),
-       (110001, '租户管理员', '', NULL, 'admin@fangcunmount.com', NULL, 1, NOW(), NOW(), NULL, 0, 0, 0, 1),
-       (110002, '内容管理员', '', NULL, 'content_manager@fangcunmount.com', NULL, 1, NOW(), NOW(), NULL, 0, 0, 0, 1)
+VALUES (10001, '系统用户', '', NULL, 'system@fangcunmount.com', 1, NOW(), NOW(), NULL, 0, 0, 0, 1),
+       (110001, '租户管理员', '', NULL, 'admin@fangcunmount.com', 1, NOW(), NOW(), NULL, 0, 0, 0, 1),
+       (110002, '内容管理员', '', NULL, 'content_manager@fangcunmount.com', 1, NOW(), NOW(), NULL, 0, 0, 0, 1)
 ON DUPLICATE KEY UPDATE `name`       = VALUES(`name`),
                         `nickname`   = VALUES(`nickname`),
                         `phone`      = VALUES(`phone`),
                         `email`      = VALUES(`email`),
-                        `id_card`    = VALUES(`id_card`),
                         `status`     = VALUES(`status`),
                         `deleted_at` = NULL,
                         `deleted_by` = 0,
@@ -382,32 +362,3 @@ ON DUPLICATE KEY UPDATE `changed_by` = VALUES(`changed_by`),
                         `deleted_by` = 0,
                         `updated_at` = NOW(),
                         `updated_by` = 0;
-
--- ----------------------------------------------------------------------------
--- Data dictionary
--- ----------------------------------------------------------------------------
-INSERT INTO `data_dictionary` (`dict_type`, `dict_code`, `dict_value`, `dict_label`, `sort_order`, `is_default`)
-VALUES ('gender', '0', '0', '未知', 1, 1),
-       ('gender', '1', '1', '男', 2, 0),
-       ('gender', '2', '2', '女', 3, 0)
-ON DUPLICATE KEY UPDATE `dict_label` = VALUES(`dict_label`),
-                        `sort_order` = VALUES(`sort_order`),
-                        `is_default` = VALUES(`is_default`);
-
-INSERT INTO `data_dictionary` (`dict_type`, `dict_code`, `dict_value`, `dict_label`, `sort_order`, `is_default`)
-VALUES ('user_status', '1', '1', '正常', 1, 1),
-       ('user_status', '2', '2', '禁用', 2, 0),
-       ('user_status', '3', '3', '删除', 3, 0)
-ON DUPLICATE KEY UPDATE `dict_label` = VALUES(`dict_label`),
-                        `sort_order` = VALUES(`sort_order`),
-                        `is_default` = VALUES(`is_default`);
-
-INSERT INTO `data_dictionary` (`dict_type`, `dict_code`, `dict_value`, `dict_label`, `sort_order`)
-VALUES ('relation_type', 'self', 'self', '本人', 1),
-       ('relation_type', 'father', 'father', '父亲', 2),
-       ('relation_type', 'mother', 'mother', '母亲', 3),
-       ('relation_type', 'grandfather', 'grandfather', '祖父/外祖父', 4),
-       ('relation_type', 'grandmother', 'grandmother', '祖母/外祖母', 5),
-       ('relation_type', 'other', 'other', '关系用户', 6)
-ON DUPLICATE KEY UPDATE `dict_label` = VALUES(`dict_label`),
-                        `sort_order` = VALUES(`sort_order`);
