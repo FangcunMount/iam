@@ -23,16 +23,17 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run full migration chain: %v", err)
 	}
-	if !migrated || version != 21 {
-		t.Fatalf("full migration result = version %d migrated=%v, want version 21 migrated=true", version, migrated)
+	if !migrated || version != 22 {
+		t.Fatalf("full migration result = version %d migrated=%v, want version 22 migrated=true", version, migrated)
 	}
 	db := openMigrationMySQL(t)
-	for _, retired := range []string{"children", "guardianships", "schema_version", "tenants", "data_dictionary"} {
+	for _, retired := range []string{
+		"children", "guardianships", "schema_version", "tenants", "data_dictionary",
+		"operation_logs", "audit_logs", "auth_token_audit",
+	} {
 		assertTableExists(t, db, retired, false)
 	}
-	for _, retained := range []string{"schema_migrations", "operation_logs", "audit_logs", "auth_token_audit"} {
-		assertTableExists(t, db, retained, true)
-	}
+	assertTableExists(t, db, "schema_migrations", true)
 
 	_, currentFile, _, _ := runtime.Caller(0)
 	bootstrapPath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "configs", "mysql", "bootstrap.sql")

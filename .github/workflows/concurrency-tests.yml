@@ -174,7 +174,7 @@ jobs:
 
           MYSQL_DATABASE=iam_retirement_fixture MYSQL_DBNAME=iam_retirement_fixture \
             go test ./internal/pkg/migration \
-              -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL" \
+              -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL|TestRetireUnusedAuditTablesMigrationMySQL" \
               -v \
               -count=1 \
               2>&1 | tee test-artifacts/retirement-migration-tests.txt

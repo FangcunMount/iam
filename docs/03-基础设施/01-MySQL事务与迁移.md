@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000019 和相关测试核对。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000022 和相关测试核对。
 
 ## 1. 本文回答
 
@@ -186,12 +186,12 @@ DatabaseManager.Initialize
 
 - 迁移使用独立 `sql.DB`，避免关闭 migrator 时影响业务 GORM 连接；
 - dirty version 直接失败，需要人工核查，不能自动 force；
-- up/down 必须成对，当前事实门禁要求最新版本为 21；
+- up/down 必须成对，当前事实门禁要求最新版本为 22；
 - 迁移失败会终止正常启动；MySQL 未配置时开发/显式 degraded 场景可跳过，但 release 模式随后会在资源/关键模块校验处 fail closed。
 
 `000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除 `children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
 
-`000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 在当前 bootstrap 停止写入后单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0` 且两表不存在。两者都先检查数据库对象依赖，down fail closed；AuthN 旧表仍受只读 parity gate 约束，当前没有 `000022`。
+`000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，本次仓库实现时目标库仍为 21。三个 contract migration 都先检查数据库对象依赖，down fail closed；AuthN 旧表仍受只读 parity gate 约束，未来退役版本顺延为 `000023`。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 

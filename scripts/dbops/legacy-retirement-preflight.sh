@@ -131,11 +131,11 @@ validate_configuration() {
   validate_label IAM_RETIREMENT_ENVIRONMENT "$ENVIRONMENT" || return 1
   validate_label IAM_RETIREMENT_IMAGE_SHA "$IMAGE_SHA" || return 1
   case "$RETIREMENT_SCOPE" in
-    all|identity|schema_version|platform|authn) ;;
+    all|identity|schema_version|platform|authn|audit) ;;
     *) fail "retirement scope is invalid"; return 1 ;;
   esac
   case "$OWNER_IO_WAIVER" in
-    none|platform_tables) ;;
+    none|platform_tables|audit_tables) ;;
     *) fail "owner I/O waiver is invalid"; return 1 ;;
   esac
   if ! [[ "$MYSQL_DBNAME" =~ ^[A-Za-z0-9_]+$ ]]; then
@@ -598,8 +598,17 @@ common_retirement_blocker() {
 
 owner_io_waiver_allows() {
   local table="$1"
-  [ "$OWNER_IO_WAIVER" = "platform_tables" ] \
-    && [[ " schema_version tenants data_dictionary " == *" $table "* ]]
+  case "$OWNER_IO_WAIVER" in
+    platform_tables)
+      [[ " schema_version tenants data_dictionary " == *" $table "* ]]
+      ;;
+    audit_tables)
+      [[ " operation_logs audit_logs auth_token_audit " == *" $table "* ]]
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 io_evidence_mode() {
@@ -629,6 +638,7 @@ io_evidence_mode() {
 emit_simple_eligibility() {
   local table="$1"
   local repository_gate="$2"
+  local required_version="${3:-19}"
   local present blocker evidence
   present="$(table_present "$table")"
   if [ "$present" != "1" ]; then
@@ -638,6 +648,11 @@ emit_simple_eligibility() {
   blocker="$(common_retirement_blocker "$table")"
   if [ -n "$blocker" ]; then
     printf 'eligibility\t%s\tstate=blocked\treason=%s\tevidence=instantaneous\n' "$table" "$blocker"
+    return
+  fi
+  if [ "$MIGRATION_VERSION" -lt "$required_version" ]; then
+    printf 'eligibility\t%s\tstate=blocked\treason=migration_version_before_%s\tevidence=instantaneous\n' \
+      "$table" "$required_version"
     return
   fi
   evidence="$(io_evidence_mode "$table")"
@@ -735,13 +750,13 @@ emit_eligibility() {
     fi
   done
   if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "schema_version" ]; then
-    emit_simple_eligibility schema_version retire_schema_version
+    emit_simple_eligibility schema_version retire_schema_version 19
   else
     printf 'eligibility\tschema_version\tstate=not_evaluated\treason=scope_excluded\n'
   fi
   if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "platform" ]; then
-    emit_simple_eligibility tenants remove_bootstrap_reference
-    emit_simple_eligibility data_dictionary remove_bootstrap_reference
+    emit_simple_eligibility tenants remove_bootstrap_reference 20
+    emit_simple_eligibility data_dictionary remove_bootstrap_reference 20
   else
     printf 'eligibility\ttenants\tstate=not_evaluated\treason=scope_excluded\n'
     printf 'eligibility\tdata_dictionary\tstate=not_evaluated\treason=scope_excluded\n'
@@ -753,14 +768,15 @@ emit_eligibility() {
     printf 'eligibility\tauth_accounts\tstate=not_evaluated\treason=scope_excluded\n'
     printf 'eligibility\tauth_credentials_legacy\tstate=not_evaluated\treason=scope_excluded\n'
   fi
-  for table in operation_logs audit_logs auth_token_audit; do
-    present="$(table_present "$table")"
-    if [ "$present" = "1" ]; then
-      printf 'eligibility\t%s\tstate=deferred\treason=product_or_compliance_decision\tevidence=instantaneous\n' "$table"
-    else
-      printf 'eligibility\t%s\tstate=already_absent\tevidence=instantaneous\n' "$table"
-    fi
-  done
+  if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "audit" ]; then
+    for table in operation_logs audit_logs auth_token_audit; do
+      emit_simple_eligibility "$table" retire_unused_audit_tables 21
+    done
+  else
+    for table in operation_logs audit_logs auth_token_audit; do
+      printf 'eligibility\t%s\tstate=not_evaluated\treason=scope_excluded\n' "$table"
+    done
+  fi
 }
 
 main() {

@@ -71,8 +71,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 21:
-        fail(f"documented latest migration is 21, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 22:
+        fail(f"documented latest migration is 22, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -136,6 +136,15 @@ def check_migrations() -> None:
     ):
         if token not in platform_retirement:
             fail(f"migration 000021 is missing {token}")
+    audit_retirement = (
+        directory / "000022_retire_unused_audit_tables.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "iam_audit_retirement_assertion",
+        "DROP TABLE IF EXISTS operation_logs, audit_logs, auth_token_audit",
+    ):
+        if token not in audit_retirement:
+            fail(f"migration 000022 is missing {token}")
 
 def check_database_schema_sources() -> None:
     retired_snapshot = ROOT / "configs/mysql/schema.sql"
@@ -390,6 +399,7 @@ def check_database_operations_facts() -> None:
         "IAM_RETIREMENT_SCOPE",
         "retirement_io_waiver:",
         "IAM_RETIREMENT_OWNER_IO_WAIVER",
+        "audit_tables",
         "retire-identity-dry-run",
         "retire-identity-apply",
         "performance-schema-status",
@@ -464,6 +474,7 @@ def check_database_operations_facts() -> None:
         "Verify database backup, restore, and Identity retirement with MySQL 8",
         "Run retirement and full-chain migration tests",
         "TestRetireUnusedPlatformTablesMigrationMySQL",
+        "TestRetireUnusedAuditTablesMigrationMySQL",
         "TestFullMigrationChainAndBootstrapMySQL",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",
