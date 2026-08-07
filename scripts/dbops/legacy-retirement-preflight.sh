@@ -88,10 +88,10 @@ for argument in "$@"; do
   esac
 done
 if [ -n "$defaults" ]; then
-  exec "$IAM_RETIREMENT_SUDO_BIN" -n "$IAM_RETIREMENT_DOCKER_BIN" run --rm -i --network host \
+  exec "$IAM_RETIREMENT_SUDO_BIN" -n "$IAM_RETIREMENT_DOCKER_BIN" run --rm --network host \
     --volume "$defaults:$defaults:ro" "$IAM_RETIREMENT_MYSQL_CLIENT_IMAGE" mysql "$@"
 fi
-exec "$IAM_RETIREMENT_SUDO_BIN" -n "$IAM_RETIREMENT_DOCKER_BIN" run --rm -i --network host \
+exec "$IAM_RETIREMENT_SUDO_BIN" -n "$IAM_RETIREMENT_DOCKER_BIN" run --rm --network host \
   "$IAM_RETIREMENT_MYSQL_CLIENT_IMAGE" mysql "$@"
 EOF
   chmod 0700 "$wrapper"

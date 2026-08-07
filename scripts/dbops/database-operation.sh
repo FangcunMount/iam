@@ -69,16 +69,26 @@ prepare_container_client_fallback() {
 set -eu
 client="$(basename "$0")"
 defaults=""
+needs_stdin=0
+has_execute=0
 for argument in "$@"; do
   case "$argument" in
     --defaults-extra-file=*) defaults="${argument#*=}" ;;
+    -e|--execute|--execute=*) has_execute=1 ;;
   esac
 done
+if [ "$client" = "mysql" ] && [ "$has_execute" -eq 0 ] && [ "${1:-}" != "--version" ]; then
+  needs_stdin=1
+fi
 if [ -n "$defaults" ]; then
-  exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm -i --network host \
+  if [ "$needs_stdin" -eq 1 ]; then
+    exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm -i --network host \
+      --volume "$defaults:$defaults:ro" "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
+  fi
+  exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm --network host \
     --volume "$defaults:$defaults:ro" "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
 fi
-exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm -i --network host \
+exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm --network host \
   "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
 EOF
     chmod 0700 "$wrapper"
