@@ -10,6 +10,7 @@ SUPPLIED_DEFAULTS="${IAM_RETIREMENT_MYSQL_DEFAULTS_FILE:-}"
 ALLOW_DOCKER_CLIENT="${IAM_RETIREMENT_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_RETIREMENT_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 RETIREMENT_SCOPE="${IAM_RETIREMENT_SCOPE:-all}"
+OWNER_IO_WAIVER="${IAM_RETIREMENT_OWNER_IO_WAIVER:-none}"
 
 MYSQL_DEFAULTS=""
 ERROR_PATH=""
@@ -132,6 +133,10 @@ validate_configuration() {
   case "$RETIREMENT_SCOPE" in
     all|identity|schema_version|platform|authn) ;;
     *) fail "retirement scope is invalid"; return 1 ;;
+  esac
+  case "$OWNER_IO_WAIVER" in
+    none|platform_tables) ;;
+    *) fail "owner I/O waiver is invalid"; return 1 ;;
   esac
   if ! [[ "$MYSQL_DBNAME" =~ ^[A-Za-z0-9_]+$ ]]; then
     fail "database name is invalid"
@@ -548,22 +553,29 @@ common_retirement_blocker() {
     return
   fi
   if [ "$PERFORMANCE_ENABLED" != "1" ]; then
-    printf 'performance_schema_unavailable'
-    return
-  fi
-  io_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$IO_CACHE_PATH")"
-  if [ -z "$io_line" ]; then
-    printf 'table_io_unavailable'
-    return
-  fi
-  IFS=$'\t' read -r _ io_state reads writes <<<"$io_line"
-  if [ "$io_state" != "available" ]; then
-    printf 'table_io_unavailable'
-    return
-  fi
-  if [ "$reads" != "0" ] || [ "$writes" != "0" ]; then
-    printf 'instantaneous_io_nonzero'
-    return
+    if ! owner_io_waiver_allows "$table"; then
+      printf 'performance_schema_unavailable'
+      return
+    fi
+  else
+    io_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$IO_CACHE_PATH")"
+    if [ -z "$io_line" ]; then
+      if ! owner_io_waiver_allows "$table"; then
+        printf 'table_io_unavailable'
+        return
+      fi
+    else
+      IFS=$'\t' read -r _ io_state reads writes <<<"$io_line"
+      if [ "$io_state" != "available" ]; then
+        if ! owner_io_waiver_allows "$table"; then
+          printf 'table_io_unavailable'
+          return
+        fi
+      elif [ "$reads" != "0" ] || [ "$writes" != "0" ]; then
+        printf 'instantaneous_io_nonzero'
+        return
+      fi
+    fi
   fi
   dependency_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$DEPENDENCY_CACHE_PATH")"
   if [ -z "$dependency_line" ]; then
@@ -584,10 +596,40 @@ common_retirement_blocker() {
   fi
 }
 
+owner_io_waiver_allows() {
+  local table="$1"
+  [ "$OWNER_IO_WAIVER" = "platform_tables" ] \
+    && [[ " schema_version tenants data_dictionary " == *" $table "* ]]
+}
+
+io_evidence_mode() {
+  local table="$1"
+  local io_line io_state
+  if ! owner_io_waiver_allows "$table"; then
+    printf 'instantaneous'
+    return
+  fi
+  if [ "$PERFORMANCE_ENABLED" != "1" ]; then
+    printf 'owner_io_waiver'
+    return
+  fi
+  io_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$IO_CACHE_PATH")"
+  if [ -z "$io_line" ]; then
+    printf 'owner_io_waiver'
+    return
+  fi
+  IFS=$'\t' read -r _ io_state _ _ <<<"$io_line"
+  if [ "$io_state" != "available" ]; then
+    printf 'owner_io_waiver'
+  else
+    printf 'instantaneous'
+  fi
+}
+
 emit_simple_eligibility() {
   local table="$1"
   local repository_gate="$2"
-  local present blocker
+  local present blocker evidence
   present="$(table_present "$table")"
   if [ "$present" != "1" ]; then
     printf 'eligibility\t%s\tstate=already_absent\tevidence=instantaneous\n' "$table"
@@ -598,8 +640,9 @@ emit_simple_eligibility() {
     printf 'eligibility\t%s\tstate=blocked\treason=%s\tevidence=instantaneous\n' "$table" "$blocker"
     return
   fi
-  printf 'eligibility\t%s\tstate=eligible\trepository_gate=%s\tevidence=instantaneous\n' \
-    "$table" "$repository_gate"
+  evidence="$(io_evidence_mode "$table")"
+  printf 'eligibility\t%s\tstate=eligible\trepository_gate=%s\tevidence=%s\n' \
+    "$table" "$repository_gate" "$evidence"
 }
 
 emit_auth_account_eligibility() {
@@ -733,7 +776,8 @@ main() {
   chmod 0600 "$ERROR_PATH"
   chmod 0600 "$IO_CACHE_PATH" "$DEPENDENCY_CACHE_PATH" "$PARITY_CACHE_PATH"
 
-  printf 'legacy_retirement_preflight\tformat_version=2\tquery_mode=read_only_aggregate\tscope=%s\n' "$RETIREMENT_SCOPE"
+  printf 'legacy_retirement_preflight\tformat_version=2\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
+    "$RETIREMENT_SCOPE" "$OWNER_IO_WAIVER"
   emit_metadata
   emit_migration_state
   emit_candidate_tables

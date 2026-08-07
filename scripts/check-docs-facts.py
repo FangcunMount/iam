@@ -71,8 +71,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 19:
-        fail(f"documented latest migration is 19, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 20:
+        fail(f"documented latest migration is 20, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -370,6 +370,8 @@ def check_database_operations_facts() -> None:
         "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
         "retirement_scope:",
         "IAM_RETIREMENT_SCOPE",
+        "retirement_io_waiver:",
+        "IAM_RETIREMENT_OWNER_IO_WAIVER",
         "retire-identity-dry-run",
         "retire-identity-apply",
         "performance-schema-status",
@@ -422,6 +424,8 @@ def check_database_operations_facts() -> None:
         "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
         "IAM_RETIREMENT_SCOPE",
+        "IAM_RETIREMENT_OWNER_IO_WAIVER",
+        "owner_io_waiver_allows",
         "schema_contract",
     ):
         if token not in retirement:
