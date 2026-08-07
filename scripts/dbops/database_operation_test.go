@@ -394,6 +394,7 @@ esac
 	output, err := runScript(t, bin, map[string]string{
 		"IAM_DB_OPS_OPERATION":  "performance-schema-status",
 		"IAM_DB_OPS_BACKUP_DIR": backupDir,
+		"MYSQL_HOST":            "prod.mysql.rds.aliyuncs.com",
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
@@ -401,6 +402,7 @@ esac
 		"result=success", "enabled=0", "persisted_globals_load=1",
 		"persist_x509_subject_configured=0", "tls_active=0",
 		"persist_privileges=not_visible", "server_flavor=managed_or_cloud",
+		"endpoint_provider=aliyun_rds",
 		"server_version=8.0.36", "next_action=configure_provider_or_server_startup",
 		"restart_required=1",
 	} {
@@ -408,7 +410,7 @@ esac
 			t.Fatalf("Performance Schema status output missing %q: %s", want, output)
 		}
 	}
-	for _, forbidden := range []string{"grant-user-sentinel", "GRANT USAGE", "SET PERSIST", "RESTART"} {
+	for _, forbidden := range []string{"grant-user-sentinel", "GRANT USAGE", "prod.mysql.rds.aliyuncs.com", "SET PERSIST", "RESTART"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("Performance Schema status output contains forbidden value %q: %s", forbidden, output)
 		}

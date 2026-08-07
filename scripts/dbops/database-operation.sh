@@ -558,7 +558,7 @@ performance_schema_status() {
   prepare_defaults_file
   ERROR_PATH="$BACKUP_DIR/.iam_performance_schema_status.error"
 
-  local state grants privilege_state
+  local state grants privilege_state endpoint_provider endpoint_lower
   if ! state="$(mysql_scalar "SELECT
       @@performance_schema + 0,
       @@persisted_globals_load + 0,
@@ -586,9 +586,18 @@ performance_schema_status() {
     fi
   fi
 
+  endpoint_lower="$(tr '[:upper:]' '[:lower:]' <<<"${MYSQL_HOST:-}")"
+  case "$endpoint_lower" in
+    *.mysql.rds.aliyuncs.com|*.rds.aliyuncs.com) endpoint_provider="aliyun_rds" ;;
+    *.rds.amazonaws.com) endpoint_provider="aws_rds" ;;
+    *.cloudsql.googleusercontent.com) endpoint_provider="google_cloud_sql" ;;
+    127.0.0.1|localhost|::1) endpoint_provider="local" ;;
+    *) endpoint_provider="unknown" ;;
+  esac
+
   local enabled persisted_load x509_configured tls_active server_flavor server_version
   IFS=$'\t' read -r enabled persisted_load x509_configured tls_active server_flavor server_version <<<"$state"
-  echo "performance schema capability: result=success enabled=$enabled persisted_globals_load=$persisted_load persist_x509_subject_configured=$x509_configured tls_active=$tls_active persist_privileges=$privilege_state server_flavor=$server_flavor server_version=$server_version"
+  echo "performance schema capability: result=success enabled=$enabled persisted_globals_load=$persisted_load persist_x509_subject_configured=$x509_configured tls_active=$tls_active persist_privileges=$privilege_state server_flavor=$server_flavor endpoint_provider=$endpoint_provider server_version=$server_version"
   if [ "$enabled" = "1" ]; then
     echo "performance schema capability: next_action=already_enabled restart_required=0"
   elif [ "$persisted_load" = "1" ] && [ "$x509_configured" = "1" ] && [ "$tls_active" = "1" ] && [ "$privilege_state" = "visible" ]; then

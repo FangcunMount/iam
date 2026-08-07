@@ -398,6 +398,7 @@ def check_database_operations_facts() -> None:
         "DROP TABLE children, guardianships;",
         "canonical_writes=0",
         "performance schema capability:",
+        "endpoint_provider=",
         "configure_provider_or_server_startup",
     ):
         if token not in script:
