@@ -71,8 +71,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 20:
-        fail(f"documented latest migration is 20, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 21:
+        fail(f"documented latest migration is 21, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -118,6 +118,24 @@ def check_migrations() -> None:
     ):
         if forbidden in retirement:
             fail(f"migration 000019 includes out-of-scope table {forbidden}")
+    schema_version_retirement = (
+        directory / "000020_retire_schema_version.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "iam_schema_version_retirement_assertion",
+        "DROP TABLE IF EXISTS schema_version",
+    ):
+        if token not in schema_version_retirement:
+            fail(f"migration 000020 is missing {token}")
+    platform_retirement = (
+        directory / "000021_retire_unused_platform_tables.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "iam_platform_retirement_assertion",
+        "DROP TABLE IF EXISTS tenants, data_dictionary",
+    ):
+        if token not in platform_retirement:
+            fail(f"migration 000021 is missing {token}")
 
 def check_database_schema_sources() -> None:
     retired_snapshot = ROOT / "configs/mysql/schema.sql"
@@ -444,6 +462,9 @@ def check_database_operations_facts() -> None:
             fail(f"legacy retirement preflight contains forbidden token {forbidden}")
     for token in (
         "Verify database backup, restore, and Identity retirement with MySQL 8",
+        "Run retirement and full-chain migration tests",
+        "TestRetireUnusedPlatformTablesMigrationMySQL",
+        "TestFullMigrationChainAndBootstrapMySQL",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",
         "IAM_DB_OPS_OPERATION=retire-identity-dry-run",
