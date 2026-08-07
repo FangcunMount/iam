@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 const secretSentinel = "db-ops-password-sentinel"
@@ -266,6 +267,115 @@ esac
 	}
 }
 
+func TestIdentityRetirementRequiresFreshBackupConfirmationAndDropsOnlyLegacyTables(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	capture := filepath.Join(root, "identity-retirement.sql")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "mysql", `#!/bin/sh
+if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
+case "$*" in
+  *"MAX(version)"*) printf '18\t0\t1\n' ;;
+  *"TABLE_NAME = 'children'"*"TABLE_TYPE = 'BASE TABLE'"*) printf '1\t1\n' ;;
+  *"COUNT(*) FROM children"*) printf '64\t66\n' ;;
+  *"KEY_COLUMN_USAGE"*) printf '%s\n' "${IAM_FAKE_DEPENDENCY_COUNT:-0}" ;;
+  *) cat > "$IAM_FAKE_IDENTITY_RETIREMENT_CAPTURE"; printf '64\t66\n' ;;
+esac
+`)
+	backupName := "iam_backup_20260807_170129.sql.gz"
+	writeGzip(t, filepath.Join(backupDir, backupName), "verified backup fixture")
+
+	base := map[string]string{
+		"IAM_DB_OPS_OPERATION":                 "retire-identity-dry-run",
+		"IAM_DB_OPS_BACKUP_DIR":                backupDir,
+		"IAM_DB_OPS_BACKUP_NAME":               backupName,
+		"IAM_FAKE_IDENTITY_RETIREMENT_CAPTURE": capture,
+		"IAM_DB_OPS_MAX_BACKUP_AGE_SECONDS":    "7200",
+	}
+	output, err := runScript(t, bin, base)
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{
+		"state=eligible", "migration_version=18", "dependencies=0",
+		"children_rows=64", "guardianships_rows=66", "reconciliation=waived_by_owner",
+		"mode=dry-run result=success",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("identity dry-run output missing %q: %s", want, output)
+		}
+	}
+
+	base["IAM_FAKE_DEPENDENCY_COUNT"] = "1"
+	output, err = runScript(t, bin, base)
+	if err == nil || !strings.Contains(output, "database dependencies still exist") {
+		t.Fatalf("identity dry-run with dependency: err=%v output=%s", err, output)
+	}
+	assertSafeOutput(t, output)
+	delete(base, "IAM_FAKE_DEPENDENCY_COUNT")
+
+	base["IAM_DB_OPS_OPERATION"] = "retire-identity-apply"
+	output, err = runScript(t, bin, base)
+	if err == nil || !strings.Contains(output, "confirmation is invalid") {
+		t.Fatalf("identity apply without confirmation: err=%v output=%s", err, output)
+	}
+	assertSafeOutput(t, output)
+
+	base["IAM_DB_OPS_CONFIRMATION"] = "RETIRE_CHILDREN_GUARDIANSHIPS"
+	output, err = runScript(t, bin, base)
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{
+		"mode=apply result=success", "children_rows_deleted=64",
+		"guardianships_rows_deleted=66", "canonical_writes=0",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("identity apply output missing %q: %s", want, output)
+		}
+	}
+
+	sql, err := os.ReadFile(capture)
+	requireNoError(t, err)
+	source := string(sql)
+	if strings.Count(source, "DROP TABLE children, guardianships;") != 1 {
+		t.Fatalf("identity retirement must contain one exact final legacy DROP: %s", source)
+	}
+	for _, forbidden := range []string{
+		"INSERT INTO profiles", "UPDATE profiles", "DELETE FROM profiles",
+		"INSERT INTO profile_links", "UPDATE profile_links", "DELETE FROM profile_links",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("identity retirement contains forbidden canonical write %q", forbidden)
+		}
+	}
+}
+
+func TestIdentityRetirementRejectsStaleBackup(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "mysql", "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi\nexit 99\n")
+	backupName := "iam_backup_20260807_170129.sql.gz"
+	backupPath := filepath.Join(backupDir, backupName)
+	writeGzip(t, backupPath, "stale backup fixture")
+	stale := time.Now().Add(-3 * time.Hour)
+	requireNoError(t, os.Chtimes(backupPath, stale, stale))
+
+	output, err := runScript(t, bin, map[string]string{
+		"IAM_DB_OPS_OPERATION":              "retire-identity-dry-run",
+		"IAM_DB_OPS_BACKUP_DIR":             backupDir,
+		"IAM_DB_OPS_BACKUP_NAME":            backupName,
+		"IAM_DB_OPS_MAX_BACKUP_AGE_SECONDS": "7200",
+	})
+	if err == nil || !strings.Contains(output, "retirement backup is stale") {
+		t.Fatalf("stale retirement backup: err=%v output=%s", err, output)
+	}
+	assertSafeOutput(t, output)
+}
+
 func TestStatusFallsBackToOfficialMySQLContainerClient(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
@@ -327,10 +437,10 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join(repo, ".github", "workflows", "db-ops.yml"))
 	requireNoError(t, err)
 	source := string(workflow)
-	if strings.Count(source, "uses: actions/checkout@v6") != 3 {
+	if strings.Count(source, "uses: actions/checkout@v6") != 4 {
 		t.Fatal("every database operation job must checkout the repository script")
 	}
-	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 3 {
+	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 4 {
 		t.Fatal("every database operation job must use the single script_path")
 	}
 	if strings.Count(source, "script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1 {
@@ -340,6 +450,8 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
+		"retire-identity-dry-run", "retire-identity-apply",
+		"IAM_DB_OPS_CONFIRMATION", "confirmation:",
 	} {
 		if !strings.Contains(source, want) {
 			t.Fatalf("database status preflight is missing %q", want)
@@ -353,7 +465,12 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 
 	concurrency, err := os.ReadFile(filepath.Join(repo, ".github", "workflows", "concurrency-tests.yml"))
 	requireNoError(t, err)
-	for _, want := range []string{"Verify database backup and restore script with MySQL 8", "IAM_DB_OPS_OPERATION=backup", "IAM_DB_OPS_OPERATION=restore"} {
+	for _, want := range []string{
+		"Verify database backup, restore, and Identity retirement with MySQL 8",
+		"IAM_DB_OPS_OPERATION=backup", "IAM_DB_OPS_OPERATION=restore",
+		"IAM_DB_OPS_OPERATION=retire-identity-dry-run",
+		"IAM_DB_OPS_OPERATION=retire-identity-apply",
+	} {
 		if !strings.Contains(string(concurrency), want) {
 			t.Fatalf("MySQL workflow is missing %q", want)
 		}

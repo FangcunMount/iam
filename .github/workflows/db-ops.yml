@@ -17,6 +17,8 @@ on:
           - backup
           - restore
           - status
+          - retire-identity-dry-run
+          - retire-identity-apply
       backup_name:
         description: Backup name, required for restore
         required: false
@@ -36,6 +38,10 @@ on:
           - schema_version
           - platform
           - authn
+      confirmation:
+        description: Exact destructive-operation confirmation token; required for apply only
+        required: false
+        type: string
   schedule:
     - cron: '0 17 * * *'  # Daily 17:00 UTC / 01:00 Asia-Shanghai
 
@@ -145,3 +151,37 @@ jobs:
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/legacy-retirement-preflight.sh
+
+  db-identity-retirement:
+    name: Retire Legacy Identity Tables
+    if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    concurrency:
+      group: iam-production-identity-retirement
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate or retire children and guardianships
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_DB_OPS_OPERATION: ${{ github.event.inputs.operation }}
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          IAM_DB_OPS_BACKUP_NAME: ${{ github.event.inputs.backup_name }}
+          IAM_DB_OPS_CONFIRMATION: ${{ github.event.inputs.confirmation }}
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,IAM_DB_OPS_BACKUP_NAME,IAM_DB_OPS_CONFIRMATION,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
