@@ -406,7 +406,7 @@ esac
 		"persist_privileges=not_visible", "server_flavor=managed_or_cloud",
 		"endpoint_provider=aliyun_rds",
 		"server_version=8.0.36", "next_action=configure_provider_or_server_startup",
-		"table_io_contract=valid", "table_io_table_exists=1",
+		"table_io_contract=valid", "table_io_metadata_visible=1",
 		"table_io_required_columns=4", "table_io_select=available",
 		"restart_required=1",
 	} {
