@@ -362,7 +362,13 @@ def check_database_operations_facts() -> None:
         fail("database workflow no longer routes all operations through the repository script")
     if workflow.count("script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1:
         fail("database status no longer runs the checked-out retirement preflight exactly once")
-    for token in ("image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight"):
+    for token in (
+        "image_sha:",
+        "IAM_RETIREMENT_IMAGE_SHA",
+        "Run Legacy Retirement Preflight",
+        "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
+        "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+    ):
         if token not in workflow:
             fail(f"database status retirement preflight is missing {token}")
     for forbidden in ("apt-get", "apk add", "script: |", "SHOW TABLES"):
@@ -380,6 +386,8 @@ def check_database_operations_facts() -> None:
         "chmod 0700",
         "chmod 0600",
         "Ver 8\\.",
+        "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
+        "mysql:8.0",
     ):
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
@@ -399,6 +407,8 @@ def check_database_operations_facts() -> None:
         "invalid_supported_rows",
         "oauth_unmapped_rows",
         "unknown_credential_rows",
+        "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+        "mysql:8.0",
     ):
         if token not in retirement:
             fail(f"legacy retirement preflight is missing safety contract {token}")

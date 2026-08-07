@@ -40,6 +40,8 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 		"eligibility",
 		"zero_io_interpretation=not_proof_without_full_observation_window",
 		"--defaults-extra-file=",
+		"IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+		"mysql:8.0",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("preflight is missing evidence contract %q", required)

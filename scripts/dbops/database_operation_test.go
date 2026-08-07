@@ -266,6 +266,61 @@ esac
 	}
 }
 
+func TestStatusFallsBackToOfficialMySQLContainerClient(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "sudo", `#!/bin/sh
+if [ "$1" = "-n" ]; then shift; fi
+exec "$@"
+`)
+	writeExecutable(t, bin, "docker", `#!/bin/sh
+set -eu
+if [ "$1" = "info" ]; then exit 0; fi
+[ "$1" = "run" ]
+shift
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --rm|-i) shift ;;
+    --network|--volume) shift 2 ;;
+    *) shift; break ;;
+  esac
+done
+client="$1"
+shift
+if [ "${1:-}" = "--version" ]; then
+  printf '%s  Ver 8.0.36\n' "$client"
+  exit 0
+fi
+case "$*" in
+  *"SUM(data_length"*) printf '12.5\n' ;;
+  *"COUNT(*)"*) printf '7\n' ;;
+  *) printf '1\n' ;;
+esac
+`)
+
+	output, err := runScriptWithBaseEnv(t, []string{
+		"PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH"),
+	}, map[string]string{
+		"IAM_DB_OPS_OPERATION":           "status",
+		"IAM_DB_OPS_BACKUP_DIR":          backupDir,
+		"IAM_DB_OPS_MYSQL_BIN":           "iam-mysql-missing",
+		"IAM_DB_OPS_MYSQLDUMP_BIN":       "iam-mysqldump-missing",
+		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT": "1",
+		"IAM_DB_OPS_DOCKER_BIN":          filepath.Join(bin, "docker"),
+		"IAM_DB_OPS_SUDO_BIN":            filepath.Join(bin, "sudo"),
+	})
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("container fallback output missing %q: %s", want, output)
+		}
+	}
+}
+
 func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	repo := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
@@ -281,7 +336,10 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	if strings.Count(source, "script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1 {
 		t.Fatal("database status must run the checked-out legacy retirement preflight once")
 	}
-	for _, want := range []string{"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight"} {
+	for _, want := range []string{
+		"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight",
+		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+	} {
 		if !strings.Contains(source, want) {
 			t.Fatalf("database status preflight is missing %q", want)
 		}

@@ -1,8 +1,9 @@
 name: Database Operations
 
 # Production host contract:
-# - mysql and mysqldump are pre-provisioned official MySQL 8.x clients.
-# - the workflow validates the contract but never installs host packages.
+# - prefer pre-provisioned official MySQL 8.x clients.
+# - if absent, use the official mysql:8.0 image through passwordless sudo Docker.
+# - the workflow never installs host packages.
 # - credentials are passed through a temporary 0600 defaults file by the script.
 
 on:
@@ -44,6 +45,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_DB_OPS_OPERATION: backup
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -54,7 +56,7 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_DB_OPS_OPERATION,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
 
   db-restore:
@@ -70,6 +72,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_DB_OPS_OPERATION: restore
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
           IAM_DB_OPS_BACKUP_NAME: ${{ github.event.inputs.backup_name }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
@@ -81,7 +84,7 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_BACKUP_NAME,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_BACKUP_NAME,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
 
   db-status:
@@ -97,6 +100,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_DB_OPS_OPERATION: status
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -107,13 +111,14 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_DB_OPS_OPERATION,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
 
       - name: Run Legacy Retirement Preflight
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_RETIREMENT_ENVIRONMENT: production
+          IAM_RETIREMENT_ALLOW_DOCKER_CLIENT: "1"
           IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
           IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
@@ -126,5 +131,5 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/legacy-retirement-preflight.sh

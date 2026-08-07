@@ -8,11 +8,14 @@ BACKUP_DIR="${IAM_DB_OPS_BACKUP_DIR:-/opt/backups/iam/database}"
 MYSQL_BIN="${IAM_DB_OPS_MYSQL_BIN:-mysql}"
 MYSQLDUMP_BIN="${IAM_DB_OPS_MYSQLDUMP_BIN:-mysqldump}"
 TIMESTAMP_OVERRIDE="${IAM_DB_OPS_TIMESTAMP:-}"
+ALLOW_DOCKER_CLIENT="${IAM_DB_OPS_ALLOW_DOCKER_CLIENT:-0}"
+MYSQL_CLIENT_IMAGE="${IAM_DB_OPS_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 
 MYSQL_DEFAULTS=""
 PARTIAL_PATH=""
 ERROR_PATH=""
 MYSQL_CLIENT_VERSION=""
+CLIENT_WRAPPER_DIR=""
 
 fail() {
   echo "database operation failed: $1" >&2
@@ -28,6 +31,63 @@ cleanup() {
   fi
   if [ -n "$ERROR_PATH" ]; then
     rm -f -- "$ERROR_PATH"
+  fi
+  if [ -n "$CLIENT_WRAPPER_DIR" ]; then
+    rm -f -- "$CLIENT_WRAPPER_DIR/mysql" "$CLIENT_WRAPPER_DIR/mysqldump"
+    rmdir -- "$CLIENT_WRAPPER_DIR" 2>/dev/null || true
+  fi
+}
+
+prepare_container_client_fallback() {
+  local docker_bin sudo_bin wrapper client
+  if command -v "$MYSQL_BIN" >/dev/null 2>&1 && command -v "$MYSQLDUMP_BIN" >/dev/null 2>&1; then
+    return
+  fi
+  if [ "$ALLOW_DOCKER_CLIENT" != "1" ]; then
+    return
+  fi
+  if ! [[ "$MYSQL_CLIENT_IMAGE" =~ ^[A-Za-z0-9._/@:-]+$ ]]; then
+    fail "MySQL client image is invalid"
+    return 1
+  fi
+  docker_bin="$(command -v "${IAM_DB_OPS_DOCKER_BIN:-docker}" 2>/dev/null || true)"
+  sudo_bin="$(command -v "${IAM_DB_OPS_SUDO_BIN:-sudo}" 2>/dev/null || true)"
+  if [ -z "$docker_bin" ] || [ -z "$sudo_bin" ] || ! "$sudo_bin" -n "$docker_bin" info >/dev/null 2>&1; then
+    fail "containerized MySQL client is unavailable"
+    return 1
+  fi
+
+  CLIENT_WRAPPER_DIR="$(mktemp -d "${TMPDIR:-/tmp}/iam-mysql-client-wrapper.XXXXXX")"
+  chmod 0700 "$CLIENT_WRAPPER_DIR"
+  export IAM_DB_OPS_DOCKER_BIN="$docker_bin"
+  export IAM_DB_OPS_SUDO_BIN="$sudo_bin"
+  export IAM_DB_OPS_MYSQL_CLIENT_IMAGE="$MYSQL_CLIENT_IMAGE"
+  for client in mysql mysqldump; do
+    wrapper="$CLIENT_WRAPPER_DIR/$client"
+    cat >"$wrapper" <<'EOF'
+#!/bin/sh
+set -eu
+client="$(basename "$0")"
+defaults=""
+for argument in "$@"; do
+  case "$argument" in
+    --defaults-extra-file=*) defaults="${argument#*=}" ;;
+  esac
+done
+if [ -n "$defaults" ]; then
+  exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm -i --network host \
+    --volume "$defaults:$defaults:ro" "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
+fi
+exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm -i --network host \
+  "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
+EOF
+    chmod 0700 "$wrapper"
+  done
+  if ! command -v "$MYSQL_BIN" >/dev/null 2>&1; then
+    MYSQL_BIN="$CLIENT_WRAPPER_DIR/mysql"
+  fi
+  if ! command -v "$MYSQLDUMP_BIN" >/dev/null 2>&1; then
+    MYSQLDUMP_BIN="$CLIENT_WRAPPER_DIR/mysqldump"
   fi
 }
 
@@ -245,6 +305,7 @@ database_status() {
 main() {
   umask 077
   validate_configuration || return 1
+  prepare_container_client_fallback || return 1
   case "$OPERATION" in
     backup) backup_database ;;
     restore) restore_database ;;

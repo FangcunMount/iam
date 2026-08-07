@@ -155,7 +155,8 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 安全约束：
 
-- 生产宿主机必须预先安装官方 MySQL 8.x `mysql` 与 `mysqldump`；定时 workflow 只校验，不执行包管理器。
+- 优先使用生产宿主机预装的官方 MySQL 8.x `mysql` 与 `mysqldump`；缺失时通过 passwordless sudo Docker 使用官方 `mysql:8.0` 客户端镜像，workflow 不执行包管理器安装。
+- 容器客户端仍只挂载临时 `0600` defaults file，执行结束即删除容器和临时 wrapper；镜像拉取失败或 Docker 不可用时 fail closed。
 - 三个 job checkout 仓库后统一通过 `scripts/dbops/database-operation.sh` 执行，不在 workflow 内复制数据库脚本。
 - 使用临时 MySQL defaults file 传递凭据，避免在命令行参数中直接出现密码。
 - 备份目录权限固定为 `0700`，defaults file 和最终备份固定为 `0600`。

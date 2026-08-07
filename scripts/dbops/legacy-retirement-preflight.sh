@@ -7,12 +7,15 @@ ENVIRONMENT="${IAM_RETIREMENT_ENVIRONMENT:-}"
 COMMIT_SHA="${IAM_RETIREMENT_COMMIT_SHA:-}"
 IMAGE_SHA="${IAM_RETIREMENT_IMAGE_SHA:-unknown}"
 SUPPLIED_DEFAULTS="${IAM_RETIREMENT_MYSQL_DEFAULTS_FILE:-}"
+ALLOW_DOCKER_CLIENT="${IAM_RETIREMENT_ALLOW_DOCKER_CLIENT:-0}"
+MYSQL_CLIENT_IMAGE="${IAM_RETIREMENT_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 
 MYSQL_DEFAULTS=""
 ERROR_PATH=""
 IO_CACHE_PATH=""
 DEPENDENCY_CACHE_PATH=""
 PARITY_CACHE_PATH=""
+CLIENT_WRAPPER_DIR=""
 OWNS_DEFAULTS=0
 
 MIGRATION_PRESENT=0
@@ -43,6 +46,55 @@ cleanup() {
   if [ -n "$PARITY_CACHE_PATH" ]; then
     rm -f -- "$PARITY_CACHE_PATH"
   fi
+  if [ -n "$CLIENT_WRAPPER_DIR" ]; then
+    rm -f -- "$CLIENT_WRAPPER_DIR/mysql"
+    rmdir -- "$CLIENT_WRAPPER_DIR" 2>/dev/null || true
+  fi
+}
+
+prepare_container_client_fallback() {
+  local docker_bin sudo_bin wrapper
+  if command -v "$MYSQL_BIN" >/dev/null 2>&1; then
+    return
+  fi
+  if [ "$ALLOW_DOCKER_CLIENT" != "1" ]; then
+    return
+  fi
+  if ! [[ "$MYSQL_CLIENT_IMAGE" =~ ^[A-Za-z0-9._/@:-]+$ ]]; then
+    fail "MySQL client image is invalid"
+    return 1
+  fi
+  docker_bin="$(command -v "${IAM_RETIREMENT_DOCKER_BIN:-docker}" 2>/dev/null || true)"
+  sudo_bin="$(command -v "${IAM_RETIREMENT_SUDO_BIN:-sudo}" 2>/dev/null || true)"
+  if [ -z "$docker_bin" ] || [ -z "$sudo_bin" ] || ! "$sudo_bin" -n "$docker_bin" info >/dev/null 2>&1; then
+    fail "containerized MySQL client is unavailable"
+    return 1
+  fi
+
+  CLIENT_WRAPPER_DIR="$(mktemp -d "${TMPDIR:-/tmp}/iam-retirement-mysql-wrapper.XXXXXX")"
+  chmod 0700 "$CLIENT_WRAPPER_DIR"
+  export IAM_RETIREMENT_DOCKER_BIN="$docker_bin"
+  export IAM_RETIREMENT_SUDO_BIN="$sudo_bin"
+  export IAM_RETIREMENT_MYSQL_CLIENT_IMAGE="$MYSQL_CLIENT_IMAGE"
+  wrapper="$CLIENT_WRAPPER_DIR/mysql"
+  cat >"$wrapper" <<'EOF'
+#!/bin/sh
+set -eu
+defaults=""
+for argument in "$@"; do
+  case "$argument" in
+    --defaults-extra-file=*) defaults="${argument#*=}" ;;
+  esac
+done
+if [ -n "$defaults" ]; then
+  exec "$IAM_RETIREMENT_SUDO_BIN" -n "$IAM_RETIREMENT_DOCKER_BIN" run --rm -i --network host \
+    --volume "$defaults:$defaults:ro" "$IAM_RETIREMENT_MYSQL_CLIENT_IMAGE" mysql "$@"
+fi
+exec "$IAM_RETIREMENT_SUDO_BIN" -n "$IAM_RETIREMENT_DOCKER_BIN" run --rm -i --network host \
+  "$IAM_RETIREMENT_MYSQL_CLIENT_IMAGE" mysql "$@"
+EOF
+  chmod 0700 "$wrapper"
+  MYSQL_BIN="$wrapper"
 }
 
 trap cleanup EXIT
@@ -626,6 +678,7 @@ emit_eligibility() {
 main() {
   umask 077
   validate_configuration || return 1
+  prepare_container_client_fallback || return 1
   require_mysql8_client || return 1
   prepare_defaults_file
   ERROR_PATH="$(mktemp "${TMPDIR:-/tmp}/iam-retirement-error.XXXXXX")"
