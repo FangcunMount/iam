@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-最后检查日期：2026-07-24
+最后检查日期：2026-08-07
 
 本目录维护 IAM 仓库的 CI、生产部署、生产健康检查和数据库运维 workflow。当前生产部署目标以 serverB (`SVRB_*`) 为准；`SVRA_*` 仅作为部分 SSH secret 的迁移期 fallback。
 
@@ -11,7 +11,7 @@
 | `ci.yml` | 保留 | push `main`/`develop`、PR 到 `main`、手动 | lint、test、build、coverage、短期构建 artifact |
 | `cd.yml` | 保留 | `CI` 在 `main` 成功后自动；手动 | 发布镜像、生成部署包、部署 `iam-apiserver` 到 serverB |
 | `concurrency-tests.yml` | 保留 | 手动；相关 MySQL/测试路径变更时 push/PR 到 `main` | MySQL-backed 并发仓储测试 |
-| `db-ops.yml` | 保留，已移除 `migrate` | 每天 17:00 UTC；手动 `backup`/`restore`/`status` | 数据库备份、恢复、状态检查 |
+| `db-ops.yml` | 保留，已移除通用 `migrate` | 每天 17:00 UTC；手动数据库操作 | 数据库备份、恢复、状态检查及受控遗留表退役 |
 | `server-check.yml` | 保留 | 每 30 分钟；手动 | 生产容器、内部健康检查、依赖连通性 |
 | `test-ssh.yml` | 保留 | 手动 | 生产主机 SSH 和基础环境诊断 |
 
@@ -139,6 +139,8 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
 - `status`: 只输出 MySQL 客户端版本、连接状态、库总大小、表数量、备份数量和最新备份时间。
+- `retire-identity-dry-run`: 校验版本 18 clean、指定备份新鲜且完整、两张旧表同时存在及数据库对象零依赖，不写数据库。
+- `retire-identity-apply`: 在相同门禁和生产 environment 下，要求确认令牌 `RETIRE_CHILDREN_GUARDIANSHIPS`，用最终一条 DROP 同时删除 `children/guardianships`。
 
 已废弃：
 
@@ -155,8 +157,9 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 安全约束：
 
-- 生产宿主机必须预先安装官方 MySQL 8.x `mysql` 与 `mysqldump`；定时 workflow 只校验，不执行包管理器。
-- 三个 job checkout 仓库后统一通过 `scripts/dbops/database-operation.sh` 执行，不在 workflow 内复制数据库脚本。
+- 优先使用生产宿主机预装的官方 MySQL 8.x `mysql` 与 `mysqldump`；缺失时通过 passwordless sudo Docker 使用官方 `mysql:8.0` 客户端镜像，workflow 不执行包管理器安装。
+- 容器客户端仍只挂载临时 `0600` defaults file，执行结束即删除容器和临时 wrapper；镜像拉取失败或 Docker 不可用时 fail closed。
+- 四个 job checkout 仓库后统一通过 `scripts/dbops/database-operation.sh` 执行，不在 workflow 内复制数据库脚本。
 - 使用临时 MySQL defaults file 传递凭据，避免在命令行参数中直接出现密码。
 - 备份目录权限固定为 `0700`，defaults file 和最终备份固定为 `0600`。
 - dump 流式写入临时 gzip，只有非空且 `gzip -t` 成功后才原子改名；失败不留下最终文件。
@@ -164,10 +167,11 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 - `restore` 只接受 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 精确格式的备份文件名。
 - restore 拒绝路径分隔符、符号链接、缺失文件和损坏 gzip；不会自动触发生产恢复。
 - `mysqldump`/`mysql` 的原始 stderr 不进入工作流输出，避免 SQL、地址或凭据泄露。
+- Identity 直接退役是一次性例外：业务所有者已明确放弃旧表到 canonical 表的数据对账，脚本不会写 `profiles/profile_links`；它仍要求指定两小时内的完整备份、`version=18, dirty=0`、零数据库对象依赖和显式确认令牌。删除后由 `000019` 幂等登记版本 19。
 
-MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → 数据断言，不接触生产数据，也不上传备份 artifact。
+MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → Identity dry-run/apply → 数据断言，不接触生产数据，也不上传备份 artifact。
 
-历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。它不是 `db-ops.yml` 的自动操作，不执行删表或数据修复；运行者必须显式记录环境和 image SHA。脚本只输出 migration、表级元数据、Performance Schema 生命周期/I/O、依赖计数和旧表到 canonical 表的对账摘要，零 I/O 不能脱离完整观察窗口解释为“可删除”。
+历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。手动执行 `db-ops.yml` 的 `status` 时会在普通数据库状态检查后运行 format v2 预检，并要求调用者通过 `image_sha` 记录当前生产镜像；`retirement_scope` 可选择 `identity/schema_version/platform/authn/all`，发布时只运行当前批次，避免无关大表对账占用窗口。定时备份、`backup` 和 `restore` 不运行该预检。脚本不执行删表或数据修复，只输出 migration、精确行数、结构指纹、列契约、Performance Schema 生命周期/I/O、依赖计数、旧表到 canonical 表的聚合对账和逐表 eligibility；零 I/O 不能脱离证据窗口解释为“可删除”。
 
 ## server-check.yml
 

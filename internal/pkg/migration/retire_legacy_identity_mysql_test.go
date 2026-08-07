@@ -113,7 +113,7 @@ CREATE TABLE children (
   deleted_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
   version INT UNSIGNED NOT NULL DEFAULT 1,
   UNIQUE KEY uk_id_card (id_card)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE guardianships (
   id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
@@ -128,7 +128,7 @@ CREATE TABLE guardianships (
   updated_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
   deleted_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
   version INT UNSIGNED NOT NULL DEFAULT 1
-) ENGINE=InnoDB`); err != nil {
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`); err != nil {
 		t.Fatalf("create legacy Identity fixture: %v", err)
 	}
 }

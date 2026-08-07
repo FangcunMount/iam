@@ -17,6 +17,7 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 	source := string(data)
 
 	for _, required := range []string{
+		"format_version=2",
 		"schema_migrations",
 		"performance_schema.table_io_waits_summary_by_table",
 		"information_schema.KEY_COLUMN_USAGE",
@@ -30,8 +31,19 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 		"legacy_credentials_to_authn",
 		"mismatched_mapped_rows",
 		"password_material_mismatches",
+		"invalid_supported_rows",
+		"unsupported_rows",
+		"oauth_unmapped_rows",
+		"unknown_credential_rows",
+		"schema_signature",
+		"exact_rows",
+		"eligibility",
 		"zero_io_interpretation=not_proof_without_full_observation_window",
 		"--defaults-extra-file=",
+		"IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
+		"mysql:8.0",
+		"IAM_RETIREMENT_SCOPE",
+		"schema_contract",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("preflight is missing evidence contract %q", required)
@@ -75,21 +87,25 @@ for arg in "$@"; do
   esac
 done
 [ -n "$defaults" ]
-[ "$(stat -f %Lp "$defaults" 2>/dev/null || stat -c %a "$defaults")" = "600" ]
+[ "$(stat -c %a "$defaults" 2>/dev/null || stat -f %Lp "$defaults")" = "600" ]
 grep -q "password=db-ops-password-sentinel" "$defaults"
 case "$*" in
   *"SELECT VERSION()"*) printf "8.0.36\tMySQL Community Server\t2026-08-07T00:00:00Z\n" ;;
-  *"MAX(version)"*) printf "18\t0\t1\n" ;;
+  *"MAX(version)"*) printf "21\t${FAKE_MIGRATION_DIRTY:-0}\t1\n" ;;
   *"MAX(TABLE_ROWS)"*) printf "1\t4\t4096\t2026-08-06T00:00:00Z\n" ;;
   *"@@performance_schema"*) printf "1\n" ;;
   *"performance_schema.global_status"*) printf "86400\n" ;;
-  *"table_io_waits_summary_by_table"*) printf "0\t0\t0\t0\n" ;;
+  *"table_io_waits_summary_by_table"*) printf "0\t0\t${FAKE_IO_READS:-0}\t0\n" ;;
   *"information_schema.KEY_COLUMN_USAGE"*) printf "0\t0\t0\t0\t0\t0\t0\t0\n" ;;
+  *"TABLE_NAME = 'auth_credentials' AND COLUMN_NAME = 'account_id'"*) printf "0\n" ;;
+  *"information_schema.COLUMNS"*) printf "12\t0123456789abcdef\n" ;;
+  *"information_schema.STATISTICS"*) printf "4\tfedcba9876543210\n" ;;
   *"FROM children c"*) printf "legacy_rows=4\tmapped_rows=4\tmissing_rows=0\tmismatched_rows=0\n" ;;
   *"FROM guardianships g"*) printf "legacy_rows=3\tmapped_rows=3\tmissing_rows=0\tmismatched_rows=0\n" ;;
-  *"FROM auth_accounts a"*) printf "legacy_rows=2\tsupported_rows=2\tmapped_rows=2\tmissing_supported_rows=0\tmismatched_mapped_rows=0\n" ;;
-  *"FROM auth_credentials_legacy lc"*) printf "legacy_rows=2\tpassword_eligible_rows=1\tpassword_mapped_rows=1\tpassword_material_mismatches=0\tphone_eligible_rows=1\tphone_identity_mapped_rows=1\n" ;;
+  *"FROM auth_credentials_legacy lc"*) printf "legacy_rows=3\tpassword_eligible_rows=1\tpassword_mapped_rows=1\tpassword_unmapped_rows=0\tpassword_material_mismatches=0\tpassword_duplicate_mappings=0\tinvalid_password_rows=0\tphone_eligible_rows=1\tphone_identity_mapped_rows=1\tphone_blank_identifier_rows=0\tphone_orphan_account_rows=0\tphone_identity_mismatches=0\tphone_duplicate_mappings=0\toauth_artifact_rows=1\toauth_redundant_rows=1\toauth_unmapped_rows=0\tunknown_credential_rows=0\n" ;;
+  *"FROM auth_accounts a"*) printf "legacy_rows=2\tsupported_rows=2\tvalid_supported_rows=2\tinvalid_supported_rows=0\tunsupported_rows=0\tmapped_rows=2\tmissing_supported_rows=0\tmismatched_mapped_rows=0\tduplicate_mapped_rows=0\n" ;;
   *"information_schema.TABLES"*) printf "1\n" ;;
+  *"SELECT COUNT(*) FROM "*) printf "4\n" ;;
   *) exit 81 ;;
 esac
 `
@@ -118,13 +134,21 @@ esac
 	for _, required := range []string{
 		"query_mode=read_only_aggregate",
 		"metadata\tenvironment\tstaging",
-		"migration\tschema_migrations\tpresent\tversion=18\tdirty=0",
+		"format_version=2",
+		"migration\tschema_migrations\tpresent\tversion=21\tdirty=0",
 		"candidate_table\tchildren\tpresent=1",
 		"performance_schema\tstate=enabled",
 		"table_io\tchildren\tcount_star=0",
 		"dependency\tchildren\tfk=0",
+		"exact_rows\tchildren\tstate=available\trows=4",
+		"schema_signature\tchildren\tstate=available",
+		"schema_contract\tchildren\texpected_columns=14",
 		"parity\tchildren_to_profiles\tstate=available\tlegacy_rows=4",
 		"password_material_mismatches=0",
+		"eligibility\tschema_version\tstate=eligible",
+		"eligibility\tauth_accounts\tstate=eligible",
+		"eligibility\tauth_credentials_legacy\tstate=eligible",
+		"eligibility\taudit_logs\tstate=deferred",
 		"legacy_retirement_preflight\tresult=success",
 	} {
 		if !strings.Contains(text, required) {
@@ -135,5 +159,32 @@ esac
 	requireNoError(t, err)
 	if len(leftovers) != 0 {
 		t.Fatalf("preflight left credential/error files: %v", leftovers)
+	}
+
+	dirtyCmd := exec.Command("/bin/bash", script)
+	dirtyCmd.Env = append(cmd.Env, "FAKE_MIGRATION_DIRTY=1")
+	dirtyOutput, err := dirtyCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(dirtyOutput))
+	if !strings.Contains(string(dirtyOutput), "eligibility\tschema_version\tstate=blocked\treason=schema_migrations_dirty") {
+		t.Fatalf("dirty migration did not fail eligibility closed:\n%s", dirtyOutput)
+	}
+
+	ioCmd := exec.Command("/bin/bash", script)
+	ioCmd.Env = append(cmd.Env, "FAKE_IO_READS=1")
+	ioOutput, err := ioCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(ioOutput))
+	if !strings.Contains(string(ioOutput), "eligibility\tschema_version\tstate=blocked\treason=instantaneous_io_nonzero") {
+		t.Fatalf("nonzero I/O did not fail eligibility closed:\n%s", ioOutput)
+	}
+
+	identityCmd := exec.Command("/bin/bash", script)
+	identityCmd.Env = append(cmd.Env, "IAM_RETIREMENT_SCOPE=identity")
+	identityOutput, err := identityCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(identityOutput))
+	if !strings.Contains(string(identityOutput), "scope=identity") || strings.Contains(string(identityOutput), "parity\tauth_accounts_to_login_identities") {
+		t.Fatalf("identity scope executed an unrelated AuthN parity query:\n%s", identityOutput)
 	}
 }

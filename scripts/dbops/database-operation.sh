@@ -5,14 +5,20 @@ set -euo pipefail
 OPERATION="${IAM_DB_OPS_OPERATION:-}"
 BACKUP_NAME="${IAM_DB_OPS_BACKUP_NAME:-}"
 BACKUP_DIR="${IAM_DB_OPS_BACKUP_DIR:-/opt/backups/iam/database}"
+CONFIRMATION="${IAM_DB_OPS_CONFIRMATION:-}"
+MAX_BACKUP_AGE_SECONDS="${IAM_DB_OPS_MAX_BACKUP_AGE_SECONDS:-7200}"
 MYSQL_BIN="${IAM_DB_OPS_MYSQL_BIN:-mysql}"
 MYSQLDUMP_BIN="${IAM_DB_OPS_MYSQLDUMP_BIN:-mysqldump}"
 TIMESTAMP_OVERRIDE="${IAM_DB_OPS_TIMESTAMP:-}"
+ALLOW_DOCKER_CLIENT="${IAM_DB_OPS_ALLOW_DOCKER_CLIENT:-0}"
+MYSQL_CLIENT_IMAGE="${IAM_DB_OPS_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 
 MYSQL_DEFAULTS=""
 PARTIAL_PATH=""
 ERROR_PATH=""
 MYSQL_CLIENT_VERSION=""
+CLIENT_WRAPPER_DIR=""
+SQL_PATH=""
 
 fail() {
   echo "database operation failed: $1" >&2
@@ -28,6 +34,76 @@ cleanup() {
   fi
   if [ -n "$ERROR_PATH" ]; then
     rm -f -- "$ERROR_PATH"
+  fi
+  if [ -n "$CLIENT_WRAPPER_DIR" ]; then
+    rm -f -- "$CLIENT_WRAPPER_DIR/mysql" "$CLIENT_WRAPPER_DIR/mysqldump"
+    rmdir -- "$CLIENT_WRAPPER_DIR" 2>/dev/null || true
+  fi
+  if [ -n "$SQL_PATH" ]; then
+    rm -f -- "$SQL_PATH"
+  fi
+}
+
+prepare_container_client_fallback() {
+  local docker_bin sudo_bin wrapper client
+  if command -v "$MYSQL_BIN" >/dev/null 2>&1 && command -v "$MYSQLDUMP_BIN" >/dev/null 2>&1; then
+    return
+  fi
+  if [ "$ALLOW_DOCKER_CLIENT" != "1" ]; then
+    return
+  fi
+  if ! [[ "$MYSQL_CLIENT_IMAGE" =~ ^[A-Za-z0-9._/@:-]+$ ]]; then
+    fail "MySQL client image is invalid"
+    return 1
+  fi
+  docker_bin="$(command -v "${IAM_DB_OPS_DOCKER_BIN:-docker}" 2>/dev/null || true)"
+  sudo_bin="$(command -v "${IAM_DB_OPS_SUDO_BIN:-sudo}" 2>/dev/null || true)"
+  if [ -z "$docker_bin" ] || [ -z "$sudo_bin" ] || ! "$sudo_bin" -n "$docker_bin" info >/dev/null 2>&1; then
+    fail "containerized MySQL client is unavailable"
+    return 1
+  fi
+
+  CLIENT_WRAPPER_DIR="$(mktemp -d "${TMPDIR:-/tmp}/iam-mysql-client-wrapper.XXXXXX")"
+  chmod 0700 "$CLIENT_WRAPPER_DIR"
+  export IAM_DB_OPS_DOCKER_BIN="$docker_bin"
+  export IAM_DB_OPS_SUDO_BIN="$sudo_bin"
+  export IAM_DB_OPS_MYSQL_CLIENT_IMAGE="$MYSQL_CLIENT_IMAGE"
+  for client in mysql mysqldump; do
+    wrapper="$CLIENT_WRAPPER_DIR/$client"
+    cat >"$wrapper" <<'EOF'
+#!/bin/sh
+set -eu
+client="$(basename "$0")"
+defaults=""
+needs_stdin=0
+has_execute=0
+for argument in "$@"; do
+  case "$argument" in
+    --defaults-extra-file=*) defaults="${argument#*=}" ;;
+    -e|--execute|--execute=*) has_execute=1 ;;
+  esac
+done
+if [ "$client" = "mysql" ] && [ "$has_execute" -eq 0 ] && [ "${1:-}" != "--version" ]; then
+  needs_stdin=1
+fi
+if [ -n "$defaults" ]; then
+  if [ "$needs_stdin" -eq 1 ]; then
+    exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm -i --network host \
+      --volume "$defaults:$defaults:ro" "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
+  fi
+  exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm --network host \
+    --volume "$defaults:$defaults:ro" "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
+fi
+exec "$IAM_DB_OPS_SUDO_BIN" -n "$IAM_DB_OPS_DOCKER_BIN" run --rm --network host \
+  "$IAM_DB_OPS_MYSQL_CLIENT_IMAGE" "$client" "$@"
+EOF
+    chmod 0700 "$wrapper"
+  done
+  if ! command -v "$MYSQL_BIN" >/dev/null 2>&1; then
+    MYSQL_BIN="$CLIENT_WRAPPER_DIR/mysql"
+  fi
+  if ! command -v "$MYSQLDUMP_BIN" >/dev/null 2>&1; then
+    MYSQLDUMP_BIN="$CLIENT_WRAPPER_DIR/mysqldump"
   fi
 }
 
@@ -50,7 +126,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status) ;;
+    backup|restore|status|retire-identity-dry-run|retire-identity-apply) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -65,6 +141,10 @@ validate_configuration() {
   fi
   if ! [[ "$MYSQL_DBNAME" =~ ^[A-Za-z0-9_]+$ ]]; then
     fail "database name is invalid"
+    return 1
+  fi
+  if ! [[ "$MAX_BACKUP_AGE_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+    fail "backup age limit is invalid"
     return 1
   fi
   if [[ "$BACKUP_DIR" != /* ]] || [ -L "$BACKUP_DIR" ]; then
@@ -192,6 +272,34 @@ validate_backup_name() {
   fi
 }
 
+validate_recent_backup() {
+  validate_backup_name || return 1
+  prepare_backup_directory || return 1
+
+  local source_path="$BACKUP_DIR/$BACKUP_NAME"
+  local modified_at now age
+  if [ -L "$source_path" ] || [ ! -f "$source_path" ]; then
+    fail "retirement backup file is unavailable"
+    return 1
+  fi
+  if [ ! -s "$source_path" ] || ! gzip -t "$source_path" 2>/dev/null; then
+    fail "retirement backup integrity validation failed"
+    return 1
+  fi
+  modified_at="$(stat -c %Y "$source_path" 2>/dev/null || stat -f %m "$source_path" 2>/dev/null || true)"
+  now="$(date +%s)"
+  if ! [[ "$modified_at" =~ ^[0-9]+$ ]] || ! [[ "$now" =~ ^[0-9]+$ ]] || [ "$now" -lt "$modified_at" ]; then
+    fail "retirement backup age is unavailable"
+    return 1
+  fi
+  age=$((now - modified_at))
+  if [ "$age" -gt "$MAX_BACKUP_AGE_SECONDS" ]; then
+    fail "retirement backup is stale"
+    return 1
+  fi
+  echo "identity retirement backup: result=valid age_seconds=$age max_age_seconds=$MAX_BACKUP_AGE_SECONDS"
+}
+
 restore_database() {
   require_mysql8_client "$MYSQL_BIN" mysql || return 1
   command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
@@ -242,13 +350,217 @@ database_status() {
   echo "database status: result=success mysql_client=$MYSQL_CLIENT_VERSION connection=success size_mb=$database_size tables=$table_count backups=$backup_count latest_backup=$latest_backup"
 }
 
+mysql_scalar() {
+  local sql="$1"
+  "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw \
+    "$MYSQL_DBNAME" -e "$sql" 2>"$ERROR_PATH"
+}
+
+identity_retirement_dependency_count() {
+  mysql_scalar "SELECT
+    (SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
+      WHERE (TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships') AND REFERENCED_TABLE_NAME IS NOT NULL)
+         OR (REFERENCED_TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IN ('children', 'guardianships')))
+    + (SELECT COUNT(*) FROM information_schema.TRIGGERS
+      WHERE TRIGGER_SCHEMA = DATABASE()
+        AND (EVENT_OBJECT_TABLE IN ('children', 'guardianships')
+          OR LOWER(ACTION_STATEMENT) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'))
+    + (SELECT COUNT(*) FROM information_schema.VIEWS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND (VIEW_DEFINITION IS NULL
+          OR LOWER(VIEW_DEFINITION) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'))
+    + (SELECT COUNT(*) FROM information_schema.ROUTINES
+      WHERE ROUTINE_SCHEMA = DATABASE()
+        AND (ROUTINE_DEFINITION IS NULL
+          OR LOWER(ROUTINE_DEFINITION) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'))
+    + (SELECT COUNT(*) FROM information_schema.EVENTS
+      WHERE EVENT_SCHEMA = DATABASE()
+        AND (EVENT_DEFINITION IS NULL
+          OR LOWER(EVENT_DEFINITION) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'));"
+}
+
+identity_retirement_gate() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
+  validate_recent_backup || return 1
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_identity_retirement.error"
+
+  local migration_state table_state row_counts dependency_count
+  if ! migration_state="$(mysql_scalar "SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;")"; then
+    fail "identity retirement migration state is unavailable"
+    return 1
+  fi
+  if [ "$migration_state" != $'18\t0\t1' ]; then
+    fail "identity retirement requires schema_migrations version 18 clean"
+    return 1
+  fi
+
+  if ! table_state="$(mysql_scalar "SELECT
+      COALESCE(SUM(TABLE_NAME = 'children' AND TABLE_TYPE = 'BASE TABLE'), 0),
+      COALESCE(SUM(TABLE_NAME = 'guardianships' AND TABLE_TYPE = 'BASE TABLE'), 0)
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships');")"; then
+    fail "identity retirement table state is unavailable"
+    return 1
+  fi
+  if [ "$table_state" = $'0\t0' ]; then
+    echo "identity retirement gate: state=already_absent migration_version=18 dirty=0 reconciliation=waived_by_owner"
+    return 0
+  fi
+  if [ "$table_state" != $'1\t1' ]; then
+    fail "identity retirement found a partial legacy table state"
+    return 1
+  fi
+
+  if ! dependency_count="$(identity_retirement_dependency_count)" || ! [[ "$dependency_count" =~ ^[0-9]+$ ]]; then
+    fail "identity retirement dependency evidence is unavailable"
+    return 1
+  fi
+  if [ "$dependency_count" != "0" ]; then
+    fail "identity retirement database dependencies still exist"
+    return 1
+  fi
+  if ! row_counts="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM children), (SELECT COUNT(*) FROM guardianships);")"; then
+    fail "identity retirement row counts are unavailable"
+    return 1
+  fi
+  if ! [[ "$row_counts" =~ ^[0-9]+$'\t'[0-9]+$ ]]; then
+    fail "identity retirement row counts are invalid"
+    return 1
+  fi
+
+  local children_rows guardianship_rows
+  IFS=$'\t' read -r children_rows guardianship_rows <<<"$row_counts"
+  echo "identity retirement gate: state=eligible migration_version=18 dirty=0 dependencies=0 children_rows=$children_rows guardianships_rows=$guardianship_rows action=direct_drop reconciliation=waived_by_owner"
+}
+
+retire_identity_tables() {
+  identity_retirement_gate || return 1
+  if [ "$OPERATION" = "retire-identity-dry-run" ]; then
+    echo "identity retirement completed: mode=dry-run result=success"
+    return 0
+  fi
+  if [ "$CONFIRMATION" != "RETIRE_CHILDREN_GUARDIANSHIPS" ]; then
+    fail "identity retirement confirmation is invalid"
+    return 1
+  fi
+
+  local table_state result
+  if ! table_state="$(mysql_scalar "SELECT
+      COALESCE(SUM(TABLE_NAME = 'children' AND TABLE_TYPE = 'BASE TABLE'), 0),
+      COALESCE(SUM(TABLE_NAME = 'guardianships' AND TABLE_TYPE = 'BASE TABLE'), 0)
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships');")"; then
+    fail "identity retirement table state is unavailable"
+    return 1
+  fi
+  if [ "$table_state" = $'0\t0' ]; then
+    echo "identity retirement completed: mode=apply result=already_absent"
+    return 0
+  fi
+  if [ "$table_state" != $'1\t1' ]; then
+    fail "identity retirement found a partial legacy table state"
+    return 1
+  fi
+
+  SQL_PATH="$(mktemp "${TMPDIR:-/tmp}/iam-identity-retirement.XXXXXX.sql")"
+  chmod 0600 "$SQL_PATH"
+  cat >"$SQL_PATH" <<'SQL'
+SELECT GET_LOCK('iam_retire_children_guardianships', 0) INTO @iam_retirement_lock;
+
+DROP TEMPORARY TABLE IF EXISTS iam_identity_retirement_assertion;
+CREATE TEMPORARY TABLE iam_identity_retirement_assertion
+(
+    message VARCHAR(128) NOT NULL PRIMARY KEY
+);
+INSERT INTO iam_identity_retirement_assertion (message)
+VALUES ('identity retirement gate failed');
+INSERT INTO iam_identity_retirement_assertion (message)
+SELECT 'identity retirement gate failed'
+WHERE @iam_retirement_lock <> 1;
+
+LOCK TABLES children WRITE, guardianships WRITE, schema_migrations READ;
+
+SET @iam_migration_invalid = (
+    SELECT NOT (COUNT(*) = 1 AND MAX(version) = 18 AND MAX(dirty + 0) = 0)
+    FROM schema_migrations
+);
+INSERT INTO iam_identity_retirement_assertion (message)
+SELECT 'identity retirement gate failed'
+WHERE @iam_migration_invalid <> 0;
+
+SET @iam_retirement_pattern = '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)';
+SET @iam_retirement_dependencies = (
+      SELECT COUNT(*)
+      FROM information_schema.KEY_COLUMN_USAGE
+      WHERE (TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships') AND REFERENCED_TABLE_NAME IS NOT NULL)
+         OR (REFERENCED_TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IN ('children', 'guardianships'))
+)
++ (
+      SELECT COUNT(*)
+      FROM information_schema.TRIGGERS
+      WHERE TRIGGER_SCHEMA = DATABASE()
+        AND (EVENT_OBJECT_TABLE IN ('children', 'guardianships') OR LOWER(ACTION_STATEMENT) REGEXP @iam_retirement_pattern)
+)
++ (
+      SELECT COUNT(*)
+      FROM information_schema.VIEWS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND (VIEW_DEFINITION IS NULL OR LOWER(VIEW_DEFINITION) REGEXP @iam_retirement_pattern)
+)
++ (
+      SELECT COUNT(*)
+      FROM information_schema.ROUTINES
+      WHERE ROUTINE_SCHEMA = DATABASE()
+        AND (ROUTINE_DEFINITION IS NULL OR LOWER(ROUTINE_DEFINITION) REGEXP @iam_retirement_pattern)
+)
++ (
+      SELECT COUNT(*)
+      FROM information_schema.EVENTS
+      WHERE EVENT_SCHEMA = DATABASE()
+        AND (EVENT_DEFINITION IS NULL OR LOWER(EVENT_DEFINITION) REGEXP @iam_retirement_pattern)
+);
+INSERT INTO iam_identity_retirement_assertion (message)
+SELECT 'identity retirement gate failed'
+WHERE @iam_retirement_dependencies <> 0;
+
+SET @iam_children_rows = (SELECT COUNT(*) FROM children);
+SET @iam_guardianships_rows = (SELECT COUNT(*) FROM guardianships);
+DROP TEMPORARY TABLE iam_identity_retirement_assertion;
+
+-- The owner explicitly waived legacy-to-canonical reconciliation. Keep this
+-- as the only destructive statement and do not write canonical tables.
+DROP TABLE children, guardianships;
+
+DO RELEASE_LOCK('iam_retire_children_guardianships');
+SELECT @iam_children_rows, @iam_guardianships_rows;
+SQL
+
+  echo "identity retirement started: mode=apply action=direct_drop reconciliation=waived_by_owner"
+  if ! result="$("$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw \
+      "$MYSQL_DBNAME" <"$SQL_PATH" 2>"$ERROR_PATH")"; then
+    fail "identity retirement SQL did not complete; raw database errors were withheld"
+    return 1
+  fi
+  if ! [[ "$result" =~ ^[0-9]+$'\t'[0-9]+$ ]]; then
+    fail "identity retirement completion evidence is invalid"
+    return 1
+  fi
+  local children_rows guardianship_rows
+  IFS=$'\t' read -r children_rows guardianship_rows <<<"$result"
+  echo "identity retirement completed: mode=apply result=success children_rows_deleted=$children_rows guardianships_rows_deleted=$guardianship_rows canonical_writes=0"
+}
+
 main() {
   umask 077
   validate_configuration || return 1
+  prepare_container_client_fallback || return 1
   case "$OPERATION" in
     backup) backup_database ;;
     restore) restore_database ;;
     status) database_status ;;
+    retire-identity-dry-run|retire-identity-apply) retire_identity_tables ;;
   esac
 }
 
