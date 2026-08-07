@@ -191,7 +191,7 @@ DatabaseManager.Initialize
 
 `000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除 `children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
 
-`000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，本次仓库实现时目标库仍为 21。三个 contract migration 都先检查数据库对象依赖，down fail closed；AuthN 旧表仍受只读 parity gate 约束，未来退役版本顺延为 `000023`。
+`000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，已在生产验收 `version=22, dirty=0` 且三表不存在。三个 contract migration 都先检查数据库对象依赖，down fail closed；AuthN 旧表仍受只读 parity gate 约束，未来退役版本顺延为 `000023`。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 
