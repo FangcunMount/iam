@@ -126,7 +126,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status|retire-identity-dry-run|retire-identity-apply) ;;
+    backup|restore|status|retire-identity-dry-run|retire-identity-apply|performance-schema-status) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -552,6 +552,91 @@ SQL
   echo "identity retirement completed: mode=apply result=success children_rows_deleted=$children_rows guardianships_rows_deleted=$guardianship_rows canonical_writes=0"
 }
 
+performance_schema_status() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  prepare_backup_directory || return 1
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_performance_schema_status.error"
+
+  local state grants privilege_state endpoint_provider endpoint_lower
+  if ! state="$(mysql_scalar "SELECT
+      @@performance_schema + 0,
+      @@persisted_globals_load + 0,
+      IF(TRIM(@@persist_only_admin_x509_subject) = '', 0, 1),
+      COALESCE((SELECT MAX(VARIABLE_VALUE <> '') FROM performance_schema.session_status WHERE VARIABLE_NAME = 'Ssl_cipher'), 0),
+      CASE
+        WHEN LOWER(@@version_comment) REGEXP 'alibaba|rds|aurora|cloud sql|heatwave' THEN 'managed_or_cloud'
+        WHEN LOWER(@@version_comment) LIKE '%community%' THEN 'community_or_self_managed'
+        ELSE 'mysql_compatible_unknown'
+      END,
+      SUBSTRING_INDEX(@@version, '-', 1);")"; then
+    fail "Performance Schema capability state is unavailable"
+    return 1
+  fi
+  if ! [[ "$state" =~ ^[01]$'\t'[01]$'\t'[01]$'\t'[01]$'\t'[a-z_]+$'\t'[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail "Performance Schema capability state is invalid"
+    return 1
+  fi
+
+  privilege_state="not_visible"
+  if grants="$(mysql_scalar "SHOW GRANTS FOR CURRENT_USER;")"; then
+    if grep -Eqi 'ALL PRIVILEGES ON \*\.\*|SYSTEM_VARIABLES_ADMIN' <<<"$grants" \
+      && grep -Eqi 'ALL PRIVILEGES ON \*\.\*|PERSIST_RO_VARIABLES_ADMIN' <<<"$grants"; then
+      privilege_state="visible"
+    fi
+  fi
+
+  endpoint_lower="$(tr '[:upper:]' '[:lower:]' <<<"${MYSQL_HOST:-}")"
+  case "$endpoint_lower" in
+    *.mysql.rds.aliyuncs.com|*.rds.aliyuncs.com) endpoint_provider="aliyun_rds" ;;
+    *.rds.amazonaws.com) endpoint_provider="aws_rds" ;;
+    *.cloudsql.googleusercontent.com) endpoint_provider="google_cloud_sql" ;;
+    127.0.0.1|localhost|::1) endpoint_provider="local" ;;
+    *) endpoint_provider="unknown" ;;
+  esac
+
+  local enabled persisted_load x509_configured tls_active server_flavor server_version
+  IFS=$'\t' read -r enabled persisted_load x509_configured tls_active server_flavor server_version <<<"$state"
+  echo "performance schema capability: result=success enabled=$enabled persisted_globals_load=$persisted_load persist_x509_subject_configured=$x509_configured tls_active=$tls_active persist_privileges=$privilege_state server_flavor=$server_flavor endpoint_provider=$endpoint_provider server_version=$server_version"
+
+  local table_io_contract table_io_probe table_io_select table_io_metadata_visible table_io_required_columns
+  table_io_contract="unavailable"
+  table_io_select="not_checked"
+  table_io_metadata_visible="unknown"
+  table_io_required_columns="unknown"
+  if table_io_probe="$(mysql_scalar "SELECT
+      EXISTS(SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = 'performance_schema'
+          AND TABLE_NAME = 'table_io_waits_summary_by_table'),
+      (SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = 'performance_schema'
+          AND TABLE_NAME = 'table_io_waits_summary_by_table'
+          AND COLUMN_NAME IN ('COUNT_STAR', 'SUM_TIMER_WAIT', 'COUNT_READ', 'COUNT_WRITE'));" )" \
+      && [[ "$table_io_probe" =~ ^[01]$'\t'[0-9]+$ ]]; then
+    IFS=$'\t' read -r table_io_metadata_visible table_io_required_columns <<<"$table_io_probe"
+    if [ "$table_io_metadata_visible" = "1" ] && [ "$table_io_required_columns" = "4" ]; then
+      table_io_contract="valid"
+    else
+      table_io_contract="invalid"
+    fi
+  fi
+  if table_io_probe="$(mysql_scalar "SELECT COUNT(*) FROM performance_schema.table_io_waits_summary_by_table;")" \
+      && [[ "$table_io_probe" =~ ^[0-9]+$ ]]; then
+    table_io_select="available"
+  else
+    table_io_select="unavailable"
+  fi
+  echo "performance schema capability: table_io_contract=$table_io_contract table_io_metadata_visible=$table_io_metadata_visible table_io_required_columns=$table_io_required_columns table_io_select=$table_io_select"
+
+  if [ "$enabled" = "1" ]; then
+    echo "performance schema capability: next_action=already_enabled restart_required=0"
+  elif [ "$persisted_load" = "1" ] && [ "$x509_configured" = "1" ] && [ "$tls_active" = "1" ] && [ "$privilege_state" = "visible" ]; then
+    echo "performance schema capability: next_action=persist_only_then_controlled_restart restart_required=1"
+  else
+    echo "performance schema capability: next_action=configure_provider_or_server_startup restart_required=1"
+  fi
+}
+
 main() {
   umask 077
   validate_configuration || return 1
@@ -561,6 +646,7 @@ main() {
     restore) restore_database ;;
     status) database_status ;;
     retire-identity-dry-run|retire-identity-apply) retire_identity_tables ;;
+    performance-schema-status) performance_schema_status ;;
   esac
 }
 
