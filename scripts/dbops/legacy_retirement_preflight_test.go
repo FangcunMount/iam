@@ -43,6 +43,8 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 		"IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"mysql:8.0",
 		"IAM_RETIREMENT_SCOPE",
+		"IAM_RETIREMENT_OWNER_IO_WAIVER",
+		"owner_io_waiver_allows",
 		"schema_contract",
 	} {
 		if !strings.Contains(source, required) {
@@ -95,7 +97,10 @@ case "$*" in
   *"MAX(TABLE_ROWS)"*) printf "1\t4\t4096\t2026-08-06T00:00:00Z\n" ;;
   *"@@performance_schema"*) printf "1\n" ;;
   *"performance_schema.global_status"*) printf "86400\n" ;;
-  *"table_io_waits_summary_by_table"*) printf "0\t0\t${FAKE_IO_READS:-0}\t0\n" ;;
+  *"table_io_waits_summary_by_table"*)
+    [ "${FAKE_IO_UNAVAILABLE:-0}" = "1" ] && exit 82
+    printf "0\t0\t${FAKE_IO_READS:-0}\t0\n"
+    ;;
   *"information_schema.KEY_COLUMN_USAGE"*) printf "0\t0\t0\t0\t0\t0\t0\t0\n" ;;
   *"TABLE_NAME = 'auth_credentials' AND COLUMN_NAME = 'account_id'"*) printf "0\n" ;;
   *"information_schema.COLUMNS"*) printf "12\t0123456789abcdef\n" ;;
@@ -171,12 +176,50 @@ esac
 	}
 
 	ioCmd := exec.Command("/bin/bash", script)
-	ioCmd.Env = append(cmd.Env, "FAKE_IO_READS=1")
+	ioCmd.Env = append(cmd.Env, "FAKE_IO_READS=1", "IAM_RETIREMENT_OWNER_IO_WAIVER=platform_tables")
 	ioOutput, err := ioCmd.CombinedOutput()
 	requireNoError(t, err)
 	assertSafeOutput(t, string(ioOutput))
 	if !strings.Contains(string(ioOutput), "eligibility\tschema_version\tstate=blocked\treason=instantaneous_io_nonzero") {
 		t.Fatalf("nonzero I/O did not fail eligibility closed:\n%s", ioOutput)
+	}
+
+	unavailableCmd := exec.Command("/bin/bash", script)
+	unavailableCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"IAM_RETIREMENT_SCOPE=schema_version",
+	)
+	unavailableOutput, err := unavailableCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(unavailableOutput))
+	if !strings.Contains(string(unavailableOutput), "eligibility\tschema_version\tstate=blocked\treason=table_io_unavailable") {
+		t.Fatalf("unavailable I/O without waiver did not fail closed:\n%s", unavailableOutput)
+	}
+
+	waiverCmd := exec.Command("/bin/bash", script)
+	waiverCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"IAM_RETIREMENT_SCOPE=schema_version",
+		"IAM_RETIREMENT_OWNER_IO_WAIVER=platform_tables",
+	)
+	waiverOutput, err := waiverCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(waiverOutput))
+	if !strings.Contains(string(waiverOutput), "eligibility\tschema_version\tstate=eligible\trepository_gate=retire_schema_version\tevidence=owner_io_waiver") {
+		t.Fatalf("owner waiver did not admit schema_version with unavailable I/O:\n%s", waiverOutput)
+	}
+
+	authnWaiverCmd := exec.Command("/bin/bash", script)
+	authnWaiverCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"IAM_RETIREMENT_SCOPE=authn",
+		"IAM_RETIREMENT_OWNER_IO_WAIVER=platform_tables",
+	)
+	authnWaiverOutput, err := authnWaiverCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(authnWaiverOutput))
+	if !strings.Contains(string(authnWaiverOutput), "eligibility\tauth_accounts\tstate=blocked\treason=table_io_unavailable") {
+		t.Fatalf("platform waiver unexpectedly admitted AuthN:\n%s", authnWaiverOutput)
 	}
 
 	identityCmd := exec.Command("/bin/bash", script)

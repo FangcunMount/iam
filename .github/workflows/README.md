@@ -174,6 +174,8 @@ MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → 
 
 历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。手动执行 `db-ops.yml` 的 `status` 时会在普通数据库状态检查后运行 format v2 预检，并要求调用者通过 `image_sha` 记录当前生产镜像；`retirement_scope` 可选择 `identity/schema_version/platform/authn/all`，发布时只运行当前批次，避免无关大表对账占用窗口。定时备份、`backup` 和 `restore` 不运行该预检。脚本不执行删表或数据修复，只输出 migration、精确行数、结构指纹、列契约、Performance Schema 生命周期/I/O、依赖计数、旧表到 canonical 表的聚合对账和逐表 eligibility；零 I/O 不能脱离证据窗口解释为“可删除”。
 
+`retirement_io_waiver=platform_tables` 是业务所有者明确批准后的审计开关，只允许 `schema_version/tenants/data_dictionary` 在 Performance Schema 或表 I/O 统计不可用时继续评估。它不能覆盖非零 I/O、dirty migration、版本门禁或数据库对象依赖，也不能用于 AuthN、Identity 或日志/审计表。默认值 `none` 保持 fail closed。
+
 ## server-check.yml
 
 生产健康检查每 30 分钟运行一次，也可手动触发。它运行在 GitHub-hosted Runner 上，目标主机优先使用 `SVRB_PUBLIC_HOST`；只有公网入口未配置时才回退到 `SVRB_HOST` / `SVRA_HOST`。

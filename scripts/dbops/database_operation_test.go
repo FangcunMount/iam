@@ -495,6 +495,7 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
+		"retirement_io_waiver:", "IAM_RETIREMENT_OWNER_IO_WAIVER",
 		"retire-identity-dry-run", "retire-identity-apply",
 		"performance-schema-status",
 		"IAM_DB_OPS_CONFIRMATION", "confirmation:",

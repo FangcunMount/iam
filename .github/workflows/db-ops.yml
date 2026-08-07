@@ -39,6 +39,14 @@ on:
           - schema_version
           - platform
           - authn
+      retirement_io_waiver:
+        description: Owner-approved I/O evidence waiver; platform tables only
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - platform_tables
       confirmation:
         description: Exact destructive-operation confirmation token; required for apply only
         required: false
@@ -140,6 +148,7 @@ jobs:
           IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
           IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
           IAM_RETIREMENT_SCOPE: ${{ github.event.inputs.retirement_scope || 'all' }}
+          IAM_RETIREMENT_OWNER_IO_WAIVER: ${{ github.event.inputs.retirement_io_waiver || 'none' }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -150,7 +159,7 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,IAM_RETIREMENT_OWNER_IO_WAIVER,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/legacy-retirement-preflight.sh
 
   db-controlled-operation:
