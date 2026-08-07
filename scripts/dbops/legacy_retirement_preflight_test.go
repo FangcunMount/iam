@@ -153,7 +153,7 @@ esac
 		"eligibility\tschema_version\tstate=eligible",
 		"eligibility\tauth_accounts\tstate=eligible",
 		"eligibility\tauth_credentials_legacy\tstate=eligible",
-		"eligibility\taudit_logs\tstate=deferred",
+		"eligibility\taudit_logs\tstate=eligible\trepository_gate=retire_unused_audit_tables",
 		"legacy_retirement_preflight\tresult=success",
 	} {
 		if !strings.Contains(text, required) {
@@ -220,6 +220,22 @@ esac
 	assertSafeOutput(t, string(authnWaiverOutput))
 	if !strings.Contains(string(authnWaiverOutput), "eligibility\tauth_accounts\tstate=blocked\treason=table_io_unavailable") {
 		t.Fatalf("platform waiver unexpectedly admitted AuthN:\n%s", authnWaiverOutput)
+	}
+
+	auditWaiverCmd := exec.Command("/bin/bash", script)
+	auditWaiverCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"IAM_RETIREMENT_SCOPE=audit",
+		"IAM_RETIREMENT_OWNER_IO_WAIVER=audit_tables",
+	)
+	auditWaiverOutput, err := auditWaiverCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(auditWaiverOutput))
+	for _, table := range []string{"operation_logs", "audit_logs", "auth_token_audit"} {
+		want := "eligibility\t" + table + "\tstate=eligible\trepository_gate=retire_unused_audit_tables\tevidence=owner_io_waiver"
+		if !strings.Contains(string(auditWaiverOutput), want) {
+			t.Fatalf("audit owner waiver did not admit %s with unavailable I/O:\n%s", table, auditWaiverOutput)
+		}
 	}
 
 	identityCmd := exec.Command("/bin/bash", script)

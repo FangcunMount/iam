@@ -39,14 +39,16 @@ on:
           - schema_version
           - platform
           - authn
+          - audit
       retirement_io_waiver:
-        description: Owner-approved I/O evidence waiver; platform tables only
+        description: Owner-approved I/O evidence waiver; selected retired table family only
         required: false
         default: none
         type: choice
         options:
           - none
           - platform_tables
+          - audit_tables
       confirmation:
         description: Exact destructive-operation confirmation token; required for apply only
         required: false
