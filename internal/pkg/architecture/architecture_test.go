@@ -18,8 +18,6 @@ const modulePath = "github.com/FangcunMount/iam/v2/"
 
 var activeLegacyApplicationInfrastructureImports = map[string]string{}
 
-var activeAuthzRootFacadeTestImports = map[string]string{}
-
 var retiredArchitectureExceptionReasonParts = [][]string{
 	{"application", "test", "support"},
 	{"legacy", "uow", "factory", "to", "invert", "in", "phase", "3"},
@@ -998,6 +996,32 @@ func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
 	}
 }
 
+func TestAuthzStandaloneBootstrapUsesCanonicalTenantDomain(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	const rel = "configs/mysql/bootstrap.sql"
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(data)
+	for _, table := range []string{
+		"authz_roles",
+		"authz_assignments",
+		"casbin_rule",
+		"authz_policy_versions",
+	} {
+		statement := extractInsertStatement(t, sql, table)
+		if strings.Contains(statement, "'1'") {
+			t.Fatalf("%s INSERT for %s contains legacy AuthZ tenant domain '1'; standalone bootstrap must use fangcun", rel, table)
+		}
+		if !strings.Contains(statement, "'fangcun'") {
+			t.Fatalf("%s INSERT for %s does not contain canonical AuthZ tenant domain 'fangcun'", rel, table)
+		}
+	}
+}
+
 func TestAuthzProductionCodeUsesSemanticDomainPackages(t *testing.T) {
 	t.Parallel()
 
@@ -1021,29 +1045,19 @@ func TestAuthzTestsDoNotAddRootDomainFacadeImports(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	assertAllowlistReasons(t, activeAuthzRootFacadeTestImports)
 	retiredFacade := modulePath + "internal/apiserver/domain/authz"
-	seen := map[string]struct{}{}
 	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver"), func(path string, imports []string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		if !strings.HasSuffix(rel, "_test.go") {
-			return
-		}
-		if rel == "internal/apiserver/domain/authz/model_test.go" || strings.Contains(rel, "compatibility") {
 			return
 		}
 		for _, imp := range imports {
 			if imp != retiredFacade {
 				continue
 			}
-			if _, ok := activeAuthzRootFacadeTestImports[rel]; ok {
-				seen[rel] = struct{}{}
-				continue
-			}
-			t.Fatalf("%s imports root authz facade; new tests must use semantic child packages or be explicit compatibility tests", rel)
+			t.Fatalf("%s imports retired root authz facade; tests must use semantic child packages", rel)
 		}
 	})
-	assertAllowlistStillUsed(t, activeAuthzRootFacadeTestImports, seen)
 }
 
 func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
@@ -2084,6 +2098,21 @@ func extractAuthzResourceKeysFromSQL(t *testing.T, sql string) []string {
 		t.Fatal("authz_resources bootstrap keys not found")
 	}
 	return values
+}
+
+func extractInsertStatement(t *testing.T, sql, table string) string {
+	t.Helper()
+	prefix := "INSERT INTO `" + table + "`"
+	start := strings.Index(sql, prefix)
+	if start < 0 {
+		t.Fatalf("%s bootstrap insert not found", table)
+	}
+	statement := sql[start:]
+	end := strings.Index(statement, ";")
+	if end < 0 {
+		t.Fatalf("%s bootstrap insert is not terminated", table)
+	}
+	return statement[:end+1]
 }
 
 func extractCasbinPolicyObjectsFromSQL(t *testing.T, sql string) []string {

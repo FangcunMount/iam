@@ -132,11 +132,11 @@ VALUES (900000001, 'super_admin', '平台超级管理员', 'platform', 1, '平�
        (1, 'super_admin', '租户超级管理员', 'fangcun', 1, '方寸默认租户的超级管理员角色', NOW(), NOW(), 0, 0, 0, 1),
        (2, 'tenant_admin', '租户管理员', 'fangcun', 1, '管理本租户内的所有资源', NOW(), NOW(), 0, 0, 0, 1),
        (3, 'user', '普通用户', 'fangcun', 1, '普通用户权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000101, 'qs:admin', 'QS管理员', '1', 1, 'QS服务所有资源的管理权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000102, 'qs:content_manager', '内容管理员', '1', 1, '问卷、量表和常模表的管理权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000103, 'qs:evaluator', '评估员', '1', 1, '测评相关只读权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000104, 'qs:staff', '普通员工', '1', 1, '基本查看权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000105, 'qs:evaluation_plan_manager', '测评计划管理员', '1', 1, '测评计划的管理权限', NOW(), NOW(), 0, 0, 0,
+       (900000101, 'qs:admin', 'QS管理员', 'fangcun', 1, 'QS服务所有资源的管理权限', NOW(), NOW(), 0, 0, 0, 1),
+       (900000102, 'qs:content_manager', '内容管理员', 'fangcun', 1, '问卷、量表和常模表的管理权限', NOW(), NOW(), 0, 0, 0, 1),
+       (900000103, 'qs:evaluator', '评估员', 'fangcun', 1, '测评相关只读权限', NOW(), NOW(), 0, 0, 0, 1),
+       (900000104, 'qs:staff', '普通员工', 'fangcun', 1, '基本查看权限', NOW(), NOW(), 0, 0, 0, 1),
+       (900000105, 'qs:evaluation_plan_manager', '测评计划管理员', 'fangcun', 1, '测评计划的管理权限', NOW(), NOW(), 0, 0, 0,
         1)
 ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
                         `tenant_id`    = VALUES(`tenant_id`),
@@ -252,13 +252,13 @@ FROM (SELECT 902000001 AS `id`,
       UNION ALL
       SELECT 902000002, 'user', '10001', 2, 'fangcun', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1
       UNION ALL
-      SELECT 902000003, 'user', '10001', 900000101, '1', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1
+      SELECT 902000003, 'user', '10001', 900000101, 'fangcun', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1
       UNION ALL
       SELECT 902000004, 'user', '110001', 2, 'fangcun', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1
       UNION ALL
-      SELECT 902000005, 'user', '110001', 900000101, '1', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1
+      SELECT 902000005, 'user', '110001', 900000101, 'fangcun', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1
       UNION ALL
-      SELECT 902000006, 'user', '110002', 900000102, '1', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1) AS `seed`
+      SELECT 902000006, 'user', '110002', 900000102, 'fangcun', 'system', NOW(), NOW(), NOW(), NULL, 0, 0, 0, 1) AS `seed`
 WHERE NOT EXISTS(SELECT 1
                  FROM `authz_assignments` `a`
                  WHERE `a`.`subject_type` = `seed`.`subject_type`
@@ -309,56 +309,56 @@ FROM (SELECT 'p'                  AS `ptype`,
       UNION ALL
       SELECT 'p', 'role:user', 'fangcun', 'iam:identity:instance:profile', 'update', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:admin', '1', 'qs:*:*:*', '.*', 'all:*', NULL
+      SELECT 'p', 'role:qs:admin', 'fangcun', 'qs:*:*:*', '.*', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:content_manager', '1', 'qs:questionnaire:collection:questionnaires',
+      SELECT 'p', 'role:qs:content_manager', 'fangcun', 'qs:questionnaire:collection:questionnaires',
              'create|read|list|update|delete|publish|unpublish|archive|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:content_manager', '1', 'qs:scale:collection:scales',
+      SELECT 'p', 'role:qs:content_manager', 'fangcun', 'qs:scale:collection:scales',
              'create|read|list|update|delete|publish|unpublish|archive', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:content_manager', '1', 'qs:modelcatalog:collection:norm_tables',
+      SELECT 'p', 'role:qs:content_manager', 'fangcun', 'qs:modelcatalog:collection:norm_tables',
              'read|list|import', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:answersheet:collection:answersheets', 'read|list|statistics', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', 'fangcun', 'qs:answersheet:collection:answersheets', 'read|list|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:evaluation:collection:assessments', 'read|list|retry|batch_evaluate|statistics', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', 'fangcun', 'qs:evaluation:collection:assessments', 'read|list|retry|batch_evaluate|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:evaluation:collection:reports', 'read|list', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', 'fangcun', 'qs:evaluation:collection:reports', 'read|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluator', '1', 'qs:actor:collection:testees', 'read|list|analyze|statistics', 'all:*', NULL
+      SELECT 'p', 'role:qs:evaluator', 'fangcun', 'qs:actor:collection:testees', 'read|list|analyze|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:staff', '1', 'qs:actor:collection:testees', 'read|list', 'all:*', NULL
+      SELECT 'p', 'role:qs:staff', 'fangcun', 'qs:actor:collection:testees', 'read|list', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:plan:collection:evaluation_plans',
+      SELECT 'p', 'role:qs:evaluation_plan_manager', 'fangcun', 'qs:plan:collection:evaluation_plans',
              'create|read|list|update|pause|resume|cancel|enroll|terminate|statistics', 'all:*', NULL
       UNION ALL
-      SELECT 'p', 'role:qs:evaluation_plan_manager', '1', 'qs:plan_task:collection:evaluation_plan_tasks',
+      SELECT 'p', 'role:qs:evaluation_plan_manager', 'fangcun', 'qs:plan_task:collection:evaluation_plan_tasks',
              'schedule|read|list|open|complete|expire|cancel', 'all:*', NULL
       UNION ALL
       SELECT 'g', 'role:tenant_admin', 'role:user', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'role:qs:admin', 'role:qs:content_manager', '1', NULL, NULL, NULL
+      SELECT 'g', 'role:qs:admin', 'role:qs:content_manager', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'role:qs:admin', 'role:qs:evaluator', '1', NULL, NULL, NULL
+      SELECT 'g', 'role:qs:admin', 'role:qs:evaluator', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'role:qs:admin', 'role:qs:evaluation_plan_manager', '1', NULL, NULL, NULL
+      SELECT 'g', 'role:qs:admin', 'role:qs:evaluation_plan_manager', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'role:qs:evaluator', 'role:qs:staff', '1', NULL, NULL, NULL
+      SELECT 'g', 'role:qs:evaluator', 'role:qs:staff', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'role:qs:evaluation_plan_manager', 'role:qs:staff', '1', NULL, NULL, NULL
+      SELECT 'g', 'role:qs:evaluation_plan_manager', 'role:qs:staff', 'fangcun', NULL, NULL, NULL
       UNION ALL
       SELECT 'g', 'user:10001', 'role:super_admin', 'platform', NULL, NULL, NULL
       UNION ALL
       SELECT 'g', 'user:10001', 'role:tenant_admin', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'user:10001', 'role:qs:admin', '1', NULL, NULL, NULL
+      SELECT 'g', 'user:10001', 'role:qs:admin', 'fangcun', NULL, NULL, NULL
       UNION ALL
       SELECT 'g', 'user:110001', 'role:tenant_admin', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'user:110001', 'role:qs:admin', '1', NULL, NULL, NULL
+      SELECT 'g', 'user:110001', 'role:qs:admin', 'fangcun', NULL, NULL, NULL
       UNION ALL
-      SELECT 'g', 'user:110002', 'role:qs:content_manager', '1', NULL, NULL, NULL) AS `seed`
+      SELECT 'g', 'user:110002', 'role:qs:content_manager', 'fangcun', NULL, NULL, NULL) AS `seed`
 WHERE NOT EXISTS(SELECT 1
                  FROM `casbin_rule` `r`
                  WHERE `r`.`ptype` = `seed`.`ptype`
@@ -375,8 +375,7 @@ WHERE NOT EXISTS(SELECT 1
 INSERT INTO `authz_policy_versions` (`id`, `tenant_id`, `policy_version`, `changed_by`, `reason`, `created_at`,
                                      `updated_at`, `deleted_at`, `created_by`, `updated_by`, `deleted_by`, `version`)
 VALUES (903000001, 'platform', 1, 'bootstrap', 'bootstrap baseline', NOW(), NOW(), NULL, 0, 0, 0, 1),
-       (903000002, 'fangcun', 1, 'bootstrap', 'bootstrap baseline', NOW(), NOW(), NULL, 0, 0, 0, 1),
-       (903000003, '1', 1, 'bootstrap', 'bootstrap baseline', NOW(), NOW(), NULL, 0, 0, 0, 1)
+       (903000002, 'fangcun', 1, 'bootstrap', 'bootstrap baseline', NOW(), NOW(), NULL, 0, 0, 0, 1)
 ON DUPLICATE KEY UPDATE `changed_by` = VALUES(`changed_by`),
                         `reason`     = VALUES(`reason`),
                         `deleted_at` = NULL,

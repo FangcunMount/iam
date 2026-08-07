@@ -23,8 +23,7 @@ type Dependencies struct {
 // - 微信应用管理（创建、查询、凭据轮换、令牌管理）
 // - 提供基础设施服务供其他模块使用（通过容器依赖注入）
 //
-// 认证功能由 authn 模块统一提供：
-// - POST /api/v2/auth/login (method: "wx:minip") - 微信小程序登录
+// 认证功能由 AuthN 的 POST /api/v2/authn/login 统一提供。
 func Register(engine *gin.Engine, deps Dependencies) {
 	if engine == nil {
 		return
@@ -81,17 +80,5 @@ func Register(engine *gin.Engine, deps Dependencies) {
 			// 刷新访问令牌
 			wechatApps.POST("/refresh-access-token", deps.WechatAppHandler.RefreshAccessToken)
 		}
-
-		// ============ 微信认证 ============
-		// 已移除 - 认证功能由 authn 模块统一提供
-		// 使用方式：
-		//   POST /api/v2/auth/login
-		//   {
-		//     "method": "wx:minip",
-		//     "credentials": {
-		//       "app_id": "wx1234567890",
-		//       "js_code": "code_from_wx_login"
-		//     }
-		//   }
 	}
 }

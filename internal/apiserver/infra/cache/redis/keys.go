@@ -44,10 +44,6 @@ func challengeRedisKey(challengeID string) string {
 	return challengeKeyspace.Prefix(challengeID)
 }
 
-func otpRedisKey(phoneE164, scene, code string) string {
-	return otpKeyspace.Prefix(fmt.Sprintf("%s:%s:%s", scene, phoneE164, code))
-}
-
 func otpSendGateRedisKey(phoneE164, scene string) string {
 	return otpSendGateKeyspace.Prefix(fmt.Sprintf("%s:%s", scene, phoneE164))
 }

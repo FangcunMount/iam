@@ -189,7 +189,7 @@ DatabaseManager.Initialize
 - up/down 必须成对，当前事实门禁要求最新版本为 18；
 - 迁移失败会终止正常启动；MySQL 未配置时开发/显式 degraded 场景可跳过，但 release 模式随后会在资源/关键模块校验处 fail closed。
 
-`configs/mysql/schema.sql` 和 `bootstrap.sql` 用于初始化/参考，增量演进的权威顺序是 migration 文件；二者冲突时必须先确认部署路径，不能只改一个副本。
+`internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 
 ## 9. 为什么不采用其他方案
 
@@ -219,7 +219,7 @@ DatabaseManager.Initialize
 - GORM PO hook 和 mapper 都可能参与字段同步，修改时要检查两处；
 - SQLite 单测不能证明 MySQL generated column、`FOR UPDATE`、`SKIP LOCKED` 的真实语义；
 - 自动迁移把发布和 schema 变更耦合，生产需要备份、权限和回滚流程；
-- `schema.sql`、`bootstrap.sql`、migrations 三套材料存在维护放大，必须由 facts test/人工审计防漂移。
+- migration 与独立 bootstrap 仍分别维护结构演进和基线数据，必须由 facts test 防止 bootstrap 混入 DDL 或重新写入旧 AuthZ 域。
 
 ## 11. 证据入口
 

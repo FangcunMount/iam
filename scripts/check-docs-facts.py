@@ -93,6 +93,27 @@ def check_migrations() -> None:
             fail(f"migration 000018 is missing {token}")
 
 
+def check_database_schema_sources() -> None:
+    retired_snapshot = ROOT / "configs/mysql/schema.sql"
+    if retired_snapshot.exists():
+        fail("configs/mysql/schema.sql must not reappear as a second schema source")
+
+    source_note = (ROOT / "configs/mysql/README.md").read_text(encoding="utf-8")
+    for token in (
+        "schema 唯一事实源",
+        "internal/pkg/migration/migrations/*.sql",
+        "bootstrap.sql",
+        "不能替代迁移",
+    ):
+        if token not in source_note:
+            fail(f"configs/mysql/README.md is missing schema-source fact {token}")
+
+    bootstrap = (ROOT / "configs/mysql/bootstrap.sql").read_text(encoding="utf-8")
+    for forbidden in ("CREATE TABLE", "ALTER TABLE", "DROP TABLE"):
+        if re.search(rf"(?im)^\s*{forbidden}\b", bootstrap):
+            fail(f"bootstrap.sql contains schema-changing statement {forbidden}")
+
+
 def check_event_catalog() -> None:
     catalog = load_yaml("configs/events.yaml")
     topics = catalog.get("topics", {})
@@ -306,6 +327,9 @@ def check_database_operations_facts() -> None:
     script = (ROOT / "scripts/dbops/database-operation.sh").read_text(
         encoding="utf-8"
     )
+    retirement = (
+        ROOT / "scripts/dbops/legacy-retirement-preflight.sh"
+    ).read_text(encoding="utf-8")
     operations_doc = (ROOT / ".github/workflows/README.md").read_text(
         encoding="utf-8"
     )
@@ -331,6 +355,30 @@ def check_database_operations_facts() -> None:
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
     for token in (
+        "query_mode=read_only_aggregate",
+        "--defaults-extra-file=",
+        "performance_schema.table_io_waits_summary_by_table",
+        "zero_io_interpretation=not_proof_without_full_observation_window",
+        "children_to_profiles",
+        "guardianships_to_profile_links",
+        "auth_accounts_to_login_identities",
+        "legacy_credentials_to_authn",
+    ):
+        if token not in retirement:
+            fail(f"legacy retirement preflight is missing safety contract {token}")
+    for forbidden in (
+        "INSERT INTO",
+        "DELETE FROM",
+        "DROP TABLE",
+        "TRUNCATE TABLE",
+        "ALTER TABLE",
+        "CREATE TABLE",
+        "REPLACE INTO",
+        "MYSQL_PWD",
+    ):
+        if forbidden in retirement.upper():
+            fail(f"legacy retirement preflight contains forbidden token {forbidden}")
+    for token in (
         "Verify database backup and restore script with MySQL 8",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",
@@ -341,6 +389,7 @@ def check_database_operations_facts() -> None:
     for fact in (
         "MySQL 8.x",
         "scripts/dbops/database-operation.sh",
+        "scripts/dbops/legacy-retirement-preflight.sh",
         "原子改名",
         "只输出 MySQL 客户端版本",
     ):
@@ -430,6 +479,7 @@ def main() -> int:
     checks = (
         check_runtime_configuration,
         check_migrations,
+        check_database_schema_sources,
         check_event_catalog,
         check_module_wiring,
         check_jwks_lifecycle_wiring,

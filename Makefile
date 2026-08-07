@@ -85,7 +85,7 @@ COLOR_RED := \033[31m
 .PHONY: install install-tools create-dirs
 .PHONY: up down re st log
 .PHONY: api-validate docs-hygiene
-.PHONY: db-bootstrap db-connect db-status db-backup
+.PHONY: db-bootstrap db-retirement-preflight db-connect db-status db-backup
 .PHONY: docker-mysql-up docker-mysql-down docker-mysql-clean docker-mysql-logs
 .PHONY: cert-gen cert-test cert-verify test-dev-config
 .PHONY: grpc-cert-verify grpc-cert-info
@@ -604,10 +604,8 @@ DB_USER ?= root
 DB_PASSWORD ?=
 DB_NAME ?= iam
 
-# 注意: db-init, db-migrate, db-reset 已弃用
-# 请使用以下新命令:
-# - 数据库迁移: 应用程序启动时自动执行 (internal/pkg/migration)
-# - 系统 bootstrap 基线数据: migration 000005 或 make db-bootstrap
+# 数据库迁移由应用程序启动时自动执行 (internal/pkg/migration)。
+# schema 到达当前版本后，可用 make db-bootstrap 重放幂等系统基线数据。
 
 db-bootstrap: ## 重新应用系统 bootstrap 基线数据（幂等 SQL）
 	@echo "$(COLOR_BOLD)$(COLOR_BLUE)🧱 应用系统 bootstrap 数据...$(COLOR_RESET)"
@@ -617,6 +615,9 @@ db-bootstrap: ## 重新应用系统 bootstrap 基线数据（幂等 SQL）
 		mysql -h$(DB_HOST) -P$(DB_PORT) -u$(DB_USER) $(DB_NAME) < configs/mysql/bootstrap.sql; \
 	fi
 	@echo "$(COLOR_GREEN)✅ 系统 bootstrap 数据已应用$(COLOR_RESET)"
+
+db-retirement-preflight: ## 只读采集遗留表退役证据（需 IAM_RETIREMENT_ENVIRONMENT 与 MYSQL_*）
+	@scripts/dbops/legacy-retirement-preflight.sh
 
 db-connect: ## 连接到数据库
 	@echo "$(COLOR_CYAN)🔌 连接到数据库 $(DB_NAME)...$(COLOR_RESET)"
@@ -671,7 +672,7 @@ docker-mysql-up: ## 启动 Docker MySQL 容器（开发环境）
 	@echo "$(COLOR_GREEN)✅ MySQL 容器已启动$(COLOR_RESET)"
 	@echo "$(COLOR_YELLOW)⏳ 等待 MySQL 启动完成（约 10 秒）...$(COLOR_RESET)"
 	@sleep 10
-	@echo "$(COLOR_GREEN)✅ MySQL 已就绪，可以执行初始化: make db-init DB_PASSWORD=root$(COLOR_RESET)"
+	@echo "$(COLOR_GREEN)✅ MySQL 已就绪；先启动 IAM 执行 migration，再运行 make db-bootstrap DB_PASSWORD=root$(COLOR_RESET)"
 
 docker-mysql-down: ## 停止并删除 Docker MySQL 容器
 	@echo "$(COLOR_CYAN)🐳 停止 Docker MySQL 容器...$(COLOR_RESET)"
@@ -823,12 +824,7 @@ docker-dev-clean: ## 清理 Docker 开发环境（包括数据卷）
 # 部署相关
 # ============================================================================
 
-.PHONY: deploy deploy-prepare deploy-check
-
-deploy-prepare: ## 准备部署文件 (已废弃，现使用 Docker 部署)
-	@echo "$(COLOR_YELLOW)⚠️  此命令已废弃，现在使用 Docker 部署$(COLOR_RESET)"
-	@echo "$(COLOR_BLUE)请使用: git push origin main (自动触发 CI + CD)$(COLOR_RESET)"
-	@echo "$(COLOR_BLUE)或查看: .github/workflows/cd.yml$(COLOR_RESET)"
+.PHONY: deploy-check
 
 deploy-check: ## 检查部署环境
 	@echo "$(COLOR_BLUE)🔍 检查部署环境...$(COLOR_RESET)"

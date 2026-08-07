@@ -54,14 +54,6 @@ type LoginPhoneOTPVerifier interface {
 	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, code string) bool
 }
 
-// OTPCodeStore 写入待校验的 OTP（与 Redis OTP 消费实现使用相同的 key 约定）
-type OTPCodeStore interface {
-	// Put 写入验证码，TTL 到期后自动失效
-	Put(ctx context.Context, phoneE164, scene, code string, ttl time.Duration) error
-	// Delete 删除已写入的验证码（例如短信发送失败时回滚）
-	Delete(ctx context.Context, phoneE164, scene, code string) error
-}
-
 // OTPSendGate 限制同一手机号、同一场景的发送频率
 type OTPSendGate interface {
 	// TryAcquire 若允许发送返回 true；冷却期内返回 false（未产生错误时表示频控）

@@ -1,0 +1,139 @@
+package dbops_test
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+)
+
+func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testing.T) {
+	_, file, _, _ := runtime.Caller(0)
+	script := filepath.Join(filepath.Dir(file), "legacy-retirement-preflight.sh")
+	data, err := os.ReadFile(script)
+	requireNoError(t, err)
+	source := string(data)
+
+	for _, required := range []string{
+		"schema_migrations",
+		"performance_schema.table_io_waits_summary_by_table",
+		"information_schema.KEY_COLUMN_USAGE",
+		"information_schema.TRIGGERS",
+		"information_schema.VIEWS",
+		"information_schema.ROUTINES",
+		"information_schema.EVENTS",
+		"children_to_profiles",
+		"guardianships_to_profile_links",
+		"auth_accounts_to_login_identities",
+		"legacy_credentials_to_authn",
+		"mismatched_mapped_rows",
+		"password_material_mismatches",
+		"zero_io_interpretation=not_proof_without_full_observation_window",
+		"--defaults-extra-file=",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("preflight is missing evidence contract %q", required)
+		}
+	}
+	upper := strings.ToUpper(source)
+	for _, forbidden := range []string{
+		"INSERT INTO",
+		"DELETE FROM",
+		"DROP TABLE",
+		"TRUNCATE TABLE",
+		"ALTER TABLE",
+		"CREATE TABLE",
+		"REPLACE INTO",
+		"MYSQL_PWD",
+	} {
+		if strings.Contains(upper, forbidden) {
+			t.Fatalf("read-only preflight contains forbidden token %q", forbidden)
+		}
+	}
+}
+
+func TestLegacyRetirementPreflightUsesPrivateCredentialsAndReturnsAggregates(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	tmp := filepath.Join(root, "tmp")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(tmp, 0o700))
+
+	fake := `#!/bin/bash
+set -eu
+if [ "$1" = "--version" ]; then
+  echo "mysql  Ver 8.0.36"
+  exit 0
+fi
+defaults=""
+for arg in "$@"; do
+  case "$arg" in
+    *db-ops-password-sentinel*) exit 80 ;;
+    --defaults-extra-file=*) defaults="${arg#*=}" ;;
+  esac
+done
+[ -n "$defaults" ]
+[ "$(stat -f %Lp "$defaults" 2>/dev/null || stat -c %a "$defaults")" = "600" ]
+grep -q "password=db-ops-password-sentinel" "$defaults"
+case "$*" in
+  *"SELECT VERSION()"*) printf "8.0.36\tMySQL Community Server\t2026-08-07T00:00:00Z\n" ;;
+  *"MAX(version)"*) printf "18\t0\t1\n" ;;
+  *"MAX(TABLE_ROWS)"*) printf "1\t4\t4096\t2026-08-06T00:00:00Z\n" ;;
+  *"@@performance_schema"*) printf "1\n" ;;
+  *"performance_schema.global_status"*) printf "86400\n" ;;
+  *"table_io_waits_summary_by_table"*) printf "0\t0\t0\t0\n" ;;
+  *"information_schema.KEY_COLUMN_USAGE"*) printf "0\t0\t0\t0\t0\t0\t0\t0\n" ;;
+  *"FROM children c"*) printf "legacy_rows=4\tmapped_rows=4\tmissing_rows=0\tmismatched_rows=0\n" ;;
+  *"FROM guardianships g"*) printf "legacy_rows=3\tmapped_rows=3\tmissing_rows=0\tmismatched_rows=0\n" ;;
+  *"FROM auth_accounts a"*) printf "legacy_rows=2\tsupported_rows=2\tmapped_rows=2\tmissing_supported_rows=0\tmismatched_mapped_rows=0\n" ;;
+  *"FROM auth_credentials_legacy lc"*) printf "legacy_rows=2\tpassword_eligible_rows=1\tpassword_mapped_rows=1\tpassword_material_mismatches=0\tphone_eligible_rows=1\tphone_identity_mapped_rows=1\n" ;;
+  *"information_schema.TABLES"*) printf "1\n" ;;
+  *) exit 81 ;;
+esac
+`
+	mysql := filepath.Join(bin, "mysql")
+	writeExecutable(t, bin, "mysql", fake)
+
+	_, file, _, _ := runtime.Caller(0)
+	script := filepath.Join(filepath.Dir(file), "legacy-retirement-preflight.sh")
+	cmd := exec.Command("/bin/bash", script)
+	cmd.Env = append(os.Environ(),
+		"TMPDIR="+tmp,
+		"IAM_RETIREMENT_MYSQL_BIN="+mysql,
+		"IAM_RETIREMENT_ENVIRONMENT=staging",
+		"IAM_RETIREMENT_COMMIT_SHA=0123456789abcdef",
+		"IAM_RETIREMENT_IMAGE_SHA=sha256:abcdef",
+		"MYSQL_HOST=db-host-sentinel",
+		"MYSQL_PORT=3306",
+		"MYSQL_USERNAME=iam-user-sentinel",
+		"MYSQL_PASSWORD="+secretSentinel,
+		"MYSQL_DBNAME=iam_test",
+	)
+	output, err := cmd.CombinedOutput()
+	requireNoError(t, err)
+	text := string(output)
+	assertSafeOutput(t, text)
+	for _, required := range []string{
+		"query_mode=read_only_aggregate",
+		"metadata\tenvironment\tstaging",
+		"migration\tschema_migrations\tpresent\tversion=18\tdirty=0",
+		"candidate_table\tchildren\tpresent=1",
+		"performance_schema\tstate=enabled",
+		"table_io\tchildren\tcount_star=0",
+		"dependency\tchildren\tfk=0",
+		"parity\tchildren_to_profiles\tstate=available\tlegacy_rows=4",
+		"password_material_mismatches=0",
+		"legacy_retirement_preflight\tresult=success",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("preflight output missing %q:\n%s", required, text)
+		}
+	}
+	leftovers, err := filepath.Glob(filepath.Join(tmp, "iam-retirement-*"))
+	requireNoError(t, err)
+	if len(leftovers) != 0 {
+		t.Fatalf("preflight left credential/error files: %v", leftovers)
+	}
+}

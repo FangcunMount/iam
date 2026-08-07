@@ -167,6 +167,8 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 
 MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → 数据断言，不接触生产数据，也不上传备份 artifact。
 
+历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。它不是 `db-ops.yml` 的自动操作，不执行删表或数据修复；运行者必须显式记录环境和 image SHA。脚本只输出 migration、表级元数据、Performance Schema 生命周期/I/O、依赖计数和旧表到 canonical 表的对账摘要，零 I/O 不能脱离完整观察窗口解释为“可删除”。
+
 ## server-check.yml
 
 生产健康检查每 30 分钟运行一次，也可手动触发。它运行在 GitHub-hosted Runner 上，目标主机优先使用 `SVRB_PUBLIC_HOST`；只有公网入口未配置时才回退到 `SVRB_HOST` / `SVRA_HOST`。

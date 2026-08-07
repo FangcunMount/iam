@@ -9,16 +9,6 @@ import (
 
 // ============= 当前调用者用例接口（Driving Ports）=============
 
-// Editor 编辑档案资料。
-type Editor interface {
-	// Rename 重命名档案
-	Rename(ctx context.Context, profileID meta.ID, newName string) error
-	// UpdateIDCard 更新档案身份证号码
-	UpdateIDCard(ctx context.Context, profileID meta.ID, name string, idCard string) error
-	// UpdateProfile 更新档案基础资料
-	UpdateProfile(ctx context.Context, dto UpdateProfileDTO) error
-}
-
 // Directory 查询档案。
 type Directory interface {
 	// GetByID 根据 ID 查询档案
@@ -48,13 +38,6 @@ type CreateProfileDTO struct {
 	Birthday string
 	IDCard   string
 	Relation string
-}
-
-// UpdateProfileDTO 更新档案基础资料 DTO。
-type UpdateProfileDTO struct {
-	ProfileID meta.ID
-	Gender    uint8
-	Birthday  string
 }
 
 // PatchMyProfileDTO 当前用户通过关系更新档案 DTO。

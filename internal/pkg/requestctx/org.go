@@ -33,17 +33,6 @@ func BusinessOrgID(c *gin.Context) (uint64, bool) {
 	return 0, false
 }
 
-// OrgIDOrDefault 已废弃默认 org 语义，仅为兼容保留；无 claim 时返回 0。
-//
-// Deprecated: 使用 BusinessOrgID；不要依赖 IAM 提供默认组织 ID。
-func OrgIDOrDefault(c *gin.Context) uint64 {
-	id, ok := BusinessOrgID(c)
-	if !ok {
-		return 0
-	}
-	return id
-}
-
 func tokenClaims(c *gin.Context) (*tokenapp.TokenClaims, bool) {
 	raw, ok := Claims(c)
 	if !ok || raw == nil {

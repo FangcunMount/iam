@@ -245,7 +245,7 @@ go run cmd/apiserver/apiserver.go
 
 - [golang-migrate 官方文档](https://github.com/golang-migrate/migrate)
 - [数据库迁移指南](../../../docs/DATABASE_MIGRATION_GUIDE.md)
-- [Schema 定义](../../../configs/mysql/schema.sql)
+- [MySQL schema 与 bootstrap 事实源](../../../configs/mysql/README.md)
 - [Bootstrap 数据](../../../configs/mysql/bootstrap.sql)
 
 ## ❓ 常见问题
