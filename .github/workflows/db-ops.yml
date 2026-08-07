@@ -17,6 +17,7 @@ on:
           - backup
           - restore
           - status
+          - performance-schema-status
           - retire-identity-dry-run
           - retire-identity-apply
       backup_name:
@@ -152,9 +153,9 @@ jobs:
           envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/legacy-retirement-preflight.sh
 
-  db-identity-retirement:
-    name: Retire Legacy Identity Tables
-    if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply'
+  db-controlled-operation:
+    name: Controlled Database Operation
+    if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply' || github.event.inputs.operation == 'performance-schema-status'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -166,7 +167,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate or retire children and guardianships
+      - name: Run controlled database operation
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_DB_OPS_OPERATION: ${{ github.event.inputs.operation }}

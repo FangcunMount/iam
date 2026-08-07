@@ -139,6 +139,7 @@ go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -c
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
 - `status`: 只输出 MySQL 客户端版本、连接状态、库总大小、表数量、备份数量和最新备份时间。
+- `performance-schema-status`: 只读输出启用状态、持久化加载、TLS/X.509 前置条件、可见权限和数据库部署类型分类，不输出账号、地址或 grant 原文。
 - `retire-identity-dry-run`: 校验版本 18 clean、指定备份新鲜且完整、两张旧表同时存在及数据库对象零依赖，不写数据库。
 - `retire-identity-apply`: 在相同门禁和生产 environment 下，要求确认令牌 `RETIRE_CHILDREN_GUARDIANSHIPS`，用最终一条 DROP 同时删除 `children/guardianships`。
 

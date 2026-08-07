@@ -376,6 +376,45 @@ func TestIdentityRetirementRejectsStaleBackup(t *testing.T) {
 	assertSafeOutput(t, output)
 }
 
+func TestPerformanceSchemaStatusIsReadOnlyAndSecretSafe(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "mysql", `#!/bin/sh
+if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
+case "$*" in
+  *"@@performance_schema"*) printf '0\t1\t0\t0\tmanaged_or_cloud\t8.0.36\n' ;;
+  *"SHOW GRANTS"*) printf "GRANT USAGE ON *.* TO 'grant-user-sentinel'@'%%'\n" ;;
+  *) exit 91 ;;
+esac
+`)
+
+	output, err := runScript(t, bin, map[string]string{
+		"IAM_DB_OPS_OPERATION":  "performance-schema-status",
+		"IAM_DB_OPS_BACKUP_DIR": backupDir,
+	})
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{
+		"result=success", "enabled=0", "persisted_globals_load=1",
+		"persist_x509_subject_configured=0", "tls_active=0",
+		"persist_privileges=not_visible", "server_flavor=managed_or_cloud",
+		"server_version=8.0.36", "next_action=configure_provider_or_server_startup",
+		"restart_required=1",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("Performance Schema status output missing %q: %s", want, output)
+		}
+	}
+	for _, forbidden := range []string{"grant-user-sentinel", "GRANT USAGE", "SET PERSIST", "RESTART"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("Performance Schema status output contains forbidden value %q: %s", forbidden, output)
+		}
+	}
+}
+
 func TestStatusFallsBackToOfficialMySQLContainerClient(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
@@ -451,6 +490,7 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
 		"retire-identity-dry-run", "retire-identity-apply",
+		"performance-schema-status",
 		"IAM_DB_OPS_CONFIRMATION", "confirmation:",
 	} {
 		if !strings.Contains(source, want) {

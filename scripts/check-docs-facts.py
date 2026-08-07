@@ -372,6 +372,7 @@ def check_database_operations_facts() -> None:
         "IAM_RETIREMENT_SCOPE",
         "retire-identity-dry-run",
         "retire-identity-apply",
+        "performance-schema-status",
         "IAM_DB_OPS_CONFIRMATION",
     ):
         if token not in workflow:
@@ -396,6 +397,8 @@ def check_database_operations_facts() -> None:
         "RETIRE_CHILDREN_GUARDIANSHIPS",
         "DROP TABLE children, guardianships;",
         "canonical_writes=0",
+        "performance schema capability:",
+        "configure_provider_or_server_startup",
     ):
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
