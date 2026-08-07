@@ -119,7 +119,6 @@ def check_migrations() -> None:
         if forbidden in retirement:
             fail(f"migration 000019 includes out-of-scope table {forbidden}")
 
-
 def check_database_schema_sources() -> None:
     retired_snapshot = ROOT / "configs/mysql/schema.sql"
     if retired_snapshot.exists():
@@ -139,8 +138,6 @@ def check_database_schema_sources() -> None:
     for forbidden in ("CREATE TABLE", "ALTER TABLE", "DROP TABLE"):
         if re.search(rf"(?im)^\s*{forbidden}\b", bootstrap):
             fail(f"bootstrap.sql contains schema-changing statement {forbidden}")
-
-
 def check_event_catalog() -> None:
     catalog = load_yaml("configs/events.yaml")
     topics = catalog.get("topics", {})
@@ -363,6 +360,11 @@ def check_database_operations_facts() -> None:
 
     if workflow.count("script_path: scripts/dbops/database-operation.sh") != 3:
         fail("database workflow no longer routes all operations through the repository script")
+    if workflow.count("script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1:
+        fail("database status no longer runs the checked-out retirement preflight exactly once")
+    for token in ("image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight"):
+        if token not in workflow:
+            fail(f"database status retirement preflight is missing {token}")
     for forbidden in ("apt-get", "apk add", "script: |", "SHOW TABLES"):
         if forbidden in workflow:
             fail(f"database workflow contains retired inline behavior {forbidden}")
@@ -382,6 +384,7 @@ def check_database_operations_facts() -> None:
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
     for token in (
+        "format_version=2",
         "query_mode=read_only_aggregate",
         "--defaults-extra-file=",
         "performance_schema.table_io_waits_summary_by_table",
@@ -390,6 +393,12 @@ def check_database_operations_facts() -> None:
         "guardianships_to_profile_links",
         "auth_accounts_to_login_identities",
         "legacy_credentials_to_authn",
+        "exact_rows",
+        "schema_signature",
+        "eligibility",
+        "invalid_supported_rows",
+        "oauth_unmapped_rows",
+        "unknown_credential_rows",
     ):
         if token not in retirement:
             fail(f"legacy retirement preflight is missing safety contract {token}")

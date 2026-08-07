@@ -278,6 +278,14 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 3 {
 		t.Fatal("every database operation job must use the single script_path")
 	}
+	if strings.Count(source, "script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1 {
+		t.Fatal("database status must run the checked-out legacy retirement preflight once")
+	}
+	for _, want := range []string{"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight"} {
+		if !strings.Contains(source, want) {
+			t.Fatalf("database status preflight is missing %q", want)
+		}
+	}
 	for _, forbidden := range []string{"apt-get", "apk add", "script: |", "SHOW TABLES", "Largest tables"} {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("database workflow contains forbidden inline/runtime behavior %q", forbidden)

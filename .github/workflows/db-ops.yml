@@ -20,6 +20,10 @@ on:
         description: Backup name, required for restore
         required: false
         type: string
+      image_sha:
+        description: Currently deployed IAM image Git SHA, required for retirement preflight evidence
+        required: false
+        type: string
   schedule:
     - cron: '0 17 * * *'  # Daily 17:00 UTC / 01:00 Asia-Shanghai
 
@@ -105,3 +109,22 @@ jobs:
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           envs: IAM_DB_OPS_OPERATION,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
+
+      - name: Run Legacy Retirement Preflight
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_RETIREMENT_ENVIRONMENT: production
+          IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
+          IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/legacy-retirement-preflight.sh
