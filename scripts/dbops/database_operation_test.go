@@ -386,6 +386,8 @@ func TestPerformanceSchemaStatusIsReadOnlyAndSecretSafe(t *testing.T) {
 if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
 case "$*" in
   *"@@performance_schema"*) printf '0\t1\t0\t0\tmanaged_or_cloud\t8.0.36\n' ;;
+  *"information_schema.TABLES"*"table_io_waits_summary_by_table"*) printf '1\t4\n' ;;
+  *"SELECT COUNT(*) FROM performance_schema.table_io_waits_summary_by_table"*) printf '23\n' ;;
   *"SHOW GRANTS"*) printf "GRANT USAGE ON *.* TO 'grant-user-sentinel'@'%%'\n" ;;
   *) exit 91 ;;
 esac
@@ -404,6 +406,7 @@ esac
 		"persist_privileges=not_visible", "server_flavor=managed_or_cloud",
 		"endpoint_provider=aliyun_rds",
 		"server_version=8.0.36", "next_action=configure_provider_or_server_startup",
+		"table_io_contract=valid", "table_io_select=available",
 		"restart_required=1",
 	} {
 		if !strings.Contains(output, want) {

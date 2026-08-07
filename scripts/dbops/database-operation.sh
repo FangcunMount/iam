@@ -598,6 +598,31 @@ performance_schema_status() {
   local enabled persisted_load x509_configured tls_active server_flavor server_version
   IFS=$'\t' read -r enabled persisted_load x509_configured tls_active server_flavor server_version <<<"$state"
   echo "performance schema capability: result=success enabled=$enabled persisted_globals_load=$persisted_load persist_x509_subject_configured=$x509_configured tls_active=$tls_active persist_privileges=$privilege_state server_flavor=$server_flavor endpoint_provider=$endpoint_provider server_version=$server_version"
+
+  local table_io_contract table_io_probe table_io_select
+  table_io_contract="unavailable"
+  table_io_select="not_checked"
+  if table_io_probe="$(mysql_scalar "SELECT
+      EXISTS(SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = 'performance_schema'
+          AND TABLE_NAME = 'table_io_waits_summary_by_table'),
+      (SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = 'performance_schema'
+          AND TABLE_NAME = 'table_io_waits_summary_by_table'
+          AND COLUMN_NAME IN ('COUNT_STAR', 'SUM_TIMER_WAIT', 'COUNT_READ', 'COUNT_WRITE'));" )" \
+      && [ "$table_io_probe" = $'1\t4' ]; then
+    table_io_contract="valid"
+    if table_io_probe="$(mysql_scalar "SELECT COUNT(*) FROM performance_schema.table_io_waits_summary_by_table;")" \
+        && [[ "$table_io_probe" =~ ^[0-9]+$ ]]; then
+      table_io_select="available"
+    else
+      table_io_select="unavailable"
+    fi
+  elif [ -n "$table_io_probe" ]; then
+    table_io_contract="invalid"
+  fi
+  echo "performance schema capability: table_io_contract=$table_io_contract table_io_select=$table_io_select"
+
   if [ "$enabled" = "1" ]; then
     echo "performance schema capability: next_action=already_enabled restart_required=0"
   elif [ "$persisted_load" = "1" ] && [ "$x509_configured" = "1" ] && [ "$tls_active" = "1" ] && [ "$privilege_state" = "visible" ]; then
