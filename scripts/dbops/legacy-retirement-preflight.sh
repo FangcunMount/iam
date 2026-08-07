@@ -163,20 +163,18 @@ validate_configuration() {
 }
 
 emit_identity_schema_contracts() {
-  local table expected expected_count quoted result present_count present_columns
+  local table expected expected_count result actual_count actual_columns
   while IFS='|' read -r table expected; do
     expected_count="$(awk -F ',' '{ print NF }' <<<"$expected")"
-    quoted="${expected//,/','}"
     result="$(mysql_query "SELECT
       COUNT(*),
       COALESCE(GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION SEPARATOR ','), 'none')
       FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = '$table'
-        AND COLUMN_NAME IN ('$quoted');")"
-    IFS=$'\t' read -r present_count present_columns <<<"$result"
-    printf 'schema_contract\t%s\texpected_columns=%s\tpresent_columns=%s\tpresent_required=%s\n' \
-      "$table" "$expected_count" "$present_count" "$present_columns"
+        AND TABLE_NAME = '$table';")"
+    IFS=$'\t' read -r actual_count actual_columns <<<"$result"
+    printf 'schema_contract\t%s\texpected_columns=%s\tactual_columns=%s\tcolumn_names=%s\n' \
+      "$table" "$expected_count" "$actual_count" "$actual_columns"
   done <<'EOF'
 children|id,name,id_card,gender,birthday,height,weight,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version
 profiles|id,name,id_card,gender,birthday,height,weight,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version
