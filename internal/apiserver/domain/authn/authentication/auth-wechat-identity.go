@@ -6,6 +6,15 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 )
 
+type legacyWechatIdentityRepository interface {
+	FindLegacyWechatIdentityByProviderKey(
+		ctx context.Context,
+		provider loginidentity.Provider,
+		realm string,
+		identifier string,
+	) (*LoginIdentityLookup, error)
+}
+
 func findWechatIdentityByOpenIDThenUnionID(
 	ctx context.Context,
 	repo LoginIdentityRepository,
@@ -21,5 +30,13 @@ func findWechatIdentityByOpenIDThenUnionID(
 	if unionID == "" {
 		return nil, nil
 	}
-	return repo.FindLoginIdentityByGlobalIdentifier(ctx, provider, unionID)
+	lookup, err = repo.FindLoginIdentityByGlobalIdentifier(ctx, provider, unionID)
+	if err != nil || lookup != nil {
+		return lookup, err
+	}
+	legacyRepo, ok := repo.(legacyWechatIdentityRepository)
+	if !ok {
+		return nil, nil
+	}
+	return legacyRepo.FindLegacyWechatIdentityByProviderKey(ctx, provider, appID, unionID)
 }

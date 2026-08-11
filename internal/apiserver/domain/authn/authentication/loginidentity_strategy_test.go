@@ -194,6 +194,89 @@ func TestWechatMinipAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T
 	require.Equal(t, "wx-app", decision.Principal.Realm)
 }
 
+func TestWechatMinipAuthStrategyFallsBackToMarkedLegacyUnionIdentifier(t *testing.T) {
+	ctx := context.Background()
+	loginIdentityID := meta.FromUint64(2001)
+	identityRepo := newLoginIdentityRepoTestDouble()
+	identityRepo.legacyLookups[providerLookupKey(
+		loginidentity.ProviderWechatMinip,
+		"wx-app",
+		"union-1",
+	)] = &authentication.LoginIdentityLookup{
+		LoginIdentityID: loginIdentityID,
+		UserID:          meta.FromUint64(1001),
+		Provider:        loginidentity.ProviderWechatMinip,
+		Realm:           "wx-app",
+		Identifier:      "union-1",
+		Status:          loginidentity.StatusActive,
+	}
+	identityRepo.statusByID[loginIdentityID] = loginidentity.StatusActive
+	authenticator := authentication.NewAuthenticator(
+		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(
+			identityRepo,
+			idpTestDouble{wxOpenID: "openid-1", wxUnionID: "union-1"},
+		),
+	)
+	proof, err := authentication.NewWechatMiniCredential(authentication.WechatMiniProofSpec{
+		AppID:     "wx-app",
+		AppSecret: "secret",
+		Code:      "code",
+	})
+	require.NoError(t, err)
+
+	decision, err := authenticator.Authenticate(ctx, proof)
+	require.NoError(t, err)
+	require.True(t, decision.OK)
+	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
+}
+
+func TestWechatMinipAuthStrategyPrefersCanonicalGlobalUnionOverLegacyFallback(t *testing.T) {
+	ctx := context.Background()
+	canonicalID := meta.FromUint64(2001)
+	legacyID := meta.FromUint64(2002)
+	identityRepo := newLoginIdentityRepoTestDouble(&authentication.LoginIdentityLookup{
+		LoginIdentityID:  canonicalID,
+		UserID:           meta.FromUint64(1001),
+		Provider:         loginidentity.ProviderWechatMinip,
+		Realm:            "wx-app",
+		Identifier:       "canonical-openid",
+		GlobalIdentifier: "union-1",
+		Status:           loginidentity.StatusActive,
+	})
+	identityRepo.providerLookups = map[string]*authentication.LoginIdentityLookup{}
+	identityRepo.legacyLookups[providerLookupKey(
+		loginidentity.ProviderWechatMinip,
+		"wx-app",
+		"union-1",
+	)] = &authentication.LoginIdentityLookup{
+		LoginIdentityID: legacyID,
+		UserID:          meta.FromUint64(1002),
+		Provider:        loginidentity.ProviderWechatMinip,
+		Realm:           "wx-app",
+		Identifier:      "union-1",
+		Status:          loginidentity.StatusActive,
+	}
+	identityRepo.statusByID[legacyID] = loginidentity.StatusActive
+	authenticator := authentication.NewAuthenticator(
+		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(
+			identityRepo,
+			idpTestDouble{wxOpenID: "openid-1", wxUnionID: "union-1"},
+		),
+	)
+	proof, err := authentication.NewWechatMiniCredential(authentication.WechatMiniProofSpec{
+		AppID:     "wx-app",
+		AppSecret: "secret",
+		Code:      "code",
+	})
+	require.NoError(t, err)
+
+	decision, err := authenticator.Authenticate(ctx, proof)
+	require.NoError(t, err)
+	require.True(t, decision.OK)
+	require.Equal(t, canonicalID, decision.LoginIdentityID)
+	require.Equal(t, meta.FromUint64(1001), decision.Principal.UserID)
+}
+
 func TestWecomAuthStrategyWithLoginIdentityDoesNotRequireLongTermCredential(t *testing.T) {
 	ctx := context.Background()
 	loginIdentityID := meta.FromUint64(2001)
@@ -262,6 +345,7 @@ func (m credentialMaterial) statusOrEnabled() credDomain.CredentialStatus {
 type loginIdentityRepoTestDouble struct {
 	providerLookups map[string]*authentication.LoginIdentityLookup
 	globalLookups   map[string]*authentication.LoginIdentityLookup
+	legacyLookups   map[string]*authentication.LoginIdentityLookup
 	statusByID      map[meta.ID]loginidentity.Status
 }
 
@@ -269,6 +353,7 @@ func newLoginIdentityRepoTestDouble(lookups ...*authentication.LoginIdentityLook
 	repo := &loginIdentityRepoTestDouble{
 		providerLookups: map[string]*authentication.LoginIdentityLookup{},
 		globalLookups:   map[string]*authentication.LoginIdentityLookup{},
+		legacyLookups:   map[string]*authentication.LoginIdentityLookup{},
 		statusByID:      map[meta.ID]loginidentity.Status{},
 	}
 	for _, lookup := range lookups {
@@ -289,6 +374,9 @@ func (s *loginIdentityRepoTestDouble) FindLoginIdentityByProviderKey(_ context.C
 }
 func (s *loginIdentityRepoTestDouble) FindLoginIdentityByGlobalIdentifier(_ context.Context, provider loginidentity.Provider, globalIdentifier string) (*authentication.LoginIdentityLookup, error) {
 	return s.globalLookups[globalLookupKey(provider, globalIdentifier)], nil
+}
+func (s *loginIdentityRepoTestDouble) FindLegacyWechatIdentityByProviderKey(_ context.Context, provider loginidentity.Provider, realm, identifier string) (*authentication.LoginIdentityLookup, error) {
+	return s.legacyLookups[providerLookupKey(provider, realm, identifier)], nil
 }
 func (s *loginIdentityRepoTestDouble) IsLoginIdentityActive(_ context.Context, loginIdentityID meta.ID) (bool, error) {
 	status, ok := s.statusByID[loginIdentityID]

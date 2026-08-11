@@ -16,6 +16,15 @@ const (
 	RealmGlobal  = "global"  // 全局域
 )
 
+const (
+	// MetaLegacyIdentifierSemantics marks identities whose identifier came from
+	// the legacy OAuth credential column. That column stored either an OpenID or
+	// a UnionID, so runtime compatibility must treat it as an explicitly marked
+	// fallback instead of changing lookup semantics for every identity.
+	MetaLegacyIdentifierSemantics = "legacy_identifier_semantics"
+	LegacyIdentifierOpenOrUnion   = "openid_or_unionid"
+)
+
 // String 提供者名称
 func (p Provider) String() string { return string(p) }
 
