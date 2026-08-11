@@ -153,8 +153,9 @@ Docker `HEALTHCHECK` 始终使用 `/healthz` 作为 liveness。生产发布脚�
 但不会自动重启或回滚容器。
 
 镜像同时包含 `/app/iam-maintenance`，仅用于受控维护窗口中的 Refresh
-Token 清理和修复前敏感日志处置。该命令默认 dry-run，不由 apiserver
-自动调用。
+Token 清理、修复前敏感日志处置和旧 AuthN 表到 canonical 表的安全对账/补缺。
+维护命令默认 dry-run，不由 apiserver 自动调用；AuthN apply 必须通过生产
+Database Operations 的备份、审批和确认词门禁，且不会删除旧表。
 
 ## 日志管理
 

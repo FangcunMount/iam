@@ -13,10 +13,13 @@ on:
       - internal/apiserver/container/authn/**
       - internal/apiserver/infra/token/keyset/**
       - internal/apiserver/options/**
+      - internal/apiserver/maintenance/**
+      - cmd/iam-maintenance/**
       - internal/pkg/migration/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
       - scripts/dbops/**
+      - scripts/oneoff/**
       - .github/workflows/db-ops.yml
       - .github/workflows/concurrency-tests.yml
   pull_request:
@@ -30,10 +33,13 @@ on:
       - internal/apiserver/container/authn/**
       - internal/apiserver/infra/token/keyset/**
       - internal/apiserver/options/**
+      - internal/apiserver/maintenance/**
+      - cmd/iam-maintenance/**
       - internal/pkg/migration/**
       - internal/apiserver/testhelpers/**
       - internal/pkg/code/**
       - scripts/dbops/**
+      - scripts/oneoff/**
       - .github/workflows/db-ops.yml
       - .github/workflows/concurrency-tests.yml
 
@@ -170,7 +176,7 @@ jobs:
           set -euo pipefail
           export MYSQL_PWD="$MYSQL_PASSWORD"
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
-            -e 'DROP DATABASE IF EXISTS iam_retirement_fixture; CREATE DATABASE iam_retirement_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_full_chain; CREATE DATABASE iam_full_chain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+            -e 'DROP DATABASE IF EXISTS iam_retirement_fixture; CREATE DATABASE iam_retirement_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_full_chain; CREATE DATABASE iam_full_chain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_authn_reconcile; CREATE DATABASE iam_authn_reconcile CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
 
           MYSQL_DATABASE=iam_retirement_fixture MYSQL_DBNAME=iam_retirement_fixture \
             go test ./internal/pkg/migration \
@@ -186,6 +192,23 @@ jobs:
               -v \
               -count=1 \
               2>&1 | tee test-artifacts/full-chain-migration-tests.txt
+          test "${PIPESTATUS[0]}" = "0"
+
+          MYSQL_DATABASE=iam_authn_reconcile MYSQL_DBNAME=iam_authn_reconcile \
+            go test ./internal/apiserver/maintenance \
+              -run "TestAuthNLegacyReconciliationMySQL" \
+              -v \
+              -count=1 \
+              2>&1 | tee test-artifacts/authn-reconciliation-tests.txt
+          test "${PIPESTATUS[0]}" = "0"
+
+          MYSQL_DATABASE=iam_authn_reconcile MYSQL_DBNAME=iam_authn_reconcile \
+            IAM_RETIREMENT_MYSQL_BIN=mysql \
+            go test ./scripts/dbops \
+              -run "TestLegacyRetirementPreflightAuthNMySQL" \
+              -v \
+              -count=1 \
+              2>&1 | tee test-artifacts/authn-preflight-tests.txt
           test "${PIPESTATUS[0]}" = "0"
 
       - name: Verify database backup, restore, and Identity retirement with MySQL 8

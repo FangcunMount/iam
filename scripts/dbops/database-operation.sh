@@ -12,6 +12,7 @@ MYSQLDUMP_BIN="${IAM_DB_OPS_MYSQLDUMP_BIN:-mysqldump}"
 TIMESTAMP_OVERRIDE="${IAM_DB_OPS_TIMESTAMP:-}"
 ALLOW_DOCKER_CLIENT="${IAM_DB_OPS_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_DB_OPS_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
+AUTHN_CONTAINER="${IAM_DB_OPS_AUTHN_CONTAINER:-iam-apiserver}"
 
 MYSQL_DEFAULTS=""
 PARTIAL_PATH=""
@@ -126,7 +127,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status|retire-identity-dry-run|retire-identity-apply|performance-schema-status) ;;
+    backup|restore|status|retire-identity-dry-run|retire-identity-apply|reconcile-authn-dry-run|reconcile-authn-verify|reconcile-authn-apply|performance-schema-status) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -149,6 +150,10 @@ validate_configuration() {
   fi
   if [[ "$BACKUP_DIR" != /* ]] || [ -L "$BACKUP_DIR" ]; then
     fail "backup directory is invalid"
+    return 1
+  fi
+  if ! [[ "$AUTHN_CONTAINER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+    fail "AuthN maintenance container is invalid"
     return 1
   fi
 }
@@ -552,6 +557,68 @@ SQL
   echo "identity retirement completed: mode=apply result=success children_rows_deleted=$children_rows guardianships_rows_deleted=$guardianship_rows canonical_writes=0"
 }
 
+reconcile_authn_legacy() {
+  local docker_bin sudo_bin running result
+  if [ "$OPERATION" = "reconcile-authn-apply" ]; then
+    if [ "$CONFIRMATION" != "BACKFILL_AUTHN_LEGACY_MISSING" ]; then
+      fail "AuthN reconciliation confirmation is invalid"
+      return 1
+    fi
+    command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
+    validate_recent_backup || return 1
+  elif [ -n "${CONFIRMATION//[[:space:]]/}" ]; then
+    fail "AuthN reconciliation dry-run does not accept confirmation"
+    return 1
+  fi
+
+  docker_bin="$(command -v "${IAM_DB_OPS_DOCKER_BIN:-docker}" 2>/dev/null || true)"
+  sudo_bin="$(command -v "${IAM_DB_OPS_SUDO_BIN:-sudo}" 2>/dev/null || true)"
+  if [ -z "$docker_bin" ] || [ -z "$sudo_bin" ]; then
+    fail "AuthN maintenance container access is unavailable"
+    return 1
+  fi
+  if ! running="$($sudo_bin -n "$docker_bin" inspect --format '{{.State.Running}}' "$AUTHN_CONTAINER" 2>/dev/null)" \
+      || [ "$running" != "true" ]; then
+    fail "AuthN maintenance container is not running"
+    return 1
+  fi
+
+  ERROR_PATH="$(mktemp "${TMPDIR:-/tmp}/iam-authn-reconciliation.XXXXXX.error")"
+  chmod 0600 "$ERROR_PATH"
+  echo "AuthN reconciliation started: mode=${OPERATION#reconcile-authn-} canonical_policy=insert_missing_only"
+  if [ "$OPERATION" = "reconcile-authn-apply" ]; then
+    if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
+        /app/iam-maintenance reconcile-authn-legacy --apply \
+        --confirm=BACKFILL_AUTHN_LEGACY_MISSING --timeout=5m 2>"$ERROR_PATH")"; then
+      [ -z "$result" ] || printf '%s\n' "$result"
+      fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
+      return 1
+    fi
+  elif [ "$OPERATION" = "reconcile-authn-verify" ]; then
+    if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
+        /app/iam-maintenance reconcile-authn-legacy --require-eligible \
+        --timeout=5m 2>"$ERROR_PATH")"; then
+      [ -z "$result" ] || printf '%s\n' "$result"
+      fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
+      return 1
+    fi
+  else
+    if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
+        /app/iam-maintenance reconcile-authn-legacy --timeout=5m 2>"$ERROR_PATH")"; then
+      [ -z "$result" ] || printf '%s\n' "$result"
+      fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
+      return 1
+    fi
+  fi
+  if ! grep -Eq '"format_version"[[:space:]]*:[[:space:]]*3' <<<"$result" \
+      || ! grep -Eq '"retirement_eligible"[[:space:]]*:[[:space:]]*(true|false)' <<<"$result"; then
+    fail "AuthN reconciliation evidence is invalid"
+    return 1
+  fi
+  printf '%s\n' "$result"
+  echo "AuthN reconciliation completed: mode=${OPERATION#reconcile-authn-} result=success"
+}
+
 performance_schema_status() {
   require_mysql8_client "$MYSQL_BIN" mysql || return 1
   prepare_backup_directory || return 1
@@ -646,6 +713,7 @@ main() {
     restore) restore_database ;;
     status) database_status ;;
     retire-identity-dry-run|retire-identity-apply) retire_identity_tables ;;
+    reconcile-authn-dry-run|reconcile-authn-verify|reconcile-authn-apply) reconcile_authn_legacy ;;
     performance-schema-status) performance_schema_status ;;
   esac
 }

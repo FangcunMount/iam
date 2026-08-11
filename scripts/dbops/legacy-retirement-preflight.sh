@@ -408,26 +408,45 @@ emit_parity_summaries() {
   fi
 
   if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "authn" ]; then
-    emit_parity_result auth_accounts_to_login_identities "auth_accounts auth_login_identities" "WITH account_facts AS (
+    emit_parity_result auth_accounts_to_login_identities "auth_accounts auth_login_identities" "WITH account_keys AS (
     SELECT a.*,
       a.type IN ('opera', 'mock-consumer', 'wc-minip', 'wc-com') AS supported,
-      (TRIM(a.external_id) <> '' AND (a.type NOT IN ('wc-minip', 'wc-com') OR TRIM(COALESCE(a.app_id, '')) <> '')) AS valid_key,
+      CASE a.type WHEN 'wc-minip' THEN 'wechat_minip' WHEN 'wc-com' THEN 'wecom' ELSE 'username' END AS expected_provider,
+      CASE WHEN a.type = 'opera' AND a.scoped_tenant_id <> 0 THEN CAST(a.scoped_tenant_id AS CHAR)
+           WHEN a.type IN ('wc-minip', 'wc-com') THEN TRIM(a.app_id) ELSE 'default' END AS expected_realm,
+      TRIM(a.external_id) AS expected_identifier,
+      NULLIF(TRIM(COALESCE(a.unique_id, '')), '') AS expected_global_identifier
+    FROM auth_accounts a
+  ), account_facts AS (
+    SELECT ak.*,
+      (OCTET_LENGTH(ak.expected_identifier) > 0
+        AND (ak.type NOT IN ('wc-minip', 'wc-com') OR OCTET_LENGTH(ak.expected_realm) > 0)) AS valid_key,
       (SELECT COUNT(*) FROM auth_login_identities li
-       WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_account_id')) AS UNSIGNED) = a.id
-         AND CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_table')) AS BINARY) = CAST('auth_accounts' AS BINARY)) AS mapping_count,
+       WHERE CAST(li.provider AS BINARY) = CAST(ak.expected_provider AS BINARY)
+         AND CAST(li.realm AS BINARY) = CAST(ak.expected_realm AS BINARY)
+         AND CAST(li.identifier AS BINARY) = CAST(ak.expected_identifier AS BINARY)) AS mapping_count,
       EXISTS (
         SELECT 1 FROM auth_login_identities li
-        WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_account_id')) AS UNSIGNED) = a.id
-          AND CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_table')) AS BINARY) = CAST('auth_accounts' AS BINARY)
-          AND li.user_id = a.user_id
-          AND CAST(li.provider AS BINARY) = CAST(CASE a.type WHEN 'wc-minip' THEN 'wechat_minip' WHEN 'wc-com' THEN 'wecom' ELSE 'username' END AS BINARY)
-          AND CAST(li.realm AS BINARY) = CAST(CASE WHEN a.type = 'opera' AND a.scoped_tenant_id <> 0 THEN CAST(a.scoped_tenant_id AS CHAR)
-                              WHEN a.type IN ('wc-minip', 'wc-com') THEN TRIM(a.app_id) ELSE 'default' END AS BINARY)
-          AND CAST(li.identifier AS BINARY) = CAST(TRIM(a.external_id) AS BINARY)
-          AND CAST(li.global_identifier AS BINARY) <=> CAST(NULLIF(TRIM(COALESCE(a.unique_id, '')), '') AS BINARY)
-          AND CAST(li.status AS BINARY) = CAST(CASE a.status WHEN 1 THEN 'active' WHEN 2 THEN 'archived' WHEN 3 THEN 'deleted' ELSE 'disabled' END AS BINARY)
-      ) AS exact_mapping
-    FROM auth_accounts a
+        WHERE CAST(li.provider AS BINARY) = CAST(ak.expected_provider AS BINARY)
+          AND CAST(li.realm AS BINARY) = CAST(ak.expected_realm AS BINARY)
+          AND CAST(li.identifier AS BINARY) = CAST(ak.expected_identifier AS BINARY)
+          AND (li.user_id <> ak.user_id
+            OR (ak.expected_global_identifier IS NOT NULL
+              AND NOT (CAST(li.global_identifier AS BINARY) <=> CAST(ak.expected_global_identifier AS BINARY))))
+      ) AS immutable_conflict,
+      EXISTS (
+        SELECT 1 FROM auth_login_identities li
+        WHERE CAST(li.provider AS BINARY) = CAST(ak.expected_provider AS BINARY)
+          AND CAST(li.realm AS BINARY) = CAST(ak.expected_realm AS BINARY)
+          AND CAST(li.identifier AS BINARY) = CAST(ak.expected_identifier AS BINARY)
+          AND CAST(li.status AS BINARY) <> CAST(CASE ak.status WHEN 1 THEN 'active' WHEN 2 THEN 'archived' WHEN 3 THEN 'deleted' ELSE 'disabled' END AS BINARY)
+      ) AS mutable_status_divergence,
+      (SELECT COUNT(*) FROM account_keys peer
+       WHERE peer.supported
+         AND CAST(peer.expected_provider AS BINARY) = CAST(ak.expected_provider AS BINARY)
+         AND CAST(peer.expected_realm AS BINARY) = CAST(ak.expected_realm AS BINARY)
+         AND CAST(peer.expected_identifier AS BINARY) = CAST(ak.expected_identifier AS BINARY)) AS source_key_count
+    FROM account_keys ak
   )
   SELECT
     CONCAT('legacy_rows=', COUNT(*)),
@@ -437,8 +456,9 @@ emit_parity_summaries() {
     CONCAT('unsupported_rows=', COALESCE(SUM(NOT supported), 0)),
     CONCAT('mapped_rows=', COALESCE(SUM(supported AND valid_key AND mapping_count > 0), 0)),
     CONCAT('missing_supported_rows=', COALESCE(SUM(supported AND valid_key AND mapping_count = 0), 0)),
-    CONCAT('mismatched_mapped_rows=', COALESCE(SUM(supported AND valid_key AND mapping_count > 0 AND NOT exact_mapping), 0)),
-    CONCAT('duplicate_mapped_rows=', COALESCE(SUM(supported AND valid_key AND mapping_count > 1), 0))
+    CONCAT('immutable_conflict_rows=', COALESCE(SUM(supported AND valid_key AND mapping_count > 0 AND immutable_conflict), 0)),
+    CONCAT('duplicate_source_rows=', COALESCE(SUM(supported AND valid_key AND source_key_count > 1), 0)),
+    CONCAT('mutable_status_divergences=', COALESCE(SUM(supported AND valid_key AND mapping_count > 0 AND mutable_status_divergence), 0))
   FROM account_facts;"
 
     emit_parity_result legacy_credentials_to_authn "auth_credentials_legacy auth_credentials auth_login_identities auth_accounts" "WITH credential_facts AS (
@@ -449,48 +469,69 @@ emit_parity_summaries() {
         AND (COALESCE(OCTET_LENGTH(lc.material), 0) = 0 OR COALESCE(lc.algo, '') = '')) AS invalid_password,
       (lc.type = 'phone_otp' OR COALESCE(lc.idp, '') = 'phone') AS phone_artifact,
       (lc.type IN ('oauth_wx_minip', 'oauth_wx_open', 'oauth_wx_scan', 'oauth_wecom')) AS oauth_artifact,
+      (SELECT COUNT(*) FROM auth_credentials_legacy peer
+       WHERE peer.account_id = lc.account_id
+         AND ((peer.type = 'password' OR COALESCE(peer.idp, '') = '')
+           AND COALESCE(OCTET_LENGTH(peer.material), 0) > 0 AND COALESCE(peer.algo, '') <> '')) AS password_source_count,
+      (SELECT COUNT(*) FROM auth_credentials_legacy peer
+       WHERE (peer.type = 'phone_otp' OR COALESCE(peer.idp, '') = 'phone')
+         AND CAST(TRIM(peer.idp_identifier) AS BINARY) = CAST(TRIM(lc.idp_identifier) AS BINARY)) AS phone_source_count,
       (SELECT COUNT(*) FROM auth_credentials c
-       WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(c.params_json, '$.legacy_credential_id')) AS UNSIGNED) = lc.id) AS password_mapping_count,
+       JOIN auth_login_identities li ON li.id = c.login_identity_id
+       JOIN auth_accounts a ON a.id = lc.account_id
+       WHERE CAST(c.type AS BINARY) = CAST('password' AS BINARY)
+         AND li.user_id = a.user_id
+         AND CAST(li.provider AS BINARY) = CAST(CASE a.type WHEN 'wc-minip' THEN 'wechat_minip' WHEN 'wc-com' THEN 'wecom' ELSE 'username' END AS BINARY)
+         AND CAST(li.realm AS BINARY) = CAST(CASE WHEN a.type = 'opera' AND a.scoped_tenant_id <> 0 THEN CAST(a.scoped_tenant_id AS CHAR)
+                             WHEN a.type IN ('wc-minip', 'wc-com') THEN TRIM(a.app_id) ELSE 'default' END AS BINARY)
+         AND CAST(li.identifier AS BINARY) = CAST(TRIM(a.external_id) AS BINARY)
+         AND (OCTET_LENGTH(TRIM(COALESCE(a.unique_id, ''))) = 0
+           OR CAST(li.global_identifier AS BINARY) = CAST(TRIM(a.unique_id) AS BINARY))) AS password_mapping_count,
       EXISTS (
         SELECT 1 FROM auth_credentials c
         JOIN auth_login_identities li ON li.id = c.login_identity_id
-        WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(c.params_json, '$.legacy_credential_id')) AS UNSIGNED) = lc.id
-          AND CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_account_id')) AS UNSIGNED) = lc.account_id
+        JOIN auth_accounts a ON a.id = lc.account_id
+        WHERE CAST(c.type AS BINARY) = CAST('password' AS BINARY)
+          AND li.user_id = a.user_id
+          AND CAST(li.provider AS BINARY) = CAST(CASE a.type WHEN 'wc-minip' THEN 'wechat_minip' WHEN 'wc-com' THEN 'wecom' ELSE 'username' END AS BINARY)
+          AND CAST(li.realm AS BINARY) = CAST(CASE WHEN a.type = 'opera' AND a.scoped_tenant_id <> 0 THEN CAST(a.scoped_tenant_id AS CHAR)
+                              WHEN a.type IN ('wc-minip', 'wc-com') THEN TRIM(a.app_id) ELSE 'default' END AS BINARY)
+          AND CAST(li.identifier AS BINARY) = CAST(TRIM(a.external_id) AS BINARY)
+          AND (OCTET_LENGTH(TRIM(COALESCE(a.unique_id, ''))) = 0
+            OR CAST(li.global_identifier AS BINARY) = CAST(TRIM(a.unique_id) AS BINARY))
           AND SHA2(c.material, 256) <=> SHA2(lc.material, 256)
           AND c.algo <=> lc.algo
-          AND c.status = IF(lc.status = 1, 'enabled', 'disabled')
+          AND CAST(c.status AS BINARY) = CAST(IF(lc.status = 1, 'enabled', 'disabled') AS BINARY)
           AND c.failed_attempts <=> lc.failed_attempts
           AND c.locked_until <=> lc.locked_until
           AND c.last_success_at <=> lc.last_success_at
           AND c.last_failure_at <=> lc.last_failure_at
       ) AS exact_password_mapping,
       (SELECT COUNT(*) FROM auth_login_identities li
-       WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_credential_id')) AS UNSIGNED) = lc.id) AS phone_mapping_count,
+       WHERE CAST(li.provider AS BINARY) = CAST('phone' AS BINARY)
+         AND CAST(li.realm AS BINARY) = CAST('global' AS BINARY)
+         AND CAST(li.identifier AS BINARY) = CAST(TRIM(lc.idp_identifier) AS BINARY)) AS phone_mapping_count,
       EXISTS (
         SELECT 1 FROM auth_login_identities li
         JOIN auth_accounts a ON a.id = lc.account_id
-        WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_credential_id')) AS UNSIGNED) = lc.id
-          AND li.user_id = a.user_id
-          AND li.provider = 'phone'
-          AND li.realm = 'global'
-          AND li.identifier = TRIM(lc.idp_identifier)
-          AND li.status = CASE
-            WHEN a.status = 1 AND lc.status <> 1 THEN 'disabled'
-            WHEN a.status = 1 THEN 'active'
-            WHEN a.status = 2 THEN 'archived'
-            WHEN a.status = 3 THEN 'deleted'
-            ELSE 'disabled'
-          END
+        WHERE li.user_id = a.user_id
+          AND CAST(li.provider AS BINARY) = CAST('phone' AS BINARY)
+          AND CAST(li.realm AS BINARY) = CAST('global' AS BINARY)
+          AND CAST(li.identifier AS BINARY) = CAST(TRIM(lc.idp_identifier) AS BINARY)
       ) AS exact_phone_mapping,
       EXISTS (SELECT 1 FROM auth_accounts a WHERE a.id = lc.account_id) AS account_exists,
       EXISTS (
         SELECT 1 FROM auth_login_identities li
-        WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(li.meta_json, '$.legacy_account_id')) AS UNSIGNED) = lc.account_id
-          AND li.provider = CASE lc.type
+        JOIN auth_accounts a ON a.id = lc.account_id
+        WHERE li.user_id = a.user_id
+          AND CAST(li.realm AS BINARY) = CAST(CASE WHEN a.type = 'opera' AND a.scoped_tenant_id <> 0 THEN CAST(a.scoped_tenant_id AS CHAR)
+                              WHEN a.type IN ('wc-minip', 'wc-com') THEN TRIM(a.app_id) ELSE 'default' END AS BINARY)
+          AND CAST(li.identifier AS BINARY) = CAST(TRIM(a.external_id) AS BINARY)
+          AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
             WHEN 'oauth_wx_minip' THEN 'wechat_minip'
             WHEN 'oauth_wecom' THEN 'wecom'
             ELSE 'wechat_open'
-          END
+          END AS BINARY)
       ) AS oauth_identity_exists
     FROM auth_credentials_legacy lc
   )
@@ -500,14 +541,14 @@ emit_parity_summaries() {
     CONCAT('password_mapped_rows=', COALESCE(SUM(password_eligible AND password_mapping_count > 0), 0)),
     CONCAT('password_unmapped_rows=', COALESCE(SUM(password_eligible AND password_mapping_count = 0), 0)),
     CONCAT('password_material_mismatches=', COALESCE(SUM(password_eligible AND password_mapping_count > 0 AND NOT exact_password_mapping), 0)),
-    CONCAT('password_duplicate_mappings=', COALESCE(SUM(password_eligible AND password_mapping_count > 1), 0)),
+    CONCAT('password_duplicate_sources=', COALESCE(SUM(password_eligible AND password_source_count > 1), 0)),
     CONCAT('invalid_password_rows=', COALESCE(SUM(invalid_password), 0)),
     CONCAT('phone_eligible_rows=', COALESCE(SUM(phone_artifact AND TRIM(COALESCE(idp_identifier, '')) <> '' AND account_exists), 0)),
     CONCAT('phone_identity_mapped_rows=', COALESCE(SUM(phone_artifact AND TRIM(COALESCE(idp_identifier, '')) <> '' AND account_exists AND phone_mapping_count > 0), 0)),
     CONCAT('phone_blank_identifier_rows=', COALESCE(SUM(phone_artifact AND TRIM(COALESCE(idp_identifier, '')) = ''), 0)),
     CONCAT('phone_orphan_account_rows=', COALESCE(SUM(phone_artifact AND NOT account_exists), 0)),
-    CONCAT('phone_identity_mismatches=', COALESCE(SUM(phone_artifact AND phone_mapping_count > 0 AND NOT exact_phone_mapping), 0)),
-    CONCAT('phone_duplicate_mappings=', COALESCE(SUM(phone_artifact AND phone_mapping_count > 1), 0)),
+    CONCAT('phone_owner_conflicts=', COALESCE(SUM(phone_artifact AND phone_mapping_count > 0 AND NOT exact_phone_mapping), 0)),
+    CONCAT('phone_duplicate_sources=', COALESCE(SUM(phone_artifact AND phone_source_count > 1), 0)),
     CONCAT('oauth_artifact_rows=', COALESCE(SUM(oauth_artifact), 0)),
     CONCAT('oauth_redundant_rows=', COALESCE(SUM(oauth_artifact AND oauth_identity_exists), 0)),
     CONCAT('oauth_unmapped_rows=', COALESCE(SUM(oauth_artifact AND NOT oauth_identity_exists), 0)),
@@ -677,7 +718,7 @@ emit_auth_account_eligibility() {
     printf 'eligibility\tauth_accounts\tstate=blocked\treason=account_parity_unavailable\tevidence=instantaneous\n'
     return
   fi
-  for key in invalid_supported_rows unsupported_rows missing_supported_rows mismatched_mapped_rows duplicate_mapped_rows; do
+  for key in invalid_supported_rows unsupported_rows missing_supported_rows immutable_conflict_rows duplicate_source_rows; do
     value="$(cached_parity_value auth_accounts_to_login_identities "$key")"
     if [ -z "$value" ] || [ "$value" != "0" ]; then
       printf 'eligibility\tauth_accounts\tstate=blocked\treason=account_parity_%s\tevidence=instantaneous\n' "$key"
@@ -709,7 +750,7 @@ emit_auth_credential_eligibility() {
     printf 'eligibility\tauth_credentials_legacy\tstate=blocked\treason=credential_parity_unavailable\tevidence=instantaneous\n'
     return
   fi
-  for key in password_unmapped_rows password_material_mismatches password_duplicate_mappings invalid_password_rows phone_blank_identifier_rows phone_orphan_account_rows phone_identity_mismatches phone_duplicate_mappings oauth_unmapped_rows unknown_credential_rows; do
+  for key in password_unmapped_rows password_duplicate_sources invalid_password_rows phone_blank_identifier_rows phone_orphan_account_rows phone_owner_conflicts phone_duplicate_sources oauth_unmapped_rows unknown_credential_rows; do
     value="$(cached_parity_value legacy_credentials_to_authn "$key")"
     if [ -z "$value" ] || [ "$value" != "0" ]; then
       printf 'eligibility\tauth_credentials_legacy\tstate=blocked\treason=credential_parity_%s\tevidence=instantaneous\n' "$key"
@@ -792,7 +833,7 @@ main() {
   chmod 0600 "$ERROR_PATH"
   chmod 0600 "$IO_CACHE_PATH" "$DEPENDENCY_CACHE_PATH" "$PARITY_CACHE_PATH"
 
-  printf 'legacy_retirement_preflight\tformat_version=2\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
+  printf 'legacy_retirement_preflight\tformat_version=3\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
     "$RETIREMENT_SCOPE" "$OWNER_IO_WAIVER"
   emit_metadata
   emit_migration_state

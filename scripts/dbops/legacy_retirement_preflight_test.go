@@ -17,7 +17,7 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 	source := string(data)
 
 	for _, required := range []string{
-		"format_version=2",
+		"format_version=3",
 		"schema_migrations",
 		"performance_schema.table_io_waits_summary_by_table",
 		"information_schema.KEY_COLUMN_USAGE",
@@ -29,7 +29,9 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 		"guardianships_to_profile_links",
 		"auth_accounts_to_login_identities",
 		"legacy_credentials_to_authn",
-		"mismatched_mapped_rows",
+		"immutable_conflict_rows",
+		"mutable_status_divergences",
+		"duplicate_source_rows",
 		"password_material_mismatches",
 		"invalid_supported_rows",
 		"unsupported_rows",
@@ -107,8 +109,8 @@ case "$*" in
   *"information_schema.STATISTICS"*) printf "4\tfedcba9876543210\n" ;;
   *"FROM children c"*) printf "legacy_rows=4\tmapped_rows=4\tmissing_rows=0\tmismatched_rows=0\n" ;;
   *"FROM guardianships g"*) printf "legacy_rows=3\tmapped_rows=3\tmissing_rows=0\tmismatched_rows=0\n" ;;
-  *"FROM auth_credentials_legacy lc"*) printf "legacy_rows=3\tpassword_eligible_rows=1\tpassword_mapped_rows=1\tpassword_unmapped_rows=0\tpassword_material_mismatches=0\tpassword_duplicate_mappings=0\tinvalid_password_rows=0\tphone_eligible_rows=1\tphone_identity_mapped_rows=1\tphone_blank_identifier_rows=0\tphone_orphan_account_rows=0\tphone_identity_mismatches=0\tphone_duplicate_mappings=0\toauth_artifact_rows=1\toauth_redundant_rows=1\toauth_unmapped_rows=0\tunknown_credential_rows=0\n" ;;
-  *"FROM auth_accounts a"*) printf "legacy_rows=2\tsupported_rows=2\tvalid_supported_rows=2\tinvalid_supported_rows=0\tunsupported_rows=0\tmapped_rows=2\tmissing_supported_rows=0\tmismatched_mapped_rows=0\tduplicate_mapped_rows=0\n" ;;
+  *"FROM auth_credentials_legacy lc"*) printf "legacy_rows=3\tpassword_eligible_rows=1\tpassword_mapped_rows=1\tpassword_unmapped_rows=0\tpassword_material_mismatches=1\tpassword_duplicate_sources=0\tinvalid_password_rows=0\tphone_eligible_rows=1\tphone_identity_mapped_rows=1\tphone_blank_identifier_rows=0\tphone_orphan_account_rows=0\tphone_owner_conflicts=0\tphone_duplicate_sources=0\toauth_artifact_rows=1\toauth_redundant_rows=1\toauth_unmapped_rows=0\tunknown_credential_rows=0\n" ;;
+  *"FROM auth_accounts a"*) printf "legacy_rows=2\tsupported_rows=2\tvalid_supported_rows=2\tinvalid_supported_rows=0\tunsupported_rows=0\tmapped_rows=2\tmissing_supported_rows=0\timmutable_conflict_rows=0\tduplicate_source_rows=0\tmutable_status_divergences=2\n" ;;
   *"information_schema.TABLES"*) printf "1\n" ;;
   *"SELECT COUNT(*) FROM "*) printf "4\n" ;;
   *) exit 81 ;;
@@ -139,7 +141,7 @@ esac
 	for _, required := range []string{
 		"query_mode=read_only_aggregate",
 		"metadata\tenvironment\tstaging",
-		"format_version=2",
+		"format_version=3",
 		"migration\tschema_migrations\tpresent\tversion=21\tdirty=0",
 		"candidate_table\tchildren\tpresent=1",
 		"performance_schema\tstate=enabled",
@@ -149,7 +151,7 @@ esac
 		"schema_signature\tchildren\tstate=available",
 		"schema_contract\tchildren\texpected_columns=14",
 		"parity\tchildren_to_profiles\tstate=available\tlegacy_rows=4",
-		"password_material_mismatches=0",
+		"password_material_mismatches=1",
 		"eligibility\tschema_version\tstate=eligible",
 		"eligibility\tauth_accounts\tstate=eligible",
 		"eligibility\tauth_credentials_legacy\tstate=eligible",
