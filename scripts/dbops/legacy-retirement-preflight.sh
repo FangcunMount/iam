@@ -481,6 +481,7 @@ emit_parity_summaries() {
 	     WHEN 'mock-consumer' THEN 'username'
 	     ELSE 'unsupported'
 	   END FROM auth_accounts a WHERE a.id = lc.account_id) AS oauth_account_provider,
+	  (SELECT a.type FROM auth_accounts a WHERE a.id = lc.account_id) AS oauth_account_type,
       (SELECT COUNT(*) FROM auth_credentials_legacy peer
        WHERE peer.account_id = lc.account_id
          AND ((peer.type = 'password' OR COALESCE(peer.idp, '') = '')
@@ -532,6 +533,63 @@ emit_parity_summaries() {
           AND CAST(li.identifier AS BINARY) = CAST(TRIM(lc.idp_identifier) AS BINARY)
       ) AS exact_phone_mapping,
       EXISTS (SELECT 1 FROM auth_accounts a WHERE a.id = lc.account_id) AS account_exists,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    JOIN auth_accounts a ON a.id = lc.account_id
+	    WHERE li.user_id = a.user_id
+	      AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	        WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	        WHEN 'oauth_wecom' THEN 'wecom'
+	        ELSE 'wechat_open'
+	      END AS BINARY)
+	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	      AND CAST(li.identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_direct_identity_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    JOIN auth_accounts a ON a.id = lc.account_id
+	    WHERE li.user_id <> a.user_id
+	      AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	        WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	        WHEN 'oauth_wecom' THEN 'wecom'
+	        ELSE 'wechat_open'
+	      END AS BINARY)
+	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	      AND CAST(li.identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_direct_owner_conflict,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    JOIN auth_accounts a ON a.id = lc.account_id
+	    WHERE li.user_id = a.user_id
+	      AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	        WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	        WHEN 'oauth_wecom' THEN 'wecom'
+	        ELSE 'wechat_open'
+	      END AS BINARY)
+	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	      AND CAST(li.global_identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_global_identity_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    JOIN auth_accounts a ON a.id = lc.account_id
+	    WHERE li.user_id = a.user_id
+	      AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	        WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	        WHEN 'oauth_wecom' THEN 'wecom'
+	        ELSE 'wechat_open'
+	      END AS BINARY)
+	  ) AS oauth_owner_provider_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    JOIN auth_accounts a ON a.id = lc.account_id
+	    WHERE li.user_id = a.user_id
+	      AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	        WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	        WHEN 'oauth_wecom' THEN 'wecom'
+	        ELSE 'wechat_open'
+	      END AS BINARY)
+	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	  ) AS oauth_owner_realm_match,
       EXISTS (
         SELECT 1 FROM auth_login_identities li
         JOIN auth_accounts a ON a.id = lc.account_id
@@ -566,13 +624,38 @@ emit_parity_summaries() {
 	CONCAT('oauth_wx_open_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wx_open'), 0)),
 	CONCAT('oauth_wx_scan_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wx_scan'), 0)),
 	CONCAT('oauth_wecom_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wecom'), 0)),
+	CONCAT('oauth_opera_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'opera'), 0)),
+	CONCAT('oauth_mock_consumer_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer'), 0)),
 	CONCAT('oauth_username_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'username'), 0)),
 	CONCAT('oauth_wechat_minip_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'wechat_minip'), 0)),
 	CONCAT('oauth_wecom_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'wecom'), 0)),
 	CONCAT('oauth_unsupported_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'unsupported'), 0)),
 	CONCAT('oauth_orphan_account_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists), 0)),
+	CONCAT('oauth_orphan_active_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) = 1), 0)),
+	CONCAT('oauth_orphan_disabled_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) <> 1), 0)),
+	CONCAT('oauth_orphan_deleted_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND deleted_at IS NOT NULL), 0)),
 	CONCAT('oauth_provider_mismatch_rows=', COALESCE(SUM(oauth_artifact AND account_exists
 	  AND CAST(oauth_account_provider AS BINARY) <> CAST(oauth_expected_provider AS BINARY)), 0)),
+	CONCAT('oauth_blank_app_id_rows=', COALESCE(SUM(oauth_artifact AND TRIM(COALESCE(app_id, '')) = ''), 0)),
+	CONCAT('oauth_blank_identifier_rows=', COALESCE(SUM(oauth_artifact AND TRIM(COALESCE(idp_identifier, '')) = ''), 0)),
+	CONCAT('oauth_direct_identity_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_direct_identity_match), 0)),
+	CONCAT('oauth_direct_owner_conflict_rows=', COALESCE(SUM(oauth_artifact AND oauth_direct_owner_conflict), 0)),
+	CONCAT('oauth_global_identity_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_global_identity_match), 0)),
+	CONCAT('oauth_owner_provider_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_owner_provider_match), 0)),
+	CONCAT('oauth_owner_provider_realm_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_owner_realm_match), 0)),
+	CONCAT('oauth_duplicate_source_keys=', (SELECT COUNT(*) FROM (
+	  SELECT type, TRIM(COALESCE(app_id, '')), TRIM(COALESCE(idp_identifier, ''))
+	  FROM auth_credentials_legacy
+	  WHERE type IN ('oauth_wx_minip', 'oauth_wx_open', 'oauth_wx_scan', 'oauth_wecom')
+	  GROUP BY type, TRIM(COALESCE(app_id, '')), TRIM(COALESCE(idp_identifier, ''))
+	  HAVING COUNT(*) > 1
+	) duplicate_oauth_keys)),
+	CONCAT('oauth_active_rows=', COALESCE(SUM(oauth_artifact AND deleted_at IS NULL AND COALESCE(status, 0) = 1), 0)),
+	CONCAT('oauth_disabled_rows=', COALESCE(SUM(oauth_artifact AND deleted_at IS NULL AND COALESCE(status, 0) <> 1), 0)),
+	CONCAT('oauth_deleted_rows=', COALESCE(SUM(oauth_artifact AND deleted_at IS NOT NULL), 0)),
+	CONCAT('password_orphan_active_rows=', COALESCE(SUM(password_eligible AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) = 1), 0)),
+	CONCAT('password_orphan_disabled_rows=', COALESCE(SUM(password_eligible AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) <> 1), 0)),
+	CONCAT('password_orphan_deleted_rows=', COALESCE(SUM(password_eligible AND NOT account_exists AND deleted_at IS NOT NULL), 0)),
 	CONCAT('oauth_identity_missing_rows=', COALESCE(SUM(oauth_artifact AND account_exists
 	  AND CAST(oauth_account_provider AS BINARY) = CAST(oauth_expected_provider AS BINARY)
 	  AND NOT oauth_identity_exists), 0)),
