@@ -176,7 +176,7 @@ jobs:
     name: Controlled Database Operation
     if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply' || github.event.inputs.operation == 'reconcile-authn-dry-run' || github.event.inputs.operation == 'reconcile-authn-verify' || github.event.inputs.operation == 'reconcile-authn-apply' || github.event.inputs.operation == 'performance-schema-status'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     environment:
       name: production
     concurrency:
@@ -206,3 +206,4 @@ jobs:
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,IAM_DB_OPS_BACKUP_NAME,IAM_DB_OPS_CONFIRMATION,IAM_DB_OPS_AUTHN_BATCH_SIZE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
+          command_timeout: 20m

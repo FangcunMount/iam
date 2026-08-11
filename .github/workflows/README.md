@@ -151,7 +151,7 @@ go test ./scripts/dbops -run "TestLegacyRetirementPreflightAuthNMySQL" -v -count
 - `retire-identity-apply`: 在相同门禁和生产 environment 下，要求确认令牌 `RETIRE_CHILDREN_GUARDIANSHIPS`，用最终一条 DROP 同时删除 `children/guardianships`。
 - `reconcile-authn-dry-run`: 在已部署的 `iam-apiserver` 容器内运行统一维护程序，只输出 AuthN 聚合对账与缺失插入计划，不写数据库。
 - `reconcile-authn-verify`: 执行相同的只读对账，但只在 `retirement_eligible=true` 时成功；用于 apply 后和稳定窗口结束时的机器门禁。
-- `reconcile-authn-apply`: 要求两小时内的完整备份和确认令牌 `BACKFILL_AUTHN_LEGACY_MISSING`，按 `authn_batch_size`（默认 5,000，上限 50,000）只补 canonical AuthN 缺失记录；已有身份状态、密码材料和锁定事实一律不覆盖，硬冲突时本批不写入。
+- `reconcile-authn-apply`: 要求两小时内的完整备份和确认令牌 `BACKFILL_AUTHN_LEGACY_MISSING`，按 `authn_batch_size`（默认 5,000，上限 50,000）只补 canonical AuthN 缺失记录；已有身份状态、密码材料和锁定事实一律不覆盖，硬冲突时本批不写入。format v5 的 apply（包括零写入重跑）始终返回 `verification_required=true` 且不自行宣称可退役，必须再运行独立只读 verify。
 
 已废弃：
 
@@ -179,7 +179,7 @@ go test ./scripts/dbops -run "TestLegacyRetirementPreflightAuthNMySQL" -v -count
 - restore 拒绝路径分隔符、符号链接、缺失文件和损坏 gzip；不会自动触发生产恢复。
 - `mysqldump`/`mysql` 的原始 stderr 不进入工作流输出，避免 SQL、地址或凭据泄露。
 - Identity 直接退役是一次性例外：业务所有者已明确放弃旧表到 canonical 表的数据对账，脚本不会写 `profiles/profile_links`；它仍要求指定两小时内的完整备份、`version=18, dirty=0`、零数据库对象依赖和显式确认令牌。删除后由 `000019` 幂等登记版本 19。
-- AuthN 对账和补缺共用 `iam-maintenance reconcile-authn-legacy`：canonical 表为权威，只允许普通 `INSERT` 补缺。format v4 将旧 OAuth `(provider, app_id, idp_identifier)` 迁移为带 `legacy_identifier_semantics=openid_or_unionid` 标记的 LoginIdentity；无 canonical 权威的跨 owner 重复键、无效键和未知类型 fail closed，已有 canonical owner 不被覆盖。缺少 `auth_accounts` 的凭据因旧查询本就依赖 JOIN 而标记为 runtime-unreachable，只保留聚合证据并由执行前完整备份承接历史恢复需求。该操作不删除旧表，也不等于已取得 `000023` 的生产 DROP 证据。
+- AuthN 对账和补缺共用 `iam-maintenance reconcile-authn-legacy`：canonical 表为权威，只允许普通 `INSERT` 补缺。format v5 将旧 OAuth `(provider, app_id, idp_identifier)` 迁移为带 `legacy_identifier_semantics=openid_or_unionid` 标记的 LoginIdentity；apply 只提交有界写批，不在持有本批写集时重复全量扫描，最终资格必须由新快照 verify 证明。无 canonical 权威的跨 owner 重复键、无效键和未知类型 fail closed，已有 canonical owner 不被覆盖。缺少 `auth_accounts` 的凭据因旧查询本就依赖 JOIN 而标记为 runtime-unreachable，只保留聚合证据并由执行前完整备份承接历史恢复需求。维护程序、SSH 命令和 job 的预算分别为 15、20、25 分钟，逐层保留退出余量。该操作不删除旧表，也不等于已取得 `000023` 的生产 DROP 证据。
 
 MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → Identity dry-run/apply → 数据断言，并独立运行 AuthN dry-run/apply/冲突回滚语义测试；不接触生产数据，也不上传备份 artifact。
 

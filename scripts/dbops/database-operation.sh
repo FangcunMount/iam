@@ -595,7 +595,7 @@ reconcile_authn_legacy() {
     if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
         /app/iam-maintenance reconcile-authn-legacy --apply \
         --confirm=BACKFILL_AUTHN_LEGACY_MISSING --batch-size="$AUTHN_BATCH_SIZE" \
-        --timeout=5m 2>"$ERROR_PATH")"; then
+        --timeout=15m 2>"$ERROR_PATH")"; then
       [ -z "$result" ] || printf '%s\n' "$result"
       fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
       return 1
@@ -603,20 +603,20 @@ reconcile_authn_legacy() {
   elif [ "$OPERATION" = "reconcile-authn-verify" ]; then
     if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
         /app/iam-maintenance reconcile-authn-legacy --require-eligible \
-        --timeout=5m 2>"$ERROR_PATH")"; then
+        --timeout=15m 2>"$ERROR_PATH")"; then
       [ -z "$result" ] || printf '%s\n' "$result"
       fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
       return 1
     fi
   else
     if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
-        /app/iam-maintenance reconcile-authn-legacy --timeout=5m 2>"$ERROR_PATH")"; then
+        /app/iam-maintenance reconcile-authn-legacy --timeout=15m 2>"$ERROR_PATH")"; then
       [ -z "$result" ] || printf '%s\n' "$result"
       fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
       return 1
     fi
   fi
-  if ! grep -Eq '"format_version"[[:space:]]*:[[:space:]]*4' <<<"$result" \
+  if ! grep -Eq '"format_version"[[:space:]]*:[[:space:]]*5' <<<"$result" \
       || ! grep -Eq '"retirement_eligible"[[:space:]]*:[[:space:]]*(true|false)' <<<"$result"; then
     fail "AuthN reconciliation evidence is invalid"
     return 1
