@@ -108,6 +108,34 @@ VALUES (9001, 999, 'username', 'default', 'operator', 'active', NOW())`); err !=
 		assertAuthNRowCount(t, db, "auth_credentials", 0)
 	})
 
+	t.Run("server-side lock rejects an overlapping reconciliation", func(t *testing.T) {
+		resetAuthNReconcileSchema(t, db)
+		lockConn, err := db.Conn(context.Background())
+		if err != nil {
+			t.Fatalf("reserve lock connection: %v", err)
+		}
+		defer func() {
+			var released sql.NullInt64
+			_ = lockConn.QueryRowContext(
+				context.Background(), "SELECT RELEASE_LOCK(?)", authNLegacyReconcileLockName,
+			).Scan(&released)
+			_ = lockConn.Close()
+		}()
+		var acquired sql.NullInt64
+		if err := lockConn.QueryRowContext(
+			context.Background(), "SELECT GET_LOCK(?, 0)", authNLegacyReconcileLockName,
+		).Scan(&acquired); err != nil || !acquired.Valid || acquired.Int64 != 1 {
+			t.Fatalf("hold reconciliation lock: acquired=%v err=%v", acquired, err)
+		}
+
+		summary, err := ReconcileAuthNLegacy(context.Background(), db, AuthNLegacyReconcileOptions{})
+		if !errors.Is(err, ErrAuthNLegacyInProgress) {
+			t.Fatalf("overlapping reconciliation error=%v summary=%+v", err, summary)
+		}
+		assertAuthNRowCount(t, db, "auth_login_identities", 0)
+		assertAuthNRowCount(t, db, "auth_credentials", 0)
+	})
+
 	t.Run("OAuth migration is marker scoped and resumable in bounded batches", func(t *testing.T) {
 		resetAuthNReconcileSchema(t, db)
 		if _, err := db.Exec(`INSERT INTO auth_accounts
