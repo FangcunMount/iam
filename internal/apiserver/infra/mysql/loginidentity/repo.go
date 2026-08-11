@@ -203,6 +203,27 @@ func (r *Repository) FindLoginIdentityByGlobalIdentifier(ctx context.Context, pr
 	return nil, nil
 }
 
+// FindLegacyWechatIdentityByProviderKey resolves only identities explicitly
+// marked as originating from the legacy OAuth identifier column. The old
+// column stored either OpenID or UnionID, while the canonical model separates
+// them. Keeping this fallback marker-scoped prevents ordinary identities from
+// acquiring broader lookup semantics.
+func (r *Repository) FindLegacyWechatIdentityByProviderKey(
+	ctx context.Context,
+	provider domain.Provider,
+	realm string,
+	identifier string,
+) (*authn.LoginIdentityLookup, error) {
+	identity, err := r.GetByProviderKey(ctx, provider, realm, identifier)
+	if err != nil || identity == nil {
+		return nil, err
+	}
+	if identity.Meta[domain.MetaLegacyIdentifierSemantics] != domain.LegacyIdentifierOpenOrUnion {
+		return nil, nil
+	}
+	return toLookup(identity), nil
+}
+
 func (r *Repository) IsLoginIdentityActive(ctx context.Context, loginIdentityID meta.ID) (bool, error) {
 	identity, err := r.GetByID(ctx, loginIdentityID)
 	if err != nil {
