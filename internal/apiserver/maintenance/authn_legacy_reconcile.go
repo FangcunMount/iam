@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	AuthNLegacyReconcileFormatVersion = 4
+	AuthNLegacyReconcileFormatVersion = 5
 	DefaultAuthNLegacyBatchSize       = 5000
 	MaxAuthNLegacyBatchSize           = 50000
 )
@@ -120,6 +120,7 @@ type AuthNLegacyReconcileSummary struct {
 	AppliedLoginIdentityInserts int    `json:"applied_login_identity_inserts"`
 	AppliedPasswordInserts      int    `json:"applied_password_inserts"`
 	ApplyBatchSize              int    `json:"apply_batch_size,omitempty"`
+	VerificationRequired        bool   `json:"verification_required"`
 	HardConflicts               int    `json:"hard_conflicts"`
 	RetirementEligible          bool   `json:"retirement_eligible"`
 }
@@ -335,33 +336,22 @@ func ReconcileAuthNLegacy(
 	appliedPasswords := len(batch.Passwords)
 	remainingIdentities := len(plan.Identities) - appliedIdentities
 	remainingPasswords := len(plan.Passwords) - appliedPasswords
-	if remainingIdentities != 0 || remainingPasswords != 0 {
-		plan.Summary.ApplyBatchSize = opts.BatchSize
-		plan.Summary.AppliedLoginIdentityInserts = appliedIdentities
-		plan.Summary.AppliedPasswordInserts = appliedPasswords
-		plan.Summary.RemainingLoginIdentityRows = remainingIdentities
-		plan.Summary.RemainingPasswordRows = remainingPasswords
-		plan.Summary.RetirementEligible = false
-		if err := tx.Commit(); err != nil {
-			return plan.Summary, fmt.Errorf("commit authn legacy reconciliation batch: %w", err)
-		}
-		return plan.Summary, nil
-	}
-
-	post, err := analyzeAuthNLegacy(ctx, tx, newAuthNLegacySummary(true))
-	if err != nil {
-		return post.Summary, err
-	}
-	if !post.Summary.RetirementEligible {
-		return post.Summary, fmt.Errorf("authn legacy reconciliation did not converge")
-	}
-	post.Summary.ApplyBatchSize = opts.BatchSize
-	post.Summary.AppliedLoginIdentityInserts = appliedIdentities
-	post.Summary.AppliedPasswordInserts = appliedPasswords
+	plan.Summary.ApplyBatchSize = opts.BatchSize
+	plan.Summary.AppliedLoginIdentityInserts = appliedIdentities
+	plan.Summary.AppliedPasswordInserts = appliedPasswords
+	plan.Summary.RemainingLoginIdentityRows = remainingIdentities
+	plan.Summary.RemainingPasswordRows = remainingPasswords
+	// Apply mode never proves retirement eligibility by itself, including a
+	// no-op rerun. Commit the bounded batch, then require the explicit read-only
+	// verification path to take a fresh snapshot. This avoids repeating a
+	// full-table analysis while holding batch writes open and makes the
+	// destructive gate impossible to satisfy with an apply invocation.
+	plan.Summary.RetirementEligible = false
+	plan.Summary.VerificationRequired = true
 	if err := tx.Commit(); err != nil {
-		return post.Summary, fmt.Errorf("commit authn legacy reconciliation: %w", err)
+		return plan.Summary, fmt.Errorf("commit authn legacy reconciliation batch: %w", err)
 	}
-	return post.Summary, nil
+	return plan.Summary, nil
 }
 
 func limitAuthNReconcilePlan(plan authNReconcilePlan, batchSize int) authNReconcilePlan {

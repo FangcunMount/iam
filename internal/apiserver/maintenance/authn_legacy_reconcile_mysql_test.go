@@ -33,11 +33,17 @@ func TestAuthNLegacyReconciliationMySQL(t *testing.T) {
 		if err != nil {
 			t.Fatalf("apply reconciliation: %v", err)
 		}
-		if !applied.RetirementEligible || applied.AppliedLoginIdentityInserts != 2 || applied.AppliedPasswordInserts != 1 {
+		if applied.RetirementEligible || !applied.VerificationRequired ||
+			applied.AppliedLoginIdentityInserts != 2 || applied.AppliedPasswordInserts != 1 ||
+			applied.RemainingLoginIdentityRows != 0 || applied.RemainingPasswordRows != 0 {
 			t.Fatalf("apply summary = %+v", applied)
 		}
 		assertAuthNRowCount(t, db, "auth_login_identities", 2)
 		assertAuthNRowCount(t, db, "auth_credentials", 1)
+		verified, err := ReconcileAuthNLegacy(context.Background(), db, AuthNLegacyReconcileOptions{})
+		if err != nil || !verified.RetirementEligible || verified.VerificationRequired {
+			t.Fatalf("post-apply verification: err=%v summary=%+v", err, verified)
+		}
 
 		if _, err := db.Exec(`UPDATE auth_login_identities
 SET status = 'disabled', version = 9
@@ -54,7 +60,8 @@ WHERE type = 'password'`, []byte("canonical-password-hash")); err != nil {
 		if err != nil {
 			t.Fatalf("rerun reconciliation: %v", err)
 		}
-		if !rerun.RetirementEligible || rerun.AppliedLoginIdentityInserts != 0 || rerun.AppliedPasswordInserts != 0 {
+		if rerun.RetirementEligible || !rerun.VerificationRequired ||
+			rerun.AppliedLoginIdentityInserts != 0 || rerun.AppliedPasswordInserts != 0 {
 			t.Fatalf("rerun summary = %+v", rerun)
 		}
 		var identityStatus, credentialStatus string
@@ -132,11 +139,15 @@ VALUES (20, 10, 'oauth_wx_minip', 'wechat', 'legacy-open-or-union', 'wx-app', 1)
 		if err != nil {
 			t.Fatalf("second OAuth batch: %v", err)
 		}
-		if !second.RetirementEligible || second.AppliedLoginIdentityInserts != 1 ||
-			second.RemainingLoginIdentityRows != 0 {
+		if second.RetirementEligible || !second.VerificationRequired ||
+			second.AppliedLoginIdentityInserts != 1 || second.RemainingLoginIdentityRows != 0 {
 			t.Fatalf("second OAuth batch summary = %+v", second)
 		}
 		assertAuthNRowCount(t, db, "auth_login_identities", 2)
+		verified, err := ReconcileAuthNLegacy(context.Background(), db, AuthNLegacyReconcileOptions{})
+		if err != nil || !verified.RetirementEligible || verified.VerificationRequired {
+			t.Fatalf("OAuth post-apply verification: err=%v summary=%+v", err, verified)
+		}
 		var marker string
 		if err := db.QueryRow(`SELECT JSON_UNQUOTE(JSON_EXTRACT(meta_json, '$.legacy_identifier_semantics'))
 FROM auth_login_identities

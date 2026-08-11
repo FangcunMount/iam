@@ -407,6 +407,7 @@ def check_database_operations_facts() -> None:
         "reconcile-authn-apply",
         "authn_batch_size:",
         "IAM_DB_OPS_AUTHN_BATCH_SIZE",
+        "command_timeout: 20m",
         "performance-schema-status",
         "IAM_DB_OPS_CONFIRMATION",
     ):
@@ -440,6 +441,7 @@ def check_database_operations_facts() -> None:
         "/app/iam-maintenance reconcile-authn-legacy",
         "canonical_policy=insert_missing_only",
         "--batch-size=",
+        "--timeout=15m",
         "performance schema capability:",
         "endpoint_provider=",
         "configure_provider_or_server_startup",
