@@ -376,6 +376,97 @@ func TestIdentityRetirementRejectsStaleBackup(t *testing.T) {
 	assertSafeOutput(t, output)
 }
 
+func TestAuthNReconciliationUsesDeployedMaintenanceBinaryAndFreshBackup(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	capture := filepath.Join(root, "authn-command.txt")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "sudo", `#!/bin/sh
+if [ "$1" = "-n" ]; then shift; fi
+exec "$@"
+`)
+	writeExecutable(t, bin, "docker", `#!/bin/sh
+case "$1" in
+  inspect) printf 'true\n' ;;
+  exec)
+    printf '%s\n' "$*" > "$IAM_FAKE_AUTHN_CAPTURE"
+    if [ "${IAM_FAKE_AUTHN_CONFLICT:-0}" = "1" ]; then
+      printf '{"format_version":3,"mode":"dry-run","hard_conflicts":1,"retirement_eligible":false}\n'
+      exit 1
+    fi
+    printf '{"format_version":3,"mode":"fixture","hard_conflicts":0,"retirement_eligible":true}\n'
+    ;;
+  *) exit 91 ;;
+esac
+`)
+
+	base := map[string]string{
+		"IAM_DB_OPS_OPERATION":           "reconcile-authn-dry-run",
+		"IAM_DB_OPS_BACKUP_DIR":          backupDir,
+		"IAM_DB_OPS_DOCKER_BIN":          filepath.Join(bin, "docker"),
+		"IAM_DB_OPS_SUDO_BIN":            filepath.Join(bin, "sudo"),
+		"IAM_FAKE_AUTHN_CAPTURE":         capture,
+		"IAM_DB_OPS_AUTHN_CONTAINER":     "iam-apiserver",
+		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT": "0",
+	}
+	output, err := runScript(t, bin, base)
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{"mode=dry-run", "canonical_policy=insert_missing_only", `"format_version":3`, "result=success"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("AuthN dry-run output missing %q: %s", want, output)
+		}
+	}
+	command, err := os.ReadFile(capture)
+	requireNoError(t, err)
+	if !strings.Contains(string(command), "exec iam-apiserver /app/iam-maintenance reconcile-authn-legacy --timeout=5m") {
+		t.Fatalf("unexpected AuthN dry-run command: %s", command)
+	}
+	base["IAM_FAKE_AUTHN_CONFLICT"] = "1"
+	output, err = runScript(t, bin, base)
+	if err == nil || !strings.Contains(output, `"hard_conflicts":1`) || !strings.Contains(output, "raw runtime errors were withheld") {
+		t.Fatalf("AuthN hard-conflict dry-run: err=%v output=%s", err, output)
+	}
+	assertSafeOutput(t, output)
+	delete(base, "IAM_FAKE_AUTHN_CONFLICT")
+	base["IAM_DB_OPS_OPERATION"] = "reconcile-authn-verify"
+	output, err = runScript(t, bin, base)
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	command, err = os.ReadFile(capture)
+	requireNoError(t, err)
+	if !strings.Contains(string(command), "reconcile-authn-legacy --require-eligible --timeout=5m") {
+		t.Fatalf("unexpected AuthN verify command: %s", command)
+	}
+
+	base["IAM_DB_OPS_OPERATION"] = "reconcile-authn-apply"
+	output, err = runScript(t, bin, base)
+	if err == nil || !strings.Contains(output, "confirmation is invalid") {
+		t.Fatalf("AuthN apply without confirmation: err=%v output=%s", err, output)
+	}
+	assertSafeOutput(t, output)
+
+	backupName := "iam_backup_20260811_120000.sql.gz"
+	writeGzip(t, filepath.Join(backupDir, backupName), "verified AuthN reconciliation backup")
+	base["IAM_DB_OPS_BACKUP_NAME"] = backupName
+	base["IAM_DB_OPS_CONFIRMATION"] = "BACKFILL_AUTHN_LEGACY_MISSING"
+	output, err = runScript(t, bin, base)
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	if !strings.Contains(output, "mode=apply result=success") {
+		t.Fatalf("AuthN apply output: %s", output)
+	}
+	command, err = os.ReadFile(capture)
+	requireNoError(t, err)
+	for _, want := range []string{"--apply", "--confirm=BACKFILL_AUTHN_LEGACY_MISSING", "--timeout=5m"} {
+		if !strings.Contains(string(command), want) {
+			t.Fatalf("AuthN apply command missing %q: %s", want, command)
+		}
+	}
+}
+
 func TestPerformanceSchemaStatusIsReadOnlyAndSecretSafe(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
@@ -498,6 +589,7 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"retirement_io_waiver:", "IAM_RETIREMENT_OWNER_IO_WAIVER",
 		"audit_tables",
 		"retire-identity-dry-run", "retire-identity-apply",
+		"reconcile-authn-dry-run", "reconcile-authn-verify", "reconcile-authn-apply",
 		"performance-schema-status",
 		"IAM_DB_OPS_CONFIRMATION", "confirmation:",
 	} {
@@ -519,6 +611,8 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"TestRetireUnusedPlatformTablesMigrationMySQL",
 		"TestRetireUnusedAuditTablesMigrationMySQL",
 		"TestFullMigrationChainAndBootstrapMySQL",
+		"TestAuthNLegacyReconciliationMySQL",
+		"TestLegacyRetirementPreflightAuthNMySQL",
 		"IAM_DB_OPS_OPERATION=backup", "IAM_DB_OPS_OPERATION=restore",
 		"IAM_DB_OPS_OPERATION=retire-identity-dry-run",
 		"IAM_DB_OPS_OPERATION=retire-identity-apply",

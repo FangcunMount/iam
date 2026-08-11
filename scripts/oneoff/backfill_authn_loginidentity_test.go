@@ -1,103 +1,62 @@
 package main
 
 import (
-	"encoding/json"
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
+	"time"
 )
 
-func TestAccountProviderKeyMapsLegacyAccountTypes(t *testing.T) {
-	tests := []struct {
-		name string
-		acc  legacyAccount
-		want providerKey
-		ok   bool
-	}{
-		{
-			name: "opera username scoped by tenant",
-			acc: legacyAccount{
-				Type:           "opera",
-				ExternalID:     "alice",
-				ScopedTenantID: 42,
-			},
-			want: providerKey{Provider: providerUsername, Realm: "42", Identifier: "alice"},
-			ok:   true,
-		},
-		{
-			name: "mock consumer username default realm",
-			acc:  legacyAccount{Type: "mock-consumer", ExternalID: "consumer-1"},
-			want: providerKey{Provider: providerUsername, Realm: realmDefault, Identifier: "consumer-1"},
-			ok:   true,
-		},
-		{
-			name: "wechat minip",
-			acc: legacyAccount{
-				Type:       "wc-minip",
-				AppID:      "wx-app",
-				ExternalID: "openid",
-				UniqueID:   "unionid",
-			},
-			want: providerKey{Provider: providerWechatMinip, Realm: "wx-app", Identifier: "openid", GlobalIdentifier: "unionid"},
-			ok:   true,
-		},
-		{
-			name: "wecom",
-			acc:  legacyAccount{Type: "wc-com", AppID: "corp", ExternalID: "userid"},
-			want: providerKey{Provider: providerWecom, Realm: "corp", Identifier: "userid"},
-			ok:   true,
-		},
-		{
-			name: "unsupported official account",
-			acc:  legacyAccount{Type: "wc-offi", AppID: "wx-offi", ExternalID: "openid"},
-			ok:   false,
-		},
+func TestParseOptionsRequiresConfirmationForApply(t *testing.T) {
+	for _, args := range [][]string{
+		{"--apply"},
+		{"--apply", "--confirm=wrong"},
+	} {
+		if _, err := parseOptions(args); err == nil {
+			t.Fatalf("parseOptions(%v) should reject missing confirmation", args)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := accountProviderKey(tt.acc)
-			require.Equal(t, tt.ok, ok)
-			require.Equal(t, tt.want, got)
-		})
+	opts, err := parseOptions([]string{"--apply", "--confirm=" + applyConfirmation, "--timeout=30s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opts.apply || opts.timeout != 30*time.Second {
+		t.Fatalf("options = %+v", opts)
 	}
 }
 
-func TestStatusMapping(t *testing.T) {
-	require.Equal(t, statusDisabled, accountStatus(0))
-	require.Equal(t, statusActive, accountStatus(1))
-	require.Equal(t, statusArchived, accountStatus(2))
-	require.Equal(t, statusDeleted, accountStatus(3))
-	require.Equal(t, statusDisabled, accountStatus(99))
-
-	require.Equal(t, credentialStatusEnabled, credentialStatus(1))
-	require.Equal(t, credentialStatusDisabled, credentialStatus(0))
+func TestParseOptionsRejectsConfirmationDuringDryRun(t *testing.T) {
+	if _, err := parseOptions([]string{"--confirm=" + applyConfirmation}); err == nil {
+		t.Fatal("dry-run must reject an apply confirmation")
+	}
 }
 
-func TestCredentialTypeDetection(t *testing.T) {
-	require.True(t, isPasswordCredential(legacyCredential{Type: "password", Material: []byte("hash"), Algo: "argon2id"}))
-	require.True(t, isPasswordCredential(legacyCredential{Material: []byte("hash"), Algo: "bcrypt"}))
-	require.False(t, isPasswordCredential(legacyCredential{Type: "password"}))
-
-	require.True(t, isPhoneCredential(legacyCredential{Type: "phone_otp"}))
-	require.True(t, isPhoneCredential(legacyCredential{IDP: "phone"}))
-	require.False(t, isPhoneCredential(legacyCredential{Type: "oauth_wx_minip", IDP: "wechat"}))
+func TestDSNFromEnvironmentDoesNotIncludeSecretsInErrors(t *testing.T) {
+	const secret = "mysql-password-sentinel"
+	t.Setenv("IAM_MYSQL_DSN", "")
+	t.Setenv("MYSQL_DSN", "")
+	t.Setenv("MYSQL_HOST", "db")
+	t.Setenv("MYSQL_USERNAME", "iam")
+	t.Setenv("MYSQL_PASSWORD", secret)
+	t.Setenv("MYSQL_DBNAME", "iam")
+	t.Setenv("MYSQL_PORT", "invalid")
+	_, err := dsnFromEnv()
+	if err == nil {
+		t.Fatal("invalid port should fail")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("error leaked secret: %v", err)
+	}
 }
 
-func TestMergeLegacyMetaPreservesObjectAndAddsLegacyFields(t *testing.T) {
-	got := mergeLegacyMeta([]byte(`{"source":"old"}`), map[string]any{"legacy_account_id": uint64(12)})
-
-	var decoded map[string]any
-	require.NoError(t, json.Unmarshal(got, &decoded))
-	require.Equal(t, "old", decoded["source"])
-	require.Equal(t, float64(12), decoded["legacy_account_id"])
-}
-
-func TestMergeLegacyMetaStoresInvalidJSONAsRaw(t *testing.T) {
-	got := mergeLegacyMeta([]byte(`not-json`), map[string]any{"legacy_table": "auth_credentials"})
-
-	var decoded map[string]any
-	require.NoError(t, json.Unmarshal(got, &decoded))
-	require.Equal(t, "not-json", decoded["legacy_meta_raw"])
-	require.Equal(t, "auth_credentials", decoded["legacy_table"])
+func TestDSNFromEnvironmentRejectsMalformedDSNWithoutLeakingIt(t *testing.T) {
+	const secret = "malformed-oneoff-dsn-secret"
+	t.Setenv("IAM_MYSQL_DSN", secret+"@tcp(")
+	_, err := dsnFromEnv()
+	if err == nil {
+		t.Fatal("malformed DSN should fail")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("error leaked malformed DSN: %v", err)
+	}
 }

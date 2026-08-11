@@ -20,6 +20,9 @@ on:
           - performance-schema-status
           - retire-identity-dry-run
           - retire-identity-apply
+          - reconcile-authn-dry-run
+          - reconcile-authn-verify
+          - reconcile-authn-apply
       backup_name:
         description: Backup name, required for restore
         required: false
@@ -166,13 +169,13 @@ jobs:
 
   db-controlled-operation:
     name: Controlled Database Operation
-    if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply' || github.event.inputs.operation == 'performance-schema-status'
+    if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply' || github.event.inputs.operation == 'reconcile-authn-dry-run' || github.event.inputs.operation == 'reconcile-authn-verify' || github.event.inputs.operation == 'reconcile-authn-apply' || github.event.inputs.operation == 'performance-schema-status'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
       name: production
     concurrency:
-      group: iam-production-identity-retirement
+      group: iam-production-controlled-database-operation
       cancel-in-progress: false
     steps:
       - name: Checkout
