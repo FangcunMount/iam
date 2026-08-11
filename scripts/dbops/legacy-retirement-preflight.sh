@@ -533,6 +533,56 @@ emit_parity_summaries() {
           AND CAST(li.identifier AS BINARY) = CAST(TRIM(lc.idp_identifier) AS BINARY)
       ) AS exact_phone_mapping,
       EXISTS (SELECT 1 FROM auth_accounts a WHERE a.id = lc.account_id) AS account_exists,
+	  EXISTS (SELECT 1 FROM auth_login_identities li WHERE li.id = lc.account_id) AS canonical_identity_id_exists,
+	  EXISTS (
+	    SELECT 1 FROM auth_credentials c
+	    WHERE c.login_identity_id = lc.account_id
+	      AND CAST(c.type AS BINARY) = CAST('password' AS BINARY)
+	      AND SHA2(c.material, 256) <=> SHA2(lc.material, 256)
+	      AND c.algo <=> lc.algo
+	  ) AS orphan_password_exact_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_accounts a
+	    WHERE a.id = lc.account_id
+	      AND CAST(TRIM(COALESCE(a.app_id, '')) AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	  ) AS oauth_app_account_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_accounts a
+	    WHERE a.id = lc.account_id
+	      AND CAST(TRIM(COALESCE(a.external_id, '')) AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_identifier_external_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_accounts a
+	    WHERE a.id = lc.account_id
+	      AND TRIM(COALESCE(a.unique_id, '')) <> ''
+	      AND CAST(TRIM(a.unique_id) AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_identifier_global_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_accounts a
+	    WHERE a.id = lc.account_id
+	      AND CAST(TRIM(COALESCE(a.external_id, '')) AS BINARY) =
+	          CAST(CONCAT(TRIM(COALESCE(lc.idp_identifier, '')), '@', TRIM(COALESCE(lc.app_id, ''))) AS BINARY)
+	  ) AS oauth_identifier_at_app_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    WHERE CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	      WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	      WHEN 'oauth_wecom' THEN 'wecom'
+	      ELSE 'wechat_open'
+	    END AS BINARY)
+	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	      AND CAST(li.identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_any_direct_identity_match,
+	  EXISTS (
+	    SELECT 1 FROM auth_login_identities li
+	    WHERE CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	      WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	      WHEN 'oauth_wecom' THEN 'wecom'
+	      ELSE 'wechat_open'
+	    END AS BINARY)
+	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+	      AND CAST(li.global_identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_any_global_identity_match,
 	  EXISTS (
 	    SELECT 1 FROM auth_login_identities li
 	    JOIN auth_accounts a ON a.id = lc.account_id
@@ -656,6 +706,23 @@ emit_parity_summaries() {
 	CONCAT('password_orphan_active_rows=', COALESCE(SUM(password_eligible AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) = 1), 0)),
 	CONCAT('password_orphan_disabled_rows=', COALESCE(SUM(password_eligible AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) <> 1), 0)),
 	CONCAT('password_orphan_deleted_rows=', COALESCE(SUM(password_eligible AND NOT account_exists AND deleted_at IS NOT NULL), 0)),
+	CONCAT('password_orphan_identity_id_matches=', COALESCE(SUM(password_eligible AND NOT account_exists AND canonical_identity_id_exists), 0)),
+	CONCAT('password_orphan_exact_canonical_matches=', COALESCE(SUM(password_eligible AND NOT account_exists AND orphan_password_exact_match), 0)),
+	CONCAT('oauth_app_id_account_matches=', COALESCE(SUM(oauth_artifact AND account_exists AND oauth_app_account_match), 0)),
+	CONCAT('oauth_identifier_account_external_matches=', COALESCE(SUM(oauth_artifact AND account_exists AND oauth_identifier_external_match), 0)),
+	CONCAT('oauth_identifier_account_global_matches=', COALESCE(SUM(oauth_artifact AND account_exists AND oauth_identifier_global_match), 0)),
+	CONCAT('oauth_identifier_at_app_account_external_matches=', COALESCE(SUM(oauth_artifact AND account_exists AND oauth_identifier_at_app_match), 0)),
+	CONCAT('oauth_mock_app_id_literal_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer' AND TRIM(COALESCE(app_id, '')) = 'mock-consumer'), 0)),
+	CONCAT('oauth_mock_app_id_account_matches=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer' AND oauth_app_account_match), 0)),
+	CONCAT('oauth_mock_identifier_account_external_matches=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer' AND oauth_identifier_external_match), 0)),
+	CONCAT('oauth_mock_material_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer'
+	  AND (COALESCE(OCTET_LENGTH(material), 0) > 0 OR TRIM(COALESCE(algo, '')) <> '')), 0)),
+	CONCAT('oauth_mock_params_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer'
+	  AND COALESCE(OCTET_LENGTH(params_json), 0) > 0 AND CAST(params_json AS CHAR) <> 'null'), 0)),
+	CONCAT('oauth_mock_direct_owner_conflicts=', COALESCE(SUM(oauth_artifact AND oauth_account_type = 'mock-consumer' AND oauth_direct_owner_conflict), 0)),
+	CONCAT('oauth_orphan_identity_id_matches=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND canonical_identity_id_exists), 0)),
+	CONCAT('oauth_orphan_direct_identity_matches=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND oauth_any_direct_identity_match), 0)),
+	CONCAT('oauth_orphan_global_identity_matches=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND oauth_any_global_identity_match), 0)),
 	CONCAT('oauth_identity_missing_rows=', COALESCE(SUM(oauth_artifact AND account_exists
 	  AND CAST(oauth_account_provider AS BINARY) = CAST(oauth_expected_provider AS BINARY)
 	  AND NOT oauth_identity_exists), 0)),

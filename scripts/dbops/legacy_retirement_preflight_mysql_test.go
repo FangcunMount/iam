@@ -98,6 +98,11 @@ func TestLegacyRetirementPreflightAuthNMySQL(t *testing.T) {
 		"oauth_global_identity_match_rows=1",
 		"oauth_owner_provider_realm_match_rows=1",
 		"oauth_active_rows=1",
+		"password_orphan_identity_id_matches=0",
+		"oauth_app_id_account_matches=1",
+		"oauth_identifier_account_global_matches=1",
+		"oauth_mock_material_rows=0",
+		"oauth_orphan_direct_identity_matches=0",
 		"oauth_identity_missing_rows=0",
 		"legacy_retirement_preflight\tresult=success",
 	} {
