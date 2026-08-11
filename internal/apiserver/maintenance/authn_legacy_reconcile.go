@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,9 +21,13 @@ const (
 	AuthNLegacyReconcileFormatVersion = 5
 	DefaultAuthNLegacyBatchSize       = 5000
 	MaxAuthNLegacyBatchSize           = 50000
+	authNLegacyReconcileLockName      = "iam_authn_legacy_reconcile"
 )
 
-var ErrAuthNLegacyConflicts = errors.New("authn legacy reconciliation has hard conflicts")
+var (
+	ErrAuthNLegacyConflicts  = errors.New("authn legacy reconciliation has hard conflicts")
+	ErrAuthNLegacyInProgress = errors.New("authn legacy reconciliation is already in progress")
+)
 
 type AuthNLegacyReconcileOptions struct {
 	Apply     bool
@@ -299,9 +304,27 @@ func ReconcileAuthNLegacy(
 	if opts.Apply && opts.BatchSize == 0 {
 		opts.BatchSize = DefaultAuthNLegacyBatchSize
 	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return summary, fmt.Errorf("reserve authn legacy reconciliation connection: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+	if err := acquireAuthNLegacyReconcileLock(ctx, conn); err != nil {
+		return summary, err
+	}
+	defer releaseAuthNLegacyReconcileLock(conn)
 
+	return reconcileAuthNLegacyOnConnection(ctx, conn, opts, summary)
+}
+
+func reconcileAuthNLegacyOnConnection(
+	ctx context.Context,
+	conn *sql.Conn,
+	opts AuthNLegacyReconcileOptions,
+	summary AuthNLegacyReconcileSummary,
+) (AuthNLegacyReconcileSummary, error) {
 	if !opts.Apply {
-		plan, err := analyzeAuthNLegacy(ctx, db, summary)
+		plan, err := analyzeAuthNLegacy(ctx, conn, summary)
 		if err != nil {
 			return plan.Summary, err
 		}
@@ -315,7 +338,7 @@ func ReconcileAuthNLegacy(
 	// the full canonical-table scans into locking reads. Exact-key and ID races
 	// still fail closed on the canonical unique constraints; no upsert retries
 	// are allowed to overwrite a concurrently created fact.
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 	if err != nil {
 		return summary, fmt.Errorf("begin authn legacy reconciliation: %w", err)
 	}
@@ -352,6 +375,31 @@ func ReconcileAuthNLegacy(
 		return plan.Summary, fmt.Errorf("commit authn legacy reconciliation batch: %w", err)
 	}
 	return plan.Summary, nil
+}
+
+func acquireAuthNLegacyReconcileLock(ctx context.Context, conn *sql.Conn) error {
+	var acquired sql.NullInt64
+	if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 0)", authNLegacyReconcileLockName).Scan(&acquired); err != nil {
+		return fmt.Errorf("acquire authn legacy reconciliation lock: %w", err)
+	}
+	if !acquired.Valid || acquired.Int64 != 1 {
+		return ErrAuthNLegacyInProgress
+	}
+	return nil
+}
+
+func releaseAuthNLegacyReconcileLock(conn *sql.Conn) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var released sql.NullInt64
+	if err := conn.QueryRowContext(ctx, "SELECT RELEASE_LOCK(?)", authNLegacyReconcileLockName).Scan(&released); err == nil &&
+		released.Valid && released.Int64 == 1 {
+		return
+	}
+	// sql.Conn.Close normally returns the underlying connection to the pool.
+	// Mark it bad when explicit release cannot be proven so a session-scoped
+	// lock can never leak into a later pooled borrower.
+	_ = conn.Raw(func(any) error { return driver.ErrBadConn })
 }
 
 func limitAuthNReconcilePlan(plan authNReconcilePlan, batchSize int) authNReconcilePlan {
