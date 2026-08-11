@@ -50,6 +50,17 @@ type AuthNLegacyReconcileSummary struct {
 	PhoneDuplicateSources       int    `json:"phone_duplicate_sources"`
 	OAuthPresent                int    `json:"oauth_present"`
 	OAuthMissing                int    `json:"oauth_missing"`
+	OAuthWechatMinipRows        int    `json:"oauth_wechat_minip_rows"`
+	OAuthWechatOpenRows         int    `json:"oauth_wechat_open_rows"`
+	OAuthWechatScanRows         int    `json:"oauth_wechat_scan_rows"`
+	OAuthWecomRows              int    `json:"oauth_wecom_rows"`
+	OAuthUsernameAccountRows    int    `json:"oauth_username_account_rows"`
+	OAuthWechatMinipAccountRows int    `json:"oauth_wechat_minip_account_rows"`
+	OAuthWecomAccountRows       int    `json:"oauth_wecom_account_rows"`
+	OAuthUnsupportedAccountRows int    `json:"oauth_unsupported_account_rows"`
+	OAuthAccountOrphans         int    `json:"oauth_account_orphans"`
+	OAuthIdentityUnresolved     int    `json:"oauth_identity_unresolved"`
+	OAuthProviderMismatches     int    `json:"oauth_provider_mismatches"`
 	UnknownCredentials          int    `json:"unknown_credentials"`
 	PlannedLoginIdentityInserts int    `json:"planned_login_identity_inserts"`
 	PlannedPasswordInserts      int    `json:"planned_password_inserts"`
@@ -445,8 +456,22 @@ func buildAuthNReconcilePlan(
 			plan.Identities = append(plan.Identities, row)
 			plan.Summary.PhoneMissing++
 		case "oauth":
+			countAuthNOAuthCredentialType(&plan.Summary, credential.Type)
+			account, accountExists := accountsByID[credential.AccountID]
+			if !accountExists {
+				plan.Summary.OAuthAccountOrphans++
+				plan.Summary.OAuthMissing++
+				continue
+			}
+			countAuthNOAuthAccountType(&plan.Summary, account.Type)
 			resolution, ok := resolutions[credential.AccountID]
-			if !ok || !resolution.OK || resolution.Identity.Key.Provider != oauthProvider(credential.Type) {
+			if !ok || !resolution.OK {
+				plan.Summary.OAuthIdentityUnresolved++
+				plan.Summary.OAuthMissing++
+				continue
+			}
+			if resolution.Identity.Key.Provider != oauthProvider(credential.Type) {
+				plan.Summary.OAuthProviderMismatches++
 				plan.Summary.OAuthMissing++
 				continue
 			}
@@ -463,6 +488,32 @@ func buildAuthNReconcilePlan(
 		plan.Summary.PlannedLoginIdentityInserts == 0 &&
 		plan.Summary.PlannedPasswordInserts == 0
 	return plan
+}
+
+func countAuthNOAuthCredentialType(summary *AuthNLegacyReconcileSummary, credentialType string) {
+	switch strings.TrimSpace(credentialType) {
+	case "oauth_wx_minip":
+		summary.OAuthWechatMinipRows++
+	case "oauth_wx_open":
+		summary.OAuthWechatOpenRows++
+	case "oauth_wx_scan":
+		summary.OAuthWechatScanRows++
+	case "oauth_wecom":
+		summary.OAuthWecomRows++
+	}
+}
+
+func countAuthNOAuthAccountType(summary *AuthNLegacyReconcileSummary, accountType string) {
+	switch strings.TrimSpace(accountType) {
+	case "opera", "mock-consumer":
+		summary.OAuthUsernameAccountRows++
+	case "wc-minip":
+		summary.OAuthWechatMinipAccountRows++
+	case "wc-com":
+		summary.OAuthWecomAccountRows++
+	default:
+		summary.OAuthUnsupportedAccountRows++
+	}
 }
 
 func authNHardConflictCount(summary AuthNLegacyReconcileSummary) int {
