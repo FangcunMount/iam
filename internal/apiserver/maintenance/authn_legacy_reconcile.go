@@ -54,13 +54,32 @@ type AuthNLegacyReconcileSummary struct {
 	OAuthWechatOpenRows         int    `json:"oauth_wechat_open_rows"`
 	OAuthWechatScanRows         int    `json:"oauth_wechat_scan_rows"`
 	OAuthWecomRows              int    `json:"oauth_wecom_rows"`
+	OAuthOperaAccountRows       int    `json:"oauth_opera_account_rows"`
+	OAuthMockConsumerRows       int    `json:"oauth_mock_consumer_account_rows"`
 	OAuthUsernameAccountRows    int    `json:"oauth_username_account_rows"`
 	OAuthWechatMinipAccountRows int    `json:"oauth_wechat_minip_account_rows"`
 	OAuthWecomAccountRows       int    `json:"oauth_wecom_account_rows"`
 	OAuthUnsupportedAccountRows int    `json:"oauth_unsupported_account_rows"`
 	OAuthAccountOrphans         int    `json:"oauth_account_orphans"`
+	OAuthOrphanActiveRows       int    `json:"oauth_orphan_active_rows"`
+	OAuthOrphanDisabledRows     int    `json:"oauth_orphan_disabled_rows"`
+	OAuthOrphanDeletedRows      int    `json:"oauth_orphan_deleted_rows"`
 	OAuthIdentityUnresolved     int    `json:"oauth_identity_unresolved"`
 	OAuthProviderMismatches     int    `json:"oauth_provider_mismatches"`
+	OAuthBlankAppIDs            int    `json:"oauth_blank_app_ids"`
+	OAuthBlankIdentifiers       int    `json:"oauth_blank_identifiers"`
+	OAuthDirectIdentityMatches  int    `json:"oauth_direct_identity_matches"`
+	OAuthDirectOwnerConflicts   int    `json:"oauth_direct_owner_conflicts"`
+	OAuthGlobalIdentityMatches  int    `json:"oauth_global_identity_matches"`
+	OAuthOwnerProviderMatches   int    `json:"oauth_owner_provider_matches"`
+	OAuthOwnerRealmMatches      int    `json:"oauth_owner_provider_realm_matches"`
+	OAuthDuplicateSourceKeys    int    `json:"oauth_duplicate_source_keys"`
+	OAuthActiveRows             int    `json:"oauth_active_rows"`
+	OAuthDisabledRows           int    `json:"oauth_disabled_rows"`
+	OAuthDeletedRows            int    `json:"oauth_deleted_rows"`
+	PasswordOrphanActiveRows    int    `json:"password_orphan_active_rows"`
+	PasswordOrphanDisabledRows  int    `json:"password_orphan_disabled_rows"`
+	PasswordOrphanDeletedRows   int    `json:"password_orphan_deleted_rows"`
 	UnknownCredentials          int    `json:"unknown_credentials"`
 	PlannedLoginIdentityInserts int    `json:"planned_login_identity_inserts"`
 	PlannedPasswordInserts      int    `json:"planned_password_inserts"`
@@ -118,6 +137,24 @@ type authNProviderKey struct {
 	Provider   string
 	Realm      string
 	Identifier string
+}
+
+type authNOwnerProviderKey struct {
+	UserID   uint64
+	Provider string
+}
+
+type authNOwnerProviderRealmKey struct {
+	UserID   uint64
+	Provider string
+	Realm    string
+}
+
+type authNOwnerProviderRealmGlobalKey struct {
+	UserID           uint64
+	Provider         string
+	Realm            string
+	GlobalIdentifier string
 }
 
 type canonicalAuthNIdentity struct {
@@ -347,6 +384,23 @@ func buildAuthNReconcilePlan(
 	plan.Summary.LegacyCredentials = len(credentials)
 	resolutions := make(map[uint64]authNAccountResolution, len(accounts))
 	seenAccountKeys := make(map[authNProviderKey]uint64, len(accounts))
+	ownerProviders := make(map[authNOwnerProviderKey]int, len(canonical.IdentitiesByKey))
+	ownerProviderRealms := make(map[authNOwnerProviderRealmKey]int, len(canonical.IdentitiesByKey))
+	ownerProviderRealmGlobals := make(map[authNOwnerProviderRealmGlobalKey]int, len(canonical.IdentitiesByKey))
+	for _, identity := range canonical.IdentitiesByKey {
+		provider := strings.TrimSpace(identity.Key.Provider)
+		realm := strings.TrimSpace(identity.Key.Realm)
+		ownerProviders[authNOwnerProviderKey{UserID: identity.UserID, Provider: provider}]++
+		ownerProviderRealms[authNOwnerProviderRealmKey{
+			UserID: identity.UserID, Provider: provider, Realm: realm,
+		}]++
+		globalIdentifier := strings.TrimSpace(identity.GlobalIdentifier)
+		if globalIdentifier != "" {
+			ownerProviderRealmGlobals[authNOwnerProviderRealmGlobalKey{
+				UserID: identity.UserID, Provider: provider, Realm: realm, GlobalIdentifier: globalIdentifier,
+			}]++
+		}
+	}
 
 	for _, account := range accounts {
 		key, globalIdentifier, supported := legacyAccountProviderKey(account)
@@ -395,6 +449,8 @@ func buildAuthNReconcilePlan(
 
 	seenPasswords := make(map[uint64]uint64)
 	seenPhones := make(map[authNProviderKey]uint64)
+	seenOAuthKeys := make(map[authNProviderKey]uint64)
+	reportedOAuthDuplicateKeys := make(map[authNProviderKey]struct{})
 	accountsByID := make(map[uint64]legacyAuthNAccount, len(accounts))
 	for _, account := range accounts {
 		accountsByID[account.ID] = account
@@ -408,6 +464,7 @@ func buildAuthNReconcilePlan(
 			resolution, ok := resolutions[credential.AccountID]
 			if !ok || !resolution.OK {
 				plan.Summary.PasswordOrphans++
+				countAuthNPasswordOrphanState(&plan.Summary, credential)
 				continue
 			}
 			if _, duplicate := seenPasswords[credential.AccountID]; duplicate {
@@ -457,13 +514,55 @@ func buildAuthNReconcilePlan(
 			plan.Summary.PhoneMissing++
 		case "oauth":
 			countAuthNOAuthCredentialType(&plan.Summary, credential.Type)
+			countAuthNOAuthCredentialState(&plan.Summary, credential)
+			provider := oauthProvider(credential.Type)
+			realm := strings.TrimSpace(credential.AppID)
+			identifier := strings.TrimSpace(credential.IDPIdentifier)
+			if realm == "" {
+				plan.Summary.OAuthBlankAppIDs++
+			}
+			if identifier == "" {
+				plan.Summary.OAuthBlankIdentifiers++
+			}
+			directKey := authNProviderKey{Provider: provider, Realm: realm, Identifier: identifier}
+			if validAuthNProviderKey(directKey) {
+				if _, duplicate := seenOAuthKeys[directKey]; duplicate {
+					if _, reported := reportedOAuthDuplicateKeys[directKey]; !reported {
+						plan.Summary.OAuthDuplicateSourceKeys++
+						reportedOAuthDuplicateKeys[directKey] = struct{}{}
+					}
+				} else {
+					seenOAuthKeys[directKey] = credential.ID
+				}
+			}
 			account, accountExists := accountsByID[credential.AccountID]
 			if !accountExists {
 				plan.Summary.OAuthAccountOrphans++
+				countAuthNOAuthOrphanState(&plan.Summary, credential)
 				plan.Summary.OAuthMissing++
 				continue
 			}
 			countAuthNOAuthAccountType(&plan.Summary, account.Type)
+			if identity, exists := canonical.IdentitiesByKey[directKey]; exists {
+				if identity.UserID == account.UserID {
+					plan.Summary.OAuthDirectIdentityMatches++
+				} else {
+					plan.Summary.OAuthDirectOwnerConflicts++
+				}
+			}
+			if ownerProviders[authNOwnerProviderKey{UserID: account.UserID, Provider: provider}] > 0 {
+				plan.Summary.OAuthOwnerProviderMatches++
+			}
+			if ownerProviderRealms[authNOwnerProviderRealmKey{
+				UserID: account.UserID, Provider: provider, Realm: realm,
+			}] > 0 {
+				plan.Summary.OAuthOwnerRealmMatches++
+			}
+			if identifier != "" && ownerProviderRealmGlobals[authNOwnerProviderRealmGlobalKey{
+				UserID: account.UserID, Provider: provider, Realm: realm, GlobalIdentifier: identifier,
+			}] > 0 {
+				plan.Summary.OAuthGlobalIdentityMatches++
+			}
 			resolution, ok := resolutions[credential.AccountID]
 			if !ok || !resolution.OK {
 				plan.Summary.OAuthIdentityUnresolved++
@@ -505,7 +604,11 @@ func countAuthNOAuthCredentialType(summary *AuthNLegacyReconcileSummary, credent
 
 func countAuthNOAuthAccountType(summary *AuthNLegacyReconcileSummary, accountType string) {
 	switch strings.TrimSpace(accountType) {
-	case "opera", "mock-consumer":
+	case "opera":
+		summary.OAuthOperaAccountRows++
+		summary.OAuthUsernameAccountRows++
+	case "mock-consumer":
+		summary.OAuthMockConsumerRows++
 		summary.OAuthUsernameAccountRows++
 	case "wc-minip":
 		summary.OAuthWechatMinipAccountRows++
@@ -514,6 +617,42 @@ func countAuthNOAuthAccountType(summary *AuthNLegacyReconcileSummary, accountTyp
 	default:
 		summary.OAuthUnsupportedAccountRows++
 	}
+}
+
+func countAuthNOAuthCredentialState(summary *AuthNLegacyReconcileSummary, credential legacyAuthNCredential) {
+	if credential.DeletedAt.Valid {
+		summary.OAuthDeletedRows++
+		return
+	}
+	if credential.Status != 1 {
+		summary.OAuthDisabledRows++
+		return
+	}
+	summary.OAuthActiveRows++
+}
+
+func countAuthNOAuthOrphanState(summary *AuthNLegacyReconcileSummary, credential legacyAuthNCredential) {
+	if credential.DeletedAt.Valid {
+		summary.OAuthOrphanDeletedRows++
+		return
+	}
+	if credential.Status != 1 {
+		summary.OAuthOrphanDisabledRows++
+		return
+	}
+	summary.OAuthOrphanActiveRows++
+}
+
+func countAuthNPasswordOrphanState(summary *AuthNLegacyReconcileSummary, credential legacyAuthNCredential) {
+	if credential.DeletedAt.Valid {
+		summary.PasswordOrphanDeletedRows++
+		return
+	}
+	if credential.Status != 1 {
+		summary.PasswordOrphanDisabledRows++
+		return
+	}
+	summary.PasswordOrphanActiveRows++
 }
 
 func authNHardConflictCount(summary AuthNLegacyReconcileSummary) int {

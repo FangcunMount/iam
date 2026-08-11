@@ -89,8 +89,15 @@ func TestLegacyRetirementPreflightAuthNMySQL(t *testing.T) {
 		"password_duplicate_sources=0",
 		"phone_owner_conflicts=0",
 		"oauth_wx_minip_rows=1",
+		"oauth_opera_account_rows=0",
+		"oauth_mock_consumer_account_rows=0",
 		"oauth_wechat_minip_account_rows=1",
 		"oauth_provider_mismatch_rows=0",
+		"oauth_blank_app_id_rows=0",
+		"oauth_direct_identity_match_rows=0",
+		"oauth_global_identity_match_rows=1",
+		"oauth_owner_provider_realm_match_rows=1",
+		"oauth_active_rows=1",
 		"oauth_identity_missing_rows=0",
 		"legacy_retirement_preflight\tresult=success",
 	} {
@@ -159,10 +166,10 @@ UNIQUE KEY uk_identity_type (login_identity_id, type)) ENGINE=InnoDB DEFAULT CHA
 VALUES (10, 100, 'opera', '', 'operator', NULL, 1),
        (11, 101, 'wc-minip', 'wx-app', 'openid', 'unionid', 1)`,
 		`INSERT INTO auth_credentials_legacy
-(id, account_id, type, idp, idp_identifier, material, algo, status)
-VALUES (20, 10, 'password', NULL, '', 'legacy-password-hash', 'bcrypt', 1),
-	   (21, 10, 'phone_otp', 'phone', '+8613800000000', NULL, NULL, 1),
-	   (22, 11, 'oauth_wx_minip', 'wechat', 'unionid', NULL, NULL, 1)`,
+(id, account_id, type, idp, idp_identifier, app_id, material, algo, status)
+VALUES (20, 10, 'password', NULL, '', NULL, 'legacy-password-hash', 'bcrypt', 1),
+	   (21, 10, 'phone_otp', 'phone', '+8613800000000', NULL, NULL, NULL, 1),
+	   (22, 11, 'oauth_wx_minip', 'wechat', 'unionid', 'wx-app', NULL, NULL, 1)`,
 		`INSERT INTO auth_login_identities
 (id, user_id, provider, realm, identifier, global_identifier, status, linked_at, version)
 VALUES (110, 100, 'username', 'default', 'operator', NULL, 'disabled', NOW(), 9),

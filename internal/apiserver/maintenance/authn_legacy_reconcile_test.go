@@ -1,6 +1,7 @@
 package maintenance
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -142,18 +143,20 @@ func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing
 		{ID: 11, UserID: 101, Type: "wc-minip", AppID: "wx-app", ExternalID: "openid"},
 	}
 	credentials := []legacyAuthNCredential{
-		{ID: 20, AccountID: 10, Type: "oauth_wx_minip"},
-		{ID: 21, AccountID: 11, Type: "oauth_wx_minip"},
-		{ID: 22, AccountID: 999, Type: "oauth_wx_scan"},
+		{ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "unionid", Status: 1},
+		{ID: 21, AccountID: 11, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "openid", Status: 1},
+		{ID: 22, AccountID: 999, Type: "oauth_wx_scan", AppID: "wx-open", IDPIdentifier: "orphan", Status: 1},
 	}
 	usernameKey := authNProviderKey{Provider: "username", Realm: "default", Identifier: "consumer"}
 	wechatKey := authNProviderKey{Provider: "wechat_minip", Realm: "wx-app", Identifier: "openid"}
+	consumerWechatKey := authNProviderKey{Provider: "wechat_minip", Realm: "wx-app", Identifier: "consumer-openid"}
 	state := authNCanonicalState{
 		IdentitiesByKey: authNIdentityMap{
-			usernameKey: {ID: 110, UserID: 100, Key: usernameKey},
-			wechatKey:   {ID: 111, UserID: 101, Key: wechatKey},
+			usernameKey:       {ID: 110, UserID: 100, Key: usernameKey},
+			wechatKey:         {ID: 111, UserID: 101, Key: wechatKey},
+			consumerWechatKey: {ID: 112, UserID: 100, Key: consumerWechatKey, GlobalIdentifier: "unionid"},
 		},
-		IdentityIDs:     map[uint64]struct{}{110: {}, 111: {}},
+		IdentityIDs:     map[uint64]struct{}{110: {}, 111: {}, 112: {}},
 		PasswordByLogin: make(map[uint64]uint64),
 		CredentialIDs:   make(map[uint64]struct{}),
 	}
@@ -169,8 +172,35 @@ func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing
 	if plan.Summary.OAuthUsernameAccountRows != 1 || plan.Summary.OAuthWechatMinipAccountRows != 1 {
 		t.Fatalf("summary = %+v, want controlled account type counts", plan.Summary)
 	}
+	if plan.Summary.OAuthMockConsumerRows != 1 || plan.Summary.OAuthOperaAccountRows != 0 {
+		t.Fatalf("summary = %+v, want separated username account types", plan.Summary)
+	}
+	if plan.Summary.OAuthDirectIdentityMatches != 1 || plan.Summary.OAuthGlobalIdentityMatches != 1 {
+		t.Fatalf("summary = %+v, want direct and global credential-shape matches", plan.Summary)
+	}
+	if plan.Summary.OAuthOwnerProviderMatches != 2 || plan.Summary.OAuthOwnerRealmMatches != 2 {
+		t.Fatalf("summary = %+v, want owner/provider aggregate matches", plan.Summary)
+	}
+	if plan.Summary.OAuthActiveRows != 3 || plan.Summary.OAuthOrphanActiveRows != 1 {
+		t.Fatalf("summary = %+v, want disjoint credential-state aggregates", plan.Summary)
+	}
 	if plan.Summary.OAuthProviderMismatches != 1 || plan.Summary.OAuthAccountOrphans != 1 {
 		t.Fatalf("summary = %+v, want split OAuth blockers", plan.Summary)
+	}
+}
+
+func TestAuthNLegacyPlanReportsOrphanCredentialStates(t *testing.T) {
+	credentials := []legacyAuthNCredential{
+		{ID: 20, AccountID: 999, Type: "password", Material: []byte("hash"), Algo: "bcrypt", Status: 1},
+		{ID: 21, AccountID: 998, Type: "password", Material: []byte("hash"), Algo: "bcrypt", Status: 0},
+		{ID: 22, AccountID: 997, Type: "password", Material: []byte("hash"), Algo: "bcrypt", Status: 1, DeletedAt: sql.NullTime{Valid: true}},
+	}
+
+	plan := buildAuthNReconcilePlan(nil, credentials, emptyCanonicalAuthNState(), newAuthNLegacySummary(false))
+
+	if plan.Summary.PasswordOrphans != 3 || plan.Summary.PasswordOrphanActiveRows != 1 ||
+		plan.Summary.PasswordOrphanDisabledRows != 1 || plan.Summary.PasswordOrphanDeletedRows != 1 {
+		t.Fatalf("summary = %+v, want disjoint password orphan states", plan.Summary)
 	}
 }
 
