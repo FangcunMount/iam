@@ -88,6 +88,10 @@ func TestLegacyRetirementPreflightAuthNMySQL(t *testing.T) {
 		"password_material_mismatches=1",
 		"password_duplicate_sources=0",
 		"phone_owner_conflicts=0",
+		"oauth_wx_minip_rows=1",
+		"oauth_wechat_minip_account_rows=1",
+		"oauth_provider_mismatch_rows=0",
+		"oauth_identity_missing_rows=0",
 		"legacy_retirement_preflight\tresult=success",
 	} {
 		if !strings.Contains(text, want) {
@@ -151,16 +155,19 @@ deleted_at DATETIME DEFAULT NULL, created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
 updated_by BIGINT UNSIGNED NOT NULL DEFAULT 0, deleted_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
 version INT UNSIGNED NOT NULL DEFAULT 1, PRIMARY KEY (id),
 UNIQUE KEY uk_identity_type (login_identity_id, type)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-		`INSERT INTO auth_accounts (id, user_id, type, app_id, external_id, status)
-VALUES (10, 100, 'opera', '', 'operator', 1)`,
+		`INSERT INTO auth_accounts (id, user_id, type, app_id, external_id, unique_id, status)
+VALUES (10, 100, 'opera', '', 'operator', NULL, 1),
+       (11, 101, 'wc-minip', 'wx-app', 'openid', 'unionid', 1)`,
 		`INSERT INTO auth_credentials_legacy
 (id, account_id, type, idp, idp_identifier, material, algo, status)
 VALUES (20, 10, 'password', NULL, '', 'legacy-password-hash', 'bcrypt', 1),
-       (21, 10, 'phone_otp', 'phone', '+8613800000000', NULL, NULL, 1)`,
+	   (21, 10, 'phone_otp', 'phone', '+8613800000000', NULL, NULL, 1),
+	   (22, 11, 'oauth_wx_minip', 'wechat', 'unionid', NULL, NULL, 1)`,
 		`INSERT INTO auth_login_identities
-(id, user_id, provider, realm, identifier, status, linked_at, version)
-VALUES (110, 100, 'username', 'default', 'operator', 'disabled', NOW(), 9),
-       (111, 100, 'phone', 'global', '+8613800000000', 'active', NOW(), 1)`,
+(id, user_id, provider, realm, identifier, global_identifier, status, linked_at, version)
+VALUES (110, 100, 'username', 'default', 'operator', NULL, 'disabled', NOW(), 9),
+	   (111, 100, 'phone', 'global', '+8613800000000', NULL, 'active', NOW(), 1),
+	   (112, 101, 'wechat_minip', 'wx-app', 'openid', 'unionid', 'active', NOW(), 1)`,
 		`INSERT INTO auth_credentials
 (id, login_identity_id, type, material, algo, status, failed_attempts, version)
 VALUES (220, 110, 'password', 'canonical-password-hash', 'bcrypt', 'disabled', 7, 11)`,

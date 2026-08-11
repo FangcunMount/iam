@@ -469,6 +469,18 @@ emit_parity_summaries() {
         AND (COALESCE(OCTET_LENGTH(lc.material), 0) = 0 OR COALESCE(lc.algo, '') = '')) AS invalid_password,
       (lc.type = 'phone_otp' OR COALESCE(lc.idp, '') = 'phone') AS phone_artifact,
       (lc.type IN ('oauth_wx_minip', 'oauth_wx_open', 'oauth_wx_scan', 'oauth_wecom')) AS oauth_artifact,
+	  CASE lc.type
+	    WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	    WHEN 'oauth_wecom' THEN 'wecom'
+	    ELSE 'wechat_open'
+	  END AS oauth_expected_provider,
+	  (SELECT CASE a.type
+	     WHEN 'wc-minip' THEN 'wechat_minip'
+	     WHEN 'wc-com' THEN 'wecom'
+	     WHEN 'opera' THEN 'username'
+	     WHEN 'mock-consumer' THEN 'username'
+	     ELSE 'unsupported'
+	   END FROM auth_accounts a WHERE a.id = lc.account_id) AS oauth_account_provider,
       (SELECT COUNT(*) FROM auth_credentials_legacy peer
        WHERE peer.account_id = lc.account_id
          AND ((peer.type = 'password' OR COALESCE(peer.idp, '') = '')
@@ -550,6 +562,20 @@ emit_parity_summaries() {
     CONCAT('phone_owner_conflicts=', COALESCE(SUM(phone_artifact AND phone_mapping_count > 0 AND NOT exact_phone_mapping), 0)),
     CONCAT('phone_duplicate_sources=', COALESCE(SUM(phone_artifact AND phone_source_count > 1), 0)),
     CONCAT('oauth_artifact_rows=', COALESCE(SUM(oauth_artifact), 0)),
+	CONCAT('oauth_wx_minip_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wx_minip'), 0)),
+	CONCAT('oauth_wx_open_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wx_open'), 0)),
+	CONCAT('oauth_wx_scan_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wx_scan'), 0)),
+	CONCAT('oauth_wecom_rows=', COALESCE(SUM(oauth_artifact AND type = 'oauth_wecom'), 0)),
+	CONCAT('oauth_username_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'username'), 0)),
+	CONCAT('oauth_wechat_minip_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'wechat_minip'), 0)),
+	CONCAT('oauth_wecom_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'wecom'), 0)),
+	CONCAT('oauth_unsupported_account_rows=', COALESCE(SUM(oauth_artifact AND oauth_account_provider = 'unsupported'), 0)),
+	CONCAT('oauth_orphan_account_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists), 0)),
+	CONCAT('oauth_provider_mismatch_rows=', COALESCE(SUM(oauth_artifact AND account_exists
+	  AND CAST(oauth_account_provider AS BINARY) <> CAST(oauth_expected_provider AS BINARY)), 0)),
+	CONCAT('oauth_identity_missing_rows=', COALESCE(SUM(oauth_artifact AND account_exists
+	  AND CAST(oauth_account_provider AS BINARY) = CAST(oauth_expected_provider AS BINARY)
+	  AND NOT oauth_identity_exists), 0)),
     CONCAT('oauth_redundant_rows=', COALESCE(SUM(oauth_artifact AND oauth_identity_exists), 0)),
     CONCAT('oauth_unmapped_rows=', COALESCE(SUM(oauth_artifact AND NOT oauth_identity_exists), 0)),
     CONCAT('unknown_credential_rows=', COALESCE(SUM(NOT password_eligible AND NOT invalid_password AND NOT phone_artifact AND NOT oauth_artifact), 0))

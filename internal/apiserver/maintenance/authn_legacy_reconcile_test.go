@@ -136,6 +136,44 @@ func TestAuthNLegacyPlanFailsClosedOnOwnershipAndUnknownFacts(t *testing.T) {
 	}
 }
 
+func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing.T) {
+	accounts := []legacyAuthNAccount{
+		{ID: 10, UserID: 100, Type: "mock-consumer", ExternalID: "consumer"},
+		{ID: 11, UserID: 101, Type: "wc-minip", AppID: "wx-app", ExternalID: "openid"},
+	}
+	credentials := []legacyAuthNCredential{
+		{ID: 20, AccountID: 10, Type: "oauth_wx_minip"},
+		{ID: 21, AccountID: 11, Type: "oauth_wx_minip"},
+		{ID: 22, AccountID: 999, Type: "oauth_wx_scan"},
+	}
+	usernameKey := authNProviderKey{Provider: "username", Realm: "default", Identifier: "consumer"}
+	wechatKey := authNProviderKey{Provider: "wechat_minip", Realm: "wx-app", Identifier: "openid"}
+	state := authNCanonicalState{
+		IdentitiesByKey: authNIdentityMap{
+			usernameKey: {ID: 110, UserID: 100, Key: usernameKey},
+			wechatKey:   {ID: 111, UserID: 101, Key: wechatKey},
+		},
+		IdentityIDs:     map[uint64]struct{}{110: {}, 111: {}},
+		PasswordByLogin: make(map[uint64]uint64),
+		CredentialIDs:   make(map[uint64]struct{}),
+	}
+
+	plan := buildAuthNReconcilePlan(accounts, credentials, state, newAuthNLegacySummary(false))
+
+	if plan.Summary.OAuthPresent != 1 || plan.Summary.OAuthMissing != 2 {
+		t.Fatalf("summary = %+v, want one present and two missing OAuth artifacts", plan.Summary)
+	}
+	if plan.Summary.OAuthWechatMinipRows != 2 || plan.Summary.OAuthWechatScanRows != 1 {
+		t.Fatalf("summary = %+v, want controlled credential type counts", plan.Summary)
+	}
+	if plan.Summary.OAuthUsernameAccountRows != 1 || plan.Summary.OAuthWechatMinipAccountRows != 1 {
+		t.Fatalf("summary = %+v, want controlled account type counts", plan.Summary)
+	}
+	if plan.Summary.OAuthProviderMismatches != 1 || plan.Summary.OAuthAccountOrphans != 1 {
+		t.Fatalf("summary = %+v, want split OAuth blockers", plan.Summary)
+	}
+}
+
 func TestAuthNLegacySummaryDoesNotContainSensitiveValues(t *testing.T) {
 	plan := buildAuthNReconcilePlan(
 		[]legacyAuthNAccount{{
