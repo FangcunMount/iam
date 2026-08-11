@@ -419,7 +419,7 @@ emit_parity_summaries() {
     FROM auth_accounts a
   ), account_facts AS (
     SELECT ak.*,
-      (OCTET_LENGTH(ak.expected_identifier) > 0
+      (ak.user_id > 0 AND OCTET_LENGTH(ak.expected_identifier) > 0
         AND (ak.type NOT IN ('wc-minip', 'wc-com') OR OCTET_LENGTH(ak.expected_realm) > 0)) AS valid_key,
       (SELECT COUNT(*) FROM auth_login_identities li
        WHERE CAST(li.provider AS BINARY) = CAST(ak.expected_provider AS BINARY)
@@ -580,9 +580,16 @@ emit_parity_summaries() {
 	      WHEN 'oauth_wecom' THEN 'wecom'
 	      ELSE 'wechat_open'
 	    END AS BINARY)
-	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
 	      AND CAST(li.global_identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
 	  ) AS oauth_any_global_identity_match,
+	  (SELECT COUNT(*) FROM auth_login_identities li
+	   WHERE CAST(li.provider AS BINARY) = CAST(CASE lc.type
+	     WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+	     WHEN 'oauth_wecom' THEN 'wecom'
+	     ELSE 'wechat_open'
+	   END AS BINARY)
+	     AND CAST(li.global_identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+	  ) AS oauth_global_mapping_count,
 	  EXISTS (
 	    SELECT 1 FROM auth_login_identities li
 	    JOIN auth_accounts a ON a.id = lc.account_id
@@ -616,7 +623,6 @@ emit_parity_summaries() {
 	        WHEN 'oauth_wecom' THEN 'wecom'
 	        ELSE 'wechat_open'
 	      END AS BINARY)
-	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
 	      AND CAST(li.global_identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
 	  ) AS oauth_global_identity_match,
 	  EXISTS (
@@ -640,28 +646,34 @@ emit_parity_summaries() {
 	      END AS BINARY)
 	      AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
 	  ) AS oauth_owner_realm_match,
-      EXISTS (
+      (EXISTS (
         SELECT 1 FROM auth_login_identities li
-        JOIN auth_accounts a ON a.id = lc.account_id
-        WHERE li.user_id = a.user_id
-          AND CAST(li.realm AS BINARY) = CAST(CASE WHEN a.type = 'opera' AND a.scoped_tenant_id <> 0 THEN CAST(a.scoped_tenant_id AS CHAR)
-                              WHEN a.type IN ('wc-minip', 'wc-com') THEN TRIM(a.app_id) ELSE 'default' END AS BINARY)
-          AND CAST(li.identifier AS BINARY) = CAST(TRIM(a.external_id) AS BINARY)
-          AND CAST(li.provider AS BINARY) = CAST(CASE lc.type
-            WHEN 'oauth_wx_minip' THEN 'wechat_minip'
-            WHEN 'oauth_wecom' THEN 'wecom'
-            ELSE 'wechat_open'
-          END AS BINARY)
-      ) AS oauth_identity_exists
+        WHERE CAST(li.provider AS BINARY) = CAST(CASE lc.type
+          WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+          WHEN 'oauth_wecom' THEN 'wecom'
+          ELSE 'wechat_open'
+        END AS BINARY)
+          AND CAST(li.realm AS BINARY) = CAST(TRIM(COALESCE(lc.app_id, '')) AS BINARY)
+          AND CAST(li.identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+      ) OR EXISTS (
+        SELECT 1 FROM auth_login_identities li
+        WHERE CAST(li.provider AS BINARY) = CAST(CASE lc.type
+          WHEN 'oauth_wx_minip' THEN 'wechat_minip'
+          WHEN 'oauth_wecom' THEN 'wecom'
+          ELSE 'wechat_open'
+        END AS BINARY)
+          AND CAST(li.global_identifier AS BINARY) = CAST(TRIM(COALESCE(lc.idp_identifier, '')) AS BINARY)
+      )) AS oauth_identity_exists
     FROM auth_credentials_legacy lc
   )
   SELECT
     CONCAT('legacy_rows=', COUNT(*)),
-    CONCAT('password_eligible_rows=', COALESCE(SUM(password_eligible), 0)),
-    CONCAT('password_mapped_rows=', COALESCE(SUM(password_eligible AND password_mapping_count > 0), 0)),
-    CONCAT('password_unmapped_rows=', COALESCE(SUM(password_eligible AND password_mapping_count = 0), 0)),
+	CONCAT('password_eligible_rows=', COALESCE(SUM(password_eligible), 0)),
+	CONCAT('password_reachable_rows=', COALESCE(SUM(password_eligible AND account_exists), 0)),
+	CONCAT('password_mapped_rows=', COALESCE(SUM(password_eligible AND password_mapping_count > 0), 0)),
+	CONCAT('password_unmapped_rows=', COALESCE(SUM(password_eligible AND account_exists AND password_mapping_count = 0), 0)),
     CONCAT('password_material_mismatches=', COALESCE(SUM(password_eligible AND password_mapping_count > 0 AND NOT exact_password_mapping), 0)),
-    CONCAT('password_duplicate_sources=', COALESCE(SUM(password_eligible AND password_source_count > 1), 0)),
+    CONCAT('password_duplicate_sources=', COALESCE(SUM(password_eligible AND account_exists AND password_source_count > 1), 0)),
     CONCAT('invalid_password_rows=', COALESCE(SUM(invalid_password), 0)),
     CONCAT('phone_eligible_rows=', COALESCE(SUM(phone_artifact AND TRIM(COALESCE(idp_identifier, '')) <> '' AND account_exists), 0)),
     CONCAT('phone_identity_mapped_rows=', COALESCE(SUM(phone_artifact AND TRIM(COALESCE(idp_identifier, '')) <> '' AND account_exists AND phone_mapping_count > 0), 0)),
@@ -684,13 +696,18 @@ emit_parity_summaries() {
 	CONCAT('oauth_orphan_active_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) = 1), 0)),
 	CONCAT('oauth_orphan_disabled_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND deleted_at IS NULL AND COALESCE(status, 0) <> 1), 0)),
 	CONCAT('oauth_orphan_deleted_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND deleted_at IS NOT NULL), 0)),
+	CONCAT('oauth_runtime_unreachable_rows=', COALESCE(SUM(oauth_artifact AND NOT account_exists), 0)),
 	CONCAT('oauth_provider_mismatch_rows=', COALESCE(SUM(oauth_artifact AND account_exists
 	  AND CAST(oauth_account_provider AS BINARY) <> CAST(oauth_expected_provider AS BINARY)), 0)),
-	CONCAT('oauth_blank_app_id_rows=', COALESCE(SUM(oauth_artifact AND TRIM(COALESCE(app_id, '')) = ''), 0)),
-	CONCAT('oauth_blank_identifier_rows=', COALESCE(SUM(oauth_artifact AND TRIM(COALESCE(idp_identifier, '')) = ''), 0)),
+	CONCAT('oauth_blank_app_id_rows=', COALESCE(SUM(oauth_artifact AND account_exists AND TRIM(COALESCE(app_id, '')) = ''), 0)),
+	CONCAT('oauth_blank_identifier_rows=', COALESCE(SUM(oauth_artifact AND account_exists AND TRIM(COALESCE(idp_identifier, '')) = ''), 0)),
+	CONCAT('oauth_oversized_key_rows=', COALESCE(SUM(oauth_artifact AND account_exists AND
+	  (CHAR_LENGTH(TRIM(COALESCE(app_id, ''))) > 128 OR CHAR_LENGTH(TRIM(COALESCE(idp_identifier, ''))) > 255)), 0)),
 	CONCAT('oauth_direct_identity_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_direct_identity_match), 0)),
 	CONCAT('oauth_direct_owner_conflict_rows=', COALESCE(SUM(oauth_artifact AND oauth_direct_owner_conflict), 0)),
 	CONCAT('oauth_global_identity_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_global_identity_match), 0)),
+	CONCAT('oauth_ambiguous_global_rows=', COALESCE(SUM(oauth_artifact AND account_exists
+	  AND NOT oauth_any_direct_identity_match AND oauth_global_mapping_count > 1), 0)),
 	CONCAT('oauth_owner_provider_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_owner_provider_match), 0)),
 	CONCAT('oauth_owner_provider_realm_match_rows=', COALESCE(SUM(oauth_artifact AND oauth_owner_realm_match), 0)),
 	CONCAT('oauth_duplicate_source_keys=', (SELECT COUNT(*) FROM (
@@ -723,11 +740,25 @@ emit_parity_summaries() {
 	CONCAT('oauth_orphan_identity_id_matches=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND canonical_identity_id_exists), 0)),
 	CONCAT('oauth_orphan_direct_identity_matches=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND oauth_any_direct_identity_match), 0)),
 	CONCAT('oauth_orphan_global_identity_matches=', COALESCE(SUM(oauth_artifact AND NOT account_exists AND oauth_any_global_identity_match), 0)),
+	CONCAT('oauth_reachable_rows=', COALESCE(SUM(oauth_artifact AND account_exists
+	  AND TRIM(COALESCE(app_id, '')) <> '' AND TRIM(COALESCE(idp_identifier, '')) <> ''
+	  AND CHAR_LENGTH(TRIM(COALESCE(app_id, ''))) <= 128
+	  AND CHAR_LENGTH(TRIM(COALESCE(idp_identifier, ''))) <= 255), 0)),
 	CONCAT('oauth_identity_missing_rows=', COALESCE(SUM(oauth_artifact AND account_exists
-	  AND CAST(oauth_account_provider AS BINARY) = CAST(oauth_expected_provider AS BINARY)
+	  AND TRIM(COALESCE(app_id, '')) <> '' AND TRIM(COALESCE(idp_identifier, '')) <> ''
+	  AND CHAR_LENGTH(TRIM(COALESCE(app_id, ''))) <= 128
+	  AND CHAR_LENGTH(TRIM(COALESCE(idp_identifier, ''))) <= 255
 	  AND NOT oauth_identity_exists), 0)),
-    CONCAT('oauth_redundant_rows=', COALESCE(SUM(oauth_artifact AND oauth_identity_exists), 0)),
-    CONCAT('oauth_unmapped_rows=', COALESCE(SUM(oauth_artifact AND NOT oauth_identity_exists), 0)),
+    CONCAT('oauth_redundant_rows=', COALESCE(SUM(oauth_artifact AND account_exists
+	  AND TRIM(COALESCE(app_id, '')) <> '' AND TRIM(COALESCE(idp_identifier, '')) <> ''
+	  AND CHAR_LENGTH(TRIM(COALESCE(app_id, ''))) <= 128
+	  AND CHAR_LENGTH(TRIM(COALESCE(idp_identifier, ''))) <= 255
+	  AND oauth_identity_exists), 0)),
+    CONCAT('oauth_unmapped_rows=', COALESCE(SUM(oauth_artifact AND account_exists
+	  AND TRIM(COALESCE(app_id, '')) <> '' AND TRIM(COALESCE(idp_identifier, '')) <> ''
+	  AND CHAR_LENGTH(TRIM(COALESCE(app_id, ''))) <= 128
+	  AND CHAR_LENGTH(TRIM(COALESCE(idp_identifier, ''))) <= 255
+	  AND NOT oauth_identity_exists), 0)),
     CONCAT('unknown_credential_rows=', COALESCE(SUM(NOT password_eligible AND NOT invalid_password AND NOT phone_artifact AND NOT oauth_artifact), 0))
   FROM credential_facts;"
   fi
@@ -926,7 +957,7 @@ emit_auth_credential_eligibility() {
     printf 'eligibility\tauth_credentials_legacy\tstate=blocked\treason=credential_parity_unavailable\tevidence=instantaneous\n'
     return
   fi
-  for key in password_unmapped_rows password_duplicate_sources invalid_password_rows phone_blank_identifier_rows phone_orphan_account_rows phone_owner_conflicts phone_duplicate_sources oauth_unmapped_rows unknown_credential_rows; do
+  for key in password_unmapped_rows password_duplicate_sources invalid_password_rows phone_blank_identifier_rows phone_orphan_account_rows phone_owner_conflicts phone_duplicate_sources oauth_blank_app_id_rows oauth_blank_identifier_rows oauth_oversized_key_rows oauth_ambiguous_global_rows oauth_unmapped_rows unknown_credential_rows; do
     value="$(cached_parity_value legacy_credentials_to_authn "$key")"
     if [ -z "$value" ] || [ "$value" != "0" ]; then
       printf 'eligibility\tauth_credentials_legacy\tstate=blocked\treason=credential_parity_%s\tevidence=instantaneous\n' "$key"
@@ -936,7 +967,7 @@ emit_auth_credential_eligibility() {
   for key in password phone oauth; do
     case "$key" in
       password)
-        eligible="$(cached_parity_value legacy_credentials_to_authn password_eligible_rows)"
+        eligible="$(cached_parity_value legacy_credentials_to_authn password_reachable_rows)"
         mapped="$(cached_parity_value legacy_credentials_to_authn password_mapped_rows)"
         ;;
       phone)
@@ -944,7 +975,7 @@ emit_auth_credential_eligibility() {
         mapped="$(cached_parity_value legacy_credentials_to_authn phone_identity_mapped_rows)"
         ;;
       oauth)
-        eligible="$(cached_parity_value legacy_credentials_to_authn oauth_artifact_rows)"
+        eligible="$(cached_parity_value legacy_credentials_to_authn oauth_reachable_rows)"
         mapped="$(cached_parity_value legacy_credentials_to_authn oauth_redundant_rows)"
         ;;
     esac
@@ -1009,7 +1040,7 @@ main() {
   chmod 0600 "$ERROR_PATH"
   chmod 0600 "$IO_CACHE_PATH" "$DEPENDENCY_CACHE_PATH" "$PARITY_CACHE_PATH"
 
-  printf 'legacy_retirement_preflight\tformat_version=3\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
+  printf 'legacy_retirement_preflight\tformat_version=4\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
     "$RETIREMENT_SCOPE" "$OWNER_IO_WAIVER"
   emit_metadata
   emit_migration_state
