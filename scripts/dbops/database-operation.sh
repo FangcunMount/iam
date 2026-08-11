@@ -13,6 +13,7 @@ TIMESTAMP_OVERRIDE="${IAM_DB_OPS_TIMESTAMP:-}"
 ALLOW_DOCKER_CLIENT="${IAM_DB_OPS_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_DB_OPS_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 AUTHN_CONTAINER="${IAM_DB_OPS_AUTHN_CONTAINER:-iam-apiserver}"
+AUTHN_BATCH_SIZE="${IAM_DB_OPS_AUTHN_BATCH_SIZE:-5000}"
 
 MYSQL_DEFAULTS=""
 PARTIAL_PATH=""
@@ -154,6 +155,10 @@ validate_configuration() {
   fi
   if ! [[ "$AUTHN_CONTAINER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
     fail "AuthN maintenance container is invalid"
+    return 1
+  fi
+  if ! [[ "$AUTHN_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]] || [ "$AUTHN_BATCH_SIZE" -gt 50000 ]; then
+    fail "AuthN reconciliation batch size is invalid"
     return 1
   fi
 }
@@ -585,11 +590,12 @@ reconcile_authn_legacy() {
 
   ERROR_PATH="$(mktemp "${TMPDIR:-/tmp}/iam-authn-reconciliation.XXXXXX.error")"
   chmod 0600 "$ERROR_PATH"
-  echo "AuthN reconciliation started: mode=${OPERATION#reconcile-authn-} canonical_policy=insert_missing_only"
+  echo "AuthN reconciliation started: mode=${OPERATION#reconcile-authn-} canonical_policy=insert_missing_only batch_size=$AUTHN_BATCH_SIZE"
   if [ "$OPERATION" = "reconcile-authn-apply" ]; then
     if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
         /app/iam-maintenance reconcile-authn-legacy --apply \
-        --confirm=BACKFILL_AUTHN_LEGACY_MISSING --timeout=5m 2>"$ERROR_PATH")"; then
+        --confirm=BACKFILL_AUTHN_LEGACY_MISSING --batch-size="$AUTHN_BATCH_SIZE" \
+        --timeout=5m 2>"$ERROR_PATH")"; then
       [ -z "$result" ] || printf '%s\n' "$result"
       fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
       return 1
@@ -610,7 +616,7 @@ reconcile_authn_legacy() {
       return 1
     fi
   fi
-  if ! grep -Eq '"format_version"[[:space:]]*:[[:space:]]*3' <<<"$result" \
+  if ! grep -Eq '"format_version"[[:space:]]*:[[:space:]]*4' <<<"$result" \
       || ! grep -Eq '"retirement_eligible"[[:space:]]*:[[:space:]]*(true|false)' <<<"$result"; then
     fail "AuthN reconciliation evidence is invalid"
     return 1

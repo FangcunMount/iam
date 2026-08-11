@@ -163,8 +163,8 @@ func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing
 
 	plan := buildAuthNReconcilePlan(accounts, credentials, state, newAuthNLegacySummary(false))
 
-	if plan.Summary.OAuthPresent != 1 || plan.Summary.OAuthMissing != 2 {
-		t.Fatalf("summary = %+v, want one present and two missing OAuth artifacts", plan.Summary)
+	if plan.Summary.OAuthPresent != 2 || plan.Summary.OAuthMissing != 0 {
+		t.Fatalf("summary = %+v, want direct and global canonical OAuth preservation", plan.Summary)
 	}
 	if plan.Summary.OAuthWechatMinipRows != 2 || plan.Summary.OAuthWechatScanRows != 1 {
 		t.Fatalf("summary = %+v, want controlled credential type counts", plan.Summary)
@@ -194,6 +194,146 @@ func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing
 	if plan.Summary.OAuthProviderMismatches != 1 || plan.Summary.OAuthAccountOrphans != 1 {
 		t.Fatalf("summary = %+v, want split OAuth blockers", plan.Summary)
 	}
+	if plan.Summary.OAuthUnreachableRows != 1 || !plan.Summary.RetirementEligible {
+		t.Fatalf("summary = %+v, want runtime-unreachable orphan excluded from migration", plan.Summary)
+	}
+}
+
+func TestAuthNLegacyPlanMigratesOAuthAsMarkerScopedLoginIdentity(t *testing.T) {
+	account := legacyAuthNAccount{
+		ID: 10, UserID: 100, Type: "mock-consumer", ExternalID: "consumer", Status: 1,
+	}
+	credential := legacyAuthNCredential{
+		ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "wx-app",
+		IDPIdentifier: "legacy-open-or-union", Status: 1,
+	}
+
+	plan := buildAuthNReconcilePlan(
+		[]legacyAuthNAccount{account},
+		[]legacyAuthNCredential{credential},
+		emptyCanonicalAuthNState(),
+		newAuthNLegacySummary(false),
+	)
+
+	if plan.Summary.HardConflicts != 0 || plan.Summary.OAuthMissing != 1 ||
+		plan.Summary.PlannedLoginIdentityInserts != 2 {
+		t.Fatalf("summary = %+v, want account and OAuth identity inserts", plan.Summary)
+	}
+	if len(plan.Identities) != 2 {
+		t.Fatalf("identities = %d, want account and OAuth identities", len(plan.Identities))
+	}
+	oauth := plan.Identities[1]
+	if oauth.UserID != 100 || oauth.Key != (authNProviderKey{
+		Provider: "wechat_minip", Realm: "wx-app", Identifier: "legacy-open-or-union",
+	}) {
+		t.Fatalf("OAuth identity = %+v", oauth)
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(oauth.Meta, &meta); err != nil {
+		t.Fatal(err)
+	}
+	if meta["legacy_identifier_semantics"] != "openid_or_unionid" {
+		t.Fatalf("OAuth identity meta = %v", meta)
+	}
+}
+
+func TestAuthNLegacyPlanUsesCanonicalOAuthOwnerAsAuthority(t *testing.T) {
+	account := legacyAuthNAccount{ID: 10, UserID: 100, Type: "mock-consumer", ExternalID: "consumer"}
+	credential := legacyAuthNCredential{
+		ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "shared", Status: 1,
+	}
+	key := authNProviderKey{Provider: "wechat_minip", Realm: "wx-app", Identifier: "shared"}
+	accountKey := authNProviderKey{Provider: "username", Realm: "default", Identifier: "consumer"}
+	state := emptyCanonicalAuthNState()
+	state.IdentitiesByKey[key] = canonicalAuthNIdentity{ID: 200, UserID: 999, Key: key}
+	state.IdentitiesByKey[accountKey] = canonicalAuthNIdentity{ID: 201, UserID: 100, Key: accountKey}
+	state.IdentityIDs[200] = struct{}{}
+	state.IdentityIDs[201] = struct{}{}
+
+	plan := buildAuthNReconcilePlan(
+		[]legacyAuthNAccount{account},
+		[]legacyAuthNCredential{credential},
+		state,
+		newAuthNLegacySummary(false),
+	)
+
+	if plan.Summary.OAuthCanonicalOverrides != 1 || plan.Summary.OAuthDirectOverrides != 1 ||
+		plan.Summary.HardConflicts != 0 || !plan.Summary.RetirementEligible {
+		t.Fatalf("summary = %+v, want canonical owner override without canonical mutation", plan.Summary)
+	}
+	if len(plan.Identities) != 0 {
+		t.Fatalf("canonical authority must not be overwritten: %+v", plan.Identities)
+	}
+}
+
+func TestAuthNLegacyPlanFailsClosedOnAmbiguousOAuthSources(t *testing.T) {
+	accounts := []legacyAuthNAccount{
+		{ID: 10, UserID: 100, Type: "mock-consumer", ExternalID: "one"},
+		{ID: 11, UserID: 101, Type: "mock-consumer", ExternalID: "two"},
+	}
+	credentials := []legacyAuthNCredential{
+		{ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "shared", Status: 1},
+		{ID: 21, AccountID: 11, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "shared", Status: 1},
+	}
+
+	state := emptyCanonicalAuthNState()
+	for index, account := range accounts {
+		key := authNProviderKey{Provider: "username", Realm: "default", Identifier: account.ExternalID}
+		id := uint64(200 + index)
+		state.IdentitiesByKey[key] = canonicalAuthNIdentity{ID: id, UserID: account.UserID, Key: key}
+		state.IdentityIDs[id] = struct{}{}
+	}
+	plan := buildAuthNReconcilePlan(accounts, credentials, state, newAuthNLegacySummary(false))
+
+	if plan.Summary.OAuthDuplicateSourceKeys != 1 || plan.Summary.OAuthAmbiguousSourceKeys != 1 ||
+		plan.Summary.HardConflicts == 0 || plan.Summary.RetirementEligible {
+		t.Fatalf("summary = %+v, want fail-closed cross-owner OAuth key", plan.Summary)
+	}
+	if plan.Summary.OAuthMissing != 0 {
+		t.Fatalf("ambiguous key must not schedule an arbitrary owner: %+v", plan.Summary)
+	}
+}
+
+func TestAuthNLegacyPlanFailsClosedOnAmbiguousCanonicalGlobalLookup(t *testing.T) {
+	account := legacyAuthNAccount{ID: 10, UserID: 100, Type: "mock-consumer", ExternalID: "consumer"}
+	credential := legacyAuthNCredential{
+		ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "union", Status: 1,
+	}
+	state := emptyCanonicalAuthNState()
+	accountKey := authNProviderKey{Provider: "username", Realm: "default", Identifier: "consumer"}
+	globalOne := authNProviderKey{Provider: "wechat_minip", Realm: "wx-one", Identifier: "open-one"}
+	globalTwo := authNProviderKey{Provider: "wechat_minip", Realm: "wx-two", Identifier: "open-two"}
+	state.IdentitiesByKey[accountKey] = canonicalAuthNIdentity{ID: 200, UserID: 100, Key: accountKey}
+	state.IdentitiesByKey[globalOne] = canonicalAuthNIdentity{
+		ID: 201, UserID: 100, Key: globalOne, GlobalIdentifier: "union",
+	}
+	state.IdentitiesByKey[globalTwo] = canonicalAuthNIdentity{
+		ID: 202, UserID: 100, Key: globalTwo, GlobalIdentifier: "union",
+	}
+	state.IdentityIDs = map[uint64]struct{}{200: {}, 201: {}, 202: {}}
+
+	plan := buildAuthNReconcilePlan(
+		[]legacyAuthNAccount{account},
+		[]legacyAuthNCredential{credential},
+		state,
+		newAuthNLegacySummary(false),
+	)
+
+	if plan.Summary.OAuthAmbiguousGlobalKeys != 1 || plan.Summary.HardConflicts == 0 ||
+		plan.Summary.RetirementEligible {
+		t.Fatalf("summary = %+v, want fail-closed ambiguous global lookup", plan.Summary)
+	}
+}
+
+func TestLimitAuthNReconcilePlanKeepsDependencyOrder(t *testing.T) {
+	plan := authNReconcilePlan{
+		Identities: []plannedAuthNIdentity{{ID: 1}, {ID: 2}},
+		Passwords:  []plannedAuthNPassword{{ID: 3}, {ID: 4}},
+	}
+	limited := limitAuthNReconcilePlan(plan, 3)
+	if len(limited.Identities) != 2 || len(limited.Passwords) != 1 || limited.Passwords[0].ID != 3 {
+		t.Fatalf("limited plan = %+v", limited)
+	}
 }
 
 func TestAuthNLegacyPlanReportsOrphanCredentialStates(t *testing.T) {
@@ -215,6 +355,9 @@ func TestAuthNLegacyPlanReportsOrphanCredentialStates(t *testing.T) {
 	}
 	if plan.Summary.PasswordOrphanIdentityIDs != 1 || plan.Summary.PasswordOrphanExactMatches != 1 {
 		t.Fatalf("summary = %+v, want canonical orphan preservation aggregates", plan.Summary)
+	}
+	if plan.Summary.PasswordUnreachableRows != 3 || plan.Summary.HardConflicts != 0 || !plan.Summary.RetirementEligible {
+		t.Fatalf("summary = %+v, want account-less password rows classified as runtime unreachable", plan.Summary)
 	}
 }
 

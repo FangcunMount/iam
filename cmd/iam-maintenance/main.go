@@ -56,12 +56,16 @@ func runReconcileAuthNLegacy(args []string, output io.Writer) error {
 	apply := flags.Bool("apply", false, "insert missing canonical AuthN facts")
 	requireEligible := flags.Bool("require-eligible", false, "fail unless legacy AuthN is retirement eligible")
 	confirm := flags.String("confirm", "", "required confirmation phrase")
+	batchSize := flags.Int("batch-size", maintenance.DefaultAuthNLegacyBatchSize, "maximum canonical rows inserted per apply")
 	timeout := flags.Duration("timeout", 5*time.Minute, "overall timeout")
 	if err := flags.Parse(args); err != nil {
 		return errors.New("invalid reconcile-authn-legacy arguments")
 	}
 	if *timeout <= 0 {
 		return errors.New("timeout must be positive")
+	}
+	if *batchSize <= 0 || *batchSize > maintenance.MaxAuthNLegacyBatchSize {
+		return errors.New("batch-size is outside the allowed AuthN reconciliation range")
 	}
 	if *apply && *confirm != authNLegacyConfirmation {
 		return errors.New("apply requires the AuthN legacy confirmation phrase")
@@ -91,7 +95,8 @@ func runReconcileAuthNLegacy(args []string, output io.Writer) error {
 		return errors.New("connect AuthN reconciliation database failed")
 	}
 	summary, reconcileErr := maintenance.ReconcileAuthNLegacy(ctx, db, maintenance.AuthNLegacyReconcileOptions{
-		Apply: *apply,
+		Apply:     *apply,
+		BatchSize: *batchSize,
 	})
 	if err := writeJSON(output, summary); err != nil {
 		return err

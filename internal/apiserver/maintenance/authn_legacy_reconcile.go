@@ -10,16 +10,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
+	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
 )
 
-const AuthNLegacyReconcileFormatVersion = 3
+const (
+	AuthNLegacyReconcileFormatVersion = 4
+	DefaultAuthNLegacyBatchSize       = 5000
+	MaxAuthNLegacyBatchSize           = 50000
+)
 
 var ErrAuthNLegacyConflicts = errors.New("authn legacy reconciliation has hard conflicts")
 
 type AuthNLegacyReconcileOptions struct {
-	Apply bool
+	Apply     bool
+	BatchSize int
 }
 
 // AuthNLegacyReconcileSummary contains aggregate evidence only. It must never
@@ -83,6 +90,7 @@ type AuthNLegacyReconcileSummary struct {
 	PasswordOrphanDeletedRows   int    `json:"password_orphan_deleted_rows"`
 	PasswordOrphanIdentityIDs   int    `json:"password_orphan_identity_id_matches"`
 	PasswordOrphanExactMatches  int    `json:"password_orphan_exact_canonical_matches"`
+	PasswordUnreachableRows     int    `json:"password_runtime_unreachable_rows"`
 	OAuthAppIDAccountMatches    int    `json:"oauth_app_id_account_matches"`
 	OAuthIdentifierExtMatches   int    `json:"oauth_identifier_account_external_matches"`
 	OAuthIdentifierGlobalMatch  int    `json:"oauth_identifier_account_global_matches"`
@@ -96,11 +104,22 @@ type AuthNLegacyReconcileSummary struct {
 	OAuthOrphanIdentityIDs      int    `json:"oauth_orphan_identity_id_matches"`
 	OAuthOrphanDirectMatches    int    `json:"oauth_orphan_direct_identity_matches"`
 	OAuthOrphanGlobalMatches    int    `json:"oauth_orphan_global_identity_matches"`
+	OAuthUnreachableRows        int    `json:"oauth_runtime_unreachable_rows"`
+	OAuthCanonicalOverrides     int    `json:"oauth_canonical_owner_override_rows"`
+	OAuthDirectOverrides        int    `json:"oauth_direct_owner_override_rows"`
+	OAuthGlobalOverrides        int    `json:"oauth_global_owner_override_rows"`
+	OAuthAmbiguousSourceKeys    int    `json:"oauth_ambiguous_source_keys"`
+	OAuthAmbiguousGlobalKeys    int    `json:"oauth_ambiguous_global_keys"`
+	OAuthRedundantSourceRows    int    `json:"oauth_redundant_source_rows"`
+	OAuthInvalidKeys            int    `json:"oauth_invalid_keys"`
 	UnknownCredentials          int    `json:"unknown_credentials"`
 	PlannedLoginIdentityInserts int    `json:"planned_login_identity_inserts"`
 	PlannedPasswordInserts      int    `json:"planned_password_inserts"`
+	RemainingLoginIdentityRows  int    `json:"remaining_login_identity_inserts"`
+	RemainingPasswordRows       int    `json:"remaining_password_inserts"`
 	AppliedLoginIdentityInserts int    `json:"applied_login_identity_inserts"`
 	AppliedPasswordInserts      int    `json:"applied_password_inserts"`
+	ApplyBatchSize              int    `json:"apply_batch_size,omitempty"`
 	HardConflicts               int    `json:"hard_conflicts"`
 	RetirementEligible          bool   `json:"retirement_eligible"`
 }
@@ -166,17 +185,14 @@ type authNOwnerProviderRealmKey struct {
 	Realm    string
 }
 
-type authNOwnerProviderRealmGlobalKey struct {
-	UserID           uint64
+type authNProviderGlobalKey struct {
 	Provider         string
-	Realm            string
 	GlobalIdentifier string
 }
 
-type authNProviderRealmGlobalKey struct {
-	Provider         string
-	Realm            string
-	GlobalIdentifier string
+type authNGlobalAuthority struct {
+	Identity canonicalAuthNIdentity
+	Count    int
 }
 
 type canonicalAuthNIdentity struct {
@@ -245,6 +261,15 @@ type authNAccountResolution struct {
 	OK       bool
 }
 
+type authNOAuthGroup struct {
+	FirstCredential  *legacyAuthNCredential
+	FirstAccount     *legacyAuthNAccount
+	SourceRows       int
+	PrimaryOwnerID   uint64
+	PrimaryOwnerRows int
+	OtherOwnerRows   map[uint64]int
+}
+
 type authNReconcilePlan struct {
 	Summary    AuthNLegacyReconcileSummary
 	Identities []plannedAuthNIdentity
@@ -267,6 +292,12 @@ func ReconcileAuthNLegacy(
 	if db == nil {
 		return summary, fmt.Errorf("database is required")
 	}
+	if opts.BatchSize < 0 || opts.BatchSize > MaxAuthNLegacyBatchSize {
+		return summary, fmt.Errorf("authn legacy batch size must be between 1 and %d", MaxAuthNLegacyBatchSize)
+	}
+	if opts.Apply && opts.BatchSize == 0 {
+		opts.BatchSize = DefaultAuthNLegacyBatchSize
+	}
 
 	if !opts.Apply {
 		plan, err := analyzeAuthNLegacy(ctx, db, summary)
@@ -279,7 +310,11 @@ func ReconcileAuthNLegacy(
 		return plan.Summary, nil
 	}
 
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	// Repeatable Read gives one stable reconciliation snapshot without turning
+	// the full canonical-table scans into locking reads. Exact-key and ID races
+	// still fail closed on the canonical unique constraints; no upsert retries
+	// are allowed to overwrite a concurrently created fact.
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 	if err != nil {
 		return summary, fmt.Errorf("begin authn legacy reconciliation: %w", err)
 	}
@@ -292,8 +327,25 @@ func ReconcileAuthNLegacy(
 	if plan.Summary.HardConflicts != 0 {
 		return plan.Summary, ErrAuthNLegacyConflicts
 	}
-	if err := applyAuthNReconcilePlan(ctx, tx, plan); err != nil {
+	batch := limitAuthNReconcilePlan(plan, opts.BatchSize)
+	if err := applyAuthNReconcilePlan(ctx, tx, batch); err != nil {
 		return plan.Summary, err
+	}
+	appliedIdentities := len(batch.Identities)
+	appliedPasswords := len(batch.Passwords)
+	remainingIdentities := len(plan.Identities) - appliedIdentities
+	remainingPasswords := len(plan.Passwords) - appliedPasswords
+	if remainingIdentities != 0 || remainingPasswords != 0 {
+		plan.Summary.ApplyBatchSize = opts.BatchSize
+		plan.Summary.AppliedLoginIdentityInserts = appliedIdentities
+		plan.Summary.AppliedPasswordInserts = appliedPasswords
+		plan.Summary.RemainingLoginIdentityRows = remainingIdentities
+		plan.Summary.RemainingPasswordRows = remainingPasswords
+		plan.Summary.RetirementEligible = false
+		if err := tx.Commit(); err != nil {
+			return plan.Summary, fmt.Errorf("commit authn legacy reconciliation batch: %w", err)
+		}
+		return plan.Summary, nil
 	}
 
 	post, err := analyzeAuthNLegacy(ctx, tx, newAuthNLegacySummary(true))
@@ -303,12 +355,26 @@ func ReconcileAuthNLegacy(
 	if !post.Summary.RetirementEligible {
 		return post.Summary, fmt.Errorf("authn legacy reconciliation did not converge")
 	}
-	post.Summary.AppliedLoginIdentityInserts = len(plan.Identities)
-	post.Summary.AppliedPasswordInserts = len(plan.Passwords)
+	post.Summary.ApplyBatchSize = opts.BatchSize
+	post.Summary.AppliedLoginIdentityInserts = appliedIdentities
+	post.Summary.AppliedPasswordInserts = appliedPasswords
 	if err := tx.Commit(); err != nil {
 		return post.Summary, fmt.Errorf("commit authn legacy reconciliation: %w", err)
 	}
 	return post.Summary, nil
+}
+
+func limitAuthNReconcilePlan(plan authNReconcilePlan, batchSize int) authNReconcilePlan {
+	limited := authNReconcilePlan{Summary: plan.Summary}
+	if batchSize <= 0 {
+		return limited
+	}
+	identityCount := min(batchSize, len(plan.Identities))
+	limited.Identities = plan.Identities[:identityCount]
+	remaining := batchSize - identityCount
+	passwordCount := min(remaining, len(plan.Passwords))
+	limited.Passwords = plan.Passwords[:passwordCount]
+	return limited
 }
 
 func newAuthNLegacySummary(apply bool) AuthNLegacyReconcileSummary {
@@ -412,27 +478,6 @@ func buildAuthNReconcilePlan(
 	plan.Summary.LegacyCredentials = len(credentials)
 	resolutions := make(map[uint64]authNAccountResolution, len(accounts))
 	seenAccountKeys := make(map[authNProviderKey]uint64, len(accounts))
-	ownerProviders := make(map[authNOwnerProviderKey]int, len(canonical.IdentitiesByKey))
-	ownerProviderRealms := make(map[authNOwnerProviderRealmKey]int, len(canonical.IdentitiesByKey))
-	ownerProviderRealmGlobals := make(map[authNOwnerProviderRealmGlobalKey]int, len(canonical.IdentitiesByKey))
-	providerRealmGlobals := make(map[authNProviderRealmGlobalKey]int, len(canonical.IdentitiesByKey))
-	for _, identity := range canonical.IdentitiesByKey {
-		provider := strings.TrimSpace(identity.Key.Provider)
-		realm := strings.TrimSpace(identity.Key.Realm)
-		ownerProviders[authNOwnerProviderKey{UserID: identity.UserID, Provider: provider}]++
-		ownerProviderRealms[authNOwnerProviderRealmKey{
-			UserID: identity.UserID, Provider: provider, Realm: realm,
-		}]++
-		globalIdentifier := strings.TrimSpace(identity.GlobalIdentifier)
-		if globalIdentifier != "" {
-			ownerProviderRealmGlobals[authNOwnerProviderRealmGlobalKey{
-				UserID: identity.UserID, Provider: provider, Realm: realm, GlobalIdentifier: globalIdentifier,
-			}]++
-			providerRealmGlobals[authNProviderRealmGlobalKey{
-				Provider: provider, Realm: realm, GlobalIdentifier: globalIdentifier,
-			}]++
-		}
-	}
 
 	for _, account := range accounts {
 		key, globalIdentifier, supported := legacyAccountProviderKey(account)
@@ -440,7 +485,7 @@ func buildAuthNReconcilePlan(
 			plan.Summary.AccountUnsupported++
 			continue
 		}
-		if !validAuthNProviderKey(key) {
+		if account.UserID == 0 || !validAuthNProviderKey(key) {
 			plan.Summary.AccountInvalid++
 			continue
 		}
@@ -479,16 +524,40 @@ func buildAuthNReconcilePlan(
 		resolutions[account.ID] = authNAccountResolution{Identity: identity, OK: true}
 	}
 
-	seenPasswords := make(map[uint64]uint64)
-	seenPhones := make(map[authNProviderKey]uint64)
-	seenOAuthKeys := make(map[authNProviderKey]uint64)
-	reportedOAuthDuplicateKeys := make(map[authNProviderKey]struct{})
-	accountsByID := make(map[uint64]legacyAuthNAccount, len(accounts))
-	for _, account := range accounts {
-		accountsByID[account.ID] = account
+	ownerProviders := make(map[authNOwnerProviderKey]int, len(canonical.IdentitiesByKey))
+	ownerProviderRealms := make(map[authNOwnerProviderRealmKey]int, len(canonical.IdentitiesByKey))
+	providerGlobals := make(map[authNProviderGlobalKey]authNGlobalAuthority, len(canonical.IdentitiesByKey))
+	for _, identity := range canonical.IdentitiesByKey {
+		provider := strings.TrimSpace(identity.Key.Provider)
+		realm := strings.TrimSpace(identity.Key.Realm)
+		ownerProviders[authNOwnerProviderKey{UserID: identity.UserID, Provider: provider}]++
+		ownerProviderRealms[authNOwnerProviderRealmKey{
+			UserID: identity.UserID, Provider: provider, Realm: realm,
+		}]++
+		globalIdentifier := strings.TrimSpace(identity.GlobalIdentifier)
+		if globalIdentifier == "" {
+			continue
+		}
+		globalKey := authNProviderGlobalKey{Provider: provider, GlobalIdentifier: globalIdentifier}
+		authority := providerGlobals[globalKey]
+		if authority.Count == 0 {
+			authority.Identity = identity
+		}
+		authority.Count++
+		providerGlobals[globalKey] = authority
 	}
 
-	for _, credential := range credentials {
+	seenPasswords := make(map[uint64]uint64)
+	seenPhones := make(map[authNProviderKey]uint64)
+	accountsByID := make(map[uint64]*legacyAuthNAccount, len(accounts))
+	for index := range accounts {
+		accountsByID[accounts[index].ID] = &accounts[index]
+	}
+	oauthByKey := make(map[authNProviderKey]authNOAuthGroup)
+	oauthKeyOrder := make([]authNProviderKey, 0, len(credentials))
+
+	for credentialIndex := range credentials {
+		credential := credentials[credentialIndex]
 		switch classifyLegacyAuthNCredential(credential) {
 		case "invalid_password":
 			plan.Summary.PasswordInvalid++
@@ -496,6 +565,7 @@ func buildAuthNReconcilePlan(
 			resolution, ok := resolutions[credential.AccountID]
 			if !ok || !resolution.OK {
 				plan.Summary.PasswordOrphans++
+				plan.Summary.PasswordUnreachableRows++
 				countAuthNPasswordOrphanState(&plan.Summary, credential)
 				if _, exists := canonical.IdentityIDs[credential.AccountID]; exists {
 					plan.Summary.PasswordOrphanIdentityIDs++
@@ -546,7 +616,7 @@ func buildAuthNReconcilePlan(
 				plan.Summary.PhonePresent++
 				continue
 			}
-			row := authNPhoneIdentityFromLegacy(account, credential, key)
+			row := authNPhoneIdentityFromLegacy(*account, credential, key)
 			row.ID = allocateAuthNID(row.ID, canonical.IdentityIDs)
 			canonical.IdentitiesByKey[key] = canonicalAuthNIdentity{ID: row.ID, UserID: row.UserID, Key: key}
 			plan.Identities = append(plan.Identities, row)
@@ -564,19 +634,10 @@ func buildAuthNReconcilePlan(
 				plan.Summary.OAuthBlankIdentifiers++
 			}
 			directKey := authNProviderKey{Provider: provider, Realm: realm, Identifier: identifier}
-			if validAuthNProviderKey(directKey) {
-				if _, duplicate := seenOAuthKeys[directKey]; duplicate {
-					if _, reported := reportedOAuthDuplicateKeys[directKey]; !reported {
-						plan.Summary.OAuthDuplicateSourceKeys++
-						reportedOAuthDuplicateKeys[directKey] = struct{}{}
-					}
-				} else {
-					seenOAuthKeys[directKey] = credential.ID
-				}
-			}
 			account, accountExists := accountsByID[credential.AccountID]
 			if !accountExists {
 				plan.Summary.OAuthAccountOrphans++
+				plan.Summary.OAuthUnreachableRows++
 				countAuthNOAuthOrphanState(&plan.Summary, credential)
 				if _, exists := canonical.IdentityIDs[credential.AccountID]; exists {
 					plan.Summary.OAuthOrphanIdentityIDs++
@@ -584,16 +645,18 @@ func buildAuthNReconcilePlan(
 				if _, exists := canonical.IdentitiesByKey[directKey]; exists {
 					plan.Summary.OAuthOrphanDirectMatches++
 				}
-				if providerRealmGlobals[authNProviderRealmGlobalKey{
-					Provider: provider, Realm: realm, GlobalIdentifier: identifier,
-				}] > 0 {
+				if providerGlobals[authNProviderGlobalKey{
+					Provider: provider, GlobalIdentifier: identifier,
+				}].Count > 0 {
 					plan.Summary.OAuthOrphanGlobalMatches++
 				}
-				plan.Summary.OAuthMissing++
 				continue
 			}
+			if !validAuthNOAuthProviderKey(directKey) {
+				plan.Summary.OAuthInvalidKeys++
+			}
 			countAuthNOAuthAccountType(&plan.Summary, account.Type)
-			countAuthNOAuthAccountRelations(&plan.Summary, account, credential)
+			countAuthNOAuthAccountRelations(&plan.Summary, *account, credential)
 			if identity, exists := canonical.IdentitiesByKey[directKey]; exists {
 				if identity.UserID == account.UserID {
 					plan.Summary.OAuthDirectIdentityMatches++
@@ -612,35 +675,131 @@ func buildAuthNReconcilePlan(
 			}] > 0 {
 				plan.Summary.OAuthOwnerRealmMatches++
 			}
-			if identifier != "" && ownerProviderRealmGlobals[authNOwnerProviderRealmGlobalKey{
-				UserID: account.UserID, Provider: provider, Realm: realm, GlobalIdentifier: identifier,
-			}] > 0 {
+			if identifier != "" && authNGlobalAuthorityMatchesOwner(providerGlobals[authNProviderGlobalKey{
+				Provider: provider, GlobalIdentifier: identifier,
+			}], account.UserID) {
 				plan.Summary.OAuthGlobalIdentityMatches++
 			}
 			resolution, ok := resolutions[credential.AccountID]
 			if !ok || !resolution.OK {
 				plan.Summary.OAuthIdentityUnresolved++
-				plan.Summary.OAuthMissing++
-				continue
-			}
-			if resolution.Identity.Key.Provider != oauthProvider(credential.Type) {
+			} else if resolution.Identity.Key.Provider != provider {
 				plan.Summary.OAuthProviderMismatches++
-				plan.Summary.OAuthMissing++
+			}
+			if !validAuthNOAuthProviderKey(directKey) {
 				continue
 			}
-			plan.Summary.OAuthPresent++
+			group, exists := oauthByKey[directKey]
+			if !exists {
+				oauthKeyOrder = append(oauthKeyOrder, directKey)
+				group.FirstCredential = &credentials[credentialIndex]
+				group.FirstAccount = account
+				group.PrimaryOwnerID = account.UserID
+			}
+			group.SourceRows++
+			if account.UserID == group.PrimaryOwnerID {
+				group.PrimaryOwnerRows++
+			} else {
+				if group.OtherOwnerRows == nil {
+					group.OtherOwnerRows = make(map[uint64]int)
+				}
+				group.OtherOwnerRows[account.UserID]++
+			}
+			oauthByKey[directKey] = group
 		default:
 			plan.Summary.UnknownCredentials++
 		}
 	}
 
+	for _, key := range oauthKeyOrder {
+		group := oauthByKey[key]
+		ownerCount := 1 + len(group.OtherOwnerRows)
+		if group.SourceRows > 1 {
+			plan.Summary.OAuthDuplicateSourceKeys++
+			if ownerCount == 1 {
+				plan.Summary.OAuthRedundantSourceRows += group.SourceRows - 1
+			}
+		}
+
+		authority, authorityKind, authorityFound, ambiguousGlobal := canonicalAuthNOAuthAuthority(
+			key,
+			canonical,
+			providerGlobals,
+		)
+		if ambiguousGlobal {
+			plan.Summary.OAuthAmbiguousGlobalKeys++
+			continue
+		}
+		if authorityFound {
+			presentRows := authNOAuthGroupOwnerRows(group, authority.UserID)
+			overriddenRows := group.SourceRows - presentRows
+			plan.Summary.OAuthPresent += presentRows
+			plan.Summary.OAuthCanonicalOverrides += overriddenRows
+			if authorityKind == "direct" {
+				plan.Summary.OAuthDirectOverrides += overriddenRows
+			} else {
+				plan.Summary.OAuthGlobalOverrides += overriddenRows
+			}
+			continue
+		}
+		if ownerCount > 1 {
+			plan.Summary.OAuthAmbiguousSourceKeys++
+			continue
+		}
+
+		row := authNOAuthIdentityFromLegacy(*group.FirstAccount, *group.FirstCredential, key)
+		row.ID = allocateAuthNID(row.ID, canonical.IdentityIDs)
+		canonical.IdentitiesByKey[key] = canonicalAuthNIdentity{ID: row.ID, UserID: row.UserID, Key: key}
+		plan.Identities = append(plan.Identities, row)
+		plan.Summary.OAuthMissing++
+	}
+
 	plan.Summary.PlannedLoginIdentityInserts = len(plan.Identities)
 	plan.Summary.PlannedPasswordInserts = len(plan.Passwords)
+	plan.Summary.RemainingLoginIdentityRows = len(plan.Identities)
+	plan.Summary.RemainingPasswordRows = len(plan.Passwords)
 	plan.Summary.HardConflicts = authNHardConflictCount(plan.Summary)
 	plan.Summary.RetirementEligible = plan.Summary.HardConflicts == 0 &&
 		plan.Summary.PlannedLoginIdentityInserts == 0 &&
 		plan.Summary.PlannedPasswordInserts == 0
 	return plan
+}
+
+func authNOAuthGroupOwnerRows(group authNOAuthGroup, userID uint64) int {
+	if userID == group.PrimaryOwnerID {
+		return group.PrimaryOwnerRows
+	}
+	return group.OtherOwnerRows[userID]
+}
+
+func canonicalAuthNOAuthAuthority(
+	key authNProviderKey,
+	canonical authNCanonicalState,
+	providerGlobals map[authNProviderGlobalKey]authNGlobalAuthority,
+) (canonicalAuthNIdentity, string, bool, bool) {
+	if identity, exists := canonical.IdentitiesByKey[key]; exists {
+		return identity, "direct", true, false
+	}
+	authority := providerGlobals[authNProviderGlobalKey{
+		Provider:         key.Provider,
+		GlobalIdentifier: key.Identifier,
+	}]
+	if authority.Count == 0 {
+		return canonicalAuthNIdentity{}, "", false, false
+	}
+	if authority.Count > 1 {
+		return canonicalAuthNIdentity{}, "", false, true
+	}
+	return authority.Identity, "global", true, false
+}
+
+func authNGlobalAuthorityMatchesOwner(authority authNGlobalAuthority, userID uint64) bool {
+	return authority.Count == 1 && authority.Identity.UserID == userID
+}
+
+func validAuthNOAuthProviderKey(key authNProviderKey) bool {
+	return validAuthNProviderKey(key) && utf8.RuneCountInString(key.Realm) <= 128 &&
+		utf8.RuneCountInString(key.Identifier) <= 255
 }
 
 func countAuthNOAuthCredentialType(summary *AuthNLegacyReconcileSummary, credentialType string) {
@@ -758,13 +917,14 @@ func authNHardConflictCount(summary AuthNLegacyReconcileSummary) int {
 		summary.AccountGlobalIDConflicts +
 		summary.AccountDuplicateSources +
 		summary.PasswordInvalid +
-		summary.PasswordOrphans +
 		summary.PasswordDuplicateSources +
 		summary.PhoneBlankIdentifiers +
 		summary.PhoneOrphans +
 		summary.PhoneOwnerConflicts +
 		summary.PhoneDuplicateSources +
-		summary.OAuthMissing +
+		summary.OAuthInvalidKeys +
+		summary.OAuthAmbiguousSourceKeys +
+		summary.OAuthAmbiguousGlobalKeys +
 		summary.UnknownCredentials
 }
 
@@ -1024,6 +1184,42 @@ func authNPhoneIdentityFromLegacy(
 			"legacy_table":           "auth_credentials_legacy",
 			"legacy_credential_id":   credential.ID,
 			"legacy_account_id":      credential.AccountID,
+			"legacy_credential_type": credential.Type,
+		}),
+		CreatedAt: createdAt,
+		UpdatedAt: fallbackAuthNTime(credential.UpdatedAt),
+		DeletedAt: credential.DeletedAt,
+		CreatedBy: credential.CreatedBy,
+		UpdatedBy: credential.UpdatedBy,
+		DeletedBy: credential.DeletedBy,
+		Version:   nonZeroAuthN(credential.Version, 1),
+	}
+}
+
+func authNOAuthIdentityFromLegacy(
+	account legacyAuthNAccount,
+	credential legacyAuthNCredential,
+	key authNProviderKey,
+) plannedAuthNIdentity {
+	createdAt := fallbackAuthNTime(credential.CreatedAt)
+	status := legacyAuthNAccountStatus(account.Status)
+	if credential.DeletedAt.Valid {
+		status = "deleted"
+	} else if status == "active" && credential.Status != 1 {
+		status = "disabled"
+	}
+	return plannedAuthNIdentity{
+		ID:       credential.ID,
+		UserID:   account.UserID,
+		Key:      key,
+		Status:   status,
+		LinkedAt: createdAt,
+		Meta: mergeAuthNLegacyMeta(credential.ParamsJSON, map[string]any{
+			loginidentity.MetaLegacyIdentifierSemantics: loginidentity.LegacyIdentifierOpenOrUnion,
+			"legacy_table":           "auth_credentials_legacy",
+			"legacy_credential_id":   credential.ID,
+			"legacy_account_id":      credential.AccountID,
+			"legacy_account_type":    account.Type,
 			"legacy_credential_type": credential.Type,
 		}),
 		CreatedAt: createdAt,

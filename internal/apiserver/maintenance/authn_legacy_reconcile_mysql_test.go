@@ -101,6 +101,53 @@ VALUES (9001, 999, 'username', 'default', 'operator', 'active', NOW())`); err !=
 		assertAuthNRowCount(t, db, "auth_credentials", 0)
 	})
 
+	t.Run("OAuth migration is marker scoped and resumable in bounded batches", func(t *testing.T) {
+		resetAuthNReconcileSchema(t, db)
+		if _, err := db.Exec(`INSERT INTO auth_accounts
+(id, user_id, type, app_id, external_id, status)
+VALUES (10, 100, 'mock-consumer', '', 'consumer', 1)`); err != nil {
+			t.Fatalf("insert OAuth account fixture: %v", err)
+		}
+		if _, err := db.Exec(`INSERT INTO auth_credentials_legacy
+(id, account_id, type, idp, idp_identifier, app_id, status)
+VALUES (20, 10, 'oauth_wx_minip', 'wechat', 'legacy-open-or-union', 'wx-app', 1)`); err != nil {
+			t.Fatalf("insert OAuth credential fixture: %v", err)
+		}
+
+		first, err := ReconcileAuthNLegacy(context.Background(), db, AuthNLegacyReconcileOptions{
+			Apply: true, BatchSize: 1,
+		})
+		if err != nil {
+			t.Fatalf("first OAuth batch: %v", err)
+		}
+		if first.RetirementEligible || first.AppliedLoginIdentityInserts != 1 ||
+			first.RemainingLoginIdentityRows != 1 {
+			t.Fatalf("first OAuth batch summary = %+v", first)
+		}
+		assertAuthNRowCount(t, db, "auth_login_identities", 1)
+
+		second, err := ReconcileAuthNLegacy(context.Background(), db, AuthNLegacyReconcileOptions{
+			Apply: true, BatchSize: 1,
+		})
+		if err != nil {
+			t.Fatalf("second OAuth batch: %v", err)
+		}
+		if !second.RetirementEligible || second.AppliedLoginIdentityInserts != 1 ||
+			second.RemainingLoginIdentityRows != 0 {
+			t.Fatalf("second OAuth batch summary = %+v", second)
+		}
+		assertAuthNRowCount(t, db, "auth_login_identities", 2)
+		var marker string
+		if err := db.QueryRow(`SELECT JSON_UNQUOTE(JSON_EXTRACT(meta_json, '$.legacy_identifier_semantics'))
+FROM auth_login_identities
+WHERE provider = 'wechat_minip' AND realm = 'wx-app' AND identifier = 'legacy-open-or-union'`).Scan(&marker); err != nil {
+			t.Fatalf("query migrated OAuth marker: %v", err)
+		}
+		if marker != "openid_or_unionid" {
+			t.Fatalf("OAuth marker = %q", marker)
+		}
+	})
+
 	t.Run("already retired is idempotently eligible", func(t *testing.T) {
 		resetAuthNReconcileSchema(t, db)
 		if _, err := db.Exec("DROP TABLE auth_credentials_legacy, auth_accounts"); err != nil {

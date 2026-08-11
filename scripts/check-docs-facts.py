@@ -405,6 +405,8 @@ def check_database_operations_facts() -> None:
         "reconcile-authn-dry-run",
         "reconcile-authn-verify",
         "reconcile-authn-apply",
+        "authn_batch_size:",
+        "IAM_DB_OPS_AUTHN_BATCH_SIZE",
         "performance-schema-status",
         "IAM_DB_OPS_CONFIRMATION",
     ):
@@ -437,6 +439,7 @@ def check_database_operations_facts() -> None:
         "BACKFILL_AUTHN_LEGACY_MISSING",
         "/app/iam-maintenance reconcile-authn-legacy",
         "canonical_policy=insert_missing_only",
+        "--batch-size=",
         "performance schema capability:",
         "endpoint_provider=",
         "configure_provider_or_server_startup",
@@ -444,7 +447,7 @@ def check_database_operations_facts() -> None:
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
     for token in (
-        "format_version=3",
+        "format_version=4",
         "query_mode=read_only_aggregate",
         "--defaults-extra-file=",
         "performance_schema.table_io_waits_summary_by_table",

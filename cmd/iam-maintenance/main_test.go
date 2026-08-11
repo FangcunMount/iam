@@ -98,6 +98,8 @@ func TestReconcileAuthNLegacyRequiresConfirmationBeforeDatabaseAccess(t *testing
 		{"reconcile-authn-legacy", "--apply", "--confirm=wrong"},
 		{"reconcile-authn-legacy", "--apply", "--confirm=" + authNLegacyConfirmation, "--require-eligible"},
 		{"reconcile-authn-legacy", "--confirm=" + authNLegacyConfirmation},
+		{"reconcile-authn-legacy", "--batch-size=0"},
+		{"reconcile-authn-legacy", "--batch-size=50001"},
 	} {
 		if err := run(args, &bytes.Buffer{}); err == nil {
 			t.Fatalf("run(%v) should reject invalid confirmation", args)

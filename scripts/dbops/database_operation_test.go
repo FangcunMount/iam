@@ -393,10 +393,10 @@ case "$1" in
   exec)
     printf '%s\n' "$*" > "$IAM_FAKE_AUTHN_CAPTURE"
     if [ "${IAM_FAKE_AUTHN_CONFLICT:-0}" = "1" ]; then
-      printf '{"format_version":3,"mode":"dry-run","hard_conflicts":1,"retirement_eligible":false}\n'
+      printf '{"format_version":4,"mode":"dry-run","hard_conflicts":1,"retirement_eligible":false}\n'
       exit 1
     fi
-    printf '{"format_version":3,"mode":"fixture","hard_conflicts":0,"retirement_eligible":true}\n'
+    printf '{"format_version":4,"mode":"fixture","hard_conflicts":0,"retirement_eligible":true}\n'
     ;;
   *) exit 91 ;;
 esac
@@ -414,7 +414,7 @@ esac
 	output, err := runScript(t, bin, base)
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mode=dry-run", "canonical_policy=insert_missing_only", `"format_version":3`, "result=success"} {
+	for _, want := range []string{"mode=dry-run", "canonical_policy=insert_missing_only", "batch_size=5000", `"format_version":4`, "result=success"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("AuthN dry-run output missing %q: %s", want, output)
 		}
@@ -424,6 +424,12 @@ esac
 	if !strings.Contains(string(command), "exec iam-apiserver /app/iam-maintenance reconcile-authn-legacy --timeout=5m") {
 		t.Fatalf("unexpected AuthN dry-run command: %s", command)
 	}
+	base["IAM_DB_OPS_AUTHN_BATCH_SIZE"] = "50001"
+	output, err = runScript(t, bin, base)
+	if err == nil || !strings.Contains(output, "batch size is invalid") {
+		t.Fatalf("invalid AuthN batch size: err=%v output=%s", err, output)
+	}
+	delete(base, "IAM_DB_OPS_AUTHN_BATCH_SIZE")
 	base["IAM_FAKE_AUTHN_CONFLICT"] = "1"
 	output, err = runScript(t, bin, base)
 	if err == nil || !strings.Contains(output, `"hard_conflicts":1`) || !strings.Contains(output, "raw runtime errors were withheld") {
@@ -460,7 +466,7 @@ esac
 	}
 	command, err = os.ReadFile(capture)
 	requireNoError(t, err)
-	for _, want := range []string{"--apply", "--confirm=BACKFILL_AUTHN_LEGACY_MISSING", "--timeout=5m"} {
+	for _, want := range []string{"--apply", "--confirm=BACKFILL_AUTHN_LEGACY_MISSING", "--batch-size=5000", "--timeout=5m"} {
 		if !strings.Contains(string(command), want) {
 			t.Fatalf("AuthN apply command missing %q: %s", want, command)
 		}
