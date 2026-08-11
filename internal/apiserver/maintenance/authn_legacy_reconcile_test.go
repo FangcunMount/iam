@@ -139,22 +139,22 @@ func TestAuthNLegacyPlanFailsClosedOnOwnershipAndUnknownFacts(t *testing.T) {
 
 func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing.T) {
 	accounts := []legacyAuthNAccount{
-		{ID: 10, UserID: 100, Type: "mock-consumer", ExternalID: "consumer"},
+		{ID: 10, UserID: 100, Type: "mock-consumer", AppID: "mock-consumer", ExternalID: "consumer"},
 		{ID: 11, UserID: 101, Type: "wc-minip", AppID: "wx-app", ExternalID: "openid"},
 	}
 	credentials := []legacyAuthNCredential{
-		{ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "unionid", Status: 1},
+		{ID: 20, AccountID: 10, Type: "oauth_wx_minip", AppID: "mock-consumer", IDPIdentifier: "consumer", Status: 1},
 		{ID: 21, AccountID: 11, Type: "oauth_wx_minip", AppID: "wx-app", IDPIdentifier: "openid", Status: 1},
 		{ID: 22, AccountID: 999, Type: "oauth_wx_scan", AppID: "wx-open", IDPIdentifier: "orphan", Status: 1},
 	}
 	usernameKey := authNProviderKey{Provider: "username", Realm: "default", Identifier: "consumer"}
 	wechatKey := authNProviderKey{Provider: "wechat_minip", Realm: "wx-app", Identifier: "openid"}
-	consumerWechatKey := authNProviderKey{Provider: "wechat_minip", Realm: "wx-app", Identifier: "consumer-openid"}
+	consumerWechatKey := authNProviderKey{Provider: "wechat_minip", Realm: "mock-consumer", Identifier: "consumer-openid"}
 	state := authNCanonicalState{
 		IdentitiesByKey: authNIdentityMap{
 			usernameKey:       {ID: 110, UserID: 100, Key: usernameKey},
 			wechatKey:         {ID: 111, UserID: 101, Key: wechatKey},
-			consumerWechatKey: {ID: 112, UserID: 100, Key: consumerWechatKey, GlobalIdentifier: "unionid"},
+			consumerWechatKey: {ID: 112, UserID: 100, Key: consumerWechatKey, GlobalIdentifier: "consumer"},
 		},
 		IdentityIDs:     map[uint64]struct{}{110: {}, 111: {}, 112: {}},
 		PasswordByLogin: make(map[uint64]uint64),
@@ -181,6 +181,13 @@ func TestAuthNLegacyPlanReportsOAuthMismatchUsingControlledAggregates(t *testing
 	if plan.Summary.OAuthOwnerProviderMatches != 2 || plan.Summary.OAuthOwnerRealmMatches != 2 {
 		t.Fatalf("summary = %+v, want owner/provider aggregate matches", plan.Summary)
 	}
+	if plan.Summary.OAuthAppIDAccountMatches != 2 || plan.Summary.OAuthIdentifierExtMatches != 2 {
+		t.Fatalf("summary = %+v, want account relation aggregates", plan.Summary)
+	}
+	if plan.Summary.OAuthMockAppIDLiteralRows != 1 || plan.Summary.OAuthMockAppIDMatches != 1 ||
+		plan.Summary.OAuthMockIdentifierMatches != 1 || plan.Summary.OAuthMockMaterialRows != 0 {
+		t.Fatalf("summary = %+v, want mock-consumer artifact shape", plan.Summary)
+	}
 	if plan.Summary.OAuthActiveRows != 3 || plan.Summary.OAuthOrphanActiveRows != 1 {
 		t.Fatalf("summary = %+v, want disjoint credential-state aggregates", plan.Summary)
 	}
@@ -196,11 +203,41 @@ func TestAuthNLegacyPlanReportsOrphanCredentialStates(t *testing.T) {
 		{ID: 22, AccountID: 997, Type: "password", Material: []byte("hash"), Algo: "bcrypt", Status: 1, DeletedAt: sql.NullTime{Valid: true}},
 	}
 
-	plan := buildAuthNReconcilePlan(nil, credentials, emptyCanonicalAuthNState(), newAuthNLegacySummary(false))
+	state := emptyCanonicalAuthNState()
+	state.IdentityIDs[999] = struct{}{}
+	state.PasswordByLogin[999] = 120
+	state.PasswordFacts[999] = canonicalAuthNPassword{Material: []byte("hash"), Algo: "bcrypt"}
+	plan := buildAuthNReconcilePlan(nil, credentials, state, newAuthNLegacySummary(false))
 
 	if plan.Summary.PasswordOrphans != 3 || plan.Summary.PasswordOrphanActiveRows != 1 ||
 		plan.Summary.PasswordOrphanDisabledRows != 1 || plan.Summary.PasswordOrphanDeletedRows != 1 {
 		t.Fatalf("summary = %+v, want disjoint password orphan states", plan.Summary)
+	}
+	if plan.Summary.PasswordOrphanIdentityIDs != 1 || plan.Summary.PasswordOrphanExactMatches != 1 {
+		t.Fatalf("summary = %+v, want canonical orphan preservation aggregates", plan.Summary)
+	}
+}
+
+func TestAuthNLegacyPlanReportsOAuthOrphanCanonicalRelations(t *testing.T) {
+	directKey := authNProviderKey{Provider: "wechat_open", Realm: "open-app", Identifier: "direct-id"}
+	globalKey := authNProviderKey{Provider: "wechat_open", Realm: "open-app", Identifier: "other-id"}
+	state := emptyCanonicalAuthNState()
+	state.IdentitiesByKey[directKey] = canonicalAuthNIdentity{ID: 999, UserID: 100, Key: directKey}
+	state.IdentitiesByKey[globalKey] = canonicalAuthNIdentity{
+		ID: 998, UserID: 101, Key: globalKey, GlobalIdentifier: "global-id",
+	}
+	state.IdentityIDs[999] = struct{}{}
+	state.IdentityIDs[998] = struct{}{}
+	credentials := []legacyAuthNCredential{
+		{ID: 20, AccountID: 999, Type: "oauth_wx_scan", AppID: "open-app", IDPIdentifier: "direct-id", Status: 1},
+		{ID: 21, AccountID: 997, Type: "oauth_wx_scan", AppID: "open-app", IDPIdentifier: "global-id", Status: 1},
+	}
+
+	plan := buildAuthNReconcilePlan(nil, credentials, state, newAuthNLegacySummary(false))
+
+	if plan.Summary.OAuthAccountOrphans != 2 || plan.Summary.OAuthOrphanIdentityIDs != 1 ||
+		plan.Summary.OAuthOrphanDirectMatches != 1 || plan.Summary.OAuthOrphanGlobalMatches != 1 {
+		t.Fatalf("summary = %+v, want canonical OAuth orphan relations", plan.Summary)
 	}
 }
 
@@ -250,6 +287,7 @@ func emptyCanonicalAuthNState() authNCanonicalState {
 		IdentitiesByKey: make(authNIdentityMap),
 		IdentityIDs:     make(map[uint64]struct{}),
 		PasswordByLogin: make(map[uint64]uint64),
+		PasswordFacts:   make(map[uint64]canonicalAuthNPassword),
 		CredentialIDs:   make(map[uint64]struct{}),
 	}
 }

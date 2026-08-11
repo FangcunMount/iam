@@ -1,6 +1,7 @@
 package maintenance
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -80,6 +81,21 @@ type AuthNLegacyReconcileSummary struct {
 	PasswordOrphanActiveRows    int    `json:"password_orphan_active_rows"`
 	PasswordOrphanDisabledRows  int    `json:"password_orphan_disabled_rows"`
 	PasswordOrphanDeletedRows   int    `json:"password_orphan_deleted_rows"`
+	PasswordOrphanIdentityIDs   int    `json:"password_orphan_identity_id_matches"`
+	PasswordOrphanExactMatches  int    `json:"password_orphan_exact_canonical_matches"`
+	OAuthAppIDAccountMatches    int    `json:"oauth_app_id_account_matches"`
+	OAuthIdentifierExtMatches   int    `json:"oauth_identifier_account_external_matches"`
+	OAuthIdentifierGlobalMatch  int    `json:"oauth_identifier_account_global_matches"`
+	OAuthIdentifierAtAppMatches int    `json:"oauth_identifier_at_app_account_external_matches"`
+	OAuthMockAppIDLiteralRows   int    `json:"oauth_mock_app_id_literal_rows"`
+	OAuthMockAppIDMatches       int    `json:"oauth_mock_app_id_account_matches"`
+	OAuthMockIdentifierMatches  int    `json:"oauth_mock_identifier_account_external_matches"`
+	OAuthMockMaterialRows       int    `json:"oauth_mock_material_rows"`
+	OAuthMockParamsRows         int    `json:"oauth_mock_params_rows"`
+	OAuthMockOwnerConflicts     int    `json:"oauth_mock_direct_owner_conflicts"`
+	OAuthOrphanIdentityIDs      int    `json:"oauth_orphan_identity_id_matches"`
+	OAuthOrphanDirectMatches    int    `json:"oauth_orphan_direct_identity_matches"`
+	OAuthOrphanGlobalMatches    int    `json:"oauth_orphan_global_identity_matches"`
 	UnknownCredentials          int    `json:"unknown_credentials"`
 	PlannedLoginIdentityInserts int    `json:"planned_login_identity_inserts"`
 	PlannedPasswordInserts      int    `json:"planned_password_inserts"`
@@ -157,6 +173,12 @@ type authNOwnerProviderRealmGlobalKey struct {
 	GlobalIdentifier string
 }
 
+type authNProviderRealmGlobalKey struct {
+	Provider         string
+	Realm            string
+	GlobalIdentifier string
+}
+
 type canonicalAuthNIdentity struct {
 	ID               uint64
 	UserID           uint64
@@ -207,7 +229,13 @@ type authNCanonicalState struct {
 	IdentitiesByKey authNIdentityMap
 	IdentityIDs     map[uint64]struct{}
 	PasswordByLogin map[uint64]uint64
+	PasswordFacts   map[uint64]canonicalAuthNPassword
 	CredentialIDs   map[uint64]struct{}
+}
+
+type canonicalAuthNPassword struct {
+	Material []byte
+	Algo     string
 }
 
 type authNIdentityMap map[authNProviderKey]canonicalAuthNIdentity
@@ -387,6 +415,7 @@ func buildAuthNReconcilePlan(
 	ownerProviders := make(map[authNOwnerProviderKey]int, len(canonical.IdentitiesByKey))
 	ownerProviderRealms := make(map[authNOwnerProviderRealmKey]int, len(canonical.IdentitiesByKey))
 	ownerProviderRealmGlobals := make(map[authNOwnerProviderRealmGlobalKey]int, len(canonical.IdentitiesByKey))
+	providerRealmGlobals := make(map[authNProviderRealmGlobalKey]int, len(canonical.IdentitiesByKey))
 	for _, identity := range canonical.IdentitiesByKey {
 		provider := strings.TrimSpace(identity.Key.Provider)
 		realm := strings.TrimSpace(identity.Key.Realm)
@@ -398,6 +427,9 @@ func buildAuthNReconcilePlan(
 		if globalIdentifier != "" {
 			ownerProviderRealmGlobals[authNOwnerProviderRealmGlobalKey{
 				UserID: identity.UserID, Provider: provider, Realm: realm, GlobalIdentifier: globalIdentifier,
+			}]++
+			providerRealmGlobals[authNProviderRealmGlobalKey{
+				Provider: provider, Realm: realm, GlobalIdentifier: globalIdentifier,
 			}]++
 		}
 	}
@@ -465,6 +497,13 @@ func buildAuthNReconcilePlan(
 			if !ok || !resolution.OK {
 				plan.Summary.PasswordOrphans++
 				countAuthNPasswordOrphanState(&plan.Summary, credential)
+				if _, exists := canonical.IdentityIDs[credential.AccountID]; exists {
+					plan.Summary.PasswordOrphanIdentityIDs++
+				}
+				if password, exists := canonical.PasswordFacts[credential.AccountID]; exists &&
+					bytes.Equal(password.Material, credential.Material) && password.Algo == strings.TrimSpace(credential.Algo) {
+					plan.Summary.PasswordOrphanExactMatches++
+				}
 				continue
 			}
 			if _, duplicate := seenPasswords[credential.AccountID]; duplicate {
@@ -539,15 +578,30 @@ func buildAuthNReconcilePlan(
 			if !accountExists {
 				plan.Summary.OAuthAccountOrphans++
 				countAuthNOAuthOrphanState(&plan.Summary, credential)
+				if _, exists := canonical.IdentityIDs[credential.AccountID]; exists {
+					plan.Summary.OAuthOrphanIdentityIDs++
+				}
+				if _, exists := canonical.IdentitiesByKey[directKey]; exists {
+					plan.Summary.OAuthOrphanDirectMatches++
+				}
+				if providerRealmGlobals[authNProviderRealmGlobalKey{
+					Provider: provider, Realm: realm, GlobalIdentifier: identifier,
+				}] > 0 {
+					plan.Summary.OAuthOrphanGlobalMatches++
+				}
 				plan.Summary.OAuthMissing++
 				continue
 			}
 			countAuthNOAuthAccountType(&plan.Summary, account.Type)
+			countAuthNOAuthAccountRelations(&plan.Summary, account, credential)
 			if identity, exists := canonical.IdentitiesByKey[directKey]; exists {
 				if identity.UserID == account.UserID {
 					plan.Summary.OAuthDirectIdentityMatches++
 				} else {
 					plan.Summary.OAuthDirectOwnerConflicts++
+					if strings.TrimSpace(account.Type) == "mock-consumer" {
+						plan.Summary.OAuthMockOwnerConflicts++
+					}
 				}
 			}
 			if ownerProviders[authNOwnerProviderKey{UserID: account.UserID, Provider: provider}] > 0 {
@@ -616,6 +670,48 @@ func countAuthNOAuthAccountType(summary *AuthNLegacyReconcileSummary, accountTyp
 		summary.OAuthWecomAccountRows++
 	default:
 		summary.OAuthUnsupportedAccountRows++
+	}
+}
+
+func countAuthNOAuthAccountRelations(
+	summary *AuthNLegacyReconcileSummary,
+	account legacyAuthNAccount,
+	credential legacyAuthNCredential,
+) {
+	appID := strings.TrimSpace(credential.AppID)
+	identifier := strings.TrimSpace(credential.IDPIdentifier)
+	accountAppID := strings.TrimSpace(account.AppID)
+	externalID := strings.TrimSpace(account.ExternalID)
+	globalID := strings.TrimSpace(account.UniqueID)
+	if appID != "" && appID == accountAppID {
+		summary.OAuthAppIDAccountMatches++
+	}
+	if identifier != "" && identifier == externalID {
+		summary.OAuthIdentifierExtMatches++
+	}
+	if identifier != "" && globalID != "" && identifier == globalID {
+		summary.OAuthIdentifierGlobalMatch++
+	}
+	if identifier != "" && appID != "" && externalID == identifier+"@"+appID {
+		summary.OAuthIdentifierAtAppMatches++
+	}
+	if strings.TrimSpace(account.Type) != "mock-consumer" {
+		return
+	}
+	if appID == "mock-consumer" {
+		summary.OAuthMockAppIDLiteralRows++
+	}
+	if appID != "" && appID == accountAppID {
+		summary.OAuthMockAppIDMatches++
+	}
+	if identifier != "" && identifier == externalID {
+		summary.OAuthMockIdentifierMatches++
+	}
+	if len(credential.Material) > 0 || strings.TrimSpace(credential.Algo) != "" {
+		summary.OAuthMockMaterialRows++
+	}
+	if len(bytes.TrimSpace(credential.ParamsJSON)) > 0 && string(bytes.TrimSpace(credential.ParamsJSON)) != "null" {
+		summary.OAuthMockParamsRows++
 	}
 }
 
@@ -769,6 +865,7 @@ func loadCanonicalAuthNState(ctx context.Context, q authNQueryer) (authNCanonica
 		IdentitiesByKey: make(authNIdentityMap),
 		IdentityIDs:     make(map[uint64]struct{}),
 		PasswordByLogin: make(map[uint64]uint64),
+		PasswordFacts:   make(map[uint64]canonicalAuthNPassword),
 		CredentialIDs:   make(map[uint64]struct{}),
 	}
 	identityRows, err := q.QueryContext(ctx, `SELECT id, user_id, provider, realm, identifier, global_identifier
@@ -798,7 +895,7 @@ FROM auth_login_identities`)
 	}
 	_ = identityRows.Close()
 
-	credentialRows, err := q.QueryContext(ctx, `SELECT id, login_identity_id, type FROM auth_credentials`)
+	credentialRows, err := q.QueryContext(ctx, `SELECT id, login_identity_id, type, material, algo FROM auth_credentials`)
 	if err != nil {
 		return state, fmt.Errorf("load canonical authn credentials: %w", err)
 	}
@@ -806,12 +903,18 @@ FROM auth_login_identities`)
 	for credentialRows.Next() {
 		var id, loginIdentityID uint64
 		var credentialType string
-		if err := credentialRows.Scan(&id, &loginIdentityID, &credentialType); err != nil {
+		var material []byte
+		var algo sql.NullString
+		if err := credentialRows.Scan(&id, &loginIdentityID, &credentialType, &material, &algo); err != nil {
 			return state, fmt.Errorf("scan canonical authn credential: %w", err)
 		}
 		state.CredentialIDs[id] = struct{}{}
 		if credentialType == "password" {
 			state.PasswordByLogin[loginIdentityID] = id
+			state.PasswordFacts[loginIdentityID] = canonicalAuthNPassword{
+				Material: cloneAuthNBytes(material),
+				Algo:     strings.TrimSpace(algo.String),
+			}
 		}
 	}
 	return state, credentialRows.Err()
