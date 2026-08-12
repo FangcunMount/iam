@@ -75,24 +75,6 @@ func (b *Builder) FromProviderKey(key ProviderKey) *Builder {
 	return b
 }
 
-// WithID 设置登录身份 ID。
-func (b *Builder) WithID(id meta.ID) *Builder {
-	if b == nil {
-		return b
-	}
-	b.id = id
-	return b
-}
-
-// WithStatus 设置登录身份状态。
-func (b *Builder) WithStatus(status Status) *Builder {
-	if b == nil {
-		return b
-	}
-	b.status = status
-	return b
-}
-
 // WithVerifiedAt 设置验证时间。
 func (b *Builder) WithVerifiedAt(verifiedAt time.Time) *Builder {
 	if b == nil {
@@ -118,15 +100,6 @@ func (b *Builder) WithMeta(metaData map[string]string) *Builder {
 		return b
 	}
 	b.meta = cloneStringMap(metaData)
-	return b
-}
-
-// WithLinkedAt 设置绑定时间。
-func (b *Builder) WithLinkedAt(linkedAt time.Time) *Builder {
-	if b == nil {
-		return b
-	}
-	b.linkedAt = linkedAt
 	return b
 }
 

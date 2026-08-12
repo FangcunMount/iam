@@ -20,15 +20,6 @@ type smsOTPOptions struct {
 	now     time.Time
 }
 
-type Option func(*service)
-
-// WithSMSOTPDelivery 配置短信验证码发送依赖
-func WithSMSOTPDelivery(delivery SMSOTPDelivery) Option {
-	return func(s *service) {
-		s.delivery = &delivery
-	}
-}
-
 // WithTTL 设置短信验证码有效期
 func WithTTL(ttl time.Duration) SMSOTPOption {
 	return func(o *smsOTPOptions) { o.ttl = ttl }
@@ -37,9 +28,4 @@ func WithTTL(ttl time.Duration) SMSOTPOption {
 // WithCodeLen 设置短信验证码长度
 func WithCodeLen(codeLen int) SMSOTPOption {
 	return func(o *smsOTPOptions) { o.codeLen = codeLen }
-}
-
-// WithNow 设置短信验证码创建时间
-func WithNow(now time.Time) SMSOTPOption {
-	return func(o *smsOTPOptions) { o.now = now }
 }
