@@ -2,11 +2,8 @@ package testutil
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	gormmysql "gorm.io/driver/mysql"
@@ -90,41 +87,4 @@ func OpenDBForIntegrationTest(t *testing.T, models ...interface{}) *gorm.DB {
 	}
 
 	return db
-}
-
-// RetryOnDBLocked runs the provided operation and, if it fails with a
-// sqlite "database is locked" (or similar transient) error, retries it with
-// exponential backoff and jitter. This utility is intended for tests only to
-// reduce noise from transient sqlite locking under heavy concurrency.
-func RetryOnDBLocked(op func() error) error {
-	const maxAttempts = 8
-	baseDelay := 10 * time.Millisecond
-
-	var lastErr error
-	// Seed rand for jitter; fine even if reseeded repeatedly in tests
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if err := op(); err != nil {
-			lastErr = err
-			// detect common sqlite transient lock/busy messages
-			msg := strings.ToLower(err.Error())
-			if strings.Contains(msg, "database is locked") || strings.Contains(msg, "database is busy") || strings.Contains(msg, "database table is locked") {
-				// exponential backoff with jitter
-				sleep := baseDelay * (1 << attempt)
-				// cap sleep to a reasonable bound
-				if sleep > 500*time.Millisecond {
-					sleep = 500 * time.Millisecond
-				}
-				// add jitter up to sleep
-				jitter := time.Duration(r.Int63n(int64(sleep)))
-				time.Sleep(sleep + jitter)
-				continue
-			}
-			// non-transient error: return immediately
-			return err
-		}
-		return nil
-	}
-	return lastErr
 }

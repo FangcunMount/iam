@@ -69,20 +69,3 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 func NewUnitOfWork(db *gorm.DB) identityuow.UnitOfWork {
 	return mysqluow.NewUnitOfWork(db)
 }
-
-// CleanupDB 清空数据库所有表（用于每个测试之间清理）
-func CleanupDB(t *testing.T, db *gorm.DB) {
-	t.Helper()
-
-	// 按依赖顺序删除（先删除有外键的表）
-	tables := []string{
-		"profile_links", // 档案关系（依赖 users 和 profiles）
-		"profiles",      // 档案
-		"users",         // 用户
-	}
-
-	for _, table := range tables {
-		err := db.Exec("DELETE FROM " + table).Error
-		require.NoError(t, err, "failed to cleanup table: %s", table)
-	}
-}
