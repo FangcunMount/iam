@@ -64,7 +64,8 @@ func NewServiceToken(id, value, subject string, audience []string, attributes ma
 	}
 }
 
-// NewRefreshToken 创建刷新令牌
+// NewRefreshToken 创建相对当前时间过期的刷新令牌。
+// 该构造器用于需要表达 TTL 的测试和调用方；生产签发路径使用显式过期时间构造器。
 func NewRefreshToken(id, value, sessionID string, userID meta.ID, loginIdentityID meta.ID, tenantID meta.ID, amr []string, sessionClaims map[string]string, expiresIn time.Duration) *Token {
 	now := time.Now()
 	return newRefreshToken(id, value, sessionID, userID, loginIdentityID, tenantID, amr, sessionClaims, now, now.Add(expiresIn))

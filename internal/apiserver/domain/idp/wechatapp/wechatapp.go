@@ -33,7 +33,6 @@ func NewWechatApp(t AppType, aid string, opts ...WechatAppOption) *WechatApp {
 // WechatAppOption 微信应用选项
 type WechatAppOption func(*WechatApp)
 
-func WithWechatAppID(id meta.ID) WechatAppOption    { return func(w *WechatApp) { w.ID = id } }
 func WithWechatAppName(name string) WechatAppOption { return func(w *WechatApp) { w.Name = name } }
 func WithWechatAppStatus(status Status) WechatAppOption {
 	return func(w *WechatApp) { w.Status = status }

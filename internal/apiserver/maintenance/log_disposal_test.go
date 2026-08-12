@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"compress/gzip"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +30,7 @@ func TestAnalyzeAndDisposeIAMLogs(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "app.log")); err != nil {
 		t.Fatalf("dry-run analysis removed file: %v", err)
 	}
-	encoded, err := MarshalLogDisposalSummary(summary)
+	encoded, err := json.Marshal(summary)
 	if err != nil {
 		t.Fatal(err)
 	}

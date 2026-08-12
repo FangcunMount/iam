@@ -1,8 +1,6 @@
 package keyset
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
@@ -118,11 +116,6 @@ func (c *CacheTag) IsZero() bool {
 
 func (c *CacheTag) Matches(other CacheTag) bool {
 	return c.ETag == other.ETag
-}
-
-func GenerateETag(content []byte) string {
-	hash := sha256.Sum256(content)
-	return `"` + hex.EncodeToString(hash[:]) + `"`
 }
 
 type RotationPolicy struct {

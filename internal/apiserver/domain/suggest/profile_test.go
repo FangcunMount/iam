@@ -46,14 +46,14 @@ func TestQueryDefaultsAndKeywordDigits(t *testing.T) {
 }
 
 func TestRankingPolicyKeepsBestWeightSortsAndLimits(t *testing.T) {
-	terms := []ProfileSearchTerm{
-		{ProfileID: 1, DisplayName: "first", Weight: 1},
-		{ProfileID: 2, DisplayName: "second", Weight: 9},
-		{ProfileID: 1, DisplayName: "duplicate", Weight: 99},
-		{ProfileID: 3, DisplayName: "third", Weight: 5},
+	terms := []RankedProfileSearchTerm{
+		{Term: ProfileSearchTerm{ProfileID: 1, DisplayName: "first", Weight: 1}, Kind: MatchKindPrefix},
+		{Term: ProfileSearchTerm{ProfileID: 2, DisplayName: "second", Weight: 9}, Kind: MatchKindPrefix},
+		{Term: ProfileSearchTerm{ProfileID: 1, DisplayName: "duplicate", Weight: 99}, Kind: MatchKindPrefix},
+		{Term: ProfileSearchTerm{ProfileID: 3, DisplayName: "third", Weight: 5}, Kind: MatchKindPrefix},
 	}
 
-	got := RankingPolicy{}.Rank(terms, 2)
+	got := RankingPolicy{}.RankRankedForQuery(terms, NewQuery("", 2, 0, 0, 0))
 
 	if len(got) != 2 {
 		t.Fatalf("len = %d, want 2", len(got))
@@ -79,12 +79,12 @@ func TestRankingMatchKindPriority(t *testing.T) {
 }
 
 func TestRankingPrefixBoost(t *testing.T) {
-	terms := []ProfileSearchTerm{
-		{ProfileID: 1, DisplayName: "三张", Weight: 5},
-		{ProfileID: 2, DisplayName: "张三丰", Weight: 5},
+	terms := []RankedProfileSearchTerm{
+		{Term: ProfileSearchTerm{ProfileID: 1, DisplayName: "三张", Weight: 5}, Kind: MatchKindPrefix},
+		{Term: ProfileSearchTerm{ProfileID: 2, DisplayName: "张三丰", Weight: 5}, Kind: MatchKindPrefix},
 	}
 	q := NewQuery("张", 10, 50, 8, 0)
-	got := RankingPolicy{}.RankForQuery(terms, q)
+	got := RankingPolicy{}.RankRankedForQuery(terms, q)
 	if len(got) != 2 {
 		t.Fatalf("len = %d", len(got))
 	}

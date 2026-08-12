@@ -105,11 +105,3 @@ type IdentityProvider interface {
 	// 返回：OpenUserID、UserID
 	ExchangeWecomCode(ctx context.Context, corpID, agentID, corpSecret, code string) (openUserID, userID string, err error)
 }
-
-// AuditLogger 审计日志（可选）
-// 职责：记录认证事件（成功/失败/锁定）
-type AuditLogger interface {
-	// LogAuthAttempt 记录认证事件
-	// 参数：ctx 上下文, event 认证事件
-	LogAuthAttempt(ctx context.Context, event AuthAuditEvent)
-}

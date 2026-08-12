@@ -82,8 +82,8 @@ type cacheInspectorProvider interface {
 }
 
 func (c *Container) initCacheGovernance() {
-	inspectors := make([]cachegovernance.FamilyInspector, 0, 8)
-	for _, provider := range []cacheInspectorProvider{c.AuthnModule, c.IDPModule} {
+	inspectors := make([]cachegovernance.FamilyInspector, 0, 12)
+	for _, provider := range []cacheInspectorProvider{c.AuthnModule, c.IDPModule, c.SuggestModule} {
 		if provider == nil {
 			continue
 		}

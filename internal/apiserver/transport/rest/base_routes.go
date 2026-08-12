@@ -6,8 +6,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	openapiFS "github.com/FangcunMount/iam/v3/api"
+	"github.com/FangcunMount/iam/v3/pkg/version"
 	swaggerui "github.com/FangcunMount/iam/v3/web/swagger-ui"
 )
+
+const restAPIVersion = "2.0.0"
 
 // registerBaseRoutes 注册基础路由
 func (r *Router) registerBaseRoutes(engine *gin.Engine) {
@@ -31,11 +34,15 @@ func (r *Router) registerBaseRoutes(engine *gin.Engine) {
 	{
 		// 注册公共API信息路由
 		publicAPI.GET("/info", func(c *gin.Context) {
+			build := version.Get()
 			c.JSON(http.StatusOK, gin.H{
-				"service":     "iam-apiserver",
-				"version":     "1.0.0",
-				"description": "IAM API Server",
-				"swagger":     "/swagger/index.html",
+				"service":         "iam-apiserver",
+				"version":         restAPIVersion,
+				"api_version":     restAPIVersion,
+				"service_version": build.GitVersion,
+				"revision":        build.GitCommit,
+				"description":     "IAM API Server",
+				"swagger":         "/swagger/index.html",
 			})
 		})
 	}

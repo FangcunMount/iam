@@ -18,7 +18,6 @@ func TestNewProfile_Success(t *testing.T) {
 
 	profile, err := NewProfile(
 		"小明",
-		WithProfileID(id),
 		WithGender(meta.GenderMale),
 		WithBirthday(birthday),
 		WithIDCard(idCard),
@@ -26,6 +25,7 @@ func TestNewProfile_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, profile)
+	profile.ID = id
 	assert.Equal(t, id, profile.ID)
 	assert.Equal(t, "小明", profile.Name)
 	assert.Equal(t, meta.GenderMale, profile.Gender)

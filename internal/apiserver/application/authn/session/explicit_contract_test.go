@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,7 @@ func TestPublicAuthMethodsDerivedFromApplicationCatalog(t *testing.T) {
 		AuthMethodWechatMini,
 		AuthMethodWechatScan,
 		AuthMethodWecom,
-	}, PublicAuthMethods())
+	}, method.PublicAuthMethods())
 	require.False(t, IsPublicAuthMethod("unsupported"))
 }
 

@@ -174,10 +174,3 @@ func (s *KeySetBuilder) generateCacheTag(content []byte) CacheTag {
 		LastModified: lastModified,
 	}
 }
-
-func (s *KeySetBuilder) setClockForTest(now func() time.Time) {
-	if s == nil {
-		return
-	}
-	s.snapshot.setClockForTest(now)
-}

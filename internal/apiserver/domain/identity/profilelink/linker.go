@@ -26,14 +26,6 @@ func NewLinker(links Repository) *ProfileLinker {
 	}
 }
 
-// newLinkerWithClock 创建带 clock 的 profile linker，方便单元测试
-func newLinkerWithClock(links Repository, now func() time.Time) *ProfileLinker {
-	return &ProfileLinker{
-		links: links,
-		now:   now,
-	}
-}
-
 // Link 根据 relation 建立档案关系
 func (linker *ProfileLinker) Link(ctx context.Context, userID meta.ID, profileID meta.ID, relation Relation) (*ProfileLink, error) {
 	if relation == RelSelf {

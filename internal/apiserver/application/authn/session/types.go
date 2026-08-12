@@ -44,10 +44,6 @@ type LogoutRequest = SignOutCommand
 // RenewResult 会话续期结果。
 type RenewResult = tokenapp.TokenRefreshResult
 
-func PublicAuthMethods() []AuthMethod {
-	return method.PublicAuthMethods()
-}
-
 func IsPublicAuthMethod(raw string) bool {
 	return method.IsPublicAuthMethod(raw)
 }

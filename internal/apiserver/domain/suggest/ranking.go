@@ -8,24 +8,6 @@ import (
 // RankingPolicy 在去重后按权重排序并截断；同一 ProfileID 保留权重更高的项。
 type RankingPolicy struct{}
 
-// Rank 对 ProfileSearchTerm 去重、排序并 limit（不含关键词前缀加分）。
-func (RankingPolicy) Rank(terms []ProfileSearchTerm, limit int) []ProfileSearchTerm {
-	ranked := make([]RankedProfileSearchTerm, len(terms))
-	for i, term := range terms {
-		ranked[i] = RankedProfileSearchTerm{Term: term, Kind: MatchKindPrefix}
-	}
-	return RankingPolicy{}.RankRankedForQuery(ranked, Query{Keyword: Keyword{}, Limit: limit})
-}
-
-// RankForQuery 与 Rank 相同去重规则，并在权重相同时对 DisplayName 前缀命中关键词者优先。
-func (RankingPolicy) RankForQuery(terms []ProfileSearchTerm, q Query) []ProfileSearchTerm {
-	ranked := make([]RankedProfileSearchTerm, len(terms))
-	for i, term := range terms {
-		ranked[i] = RankedProfileSearchTerm{Term: term, Kind: MatchKindPrefix}
-	}
-	return RankingPolicy{}.RankRankedForQuery(ranked, q)
-}
-
 // RankRankedForQuery 去重后按 Weight、MatchKind、DisplayName 前缀、ProfileID 排序并截断。
 func (RankingPolicy) RankRankedForQuery(terms []RankedProfileSearchTerm, q Query) []ProfileSearchTerm {
 	limit := q.Limit

@@ -32,7 +32,8 @@ func TestSubjectResolverRegistryResolvesUsersAndRejectsUnsupportedSubjects(t *te
 	require.NoError(t, err)
 	err = registry.Resolve(context.Background(), groupRef, tenantID)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
-	require.True(t, rolebinding.IsUnsupportedSubjectType(err))
+	var unsupported rolebinding.UnsupportedSubjectTypeError
+	require.ErrorAs(t, err, &unsupported)
 }
 
 func TestUserSubjectResolverReportsMissingUsers(t *testing.T) {

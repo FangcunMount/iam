@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
-// stubProfileLinkRepo 是包内特化的测试 stub，用于返回可控的 FindByProfileID 结果
+// stubProfileLinkRepo 是包内特化的测试 stub，用于返回可控的 FindByProfileID 结果。
 // （同时保留 Create/Update 等方法以实现 Repository 接口）
 type stubProfileLinkRepo struct {
 	profilesResults map[uint64][]*ProfileLink

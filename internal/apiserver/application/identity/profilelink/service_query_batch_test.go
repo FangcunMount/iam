@@ -14,10 +14,12 @@ import (
 )
 
 func TestDirectoryListProfilesForUserUsesBatchProfileLookupAndKeepsLinkOrder(t *testing.T) {
-	profile1, err := profiledomain.NewProfile("first", profiledomain.WithProfileID(meta.FromUint64(101)))
+	profile1, err := profiledomain.NewProfile("first")
 	require.NoError(t, err)
-	profile2, err := profiledomain.NewProfile("second", profiledomain.WithProfileID(meta.FromUint64(102)))
+	profile1.ID = meta.FromUint64(101)
+	profile2, err := profiledomain.NewProfile("second")
 	require.NoError(t, err)
+	profile2.ID = meta.FromUint64(102)
 
 	profiles := &batchProfileRepoStub{
 		profiles: map[meta.ID]*profiledomain.Profile{

@@ -3,7 +3,6 @@ package maintenance
 import (
 	"bufio"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -190,8 +189,4 @@ func countSensitiveLogMarkers(path string) (int64, int64, error) {
 		return 0, 0, fmt.Errorf("scan IAM log file: %w", err)
 	}
 	return refreshMatches, sqlMatches, nil
-}
-
-func MarshalLogDisposalSummary(summary LogDisposalSummary) ([]byte, error) {
-	return json.Marshal(summary)
 }

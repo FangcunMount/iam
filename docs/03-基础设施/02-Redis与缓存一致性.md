@@ -12,7 +12,7 @@
 
 ## 2. 30 秒结论
 
-IAM 不是把 Redis 当成一个泛化 `map[string]any`，而是先登记 11 个稳定 cache family，再为每个 family 明确：owner、key pattern、数据角色、Redis 类型、编码、TTL 来源、写入和失效方式。
+IAM 不是把 Redis 当成一个泛化 `map[string]any`，而是先登记 13 个稳定 cache family，再为每个 family 明确：owner、key pattern、数据角色、Redis 类型、编码、TTL 来源、写入和失效方式。其中 Suggest 的 Redis/进程内限流是互斥可选 family，治理面只把实际启用的后端计入运行状态。
 
 最关键的区分是：
 
@@ -40,7 +40,7 @@ TTL 由谁决定？
 
 当前治理能力只有 `inspect`。这是一个安全边界：缓存清空、重建和迁移会改变在线认证状态，不能因为“有缓存管理 API”就默认允许 destructive mutation。
 
-## 4. 11 个 family 的设计
+## 4. 13 个 family 的设计
 
 | Family | 后端/类型 | 角色 | 关键一致性机制 |
 | --- | --- | --- | --- |
@@ -55,6 +55,8 @@ TTL 由谁决定？
 | `idp.wechat_access_token` | Redis String(JSON) | 远端 token cache | 分布式 refresh lock |
 | `idp.wechat_sdk` | Redis String | SDK cache | 调用方 TTL |
 | `authn.jwks_publish_snapshot` | process memory | 派生快照 | 重建覆盖，短时复用 |
+| `suggest.redis_rate_limit` | Redis String(marker) | 限流计数 | `INCR` + 首次 `EXPIRE`，多副本共享 |
+| `suggest.memory_rate_limit` | process memory | 限流桶 | 单进程令牌桶，容量淘汰 |
 
 ## 5. 为什么使用不同数据结构
 
@@ -202,6 +204,7 @@ commit
 - 批量 Session 吊销逐个处理，不是全批原子操作；
 - inspect-only 能看配置/健康，但不能自动证明每个主对象都有完整索引；
 - cache family catalog 与实际 key builder 需要 facts test/代码审计持续防漂移。
+- Suggest 限流错误仍按既有策略 fail-open；治理面现在能标记实际 Redis limiter 不健康，但它不替代告警与保护策略决策。
 
 ## 13. 证据入口
 

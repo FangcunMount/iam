@@ -9,7 +9,8 @@ import (
 
 func TestWechatApp_CreateAndStatus(t *testing.T) {
 	id := meta.FromUint64(7)
-	app := NewWechatApp(MiniProgram, "appid", WithWechatAppID(id), WithWechatAppName("mini"), WithWechatAppStatus(StatusEnabled))
+	app := NewWechatApp(MiniProgram, "appid", WithWechatAppName("mini"), WithWechatAppStatus(StatusEnabled))
+	app.ID = id
 	assert.Equal(t, "appid", app.AppID)
 	assert.Equal(t, "mini", app.Name)
 	assert.True(t, app.IsEnabled())
