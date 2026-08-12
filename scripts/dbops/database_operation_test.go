@@ -614,7 +614,8 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"audit_tables",
 		"retire-identity-dry-run", "retire-identity-apply",
 		"reconcile-authn-dry-run", "reconcile-authn-verify", "reconcile-authn-apply",
-		"performance-schema-status",
+		"performance-schema-status", "migration-status",
+		"github.event.inputs.operation == 'status' && (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all')",
 		"IAM_DB_OPS_CONFIRMATION", "confirmation:",
 	} {
 		if !strings.Contains(source, want) {

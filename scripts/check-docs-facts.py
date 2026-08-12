@@ -424,6 +424,7 @@ def check_database_operations_facts() -> None:
         "IAM_DB_OPS_AUTHN_BATCH_SIZE",
         "command_timeout: 20m",
         "performance-schema-status",
+        "migration-status",
         "IAM_DB_OPS_CONFIRMATION",
     ):
         if token not in workflow:
