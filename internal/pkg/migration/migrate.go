@@ -93,41 +93,6 @@ func (m *Migrator) Run() (uint, bool, error) {
 	return newVersion, true, nil
 }
 
-// Rollback 回滚最近的一次迁移
-func (m *Migrator) Rollback() error {
-	instance, err := m.createMigrate()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_, _ = instance.Close()
-	}()
-
-	if err := instance.Steps(-1); err != nil {
-		return fmt.Errorf("rollback failed: %w", err)
-	}
-
-	return nil
-}
-
-// Version 获取当前数据库版本
-func (m *Migrator) Version() (uint, bool, error) {
-	instance, err := m.createMigrate()
-	if err != nil {
-		return 0, false, err
-	}
-	defer func() {
-		_, _ = instance.Close()
-	}()
-
-	version, dirty, err := instance.Version()
-	if err != nil {
-		return 0, false, err
-	}
-
-	return version, dirty, nil
-}
-
 // createMigrate 创建 migrate 实例
 func (m *Migrator) createMigrate() (*migrate.Migrate, error) {
 	// 1. 从嵌入文件系统创建源驱动
