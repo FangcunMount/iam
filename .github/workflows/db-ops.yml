@@ -17,6 +17,7 @@ on:
           - backup
           - restore
           - status
+          - migration-status
           - performance-schema-status
           - retire-identity-dry-run
           - retire-identity-apply
@@ -126,7 +127,7 @@ jobs:
 
   db-status:
     name: Database Status
-    if: github.event.inputs.operation == 'status'
+    if: github.event.inputs.operation == 'status' || github.event.inputs.operation == 'migration-status'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -152,7 +153,7 @@ jobs:
           script_path: scripts/dbops/database-operation.sh
 
       - name: Verify AuthN Reconciliation
-        if: github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all'
+        if: github.event.inputs.operation == 'status' && (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all')
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_DB_OPS_OPERATION: reconcile-authn-verify
@@ -173,6 +174,7 @@ jobs:
           command_timeout: 20m
 
       - name: Run Legacy Retirement Preflight
+        if: github.event.inputs.operation == 'status'
         uses: appleboy/ssh-action@v1.2.5
         env:
           IAM_RETIREMENT_ENVIRONMENT: production

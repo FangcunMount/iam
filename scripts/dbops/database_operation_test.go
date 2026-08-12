@@ -233,6 +233,11 @@ func TestRestoreAndStatusReturnMetadataOnly(t *testing.T) {
 if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
 case "$*" in
   *'SELECT 1;'*) echo '1' ;;
+  *'MAX(version)'*) printf '23\t0\t1\n' ;;
+  *"TABLE_NAME = 'auth_accounts'"*) printf '0\t0\n' ;;
+  *'GROUP_CONCAT'*) printf 'none\n' ;;
+  *'CROSS JOIN migration_lock'*) printf '0\t-1\n' ;;
+  *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
   *) cat > "$IAM_FAKE_RESTORE_CAPTURE" ;;
@@ -261,7 +266,7 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema_migrations=23", "authn_legacy_tables=0", "owner_state=none\tfree\t-1", "other_legacy_authn_queries=0\t-1", "id_seconds_kind=none"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
@@ -612,7 +617,8 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"audit_tables",
 		"retire-identity-dry-run", "retire-identity-apply",
 		"reconcile-authn-dry-run", "reconcile-authn-verify", "reconcile-authn-apply",
-		"performance-schema-status",
+		"performance-schema-status", "migration-status",
+		"github.event.inputs.operation == 'status' && (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all')",
 		"IAM_DB_OPS_CONFIRMATION", "confirmation:",
 	} {
 		if !strings.Contains(source, want) {
