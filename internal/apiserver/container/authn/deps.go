@@ -4,7 +4,6 @@ import (
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
@@ -19,7 +18,6 @@ type AuthnModuleDeps struct {
 	RedisClient    *redis.Client
 	PasswordHasher authentication.PasswordHasher
 	IDPModule      *idp.IDPModule
-	EventBus       messaging.EventBus
 	EventPublisher event.Publisher
 	Environment    genericapiserver.Environment
 	Auth           apiserveroptions.AuthOptions

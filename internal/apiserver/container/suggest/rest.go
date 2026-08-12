@@ -7,12 +7,11 @@ import (
 )
 
 // CollectREST wires suggest REST collaborators when the module is available.
-func CollectREST(available bool, mod *SuggestModule, moduleName string, deps *resttransport.Deps, redisClient *redis.Client) {
+func CollectREST(available bool, mod *SuggestModule, deps *resttransport.Deps, redisClient *redis.Client) {
 	if !available || mod == nil || deps == nil {
 		return
 	}
 	caps := mod.ApplicationCapabilities()
-	deps.ModuleStatus.Suggest = deps.ModuleStatus.Modules[moduleName].Available
 	deps.Suggest.Service = caps.Service
 	deps.Suggest.RateLimit = caps.RateLimit
 	deps.Suggest.Metrics = caps.Metrics

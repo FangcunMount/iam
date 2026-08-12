@@ -63,9 +63,9 @@ type RemoveProfileLinkDTO struct {
 
 // ListProfileLinksDTO 档案关系查询 DTO。
 type ListProfileLinksDTO struct {
-	UserID    meta.ID
-	ProfileID meta.ID
-	Active    *bool
+	UserID         meta.ID
+	ProfileID      meta.ID
+	IncludeRevoked bool
 }
 
 // RevokeProfileLinkBySelectorDTO 通过 ID 或 user/profile key 撤销档案关系。

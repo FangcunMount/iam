@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	jwksmysql "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/jwks"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/sms"
@@ -19,19 +18,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestAuthnModuleInitializeSMSMQRequiresEventBusEvenWithPublisher(t *testing.T) {
+func TestAuthnModuleInitializeSMSMQRequiresCatalogPublisher(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
 
 	module := NewAuthnModule()
-	err := module.InitializeWithDeps(authnEventingDeps(t, db, redisClient, nil, &capturingEventPublisher{}))
+	err := module.InitializeWithDeps(authnEventingDeps(t, db, redisClient, nil))
 
 	require.Error(t, err)
-	require.ErrorContains(t, err, "sms.provider=mq requires EventBus")
+	require.ErrorContains(t, err, "requires the catalog event publisher")
 }
 
 func TestAuthnModuleInitializeRejectsUnknownSMSProvider(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
-	deps := authnEventingDeps(t, db, redisClient, eventBusStub{}, &capturingEventPublisher{})
+	deps := authnEventingDeps(t, db, redisClient, &capturingEventPublisher{})
 	deps.SMS.Provider = "aliun"
 
 	module := NewAuthnModule()
@@ -41,12 +40,12 @@ func TestAuthnModuleInitializeRejectsUnknownSMSProvider(t *testing.T) {
 	require.ErrorContains(t, err, "unknown sms.provider")
 }
 
-func TestAuthnModuleSMSMQUsesCatalogBackedPublisherWhenEventBusAvailable(t *testing.T) {
+func TestAuthnModuleSMSMQUsesCatalogBackedPublisher(t *testing.T) {
 	db, redisClient := setupAuthnEventingTest(t)
 
 	publisher := &capturingEventPublisher{}
 	module := NewAuthnModule()
-	require.NoError(t, module.InitializeWithDeps(authnEventingDeps(t, db, redisClient, eventBusStub{}, publisher)))
+	require.NoError(t, module.InitializeWithDeps(authnEventingDeps(t, db, redisClient, publisher)))
 	caps := module.ApplicationCapabilities()
 	require.NotNil(t, caps.LoginPhoneOTPSender)
 
@@ -78,7 +77,7 @@ func setupAuthnEventingTest(t *testing.T) (*gorm.DB, *goredis.Client) {
 	return db, redisClient
 }
 
-func authnEventingDeps(t *testing.T, db *gorm.DB, redisClient *goredis.Client, eventBus cbmessaging.EventBus, publisher event.Publisher) AuthnModuleDeps {
+func authnEventingDeps(t *testing.T, db *gorm.DB, redisClient *goredis.Client, publisher event.Publisher) AuthnModuleDeps {
 	t.Helper()
 	smsOptions := *apiserveroptions.NewSMSOptions()
 	smsOptions.Provider = "mq"
@@ -91,7 +90,6 @@ func authnEventingDeps(t *testing.T, db *gorm.DB, redisClient *goredis.Client, e
 	return AuthnModuleDeps{
 		DB:             db,
 		RedisClient:    redisClient,
-		EventBus:       eventBus,
 		EventPublisher: publisher,
 		Environment:    genericapiserver.EnvironmentTest,
 		Auth:           *apiserveroptions.NewAuthOptions(),
@@ -117,27 +115,5 @@ func (p *capturingEventPublisher) PublishAll(ctx context.Context, events []event
 			return err
 		}
 	}
-	return nil
-}
-
-type eventBusStub struct{}
-
-func (eventBusStub) Publisher() cbmessaging.Publisher {
-	return nil
-}
-
-func (eventBusStub) Subscriber() cbmessaging.Subscriber {
-	return nil
-}
-
-func (eventBusStub) Router() *cbmessaging.Router {
-	return nil
-}
-
-func (eventBusStub) Health() error {
-	return nil
-}
-
-func (eventBusStub) Close() error {
 	return nil
 }

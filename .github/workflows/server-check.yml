@@ -9,18 +9,8 @@ name: Production Health Check
 
 on:
   workflow_dispatch:
-    inputs:
-      require_retirement_ready:
-        description: Fail unless the 30-day compatibility retirement gate is ready
-        required: false
-        type: boolean
-        default: false
   schedule:
     - cron: '*/30 * * * *'
-
-permissions:
-  actions: read
-  contents: read
 
 jobs:
   health-check:
@@ -117,10 +107,8 @@ jobs:
             fi
 
       - name: Network and API Health Check
-        id: compatibility
         uses: appleboy/ssh-action@v1.2.5
         with:
-          capture_stdout: true
           host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
@@ -165,7 +153,7 @@ jobs:
               echo "Internal HTTP API is ready: $readiness_status"
             fi
 
-            module_output=$(sudo docker exec iam-apiserver curl -sS -w '\n%{http_code}' 'http://127.0.0.1:9080/debug/modules?view=canonical' || printf '\n000')
+            module_output=$(sudo docker exec iam-apiserver curl -sS -w '\n%{http_code}' 'http://127.0.0.1:9080/debug/modules' || printf '\n000')
             module_status=$(printf '%s\n' "$module_output" | tail -1)
             module_body=$(printf '%s\n' "$module_output" | sed '$d')
             if [ "$module_status" != "200" ]; then
@@ -201,35 +189,11 @@ jobs:
             echo "Runtime version matches deployed image SHA: $deployed_sha"
 
             all_metrics=$(sudo docker exec iam-apiserver curl -fsS http://127.0.0.1:9080/metrics)
-            process_start_time=$(printf '%s\n' "$all_metrics" | grep '^process_start_time_seconds ' || true)
-            if [ -z "$process_start_time" ]; then
+            if ! printf '%s\n' "$all_metrics" | grep -q '^process_start_time_seconds '; then
               echo "Process start time metric is missing"
               exit 1
             fi
-            echo "Compatibility observation process identity: $process_start_time"
-
-            compatibility_metrics=$(printf '%s\n' "$all_metrics" | grep -E '^iam_(identity_profile_link_query_total|runtime_debug_modules_requests_total|config_compatibility_key_observations_total|authn_sms_publisher_selections_total)' || true)
-            for metric in \
-              iam_identity_profile_link_query_total \
-              iam_runtime_debug_modules_requests_total \
-              iam_config_compatibility_key_observations_total \
-              iam_authn_sms_publisher_selections_total; do
-              if ! printf '%s\n' "$compatibility_metrics" | grep -q "^${metric}"; then
-                echo "Compatibility metric is missing: $metric"
-                exit 1
-              fi
-            done
-            echo "Compatibility retirement metric snapshot:"
-            printf '%s\n' "$compatibility_metrics"
-
-            observed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-            process_start_seconds=${process_start_time#process_start_time_seconds }
-            echo "IAM_COMPAT_SNAPSHOT_V1_BEGIN"
-            echo "observed_at=$observed_at"
-            echo "runtime_sha=$deployed_sha"
-            echo "process_start_time_seconds=$process_start_seconds"
-            printf '%s\n' "$compatibility_metrics"
-            echo "IAM_COMPAT_SNAPSHOT_V1_END"
+            echo "Runtime process metric is available"
 
       - name: Dependency Connectivity Check
         uses: appleboy/ssh-action@v1.2.5
@@ -301,72 +265,6 @@ jobs:
             } END {
               if (!alert) print "All filesystems OK"
             }'
-
-      - name: Build compatibility observation snapshot
-        id: compatibility-snapshot
-        env:
-          SSH_STDOUT: ${{ steps.compatibility.outputs.stdout }}
-        run: |
-          set -euo pipefail
-          printf '%s\n' "$SSH_STDOUT" > compatibility-observation.raw
-          artifact_name=$(python3 scripts/ops/compatibility_observation.py snapshot \
-            --input compatibility-observation.raw \
-            --output compatibility-observation.json \
-            --run-id "${GITHUB_RUN_ID}" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --event "${GITHUB_EVENT_NAME}" \
-            --workflow-head-sha "${GITHUB_SHA}")
-          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
-          rm compatibility-observation.raw
-
-      - name: Evaluate compatibility retirement readiness
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CURRENT_ARTIFACT_NAME: ${{ steps.compatibility-snapshot.outputs.artifact_name }}
-        run: |
-          set -euo pipefail
-          gh api --paginate --slurp \
-            "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            > compatibility-artifacts.json
-          python3 scripts/ops/compatibility_observation.py evaluate \
-            --artifacts compatibility-artifacts.json \
-            --current-artifact-name "$CURRENT_ARTIFACT_NAME" \
-            --current-head-branch "$GITHUB_REF_NAME" \
-            --current-head-sha "$GITHUB_SHA" \
-            --current-run-id "$GITHUB_RUN_ID" \
-            --output compatibility-readiness.json \
-            --markdown-output compatibility-readiness.md \
-            --minimum-days 30 \
-            --maximum-gap-minutes 90
-          cat compatibility-readiness.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload compatibility observation evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.compatibility-snapshot.outputs.artifact_name }}
-          path: |
-            compatibility-observation.json
-            compatibility-readiness.json
-            compatibility-readiness.md
-          if-no-files-found: error
-          retention-days: 90
-
-      - name: Enforce explicit compatibility retirement gate
-        if: ${{ inputs.require_retirement_ready }}
-        env:
-          CURRENT_ARTIFACT_NAME: ${{ steps.compatibility-snapshot.outputs.artifact_name }}
-        run: |
-          python3 scripts/ops/compatibility_observation.py evaluate \
-            --artifacts compatibility-artifacts.json \
-            --current-artifact-name "$CURRENT_ARTIFACT_NAME" \
-            --current-head-branch "$GITHUB_REF_NAME" \
-            --current-head-sha "$GITHUB_SHA" \
-            --current-run-id "$GITHUB_RUN_ID" \
-            --output compatibility-readiness.json \
-            --markdown-output compatibility-readiness.md \
-            --minimum-days 30 \
-            --maximum-gap-minutes 90 \
-            --require-ready
 
   report:
     name: Health Check Report

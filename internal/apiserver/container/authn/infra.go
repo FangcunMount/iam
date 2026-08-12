@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/component-base/pkg/messaging"
 	authnUow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
@@ -61,7 +60,6 @@ type authnInfrastructureComponents struct {
 	wechatAppQuerier idpPort.Repository
 	secretVault      idpPort.SecretVault
 
-	eventBus       messaging.EventBus
 	eventPublisher event.Publisher
 }
 
@@ -69,7 +67,6 @@ func (m *AuthnModule) initializeInfrastructure(
 	db *gorm.DB,
 	redisClient *redis.Client,
 	idpDeps *idp.IDPModule,
-	eventBus messaging.EventBus,
 	eventPublisher event.Publisher,
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
@@ -78,7 +75,6 @@ func (m *AuthnModule) initializeInfrastructure(
 	infra := &authnInfrastructureComponents{
 		db:             db,
 		redis:          redisClient,
-		eventBus:       eventBus,
 		eventPublisher: eventPublisher,
 	}
 

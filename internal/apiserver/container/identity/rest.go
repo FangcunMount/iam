@@ -6,12 +6,11 @@ import (
 )
 
 // CollectREST wires identity REST handlers when the module is available.
-func CollectREST(available bool, mod *IdentityModule, moduleName string, deps *resttransport.Deps) {
+func CollectREST(available bool, mod *IdentityModule, deps *resttransport.Deps) {
 	if !available || mod == nil || deps == nil {
 		return
 	}
 	caps := mod.ApplicationCapabilities()
-	deps.ModuleStatus.User = deps.ModuleStatus.Modules[moduleName].Available
 	deps.User.UserHandler = identityhandler.NewUserHandler(
 		caps.UserCreator,
 		caps.UserEditor,

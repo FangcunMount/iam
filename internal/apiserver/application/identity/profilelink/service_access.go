@@ -83,21 +83,21 @@ func (s *myProfileLinks) Revoke(ctx context.Context, currentUserID meta.ID, dto 
 }
 
 func getByUserIDAndProfileID(ctx context.Context, query Directory, dto ListProfileLinksDTO) (*ProfileLinkResult, error) {
-	if dto.Active != nil && !*dto.Active {
+	if dto.IncludeRevoked {
 		return query.GetIncludingRevoked(ctx, dto.UserID, dto.ProfileID)
 	}
 	return query.Get(ctx, dto.UserID, dto.ProfileID)
 }
 
 func listProfilesByUserID(ctx context.Context, query Directory, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
-	if dto.Active != nil && !*dto.Active {
+	if dto.IncludeRevoked {
 		return query.ListProfilesForUserIncludingRevoked(ctx, dto.UserID)
 	}
 	return query.ListProfilesForUser(ctx, dto.UserID)
 }
 
 func listProfileLinksByProfileID(ctx context.Context, query Directory, dto ListProfileLinksDTO) ([]*ProfileLinkResult, error) {
-	if dto.Active != nil && !*dto.Active {
+	if dto.IncludeRevoked {
 		return query.ListLinksForProfileIncludingRevoked(ctx, dto.ProfileID)
 	}
 	return query.ListLinksForProfile(ctx, dto.ProfileID)

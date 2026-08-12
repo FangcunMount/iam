@@ -326,6 +326,8 @@ func TestOptionsValidateRejectsRemovedEnvironmentVariablesWithoutValues(t *testi
 		"IAM_APISERVER_SERVER_WRITE_TIMEOUT",
 		"IAM_APISERVER_SUGGEST_DATA_DIR",
 		"IAM_APISERVER_SUGGEST_SNAPSHOT",
+		"IAM_APISERVER_SUGGEST_LOADER_PLACEHOLDER_TENANT_ID",
+		"IAM_APISERVER_SMS_MQ_TOPIC",
 	} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(key, sentinel)

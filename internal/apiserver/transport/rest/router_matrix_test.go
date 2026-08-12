@@ -117,13 +117,14 @@ func routeMatrixDeps() Deps {
 	}
 	deps.Suggest = SuggestDeps{Service: appsuggest.NewService(appsuggest.Config{})}
 	deps.ModuleStatus = ModuleStatus{
-		ContainerInitialized: true,
-		Authn:                true,
-		Authz:                true,
-		User:                 true,
-		IDP:                  true,
-		Suggest:              true,
-		AuthEnabled:          true,
+		Container: ModuleState{Bootstrapped: true, Available: true},
+		Modules: map[string]ModuleState{
+			moduleStateAuthn:    {Bootstrapped: true, Available: true},
+			moduleStateAuthz:    {Bootstrapped: true, Available: true},
+			moduleStateIdentity: {Bootstrapped: true, Available: true},
+			moduleStateIDP:      {Bootstrapped: true, Available: true},
+			moduleStateSuggest:  {Bootstrapped: true, Available: true},
+		},
 	}
 	normalizeModuleStatusForTest(&deps.ModuleStatus)
 	deps.SeedMockAuth = SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"}

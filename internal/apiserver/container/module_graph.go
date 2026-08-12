@@ -47,7 +47,6 @@ func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
 		DB:             g.container.mysqlDB,
 		RedisClient:    g.container.redisClient,
 		IDPModule:      g.container.IDPModule,
-		EventBus:       g.container.eventBus,
 		EventPublisher: g.container.eventPublisher,
 		Environment:    g.container.runtimeOptions.Environment,
 		Auth:           g.container.runtimeOptions.Auth,

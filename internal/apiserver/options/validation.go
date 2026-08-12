@@ -18,6 +18,7 @@ func (o *Options) Validate() []error {
 	errs = append(errs, o.Log.Validate()...)
 	errs = append(errs, o.validateRemovedAppOptions()...)
 	errs = append(errs, o.validateRemovedSuggestOptions()...)
+	errs = append(errs, o.validateRemovedSMSOptions()...)
 	errs = append(errs, validateRemovedEnvironmentVariables()...)
 	errs = append(errs, o.validateProductionLogging()...)
 	if o.SeedMockAuth != nil && o.SeedMockAuth.Enabled && strings.TrimSpace(o.SeedMockAuth.SharedSecret) == "" {
@@ -120,7 +121,17 @@ func (o *Options) validateRemovedSuggestOptions() []error {
 	if o.Suggest.RemovedSnapshot != nil {
 		errs = append(errs, errors.New("suggest.snapshot has been removed; suggest indexes are not persisted to files"))
 	}
+	if o.Suggest.RemovedLoaderPlaceholderTenantID != nil {
+		errs = append(errs, errors.New("suggest.loader_placeholder_tenant_id has been removed; use suggest.loader_placeholder_org_id"))
+	}
 	return errs
+}
+
+func (o *Options) validateRemovedSMSOptions() []error {
+	if o == nil || o.SMS == nil || o.SMS.RemovedMQ == nil || o.SMS.RemovedMQ.Topic == nil {
+		return nil
+	}
+	return []error{errors.New("sms.mq.topic has been removed; the catalog topic iam.notify.sms is fixed")}
 }
 
 func (o *Options) validateJWKSOptions() []error {
@@ -194,6 +205,8 @@ func validateRemovedEnvironmentVariables() []error {
 		{key: "IAM_APISERVER_SERVER_WRITE_TIMEOUT", message: "IAM_APISERVER_SERVER_WRITE_TIMEOUT has been removed; HTTP write timeout is not configurable"},
 		{key: "IAM_APISERVER_SUGGEST_DATA_DIR", message: "IAM_APISERVER_SUGGEST_DATA_DIR has been removed; suggest indexes are memory-only"},
 		{key: "IAM_APISERVER_SUGGEST_SNAPSHOT", message: "IAM_APISERVER_SUGGEST_SNAPSHOT has been removed; suggest indexes are not persisted to files"},
+		{key: "IAM_APISERVER_SUGGEST_LOADER_PLACEHOLDER_TENANT_ID", message: "IAM_APISERVER_SUGGEST_LOADER_PLACEHOLDER_TENANT_ID has been removed; use IAM_APISERVER_SUGGEST_LOADER_PLACEHOLDER_ORG_ID"},
+		{key: "IAM_APISERVER_SMS_MQ_TOPIC", message: "IAM_APISERVER_SMS_MQ_TOPIC has been removed; the catalog topic iam.notify.sms is fixed"},
 	} {
 		if _, set := os.LookupEnv(removed.key); set {
 			errs = append(errs, errors.New(removed.message))

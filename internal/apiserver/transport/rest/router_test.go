@@ -94,7 +94,7 @@ func TestRouterRegistersSeedMockRouteWhenEnabled(t *testing.T) {
 	deps.Authn = AuthnDeps{
 		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{
 		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: "test-secret"},
@@ -111,7 +111,7 @@ func TestSeedMockRouteAuthenticatesBeforeValidatingPayload(t *testing.T) {
 	deps.Authn = AuthnDeps{
 		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{
 		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: "expected-secret"},
@@ -155,7 +155,7 @@ func TestRouterSkipsSeedMockRouteWhenDisabled(t *testing.T) {
 	deps.Authn = AuthnDeps{
 		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{
 		SeedMockAuth: SeedMockAuthOptions{Enabled: false, SharedSecret: "test-secret"},
@@ -172,7 +172,7 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	deps.Authn = AuthnDeps{
 		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
@@ -188,28 +188,11 @@ func TestRouterRegistersModuleRoutesFromModuleStateWithoutLegacyBooleans(t *test
 	deps.Authn = AuthnDeps{
 		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
 	}
-	deps.ModuleStatus.Authn = false
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	NewRouter(deps).RegisterRoutes(engine)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
-}
-
-func TestRouterDoesNotUseLegacyModuleBooleansForRegistration(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	engine := gin.New()
-	deps := restDepsForTest()
-	deps.Authn = AuthnDeps{
-		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
-	}
-	deps.ModuleStatus.Modules = map[string]ModuleState{}
-	deps.ModuleStatus.Authn = true
-
-	NewRouter(deps).RegisterRoutes(engine)
-
-	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/authn/login")
 }
 
 func TestRouterRegistersAuthnSignupRouteAndRetiresOldWechatRegister(t *testing.T) {
@@ -220,7 +203,7 @@ func TestRouterRegistersAuthnSignupRouteAndRetiresOldWechatRegister(t *testing.T
 	deps.Authn = AuthnDeps{
 		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
@@ -235,7 +218,7 @@ func TestRouterRegistersBaseRoutesBeforeModuleRoutes(t *testing.T) {
 	deps.Authn = AuthnDeps{
 		JWKSHandler: authhandler.NewJWKSHandler(nil, nil, nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
@@ -248,7 +231,6 @@ func TestHealthCheckReturnsSanitizedCompatibilitySummary(t *testing.T) {
 
 	engine := gin.New()
 	deps := restDepsForTest()
-	deps.ModuleStatus.AuthEnabled = true
 	deps.ModuleStatus.Modules = map[string]ModuleState{
 		moduleStateAuthn: {Bootstrapped: true, Available: true},
 		moduleStateAuthz: {Bootstrapped: true, Available: false, DegradedReason: "SECRET-SENTINEL"},
@@ -305,7 +287,7 @@ func TestRouterSkipsSeedMockRouteWithoutSecret(t *testing.T) {
 	deps.Authn = AuthnDeps{
 		OnboardingHandler: authhandler.NewOnboardingHandler(nil),
 	}
-	deps.ModuleStatus.Authn = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
 	newRouterForTest(deps, RouterOptions{
 		SeedMockAuth: SeedMockAuthOptions{Enabled: true, SharedSecret: ""},
@@ -368,9 +350,8 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 		ProfileHandler:     uchandler.NewProfileHandler(nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
-	deps.ModuleStatus.Authn = true
-	deps.ModuleStatus.AuthEnabled = true
-	deps.ModuleStatus.User = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateIdentity)
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
@@ -400,9 +381,9 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		CheckHandler:       authzhandler.NewCheckHandler(nil),
 	}
 	deps.Suggest.Service = appsuggest.NewService(appsuggest.Config{})
-	deps.ModuleStatus.User = true
-	deps.ModuleStatus.Authz = true
-	deps.ModuleStatus.Suggest = true
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateIdentity)
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthz)
+	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateSuggest)
 
 	newRouterForTest(deps, RouterOptions{}).RegisterRoutes(engine)
 
@@ -431,9 +412,8 @@ func restDepsForTest() Deps {
 
 func moduleStatusForTest() ModuleStatus {
 	return ModuleStatus{
-		ContainerInitialized: true,
-		Container:            ModuleState{Bootstrapped: true, Available: true},
-		Modules:              map[string]ModuleState{},
+		Container: ModuleState{Bootstrapped: true, Available: true},
+		Modules:   map[string]ModuleState{},
 	}
 }
 
@@ -441,27 +421,8 @@ func normalizeModuleStatusForTest(status *ModuleStatus) {
 	if status == nil {
 		return
 	}
-	if status.ContainerInitialized && !status.Container.Bootstrapped {
-		status.Container.Bootstrapped = true
-		status.Container.Available = true
-	}
 	if status.Modules == nil {
 		status.Modules = map[string]ModuleState{}
-	}
-	if status.Authn {
-		markModuleAvailableForTest(status, moduleStateAuthn)
-	}
-	if status.Authz {
-		markModuleAvailableForTest(status, moduleStateAuthz)
-	}
-	if status.IDP {
-		markModuleAvailableForTest(status, moduleStateIDP)
-	}
-	if status.User {
-		markModuleAvailableForTest(status, moduleStateIdentity)
-	}
-	if status.Suggest {
-		markModuleAvailableForTest(status, moduleStateSuggest)
 	}
 }
 

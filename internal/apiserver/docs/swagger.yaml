@@ -2375,10 +2375,6 @@ paths:
         in: query
         name: include_revoked
         type: boolean
-      - description: 是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）
-        in: query
-        name: active
-        type: boolean
       - default: 0
         description: 偏移量
         in: query

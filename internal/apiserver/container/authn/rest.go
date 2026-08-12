@@ -6,12 +6,11 @@ import (
 )
 
 // CollectREST wires authn REST handlers when the module is available.
-func CollectREST(available bool, mod *AuthnModule, moduleName string, deps *resttransport.Deps) {
+func CollectREST(available bool, mod *AuthnModule, deps *resttransport.Deps) {
 	if !available || mod == nil || deps == nil {
 		return
 	}
 	caps := mod.ApplicationCapabilities()
-	deps.ModuleStatus.Authn = deps.ModuleStatus.Modules[moduleName].Available
 	deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.SessionService, caps.TokenService, caps.LoginPhoneOTPSender)
 	deps.Authn.OnboardingHandler = authnhandler.NewOnboardingHandler(caps.SignupService)
 	deps.Authn.LoginIdentityHandler = authnhandler.NewLoginIdentityHandler(
@@ -34,5 +33,4 @@ func CollectREST(available bool, mod *AuthnModule, moduleName string, deps *rest
 	deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyLifecycleApp, caps.KeyPublishApp)
 	deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionRevoker)
 	deps.Authn.TokenService = caps.TokenService
-	deps.ModuleStatus.AuthEnabled = caps.TokenService != nil
 }

@@ -2,19 +2,12 @@ package sms
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-
-	"github.com/FangcunMount/component-base/pkg/messaging"
 
 	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v2/pkg/event"
-	"github.com/FangcunMount/iam/v2/pkg/eventcodec"
 )
-
-// LoginOTPSMSTopicDefault NSQ topic：下游消费者（短信网关等）订阅并真正发送短信
-const LoginOTPSMSTopicDefault = "iam.notify.sms"
 
 // LoginOTPSMSPayload 登录 OTP 短信投递消息体（与具体厂商解耦）
 type LoginOTPSMSPayload struct {
@@ -33,22 +26,6 @@ type MQLoginOTPSender struct {
 }
 
 var _ authentication.SMSSender = (*MQLoginOTPSender)(nil)
-
-// NewMQLoginOTPSender 使用 EventBus 的 Publisher 发布登录 OTP 短信任务。
-// Deprecated: 新装配应使用 catalog-backed NewMQLoginOTPSenderWithPublisher；
-// topic 参数仅保留给迁移窗口内的 legacy sms.mq.topic fallback。
-func NewMQLoginOTPSender(bus messaging.EventBus, topic string) *MQLoginOTPSender {
-	if topic == "" {
-		topic = LoginOTPSMSTopicDefault
-	}
-	var publisher messaging.Publisher
-	if bus != nil {
-		publisher = bus.Publisher()
-	}
-	return &MQLoginOTPSender{
-		publisher: legacyLoginOTPPublisher{publisher: publisher, topic: topic},
-	}
-}
 
 func NewMQLoginOTPSenderWithPublisher(publisher event.Publisher) *MQLoginOTPSender {
 	return &MQLoginOTPSender{publisher: publisher}
@@ -85,34 +62,4 @@ func NewLoginOTPSMSEvent(phoneE164, code string) LoginOTPSMSEvent {
 
 func (e LoginOTPSMSEvent) Payload() any {
 	return e.payload
-}
-
-type legacyLoginOTPPublisher struct {
-	publisher messaging.Publisher
-	topic     string
-}
-
-func (p legacyLoginOTPPublisher) Publish(ctx context.Context, evt event.DomainEvent) error {
-	if p.publisher == nil {
-		return fmt.Errorf("legacy login otp publisher is not configured")
-	}
-	if evt == nil {
-		return nil
-	}
-	payload, err := json.Marshal(evt.Payload())
-	if err != nil {
-		return fmt.Errorf("marshal login otp sms payload: %w", err)
-	}
-	msg := messaging.NewMessage(evt.EventID(), payload)
-	msg.Metadata = eventcodec.MetadataFromEvent(evt, eventing.SourceAPIServer)
-	return p.publisher.PublishMessage(ctx, p.topic, msg)
-}
-
-func (p legacyLoginOTPPublisher) PublishAll(ctx context.Context, events []event.DomainEvent) error {
-	for _, evt := range events {
-		if err := p.Publish(ctx, evt); err != nil {
-			return err
-		}
-	}
-	return nil
 }

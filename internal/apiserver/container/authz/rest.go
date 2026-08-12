@@ -6,12 +6,11 @@ import (
 )
 
 // CollectREST wires authz REST handlers when the module is available.
-func CollectREST(available bool, mod *AuthzModule, moduleName string, deps *resttransport.Deps) {
+func CollectREST(available bool, mod *AuthzModule, deps *resttransport.Deps) {
 	if !available || mod == nil || deps == nil {
 		return
 	}
 	caps := mod.ApplicationCapabilities()
-	deps.ModuleStatus.Authz = deps.ModuleStatus.Modules[moduleName].Available
 	deps.Authz.RoleHandler = authzhandler.NewRoleHandler(caps.RoleCatalog, caps.RoleDirectory)
 	deps.Authz.RoleBindingHandler = authzhandler.NewRoleBindingHandler(caps.RoleBindingCommands, caps.RoleBindingDirectory)
 	deps.Authz.PolicyHandler = authzhandler.NewPolicyHandler(caps.PermissionCommands, caps.PermissionReader, caps.PolicyLinter)
