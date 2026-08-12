@@ -314,7 +314,8 @@ jobs:
             --output compatibility-observation.json \
             --run-id "${GITHUB_RUN_ID}" \
             --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --event "${GITHUB_EVENT_NAME}")
+            --event "${GITHUB_EVENT_NAME}" \
+            --workflow-head-sha "${GITHUB_SHA}")
           echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
           rm compatibility-observation.raw
 
@@ -331,6 +332,7 @@ jobs:
             --artifacts compatibility-artifacts.json \
             --current-artifact-name "$CURRENT_ARTIFACT_NAME" \
             --current-head-branch "$GITHUB_REF_NAME" \
+            --current-head-sha "$GITHUB_SHA" \
             --current-run-id "$GITHUB_RUN_ID" \
             --output compatibility-readiness.json \
             --markdown-output compatibility-readiness.md \
@@ -358,6 +360,7 @@ jobs:
             --artifacts compatibility-artifacts.json \
             --current-artifact-name "$CURRENT_ARTIFACT_NAME" \
             --current-head-branch "$GITHUB_REF_NAME" \
+            --current-head-sha "$GITHUB_SHA" \
             --current-run-id "$GITHUB_RUN_ID" \
             --output compatibility-readiness.json \
             --markdown-output compatibility-readiness.md \

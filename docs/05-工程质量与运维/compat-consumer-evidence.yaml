@@ -1,6 +1,6 @@
-schema_version: 1
+schema_version: 2
 scanned_at: 2026-08-12
-iam_base_sha: 246abde245b65e0c3d5f5ceee12ae6f30c6f43f3
+iam_base_sha: 779408600c2ee0fae7aff958b6db519ffc8034c3
 scope:
   github_organization: FangcunMount
   local_workspace_families:
@@ -9,6 +9,11 @@ scope:
   limitations:
     - GitHub code search returned HTTP 429 for part of the query set; local workspace scans covered the missing exact symbols.
     - Static scans cannot prove absence in unlisted private forks, old binaries, runtime gateway traffic, or external SDK consumers.
+  github_code_search:
+    scanned_at: 2026-08-12
+    organization: FangcunMount
+    jwks_stats_results: 3 IAM-owned definitions or documentation references; no external consumer.
+    token_claims_tenant_id_exact_results: 0 external field references.
 rta_scan:
   iam_sha: fa982eae2d47b2ae981204bf62d7b0e8097f5480
   command: go run golang.org/x/tools/cmd/deadcode@latest -test ./...
@@ -33,13 +38,13 @@ rta_scan:
       decision: Published v2 API surface; static absence is insufficient for removal.
 repositories:
   iam:
-    sha: 246abde245b65e0c3d5f5ceee12ae6f30c6f43f3
+    sha: 779408600c2ee0fae7aff958b6db519ffc8034c3
   qs-server:
-    sha: 4a467b12242b84ce55bc2a8e43a1a635de754596
+    sha: 7239d7c71393b0c7d11ceeb8b504f5a6abfed176
   qs-collection-system:
     sha: 49d1ca11b147be13c442b4c1e1fe0536fb8f4b71
   seeddata-runner:
-    sha: db52c4e7781a13698a7f09bf3c9113be5108441c
+    sha: 5b307189aa0c61ff023aae7758f4f7a9356a742f
   qs-operating-system:
     sha: 0abd4a1baa049479bd3e7cc0bb958f886918263e
 candidates:
@@ -79,13 +84,17 @@ candidates:
     package_consumers:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/verifier but reads TenantDomain, not TokenClaims.TenantID.
-    release_gate: Public SDK compatibility window and breaking-change release are still required.
+    replacement: AuthorizationDomain/TenantDomain for authz domain; BusinessOrgID/OrgID for business organization.
+    deprecation_contract: Standard Go Deprecated annotation and v2 compile protection are required before publishing the window.
+    release_gate: Publish one v2 deprecation tag, wait at least 30 days, migrate all known consumers, then remove only in v3.
   sdk_jwks_stats:
     specific_external_type_references_found: false
     package_consumers:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/jwks but does not reference JWKSStats.
-    release_gate: Public SDK compatibility window and breaking-change release are still required.
+    replacement: Per-fetcher FetcherStats, CircuitBreakerFetcher.State, or sdk.WithMetricsCollector for application metrics.
+    deprecation_contract: Standard Go Deprecated annotation and v2 compile protection are required before publishing the window.
+    release_gate: Publish one v2 deprecation tag, wait at least 30 days, migrate all known consumers, then remove only in v3.
 observation_policy:
   schema_version: 1
   workflow: .github/workflows/server-check.yml
@@ -97,6 +106,7 @@ observation_policy:
   maximum_gap_minutes: 90
   same_process_start_required: true
   same_runtime_sha_required: true
+  workflow_head_sha_equals_runtime_sha_required: true
   restart_or_deploy_resets_window: true
   incomplete_evidence_fails_closed: true
   runtime_candidates:

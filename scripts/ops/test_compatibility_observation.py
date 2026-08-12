@@ -58,7 +58,11 @@ def payload_for(observed_values: list[int], process: int, **signals: int) -> dic
                 "id": index,
                 "expired": False,
                 "name": artifact_name(value, process, **signals),
-                "workflow_run": {"head_branch": "main", "id": value},
+                "workflow_run": {
+                    "head_branch": "main",
+                    "head_sha": "d03dd3687a57753746e4f54f41045380c216dd5f",
+                    "id": value,
+                },
             }
             for index, value in enumerate(observed_values, start=1)
         ]
@@ -67,7 +71,13 @@ def payload_for(observed_values: list[int], process: int, **signals: int) -> dic
 
 class SnapshotTests(unittest.TestCase):
     def test_builds_low_cardinality_snapshot_and_artifact_name(self) -> None:
-        snapshot = observation.build_snapshot(valid_raw(), 31574930232, 1, "workflow_dispatch")
+        snapshot = observation.build_snapshot(
+            valid_raw(),
+            31574930232,
+            1,
+            "workflow_dispatch",
+            "d03dd3687a57753746e4f54f41045380c216dd5f",
+        )
         self.assertEqual(snapshot["runtime_sha"], "d03dd3687a57753746e4f54f41045380c216dd5f")
         self.assertEqual(snapshot["retirement_signals"]["profile_active"], 0)
         self.assertRegex(snapshot["artifact_name"], observation.ARTIFACT_PATTERN)
@@ -77,7 +87,13 @@ class SnapshotTests(unittest.TestCase):
             'iam_identity_profile_link_query_total{mode="legacy_active"} 0\n', ""
         )
         with self.assertRaisesRegex(observation.EvidenceError, "catalog mismatch"):
-            observation.build_snapshot(raw, 1, 1, "schedule")
+            observation.build_snapshot(
+                raw,
+                1,
+                1,
+                "schedule",
+                "d03dd3687a57753746e4f54f41045380c216dd5f",
+            )
 
     def test_fails_closed_on_unrecognized_snapshot_lines(self) -> None:
         raw = valid_raw().replace(
@@ -85,7 +101,23 @@ class SnapshotTests(unittest.TestCase):
             "unknown_evidence=1\n" + observation.END_MARKER,
         )
         with self.assertRaisesRegex(observation.EvidenceError, "unrecognized"):
-            observation.build_snapshot(raw, 1, 1, "schedule")
+            observation.build_snapshot(
+                raw,
+                1,
+                1,
+                "schedule",
+                "d03dd3687a57753746e4f54f41045380c216dd5f",
+            )
+
+    def test_fails_closed_when_runtime_sha_differs_from_workflow_head(self) -> None:
+        with self.assertRaisesRegex(observation.EvidenceError, "workflow head SHA"):
+            observation.build_snapshot(
+                valid_raw(),
+                1,
+                1,
+                "schedule",
+                "779408600c2ee0fae7aff958b6db519ffc8034c3",
+            )
 
 
 class WindowTests(unittest.TestCase):
@@ -100,6 +132,9 @@ class WindowTests(unittest.TestCase):
             payload_for(observations, self.process), observations[-1], self.minimum, self.gap
         )
         self.assertTrue(report["ready"])
+        self.assertTrue(
+            report["policy"]["workflow_head_sha_equals_runtime_sha_required"]
+        )
         self.assertEqual(report["current_segment"]["snapshot_count"], len(observations))
 
     def test_window_is_not_ready_before_thirty_days(self) -> None:
@@ -182,6 +217,19 @@ class WindowTests(unittest.TestCase):
         payload = payload_for(observations, self.process)
         for artifact in payload["artifacts"]:
             artifact["workflow_run"]["id"] += 1
+        report = observation.evaluate_window(
+            payload, observations[-1], self.minimum, self.gap
+        )
+        self.assertFalse(report["ready"])
+        self.assertIn("no_valid_compatibility_observation_artifacts", report["reasons"])
+
+    def test_artifact_runtime_sha_must_match_workflow_head(self) -> None:
+        observations = [self.process + offset * 60 * 60 for offset in range(31 * 24 + 1)]
+        payload = payload_for(observations, self.process)
+        for artifact in payload["artifacts"]:
+            artifact["workflow_run"]["head_sha"] = (
+                "779408600c2ee0fae7aff958b6db519ffc8034c3"
+            )
         report = observation.evaluate_window(
             payload, observations[-1], self.minimum, self.gap
         )

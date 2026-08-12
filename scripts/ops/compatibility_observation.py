@@ -131,7 +131,13 @@ def extract_snapshot_block(raw: str) -> list[str]:
     return blocks[0]
 
 
-def build_snapshot(raw: str, run_id: int, run_attempt: int, event: str) -> dict[str, Any]:
+def build_snapshot(
+    raw: str,
+    run_id: int,
+    run_attempt: int,
+    event: str,
+    workflow_head_sha: str,
+) -> dict[str, Any]:
     metadata: dict[str, str] = {}
     metrics: dict[str, int] = {}
     for line in extract_snapshot_block(raw):
@@ -156,6 +162,12 @@ def build_snapshot(raw: str, run_id: int, run_attempt: int, event: str) -> dict[
         raise EvidenceError(f"missing compatibility metadata: {sorted(missing_metadata)}")
     if not re.fullmatch(r"[0-9a-f]{40}", metadata["runtime_sha"]):
         raise EvidenceError("runtime_sha must be a full lowercase Git SHA")
+    if not re.fullmatch(r"[0-9a-f]{40}", workflow_head_sha):
+        raise EvidenceError("workflow_head_sha must be a full lowercase Git SHA")
+    if metadata["runtime_sha"] != workflow_head_sha:
+        raise EvidenceError(
+            "runtime_sha must equal the main workflow head SHA before evidence is accepted"
+        )
 
     missing_series = EXPECTED_SERIES - metrics.keys()
     unexpected_series = metrics.keys() - EXPECTED_SERIES
@@ -189,7 +201,12 @@ def build_snapshot(raw: str, run_id: int, run_attempt: int, event: str) -> dict[
         "process_start_time_seconds": process_start,
         "process_start_epoch": process_start_epoch,
         "runtime_sha": metadata["runtime_sha"],
-        "workflow": {"run_id": run_id, "run_attempt": run_attempt, "event": event},
+        "workflow": {
+            "run_id": run_id,
+            "run_attempt": run_attempt,
+            "event": event,
+            "head_sha": workflow_head_sha,
+        },
         "metrics": metrics,
         "retirement_signals": signals,
         "artifact_name": artifact_name,
@@ -227,6 +244,9 @@ def parse_artifact(artifact: dict[str, Any]) -> ArtifactSnapshot | None:
     run_id = int(values["run_id"])
     workflow_run_id = workflow_run.get("id")
     if workflow_run_id is not None and int(workflow_run_id) != run_id:
+        return None
+    workflow_head_sha = workflow_run.get("head_sha")
+    if workflow_head_sha != values["sha"]:
         return None
     signal_names = (
         "profile_active",
@@ -361,6 +381,7 @@ def evaluate_window(
             "maximum_gap_seconds": maximum_gap_seconds,
             "same_runtime_sha_required": True,
             "same_process_start_required": True,
+            "workflow_head_sha_equals_runtime_sha_required": True,
         },
         "current_segment": {
             "runtime_sha": last.runtime_sha,
@@ -423,7 +444,13 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 def snapshot_command(args: argparse.Namespace) -> int:
     raw = Path(args.input).read_text(encoding="utf-8")
-    snapshot = build_snapshot(raw, args.run_id, args.run_attempt, args.event)
+    snapshot = build_snapshot(
+        raw,
+        args.run_id,
+        args.run_attempt,
+        args.event,
+        args.workflow_head_sha,
+    )
     Path(args.output).write_text(
         json.dumps(snapshot, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -444,6 +471,7 @@ def evaluate_command(args: argparse.Namespace) -> int:
                 "expired": False,
                 "workflow_run": {
                     "head_branch": args.current_head_branch,
+                    "head_sha": args.current_head_sha,
                     "id": args.current_run_id,
                 },
             }
@@ -476,6 +504,7 @@ def parser() -> argparse.ArgumentParser:
     snapshot.add_argument("--run-id", required=True, type=int)
     snapshot.add_argument("--run-attempt", required=True, type=int)
     snapshot.add_argument("--event", required=True)
+    snapshot.add_argument("--workflow-head-sha", required=True)
     snapshot.set_defaults(handler=snapshot_command)
 
     evaluate = commands.add_parser("evaluate", help="Evaluate the latest contiguous window")
@@ -487,6 +516,7 @@ def parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--now")
     evaluate.add_argument("--current-artifact-name")
     evaluate.add_argument("--current-head-branch", required=True)
+    evaluate.add_argument("--current-head-sha", required=True)
     evaluate.add_argument("--current-run-id", required=True, type=int)
     evaluate.add_argument("--require-ready", action="store_true")
     evaluate.set_defaults(handler=evaluate_command)
