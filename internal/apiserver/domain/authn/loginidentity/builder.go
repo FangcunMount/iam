@@ -16,20 +16,14 @@ type Builder struct {
 	realm            string            // 域
 	identifier       string            // 标识
 	globalIdentifier string            // 全局标识
-	id               meta.ID           // 登录身份ID
-	status           Status            // 状态
 	verifiedAt       *time.Time        // 验证时间
-	linkedAt         time.Time         // 绑定时间
 	profile          map[string]string // 资料
 	meta             map[string]string // 元数据
 }
 
 // NewBuilder 创建登录身份构造器。
 func NewBuilder(userID meta.ID) *Builder {
-	return &Builder{
-		userID: userID,
-		status: StatusActive,
-	}
+	return &Builder{userID: userID}
 }
 
 // Username 使用 username provider 构造登录身份。
@@ -122,15 +116,7 @@ func (b *Builder) Build() (*LoginIdentity, error) {
 	if identifier == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "identifier is required")
 	}
-	if !b.status.Validate() {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid login identity status: %s", b.status)
-	}
-
 	now := time.Now()
-	linkedAt := b.linkedAt
-	if linkedAt.IsZero() {
-		linkedAt = now
-	}
 	profile := cloneStringMap(b.profile)
 	if profile == nil {
 		profile = map[string]string{}
@@ -141,15 +127,14 @@ func (b *Builder) Build() (*LoginIdentity, error) {
 	}
 
 	return &LoginIdentity{
-		ID:               b.id,
 		UserID:           b.userID,
 		Provider:         b.provider,
 		Realm:            realm,
 		Identifier:       identifier,
 		GlobalIdentifier: strings.TrimSpace(b.globalIdentifier),
-		Status:           b.status,
+		Status:           StatusActive,
 		VerifiedAt:       copyTimePtr(b.verifiedAt),
-		LinkedAt:         linkedAt,
+		LinkedAt:         now,
 		Profile:          profile,
 		Meta:             metaData,
 	}, nil
