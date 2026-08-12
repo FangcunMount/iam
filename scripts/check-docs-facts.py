@@ -259,7 +259,7 @@ def check_readiness_facts() -> None:
     for token in ("MarkDraining", "HealthCheckResponse_NOT_SERVING", "drainDelay"):
         if token not in shutdown:
             fail(f"graceful drain wiring is missing {token}")
-    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready"):
+    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready", "/debug/modules?view=canonical", '"module_states"'):
         if token not in server_check:
             fail(f"server-check probe contract is missing {token}")
     for fact in (
