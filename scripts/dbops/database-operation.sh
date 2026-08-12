@@ -367,7 +367,7 @@ database_status() {
     fail "migration state query failed"
     return 1
   fi
-  if ! authn_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e \"SELECT COALESCE(SUM(TABLE_NAME = 'auth_accounts'), 0), COALESCE(SUM(TABLE_NAME = 'auth_credentials_legacy'), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('auth_accounts', 'auth_credentials_legacy');\" 2>"$ERROR_PATH")"; then
+  if ! authn_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT COALESCE(SUM(TABLE_NAME = 'auth_accounts'), 0), COALESCE(SUM(TABLE_NAME = 'auth_credentials_legacy'), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('auth_accounts', 'auth_credentials_legacy');" 2>"$ERROR_PATH")"; then
     fail "AuthN table state query failed"
     return 1
   fi
