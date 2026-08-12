@@ -5,8 +5,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testing.T) {
@@ -20,6 +22,7 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 		"format_version=4",
 		"schema_migrations",
 		"performance_schema.table_io_waits_summary_by_table",
+		"sys.schema_table_statistics",
 		"information_schema.KEY_COLUMN_USAGE",
 		"information_schema.TRIGGERS",
 		"information_schema.VIEWS",
@@ -106,6 +109,10 @@ case "$*" in
     [ "${FAKE_IO_UNAVAILABLE:-0}" = "1" ] && exit 82
     printf "0\t0\t${FAKE_IO_READS:-0}\t0\n"
     ;;
+  *"sys.schema_table_statistics"*)
+    [ "${FAKE_SYS_IO_AVAILABLE:-0}" = "1" ] || exit 83
+    printf "${FAKE_SYS_IO_READS:-0}\t${FAKE_SYS_IO_WRITES:-0}\n"
+    ;;
   *"information_schema.KEY_COLUMN_USAGE"*) printf "0\t0\t0\t0\t0\t0\t0\t0\n" ;;
   *"TABLE_NAME = 'auth_credentials' AND COLUMN_NAME = 'account_id'"*) printf "0\n" ;;
   *"information_schema.COLUMNS"*) printf "12\t0123456789abcdef\n" ;;
@@ -138,7 +145,9 @@ esac
 		"MYSQL_DBNAME=iam_test",
 	)
 	output, err := cmd.CombinedOutput()
-	requireNoError(t, err)
+	if err != nil {
+		t.Fatalf("run preflight: %v\n%s", err, output)
+	}
 	text := string(output)
 	assertSafeOutput(t, text)
 	for _, required := range []string{
@@ -225,6 +234,46 @@ esac
 	assertSafeOutput(t, string(authnWaiverOutput))
 	if !strings.Contains(string(authnWaiverOutput), "eligibility\tauth_accounts\tstate=blocked\treason=table_io_unavailable") {
 		t.Fatalf("platform waiver unexpectedly admitted AuthN:\n%s", authnWaiverOutput)
+	}
+
+	sysFallbackCmd := exec.Command("/bin/bash", script)
+	sysFallbackCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"FAKE_SYS_IO_AVAILABLE=1",
+		"IAM_RETIREMENT_SCOPE=schema_version",
+	)
+	sysFallbackOutput, err := sysFallbackCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(sysFallbackOutput))
+	if !strings.Contains(string(sysFallbackOutput), "table_io\tschema_version\tstate=available\tsource=sys_schema\treads=0\twrites=0") ||
+		!strings.Contains(string(sysFallbackOutput), "eligibility\tschema_version\tstate=eligible") {
+		t.Fatalf("sys schema I/O fallback did not preserve eligibility:\n%s", sysFallbackOutput)
+	}
+
+	evidencePath := filepath.Join("/tmp", "iam-authn-retirement-"+strconv.FormatInt(time.Now().UnixNano(), 10)+"-1.json")
+	t.Cleanup(func() { _ = os.Remove(evidencePath) })
+	evidence := `{"format_version":5,"mode":"dry-run","hard_conflicts":0,"remaining_login_identity_inserts":0,"remaining_password_inserts":0,"verification_required":false,"retirement_eligible":true}` + "\n"
+	requireNoError(t, os.WriteFile(evidencePath, []byte(evidence), 0o600))
+	evidenceCmd := exec.Command("/bin/bash", script)
+	evidenceCmd.Env = append(cmd.Env,
+		"IAM_RETIREMENT_SCOPE=authn",
+		"IAM_RETIREMENT_AUTHN_EVIDENCE_FILE="+evidencePath,
+	)
+	evidenceOutput, err := evidenceCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(evidenceOutput))
+	for _, want := range []string{
+		"authn_reconciliation\tformat_version=5\tstate=verified",
+		"parity\tauthn_reconciliation\tstate=available\tsource=iam_maintenance_format_v5",
+		"eligibility\tauth_accounts\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5",
+		"eligibility\tauth_credentials_legacy\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5",
+	} {
+		if !strings.Contains(string(evidenceOutput), want) {
+			t.Fatalf("v5 evidence preflight output missing %q:\n%s", want, evidenceOutput)
+		}
+	}
+	if _, err := os.Stat(evidencePath); !os.IsNotExist(err) {
+		t.Fatalf("v5 evidence file was not consumed: %v", err)
 	}
 
 	auditWaiverCmd := exec.Command("/bin/bash", script)

@@ -11,6 +11,7 @@ ALLOW_DOCKER_CLIENT="${IAM_RETIREMENT_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_RETIREMENT_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 RETIREMENT_SCOPE="${IAM_RETIREMENT_SCOPE:-all}"
 OWNER_IO_WAIVER="${IAM_RETIREMENT_OWNER_IO_WAIVER:-none}"
+AUTHN_EVIDENCE_FILE="${IAM_RETIREMENT_AUTHN_EVIDENCE_FILE:-}"
 
 MYSQL_DEFAULTS=""
 ERROR_PATH=""
@@ -24,6 +25,7 @@ MIGRATION_PRESENT=0
 MIGRATION_VERSION=unknown
 MIGRATION_DIRTY=unknown
 PERFORMANCE_ENABLED=0
+AUTHN_V5_VERIFIED=0
 
 CANDIDATE_TABLES="children guardianships auth_accounts auth_credentials_legacy schema_version tenants data_dictionary operation_logs audit_logs auth_token_audit"
 
@@ -138,6 +140,16 @@ validate_configuration() {
     none|platform_tables|audit_tables) ;;
     *) fail "owner I/O waiver is invalid"; return 1 ;;
   esac
+  if [ -n "$AUTHN_EVIDENCE_FILE" ]; then
+    if [[ " $RETIREMENT_SCOPE " != *" authn "* ]] && [ "$RETIREMENT_SCOPE" != "all" ]; then
+      fail "AuthN reconciliation evidence is outside the selected scope"
+      return 1
+    fi
+    if ! [[ "$AUTHN_EVIDENCE_FILE" =~ ^/tmp/iam-authn-retirement-[0-9]+-[0-9]+\.json$ ]]; then
+      fail "AuthN reconciliation evidence path is invalid"
+      return 1
+    fi
+  fi
   if ! [[ "$MYSQL_DBNAME" =~ ^[A-Za-z0-9_]+$ ]]; then
     fail "database name is invalid"
     return 1
@@ -165,6 +177,48 @@ validate_configuration() {
   fi
   [ -n "$COMMIT_SHA" ] || COMMIT_SHA="unknown"
   validate_label IAM_RETIREMENT_COMMIT_SHA "$COMMIT_SHA" || return 1
+}
+
+prepare_authn_evidence() {
+  local mode modified now age evidence required
+  [ -n "$AUTHN_EVIDENCE_FILE" ] || return 0
+  if [ ! -f "$AUTHN_EVIDENCE_FILE" ] || [ -L "$AUTHN_EVIDENCE_FILE" ]; then
+    fail "AuthN reconciliation evidence file is unavailable"
+    return 1
+  fi
+  mode="$(stat -c %a "$AUTHN_EVIDENCE_FILE" 2>/dev/null || stat -f %Lp "$AUTHN_EVIDENCE_FILE" 2>/dev/null || true)"
+  modified="$(stat -c %Y "$AUTHN_EVIDENCE_FILE" 2>/dev/null || stat -f %m "$AUTHN_EVIDENCE_FILE" 2>/dev/null || true)"
+  now="$(date +%s)"
+  if [ "$mode" != "600" ] || ! [[ "$modified" =~ ^[0-9]+$ ]]; then
+    fail "AuthN reconciliation evidence file metadata is invalid"
+    return 1
+  fi
+  age=$((now - modified))
+  if [ "$age" -lt 0 ] || [ "$age" -gt 300 ]; then
+    fail "AuthN reconciliation evidence file is stale"
+    return 1
+  fi
+  evidence="$(cat -- "$AUTHN_EVIDENCE_FILE")"
+  if [ "$(wc -l <"$AUTHN_EVIDENCE_FILE" | tr -d '[:space:]')" != "1" ]; then
+    fail "AuthN reconciliation evidence shape is invalid"
+    return 1
+  fi
+  for required in \
+    '"format_version"[[:space:]]*:[[:space:]]*5' \
+    '"mode"[[:space:]]*:[[:space:]]*"dry-run"' \
+    '"hard_conflicts"[[:space:]]*:[[:space:]]*0' \
+    '"remaining_login_identity_inserts"[[:space:]]*:[[:space:]]*0' \
+    '"remaining_password_inserts"[[:space:]]*:[[:space:]]*0' \
+    '"verification_required"[[:space:]]*:[[:space:]]*false' \
+    '"retirement_eligible"[[:space:]]*:[[:space:]]*true'; do
+    if ! grep -Eq "$required" <<<"$evidence"; then
+      fail "AuthN reconciliation evidence is incomplete"
+      return 1
+    fi
+  done
+  rm -f -- "$AUTHN_EVIDENCE_FILE"
+  AUTHN_EVIDENCE_FILE=""
+  AUTHN_V5_VERIFIED=1
 }
 
 emit_identity_schema_contracts() {
@@ -330,10 +384,14 @@ emit_performance_schema_io() {
   for table in $CANDIDATE_TABLES; do
     if io="$(mysql_query_optional "SELECT COALESCE(SUM(COUNT_STAR), 0), COALESCE(SUM(SUM_TIMER_WAIT), 0), COALESCE(SUM(COUNT_READ), 0), COALESCE(SUM(COUNT_WRITE), 0) FROM performance_schema.table_io_waits_summary_by_table WHERE OBJECT_SCHEMA = DATABASE() AND OBJECT_NAME = '$table';")" && [ -n "$io" ]; then
       IFS=$'\t' read -r count_star timer_wait reads writes <<<"$io"
-      printf '%s\tavailable\t%s\t%s\n' "$table" "$reads" "$writes" >>"$IO_CACHE_PATH"
-      printf 'table_io\t%s\tcount_star=%s\ttimer_wait=%s\treads=%s\twrites=%s\n' "$table" "$count_star" "$timer_wait" "$reads" "$writes"
+      printf '%s\tavailable\t%s\t%s\tperformance_schema\n' "$table" "$reads" "$writes" >>"$IO_CACHE_PATH"
+      printf 'table_io\t%s\tcount_star=%s\ttimer_wait=%s\treads=%s\twrites=%s\tstate=available\tsource=performance_schema\n' "$table" "$count_star" "$timer_wait" "$reads" "$writes"
+    elif io="$(mysql_query_optional "SELECT COALESCE(SUM(rows_fetched), 0), COALESCE(SUM(rows_inserted + rows_updated + rows_deleted), 0) FROM sys.schema_table_statistics WHERE table_schema = DATABASE() AND table_name = '$table';")" && [ -n "$io" ]; then
+      IFS=$'\t' read -r reads writes <<<"$io"
+      printf '%s\tavailable\t%s\t%s\tsys_schema\n' "$table" "$reads" "$writes" >>"$IO_CACHE_PATH"
+      printf 'table_io\t%s\tstate=available\tsource=sys_schema\treads=%s\twrites=%s\n' "$table" "$reads" "$writes"
     else
-      printf '%s\tunavailable\tunknown\tunknown\n' "$table" >>"$IO_CACHE_PATH"
+      printf '%s\tunavailable\tunknown\tunknown\tnone\n' "$table" >>"$IO_CACHE_PATH"
       printf 'table_io\t%s\tstate=unavailable\n' "$table"
     fi
   done
@@ -408,7 +466,10 @@ emit_parity_summaries() {
   fi
 
   if [ "$RETIREMENT_SCOPE" = "all" ] || [ "$RETIREMENT_SCOPE" = "authn" ]; then
-    emit_parity_result auth_accounts_to_login_identities "auth_accounts auth_login_identities" "WITH account_keys AS (
+    if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
+      printf 'parity\tauthn_reconciliation\tstate=available\tsource=iam_maintenance_format_v5\tretirement_eligible=true\n'
+    else
+      emit_parity_result auth_accounts_to_login_identities "auth_accounts auth_login_identities" "WITH account_keys AS (
     SELECT a.*,
       a.type IN ('opera', 'mock-consumer', 'wc-minip', 'wc-com') AS supported,
       CASE a.type WHEN 'wc-minip' THEN 'wechat_minip' WHEN 'wc-com' THEN 'wecom' ELSE 'username' END AS expected_provider,
@@ -461,7 +522,7 @@ emit_parity_summaries() {
     CONCAT('mutable_status_divergences=', COALESCE(SUM(supported AND valid_key AND mapping_count > 0 AND mutable_status_divergence), 0))
   FROM account_facts;"
 
-    emit_parity_result legacy_credentials_to_authn "auth_credentials_legacy auth_credentials auth_login_identities auth_accounts" "WITH credential_facts AS (
+      emit_parity_result legacy_credentials_to_authn "auth_credentials_legacy auth_credentials auth_login_identities auth_accounts" "WITH credential_facts AS (
     SELECT lc.*,
       ((lc.type = 'password' OR COALESCE(lc.idp, '') = '')
         AND COALESCE(OCTET_LENGTH(lc.material), 0) > 0 AND COALESCE(lc.algo, '') <> '') AS password_eligible,
@@ -761,6 +822,7 @@ emit_parity_summaries() {
 	  AND NOT oauth_identity_exists), 0)),
     CONCAT('unknown_credential_rows=', COALESCE(SUM(NOT password_eligible AND NOT invalid_password AND NOT phone_artifact AND NOT oauth_artifact), 0))
   FROM credential_facts;"
+    fi
   fi
 }
 
@@ -787,7 +849,7 @@ cached_parity_value() {
 
 common_retirement_blocker() {
   local table="$1"
-  local io_line io_state reads writes dependency_line dependency_total value
+  local io_line io_state reads writes io_source dependency_line dependency_total value
   if [ "$MIGRATION_PRESENT" != "1" ]; then
     printf 'schema_migrations_absent'
     return
@@ -813,7 +875,7 @@ common_retirement_blocker() {
         return
       fi
     else
-      IFS=$'\t' read -r _ io_state reads writes <<<"$io_line"
+      IFS=$'\t' read -r _ io_state reads writes io_source <<<"$io_line"
       if [ "$io_state" != "available" ]; then
         if ! owner_io_waiver_allows "$table"; then
           printf 'table_io_unavailable'
@@ -861,7 +923,7 @@ owner_io_waiver_allows() {
 
 io_evidence_mode() {
   local table="$1"
-  local io_line io_state
+  local io_line io_state io_reads io_writes io_source
   if ! owner_io_waiver_allows "$table"; then
     printf 'instantaneous'
     return
@@ -875,7 +937,7 @@ io_evidence_mode() {
     printf 'owner_io_waiver'
     return
   fi
-  IFS=$'\t' read -r _ io_state _ _ <<<"$io_line"
+  IFS=$'\t' read -r _ io_state io_reads io_writes io_source <<<"$io_line"
   if [ "$io_state" != "available" ]; then
     printf 'owner_io_waiver'
   else
@@ -920,6 +982,10 @@ emit_auth_account_eligibility() {
     printf 'eligibility\tauth_accounts\tstate=blocked\treason=%s\tevidence=instantaneous\n' "$blocker"
     return
   fi
+  if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
+    printf 'eligibility\tauth_accounts\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5\tevidence=instantaneous\n'
+    return
+  fi
   state="$(cached_parity_state auth_accounts_to_login_identities)"
   if [ "$state" != "available" ]; then
     printf 'eligibility\tauth_accounts\tstate=blocked\treason=account_parity_unavailable\tevidence=instantaneous\n'
@@ -950,6 +1016,10 @@ emit_auth_credential_eligibility() {
   blocker="$(common_retirement_blocker auth_credentials_legacy)"
   if [ -n "$blocker" ]; then
     printf 'eligibility\tauth_credentials_legacy\tstate=blocked\treason=%s\tevidence=instantaneous\n' "$blocker"
+    return
+  fi
+  if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
+    printf 'eligibility\tauth_credentials_legacy\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5\tevidence=instantaneous\n'
     return
   fi
   state="$(cached_parity_state legacy_credentials_to_authn)"
@@ -1030,6 +1100,7 @@ emit_eligibility() {
 main() {
   umask 077
   validate_configuration || return 1
+  prepare_authn_evidence || return 1
   prepare_container_client_fallback || return 1
   require_mysql8_client || return 1
   prepare_defaults_file
@@ -1042,6 +1113,9 @@ main() {
 
   printf 'legacy_retirement_preflight\tformat_version=4\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
     "$RETIREMENT_SCOPE" "$OWNER_IO_WAIVER"
+  if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
+    printf 'authn_reconciliation\tformat_version=5\tstate=verified\tretirement_eligible=true\n'
+  fi
   emit_metadata
   emit_migration_state
   emit_candidate_tables

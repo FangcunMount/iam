@@ -385,7 +385,7 @@ def check_database_operations_facts() -> None:
         encoding="utf-8"
     )
 
-    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 4:
+    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 5:
         fail("database workflow no longer routes all operations through the repository script")
     if workflow.count("script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1:
         fail("database status no longer runs the checked-out retirement preflight exactly once")
@@ -393,6 +393,9 @@ def check_database_operations_facts() -> None:
         "image_sha:",
         "IAM_RETIREMENT_IMAGE_SHA",
         "Run Legacy Retirement Preflight",
+        "Verify AuthN Reconciliation",
+        "IAM_DB_OPS_AUTHN_EVIDENCE_FILE",
+        "IAM_RETIREMENT_AUTHN_EVIDENCE_FILE",
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
         "retirement_scope:",
@@ -443,6 +446,7 @@ def check_database_operations_facts() -> None:
         "--batch-size=",
         "--timeout=15m",
         "performance schema capability:",
+        "sys_table_statistics_select=",
         "endpoint_provider=",
         "configure_provider_or_server_startup",
     ):

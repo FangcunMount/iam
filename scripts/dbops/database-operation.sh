@@ -14,6 +14,7 @@ ALLOW_DOCKER_CLIENT="${IAM_DB_OPS_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_DB_OPS_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
 AUTHN_CONTAINER="${IAM_DB_OPS_AUTHN_CONTAINER:-iam-apiserver}"
 AUTHN_BATCH_SIZE="${IAM_DB_OPS_AUTHN_BATCH_SIZE:-5000}"
+AUTHN_EVIDENCE_FILE="${IAM_DB_OPS_AUTHN_EVIDENCE_FILE:-}"
 
 MYSQL_DEFAULTS=""
 PARTIAL_PATH=""
@@ -160,6 +161,14 @@ validate_configuration() {
   if ! [[ "$AUTHN_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]] || [ "$AUTHN_BATCH_SIZE" -gt 50000 ]; then
     fail "AuthN reconciliation batch size is invalid"
     return 1
+  fi
+  if [ -n "$AUTHN_EVIDENCE_FILE" ]; then
+    if [ "$OPERATION" != "reconcile-authn-verify" ] \
+        || ! [[ "$AUTHN_EVIDENCE_FILE" =~ ^/tmp/iam-authn-retirement-[0-9]+-[0-9]+\.json$ ]] \
+        || [ -L "$AUTHN_EVIDENCE_FILE" ]; then
+      fail "AuthN reconciliation evidence path is invalid"
+      return 1
+    fi
   fi
 }
 
@@ -563,7 +572,7 @@ SQL
 }
 
 reconcile_authn_legacy() {
-  local docker_bin sudo_bin running result
+  local docker_bin sudo_bin running result required
   if [ "$OPERATION" = "reconcile-authn-apply" ]; then
     if [ "$CONFIRMATION" != "BACKFILL_AUTHN_LEGACY_MISSING" ]; then
       fail "AuthN reconciliation confirmation is invalid"
@@ -620,6 +629,26 @@ reconcile_authn_legacy() {
       || ! grep -Eq '"retirement_eligible"[[:space:]]*:[[:space:]]*(true|false)' <<<"$result"; then
     fail "AuthN reconciliation evidence is invalid"
     return 1
+  fi
+  if [ "$OPERATION" = "reconcile-authn-verify" ]; then
+    for required in \
+      '"hard_conflicts"[[:space:]]*:[[:space:]]*0' \
+      '"remaining_login_identity_inserts"[[:space:]]*:[[:space:]]*0' \
+      '"remaining_password_inserts"[[:space:]]*:[[:space:]]*0' \
+      '"verification_required"[[:space:]]*:[[:space:]]*false' \
+      '"retirement_eligible"[[:space:]]*:[[:space:]]*true'; do
+      if ! grep -Eq "$required" <<<"$result"; then
+        fail "AuthN reconciliation eligibility evidence is incomplete"
+        return 1
+      fi
+    done
+    if [ -n "$AUTHN_EVIDENCE_FILE" ]; then
+      PARTIAL_PATH="$(mktemp "${AUTHN_EVIDENCE_FILE}.partial.XXXXXX")"
+      chmod 0600 "$PARTIAL_PATH"
+      printf '%s\n' "$result" >"$PARTIAL_PATH"
+      mv -f -- "$PARTIAL_PATH" "$AUTHN_EVIDENCE_FILE"
+      PARTIAL_PATH=""
+    fi
   fi
   printf '%s\n' "$result"
   echo "AuthN reconciliation completed: mode=${OPERATION#reconcile-authn-} result=success"
@@ -700,6 +729,14 @@ performance_schema_status() {
     table_io_select="unavailable"
   fi
   echo "performance schema capability: table_io_contract=$table_io_contract table_io_metadata_visible=$table_io_metadata_visible table_io_required_columns=$table_io_required_columns table_io_select=$table_io_select"
+
+  local sys_io_probe sys_io_select
+  sys_io_select="unavailable"
+  if sys_io_probe="$(mysql_scalar "SELECT COUNT(*) FROM sys.schema_table_statistics;")" \
+      && [[ "$sys_io_probe" =~ ^[0-9]+$ ]]; then
+    sys_io_select="available"
+  fi
+  echo "performance schema capability: sys_table_statistics_select=$sys_io_select"
 
   if [ "$enabled" = "1" ]; then
     echo "performance schema capability: next_action=already_enabled restart_required=0"
