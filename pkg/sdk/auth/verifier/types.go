@@ -52,13 +52,16 @@ type TokenClaims struct {
 	TenantDomain string
 	// OrgID 业务组织 ID（JWT org_id claim 透传）。
 	OrgID string
-	// TenantID Deprecated: 与 TenantDomain 相同，表示 IAM 授权域，非业务 org。
-	TenantID string
-	Roles           []string
-	Scopes          []string
-	TokenType       string
-	AMR             []string
-	Extra           map[string]interface{}
+	// TenantID 与 TenantDomain 相同，表示 IAM 授权域，非业务 org。
+	//
+	// Deprecated: 授权域使用 AuthorizationDomain 或 TenantDomain；
+	// 业务组织使用 BusinessOrgID 或 OrgID。该字段仅在 v2 兼容窗口内保留，将于 v3 删除。
+	TenantID  string
+	Roles     []string
+	Scopes    []string
+	TokenType string
+	AMR       []string
+	Extra     map[string]interface{}
 }
 
 // VerifyOptions 验证选项。

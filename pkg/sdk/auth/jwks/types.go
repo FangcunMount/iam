@@ -65,7 +65,11 @@ func (s *FetcherStats) Successes() int64 { return s.successes }
 // Failures 返回失败次数。
 func (s *FetcherStats) Failures() int64 { return s.failures }
 
-// JWKSStats 兼容旧接口的聚合统计结构。
+// JWKSStats 是早期未与 JWKSManager 绑定的聚合统计结构。
+//
+// Deprecated: 使用具体 fetcher 的 Stats 方法读取 FetcherStats，
+// 使用 CircuitBreakerFetcher.State 读取熔断状态；应用级指标使用
+// sdk.WithMetricsCollector 注入。该类型仅在 v2 兼容窗口内保留，将于 v3 删除。
 type JWKSStats struct {
 	HTTPFetches   int64
 	GRPCFetches   int64

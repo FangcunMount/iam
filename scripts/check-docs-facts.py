@@ -466,7 +466,7 @@ def check_database_operations_facts() -> None:
 
 def check_compatibility_retirement_evidence() -> None:
     evidence = load_yaml("docs/05-工程质量与运维/compat-consumer-evidence.yaml")
-    if evidence.get("schema_version") != 1:
+    if evidence.get("schema_version") != 2:
         fail("compatibility consumer evidence has an unsupported schema version")
 
     repositories = evidence.get("repositories", {})
@@ -503,6 +503,24 @@ def check_compatibility_retirement_evidence() -> None:
     if classifications.get("public_sdk", {}).get("latest_published_tag_at_scan") != "v2.0.9":
         fail("compatibility evidence is missing the published SDK version boundary")
 
+    verifier_types = (ROOT / "pkg/sdk/auth/verifier/types.go").read_text(encoding="utf-8")
+    jwks_types = (ROOT / "pkg/sdk/auth/jwks/types.go").read_text(encoding="utf-8")
+    sdk_compile = (ROOT / "pkg/sdk/public_api_compile_test.go").read_text(encoding="utf-8")
+    sdk_migration = (ROOT / "pkg/sdk/docs/07-migration-breaking-changes.md").read_text(
+        encoding="utf-8"
+    )
+    for token, source, label in (
+        ("Deprecated: 授权域使用 AuthorizationDomain", verifier_types, "TokenClaims.TenantID"),
+        ("Deprecated: 使用具体 fetcher 的 Stats", jwks_types, "JWKSStats"),
+        ("var _ authjwks.JWKSStats", sdk_compile, "JWKSStats compile contract"),
+        ("_ = claims.TenantID", sdk_compile, "TenantID compile contract"),
+        ("v2 tag 发布时间", sdk_migration, "SDK deprecation window"),
+        ("最短 30 天通知窗口", sdk_migration, "SDK deprecation window"),
+        ("只在 v3 移除", sdk_migration, "SDK major-version gate"),
+    ):
+        if token not in source:
+            fail(f"SDK retirement preparation is missing {label}: {token}")
+
     workflow = (ROOT / ".github/workflows/server-check.yml").read_text(encoding="utf-8")
     for metric in (
         "iam_identity_profile_link_query_total",
@@ -519,6 +537,8 @@ def check_compatibility_retirement_evidence() -> None:
         "require_retirement_ready",
         "--minimum-days 30",
         "--maximum-gap-minutes 90",
+        "--workflow-head-sha",
+        "--current-head-sha",
         "retention-days: 90",
     ):
         if token not in workflow:
@@ -534,6 +554,7 @@ def check_compatibility_retirement_evidence() -> None:
         "maximum_gap_minutes": 90,
         "same_process_start_required": True,
         "same_runtime_sha_required": True,
+        "workflow_head_sha_equals_runtime_sha_required": True,
         "restart_or_deploy_resets_window": True,
         "incomplete_evidence_fails_closed": True,
     }

@@ -132,7 +132,13 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	var _ = authloginidentity.LinkWechatMiniProgramRequest{}
 	var _ = authloginidentity.LinkWecomRequest{}
 	var _ = authjwks.NewJWKSManager
+	// Deprecated v2 compatibility symbols stay source-compatible until v3.
+	var _ authjwks.JWKSStats
 	var _ = authverifier.NewTokenVerifier
+	var claims authverifier.TokenClaims
+	_ = claims.TenantID
+	var _ = (*authverifier.TokenClaims).AuthorizationDomain
+	var _ = (*authverifier.TokenClaims).BusinessOrgID
 	var _ = authserviceauth.NewServiceAuthHelper
 
 	var _ *authz.Client
