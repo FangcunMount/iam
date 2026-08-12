@@ -80,7 +80,7 @@ func TestLegacyRetirementPreflightAuthNMySQL(t *testing.T) {
 	text := string(output)
 	assertSafeOutput(t, text)
 	for _, want := range []string{
-		"legacy_retirement_preflight\tformat_version=4",
+		"legacy_retirement_preflight\tformat_version=5",
 		"parity\tauth_accounts_to_login_identities\tstate=available",
 		"immutable_conflict_rows=0",
 		"mutable_status_divergences=1",

@@ -19,10 +19,12 @@ func TestLegacyRetirementPreflightIsReadOnlyAndCoversRetirementEvidence(t *testi
 	source := string(data)
 
 	for _, required := range []string{
-		"format_version=4",
+		"format_version=5",
 		"schema_migrations",
 		"performance_schema.table_io_waits_summary_by_table",
 		"sys.schema_table_statistics",
+		"information_schema.TABLE_STATISTICS",
+		"@@opt_tablestat",
 		"information_schema.KEY_COLUMN_USAGE",
 		"information_schema.TRIGGERS",
 		"information_schema.VIEWS",
@@ -103,8 +105,10 @@ case "$*" in
   *"SELECT VERSION()"*) printf "8.0.36\tMySQL Community Server\t2026-08-07T00:00:00Z\n" ;;
   *"MAX(version)"*) printf "21\t${FAKE_MIGRATION_DIRTY:-0}\t1\n" ;;
   *"MAX(TABLE_ROWS)"*) printf "1\t4\t4096\t2026-08-06T00:00:00Z\n" ;;
-  *"@@performance_schema"*) printf "1\n" ;;
+  *"@@performance_schema"*) printf "${FAKE_PERFORMANCE_ENABLED:-1}\n" ;;
+  *"@@opt_tablestat"*) printf "${FAKE_RDS_TABLE_STATISTICS_ENABLED:-0}\n" ;;
   *"performance_schema.global_status"*) printf "86400\n" ;;
+  *"SHOW GLOBAL STATUS LIKE 'Uptime'"*) printf "Uptime\t86400\n" ;;
   *"table_io_waits_summary_by_table"*)
     [ "${FAKE_IO_UNAVAILABLE:-0}" = "1" ] && exit 82
     printf "0\t0\t${FAKE_IO_READS:-0}\t0\n"
@@ -112,6 +116,10 @@ case "$*" in
   *"sys.schema_table_statistics"*)
     [ "${FAKE_SYS_IO_AVAILABLE:-0}" = "1" ] || exit 83
     printf "${FAKE_SYS_IO_READS:-0}\t${FAKE_SYS_IO_WRITES:-0}\n"
+    ;;
+  *"information_schema.TABLE_STATISTICS"*)
+    [ "${FAKE_RDS_TABLE_STATISTICS_AVAILABLE:-0}" = "1" ] || exit 84
+    printf "${FAKE_RDS_IO_READS:-0}\t${FAKE_RDS_IO_WRITES:-0}\n"
     ;;
   *"information_schema.KEY_COLUMN_USAGE"*) printf "0\t0\t0\t0\t0\t0\t0\t0\n" ;;
   *"TABLE_NAME = 'auth_credentials' AND COLUMN_NAME = 'account_id'"*) printf "0\n" ;;
@@ -153,7 +161,7 @@ esac
 	for _, required := range []string{
 		"query_mode=read_only_aggregate",
 		"metadata\tenvironment\tstaging",
-		"format_version=4",
+		"format_version=5",
 		"migration\tschema_migrations\tpresent\tversion=21\tdirty=0",
 		"candidate_table\tchildren\tpresent=1",
 		"performance_schema\tstate=enabled",
@@ -208,6 +216,39 @@ esac
 	assertSafeOutput(t, string(unavailableOutput))
 	if !strings.Contains(string(unavailableOutput), "eligibility\tschema_version\tstate=blocked\treason=table_io_unavailable") {
 		t.Fatalf("unavailable I/O without waiver did not fail closed:\n%s", unavailableOutput)
+	}
+
+	rdsFallbackCmd := exec.Command("/bin/bash", script)
+	rdsFallbackCmd.Env = append(cmd.Env,
+		"FAKE_PERFORMANCE_ENABLED=0",
+		"FAKE_IO_UNAVAILABLE=1",
+		"FAKE_RDS_TABLE_STATISTICS_ENABLED=1",
+		"FAKE_RDS_TABLE_STATISTICS_AVAILABLE=1",
+		"FAKE_RDS_IO_READS=0",
+		"FAKE_RDS_IO_WRITES=0",
+		"IAM_RETIREMENT_SCOPE=authn",
+	)
+	rdsFallbackOutput, err := rdsFallbackCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(rdsFallbackOutput))
+	if !strings.Contains(string(rdsFallbackOutput), "table_io\tauth_accounts\tstate=available\tsource=aliyun_information_schema\treads=0\twrites=0") ||
+		!strings.Contains(string(rdsFallbackOutput), "eligibility\tauth_accounts\tstate=eligible") {
+		t.Fatalf("Aliyun information_schema I/O fallback did not preserve eligibility:\n%s", rdsFallbackOutput)
+	}
+
+	rdsNonzeroCmd := exec.Command("/bin/bash", script)
+	rdsNonzeroCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"FAKE_RDS_TABLE_STATISTICS_ENABLED=1",
+		"FAKE_RDS_TABLE_STATISTICS_AVAILABLE=1",
+		"FAKE_RDS_IO_READS=1",
+		"IAM_RETIREMENT_SCOPE=authn",
+	)
+	rdsNonzeroOutput, err := rdsNonzeroCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(rdsNonzeroOutput))
+	if !strings.Contains(string(rdsNonzeroOutput), "eligibility\tauth_accounts\tstate=blocked\treason=instantaneous_io_nonzero") {
+		t.Fatalf("Aliyun information_schema nonzero I/O did not fail closed:\n%s", rdsNonzeroOutput)
 	}
 
 	waiverCmd := exec.Command("/bin/bash", script)

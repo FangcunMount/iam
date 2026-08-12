@@ -730,13 +730,25 @@ performance_schema_status() {
   fi
   echo "performance schema capability: table_io_contract=$table_io_contract table_io_metadata_visible=$table_io_metadata_visible table_io_required_columns=$table_io_required_columns table_io_select=$table_io_select"
 
-  local sys_io_probe sys_io_select
+  local sys_io_probe sys_io_select table_statistics_probe table_statistics_enabled table_statistics_select
   sys_io_select="unavailable"
   if sys_io_probe="$(mysql_scalar "SELECT COUNT(*) FROM sys.schema_table_statistics;")" \
       && [[ "$sys_io_probe" =~ ^[0-9]+$ ]]; then
     sys_io_select="available"
   fi
   echo "performance schema capability: sys_table_statistics_select=$sys_io_select"
+
+  table_statistics_enabled="unavailable"
+  table_statistics_select="unavailable"
+  if table_statistics_probe="$(mysql_scalar "SELECT @@opt_tablestat + 0;")" \
+      && [[ "$table_statistics_probe" =~ ^[01]$ ]]; then
+    table_statistics_enabled="$table_statistics_probe"
+  fi
+  if table_statistics_probe="$(mysql_scalar "SELECT COUNT(*) FROM information_schema.TABLE_STATISTICS;")" \
+      && [[ "$table_statistics_probe" =~ ^[0-9]+$ ]]; then
+    table_statistics_select="available"
+  fi
+  echo "performance schema capability: rds_table_statistics_enabled=$table_statistics_enabled rds_table_statistics_select=$table_statistics_select"
 
   if [ "$enabled" = "1" ]; then
     echo "performance schema capability: next_action=already_enabled restart_required=0"
