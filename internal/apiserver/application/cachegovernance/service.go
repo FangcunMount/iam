@@ -7,41 +7,21 @@ import (
 	"strings"
 )
 
-// Option 用于扩展只读治理服务的构造参数。
-type Option func(*ReadService)
-
-// WithRuntimeReaders 配置后端级运行状态读取器。
-func WithRuntimeReaders(readers ...RuntimeStatusReader) Option {
-	return func(s *ReadService) {
-		for _, reader := range readers {
-			if reader == nil {
-				continue
-			}
-			s.runtimeReaders[reader.Backend()] = reader
-		}
-	}
-}
-
 // ReadService 负责聚合 IAM 缓存目录和运行状态。
 type ReadService struct {
-	inspectors     map[Family]FamilyInspector
-	runtimeReaders map[BackendKind]RuntimeStatusReader
+	inspectors map[Family]FamilyInspector
 }
 
 // NewReadService 创建只读治理聚合服务。
-func NewReadService(inspectors []FamilyInspector, opts ...Option) *ReadService {
+func NewReadService(inspectors []FamilyInspector) *ReadService {
 	service := &ReadService{
-		inspectors:     make(map[Family]FamilyInspector, len(inspectors)),
-		runtimeReaders: map[BackendKind]RuntimeStatusReader{},
+		inspectors: make(map[Family]FamilyInspector, len(inspectors)),
 	}
 	for _, inspector := range inspectors {
 		if inspector == nil {
 			continue
 		}
 		service.inspectors[inspector.Descriptor().Family] = inspector
-	}
-	for _, opt := range opts {
-		opt(service)
 	}
 	return service
 }
@@ -74,7 +54,7 @@ func (s *ReadService) Overview(ctx context.Context) (Overview, error) {
 
 	runtimeStatuses := make([]RuntimeStatus, 0, len(grouped))
 	for _, backend := range orderedBackends(descriptors) {
-		runtimeStatuses = append(runtimeStatuses, s.readRuntimeStatus(ctx, backend, grouped[backend]))
+		runtimeStatuses = append(runtimeStatuses, s.readRuntimeStatus(backend, grouped[backend]))
 	}
 
 	return Overview{
@@ -118,19 +98,7 @@ func (s *ReadService) readFamilyView(ctx context.Context, descriptor FamilyDescr
 	}
 }
 
-func (s *ReadService) readRuntimeStatus(ctx context.Context, backend BackendKind, views []FamilyView) RuntimeStatus {
-	if reader := s.runtimeReaders[backend]; reader != nil {
-		status, err := reader.Status(ctx)
-		if err == nil {
-			return status
-		}
-		return RuntimeStatus{
-			Backend:    backend,
-			Configured: true,
-			Healthy:    false,
-			Notes:      []string{fmt.Sprintf("读取后端运行状态失败: %v", err)},
-		}
-	}
+func (s *ReadService) readRuntimeStatus(backend BackendKind, views []FamilyView) RuntimeStatus {
 	return deriveRuntimeStatus(backend, views)
 }
 
