@@ -23,6 +23,13 @@ SET @iam_cleanup_canonical_shape = (
       AND (TABLE_NAME = 'profiles' AND COLUMN_NAME = 'id'
         OR TABLE_NAME = 'profile_links' AND COLUMN_NAME = 'id')
 );
+SET @iam_cleanup_canonical_table_count = (
+    SELECT COUNT(*)
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_TYPE = 'BASE TABLE'
+      AND TABLE_NAME IN ('profiles', 'profile_links')
+);
 SET @iam_cleanup_profile_shapes = (
     SELECT COUNT(*)
     FROM (
@@ -68,6 +75,7 @@ VALUES ('seeddata cleanup table set or schema differs from verified evidence');
 INSERT INTO iam_cleanup_schema_assertion (message)
 SELECT 'seeddata cleanup table set or schema differs from verified evidence'
 WHERE @iam_cleanup_table_count NOT IN (0, 4)
+   OR @iam_cleanup_canonical_table_count <> 2
    OR @iam_cleanup_canonical_shape <> 2
    OR (@iam_cleanup_table_count = 4
      AND (@iam_cleanup_profile_shapes <> 2 OR @iam_cleanup_profile_link_shapes <> 2));
@@ -91,8 +99,9 @@ SET @iam_sql = IF(
        FROM cbpt_profiles_s812v2 a
        LEFT JOIN cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1 b ON b.id = a.id
        WHERE b.id IS NULL OR NOT (
-         a.name <=> b.name AND a.id_card <=> b.id_card AND a.gender <=> b.gender
-         AND a.birthday <=> b.birthday AND a.created_at <=> b.created_at
+         BINARY a.name <=> BINARY b.name AND BINARY a.id_card <=> BINARY b.id_card
+         AND a.gender <=> b.gender AND BINARY a.birthday <=> BINARY b.birthday
+         AND a.created_at <=> b.created_at
          AND a.updated_at <=> b.updated_at AND a.deleted_at <=> b.deleted_at
          AND a.created_by <=> b.created_by AND a.updated_by <=> b.updated_by
          AND a.deleted_by <=> b.deleted_by AND a.version <=> b.version
@@ -103,8 +112,9 @@ SET @iam_sql = IF(
        FROM cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1 a
        LEFT JOIN cbpt_profiles_s812v2 b ON b.id = a.id
        WHERE b.id IS NULL OR NOT (
-         a.name <=> b.name AND a.id_card <=> b.id_card AND a.gender <=> b.gender
-         AND a.birthday <=> b.birthday AND a.created_at <=> b.created_at
+         BINARY a.name <=> BINARY b.name AND BINARY a.id_card <=> BINARY b.id_card
+         AND a.gender <=> b.gender AND BINARY a.birthday <=> BINARY b.birthday
+         AND a.created_at <=> b.created_at
          AND a.updated_at <=> b.updated_at AND a.deleted_at <=> b.deleted_at
          AND a.created_by <=> b.created_by AND a.updated_by <=> b.updated_by
          AND a.deleted_by <=> b.deleted_by AND a.version <=> b.version
@@ -115,8 +125,9 @@ SET @iam_sql = IF(
        FROM cbpt_profile_links_s812v2 a
        LEFT JOIN cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1 b ON b.id = a.id
        WHERE b.id IS NULL OR NOT (
-         a.user_id <=> b.user_id AND a.profile_id <=> b.profile_id AND a.type <=> b.type
-         AND a.relation <=> b.relation AND a.self_key <=> b.self_key
+         a.user_id <=> b.user_id AND a.profile_id <=> b.profile_id
+         AND BINARY a.type <=> BINARY b.type AND BINARY a.relation <=> BINARY b.relation
+         AND a.self_key <=> b.self_key
          AND a.established_at <=> b.established_at AND a.revoked_at <=> b.revoked_at
          AND a.created_at <=> b.created_at AND a.updated_at <=> b.updated_at
          AND a.deleted_at <=> b.deleted_at AND a.created_by <=> b.created_by
@@ -129,8 +140,9 @@ SET @iam_sql = IF(
        FROM cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1 a
        LEFT JOIN cbpt_profile_links_s812v2 b ON b.id = a.id
        WHERE b.id IS NULL OR NOT (
-         a.user_id <=> b.user_id AND a.profile_id <=> b.profile_id AND a.type <=> b.type
-         AND a.relation <=> b.relation AND a.self_key <=> b.self_key
+         a.user_id <=> b.user_id AND a.profile_id <=> b.profile_id
+         AND BINARY a.type <=> BINARY b.type AND BINARY a.relation <=> BINARY b.relation
+         AND a.self_key <=> b.self_key
          AND a.established_at <=> b.established_at AND a.revoked_at <=> b.revoked_at
          AND a.created_at <=> b.created_at AND a.updated_at <=> b.updated_at
          AND a.deleted_at <=> b.deleted_at AND a.created_by <=> b.created_by

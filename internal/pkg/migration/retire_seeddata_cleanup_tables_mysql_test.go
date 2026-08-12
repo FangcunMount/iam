@@ -54,7 +54,7 @@ func TestRetireSeeddataCleanupTablesMigrationMySQL(t *testing.T) {
 		createSeeddataCleanupCanonicalFixture(t, db)
 		createSeeddataCleanupRetirementFixture(t, db)
 		seedSeeddataCleanupRetirementFixture(t, db)
-		mustExecMigrationSQL(t, db, "UPDATE "+cleanupProfilesBackup+" SET name = 'drift' WHERE id = 100001")
+		mustExecMigrationSQL(t, db, "UPDATE "+cleanupProfilesBackup+" SET name = 'PROFILE-1' WHERE id = 100001")
 
 		if _, err := db.Exec(up); err == nil || !strings.Contains(err.Error(), "contents differ") {
 			t.Fatalf("migration error = %v, want content failure", err)
