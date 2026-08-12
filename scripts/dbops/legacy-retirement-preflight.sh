@@ -25,6 +25,7 @@ MIGRATION_PRESENT=0
 MIGRATION_VERSION=unknown
 MIGRATION_DIRTY=unknown
 PERFORMANCE_ENABLED=0
+RDS_TABLE_STATISTICS_ENABLED=0
 AUTHN_V5_VERIFIED=0
 
 CANDIDATE_TABLES="children guardianships auth_accounts auth_credentials_legacy schema_version tenants data_dictionary operation_logs audit_logs auth_token_audit"
@@ -366,23 +367,38 @@ emit_schema_signatures() {
 }
 
 emit_performance_schema_io() {
-  local enabled uptime table io count_star timer_wait reads writes
+  local enabled uptime table io count_star timer_wait reads writes table_statistics_state
   enabled="$(mysql_query "SELECT @@performance_schema + 0;")"
   PERFORMANCE_ENABLED="$enabled"
-  if [ "$enabled" != "1" ]; then
-    printf 'performance_schema\tstate=disabled\tcounter_scope=unavailable\n'
-    return
-  fi
-
-  if uptime="$(mysql_query_optional "SELECT VARIABLE_VALUE FROM performance_schema.global_status WHERE VARIABLE_NAME = 'Uptime';")" && [ -n "$uptime" ]; then
+  if [ "$enabled" = "1" ] \
+      && uptime="$(mysql_query_optional "SELECT VARIABLE_VALUE FROM performance_schema.global_status WHERE VARIABLE_NAME = 'Uptime';")" \
+      && [ -n "$uptime" ]; then
     :
+  elif uptime="$(mysql_query_optional "SHOW GLOBAL STATUS LIKE 'Uptime';")" && [ -n "$uptime" ]; then
+    uptime="$(awk -F '\t' 'NR == 1 { print $2 }' <<<"$uptime")"
   else
     uptime="unknown"
   fi
-  printf 'performance_schema\tstate=enabled\tcounter_scope=since_server_start_or_last_summary_truncate\tuptime_seconds=%s\n' "$uptime"
+  if [ "$enabled" = "1" ]; then
+    printf 'performance_schema\tstate=enabled\tcounter_scope=since_server_start_or_last_summary_truncate\tuptime_seconds=%s\n' "$uptime"
+  else
+    printf 'performance_schema\tstate=disabled\tcounter_scope=unavailable\tuptime_seconds=%s\n' "$uptime"
+  fi
   printf 'performance_schema\tzero_io_interpretation=not_proof_without_full_observation_window\n'
+
+  table_statistics_state="$(mysql_query_optional "SELECT @@opt_tablestat + 0;" || true)"
+  if [ "$table_statistics_state" = "1" ]; then
+    RDS_TABLE_STATISTICS_ENABLED=1
+    printf 'information_schema_table_statistics\tstate=enabled\tcounter_scope=provider_counter_lifetime\tuptime_seconds=%s\n' "$uptime"
+  elif [ "$table_statistics_state" = "0" ]; then
+    printf 'information_schema_table_statistics\tstate=disabled\tcounter_scope=unavailable\n'
+  else
+    printf 'information_schema_table_statistics\tstate=unavailable\tcounter_scope=unavailable\n'
+  fi
   for table in $CANDIDATE_TABLES; do
-    if io="$(mysql_query_optional "SELECT COALESCE(SUM(COUNT_STAR), 0), COALESCE(SUM(SUM_TIMER_WAIT), 0), COALESCE(SUM(COUNT_READ), 0), COALESCE(SUM(COUNT_WRITE), 0) FROM performance_schema.table_io_waits_summary_by_table WHERE OBJECT_SCHEMA = DATABASE() AND OBJECT_NAME = '$table';")" && [ -n "$io" ]; then
+    if [ "$PERFORMANCE_ENABLED" -eq 1 ] \
+        && io="$(mysql_query_optional "SELECT COALESCE(SUM(COUNT_STAR), 0), COALESCE(SUM(SUM_TIMER_WAIT), 0), COALESCE(SUM(COUNT_READ), 0), COALESCE(SUM(COUNT_WRITE), 0) FROM performance_schema.table_io_waits_summary_by_table WHERE OBJECT_SCHEMA = DATABASE() AND OBJECT_NAME = '$table';")" \
+        && [ -n "$io" ]; then
       IFS=$'\t' read -r count_star timer_wait reads writes <<<"$io"
       printf '%s\tavailable\t%s\t%s\tperformance_schema\n' "$table" "$reads" "$writes" >>"$IO_CACHE_PATH"
       printf 'table_io\t%s\tcount_star=%s\ttimer_wait=%s\treads=%s\twrites=%s\tstate=available\tsource=performance_schema\n' "$table" "$count_star" "$timer_wait" "$reads" "$writes"
@@ -390,6 +406,12 @@ emit_performance_schema_io() {
       IFS=$'\t' read -r reads writes <<<"$io"
       printf '%s\tavailable\t%s\t%s\tsys_schema\n' "$table" "$reads" "$writes" >>"$IO_CACHE_PATH"
       printf 'table_io\t%s\tstate=available\tsource=sys_schema\treads=%s\twrites=%s\n' "$table" "$reads" "$writes"
+    elif [ "$RDS_TABLE_STATISTICS_ENABLED" -eq 1 ] \
+        && io="$(mysql_query_optional "SELECT COALESCE(SUM(ROWS_READ), 0), COALESCE(SUM(ROWS_CHANGED), 0) FROM information_schema.TABLE_STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table';")" \
+        && [[ "$io" =~ ^[0-9]+$'\t'[0-9]+$ ]]; then
+      IFS=$'\t' read -r reads writes <<<"$io"
+      printf '%s\tavailable\t%s\t%s\taliyun_information_schema\n' "$table" "$reads" "$writes" >>"$IO_CACHE_PATH"
+      printf 'table_io\t%s\tstate=available\tsource=aliyun_information_schema\treads=%s\twrites=%s\n' "$table" "$reads" "$writes"
     else
       printf '%s\tunavailable\tunknown\tunknown\tnone\n' "$table" >>"$IO_CACHE_PATH"
       printf 'table_io\t%s\tstate=unavailable\n' "$table"
@@ -862,29 +884,22 @@ common_retirement_blocker() {
     printf 'migration_version_before_19'
     return
   fi
-  if [ "$PERFORMANCE_ENABLED" != "1" ]; then
+  io_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$IO_CACHE_PATH")"
+  if [ -z "$io_line" ]; then
     if ! owner_io_waiver_allows "$table"; then
-      printf 'performance_schema_unavailable'
+      printf 'table_io_unavailable'
       return
     fi
   else
-    io_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$IO_CACHE_PATH")"
-    if [ -z "$io_line" ]; then
+    IFS=$'\t' read -r _ io_state reads writes io_source <<<"$io_line"
+    if [ "$io_state" != "available" ]; then
       if ! owner_io_waiver_allows "$table"; then
         printf 'table_io_unavailable'
         return
       fi
-    else
-      IFS=$'\t' read -r _ io_state reads writes io_source <<<"$io_line"
-      if [ "$io_state" != "available" ]; then
-        if ! owner_io_waiver_allows "$table"; then
-          printf 'table_io_unavailable'
-          return
-        fi
-      elif [ "$reads" != "0" ] || [ "$writes" != "0" ]; then
-        printf 'instantaneous_io_nonzero'
-        return
-      fi
+    elif [ "$reads" != "0" ] || [ "$writes" != "0" ]; then
+      printf 'instantaneous_io_nonzero'
+      return
     fi
   fi
   dependency_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$DEPENDENCY_CACHE_PATH")"
@@ -926,10 +941,6 @@ io_evidence_mode() {
   local io_line io_state io_reads io_writes io_source
   if ! owner_io_waiver_allows "$table"; then
     printf 'instantaneous'
-    return
-  fi
-  if [ "$PERFORMANCE_ENABLED" != "1" ]; then
-    printf 'owner_io_waiver'
     return
   fi
   io_line="$(awk -F '\t' -v wanted="$table" '$1 == wanted { print; exit }' "$IO_CACHE_PATH")"
@@ -1111,7 +1122,7 @@ main() {
   chmod 0600 "$ERROR_PATH"
   chmod 0600 "$IO_CACHE_PATH" "$DEPENDENCY_CACHE_PATH" "$PARITY_CACHE_PATH"
 
-  printf 'legacy_retirement_preflight\tformat_version=4\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
+  printf 'legacy_retirement_preflight\tformat_version=5\tquery_mode=read_only_aggregate\tscope=%s\towner_io_waiver=%s\n' \
     "$RETIREMENT_SCOPE" "$OWNER_IO_WAIVER"
   if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
     printf 'authn_reconciliation\tformat_version=5\tstate=verified\tretirement_eligible=true\n'

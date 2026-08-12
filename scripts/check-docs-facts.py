@@ -447,16 +447,19 @@ def check_database_operations_facts() -> None:
         "--timeout=15m",
         "performance schema capability:",
         "sys_table_statistics_select=",
+        "rds_table_statistics_enabled=",
+        "rds_table_statistics_select=",
         "endpoint_provider=",
         "configure_provider_or_server_startup",
     ):
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
     for token in (
-        "format_version=4",
+        "format_version=5",
         "query_mode=read_only_aggregate",
         "--defaults-extra-file=",
         "performance_schema.table_io_waits_summary_by_table",
+        "information_schema.TABLE_STATISTICS",
         "zero_io_interpretation=not_proof_without_full_observation_window",
         "children_to_profiles",
         "guardianships_to_profile_links",

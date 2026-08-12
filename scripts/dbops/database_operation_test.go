@@ -496,6 +496,8 @@ case "$*" in
   *"information_schema.TABLES"*"table_io_waits_summary_by_table"*) printf '1\t4\n' ;;
   *"SELECT COUNT(*) FROM performance_schema.table_io_waits_summary_by_table"*) printf '23\n' ;;
   *"SELECT COUNT(*) FROM sys.schema_table_statistics"*) printf '17\n' ;;
+  *"SELECT @@opt_tablestat"*) printf '1\n' ;;
+  *"SELECT COUNT(*) FROM information_schema.TABLE_STATISTICS"*) printf '19\n' ;;
   *"SHOW GRANTS"*) printf "GRANT USAGE ON *.* TO 'grant-user-sentinel'@'%%'\n" ;;
   *) exit 91 ;;
 esac
@@ -517,6 +519,7 @@ esac
 		"table_io_contract=valid", "table_io_metadata_visible=1",
 		"table_io_required_columns=4", "table_io_select=available",
 		"sys_table_statistics_select=available",
+		"rds_table_statistics_enabled=1", "rds_table_statistics_select=available",
 		"restart_required=1",
 	} {
 		if !strings.Contains(output, want) {
