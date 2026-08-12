@@ -100,10 +100,34 @@ func TestRuntimeProvenanceContracts(t *testing.T) {
 		"/version",
 		"gitCommit",
 		"process_start_time_seconds",
+		`[ "${#deployed_sha}" -ne 40 ]`,
+		`${deployed_sha//[0-9a-f]/}`,
 	} {
 		if !strings.Contains(serverCheck, token) {
 			t.Fatalf("production server check is missing runtime provenance token %q", token)
 		}
+	}
+}
+
+func TestRuntimeProvenanceSHAValidationMatrix(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		valid bool
+	}{
+		{name: "full lowercase SHA", value: "2a26d1a4a77334e5a38eb01b0cc786b513a97982", valid: true},
+		{name: "39 characters", value: "2a26d1a4a77334e5a38eb01b0cc786b513a9798"},
+		{name: "uppercase", value: "2A26d1a4a77334e5a38eb01b0cc786b513a97982"},
+		{name: "non hexadecimal", value: "za26d1a4a77334e5a38eb01b0cc786b513a97982"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			command := `value="$1"; [ "${#value}" -eq 40 ] && [ -z "${value//[0-9a-f]/}" ]`
+			err := exec.Command("bash", "-c", command, "sha-validation", tt.value).Run()
+			if (err == nil) != tt.valid {
+				t.Fatalf("validation result for %q: error=%v, want valid=%v", tt.value, err, tt.valid)
+			}
+		})
 	}
 }
 
