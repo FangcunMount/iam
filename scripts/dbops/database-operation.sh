@@ -350,7 +350,7 @@ database_status() {
   prepare_defaults_file
   ERROR_PATH="$BACKUP_DIR/.iam_status.error"
 
-  local database_size table_count backup_count latest_backup migration_state authn_table_state
+  local database_size table_count backup_count latest_backup migration_state authn_table_state migration_lock_state
   if ! "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT 1;' > /dev/null 2>"$ERROR_PATH"; then
     fail "database connection failed"
     return 1
@@ -371,11 +371,16 @@ database_status() {
     fail "AuthN table state query failed"
     return 1
   fi
+  if ! migration_lock_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "WITH migration_lock AS (SELECT IS_USED_LOCK(CAST(MOD(CRC32(CONCAT(DATABASE(), ':schema_migrations')) * 1486364155, 4294967296) AS CHAR)) AS owner_id) SELECT COALESCE(CAST(migration_lock.owner_id AS CHAR), 'none'), CASE WHEN migration_lock.owner_id IS NULL THEN 'free' WHEN process.ID IS NULL THEN 'held_owner_not_visible' WHEN process.COMMAND = 'Sleep' THEN 'held_sleep' WHEN LOWER(COALESCE(process.INFO, '')) REGEXP '(^|[^a-z0-9_])(auth_accounts|auth_credentials_legacy)([^a-z0-9_]|$)' THEN 'held_legacy_authn_query' ELSE 'held_other_query' END, COALESCE(process.TIME, -1) FROM migration_lock LEFT JOIN information_schema.PROCESSLIST process ON process.ID = migration_lock.owner_id;" 2>"$ERROR_PATH")"; then
+    fail "migration lock state query failed"
+    return 1
+  fi
   backup_count="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_????????_??????.sql.gz' | wc -l | tr -d ' ')"
   latest_backup="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_????????_??????.sql.gz' -print | sort -r | head -1 | sed -E 's/.*iam_backup_([0-9]{8}_[0-9]{6})\.sql\.gz/\1/' || true)"
   [ -n "$latest_backup" ] || latest_backup="none"
   echo "database status: result=success mysql_client=$MYSQL_CLIENT_VERSION connection=success size_mb=$database_size tables=$table_count backups=$backup_count latest_backup=$latest_backup"
   echo "migration status: schema_migrations=$migration_state authn_legacy_tables=$authn_table_state"
+  echo "migration lock: owner_state=$migration_lock_state"
 }
 
 mysql_scalar() {

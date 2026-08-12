@@ -235,6 +235,7 @@ case "$*" in
   *'SELECT 1;'*) echo '1' ;;
   *'MAX(version)'*) printf '23\t0\t1\n' ;;
   *"TABLE_NAME = 'auth_accounts'"*) printf '0\t0\n' ;;
+  *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
   *) cat > "$IAM_FAKE_RESTORE_CAPTURE" ;;
@@ -263,7 +264,7 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema_migrations=23", "authn_legacy_tables=0"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema_migrations=23", "authn_legacy_tables=0", "owner_state=none\tfree\t-1"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
