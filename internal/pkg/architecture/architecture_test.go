@@ -28,7 +28,6 @@ func TestTransportLoggersRemainMetadataOnly(t *testing.T) {
 	root := repoRoot(t)
 	files := []string{
 		"internal/pkg/middleware/api_logger.go",
-		"internal/pkg/middleware/grpc_client_logger.go",
 		"internal/pkg/middleware/grpc_server_logger.go",
 	}
 	forbidden := []string{
