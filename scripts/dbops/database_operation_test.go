@@ -233,7 +233,11 @@ case "$*" in
   *'SELECT 1;'*) echo '1' ;;
 	  *"COUNT(*) FROM cbpt_profiles_s812v2"*) printf 'cbpt_profiles_s812v2\t10\ncbpt_profile_links_s812v2\t11\ncleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1\t12\ncleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1\t13\n' ;;
 	  *"COALESCE(ROUND((DATA_LENGTH + INDEX_LENGTH)"*) printf 'cbpt_profiles_s812v2\t1.25\t2026-08-12T01:02:03\n' ;;
-	  *"@iam_cleanup_backup_pattern"*) printf '0\t0\t0\t0\t0\n' ;;
+	  *"information_schema.KEY_COLUMN_USAGE"*) printf '0\n' ;;
+	  *"information_schema.TRIGGERS"*) printf '0\n' ;;
+	  *"information_schema.VIEWS"*) printf '0\n' ;;
+	  *"information_schema.ROUTINES"*) printf '0\n' ;;
+	  *"information_schema.EVENTS"*) printf '0\n' ;;
 	  *'ORDER BY TABLE_TYPE, TABLE_NAME'*) printf 'type=BASE_TABLE name=users\ntype=VIEW name=active_users\n' ;;
 	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-23\t0\t1}" ;;
 	  *"TABLE_NAME IN ('children'"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
@@ -378,7 +382,11 @@ fi
 case "$*" in
 	  *"COUNT(*) FROM cbpt_profiles_s812v2"*) printf 'cbpt_profiles_s812v2\t10\ncbpt_profile_links_s812v2\t11\ncleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1\t12\ncleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1\t13\n' ;;
 	  *"COALESCE(ROUND((DATA_LENGTH + INDEX_LENGTH)"*) printf 'cbpt_profiles_s812v2\t1.25\t2026-08-12T01:02:03\n' ;;
-	  *"@iam_cleanup_backup_pattern"*) printf '0\t0\t0\t0\t0\n' ;;
+	  *"information_schema.KEY_COLUMN_USAGE"*) printf '0\n' ;;
+	  *"information_schema.TRIGGERS"*) printf '0\n' ;;
+	  *"information_schema.VIEWS"*) printf '0\n' ;;
+	  *"information_schema.ROUTINES"*) printf '0\n' ;;
+	  *"information_schema.EVENTS"*) printf '0\n' ;;
 	  *"ORDER BY TABLE_TYPE, TABLE_NAME"*) printf 'type=BASE_TABLE name=users\n' ;;
 	  *"MAX(version)"*) printf '23\t0\t1\n' ;;
 	  *"TABLE_NAME IN ('children'"*) printf '0\n' ;;
