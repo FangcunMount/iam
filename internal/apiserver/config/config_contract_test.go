@@ -124,7 +124,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "sms max attempts", opts.SMS.LoginOTPMaxAttempts, 5)
 				assertEqual(t, "sms hourly limit", opts.SMS.LoginOTPHourlyLimit, 5)
 				assertEqual(t, "sms daily limit", opts.SMS.LoginOTPDailyLimit, 10)
-				assertEqual(t, "sms mq topic", opts.SMS.MQ.Topic, "iam.notify.sms")
+				assertEqual(t, "sms mq fallback topic", opts.SMS.MQ.Topic, "iam.notify.sms")
 				assertEqual(t, "sms aliyun endpoint", opts.SMS.Aliyun.Endpoint, "dypnsapi.aliyuncs.com")
 				assertEqual(t, "sms aliyun code param", opts.SMS.Aliyun.CodeParamName, "code")
 				assertEqual(t, "sms aliyun min param", opts.SMS.Aliyun.MinParamName, "min")
@@ -184,6 +184,27 @@ func TestAPIServerYAMLDoesNotContainRemovedRuntimeKeys(t *testing.T) {
 			for _, key := range removedKeys {
 				if reader.IsSet(key) {
 					t.Fatalf("%s contains removed key %s", file, key)
+				}
+			}
+		})
+	}
+}
+
+func TestAPIServerYAMLDoesNotSetObservedCompatibilityKeys(t *testing.T) {
+	compatibilityKeys := []string{
+		"sms.mq.topic",
+		"suggest.loader_placeholder_tenant_id",
+	}
+	for _, file := range []string{"configs/apiserver.dev.yaml", "configs/apiserver.prod.yaml"} {
+		t.Run(file, func(t *testing.T) {
+			reader := viper.New()
+			reader.SetConfigFile(filepath.Join(repoRoot(t), file))
+			if err := reader.ReadInConfig(); err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range compatibilityKeys {
+				if reader.IsSet(key) {
+					t.Fatalf("%s contains observed compatibility key %s", file, key)
 				}
 			}
 		})
