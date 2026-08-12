@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // ProfileLink 表示 User 与 Profile 之间的一条档案关系事实。

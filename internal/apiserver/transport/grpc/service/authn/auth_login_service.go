@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	sessionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"

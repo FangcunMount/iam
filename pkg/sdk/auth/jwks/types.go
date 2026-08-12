@@ -3,9 +3,8 @@ package jwks
 import (
 	"context"
 	"sync"
-	"time"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 
@@ -64,17 +63,3 @@ func (s *FetcherStats) Successes() int64 { return s.successes }
 
 // Failures 返回失败次数。
 func (s *FetcherStats) Failures() int64 { return s.failures }
-
-// JWKSStats 是早期未与 JWKSManager 绑定的聚合统计结构。
-//
-// Deprecated: 使用具体 fetcher 的 Stats 方法读取 FetcherStats，
-// 使用 CircuitBreakerFetcher.State 读取熔断状态；应用级指标使用
-// sdk.WithMetricsCollector 注入。该类型仅在 v2 兼容窗口内保留，将于 v3 删除。
-type JWKSStats struct {
-	HTTPFetches   int64
-	GRPCFetches   int64
-	CacheHits     int64
-	SeedCacheHits int64
-	LastUpdate    time.Time
-	State         CircuitState
-}

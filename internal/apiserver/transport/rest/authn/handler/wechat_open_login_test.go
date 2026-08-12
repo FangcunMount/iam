@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
 )
 
 type wechatOpenStateStarterStub struct {

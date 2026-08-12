@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
 	"github.com/stretchr/testify/require"
 )
 

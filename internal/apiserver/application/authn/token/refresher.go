@@ -5,10 +5,10 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/subjectaccess"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/subjectaccess"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // refresher 用于根据 refresh token 刷新 access token 和 refresh token。

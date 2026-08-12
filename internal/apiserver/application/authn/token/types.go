@@ -1,7 +1,7 @@
 package token
 
 import (
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 )
 
 // SessionCreator 是 token 用例依赖的会话创建协作者。

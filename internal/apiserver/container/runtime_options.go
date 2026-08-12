@@ -1,10 +1,10 @@
 package container
 
 import (
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
-	genericoptions "github.com/FangcunMount/iam/v2/internal/pkg/options"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
+	genericoptions "github.com/FangcunMount/iam/v3/internal/pkg/options"
+	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // RuntimeOptions contains typed bootstrap options consumed by the container.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
+	wechatappDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi"
 )
 
 type wechatAccessTokenProvider interface {

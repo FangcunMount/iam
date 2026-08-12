@@ -15,7 +15,7 @@ import (
 	credential "github.com/aliyun/credentials-go/credentials"
 	"github.com/nyaruka/phonenumbers"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 )
 
 const (

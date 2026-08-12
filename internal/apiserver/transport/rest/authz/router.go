@@ -3,8 +3,8 @@ package authz
 import (
 	"net/http"
 
-	authzapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
+	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	"github.com/gin-gonic/gin"
 )
 

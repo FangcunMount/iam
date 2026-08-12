@@ -2,7 +2,7 @@ package authfailure
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // Error 根据领域认证失败码生成应用层错误。

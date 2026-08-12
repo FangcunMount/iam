@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	loginidentity "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	loginidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // loginIdentityPrepareDeps 登录身份准备依赖。

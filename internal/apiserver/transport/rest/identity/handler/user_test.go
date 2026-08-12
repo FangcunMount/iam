@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	appuser "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 func TestResolveRolesIncludesPlatformRoles(t *testing.T) {

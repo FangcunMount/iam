@@ -503,23 +503,37 @@ def check_compatibility_retirement_evidence() -> None:
     if classifications.get("public_sdk", {}).get("latest_published_tag_at_scan") != "v2.0.10":
         fail("compatibility evidence is missing the published SDK version boundary")
 
+    go_mod = (ROOT / "go.mod").read_text(encoding="utf-8")
     verifier_types = (ROOT / "pkg/sdk/auth/verifier/types.go").read_text(encoding="utf-8")
     jwks_types = (ROOT / "pkg/sdk/auth/jwks/types.go").read_text(encoding="utf-8")
     sdk_compile = (ROOT / "pkg/sdk/public_api_compile_test.go").read_text(encoding="utf-8")
     sdk_migration = (ROOT / "pkg/sdk/docs/07-migration-breaking-changes.md").read_text(
         encoding="utf-8"
     )
+    swagger = (ROOT / "internal/apiserver/docs/swagger.yaml").read_text(encoding="utf-8")
     for token, source, label in (
-        ("Deprecated: 授权域使用 AuthorizationDomain", verifier_types, "TokenClaims.TenantID"),
-        ("Deprecated: 使用具体 fetcher 的 Stats", jwks_types, "JWKSStats"),
-        ("var _ authjwks.JWKSStats", sdk_compile, "JWKSStats compile contract"),
-        ("_ = claims.TenantID", sdk_compile, "TenantID compile contract"),
+        ("module github.com/FangcunMount/iam/v3", go_mod, "v3 Go module path"),
         ("v2.0.10", sdk_migration, "SDK deprecation release"),
         ("免除 Batch C 的最短 30 天等待期", sdk_migration, "SDK owner waiver"),
-        ("只在 v3 移除", sdk_migration, "SDK major-version gate"),
+        ("v3.0.0", sdk_migration, "SDK v3 release"),
+        ("REST URL、OpenAPI 版本/component ID 和 gRPC proto package 继续保持 v2", sdk_migration, "wire version boundary"),
     ):
         if token not in source:
-            fail(f"SDK retirement preparation is missing {label}: {token}")
+            fail(f"SDK v3 retirement evidence is missing {label}: {token}")
+
+    for token, source, label in (
+        ("TenantID string", verifier_types, "TokenClaims.TenantID"),
+        ("type JWKSStats struct", jwks_types, "JWKSStats"),
+        ("authjwks.JWKSStats", sdk_compile, "JWKSStats compile contract"),
+        ("claims.TenantID", sdk_compile, "TenantID compile contract"),
+    ):
+        if token in source:
+            fail(f"SDK v3 still contains retired {label}: {token}")
+
+    if "github_com_FangcunMount_iam_v2_" not in swagger:
+        fail("OpenAPI no longer preserves the stable REST v2 component prefix")
+    if "github_com_FangcunMount_iam_v3_" in swagger:
+        fail("Go module v3 leaked into public OpenAPI component identifiers")
 
     for candidate in (
         "rest_profile_link_active",
@@ -529,6 +543,10 @@ def check_compatibility_retirement_evidence() -> None:
     ):
         if candidates.get(candidate, {}).get("status") != "retired_with_owner_waiver":
             fail(f"runtime compatibility candidate is not retired: {candidate}")
+
+    for candidate in ("sdk_token_claims_tenant_id", "sdk_jwks_stats"):
+        if candidates.get(candidate, {}).get("status") != "removed_in_v3":
+            fail(f"SDK compatibility candidate is not removed in v3: {candidate}")
 
     waiver = evidence.get("owner_waiver", {})
     if waiver.get("granted_at") != "2026-08-12":

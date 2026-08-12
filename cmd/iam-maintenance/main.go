@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	redisinfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/maintenance"
+	redisinfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/maintenance"
 	goredis "github.com/redis/go-redis/v9"
 )
 

@@ -14,8 +14,8 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 func TestRedisStoreRefreshTokenLifecycle(t *testing.T) {

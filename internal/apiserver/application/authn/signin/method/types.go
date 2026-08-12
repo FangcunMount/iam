@@ -1,6 +1,6 @@
 package method
 
-import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
 
 // AuthMethod 是对外登录方式，来自 REST/gRPC auth_method。
 type AuthMethod string

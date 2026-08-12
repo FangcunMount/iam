@@ -9,9 +9,9 @@ import (
 	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
 	"github.com/redis/go-redis/v9"
 
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
-	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
+	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 )
 
 type ChallengeRepository struct {

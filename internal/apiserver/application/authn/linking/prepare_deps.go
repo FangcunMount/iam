@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	idpprepare "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/prepare"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	idpprepare "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/prepare"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 )
 
 // linkPrepareDeps 是 prepare 阶段可用的依赖快照，避免各 Input 依赖 *linker。

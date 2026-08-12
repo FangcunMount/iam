@@ -5,9 +5,9 @@ import (
 
 	"gorm.io/gorm"
 
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
+	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	sessionrevocation "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/sessionrevocation"
 )
 
 // RoleNameReader resolves role names for a subject within a tenant.

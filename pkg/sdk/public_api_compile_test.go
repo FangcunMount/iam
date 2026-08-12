@@ -5,20 +5,20 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
-	authchallenge "github.com/FangcunMount/iam/v2/pkg/sdk/auth/challenge"
-	authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
-	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
-	authloginidentity "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginidentity"
-	authloginv2 "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginv2"
-	authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
-	authsignup "github.com/FangcunMount/iam/v2/pkg/sdk/auth/signup"
-	authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/authz"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
-	sdkerrors "github.com/FangcunMount/iam/v2/pkg/sdk/errors"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/identity"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/idp"
+	sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
+	authchallenge "github.com/FangcunMount/iam/v3/pkg/sdk/auth/challenge"
+	authclient "github.com/FangcunMount/iam/v3/pkg/sdk/auth/client"
+	authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
+	authloginidentity "github.com/FangcunMount/iam/v3/pkg/sdk/auth/loginidentity"
+	authloginv2 "github.com/FangcunMount/iam/v3/pkg/sdk/auth/loginv2"
+	authserviceauth "github.com/FangcunMount/iam/v3/pkg/sdk/auth/serviceauth"
+	authsignup "github.com/FangcunMount/iam/v3/pkg/sdk/auth/signup"
+	authverifier "github.com/FangcunMount/iam/v3/pkg/sdk/auth/verifier"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/authz"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
+	sdkerrors "github.com/FangcunMount/iam/v3/pkg/sdk/errors"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/identity"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/idp"
 )
 
 type compileMetrics struct{}
@@ -132,11 +132,7 @@ func TestPublicAPISurfaceCompiles(t *testing.T) {
 	var _ = authloginidentity.LinkWechatMiniProgramRequest{}
 	var _ = authloginidentity.LinkWecomRequest{}
 	var _ = authjwks.NewJWKSManager
-	// Deprecated v2 compatibility symbols stay source-compatible until v3.
-	var _ authjwks.JWKSStats
 	var _ = authverifier.NewTokenVerifier
-	var claims authverifier.TokenClaims
-	_ = claims.TenantID
 	var _ = (*authverifier.TokenClaims).AuthorizationDomain
 	var _ = (*authverifier.TokenClaims).BusinessOrgID
 	var _ = authserviceauth.NewServiceAuthHelper

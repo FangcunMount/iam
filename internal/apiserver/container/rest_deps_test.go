@@ -3,12 +3,12 @@ package container
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
-	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/suggest"
+	resttransport "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest"
 )
 
 func TestBuildRESTDepsConstructsTransportHandlersFromModuleCapabilities(t *testing.T) {

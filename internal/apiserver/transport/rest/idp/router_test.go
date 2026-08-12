@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	appsvc "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
-	idpresponse "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/pkg/core"
+	appsvc "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/handler"
+	idpresponse "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/response"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/pkg/core"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

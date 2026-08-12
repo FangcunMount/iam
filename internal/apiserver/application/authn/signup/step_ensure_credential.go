@@ -4,10 +4,10 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	credDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // CredentialEnsureStatus 凭据确保状态。

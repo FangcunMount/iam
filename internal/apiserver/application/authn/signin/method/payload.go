@@ -1,6 +1,6 @@
 package method
 
-import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
 
 // CommonPayload 是所有登录方式共享的请求上下文。
 //

@@ -1,8 +1,8 @@
 package handler
 
 import (
-	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/dto"
 )
 
 // toRoleResponse 转换为响应对象

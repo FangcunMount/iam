@@ -9,14 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
+	challengeapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	linkingapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	req "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 )
 
 // WechatOpenLinkConfig 微信开放平台扫码绑定的服务端配置（app_id/redirect_uri 不来自前端）。

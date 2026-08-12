@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 // Service 提供 suggest 查询

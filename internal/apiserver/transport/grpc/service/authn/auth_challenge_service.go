@@ -3,7 +3,7 @@ package authn
 import (
 	"context"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

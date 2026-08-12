@@ -3,8 +3,8 @@ package authz
 import (
 	"context"
 
-	authzv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authz/v2"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/errors"
+	authzv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v2"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 )
 
 // GrantAssignment 为主体授予角色。

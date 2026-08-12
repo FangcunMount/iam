@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	assignmentAuthApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/assignmentauth"
-	authorizationApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/authorization"
-	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
-	policylintApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
-	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
-	roleApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/role"
-	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	assignmentAuthApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	authorizationApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	policyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policy"
+	policylintApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policylint"
+	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
+	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
+	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
 
 // RoleNameReader resolves role names for a subject within a tenant.

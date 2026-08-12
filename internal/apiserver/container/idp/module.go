@@ -3,12 +3,12 @@ package idp
 import (
 	wechatCache "github.com/silenceper/wechat/v2/cache"
 
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
-	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	infraRedis "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
-	wechatapiPort "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi/port"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	infraRedis "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi"
+	wechatapiPort "github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi/port"
 )
 
 // IDPModule IDP 模块（Identity Provider）

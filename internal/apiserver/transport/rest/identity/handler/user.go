@@ -8,16 +8,16 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
-	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
-	"github.com/FangcunMount/iam/v2/pkg/core"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	appuser "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	requestdto "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/request"
+	responsedto "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/response"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
+	"github.com/FangcunMount/iam/v3/pkg/core"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 var _ = core.ErrResponse{}

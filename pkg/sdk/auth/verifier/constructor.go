@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
 )
 
 // NewTokenVerifier 创建 Token 验证器。

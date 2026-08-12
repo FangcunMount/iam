@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
 )
 
 type Mapper struct{}

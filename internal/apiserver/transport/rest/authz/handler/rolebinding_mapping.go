@@ -1,9 +1,9 @@
 package handler
 
 import (
-	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/dto"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // toAssignmentResponse 转换为响应对象

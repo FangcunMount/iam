@@ -5,15 +5,15 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
-	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permission"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 type DecisionEngine interface {

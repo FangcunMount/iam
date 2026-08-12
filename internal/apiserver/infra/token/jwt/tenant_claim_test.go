@@ -3,7 +3,7 @@ package jwt
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 	"github.com/stretchr/testify/require"
 )
 

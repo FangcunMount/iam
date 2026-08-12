@@ -388,4 +388,4 @@ echo "  - gRPC 服务端证书到 /data/infra/ssl/grpc/server/"
 
 如有问题，请参考：
 - [故障排查指南](../../docs/DEPLOYMENT.md#故障排查)
-- [GitHub Issues](https://github.com/FangcunMount/iam/v2/issues)
+- [GitHub Issues](https://github.com/FangcunMount/iam/issues)

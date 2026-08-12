@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/internal/observability"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/internal/observability"
 	"google.golang.org/grpc"
 )
 

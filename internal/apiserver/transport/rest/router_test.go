@@ -11,18 +11,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	sessionapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
-	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
+	sessionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
 
-	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
+	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {

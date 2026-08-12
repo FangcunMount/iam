@@ -8,17 +8,17 @@ import (
 	redis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
-	messagingInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/messaging"
-	eventoutbox "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/v2/pkg/event"
-	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/suggest"
+	messagingInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/messaging"
+	eventoutbox "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/v3/pkg/event"
+	"github.com/FangcunMount/iam/v3/pkg/eventcatalog"
 )
 
 // Container 容器

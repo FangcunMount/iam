@@ -3,9 +3,9 @@ package idp
 import (
 	"google.golang.org/grpc"
 
-	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
-	wechatappApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
-	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	idpv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/idp/v2"
+	wechatappApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 )
 
 // Service IDP gRPC 服务

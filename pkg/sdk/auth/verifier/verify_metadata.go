@@ -1,6 +1,6 @@
 package verifier
 
-import authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+import authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 
 func buildVerifyMetadataFromProto(metadata *authnv2.TokenMetadata) *VerifyMetadata {
 	if metadata == nil {

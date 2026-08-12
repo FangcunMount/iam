@@ -4,11 +4,11 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/uow"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // signupService 实现 SignupService（见 interface.go）。

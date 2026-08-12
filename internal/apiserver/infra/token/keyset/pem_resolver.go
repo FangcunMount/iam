@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // PEMPrivateKeyResolver 从 PEM 文件读取私钥

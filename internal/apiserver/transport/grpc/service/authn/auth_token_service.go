@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	tokenApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

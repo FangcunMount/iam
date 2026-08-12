@@ -9,13 +9,13 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	mysqlsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/suggest"
-	suggestaccess "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/access"
-	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
-	suggestratelimit "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
-	searchruntime "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/search"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	mysqlsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/suggest"
+	suggestaccess "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/access"
+	suggestmetrics "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/metrics"
+	suggestratelimit "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
+	searchruntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/search"
+	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // SuggestModule 联想搜索模块

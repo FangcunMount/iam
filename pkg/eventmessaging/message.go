@@ -2,8 +2,8 @@ package eventmessaging
 
 import (
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	"github.com/FangcunMount/iam/v2/pkg/event"
-	"github.com/FangcunMount/iam/v2/pkg/eventcodec"
+	"github.com/FangcunMount/iam/v3/pkg/event"
+	"github.com/FangcunMount/iam/v3/pkg/eventcodec"
 )
 
 // BuildMessage adapts a domain event into component-base messaging.Message.

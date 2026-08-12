@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	"golang.org/x/time/rate"
 )
 

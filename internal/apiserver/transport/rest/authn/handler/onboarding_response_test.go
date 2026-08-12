@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
-	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	credDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/credential"
+	req "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/request"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

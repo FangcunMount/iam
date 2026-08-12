@@ -6,7 +6,7 @@ info:
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam/v2
+    url: https://github.com/FangcunMount/iam
 servers:
 - url: https://iam.fangcunmount.cn/api/v2
   description: 生产环境
@@ -775,6 +775,23 @@ components:
         subject:
           type: string
       type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse:
+      properties:
+        action:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        resource_key:
+          type: string
+        role_name:
+          type: string
+        scope:
+          type: string
+        tenant_id:
+          type: string
+      type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse:
       properties:
         findings:
@@ -864,23 +881,6 @@ components:
       - subject_id
       - subject_type
       type: object
-    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse:
-      properties:
-        action:
-          type: string
-        code:
-          type: string
-        message:
-          type: string
-        resource_key:
-          type: string
-        role_name:
-          type: string
-        scope:
-          type: string
-        tenant_id:
-          type: string
-      type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse:
       properties:
         description:
@@ -938,9 +938,11 @@ components:
           description: Code 定义了业务错误代码
           type: integer
         message:
-          description: Message 包含适合暴露给外部的错误详情
+          description: 'Message 包含此消息的详细信息
+
+            此消息适合暴露给外部'
           type: string
         reference:
-          description: Reference 返回可能有助于解决错误的参考文档
+          description: Reference 返回参考文档，可能有助于解决此错误
           type: string
       type: object

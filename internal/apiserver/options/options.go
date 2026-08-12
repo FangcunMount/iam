@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	genericoptions "github.com/FangcunMount/iam/v2/internal/pkg/options"
-	cliflag "github.com/FangcunMount/iam/v2/pkg/flag"
+	genericoptions "github.com/FangcunMount/iam/v3/internal/pkg/options"
+	cliflag "github.com/FangcunMount/iam/v3/pkg/flag"
 )
 
 // Options 包含所有配置项

@@ -4,10 +4,10 @@ package handler
 import (
 	"strconv"
 
-	resourceApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/resource"
-	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
+	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
 )
 

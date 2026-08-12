@@ -1,9 +1,9 @@
 package signin
 
 import (
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // Result 是登录成功后的应用层结果。

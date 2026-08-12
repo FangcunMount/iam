@@ -1,6 +1,6 @@
 schema_version: 2
 scanned_at: 2026-08-12
-iam_base_sha: b05f351ed9016c906f3cd2d48f73591ca639a0ac
+iam_base_sha: 37dab2de7b840723d8d6b5df083ad1151ede2b7d
 scope:
   github_organization: FangcunMount
   local_workspace_families:
@@ -38,7 +38,7 @@ rta_scan:
       decision: Published v2 API surface; static absence is insufficient for removal.
 repositories:
   iam:
-    sha: b05f351ed9016c906f3cd2d48f73591ca639a0ac
+    sha: 37dab2de7b840723d8d6b5df083ad1151ede2b7d
   qs-server:
     sha: 7239d7c71393b0c7d11ceeb8b504f5a6abfed176
   qs-collection-system:
@@ -76,24 +76,26 @@ candidates:
     note: Retirement targets only the legacy constructor and sms.mq.topic override, not the catalog event or its downstream consumer.
     removed_key_behavior: YAML and environment forms fail closed; the catalog event route remains active.
   sdk_token_claims_tenant_id:
+    status: removed_in_v3
     specific_external_field_references_found: false
     package_consumers:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/verifier but reads TenantDomain, not TokenClaims.TenantID.
     replacement: AuthorizationDomain/TenantDomain for authz domain; BusinessOrgID/OrgID for business organization.
     deprecation_contract: Standard Go Deprecated annotation and v2 compile protection published in v2.0.10.
-    release_gate: Migrate all known consumers and remove only in v3; the owner waived the time delay, not the major-version boundary.
+    release_result: Removed from the github.com/FangcunMount/iam/v3 module after exact known-consumer scans found no field references; v2.0.10 remains available.
   sdk_jwks_stats:
+    status: removed_in_v3
     specific_external_type_references_found: false
     package_consumers:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/jwks but does not reference JWKSStats.
     replacement: Per-fetcher FetcherStats, CircuitBreakerFetcher.State, or sdk.WithMetricsCollector for application metrics.
     deprecation_contract: Standard Go Deprecated annotation and v2 compile protection published in v2.0.10.
-    release_gate: Migrate all known consumers and remove only in v3; the owner waived the time delay, not the major-version boundary.
+    release_result: Removed from the github.com/FangcunMount/iam/v3 module after exact known-consumer scans found no type references; v2.0.10 remains available.
 owner_waiver:
   granted_at: "2026-08-12"
-  scope: Batch C runtime compatibility candidates only.
-  decision: Waive the 30-day runtime observation period and proceed directly to C2.
+  scope: Batch C runtime compatibility candidates and SDK retirement timing.
+  decision: Waive the 30-day observation period, proceed directly to C2, and continue with the v3 major release.
   excludes:
     - Go module major-version compatibility rules for public SDK symbols.

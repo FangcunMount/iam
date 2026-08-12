@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 type Catalog interface {

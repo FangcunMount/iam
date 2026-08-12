@@ -217,8 +217,8 @@ import (
     "context"
     "log"
 
-    authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-    sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+    authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+    sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
 )
 
 func main() {

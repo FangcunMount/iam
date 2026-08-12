@@ -5,10 +5,10 @@ import (
 	"time"
 
 	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/pkg/core"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/pkg/core"
 	"github.com/gin-gonic/gin"
 )
 

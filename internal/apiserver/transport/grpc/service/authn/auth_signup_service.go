@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

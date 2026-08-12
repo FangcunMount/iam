@@ -1,9 +1,9 @@
 package identity
 
 import (
-	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
-	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
-	appuser "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
+	appprofile "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profile"
+	appprofilelink "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
+	appuser "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/user"
 )
 
 // ApplicationCapabilities contains identity application collaborators used

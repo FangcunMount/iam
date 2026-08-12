@@ -3,10 +3,10 @@ package uow
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/sessionrevocation"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/sessionrevocation"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profile"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profilelink"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
 )
 
 // TxRepositories 聚合事务中可使用的仓储集合。

@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
 
 // registerAdminRoutes 注册管理员路由

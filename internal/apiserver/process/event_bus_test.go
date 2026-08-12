@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	apiserverconfig "github.com/FangcunMount/iam/v2/internal/apiserver/config"
-	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
-	genericoptions "github.com/FangcunMount/iam/v2/internal/pkg/options"
+	apiserverconfig "github.com/FangcunMount/iam/v3/internal/apiserver/config"
+	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
+	genericoptions "github.com/FangcunMount/iam/v3/internal/pkg/options"
 )
 
 func TestNormalizeNSQConfigAppliesRuntimeDefaults(t *testing.T) {

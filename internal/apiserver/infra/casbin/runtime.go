@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 )
 
 type RuntimeAdapters struct {

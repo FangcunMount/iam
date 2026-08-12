@@ -1,6 +1,6 @@
 package credential
 
-import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
 
 // ==================== Interface Interfaces (Driving Ports) ====================
 // 这些接口由领域层（领域服务）实现，供应用层调用

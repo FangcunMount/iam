@@ -3,8 +3,8 @@ package policy
 import (
 	"context"
 
-	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
+	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
 )
 
 type PolicyCommandService struct {

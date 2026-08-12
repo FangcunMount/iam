@@ -1,13 +1,13 @@
 package authn
 
 import (
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
-	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	tokenApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	sessionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
+	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	tokenApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	"google.golang.org/grpc"
 )
 

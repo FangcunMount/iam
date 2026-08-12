@@ -12,7 +12,7 @@ const docTemplate = `{
         "termsOfService": "https://iam.fangcunmount.cn/terms",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/FangcunMount/iam/v2",
+            "url": "https://github.com/FangcunMount/iam",
             "email": "support@fangcunmount.cn"
         },
         "license": {

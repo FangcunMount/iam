@@ -7,16 +7,16 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policylint"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/dto"
+	policyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policy"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policylint"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/dto"
 	"github.com/stretchr/testify/require"
 
-	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 func TestPolicyHandlerAddPermissionHTTPBranches(t *testing.T) {

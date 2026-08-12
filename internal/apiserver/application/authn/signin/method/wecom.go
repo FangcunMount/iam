@@ -2,7 +2,7 @@ package method
 
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // WecomPayload 是企业微信登录 payload。

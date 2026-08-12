@@ -7,9 +7,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	userApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	userApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // CreateUser 创建用户

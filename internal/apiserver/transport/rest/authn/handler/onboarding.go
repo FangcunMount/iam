@@ -6,11 +6,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	req "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/request"
-	resp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	req "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/request"
+	resp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/response"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // OnboardingHandler exposes /authn/signups and internal mock-consumer ensure endpoints.

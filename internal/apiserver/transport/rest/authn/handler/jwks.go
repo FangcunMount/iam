@@ -1,8 +1,8 @@
 package handler
 
 import (
-	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
-	_ "github.com/FangcunMount/iam/v2/pkg/core" // imported for swagger
+	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	_ "github.com/FangcunMount/iam/v3/pkg/core" // imported for swagger
 )
 
 // JWKSHandler JWKS HTTP 处理器

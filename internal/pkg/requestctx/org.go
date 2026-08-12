@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 )
 
 // SetOrgID 将 JWT 透传的业务 org_id 写入请求上下文（非 IAM 领域字段）。

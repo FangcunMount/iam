@@ -2,8 +2,8 @@ package authn
 
 import (
 	"github.com/FangcunMount/component-base/pkg/log"
-	schedulerInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/scheduler"
-	apiserveroptions "github.com/FangcunMount/iam/v2/internal/apiserver/options"
+	schedulerInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/scheduler"
+	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 )
 
 type jwksRotationRuntimeOptions struct {

@@ -1,8 +1,8 @@
 package idp
 
 import (
-	grpctransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc"
-	idpgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/idp"
+	grpctransport "github.com/FangcunMount/iam/v3/internal/apiserver/transport/grpc"
+	idpgrpc "github.com/FangcunMount/iam/v3/internal/apiserver/transport/grpc/service/idp"
 )
 
 // CollectGRPC appends IDP gRPC registration when the module is available.

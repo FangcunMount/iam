@@ -8,10 +8,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	idpv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
+	idpv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/idp/v2"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	iamgrpc "github.com/FangcunMount/iam/v3/internal/pkg/grpc"
 )
 
 // GetWechatApp 查询微信应用

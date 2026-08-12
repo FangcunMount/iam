@@ -3,8 +3,8 @@ package profilelink
 import (
 	"time"
 
-	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
+	profiledomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profile"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profilelink"
 )
 
 // ============= DTO 转换辅助函数 =============

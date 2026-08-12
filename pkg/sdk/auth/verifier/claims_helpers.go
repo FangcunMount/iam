@@ -10,10 +10,7 @@ func (c *TokenClaims) AuthorizationDomain() string {
 	if c == nil {
 		return ""
 	}
-	if domain := strings.TrimSpace(c.TenantDomain); domain != "" {
-		return domain
-	}
-	return strings.TrimSpace(c.TenantID)
+	return strings.TrimSpace(c.TenantDomain)
 }
 
 // BusinessOrgID 读取 JWT 透传的业务组织 ID；无 org_id 时 ok=false。

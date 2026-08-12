@@ -3,7 +3,7 @@ package loginidentity
 import (
 	"strings"
 
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // ProviderKey 唯一键，用于解析登录身份

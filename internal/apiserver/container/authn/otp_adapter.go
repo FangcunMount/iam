@@ -3,9 +3,9 @@ package authn
 import (
 	"context"
 
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 )
 
 var (

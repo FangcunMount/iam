@@ -1,7 +1,7 @@
 package token
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/pkg/authnclaims"
+	"github.com/FangcunMount/iam/v3/internal/pkg/authnclaims"
 )
 
 // defaultRefreshClaimsCodec 使用 session/refresh 共用的快照规则。

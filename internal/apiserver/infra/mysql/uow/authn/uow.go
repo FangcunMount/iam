@@ -5,13 +5,13 @@ import (
 
 	"gorm.io/gorm"
 
-	appuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/uow"
-	credentialrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/credential"
-	loginidentityrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/loginidentity"
-	profilerepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profile"
-	profileLinkRepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profilelink"
-	userrepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
+	appuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/uow"
+	credentialrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/credential"
+	loginidentityrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/loginidentity"
+	profilerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/profile"
+	profileLinkRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/profilelink"
+	userrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/user"
+	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 )
 
 var _ appuow.UnitOfWork = (*unitOfWork)(nil)

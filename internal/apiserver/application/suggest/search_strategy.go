@@ -3,7 +3,7 @@ package suggest
 import (
 	"context"
 
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 // ProfileSearchStrategy 单次联想查询中的一种搜索方式（策略模式 + 责任链）。

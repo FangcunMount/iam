@@ -71,7 +71,7 @@ func TestRuntimeProvenanceContracts(t *testing.T) {
 	dockerfile := read("build/docker/Dockerfile")
 	serverCheck := read(".github/workflows/server-check.yml")
 	for _, token := range []string{
-		"VERSION_PACKAGE := github.com/FangcunMount/iam/v2/pkg/version",
+		"VERSION_PACKAGE := github.com/FangcunMount/iam/v3/pkg/version",
 		"$(VERSION_PACKAGE).GitVersion",
 		"$(VERSION_PACKAGE).BuildDate",
 		"$(VERSION_PACKAGE).GitCommit",
@@ -84,9 +84,9 @@ func TestRuntimeProvenanceContracts(t *testing.T) {
 		t.Fatal("Makefile still injects the nonexistent main.GitCommit symbol")
 	}
 	for _, symbol := range []string{
-		"github.com/FangcunMount/iam/v2/pkg/version.GitVersion",
-		"github.com/FangcunMount/iam/v2/pkg/version.BuildDate",
-		"github.com/FangcunMount/iam/v2/pkg/version.GitCommit",
+		"github.com/FangcunMount/iam/v3/pkg/version.GitVersion",
+		"github.com/FangcunMount/iam/v3/pkg/version.BuildDate",
+		"github.com/FangcunMount/iam/v3/pkg/version.GitCommit",
 	} {
 		if !strings.Contains(dockerfile, symbol) {
 			t.Fatalf("Dockerfile does not inject %s", symbol)

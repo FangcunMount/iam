@@ -3277,7 +3277,7 @@ const file_iam_identity_v2_identity_proto_rawDesc = "" +
 	"\n" +
 	"UpdateUser\x12\".iam.identity.v2.UpdateUserRequest\x1a#.iam.identity.v2.UpdateUserResponse\x12b\n" +
 	"\x0eDeactivateUser\x12(.iam.identity.v2.ChangeUserStatusRequest\x1a&.iam.identity.v2.UserOperationResponse\x12]\n" +
-	"\tBlockUser\x12(.iam.identity.v2.ChangeUserStatusRequest\x1a&.iam.identity.v2.UserOperationResponseBDZBgithub.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2;identityv2b\x06proto3"
+	"\tBlockUser\x12(.iam.identity.v2.ChangeUserStatusRequest\x1a&.iam.identity.v2.UserOperationResponseBDZBgithub.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2;identityv2b\x06proto3"
 
 var (
 	file_iam_identity_v2_identity_proto_rawDescOnce sync.Once

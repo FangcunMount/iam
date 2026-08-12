@@ -10,10 +10,10 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
-	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
+	appprofilelink "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 )
 
 func TestProfileLinkHandlerListDefaultsToCurrentUser(t *testing.T) {

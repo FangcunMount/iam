@@ -3,11 +3,11 @@ package handler
 import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/request"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/request"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/response"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 func createDTOFromRequest(req request.CreateWechatAppRequest) wechatapp.CreateWechatAppDTO {

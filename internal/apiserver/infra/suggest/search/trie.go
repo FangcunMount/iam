@@ -5,7 +5,7 @@ import (
 
 	"github.com/mozillazg/go-pinyin"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 // Trie 实现一个三元搜索树用于前缀/通配符查找

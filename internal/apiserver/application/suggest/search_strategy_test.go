@@ -3,7 +3,7 @@ package suggest
 import (
 	"testing"
 
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 func TestSelectProfileSearchStrategyDefaults(t *testing.T) {

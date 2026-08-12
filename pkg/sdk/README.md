@@ -1,6 +1,6 @@
 # IAM SDK for Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/FangcunMount/iam/v2/pkg/sdk.svg)](https://pkg.go.dev/github.com/FangcunMount/iam/v2/pkg/sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/FangcunMount/iam/v3/pkg/sdk.svg)](https://pkg.go.dev/github.com/FangcunMount/iam/v3/pkg/sdk)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -22,6 +22,14 @@
 - `pkg/sdk/errors`
 
 `transport`、`observability` 和高级错误分析能力已经收回内部实现，不再作为公开稳定包。
+
+当前 Go module major 为 v3：
+
+```bash
+go get github.com/FangcunMount/iam/v3@v3.0.0
+```
+
+REST/OpenAPI 和 gRPC proto package 仍为 v2；升级 SDK import path 时不要修改 wire 路径或 `iam.*.v2` package。
 
 ## 30 秒结论
 
@@ -66,8 +74,8 @@ import (
     "context"
     "log"
 
-    authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-    sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+    authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+    sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
 )
 
 func main() {
@@ -108,7 +116,7 @@ client, err := sdk.NewClient(ctx, cfg)
 ```go
 import (
     "github.com/spf13/viper"
-    "github.com/FangcunMount/iam/v2/pkg/sdk/config"
+    "github.com/FangcunMount/iam/v3/pkg/sdk/config"
 )
 
 v := viper.New()
@@ -129,13 +137,13 @@ if err != nil {
 
 ```go
 import (
-    authclient "github.com/FangcunMount/iam/v2/pkg/sdk/auth/client"
-    authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
-    authloginidentity "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginidentity"
-    authloginv2 "github.com/FangcunMount/iam/v2/pkg/sdk/auth/loginv2"
-    authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
-    authsignup "github.com/FangcunMount/iam/v2/pkg/sdk/auth/signup"
-    authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
+    authclient "github.com/FangcunMount/iam/v3/pkg/sdk/auth/client"
+    authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
+    authloginidentity "github.com/FangcunMount/iam/v3/pkg/sdk/auth/loginidentity"
+    authloginv2 "github.com/FangcunMount/iam/v3/pkg/sdk/auth/loginv2"
+    authserviceauth "github.com/FangcunMount/iam/v3/pkg/sdk/auth/serviceauth"
+    authsignup "github.com/FangcunMount/iam/v3/pkg/sdk/auth/signup"
+    authverifier "github.com/FangcunMount/iam/v3/pkg/sdk/auth/verifier"
 )
 
 _ = authclient.NewClient
@@ -151,9 +159,9 @@ _ = authserviceauth.NewServiceAuthHelper
 
 ```go
 import (
-    sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
-    authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
-    authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
+    sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
+    authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
+    authverifier "github.com/FangcunMount/iam/v3/pkg/sdk/auth/verifier"
 )
 
 jwksManager, err := authjwks.NewJWKSManager(
@@ -192,8 +200,8 @@ log.Printf("user=%s session=%s", result.Claims.UserID, result.Claims.SessionID)
 
 ```go
 import (
-    sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
-    authserviceauth "github.com/FangcunMount/iam/v2/pkg/sdk/auth/serviceauth"
+    sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
+    authserviceauth "github.com/FangcunMount/iam/v3/pkg/sdk/auth/serviceauth"
 )
 
 helper, err := authserviceauth.NewServiceAuthHelper(&sdk.ServiceAuthConfig{
@@ -257,7 +265,7 @@ profileClient := identity.NewProfileClient(
 ## 错误处理
 
 ```go
-import sdkerrors "github.com/FangcunMount/iam/v2/pkg/sdk/errors"
+import sdkerrors "github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 
 resp, err := client.Identity().GetUser(ctx, "user-123")
 if err != nil {
@@ -282,7 +290,7 @@ _ = resp
 如果需要拿到结构化错误：
 
 ```go
-import sdkerrors "github.com/FangcunMount/iam/v2/pkg/sdk/errors"
+import sdkerrors "github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 
 if iamErr, ok := sdkerrors.AsIAMError(err); ok {
     log.Printf("code=%s grpc=%s msg=%s", iamErr.Code, iamErr.GRPCCode, iamErr.Message)
@@ -300,7 +308,7 @@ import (
     "context"
     "time"
 
-    sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+    sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
 )
 
 type myMetrics struct{}

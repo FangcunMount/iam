@@ -1,6 +1,6 @@
 package identity
 
-import identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+import identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
 
 // ReadRaw 返回原始读取服务客户端。
 func (c *Client) ReadRaw() identityv2.IdentityReadClient {

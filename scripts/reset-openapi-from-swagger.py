@@ -271,6 +271,16 @@ def add_authn_login_examples(spec: Dict[str, Any]) -> None:
                 },
             }
         },
+        "wechat_scan": {
+            "value": {
+                "auth_method": "wechat_scan",
+                "method_payload": {
+                    "app_id": "wx_open_appid",
+                    "code": "oauth_code",
+                    "state": "oauth_state",
+                },
+            }
+        },
         "wecom": {
             "value": {
                 "auth_method": "wecom",
@@ -318,6 +328,25 @@ def main() -> int:
         spec["paths"] = module_paths[module]
         spec_tags = spec.get("tags", [])
         spec["tags"] = merge_tags(spec_tags, sorted(all_tags[module]))
+
+        components = spec.get("components", {})
+        non_schema_components = {
+            name: value for name, value in components.items() if name != "schemas"
+        }
+        collect_schema_refs(non_schema_components, module_schema_refs[module])
+
+        pending = list(module_schema_refs[module])
+        while pending:
+            name = pending.pop()
+            definition = swagger_defs.get(name)
+            if definition is None:
+                continue
+            nested: set[str] = set()
+            collect_schema_refs(rewrite_ref(definition), nested)
+            for nested_name in nested - module_schema_refs[module]:
+                module_schema_refs[module].add(nested_name)
+                pending.append(nested_name)
+
         schemas: Dict[str, Any] = {}
         missing = []
         for name in sorted(module_schema_refs[module]):
@@ -327,7 +356,6 @@ def main() -> int:
             schemas[name] = rewrite_ref(swagger_defs[name])
         if missing:
             print(f"{spec_path.name}: missing swagger definitions: {missing}")
-        components = spec.get("components", {})
         components["schemas"] = schemas
         spec["components"] = components
         if module == "authn":

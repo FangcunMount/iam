@@ -3,8 +3,8 @@ package policy
 import (
 	"strconv"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
-	"github.com/FangcunMount/iam/v2/pkg/event"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
 type VersionChangedPayload struct {

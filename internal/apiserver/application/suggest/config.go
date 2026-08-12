@@ -3,7 +3,7 @@ package suggest
 import (
 	"math"
 
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 // RateLimitConfig REST 层按操作员限流；PerOperatorQPS<=0 表示关闭。

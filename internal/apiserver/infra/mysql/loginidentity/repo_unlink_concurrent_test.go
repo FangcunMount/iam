@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	linking "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	testutil "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/testutil"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	linking "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	testutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/testutil"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

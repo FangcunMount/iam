@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	loginidentitydomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
-	userdomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	loginidentitydomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	userdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

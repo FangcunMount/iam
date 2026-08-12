@@ -8,11 +8,11 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
-	"github.com/FangcunMount/iam/v2/pkg/core"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
+	"github.com/FangcunMount/iam/v3/pkg/core"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 // RouteAuthorizationRuntime 可选注入路由级授权运行时。

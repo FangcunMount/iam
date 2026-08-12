@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 // Hash 支持手机号/档案 ID 的字符串精确匹配 -> profileID 列表
