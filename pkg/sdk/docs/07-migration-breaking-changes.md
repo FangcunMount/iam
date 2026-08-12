@@ -20,6 +20,22 @@
 - `sdk.NewTokenVerifier(...)`、`sdk.NewJWKSManager(...)`、`sdk.NewJWKSManagerWithClient(...)`、`sdk.NewServiceAuthHelper(...)` 已删除
 - `sdk.NewClient(...)` 不再隐式启用 request-id / metrics / circuit breaker；这些能力现在由 `Config.Observability` 显式控制
 - JWT `tenant_id` claim 现表示 **IAM 授权域**（string，如 `fangcun`）；业务组织请读 `org_id` claim 或 `TokenClaims.BusinessOrgID()`
+- v2 已正式弃用 `TokenClaims.TenantID` 和 `auth/jwks.JWKSStats`；两者在 v2 内保持可编译，只在 v3 移除
+
+## v2 弃用窗口与 v3 删除门禁
+
+`v2.0.9` 已包含 `TokenClaims.TenantID` 的迁移说明，但 Go 工具链可识别的
+`Deprecated:` 注释和 `JWKSStats` 替代路径从本窗口发布开始计算。两个符号在整个 v2
+生命周期内仍是公开兼容面，不允许在 v2 minor/patch 中删除。
+
+| v3 候选 | v2 替代路径 | 删除前必须同时满足 |
+| --- | --- | --- |
+| `TokenClaims.TenantID` | 授权域：`AuthorizationDomain()` / `TenantDomain`；业务组织：`BusinessOrgID()` / `OrgID` | 至少一个已发布 v2 弃用版本、最短 30 天通知窗口、所有已知消费仓迁移、公开 major-version 发布记录 |
+| `auth/jwks.JWKSStats` | fetcher `Stats() FetcherStats`、`CircuitBreakerFetcher.State()`；应用指标使用 `sdk.WithMetricsCollector(...)` | 至少一个已发布 v2 弃用版本、最短 30 天通知窗口、所有已知消费仓迁移、公开 major-version 发布记录 |
+
+窗口起点不是本文档的 commit 时间，而是首个实际包含上述标准弃用注释的
+v2 tag 发布时间。在 tag 未发布前，v3 删除日期不得起算。GitHub 组织搜索和本地已知
+工作区扫描只是消费者证据的一部分，不代替版本通知窗口。
 
 ## JWT tenant_id 语义变更
 
@@ -28,6 +44,14 @@
 | `TokenClaims.TenantDomain` / `AuthorizationDomain()` | IAM 授权域（Casbin domain） |
 | `TokenClaims.OrgID` / `BusinessOrgID()` | 业务组织 ID（JWT `org_id` 透传） |
 | `TokenClaims.TenantID` | **Deprecated**：与 `TenantDomain` 相同，**不要**再 `ParseUint` 当 org |
+
+### JWKSStats 迁移
+
+`auth/jwks.JWKSStats` 没有被 `JWKSManager` 返回，也不再是聚合运行时统计的事实源。
+
+- 单个 HTTP/gRPC/cache/seed/circuit-breaker fetcher 的尝试、成功和失败次数：使用其 `Stats()` 返回的 `FetcherStats`；
+- 熔断器状态：使用 `CircuitBreakerFetcher.State()`；
+- 跨客户端的应用级 metrics：实现 `sdk.MetricsCollector` 并通过 `sdk.WithMetricsCollector(...)` 注入。
 
 迁移建议：
 
