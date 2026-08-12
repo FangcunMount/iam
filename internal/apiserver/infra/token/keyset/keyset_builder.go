@@ -175,73 +175,9 @@ func (s *KeySetBuilder) generateCacheTag(content []byte) CacheTag {
 	}
 }
 
-// GetJWKSStats 获取 JWKS 统计信息（辅助方法）
-func (s *KeySetBuilder) GetJWKSStats(ctx context.Context) (*JWKSStats, error) {
-	keys, err := s.keyRepo.FindPublishable(ctx)
-	if err != nil {
-		return nil, errors.WithCode(code.ErrDatabase, "failed to find publishable keys: %v", err)
-	}
-
-	stats := &JWKSStats{
-		TotalKeys:  len(keys),
-		ActiveKeys: 0,
-		GraceKeys:  0,
-	}
-
-	for _, key := range keys {
-		if key.IsActive() {
-			stats.ActiveKeys++
-		} else if key.IsGrace() {
-			stats.GraceKeys++
-		}
-	}
-
-	snapshot := s.SnapshotStatus()
-	stats.LastBuildTime = snapshot.LastBuildTime
-
-	return stats, nil
-}
-
 func (s *KeySetBuilder) setClockForTest(now func() time.Time) {
 	if s == nil {
 		return
 	}
 	s.snapshot.setClockForTest(now)
-}
-
-// JWKSStats JWKS 统计信息
-type JWKSStats struct {
-	TotalKeys     int        // 可发布的密钥总数
-	ActiveKeys    int        // Active 状态的密钥数
-	GraceKeys     int        // Grace 状态的密钥数
-	LastBuildTime *time.Time // 最后构建时间
-}
-
-// GetCacheControl 获取缓存控制策略（辅助方法）
-// 返回适合 HTTP Cache-Control 头的值
-func (s *KeySetBuilder) GetCacheControl() string {
-	// JWKS 应该被缓存，但不应缓存太久
-	// 推荐：public（可被共享缓存）, max-age=3600（1小时）, must-revalidate（过期后必须重新验证）
-	return "public, max-age=3600, must-revalidate"
-}
-
-// ValidateJWKS 验证 JWKS 完整性（辅助方法）
-func (s *KeySetBuilder) ValidateJWKS(ctx context.Context) error {
-	keys, err := s.keyRepo.FindPublishable(ctx)
-	if err != nil {
-		return errors.WithCode(code.ErrDatabase, "failed to find publishable keys: %v", err)
-	}
-
-	if len(keys) == 0 {
-		return errors.WithCode(code.ErrNoActiveKey, "no publishable keys available")
-	}
-
-	// 验证每个密钥
-	for _, key := range keys {
-		if err := key.Validate(); err != nil {
-			return errors.WithCode(code.ErrInvalidJWK, "invalid key %s: %v", key.Kid, err)
-		}
-	}
-
-	return nil
 }
