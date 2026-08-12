@@ -64,10 +64,9 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider, metrics)
 
 	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
-		FullSQL:             cfg.FullSQL,
-		DeltaSQL:            cfg.DeltaSQL,
-		PlaceholderOrgID:    cfg.LoaderPlaceholderOrgID,
-		PlaceholderTenantID: cfg.LoaderPlaceholderTenantID,
+		FullSQL:          cfg.FullSQL,
+		DeltaSQL:         cfg.DeltaSQL,
+		PlaceholderOrgID: cfg.LoaderPlaceholderOrgID,
 	})
 	m.refresher = appsuggest.NewProfileIndexRefresher(loader, runtime, metrics)
 	m.rateLimiter = suggestratelimit.NewFromConfig(cfg.RateLimit, deps.RedisClient)

@@ -79,7 +79,7 @@ COLOR_RED := \033[31m
 .PHONY: run run-apiserver stop stop-apiserver restart restart-apiserver
 .PHONY: status status-apiserver logs logs-apiserver health health-check
 .PHONY: dev dev-apiserver dev-stop dev-status dev-logs
-.PHONY: test test-unit test-coverage test-race test-bench compat-observation-test
+.PHONY: test test-unit test-coverage test-race test-bench
 .PHONY: lint fmt fmt-check
 .PHONY: deps deps-download deps-tidy deps-verify deps-update deps-update-all deps-check
 .PHONY: proto proto-gen
@@ -385,9 +385,6 @@ test-dev-config: ## 测试开发环境配置
 test: ## 运行测试
 	@echo "🧪 运行测试..."
 	@$(GO_TEST) ./...
-
-compat-observation-test: ## 验证兼容退役连续观测窗口
-	@python3 -m unittest scripts/ops/test_compatibility_observation.py
 
 clean: ## 清理构建文件和进程
 	@echo "🧹 清理构建文件和进程..."

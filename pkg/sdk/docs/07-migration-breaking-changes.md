@@ -22,20 +22,18 @@
 - JWT `tenant_id` claim 现表示 **IAM 授权域**（string，如 `fangcun`）；业务组织请读 `org_id` claim 或 `TokenClaims.BusinessOrgID()`
 - v2 已正式弃用 `TokenClaims.TenantID` 和 `auth/jwks.JWKSStats`；两者在 v2 内保持可编译，只在 v3 移除
 
-## v2 弃用窗口与 v3 删除门禁
+## v2 弃用发布与 v3 删除门禁
 
-`v2.0.9` 已包含 `TokenClaims.TenantID` 的迁移说明，但 Go 工具链可识别的
-`Deprecated:` 注释和 `JWKSStats` 替代路径从本窗口发布开始计算。两个符号在整个 v2
+`v2.0.10` 已正式发布 `TokenClaims.TenantID` 和 `JWKSStats` 的 Go 工具链可识别
+`Deprecated:` 注释及替代路径。两个符号在整个 v2
 生命周期内仍是公开兼容面，不允许在 v2 minor/patch 中删除。
 
 | v3 候选 | v2 替代路径 | 删除前必须同时满足 |
 | --- | --- | --- |
-| `TokenClaims.TenantID` | 授权域：`AuthorizationDomain()` / `TenantDomain`；业务组织：`BusinessOrgID()` / `OrgID` | 至少一个已发布 v2 弃用版本、最短 30 天通知窗口、所有已知消费仓迁移、公开 major-version 发布记录 |
-| `auth/jwks.JWKSStats` | fetcher `Stats() FetcherStats`、`CircuitBreakerFetcher.State()`；应用指标使用 `sdk.WithMetricsCollector(...)` | 至少一个已发布 v2 弃用版本、最短 30 天通知窗口、所有已知消费仓迁移、公开 major-version 发布记录 |
+| `TokenClaims.TenantID` | 授权域：`AuthorizationDomain()` / `TenantDomain`；业务组织：`BusinessOrgID()` / `OrgID` | `v2.0.10` 弃用发布、所有已知消费仓迁移、公开 v3 major-version 发布记录 |
+| `auth/jwks.JWKSStats` | fetcher `Stats() FetcherStats`、`CircuitBreakerFetcher.State()`；应用指标使用 `sdk.WithMetricsCollector(...)` | `v2.0.10` 弃用发布、所有已知消费仓迁移、公开 v3 major-version 发布记录 |
 
-窗口起点不是本文档的 commit 时间，而是首个实际包含上述标准弃用注释的
-v2 tag 发布时间。在 tag 未发布前，v3 删除日期不得起算。GitHub 组织搜索和本地已知
-工作区扫描只是消费者证据的一部分，不代替版本通知窗口。
+2026-08-12 业务所有者免除 Batch C 的最短 30 天等待期，但不免除 Go module 的 major-version 边界。GitHub 组织搜索和本地已知工作区扫描仍是消费者证据的一部分。
 
 ## JWT tenant_id 语义变更
 
@@ -108,7 +106,7 @@ gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22�
 - Go SDK `pkg/sdk/auth/client.Client` 新增 `Login(ctx, *authnv2.LoginRequest)`。
 - IDP v2 gRPC 新增 `GetWechatAccessToken` 和 `RefreshWechatAccessToken`，Go SDK `pkg/sdk/idp.Client` 同步新增同名方法。
 - ProfileLink v2 gRPC `ListProfilesRequest` 和 `ListProfileLinksRequest` 新增 `include_revoked`；Go SDK 透传 proto 字段，并提供 `GetUserProfilesIncludingRevoked` 便捷方法。
-- REST ProfileLink 列表新增 `include_revoked` query 参数，旧 `active` 参数暂时兼容；新代码优先使用 `include_revoked=true`。
+- REST ProfileLink 列表使用 `include_revoked` query 参数；旧 `active` 参数已退役。
 - gRPC 错误映射已收口到服务端共享表：400/401/403/404/409/423/429/500/502/503/504 分别映射到稳定 gRPC code；SDK 继续以 `pkg/sdk/errors.GRPCCode`、`ToHTTPStatus` 和 `Is*` 谓词作为唯一公开错误判断入口。
 - Identity 批量读取和 ProfileLink 关系用户查询已改为批量查询路径；返回顺序、缺失用户容忍、`include_revoked` 语义保持不变。
 

@@ -1,6 +1,6 @@
 schema_version: 2
 scanned_at: 2026-08-12
-iam_base_sha: 779408600c2ee0fae7aff958b6db519ffc8034c3
+iam_base_sha: b05f351ed9016c906f3cd2d48f73591ca639a0ac
 scope:
   github_organization: FangcunMount
   local_workspace_families:
@@ -26,7 +26,7 @@ rta_scan:
       repository_consumers:
         - qs-server
         - seeddata-runner
-      latest_published_tag_at_scan: v2.0.9
+      latest_published_tag_at_scan: v2.0.10
       decision: Do not remove RTA-only candidates without a deprecation and major-version plan.
     other_public_packages:
       packages:
@@ -38,7 +38,7 @@ rta_scan:
       decision: Published v2 API surface; static absence is insufficient for removal.
 repositories:
   iam:
-    sha: 779408600c2ee0fae7aff958b6db519ffc8034c3
+    sha: b05f351ed9016c906f3cd2d48f73591ca639a0ac
   qs-server:
     sha: 7239d7c71393b0c7d11ceeb8b504f5a6abfed176
   qs-collection-system:
@@ -49,6 +49,7 @@ repositories:
     sha: 0abd4a1baa049479bd3e7cc0bb958f886918263e
 candidates:
   rest_profile_link_active:
+    status: retired_with_owner_waiver
     external_legacy_callers_found: false
     canonical_consumers:
       - repository: qs-collection-system
@@ -57,61 +58,42 @@ candidates:
       - repository: qs-collection-system
         path: scripts/check-iam-contracts.js
         behavior: Contract guard requires include_revoked.
-    runtime_gates:
-      - iam_identity_profile_link_query_total{mode="legacy_active"}
-      - iam_identity_profile_link_query_total{mode="both"}
   module_status_legacy_booleans:
+    status: retired_with_owner_waiver
     external_consumers_found: false
     official_monitor:
       path: .github/workflows/server-check.yml
-      behavior: Uses /debug/modules?view=canonical and requires module_states.
-    runtime_gates:
-      - iam_runtime_debug_modules_requests_total{view="legacy"}
-      - iam_runtime_debug_modules_requests_total{view="combined"}
+      behavior: Uses canonical /debug/modules and requires module_states.
   suggest_loader_placeholder_tenant_id:
+    status: retired_with_owner_waiver
     external_config_references_found: false
     canonical_key: suggest.loader_placeholder_org_id
-    runtime_gate: iam_config_compatibility_key_observations_total{key="suggest.loader_placeholder_tenant_id",state="present"}
+    removed_key_behavior: YAML and environment forms fail closed with the canonical replacement.
   sms_mq_topic_config_and_legacy_publisher:
+    status: retired_with_owner_waiver
     external_constructor_references_found: false
     canonical_event_topic_remains_active: iam.notify.sms
     note: Retirement targets only the legacy constructor and sms.mq.topic override, not the catalog event or its downstream consumer.
-    runtime_gates:
-      - iam_config_compatibility_key_observations_total{key="sms.mq.topic",state="present"}
-      - iam_authn_sms_publisher_selections_total{mode="legacy"}
+    removed_key_behavior: YAML and environment forms fail closed; the catalog event route remains active.
   sdk_token_claims_tenant_id:
     specific_external_field_references_found: false
     package_consumers:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/verifier but reads TenantDomain, not TokenClaims.TenantID.
     replacement: AuthorizationDomain/TenantDomain for authz domain; BusinessOrgID/OrgID for business organization.
-    deprecation_contract: Standard Go Deprecated annotation and v2 compile protection are required before publishing the window.
-    release_gate: Publish one v2 deprecation tag, wait at least 30 days, migrate all known consumers, then remove only in v3.
+    deprecation_contract: Standard Go Deprecated annotation and v2 compile protection published in v2.0.10.
+    release_gate: Migrate all known consumers and remove only in v3; the owner waived the time delay, not the major-version boundary.
   sdk_jwks_stats:
     specific_external_type_references_found: false
     package_consumers:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/jwks but does not reference JWKSStats.
     replacement: Per-fetcher FetcherStats, CircuitBreakerFetcher.State, or sdk.WithMetricsCollector for application metrics.
-    deprecation_contract: Standard Go Deprecated annotation and v2 compile protection are required before publishing the window.
-    release_gate: Publish one v2 deprecation tag, wait at least 30 days, migrate all known consumers, then remove only in v3.
-observation_policy:
-  schema_version: 1
-  workflow: .github/workflows/server-check.yml
-  branch: main
-  cadence_minutes: 30
-  artifact_prefix: iam-compat-v1
-  artifact_retention_days: 90
-  minimum_window_days: 30
-  maximum_gap_minutes: 90
-  same_process_start_required: true
-  same_runtime_sha_required: true
-  workflow_head_sha_equals_runtime_sha_required: true
-  restart_or_deploy_resets_window: true
-  incomplete_evidence_fails_closed: true
-  runtime_candidates:
-    - rest_profile_link_active
-    - module_status_legacy_booleans
-    - suggest_loader_placeholder_tenant_id
-    - sms_mq_topic_config_and_legacy_publisher
-  public_sdk_gate: Requires a separately evidenced deprecation window and major-version release.
+    deprecation_contract: Standard Go Deprecated annotation and v2 compile protection published in v2.0.10.
+    release_gate: Migrate all known consumers and remove only in v3; the owner waived the time delay, not the major-version boundary.
+owner_waiver:
+  granted_at: "2026-08-12"
+  scope: Batch C runtime compatibility candidates only.
+  decision: Waive the 30-day runtime observation period and proceed directly to C2.
+  excludes:
+    - Go module major-version compatibility rules for public SDK symbols.

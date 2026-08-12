@@ -259,7 +259,7 @@ def check_readiness_facts() -> None:
     for token in ("MarkDraining", "HealthCheckResponse_NOT_SERVING", "drainDelay"):
         if token not in shutdown:
             fail(f"graceful drain wiring is missing {token}")
-    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready", "/debug/modules?view=canonical", '"module_states"'):
+    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready", "/debug/modules", '"module_states"'):
         if token not in server_check:
             fail(f"server-check probe contract is missing {token}")
     for token in ("/version", "gitCommit", "process_start_time_seconds", "{{.Config.Image}}"):
@@ -500,7 +500,7 @@ def check_compatibility_retirement_evidence() -> None:
     classifications = rta_scan.get("classifications", {})
     if classifications.get("internal_runtime", {}).get("new_removal_candidates_found") is not False:
         fail("compatibility evidence no longer records the internal runtime RTA result")
-    if classifications.get("public_sdk", {}).get("latest_published_tag_at_scan") != "v2.0.9":
+    if classifications.get("public_sdk", {}).get("latest_published_tag_at_scan") != "v2.0.10":
         fail("compatibility evidence is missing the published SDK version boundary")
 
     verifier_types = (ROOT / "pkg/sdk/auth/verifier/types.go").read_text(encoding="utf-8")
@@ -514,53 +514,25 @@ def check_compatibility_retirement_evidence() -> None:
         ("Deprecated: 使用具体 fetcher 的 Stats", jwks_types, "JWKSStats"),
         ("var _ authjwks.JWKSStats", sdk_compile, "JWKSStats compile contract"),
         ("_ = claims.TenantID", sdk_compile, "TenantID compile contract"),
-        ("v2 tag 发布时间", sdk_migration, "SDK deprecation window"),
-        ("最短 30 天通知窗口", sdk_migration, "SDK deprecation window"),
+        ("v2.0.10", sdk_migration, "SDK deprecation release"),
+        ("免除 Batch C 的最短 30 天等待期", sdk_migration, "SDK owner waiver"),
         ("只在 v3 移除", sdk_migration, "SDK major-version gate"),
     ):
         if token not in source:
             fail(f"SDK retirement preparation is missing {label}: {token}")
 
-    workflow = (ROOT / ".github/workflows/server-check.yml").read_text(encoding="utf-8")
-    for metric in (
-        "iam_identity_profile_link_query_total",
-        "iam_runtime_debug_modules_requests_total",
-        "iam_config_compatibility_key_observations_total",
-        "iam_authn_sms_publisher_selections_total",
+    for candidate in (
+        "rest_profile_link_active",
+        "module_status_legacy_booleans",
+        "suggest_loader_placeholder_tenant_id",
+        "sms_mq_topic_config_and_legacy_publisher",
     ):
-        if metric not in workflow:
-            fail(f"production compatibility metric snapshot is missing {metric}")
-    for token in (
-        "IAM_COMPAT_SNAPSHOT_V1_BEGIN",
-        "capture_stdout: true",
-        "scripts/ops/compatibility_observation.py",
-        "require_retirement_ready",
-        "--minimum-days 30",
-        "--maximum-gap-minutes 90",
-        "--workflow-head-sha",
-        "--current-head-sha",
-        "retention-days: 90",
-    ):
-        if token not in workflow:
-            fail(f"compatibility observation workflow is missing {token}")
+        if candidates.get(candidate, {}).get("status") != "retired_with_owner_waiver":
+            fail(f"runtime compatibility candidate is not retired: {candidate}")
 
-    policy = evidence.get("observation_policy", {})
-    expected_policy = {
-        "branch": "main",
-        "cadence_minutes": 30,
-        "artifact_prefix": "iam-compat-v1",
-        "artifact_retention_days": 90,
-        "minimum_window_days": 30,
-        "maximum_gap_minutes": 90,
-        "same_process_start_required": True,
-        "same_runtime_sha_required": True,
-        "workflow_head_sha_equals_runtime_sha_required": True,
-        "restart_or_deploy_resets_window": True,
-        "incomplete_evidence_fails_closed": True,
-    }
-    for key, expected in expected_policy.items():
-        if policy.get(key) != expected:
-            fail(f"compatibility observation policy has wrong {key}: {policy.get(key)!r}")
+    waiver = evidence.get("owner_waiver", {})
+    if waiver.get("granted_at") != "2026-08-12":
+        fail("Batch C owner waiver is missing its grant date")
 
 
 def check_active_docs() -> None:

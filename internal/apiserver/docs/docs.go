@@ -2229,12 +2229,6 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "boolean",
-                        "description": "是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）",
-                        "name": "active",
-                        "in": "query"
-                    },
-                    {
                         "type": "integer",
                         "default": 0,
                         "description": "偏移量",

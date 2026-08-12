@@ -98,15 +98,8 @@ type SuggestDeps struct {
 
 // ModuleStatus 模块状态，用于/debug/modules和/health
 type ModuleStatus struct {
-	ContainerInitialized bool
-	Container            ModuleState
-	Modules              map[string]ModuleState
-	Authn                bool
-	Authz                bool
-	User                 bool
-	IDP                  bool
-	Suggest              bool
-	AuthEnabled          bool
+	Container ModuleState
+	Modules   map[string]ModuleState
 }
 
 // ModuleState describes a bootstrapped module capability without forcing

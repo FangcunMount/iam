@@ -262,7 +262,6 @@ suggest:
   # 占位 org_id（业务组织）；tenant 授权域见 JWT tenant_id=fangcun，勿与 org 混用。
   # 负责人维度来自 profiles.created_by；多组织生产请配置 full_sql。
   loader_placeholder_org_id: 1
-  # loader_placeholder_tenant_id: 1  # Deprecated: 同 loader_placeholder_org_id
 
 # ----------------------------------------------------------------------------
 # 4.6 调试治理接口

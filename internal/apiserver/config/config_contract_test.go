@@ -124,7 +124,6 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "sms max attempts", opts.SMS.LoginOTPMaxAttempts, 5)
 				assertEqual(t, "sms hourly limit", opts.SMS.LoginOTPHourlyLimit, 5)
 				assertEqual(t, "sms daily limit", opts.SMS.LoginOTPDailyLimit, 10)
-				assertEqual(t, "sms mq fallback topic", opts.SMS.MQ.Topic, "iam.notify.sms")
 				assertEqual(t, "sms aliyun endpoint", opts.SMS.Aliyun.Endpoint, "dypnsapi.aliyuncs.com")
 				assertEqual(t, "sms aliyun code param", opts.SMS.Aliyun.CodeParamName, "code")
 				assertEqual(t, "sms aliyun min param", opts.SMS.Aliyun.MinParamName, "min")
@@ -190,8 +189,8 @@ func TestAPIServerYAMLDoesNotContainRemovedRuntimeKeys(t *testing.T) {
 	}
 }
 
-func TestAPIServerYAMLDoesNotSetObservedCompatibilityKeys(t *testing.T) {
-	compatibilityKeys := []string{
+func TestAPIServerYAMLDoesNotSetRetiredRuntimeKeys(t *testing.T) {
+	retiredKeys := []string{
 		"sms.mq.topic",
 		"suggest.loader_placeholder_tenant_id",
 	}
@@ -202,9 +201,9 @@ func TestAPIServerYAMLDoesNotSetObservedCompatibilityKeys(t *testing.T) {
 			if err := reader.ReadInConfig(); err != nil {
 				t.Fatal(err)
 			}
-			for _, key := range compatibilityKeys {
+			for _, key := range retiredKeys {
 				if reader.IsSet(key) {
-					t.Fatalf("%s contains observed compatibility key %s", file, key)
+					t.Fatalf("%s contains retired runtime key %s", file, key)
 				}
 			}
 		})
@@ -226,6 +225,10 @@ func TestRemovedRuntimeYAMLKeysDecodeIntoValidationTombstones(t *testing.T) {
 		{name: "server write timeout", key: "server.write-timeout", yaml: "server:\n  write-timeout: 60\n"},
 		{name: "suggest data dir", key: "suggest.data_dir", yaml: "suggest:\n  data_dir: /tmp/private\n"},
 		{name: "suggest snapshot", key: "suggest.snapshot", yaml: "suggest:\n  snapshot: true\n"},
+		{name: "suggest tenant placeholder", key: "suggest.loader_placeholder_tenant_id", yaml: "suggest:\n  loader_placeholder_tenant_id: 1\n"},
+		{name: "suggest zero tenant placeholder", key: "suggest.loader_placeholder_tenant_id", yaml: "suggest:\n  loader_placeholder_tenant_id: 0\n"},
+		{name: "sms mq topic", key: "sms.mq.topic", yaml: "sms:\n  mq:\n    topic: custom.sms\n"},
+		{name: "sms empty mq topic", key: "sms.mq.topic", yaml: "sms:\n  mq:\n    topic: ''\n"},
 	}
 
 	for _, tt := range tests {

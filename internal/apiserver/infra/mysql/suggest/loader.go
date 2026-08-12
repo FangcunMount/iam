@@ -86,10 +86,9 @@ WHERE NOT EXISTS (
 // PlaceholderOrgID：当 profiles 尚无 org_id 列时，内建 SQL 注入的占位业务组织 ID。
 // 0 表示不在索引中虚构 org；单组织部署由业务配置占位值，或改用 FullSQL。
 type LoaderConfig struct {
-	FullSQL             string
-	DeltaSQL            string
-	PlaceholderOrgID    int64
-	PlaceholderTenantID int64 // Deprecated: 与 PlaceholderOrgID 同义，仅配置兼容。
+	FullSQL          string
+	DeltaSQL         string
+	PlaceholderOrgID int64
 }
 
 // Loader 从业务库拉取档案联想候选
@@ -102,9 +101,6 @@ type Loader struct {
 // NewLoader 创建 Loader，SQL 为空时使用默认值。
 func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 	placeholderOrg := cfg.PlaceholderOrgID
-	if placeholderOrg == 0 {
-		placeholderOrg = cfg.PlaceholderTenantID
-	}
 	fullSQL := strings.TrimSpace(cfg.FullSQL)
 	if fullSQL == "" {
 		fullSQL = strings.TrimSpace(fmt.Sprintf(defaultFullSQLTemplate, placeholderOrg))
@@ -118,10 +114,9 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 	return &Loader{
 		db: db,
 		config: LoaderConfig{
-			FullSQL:             fullSQL,
-			DeltaSQL:            deltaSQL,
-			PlaceholderOrgID:    placeholderOrg,
-			PlaceholderTenantID: cfg.PlaceholderTenantID,
+			FullSQL:          fullSQL,
+			DeltaSQL:         deltaSQL,
+			PlaceholderOrgID: placeholderOrg,
 		},
 		defaultDelta: defaultDelta,
 	}

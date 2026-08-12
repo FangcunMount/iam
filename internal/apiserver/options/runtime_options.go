@@ -105,14 +105,15 @@ type SMSOptions struct {
 	LoginOTPCodeLength   int           `json:"login_otp_code_length" mapstructure:"login_otp_code_length"`
 	LoginOTPMaxAttempts  int           `json:"login_otp_max_attempts" mapstructure:"login_otp_max_attempts"`
 	// 限量：单号码+场景滑动窗口发送上限。<0 关闭，0 取默认（小时 5、每天 10）。
-	LoginOTPHourlyLimit int              `json:"login_otp_hourly_limit" mapstructure:"login_otp_hourly_limit"`
-	LoginOTPDailyLimit  int              `json:"login_otp_daily_limit" mapstructure:"login_otp_daily_limit"`
-	MQ                  SMSMQOptions     `json:"mq" mapstructure:"mq"`
-	Aliyun              SMSAliyunOptions `json:"aliyun" mapstructure:"aliyun"`
+	LoginOTPHourlyLimit int                  `json:"login_otp_hourly_limit" mapstructure:"login_otp_hourly_limit"`
+	LoginOTPDailyLimit  int                  `json:"login_otp_daily_limit" mapstructure:"login_otp_daily_limit"`
+	RemovedMQ           *RemovedSMSMQOptions `json:"-" mapstructure:"mq"`
+	Aliyun              SMSAliyunOptions     `json:"aliyun" mapstructure:"aliyun"`
 }
 
-type SMSMQOptions struct {
-	Topic string `json:"topic" mapstructure:"topic"`
+// RemovedSMSMQOptions captures the retired sms.mq.topic key so startup rejects it.
+type RemovedSMSMQOptions struct {
+	Topic *string `json:"-" mapstructure:"topic"`
 }
 
 // SMSAliyunOptions configures Aliyun Dypns (号码认证) SendSmsVerifyCode delivery.
@@ -138,9 +139,6 @@ func NewSMSOptions() *SMSOptions {
 		LoginOTPMaxAttempts:  5,
 		LoginOTPHourlyLimit:  5,
 		LoginOTPDailyLimit:   10,
-		MQ: SMSMQOptions{
-			Topic: "iam.notify.sms",
-		},
 		Aliyun: SMSAliyunOptions{
 			Endpoint:      "dypnsapi.aliyuncs.com",
 			CodeParamName: "code",
@@ -205,12 +203,11 @@ type SuggestOptions struct {
 	DisableMobileMask  bool   `json:"disable_mobile_mask" mapstructure:"disable_mobile_mask"`
 	// RemovedDataDir and RemovedSnapshot are decode-only tombstones. They make
 	// retired configuration fail closed instead of being silently ignored.
-	RemovedDataDir  *string `json:"-" mapstructure:"data_dir"`
-	RemovedSnapshot *bool   `json:"-" mapstructure:"snapshot"`
+	RemovedDataDir                   *string `json:"-" mapstructure:"data_dir"`
+	RemovedSnapshot                  *bool   `json:"-" mapstructure:"snapshot"`
+	RemovedLoaderPlaceholderTenantID *int64  `json:"-" mapstructure:"loader_placeholder_tenant_id"`
 	// LoaderPlaceholderOrgID 内建 Loader 注入的 org_id；0 表示索引不虚构组织维度。
 	LoaderPlaceholderOrgID int64 `json:"loader_placeholder_org_id" mapstructure:"loader_placeholder_org_id"`
-	// LoaderPlaceholderTenantID Deprecated: 与 loader_placeholder_org_id 同义。
-	LoaderPlaceholderTenantID int64 `json:"loader_placeholder_tenant_id" mapstructure:"loader_placeholder_tenant_id"`
 	// WildcardKeyCap 通配符展开的最大终端键数；0 使用领域默认。
 	WildcardKeyCap int `json:"trie_wildcard_key_cap" mapstructure:"trie_wildcard_key_cap"`
 	// RateLimit REST 按操作员限流；全零表示关闭。

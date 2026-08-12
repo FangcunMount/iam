@@ -21,13 +21,12 @@ func (c *Container) BuildRESTDeps(options resttransport.RouterOptions) resttrans
 	deps.CacheGovernance = c.CacheGovernanceService
 	deps.Readiness = c.ReadinessChecker()
 	deps.ModuleStatus.Container = toRESTModuleState(c.ContainerState())
-	deps.ModuleStatus.ContainerInitialized = deps.ModuleStatus.Container.Bootstrapped
 	deps.ModuleStatus.Modules = toRESTModuleStates(c.ModuleStates())
-	authn.CollectREST(c.ModuleState(moduleAuthn).Available, c.AuthnModule, moduleAuthn, &deps)
-	authz.CollectREST(c.ModuleState(moduleAuthz).Available, c.AuthzModule, moduleAuthz, &deps)
-	idp.CollectREST(c.ModuleState(moduleIDP).Available, c.IDPModule, moduleIDP, &deps)
-	identity.CollectREST(c.ModuleState(moduleIdentity).Available, c.IdentityModule, moduleIdentity, &deps)
-	suggest.CollectREST(c.ModuleState(moduleSuggest).Available, c.SuggestModule, moduleSuggest, &deps, c.redisClient)
+	authn.CollectREST(c.ModuleState(moduleAuthn).Available, c.AuthnModule, &deps)
+	authz.CollectREST(c.ModuleState(moduleAuthz).Available, c.AuthzModule, &deps)
+	idp.CollectREST(c.ModuleState(moduleIDP).Available, c.IDPModule, &deps)
+	identity.CollectREST(c.ModuleState(moduleIdentity).Available, c.IdentityModule, &deps)
+	suggest.CollectREST(c.ModuleState(moduleSuggest).Available, c.SuggestModule, &deps, c.redisClient)
 	return deps
 }
 

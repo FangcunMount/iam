@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -46,27 +45,24 @@ func TestProfileLinkHandlerListDefaultsToCurrentUser(t *testing.T) {
 	}
 }
 
-func TestProfileLinkQueryMode(t *testing.T) {
-	t.Parallel()
+func TestProfileLinkHandlerListRejectsRemovedActiveQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 
-	tests := []struct {
-		name  string
-		query url.Values
-		want  string
-	}{
-		{name: "default", want: profileLinkQueryDefault},
-		{name: "canonical", query: url.Values{"include_revoked": {"true"}}, want: profileLinkQueryIncludeRevoked},
-		{name: "legacy", query: url.Values{"active": {"not-a-bool"}}, want: profileLinkQueryLegacyActive},
-		{name: "both", query: url.Values{"include_revoked": {"false"}, "active": {"true"}}, want: profileLinkQueryBoth},
+	access := &profileLinkAccessStub{}
+	handler := NewProfileLinkHandler(access)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v2/identity/profile-links?active=false", nil)
+	requestctx.SetUserID(c, meta.FromUint64(100))
+
+	handler.List(c)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body=%s", recorder.Code, http.StatusBadRequest, recorder.Body.String())
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := profileLinkQueryMode(tt.query); got != tt.want {
-				t.Fatalf("profileLinkQueryMode() = %q, want %q", got, tt.want)
-			}
-		})
+	if len(access.listCalls) != 0 {
+		t.Fatalf("ListForCurrentUser calls = %d, want 0", len(access.listCalls))
 	}
 }
 

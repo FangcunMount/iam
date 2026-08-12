@@ -4,11 +4,13 @@ import (
 	"context"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/gin-gonic/gin"
 
 	appprofilelink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
 	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
 	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
+	"github.com/FangcunMount/iam/v2/internal/pkg/code"
 	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v2/pkg/core"
@@ -45,7 +47,6 @@ func NewProfileLinkHandler(
 // @Param user_id query string false "用户 ID"
 // @Param profile_id query string false "档案 ID"
 // @Param include_revoked query boolean false "是否包含已撤销档案关系"
-// @Param active query boolean false "是否仅查询活跃的档案关系（兼容字段，建议使用 include_revoked）"
 // @Param offset query int false "偏移量" default(0)
 // @Param limit query int false "每页数量" default(20)
 // @Success 200 {object} responsedto.ProfileLinkPageResponse "查询成功"
@@ -55,7 +56,11 @@ func NewProfileLinkHandler(
 // @Router /identity/profile-links [get]
 // @Security BearerAuth
 func (h *ProfileLinkHandler) List(c *gin.Context) {
-	recordProfileLinkQuery(c.Request.URL.Query())
+	if c.Request.URL.Query().Has("active") {
+		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "query parameter active has been removed; use include_revoked"))
+		return
+	}
+
 	var req requestdto.ProfileLinkListQuery
 	if err := h.BindQuery(c, &req); err != nil {
 		h.Error(c, err)
@@ -78,9 +83,9 @@ func (h *ProfileLinkHandler) List(c *gin.Context) {
 	}
 
 	results, err := h.profileLinkAccess.List(c.Request.Context(), currentUserID, appprofilelink.ListProfileLinksDTO{
-		UserID:    userID,
-		ProfileID: profileID,
-		Active:    profileLinkActiveFilter(req),
+		UserID:         userID,
+		ProfileID:      profileID,
+		IncludeRevoked: req.IncludeRevoked != nil && *req.IncludeRevoked,
 	})
 	if err != nil {
 		h.Error(c, err)
@@ -104,14 +109,6 @@ func (h *ProfileLinkHandler) List(c *gin.Context) {
 		Offset: req.Offset,
 		Items:  sliced,
 	})
-}
-
-func profileLinkActiveFilter(req requestdto.ProfileLinkListQuery) *bool {
-	if req.IncludeRevoked != nil {
-		active := !*req.IncludeRevoked
-		return &active
-	}
-	return req.Active
 }
 
 // ========== 辅助函数 ==========
