@@ -293,7 +293,7 @@ database_status() {
   prepare_defaults_file
   ERROR_PATH="$BACKUP_DIR/.iam_status.error"
 
-  local database_size table_count backup_count latest_backup migration_state retired_table_state migration_lock_state
+  local database_size table_count schema_objects backup_count latest_backup migration_state retired_table_state migration_lock_state
   if ! "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT 1;' > /dev/null 2>"$ERROR_PATH"; then
     fail "database connection failed"
     return 1
@@ -304,6 +304,10 @@ database_status() {
   fi
   if ! table_count="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE();' 2>"$ERROR_PATH")"; then
     fail "database metadata query failed"
+    return 1
+  fi
+  if ! schema_objects="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT CONCAT('type=', REPLACE(TABLE_TYPE, ' ', '_'), ' name=', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_TYPE, TABLE_NAME;" 2>"$ERROR_PATH")"; then
+    fail "database schema inventory query failed"
     return 1
   fi
   if ! migration_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;' 2>"$ERROR_PATH")"; then
@@ -322,6 +326,7 @@ database_status() {
   latest_backup="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_????????_??????.sql.gz' -print | sort -r | head -1 | sed -E 's/.*iam_backup_([0-9]{8}_[0-9]{6})\.sql\.gz/\1/' || true)"
   [ -n "$latest_backup" ] || latest_backup="none"
   echo "database status: result=success mysql_client=$MYSQL_CLIENT_VERSION connection=success size_mb=$database_size tables=$table_count backups=$backup_count latest_backup=$latest_backup"
+  printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state"
   echo "migration lock: owner_state=$migration_lock_state"
   if [ "$migration_state" != $'23\t0\t1' ]; then
