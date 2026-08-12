@@ -12,11 +12,6 @@ func SetTokenID(c *gin.Context, tokenID string) {
 	c.Set(KeyTokenID, tokenID)
 }
 
-// TokenIDString 从请求上下文中获取Token ID字符串
-func TokenIDString(c *gin.Context) (string, bool) {
-	return stringValue(c, KeyTokenID)
-}
-
 func RequestIDString(c *gin.Context) (string, bool) {
 	return stringValue(c, KeyRequestID)
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
 	messagingInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/messaging"
 	eventoutbox "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/eventoutbox"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
 	"github.com/FangcunMount/iam/v2/pkg/event"
 	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
 )
@@ -56,20 +55,6 @@ type Container struct {
 	// typed runtime options
 	runtimeOptions RuntimeOptions
 	readiness      *readinessapp.Checker
-}
-
-// NewContainer 创建容器
-// redisClient: Redis 客户端（用于缓存、令牌等）
-// eventBus: 消息总线（可选，用于事件驱动，传 nil 则不使用消息队列）
-// encryptionKey: IDP 模块使用的加密密钥（32 字节 AES-256），传 nil 则使用默认密钥
-func NewContainer(mysqlDB *gorm.DB, redisClient *redis.Client, eventBus messaging.EventBus, encryptionKey []byte) *Container {
-	return NewContainerWithOptions(
-		mysqlDB,
-		redisClient,
-		eventBus,
-		encryptionKey,
-		RuntimeOptionsFromAPIServerOptions(nil, genericapiserver.EnvironmentProduction),
-	)
 }
 
 // NewContainerWithOptions 创建带 typed runtime options 的容器。

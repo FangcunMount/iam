@@ -98,97 +98,6 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 	}
 }
 
-// AuthOptional 可选认证中间件
-// 如果有令牌则验证,没有令牌也允许通过(但不设置用户信息)
-func (m *JWTAuthMiddleware) AuthOptional() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		tokenValue, source := m.extractToken(c)
-		if tokenValue == "" {
-			// 没有令牌,允许通过
-			c.Next()
-			return
-		}
-
-		// 验证令牌
-		resp, err := m.tokenService.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
-			AccessToken: tokenValue,
-		})
-		if err != nil {
-			// 验证失败，允许通过（不设置用户信息）
-			log.Debugw("token verification failed in optional auth",
-				"path", c.FullPath(),
-				"method", c.Request.Method,
-				"token_source", source,
-				"request_id", requestIDFromContext(c),
-			)
-			c.Next()
-			return
-		}
-
-		if resp == nil || !resp.Valid {
-			// 令牌无效,但允许通过(不设置用户信息)
-			log.Debugw("token invalid in optional auth",
-				"path", c.FullPath(),
-				"method", c.Request.Method,
-				"token_source", source,
-				"request_id", requestIDFromContext(c),
-			)
-			c.Next()
-			return
-		}
-
-		// 将用户信息存入上下文（从 Claims 中读取）
-		if resp.Claims != nil {
-			applyVerifiedClaims(c, resp.Claims)
-		}
-
-		c.Next()
-	}
-}
-
-// RequireRole 要求用户拥有任一角色名（与 route role key 对齐，入参传 name 即可）。
-// 必须在 AuthRequired 之后使用。
-func (m *JWTAuthMiddleware) RequireRole(roleNames ...string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if m.routeAuth == nil {
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
-			c.Abort()
-			return
-		}
-		userID, ok := requestctx.UserID(c)
-		if !ok {
-			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
-		uid := userID.String()
-		sub := "user:" + uid
-		dom := requestctx.TenantIDOrDefault(c)
-		roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
-		if err != nil {
-			log.Errorw("route authorization role lookup failed", "sub", sub, "dom", dom)
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
-			c.Abort()
-			return
-		}
-		want := make(map[string]struct{}, len(roleNames))
-		for _, n := range roleNames {
-			if n == "" {
-				continue
-			}
-			want["role:"+n] = struct{}{}
-		}
-		for _, got := range roles {
-			if _, ok := want[got]; ok {
-				c.Next()
-				return
-			}
-		}
-		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
-		c.Abort()
-	}
-}
-
 // RequirePlatformAdmin 要求用户在当前 domain 或 platform domain 中具备平台管理员角色。
 // 必须在 AuthRequired 之后使用。
 func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
@@ -406,14 +315,4 @@ func requestIDFromContext(c *gin.Context) string {
 		return rid
 	}
 	return ""
-}
-
-// RequireAuth 便捷函数：创建认证必需中间件
-func RequireAuth(tokenService token.TokenApplicationService) gin.HandlerFunc {
-	return NewJWTAuthMiddleware(tokenService, nil).AuthRequired()
-}
-
-// OptionalAuth 便捷函数：创建可选认证中间件
-func OptionalAuth(tokenService token.TokenApplicationService) gin.HandlerFunc {
-	return NewJWTAuthMiddleware(tokenService, nil).AuthOptional()
 }

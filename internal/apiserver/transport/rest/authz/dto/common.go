@@ -18,13 +18,6 @@ type ListResponse struct {
 	Limit   int         `json:"limit,omitempty"`
 }
 
-// ErrorResponse 错误响应
-type ErrorResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
-}
-
 // NewResponse 创建成功响应
 func NewResponse(data interface{}) Response {
 	return Response{
@@ -44,16 +37,4 @@ func NewListResponse(data interface{}, total int64, offset, limit int) ListRespo
 		Offset:  offset,
 		Limit:   limit,
 	}
-}
-
-// NewErrorResponse 创建错误响应
-func NewErrorResponse(code int, message string, err error) ErrorResponse {
-	resp := ErrorResponse{
-		Code:    code,
-		Message: message,
-	}
-	if err != nil {
-		resp.Error = err.Error()
-	}
-	return resp
 }
