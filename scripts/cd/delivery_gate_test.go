@@ -53,6 +53,60 @@ func TestDeliveryProbeContracts(t *testing.T) {
 	}
 }
 
+func TestRuntimeProvenanceContracts(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(path string) string {
+		t.Helper()
+		body, err := os.ReadFile(filepath.Join(repoRoot, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(body)
+	}
+
+	makefile := read("Makefile")
+	dockerfile := read("build/docker/Dockerfile")
+	serverCheck := read(".github/workflows/server-check.yml")
+	for _, token := range []string{
+		"VERSION_PACKAGE := github.com/FangcunMount/iam/v2/pkg/version",
+		"$(VERSION_PACKAGE).GitVersion",
+		"$(VERSION_PACKAGE).BuildDate",
+		"$(VERSION_PACKAGE).GitCommit",
+	} {
+		if !strings.Contains(makefile, token) {
+			t.Fatalf("Makefile does not inject runtime provenance token %s", token)
+		}
+	}
+	if strings.Contains(makefile, "-X main.GitCommit") {
+		t.Fatal("Makefile still injects the nonexistent main.GitCommit symbol")
+	}
+	for _, symbol := range []string{
+		"github.com/FangcunMount/iam/v2/pkg/version.GitVersion",
+		"github.com/FangcunMount/iam/v2/pkg/version.BuildDate",
+		"github.com/FangcunMount/iam/v2/pkg/version.GitCommit",
+	} {
+		if !strings.Contains(dockerfile, symbol) {
+			t.Fatalf("Dockerfile does not inject %s", symbol)
+		}
+	}
+	if strings.Contains(dockerfile, "-X main.GitCommit") {
+		t.Fatal("Dockerfile still injects the nonexistent main.GitCommit symbol")
+	}
+	for _, token := range []string{
+		"{{.Config.Image}}",
+		"/version",
+		"gitCommit",
+		"process_start_time_seconds",
+	} {
+		if !strings.Contains(serverCheck, token) {
+			t.Fatalf("production server check is missing runtime provenance token %q", token)
+		}
+	}
+}
+
 func TestDeliveryProbeGateMatrix(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {

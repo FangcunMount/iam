@@ -34,9 +34,9 @@ ARG GIT_COMMIT
 
 RUN go build \
     -ldflags "-s -w \
-        -X main.Version=${VERSION} \
-        -X main.BuildTime=${BUILD_TIME} \
-        -X main.GitCommit=${GIT_COMMIT}" \
+        -X github.com/FangcunMount/iam/v2/pkg/version.GitVersion=${VERSION} \
+        -X github.com/FangcunMount/iam/v2/pkg/version.BuildDate=${BUILD_TIME} \
+        -X github.com/FangcunMount/iam/v2/pkg/version.GitCommit=${GIT_COMMIT}" \
     -o apiserver \
     ./cmd/apiserver/
 
