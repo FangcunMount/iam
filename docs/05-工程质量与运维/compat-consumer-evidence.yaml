@@ -9,6 +9,28 @@ scope:
   limitations:
     - GitHub code search returned HTTP 429 for part of the query set; local workspace scans covered the missing exact symbols.
     - Static scans cannot prove absence in unlisted private forks, old binaries, runtime gateway traffic, or external SDK consumers.
+rta_scan:
+  iam_sha: fa982eae2d47b2ae981204bf62d7b0e8097f5480
+  command: go run golang.org/x/tools/cmd/deadcode@latest -test ./...
+  classifications:
+    internal_runtime:
+      new_removal_candidates_found: false
+      retained_interface_method: internal/apiserver/infra/token/keyset.RSAKeyGeneratorWithStorage.SupportedAlgorithms
+      retained_test_surface: internal/apiserver/testhelpers.ProfileRepoStub
+    public_sdk:
+      repository_consumers:
+        - qs-server
+        - seeddata-runner
+      latest_published_tag_at_scan: v2.0.9
+      decision: Do not remove RTA-only candidates without a deprecation and major-version plan.
+    other_public_packages:
+      packages:
+        - pkg/app
+        - pkg/auth
+        - pkg/flag
+        - pkg/uow/gorm
+      external_exact_references_found: false
+      decision: Published v2 API surface; static absence is insufficient for removal.
 repositories:
   iam:
     sha: 246abde245b65e0c3d5f5ceee12ae6f30c6f43f3

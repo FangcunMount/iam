@@ -262,6 +262,9 @@ def check_readiness_facts() -> None:
     for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready", "/debug/modules?view=canonical", '"module_states"'):
         if token not in server_check:
             fail(f"server-check probe contract is missing {token}")
+    for token in ("/version", "gitCommit", "process_start_time_seconds", "{{.Config.Image}}"):
+        if token not in server_check:
+            fail(f"server-check runtime provenance contract is missing {token}")
     for fact in (
         "`/healthz`",
         "`/readyz`",
@@ -490,6 +493,15 @@ def check_compatibility_retirement_evidence() -> None:
     missing = required_candidates - candidates.keys()
     if missing:
         fail(f"compatibility consumer evidence is missing candidates: {sorted(missing)}")
+
+    rta_scan = evidence.get("rta_scan", {})
+    if not re.fullmatch(r"[0-9a-f]{40}", rta_scan.get("iam_sha", "")):
+        fail("compatibility evidence is missing the RTA scan IAM SHA")
+    classifications = rta_scan.get("classifications", {})
+    if classifications.get("internal_runtime", {}).get("new_removal_candidates_found") is not False:
+        fail("compatibility evidence no longer records the internal runtime RTA result")
+    if classifications.get("public_sdk", {}).get("latest_published_tag_at_scan") != "v2.0.9":
+        fail("compatibility evidence is missing the published SDK version boundary")
 
     workflow = (ROOT / ".github/workflows/server-check.yml").read_text(encoding="utf-8")
     for metric in (
