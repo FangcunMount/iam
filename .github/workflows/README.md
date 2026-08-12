@@ -131,7 +131,7 @@ Build and Push Docker Image
 ```bash
 go test ./internal/apiserver/infra/mysql/... -run "Concurrent|Concurrency" -v -count=1
 go test ./internal/pkg/migration -run "TestJWKSSingleActiveMigrationMySQL" -v -count=1
-go test ./internal/pkg/migration -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL|TestRetireUnusedAuditTablesMigrationMySQL" -v -count=1
+go test ./internal/pkg/migration -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL|TestRetireUnusedAuditTablesMigrationMySQL|TestRetireLegacyAuthNTablesMigrationMySQL" -v -count=1
 go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" -v -count=1
 go test ./internal/apiserver/maintenance -run "TestAuthNLegacyReconciliationMySQL" -v -count=1
 go test ./scripts/dbops -run "TestLegacyRetirementPreflightAuthNMySQL" -v -count=1
@@ -179,13 +179,13 @@ go test ./scripts/dbops -run "TestLegacyRetirementPreflightAuthNMySQL" -v -count
 - restore 拒绝路径分隔符、符号链接、缺失文件和损坏 gzip；不会自动触发生产恢复。
 - `mysqldump`/`mysql` 的原始 stderr 不进入工作流输出，避免 SQL、地址或凭据泄露。
 - Identity 直接退役是一次性例外：业务所有者已明确放弃旧表到 canonical 表的数据对账，脚本不会写 `profiles/profile_links`；它仍要求指定两小时内的完整备份、`version=18, dirty=0`、零数据库对象依赖和显式确认令牌。删除后由 `000019` 幂等登记版本 19。
-- AuthN 对账和补缺共用 `iam-maintenance reconcile-authn-legacy`：canonical 表为权威，只允许普通 `INSERT` 补缺。format v5 将旧 OAuth `(provider, app_id, idp_identifier)` 迁移为带 `legacy_identifier_semantics=openid_or_unionid` 标记的 LoginIdentity；apply 只提交有界写批，不在持有本批写集时重复全量扫描，最终资格必须由新快照 verify 证明。整个 dry-run/apply/verify 生命周期持有 MySQL server-side named lock；即使外层 SSH/job 超时但容器进程尚未退出，后续重叠执行也会立即 fail closed。无 canonical 权威的跨 owner 重复键、无效键和未知类型 fail closed，已有 canonical owner 不被覆盖。缺少 `auth_accounts` 的凭据因旧查询本就依赖 JOIN 而标记为 runtime-unreachable，只保留聚合证据并由执行前完整备份承接历史恢复需求。维护程序、SSH 命令和 job 的预算分别为 15、20、25 分钟，逐层保留退出余量。该操作不删除旧表，也不等于已取得 `000023` 的生产 DROP 证据。
+- AuthN 对账和补缺共用 `iam-maintenance reconcile-authn-legacy`：canonical 表为权威，只允许普通 `INSERT` 补缺。format v5 将旧 OAuth `(provider, app_id, idp_identifier)` 迁移为带 `legacy_identifier_semantics=openid_or_unionid` 标记的 LoginIdentity；apply 只提交有界写批，最终资格必须由新快照 verify 证明。整个生命周期持有 MySQL server-side named lock。无 canonical 权威的跨 owner 重复键、无效键和未知类型 fail closed，已有 canonical owner 不被覆盖。缺少 `auth_accounts` 的凭据因旧查询本就依赖 JOIN 而标记为 runtime-unreachable，由执行前完整备份承接历史恢复需求。该准备操作不删除旧表；`000023` 的生产 DROP 仍要求 fresh verify、`authn_tables` owner waiver、零依赖、完整备份和独立发布验收。
 
 MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → Identity dry-run/apply → 数据断言，并独立运行 AuthN dry-run/apply/冲突回滚语义测试；不接触生产数据，也不上传备份 artifact。
 
 历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。手动执行 `db-ops.yml` 的 `status` 时会在普通数据库状态检查后运行 format v5 预检，并要求调用者通过 `image_sha` 记录当前生产镜像；`retirement_scope` 可选择 `identity/schema_version/platform/audit/authn/all`，发布时只运行当前批次，避免无关大表对账占用窗口。AuthN scope 的数据资格来自同一任务刚完成的 format v5 verify，避免重复运行已被 v5 取代且可能超时的旧 AuthN parity；其余 scope 仍使用预检内置 parity。定时备份、`backup` 和 `restore` 不运行该预检。脚本不执行删表或数据修复，只输出 migration、精确行数、结构指纹、列契约、表 I/O、依赖计数、旧表到 canonical 表的聚合对账和逐表 eligibility；表 I/O 优先读取 Performance Schema，再降级到 `sys.schema_table_statistics`，阿里云 RDS 若隐藏两者则按官方 Object statistics 契约读取启用了 `opt_tablestat` 的 `information_schema.TABLE_STATISTICS`。三者均不可用仍 fail closed；零 I/O 不能脱离计数器生命周期与证据窗口解释为“可删除”。
 
-`retirement_io_waiver` 是业务所有者明确批准后的审计开关。`platform_tables` 只允许 `schema_version/tenants/data_dictionary`，`audit_tables` 只允许 `operation_logs/audit_logs/auth_token_audit` 在 Performance Schema 或表 I/O 统计不可用时继续评估。两者都不能覆盖非零 I/O、dirty migration、版本门禁或数据库对象依赖，也不能用于 AuthN 或 Identity。默认值 `none` 保持 fail closed。
+`retirement_io_waiver` 是业务所有者明确批准后的审计开关。`platform_tables` 只允许 `schema_version/tenants/data_dictionary`，`audit_tables` 只允许 `operation_logs/audit_logs/auth_token_audit`，`authn_tables` 只允许 `auth_accounts/auth_credentials_legacy` 在 Performance Schema 或表 I/O 统计不可用时继续评估。任何 waiver 都不能覆盖非零 I/O、dirty migration、版本门禁、数据对账失败或数据库对象依赖，也不能用于 Identity。默认值 `none` 保持 fail closed。
 
 ## server-check.yml
 

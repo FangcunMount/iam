@@ -138,7 +138,7 @@ validate_configuration() {
     *) fail "retirement scope is invalid"; return 1 ;;
   esac
   case "$OWNER_IO_WAIVER" in
-    none|platform_tables|audit_tables) ;;
+    none|platform_tables|audit_tables|authn_tables) ;;
     *) fail "owner I/O waiver is invalid"; return 1 ;;
   esac
   if [ -n "$AUTHN_EVIDENCE_FILE" ]; then
@@ -930,6 +930,9 @@ owner_io_waiver_allows() {
     audit_tables)
       [[ " operation_logs audit_logs auth_token_audit " == *" $table "* ]]
       ;;
+    authn_tables)
+      [[ " auth_accounts auth_credentials_legacy " == *" $table "* ]]
+      ;;
     *)
       return 1
       ;;
@@ -982,7 +985,7 @@ emit_simple_eligibility() {
 }
 
 emit_auth_account_eligibility() {
-  local present blocker state key value
+  local present blocker state key value evidence
   present="$(table_present auth_accounts)"
   if [ "$present" != "1" ]; then
     printf 'eligibility\tauth_accounts\tstate=already_absent\tevidence=instantaneous\n'
@@ -994,7 +997,8 @@ emit_auth_account_eligibility() {
     return
   fi
   if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
-    printf 'eligibility\tauth_accounts\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5\tevidence=instantaneous\n'
+    evidence="$(io_evidence_mode auth_accounts)"
+    printf 'eligibility\tauth_accounts\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5\tevidence=%s\n' "$evidence"
     return
   fi
   state="$(cached_parity_state auth_accounts_to_login_identities)"
@@ -1009,11 +1013,12 @@ emit_auth_account_eligibility() {
       return
     fi
   done
-  printf 'eligibility\tauth_accounts\tstate=eligible\trepository_gate=authn_retirement_migration\tevidence=instantaneous\n'
+  evidence="$(io_evidence_mode auth_accounts)"
+  printf 'eligibility\tauth_accounts\tstate=eligible\trepository_gate=authn_retirement_migration\tevidence=%s\n' "$evidence"
 }
 
 emit_auth_credential_eligibility() {
-  local present old_shape blocker state key value eligible mapped
+  local present old_shape blocker state key value eligible mapped evidence
   present="$(table_present auth_credentials_legacy)"
   if [ "$present" != "1" ]; then
     old_shape="$(mysql_query "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth_credentials' AND COLUMN_NAME = 'account_id';")"
@@ -1030,7 +1035,8 @@ emit_auth_credential_eligibility() {
     return
   fi
   if [ "$AUTHN_V5_VERIFIED" -eq 1 ]; then
-    printf 'eligibility\tauth_credentials_legacy\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5\tevidence=instantaneous\n'
+    evidence="$(io_evidence_mode auth_credentials_legacy)"
+    printf 'eligibility\tauth_credentials_legacy\tstate=eligible\trepository_gate=authn_retirement_migration\tdata_gate=iam_maintenance_format_v5\tevidence=%s\n' "$evidence"
     return
   fi
   state="$(cached_parity_state legacy_credentials_to_authn)"
@@ -1065,7 +1071,8 @@ emit_auth_credential_eligibility() {
       return
     fi
   done
-  printf 'eligibility\tauth_credentials_legacy\tstate=eligible\trepository_gate=authn_retirement_migration\tevidence=instantaneous\n'
+  evidence="$(io_evidence_mode auth_credentials_legacy)"
+  printf 'eligibility\tauth_credentials_legacy\tstate=eligible\trepository_gate=authn_retirement_migration\tevidence=%s\n' "$evidence"
 }
 
 emit_eligibility() {

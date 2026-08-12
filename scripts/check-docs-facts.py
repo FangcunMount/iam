@@ -71,8 +71,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 22:
-        fail(f"documented latest migration is 22, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 23:
+        fail(f"documented latest migration is 23, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -145,6 +145,17 @@ def check_migrations() -> None:
     ):
         if token not in audit_retirement:
             fail(f"migration 000022 is missing {token}")
+    authn_retirement = (
+        directory / "000023_retire_legacy_authn_tables.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "iam_authn_schema_assertion",
+        "iam_authn_data_assertion",
+        "iam_authn_dependency_assertion",
+        "DROP TABLE IF EXISTS auth_credentials_legacy, auth_accounts",
+    ):
+        if token not in authn_retirement:
+            fail(f"migration 000023 is missing {token}")
 
 def check_database_schema_sources() -> None:
     retired_snapshot = ROOT / "configs/mysql/schema.sql"
@@ -403,6 +414,7 @@ def check_database_operations_facts() -> None:
         "retirement_io_waiver:",
         "IAM_RETIREMENT_OWNER_IO_WAIVER",
         "audit_tables",
+        "authn_tables",
         "retire-identity-dry-run",
         "retire-identity-apply",
         "reconcile-authn-dry-run",
@@ -501,6 +513,7 @@ def check_database_operations_facts() -> None:
         "Run retirement and full-chain migration tests",
         "TestRetireUnusedPlatformTablesMigrationMySQL",
         "TestRetireUnusedAuditTablesMigrationMySQL",
+        "TestRetireLegacyAuthNTablesMigrationMySQL",
         "TestFullMigrationChainAndBootstrapMySQL",
         "TestAuthNLegacyReconciliationMySQL",
         "TestLegacyRetirementPreflightAuthNMySQL",

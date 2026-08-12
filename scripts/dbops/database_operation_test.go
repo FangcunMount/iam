@@ -608,7 +608,7 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 		"Verify AuthN Reconciliation", "IAM_DB_OPS_AUTHN_EVIDENCE_FILE", "IAM_RETIREMENT_AUTHN_EVIDENCE_FILE",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
-		"retirement_io_waiver:", "IAM_RETIREMENT_OWNER_IO_WAIVER",
+		"retirement_io_waiver:", "IAM_RETIREMENT_OWNER_IO_WAIVER", "authn_tables",
 		"audit_tables",
 		"retire-identity-dry-run", "retire-identity-apply",
 		"reconcile-authn-dry-run", "reconcile-authn-verify", "reconcile-authn-apply",

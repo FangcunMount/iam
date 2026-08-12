@@ -277,6 +277,35 @@ esac
 		t.Fatalf("platform waiver unexpectedly admitted AuthN:\n%s", authnWaiverOutput)
 	}
 
+	authnOwnerWaiverCmd := exec.Command("/bin/bash", script)
+	authnOwnerWaiverCmd.Env = append(cmd.Env,
+		"FAKE_IO_UNAVAILABLE=1",
+		"IAM_RETIREMENT_SCOPE=authn",
+		"IAM_RETIREMENT_OWNER_IO_WAIVER=authn_tables",
+	)
+	authnOwnerWaiverOutput, err := authnOwnerWaiverCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(authnOwnerWaiverOutput))
+	for _, table := range []string{"auth_accounts", "auth_credentials_legacy"} {
+		want := "eligibility\t" + table + "\tstate=eligible\trepository_gate=authn_retirement_migration\tevidence=owner_io_waiver"
+		if !strings.Contains(string(authnOwnerWaiverOutput), want) {
+			t.Fatalf("AuthN owner waiver did not admit %s with unavailable I/O:\n%s", table, authnOwnerWaiverOutput)
+		}
+	}
+
+	authnNonzeroWaiverCmd := exec.Command("/bin/bash", script)
+	authnNonzeroWaiverCmd.Env = append(cmd.Env,
+		"FAKE_IO_READS=1",
+		"IAM_RETIREMENT_SCOPE=authn",
+		"IAM_RETIREMENT_OWNER_IO_WAIVER=authn_tables",
+	)
+	authnNonzeroWaiverOutput, err := authnNonzeroWaiverCmd.CombinedOutput()
+	requireNoError(t, err)
+	assertSafeOutput(t, string(authnNonzeroWaiverOutput))
+	if !strings.Contains(string(authnNonzeroWaiverOutput), "eligibility\tauth_accounts\tstate=blocked\treason=instantaneous_io_nonzero") {
+		t.Fatalf("AuthN owner waiver unexpectedly covered nonzero I/O:\n%s", authnNonzeroWaiverOutput)
+	}
+
 	sysFallbackCmd := exec.Command("/bin/bash", script)
 	sysFallbackCmd.Env = append(cmd.Env,
 		"FAKE_IO_UNAVAILABLE=1",

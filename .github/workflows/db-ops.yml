@@ -52,6 +52,7 @@ on:
           - none
           - platform_tables
           - audit_tables
+          - authn_tables
       confirmation:
         description: Exact destructive-operation confirmation token; required for apply only
         required: false
