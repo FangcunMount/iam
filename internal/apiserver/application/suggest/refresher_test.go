@@ -47,7 +47,7 @@ func TestProfileIndexRefresherFailureDoesNotAdvanceCursor(t *testing.T) {
 	wantErr := errors.New("import failed")
 	loader := &recordingSuggestLoader{
 		delta: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(1, "profile", nil, 1, 1, 0, nil),
+			domainsuggest.NewProfileSearchTerm(1, "profile", nil, 1, 0, nil),
 		},
 	}
 	refresher := NewProfileIndexRefresher(loader, &suggestRuntimeStub{importErr: wantErr}, nil)

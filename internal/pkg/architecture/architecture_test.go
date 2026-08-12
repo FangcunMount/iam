@@ -1100,6 +1100,28 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	})
 }
 
+func TestSuggestRetiredNumericTenantFieldsDoNotReturn(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, rel := range []string{
+		"internal/apiserver/domain/suggest/principal.go",
+		"internal/apiserver/domain/suggest/profile.go",
+		"internal/apiserver/domain/suggest/scope.go",
+		"internal/apiserver/infra/mysql/suggest/loader.go",
+	} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range []string{"TenantID int64", "TenantIDs", "tenant_id"} {
+			if strings.Contains(string(data), token) {
+				t.Fatalf("%s contains retired numeric suggest tenant field %q; use TenantDomain for authorization and OrgIDs for data visibility", rel, token)
+			}
+		}
+	}
+}
+
 func TestDataAccessPackagesDoNotDependOnTransportImplementations(t *testing.T) {
 	t.Parallel()
 

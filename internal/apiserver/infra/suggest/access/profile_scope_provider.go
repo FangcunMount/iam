@@ -32,8 +32,8 @@ func NewOperatingProfileAccessScopeProvider(
 //
 // 权限语义：
 // - 平台域上的平台管理员：AllProfile；
-// - 业务租户域上持有 tenant_admin / super_admin（租户级）：TenantIDs（需 principal.TenantID>0）；
-// - 其余主体：仅 OperatorID + principal.OrgIDs，不默认授予 TenantIDs；
+// - 业务租户域上持有 tenant_admin / super_admin（租户级）：合并 Principal 已有的 OrgIDs；
+// - 其余主体：仅 OperatorID + principal.OrgIDs；
 // - routeAuth 不可用：仅 OperatorID + OrgIDs。
 func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
 	ctx context.Context,

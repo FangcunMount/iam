@@ -46,14 +46,10 @@ func TestOperatingProfileAccessScope_routeAuthNil(t *testing.T) {
 	p := NewOperatingProfileAccessScopeProvider(nil, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
-		TenantID:     1,
 		TenantDomain: "fangcun",
 	})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(scope.TenantIDs) != 0 {
-		t.Fatalf("TenantIDs = %v, want empty", scope.TenantIDs)
 	}
 	if scope.OperatorID != 100 || scope.AllowMobileSearch {
 		t.Fatalf("scope = %#v", scope)
@@ -66,7 +62,6 @@ func TestOperatingProfileAccessScope_platformAdmin(t *testing.T) {
 	}, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
-		TenantID:     1,
 		TenantDomain: "fangcun",
 	})
 	if err != nil {
@@ -93,28 +88,21 @@ func TestOperatingProfileAccessScope_tenantAdminGetsOrgIDs(t *testing.T) {
 	if len(scope.OrgIDs) != 1 || scope.OrgIDs[0] != 1 {
 		t.Fatalf("OrgIDs = %v", scope.OrgIDs)
 	}
-	if len(scope.TenantIDs) != 0 {
-		t.Fatalf("TenantIDs = %v, want empty", scope.TenantIDs)
-	}
 	if !scope.AllowMobileSearch {
 		t.Fatal("AllowMobileSearch false")
 	}
 }
 
-func TestOperatingProfileAccessScope_plainUserNoTenantIDs(t *testing.T) {
+func TestOperatingProfileAccessScope_plainUserUsesOperatorScope(t *testing.T) {
 	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
 		tenantRoles: map[string][]string{"fangcun": {"role:user"}},
 	}, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
-		TenantID:     1,
 		TenantDomain: "fangcun",
 	})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(scope.TenantIDs) != 0 {
-		t.Fatalf("TenantIDs = %v, want empty for plain user", scope.TenantIDs)
 	}
 	if scope.OperatorID != 100 {
 		t.Fatalf("OperatorID = %d", scope.OperatorID)
@@ -140,7 +128,6 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 		principal      domainsuggest.OperatingPrincipal
 		visibility     appsuggest.ProfileVisibilityIDsResolver
 		wantAll        bool
-		wantTenantIDs  int
 		wantOrgIDs     int
 		wantOperatorID int64
 		wantProfileIDs int
@@ -196,9 +183,6 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 			if scope.AllProfile != tc.wantAll {
 				t.Fatalf("AllProfile = %v, want %v", scope.AllProfile, tc.wantAll)
 			}
-			if len(scope.TenantIDs) != tc.wantTenantIDs {
-				t.Fatalf("TenantIDs = %v, want len %d", scope.TenantIDs, tc.wantTenantIDs)
-			}
 			if len(scope.OrgIDs) != tc.wantOrgIDs {
 				t.Fatalf("OrgIDs = %v, want len %d", scope.OrgIDs, tc.wantOrgIDs)
 			}
@@ -221,7 +205,6 @@ func TestOperatingProfileAccessScope_visibilityMerge(t *testing.T) {
 	}, visibilityStub{ids: []int64{7, 9, 7}})
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
-		TenantID:     1,
 		TenantDomain: "fangcun",
 	})
 	if err != nil {

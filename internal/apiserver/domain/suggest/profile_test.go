@@ -3,7 +3,7 @@ package suggest
 import "testing"
 
 func TestProfileSearchTermNormalizes(t *testing.T) {
-	term := NewProfileSearchTerm(42, " 张三 ", []string{" 13800138000 ", "", "13900139000"}, 7, 1, 0, []int64{99, 99, 0})
+	term := NewProfileSearchTerm(42, " 张三 ", []string{" 13800138000 ", "", "13900139000"}, 7, 0, []int64{99, 99, 0})
 
 	if term.DisplayName != "张三" {
 		t.Fatalf("DisplayName = %q, want 张三", term.DisplayName)
@@ -11,8 +11,8 @@ func TestProfileSearchTermNormalizes(t *testing.T) {
 	if len(term.Mobiles) != 2 || term.Mobiles[0] != "13800138000" || term.Mobiles[1] != "13900139000" {
 		t.Fatalf("Mobiles = %#v, want normalized non-empty mobiles", term.Mobiles)
 	}
-	if term.ProfileID != 42 || term.Weight != 7 || term.TenantID != 1 || term.OrgID != 0 {
-		t.Fatalf("fields = (%d,%d,%d,%d)", term.ProfileID, term.Weight, term.TenantID, term.OrgID)
+	if term.ProfileID != 42 || term.Weight != 7 || term.OrgID != 0 {
+		t.Fatalf("fields = (%d,%d,%d)", term.ProfileID, term.Weight, term.OrgID)
 	}
 	if len(term.OwnerOperatorIDs) != 1 || term.OwnerOperatorIDs[0] != 99 {
 		t.Fatalf("OwnerOperatorIDs = %#v", term.OwnerOperatorIDs)

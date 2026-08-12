@@ -20,7 +20,7 @@ func TestServiceSuggestProfileReturnsEmptyWhenRuntimeHasNoCurrentIndex(t *testin
 	service := NewServiceWithRuntime(Config{}, &suggestRuntimeStub{}, scopeStub{}, nil)
 
 	got, err := service.SuggestProfile(context.Background(), SuggestProfileRequest{
-		Principal: domainsuggest.OperatingPrincipal{OperatorID: 1, TenantID: 1, TenantDomain: "fangcun"},
+		Principal: domainsuggest.OperatingPrincipal{OperatorID: 1, TenantDomain: "fangcun"},
 		Keyword:   "张",
 	})
 	if err != nil {
@@ -35,7 +35,7 @@ func TestProfileIndexRefresherFullSyncReplacesRuntimeIndex(t *testing.T) {
 	runtime := &suggestRuntimeStub{}
 	loader := &suggestLoaderStub{
 		full: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
+			domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 0, nil),
 		},
 	}
 	refresher := NewProfileIndexRefresher(loader, runtime, nil)
@@ -57,7 +57,7 @@ func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *test
 	runtime := &suggestRuntimeStub{importErr: wantErr}
 	loader := &suggestLoaderStub{
 		delta: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
+			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 0, nil),
 		},
 	}
 	refresher := NewProfileIndexRefresher(loader, runtime, nil)
@@ -72,12 +72,12 @@ func TestProfileIndexRefresherDeltaSyncReturnsRuntimeNotInitializedError(t *test
 func TestProfileIndexRefresherDeltaSyncAppendsToCurrentIndex(t *testing.T) {
 	runtime := &suggestRuntimeStub{
 		current: suggestIndexStub{terms: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
+			domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, nil),
 		}},
 	}
 	loader := &suggestLoaderStub{
 		delta: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
+			domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 0, nil),
 		},
 	}
 	refresher := NewProfileIndexRefresher(loader, runtime, nil)
@@ -119,7 +119,7 @@ func (r *suggestRuntimeStub) Current() ProfileSuggestionIndex {
 func (r *suggestRuntimeStub) Replace(candidates []domainsuggest.ProfileSearchTerm) ProfileSuggestionIndex {
 	r.replaced = append([]domainsuggest.ProfileSearchTerm(nil), candidates...)
 	r.current = suggestIndexStub{terms: []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, nil),
 	}}
 	return r.current
 }

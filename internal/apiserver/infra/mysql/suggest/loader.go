@@ -1,6 +1,6 @@
 // Package suggest 从 MySQL 加载档案联想索引项。
 // 默认 SQL 为过渡读模型：org_id 来自 PlaceholderOrgID（profiles 表尚无 org 列），
-// tenant_id 固定为 0（授权域由 JWT tenant domain 承担，不入索引），owner_operator_ids 来自 profiles.created_by。
+// 授权域由 JWT tenant domain 承担，不进入索引；owner_operator_ids 来自 profiles.created_by。
 package suggest
 
 import (
@@ -20,7 +20,6 @@ const (
 SELECT
   c.id,
   c.name,
-  0 AS tenant_id,
   %d AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
@@ -51,7 +50,6 @@ eligible_profiles AS (
 SELECT
   c.id,
   c.name,
-  0 AS tenant_id,
   %d AS org_id,
   GROUP_CONCAT(DISTINCT u.phone) AS mobiles,
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
@@ -63,13 +61,12 @@ INNER JOIN users u ON u.id = g.user_id AND u.deleted_at IS NULL
 WHERE c.deleted_at IS NULL
 GROUP BY c.id, c.name, c.created_by
 )
-SELECT id, name, tenant_id, org_id, mobiles, owner_operator_ids, weight
+SELECT id, name, org_id, mobiles, owner_operator_ids, weight
 FROM eligible_profiles
 UNION ALL
 SELECT
   c.id,
   '' AS name,
-  0 AS tenant_id,
   %d AS org_id,
   '' AS mobiles,
   CAST(c.created_by AS CHAR) AS owner_operator_ids,
@@ -144,7 +141,6 @@ func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.Pr
 type record struct {
 	ID               int64   `gorm:"column:id"`
 	Name             string  `gorm:"column:name"`
-	TenantID         int64   `gorm:"column:tenant_id"`
 	OrgID            int64   `gorm:"column:org_id"`
 	Mobiles          *string `gorm:"column:mobiles"`
 	OwnerOperatorIDs *string `gorm:"column:owner_operator_ids"`
@@ -185,7 +181,6 @@ func (r record) profileSearchTerm() domainsuggest.ProfileSearchTerm {
 		r.Name,
 		splitMobiles(mobiles),
 		r.Weight,
-		r.TenantID,
 		r.OrgID,
 		splitInt64CSV(owners),
 	)

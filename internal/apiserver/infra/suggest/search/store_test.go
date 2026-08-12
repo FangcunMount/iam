@@ -8,10 +8,10 @@ import (
 
 func TestSuggestByPrefixAndPinyin(t *testing.T) {
 	terms := []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(3, "张三丰", []string{"18888888888"}, 8, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13900000000"}, 5, 1, 0, nil), // duplicate ID should collapse by weight
+		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 0, nil),
+		domainsuggest.NewProfileSearchTerm(3, "张三丰", []string{"18888888888"}, 8, 0, nil),
+		domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 3, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13900000000"}, 5, 0, nil),
 	}
 
 	store := Load(terms)
@@ -38,9 +38,9 @@ func TestSuggestByPrefixAndPinyin(t *testing.T) {
 
 func TestSuggestNumericDedupAndSort(t *testing.T) {
 	terms := []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13900139000"}, 5, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 10, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(3, "王五", []string{"18800001111"}, 1, 1, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13900139000"}, 5, 0, nil),
+		domainsuggest.NewProfileSearchTerm(2, "李四", []string{"13900139000"}, 10, 0, nil),
+		domainsuggest.NewProfileSearchTerm(3, "王五", []string{"18800001111"}, 1, 0, nil),
 	}
 
 	store := Load(terms)
@@ -57,8 +57,8 @@ func TestSuggestNumericDedupAndSort(t *testing.T) {
 
 func TestSuggestProfileScopeFiltersByOrg(t *testing.T) {
 	terms := []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, 1, nil),
-		domainsuggest.NewProfileSearchTerm(2, "李四", nil, 3, 0, 2, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, nil),
+		domainsuggest.NewProfileSearchTerm(2, "李四", nil, 3, 2, nil),
 	}
 	store := Load(terms)
 	scope := domainsuggest.ProfileAccessScope{OrgIDs: []int64{1}}
@@ -70,8 +70,8 @@ func TestSuggestProfileScopeFiltersByOrg(t *testing.T) {
 
 func TestSuggestProfileScopeFiltersByOrgOperatorProfileIDs(t *testing.T) {
 	terms := []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张伟", nil, 5, 1, 10, []int64{200}),
-		domainsuggest.NewProfileSearchTerm(2, "张磊", nil, 5, 1, 20, []int64{100}),
+		domainsuggest.NewProfileSearchTerm(1, "张伟", nil, 5, 10, []int64{200}),
+		domainsuggest.NewProfileSearchTerm(2, "张磊", nil, 5, 20, []int64{100}),
 	}
 	store := Load(terms)
 	q := domainsuggest.NewQuery("张", 5, 50, 8, 0)
@@ -99,8 +99,8 @@ func TestSuggestProfileScopeFiltersByOrgOperatorProfileIDs(t *testing.T) {
 
 func TestSuggestProfileScopeFiltersByOwnerOperator(t *testing.T) {
 	terms := []domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张伟", nil, 5, 1, 0, []int64{100}),
-		domainsuggest.NewProfileSearchTerm(2, "张磊", nil, 5, 1, 0, []int64{200}),
+		domainsuggest.NewProfileSearchTerm(1, "张伟", nil, 5, 0, []int64{100}),
+		domainsuggest.NewProfileSearchTerm(2, "张磊", nil, 5, 0, []int64{200}),
 	}
 	store := Load(terms)
 	q := domainsuggest.NewQuery("张", 5, 50, 8, 0)
@@ -118,10 +118,10 @@ func TestSuggestProfileScopeFiltersByOwnerOperator(t *testing.T) {
 
 func TestImportTermsClearsStaleTrieKeys(t *testing.T) {
 	s := Load([]domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, nil),
 	})
 	s.ImportTerms([]domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "李四", nil, 5, 1, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "李四", nil, 5, 0, nil),
 	})
 	all := domainsuggest.ProfileAccessScope{AllProfile: true}
 	out := s.SuggestProfile(domainsuggest.NewQuery("张", 5, 50, 8, 0), all)
@@ -136,10 +136,10 @@ func TestImportTermsClearsStaleTrieKeys(t *testing.T) {
 
 func TestImportTermsEmptyDisplayRemovesProfile(t *testing.T) {
 	s := Load([]domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 1, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, nil),
 	})
 	s.ImportTerms([]domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "", nil, 5, 1, 0, nil),
+		domainsuggest.NewProfileSearchTerm(1, "", nil, 5, 0, nil),
 	})
 	all := domainsuggest.ProfileAccessScope{AllProfile: true}
 	out := s.SuggestProfile(domainsuggest.NewQuery("张", 5, 50, 8, 0), all)
