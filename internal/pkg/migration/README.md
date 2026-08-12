@@ -57,6 +57,8 @@
 `auth_accounts/auth_credentials_legacy`，在最终原子 DROP 前重新断言 canonical schema、
 format v5 已覆盖的数据映射和数据库对象依赖。缺少旧账号、因历史 JOIN 本就不可达的
 凭据由发布前验证过的完整备份承接；down 明确 fail closed，不创建无法还原事实的空表。
+生产已验收 `version=23, dirty=0` 且两张旧表不存在；canonical 待补数据在发布前为 0，
+因此发布后不恢复旧表、不重新 merge runtime-unreachable 历史凭据。
 
 如果某个环境已经用旧的 `000002` 启动失败，`schema_migrations` 可能处于
 `version=2, dirty=1`。只有在确认失败点是“`profile_links` 不存在导致旧 `000002`
