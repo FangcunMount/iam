@@ -512,6 +512,34 @@ def check_compatibility_retirement_evidence() -> None:
     ):
         if metric not in workflow:
             fail(f"production compatibility metric snapshot is missing {metric}")
+    for token in (
+        "IAM_COMPAT_SNAPSHOT_V1_BEGIN",
+        "capture_stdout: true",
+        "scripts/ops/compatibility_observation.py",
+        "require_retirement_ready",
+        "--minimum-days 30",
+        "--maximum-gap-minutes 90",
+        "retention-days: 90",
+    ):
+        if token not in workflow:
+            fail(f"compatibility observation workflow is missing {token}")
+
+    policy = evidence.get("observation_policy", {})
+    expected_policy = {
+        "branch": "main",
+        "cadence_minutes": 30,
+        "artifact_prefix": "iam-compat-v1",
+        "artifact_retention_days": 90,
+        "minimum_window_days": 30,
+        "maximum_gap_minutes": 90,
+        "same_process_start_required": True,
+        "same_runtime_sha_required": True,
+        "restart_or_deploy_resets_window": True,
+        "incomplete_evidence_fails_closed": True,
+    }
+    for key, expected in expected_policy.items():
+        if policy.get(key) != expected:
+            fail(f"compatibility observation policy has wrong {key}: {policy.get(key)!r}")
 
 
 def check_active_docs() -> None:

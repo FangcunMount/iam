@@ -52,13 +52,17 @@ candidates:
       - repository: qs-collection-system
         path: scripts/check-iam-contracts.js
         behavior: Contract guard requires include_revoked.
-    runtime_gate: iam_identity_profile_link_query_total{mode="legacy_active"}
+    runtime_gates:
+      - iam_identity_profile_link_query_total{mode="legacy_active"}
+      - iam_identity_profile_link_query_total{mode="both"}
   module_status_legacy_booleans:
     external_consumers_found: false
     official_monitor:
       path: .github/workflows/server-check.yml
       behavior: Uses /debug/modules?view=canonical and requires module_states.
-    runtime_gate: iam_runtime_debug_modules_requests_total{view="legacy"}
+    runtime_gates:
+      - iam_runtime_debug_modules_requests_total{view="legacy"}
+      - iam_runtime_debug_modules_requests_total{view="combined"}
   suggest_loader_placeholder_tenant_id:
     external_config_references_found: false
     canonical_key: suggest.loader_placeholder_org_id
@@ -82,3 +86,22 @@ candidates:
       - repository: qs-server
         behavior: Imports pkg/sdk/auth/jwks but does not reference JWKSStats.
     release_gate: Public SDK compatibility window and breaking-change release are still required.
+observation_policy:
+  schema_version: 1
+  workflow: .github/workflows/server-check.yml
+  branch: main
+  cadence_minutes: 30
+  artifact_prefix: iam-compat-v1
+  artifact_retention_days: 90
+  minimum_window_days: 30
+  maximum_gap_minutes: 90
+  same_process_start_required: true
+  same_runtime_sha_required: true
+  restart_or_deploy_resets_window: true
+  incomplete_evidence_fails_closed: true
+  runtime_candidates:
+    - rest_profile_link_active
+    - module_status_legacy_booleans
+    - suggest_loader_placeholder_tenant_id
+    - sms_mq_topic_config_and_legacy_publisher
+  public_sdk_gate: Requires a separately evidenced deprecation window and major-version release.
