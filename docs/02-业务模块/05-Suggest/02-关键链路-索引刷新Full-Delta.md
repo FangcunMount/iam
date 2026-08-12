@@ -156,7 +156,7 @@ Cleanup 先 cancel refresh context，再等待 cron stop。具体 SQL 是否能�
 自定义 FullSQL/DeltaSQL 至少返回列：
 
 ```text
-id, name, tenant_id, org_id, mobiles, owner_operator_ids, weight
+id, name, org_id, mobiles, owner_operator_ids, weight
 ```
 
 并保证：

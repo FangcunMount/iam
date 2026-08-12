@@ -2,9 +2,7 @@ package suggest
 
 // ProfileAccessScope 表示权限侧解析后的 Profile 可见范围（不是权限规则本身）。
 type ProfileAccessScope struct {
-	AllProfile bool
-	// TenantIDs Deprecated: 未来 SaaS 授权域隔离预留；当前请使用 OrgIDs（业务组织范围）。
-	TenantIDs         []int64
+	AllProfile        bool
 	OrgIDs            []int64 // 业务组织可见范围，非 IAM tenant。
 	OperatorID        int64
 	ProfileIDs        []int64
@@ -17,7 +15,6 @@ type CompiledProfileAccessScope struct {
 	AllowMobileSearch bool
 	OperatorID        int64
 	profileSet        map[int64]struct{}
-	tenantSet         map[int64]struct{}
 	orgSet            map[int64]struct{}
 }
 
@@ -28,7 +25,6 @@ func CompileProfileAccessScope(s ProfileAccessScope) CompiledProfileAccessScope 
 		AllowMobileSearch: s.AllowMobileSearch,
 		OperatorID:        s.OperatorID,
 		profileSet:        int64SliceToSet(s.ProfileIDs),
-		tenantSet:         int64SliceToSet(s.TenantIDs),
 		orgSet:            int64SliceToSet(s.OrgIDs),
 	}
 }
@@ -65,11 +61,6 @@ func (ScopePolicy) AllowsCompiled(c CompiledProfileAccessScope, term ProfileSear
 	}
 	if c.profileSet != nil {
 		if _, ok := c.profileSet[term.ProfileID]; ok {
-			return true
-		}
-	}
-	if c.tenantSet != nil && term.TenantID > 0 {
-		if _, ok := c.tenantSet[term.TenantID]; ok {
 			return true
 		}
 	}
