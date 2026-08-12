@@ -42,7 +42,8 @@ IMAGE_TAG ?= $(DEPLOY_SHA)
 GO := env -u GOROOT go
 GO_BUILD := $(GO) build
 GO_TEST := $(GO) test
-GO_LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT)"
+VERSION_PACKAGE := github.com/FangcunMount/iam/v2/pkg/version
+GO_LDFLAGS := -ldflags "-X $(VERSION_PACKAGE).GitVersion=$(VERSION) -X $(VERSION_PACKAGE).BuildDate=$(BUILD_TIME) -X $(VERSION_PACKAGE).GitCommit=$(GIT_COMMIT)"
 
 # 目录结构
 BIN_DIR := bin

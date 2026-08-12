@@ -173,7 +173,30 @@ jobs:
             fi
             echo "Canonical module status is available: $module_status"
 
-            compatibility_metrics=$(sudo docker exec iam-apiserver curl -fsS http://127.0.0.1:9080/metrics | grep -E '^iam_(identity_profile_link_query_total|runtime_debug_modules_requests_total|config_compatibility_key_observations_total|authn_sms_publisher_selections_total)' || true)
+            container_image=$(sudo docker inspect --format='{{.Config.Image}}' iam-apiserver)
+            deployed_sha=${container_image##*:}
+            case "$deployed_sha" in
+              [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+              *) echo "Container image is not pinned to a full SHA: $container_image"; exit 1 ;;
+            esac
+            version_body=$(sudo docker exec iam-apiserver curl -fsS http://127.0.0.1:9080/version)
+            if ! printf '%s' "$version_body" | grep -q "\"gitCommit\":\"${deployed_sha}\""; then
+              echo "Runtime version does not match the deployed image SHA"
+              echo "Image: $container_image"
+              echo "Version: $version_body"
+              exit 1
+            fi
+            echo "Runtime version matches deployed image SHA: $deployed_sha"
+
+            all_metrics=$(sudo docker exec iam-apiserver curl -fsS http://127.0.0.1:9080/metrics)
+            process_start_time=$(printf '%s\n' "$all_metrics" | grep '^process_start_time_seconds ' || true)
+            if [ -z "$process_start_time" ]; then
+              echo "Process start time metric is missing"
+              exit 1
+            fi
+            echo "Compatibility observation process identity: $process_start_time"
+
+            compatibility_metrics=$(printf '%s\n' "$all_metrics" | grep -E '^iam_(identity_profile_link_query_total|runtime_debug_modules_requests_total|config_compatibility_key_observations_total|authn_sms_publisher_selections_total)' || true)
             for metric in \
               iam_identity_profile_link_query_total \
               iam_runtime_debug_modules_requests_total \
