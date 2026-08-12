@@ -178,7 +178,7 @@ jobs:
 
           MYSQL_DATABASE=iam_retirement_fixture MYSQL_DBNAME=iam_retirement_fixture \
             go test ./internal/pkg/migration \
-              -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL|TestRetireUnusedAuditTablesMigrationMySQL|TestRetireLegacyAuthNTablesMigrationMySQL" \
+              -run "TestRetireSchemaVersionMigrationMySQL|TestRetireUnusedPlatformTablesMigrationMySQL|TestRetireUnusedAuditTablesMigrationMySQL|TestRetireLegacyAuthNTablesMigrationMySQL|TestRetireSeeddataCleanupTablesMigrationMySQL" \
               -v \
               -count=1 \
               2>&1 | tee test-artifacts/retirement-migration-tests.txt
@@ -205,8 +205,8 @@ jobs:
           export MYSQL_PWD="$MYSQL_PASSWORD"
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
             -e 'DROP DATABASE IF EXISTS iam_dbops_fixture; CREATE DATABASE iam_dbops_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
-          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" iam_dbops_fixture \
-            -e 'CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored"); CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL); INSERT INTO schema_migrations VALUES (23, 0);'
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" "$MYSQL_DBNAME" \
+            -e 'CREATE TABLE auth_credentials (id BIGINT PRIMARY KEY); CREATE TABLE auth_login_identities (id BIGINT PRIMARY KEY); CREATE TABLE authz_assignments (id BIGINT PRIMARY KEY); CREATE TABLE authz_policy_versions (id BIGINT PRIMARY KEY); CREATE TABLE authz_resources (id BIGINT PRIMARY KEY); CREATE TABLE authz_roles (id BIGINT PRIMARY KEY); CREATE TABLE casbin_rule (id BIGINT PRIMARY KEY); CREATE TABLE domain_event_outbox (id BIGINT PRIMARY KEY); CREATE TABLE identity_session_revocation_outbox (id BIGINT PRIMARY KEY); CREATE TABLE idp_wechat_apps (id BIGINT PRIMARY KEY); CREATE TABLE jwks_keys (id BIGINT PRIMARY KEY); CREATE TABLE profile_links (id BIGINT PRIMARY KEY); CREATE TABLE profiles (id BIGINT PRIMARY KEY); CREATE TABLE users (id BIGINT PRIMARY KEY); CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL); INSERT INTO schema_migrations VALUES (24, 0); CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored");'
 
           IAM_DB_OPS_OPERATION=backup scripts/dbops/database-operation.sh
           backup_name="$(find "$IAM_DB_OPS_BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_*.sql.gz' -exec basename {} \;)"
@@ -215,8 +215,10 @@ jobs:
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
             -e 'DROP DATABASE iam_dbops_fixture; CREATE DATABASE iam_dbops_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
           IAM_DB_OPS_OPERATION=restore IAM_DB_OPS_BACKUP_NAME="$backup_name" scripts/dbops/database-operation.sh
-          restored="$(mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" --batch --skip-column-names iam_dbops_fixture -e 'SELECT value FROM restore_fixture WHERE id = 1;')"
+          restored="$(mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT value FROM restore_fixture WHERE id = 1;')"
           test "$restored" = "restored"
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" "$MYSQL_DBNAME" \
+            -e 'DROP TABLE restore_fixture;'
           IAM_DB_OPS_OPERATION=status scripts/dbops/database-operation.sh
 
       - name: Upload test logs on failure

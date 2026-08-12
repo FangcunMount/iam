@@ -71,8 +71,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 23:
-        fail(f"documented latest migration is 23, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 24:
+        fail(f"documented latest migration is 24, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -156,6 +156,18 @@ def check_migrations() -> None:
     ):
         if token not in authn_retirement:
             fail(f"migration 000023 is missing {token}")
+    cleanup_retirement = (
+        directory / "000024_retire_seeddata_cleanup_tables.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "iam_cleanup_schema_assertion",
+        "iam_cleanup_data_assertion",
+        "iam_cleanup_dependency_assertion",
+        "cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1",
+        "DROP TABLE IF EXISTS",
+    ):
+        if token not in cleanup_retirement:
+            fail(f"migration 000024 is missing {token}")
 
 def check_database_schema_sources() -> None:
     retired_snapshot = ROOT / "configs/mysql/schema.sql"
@@ -430,7 +442,7 @@ def check_database_operations_facts() -> None:
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
         "retired_tables_present=",
-        "expected_version=23",
+        "expected_version=24",
         "performance schema capability:",
         "sys_table_statistics_select=",
         "rds_table_statistics_enabled=",
@@ -446,6 +458,7 @@ def check_database_operations_facts() -> None:
         "TestRetireUnusedPlatformTablesMigrationMySQL",
         "TestRetireUnusedAuditTablesMigrationMySQL",
         "TestRetireLegacyAuthNTablesMigrationMySQL",
+        "TestRetireSeeddataCleanupTablesMigrationMySQL",
         "TestFullMigrationChainAndBootstrapMySQL",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",

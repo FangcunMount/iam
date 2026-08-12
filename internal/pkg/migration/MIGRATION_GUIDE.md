@@ -9,7 +9,7 @@ IAM 使用 `golang-migrate`。Schema 的唯一事实源是同目录 `migrations/
 - 已发布 migration 不原地修改；修复只新增 forward 版本。
 - 应用启动负责执行 migration；没有当前 `make db-migrate`、`make db-version` 或 `make db-rollback` 入口。
 - `configs/mysql/bootstrap.sql` 只在 schema 达到当前版本后写幂等系统基线数据，不创建表，也不能替代 migration。
-- destructive down 不提供虚假空表回滚；`000019–000023` 明确 fail closed，恢复依赖已验证备份。
+- destructive down 不提供虚假空表回滚；`000019–000024` 明确 fail closed，恢复依赖已验证备份。
 - 历史表退役必须先执行 secret-safe 只读 preflight，仓库 migration 存在不等于目标库已经执行。
 
 ## 权威文档

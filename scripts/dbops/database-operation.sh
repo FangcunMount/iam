@@ -293,7 +293,7 @@ database_status() {
   prepare_defaults_file
   ERROR_PATH="$BACKUP_DIR/.iam_status.error"
 
-  local database_size table_count backup_count latest_backup migration_state retired_table_state migration_lock_state
+  local database_size table_count schema_objects schema_guard_state backup_count latest_backup migration_state retired_table_state retired_table_privilege_state migration_lock_state
   if ! "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT 1;' > /dev/null 2>"$ERROR_PATH"; then
     fail "database connection failed"
     return 1
@@ -306,12 +306,24 @@ database_status() {
     fail "database metadata query failed"
     return 1
   fi
+  if ! schema_objects="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT CONCAT('type=', REPLACE(TABLE_TYPE, ' ', '_'), ' name=', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_TYPE, TABLE_NAME;" 2>"$ERROR_PATH")"; then
+    fail "database schema inventory query failed"
+    return 1
+  fi
+  if ! schema_guard_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_schema_guard */ SELECT COALESCE(SUM(TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME IN ('auth_credentials', 'auth_login_identities', 'authz_assignments', 'authz_policy_versions', 'authz_resources', 'authz_roles', 'casbin_rule', 'domain_event_outbox', 'identity_session_revocation_outbox', 'idp_wechat_apps', 'jwks_keys', 'profile_links', 'profiles', 'schema_migrations', 'users')), 0), COUNT(*), COALESCE(SUM(NOT (TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME IN ('auth_credentials', 'auth_login_identities', 'authz_assignments', 'authz_policy_versions', 'authz_resources', 'authz_roles', 'casbin_rule', 'domain_event_outbox', 'identity_session_revocation_outbox', 'idp_wechat_apps', 'jwks_keys', 'profile_links', 'profiles', 'schema_migrations', 'users'))), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE();" 2>"$ERROR_PATH")"; then
+    fail "database schema guard query failed"
+    return 1
+  fi
   if ! migration_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;' 2>"$ERROR_PATH")"; then
     fail "migration state query failed"
     return 1
   fi
-  if ! retired_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT COALESCE(SUM(TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy')), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy');" 2>"$ERROR_PATH")"; then
+  if ! retired_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_retired_table_guard */ SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy', 'cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1');" 2>"$ERROR_PATH")"; then
     fail "retired table state query failed"
+    return 1
+  fi
+  if ! retired_table_privilege_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_retired_privilege_guard */ SELECT COUNT(*) FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy', 'cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1');" 2>"$ERROR_PATH")"; then
+    fail "retired table privilege state query failed"
     return 1
   fi
   if ! migration_lock_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "WITH migration_lock AS (SELECT IS_USED_LOCK(CAST(MOD(CRC32(CONCAT(DATABASE(), ':schema_migrations')) * 1486364155, 4294967296) AS CHAR)) AS owner_id) SELECT COALESCE(CAST(migration_lock.owner_id AS CHAR), 'none'), CASE WHEN migration_lock.owner_id IS NULL THEN 'free' WHEN process.ID IS NULL THEN 'held_owner_not_visible' WHEN process.COMMAND = 'Sleep' THEN 'held_sleep' ELSE 'held_query' END, COALESCE(process.TIME, -1) FROM migration_lock LEFT JOIN information_schema.PROCESSLIST process ON process.ID = migration_lock.owner_id;" 2>"$ERROR_PATH")"; then
@@ -322,17 +334,27 @@ database_status() {
   latest_backup="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_????????_??????.sql.gz' -print | sort -r | head -1 | sed -E 's/.*iam_backup_([0-9]{8}_[0-9]{6})\.sql\.gz/\1/' || true)"
   [ -n "$latest_backup" ] || latest_backup="none"
   echo "database status: result=success mysql_client=$MYSQL_CLIENT_VERSION connection=success size_mb=$database_size tables=$table_count backups=$backup_count latest_backup=$latest_backup"
-  echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state"
+  printf 'schema objects:\n%s\n' "$schema_objects"
+  echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'23\t0\t1' ]; then
-    fail "migration status is not version 23 clean"
+  if [ "$migration_state" != $'24\t0\t1' ]; then
+    fail "migration status is not version 24 clean"
+    return 1
+  fi
+  if [ "$schema_guard_state" != $'15\t15\t0' ]; then
+    fail "database schema differs from the 15-table allowlist"
     return 1
   fi
   if [ "$retired_table_state" != "0" ]; then
     fail "retired tables are present"
     return 1
   fi
-  echo "retirement guard: result=success expected_version=23 retired_tables_present=0"
+  if [ "$retired_table_privilege_state" != "0" ]; then
+    fail "retired table privileges are present"
+    return 1
+  fi
+  echo "schema guard: result=success required_base_tables=15 schema_objects=15 unexpected_objects=0"
+  echo "retirement guard: result=success expected_version=24 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {
