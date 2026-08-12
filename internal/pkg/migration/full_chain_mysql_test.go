@@ -23,13 +23,14 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run full migration chain: %v", err)
 	}
-	if !migrated || version != 22 {
-		t.Fatalf("full migration result = version %d migrated=%v, want version 22 migrated=true", version, migrated)
+	if !migrated || version != 23 {
+		t.Fatalf("full migration result = version %d migrated=%v, want version 23 migrated=true", version, migrated)
 	}
 	db := openMigrationMySQL(t)
 	for _, retired := range []string{
 		"children", "guardianships", "schema_version", "tenants", "data_dictionary",
 		"operation_logs", "audit_logs", "auth_token_audit",
+		"auth_accounts", "auth_credentials_legacy",
 	} {
 		assertTableExists(t, db, retired, false)
 	}

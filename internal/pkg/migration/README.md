@@ -53,6 +53,11 @@
 
 `000019` 的仓库与本地 MySQL 8 测试通过不等于生产已执行。生产发布仍要先备份和隔离恢复，使用只读预检确认依赖/对账，并在迁移后核对 `schema_migrations(version=19, dirty=0)`、canonical 行数与旧表不存在。
 
+`000023_retire_legacy_authn_tables` 是后续独立授权的 AuthN contract：只删除
+`auth_accounts/auth_credentials_legacy`，在最终原子 DROP 前重新断言 canonical schema、
+format v5 已覆盖的数据映射和数据库对象依赖。缺少旧账号、因历史 JOIN 本就不可达的
+凭据由发布前验证过的完整备份承接；down 明确 fail closed，不创建无法还原事实的空表。
+
 如果某个环境已经用旧的 `000002` 启动失败，`schema_migrations` 可能处于
 `version=2, dirty=1`。只有在确认失败点是“`profile_links` 不存在导致旧 `000002`
 创建索引失败”，且没有手工执行过新 `000002` 的部分语句时，才可以在备份后把版本恢复为
@@ -70,6 +75,8 @@ migration/
 │   ├── 000005_bootstrap_system_data.down.sql # 回滚最小系统初始化数据
 │   ├── 000019_retire_legacy_tables.up.sql     # 退役 Identity 历史表
 │   ├── 000019_retire_legacy_tables.down.sql   # fail-closed，不伪造回滚
+│   ├── 000023_retire_legacy_authn_tables.up.sql   # 退役 Account-bound AuthN 历史表
+│   ├── 000023_retire_legacy_authn_tables.down.sql # fail-closed，恢复依赖完整备份
 │   └── ...
 └── README.md               # 本文件
 ```
