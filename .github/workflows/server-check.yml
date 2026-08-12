@@ -173,6 +173,20 @@ jobs:
             fi
             echo "Canonical module status is available: $module_status"
 
+            compatibility_metrics=$(sudo docker exec iam-apiserver curl -fsS http://127.0.0.1:9080/metrics | grep -E '^iam_(identity_profile_link_query_total|runtime_debug_modules_requests_total|config_compatibility_key_observations_total|authn_sms_publisher_selections_total)' || true)
+            for metric in \
+              iam_identity_profile_link_query_total \
+              iam_runtime_debug_modules_requests_total \
+              iam_config_compatibility_key_observations_total \
+              iam_authn_sms_publisher_selections_total; do
+              if ! printf '%s\n' "$compatibility_metrics" | grep -q "^${metric}"; then
+                echo "Compatibility metric is missing: $metric"
+                exit 1
+              fi
+            done
+            echo "Compatibility retirement metric snapshot:"
+            printf '%s\n' "$compatibility_metrics"
+
       - name: Dependency Connectivity Check
         uses: appleboy/ssh-action@v1.2.5
         with:
