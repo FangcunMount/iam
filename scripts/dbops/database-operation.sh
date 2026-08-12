@@ -293,7 +293,7 @@ database_status() {
   prepare_defaults_file
   ERROR_PATH="$BACKUP_DIR/.iam_status.error"
 
-  local database_size table_count schema_objects backup_count latest_backup migration_state retired_table_state migration_lock_state
+  local database_size table_count schema_objects cleanup_backup_rows cleanup_backup_metadata cleanup_backup_dependencies backup_count latest_backup migration_state retired_table_state migration_lock_state
   if ! "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT 1;' > /dev/null 2>"$ERROR_PATH"; then
     fail "database connection failed"
     return 1
@@ -308,6 +308,18 @@ database_status() {
   fi
   if ! schema_objects="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT CONCAT('type=', REPLACE(TABLE_TYPE, ' ', '_'), ' name=', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_TYPE, TABLE_NAME;" 2>"$ERROR_PATH")"; then
     fail "database schema inventory query failed"
+    return 1
+  fi
+  if ! cleanup_backup_rows="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT 'cbpt_profiles_s812v2', COUNT(*) FROM cbpt_profiles_s812v2 UNION ALL SELECT 'cbpt_profile_links_s812v2', COUNT(*) FROM cbpt_profile_links_s812v2 UNION ALL SELECT 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', COUNT(*) FROM cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1 UNION ALL SELECT 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1', COUNT(*) FROM cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1;" 2>"$ERROR_PATH")"; then
+    fail "cleanup backup row count query failed"
+    return 1
+  fi
+  if ! cleanup_backup_metadata="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT TABLE_NAME, COALESCE(ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2), 0), COALESCE(DATE_FORMAT(CREATE_TIME, '%Y-%m-%dT%H:%i:%s'), 'unknown') FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1') ORDER BY TABLE_NAME;" 2>"$ERROR_PATH")"; then
+    fail "cleanup backup metadata query failed"
+    return 1
+  fi
+  if ! cleanup_backup_dependencies="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SET @iam_cleanup_backup_pattern = '(^|[^a-z0-9_])(cbpt_profiles_s812v2|cbpt_profile_links_s812v2|cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1|cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1)([^a-z0-9_]|$)'; SELECT (SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL AND (TABLE_NAME IN ('cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1') OR REFERENCED_TABLE_NAME IN ('cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1')), (SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND EVENT_OBJECT_TABLE IN ('cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1')), (SELECT COUNT(*) FROM information_schema.VIEWS WHERE TABLE_SCHEMA = DATABASE() AND LOWER(VIEW_DEFINITION) REGEXP @iam_cleanup_backup_pattern), (SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE() AND LOWER(COALESCE(ROUTINE_DEFINITION, '')) REGEXP @iam_cleanup_backup_pattern), (SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA = DATABASE() AND LOWER(COALESCE(EVENT_DEFINITION, '')) REGEXP @iam_cleanup_backup_pattern);" 2>"$ERROR_PATH")"; then
+    fail "cleanup backup dependency query failed"
     return 1
   fi
   if ! migration_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;' 2>"$ERROR_PATH")"; then
@@ -327,6 +339,9 @@ database_status() {
   [ -n "$latest_backup" ] || latest_backup="none"
   echo "database status: result=success mysql_client=$MYSQL_CLIENT_VERSION connection=success size_mb=$database_size tables=$table_count backups=$backup_count latest_backup=$latest_backup"
   printf 'schema objects:\n%s\n' "$schema_objects"
+  printf 'cleanup backup rows (name,exact_rows):\n%s\n' "$cleanup_backup_rows"
+  printf 'cleanup backup metadata (name,size_mb,created_at):\n%s\n' "$cleanup_backup_metadata"
+  printf 'cleanup backup dependencies (foreign_keys,triggers,views,routines,events): %s\n' "$cleanup_backup_dependencies"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state"
   echo "migration lock: owner_state=$migration_lock_state"
   if [ "$migration_state" != $'23\t0\t1' ]; then
