@@ -259,7 +259,7 @@ def check_readiness_facts() -> None:
     for token in ("MarkDraining", "HealthCheckResponse_NOT_SERVING", "drainDelay"):
         if token not in shutdown:
             fail(f"graceful drain wiring is missing {token}")
-    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready"):
+    for token in ("/healthz", "/readyz", "WARNING: IAM is live but not ready", "/debug/modules?view=canonical", '"module_states"'):
         if token not in server_check:
             fail(f"server-check probe contract is missing {token}")
     for fact in (
@@ -461,6 +461,47 @@ def check_database_operations_facts() -> None:
             fail(f"database operations documentation is missing {fact}")
 
 
+def check_compatibility_retirement_evidence() -> None:
+    evidence = load_yaml("docs/05-工程质量与运维/compat-consumer-evidence.yaml")
+    if evidence.get("schema_version") != 1:
+        fail("compatibility consumer evidence has an unsupported schema version")
+
+    repositories = evidence.get("repositories", {})
+    for repository in (
+        "iam",
+        "qs-server",
+        "qs-collection-system",
+        "seeddata-runner",
+        "qs-operating-system",
+    ):
+        sha = repositories.get(repository, {}).get("sha", "")
+        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+            fail(f"compatibility consumer evidence is missing a full SHA for {repository}")
+
+    candidates = evidence.get("candidates", {})
+    required_candidates = {
+        "rest_profile_link_active",
+        "module_status_legacy_booleans",
+        "suggest_loader_placeholder_tenant_id",
+        "sms_mq_topic_config_and_legacy_publisher",
+        "sdk_token_claims_tenant_id",
+        "sdk_jwks_stats",
+    }
+    missing = required_candidates - candidates.keys()
+    if missing:
+        fail(f"compatibility consumer evidence is missing candidates: {sorted(missing)}")
+
+    workflow = (ROOT / ".github/workflows/server-check.yml").read_text(encoding="utf-8")
+    for metric in (
+        "iam_identity_profile_link_query_total",
+        "iam_runtime_debug_modules_requests_total",
+        "iam_config_compatibility_key_observations_total",
+        "iam_authn_sms_publisher_selections_total",
+    ):
+        if metric not in workflow:
+            fail(f"production compatibility metric snapshot is missing {metric}")
+
+
 def check_active_docs() -> None:
     allowed_status = re.compile(r"^> 状态：(已实现|规划改造)(?: · .+)?$", re.MULTILINE)
     planning_docs: list[Path] = []
@@ -550,6 +591,7 @@ def main() -> int:
         check_readiness_facts,
         check_security_delivery_facts,
         check_database_operations_facts,
+        check_compatibility_retirement_evidence,
         check_active_docs,
     )
     try:

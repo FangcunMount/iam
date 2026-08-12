@@ -157,8 +157,10 @@ func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiser
 			return nil, fmt.Errorf("sms.provider=mq requires EventBus (enable nsq.enabled and ensure EventBus is created)")
 		}
 		if infra.eventPublisher != nil {
+			recordSMSPublisherSelection(smsPublisherCatalog)
 			return smsInfra.NewMQLoginOTPSenderWithPublisher(infra.eventPublisher), nil
 		}
+		recordSMSPublisherSelection(smsPublisherLegacy)
 		topic := strings.TrimSpace(smsOptions.MQ.Topic)
 		return smsInfra.NewMQLoginOTPSender(infra.eventBus, topic), nil
 	case "aliyun":

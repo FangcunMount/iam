@@ -1,0 +1,62 @@
+schema_version: 1
+scanned_at: 2026-08-12
+iam_base_sha: 246abde245b65e0c3d5f5ceee12ae6f30c6f43f3
+scope:
+  github_organization: FangcunMount
+  local_workspace_families:
+    - golang/fangcun-mount
+    - typescript/fangcun-mount
+  limitations:
+    - GitHub code search returned HTTP 429 for part of the query set; local workspace scans covered the missing exact symbols.
+    - Static scans cannot prove absence in unlisted private forks, old binaries, runtime gateway traffic, or external SDK consumers.
+repositories:
+  iam:
+    sha: 246abde245b65e0c3d5f5ceee12ae6f30c6f43f3
+  qs-server:
+    sha: 4a467b12242b84ce55bc2a8e43a1a635de754596
+  qs-collection-system:
+    sha: 49d1ca11b147be13c442b4c1e1fe0536fb8f4b71
+  seeddata-runner:
+    sha: db52c4e7781a13698a7f09bf3c9113be5108441c
+  qs-operating-system:
+    sha: 0abd4a1baa049479bd3e7cc0bb958f886918263e
+candidates:
+  rest_profile_link_active:
+    external_legacy_callers_found: false
+    canonical_consumers:
+      - repository: qs-collection-system
+        path: src/services/api/iamIdentityApi.js
+        behavior: Accepts its own active input but sends include_revoked to IAM.
+      - repository: qs-collection-system
+        path: scripts/check-iam-contracts.js
+        behavior: Contract guard requires include_revoked.
+    runtime_gate: iam_identity_profile_link_query_total{mode="legacy_active"}
+  module_status_legacy_booleans:
+    external_consumers_found: false
+    official_monitor:
+      path: .github/workflows/server-check.yml
+      behavior: Uses /debug/modules?view=canonical and requires module_states.
+    runtime_gate: iam_runtime_debug_modules_requests_total{view="legacy"}
+  suggest_loader_placeholder_tenant_id:
+    external_config_references_found: false
+    canonical_key: suggest.loader_placeholder_org_id
+    runtime_gate: iam_config_compatibility_key_observations_total{key="suggest.loader_placeholder_tenant_id",state="present"}
+  sms_mq_topic_config_and_legacy_publisher:
+    external_constructor_references_found: false
+    canonical_event_topic_remains_active: iam.notify.sms
+    note: Retirement targets only the legacy constructor and sms.mq.topic override, not the catalog event or its downstream consumer.
+    runtime_gates:
+      - iam_config_compatibility_key_observations_total{key="sms.mq.topic",state="present"}
+      - iam_authn_sms_publisher_selections_total{mode="legacy"}
+  sdk_token_claims_tenant_id:
+    specific_external_field_references_found: false
+    package_consumers:
+      - repository: qs-server
+        behavior: Imports pkg/sdk/auth/verifier but reads TenantDomain, not TokenClaims.TenantID.
+    release_gate: Public SDK compatibility window and breaking-change release are still required.
+  sdk_jwks_stats:
+    specific_external_type_references_found: false
+    package_consumers:
+      - repository: qs-server
+        behavior: Imports pkg/sdk/auth/jwks but does not reference JWKSStats.
+    release_gate: Public SDK compatibility window and breaking-change release are still required.

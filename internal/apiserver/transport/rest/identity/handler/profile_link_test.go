@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -42,6 +43,30 @@ func TestProfileLinkHandlerListDefaultsToCurrentUser(t *testing.T) {
 	}
 	if len(access.listCalls) != 1 || access.listCalls[0].currentUserID != meta.FromUint64(100) {
 		t.Fatalf("ListForCurrentUser calls = %#v, want current user 100", access.listCalls)
+	}
+}
+
+func TestProfileLinkQueryMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		query url.Values
+		want  string
+	}{
+		{name: "default", want: profileLinkQueryDefault},
+		{name: "canonical", query: url.Values{"include_revoked": {"true"}}, want: profileLinkQueryIncludeRevoked},
+		{name: "legacy", query: url.Values{"active": {"not-a-bool"}}, want: profileLinkQueryLegacyActive},
+		{name: "both", query: url.Values{"include_revoked": {"false"}, "active": {"true"}}, want: profileLinkQueryBoth},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := profileLinkQueryMode(tt.query); got != tt.want {
+				t.Fatalf("profileLinkQueryMode() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

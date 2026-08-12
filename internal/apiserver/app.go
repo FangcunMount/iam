@@ -5,6 +5,7 @@ import (
 	"github.com/FangcunMount/iam/v2/internal/apiserver/config"
 	"github.com/FangcunMount/iam/v2/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v2/pkg/app"
+	"github.com/spf13/viper"
 )
 
 // commandDesc 命令描述
@@ -36,6 +37,9 @@ func run(opts *options.Options) app.RunFunc {
 		log.Info("Starting iam contracts API Server ...")
 
 		log.Infof("Health check enabled: %v", opts.GenericServerRunOptions.Healthz)
+		for _, key := range options.ObserveCompatibilityConfigKeys(viper.IsSet) {
+			log.Warnw("compatibility configuration key is still present", "key", key)
+		}
 
 		// 根据 options 创建 APIServer 配置
 		cfg, err := config.CreateConfigFromOptions(opts)

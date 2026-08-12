@@ -153,6 +153,40 @@ jobs:
               echo "Internal HTTP API is ready: $readiness_status"
             fi
 
+            module_output=$(sudo docker exec iam-apiserver curl -sS -w '\n%{http_code}' 'http://127.0.0.1:9080/debug/modules?view=canonical' || printf '\n000')
+            module_status=$(printf '%s\n' "$module_output" | tail -1)
+            module_body=$(printf '%s\n' "$module_output" | sed '$d')
+            if [ "$module_status" != "200" ]; then
+              echo "Canonical module status check failed: $module_status"
+              echo "$module_body"
+              exit 1
+            fi
+            printf '%s' "$module_body" | grep -q '"module_states"' || {
+              echo "Canonical module status response is missing module_states"
+              echo "$module_body"
+              exit 1
+            }
+            if printf '%s' "$module_body" | grep -q '"modules"'; then
+              echo "Canonical module status response unexpectedly contains legacy modules"
+              echo "$module_body"
+              exit 1
+            fi
+            echo "Canonical module status is available: $module_status"
+
+            compatibility_metrics=$(sudo docker exec iam-apiserver curl -fsS http://127.0.0.1:9080/metrics | grep -E '^iam_(identity_profile_link_query_total|runtime_debug_modules_requests_total|config_compatibility_key_observations_total|authn_sms_publisher_selections_total)' || true)
+            for metric in \
+              iam_identity_profile_link_query_total \
+              iam_runtime_debug_modules_requests_total \
+              iam_config_compatibility_key_observations_total \
+              iam_authn_sms_publisher_selections_total; do
+              if ! printf '%s\n' "$compatibility_metrics" | grep -q "^${metric}"; then
+                echo "Compatibility metric is missing: $metric"
+                exit 1
+              fi
+            done
+            echo "Compatibility retirement metric snapshot:"
+            printf '%s\n' "$compatibility_metrics"
+
       - name: Dependency Connectivity Check
         uses: appleboy/ssh-action@v1.2.5
         with:

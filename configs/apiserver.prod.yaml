@@ -240,10 +240,6 @@ sms:
   # 应 <= 阿里云侧上限（同号默认 5 条/小时、10 条/天），否则会触发阿里云报错。
   login_otp_hourly_limit: 5
   login_otp_daily_limit: 10
-  mq:
-    # Deprecated: 主路径以 events.catalog_path 中 iam.login_otp_sms 的 topic 为准；
-    # 仅 legacy fallback 构造器继续读取该值。
-    topic: iam.notify.sms
   aliyun:
     # 号码认证服务（Dypns）SendSmsVerifyCode；个人开发者免短信资质。
     # 推荐：留空 access_key_id/access_key_secret，走阿里云默认凭据链

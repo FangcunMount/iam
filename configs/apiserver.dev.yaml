@@ -225,10 +225,6 @@ sms:
   # 限量：单号码+场景滑动窗口发送上限。-1 关闭，0 取默认（小时 5、每天 10）。
   login_otp_hourly_limit: 5
   login_otp_daily_limit: 10
-  mq:
-    # Deprecated: 主路径以 configs/events.yaml 中 iam.login_otp_sms 的 topic 为准；
-    # 仅 legacy fallback 构造器继续读取该值。
-    topic: iam.notify.sms
   aliyun:
     # 号码认证服务（Dypns）SendSmsVerifyCode；个人开发者免短信资质。
     # 推荐：留空 access_key_id/access_key_secret，走阿里云默认凭据链
