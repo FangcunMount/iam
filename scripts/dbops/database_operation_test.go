@@ -7,10 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 const secretSentinel = "db-ops-password-sentinel"
@@ -233,10 +231,8 @@ func TestRestoreAndStatusReturnMetadataOnly(t *testing.T) {
 if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
 case "$*" in
   *'SELECT 1;'*) echo '1' ;;
-  *'MAX(version)'*) printf '23\t0\t1\n' ;;
-  *"TABLE_NAME = 'auth_accounts'"*) printf '0\t0\n' ;;
-  *'GROUP_CONCAT'*) printf 'none\n' ;;
-  *'CROSS JOIN migration_lock'*) printf '0\t-1\n' ;;
+	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-23\t0\t1}" ;;
+	  *"TABLE_NAME IN ('children'"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
   *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
@@ -266,225 +262,34 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema_migrations=23", "authn_legacy_tables=0", "owner_state=none\tfree\t-1", "other_legacy_authn_queries=0\t-1", "id_seconds_kind=none"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema_migrations=23", "retired_tables_present=0", "owner_state=none\tfree\t-1", "retirement guard: result=success"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
 	}
-}
 
-func TestIdentityRetirementRequiresFreshBackupConfirmationAndDropsOnlyLegacyTables(t *testing.T) {
-	root := t.TempDir()
-	bin := filepath.Join(root, "bin")
-	backupDir := filepath.Join(root, "backups")
-	capture := filepath.Join(root, "identity-retirement.sql")
-	requireNoError(t, os.MkdirAll(bin, 0o700))
-	requireNoError(t, os.MkdirAll(backupDir, 0o700))
-	writeExecutable(t, bin, "mysql", `#!/bin/sh
-if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
-case "$*" in
-  *"MAX(version)"*) printf '18\t0\t1\n' ;;
-  *"TABLE_NAME = 'children'"*"TABLE_TYPE = 'BASE TABLE'"*) printf '1\t1\n' ;;
-  *"COUNT(*) FROM children"*) printf '64\t66\n' ;;
-  *"KEY_COLUMN_USAGE"*) printf '%s\n' "${IAM_FAKE_DEPENDENCY_COUNT:-0}" ;;
-  *) cat > "$IAM_FAKE_IDENTITY_RETIREMENT_CAPTURE"; printf '64\t66\n' ;;
-esac
-`)
-	backupName := "iam_backup_20260807_170129.sql.gz"
-	writeGzip(t, filepath.Join(backupDir, backupName), "verified backup fixture")
-
-	base := map[string]string{
-		"IAM_DB_OPS_OPERATION":                 "retire-identity-dry-run",
-		"IAM_DB_OPS_BACKUP_DIR":                backupDir,
-		"IAM_DB_OPS_BACKUP_NAME":               backupName,
-		"IAM_FAKE_IDENTITY_RETIREMENT_CAPTURE": capture,
-		"IAM_DB_OPS_MAX_BACKUP_AGE_SECONDS":    "7200",
-	}
-	output, err := runScript(t, bin, base)
-	requireNoError(t, err)
-	assertSafeOutput(t, output)
-	for _, want := range []string{
-		"state=eligible", "migration_version=18", "dependencies=0",
-		"children_rows=64", "guardianships_rows=66", "reconciliation=waived_by_owner",
-		"mode=dry-run result=success",
+	for name, overrides := range map[string]map[string]string{
+		"migration not current": {
+			"IAM_FAKE_MIGRATION_STATE": "22\t0\t1",
+		},
+		"retired table returned": {
+			"IAM_FAKE_RETIRED_TABLES": "1",
+		},
 	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("identity dry-run output missing %q: %s", want, output)
-		}
-	}
-
-	base["IAM_FAKE_DEPENDENCY_COUNT"] = "1"
-	output, err = runScript(t, bin, base)
-	if err == nil || !strings.Contains(output, "database dependencies still exist") {
-		t.Fatalf("identity dry-run with dependency: err=%v output=%s", err, output)
-	}
-	assertSafeOutput(t, output)
-	delete(base, "IAM_FAKE_DEPENDENCY_COUNT")
-
-	base["IAM_DB_OPS_OPERATION"] = "retire-identity-apply"
-	output, err = runScript(t, bin, base)
-	if err == nil || !strings.Contains(output, "confirmation is invalid") {
-		t.Fatalf("identity apply without confirmation: err=%v output=%s", err, output)
-	}
-	assertSafeOutput(t, output)
-
-	base["IAM_DB_OPS_CONFIRMATION"] = "RETIRE_CHILDREN_GUARDIANSHIPS"
-	output, err = runScript(t, bin, base)
-	requireNoError(t, err)
-	assertSafeOutput(t, output)
-	for _, want := range []string{
-		"mode=apply result=success", "children_rows_deleted=64",
-		"guardianships_rows_deleted=66", "canonical_writes=0",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("identity apply output missing %q: %s", want, output)
-		}
-	}
-
-	sql, err := os.ReadFile(capture)
-	requireNoError(t, err)
-	source := string(sql)
-	if strings.Count(source, "DROP TABLE children, guardianships;") != 1 {
-		t.Fatalf("identity retirement must contain one exact final legacy DROP: %s", source)
-	}
-	for _, forbidden := range []string{
-		"INSERT INTO profiles", "UPDATE profiles", "DELETE FROM profiles",
-		"INSERT INTO profile_links", "UPDATE profile_links", "DELETE FROM profile_links",
-	} {
-		if strings.Contains(source, forbidden) {
-			t.Fatalf("identity retirement contains forbidden canonical write %q", forbidden)
-		}
-	}
-}
-
-func TestIdentityRetirementRejectsStaleBackup(t *testing.T) {
-	root := t.TempDir()
-	bin := filepath.Join(root, "bin")
-	backupDir := filepath.Join(root, "backups")
-	requireNoError(t, os.MkdirAll(bin, 0o700))
-	requireNoError(t, os.MkdirAll(backupDir, 0o700))
-	writeExecutable(t, bin, "mysql", "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi\nexit 99\n")
-	backupName := "iam_backup_20260807_170129.sql.gz"
-	backupPath := filepath.Join(backupDir, backupName)
-	writeGzip(t, backupPath, "stale backup fixture")
-	stale := time.Now().Add(-3 * time.Hour)
-	requireNoError(t, os.Chtimes(backupPath, stale, stale))
-
-	output, err := runScript(t, bin, map[string]string{
-		"IAM_DB_OPS_OPERATION":              "retire-identity-dry-run",
-		"IAM_DB_OPS_BACKUP_DIR":             backupDir,
-		"IAM_DB_OPS_BACKUP_NAME":            backupName,
-		"IAM_DB_OPS_MAX_BACKUP_AGE_SECONDS": "7200",
-	})
-	if err == nil || !strings.Contains(output, "retirement backup is stale") {
-		t.Fatalf("stale retirement backup: err=%v output=%s", err, output)
-	}
-	assertSafeOutput(t, output)
-}
-
-func TestAuthNReconciliationUsesDeployedMaintenanceBinaryAndFreshBackup(t *testing.T) {
-	root := t.TempDir()
-	bin := filepath.Join(root, "bin")
-	backupDir := filepath.Join(root, "backups")
-	capture := filepath.Join(root, "authn-command.txt")
-	requireNoError(t, os.MkdirAll(bin, 0o700))
-	requireNoError(t, os.MkdirAll(backupDir, 0o700))
-	writeExecutable(t, bin, "sudo", `#!/bin/sh
-if [ "$1" = "-n" ]; then shift; fi
-exec "$@"
-`)
-	writeExecutable(t, bin, "docker", `#!/bin/sh
-case "$1" in
-  inspect) printf 'true\n' ;;
-  exec)
-    printf '%s\n' "$*" > "$IAM_FAKE_AUTHN_CAPTURE"
-    if [ "${IAM_FAKE_AUTHN_CONFLICT:-0}" = "1" ]; then
-      printf '{"format_version":5,"mode":"dry-run","hard_conflicts":1,"retirement_eligible":false}\n'
-      exit 1
-    fi
-    printf '{"format_version":5,"mode":"dry-run","remaining_login_identity_inserts":0,"remaining_password_inserts":0,"verification_required":false,"hard_conflicts":0,"retirement_eligible":true}\n'
-    ;;
-  *) exit 91 ;;
-esac
-`)
-
-	base := map[string]string{
-		"IAM_DB_OPS_OPERATION":           "reconcile-authn-dry-run",
-		"IAM_DB_OPS_BACKUP_DIR":          backupDir,
-		"IAM_DB_OPS_DOCKER_BIN":          filepath.Join(bin, "docker"),
-		"IAM_DB_OPS_SUDO_BIN":            filepath.Join(bin, "sudo"),
-		"IAM_FAKE_AUTHN_CAPTURE":         capture,
-		"IAM_DB_OPS_AUTHN_CONTAINER":     "iam-apiserver",
-		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT": "0",
-	}
-	output, err := runScript(t, bin, base)
-	requireNoError(t, err)
-	assertSafeOutput(t, output)
-	for _, want := range []string{"mode=dry-run", "canonical_policy=insert_missing_only", "batch_size=5000", `"format_version":5`, "result=success"} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("AuthN dry-run output missing %q: %s", want, output)
-		}
-	}
-	command, err := os.ReadFile(capture)
-	requireNoError(t, err)
-	if !strings.Contains(string(command), "exec iam-apiserver /app/iam-maintenance reconcile-authn-legacy --timeout=15m") {
-		t.Fatalf("unexpected AuthN dry-run command: %s", command)
-	}
-	base["IAM_DB_OPS_AUTHN_BATCH_SIZE"] = "50001"
-	output, err = runScript(t, bin, base)
-	if err == nil || !strings.Contains(output, "batch size is invalid") {
-		t.Fatalf("invalid AuthN batch size: err=%v output=%s", err, output)
-	}
-	delete(base, "IAM_DB_OPS_AUTHN_BATCH_SIZE")
-	base["IAM_FAKE_AUTHN_CONFLICT"] = "1"
-	output, err = runScript(t, bin, base)
-	if err == nil || !strings.Contains(output, `"hard_conflicts":1`) || !strings.Contains(output, "raw runtime errors were withheld") {
-		t.Fatalf("AuthN hard-conflict dry-run: err=%v output=%s", err, output)
-	}
-	assertSafeOutput(t, output)
-	delete(base, "IAM_FAKE_AUTHN_CONFLICT")
-	base["IAM_DB_OPS_OPERATION"] = "reconcile-authn-verify"
-	evidencePath := filepath.Join("/tmp", "iam-authn-retirement-"+strconv.FormatInt(time.Now().UnixNano(), 10)+"-1.json")
-	t.Cleanup(func() { _ = os.Remove(evidencePath) })
-	base["IAM_DB_OPS_AUTHN_EVIDENCE_FILE"] = evidencePath
-	output, err = runScript(t, bin, base)
-	requireNoError(t, err)
-	assertSafeOutput(t, output)
-	command, err = os.ReadFile(capture)
-	requireNoError(t, err)
-	if !strings.Contains(string(command), "reconcile-authn-legacy --require-eligible --timeout=15m") {
-		t.Fatalf("unexpected AuthN verify command: %s", command)
-	}
-	evidence, err := os.ReadFile(evidencePath)
-	requireNoError(t, err)
-	if !strings.Contains(string(evidence), `"retirement_eligible":true`) {
-		t.Fatalf("unexpected AuthN evidence: %s", evidence)
-	}
-	delete(base, "IAM_DB_OPS_AUTHN_EVIDENCE_FILE")
-
-	base["IAM_DB_OPS_OPERATION"] = "reconcile-authn-apply"
-	output, err = runScript(t, bin, base)
-	if err == nil || !strings.Contains(output, "confirmation is invalid") {
-		t.Fatalf("AuthN apply without confirmation: err=%v output=%s", err, output)
-	}
-	assertSafeOutput(t, output)
-
-	backupName := "iam_backup_20260811_120000.sql.gz"
-	writeGzip(t, filepath.Join(backupDir, backupName), "verified AuthN reconciliation backup")
-	base["IAM_DB_OPS_BACKUP_NAME"] = backupName
-	base["IAM_DB_OPS_CONFIRMATION"] = "BACKFILL_AUTHN_LEGACY_MISSING"
-	output, err = runScript(t, bin, base)
-	requireNoError(t, err)
-	assertSafeOutput(t, output)
-	if !strings.Contains(output, "mode=apply result=success") {
-		t.Fatalf("AuthN apply output: %s", output)
-	}
-	command, err = os.ReadFile(capture)
-	requireNoError(t, err)
-	for _, want := range []string{"--apply", "--confirm=BACKFILL_AUTHN_LEGACY_MISSING", "--batch-size=5000", "--timeout=15m"} {
-		if !strings.Contains(string(command), want) {
-			t.Fatalf("AuthN apply command missing %q: %s", want, command)
-		}
+		t.Run(name, func(t *testing.T) {
+			caseEnv := map[string]string{
+				"IAM_DB_OPS_OPERATION":  "status",
+				"IAM_DB_OPS_BACKUP_DIR": backupDir,
+			}
+			for key, value := range overrides {
+				caseEnv[key] = value
+			}
+			guardOutput, guardErr := runScript(t, bin, caseEnv)
+			if guardErr == nil || !strings.Contains(guardOutput, "database operation failed") {
+				t.Fatalf("retirement guard did not fail closed: err=%v output=%s", guardErr, guardOutput)
+			}
+			assertSafeOutput(t, guardOutput)
+		})
 	}
 }
 
@@ -567,7 +372,10 @@ if [ "${1:-}" = "--version" ]; then
   exit 0
 fi
 case "$*" in
-  *"SUM(data_length"*) printf '12.5\n' ;;
+	  *"MAX(version)"*) printf '23\t0\t1\n' ;;
+	  *"TABLE_NAME IN ('children'"*) printf '0\n' ;;
+	  *"IS_USED_LOCK"*) printf 'none\tfree\t-1\n' ;;
+	  *"SUM(data_length"*) printf '12.5\n' ;;
   *"COUNT(*)"*) printf '7\n' ;;
   *) printf '1\n' ;;
 esac
@@ -592,7 +400,6 @@ esac
 		}
 	}
 }
-
 func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	repo := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
@@ -602,51 +409,48 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	if strings.Count(source, "uses: actions/checkout@v6") != 4 {
 		t.Fatal("every database operation job must checkout the repository script")
 	}
-	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 5 {
-		t.Fatal("every database operation job and AuthN status verifier must use the single script_path")
-	}
-	if strings.Count(source, "script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1 {
-		t.Fatal("database status must run the checked-out legacy retirement preflight once")
+	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 4 {
+		t.Fatal("every database operation job must use the single script_path")
 	}
 	for _, want := range []string{
-		"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight",
-		"Verify AuthN Reconciliation", "IAM_DB_OPS_AUTHN_EVIDENCE_FILE", "IAM_RETIREMENT_AUTHN_EVIDENCE_FILE",
-		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
-		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
-		"retirement_io_waiver:", "IAM_RETIREMENT_OWNER_IO_WAIVER", "authn_tables",
-		"audit_tables",
-		"retire-identity-dry-run", "retire-identity-apply",
-		"reconcile-authn-dry-run", "reconcile-authn-verify", "reconcile-authn-apply",
-		"performance-schema-status", "migration-status",
-		"github.event.inputs.operation == 'status' && (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all')",
-		"IAM_DB_OPS_CONFIRMATION", "confirmation:",
+		"backup", "restore", "status", "performance-schema-status",
+		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
 	} {
 		if !strings.Contains(source, want) {
-			t.Fatalf("database status preflight is missing %q", want)
+			t.Fatalf("database workflow is missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"apt-get", "apk add", "script: |", "SHOW TABLES", "Largest tables"} {
+	for _, forbidden := range []string{
+		"apt-get", "apk add", "script: |", "SHOW TABLES", "Largest tables",
+		"legacy-retirement-preflight", "retire-identity", "reconcile-authn", "authn_batch_size",
+	} {
 		if strings.Contains(source, forbidden) {
-			t.Fatalf("database workflow contains forbidden inline/runtime behavior %q", forbidden)
+			t.Fatalf("database workflow contains retired or inline behavior %q", forbidden)
 		}
 	}
 
 	concurrency, err := os.ReadFile(filepath.Join(repo, ".github", "workflows", "concurrency-tests.yml"))
 	requireNoError(t, err)
 	for _, want := range []string{
-		"Verify database backup, restore, and Identity retirement with MySQL 8",
-		"Run retirement and full-chain migration tests",
+		"Verify database backup, restore, and status with MySQL 8",
+		"Run retirement migrations and full-chain tests",
 		"TestRetireUnusedPlatformTablesMigrationMySQL",
 		"TestRetireUnusedAuditTablesMigrationMySQL",
 		"TestFullMigrationChainAndBootstrapMySQL",
-		"TestAuthNLegacyReconciliationMySQL",
-		"TestLegacyRetirementPreflightAuthNMySQL",
 		"IAM_DB_OPS_OPERATION=backup", "IAM_DB_OPS_OPERATION=restore",
-		"IAM_DB_OPS_OPERATION=retire-identity-dry-run",
-		"IAM_DB_OPS_OPERATION=retire-identity-apply",
+		"IAM_DB_OPS_OPERATION=status",
 	} {
 		if !strings.Contains(string(concurrency), want) {
 			t.Fatalf("MySQL workflow is missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{
+		"TestAuthNLegacyReconciliationMySQL",
+		"TestLegacyRetirementPreflightAuthNMySQL",
+		"IAM_DB_OPS_OPERATION=retire-identity",
+	} {
+		if strings.Contains(string(concurrency), forbidden) {
+			t.Fatalf("MySQL workflow still contains retired operation %q", forbidden)
 		}
 	}
 }

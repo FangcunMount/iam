@@ -85,7 +85,7 @@ COLOR_RED := \033[31m
 .PHONY: install install-tools create-dirs
 .PHONY: up down re st log
 .PHONY: api-validate docs-hygiene
-.PHONY: db-bootstrap db-retirement-preflight db-connect db-status db-backup
+.PHONY: db-bootstrap db-connect db-status db-backup
 .PHONY: docker-mysql-up docker-mysql-down docker-mysql-clean docker-mysql-logs
 .PHONY: cert-gen cert-test cert-verify test-dev-config
 .PHONY: grpc-cert-verify grpc-cert-info
@@ -615,9 +615,6 @@ db-bootstrap: ## 重新应用系统 bootstrap 基线数据（幂等 SQL）
 		mysql -h$(DB_HOST) -P$(DB_PORT) -u$(DB_USER) $(DB_NAME) < configs/mysql/bootstrap.sql; \
 	fi
 	@echo "$(COLOR_GREEN)✅ 系统 bootstrap 数据已应用$(COLOR_RESET)"
-
-db-retirement-preflight: ## 只读采集遗留表退役证据（需 IAM_RETIREMENT_ENVIRONMENT 与 MYSQL_*）
-	@scripts/dbops/legacy-retirement-preflight.sh
 
 db-connect: ## 连接到数据库
 	@echo "$(COLOR_CYAN)🔌 连接到数据库 $(DB_NAME)...$(COLOR_RESET)"
