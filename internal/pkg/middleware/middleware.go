@@ -57,9 +57,5 @@ func defaultMiddlewares() map[string]gin.HandlerFunc {
 		"nocache":  NoCache,
 		"tracing":  Tracing(), // 链路追踪中间件（整合了 request_id 生成）
 		"dump":     gindump.Dump(),
-		// 注意: 以下中间件已被更优的方案替代，建议使用 api_logger
-		// "requestid":       RequestID(),        // 已被 tracing 中间件整合
-		// "logger":          Logger(),           // 已被 api_logger 替代（Deprecated）
-		// "enhanced_logger": EnhancedLogger(),   // 已被 api_logger 替代（Deprecated）
 	}
 }
