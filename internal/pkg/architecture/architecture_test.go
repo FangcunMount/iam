@@ -1266,6 +1266,20 @@ func TestGoModuleV3BoundaryAndRetiredSDKSymbolsDoNotRegress(t *testing.T) {
 	})
 }
 
+func TestRetiredInternalJWKSHelpersDoNotRegress(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, token := range []string{
+		"GetJWKSStats",
+		"type JWKSStats struct",
+		"GetCacheControl",
+		"ValidateJWKS",
+	} {
+		assertFileLacks(t, root, "internal/apiserver/infra/token/keyset/keyset_builder.go", token)
+	}
+}
+
 func TestDurableOutboxEventsAreNotDirectPublishedToMQ(t *testing.T) {
 	t.Parallel()
 

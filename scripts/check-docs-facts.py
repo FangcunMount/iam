@@ -466,7 +466,7 @@ def check_database_operations_facts() -> None:
 
 def check_compatibility_retirement_evidence() -> None:
     evidence = load_yaml("docs/05-工程质量与运维/compat-consumer-evidence.yaml")
-    if evidence.get("schema_version") != 2:
+    if evidence.get("schema_version") != 3:
         fail("compatibility consumer evidence has an unsupported schema version")
 
     repositories = evidence.get("repositories", {})
@@ -500,8 +500,11 @@ def check_compatibility_retirement_evidence() -> None:
     classifications = rta_scan.get("classifications", {})
     if classifications.get("internal_runtime", {}).get("new_removal_candidates_found") is not False:
         fail("compatibility evidence no longer records the internal runtime RTA result")
-    if classifications.get("public_sdk", {}).get("latest_published_tag_at_scan") != "v2.0.10":
-        fail("compatibility evidence is missing the published SDK version boundary")
+    public_sdk = classifications.get("public_sdk", {})
+    if public_sdk.get("deprecation_contract_release") != "v2.0.10":
+        fail("compatibility evidence is missing the v2 SDK deprecation release")
+    if public_sdk.get("latest_published_tag_at_scan") != "v3.0.0":
+        fail("compatibility evidence is missing the published v3 SDK boundary")
 
     go_mod = (ROOT / "go.mod").read_text(encoding="utf-8")
     verifier_types = (ROOT / "pkg/sdk/auth/verifier/types.go").read_text(encoding="utf-8")
@@ -547,6 +550,11 @@ def check_compatibility_retirement_evidence() -> None:
     for candidate in ("sdk_token_claims_tenant_id", "sdk_jwks_stats"):
         if candidates.get(candidate, {}).get("status") != "removed_in_v3":
             fail(f"SDK compatibility candidate is not removed in v3: {candidate}")
+        migrations = candidates.get(candidate, {}).get("consumer_migration", {})
+        for repository, pull_request in (("qs-server", "PR #7"), ("seeddata-runner", "PR #4")):
+            migration = migrations.get(repository, "")
+            if "v3.0.0" not in migration or pull_request not in migration:
+                fail(f"{candidate} is missing the {repository} v3 migration evidence")
 
     waiver = evidence.get("owner_waiver", {})
     if waiver.get("granted_at") != "2026-08-12":

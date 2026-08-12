@@ -1,6 +1,6 @@
-schema_version: 2
+schema_version: 3
 scanned_at: 2026-08-12
-iam_base_sha: 37dab2de7b840723d8d6b5df083ad1151ede2b7d
+iam_base_sha: a0ce3e4b83da1a9a38f39c8698d9ccd437bc5278
 scope:
   github_organization: FangcunMount
   local_workspace_families:
@@ -15,18 +15,26 @@ scope:
     jwks_stats_results: 3 IAM-owned definitions or documentation references; no external consumer.
     token_claims_tenant_id_exact_results: 0 external field references.
 rta_scan:
-  iam_sha: fa982eae2d47b2ae981204bf62d7b0e8097f5480
+  iam_sha: a0ce3e4b83da1a9a38f39c8698d9ccd437bc5278
   command: go run golang.org/x/tools/cmd/deadcode@latest -test ./...
   classifications:
     internal_runtime:
       new_removal_candidates_found: false
       retained_interface_method: internal/apiserver/infra/token/keyset.RSAKeyGeneratorWithStorage.SupportedAlgorithms
       retained_test_surface: internal/apiserver/testhelpers.ProfileRepoStub
+      supplemental_exact_symbol_scan:
+        removed_helpers:
+          - internal/apiserver/infra/token/keyset.KeySetBuilder.GetJWKSStats
+          - internal/apiserver/infra/token/keyset.JWKSStats
+          - internal/apiserver/infra/token/keyset.KeySetBuilder.GetCacheControl
+          - internal/apiserver/infra/token/keyset.KeySetBuilder.ValidateJWKS
+        reason: Definitions and self-documentation were the only references; none appeared in interfaces, composition, handlers, or tests.
     public_sdk:
       repository_consumers:
         - qs-server
         - seeddata-runner
-      latest_published_tag_at_scan: v2.0.10
+      deprecation_contract_release: v2.0.10
+      latest_published_tag_at_scan: v3.0.0
       decision: Do not remove RTA-only candidates without a deprecation and major-version plan.
     other_public_packages:
       packages:
@@ -35,16 +43,16 @@ rta_scan:
         - pkg/flag
         - pkg/uow/gorm
       external_exact_references_found: false
-      decision: Published v2 API surface; static absence is insufficient for removal.
+      decision: Published API surface carried into v3; static absence is insufficient for removal.
 repositories:
   iam:
-    sha: 37dab2de7b840723d8d6b5df083ad1151ede2b7d
+    sha: a0ce3e4b83da1a9a38f39c8698d9ccd437bc5278
   qs-server:
-    sha: 7239d7c71393b0c7d11ceeb8b504f5a6abfed176
+    sha: a6640d509080e99abd8fa4c8707b64cd5d92b6e9
   qs-collection-system:
     sha: 49d1ca11b147be13c442b4c1e1fe0536fb8f4b71
   seeddata-runner:
-    sha: 5b307189aa0c61ff023aae7758f4f7a9356a742f
+    sha: a21014abb4ec29a061deb67aec7e14d9f7687dc4
   qs-operating-system:
     sha: 0abd4a1baa049479bd3e7cc0bb958f886918263e
 candidates:
@@ -84,6 +92,9 @@ candidates:
     replacement: AuthorizationDomain/TenantDomain for authz domain; BusinessOrgID/OrgID for business organization.
     deprecation_contract: Standard Go Deprecated annotation and v2 compile protection published in v2.0.10.
     release_result: Removed from the github.com/FangcunMount/iam/v3 module after exact known-consumer scans found no field references; v2.0.10 remains available.
+    consumer_migration:
+      qs-server: "Migrated to v3.0.0 in PR #7 at a6640d509080e99abd8fa4c8707b64cd5d92b6e9."
+      seeddata-runner: "Migrated to v3.0.0 in PR #4 at a21014abb4ec29a061deb67aec7e14d9f7687dc4."
   sdk_jwks_stats:
     status: removed_in_v3
     specific_external_type_references_found: false
@@ -93,6 +104,9 @@ candidates:
     replacement: Per-fetcher FetcherStats, CircuitBreakerFetcher.State, or sdk.WithMetricsCollector for application metrics.
     deprecation_contract: Standard Go Deprecated annotation and v2 compile protection published in v2.0.10.
     release_result: Removed from the github.com/FangcunMount/iam/v3 module after exact known-consumer scans found no type references; v2.0.10 remains available.
+    consumer_migration:
+      qs-server: "Migrated to v3.0.0 in PR #7 at a6640d509080e99abd8fa4c8707b64cd5d92b6e9."
+      seeddata-runner: "Migrated to v3.0.0 in PR #4 at a21014abb4ec29a061deb67aec7e14d9f7687dc4."
 owner_waiver:
   granted_at: "2026-08-12"
   scope: Batch C runtime compatibility candidates and SDK retirement timing.

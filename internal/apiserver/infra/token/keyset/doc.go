@@ -130,20 +130,6 @@
 //   - 强制重新构建 JWKS
 //   - 用于密钥轮换后立即更新
 //
-// ## 辅助方法
-//
-// - GetJWKSStats: 获取 JWKS 统计信息
-//   - 统计可发布密钥数量（Active/Grace）
-//   - 返回最后构建时间
-//
-// - GetCacheControl: 获取缓存控制策略
-//   - 返回 HTTP Cache-Control 头值
-//   - 推荐：public, max-age=3600, must-revalidate
-//
-// - ValidateJWKS: 验证 JWKS 完整性
-//   - 检查是否有可发布的密钥
-//   - 验证每个密钥的有效性
-//
 // ## 缓存机制
 //
 // KeySetBuilder 内置简单的缓存机制：
