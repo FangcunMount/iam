@@ -5,23 +5,17 @@ set -euo pipefail
 OPERATION="${IAM_DB_OPS_OPERATION:-}"
 BACKUP_NAME="${IAM_DB_OPS_BACKUP_NAME:-}"
 BACKUP_DIR="${IAM_DB_OPS_BACKUP_DIR:-/opt/backups/iam/database}"
-CONFIRMATION="${IAM_DB_OPS_CONFIRMATION:-}"
-MAX_BACKUP_AGE_SECONDS="${IAM_DB_OPS_MAX_BACKUP_AGE_SECONDS:-7200}"
 MYSQL_BIN="${IAM_DB_OPS_MYSQL_BIN:-mysql}"
 MYSQLDUMP_BIN="${IAM_DB_OPS_MYSQLDUMP_BIN:-mysqldump}"
 TIMESTAMP_OVERRIDE="${IAM_DB_OPS_TIMESTAMP:-}"
 ALLOW_DOCKER_CLIENT="${IAM_DB_OPS_ALLOW_DOCKER_CLIENT:-0}"
 MYSQL_CLIENT_IMAGE="${IAM_DB_OPS_MYSQL_CLIENT_IMAGE:-mysql:8.0}"
-AUTHN_CONTAINER="${IAM_DB_OPS_AUTHN_CONTAINER:-iam-apiserver}"
-AUTHN_BATCH_SIZE="${IAM_DB_OPS_AUTHN_BATCH_SIZE:-5000}"
-AUTHN_EVIDENCE_FILE="${IAM_DB_OPS_AUTHN_EVIDENCE_FILE:-}"
 
 MYSQL_DEFAULTS=""
 PARTIAL_PATH=""
 ERROR_PATH=""
 MYSQL_CLIENT_VERSION=""
 CLIENT_WRAPPER_DIR=""
-SQL_PATH=""
 
 fail() {
   echo "database operation failed: $1" >&2
@@ -41,9 +35,6 @@ cleanup() {
   if [ -n "$CLIENT_WRAPPER_DIR" ]; then
     rm -f -- "$CLIENT_WRAPPER_DIR/mysql" "$CLIENT_WRAPPER_DIR/mysqldump"
     rmdir -- "$CLIENT_WRAPPER_DIR" 2>/dev/null || true
-  fi
-  if [ -n "$SQL_PATH" ]; then
-    rm -f -- "$SQL_PATH"
   fi
 }
 
@@ -129,7 +120,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status|retire-identity-dry-run|retire-identity-apply|reconcile-authn-dry-run|reconcile-authn-verify|reconcile-authn-apply|performance-schema-status) ;;
+    backup|restore|status|performance-schema-status) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -146,29 +137,9 @@ validate_configuration() {
     fail "database name is invalid"
     return 1
   fi
-  if ! [[ "$MAX_BACKUP_AGE_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
-    fail "backup age limit is invalid"
-    return 1
-  fi
   if [[ "$BACKUP_DIR" != /* ]] || [ -L "$BACKUP_DIR" ]; then
     fail "backup directory is invalid"
     return 1
-  fi
-  if ! [[ "$AUTHN_CONTAINER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
-    fail "AuthN maintenance container is invalid"
-    return 1
-  fi
-  if ! [[ "$AUTHN_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]] || [ "$AUTHN_BATCH_SIZE" -gt 50000 ]; then
-    fail "AuthN reconciliation batch size is invalid"
-    return 1
-  fi
-  if [ -n "$AUTHN_EVIDENCE_FILE" ]; then
-    if [ "$OPERATION" != "reconcile-authn-verify" ] \
-        || ! [[ "$AUTHN_EVIDENCE_FILE" =~ ^/tmp/iam-authn-retirement-[0-9]+-[0-9]+\.json$ ]] \
-        || [ -L "$AUTHN_EVIDENCE_FILE" ]; then
-      fail "AuthN reconciliation evidence path is invalid"
-      return 1
-    fi
   fi
 }
 
@@ -291,34 +262,6 @@ validate_backup_name() {
   fi
 }
 
-validate_recent_backup() {
-  validate_backup_name || return 1
-  prepare_backup_directory || return 1
-
-  local source_path="$BACKUP_DIR/$BACKUP_NAME"
-  local modified_at now age
-  if [ -L "$source_path" ] || [ ! -f "$source_path" ]; then
-    fail "retirement backup file is unavailable"
-    return 1
-  fi
-  if [ ! -s "$source_path" ] || ! gzip -t "$source_path" 2>/dev/null; then
-    fail "retirement backup integrity validation failed"
-    return 1
-  fi
-  modified_at="$(stat -c %Y "$source_path" 2>/dev/null || stat -f %m "$source_path" 2>/dev/null || true)"
-  now="$(date +%s)"
-  if ! [[ "$modified_at" =~ ^[0-9]+$ ]] || ! [[ "$now" =~ ^[0-9]+$ ]] || [ "$now" -lt "$modified_at" ]; then
-    fail "retirement backup age is unavailable"
-    return 1
-  fi
-  age=$((now - modified_at))
-  if [ "$age" -gt "$MAX_BACKUP_AGE_SECONDS" ]; then
-    fail "retirement backup is stale"
-    return 1
-  fi
-  echo "identity retirement backup: result=valid age_seconds=$age max_age_seconds=$MAX_BACKUP_AGE_SECONDS"
-}
-
 restore_database() {
   require_mysql8_client "$MYSQL_BIN" mysql || return 1
   command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
@@ -350,7 +293,7 @@ database_status() {
   prepare_defaults_file
   ERROR_PATH="$BACKUP_DIR/.iam_status.error"
 
-  local database_size table_count backup_count latest_backup migration_state authn_table_state migration_lock_state other_authn_query_state other_authn_query_details
+  local database_size table_count backup_count latest_backup migration_state retired_table_state migration_lock_state
   if ! "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT 1;' > /dev/null 2>"$ERROR_PATH"; then
     fail "database connection failed"
     return 1
@@ -367,337 +310,35 @@ database_status() {
     fail "migration state query failed"
     return 1
   fi
-  if ! authn_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT COALESCE(SUM(TABLE_NAME = 'auth_accounts'), 0), COALESCE(SUM(TABLE_NAME = 'auth_credentials_legacy'), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('auth_accounts', 'auth_credentials_legacy');" 2>"$ERROR_PATH")"; then
-    fail "AuthN table state query failed"
+  if ! retired_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "SELECT COALESCE(SUM(TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy')), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy');" 2>"$ERROR_PATH")"; then
+    fail "retired table state query failed"
     return 1
   fi
-  if ! migration_lock_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "WITH migration_lock AS (SELECT IS_USED_LOCK(CAST(MOD(CRC32(CONCAT(DATABASE(), ':schema_migrations')) * 1486364155, 4294967296) AS CHAR)) AS owner_id) SELECT COALESCE(CAST(migration_lock.owner_id AS CHAR), 'none'), CASE WHEN migration_lock.owner_id IS NULL THEN 'free' WHEN process.ID IS NULL THEN 'held_owner_not_visible' WHEN process.COMMAND = 'Sleep' THEN 'held_sleep' WHEN LOWER(COALESCE(process.INFO, '')) REGEXP '(^|[^a-z0-9_])(auth_accounts|auth_credentials_legacy)([^a-z0-9_]|$)' THEN 'held_legacy_authn_query' ELSE 'held_other_query' END, COALESCE(process.TIME, -1) FROM migration_lock LEFT JOIN information_schema.PROCESSLIST process ON process.ID = migration_lock.owner_id;" 2>"$ERROR_PATH")"; then
+  if ! migration_lock_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "WITH migration_lock AS (SELECT IS_USED_LOCK(CAST(MOD(CRC32(CONCAT(DATABASE(), ':schema_migrations')) * 1486364155, 4294967296) AS CHAR)) AS owner_id) SELECT COALESCE(CAST(migration_lock.owner_id AS CHAR), 'none'), CASE WHEN migration_lock.owner_id IS NULL THEN 'free' WHEN process.ID IS NULL THEN 'held_owner_not_visible' WHEN process.COMMAND = 'Sleep' THEN 'held_sleep' ELSE 'held_query' END, COALESCE(process.TIME, -1) FROM migration_lock LEFT JOIN information_schema.PROCESSLIST process ON process.ID = migration_lock.owner_id;" 2>"$ERROR_PATH")"; then
     fail "migration lock state query failed"
-    return 1
-  fi
-  if ! other_authn_query_state="$(mysql_scalar "WITH migration_lock AS (
-      SELECT IS_USED_LOCK(CAST(MOD(CRC32(CONCAT(DATABASE(), ':schema_migrations')) * 1486364155, 4294967296) AS CHAR)) AS owner_id
-    )
-    SELECT COUNT(*), COALESCE(MAX(process.TIME), -1)
-    FROM information_schema.PROCESSLIST process
-    CROSS JOIN migration_lock
-    WHERE process.ID <> CONNECTION_ID()
-      AND (migration_lock.owner_id IS NULL OR process.ID <> migration_lock.owner_id)
-      AND process.COMMAND <> 'Sleep'
-      AND LOWER(COALESCE(process.INFO, '')) REGEXP '(^|[^a-z0-9_])(auth_accounts|auth_credentials_legacy)([^a-z0-9_]|$)';")"; then
-    fail "other AuthN query state query failed"
-    return 1
-  fi
-  if ! other_authn_query_details="$(mysql_scalar "WITH migration_lock AS (
-      SELECT IS_USED_LOCK(CAST(MOD(CRC32(CONCAT(DATABASE(), ':schema_migrations')) * 1486364155, 4294967296) AS CHAR)) AS owner_id
-    )
-    SELECT COALESCE(GROUP_CONCAT(CONCAT(process.ID, ':', process.TIME, ':',
-      CASE
-        WHEN TRIM(LOWER(COALESCE(process.INFO, ''))) REGEXP '^(select|with)' THEN 'read_only'
-        ELSE 'non_read_only'
-      END) ORDER BY process.TIME DESC SEPARATOR ','), 'none')
-    FROM information_schema.PROCESSLIST process
-    CROSS JOIN migration_lock
-    WHERE process.ID <> CONNECTION_ID()
-      AND (migration_lock.owner_id IS NULL OR process.ID <> migration_lock.owner_id)
-      AND process.COMMAND <> 'Sleep'
-      AND LOWER(COALESCE(process.INFO, '')) REGEXP '(^|[^a-z0-9_])(auth_accounts|auth_credentials_legacy)([^a-z0-9_]|$)';")"; then
-    fail "other AuthN query detail query failed"
     return 1
   fi
   backup_count="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_????????_??????.sql.gz' | wc -l | tr -d ' ')"
   latest_backup="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_????????_??????.sql.gz' -print | sort -r | head -1 | sed -E 's/.*iam_backup_([0-9]{8}_[0-9]{6})\.sql\.gz/\1/' || true)"
   [ -n "$latest_backup" ] || latest_backup="none"
   echo "database status: result=success mysql_client=$MYSQL_CLIENT_VERSION connection=success size_mb=$database_size tables=$table_count backups=$backup_count latest_backup=$latest_backup"
-  echo "migration status: schema_migrations=$migration_state authn_legacy_tables=$authn_table_state"
+  echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  echo "migration peers: other_legacy_authn_queries=$other_authn_query_state"
-  echo "migration peer details: id_seconds_kind=$other_authn_query_details"
+  if [ "$migration_state" != $'23\t0\t1' ]; then
+    fail "migration status is not version 23 clean"
+    return 1
+  fi
+  if [ "$retired_table_state" != "0" ]; then
+    fail "retired tables are present"
+    return 1
+  fi
+  echo "retirement guard: result=success expected_version=23 retired_tables_present=0"
 }
 
 mysql_scalar() {
   local sql="$1"
   "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw \
     "$MYSQL_DBNAME" -e "$sql" 2>"$ERROR_PATH"
-}
-
-identity_retirement_dependency_count() {
-  mysql_scalar "SELECT
-    (SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
-      WHERE (TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships') AND REFERENCED_TABLE_NAME IS NOT NULL)
-         OR (REFERENCED_TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IN ('children', 'guardianships')))
-    + (SELECT COUNT(*) FROM information_schema.TRIGGERS
-      WHERE TRIGGER_SCHEMA = DATABASE()
-        AND (EVENT_OBJECT_TABLE IN ('children', 'guardianships')
-          OR LOWER(ACTION_STATEMENT) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'))
-    + (SELECT COUNT(*) FROM information_schema.VIEWS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND (VIEW_DEFINITION IS NULL
-          OR LOWER(VIEW_DEFINITION) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'))
-    + (SELECT COUNT(*) FROM information_schema.ROUTINES
-      WHERE ROUTINE_SCHEMA = DATABASE()
-        AND (ROUTINE_DEFINITION IS NULL
-          OR LOWER(ROUTINE_DEFINITION) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'))
-    + (SELECT COUNT(*) FROM information_schema.EVENTS
-      WHERE EVENT_SCHEMA = DATABASE()
-        AND (EVENT_DEFINITION IS NULL
-          OR LOWER(EVENT_DEFINITION) REGEXP '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)'));"
-}
-
-identity_retirement_gate() {
-  require_mysql8_client "$MYSQL_BIN" mysql || return 1
-  command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
-  validate_recent_backup || return 1
-  prepare_defaults_file
-  ERROR_PATH="$BACKUP_DIR/.iam_identity_retirement.error"
-
-  local migration_state table_state row_counts dependency_count
-  if ! migration_state="$(mysql_scalar "SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;")"; then
-    fail "identity retirement migration state is unavailable"
-    return 1
-  fi
-  if [ "$migration_state" != $'18\t0\t1' ]; then
-    fail "identity retirement requires schema_migrations version 18 clean"
-    return 1
-  fi
-
-  if ! table_state="$(mysql_scalar "SELECT
-      COALESCE(SUM(TABLE_NAME = 'children' AND TABLE_TYPE = 'BASE TABLE'), 0),
-      COALESCE(SUM(TABLE_NAME = 'guardianships' AND TABLE_TYPE = 'BASE TABLE'), 0)
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships');")"; then
-    fail "identity retirement table state is unavailable"
-    return 1
-  fi
-  if [ "$table_state" = $'0\t0' ]; then
-    echo "identity retirement gate: state=already_absent migration_version=18 dirty=0 reconciliation=waived_by_owner"
-    return 0
-  fi
-  if [ "$table_state" != $'1\t1' ]; then
-    fail "identity retirement found a partial legacy table state"
-    return 1
-  fi
-
-  if ! dependency_count="$(identity_retirement_dependency_count)" || ! [[ "$dependency_count" =~ ^[0-9]+$ ]]; then
-    fail "identity retirement dependency evidence is unavailable"
-    return 1
-  fi
-  if [ "$dependency_count" != "0" ]; then
-    fail "identity retirement database dependencies still exist"
-    return 1
-  fi
-  if ! row_counts="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM children), (SELECT COUNT(*) FROM guardianships);")"; then
-    fail "identity retirement row counts are unavailable"
-    return 1
-  fi
-  if ! [[ "$row_counts" =~ ^[0-9]+$'\t'[0-9]+$ ]]; then
-    fail "identity retirement row counts are invalid"
-    return 1
-  fi
-
-  local children_rows guardianship_rows
-  IFS=$'\t' read -r children_rows guardianship_rows <<<"$row_counts"
-  echo "identity retirement gate: state=eligible migration_version=18 dirty=0 dependencies=0 children_rows=$children_rows guardianships_rows=$guardianship_rows action=direct_drop reconciliation=waived_by_owner"
-}
-
-retire_identity_tables() {
-  identity_retirement_gate || return 1
-  if [ "$OPERATION" = "retire-identity-dry-run" ]; then
-    echo "identity retirement completed: mode=dry-run result=success"
-    return 0
-  fi
-  if [ "$CONFIRMATION" != "RETIRE_CHILDREN_GUARDIANSHIPS" ]; then
-    fail "identity retirement confirmation is invalid"
-    return 1
-  fi
-
-  local table_state result
-  if ! table_state="$(mysql_scalar "SELECT
-      COALESCE(SUM(TABLE_NAME = 'children' AND TABLE_TYPE = 'BASE TABLE'), 0),
-      COALESCE(SUM(TABLE_NAME = 'guardianships' AND TABLE_TYPE = 'BASE TABLE'), 0)
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships');")"; then
-    fail "identity retirement table state is unavailable"
-    return 1
-  fi
-  if [ "$table_state" = $'0\t0' ]; then
-    echo "identity retirement completed: mode=apply result=already_absent"
-    return 0
-  fi
-  if [ "$table_state" != $'1\t1' ]; then
-    fail "identity retirement found a partial legacy table state"
-    return 1
-  fi
-
-  SQL_PATH="$(mktemp "${TMPDIR:-/tmp}/iam-identity-retirement.XXXXXX.sql")"
-  chmod 0600 "$SQL_PATH"
-  cat >"$SQL_PATH" <<'SQL'
-SELECT GET_LOCK('iam_retire_children_guardianships', 0) INTO @iam_retirement_lock;
-
-DROP TEMPORARY TABLE IF EXISTS iam_identity_retirement_assertion;
-CREATE TEMPORARY TABLE iam_identity_retirement_assertion
-(
-    message VARCHAR(128) NOT NULL PRIMARY KEY
-);
-INSERT INTO iam_identity_retirement_assertion (message)
-VALUES ('identity retirement gate failed');
-INSERT INTO iam_identity_retirement_assertion (message)
-SELECT 'identity retirement gate failed'
-WHERE @iam_retirement_lock <> 1;
-
-LOCK TABLES children WRITE, guardianships WRITE, schema_migrations READ;
-
-SET @iam_migration_invalid = (
-    SELECT NOT (COUNT(*) = 1 AND MAX(version) = 18 AND MAX(dirty + 0) = 0)
-    FROM schema_migrations
-);
-INSERT INTO iam_identity_retirement_assertion (message)
-SELECT 'identity retirement gate failed'
-WHERE @iam_migration_invalid <> 0;
-
-SET @iam_retirement_pattern = '(^|[^a-z0-9_])(children|guardianships)([^a-z0-9_]|$)';
-SET @iam_retirement_dependencies = (
-      SELECT COUNT(*)
-      FROM information_schema.KEY_COLUMN_USAGE
-      WHERE (TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships') AND REFERENCED_TABLE_NAME IS NOT NULL)
-         OR (REFERENCED_TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IN ('children', 'guardianships'))
-)
-+ (
-      SELECT COUNT(*)
-      FROM information_schema.TRIGGERS
-      WHERE TRIGGER_SCHEMA = DATABASE()
-        AND (EVENT_OBJECT_TABLE IN ('children', 'guardianships') OR LOWER(ACTION_STATEMENT) REGEXP @iam_retirement_pattern)
-)
-+ (
-      SELECT COUNT(*)
-      FROM information_schema.VIEWS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND (VIEW_DEFINITION IS NULL OR LOWER(VIEW_DEFINITION) REGEXP @iam_retirement_pattern)
-)
-+ (
-      SELECT COUNT(*)
-      FROM information_schema.ROUTINES
-      WHERE ROUTINE_SCHEMA = DATABASE()
-        AND (ROUTINE_DEFINITION IS NULL OR LOWER(ROUTINE_DEFINITION) REGEXP @iam_retirement_pattern)
-)
-+ (
-      SELECT COUNT(*)
-      FROM information_schema.EVENTS
-      WHERE EVENT_SCHEMA = DATABASE()
-        AND (EVENT_DEFINITION IS NULL OR LOWER(EVENT_DEFINITION) REGEXP @iam_retirement_pattern)
-);
-INSERT INTO iam_identity_retirement_assertion (message)
-SELECT 'identity retirement gate failed'
-WHERE @iam_retirement_dependencies <> 0;
-
-SET @iam_children_rows = (SELECT COUNT(*) FROM children);
-SET @iam_guardianships_rows = (SELECT COUNT(*) FROM guardianships);
-DROP TEMPORARY TABLE iam_identity_retirement_assertion;
-
--- The owner explicitly waived legacy-to-canonical reconciliation. Keep this
--- as the only destructive statement and do not write canonical tables.
-DROP TABLE children, guardianships;
-
-DO RELEASE_LOCK('iam_retire_children_guardianships');
-SELECT @iam_children_rows, @iam_guardianships_rows;
-SQL
-
-  echo "identity retirement started: mode=apply action=direct_drop reconciliation=waived_by_owner"
-  if ! result="$("$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw \
-      "$MYSQL_DBNAME" <"$SQL_PATH" 2>"$ERROR_PATH")"; then
-    fail "identity retirement SQL did not complete; raw database errors were withheld"
-    return 1
-  fi
-  if ! [[ "$result" =~ ^[0-9]+$'\t'[0-9]+$ ]]; then
-    fail "identity retirement completion evidence is invalid"
-    return 1
-  fi
-  local children_rows guardianship_rows
-  IFS=$'\t' read -r children_rows guardianship_rows <<<"$result"
-  echo "identity retirement completed: mode=apply result=success children_rows_deleted=$children_rows guardianships_rows_deleted=$guardianship_rows canonical_writes=0"
-}
-
-reconcile_authn_legacy() {
-  local docker_bin sudo_bin running result required
-  if [ "$OPERATION" = "reconcile-authn-apply" ]; then
-    if [ "$CONFIRMATION" != "BACKFILL_AUTHN_LEGACY_MISSING" ]; then
-      fail "AuthN reconciliation confirmation is invalid"
-      return 1
-    fi
-    command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
-    validate_recent_backup || return 1
-  elif [ -n "${CONFIRMATION//[[:space:]]/}" ]; then
-    fail "AuthN reconciliation dry-run does not accept confirmation"
-    return 1
-  fi
-
-  docker_bin="$(command -v "${IAM_DB_OPS_DOCKER_BIN:-docker}" 2>/dev/null || true)"
-  sudo_bin="$(command -v "${IAM_DB_OPS_SUDO_BIN:-sudo}" 2>/dev/null || true)"
-  if [ -z "$docker_bin" ] || [ -z "$sudo_bin" ]; then
-    fail "AuthN maintenance container access is unavailable"
-    return 1
-  fi
-  if ! running="$($sudo_bin -n "$docker_bin" inspect --format '{{.State.Running}}' "$AUTHN_CONTAINER" 2>/dev/null)" \
-      || [ "$running" != "true" ]; then
-    fail "AuthN maintenance container is not running"
-    return 1
-  fi
-
-  ERROR_PATH="$(mktemp "${TMPDIR:-/tmp}/iam-authn-reconciliation.XXXXXX.error")"
-  chmod 0600 "$ERROR_PATH"
-  echo "AuthN reconciliation started: mode=${OPERATION#reconcile-authn-} canonical_policy=insert_missing_only batch_size=$AUTHN_BATCH_SIZE"
-  if [ "$OPERATION" = "reconcile-authn-apply" ]; then
-    if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
-        /app/iam-maintenance reconcile-authn-legacy --apply \
-        --confirm=BACKFILL_AUTHN_LEGACY_MISSING --batch-size="$AUTHN_BATCH_SIZE" \
-        --timeout=15m 2>"$ERROR_PATH")"; then
-      [ -z "$result" ] || printf '%s\n' "$result"
-      fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
-      return 1
-    fi
-  elif [ "$OPERATION" = "reconcile-authn-verify" ]; then
-    if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
-        /app/iam-maintenance reconcile-authn-legacy --require-eligible \
-        --timeout=15m 2>"$ERROR_PATH")"; then
-      [ -z "$result" ] || printf '%s\n' "$result"
-      fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
-      return 1
-    fi
-  else
-    if ! result="$($sudo_bin -n "$docker_bin" exec "$AUTHN_CONTAINER" \
-        /app/iam-maintenance reconcile-authn-legacy --timeout=15m 2>"$ERROR_PATH")"; then
-      [ -z "$result" ] || printf '%s\n' "$result"
-      fail "AuthN reconciliation did not complete; raw runtime errors were withheld"
-      return 1
-    fi
-  fi
-  if ! grep -Eq '"format_version"[[:space:]]*:[[:space:]]*5' <<<"$result" \
-      || ! grep -Eq '"retirement_eligible"[[:space:]]*:[[:space:]]*(true|false)' <<<"$result"; then
-    fail "AuthN reconciliation evidence is invalid"
-    return 1
-  fi
-  if [ "$OPERATION" = "reconcile-authn-verify" ]; then
-    for required in \
-      '"hard_conflicts"[[:space:]]*:[[:space:]]*0' \
-      '"remaining_login_identity_inserts"[[:space:]]*:[[:space:]]*0' \
-      '"remaining_password_inserts"[[:space:]]*:[[:space:]]*0' \
-      '"verification_required"[[:space:]]*:[[:space:]]*false' \
-      '"retirement_eligible"[[:space:]]*:[[:space:]]*true'; do
-      if ! grep -Eq "$required" <<<"$result"; then
-        fail "AuthN reconciliation eligibility evidence is incomplete"
-        return 1
-      fi
-    done
-    if [ -n "$AUTHN_EVIDENCE_FILE" ]; then
-      PARTIAL_PATH="$(mktemp "${AUTHN_EVIDENCE_FILE}.partial.XXXXXX")"
-      chmod 0600 "$PARTIAL_PATH"
-      printf '%s\n' "$result" >"$PARTIAL_PATH"
-      mv -f -- "$PARTIAL_PATH" "$AUTHN_EVIDENCE_FILE"
-      PARTIAL_PATH=""
-    fi
-  fi
-  printf '%s\n' "$result"
-  echo "AuthN reconciliation completed: mode=${OPERATION#reconcile-authn-} result=success"
 }
 
 performance_schema_status() {
@@ -813,8 +454,6 @@ main() {
     backup) backup_database ;;
     restore) restore_database ;;
     status) database_status ;;
-    retire-identity-dry-run|retire-identity-apply) retire_identity_tables ;;
-    reconcile-authn-dry-run|reconcile-authn-verify|reconcile-authn-apply) reconcile_authn_legacy ;;
     performance-schema-status) performance_schema_status ;;
   esac
 }

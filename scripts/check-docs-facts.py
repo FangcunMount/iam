@@ -389,47 +389,27 @@ def check_database_operations_facts() -> None:
     script = (ROOT / "scripts/dbops/database-operation.sh").read_text(
         encoding="utf-8"
     )
-    retirement = (
-        ROOT / "scripts/dbops/legacy-retirement-preflight.sh"
-    ).read_text(encoding="utf-8")
     operations_doc = (ROOT / ".github/workflows/README.md").read_text(
         encoding="utf-8"
     )
 
-    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 5:
+    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 4:
         fail("database workflow no longer routes all operations through the repository script")
-    if workflow.count("script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1:
-        fail("database status no longer runs the checked-out retirement preflight exactly once")
     for token in (
-        "image_sha:",
-        "IAM_RETIREMENT_IMAGE_SHA",
-        "Run Legacy Retirement Preflight",
-        "Verify AuthN Reconciliation",
-        "IAM_DB_OPS_AUTHN_EVIDENCE_FILE",
-        "IAM_RETIREMENT_AUTHN_EVIDENCE_FILE",
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
-        "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
-        "retirement_scope:",
-        "IAM_RETIREMENT_SCOPE",
-        "retirement_io_waiver:",
-        "IAM_RETIREMENT_OWNER_IO_WAIVER",
-        "audit_tables",
-        "authn_tables",
-        "retire-identity-dry-run",
-        "retire-identity-apply",
-        "reconcile-authn-dry-run",
-        "reconcile-authn-verify",
-        "reconcile-authn-apply",
-        "authn_batch_size:",
-        "IAM_DB_OPS_AUTHN_BATCH_SIZE",
-        "command_timeout: 20m",
         "performance-schema-status",
-        "migration-status",
-        "IAM_DB_OPS_CONFIRMATION",
     ):
         if token not in workflow:
-            fail(f"database status retirement preflight is missing {token}")
-    for forbidden in ("apt-get", "apk add", "script: |", "SHOW TABLES"):
+            fail(f"database operations workflow is missing {token}")
+    for forbidden in (
+        "apt-get",
+        "apk add",
+        "script: |",
+        "SHOW TABLES",
+        "legacy-retirement-preflight",
+        "retire-identity",
+        "reconcile-authn",
+    ):
         if forbidden in workflow:
             fail(f"database workflow contains retired inline behavior {forbidden}")
     for token in (
@@ -446,18 +426,8 @@ def check_database_operations_facts() -> None:
         "Ver 8\\.",
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
-        "RETIRE_CHILDREN_GUARDIANSHIPS",
-        "DROP TABLE children, guardianships;",
-        "canonical_writes=0",
-        "reconcile-authn-dry-run",
-        "reconcile-authn-verify",
-        "reconcile-authn-apply",
-        "--require-eligible",
-        "BACKFILL_AUTHN_LEGACY_MISSING",
-        "/app/iam-maintenance reconcile-authn-legacy",
-        "canonical_policy=insert_missing_only",
-        "--batch-size=",
-        "--timeout=15m",
+        "retired_tables_present=",
+        "expected_version=23",
         "performance schema capability:",
         "sys_table_statistics_select=",
         "rds_table_statistics_enabled=",
@@ -468,60 +438,15 @@ def check_database_operations_facts() -> None:
         if token not in script:
             fail(f"database operation script is missing safety contract {token}")
     for token in (
-        "format_version=5",
-        "query_mode=read_only_aggregate",
-        "--defaults-extra-file=",
-        "performance_schema.table_io_waits_summary_by_table",
-        "information_schema.TABLE_STATISTICS",
-        "zero_io_interpretation=not_proof_without_full_observation_window",
-        "children_to_profiles",
-        "guardianships_to_profile_links",
-        "auth_accounts_to_login_identities",
-        "legacy_credentials_to_authn",
-        "exact_rows",
-        "schema_signature",
-        "eligibility",
-        "invalid_supported_rows",
-        "immutable_conflict_rows",
-        "mutable_status_divergences",
-        "password_duplicate_sources",
-        "phone_owner_conflicts",
-        "oauth_unmapped_rows",
-        "unknown_credential_rows",
-        "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
-        "mysql:8.0",
-        "IAM_RETIREMENT_SCOPE",
-        "IAM_RETIREMENT_OWNER_IO_WAIVER",
-        "owner_io_waiver_allows",
-        "schema_contract",
-    ):
-        if token not in retirement:
-            fail(f"legacy retirement preflight is missing safety contract {token}")
-    for forbidden in (
-        "INSERT INTO",
-        "DELETE FROM",
-        "DROP TABLE",
-        "TRUNCATE TABLE",
-        "ALTER TABLE",
-        "CREATE TABLE",
-        "REPLACE INTO",
-        "MYSQL_PWD",
-    ):
-        if forbidden in retirement.upper():
-            fail(f"legacy retirement preflight contains forbidden token {forbidden}")
-    for token in (
-        "Verify database backup, restore, and Identity retirement with MySQL 8",
-        "Run retirement and full-chain migration tests",
+        "Verify database backup, restore, and status with MySQL 8",
+        "Run retirement migrations and full-chain tests",
         "TestRetireUnusedPlatformTablesMigrationMySQL",
         "TestRetireUnusedAuditTablesMigrationMySQL",
         "TestRetireLegacyAuthNTablesMigrationMySQL",
         "TestFullMigrationChainAndBootstrapMySQL",
-        "TestAuthNLegacyReconciliationMySQL",
-        "TestLegacyRetirementPreflightAuthNMySQL",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",
-        "IAM_DB_OPS_OPERATION=retire-identity-dry-run",
-        "IAM_DB_OPS_OPERATION=retire-identity-apply",
+        "IAM_DB_OPS_OPERATION=status",
         "SELECT value FROM restore_fixture",
     ):
         if token not in integration:
@@ -529,9 +454,8 @@ def check_database_operations_facts() -> None:
     for fact in (
         "MySQL 8.x",
         "scripts/dbops/database-operation.sh",
-        "scripts/dbops/legacy-retirement-preflight.sh",
         "原子改名",
-        "只输出 MySQL 客户端版本",
+        "只读输出 MySQL 客户端版本",
     ):
         if fact not in operations_doc:
             fail(f"database operations documentation is missing {fact}")

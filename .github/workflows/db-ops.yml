@@ -17,51 +17,10 @@ on:
           - backup
           - restore
           - status
-          - migration-status
           - performance-schema-status
-          - retire-identity-dry-run
-          - retire-identity-apply
-          - reconcile-authn-dry-run
-          - reconcile-authn-verify
-          - reconcile-authn-apply
       backup_name:
         description: Backup name, required for restore
         required: false
-        type: string
-      image_sha:
-        description: Currently deployed IAM image Git SHA, required for retirement preflight evidence
-        required: false
-        type: string
-      retirement_scope:
-        description: Retirement preflight scope for status
-        required: false
-        default: all
-        type: choice
-        options:
-          - all
-          - identity
-          - schema_version
-          - platform
-          - authn
-          - audit
-      retirement_io_waiver:
-        description: Owner-approved I/O evidence waiver; selected retired table family only
-        required: false
-        default: none
-        type: choice
-        options:
-          - none
-          - platform_tables
-          - audit_tables
-          - authn_tables
-      confirmation:
-        description: Exact destructive-operation confirmation token; required for apply only
-        required: false
-        type: string
-      authn_batch_size:
-        description: Maximum canonical rows inserted by one AuthN apply batch (1-50000)
-        required: false
-        default: "5000"
         type: string
   schedule:
     - cron: '0 17 * * *'  # Daily 17:00 UTC / 01:00 Asia-Shanghai
@@ -127,7 +86,7 @@ jobs:
 
   db-status:
     name: Database Status
-    if: github.event.inputs.operation == 'status' || github.event.inputs.operation == 'migration-status'
+    if: github.event.inputs.operation == 'status'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -152,54 +111,9 @@ jobs:
           envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
 
-      - name: Verify AuthN Reconciliation
-        if: github.event.inputs.operation == 'status' && (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all')
-        uses: appleboy/ssh-action@v1.2.5
-        env:
-          IAM_DB_OPS_OPERATION: reconcile-authn-verify
-          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
-          IAM_DB_OPS_AUTHN_EVIDENCE_FILE: /tmp/iam-authn-retirement-${{ github.run_id }}-${{ github.run_attempt }}.json
-          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
-          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
-          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
-          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
-        with:
-          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
-          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
-          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,IAM_DB_OPS_AUTHN_EVIDENCE_FILE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
-          script_path: scripts/dbops/database-operation.sh
-          command_timeout: 20m
-
-      - name: Run Legacy Retirement Preflight
-        if: github.event.inputs.operation == 'status'
-        uses: appleboy/ssh-action@v1.2.5
-        env:
-          IAM_RETIREMENT_ENVIRONMENT: production
-          IAM_RETIREMENT_ALLOW_DOCKER_CLIENT: "1"
-          IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
-          IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
-          IAM_RETIREMENT_SCOPE: ${{ github.event.inputs.retirement_scope || 'all' }}
-          IAM_RETIREMENT_OWNER_IO_WAIVER: ${{ github.event.inputs.retirement_io_waiver || 'none' }}
-          IAM_RETIREMENT_AUTHN_EVIDENCE_FILE: ${{ (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all') && format('/tmp/iam-authn-retirement-{0}-{1}.json', github.run_id, github.run_attempt) || '' }}
-          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
-          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
-          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
-          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
-        with:
-          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
-          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
-          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
-          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,IAM_RETIREMENT_OWNER_IO_WAIVER,IAM_RETIREMENT_AUTHN_EVIDENCE_FILE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
-          script_path: scripts/dbops/legacy-retirement-preflight.sh
-
   db-controlled-operation:
     name: Controlled Database Operation
-    if: github.event.inputs.operation == 'retire-identity-dry-run' || github.event.inputs.operation == 'retire-identity-apply' || github.event.inputs.operation == 'reconcile-authn-dry-run' || github.event.inputs.operation == 'reconcile-authn-verify' || github.event.inputs.operation == 'reconcile-authn-apply' || github.event.inputs.operation == 'performance-schema-status'
+    if: github.event.inputs.operation == 'performance-schema-status'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment:
@@ -216,9 +130,6 @@ jobs:
         env:
           IAM_DB_OPS_OPERATION: ${{ github.event.inputs.operation }}
           IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
-          IAM_DB_OPS_BACKUP_NAME: ${{ github.event.inputs.backup_name }}
-          IAM_DB_OPS_CONFIRMATION: ${{ github.event.inputs.confirmation }}
-          IAM_DB_OPS_AUTHN_BATCH_SIZE: ${{ github.event.inputs.authn_batch_size || '5000' }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -229,6 +140,6 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,IAM_DB_OPS_BACKUP_NAME,IAM_DB_OPS_CONFIRMATION,IAM_DB_OPS_AUTHN_BATCH_SIZE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
           command_timeout: 20m
