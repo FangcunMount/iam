@@ -55,12 +55,12 @@ func NewProfileLinkHandler(
 // @Router /identity/profile-links [get]
 // @Security BearerAuth
 func (h *ProfileLinkHandler) List(c *gin.Context) {
+	recordProfileLinkQuery(c.Request.URL.Query())
 	var req requestdto.ProfileLinkListQuery
 	if err := h.BindQuery(c, &req); err != nil {
 		h.Error(c, err)
 		return
 	}
-
 	currentUserID, err := requestctx.RequiredUserID(c)
 	if err != nil {
 		h.Error(c, err)
