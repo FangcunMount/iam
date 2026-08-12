@@ -1,4 +1,4 @@
-# SDK 迁移说明
+# IAM Go SDK v3 迁移说明
 
 ## 本文回答
 
@@ -11,6 +11,8 @@
 
 ## 30 秒结论
 
+- `v3.0.0` 的 Go module 路径是 `github.com/FangcunMount/iam/v3`；调用方必须同时更新依赖版本和 import path
+- REST URL、OpenAPI 版本/component ID 和 gRPC proto package 继续保持 v2；Go module major 升级不等于 wire 契约升级
 - 公开稳定入口现在固定为：`pkg/sdk`、`pkg/sdk/config`、`pkg/sdk/auth/client`、`pkg/sdk/auth/loginv2`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth`、`pkg/sdk/authz`、`pkg/sdk/identity`、`pkg/sdk/idp`、`pkg/sdk/errors`
 - `pkg/sdk/transport` 和 `pkg/sdk/observability` 已经移入 `pkg/sdk/internal/...`，不再对外公开
 - `pkg/sdk/errors` 只保留小型 facade；高级 `Analyze / matcher / handler` 能力已收回内部
@@ -20,20 +22,20 @@
 - `sdk.NewTokenVerifier(...)`、`sdk.NewJWKSManager(...)`、`sdk.NewJWKSManagerWithClient(...)`、`sdk.NewServiceAuthHelper(...)` 已删除
 - `sdk.NewClient(...)` 不再隐式启用 request-id / metrics / circuit breaker；这些能力现在由 `Config.Observability` 显式控制
 - JWT `tenant_id` claim 现表示 **IAM 授权域**（string，如 `fangcun`）；业务组织请读 `org_id` claim 或 `TokenClaims.BusinessOrgID()`
-- v2 已正式弃用 `TokenClaims.TenantID` 和 `auth/jwks.JWKSStats`；两者在 v2 内保持可编译，只在 v3 移除
+- v2 已正式弃用 `TokenClaims.TenantID` 和 `auth/jwks.JWKSStats`；`v2.0.10` 继续保留它们，v3 已移除
 
-## v2 弃用发布与 v3 删除门禁
+## v2 弃用发布与 v3 删除结果
 
 `v2.0.10` 已正式发布 `TokenClaims.TenantID` 和 `JWKSStats` 的 Go 工具链可识别
 `Deprecated:` 注释及替代路径。两个符号在整个 v2
 生命周期内仍是公开兼容面，不允许在 v2 minor/patch 中删除。
 
-| v3 候选 | v2 替代路径 | 删除前必须同时满足 |
+| v3 已删除符号 | v3 替代路径 | 删除依据 |
 | --- | --- | --- |
-| `TokenClaims.TenantID` | 授权域：`AuthorizationDomain()` / `TenantDomain`；业务组织：`BusinessOrgID()` / `OrgID` | `v2.0.10` 弃用发布、所有已知消费仓迁移、公开 v3 major-version 发布记录 |
-| `auth/jwks.JWKSStats` | fetcher `Stats() FetcherStats`、`CircuitBreakerFetcher.State()`；应用指标使用 `sdk.WithMetricsCollector(...)` | `v2.0.10` 弃用发布、所有已知消费仓迁移、公开 v3 major-version 发布记录 |
+| `TokenClaims.TenantID` | 授权域：`AuthorizationDomain()` / `TenantDomain`；业务组织：`BusinessOrgID()` / `OrgID` | `v2.0.10` 已发布弃用契约；已知消费仓精确扫描无字段引用；通过 `/v3` major-version 边界删除 |
+| `auth/jwks.JWKSStats` | fetcher `Stats() FetcherStats`、`CircuitBreakerFetcher.State()`；应用指标使用 `sdk.WithMetricsCollector(...)` | `v2.0.10` 已发布弃用契约；已知消费仓精确扫描无类型引用；通过 `/v3` major-version 边界删除 |
 
-2026-08-12 业务所有者免除 Batch C 的最短 30 天等待期，但不免除 Go module 的 major-version 边界。GitHub 组织搜索和本地已知工作区扫描仍是消费者证据的一部分。
+2026-08-12 业务所有者免除 Batch C 的最短 30 天等待期并授权直接推进下一步，但不免除 Go module 的 major-version 边界。GitHub 组织搜索和本地已知工作区扫描均未发现这两个符号的外部引用。`qs-server` 和 `seeddata-runner` 可继续使用 `v2.0.10`，也可在 `v3.0.0` 发布后独立迁移；v3 不会让已发布的 v2 module 失效。
 
 ## JWT tenant_id 语义变更
 
@@ -41,7 +43,7 @@
 | ----------- | ---- |
 | `TokenClaims.TenantDomain` / `AuthorizationDomain()` | IAM 授权域（Casbin domain） |
 | `TokenClaims.OrgID` / `BusinessOrgID()` | 业务组织 ID（JWT `org_id` 透传） |
-| `TokenClaims.TenantID` | **Deprecated**：与 `TenantDomain` 相同，**不要**再 `ParseUint` 当 org |
+| `TokenClaims.TenantID` | v3 已删除；不要再 `ParseUint` 授权域当 org |
 
 ### JWKSStats 迁移
 
@@ -100,7 +102,7 @@ gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22�
 
 ### 0. v2 契约整理：登录、IDP token、ProfileLink include_revoked
 
-本轮不发布 v3；REST/gRPC/SDK 直接在 v2 下整理契约。
+这些 wire 契约在 v2 阶段完成整理，并在 Go SDK v3 中原样保留；本轮只升级 Go module major，不发布 REST/gRPC v3。
 
 - gRPC 登录新增 `iam.authn.v2.AuthService.Login`，请求继续使用 `auth_method + method_payload`。
 - Go SDK `pkg/sdk/auth/client.Client` 新增 `Login(ctx, *authnv2.LoginRequest)`。
@@ -124,7 +126,7 @@ gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22�
 
 ### 1. 移除对 `pkg/sdk/transport` 的直接 import
 
-旧写法：
+旧 v2 写法：
 
 ```go
 import "github.com/FangcunMount/iam/v2/pkg/sdk/transport"
@@ -135,7 +137,7 @@ _ = transport.RequestIDInterceptor
 新写法：
 
 ```go
-import sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
+import sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
 
 ctx = sdk.WithRequestID(ctx, "req-123")
 ```
@@ -144,7 +146,7 @@ ctx = sdk.WithRequestID(ctx, "req-123")
 
 ### 2. 移除对 `pkg/sdk/observability` 的直接 import
 
-旧写法：
+旧 v2 写法：
 
 ```go
 import "github.com/FangcunMount/iam/v2/pkg/sdk/observability"
@@ -186,8 +188,8 @@ verifier, err := sdk.NewTokenVerifier(verifyCfg, jwksCfg, client)
 新写法：
 
 ```go
-import authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
-import authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
+import authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
+import authverifier "github.com/FangcunMount/iam/v3/pkg/sdk/auth/verifier"
 
 jwksManager, err := authjwks.NewJWKSManager(jwksCfg,
     authjwks.WithCacheEnabled(true),
@@ -242,9 +244,10 @@ default:
 
 ## 建议的迁移顺序
 
-1. 先删掉 `pkg/sdk/transport`、`pkg/sdk/observability` 的 import
-2. 再把 `sdk.NewTokenVerifier`、`sdk.NewJWKSManager*`、`sdk.NewServiceAuthHelper` 改成直接调用认证子包
-3. 最后把 `pkg/sdk/errors` 的高级 API 调用改成稳定谓词和映射函数
+1. 将 `go.mod` 依赖升级为 `github.com/FangcunMount/iam/v3 v3.0.0`，并把 IAM import 的 `/v2/` 统一改为 `/v3/`
+2. 删除 `TokenClaims.TenantID` 读取，按语义改用 `AuthorizationDomain()` 或 `BusinessOrgID()`
+3. 删除 `JWKSStats` 引用，改用 fetcher `Stats()`、熔断器 `State()` 或应用级 metrics collector
+4. 运行 `go mod tidy`、全量测试和实际 IAM 集成验证；不要改 REST URL 或 `iam.*.v2` proto package
 
 ## 下一步
 

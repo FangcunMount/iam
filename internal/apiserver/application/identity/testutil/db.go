@@ -5,17 +5,17 @@ import (
 	"os"
 	"testing"
 
-	identityuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
+	identityuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/uow"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	profilepo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profile"
-	profilelinkpo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/profilelink"
-	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
-	mysqluow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/identity"
-	userpo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
+	profilepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/profile"
+	profilelinkpo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/profilelink"
+	sessionrevocation "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/sessionrevocation"
+	mysqluow "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/identity"
+	userpo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/user"
 )
 
 // SetupTestDB 创建内存数据库用于测试

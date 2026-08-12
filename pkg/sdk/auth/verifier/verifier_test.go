@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -177,7 +177,6 @@ func TestExtractClaimsIncludesSessionID(t *testing.T) {
 	require.Equal(t, "1", claims.UserID)
 	require.Equal(t, "2", claims.LoginIdentityID)
 	require.Equal(t, "fangcun", claims.TenantDomain)
-	require.Equal(t, "fangcun", claims.TenantID)
 	require.Equal(t, "3", claims.OrgID)
 }
 

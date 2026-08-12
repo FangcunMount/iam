@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // prepareStep 准备步骤，用于准备登录身份和凭据。

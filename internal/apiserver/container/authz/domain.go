@@ -1,10 +1,10 @@
 package authz
 
 import (
-	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
-	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
 )
 
 type authzDomainComponents struct {

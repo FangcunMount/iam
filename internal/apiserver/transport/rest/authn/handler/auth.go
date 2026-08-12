@@ -1,9 +1,9 @@
 package handler
 
 import (
-	challengeapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	challengeapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 )
 
 // AuthHandler 认证 HTTP 处理器

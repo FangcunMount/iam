@@ -1,6 +1,6 @@
 package authn
 
-import "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi"
+import "github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi"
 
 type wechatOpenAuthorizeURLBuilder struct{}
 

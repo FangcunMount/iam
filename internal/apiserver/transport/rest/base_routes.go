@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	openapiFS "github.com/FangcunMount/iam/v2/api"
-	swaggerui "github.com/FangcunMount/iam/v2/web/swagger-ui"
+	openapiFS "github.com/FangcunMount/iam/v3/api"
+	swaggerui "github.com/FangcunMount/iam/v3/web/swagger-ui"
 )
 
 // registerBaseRoutes 注册基础路由

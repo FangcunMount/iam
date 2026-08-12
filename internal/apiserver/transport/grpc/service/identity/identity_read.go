@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
 )
 
 // GetUser 查询用户

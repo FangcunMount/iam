@@ -42,7 +42,7 @@ IMAGE_TAG ?= $(DEPLOY_SHA)
 GO := env -u GOROOT go
 GO_BUILD := $(GO) build
 GO_TEST := $(GO) test
-VERSION_PACKAGE := github.com/FangcunMount/iam/v2/pkg/version
+VERSION_PACKAGE := github.com/FangcunMount/iam/v3/pkg/version
 GO_LDFLAGS := -ldflags "-X $(VERSION_PACKAGE).GitVersion=$(VERSION) -X $(VERSION_PACKAGE).BuildDate=$(BUILD_TIME) -X $(VERSION_PACKAGE).GitCommit=$(GIT_COMMIT)"
 
 # 目录结构
@@ -145,9 +145,11 @@ docs-facts: ## Check machine-verifiable configuration, route, migration, event, 
 
 docs-swagger: ## Regenerate swagger (internal/apiserver/docs)
 	swag init -g cmd/apiserver/apiserver.go -o internal/apiserver/docs --parseDependency --parseInternal
+	python3 scripts/normalize-swagger-schema-names.py
 
 docs-reset: ## Reset api/rest paths from swagger (split by prefix rules)
 	python3 scripts/reset-openapi-from-swagger.py
+	python3 scripts/normalize-swagger-schema-names.py
 
 version: ## 显示版本信息
 	@echo "$(COLOR_BOLD)版本信息:$(COLOR_RESET)"

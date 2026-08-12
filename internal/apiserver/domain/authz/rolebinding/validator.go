@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
+	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // BindingManager 赋权管理器（领域服务）

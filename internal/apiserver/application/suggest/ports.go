@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
 )
 
 // ProfileSuggestor is the query use case exposed to transports.

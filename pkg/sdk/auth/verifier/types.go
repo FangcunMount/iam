@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
@@ -51,12 +51,7 @@ type TokenClaims struct {
 	// TenantDomain IAM 授权域（JWT tenant_id claim，如 fangcun）。
 	TenantDomain string
 	// OrgID 业务组织 ID（JWT org_id claim 透传）。
-	OrgID string
-	// TenantID 与 TenantDomain 相同，表示 IAM 授权域，非业务 org。
-	//
-	// Deprecated: 授权域使用 AuthorizationDomain 或 TenantDomain；
-	// 业务组织使用 BusinessOrgID 或 OrgID。该字段仅在 v2 兼容窗口内保留，将于 v3 删除。
-	TenantID  string
+	OrgID     string
 	Roles     []string
 	Scopes    []string
 	TokenType string

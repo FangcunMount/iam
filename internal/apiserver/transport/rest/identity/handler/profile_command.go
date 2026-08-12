@@ -3,11 +3,11 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
-	requestdto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/request"
-	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
-	"github.com/FangcunMount/iam/v2/pkg/core"
+	appprofile "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profile"
+	requestdto "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/request"
+	responsedto "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/response"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
+	"github.com/FangcunMount/iam/v3/pkg/core"
 )
 
 var _ = core.ErrResponse{}

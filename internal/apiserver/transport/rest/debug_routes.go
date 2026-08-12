@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
+	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // registerCacheGovernanceDebugRoutes 注册缓存治理调试路由

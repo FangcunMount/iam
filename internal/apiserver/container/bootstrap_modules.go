@@ -3,13 +3,13 @@ package container
 import (
 	"fmt"
 
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/platform"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/platform"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/suggest"
 )
 
 func (c *Container) initEventing() error {

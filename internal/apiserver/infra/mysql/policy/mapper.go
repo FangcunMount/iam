@@ -1,8 +1,8 @@
 package policy
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // Mapper PolicyVersion BO 和 PO 转换器

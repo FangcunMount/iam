@@ -1,7 +1,7 @@
 // Package dto 赋权相关的 DTO 定义
 package dto
 
-import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
 
 // GrantRequest 授权请求
 type GrantRequest struct {

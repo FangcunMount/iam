@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	authn "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	authn "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 type stubRouteAuth struct {

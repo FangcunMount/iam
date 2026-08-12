@@ -3,7 +3,7 @@ package token
 import (
 	"time"
 
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // Token 是应用层令牌结果模型。

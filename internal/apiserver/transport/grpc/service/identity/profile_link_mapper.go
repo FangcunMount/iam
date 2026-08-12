@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"time"
 
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	profileLinkApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

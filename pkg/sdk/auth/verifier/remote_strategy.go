@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
 )
 
 // RemoteVerifyStrategy 远程验证策略（调用 IAM 服务）。

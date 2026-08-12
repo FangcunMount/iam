@@ -1,6 +1,6 @@
 package identity
 
-import identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+import identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
 
 // ProfileClient 档案命令服务客户端。
 type ProfileClient struct {

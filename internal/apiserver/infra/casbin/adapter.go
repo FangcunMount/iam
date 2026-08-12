@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"

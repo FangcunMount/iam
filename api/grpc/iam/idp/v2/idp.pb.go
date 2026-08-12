@@ -518,7 +518,7 @@ const file_iam_idp_v2_idp_proto_rawDesc = "" +
 	"IDPService\x12Q\n" +
 	"\fGetWechatApp\x12\x1f.iam.idp.v2.GetWechatAppRequest\x1a .iam.idp.v2.GetWechatAppResponse\x12i\n" +
 	"\x14GetWechatAccessToken\x12'.iam.idp.v2.GetWechatAccessTokenRequest\x1a(.iam.idp.v2.GetWechatAccessTokenResponse\x12u\n" +
-	"\x18RefreshWechatAccessToken\x12+.iam.idp.v2.RefreshWechatAccessTokenRequest\x1a,.iam.idp.v2.RefreshWechatAccessTokenResponseB:Z8github.com/FangcunMount/iam/v2/api/grpc/iam/idp/v2;idpv2b\x06proto3"
+	"\x18RefreshWechatAccessToken\x12+.iam.idp.v2.RefreshWechatAccessTokenRequest\x1a,.iam.idp.v2.RefreshWechatAccessTokenResponseB:Z8github.com/FangcunMount/iam/v3/api/grpc/iam/idp/v2;idpv2b\x06proto3"
 
 var (
 	file_iam_idp_v2_idp_proto_rawDescOnce sync.Once

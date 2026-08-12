@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // LoginIdentity 绑定 IAM 用户到具体的登录标识

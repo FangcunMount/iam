@@ -1,13 +1,13 @@
 package container
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authn"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/authz"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/identity"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/idp"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container/suggest"
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	sessionrevocation "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/sessionrevocation"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authn"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authz"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/identity"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/idp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container/suggest"
+	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	sessionrevocation "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/sessionrevocation"
 )
 
 type moduleGraph struct {

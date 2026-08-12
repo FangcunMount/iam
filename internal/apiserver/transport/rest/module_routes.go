@@ -6,13 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	authnhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn"
-	authzhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz"
-	userhttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity"
-	idphttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp"
-	suggesthttp "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/suggest"
-	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	authnhttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn"
+	authzhttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz"
+	userhttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity"
+	idphttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp"
+	suggesthttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/suggest"
+	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
 
 // registerModuleRoutes 注册模块路由

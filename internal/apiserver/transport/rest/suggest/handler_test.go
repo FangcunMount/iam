@@ -9,10 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/ratelimit"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 )
 
 func TestProfileReturnsSuggestItems(t *testing.T) {

@@ -5,17 +5,17 @@ import (
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
-	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	sessionDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	redisInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/cache/redis"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/infra/crypto"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	sessionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	redisInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/crypto"
 )
 
 // AuthnModule 认证模块

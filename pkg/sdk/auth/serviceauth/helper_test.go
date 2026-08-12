@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/config"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 )

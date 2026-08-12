@@ -1,7 +1,7 @@
 // Package dto 策略相关的 DTO 定义
 package dto
 
-import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
 
 // AddPermissionRequest 添加权限请求
 type AddPermissionRequest struct {

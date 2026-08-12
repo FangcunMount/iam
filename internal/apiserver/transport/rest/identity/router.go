@@ -3,7 +3,7 @@ package identity
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
 )
 
 // Dependencies bundles the runtime collaborators required by the identity HTTP adapters.

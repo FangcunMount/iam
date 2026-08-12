@@ -3,7 +3,7 @@ package idp
 import (
 	"time"
 
-	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 )
 
 type idpDomainServices struct {

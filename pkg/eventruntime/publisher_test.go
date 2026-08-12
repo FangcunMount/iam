@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	"github.com/FangcunMount/iam/v2/pkg/event"
-	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v3/pkg/event"
+	"github.com/FangcunMount/iam/v3/pkg/eventcatalog"
 	"github.com/stretchr/testify/require"
 )
 

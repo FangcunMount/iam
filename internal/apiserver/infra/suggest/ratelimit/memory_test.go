@@ -3,7 +3,7 @@ package ratelimit
 import (
 	"testing"
 
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 )
 
 func TestMemoryLimiterEvictsWhenMapFull(t *testing.T) {

@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	signupapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	credentialinfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/credential"
-	loginidentityinfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/loginidentity"
-	mysqlauthnuow "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/uow/authn"
-	mysqluser "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	signupapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	credentialinfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/credential"
+	loginidentityinfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/loginidentity"
+	mysqlauthnuow "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/authn"
+	mysqluser "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/testhelpers"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 

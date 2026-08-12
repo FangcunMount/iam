@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // User 基础用户（身份锚点）

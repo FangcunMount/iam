@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
-	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
+	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 )
 

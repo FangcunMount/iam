@@ -3,9 +3,9 @@ package session
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/proof"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
 )
 
 // MethodRegistry 选择登录方式并从命令中读取该方式对应 payload。

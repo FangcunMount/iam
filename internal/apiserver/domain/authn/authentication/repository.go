@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	credDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/credential"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // ================== Repository Interfaces (Driven Ports) ==================

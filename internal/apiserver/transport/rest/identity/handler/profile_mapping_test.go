@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	appprofile "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
-	responsedto "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/response"
+	appprofile "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profile"
+	responsedto "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/response"
 )
 
 func TestProfileResultToResponse(t *testing.T) {

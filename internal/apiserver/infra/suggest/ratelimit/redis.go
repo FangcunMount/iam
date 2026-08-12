@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	redis "github.com/redis/go-redis/v9"
 )
 

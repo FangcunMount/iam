@@ -3,8 +3,8 @@ package identity
 import (
 	"context"
 
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	"github.com/FangcunMount/iam/v2/pkg/sdk/errors"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 )
 
 // HasProfileLink 判断用户是否为档案关系用户。

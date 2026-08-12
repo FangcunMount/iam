@@ -3,7 +3,7 @@ package suggest
 import (
 	"strconv"
 
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 )
 
 // ProfileSuggestResponseItem REST 返回项（不包含明文手机号）。

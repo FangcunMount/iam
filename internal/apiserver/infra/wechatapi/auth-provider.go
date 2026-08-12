@@ -11,7 +11,7 @@ import (
 	miniConfig "github.com/silenceper/wechat/v2/miniprogram/config"
 	offiaConfig "github.com/silenceper/wechat/v2/officialaccount/config"
 
-	wechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/infra/wechatapi/port"
+	wechatapp "github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi/port"
 )
 
 // AuthProvider 微信认证服务（使用 silenceper SDK）

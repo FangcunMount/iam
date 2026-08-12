@@ -4,9 +4,9 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // ApplicationService 是 transport 层依赖的用户会话门面（登录 / 续期 / 登出）。

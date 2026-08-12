@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

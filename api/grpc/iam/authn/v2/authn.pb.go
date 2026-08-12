@@ -2366,7 +2366,7 @@ const file_iam_authn_v2_authn_proto_rawDesc = "" +
 	"\tLinkWecom\x12\x1e.iam.authn.v2.LinkWecomRequest\x1a'.iam.authn.v2.LinkLoginIdentityResponse\x12^\n" +
 	"\x13UnlinkLoginIdentity\x12(.iam.authn.v2.UnlinkLoginIdentityRequest\x1a\x1d.iam.authn.v2.MessageResponse2U\n" +
 	"\vJWKSService\x12F\n" +
-	"\aGetJWKS\x12\x1c.iam.authn.v2.GetJWKSRequest\x1a\x1d.iam.authn.v2.GetJWKSResponseB>Z<github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2;authnv2b\x06proto3"
+	"\aGetJWKS\x12\x1c.iam.authn.v2.GetJWKSRequest\x1a\x1d.iam.authn.v2.GetJWKSResponseB>Z<github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2;authnv2b\x06proto3"
 
 var (
 	file_iam_authn_v2_authn_proto_rawDescOnce sync.Once

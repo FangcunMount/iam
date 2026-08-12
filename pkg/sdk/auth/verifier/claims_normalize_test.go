@@ -3,7 +3,7 @@ package verifier
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +23,6 @@ func TestApplyTenantAndOrg(t *testing.T) {
 		claims := &TokenClaims{}
 		applyTenantAndOrg(claims, "fangcun", "42")
 		require.Equal(t, "fangcun", claims.TenantDomain)
-		require.Equal(t, "fangcun", claims.TenantID)
 		require.Equal(t, "42", claims.OrgID)
 	})
 
@@ -31,7 +30,6 @@ func TestApplyTenantAndOrg(t *testing.T) {
 		claims := &TokenClaims{}
 		applyTenantAndOrg(claims, "1", "")
 		require.Equal(t, tenant.DefaultID, claims.TenantDomain)
-		require.Equal(t, tenant.DefaultID, claims.TenantID)
 		require.Empty(t, claims.OrgID)
 	})
 }
@@ -45,7 +43,6 @@ func TestExtractClaimsTenantDomainAndOrgID(t *testing.T) {
 
 	claims := extractClaims(token)
 	require.Equal(t, "fangcun", claims.TenantDomain)
-	require.Equal(t, "fangcun", claims.TenantID)
 	require.Equal(t, "42", claims.OrgID)
 	require.Equal(t, "fangcun", claims.AuthorizationDomain())
 	orgID, ok := claims.BusinessOrgID()

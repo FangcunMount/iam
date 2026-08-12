@@ -6,8 +6,8 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // WechatOpenAuthorizeURLBuilder 构造微信开放平台扫码授权 URL。

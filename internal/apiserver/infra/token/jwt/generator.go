@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
@@ -25,7 +25,7 @@ type Generator struct {
 	issuer              string
 	accessTokenAudience []string
 	keySource           SigningKeySource
-	attributeEncoder jwtAttributeEncoder
+	attributeEncoder    jwtAttributeEncoder
 }
 
 var _ tokenapp.AccessTokenCodec = (*Generator)(nil)
@@ -45,7 +45,7 @@ func NewGenerator(
 		issuer:              issuer,
 		accessTokenAudience: cloneStrings(accessTokenAudience),
 		keySource:           keySource,
-		attributeEncoder: newJWTAttributeEncoder(),
+		attributeEncoder:    newJWTAttributeEncoder(),
 	}
 }
 

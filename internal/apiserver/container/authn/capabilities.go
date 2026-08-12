@@ -3,13 +3,13 @@ package authn
 import (
 	"context"
 
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
-	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	sessionApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
-	signupApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	sessionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 )
 
 // KeyRotationScheduler is the runtime capability exposed by the authn module.

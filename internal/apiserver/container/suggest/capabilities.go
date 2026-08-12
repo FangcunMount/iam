@@ -1,6 +1,6 @@
 package suggest
 
-import appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
+import appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 
 // ApplicationCapabilities contains suggest application collaborators used
 // by transports without exposing concrete transport objects from the module.

@@ -3,10 +3,10 @@ package process
 import (
 	"github.com/FangcunMount/component-base/pkg/shutdown"
 	"github.com/FangcunMount/component-base/pkg/shutdown/shutdownmanagers/posixsignal"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/config"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/container"
-	"github.com/FangcunMount/iam/v2/internal/pkg/grpc"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/config"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/container"
+	"github.com/FangcunMount/iam/v3/internal/pkg/grpc"
+	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // apiServer 定义了 API 服务器的基本结构（六边形架构版本）

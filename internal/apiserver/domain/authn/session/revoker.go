@@ -3,7 +3,7 @@ package session
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // revoker 用于撤销会话。

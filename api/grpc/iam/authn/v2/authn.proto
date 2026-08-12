@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package iam.authn.v2;
 
-option go_package = "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2;authnv2";
+option go_package = "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2;authnv2";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";

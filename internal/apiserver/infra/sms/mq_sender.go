@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
-	"github.com/FangcunMount/iam/v2/pkg/event"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
 // LoginOTPSMSPayload 登录 OTP 短信投递消息体（与具体厂商解耦）

@@ -6,11 +6,11 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin/method"
-	idpprepare "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/prepare"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
+	idpprepare "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/prepare"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // wechatBuilder 微信小程序登录方式构造器

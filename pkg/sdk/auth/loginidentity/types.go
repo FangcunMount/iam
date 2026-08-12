@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FangcunMount/iam/v2/pkg/sdk/auth/internal/restclient"
+	"github.com/FangcunMount/iam/v3/pkg/sdk/auth/internal/restclient"
 )
 
 type LoginIdentity struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

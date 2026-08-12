@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
 )
@@ -63,9 +63,9 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 		UserID:          meta.MustFromUint64(1002),
 		Claims: map[string]any{
 			"tenant_domain": "fangcun",
-			"kid": "payload-kid-is-reserved",
-			"alg": "payload-alg-is-reserved",
-			"typ": "payload-typ-is-reserved",
+			"kid":           "payload-kid-is-reserved",
+			"alg":           "payload-alg-is-reserved",
+			"typ":           "payload-typ-is-reserved",
 		},
 	}, time.Minute)
 	require.NoError(t, err)

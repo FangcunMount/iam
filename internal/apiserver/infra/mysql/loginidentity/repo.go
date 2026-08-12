@@ -6,12 +6,12 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	linking "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	authn "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	linking "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	authn "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

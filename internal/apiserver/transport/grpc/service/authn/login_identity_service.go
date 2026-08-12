@@ -3,8 +3,8 @@ package authn
 import (
 	"context"
 
-	authnv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/authn/v2"
-	linkingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
+	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

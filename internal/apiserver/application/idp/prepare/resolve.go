@@ -6,8 +6,8 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	idpPort "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // Provider 标识微信或企业微信应用配置。

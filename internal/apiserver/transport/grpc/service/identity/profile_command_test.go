@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	profileApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
-	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	profileApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profile"
+	profileLinkApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 func TestProfileCommandCreateProfileUsesMyProfilesCreate(t *testing.T) {

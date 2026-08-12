@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	cacheflow "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
+	cacheflow "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
 )
 
 type accessTokenCacher struct {

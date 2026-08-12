@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	dbmysql "github.com/FangcunMount/iam/v2/internal/pkg/database/mysql"
+	dbmysql "github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

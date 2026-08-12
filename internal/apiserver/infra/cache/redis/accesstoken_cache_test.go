@@ -8,7 +8,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 )
 
 func TestAccessTokenCacheSetAndGet(t *testing.T) {

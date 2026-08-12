@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/session"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // LoginV2Request 是 v2 显式登录请求。

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // CompleteWechatOpenLinkInput 处理微信开放平台扫码绑定回调。

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
+	iamgrpc "github.com/FangcunMount/iam/v3/internal/pkg/grpc"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

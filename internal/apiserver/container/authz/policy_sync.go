@@ -4,7 +4,7 @@ import (
 	"context"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policysync"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policysync"
 )
 
 func (m *AuthzModule) PolicySyncSubscriber(subscriber cbmessaging.Subscriber) *policySyncSubscriber {

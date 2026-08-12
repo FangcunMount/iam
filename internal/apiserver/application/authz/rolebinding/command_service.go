@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	policyApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policy"
-	authzuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/uow"
-	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	policyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policy"
+	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
+	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 )
 
 type GrantByRoleNameCommand struct {

@@ -1,6 +1,6 @@
 package process
 
-import apiserverconfig "github.com/FangcunMount/iam/v2/internal/apiserver/config"
+import apiserverconfig "github.com/FangcunMount/iam/v3/internal/apiserver/config"
 
 // Run 拥有 IAM APIServer 全部进程生命周期。
 // create server -> prepare server -> run server

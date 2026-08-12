@@ -1,9 +1,9 @@
 package identity
 
 import (
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	userApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/user"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	userApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/user"
+	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
 )
 
 func userResultToProto(result *userApp.UserResult) *identityv2.User {

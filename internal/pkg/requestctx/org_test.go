@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 func TestBusinessOrgIDFromOrgClaimOnly(t *testing.T) {

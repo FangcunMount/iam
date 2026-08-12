@@ -1,9 +1,9 @@
 package signup
 
 import (
-	credDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/credential"
-	loginidentityDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/loginidentity"
-	userDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
+	credDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/credential"
+	loginidentityDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
 )
 
 // preparedSignup 各步骤共享的准备后数据（包内流水线状态）。

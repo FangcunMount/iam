@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
-	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
+	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
+	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
 
 // Dependencies describes the external collaborators needed to expose authn endpoints.

@@ -7,20 +7,20 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
-	messagingInfra "github.com/FangcunMount/iam/v2/internal/apiserver/infra/messaging"
-	eventoutbox "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
-	"github.com/FangcunMount/iam/v2/pkg/event"
-	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
-	"github.com/FangcunMount/iam/v2/pkg/eventruntime"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
+	messagingInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/messaging"
+	eventoutbox "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/v3/pkg/event"
+	"github.com/FangcunMount/iam/v3/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v3/pkg/eventruntime"
 	"gorm.io/gorm"
 )
 
 // EventingDeps holds inputs required to initialize the event platform.
 type EventingDeps struct {
-	DB             *gorm.DB
-	EventBus       messaging.EventBus
-	CatalogPath    string
+	DB          *gorm.DB
+	EventBus    messaging.EventBus
+	CatalogPath string
 	OutboxBatch int
 	OutboxRetry time.Duration
 }

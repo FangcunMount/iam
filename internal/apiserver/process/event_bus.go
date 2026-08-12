@@ -9,7 +9,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	nsqmessaging "github.com/FangcunMount/component-base/pkg/messaging/nsq" // 注册 NSQ Provider
-	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v3/pkg/eventcatalog"
 )
 
 // createEventBus 创建事件总线（如果配置启用了 NSQ）

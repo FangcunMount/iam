@@ -8,10 +8,10 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	bindingApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/rolebinding"
-	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 func TestRoleBindingHandlerGrantRoleHTTPBranches(t *testing.T) {

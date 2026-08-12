@@ -1,6 +1,6 @@
 package cachegovernance
 
-import cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
+import cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
 
 // Family 表示 IAM 中一个稳定的缓存族标识。
 type Family = cachemodel.Family

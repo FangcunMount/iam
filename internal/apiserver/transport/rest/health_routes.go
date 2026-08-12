@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
+	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
 	"github.com/gin-gonic/gin"
 )
 

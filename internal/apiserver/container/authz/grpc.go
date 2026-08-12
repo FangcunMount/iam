@@ -1,8 +1,8 @@
 package authz
 
 import (
-	grpctransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc"
-	authzgrpc "github.com/FangcunMount/iam/v2/internal/apiserver/transport/grpc/service/authz"
+	grpctransport "github.com/FangcunMount/iam/v3/internal/apiserver/transport/grpc"
+	authzgrpc "github.com/FangcunMount/iam/v3/internal/apiserver/transport/grpc/service/authz"
 )
 
 // CollectGRPC appends authz gRPC registration when the module is available.

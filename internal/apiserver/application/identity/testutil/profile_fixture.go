@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	profileapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
-	identityuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
-	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	profileapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profile"
+	identityuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/uow"
+	profiledomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profile"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // ProfileFixture creates Profile records directly for application tests that

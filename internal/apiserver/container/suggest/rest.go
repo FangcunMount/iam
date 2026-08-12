@@ -3,7 +3,7 @@ package suggest
 import (
 	redis "github.com/redis/go-redis/v9"
 
-	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
+	resttransport "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest"
 )
 
 // CollectREST wires suggest REST collaborators when the module is available.

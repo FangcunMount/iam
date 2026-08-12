@@ -5,18 +5,18 @@ import (
 
 	redis "github.com/redis/go-redis/v9"
 
-	linkingapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/linking"
-	signupapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signup"
-	tokenapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/token"
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	authhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
-	authzhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authz/handler"
-	uchandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
-	idphandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/idp/handler"
-	authnMiddleware "github.com/FangcunMount/iam/v2/internal/pkg/middleware/authn"
-	genericapiserver "github.com/FangcunMount/iam/v2/internal/pkg/server"
+	linkingapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
+	signupapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
+	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
+	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
+	idphandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/handler"
+	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // RouterOptions 路由选项

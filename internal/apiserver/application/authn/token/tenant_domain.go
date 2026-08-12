@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 // TenantDomainFromClaims 从 AccessTokenSubject.Claims 解析 IAM 授权域；缺省为 tenant.DefaultID。

@@ -3,11 +3,11 @@ package casbin
 import (
 	"strings"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/decision"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/permission"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/scope"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/decision"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permission"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 )
 
 const defaultScopeKey = "all:*"

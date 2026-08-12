@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	sdkerrors "github.com/FangcunMount/iam/v2/pkg/sdk/errors"
+	sdkerrors "github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 )
 
 func TestClientLoginPostsExplicitV2Contract(t *testing.T) {

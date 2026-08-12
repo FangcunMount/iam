@@ -1,8 +1,8 @@
 package authn
 
 import (
-	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
-	authnhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/authn/handler"
+	resttransport "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest"
+	authnhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 )
 
 // CollectREST wires authn REST handlers when the module is available.

@@ -7,10 +7,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
-	iamgrpc "github.com/FangcunMount/iam/v2/internal/pkg/grpc"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	profileLinkApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
+	iamgrpc "github.com/FangcunMount/iam/v3/internal/pkg/grpc"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // EstablishProfileLink 添加关系用户

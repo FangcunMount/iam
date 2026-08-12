@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 )
 
 // OTPVerifierImpl OTP验证器的Redis实现

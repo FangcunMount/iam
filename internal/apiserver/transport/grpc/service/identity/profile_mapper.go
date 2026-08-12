@@ -1,9 +1,9 @@
 package identity
 
 import (
-	identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
-	profileApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
-	profileLinkApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
+	identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
+	profileApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profile"
+	profileLinkApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
 )
 
 func profileResultToProto(result *profileApp.ProfileResult) *identityv2.Profile {

@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
-	sdk "github.com/FangcunMount/iam/v2/pkg/sdk"
-	authjwks "github.com/FangcunMount/iam/v2/pkg/sdk/auth/jwks"
-	authverifier "github.com/FangcunMount/iam/v2/pkg/sdk/auth/verifier"
+	sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
+	authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
+	authverifier "github.com/FangcunMount/iam/v3/pkg/sdk/auth/verifier"
 )
 
 func main() {

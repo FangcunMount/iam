@@ -9,9 +9,9 @@ import (
 	"time"
 	"unicode"
 
-	authzshared "github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/shared"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
 )
 
 const (

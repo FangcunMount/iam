@@ -4,8 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 // SetTenantID 设置租户ID到请求上下文中

@@ -1,7 +1,7 @@
 package jwt
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/pkg/authnclaims"
+	"github.com/FangcunMount/iam/v3/internal/pkg/authnclaims"
 )
 
 const (

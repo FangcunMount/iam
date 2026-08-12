@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/v2/internal/pkg/authnclaims"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	"github.com/FangcunMount/iam/v3/internal/pkg/authnclaims"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // creator 用于创建会话。

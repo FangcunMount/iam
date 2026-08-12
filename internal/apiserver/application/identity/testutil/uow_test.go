@@ -3,7 +3,7 @@ package testutil
 import (
 	"testing"
 
-	identityuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
+	identityuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/uow"
 	"github.com/stretchr/testify/require"
 )
 

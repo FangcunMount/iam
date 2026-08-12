@@ -3,7 +3,7 @@ package authz
 import (
 	"gorm.io/gorm"
 
-	"github.com/FangcunMount/iam/v2/pkg/event"
+	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
 // AuthzModuleDeps contains the runtime dependencies required to assemble the

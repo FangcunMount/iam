@@ -1,8 +1,8 @@
 package identity
 
 import (
-	resttransport "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest"
-	identityhandler "github.com/FangcunMount/iam/v2/internal/apiserver/transport/rest/identity/handler"
+	resttransport "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest"
+	identityhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
 )
 
 // CollectREST wires identity REST handlers when the module is available.

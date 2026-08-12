@@ -1,7 +1,7 @@
 package session
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // SubjectAccessStatus 表示认证主体的可访问状态。

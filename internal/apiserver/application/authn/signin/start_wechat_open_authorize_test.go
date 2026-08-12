@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	challengeApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/challenge"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/signin"
-	challengeDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/challenge"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 	"github.com/stretchr/testify/require"
 )
 

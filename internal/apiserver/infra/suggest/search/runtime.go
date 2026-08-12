@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	appsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/application/suggest"
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	suggestmetrics "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/metrics"
 )
 
 // Runtime 持有进程内 suggest Store 快照指针。

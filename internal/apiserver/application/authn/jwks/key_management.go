@@ -6,7 +6,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // KeyManagementAppService JWKS 管理应用服务

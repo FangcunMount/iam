@@ -3,7 +3,7 @@ package response
 import (
 	"time"
 
-	jwksApp "github.com/FangcunMount/iam/v2/internal/apiserver/application/authn/jwks"
+	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
 )
 
 // KeyResponse 密钥响应

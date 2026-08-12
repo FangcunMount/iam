@@ -1,7 +1,7 @@
 package readiness
 
 import (
-	readinessapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/readiness"
+	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )

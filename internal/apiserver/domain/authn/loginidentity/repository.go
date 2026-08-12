@@ -3,7 +3,7 @@ package loginidentity
 import (
 	"context"
 
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // Repository 登录身份仓储接口

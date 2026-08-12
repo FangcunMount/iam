@@ -1,8 +1,8 @@
 package rolebinding
 
 import (
-	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	binding "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // Mapper Binding BO 和 PO 转换器

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
-	userpo "github.com/FangcunMount/iam/v2/internal/apiserver/infra/mysql/user"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	userpo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/user"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

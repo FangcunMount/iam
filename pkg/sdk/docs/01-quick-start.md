@@ -73,7 +73,7 @@ log.Printf("用户: %s", user.GetProfile().GetDisplayName())
 ## 📦 安装
 
 ```bash
-go get github.com/FangcunMount/iam/v2/pkg/sdk
+go get github.com/FangcunMount/iam/v3@v3.0.0
 ```
 
 ## 示例约定

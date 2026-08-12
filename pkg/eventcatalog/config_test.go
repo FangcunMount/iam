@@ -3,7 +3,7 @@ package eventcatalog_test
 import (
 	"testing"
 
-	"github.com/FangcunMount/iam/v2/pkg/eventcatalog"
+	"github.com/FangcunMount/iam/v3/pkg/eventcatalog"
 	"github.com/stretchr/testify/require"
 )
 

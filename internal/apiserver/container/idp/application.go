@@ -1,6 +1,6 @@
 package idp
 
-import "github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
+import "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
 
 func (m *IDPModule) initializeApplication(domainServices *idpDomainServices) error {
 	m.WechatAppService = wechatapp.NewWechatAppApplicationService(

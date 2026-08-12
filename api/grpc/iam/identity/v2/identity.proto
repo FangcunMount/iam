@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package iam.identity.v2;
 
-option go_package = "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2;identityv2";
+option go_package = "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2;identityv2";
 
 import "google/protobuf/timestamp.proto";
 

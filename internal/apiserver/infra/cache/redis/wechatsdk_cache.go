@@ -10,8 +10,8 @@ import (
 	wechatCache "github.com/silenceper/wechat/v2/cache"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	cachegovernance "github.com/FangcunMount/iam/v2/internal/apiserver/application/cachegovernance"
-	cachemodel "github.com/FangcunMount/iam/v2/internal/apiserver/cache"
+	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
 )
 
 // WechatSDKCache 微信 SDK Cache 接口的 Redis 实现

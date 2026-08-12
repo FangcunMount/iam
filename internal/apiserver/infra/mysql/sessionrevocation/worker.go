@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	sessiondomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authn/session"
+	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 )
 
 type WorkerConfig struct {

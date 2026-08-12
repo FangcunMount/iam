@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	"github.com/FangcunMount/iam/v2/pkg/event"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
 func StagePolicyVersionChanged(ctx context.Context, stager event.Stager, tenantID string, version *policyDomain.PolicyVersion) error {

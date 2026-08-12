@@ -6,13 +6,13 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
-	role "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	binding "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	profile "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	user "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/user"
-	wechatapp "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	role "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	binding "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	profile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profile"
+	user "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	wechatapp "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // BindingRepoStub is a simple stub for binding.Repository used in tests.

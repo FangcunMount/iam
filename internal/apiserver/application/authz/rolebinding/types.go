@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	policyDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/policy"
-	roleDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/role"
-	bindingDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/rolebinding"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/tenant"
-	"github.com/FangcunMount/iam/v2/internal/pkg/code"
-	"github.com/FangcunMount/iam/v2/internal/pkg/meta"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
+	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 // Commands 承载角色绑定写用例；REST 以 role_id 写入，gRPC 以 role_name 写入。

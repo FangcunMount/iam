@@ -6,8 +6,8 @@ import (
 	"time"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/authz/policysync"
-	"github.com/FangcunMount/iam/v2/internal/apiserver/eventing"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policysync"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
 	"github.com/stretchr/testify/require"
 )
 

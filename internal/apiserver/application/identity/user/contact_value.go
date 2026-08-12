@@ -1,6 +1,6 @@
 package user
 
-import "github.com/FangcunMount/iam/v2/internal/pkg/meta"
+import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
 
 func optionalPhone(raw string) (meta.Phone, error) {
 	if raw == "" {

@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	domainsuggest "github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	"github.com/FangcunMount/iam/v2/internal/pkg/requestctx"
-	"github.com/FangcunMount/iam/v2/pkg/tenant"
+	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 // OperatingPrincipalFromGin 从 JWT 上下文提取 suggest 用身份快照。

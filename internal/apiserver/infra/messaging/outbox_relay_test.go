@@ -7,7 +7,7 @@ import (
 	"time"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	outboxport "github.com/FangcunMount/iam/v2/pkg/outbox"
+	outboxport "github.com/FangcunMount/iam/v3/pkg/outbox"
 	"github.com/stretchr/testify/require"
 )
 

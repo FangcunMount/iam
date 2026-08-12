@@ -3,10 +3,10 @@ package profile
 import (
 	"time"
 
-	appProfileLink "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profilelink"
-	domain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
-	profileLinkDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profilelink"
+	appProfileLink "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/profilelink"
+	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profile"
+	profiledomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profile"
+	profileLinkDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/profilelink"
 )
 
 // ============= DTO 转换辅助函数 =============

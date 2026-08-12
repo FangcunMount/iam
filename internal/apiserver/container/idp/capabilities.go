@@ -1,8 +1,8 @@
 package idp
 
 import (
-	"github.com/FangcunMount/iam/v2/internal/apiserver/application/idp/wechatapp"
-	wechatappDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
+	wechatappDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 )
 
 // ApplicationCapabilities contains IDP application collaborators used

@@ -6,7 +6,7 @@ info:
   contact:
     name: API Support
     email: yshujie@163.com
-    url: https://github.com/FangcunMount/iam/v2
+    url: https://github.com/FangcunMount/iam
 servers:
 - url: https://iam.fangcunmount.cn/api/v2
   description: Production
@@ -363,6 +363,19 @@ components:
         legalName:
           type: string
       type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.UserContactUpsert:
+      properties:
+        type:
+          enum:
+          - email
+          - phone
+          type: string
+        value:
+          type: string
+      required:
+      - type
+      - value
+      type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.UserUpdateRequest:
       properties:
         avatar:
@@ -386,19 +399,6 @@ components:
           type: integer
         total:
           type: integer
-      type: object
-    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_request.UserContactUpsert:
-      properties:
-        type:
-          enum:
-          - email
-          - phone
-          type: string
-        value:
-          type: string
-      required:
-      - type
-      - value
       type: object
     github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_identity_response.ProfileLinkResponse:
       properties:

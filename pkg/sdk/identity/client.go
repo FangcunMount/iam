@@ -1,7 +1,7 @@
 // Package identity 提供身份管理、档案命令和档案关系能力。
 package identity
 
-import identityv2 "github.com/FangcunMount/iam/v2/api/grpc/iam/identity/v2"
+import identityv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/identity/v2"
 
 // Client 身份服务客户端。
 type Client struct {

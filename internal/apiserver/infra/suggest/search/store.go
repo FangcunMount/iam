@@ -4,8 +4,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/FangcunMount/iam/v2/internal/apiserver/domain/suggest"
-	suggestmetrics "github.com/FangcunMount/iam/v2/internal/apiserver/infra/suggest/metrics"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	suggestmetrics "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/metrics"
 )
 
 type profileKeySet struct {

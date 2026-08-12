@@ -3,7 +3,7 @@ package resource
 import (
 	"context"
 
-	resourceDomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/authz/resource"
+	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 )
 
 // ResourceCatalog manages protected resource definitions.
