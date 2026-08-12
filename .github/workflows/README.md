@@ -146,11 +146,11 @@ go test ./scripts/dbops -run "TestLegacyRetirementPreflightAuthNMySQL" -v -count
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
 - `status`: 只输出 MySQL 客户端版本、连接状态、库总大小、表数量、备份数量和最新备份时间。
-- `performance-schema-status`: 只读输出启用状态、持久化加载、TLS/X.509 前置条件、可见权限、数据库部署类型、端点供应商分类，以及表 I/O 汇总契约和只读访问能力；不输出账号、地址、grant 原文或数据库错误详情。
+- `performance-schema-status`: 只读输出启用状态、持久化加载、TLS/X.509 前置条件、可见权限、数据库部署类型、端点供应商分类，以及 Performance Schema 和 `sys.schema_table_statistics` 两条表 I/O 汇总路径的只读访问能力；不输出账号、地址、grant 原文或数据库错误详情。
 - `retire-identity-dry-run`: 校验版本 18 clean、指定备份新鲜且完整、两张旧表同时存在及数据库对象零依赖，不写数据库。
 - `retire-identity-apply`: 在相同门禁和生产 environment 下，要求确认令牌 `RETIRE_CHILDREN_GUARDIANSHIPS`，用最终一条 DROP 同时删除 `children/guardianships`。
 - `reconcile-authn-dry-run`: 在已部署的 `iam-apiserver` 容器内运行统一维护程序，只输出 AuthN 聚合对账与缺失插入计划，不写数据库。
-- `reconcile-authn-verify`: 执行相同的只读对账，但只在 `retirement_eligible=true` 时成功；用于 apply 后和稳定窗口结束时的机器门禁。
+- `reconcile-authn-verify`: 执行相同的只读对账，但只在 `retirement_eligible=true` 时成功；用于 apply 后和稳定窗口结束时的机器门禁。`status` 的 `authn/all` scope 会先运行该 v5 verify，并通过同一台主机上的短期 `0600` 证据文件交给后续预检；预检消费后立即删除。
 - `reconcile-authn-apply`: 要求两小时内的完整备份和确认令牌 `BACKFILL_AUTHN_LEGACY_MISSING`，按 `authn_batch_size`（默认 5,000，上限 50,000）只补 canonical AuthN 缺失记录；已有身份状态、密码材料和锁定事实一律不覆盖，硬冲突时本批不写入。format v5 的 apply（包括零写入重跑）始终返回 `verification_required=true` 且不自行宣称可退役，必须再运行独立只读 verify。
 
 已废弃：
@@ -183,7 +183,7 @@ go test ./scripts/dbops -run "TestLegacyRetirementPreflightAuthNMySQL" -v -count
 
 MySQL 8 workflow 使用同一脚本执行合成 backup → drop → restore → Identity dry-run/apply → 数据断言，并独立运行 AuthN dry-run/apply/冲突回滚语义测试；不接触生产数据，也不上传备份 artifact。
 
-历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。手动执行 `db-ops.yml` 的 `status` 时会在普通数据库状态检查后运行 format v4 预检，并要求调用者通过 `image_sha` 记录当前生产镜像；`retirement_scope` 可选择 `identity/schema_version/platform/audit/authn/all`，发布时只运行当前批次，避免无关大表对账占用窗口。定时备份、`backup` 和 `restore` 不运行该预检。脚本不执行删表或数据修复，只输出 migration、精确行数、结构指纹、列契约、Performance Schema 生命周期/I/O、依赖计数、旧表到 canonical 表的聚合对账和逐表 eligibility；AuthN 的密码/状态等可变差异只作观测，不覆盖 canonical 表也不作为退役阻断项。零 I/O 不能脱离证据窗口解释为“可删除”。
+历史表退役证据由 `scripts/dbops/legacy-retirement-preflight.sh`（`make db-retirement-preflight`）只读采集。手动执行 `db-ops.yml` 的 `status` 时会在普通数据库状态检查后运行 format v4 预检，并要求调用者通过 `image_sha` 记录当前生产镜像；`retirement_scope` 可选择 `identity/schema_version/platform/audit/authn/all`，发布时只运行当前批次，避免无关大表对账占用窗口。AuthN scope 的数据资格来自同一任务刚完成的 format v5 verify，避免重复运行已被 v5 取代且可能超时的旧 AuthN parity；其余 scope 仍使用预检内置 parity。定时备份、`backup` 和 `restore` 不运行该预检。脚本不执行删表或数据修复，只输出 migration、精确行数、结构指纹、列契约、表 I/O、依赖计数、旧表到 canonical 表的聚合对账和逐表 eligibility；表 I/O 优先读取 Performance Schema，托管库隐藏该表时只读降级到 `sys.schema_table_statistics`，两者均不可用仍 fail closed。零 I/O 不能脱离证据窗口解释为“可删除”。
 
 `retirement_io_waiver` 是业务所有者明确批准后的审计开关。`platform_tables` 只允许 `schema_version/tenants/data_dictionary`，`audit_tables` 只允许 `operation_logs/audit_logs/auth_token_audit` 在 Performance Schema 或表 I/O 统计不可用时继续评估。两者都不能覆盖非零 I/O、dirty migration、版本门禁或数据库对象依赖，也不能用于 AuthN 或 Identity。默认值 `none` 保持 fail closed。
 

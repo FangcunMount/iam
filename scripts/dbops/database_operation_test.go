@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -396,7 +397,7 @@ case "$1" in
       printf '{"format_version":5,"mode":"dry-run","hard_conflicts":1,"retirement_eligible":false}\n'
       exit 1
     fi
-    printf '{"format_version":5,"mode":"fixture","hard_conflicts":0,"retirement_eligible":true}\n'
+    printf '{"format_version":5,"mode":"dry-run","remaining_login_identity_inserts":0,"remaining_password_inserts":0,"verification_required":false,"hard_conflicts":0,"retirement_eligible":true}\n'
     ;;
   *) exit 91 ;;
 esac
@@ -438,6 +439,9 @@ esac
 	assertSafeOutput(t, output)
 	delete(base, "IAM_FAKE_AUTHN_CONFLICT")
 	base["IAM_DB_OPS_OPERATION"] = "reconcile-authn-verify"
+	evidencePath := filepath.Join("/tmp", "iam-authn-retirement-"+strconv.FormatInt(time.Now().UnixNano(), 10)+"-1.json")
+	t.Cleanup(func() { _ = os.Remove(evidencePath) })
+	base["IAM_DB_OPS_AUTHN_EVIDENCE_FILE"] = evidencePath
 	output, err = runScript(t, bin, base)
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
@@ -446,6 +450,12 @@ esac
 	if !strings.Contains(string(command), "reconcile-authn-legacy --require-eligible --timeout=15m") {
 		t.Fatalf("unexpected AuthN verify command: %s", command)
 	}
+	evidence, err := os.ReadFile(evidencePath)
+	requireNoError(t, err)
+	if !strings.Contains(string(evidence), `"retirement_eligible":true`) {
+		t.Fatalf("unexpected AuthN evidence: %s", evidence)
+	}
+	delete(base, "IAM_DB_OPS_AUTHN_EVIDENCE_FILE")
 
 	base["IAM_DB_OPS_OPERATION"] = "reconcile-authn-apply"
 	output, err = runScript(t, bin, base)
@@ -485,6 +495,7 @@ case "$*" in
   *"@@performance_schema"*) printf '0\t1\t0\t0\tmanaged_or_cloud\t8.0.36\n' ;;
   *"information_schema.TABLES"*"table_io_waits_summary_by_table"*) printf '1\t4\n' ;;
   *"SELECT COUNT(*) FROM performance_schema.table_io_waits_summary_by_table"*) printf '23\n' ;;
+  *"SELECT COUNT(*) FROM sys.schema_table_statistics"*) printf '17\n' ;;
   *"SHOW GRANTS"*) printf "GRANT USAGE ON *.* TO 'grant-user-sentinel'@'%%'\n" ;;
   *) exit 91 ;;
 esac
@@ -505,6 +516,7 @@ esac
 		"server_version=8.0.36", "next_action=configure_provider_or_server_startup",
 		"table_io_contract=valid", "table_io_metadata_visible=1",
 		"table_io_required_columns=4", "table_io_select=available",
+		"sys_table_statistics_select=available",
 		"restart_required=1",
 	} {
 		if !strings.Contains(output, want) {
@@ -582,14 +594,15 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	if strings.Count(source, "uses: actions/checkout@v6") != 4 {
 		t.Fatal("every database operation job must checkout the repository script")
 	}
-	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 4 {
-		t.Fatal("every database operation job must use the single script_path")
+	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 5 {
+		t.Fatal("every database operation job and AuthN status verifier must use the single script_path")
 	}
 	if strings.Count(source, "script_path: scripts/dbops/legacy-retirement-preflight.sh") != 1 {
 		t.Fatal("database status must run the checked-out legacy retirement preflight once")
 	}
 	for _, want := range []string{
 		"image_sha:", "IAM_RETIREMENT_IMAGE_SHA", "Run Legacy Retirement Preflight",
+		"Verify AuthN Reconciliation", "IAM_DB_OPS_AUTHN_EVIDENCE_FILE", "IAM_RETIREMENT_AUTHN_EVIDENCE_FILE",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT", "IAM_RETIREMENT_ALLOW_DOCKER_CLIENT",
 		"retirement_scope:", "IAM_RETIREMENT_SCOPE",
 		"retirement_io_waiver:", "IAM_RETIREMENT_OWNER_IO_WAIVER",

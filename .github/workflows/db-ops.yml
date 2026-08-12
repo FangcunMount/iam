@@ -150,15 +150,13 @@ jobs:
           envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
 
-      - name: Run Legacy Retirement Preflight
+      - name: Verify AuthN Reconciliation
+        if: github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all'
         uses: appleboy/ssh-action@v1.2.5
         env:
-          IAM_RETIREMENT_ENVIRONMENT: production
-          IAM_RETIREMENT_ALLOW_DOCKER_CLIENT: "1"
-          IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
-          IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
-          IAM_RETIREMENT_SCOPE: ${{ github.event.inputs.retirement_scope || 'all' }}
-          IAM_RETIREMENT_OWNER_IO_WAIVER: ${{ github.event.inputs.retirement_io_waiver || 'none' }}
+          IAM_DB_OPS_OPERATION: reconcile-authn-verify
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          IAM_DB_OPS_AUTHN_EVIDENCE_FILE: /tmp/iam-authn-retirement-${{ github.run_id }}-${{ github.run_attempt }}.json
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
@@ -169,7 +167,31 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,IAM_RETIREMENT_OWNER_IO_WAIVER,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,IAM_DB_OPS_AUTHN_EVIDENCE_FILE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
+          command_timeout: 20m
+
+      - name: Run Legacy Retirement Preflight
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_RETIREMENT_ENVIRONMENT: production
+          IAM_RETIREMENT_ALLOW_DOCKER_CLIENT: "1"
+          IAM_RETIREMENT_COMMIT_SHA: ${{ github.sha }}
+          IAM_RETIREMENT_IMAGE_SHA: ${{ github.event.inputs.image_sha || 'unknown' }}
+          IAM_RETIREMENT_SCOPE: ${{ github.event.inputs.retirement_scope || 'all' }}
+          IAM_RETIREMENT_OWNER_IO_WAIVER: ${{ github.event.inputs.retirement_io_waiver || 'none' }}
+          IAM_RETIREMENT_AUTHN_EVIDENCE_FILE: ${{ (github.event.inputs.retirement_scope == 'authn' || github.event.inputs.retirement_scope == 'all') && format('/tmp/iam-authn-retirement-{0}-{1}.json', github.run_id, github.run_attempt) || '' }}
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_RETIREMENT_ENVIRONMENT,IAM_RETIREMENT_ALLOW_DOCKER_CLIENT,IAM_RETIREMENT_COMMIT_SHA,IAM_RETIREMENT_IMAGE_SHA,IAM_RETIREMENT_SCOPE,IAM_RETIREMENT_OWNER_IO_WAIVER,IAM_RETIREMENT_AUTHN_EVIDENCE_FILE,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/legacy-retirement-preflight.sh
 
   db-controlled-operation:
