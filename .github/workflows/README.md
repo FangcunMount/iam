@@ -142,13 +142,13 @@ go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" 
 
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
-- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、备份摘要、`schema_migrations` 和迁移锁；并 fail closed 验证 `version=23, dirty=0` 及 000019–000023 已退役的 10 张表持续不存在。
+- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；并 fail closed 验证 `version=24, dirty=0`、15 张现役 BASE TABLE 精确白名单及 000019–000024 已退役的 14 张表持续不存在。
 - `performance-schema-status`: 只读输出启用状态、持久化加载、TLS/X.509 前置条件、可见权限、数据库部署类型、端点供应商分类，以及 Performance Schema、`sys.schema_table_statistics` 和阿里云 RDS `information_schema.TABLE_STATISTICS` 三条表 I/O 汇总路径的只读访问能力；不输出账号、地址、grant 原文或数据库错误详情。
 
 已废弃：
 
 - `migrate`: 当前生产镜像没有安装 `migrate` CLI，旧 job 只是尝试在容器内找二进制，实际不可依赖。迁移应通过应用启动流程或后续专门的迁移机制处理。
-- Identity retire、AuthN reconcile/verify/apply 和 format v5 退役预检：000019–000023 已完成生产验收，这些一次性入口已从 Workflow、脚本和 maintenance 二进制移除；历史迁移与迁移语义测试保留。
+- Identity retire、AuthN reconcile/verify/apply 和 format v5 退役预检：000019–000023 已完成生产验收，这些一次性入口已从 Workflow、脚本和 maintenance 二进制移除；000024 seeddata 清理副本退役仍通过通用发布/数据库状态入口执行，不恢复历史 one-off 入口。
 
 备份策略：
 
@@ -171,7 +171,7 @@ go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" 
 - `restore` 只接受 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 精确格式的备份文件名。
 - restore 拒绝路径分隔符、符号链接、缺失文件和损坏 gzip；不会自动触发生产恢复。
 - `mysqldump`/`mysql` 的原始 stderr 不进入工作流输出，避免 SQL、地址或凭据泄露。
-MySQL 8 workflow 使用同一脚本执行合成 backup → drop database → restore → data assertion → status guard；迁移 job 继续覆盖 000019–000023 单版语义和空库完整升级，不接触生产数据，也不上传备份 artifact。
+MySQL 8 workflow 使用同一脚本执行合成 backup → drop database → restore → data assertion → status guard；迁移 job 继续覆盖 000019–000024 单版语义和空库完整升级，不接触生产数据，也不上传备份 artifact。
 
 ## server-check.yml
 

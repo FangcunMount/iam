@@ -231,20 +231,11 @@ func TestRestoreAndStatusReturnMetadataOnly(t *testing.T) {
 if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
 case "$*" in
   *'SELECT 1;'*) echo '1' ;;
-	  *"iam_cleanup_backup_rows"*) printf 'cbpt_profiles_s812v2\t10\ncbpt_profile_links_s812v2\t11\ncleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1\t12\ncleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1\t13\n' ;;
-	  *"COALESCE(ROUND((DATA_LENGTH + INDEX_LENGTH)"*) printf 'cbpt_profiles_s812v2\t1.25\t2026-08-12T01:02:03\n' ;;
-	  *"GROUP_CONCAT(CONCAT(ORDINAL_POSITION"*) printf 'cbpt_profiles_s812v2\t1:id:bigint unsigned\n' ;;
-	  *"CHECKSUM TABLE cbpt_profiles_s812v2"*) printf 'iam_test.cbpt_profiles_s812v2\t123\n' ;;
-	  *"iam_cleanup_backup_id_sets"*) printf '0\t0\t0\t0\n' ;;
-	  *"iam_cleanup_backup_canonical_overlap"*) printf '0\t0\t0\t0\n' ;;
-	  *"information_schema.KEY_COLUMN_USAGE"*) printf '0\n' ;;
-	  *"information_schema.TRIGGERS"*) printf '0\n' ;;
-	  *"information_schema.VIEWS"*) printf '0\n' ;;
-	  *"information_schema.ROUTINES"*) printf '0\n' ;;
-	  *"information_schema.EVENTS"*) printf '0\n' ;;
+	  *"iam_schema_guard"*) printf '%b\n' "${IAM_FAKE_SCHEMA_GUARD:-15\t15\t0}" ;;
+	  *"iam_retired_table_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
+	  *"iam_retired_privilege_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_PRIVILEGES:-0}" ;;
 	  *'ORDER BY TABLE_TYPE, TABLE_NAME'*) printf 'type=BASE_TABLE name=users\ntype=VIEW name=active_users\n' ;;
-	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-23\t0\t1}" ;;
-	  *"TABLE_NAME IN ('children'"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
+	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-24\t0\t1}" ;;
   *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
@@ -274,7 +265,7 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "cleanup backup rows (name,exact_rows):", "cbpt_profiles_s812v2\t10", "cleanup backup metadata (name,size_mb,created_at):", "cleanup backup columns (name,position:column:type):", "cleanup backup checksums (name,checksum):", "cleanup backup ID set differences (profiles_forward,profiles_reverse,links_forward,links_reverse): 0\t0\t0\t0", "cleanup backup canonical ID overlap (cbpt_profiles,cbpt_links,cleanup_profiles,cleanup_links): 0\t0\t0\t0", "cleanup backup dependencies (foreign_keys,triggers,views,routines,events): 0\t0\t0\t0\t0", "schema_migrations=23", "retired_tables_present=0", "owner_state=none\tfree\t-1", "retirement guard: result=success"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=24", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
@@ -286,6 +277,15 @@ esac
 		},
 		"retired table returned": {
 			"IAM_FAKE_RETIRED_TABLES": "1",
+		},
+		"schema object returned": {
+			"IAM_FAKE_SCHEMA_GUARD": "15\t16\t1",
+		},
+		"required table missing": {
+			"IAM_FAKE_SCHEMA_GUARD": "14\t14\t0",
+		},
+		"retired privilege returned": {
+			"IAM_FAKE_RETIRED_PRIVILEGES": "1",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -384,21 +384,11 @@ if [ "${1:-}" = "--version" ]; then
   exit 0
 fi
 case "$*" in
-	  *"COUNT(*) FROM cbpt_profiles_s812v2"*) printf 'cbpt_profiles_s812v2\t10\ncbpt_profile_links_s812v2\t11\ncleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1\t12\ncleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1\t13\n' ;;
-	  *"COALESCE(ROUND((DATA_LENGTH + INDEX_LENGTH)"*) printf 'cbpt_profiles_s812v2\t1.25\t2026-08-12T01:02:03\n' ;;
-	  *"GROUP_CONCAT(CONCAT(ORDINAL_POSITION"*) printf 'cbpt_profiles_s812v2\t1:id:bigint unsigned\n' ;;
-	  *"CHECKSUM TABLE cbpt_profiles_s812v2"*) printf 'iam_test.cbpt_profiles_s812v2\t123\n' ;;
-	  *"iam_cleanup_backup_rows"*) printf 'cbpt_profiles_s812v2\t10\ncbpt_profile_links_s812v2\t11\ncleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1\t12\ncleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1\t13\n' ;;
-	  *"iam_cleanup_backup_id_sets"*) printf '0\t0\t0\t0\n' ;;
-	  *"iam_cleanup_backup_canonical_overlap"*) printf '0\t0\t0\t0\n' ;;
-	  *"information_schema.KEY_COLUMN_USAGE"*) printf '0\n' ;;
-	  *"information_schema.TRIGGERS"*) printf '0\n' ;;
-	  *"information_schema.VIEWS"*) printf '0\n' ;;
-	  *"information_schema.ROUTINES"*) printf '0\n' ;;
-	  *"information_schema.EVENTS"*) printf '0\n' ;;
+	  *"iam_schema_guard"*) printf '15\t15\t0\n' ;;
+	  *"iam_retired_table_guard"*) printf '0\n' ;;
+	  *"iam_retired_privilege_guard"*) printf '0\n' ;;
 	  *"ORDER BY TABLE_TYPE, TABLE_NAME"*) printf 'type=BASE_TABLE name=users\n' ;;
-	  *"MAX(version)"*) printf '23\t0\t1\n' ;;
-	  *"TABLE_NAME IN ('children'"*) printf '0\n' ;;
+	  *"MAX(version)"*) printf '24\t0\t1\n' ;;
 	  *"IS_USED_LOCK"*) printf 'none\tfree\t-1\n' ;;
 	  *"SUM(data_length"*) printf '12.5\n' ;;
   *"COUNT(*)"*) printf '7\n' ;;

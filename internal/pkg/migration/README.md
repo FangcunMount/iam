@@ -60,6 +60,11 @@ format v5 已覆盖的数据映射和数据库对象依赖。缺少旧账号、�
 生产已验收 `version=23, dirty=0` 且两张旧表不存在；canonical 待补数据在发布前为 0，
 因此发布后不恢复旧表、不重新 merge runtime-unreachable 历史凭据。
 
+`000024_retire_seeddata_cleanup_tables` 处理生产核查中新发现的四张一次性清理副本。
+两组表各 1,359 行，成对结构、扩展 checksum、ID 集与全字段数据一致，且与 canonical
+`profiles/profile_links` 无 ID 重叠、无数据库对象依赖；发布前完整备份已覆盖四表。因此迁移
+只做失败关闭复验和一条最终 DROP，不把已从 canonical 删除的 seeddata 重复记录 merge 回去。
+
 如果某个环境已经用旧的 `000002` 启动失败，`schema_migrations` 可能处于
 `version=2, dirty=1`。只有在确认失败点是“`profile_links` 不存在导致旧 `000002`
 创建索引失败”，且没有手工执行过新 `000002` 的部分语句时，才可以在备份后把版本恢复为
@@ -79,6 +84,8 @@ migration/
 │   ├── 000019_retire_legacy_tables.down.sql   # fail-closed，不伪造回滚
 │   ├── 000023_retire_legacy_authn_tables.up.sql   # 退役 Account-bound AuthN 历史表
 │   ├── 000023_retire_legacy_authn_tables.down.sql # fail-closed，恢复依赖完整备份
+│   ├── 000024_retire_seeddata_cleanup_tables.up.sql   # 退役一次性 seeddata 清理副本
+│   ├── 000024_retire_seeddata_cleanup_tables.down.sql # fail-closed，恢复依赖完整备份
 │   └── ...
 └── README.md               # 本文件
 ```
