@@ -19,14 +19,6 @@ func NewRSAKeyGeneratorWithStorage(privateStorage PrivateKeyStorage) *RSAKeyGene
 	}
 }
 
-// NewRSAKeyGeneratorWithStorageAndSize 创建带存储和指定密钥大小的 RSA 密钥生成器
-func NewRSAKeyGeneratorWithStorageAndSize(privateStorage PrivateKeyStorage, keySize int) *RSAKeyGeneratorWithStorage {
-	return &RSAKeyGeneratorWithStorage{
-		generator:      NewRSAKeyGeneratorWithSize(keySize),
-		privateStorage: privateStorage,
-	}
-}
-
 var _ KeyGenerator = (*RSAKeyGeneratorWithStorage)(nil)
 
 // GenerateKeyPair 生成 RSA 密钥对并持久化私钥

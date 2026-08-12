@@ -35,14 +35,6 @@ func NewPEMPrivateKeyStorage(keysDir string) *PEMPrivateKeyStorage {
 	}
 }
 
-// NewPEMPrivateKeyStorageWithMode 创建指定权限的 PEM 私钥存储
-func NewPEMPrivateKeyStorageWithMode(keysDir string, fileMode os.FileMode) *PEMPrivateKeyStorage {
-	return &PEMPrivateKeyStorage{
-		keysDir:  keysDir,
-		fileMode: fileMode,
-	}
-}
-
 // SavePrivateKey 保存私钥到 PEM 文件
 func (s *PEMPrivateKeyStorage) SavePrivateKey(ctx context.Context, kid string, privateKey any, alg string) error {
 	if err := ctx.Err(); err != nil {

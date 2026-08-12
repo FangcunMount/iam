@@ -35,7 +35,6 @@ type WechatAppOption func(*WechatApp)
 
 func WithWechatAppID(id meta.ID) WechatAppOption    { return func(w *WechatApp) { w.ID = id } }
 func WithWechatAppName(name string) WechatAppOption { return func(w *WechatApp) { w.Name = name } }
-func WithWechatAppType(t AppType) WechatAppOption   { return func(w *WechatApp) { w.Type = t } }
 func WithWechatAppStatus(status Status) WechatAppOption {
 	return func(w *WechatApp) { w.Status = status }
 }

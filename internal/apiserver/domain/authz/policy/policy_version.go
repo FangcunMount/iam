@@ -11,9 +11,9 @@ import (
 type PolicyVersion struct {
 	ID        PolicyVersionID
 	TenantID  tenant.ID // 租户ID
-	Version   int64  // 版本号
-	ChangedBy string // 变更人
-	Reason    string // 变更原因
+	Version   int64     // 版本号
+	ChangedBy string    // 变更人
+	Reason    string    // 变更原因
 }
 
 // NewPolicyVersion 创建新版本
@@ -59,10 +59,6 @@ func (pv PolicyVersion) TenantIDString() string {
 
 // PolicyVersionID 策略版本ID值对象
 type PolicyVersionID meta.ID
-
-func NewPolicyVersionID(value uint64) PolicyVersionID {
-	return PolicyVersionID(meta.FromUint64(value)) // 从 uint64 构造
-}
 
 func (id PolicyVersionID) Uint64() uint64 {
 	return meta.ID(id).Uint64()
