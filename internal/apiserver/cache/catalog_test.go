@@ -4,8 +4,8 @@ import "testing"
 
 func TestFamiliesReturnsCatalogSnapshot(t *testing.T) {
 	families := Families()
-	if len(families) != 11 {
-		t.Fatalf("family count = %d, want 11", len(families))
+	if len(families) != 13 {
+		t.Fatalf("family count = %d, want 13", len(families))
 	}
 	if families[0].Family != FamilyAuthnRefreshToken {
 		t.Fatalf("first family = %s, want %s", families[0].Family, FamilyAuthnRefreshToken)
@@ -44,6 +44,11 @@ func TestGetFamily(t *testing.T) {
 	}
 	if descriptor.OwnerModule != "idp" {
 		t.Fatalf("OwnerModule = %q, want idp", descriptor.OwnerModule)
+	}
+
+	suggestRedis, ok := GetFamily(FamilySuggestRedisRateLimit)
+	if !ok || suggestRedis.OwnerModule != "suggest" || suggestRedis.Backend != BackendKindRedis {
+		t.Fatalf("suggest Redis descriptor = %#v, ok=%v", suggestRedis, ok)
 	}
 
 	_, ok = GetFamily("unknown.family")

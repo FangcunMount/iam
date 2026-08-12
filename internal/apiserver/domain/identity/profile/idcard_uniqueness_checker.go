@@ -21,28 +21,6 @@ func NewIDCardUniquenessChecker(repo Repository) *IDCardUniquenessChecker {
 	return &IDCardUniquenessChecker{repo: repo}
 }
 
-// CheckIDCardChange 在身份证变更时检查唯一性。
-func (c *IDCardUniquenessChecker) CheckIDCardChange(ctx context.Context, profile *Profile, idCard meta.IDCard) error {
-	if idCard.String() == "" {
-		return nil
-	}
-	if profile != nil && profile.IDCard.Equal(idCard) {
-		return nil
-	}
-
-	existing, err := c.findByIDCard(ctx, idCard)
-	if err != nil {
-		return err
-	}
-	if existing != nil && profile != nil && !profile.ID.IsZero() && existing.ID == profile.ID {
-		return nil
-	}
-	if existing != nil {
-		return perrors.WithCode(code.ErrIdentityProfileExists, "profile with id card(%s) already exists", idCard.String())
-	}
-	return nil
-}
-
 // CheckIDCardUnique 检查身份证是否还没有被其他 Profile 使用。
 func (c *IDCardUniquenessChecker) CheckIDCardUnique(ctx context.Context, idCard meta.IDCard) error {
 	if idCard.String() == "" {

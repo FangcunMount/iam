@@ -23,7 +23,31 @@ import (
 
 	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
+	"github.com/FangcunMount/iam/v3/pkg/version"
+	"github.com/stretchr/testify/require"
 )
+
+func TestPublicInfoSeparatesAPIServiceAndRevisionVersions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	originalVersion, originalCommit := version.GitVersion, version.GitCommit
+	version.GitVersion, version.GitCommit = "v3.1.0", "abc123"
+	t.Cleanup(func() {
+		version.GitVersion, version.GitCommit = originalVersion, originalCommit
+	})
+
+	engine := gin.New()
+	newRouterForTest(restDepsForTest(), RouterOptions{}).RegisterRoutes(engine)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v2/public/info", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+	require.Equal(t, "2.0.0", body["version"])
+	require.Equal(t, "2.0.0", body["api_version"])
+	require.Equal(t, "v3.1.0", body["service_version"])
+	require.Equal(t, "abc123", body["revision"])
+}
 
 func TestRouterRegistersCacheGovernanceDebugRoutesInDevelopmentByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -380,7 +404,7 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		ResourceHandler:    authzhandler.NewResourceHandler(nil, nil),
 		CheckHandler:       authzhandler.NewCheckHandler(nil),
 	}
-	deps.Suggest.Service = appsuggest.NewService(appsuggest.Config{})
+	deps.Suggest.Service = appsuggest.NewServiceWithRuntime(appsuggest.Config{}, nil, nil, nil)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateIdentity)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthz)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateSuggest)

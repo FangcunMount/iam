@@ -24,8 +24,8 @@ func TestReadServiceOverview(t *testing.T) {
 		t.Fatalf("Overview() error = %v", err)
 	}
 
-	if len(overview.Families) != 11 {
-		t.Fatalf("family count = %d, want 11", len(overview.Families))
+	if len(overview.Families) != 13 {
+		t.Fatalf("family count = %d, want 13", len(overview.Families))
 	}
 	if len(overview.RuntimeStatuses) != 2 {
 		t.Fatalf("runtime status count = %d, want 2", len(overview.RuntimeStatuses))
@@ -57,8 +57,8 @@ func TestReadServiceDegradesWithoutInspectors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Overview() error = %v", err)
 	}
-	if len(overview.Families) != 11 {
-		t.Fatalf("family count = %d, want 11", len(overview.Families))
+	if len(overview.Families) != 13 {
+		t.Fatalf("family count = %d, want 13", len(overview.Families))
 	}
 
 	for _, view := range overview.Families {
@@ -73,6 +73,28 @@ func TestReadServiceDegradesWithoutInspectors(t *testing.T) {
 	redisRuntime := findRuntimeStatus(t, overview.RuntimeStatuses, BackendKindRedis)
 	if redisRuntime.Configured || redisRuntime.Healthy {
 		t.Fatalf("redis runtime = %#v, want unconfigured and unhealthy", redisRuntime)
+	}
+}
+
+func TestOptionalAlternativeFamilyDoesNotDegradeConfiguredBackend(t *testing.T) {
+	descriptor := FamilyDescriptor{
+		Family:   "optional.alternative",
+		Backend:  BackendKindMemory,
+		Optional: true,
+	}
+	status := deriveRuntimeStatus(BackendKindMemory, []FamilyView{
+		{
+			Descriptor: FamilyDescriptor{Family: "configured.family", Backend: BackendKindMemory},
+			Status:     FamilyStatus{Family: "configured.family", Configured: true, Healthy: true},
+		},
+		{
+			Descriptor: descriptor,
+			Status:     FamilyStatus{Family: descriptor.Family, Configured: false, Healthy: false},
+		},
+	})
+
+	if !status.Configured || !status.Healthy {
+		t.Fatalf("runtime status = %#v, want configured and healthy", status)
 	}
 }
 

@@ -15,6 +15,8 @@ const (
 	FamilyIDPWechatAccessToken           Family = "idp.wechat_access_token"
 	FamilyIDPWechatSDK                   Family = "idp.wechat_sdk"
 	FamilyAuthnJWKSPublishSnapshot       Family = "authn.jwks_publish_snapshot"
+	FamilySuggestRedisRateLimit          Family = "suggest.redis_rate_limit"
+	FamilySuggestMemoryRateLimit         Family = "suggest.memory_rate_limit"
 )
 
 // BackendKind 表示缓存后端类型。
@@ -76,6 +78,7 @@ type FamilyPolicy struct {
 type FamilyDescriptor struct {
 	Family          Family
 	Backend         BackendKind
+	Optional        bool
 	RedisType       RedisDataType
 	Codec           ValueCodecKind
 	Role            DataRole
@@ -284,6 +287,44 @@ var catalog = []FamilyDescriptor{
 			TTLSource:                      "BuildJWKS 内部 1 分钟内复用",
 			WriteMode:                      "重建快照并覆盖内存字段",
 			InvalidationMode:               "重建刷新",
+			HasInternalRefreshCoordination: false,
+		},
+		Capabilities: inspectOnly,
+	},
+	{
+		Family:          FamilySuggestRedisRateLimit,
+		Backend:         BackendKindRedis,
+		Optional:        true,
+		RedisType:       RedisDataTypeString,
+		Codec:           ValueCodecKindMarker,
+		Role:            DataRoleMarkerState,
+		OwnerModule:     "suggest",
+		KeyPattern:      "iam:suggest:rl:{kind}:{operatorID}",
+		TTLSource:       "固定 1 秒窗口",
+		SelectionReason: "多副本共享操作员级查询配额，使用短期 Redis 计数器。",
+		Policy: FamilyPolicy{
+			TTLSource:                      "固定 1 秒窗口",
+			WriteMode:                      "INCR + 首次 EXPIRE",
+			InvalidationMode:               "TTL 到期",
+			HasInternalRefreshCoordination: false,
+		},
+		Capabilities: inspectOnly,
+	},
+	{
+		Family:          FamilySuggestMemoryRateLimit,
+		Backend:         BackendKindMemory,
+		Optional:        true,
+		RedisType:       RedisDataTypeNone,
+		Codec:           ValueCodecKindMemoryObject,
+		Role:            DataRoleMarkerState,
+		OwnerModule:     "suggest",
+		KeyPattern:      "进程内 operator bucket，无 Redis key",
+		TTLSource:       "进程生命周期与 LRU 容量上限",
+		SelectionReason: "单实例或 Redis 未选中时的进程内操作员限流。",
+		Policy: FamilyPolicy{
+			TTLSource:                      "进程生命周期与 LRU 容量上限",
+			WriteMode:                      "进程内令牌桶",
+			InvalidationMode:               "容量淘汰或进程退出",
 			HasInternalRefreshCoordination: false,
 		},
 		Capabilities: inspectOnly,

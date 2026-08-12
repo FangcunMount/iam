@@ -28,6 +28,7 @@ func (c *Container) ReadinessChecker() *readinessapp.Checker {
 		{Name: "jwks", Required: true, Check: c.checkJWKSReady},
 		{Name: "authz", Required: true, Check: c.checkAuthzReady},
 		{Name: "suggest", Required: c.runtimeOptions.Suggest.Required, Check: c.checkSuggestReady},
+		{Name: "domain_event_outbox", Required: true, Check: c.checkDomainEventOutboxReady},
 		{Name: "session_revocation", Required: true, Check: c.checkSessionRevocationReady},
 	}, readinessmetrics.Recorder{})
 	return c.readiness
@@ -112,6 +113,29 @@ func (c *Container) checkSuggestReady(context.Context) error {
 		return errors.New("suggest unavailable")
 	}
 	return c.SuggestModule.CheckHealth()
+}
+
+func (c *Container) checkDomainEventOutboxReady(ctx context.Context) error {
+	if c.outboxStore == nil {
+		return errors.New("domain event outbox unavailable")
+	}
+	now := time.Now().UTC()
+	snapshot, err := c.outboxStore.OutboxStatusSnapshot(ctx, now)
+	if err != nil {
+		return fmt.Errorf("domain event outbox unavailable: %w", err)
+	}
+	maxAge := c.runtimeOptions.Health.Readiness.OutboxMaxPendingAge
+	for _, bucket := range snapshot.Buckets {
+		if bucket.Count > 0 && bucket.OldestAgeSeconds > maxAge.Seconds() {
+			return fmt.Errorf(
+				"domain event outbox %s backlog exceeded: oldest_age_seconds=%.0f threshold_seconds=%.0f",
+				bucket.Status,
+				bucket.OldestAgeSeconds,
+				maxAge.Seconds(),
+			)
+		}
+	}
+	return nil
 }
 
 func (c *Container) checkSessionRevocationReady(ctx context.Context) error {

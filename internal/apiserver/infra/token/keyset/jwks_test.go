@@ -11,6 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func (s *KeySetBuilder) setClockForTest(now func() time.Time) {
+	if s == nil || now == nil {
+		return
+	}
+	s.snapshot.mu.Lock()
+	defer s.snapshot.mu.Unlock()
+	s.snapshot.now = now
+}
+
 func TestKeyStatus_StringValues(t *testing.T) {
 	assert.Equal(t, "active", KeyActive.String())
 	assert.Equal(t, "grace", KeyGrace.String())
@@ -140,7 +149,7 @@ func TestJWKS_ValidateAndHelpers(t *testing.T) {
 	assert.Equal(t, "a1", found.Kid)
 }
 
-func TestCacheTagAndETag(t *testing.T) {
+func TestCacheTag(t *testing.T) {
 	ct := CacheTag{}
 	assert.True(t, ct.IsZero())
 
@@ -151,8 +160,6 @@ func TestCacheTagAndETag(t *testing.T) {
 	other := CacheTag{ETag: "v1", LastModified: ct.LastModified}
 	assert.True(t, ct.Matches(other))
 
-	et := GenerateETag([]byte("hello"))
-	require.NotEmpty(t, et)
 }
 
 func TestRotationPolicy_Validation(t *testing.T) {

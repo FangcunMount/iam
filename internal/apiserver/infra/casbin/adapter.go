@@ -65,45 +65,6 @@ func normalizePersistedPolicyScopes(db *gorm.DB) error {
 	).Error
 }
 
-func (c *CasbinAdapter) addPolicyFacts(ctx context.Context, rules ...PolicyRule) error {
-	c.holder.mu.Lock()
-	defer c.holder.mu.Unlock()
-
-	for _, rule := range rules {
-		_, err := c.holder.enforcer.AddPolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *CasbinAdapter) removePolicyFacts(ctx context.Context, rules ...PolicyRule) error {
-	c.holder.mu.Lock()
-	defer c.holder.mu.Unlock()
-
-	for _, rule := range rules {
-		_, err := c.holder.enforcer.RemovePolicy(rule.Sub, rule.Dom, rule.Obj, rule.Act, normalizeScopeKey(rule.Scope))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *CasbinAdapter) addGroupingFacts(ctx context.Context, rules ...GroupingRule) error {
-	c.holder.mu.Lock()
-	defer c.holder.mu.Unlock()
-
-	for _, rule := range rules {
-		_, err := c.holder.enforcer.AddGroupingPolicy(rule.Sub, rule.Role, rule.Dom)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (c *CasbinAdapter) policyFactsForRole(ctx context.Context, roleName, domainStr string) ([]PolicyRule, error) {
 	c.holder.mu.RLock()
 	defer c.holder.mu.RUnlock()

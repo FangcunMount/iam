@@ -1,9 +1,12 @@
 package migration
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"sort"
 	"testing"
 )
 
@@ -35,6 +38,7 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 		assertTableExists(t, db, retired, false)
 	}
 	assertTableExists(t, db, "schema_migrations", true)
+	assertCurrentSchemaTables(t, db, database)
 
 	_, currentFile, _, _ := runtime.Caller(0)
 	bootstrapPath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "configs", "mysql", "bootstrap.sql")
@@ -47,7 +51,55 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 			t.Fatalf("bootstrap run %d after current migration: %v", run, err)
 		}
 	}
+	assertCurrentSchemaTables(t, db, database)
 	for _, retired := range []string{"tenants", "data_dictionary"} {
 		assertTableExists(t, db, retired, false)
+	}
+}
+
+func assertCurrentSchemaTables(t *testing.T, db *sql.DB, database string) {
+	t.Helper()
+	rows, err := db.Query(`
+SELECT TABLE_NAME
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = ?
+ORDER BY TABLE_NAME`, database)
+	if err != nil {
+		t.Fatalf("query current schema tables: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var got []string
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err != nil {
+			t.Fatalf("scan current schema table: %v", err)
+		}
+		got = append(got, table)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate current schema tables: %v", err)
+	}
+
+	want := []string{
+		"auth_credentials",
+		"auth_login_identities",
+		"authz_assignments",
+		"authz_policy_versions",
+		"authz_resources",
+		"authz_roles",
+		"casbin_rule",
+		"domain_event_outbox",
+		"identity_session_revocation_outbox",
+		"idp_wechat_apps",
+		"jwks_keys",
+		"profile_links",
+		"profiles",
+		"schema_migrations",
+		"users",
+	}
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("current schema tables = %v, want %v", got, want)
 	}
 }

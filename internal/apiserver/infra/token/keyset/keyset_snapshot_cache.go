@@ -74,15 +74,6 @@ func (c *keySetSnapshotCache) status() SnapshotStatus {
 	return status
 }
 
-func (c *keySetSnapshotCache) setClockForTest(now func() time.Time) {
-	if c == nil || now == nil {
-		return
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.now = now
-}
-
 func (c *keySetSnapshotCache) nowUTC() time.Time {
 	if c == nil || c.now == nil {
 		return time.Now().UTC()

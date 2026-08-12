@@ -32,7 +32,6 @@ func NewProfile(name string, opts ...ProfileOption) (*Profile, error) {
 type ProfileOption func(*Profile)
 
 // With*** 档案选项函数
-func WithProfileID(id meta.ID) ProfileOption      { return func(c *Profile) { c.ID = id } }
 func WithIDCard(idCard meta.IDCard) ProfileOption { return func(c *Profile) { c.IDCard = idCard } }
 func WithGender(gender meta.Gender) ProfileOption { return func(c *Profile) { c.Gender = gender } }
 func WithBirthday(birthday meta.Birthday) ProfileOption {

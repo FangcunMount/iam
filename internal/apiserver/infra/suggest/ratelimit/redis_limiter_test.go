@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"testing"
 
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
@@ -51,5 +52,12 @@ func TestRedisLimiterMobileBucketSeparate(t *testing.T) {
 	}
 	if !lim.Allow(7, true) {
 		t.Fatal("mobile bucket should allow first")
+	}
+}
+
+func TestRedisLimiterPingFailsWithoutClient(t *testing.T) {
+	limiter := NewRedisLimiter(nil, appsuggest.RateLimitConfig{PerOperatorBurst: 1})
+	if err := limiter.Ping(context.Background()); err == nil {
+		t.Fatal("Ping() error = nil, want unavailable error")
 	}
 }

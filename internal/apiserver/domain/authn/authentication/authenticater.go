@@ -10,8 +10,7 @@ import (
 
 // Authenticator 认证器
 type Authenticator struct {
-	strategies  map[CredentialKind]AuthStrategy
-	auditLogger AuditLogger
+	strategies map[CredentialKind]AuthStrategy
 }
 
 // NewAuthenticator 创建认证器
@@ -34,15 +33,6 @@ func (a *Authenticator) Register(strategy AuthStrategy) {
 		a.strategies = make(map[CredentialKind]AuthStrategy)
 	}
 	a.strategies[strategy.Kind()] = strategy
-}
-
-// WithAuditLogger 设置审计日志记录器
-func (a *Authenticator) WithAuditLogger(auditLogger AuditLogger) *Authenticator {
-	if a == nil {
-		return nil
-	}
-	a.auditLogger = auditLogger
-	return a
 }
 
 // Authenticate 认证
@@ -80,9 +70,6 @@ func (a *Authenticator) Authenticate(ctx context.Context, proof AuthCredential) 
 		)
 		return AuthDecision{}, err
 	}
-
-	// 记录审计日志
-	a.logAuthAttempt(ctx, proof, decision)
 
 	// 认证不通过
 	if !decision.OK {

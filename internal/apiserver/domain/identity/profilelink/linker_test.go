@@ -16,9 +16,8 @@ import (
 
 func TestProfileLinker_LinkRelationSuccess(t *testing.T) {
 	profileLinkRepo := &stubProfileLinkRepo{profilesResults: make(map[uint64][]*ProfileLink)}
-	manager := newLinkerWithClock(profileLinkRepo, func() time.Time {
-		return time.Unix(10, 0)
-	})
+	manager := NewLinker(profileLinkRepo)
+	manager.now = func() time.Time { return time.Unix(10, 0) }
 
 	profileLink, err := manager.LinkRelation(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelParent)
 
@@ -33,9 +32,8 @@ func TestProfileLinker_LinkRelationSuccess(t *testing.T) {
 
 func TestProfileLinker_LinkDispatchesSelfRelation(t *testing.T) {
 	profileLinkRepo := &stubProfileLinkRepo{profilesResults: make(map[uint64][]*ProfileLink)}
-	manager := newLinkerWithClock(profileLinkRepo, func() time.Time {
-		return time.Unix(20, 0)
-	})
+	manager := NewLinker(profileLinkRepo)
+	manager.now = func() time.Time { return time.Unix(20, 0) }
 
 	profileLink, err := manager.Link(context.Background(), meta.FromUint64(2), meta.FromUint64(1), RelSelf)
 
@@ -99,9 +97,8 @@ func TestProfileLinker_RevokeSuccess(t *testing.T) {
 			1: {target},
 		},
 	}
-	manager := newLinkerWithClock(profileLinkRepo, func() time.Time {
-		return time.Unix(30, 0)
-	})
+	manager := NewLinker(profileLinkRepo)
+	manager.now = func() time.Time { return time.Unix(30, 0) }
 
 	removed, err := manager.Revoke(context.Background(), meta.FromUint64(2), meta.FromUint64(1))
 

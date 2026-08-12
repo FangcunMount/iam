@@ -16,11 +16,6 @@ type Service struct {
 	metrics       SuggestMetrics
 }
 
-// NewService 创建（无运行时索引）Service。
-func NewService(cfg Config) *Service {
-	return NewServiceWithRuntime(cfg, nil, nil, nil)
-}
-
 // NewServiceWithRuntime creates a suggest service with an explicit index runtime.
 func NewServiceWithRuntime(cfg Config, runtime ProfileSuggestionRuntime, scope ProfileAccessScopeProvider, metrics SuggestMetrics) *Service {
 	return NewServiceWithRuntimeStrategies(cfg, runtime, scope, nil, metrics)

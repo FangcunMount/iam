@@ -51,31 +51,6 @@ func TestIDCardUniquenessChecker_CheckIDCardUniqueDuplicate(t *testing.T) {
 	assert.Equal(t, 1, repo.findIDCardCalls)
 }
 
-func TestIDCardUniquenessChecker_CheckIDCardChange(t *testing.T) {
-	repo := &profileRepoStub{}
-	idCard := mustIDCard(t, "小明", "110101202001151234")
-	profile := &Profile{ID: meta.FromUint64(7), Name: "小明", IDCard: idCard}
-	checker := NewIDCardUniquenessChecker(repo)
-
-	err := checker.CheckIDCardChange(context.Background(), profile, idCard)
-	require.NoError(t, err)
-	assert.Equal(t, 0, repo.findIDCardCalls)
-
-	newIDCard := mustIDCard(t, "小明", "110101202002021239")
-	err = checker.CheckIDCardChange(context.Background(), profile, newIDCard)
-	require.NoError(t, err)
-	assert.Equal(t, 1, repo.findIDCardCalls)
-
-	duplicateIDCard := mustIDCard(t, "小明", "110101202003031236")
-	repo.byIDCard = map[string]*Profile{
-		duplicateIDCard.String(): {ID: meta.FromUint64(8), Name: "其他档案", IDCard: duplicateIDCard},
-	}
-	err = checker.CheckIDCardChange(context.Background(), profile, duplicateIDCard)
-	require.Error(t, err)
-	assert.True(t, perrors.IsCode(err, code.ErrIdentityProfileExists))
-	assert.Equal(t, 2, repo.findIDCardCalls)
-}
-
 func TestIDCardUniquenessChecker_CheckIDCardUniqueErrorPropagation(t *testing.T) {
 	idCard := mustIDCard(t, "小明", "110101202001151234")
 	checker := NewIDCardUniquenessChecker(&profileRepoStub{err: errors.New("db down")})

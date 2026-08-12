@@ -118,10 +118,10 @@ func deriveRuntimeStatus(backend BackendKind, views []FamilyView) RuntimeStatus 
 	for _, view := range views {
 		if view.Status.Configured {
 			configuredFamilies = append(configuredFamilies, string(view.Descriptor.Family))
-		} else {
+		} else if !view.Descriptor.Optional {
 			unconfiguredFamilies = append(unconfiguredFamilies, string(view.Descriptor.Family))
 		}
-		if !view.Status.Healthy {
+		if !view.Status.Healthy && (view.Status.Configured || !view.Descriptor.Optional) {
 			unhealthyFamilies = append(unhealthyFamilies, string(view.Descriptor.Family))
 		}
 	}

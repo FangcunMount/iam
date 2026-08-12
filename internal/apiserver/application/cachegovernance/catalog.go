@@ -17,6 +17,8 @@ const (
 	FamilyIDPWechatAccessToken           = cachemodel.FamilyIDPWechatAccessToken
 	FamilyIDPWechatSDK                   = cachemodel.FamilyIDPWechatSDK
 	FamilyAuthnJWKSPublishSnapshot       = cachemodel.FamilyAuthnJWKSPublishSnapshot
+	FamilySuggestRedisRateLimit          = cachemodel.FamilySuggestRedisRateLimit
+	FamilySuggestMemoryRateLimit         = cachemodel.FamilySuggestMemoryRateLimit
 )
 
 // BackendKind 表示缓存后端类型。

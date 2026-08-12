@@ -24,11 +24,6 @@ func (e UnsupportedSubjectTypeError) Error() string {
 	return fmt.Sprintf("subject type %s has no configured resolver", e.SubjectType)
 }
 
-func IsUnsupportedSubjectType(err error) bool {
-	var target UnsupportedSubjectTypeError
-	return errors.As(err, &target)
-}
-
 type SubjectResolverRegistry struct {
 	resolvers []SubjectResolver
 }

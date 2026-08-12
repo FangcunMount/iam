@@ -49,11 +49,6 @@ func int64SliceToSet(ids []int64) map[int64]struct{} {
 // ScopePolicy 在内存中对候选项做轻量范围判断（不调 AuthZ）。
 type ScopePolicy struct{}
 
-// Allows 判断 term 是否落在 scope 内。
-func (p ScopePolicy) Allows(scope ProfileAccessScope, term ProfileSearchTerm) bool {
-	return p.AllowsCompiled(CompileProfileAccessScope(scope), term)
-}
-
 // AllowsCompiled 使用编译后的 scope 判断可见性。
 func (ScopePolicy) AllowsCompiled(c CompiledProfileAccessScope, term ProfileSearchTerm) bool {
 	if c.AllProfile {

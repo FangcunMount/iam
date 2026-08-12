@@ -1,5 +1,5 @@
 // @title           IAM API Documentation
-// @version         1.0.0
+// @version         2.0.0
 // @description     IAM 系统 REST API 文档，包含认证(Authentication)、授权(Authorization)、身份管理(Identity)和身份提供商(IDP)模块
 // @termsOfService  https://iam.fangcunmount.cn/terms
 

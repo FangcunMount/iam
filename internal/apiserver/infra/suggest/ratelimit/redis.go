@@ -32,6 +32,14 @@ type RedisLimiter struct {
 	mobMax int
 }
 
+// Ping 验证限流器所用 Redis 后端可用。
+func (r *RedisLimiter) Ping(ctx context.Context) error {
+	if r == nil || r.client == nil {
+		return fmt.Errorf("suggest Redis rate limiter unavailable")
+	}
+	return r.client.Ping(ctx).Err()
+}
+
 // NewRedisLimiter 创建 Redis 限流器。
 func NewRedisLimiter(client *redis.Client, cfg appsuggest.RateLimitConfig) *RedisLimiter {
 	stdBurst := cfg.PerOperatorBurst

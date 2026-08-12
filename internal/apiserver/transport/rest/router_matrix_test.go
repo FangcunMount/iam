@@ -115,7 +115,7 @@ func routeMatrixDeps() Deps {
 		ProfileHandler:     uchandler.NewProfileHandler(nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
-	deps.Suggest = SuggestDeps{Service: appsuggest.NewService(appsuggest.Config{})}
+	deps.Suggest = SuggestDeps{Service: appsuggest.NewServiceWithRuntime(appsuggest.Config{}, nil, nil, nil)}
 	deps.ModuleStatus = ModuleStatus{
 		Container: ModuleState{Bootstrapped: true, Available: true},
 		Modules: map[string]ModuleState{

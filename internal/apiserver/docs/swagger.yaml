@@ -1014,7 +1014,7 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: https://iam.fangcunmount.cn/terms
   title: IAM API Documentation
-  version: 1.0.0
+  version: 2.0.0
 paths:
   /.well-known/jwks.json:
     get:
