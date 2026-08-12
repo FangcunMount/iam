@@ -200,18 +200,6 @@ func WithStatus(status KeyStatus) KeyOption {
 	}
 }
 
-func WithCreatedAt(t time.Time) KeyOption {
-	return func(k *Key) {
-		k.CreatedAt = t
-	}
-}
-
-func WithUpdatedAt(t time.Time) KeyOption {
-	return func(k *Key) {
-		k.UpdatedAt = t
-	}
-}
-
 func (k *Key) IsActive() bool {
 	return k.Status == KeyActive
 }

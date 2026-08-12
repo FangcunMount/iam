@@ -82,13 +82,3 @@ var StandardActions = []CatalogAction{
 	ActionExport,
 	ActionDisableAll,
 }
-
-// GetActionByName 根据名称获取动作
-func GetActionByName(name string) *CatalogAction {
-	for _, action := range StandardActions {
-		if action.Name == name {
-			return &action
-		}
-	}
-	return nil
-}

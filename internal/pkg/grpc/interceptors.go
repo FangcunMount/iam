@@ -15,16 +15,6 @@ import (
 	"github.com/FangcunMount/component-base/pkg/util/idutil"
 )
 
-// LoggingInterceptor 返回集成 component-base 日志的拦截器
-func LoggingInterceptor() grpc.UnaryServerInterceptor {
-	return interceptors.LoggingInterceptor(
-		&componentBaseLogger{},
-		interceptors.WithLogResponse(true),
-		interceptors.WithMaxResponseLen(300),
-		interceptors.WithContextPreprocess(ensureTraceContext),
-	)
-}
-
 // RecoveryInterceptor 返回集成 component-base 日志的恢复拦截器
 func RecoveryInterceptor() grpc.UnaryServerInterceptor {
 	return interceptors.RecoveryInterceptor(

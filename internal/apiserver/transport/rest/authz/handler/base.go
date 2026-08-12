@@ -15,18 +15,6 @@ import (
 	"github.com/FangcunMount/iam/v2/pkg/core"
 )
 
-// BaseHandler 继承公共的 BaseHandler，并添加 authz 模块特定的方法
-type BaseHandler struct {
-	*core.BaseHandler
-}
-
-// NewBaseHandler 创建基础 Handler
-func NewBaseHandler() *BaseHandler {
-	return &BaseHandler{
-		BaseHandler: core.NewBaseHandler(),
-	}
-}
-
 // getTenantID 从上下文中获取租户ID。
 func getTenantID(c *gin.Context) (string, error) {
 	return requestctx.RequiredTenantID(c)

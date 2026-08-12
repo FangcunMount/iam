@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	profileapp "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/profile"
 	identityuow "github.com/FangcunMount/iam/v2/internal/apiserver/application/identity/uow"
 	profiledomain "github.com/FangcunMount/iam/v2/internal/apiserver/domain/identity/profile"
@@ -15,13 +13,12 @@ import (
 // ProfileFixture creates Profile records directly for application tests that
 // need an existing profile without exercising the public Profile+ProfileLink use case.
 type ProfileFixture struct {
-	t   *testing.T
 	uow identityuow.UnitOfWork
 }
 
 func NewProfileFixture(t *testing.T, uow identityuow.UnitOfWork) *ProfileFixture {
 	t.Helper()
-	return &ProfileFixture{t: t, uow: uow}
+	return &ProfileFixture{uow: uow}
 }
 
 func (f *ProfileFixture) Create(ctx context.Context, dto profileapp.CreateProfileDTO) (*profileapp.ProfileResult, error) {
@@ -47,13 +44,6 @@ func (f *ProfileFixture) Create(ctx context.Context, dto profileapp.CreateProfil
 	})
 
 	return result, err
-}
-
-func (f *ProfileFixture) MustCreate(ctx context.Context, dto profileapp.CreateProfileDTO) *profileapp.ProfileResult {
-	f.t.Helper()
-	result, err := f.Create(ctx, dto)
-	require.NoError(f.t, err)
-	return result
 }
 
 func newProfileFromDTO(dto profileapp.CreateProfileDTO) (*profiledomain.Profile, error) {
