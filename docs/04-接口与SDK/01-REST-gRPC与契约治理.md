@@ -90,7 +90,7 @@ REST protected route 使用 Bearer user token；gRPC 面向服务间调用，可
 make api-validate
 
 # runtime route/proto registration
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test \
+go test \
   ./internal/apiserver/transport/rest/... \
   ./internal/apiserver/transport/grpc/...
 

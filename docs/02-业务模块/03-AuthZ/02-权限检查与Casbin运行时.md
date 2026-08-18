@@ -154,5 +154,5 @@ Check 用于“这次操作是否允许”。
 - 组合根：`internal/apiserver/container/authz`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/application/authz/authorization ./internal/apiserver/infra/casbin ./internal/apiserver/container/authz
+go test ./internal/apiserver/application/authz/authorization ./internal/apiserver/infra/casbin ./internal/apiserver/container/authz
 ```

@@ -41,5 +41,5 @@ MySQL Identity facts
 ## 验证
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/domain/suggest/... ./internal/apiserver/application/suggest/... ./internal/apiserver/infra/suggest/... ./internal/apiserver/infra/mysql/suggest/... ./internal/apiserver/transport/rest/suggest/... ./internal/apiserver/container/suggest
+go test ./internal/apiserver/domain/suggest/... ./internal/apiserver/application/suggest/... ./internal/apiserver/infra/suggest/... ./internal/apiserver/infra/mysql/suggest/... ./internal/apiserver/transport/rest/suggest/... ./internal/apiserver/container/suggest
 ```

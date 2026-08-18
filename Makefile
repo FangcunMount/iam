@@ -140,7 +140,7 @@ api-validate: ## Lint OpenAPI (spectral) + compare swagger vs api/rest
 docs-hygiene: ## Check active Markdown links, repo paths, and retired references
 	python3 scripts/check-docs-links.py
 
-docs-facts: ## Check machine-verifiable configuration, route, migration, event, and wiring facts
+docs-facts: ## Check generated contract, config, migration, wiring, and documentation facts
 	python3 scripts/check-docs-facts.py
 
 docs-swagger: ## Regenerate swagger (internal/apiserver/docs)

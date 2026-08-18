@@ -217,5 +217,5 @@ domain value object/invariant
 - `internal/apiserver/application/authz`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/domain/authz/... ./internal/apiserver/application/authz/... ./internal/apiserver/infra/casbin/... ./internal/apiserver/container/authz
+go test ./internal/apiserver/domain/authz/... ./internal/apiserver/application/authz/... ./internal/apiserver/infra/casbin/... ./internal/apiserver/container/authz
 ```

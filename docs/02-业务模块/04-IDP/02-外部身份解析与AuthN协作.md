@@ -127,5 +127,5 @@ openid 通常是 app-scoped 的稳定键，unionid 可在满足条件的关联�
 - composition：`internal/apiserver/container/idp`、`internal/apiserver/container/authn`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/application/idp/... ./internal/apiserver/application/authn/signin/... ./internal/apiserver/application/authn/linking ./internal/apiserver/application/authn/signup ./internal/apiserver/container/idp
+go test ./internal/apiserver/application/idp/... ./internal/apiserver/application/authn/signin/... ./internal/apiserver/application/authn/linking ./internal/apiserver/application/authn/signup ./internal/apiserver/container/idp
 ```

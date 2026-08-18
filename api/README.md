@@ -45,7 +45,7 @@ GET  /api/v2/suggest/profile
 
 | 契约 | 服务 |
 | ---- | ---- |
-| [grpc/iam/authn/v2/authn.proto](grpc/iam/authn/v2/authn.proto) | `AuthService`、`AccountOnboardingService`、`JWKSService` |
+| [grpc/iam/authn/v2/authn.proto](grpc/iam/authn/v2/authn.proto) | `AuthService`、`AuthSignupService`、`AuthChallengeService`、`LoginIdentityService`、`JWKSService` |
 | [grpc/iam/authz/v2/authz.proto](grpc/iam/authz/v2/authz.proto) | `AuthorizationService` |
 | [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileCommand`、`ProfileLinkCommand`、`IdentityLifecycle` |
 | [grpc/iam/idp/v2/idp.proto](grpc/iam/idp/v2/idp.proto) | `IDPService` |

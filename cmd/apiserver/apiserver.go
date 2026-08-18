@@ -29,8 +29,8 @@
 // @tag.description 用户管理 - 创建、查询、更新用户信息
 // @tag.name Identity-Profiles
 // @tag.description 儿童管理 - 注册、查询、更新儿童档案
-// @tag.name Identity-Ref
-// @tag.description 监护关系 - 授予、撤销、查询监护权
+// @tag.name Identity-ProfileLink
+// @tag.description 档案关系 - 查询用户或档案的关系
 
 // @tag.name Authorization-Roles
 // @tag.description 角色管理 - 创建、查询、更新、删除角色

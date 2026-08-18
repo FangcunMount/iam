@@ -4472,8 +4472,8 @@
             "name": "Identity-Profiles"
         },
         {
-            "description": "监护关系 - 授予、撤销、查询监护权",
-            "name": "Identity-Ref"
+            "description": "档案关系 - 查询用户或档案的关系",
+            "name": "Identity-ProfileLink"
         },
         {
             "description": "角色管理 - 创建、查询、更新、删除角色",

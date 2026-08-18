@@ -55,7 +55,7 @@ curl https://iam.example.com/api/v2/identity/me \
 curl -X POST https://iam.example.com/api/v2/authz/check \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"resource":"qs:answer-sheet","action":"submit"}'
+  -d '{"resource":"qs:answersheet:collection:answersheets","action":"admin_submit"}'
 ```
 
 ## 验证

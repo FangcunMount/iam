@@ -130,5 +130,5 @@ GRPCCode / Message / ToHTTPStatus
 - server registration：`internal/apiserver/transport/grpc`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./pkg/sdk/...
+go test ./pkg/sdk/...
 ```

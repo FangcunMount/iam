@@ -204,7 +204,7 @@ Snapshot 不是安全判定：
 - 领域请求/决策：`internal/apiserver/domain/authz/decision`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test -race \
+go test -race \
   ./internal/apiserver/infra/casbin/... \
   ./internal/apiserver/domain/authz/decision/... \
   ./internal/apiserver/container/authz/...

@@ -12,7 +12,7 @@
 
 专项记录：
 
-- [IAM 重构最终验收记录](08-IAM重构最终验收记录.md) 是证据台账，不是架构正文。
+- [IAM 重构与生产验收记录](08-IAM重构最终验收记录.md) 是证据台账，不是架构正文。
 
 ## 一张图
 
@@ -50,5 +50,5 @@ cmd/app
 ## 验证
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/process ./internal/apiserver/container/... ./internal/apiserver/transport/rest/... ./internal/apiserver/transport/grpc/...
+go test ./internal/apiserver/process ./internal/apiserver/container/... ./internal/apiserver/transport/rest/... ./internal/apiserver/transport/grpc/...
 ```

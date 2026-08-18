@@ -128,5 +128,5 @@ AES-GCM 使用随机 nonce，同一明文每次密文不同，不能用密文相
 - repository：`internal/apiserver/infra/mysql/wechatapp`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/domain/idp/... ./internal/apiserver/application/idp/... ./internal/apiserver/infra/cache/redis ./internal/apiserver/infra/mysql/wechatapp ./internal/apiserver/container/idp
+go test ./internal/apiserver/domain/idp/... ./internal/apiserver/application/idp/... ./internal/apiserver/infra/cache/redis ./internal/apiserver/infra/mysql/wechatapp ./internal/apiserver/container/idp
 ```

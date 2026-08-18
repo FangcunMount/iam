@@ -2872,8 +2872,8 @@ tags:
   name: Identity-Users
 - description: 儿童管理 - 注册、查询、更新儿童档案
   name: Identity-Profiles
-- description: 监护关系 - 授予、撤销、查询监护权
-  name: Identity-Ref
+- description: 档案关系 - 查询用户或档案的关系
+  name: Identity-ProfileLink
 - description: 角色管理 - 创建、查询、更新、删除角色
   name: Authorization-Roles
 - description: 角色分配 - 授予、撤销用户或组的角色

@@ -114,8 +114,8 @@ make run APISERVER_CONFIG=configs/apiserver.dev.yaml
 ### 健康检查
 
 ```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/.well-known/jwks.json
+curl http://localhost:18081/health
+curl http://localhost:18081/.well-known/jwks.json
 ```
 
 ### 测试

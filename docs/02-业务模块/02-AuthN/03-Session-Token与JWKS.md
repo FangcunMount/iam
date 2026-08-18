@@ -144,7 +144,7 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 - 重点测试：`token/refresher_atomic_test.go`、`token/principal_session_test.go`、`session/lifetime_policy_test.go`、`pkg/sdk/auth/jwks/jwks_test.go`
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test \
+go test \
   ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
   ./internal/apiserver/application/authn/jwks \

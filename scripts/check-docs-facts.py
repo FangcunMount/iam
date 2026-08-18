@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -12,6 +13,12 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parent.parent
+ACTIVE_STATUS_PATTERN = re.compile(
+    r"^> 状态：(已实现|规划改造)(?: · .+)?$", re.MULTILINE
+)
+PERSONAL_GO_PATH_PATTERN = re.compile(
+    r"/Users/[^/\s]+/\.gvm/gos/[^/\s]+/bin/go"
+)
 
 
 def fail(message: str) -> None:
@@ -21,6 +28,22 @@ def fail(message: str) -> None:
 def load_yaml(relative: str) -> dict:
     with (ROOT / relative).open(encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
+
+
+def active_markdown_files() -> list[Path]:
+    return sorted(
+        path
+        for path in (ROOT / "docs").rglob("*.md")
+        if "_archive" not in path.parts
+    )
+
+
+def proto_services(path: Path) -> list[str]:
+    return re.findall(
+        r"^\s*service\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
+        path.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
 
 
 def check_runtime_configuration() -> None:
@@ -55,6 +78,126 @@ def check_runtime_configuration() -> None:
             fail(f"{relative} is missing JWKS rotation keys: {sorted(missing)}")
         if rotation["automatic_enabled"] is not automatic:
             fail(f"{relative} has the wrong automatic rotation default")
+
+
+def check_generated_document_facts() -> None:
+    api_readme = (ROOT / "api/README.md").read_text(encoding="utf-8")
+    documented_services = {
+        f"api/{href}": re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`", cell)
+        for href, cell in re.findall(
+            r"^\|\s*\[[^\]]+\]\((grpc/iam/[^)]+\.proto)\)\s*\|\s*(.*?)\s*\|\s*$",
+            api_readme,
+            re.MULTILINE,
+        )
+    }
+    contract_services = {}
+    for path in sorted((ROOT / "api/grpc/iam").rglob("*.proto")):
+        services = proto_services(path)
+        if services:
+            contract_services[str(path.relative_to(ROOT))] = services
+    if documented_services.keys() != contract_services.keys():
+        fail(
+            "api/README.md gRPC service matrix contracts differ from service-bearing "
+            f"proto files: documented={sorted(documented_services)} "
+            f"actual={sorted(contract_services)}"
+        )
+    for relative, services in contract_services.items():
+        if documented_services[relative] != services:
+            fail(
+                f"api/README.md gRPC services for {relative} differ: "
+                f"documented={documented_services[relative]} actual={services}"
+            )
+
+    rest_readme = (ROOT / "api/rest/README.md").read_text(encoding="utf-8")
+    authorization_examples = []
+    for raw_payload in re.findall(r"-d\s+'(\{[^'\n]+\})'", rest_readme):
+        try:
+            payload = json.loads(raw_payload)
+        except json.JSONDecodeError as error:
+            fail(f"api/rest/README.md contains invalid JSON example: {error}")
+        if "resource" in payload or "action" in payload:
+            authorization_examples.append(payload)
+    if len(authorization_examples) != 1:
+        fail(
+            "api/rest/README.md must contain exactly one resource/action "
+            f"authorization example, found {len(authorization_examples)}"
+        )
+    example = authorization_examples[0]
+    resource = example.get("resource")
+    action = example.get("action")
+    if not isinstance(resource, str) or not isinstance(action, str):
+        fail("api/rest/README.md authorization example needs string resource and action")
+    bootstrap = (ROOT / "configs/mysql/bootstrap.sql").read_text(encoding="utf-8")
+    resource_offset = bootstrap.find(f"'{resource}'")
+    if resource_offset < 0:
+        fail(f"documented authorization resource is absent from bootstrap.sql: {resource}")
+    action_array = re.search(
+        r"JSON_ARRAY\(([^)]*)\)",
+        bootstrap[resource_offset : resource_offset + 2048],
+        re.DOTALL,
+    )
+    if action_array is None:
+        fail(f"bootstrap.sql resource has no action array: {resource}")
+    actions = re.findall(r"'([^']+)'", action_array.group(1))
+    if action not in actions:
+        fail(
+            f"documented authorization action {action} is invalid for {resource}: "
+            f"actual={actions}"
+        )
+
+    dev = load_yaml("configs/apiserver.dev.yaml")
+    dev_port = dev.get("insecure", {}).get("bind-port")
+    if not isinstance(dev_port, int):
+        fail("configs/apiserver.dev.yaml insecure.bind-port must be an integer")
+    root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    quick_start = re.search(
+        r"^### 健康检查\s+(.*?)(?=^### |\Z)",
+        root_readme,
+        re.MULTILINE | re.DOTALL,
+    )
+    if quick_start is None:
+        fail("README.md is missing the Quick Start health-check section")
+    quick_start_ports = re.findall(
+        r"http://localhost:(\d+)/", quick_start.group(1)
+    )
+    if not quick_start_ports or set(quick_start_ports) != {str(dev_port)}:
+        fail(
+            "README.md Quick Start ports differ from "
+            f"configs/apiserver.dev.yaml: documented={quick_start_ports} actual={dev_port}"
+        )
+
+    status_counts = {"已实现": 0, "规划改造": 0}
+    active_docs = active_markdown_files()
+    for path in active_docs:
+        text = path.read_text(encoding="utf-8")
+        statuses = ACTIVE_STATUS_PATTERN.findall(text)
+        if len(statuses) == 1:
+            status_counts[statuses[0]] += 1
+        if PERSONAL_GO_PATH_PATTERN.search(text):
+            fail(
+                f"{path.relative_to(ROOT)} contains a personal Go executable path; "
+                "use go test or a repository Make target"
+            )
+        if "提示词" in path.name:
+            fail(f"historical prompt remains in active docs: {path.relative_to(ROOT)}")
+    status_summary = (
+        f"Active docs 状态计数：总计 `{len(active_docs)}` 篇，"
+        f"`已实现` `{status_counts['已实现']}` 篇，"
+        f"`规划改造` `{status_counts['规划改造']}` 篇。"
+    )
+    acceptance = (
+        ROOT / "docs/01-运行时/08-IAM重构最终验收记录.md"
+    ).read_text(encoding="utf-8")
+    if status_summary not in acceptance:
+        fail(
+            "final acceptance record has a stale active-doc status count; "
+            f"expected: {status_summary}"
+        )
+    archived_prompt = (
+        ROOT / "docs/_archive/2026-08-18-遗留资产安全退役目标提示词.md"
+    )
+    if not archived_prompt.exists():
+        fail("historical legacy-retirement goal prompt is missing from docs/_archive")
 
 
 def check_migrations() -> None:
@@ -575,13 +718,10 @@ def check_compatibility_retirement_evidence() -> None:
 
 
 def check_active_docs() -> None:
-    allowed_status = re.compile(r"^> 状态：(已实现|规划改造)(?: · .+)?$", re.MULTILINE)
     planning_docs: list[Path] = []
-    for path in (ROOT / "docs").rglob("*.md"):
-        if "_archive" in path.parts:
-            continue
+    for path in active_markdown_files():
         text = path.read_text(encoding="utf-8")
-        statuses = allowed_status.findall(text)
+        statuses = ACTIVE_STATUS_PATTERN.findall(text)
         if len(statuses) != 1:
             fail(
                 f"{path.relative_to(ROOT)} must contain exactly one active status "
@@ -614,7 +754,9 @@ def check_active_docs() -> None:
             if stale_identity_fact in text:
                 fail(f"{path.relative_to(ROOT)} contains stale identity fact: {stale_identity_fact}")
 
-    root_status = allowed_status.findall((ROOT / "docs/README.md").read_text(encoding="utf-8"))
+    root_status = ACTIVE_STATUS_PATTERN.findall(
+        (ROOT / "docs/README.md").read_text(encoding="utf-8")
+    )
     if root_status == ["已实现"] and planning_docs:
         names = ", ".join(str(path.relative_to(ROOT)) for path in planning_docs[:3])
         fail(f"docs/README.md cannot be 已实现 while child docs remain 规划改造: {names}")
@@ -665,6 +807,7 @@ def main() -> int:
         check_database_operations_facts,
         check_compatibility_retirement_evidence,
         check_active_docs,
+        check_generated_document_facts,
     )
     try:
         for check in checks:
@@ -674,7 +817,10 @@ def main() -> int:
     except (AssertionError, subprocess.CalledProcessError) as error:
         print(f"docs facts failed: {error}", file=sys.stderr)
         return 1
-    print("Documentation facts match configuration, migrations, events, routes, and module wiring.")
+    print(
+        "Documentation facts match configuration, migrations, events, routes, "
+        "module wiring, and generated documentation facts."
+    )
     return 0
 
 

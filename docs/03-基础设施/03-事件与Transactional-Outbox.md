@@ -235,9 +235,9 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 
 ```bash
 make docs-facts
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/eventmessaging ./pkg/eventruntime ./pkg/outboxcore
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/application/authz/policy ./internal/apiserver/application/authz/policysync
+go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/eventmessaging ./pkg/eventruntime ./pkg/outboxcore
+go test ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging
+go test ./internal/apiserver/application/authz/policy ./internal/apiserver/application/authz/policysync
 ```
 
 ## 16. 面试追问

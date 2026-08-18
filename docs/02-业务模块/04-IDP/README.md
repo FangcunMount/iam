@@ -45,5 +45,5 @@ Provider app / secret / provider token
 ## 验证
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/domain/idp/... ./internal/apiserver/application/idp/... ./internal/apiserver/infra/mysql/wechatapp ./internal/apiserver/container/idp
+go test ./internal/apiserver/domain/idp/... ./internal/apiserver/application/idp/... ./internal/apiserver/infra/mysql/wechatapp ./internal/apiserver/container/idp
 ```

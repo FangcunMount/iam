@@ -52,5 +52,5 @@ IDP 解析外部 provider 身份
 ## 验证
 
 ```bash
-/Users/yangshujie/.gvm/gos/go1.25.12/bin/go test ./internal/apiserver/domain/authn/... ./internal/apiserver/application/authn/... ./pkg/sdk/auth/...
+go test ./internal/apiserver/domain/authn/... ./internal/apiserver/application/authn/... ./pkg/sdk/auth/...
 ```
