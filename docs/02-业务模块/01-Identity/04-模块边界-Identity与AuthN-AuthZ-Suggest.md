@@ -21,7 +21,7 @@ Identity 是 User、Profile、ProfileLink 的主事实边界，但不是完全�
 | --- | --- | --- |
 | AuthN | LoginIdentity/Session 以 UserID 引用 User；AuthN signup 在自己 UOW 中使用 Identity User repository port；Identity 状态变更写本地安全 Outbox | signup 与 User 同 MySQL 事务；状态与任务同事务，Redis Session 最终幂等撤销 |
 | AuthZ | Identity REST `/me` 用 `RoleNameReader` 补充角色名；Profile REST 的 ProfileLink 前置是局部访问规则 | 角色读取失败时返回无 roles 的 User；不执行通用 AuthZ Check |
-| IDP | IDP 管理 WechatApp/Credential/AppAccessToken；AuthN 读取配置并直接编排 code exchange | 当前没有通用 IDP `ExternalIdentity` 领域对象传给 Identity |
+| IDP | IDP 管理 WechatApp/Credential/AppAccessToken，并产出请求内 `ExternalIdentity`；AuthN 只消费 Resolver | `ExternalIdentity` 不传给 Identity；AuthN 映射为 LoginIdentity ProviderKey/User 关联 |
 | Suggest | Suggest infra 直接从 Identity MySQL 表 Full/Delta 派生索引，再结合 AuthZ runtime 与可见 ProfileID 生成 scope | 最终一致；默认 Loader 统一过滤 deleted/revoked Profile、ProfileLink 和 User，并用 tombstone 删除失效项 |
 
 边界的核心不是“不许任何依赖”，而是：
@@ -251,26 +251,27 @@ IDP 当前主要模型位于 `internal/apiserver/domain/idp/wechatapp`：
 - `AppAccessToken`；
 - `SecretVault`、`AppTokenProvider`、token cache 等 ports。
 
-代码中没有通用 `domain/idp/ExternalIdentity` 类型。Identity v2 proto 虽然定义 `ExternalIdentity` message 和 User request/response 字段，Identity handler 当前忽略输入，response mapper 返回空列表。
+IDP 的通用值对象位于 `internal/apiserver/domain/idp/externalidentity`。它只在一次 provider exchange 请求内存在，包含 provider、realm、受限 identifiers 和 VerifiedAt，不进入 Identity、数据库或公开协议。
+
+Identity v2 proto 虽然也定义同名 `ExternalIdentity` message 和 User request/response 字段，但 Identity handler 当前仍忽略输入，response mapper 返回空列表。这是另一份历史 transport 契约，不是 IDP 请求内值对象，也未因本次重构落地。
 
 ### 9.2 实际微信小程序 signup 链路
 
 ```text
 AuthN signup
-  -> 从 IDP WechatApp repository 查 app config
-  -> SecretVault 解密 app secret
-  -> AuthN IdentityProvider.ExchangeWxMinipCode
-  -> 得到 openid / unionid
+  -> IDP ExternalIdentity Resolver(appID, jsCode)
+  -> IDP 内部查 app、解密 secret、调用 provider
+  -> 返回 request-local ExternalIdentity(openid/unionid)
   -> AuthN 构造 LoginIdentity ProviderKey
   -> 解析/创建 Identity User
   -> 建立 LoginIdentity.UserID 引用
 ```
 
-这条链路由 AuthN application 编排。IDP 不直接创建 User、Session 或 IAM Token；Identity 也不需要知道 app secret 和 provider code exchange。
+AuthN application 编排业务用例，但 provider 交换细节完全归 IDP Resolver。IDP 不直接创建 User、LoginIdentity、Principal、Session 或 IAM Token；Identity 也不需要知道 app secret、provider code 或 ExternalIdentity。
 
-### 9.3 未实现的中间抽象
+### 9.3 已实现的中间抽象
 
-“IDP 统一产出 ExternalIdentity，AuthN 只消费通用对象”可以是未来方向，但当前微信身份只是 AuthN signup 内部的 `wechatIdentity{OpenID, UnionID}` 和 LoginIdentity ProviderKey。不应将 proto message 当成已存在的领域聚合。
+IDP 已统一产出请求内 `ExternalIdentity`，覆盖微信小程序、微信开放平台和企业微信。AuthN 的单一 mapper 按 SignIn、SignUp、Linking 的既有策略转换它；历史内部直传 OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。仍不能把 Identity v2 proto message 当成这一领域对象。
 
 ## 10. Identity 与 Suggest
 
@@ -320,7 +321,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 | Identity REST | AuthZ | `RoleNameReader` | `/me` 响应展示增强 |
 | Suggest infra | Identity storage | read-only Full/Delta SQL | 派生搜索索引 |
 | Suggest scope infra | AuthZ runtime | route/role query | 生成搜索范围和 mobile capability |
-| AuthN signup/linking | IDP config/provider ports | app lookup、secret decrypt、code exchange | 将外部身份转为 LoginIdentity ProviderKey |
+| AuthN signup/linking/signin | IDP ExternalIdentity Resolver | `Resolve(provider, realm, code)` | AuthN 不理解 secret、app repository 或 provider SDK |
 
 ### 11.2 禁止的耦合
 
@@ -342,7 +343,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 | Block/Deactivate + Session | User 状态与本地撤销任务同事务提交；Worker 对 Redis 失败持久化重试，在线 Verify 同时检查状态 | 需要跨 MySQL/Redis 强原子性时另行评估，不宣称 exactly-once |
 | `/me` roles 降级 | 无 roles 不区分“无角色”与“查询失败” | 客户端需要可观测降级语义时 |
 | REST Profile search | 无作用域 `/identity/profiles/search` 已下线；搜索统一走受授权 Suggest | 新增搜索能力时继续复用显式 scope，不恢复旧入口 |
-| IDP ExternalIdentity | 只有 proto 字段和 AuthN 内部 provider result | 多 provider 需要统一中间契约时，决定其归属 IDP 还是 AuthN |
+| IDP ExternalIdentity | 已实现为三类 provider 的请求内值对象；Identity v2 同名 proto 仍未接入 | 增加新 provider 或需要公开/持久化时重新评估契约，不直接复用历史 proto |
 | Suggest 同步 | 定时 Full/Delta SQL，无 Profile event | 新鲜度或 schema 耦合成本不可接受时，引入稳定事件/outbox |
 | Suggest revoked link | Full/Delta 只接受 active Profile、active ProfileLink 和 active User；最后关联失效生成 tombstone | 保持 Full/Delta 共享 eligibility 和删除传播测试 |
 | ProfileLink 与 AuthZ | 彼此独立 | 只有出现明确 Resource/Action/Scope 规则时才设计受控映射 |
