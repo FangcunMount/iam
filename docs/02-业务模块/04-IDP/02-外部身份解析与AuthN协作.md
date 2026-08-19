@@ -8,24 +8,23 @@
 sequenceDiagram
     participant C as Client
     participant A as AuthN proof/signup/linking
-    participant D as IDP app repository
-    participant V as SecretVault
+    participant R as IDP ExternalIdentity Resolver
+    participant D as IDP app repository/vault
     participant P as WeChat/WeCom
     C->>A: provider app id + short-lived code
-    A->>D: load enabled app
-    D-->>A: encrypted credentials + type
-    A->>V: decrypt AppSecret
-    V-->>A: plaintext secret
-    A->>P: exchange code
-    P-->>A: openid/unionid/userid
-    A->>A: build provider key / LoginIdentity proof
+    A->>R: Resolve(provider, realm, code)
+    R->>D: load enabled app and decrypt credential
+    R->>P: exchange code
+    P-->>R: provider response
+    R-->>A: request-local ExternalIdentity
+    A->>A: map provider key / LoginIdentity proof
 ```
 
 IDP 证明“provider 对这次 code 返回了什么”；AuthN 再决定该外部标识对应哪个 LoginIdentity/User，是否允许注册、登录或绑定。
 
-## 2. ResolveAppSecret 的 fail-closed 检查
+## 2. Resolver 的 fail-closed 检查
 
-公共 prepare helper 在解密前逐项检查：
+`application/idp/externalidentity.Resolver` 在 IDP 边界内逐项检查：
 
 1. repository 与 Vault 已装配；
 2. app 能按 AppID 查询；
@@ -34,7 +33,7 @@ IDP 证明“provider 对这次 code 返回了什么”；AuthN 再决定该外�
 5. AuthSecret 存在；
 6. 密文可解密。
 
-登录 proof 与 linking 使用不同错误映射，避免基础设施细节直接泄漏给客户端；结构化日志记录 provider、credential kind、app id 和错误，但不应记录 code、secret 或外部 token。
+Resolver 只返回 IDP 分类错误，不依赖 AuthN 或 HTTP 错误码。登录 proof、signup 与 linking 分别把分类错误映射回既有公开 code/message，保留三个用例原有差异。结构化日志只记录 provider、realm 和错误分类，不记录 code、secret、token 或完整 provider 响应。
 
 显式 app type 校验很关键：同一个微信生态里，小程序、公众号、网站开放平台的 code 语义和 API 不同。只凭 appID 存在就调用错误 endpoint，既会造成失败，也可能混淆登录边界。
 
@@ -54,9 +53,8 @@ IDP 证明“provider 对这次 code 返回了什么”；AuthN 再决定该外�
 
 ```text
 OAuth state/nonce 校验并消费
-  -> code exchange
-  -> app/type/realm 绑定
-  -> ExternalIdentity result
+  -> IDP Resolver(app/type/secret/code exchange)
+  -> request-local ExternalIdentity
   -> LoginIdentity lookup/ensure
 ```
 
@@ -64,19 +62,23 @@ OAuth state 的创建和消费属于 AuthN Challenge；provider API 交换属于
 
 ## 5. 为什么外部交换在本地事务外
 
-provider 网络调用可能超时、限流或返回业务错误。SignUp 在 Prepare 阶段先完成 app/secret/code 解析，之后才进入 MySQL UoW 创建 User/LoginIdentity/Credential。
+provider 网络调用可能超时、限流或返回业务错误。SignUp 在 Prepare 阶段先调用 IDP Resolver，之后才进入 MySQL UoW 创建 User/LoginIdentity/Credential。
 
 好处是数据库事务短；代价是外部 proof 与本地 commit 之间存在时间差。当前依赖 provider code 的一次性交换和 prepared result 的请求内生命周期来约束，不会把 prepared result 持久化后长期复用。
 
-## 6. provider adapter 的当前形态
+## 6. ExternalIdentity 与 provider adapter 的当前形态
 
-`infra/wechat/IdentityProviderImpl` 实现 AuthN 的 `authentication.IdentityProvider`：
+`domain/idp/externalidentity.ExternalIdentity` 是不可持久化、不可序列化的请求内值对象，只包含 provider、realm、受限标识集合和 exchange 成功时间。它不包含 code、AppSecret、session key、access token、provider 原始响应或 IAM 主体标识，也不能直接交给 Authenticator 登录。
+
+`infra/wechat/IdentityProviderImpl` 实现 IDP application 的 provider exchanger port：
 
 - 微信小程序与开放平台委托 `wechatapi.AuthProvider`；
 - 企业微信仍通过 silenceper SDK 并使用共享 SDK cache；
 - 返回最小的 openID/unionID/userID，而不返回整个 provider response。
 
-这种 anti-corruption layer 让 AuthN 不依赖第三方 SDK 类型。未来替换 SDK 或增加 provider 时，应保持 domain port 稳定，而不是让 SDK struct 穿透应用层。
+这种 anti-corruption layer 让 IDP domain/application 和 AuthN 都不依赖第三方 SDK 类型。AuthN 只消费 `Resolver` 和标准化结果，再按 SignIn、SignUp、Linking 的既有策略映射为 ProviderKey 或认证输入。
+
+Identity v2 protobuf 中同名的 `ExternalIdentity` 是历史 transport 契约；当前 handler 仍未使用它。本次 IDP 请求内值对象没有进入 REST、gRPC、SDK、缓存或数据库，两者不能互相替代。
 
 ## 7. 错误和可用性边界
 
@@ -120,9 +122,10 @@ openid 通常是 app-scoped 的稳定键，unionid 可在满足条件的关联�
 
 ## 10. 事实来源与验证
 
-- prepare：`internal/apiserver/application/idp/prepare`
+- value object：`internal/apiserver/domain/idp/externalidentity`
+- resolver：`internal/apiserver/application/idp/externalidentity`
 - AuthN proof/linking/signup：`internal/apiserver/application/authn/{signin,linking,signup}`
-- provider port：`internal/apiserver/domain/authn/authentication`
+- AuthN mapper：`internal/apiserver/application/authn/externalidentity`
 - adapters：`internal/apiserver/infra/wechat`、`internal/apiserver/infra/wechatapi`
 - composition：`internal/apiserver/container/idp`、`internal/apiserver/container/authn`
 
