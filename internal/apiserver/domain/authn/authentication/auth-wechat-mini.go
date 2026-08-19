@@ -18,8 +18,8 @@ type WechatMinipCredential struct {
 	RemoteIP  string
 	UserAgent string
 	AppID     string
-	AppSecret string
-	Code      string
+	OpenID    string
+	UnionID   string
 }
 
 type WechatMiniProofSpec struct {
@@ -27,8 +27,8 @@ type WechatMiniProofSpec struct {
 	RemoteIP  string
 	UserAgent string
 	AppID     string
-	AppSecret string
-	Code      string
+	OpenID    string
+	UnionID   string
 }
 
 // CredentialKind 返回认证证明类型。
@@ -41,19 +41,16 @@ func NewWechatMiniCredential(spec WechatMiniProofSpec) (AuthCredential, error) {
 	if spec.AppID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appid is required for wechat authentication")
 	}
-	if spec.AppSecret == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appsecret is required for wechat authentication")
-	}
-	if spec.Code == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat jscode is required for wechat authentication")
+	if spec.OpenID == "" {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat openid is required for wechat authentication")
 	}
 	return &WechatMinipCredential{
 		TenantID:  spec.TenantID,
 		RemoteIP:  spec.RemoteIP,
 		UserAgent: spec.UserAgent,
 		AppID:     spec.AppID,
-		AppSecret: spec.AppSecret,
-		Code:      spec.Code,
+		OpenID:    spec.OpenID,
+		UnionID:   spec.UnionID,
 	}, nil
 }
 
@@ -63,7 +60,6 @@ func NewWechatMiniCredential(spec WechatMiniProofSpec) (AuthCredential, error) {
 type OAuthWechatMinipAuthStrategy struct {
 	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
-	idp            IdentityProvider
 }
 
 // 实现认证策略接口
@@ -71,12 +67,10 @@ var _ AuthStrategy = (*OAuthWechatMinipAuthStrategy)(nil)
 
 func NewOAuthWechatMinipAuthStrategyWithLoginIdentity(
 	identityRepo LoginIdentityRepository,
-	idp IdentityProvider,
 ) *OAuthWechatMinipAuthStrategy {
 	return &OAuthWechatMinipAuthStrategy{
 		credentialKind: CredentialKindWechatMinip,
 		identityRepo:   identityRepo,
-		idp:            idp,
 	}
 }
 
@@ -87,19 +81,15 @@ func (o *OAuthWechatMinipAuthStrategy) Kind() CredentialKind {
 
 // Authenticate 执行微信小程序认证
 // 认证流程：
-// 1. 调用微信API用jsCode换取openID/unionID
-// 2. 根据openID查找凭据绑定
-// 3. 检查 LoginIdentity 状态
-// 4. 返回认证判决
+// 1. 根据已验证的 openID/unionID 查找凭据绑定
+// 2. 检查 LoginIdentity 状态
+// 3. 返回认证判决
 func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	wechatCred, ok := credential.(*WechatMinipCredential)
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("wechat minip strategy expects *WechatMinipCredential, got %T", credential)
 	}
-	identity, err := o.exchangeWechatMinipIdentity(ctx, wechatCred)
-	if err != nil {
-		return AuthDecision{}, err
-	}
+	identity := wechatMinipIdentity{openID: wechatCred.OpenID, unionID: wechatCred.UnionID}
 
 	lookup, err := o.findWechatMinipIdentity(ctx, wechatCred, identity)
 	if err != nil {
@@ -127,18 +117,6 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 type wechatMinipIdentity struct {
 	openID  string
 	unionID string
-}
-
-// exchangeWechatMinipIdentity 与微信IdP交互，用jsCode换取openID
-func (o *OAuthWechatMinipAuthStrategy) exchangeWechatMinipIdentity(ctx context.Context, credential *WechatMinipCredential) (wechatMinipIdentity, error) {
-	openID, unionID, err := o.idp.ExchangeWxMinipCode(ctx, credential.AppID, credential.AppSecret, credential.Code)
-	if err != nil {
-		return wechatMinipIdentity{}, fmt.Errorf("failed to exchange wx minip code: %w", err)
-	}
-	return wechatMinipIdentity{
-		openID:  openID,
-		unionID: unionID,
-	}, nil
 }
 
 func (o *OAuthWechatMinipAuthStrategy) findWechatMinipIdentity(

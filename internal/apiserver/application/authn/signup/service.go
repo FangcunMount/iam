@@ -5,9 +5,9 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/uow"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
-	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -26,15 +26,12 @@ var _ SignupService = (*signupService)(nil)
 func NewSignupService(
 	uow uow.UnitOfWork,
 	hasher authentication.PasswordHasher,
-	idp authentication.IdentityProvider,
+	externalIdentity idpresolver.Resolver,
 	userRepo userDomain.Repository,
-	wechatAppQuerier idpPort.Repository,
-	secretVault idpPort.SecretVault,
 ) SignupService {
-	wechatResolver := newWechatIdentityResolver(idp, wechatAppQuerier, secretVault)
 	return &signupService{
 		uow:                     uow,
-		prepareStep:             newPrepareStep(wechatResolver),
+		prepareStep:             newPrepareStep(externalIdentity),
 		resolveUserStep:         newResolveUserStep(userRepo),
 		ensureLoginIdentityStep: newEnsureLoginIdentityStep(),
 		ensureCredentialStep:    newEnsureCredentialStep(hasher),

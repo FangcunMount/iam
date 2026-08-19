@@ -25,7 +25,7 @@ func TestAuthnModuleDepsPreserveTypedDependencies(t *testing.T) {
 		PasswordHasher: hasher,
 		IDPModule:      idpMod,
 		EventPublisher: publisher,
-		IDPOptions:     *apiserveroptions.NewIDPOptions(),
+		WechatOpen:     apiserveroptions.WechatOpenOptions{},
 	}
 	if deps.DB != db {
 		t.Fatalf("DB dependency was not preserved")
@@ -42,8 +42,8 @@ func TestAuthnModuleDepsPreserveTypedDependencies(t *testing.T) {
 	if deps.EventPublisher != publisher {
 		t.Fatalf("EventPublisher dependency was not preserved")
 	}
-	if deps.IDPOptions.WeCom.AgentID != "" {
-		t.Fatalf("IDPOptions dependency default changed")
+	if deps.WechatOpen.AppID != "" {
+		t.Fatalf("WechatOpen dependency default changed")
 	}
 }
 

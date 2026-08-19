@@ -10,12 +10,12 @@ import (
 
 // prepareStep 准备步骤，用于准备登录身份和凭据。
 type prepareStep struct {
-	wechatIdentityResolver *wechatIdentityResolver
+	externalIdentityResolver externalIdentityResolver
 }
 
 // newPrepareStep 创建准备步骤。
-func newPrepareStep(wechatIdentityResolver *wechatIdentityResolver) *prepareStep {
-	return &prepareStep{wechatIdentityResolver: wechatIdentityResolver}
+func newPrepareStep(externalIdentityResolver externalIdentityResolver) *prepareStep {
+	return &prepareStep{externalIdentityResolver: externalIdentityResolver}
 }
 
 // Run 在事务外裁剪输入、解析外部身份，生成后续步骤需要的 preparedSignup。
@@ -51,7 +51,7 @@ func (s *prepareStep) prepareDeps() loginIdentityPrepareDeps {
 	if s == nil {
 		return loginIdentityPrepareDeps{}
 	}
-	return loginIdentityPrepareDeps{wechatIdentityResolver: s.wechatIdentityResolver}
+	return loginIdentityPrepareDeps{externalIdentityResolver: s.externalIdentityResolver}
 }
 
 // trimUserInput 修剪用户输入。

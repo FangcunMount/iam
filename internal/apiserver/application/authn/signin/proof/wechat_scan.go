@@ -6,21 +6,22 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
+	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
-	idpprepare "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/prepare"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	idpidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 type wechatScanBuilder struct {
-	deps        idpprepare.Dependencies
+	resolver    idpresolver.Resolver
 	oauthStates challenge.WechatOpenOAuthStateVerifier
 }
 
-func newWechatScanBuilder(repo idpPort.Repository, vault idpPort.SecretVault, oauthStates challenge.WechatOpenOAuthStateVerifier) Builder {
+func newWechatScanBuilder(resolver idpresolver.Resolver, oauthStates challenge.WechatOpenOAuthStateVerifier) Builder {
 	return &wechatScanBuilder{
-		deps:        idpprepare.Dependencies{Apps: repo, Vault: vault},
+		resolver:    resolver,
 		oauthStates: oauthStates,
 	}
 }
@@ -46,23 +47,28 @@ func (b *wechatScanBuilder) Build(ctx context.Context, payload method.Payload, c
 		return nil, perrors.WithCode(code.ErrStateMismatch, "oauth state app_id mismatch")
 	}
 
-	appSecret, err := idpprepare.ResolveAppSecret(ctx, b.deps, idpprepare.Options{
-		Provider:        idpprepare.ProviderWechat,
-		Surface:         idpprepare.SurfaceLoginProof,
-		AppID:           scanPayload.AppID,
-		CredentialKind:  string(authentication.CredentialKindWechatOpen),
-		ExpectedAppType: idpPort.OpenPlatformWebsite,
+	if b.resolver == nil {
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "wechat app configuration service not available")
+	}
+	resolved, err := b.resolver.Resolve(ctx, idpresolver.ResolveRequest{
+		Provider: idpidentity.ProviderWechatOpen,
+		Realm:    scanPayload.AppID,
+		Code:     scanPayload.Code,
 	})
 	if err != nil {
-		return nil, err
+		return nil, authnexternal.MapLoginProofError(ctx, err, string(authentication.CredentialKindWechatOpen))
+	}
+	identity, err := authnexternal.Wechat(resolved)
+	if err != nil {
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "failed to map wechat external identity: %v", err)
 	}
 
 	return authentication.NewWechatOpenCredential(authentication.WechatOpenProofSpec{
 		TenantID:  common.TenantID,
 		RemoteIP:  common.RemoteIP,
 		UserAgent: common.UserAgent,
-		AppID:     scanPayload.AppID,
-		AppSecret: appSecret,
-		Code:      scanPayload.Code,
+		AppID:     identity.Realm,
+		OpenID:    identity.OpenID,
+		UnionID:   identity.UnionID,
 	})
 }

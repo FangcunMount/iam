@@ -27,16 +27,14 @@ func (m *AuthnModule) initializeApplication(
 	domain *authnDomainComponents,
 	hasher authentication.PasswordHasher,
 	authOptions apiserveroptions.AuthOptions,
-	idpOptions apiserveroptions.IDPOptions,
+	wechatOpenOptions apiserveroptions.WechatOpenOptions,
 	smsOptions apiserveroptions.SMSOptions,
 ) error {
 	m.signupService = signupApp.NewSignupService(
 		infra.unitOfWork,
 		hasher,
-		infra.idp,
+		infra.externalResolver,
 		infra.userRepo,
-		infra.wechatAppQuerier,
-		infra.secretVault,
 	)
 	smsSender, err := buildLoginSMSSender(infra, smsOptions)
 	if err != nil {
@@ -60,10 +58,7 @@ func (m *AuthnModule) initializeApplication(
 		LoginIdentities:  infra.loginIdentityStore,
 		IdentityUnlinker: infra.loginIdentityStore,
 		PhoneLinkOTP:     newPhoneLinkOTPVerifierAdapter(challengeService),
-		IDP:              infra.idp,
-		WechatApps:       infra.wechatAppQuerier,
-		SecretVault:      infra.secretVault,
-		WecomAgentID:     idpOptions.WeCom.AgentID,
+		ExternalIdentity: infra.externalResolver,
 	})
 
 	tokenService := token.NewTokenApplicationService(token.TokenApplicationDependencies{
@@ -82,18 +77,18 @@ func (m *AuthnModule) initializeApplication(
 	authenticator := authentication.NewAuthenticator(
 		authentication.NewPasswordAuthStrategyWithLoginIdentity(infra.credentialRepo, infra.loginIdentityRepo, hasher),
 		newPhoneOTPAuthStrategy(infra.loginIdentityRepo, challengeService),
-		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
-		authentication.NewOAuthWechatOpenAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
-		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo, infra.idp),
+		authentication.NewOAuthWechatMinipAuthStrategyWithLoginIdentity(infra.loginIdentityRepo),
+		authentication.NewOAuthWechatOpenAuthStrategyWithLoginIdentity(infra.loginIdentityRepo),
+		authentication.NewOAuthWeChatComAuthStrategyWithLoginIdentity(infra.loginIdentityRepo),
 	)
 	m.startWechatOpenAuthorize = signin.NewStartWechatOpenAuthorize(challengeService, wechatOpenAuthorizeURLBuilder{})
 	wechatOpenLinkStates := newWechatOpenLinkStateAdapter(challengeService, challengeService)
 	m.startWechatOpenLinkAuthorize = linkingApp.NewStartWechatOpenLinkAuthorize(wechatOpenLinkStates, wechatOpenAuthorizeURLBuilder{})
 	m.completeWechatOpenLink = linkingApp.NewCompleteWechatOpenLink(wechatOpenLinkStates, m.loginIdentityLinking)
 	m.wechatOpenConfig = WechatOpenConfig{
-		AppID:            idpOptions.WechatOpen.AppID,
-		LoginRedirectURI: idpOptions.WechatOpen.LoginRedirectURI,
-		LinkRedirectURI:  idpOptions.WechatOpen.LinkRedirectURI,
+		AppID:            wechatOpenOptions.AppID,
+		LoginRedirectURI: wechatOpenOptions.LoginRedirectURI,
+		LinkRedirectURI:  wechatOpenOptions.LinkRedirectURI,
 	}
 
 	signIn := signin.New(signin.Dependencies{
@@ -109,12 +104,7 @@ func (m *AuthnModule) initializeApplication(
 			},
 		}),
 		AccessChecker: infra.accessChecker,
-		ProofFactory: proof.DefaultFactory(
-			infra.wechatAppQuerier,
-			infra.secretVault,
-			proof.WecomConfig{AgentID: idpOptions.WeCom.AgentID},
-			challengeService,
-		),
+		ProofFactory:  proof.DefaultFactory(infra.externalResolver, challengeService),
 	})
 
 	userSessionService, err := session.NewApplicationService(session.Dependencies{

@@ -6,7 +6,9 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	loginidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	idpidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -67,6 +69,78 @@ func TestLinkPhoneRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, perrors.IsCode(err, code.ErrLoginIdentityExists))
+}
+
+func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
+	verifiedAt := time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name        string
+		provider    idpidentity.Provider
+		realm       string
+		identifiers map[idpidentity.IdentifierKind]string
+		input       LinkLoginIdentityInput
+		want        loginidentity.ProviderKey
+	}{
+		{
+			name:     "wechat mini",
+			provider: idpidentity.ProviderWechatMinip,
+			realm:    "mini-app",
+			identifiers: map[idpidentity.IdentifierKind]string{
+				idpidentity.IdentifierOpenID:  "open-1",
+				idpidentity.IdentifierUnionID: "union-1",
+			},
+			input: LinkWechatMiniInput{AppID: "mini-app", Code: "code-1"},
+			want:  loginidentity.WechatMinipProviderKey("mini-app", "open-1", "union-1"),
+		},
+		{
+			name:     "wechat open",
+			provider: idpidentity.ProviderWechatOpen,
+			realm:    "open-app",
+			identifiers: map[idpidentity.IdentifierKind]string{
+				idpidentity.IdentifierOpenID:  "open-2",
+				idpidentity.IdentifierUnionID: "union-2",
+			},
+			input: LinkWechatOpenInput{AppID: "open-app", Code: "code-2"},
+			want:  loginidentity.WechatOpenProviderKey("open-app", "open-2", "union-2"),
+		},
+		{
+			name:     "wecom",
+			provider: idpidentity.ProviderWecom,
+			realm:    "corp-1",
+			identifiers: map[idpidentity.IdentifierKind]string{
+				idpidentity.IdentifierUserID:     "user-1",
+				idpidentity.IdentifierOpenUserID: "open-user-1",
+			},
+			input: LinkWecomInput{CorpID: "corp-1", Code: "code-3"},
+			want:  loginidentity.WecomProviderKey("corp-1", "user-1"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identity := externalIdentityForTest(t, tt.provider, tt.realm, tt.identifiers, verifiedAt)
+			resolver := &linkResolverStub{identity: identity}
+			linker := NewLinker(Dependencies{
+				LoginIdentities:  repoForExternalLink(),
+				ExternalIdentity: resolver,
+			})
+
+			result, err := linker.Link(context.Background(), LinkRequest{
+				UserID: meta.FromUint64(100),
+				Input:  tt.input,
+			})
+
+			require.NoError(t, err)
+			require.Equal(t, 1, resolver.calls)
+			require.Equal(t, tt.provider, resolver.request.Provider)
+			require.Equal(t, tt.want.Provider, result.Identity.Provider)
+			require.Equal(t, tt.want.Realm, result.Identity.Realm)
+			require.Equal(t, tt.want.Identifier, result.Identity.Identifier)
+			require.Equal(t, tt.want.GlobalIdentifier, result.Identity.GlobalIdentifier)
+			require.NotNil(t, result.Identity.VerifiedAt)
+			require.Equal(t, verifiedAt, *result.Identity.VerifiedAt)
+		})
+	}
 }
 
 func TestUnlinkRejectsLastActiveLoginIdentity(t *testing.T) {
@@ -321,6 +395,41 @@ type linkingChallengeStub struct {
 	ok    bool
 	phone string
 	code  string
+}
+
+type linkResolverStub struct {
+	identity idpidentity.ExternalIdentity
+	request  idpresolver.ResolveRequest
+	calls    int
+}
+
+func (s *linkResolverStub) Resolve(_ context.Context, request idpresolver.ResolveRequest) (idpidentity.ExternalIdentity, error) {
+	s.calls++
+	s.request = request
+	return s.identity, nil
+}
+
+func externalIdentityForTest(
+	t *testing.T,
+	provider idpidentity.Provider,
+	realm string,
+	values map[idpidentity.IdentifierKind]string,
+	verifiedAt time.Time,
+) idpidentity.ExternalIdentity {
+	t.Helper()
+	identifiers := make([]idpidentity.Identifier, 0, len(values))
+	for kind, value := range values {
+		identifier, err := idpidentity.NewIdentifier(kind, value)
+		require.NoError(t, err)
+		identifiers = append(identifiers, identifier)
+	}
+	identity, err := idpidentity.New(provider, realm, identifiers, verifiedAt)
+	require.NoError(t, err)
+	return identity
+}
+
+func repoForExternalLink() *linkingIdentityRepoStub {
+	return newLinkingIdentityRepoStub()
 }
 
 func (s *linkingChallengeStub) VerifyAndConsumePhoneLinkOTP(_ context.Context, phone, code string) bool {

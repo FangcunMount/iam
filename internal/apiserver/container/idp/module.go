@@ -4,6 +4,7 @@ import (
 	wechatCache "github.com/silenceper/wechat/v2/cache"
 
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
+	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/wechatapp"
 	wechatappDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 	infraRedis "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
@@ -20,19 +21,21 @@ import (
 //
 // 职责：
 // - 微信应用管理（HTTP 接口）
-// - 提供基础设施服务（供 authn 模块使用）
-// - 认证功能由 authn 模块统一提供
+// - 解析请求内外部身份证明（供 authn 模块使用）
+// - 登录身份映射与认证功能由 authn 模块统一提供
 type IDPModule struct {
 	// 应用服务（对外暴露）
 	WechatAppService           wechatapp.WechatAppApplicationService
 	WechatAppCredentialService wechatapp.WechatAppCredentialApplicationService
 	WechatAppTokenService      wechatapp.WechatAppTokenApplicationService
 
-	// 基础设施组件（内部管理，供其他模块使用）
+	// 基础设施组件（模块内部管理）
 	wechatAppRepo       wechatappDomain.Repository
 	accessTokenCache    wechatappDomain.AccessTokenCache
 	secretVault         wechatappDomain.SecretVault
 	wechatAuthProvider  wechatapiPort.AuthProvider
+	externalResolver    externalidentity.Resolver
+	externalExchanger   externalidentity.ProviderExchanger
 	wechatTokenProvider *wechatapi.TokenProvider
 	wechatSDKCache      wechatCache.Cache
 }
@@ -57,22 +60,15 @@ func (m *IDPModule) InitializeWithDeps(deps IDPModuleDeps) error {
 		return err
 	}
 
-	return m.initializeApplication(domainServices)
+	return m.initializeApplication(domainServices, deps.ExternalIdentity)
 }
 
-// Repository 返回微信应用查询能力（供 authn 模块读取配置）
-func (m *IDPModule) Repository() wechatappDomain.Repository {
-	return m.wechatAppRepo
-}
-
-// SecretVault 返回密钥托管能力（供 authn 模块解密 AppSecret）
-func (m *IDPModule) SecretVault() wechatappDomain.SecretVault {
-	return m.secretVault
-}
-
-// WechatAuthProvider 返回微信认证基础能力（调用微信 code2Session 等接口）
-func (m *IDPModule) WechatAuthProvider() wechatapiPort.AuthProvider {
-	return m.wechatAuthProvider
+// ExternalIdentityResolver returns the only provider proof capability exposed to AuthN.
+func (m *IDPModule) ExternalIdentityResolver() externalidentity.Resolver {
+	if m == nil {
+		return nil
+	}
+	return m.externalResolver
 }
 
 // CacheFamilyInspectors 返回 IDP 模块暴露的缓存族状态读取器。

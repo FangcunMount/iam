@@ -4,9 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	loginidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
-	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -52,10 +51,7 @@ type Dependencies struct {
 	LoginIdentities  loginidentity.Repository
 	IdentityUnlinker AtomicIdentityUnlinker
 	PhoneLinkOTP     PhoneLinkChallengeVerifier
-	IDP              authentication.IdentityProvider
-	WechatApps       idpPort.Repository
-	SecretVault      idpPort.SecretVault
-	WecomAgentID     string
+	ExternalIdentity idpresolver.Resolver
 	RecentAuthWindow time.Duration
 	Now              func() time.Time
 }

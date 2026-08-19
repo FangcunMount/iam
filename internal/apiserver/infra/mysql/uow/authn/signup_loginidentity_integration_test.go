@@ -23,7 +23,7 @@ func TestSignupPersistsLoginIdentityAndPasswordCredentialV2(t *testing.T) {
 		&loginidentityinfra.PO{},
 		&credentialinfra.V2PO{},
 	))
-	svc := signupapp.NewSignupService(mysqlauthnuow.NewUnitOfWork(db), signupPasswordHasherStub{}, nil, mysqluser.NewRepository(db), nil, nil)
+	svc := signupapp.NewSignupService(mysqlauthnuow.NewUnitOfWork(db), signupPasswordHasherStub{}, nil, mysqluser.NewRepository(db))
 
 	phone, err := meta.NewPhone("13811112222")
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestSignupPersistsWechatMiniLoginIdentityWithoutCredential(t *testing.T) {
 		&loginidentityinfra.PO{},
 		&credentialinfra.V2PO{},
 	))
-	svc := signupapp.NewSignupService(mysqlauthnuow.NewUnitOfWork(db), signupPasswordHasherStub{}, nil, mysqluser.NewRepository(db), nil, nil)
+	svc := signupapp.NewSignupService(mysqlauthnuow.NewUnitOfWork(db), signupPasswordHasherStub{}, nil, mysqluser.NewRepository(db))
 
 	phone, err := meta.NewPhone("13811113333")
 	require.NoError(t, err)

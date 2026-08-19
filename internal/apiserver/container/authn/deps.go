@@ -22,6 +22,6 @@ type AuthnModuleDeps struct {
 	Environment    genericapiserver.Environment
 	Auth           apiserveroptions.AuthOptions
 	JWKS           apiserveroptions.JWKSOptions
-	IDPOptions     apiserveroptions.IDPOptions
+	WechatOpen     apiserveroptions.WechatOpenOptions
 	SMS            apiserveroptions.SMSOptions
 }

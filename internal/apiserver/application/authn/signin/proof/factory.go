@@ -6,15 +6,10 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
-
-// WecomConfig 企业微信配置
-type WecomConfig struct {
-	AgentID string
-}
 
 // Builder 证明构造器
 type Builder interface {
@@ -64,19 +59,17 @@ func MustFactory(builders ...Builder) *Factory {
 
 // DefaultFactory 创建默认证明工厂
 func DefaultFactory(
-	repo idpPort.Repository,
-	vault idpPort.SecretVault,
-	wecomConfig WecomConfig,
+	resolver idpresolver.Resolver,
 	oauthStates challenge.WechatOpenOAuthStateVerifier,
 ) *Factory {
 	builders := []Builder{
 		NewPasswordBuilder(),
 		NewPhoneOTPBuilder(),
-		newWechatBuilder(repo, vault),
-		newWecomBuilder(repo, vault, wecomConfig),
+		newWechatBuilder(resolver),
+		newWecomBuilder(resolver),
 	}
 	if oauthStates != nil {
-		builders = append(builders, newWechatScanBuilder(repo, vault, oauthStates))
+		builders = append(builders, newWechatScanBuilder(resolver, oauthStates))
 	}
 	return MustFactory(builders...)
 }

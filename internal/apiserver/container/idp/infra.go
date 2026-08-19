@@ -9,6 +9,7 @@ import (
 	infraRedis "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/crypto"
 	infraMysql "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/wechatapp"
+	wechatInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechat"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi"
 )
 
@@ -30,6 +31,8 @@ func (m *IDPModule) initializeInfrastructure(
 	m.wechatSDKCache = wechatSDKCache
 	m.wechatAuthProvider = wechatapi.NewAuthProvider(wechatSDKCache)
 	m.wechatTokenProvider = wechatapi.NewTokenProvider(wechatSDKCache)
+	// Preserve the current WeCom SDK/cache behavior during the ownership move.
+	m.externalExchanger = wechatInfra.NewIdentityProvider(m.wechatAuthProvider, nil)
 
 	return nil
 }

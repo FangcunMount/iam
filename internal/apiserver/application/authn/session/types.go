@@ -3,7 +3,6 @@ package session
 import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 )
 
@@ -27,8 +26,6 @@ type PhoneOTPPayload = method.PhoneOTPPayload
 type WechatMiniPayload = method.WechatMiniPayload
 type WechatScanPayload = method.WechatScanPayload
 type WecomPayload = method.WecomPayload
-type WecomConfig = proof.WecomConfig
-
 type SignInResult = signin.Result
 type LoginResult = signin.Result
 

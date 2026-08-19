@@ -2,14 +2,16 @@ package signup
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/component-base/pkg/util/idutil"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/uow"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	loginidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
 	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
-	idpWechatApp "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	idpidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -69,15 +71,43 @@ func (s *userRepoStub) Update(_ context.Context, user *userDomain.User) error {
 }
 
 type onboardingUoWStub struct {
-	tx  uow.TxRepositories
-	err error
+	tx      uow.TxRepositories
+	err     error
+	onEnter func()
 }
 
 func (s onboardingUoWStub) WithinTx(ctx context.Context, fn func(context.Context, uow.TxRepositories) error) error {
+	if s.onEnter != nil {
+		s.onEnter()
+	}
 	if s.err != nil {
 		return s.err
 	}
 	return fn(ctx, s.tx)
+}
+
+func TestSignupResolvesExternalIdentityBeforeOpeningTransaction(t *testing.T) {
+	t.Parallel()
+
+	resolver := &signupResolverStub{identity: newWechatMiniIdentity(t, "wx-app", "openid-1", "union-1")}
+	txEntered := false
+	service := NewSignupService(onboardingUoWStub{
+		err: errors.New("stop before persistence"),
+		onEnter: func() {
+			txEntered = true
+			require.Equal(t, 1, resolver.calls, "provider exchange must finish before the local transaction starts")
+		},
+	}, nil, resolver, nil)
+	appID := "wx-app"
+	jsCode := "js-code"
+
+	_, err := service.SignUp(context.Background(), SignupRequest{
+		LoginIdentity: WechatMiniLoginIdentityInput{AppID: &appID, JsCode: &jsCode},
+	})
+
+	require.Error(t, err)
+	require.True(t, txEntered)
+	require.Equal(t, 1, resolver.calls)
 }
 
 func TestOnboardPreservesLoginIdentityDisabledErrorCode(t *testing.T) {
@@ -185,51 +215,43 @@ func TestWechatMiniInputDoesNotMutateOriginalRequest(t *testing.T) {
 		JsCode: &jsCode,
 	}
 
-	prepared := input.withResolvedIdentity(wechatIdentity{OpenID: "openid-1", UnionID: "union-1"})
+	resolver := &signupResolverStub{identity: newWechatMiniIdentity(t, appID, "openid-1", "union-1")}
+	prepared, err := input.prepareSignupLoginIdentity(
+		context.Background(),
+		loginIdentityPrepareDeps{externalIdentityResolver: resolver},
+		SignupUserInput{},
+	)
 
+	require.NoError(t, err)
 	require.Nil(t, input.OpenID)
 	require.Nil(t, input.UnionID)
 	require.NotNil(t, input.JsCode)
 	require.Equal(t, "js-code", *input.JsCode)
-
-	require.NotNil(t, prepared.OpenID)
-	require.Equal(t, "openid-1", *prepared.OpenID)
-	require.NotNil(t, prepared.UnionID)
-	require.Equal(t, "union-1", *prepared.UnionID)
-	require.Nil(t, prepared.JsCode)
+	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier)
+	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier)
+	require.Equal(t, loginIdentitySourceProviderVerified, prepared.Source)
 }
 
-func TestWechatIdentityResolverUsesAppConfigAndExchangesCode(t *testing.T) {
+func TestWechatIdentityResolverUsesExternalIdentityResolver(t *testing.T) {
 	t.Parallel()
 
 	appID := "wx-app"
 	jsCode := "js-code"
-	idp := &onboardingIDPStub{openID: "openid-1", unionID: "union-1"}
-	resolver := newWechatIdentityResolver(
-		idp,
-		&onboardingWechatAppRepoStub{
-			app: &idpWechatApp.WechatApp{
-				AppID:  appID,
-				Status: idpWechatApp.StatusEnabled,
-				Cred: &idpWechatApp.Credentials{
-					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
-				},
-			},
-		},
-		onboardingSecretVaultStub{plaintext: "app-secret"},
-	)
+	resolver := &signupResolverStub{identity: newWechatMiniIdentity(t, appID, "openid-1", "union-1")}
 
-	identity, err := resolver.ResolveMiniProgram(context.Background(), WechatMiniLoginIdentityInput{
+	prepared, err := (WechatMiniLoginIdentityInput{
 		AppID:  &appID,
 		JsCode: &jsCode,
-	})
+	}).prepareSignupLoginIdentity(context.Background(), loginIdentityPrepareDeps{externalIdentityResolver: resolver}, SignupUserInput{})
 
 	require.NoError(t, err)
-	require.Equal(t, "openid-1", identity.OpenID)
-	require.Equal(t, "union-1", identity.UnionID)
-	require.Equal(t, "wx-app", idp.appID)
-	require.Equal(t, "app-secret", idp.appSecret)
-	require.Equal(t, "js-code", idp.jsCode)
+	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier)
+	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier)
+	require.Equal(t, loginIdentitySourceProviderVerified, prepared.Source)
+	require.Equal(t, 1, resolver.calls)
+	require.Equal(t, idpidentity.ProviderWechatMinip, resolver.request.Provider)
+	require.Equal(t, "wx-app", resolver.request.Realm)
+	require.Equal(t, "js-code", resolver.request.Code)
 }
 
 func TestWechatIdentityResolverUsesExistingOpenIDWithoutCodeExchange(t *testing.T) {
@@ -238,36 +260,27 @@ func TestWechatIdentityResolverUsesExistingOpenIDWithoutCodeExchange(t *testing.
 	openID := "openid-1"
 	unionID := "union-1"
 	jsCode := "js-code"
-	idp := &onboardingIDPStub{openID: "should-not-use"}
-	resolver := newWechatIdentityResolver(
-		idp,
-		&onboardingWechatAppRepoStub{},
-		onboardingSecretVaultStub{},
-	)
+	appID := "wx-app"
+	resolver := &signupResolverStub{identity: newWechatMiniIdentity(t, appID, "should-not-use", "")}
 
-	identity, err := resolver.ResolveMiniProgram(context.Background(), WechatMiniLoginIdentityInput{
+	prepared, err := (WechatMiniLoginIdentityInput{
+		AppID:   &appID,
 		OpenID:  &openID,
 		UnionID: &unionID,
 		JsCode:  &jsCode,
-	})
+	}).prepareSignupLoginIdentity(context.Background(), loginIdentityPrepareDeps{externalIdentityResolver: resolver}, SignupUserInput{})
 
 	require.NoError(t, err)
-	require.Equal(t, "openid-1", identity.OpenID)
-	require.Equal(t, "union-1", identity.UnionID)
-	require.Empty(t, idp.appID)
-	require.Empty(t, idp.jsCode)
+	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier)
+	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier)
+	require.Equal(t, loginIdentitySourceTrustedLegacyInput, prepared.Source)
+	require.Zero(t, resolver.calls)
 }
 
 func TestWechatIdentityResolverRejectsMissingOpenIDAndCodeExchangeInput(t *testing.T) {
 	t.Parallel()
 
-	resolver := newWechatIdentityResolver(
-		&onboardingIDPStub{},
-		&onboardingWechatAppRepoStub{},
-		onboardingSecretVaultStub{},
-	)
-
-	_, err := resolver.ResolveMiniProgram(context.Background(), WechatMiniLoginIdentityInput{})
+	_, err := (WechatMiniLoginIdentityInput{}).prepareSignupLoginIdentity(context.Background(), loginIdentityPrepareDeps{}, SignupUserInput{})
 
 	require.Error(t, err)
 }
@@ -277,20 +290,8 @@ func TestPrepareStepResolvesWechatIdentityBeforePersistenceFlow(t *testing.T) {
 
 	appID := " wx-app "
 	jsCode := " js-code "
-	idp := &onboardingIDPStub{openID: "openid-1", unionID: "union-1"}
-	preparer := newPrepareStep(newWechatIdentityResolver(
-		idp,
-		&onboardingWechatAppRepoStub{
-			app: &idpWechatApp.WechatApp{
-				AppID:  "wx-app",
-				Status: idpWechatApp.StatusEnabled,
-				Cred: &idpWechatApp.Credentials{
-					Auth: &idpWechatApp.AuthSecret{AppSecretCipher: []byte("cipher")},
-				},
-			},
-		},
-		onboardingSecretVaultStub{plaintext: "app-secret"},
-	))
+	resolver := &signupResolverStub{identity: newWechatMiniIdentity(t, "wx-app", "openid-1", "union-1")}
+	preparer := newPrepareStep(resolver)
 
 	prepared, err := preparer.Run(context.Background(), SignupRequest{
 		LoginIdentity: WechatMiniLoginIdentityInput{
@@ -306,74 +307,40 @@ func TestPrepareStepResolvesWechatIdentityBeforePersistenceFlow(t *testing.T) {
 	require.Equal(t, "wx-app", prepared.LoginIdentity.ProviderKey.Realm)
 	require.Equal(t, "openid-1", prepared.LoginIdentity.ProviderKey.Identifier)
 	require.Equal(t, "union-1", prepared.LoginIdentity.ProviderKey.GlobalIdentifier)
-	require.Equal(t, "wx-app", idp.appID)
-	require.Equal(t, "js-code", idp.jsCode)
+	require.Equal(t, loginIdentitySourceProviderVerified, prepared.LoginIdentity.Source)
+	require.Equal(t, 1, resolver.calls)
+	require.Equal(t, "wx-app", resolver.request.Realm)
+	require.Equal(t, "js-code", resolver.request.Code)
 }
 
-type onboardingWechatAppRepoStub struct {
-	app *idpWechatApp.WechatApp
-	err error
+type signupResolverStub struct {
+	identity idpidentity.ExternalIdentity
+	err      error
+	request  idpresolver.ResolveRequest
+	calls    int
 }
 
-func (s *onboardingWechatAppRepoStub) Create(context.Context, *idpWechatApp.WechatApp) error {
-	return nil
+func (s *signupResolverStub) Resolve(_ context.Context, request idpresolver.ResolveRequest) (idpidentity.ExternalIdentity, error) {
+	s.calls++
+	s.request = request
+	return s.identity, s.err
 }
 
-func (s *onboardingWechatAppRepoStub) GetByID(context.Context, idutil.ID) (*idpWechatApp.WechatApp, error) {
-	return nil, nil
-}
-
-func (s *onboardingWechatAppRepoStub) GetByAppID(context.Context, string) (*idpWechatApp.WechatApp, error) {
-	return s.app, s.err
-}
-
-func (s *onboardingWechatAppRepoStub) List(context.Context, idpWechatApp.ListFilter) ([]*idpWechatApp.WechatApp, error) {
-	return nil, nil
-}
-
-func (s *onboardingWechatAppRepoStub) Update(context.Context, *idpWechatApp.WechatApp) error {
-	return nil
-}
-
-type onboardingSecretVaultStub struct {
-	plaintext string
-	err       error
-}
-
-func (s onboardingSecretVaultStub) Encrypt(context.Context, []byte) ([]byte, error) {
-	return nil, nil
-}
-
-func (s onboardingSecretVaultStub) Decrypt(context.Context, []byte) ([]byte, error) {
-	if s.err != nil {
-		return nil, s.err
+func newWechatMiniIdentity(t *testing.T, realm, openID, unionID string) idpidentity.ExternalIdentity {
+	t.Helper()
+	identifiers := make([]idpidentity.Identifier, 0, 2)
+	for kind, value := range map[idpidentity.IdentifierKind]string{
+		idpidentity.IdentifierOpenID:  openID,
+		idpidentity.IdentifierUnionID: unionID,
+	} {
+		if value == "" {
+			continue
+		}
+		identifier, err := idpidentity.NewIdentifier(kind, value)
+		require.NoError(t, err)
+		identifiers = append(identifiers, identifier)
 	}
-	return []byte(s.plaintext), nil
-}
-
-func (s onboardingSecretVaultStub) Sign(context.Context, string, []byte) ([]byte, error) {
-	return nil, nil
-}
-
-type onboardingIDPStub struct {
-	appID     string
-	appSecret string
-	jsCode    string
-	openID    string
-	unionID   string
-}
-
-func (s *onboardingIDPStub) ExchangeWxMinipCode(_ context.Context, appID, appSecret, jsCode string) (string, string, error) {
-	s.appID = appID
-	s.appSecret = appSecret
-	s.jsCode = jsCode
-	return s.openID, s.unionID, nil
-}
-
-func (s *onboardingIDPStub) ExchangeWxOpenCode(context.Context, string, string, string) (string, string, error) {
-	return "", "", nil
-}
-
-func (s *onboardingIDPStub) ExchangeWecomCode(context.Context, string, string, string, string) (string, string, error) {
-	return "", "", nil
+	identity, err := idpidentity.New(idpidentity.ProviderWechatMinip, realm, identifiers, time.Now())
+	require.NoError(t, err)
+	return identity
 }

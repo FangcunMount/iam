@@ -59,10 +59,7 @@ func (l *linker) link(ctx context.Context, req LinkRequest) (*LinkResult, error)
 func (l *linker) prepareDeps() linkPrepareDeps {
 	return linkPrepareDeps{
 		phoneLinkOTP: l.deps.PhoneLinkOTP,
-		idp:          l.deps.IDP,
-		wechatApps:   l.deps.WechatApps,
-		secretVault:  l.deps.SecretVault,
-		wecomAgentID: l.deps.WecomAgentID,
+		resolver:     l.deps.ExternalIdentity,
 		now:          l.deps.Now,
 	}
 }

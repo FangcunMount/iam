@@ -54,7 +54,7 @@ func TestPhoneOTPLoginConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 		TokenService:   tokenService,
 		Authenticator:  authenticator,
 		MethodRegistry: method.DefaultSelector(),
-		ProofFactory:   proof.DefaultFactory(nil, nil, proof.WecomConfig{}, nil),
+		ProofFactory:   proof.DefaultFactory(nil, nil),
 		AccessChecker:  authnSubjectAccessEvaluatorStub{},
 	})
 

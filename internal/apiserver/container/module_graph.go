@@ -1,6 +1,7 @@
 package container
 
 import (
+	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authn"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authz"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/identity"
@@ -39,6 +40,9 @@ func (g *moduleGraph) idpModuleDependencies() idp.IDPModuleDeps {
 		DB:            g.container.mysqlDB,
 		RedisClient:   g.container.redisClient,
 		EncryptionKey: g.container.idpEncryptionKey,
+		ExternalIdentity: externalidentity.Config{
+			WeComAgentID: g.container.runtimeOptions.IDP.WeCom.AgentID,
+		},
 	}
 }
 
@@ -51,7 +55,7 @@ func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
 		Environment:    g.container.runtimeOptions.Environment,
 		Auth:           g.container.runtimeOptions.Auth,
 		JWKS:           g.container.runtimeOptions.JWKS,
-		IDPOptions:     g.container.runtimeOptions.IDP,
+		WechatOpen:     g.container.runtimeOptions.IDP.WechatOpen,
 		SMS:            g.container.runtimeOptions.SMS,
 	}
 }
