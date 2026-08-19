@@ -86,22 +86,3 @@ type OTPSendQuota interface {
 type SMSSender interface {
 	SendLoginOTP(ctx context.Context, phoneE164, code string) error
 }
-
-// IdentityProvider 身份提供商服务（OAuth/OIDC）
-// 职责：与外部IdP交互，换取用户身份标识
-type IdentityProvider interface {
-	// ExchangeWxMinipCode 微信小程序 code 换 session
-	// 参数：appID 小程序ID, appSecret 小程序密钥, jsCode 登录凭证
-	// 返回：OpenID、UnionID（可选）
-	ExchangeWxMinipCode(ctx context.Context, appID, appSecret, jsCode string) (openID, unionID string, err error)
-
-	// ExchangeWxOpenCode 微信开放平台/网站应用扫码登录：code 换 openID/unionID
-	// 参数：appID 网站应用 ID, appSecret 应用密钥, code 授权码
-	// 返回：OpenID、UnionID（绑定开放平台后才有）
-	ExchangeWxOpenCode(ctx context.Context, appID, appSecret, code string) (openID, unionID string, err error)
-
-	// ExchangeWecomCode 企业微信 code 换 用户信息
-	// 参数：corpID 企业ID, agentID 应用ID, corpSecret 应用密钥, code 登录凭证
-	// 返回：OpenUserID、UserID
-	ExchangeWecomCode(ctx context.Context, corpID, agentID, corpSecret, code string) (openUserID, userID string, err error)
-}

@@ -1864,6 +1864,55 @@ func TestAuthnChallengeScenesStayBehindChallengeUseCases(t *testing.T) {
 	})
 }
 
+func TestAuthnConsumesOnlyExternalIdentityResolverBoundary(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbiddenImports := []string{
+		modulePath + "internal/apiserver/application/idp/prepare",
+		modulePath + "internal/apiserver/domain/idp/wechatapp",
+		modulePath + "internal/apiserver/infra/wechat",
+		modulePath + "internal/apiserver/infra/wechatapi/port",
+	}
+	for _, relRoot := range []string{
+		"internal/apiserver/application/authn",
+		"internal/apiserver/domain/authn",
+		"internal/apiserver/container/authn",
+	} {
+		scanImportsIncludingTests(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path string, imports []string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, imp := range imports {
+				for _, forbidden := range forbiddenImports {
+					if imp == forbidden || strings.HasPrefix(imp, forbidden+"/") {
+						t.Fatalf("%s imports %s; AuthN must consume IDP only through ExternalIdentity Resolver", rel, imp)
+					}
+				}
+			}
+		})
+		scanGoSources(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path, source string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, token := range []string{"AppSecret", "CorpSecret", "WecomAgentID", "IdentityProvider"} {
+				if strings.Contains(source, token) {
+					t.Fatalf("%s contains %q; provider secret and SDK exchange details belong to IDP", rel, token)
+				}
+			}
+		})
+	}
+
+	for _, rel := range []string{
+		"internal/apiserver/application/idp/prepare/resolve.go",
+		"internal/apiserver/application/idp/prepare/doc.go",
+	} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+			t.Fatalf("%s is retired; provider preparation belongs to application/idp/externalidentity", rel)
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+	assertFileContains(t, root, "internal/apiserver/container/idp/module.go", "ExternalIdentityResolver()")
+	assertFileContains(t, root, "internal/apiserver/application/idp/externalidentity/resolver.go", "type Resolver interface")
+}
+
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
 	t.Parallel()
 
