@@ -71,3 +71,21 @@ func TestWechatMiniProgramSignupRequestFromHTTPRejectsInvalidOptionalContacts(t 
 		})
 	}
 }
+
+func TestWechatMiniProgramSignupRequestFromHTTPUsesOnlyCodeProof(t *testing.T) {
+	t.Parallel()
+
+	mapped, err := wechatMiniProgramSignupRequestFromHTTP(req.SignUpWithWeChatMiniProgramRequest{
+		Name:   "alice",
+		AppID:  " wx-app ",
+		JsCode: " js-code ",
+	})
+	require.NoError(t, err)
+
+	identity, ok := mapped.LoginIdentity.(signupApp.WechatMiniLoginIdentityInput)
+	require.True(t, ok)
+	require.Equal(t, "wx-app", *identity.AppID)
+	require.Equal(t, "js-code", *identity.JsCode)
+	require.Nil(t, identity.OpenID)
+	require.Nil(t, identity.UnionID)
+}
