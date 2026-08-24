@@ -579,7 +579,7 @@ rolebinding_deduplicate_apply() {
   if ! apply_state="$("$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw "$MYSQL_DBNAME" 2>"$ERROR_PATH" <<SQL
 SET SESSION group_concat_max_len = 1048576;
 SET autocommit = 0;
-LOCK TABLES authz_assignments WRITE;
+LOCK TABLES authz_assignments AS binding WRITE;
 CREATE TEMPORARY TABLE rolebinding_deduplicate_candidates (
   id BIGINT UNSIGNED NOT NULL PRIMARY KEY
 ) ENGINE=InnoDB;
@@ -596,8 +596,8 @@ FROM (
       PARTITION BY subject_type, subject_id, role_id, tenant_id
       ORDER BY granted_at ASC, created_at ASC, id ASC
     ) AS duplicate_rank
-  FROM authz_assignments
-  WHERE deleted_at IS NULL
+  FROM authz_assignments AS binding
+  WHERE binding.deleted_at IS NULL
 ) AS ranked
 WHERE duplicate_rank > 1;
 SET @candidate_count = (SELECT COUNT(*) FROM rolebinding_deduplicate_candidates);
@@ -631,9 +631,9 @@ SET @duplicate_groups = (
   SELECT COUNT(*)
   FROM (
     SELECT 1
-    FROM authz_assignments
-    WHERE deleted_at IS NULL
-    GROUP BY subject_type, subject_id, role_id, tenant_id
+    FROM authz_assignments AS binding
+    WHERE binding.deleted_at IS NULL
+    GROUP BY binding.subject_type, binding.subject_id, binding.role_id, binding.tenant_id
     HAVING COUNT(*) > 1
   ) AS remaining_duplicate_groups
 );
