@@ -305,6 +305,65 @@ esac
 	}
 }
 
+func TestRoleBindingGuardPreflightIsReadOnlyAndFailClosed(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "mysql", `#!/bin/sh
+if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
+case "$*" in
+  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-24\t0\t1}" ;;
+  *'duplicate_groups'*) printf '%b\n' "${IAM_FAKE_DUPLICATE_STATE:-0\t0\t0}" ;;
+  *'uk_authz_assignments_active'*) printf '%b\n' "${IAM_FAKE_GUARD_STATE:-0\t0}" ;;
+  *) exit 91 ;;
+esac
+`)
+
+	output, err := runScript(t, bin, map[string]string{
+		"IAM_DB_OPS_OPERATION":  "rolebinding-guard-preflight",
+		"IAM_DB_OPS_BACKUP_DIR": backupDir,
+	})
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{
+		"result=success", "migration_version=24", "duplicate_groups=0",
+		"duplicate_extra_rows=0", "max_group_size=0", "guard_state=0\t0",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("preflight output missing %q: %s", want, output)
+		}
+	}
+
+	for name, overrides := range map[string]map[string]string{
+		"duplicate active bindings": {
+			"IAM_FAKE_DUPLICATE_STATE": "2\t3\t3",
+		},
+		"dirty migration": {
+			"IAM_FAKE_MIGRATION_STATE": "24\t1\t1",
+		},
+		"partially applied guard": {
+			"IAM_FAKE_GUARD_STATE": "1\t0",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			caseEnv := map[string]string{
+				"IAM_DB_OPS_OPERATION":  "rolebinding-guard-preflight",
+				"IAM_DB_OPS_BACKUP_DIR": backupDir,
+			}
+			for key, value := range overrides {
+				caseEnv[key] = value
+			}
+			guardOutput, guardErr := runScript(t, bin, caseEnv)
+			if guardErr == nil || !strings.Contains(guardOutput, "database operation failed") {
+				t.Fatalf("preflight did not fail closed: err=%v output=%s", guardErr, guardOutput)
+			}
+			assertSafeOutput(t, guardOutput)
+		})
+	}
+}
+
 func TestPerformanceSchemaStatusIsReadOnlyAndSecretSafe(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
@@ -421,14 +480,14 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join(repo, ".github", "workflows", "db-ops.yml"))
 	requireNoError(t, err)
 	source := string(workflow)
-	if strings.Count(source, "uses: actions/checkout@v6") != 4 {
+	if strings.Count(source, "uses: actions/checkout@v6") != 5 {
 		t.Fatal("every database operation job must checkout the repository script")
 	}
-	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 4 {
+	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 5 {
 		t.Fatal("every database operation job must use the single script_path")
 	}
 	for _, want := range []string{
-		"backup", "restore", "status", "performance-schema-status",
+		"backup", "restore", "status", "performance-schema-status", "rolebinding-guard-preflight",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
 	} {
 		if !strings.Contains(source, want) {

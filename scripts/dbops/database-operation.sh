@@ -120,7 +120,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status|performance-schema-status) ;;
+    backup|restore|status|performance-schema-status|rolebinding-guard-preflight) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -363,6 +363,52 @@ mysql_scalar() {
     "$MYSQL_DBNAME" -e "$sql" 2>"$ERROR_PATH"
 }
 
+rolebinding_guard_preflight() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  prepare_backup_directory || return 1
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_rolebinding_guard_preflight.error"
+
+  local migration_state duplicate_state guard_state version dirty row_count
+  if ! migration_state="$(mysql_scalar 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;')"; then
+    fail "migration state query failed"
+    return 1
+  fi
+  if ! [[ "$migration_state" =~ ^[0-9]+$'\t'[01]$'\t'[0-9]+$ ]]; then
+    fail "migration state is invalid"
+    return 1
+  fi
+  IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
+  if { [ "$version" != "24" ] && [ "$version" != "25" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "RoleBinding guard preflight requires clean migration version 24 or 25"
+    return 1
+  fi
+
+  if ! duplicate_state="$(mysql_scalar "SELECT COUNT(*), COALESCE(SUM(duplicate_count - 1), 0), COALESCE(MAX(duplicate_count), 0) FROM (SELECT COUNT(*) AS duplicate_count FROM authz_assignments WHERE deleted_at IS NULL GROUP BY subject_type, subject_id, role_id, tenant_id HAVING COUNT(*) > 1) AS duplicate_groups;")"; then
+    fail "active RoleBinding duplicate query failed"
+    return 1
+  fi
+  if [ "$duplicate_state" != $'0\t0\t0' ]; then
+    echo "rolebinding guard preflight: result=blocked migration_version=$version duplicate_state=$duplicate_state"
+    fail "duplicate active RoleBindings must be resolved before migration 000025"
+    return 1
+  fi
+
+  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
+    fail "RoleBinding guard schema query failed"
+    return 1
+  fi
+  case "$version:$guard_state" in
+    24:$'0\t0'|25:$'1\t1') ;;
+    *)
+      fail "RoleBinding guard schema is inconsistent with migration version"
+      return 1
+      ;;
+  esac
+
+  echo "rolebinding guard preflight: result=success migration_version=$version duplicate_groups=0 duplicate_extra_rows=0 max_group_size=0 guard_state=$guard_state"
+}
+
 performance_schema_status() {
   require_mysql8_client "$MYSQL_BIN" mysql || return 1
   prepare_backup_directory || return 1
@@ -477,6 +523,7 @@ main() {
     restore) restore_database ;;
     status) database_status ;;
     performance-schema-status) performance_schema_status ;;
+    rolebinding-guard-preflight) rolebinding_guard_preflight ;;
   esac
 }
 

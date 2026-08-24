@@ -18,6 +18,7 @@ on:
           - restore
           - status
           - performance-schema-status
+          - rolebinding-guard-preflight
       backup_name:
         description: Backup name, required for restore
         required: false
@@ -143,3 +144,35 @@ jobs:
           envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
           command_timeout: 20m
+
+  db-rolebinding-guard-preflight:
+    name: RoleBinding Guard Preflight
+    if: github.event.inputs.operation == 'rolebinding-guard-preflight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    concurrency:
+      group: iam-production-controlled-database-operation
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check active RoleBinding uniqueness
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_DB_OPS_OPERATION: rolebinding-guard-preflight
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
