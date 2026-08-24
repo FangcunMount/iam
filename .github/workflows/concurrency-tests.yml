@@ -192,6 +192,11 @@ jobs:
               2>&1 | tee test-artifacts/full-chain-migration-tests.txt
           test "${PIPESTATUS[0]}" = "0"
 
+          MYSQL_DBNAME=iam_full_chain \
+            IAM_DB_OPS_BACKUP_DIR="${RUNNER_TEMP}/iam-full-chain-dbops" \
+            IAM_DB_OPS_OPERATION=rolebinding-guard-preflight \
+            scripts/dbops/database-operation.sh
+
       - name: Verify database backup, restore, and status with MySQL 8
         env:
           MYSQL_HOST: 127.0.0.1

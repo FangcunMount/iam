@@ -411,7 +411,7 @@ rolebinding_guard_preflight() {
     return 1
   fi
 
-  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
+  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
     fail "RoleBinding guard schema query failed"
     return 1
   fi
@@ -471,7 +471,7 @@ require_rolebinding_cleanup_schema() {
     fail "RoleBinding deduplication requires clean migration version 24"
     return 1
   fi
-  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
+  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
     fail "RoleBinding guard schema query failed"
     return 1
   fi
