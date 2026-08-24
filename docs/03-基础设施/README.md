@@ -37,7 +37,7 @@ MySQL 持久业务事实
   └─ identity_session_revocation_outbox
 
 Redis 运行时权威状态或派生缓存
-  ├─ session / refresh_token / revoked_access_token
+  ├─ session / refresh_token / consumed_refresh_token / revoked_access_token
   ├─ challenge / OTP gate / OTP quota
   ├─ IDP access token / 微信 SDK cache
   └─ user、login identity 到 session 的索引

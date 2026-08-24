@@ -16,6 +16,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	redisInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
 	credentialrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/credential"
 	jwksMysql "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/jwks"
@@ -53,8 +54,7 @@ type authnInfrastructureComponents struct {
 
 	tokenStore   *redisInfra.RedisStore
 	sessionStore *redisInfra.SessionStore
-
-	userRepo userDomain.Repository
+	userRepo     userDomain.Repository
 
 	eventPublisher event.Publisher
 }
@@ -64,6 +64,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	redisClient *redis.Client,
 	idpDeps *idp.IDPModule,
 	eventPublisher event.Publisher,
+	userStatusReader useraccess.UserStatusReader,
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
 	jwksOptions apiserveroptions.JWKSOptions,
@@ -100,9 +101,11 @@ func (m *AuthnModule) initializeInfrastructure(
 	m.tokenStoreInspectorSource = infra.tokenStore
 	infra.sessionStore = redisInfra.NewSessionStore(redisClient)
 	m.sessionStoreInspector = infra.sessionStore
-
+	// Signup is a cross-module transaction that creates/repairs the User aggregate.
+	// Status reads used by authentication flow through the injected narrow capability below.
 	infra.userRepo = mysqluser.NewRepository(db)
-	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(infra.userRepo, loginIdentityRepo)
+
+	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(userStatusReader, loginIdentityRepo)
 
 	return infra, nil
 }

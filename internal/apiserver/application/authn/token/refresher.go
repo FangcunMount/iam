@@ -97,6 +97,9 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 			"token_type", "refresh",
 			"result", "conflict",
 		)
+		if err := s.revokeReplaySession(ctx, refreshToken.SessionID, refreshToken.UserID.String()); err != nil {
+			return nil, err
+		}
 		return nil, perrors.WithCode(code.ErrRefreshTokenNotFound, "refresh token not found")
 	}
 
@@ -132,9 +135,33 @@ func (s *refresher) loadRefreshToken(ctx context.Context, refreshTokenValue stri
 		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "refresh token not found or invalid")
 	}
 	if refreshToken == nil {
+		consumed, consumedErr := s.tokenStore.GetConsumedRefreshToken(ctx, refreshTokenValue)
+		if consumedErr != nil {
+			return nil, perrors.WrapC(consumedErr, code.ErrInternalServerError, "failed to inspect consumed refresh token")
+		}
+		if consumed != nil {
+			if err := s.revokeReplaySession(ctx, consumed.SessionID, consumed.UserID.String()); err != nil {
+				return nil, err
+			}
+		}
 		return nil, perrors.WithCode(code.ErrRefreshTokenNotFound, "refresh token not found")
 	}
 	return refreshToken, nil
+}
+
+func (s *refresher) revokeReplaySession(ctx context.Context, sessionID, userID string) error {
+	if sessionID == "" {
+		return perrors.WithCode(code.ErrInternalServerError, "consumed refresh token has no session")
+	}
+	if err := s.sessionRevoker.Revoke(ctx, sessionID, "refresh_token_replay", userID); err != nil {
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke replayed refresh token session")
+	}
+	logger.L(ctx).Infow("refresh token replay revoked session",
+		"action", logger.ActionRevoke,
+		"resource", logger.ResourceSession,
+		"result", "success",
+	)
+	return nil
 }
 
 // loadActiveSession 加载活跃会话

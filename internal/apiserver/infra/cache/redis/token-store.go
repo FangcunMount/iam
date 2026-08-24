@@ -20,6 +20,7 @@ import (
 type RedisStore struct {
 	client                    *redis.Client
 	refreshTokens             *redisstore.ValueStore[refreshTokenData]
+	consumedRefreshTokens     *redisstore.ValueStore[consumedRefreshTokenData]
 	revokedAccessTokenMarkers *redisstore.ValueStore[string]
 }
 
@@ -28,10 +29,19 @@ local current = redis.call("GET", KEYS[1])
 if not current then
 	return 0
 end
-if not string.find(current, ARGV[1], 1, true) then
+local consumed = cjson.decode(current)
+if not consumed or consumed.token_id ~= ARGV[1] then
+	return 0
+end
+local oldTTL = redis.call("PTTL", KEYS[1])
+if oldTTL <= 0 then
 	return 0
 end
 redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
+redis.call("SET", KEYS[3], cjson.encode({
+	session_id = consumed.session_id,
+	user_id = consumed.user_id
+}), "PX", oldTTL)
 redis.call("DEL", KEYS[1])
 return 1
 `)
@@ -41,6 +51,7 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 	return &RedisStore{
 		client:                    client,
 		refreshTokens:             newJSONStore[refreshTokenData](client),
+		consumedRefreshTokens:     newJSONStore[consumedRefreshTokenData](client),
 		revokedAccessTokenMarkers: newStringStore(client),
 	}
 }
@@ -49,6 +60,7 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 func (s *RedisStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
 		newRedisFamilyInspector(cachemodel.FamilyAuthnRefreshToken, s.client, "刷新令牌采用 JSON String 存储。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnConsumedRefreshToken, s.client, "已消费刷新令牌采用摘要 key + 最小 JSON marker 存储。"),
 		newRedisFamilyInspector(cachemodel.FamilyAuthnRevokedAccessToken, s.client, "已撤销访问令牌采用 marker String 存储。"),
 	}
 }
@@ -65,6 +77,11 @@ type refreshTokenData struct {
 	Amr             []string          `json:"amr,omitempty"`
 	SessionClaims   map[string]string `json:"session_claims,omitempty"`
 	ExpiresAt       time.Time         `json:"expires_at"`
+}
+
+type consumedRefreshTokenData struct {
+	SessionID string `json:"session_id"`
+	UserID    uint64 `json:"user_id"`
 }
 
 // SaveRefreshToken 保存刷新令牌
@@ -126,16 +143,15 @@ func (s *RedisStore) RotateRefreshToken(ctx context.Context, oldValue, expectedO
 	if err != nil {
 		return false, fmt.Errorf("encode new refresh token: %w", err)
 	}
-	needleBytes, err := json.Marshal(expectedOldID)
-	if err != nil {
-		return false, fmt.Errorf("encode expected old token id: %w", err)
-	}
-	needle := `"token_id":` + string(needleBytes)
 	result, err := rotateRefreshTokenScript.Run(
 		ctx,
 		s.client,
-		[]string{refreshTokenRedisKey(oldValue), refreshTokenRedisKey(newToken.Value)},
-		needle,
+		[]string{
+			refreshTokenRedisKey(oldValue),
+			refreshTokenRedisKey(newToken.Value),
+			consumedRefreshTokenRedisKey(oldValue),
+		},
+		expectedOldID,
 		payload,
 		ttl.Milliseconds(),
 	).Int()
@@ -143,6 +159,25 @@ func (s *RedisStore) RotateRefreshToken(ctx context.Context, oldValue, expectedO
 		return false, fmt.Errorf("rotate refresh token in redis: %w", err)
 	}
 	return result == 1, nil
+}
+
+// GetConsumedRefreshToken 获取已消费刷新令牌对应的最小重放检测事实。
+func (s *RedisStore) GetConsumedRefreshToken(ctx context.Context, tokenValue string) (*tokenapp.ConsumedRefreshToken, error) {
+	storeKey, err := newStoreKey(consumedRefreshTokenRedisKey(tokenValue))
+	if err != nil {
+		return nil, err
+	}
+	data, found, err := s.consumedRefreshTokens.Get(ctx, storeKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get consumed refresh token marker from redis: %w", err)
+	}
+	if !found {
+		return nil, nil
+	}
+	return &tokenapp.ConsumedRefreshToken{
+		SessionID: data.SessionID,
+		UserID:    meta.FromUint64(data.UserID),
+	}, nil
 }
 
 // GetRefreshToken 获取刷新令牌

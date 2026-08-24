@@ -28,14 +28,14 @@ IDP 证明“provider 对这次 code 返回了什么”；AuthN 再决定该外�
 
 1. repository 与 Vault 已装配；
 2. app 能按 AppID 查询；
-3. app 类型与场景相符（需要时）；
+3. app 类型与场景相符：小程序为 `MiniProgram`，开放平台网站为 `OpenPlatformWebsite`，企微沿用现有登记表的 `MP`；
 4. app 当前 enabled；
 5. AuthSecret 存在；
 6. 密文可解密。
 
 Resolver 只返回 IDP 分类错误，不依赖 AuthN 或 HTTP 错误码。登录 proof、signup 与 linking 分别把分类错误映射回既有公开 code/message，保留三个用例原有差异。结构化日志只记录 provider、realm 和错误分类，不记录 code、secret、token 或完整 provider 响应。
 
-显式 app type 校验很关键：同一个微信生态里，小程序、公众号、网站开放平台的 code 语义和 API 不同。只凭 appID 存在就调用错误 endpoint，既会造成失败，也可能混淆登录边界。
+显式 app type 校验很关键：同一个微信生态里，小程序、公众号、网站开放平台的 code 语义和 API 不同。只凭 appID 存在就调用错误 endpoint，既会造成失败，也可能混淆登录边界。企微当前没有新增独立存储枚举，Resolver 显式将 `wecom` 映射到历史 `MP` 类型，以在不做数据迁移的前提下防止跨类型取密钥。
 
 ## 3. 三类外部标识不能混为一谈
 

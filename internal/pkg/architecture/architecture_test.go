@@ -1913,6 +1913,29 @@ func TestAuthnConsumesOnlyExternalIdentityResolverBoundary(t *testing.T) {
 	assertFileContains(t, root, "internal/apiserver/application/idp/externalidentity/resolver.go", "type Resolver interface")
 }
 
+func TestAuthnAndAuthzDomainsUseIdentityUserCapabilitiesInsteadOfRepository(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbiddenImports := map[string]struct{}{
+		modulePath + "internal/apiserver/domain/identity/user": {},
+		modulePath + "internal/apiserver/infra/mysql/user":     {},
+	}
+	for _, relRoot := range []string{
+		"internal/apiserver/domain/authn",
+		"internal/apiserver/domain/authz",
+	} {
+		scanImportsIncludingTests(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path string, imports []string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, imp := range imports {
+				if _, forbidden := forbiddenImports[imp]; forbidden {
+					t.Fatalf("%s imports %s; AuthN/AuthZ domain must consume Identity through useraccess.UserStatusReader/UserResolver", rel, imp)
+				}
+			}
+		})
+	}
+}
+
 func TestRetiredTransactionalOutboxLegacyCodeDoesNotReturn(t *testing.T) {
 	t.Parallel()
 

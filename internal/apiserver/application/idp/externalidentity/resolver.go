@@ -218,6 +218,10 @@ func expectedAppType(provider domain.Provider) wechatapp.AppType {
 		return wechatapp.MiniProgram
 	case domain.ProviderWechatOpen:
 		return wechatapp.OpenPlatformWebsite
+	case domain.ProviderWecom:
+		// WeCom applications use the existing MP registry type. Keep the mapping
+		// explicit so a CorpID cannot resolve credentials from another app type.
+		return wechatapp.MP
 	default:
 		return ""
 	}

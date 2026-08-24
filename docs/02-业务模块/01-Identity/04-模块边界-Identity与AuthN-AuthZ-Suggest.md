@@ -41,7 +41,7 @@ Identity 是 User、Profile、ProfileLink 的主事实边界，但不是完全�
 Identity.User       -> 这个稳定主体是谁，状态如何？
 AuthN.Principal     -> 本次请求通过什么证据认证了谁？
 AuthZ.Subject       -> 本次授权决策的主体引用是谁？
-IDP provider result -> 外部平台声明的 openid/unionid 是什么？
+IDP.ExternalIdentity -> 本次 provider proof 验证了哪个 realm 下的外部标识？
 Suggest principal   -> 联想查询的操作者和数据范围是什么？
 ```
 
@@ -76,7 +76,7 @@ flowchart LR
     AUTHN["AuthN\nLoginIdentity / Credential / Principal / Session"]
     IDENTITY["Identity\nUser / Profile / ProfileLink"]
     AUTHZ["AuthZ\nSubject / Role / Permission / Check"]
-    IDP["IDP\nWechatApp / Credential / AppAccessToken"]
+    IDP["IDP\nWechatApp / Credential / AppAccessToken / ExternalIdentity"]
     SUGGEST["Suggest\nProfileSearchTerm / Index / AccessScope"]
 
     AUTHN -->|"LoginIdentity.UserID"| IDENTITY
@@ -86,7 +86,7 @@ flowchart LR
     IDENTITY -->|"REST /me RoleNameReader"| AUTHZ
     SUGGEST -->|"route roles and mobile-search authorization"| AUTHZ
 
-    AUTHN -->|"read app + decrypt secret + exchange code"| IDP
+    AUTHN -->|"Resolve(provider, realm, code)"| IDP
     SUGGEST -->|"Full/Delta read Identity tables"| IDENTITY
 ```
 
@@ -331,7 +331,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 - AuthN 因 signup 特例而接管 Profile/ProfileLink 任意写入；
 - ProfileLink.Rel 直接生成通用 Permission/RoleBinding；
 - Suggest 回写 Profile 主数据；
-- 把 proto `ExternalIdentity` 字段宣称为已落地 IDP/Identity 能力；
+- 把 Identity v2 proto 的同名 `ExternalIdentity` 字段与 IDP 请求内值对象混为一谈；
 - 把 Suggest SQL 直读描述为已实现事件订阅。
 
 ## 12. 已知缺口与复议条件

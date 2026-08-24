@@ -3,6 +3,7 @@ package authz
 import (
 	"gorm.io/gorm"
 
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
@@ -15,4 +16,5 @@ type AuthzModuleDeps struct {
 	GRPCACLEnabled            bool
 	GRPCACLConfigFile         string
 	AssignmentConstraintsFile string
+	UserResolver              useraccess.UserResolver
 }

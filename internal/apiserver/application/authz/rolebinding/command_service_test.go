@@ -13,6 +13,7 @@ import (
 	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -32,19 +33,20 @@ func TestBindingCommandServiceGrant_RejectsMissingUserWithoutWrites(t *testing.T
 	}
 	bindingRepo := &bindingRepoStub{}
 	userRepo := testhelpers.NewUserRepoStub()
+	userResolver := useraccess.NewService(userRepo)
 	versionRepo := &policyVersionRepoStub{}
 	ruleStore := &ruleStoreStub{}
 	runtime := &casbinAdapterStub{}
 	stager := &bindingEventStagerStub{}
 
-	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userRepo)
+	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userResolver)
 	service := NewCommandService(
 		validator,
 		roleRepo,
 		&uowStub{tx: authzuow.TxRepositories{
 			Bindings:           bindingRepo,
 			Roles:              roleRepo,
-			Users:              userRepo,
+			UserResolver:       userResolver,
 			PolicyVersions:     versionRepo,
 			AuthorizationFacts: ruleStore,
 			Events:             stager,
@@ -78,19 +80,20 @@ func TestBindingCommandServiceGrant_CommitsFactsWhenRuntimeReloadFails(t *testin
 	bindingRepo := &bindingRepoStub{}
 	userRepo := testhelpers.NewUserRepoStub()
 	userRepo.UsersByID[123] = &userDomain.User{ID: meta.FromUint64(123)}
+	userResolver := useraccess.NewService(userRepo)
 	versionRepo := &policyVersionRepoStub{}
 	ruleStore := &ruleStoreStub{}
 	runtime := &casbinAdapterStub{loadErr: errors.New("reload failed")}
 	stager := &bindingEventStagerStub{}
 
-	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userRepo)
+	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userResolver)
 	service := NewCommandService(
 		validator,
 		roleRepo,
 		&uowStub{tx: authzuow.TxRepositories{
 			Bindings:           bindingRepo,
 			Roles:              roleRepo,
-			Users:              userRepo,
+			UserResolver:       userResolver,
 			PolicyVersions:     versionRepo,
 			AuthorizationFacts: ruleStore,
 			Events:             stager,
@@ -129,19 +132,20 @@ func TestBindingCommandServiceRevoke_UsesCommandAuditActorAndReason(t *testing.T
 	}
 	bindingRepo := &bindingRepoStub{}
 	userRepo := testhelpers.NewUserRepoStub()
+	userResolver := useraccess.NewService(userRepo)
 	versionRepo := &policyVersionRepoStub{}
 	ruleStore := &ruleStoreStub{}
 	runtime := &casbinAdapterStub{}
 	stager := &bindingEventStagerStub{}
 
-	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userRepo)
+	validator := bindingDomain.NewValidator(bindingRepo, roleRepo, userResolver)
 	service := NewCommandService(
 		validator,
 		roleRepo,
 		&uowStub{tx: authzuow.TxRepositories{
 			Bindings:           bindingRepo,
 			Roles:              roleRepo,
-			Users:              userRepo,
+			UserResolver:       userResolver,
 			PolicyVersions:     versionRepo,
 			AuthorizationFacts: ruleStore,
 			Events:             stager,

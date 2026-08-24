@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	rediskeyspace "github.com/FangcunMount/component-base/pkg/redis/keyspace"
@@ -8,6 +9,7 @@ import (
 
 var (
 	refreshTokenKeyspace              = rediskeyspace.New("refresh_token")
+	consumedRefreshTokenKeyspace      = rediskeyspace.New("consumed_refresh_token")
 	revokedAccessTokenKeyspace        = rediskeyspace.New("revoked_access_token")
 	sessionKeyspace                   = rediskeyspace.New("session")
 	userSessionIndexKeyspace          = rediskeyspace.New("user_session_index")
@@ -22,6 +24,11 @@ var (
 
 func refreshTokenRedisKey(tokenValue string) string {
 	return refreshTokenKeyspace.Prefix(tokenValue)
+}
+
+func consumedRefreshTokenRedisKey(tokenValue string) string {
+	digest := sha256.Sum256([]byte(tokenValue))
+	return consumedRefreshTokenKeyspace.Prefix(fmt.Sprintf("%x", digest))
 }
 
 func revokedAccessTokenRedisKey(tokenID string) string {

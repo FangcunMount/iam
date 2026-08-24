@@ -142,7 +142,7 @@ go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" 
 
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
-- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；并 fail closed 验证 `version=24, dirty=0`、15 张现役 BASE TABLE 精确白名单及 000019–000024 已退役的 14 张表持续不存在。
+- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；并 fail closed 验证 `version=25, dirty=0`、15 张现役 BASE TABLE 精确白名单及 000019–000024 已退役的 14 张表持续不存在。
 - `performance-schema-status`: 只读输出启用状态、持久化加载、TLS/X.509 前置条件、可见权限、数据库部署类型、端点供应商分类，以及 Performance Schema、`sys.schema_table_statistics` 和阿里云 RDS `information_schema.TABLE_STATISTICS` 三条表 I/O 汇总路径的只读访问能力；不输出账号、地址、grant 原文或数据库错误详情。
 
 已废弃：

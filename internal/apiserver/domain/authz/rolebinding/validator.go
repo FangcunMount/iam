@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
-	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
@@ -28,12 +28,12 @@ type validator struct {
 func NewValidator(
 	bindingRepo Repository,
 	roleRepo role.Repository,
-	userRepo userDomain.Repository,
+	userResolver useraccess.UserResolver,
 ) *validator {
 	return NewValidatorWithSubjectResolver(
 		bindingRepo,
 		roleRepo,
-		NewSubjectResolverRegistry(NewUserSubjectResolver(userRepo)),
+		NewSubjectResolverRegistry(NewUserSubjectResolver(userResolver)),
 	)
 }
 

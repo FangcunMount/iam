@@ -368,6 +368,7 @@ sequenceDiagram
             A->>TR: Atomically replace old RefreshToken with candidate
             alt old token already consumed
                 TR-->>A: rotation conflict
+                A->>SS: Revoke Session(reason=refresh_token_replay)
                 A-->>C: 401 refresh token not found
             else rotation succeeds
                 A-->>C: new token response
@@ -415,7 +416,7 @@ stateDiagram-v2
     Rotated --> Reused : old token used again
     Active --> Revoked : logout / revoke / risk
     Active --> Expired : expiresAt reached
-    Reused --> Revoked : revoke token family / session
+    Reused --> Revoked : revoke corresponding session
     Revoked --> [*]
     Expired --> [*]
 ```
@@ -427,7 +428,9 @@ stateDiagram-v2
 同一个旧 RefreshToken 只能原子交换成功一次；
 并发失败者不会获得已生成的 AccessToken，并继续得到现有 401 契约；
 Session 延长失败时旧 RefreshToken 保持有效，新 RefreshToken 不落库；
-当前不记录 consumed marker，不实现 token family，也不会因旧 token 重用撤销整个 Session；
+轮换成功时原子写入 consumed marker，仅保留 SessionID / UserID，marker key 使用旧 token 摘要；
+已消费旧 token 被重放时撤销对应 Session，任意未签发 token 不触发撤销；
+当前不实现完整 token family，不跨 Session 批量撤销其他令牌家族；
 交换成功但响应送达前进程崩溃时，客户端需要重新登录；当前没有重试宽限。
 ```
 
@@ -653,7 +656,8 @@ User blocked 必须快速生效；
 | RefreshToken 签发失败 | 整体失败或补偿 | 取决于事务策略 |
 | RefreshToken 无效/过期/撤销 | Refresh 失败 | 需要重新登录 |
 | Session revoked/expired | Refresh 失败 | 不应签发新 AccessToken |
-| RefreshToken 重复使用 | `ErrRefreshTokenNotFound` / HTTP 401 | 当前不 revoke token family/session |
+| 已消费 RefreshToken 重复使用 | 撤销对应 Session，并返回 `ErrRefreshTokenNotFound` / HTTP 401 | 不扩散为跨 Session 的 token-family 撤销 |
+| 任意未签发 RefreshToken | `ErrRefreshTokenNotFound` / HTTP 401 | 没有 consumed marker，不触发 Session 撤销 |
 | AccessToken 过期 | Verify 失败 | 客户端 refresh |
 | JWT kid 不存在 | Verify 失败 | 可能是伪造 token 或 key rotation 异常 |
 | JWKS 不可用 | 资源服务验签失败或降级 | 具体以运行时策略为准 |
@@ -699,8 +703,9 @@ Login 成功后多次签发可能产生多个 Session。
 RefreshToken 验证和轮换使用 Redis 原子脚本；
 旧 RefreshToken 只能成功使用一次；
 候选 TokenPair 在轮换成功前不会返回；
-并发冲突返回现有未找到错误，客户端使用胜者响应；若胜者响应丢失则重新登录；
-当前没有 grace window、token family 或重放后整会话撤销。
+并发冲突按 replay 处理，撤销对应 Session 并返回现有未找到错误；
+若胜者响应丢失或客户端重复提交旧 token，需要重新登录；
+当前没有 grace window 或完整 token family，只执行当前 Session 级撤销。
 ```
 
 ---

@@ -44,6 +44,7 @@ type Container struct {
 	IDPModule              *idp.IDPModule
 	SuggestModule          *suggest.SuggestModule
 	CacheGovernanceService *cachegovernance.ReadService
+	identityUserAccess     identity.UserAccessCapabilities
 
 	// IDP 模块加密密钥（32 字节 AES-256）
 	idpEncryptionKey []byte

@@ -12,10 +12,13 @@ import (
 // BindingPO 赋权持久化对象
 type BindingPO struct {
 	base.AuditFields
-	SubjectType string    `gorm:"column:subject_type;type:varchar(16);not null;index:idx_subject,priority:1"`
-	SubjectID   string    `gorm:"column:subject_id;type:varchar(64);not null;index:idx_subject,priority:2"`
-	RoleID      uint64    `gorm:"column:role_id;type:bigint unsigned;not null;index"`
-	TenantID    string    `gorm:"column:tenant_id;type:varchar(64);not null;index"`
+	SubjectType string `gorm:"column:subject_type;type:varchar(16);not null;index:idx_subject,priority:1;uniqueIndex:uk_authz_assignments_active,priority:1"`
+	SubjectID   string `gorm:"column:subject_id;type:varchar(64);not null;index:idx_subject,priority:2;uniqueIndex:uk_authz_assignments_active,priority:2"`
+	RoleID      uint64 `gorm:"column:role_id;type:bigint unsigned;not null;index;uniqueIndex:uk_authz_assignments_active,priority:3"`
+	TenantID    string `gorm:"column:tenant_id;type:varchar(64);not null;index;uniqueIndex:uk_authz_assignments_active,priority:4"`
+	// ActiveGuard is computed by the database. Active rows get 1; deleted rows
+	// get NULL so MySQL's unique-key NULL semantics permit a later re-grant.
+	ActiveGuard *uint8    `gorm:"column:active_guard;type:tinyint GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END) STORED;->;uniqueIndex:uk_authz_assignments_active,priority:5"`
 	GrantedBy   string    `gorm:"column:granted_by;type:varchar(64)"`
 	GrantedAt   time.Time `gorm:"column:granted_at;type:datetime"`
 }

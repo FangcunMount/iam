@@ -236,8 +236,8 @@ func TestRedisStoreRotateRefreshTokenIsSingleUse(t *testing.T) {
 			candidate := tokenapp.NewRefreshToken(
 				fmt.Sprintf("new-id-%d", index),
 				fmt.Sprintf("new-value-%d", index),
-				"session-id",
-				meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
+				fmt.Sprintf("new-session-%d", index),
+				meta.FromUint64(uint64(100+index)), meta.FromUint64(2), meta.FromUint64(3),
 				nil, nil, time.Hour,
 			)
 			ok, err := store.RotateRefreshToken(ctx, oldToken.Value, oldToken.ID, candidate)
@@ -263,6 +263,24 @@ func TestRedisStoreRotateRefreshTokenIsSingleUse(t *testing.T) {
 	}
 	if loaded, err := store.GetRefreshToken(ctx, oldToken.Value); err != nil || loaded != nil {
 		t.Fatalf("old refresh token = %#v, err = %v, want absent", loaded, err)
+	}
+	consumed, err := store.GetConsumedRefreshToken(ctx, oldToken.Value)
+	if err != nil {
+		t.Fatalf("GetConsumedRefreshToken() error = %v", err)
+	}
+	if consumed == nil || consumed.SessionID != oldToken.SessionID || consumed.UserID != oldToken.UserID {
+		t.Fatalf("consumed marker = %#v, want session/user from old token", consumed)
+	}
+	markerKey := consumedRefreshTokenRedisKey(oldToken.Value)
+	if strings.Contains(markerKey, oldToken.Value) {
+		t.Fatalf("consumed marker key leaked token value: %q", markerKey)
+	}
+	markerPayload, err := mr.Get(markerKey)
+	if err != nil {
+		t.Fatalf("miniredis Get(%q) error = %v", markerKey, err)
+	}
+	if strings.Contains(markerPayload, oldToken.Value) {
+		t.Fatalf("consumed marker payload leaked token value: %q", markerPayload)
 	}
 	for i := range 2 {
 		loaded, err := store.GetRefreshToken(ctx, fmt.Sprintf("new-value-%d", i))
@@ -308,6 +326,9 @@ func TestRedisStoreRotateRefreshTokenRejectsMismatchedOldIDWithoutMutation(t *te
 	}
 	if loaded, err := store.GetRefreshToken(ctx, candidate.Value); err != nil || loaded != nil {
 		t.Fatalf("new refresh token = %#v, err = %v, want absent", loaded, err)
+	}
+	if consumed, err := store.GetConsumedRefreshToken(ctx, oldToken.Value); err != nil || consumed != nil {
+		t.Fatalf("consumed marker = %#v, err = %v, want absent", consumed, err)
 	}
 }
 

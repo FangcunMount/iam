@@ -45,6 +45,7 @@ TTL 由谁决定？
 | Family | 后端/类型 | 角色 | 关键一致性机制 |
 | --- | --- | --- | --- |
 | `authn.refresh_token` | Redis String(JSON) | 权威状态 | Lua 原子轮换，key TTL |
+| `authn.consumed_refresh_token` | Redis String(JSON marker) | 重放检测标记 | `sha256(token)` key；TTL=旧 token 原剩余寿命；只保存 Session/User 引用 |
 | `authn.revoked_access_token` | Redis String(marker) | 撤销标记 | 存在性检查，TTL=token 剩余时间 |
 | `authn.session` | Redis String(JSON) | 权威状态 | WATCH 乐观事务，TTL=Session expiry |
 | `authn.user_session_index` | Redis ZSet | 权威索引 | member=sid，score=expiry，懒清理 |

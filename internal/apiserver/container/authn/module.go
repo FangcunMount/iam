@@ -68,6 +68,9 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 		log.Errorf("AuthnModuleDeps.RedisClient must be *redis.Client")
 		return fmt.Errorf("invalid AuthnModuleDeps.RedisClient")
 	}
+	if deps.UserStatusReader == nil {
+		return fmt.Errorf("AuthnModuleDeps.UserStatusReader is required")
+	}
 
 	hasher := deps.PasswordHasher
 	if hasher == nil {
@@ -75,7 +78,7 @@ func (m *AuthnModule) InitializeWithDeps(deps AuthnModuleDeps) error {
 	}
 
 	// 初始化基础设施层
-	infra, err := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventPublisher, deps.Environment, deps.Auth, deps.JWKS)
+	infra, err := m.initializeInfrastructure(deps.DB, deps.RedisClient, deps.IDPModule, deps.EventPublisher, deps.UserStatusReader, deps.Environment, deps.Auth, deps.JWKS)
 	if err != nil {
 		return err
 	}

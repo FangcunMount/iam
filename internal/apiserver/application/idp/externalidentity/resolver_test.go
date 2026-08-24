@@ -131,22 +131,39 @@ func TestResolverClassifiesProviderRejectionAndTimeoutForEveryProvider(t *testin
 }
 
 func TestResolverRejectsAppTypeMismatch(t *testing.T) {
-	resolver := NewResolver(Dependencies{
-		Apps:      appRepositoryStub{app: enabledApp(wechatapp.MP)},
-		Vault:     vaultStub{plain: []byte("secret")},
-		Exchanger: &exchangerStub{},
-	})
+	tests := []struct {
+		name     string
+		provider domain.Provider
+		actual   wechatapp.AppType
+		expected wechatapp.AppType
+		config   Config
+	}{
+		{name: "wechat mini", provider: domain.ProviderWechatMinip, actual: wechatapp.MP, expected: wechatapp.MiniProgram},
+		{name: "wechat open", provider: domain.ProviderWechatOpen, actual: wechatapp.MP, expected: wechatapp.OpenPlatformWebsite},
+		{name: "wecom", provider: domain.ProviderWecom, actual: wechatapp.MiniProgram, expected: wechatapp.MP, config: Config{WeComAgentID: "agent-1"}},
+	}
 
-	_, err := resolver.Resolve(context.Background(), ResolveRequest{
-		Provider: domain.ProviderWechatOpen,
-		Realm:    "app-1",
-		Code:     "code-1",
-	})
-	requireErrorKind(t, err, ErrorAppTypeMismatch)
-	resolutionError, ok := AsResolutionError(err)
-	require.True(t, ok)
-	require.Equal(t, wechatapp.OpenPlatformWebsite, resolutionError.Expected)
-	require.Equal(t, wechatapp.MP, resolutionError.Actual)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := NewResolver(Dependencies{
+				Apps:      appRepositoryStub{app: enabledApp(tt.actual)},
+				Vault:     vaultStub{plain: []byte("secret")},
+				Exchanger: &exchangerStub{},
+				Config:    tt.config,
+			})
+
+			_, err := resolver.Resolve(context.Background(), ResolveRequest{
+				Provider: tt.provider,
+				Realm:    "realm-1",
+				Code:     "code-1",
+			})
+			requireErrorKind(t, err, ErrorAppTypeMismatch)
+			resolutionError, ok := AsResolutionError(err)
+			require.True(t, ok)
+			require.Equal(t, tt.expected, resolutionError.Expected)
+			require.Equal(t, tt.actual, resolutionError.Actual)
+		})
+	}
 }
 
 func TestResolverClassifiesFailures(t *testing.T) {
@@ -177,7 +194,6 @@ func TestResolverClassifiesFailures(t *testing.T) {
 		})
 	}
 }
-
 func TestResolverRequiresWecomAgentConfiguration(t *testing.T) {
 	resolver := NewResolver(Dependencies{
 		Apps:      appRepositoryStub{app: enabledApp(wechatapp.MP)},

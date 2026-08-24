@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000024 和相关测试核对。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000025 和相关测试核对。
 
 ## 1. 本文回答
 
@@ -58,6 +58,7 @@ Credential 未创建
 | active user phone 唯一 | `UniquenessChecker` | migration 000017 的 active phone generated column + unique index |
 | 每个 User 最多一个 active self ProfileLink | `SelfProfileGuard` | migration 000007 的 active self guard |
 | 只能有一个 active JWKS key | key lifecycle check | migration 000016 的 single-active guard |
+| 同一 Subject/Role/Tenant 最多一个 active RoleBinding | RoleBinding validator | migration 000025 的 generated `active_guard` + composite unique index |
 | LoginIdentity provider key 唯一 | repository lookup/builder | `login_identities` 唯一索引 |
 
 数据库错误再由 repository translator 映射为稳定业务错误，避免把 MySQL 1062 直接泄漏给上层。
@@ -186,12 +187,14 @@ DatabaseManager.Initialize
 
 - 迁移使用独立 `sql.DB`，避免关闭 migrator 时影响业务 GORM 连接；
 - dirty version 直接失败，需要人工核查，不能自动 force；
-- up/down 必须成对，当前事实门禁要求最新版本为 22；
+- up/down 必须成对，当前事实门禁要求最新版本为 25；
 - 迁移失败会终止正常启动；MySQL 未配置时开发/显式 degraded 场景可跳过，但 release 模式随后会在资源/关键模块校验处 fail closed。
 
 `000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除 `children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
 
 `000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，已在生产验收 `version=22, dirty=0` 且三表不存在。`000023` 只退役已由 format v5 收敛的 `auth_accounts/auth_credentials_legacy`，先断言 canonical schema、数据映射与数据库对象依赖，再执行一条原子 DROP；生产已验收 `version=23, dirty=0` 且两表不存在，没有重新 merge 旧数据。`000024` 只退役四张一次性 seeddata 清理副本，要求两副本全字段一致、各 1,359 行、与 canonical ID 零重叠且无数据库依赖；不向 canonical 回填。destructive down 均 fail closed，恢复依赖发布前完整备份。
+
+`000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对 `(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复 active 事实，创建索引会 fail closed，不会自动删除授权数据。当前仓库和 MySQL 迁移门禁已到 25；本文不把这一仓库事实表述为已完成生产发布。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 

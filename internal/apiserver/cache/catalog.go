@@ -5,6 +5,7 @@ type Family string
 
 const (
 	FamilyAuthnRefreshToken              Family = "authn.refresh_token"
+	FamilyAuthnConsumedRefreshToken      Family = "authn.consumed_refresh_token"
 	FamilyAuthnRevokedAccessToken        Family = "authn.revoked_access_token"
 	FamilyAuthnSession                   Family = "authn.session"
 	FamilyAuthnUserSessionIndex          Family = "authn.user_session_index"
@@ -107,6 +108,24 @@ var catalog = []FamilyDescriptor{
 			TTLSource:                      "token.RemainingDuration()",
 			WriteMode:                      "整体写入",
 			InvalidationMode:               "TTL 到期或显式删除",
+			HasInternalRefreshCoordination: false,
+		},
+		Capabilities: inspectOnly,
+	},
+	{
+		Family:          FamilyAuthnConsumedRefreshToken,
+		Backend:         BackendKindRedis,
+		RedisType:       RedisDataTypeString,
+		Codec:           ValueCodecKindJSON,
+		Role:            DataRoleMarkerState,
+		OwnerModule:     "authn",
+		KeyPattern:      "consumed_refresh_token:{sha256(tokenValue)}",
+		TTLSource:       "旧 refresh token 的原剩余 TTL",
+		SelectionReason: "只保留撤销 Session 所需的最小事实；摘要 key 避免再次保存令牌明文。",
+		Policy: FamilyPolicy{
+			TTLSource:                      "旧 refresh token 的原剩余 TTL",
+			WriteMode:                      "与 refresh token rotation 同一 Lua 脚本原子写入",
+			InvalidationMode:               "TTL 到期",
 			HasInternalRefreshCoordination: false,
 		},
 		Capabilities: inspectOnly,

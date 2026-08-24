@@ -1,6 +1,6 @@
 # IAM 重构与生产验收记录
 
-> 状态：已实现 · 本文按 2026-08-18 可复核证据记录仓库、迁移、发布与生产观察结果；未完成项不视为已验收。
+> 状态：已实现 · 本文按 2026-08-18 可复核证据记录迁移、发布与生产观察结果，仓库侧事实更新至 2026-08-19；未完成项不视为已验收。
 
 ## 1. 当前结论
 
@@ -17,10 +17,11 @@
 | 项目 | 状态 | 证据入口 |
 | --- | --- | --- |
 | AuthZ `Check` / `GetAuthorizationSnapshot` 安全错误 | 已实现 | `internal/apiserver/transport/grpc/service/authz/service.go`、`service_test.go`、`internal/pkg/architecture/architecture_test.go` |
+| IDP 通用 `ExternalIdentity` 信任边界 | 已实现（仓库侧） | `domain/idp/externalidentity` 定义请求级值对象，`application/idp/externalidentity` 统一解析三类 provider；AuthN SignIn、SignUp、Linking 通过单一 capability 消费，Identity v2 同名 proto 仍是未接入的历史 transport 契约 |
 | 数据库操作单一脚本 | 已实现 | `scripts/dbops/database-operation.sh`、`database_operation_test.go` |
 | MySQL 8 合成备份恢复 | 已实现门禁，最终 SHA 待补运行 | `.github/workflows/concurrency-tests.yml`；最近成功 run 为 [`31600598524`](https://github.com/FangcunMount/iam/actions/runs/31600598524)，对应前一 SHA `7e501470…` |
 | 文档可生成事实门禁 | 已实现 | `scripts/check-docs-facts.py` 从 proto、bootstrap、开发配置和 active Markdown 生成期望值，校验服务矩阵、资源示例、Quick Start 端口和状态计数 |
-| Active docs 语义分类 | 已生成核对 | Active docs 状态计数：总计 `76` 篇，`已实现` `76` 篇，`规划改造` `0` 篇。历史目标提示词已退出 active 层 |
+| Active docs 语义分类 | 已生成核对 | Active docs 状态计数：总计 `78` 篇，`已实现` `78` 篇，`规划改造` `0` 篇。历史目标提示词已退出 active 层 |
 | 遗留资产退役 | 已完成生产验收 | `000019–000024` 的批次证据见 [遗留资产、兼容层与数据库退役审计](../05-工程质量与运维/06-遗留资产兼容层与数据库退役审计.md) |
 
 ## 4. 最终发布证据

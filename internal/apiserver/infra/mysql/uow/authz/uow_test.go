@@ -12,7 +12,7 @@ import (
 )
 
 func TestUnitOfWork_WithNilDBFailsClosed(t *testing.T) {
-	uow := mysqluow.NewUnitOfWork(nil)
+	uow := mysqluow.NewUnitOfWork(nil, nil)
 
 	called := false
 	err := uow.WithinTx(context.Background(), func(txCtx context.Context, tx appuow.TxRepositories) error {

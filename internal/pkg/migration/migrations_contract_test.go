@@ -188,6 +188,25 @@ func TestIdentityConsistencyMigrations(t *testing.T) {
 	}
 }
 
+func TestAuthZActiveRoleBindingGuardMigration(t *testing.T) {
+	up := migrationSQL(t, "000025_authz_active_rolebinding_guard.up.sql")
+	for _, fragment := range []string{
+		"information_schema.COLUMNS",
+		"ADD COLUMN `active_guard` TINYINT GENERATED ALWAYS AS",
+		"CASE WHEN `deleted_at` IS NULL THEN 1 ELSE NULL END",
+		"information_schema.STATISTICS",
+		"CREATE UNIQUE INDEX `uk_authz_assignments_active`",
+		"(`subject_type`, `subject_id`, `role_id`, `tenant_id`, `active_guard`)",
+	} {
+		assertSQLContains(t, up, fragment)
+	}
+	assertSQLNotContains(t, up, "DELETE FROM `authz_assignments`")
+
+	down := migrationSQL(t, "000025_authz_active_rolebinding_guard.down.sql")
+	assertSQLContains(t, down, "DROP INDEX `uk_authz_assignments_active`")
+	assertSQLContains(t, down, "DROP COLUMN `active_guard`")
+}
+
 func TestRetiredIdentityTablesMigrationBackfillsAndValidatesBeforeDrop(t *testing.T) {
 	up := migrationSQL(t, "000019_retire_legacy_tables.up.sql")
 
