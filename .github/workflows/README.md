@@ -144,6 +144,8 @@ go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" 
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
 - `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；并 fail closed 验证 `version=25, dirty=0`、15 张现役 BASE TABLE 精确白名单及 000019–000024 已退役的 14 张表持续不存在。
 - `rolebinding-guard-preflight`: 在发布 migration 000025 前只读检查 active RoleBinding 重复组、迁移 clean 状态及 guard 列/索引是否半完成；任一异常都 fail closed。
+- `rolebinding-deduplicate-dry-run`: 生成确定性的重复绑定候选报告、数量和指纹，不修改数据库。
+- `rolebinding-deduplicate-apply`: 要求 24 小时内全量备份，并在表写锁下复核候选数量与指纹后软删除冗余绑定；候选漂移时 fail closed。
 - `performance-schema-status`: 只读输出启用状态、持久化加载、TLS/X.509 前置条件、可见权限、数据库部署类型、端点供应商分类，以及 Performance Schema、`sys.schema_table_statistics` 和阿里云 RDS `information_schema.TABLE_STATISTICS` 三条表 I/O 汇总路径的只读访问能力；不输出账号、地址、grant 原文或数据库错误详情。
 
 已废弃：

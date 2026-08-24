@@ -364,6 +364,42 @@ esac
 	}
 }
 
+func TestRoleBindingDeduplicateDryRunProducesReviewToken(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "mysql", `#!/bin/sh
+if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
+case "$*" in
+  *'MAX(version)'*) printf '24\t0\t1\n' ;;
+  *'uk_authz_assignments_active'*) printf '0\t0\n' ;;
+  *'duplicate_groups'*) printf '2\t3\t3\n' ;;
+  *) printf '11\t10\t75736572\t31\t7\t74656E616E742D61\t2026-08-01T00:00:01\t2026-08-01T00:00:01\n12\t10\t75736572\t31\t7\t74656E616E742D61\t2026-08-01T00:00:02\t2026-08-01T00:00:02\n21\t20\t75736572\t32\t8\t74656E616E742D62\t2026-08-01T00:00:03\t2026-08-01T00:00:03\n' ;;
+esac
+`)
+
+	output, err := runScript(t, bin, map[string]string{
+		"IAM_DB_OPS_OPERATION":  "rolebinding-deduplicate-dry-run",
+		"IAM_DB_OPS_BACKUP_DIR": backupDir,
+		"IAM_DB_OPS_TIMESTAMP":  "20260825_010203",
+	})
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{"result=success", "candidate_count=3", "duplicate_state=2\t3\t3", "report=rolebinding_deduplicate_20260825_010203.tsv", "keep_order=granted_at,created_at,id"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("dry-run output missing %q: %s", want, output)
+		}
+	}
+	report := filepath.Join(backupDir, "rolebinding_deduplicate_20260825_010203.tsv")
+	info, err := os.Stat(report)
+	requireNoError(t, err)
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("report mode = %o, want 600", info.Mode().Perm())
+	}
+}
+
 func TestPerformanceSchemaStatusIsReadOnlyAndSecretSafe(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
@@ -480,14 +516,15 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join(repo, ".github", "workflows", "db-ops.yml"))
 	requireNoError(t, err)
 	source := string(workflow)
-	if strings.Count(source, "uses: actions/checkout@v6") != 5 {
+	if strings.Count(source, "uses: actions/checkout@v6") != 7 {
 		t.Fatal("every database operation job must checkout the repository script")
 	}
-	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 5 {
+	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 7 {
 		t.Fatal("every database operation job must use the single script_path")
 	}
 	for _, want := range []string{
 		"backup", "restore", "status", "performance-schema-status", "rolebinding-guard-preflight",
+		"rolebinding-deduplicate-dry-run", "rolebinding-deduplicate-apply",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
 	} {
 		if !strings.Contains(source, want) {
