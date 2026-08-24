@@ -23,7 +23,8 @@ func TestWechatScanBuilderConsumesOAuthStateOnAppIDMismatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	builder := newWechatScanBuilder(nil, nil, oauthStates)
+	resolver := &wecomResolverStub{}
+	builder := newWechatScanBuilder(resolver, oauthStates)
 	_, err = builder.Build(context.Background(), method.WechatScanPayload{
 		AppID: "wx-other-app",
 		Code:  "wx-code",
@@ -31,6 +32,7 @@ func TestWechatScanBuilderConsumesOAuthStateOnAppIDMismatch(t *testing.T) {
 	}, method.CommonPayload{})
 	require.Error(t, err)
 	require.Equal(t, code.ErrStateMismatch, perrors.ParseCoder(err).Code())
+	require.Zero(t, resolver.calls, "invalid state must be consumed before provider exchange")
 
 	_, err = builder.Build(context.Background(), method.WechatScanPayload{
 		AppID: "wx-app",
@@ -39,6 +41,7 @@ func TestWechatScanBuilderConsumesOAuthStateOnAppIDMismatch(t *testing.T) {
 	}, method.CommonPayload{})
 	require.Error(t, err)
 	require.Equal(t, code.ErrStateMismatch, perrors.ParseCoder(err).Code())
+	require.Zero(t, resolver.calls, "reused state must not reach provider exchange")
 }
 
 type wechatScanOAuthChallengeRepoStub struct {

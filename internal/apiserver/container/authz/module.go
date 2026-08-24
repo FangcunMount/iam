@@ -48,12 +48,15 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	if deps.EventStager == nil {
 		return fmt.Errorf("authz event stager is required")
 	}
+	if deps.UserResolver == nil {
+		return fmt.Errorf("identity user resolver is required")
+	}
 
-	infra, err := m.initializeInfrastructure(deps.DB, deps.EventStager, authzModelPath(deps.ModelPath))
+	infra, err := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver, authzModelPath(deps.ModelPath))
 	if err != nil {
 		return err
 	}
-	domain := m.initializeDomain(infra)
+	domain := m.initializeDomain(infra, deps.UserResolver)
 	m.initializeRuntime(infra)
 	m.initializeApplication(infra, domain)
 	if strings.TrimSpace(deps.AssignmentConstraintsFile) != "" {

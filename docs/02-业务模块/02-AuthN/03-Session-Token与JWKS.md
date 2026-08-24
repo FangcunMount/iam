@@ -116,9 +116,10 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 | 纯离线短 JWT | 服务无状态、低延迟 | 不能即时撤销 | 可接受短撤销窗口 |
 | opaque token + introspection | 状态统一、即时撤销 | IAM 成为每请求热路径 | 强控制、规模可承受 |
 | 当前混合方案 | 大多数服务可本地验签，关键路径可在线检查 | 两套语义、Redis 依赖、运维复杂 | 当前选择 |
-| refresh token family/reuse detection | 可发现旧 token 被重放并撤销整个家族 | 需要 family 状态与事件处理 | 高风险场景可增强 |
+| consumed marker + Session revoke（当前） | 可识别已消费旧 token 的重放并撤销对应 Session | 合法重复提交也会触发强制重新登录 | 当前安全契约 |
+| refresh token family/reuse detection | 可追踪整条 token family 并执行家族级处置 | 需要 family 状态与事件处理 | 更高风险场景可增强 |
 
-当前 rotation 防止同一 refresh token 并发成功两次，但没有完整 token-family reuse detection；“旧 token 再次出现”只会失败，不自动推断整条家族已泄漏并批量撤销。
+当前 rotation 防止同一 refresh token 并发成功两次，并在成功轮换时原子写入不含令牌明文的 consumed marker。已消费旧 token 再次出现时会撤销对应 Session；任意未签发 token 不会触发撤销。当前仍没有完整 token-family 图谱，也不会跨 Session 批量处置其他家族。
 
 ## 9. 面试追问
 

@@ -16,8 +16,8 @@ type WechatOpenCredential struct {
 	RemoteIP  string
 	UserAgent string
 	AppID     string
-	AppSecret string
-	Code      string
+	OpenID    string
+	UnionID   string
 }
 
 // WechatOpenProofSpec 微信开放平台认证凭据规格
@@ -26,8 +26,8 @@ type WechatOpenProofSpec struct {
 	RemoteIP  string
 	UserAgent string
 	AppID     string
-	AppSecret string
-	Code      string
+	OpenID    string
+	UnionID   string
 }
 
 // CredentialKind 返回认证证明类型。
@@ -40,19 +40,16 @@ func NewWechatOpenCredential(spec WechatOpenProofSpec) (AuthCredential, error) {
 	if spec.AppID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appid is required for wechat authentication")
 	}
-	if spec.AppSecret == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appsecret is required for wechat authentication")
-	}
-	if spec.Code == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat code is required for wechat authentication")
+	if spec.OpenID == "" {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat openid is required for wechat authentication")
 	}
 	return &WechatOpenCredential{
 		TenantID:  spec.TenantID,
 		RemoteIP:  spec.RemoteIP,
 		UserAgent: spec.UserAgent,
 		AppID:     spec.AppID,
-		AppSecret: spec.AppSecret,
-		Code:      spec.Code,
+		OpenID:    spec.OpenID,
+		UnionID:   spec.UnionID,
 	}, nil
 }
 
@@ -62,7 +59,6 @@ func NewWechatOpenCredential(spec WechatOpenProofSpec) (AuthCredential, error) {
 type OAuthWechatOpenAuthStrategy struct {
 	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
-	idp            IdentityProvider
 }
 
 // 实现认证策略接口
@@ -71,12 +67,10 @@ var _ AuthStrategy = (*OAuthWechatOpenAuthStrategy)(nil)
 // NewOAuthWechatOpenAuthStrategyWithLoginIdentity 创建微信开放平台认证策略
 func NewOAuthWechatOpenAuthStrategyWithLoginIdentity(
 	identityRepo LoginIdentityRepository,
-	idp IdentityProvider,
 ) *OAuthWechatOpenAuthStrategy {
 	return &OAuthWechatOpenAuthStrategy{
 		credentialKind: CredentialKindWechatOpen,
 		identityRepo:   identityRepo,
-		idp:            idp,
 	}
 }
 
@@ -87,10 +81,9 @@ func (o *OAuthWechatOpenAuthStrategy) Kind() CredentialKind {
 
 // Authenticate 执行微信开放平台认证
 // 认证流程：
-// 1. 调用微信 API 用 code 换取 openID/unionID
-// 2. 按 openID 查找 LoginIdentity，必要时用 unionID 回退
-// 3. 检查 LoginIdentity 状态
-// 4. 返回认证判决
+// 1. 按已验证的 openID 查找 LoginIdentity，必要时用 unionID 回退
+// 2. 检查 LoginIdentity 状态
+// 3. 返回认证判决
 func (o *OAuthWechatOpenAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	// 检查认证凭据类型
 	wechatCred, ok := credential.(*WechatOpenCredential)
@@ -98,11 +91,7 @@ func (o *OAuthWechatOpenAuthStrategy) Authenticate(ctx context.Context, credenti
 		return AuthDecision{}, fmt.Errorf("wechat open strategy expects *WechatOpenCredential, got %T", credential)
 	}
 
-	// 与微信 IdP 交互，用 code 换取 openID/unionID
-	identity, err := o.exchangeWechatOpenIdentity(ctx, wechatCred)
-	if err != nil {
-		return AuthDecision{}, err
-	}
+	identity := wechatOpenIdentity{openID: wechatCred.OpenID, unionID: wechatCred.UnionID}
 
 	// 根据openID查找凭据绑定
 	lookup, err := o.findWechatOpenIdentity(ctx, wechatCred, identity)
@@ -133,19 +122,6 @@ func (o *OAuthWechatOpenAuthStrategy) Authenticate(ctx context.Context, credenti
 type wechatOpenIdentity struct {
 	openID  string
 	unionID string
-}
-
-// exchangeWechatOpenIdentity 与微信 IdP 交互，用 code 换取 openID/unionID。
-func (o *OAuthWechatOpenAuthStrategy) exchangeWechatOpenIdentity(ctx context.Context, credential *WechatOpenCredential) (wechatOpenIdentity, error) {
-	openID, unionID, err := o.idp.ExchangeWxOpenCode(ctx, credential.AppID, credential.AppSecret, credential.Code)
-	if err != nil {
-		return wechatOpenIdentity{}, fmt.Errorf("failed to exchange wx open code: %w", err)
-	}
-
-	return wechatOpenIdentity{
-		openID:  openID,
-		unionID: unionID,
-	}, nil
 }
 
 // findWechatOpenIdentity 根据 openID 查找 LoginIdentity，必要时用 unionID 回退。

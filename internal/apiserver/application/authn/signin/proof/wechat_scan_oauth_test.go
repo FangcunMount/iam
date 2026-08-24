@@ -65,10 +65,9 @@ func (b oauthScanProofBuilder) Build(ctx context.Context, payload method.Payload
 		return nil, err
 	}
 	return authentication.NewWechatOpenCredential(authentication.WechatOpenProofSpec{
-		TenantID:  common.TenantID,
-		AppID:     scanPayload.AppID,
-		AppSecret: "secret",
-		Code:      scanPayload.Code,
+		TenantID: common.TenantID,
+		AppID:    scanPayload.AppID,
+		OpenID:   "open-id",
 	})
 }
 

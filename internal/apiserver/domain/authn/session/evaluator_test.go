@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	loginidentitydomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
-	userdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -15,9 +15,9 @@ func TestSubjectAccessEvaluatorAcceptsActiveLoginIdentityAndUser(t *testing.T) {
 	userID := meta.FromUint64(1001)
 	loginIdentityID := meta.FromUint64(2001)
 
-	users := &subjectAccessUserRepoStub{
-		byID: map[meta.ID]*userdomain.User{
-			userID: {ID: userID, Name: "active", Status: userdomain.UserActive},
+	users := &subjectAccessUserStatusReaderStub{
+		byID: map[meta.ID]useraccess.Status{
+			userID: useraccess.StatusActive,
 		},
 	}
 	identities := &subjectAccessLoginIdentityRepoStub{
@@ -46,9 +46,9 @@ func TestSubjectAccessEvaluatorRejectsDisabledLoginIdentityAndBlockedUser(t *tes
 	disabledIdentityID := meta.FromUint64(2001)
 	blockedIdentityID := meta.FromUint64(2002)
 
-	users := &subjectAccessUserRepoStub{
-		byID: map[meta.ID]*userdomain.User{
-			userID: {ID: userID, Name: "blocked", Status: userdomain.UserBlocked},
+	users := &subjectAccessUserStatusReaderStub{
+		byID: map[meta.ID]useraccess.Status{
+			userID: useraccess.StatusBlocked,
 		},
 	}
 	identities := &subjectAccessLoginIdentityRepoStub{
@@ -86,9 +86,9 @@ func TestSubjectAccessEvaluatorDistinguishesInactiveUser(t *testing.T) {
 	ctx := context.Background()
 	userID := meta.FromUint64(1001)
 	loginIdentityID := meta.FromUint64(2001)
-	users := &subjectAccessUserRepoStub{
-		byID: map[meta.ID]*userdomain.User{
-			userID: {ID: userID, Name: "inactive", Status: userdomain.UserInactive},
+	users := &subjectAccessUserStatusReaderStub{
+		byID: map[meta.ID]useraccess.Status{
+			userID: useraccess.StatusInactive,
 		},
 	}
 	identities := &subjectAccessLoginIdentityRepoStub{
@@ -109,27 +109,17 @@ func TestSubjectAccessEvaluatorDistinguishesInactiveUser(t *testing.T) {
 	require.Equal(t, SubjectAccessInactive, decision.Status)
 }
 
-type subjectAccessUserRepoStub struct {
-	byID map[meta.ID]*userdomain.User
+type subjectAccessUserStatusReaderStub struct {
+	byID map[meta.ID]useraccess.Status
 }
 
-func (s *subjectAccessUserRepoStub) Create(context.Context, *userdomain.User) error { return nil }
-func (s *subjectAccessUserRepoStub) FindByID(_ context.Context, id meta.ID) (*userdomain.User, error) {
-	return s.byID[id], nil
-}
-func (s *subjectAccessUserRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[meta.ID]*userdomain.User, error) {
-	out := make(map[meta.ID]*userdomain.User, len(ids))
-	for _, id := range ids {
-		if user := s.byID[id]; user != nil {
-			out[id] = user
-		}
+func (s *subjectAccessUserStatusReaderStub) ReadUserStatus(_ context.Context, id meta.ID) (useraccess.Status, error) {
+	status, ok := s.byID[id]
+	if !ok {
+		return useraccess.StatusMissing, nil
 	}
-	return out, nil
+	return status, nil
 }
-func (s *subjectAccessUserRepoStub) FindByPhone(context.Context, meta.Phone) (*userdomain.User, error) {
-	return nil, nil
-}
-func (s *subjectAccessUserRepoStub) Update(context.Context, *userdomain.User) error { return nil }
 
 type subjectAccessLoginIdentityRepoStub struct {
 	byID map[meta.ID]*loginidentitydomain.LoginIdentity

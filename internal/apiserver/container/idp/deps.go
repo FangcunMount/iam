@@ -6,6 +6,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
+	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -14,6 +15,8 @@ type IDPModuleDeps struct {
 	DB            *gorm.DB
 	RedisClient   *redis.Client
 	EncryptionKey []byte
+	// ExternalIdentity contains provider settings used only by the IDP resolver.
+	ExternalIdentity externalidentity.Config
 }
 
 func validateIDPModuleDeps(deps IDPModuleDeps) error {

@@ -33,11 +33,12 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 	const tokenSentinel = "refresh-conflict-secret-sentinel"
 	old := testRefreshToken("old-id", tokenSentinel)
 	store := newAtomicTokenStoreStub(old)
+	revoker := &recordingSessionRevoker{}
 	refresher := newRefresher(
 		&atomicAccessTokenIssuerStub{},
 		store,
 		sessionLoaderStub{session: testActiveSession()},
-		sessionRevokerStub{},
+		revoker,
 		sessionExtenderStub{},
 		subjectAccessEvaluatorStub{},
 		NewDefaultRefreshClaimsCodec(),
@@ -74,6 +75,9 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 	if successes != 1 || notFound != 1 {
 		t.Fatalf("successes = %d, not_found = %d, want 1/1", successes, notFound)
 	}
+	if got := revoker.count(); got != 1 {
+		t.Fatalf("session revocations = %d, want 1 replay revocation", got)
+	}
 	log.Flush()
 	output, err := os.ReadFile(logPath)
 	if err != nil {
@@ -83,6 +87,42 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 		if strings.Contains(string(output), forbidden) {
 			t.Fatalf("refresh conflict log leaked %q: %s", forbidden, output)
 		}
+	}
+}
+
+func TestRefresherReplayedConsumedTokenRevokesSession(t *testing.T) {
+	old := testRefreshToken("old-id", "consumed-value")
+	store := newAtomicTokenStoreStub()
+	store.consumed[old.Value] = &ConsumedRefreshToken{SessionID: old.SessionID, UserID: old.UserID}
+	revoker := &recordingSessionRevoker{}
+	refresher := newRefresher(
+		&atomicAccessTokenIssuerStub{}, store, sessionLoaderStub{session: testActiveSession()},
+		revoker, sessionExtenderStub{}, subjectAccessEvaluatorStub{}, NewDefaultRefreshClaimsCodec(),
+	)
+
+	pair, err := refresher.RefreshToken(context.Background(), old.Value)
+	if pair != nil || !perrors.IsCode(err, code.ErrRefreshTokenNotFound) {
+		t.Fatalf("RefreshToken() pair = %#v, err = %v, want not found", pair, err)
+	}
+	if got := revoker.count(); got != 1 {
+		t.Fatalf("session revocations = %d, want 1", got)
+	}
+}
+
+func TestRefresherUnknownTokenDoesNotRevokeSession(t *testing.T) {
+	store := newAtomicTokenStoreStub()
+	revoker := &recordingSessionRevoker{}
+	refresher := newRefresher(
+		&atomicAccessTokenIssuerStub{}, store, sessionLoaderStub{session: testActiveSession()},
+		revoker, sessionExtenderStub{}, subjectAccessEvaluatorStub{}, NewDefaultRefreshClaimsCodec(),
+	)
+
+	pair, err := refresher.RefreshToken(context.Background(), "never-issued")
+	if pair != nil || !perrors.IsCode(err, code.ErrRefreshTokenNotFound) {
+		t.Fatalf("RefreshToken() pair = %#v, err = %v, want not found", pair, err)
+	}
+	if got := revoker.count(); got != 0 {
+		t.Fatalf("session revocations = %d, want 0", got)
 	}
 }
 
@@ -146,15 +186,25 @@ func (s *atomicAccessTokenIssuerStub) MintTokenPair(_ context.Context, principal
 type atomicTokenStoreStub struct {
 	mu          sync.Mutex
 	tokens      map[string]*Token
+	consumed    map[string]*ConsumedRefreshToken
 	rotateCalls int
 }
 
 func newAtomicTokenStoreStub(tokens ...*Token) *atomicTokenStoreStub {
-	out := &atomicTokenStoreStub{tokens: make(map[string]*Token)}
+	out := &atomicTokenStoreStub{
+		tokens:   make(map[string]*Token),
+		consumed: make(map[string]*ConsumedRefreshToken),
+	}
 	for _, token := range tokens {
 		out.tokens[token.Value] = token
 	}
 	return out
+}
+
+func (s *atomicTokenStoreStub) GetConsumedRefreshToken(_ context.Context, value string) (*ConsumedRefreshToken, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.consumed[value], nil
 }
 
 func (s *atomicTokenStoreStub) SaveRefreshToken(_ context.Context, token *Token) error {
@@ -179,6 +229,7 @@ func (s *atomicTokenStoreStub) RotateRefreshToken(_ context.Context, oldValue, e
 		return false, nil
 	}
 	s.tokens[newToken.Value] = newToken
+	s.consumed[oldValue] = &ConsumedRefreshToken{SessionID: old.SessionID, UserID: old.UserID}
 	delete(s.tokens, oldValue)
 	return true, nil
 }
@@ -215,6 +266,32 @@ type sessionRevokerStub struct{}
 func (sessionRevokerStub) Revoke(context.Context, string, string, string) error { return nil }
 func (sessionRevokerStub) RevokeByUser(context.Context, meta.ID, string, string) error {
 	return nil
+}
+
+type recordingSessionRevoker struct {
+	mu      sync.Mutex
+	revoked []string
+}
+
+func (r *recordingSessionRevoker) Revoke(_ context.Context, sessionID, _, _ string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.revoked = append(r.revoked, sessionID)
+	return nil
+}
+
+func (*recordingSessionRevoker) RevokeByUser(context.Context, meta.ID, string, string) error {
+	return nil
+}
+
+func (*recordingSessionRevoker) RevokeByLoginIdentity(context.Context, meta.ID, string, string) error {
+	return nil
+}
+
+func (r *recordingSessionRevoker) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.revoked)
 }
 func (sessionRevokerStub) RevokeByLoginIdentity(context.Context, meta.ID, string, string) error {
 	return nil

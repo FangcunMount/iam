@@ -17,15 +17,12 @@ import (
 )
 
 // 并发创建相同的 binding（相同 subject_type+subject_id+role_id+tenant_id），
-// 在测试环境为表添加唯一索引以触发重复错误，期望只有 1 条记录写入，
-// 其余被翻译为 code.ErrAssignmentAlreadyExists。
+// 直接使用 BindingPO 映射的规范 schema（对应 migration 000025）验证唯一保护，
+// 期望只有 1 条记录写入，其余被翻译为 code.ErrAssignmentAlreadyExists。
 func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 	db := testhelpers.SetupTempSQLiteDB(t)
 	require.NoError(t, db.AutoMigrate(&BindingPO{}))
-
-	// 为测试环境显式创建唯一索引，避免在 PO tag 中改动生产 schema
-	// 复合唯一键: subject_type, subject_id, role_id, tenant_id
-	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_binding ON authz_assignments(subject_type, subject_id, role_id, tenant_id)")
+	require.True(t, db.Migrator().HasIndex(&BindingPO{}, "uk_authz_assignments_active"))
 
 	repo := NewBindingRepository(db)
 	ctx := context.Background()
@@ -66,6 +63,7 @@ func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 
 	var success int
 	var mappedCount int
+	var unexpected []error
 	for e := range errs {
 		if e == nil {
 			success++
@@ -80,14 +78,54 @@ func TestBindingRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 			}
 			ue = errors.Unwrap(ue)
 		}
+		if ue == nil {
+			unexpected = append(unexpected, e)
+		}
 	}
 
 	require.Equal(t, 1, success, "only one create should succeed")
-	require.GreaterOrEqual(t, mappedCount, 1, "at least one error should be mapped to ErrAssignmentAlreadyExists")
+	require.Empty(t, unexpected, "all failed creates must be unique-conflict business errors")
+	require.Equal(t, concurrency-1, mappedCount, "every duplicate create should map to ErrAssignmentAlreadyExists")
 
 	var cnt int64
 	require.NoError(t, db.Model(&BindingPO{}).
 		Where("subject_type = ? AND subject_id = ? AND role_id = ? AND tenant_id = ?", "user", "123", 42, "tenant-1").
 		Count(&cnt).Error)
 	require.Equal(t, int64(1), cnt)
+}
+
+func TestBindingRepository_Create_AllowsRegrantAfterHistoricalDeletion(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&BindingPO{}))
+	repo := NewBindingRepository(db)
+	ctx := context.Background()
+
+	first, err := domain.NewBinding(
+		domain.SubjectTypeUser,
+		meta.FromUint64(123),
+		meta.FromUint64(42),
+		"tenant-1",
+		domain.WithGrantedBy("admin"),
+	)
+	require.NoError(t, err)
+	require.NoError(t, repo.Create(ctx, &first))
+	require.NoError(t, db.Model(&BindingPO{}).
+		Where("id = ?", first.ID.Uint64()).
+		Update("deleted_at", time.Now().UTC()).Error)
+
+	second, err := domain.NewBinding(
+		domain.SubjectTypeUser,
+		meta.FromUint64(123),
+		meta.FromUint64(42),
+		"tenant-1",
+		domain.WithGrantedBy("admin"),
+	)
+	require.NoError(t, err)
+	require.NoError(t, repo.Create(ctx, &second))
+
+	var activeCount int64
+	require.NoError(t, db.Model(&BindingPO{}).
+		Where("subject_type = ? AND subject_id = ? AND role_id = ? AND tenant_id = ? AND deleted_at IS NULL", "user", "123", 42, "tenant-1").
+		Count(&activeCount).Error)
+	require.Equal(t, int64(1), activeCount)
 }

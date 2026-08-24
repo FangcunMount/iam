@@ -7,7 +7,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
-	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -63,10 +63,10 @@ func (r *SubjectResolverRegistry) Resolve(ctx context.Context, sub subject.Ref, 
 }
 
 type UserSubjectResolver struct {
-	users userDomain.Repository
+	users useraccess.UserResolver
 }
 
-func NewUserSubjectResolver(users userDomain.Repository) *UserSubjectResolver {
+func NewUserSubjectResolver(users useraccess.UserResolver) *UserSubjectResolver {
 	return &UserSubjectResolver{users: users}
 }
 
@@ -76,20 +76,17 @@ func (r *UserSubjectResolver) Supports(subjectType subject.Type) bool {
 
 func (r *UserSubjectResolver) Resolve(ctx context.Context, sub subject.Ref, _ tenant.ID) error {
 	if r == nil || r.users == nil {
-		return errors.WithCode(code.ErrInternalServerError, "用户仓储未配置")
+		return errors.WithCode(code.ErrInternalServerError, "Identity UserResolver 未配置")
 	}
 	if sub.ID.IsZero() {
 		return errors.WithCode(code.ErrInvalidArgument, "主体ID格式错误")
 	}
-	userExists, err := r.users.FindByID(ctx, sub.ID)
+	err := r.users.ResolveUser(ctx, sub.ID)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
 			return errors.WithCode(code.ErrUserNotFound, "用户不存在")
 		}
 		return errors.Wrap(err, "检查用户存在性失败")
-	}
-	if userExists == nil {
-		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 	return nil
 }

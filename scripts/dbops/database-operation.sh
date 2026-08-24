@@ -16,6 +16,9 @@ PARTIAL_PATH=""
 ERROR_PATH=""
 MYSQL_CLIENT_VERSION=""
 CLIENT_WRAPPER_DIR=""
+REPORT_PARTIAL_PATH=""
+ROLEBINDING_FINGERPRINT="${IAM_DB_OPS_ROLEBINDING_FINGERPRINT:-}"
+ROLEBINDING_CANDIDATE_COUNT="${IAM_DB_OPS_ROLEBINDING_CANDIDATE_COUNT:-}"
 
 fail() {
   echo "database operation failed: $1" >&2
@@ -35,6 +38,9 @@ cleanup() {
   if [ -n "$CLIENT_WRAPPER_DIR" ]; then
     rm -f -- "$CLIENT_WRAPPER_DIR/mysql" "$CLIENT_WRAPPER_DIR/mysqldump"
     rmdir -- "$CLIENT_WRAPPER_DIR" 2>/dev/null || true
+  fi
+  if [ -n "$REPORT_PARTIAL_PATH" ]; then
+    rm -f -- "$REPORT_PARTIAL_PATH"
   fi
 }
 
@@ -120,7 +126,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status|performance-schema-status) ;;
+    backup|restore|status|performance-schema-status|rolebinding-guard-preflight|rolebinding-deduplicate-dry-run|rolebinding-deduplicate-apply) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -140,6 +146,17 @@ validate_configuration() {
   if [[ "$BACKUP_DIR" != /* ]] || [ -L "$BACKUP_DIR" ]; then
     fail "backup directory is invalid"
     return 1
+  fi
+  if [ "$OPERATION" = "rolebinding-deduplicate-apply" ]; then
+    validate_backup_name || return 1
+    if ! [[ "$ROLEBINDING_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]]; then
+      fail "RoleBinding candidate fingerprint is invalid"
+      return 1
+    fi
+    if ! [[ "$ROLEBINDING_CANDIDATE_COUNT" =~ ^[1-9][0-9]*$ ]]; then
+      fail "RoleBinding candidate count is invalid"
+      return 1
+    fi
   fi
 }
 
@@ -337,8 +354,8 @@ database_status() {
   printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'24\t0\t1' ]; then
-    fail "migration status is not version 24 clean"
+  if [ "$migration_state" != $'25\t0\t1' ]; then
+    fail "migration status is not version 25 clean"
     return 1
   fi
   if [ "$schema_guard_state" != $'15\t15\t0' ]; then
@@ -354,13 +371,288 @@ database_status() {
     return 1
   fi
   echo "schema guard: result=success required_base_tables=15 schema_objects=15 unexpected_objects=0"
-  echo "retirement guard: result=success expected_version=24 retired_tables_present=0 retired_table_privileges=0"
+  echo "retirement guard: result=success expected_version=25 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {
   local sql="$1"
   "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw \
     "$MYSQL_DBNAME" -e "$sql" 2>"$ERROR_PATH"
+}
+
+rolebinding_guard_preflight() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  prepare_backup_directory || return 1
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_rolebinding_guard_preflight.error"
+
+  local migration_state duplicate_state guard_state version dirty row_count
+  if ! migration_state="$(mysql_scalar 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;')"; then
+    fail "migration state query failed"
+    return 1
+  fi
+  if ! [[ "$migration_state" =~ ^[0-9]+$'\t'[01]$'\t'[0-9]+$ ]]; then
+    fail "migration state is invalid"
+    return 1
+  fi
+  IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
+  if { [ "$version" != "24" ] && [ "$version" != "25" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "RoleBinding guard preflight requires clean migration version 24 or 25"
+    return 1
+  fi
+
+  if ! duplicate_state="$(mysql_scalar "SELECT COUNT(*), COALESCE(SUM(duplicate_count - 1), 0), COALESCE(MAX(duplicate_count), 0) FROM (SELECT COUNT(*) AS duplicate_count FROM authz_assignments WHERE deleted_at IS NULL GROUP BY subject_type, subject_id, role_id, tenant_id HAVING COUNT(*) > 1) AS duplicate_groups;")"; then
+    fail "active RoleBinding duplicate query failed"
+    return 1
+  fi
+  if [ "$duplicate_state" != $'0\t0\t0' ]; then
+    echo "rolebinding guard preflight: result=blocked migration_version=$version duplicate_state=$duplicate_state"
+    fail "duplicate active RoleBindings must be resolved before migration 000025"
+    return 1
+  fi
+
+  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
+    fail "RoleBinding guard schema query failed"
+    return 1
+  fi
+  case "$version:$guard_state" in
+    24:$'0\t0'|25:$'1\t1') ;;
+    *)
+      fail "RoleBinding guard schema is inconsistent with migration version"
+      return 1
+      ;;
+  esac
+
+  echo "rolebinding guard preflight: result=success migration_version=$version duplicate_groups=0 duplicate_extra_rows=0 max_group_size=0 guard_state=$guard_state"
+}
+
+rolebinding_candidate_query() {
+  cat <<'SQL'
+WITH ranked AS (
+  SELECT
+    id,
+    subject_type,
+    subject_id,
+    role_id,
+    tenant_id,
+    granted_at,
+    created_at,
+    FIRST_VALUE(id) OVER duplicate_window AS keep_id,
+    ROW_NUMBER() OVER duplicate_window AS duplicate_rank
+  FROM authz_assignments
+  WHERE deleted_at IS NULL
+  WINDOW duplicate_window AS (
+    PARTITION BY subject_type, subject_id, role_id, tenant_id
+    ORDER BY granted_at ASC, created_at ASC, id ASC
+  )
+)
+SELECT
+  id,
+  keep_id,
+  HEX(subject_type),
+  HEX(subject_id),
+  role_id,
+  HEX(tenant_id),
+  DATE_FORMAT(granted_at, '%Y-%m-%dT%H:%i:%s'),
+  DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s')
+FROM ranked
+WHERE duplicate_rank > 1
+ORDER BY id ASC;
+SQL
+}
+
+require_rolebinding_cleanup_schema() {
+  local migration_state guard_state
+  if ! migration_state="$(mysql_scalar 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;')"; then
+    fail "migration state query failed"
+    return 1
+  fi
+  if [ "$migration_state" != $'24\t0\t1' ]; then
+    fail "RoleBinding deduplication requires clean migration version 24"
+    return 1
+  fi
+  if ! guard_state="$(mysql_scalar "SELECT (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND COLUMN_NAME = 'active_guard'), (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'authz_assignments' AND INDEX_NAME = 'uk_authz_assignments_active');")"; then
+    fail "RoleBinding guard schema query failed"
+    return 1
+  fi
+  if [ "$guard_state" != $'0\t0' ]; then
+    fail "RoleBinding deduplication refuses a partially or fully applied guard"
+    return 1
+  fi
+}
+
+rolebinding_deduplicate_dry_run() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  command -v sha256sum >/dev/null 2>&1 || { fail "sha256sum is unavailable"; return 1; }
+  prepare_backup_directory || return 1
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_rolebinding_deduplicate_dry_run.error"
+  require_rolebinding_cleanup_schema || return 1
+
+  local timestamp report_path candidate_count candidate_ids fingerprint duplicate_state
+  timestamp="$(new_backup_timestamp)"
+  if ! [[ "$timestamp" =~ ^[0-9]{8}_[0-9]{6}$ ]]; then
+    fail "RoleBinding report timestamp is invalid"
+    return 1
+  fi
+  report_path="$BACKUP_DIR/rolebinding_deduplicate_${timestamp}.tsv"
+  if [ -e "$report_path" ]; then
+    fail "RoleBinding report destination already exists"
+    return 1
+  fi
+  REPORT_PARTIAL_PATH="$BACKUP_DIR/.rolebinding_deduplicate_${timestamp}.tsv.partial"
+  if ! rolebinding_candidate_query | "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" \
+      --batch --skip-column-names --raw "$MYSQL_DBNAME" >"$REPORT_PARTIAL_PATH" 2>"$ERROR_PATH"; then
+    fail "RoleBinding candidate report query failed"
+    return 1
+  fi
+  chmod 0600 "$REPORT_PARTIAL_PATH"
+  if [ -s "$REPORT_PARTIAL_PATH" ] && ! awk -F '\t' 'NF != 8 || $1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ { exit 1 }' "$REPORT_PARTIAL_PATH"; then
+    fail "RoleBinding candidate report is invalid"
+    return 1
+  fi
+  candidate_count="$(wc -l <"$REPORT_PARTIAL_PATH" | tr -d ' ')"
+  candidate_ids="$(cut -f1 "$REPORT_PARTIAL_PATH" | paste -sd, -)"
+  fingerprint="$(printf '%s' "$candidate_ids" | sha256sum | awk '{print $1}')"
+  if ! [[ "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
+    fail "RoleBinding candidate fingerprint could not be calculated"
+    return 1
+  fi
+  if ! duplicate_state="$(mysql_scalar "SELECT COUNT(*), COALESCE(SUM(duplicate_count - 1), 0), COALESCE(MAX(duplicate_count), 0) FROM (SELECT COUNT(*) AS duplicate_count FROM authz_assignments WHERE deleted_at IS NULL GROUP BY subject_type, subject_id, role_id, tenant_id HAVING COUNT(*) > 1) AS duplicate_groups;")"; then
+    fail "active RoleBinding duplicate query failed"
+    return 1
+  fi
+  if [ "$candidate_count" = "0" ]; then
+    fail "RoleBinding deduplication has no active duplicate candidates"
+    return 1
+  fi
+  if [ "$duplicate_state" != "$(printf '%s' "$duplicate_state" | awk -F '\t' -v count="$candidate_count" '$2 == count { print $0 }')" ]; then
+    fail "RoleBinding candidate count is inconsistent with duplicate state"
+    return 1
+  fi
+  mv -- "$REPORT_PARTIAL_PATH" "$report_path"
+  REPORT_PARTIAL_PATH=""
+
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name 'rolebinding_deduplicate_????????_??????.tsv' -print |
+    sort -r |
+    awk 'NR > 10' |
+    while IFS= read -r old; do
+      [ -n "$old" ] && rm -f -- "$old"
+    done
+
+  echo "rolebinding deduplicate dry-run: result=success candidate_count=$candidate_count fingerprint=$fingerprint duplicate_state=$duplicate_state report=$(basename "$report_path") keep_order=granted_at,created_at,id"
+}
+
+require_recent_backup() {
+  prepare_backup_directory || return 1
+  local source_path="$BACKUP_DIR/$BACKUP_NAME" now modified age
+  if [ -L "$source_path" ] || [ ! -f "$source_path" ]; then
+    fail "required pre-operation backup is unavailable"
+    return 1
+  fi
+  if ! gzip -t "$source_path" 2>/dev/null; then
+    fail "required pre-operation backup failed integrity validation"
+    return 1
+  fi
+  now="$(date +%s)"
+  modified="$(stat -c %Y "$source_path" 2>/dev/null || true)"
+  if ! [[ "$modified" =~ ^[0-9]+$ ]]; then
+    fail "required pre-operation backup age is unavailable"
+    return 1
+  fi
+  age=$((now - modified))
+  if [ "$age" -lt 0 ] || [ "$age" -gt 86400 ]; then
+    fail "required pre-operation backup is older than 24 hours"
+    return 1
+  fi
+}
+
+rolebinding_deduplicate_apply() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  command -v gzip >/dev/null 2>&1 || { fail "gzip is unavailable"; return 1; }
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_rolebinding_deduplicate_apply.error"
+  require_rolebinding_cleanup_schema || return 1
+  require_recent_backup || return 1
+
+  local apply_state
+  if ! apply_state="$("$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw "$MYSQL_DBNAME" 2>"$ERROR_PATH" <<SQL
+SET SESSION group_concat_max_len = 1048576;
+SET autocommit = 0;
+LOCK TABLES authz_assignments AS binding WRITE;
+CREATE TEMPORARY TABLE rolebinding_deduplicate_candidates (
+  id BIGINT UNSIGNED NOT NULL PRIMARY KEY
+) ENGINE=InnoDB;
+CREATE TEMPORARY TABLE rolebinding_deduplicate_guard (
+  value TINYINT UNSIGNED NOT NULL PRIMARY KEY
+) ENGINE=InnoDB;
+INSERT INTO rolebinding_deduplicate_guard (value) VALUES (1);
+INSERT INTO rolebinding_deduplicate_candidates (id)
+SELECT id
+FROM (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY subject_type, subject_id, role_id, tenant_id
+      ORDER BY granted_at ASC, created_at ASC, id ASC
+    ) AS duplicate_rank
+  FROM authz_assignments AS binding
+  WHERE binding.deleted_at IS NULL
+) AS ranked
+WHERE duplicate_rank > 1;
+SET @candidate_count = (SELECT COUNT(*) FROM rolebinding_deduplicate_candidates);
+SET @candidate_hash = (
+  SELECT COALESCE(
+    SHA2(GROUP_CONCAT(CAST(id AS CHAR) ORDER BY id ASC SEPARATOR ','), 256),
+    SHA2('', 256)
+  )
+  FROM rolebinding_deduplicate_candidates
+);
+INSERT INTO rolebinding_deduplicate_guard (value)
+SELECT 1
+WHERE NOT (
+  @candidate_count = ${ROLEBINDING_CANDIDATE_COUNT}
+  AND @candidate_hash = '${ROLEBINDING_FINGERPRINT}'
+);
+UPDATE authz_assignments AS binding
+INNER JOIN rolebinding_deduplicate_candidates AS candidate ON candidate.id = binding.id
+SET
+  binding.deleted_at = CURRENT_TIMESTAMP,
+  binding.updated_at = CURRENT_TIMESTAMP,
+  binding.deleted_by = 0,
+  binding.updated_by = 0,
+  binding.version = binding.version + 1
+WHERE binding.deleted_at IS NULL;
+SET @affected_rows = ROW_COUNT();
+INSERT INTO rolebinding_deduplicate_guard (value)
+SELECT 1
+WHERE NOT (@affected_rows = @candidate_count);
+SET @duplicate_groups = (
+  SELECT COUNT(*)
+  FROM (
+    SELECT 1
+    FROM authz_assignments AS binding
+    WHERE binding.deleted_at IS NULL
+    GROUP BY binding.subject_type, binding.subject_id, binding.role_id, binding.tenant_id
+    HAVING COUNT(*) > 1
+  ) AS remaining_duplicate_groups
+);
+INSERT INTO rolebinding_deduplicate_guard (value)
+SELECT 1
+WHERE NOT (@duplicate_groups = 0);
+COMMIT;
+SELECT @candidate_count, @candidate_hash, @affected_rows, @duplicate_groups;
+UNLOCK TABLES;
+SQL
+)"; then
+    fail "RoleBinding deduplication apply failed"
+    return 1
+  fi
+  if [ "$apply_state" != "${ROLEBINDING_CANDIDATE_COUNT}"$'\t'"${ROLEBINDING_FINGERPRINT}"$'\t'"${ROLEBINDING_CANDIDATE_COUNT}"$'\t0' ]; then
+    fail "RoleBinding deduplication apply result is invalid"
+    return 1
+  fi
+  echo "rolebinding deduplicate apply: result=success candidate_count=$ROLEBINDING_CANDIDATE_COUNT fingerprint=$ROLEBINDING_FINGERPRINT soft_deleted=$ROLEBINDING_CANDIDATE_COUNT duplicate_groups=0 backup=$BACKUP_NAME"
 }
 
 performance_schema_status() {
@@ -477,6 +769,9 @@ main() {
     restore) restore_database ;;
     status) database_status ;;
     performance-schema-status) performance_schema_status ;;
+    rolebinding-guard-preflight) rolebinding_guard_preflight ;;
+    rolebinding-deduplicate-dry-run) rolebinding_deduplicate_dry_run ;;
+    rolebinding-deduplicate-apply) rolebinding_deduplicate_apply ;;
   esac
 }
 

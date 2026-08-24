@@ -2,12 +2,16 @@ package migration
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
+	"sync"
 	"testing"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
 func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
@@ -26,8 +30,8 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run full migration chain: %v", err)
 	}
-	if !migrated || version != 24 {
-		t.Fatalf("full migration result = version %d migrated=%v, want version 24 migrated=true", version, migrated)
+	if !migrated || version != 25 {
+		t.Fatalf("full migration result = version %d migrated=%v, want version 25 migrated=true", version, migrated)
 	}
 	db := openMigrationMySQL(t)
 	for _, retired := range []string{
@@ -57,6 +61,68 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	assertCurrentSchemaTables(t, db, database)
 	for _, retired := range []string{"tenants", "data_dictionary"} {
 		assertTableExists(t, db, retired, false)
+	}
+	assertMigratedRoleBindingGuardUnderConcurrency(t, db)
+}
+
+func assertMigratedRoleBindingGuardUnderConcurrency(t *testing.T, db *sql.DB) {
+	t.Helper()
+	const concurrency = 20
+	const baseID uint64 = 9_250_000_000_000_000_000
+
+	var wg sync.WaitGroup
+	errs := make(chan error, concurrency)
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(offset int) {
+			defer wg.Done()
+			_, err := db.Exec(`
+INSERT INTO authz_assignments
+    (id, subject_type, subject_id, role_id, tenant_id, granted_by, granted_at)
+VALUES (?, 'user', 'migration-concurrency-user', 424242, 'migration-concurrency-tenant', 'migration-test', UTC_TIMESTAMP())`,
+				baseID+uint64(offset),
+			)
+			errs <- err
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+
+	successes := 0
+	duplicates := 0
+	for err := range errs {
+		if err == nil {
+			successes++
+			continue
+		}
+		var mysqlErr *mysqldriver.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+			duplicates++
+			continue
+		}
+		t.Fatalf("concurrent role binding insert failed unexpectedly: %v", err)
+	}
+	if successes != 1 || duplicates != concurrency-1 {
+		t.Fatalf("migrated active RoleBinding guard successes/duplicates = %d/%d, want 1/%d", successes, duplicates, concurrency-1)
+	}
+
+	if _, err := db.Exec(`
+UPDATE authz_assignments
+SET deleted_at = UTC_TIMESTAMP()
+WHERE subject_type = 'user'
+  AND subject_id = 'migration-concurrency-user'
+  AND role_id = 424242
+  AND tenant_id = 'migration-concurrency-tenant'
+  AND deleted_at IS NULL`); err != nil {
+		t.Fatalf("mark migrated role binding historical: %v", err)
+	}
+	if _, err := db.Exec(`
+INSERT INTO authz_assignments
+    (id, subject_type, subject_id, role_id, tenant_id, granted_by, granted_at)
+VALUES (?, 'user', 'migration-concurrency-user', 424242, 'migration-concurrency-tenant', 'migration-test', UTC_TIMESTAMP())`,
+		baseID+concurrency+1,
+	); err != nil {
+		t.Fatalf("re-grant after historical role binding: %v", err)
 	}
 }
 

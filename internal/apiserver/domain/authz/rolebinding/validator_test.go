@@ -7,7 +7,6 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	binding "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
-	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -18,7 +17,7 @@ import (
 // Use shared testhelpers stubs to avoid duplication. Tests run as external package to avoid import cycles.
 
 func TestValidateGrantAndRevokeCommands_Invalids(t *testing.T) {
-	v := binding.NewValidator(&testhelpers.BindingRepoStub{}, &testhelpers.RoleRepoStub{}, testhelpers.NewUserRepoStub())
+	v := binding.NewValidator(&testhelpers.BindingRepoStub{}, &testhelpers.RoleRepoStub{}, testhelpers.NewUserResolverStub())
 
 	// empty grant command
 	err := v.ValidateGrantParameters("", 0, 0, "", "")
@@ -49,7 +48,7 @@ func TestValidateGrantAndRevokeCommands_Invalids(t *testing.T) {
 }
 
 func TestValidateRevokeByIDParameters_Invalid(t *testing.T) {
-	v := binding.NewValidator(&testhelpers.BindingRepoStub{}, &testhelpers.RoleRepoStub{}, testhelpers.NewUserRepoStub())
+	v := binding.NewValidator(&testhelpers.BindingRepoStub{}, &testhelpers.RoleRepoStub{}, testhelpers.NewUserResolverStub())
 	// zero binding id
 	err := v.ValidateRevokeByIDParameters(binding.NewBindingID(0), "")
 	require.Error(t, err)
@@ -59,14 +58,14 @@ func TestValidateRevokeByIDParameters_Invalid(t *testing.T) {
 func TestCheckRoleExists_NotFoundAndTenantMismatch(t *testing.T) {
 	// role not found -> should map to ErrRoleNotFound
 	repoNotFound := &testhelpers.RoleRepoStub{R: nil, Err: perrors.WithCode(code.ErrRoleNotFound, "notfound")}
-	v1 := binding.NewValidator(&testhelpers.BindingRepoStub{}, repoNotFound, testhelpers.NewUserRepoStub())
+	v1 := binding.NewValidator(&testhelpers.BindingRepoStub{}, repoNotFound, testhelpers.NewUserResolverStub())
 	err := v1.CheckRoleExists(context.Background(), meta.FromUint64(100), "t1")
 	require.Error(t, err)
 	assert.True(t, perrors.IsCode(err, code.ErrRoleNotFound))
 
 	// tenant mismatch
 	repo := &testhelpers.RoleRepoStub{R: &role.Role{TenantID: "other"}, Err: nil}
-	v2 := binding.NewValidator(&testhelpers.BindingRepoStub{}, repo, testhelpers.NewUserRepoStub())
+	v2 := binding.NewValidator(&testhelpers.BindingRepoStub{}, repo, testhelpers.NewUserResolverStub())
 	err = v2.CheckRoleExists(context.Background(), meta.FromUint64(100), "tenant-a")
 	require.Error(t, err)
 	assert.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
@@ -75,7 +74,7 @@ func TestCheckRoleExists_NotFoundAndTenantMismatch(t *testing.T) {
 func TestFindBindingBySubjectAndRole_FoundAndNotFound(t *testing.T) {
 	a1 := &binding.Binding{SubjectType: binding.SubjectTypeUser, SubjectID: meta.FromUint64(1), RoleID: meta.FromUint64(11), TenantID: "t"}
 	repo := &testhelpers.BindingRepoStub{Bindings: []*binding.Binding{a1}, Err: nil}
-	v := binding.NewValidator(repo, &testhelpers.RoleRepoStub{}, testhelpers.NewUserRepoStub())
+	v := binding.NewValidator(repo, &testhelpers.RoleRepoStub{}, testhelpers.NewUserResolverStub())
 
 	asg, err := v.FindBindingBySubjectAndRole(context.Background(), binding.SubjectTypeUser, meta.FromUint64(1), meta.FromUint64(11), "t")
 	require.NoError(t, err)
@@ -84,7 +83,7 @@ func TestFindBindingBySubjectAndRole_FoundAndNotFound(t *testing.T) {
 
 	// not found
 	repoEmpty := &testhelpers.BindingRepoStub{Bindings: []*binding.Binding{}, Err: nil}
-	v2 := binding.NewValidator(repoEmpty, &testhelpers.RoleRepoStub{}, testhelpers.NewUserRepoStub())
+	v2 := binding.NewValidator(repoEmpty, &testhelpers.RoleRepoStub{}, testhelpers.NewUserResolverStub())
 	asg2, err2 := v2.FindBindingBySubjectAndRole(context.Background(), binding.SubjectTypeUser, meta.FromUint64(1), meta.FromUint64(99), "t")
 	require.Error(t, err2)
 	assert.Nil(t, asg2)
@@ -92,10 +91,9 @@ func TestFindBindingBySubjectAndRole_FoundAndNotFound(t *testing.T) {
 }
 
 func TestCheckSubjectExists_OnlySupportsExistingUsers(t *testing.T) {
-	userRepo := testhelpers.NewUserRepoStub()
-	userRepo.UsersByID[123] = &userDomain.User{ID: meta.FromUint64(123)}
+	userResolver := testhelpers.NewUserResolverStub(meta.FromUint64(123))
 
-	v := binding.NewValidator(&testhelpers.BindingRepoStub{}, &testhelpers.RoleRepoStub{}, userRepo)
+	v := binding.NewValidator(&testhelpers.BindingRepoStub{}, &testhelpers.RoleRepoStub{}, userResolver)
 
 	err := v.CheckSubjectExists(context.Background(), binding.SubjectTypeGroup, meta.FromUint64(1), "t1")
 	require.Error(t, err)

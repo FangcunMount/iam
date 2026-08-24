@@ -8,7 +8,6 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
-	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -18,9 +17,8 @@ import (
 func TestSubjectResolverRegistryResolvesUsersAndRejectsUnsupportedSubjects(t *testing.T) {
 	t.Parallel()
 
-	userRepo := testhelpers.NewUserRepoStub()
-	userRepo.UsersByID[123] = &userDomain.User{ID: meta.FromUint64(123)}
-	registry := rolebinding.NewSubjectResolverRegistry(rolebinding.NewUserSubjectResolver(userRepo))
+	userResolver := testhelpers.NewUserResolverStub(meta.FromUint64(123))
+	registry := rolebinding.NewSubjectResolverRegistry(rolebinding.NewUserSubjectResolver(userResolver))
 	tenantID, err := tenant.NewID("tenant-a")
 	require.NoError(t, err)
 
@@ -39,7 +37,7 @@ func TestSubjectResolverRegistryResolvesUsersAndRejectsUnsupportedSubjects(t *te
 func TestUserSubjectResolverReportsMissingUsers(t *testing.T) {
 	t.Parallel()
 
-	registry := rolebinding.NewSubjectResolverRegistry(rolebinding.NewUserSubjectResolver(testhelpers.NewUserRepoStub()))
+	registry := rolebinding.NewSubjectResolverRegistry(rolebinding.NewUserSubjectResolver(testhelpers.NewUserResolverStub()))
 	tenantID, err := tenant.NewID("tenant-a")
 	require.NoError(t, err)
 	userRef, err := subject.NewUserRef(meta.FromUint64(404))

@@ -41,7 +41,7 @@ User blocked 后已有 Session 可能尚在 Redis；Session revoke 是派生收�
 
 ## 3. AuthN 与 IDP
 
-IDP 管理 provider 应用配置、AppSecret 和 provider AppToken，并提供“code 换外部身份”的适配能力。AuthN 决定这个外部身份是 Login、Linking 还是 SignUp。
+IDP 管理 provider 应用配置、AppSecret 和 provider AppToken，并通过窄 `ExternalIdentity Resolver` 完成应用查询、密钥解密和 code exchange。AuthN 只提交 provider/realm/code、消费标准结果，再决定这个外部身份用于 Login、Linking 还是 SignUp。
 
 | IDP 概念 | AuthN 概念 | 为什么不同 |
 | --- | --- | --- |
@@ -51,11 +51,11 @@ IDP 管理 provider 应用配置、AppSecret 和 provider AppToken，并提供�
 | openid/unionid/userid | LoginIdentity ProviderKey 的组成 | 外部标识还未映射为 IAM User |
 | provider code/state | 一次性 proof/challenge | 不能长期保存为 credential |
 
-外部 API 调用必须在本地数据库事务外完成，返回 request-local 的 prepared identity。AuthN 再在短事务中 ensure 本地事实。
+外部 API 调用必须在本地数据库事务外完成，返回 request-local、不可直接登录的 `ExternalIdentity`。AuthN 把它映射为既有认证输入或 ProviderKey，再在短事务中 ensure 本地事实。
 
 ### 信任边界
 
-公共 REST SignUp 只接受 appID + jsCode，由服务端查 IDP 配置、解密 AppSecret 并调用 provider；它不应直接信任调用方提供的 openid。应用层内部结构允许预解析 openid/unionid，是受信任内部调用能力，不等价于公开协议。
+公共 REST SignUp 只接受 appID + jsCode，由 IDP Resolver 查配置、解密 AppSecret 并调用 provider；它不应直接信任调用方提供的 openid。应用层内部保留的预解析 openid/unionid 分支标记为请求内 `TrustedLegacyInput`，不会伪装为 provider 已验证结果，也不进入公共协议、数据库 Metadata 或 `VerifiedAt`。
 
 ## 4. AuthN 与 AuthZ
 
@@ -117,7 +117,7 @@ AuthN 只负责让请求上下文拥有可信身份；Suggest 自己负责关键
 
 - AuthN/Identity 状态检查：`domain/authn/session/evaluator.go`
 - SignUp UoW：`application/authn/signup`、`infra/mysql/uow/authn`
-- IDP proof：`application/authn/signin/proof`、`application/idp/prepare`
+- IDP proof：`application/authn/signin/proof`、`application/idp/externalidentity`
 - AuthN 组合根：`container/authn/application.go`、`container/authn/infra.go`
 - AuthZ Subject：`domain/authz/subject`
 - request context：`internal/pkg/requestctx`、`internal/pkg/middleware/authn`

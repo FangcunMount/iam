@@ -36,6 +36,9 @@ func (noopTokenStore) RotateRefreshToken(context.Context, string, string, *token
 func (noopTokenStore) GetRefreshToken(context.Context, string) (*tokenapp.Token, error) {
 	return nil, nil
 }
+func (noopTokenStore) GetConsumedRefreshToken(context.Context, string) (*tokenapp.ConsumedRefreshToken, error) {
+	return nil, nil
+}
 func (noopTokenStore) DeleteRefreshToken(context.Context, string) error { return nil }
 func (noopTokenStore) MarkAccessTokenRevoked(context.Context, string, time.Duration) error {
 	return nil

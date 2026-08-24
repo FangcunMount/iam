@@ -18,8 +18,19 @@ on:
           - restore
           - status
           - performance-schema-status
+          - rolebinding-guard-preflight
+          - rolebinding-deduplicate-dry-run
+          - rolebinding-deduplicate-apply
       backup_name:
-        description: Backup name, required for restore
+        description: Backup name, required for restore and RoleBinding apply
+        required: false
+        type: string
+      candidate_fingerprint:
+        description: Exact dry-run fingerprint, required for RoleBinding apply
+        required: false
+        type: string
+      candidate_count:
+        description: Exact dry-run candidate count, required for RoleBinding apply
         required: false
         type: string
   schedule:
@@ -143,3 +154,102 @@ jobs:
           envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
           script_path: scripts/dbops/database-operation.sh
           command_timeout: 20m
+
+  db-rolebinding-guard-preflight:
+    name: RoleBinding Guard Preflight
+    if: github.event.inputs.operation == 'rolebinding-guard-preflight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    concurrency:
+      group: iam-production-controlled-database-operation
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check active RoleBinding uniqueness
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_DB_OPS_OPERATION: rolebinding-guard-preflight
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
+
+  db-rolebinding-deduplicate-dry-run:
+    name: RoleBinding Deduplicate Dry Run
+    if: github.event.inputs.operation == 'rolebinding-deduplicate-dry-run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    concurrency:
+      group: iam-production-controlled-database-operation
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build deterministic candidate report
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_DB_OPS_OPERATION: rolebinding-deduplicate-dry-run
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
+
+  db-rolebinding-deduplicate-apply:
+    name: RoleBinding Deduplicate Apply
+    if: github.event.inputs.operation == 'rolebinding-deduplicate-apply'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    concurrency:
+      group: iam-production-controlled-database-operation
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Soft-delete the exact reviewed candidate set
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          IAM_DB_OPS_OPERATION: rolebinding-deduplicate-apply
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          IAM_DB_OPS_BACKUP_NAME: ${{ github.event.inputs.backup_name }}
+          IAM_DB_OPS_ROLEBINDING_FINGERPRINT: ${{ github.event.inputs.candidate_fingerprint }}
+          IAM_DB_OPS_ROLEBINDING_CANDIDATE_COUNT: ${{ github.event.inputs.candidate_count }}
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,IAM_DB_OPS_BACKUP_NAME,IAM_DB_OPS_ROLEBINDING_FINGERPRINT,IAM_DB_OPS_ROLEBINDING_CANDIDATE_COUNT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh

@@ -101,7 +101,7 @@ func (s *PolicyAdministration) BindRoleToSubject(
 
 	var newBinding *bindingDomain.Binding
 	err = s.committer.Commit(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) (policyDomain.PolicyChange, error) {
-		txValidator := bindingDomain.NewValidator(tx.Bindings, tx.Roles, tx.Users)
+		txValidator := bindingDomain.NewValidator(tx.Bindings, tx.Roles, tx.UserResolver)
 		if err := txValidator.CheckRoleExists(txCtx, roleID, tenantID); err != nil {
 			return policyDomain.PolicyChange{}, err
 		}

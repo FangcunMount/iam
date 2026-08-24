@@ -7,10 +7,13 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	idpidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
@@ -66,6 +69,31 @@ func TestSignInChecksSubjectAccessBeforeIssuingTokens(t *testing.T) {
 	}
 }
 
+func TestSignInProviderExchangeFailureKeepsPublicContract(t *testing.T) {
+	resolutionErr := &idpresolver.ResolutionError{
+		Kind:     idpresolver.ErrorProviderExchange,
+		Provider: idpidentity.ProviderWechatMinip,
+		Realm:    "mini-app",
+	}
+	proofErr := authnexternal.MapLoginProofError(context.Background(), resolutionErr, "wechat_minip")
+	usecase := New(Dependencies{
+		MethodRegistry: signInMethodRegistryStub{},
+		ProofFactory:   signInProofFactoryErrorStub{err: proofErr},
+	})
+
+	credential, err := usecase.buildCredential(context.Background(), method.LoginRequest{})
+	if credential != nil {
+		t.Fatalf("buildCredential() credential = %#v, want nil", credential)
+	}
+	coder := perrors.ParseCoder(err)
+	if got := coder.Code(); got != code.ErrInternalServerError {
+		t.Fatalf("buildCredential() error code = %d, want %d, err = %v", got, code.ErrInternalServerError, err)
+	}
+	if got := coder.String(); got != "Internal server error" {
+		t.Fatalf("buildCredential() public message = %q, want %q", got, "Internal server error")
+	}
+}
+
 type signInCredentialStub struct{}
 
 func (signInCredentialStub) CredentialKind() authentication.CredentialKind {
@@ -82,6 +110,14 @@ type signInProofFactoryStub struct{}
 
 func (signInProofFactoryStub) Build(context.Context, method.LoginMethodSelection) (authentication.AuthCredential, error) {
 	return signInCredentialStub{}, nil
+}
+
+type signInProofFactoryErrorStub struct {
+	err error
+}
+
+func (s signInProofFactoryErrorStub) Build(context.Context, method.LoginMethodSelection) (authentication.AuthCredential, error) {
+	return nil, s.err
 }
 
 type signInStrategyStub struct {

@@ -16,7 +16,7 @@ IDP 管理微信/企微应用配置、敏感凭据、provider AppToken 和外部
 
 ```text
 Provider app / secret / provider token
-  -> IDP adapter 得到外部身份声明
+  -> IDP Resolver 产出 request-local ExternalIdentity
   -> AuthN LoginIdentity / Principal / Session
   -> Identity User
 ```

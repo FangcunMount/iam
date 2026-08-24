@@ -11,11 +11,12 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	authnUow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/uow"
+	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
-	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	redisInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
 	credentialrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/credential"
 	jwksMysql "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/jwks"
@@ -24,7 +25,6 @@ import (
 	mysqluser "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/user"
 	jwtinfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/jwt"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/keyset"
-	wechatInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechat"
 	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 	"github.com/FangcunMount/iam/v3/pkg/event"
@@ -40,7 +40,7 @@ type authnInfrastructureComponents struct {
 	loginIdentityStore *loginidentityrepo.Repository
 	challengeRepo      *redisInfra.ChallengeRepository
 	otpRedis           *redisInfra.OTPVerifierImpl
-	idp                authentication.IdentityProvider
+	externalResolver   externalidentity.Resolver
 	accessChecker      sessionDomain.SubjectAccessEvaluator
 
 	keyRepo           keyset.Repository
@@ -54,11 +54,7 @@ type authnInfrastructureComponents struct {
 
 	tokenStore   *redisInfra.RedisStore
 	sessionStore *redisInfra.SessionStore
-
-	userRepo userDomain.Repository
-
-	wechatAppQuerier idpPort.Repository
-	secretVault      idpPort.SecretVault
+	userRepo     userDomain.Repository
 
 	eventPublisher event.Publisher
 }
@@ -68,6 +64,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	redisClient *redis.Client,
 	idpDeps *idp.IDPModule,
 	eventPublisher event.Publisher,
+	userStatusReader useraccess.UserStatusReader,
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
 	jwksOptions apiserveroptions.JWKSOptions,
@@ -91,14 +88,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	m.challengeInspectorSource = infra.challengeRepo
 
 	if idpDeps != nil {
-		infra.wechatAppQuerier = idpDeps.Repository()
-		infra.secretVault = idpDeps.SecretVault()
-		if provider := idpDeps.WechatAuthProvider(); provider != nil {
-			infra.idp = wechatInfra.NewIdentityProvider(provider, nil)
-		}
-	}
-	if infra.idp == nil {
-		infra.idp = wechatInfra.NewIdentityProvider(nil, nil)
+		infra.externalResolver = idpDeps.ExternalIdentityResolver()
 	}
 
 	infra.keyRepo = jwksMysql.NewKeyRepository(db)
@@ -111,9 +101,11 @@ func (m *AuthnModule) initializeInfrastructure(
 	m.tokenStoreInspectorSource = infra.tokenStore
 	infra.sessionStore = redisInfra.NewSessionStore(redisClient)
 	m.sessionStoreInspector = infra.sessionStore
-
+	// Signup is a cross-module transaction that creates/repairs the User aggregate.
+	// Status reads used by authentication flow through the injected narrow capability below.
 	infra.userRepo = mysqluser.NewRepository(db)
-	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(infra.userRepo, loginIdentityRepo)
+
+	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(userStatusReader, loginIdentityRepo)
 
 	return infra, nil
 }

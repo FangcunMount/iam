@@ -88,13 +88,14 @@ func authnEventingDeps(t *testing.T, db *gorm.DB, redisClient *goredis.Client, p
 	jwksOptions.AutoInit = true
 	jwksOptions.KeysDir = t.TempDir()
 	return AuthnModuleDeps{
-		DB:             db,
-		RedisClient:    redisClient,
-		EventPublisher: publisher,
-		Environment:    genericapiserver.EnvironmentTest,
-		Auth:           *apiserveroptions.NewAuthOptions(),
-		JWKS:           jwksOptions,
-		SMS:            smsOptions,
+		DB:               db,
+		RedisClient:      redisClient,
+		EventPublisher:   publisher,
+		Environment:      genericapiserver.EnvironmentTest,
+		Auth:             *apiserveroptions.NewAuthOptions(),
+		JWKS:             jwksOptions,
+		SMS:              smsOptions,
+		UserStatusReader: authnUserStatusReaderStub{},
 	}
 }
 

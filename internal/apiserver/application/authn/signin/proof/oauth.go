@@ -2,25 +2,24 @@ package proof
 
 import (
 	"context"
-	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/component-base/pkg/logger"
+	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
-	idpprepare "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/prepare"
+	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	idpPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/wechatapp"
+	idpidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // wechatBuilder 微信小程序登录方式构造器
 type wechatBuilder struct {
-	deps idpprepare.Dependencies
+	resolver idpresolver.Resolver
 }
 
 // newWechatBuilder 创建微信小程序登录方式构造器
-func newWechatBuilder(repo idpPort.Repository, vault idpPort.SecretVault) Builder {
-	return &wechatBuilder{deps: idpprepare.Dependencies{Apps: repo, Vault: vault}}
+func newWechatBuilder(resolver idpresolver.Resolver) Builder {
+	return &wechatBuilder{resolver: resolver}
 }
 
 // CredentialKind 返回认证证明类型
@@ -35,38 +34,40 @@ func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, commo
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid wechat payload")
 	}
 
-	appSecret, err := idpprepare.ResolveAppSecret(ctx, b.deps, idpprepare.Options{
-		Provider:       idpprepare.ProviderWechat,
-		Surface:        idpprepare.SurfaceLoginProof,
-		AppID:          wechatMiniPayload.AppID,
-		CredentialKind: string(method.CredentialKindWechatMinip),
+	if b.resolver == nil {
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "wechat app configuration service not available")
+	}
+	resolved, err := b.resolver.Resolve(ctx, idpresolver.ResolveRequest{
+		Provider: idpidentity.ProviderWechatMinip,
+		Realm:    wechatMiniPayload.AppID,
+		Code:     wechatMiniPayload.JSCode,
 	})
 	if err != nil {
-		return nil, err
+		return nil, authnexternal.MapLoginProofError(ctx, err, string(method.CredentialKindWechatMinip))
+	}
+	identity, err := authnexternal.Wechat(resolved)
+	if err != nil {
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "failed to map wechat external identity: %v", err)
 	}
 
 	return authentication.NewWechatMiniCredential(authentication.WechatMiniProofSpec{
 		TenantID:  common.TenantID,
 		RemoteIP:  common.RemoteIP,
 		UserAgent: common.UserAgent,
-		AppID:     wechatMiniPayload.AppID,
-		AppSecret: appSecret,
-		Code:      wechatMiniPayload.JSCode,
+		AppID:     identity.Realm,
+		OpenID:    identity.OpenID,
+		UnionID:   identity.UnionID,
 	})
 }
 
 // wecomBuilder 企业微信登录方式构造器
 type wecomBuilder struct {
-	deps   idpprepare.Dependencies
-	config WecomConfig
+	resolver idpresolver.Resolver
 }
 
 // newWecomBuilder 创建企业微信登录方式构造器
-func newWecomBuilder(repo idpPort.Repository, vault idpPort.SecretVault, config WecomConfig) Builder {
-	return &wecomBuilder{
-		deps:   idpprepare.Dependencies{Apps: repo, Vault: vault},
-		config: config,
-	}
+func newWecomBuilder(resolver idpresolver.Resolver) Builder {
+	return &wecomBuilder{resolver: resolver}
 }
 
 // CredentialKind 返回认证证明类型
@@ -81,46 +82,28 @@ func (b *wecomBuilder) Build(ctx context.Context, payload method.Payload, common
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid wecom payload")
 	}
 
-	appConfig, err := b.prepareWecomAppConfig(ctx, wecomPayload)
+	if b.resolver == nil {
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "wecom app configuration service not available")
+	}
+	resolved, err := b.resolver.Resolve(ctx, idpresolver.ResolveRequest{
+		Provider: idpidentity.ProviderWecom,
+		Realm:    wecomPayload.CorpID,
+		Code:     wecomPayload.Code,
+	})
 	if err != nil {
-		return nil, err
+		return nil, authnexternal.MapLoginProofError(ctx, err, string(method.CredentialKindWecom))
+	}
+	identity, err := authnexternal.Wecom(resolved)
+	if err != nil {
+		return nil, perrors.WithCode(code.ErrProofBuildFailed, "failed to map wecom external identity: %v", err)
 	}
 
 	return authentication.NewWecomCredential(authentication.WecomProofSpec{
 		TenantID:   common.TenantID,
 		RemoteIP:   common.RemoteIP,
 		UserAgent:  common.UserAgent,
-		CorpID:     wecomPayload.CorpID,
-		AgentID:    appConfig.agentID,
-		CorpSecret: appConfig.corpSecret,
-		Code:       wecomPayload.Code,
+		CorpID:     identity.Realm,
+		UserID:     identity.UserID,
+		OpenUserID: identity.OpenUserID,
 	})
-}
-
-type wecomAppConfig struct {
-	agentID    string
-	corpSecret string
-}
-
-func (b *wecomBuilder) prepareWecomAppConfig(ctx context.Context, payload method.WecomPayload) (wecomAppConfig, error) {
-	agentID := strings.TrimSpace(b.config.AgentID)
-	if agentID == "" {
-		logger.L(ctx).Errorw("企业微信应用 agent_id 未配置",
-			"action", logger.ActionLogin,
-			"credential_kind", string(method.CredentialKindWecom),
-			"corp_id", payload.CorpID,
-		)
-		return wecomAppConfig{}, perrors.WithCode(code.ErrProofBuildFailed, "wecom agent_id is required in server configuration")
-	}
-
-	corpSecret, err := idpprepare.ResolveAppSecret(ctx, b.deps, idpprepare.Options{
-		Provider:       idpprepare.ProviderWecom,
-		Surface:        idpprepare.SurfaceLoginProof,
-		AppID:          payload.CorpID,
-		CredentialKind: string(method.CredentialKindWecom),
-	})
-	if err != nil {
-		return wecomAppConfig{}, err
-	}
-	return wecomAppConfig{agentID: agentID, corpSecret: corpSecret}, nil
 }

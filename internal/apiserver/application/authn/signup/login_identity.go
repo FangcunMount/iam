@@ -11,8 +11,16 @@ import (
 
 // loginIdentityPrepareDeps 登录身份准备依赖。
 type loginIdentityPrepareDeps struct {
-	wechatIdentityResolver *wechatIdentityResolver
+	externalIdentityResolver externalIdentityResolver
 }
+
+type loginIdentitySource uint8
+
+const (
+	loginIdentitySourceLocal loginIdentitySource = iota + 1
+	loginIdentitySourceProviderVerified
+	loginIdentitySourceTrustedLegacyInput
+)
 
 // preparedLoginIdentity 准备后的登录身份。
 type preparedLoginIdentity struct {
@@ -21,6 +29,7 @@ type preparedLoginIdentity struct {
 	Meta                   map[string]string
 	NeedPasswordCredential bool
 	AllowUserRepair        bool
+	Source                 loginIdentitySource
 }
 
 // prepareSignupLoginIdentity 准备登录身份。
@@ -46,6 +55,7 @@ func preparedFromProviderKey(
 		Meta:                   cloneStringMap(metaData),
 		NeedPasswordCredential: needPasswordCredential,
 		AllowUserRepair:        allowUserRepair,
+		Source:                 loginIdentitySourceLocal,
 	}, nil
 }
 

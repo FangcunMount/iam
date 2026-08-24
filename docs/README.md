@@ -30,7 +30,7 @@ IAM 不只是“登录 + 权限接口”。它同时处理内部身份、外部�
 
 ```mermaid
 flowchart LR
-    Provider["Wechat / WeCom"] --> IDP["IDP\n外部身份与应用凭据"]
+    Provider["Wechat / WeCom"] --> IDP["IDP\nExternalIdentity / 应用凭据"]
     IDP --> AuthN["AuthN\nLoginIdentity / Principal\nSession / Token"]
     Identity["Identity\nUser / Profile / ProfileLink"] <--> AuthN
     AuthN --> AuthZ["AuthZ\nSubject / Role / Permission\nResource Check"]
@@ -117,7 +117,7 @@ docs/
 
 ### 4.4 面试与架构评审
 
-先用 [面试索引](07-面试索引/README.md) 组织 90 秒介绍和三个案例，再回到模块正文与专题验证细节：
+先用 [面试索引](07-面试索引/README.md) 选择可公开的结论和个人贡献口径，以 [IAM 系统演讲稿](07-面试索引/02-IAM系统演讲稿.md) 作为现场展示页面，再用 [IAM 系统演讲底稿](07-面试索引/01-IAM系统演讲底稿.md) 练习 90 秒、5 分钟和 15 分钟讲述，最后回到模块正文与专题验证细节：
 
 1. [身份、认证与授权边界](06-专题设计/01-身份认证与授权边界.md)
 2. [事务、缓存与事件的一致性谱系](06-专题设计/02-事务缓存与事件一致性.md)

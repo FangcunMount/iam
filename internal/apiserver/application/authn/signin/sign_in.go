@@ -5,6 +5,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/authfailure"
+	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/principal"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/subjectaccess"
@@ -96,6 +97,9 @@ func (s *SignIn) buildCredential(ctx context.Context, cmd method.LoginRequest) (
 	// 构建领域认证凭据
 	credential, err := s.deps.ProofFactory.Build(ctx, selection)
 	if err != nil {
+		if cause, ok := authnexternal.AuthenticationCause(err); ok {
+			return nil, perrors.WrapC(cause, code.ErrInternalServerError, "failed to authenticate")
+		}
 		return nil, wrapStageError(err, code.ErrProofBuildFailed, "failed to build credential")
 	}
 	return credential, nil

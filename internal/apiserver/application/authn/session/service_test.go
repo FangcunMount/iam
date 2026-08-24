@@ -73,7 +73,7 @@ func newSessionServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicati
 		TokenService:       tokenService,
 		Authenticator:      auth,
 		MethodRegistry:     method.DefaultSelector(),
-		ProofFactory:       proof.DefaultFactory(nil, nil, proof.WecomConfig{}, nil),
+		ProofFactory:       proof.DefaultFactory(nil, nil),
 		CredentialRecorder: nil,
 		AccessChecker:      sessionSubjectAccessEvaluatorStub{},
 	})

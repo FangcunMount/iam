@@ -39,12 +39,13 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	jwksOptions.AutoInit = true
 	jwksOptions.KeysDir = t.TempDir()
 	if err := module.InitializeWithDeps(AuthnModuleDeps{
-		DB:          db,
-		RedisClient: redisClient,
-		Environment: genericapiserver.EnvironmentTest,
-		Auth:        *apiserveroptions.NewAuthOptions(),
-		JWKS:        jwksOptions,
-		SMS:         *apiserveroptions.NewSMSOptions(),
+		DB:               db,
+		RedisClient:      redisClient,
+		Environment:      genericapiserver.EnvironmentTest,
+		Auth:             *apiserveroptions.NewAuthOptions(),
+		JWKS:             jwksOptions,
+		SMS:              *apiserveroptions.NewSMSOptions(),
+		UserStatusReader: authnUserStatusReaderStub{},
 	}); err != nil {
 		t.Fatalf("AuthnModule.Initialize() error = %v", err)
 	}
@@ -64,6 +65,7 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	}
 	assertInspectorFamilies(t, module.CacheFamilyInspectors(), []cachemodel.Family{
 		cachemodel.FamilyAuthnRefreshToken,
+		cachemodel.FamilyAuthnConsumedRefreshToken,
 		cachemodel.FamilyAuthnRevokedAccessToken,
 		cachemodel.FamilyAuthnSession,
 		cachemodel.FamilyAuthnUserSessionIndex,

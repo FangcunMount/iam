@@ -206,7 +206,7 @@ jobs:
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
             -e 'DROP DATABASE IF EXISTS iam_dbops_fixture; CREATE DATABASE iam_dbops_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" "$MYSQL_DBNAME" \
-            -e 'CREATE TABLE auth_credentials (id BIGINT PRIMARY KEY); CREATE TABLE auth_login_identities (id BIGINT PRIMARY KEY); CREATE TABLE authz_assignments (id BIGINT PRIMARY KEY); CREATE TABLE authz_policy_versions (id BIGINT PRIMARY KEY); CREATE TABLE authz_resources (id BIGINT PRIMARY KEY); CREATE TABLE authz_roles (id BIGINT PRIMARY KEY); CREATE TABLE casbin_rule (id BIGINT PRIMARY KEY); CREATE TABLE domain_event_outbox (id BIGINT PRIMARY KEY); CREATE TABLE identity_session_revocation_outbox (id BIGINT PRIMARY KEY); CREATE TABLE idp_wechat_apps (id BIGINT PRIMARY KEY); CREATE TABLE jwks_keys (id BIGINT PRIMARY KEY); CREATE TABLE profile_links (id BIGINT PRIMARY KEY); CREATE TABLE profiles (id BIGINT PRIMARY KEY); CREATE TABLE users (id BIGINT PRIMARY KEY); CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL); INSERT INTO schema_migrations VALUES (24, 0); CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored");'
+            -e 'CREATE TABLE auth_credentials (id BIGINT PRIMARY KEY); CREATE TABLE auth_login_identities (id BIGINT PRIMARY KEY); CREATE TABLE authz_assignments (id BIGINT PRIMARY KEY); CREATE TABLE authz_policy_versions (id BIGINT PRIMARY KEY); CREATE TABLE authz_resources (id BIGINT PRIMARY KEY); CREATE TABLE authz_roles (id BIGINT PRIMARY KEY); CREATE TABLE casbin_rule (id BIGINT PRIMARY KEY); CREATE TABLE domain_event_outbox (id BIGINT PRIMARY KEY); CREATE TABLE identity_session_revocation_outbox (id BIGINT PRIMARY KEY); CREATE TABLE idp_wechat_apps (id BIGINT PRIMARY KEY); CREATE TABLE jwks_keys (id BIGINT PRIMARY KEY); CREATE TABLE profile_links (id BIGINT PRIMARY KEY); CREATE TABLE profiles (id BIGINT PRIMARY KEY); CREATE TABLE users (id BIGINT PRIMARY KEY); CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL); INSERT INTO schema_migrations VALUES (25, 0); CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored");'
 
           IAM_DB_OPS_OPERATION=backup scripts/dbops/database-operation.sh
           backup_name="$(find "$IAM_DB_OPS_BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_*.sql.gz' -exec basename {} \;)"
@@ -220,6 +220,82 @@ jobs:
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" "$MYSQL_DBNAME" \
             -e 'DROP TABLE restore_fixture;'
           IAM_DB_OPS_OPERATION=status scripts/dbops/database-operation.sh
+
+      - name: Verify guarded RoleBinding deduplication with MySQL 8
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: ${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}
+          MYSQL_DBNAME: iam_rolebinding_cleanup_fixture
+          IAM_DB_OPS_BACKUP_DIR: ${{ runner.temp }}/iam-rolebinding-cleanup-backups
+        run: |
+          set -euo pipefail
+          export MYSQL_PWD="$MYSQL_PASSWORD"
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
+            -e 'DROP DATABASE IF EXISTS iam_rolebinding_cleanup_fixture; CREATE DATABASE iam_rolebinding_cleanup_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" "$MYSQL_DBNAME" <<'SQL'
+          CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL);
+          INSERT INTO schema_migrations VALUES (24, 0);
+          CREATE TABLE authz_assignments (
+            id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+            subject_type VARCHAR(16) NOT NULL,
+            subject_id VARCHAR(64) NOT NULL,
+            role_id BIGINT UNSIGNED NOT NULL,
+            tenant_id VARCHAR(64) NOT NULL,
+            granted_by VARCHAR(64) NULL,
+            granted_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            deleted_at DATETIME NULL,
+            created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            updated_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            deleted_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            version INT UNSIGNED NOT NULL DEFAULT 1
+          );
+          INSERT INTO authz_assignments
+            (id, subject_type, subject_id, role_id, tenant_id, granted_at, created_at, updated_at, deleted_at)
+          VALUES
+            (10, 'user', '7', 31, 'tenant-a', '2026-08-01 00:00:00', '2026-08-01 00:00:00', '2026-08-01 00:00:00', NULL),
+            (11, 'user', '7', 31, 'tenant-a', '2026-08-01 00:00:01', '2026-08-01 00:00:01', '2026-08-01 00:00:01', NULL),
+            (12, 'user', '7', 31, 'tenant-a', '2026-08-01 00:00:02', '2026-08-01 00:00:02', '2026-08-01 00:00:02', NULL),
+            (20, 'user', '8', 32, 'tenant-b', '2026-08-01 00:00:00', '2026-08-01 00:00:00', '2026-08-01 00:00:00', NULL),
+            (21, 'user', '8', 32, 'tenant-b', '2026-08-01 00:00:03', '2026-08-01 00:00:03', '2026-08-01 00:00:03', NULL),
+            (30, 'user', '9', 33, 'tenant-c', '2026-08-01 00:00:00', '2026-08-01 00:00:00', '2026-08-01 00:00:00', NULL),
+            (31, 'user', '9', 33, 'tenant-c', '2026-07-01 00:00:00', '2026-07-01 00:00:00', '2026-07-01 00:00:00', '2026-07-02 00:00:00');
+          SQL
+
+          IAM_DB_OPS_OPERATION=backup IAM_DB_OPS_TIMESTAMP=20260825_000000 scripts/dbops/database-operation.sh
+          backup_name=iam_backup_20260825_000000.sql.gz
+          dry_run_output="$(IAM_DB_OPS_OPERATION=rolebinding-deduplicate-dry-run IAM_DB_OPS_TIMESTAMP=20260825_000001 scripts/dbops/database-operation.sh)"
+          printf '%s\n' "$dry_run_output"
+          candidate_count="$(sed -nE 's/.*candidate_count=([0-9]+).*/\1/p' <<<"$dry_run_output")"
+          fingerprint="$(sed -nE 's/.*fingerprint=([0-9a-f]{64}).*/\1/p' <<<"$dry_run_output")"
+          test "$candidate_count" = "3"
+          test -n "$fingerprint"
+
+          if IAM_DB_OPS_OPERATION=rolebinding-deduplicate-apply \
+            IAM_DB_OPS_BACKUP_NAME="$backup_name" \
+            IAM_DB_OPS_ROLEBINDING_CANDIDATE_COUNT="$candidate_count" \
+            IAM_DB_OPS_ROLEBINDING_FINGERPRINT="$(printf '0%.0s' {1..64})" \
+            scripts/dbops/database-operation.sh; then
+            echo 'mismatched candidate fingerprint was accepted' >&2
+            exit 1
+          fi
+          active_before="$(mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT COUNT(*) FROM authz_assignments WHERE deleted_at IS NULL;')"
+          test "$active_before" = "6"
+
+          IAM_DB_OPS_OPERATION=rolebinding-deduplicate-apply \
+            IAM_DB_OPS_BACKUP_NAME="$backup_name" \
+            IAM_DB_OPS_ROLEBINDING_CANDIDATE_COUNT="$candidate_count" \
+            IAM_DB_OPS_ROLEBINDING_FINGERPRINT="$fingerprint" \
+            scripts/dbops/database-operation.sh
+          active_ids="$(mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT GROUP_CONCAT(id ORDER BY id) FROM authz_assignments WHERE deleted_at IS NULL;')"
+          deleted_ids="$(mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" --batch --skip-column-names "$MYSQL_DBNAME" -e 'SELECT GROUP_CONCAT(id ORDER BY id) FROM authz_assignments WHERE deleted_at IS NOT NULL AND id IN (10,11,12,20,21,30);')"
+          test "$active_ids" = "10,20,30"
+          test "$deleted_ids" = "11,12,21"
+
+          IAM_DB_OPS_OPERATION=rolebinding-guard-preflight scripts/dbops/database-operation.sh
 
       - name: Upload test logs on failure
         if: failure()

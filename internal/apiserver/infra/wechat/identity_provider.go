@@ -8,7 +8,7 @@ import (
 	"github.com/silenceper/wechat/v2/cache"
 	workConfig "github.com/silenceper/wechat/v2/work/config"
 
-	authPort "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	wechatAuthPort "github.com/FangcunMount/iam/v3/internal/apiserver/infra/wechatapi/port"
 )
 
@@ -21,11 +21,11 @@ type IdentityProviderImpl struct {
 }
 
 // 确保实现了接口
-var _ authPort.IdentityProvider = (*IdentityProviderImpl)(nil)
+var _ externalidentity.ProviderExchanger = (*IdentityProviderImpl)(nil)
 
 // NewIdentityProvider 创建微信身份提供商。
 // auth 同时覆盖小程序 code2Session 与开放平台 OAuth code 换取（同一 wechatapi.AuthProvider 实现）。
-func NewIdentityProvider(auth wechatAuthPort.AuthProvider, cache cache.Cache) authPort.IdentityProvider {
+func NewIdentityProvider(auth wechatAuthPort.AuthProvider, cache cache.Cache) *IdentityProviderImpl {
 	return &IdentityProviderImpl{
 		auth:  auth,
 		cache: cache,

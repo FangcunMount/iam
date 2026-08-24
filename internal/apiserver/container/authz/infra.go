@@ -11,7 +11,7 @@ import (
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
-	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	casbinInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/casbin"
 	casbinrulerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/casbinrule"
 	policyInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/policy"
@@ -19,7 +19,6 @@ import (
 	roleInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
 	bindingInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
 	mysqlAuthzUow "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/authz"
-	userInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/user"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
@@ -31,13 +30,13 @@ type authzInfrastructureComponents struct {
 	resourceRepository      resourceDomain.Repository
 	policyVersionRepository policyDomain.Repository
 	permissionFactReader    policylintApp.FactReader
-	userRepository          userDomain.Repository
 	unitOfWork              authzuow.UnitOfWork
 }
 
 func (m *AuthzModule) initializeInfrastructure(
 	db *gorm.DB,
 	eventStager event.Stager,
+	userResolver useraccess.UserResolver,
 	modelPath string,
 ) (*authzInfrastructureComponents, error) {
 	casbinAdapter, err := casbinInfra.NewCasbinAdapter(db, modelPath)
@@ -52,7 +51,6 @@ func (m *AuthzModule) initializeInfrastructure(
 		resourceRepository:      resourceInfra.NewResourceRepository(db),
 		policyVersionRepository: policyInfra.NewPolicyVersionRepository(db),
 		permissionFactReader:    casbinrulerepo.NewFactReader(db),
-		userRepository:          userInfra.NewRepository(db),
-		unitOfWork:              mysqlAuthzUow.NewUnitOfWork(db, eventStager),
+		unitOfWork:              mysqlAuthzUow.NewUnitOfWork(db, userResolver, eventStager),
 	}, nil
 }

@@ -18,9 +18,8 @@ type WecomCredential struct {
 	RemoteIP   string
 	UserAgent  string
 	CorpID     string
-	AgentID    string
-	CorpSecret string
-	Code       string
+	UserID     string
+	OpenUserID string
 	State      string
 }
 
@@ -29,9 +28,8 @@ type WecomProofSpec struct {
 	RemoteIP   string
 	UserAgent  string
 	CorpID     string
-	AgentID    string
-	CorpSecret string
-	Code       string
+	UserID     string
+	OpenUserID string
 	State      string
 }
 
@@ -45,23 +43,16 @@ func NewWecomCredential(spec WecomProofSpec) (AuthCredential, error) {
 	if spec.CorpID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom corpid is required for wecom authentication")
 	}
-	if spec.AgentID == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom agentid is required for wecom authentication")
-	}
-	if spec.CorpSecret == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom corpsecret is required for wecom authentication")
-	}
-	if spec.Code == "" {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom code is required for wecom authentication")
+	if spec.UserID == "" && spec.OpenUserID == "" {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "wecom userid or open_userid is required for wecom authentication")
 	}
 	return &WecomCredential{
 		TenantID:   spec.TenantID,
 		RemoteIP:   spec.RemoteIP,
 		UserAgent:  spec.UserAgent,
 		CorpID:     spec.CorpID,
-		AgentID:    spec.AgentID,
-		CorpSecret: spec.CorpSecret,
-		Code:       spec.Code,
+		UserID:     spec.UserID,
+		OpenUserID: spec.OpenUserID,
 		State:      spec.State,
 	}, nil
 }
@@ -72,7 +63,6 @@ func NewWecomCredential(spec WecomProofSpec) (AuthCredential, error) {
 type OAuthWeChatComAuthStrategy struct {
 	credentialKind CredentialKind
 	identityRepo   LoginIdentityRepository
-	idp            IdentityProvider
 }
 
 // 实现认证策略接口
@@ -80,12 +70,10 @@ var _ AuthStrategy = (*OAuthWeChatComAuthStrategy)(nil)
 
 func NewOAuthWeChatComAuthStrategyWithLoginIdentity(
 	identityRepo LoginIdentityRepository,
-	idp IdentityProvider,
 ) *OAuthWeChatComAuthStrategy {
 	return &OAuthWeChatComAuthStrategy{
 		credentialKind: CredentialKindWecom,
 		identityRepo:   identityRepo,
-		idp:            idp,
 	}
 }
 
@@ -96,19 +84,15 @@ func (o *OAuthWeChatComAuthStrategy) Kind() CredentialKind {
 
 // Authenticate 执行企业微信认证
 // 认证流程：
-// 1. 调用企业微信API用code换取用户信息
-// 2. 根据UserID查找凭据绑定
-// 3. 检查 LoginIdentity 状态
-// 4. 返回认证判决
+// 1. 根据已验证的 UserID/OpenUserID 查找凭据绑定
+// 2. 检查 LoginIdentity 状态
+// 3. 返回认证判决
 func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
 	wecomCred, ok := credential.(*WecomCredential)
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("wecom strategy expects *WecomCredential, got %T", credential)
 	}
-	identity, err := o.exchangeWecomIdentity(ctx, wecomCred)
-	if err != nil {
-		return AuthDecision{}, err
-	}
+	identity := wecomIdentity{openUserID: wecomCred.OpenUserID, userID: wecomCred.UserID}
 	lookup, err := o.findWecomIdentity(ctx, wecomCred, identity)
 	if err != nil {
 		return AuthDecision{}, err
@@ -135,18 +119,6 @@ func (o *OAuthWeChatComAuthStrategy) Authenticate(ctx context.Context, credentia
 type wecomIdentity struct {
 	openUserID string
 	userID     string
-}
-
-// exchangeWecomIdentity 与企业微信IdP交互，用code换取用户信息
-func (o *OAuthWeChatComAuthStrategy) exchangeWecomIdentity(ctx context.Context, credential *WecomCredential) (wecomIdentity, error) {
-	openUserID, userID, err := o.idp.ExchangeWecomCode(ctx, credential.CorpID, credential.AgentID, credential.CorpSecret, credential.Code)
-	if err != nil {
-		return wecomIdentity{}, fmt.Errorf("failed to exchange wecom code: %w", err)
-	}
-	return wecomIdentity{
-		openUserID: openUserID,
-		userID:     userID,
-	}, nil
 }
 
 func (o *OAuthWeChatComAuthStrategy) findWecomIdentity(

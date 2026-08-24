@@ -1,6 +1,7 @@
 package container
 
 import (
+	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authn"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/authz"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/identity"
@@ -39,31 +40,50 @@ func (g *moduleGraph) idpModuleDependencies() idp.IDPModuleDeps {
 		DB:            g.container.mysqlDB,
 		RedisClient:   g.container.redisClient,
 		EncryptionKey: g.container.idpEncryptionKey,
+		ExternalIdentity: externalidentity.Config{
+			WeComAgentID: g.container.runtimeOptions.IDP.WeCom.AgentID,
+		},
 	}
 }
 
 func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
+	userAccess := g.identityUserAccessCapabilities()
 	return authn.AuthnModuleDeps{
-		DB:             g.container.mysqlDB,
-		RedisClient:    g.container.redisClient,
-		IDPModule:      g.container.IDPModule,
-		EventPublisher: g.container.eventPublisher,
-		Environment:    g.container.runtimeOptions.Environment,
-		Auth:           g.container.runtimeOptions.Auth,
-		JWKS:           g.container.runtimeOptions.JWKS,
-		IDPOptions:     g.container.runtimeOptions.IDP,
-		SMS:            g.container.runtimeOptions.SMS,
+		DB:               g.container.mysqlDB,
+		RedisClient:      g.container.redisClient,
+		IDPModule:        g.container.IDPModule,
+		EventPublisher:   g.container.eventPublisher,
+		Environment:      g.container.runtimeOptions.Environment,
+		Auth:             g.container.runtimeOptions.Auth,
+		JWKS:             g.container.runtimeOptions.JWKS,
+		WechatOpen:       g.container.runtimeOptions.IDP.WechatOpen,
+		SMS:              g.container.runtimeOptions.SMS,
+		UserStatusReader: userAccess.UserStatusReader,
 	}
 }
 
 func (g *moduleGraph) authzModuleDependencies() authz.AuthzModuleDeps {
+	userAccess := g.identityUserAccessCapabilities()
 	return authz.AuthzModuleDeps{
 		DB:                        g.container.mysqlDB,
 		EventStager:               g.container.outboxStore,
 		GRPCACLEnabled:            g.container.runtimeOptions.GRPCACLEnabled,
 		GRPCACLConfigFile:         g.container.runtimeOptions.GRPCACLConfigFile,
 		AssignmentConstraintsFile: g.container.runtimeOptions.GRPCAssignmentConstraintsFile,
+		UserResolver:              userAccess.UserResolver,
 	}
+}
+
+func (g *moduleGraph) identityUserAccessCapabilities() identity.UserAccessCapabilities {
+	if g == nil || g.container == nil {
+		return identity.UserAccessCapabilities{}
+	}
+	capabilities := g.container.identityUserAccess
+	if capabilities.UserStatusReader == nil || capabilities.UserResolver == nil {
+		capabilities = identity.NewUserAccessCapabilities(g.container.mysqlDB)
+		g.container.identityUserAccess = capabilities
+	}
+	return capabilities
 }
 
 func (g *moduleGraph) suggestModuleDependencies() suggest.SuggestModuleDeps {

@@ -32,6 +32,13 @@ type Token struct {
 	ExpiresAt     time.Time         // 过期时间
 }
 
+// ConsumedRefreshToken 是旧刷新令牌被成功轮换后留下的最小重放检测事实。
+// 它不保存令牌明文，只保留撤销对应 Session 所需的身份引用。
+type ConsumedRefreshToken struct {
+	SessionID string
+	UserID    meta.ID
+}
+
 // NewAccessToken 创建访问令牌
 func NewAccessToken(id, value, sessionID string, userID meta.ID, loginIdentityID meta.ID, tenantID meta.ID, expiresIn time.Duration) *Token {
 	now := time.Now()

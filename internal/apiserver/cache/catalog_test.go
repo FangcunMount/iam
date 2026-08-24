@@ -4,8 +4,8 @@ import "testing"
 
 func TestFamiliesReturnsCatalogSnapshot(t *testing.T) {
 	families := Families()
-	if len(families) != 13 {
-		t.Fatalf("family count = %d, want 13", len(families))
+	if len(families) != 14 {
+		t.Fatalf("family count = %d, want 14", len(families))
 	}
 	if families[0].Family != FamilyAuthnRefreshToken {
 		t.Fatalf("first family = %s, want %s", families[0].Family, FamilyAuthnRefreshToken)
