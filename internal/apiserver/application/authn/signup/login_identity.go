@@ -35,7 +35,11 @@ type preparedLoginIdentity struct {
 // prepareSignupLoginIdentity 准备登录身份。
 func (i UsernameLoginIdentityInput) prepareSignupLoginIdentity(_ context.Context, _ loginIdentityPrepareDeps, user SignupUserInput) (preparedLoginIdentity, error) {
 	identifier := usernameIdentifier(user, i.Username)
-	return preparedFromProviderKey(loginidentity.UsernameProviderKey(i.RealmTenantID, identifier), i.Profile, i.Meta, true, false)
+	key, err := loginidentity.NewUsernameProviderKey(i.RealmTenantID, identifier)
+	if err != nil {
+		return preparedLoginIdentity{}, incompleteProviderKeyError()
+	}
+	return preparedFromProviderKey(key, i.Profile, i.Meta, true, false)
 }
 
 // preparedFromProviderKey 从提供者密钥准备登录身份。
@@ -47,7 +51,7 @@ func preparedFromProviderKey(
 	allowUserRepair bool,
 ) (preparedLoginIdentity, error) {
 	if !key.IsValid() {
-		return preparedLoginIdentity{}, perrors.WithCode(code.ErrInvalidArgument, "login identity provider key is incomplete")
+		return preparedLoginIdentity{}, incompleteProviderKeyError()
 	}
 	return preparedLoginIdentity{
 		ProviderKey:            key,
@@ -57,6 +61,10 @@ func preparedFromProviderKey(
 		AllowUserRepair:        allowUserRepair,
 		Source:                 loginIdentitySourceLocal,
 	}, nil
+}
+
+func incompleteProviderKeyError() error {
+	return perrors.WithCode(code.ErrInvalidArgument, "login identity provider key is incomplete")
 }
 
 // usernameIdentifier 用户名标识符。

@@ -72,13 +72,13 @@ func (s *resolveUserStep) resolveByLoginIdentity(
 	req *preparedSignup,
 ) (*resolveUserStepResult, bool, error) {
 	providerKey := req.LoginIdentity.ProviderKey
-	identity, err := repos.LoginIdentities.GetByProviderKey(ctx, providerKey.Provider, providerKey.Realm, providerKey.Identifier)
+	identity, err := repos.LoginIdentities.GetByProviderKey(ctx, providerKey.Provider(), providerKey.Realm(), providerKey.Identifier())
 	if err != nil && !isRepositoryNotFound(err) {
 		return nil, true, err
 	}
 
-	if identity == nil && providerKey.GlobalIdentifier != "" {
-		identity, err = repos.LoginIdentities.GetByGlobalIdentifier(ctx, providerKey.Provider, providerKey.GlobalIdentifier)
+	if identity == nil && providerKey.GlobalIdentifier() != "" {
+		identity, err = repos.LoginIdentities.GetByGlobalIdentifier(ctx, providerKey.Provider(), providerKey.GlobalIdentifier())
 		if err != nil && !isRepositoryNotFound(err) {
 			return nil, true, err
 		}

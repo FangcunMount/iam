@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	loginidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
@@ -79,10 +81,10 @@ func TestPrepareStepBuildsLoginIdentityData(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.needPasswordCredential, prepared.LoginIdentity.NeedPasswordCredential)
 			require.Equal(t, tt.allowUserRepair, prepared.LoginIdentity.AllowUserRepair)
-			require.Equal(t, tt.provider, prepared.LoginIdentity.ProviderKey.Provider)
-			require.Equal(t, tt.realm, prepared.LoginIdentity.ProviderKey.Realm)
-			require.Equal(t, tt.identifier, prepared.LoginIdentity.ProviderKey.Identifier)
-			require.Equal(t, tt.globalIdentifier, prepared.LoginIdentity.ProviderKey.GlobalIdentifier)
+			require.Equal(t, tt.provider, prepared.LoginIdentity.ProviderKey.Provider())
+			require.Equal(t, tt.realm, prepared.LoginIdentity.ProviderKey.Realm())
+			require.Equal(t, tt.identifier, prepared.LoginIdentity.ProviderKey.Identifier())
+			require.Equal(t, tt.globalIdentifier, prepared.LoginIdentity.ProviderKey.GlobalIdentifier())
 		})
 	}
 }
@@ -99,4 +101,11 @@ func TestPrepareStepRejectsUnsupportedOrIncompleteLoginIdentity(t *testing.T) {
 		LoginIdentity: WechatMiniLoginIdentityInput{},
 	})
 	require.Error(t, err)
+
+	openID := "openid-1"
+	_, err = newPrepareStep(nil).Run(context.Background(), SignupRequest{
+		LoginIdentity: WechatMiniLoginIdentityInput{OpenID: &openID},
+	})
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }

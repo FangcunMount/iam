@@ -20,12 +20,16 @@ type externalIdentityResolver interface {
 func (i WechatMiniLoginIdentityInput) prepareSignupLoginIdentity(ctx context.Context, deps loginIdentityPrepareDeps, _ SignupUserInput) (preparedLoginIdentity, error) {
 	input := i.trimmed()
 	if strings.TrimSpace(valueOfStringPtr(input.OpenID)) != "" {
+		key, err := loginidentity.NewWechatMinipProviderKey(
+			valueOfStringPtr(input.AppID),
+			valueOfStringPtr(input.OpenID),
+			valueOfStringPtr(input.UnionID),
+		)
+		if err != nil {
+			return preparedLoginIdentity{}, incompleteProviderKeyError()
+		}
 		prepared, err := preparedFromProviderKey(
-			loginidentity.WechatMinipProviderKey(
-				valueOfStringPtr(input.AppID),
-				valueOfStringPtr(input.OpenID),
-				valueOfStringPtr(input.UnionID),
-			),
+			key,
 			input.Profile,
 			input.Meta,
 			false,

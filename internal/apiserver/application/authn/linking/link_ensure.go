@@ -22,7 +22,7 @@ func (l *linker) ensureProviderKey(
 	}
 
 	// 查询是否存在相同的登录身份。
-	existing, err := l.repo().GetByProviderKey(ctx, key.Provider, key.Realm, key.Identifier)
+	existing, err := l.repo().GetByProviderKey(ctx, key.Provider(), key.Realm(), key.Identifier())
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +56,12 @@ func (l *linker) ensureProviderKey(
 // ensureGlobalIdentifierAvailable 确保全局标识符唯一。
 func (l *linker) ensureGlobalIdentifierAvailable(ctx context.Context, userID meta.ID, key loginidentity.ProviderKey) error {
 	// 如果全局标识符为空，则返回成功。
-	if strings.TrimSpace(key.GlobalIdentifier) == "" {
+	if strings.TrimSpace(key.GlobalIdentifier()) == "" {
 		return nil
 	}
 
 	// 查询是否存在相同的登录身份。
-	existing, err := l.repo().GetByGlobalIdentifier(ctx, key.Provider, key.GlobalIdentifier)
+	existing, err := l.repo().GetByGlobalIdentifier(ctx, key.Provider(), key.GlobalIdentifier())
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
 package loginidentity
 
 import (
-	"strings"
 	"time"
 
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -52,12 +51,3 @@ func (i *LoginIdentity) Activate() { i.Status = StatusActive }
 
 // Disable 禁用
 func (i *LoginIdentity) Disable() { i.Status = StatusDisabled }
-
-// normalizeRealm 规范化域
-func normalizeRealm(realm string) string {
-	realm = strings.TrimSpace(realm)
-	if realm == "" {
-		return RealmDefault
-	}
-	return realm
-}

@@ -29,7 +29,10 @@ func (in LinkPhoneInput) prepareLink(ctx context.Context, deps linkPrepareDeps, 
 	}
 
 	// 构建提供者密钥。
-	key := loginidentity.PhoneProviderKey(phone.String())
+	key, err := loginidentity.NewPhoneProviderKey(phone)
+	if err != nil {
+		return preparedLink{}, err
+	}
 
 	// 构建已验证登录身份。
 	verifiedAt := deps.currentTime()
