@@ -97,12 +97,27 @@ func (s *RoleCatalog) DeleteRole(ctx context.Context, cmd DeleteRoleCommand) err
 		return err
 	}
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		role, err := tx.Roles.FindByID(txCtx, cmd.ID)
+		role, err := tx.Roles.FindByIDForUpdate(txCtx, cmd.ID)
 		if err != nil {
 			return err
 		}
 		if !role.BelongsToTenant(cmd.TenantID) {
 			return perrors.WithCode(code.ErrInvalidArgument, "role does not belong to tenant")
+		}
+		bindings, err := tx.Bindings.ListByRole(txCtx, cmd.ID, cmd.TenantID)
+		if err != nil {
+			return err
+		}
+		grants, err := tx.PermissionGrants.ListByRole(txCtx, cmd.ID, cmd.TenantID)
+		if err != nil {
+			return err
+		}
+		inheritances, err := tx.RoleInheritances.ListActiveByTenant(txCtx, cmd.TenantID)
+		if err != nil {
+			return err
+		}
+		if err := authzshared.EnsureRoleUnused(cmd.ID, bindings, grants, inheritances); err != nil {
+			return err
 		}
 		if err := tx.Roles.Delete(txCtx, cmd.ID); err != nil {
 			return err

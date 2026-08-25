@@ -269,5 +269,5 @@ Suggest 内存含手机号，日志过去可能包含 token/SQL，备份含完�
 
 ```bash
 make docs-facts
-go test ./internal/pkg/architecture/... ./internal/apiserver/application/authn/... ./internal/apiserver/infra/casbin/... ./internal/apiserver/transport/grpc/...
+go test ./internal/pkg/architecture/... ./internal/apiserver/application/authn/... ./internal/apiserver/infra/authz/native/... ./internal/apiserver/transport/grpc/...
 ```

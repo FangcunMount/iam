@@ -164,7 +164,7 @@ docs/
 1. **变化原因决定模块边界**：User、LoginIdentity、Session、Permission 和 provider app 因不同原因变化，不能因都带 ID 就合表。
 2. **强声明必须由足够强的证明推导**：openid、JWT 签名、ProfileLink、UI capability 都不能单独推出资源允许。
 3. **一致性按不变量和风险选择**：同库事务、数据库约束、Redis Lua、Outbox、可重建投影各自解决不同问题。
-4. **投影永远回到事实源**：Casbin Enforcer、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
+4. **投影永远回到事实源**：AuthZ 原生快照（含内存角色图）、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
 5. **安全方向必须显式**：依赖失败时是拒绝、保留旧值、返回空结果还是继续服务，要说明失去的语义和观测方式。
 
 ## 7. 机器事实入口

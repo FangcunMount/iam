@@ -6,6 +6,7 @@ import (
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	roleInheritanceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/roleinheritance"
 )
 
 func (m *AuthzModule) initializeApplication(
@@ -21,6 +22,11 @@ func (m *AuthzModule) initializeApplication(
 	m.permissionGrantService = permissionGrantApp.NewService(
 		infra.unitOfWork,
 		infra.permissionGrantRepository,
+		infra.nativeRuntime,
+	)
+	m.roleInheritanceService = roleInheritanceApp.NewService(
+		infra.unitOfWork,
+		infra.roleInheritanceRepository,
 		infra.nativeRuntime,
 	)
 

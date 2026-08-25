@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 : "${IAM_AUTHZ_CLONE_CONFIRMATION:?IAM_AUTHZ_CLONE_CONFIRMATION is required}"
+: "${IAM_AUTHZ_CLONE_VALIDATION_MODE:?IAM_AUTHZ_CLONE_VALIDATION_MODE is required}"
 : "${IAM_AUTHZ_RELEASE_SHA:?IAM_AUTHZ_RELEASE_SHA is required}"
 : "${IAM_AUTHZ_CLONE_BACKUP_FILE:?IAM_AUTHZ_CLONE_BACKUP_FILE is required}"
 : "${IAM_AUTHZ_CLONE_MYSQL_PASSWORD:?IAM_AUTHZ_CLONE_MYSQL_PASSWORD is required}"
@@ -9,7 +10,14 @@ set -Eeuo pipefail
 : "${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
 : "${DOCKER_CONFIG:?DOCKER_CONFIG is required}"
 
-if [ "$IAM_AUTHZ_CLONE_CONFIRMATION" != "PREFLIGHT_AUTHZ_BACKUP_CLONE" ]; then
+expected_confirmation="PREFLIGHT_AUTHZ_BACKUP_CLONE"
+if [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" = "full_rehearsal" ]; then
+  expected_confirmation="REHEARSE_AUTHZ_BACKUP_CLONE"
+elif [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" != "preflight" ]; then
+  echo "invalid AuthZ backup clone validation mode" >&2
+  exit 1
+fi
+if [ "$IAM_AUTHZ_CLONE_CONFIRMATION" != "$expected_confirmation" ]; then
   echo "invalid AuthZ backup clone confirmation" >&2
   exit 1
 fi
@@ -321,6 +329,65 @@ if [[ "$preflight_output" =~ resource_catalog_row_invalid_([0-9]+) ]]; then
   echo "AuthZ resource catalog action-shape mismatches: ${catalog_actions_diagnostic}"
 fi
 
+if [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" = "full_rehearsal" ]; then
+  evidence_dir="${RUNNER_TEMP}/iam-authz-clone-evidence-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
+  mkdir -p "$evidence_dir"
+  chmod 0700 "$evidence_dir"
+
+  run_evidence_step() {
+    local filename="$1"
+    shift
+    run_maintenance "$@" | tee "${evidence_dir}/${filename}"
+    chmod 0600 "${evidence_dir}/${filename}"
+  }
+
+  run_evidence_step 03-apply.json authz-cutover apply \
+    --confirm=APPLY_AUTHZ_CUTOVER --timeout=10m --lock-timeout=30s
+  run_evidence_step 04-verify.json authz-cutover verify --timeout=10m
+  run_evidence_step 05-evidence.json authz-cutover evidence --timeout=10m
+  run_evidence_step 06-retire-legacy.json authz-cutover retire-legacy \
+    --confirm=RETIRE_LEGACY_AUTHZ_SCHEMA --timeout=10m --lock-timeout=30s
+
+  final_schema_state="$(clone_mysql "$clone_database" -e "
+    SELECT COALESCE(MAX(version), 0), COALESCE(MAX(dirty + 0), 0), COUNT(*)
+    FROM schema_migrations;
+  ")"
+  final_legacy_table_count="$(clone_mysql "$clone_database" -e "
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name IN ('casbin_rule', 'authz_cutover_state');
+  ")"
+  final_scope_column_count="$(clone_mysql "$clone_database" -e "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'authz_resources'
+      AND column_name = 'scope_kinds';
+  ")"
+  if [ "$final_schema_state" != $'27\t0\t1' ]; then
+    echo "full clone rehearsal did not finish at clean schema version 27 (actual=${final_schema_state})" >&2
+    exit 1
+  fi
+  if [ "$final_legacy_table_count" != "0" ] || [ "$final_scope_column_count" != "0" ]; then
+    echo "full clone rehearsal left legacy AuthZ schema behind" >&2
+    exit 1
+  fi
+
+  cat >"${evidence_dir}/07-final-schema.txt" <<EOF
+iam_sha=${IAM_AUTHZ_RELEASE_SHA}
+source_backup=${backup_name}
+clone_container=${clone_container}
+clone_database=${clone_database}
+schema_version=27
+schema_dirty=false
+casbin_rule_absent=true
+authz_cutover_state_absent=true
+scope_kinds_absent=true
+EOF
+  chmod 0600 "${evidence_dir}/07-final-schema.txt"
+  (cd "$evidence_dir" && shasum -a 256 ./* >checksums.sha256)
+  chmod 0600 "${evidence_dir}/checksums.sha256"
+  (cd "$evidence_dir" && shasum -a 256 -c checksums.sha256)
+fi
+
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo '### IAM AuthZ backup clone preflight'
@@ -330,7 +397,13 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     echo "- Clone location: Mac mini / ${clone_container} / ${clone_database}"
     echo '- Clone schema: 26 clean'
     echo "- Preflight exit code: ${preflight_status}"
-    echo '- No apply or legacy-retirement operation was executed.'
+    echo "- Validation mode: ${IAM_AUTHZ_CLONE_VALIDATION_MODE}"
+    if [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" = "full_rehearsal" ]; then
+      echo '- Final clone schema: 27 clean'
+      echo '- Legacy absence: casbin_rule=true, authz_cutover_state=true, scope_kinds=true'
+    else
+      echo '- No apply or legacy-retirement operation was executed.'
+    fi
   } >>"$GITHUB_STEP_SUMMARY"
 fi
 
@@ -338,4 +411,8 @@ if [ "$preflight_status" -ne 0 ]; then
   echo "AuthZ backup clone preflight reproduced a failure; the persistent Mac mini clone is available for diagnosis" >&2
   exit "$preflight_status"
 fi
-echo "IAM AuthZ backup clone preflight passed; persistent clone remains on the Mac mini"
+if [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" = "full_rehearsal" ]; then
+  echo "IAM AuthZ backup clone full rehearsal passed; persistent schema-27 clone remains on the Mac mini"
+else
+  echo "IAM AuthZ backup clone preflight passed; persistent clone remains on the Mac mini"
+fi

@@ -10,6 +10,7 @@ import (
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	roleInheritanceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/roleinheritance"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
@@ -34,6 +35,7 @@ type ApplicationCapabilities struct {
 	RoleCatalog                 roleApp.Catalog
 	RoleDirectory               roleApp.Directory
 	PermissionGrantService      *permissionGrantApp.Service
+	RoleInheritanceService      *roleInheritanceApp.Service
 	RoleBindingCommands         bindingApp.Commands
 	RoleBindingDirectory        bindingApp.Directory
 	RouteAuthorization          authn.RouteAuthorizationRuntime

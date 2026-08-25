@@ -6,6 +6,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -66,6 +67,10 @@ func (r *Repository) ListByRole(ctx context.Context, roleID meta.ID, tenantID st
 
 func (r *Repository) ListActiveByTenant(ctx context.Context, tenantID string) ([]*domain.Grant, error) {
 	return r.list(ctx, "tenant_id = ? AND revoked_at IS NULL", tenantID)
+}
+
+func (r *Repository) ListActiveByResource(ctx context.Context, resourceID resource.ResourceID) ([]*domain.Grant, error) {
+	return r.list(ctx, "resource_id = ? AND revoked_at IS NULL", resourceID.Uint64())
 }
 
 func (r *Repository) list(ctx context.Context, query string, args ...any) ([]*domain.Grant, error) {

@@ -59,7 +59,7 @@ IAM 可以拆解为三个核心模块和两个辅助模块。
 | gRPC 适配层 | [internal/apiserver/transport/grpc](internal/apiserver/transport/grpc) | Proto service 注册、interceptor、mapper |
 | 应用层 | [internal/apiserver/application](internal/apiserver/application) | 用例编排、事务边界、命令/查询、跨模块协作 |
 | 领域层 | [internal/apiserver/domain](internal/apiserver/domain) | 实体、值对象、领域服务、业务规则、端口定义 |
-| 基础设施层 | [internal/apiserver/infra](internal/apiserver/infra) | MySQL、Redis、Casbin、JWT、Outbox、微信 API、Suggest Trie/Hash Runtime 等适配器 |
+| 基础设施层 | [internal/apiserver/infra](internal/apiserver/infra) | MySQL、Redis、AuthZ 原生快照/内存角色图、JWT、Outbox、微信 API、Suggest Trie/Hash Runtime 等适配器 |
 | SDK | [pkg/sdk](pkg/sdk) | Go 服务端接入 IAM 的产品化封装 |
 
 **核心原则：**
@@ -81,7 +81,7 @@ infra 管外部资源。
 | 模块 | 边界 |
 | --- | --- |
 | AuthN | AuthN 负责认证态，负责 LoginIdentity、Credential、Session、Token、JWKS |
-| AuthZ | AuthZ 负责访问权，负责 Subject、Role、Resource、Permission、RoleBinding |
+| AuthZ | AuthZ 负责访问权，负责 Subject、Role、Assignment、RoleInheritance、Resource Schema、PermissionGrant 与 ConstraintSet |
 | Identity | Identity 负责用户和业务档案关系，负责 User、Profile、ProfileLink |
 | IDP | IDP 负责外部身份源基础设施，负责微信、企微等外部身份源适配 |
 | Suggest | Suggest 负责 Profile 联想搜索读模型，负责 Profile 联想搜索读模型 |

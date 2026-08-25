@@ -140,14 +140,14 @@ func (s *mutableSource) Load(context.Context) (native.Dataset, error) {
 	return s.dataset, s.err
 }
 
-func newAssessmentRuntime(t *testing.T) *native.Runtime {
+func newAssessmentRuntime(t testing.TB) *native.Runtime {
 	t.Helper()
 	runtime, err := native.NewRuntime(context.Background(), &mutableSource{dataset: assessmentDataset(t)})
 	require.NoError(t, err)
 	return runtime
 }
 
-func assessmentDataset(t *testing.T) native.Dataset {
+func assessmentDataset(t testing.TB) native.Dataset {
 	t.Helper()
 	assessment, err := resource.NewResource(
 		assessmentResource,
@@ -192,7 +192,7 @@ func assessmentDataset(t *testing.T) native.Dataset {
 	}
 }
 
-func checkRequest(t *testing.T, userID uint64, action, originType string) authzruntime.Request {
+func checkRequest(t testing.TB, userID uint64, action, originType string) authzruntime.Request {
 	t.Helper()
 	sub, err := subject.NewUserRef(meta.FromUint64(userID))
 	require.NoError(t, err)
@@ -203,4 +203,18 @@ func checkRequest(t *testing.T, userID uint64, action, originType string) authzr
 	request, err := authzruntime.NewRequest(sub, "fangcun", assessmentResource, action, object)
 	require.NoError(t, err)
 	return request
+}
+
+func BenchmarkRuntimeCheckAssessmentRetry(b *testing.B) {
+	runtime := newAssessmentRuntime(b)
+	request := checkRequest(b, 2, "retry", "adhoc")
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decision, err := runtime.Check(ctx, request)
+		if err != nil || !decision.Allowed {
+			b.Fatalf("Check() decision=%+v error=%v", decision, err)
+		}
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // RoleRepository MySQL 实现
@@ -57,11 +58,23 @@ func (r *RoleRepository) Delete(ctx context.Context, id meta.ID) error {
 
 // FindByID 根据ID获取角色
 func (r *RoleRepository) FindByID(ctx context.Context, id meta.ID) (*domain.Role, error) {
-	po, err := r.BaseRepository.FindByID(ctx, id.Uint64())
-	if err != nil {
+	return r.findByID(ctx, id, false)
+}
+
+func (r *RoleRepository) FindByIDForUpdate(ctx context.Context, id meta.ID) (*domain.Role, error) {
+	return r.findByID(ctx, id, true)
+}
+
+func (r *RoleRepository) findByID(ctx context.Context, id meta.ID, lock bool) (*domain.Role, error) {
+	var po RolePO
+	query := r.WithContext(ctx)
+	if lock && r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() != "sqlite" {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	if err := query.First(&po, id.Uint64()).Error; err != nil {
 		return nil, err
 	}
-	role, err := r.mapper.ToRoleBO(po)
+	role, err := r.mapper.ToRoleBO(&po)
 	if err != nil {
 		return nil, err
 	}

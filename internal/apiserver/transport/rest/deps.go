@@ -69,6 +69,7 @@ type AuthzDeps struct {
 	RoleHandler            *authzhandler.RoleHandler
 	RoleBindingHandler     *authzhandler.RoleBindingHandler
 	PermissionGrantHandler *authzhandler.PermissionGrantHandler
+	RoleInheritanceHandler *authzhandler.RoleInheritanceHandler
 	ResourceHandler        *authzhandler.ResourceHandler
 	RouteAuthorization     authnMiddleware.RouteAuthorizationRuntime
 	HealthReporter         AuthzHealthReporter
