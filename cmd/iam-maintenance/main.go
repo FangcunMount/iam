@@ -136,7 +136,7 @@ func runAuthzCutover(args []string, output io.Writer) error {
 	}
 	plan, err := maintenance.AnalyzeAuthzCutover(ctx, db)
 	if err != nil {
-		return errors.New("authorization cutover analysis failed")
+		return errors.New("authorization cutover analysis failed: " + maintenance.AuthzCutoverAnalysisFailureCategory(err))
 	}
 	if len(plan.Summary.Blockers) > 0 {
 		if writeErr := writeJSON(output, struct {

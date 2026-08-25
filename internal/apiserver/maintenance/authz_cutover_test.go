@@ -1,6 +1,7 @@
 package maintenance
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -14,6 +15,16 @@ import (
 	rolerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
+
+func TestAuthzCutoverAnalysisFailureCategoryHidesDependencyError(t *testing.T) {
+	cause := errors.New("sensitive dependency detail")
+	err := authzCutoverAnalysisFailure("load_resources_failed", cause)
+
+	require.Equal(t, "load_resources_failed", AuthzCutoverAnalysisFailureCategory(err))
+	require.ErrorIs(t, err, cause)
+	require.NotContains(t, err.Error(), cause.Error())
+	require.Equal(t, "unknown_analysis_failure", AuthzCutoverAnalysisFailureCategory(cause))
+}
 
 func TestSplitLegacyActionsSupportsOnlyExactAlternativesAndExplicitWildcard(t *testing.T) {
 	actions, blocker := splitLegacyActions("read|list|read")

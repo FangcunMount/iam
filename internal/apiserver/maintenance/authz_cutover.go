@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -50,6 +51,31 @@ type AuthzCutoverPlan struct {
 	inheritances []*roleinheritance.Inheritance
 }
 
+type authzCutoverAnalysisError struct {
+	category string
+	cause    error
+}
+
+func (e *authzCutoverAnalysisError) Error() string { return e.category }
+
+func (e *authzCutoverAnalysisError) Unwrap() error { return e.cause }
+
+func authzCutoverAnalysisFailure(category string, cause error) error {
+	return &authzCutoverAnalysisError{category: category, cause: cause}
+}
+
+// AuthzCutoverAnalysisFailureCategory returns a stable, non-sensitive category
+// suitable for maintenance logs. Dependency errors remain available through
+// errors.Unwrap for tests and internal diagnostics, but are never printed by
+// the production command.
+func AuthzCutoverAnalysisFailureCategory(err error) string {
+	var analysisErr *authzCutoverAnalysisError
+	if errors.As(err, &analysisErr) {
+		return analysisErr.category
+	}
+	return "unknown_analysis_failure"
+}
+
 type legacyRule struct {
 	ID    uint64  `gorm:"column:id"`
 	PType string  `gorm:"column:ptype"`
@@ -81,7 +107,7 @@ func AnalyzeAuthzCutover(ctx context.Context, db *gorm.DB) (*AuthzCutoverPlan, e
 func analyzeAuthzCutoverTx(db *gorm.DB, plan *AuthzCutoverPlan) error {
 	var roleRows []*rolerepo.RolePO
 	if err := db.Where("deleted_at IS NULL").Find(&roleRows).Error; err != nil {
-		return err
+		return authzCutoverAnalysisFailure("load_roles_failed", err)
 	}
 	roles := make(map[string]*rolerepo.RolePO, len(roleRows))
 	rolesByID := make(map[uint64]*rolerepo.RolePO, len(roleRows))
@@ -92,21 +118,23 @@ func analyzeAuthzCutoverTx(db *gorm.DB, plan *AuthzCutoverPlan) error {
 
 	var resourceRows []*resourcerepo.ResourcePO
 	if err := db.Where("deleted_at IS NULL").Find(&resourceRows).Error; err != nil {
-		return err
+		return authzCutoverAnalysisFailure("load_resources_failed", err)
 	}
 	resourceMapper := resourcerepo.NewMapper()
 	resources := make(map[string]*resource.Resource, len(resourceRows))
 	for _, row := range resourceRows {
 		catalogResource, err := resourceMapper.ToBO(row)
 		if err != nil {
-			return err
+			return authzCutoverAnalysisFailure(
+				fmt.Sprintf("resource_catalog_row_invalid_%d", row.ID.Uint64()), err,
+			)
 		}
 		resources[catalogResource.KeyString()] = catalogResource
 	}
 
 	var assignmentRows []*bindingrepo.BindingPO
 	if err := db.Where("deleted_at IS NULL").Find(&assignmentRows).Error; err != nil {
-		return err
+		return authzCutoverAnalysisFailure("load_assignments_failed", err)
 	}
 	assignmentFacts := make(map[string]struct{}, len(assignmentRows))
 	for _, assignment := range assignmentRows {
@@ -120,7 +148,7 @@ func analyzeAuthzCutoverTx(db *gorm.DB, plan *AuthzCutoverPlan) error {
 
 	var rules []legacyRule
 	if err := db.Table("casbin_rule").Order("id ASC").Find(&rules).Error; err != nil {
-		return err
+		return authzCutoverAnalysisFailure("load_legacy_rules_failed", err)
 	}
 	grantKeys := make(map[string]struct{})
 	inheritanceKeys := make(map[string]struct{})
