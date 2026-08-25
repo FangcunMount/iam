@@ -66,7 +66,6 @@ docker_clone info >/dev/null
 readonly clone_image="public.ecr.aws/docker/library/mysql:8.0"
 readonly clone_container="iam-authz-preflight-mysql"
 readonly clone_data_volume="iam-authz-preflight-mysql-data"
-readonly clone_secret_volume="iam-authz-preflight-mysql-secrets"
 readonly clone_database="iam_authz_preflight"
 readonly clone_port="33306"
 
@@ -74,19 +73,51 @@ if ! docker_clone image inspect "$clone_image" >/dev/null 2>&1; then
   docker_clone pull "$clone_image" >/dev/null
 fi
 docker_clone volume inspect "$clone_data_volume" >/dev/null 2>&1 || docker_clone volume create "$clone_data_volume" >/dev/null
-docker_clone volume inspect "$clone_secret_volume" >/dev/null 2>&1 || docker_clone volume create "$clone_secret_volume" >/dev/null
-
-# Store the clone-only credential in a dedicated Docker volume. It therefore
-# survives runner cleanup without appearing in the long-lived container env.
-printf '%s' "$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" |
-  docker_clone run --rm -i \
-    --volume "${clone_secret_volume}:/secrets" \
-    --entrypoint sh "$clone_image" \
-    -c 'umask 077; cat > /secrets/root-password'
 
 if docker_clone container inspect "$clone_container" >/dev/null 2>&1; then
   docker_clone rm -f "$clone_container" >/dev/null
 fi
+
+# The clone-only password is present only in the short-lived initialization
+# container. Once MySQL has initialized the data volume, recreate the durable
+# container without any password environment variable.
+docker_clone run -d \
+  --name "$clone_container" \
+  --publish "127.0.0.1:${clone_port}:3306" \
+  --cpus "1.0" \
+  --memory "2g" \
+  --memory-swap "2g" \
+  --pids-limit "512" \
+  --env "MYSQL_ROOT_PASSWORD=${IAM_AUTHZ_CLONE_MYSQL_PASSWORD}" \
+  --env MYSQL_ROOT_HOST=% \
+  --volume "${clone_data_volume}:/var/lib/mysql" \
+  "$clone_image" >/dev/null
+
+clone_mysql() {
+  docker_clone exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
+    mysql --protocol=socket -uroot --batch --skip-column-names "$@"
+}
+
+wait_for_clone_mysql() {
+  local ready=0
+  for _ in $(seq 1 30); do
+    if docker_clone exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
+      mysqladmin --protocol=socket -uroot ping --silent >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 2
+  done
+  [ "$ready" = "1" ]
+}
+
+if ! wait_for_clone_mysql; then
+  docker_clone logs --tail 100 "$clone_container" >&2 || true
+  echo "Mac mini clone MySQL initialization did not become ready" >&2
+  exit 1
+fi
+
+docker_clone rm -f "$clone_container" >/dev/null
 docker_clone run -d \
   --name "$clone_container" \
   --restart unless-stopped \
@@ -95,29 +126,11 @@ docker_clone run -d \
   --memory "2g" \
   --memory-swap "2g" \
   --pids-limit "512" \
-  --env MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root-password \
-  --env MYSQL_ROOT_HOST=% \
   --volume "${clone_data_volume}:/var/lib/mysql" \
-  --volume "${clone_secret_volume}:/run/secrets:ro" \
   "$clone_image" >/dev/null
-
-clone_mysql() {
-  docker_clone exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
-    mysql --protocol=socket -uroot --batch --skip-column-names "$@"
-}
-
-ready=0
-for _ in $(seq 1 30); do
-  if docker_clone exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
-    mysqladmin --protocol=socket -uroot ping --silent >/dev/null 2>&1; then
-    ready=1
-    break
-  fi
-  sleep 2
-done
-if [ "$ready" != "1" ]; then
+if ! wait_for_clone_mysql; then
   docker_clone logs --tail 100 "$clone_container" >&2 || true
-  echo "Mac mini clone MySQL did not become ready" >&2
+  echo "persistent Mac mini clone MySQL did not become ready" >&2
   exit 1
 fi
 
