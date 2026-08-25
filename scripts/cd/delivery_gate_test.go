@@ -257,6 +257,77 @@ func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
 	}
 }
 
+func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(path string) string {
+		t.Helper()
+		body, readErr := os.ReadFile(filepath.Join(repoRoot, path))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		return string(body)
+	}
+
+	workflow := read(".github/workflows/authz-backup-clone-preflight.yml")
+	for _, token := range []string{
+		"PREFLIGHT_AUTHZ_BACKUP_CLONE",
+		"group: qlume",
+		"labels: [self-hosted, macOS, ARM64]",
+		"vars.AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED",
+		"authz-backup-source",
+		"/opt/backups/iam/database/${IAM_AUTHZ_BACKUP_NAME}",
+		"scp -F \"$RUNNER_SSH_CONFIG\"",
+		"shasum -a 256",
+		"secrets.IAM_AUTHZ_CLONE_MYSQL_PASSWORD",
+		"scripts/cd/authz-mac-clone-preflight.sh",
+	} {
+		if !strings.Contains(workflow, token) {
+			t.Fatalf("backup clone workflow is missing %q", token)
+		}
+	}
+	for _, forbidden := range []string{
+		"secrets.MYSQL_HOST",
+		"secrets.MYSQL_PASSWORD",
+		"scripts/dbops/database-operation.sh",
+		"authz-cutover apply",
+		"authz-cutover retire-legacy",
+	} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("backup clone workflow must not contain %q", forbidden)
+		}
+	}
+
+	cloneScript := read("scripts/cd/authz-mac-clone-preflight.sh")
+	for _, token := range []string{
+		`readonly clone_container="iam-authz-preflight-mysql"`,
+		`readonly clone_data_volume="iam-authz-preflight-mysql-data"`,
+		`readonly clone_secret_volume="iam-authz-preflight-mysql-secrets"`,
+		`readonly clone_database="iam_authz_preflight"`,
+		`--publish "127.0.0.1:${clone_port}:3306"`,
+		"DROP DATABASE IF EXISTS `iam_authz_preflight`",
+		"authz-cutover migrate-additive",
+		"authz-cutover preflight",
+		"persistent Mac mini clone is available for diagnosis",
+	} {
+		if !strings.Contains(cloneScript, token) {
+			t.Fatalf("Mac clone preflight script is missing %q", token)
+		}
+	}
+	for _, forbidden := range []string{
+		"docker volume rm",
+		"authz-cutover apply",
+		"authz-cutover retire-legacy",
+		"RETIRE_LEGACY_AUTHZ_SCHEMA",
+	} {
+		if strings.Contains(cloneScript, forbidden) {
+			t.Fatalf("Mac clone preflight script must not contain %q", forbidden)
+		}
+	}
+}
+
 func TestRuntimeProvenanceSHAValidationMatrix(t *testing.T) {
 	tests := []struct {
 		name  string
