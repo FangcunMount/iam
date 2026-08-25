@@ -335,11 +335,11 @@ database_status() {
     fail "migration state query failed"
     return 1
   fi
-  if ! retired_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_retired_table_guard */ SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy', 'cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1');" 2>"$ERROR_PATH")"; then
+  if ! retired_table_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_retired_table_guard */ SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy', 'cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1', 'casbin_rule');" 2>"$ERROR_PATH")"; then
     fail "retired table state query failed"
     return 1
   fi
-  if ! retired_table_privilege_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_retired_privilege_guard */ SELECT COUNT(*) FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy', 'cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1');" 2>"$ERROR_PATH")"; then
+  if ! retired_table_privilege_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_retired_privilege_guard */ SELECT COUNT(*) FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('children', 'guardianships', 'schema_version', 'tenants', 'data_dictionary', 'operation_logs', 'audit_logs', 'auth_token_audit', 'auth_accounts', 'auth_credentials_legacy', 'cbpt_profiles_s812v2', 'cbpt_profile_links_s812v2', 'cleanup_bak_perf_testee_profiles_seeddata_dup_20260812_v1', 'cleanup_bak_perf_testee_profile_links_seeddata_dup_20260812_v1', 'casbin_rule');" 2>"$ERROR_PATH")"; then
     fail "retired table privilege state query failed"
     return 1
   fi
@@ -354,12 +354,12 @@ database_status() {
   printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'25\t0\t1' ]; then
-    fail "migration status is not version 25 clean"
+  if [ "$migration_state" != $'27\t0\t1' ]; then
+    fail "migration status is not version 27 clean"
     return 1
   fi
-  if [ "$schema_guard_state" != $'15\t15\t0' ]; then
-    fail "database schema differs from the 15-table allowlist"
+  if [ "$schema_guard_state" != $'16\t16\t0' ]; then
+    fail "database schema differs from the 16-table allowlist"
     return 1
   fi
   if [ "$retired_table_state" != "0" ]; then
@@ -370,8 +370,8 @@ database_status() {
     fail "retired table privileges are present"
     return 1
   fi
-  echo "schema guard: result=success required_base_tables=15 schema_objects=15 unexpected_objects=0"
-  echo "retirement guard: result=success expected_version=25 retired_tables_present=0 retired_table_privileges=0"
+  echo "schema guard: result=success required_base_tables=16 schema_objects=16 unexpected_objects=0"
+  echo "retirement guard: result=success expected_version=27 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {
