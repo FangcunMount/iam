@@ -205,7 +205,7 @@ func TestAuthZActiveRoleBindingGuardMigration(t *testing.T) {
 	assertSQLContains(t, down, "DROP COLUMN `active_guard`")
 }
 
-func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndDormant(t *testing.T) {
+func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndGuarded(t *testing.T) {
 	up := migrationSQL(t, "000026_add_authz_permission_grants.up.sql")
 	for _, fragment := range []string{
 		"CREATE TABLE IF NOT EXISTS `authz_permission_grants`",
@@ -222,6 +222,16 @@ func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndDormant(t *testing.T
 		"AND `domain` = 'uc'",
 		"AND `type` = 'instance'",
 		"SET `domain` = 'identity'",
+		"UPDATE `authz_assignments` AS `stale_assignment`",
+		"902000001 AS `stale_assignment_id`",
+		"SELECT 902000006, 'user', '110002', 900000102, 'fangcun', 'qs:content_manager'",
+		"613485615136125486 AS `current_role_id`",
+		"613500091088515630 AS `current_assignment_id`",
+		"LEFT JOIN `authz_roles` AS `stale_role`",
+		"INNER JOIN `authz_roles` AS `current_role`",
+		"INNER JOIN `authz_assignments` AS `current_assignment`",
+		"AND `stale_role`.`id` IS NULL",
+		"SET `stale_assignment`.`deleted_at` = CURRENT_TIMESTAMP(3)",
 	} {
 		assertSQLContains(t, up, fragment)
 	}
@@ -230,6 +240,7 @@ func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndDormant(t *testing.T
 		"UPDATE `casbin_rule`",
 		"DELETE FROM `casbin_rule`",
 		"DROP TABLE `casbin_rule`",
+		"DELETE FROM `authz_assignments`",
 	} {
 		assertSQLNotContains(t, up, forbidden)
 	}

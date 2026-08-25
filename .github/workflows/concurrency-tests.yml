@@ -174,7 +174,7 @@ jobs:
           set -euo pipefail
           export MYSQL_PWD="$MYSQL_PASSWORD"
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
-            -e 'DROP DATABASE IF EXISTS iam_retirement_fixture; CREATE DATABASE iam_retirement_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_full_chain; CREATE DATABASE iam_full_chain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+            -e 'DROP DATABASE IF EXISTS iam_retirement_fixture; CREATE DATABASE iam_retirement_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_authz_seed_repair_fixture; CREATE DATABASE iam_authz_seed_repair_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP DATABASE IF EXISTS iam_full_chain; CREATE DATABASE iam_full_chain CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
 
           MYSQL_DATABASE=iam_retirement_fixture MYSQL_DBNAME=iam_retirement_fixture \
             go test ./internal/pkg/migration \
@@ -182,6 +182,14 @@ jobs:
               -v \
               -count=1 \
               2>&1 | tee test-artifacts/retirement-migration-tests.txt
+          test "${PIPESTATUS[0]}" = "0"
+
+          MYSQL_DATABASE=iam_authz_seed_repair_fixture MYSQL_DBNAME=iam_authz_seed_repair_fixture \
+            go test ./internal/pkg/migration \
+              -run "TestAuthZSeedAssignmentRepairMigrationMySQL" \
+              -v \
+              -count=1 \
+              2>&1 | tee test-artifacts/authz-seed-assignment-repair-tests.txt
           test "${PIPESTATUS[0]}" = "0"
 
           MYSQL_DATABASE=iam_full_chain MYSQL_DBNAME=iam_full_chain \
