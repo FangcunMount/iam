@@ -281,6 +281,8 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"/opt/backups/iam/database/${IAM_AUTHZ_BACKUP_NAME}",
 		"scp -F \"$RUNNER_SSH_CONFIG\"",
 		"shasum -a 256",
+		`printf '{"auths":{}}\n'`,
+		"DOCKER_CONFIG=${docker_config}",
 		"secrets.IAM_AUTHZ_CLONE_MYSQL_PASSWORD",
 		"scripts/cd/authz-mac-clone-preflight.sh",
 	} {

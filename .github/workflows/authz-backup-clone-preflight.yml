@@ -118,6 +118,17 @@ jobs:
           echo "IAM_AUTHZ_CLONE_BACKUP_FILE=${local_backup}" >>"$GITHUB_ENV"
           echo "Backup copied read-only from serverB: name=${IAM_AUTHZ_BACKUP_NAME} sha256=${local_checksum}"
 
+      - name: Configure isolated Docker client
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker_config="${RUNNER_TEMP}/iam-authz-clone-docker-${GITHUB_RUN_ID}"
+          mkdir -p "$docker_config"
+          chmod 0700 "$docker_config"
+          printf '{"auths":{}}\n' >"${docker_config}/config.json"
+          chmod 0600 "${docker_config}/config.json"
+          echo "DOCKER_CONFIG=${docker_config}" >>"$GITHUB_ENV"
+
       - name: Restore persistent Mac mini clone and run preflight
         env:
           IAM_AUTHZ_CLONE_MYSQL_PASSWORD: ${{ secrets.IAM_AUTHZ_CLONE_MYSQL_PASSWORD }}
@@ -133,3 +144,6 @@ jobs:
           fi
           rmdir "$backup_dir" 2>/dev/null || true
           rm -f -- "${RUNNER_SSH_KEY_FILE:-}" "${RUNNER_SSH_CONFIG:-}" 2>/dev/null || true
+          docker_config="${RUNNER_TEMP}/iam-authz-clone-docker-${GITHUB_RUN_ID}"
+          rm -f -- "${docker_config}/config.json" 2>/dev/null || true
+          rmdir "$docker_config" 2>/dev/null || true
