@@ -317,6 +317,10 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		`--env "MYSQL_ROOT_PASSWORD=${IAM_AUTHZ_CLONE_MYSQL_PASSWORD}"`,
 		"persistent Mac mini clone MySQL did not become ready",
 		"SELECT COALESCE(MAX(version), 0), COALESCE(MAX(dirty + 0), 0), COUNT(*)",
+		`resource_catalog_row_invalid_([0-9]+)`,
+		"AuthZ resource catalog diagnostic:",
+		"'actions_json_valid', JSON_VALID(resource_row.actions)",
+		"WHERE resource_row.id = ${invalid_resource_id} AND resource_row.deleted_at IS NULL",
 	} {
 		if !strings.Contains(cloneScript, token) {
 			t.Fatalf("Mac clone preflight script is missing %q", token)

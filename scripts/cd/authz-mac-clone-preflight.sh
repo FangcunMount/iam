@@ -188,6 +188,33 @@ preflight_status=$?
 set -e
 printf '%s\n' "$preflight_output"
 
+if [[ "$preflight_output" =~ resource_catalog_row_invalid_([0-9]+) ]]; then
+  invalid_resource_id="${BASH_REMATCH[1]}"
+  resource_diagnostic="$(clone_mysql "$clone_database" -e "
+    SELECT JSON_OBJECT(
+      'id', CAST(resource_row.id AS CHAR),
+      'key', resource_row.key,
+      'key_hex', HEX(resource_row.key),
+      'app_name', resource_row.app_name,
+      'domain', resource_row.domain,
+      'type', resource_row.type,
+      'actions_json_valid', JSON_VALID(resource_row.actions),
+      'actions_json_type', CASE WHEN JSON_VALID(resource_row.actions) THEN JSON_TYPE(CAST(resource_row.actions AS JSON)) ELSE NULL END,
+      'actions', resource_row.actions,
+      'scope_kinds', resource_row.scope_kinds,
+      'attribute_schema', resource_row.attribute_schema,
+      'version', resource_row.version
+    )
+    FROM authz_resources AS resource_row
+    WHERE resource_row.id = ${invalid_resource_id} AND resource_row.deleted_at IS NULL;
+  ")"
+  if [ -z "$resource_diagnostic" ]; then
+    echo "invalid AuthZ resource catalog row was not found in the persistent clone" >&2
+  else
+    echo "AuthZ resource catalog diagnostic: ${resource_diagnostic}"
+  fi
+fi
+
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo '### IAM AuthZ backup clone preflight'
