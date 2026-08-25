@@ -304,6 +304,7 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 
 	cloneScript := read("scripts/cd/authz-mac-clone-preflight.sh")
 	for _, token := range []string{
+		`readonly clone_image="public.ecr.aws/docker/library/mysql:8.0"`,
 		`readonly clone_container="iam-authz-preflight-mysql"`,
 		`readonly clone_data_volume="iam-authz-preflight-mysql-data"`,
 		`readonly clone_secret_volume="iam-authz-preflight-mysql-secrets"`,
@@ -313,6 +314,7 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"authz-cutover migrate-additive",
 		"authz-cutover preflight",
 		"persistent Mac mini clone is available for diagnosis",
+		`docker --config "$DOCKER_CONFIG"`,
 	} {
 		if !strings.Contains(cloneScript, token) {
 			t.Fatalf("Mac clone preflight script is missing %q", token)

@@ -7,6 +7,7 @@ set -Eeuo pipefail
 : "${IAM_AUTHZ_CLONE_MYSQL_PASSWORD:?IAM_AUTHZ_CLONE_MYSQL_PASSWORD is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+: "${DOCKER_CONFIG:?DOCKER_CONFIG is required}"
 
 if [ "$IAM_AUTHZ_CLONE_CONFIRMATION" != "PREFLIGHT_AUTHZ_BACKUP_CLONE" ]; then
   echo "invalid AuthZ backup clone confirmation" >&2
@@ -55,31 +56,38 @@ command -v docker >/dev/null 2>&1 || {
   echo "Docker CLI is unavailable on the Mac mini runner" >&2
   exit 1
 }
-docker info >/dev/null
+docker_clone() {
+  docker --config "$DOCKER_CONFIG" "$@"
+}
+docker_clone info >/dev/null
 
-readonly clone_image="mysql:8.0"
+# Use AWS's anonymous Docker Official Images mirror. Docker Desktop on the
+# headless Mac runner must not consult the interactive Docker Hub keychain.
+readonly clone_image="public.ecr.aws/docker/library/mysql:8.0"
 readonly clone_container="iam-authz-preflight-mysql"
 readonly clone_data_volume="iam-authz-preflight-mysql-data"
 readonly clone_secret_volume="iam-authz-preflight-mysql-secrets"
 readonly clone_database="iam_authz_preflight"
 readonly clone_port="33306"
 
-docker pull "$clone_image" >/dev/null
-docker volume inspect "$clone_data_volume" >/dev/null 2>&1 || docker volume create "$clone_data_volume" >/dev/null
-docker volume inspect "$clone_secret_volume" >/dev/null 2>&1 || docker volume create "$clone_secret_volume" >/dev/null
+if ! docker_clone image inspect "$clone_image" >/dev/null 2>&1; then
+  docker_clone pull "$clone_image" >/dev/null
+fi
+docker_clone volume inspect "$clone_data_volume" >/dev/null 2>&1 || docker_clone volume create "$clone_data_volume" >/dev/null
+docker_clone volume inspect "$clone_secret_volume" >/dev/null 2>&1 || docker_clone volume create "$clone_secret_volume" >/dev/null
 
 # Store the clone-only credential in a dedicated Docker volume. It therefore
 # survives runner cleanup without appearing in the long-lived container env.
 printf '%s' "$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" |
-  docker run --rm -i \
+  docker_clone run --rm -i \
     --volume "${clone_secret_volume}:/secrets" \
     --entrypoint sh "$clone_image" \
     -c 'umask 077; cat > /secrets/root-password'
 
-if docker container inspect "$clone_container" >/dev/null 2>&1; then
-  docker rm -f "$clone_container" >/dev/null
+if docker_clone container inspect "$clone_container" >/dev/null 2>&1; then
+  docker_clone rm -f "$clone_container" >/dev/null
 fi
-docker run -d \
+docker_clone run -d \
   --name "$clone_container" \
   --restart unless-stopped \
   --publish "127.0.0.1:${clone_port}:3306" \
@@ -94,13 +102,13 @@ docker run -d \
   "$clone_image" >/dev/null
 
 clone_mysql() {
-  docker exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
+  docker_clone exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
     mysql --protocol=socket -uroot --batch --skip-column-names "$@"
 }
 
 ready=0
 for _ in $(seq 1 30); do
-  if docker exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
+  if docker_clone exec -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
     mysqladmin --protocol=socket -uroot ping --silent >/dev/null 2>&1; then
     ready=1
     break
@@ -108,7 +116,7 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 if [ "$ready" != "1" ]; then
-  docker logs --tail 100 "$clone_container" >&2 || true
+  docker_clone logs --tail 100 "$clone_container" >&2 || true
   echo "Mac mini clone MySQL did not become ready" >&2
   exit 1
 fi
@@ -118,7 +126,7 @@ fi
 # investigation, while each run restores a clean copy of the selected backup.
 clone_mysql -e 'DROP DATABASE IF EXISTS `iam_authz_preflight`; CREATE DATABASE `iam_authz_preflight` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
 gzip -dc "$IAM_AUTHZ_CLONE_BACKUP_FILE" |
-  docker exec -i -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
+  docker_clone exec -i -e MYSQL_PWD="$IAM_AUTHZ_CLONE_MYSQL_PASSWORD" "$clone_container" \
     mysql -uroot --default-character-set=utf8mb4 "$clone_database"
 
 schema_state="$(clone_mysql "$clone_database" -e "
