@@ -8,7 +8,7 @@ window.onload = function() {
   const urls = [
     { name: "AuthN", url: "/openapi/authn.v2.yaml" },
     { name: "Identity", url: "/openapi/identity.v2.yaml" },
-    { name: "AuthZ", url: "/openapi/authz.v2.yaml" },
+    { name: "AuthZ", url: "/openapi/authz.v3.yaml" },
     { name: "IDP", url: "/openapi/idp.v2.yaml" },
     { name: "Suggest", url: "/openapi/suggest.v2.yaml" },
   ];

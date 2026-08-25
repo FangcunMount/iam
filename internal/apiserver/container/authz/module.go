@@ -6,11 +6,11 @@ import (
 
 	assignmentAuthApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
 	authorizationApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	policyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policy"
-	policylintApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policylint"
+	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
 	assignmentConstraints "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/assignmentconstraints"
 	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
@@ -20,18 +20,16 @@ type AuthzModule struct {
 	routeAuthorization          authn.RouteAuthorizationRuntime
 	roleNames                   RoleNameReader
 	runtimeHealth               RuntimeHealthReporter
-	policyReloader              policyApp.RuntimePolicyReloader
+	policyReloader              authzshared.RuntimePolicyReloader
 	resourceCatalog             resourceApp.Catalog
 	resourceDirectory           resourceApp.Directory
 	roleCatalog                 roleApp.Catalog
 	roleDirectory               roleApp.Directory
-	permissionCommands          policyApp.PermissionCommands
-	permissionReader            policyApp.PermissionReader
-	policyLinter                *policylintApp.Linter
+	permissionGrantService      *permissionGrantApp.Service
 	roleBindingCommands         bindingApp.Commands
 	roleBindingDirectory        bindingApp.Directory
-	authorizationChecker        *authorizationApp.Checker
-	authorizationSnapshotReader *authorizationApp.SnapshotReader
+	authorizationChecker        *authorizationApp.NativeChecker
+	authorizationSnapshotReader *authorizationApp.NativeSnapshotReader
 	assignmentRequestAuthorizer assignmentAuthApp.Authorizer
 }
 
@@ -52,7 +50,7 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 		return fmt.Errorf("identity user resolver is required")
 	}
 
-	infra, err := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver, authzModelPath(deps.ModelPath))
+	infra, err := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver)
 	if err != nil {
 		return err
 	}
@@ -75,14 +73,6 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	return nil
 }
 
-func authzModelPath(modelPath string) string {
-	modelPath = strings.TrimSpace(modelPath)
-	if modelPath == "" {
-		return "configs/casbin_model.conf"
-	}
-	return modelPath
-}
-
 func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 	if m == nil {
 		return ApplicationCapabilities{}
@@ -92,9 +82,7 @@ func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 		ResourceDirectory:           m.resourceDirectory,
 		RoleCatalog:                 m.roleCatalog,
 		RoleDirectory:               m.roleDirectory,
-		PermissionCommands:          m.permissionCommands,
-		PermissionReader:            m.permissionReader,
-		PolicyLinter:                m.policyLinter,
+		PermissionGrantService:      m.permissionGrantService,
 		RoleBindingCommands:         m.roleBindingCommands,
 		RoleBindingDirectory:        m.roleBindingDirectory,
 		RouteAuthorization:          m.routeAuthorization,

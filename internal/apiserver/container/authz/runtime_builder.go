@@ -1,8 +1,8 @@
 package authz
 
 func (m *AuthzModule) initializeRuntime(infra *authzInfrastructureComponents) {
-	m.routeAuthorization = infra.casbinRuntime.RouteAuthorizer
-	m.roleNames = infra.casbinRuntime.RoleNameReader
-	m.runtimeHealth = infra.casbinRuntime.RuntimeHealthReporter
-	m.policyReloader = infra.casbinRuntime.PolicyReloader
+	m.routeAuthorization = infra.nativeRuntime
+	m.roleNames = infra.nativeRuntime
+	m.runtimeHealth = infra.nativeRuntime
+	m.policyReloader = infra.nativeRuntime
 }

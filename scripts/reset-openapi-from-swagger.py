@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SWAGGER = ROOT / "internal/apiserver/docs/swagger.yaml"
 SPEC_PATHS = {
     "authn": ROOT / "api/rest/authn.v2.yaml",
-    "authz": ROOT / "api/rest/authz.v2.yaml",
+    "authz": ROOT / "api/rest/authz.v3.yaml",
     "identity": ROOT / "api/rest/identity.v2.yaml",
     "idp": ROOT / "api/rest/idp.v2.yaml",
     "suggest": ROOT / "api/rest/suggest.v2.yaml",

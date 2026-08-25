@@ -14,7 +14,7 @@ import (
 type Catalog interface {
 	CreateRole(ctx context.Context, cmd CreateRoleCommand) (*roleDomain.Role, error)
 	UpdateRole(ctx context.Context, cmd UpdateRoleCommand) (*roleDomain.Role, error)
-	DeleteRole(ctx context.Context, roleID meta.ID) error
+	DeleteRole(ctx context.Context, cmd DeleteRoleCommand) error
 }
 
 type Directory interface {
@@ -29,6 +29,7 @@ type CreateRoleCommand struct {
 	DisplayName string
 	TenantID    tenant.ID
 	Description string
+	ChangedBy   string
 }
 
 func NewCreateRoleCommand(name, displayName, tenantID, description string) (CreateRoleCommand, error) {
@@ -62,8 +63,16 @@ func (cmd CreateRoleCommand) TenantIDString() string {
 
 type UpdateRoleCommand struct {
 	ID          meta.ID
+	TenantID    string
+	ChangedBy   string
 	DisplayName *string
 	Description *string
+}
+
+type DeleteRoleCommand struct {
+	ID        meta.ID
+	TenantID  string
+	ChangedBy string
 }
 
 func NewUpdateRoleCommand(id meta.ID, displayName, description *string) (UpdateRoleCommand, error) {

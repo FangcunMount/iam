@@ -16,7 +16,7 @@ import (
 // @Produce json
 // @Param request body req.SendLoginPhoneOTPRequest true "手机号"
 // @Success 200 {object} resp.MessageResponse "已受理"
-// @Router /authn/challenges/phone-otp [post]
+// @Router /v2/authn/challenges/phone-otp [post]
 func (h *AuthHandler) SendLoginPhoneOTP(c *gin.Context) {
 	var reqBody req.SendLoginPhoneOTPRequest
 	if err := h.BindJSON(c, &reqBody); err != nil {

@@ -5,7 +5,7 @@ import (
 	"context"
 	"log"
 
-	authzv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v2"
+	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
 	sdk "github.com/FangcunMount/iam/v3/pkg/sdk"
 )
 
@@ -21,11 +21,11 @@ func main() {
 	defer client.Close()
 
 	// 方式 1：使用原始 Check 请求
-	resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
-		Subject: "user:user-123",
-		Domain:  "fangcun",
-		Object:  "resource:profile_profile",
-		Action:  "read",
+	resp, err := client.Authz().Check(ctx, &authzv3.CheckRequest{
+		Subject:  "user:123",
+		Domain:   "fangcun",
+		Resource: "iam:identity:instance:profile",
+		Action:   "read",
 	})
 	if err != nil {
 		log.Fatalf("Check 失败: %v", err)
@@ -35,9 +35,9 @@ func main() {
 	// 方式 2：使用便捷 Allow 封装
 	allowed, err := client.Authz().Allow(
 		ctx,
-		"user:user-123",
+		"user:123",
 		"fangcun",
-		"resource:report",
+		"qs:evaluation:collection:reports",
 		"read",
 	)
 	if err != nil {

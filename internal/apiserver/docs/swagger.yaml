@@ -1,4 +1,4 @@
-basePath: /api/v2
+basePath: /api
 definitions:
   github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK:
     properties:
@@ -20,6 +20,71 @@ definitions:
         type: string
       "y":
         type: string
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition:
+    properties:
+      allowed_string_values:
+        items:
+          type: string
+        type: array
+      key:
+        type: string
+      type:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type'
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema:
+    properties:
+      attributes:
+        items:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition'
+        type: array
+      version:
+        type: integer
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type:
+    enum:
+    - string
+    - int64
+    - bool
+    type: string
+    x-enum-varnames:
+    - TypeString
+    - TypeInt64
+    - TypeBool
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Operator:
+    enum:
+    - eq
+    type: string
+    x-enum-varnames:
+    - OperatorEQ
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Predicate:
+    properties:
+      key:
+        type: string
+      operator:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Operator'
+      value:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Value'
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set:
+    properties:
+      all_of:
+        items:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Predicate'
+        type: array
+      version:
+        type: integer
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Value:
+    properties:
+      bool:
+        type: boolean
+      int64:
+        type: integer
+      string:
+        type: string
+      type:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type'
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_request.CreateKeyRequest:
     properties:
@@ -424,27 +489,6 @@ definitions:
       state:
         type: string
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest:
-    properties:
-      action:
-        type: string
-      changed_by:
-        type: string
-      reason:
-        type: string
-      resource_id:
-        type: string
-      role_id:
-        type: string
-      scope_type:
-        type: string
-      scope_value:
-        type: string
-    required:
-    - action
-    - resource_id
-    - role_id
-    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse:
     properties:
       granted_by:
@@ -460,35 +504,20 @@ definitions:
       tenant_id:
         type: string
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckRequest:
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreatePermissionGrantRequest:
     properties:
       action:
         type: string
-      object:
+      constraint_set:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set'
+      resource_id:
         type: string
-      scope_type:
-        type: string
-      scope_value:
-        type: string
-      subject_id:
-        type: string
-      subject_type:
-        description: SubjectType 可选：user | group；与 SubjectID 同时省略时使用当前 JWT 用户。
+      role_id:
         type: string
     required:
     - action
-    - object
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckResponse:
-    properties:
-      allowed:
-        type: boolean
-      deny_code:
-        type: string
-      policy_version:
-        type: integer
-      reason:
-        type: string
+    - resource_id
+    - role_id
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest:
     properties:
@@ -499,6 +528,8 @@ definitions:
         type: array
       app_name:
         type: string
+      attribute_schema:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema'
       description:
         type: string
       display_name:
@@ -507,10 +538,6 @@ definitions:
         type: string
       key:
         type: string
-      scope_kinds:
-        items:
-          type: string
-        type: array
       type:
         type: string
     required:
@@ -564,76 +591,28 @@ definitions:
       total:
         type: integer
     type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionResponse:
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse:
     properties:
       action:
         type: string
-      domain:
+      active:
+        type: boolean
+      constraint_set:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set'
+      grant_key:
         type: string
-      object:
+      granted_by:
         type: string
-      scope_type:
-        type: string
-      scope_value:
-        type: string
-      subject:
-        type: string
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse:
-    properties:
-      action:
-        type: string
-      code:
-        type: string
-      message:
-        type: string
-      resource_key:
-        type: string
-      role_name:
-        type: string
-      scope:
-        type: string
-      tenant_id:
-        type: string
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse:
-    properties:
-      findings:
-        items:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse'
-        type: array
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse:
-    properties:
-      changed_by:
-        type: string
-      reason:
-        type: string
-      tenant_id:
-        type: string
-      version:
-        type: integer
-    type: object
-  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest:
-    properties:
-      action:
-        type: string
-      changed_by:
-        type: string
-      reason:
+      id:
         type: string
       resource_id:
         type: string
+      resource_pattern:
+        type: string
       role_id:
         type: string
-      scope_type:
+      tenant_id:
         type: string
-      scope_value:
-        type: string
-    required:
-    - action
-    - resource_id
-    - role_id
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse:
     properties:
@@ -643,6 +622,8 @@ definitions:
         type: array
       app_name:
         type: string
+      attribute_schema:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema'
       description:
         type: string
       display_name:
@@ -653,10 +634,6 @@ definitions:
         type: string
       key:
         type: string
-      scope_kinds:
-        items:
-          type: string
-        type: array
       type:
         type: string
     type: object
@@ -666,6 +643,11 @@ definitions:
         type: integer
       data: {}
       message:
+        type: string
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokePermissionGrantRequest:
+    properties:
+      reason:
         type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest:
@@ -705,14 +687,12 @@ definitions:
           type: string
         minItems: 1
         type: array
+      attribute_schema:
+        $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema'
       description:
         type: string
       display_name:
         type: string
-      scope_kinds:
-        items:
-          type: string
-        type: array
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest:
     properties:
@@ -1016,7 +996,7 @@ info:
   title: IAM API Documentation
   version: 2.0.0
 paths:
-  /.well-known/jwks.json:
+  /v2/.well-known/jwks.json:
     get:
       description: 获取 JSON Web Key Set，用于验证 JWT 签名
       produces:
@@ -1044,7 +1024,7 @@ paths:
       summary: 获取 JWKS
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys:
+  /v2/authn/admin/jwks/keys:
     get:
       description: 分页列出所有密钥
       parameters:
@@ -1129,7 +1109,7 @@ paths:
       summary: 创建密钥
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys/{kid}:
+  /v2/authn/admin/jwks/keys/{kid}:
     get:
       description: 根据 kid 获取密钥详细信息
       parameters:
@@ -1170,7 +1150,7 @@ paths:
       summary: 获取密钥详情
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys/{kid}/force-retire:
+  /v2/authn/admin/jwks/keys/{kid}/force-retire:
     post:
       description: 强制将任何状态的密钥转为 Retired（用于紧急情况）
       parameters:
@@ -1209,7 +1189,7 @@ paths:
       summary: 强制退役密钥
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys/{kid}/grace:
+  /v2/authn/admin/jwks/keys/{kid}/grace:
     post:
       description: 将密钥状态从 Active 转为 Grace
       parameters:
@@ -1248,7 +1228,7 @@ paths:
       summary: 进入宽限期
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys/{kid}/retire:
+  /v2/authn/admin/jwks/keys/{kid}/retire:
     post:
       description: 将密钥状态从 Grace 转为 Retired
       parameters:
@@ -1287,7 +1267,7 @@ paths:
       summary: 退役密钥
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys/cleanup:
+  /v2/authn/admin/jwks/keys/cleanup:
     post:
       description: 删除已过期的 Retired 密钥
       produces:
@@ -1314,7 +1294,7 @@ paths:
       summary: 清理过期密钥
       tags:
       - Authentication-JWKS
-  /authn/admin/jwks/keys/publishable:
+  /v2/authn/admin/jwks/keys/publishable:
     get:
       description: 获取当前会被发布到 JWKS 的密钥列表（用于预览或调试）
       produces:
@@ -1341,7 +1321,7 @@ paths:
       summary: 获取可发布的密钥
       tags:
       - Authentication-JWKS
-  /authn/challenges/phone-otp:
+  /v2/authn/challenges/phone-otp:
     post:
       consumes:
       - application/json
@@ -1362,7 +1342,7 @@ paths:
       summary: 发送登录短信验证码
       tags:
       - 认证
-  /authn/login:
+  /v2/authn/login:
     post:
       consumes:
       - application/json
@@ -1394,7 +1374,7 @@ paths:
       summary: 显式登录
       tags:
       - Authentication-Auth
-  /authn/login-identities:
+  /v2/authn/login-identities:
     get:
       produces:
       - application/json
@@ -1408,7 +1388,7 @@ paths:
       summary: 列出当前用户登录身份
       tags:
       - 认证
-  /authn/login-identities/{id}:
+  /v2/authn/login-identities/{id}:
     delete:
       parameters:
       - description: 登录身份 ID
@@ -1428,7 +1408,7 @@ paths:
       summary: 解绑登录身份
       tags:
       - 认证
-  /authn/login-identities/phone:
+  /v2/authn/login-identities/phone:
     post:
       consumes:
       - application/json
@@ -1451,7 +1431,7 @@ paths:
       summary: 绑定手机号登录身份
       tags:
       - 认证
-  /authn/login-identities/phone/challenge:
+  /v2/authn/login-identities/phone/challenge:
     post:
       consumes:
       - application/json
@@ -1474,7 +1454,7 @@ paths:
       summary: 发送手机号绑定验证码
       tags:
       - 认证
-  /authn/login-identities/wechat-miniprogram:
+  /v2/authn/login-identities/wechat-miniprogram:
     post:
       consumes:
       - application/json
@@ -1497,7 +1477,7 @@ paths:
       summary: 绑定微信小程序登录身份
       tags:
       - 认证
-  /authn/login-identities/wechat-open:
+  /v2/authn/login-identities/wechat-open:
     post:
       consumes:
       - application/json
@@ -1520,7 +1500,7 @@ paths:
       summary: 完成微信开放平台扫码绑定
       tags:
       - 认证
-  /authn/login-identities/wechat-open/authorize:
+  /v2/authn/login-identities/wechat-open/authorize:
     post:
       consumes:
       - application/json
@@ -1542,7 +1522,7 @@ paths:
       summary: 发起微信开放平台扫码绑定授权
       tags:
       - 认证
-  /authn/login-identities/wecom:
+  /v2/authn/login-identities/wecom:
     post:
       consumes:
       - application/json
@@ -1565,7 +1545,7 @@ paths:
       summary: 绑定企业微信登录身份
       tags:
       - 认证
-  /authn/logout:
+  /v2/authn/logout:
     post:
       consumes:
       - application/json
@@ -1592,7 +1572,7 @@ paths:
       summary: 用户登出
       tags:
       - 认证
-  /authn/refresh_token:
+  /v2/authn/refresh_token:
     post:
       consumes:
       - application/json
@@ -1624,7 +1604,7 @@ paths:
       summary: 刷新访问令牌
       tags:
       - 认证
-  /authn/signups/wechat-miniprogram:
+  /v2/authn/signups/wechat-miniprogram:
     post:
       consumes:
       - application/json
@@ -1656,7 +1636,7 @@ paths:
       summary: 微信小程序登录身份开通
       tags:
       - 认证
-  /authn/verify:
+  /v2/authn/verify:
     post:
       consumes:
       - application/json
@@ -1688,7 +1668,7 @@ paths:
       summary: 验证访问令牌
       tags:
       - 认证
-  /authn/wechat-open/authorize:
+  /v2/authn/wechat-open/authorize:
     post:
       consumes:
       - application/json
@@ -1708,560 +1688,7 @@ paths:
       summary: 发起微信开放平台扫码登录授权
       tags:
       - 认证
-  /authz/assignments/{id}:
-    delete:
-      parameters:
-      - description: 分配ID
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 根据分配ID撤销角色
-      tags:
-      - Authorization-Assignments
-  /authz/assignments/grant:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 授予角色请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
-              type: object
-      summary: 授予角色
-      tags:
-      - Authorization-Assignments
-  /authz/assignments/revoke:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 撤销角色请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 撤销角色
-      tags:
-      - Authorization-Assignments
-  /authz/assignments/subject:
-    get:
-      parameters:
-      - description: 主体类型
-        enum:
-        - user
-        in: query
-        name: subject_type
-        required: true
-        type: string
-      - description: 主体ID
-        in: query
-        name: subject_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
-                  type: array
-              type: object
-      summary: 列出主体的角色分配
-      tags:
-      - Authorization-Assignments
-  /authz/check:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 判定请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckResponse'
-              type: object
-      summary: 策略判定（Enforce）
-      tags:
-      - Authorization-Policies
-  /authz/policies:
-    delete:
-      consumes:
-      - application/json
-      parameters:
-      - description: 移除策略请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 移除权限
-      tags:
-      - Authorization-Policies
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 添加策略请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 添加权限
-      tags:
-      - Authorization-Policies
-  /authz/policies/lint:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse'
-              type: object
-      summary: 检查授权策略事实
-      tags:
-      - Authorization-Policies
-  /authz/policies/version:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse'
-              type: object
-      summary: 获取当前策略版本
-      tags:
-      - Authorization-Policies
-  /authz/resources:
-    get:
-      parameters:
-      - description: 应用名称
-        in: query
-        name: app_name
-        type: string
-      - description: 域
-        in: query
-        name: domain
-        type: string
-      - description: 类型
-        in: query
-        name: type
-        type: string
-      - default: 0
-        description: 偏移量
-        in: query
-        name: offset
-        type: integer
-      - default: 10
-        description: 每页数量
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
-                  type: array
-              type: object
-      summary: 列出资源
-      tags:
-      - Authorization-Resources
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 创建资源请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
-              type: object
-      summary: 创建资源
-      tags:
-      - Authorization-Resources
-  /authz/resources/{id}:
-    delete:
-      parameters:
-      - description: 资源ID
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 删除资源
-      tags:
-      - Authorization-Resources
-    get:
-      parameters:
-      - description: 资源ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
-              type: object
-      summary: 获取资源详情
-      tags:
-      - Authorization-Resources
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: 资源ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: 更新资源请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
-              type: object
-      summary: 更新资源
-      tags:
-      - Authorization-Resources
-  /authz/resources/key/{key}:
-    get:
-      parameters:
-      - description: 资源键
-        in: path
-        name: key
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
-              type: object
-      summary: 根据键获取资源
-      tags:
-      - Authorization-Resources
-  /authz/resources/validate-action:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 验证动作请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse'
-              type: object
-      summary: 验证资源动作
-      tags:
-      - Authorization-Resources
-  /authz/roles:
-    get:
-      parameters:
-      - default: 0
-        description: 偏移量
-        in: query
-        name: offset
-        type: integer
-      - default: 10
-        description: 每页数量
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
-                  type: array
-              type: object
-      summary: 列出角色
-      tags:
-      - Authorization-Roles
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: 创建角色请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
-              type: object
-      summary: 创建角色
-      tags:
-      - Authorization-Roles
-  /authz/roles/{id}:
-    delete:
-      parameters:
-      - description: 角色ID
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-      summary: 删除角色
-      tags:
-      - Authorization-Roles
-    get:
-      parameters:
-      - description: 角色ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
-              type: object
-      summary: 获取角色详情
-      tags:
-      - Authorization-Roles
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: 角色ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: 更新角色请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
-              type: object
-      summary: 更新角色
-      tags:
-      - Authorization-Roles
-  /authz/roles/{id}/assignments:
-    get:
-      parameters:
-      - description: 角色ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
-                  type: array
-              type: object
-      summary: 列出角色的分配记录
-      tags:
-      - Authorization-Assignments
-  /authz/roles/{id}/policies:
-    get:
-      parameters:
-      - description: 角色ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionResponse'
-                  type: array
-              type: object
-      summary: 获取角色的策略列表
-      tags:
-      - Authorization-Policies
-  /identity/me:
+  /v2/identity/me:
     get:
       consumes:
       - application/json
@@ -2321,7 +1748,7 @@ paths:
       summary: 更新当前用户信息
       tags:
       - Identity-Users
-  /identity/me/profiles:
+  /v2/identity/me/profiles:
     get:
       consumes:
       - application/json
@@ -2357,7 +1784,7 @@ paths:
       summary: 获取当前用户的档案列表
       tags:
       - Identity-Profiles
-  /identity/profile-links:
+  /v2/identity/profile-links:
     get:
       consumes:
       - application/json
@@ -2409,7 +1836,7 @@ paths:
       summary: 查询档案关系
       tags:
       - Identity-ProfileLink
-  /identity/profiles/{id}:
+  /v2/identity/profiles/{id}:
     get:
       consumes:
       - application/json
@@ -2500,7 +1927,7 @@ paths:
       summary: 更新档案
       tags:
       - Identity-Profiles
-  /idp/wechat-apps:
+  /v2/idp/wechat-apps:
     get:
       consumes:
       - application/json
@@ -2559,7 +1986,7 @@ paths:
       summary: 创建微信应用
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/{app_id}:
+  /v2/idp/wechat-apps/{app_id}:
     get:
       consumes:
       - application/json
@@ -2624,7 +2051,7 @@ paths:
       summary: 更新微信应用基础信息
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/{app_id}/access-token:
+  /v2/idp/wechat-apps/{app_id}/access-token:
     get:
       consumes:
       - application/json
@@ -2652,7 +2079,7 @@ paths:
       summary: 获取访问令牌（带缓存和自动刷新）
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/{app_id}/disable:
+  /v2/idp/wechat-apps/{app_id}/disable:
     post:
       consumes:
       - application/json
@@ -2680,7 +2107,7 @@ paths:
       summary: 禁用微信应用
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/{app_id}/enable:
+  /v2/idp/wechat-apps/{app_id}/enable:
     post:
       consumes:
       - application/json
@@ -2708,7 +2135,7 @@ paths:
       summary: 启用微信应用
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/refresh-access-token:
+  /v2/idp/wechat-apps/refresh-access-token:
     post:
       consumes:
       - application/json
@@ -2741,7 +2168,7 @@ paths:
       summary: 强制刷新访问令牌
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/rotate-auth-secret:
+  /v2/idp/wechat-apps/rotate-auth-secret:
     post:
       consumes:
       - application/json
@@ -2774,7 +2201,7 @@ paths:
       summary: 轮换认证密钥（AppSecret）
       tags:
       - IDP-Wechat
-  /idp/wechat-apps/rotate-msg-secret:
+  /v2/idp/wechat-apps/rotate-msg-secret:
     post:
       consumes:
       - application/json
@@ -2807,7 +2234,7 @@ paths:
       summary: 轮换消息加解密密钥
       tags:
       - IDP-Wechat
-  /suggest/profile:
+  /v2/suggest/profile:
     get:
       consumes:
       - application/json
@@ -2852,6 +2279,509 @@ paths:
       summary: 档案联想搜索
       tags:
       - Suggest
+  /v3/authz/assignments/{id}:
+    delete:
+      parameters:
+      - description: 分配ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+      summary: 根据分配ID撤销角色
+      tags:
+      - Authorization-Assignments
+  /v3/authz/assignments/grant:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 授予角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+              type: object
+      summary: 授予角色
+      tags:
+      - Authorization-Assignments
+  /v3/authz/assignments/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 撤销角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+      summary: 撤销角色
+      tags:
+      - Authorization-Assignments
+  /v3/authz/assignments/subject:
+    get:
+      parameters:
+      - description: 主体类型
+        enum:
+        - user
+        in: query
+        name: subject_type
+        required: true
+        type: string
+      - description: 主体ID
+        in: query
+        name: subject_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                  type: array
+              type: object
+      summary: 列出主体的角色分配
+      tags:
+      - Authorization-Assignments
+  /v3/authz/grants:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Grant
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreatePermissionGrantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse'
+              type: object
+      summary: 创建 PermissionGrant
+      tags:
+      - Authorization-Grants
+  /v3/authz/grants/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Grant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Revoke
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokePermissionGrantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+      summary: 撤销 PermissionGrant
+      tags:
+      - Authorization-Grants
+  /v3/authz/resources:
+    get:
+      parameters:
+      - description: 应用名称
+        in: query
+        name: app_name
+        type: string
+      - description: 域
+        in: query
+        name: domain
+        type: string
+      - description: 类型
+        in: query
+        name: type
+        type: string
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                  type: array
+              type: object
+      summary: 列出资源
+      tags:
+      - Authorization-Resources
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 创建资源请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+              type: object
+      summary: 创建资源
+      tags:
+      - Authorization-Resources
+  /v3/authz/resources/{id}:
+    delete:
+      parameters:
+      - description: 资源ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+      summary: 删除资源
+      tags:
+      - Authorization-Resources
+    get:
+      parameters:
+      - description: 资源ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+              type: object
+      summary: 获取资源详情
+      tags:
+      - Authorization-Resources
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 资源ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新资源请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+              type: object
+      summary: 更新资源
+      tags:
+      - Authorization-Resources
+  /v3/authz/resources/key/{key}:
+    get:
+      parameters:
+      - description: 资源键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+              type: object
+      summary: 根据键获取资源
+      tags:
+      - Authorization-Resources
+  /v3/authz/resources/validate-action:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 验证动作请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse'
+              type: object
+      summary: 验证资源动作
+      tags:
+      - Authorization-Resources
+  /v3/authz/roles:
+    get:
+      parameters:
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                  type: array
+              type: object
+      summary: 列出角色
+      tags:
+      - Authorization-Roles
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 创建角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+              type: object
+      summary: 创建角色
+      tags:
+      - Authorization-Roles
+  /v3/authz/roles/{id}:
+    delete:
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+      summary: 删除角色
+      tags:
+      - Authorization-Roles
+    get:
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+              type: object
+      summary: 获取角色详情
+      tags:
+      - Authorization-Roles
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+              type: object
+      summary: 更新角色
+      tags:
+      - Authorization-Roles
+  /v3/authz/roles/{id}/assignments:
+    get:
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                  type: array
+              type: object
+      summary: 列出角色的分配记录
+      tags:
+      - Authorization-Assignments
+  /v3/authz/roles/{id}/grants:
+    get:
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse'
+                  type: array
+              type: object
+      summary: 查询角色 PermissionGrant
+      tags:
+      - Authorization-Grants
 schemes:
 - https
 securityDefinitions:

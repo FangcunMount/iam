@@ -22,7 +22,7 @@ var _ = core.ErrResponse{}
 // @Success 200 {object} responsedto.ProfilePageResponse "查询成功"
 // @Failure 401 {object} core.ErrResponse "未授权"
 // @Failure 500 {object} core.ErrResponse "服务器内部错误"
-// @Router /identity/me/profiles [get]
+// @Router /v2/identity/me/profiles [get]
 // @Security BearerAuth
 func (h *ProfileHandler) ListMyProfiles(c *gin.Context) {
 	var query requestdto.ProfileListQuery
@@ -76,7 +76,7 @@ func (h *ProfileHandler) ListMyProfiles(c *gin.Context) {
 // @Failure 403 {object} core.ErrResponse "无权限访问此档案"
 // @Failure 404 {object} core.ErrResponse "档案不存在"
 // @Failure 500 {object} core.ErrResponse "服务器内部错误"
-// @Router /identity/profiles/{id} [get]
+// @Router /v2/identity/profiles/{id} [get]
 // @Security BearerAuth
 func (h *ProfileHandler) GetProfile(c *gin.Context) {
 	profileID, err := parseProfileID(c.Param("id"))

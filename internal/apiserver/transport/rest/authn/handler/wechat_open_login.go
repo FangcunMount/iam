@@ -41,7 +41,7 @@ func NewWechatOpenLoginAuthorizeHandler(authorize *signin.StartWechatOpenAuthori
 // @Produce json
 // @Param request body req.WechatOpenLoginAuthorizeRequest false "可选 nonce"
 // @Success 200 {object} resp.WechatOpenAuthorizeResponse "授权地址与 state"
-// @Router /authn/wechat-open/authorize [post]
+// @Router /v2/authn/wechat-open/authorize [post]
 func (h *WechatOpenLoginAuthorizeHandler) StartAuthorize(c *gin.Context) {
 	if h.authorize == nil {
 		h.Error(c, perrors.WithCode(code.ErrInvalidArgument, "wechat open login is not configured"))

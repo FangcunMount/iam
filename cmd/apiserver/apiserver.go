@@ -11,7 +11,7 @@
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      iam.fangcunmount.cn
-// @BasePath  /api/v2
+// @BasePath  /api
 
 // @securityDefinitions.apikey BearerAuth
 // @in header

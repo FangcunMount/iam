@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -97,11 +96,6 @@ func (v *validator) ValidateUpdateParameters(actions []string) error {
 		}
 	}
 	return nil
-}
-
-func (v *validator) ValidateScopeKinds(kinds []scope.Kind) error {
-	_, err := NormalizeAndValidateScopeKinds(kinds)
-	return err
 }
 
 // CheckResourceExists 检查资源是否存在

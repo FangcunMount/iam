@@ -50,7 +50,7 @@ func convertToSubjectType(s string) (bindingDomain.SubjectType, error) {
 // @Produce json
 // @Param request body dto.GrantRequest true "授予角色请求"
 // @Success 200 {object} dto.Response{data=dto.AssignmentResponse}
-// @Router /authz/assignments/grant [post]
+// @Router /v3/authz/assignments/grant [post]
 func (h *RoleBindingHandler) GrantRoleBinding(c *gin.Context) {
 	var req dto.GrantRequest
 	if !bindJSON(c, &req) {
@@ -96,7 +96,7 @@ func (h *RoleBindingHandler) GrantRoleBinding(c *gin.Context) {
 // @Produce json
 // @Param request body dto.RevokeRequest true "撤销角色请求"
 // @Success 200 {object} dto.Response
-// @Router /authz/assignments/revoke [post]
+// @Router /v3/authz/assignments/revoke [post]
 func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 	var req dto.RevokeRequest
 	if !bindJSON(c, &req) {
@@ -140,7 +140,7 @@ func (h *RoleBindingHandler) RevokeRoleBinding(c *gin.Context) {
 // @Tags Authorization-Assignments
 // @Param id path string true "分配ID"
 // @Success 200 {object} dto.Response
-// @Router /authz/assignments/{id} [delete]
+// @Router /v3/authz/assignments/{id} [delete]
 func (h *RoleBindingHandler) RevokeRoleBindingByID(c *gin.Context) {
 	bindingID, ok := parseIDParam(c, "id", "分配ID格式错误")
 	if !ok {
@@ -180,7 +180,7 @@ func (h *RoleBindingHandler) RevokeRoleBindingByID(c *gin.Context) {
 // @Param subject_type query string true "主体类型" Enums(user)
 // @Param subject_id query string true "主体ID"
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
-// @Router /authz/assignments/subject [get]
+// @Router /v3/authz/assignments/subject [get]
 func (h *RoleBindingHandler) ListRoleBindingsBySubject(c *gin.Context) {
 	subjectTypeStr := c.Query("subject_type")
 	subjectID, err := meta.ParseID(c.Query("subject_id"))
@@ -228,7 +228,7 @@ func (h *RoleBindingHandler) ListRoleBindingsBySubject(c *gin.Context) {
 // @Produce json
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
-// @Router /authz/roles/{id}/assignments [get]
+// @Router /v3/authz/roles/{id}/assignments [get]
 func (h *RoleBindingHandler) ListRoleBindingsByRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
 	if !ok {

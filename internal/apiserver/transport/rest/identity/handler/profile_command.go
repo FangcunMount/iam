@@ -27,7 +27,7 @@ var _ = responsedto.ProfileResponse{}
 // @Failure 403 {object} core.ErrResponse "无权限修改此档案"
 // @Failure 404 {object} core.ErrResponse "档案不存在"
 // @Failure 500 {object} core.ErrResponse "服务器内部错误"
-// @Router /identity/profiles/{id} [patch]
+// @Router /v2/identity/profiles/{id} [patch]
 // @Security BearerAuth
 func (h *ProfileHandler) PatchProfile(c *gin.Context) {
 	profileID, err := parseProfileID(c.Param("id"))

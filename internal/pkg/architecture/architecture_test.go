@@ -892,157 +892,48 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 	})
 }
 
-func TestAuthzCasbinFactsStayBehindApplicationPorts(t *testing.T) {
+func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
 	for _, rel := range []string{
-		"internal/apiserver/domain/authz/assignment",
-		"internal/apiserver/application/authz/assignment",
-		"internal/apiserver/infra/mysql/assignment",
+		"internal/apiserver/infra/casbin",
+		"internal/apiserver/infra/mysql/casbinrule",
+		"internal/apiserver/domain/authz/scope",
+	} {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(rel), "*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(matches) > 0 {
+			t.Fatalf("retired authorization path still contains files: %s", rel)
+		}
+	}
+	for _, rel := range []string{
+		"configs/casbin_model.conf",
+		"api/rest/authz.v2.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); !os.IsNotExist(err) {
-			t.Fatalf("%s must not exist; internal authz language should use rolebinding", rel)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Fatalf("retired authorization file still exists: %s", rel)
 		}
 	}
-
-	forbiddenDomainTokens := []string{
-		"PolicyRule",
-		"GroupingRule",
-		"CasbinAdapter",
-		"type AuthorizationFactStore interface",
-		"BuildPolicyRule",
-		"SubjectKey(",
-		"RoleKey(",
-		"scopeMatch",
-		"Sub string",
-		"Dom string",
-		"Obj string",
-		"Act string",
-	}
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authz"), func(path, source string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, token := range forbiddenDomainTokens {
-			if strings.Contains(source, token) {
-				t.Fatalf("%s contains Casbin technical authorization fact token %q; keep p/g/r tuples in infra/casbin and use domain business models", rel, token)
-			}
-		}
-	})
-	forbiddenDomainCrudTokens := []string{
-		"type Commander interface",
-		"type Queryer interface",
-		"Driving Port",
-		"type CreateRoleCommand",
-		"type UpdateRoleCommand",
-		"type CreateResourceCommand",
-		"type UpdateResourceCommand",
-		"type GrantCommand",
-		"type RevokeCommand",
-		"type RevokeByIDCommand",
-		"type ListBySubjectQuery",
-		"type ListByRoleQuery",
-	}
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authz"), func(path, source string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, token := range forbiddenDomainCrudTokens {
-			if strings.Contains(source, token) {
-				t.Fatalf("%s contains application driving model %q; keep authz domain to entities, value objects, repositories, and pure domain services", rel, token)
-			}
-		}
-	})
-
-	scanImports(t, filepath.Join(root, "internal", "apiserver", "transport", "grpc", "service", "authz"), func(path string, imports []string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/casbin") ||
-				strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/policy") ||
-				strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/rolebinding") ||
-				strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/role") {
-				t.Fatalf("%s imports %s; authz gRPC transport must depend on authorization application use cases", rel, imp)
-			}
-		}
-	})
-
-	scanImports(t, filepath.Join(root, "internal", "apiserver", "transport", "rest", "authz"), func(path string, imports []string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/casbin") {
-				t.Fatalf("%s imports %s; REST authz handlers must not directly depend on Casbin infrastructure", rel, imp)
-			}
-		}
-	})
-
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport"), func(path, source string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, token := range []string{".Enforce(", ".GetRolesForUser("} {
-			if strings.Contains(source, token) {
-				t.Fatalf("%s directly calls %s; transport must use RouteAuthorizationRuntime or application authorization ports", rel, token)
-			}
-		}
-	})
-
-	scanImports(t, filepath.Join(root, "internal", "apiserver", "application", "authz"), func(path string, imports []string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/casbin") {
-				t.Fatalf("%s imports %s; authz application must depend on business ports, not Casbin infrastructure", rel, imp)
-			}
-		}
-	})
-
-	assertFileContains(t, root, "configs/casbin_model.conf", "r = sub, dom, obj, act, scope")
-	assertFileContains(t, root, "configs/casbin_model.conf", "p = sub, dom, obj, act, scope")
-	assertFileContains(t, root, "configs/casbin_model.conf", "resourceMatch(r.obj, p.obj)")
-	assertFileContains(t, root, "configs/casbin_model.conf", "actionMatch(r.act, p.act)")
-	assertFileContains(t, root, "configs/casbin_model.conf", "scopeMatch(r.scope, p.scope)")
-	assertFileLacks(t, root, "configs/casbin_model.conf", "keyMatch(r.obj, p.obj)")
-	assertFileLacks(t, root, "configs/casbin_model.conf", "regexMatch(r.act, p.act)")
-	assertFileContains(t, root, "api/grpc/iam/authz/v2/authz.proto", "scope_type")
-	assertFileContains(t, root, "api/grpc/iam/authz/v2/authz.proto", "scope_value")
-	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/policy.go", "ScopeType")
-	assertFileContains(t, root, "internal/apiserver/transport/rest/authz/dto/check.go", "ScopeType")
-	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "transport", "rest", "authz"), func(path, source string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, token := range []string{
-			"policyDomain.PolicyRule",
-			"policyDomain.GroupingRule",
-			"policy.CasbinAdapter",
-			"policy.AuthorizationFactStore",
-			".AddPolicy(",
-			".AddGroupingPolicy(",
-		} {
-			if strings.Contains(source, token) {
-				t.Fatalf("%s contains Casbin technical authz dependency %q; REST authz must consume application authorization use cases", rel, token)
-			}
-		}
-	})
-
-	scanImports(t, filepath.Join(root, "internal", "apiserver", "infra", "mysql", "casbinrule"), func(path string, imports []string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authz/policy") {
-				t.Fatalf("%s imports %s; casbinrule storage must receive business facts through the authz application rule-store port", rel, imp)
-			}
-		}
-	})
-
-	assertFileLacks(t, root, "internal/apiserver/application/authz/uow/uow.go", "policyDomain.AuthorizationFactStore")
-	assertFileLacks(t, root, "internal/apiserver/application/authz/uow/uow.go", "RuleStore")
-	assertFileLacks(t, root, "internal/pkg/middleware/authn/jwt_middleware.go", "CasbinEnforcer")
-	assertFileLacks(t, root, "internal/apiserver/application/authz/policy/command_service.go", "BuildPolicyRule")
-	assertFileLacks(t, root, "internal/apiserver/application/authz/policy/command_service.go", ".AddPolicy(")
-	assertFileLacks(t, root, "internal/apiserver/application/authz/rolebinding/command_service.go", ".AddGroupingPolicy(")
-	assertFileLacks(t, root, "internal/apiserver/container/authz/capabilities.go", "policyDomain.CasbinAdapter")
-	assertFileLacks(t, root, "internal/apiserver/container/authz/capabilities.go", "policyDomain.Commander")
-	assertFileLacks(t, root, "internal/apiserver/container/authz/capabilities.go", "policyDomain.Queryer")
-	assertFileLacks(t, root, "internal/apiserver/container/authz/module.go", "CasbinAdapter *casbinInfra.CasbinAdapter")
-	assertFileLacks(t, root, "internal/apiserver/container/module_graph.go", "AuthzModule.CasbinAdapter")
-	assertFileLacks(t, root, "internal/apiserver/infra/casbin/adapter.go", "func (c *CasbinAdapter) Enforcer(")
-	if matches, err := filepath.Glob(filepath.Join(root, "internal", "apiserver", "application", "authz", "version", "*.go")); err != nil {
+	if matches, err := filepath.Glob(filepath.Join(root, "api", "grpc", "iam", "authz", "v2", "*")); err != nil {
 		t.Fatal(err)
 	} else if len(matches) > 0 {
-		t.Fatalf("internal/apiserver/application/authz/version is retired; version changes must flow through PolicyChangeCommitter")
+		t.Fatalf("retired AuthZ v2 contract files still exist: %v", matches)
 	}
+	assertFileContains(t, root, "api/grpc/iam/authz/v3/authz.proto", "OBJECT_CHECK_REQUIRED")
+	assertFileContains(t, root, "api/grpc/iam/authz/v3/authz.proto", "oneof value")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "BuildSnapshot")
+	assertFileContains(t, root, "internal/apiserver/domain/authz/permissiongrant/grant.go", "Constraint")
+	assertFileContains(t, root, "web/swagger-ui/swagger-ui-dist/swagger-initializer.js", "/openapi/authz.v3.yaml")
+	assertFileLacks(t, root, "web/swagger-ui/swagger-ui-dist/swagger-initializer.js", "authz.v2")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/assignmentconstraints/loader.go", "/iam.authz.v3.AuthorizationService/GrantAssignment")
+	assertFileLacks(t, root, "internal/apiserver/infra/authz/assignmentconstraints/loader.go", "iam.authz.v2")
+	assertFileLacks(t, root, "pkg/sdk/docs/06-authz.md", "iam.authz.v2")
 }
 
 func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
@@ -1059,7 +950,6 @@ func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
 		}
 		sql := string(data)
 		assertFourSegmentResourceValues(t, rel+" authz_resources.key", extractAuthzResourceKeysFromSQL(t, sql))
-		assertFourSegmentResourceValues(t, rel+" casbin_rule.v2", extractCasbinPolicyObjectsFromSQL(t, sql))
 	}
 }
 
@@ -1076,7 +966,8 @@ func TestAuthzStandaloneBootstrapUsesCanonicalTenantDomain(t *testing.T) {
 	for _, table := range []string{
 		"authz_roles",
 		"authz_assignments",
-		"casbin_rule",
+		"authz_role_inheritances",
+		"authz_permission_grants",
 		"authz_policy_versions",
 	} {
 		statement := extractInsertStatement(t, sql, table)
@@ -1227,69 +1118,30 @@ func TestAPIServerCompositionSettersAreAllowlisted(t *testing.T) {
 	})
 }
 
-func TestGRPCV2ContractsHaveRuntimeAndSDKCompileGuards(t *testing.T) {
+func TestGRPCContractsHaveRuntimeAndSDKCompileGuards(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	grpcRoot := filepath.Join(root, "api", "grpc", "iam")
 	contracts := []struct {
-		module           string
-		proto            string
-		goPackageAlias   string
-		generatedPackage string
-		serviceFile      string
-		registerToken    string
-		sdkFile          string
+		module, version, proto, alias, generatedPackage, serviceFile, registerToken, sdkFile string
 	}{
-		{
-			module:           "authn",
-			proto:            "api/grpc/iam/authn/v2/authn.proto",
-			goPackageAlias:   "authnv2",
-			generatedPackage: "api/grpc/iam/authn/v2",
-			serviceFile:      "internal/apiserver/transport/grpc/service/authn/service.go",
-			registerToken:    "authnv2.RegisterAuthServiceServer",
-			sdkFile:          "pkg/sdk/auth/client/client.go",
-		},
-		{
-			module:           "authz",
-			proto:            "api/grpc/iam/authz/v2/authz.proto",
-			goPackageAlias:   "authzv2",
-			generatedPackage: "api/grpc/iam/authz/v2",
-			serviceFile:      "internal/apiserver/transport/grpc/service/authz/service.go",
-			registerToken:    "authzv2.RegisterAuthorizationServiceServer",
-			sdkFile:          "pkg/sdk/authz/client.go",
-		},
-		{
-			module:           "identity",
-			proto:            "api/grpc/iam/identity/v2/identity.proto",
-			goPackageAlias:   "identityv2",
-			generatedPackage: "api/grpc/iam/identity/v2",
-			serviceFile:      "internal/apiserver/transport/grpc/service/identity/service.go",
-			registerToken:    "identityv2.RegisterIdentityReadServer",
-			sdkFile:          "pkg/sdk/identity/client.go",
-		},
-		{
-			module:           "idp",
-			proto:            "api/grpc/iam/idp/v2/idp.proto",
-			goPackageAlias:   "idpv2",
-			generatedPackage: "api/grpc/iam/idp/v2",
-			serviceFile:      "internal/apiserver/transport/grpc/service/idp/service.go",
-			registerToken:    "idpv2.RegisterIDPServiceServer",
-			sdkFile:          "pkg/sdk/idp/client.go",
-		},
+		{"authn", "v2", "api/grpc/iam/authn/v2/authn.proto", "authnv2", "api/grpc/iam/authn/v2", "internal/apiserver/transport/grpc/service/authn/service.go", "authnv2.RegisterAuthServiceServer", "pkg/sdk/auth/client/client.go"},
+		{"authz", "v3", "api/grpc/iam/authz/v3/authz.proto", "authzv3", "api/grpc/iam/authz/v3", "internal/apiserver/transport/grpc/service/authz/service.go", "authzv3.RegisterAuthorizationServiceServer", "pkg/sdk/authz/client.go"},
+		{"identity", "v2", "api/grpc/iam/identity/v2/identity.proto", "identityv2", "api/grpc/iam/identity/v2", "internal/apiserver/transport/grpc/service/identity/service.go", "identityv2.RegisterIdentityReadServer", "pkg/sdk/identity/client.go"},
+		{"idp", "v2", "api/grpc/iam/idp/v2/idp.proto", "idpv2", "api/grpc/iam/idp/v2", "internal/apiserver/transport/grpc/service/idp/service.go", "idpv2.RegisterIDPServiceServer", "pkg/sdk/idp/client.go"},
 	}
-
 	for _, contract := range contracts {
-		assertFileContains(t, root, contract.proto, "package iam."+contract.module+".v2;")
-		assertFileContains(t, root, contract.proto, "github.com/FangcunMount/iam/v3/"+contract.generatedPackage+";"+contract.goPackageAlias)
-		assertFileContains(t, root, filepath.ToSlash(filepath.Join(contract.generatedPackage, contract.module+".pb.go")), "package "+contract.goPackageAlias)
-		assertFileContains(t, root, filepath.ToSlash(filepath.Join(contract.generatedPackage, contract.module+"_grpc.pb.go")), "package "+contract.goPackageAlias)
-		assertFileContains(t, root, contract.serviceFile, "api/grpc/iam/"+contract.module+"/v2")
+		assertFileContains(t, root, contract.proto, "package iam."+contract.module+"."+contract.version+";")
+		assertFileContains(t, root, contract.proto, "github.com/FangcunMount/iam/v3/"+contract.generatedPackage+";"+contract.alias)
+		assertFileContains(t, root, filepath.ToSlash(filepath.Join(contract.generatedPackage, contract.module+".pb.go")), "package "+contract.alias)
+		assertFileContains(t, root, filepath.ToSlash(filepath.Join(contract.generatedPackage, contract.module+"_grpc.pb.go")), "package "+contract.alias)
+		assertFileContains(t, root, contract.serviceFile, "api/grpc/iam/"+contract.module+"/"+contract.version)
 		assertFileContains(t, root, contract.serviceFile, contract.registerToken)
-		assertFileContains(t, root, contract.sdkFile, "api/grpc/iam/"+contract.module+"/v2")
+		assertFileContains(t, root, contract.sdkFile, "api/grpc/iam/"+contract.module+"/"+contract.version)
 	}
 	assertFileContains(t, root, "pkg/sdk/public_api_compile_test.go", `github.com/FangcunMount/iam/v3/pkg/sdk`)
 
+	grpcRoot := filepath.Join(root, "api", "grpc", "iam")
 	err := filepath.WalkDir(grpcRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -1299,10 +1151,10 @@ func TestGRPCV2ContractsHaveRuntimeAndSDKCompileGuards(t *testing.T) {
 		}
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		if strings.Contains(rel, "/v1/") {
-			t.Fatalf("%s is a retired gRPC v1 contract; IAM public gRPC contracts must stay v2-only", rel)
+			t.Fatalf("%s is a retired gRPC v1 contract", rel)
 		}
-		if !strings.Contains(rel, "/v2/") {
-			t.Fatalf("%s is not under a v2 contract directory", rel)
+		if strings.Contains(rel, "/authz/") && !strings.Contains(rel, "/authz/v3/") {
+			t.Fatalf("%s is not the required AuthZ v3 contract", rel)
 		}
 		return nil
 	})

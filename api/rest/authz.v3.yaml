@@ -1,0 +1,813 @@
+openapi: 3.0.3
+info:
+  title: IAM AuthZ API
+  version: 3.0.0
+  description: Native role, assignment, PermissionGrant, and resource attribute-schema management.
+servers:
+- url: /api/v3
+paths:
+  /authz/assignments/{id}:
+    delete:
+      tags:
+      - Authorization-Assignments
+      summary: 根据分配ID撤销角色
+      parameters:
+      - name: id
+        in: path
+        description: 分配ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+  /authz/assignments/grant:
+    post:
+      tags:
+      - Authorization-Assignments
+      summary: 授予角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                  type: object
+  /authz/assignments/revoke:
+    post:
+      tags:
+      - Authorization-Assignments
+      summary: 撤销角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+  /authz/assignments/subject:
+    get:
+      tags:
+      - Authorization-Assignments
+      summary: 列出主体的角色分配
+      parameters:
+      - name: subject_type
+        in: query
+        description: 主体类型
+        required: true
+        schema:
+          type: string
+          enum:
+          - user
+      - name: subject_id
+        in: query
+        description: 主体ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      items:
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                      type: array
+                  type: object
+  /authz/grants:
+    post:
+      tags:
+      - Authorization-Grants
+      summary: 创建 PermissionGrant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreatePermissionGrantRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse'
+                  type: object
+  /authz/grants/{id}:
+    delete:
+      tags:
+      - Authorization-Grants
+      summary: 撤销 PermissionGrant
+      parameters:
+      - name: id
+        in: path
+        description: Grant ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokePermissionGrantRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+  /authz/resources:
+    get:
+      tags:
+      - Authorization-Resources
+      summary: 列出资源
+      parameters:
+      - name: app_name
+        in: query
+        description: 应用名称
+        schema:
+          type: string
+      - name: domain
+        in: query
+        description: 域
+        schema:
+          type: string
+      - name: type
+        in: query
+        description: 类型
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: 偏移量
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        description: 每页数量
+        schema:
+          type: integer
+          default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
+                - properties:
+                    data:
+                      items:
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                      type: array
+                  type: object
+    post:
+      tags:
+      - Authorization-Resources
+      summary: 创建资源
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                  type: object
+  /authz/resources/{id}:
+    get:
+      tags:
+      - Authorization-Resources
+      summary: 获取资源详情
+      parameters:
+      - name: id
+        in: path
+        description: 资源ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                  type: object
+    put:
+      tags:
+      - Authorization-Resources
+      summary: 更新资源
+      parameters:
+      - name: id
+        in: path
+        description: 资源ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                  type: object
+    delete:
+      tags:
+      - Authorization-Resources
+      summary: 删除资源
+      parameters:
+      - name: id
+        in: path
+        description: 资源ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+  /authz/resources/key/{key}:
+    get:
+      tags:
+      - Authorization-Resources
+      summary: 根据键获取资源
+      parameters:
+      - name: key
+        in: path
+        description: 资源键
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
+                  type: object
+  /authz/resources/validate-action:
+    post:
+      tags:
+      - Authorization-Resources
+      summary: 验证资源动作
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse'
+                  type: object
+  /authz/roles:
+    get:
+      tags:
+      - Authorization-Roles
+      summary: 列出角色
+      parameters:
+      - name: offset
+        in: query
+        description: 偏移量
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        description: 每页数量
+        schema:
+          type: integer
+          default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse'
+                - properties:
+                    data:
+                      items:
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                      type: array
+                  type: object
+    post:
+      tags:
+      - Authorization-Roles
+      summary: 创建角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                  type: object
+  /authz/roles/{id}:
+    get:
+      tags:
+      - Authorization-Roles
+      summary: 获取角色详情
+      parameters:
+      - name: id
+        in: path
+        description: 角色ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                  type: object
+    put:
+      tags:
+      - Authorization-Roles
+      summary: 更新角色
+      parameters:
+      - name: id
+        in: path
+        description: 角色ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
+                  type: object
+    delete:
+      tags:
+      - Authorization-Roles
+      summary: 删除角色
+      parameters:
+      - name: id
+        in: path
+        description: 角色ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+  /authz/roles/{id}/assignments:
+    get:
+      tags:
+      - Authorization-Assignments
+      summary: 列出角色的分配记录
+      parameters:
+      - name: id
+        in: path
+        description: 角色ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      items:
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
+                      type: array
+                  type: object
+  /authz/roles/{id}/grants:
+    get:
+      tags:
+      - Authorization-Grants
+      summary: 查询角色 PermissionGrant
+      parameters:
+      - name: id
+        in: path
+        description: Role ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+                - properties:
+                    data:
+                      items:
+                        $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse'
+                      type: array
+                  type: object
+components:
+  schemas:
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition:
+      properties:
+        allowed_string_values:
+          items:
+            type: string
+          type: array
+        key:
+          type: string
+        type:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type'
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema:
+      properties:
+        attributes:
+          items:
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition'
+          type: array
+        version:
+          type: integer
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type:
+      enum:
+      - string
+      - int64
+      - bool
+      type: string
+      x-enum-varnames:
+      - TypeString
+      - TypeInt64
+      - TypeBool
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Operator:
+      enum:
+      - eq
+      type: string
+      x-enum-varnames:
+      - OperatorEQ
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Predicate:
+      properties:
+        key:
+          type: string
+        operator:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Operator'
+        value:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Value'
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set:
+      properties:
+        all_of:
+          items:
+            $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Predicate'
+          type: array
+        version:
+          type: integer
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Value:
+      properties:
+        bool:
+          type: boolean
+        int64:
+          type: integer
+        string:
+          type: string
+        type:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type'
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse:
+      properties:
+        granted_by:
+          type: string
+        id:
+          type: string
+        role_id:
+          type: string
+        subject_id:
+          type: string
+        subject_type:
+          type: string
+        tenant_id:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreatePermissionGrantRequest:
+      properties:
+        action:
+          type: string
+        constraint_set:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set'
+        resource_id:
+          type: string
+        role_id:
+          type: string
+      required:
+      - action
+      - resource_id
+      - role_id
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest:
+      properties:
+        actions:
+          items:
+            type: string
+          minItems: 1
+          type: array
+        app_name:
+          type: string
+        attribute_schema:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema'
+        description:
+          type: string
+        display_name:
+          type: string
+        domain:
+          type: string
+        key:
+          type: string
+        type:
+          type: string
+      required:
+      - actions
+      - app_name
+      - display_name
+      - domain
+      - key
+      - type
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest:
+      properties:
+        description:
+          type: string
+        display_name:
+          type: string
+        name:
+          type: string
+      required:
+      - display_name
+      - name
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest:
+      properties:
+        granted_by:
+          type: string
+        role_id:
+          type: string
+        subject_id:
+          type: string
+        subject_type:
+          enum:
+          - user
+          type: string
+      required:
+      - role_id
+      - subject_id
+      - subject_type
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse:
+      properties:
+        code:
+          type: integer
+        data: {}
+        limit:
+          type: integer
+        message:
+          type: string
+        offset:
+          type: integer
+        total:
+          type: integer
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse:
+      properties:
+        action:
+          type: string
+        active:
+          type: boolean
+        constraint_set:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set'
+        grant_key:
+          type: string
+        granted_by:
+          type: string
+        id:
+          type: string
+        resource_id:
+          type: string
+        resource_pattern:
+          type: string
+        role_id:
+          type: string
+        tenant_id:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse:
+      properties:
+        actions:
+          items:
+            type: string
+          type: array
+        app_name:
+          type: string
+        attribute_schema:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema'
+        description:
+          type: string
+        display_name:
+          type: string
+        domain:
+          type: string
+        id:
+          type: string
+        key:
+          type: string
+        type:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response:
+      properties:
+        code:
+          type: integer
+        data: {}
+        message:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokePermissionGrantRequest:
+      properties:
+        reason:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest:
+      properties:
+        reason:
+          type: string
+        role_id:
+          type: string
+        subject_id:
+          type: string
+        subject_type:
+          enum:
+          - user
+          type: string
+      required:
+      - role_id
+      - subject_id
+      - subject_type
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse:
+      properties:
+        description:
+          type: string
+        display_name:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        tenant_id:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest:
+      properties:
+        actions:
+          items:
+            type: string
+          minItems: 1
+          type: array
+        attribute_schema:
+          $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema'
+        description:
+          type: string
+        display_name:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest:
+      properties:
+        description:
+          type: string
+        display_name:
+          type: string
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest:
+      properties:
+        action:
+          type: string
+        resource_key:
+          type: string
+      required:
+      - action
+      - resource_key
+      type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse:
+      properties:
+        valid:
+          type: boolean
+      type: object
+tags:
+- name: Authorization-Assignments
+- name: Authorization-Grants
+- name: Authorization-Resources
+- name: Authorization-Roles

@@ -21,7 +21,7 @@ var _ = core.ErrResponse{}
 // @Header 200 {string} Last-Modified "最后修改时间"
 // @Header 200 {string} Cache-Control "缓存控制"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /.well-known/jwks.json [get]
+// @Router /v2/.well-known/jwks.json [get]
 func (h *JWKSHandler) GetJWKS(c *gin.Context) {
 	ctx := c.Request.Context()
 

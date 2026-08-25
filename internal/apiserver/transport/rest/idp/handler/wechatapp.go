@@ -43,7 +43,7 @@ func NewWechatAppHandler(
 // @Success 200 {object} response.WechatAppListResponse "查询成功"
 // @Failure 400 {object} response.ErrorResponse "请求参数错误"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps [get]
+// @Router /v2/idp/wechat-apps [get]
 func (h *WechatAppHandler) ListWechatApps(c *gin.Context) {
 	var req request.ListWechatAppsRequest
 	if err := h.BindQuery(c, &req); err != nil {
@@ -82,7 +82,7 @@ func (h *WechatAppHandler) ListWechatApps(c *gin.Context) {
 // @Success 201 {object} response.WechatAppResponse "创建成功"
 // @Failure 400 {object} response.ErrorResponse "请求参数错误"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps [post]
+// @Router /v2/idp/wechat-apps [post]
 func (h *WechatAppHandler) CreateWechatApp(c *gin.Context) {
 	var req request.CreateWechatAppRequest
 	if err := h.BindJSON(c, &req); err != nil {
@@ -111,7 +111,7 @@ func (h *WechatAppHandler) CreateWechatApp(c *gin.Context) {
 // @Success 200 {object} response.WechatAppResponse "查询成功"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/{app_id} [get]
+// @Router /v2/idp/wechat-apps/{app_id} [get]
 func (h *WechatAppHandler) GetWechatApp(c *gin.Context) {
 	var req request.GetWechatAppRequest
 	if err := h.BindURI(c, &req); err != nil {
@@ -140,7 +140,7 @@ func (h *WechatAppHandler) GetWechatApp(c *gin.Context) {
 // @Failure 400 {object} response.ErrorResponse "请求参数错误"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/{app_id} [patch]
+// @Router /v2/idp/wechat-apps/{app_id} [patch]
 func (h *WechatAppHandler) UpdateWechatApp(c *gin.Context) {
 	var uri request.GetWechatAppRequest
 	if err := h.BindURI(c, &uri); err != nil {
@@ -176,7 +176,7 @@ func (h *WechatAppHandler) UpdateWechatApp(c *gin.Context) {
 // @Success 200 {object} response.WechatAppResponse "启用成功"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/{app_id}/enable [post]
+// @Router /v2/idp/wechat-apps/{app_id}/enable [post]
 func (h *WechatAppHandler) EnableWechatApp(c *gin.Context) {
 	var req request.GetWechatAppRequest
 	if err := h.BindURI(c, &req); err != nil {
@@ -201,7 +201,7 @@ func (h *WechatAppHandler) EnableWechatApp(c *gin.Context) {
 // @Success 200 {object} response.WechatAppResponse "禁用成功"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/{app_id}/disable [post]
+// @Router /v2/idp/wechat-apps/{app_id}/disable [post]
 func (h *WechatAppHandler) DisableWechatApp(c *gin.Context) {
 	var req request.GetWechatAppRequest
 	if err := h.BindURI(c, &req); err != nil {
@@ -227,7 +227,7 @@ func (h *WechatAppHandler) DisableWechatApp(c *gin.Context) {
 // @Failure 400 {object} response.ErrorResponse "请求参数错误"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/rotate-auth-secret [post]
+// @Router /v2/idp/wechat-apps/rotate-auth-secret [post]
 func (h *WechatAppHandler) RotateAuthSecret(c *gin.Context) {
 	var req request.RotateAuthSecretRequest
 	if err := h.BindJSON(c, &req); err != nil {
@@ -265,7 +265,7 @@ func (h *WechatAppHandler) RotateAuthSecret(c *gin.Context) {
 // @Failure 400 {object} response.ErrorResponse "请求参数错误"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/rotate-msg-secret [post]
+// @Router /v2/idp/wechat-apps/rotate-msg-secret [post]
 func (h *WechatAppHandler) RotateMsgSecret(c *gin.Context) {
 	var req request.RotateMsgSecretRequest
 	if err := h.BindJSON(c, &req); err != nil {
@@ -303,7 +303,7 @@ func (h *WechatAppHandler) RotateMsgSecret(c *gin.Context) {
 // @Success 200 {object} response.AccessTokenResponse "获取成功"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/{app_id}/access-token [get]
+// @Router /v2/idp/wechat-apps/{app_id}/access-token [get]
 func (h *WechatAppHandler) GetAccessToken(c *gin.Context) {
 	var req request.GetAccessTokenRequest
 	if err := h.BindURI(c, &req); err != nil {
@@ -337,7 +337,7 @@ func (h *WechatAppHandler) GetAccessToken(c *gin.Context) {
 // @Failure 400 {object} response.ErrorResponse "请求参数错误"
 // @Failure 404 {object} response.ErrorResponse "应用不存在"
 // @Failure 500 {object} response.ErrorResponse "服务器内部错误"
-// @Router /idp/wechat-apps/refresh-access-token [post]
+// @Router /v2/idp/wechat-apps/refresh-access-token [post]
 func (h *WechatAppHandler) RefreshAccessToken(c *gin.Context) {
 	var req request.RefreshAccessTokenRequest
 	if err := h.BindJSON(c, &req); err != nil {

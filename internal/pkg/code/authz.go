@@ -24,6 +24,9 @@ const (
 
 	// ErrRoleAlreadyExists - 409: Role already exists.
 	ErrRoleAlreadyExists = 103101
+
+	// ErrRoleInheritanceAlreadyExists - 409: Role inheritance already exists.
+	ErrRoleInheritanceAlreadyExists = 103102
 )
 
 // Authz: 资源相关错误 (103200～103299).
@@ -53,6 +56,9 @@ const (
 	ErrPolicyVersionNotFound = 103400
 	// ErrPolicyVersionAlreadyExists - 409: Policy version already exists.
 	ErrPolicyVersionAlreadyExists = 103401
+
+	// ErrPermissionGrantAlreadyExists - 409: Permission grant already exists.
+	ErrPermissionGrantAlreadyExists = 103402
 )
 
 // nolint: gochecknoinits
@@ -68,6 +74,7 @@ func registerAuthz() {
 	// 角色相关错误
 	registerAuthzCode(ErrRoleNotFound, http.StatusNotFound, "Role not found")
 	registerAuthzCode(ErrRoleAlreadyExists, http.StatusConflict, "Role already exists")
+	registerAuthzCode(ErrRoleInheritanceAlreadyExists, http.StatusConflict, "Role inheritance already exists")
 
 	// 资源相关错误
 	registerAuthzCode(ErrResourceNotFound, http.StatusNotFound, "Resource not found")
@@ -81,6 +88,7 @@ func registerAuthz() {
 	// 策略版本相关错误
 	registerAuthzCode(ErrPolicyVersionNotFound, http.StatusNotFound, "Policy version not found")
 	registerAuthzCode(ErrPolicyVersionAlreadyExists, http.StatusConflict, "Policy version already exists")
+	registerAuthzCode(ErrPermissionGrantAlreadyExists, http.StatusConflict, "Permission grant already exists")
 
 	// 策略相关错误
 }

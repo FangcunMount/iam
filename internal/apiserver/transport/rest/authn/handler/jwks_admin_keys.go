@@ -28,7 +28,7 @@ var _ = core.ErrResponse{}
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys [post]
+// @Router /v2/authn/admin/jwks/keys [post]
 func (h *JWKSHandler) CreateKey(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -67,7 +67,7 @@ func (h *JWKSHandler) CreateKey(c *gin.Context) {
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys [get]
+// @Router /v2/authn/admin/jwks/keys [get]
 func (h *JWKSHandler) ListKeys(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -141,7 +141,7 @@ func (h *JWKSHandler) ListKeys(c *gin.Context) {
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 404 {object} core.ErrResponse "密钥不存在"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys/{kid} [get]
+// @Router /v2/authn/admin/jwks/keys/{kid} [get]
 func (h *JWKSHandler) GetKey(c *gin.Context) {
 	ctx := c.Request.Context()
 	kid := c.Param("kid")

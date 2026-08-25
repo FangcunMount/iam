@@ -12,14 +12,14 @@ import (
 // ResourcePO 资源持久化对象
 type ResourcePO struct {
 	base.AuditFields
-	Key         string `gorm:"column:key;type:varchar(128);not null;uniqueIndex"`
-	DisplayName string `gorm:"column:display_name;type:varchar(128)"`
-	AppName     string `gorm:"column:app_name;type:varchar(32);index"`
-	Domain      string `gorm:"column:domain;type:varchar(32);index"`
-	Type        string `gorm:"column:type;type:varchar(32);index"`
-	Actions     string `gorm:"column:actions;type:text"` // JSON array string
-	ScopeKinds  string `gorm:"column:scope_kinds;type:text"`
-	Description string `gorm:"column:description;type:varchar(512)"`
+	Key             string `gorm:"column:key;type:varchar(128);not null;uniqueIndex"`
+	DisplayName     string `gorm:"column:display_name;type:varchar(128)"`
+	AppName         string `gorm:"column:app_name;type:varchar(32);index"`
+	Domain          string `gorm:"column:domain;type:varchar(32);index"`
+	Type            string `gorm:"column:type;type:varchar(32);index"`
+	Actions         string `gorm:"column:actions;type:text"` // JSON array string
+	AttributeSchema string `gorm:"column:attribute_schema;type:json"`
+	Description     string `gorm:"column:description;type:varchar(512)"`
 }
 
 // TableName 指定表名

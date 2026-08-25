@@ -1,6 +1,6 @@
 package suggest
 
-// Casbin 资源与动作（与 bootstrap 策略对齐；search_byMobile 可逐步在策略中授予）。
+// AuthZ v3 资源与动作（与 bootstrap PermissionGrant 对齐）。
 const (
 	ResourceIAMProfileCollection = "iam:identity:collection:profiles"
 	ActionSearch                 = "search"

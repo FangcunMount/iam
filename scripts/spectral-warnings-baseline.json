@@ -2,7 +2,7 @@
   "version": 1,
   "warnings": [
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -42,7 +42,7 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -72,7 +72,7 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -102,7 +102,7 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -112,7 +112,7 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -212,7 +212,7 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -362,7 +362,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -372,7 +372,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -382,7 +382,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -392,7 +392,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -402,7 +402,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -412,7 +412,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -422,7 +422,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -432,7 +432,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -442,7 +442,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -452,7 +452,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -462,7 +462,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -472,7 +472,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -482,7 +482,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -492,7 +492,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -502,7 +502,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -512,7 +512,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -522,7 +522,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -532,7 +532,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -542,7 +542,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -552,7 +552,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -562,7 +562,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -572,7 +572,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -582,7 +582,7 @@
       "message": "Operation \"description\" must be present and non-empty string."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-description",
       "path": [
         "paths",
@@ -932,7 +932,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -942,7 +942,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -952,7 +952,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -962,7 +962,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -972,7 +972,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -982,7 +982,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -992,7 +992,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1002,7 +1002,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1012,7 +1012,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1022,7 +1022,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1032,7 +1032,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1042,7 +1042,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1052,7 +1052,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1062,7 +1062,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1072,7 +1072,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1082,7 +1082,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1092,7 +1092,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1102,7 +1102,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1112,7 +1112,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1122,7 +1122,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1132,7 +1132,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1142,7 +1142,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",
@@ -1152,7 +1152,7 @@
       "message": "Operation must have \"operationId\"."
     },
     {
-      "source": "api/rest/authz.v2.yaml",
+      "source": "api/rest/authz.v3.yaml",
       "code": "operation-operationId",
       "path": [
         "paths",

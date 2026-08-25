@@ -24,7 +24,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/.well-known/jwks.json": {
+        "/v2/.well-known/jwks.json": {
             "get": {
                 "description": "获取 JSON Web Key Set，用于验证 JWT 签名",
                 "produces": [
@@ -65,7 +65,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys": {
+        "/v2/authn/admin/jwks/keys": {
             "get": {
                 "security": [
                     {
@@ -197,7 +197,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys/cleanup": {
+        "/v2/authn/admin/jwks/keys/cleanup": {
             "post": {
                 "security": [
                     {
@@ -240,7 +240,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys/publishable": {
+        "/v2/authn/admin/jwks/keys/publishable": {
             "get": {
                 "security": [
                     {
@@ -283,7 +283,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys/{kid}": {
+        "/v2/authn/admin/jwks/keys/{kid}": {
             "get": {
                 "security": [
                     {
@@ -347,7 +347,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys/{kid}/force-retire": {
+        "/v2/authn/admin/jwks/keys/{kid}/force-retire": {
             "post": {
                 "security": [
                     {
@@ -408,7 +408,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys/{kid}/grace": {
+        "/v2/authn/admin/jwks/keys/{kid}/grace": {
             "post": {
                 "security": [
                     {
@@ -469,7 +469,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/admin/jwks/keys/{kid}/retire": {
+        "/v2/authn/admin/jwks/keys/{kid}/retire": {
             "post": {
                 "security": [
                     {
@@ -530,7 +530,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/challenges/phone-otp": {
+        "/v2/authn/challenges/phone-otp": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -563,7 +563,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login": {
+        "/v2/authn/login": {
             "post": {
                 "description": "使用 auth_method 明确选择认证方式，method_payload 按认证方式解析。v2 只开放 password、phone_otp、wechat、wechat_scan、wecom。",
                 "consumes": [
@@ -611,7 +611,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities": {
+        "/v2/authn/login-identities": {
             "get": {
                 "security": [
                     {
@@ -635,7 +635,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/phone": {
+        "/v2/authn/login-identities/phone": {
             "post": {
                 "security": [
                     {
@@ -673,7 +673,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/phone/challenge": {
+        "/v2/authn/login-identities/phone/challenge": {
             "post": {
                 "security": [
                     {
@@ -711,7 +711,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/wechat-miniprogram": {
+        "/v2/authn/login-identities/wechat-miniprogram": {
             "post": {
                 "security": [
                     {
@@ -749,7 +749,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/wechat-open": {
+        "/v2/authn/login-identities/wechat-open": {
             "post": {
                 "security": [
                     {
@@ -787,7 +787,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/wechat-open/authorize": {
+        "/v2/authn/login-identities/wechat-open/authorize": {
             "post": {
                 "security": [
                     {
@@ -824,7 +824,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/wecom": {
+        "/v2/authn/login-identities/wecom": {
             "post": {
                 "security": [
                     {
@@ -862,7 +862,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/login-identities/{id}": {
+        "/v2/authn/login-identities/{id}": {
             "delete": {
                 "security": [
                     {
@@ -895,7 +895,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/logout": {
+        "/v2/authn/logout": {
             "post": {
                 "description": "撤销访问令牌和刷新令牌",
                 "consumes": [
@@ -936,7 +936,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/refresh_token": {
+        "/v2/authn/refresh_token": {
             "post": {
                 "description": "使用刷新令牌获取新的访问令牌",
                 "consumes": [
@@ -984,7 +984,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/signups/wechat-miniprogram": {
+        "/v2/authn/signups/wechat-miniprogram": {
             "post": {
                 "description": "通过微信小程序 code 建立 User 与 LoginIdentity 绑定。",
                 "consumes": [
@@ -1032,7 +1032,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/verify": {
+        "/v2/authn/verify": {
             "post": {
                 "description": "验证访问令牌的有效性并返回声明信息",
                 "consumes": [
@@ -1080,7 +1080,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authn/wechat-open/authorize": {
+        "/v2/authn/wechat-open/authorize": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -1112,935 +1112,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/authz/assignments/grant": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Assignments"
-                ],
-                "summary": "授予角色",
-                "parameters": [
-                    {
-                        "description": "授予角色请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/assignments/revoke": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Assignments"
-                ],
-                "summary": "撤销角色",
-                "parameters": [
-                    {
-                        "description": "撤销角色请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/assignments/subject": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Assignments"
-                ],
-                "summary": "列出主体的角色分配",
-                "parameters": [
-                    {
-                        "enum": [
-                            "user"
-                        ],
-                        "type": "string",
-                        "description": "主体类型",
-                        "name": "subject_type",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "主体ID",
-                        "name": "subject_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/assignments/{id}": {
-            "delete": {
-                "tags": [
-                    "Authorization-Assignments"
-                ],
-                "summary": "根据分配ID撤销角色",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "分配ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/check": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Policies"
-                ],
-                "summary": "策略判定（Enforce）",
-                "parameters": [
-                    {
-                        "description": "判定请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/policies": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Policies"
-                ],
-                "summary": "添加权限",
-                "parameters": [
-                    {
-                        "description": "添加策略请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Policies"
-                ],
-                "summary": "移除权限",
-                "parameters": [
-                    {
-                        "description": "移除策略请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/policies/lint": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Policies"
-                ],
-                "summary": "检查授权策略事实",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/policies/version": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Policies"
-                ],
-                "summary": "获取当前策略版本",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/resources": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "列出资源",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "应用名称",
-                        "name": "app_name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "域",
-                        "name": "domain",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "类型",
-                        "name": "type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "偏移量",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "每页数量",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "创建资源",
-                "parameters": [
-                    {
-                        "description": "创建资源请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/resources/key/{key}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "根据键获取资源",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "资源键",
-                        "name": "key",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/resources/validate-action": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "验证资源动作",
-                "parameters": [
-                    {
-                        "description": "验证动作请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/resources/{id}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "获取资源详情",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "资源ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "put": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "更新资源",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "资源ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "更新资源请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Authorization-Resources"
-                ],
-                "summary": "删除资源",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "资源ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/roles": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Roles"
-                ],
-                "summary": "列出角色",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "偏移量",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "每页数量",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Roles"
-                ],
-                "summary": "创建角色",
-                "parameters": [
-                    {
-                        "description": "创建角色请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/roles/{id}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Roles"
-                ],
-                "summary": "获取角色详情",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "角色ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "put": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Roles"
-                ],
-                "summary": "更新角色",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "角色ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "更新角色请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Authorization-Roles"
-                ],
-                "summary": "删除角色",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "角色ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/roles/{id}/assignments": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Assignments"
-                ],
-                "summary": "列出角色的分配记录",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "角色ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/authz/roles/{id}/policies": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authorization-Policies"
-                ],
-                "summary": "获取角色的策略列表",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "角色ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionResponse"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/identity/me": {
+        "/v2/identity/me": {
             "get": {
                 "security": [
                     {
@@ -2135,7 +1207,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/me/profiles": {
+        "/v2/identity/me/profiles": {
             "get": {
                 "security": [
                     {
@@ -2191,7 +1263,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/profile-links": {
+        "/v2/identity/profile-links": {
             "get": {
                 "security": [
                     {
@@ -2271,7 +1343,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/profiles/{id}": {
+        "/v2/identity/profiles/{id}": {
             "get": {
                 "security": [
                     {
@@ -2412,7 +1484,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps": {
+        "/v2/idp/wechat-apps": {
             "get": {
                 "consumes": [
                     "application/json"
@@ -2503,7 +1575,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/refresh-access-token": {
+        "/v2/idp/wechat-apps/refresh-access-token": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -2554,7 +1626,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/rotate-auth-secret": {
+        "/v2/idp/wechat-apps/rotate-auth-secret": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -2605,7 +1677,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/rotate-msg-secret": {
+        "/v2/idp/wechat-apps/rotate-msg-secret": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -2656,7 +1728,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/{app_id}": {
+        "/v2/idp/wechat-apps/{app_id}": {
             "get": {
                 "consumes": [
                     "application/json"
@@ -2755,7 +1827,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/{app_id}/access-token": {
+        "/v2/idp/wechat-apps/{app_id}/access-token": {
             "get": {
                 "consumes": [
                     "application/json"
@@ -2798,7 +1870,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/{app_id}/disable": {
+        "/v2/idp/wechat-apps/{app_id}/disable": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -2841,7 +1913,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/idp/wechat-apps/{app_id}/enable": {
+        "/v2/idp/wechat-apps/{app_id}/enable": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -2884,7 +1956,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/suggest/profile": {
+        "/v2/suggest/profile": {
             "get": {
                 "security": [
                     {
@@ -2953,6 +2025,847 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v3/authz/assignments/grant": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Assignments"
+                ],
+                "summary": "授予角色",
+                "parameters": [
+                    {
+                        "description": "授予角色请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.GrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/assignments/revoke": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Assignments"
+                ],
+                "summary": "撤销角色",
+                "parameters": [
+                    {
+                        "description": "撤销角色请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/assignments/subject": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Assignments"
+                ],
+                "summary": "列出主体的角色分配",
+                "parameters": [
+                    {
+                        "enum": [
+                            "user"
+                        ],
+                        "type": "string",
+                        "description": "主体类型",
+                        "name": "subject_type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "主体ID",
+                        "name": "subject_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/assignments/{id}": {
+            "delete": {
+                "tags": [
+                    "Authorization-Assignments"
+                ],
+                "summary": "根据分配ID撤销角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "分配ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/grants": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Grants"
+                ],
+                "summary": "创建 PermissionGrant",
+                "parameters": [
+                    {
+                        "description": "Grant",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreatePermissionGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/grants/{id}": {
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Grants"
+                ],
+                "summary": "撤销 PermissionGrant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Grant ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Revoke",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokePermissionGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/resources": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "列出资源",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "应用名称",
+                        "name": "app_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "域",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "偏移量",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "创建资源",
+                "parameters": [
+                    {
+                        "description": "创建资源请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/resources/key/{key}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "根据键获取资源",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "资源键",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/resources/validate-action": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "验证资源动作",
+                "parameters": [
+                    {
+                        "description": "验证动作请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/resources/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "获取资源详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "资源ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "更新资源",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "资源ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新资源请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Authorization-Resources"
+                ],
+                "summary": "删除资源",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "资源ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/roles": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Roles"
+                ],
+                "summary": "列出角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "偏移量",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ListResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Roles"
+                ],
+                "summary": "创建角色",
+                "parameters": [
+                    {
+                        "description": "创建角色请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/roles/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Roles"
+                ],
+                "summary": "获取角色详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Roles"
+                ],
+                "summary": "更新角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新角色请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.UpdateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Authorization-Roles"
+                ],
+                "summary": "删除角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/roles/{id}/assignments": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Assignments"
+                ],
+                "summary": "列出角色的分配记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/roles/{id}/grants": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Grants"
+                ],
+                "summary": "查询角色 PermissionGrant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2985,6 +2898,104 @@ const docTemplate = `{
                 },
                 "y": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition": {
+            "type": "object",
+            "properties": {
+                "allowed_string_values": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "key": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type": {
+            "type": "string",
+            "enum": [
+                "string",
+                "int64",
+                "bool"
+            ],
+            "x-enum-varnames": [
+                "TypeString",
+                "TypeInt64",
+                "TypeBool"
+            ]
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Operator": {
+            "type": "string",
+            "enum": [
+                "eq"
+            ],
+            "x-enum-varnames": [
+                "OperatorEQ"
+            ]
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Predicate": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "operator": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Operator"
+                },
+                "value": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Value"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set": {
+            "type": "object",
+            "properties": {
+                "all_of": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Predicate"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Value": {
+            "type": "object",
+            "properties": {
+                "bool": {
+                    "type": "boolean"
+                },
+                "int64": {
+                    "type": "integer"
+                },
+                "string": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Type"
                 }
             }
         },
@@ -3585,37 +3596,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AddPermissionRequest": {
-            "type": "object",
-            "required": [
-                "action",
-                "resource_id",
-                "role_id"
-            ],
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "changed_by": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "resource_id": {
-                    "type": "string"
-                },
-                "role_id": {
-                    "type": "string"
-                },
-                "scope_type": {
-                    "type": "string"
-                },
-                "scope_value": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse": {
             "type": "object",
             "properties": {
@@ -3639,47 +3619,24 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckRequest": {
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreatePermissionGrantRequest": {
             "type": "object",
             "required": [
                 "action",
-                "object"
+                "resource_id",
+                "role_id"
             ],
             "properties": {
                 "action": {
                     "type": "string"
                 },
-                "object": {
+                "constraint_set": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set"
+                },
+                "resource_id": {
                     "type": "string"
                 },
-                "scope_type": {
-                    "type": "string"
-                },
-                "scope_value": {
-                    "type": "string"
-                },
-                "subject_id": {
-                    "type": "string"
-                },
-                "subject_type": {
-                    "description": "SubjectType 可选：user | group；与 SubjectID 同时省略时使用当前 JWT 用户。",
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CheckResponse": {
-            "type": "object",
-            "properties": {
-                "allowed": {
-                    "type": "boolean"
-                },
-                "deny_code": {
-                    "type": "string"
-                },
-                "policy_version": {
-                    "type": "integer"
-                },
-                "reason": {
+                "role_id": {
                     "type": "string"
                 }
             }
@@ -3705,6 +3662,9 @@ const docTemplate = `{
                 "app_name": {
                     "type": "string"
                 },
+                "attribute_schema": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3716,12 +3676,6 @@ const docTemplate = `{
                 },
                 "key": {
                     "type": "string"
-                },
-                "scope_kinds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 },
                 "type": {
                     "type": "string"
@@ -3792,110 +3746,37 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionResponse": {
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string"
                 },
-                "domain": {
+                "active": {
+                    "type": "boolean"
+                },
+                "constraint_set": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_constraint.Set"
+                },
+                "grant_key": {
                     "type": "string"
                 },
-                "object": {
+                "granted_by": {
                     "type": "string"
                 },
-                "scope_type": {
-                    "type": "string"
-                },
-                "scope_value": {
-                    "type": "string"
-                },
-                "subject": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "code": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "resource_key": {
-                    "type": "string"
-                },
-                "role_name": {
-                    "type": "string"
-                },
-                "scope": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintResponse": {
-            "type": "object",
-            "properties": {
-                "findings": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyLintFindingResponse"
-                    }
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PolicyVersionResponse": {
-            "type": "object",
-            "properties": {
-                "changed_by": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RemovePermissionRequest": {
-            "type": "object",
-            "required": [
-                "action",
-                "resource_id",
-                "role_id"
-            ],
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "changed_by": {
-                    "type": "string"
-                },
-                "reason": {
+                "id": {
                     "type": "string"
                 },
                 "resource_id": {
                     "type": "string"
                 },
+                "resource_pattern": {
+                    "type": "string"
+                },
                 "role_id": {
                     "type": "string"
                 },
-                "scope_type": {
-                    "type": "string"
-                },
-                "scope_value": {
+                "tenant_id": {
                     "type": "string"
                 }
             }
@@ -3912,6 +3793,9 @@ const docTemplate = `{
                 "app_name": {
                     "type": "string"
                 },
+                "attribute_schema": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3927,12 +3811,6 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
-                "scope_kinds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "type": {
                     "type": "string"
                 }
@@ -3946,6 +3824,14 @@ const docTemplate = `{
                 },
                 "data": {},
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokePermissionGrantRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
                     "type": "string"
                 }
             }
@@ -4005,17 +3891,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "attribute_schema": {
+                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Schema"
+                },
                 "description": {
                     "type": "string"
                 },
                 "display_name": {
                     "type": "string"
-                },
-                "scope_kinds": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -4509,7 +4392,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "2.0.0",
 	Host:             "iam.fangcunmount.cn",
-	BasePath:         "/api/v2",
+	BasePath:         "/api",
 	Schemes:          []string{"https"},
 	Title:            "IAM API Documentation",
 	Description:      "IAM 系统 REST API 文档，包含认证(Authentication)、授权(Authorization)、身份管理(Identity)和身份提供商(IDP)模块",

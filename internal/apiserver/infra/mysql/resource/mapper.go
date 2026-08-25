@@ -3,8 +3,8 @@ package resource
 import (
 	"encoding/json"
 
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -27,7 +27,7 @@ func (m *Mapper) ToBO(po *ResourcePO) (*resource.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	scopeKinds, err := m.parseScopeKinds(po.ScopeKinds)
+	attributeSchema, err := m.parseAttributeSchema(po.AttributeSchema)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (m *Mapper) ToBO(po *ResourcePO) (*resource.Resource, error) {
 		resource.WithAppName(po.AppName),
 		resource.WithDomain(po.Domain),
 		resource.WithType(po.Type),
-		resource.WithScopeKinds(scopeKinds),
+		resource.WithAttributeSchema(attributeSchema),
 		resource.WithDescription(po.Description),
 	)
 	if err != nil {
@@ -57,17 +57,17 @@ func (m *Mapper) ToPO(bo *resource.Resource) *ResourcePO {
 
 	// 序列化 Actions 为 JSON
 	actionsJSON, _ := m.serializeActions(bo.ActionStrings())
-	scopeKindsJSON, _ := m.serializeScopeKinds(bo.ScopeKinds)
+	attributeSchemaJSON, _ := m.serializeAttributeSchema(bo.AttributeSchema)
 
 	po := &ResourcePO{
-		Key:         bo.KeyString(),
-		DisplayName: bo.DisplayName,
-		AppName:     bo.AppName,
-		Domain:      bo.Domain,
-		Type:        bo.Type,
-		Actions:     actionsJSON,
-		ScopeKinds:  scopeKindsJSON,
-		Description: bo.Description,
+		Key:             bo.KeyString(),
+		DisplayName:     bo.DisplayName,
+		AppName:         bo.AppName,
+		Domain:          bo.Domain,
+		Type:            bo.Type,
+		Actions:         actionsJSON,
+		AttributeSchema: attributeSchemaJSON,
+		Description:     bo.Description,
 	}
 	id := meta.FromUint64(bo.ID.Uint64()) // 来自业务对象，必定有效
 	po.ID = id
@@ -121,33 +121,25 @@ func (m *Mapper) parseActions(jsonStr string) ([]string, error) {
 	return actions, nil
 }
 
-func (m *Mapper) serializeScopeKinds(kinds []scope.Kind) (string, error) {
-	normalized, err := resource.NormalizeAndValidateScopeKinds(kinds)
+func (m *Mapper) serializeAttributeSchema(schema attribute.Schema) (string, error) {
+	normalized, err := schema.Normalize()
 	if err != nil {
-		return `["all"]`, err
+		return "", err
 	}
-	values := make([]string, 0, len(normalized))
-	for _, kind := range normalized {
-		values = append(values, string(kind))
-	}
-	data, err := json.Marshal(values)
+	data, err := json.Marshal(normalized)
 	if err != nil {
-		return `["all"]`, err
+		return "", err
 	}
 	return string(data), nil
 }
 
-func (m *Mapper) parseScopeKinds(jsonStr string) ([]scope.Kind, error) {
-	if jsonStr == "" || jsonStr == "[]" {
-		return resource.NormalizeScopeKinds(nil), nil
+func (m *Mapper) parseAttributeSchema(jsonStr string) (attribute.Schema, error) {
+	if jsonStr == "" || jsonStr == "null" {
+		return attribute.EmptySchema(), nil
 	}
-	var values []string
-	if err := json.Unmarshal([]byte(jsonStr), &values); err != nil {
-		return resource.NormalizeScopeKinds(nil), err
+	var schema attribute.Schema
+	if err := json.Unmarshal([]byte(jsonStr), &schema); err != nil {
+		return attribute.Schema{}, err
 	}
-	kinds := make([]scope.Kind, 0, len(values))
-	for _, value := range values {
-		kinds = append(kinds, scope.Kind(value))
-	}
-	return kinds, nil
+	return schema.Normalize()
 }
