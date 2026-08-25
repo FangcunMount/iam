@@ -167,6 +167,31 @@ func TestAuthZProductionCutoverWorkflowKeepsTheMaintenanceOrder(t *testing.T) {
 	}
 }
 
+func TestIAMAuthZConsumerControlWorkflowRequiresExactReleaseEvidence(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "authz-consumer-control.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(body)
+	for _, token := range []string{
+		"expected_iam_sha",
+		"STOP_IAM_AUTHZ_CONSUMER",
+		"START_IAM_AUTHZ_CONSUMER",
+		"STATUS_IAM_AUTHZ_CONSUMER",
+		"$GITHUB_SHA\" != \"$EXPECTED_IAM_SHA",
+		"scripts/cd/authz-consumer-control.sh",
+		"secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY",
+	} {
+		if !strings.Contains(workflow, token) {
+			t.Fatalf("IAM AuthZ consumer control workflow is missing %q", token)
+		}
+	}
+}
+
 func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
