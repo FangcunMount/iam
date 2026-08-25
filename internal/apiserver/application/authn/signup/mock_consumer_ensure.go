@@ -8,5 +8,9 @@ import (
 
 func (i MockConsumerUsernameLoginIdentityInput) prepareSignupLoginIdentity(_ context.Context, _ loginIdentityPrepareDeps, user SignupUserInput) (preparedLoginIdentity, error) {
 	identifier := usernameIdentifier(user, i.Username)
-	return preparedFromProviderKey(loginidentity.MockConsumerProviderKey(identifier), i.Profile, i.Meta, true, false)
+	key, err := loginidentity.NewMockConsumerProviderKey(identifier)
+	if err != nil {
+		return preparedLoginIdentity{}, incompleteProviderKeyError()
+	}
+	return preparedFromProviderKey(key, i.Profile, i.Meta, true, false)
 }

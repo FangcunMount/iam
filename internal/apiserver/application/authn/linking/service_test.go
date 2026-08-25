@@ -73,6 +73,12 @@ func TestLinkPhoneRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
 
 func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
 	verifiedAt := time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
+	wechatMiniKey, err := loginidentity.NewWechatMinipProviderKey("mini-app", "open-1", "union-1")
+	require.NoError(t, err)
+	wechatOpenKey, err := loginidentity.NewWechatOpenProviderKey("open-app", "open-2", "union-2")
+	require.NoError(t, err)
+	wecomKey, err := loginidentity.NewWecomProviderKey("corp-1", "user-1")
+	require.NoError(t, err)
 	tests := []struct {
 		name        string
 		provider    idpidentity.Provider
@@ -90,7 +96,7 @@ func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
 				idpidentity.IdentifierUnionID: "union-1",
 			},
 			input: LinkWechatMiniInput{AppID: "mini-app", Code: "code-1"},
-			want:  loginidentity.WechatMinipProviderKey("mini-app", "open-1", "union-1"),
+			want:  wechatMiniKey,
 		},
 		{
 			name:     "wechat open",
@@ -101,7 +107,7 @@ func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
 				idpidentity.IdentifierUnionID: "union-2",
 			},
 			input: LinkWechatOpenInput{AppID: "open-app", Code: "code-2"},
-			want:  loginidentity.WechatOpenProviderKey("open-app", "open-2", "union-2"),
+			want:  wechatOpenKey,
 		},
 		{
 			name:     "wecom",
@@ -112,7 +118,7 @@ func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
 				idpidentity.IdentifierOpenUserID: "open-user-1",
 			},
 			input: LinkWecomInput{CorpID: "corp-1", Code: "code-3"},
-			want:  loginidentity.WecomProviderKey("corp-1", "user-1"),
+			want:  wecomKey,
 		},
 	}
 
@@ -133,10 +139,10 @@ func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, resolver.calls)
 			require.Equal(t, tt.provider, resolver.request.Provider)
-			require.Equal(t, tt.want.Provider, result.Identity.Provider)
-			require.Equal(t, tt.want.Realm, result.Identity.Realm)
-			require.Equal(t, tt.want.Identifier, result.Identity.Identifier)
-			require.Equal(t, tt.want.GlobalIdentifier, result.Identity.GlobalIdentifier)
+			require.Equal(t, tt.want.Provider(), result.Identity.Provider)
+			require.Equal(t, tt.want.Realm(), result.Identity.Realm)
+			require.Equal(t, tt.want.Identifier(), result.Identity.Identifier)
+			require.Equal(t, tt.want.GlobalIdentifier(), result.Identity.GlobalIdentifier)
 			require.NotNil(t, result.Identity.VerifiedAt)
 			require.Equal(t, verifiedAt, *result.Identity.VerifiedAt)
 		})

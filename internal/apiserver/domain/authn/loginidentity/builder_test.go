@@ -15,9 +15,11 @@ func TestLoginIdentityBuilderBuildsFromProviderKey(t *testing.T) {
 	verifiedAt := time.Date(2026, 5, 10, 10, 0, 0, 0, time.UTC)
 	profile := map[string]string{"nickname": "alice"}
 	metaData := map[string]string{"source": "test"}
+	key, err := NewWechatMinipProviderKey("wx-app", "openid-1", "union-1")
+	require.NoError(t, err)
 
 	identity, err := NewBuilder(userID).
-		FromProviderKey(WechatMinipProviderKey("wx-app", "openid-1", "union-1")).
+		FromProviderKey(key).
 		WithVerifiedAt(verifiedAt).
 		WithProfile(profile).
 		WithMeta(metaData).
@@ -37,30 +39,6 @@ func TestLoginIdentityBuilderBuildsFromProviderKey(t *testing.T) {
 	metaData["source"] = "changed"
 	require.Equal(t, "alice", identity.Profile["nickname"])
 	require.Equal(t, "test", identity.Meta["source"])
-}
-
-func TestLoginIdentityBuilderSemanticMethods(t *testing.T) {
-	t.Parallel()
-
-	userID := meta.FromUint64(1001)
-
-	username, err := NewBuilder(userID).Username("", "zhangsan").Build()
-	require.NoError(t, err)
-	require.Equal(t, ProviderUsername, username.Provider)
-	require.Equal(t, RealmDefault, username.Realm)
-	require.Equal(t, "zhangsan", username.Identifier)
-
-	phone, err := NewBuilder(userID).Phone("+8613811112222").Build()
-	require.NoError(t, err)
-	require.Equal(t, ProviderPhone, phone.Provider)
-	require.Equal(t, RealmGlobal, phone.Realm)
-	require.Equal(t, "+8613811112222", phone.Identifier)
-
-	wecom, err := NewBuilder(userID).Wecom("corp-1", "userid-1").Build()
-	require.NoError(t, err)
-	require.Equal(t, ProviderWecom, wecom.Provider)
-	require.Equal(t, "corp-1", wecom.Realm)
-	require.Equal(t, "userid-1", wecom.Identifier)
 }
 
 func TestLoginIdentityBuilderRejectsMissingProviderKey(t *testing.T) {

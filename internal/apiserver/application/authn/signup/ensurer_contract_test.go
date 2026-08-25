@@ -30,15 +30,15 @@ func TestCredentialEnsurerReturnsNotRequiredWithoutPlaceholderCredential(t *test
 func TestLoginIdentityEnsurerRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
 	t.Parallel()
 
-	key := loginidentity.UsernameProviderKey(meta.FromUint64(9001), "zhangsan")
+	key := mustUsernameProviderKey(t, meta.FromUint64(9001), "zhangsan")
 	repo := &loginIdentityRepoStub{
 		byKey: map[string]*loginidentity.LoginIdentity{
-			providerKey(key.Provider, key.Realm, key.Identifier): {
+			providerKey(key.Provider(), key.Realm(), key.Identifier()): {
 				ID:         meta.FromUint64(11),
 				UserID:     meta.FromUint64(100),
-				Provider:   key.Provider,
-				Realm:      key.Realm,
-				Identifier: key.Identifier,
+				Provider:   key.Provider(),
+				Realm:      key.Realm(),
+				Identifier: key.Identifier(),
 				Status:     loginidentity.StatusActive,
 			},
 		},
@@ -62,20 +62,20 @@ func TestLoginIdentityEnsurerRejectsProviderKeyOwnedByAnotherUser(t *testing.T) 
 func TestLoginIdentityEnsurerReusesActiveProviderKeyOwnedBySameUser(t *testing.T) {
 	t.Parallel()
 
-	key := loginidentity.UsernameProviderKey(meta.FromUint64(9001), "lisi")
+	key := mustUsernameProviderKey(t, meta.FromUint64(9001), "lisi")
 	existing := &loginidentity.LoginIdentity{
 		ID:         meta.FromUint64(13),
 		UserID:     meta.FromUint64(100),
-		Provider:   key.Provider,
-		Realm:      key.Realm,
-		Identifier: key.Identifier,
+		Provider:   key.Provider(),
+		Realm:      key.Realm(),
+		Identifier: key.Identifier(),
 		Status:     loginidentity.StatusActive,
 		Profile:    map[string]string{"nickname": "original"},
 		Meta:       map[string]string{"source": "original-source"},
 	}
 	repo := &loginIdentityRepoStub{
 		byKey: map[string]*loginidentity.LoginIdentity{
-			providerKey(key.Provider, key.Realm, key.Identifier): existing,
+			providerKey(key.Provider(), key.Realm(), key.Identifier()): existing,
 		},
 	}
 
@@ -103,7 +103,8 @@ func TestLoginIdentityEnsurerReusesActiveProviderKeyOwnedBySameUser(t *testing.T
 func TestLoginIdentityEnsurerPersistsMockConsumerProfileAndMetaOnCreate(t *testing.T) {
 	t.Parallel()
 
-	key := loginidentity.MockConsumerProviderKey("daily-mock@example.com")
+	key, err := loginidentity.NewMockConsumerProviderKey("daily-mock@example.com")
+	require.NoError(t, err)
 	repo := &loginIdentityRepoStub{byKey: map[string]*loginidentity.LoginIdentity{}}
 	result, err := newEnsureLoginIdentityStep().Run(
 		context.Background(),
@@ -131,15 +132,15 @@ func TestLoginIdentityEnsurerPersistsMockConsumerProfileAndMetaOnCreate(t *testi
 func TestLoginIdentityEnsurerRejectsInactiveExistingProviderKey(t *testing.T) {
 	t.Parallel()
 
-	key := loginidentity.UsernameProviderKey(meta.FromUint64(9001), "wangwu")
+	key := mustUsernameProviderKey(t, meta.FromUint64(9001), "wangwu")
 	repo := &loginIdentityRepoStub{
 		byKey: map[string]*loginidentity.LoginIdentity{
-			providerKey(key.Provider, key.Realm, key.Identifier): {
+			providerKey(key.Provider(), key.Realm(), key.Identifier()): {
 				ID:         meta.FromUint64(12),
 				UserID:     meta.FromUint64(100),
-				Provider:   key.Provider,
-				Realm:      key.Realm,
-				Identifier: key.Identifier,
+				Provider:   key.Provider(),
+				Realm:      key.Realm(),
+				Identifier: key.Identifier(),
 				Status:     loginidentity.StatusDisabled,
 			},
 		},
@@ -194,6 +195,13 @@ func (s *loginIdentityRepoStub) UpdateStatus(context.Context, meta.ID, loginiden
 
 func providerKey(provider loginidentity.Provider, realm, identifier string) string {
 	return string(provider) + "|" + realm + "|" + identifier
+}
+
+func mustUsernameProviderKey(t *testing.T, tenantID meta.ID, username string) loginidentity.ProviderKey {
+	t.Helper()
+	key, err := loginidentity.NewUsernameProviderKey(tenantID, username)
+	require.NoError(t, err)
+	return key
 }
 
 type onboardingPasswordHasherStubLocal struct{}

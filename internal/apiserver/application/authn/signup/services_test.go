@@ -117,7 +117,7 @@ func TestOnboardPreservesLoginIdentityDisabledErrorCode(t *testing.T) {
 	require.NoError(t, err)
 	tenantID := meta.FromUint64(9001)
 	loginID := "existing-login"
-	key := loginidentity.UsernameProviderKey(tenantID, loginID)
+	key := mustUsernameProviderKey(t, tenantID, loginID)
 	existingUser, err := userDomain.NewUser("existing", phone, userDomain.WithID(meta.FromUint64(100)))
 	require.NoError(t, err)
 	userRepo := &userRepoStub{
@@ -127,12 +127,12 @@ func TestOnboardPreservesLoginIdentityDisabledErrorCode(t *testing.T) {
 	}
 	identityRepo := &loginIdentityRepoStub{
 		byKey: map[string]*loginidentity.LoginIdentity{
-			providerKey(key.Provider, key.Realm, key.Identifier): {
+			providerKey(key.Provider(), key.Realm(), key.Identifier()): {
 				ID:         meta.FromUint64(20),
 				UserID:     existingUser.ID,
-				Provider:   key.Provider,
-				Realm:      key.Realm,
-				Identifier: key.Identifier,
+				Provider:   key.Provider(),
+				Realm:      key.Realm(),
+				Identifier: key.Identifier(),
 				Status:     loginidentity.StatusDisabled,
 			},
 		},
@@ -177,7 +177,7 @@ func TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity(t *testing.T) {
 		},
 	}
 
-	key := loginidentity.UsernameProviderKey(meta.FromUint64(9001), "new-login")
+	key := mustUsernameProviderKey(t, meta.FromUint64(9001), "new-login")
 	result, err := newResolveUserStep(userRepo).Run(
 		context.Background(),
 		registrationRepositories{
@@ -227,8 +227,8 @@ func TestWechatMiniInputDoesNotMutateOriginalRequest(t *testing.T) {
 	require.Nil(t, input.UnionID)
 	require.NotNil(t, input.JsCode)
 	require.Equal(t, "js-code", *input.JsCode)
-	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier)
-	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier)
+	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier())
+	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier())
 	require.Equal(t, loginIdentitySourceProviderVerified, prepared.Source)
 }
 
@@ -245,8 +245,8 @@ func TestWechatIdentityResolverUsesExternalIdentityResolver(t *testing.T) {
 	}).prepareSignupLoginIdentity(context.Background(), loginIdentityPrepareDeps{externalIdentityResolver: resolver}, SignupUserInput{})
 
 	require.NoError(t, err)
-	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier)
-	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier)
+	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier())
+	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier())
 	require.Equal(t, loginIdentitySourceProviderVerified, prepared.Source)
 	require.Equal(t, 1, resolver.calls)
 	require.Equal(t, idpidentity.ProviderWechatMinip, resolver.request.Provider)
@@ -271,8 +271,8 @@ func TestWechatIdentityResolverUsesExistingOpenIDWithoutCodeExchange(t *testing.
 	}).prepareSignupLoginIdentity(context.Background(), loginIdentityPrepareDeps{externalIdentityResolver: resolver}, SignupUserInput{})
 
 	require.NoError(t, err)
-	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier)
-	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier)
+	require.Equal(t, "openid-1", prepared.ProviderKey.Identifier())
+	require.Equal(t, "union-1", prepared.ProviderKey.GlobalIdentifier())
 	require.Equal(t, loginIdentitySourceTrustedLegacyInput, prepared.Source)
 	require.Zero(t, resolver.calls)
 }
@@ -303,10 +303,10 @@ func TestPrepareStepResolvesWechatIdentityBeforePersistenceFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, prepared.LoginIdentity.NeedPasswordCredential)
 	require.True(t, prepared.LoginIdentity.AllowUserRepair)
-	require.Equal(t, loginidentity.ProviderWechatMinip, prepared.LoginIdentity.ProviderKey.Provider)
-	require.Equal(t, "wx-app", prepared.LoginIdentity.ProviderKey.Realm)
-	require.Equal(t, "openid-1", prepared.LoginIdentity.ProviderKey.Identifier)
-	require.Equal(t, "union-1", prepared.LoginIdentity.ProviderKey.GlobalIdentifier)
+	require.Equal(t, loginidentity.ProviderWechatMinip, prepared.LoginIdentity.ProviderKey.Provider())
+	require.Equal(t, "wx-app", prepared.LoginIdentity.ProviderKey.Realm())
+	require.Equal(t, "openid-1", prepared.LoginIdentity.ProviderKey.Identifier())
+	require.Equal(t, "union-1", prepared.LoginIdentity.ProviderKey.GlobalIdentifier())
 	require.Equal(t, loginIdentitySourceProviderVerified, prepared.LoginIdentity.Source)
 	require.Equal(t, 1, resolver.calls)
 	require.Equal(t, "wx-app", resolver.request.Realm)

@@ -69,16 +69,16 @@ func ProviderKey(identity idpidentity.ExternalIdentity) (loginidentity.ProviderK
 			return loginidentity.ProviderKey{}, err
 		}
 		if wechatIdentity.Provider == loginidentity.ProviderWechatMinip {
-			return loginidentity.WechatMinipProviderKey(wechatIdentity.Realm, wechatIdentity.OpenID, wechatIdentity.UnionID), nil
+			return loginidentity.NewWechatMinipProviderKey(wechatIdentity.Realm, wechatIdentity.OpenID, wechatIdentity.UnionID)
 		}
-		return loginidentity.WechatOpenProviderKey(wechatIdentity.Realm, wechatIdentity.OpenID, wechatIdentity.UnionID), nil
+		return loginidentity.NewWechatOpenProviderKey(wechatIdentity.Realm, wechatIdentity.OpenID, wechatIdentity.UnionID)
 	case idpidentity.ProviderWecom:
 		wecomIdentity, err := Wecom(identity)
 		if err != nil {
 			return loginidentity.ProviderKey{}, err
 		}
 		// Binding intentionally keeps the historic user_id-only behavior.
-		return loginidentity.WecomProviderKey(wecomIdentity.Realm, wecomIdentity.UserID), nil
+		return loginidentity.NewWecomProviderKey(wecomIdentity.Realm, wecomIdentity.UserID)
 	default:
 		return loginidentity.ProviderKey{}, fmt.Errorf("unsupported external identity provider: %q", identity.Provider())
 	}

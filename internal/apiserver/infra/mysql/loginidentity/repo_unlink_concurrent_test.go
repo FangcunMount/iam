@@ -22,8 +22,10 @@ func TestRepository_UnlinkOwnedUnlessLastActive_Concurrent(t *testing.T) {
 
 	identities := make([]*domain.LoginIdentity, 0, 2)
 	for i := range 2 {
+		key, err := domain.NewMockConsumerProviderKey(fmt.Sprintf("unlink-%d-%d", userID.Uint64(), i))
+		require.NoError(t, err)
 		identity, err := domain.NewBuilder(userID).
-			Username(domain.RealmDefault, fmt.Sprintf("unlink-%d-%d", userID.Uint64(), i)).
+			FromProviderKey(key).
 			Build()
 		require.NoError(t, err)
 		require.NoError(t, repo.Create(ctx, identity))
@@ -78,8 +80,10 @@ func TestRepository_UnlinkOwnedUnlessLastActive_HidesForeignIdentity(t *testing.
 	repo := NewRepository(db)
 	ctx := context.Background()
 	ownerID := meta.FromUint64(uint64(time.Now().UnixNano()))
+	key, err := domain.NewMockConsumerProviderKey(fmt.Sprintf("foreign-%d", ownerID.Uint64()))
+	require.NoError(t, err)
 	identity, err := domain.NewBuilder(ownerID).
-		Username(domain.RealmDefault, fmt.Sprintf("foreign-%d", ownerID.Uint64())).
+		FromProviderKey(key).
 		Build()
 	require.NoError(t, err)
 	require.NoError(t, repo.Create(ctx, identity))
