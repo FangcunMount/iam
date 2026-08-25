@@ -198,10 +198,45 @@ if [[ "$preflight_output" == *assignment_unknown_or_cross_tenant_role* ]]; then
       'role_exists', IF(role_row.id IS NULL, FALSE, TRUE),
       'role_active', IF(role_row.id IS NULL OR role_row.deleted_at IS NOT NULL, FALSE, TRUE),
       'role_tenant', role_row.tenant_id,
-      'role_name', role_row.name
+      'role_name', role_row.name,
+      'expected_seed_role_name', assignment_row.expected_seed_role_name,
+      'candidate_role_id', CAST(candidate_role.id AS CHAR),
+      'candidate_role_active', IF(candidate_role.id IS NULL, FALSE, TRUE),
+      'candidate_assignment_id', CAST(candidate_assignment.id AS CHAR),
+      'exact_grouping_count', (
+        SELECT COUNT(*)
+        FROM casbin_rule AS grouping_rule
+        WHERE grouping_rule.ptype = 'g'
+          AND grouping_rule.v0 = CONCAT(assignment_row.subject_type, ':', assignment_row.subject_id)
+          AND grouping_rule.v1 = CONCAT('role:', assignment_row.expected_seed_role_name)
+          AND grouping_rule.v2 = assignment_row.tenant_id
+      )
     )), JSON_ARRAY())
-    FROM authz_assignments AS assignment_row
+    FROM (
+      SELECT assignment_fact.*,
+             CASE assignment_fact.id
+               WHEN 902000001 THEN 'super_admin'
+               WHEN 902000002 THEN 'tenant_admin'
+               WHEN 902000003 THEN 'qs:admin'
+               WHEN 902000004 THEN 'tenant_admin'
+               WHEN 902000005 THEN 'qs:admin'
+               WHEN 902000006 THEN 'qs:content_manager'
+               ELSE NULL
+             END AS expected_seed_role_name
+      FROM authz_assignments AS assignment_fact
+    ) AS assignment_row
     LEFT JOIN authz_roles AS role_row ON role_row.id = assignment_row.role_id
+    LEFT JOIN authz_roles AS candidate_role
+      ON candidate_role.tenant_id = assignment_row.tenant_id
+     AND candidate_role.name = assignment_row.expected_seed_role_name
+     AND candidate_role.deleted_at IS NULL
+    LEFT JOIN authz_assignments AS candidate_assignment
+      ON candidate_assignment.subject_type = assignment_row.subject_type
+     AND candidate_assignment.subject_id = assignment_row.subject_id
+     AND candidate_assignment.tenant_id = assignment_row.tenant_id
+     AND candidate_assignment.role_id = candidate_role.id
+     AND candidate_assignment.deleted_at IS NULL
+     AND candidate_assignment.id <> assignment_row.id
     WHERE assignment_row.deleted_at IS NULL
       AND (role_row.id IS NULL
         OR role_row.deleted_at IS NOT NULL
