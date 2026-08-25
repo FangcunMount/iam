@@ -32,13 +32,26 @@ running_ids() {
   run_privileged docker ps -q --filter 'name=^/iam-apiserver$'
 }
 
+prepare_state_root() {
+  if [ ! -d "$STATE_ROOT" ]; then
+    run_privileged mkdir -p -- "$STATE_ROOT"
+  fi
+  if [ -L "$STATE_ROOT" ]; then
+    echo "cutover runtime state root must not be a symbolic link" >&2
+    exit 1
+  fi
+  run_privileged chown "$(id -u):$(id -g)" "$STATE_ROOT"
+  chmod 0750 "$STATE_ROOT"
+}
+
 case "$OPERATION" in
   stop)
-    run_privileged install -d -m 0750 "$STATE_ROOT"
+    prepare_state_root
     temporary_state="$(mktemp)"
     trap 'rm -f "$temporary_state"' EXIT
     running_ids >"$temporary_state"
-    run_privileged install -m 0640 "$temporary_state" "$STATE_FILE"
+    cp -- "$temporary_state" "$STATE_FILE"
+    chmod 0640 "$STATE_FILE"
     while IFS= read -r container_id; do
       [ -n "$container_id" ] || continue
       run_privileged docker stop "$container_id"

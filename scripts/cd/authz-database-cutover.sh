@@ -52,6 +52,18 @@ run_step() {
   "$IAM_AUTHZ_MAINTENANCE_BINARY" "$@" | tee "$TEMP_DIR/${name}.json"
 }
 
+prepare_evidence_dir() {
+  if [ ! -d "$EVIDENCE_DIR" ]; then
+    run_privileged mkdir -p -- "$EVIDENCE_DIR"
+  fi
+  if [ -L "$EVIDENCE_DIR" ]; then
+    echo "AuthZ cutover evidence directory must not be a symbolic link" >&2
+    exit 1
+  fi
+  run_privileged chown "$(id -u):$(id -g)" "$EVIDENCE_DIR"
+  chmod 0750 "$EVIDENCE_DIR"
+}
+
 run_step 01-migrate-additive authz-cutover migrate-additive \
   --confirm=MIGRATE_AUTHZ_ADDITIVE_SCHEMA --timeout=10m --lock-timeout=30s
 run_step 02-preflight authz-cutover preflight --timeout=10m
@@ -68,17 +80,20 @@ cutover_completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 (cd "$TEMP_DIR" && sha256sum ./*.json >checksums.sha256)
 
-run_privileged install -d -m 0750 "$EVIDENCE_DIR"
+prepare_evidence_dir
 for evidence_file in "$TEMP_DIR"/*.json "$TEMP_DIR"/checksums.sha256 "$TEMP_DIR"/release-evidence.txt; do
-  run_privileged install -m 0640 "$evidence_file" "$EVIDENCE_DIR/$(basename "$evidence_file")"
+  cp -- "$evidence_file" "$EVIDENCE_DIR/$(basename "$evidence_file")"
+  chmod 0640 "$EVIDENCE_DIR/$(basename "$evidence_file")"
 done
 
 # From this point a failure requires restoring the maintenance-window backup;
 # legacy services must not be restarted against a partially retired schema.
 run_step 06-retire-legacy authz-cutover retire-legacy \
   --confirm=RETIRE_LEGACY_AUTHZ_SCHEMA --timeout=10m --lock-timeout=30s
-run_privileged install -m 0640 "$TEMP_DIR/06-retire-legacy.json" "$EVIDENCE_DIR/06-retire-legacy.json"
+cp -- "$TEMP_DIR/06-retire-legacy.json" "$EVIDENCE_DIR/06-retire-legacy.json"
+chmod 0640 "$EVIDENCE_DIR/06-retire-legacy.json"
 (cd "$TEMP_DIR" && sha256sum ./*.json >checksums.sha256)
-run_privileged install -m 0640 "$TEMP_DIR/checksums.sha256" "$EVIDENCE_DIR/checksums.sha256"
-run_privileged sh -c 'cd "$1" && sha256sum -c checksums.sha256' sh "$EVIDENCE_DIR"
+cp -- "$TEMP_DIR/checksums.sha256" "$EVIDENCE_DIR/checksums.sha256"
+chmod 0640 "$EVIDENCE_DIR/checksums.sha256"
+(cd "$EVIDENCE_DIR" && sha256sum -c checksums.sha256)
 echo "IAM AuthZ database cutover completed: evidence=${EVIDENCE_DIR}"

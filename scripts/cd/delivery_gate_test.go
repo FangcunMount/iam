@@ -184,11 +184,17 @@ func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
 	for _, token := range []string{
 		"--filter 'name=^/iam-apiserver$'",
 		"${RELEASE_SHA}.iam-containers",
+		"run_privileged mkdir -p -- \"$STATE_ROOT\"",
+		"run_privileged chown \"$(id -u):$(id -g)\" \"$STATE_ROOT\"",
+		"cp -- \"$temporary_state\" \"$STATE_FILE\"",
 		"run_privileged docker stop \"$container_id\"",
 	} {
 		if !strings.Contains(consumerControl, token) {
 			t.Fatalf("consumer control is missing %q", token)
 		}
+	}
+	if strings.Contains(consumerControl, "run_privileged install") {
+		t.Fatal("consumer control must not require sudo install outside the production sudoers contract")
 	}
 
 	databaseCutover := read("scripts/cd/authz-database-cutover.sh")
@@ -212,11 +218,17 @@ func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
 		"CUTOVER_AUTHZ_V3",
 		"iam-apiserver must be stopped",
 		"/tmp/iam-authz-cutover-${IAM_AUTHZ_RELEASE_SHA}/iam-maintenance",
+		"run_privileged mkdir -p -- \"$EVIDENCE_DIR\"",
+		"run_privileged chown \"$(id -u):$(id -g)\" \"$EVIDENCE_DIR\"",
+		"cp -- \"$evidence_file\" \"$EVIDENCE_DIR/$(basename \"$evidence_file\")\"",
 		"sha256sum -c checksums.sha256",
 	} {
 		if !strings.Contains(databaseCutover, token) {
 			t.Fatalf("database cutover is missing %q", token)
 		}
+	}
+	if strings.Contains(databaseCutover, "run_privileged install") {
+		t.Fatal("database cutover must not require sudo install outside the production sudoers contract")
 	}
 }
 
