@@ -109,259 +109,37 @@ func TestRuntimeProvenanceContracts(t *testing.T) {
 	}
 }
 
-func TestAuthZCutoverCanPauseOnlyAutomaticProductionDeploys(t *testing.T) {
+func TestRetiredAuthZCutoverEntrypointsStayAbsent(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "cd.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	workflow := string(body)
-	if count := strings.Count(workflow, "vars.AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED != 'true'"); count != 2 {
-		t.Fatalf("automatic deploy pause guard count = %d, want 2", count)
-	}
-	if !strings.Contains(workflow, "github.event_name == 'workflow_dispatch' ||") {
-		t.Fatal("manual production deploy path must remain available during the cutover")
-	}
-}
-
-func TestAuthZProductionCutoverWorkflowKeepsTheMaintenanceOrder(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "authz-cutover.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	workflow := string(body)
-	ordered := []string{
-		"Validate immutable release evidence",
-		"Stop IAM authorization consumers",
-		"Create verified maintenance-window database backup",
-		"Recheck RoleBinding migration prerequisite",
-		"Convert policies and retire legacy authorization schema",
-		"Verify final database status",
-	}
-	position := -1
-	for _, token := range ordered {
-		next := strings.Index(workflow, token)
-		if next <= position {
-			t.Fatalf("cutover workflow step %q is missing or out of order", token)
-		}
-		position = next
-	}
-	for _, token := range []string{
-		"environment:\n      name: production",
-		"group: iam-production-controlled-database-operation",
-		"CUTOVER_AUTHZ_V3",
-		"expected_iam_sha",
-		"expected_qs_sha",
-		"qs_stop_run_id",
-	} {
-		if !strings.Contains(workflow, token) {
-			t.Fatalf("cutover workflow is missing %q", token)
-		}
-	}
-}
-
-func TestIAMAuthZConsumerControlWorkflowRequiresExactReleaseEvidence(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "authz-consumer-control.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	workflow := string(body)
-	for _, token := range []string{
-		"expected_iam_sha",
-		"STOP_IAM_AUTHZ_CONSUMER",
-		"START_IAM_AUTHZ_CONSUMER",
-		"STATUS_IAM_AUTHZ_CONSUMER",
-		"$GITHUB_SHA\" != \"$EXPECTED_IAM_SHA",
+	for _, rel := range []string{
+		".github/workflows/authz-backup-clone-preflight.yml",
+		".github/workflows/authz-consumer-control.yml",
+		".github/workflows/authz-cutover.yml",
+		"internal/apiserver/maintenance/authz_cutover.go",
 		"scripts/cd/authz-consumer-control.sh",
-		"secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY",
-	} {
-		if !strings.Contains(workflow, token) {
-			t.Fatalf("IAM AuthZ consumer control workflow is missing %q", token)
-		}
-	}
-}
-
-func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	read := func(path string) string {
-		t.Helper()
-		body, readErr := os.ReadFile(filepath.Join(repoRoot, path))
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		return string(body)
-	}
-	consumerControl := read("scripts/cd/authz-consumer-control.sh")
-	for _, token := range []string{
-		"--filter 'name=^/iam-apiserver$'",
-		"${RELEASE_SHA}.iam-containers",
-		"run_privileged mkdir -p -- \"$STATE_ROOT\"",
-		"run_privileged chown \"$(id -u):$(id -g)\" \"$STATE_ROOT\"",
-		"cp -- \"$temporary_state\" \"$STATE_FILE\"",
-		"run_privileged docker stop \"$container_id\"",
-	} {
-		if !strings.Contains(consumerControl, token) {
-			t.Fatalf("consumer control is missing %q", token)
-		}
-	}
-	if strings.Contains(consumerControl, "run_privileged install") {
-		t.Fatal("consumer control must not require sudo install outside the production sudoers contract")
-	}
-
-	databaseCutover := read("scripts/cd/authz-database-cutover.sh")
-	ordered := []string{
-		"01-migrate-additive",
-		"02-preflight",
-		"03-apply",
-		"04-verify",
-		"05-evidence",
-		"06-retire-legacy",
-	}
-	position := -1
-	for _, token := range ordered {
-		next := strings.Index(databaseCutover, token)
-		if next <= position {
-			t.Fatalf("database cutover step %q is missing or out of order", token)
-		}
-		position = next
-	}
-	for _, token := range []string{
-		"CUTOVER_AUTHZ_V3",
-		"iam-apiserver must be stopped",
-		"/tmp/iam-authz-cutover-${IAM_AUTHZ_RELEASE_SHA}/iam-maintenance",
-		"run_privileged mkdir -p -- \"$EVIDENCE_DIR\"",
-		"run_privileged chown \"$(id -u):$(id -g)\" \"$EVIDENCE_DIR\"",
-		"cp -- \"$evidence_file\" \"$EVIDENCE_DIR/$(basename \"$evidence_file\")\"",
-		"sha256sum -c checksums.sha256",
-	} {
-		if !strings.Contains(databaseCutover, token) {
-			t.Fatalf("database cutover is missing %q", token)
-		}
-	}
-	if strings.Contains(databaseCutover, "run_privileged install") {
-		t.Fatal("database cutover must not require sudo install outside the production sudoers contract")
-	}
-}
-
-func TestAuthZBackupCloneValidationIsMacLocalAndProductionIsolated(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	read := func(path string) string {
-		t.Helper()
-		body, readErr := os.ReadFile(filepath.Join(repoRoot, path))
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		return string(body)
-	}
-
-	workflow := read(".github/workflows/authz-backup-clone-preflight.yml")
-	for _, token := range []string{
-		"PREFLIGHT_AUTHZ_BACKUP_CLONE",
-		"REHEARSE_AUTHZ_BACKUP_CLONE",
-		"full_rehearsal",
-		"group: qlume",
-		"labels: [self-hosted, macOS, ARM64]",
-		"vars.AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED",
-		"authz-backup-source",
-		"/opt/backups/iam/database/${IAM_AUTHZ_BACKUP_NAME}",
-		"scp -F \"$RUNNER_SSH_CONFIG\"",
-		"shasum -a 256",
-		`printf '{"auths":{}}\n'`,
-		"DOCKER_CONFIG=${docker_config}",
-		"secrets.IAM_AUTHZ_CLONE_MYSQL_PASSWORD",
+		"scripts/cd/authz-database-cutover.sh",
 		"scripts/cd/authz-mac-clone-preflight.sh",
-		"actions/upload-artifact@v6",
-		"authz-clone-rehearsal-${{ env.IAM_AUTHZ_RELEASE_SHA }}",
 	} {
-		if !strings.Contains(workflow, token) {
-			t.Fatalf("backup clone workflow is missing %q", token)
+		if _, statErr := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(rel))); !os.IsNotExist(statErr) {
+			if statErr != nil {
+				t.Fatal(statErr)
+			}
+			t.Fatalf("retired AuthZ cutover entrypoint exists: %s", rel)
 		}
 	}
-	for _, forbidden := range []string{
-		"secrets.MYSQL_HOST",
-		"secrets.MYSQL_PASSWORD",
-		"scripts/dbops/database-operation.sh",
-		"authz-cutover apply",
-		"authz-cutover retire-legacy",
+	for rel, forbidden := range map[string]string{
+		"cmd/iam-maintenance/main.go": "authz-cutover",
+		".github/workflows/cd.yml":    "AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED",
 	} {
-		if strings.Contains(workflow, forbidden) {
-			t.Fatalf("backup clone workflow must not contain %q", forbidden)
+		body, readErr := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(rel)))
+		if readErr != nil {
+			t.Fatal(readErr)
 		}
-	}
-
-	cloneScript := read("scripts/cd/authz-mac-clone-preflight.sh")
-	for _, token := range []string{
-		`expected_confirmation="PREFLIGHT_AUTHZ_BACKUP_CLONE"`,
-		`expected_confirmation="REHEARSE_AUTHZ_BACKUP_CLONE"`,
-		`IAM_AUTHZ_CLONE_VALIDATION_MODE" = "full_rehearsal`,
-		`readonly clone_image="public.ecr.aws/docker/library/mysql:8.0"`,
-		`readonly clone_container="iam-authz-preflight-mysql"`,
-		`readonly clone_data_volume="iam-authz-preflight-mysql-data"`,
-		`readonly clone_database="iam_authz_preflight"`,
-		`--publish "127.0.0.1:${clone_port}:3306"`,
-		"DROP DATABASE IF EXISTS `iam_authz_preflight`",
-		"authz-cutover migrate-additive",
-		"authz-cutover preflight",
-		"persistent Mac mini clone is available for diagnosis",
-		`docker --config "$DOCKER_CONFIG"`,
-		`--env "MYSQL_ROOT_PASSWORD=${IAM_AUTHZ_CLONE_MYSQL_PASSWORD}"`,
-		"persistent Mac mini clone MySQL did not become ready",
-		"SELECT COALESCE(MAX(version), 0), COALESCE(MAX(dirty + 0), 0), COUNT(*)",
-		"assignment_unknown_or_cross_tenant_role",
-		"AuthZ assignment-role diagnostic (subject IDs omitted):",
-		"LEFT JOIN authz_roles AS role_row ON role_row.id = assignment_row.role_id",
-		"WHEN 902000006 THEN 'qs:content_manager'",
-		"'exact_grouping_count'",
-		"candidate_assignment.subject_id = assignment_row.subject_id",
-		`resource_catalog_row_invalid_([0-9]+)`,
-		"AuthZ resource catalog diagnostic:",
-		"'actions_json_valid', JSON_VALID(resource_row.actions)",
-		"WHERE resource_row.id = ${invalid_resource_id} AND resource_row.deleted_at IS NULL",
-		"AuthZ resource catalog identity mismatches:",
-		"NOT (catalog_row.stored_domain <=> catalog_row.expected_domain)",
-		"AuthZ resource catalog action-shape mismatches:",
-		"authz-cutover apply",
-		"authz-cutover verify",
-		"authz-cutover evidence",
-		"authz-cutover retire-legacy",
-		"--confirm=APPLY_AUTHZ_CUTOVER",
-		"--confirm=RETIRE_LEGACY_AUTHZ_SCHEMA",
-		"schema_version=27",
-		"casbin_rule_absent=true",
-		"scope_kinds_absent=true",
-		"information_schema.tables",
-		"information_schema.columns",
-		"shasum -a 256 -c checksums.sha256",
-	} {
-		if !strings.Contains(cloneScript, token) {
-			t.Fatalf("Mac clone preflight script is missing %q", token)
-		}
-	}
-	for _, forbidden := range []string{
-		"docker volume rm",
-		"MYSQL_ROOT_PASSWORD_FILE",
-		"clone_secret_volume",
-		"SELECT CONCAT(COALESCE(MAX(version)",
-	} {
-		if strings.Contains(cloneScript, forbidden) {
-			t.Fatalf("Mac clone preflight script must not contain %q", forbidden)
+		if strings.Contains(string(body), forbidden) {
+			t.Fatalf("%s contains retired AuthZ cutover token %q", rel, forbidden)
 		}
 	}
 }
