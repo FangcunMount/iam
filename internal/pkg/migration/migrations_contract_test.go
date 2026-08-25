@@ -217,6 +217,11 @@ func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndDormant(t *testing.T
 		"CREATE TABLE IF NOT EXISTS `authz_cutover_state`",
 		"ADD COLUMN `attribute_schema` JSON NULL",
 		"information_schema.COLUMNS",
+		"WHERE `key` = 'iam:identity:instance:profile'",
+		"AND `app_name` = 'iam'",
+		"AND `domain` = 'uc'",
+		"AND `type` = 'instance'",
+		"SET `domain` = 'identity'",
 	} {
 		assertSQLContains(t, up, fragment)
 	}

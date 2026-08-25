@@ -88,6 +88,20 @@ PREPARE iam_stmt FROM @iam_sql;
 EXECUTE iam_stmt;
 DEALLOCATE PREPARE iam_stmt;
 
+-- Repair the one verified pre-four-segment catalog drift found in the
+-- production backup. Migration 000012 canonicalized this resource key but the
+-- historical row retained its old `uc` domain metadata. Keep the predicate
+-- exact: any other key or metadata mismatch must remain visible to preflight.
+UPDATE `authz_resources`
+SET `domain` = 'identity',
+    `updated_at` = CURRENT_TIMESTAMP(3),
+    `updated_by` = 0
+WHERE `key` = 'iam:identity:instance:profile'
+  AND `app_name` = 'iam'
+  AND `domain` = 'uc'
+  AND `type` = 'instance'
+  AND `deleted_at` IS NULL;
+
 -- Register the first trusted object attribute contract before offline
 -- conversion. The retry force action is catalogued separately from retry so
 -- it cannot inherit the evaluator's conditional grant.
