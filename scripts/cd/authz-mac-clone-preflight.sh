@@ -143,7 +143,7 @@ gzip -dc "$IAM_AUTHZ_CLONE_BACKUP_FILE" |
     mysql -uroot --default-character-set=utf8mb4 "$clone_database"
 
 schema_state="$(clone_mysql "$clone_database" -e "
-  SELECT CONCAT(COALESCE(MAX(version), 0), '\t', COALESCE(MAX(dirty + 0), 0), '\t', COUNT(*))
+  SELECT COALESCE(MAX(version), 0), COALESCE(MAX(dirty + 0), 0), COUNT(*)
   FROM schema_migrations;
 ")"
 if [ "$schema_state" != $'25\t0\t1' ]; then
@@ -174,7 +174,7 @@ run_maintenance authz-cutover migrate-additive \
   --confirm=MIGRATE_AUTHZ_ADDITIVE_SCHEMA --timeout=10m --lock-timeout=30s
 
 schema_state="$(clone_mysql "$clone_database" -e "
-  SELECT CONCAT(COALESCE(MAX(version), 0), '\t', COALESCE(MAX(dirty + 0), 0), '\t', COUNT(*))
+  SELECT COALESCE(MAX(version), 0), COALESCE(MAX(dirty + 0), 0), COUNT(*)
   FROM schema_migrations;
 ")"
 if [ "$schema_state" != $'26\t0\t1' ]; then
