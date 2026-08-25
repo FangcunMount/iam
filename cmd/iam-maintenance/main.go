@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,6 +17,7 @@ import (
 
 	redisinfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/maintenance"
+	"github.com/FangcunMount/iam/v3/internal/pkg/migration"
 	goredis "github.com/redis/go-redis/v9"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -23,9 +25,13 @@ import (
 )
 
 const (
-	purgeConfirmation        = "PURGE_REFRESH_TOKENS"
-	logDisposalConfirmation  = "DELETE_PRE_5_4_IAM_LOGS"
-	authzCutoverConfirmation = "APPLY_AUTHZ_CUTOVER"
+	purgeConfirmation         = "PURGE_REFRESH_TOKENS"
+	logDisposalConfirmation   = "DELETE_PRE_5_4_IAM_LOGS"
+	authzCutoverConfirmation  = "APPLY_AUTHZ_CUTOVER"
+	authzAdditiveConfirmation = "MIGRATE_AUTHZ_ADDITIVE_SCHEMA"
+	authzRetireConfirmation   = "RETIRE_LEGACY_AUTHZ_SCHEMA"
+	authzAdditiveVersion      = uint(26)
+	authzRetiredVersion       = uint(27)
 )
 
 func main() {
@@ -67,14 +73,11 @@ func runAuthzCutover(args []string, output io.Writer) error {
 	if *timeout <= 0 || *lockTimeout <= 0 {
 		return errors.New("timeout and lock-timeout must be positive")
 	}
-	if operation == "apply" {
-		if *confirm != authzCutoverConfirmation {
-			return errors.New("apply requires the authz cutover confirmation phrase")
-		}
-	} else if strings.TrimSpace(*confirm) != "" {
-		return errors.New("confirm is only accepted for apply")
+	if err := validateAuthzCutoverConfirmation(operation, *confirm); err != nil {
+		return err
 	}
-	if operation != "preflight" && operation != "apply" && operation != "verify" && operation != "evidence" {
+	if operation != "preflight" && operation != "apply" && operation != "verify" && operation != "evidence" &&
+		operation != "migrate-additive" && operation != "retire-legacy" {
 		return errors.New("unsupported authz-cutover operation")
 	}
 
@@ -90,12 +93,46 @@ func runAuthzCutover(args []string, output io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	if operation == "apply" {
-		release, lockErr := acquireAuthzCutoverLock(ctx, db, *lockTimeout)
+	if operation == "apply" || operation == "migrate-additive" || operation == "retire-legacy" {
+		release, lockErr := acquireAuthzCutoverLock(ctx, sqlDB, *lockTimeout)
 		if lockErr != nil {
 			return lockErr
 		}
 		defer release()
+	}
+	if operation == "migrate-additive" || operation == "retire-legacy" {
+		var schemaState struct {
+			Version uint `gorm:"column:version"`
+			Dirty   bool `gorm:"column:dirty"`
+			Rows    int  `gorm:"column:row_count"`
+		}
+		if stateErr := db.WithContext(ctx).Raw(`
+			SELECT COALESCE(MAX(version), 0) AS version,
+			       COALESCE(MAX(dirty + 0), 0) AS dirty,
+			       COUNT(*) AS row_count
+			FROM schema_migrations
+		`).Scan(&schemaState).Error; stateErr != nil {
+			return errors.New("authorization schema migration precondition failed")
+		}
+		if stateErr := validateAuthzSchemaTransition(operation, schemaState.Version, schemaState.Dirty, schemaState.Rows); stateErr != nil {
+			return stateErr
+		}
+		target := authzAdditiveVersion
+		if operation == "retire-legacy" {
+			target = authzRetiredVersion
+		}
+		version, applied, migrateErr := migration.NewMigrator(sqlDB, &migration.Config{
+			Enabled:  true,
+			Database: strings.TrimSpace(firstEnvironment("MYSQL_DATABASE", "MYSQL_DBNAME")),
+		}).RunTo(target)
+		if migrateErr != nil {
+			return errors.New("authorization schema migration failed")
+		}
+		return writeJSON(output, struct {
+			Operation string `json:"operation"`
+			Version   uint   `json:"version"`
+			Applied   bool   `json:"applied"`
+		}{Operation: operation, Version: version, Applied: applied})
 	}
 	plan, err := maintenance.AnalyzeAuthzCutover(ctx, db)
 	if err != nil {
@@ -129,6 +166,47 @@ func runAuthzCutover(args []string, output io.Writer) error {
 	}{Operation: operation, AuthzCutoverSummary: summary})
 }
 
+func validateAuthzSchemaTransition(operation string, version uint, dirty bool, rows int) error {
+	if dirty || rows != 1 {
+		return errors.New("authorization schema migration requires one clean schema version row")
+	}
+	switch operation {
+	case "migrate-additive":
+		if version != authzAdditiveVersion-1 && version != authzAdditiveVersion {
+			return errors.New("additive authorization schema migration requires version 25 or 26")
+		}
+	case "retire-legacy":
+		if version != authzRetiredVersion-1 && version != authzRetiredVersion {
+			return errors.New("legacy authorization retirement requires version 26 or 27")
+		}
+	default:
+		return errors.New("unsupported authorization schema transition")
+	}
+	return nil
+}
+
+func validateAuthzCutoverConfirmation(operation, confirm string) error {
+	switch operation {
+	case "apply":
+		if confirm != authzCutoverConfirmation {
+			return errors.New("apply requires the authz cutover confirmation phrase")
+		}
+	case "migrate-additive":
+		if confirm != authzAdditiveConfirmation {
+			return errors.New("migrate-additive requires the additive schema confirmation phrase")
+		}
+	case "retire-legacy":
+		if confirm != authzRetireConfirmation {
+			return errors.New("retire-legacy requires the legacy retirement confirmation phrase")
+		}
+	default:
+		if strings.TrimSpace(confirm) != "" {
+			return errors.New("confirm is not accepted for this authz-cutover operation")
+		}
+	}
+	return nil
+}
+
 func authzCutoverDatabaseFromEnvironment() (*gorm.DB, error) {
 	host := strings.TrimSpace(envOrDefault("MYSQL_HOST", "127.0.0.1"))
 	port, err := envInt("MYSQL_PORT", 3306)
@@ -151,14 +229,21 @@ func authzCutoverDatabaseFromEnvironment() (*gorm.DB, error) {
 	return db, nil
 }
 
-func acquireAuthzCutoverLock(ctx context.Context, db *gorm.DB, timeout time.Duration) (func(), error) {
+func acquireAuthzCutoverLock(ctx context.Context, db *sql.DB, timeout time.Duration) (func(), error) {
+	connection, err := db.Conn(ctx)
+	if err != nil {
+		return nil, errors.New("authorization cutover database lock unavailable")
+	}
 	var acquired int
-	if err := db.WithContext(ctx).Raw("SELECT GET_LOCK(?, ?)", maintenance.AuthzCutoverLockName, int(timeout.Seconds())).Scan(&acquired).Error; err != nil || acquired != 1 {
+	waitSeconds := int((timeout + time.Second - 1) / time.Second)
+	if err := connection.QueryRowContext(ctx, "SELECT GET_LOCK(?, ?)", maintenance.AuthzCutoverLockName, waitSeconds).Scan(&acquired); err != nil || acquired != 1 {
+		_ = connection.Close()
 		return nil, errors.New("authorization cutover database lock unavailable")
 	}
 	return func() {
 		var released int
-		_ = db.Raw("SELECT RELEASE_LOCK(?)", maintenance.AuthzCutoverLockName).Scan(&released).Error
+		_ = connection.QueryRowContext(context.Background(), "SELECT RELEASE_LOCK(?)", maintenance.AuthzCutoverLockName).Scan(&released)
+		_ = connection.Close()
 	}, nil
 }
 

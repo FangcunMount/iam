@@ -115,6 +115,9 @@ func (m *Migrator) RunTo(target uint) (uint, bool, error) {
 	if dirty {
 		return current, false, fmt.Errorf("database is in dirty state at version %d, please fix manually", current)
 	}
+	if current > target {
+		return current, false, fmt.Errorf("refusing to migrate database backwards from version %d to %d", current, target)
+	}
 	if current == target {
 		return current, false, nil
 	}
