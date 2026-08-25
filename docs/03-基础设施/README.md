@@ -23,7 +23,7 @@ IAM 的基础设施设计可以归纳为四条原则：
 
 1. **MySQL 保存需要跨重启恢复的业务事实**。领域对象、授权事实、密钥元数据、Outbox 都以数据库为最终事实源。
 2. **Redis 保存短生命周期、需要高频访问或原子竞争的运行时状态**。Session、Refresh Token、Challenge 在当前实现中是 Redis 权威状态；Redis 丢失会导致会话失效，而不是从 MySQL 自动恢复。
-3. **进程内对象只保存可重建快照**。例如 JWKS 发布快照和 Casbin Enforcer；它们不能成为唯一业务事实。
+3. **进程内对象只保存可重建快照**。例如 JWKS 发布快照和 AuthZ 原生运行时；它们不能成为唯一业务事实。
 4. **跨资源一致性不伪装成单一事务**。MySQL 内使用事务；MySQL 到 MQ 使用 Outbox；Redis 内使用 Lua 或 WATCH；MySQL 到 Redis 的身份状态传播使用专用 revocation outbox 和幂等 worker。
 
 ## 3. 事实源层次
@@ -31,7 +31,7 @@ IAM 的基础设施设计可以归纳为四条原则：
 ```text
 MySQL 持久业务事实
   ├─ users / profiles / login_identities / credentials
-  ├─ roles / resources / casbin_rule / policy_versions
+  ├─ roles / assignments / role_inheritances / permission_grants / resources / policy_versions
   ├─ jwks_keys 元数据
   ├─ domain_event_outbox
   └─ identity_session_revocation_outbox
@@ -43,7 +43,7 @@ Redis 运行时权威状态或派生缓存
   └─ user、login identity 到 session 的索引
 
 进程内派生状态
-  ├─ Casbin CachedEnforcer
+  ├─ AuthZ immutable runtime snapshot（含内存角色图）
   ├─ JWKS publish snapshot
   └─ Suggest trie/index runtime
 ```
@@ -68,7 +68,7 @@ Redis 运行时权威状态或派生缓存
 
 - 使用 Redis 不自动意味着操作是原子的；要继续看 Lua、WATCH 或事务管道；
 - 使用 Outbox 不自动意味着 exactly-once；当前保证是“提交不丢 + 至少一次发布倾向”，消费者仍需幂等；
-- 使用 Casbin 不意味着 Casbin 是业务真相源；数据库中的授权事实才是；
+- 使用内存角色图不意味着它是业务真相源；数据库中的 Assignment、RoleInheritance 和 PermissionGrant 才是；
 - 使用 JWT 不意味着请求完全无状态；在线验证还会检查 Session、撤销标记和当前主体状态。
 
 ## 5. 与业务模块的关系
@@ -79,7 +79,7 @@ Redis 运行时权威状态或派生缓存
 | Redis stores | AuthN、IDP、Suggest | 用户是否有效、权限是否允许 |
 | Event catalog/outbox | AuthZ、AuthN SMS 等 | 事件应在什么业务时机产生 |
 | Crypto/keyset/JWT | AuthN、IDP | 谁可以登录、Token claims 的业务含义 |
-| Casbin runtime | AuthZ | 角色/权限的业务创建规则 |
+| AuthZ native runtime | AuthZ | 角色/权限的业务创建规则 |
 | REST/gRPC server | 全部模块 | 领域校验和事务编排 |
 | Readiness/metrics | 全部模块 | 用探针结果替代业务事实 |
 
@@ -87,7 +87,7 @@ Redis 运行时权威状态或派生缓存
 
 - production/release 模式默认 fail closed；显式允许的 degraded 启动只用于受控场景。
 - 一般领域事件 Outbox 与 Identity Session revocation outbox 是两套存储和 worker，目的不同，不能混称为同一队列。
-- AuthZ 写入同时更新业务表/`casbin_rule`、递增 policy version、暂存版本事件；提交后本实例 reload，其他实例通过消息订阅 reload。
+- AuthZ 写入在同一事务更新管理事实、递增 policy version、暂存版本事件；提交后本实例 reload，其他实例通过消息订阅 reload。
 - Redis 的 `TxPipelined` 保证命令批量提交，但不等同于 WATCH 条件更新；Session 更新使用 WATCH，Refresh Token 和 Challenge 使用 Lua。
 - `/healthz` 只表示进程存活；`/readyz` 才检查 MySQL、Redis、AuthN、JWKS、AuthZ、Suggest 和 session revocation backlog。
 

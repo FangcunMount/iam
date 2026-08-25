@@ -60,8 +60,8 @@ func loadConfig(path string) (assignmentauth.Config, error) {
 }
 
 const (
-	grantAssignmentMethod  = "/iam.authz.v2.AuthorizationService/GrantAssignment"
-	revokeAssignmentMethod = "/iam.authz.v2.AuthorizationService/RevokeAssignment"
+	grantAssignmentMethod  = "/iam.authz.v3.AuthorizationService/GrantAssignment"
+	revokeAssignmentMethod = "/iam.authz.v3.AuthorizationService/RevokeAssignment"
 )
 
 func validateAgainstACL(config assignmentauth.Config, aclPath string) error {

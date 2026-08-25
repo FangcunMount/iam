@@ -17,9 +17,9 @@
          │                    │                    │
          └────────────────────┴────────────────────┘
                               ↓
-      iam.authz.v2.AuthorizationService.Check(subject, domain, object, action)
+      iam.authz.v3.AuthorizationService.Check(subject, domain, resource, action)
                               ↓
-                       Casbin Enforce(sub, dom, obj, act)
+                 原生 Runtime 解析角色、Grant 与对象条件
                               ↓
                     CheckResponse{ allowed: true/false }
 ```
@@ -31,11 +31,11 @@
 │ subject  │ 谁在请求资源                                     │
 │          │ user:<id> / group:<id> / service:<id>           │
 ├─────────────────────────────────────────────────────────────┤
-│ domain   │ 在哪个租户域 / Casbin dom                        │
+│ domain   │ 在哪个租户域                                     │
 │          │ default / tenant-a                               │
 ├─────────────────────────────────────────────────────────────┤
-│ object   │ 访问什么资源                                     │
-│          │ resource:profile_profile / resource:report        │
+│ resource │ 访问什么资源                                     │
+│          │ iam:identity:instance:profile / qs:...:reports    │
 ├─────────────────────────────────────────────────────────────┤
 │ action   │ 对资源做什么动作                                 │
 │          │ read / write / delete / grant                   │
@@ -46,7 +46,7 @@
 
 ```text
 1️⃣ 业务侧准备判定输入
-   subject / domain / object / action
+   subject / domain / resource / action / 可选 ObjectContext
                 ↓
 2️⃣ SDK 发起 gRPC 调用
    client.Authz().Check(...) / Allow(...)
@@ -55,7 +55,7 @@
    mTLS / metadata / request-id / retry / errors.Wrap
                 ↓
 4️⃣ IAM 执行单次 PDP
-   AuthorizationService.Check -> Casbin Enforce
+   AuthorizationService.Check -> 原生 AuthorizationRuntimeSnapshot
                 ↓
 5️⃣ 返回结果
    CheckResponse{allowed} 或 bool
@@ -63,7 +63,7 @@
 
 ### 一句话结论
 
-`client.Authz()` 是 IAM SDK 对 `iam.authz.v2.AuthorizationService/Check` 的轻封装，适合做**单次权限判定**；当前稳定能力是 `Check`、`Allow` 和 `Raw`。
+`client.Authz()` 是 IAM SDK 对 `iam.authz.v3.AuthorizationService` 的轻封装；`Allow` 只做无对象属性的判定，条件授权应使用 `CheckObject`。
 
 ### 当前能力边界
 
@@ -72,7 +72,9 @@
 | 单次权限判定 | ✅ 已支持 | `Check` / `Allow` |
 | 原始 gRPC 访问 | ✅ 已支持 | `Raw()` |
 | 批量判定 | ❌ 未封装 | 需业务侧自行扩展 |
-| Explain / 调试原因 | ❌ 未封装 | 当前只返回 `allowed` |
+| 对象条件判定 | ✅ 已支持 | `CheckObject`，提交可信 `ObjectContext` |
+| 授权快照 | ✅ 已支持 | `GetAuthorizationSnapshot` |
+| Explain / 调试原因 | ✅ 基础支持 | 响应包含 reason、deny code 和匹配 Grant |
 | 策略管理 | ❌ 不在 SDK `Authz()` 范围 | 管理面属于 REST / 后台能力 |
 
 ### 3 行代码开始
@@ -82,7 +84,7 @@ allowed, err := client.Authz().Allow(
     ctx,
     "user:user-123",
     "default",
-    "resource:profile_profile",
+    "iam:identity:instance:profile",
     "read",
 )
 ```
@@ -93,7 +95,7 @@ allowed, err := client.Authz().Allow(
 
 更适合使用 `client.Authz()` 的场景：
 
-- 业务服务已经拿到了明确的 `subject / domain / object / action`
+- 业务服务已经拿到了明确的 `subject / domain / resource / action`
 - 你只需要一个布尔判定结果，或一个最小的 `CheckResponse`
 - 你希望复用 SDK 已有的连接、mTLS、metadata、重试和错误包装
 
@@ -121,8 +123,8 @@ allowed, err := client.Authz().Allow(
 
 - 已存在 `ctx`
 - 已创建 `client`
-- 已按需导入 `sdk`、`authzv2`、`errors`
-- 你已经在业务侧准备好了最终的 `subject / domain / object / action`
+- 已按需导入 `sdk`、`authzv3`、`errors`
+- 你已经在业务侧准备好了最终的 `subject / domain / resource / action`
 
 文档里保留的是**最小可理解片段**；如果你需要 `package main + import + 启动代码` 的完整版本，直接看上面的 `_examples/authz/main.go`。
 
@@ -137,10 +139,10 @@ if err != nil {
 }
 defer client.Close()
 
-resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
+resp, err := client.Authz().Check(ctx, &authzv3.CheckRequest{
     Subject: "user:user-123",
     Domain:  "default",
-    Object:  "resource:profile_profile",
+    Resource: "iam:identity:instance:profile",
     Action:  "read",
 })
 ```
@@ -154,7 +156,7 @@ allowed, err := client.Authz().Allow(
     ctx,
     "user:user-123",
     "default",
-    "resource:profile_profile",
+    "iam:identity:instance:profile",
     "read",
 )
 ```
@@ -173,19 +175,20 @@ allowed, err := client.Authz().Allow(
     authCtx,
     "user:user-123",
     "tenant-a",
-    "resource:report",
+    "qs:evaluation:collection:reports",
     "read",
 )
 ```
 
 ## 3. 核心设计
 
-### 3.1 `Check`、`Allow`、`Raw` 的分工
+### 3.1 `Check`、`CheckObject`、`Allow`、`Raw` 的分工
 
 | 方法 | 适用场景 | 返回值 | 说明 |
 | ---- | ---- | ---- | ---- |
 | `Check` | 你需要直接对齐 proto | `*CheckResponse` | 最接近 gRPC 合同 |
-| `Allow` | 你只关心允许 / 拒绝 | `bool` | 对 `Check` 的轻封装 |
+| `CheckObject` | 已加载对象并需要属性条件判定 | `*CheckResponse` | 携带对象 ID 与类型化属性 |
+| `Allow` | 只判断无条件 Grant | `bool` | 不提交对象属性，条件 Grant 会 fail-closed |
 | `Raw` | SDK 暂未封装更多调用风格 | `AuthorizationServiceClient` | 直接回退到原始 gRPC |
 
 当前实现非常薄，核心路径就是：
@@ -193,7 +196,7 @@ allowed, err := client.Authz().Allow(
 ```text
 Allow(...)
   ↓
-Check(&CheckRequest{subject, domain, object, action})
+Check(&CheckRequest{subject, domain, resource, action, object_context})
   ↓
 authorizationService.Check(ctx, req)
   ↓
@@ -221,11 +224,11 @@ service:<service-id>
 ```
 
 SDK 不替你推断 `subject`，调用方要自己传入最终字符串。  
-这和服务端 gRPC 合同保持一致，见 [../../../api/grpc/iam/authz/v2/authz.proto](../../../api/grpc/iam/authz/v2/authz.proto)。
+这和服务端 gRPC 合同保持一致，见 [../../../api/grpc/iam/authz/v3/authz.proto](../../../api/grpc/iam/authz/v3/authz.proto)。
 
 #### `domain`
 
-`domain` 对应 Casbin 的租户域。
+`domain` 对应授权数据的租户域。
 
 常见取值：
 
@@ -234,16 +237,16 @@ SDK 不替你推断 `subject`，调用方要自己传入最终字符串。
 
 如果你的系统本身就是多租户，一定要把 `domain` 当成显式参数，不要在 SDK 调用层偷偷省略。
 
-#### `object`
+#### `resource`
 
-`object` 建议直接使用业务约定好的资源键。
+`resource` 使用 IAM 资源目录注册的四段资源键。
 
 例如：
 
 ```text
-resource:profile_profile
-resource:report
-resource:survey
+iam:identity:instance:profile
+qs:evaluation:collection:reports
+qs:evaluation:collection:assessments
 ```
 
 #### `action`
@@ -264,7 +267,7 @@ grant
 ### 4.1 进入业务逻辑前先做判定
 
 ```go
-allowed, err := client.Authz().Allow(ctx, sub, dom, "resource:report", "read")
+allowed, err := client.Authz().Allow(ctx, sub, dom, "qs:evaluation:collection:reports", "read")
 if err != nil {
     return err
 }
@@ -280,10 +283,10 @@ if !allowed {
 如果你不只需要布尔值，而是希望和未来的响应字段兼容，直接保留 `Check(...)`：
 
 ```go
-resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
+resp, err := client.Authz().Check(ctx, &authzv3.CheckRequest{
     Subject: sub,
     Domain:  dom,
-    Object:  obj,
+    Resource: resource,
     Action:  act,
 })
 if err != nil {
@@ -301,10 +304,10 @@ if !resp.Allowed {
 
 ```go
 raw := client.Authz().Raw()
-resp, err := raw.Check(ctx, &authzv2.CheckRequest{
+resp, err := raw.Check(ctx, &authzv3.CheckRequest{
     Subject: sub,
     Domain:  dom,
-    Object:  obj,
+    Resource: resource,
     Action:  act,
 })
 ```
@@ -335,7 +338,7 @@ _ = allowed
 
 - `Authz()` 当前只封装**单次 PDP**
 - 它不是完整的授权管理 SDK
-- 它不负责帮你构造 `subject / domain / object / action`
+- 它不负责帮你构造 `subject / domain / resource / action`，也不信任终端用户直接提交对象属性
 - 它不替你做批量判定、Explain、菜单裁剪
 
 一句话说，`Authz()` 解决的是“已经拿到一条权限判断输入，稳定地发到 IAM 做判定”。

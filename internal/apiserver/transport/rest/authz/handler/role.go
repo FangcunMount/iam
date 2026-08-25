@@ -33,7 +33,7 @@ func NewRoleHandler(
 // @Produce json
 // @Param request body dto.CreateRoleRequest true "创建角色请求"
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
-// @Router /authz/roles [post]
+// @Router /v3/authz/roles [post]
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	var req dto.CreateRoleRequest
 	if !bindJSON(c, &req) {
@@ -51,6 +51,12 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		handleError(c, err)
 		return
 	}
+	userID, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	cmd.ChangedBy = userID.String()
 
 	createdRole, err := h.commander.CreateRole(c.Request.Context(), cmd)
 	if err != nil {
@@ -69,7 +75,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 // @Param id path string true "角色ID"
 // @Param request body dto.UpdateRoleRequest true "更新角色请求"
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
-// @Router /authz/roles/{id} [put]
+// @Router /v3/authz/roles/{id} [put]
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
 	if !ok {
@@ -86,6 +92,17 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		handleError(c, err)
 		return
 	}
+	tenantID, err := getTenantID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	cmd.TenantID, cmd.ChangedBy = tenantID, userID.String()
 
 	updatedRole, err := h.commander.UpdateRole(c.Request.Context(), cmd)
 	if err != nil {
@@ -101,14 +118,24 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 // @Tags Authorization-Roles
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response
-// @Router /authz/roles/{id} [delete]
+// @Router /v3/authz/roles/{id} [delete]
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
 	if !ok {
 		return
 	}
 
-	if err := h.commander.DeleteRole(c.Request.Context(), roleID); err != nil {
+	tenantID, err := getTenantID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	if err := h.commander.DeleteRole(c.Request.Context(), roleApp.DeleteRoleCommand{ID: roleID, TenantID: tenantID, ChangedBy: userID.String()}); err != nil {
 		handleError(c, err)
 		return
 	}
@@ -122,7 +149,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 // @Produce json
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
-// @Router /authz/roles/{id} [get]
+// @Router /v3/authz/roles/{id} [get]
 func (h *RoleHandler) GetRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
 	if !ok {
@@ -145,7 +172,7 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 // @Param offset query int false "偏移量" default(0)
 // @Param limit query int false "每页数量" default(10)
 // @Success 200 {object} dto.ListResponse{data=[]dto.RoleResponse}
-// @Router /authz/roles [get]
+// @Router /v3/authz/roles [get]
 func (h *RoleHandler) ListRoles(c *gin.Context) {
 	var query dto.ListRoleQuery
 	if !bindQuery(c, &query) {

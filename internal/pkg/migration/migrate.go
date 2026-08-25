@@ -93,6 +93,47 @@ func (m *Migrator) Run() (uint, bool, error) {
 	return newVersion, true, nil
 }
 
+// RunTo migrates to an explicit schema version. It is used by the maintenance
+// window to stop at the additive AuthZ schema before the offline conversion.
+func (m *Migrator) RunTo(target uint) (uint, bool, error) {
+	if !m.config.Enabled {
+		return 0, false, nil
+	}
+	instance, err := m.createMigrate()
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+	defer func() { _, _ = instance.Close() }()
+
+	current, dirty, versionErr := instance.Version()
+	if versionErr != nil && versionErr != migrate.ErrNilVersion {
+		return 0, false, fmt.Errorf("failed to get current version: %w", versionErr)
+	}
+	if versionErr == migrate.ErrNilVersion {
+		current = 0
+	}
+	if dirty {
+		return current, false, fmt.Errorf("database is in dirty state at version %d, please fix manually", current)
+	}
+	if current > target {
+		return current, false, fmt.Errorf("refusing to migrate database backwards from version %d to %d", current, target)
+	}
+	if current == target {
+		return current, false, nil
+	}
+	if err := instance.Migrate(target); err != nil {
+		if err == migrate.ErrNoChange {
+			return current, false, nil
+		}
+		return current, false, fmt.Errorf("migration to version %d failed: %w", target, err)
+	}
+	newVersion, _, err := instance.Version()
+	if err != nil {
+		return current, true, fmt.Errorf("failed to get new version: %w", err)
+	}
+	return newVersion, true, nil
+}
+
 // createMigrate 创建 migrate 实例
 func (m *Migrator) createMigrate() (*migrate.Migrate, error) {
 	// 1. 从嵌入文件系统创建源驱动

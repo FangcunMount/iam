@@ -397,11 +397,10 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
 	deps.Authz = AuthzDeps{
-		RoleHandler:        authzhandler.NewRoleHandler(nil, nil),
-		RoleBindingHandler: authzhandler.NewRoleBindingHandler(nil, nil),
-		PolicyHandler:      authzhandler.NewPolicyHandler(nil, nil),
-		ResourceHandler:    authzhandler.NewResourceHandler(nil, nil),
-		CheckHandler:       authzhandler.NewCheckHandler(nil),
+		RoleHandler:            authzhandler.NewRoleHandler(nil, nil),
+		RoleBindingHandler:     authzhandler.NewRoleBindingHandler(nil, nil),
+		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
+		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
 	}
 	deps.Suggest.Service = appsuggest.NewServiceWithRuntime(appsuggest.Config{}, nil, nil, nil)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateIdentity)
@@ -413,8 +412,8 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/identity/profile-links")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/identity/profiles")
 	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/suggest/profile")
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/authz/roles")
-	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v2/authz/health")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v3/authz/roles")
+	assertRouteNotRegistered(t, engine, http.MethodGet, "/api/v3/authz/health")
 }
 
 func newRouterForTest(deps Deps, options RouterOptions) *Router {

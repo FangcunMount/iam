@@ -3,12 +3,11 @@ package authz
 import (
 	"context"
 
-	authzv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v2"
+	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
 	"github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 )
 
-// Check 对单条 (subject, domain, object, action) 执行授权判定。
-func (c *Client) Check(ctx context.Context, req *authzv2.CheckRequest) (*authzv2.CheckResponse, error) {
+func (c *Client) Check(ctx context.Context, req *authzv3.CheckRequest) (*authzv3.CheckResponse, error) {
 	resp, err := c.authorizationService.Check(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -16,13 +15,11 @@ func (c *Client) Check(ctx context.Context, req *authzv2.CheckRequest) (*authzv2
 	return resp, nil
 }
 
-// Allow 是 Check 的便捷封装，只返回最终布尔结果。
-func (c *Client) Allow(ctx context.Context, subject, domain, object, action string) (bool, error) {
-	resp, err := c.Check(ctx, &authzv2.CheckRequest{
-		Subject: subject,
-		Domain:  domain,
-		Object:  object,
-		Action:  action,
+// Allow performs an unconditional resource/action check. Conditional grants
+// fail closed because no ObjectContext attributes are supplied.
+func (c *Client) Allow(ctx context.Context, subject, domain, resource, action string) (bool, error) {
+	resp, err := c.Check(ctx, &authzv3.CheckRequest{
+		Subject: subject, Domain: domain, Resource: resource, Action: action,
 	})
 	if err != nil {
 		return false, err
@@ -30,24 +27,18 @@ func (c *Client) Allow(ctx context.Context, subject, domain, object, action stri
 	return resp.Allowed, nil
 }
 
-// AllowScoped 是 Check 的 scope-aware 便捷封装。
-func (c *Client) AllowScoped(ctx context.Context, subject, domain, object, action, scopeType, scopeValue string) (bool, error) {
-	resp, err := c.Check(ctx, &authzv2.CheckRequest{
-		Subject:    subject,
-		Domain:     domain,
-		Object:     object,
-		Action:     action,
-		ScopeType:  scopeType,
-		ScopeValue: scopeValue,
+func (c *Client) CheckObject(
+	ctx context.Context,
+	subject, domain, resource, action, objectID string,
+	attributes []*authzv3.ObjectAttribute,
+) (*authzv3.CheckResponse, error) {
+	return c.Check(ctx, &authzv3.CheckRequest{
+		Subject: subject, Domain: domain, Resource: resource, Action: action,
+		ObjectContext: &authzv3.ObjectContext{ObjectId: objectID, Attributes: attributes},
 	})
-	if err != nil {
-		return false, err
-	}
-	return resp.Allowed, nil
 }
 
-// GetAuthorizationSnapshot 获取主体在指定租户/应用下的授权快照。
-func (c *Client) GetAuthorizationSnapshot(ctx context.Context, req *authzv2.GetAuthorizationSnapshotRequest) (*authzv2.GetAuthorizationSnapshotResponse, error) {
+func (c *Client) GetAuthorizationSnapshot(ctx context.Context, req *authzv3.GetAuthorizationSnapshotRequest) (*authzv3.GetAuthorizationSnapshotResponse, error) {
 	resp, err := c.authorizationService.GetAuthorizationSnapshot(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err)

@@ -126,15 +126,13 @@ func TestLegacyAuthZResourceKeyMigrationMapsIdentityAliasesAndTenantDomain(t *te
 	assertSQLContains(t, downSQL, "SET `v2` = '1'")
 }
 
-func TestNormTableMigrationRegistersCatalogAndContentManagerPolicy(t *testing.T) {
+func TestNormTableMigrationRegistersCatalogWithoutFreshLegacyPolicy(t *testing.T) {
 	upSQL := migrationSQL(t, "000015_add_norm_table_content_manager_policy.up.sql")
 	downSQL := migrationSQL(t, "000015_add_norm_table_content_manager_policy.down.sql")
 
 	assertSQLContains(t, upSQL, "qs:modelcatalog:collection:norm_tables")
 	assertSQLContains(t, upSQL, "JSON_ARRAY('read', 'list', 'import')")
-	assertSQLContains(t, upSQL, "role:qs:content_manager")
-	assertSQLContains(t, upSQL, "read|list|import")
-	assertSQLContains(t, upSQL, "WHERE NOT EXISTS")
+	assertSQLNotContains(t, upSQL, "INSERT INTO `casbin_rule`")
 	assertSQLContains(t, downSQL, "DELETE FROM `casbin_rule`")
 	assertSQLContains(t, downSQL, "DELETE FROM `authz_resources`")
 }
@@ -205,6 +203,54 @@ func TestAuthZActiveRoleBindingGuardMigration(t *testing.T) {
 	down := migrationSQL(t, "000025_authz_active_rolebinding_guard.down.sql")
 	assertSQLContains(t, down, "DROP INDEX `uk_authz_assignments_active`")
 	assertSQLContains(t, down, "DROP COLUMN `active_guard`")
+}
+
+func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndDormant(t *testing.T) {
+	up := migrationSQL(t, "000026_add_authz_permission_grants.up.sql")
+	for _, fragment := range []string{
+		"CREATE TABLE IF NOT EXISTS `authz_permission_grants`",
+		"`constraint_set`   JSON            NOT NULL",
+		"`grant_key`        CHAR(64)        NOT NULL",
+		"UNIQUE KEY `uk_authz_permission_grants_active` (`grant_key`, `active_guard`)",
+		"CREATE TABLE IF NOT EXISTS `authz_role_inheritances`",
+		"UNIQUE KEY `uk_authz_role_inheritances_active`",
+		"CREATE TABLE IF NOT EXISTS `authz_cutover_state`",
+		"ADD COLUMN `attribute_schema` JSON NULL",
+		"information_schema.COLUMNS",
+	} {
+		assertSQLContains(t, up, fragment)
+	}
+	for _, forbidden := range []string{
+		"INSERT INTO `authz_permission_grants`",
+		"UPDATE `casbin_rule`",
+		"DELETE FROM `casbin_rule`",
+		"DROP TABLE `casbin_rule`",
+	} {
+		assertSQLNotContains(t, up, forbidden)
+	}
+
+	down := migrationSQL(t, "000026_add_authz_permission_grants.down.sql")
+	assertSQLContains(t, down, "DROP TABLE IF EXISTS `authz_permission_grants`")
+	assertSQLContains(t, down, "DROP TABLE IF EXISTS `authz_role_inheritances`")
+	assertSQLContains(t, down, "DROP TABLE IF EXISTS `authz_cutover_state`")
+	assertSQLContains(t, down, "DROP COLUMN `attribute_schema`")
+}
+
+func TestAuthZLegacyRetirementRequiresEvidenceAndIsIrreversible(t *testing.T) {
+	up := migrationSQL(t, "000027_retire_legacy_authz.up.sql")
+	for _, fragment := range []string{
+		"authz_cutover_state",
+		"evidence_hash",
+		"iam_authz_cutover_verification_is_required",
+		"DROP TABLE `casbin_rule`",
+		"DROP COLUMN `scope_kinds`",
+		"DROP TABLE `authz_cutover_state`",
+	} {
+		assertSQLContains(t, up, fragment)
+	}
+	down := migrationSQL(t, "000027_retire_legacy_authz.down.sql")
+	assertSQLContains(t, down, "SIGNAL SQLSTATE '45000'")
+	assertSQLContains(t, down, "restore the pre-cutover backup")
 }
 
 func TestRetiredIdentityTablesMigrationBackfillsAndValidatesBeforeDrop(t *testing.T) {

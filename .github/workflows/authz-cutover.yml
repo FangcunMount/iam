@@ -1,0 +1,229 @@
+name: AuthZ Production Cutover
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_iam_sha:
+        description: Exact IAM main SHA to cut over
+        required: true
+        type: string
+      expected_qs_sha:
+        description: Exact qs-server main SHA to deploy after cutover
+        required: true
+        type: string
+      qs_stop_run_id:
+        description: Successful qs-server AuthZ consumer stop workflow run ID
+        required: true
+        type: string
+      confirmation:
+        description: Type CUTOVER_AUTHZ_V3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-production-controlled-database-operation
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    name: Retire Legacy AuthZ in Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+    env:
+      IAM_RELEASE_SHA: ${{ github.event.inputs.expected_iam_sha }}
+      QS_RELEASE_SHA: ${{ github.event.inputs.expected_qs_sha }}
+      QS_STOP_RUN_ID: ${{ github.event.inputs.qs_stop_run_id }}
+    steps:
+      - name: Validate immutable release evidence
+        env:
+          CUTOVER_CONFIRMATION: ${{ github.event.inputs.confirmation }}
+        run: |
+          set -Eeuo pipefail
+          validate_sha() {
+            local value="$1" label="$2"
+            if [ "${#value}" -ne 40 ] || [ -n "${value//[0-9a-f]/}" ]; then
+              echo "${label} must be an exact lowercase 40-character Git SHA" >&2
+              exit 1
+            fi
+          }
+          validate_sha "$IAM_RELEASE_SHA" expected_iam_sha
+          validate_sha "$QS_RELEASE_SHA" expected_qs_sha
+          if [ "$CUTOVER_CONFIRMATION" != CUTOVER_AUTHZ_V3 ]; then
+            echo "invalid production cutover confirmation" >&2
+            exit 1
+          fi
+          if ! [[ "$QS_STOP_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "qs_stop_run_id must be a GitHub Actions run ID" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" != main ] || [ "$GITHUB_SHA" != "$IAM_RELEASE_SHA" ]; then
+            echo "workflow must run from the exact IAM main release SHA" >&2
+            exit 1
+          fi
+          qs_main_sha="$(git ls-remote https://github.com/FangcunMount/qs-server.git refs/heads/main | awk '{print $1}')"
+          if [ "$qs_main_sha" != "$QS_RELEASE_SHA" ]; then
+            echo "expected_qs_sha does not match qs-server main" >&2
+            exit 1
+          fi
+          qs_stop_run="$(curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/FangcunMount/qs-server/actions/runs/${QS_STOP_RUN_ID}")"
+          if ! jq -e --arg sha "$QS_RELEASE_SHA" '
+            .name == "AuthZ Production Consumer Control" and
+            .event == "workflow_dispatch" and
+            .conclusion == "success" and
+            .head_sha == $sha
+          ' <<<"$qs_stop_run" >/dev/null; then
+            echo "qs_stop_run_id is not successful stop evidence for expected_qs_sha" >&2
+            exit 1
+          fi
+
+      - name: Checkout exact IAM release
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.IAM_RELEASE_SHA }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build static maintenance binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+          GOTOOLCHAIN: local
+        run: |
+          mkdir -p bin
+          go build -trimpath -o bin/iam-maintenance ./cmd/iam-maintenance
+
+      - name: Upload maintenance binary to serverB
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          source: bin/iam-maintenance
+          target: /tmp/iam-authz-cutover-${{ env.IAM_RELEASE_SHA }}
+          strip_components: 1
+
+      - name: Stop IAM authorization consumers
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        env:
+          IAM_AUTHZ_CONSUMER_OPERATION: stop
+          IAM_AUTHZ_RELEASE_SHA: ${{ env.IAM_RELEASE_SHA }}
+          SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD || secrets.SVRA_SUDO_PASSWORD }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_AUTHZ_CONSUMER_OPERATION,IAM_AUTHZ_RELEASE_SHA,SUDO_PASSWORD
+          script_path: scripts/cd/authz-consumer-control.sh
+
+      - name: Create verified maintenance-window database backup
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        env:
+          IAM_DB_OPS_OPERATION: backup
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
+
+      - name: Recheck RoleBinding migration prerequisite
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        env:
+          IAM_DB_OPS_OPERATION: rolebinding-guard-preflight
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
+
+      - name: Convert policies and retire legacy authorization schema
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        env:
+          IAM_AUTHZ_RELEASE_SHA: ${{ env.IAM_RELEASE_SHA }}
+          IAM_AUTHZ_QS_RELEASE_SHA: ${{ env.QS_RELEASE_SHA }}
+          IAM_AUTHZ_QS_STOP_RUN_ID: ${{ env.QS_STOP_RUN_ID }}
+          IAM_AUTHZ_CUTOVER_CONFIRMATION: CUTOVER_AUTHZ_V3
+          IAM_AUTHZ_MAINTENANCE_BINARY: /tmp/iam-authz-cutover-${{ env.IAM_RELEASE_SHA }}/iam-maintenance
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+          SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD || secrets.SVRA_SUDO_PASSWORD }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_AUTHZ_RELEASE_SHA,IAM_AUTHZ_QS_RELEASE_SHA,IAM_AUTHZ_QS_STOP_RUN_ID,IAM_AUTHZ_CUTOVER_CONFIRMATION,IAM_AUTHZ_MAINTENANCE_BINARY,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME,SUDO_PASSWORD
+          script_path: scripts/cd/authz-database-cutover.sh
+          command_timeout: 30m
+
+      - name: Verify final database status
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        env:
+          IAM_DB_OPS_OPERATION: status
+          IAM_DB_OPS_ALLOW_DOCKER_CLIENT: "1"
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DBNAME: ${{ secrets.MYSQL_DBNAME }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_DB_OPS_OPERATION,IAM_DB_OPS_ALLOW_DOCKER_CLIENT,MYSQL_HOST,MYSQL_PORT,MYSQL_USERNAME,MYSQL_PASSWORD,MYSQL_DBNAME
+          script_path: scripts/dbops/database-operation.sh
+
+      - name: Record post-cutover deployment requirement
+        run: |
+          {
+            echo '### AuthZ database cutover complete'
+            echo
+            echo "- IAM SHA: ${IAM_RELEASE_SHA}"
+            echo "- qs-server SHA: ${QS_RELEASE_SHA}"
+            echo "- qs stop run: ${QS_STOP_RUN_ID}"
+            echo '- IAM remains stopped. Manually deploy this exact IAM SHA, then deploy the exact qs-server SHA.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve failure recovery boundary
+        if: failure()
+        run: |
+          {
+            echo '### Cutover stopped'
+            echo
+            echo '- Do not start services until the database version and casbin_rule presence are checked.'
+            echo '- Before 000027: the recorded container state may be used to restore legacy services.'
+            echo '- During or after 000027: restore the maintenance-window database backup and old exact images.'
+          } >> "$GITHUB_STEP_SUMMARY"

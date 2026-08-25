@@ -318,7 +318,11 @@ WHERE NOT EXISTS(SELECT 1
                    AND ((`r`.`v2` = `seed`.`v2`) OR (`r`.`v2` IS NULL AND `seed`.`v2` IS NULL))
                    AND ((`r`.`v3` = `seed`.`v3`) OR (`r`.`v3` IS NULL AND `seed`.`v3` IS NULL))
                    AND ((`r`.`v4` = `seed`.`v4`) OR (`r`.`v4` IS NULL AND `seed`.`v4` IS NULL))
-                   AND ((`r`.`v5` = `seed`.`v5`) OR (`r`.`v5` IS NULL AND `seed`.`v5` IS NULL)));
+                   AND ((`r`.`v5` = `seed`.`v5`) OR (`r`.`v5` IS NULL AND `seed`.`v5` IS NULL)))
+  -- Fresh databases are bootstrapped into the final native model after
+  -- migration 000027. Existing installations already ran this historical
+  -- migration and are converted by the offline maintenance tool.
+  AND FALSE;
 
 INSERT INTO `authz_policy_versions` (`id`, `tenant_id`, `policy_version`, `changed_by`, `reason`, `created_at`,
                                      `updated_at`, `deleted_at`, `created_by`, `updated_by`, `deleted_by`, `version`)

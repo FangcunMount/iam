@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"regexp"
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -8,6 +9,8 @@ import (
 )
 
 const keySegmentCount = 4
+
+var resourceSegmentPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 
 // Key identifies a protected resource in the catalog.
 type Key string
@@ -53,6 +56,9 @@ func parseFourSegmentResource(value, label string) ([]string, error) {
 		if trimmed != part {
 			return nil, perrors.WithCode(code.ErrInvalidArgument, "%s contains untrimmed segment", label)
 		}
+		if trimmed != "*" && !resourceSegmentPattern.MatchString(trimmed) {
+			return nil, perrors.WithCode(code.ErrInvalidArgument, "%s contains unsupported segment: %s", label, trimmed)
+		}
 		parts[index] = trimmed
 	}
 	return parts, nil
@@ -80,6 +86,28 @@ func (p Pattern) String() string {
 
 func (p Pattern) App() string {
 	return appSegment(string(p))
+}
+
+// Covers reports whether this policy pattern covers the candidate resource.
+// Both values must use the canonical four-segment resource shape.
+func (p Pattern) Covers(candidate Pattern) bool {
+	policyParts, err := parseFourSegmentResource(p.String(), "resource pattern")
+	if err != nil {
+		return false
+	}
+	candidateParts, err := parseFourSegmentResource(candidate.String(), "resource")
+	if err != nil {
+		return false
+	}
+	for index := range policyParts {
+		if policyParts[index] == "*" {
+			continue
+		}
+		if policyParts[index] != candidateParts[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func AppNameFromKey(value string) (string, bool) {

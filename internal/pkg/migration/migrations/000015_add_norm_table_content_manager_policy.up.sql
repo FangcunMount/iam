@@ -15,19 +15,9 @@ ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
                         `updated_at`   = NOW(),
                         `updated_by`   = 0;
 
-INSERT INTO `casbin_rule` (`ptype`, `v0`, `v1`, `v2`, `v3`, `v4`, `v5`)
-SELECT 'p', 'role:qs:content_manager', 'fangcun', 'qs:modelcatalog:collection:norm_tables',
-       'read|list|import', 'all:*', NULL
-WHERE NOT EXISTS(
-    SELECT 1
-    FROM `casbin_rule` `r`
-    WHERE `r`.`ptype` = 'p'
-      AND `r`.`v0` = 'role:qs:content_manager'
-      AND `r`.`v1` = 'fangcun'
-      AND `r`.`v2` = 'qs:modelcatalog:collection:norm_tables'
-      AND `r`.`v3` = 'read|list|import'
-      AND COALESCE(`r`.`v4`, '') = 'all:*'
-);
+-- Permission facts are seeded by the final native bootstrap after migration
+-- 000027. Existing installations already applied the historical Casbin row;
+-- the offline cutover converts that persisted fact.
 
 UPDATE `authz_roles`
 SET `description` = '问卷、量表和常模表的管理权限',

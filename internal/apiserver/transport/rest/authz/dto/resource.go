@@ -1,39 +1,42 @@
 // Package dto 资源相关的 DTO 定义
 package dto
 
-import "github.com/FangcunMount/iam/v3/internal/pkg/meta"
+import (
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+)
 
 // CreateResourceRequest 创建资源请求
 type CreateResourceRequest struct {
-	Key         string   `json:"key" binding:"required"`
-	DisplayName string   `json:"display_name" binding:"required"`
-	AppName     string   `json:"app_name" binding:"required"`
-	Domain      string   `json:"domain" binding:"required"`
-	Type        string   `json:"type" binding:"required"`
-	Actions     []string `json:"actions" binding:"required,min=1"`
-	ScopeKinds  []string `json:"scope_kinds"`
-	Description string   `json:"description"`
+	Key             string           `json:"key" binding:"required"`
+	DisplayName     string           `json:"display_name" binding:"required"`
+	AppName         string           `json:"app_name" binding:"required"`
+	Domain          string           `json:"domain" binding:"required"`
+	Type            string           `json:"type" binding:"required"`
+	Actions         []string         `json:"actions" binding:"required,min=1"`
+	AttributeSchema attribute.Schema `json:"attribute_schema"`
+	Description     string           `json:"description"`
 }
 
 // UpdateResourceRequest 更新资源请求
 type UpdateResourceRequest struct {
-	DisplayName string   `json:"display_name"`
-	Actions     []string `json:"actions" binding:"min=1"`
-	ScopeKinds  []string `json:"scope_kinds"`
-	Description string   `json:"description"`
+	DisplayName     string            `json:"display_name"`
+	Actions         []string          `json:"actions" binding:"min=1"`
+	AttributeSchema *attribute.Schema `json:"attribute_schema"`
+	Description     string            `json:"description"`
 }
 
 // ResourceResponse 资源响应
 type ResourceResponse struct {
-	ID          meta.ID  `json:"id" swaggertype:"string"`
-	Key         string   `json:"key"`
-	DisplayName string   `json:"display_name"`
-	AppName     string   `json:"app_name"`
-	Domain      string   `json:"domain"`
-	Type        string   `json:"type"`
-	Actions     []string `json:"actions"`
-	ScopeKinds  []string `json:"scope_kinds"`
-	Description string   `json:"description"`
+	ID              meta.ID          `json:"id" swaggertype:"string"`
+	Key             string           `json:"key"`
+	DisplayName     string           `json:"display_name"`
+	AppName         string           `json:"app_name"`
+	Domain          string           `json:"domain"`
+	Type            string           `json:"type"`
+	Actions         []string         `json:"actions"`
+	AttributeSchema attribute.Schema `json:"attribute_schema"`
+	Description     string           `json:"description"`
 }
 
 // ListResourceQuery 列出资源查询参数

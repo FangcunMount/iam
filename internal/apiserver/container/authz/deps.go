@@ -12,7 +12,6 @@ import (
 type AuthzModuleDeps struct {
 	DB                        *gorm.DB
 	EventStager               event.Stager
-	ModelPath                 string
 	GRPCACLEnabled            bool
 	GRPCACLConfigFile         string
 	AssignmentConstraintsFile string

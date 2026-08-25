@@ -50,7 +50,7 @@ flowchart LR
 | --- | --- | --- |
 | Identity | 内部 User、Profile 与业务关系事实 | 凭据验证、Token、Permission |
 | AuthN | 如何证明请求者、维持 Session、签发/验证 Token | Profile 主数据、资源授权 |
-| AuthZ | Subject 在 Tenant/Scope 下能对 Resource 做什么 | 登录凭据、外部 provider、搜索索引 |
+| AuthZ | Subject 在 Tenant 下能对 Resource/Action 做什么，并按受信对象属性求值 | 登录凭据、外部 provider、搜索索引和业务关系事实 |
 | IDP | provider app/secret/token 与外部声明验证 | IAM User、Session、资源授权 |
 | Suggest | 从 Identity 派生可见、脱敏的联想候选 | 主数据写入、通用授权结论 |
 

@@ -48,12 +48,12 @@ func TestMetricsUnaryInterceptorRecordsMethodAndCode(t *testing.T) {
 
 	collector := &recordingMetricsCollector{}
 	interceptor := MetricsUnaryInterceptor(collector)
-	err := interceptor(context.Background(), "/iam.authz.v2.AuthorizationService/Check", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+	err := interceptor(context.Background(), "/iam.authz.v3.AuthorizationService/Check", nil, nil, nil, func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return status.Error(codes.PermissionDenied, "denied")
 	})
 	require.Error(t, err)
 	require.Equal(t, 1, collector.calls)
-	require.Equal(t, "/iam.authz.v2.AuthorizationService/Check", collector.method)
+	require.Equal(t, "/iam.authz.v3.AuthorizationService/Check", collector.method)
 	require.Equal(t, codes.PermissionDenied.String(), collector.code)
 }
 

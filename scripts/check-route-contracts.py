@@ -17,7 +17,7 @@ SWAGGER_PATH = ROOT / "internal/apiserver/docs/swagger.yaml"
 REST_SPECS = [
     ROOT / "api/rest/authn.v2.yaml",
     ROOT / "api/rest/identity.v2.yaml",
-    ROOT / "api/rest/authz.v2.yaml",
+    ROOT / "api/rest/authz.v3.yaml",
     ROOT / "api/rest/idp.v2.yaml",
     ROOT / "api/rest/suggest.v2.yaml",
 ]

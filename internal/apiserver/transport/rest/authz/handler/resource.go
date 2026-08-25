@@ -6,7 +6,6 @@ import (
 
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -37,7 +36,7 @@ func NewResourceHandler(
 // @Produce json
 // @Param request body dto.CreateResourceRequest true "创建资源请求"
 // @Success 200 {object} dto.Response{data=dto.ResourceResponse}
-// @Router /authz/resources [post]
+// @Router /v3/authz/resources [post]
 func (h *ResourceHandler) CreateResource(c *gin.Context) {
 	var req dto.CreateResourceRequest
 	if !bindJSON(c, &req) {
@@ -51,13 +50,24 @@ func (h *ResourceHandler) CreateResource(c *gin.Context) {
 		req.Domain,
 		req.Type,
 		req.Actions,
-		toDomainScopeKinds(req.ScopeKinds),
+		req.AttributeSchema,
 		req.Description,
 	)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
+	tenantID, err := getTenantID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	cmd.TenantID, cmd.ChangedBy = tenantID, userID.String()
 
 	createdResource, err := h.commander.CreateResource(c.Request.Context(), cmd)
 	if err != nil {
@@ -76,7 +86,7 @@ func (h *ResourceHandler) CreateResource(c *gin.Context) {
 // @Param id path string true "资源ID"
 // @Param request body dto.UpdateResourceRequest true "更新资源请求"
 // @Success 200 {object} dto.Response{data=dto.ResourceResponse}
-// @Router /authz/resources/{id} [put]
+// @Router /v3/authz/resources/{id} [put]
 func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 	resourceID, ok := parseIDParam(c, "id", "资源ID格式错误")
 	if !ok {
@@ -92,13 +102,24 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 		resourceDomain.NewResourceID(resourceID.Uint64()),
 		&req.DisplayName,
 		req.Actions,
-		toDomainScopeKinds(req.ScopeKinds),
+		req.AttributeSchema,
 		&req.Description,
 	)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
+	tenantID, err := getTenantID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	cmd.TenantID, cmd.ChangedBy = tenantID, userID.String()
 
 	updatedResource, err := h.commander.UpdateResource(c.Request.Context(), cmd)
 	if err != nil {
@@ -109,30 +130,31 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 	success(c, h.toResourceResponse(updatedResource))
 }
 
-func toDomainScopeKinds(values []string) []scope.Kind {
-	if len(values) == 0 {
-		return nil
-	}
-	kinds := make([]scope.Kind, 0, len(values))
-	for _, value := range values {
-		kinds = append(kinds, scope.Kind(value))
-	}
-	return kinds
-}
-
 // DeleteResource 删除资源
 // @Summary 删除资源
 // @Tags Authorization-Resources
 // @Param id path string true "资源ID"
 // @Success 200 {object} dto.Response
-// @Router /authz/resources/{id} [delete]
+// @Router /v3/authz/resources/{id} [delete]
 func (h *ResourceHandler) DeleteResource(c *gin.Context) {
 	resourceID, ok := parseIDParam(c, "id", "资源ID格式错误")
 	if !ok {
 		return
 	}
 
-	if err := h.commander.DeleteResource(c.Request.Context(), resourceDomain.NewResourceID(resourceID.Uint64())); err != nil {
+	tenantID, err := getTenantID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	userID, err := getUserID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	if err := h.commander.DeleteResource(c.Request.Context(), resourceApp.DeleteResourceCommand{
+		ID: resourceDomain.NewResourceID(resourceID.Uint64()), TenantID: tenantID, ChangedBy: userID.String(),
+	}); err != nil {
 		handleError(c, err)
 		return
 	}
@@ -146,7 +168,7 @@ func (h *ResourceHandler) DeleteResource(c *gin.Context) {
 // @Produce json
 // @Param id path string true "资源ID"
 // @Success 200 {object} dto.Response{data=dto.ResourceResponse}
-// @Router /authz/resources/{id} [get]
+// @Router /v3/authz/resources/{id} [get]
 func (h *ResourceHandler) GetResource(c *gin.Context) {
 	resourceID, ok := parseIDParam(c, "id", "资源ID格式错误")
 	if !ok {
@@ -168,7 +190,7 @@ func (h *ResourceHandler) GetResource(c *gin.Context) {
 // @Produce json
 // @Param key path string true "资源键"
 // @Success 200 {object} dto.Response{data=dto.ResourceResponse}
-// @Router /authz/resources/key/{key} [get]
+// @Router /v3/authz/resources/key/{key} [get]
 func (h *ResourceHandler) GetResourceByKey(c *gin.Context) {
 	key := c.Param("key")
 
@@ -191,7 +213,7 @@ func (h *ResourceHandler) GetResourceByKey(c *gin.Context) {
 // @Param offset query int false "偏移量" default(0)
 // @Param limit query int false "每页数量" default(10)
 // @Success 200 {object} dto.ListResponse{data=[]dto.ResourceResponse}
-// @Router /authz/resources [get]
+// @Router /v3/authz/resources [get]
 func (h *ResourceHandler) ListResources(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -228,7 +250,7 @@ func (h *ResourceHandler) ListResources(c *gin.Context) {
 // @Produce json
 // @Param request body dto.ValidateActionRequest true "验证动作请求"
 // @Success 200 {object} dto.Response{data=dto.ValidateActionResponse}
-// @Router /authz/resources/validate-action [post]
+// @Router /v3/authz/resources/validate-action [post]
 func (h *ResourceHandler) ValidateAction(c *gin.Context) {
 	var req dto.ValidateActionRequest
 	if !bindJSON(c, &req) {

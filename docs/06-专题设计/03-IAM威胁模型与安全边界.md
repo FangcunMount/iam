@@ -127,7 +127,7 @@ Envelope encryption/KMS 的价值是把“能读数据库”和“能解密 secr
   -> matcher 对这个伪造五元组正确返回 allow
 ```
 
-因此值对象格式合法远远不够。Subject 来自 Principal/service identity，Tenant 来自可信绑定，Resource/Action 来自服务端注册表，Scope 由对象事实解析。这些构造点都属于授权机制的一部分。
+因此值对象格式合法远远不够。Subject 来自 Principal/service identity，Tenant 来自可信绑定，Resource/Action 来自服务端注册表，对象属性来自服务端已加载的领域对象。这些构造点都属于授权机制的一部分。
 
 ### 6.2 撤权比赋权更危险
 

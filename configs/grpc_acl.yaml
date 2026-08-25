@@ -57,10 +57,10 @@ services:
       - /iam.idp.v2.IDPService/GetWechatApp
 
       # AuthorizationService - PDP（策略判定）
-      - /iam.authz.v2.AuthorizationService/Check
-      - /iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot
-      - /iam.authz.v2.AuthorizationService/GrantAssignment
-      - /iam.authz.v2.AuthorizationService/RevokeAssignment
+      - /iam.authz.v3.AuthorizationService/Check
+      - /iam.authz.v3.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.authz.v3.AuthorizationService/GrantAssignment
+      - /iam.authz.v3.AuthorizationService/RevokeAssignment
     denied_methods: []
 
   # QS Collection Server - 数据收集服务
@@ -104,8 +104,8 @@ services:
       - /iam.authn.v2.JWKSService/GetJWKS
 
       # AuthorizationService - PDP
-      - /iam.authz.v2.AuthorizationService/Check
-      - /iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.authz.v3.AuthorizationService/Check
+      - /iam.authz.v3.AuthorizationService/GetAuthorizationSnapshot
     denied_methods: []
 
   # 内部管理工具
@@ -126,7 +126,7 @@ services:
       - /iam.authn.v2.LoginIdentityService/*
       - /iam.authn.v2.JWKSService/*
       - /iam.idp.v2.IDPService/*
-      - /iam.authz.v2.AuthorizationService/*
+      - /iam.authz.v3.AuthorizationService/*
 
   # 运维工具
   - service_name: ops
@@ -158,7 +158,7 @@ services:
       - /iam.identity.v2.IdentityRead/BatchGetProfiles
       - /iam.identity.v2.ProfileLinkQuery/ListProfiles
       - /iam.identity.v2.ProfileLinkQuery/ListProfileLinks
-      - /iam.authz.v2.AuthorizationService/GetAuthorizationSnapshot
+      - /iam.authz.v3.AuthorizationService/GetAuthorizationSnapshot
 
 # 服务凭证配置（用于应用层鉴权）
 # ============================================================================

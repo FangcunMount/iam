@@ -2,9 +2,9 @@ package rolebinding
 
 import (
 	"context"
+	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
-	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
@@ -85,8 +85,8 @@ func NewRevokeCommand(subjectType bindingDomain.SubjectType, subjectID, roleID m
 	if err != nil {
 		return RevokeCommand{}, err
 	}
-	if _, err := policyDomain.NewActor(changedBy); err != nil {
-		return RevokeCommand{}, err
+	if strings.TrimSpace(changedBy) == "" {
+		return RevokeCommand{}, errors.WithCode(code.ErrInvalidArgument, "changed by is required")
 	}
 	return RevokeCommand{
 		SubjectType: subjectType,
@@ -114,8 +114,8 @@ func NewRevokeByIDCommand(bindingID bindingDomain.BindingID, tenantID, changedBy
 	if err != nil {
 		return RevokeByIDCommand{}, err
 	}
-	if _, err := policyDomain.NewActor(changedBy); err != nil {
-		return RevokeByIDCommand{}, err
+	if strings.TrimSpace(changedBy) == "" {
+		return RevokeByIDCommand{}, errors.WithCode(code.ErrInvalidArgument, "changed by is required")
 	}
 	return RevokeByIDCommand{
 		BindingID: bindingID,
@@ -152,8 +152,8 @@ func NewRevokeByRoleNameCommand(sub subject.Ref, tenantID, roleName, changedBy, 
 	if err != nil {
 		return RevokeByRoleNameCommand{}, err
 	}
-	if _, err := policyDomain.NewActor(changedBy); err != nil {
-		return RevokeByRoleNameCommand{}, err
+	if strings.TrimSpace(changedBy) == "" {
+		return RevokeByRoleNameCommand{}, errors.WithCode(code.ErrInvalidArgument, "changed by is required")
 	}
 	return RevokeByRoleNameCommand{Subject: sub, TenantID: tenantIDValue.String(), RoleName: roleNameValue.String(), ChangedBy: changedBy, Reason: reason}, nil
 }

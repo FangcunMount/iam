@@ -53,7 +53,7 @@ flowchart TD
 
     Identity["Identity\n用户是谁\nUser / Profile / ProfileLink"]
     AuthN["AuthN\n如何证明身份\nLoginIdentity / Credential / Challenge / Principal / Session / Token"]
-    AuthZ["AuthZ\n能访问什么\nSubject / Resource / Action / Scope / Role / Permission / RoleBinding"]
+    AuthZ["AuthZ\n能访问什么\nSubject / Role / Assignment / PermissionGrant / ConstraintSet"]
     IDP["IDP\n外部身份来源\nWechatApp / Credentials / AppToken / ExternalIdentity"]
     Suggest["Suggest\n可见 Profile 联想搜索\nProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex"]
 

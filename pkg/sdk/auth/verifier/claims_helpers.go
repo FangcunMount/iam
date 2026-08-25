@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// AuthorizationDomain 返回 IAM 授权域（Casbin domain）。
+// AuthorizationDomain 返回 IAM AuthZ 的租户授权域。
 func (c *TokenClaims) AuthorizationDomain() string {
 	if c == nil {
 		return ""

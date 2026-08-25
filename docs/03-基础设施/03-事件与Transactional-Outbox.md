@@ -140,29 +140,29 @@ Relay 为消息设置：
 完整链路：
 
 ```text
-PolicyChangeCommitter
+AuthZ command service
   -> MySQL tx:
-       write role/permission/binding/casbin_rule
+       write role/resource/assignment/inheritance/permission_grant
        increment policy_versions
        Stage iam.authz.version_changed
   -> commit
-  -> 当前实例 ReloadRuntimePolicy
+  -> 当前实例 Reload native runtime
 
 Outbox relay
   -> topic iam.authz.version
   -> 每个实例使用独立 ephemeral channel 订阅
   -> VersionEventHandler decode tenant/version
   -> record observed version event
-  -> LoadPolicy from DB
+  -> Build immutable snapshot from DB
 ```
 
 当前实例在提交后直接 reload，降低本请求之后的本地陈旧窗口；其他实例依靠 durable event reload。
 
-Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每个实例，而不是让实例组成只消费一次的工作队列。否则只有一个实例 reload，其余实例会继续使用旧 Enforcer。
+Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每个实例，而不是让实例组成只消费一次的工作队列。否则只有一个实例 reload，其余实例会继续使用旧快照。
 
-## 9. Casbin runtime 与事件的关系
+## 9. AuthZ 原生 runtime 与事件的关系
 
-数据库中的 `casbin_rule` 是授权事实源，`CachedEnforcer` 是进程内判定快照。事件不是授权事实，只是“请重新加载”的协调信号。
+数据库中的 Assignment、RoleInheritance、PermissionGrant 和 Resource Schema 是授权事实源，不可变 runtime snapshot 是进程内判定快照。事件不是授权事实，只是“请重新加载”的协调信号。
 
 这带来两个重要结论：
 
@@ -228,7 +228,7 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 | MySQL store | `internal/apiserver/infra/mysql/eventoutbox/store.go` |
 | relay | `internal/apiserver/infra/messaging/outbox_relay.go` |
 | composition | `internal/apiserver/container/platform/eventing.go` |
-| AuthZ commit | `internal/apiserver/application/authz/policy/committer.go` |
+| AuthZ command services | `internal/apiserver/application/authz` |
 | AuthZ consumer | `internal/apiserver/application/authz/policysync/handler.go` |
 
 ## 15. Verify
@@ -237,7 +237,7 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 make docs-facts
 go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/eventmessaging ./pkg/eventruntime ./pkg/outboxcore
 go test ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging
-go test ./internal/apiserver/application/authz/policy ./internal/apiserver/application/authz/policysync
+go test ./internal/apiserver/application/authz/... ./internal/apiserver/infra/authz/native/...
 ```
 
 ## 16. 面试追问
@@ -252,4 +252,4 @@ go test ./internal/apiserver/application/authz/policy ./internal/apiserver/appli
 
 **DB 才是真相源，为什么还需要 policy version？**
 
-版本提供变化顺序和可观测性，便于判断运行时是否看到了最新事实；它不替代 `casbin_rule`，也不直接完成授权判定。
+版本提供变化顺序和可观测性，便于判断运行时是否看到了最新事实；它不替代 PermissionGrant 等管理事实，也不直接完成授权判定。

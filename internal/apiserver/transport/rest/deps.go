@@ -66,13 +66,12 @@ type AuthnDeps struct {
 
 // AuthzDeps 授权依赖
 type AuthzDeps struct {
-	RoleHandler        *authzhandler.RoleHandler
-	RoleBindingHandler *authzhandler.RoleBindingHandler
-	PolicyHandler      *authzhandler.PolicyHandler
-	ResourceHandler    *authzhandler.ResourceHandler
-	CheckHandler       *authzhandler.CheckHandler
-	RouteAuthorization authnMiddleware.RouteAuthorizationRuntime
-	HealthReporter     AuthzHealthReporter
+	RoleHandler            *authzhandler.RoleHandler
+	RoleBindingHandler     *authzhandler.RoleBindingHandler
+	PermissionGrantHandler *authzhandler.PermissionGrantHandler
+	ResourceHandler        *authzhandler.ResourceHandler
+	RouteAuthorization     authnMiddleware.RouteAuthorizationRuntime
+	HealthReporter         AuthzHealthReporter
 }
 
 // IDPDeps IDP依赖

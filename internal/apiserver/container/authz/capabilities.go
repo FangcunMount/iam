@@ -6,8 +6,7 @@ import (
 
 	assignmentAuthApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
 	authorizationApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	policyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policy"
-	policylintApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policylint"
+	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
@@ -34,14 +33,12 @@ type ApplicationCapabilities struct {
 	ResourceDirectory           resourceApp.Directory
 	RoleCatalog                 roleApp.Catalog
 	RoleDirectory               roleApp.Directory
-	PermissionCommands          policyApp.PermissionCommands
-	PermissionReader            policyApp.PermissionReader
-	PolicyLinter                *policylintApp.Linter
+	PermissionGrantService      *permissionGrantApp.Service
 	RoleBindingCommands         bindingApp.Commands
 	RoleBindingDirectory        bindingApp.Directory
 	RouteAuthorization          authn.RouteAuthorizationRuntime
 	RuntimeHealth               RuntimeHealthReporter
-	AuthorizationChecker        *authorizationApp.Checker
-	AuthorizationSnapshotReader *authorizationApp.SnapshotReader
+	AuthorizationChecker        *authorizationApp.NativeChecker
+	AuthorizationSnapshotReader *authorizationApp.NativeSnapshotReader
 	AssignmentRequestAuthorizer assignmentAuthApp.Authorizer
 }

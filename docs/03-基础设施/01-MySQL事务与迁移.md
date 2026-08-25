@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、迁移 000001–000025 和相关测试核对。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000027 和相关测试核对；当前生产验收证据仍只到 000025。
 
 ## 1. 本文回答
 
@@ -109,14 +109,13 @@ AuthN UoW 聚合注册所需的 `Users`、`LoginIdentities`、`Credentials`。�
 
 AuthZ UoW 聚合：
 
-- 角色/资源/绑定 repository；
-- `casbin_rule` authorization fact store；
+- 角色/资源/绑定/继承/PermissionGrant repository；
 - `PolicyVersion` repository；
 - `event.Stager`。
 
-`PolicyChangeCommitter` 在一个事务里完成业务事实、Casbin 持久事实、版本递增和 Outbox 暂存。提交后才触发当前实例的 runtime reload。
+AuthZ command service 在一个事务里完成管理事实、版本递增和 Outbox 暂存。提交后才触发当前实例的原生 runtime reload。
 
-这避免出现“内存 Enforcer 已允许，但数据库事务随后回滚”的反向不一致。
+这避免出现“内存快照已允许，但数据库事务随后回滚”的反向不一致。
 
 ## 6. Repository 与映射职责
 
@@ -194,7 +193,7 @@ DatabaseManager.Initialize
 
 `000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，已在生产验收 `version=22, dirty=0` 且三表不存在。`000023` 只退役已由 format v5 收敛的 `auth_accounts/auth_credentials_legacy`，先断言 canonical schema、数据映射与数据库对象依赖，再执行一条原子 DROP；生产已验收 `version=23, dirty=0` 且两表不存在，没有重新 merge 旧数据。`000024` 只退役四张一次性 seeddata 清理副本，要求两副本全字段一致、各 1,359 行、与 canonical ID 零重叠且无数据库依赖；不向 canonical 回填。destructive down 均 fail closed，恢复依赖发布前完整备份。
 
-`000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对 `(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复 active 事实，创建索引会 fail closed，不会自动删除授权数据。当前仓库和 MySQL 迁移门禁已到 25；本文不把这一仓库事实表述为已完成生产发布。
+`000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对 `(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复 active 事实，创建索引会 fail closed，不会自动删除授权数据。当前仓库迁移已到 27；生产已验收证据仍到 25，000026/000027 必须经过计划中的离线转换和一次性维护窗口。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 

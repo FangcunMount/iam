@@ -1,51 +1,34 @@
-# AuthZ：授权事实与运行时判定
+# AuthZ：RBAC 与对象属性条件授权
 
-> 状态：已实现 · 授权模型、Check、写入事务、Casbin 投影和多实例传播已按当前实现复核。
+> 状态：已实现 · 本目录描述 AuthZ v3 最终模型。字符串 Scope、AuthZ v2 和持久化 Casbin 权限事实已经退役。
 
-AuthZ 回答：某个 Subject 在某个 Tenant 中，能否对某个 Resource 执行某个 Action，并满足对象 Scope。AuthN 只负责建立可信身份，不能代替这一步。
+AuthZ 回答：可信 Subject 在某个 Tenant 中，能否对 Resource 执行 Action；对象级动作还可以依据服务端提交的受信对象属性求值。业务关系仍由拥有事实的业务模块判断。
 
 ## 阅读路径
 
-1. [模块总览](00-模块总览.md)：建立领域事实、Casbin 投影和 committed/published/observed/loaded 状态模型。
-2. [授权模型与匹配语义](01-授权模型与匹配语义.md)：理解 domain-scoped RBAC 与五元判定。
-3. [权限检查与 Casbin 运行时](02-权限检查与Casbin运行时.md)：理解可信输入、p/g/r 投影、matcher 与缓存边界。
-4. [授权写入与多实例一致性](03-授权写入与多实例一致性.md)：理解事务、PolicyVersion、Outbox、广播和 reload。
-5. [Casbin 运行时模型](04-Casbin运行时模型.md)：逐项理解 matcher、锁、缓存、反投影和 reload 保证。
-6. [模块边界与代码索引](05-模块边界与代码索引.md)：区分 Principal/User/Subject、ProfileLink/RoleBinding，并定位跨层修改面。
+1. [模块总览](00-模块总览.md)：最终事实、运行时与 API 总图。
+2. [授权模型与匹配语义](01-授权模型与匹配语义.md)：Role、PermissionGrant、ConstraintSet 的语义。
+3. [权限检查与原生运行时](02-权限检查与Casbin运行时.md)：v3 Check 和不可变快照。
+4. [授权写入与多实例一致性](03-授权写入与多实例一致性.md)：事务、版本、Outbox 与 reload。
+5. [内存角色图与授权索引](04-Casbin运行时模型.md)：Casbin 的唯一剩余职责和原生求值流程。
+6. [模块边界与代码索引](05-模块边界与代码索引.md)：跨模块边界和修改落点。
 
-## 责任边界
+## 最终责任链
 
 ```text
-AuthN Principal / service identity
-  -> AuthZ Subject
-  -> RoleBinding -> Role -> Permission
-  -> Resource + Action + Scope + Tenant
-  -> Decision
+AuthN Principal / trusted service identity
+  -> AuthZ Subject + Tenant
+  -> Assignment + RoleInheritance
+  -> PermissionGrant(Resource, Action, ConstraintSet)
+  -> AuthorizationRuntimeSnapshot
+  -> AuthZ v3 Decision
 ```
 
-- Identity 拥有 User/Profile，不拥有 RoleBinding。
-- Casbin 是运行时判定器，不是授权事实的唯一写入口。
-- Snapshot 用于能力展示/缓存，不能替代服务端 Check。
-- Suggest 可消费 AuthZ 能力计算可见范围，AuthZ 不维护搜索索引。
+- `authz_assignments` 保存 Subject 到 Role。
+- `authz_role_inheritances` 保存 Role 到父 Role，禁止循环。
+- `authz_permission_grants` 保存 Role 的资源、动作和对象属性条件。
+- `authz_resources.attribute_schema` 注册允许参与授权的对象属性。
+- `authz_policy_versions` 与 Outbox 协调运行时 reload。
+- Casbin 只在内存中计算角色继承，不加载或保存权限规则。
 
-## 当前实现要特别记住的四点
-
-- `casbin_rule` 与管理实体、PolicyVersion、Outbox 在一个 MySQL UoW 中提交。
-- DB 是事实源；`CachedEnforcer` 是每个实例的派生快照。
-- 本地 reload 在事务提交后执行，失败不回滚已提交事实。
-- durable outbox 把版本事件广播给每个实例，但当前没有请求级 loaded-version barrier。
-
-## 代码入口
-
-- domain：`internal/apiserver/domain/authz`
-- application：`internal/apiserver/application/authz`
-- runtime：`internal/apiserver/infra/casbin`
-- persistence：`internal/apiserver/infra/mysql/{casbinrule,policy,role,rolebinding,resource}`
-- composition：`internal/apiserver/container/authz`
-- matcher：`configs/casbin_model.conf`
-
-## 验证
-
-```bash
-go test ./internal/apiserver/domain/authz/... ./internal/apiserver/application/authz/... ./internal/apiserver/infra/casbin/... ./internal/apiserver/container/authz
-```
+快照用于路由能力候选判断：`UNCONDITIONAL` 可直接满足通用 capability；`OBJECT_CHECK_REQUIRED` 必须在业务服务加载对象后调用 v3 `Check`。列表、搜索和批量操作不接受条件 Grant。

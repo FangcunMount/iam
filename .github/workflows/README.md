@@ -142,7 +142,7 @@ go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" 
 
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
-- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；并 fail closed 验证 `version=25, dirty=0`、15 张现役 BASE TABLE 精确白名单及 000019–000024 已退役的 14 张表持续不存在。
+- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；最终版本只在 AuthZ 切换后 fail closed 验证 `version=27, dirty=0`、16 张现役 BASE TABLE 精确白名单，以及历史退役表和 `casbin_rule` 持续不存在。切换前的 RoleBinding 检查使用独立 preflight。
 - `rolebinding-guard-preflight`: 在发布 migration 000025 前只读检查 active RoleBinding 重复组、迁移 clean 状态及 guard 列/索引是否半完成；任一异常都 fail closed。
 - `rolebinding-deduplicate-dry-run`: 生成确定性的重复绑定候选报告、数量和指纹，不修改数据库。
 - `rolebinding-deduplicate-apply`: 要求 24 小时内全量备份，并在表写锁下复核候选数量与指纹后软删除冗余绑定；候选漂移时 fail closed。

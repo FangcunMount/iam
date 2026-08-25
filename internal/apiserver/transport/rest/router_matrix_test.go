@@ -45,10 +45,10 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodPost, "/api/v2/authn/refresh_token"},
 		{http.MethodPost, "/api/v2/authn/signups/wechat-miniprogram"},
 		{http.MethodPost, "/api/v2/internal/authn/mock-consumers/ensure"},
-		{http.MethodGet, "/api/v2/authz/health"},
-		{http.MethodPost, "/api/v2/authz/check"},
-		{http.MethodGet, "/api/v2/authz/roles"},
-		{http.MethodGet, "/api/v2/authz/policies/lint"},
+		{http.MethodGet, "/api/v3/authz/health"},
+		{http.MethodGet, "/api/v3/authz/roles"},
+		{http.MethodPost, "/api/v3/authz/grants"},
+		{http.MethodDelete, "/api/v3/authz/grants/:id"},
 		{http.MethodGet, "/api/v2/identity/me"},
 		{http.MethodGet, "/api/v2/identity/profiles/:id"},
 		{http.MethodGet, "/api/v2/identity/profile-links"},
@@ -64,6 +64,8 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profiles")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links")
 	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/identity/profile-links/:id/revoke")
+	assertRouteAbsent(t, routes, http.MethodPost, "/api/v2/authz/check")
+	assertRouteAbsent(t, routes, http.MethodGet, "/api/v2/authz/policies/lint")
 }
 
 func TestRouterOpenAPIContractCoversRegisteredPublicRoutes(t *testing.T) {
@@ -101,12 +103,11 @@ func routeMatrixDeps() Deps {
 		TokenVerifier:        tokenServiceStub{},
 	}
 	deps.Authz = AuthzDeps{
-		RoleHandler:        authzhandler.NewRoleHandler(nil, nil),
-		RoleBindingHandler: authzhandler.NewRoleBindingHandler(nil, nil),
-		PolicyHandler:      authzhandler.NewPolicyHandler(nil, nil),
-		ResourceHandler:    authzhandler.NewResourceHandler(nil, nil),
-		CheckHandler:       authzhandler.NewCheckHandler(nil),
-		RouteAuthorization: casbinStub{},
+		RoleHandler:            authzhandler.NewRoleHandler(nil, nil),
+		RoleBindingHandler:     authzhandler.NewRoleBindingHandler(nil, nil),
+		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
+		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
+		RouteAuthorization:     casbinStub{},
 	}
 	deps.IDP = IDPDeps{
 		WechatAppHandler: idphandler.NewWechatAppHandler(nil, nil, nil),
@@ -144,7 +145,7 @@ func loadRESTOpenAPISpecs(t *testing.T) openAPISpec {
 	paths := map[string]map[string]any{}
 	for _, rel := range []string{
 		"api/rest/authn.v2.yaml",
-		"api/rest/authz.v2.yaml",
+		"api/rest/authz.v3.yaml",
 		"api/rest/identity.v2.yaml",
 		"api/rest/idp.v2.yaml",
 		"api/rest/suggest.v2.yaml",
@@ -183,7 +184,7 @@ func routeMustBeDocumented(route gin.RouteInfo) bool {
 		http.MethodPost + " /api/v2/admin/login-identities/:loginIdentityId/sessions/revoke": "operator-only session control",
 		http.MethodPost + " /api/v2/admin/users/:userId/sessions/revoke":                     "operator-only session control",
 		http.MethodGet + " /api/v2/idp/health":                                               "module-local health probe",
-		http.MethodGet + " /api/v2/authz/health":                                             "module-local health probe",
+		http.MethodGet + " /api/v3/authz/health":                                             "module-local health probe",
 	}
 	_, exempt := exemptions[route.Method+" "+route.Path]
 	if exempt {

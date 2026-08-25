@@ -16,7 +16,7 @@ TARGET_FILES = (
     ROOT / "internal/apiserver/docs/swagger.json",
     ROOT / "internal/apiserver/docs/swagger.yaml",
     ROOT / "api/rest/authn.v2.yaml",
-    ROOT / "api/rest/authz.v2.yaml",
+    ROOT / "api/rest/authz.v3.yaml",
     ROOT / "api/rest/identity.v2.yaml",
     ROOT / "api/rest/idp.v2.yaml",
     ROOT / "api/rest/suggest.v2.yaml",

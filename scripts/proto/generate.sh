@@ -14,10 +14,7 @@ cd "$ROOT_DIR"
 # Proto 源文件路径
 PROTO_PATH="api/grpc"
 
-# Contract rule:
-# Only generate proto contracts for implemented and registered runtime services.
-# The current IAM gRPC public surface is v2-only. Runtime registration, generated
-# code, and SDK compile tests must stay aligned with these v2 proto files.
+# Contract rule: AuthZ is v3-only; the other IAM module contracts remain v2.
 
 # 检查protoc是否安装
 if ! command -v protoc &> /dev/null; then
@@ -85,7 +82,7 @@ protoc \
     --go_opt=paths=source_relative \
     --go-grpc_out=${PROTO_PATH} \
     --go-grpc_opt=paths=source_relative \
-    iam/authz/v2/authz.proto
+    iam/authz/v3/authz.proto
 
 echo "✅ Proto文件生成完成！"
 echo ""

@@ -30,8 +30,8 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run full migration chain: %v", err)
 	}
-	if !migrated || version != 25 {
-		t.Fatalf("full migration result = version %d migrated=%v, want version 25 migrated=true", version, migrated)
+	if !migrated || version != 27 {
+		t.Fatalf("full migration result = version %d migrated=%v, want version 27 migrated=true", version, migrated)
 	}
 	db := openMigrationMySQL(t)
 	for _, retired := range []string{
@@ -59,10 +59,66 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 		}
 	}
 	assertCurrentSchemaTables(t, db, database)
+	assertNativeAuthzBootstrap(t, db)
 	for _, retired := range []string{"tenants", "data_dictionary"} {
 		assertTableExists(t, db, retired, false)
 	}
 	assertMigratedRoleBindingGuardUnderConcurrency(t, db)
+}
+
+func assertNativeAuthzBootstrap(t *testing.T, db *sql.DB) {
+	t.Helper()
+	assertGrantCount := func(name, query string, want int) {
+		t.Helper()
+		var count int
+		if err := db.QueryRow(query).Scan(&count); err != nil {
+			t.Fatalf("query %s grant: %v", name, err)
+		}
+		if count != want {
+			t.Fatalf("%s grant count = %d, want %d", name, count, want)
+		}
+	}
+	assertGrantCount("evaluator adhoc retry", `
+SELECT COUNT(*)
+FROM authz_permission_grants g
+JOIN authz_roles r ON r.id = g.role_id AND r.deleted_at IS NULL
+WHERE r.name = 'qs:evaluator'
+  AND g.resource_pattern = 'qs:evaluation:collection:assessments'
+  AND g.action = 'retry'
+  AND JSON_UNQUOTE(JSON_EXTRACT(g.constraint_set, '$.all_of[0].value.string')) = 'adhoc'
+  AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 1)
+	assertGrantCount("plan manager plan retry", `
+SELECT COUNT(*)
+FROM authz_permission_grants g
+JOIN authz_roles r ON r.id = g.role_id AND r.deleted_at IS NULL
+WHERE r.name = 'qs:evaluation_plan_manager'
+  AND g.resource_pattern = 'qs:evaluation:collection:assessments'
+  AND g.action = 'retry'
+  AND JSON_UNQUOTE(JSON_EXTRACT(g.constraint_set, '$.all_of[0].value.string')) = 'plan'
+  AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 1)
+	assertGrantCount("admin unconditional wildcard", `
+SELECT COUNT(*)
+FROM authz_permission_grants g
+JOIN authz_roles r ON r.id = g.role_id AND r.deleted_at IS NULL
+WHERE r.name = 'qs:admin'
+  AND g.resource_pattern = 'qs:*:*:*'
+  AND g.action = '*'
+  AND JSON_LENGTH(g.constraint_set, '$.all_of') = 0
+  AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 1)
+	assertGrantCount("conditional bulk prohibition", `
+SELECT COUNT(*)
+FROM authz_permission_grants
+WHERE JSON_LENGTH(constraint_set, '$.all_of') > 0
+  AND (action IN ('list', 'search', 'batch') OR action LIKE 'batch\\_%')
+  AND revoked_at IS NULL AND deleted_at IS NULL`, 0)
+	assertGrantCount("non-admin force retry", `
+SELECT COUNT(*)
+FROM authz_permission_grants g
+JOIN authz_roles r ON r.id = g.role_id AND r.deleted_at IS NULL
+WHERE r.name <> 'qs:admin'
+  AND g.resource_pattern = 'qs:evaluation:collection:assessments'
+  AND g.action = 'force_retry'
+  AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 0)
 }
 
 func assertMigratedRoleBindingGuardUnderConcurrency(t *testing.T, db *sql.DB) {
@@ -155,9 +211,10 @@ ORDER BY TABLE_NAME`, database)
 		"auth_login_identities",
 		"authz_assignments",
 		"authz_policy_versions",
+		"authz_permission_grants",
 		"authz_resources",
+		"authz_role_inheritances",
 		"authz_roles",
-		"casbin_rule",
 		"domain_event_outbox",
 		"identity_session_revocation_outbox",
 		"idp_wechat_apps",
@@ -170,5 +227,15 @@ ORDER BY TABLE_NAME`, database)
 	sort.Strings(want)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("current schema tables = %v, want %v", got, want)
+	}
+	var scopeKinds int
+	if err := db.QueryRow(`
+SELECT COUNT(*)
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'authz_resources' AND COLUMN_NAME = 'scope_kinds'`, database).Scan(&scopeKinds); err != nil {
+		t.Fatalf("query retired scope column: %v", err)
+	}
+	if scopeKinds != 0 {
+		t.Fatalf("authz_resources.scope_kinds still exists after migration 27")
 	}
 }

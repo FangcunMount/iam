@@ -234,7 +234,7 @@ User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`�
 
 ### 8.3 局部 ProfileLink 前置不等于通用 AuthZ
 
-Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有 Resource/Action/Scope 输入，不能代替通用授权。
+Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有 Resource/Action/ConstraintSet 输入，不能代替通用授权。
 
 无作用域的 REST `/identity/profiles/search` 已下线。需要候选搜索时使用 `/suggest/profile`，由 Suggest 的 scope provider 和手机号权限控制可见范围与脱敏。
 
@@ -346,7 +346,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 | IDP ExternalIdentity | 已实现为三类 provider 的请求内值对象；Identity v2 同名 proto 仍未接入 | 增加新 provider 或需要公开/持久化时重新评估契约，不直接复用历史 proto |
 | Suggest 同步 | 定时 Full/Delta SQL，无 Profile event | 新鲜度或 schema 耦合成本不可接受时，引入稳定事件/outbox |
 | Suggest revoked link | Full/Delta 只接受 active Profile、active ProfileLink 和 active User；最后关联失效生成 tombstone | 保持 Full/Delta 共享 eligibility 和删除传播测试 |
-| ProfileLink 与 AuthZ | 彼此独立 | 只有出现明确 Resource/Action/Scope 规则时才设计受控映射 |
+| ProfileLink 与 AuthZ | 彼此独立 | 业务关系继续由 Identity 判断；只有稳定对象属性才经注册后提交 AuthZ |
 
 ## 13. 事实源与 Verify
 

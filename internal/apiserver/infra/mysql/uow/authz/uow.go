@@ -7,11 +7,12 @@ import (
 
 	appuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
-	casbinrulerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/casbinrule"
+	permissiongrantrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/permissiongrant"
 	policyrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/policy"
 	resourcerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/resource"
 	rolerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
 	bindingrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
+	roleinheritancerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/roleinheritance"
 	dbmysql "github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 )
@@ -46,13 +47,14 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context
 			return err
 		}
 		repos := appuow.TxRepositories{
-			Bindings:           bindingrepo.NewBindingRepository(tx),
-			Roles:              rolerepo.NewRoleRepository(tx),
-			Resources:          resourcerepo.NewResourceRepository(tx),
-			PolicyVersions:     policyrepo.NewPolicyVersionRepository(tx),
-			UserResolver:       u.userResolver,
-			AuthorizationFacts: casbinrulerepo.NewRepository(tx),
-			Events:             u.events,
+			Bindings:         bindingrepo.NewBindingRepository(tx),
+			Roles:            rolerepo.NewRoleRepository(tx),
+			Resources:        resourcerepo.NewResourceRepository(tx),
+			PolicyVersions:   policyrepo.NewPolicyVersionRepository(tx),
+			UserResolver:     u.userResolver,
+			PermissionGrants: permissiongrantrepo.NewRepository(tx),
+			RoleInheritances: roleinheritancerepo.NewRepository(tx),
+			Events:           u.events,
 		}
 		return fn(txCtx, repos)
 	})

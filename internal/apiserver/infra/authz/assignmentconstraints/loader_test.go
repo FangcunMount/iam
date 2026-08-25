@@ -35,12 +35,12 @@ services:
   - service_name: qs-apiserver.svc
     enabled: true
     allowed_methods:
-      - /iam.authz.v2.AuthorizationService/GrantAssignment
-      - /iam.authz.v2.AuthorizationService/RevokeAssignment
+      - /iam.authz.v3.AuthorizationService/GrantAssignment
+      - /iam.authz.v3.AuthorizationService/RevokeAssignment
   - service_name: admin
     enabled: true
     allowed_methods:
-      - /iam.authz.v2.AuthorizationService/*
+      - /iam.authz.v3.AuthorizationService/*
 `,
 		},
 		{
@@ -56,10 +56,10 @@ default_policy: deny
 services:
   - service_name: admin
     enabled: true
-    allowed_methods: [/iam.authz.v2.AuthorizationService/*]
+    allowed_methods: [/iam.authz.v3.AuthorizationService/*]
   - service_name: unbounded.svc
     enabled: true
-    allowed_methods: [/iam.authz.v2.AuthorizationService/GrantAssignment]
+    allowed_methods: [/iam.authz.v3.AuthorizationService/GrantAssignment]
 `,
 			wantErr: "has no request constraint",
 		},
@@ -78,7 +78,7 @@ default_policy: deny
 services:
   - service_name: qs-apiserver.svc
     enabled: true
-    allowed_methods: [/iam.authz.v2.AuthorizationService/Check]
+    allowed_methods: [/iam.authz.v3.AuthorizationService/Check]
 `,
 			wantErr: "is not allowed to mutate assignments",
 		},

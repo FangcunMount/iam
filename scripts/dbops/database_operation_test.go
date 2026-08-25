@@ -231,11 +231,11 @@ func TestRestoreAndStatusReturnMetadataOnly(t *testing.T) {
 if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
 case "$*" in
   *'SELECT 1;'*) echo '1' ;;
-	  *"iam_schema_guard"*) printf '%b\n' "${IAM_FAKE_SCHEMA_GUARD:-15\t15\t0}" ;;
+	  *"iam_schema_guard"*) printf '%b\n' "${IAM_FAKE_SCHEMA_GUARD:-16\t16\t0}" ;;
 	  *"iam_retired_table_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
 	  *"iam_retired_privilege_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_PRIVILEGES:-0}" ;;
 	  *'ORDER BY TABLE_TYPE, TABLE_NAME'*) printf 'type=BASE_TABLE name=users\ntype=VIEW name=active_users\n' ;;
-	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-25\t0\t1}" ;;
+	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-27\t0\t1}" ;;
   *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
@@ -265,7 +265,7 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=25", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=27", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success", "expected_version=27"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
@@ -279,10 +279,10 @@ esac
 			"IAM_FAKE_RETIRED_TABLES": "1",
 		},
 		"schema object returned": {
-			"IAM_FAKE_SCHEMA_GUARD": "15\t16\t1",
+			"IAM_FAKE_SCHEMA_GUARD": "16\t17\t1",
 		},
 		"required table missing": {
-			"IAM_FAKE_SCHEMA_GUARD": "14\t14\t0",
+			"IAM_FAKE_SCHEMA_GUARD": "15\t15\t0",
 		},
 		"retired privilege returned": {
 			"IAM_FAKE_RETIRED_PRIVILEGES": "1",
@@ -303,6 +303,7 @@ esac
 			assertSafeOutput(t, guardOutput)
 		})
 	}
+
 }
 
 func TestRoleBindingGuardPreflightIsReadOnlyAndFailClosed(t *testing.T) {
@@ -362,6 +363,22 @@ esac
 			assertSafeOutput(t, guardOutput)
 		})
 	}
+
+	t.Run("final authz schema remains eligible for read-only verification", func(t *testing.T) {
+		guardOutput, guardErr := runScript(t, bin, map[string]string{
+			"IAM_DB_OPS_OPERATION":     "rolebinding-guard-preflight",
+			"IAM_DB_OPS_BACKUP_DIR":    backupDir,
+			"IAM_FAKE_MIGRATION_STATE": "27\t0\t1",
+			"IAM_FAKE_GUARD_STATE":     "1\t1",
+			"IAM_FAKE_DUPLICATE_STATE": "0\t0\t0",
+		})
+		requireNoError(t, guardErr)
+		for _, want := range []string{"result=success", "migration_version=27", "guard_state=1\t1"} {
+			if !strings.Contains(guardOutput, want) {
+				t.Fatalf("final-schema preflight output missing %q: %s", want, guardOutput)
+			}
+		}
+	})
 }
 
 func TestRoleBindingDeduplicateDryRunProducesReviewToken(t *testing.T) {
@@ -479,11 +496,11 @@ if [ "${1:-}" = "--version" ]; then
   exit 0
 fi
 case "$*" in
-	  *"iam_schema_guard"*) printf '15\t15\t0\n' ;;
+	  *"iam_schema_guard"*) printf '16\t16\t0\n' ;;
 	  *"iam_retired_table_guard"*) printf '0\n' ;;
 	  *"iam_retired_privilege_guard"*) printf '0\n' ;;
 	  *"ORDER BY TABLE_TYPE, TABLE_NAME"*) printf 'type=BASE_TABLE name=users\n' ;;
-	  *"MAX(version)"*) printf '25\t0\t1\n' ;;
+	  *"MAX(version)"*) printf '27\t0\t1\n' ;;
 	  *"IS_USED_LOCK"*) printf 'none\tfree\t-1\n' ;;
 	  *"SUM(data_length"*) printf '12.5\n' ;;
   *"COUNT(*)"*) printf '7\n' ;;

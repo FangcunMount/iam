@@ -15,7 +15,7 @@ type cacheInvalidator interface {
 	InvalidateCache()
 }
 
-// ReloadRuntimePolicy 将运行时 Casbin 缓存刷新到最新数据库事实。
+// ReloadRuntimePolicy 从最新数据库事实重建并原子替换原生授权快照。
 func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, operation string) {
 	if adapter == nil {
 		return

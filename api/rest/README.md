@@ -7,7 +7,7 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | 文件 | 说明 |
 | ---- | ---- |
 | [authn.v2.yaml](authn.v2.yaml) | v2 认证、Challenge、LoginIdentity、Token、JWKS 和 signup |
-| [authz.v2.yaml](authz.v2.yaml) | 授权判定、角色、assignment、策略、资源 |
+| [authz.v3.yaml](authz.v3.yaml) | PermissionGrant、角色、assignment、资源与属性 Schema |
 | [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links 查询；Profile/ProfileLink 创建命令走 gRPC |
 | [idp.v2.yaml](idp.v2.yaml) | IDP 健康检查和微信应用配置 |
 | [suggest.v2.yaml](suggest.v2.yaml) | 儿童档案联想搜索 |

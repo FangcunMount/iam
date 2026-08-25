@@ -24,7 +24,7 @@ var _ = core.ErrResponse{}
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 404 {object} core.ErrResponse "密钥不存在"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys/{kid}/retire [post]
+// @Router /v2/authn/admin/jwks/keys/{kid}/retire [post]
 func (h *JWKSHandler) RetireKey(c *gin.Context) {
 	ctx := c.Request.Context()
 	kid := c.Param("kid")
@@ -55,7 +55,7 @@ func (h *JWKSHandler) RetireKey(c *gin.Context) {
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 404 {object} core.ErrResponse "密钥不存在"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys/{kid}/force-retire [post]
+// @Router /v2/authn/admin/jwks/keys/{kid}/force-retire [post]
 func (h *JWKSHandler) ForceRetireKey(c *gin.Context) {
 	ctx := c.Request.Context()
 	kid := c.Param("kid")
@@ -86,7 +86,7 @@ func (h *JWKSHandler) ForceRetireKey(c *gin.Context) {
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 404 {object} core.ErrResponse "密钥不存在"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys/{kid}/grace [post]
+// @Router /v2/authn/admin/jwks/keys/{kid}/grace [post]
 func (h *JWKSHandler) EnterGracePeriod(c *gin.Context) {
 	ctx := c.Request.Context()
 	kid := c.Param("kid")
@@ -114,7 +114,7 @@ func (h *JWKSHandler) EnterGracePeriod(c *gin.Context) {
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys/cleanup [post]
+// @Router /v2/authn/admin/jwks/keys/cleanup [post]
 func (h *JWKSHandler) CleanupExpiredKeys(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -137,7 +137,7 @@ func (h *JWKSHandler) CleanupExpiredKeys(c *gin.Context) {
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无权限"
 // @Failure 500 {object} core.ErrResponse "服务器错误"
-// @Router /authn/admin/jwks/keys/publishable [get]
+// @Router /v2/authn/admin/jwks/keys/publishable [get]
 func (h *JWKSHandler) GetPublishableKeys(c *gin.Context) {
 	ctx := c.Request.Context()
 

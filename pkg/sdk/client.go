@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
-	authzv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v2"
+	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
 	idpv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/idp/v2"
 	authclient "github.com/FangcunMount/iam/v3/pkg/sdk/auth/client"
 	"github.com/FangcunMount/iam/v3/pkg/sdk/authz"
@@ -76,7 +76,7 @@ func (c *Client) initSubClients() {
 		loginIdentityService,
 	)
 
-	authorizationService := authzv2.NewAuthorizationServiceClient(c.conn)
+	authorizationService := authzv3.NewAuthorizationServiceClient(c.conn)
 	c.authzClient = authz.NewClient(authorizationService)
 
 	c.identityClient = identity.NewClientFromConn(c.conn)

@@ -74,7 +74,7 @@ func (noopSuggestMetrics) RecordRateLimited(bool)                            {}
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无搜索权限"
 // @Failure 429 {object} core.ErrResponse "请求过于频繁"
-// @Router /suggest/profile [get]
+// @Router /v2/suggest/profile [get]
 // @Security BearerAuth
 func (h *Handler) Profile(c *gin.Context) {
 	var query struct {
