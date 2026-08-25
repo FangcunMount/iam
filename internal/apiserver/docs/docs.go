@@ -2184,6 +2184,7 @@ const docTemplate = `{
         },
         "/v3/authz/grants": {
             "post": {
+                "description": "为指定角色创建不可变的精确资源、单一动作及可选对象属性约束授权",
                 "consumes": [
                     "application/json"
                 ],
@@ -2194,6 +2195,7 @@ const docTemplate = `{
                     "Authorization-Grants"
                 ],
                 "summary": "创建 PermissionGrant",
+                "operationId": "createPermissionGrant",
                 "parameters": [
                     {
                         "description": "Grant",
@@ -2229,6 +2231,7 @@ const docTemplate = `{
         },
         "/v3/authz/grants/{id}": {
             "delete": {
+                "description": "按 Grant ID 撤销授权事实，不原地修改既有 Grant",
                 "consumes": [
                     "application/json"
                 ],
@@ -2239,6 +2242,7 @@ const docTemplate = `{
                     "Authorization-Grants"
                 ],
                 "summary": "撤销 PermissionGrant",
+                "operationId": "revokePermissionGrant",
                 "parameters": [
                     {
                         "type": "string",
@@ -2826,6 +2830,7 @@ const docTemplate = `{
         },
         "/v3/authz/roles/{id}/grants": {
             "get": {
+                "description": "查询指定角色在当前租户下的有效 PermissionGrant",
                 "produces": [
                     "application/json"
                 ],
@@ -2833,6 +2838,7 @@ const docTemplate = `{
                     "Authorization-Grants"
                 ],
                 "summary": "查询角色 PermissionGrant",
+                "operationId": "listRolePermissionGrants",
                 "parameters": [
                     {
                         "type": "string",

@@ -303,6 +303,7 @@ esac
 			assertSafeOutput(t, guardOutput)
 		})
 	}
+
 }
 
 func TestRoleBindingGuardPreflightIsReadOnlyAndFailClosed(t *testing.T) {
@@ -362,6 +363,22 @@ esac
 			assertSafeOutput(t, guardOutput)
 		})
 	}
+
+	t.Run("final authz schema remains eligible for read-only verification", func(t *testing.T) {
+		guardOutput, guardErr := runScript(t, bin, map[string]string{
+			"IAM_DB_OPS_OPERATION":     "rolebinding-guard-preflight",
+			"IAM_DB_OPS_BACKUP_DIR":    backupDir,
+			"IAM_FAKE_MIGRATION_STATE": "27\t0\t1",
+			"IAM_FAKE_GUARD_STATE":     "1\t1",
+			"IAM_FAKE_DUPLICATE_STATE": "0\t0\t0",
+		})
+		requireNoError(t, guardErr)
+		for _, want := range []string{"result=success", "migration_version=27", "guard_state=1\t1"} {
+			if !strings.Contains(guardOutput, want) {
+				t.Fatalf("final-schema preflight output missing %q: %s", want, guardOutput)
+			}
+		}
+	})
 }
 
 func TestRoleBindingDeduplicateDryRunProducesReviewToken(t *testing.T) {

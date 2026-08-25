@@ -43,6 +43,14 @@ def dump_yaml(path: Path, data: Dict[str, Any]) -> None:
 
 
 def map_path(path: str) -> str:
+    # Swagger uses the real route version below the global /api base path,
+    # while each split OpenAPI document already declares /api/v2 or /api/v3
+    # in its server URL. Strip exactly one supported version segment before
+    # routing the path to its module document.
+    if path.startswith("/v2/") or path == "/v2":
+        path = path[len("/v2") :] or "/"
+    elif path.startswith("/v3/") or path == "/v3":
+        path = path[len("/v3") :] or "/"
     if path == "/.well-known/jwks.json":
         return path
     if path.startswith("/admin/jwks/"):

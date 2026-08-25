@@ -25,6 +25,8 @@ func NewPermissionGrantHandler(service permissionGrantService) *PermissionGrantH
 
 // CreateGrant creates an immutable typed permission grant.
 // @Summary 创建 PermissionGrant
+// @Description 为指定角色创建不可变的精确资源、单一动作及可选对象属性约束授权
+// @ID createPermissionGrant
 // @Tags Authorization-Grants
 // @Accept json
 // @Produce json
@@ -60,6 +62,8 @@ func (h *PermissionGrantHandler) CreateGrant(c *gin.Context) {
 
 // RevokeGrant revokes an immutable permission grant.
 // @Summary 撤销 PermissionGrant
+// @Description 按 Grant ID 撤销授权事实，不原地修改既有 Grant
+// @ID revokePermissionGrant
 // @Tags Authorization-Grants
 // @Accept json
 // @Produce json
@@ -97,6 +101,8 @@ func (h *PermissionGrantHandler) RevokeGrant(c *gin.Context) {
 
 // ListRoleGrants lists grants for one role.
 // @Summary 查询角色 PermissionGrant
+// @Description 查询指定角色在当前租户下的有效 PermissionGrant
+// @ID listRolePermissionGrants
 // @Tags Authorization-Grants
 // @Produce json
 // @Param id path string true "Role ID"

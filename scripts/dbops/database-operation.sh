@@ -396,8 +396,8 @@ rolebinding_guard_preflight() {
     return 1
   fi
   IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
-  if { [ "$version" != "24" ] && [ "$version" != "25" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
-    fail "RoleBinding guard preflight requires clean migration version 24 or 25"
+  if { [ "$version" -lt "24" ] || [ "$version" -gt "27" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "RoleBinding guard preflight requires clean migration version 24 through 27"
     return 1
   fi
 
@@ -416,7 +416,7 @@ rolebinding_guard_preflight() {
     return 1
   fi
   case "$version:$guard_state" in
-    24:$'0\t0'|25:$'1\t1') ;;
+    24:$'0\t0'|25:$'1\t1'|26:$'1\t1'|27:$'1\t1') ;;
     *)
       fail "RoleBinding guard schema is inconsistent with migration version"
       return 1

@@ -2,16 +2,6 @@
   "version": 1,
   "warnings": [
     {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "oas3-unused-component",
-      "path": [
-        "components",
-        "parameters",
-        "AssignmentId"
-      ],
-      "message": "Potentially unused component has been detected."
-    },
-    {
       "source": "api/rest/identity.v2.yaml",
       "code": "oas3-unused-component",
       "path": [
@@ -42,16 +32,6 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "oas3-unused-component",
-      "path": [
-        "components",
-        "parameters",
-        "Limit"
-      ],
-      "message": "Potentially unused component has been detected."
-    },
-    {
       "source": "api/rest/identity.v2.yaml",
       "code": "oas3-unused-component",
       "path": [
@@ -63,16 +43,6 @@
     },
     {
       "source": "api/rest/authn.v2.yaml",
-      "code": "oas3-unused-component",
-      "path": [
-        "components",
-        "parameters",
-        "Offset"
-      ],
-      "message": "Potentially unused component has been detected."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -102,26 +72,6 @@
       "message": "Potentially unused component has been detected."
     },
     {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "oas3-unused-component",
-      "path": [
-        "components",
-        "parameters",
-        "ResourceId"
-      ],
-      "message": "Potentially unused component has been detected."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "oas3-unused-component",
-      "path": [
-        "components",
-        "parameters",
-        "RoleId"
-      ],
-      "message": "Potentially unused component has been detected."
-    },
-    {
       "source": "api/rest/authn.v2.yaml",
       "code": "oas3-unused-component",
       "path": [
@@ -203,16 +153,6 @@
     },
     {
       "source": "api/rest/authn.v2.yaml",
-      "code": "oas3-unused-component",
-      "path": [
-        "components",
-        "responses",
-        "NotFound"
-      ],
-      "message": "Potentially unused component has been detected."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
       "code": "oas3-unused-component",
       "path": [
         "components",
@@ -406,56 +346,6 @@
       "code": "operation-description",
       "path": [
         "paths",
-        "/authz/check",
-        "post"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/policies",
-        "delete"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/policies",
-        "post"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/policies/lint",
-        "get"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/policies/version",
-        "get"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
         "/authz/resources",
         "get"
       ],
@@ -577,16 +467,6 @@
       "path": [
         "paths",
         "/authz/roles/{id}/assignments",
-        "get"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/roles/{id}/policies",
         "get"
       ],
       "message": "Operation \"description\" must be present and non-empty string."
@@ -976,56 +856,6 @@
       "code": "operation-operationId",
       "path": [
         "paths",
-        "/authz/check",
-        "post"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
-        "/authz/policies",
-        "delete"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
-        "/authz/policies",
-        "post"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
-        "/authz/policies/lint",
-        "get"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
-        "/authz/policies/version",
-        "get"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
         "/authz/resources",
         "get"
       ],
@@ -1147,16 +977,6 @@
       "path": [
         "paths",
         "/authz/roles/{id}/assignments",
-        "get"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
-        "/authz/roles/{id}/policies",
         "get"
       ],
       "message": "Operation must have \"operationId\"."

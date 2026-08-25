@@ -2378,6 +2378,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: 为指定角色创建不可变的精确资源、单一动作及可选对象属性约束授权
+      operationId: createPermissionGrant
       parameters:
       - description: Grant
         in: body
@@ -2404,6 +2406,8 @@ paths:
     delete:
       consumes:
       - application/json
+      description: 按 Grant ID 撤销授权事实，不原地修改既有 Grant
+      operationId: revokePermissionGrant
       parameters:
       - description: Grant ID
         in: path
@@ -2759,6 +2763,8 @@ paths:
       - Authorization-Assignments
   /v3/authz/roles/{id}/grants:
     get:
+      description: 查询指定角色在当前租户下的有效 PermissionGrant
+      operationId: listRolePermissionGrants
       parameters:
       - description: Role ID
         in: path
