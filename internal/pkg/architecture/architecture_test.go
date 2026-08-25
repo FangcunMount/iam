@@ -405,6 +405,74 @@ func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
 	}
 }
 
+func TestAuthnTokenConsumersDependOnNarrowCapabilities(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	tests := []struct {
+		path      string
+		required  []string
+		forbidden []string
+	}{
+		{
+			path:      "internal/apiserver/application/authn/signin/deps.go",
+			required:  []string{"tokenapp.SessionEstablisher"},
+			forbidden: []string{"TokenApplicationService", "tokenapp.Capabilities"},
+		},
+		{
+			path:      "internal/apiserver/application/authn/session/service.go",
+			required:  []string{"tokenapp.Refresher", "tokenapp.Revoker"},
+			forbidden: []string{"TokenApplicationService", "tokenapp.Capabilities"},
+		},
+		{
+			path:      "internal/pkg/middleware/authn/jwt_middleware.go",
+			required:  []string{"token.Verifier"},
+			forbidden: []string{"TokenApplicationService", "token.Capabilities"},
+		},
+	}
+
+	for _, tt := range tests {
+		source, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(tt.path)))
+		if err != nil {
+			t.Fatalf("read %s: %v", tt.path, err)
+		}
+		text := string(source)
+		for _, fragment := range tt.required {
+			if !strings.Contains(text, fragment) {
+				t.Fatalf("%s must depend on narrow token capability %q", tt.path, fragment)
+			}
+		}
+		for _, fragment := range tt.forbidden {
+			if strings.Contains(text, fragment) {
+				t.Fatalf("%s depends on broad token abstraction %q", tt.path, fragment)
+			}
+		}
+	}
+}
+
+func TestAuthnAdmissionPolicyDoesNotRegressToSubjectAccessSessionModel(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, relRoot := range []string{
+		"internal/apiserver/domain/authn",
+		"internal/apiserver/application/authn",
+		"internal/apiserver/container/authn",
+	} {
+		scanGoSources(t, filepath.Join(root, filepath.FromSlash(relRoot)), func(path, source string) {
+			for _, retired := range []string{"SubjectAccessEvaluator", "SubjectAccessDecision", "subjectaccess"} {
+				if strings.Contains(source, retired) {
+					rel := filepath.ToSlash(mustRel(t, root, path))
+					t.Fatalf("%s contains retired authentication-admission concept %q", rel, retired)
+				}
+			}
+		})
+	}
+
+	assertFileContains(t, root, "internal/apiserver/domain/authn/admission/policy.go", "type Policy interface")
+	assertFileContains(t, root, "internal/apiserver/application/authn/admission/guard.go", "func Require(")
+}
+
 func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {
 	t.Parallel()
 

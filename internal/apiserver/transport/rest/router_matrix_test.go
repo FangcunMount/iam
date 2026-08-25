@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
+	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
@@ -92,12 +93,12 @@ func TestRouterOpenAPIContractCoversRegisteredPublicRoutes(t *testing.T) {
 func routeMatrixDeps() Deps {
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AuthHandler:          authhandler.NewAuthHandler(nil, nil, nil),
+		AuthHandler:          authhandler.NewAuthHandler(nil, tokenapp.Capabilities{}, nil),
 		OnboardingHandler:    authhandler.NewOnboardingHandler(nil),
 		LoginIdentityHandler: authhandler.NewLoginIdentityHandler(nil, nil, nil, nil, authhandler.WechatOpenLinkConfig{}),
 		JWKSHandler:          authhandler.NewJWKSHandler(nil, nil, nil),
 		SessionAdminHandler:  authhandler.NewSessionAdminHandler(sessionServiceStub{}),
-		TokenService:         tokenServiceStub{},
+		TokenVerifier:        tokenServiceStub{},
 	}
 	deps.Authz = AuthzDeps{
 		RoleHandler:        authzhandler.NewRoleHandler(nil, nil),

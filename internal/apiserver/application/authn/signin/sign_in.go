@@ -4,11 +4,11 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	admissionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/authfailure"
 	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/principal"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/subjectaccess"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
@@ -58,9 +58,9 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 	if decision.Principal == nil {
 		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "authentication principal is missing")
 	}
-	if err := subjectaccess.RequireAllowed(
+	if err := admissionapp.Require(
 		ctx,
-		s.deps.AccessChecker,
+		s.deps.AdmissionPolicy,
 		decision.Principal.UserID,
 		decision.Principal.LoginIdentityID,
 	); err != nil {
@@ -77,7 +77,7 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 // 职责：确保依赖已准备好，返回错误
 func (s *SignIn) ensureReady() error {
 	d := s.deps
-	if s == nil || d.TokenService == nil || d.MethodRegistry == nil || d.ProofFactory == nil || d.Authenticator == nil || d.AccessChecker == nil {
+	if s == nil || d.SessionEstablisher == nil || d.MethodRegistry == nil || d.ProofFactory == nil || d.Authenticator == nil || d.AdmissionPolicy == nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "login service is not initialized")
 	}
 	return nil
@@ -128,7 +128,7 @@ func (s *SignIn) issueTokenPair(ctx context.Context, p *authentication.Principal
 	principal.EnsureTokenContext(p)
 
 	// 签发 TokenPair
-	tokenPair, err := s.deps.TokenService.IssueToken(ctx, p)
+	tokenPair, err := s.deps.SessionEstablisher.EstablishSession(ctx, p)
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "failed to issue token: %w", err)
 	}

@@ -12,7 +12,7 @@ import (
 
 // SignOut 编排登出：撤销调用者提供的访问令牌或刷新令牌。
 type SignOut struct {
-	tokenService tokenapp.TokenApplicationService
+	revoker tokenapp.Revoker
 }
 
 // Execute 执行登出。
@@ -75,8 +75,8 @@ func validateSignOutCommand(cmd SignOutCommand) error {
 // 返回：错误
 // 职责：确保依赖已准备好，返回错误
 func (s *SignOut) ensureReady() error {
-	if s == nil || s.tokenService == nil {
-		return perrors.WithCode(code.ErrInvalidArgument, "token service is not initialized")
+	if s == nil || s.revoker == nil {
+		return perrors.WithCode(code.ErrInvalidArgument, "token revoker is not initialized")
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (s *SignOut) revokeRefreshToken(ctx context.Context, refreshToken string) e
 	l := logger.L(ctx)
 
 	// 撤销刷新令牌
-	if err := s.tokenService.RevokeRefreshToken(ctx, refreshToken); err != nil {
+	if err := s.revoker.RevokeRefreshToken(ctx, refreshToken); err != nil {
 		l.Errorw("撤销刷新令牌失败",
 			"action", logger.ActionLogout,
 			"error_category", "session_store",
@@ -115,7 +115,7 @@ func (s *SignOut) revokeAccessToken(ctx context.Context, accessToken string) err
 	l := logger.L(ctx)
 
 	// 撤销访问令牌
-	if err := s.tokenService.RevokeAccessToken(ctx, accessToken); err != nil {
+	if err := s.revoker.RevokeAccessToken(ctx, accessToken); err != nil {
 		l.Errorw("撤销访问令牌失败",
 			"action", logger.ActionLogout,
 			"error_category", "token_store",

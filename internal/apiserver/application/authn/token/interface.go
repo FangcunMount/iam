@@ -8,30 +8,41 @@ import (
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 )
 
-// ==========================================================================
-// ================== Interface Interfaces (Driving Ports) ==================
-// ==========================================================================
+// SessionEstablisher 在认证成功后建立在线会话并返回会话令牌。
+// 调用方无需感知 access token、refresh token 与 Session 的内部装配过程。
+type SessionEstablisher interface {
+	EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+}
 
-// TokenApplicationService 令牌应用服务，对外门面接口
-// 职责：管理用户会话令牌和服务间访问令牌的签发、刷新、撤销和验证。
-type TokenApplicationService interface {
-	// IssueToken 在登录完成后签发用户会话令牌。
-	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
-
-	// IssueServiceToken 签发服务间访问令牌。
+// ServiceTokenIssuer 签发不绑定用户 Session 的服务间访问令牌。
+type ServiceTokenIssuer interface {
 	IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error)
+}
 
-	// RefreshToken 刷新访问令牌
+// Refresher 通过 refresh token 轮换在线会话令牌。
+type Refresher interface {
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error)
+}
 
-	// RevokeAccessToken 撤销访问令牌
+// Revoker 撤销访问令牌或 refresh token，并按令牌类型收敛关联会话状态。
+type Revoker interface {
 	RevokeAccessToken(ctx context.Context, accessToken string) error
-
-	// RevokeRefreshToken 撤销刷新令牌
 	RevokeRefreshToken(ctx context.Context, refreshToken string) error
+}
 
-	// VerifyToken 验证访问令牌
+// Verifier 在线验证访问令牌及其可选 issuer / audience 约束。
+type Verifier interface {
 	VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error)
+}
+
+// Capabilities 是组合根输出的令牌用例能力集合。
+// 它只承载窄接口，不是供业务代码依赖的统一门面。
+type Capabilities struct {
+	SessionEstablisher SessionEstablisher
+	ServiceTokenIssuer ServiceTokenIssuer
+	Refresher          Refresher
+	Revoker            Revoker
+	Verifier           Verifier
 }
 
 // RefreshClaimsCodec 将认证主体附加 claims 编码为 refresh/session 共用的字符串快照。
@@ -40,11 +51,13 @@ type RefreshClaimsCodec interface {
 	Decode(map[string]string) map[string]any
 }
 
-// accessTokenIssuerPort 用户 access/refresh 令牌签发：登录建 session 并签发，或在既有 session 上轮换 mint。
-type accessTokenIssuerPort interface {
-	// IssueToken 登录：创建 session 并签发 access/refresh token pair。
-	IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
-	// MintTokenPair 在既有 session 上生成尚未持久化的 access/refresh token pair。
+// sessionEstablisherPort 创建 Session，并持久化首个 refresh token。
+type sessionEstablisherPort interface {
+	EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+}
+
+// tokenPairMinterPort 在既有 Session 上生成尚未持久化的 access/refresh token pair。
+type tokenPairMinterPort interface {
 	MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
 }
 

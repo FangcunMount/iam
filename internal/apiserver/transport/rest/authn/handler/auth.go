@@ -10,20 +10,22 @@ import (
 type AuthHandler struct {
 	*BaseHandler
 	sessionService      session.ApplicationService
-	tokenService        token.TokenApplicationService
+	tokenVerifier       token.Verifier
+	tokenRevoker        token.Revoker
 	loginPhoneOTPSender challengeapp.LoginPhoneOTPSender
 }
 
 // NewAuthHandler 创建认证处理器
 func NewAuthHandler(
 	sessionService session.ApplicationService,
-	tokenService token.TokenApplicationService,
+	tokens token.Capabilities,
 	loginPhoneOTPSender challengeapp.LoginPhoneOTPSender,
 ) *AuthHandler {
 	return &AuthHandler{
 		BaseHandler:         NewBaseHandler(),
 		sessionService:      sessionService,
-		tokenService:        tokenService,
+		tokenVerifier:       tokens.Verifier,
+		tokenRevoker:        tokens.Revoker,
 		loginPhoneOTPSender: loginPhoneOTPSender,
 	}
 }

@@ -13,10 +13,10 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
 	tokenApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	admissionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
-	sessionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -49,13 +49,13 @@ func TestPhoneOTPLoginConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 	authenticator := authentication.NewAuthenticator(
 		newPhoneOTPAuthStrategy(identityRepo, challengeService),
 	)
-	tokenService := &authnTokenServiceStub{}
+	sessionEstablisher := &authnSessionEstablisherStub{}
 	signIn := signin.New(signin.Dependencies{
-		TokenService:   tokenService,
-		Authenticator:  authenticator,
-		MethodRegistry: method.DefaultSelector(),
-		ProofFactory:   proof.DefaultFactory(nil, nil),
-		AccessChecker:  authnSubjectAccessEvaluatorStub{},
+		SessionEstablisher: sessionEstablisher,
+		Authenticator:      authenticator,
+		MethodRegistry:     method.DefaultSelector(),
+		ProofFactory:       proof.DefaultFactory(nil, nil),
+		AdmissionPolicy:    authnAdmissionPolicyStub{},
 	})
 
 	result, err := signIn.Execute(ctx, method.LoginRequest{
@@ -291,15 +291,15 @@ func authnLinkingProviderKey(provider loginidentity.Provider, realm, identifier 
 	return string(provider) + "|" + realm + "|" + identifier
 }
 
-type authnTokenServiceStub struct{}
+type authnSessionEstablisherStub struct{}
 
-type authnSubjectAccessEvaluatorStub struct{}
+type authnAdmissionPolicyStub struct{}
 
-func (authnSubjectAccessEvaluatorStub) Evaluate(context.Context, meta.ID, meta.ID) (sessionDomain.SubjectAccessDecision, error) {
-	return sessionDomain.SubjectAccessDecision{Status: sessionDomain.SubjectAccessActive}, nil
+func (authnAdmissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissionDomain.Decision, error) {
+	return admissionDomain.Decision{Status: admissionDomain.StatusActive}, nil
 }
 
-func (s *authnTokenServiceStub) IssueToken(_ context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
+func (s *authnSessionEstablisherStub) EstablishSession(_ context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
 	access := tokenApp.NewAccessToken(
 		"access-id",
 		"access-token",
@@ -321,24 +321,4 @@ func (s *authnTokenServiceStub) IssueToken(_ context.Context, principal *authent
 		time.Hour,
 	)
 	return tokenApp.NewTokenPair(access, refresh), nil
-}
-
-func (s *authnTokenServiceStub) IssueServiceToken(context.Context, tokenApp.IssueServiceTokenRequest) (*tokenApp.TokenIssueResult, error) {
-	return nil, nil
-}
-
-func (s *authnTokenServiceStub) RefreshToken(context.Context, string) (*tokenApp.TokenRefreshResult, error) {
-	return nil, nil
-}
-
-func (s *authnTokenServiceStub) RevokeAccessToken(context.Context, string) error {
-	return nil
-}
-
-func (s *authnTokenServiceStub) RevokeRefreshToken(context.Context, string) error {
-	return nil
-}
-
-func (s *authnTokenServiceStub) VerifyToken(context.Context, tokenApp.VerifyTokenRequest) (*tokenApp.TokenVerifyResult, error) {
-	return nil, nil
 }

@@ -44,11 +44,11 @@ Transport：`OnboardingHandler` → `/api/v2/authn/signups/*`（Handler 名称�
 - `RenewSession` → `token.RefreshToken`
 - `Logout` → token 撤销
 
-装配时由 assembler 构建 `signin.SignIn` 再注入 session，门面 Dependencies 仅需 `TokenService` + `SignIn`。
+装配时由 assembler 构建 `signin.SignIn` 再注入 session；SignIn 只依赖 `SessionEstablisher`，session 续期与登出分别依赖 `Refresher`、`Revoker`。
 
-### token.TokenApplicationService
+### token.Capabilities
 
-Issue / Refresh / Revoke / Verify；JWT 为 infra 实现细节。
+组合根输出 `SessionEstablisher`、`Refresher`、`Revoker`、`Verifier`、`ServiceTokenIssuer` 五个窄能力。它们不是统一门面；调用方只保存真正使用的接口。JWT 为 infra 实现细节。
 
 ### linking + 敏感解绑
 

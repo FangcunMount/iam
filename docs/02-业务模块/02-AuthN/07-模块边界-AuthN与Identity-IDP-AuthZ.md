@@ -23,7 +23,7 @@ User 是长期业务主体，LoginIdentity 是可登录入口。一对多关系�
 AuthN 当前会读取/写入 User，主要发生在：
 
 - SignUp 的 UoW 中创建或复用 User；
-- `SubjectAccessEvaluator` 检查 User active/blocked；
+- `AdmissionPolicy` 通过 Identity 的 `UserStatusReader` 检查 User active/blocked；
 - User 状态变化后，Identity 通过 outbox 驱动按 User 撤销 Session。
 
 这并不意味着 User 属于 AuthN。User 的状态不变量和 Profile 关系仍由 Identity 定义；AuthN 只是通过仓储端口和 UoW 完成跨聚合用例。
@@ -96,7 +96,7 @@ AuthN 只负责让请求上下文拥有可信身份；Suggest 自己负责关键
 
 ### 同步端口
 
-用于当前请求必须拿到结果的能力，例如 AuthN 调 IDP provider adapter 解析 code、SubjectAccessEvaluator 读取 User 状态。端口暴露业务结果，不暴露具体 SDK/GORM。
+用于当前请求必须拿到结果的能力，例如 AuthN 调 IDP provider adapter 解析 code、AdmissionPolicy 通过 `UserStatusReader` 读取 User 状态。端口暴露业务结果，不暴露具体 SDK/GORM。
 
 ### Outbox/event
 

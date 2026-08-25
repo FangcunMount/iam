@@ -13,8 +13,8 @@ import (
 	authnUow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/uow"
 	externalidentity "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/container/idp"
+	admissionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	sessionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	userDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/user"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	redisInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
@@ -41,7 +41,7 @@ type authnInfrastructureComponents struct {
 	challengeRepo      *redisInfra.ChallengeRepository
 	otpRedis           *redisInfra.OTPVerifierImpl
 	externalResolver   externalidentity.Resolver
-	accessChecker      sessionDomain.SubjectAccessEvaluator
+	admissionPolicy    admissionDomain.Policy
 
 	keyRepo           keyset.Repository
 	privateKeyStorage keyset.PrivateKeyStorage
@@ -105,7 +105,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	// Status reads used by authentication flow through the injected narrow capability below.
 	infra.userRepo = mysqluser.NewRepository(db)
 
-	infra.accessChecker = sessionDomain.NewSubjectAccessEvaluator(userStatusReader, loginIdentityRepo)
+	infra.admissionPolicy = admissionDomain.NewPolicy(userStatusReader, loginIdentityRepo)
 
 	return infra, nil
 }

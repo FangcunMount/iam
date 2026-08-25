@@ -5,7 +5,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/subjectaccess"
+	admissionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -13,12 +13,12 @@ import (
 
 // refresher 用于根据 refresh token 刷新 access token 和 refresh token。
 type refresher struct {
-	accessTokenIssuer  accessTokenIssuerPort
+	tokenPairMinter    tokenPairMinterPort
 	tokenStore         Store
 	sessionLoader      SessionLoader
 	sessionRevoker     SessionRevoker
 	sessionExtender    SessionExtender
-	accessChecker      SubjectAccessEvaluator
+	admissionPolicy    AdmissionPolicy
 	refreshClaimsCodec RefreshClaimsCodec
 }
 
@@ -27,21 +27,21 @@ var _ refresherPort = (*refresher)(nil)
 
 // newRefresher 创建 refresher。
 func newRefresher(
-	accessTokenIssuer accessTokenIssuerPort,
+	tokenPairMinter tokenPairMinterPort,
 	tokenStore Store,
 	sessionLoader SessionLoader,
 	sessionRevoker SessionRevoker,
 	sessionExtender SessionExtender,
-	accessChecker SubjectAccessEvaluator,
+	admissionPolicy AdmissionPolicy,
 	refreshClaimsCodec RefreshClaimsCodec,
 ) refresherPort {
 	return &refresher{
-		accessTokenIssuer:  accessTokenIssuer,
+		tokenPairMinter:    tokenPairMinter,
 		tokenStore:         tokenStore,
 		sessionLoader:      sessionLoader,
 		sessionRevoker:     sessionRevoker,
 		sessionExtender:    sessionExtender,
-		accessChecker:      accessChecker,
+		admissionPolicy:    admissionPolicy,
 		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
 	}
 }
@@ -62,8 +62,8 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 		return nil, err
 	}
 
-	// 确保主体访问权限允许
-	if err := s.ensureSubjectAccessAllowed(ctx, refreshToken); err != nil {
+	// 确保认证主体满足准入策略
+	if err := s.requireAdmission(ctx, refreshToken); err != nil {
 		return nil, err
 	}
 
@@ -176,9 +176,9 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 	return sess, nil
 }
 
-// ensureSubjectAccessAllowed 确保主体访问权限允许
-func (s *refresher) ensureSubjectAccessAllowed(ctx context.Context, refreshToken *Token) error {
-	return subjectaccess.RequireAllowed(ctx, s.accessChecker, refreshToken.UserID, refreshToken.LoginIdentityID)
+// requireAdmission 确保认证主体满足准入策略。
+func (s *refresher) requireAdmission(ctx context.Context, refreshToken *Token) error {
+	return admissionapp.Require(ctx, s.admissionPolicy, refreshToken.UserID, refreshToken.LoginIdentityID)
 }
 
 // ensureRefreshTokenUsable 确保刷新令牌可用
@@ -214,15 +214,15 @@ func (s *refresher) principalFromRefreshToken(refreshToken *Token) *authenticati
 
 // issueRotatedTokenPair 颁发新的令牌对
 func (s *refresher) issueRotatedTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
-	if s.accessTokenIssuer == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "access token issuer is not configured")
+	if s.tokenPairMinter == nil {
+		return nil, perrors.WithCode(code.ErrInternalServerError, "token pair minter is not configured")
 	}
-	newTokenPair, err := s.accessTokenIssuer.MintTokenPair(ctx, principal, sess)
+	newTokenPair, err := s.tokenPairMinter.MintTokenPair(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}
 	if newTokenPair == nil || newTokenPair.AccessToken == nil || newTokenPair.RefreshToken == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "access token issuer returned incomplete token pair")
+		return nil, perrors.WithCode(code.ErrInternalServerError, "token pair minter returned incomplete token pair")
 	}
 	return newTokenPair, nil
 }

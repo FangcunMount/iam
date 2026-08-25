@@ -13,7 +13,7 @@ func CollectGRPC(available bool, mod *AuthnModule, registrations *[]grpctranspor
 	caps := mod.ApplicationCapabilities()
 	service := authngrpc.NewService(
 		caps.SessionService,
-		caps.TokenService,
+		caps.Tokens,
 		caps.SignupService,
 		caps.LoginPhoneOTPSender,
 		caps.PhoneLinkOTPSender,

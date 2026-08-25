@@ -30,7 +30,7 @@ type AuthnModule struct {
 	startWechatOpenLinkAuthorize *linkingApp.StartWechatOpenLinkAuthorize
 	completeWechatOpenLink       *linkingApp.CompleteWechatOpenLink
 	wechatOpenConfig             WechatOpenConfig
-	tokenService                 token.TokenApplicationService
+	tokenCapabilities            token.Capabilities
 
 	// JWKS 应用服务
 	keyManagementApp *jwksApp.KeyManagementAppService
@@ -140,7 +140,7 @@ func (m *AuthnModule) ApplicationCapabilities() ApplicationCapabilities {
 		StartWechatOpenLinkAuthorize: m.startWechatOpenLinkAuthorize,
 		CompleteWechatOpenLink:       m.completeWechatOpenLink,
 		WechatOpen:                   m.wechatOpenConfig,
-		TokenService:                 m.tokenService,
+		Tokens:                       m.tokenCapabilities,
 		KeyManagementApp:             m.keyManagementApp,
 		KeyPublishApp:                m.keyPublishApp,
 		KeyLifecycleApp:              m.keyLifecycleApp,

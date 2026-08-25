@@ -4,7 +4,7 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/subjectaccess"
+	admissionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
@@ -14,10 +14,10 @@ import (
 // ====================================================
 // verifier 验证访问令牌
 type verifier struct {
-	tokenCodec    AccessTokenCodec       // 令牌编码器
-	tokenStore    Store                  // 令牌存储
-	sessionLoader SessionLoader          // 会话加载器
-	accessChecker SubjectAccessEvaluator // 主体访问状态评估器
+	tokenCodec      AccessTokenCodec // 令牌编码器
+	tokenStore      Store            // 令牌存储
+	sessionLoader   SessionLoader    // 会话加载器
+	admissionPolicy AdmissionPolicy  // 认证准入策略
 }
 
 // 确保 verifier 实现 verifierPort 接口。
@@ -28,13 +28,13 @@ func newVerifier(
 	tokenCodec AccessTokenCodec,
 	tokenStore Store,
 	sessionLoader SessionLoader,
-	accessChecker SubjectAccessEvaluator,
+	admissionPolicy AdmissionPolicy,
 ) verifierPort {
 	return &verifier{
-		tokenCodec:    tokenCodec,
-		tokenStore:    tokenStore,
-		sessionLoader: sessionLoader,
-		accessChecker: accessChecker,
+		tokenCodec:      tokenCodec,
+		tokenStore:      tokenStore,
+		sessionLoader:   sessionLoader,
+		admissionPolicy: admissionPolicy,
 	}
 }
 
@@ -60,8 +60,8 @@ func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*TokenCl
 		return nil, err
 	}
 
-	// 检查主体访问权限
-	if err := s.checkSubjectAccessAllowed(ctx, claims.UserID, claims.LoginIdentityID); err != nil {
+	// 检查认证主体准入状态
+	if err := s.requireAdmission(ctx, claims.UserID, claims.LoginIdentityID); err != nil {
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (s *verifier) checkSessionActive(ctx context.Context, sessionID string) err
 	return nil
 }
 
-// checkSubjectAccessAllowed 检查主体访问权限
-func (s *verifier) checkSubjectAccessAllowed(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) error {
-	return subjectaccess.RequireAllowed(ctx, s.accessChecker, userID, loginIdentityID)
+// requireAdmission 检查认证主体准入状态。
+func (s *verifier) requireAdmission(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) error {
+	return admissionapp.Require(ctx, s.admissionPolicy, userID, loginIdentityID)
 }

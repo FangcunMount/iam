@@ -61,7 +61,7 @@ type AuthnDeps struct {
 	SessionAdminHandler    *authhandler.SessionAdminHandler
 	SignupService          signupapp.SignupService
 	LoginIdentityLinking   linkingapp.Linker
-	TokenService           tokenapp.TokenApplicationService
+	TokenVerifier          tokenapp.Verifier
 }
 
 // AuthzDeps 授权依赖

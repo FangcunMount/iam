@@ -11,9 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// issuerComponents 暴露装配所需的用户会话令牌与服务令牌协作者。
+// issuerComponents 暴露装配所需的会话建立、令牌生成与服务令牌协作者。
 type issuerComponents struct {
-	accessTokenIssuer  accessTokenIssuerPort
+	sessionEstablisher sessionEstablisherPort
+	tokenPairMinter    tokenPairMinterPort
 	serviceTokenIssuer serviceTokenIssuerPort
 }
 
@@ -26,53 +27,45 @@ func newIssuer(
 	refreshClaimsCodec RefreshClaimsCodec,
 	accessTTL time.Duration,
 ) issuerComponents {
+	minter := newTokenPairMinter(
+		tokenCodec,
+		refreshExpirer,
+		refreshClaimsCodec,
+		accessTTL,
+	)
 	return issuerComponents{
-		accessTokenIssuer: newAccessTokenIssuer(
+		sessionEstablisher: newSessionEstablisher(
 			sessionCreator,
-			tokenCodec,
 			tokenStore,
-			refreshExpirer,
-			refreshClaimsCodec,
-			accessTTL,
+			minter,
 		),
+		tokenPairMinter:    minter,
 		serviceTokenIssuer: newServiceTokenIssuer(tokenCodec, accessTTL),
 	}
 }
 
-// accessTokenIssuer 实现用户 access/refresh 令牌的登录签发与 refresh 轮换 mint。
-type accessTokenIssuer struct {
-	sessionCreator     SessionCreator
-	tokenCodec         AccessTokenCodec
-	tokenStore         Store
-	refreshExpirer     SessionRefreshExpirer
-	refreshClaimsCodec RefreshClaimsCodec
-	accessTTL          time.Duration
+// sessionEstablisher 在认证成功后创建 Session，并持久化首个 refresh token。
+type sessionEstablisher struct {
+	sessionCreator  SessionCreator
+	tokenStore      Store
+	tokenPairMinter tokenPairMinterPort
 }
 
-// 确保 accessTokenIssuer 实现 accessTokenIssuerPort 接口。
-var _ accessTokenIssuerPort = (*accessTokenIssuer)(nil)
+var _ sessionEstablisherPort = (*sessionEstablisher)(nil)
 
-// newAccessTokenIssuer 创建 accessTokenIssuer。
-func newAccessTokenIssuer(
+func newSessionEstablisher(
 	sessionCreator SessionCreator,
-	tokenCodec AccessTokenCodec,
 	tokenStore Store,
-	refreshExpirer SessionRefreshExpirer,
-	refreshClaimsCodec RefreshClaimsCodec,
-	accessTTL time.Duration,
-) *accessTokenIssuer {
-	return &accessTokenIssuer{
-		sessionCreator:     sessionCreator,
-		tokenCodec:         tokenCodec,
-		tokenStore:         tokenStore,
-		refreshExpirer:     refreshExpirer,
-		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
-		accessTTL:          accessTTL,
+	tokenPairMinter tokenPairMinterPort,
+) *sessionEstablisher {
+	return &sessionEstablisher{
+		sessionCreator:  sessionCreator,
+		tokenStore:      tokenStore,
+		tokenPairMinter: tokenPairMinter,
 	}
 }
 
-// IssueToken 登录：创建 session 并签发 access/refresh token pair。
-func (s *accessTokenIssuer) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
+func (s *sessionEstablisher) EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
 	if principal == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
 	}
@@ -85,7 +78,10 @@ func (s *accessTokenIssuer) IssueToken(ctx context.Context, principal *authentic
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to create session")
 	}
 
-	pair, err := s.MintTokenPair(ctx, principal, sess)
+	if s.tokenPairMinter == nil {
+		return nil, perrors.WithCode(code.ErrInternalServerError, "token pair minter is not configured")
+	}
+	pair, err := s.tokenPairMinter.MintTokenPair(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +91,31 @@ func (s *accessTokenIssuer) IssueToken(ctx context.Context, principal *authentic
 	return pair, nil
 }
 
-// MintTokenPair 在既有 session 上生成尚未持久化的 access/refresh token pair。
-func (s *accessTokenIssuer) MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
+// tokenPairMinter 在既有 Session 上生成 access/refresh token pair，不负责持久化。
+type tokenPairMinter struct {
+	tokenCodec         AccessTokenCodec
+	refreshExpirer     SessionRefreshExpirer
+	refreshClaimsCodec RefreshClaimsCodec
+	accessTTL          time.Duration
+}
+
+var _ tokenPairMinterPort = (*tokenPairMinter)(nil)
+
+func newTokenPairMinter(
+	tokenCodec AccessTokenCodec,
+	refreshExpirer SessionRefreshExpirer,
+	refreshClaimsCodec RefreshClaimsCodec,
+	accessTTL time.Duration,
+) *tokenPairMinter {
+	return &tokenPairMinter{
+		tokenCodec:         tokenCodec,
+		refreshExpirer:     refreshExpirer,
+		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
+		accessTTL:          accessTTL,
+	}
+}
+
+func (s *tokenPairMinter) MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
 	if principal == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
 	}
@@ -136,7 +155,7 @@ func (s *accessTokenIssuer) MintTokenPair(ctx context.Context, principal *authen
 }
 
 // issueRefreshToken 在既有 session 上签发 refresh token。
-func (s *accessTokenIssuer) issueRefreshToken(subject *AccessTokenSubject, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*Token, error) {
+func (s *tokenPairMinter) issueRefreshToken(subject *AccessTokenSubject, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*Token, error) {
 	refreshExpiresAt, err := s.refreshExpirer.NextRefreshExpiresAt(now, sess)
 	if err != nil {
 		return nil, err

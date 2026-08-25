@@ -23,7 +23,7 @@ type Service struct {
 // NewService 创建 authn gRPC 服务
 func NewService(
 	sessionSvc sessionApp.ApplicationService,
-	tokenSvc tokenApp.TokenApplicationService,
+	tokens tokenApp.Capabilities,
 	signupSvc signupApp.SignupService,
 	loginPhoneOTPSender challengeApp.LoginPhoneOTPSender,
 	phoneLinkOTPSender challengeApp.PhoneLinkOTPSender,
@@ -32,8 +32,10 @@ func NewService(
 ) *Service {
 	return &Service{
 		auth: authServiceServer{
-			sessionSvc: sessionSvc,
-			tokenSvc:   tokenSvc,
+			sessionSvc:         sessionSvc,
+			tokenVerifier:      tokens.Verifier,
+			tokenRevoker:       tokens.Revoker,
+			serviceTokenIssuer: tokens.ServiceTokenIssuer,
 		},
 		signup: authSignupServiceServer{
 			signupService: signupSvc,
@@ -56,7 +58,7 @@ func (s *Service) Register(server *grpc.Server) {
 	if s == nil || server == nil {
 		return
 	}
-	if s.auth.sessionSvc != nil || s.auth.tokenSvc != nil {
+	if s.auth.sessionSvc != nil || s.auth.tokenVerifier != nil || s.auth.tokenRevoker != nil || s.auth.serviceTokenIssuer != nil {
 		authnv2.RegisterAuthServiceServer(server, &s.auth)
 	}
 	if s.signup.signupService != nil {
@@ -75,8 +77,10 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authServiceServer struct {
 	authnv2.UnimplementedAuthServiceServer
-	sessionSvc sessionApp.ApplicationService
-	tokenSvc   tokenApp.TokenApplicationService
+	sessionSvc         sessionApp.ApplicationService
+	tokenVerifier      tokenApp.Verifier
+	tokenRevoker       tokenApp.Revoker
+	serviceTokenIssuer tokenApp.ServiceTokenIssuer
 }
 
 type jwksServiceServer struct {

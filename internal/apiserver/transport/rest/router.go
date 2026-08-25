@@ -90,8 +90,8 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 	}
 
 	// 创建认证中间件
-	if r.deps.ModuleStatus.authnAvailable() && deps.authn.TokenService != nil {
-		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenService, deps.authz.RouteAuthorization)
+	if r.deps.ModuleStatus.authnAvailable() && deps.authn.TokenVerifier != nil {
+		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenVerifier, deps.authz.RouteAuthorization)
 	}
 
 	// 若认证中间件支持角色检查，则拼出管理员中间件

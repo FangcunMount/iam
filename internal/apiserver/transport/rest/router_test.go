@@ -16,7 +16,6 @@ import (
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
@@ -194,7 +193,7 @@ func TestRouterRegistersAuthnV2LoginRoute(t *testing.T) {
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
+		AuthHandler: authhandler.NewAuthHandler(nil, tokenapp.Capabilities{}, nil),
 	}
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
@@ -210,7 +209,7 @@ func TestRouterRegistersModuleRoutesFromModuleStateWithoutLegacyBooleans(t *test
 	engine := gin.New()
 	deps := restDepsForTest()
 	deps.Authn = AuthnDeps{
-		AuthHandler: authhandler.NewAuthHandler(nil, nil, nil),
+		AuthHandler: authhandler.NewAuthHandler(nil, tokenapp.Capabilities{}, nil),
 	}
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthn)
 
@@ -368,7 +367,7 @@ func TestRouterRegistersIdentityRefsRoutes(t *testing.T) {
 
 	engine := gin.New()
 	deps := restDepsForTest()
-	deps.Authn.TokenService = tokenServiceStub{}
+	deps.Authn.TokenVerifier = tokenServiceStub{}
 	deps.User = UserDeps{
 		UserHandler:        uchandler.NewUserHandler(nil, nil, nil, nil),
 		ProfileHandler:     uchandler.NewProfileHandler(nil),
@@ -543,28 +542,8 @@ func (casbinStub) DirectRoleKeys(_ context.Context, _, _ string) ([]string, erro
 
 type tokenServiceStub struct{}
 
-func (tokenServiceStub) IssueToken(context.Context, *authentication.Principal) (*tokenapp.TokenPair, error) {
-	return nil, nil
-}
-
-func (tokenServiceStub) IssueServiceToken(context.Context, tokenapp.IssueServiceTokenRequest) (*tokenapp.TokenIssueResult, error) {
-	return nil, nil
-}
-
-func (tokenServiceStub) RefreshToken(context.Context, string) (*tokenapp.TokenRefreshResult, error) {
-	return nil, nil
-}
-
-func (tokenServiceStub) RevokeAccessToken(context.Context, string) error {
-	return nil
-}
-
-func (tokenServiceStub) RevokeRefreshToken(context.Context, string) error {
-	return nil
-}
-
 func (tokenServiceStub) VerifyToken(context.Context, tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
 	return &tokenapp.TokenVerifyResult{Valid: true}, nil
 }
 
-var _ tokenapp.TokenApplicationService = tokenServiceStub{}
+var _ tokenapp.Verifier = tokenServiceStub{}

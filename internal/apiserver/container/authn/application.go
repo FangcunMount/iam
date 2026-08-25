@@ -61,7 +61,7 @@ func (m *AuthnModule) initializeApplication(
 		ExternalIdentity: infra.externalResolver,
 	})
 
-	tokenService := token.NewTokenApplicationService(token.TokenApplicationDependencies{
+	tokenCapabilities := token.NewCapabilities(token.Dependencies{
 		AccessTokenCodec:      infra.jwtGenerator,
 		TokenStore:            infra.tokenStore,
 		SessionCreator:        domain.sessionCreator,
@@ -69,7 +69,7 @@ func (m *AuthnModule) initializeApplication(
 		SessionRevoker:        domain.sessionRevoker,
 		SessionExtender:       domain.sessionExtender,
 		SessionRefreshExpirer: domain.sessionRefreshExpirer,
-		AccessChecker:         infra.accessChecker,
+		AdmissionPolicy:       infra.admissionPolicy,
 		RefreshClaimsCodec:    token.NewDefaultRefreshClaimsCodec(),
 		AccessTTL:             domain.accessTTL,
 	})
@@ -92,9 +92,9 @@ func (m *AuthnModule) initializeApplication(
 	}
 
 	signIn := signin.New(signin.Dependencies{
-		TokenService:   tokenService,
-		Authenticator:  authenticator,
-		MethodRegistry: method.DefaultSelector(),
+		SessionEstablisher: tokenCapabilities.SessionEstablisher,
+		Authenticator:      authenticator,
+		MethodRegistry:     method.DefaultSelector(),
 		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{
 			Credentials: infra.credentialRepo,
 			LockoutPolicy: credentialDomain.LockoutPolicy{
@@ -103,20 +103,21 @@ func (m *AuthnModule) initializeApplication(
 				LockDuration: authOptions.PasswordLockout.LockDuration,
 			},
 		}),
-		AccessChecker: infra.accessChecker,
-		ProofFactory:  proof.DefaultFactory(infra.externalResolver, challengeService),
+		AdmissionPolicy: infra.admissionPolicy,
+		ProofFactory:    proof.DefaultFactory(infra.externalResolver, challengeService),
 	})
 
 	userSessionService, err := session.NewApplicationService(session.Dependencies{
-		TokenService: tokenService,
-		SignIn:       signIn,
+		Refresher: tokenCapabilities.Refresher,
+		Revoker:   tokenCapabilities.Revoker,
+		SignIn:    signIn,
 	})
 	if err != nil {
 		return err
 	}
 	m.sessionService = userSessionService
 
-	m.tokenService = tokenService
+	m.tokenCapabilities = tokenCapabilities
 	m.sessionRevokeApp = session.NewRevoker(domain.sessionRevoker)
 
 	logger := log.New(log.NewOptions())

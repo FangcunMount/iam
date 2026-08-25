@@ -12,14 +12,14 @@ import (
 )
 
 func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv2.VerifyTokenRequest) (*authnv2.VerifyTokenResponse, error) {
-	if s.tokenSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "token service not configured")
+	if s.tokenVerifier == nil {
+		return nil, status.Error(codes.Unimplemented, "token verifier not configured")
 	}
 	if req == nil || strings.TrimSpace(req.GetAccessToken()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "access_token is required")
 	}
 
-	result, err := s.tokenSvc.VerifyToken(ctx, tokenApp.VerifyTokenRequest{
+	result, err := s.tokenVerifier.VerifyToken(ctx, tokenApp.VerifyTokenRequest{
 		AccessToken:      req.GetAccessToken(),
 		ExpectedIssuer:   strings.TrimSpace(req.GetExpectedIssuer()),
 		ExpectedAudience: cloneAudience(req.GetExpectedAudience()),
@@ -64,34 +64,34 @@ func (s *authServiceServer) RefreshToken(ctx context.Context, req *authnv2.Refre
 }
 
 func (s *authServiceServer) RevokeToken(ctx context.Context, req *authnv2.RevokeTokenRequest) (*authnv2.RevokeTokenResponse, error) {
-	if s.tokenSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "token service not configured")
+	if s.tokenRevoker == nil {
+		return nil, status.Error(codes.Unimplemented, "token revoker not configured")
 	}
 	if req == nil || strings.TrimSpace(req.GetAccessToken()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "access_token is required")
 	}
-	if err := s.tokenSvc.RevokeAccessToken(ctx, req.GetAccessToken()); err != nil {
+	if err := s.tokenRevoker.RevokeAccessToken(ctx, req.GetAccessToken()); err != nil {
 		return nil, toGRPCError(err)
 	}
 	return &authnv2.RevokeTokenResponse{}, nil
 }
 
 func (s *authServiceServer) RevokeRefreshToken(ctx context.Context, req *authnv2.RevokeRefreshTokenRequest) (*authnv2.RevokeRefreshTokenResponse, error) {
-	if s.tokenSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "token service not configured")
+	if s.tokenRevoker == nil {
+		return nil, status.Error(codes.Unimplemented, "token revoker not configured")
 	}
 	if req == nil || strings.TrimSpace(req.GetRefreshToken()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "refresh_token is required")
 	}
-	if err := s.tokenSvc.RevokeRefreshToken(ctx, req.GetRefreshToken()); err != nil {
+	if err := s.tokenRevoker.RevokeRefreshToken(ctx, req.GetRefreshToken()); err != nil {
 		return nil, toGRPCError(err)
 	}
 	return &authnv2.RevokeRefreshTokenResponse{}, nil
 }
 
 func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv2.IssueServiceTokenRequest) (*authnv2.IssueServiceTokenResponse, error) {
-	if s.tokenSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "token service not configured")
+	if s.serviceTokenIssuer == nil {
+		return nil, status.Error(codes.Unimplemented, "service token issuer not configured")
 	}
 	if req == nil || strings.TrimSpace(req.GetSubject()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject is required")
@@ -110,7 +110,7 @@ func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv2.
 		attrs = structToStringMap(req.GetAttributes().AsMap())
 	}
 
-	result, err := s.tokenSvc.IssueServiceToken(ctx, tokenApp.IssueServiceTokenRequest{
+	result, err := s.serviceTokenIssuer.IssueServiceToken(ctx, tokenApp.IssueServiceTokenRequest{
 		Subject:    strings.TrimSpace(req.GetSubject()),
 		Audience:   cloneAudience(req.GetAudience()),
 		TTL:        ttl,

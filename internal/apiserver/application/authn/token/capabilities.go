@@ -10,38 +10,39 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
-// ========================================================
-// ============= TokenApplicationService 实现 =============
-// ========================================================
-
-// tokenApplicationService 实现 TokenApplicationService 接口
-type tokenApplicationService struct {
-	accessTokenIssuer  accessTokenIssuerPort  // 用户 access/refresh 令牌签发（登录 + refresh mint）
-	serviceTokenIssuer serviceTokenIssuerPort // 服务令牌签发器
-	refresher          refresherPort          // 令牌刷新器
-	verifier           verifierPort           // 令牌验证器
-	revoker            revokerPort            // 令牌撤销器
+// application 组合令牌用例协作者，并分别实现对外窄能力。
+type application struct {
+	sessionEstablisher sessionEstablisherPort
+	serviceTokenIssuer serviceTokenIssuerPort
+	refresher          refresherPort
+	verifier           verifierPort
+	revoker            revokerPort
 }
 
-// TokenApplicationDependencies 是 TokenApplicationService 的装配依赖。
-type TokenApplicationDependencies struct {
-	AccessTokenCodec      AccessTokenCodec       // 令牌编码器
-	TokenStore            Store                  // 令牌存储
-	SessionCreator        SessionCreator         // 会话创建器
-	SessionLoader         SessionLoader          // 会话加载器
-	SessionRevoker        SessionRevoker         // 会话撤销器
-	SessionExtender       SessionExtender        // 会话延期器
-	SessionRefreshExpirer SessionRefreshExpirer  // refresh token 过期时间计算器
-	AccessChecker         SubjectAccessEvaluator // 主体访问状态评估器
-	RefreshClaimsCodec    RefreshClaimsCodec     // refresh/session claims 快照编解码
-	AccessTTL             time.Duration          // 令牌有效期
+// Dependencies 是令牌用例能力的装配依赖。
+type Dependencies struct {
+	AccessTokenCodec      AccessTokenCodec      // 令牌编码器
+	TokenStore            Store                 // 令牌存储
+	SessionCreator        SessionCreator        // 会话创建器
+	SessionLoader         SessionLoader         // 会话加载器
+	SessionRevoker        SessionRevoker        // 会话撤销器
+	SessionExtender       SessionExtender       // 会话延期器
+	SessionRefreshExpirer SessionRefreshExpirer // refresh token 过期时间计算器
+	AdmissionPolicy       AdmissionPolicy       // 认证准入策略
+	RefreshClaimsCodec    RefreshClaimsCodec    // refresh/session claims 快照编解码
+	AccessTTL             time.Duration         // 令牌有效期
 }
 
-// 确保 tokenApplicationService 实现 TokenApplicationService 接口
-var _ TokenApplicationService = (*tokenApplicationService)(nil)
+var (
+	_ SessionEstablisher = (*application)(nil)
+	_ ServiceTokenIssuer = (*application)(nil)
+	_ Refresher          = (*application)(nil)
+	_ Revoker            = (*application)(nil)
+	_ Verifier           = (*application)(nil)
+)
 
-// NewTokenApplicationService 创建 TokenApplicationService。
-func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicationService {
+// NewCapabilities 装配并返回相互独立的令牌用例能力。
+func NewCapabilities(deps Dependencies) Capabilities {
 	issuerComponents := newIssuer(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
@@ -51,42 +52,49 @@ func NewTokenApplicationService(deps TokenApplicationDependencies) TokenApplicat
 		deps.AccessTTL,
 	)
 	tokenRefresher := newRefresher(
-		issuerComponents.accessTokenIssuer,
+		issuerComponents.tokenPairMinter,
 		deps.TokenStore,
 		deps.SessionLoader,
 		deps.SessionRevoker,
 		deps.SessionExtender,
-		deps.AccessChecker,
+		deps.AdmissionPolicy,
 		deps.RefreshClaimsCodec,
 	)
 	tokenVerifier := newVerifier(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
 		deps.SessionLoader,
-		deps.AccessChecker,
+		deps.AdmissionPolicy,
 	)
 	revoker := newRevoker(
 		deps.AccessTokenCodec,
 		deps.TokenStore,
 		deps.SessionRevoker,
 	)
-	return &tokenApplicationService{
-		accessTokenIssuer:  issuerComponents.accessTokenIssuer,
+	app := &application{
+		sessionEstablisher: issuerComponents.sessionEstablisher,
 		serviceTokenIssuer: issuerComponents.serviceTokenIssuer,
 		refresher:          tokenRefresher,
 		verifier:           tokenVerifier,
 		revoker:            revoker,
 	}
+	return Capabilities{
+		SessionEstablisher: app,
+		ServiceTokenIssuer: app,
+		Refresher:          app,
+		Revoker:            app,
+		Verifier:           app,
+	}
 }
 
-// IssueToken 在登录完成后签发用户会话令牌。
-func (s *tokenApplicationService) IssueToken(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
-	return s.accessTokenIssuer.IssueToken(ctx, principal)
+// EstablishSession 在认证完成后创建 Session 并返回 access/refresh token pair。
+func (s *application) EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
+	return s.sessionEstablisher.EstablishSession(ctx, principal)
 }
 
 // IssueServiceToken 签发服务间访问令牌。
 // 服务令牌不绑定 session，也不生成 refresh token。
-func (s *tokenApplicationService) IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error) {
+func (s *application) IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error) {
 	tokenPair, err := s.serviceTokenIssuer.IssueServiceToken(ctx, req.Subject, req.Audience, req.Attributes, req.TTL)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to issue service token")
@@ -97,7 +105,7 @@ func (s *tokenApplicationService) IssueServiceToken(ctx context.Context, req Iss
 
 // RefreshToken 使用 refresh token 轮换出新的 access/refresh token pair。
 // 具体流程由内部 refresher 完成，包括 refresh token 读取、旧 token 删除和 session 延期。
-func (s *tokenApplicationService) RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error) {
+func (s *application) RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error) {
 	tokenPair, err := s.refresher.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
@@ -109,7 +117,7 @@ func (s *tokenApplicationService) RefreshToken(ctx context.Context, refreshToken
 }
 
 // RevokeAccessToken 撤销单个 access token 及其关联会话。
-func (s *tokenApplicationService) RevokeAccessToken(ctx context.Context, accessToken string) error {
+func (s *application) RevokeAccessToken(ctx context.Context, accessToken string) error {
 	err := s.revoker.RevokeBearerToken(ctx, accessToken)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrTokenRevokeFailed, "failed to revoke access token")
@@ -119,7 +127,7 @@ func (s *tokenApplicationService) RevokeAccessToken(ctx context.Context, accessT
 }
 
 // RevokeRefreshToken 删除 refresh token；如果 refresh token 关联 session，则同步撤销 session。
-func (s *tokenApplicationService) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
+func (s *application) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
 	err := s.refresher.RevokeRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrTokenRevokeFailed, "failed to revoke refresh token")
@@ -128,7 +136,7 @@ func (s *tokenApplicationService) RevokeRefreshToken(ctx context.Context, refres
 }
 
 // VerifyToken 在线验证 access token，并检查可选的 issuer/audience 约束。
-func (s *tokenApplicationService) VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error) {
+func (s *application) VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error) {
 	claims, err := s.verifier.VerifyToken(ctx, req.AccessToken)
 	if err != nil {
 		failureCode := tokenVerificationFailureCode(err)

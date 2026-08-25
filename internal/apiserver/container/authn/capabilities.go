@@ -33,7 +33,7 @@ type ApplicationCapabilities struct {
 	StartWechatOpenLinkAuthorize *linkingApp.StartWechatOpenLinkAuthorize
 	CompleteWechatOpenLink       *linkingApp.CompleteWechatOpenLink
 	WechatOpen                   WechatOpenConfig
-	TokenService                 token.TokenApplicationService
+	Tokens                       token.Capabilities
 	KeyManagementApp             *jwksApp.KeyManagementAppService
 	KeyPublishApp                *jwksApp.KeyPublishAppService
 	KeyLifecycleApp              *jwksApp.KeyLifecycleAppService

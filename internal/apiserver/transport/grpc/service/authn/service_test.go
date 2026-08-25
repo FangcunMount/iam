@@ -11,7 +11,6 @@ import (
 	sessionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -22,14 +21,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-type tokenServiceStub struct {
-	issueReq   tokenApp.IssueServiceTokenRequest
-	issueRes   *tokenApp.TokenIssueResult
-	issueErr   error
-	verifyReq  tokenApp.VerifyTokenRequest
-	verifyErr  error
-	refreshErr error
-	revokeErr  error
+type tokenOperationsStub struct {
+	issueReq  tokenApp.IssueServiceTokenRequest
+	issueRes  *tokenApp.TokenIssueResult
+	issueErr  error
+	verifyReq tokenApp.VerifyTokenRequest
+	verifyErr error
+	revokeErr error
 }
 
 type loginServiceStub struct {
@@ -86,28 +84,20 @@ func (s linkerStub) Unlink(context.Context, linkingApp.UnlinkCommand) error {
 	return nil
 }
 
-func (s *tokenServiceStub) IssueToken(ctx context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
-	return nil, nil
-}
-
-func (s *tokenServiceStub) IssueServiceToken(ctx context.Context, req tokenApp.IssueServiceTokenRequest) (*tokenApp.TokenIssueResult, error) {
+func (s *tokenOperationsStub) IssueServiceToken(ctx context.Context, req tokenApp.IssueServiceTokenRequest) (*tokenApp.TokenIssueResult, error) {
 	s.issueReq = req
 	return s.issueRes, s.issueErr
 }
 
-func (s *tokenServiceStub) RefreshToken(ctx context.Context, refreshToken string) (*tokenApp.TokenRefreshResult, error) {
-	return nil, s.refreshErr
-}
-
-func (s *tokenServiceStub) RevokeAccessToken(ctx context.Context, accessToken string) error {
+func (s *tokenOperationsStub) RevokeAccessToken(ctx context.Context, accessToken string) error {
 	return s.revokeErr
 }
 
-func (s *tokenServiceStub) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
+func (s *tokenOperationsStub) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
-func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyTokenRequest) (*tokenApp.TokenVerifyResult, error) {
+func (s *tokenOperationsStub) VerifyToken(ctx context.Context, req tokenApp.VerifyTokenRequest) (*tokenApp.TokenVerifyResult, error) {
 	s.verifyReq = req
 	if s.verifyErr != nil {
 		return nil, s.verifyErr
@@ -133,11 +123,22 @@ func (s *tokenServiceStub) VerifyToken(ctx context.Context, req tokenApp.VerifyT
 	}, nil
 }
 
+func grpcTokenCapabilities(stub *tokenOperationsStub) tokenApp.Capabilities {
+	if stub == nil {
+		return tokenApp.Capabilities{}
+	}
+	return tokenApp.Capabilities{
+		ServiceTokenIssuer: stub,
+		Revoker:            stub,
+		Verifier:           stub,
+	}
+}
+
 func TestAuthNGRPCRuntimeRegistersProductionServices(t *testing.T) {
 	server := grpc.NewServer()
 	NewService(
 		&loginServiceStub{},
-		&tokenServiceStub{},
+		grpcTokenCapabilities(&tokenOperationsStub{}),
 		signupServiceStub{},
 		challengeServiceStub{},
 		challengeServiceStub{},
@@ -205,12 +206,12 @@ func TestAuthServiceServerLoginRejectsNonPublicMethod(t *testing.T) {
 
 func TestAuthServiceServerIssueServiceToken(t *testing.T) {
 	serviceToken := tokenApp.NewServiceToken("sid", "jwt-service-token", "service:qs-server", []string{"iam-service"}, map[string]string{"scope": "internal"}, time.Hour)
-	stub := &tokenServiceStub{
+	stub := &tokenOperationsStub{
 		issueRes: &tokenApp.TokenIssueResult{
 			TokenPair: tokenApp.NewTokenPair(serviceToken, nil),
 		},
 	}
-	srv := &authServiceServer{tokenSvc: stub}
+	srv := &authServiceServer{serviceTokenIssuer: stub}
 
 	attrs, err := structpb.NewStruct(map[string]any{"scope": "internal", "level": 2})
 	require.NoError(t, err)
@@ -234,7 +235,7 @@ func TestAuthServiceServerIssueServiceToken(t *testing.T) {
 }
 
 func TestAuthServiceServerIssueServiceTokenValidation(t *testing.T) {
-	srv := &authServiceServer{tokenSvc: &tokenServiceStub{}}
+	srv := &authServiceServer{serviceTokenIssuer: &tokenOperationsStub{}}
 
 	_, err := srv.IssueServiceToken(context.Background(), &authnv2.IssueServiceTokenRequest{})
 	require.Error(t, err)
@@ -242,8 +243,8 @@ func TestAuthServiceServerIssueServiceTokenValidation(t *testing.T) {
 }
 
 func TestAuthServiceServerVerifyTokenPassesExpectationGuards(t *testing.T) {
-	stub := &tokenServiceStub{}
-	srv := &authServiceServer{tokenSvc: stub}
+	stub := &tokenOperationsStub{}
+	srv := &authServiceServer{tokenVerifier: stub}
 
 	_, err := srv.VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{
 		AccessToken:      "jwt-token",
@@ -261,7 +262,7 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 		name       string
 		call       func(*authServiceServer) error
 		sessionSvc sessionApp.ApplicationService
-		tokenSvc   *tokenServiceStub
+		tokenOps   *tokenOperationsStub
 		want       codes.Code
 	}{
 		{
@@ -270,7 +271,7 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 				_, err := s.VerifyToken(context.Background(), &authnv2.VerifyTokenRequest{AccessToken: "access-token"})
 				return err
 			},
-			tokenSvc: &tokenServiceStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			tokenOps: &tokenOperationsStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
 			want:     codes.Unauthenticated,
 		},
 		{
@@ -288,7 +289,7 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 				_, err := s.RevokeToken(context.Background(), &authnv2.RevokeTokenRequest{AccessToken: "access-token"})
 				return err
 			},
-			tokenSvc: &tokenServiceStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			tokenOps: &tokenOperationsStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
 			want:     codes.Unauthenticated,
 		},
 	}
@@ -296,7 +297,11 @@ func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			srv := &authServiceServer{sessionSvc: tc.sessionSvc, tokenSvc: tc.tokenSvc}
+			srv := &authServiceServer{
+				sessionSvc:    tc.sessionSvc,
+				tokenVerifier: tc.tokenOps,
+				tokenRevoker:  tc.tokenOps,
+			}
 
 			err := tc.call(srv)
 

@@ -502,7 +502,7 @@ User 是否 inactive；
 User 是否 blocked。
 ```
 
-当前 SignIn 在 proof 验证和 Credential 状态记录之后、创建 Session/Token 之前统一执行状态检查。`blocked User`、`inactive User`、`disabled LoginIdentity` 和状态查询错误都禁止调用 TokenService；Refresh 和在线 Verify 复用同一错误映射。
+当前 SignIn 在 proof 验证和 Credential 状态记录之后、创建 Session/Token 之前统一执行 `AdmissionPolicy`。`blocked User`、`inactive User`、`disabled LoginIdentity` 和状态查询错误都禁止调用 `SessionEstablisher`；Refresh 和在线 Verify 复用同一错误映射。
 
 边界：
 

@@ -11,7 +11,7 @@ func CollectREST(available bool, mod *AuthnModule, deps *resttransport.Deps) {
 		return
 	}
 	caps := mod.ApplicationCapabilities()
-	deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.SessionService, caps.TokenService, caps.LoginPhoneOTPSender)
+	deps.Authn.AuthHandler = authnhandler.NewAuthHandler(caps.SessionService, caps.Tokens, caps.LoginPhoneOTPSender)
 	deps.Authn.OnboardingHandler = authnhandler.NewOnboardingHandler(caps.SignupService)
 	deps.Authn.LoginIdentityHandler = authnhandler.NewLoginIdentityHandler(
 		caps.LoginIdentityLinking,
@@ -32,5 +32,5 @@ func CollectREST(available bool, mod *AuthnModule, deps *resttransport.Deps) {
 	deps.Authn.LoginIdentityLinking = caps.LoginIdentityLinking
 	deps.Authn.JWKSHandler = authnhandler.NewJWKSHandler(caps.KeyManagementApp, caps.KeyLifecycleApp, caps.KeyPublishApp)
 	deps.Authn.SessionAdminHandler = authnhandler.NewSessionAdminHandler(caps.SessionRevoker)
-	deps.Authn.TokenService = caps.TokenService
+	deps.Authn.TokenVerifier = caps.Tokens.Verifier
 }

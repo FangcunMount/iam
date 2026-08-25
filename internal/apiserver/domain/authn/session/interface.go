@@ -38,9 +38,3 @@ type Extender interface {
 type RefreshExpirer interface {
 	NextRefreshExpiresAt(now time.Time, session *Session) (time.Time, error)
 }
-
-// SubjectAccessEvaluator 用于评估用户/登录身份的访问状态。
-type SubjectAccessEvaluator interface {
-	// —— 评估用户/登录身份的访问状态 —— //
-	Evaluate(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (SubjectAccessDecision, error)
-}

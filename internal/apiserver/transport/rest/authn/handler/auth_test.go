@@ -13,7 +13,6 @@ import (
 
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -57,38 +56,27 @@ func (s *sessionRenewCaptureStub) Logout(context.Context, session.LogoutRequest)
 	return nil
 }
 
-type tokenServiceCaptureStub struct {
-	refreshCalled bool
-	verifyCalled  bool
-	revokeCalled  bool
-	refreshErr    error
-	verifyErr     error
-	revokeErr     error
+type tokenOperationsCaptureStub struct {
+	verifyCalled bool
+	revokeCalled bool
+	verifyErr    error
+	revokeErr    error
 }
 
-func (s *tokenServiceCaptureStub) IssueToken(context.Context, *authentication.Principal) (*token.TokenPair, error) {
-	return nil, nil
-}
-
-func (s *tokenServiceCaptureStub) IssueServiceToken(context.Context, token.IssueServiceTokenRequest) (*token.TokenIssueResult, error) {
-	return nil, nil
-}
-
-func (s *tokenServiceCaptureStub) RefreshToken(context.Context, string) (*token.TokenRefreshResult, error) {
-	s.refreshCalled = true
-	return nil, s.refreshErr
-}
-
-func (s *tokenServiceCaptureStub) RevokeAccessToken(context.Context, string) error {
+func (s *tokenOperationsCaptureStub) RevokeAccessToken(context.Context, string) error {
 	s.revokeCalled = true
 	return s.revokeErr
 }
 
-func (s *tokenServiceCaptureStub) RevokeRefreshToken(context.Context, string) error {
+func tokenCapabilitiesForHandler(stub *tokenOperationsCaptureStub) token.Capabilities {
+	return token.Capabilities{Verifier: stub, Revoker: stub}
+}
+
+func (s *tokenOperationsCaptureStub) RevokeRefreshToken(context.Context, string) error {
 	return nil
 }
 
-func (s *tokenServiceCaptureStub) VerifyToken(context.Context, token.VerifyTokenRequest) (*token.TokenVerifyResult, error) {
+func (s *tokenOperationsCaptureStub) VerifyToken(context.Context, token.VerifyTokenRequest) (*token.TokenVerifyResult, error) {
 	s.verifyCalled = true
 	if s.verifyErr != nil {
 		return nil, s.verifyErr
@@ -200,7 +188,7 @@ func TestAuthHandlerLoginV2AdaptersUseExplicitSelection(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			stub := &loginServiceCaptureStub{}
-			h := NewAuthHandler(stub, nil, nil)
+			h := NewAuthHandler(stub, token.Capabilities{}, nil)
 
 			w := performAuthRequest(h.LoginV2, tc.body)
 
@@ -233,7 +221,7 @@ func TestAuthHandlerLoginV2RejectsInvalidContract(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			stub := &loginServiceCaptureStub{}
-			h := NewAuthHandler(stub, nil, nil)
+			h := NewAuthHandler(stub, token.Capabilities{}, nil)
 
 			w := performAuthRequest(h.LoginV2, tc.body)
 
@@ -260,15 +248,15 @@ func TestAuthHandlerTokenEndpointsRejectInvalidRequestsBeforeApplicationCall(t *
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			sessionSvc := &sessionRenewCaptureStub{}
-			tokenSvc := &tokenServiceCaptureStub{}
-			h := NewAuthHandler(sessionSvc, tokenSvc, nil)
+			tokenOps := &tokenOperationsCaptureStub{}
+			h := NewAuthHandler(sessionSvc, tokenCapabilitiesForHandler(tokenOps), nil)
 
 			w := performAuthRequest(tc.call(h), tc.body)
 
 			require.Equal(t, http.StatusBadRequest, w.Code)
 			require.False(t, sessionSvc.renewCalled)
-			require.False(t, tokenSvc.verifyCalled)
-			require.False(t, tokenSvc.revokeCalled)
+			require.False(t, tokenOps.verifyCalled)
+			require.False(t, tokenOps.revokeCalled)
 		})
 	}
 }
@@ -281,33 +269,33 @@ func TestAuthHandlerTokenEndpointsPropagateApplicationErrors(t *testing.T) {
 		call       func(*AuthHandler) gin.HandlerFunc
 		body       string
 		sessionSvc *sessionRenewCaptureStub
-		tokenSvc   *tokenServiceCaptureStub
+		tokenOps   *tokenOperationsCaptureStub
 	}{
 		{
 			name:       "refresh token invalid",
 			call:       func(h *AuthHandler) gin.HandlerFunc { return h.RefreshToken },
 			body:       `{"refresh_token":"refresh-token"}`,
 			sessionSvc: &sessionRenewCaptureStub{renewErr: perrors.WithCode(code.ErrTokenInvalid, "invalid refresh")},
-			tokenSvc:   &tokenServiceCaptureStub{},
+			tokenOps:   &tokenOperationsCaptureStub{},
 		},
 		{
 			name:     "verify token invalid",
 			call:     func(h *AuthHandler) gin.HandlerFunc { return h.VerifyToken },
 			body:     `{"access_token":"access-token"}`,
-			tokenSvc: &tokenServiceCaptureStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			tokenOps: &tokenOperationsCaptureStub{verifyErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
 		},
 		{
 			name:     "revoke token invalid",
 			call:     func(h *AuthHandler) gin.HandlerFunc { return h.RevokeToken },
 			body:     `{"access_token":"access-token"}`,
-			tokenSvc: &tokenServiceCaptureStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
+			tokenOps: &tokenOperationsCaptureStub{revokeErr: perrors.WithCode(code.ErrTokenInvalid, "invalid access")},
 		},
 	}
 
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			h := NewAuthHandler(tc.sessionSvc, tc.tokenSvc, nil)
+			h := NewAuthHandler(tc.sessionSvc, tokenCapabilitiesForHandler(tc.tokenOps), nil)
 
 			w := performAuthRequest(tc.call(h), tc.body)
 

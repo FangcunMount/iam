@@ -1,6 +1,7 @@
 package token
 
 import (
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 )
 
@@ -19,8 +20,8 @@ type SessionExtender = sessiondomain.Extender
 // SessionRefreshExpirer 是 token 用例依赖的 refresh 过期时间计算协作者。
 type SessionRefreshExpirer = sessiondomain.RefreshExpirer
 
-// SubjectAccessEvaluator 是 token 用例依赖的主体访问状态领域协作者。
-type SubjectAccessEvaluator = sessiondomain.SubjectAccessEvaluator
+// AdmissionPolicy 是 token 用例依赖的认证准入策略。
+type AdmissionPolicy = admissiondomain.Policy
 
 // TokenType 表示 IAM 内部令牌用途。
 type TokenType string

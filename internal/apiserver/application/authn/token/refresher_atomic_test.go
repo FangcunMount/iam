@@ -12,6 +12,7 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -35,12 +36,12 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 	store := newAtomicTokenStoreStub(old)
 	revoker := &recordingSessionRevoker{}
 	refresher := newRefresher(
-		&atomicAccessTokenIssuerStub{},
+		&atomicTokenPairMinterStub{},
 		store,
 		sessionLoaderStub{session: testActiveSession()},
 		revoker,
 		sessionExtenderStub{},
-		subjectAccessEvaluatorStub{},
+		admissionPolicyStub{},
 		NewDefaultRefreshClaimsCodec(),
 	)
 
@@ -96,8 +97,8 @@ func TestRefresherReplayedConsumedTokenRevokesSession(t *testing.T) {
 	store.consumed[old.Value] = &ConsumedRefreshToken{SessionID: old.SessionID, UserID: old.UserID}
 	revoker := &recordingSessionRevoker{}
 	refresher := newRefresher(
-		&atomicAccessTokenIssuerStub{}, store, sessionLoaderStub{session: testActiveSession()},
-		revoker, sessionExtenderStub{}, subjectAccessEvaluatorStub{}, NewDefaultRefreshClaimsCodec(),
+		&atomicTokenPairMinterStub{}, store, sessionLoaderStub{session: testActiveSession()},
+		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewDefaultRefreshClaimsCodec(),
 	)
 
 	pair, err := refresher.RefreshToken(context.Background(), old.Value)
@@ -113,8 +114,8 @@ func TestRefresherUnknownTokenDoesNotRevokeSession(t *testing.T) {
 	store := newAtomicTokenStoreStub()
 	revoker := &recordingSessionRevoker{}
 	refresher := newRefresher(
-		&atomicAccessTokenIssuerStub{}, store, sessionLoaderStub{session: testActiveSession()},
-		revoker, sessionExtenderStub{}, subjectAccessEvaluatorStub{}, NewDefaultRefreshClaimsCodec(),
+		&atomicTokenPairMinterStub{}, store, sessionLoaderStub{session: testActiveSession()},
+		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewDefaultRefreshClaimsCodec(),
 	)
 
 	pair, err := refresher.RefreshToken(context.Background(), "never-issued")
@@ -130,12 +131,12 @@ func TestRefresherExtensionFailurePreservesOldToken(t *testing.T) {
 	old := testRefreshToken("old-id", "old-value")
 	store := newAtomicTokenStoreStub(old)
 	refresher := newRefresher(
-		&atomicAccessTokenIssuerStub{},
+		&atomicTokenPairMinterStub{},
 		store,
 		sessionLoaderStub{session: testActiveSession()},
 		sessionRevokerStub{},
 		sessionExtenderStub{err: errors.New("session store unavailable")},
-		subjectAccessEvaluatorStub{},
+		admissionPolicyStub{},
 		NewDefaultRefreshClaimsCodec(),
 	)
 
@@ -153,16 +154,12 @@ func TestRefresherExtensionFailurePreservesOldToken(t *testing.T) {
 	}
 }
 
-type atomicAccessTokenIssuerStub struct {
+type atomicTokenPairMinterStub struct {
 	mu   sync.Mutex
 	next int
 }
 
-func (s *atomicAccessTokenIssuerStub) IssueToken(context.Context, *authentication.Principal) (*TokenPair, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (s *atomicAccessTokenIssuerStub) MintTokenPair(_ context.Context, principal *authentication.Principal, session *sessiondomain.Session) (*TokenPair, error) {
+func (s *atomicTokenPairMinterStub) MintTokenPair(_ context.Context, principal *authentication.Principal, session *sessiondomain.Session) (*TokenPair, error) {
 	s.mu.Lock()
 	s.next++
 	n := s.next
@@ -306,10 +303,10 @@ func (s sessionExtenderStub) ExtendToRefreshExpiry(context.Context, *sessiondoma
 	return s.err
 }
 
-type subjectAccessEvaluatorStub struct{}
+type admissionPolicyStub struct{}
 
-func (subjectAccessEvaluatorStub) Evaluate(context.Context, meta.ID, meta.ID) (sessiondomain.SubjectAccessDecision, error) {
-	return sessiondomain.SubjectAccessDecision{Status: sessiondomain.SubjectAccessActive}, nil
+func (admissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
+	return admissiondomain.Decision{Status: admissiondomain.StatusActive}, nil
 }
 
 func testRefreshToken(id, value string) *Token {

@@ -147,7 +147,7 @@ commit
 
 这选择了最终一致性，而不是在数据库事务内直接调用 Redis。原因：Redis 成功后 MySQL 回滚会误杀会话；Redis 失败又会让数据库事务无法可靠补偿。
 
-登录、refresh 和在线 verify 同时执行 SubjectAccessEvaluator，直接读当前 User/LoginIdentity 状态。这是“异步吊销窗口”内的同步安全门；revocation worker 负责清理存量 Session。
+登录、refresh 和在线 verify 同时执行 `AdmissionPolicy`，通过 Identity 的 `UserStatusReader` 与 AuthN 的 LoginIdentity Repository 读取当前状态。这是“异步吊销窗口”内的同步安全门；revocation worker 负责清理存量 Session。
 
 ## 9. IDP access token 的防击穿
 
@@ -241,6 +241,6 @@ miniredis 可以验证命令和竞态契约，但不能替代真实 Redis 的持
 
 固定少量命令、适合 compare-and-set 的操作用 Lua；需要读取复杂对象、执行 Go 领域判断并更新多个结构时用 WATCH + retry。两者都必须定义冲突结果。
 
-**为什么 SubjectAccessEvaluator 不能被异步 Session 吊销替代？**
+**为什么 AdmissionPolicy 不能被异步 Session 吊销替代？**
 
 异步 worker 存在传播窗口且可能积压；同步检查当前 User/LoginIdentity 状态关闭安全窗口，worker 负责回收存量会话和减少后续成本。

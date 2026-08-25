@@ -11,25 +11,25 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	idpresolver "github.com/FangcunMount/iam/v3/internal/apiserver/application/idp/externalidentity"
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	idpidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/idp/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
-func TestSignInChecksSubjectAccessBeforeIssuingTokens(t *testing.T) {
+func TestSignInChecksAdmissionBeforeIssuingTokens(t *testing.T) {
 	tests := []struct {
 		name     string
-		status   sessiondomain.SubjectAccessStatus
+		status   admissiondomain.Status
 		checkErr error
 		wantCode int
 		wantCall bool
 	}{
-		{name: "active", status: sessiondomain.SubjectAccessActive, wantCall: true},
-		{name: "blocked user", status: sessiondomain.SubjectAccessBlocked, wantCode: code.ErrUserBlocked},
-		{name: "disabled identity", status: sessiondomain.SubjectAccessDisabled, wantCode: code.ErrLoginIdentityDisabled},
-		{name: "inactive user", status: sessiondomain.SubjectAccessInactive, wantCode: code.ErrUserInactive},
+		{name: "active", status: admissiondomain.StatusActive, wantCall: true},
+		{name: "blocked user", status: admissiondomain.StatusBlocked, wantCode: code.ErrUserBlocked},
+		{name: "disabled identity", status: admissiondomain.StatusDisabled, wantCode: code.ErrLoginIdentityDisabled},
+		{name: "inactive user", status: admissiondomain.StatusInactive, wantCode: code.ErrUserInactive},
 		{name: "checker failure", checkErr: errors.New("database unavailable"), wantCode: code.ErrInternalServerError},
 	}
 	for _, tt := range tests {
@@ -39,14 +39,14 @@ func TestSignInChecksSubjectAccessBeforeIssuingTokens(t *testing.T) {
 				LoginIdentityID: meta.FromUint64(2),
 				TenantID:        meta.FromUint64(3),
 			}
-			tokenService := &signInTokenServiceStub{}
+			sessionEstablisher := &sessionEstablisherStub{}
 			strategy := signInStrategyStub{decision: authentication.AuthDecision{OK: true, Principal: principal}}
 			usecase := New(Dependencies{
-				TokenService:   tokenService,
-				MethodRegistry: signInMethodRegistryStub{},
-				ProofFactory:   signInProofFactoryStub{},
-				Authenticator:  authentication.NewAuthenticator(strategy),
-				AccessChecker:  signInAccessCheckerStub{status: tt.status, err: tt.checkErr},
+				SessionEstablisher: sessionEstablisher,
+				MethodRegistry:     signInMethodRegistryStub{},
+				ProofFactory:       signInProofFactoryStub{},
+				Authenticator:      authentication.NewAuthenticator(strategy),
+				AdmissionPolicy:    signInAdmissionPolicyStub{status: tt.status, err: tt.checkErr},
 			})
 
 			result, err := usecase.Execute(context.Background(), method.LoginRequest{})
@@ -62,8 +62,8 @@ func TestSignInChecksSubjectAccessBeforeIssuingTokens(t *testing.T) {
 					t.Fatalf("Execute() result = %#v, want nil", result)
 				}
 			}
-			if tokenService.called != tt.wantCall {
-				t.Fatalf("IssueToken() called = %t, want %t", tokenService.called, tt.wantCall)
+			if sessionEstablisher.called != tt.wantCall {
+				t.Fatalf("EstablishSession() called = %t, want %t", sessionEstablisher.called, tt.wantCall)
 			}
 		})
 	}
@@ -132,35 +132,23 @@ func (s signInStrategyStub) Authenticate(context.Context, authentication.AuthCre
 	return s.decision, nil
 }
 
-type signInAccessCheckerStub struct {
-	status sessiondomain.SubjectAccessStatus
+type signInAdmissionPolicyStub struct {
+	status admissiondomain.Status
 	err    error
 }
 
-func (s signInAccessCheckerStub) Evaluate(context.Context, meta.ID, meta.ID) (sessiondomain.SubjectAccessDecision, error) {
-	return sessiondomain.SubjectAccessDecision{Status: s.status}, s.err
+func (s signInAdmissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
+	return admissiondomain.Decision{Status: s.status}, s.err
 }
 
-type signInTokenServiceStub struct {
+type sessionEstablisherStub struct {
 	called bool
 }
 
-func (s *signInTokenServiceStub) IssueToken(_ context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
+func (s *sessionEstablisherStub) EstablishSession(_ context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
 	s.called = true
 	return tokenapp.NewTokenPair(
 		tokenapp.NewAccessToken("a", "access", principal.SessionID, principal.UserID, principal.LoginIdentityID, principal.TenantID, time.Minute),
 		tokenapp.NewRefreshToken("r", "refresh", principal.SessionID, principal.UserID, principal.LoginIdentityID, principal.TenantID, nil, nil, time.Hour),
 	), nil
-}
-
-func (*signInTokenServiceStub) IssueServiceToken(context.Context, tokenapp.IssueServiceTokenRequest) (*tokenapp.TokenIssueResult, error) {
-	return nil, nil
-}
-func (*signInTokenServiceStub) RefreshToken(context.Context, string) (*tokenapp.TokenRefreshResult, error) {
-	return nil, nil
-}
-func (*signInTokenServiceStub) RevokeAccessToken(context.Context, string) error  { return nil }
-func (*signInTokenServiceStub) RevokeRefreshToken(context.Context, string) error { return nil }
-func (*signInTokenServiceStub) VerifyToken(context.Context, tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
-	return nil, nil
 }

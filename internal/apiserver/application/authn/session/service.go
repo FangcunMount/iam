@@ -19,8 +19,9 @@ type ApplicationService interface {
 // Dependencies 是 ApplicationService 的装配依赖。
 // SignIn 由 assembler 构建并注入，避免门面重复暴露 Authenticator / ProofFactory 等登录专用依赖。
 type Dependencies struct {
-	TokenService tokenapp.TokenApplicationService
-	SignIn       *signin.SignIn
+	Refresher tokenapp.Refresher
+	Revoker   tokenapp.Revoker
+	SignIn    *signin.SignIn
 }
 
 type service struct {
@@ -33,8 +34,11 @@ var _ ApplicationService = (*service)(nil)
 
 // NewApplicationService 创建用户会话应用服务。
 func NewApplicationService(deps Dependencies) (ApplicationService, error) {
-	if deps.TokenService == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "token service is required")
+	if deps.Refresher == nil {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "token refresher is required")
+	}
+	if deps.Revoker == nil {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "token revoker is required")
 	}
 	if deps.SignIn == nil {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "sign-in use case is required")
@@ -42,8 +46,8 @@ func NewApplicationService(deps Dependencies) (ApplicationService, error) {
 
 	return &service{
 		signIn:  deps.SignIn,
-		renewal: &Renewal{tokenService: deps.TokenService},
-		signOut: &SignOut{tokenService: deps.TokenService},
+		renewal: &Renewal{refresher: deps.Refresher},
+		signOut: &SignOut{revoker: deps.Revoker},
 	}, nil
 }
 

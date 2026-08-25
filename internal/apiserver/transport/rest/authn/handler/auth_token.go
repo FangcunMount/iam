@@ -103,7 +103,7 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 		return
 	}
 
-	result, err := h.tokenService.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
+	result, err := h.tokenVerifier.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
 		AccessToken:      reqBody.AccessToken,
 		ExpectedIssuer:   strings.TrimSpace(reqBody.ExpectedIssuer),
 		ExpectedAudience: append([]string(nil), reqBody.ExpectedAudience...),
@@ -162,7 +162,7 @@ func (h *AuthHandler) RevokeToken(c *gin.Context) {
 		return
 	}
 
-	if err := h.tokenService.RevokeAccessToken(c.Request.Context(), reqBody.AccessToken); err != nil {
+	if err := h.tokenRevoker.RevokeAccessToken(c.Request.Context(), reqBody.AccessToken); err != nil {
 		h.Error(c, err)
 		return
 	}
@@ -183,7 +183,7 @@ func (h *AuthHandler) RevokeRefreshToken(c *gin.Context) {
 		return
 	}
 
-	if err := h.tokenService.RevokeRefreshToken(c.Request.Context(), reqBody.RefreshToken); err != nil {
+	if err := h.tokenRevoker.RevokeRefreshToken(c.Request.Context(), reqBody.RefreshToken); err != nil {
 		h.Error(c, err)
 		return
 	}

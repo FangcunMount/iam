@@ -10,18 +10,18 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
-type loginTokenIssuerStub struct {
+type sessionTokenCapabilitiesStub struct {
 	captured *authentication.Principal
 }
 
-func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
+func (s *sessionTokenCapabilitiesStub) EstablishSession(ctx context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
 	s.captured = principal
 	access := tokenapp.NewAccessToken(
 		"access-id",
@@ -46,49 +46,48 @@ func (s *loginTokenIssuerStub) IssueToken(ctx context.Context, principal *authen
 	return tokenapp.NewTokenPair(access, refresh), nil
 }
 
-func (s *loginTokenIssuerStub) IssueServiceToken(ctx context.Context, req tokenapp.IssueServiceTokenRequest) (*tokenapp.TokenIssueResult, error) {
+func (s *sessionTokenCapabilitiesStub) RefreshToken(ctx context.Context, refreshToken string) (*tokenapp.TokenRefreshResult, error) {
 	return nil, nil
 }
 
-func (s *loginTokenIssuerStub) RefreshToken(ctx context.Context, refreshToken string) (*tokenapp.TokenRefreshResult, error) {
-	return nil, nil
-}
-
-func (s *loginTokenIssuerStub) RevokeAccessToken(ctx context.Context, tokenValue string) error {
+func (s *sessionTokenCapabilitiesStub) RevokeAccessToken(ctx context.Context, tokenValue string) error {
 	return nil
 }
 
-func (s *loginTokenIssuerStub) RevokeRefreshToken(ctx context.Context, tokenValue string) error {
+func (s *sessionTokenCapabilitiesStub) RevokeRefreshToken(ctx context.Context, tokenValue string) error {
 	return nil
 }
 
-func (s *loginTokenIssuerStub) VerifyToken(ctx context.Context, req tokenapp.VerifyTokenRequest) (*tokenapp.TokenVerifyResult, error) {
-	return nil, nil
+type sessionTokenCapabilities interface {
+	tokenapp.SessionEstablisher
+	tokenapp.Refresher
+	tokenapp.Revoker
 }
 
-func newSessionServiceForTest(t *testing.T, tokenService tokenapp.TokenApplicationService, auth *authentication.Authenticator) ApplicationService {
+func newSessionServiceForTest(t *testing.T, tokens sessionTokenCapabilities, auth *authentication.Authenticator) ApplicationService {
 	t.Helper()
 
 	signIn := signin.New(signin.Dependencies{
-		TokenService:       tokenService,
+		SessionEstablisher: tokens,
 		Authenticator:      auth,
 		MethodRegistry:     method.DefaultSelector(),
 		ProofFactory:       proof.DefaultFactory(nil, nil),
 		CredentialRecorder: nil,
-		AccessChecker:      sessionSubjectAccessEvaluatorStub{},
+		AdmissionPolicy:    sessionAdmissionPolicyStub{},
 	})
 	svc, err := NewApplicationService(Dependencies{
-		TokenService: tokenService,
-		SignIn:       signIn,
+		Refresher: tokens,
+		Revoker:   tokens,
+		SignIn:    signIn,
 	})
 	require.NoError(t, err)
 	return svc
 }
 
-type sessionSubjectAccessEvaluatorStub struct{}
+type sessionAdmissionPolicyStub struct{}
 
-func (sessionSubjectAccessEvaluatorStub) Evaluate(context.Context, meta.ID, meta.ID) (sessiondomain.SubjectAccessDecision, error) {
-	return sessiondomain.SubjectAccessDecision{Status: sessiondomain.SubjectAccessActive}, nil
+func (sessionAdmissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
+	return admissiondomain.Decision{Status: admissiondomain.StatusActive}, nil
 }
 
 func TestMethodSelectorUsesAuthMethodAsAuthority(t *testing.T) {
@@ -115,8 +114,8 @@ func TestLoginPayloadFailureUsesPayloadInvalidCode(t *testing.T) {
 	t.Parallel()
 
 	auth := authentication.NewAuthenticator()
-	issuer := &loginTokenIssuerStub{}
-	svc := newSessionServiceForTest(t, issuer, auth)
+	tokens := &sessionTokenCapabilitiesStub{}
+	svc := newSessionServiceForTest(t, tokens, auth)
 
 	result, err := svc.Login(context.Background(), LoginRequest{
 		AuthMethod: AuthMethodPassword,
@@ -129,15 +128,15 @@ func TestLoginPayloadFailureUsesPayloadInvalidCode(t *testing.T) {
 	require.Nil(t, result)
 	require.Error(t, err)
 	require.Equal(t, code.ErrPayloadInvalid, perrors.ParseCoder(err).Code())
-	require.Nil(t, issuer.captured)
+	require.Nil(t, tokens.captured)
 }
 
 func TestLoginProofFailureUsesProofBuildFailedCode(t *testing.T) {
 	t.Parallel()
 
 	auth := authentication.NewAuthenticator()
-	issuer := &loginTokenIssuerStub{}
-	svc := newSessionServiceForTest(t, issuer, auth)
+	tokens := &sessionTokenCapabilitiesStub{}
+	svc := newSessionServiceForTest(t, tokens, auth)
 
 	result, err := svc.Login(context.Background(), LoginRequest{
 		AuthMethod: AuthMethodWecom,
@@ -150,5 +149,5 @@ func TestLoginProofFailureUsesProofBuildFailedCode(t *testing.T) {
 	require.Nil(t, result)
 	require.Error(t, err)
 	require.Equal(t, code.ErrProofBuildFailed, perrors.ParseCoder(err).Code())
-	require.Nil(t, issuer.captured)
+	require.Nil(t, tokens.captured)
 }

@@ -13,6 +13,7 @@ import (
 
 	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	tokenjwt "github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/jwt"
@@ -102,10 +103,10 @@ func (s *memorySessionStore) RevokeByLoginIdentity(_ context.Context, loginIdent
 	return nil
 }
 
-type allowAllSubjectAccessEvaluator struct{}
+type allowAllAdmissionPolicy struct{}
 
-func (allowAllSubjectAccessEvaluator) Evaluate(context.Context, meta.ID, meta.ID) (sessiondomain.SubjectAccessDecision, error) {
-	return sessiondomain.SubjectAccessDecision{Status: sessiondomain.SubjectAccessActive}, nil
+func (allowAllAdmissionPolicy) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
+	return admissiondomain.Decision{Status: admissiondomain.StatusActive}, nil
 }
 
 type fixedSigningKeySource struct {
@@ -122,7 +123,7 @@ func (s fixedSigningKeySource) VerificationKey(context.Context, string) (*rsa.Pu
 }
 
 func newTestTokenStack(t *testing.T) (
-	tokenapp.TokenApplicationService,
+	tokenapp.Capabilities,
 	*tokenjwt.Generator,
 ) {
 	t.Helper()
@@ -135,7 +136,7 @@ func newTestTokenStack(t *testing.T) (
 	store := noopTokenStore{}
 	sessionStore := &memorySessionStore{}
 	lifetime := sessiondomain.NewLifetimePolicy(24*time.Hour, 24*time.Hour)
-	svc := tokenapp.NewTokenApplicationService(tokenapp.TokenApplicationDependencies{
+	tokens := tokenapp.NewCapabilities(tokenapp.Dependencies{
 		AccessTokenCodec:      gen,
 		TokenStore:            store,
 		SessionCreator:        sessiondomain.NewCreator(sessionStore, lifetime),
@@ -143,18 +144,18 @@ func newTestTokenStack(t *testing.T) (
 		SessionRevoker:        sessiondomain.NewRevoker(sessionStore),
 		SessionExtender:       sessiondomain.NewExtender(sessionStore, lifetime),
 		SessionRefreshExpirer: sessiondomain.NewRefreshExpirer(lifetime),
-		AccessChecker:         allowAllSubjectAccessEvaluator{},
+		AdmissionPolicy:       allowAllAdmissionPolicy{},
 		RefreshClaimsCodec:    tokenapp.NewDefaultRefreshClaimsCodec(),
 		AccessTTL:             time.Hour,
 	})
-	return svc, gen
+	return tokens, gen
 }
 
 func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx := context.Background()
 
-	tokenSvc, gen := newTestTokenStack(t)
+	tokens, gen := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
 		UserID:          meta.FromUint64(1001),
@@ -168,7 +169,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	}
 
 	// 与登录成功后的签发路径一致：IssueToken → access_token JWT
-	pair, err := tokenSvc.IssueToken(ctx, principal)
+	pair, err := tokens.SessionEstablisher.EstablishSession(ctx, principal)
 	require.NoError(t, err)
 	require.NotNil(t, pair)
 	require.NotNil(t, pair.AccessToken)
@@ -185,7 +186,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.Equal(t, "+8613800138000", parsed.Attributes["phone_number"])
 
 	// gRPC VerifyToken
-	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
+	grpcSrv := &authServiceServer{tokenVerifier: tokens.Verifier}
 	gresp, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{AccessToken: access})
 	require.NoError(t, err)
 	require.True(t, gresp.Valid)
@@ -205,8 +206,8 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.NoError(t, err)
 	require.True(t, gresp.Valid)
 
-	// REST POST verify（与 gRPC 使用同一 TokenApplicationService）
-	h := authhandler.NewAuthHandler(nil, tokenSvc, nil)
+	// REST POST verify（与 gRPC 使用同一 Verifier 能力）
+	h := authhandler.NewAuthHandler(nil, tokens, nil)
 	w := httptest.NewRecorder()
 	body := bytes.NewBufferString(`{"access_token":"` + access + `"}`)
 	c, _ := gin.CreateTestContext(w)
@@ -239,17 +240,17 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 
 func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 	ctx := context.Background()
-	tokenSvc, _ := newTestTokenStack(t)
+	tokens, _ := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
 		UserID:          meta.FromUint64(7),
 		LoginIdentityID: meta.FromUint64(8),
 		TenantID:        meta.FromUint64(9),
 	}
-	pair, err := tokenSvc.IssueToken(ctx, principal)
+	pair, err := tokens.SessionEstablisher.EstablishSession(ctx, principal)
 	require.NoError(t, err)
 
-	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
+	grpcSrv := &authServiceServer{tokenVerifier: tokens.Verifier}
 
 	respIssuer, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:    pair.AccessToken.Value,
@@ -269,17 +270,17 @@ func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 // 可选：gRPC VerifyToken 在 IncludeMetadata 时返回元数据（与 Claims 同源签发链）。
 func TestIntegration_VerifyToken_GRPC_IncludeMetadata(t *testing.T) {
 	ctx := context.Background()
-	tokenSvc, _ := newTestTokenStack(t)
+	tokens, _ := newTestTokenStack(t)
 
 	principal := &authentication.Principal{
 		UserID:          meta.FromUint64(42),
 		LoginIdentityID: meta.FromUint64(43),
 		TenantID:        meta.FromUint64(44),
 	}
-	pair, err := tokenSvc.IssueToken(ctx, principal)
+	pair, err := tokens.SessionEstablisher.EstablishSession(ctx, principal)
 	require.NoError(t, err)
 
-	grpcSrv := &authServiceServer{tokenSvc: tokenSvc}
+	grpcSrv := &authServiceServer{tokenVerifier: tokens.Verifier}
 	gresp, err := grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:     pair.AccessToken.Value,
 		IncludeMetadata: true,

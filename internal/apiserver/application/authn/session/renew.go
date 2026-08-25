@@ -11,7 +11,7 @@ import (
 
 // Renewal 编排会话续期（refresh token 轮换）。
 type Renewal struct {
-	tokenService tokenapp.TokenApplicationService
+	refresher tokenapp.Refresher
 }
 
 // Execute 使用 refresh token 续期并返回新的 token pair。
@@ -25,12 +25,12 @@ func (r *Renewal) Execute(ctx context.Context, refreshToken string) (*RenewResul
 		return nil, err
 	}
 
-	return r.tokenService.RefreshToken(ctx, refreshToken)
+	return r.refresher.RefreshToken(ctx, refreshToken)
 }
 
 func (r *Renewal) ensureReady() error {
-	if r == nil || r.tokenService == nil {
-		return perrors.WithCode(code.ErrInvalidArgument, "token service is not initialized")
+	if r == nil || r.refresher == nil {
+		return perrors.WithCode(code.ErrInvalidArgument, "token refresher is not initialized")
 	}
 	return nil
 }
