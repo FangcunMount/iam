@@ -321,6 +321,9 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"AuthZ resource catalog diagnostic:",
 		"'actions_json_valid', JSON_VALID(resource_row.actions)",
 		"WHERE resource_row.id = ${invalid_resource_id} AND resource_row.deleted_at IS NULL",
+		"AuthZ resource catalog identity mismatches:",
+		"NOT (catalog_row.stored_domain <=> catalog_row.expected_domain)",
+		"AuthZ resource catalog action-shape mismatches:",
 	} {
 		if !strings.Contains(cloneScript, token) {
 			t.Fatalf("Mac clone preflight script is missing %q", token)
