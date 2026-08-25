@@ -4,7 +4,7 @@
 
 ## 1. 当前结论
 
-截至 2026-08-26，生产库已验收 `version=27, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 最终运行代码 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 已部署并通过独立健康检查。`000019–000027` 的仓库事实、迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
+截至 2026-08-26，生产库已验收 `version=27, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 已部署并通过独立健康检查。`000019–000027` 的仓库事实、迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
 
 整体历史验收仍未完全关闭：完整镜像 digest 没有在本安全台账中单独固化，长期 RDS/宿主机备份策略以及 5.4 安全处置历史元数据仍有缺口。缺少的证据必须由对应 workflow 或运维记录产生，不能根据当前系统状态反推，也不能为了补记录再次清除 Refresh Token 或历史日志。
 
