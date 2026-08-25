@@ -188,6 +188,28 @@ preflight_status=$?
 set -e
 printf '%s\n' "$preflight_output"
 
+if [[ "$preflight_output" == *assignment_unknown_or_cross_tenant_role* ]]; then
+  assignment_diagnostic="$(clone_mysql "$clone_database" -e "
+    SELECT COALESCE(JSON_ARRAYAGG(JSON_OBJECT(
+      'assignment_id', CAST(assignment_row.id AS CHAR),
+      'assignment_tenant', assignment_row.tenant_id,
+      'subject_type', assignment_row.subject_type,
+      'role_id', CAST(assignment_row.role_id AS CHAR),
+      'role_exists', IF(role_row.id IS NULL, FALSE, TRUE),
+      'role_active', IF(role_row.id IS NULL OR role_row.deleted_at IS NOT NULL, FALSE, TRUE),
+      'role_tenant', role_row.tenant_id,
+      'role_name', role_row.name
+    )), JSON_ARRAY())
+    FROM authz_assignments AS assignment_row
+    LEFT JOIN authz_roles AS role_row ON role_row.id = assignment_row.role_id
+    WHERE assignment_row.deleted_at IS NULL
+      AND (role_row.id IS NULL
+        OR role_row.deleted_at IS NOT NULL
+        OR NOT (role_row.tenant_id <=> assignment_row.tenant_id));
+  ")"
+  echo "AuthZ assignment-role diagnostic (subject IDs omitted): ${assignment_diagnostic}"
+fi
+
 if [[ "$preflight_output" =~ resource_catalog_row_invalid_([0-9]+) ]]; then
   invalid_resource_id="${BASH_REMATCH[1]}"
   resource_diagnostic="$(clone_mysql "$clone_database" -e "
