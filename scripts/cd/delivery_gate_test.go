@@ -307,7 +307,6 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		`readonly clone_image="public.ecr.aws/docker/library/mysql:8.0"`,
 		`readonly clone_container="iam-authz-preflight-mysql"`,
 		`readonly clone_data_volume="iam-authz-preflight-mysql-data"`,
-		`readonly clone_secret_volume="iam-authz-preflight-mysql-secrets"`,
 		`readonly clone_database="iam_authz_preflight"`,
 		`--publish "127.0.0.1:${clone_port}:3306"`,
 		"DROP DATABASE IF EXISTS `iam_authz_preflight`",
@@ -315,6 +314,8 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"authz-cutover preflight",
 		"persistent Mac mini clone is available for diagnosis",
 		`docker --config "$DOCKER_CONFIG"`,
+		`--env "MYSQL_ROOT_PASSWORD=${IAM_AUTHZ_CLONE_MYSQL_PASSWORD}"`,
+		"persistent Mac mini clone MySQL did not become ready",
 	} {
 		if !strings.Contains(cloneScript, token) {
 			t.Fatalf("Mac clone preflight script is missing %q", token)
@@ -325,6 +326,8 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"authz-cutover apply",
 		"authz-cutover retire-legacy",
 		"RETIRE_LEGACY_AUTHZ_SCHEMA",
+		"MYSQL_ROOT_PASSWORD_FILE",
+		"clone_secret_volume",
 	} {
 		if strings.Contains(cloneScript, forbidden) {
 			t.Fatalf("Mac clone preflight script must not contain %q", forbidden)
