@@ -27,6 +27,9 @@ const (
 
 	// ErrRoleInheritanceAlreadyExists - 409: Role inheritance already exists.
 	ErrRoleInheritanceAlreadyExists = 103102
+
+	// ErrRoleInUse - 409: Role still has active authorization facts.
+	ErrRoleInUse = 103103
 )
 
 // Authz: 资源相关错误 (103200～103299).
@@ -39,6 +42,9 @@ const (
 
 	// ErrInvalidAction - 400: Invalid action for resource.
 	ErrInvalidAction = 103202
+
+	// ErrResourceInUse - 409: Resource still has active permission grants.
+	ErrResourceInUse = 103203
 )
 
 // Authz: 赋权相关错误 (103300～103399).
@@ -75,11 +81,13 @@ func registerAuthz() {
 	registerAuthzCode(ErrRoleNotFound, http.StatusNotFound, "Role not found")
 	registerAuthzCode(ErrRoleAlreadyExists, http.StatusConflict, "Role already exists")
 	registerAuthzCode(ErrRoleInheritanceAlreadyExists, http.StatusConflict, "Role inheritance already exists")
+	registerAuthzCode(ErrRoleInUse, http.StatusConflict, "Role is still in use")
 
 	// 资源相关错误
 	registerAuthzCode(ErrResourceNotFound, http.StatusNotFound, "Resource not found")
 	registerAuthzCode(ErrResourceAlreadyExists, http.StatusConflict, "Resource already exists")
 	registerAuthzCode(ErrInvalidAction, http.StatusBadRequest, "Invalid action for resource")
+	registerAuthzCode(ErrResourceInUse, http.StatusConflict, "Resource is still in use")
 
 	// 赋权相关错误
 	registerAuthzCode(ErrAssignmentNotFound, http.StatusNotFound, "Assignment not found")

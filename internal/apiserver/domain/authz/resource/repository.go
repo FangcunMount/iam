@@ -15,6 +15,8 @@ type Repository interface {
 	Delete(ctx context.Context, id ResourceID) error
 	// FindByID 根据ID获取资源
 	FindByID(ctx context.Context, id ResourceID) (*Resource, error)
+	// FindByIDForUpdate locks the resource aggregate until the surrounding transaction completes.
+	FindByIDForUpdate(ctx context.Context, id ResourceID) (*Resource, error)
 	// FindByKey 根据键获取资源
 	FindByKey(ctx context.Context, key string) (*Resource, error)
 	// List 列出资源（支持过滤和分页）

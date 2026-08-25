@@ -9,6 +9,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ResourceRepository Resource 仓储实现
@@ -54,12 +55,24 @@ func (r *ResourceRepository) Update(ctx context.Context, res *domain.Resource) e
 
 // FindByID 根据ID查找资源
 func (r *ResourceRepository) FindByID(ctx context.Context, id domain.ResourceID) (*domain.Resource, error) {
-	po, err := r.BaseRepository.FindByID(ctx, id.Uint64())
-	if err != nil {
+	return r.findByID(ctx, id, false)
+}
+
+func (r *ResourceRepository) FindByIDForUpdate(ctx context.Context, id domain.ResourceID) (*domain.Resource, error) {
+	return r.findByID(ctx, id, true)
+}
+
+func (r *ResourceRepository) findByID(ctx context.Context, id domain.ResourceID, lock bool) (*domain.Resource, error) {
+	var po ResourcePO
+	query := r.WithContext(ctx)
+	if lock && r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() != "sqlite" {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	if err := query.First(&po, id.Uint64()).Error; err != nil {
 		return nil, fmt.Errorf("failed to find resource: %w", err)
 	}
 
-	bo, err := r.mapper.ToBO(po)
+	bo, err := r.mapper.ToBO(&po)
 	if err != nil {
 		return nil, err
 	}

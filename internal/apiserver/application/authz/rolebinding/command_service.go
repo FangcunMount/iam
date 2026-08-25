@@ -47,7 +47,7 @@ func (s *CommandService) Grant(ctx context.Context, cmd GrantCommand) (*bindingD
 		if err := txValidator.CheckSubjectExists(txCtx, cmd.SubjectType, cmd.SubjectID, cmd.TenantID); err != nil {
 			return err
 		}
-		role, err := tx.Roles.FindByID(txCtx, cmd.RoleID)
+		role, err := tx.Roles.FindByIDForUpdate(txCtx, cmd.RoleID)
 		if err != nil {
 			return errors.Wrap(err, "获取角色失败")
 		}

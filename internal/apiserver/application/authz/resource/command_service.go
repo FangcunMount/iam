@@ -72,7 +72,7 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 	var updated *resourceDomain.Resource
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
 		var err error
-		updated, err = tx.Resources.FindByID(txCtx, cmd.ID)
+		updated, err = tx.Resources.FindByIDForUpdate(txCtx, cmd.ID)
 		if err != nil {
 			return err
 		}
@@ -92,14 +92,26 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 		if cmd.Description != nil {
 			updated.Description = *cmd.Description
 		}
-		if err := tx.Resources.Update(txCtx, updated); err != nil {
-			return err
-		}
-		version, err := tx.PolicyVersions.Increment(txCtx, cmd.TenantID, cmd.ChangedBy, "authorization resource updated")
+		grants, err := tx.PermissionGrants.ListActiveByResource(txCtx, cmd.ID)
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		if err := authzshared.ValidateResourceDependencies(*updated, grants); err != nil {
+			return err
+		}
+		if err := tx.Resources.Update(txCtx, updated); err != nil {
+			return err
+		}
+		for _, tenantID := range authzshared.AffectedResourceTenantIDs(cmd.TenantID, grants) {
+			version, err := tx.PolicyVersions.Increment(txCtx, tenantID, cmd.ChangedBy, "authorization resource updated")
+			if err != nil {
+				return err
+			}
+			if err := authzshared.StagePolicyVersionChanged(txCtx, tx.Events, tenantID, version); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -116,6 +128,16 @@ func (s *ResourceCatalog) DeleteResource(ctx context.Context, cmd DeleteResource
 		return err
 	}
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
+		if _, err := tx.Resources.FindByIDForUpdate(txCtx, cmd.ID); err != nil {
+			return err
+		}
+		grants, err := tx.PermissionGrants.ListActiveByResource(txCtx, cmd.ID)
+		if err != nil {
+			return err
+		}
+		if err := authzshared.EnsureResourceUnused(grants); err != nil {
+			return err
+		}
 		if err := tx.Resources.Delete(txCtx, cmd.ID); err != nil {
 			return err
 		}

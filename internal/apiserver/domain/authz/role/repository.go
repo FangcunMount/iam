@@ -17,6 +17,8 @@ type Repository interface {
 	Delete(ctx context.Context, id meta.ID) error
 	// FindByID 根据ID获取角色
 	FindByID(ctx context.Context, id meta.ID) (*Role, error)
+	// FindByIDForUpdate locks the role aggregate until the surrounding transaction completes.
+	FindByIDForUpdate(ctx context.Context, id meta.ID) (*Role, error)
 	// FindByName 根据名称和租户获取角色
 	FindByName(ctx context.Context, tenantID, name string) (*Role, error)
 	// List 列出角色

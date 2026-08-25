@@ -23,6 +23,9 @@ func (r *roleRepoStub) Delete(ctx context.Context, id meta.ID) error    { return
 func (r *roleRepoStub) FindByID(ctx context.Context, id meta.ID) (*role.Role, error) {
 	return r.found, r.err
 }
+func (r *roleRepoStub) FindByIDForUpdate(ctx context.Context, id meta.ID) (*role.Role, error) {
+	return r.found, r.err
+}
 func (r *roleRepoStub) FindByName(ctx context.Context, tenantID, name string) (*role.Role, error) {
 	return r.found, r.err
 }

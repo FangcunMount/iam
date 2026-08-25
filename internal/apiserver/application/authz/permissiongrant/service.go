@@ -53,14 +53,14 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 	}
 	var created domain.Grant
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		role, err := tx.Roles.FindByID(txCtx, cmd.RoleID)
+		role, err := tx.Roles.FindByIDForUpdate(txCtx, cmd.RoleID)
 		if err != nil {
 			return err
 		}
 		if !role.BelongsToTenant(cmd.TenantID) {
 			return perrors.WithCode(code.ErrInvalidArgument, "role does not belong to tenant")
 		}
-		catalogResource, err := tx.Resources.FindByID(txCtx, cmd.ResourceID)
+		catalogResource, err := tx.Resources.FindByIDForUpdate(txCtx, cmd.ResourceID)
 		if err != nil {
 			return err
 		}
