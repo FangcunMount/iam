@@ -25,16 +25,16 @@ type RouteAuthorizationRuntime interface {
 // JWTAuthMiddleware JWT 认证中间件
 // 使用新的认证模块来验证令牌
 type JWTAuthMiddleware struct {
-	tokenService token.TokenApplicationService
-	routeAuth    RouteAuthorizationRuntime
+	verifier  token.Verifier
+	routeAuth RouteAuthorizationRuntime
 }
 
 // NewJWTAuthMiddleware 创建 JWT 认证中间件。
 // routeAuth 可为 nil（仅 JWT 校验，不做角色/权限判定）。
-func NewJWTAuthMiddleware(tokenService token.TokenApplicationService, routeAuth RouteAuthorizationRuntime) *JWTAuthMiddleware {
+func NewJWTAuthMiddleware(verifier token.Verifier, routeAuth RouteAuthorizationRuntime) *JWTAuthMiddleware {
 	return &JWTAuthMiddleware{
-		tokenService: tokenService,
-		routeAuth:    routeAuth,
+		verifier:  verifier,
+		routeAuth: routeAuth,
 	}
 }
 
@@ -63,7 +63,7 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 		// 不记录完整 token，仅在中央验证处输出必要信息
 
 		// 验证令牌
-		resp, err := m.tokenService.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
+		resp, err := m.verifier.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
 			AccessToken: tokenValue,
 		})
 		if err != nil {
