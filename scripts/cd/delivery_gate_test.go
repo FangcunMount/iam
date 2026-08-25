@@ -316,6 +316,7 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		`docker --config "$DOCKER_CONFIG"`,
 		`--env "MYSQL_ROOT_PASSWORD=${IAM_AUTHZ_CLONE_MYSQL_PASSWORD}"`,
 		"persistent Mac mini clone MySQL did not become ready",
+		"SELECT COALESCE(MAX(version), 0), COALESCE(MAX(dirty + 0), 0), COUNT(*)",
 	} {
 		if !strings.Contains(cloneScript, token) {
 			t.Fatalf("Mac clone preflight script is missing %q", token)
@@ -328,6 +329,7 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"RETIRE_LEGACY_AUTHZ_SCHEMA",
 		"MYSQL_ROOT_PASSWORD_FILE",
 		"clone_secret_volume",
+		"SELECT CONCAT(COALESCE(MAX(version)",
 	} {
 		if strings.Contains(cloneScript, forbidden) {
 			t.Fatalf("Mac clone preflight script must not contain %q", forbidden)
