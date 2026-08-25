@@ -171,7 +171,7 @@ RefreshToken；
 JWKS。
 ```
 
-AuthN 不负责 Role、Permission、RoleBinding，不负责 ProfileLink 关系治理，也不拥有外部身份源配置。
+AuthN 不负责 Role、Assignment、RoleInheritance 或 PermissionGrant，不负责 ProfileLink 关系治理，也不拥有外部身份源配置。
 
 详细文档见 [AuthN](../02-业务模块/02-AuthN/README.md)。
 

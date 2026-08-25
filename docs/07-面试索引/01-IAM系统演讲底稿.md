@@ -134,7 +134,7 @@
 
 ### 3.4 案例二：从可信 User 到资源授权和多实例收敛（约 3 分钟）
 
-**一句话目标：** AuthZ 用 MySQL 保存授权事实，用 Casbin 执行高频判定，用 Outbox 和事件促进多实例投影收敛。
+**一句话目标：** AuthZ 用 MySQL 保存授权事实，用原生不可变快照执行高频判定，用 Outbox 和事件促进多实例投影收敛。
 
 **通稿：**
 
@@ -144,9 +144,9 @@
 >
 > AuthZ 采用 RBAC 加对象属性条件。Role 聚合稳定能力，PermissionGrant 表达对 Resource 的单一 Action，ConstraintSet 限定对象属性；组织归属等关系仍由拥有事实的业务模块判断。这样既不把每个对象编码进角色名，也不把业务数据库复制到 IAM。
 >
-> 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有进程内 Casbin Enforcer。但 Casbin 不能成为第二份授权真相，MySQL 中的 Role、Permission、Binding、Casbin facts 和 PolicyVersion 才是权威事实。
+> 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有原生不可变授权快照。MySQL 中的 Assignment、RoleInheritance、PermissionGrant、Resource Schema 和 PolicyVersion 是权威事实；Casbin 只在快照内计算直接及继承 Role，既不保存也不执行权限规则。
 >
-> 当 Grant、Revoke、Bind 或 Unbind 发生时，`PolicyChangeCommitter` 在同一个 MySQL 事务中写入管理事实、Casbin facts、PolicyVersion 和 Outbox event。事务提交后，当前实例直接 reload；Outbox relay 在 EventBus 启用时把版本事件发到 NSQ，其他实例用独立 ephemeral channel 订阅，再从 MySQL 重新加载。
+> 当 Grant、Revoke、Assignment 或 RoleInheritance 发生变化时，AuthZ UnitOfWork 在同一个 MySQL 事务中写入管理事实、PolicyVersion 和 Outbox event。事务提交后，当前实例直接 reload；Outbox relay 在 EventBus 启用时把版本事件发到 NSQ，其他实例用独立 ephemeral channel 订阅，再从 MySQL 重新加载。
 >
 > Outbox 解决的是“数据库事实已经提交，但进程在 publish 前崩溃”这个双写窗口。它保证业务提交和发布意图原子，但 MQ 成功后如果 relay 在标记 published 之前崩溃，事件还会重复发送。因此当前是 at-least-once，不是 exactly-once，消费者必须幂等。
 >
@@ -294,9 +294,9 @@
 
 > Access Token 是短期访问声明，适合随请求传递并做签名验证；Refresh Token 是取得新 token pair 的高价值续期能力；Session 是服务端对整段登录期的在线状态。三者分开后，既能保留 JWT 本地验签的效率，又能通过 Session 和 Refresh 状态支持撤销与续期控制。
 
-### 8.5 为什么 Casbin 不是授权事实源？
+### 8.5 为什么 Casbin 只保留为角色图计算器？
 
-> Casbin 擅长高频匹配，但不负责完整表达 Resource Catalog、授权人、变更原因和 PolicyVersion 等管理语义。因此 MySQL 保存授权管理事实和 Casbin facts，进程内 Enforcer 只是可从 MySQL 重建的执行投影。事件也只是让投影 reload 的协调信号，不是策略真相。
+> 最终授权不仅要解析角色，还要校验 Resource Schema、执行类型化 ConstraintSet、返回 matched Grant 和实际加载版本。MySQL 因此保存 Assignment、RoleInheritance、PermissionGrant 等管理事实，IAM 原生 runtime 执行权限判定；Casbin 只复用 domain-aware 角色继承图计算。事件也只是让快照 reload 的协调信号，不是策略真相。
 
 ### 8.6 有了 MQ，为什么还需要 Outbox？
 
@@ -326,7 +326,7 @@
 | `ExternalIdentity` 就是已绑定的 IAM 外部账户 | 它是 IDP 产出的请求级已验证 proof，不持久化，不拥有 User/LoginIdentity/Session；绑定关系仍由 AuthN LoginIdentity 表达 |
 | AuthN 认证成功后直接调用 AuthZ | 请求通过 Identity User 锚点对齐认证上下文和 AuthZ Subject |
 | JWT 签名正确就代表当前登录有效 | 本地 JWKS 验签不检查 Session、撤销标记和当前身份状态 |
-| Casbin 是权限真相 | MySQL 授权事实是真相，Casbin Enforcer 是可重建执行投影 |
+| Casbin 是权限真相或完整执行引擎 | MySQL 授权事实是真相，IAM 原生快照执行权限规则，Casbin 只计算内存角色图 |
 | Outbox 保证 exactly-once | Outbox 保证业务提交与发布意图原子，投递倾向 at-least-once |
 | 授权变更在所有实例立即强一致 | 当前实例直接 reload，其他实例通过事件最终收敛，没有全实例 barrier |
 | Suggest 搜到了就代表可读取详情 | Suggest 只返回当前查询范围内的脱敏候选 |
@@ -341,7 +341,7 @@
 >
 > 项目按变化原因拆成五个模块：Identity 管内部身份事实，AuthN 管登录证明、Session 和 Token，AuthZ 管资源授权决策；IDP 隔离外部 provider，Suggest 派生可见、脱敏的 Profile 搜索读模型。
 >
-> 工程上，MySQL 保存业务事实，Redis 承载在线状态，Casbin、JWKS 快照和 Suggest 索引都是可重建投影。AuthZ 策略通过事务、Outbox 和可选 NSQ 促进多实例收敛，语义是 at-least-once，不是 exactly-once。
+> 工程上，MySQL 保存业务事实，Redis 承载在线状态，AuthZ 原生快照、JWKS 快照和 Suggest 索引都是可重建投影。AuthZ 策略通过事务、Outbox 和可选 NSQ 促进多实例收敛，语义是 at-least-once，不是 exactly-once。
 >
 > 它的价值不在于接口数量，而在于为身份、认证、授权和投影建立清晰的事实源、失败语义和验证边界。
 

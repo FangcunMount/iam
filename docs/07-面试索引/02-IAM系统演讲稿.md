@@ -289,7 +289,7 @@ Application / Domain
 - AuthN 不直接读取 Identity User Repository，只通过 `UserStatusReader` 判断 User 状态；
 - AuthZ 不直接读取 Identity User Repository，只通过 `UserResolver` 校验 User Subject；
 - Identity 撤销用户时不需要操作 AuthN 的 Session Repository，只需要调用 `SessionRevoker`；
-- Suggest 不需要访问 AuthZ 内部的 RoleBinding 和 Casbin Enforcer，只需要获得当前查询范围。
+- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或原生快照实现，只需要窄的 route/role 查询端口来构造自己的查询范围。
 
 AuthN 和 AuthZ 也不需要建立领域模型直连：
 
@@ -332,7 +332,7 @@ cmd / app
   -> 注册优雅关闭回调
 ```
 
-Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、Casbin Runtime 和 Suggest Runtime 装配给对应模块，但不执行认证、授权或身份关系等业务用例。
+Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部角色图使用 Casbin role manager）和 Suggest Runtime 装配给对应模块，但不执行认证、授权或身份关系等业务用例。
 
 > Process 管理进程生命周期，Container 只负责组装系统；它们都不应该成为新的业务模块。
 

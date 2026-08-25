@@ -15,7 +15,7 @@ REST 适合浏览器、管理端和跨语言公开接入；gRPC 适合可信服�
 
 ## 2. REST 契约闭环
 
-OpenAPI 3.1 分模块保存于 `api/rest/*.v2.yaml`。一次 REST 变更至少检查：
+OpenAPI 3.1 分模块保存于 `api/rest/*.v2.yaml` 与 `api/rest/authz.v3.yaml`。一次 REST 变更至少检查：
 
 ```text
 OpenAPI path + schema + security
@@ -35,7 +35,8 @@ Router 在运行时根据 ModuleState 和 middleware availability 注册，因�
 Proto 位于：
 
 ```text
-api/grpc/iam/{authn,authz,identity,idp}/v2/*.proto
+api/grpc/iam/{authn,identity,idp}/v2/*.proto
+api/grpc/iam/authz/v3/*.proto
 ```
 
 `container.grpcRegistrations()` 只收集 available module 的 registration，`transport/grpc.Registry` 完成注册后才将服务标为 SERVING。`proto_contract_test.go` 检查 proto service 与 Go runtime registration 的对应关系；模块级 alignment test 进一步防止“proto 声明了 service，但 service wrapper 没有真正 Register”。
@@ -70,7 +71,7 @@ REST protected route 使用 Bearer user token；gRPC 面向服务间调用，可
 
 ## 6. 版本与兼容策略
 
-路径/package 中的 v2 是合同版本，不代表所有内部实现都叫 V2。兼容应以外部可观察行为判断：字段、默认值、错误 code、排序/分页、幂等和副作用都属于合同。
+路径/package 中的版本号是合同版本，不代表所有内部实现使用相同编号。AuthZ 已仅保留 v3，其他现有服务仍主要使用 v2。兼容应以外部可观察行为判断：字段、默认值、错误 code、排序/分页、幂等和副作用都属于合同。
 
 常见非兼容变更：
 
