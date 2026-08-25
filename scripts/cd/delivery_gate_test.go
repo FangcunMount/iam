@@ -109,6 +109,117 @@ func TestRuntimeProvenanceContracts(t *testing.T) {
 	}
 }
 
+func TestAuthZCutoverCanPauseOnlyAutomaticProductionDeploys(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "cd.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(body)
+	if count := strings.Count(workflow, "vars.AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED != 'true'"); count != 2 {
+		t.Fatalf("automatic deploy pause guard count = %d, want 2", count)
+	}
+	if !strings.Contains(workflow, "github.event_name == 'workflow_dispatch' ||") {
+		t.Fatal("manual production deploy path must remain available during the cutover")
+	}
+}
+
+func TestAuthZProductionCutoverWorkflowKeepsTheMaintenanceOrder(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "authz-cutover.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(body)
+	ordered := []string{
+		"Validate immutable release evidence",
+		"Stop IAM authorization consumers",
+		"Create verified maintenance-window database backup",
+		"Recheck RoleBinding migration prerequisite",
+		"Convert policies and retire legacy authorization schema",
+		"Verify final database status",
+	}
+	position := -1
+	for _, token := range ordered {
+		next := strings.Index(workflow, token)
+		if next <= position {
+			t.Fatalf("cutover workflow step %q is missing or out of order", token)
+		}
+		position = next
+	}
+	for _, token := range []string{
+		"environment:\n      name: production",
+		"group: iam-production-controlled-database-operation",
+		"CUTOVER_AUTHZ_V3",
+		"expected_iam_sha",
+		"expected_qs_sha",
+		"qs_stop_run_id",
+	} {
+		if !strings.Contains(workflow, token) {
+			t.Fatalf("cutover workflow is missing %q", token)
+		}
+	}
+}
+
+func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(path string) string {
+		t.Helper()
+		body, readErr := os.ReadFile(filepath.Join(repoRoot, path))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		return string(body)
+	}
+	consumerControl := read("scripts/cd/authz-consumer-control.sh")
+	for _, token := range []string{
+		"--filter 'name=^/iam-apiserver$'",
+		"${RELEASE_SHA}.iam-containers",
+		"run_privileged docker stop \"$container_id\"",
+	} {
+		if !strings.Contains(consumerControl, token) {
+			t.Fatalf("consumer control is missing %q", token)
+		}
+	}
+
+	databaseCutover := read("scripts/cd/authz-database-cutover.sh")
+	ordered := []string{
+		"01-migrate-additive",
+		"02-preflight",
+		"03-apply",
+		"04-verify",
+		"05-evidence",
+		"06-retire-legacy",
+	}
+	position := -1
+	for _, token := range ordered {
+		next := strings.Index(databaseCutover, token)
+		if next <= position {
+			t.Fatalf("database cutover step %q is missing or out of order", token)
+		}
+		position = next
+	}
+	for _, token := range []string{
+		"CUTOVER_AUTHZ_V3",
+		"iam-apiserver must be stopped",
+		"/tmp/iam-authz-cutover-${IAM_AUTHZ_RELEASE_SHA}/iam-maintenance",
+		"sha256sum -c checksums.sha256",
+	} {
+		if !strings.Contains(databaseCutover, token) {
+			t.Fatalf("database cutover is missing %q", token)
+		}
+	}
+}
+
 func TestRuntimeProvenanceSHAValidationMatrix(t *testing.T) {
 	tests := []struct {
 		name  string
