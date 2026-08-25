@@ -2576,6 +2576,136 @@
                 }
             }
         },
+        "/v3/authz/role-inheritances": {
+            "get": {
+                "description": "查询当前租户中的有效角色继承，可按获得能力的角色过滤",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Role-Inheritances"
+                ],
+                "summary": "查询角色继承",
+                "operationId": "listRoleInheritances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Receiving role ID",
+                        "name": "role_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "当前角色继承目标角色的全部有效能力；循环关系会被拒绝",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Role-Inheritances"
+                ],
+                "summary": "创建角色继承",
+                "operationId": "createRoleInheritance",
+                "parameters": [
+                    {
+                        "description": "Role inheritance",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleInheritanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/authz/role-inheritances/{id}": {
+            "delete": {
+                "description": "按继承关系 ID 撤销当前租户中的有效角色继承",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authorization-Role-Inheritances"
+                ],
+                "summary": "撤销角色继承",
+                "operationId": "revokeRoleInheritance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role inheritance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Revoke",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRoleInheritanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v3/authz/roles": {
             "get": {
                 "produces": [
@@ -3685,6 +3815,21 @@
                 }
             }
         },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleInheritanceRequest": {
+            "type": "object",
+            "required": [
+                "inherited_role_id",
+                "role_id"
+            ],
+            "properties": {
+                "inherited_role_id": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest": {
             "type": "object",
             "required": [
@@ -3861,6 +4006,40 @@
                     "enum": [
                         "user"
                     ]
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRoleInheritanceRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "granted_at": {
+                    "type": "string"
+                },
+                "granted_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "inherited_role_id": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
                 }
             }
         },

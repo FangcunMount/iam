@@ -548,6 +548,16 @@ definitions:
     - key
     - type
     type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleInheritanceRequest:
+    properties:
+      inherited_role_id:
+        type: string
+      role_id:
+        type: string
+    required:
+    - inherited_role_id
+    - role_id
+    type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleRequest:
     properties:
       description:
@@ -666,6 +676,28 @@ definitions:
     - role_id
     - subject_id
     - subject_type
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRoleInheritanceRequest:
+    properties:
+      reason:
+        type: string
+    type: object
+  github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse:
+    properties:
+      active:
+        type: boolean
+      granted_at:
+        type: string
+      granted_by:
+        type: string
+      id:
+        type: string
+      inherited_role_id:
+        type: string
+      role_id:
+        type: string
+      tenant_id:
+        type: string
     type: object
   github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse:
     properties:
@@ -2613,6 +2645,86 @@ paths:
       summary: 验证资源动作
       tags:
       - Authorization-Resources
+  /v3/authz/role-inheritances:
+    get:
+      description: 查询当前租户中的有效角色继承，可按获得能力的角色过滤
+      operationId: listRoleInheritances
+      parameters:
+      - description: Receiving role ID
+        in: query
+        name: role_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse'
+                  type: array
+              type: object
+      summary: 查询角色继承
+      tags:
+      - Authorization-Role-Inheritances
+    post:
+      consumes:
+      - application/json
+      description: 当前角色继承目标角色的全部有效能力；循环关系会被拒绝
+      operationId: createRoleInheritance
+      parameters:
+      - description: Role inheritance
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.CreateRoleInheritanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse'
+              type: object
+      summary: 创建角色继承
+      tags:
+      - Authorization-Role-Inheritances
+  /v3/authz/role-inheritances/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 按继承关系 ID 撤销当前租户中的有效角色继承
+      operationId: revokeRoleInheritance
+      parameters:
+      - description: Role inheritance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Revoke
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RevokeRoleInheritanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+      summary: 撤销角色继承
+      tags:
+      - Authorization-Role-Inheritances
   /v3/authz/roles:
     get:
       parameters:

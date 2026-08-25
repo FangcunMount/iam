@@ -6,20 +6,15 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
+	authztestutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/testutil"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	permissiongrantDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	permissiongrantRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/permissiongrant"
-	policyRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/policy"
-	resourceRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/resource"
-	authzUOW "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestUpdateResourceRejectsCandidateThatInvalidatesActiveGrant(t *testing.T) {
@@ -39,9 +34,7 @@ func TestUpdateResourceRejectsCandidateThatInvalidatesActiveGrant(t *testing.T) 
 	persisted, err := resources.FindByID(context.Background(), resource.ID)
 	require.NoError(t, err)
 	require.True(t, persisted.HasAction("retry"))
-	var versionCount int64
-	require.NoError(t, db.Model(&policyRepo.PolicyVersionPO{}).Count(&versionCount).Error)
-	require.Zero(t, versionCount)
+	require.Zero(t, db.PolicyVersionCount(t))
 }
 
 func TestUpdateResourceVersionsEveryTenantWithAnActiveGrant(t *testing.T) {
@@ -60,17 +53,12 @@ func TestUpdateResourceVersionsEveryTenantWithAnActiveGrant(t *testing.T) {
 	require.Len(t, stager.events, 3)
 }
 
-func setupResourceCatalog(t *testing.T) (*gorm.DB, *resourceApp.ResourceCatalog, resourceDomain.Repository, permissiongrantDomain.Repository, *recordingStager) {
+func setupResourceCatalog(t *testing.T) (*authztestutil.Fixture, *resourceApp.ResourceCatalog, resourceDomain.Repository, permissiongrantDomain.Repository, *recordingStager) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&resourceRepo.ResourcePO{}, &permissiongrantRepo.GrantPO{}, &policyRepo.PolicyVersionPO{}))
-	resources := resourceRepo.NewResourceRepository(db)
-	grants := permissiongrantRepo.NewRepository(db)
 	stager := &recordingStager{}
-	uow := authzUOW.NewUnitOfWork(db, nil, stager)
-	catalog := resourceApp.NewResourceCatalog(resourceDomain.NewValidator(resources), uow, nil)
-	return db, catalog, resources, grants, stager
+	fixture := authztestutil.NewFixture(t, stager)
+	catalog := resourceApp.NewResourceCatalog(resourceDomain.NewValidator(fixture.Resources), fixture.UnitOfWork, nil)
+	return fixture, catalog, fixture.Resources, fixture.PermissionGrants, stager
 }
 
 func seedAssessmentResource(t *testing.T, repository resourceDomain.Repository) resourceDomain.Resource {

@@ -49,6 +49,9 @@ func TestRouterRouteMatrixIncludesKeyPaths(t *testing.T) {
 		{http.MethodGet, "/api/v3/authz/roles"},
 		{http.MethodPost, "/api/v3/authz/grants"},
 		{http.MethodDelete, "/api/v3/authz/grants/:id"},
+		{http.MethodPost, "/api/v3/authz/role-inheritances"},
+		{http.MethodGet, "/api/v3/authz/role-inheritances"},
+		{http.MethodDelete, "/api/v3/authz/role-inheritances/:id"},
 		{http.MethodGet, "/api/v2/identity/me"},
 		{http.MethodGet, "/api/v2/identity/profiles/:id"},
 		{http.MethodGet, "/api/v2/identity/profile-links"},
@@ -106,6 +109,7 @@ func routeMatrixDeps() Deps {
 		RoleHandler:            authzhandler.NewRoleHandler(nil, nil),
 		RoleBindingHandler:     authzhandler.NewRoleBindingHandler(nil, nil),
 		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
+		RoleInheritanceHandler: authzhandler.NewRoleInheritanceHandler(nil),
 		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
 		RouteAuthorization:     casbinStub{},
 	}

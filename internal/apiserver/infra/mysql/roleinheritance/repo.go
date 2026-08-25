@@ -2,6 +2,7 @@ package roleinheritance
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -35,12 +36,25 @@ func (r *Repository) Create(ctx context.Context, inheritance *domain.Inheritance
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 				Table("authz_roles").
 				Where("tenant_id = ? AND deleted_at IS NULL", inheritance.TenantIDString()).
+				Order("id ASC").
 				Pluck("id", &roleIDs).Error; err != nil {
 				return err
 			}
+			foundRole, foundInheritedRole := false, false
+			for _, roleID := range roleIDs {
+				foundRole = foundRole || roleID == inheritance.RoleID.Uint64()
+				foundInheritedRole = foundInheritedRole || roleID == inheritance.InheritedRoleID.Uint64()
+			}
+			if !foundRole || !foundInheritedRole {
+				return perrors.WithCode(code.ErrInvalidArgument, "role inheritance references an unknown or cross-tenant role")
+			}
 		}
 		var rows []*InheritancePO
-		if err := tx.Where("tenant_id = ? AND revoked_at IS NULL", inheritance.TenantIDString()).Find(&rows).Error; err != nil {
+		query := tx.Where("tenant_id = ? AND revoked_at IS NULL", inheritance.TenantIDString()).Order("id ASC")
+		if tx.Dialector != nil && tx.Dialector.Name() != "sqlite" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		if err := query.Find(&rows).Error; err != nil {
 			return err
 		}
 		existing := make([]*domain.Inheritance, 0, len(rows))
@@ -69,14 +83,21 @@ func (r *Repository) Create(ctx context.Context, inheritance *domain.Inheritance
 
 func (r *Repository) Revoke(ctx context.Context, id meta.ID) error {
 	now := time.Now()
-	return r.WithContext(ctx).Model(&InheritancePO{}).
+	result := r.WithContext(ctx).Model(&InheritancePO{}).
 		Where("id = ? AND revoked_at IS NULL", id.Uint64()).
 		Updates(map[string]any{
 			"revoked_at": now,
 			"updated_at": now,
 			"updated_by": mysql.UserIDOrZero(ctx),
 			"version":    gorm.Expr("version + 1"),
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return fmt.Errorf("role inheritance is not active: %w", gorm.ErrRecordNotFound)
+	}
+	return nil
 }
 
 func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.Inheritance, error) {

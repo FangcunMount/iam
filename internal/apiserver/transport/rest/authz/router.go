@@ -12,6 +12,7 @@ type Dependencies struct {
 	RoleHandler               *handler.RoleHandler
 	RoleBindingHandler        *handler.RoleBindingHandler
 	PermissionGrantHandler    *handler.PermissionGrantHandler
+	RoleInheritanceHandler    *handler.RoleInheritanceHandler
 	ResourceHandler           *handler.ResourceHandler
 	AuthMiddleware            gin.HandlerFunc
 	PermissionOrPlatformAdmin func(resource, action string) gin.HandlerFunc
@@ -44,6 +45,12 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		roles.GET("/:id/grants", deps.PermissionOrPlatformAdmin(authzapp.ResourcePolicies, authzapp.ActionRead), deps.PermissionGrantHandler.ListRoleGrants)
 		g.POST("/grants", deps.PermissionOrPlatformAdmin(authzapp.ResourcePolicies, authzapp.ActionWrite), deps.PermissionGrantHandler.CreateGrant)
 		g.DELETE("/grants/:id", deps.PermissionOrPlatformAdmin(authzapp.ResourcePolicies, authzapp.ActionDelete), deps.PermissionGrantHandler.RevokeGrant)
+	}
+	if deps.RoleInheritanceHandler != nil {
+		inheritances := g.Group("/role-inheritances")
+		inheritances.POST("", deps.PermissionOrPlatformAdmin(authzapp.ResourceRoles, authzapp.ActionGrant), deps.RoleInheritanceHandler.Create)
+		inheritances.GET("", deps.PermissionOrPlatformAdmin(authzapp.ResourceRoles, authzapp.ActionRead), deps.RoleInheritanceHandler.List)
+		inheritances.DELETE("/:id", deps.PermissionOrPlatformAdmin(authzapp.ResourceRoles, authzapp.ActionRevoke), deps.RoleInheritanceHandler.Revoke)
 	}
 
 	if deps.RoleBindingHandler != nil {

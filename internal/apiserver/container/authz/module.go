@@ -10,6 +10,7 @@ import (
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
 	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	roleInheritanceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/roleinheritance"
 	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
 	assignmentConstraints "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/assignmentconstraints"
 	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
@@ -26,6 +27,7 @@ type AuthzModule struct {
 	roleCatalog                 roleApp.Catalog
 	roleDirectory               roleApp.Directory
 	permissionGrantService      *permissionGrantApp.Service
+	roleInheritanceService      *roleInheritanceApp.Service
 	roleBindingCommands         bindingApp.Commands
 	roleBindingDirectory        bindingApp.Directory
 	authorizationChecker        *authorizationApp.NativeChecker
@@ -83,6 +85,7 @@ func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 		RoleCatalog:                 m.roleCatalog,
 		RoleDirectory:               m.roleDirectory,
 		PermissionGrantService:      m.permissionGrantService,
+		RoleInheritanceService:      m.roleInheritanceService,
 		RoleBindingCommands:         m.roleBindingCommands,
 		RoleBindingDirectory:        m.roleBindingDirectory,
 		RouteAuthorization:          m.routeAuthorization,
