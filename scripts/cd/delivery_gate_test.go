@@ -257,7 +257,7 @@ func TestAuthZProductionCutoverScriptsAreExactAndFailClosed(t *testing.T) {
 	}
 }
 
-func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) {
+func TestAuthZBackupCloneValidationIsMacLocalAndProductionIsolated(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -274,6 +274,8 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 	workflow := read(".github/workflows/authz-backup-clone-preflight.yml")
 	for _, token := range []string{
 		"PREFLIGHT_AUTHZ_BACKUP_CLONE",
+		"REHEARSE_AUTHZ_BACKUP_CLONE",
+		"full_rehearsal",
 		"group: qlume",
 		"labels: [self-hosted, macOS, ARM64]",
 		"vars.AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED",
@@ -285,6 +287,8 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"DOCKER_CONFIG=${docker_config}",
 		"secrets.IAM_AUTHZ_CLONE_MYSQL_PASSWORD",
 		"scripts/cd/authz-mac-clone-preflight.sh",
+		"actions/upload-artifact@v6",
+		"authz-clone-rehearsal-${{ env.IAM_AUTHZ_RELEASE_SHA }}",
 	} {
 		if !strings.Contains(workflow, token) {
 			t.Fatalf("backup clone workflow is missing %q", token)
@@ -304,6 +308,9 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 
 	cloneScript := read("scripts/cd/authz-mac-clone-preflight.sh")
 	for _, token := range []string{
+		`expected_confirmation="PREFLIGHT_AUTHZ_BACKUP_CLONE"`,
+		`expected_confirmation="REHEARSE_AUTHZ_BACKUP_CLONE"`,
+		`IAM_AUTHZ_CLONE_VALIDATION_MODE" = "full_rehearsal`,
 		`readonly clone_image="public.ecr.aws/docker/library/mysql:8.0"`,
 		`readonly clone_container="iam-authz-preflight-mysql"`,
 		`readonly clone_data_volume="iam-authz-preflight-mysql-data"`,
@@ -330,6 +337,18 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 		"AuthZ resource catalog identity mismatches:",
 		"NOT (catalog_row.stored_domain <=> catalog_row.expected_domain)",
 		"AuthZ resource catalog action-shape mismatches:",
+		"authz-cutover apply",
+		"authz-cutover verify",
+		"authz-cutover evidence",
+		"authz-cutover retire-legacy",
+		"--confirm=APPLY_AUTHZ_CUTOVER",
+		"--confirm=RETIRE_LEGACY_AUTHZ_SCHEMA",
+		"schema_version=27",
+		"casbin_rule_absent=true",
+		"scope_kinds_absent=true",
+		"information_schema.tables",
+		"information_schema.columns",
+		"shasum -a 256 -c checksums.sha256",
 	} {
 		if !strings.Contains(cloneScript, token) {
 			t.Fatalf("Mac clone preflight script is missing %q", token)
@@ -337,9 +356,6 @@ func TestAuthZBackupClonePreflightIsMacLocalAndProductionReadOnly(t *testing.T) 
 	}
 	for _, forbidden := range []string{
 		"docker volume rm",
-		"authz-cutover apply",
-		"authz-cutover retire-legacy",
-		"RETIRE_LEGACY_AUTHZ_SCHEMA",
 		"MYSQL_ROOT_PASSWORD_FILE",
 		"clone_secret_volume",
 		"SELECT CONCAT(COALESCE(MAX(version)",

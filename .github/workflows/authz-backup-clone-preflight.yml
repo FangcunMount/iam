@@ -1,4 +1,4 @@
-name: AuthZ Backup Clone Preflight
+name: AuthZ Backup Clone Validation
 
 on:
   workflow_dispatch:
@@ -11,8 +11,16 @@ on:
         description: Exact verified production backup filename on serverB
         required: true
         type: string
+      validation_mode:
+        description: Preflight only, or the complete destructive chain on the isolated clone
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - full_rehearsal
       confirmation:
-        description: Type PREFLIGHT_AUTHZ_BACKUP_CLONE
+        description: Type PREFLIGHT_AUTHZ_BACKUP_CLONE or REHEARSE_AUTHZ_BACKUP_CLONE
         required: true
         type: string
 
@@ -35,6 +43,7 @@ jobs:
     env:
       IAM_AUTHZ_RELEASE_SHA: ${{ github.event.inputs.expected_iam_sha }}
       IAM_AUTHZ_BACKUP_NAME: ${{ github.event.inputs.backup_name }}
+      IAM_AUTHZ_CLONE_VALIDATION_MODE: ${{ github.event.inputs.validation_mode }}
       IAM_AUTHZ_CLONE_CONFIRMATION: ${{ github.event.inputs.confirmation }}
       IAM_AUTHZ_AUTO_DEPLOY_PAUSED: ${{ vars.AUTHZ_CUTOVER_AUTO_DEPLOY_PAUSED }}
     steps:
@@ -49,7 +58,14 @@ jobs:
             echo "backup_name is invalid" >&2
             exit 1
           fi
-          if [ "$IAM_AUTHZ_CLONE_CONFIRMATION" != PREFLIGHT_AUTHZ_BACKUP_CLONE ]; then
+          expected_confirmation=PREFLIGHT_AUTHZ_BACKUP_CLONE
+          if [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" = full_rehearsal ]; then
+            expected_confirmation=REHEARSE_AUTHZ_BACKUP_CLONE
+          elif [ "$IAM_AUTHZ_CLONE_VALIDATION_MODE" != preflight ]; then
+            echo "invalid backup clone validation mode" >&2
+            exit 1
+          fi
+          if [ "$IAM_AUTHZ_CLONE_CONFIRMATION" != "$expected_confirmation" ]; then
             echo "invalid backup clone confirmation" >&2
             exit 1
           fi
@@ -133,6 +149,15 @@ jobs:
         env:
           IAM_AUTHZ_CLONE_MYSQL_PASSWORD: ${{ secrets.IAM_AUTHZ_CLONE_MYSQL_PASSWORD }}
         run: bash scripts/cd/authz-mac-clone-preflight.sh
+
+      - name: Upload full rehearsal evidence
+        if: ${{ github.event.inputs.validation_mode == 'full_rehearsal' && always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: authz-clone-rehearsal-${{ env.IAM_AUTHZ_RELEASE_SHA }}
+          path: ${{ runner.temp }}/iam-authz-clone-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Cleanup transferred backup and isolated SSH material
         if: always()
