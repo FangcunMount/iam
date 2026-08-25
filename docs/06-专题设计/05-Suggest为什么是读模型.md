@@ -70,7 +70,7 @@ flowchart LR
 
 - scope 只回答哪些候选能进入本次搜索结果；
 - 搜索到 Profile 不代表可以读取详情；
-- 后续动作仍应使用自己的 Resource、Action、Scope 做授权；
+- 后续动作仍应使用自己的 Resource、Action 和必要的对象 Check 做授权；
 - ProfileLink 是 Identity 关系事实，不应直接当成 AuthZ Policy 或 Suggest scope。
 
 ## 6. 为什么过滤早于最终 limit

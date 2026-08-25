@@ -105,7 +105,7 @@ User 与 Profile 之间不只有“有/无”两种状态。当前系统至少�
 | 一份档案可以有多个关系用户 | Profile 不内嵌单一 owner |
 | 关系类型和历史可追踪 | ProfileLink 持有 Type、Rel、EstablishedAt、RevokedAt |
 | 关键不变量可抵御并发 | application guard 与 DB unique constraint 共同保护 |
-| 身份关系不直接等于授权 | ProfileLink 不持有 Resource、Action、Scope、Permission |
+| 身份关系不直接等于授权 | ProfileLink 不持有 Resource、Action、ConstraintSet、PermissionGrant |
 
 ## 5. 设计决策与替代方案
 

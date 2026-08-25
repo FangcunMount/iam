@@ -8,7 +8,7 @@
 api/
 ├── rest/
 │   ├── authn.v2.yaml
-│   ├── authz.v2.yaml
+│   ├── authz.v3.yaml
 │   ├── identity.v2.yaml
 │   ├── idp.v2.yaml
 │   └── suggest.v2.yaml
@@ -21,7 +21,7 @@ api/
 | 契约 | 当前能力 |
 | ---- | ---- |
 | [rest/authn.v2.yaml](rest/authn.v2.yaml) | 使用 `auth_method + method_payload` 的显式登录、登录准备、刷新、登出、验证、JWKS、账户和 signup |
-| [rest/authz.v2.yaml](rest/authz.v2.yaml) | 授权健康检查、判定、角色、assignment、策略、资源管理 |
+| [rest/authz.v3.yaml](rest/authz.v3.yaml) | PermissionGrant、角色、assignment、资源与属性 Schema 管理 |
 | [rest/identity.v2.yaml](rest/identity.v2.yaml) | 当前用户、profiles、profile-links |
 | [rest/idp.v2.yaml](rest/idp.v2.yaml) | IDP 健康检查和微信应用管理 |
 | [rest/suggest.v2.yaml](rest/suggest.v2.yaml) | 儿童档案联想搜索 |
@@ -46,7 +46,7 @@ GET  /api/v2/suggest/profile
 | 契约 | 服务 |
 | ---- | ---- |
 | [grpc/iam/authn/v2/authn.proto](grpc/iam/authn/v2/authn.proto) | `AuthService`、`AuthSignupService`、`AuthChallengeService`、`LoginIdentityService`、`JWKSService` |
-| [grpc/iam/authz/v2/authz.proto](grpc/iam/authz/v2/authz.proto) | `AuthorizationService` |
+| [grpc/iam/authz/v3/authz.proto](grpc/iam/authz/v3/authz.proto) | `AuthorizationService`：原生 RBAC + 对象属性授权 |
 | [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileCommand`、`ProfileLinkCommand`、`IdentityLifecycle` |
 | [grpc/iam/idp/v2/idp.proto](grpc/iam/idp/v2/idp.proto) | `IDPService` |
 

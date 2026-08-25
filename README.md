@@ -168,7 +168,7 @@ REST API 适合 Web、App、管理后台、登录、HTTP 调试和 Suggest Profi
 
 - [api/rest/README.md](api/rest/README.md)
 - [api/rest/authn.v2.yaml](api/rest/authn.v2.yaml)
-- [api/rest/authz.v2.yaml](api/rest/authz.v2.yaml)
+- [api/rest/authz.v3.yaml](api/rest/authz.v3.yaml)
 - [api/rest/identity.v2.yaml](api/rest/identity.v2.yaml)
 - [api/rest/idp.v2.yaml](api/rest/idp.v2.yaml)
 - [api/rest/suggest.v2.yaml](api/rest/suggest.v2.yaml)
@@ -195,7 +195,7 @@ gRPC 面向可信服务间调用，当前发布 v2 proto。
 
 - [api/grpc/README.md](api/grpc/README.md)
 - [api/grpc/iam/authn/v2/authn.proto](api/grpc/iam/authn/v2/authn.proto)
-- [api/grpc/iam/authz/v2/authz.proto](api/grpc/iam/authz/v2/authz.proto)
+- [api/grpc/iam/authz/v3/authz.proto](api/grpc/iam/authz/v3/authz.proto)
 - [api/grpc/iam/identity/v2/identity.proto](api/grpc/iam/identity/v2/identity.proto)
 - [api/grpc/iam/idp/v2/idp.proto](api/grpc/iam/idp/v2/idp.proto)
 

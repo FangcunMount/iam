@@ -297,7 +297,7 @@ AuthN 和 AuthZ 也不需要建立领域模型直连：
 AuthN 验证 Token，向请求上下文写入可信 UserID / TenantID
   -> 资源服务理解当前资源和业务动作
   -> 资源服务以 Identity User 为锚点构造 AuthZ Subject
-  -> AuthZ 对 Subject / Resource / Action / Scope 给出 Decision
+  -> AuthZ 对 Subject / Resource / Action / trusted ObjectAttributes 给出 Decision
 ```
 
 模块协作由 Container 中的 module graph 集中表达，REST、gRPC 和运行时任务通过 capability collectors 获取能力，而不是随意穿透模块内部。

@@ -238,7 +238,7 @@ resp, err := client.Profile().CreateProfile(ctx, &identityv2.CreateProfileReques
 
 ```go
 // 单次权限判定
-resp, err := client.Authz().Check(ctx, &authzv2.CheckRequest{
+resp, err := client.Authz().Check(ctx, &authzv3.CheckRequest{
     Subject: "user:user-123",
     Domain:  "default",
     Object:  "resource:profile_profile",

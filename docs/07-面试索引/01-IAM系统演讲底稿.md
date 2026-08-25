@@ -94,7 +94,7 @@
 >
 > AuthN 回答“怎样证明当前是他”。它拥有 LoginIdentity、Credential、Challenge、Principal、Session 和 Token。LoginIdentity 解决一个用户可以通过用户名、手机号、微信或企微等不同入口进入同一个 User 的问题。Principal 是一次认证成功的运行时结果，Session 和 Token 把这次认证延续成可撤销、可刷新的登录状态。
 >
-> AuthZ 回答“能对资源做什么”。它不是只检查一个 `role == admin`，而是把 Subject、Tenant、Resource、Action 和 Object Scope 一起放入授权请求中，再返回允许或拒绝的 Decision。
+> AuthZ 回答“能对资源做什么”。它不是只检查一个 `role == admin`，而是把 Subject、Tenant、Resource、Action 和受信对象属性一起放入授权请求中，再返回允许或拒绝的 Decision。
 >
 > 两个辅助模块是 IDP 和 Suggest。IDP 隔离微信、企微等 provider 的应用配置、凭据、AppToken 和协议差异，并把一次 provider proof 解析成请求级、已验证的 `ExternalIdentity`；它仍然不拥有 IAM User、LoginIdentity 或登录态。Suggest 从 Identity 事实派生联想搜索索引，但它不能回写 Profile，也不能成为通用授权引擎。
 
@@ -138,11 +138,11 @@
 
 **通稿：**
 
-> Token 被验证后，transport 或 middleware 只会形成可信的 `UserID` 和 `TenantID` 请求上下文。资源服务再以 Identity User 为锚点构造 AuthZ Subject，加上 Resource、Action 和 Object Scope，调用 AuthZ Check。
+> Token 被验证后，transport 或 middleware 只会形成可信的 `UserID` 和 `TenantID` 请求上下文。资源服务再以 Identity User 为锚点构造 AuthZ Subject，加上 Resource、Action 和已加载对象的受信属性，调用 AuthZ Check。
 >
 > 所以 AuthN 和 AuthZ 会在一次请求中前后衔接，但不需要让 AuthN 领域模块直接把 Principal 转成 AuthZ 的 Subject。Identity User 是它们共同的稳定身份锚点。
 >
-> AuthZ 采用的是 RBAC 加 Scope。Role 聚合某类能力，Permission 表达可对哪类 Resource 执行什么 Action，Scope 限定这个能力覆盖哪些对象。这样不需要把每个组织或对象都编码进角色名。
+> AuthZ 采用 RBAC 加对象属性条件。Role 聚合稳定能力，PermissionGrant 表达对 Resource 的单一 Action，ConstraintSet 限定对象属性；组织归属等关系仍由拥有事实的业务模块判断。这样既不把每个对象编码进角色名，也不把业务数据库复制到 IAM。
 >
 > 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有进程内 Casbin Enforcer。但 Casbin 不能成为第二份授权真相，MySQL 中的 Role、Permission、Binding、Casbin facts 和 PolicyVersion 才是权威事实。
 >
@@ -168,7 +168,7 @@
 >
 > 所以 Suggest 通过 Full 或 Delta loader 从 Identity facts 派生 `ProfileSearchTerm`，然后构建进程内 Trie 和 Hash 索引。查询时，系统根据可信 OperatingPrincipal 与身份/角色事实构造 `ProfileAccessScope`，先召回，再做 scope 过滤、排序、最终 limit 和脱敏。
 >
-> 这里必须区分“搜索可见”和“资源授权”。Suggest 返回一个脱敏 Profile 候选，只能证明它在本次搜索范围内可见，不能推导出详情读取、编辑或导出权限。后续动作仍然要通过自己的 AuthZ Resource、Action 和 Scope 检查。
+> 这里必须区分“搜索可见”和“资源授权”。Suggest 返回一个脱敏 Profile 候选，只能证明它在本次搜索范围内可见，不能推导出详情读取、编辑或导出权限。后续动作仍然要通过自己的 AuthZ Resource、Action 和必要的对象 Check。
 >
 > Suggest 是可重建、最终一致的读模型。当前没有持久化索引快照，进程重启后依赖 Full refresh 重建；当前也只提供 REST，没有 Suggest gRPC 或 Go SDK。
 
@@ -243,11 +243,11 @@
 | Session | 本次登录是否仍然有效、可撤销 | 一段登录期 | 不等于资源授权策略 |
 | Access Token | 请求携带哪些签名声明 | 短期 | 本地验签不自动获得即时撤销语义 |
 | Subject | AuthZ 中哪类主体请求授权 | 每次授权请求的主体引用 | 不等于 Principal 的全部认证细节 |
-| Decision | 对当前 Resource/Action/Scope 是否允许 | 单次判定 | 不能永久代表之后的策略 |
+| Decision | 对当前 Resource/Action/ObjectAttributes 是否允许 | 单次判定 | 不能永久代表之后的策略 |
 
 最简串联句：
 
-> provider proof 先由 IDP 解析成请求级 ExternalIdentity，AuthN 再用它查找 LoginIdentity，LoginIdentity 指向稳定 User；一次成功认证产生 Principal 和 Session，Token 携带可验证声明；资源服务再以 User 为锚点构造 Subject，请求 AuthZ 对当前 Resource、Action 和 Scope 做 Decision。
+> provider proof 先由 IDP 解析成请求级 ExternalIdentity，AuthN 再用它查找 LoginIdentity，LoginIdentity 指向稳定 User；一次成功认证产生 Principal 和 Session，Token 携带可验证声明；资源服务再以 User 为锚点构造 Subject，请求 AuthZ 对当前 Resource、Action 和受信对象属性做 Decision。
 
 ## 6. 理解卡：哪些是事实，哪些是投影
 
@@ -255,7 +255,7 @@
 | --- | --- | --- | --- |
 | Identity | MySQL 中的 User、Profile、ProfileLink | 业务查询 DTO，Suggest 不拥有主数据 | repository 从 MySQL 读取 |
 | AuthN | LoginIdentity/Credential/JWKS metadata 与 Redis 中的在线状态 | JWT claims、JWKS 客户端快照 | 在线 Verify 或 JWKS refresh |
-| AuthZ | MySQL 授权管理事实和 Casbin facts | 进程内 CachedEnforcer | `LoadPolicy` 从 MySQL 重建 |
+| AuthZ | MySQL Assignment/Inheritance/PermissionGrant/Resource Schema | 进程内不可变原生快照 | 完整构建后原子替换 |
 | Suggest | Identity Profile facts 与当前可见性事实 | 进程内 Trie/Hash 索引 | Full/Delta refresh |
 | 事件 | 业务表和 Outbox 发布意图 | MQ 消息只是协调信号 | relay 重试，consumer 幂等处理 |
 
@@ -284,7 +284,7 @@
 
 ### 8.2 AuthN 和 AuthZ 到底是什么关系？
 
-> 它们在请求链路上前后衔接，但不需要领域模块直接依赖。AuthN 验证请求者并产生可信 UserID/TenantID 上下文；资源服务以 Identity User 为锚点构造 AuthZ Subject，再对当前 Resource、Action 和 Scope 做决策。它们通过稳定身份引用对齐，不互相拥有对方模型。
+> 它们在请求链路上前后衔接，但不需要领域模块直接依赖。AuthN 验证请求者并产生可信 UserID/TenantID 上下文；资源服务以 Identity User 为锚点构造 AuthZ Subject，再对当前 Resource、Action 和受信对象属性做决策。它们通过稳定身份引用对齐，不互相拥有对方模型。
 
 ### 8.3 为什么不只用 JWT？
 
@@ -308,7 +308,7 @@
 
 ### 8.8 Suggest 已经过滤了可见范围，为什么还要 AuthZ？
 
-> `ProfileAccessScope` 只是搜索所需的局部可见性投影，它只决定哪些脱敏候选可以进入当前搜索结果。搜到 Profile 不代表可以读取详情、修改或导出。后续操作需要自己的 Resource、Action 和 Scope 决策，所以 Suggest 不能替代通用 AuthZ。
+> `ProfileAccessScope` 只是搜索所需的局部可见性投影，它只决定哪些脱敏候选可以进入当前搜索结果。搜到 Profile 不代表可以读取详情、修改或导出。后续操作需要自己的 Resource、Action 和必要的对象 Check，所以 Suggest 不能替代通用 AuthZ。
 
 ### 8.9 分层架构怎样防止模块变成大杂烩？
 

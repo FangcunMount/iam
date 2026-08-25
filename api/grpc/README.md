@@ -7,7 +7,7 @@ IAM gRPC 面向可信服务间调用。当前只发布 v2 proto，所有服务�
 ```text
 api/grpc/iam/
 ├── authn/v2/authn.proto
-├── authz/v2/authz.proto
+├── authz/v3/authz.proto
 ├── identity/v2/identity.proto
 └── idp/v2/idp.proto
 ```
@@ -23,7 +23,7 @@ api/grpc/iam/
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AuthChallengeService` | SendLoginPhoneOTP |
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `LoginIdentityService` | ListLoginIdentities、SendPhoneLinkChallenge、LinkPhone、LinkWechatMiniProgram、LinkWecom、UnlinkLoginIdentity |
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `JWKSService` | GetJWKS |
-| [iam/authz/v2/authz.proto](iam/authz/v2/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
+| [iam/authz/v3/authz.proto](iam/authz/v3/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileCommand` | CreateProfile |
@@ -49,9 +49,9 @@ ctx = metadata.AppendToOutgoingContext(ctx,
     "x-request-id", requestID,
 )
 
-authzClient := authzv2.NewAuthorizationServiceClient(conn)
-snapshot, err := authzClient.GetAuthorizationSnapshot(ctx, &authzv2.GetAuthorizationSnapshotRequest{
-    Subject: &authzv2.Subject{Type: "user", Id: "1024"},
+authzClient := authzv3.NewAuthorizationServiceClient(conn)
+snapshot, err := authzClient.GetAuthorizationSnapshot(ctx, &authzv3.GetAuthorizationSnapshotRequest{
+    Subject: "user:1024",
     TenantId: "default",
     AppName:  "qs",
 })
