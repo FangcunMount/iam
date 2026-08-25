@@ -213,6 +213,55 @@ if [[ "$preflight_output" =~ resource_catalog_row_invalid_([0-9]+) ]]; then
   else
     echo "AuthZ resource catalog diagnostic: ${resource_diagnostic}"
   fi
+
+  catalog_identity_diagnostic="$(clone_mysql "$clone_database" -e "
+    SELECT COALESCE(JSON_ARRAYAGG(JSON_OBJECT(
+      'id', CAST(catalog_row.id AS CHAR),
+      'key', catalog_row.resource_key,
+      'stored_app', catalog_row.stored_app,
+      'expected_app', catalog_row.expected_app,
+      'stored_domain', catalog_row.stored_domain,
+      'expected_domain', catalog_row.expected_domain,
+      'stored_type', catalog_row.stored_type,
+      'expected_type', catalog_row.expected_type,
+      'segment_count', catalog_row.segment_count
+    )), JSON_ARRAY())
+    FROM (
+      SELECT resource_row.id,
+             resource_row.key AS resource_key,
+             resource_row.app_name AS stored_app,
+             resource_row.domain AS stored_domain,
+             resource_row.type AS stored_type,
+             SUBSTRING_INDEX(resource_row.key, ':', 1) AS expected_app,
+             SUBSTRING_INDEX(SUBSTRING_INDEX(resource_row.key, ':', 2), ':', -1) AS expected_domain,
+             SUBSTRING_INDEX(SUBSTRING_INDEX(resource_row.key, ':', 3), ':', -1) AS expected_type,
+             LENGTH(resource_row.key) - LENGTH(REPLACE(resource_row.key, ':', '')) + 1 AS segment_count
+      FROM authz_resources AS resource_row
+      WHERE resource_row.deleted_at IS NULL
+    ) AS catalog_row
+    WHERE catalog_row.segment_count <> 4
+       OR NOT (catalog_row.stored_app <=> catalog_row.expected_app)
+       OR NOT (catalog_row.stored_domain <=> catalog_row.expected_domain)
+       OR NOT (catalog_row.stored_type <=> catalog_row.expected_type);
+  ")"
+  echo "AuthZ resource catalog identity mismatches: ${catalog_identity_diagnostic}"
+
+  catalog_actions_diagnostic="$(clone_mysql "$clone_database" -e "
+    SELECT COALESCE(JSON_ARRAYAGG(JSON_OBJECT(
+      'id', CAST(resource_row.id AS CHAR),
+      'key', resource_row.key,
+      'actions', resource_row.actions,
+      'json_valid', JSON_VALID(resource_row.actions)
+    )), JSON_ARRAY())
+    FROM authz_resources AS resource_row
+    WHERE resource_row.deleted_at IS NULL
+      AND CASE
+        WHEN COALESCE(JSON_VALID(resource_row.actions), 0) = 0 THEN 1
+        WHEN JSON_TYPE(CAST(resource_row.actions AS JSON)) <> 'ARRAY' THEN 1
+        ELSE 0
+      END = 1;
+  ")"
+  echo "AuthZ resource catalog action-shape mismatches: ${catalog_actions_diagnostic}"
 fi
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
