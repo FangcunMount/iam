@@ -1,0 +1,105 @@
+name: IAM AuthZ Production Consumer Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Stop, start, or inspect the IAM authorization consumer
+        required: true
+        type: choice
+        options:
+          - stop
+          - start
+          - status
+      expected_iam_sha:
+        description: Exact IAM main SHA for this maintenance window
+        required: true
+        type: string
+      confirmation:
+        description: STOP_IAM_AUTHZ_CONSUMER, START_IAM_AUTHZ_CONSUMER, or STATUS_IAM_AUTHZ_CONSUMER
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-production-authz-consumer-control
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Release Evidence
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Validate exact main SHA and confirmation
+        env:
+          OPERATION: ${{ github.event.inputs.operation }}
+          EXPECTED_IAM_SHA: ${{ github.event.inputs.expected_iam_sha }}
+          CONFIRMATION: ${{ github.event.inputs.confirmation }}
+        run: |
+          set -Eeuo pipefail
+          if [ "${#EXPECTED_IAM_SHA}" -ne 40 ] || [ -n "${EXPECTED_IAM_SHA//[0-9a-f]/}" ]; then
+            echo "expected_iam_sha must be an exact lowercase 40-character Git SHA" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" != main ] || [ "$GITHUB_SHA" != "$EXPECTED_IAM_SHA" ]; then
+            echo "workflow must run from the exact IAM main release SHA" >&2
+            exit 1
+          fi
+          case "$OPERATION:$CONFIRMATION" in
+            stop:STOP_IAM_AUTHZ_CONSUMER|start:START_IAM_AUTHZ_CONSUMER|status:STATUS_IAM_AUTHZ_CONSUMER) ;;
+            *) echo "operation confirmation does not match" >&2; exit 1 ;;
+          esac
+
+  control:
+    name: Control IAM Authorization Consumer
+    needs: [validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+    steps:
+      - name: Checkout exact IAM release
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.expected_iam_sha }}
+
+      - name: Control serverB IAM consumer
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        env:
+          IAM_AUTHZ_CONSUMER_OPERATION: ${{ github.event.inputs.operation }}
+          IAM_AUTHZ_RELEASE_SHA: ${{ github.event.inputs.expected_iam_sha }}
+          SUDO_PASSWORD: ${{ secrets.SVRB_SUDO_PASSWORD || secrets.SVRA_SUDO_PASSWORD }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: IAM_AUTHZ_CONSUMER_OPERATION,IAM_AUTHZ_RELEASE_SHA,SUDO_PASSWORD
+          script_path: scripts/cd/authz-consumer-control.sh
+
+  evidence:
+    name: Record IAM Consumer Control Evidence
+    needs: [validate, control]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Write result summary
+        env:
+          OPERATION: ${{ github.event.inputs.operation }}
+          EXPECTED_IAM_SHA: ${{ github.event.inputs.expected_iam_sha }}
+          CONTROL_RESULT: ${{ needs.control.result }}
+        run: |
+          {
+            echo '### IAM AuthZ consumer control'
+            echo
+            echo "- operation: ${OPERATION}"
+            echo "- IAM SHA: ${EXPECTED_IAM_SHA}"
+            echo "- serverB: ${CONTROL_RESULT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CONTROL_RESULT" != success ]; then
+            exit 1
+          fi
