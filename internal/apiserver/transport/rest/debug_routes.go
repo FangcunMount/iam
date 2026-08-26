@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
@@ -33,7 +34,10 @@ func (r *Router) registerCacheGovernanceDebugRoutes(engine *gin.Engine, authMidd
 
 	// 创建缓存治理调试路由组
 	debug := engine.Group("/debug/cache-governance")
-	debug.Use(authMiddleware.AuthRequired(), authMiddleware.RequirePlatformAdmin())
+	debug.Use(
+		authMiddleware.AuthRequired(),
+		authMiddleware.RequirePermissionOrGlobal(authzapp.ResourceCacheGovernance, authzapp.ActionRead),
+	)
 	{
 		// 注册缓存治理目录路由
 		debug.GET("/catalog", r.debugCacheCatalog)

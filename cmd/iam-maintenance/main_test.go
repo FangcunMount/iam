@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/FangcunMount/iam/v3/internal/apiserver/maintenance"
 	"github.com/alicebob/miniredis/v2"
 )
 
@@ -94,5 +95,21 @@ func TestDisposeSensitiveLogsRequiresConfirmationAndCanonicalPath(t *testing.T) 
 func TestRetiredAuthNMaintenanceSubcommandIsRejected(t *testing.T) {
 	if err := run([]string{"reconcile-authn-legacy"}, &bytes.Buffer{}); err == nil || err.Error() != "unsupported maintenance subcommand" {
 		t.Fatalf("retired AuthN subcommand was not rejected: %v", err)
+	}
+}
+
+func TestAuthzV3ConvergeRequiresOperationAndApplyEvidence(t *testing.T) {
+	for _, args := range [][]string{
+		{"authz-v3-converge"},
+		{"authz-v3-converge", "unknown"},
+		{"authz-v3-converge", "apply"},
+		{"authz-v3-converge", "apply", "--confirm=wrong", "--expected-source-hash=" + strings.Repeat("a", 64)},
+		{"authz-v3-converge", "apply", "--confirm=" + maintenance.AuthzV3ConvergeConfirmation},
+		{"authz-v3-converge", "preflight", "--confirm=unexpected"},
+		{"authz-v3-converge", "evidence", "--build-sha="},
+	} {
+		if err := run(args, &bytes.Buffer{}); err == nil {
+			t.Fatalf("run(%v) should reject invalid convergence request", args)
+		}
 	}
 }

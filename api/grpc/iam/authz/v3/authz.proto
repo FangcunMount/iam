@@ -9,6 +9,7 @@ service AuthorizationService {
   rpc GetAuthorizationSnapshot(GetAuthorizationSnapshotRequest) returns (GetAuthorizationSnapshotResponse);
   rpc GrantAssignment(GrantAssignmentRequest) returns (GrantAssignmentResponse);
   rpc RevokeAssignment(RevokeAssignmentRequest) returns (RevokeAssignmentResponse);
+  rpc ReplaceManagedAssignments(ReplaceManagedAssignmentsRequest) returns (ReplaceManagedAssignmentsResponse);
 }
 
 enum AuthorizationMode {
@@ -69,9 +70,12 @@ message GetAuthorizationSnapshotRequest {
 }
 
 message GetAuthorizationSnapshotResponse {
+  // roles contains the effective roles for app_name, including inherited roles.
   repeated string roles = 1;
   repeated PermissionEntry permissions = 2;
   int64 policy_version = 3;
+  // direct_roles contains only assignments directly bound to the subject.
+  repeated string direct_roles = 4;
 }
 
 message GrantAssignmentRequest {
@@ -81,7 +85,9 @@ message GrantAssignmentRequest {
   string granted_by = 4;
 }
 
-message GrantAssignmentResponse {}
+message GrantAssignmentResponse {
+  int64 policy_version = 1;
+}
 
 message RevokeAssignmentRequest {
   string subject = 1;
@@ -91,4 +97,20 @@ message RevokeAssignmentRequest {
   string reason = 5;
 }
 
-message RevokeAssignmentResponse {}
+message RevokeAssignmentResponse {
+  int64 policy_version = 1;
+}
+
+message ReplaceManagedAssignmentsRequest {
+  string subject = 1;
+  string domain = 2;
+  repeated string role_names = 3;
+  string changed_by = 4;
+  string reason = 5;
+}
+
+message ReplaceManagedAssignmentsResponse {
+  repeated string direct_roles = 1;
+  int64 policy_version = 2;
+  bool changed = 3;
+}

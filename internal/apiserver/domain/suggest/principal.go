@@ -8,7 +8,5 @@ type OperatingPrincipal struct {
 	// OrgID 业务组织可见范围，来自 JWT org_id 透传；非 IAM 核心身份字段。
 	OrgID int64
 	// OrgIDs 可选的多组织范围（业务侧提供）。
-	OrgIDs       []int64
-	RoleCodes    []string
-	IsSuperAdmin bool
+	OrgIDs []int64
 }

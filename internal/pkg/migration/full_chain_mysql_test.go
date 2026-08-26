@@ -68,6 +68,21 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 
 func assertNativeAuthzBootstrap(t *testing.T, db *sql.DB) {
 	t.Helper()
+	for label, query := range map[string]string{
+		"active roles":        "SELECT COUNT(*) FROM authz_roles WHERE deleted_at IS NULL",
+		"active resources":    "SELECT COUNT(*) FROM authz_resources WHERE deleted_at IS NULL",
+		"active inheritances": "SELECT COUNT(*) FROM authz_role_inheritances WHERE revoked_at IS NULL AND deleted_at IS NULL",
+		"active grants":       "SELECT COUNT(*) FROM authz_permission_grants WHERE revoked_at IS NULL AND deleted_at IS NULL",
+	} {
+		want := map[string]int{"active roles": 9, "active resources": 27, "active inheritances": 8, "active grants": 100}[label]
+		var got int
+		if err := db.QueryRow(query).Scan(&got); err != nil {
+			t.Fatalf("query %s: %v", label, err)
+		}
+		if got != want {
+			t.Fatalf("%s = %d, want %d", label, got, want)
+		}
+	}
 	assertGrantCount := func(name, query string, want int) {
 		t.Helper()
 		var count int
@@ -119,6 +134,24 @@ WHERE r.name <> 'qs:admin'
   AND g.resource_pattern = 'qs:evaluation:collection:assessments'
   AND g.action = 'force_retry'
   AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 0)
+	assertGrantCount("retired role names", `
+SELECT COUNT(*) FROM authz_roles
+WHERE tenant_id = 'platform'
+  AND name IN ('platform:admin', 'iam:admin')
+  AND deleted_at IS NULL`, 0)
+	assertGrantCount("retired resource names", `
+SELECT COUNT(*) FROM authz_resources
+WHERE `+"`key`"+` IN ('iam:authz:collection:policies', 'iam:authz:action:check')
+  AND deleted_at IS NULL`, 0)
+	assertGrantCount("fangcun super admin inheritance", `
+SELECT COUNT(*)
+FROM authz_role_inheritances i
+JOIN authz_roles child ON child.id = i.role_id AND child.deleted_at IS NULL
+JOIN authz_roles parent ON parent.id = i.inherited_role_id AND parent.deleted_at IS NULL
+WHERE i.tenant_id = 'fangcun'
+  AND child.name = 'super_admin'
+  AND parent.name IN ('tenant_admin', 'qs:admin')
+  AND i.revoked_at IS NULL AND i.deleted_at IS NULL`, 2)
 }
 
 func assertMigratedRoleBindingGuardUnderConcurrency(t *testing.T, db *sql.DB) {

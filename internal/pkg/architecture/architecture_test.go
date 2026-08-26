@@ -955,6 +955,30 @@ func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
 	}
 }
 
+func TestAuthzAuthorizationDoesNotUseRoleNameAdministratorBypasses(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	for _, check := range []struct {
+		path   string
+		legacy []string
+	}{
+		{
+			path:   "internal/pkg/middleware/authn/jwt_middleware.go",
+			legacy: []string{"RequirePlatformAdmin", "RequirePermissionOrPlatformAdmin", "IsPlatformAdminRole"},
+		},
+		{
+			path:   "internal/apiserver/infra/suggest/access/profile_scope_provider.go",
+			legacy: []string{"IsSuperAdmin", "tenant_admin", "super_admin", "IsPlatformAdminRole"},
+		},
+	} {
+		for _, value := range check.legacy {
+			assertFileLacks(t, root, check.path, value)
+		}
+	}
+	assertFileContains(t, root, "internal/pkg/middleware/authn/jwt_middleware.go", "RequirePermissionOrGlobal")
+}
+
 func TestAuthzStandaloneBootstrapUsesCanonicalTenantDomain(t *testing.T) {
 	t.Parallel()
 

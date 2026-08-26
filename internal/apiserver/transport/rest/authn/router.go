@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
@@ -16,8 +17,8 @@ type Dependencies struct {
 	LoginIdentityHandler   *authhandler.LoginIdentityHandler            // 登录身份绑定处理器
 	WechatOpenLoginHandler *authhandler.WechatOpenLoginAuthorizeHandler // 微信扫码登录授权处理器（公开）
 	JWKSHandler            *authhandler.JWKSHandler                     // JWKS 处理器
-	AdminMiddlewares       []gin.HandlerFunc                            // 管理接口中间件
 	AuthMiddleware         gin.HandlerFunc                              // 当前用户认证中间件
+	PermissionOrGlobal     func(resource, action string) gin.HandlerFunc
 }
 
 // Register exposes the authentication endpoints that issue and refresh tokens.
@@ -42,7 +43,7 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	registerJWKSPublicEndpoints(engine, deps.JWKSHandler)
 
 	// 注册 JWKS 管理端点（管理员接口）
-	registerJWKSAdminEndpoints(api.Group("/admin"), deps.JWKSHandler, deps.AdminMiddlewares...)
+	registerJWKSAdminEndpoints(api.Group("/admin"), deps.JWKSHandler, deps.AuthMiddleware, deps.PermissionOrGlobal)
 }
 
 // RegisterSeedMock exposes the internal mock-consumer ensure endpoint when explicitly enabled.
@@ -94,24 +95,29 @@ func registerJWKSPublicEndpoints(engine *gin.Engine, handler *authhandler.JWKSHa
 }
 
 // registerJWKSAdminEndpoints 注册 JWKS 管理端点
-func registerJWKSAdminEndpoints(admin *gin.RouterGroup, handler *authhandler.JWKSHandler, middlewares ...gin.HandlerFunc) {
-	if admin == nil || handler == nil || len(middlewares) == 0 {
+func registerJWKSAdminEndpoints(
+	admin *gin.RouterGroup,
+	handler *authhandler.JWKSHandler,
+	authMiddleware gin.HandlerFunc,
+	permissionOrGlobal func(resource, action string) gin.HandlerFunc,
+) {
+	if admin == nil || handler == nil || authMiddleware == nil || permissionOrGlobal == nil {
 		return
 	}
-	admin.Use(middlewares...)
+	admin.Use(authMiddleware)
 
 	// JWKS 管理端点（需要管理员权限）
 	jwks := admin.Group("/jwks")
 	{
 		// 密钥管理
-		jwks.POST("/keys", handler.CreateKey)                        // 创建密钥
-		jwks.GET("/keys", handler.ListKeys)                          // 列出密钥
-		jwks.GET("/keys/:kid", handler.GetKey)                       // 获取密钥详情
-		jwks.POST("/keys/:kid/retire", handler.RetireKey)            // 退役密钥
-		jwks.POST("/keys/:kid/force-retire", handler.ForceRetireKey) // 强制退役密钥
-		jwks.POST("/keys/:kid/grace", handler.EnterGracePeriod)      // 进入宽限期
-		jwks.POST("/keys/cleanup", handler.CleanupExpiredKeys)       // 清理过期密钥
-		jwks.GET("/keys/publishable", handler.GetPublishableKeys)    // 获取可发布的密钥
+		jwks.POST("/keys", permissionOrGlobal(authzapp.ResourceJWKS, authzapp.ActionCreate), handler.CreateKey)
+		jwks.GET("/keys", permissionOrGlobal(authzapp.ResourceJWKS, authzapp.ActionList), handler.ListKeys)
+		jwks.GET("/keys/:kid", permissionOrGlobal(authzapp.ResourceJWKS, authzapp.ActionRead), handler.GetKey)
+		jwks.POST("/keys/:kid/retire", permissionOrGlobal(authzapp.ResourceJWKS, "retire"), handler.RetireKey)
+		jwks.POST("/keys/:kid/force-retire", permissionOrGlobal(authzapp.ResourceJWKS, "force_retire"), handler.ForceRetireKey)
+		jwks.POST("/keys/:kid/grace", permissionOrGlobal(authzapp.ResourceJWKS, "enter_grace"), handler.EnterGracePeriod)
+		jwks.POST("/keys/cleanup", permissionOrGlobal(authzapp.ResourceJWKS, "cleanup"), handler.CleanupExpiredKeys)
+		jwks.GET("/keys/publishable", permissionOrGlobal(authzapp.ResourceJWKS, "list_publishable"), handler.GetPublishableKeys)
 	}
 }
 

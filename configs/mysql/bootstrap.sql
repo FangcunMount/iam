@@ -1,11 +1,11 @@
 -- ============================================================================
 -- IAM - System Bootstrap Data
 -- Description: Idempotent baseline data migrated from the retired seeddata flow.
--- Scope:
+-- Coverage:
 --   - baseline users / operation login identities / password credentials
---   - IAM + QS roles / resources / assignments / Casbin policies
+--   - IAM + QS roles / resources / assignments / native permission grants
 --   - default WeChat app metadata
--- Non-scope:
+-- Excluded:
 --   - JWKS key material
 --   - family/test/demo business data
 --   - cross-service bootstrap side effects (QS / Collection / gRPC)
@@ -107,14 +107,12 @@ ON DUPLICATE KEY UPDATE `name`       = VALUES(`name`),
 INSERT INTO `authz_roles` (`id`, `name`, `display_name`, `tenant_id`, `is_system`, `description`, `created_at`,
                            `updated_at`, `created_by`, `updated_by`, `deleted_by`, `version`)
 VALUES (900000001, 'super_admin', '平台超级管理员', 'platform', 1, '平台控制面的根角色', NOW(), NOW(), 0, 0, 0, 1),
-       (900000002, 'platform:admin', '平台管理员', 'platform', 1, '平台控制面的日常管理角色', NOW(), NOW(), 0, 0, 0, 1),
-       (900000003, 'iam:admin', 'IAM 管理员', 'platform', 1, 'IAM 控制面的管理角色', NOW(), NOW(), 0, 0, 0, 1),
        (1, 'super_admin', '租户超级管理员', 'fangcun', 1, '方寸默认租户的超级管理员角色', NOW(), NOW(), 0, 0, 0, 1),
        (2, 'tenant_admin', '租户管理员', 'fangcun', 1, '管理本租户内的所有资源', NOW(), NOW(), 0, 0, 0, 1),
        (3, 'user', '普通用户', 'fangcun', 1, '普通用户权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000101, 'qs:admin', 'QS管理员', 'fangcun', 1, 'QS服务所有资源的管理权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000102, 'qs:content_manager', '内容管理员', 'fangcun', 1, '问卷、量表和常模表的管理权限', NOW(), NOW(), 0, 0, 0, 1),
-       (900000103, 'qs:evaluator', '评估员', 'fangcun', 1, '测评相关只读权限', NOW(), NOW(), 0, 0, 0, 1),
+       (900000103, 'qs:evaluator', '评估员', 'fangcun', 1, '测评执行、批量评估及仅 adhoc 测评重试', NOW(), NOW(), 0, 0, 0, 1),
        (900000104, 'qs:staff', '普通员工', 'fangcun', 1, '基本查看权限', NOW(), NOW(), 0, 0, 0, 1),
        (900000105, 'qs:evaluation_plan_manager', '测评计划管理员', 'fangcun', 1, '测评计划的管理权限', NOW(), NOW(), 0, 0, 0,
         1)
@@ -145,13 +143,11 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
        (901000005, 'iam:authz:collection:roles', '角色管理', 'iam', 'authz', 'collection',
         JSON_ARRAY('create', 'read', 'update', 'delete', 'list'), '角色目录管理', NOW(), NOW(), 0, 0, 0, 1),
        (901000006, 'iam:authz:collection:assignments', '角色分配', 'iam', 'authz', 'collection',
-        JSON_ARRAY('grant', 'revoke', 'delete', 'read'), '主体与角色分配管理', NOW(), NOW(), 0, 0, 0, 1),
-       (901000007, 'iam:authz:collection:policies', '策略管理', 'iam', 'authz', 'collection',
-        JSON_ARRAY('read', 'write', 'delete'), 'Casbin 策略规则管理', NOW(), NOW(), 0, 0, 0, 1),
+        JSON_ARRAY('list', 'grant', 'revoke'), '主体与角色分配管理', NOW(), NOW(), 0, 0, 0, 1),
+       (901000007, 'iam:authz:collection:permission_grants', '权限授权', 'iam', 'authz', 'collection',
+        JSON_ARRAY('list', 'create', 'revoke'), '角色的资源、动作与对象条件授权', NOW(), NOW(), 0, 0, 0, 1),
        (901000008, 'iam:authz:collection:resources', '资源目录', 'iam', 'authz', 'collection',
         JSON_ARRAY('create', 'read', 'update', 'delete', 'list', 'validate_action'), '资源目录定义和动作校验', NOW(),
-        NOW(), 0, 0, 0, 1),
-       (901000009, 'iam:authz:action:check', '权限判定', 'iam', 'authz', 'action', JSON_ARRAY('check'), '单次 PDP 权限判定', NOW(),
         NOW(), 0, 0, 0, 1),
        (901000010, 'iam:authn:collection:login_identities', '登录身份管理', 'iam', 'authn', 'collection',
         JSON_ARRAY('read', 'update', 'enable', 'disable', 'set_unionid'), '登录身份读取、资料更新与启停用', NOW(), NOW(),
@@ -160,8 +156,8 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
         JSON_ARRAY('create', 'read', 'list', 'retire', 'force_retire', 'enter_grace', 'cleanup', 'list_publishable'),
         'JWT 签名密钥与发布管理', NOW(), NOW(), 0, 0, 0, 1),
        (901000012, 'iam:idp:collection:wechat_apps', '微信应用管理', 'iam', 'idp', 'collection',
-        JSON_ARRAY('create', 'read', 'rotate_auth_secret', 'rotate_msg_secret', 'refresh_access_token',
-                   'get_access_token'),
+        JSON_ARRAY('list', 'create', 'read', 'update', 'enable', 'disable', 'rotate_auth_secret',
+                   'rotate_msg_secret', 'refresh_access_token', 'get_access_token'),
         '微信应用与令牌管理', NOW(), NOW(), 0, 0, 0, 1),
        (901000013, 'qs:questionnaire:collection:questionnaires', '问卷管理', 'qs', 'questionnaire', 'collection',
         JSON_ARRAY('create', 'read', 'list', 'update', 'delete', 'publish', 'unpublish', 'archive', 'statistics'),
@@ -175,7 +171,7 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
        (901000016, 'qs:evaluation:collection:assessments', '测评执行', 'qs', 'evaluation', 'collection',
         JSON_ARRAY('read', 'list', 'retry', 'force_retry', 'batch_evaluate', 'statistics'), '测评任务、结果重试与批量执行', NOW(), NOW(),
         0, 0, 0, 1),
-       (901000017, 'qs:evaluation:collection:reports', '测评报告', 'qs', 'evaluation', 'collection', JSON_ARRAY('read', 'list'),
+       (901000017, 'qs:evaluation:collection:reports', '测评报告', 'qs', 'evaluation', 'collection', JSON_ARRAY('read', 'list', 'audit'),
         '测评报告查询', NOW(), NOW(), 0, 0, 0, 1),
        (901000018, 'qs:actor:collection:testees', '受试者管理', 'qs', 'actor', 'collection',
         JSON_ARRAY('read', 'list', 'update', 'analyze', 'statistics'), '受试者资料、分析与统计', NOW(), NOW(), 0, 0, 0,
@@ -196,8 +192,15 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
        (901000024, 'qs:code:collection:codes', '邀请码申请', 'qs', 'code', 'collection', JSON_ARRAY('apply'), '邀请码申请', NOW(), NOW(),
         0, 0, 0, 1),
        (901000025, 'qs:modelcatalog:collection:norm_tables', '常模表管理', 'qs', 'modelcatalog', 'collection',
-        JSON_ARRAY('read', 'list', 'import'), '版本化常模表的查询、详情读取与幂等导入', NOW(), NOW(), 0, 0, 0, 1)
-ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`),
+        JSON_ARRAY('read', 'list', 'import'), '版本化常模表的查询、详情读取与幂等导入', NOW(), NOW(), 0, 0, 0, 1),
+       (901000026, 'iam:authz:collection:role_inheritances', '角色继承', 'iam', 'authz', 'collection',
+        JSON_ARRAY('list', 'grant', 'revoke'), '角色继承关系管理', NOW(), NOW(), 0, 0, 0, 1),
+       (901000027, 'iam:authn:collection:sessions', '会话管理', 'iam', 'authn', 'collection',
+        JSON_ARRAY('revoke', 'revoke_by_login_identity', 'revoke_by_user'), '认证会话撤销管理', NOW(), NOW(), 0, 0, 0, 1),
+       (901000028, 'iam:ops:collection:cache_governance', '缓存治理', 'iam', 'ops', 'collection',
+        JSON_ARRAY('read'), '缓存目录与运行状态只读治理', NOW(), NOW(), 0, 0, 0, 1)
+ON DUPLICATE KEY UPDATE `key`          = VALUES(`key`),
+                        `display_name` = VALUES(`display_name`),
                         `app_name`     = VALUES(`app_name`),
                         `domain`       = VALUES(`domain`),
                         `type`         = VALUES(`type`),
@@ -248,11 +251,6 @@ WHERE NOT EXISTS(SELECT 1
                    AND `a`.`deleted_at` IS NULL);
 
 -- ----------------------------------------------------------------------------
--- Historical Casbin policy baseline (retained as a non-executable migration
--- reference only; the final bootstrap below writes native facts).
--- ----------------------------------------------------------------------------
-
--- ----------------------------------------------------------------------------
 -- Native authorization baseline
 -- ----------------------------------------------------------------------------
 UPDATE `authz_resources`
@@ -280,6 +278,8 @@ FROM (
     UNION ALL SELECT 905000004, 'fangcun', 'qs:admin', 'qs:evaluation_plan_manager'
     UNION ALL SELECT 905000005, 'fangcun', 'qs:evaluator', 'qs:staff'
     UNION ALL SELECT 905000006, 'fangcun', 'qs:evaluation_plan_manager', 'qs:staff'
+    UNION ALL SELECT 905000007, 'fangcun', 'super_admin', 'tenant_admin'
+    UNION ALL SELECT 905000008, 'fangcun', 'super_admin', 'qs:admin'
 ) AS `seed`
 JOIN `authz_roles` AS `child`
   ON `child`.`tenant_id` = `seed`.`tenant_id`
@@ -325,20 +325,18 @@ FROM (
                    JSON_ARRAY('read','search','create','update','deactivate','block','link_external_identity'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:identity:collection:profiles',
                    JSON_ARRAY('read','list','search','create','update','search_by_mobile'), '{"version":1,"all_of":[]}'
-            UNION ALL SELECT 'fangcun', 'super_admin', 'iam:identity:collection:profiles',
-                   JSON_ARRAY('search_by_mobile'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:identity:collection:profile-links',
                    JSON_ARRAY('read','list','grant','update_relation','revoke','bulk_revoke','import'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:roles',
                    JSON_ARRAY('create','read','update','delete','list'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:assignments',
-                   JSON_ARRAY('grant','revoke','delete','read'), '{"version":1,"all_of":[]}'
-            UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:policies',
-                   JSON_ARRAY('read','write','delete'), '{"version":1,"all_of":[]}'
+                   JSON_ARRAY('list','grant','revoke'), '{"version":1,"all_of":[]}'
+            UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:permission_grants',
+                   JSON_ARRAY('list','create','revoke'), '{"version":1,"all_of":[]}'
+            UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:role_inheritances',
+                   JSON_ARRAY('list','grant','revoke'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:resources',
                    JSON_ARRAY('create','read','update','delete','list','validate_action'), '{"version":1,"all_of":[]}'
-            UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:action:check',
-                   JSON_ARRAY('check'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authn:collection:login_identities',
                    JSON_ARRAY('read','update','enable','disable'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'user', 'iam:identity:instance:profile',
@@ -360,7 +358,7 @@ FROM (
             UNION ALL SELECT 'fangcun', 'qs:evaluator', 'qs:evaluation:collection:reports',
                    JSON_ARRAY('read','list'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'qs:evaluator', 'qs:actor:collection:testees',
-                   JSON_ARRAY('read','list','analyze','statistics'), '{"version":1,"all_of":[]}'
+                   JSON_ARRAY('analyze','statistics'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'qs:staff', 'qs:actor:collection:testees',
                    JSON_ARRAY('read','list'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'qs:evaluation_plan_manager', 'qs:plan:collection:evaluation_plans',
@@ -401,3 +399,51 @@ ON DUPLICATE KEY UPDATE `changed_by` = VALUES(`changed_by`),
                         `deleted_by` = 0,
                         `updated_at` = NOW(),
                         `updated_by` = 0;
+
+-- Retire legacy catalog facts that are intentionally absent from the final
+-- native AuthZ model. These predicates are deliberately dependency-aware so a
+-- non-fresh database with unexpected references fails visibly instead of
+-- silently deleting authorization data.
+UPDATE `authz_resources` AS `retired_resource`
+SET `deleted_at` = NOW(),
+    `deleted_by` = 0,
+    `updated_at` = NOW(),
+    `updated_by` = 0,
+    `version` = `version` + 1
+WHERE `retired_resource`.`key` = 'iam:authz:action:check'
+  AND `retired_resource`.`deleted_at` IS NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM `authz_permission_grants` AS `dependent_grant`
+      WHERE `dependent_grant`.`resource_id` = `retired_resource`.`id`
+        AND `dependent_grant`.`revoked_at` IS NULL
+        AND `dependent_grant`.`deleted_at` IS NULL
+  );
+
+UPDATE `authz_roles` AS `retired_role`
+SET `deleted_at` = NOW(),
+    `deleted_by` = 0,
+    `updated_at` = NOW(),
+    `updated_by` = 0,
+    `version` = `version` + 1
+WHERE `retired_role`.`tenant_id` = 'platform'
+  AND `retired_role`.`name` IN ('platform:admin', 'iam:admin')
+  AND `retired_role`.`deleted_at` IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM `authz_assignments` AS `dependent_assignment`
+      WHERE `dependent_assignment`.`role_id` = `retired_role`.`id`
+        AND `dependent_assignment`.`deleted_at` IS NULL
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM `authz_permission_grants` AS `dependent_grant`
+      WHERE `dependent_grant`.`role_id` = `retired_role`.`id`
+        AND `dependent_grant`.`revoked_at` IS NULL
+        AND `dependent_grant`.`deleted_at` IS NULL
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM `authz_role_inheritances` AS `dependent_inheritance`
+      WHERE (`dependent_inheritance`.`role_id` = `retired_role`.`id`
+          OR `dependent_inheritance`.`inherited_role_id` = `retired_role`.`id`)
+        AND `dependent_inheritance`.`revoked_at` IS NULL
+        AND `dependent_inheritance`.`deleted_at` IS NULL
+  );

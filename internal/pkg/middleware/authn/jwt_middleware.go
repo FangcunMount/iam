@@ -19,7 +19,6 @@ import (
 // 为 nil 时 RequireRole / RequirePermission 返回服务不可用。
 type RouteAuthorizationRuntime interface {
 	AuthorizeRoute(ctx context.Context, sub, tenantID, resourceKey, action string) (bool, error)
-	DirectRoleKeys(ctx context.Context, sub, tenantID string) ([]string, error)
 }
 
 // JWTAuthMiddleware JWT 认证中间件
@@ -98,50 +97,6 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 	}
 }
 
-// RequirePlatformAdmin 要求用户在当前 domain 或 platform domain 中具备平台管理员角色。
-// 必须在 AuthRequired 之后使用。
-func (m *JWTAuthMiddleware) RequirePlatformAdmin() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if m.routeAuth == nil {
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
-			c.Abort()
-			return
-		}
-		userID, ok := requestctx.UserID(c)
-		if !ok {
-			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
-
-		uid := userID.String()
-		sub := "user:" + uid
-		domains := []string{requestctx.TenantIDOrDefault(c)}
-		if domains[0] != tenant.PlatformID {
-			domains = append(domains, tenant.PlatformID)
-		}
-
-		for _, dom := range domains {
-			roles, err := m.routeAuth.DirectRoleKeys(c.Request.Context(), sub, dom)
-			if err != nil {
-				log.Errorw("route authorization role lookup failed", "sub", sub, "dom", dom)
-				core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
-				c.Abort()
-				return
-			}
-			for _, got := range roles {
-				if IsPlatformAdminRole(got) {
-					c.Next()
-					return
-				}
-			}
-		}
-
-		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
-		c.Abort()
-	}
-}
-
 // RequirePermission 对资源键与动作执行路由级授权判定。
 // 必须在 AuthRequired 之后使用。
 func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.HandlerFunc {
@@ -176,11 +131,10 @@ func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.Ha
 	}
 }
 
-// RequirePermissionOrPlatformAdmin allows a route when the current tenant
-// grants the exact permission or when the subject is a platform administrator.
-// Authorization backend failures fail closed unless another branch has already
-// positively authorized the request.
-func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action string) gin.HandlerFunc {
+// RequirePermissionOrGlobal checks the exact permission in the request domain
+// and then in the platform domain. The platform wildcard PermissionGrant is the
+// only global authorization mechanism; role names never grant capabilities.
+func (m *JWTAuthMiddleware) RequirePermissionOrGlobal(resourceObj, action string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if m.routeAuth == nil {
 			recordHTTPAuthorization(resourceObj, action, "error")
@@ -198,7 +152,7 @@ func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action
 
 		sub := "user:" + userID.String()
 		dom := requestctx.TenantIDOrDefault(c)
-		allowed, permissionErr := m.routeAuth.AuthorizeRoute(
+		allowed, tenantErr := m.routeAuth.AuthorizeRoute(
 			c.Request.Context(),
 			sub,
 			dom,
@@ -206,18 +160,24 @@ func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action
 			action,
 		)
 		if allowed {
-			recordHTTPAuthorization(resourceObj, action, "permission")
+			recordHTTPAuthorization(resourceObj, action, "domain_permission")
 			c.Next()
 			return
 		}
 
-		adminAllowed, adminErr := m.isPlatformAdmin(c.Request.Context(), sub, dom)
-		if adminAllowed {
-			recordHTTPAuthorization(resourceObj, action, "platform_admin")
-			c.Next()
-			return
+		var globalErr error
+		if dom != tenant.PlatformID {
+			var globalAllowed bool
+			globalAllowed, globalErr = m.routeAuth.AuthorizeRoute(
+				c.Request.Context(), sub, tenant.PlatformID, resourceObj, action,
+			)
+			if globalAllowed {
+				recordHTTPAuthorization(resourceObj, action, "global_permission")
+				c.Next()
+				return
+			}
 		}
-		if permissionErr != nil || adminErr != nil {
+		if tenantErr != nil || globalErr != nil {
 			recordHTTPAuthorization(resourceObj, action, "error")
 			log.Errorw("route authorization check failed",
 				"resource", resourceObj,
@@ -232,25 +192,6 @@ func (m *JWTAuthMiddleware) RequirePermissionOrPlatformAdmin(resourceObj, action
 		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
 		c.Abort()
 	}
-}
-
-func (m *JWTAuthMiddleware) isPlatformAdmin(ctx context.Context, sub, currentDomain string) (bool, error) {
-	domains := []string{currentDomain}
-	if currentDomain != tenant.PlatformID {
-		domains = append(domains, tenant.PlatformID)
-	}
-	for _, dom := range domains {
-		roles, err := m.routeAuth.DirectRoleKeys(ctx, sub, dom)
-		if err != nil {
-			return false, err
-		}
-		for _, role := range roles {
-			if IsPlatformAdminRole(role) {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
 }
 
 func applyVerifiedClaims(c *gin.Context, claims *token.TokenClaims) {

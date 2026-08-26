@@ -19,13 +19,12 @@ type Router struct {
 
 // routeDependencies 路由依赖
 type routeDependencies struct {
-	authn            AuthnDeps
-	authz            AuthzDeps
-	idp              IDPDeps
-	user             UserDeps
-	suggest          SuggestDeps
-	authMiddleware   *authnMiddleware.JWTAuthMiddleware
-	adminMiddlewares []gin.HandlerFunc
+	authn          AuthnDeps
+	authz          AuthzDeps
+	idp            IDPDeps
+	user           UserDeps
+	suggest        SuggestDeps
+	authMiddleware *authnMiddleware.JWTAuthMiddleware
 }
 
 // NewRouter 创建路由管理器
@@ -92,11 +91,6 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 	// 创建认证中间件
 	if r.deps.ModuleStatus.authnAvailable() && deps.authn.TokenVerifier != nil {
 		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenVerifier, deps.authz.RouteAuthorization)
-	}
-
-	// 若认证中间件支持角色检查，则拼出管理员中间件
-	if deps.authMiddleware != nil && deps.authMiddleware.SupportsRoleCheck() {
-		deps.adminMiddlewares = append(deps.adminMiddlewares, deps.authMiddleware.AuthRequired(), deps.authMiddleware.RequirePlatformAdmin())
 	}
 
 	// 返回路由依赖

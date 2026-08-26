@@ -2,6 +2,7 @@ package assignmentauth
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -64,5 +65,40 @@ func TestValidateRejectsNonAdminAllowAll(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("Validate() error = nil")
+	}
+}
+
+func TestAuthorizeReplacementReturnsEntireManagedSetAndRejectsEscalation(t *testing.T) {
+	authorizer, err := New(Config{
+		DefaultPolicy: "deny",
+		Services: map[string]ServiceConstraint{
+			"qs-apiserver.svc": {
+				Domains: []string{"fangcun"}, SubjectTypes: []string{"user"},
+				Roles:                        []string{"qs:staff", "qs:evaluator", "qs:staff"},
+				RequireDelegatedActorOnGrant: true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	managed, err := authorizer.AuthorizeReplacement(ReplacementRequest{
+		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
+		RoleNames: []string{"qs:evaluator"}, DelegatedActor: "user:20",
+	})
+	if err != nil {
+		t.Fatalf("AuthorizeReplacement() error = %v", err)
+	}
+	want := []string{"qs:evaluator", "qs:staff"}
+	if !reflect.DeepEqual(managed, want) {
+		t.Fatalf("managed roles = %v, want %v", managed, want)
+	}
+	_, err = authorizer.AuthorizeReplacement(ReplacementRequest{
+		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
+		RoleNames: []string{"tenant_admin"}, DelegatedActor: "user:20",
+	})
+	var denied *DeniedError
+	if !errors.As(err, &denied) || denied.Reason != "role_not_allowed" {
+		t.Fatalf("AuthorizeReplacement() error = %v, want role_not_allowed", err)
 	}
 }
