@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	roleinheritancerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/roleinheritance"
 	dbmysql "github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -67,6 +69,7 @@ type AuthzV3ConvergeSummary struct {
 	PlannedChanges             []string         `json:"planned_changes,omitempty"`
 	Pending                    []string         `json:"pending,omitempty"`
 	Blockers                   []string         `json:"blockers,omitempty"`
+	FailureCode                string           `json:"failure_code,omitempty"`
 	PolicyVersions             map[string]int64 `json:"policy_versions,omitempty"`
 	Complete                   bool             `json:"complete"`
 }
@@ -895,6 +898,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	defer func() {
 		if err != nil {
 			plan.block("apply_" + step + "_failed")
+			plan.Summary.FailureCode = convergenceFailureCode(err)
 		}
 	}()
 	roles := make(map[string]meta.ID)
@@ -914,7 +918,8 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	// here because rows created under older canonicalization rules may carry stale
 	// grant keys even though they cannot participate in authorization decisions.
 	activeGrantsByTenant := make(map[string][]*permissiongrant.Grant)
-	for _, spec := range sourceGrantRemovals {
+	for specIndex, spec := range sourceGrantRemovals {
+		step = fmt.Sprintf("revoke_source_grant_%02d_resolve_role", specIndex)
 		roleID := roles[spec.Tenant+"\x00"+spec.Role]
 		if roleID.IsZero() {
 			role, err := repos.Roles.FindByName(ctx, spec.Tenant, spec.Role)
@@ -926,6 +931,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		}
 		grants, loaded := activeGrantsByTenant[spec.Tenant]
 		if !loaded {
+			step = fmt.Sprintf("revoke_source_grant_%02d_load_active", specIndex)
 			grants, err = repos.PermissionGrants.ListActiveByTenant(ctx, spec.Tenant)
 			if err != nil {
 				return err
@@ -934,17 +940,20 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		}
 		matched := 0
 		for _, item := range grants {
+			step = fmt.Sprintf("revoke_source_grant_%02d_canonicalize", specIndex)
 			constraints, err := item.CanonicalConstraintJSON()
 			if err != nil {
 				return err
 			}
 			if item.RoleID == roleID && item.ResourcePatternString() == spec.Resource && item.ActionString() == spec.Action && string(constraints) == spec.Constraints {
 				matched++
+				step = fmt.Sprintf("revoke_source_grant_%02d_update", specIndex)
 				if err := repos.PermissionGrants.Revoke(ctx, item.ID); err != nil {
 					return err
 				}
 			}
 		}
+		step = fmt.Sprintf("revoke_source_grant_%02d_match", specIndex)
 		if matched != 1 {
 			return fmt.Errorf("source grant changed during convergence")
 		}
@@ -1099,6 +1108,14 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		return fmt.Errorf("missing subject assignment set changed during convergence")
 	}
 	return nil
+}
+
+func convergenceFailureCode(err error) string {
+	var mysqlErr *mysqldriver.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return fmt.Sprintf("mysql_%d", mysqlErr.Number)
+	}
+	return "non_mysql_error"
 }
 
 func replaceResourceActions(ctx context.Context, repos authzuow.TxRepositories, cache map[string]*resource.Resource, key string, actions []string) error {
