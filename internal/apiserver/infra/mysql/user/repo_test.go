@@ -69,13 +69,20 @@ func TestUserRepositoryFindByIDsReturnsFoundUsersOnly(t *testing.T) {
 func TestUserRepositoryFindByNicknameReturnsAllExactMatches(t *testing.T) {
 	db := testhelpers.SetupTempSQLiteDB(t)
 	require.NoError(t, db.AutoMigrate(&UserPO{}))
-	for id, nickname := range map[uint64]string{10: "matrix", 11: "matrix", 12: "other"} {
-		row := &UserPO{Nickname: nickname, Status: 1}
+	rows := map[uint64]UserPO{
+		10: {Nickname: "matrix", Status: 1},
+		11: {Nickname: "matrix", Status: 1},
+		12: {Nickname: "other", Status: 1},
+		13: {Name: "matrix", Status: 1},
+		14: {Name: "matrix", Nickname: "overridden", Status: 1},
+	}
+	for id, values := range rows {
+		row := values
 		row.ID = meta.FromUint64(id)
-		require.NoError(t, db.Create(row).Error)
+		require.NoError(t, db.Create(&row).Error)
 	}
 
 	got, err := NewRepository(db).FindByNickname(context.Background(), "matrix")
 	require.NoError(t, err)
-	require.Len(t, got, 2)
+	require.Len(t, got, 3)
 }
