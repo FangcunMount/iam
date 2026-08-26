@@ -21,6 +21,9 @@ func (s *queryUserRepoStub) FindByID(context.Context, meta.ID) (*userdomain.User
 func (s *queryUserRepoStub) FindByIDs(context.Context, []meta.ID) (map[meta.ID]*userdomain.User, error) {
 	return map[meta.ID]*userdomain.User{}, nil
 }
+func (s *queryUserRepoStub) FindByNickname(context.Context, string) ([]*userdomain.User, error) {
+	return nil, nil
+}
 func (s *queryUserRepoStub) FindByPhone(context.Context, meta.Phone) (*userdomain.User, error) {
 	return nil, nil
 }
@@ -47,6 +50,9 @@ func (s *batchUserRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[met
 		}
 	}
 	return out, nil
+}
+func (s *batchUserRepoStub) FindByNickname(context.Context, string) ([]*userdomain.User, error) {
+	return nil, nil
 }
 func (s *batchUserRepoStub) FindByPhone(context.Context, meta.Phone) (*userdomain.User, error) {
 	s.findByPhone++
