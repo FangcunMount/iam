@@ -1,6 +1,6 @@
 # AuthZ：RBAC 与对象属性条件授权
 
-> 状态：已实现 · 已完成生产切换。本目录描述 AuthZ v3 最终模型。生产数据库已验收 `version=27, dirty=0`；AuthZ v2、字符串 Scope、持久化 Casbin 权限事实和一次性切换入口均已退役。
+> 状态：已实现 · 已完成生产切换。本目录描述 AuthZ v3 最终模型。AuthZ 切换在 000027 闭合；生产数据库现已验收 `version=28, dirty=0`，000028 仅增加 AuthN `global_identifier` 唯一性约束，不改变 AuthZ 模型。AuthZ v2、字符串 Scope、持久化 Casbin 权限事实和一次性切换入口均已退役。
 
 AuthZ 回答：可信 Subject 在某个 Tenant 中，能否对 Resource 执行 Action；对象级动作还可以依据服务端提交的受信对象属性求值。业务关系仍由拥有事实的业务模块判断。
 

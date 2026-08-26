@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000028 和相关测试核对；最近一次生产验收仍为 `version=27, dirty=0`，000028 尚无生产执行证据。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000028 和相关测试核对；最近一次生产验收为 `version=28, dirty=0`。
 
 ## 1. 本文回答
 
@@ -197,7 +197,7 @@ DatabaseManager.Initialize
 
 `000026` 增加 `authz_permission_grants`、`authz_role_inheritances` 和资源属性 Schema；`000027` 在离线转换证据存在时不可逆删除 `casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds`。生产切换与发布后只读验收已证明 `version=27, dirty=0`、16 张 BASE TABLE 精确匹配以及三类旧对象缺失；一次性转换入口已经从仓库删除，历史 migration 继续保留以支持新库完整重放。
 
-`000028` 为 `auth_login_identities(provider, global_identifier)` 建立唯一索引。它先拒绝空白、未规范化或跨 User 冲突，再把同一 User 的历史重复值确定性收敛为一条 canonical 行；其他 realm 行保留但将该字段置为 NULL。该迁移不新增表，当前只有仓库实现和测试证据，不能表述为已经部署生产。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
+`000028` 为 `auth_login_identities(provider, global_identifier)` 建立唯一索引。它先拒绝空白、未规范化或跨 User 冲突，再把同一 User 的历史重复值确定性收敛为一条 canonical 行；其他 realm 行保留但将该字段置为 NULL。该迁移不新增表。[发布前预检](https://github.com/FangcunMount/iam/actions/runs/32924963311) 证明非法行、跨 User 冲突和重复均为 0；[发布后状态](https://github.com/FangcunMount/iam/actions/runs/32925876593) 与[唯一性 guard](https://github.com/FangcunMount/iam/actions/runs/32926175510) 证明 `version=28, dirty=0`、16 张 BASE TABLE 且唯一索引计数为 1。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 

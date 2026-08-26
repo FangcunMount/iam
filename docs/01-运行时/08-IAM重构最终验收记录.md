@@ -4,9 +4,9 @@
 
 ## 1. 当前结论
 
-截至 2026-08-26，生产库已验收 `version=27, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 已部署并通过独立健康检查。`000019–000027` 的仓库事实、迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
+截至 2026-08-26，生产库已验收 `version=28, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 与 000028 AuthN 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851` 均已部署并通过独立健康检查。`000019–000028` 的仓库事实、迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
 
-当前 checkout 已新增 000028 AuthN `global_identifier` 唯一性迁移；本记录没有它的生产发布或只读验收证据，因此上述生产结论仍停留在 27，不能由仓库门禁结果外推为 28 已部署。
+000028 发布前已完成可恢复备份与只读数据预检，发布后又分别验证迁移版本、唯一索引、数据冲突计数、容器健康、公网端点与运行 SHA。下述链接是分层证据，不用任何一个绿色 run 代替整条发布结论。
 
 整体历史验收仍未完全关闭：完整镜像 digest 没有在本安全台账中单独固化，长期 RDS/宿主机备份策略以及 5.4 安全处置历史元数据仍有缺口。缺少的证据必须由对应 workflow 或运维记录产生，不能根据当前系统状态反推，也不能为了补记录再次清除 Refresh Token 或历史日志。
 
@@ -29,17 +29,17 @@
 
 ## 4. 最终发布证据
 
-以下条目绑定 migration 25 的 RoleBinding guard 历史发布基线 `c84c638d46ade0a2b1b65379289931ef9e28b172`。成功 run 只证明对应层，不自动补齐其他证据；AuthZ v3 最终切换证据另列在其后。
+以下条目绑定 000028 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851`。成功 run 只证明对应层，不自动补齐其他证据；历史 RoleBinding guard 和 AuthZ v3 最终切换证据另列在其后。
 
 | 项目 | 当前状态 | 责任方 | 完成条件与安全元数据 |
 | --- | --- | --- | --- |
-| 最终源码 SHA | 已核验 | 发布负责人 | 当前部署 run、镜像 tag 与 `/version.gitCommit` 均绑定 `c84c638d46ade0a2b1b65379289931ef9e28b172` |
-| 镜像 digest 与发布时间 | 部分核验 | 发布负责人 | [生产部署 run `32792113058`](https://github.com/FangcunMount/iam/actions/runs/32792113058) 于 2026-08-25 成功构建并部署同 SHA 镜像；完整 digest 尚未在本安全台账单独登记 |
-| CI | 已通过 | 发布负责人 | [CI run `32791721343`](https://github.com/FangcunMount/iam/actions/runs/32791721343)，同一最终 SHA |
-| CodeQL | 已通过 | 发布负责人 | [CodeQL run `32791721416`](https://github.com/FangcunMount/iam/actions/runs/32791721416)，同一最终 SHA |
-| MySQL 8 workflow | 已通过 | 发布负责人 | [MySQL 8 run `32791721351`](https://github.com/FangcunMount/iam/actions/runs/32791721351)，同 SHA 的空库完整升级、并发 guard 与生产同款 preflight 均成功 |
-| Production Deploy | 已通过 | 平台运维 | [生产部署 run `32792113058`](https://github.com/FangcunMount/iam/actions/runs/32792113058)，Build/Deploy/Summary 三个 job 均成功 |
-| Production Health Check | 已通过 | 平台运维 | [健康检查 run `32792503728`](https://github.com/FangcunMount/iam/actions/runs/32792503728) 证明容器 healthy、`/healthz=200`、`/readyz=200`、运行 SHA 精确匹配且 MySQL/Redis 可达 |
+| 最终源码 SHA（000028 功能发布） | 已核验 | 发布负责人 | 部署 run、镜像 tag 与该轮健康检查中的 `/version.gitCommit` 均绑定 `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851` |
+| 镜像 digest 与发布时间 | 部分核验 | 发布负责人 | [生产部署 run `32925583337`](https://github.com/FangcunMount/iam/actions/runs/32925583337) 于 2026-08-26 成功构建、推送并部署该 SHA 镜像；完整 digest 尚未在本安全台账单独登记 |
+| CI | 已通过 | 发布负责人 | [CI run `32925286458`](https://github.com/FangcunMount/iam/actions/runs/32925286458)，同一功能发布 SHA |
+| CodeQL | 已通过 | 发布负责人 | [CodeQL run `32925286150`](https://github.com/FangcunMount/iam/actions/runs/32925286150)，同一功能发布 SHA |
+| MySQL 8 workflow | 已通过 | 发布负责人 | [MySQL 8 run `32925286430`](https://github.com/FangcunMount/iam/actions/runs/32925286430)，同 SHA 的空库完整升级、并发唯一性与生产同款 preflight 均成功 |
+| Production Deploy | 已通过 | 平台运维 | [生产部署 run `32925583337`](https://github.com/FangcunMount/iam/actions/runs/32925583337)，Build/Deploy/Summary 三个 job 均成功 |
+| Production Health Check | 已通过 | 平台运维 | [健康检查 run `32925995472`](https://github.com/FangcunMount/iam/actions/runs/32925995472) 证明容器 healthy、`/healthz=200`、`/readyz=200`、运行 SHA 精确匹配且 MySQL/Redis 可达 |
 | AuthZ gRPC 安全消息 | 仓库侧通过，生产抽样待登记 | 应用运维 | 安全 mapper 与测试已通过；仍需保存不含底层错误文本的生产黑盒验证结论 |
 
 ### 4.1 AuthZ v3 最终切换
@@ -51,6 +51,15 @@
 | 最终 IAM 部署 | 已通过 | [run `32877019508`](https://github.com/FangcunMount/iam/actions/runs/32877019508)：SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6`，ACR 镜像 digest `sha256:98599f7aced99218…` |
 | 最终 IAM 健康 | 已通过 | [run `32877567211`](https://github.com/FangcunMount/iam/actions/runs/32877567211)：运行 SHA 精确匹配、容器 healthy、health/readiness 200、MySQL/Redis 可达 |
 | Mac mini 生产备份克隆演练 | 已通过 | [run `32875449928`](https://github.com/FangcunMount/iam/actions/runs/32875449928)：完整 25→27 链、转换 hash、最终旧对象缺失和 artifact checksum 均通过 |
+
+### 4.2 AuthN global_identifier 唯一性
+
+| 项目 | 当前状态 | 证据 |
+| --- | --- | --- |
+| 发布前逻辑备份 | 已通过 | [run `32924685068`](https://github.com/FangcunMount/iam/actions/runs/32924685068)：`iam_backup_20260826_105831.sql.gz`，29,278,064 bytes，当时保留 3 份 |
+| 发布前只读预检 | 已通过 | [run `32924963311`](https://github.com/FangcunMount/iam/actions/runs/32924963311)：`version=27`，非法/未规范行 0，跨 User 冲突组 0，重复组/额外行 `0/0`，索引计数 0 |
+| 发布后数据库状态 | 已通过 | [run `32925876593`](https://github.com/FangcunMount/iam/actions/runs/32925876593)：`version=28, dirty=0`、16 张 BASE TABLE 精确匹配、迁移锁空闲且历史退役对象持续缺席 |
+| 发布后唯一性 guard | 已通过 | [run `32926175510`](https://github.com/FangcunMount/iam/actions/runs/32926175510)：非法/未规范行 0，跨 User 冲突组 0，重复组/额外行 `0/0`，索引计数 1 |
 
 ## 5. 数据库备份证据
 
@@ -74,10 +83,10 @@ RDS 基础备份满足当前最低保护要求，但增强恢复能力只完成�
 
 | 项目 | 当前状态 | 责任方 | 完成条件与安全元数据 |
 | --- | --- | --- | --- |
-| `000019–000024` 发布前逻辑备份 | 已按批次登记 | 平台运维 | 文件元数据、run URL 与发布对应关系见 canonical [退役审计台账](../05-工程质量与运维/06-遗留资产兼容层与数据库退役审计.md) |
-| 当前定时数据库状态检查 | 已通过 | 平台运维 | [Database Operations run `32876762969`](https://github.com/FangcunMount/iam/actions/runs/32876762969) 证明 `version=27, dirty=0`、16 张 BASE TABLE 精确匹配且全部退役对象持续缺席 |
-| 长期宿主机定时逻辑备份 | 部分闭合 | 平台运维 | [backup run `32756675723`](https://github.com/FangcunMount/iam/actions/runs/32756675723) 产生 `iam_backup_20260825_012703.sql.gz`，29,210,688 bytes，`gzip -t=pass`且保留数为 3；长期 RPO/RTO 与隔离恢复演练仍需持续登记 |
-| 最终 SHA 的 MySQL 8 合成恢复 | 已闭合 | 发布负责人 | [MySQL 8 run `32791721351`](https://github.com/FangcunMount/iam/actions/runs/32791721351) 完成同 SHA 的 backup -> drop -> restore -> data assertion |
+| `000019–000028` 发布前逻辑备份 | 已按批次登记 | 平台运维 | 文件元数据、run URL 与发布对应关系见 canonical [退役审计台账](../05-工程质量与运维/06-遗留资产兼容层与数据库退役审计.md) |
+| 当前定时数据库状态检查 | 已通过 | 平台运维 | [Database Operations run `32925876593`](https://github.com/FangcunMount/iam/actions/runs/32925876593) 证明 `version=28, dirty=0`、16 张 BASE TABLE 精确匹配且全部退役对象持续缺席 |
+| 长期宿主机定时逻辑备份 | 部分闭合 | 平台运维 | [backup run `32924685068`](https://github.com/FangcunMount/iam/actions/runs/32924685068) 产生 `iam_backup_20260826_105831.sql.gz`，29,278,064 bytes，且保留数为 3；长期 RPO/RTO 与隔离恢复演练仍需持续登记 |
+| 000028 功能发布 SHA 的 MySQL 8 验证 | 已闭合 | 发布负责人 | [MySQL 8 run `32925286430`](https://github.com/FangcunMount/iam/actions/runs/32925286430) 完成同 SHA 的 full-chain、backup/restore fixture、并发唯一性与生产同款 preflight |
 
 ## 6. 5.4 安全处置历史证据
 
@@ -91,4 +100,4 @@ RDS 基础备份满足当前最低保护要求，但增强恢复能力只完成�
 
 ## 7. 关闭条件
 
-当前可以分别陈述“仓库门禁通过”“`000019–000027` 生产退役完成”“AuthZ v3 最终 SHA 已部署且健康检查成功”，不能合并成“所有历史安全与恢复事项已最终关闭”。只有第 4、5、6 节剩余项都有真实、安全的元数据证据，才能把整个 IAM 历史治理结论改为“最终验收全部完成”；这些历史缺口不改变 AuthZ v3 切换已经完成的结论。
+当前可以分别陈述“仓库门禁通过”“`000019–000028` 生产迁移完成”“AuthZ v3 与 000028 AuthN 功能 SHA 均已部署且健康检查成功”，不能合并成“所有历史安全与恢复事项已最终关闭”。只有第 4、5、6 节剩余项都有真实、安全的元数据证据，才能把整个 IAM 历史治理结论改为“最终验收全部完成”；这些历史缺口不改变本轮功能发布已完成的结论。
