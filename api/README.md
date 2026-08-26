@@ -13,7 +13,8 @@ api/
 │   ├── idp.v2.yaml
 │   └── suggest.v2.yaml
 └── grpc/
-    └── iam/{authn,authz,identity,idp}/v2/*.proto
+    ├── iam/{authn,identity,idp}/v2/*.proto
+    └── iam/authz/v3/*.proto
 ```
 
 ## REST 能力
@@ -33,11 +34,14 @@ POST /api/v2/authn/login
 POST /api/v2/authn/refresh_token
 POST /api/v2/authn/logout
 GET  /.well-known/jwks.json
-POST /api/v2/authz/check
-GET  /api/v2/identity/me
-GET  /api/v2/identity/profile-links
-GET  /api/v2/suggest/profile
+GET /api/v3/authz/roles
+POST /api/v3/authz/grants
+GET /api/v2/identity/me
+GET /api/v2/identity/profile-links
+GET /api/v2/suggest/profile
 ```
+
+AuthZ REST v3 是角色、Assignment、RoleInheritance、PermissionGrant 与 Resource 的管理面，不提供权限判定端点。可信服务的授权判定使用 gRPC `iam.authz.v3.AuthorizationService/Check`。
 
 实际注册位置在 [internal/apiserver/transport/rest](../internal/apiserver/transport/rest)，路由矩阵由 [internal/apiserver/transport/rest/router_matrix_test.go](../internal/apiserver/transport/rest/router_matrix_test.go) 保护。
 

@@ -72,7 +72,7 @@ IAM 集中回答三个核心问题：
 | --- | --- | --- |
 | 用户是谁，自然人档案是什么 | Identity | User、Profile、ProfileLink |
 | 如何证明当前请求者的身份 | AuthN | LoginIdentity、Credential、Principal、Session、Token |
-| 当前用户能访问什么资源 | AuthZ | Subject、Role、Permission、Resource、RoleBinding、Decision |
+| 当前用户能访问什么资源 | AuthZ | Subject、Role、Assignment、RoleInheritance、PermissionGrant、ConstraintSet、Resource、ObjectAttributes、Decision |
 
 在三个核心能力之外，IAM 还提供两个辅助能力：
 
@@ -208,7 +208,7 @@ IDP 和 Suggest 可以支撑核心模块，但不能吞并核心模块职责。
 | --- | --- | --- |
 | Identity | `User`、`Profile`、`ProfileLink` 及 User 状态 | 对外提供 `UserStatusReader`、`UserResolver` |
 | AuthN | `LoginIdentity`、`Credential`、`Challenge`、`Principal`、`Session`、Token | 通过 `UserStatusReader` 检查 User 是否允许建立或继续会话 |
-| AuthZ | `Subject`、`Role`、`RoleBinding`、`Permission`、`Decision` | 通过 `UserResolver` 确认 `user` Subject 对应的 User 存在 |
+| AuthZ | `Subject`、`Role`、`Assignment`、`RoleInheritance`、`PermissionGrant`、`ConstraintSet`、`Resource`、`ObjectAttributes`、`Decision` | 通过 `UserResolver` 确认 `user` Subject 对应的 User 存在 |
 
 这里有三个不能混同的概念：
 
@@ -223,7 +223,7 @@ AuthN 不会把 `Principal` 领域对象直接交给 AuthZ。资源服务在认�
 两个关键不变量已经落到实现：
 
 - RefreshToken 只有在曾经有效且已被原子换新后再次出现，才会被判定为重放并撤销对应 Session；任意未签发令牌不会触发会话撤销。
-- 同一 `Subject + Role + Tenant` 的 active RoleBinding 由数据库唯一索引保护，并发写入不依赖应用层“先查后写”。
+- 同一 `Subject + Role + Tenant` 的 active Assignment 由数据库唯一索引保护，并发写入不依赖应用层“先查后写”。
 
 #### 2.2.3 辅助模块如何支撑核心模块
 

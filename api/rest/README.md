@@ -22,7 +22,7 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | JWKS | `GET /.well-known/jwks.json`、`GET /api/v2/.well-known/jwks.json` |
 | LoginIdentity | `GET /api/v2/authn/login-identities`、`POST /api/v2/authn/login-identities/*`、`DELETE /api/v2/authn/login-identities/{id}` |
 | Signup | `POST /api/v2/authn/signups/wechat-miniprogram` |
-| 授权 | `/api/v2/authz/health`、`/api/v2/authz/check`、`/api/v2/authz/{roles,assignments,policies,resources}` |
+| AuthZ 管理面 | `GET /api/v3/authz/health`、`/api/v3/authz/{roles,assignments,grants,role-inheritances,resources}` |
 | Identity | `/api/v2/identity/me`、`/api/v2/identity/me/profiles`、`GET /api/v2/identity/profiles/*`、`GET /api/v2/identity/profile-links` |
 | IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` |
 | Suggest | `GET /api/v2/suggest/profile` |
@@ -52,10 +52,17 @@ curl -X POST https://iam.example.com/api/v2/authn/login \
 curl https://iam.example.com/api/v2/identity/me \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 
-curl -X POST https://iam.example.com/api/v2/authz/check \
-  -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"resource":"qs:answersheet:collection:answersheets","action":"admin_submit"}'
+curl https://iam.example.com/api/v3/authz/roles \
+  -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
+```
+
+AuthZ REST v3 只承接管理命令和查询。权限判定是可信服务间调用，使用 gRPC v3：
+
+```bash
+grpcurl \
+  -H "authorization: Bearer ${IAM_SERVICE_TOKEN}" \
+  -d '{"subject":"user:1024","domain":"default","resource":"qs:answersheet:collection:answersheets","action":"admin_submit"}' \
+  iam.example.com:443 iam.authz.v3.AuthorizationService/Check
 ```
 
 ## 验证

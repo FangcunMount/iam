@@ -10,7 +10,7 @@ IAM 至少保护：
 - password/OTP/OAuth proof；
 - Session、access/refresh/service token；
 - JWT 私钥和 IDP AppSecret；
-- Role/Permission/RoleBinding；
+- Role/Assignment/RoleInheritance/PermissionGrant/ConstraintSet；
 - 审计/运行日志中的身份元数据；
 - 管理接口与数据库备份。
 
@@ -109,22 +109,22 @@ Envelope encryption/KMS 的价值是把“能读数据库”和“能解密 secr
 ## 6. 授权威胁
 
 - confused deputy：服务用客户端提供的 Subject/Tenant 做 Check；
-- stale revoke：某实例 Enforcer 未 reload；
-- over-broad pattern：resource/action regex 过宽；
+- stale revoke：某实例原生授权快照未 reload；
+- over-broad pattern：受信系统 Grant 的 resource/action wildcard 过宽；
 - UI-only auth：前端隐藏按钮但服务未 Check；
-- route/object mismatch：路由权限通过后未检查具体 scope；
+- route/object mismatch：路由 capability 通过后未加载对象并执行所需的 ObjectAttribute Check；
 - service credential compromise：可信服务 token 被用于越权管理 RPC。
 
-控制包括可信上下文构造、default deny、policy lint、per-instance broadcast/reload health、mTLS+service auth+ACL 和敏感操作对象级 Check。
+控制包括可信上下文构造、default deny、PermissionGrant/Resource Schema 校验、per-instance broadcast/reload health、mTLS+service auth+ACL 和敏感操作对象级 Check。
 
 ### 6.1 Confused deputy 的完整路径
 
-典型攻击不是绕过 Casbin matcher，而是诱导高权限服务替攻击者选择错误输入：
+典型攻击不是绕过某个 matcher，而是诱导高权限服务替攻击者选择错误输入：
 
 ```text
 普通用户提交 tenant=admin-tenant, subject=service:root
   -> handler 原样构造 CheckCommand
-  -> matcher 对这个伪造五元组正确返回 allow
+  -> 原生 runtime 对这组伪造输入正确返回 allow
 ```
 
 因此值对象格式合法远远不够。Subject 来自 Principal/service identity，Tenant 来自可信绑定，Resource/Action 来自服务端注册表，对象属性来自服务端已加载的领域对象。这些构造点都属于授权机制的一部分。

@@ -45,7 +45,8 @@ IDP 解析外部 provider 身份
 
 - domain：`internal/apiserver/domain/authn`
 - application：`internal/apiserver/application/authn`
-- infra：`internal/apiserver/infra/{mysql,redis}/authn`
+- MySQL infra：`internal/apiserver/infra/mysql/loginidentity`、`credential`、`uow/authn`
+- Redis infra：`internal/apiserver/infra/cache/redis`
 - transport/container：`internal/apiserver/transport/{rest,grpc}`、`internal/apiserver/container/authn`
 - client SDK：`pkg/sdk/auth`
 

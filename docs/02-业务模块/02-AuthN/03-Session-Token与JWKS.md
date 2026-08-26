@@ -139,7 +139,7 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 - 签发/刷新/验证：`internal/apiserver/application/authn/token`
 - Session 领域：`internal/apiserver/domain/authn/session`
-- Redis 存储：`internal/apiserver/infra/redis/authn`
+- Redis 存储：`internal/apiserver/infra/cache/redis`
 - Key/JWKS 应用：`internal/apiserver/application/authn/jwks`
 - SDK：`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`
 - 重点测试：`token/refresher_atomic_test.go`、`token/principal_session_test.go`、`session/lifetime_policy_test.go`、`pkg/sdk/auth/jwks/jwks_test.go`

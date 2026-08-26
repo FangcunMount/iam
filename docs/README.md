@@ -33,7 +33,7 @@ flowchart LR
     Provider["Wechat / WeCom"] --> IDP["IDP\nExternalIdentity / 应用凭据"]
     IDP --> AuthN["AuthN\nLoginIdentity / Principal\nSession / Token"]
     Identity["Identity\nUser / Profile / ProfileLink"] <--> AuthN
-    AuthN --> AuthZ["AuthZ\nSubject / Role / Permission\nResource Check"]
+    AuthN --> AuthZ["AuthZ\nAssignment / RoleInheritance\nPermissionGrant / ObjectAttributes"]
     Identity --> Suggest["Suggest\nProfile 派生读模型"]
     AuthZ --> Suggest
 
@@ -111,7 +111,7 @@ docs/
 
 - [Identity](02-业务模块/01-Identity/README.md)：User/Profile/ProfileLink、不变量、创建与关系链路；
 - [AuthN](02-业务模块/02-AuthN/README.md)：认证模型、登录绑定、Session/Token/JWKS；
-- [AuthZ](02-业务模块/03-AuthZ/README.md)：五元授权、Casbin 投影、写入与多实例一致性；
+- [AuthZ](02-业务模块/03-AuthZ/README.md)：RBAC、对象属性条件、原生不可变快照、写入与多实例一致性；
 - [IDP](02-业务模块/04-IDP/README.md)：外部信任、应用密钥、AppToken 与 provider 边界；
 - [Suggest](02-业务模块/05-Suggest/README.md)：读模型、Full/Delta、授权过滤和敏感数据。
 
@@ -124,7 +124,7 @@ docs/
 3. [IAM 威胁模型与安全边界](06-专题设计/03-IAM威胁模型与安全边界.md)
 4. [JWT/JWS/JWK/JWKS 与密钥轮换](06-专题设计/04-JWT-JWS-JWK-JWKS与密钥轮换.md)
 5. [Suggest 为什么采用派生读模型](06-专题设计/05-Suggest为什么是读模型.md)
-6. [Casbin 为什么只是授权执行引擎](06-专题设计/06-Casbin作为授权执行引擎.md)
+6. [Casbin 为什么只保留为内存角色图](06-专题设计/06-Casbin作为授权执行引擎.md)
 
 面试索引只组织表达顺序；专题中的“面试追问”用于检验理解，答案的推理和代码证据仍在 canonical 正文。
 
@@ -152,7 +152,7 @@ docs/
 | 类别 | 含义 | 示例 |
 | --- | --- | --- |
 | 当前事实 | 代码今天真实执行 | Refresh 当前先延长 Session 再 CAS 轮换 |
-| 设计决策 | 已采用方案及其约束 | DB 是 AuthZ fact truth，Enforcer 是投影 |
+| 设计决策 | 已采用方案及其约束 | DB 是 AuthZ fact truth，原生不可变 runtime snapshot 是投影 |
 | 当前限制 | 已知失败窗口/缺失能力 | 无 per-tenant loaded-version barrier |
 | 设计建议 | 尚未实现的增强 | KMS envelope encryption、Refresh family reuse detection |
 | 运行证据 | 特定环境和时刻的观察 | 生产 backup restore、部署 digest、时间窗口 |
@@ -161,7 +161,7 @@ docs/
 
 ## 6. 五条统一推理原则
 
-1. **变化原因决定模块边界**：User、LoginIdentity、Session、Permission 和 provider app 因不同原因变化，不能因都带 ID 就合表。
+1. **变化原因决定模块边界**：User、LoginIdentity、Session、PermissionGrant 和 provider app 因不同原因变化，不能因都带 ID 就合表。
 2. **强声明必须由足够强的证明推导**：openid、JWT 签名、ProfileLink、UI capability 都不能单独推出资源允许。
 3. **一致性按不变量和风险选择**：同库事务、数据库约束、Redis Lua、Outbox、可重建投影各自解决不同问题。
 4. **投影永远回到事实源**：AuthZ 原生快照（含内存角色图）、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
@@ -176,7 +176,7 @@ docs/
 | Go SDK | `pkg/sdk` + `public_api_compile_test.go` |
 | 数据结构 | `internal/pkg/migration/migrations` |
 | 事件语义 | `configs/events.yaml` |
-| 授权 matcher | `configs/casbin_model.conf` |
+| AuthZ 判定契约与运行时 | `api/grpc/iam/authz/v3/authz.proto` + `internal/apiserver/infra/authz/native` |
 | 运行模式 | `internal/pkg/server/runtime_profile.go` + dev/prod config |
 | 分层边界 | `internal/pkg/architecture` |
 | 人工/生产证据 | [IAM 重构与生产验收记录](01-运行时/08-IAM重构最终验收记录.md) |

@@ -2926,8 +2926,8 @@ tags:
   name: Authorization-Roles
 - description: 角色分配 - 授予、撤销用户或组的角色
   name: Authorization-Assignments
-- description: 策略管理 - 添加、移除 RBAC 策略规则
-  name: Authorization-Policies
+- description: PermissionGrant 管理 - 授予、查询和撤销资源动作能力
+  name: Authorization-Grants
 - description: 资源管理 - 创建、查询、更新受保护资源
   name: Authorization-Resources
 - description: 微信集成 - 登录、应用管理、密钥轮换、令牌获取

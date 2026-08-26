@@ -47,7 +47,7 @@
 
 ```text
 外部身份接入：provider proof -> IDP ExternalIdentity -> AuthN -> Identity -> Session / Token
-授权决策与传播：Identity User -> AuthZ -> MySQL / Casbin -> Outbox / NSQ
+授权决策与传播：Identity User -> AuthZ -> MySQL 事实 / 原生快照 / Casbin 角色图 -> Outbox / NSQ
 可见资料搜索：Identity facts + 授权范围 -> Suggest read model
 ```
 
@@ -220,7 +220,7 @@
 
 ### 4.1 如果主要负责架构与核心链路
 
-> 我在这个项目中主要负责模块边界和核心链路的设计与落地。重点不是拆包本身，而是把 User、LoginIdentity、Session 和 Permission 等变化原因不同的事实分开，再用 application port 和 composition root 让它们在运行时协作。我同时对外部身份接入、Session/Token、AuthZ 策略传播等链路补充了事务和失败语义验证。
+> 我在这个项目中主要负责模块边界和核心链路的设计与落地。重点不是拆包本身，而是把 User、LoginIdentity、Session、Assignment 和 PermissionGrant 等变化原因不同的事实分开，再用 application port 和 composition root 让它们在运行时协作。我同时对外部身份接入、Session/Token、AuthZ 策略传播等链路补充了事务和失败语义验证。
 
 ### 4.2 如果主要负责迁移与生产闭环
 
@@ -352,7 +352,7 @@
 1. 3.1 开场；
 2. 3.2 五个模块，每个只讲一句；
 3. 3.3 外部身份链，用来串联 IDP、AuthN 和 Identity；
-4. 3.4 只讲 AuthN 与 AuthZ 通过 Identity User 对齐，以及 MySQL/Casbin 的事实与投影边界；
+4. 3.4 只讲 AuthN 与 AuthZ 通过 Identity User 对齐，以及 MySQL 事实、原生不可变快照与 Casbin 内存角色图的边界；
 5. 3.7 最后一段总结。
 
 Suggest、Outbox 重复窗口、分层架构和工程门禁留给追问。
@@ -362,7 +362,7 @@ Suggest、Outbox 重复窗口、分层架构和工程门禁留给追问。
 - [ ] 不看文档，30 秒内说出“三问五模块”；
 - [ ] 画出 provider proof -> ExternalIdentity -> LoginIdentity -> User -> Principal -> Session/Token 链路；
 - [ ] 不画 AuthN -> AuthZ 模块直连，能说清 Identity User 锚点与请求上下文；
-- [ ] 说清 MySQL 事实、Casbin 投影、Outbox 意图和 NSQ 通知的不同责任；
+- [ ] 说清 MySQL 事实、原生不可变快照、Casbin 内存角色图、Outbox 意图和 NSQ 通知的不同责任；
 - [ ] 用“publish 成功、mark 失败”解释为什么不是 exactly-once；
 - [ ] 说清 Revoke 传播延迟比 Grant 传播延迟更偏安全风险；
 - [ ] 说清 Suggest 可见候选不等于详情授权；
