@@ -870,9 +870,11 @@ func ApplyAuthzV3Convergence(ctx context.Context, db *gorm.DB, uow authzuow.Unit
 		for _, tenantID := range []string{"fangcun", "platform"} {
 			version, err := repos.PolicyVersions.Increment(txCtx, tenantID, convergeActor, "AuthZ V3 semantic convergence")
 			if err != nil {
+				plan.block("apply_policy_version_increment_failed_" + tenantID)
 				return err
 			}
 			if err := shared.StagePolicyVersionChanged(txCtx, repos.Events, tenantID, version); err != nil {
+				plan.block("apply_policy_version_event_failed_" + tenantID)
 				return err
 			}
 		}
@@ -888,7 +890,13 @@ func ApplyAuthzV3Convergence(ctx context.Context, db *gorm.DB, uow authzuow.Unit
 	return applied, err
 }
 
-func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositories, plan *AuthzV3ConvergePlan) error {
+func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositories, plan *AuthzV3ConvergePlan) (err error) {
+	step := "resolve_roles"
+	defer func() {
+		if err != nil {
+			plan.block("apply_" + step + "_failed")
+		}
+	}()
 	roles := make(map[string]meta.ID)
 	for _, key := range []struct{ tenant, name string }{
 		{"platform", "platform:admin"}, {"platform", "iam:admin"}, {"fangcun", "super_admin"},
@@ -901,6 +909,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		roles[key.tenant+"\x00"+key.name] = item.ID
 	}
 
+	step = "revoke_source_grants"
 	for _, spec := range sourceGrantRemovals {
 		roleID := roles[spec.Tenant+"\x00"+spec.Role]
 		if roleID.IsZero() {
@@ -933,6 +942,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		}
 	}
 
+	step = "rename_permission_grants_resource"
 	resources := make(map[string]*resource.Resource)
 	policies, err := repos.Resources.FindByKey(ctx, "iam:authz:collection:policies")
 	if err != nil {
@@ -950,15 +960,19 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	}
 	resources[permissionGrantsResource.KeyString()] = &permissionGrantsResource
 
+	step = "normalize_assignment_resource"
 	if err := replaceResourceActions(ctx, repos, resources, "iam:authz:collection:assignments", []string{"list", "grant", "revoke"}); err != nil {
 		return err
 	}
+	step = "extend_wechat_resource"
 	if err := appendResourceActions(ctx, repos, resources, "iam:idp:collection:wechat_apps", "list", "update", "enable", "disable"); err != nil {
 		return err
 	}
+	step = "extend_report_resource"
 	if err := appendResourceActions(ctx, repos, resources, "qs:evaluation:collection:reports", "audit"); err != nil {
 		return err
 	}
+	step = "create_resources"
 	for _, spec := range targetResources {
 		item, err := resource.NewResource(spec.Key, spec.Actions, resource.WithDisplayName(spec.DisplayName), resource.WithDescription(spec.Description))
 		if err != nil {
@@ -970,6 +984,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		resources[item.KeyString()] = &item
 	}
 
+	step = "create_grants"
 	for _, spec := range targetGrantAdditions {
 		roleID := roles[spec.Tenant+"\x00"+spec.Role]
 		catalog := resources[spec.Resource]
@@ -991,6 +1006,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		}
 	}
 
+	step = "create_inheritances"
 	for _, spec := range targetInheritanceAdditions {
 		childID := roles[spec.Tenant+"\x00"+spec.Role]
 		parentID := roles[spec.Tenant+"\x00"+spec.Parent]
@@ -1018,6 +1034,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		}
 	}
 
+	step = "update_evaluator_description"
 	evaluator, err := repos.Roles.FindByName(ctx, "fangcun", "qs:evaluator")
 	if err != nil {
 		return err
@@ -1026,6 +1043,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	if err := repos.Roles.Update(ctx, evaluator); err != nil {
 		return err
 	}
+	step = "retire_check_resource"
 	checkResource, err := repos.Resources.FindByKey(ctx, "iam:authz:action:check")
 	if err != nil {
 		return err
@@ -1036,12 +1054,14 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	if err := repos.Resources.Delete(ctx, checkResource.ID); err != nil {
 		return err
 	}
+	step = "retire_empty_roles"
 	for _, roleName := range []string{"platform:admin", "iam:admin"} {
 		if err := repos.Roles.Delete(ctx, roles["platform\x00"+roleName]); err != nil {
 			return err
 		}
 	}
 
+	step = "revoke_missing_subject_assignments"
 	subjectID, err := meta.ParseID(plan.missingSubjectID)
 	if err != nil || subjectID.IsZero() {
 		return fmt.Errorf("validated missing subject id is invalid")
