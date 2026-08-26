@@ -910,6 +910,10 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	}
 
 	step = "revoke_source_grants"
+	// Convergence only mutates active policy facts. Avoid restoring revoked history
+	// here because rows created under older canonicalization rules may carry stale
+	// grant keys even though they cannot participate in authorization decisions.
+	activeGrantsByTenant := make(map[string][]*permissiongrant.Grant)
 	for _, spec := range sourceGrantRemovals {
 		roleID := roles[spec.Tenant+"\x00"+spec.Role]
 		if roleID.IsZero() {
@@ -920,9 +924,13 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 			roleID = role.ID
 			roles[spec.Tenant+"\x00"+spec.Role] = roleID
 		}
-		grants, err := repos.PermissionGrants.ListByRole(ctx, roleID, spec.Tenant)
-		if err != nil {
-			return err
+		grants, loaded := activeGrantsByTenant[spec.Tenant]
+		if !loaded {
+			grants, err = repos.PermissionGrants.ListActiveByTenant(ctx, spec.Tenant)
+			if err != nil {
+				return err
+			}
+			activeGrantsByTenant[spec.Tenant] = grants
 		}
 		matched := 0
 		for _, item := range grants {
@@ -930,7 +938,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 			if err != nil {
 				return err
 			}
-			if item.IsActive() && item.ResourcePatternString() == spec.Resource && item.ActionString() == spec.Action && string(constraints) == spec.Constraints {
+			if item.RoleID == roleID && item.ResourcePatternString() == spec.Resource && item.ActionString() == spec.Action && string(constraints) == spec.Constraints {
 				matched++
 				if err := repos.PermissionGrants.Revoke(ctx, item.ID); err != nil {
 					return err
