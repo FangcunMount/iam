@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="4200" height="3500" viewBox="0 0 4200 3500" role="img" aria-labelledby="title desc">
-  <title id="title">IAM 三核心模块领域模型 V7（统一模型颜色语义）</title>
-  <desc id="desc">中心区域展示 Identity、AuthN、AuthZ 三个限界上下文。色相表示所属上下文；白底细边框表示普通状态和值模型；白底粗边框表示聚合根；浅主题色底表示领域服务、应用服务或端口。</desc>
+  <title id="title">IAM 三核心模块领域模型 V7（准入策略与边界语义）</title>
+  <desc id="desc">中心区域展示 Identity、AuthN、AuthZ 三个限界上下文。色相表示所属上下文；白底细边框表示实体、值对象与结果模型；白底粗边框表示聚合根；浅主题色底表示领域服务与领域策略。应用能力和基础设施实现仅在外部知识 Tips 中说明。</desc>
 
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -57,8 +57,8 @@
   </defs>
 
   <rect width="4200" height="3500" fill="#ffffff"/>
-  <text x="2100" y="82" text-anchor="middle" class="title">IAM 三核心模块领域模型 V7｜统一模型颜色语义</text>
-  <text x="2100" y="124" text-anchor="middle" class="subtitle">色相表示所属上下文；底色与边框表示模型种类；周边 Tips 解释不变量、信任边界和运行约束</text>
+  <text x="2100" y="82" text-anchor="middle" class="title">IAM 三核心模块领域模型 V7｜准入策略与边界语义</text>
+  <text x="2100" y="124" text-anchor="middle" class="subtitle">领域模型留在所属上下文；应用窄能力、协议实现与基础设施通过周边 Tips 说明</text>
 
   <!-- External knowledge-note connectors: explanatory only, never domain dependencies -->
   <path d="M410 460 C410 575 870 650 870 905" class="knowledge-line"/>
@@ -192,36 +192,36 @@
   <!-- AuthN section 3 -->
   <rect x="90" y="1465" width="1580" height="650" rx="20" fill="#f9fdf9" stroke="#b7dfc3" stroke-width="2"/>
   <text x="125" y="1505" class="section-title">3｜在线认证状态与令牌</text>
-  <text x="125" y="1533" class="section-desc">认证成功还必须通过主体访问门禁，随后才能创建 Session 并签发令牌</text>
+  <text x="125" y="1533" class="section-desc">认证成功只形成 Principal；AdmissionPolicy 决定是否允许建立或维持在线认证状态</text>
 
   <g filter="url(#shadow)">
     <rect x="125" y="1570" width="445" height="230" rx="17" class="authn-behavior"/>
-    <text x="150" y="1600" class="stereotype">DOMAIN SERVICE · ACCESS GATE</text>
-    <text x="348" y="1633" text-anchor="middle" class="model">SubjectAccessEvaluator</text>
+    <text x="150" y="1600" class="stereotype">DOMAIN POLICY · AUTHN ADMISSION</text>
+    <text x="348" y="1633" text-anchor="middle" class="model">AdmissionPolicy｜认证准入策略</text>
     <line x1="125" y1="1653" x2="570" y2="1653" class="divider"/>
     <text x="150" y="1685" class="operation">Evaluate(userID, loginIdentityID)</text>
-    <text x="150" y="1717" class="field">LoginIdentity.Status · UserStatusReader</text>
-    <text x="150" y="1749" class="field">active / blocked / disabled / inactive</text>
+    <text x="150" y="1717" class="field">LoginIdentity Repository · UserStatusReader</text>
+    <text x="150" y="1749" class="field">校验归属关系与双方当前状态</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="630" y="1570" width="430" height="230" rx="17" class="authn-behavior"/>
-    <text x="655" y="1600" class="stereotype">APPLICATION SERVICE</text>
-    <text x="845" y="1633" text-anchor="middle" class="model">TokenIssuer｜令牌签发器</text>
+    <rect x="630" y="1570" width="430" height="230" rx="17" class="authn-model"/>
+    <text x="655" y="1600" class="stereotype">POLICY RESULT VALUE</text>
+    <text x="845" y="1633" text-anchor="middle" class="model">AdmissionDecision｜准入判定</text>
     <line x1="630" y1="1653" x2="1060" y2="1653" class="divider"/>
-    <text x="655" y="1688" class="operation">IssueToken(principal)</text>
-    <text x="655" y="1720" class="field">创建 Session</text>
-    <text x="655" y="1752" class="field">MintTokenPair(principal, session)</text>
+    <text x="655" y="1685" class="field">UserID · LoginIdentityID</text>
+    <text x="655" y="1717" class="field">Status</text>
+    <text x="655" y="1749" class="field">active · blocked · disabled · inactive</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1120" y="1570" width="470" height="230" rx="17" class="authn-model"/>
-    <text x="1145" y="1600" class="stereotype">SIGNING KEY MODEL</text>
-    <text x="1355" y="1633" text-anchor="middle" class="model">Key / JWKS</text>
+    <rect x="1120" y="1570" width="470" height="230" rx="17" class="authn-behavior"/>
+    <text x="1145" y="1600" class="stereotype">DOMAIN POLICY · SESSION LIFETIME</text>
+    <text x="1355" y="1633" text-anchor="middle" class="model">LifetimePolicy｜生命周期策略</text>
     <line x1="1120" y1="1653" x2="1590" y2="1653" class="divider"/>
-    <text x="1145" y="1685" class="field">Kid · Alg · Status</text>
-    <text x="1145" y="1717" class="field">NotBefore · NotAfter</text>
-    <text x="1145" y="1749" class="field">Active · Grace · Retired</text>
+    <text x="1145" y="1685" class="operation">InitialExpiresAt(now)</text>
+    <text x="1145" y="1717" class="operation">RefreshTokenExpiresAt(now, session)</text>
+    <text x="1145" y="1749" class="field">refreshTTL · sessionMaxTTL</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -235,7 +235,7 @@
 
   <g filter="url(#shadow)">
     <rect x="630" y="1860" width="430" height="195" rx="17" class="authn-model"/>
-    <text x="655" y="1890" class="stereotype">TOKEN VALUE</text>
+    <text x="655" y="1890" class="stereotype">APPLICATION RESULT · ACCESS TOKEN</text>
     <text x="845" y="1923" text-anchor="middle" class="model">AccessToken</text>
     <line x1="630" y1="1943" x2="1060" y2="1943" class="divider"/>
     <text x="655" y="1975" class="field">Subject · SessionID · TenantID</text>
@@ -244,7 +244,7 @@
 
   <g filter="url(#shadow)">
     <rect x="1120" y="1860" width="470" height="195" rx="17" class="authn-model"/>
-    <text x="1145" y="1890" class="stereotype">TOKEN VALUE</text>
+    <text x="1145" y="1890" class="stereotype">APPLICATION RESULT · REFRESH TOKEN</text>
     <text x="1355" y="1923" text-anchor="middle" class="model">RefreshToken</text>
     <line x1="1120" y1="1943" x2="1590" y2="1943" class="divider"/>
     <text x="1145" y="1975" class="field">ID · SessionID · UserID · LoginIdentityID</text>
@@ -252,16 +252,18 @@
   </g>
 
   <path d="M1238 1362 V1448 H348 V1568" class="solid"/>
-  <text x="790" y="1438" text-anchor="middle" class="relation">认证成功后进入访问门禁</text>
+  <text x="790" y="1438" text-anchor="middle" class="relation">认证成功后执行准入判定</text>
   <path d="M572 1685 H628" class="solid"/>
-  <text x="600" y="1666" text-anchor="middle" class="relation">允许后签发</text>
-  <path d="M1120 1685 H1062" class="association"/>
-  <text x="1090" y="1666" text-anchor="middle" class="relation">提供活动密钥</text>
+  <text x="600" y="1666" text-anchor="middle" class="relation">返回</text>
   <path d="M845 1802 V1828 H348 V1858" class="solid"/>
-  <text x="585" y="1820" text-anchor="middle" class="relation">创建 Session</text>
-  <path d="M845 1802 V1858" class="solid"/>
-  <path d="M845 1828 H1355 V1858" class="solid"/>
-  <text x="1100" y="1820" text-anchor="middle" class="relation">签发 TokenPair</text>
+  <text x="585" y="1820" text-anchor="middle" class="relation">active 时允许建立 Session</text>
+  <path d="M1355 1802 V1838 H520 V1858" class="association"/>
+  <path d="M1355 1802 V1858" class="association"/>
+  <text x="1020" y="1820" text-anchor="middle" class="relation">约束 Session 与 RefreshToken 过期边界</text>
+  <path d="M570 1958 H628" class="solid"/>
+  <text x="600" y="1939" text-anchor="middle" class="relation">绑定</text>
+  <path d="M570 2018 H1090 V1958 H1118" class="solid"/>
+  <text x="845" y="2046" text-anchor="middle" class="relation">绑定并参与轮换</text>
 
   <!-- Identity bounded context -->
   <rect x="1755" y="175" width="690" height="1990" rx="28" fill="#fff9e8" stroke="#d29b23" stroke-width="3" filter="url(#shadow)"/>
@@ -580,21 +582,22 @@
     <text x="100" y="2672" class="knowledge-title">认证结果规则</text>
     <text x="100" y="2712" class="knowledge-text">• AuthDecision 成功时才产生 Principal</text>
     <text x="100" y="2747" class="knowledge-text">• 认证成功不等于允许建立在线会话</text>
-    <text x="100" y="2782" class="knowledge-text">• SubjectAccessEvaluator 同时检查登录身份与 User 状态</text>
-    <text x="100" y="2817" class="knowledge-text">• 只有 active 才进入 TokenIssuer</text>
+    <text x="100" y="2782" class="knowledge-text">• AdmissionPolicy 校验 User、LoginIdentity 归属与状态</text>
+    <text x="100" y="2817" class="knowledge-text">• 仅 active Decision 允许建立或维持 Session</text>
     <text x="100" y="2852" class="knowledge-text">• Principal 是请求级认证结果，不是稳定 User</text>
+    <text x="100" y="2887" class="knowledge-text">• Admission 只控制认证状态，不负责资源授权</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="780" y="2600" width="700" height="350" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="810" y="2635" class="knowledge-tag">AUTHN · 领域知识</text>
-    <text x="810" y="2672" class="knowledge-title">会话、令牌与密钥</text>
-    <text x="810" y="2712" class="knowledge-text">• Session 同时受滑动 TTL 与绝对生命周期约束</text>
-    <text x="810" y="2747" class="knowledge-text">• RefreshToken 必须原子消费并轮换</text>
-    <text x="810" y="2782" class="knowledge-text">• 重放已消费的 RefreshToken 会撤销对应 Session</text>
-    <text x="810" y="2817" class="knowledge-text">• JWT 签名有效不等于在线 Session 仍有效</text>
-    <text x="810" y="2852" class="knowledge-text">• Key 按 Active → Grace → Retired 管理生命周期</text>
-    <text x="810" y="2887" class="knowledge-text">• JWKS 只公开令牌验证所需的公钥材料</text>
+    <text x="810" y="2672" class="knowledge-title">会话、令牌与适配边界</text>
+    <text x="810" y="2712" class="knowledge-text">• LifetimePolicy 约束滑动 TTL 与绝对生命周期</text>
+    <text x="810" y="2747" class="knowledge-text">• SessionEstablisher、Refresher 等是应用层窄能力</text>
+    <text x="810" y="2782" class="knowledge-text">• AccessToken / RefreshToken 是应用结果，不是聚合根</text>
+    <text x="810" y="2817" class="knowledge-text">• RefreshToken 原子轮换；重放会撤销对应 Session</text>
+    <text x="810" y="2852" class="knowledge-text">• JWT 验签后仍需检查 Session 与 AdmissionPolicy</text>
+    <text x="810" y="2887" class="knowledge-text">• AccessTokenCodec、KeySet、JWKS 位于适配/协议边界</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -643,7 +646,7 @@
   <rect x="1120" y="3160" width="42" height="28" rx="7" class="identity-aggregate"/>
   <text x="1180" y="3181" class="small">聚合根：白底 + 粗边框</text>
   <rect x="1900" y="3160" width="42" height="28" rx="7" class="authz-behavior"/>
-  <text x="1960" y="3181" class="small">领域服务 / 应用服务 / 端口：浅主题色底</text>
+  <text x="1960" y="3181" class="small">领域服务 / 领域策略：浅主题色底</text>
   <rect x="3060" y="3160" width="28" height="28" rx="6" fill="#dff3e5" stroke="#2f855a" stroke-width="2"/>
   <rect x="3098" y="3160" width="28" height="28" rx="6" fill="#ffefbd" stroke="#d29b23" stroke-width="2"/>
   <rect x="3136" y="3160" width="28" height="28" rx="6" fill="#e8def8" stroke="#7653b5" stroke-width="2"/>

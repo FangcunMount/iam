@@ -1,0 +1,351 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="1800" viewBox="0 0 3200 1800" role="img" aria-labelledby="title desc">
+  <title id="title">IAM APIServer 进程生命周期与运行时装配</title>
+  <desc id="desc">以 Process 生命周期为主轴，展示 Create、PrepareRun、Running、Shutdown 四个阶段，并展开资源初始化、Container 模块装配、Transport 注册、后台任务和优雅关闭顺序。</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif; fill: #1f2937; }
+      .title { font-size: 50px; font-weight: 700; }
+      .subtitle { font-size: 24px; fill: #64748b; }
+      .phase-en { font-size: 28px; font-weight: 700; }
+      .phase-cn { font-size: 20px; font-weight: 600; fill: #64748b; }
+      .step-title { font-size: 22px; font-weight: 700; }
+      .step-sub { font-size: 17px; fill: #475569; }
+      .panel-title { font-size: 24px; font-weight: 700; }
+      .panel-sub { font-size: 17px; fill: #64748b; }
+      .detail { font-size: 18px; }
+      .small { font-size: 16px; fill: #475569; }
+      .tiny { font-size: 14px; fill: #64748b; }
+      .module { font-size: 18px; font-weight: 700; }
+      .capability { font-size: 15px; fill: #475569; }
+      .callout { font-size: 18px; font-weight: 600; }
+      .mono { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+      .solid { stroke: #1f2937; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke: #64748b; stroke-width: 2.5; stroke-dasharray: 8 8; fill: none; }
+      .phase { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .divider { stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 7 9; }
+    </style>
+  </defs>
+
+  <rect width="3200" height="1800" fill="#ffffff"/>
+
+  <text x="100" y="82" class="title">IAM APIServer 进程生命周期与运行时装配</text>
+  <text x="100" y="125" class="subtitle">Process 决定何时、按什么顺序启动与停止；Container 负责组装并持续持有模块对象图。</text>
+
+  <!-- phase backgrounds -->
+  <rect x="70" y="175" width="350" height="1475" rx="24" class="phase" fill="#faf7ff"/>
+  <rect x="440" y="175" width="2010" height="1475" rx="24" class="phase" fill="#fbfdff"/>
+  <rect x="2470" y="175" width="310" height="1475" rx="24" class="phase" fill="#fbfdff"/>
+  <rect x="2800" y="175" width="330" height="1475" rx="24" class="phase" fill="#fffafc"/>
+
+  <rect x="90" y="195" width="310" height="78" rx="14" fill="#f1eafe" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="245" y="227" text-anchor="middle" class="phase-en">Create</text>
+  <text x="245" y="254" text-anchor="middle" class="phase-cn">创建进程骨架</text>
+
+  <rect x="460" y="195" width="1970" height="78" rx="14" fill="#eef4ff" stroke="#4f6fca" stroke-width="2"/>
+  <text x="1445" y="227" text-anchor="middle" class="phase-en">PrepareRun</text>
+  <text x="1445" y="254" text-anchor="middle" class="phase-cn">六阶段准备流水线：构建、装配、注册，但尚未监听端口</text>
+
+  <rect x="2490" y="195" width="270" height="78" rx="14" fill="#eef4ff" stroke="#4f6fca" stroke-width="2"/>
+  <text x="2625" y="227" text-anchor="middle" class="phase-en">Running</text>
+  <text x="2625" y="254" text-anchor="middle" class="phase-cn">服务运行阶段</text>
+
+  <rect x="2820" y="195" width="290" height="78" rx="14" fill="#f8efff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="2965" y="227" text-anchor="middle" class="phase-en">Shutdown</text>
+  <text x="2965" y="254" text-anchor="middle" class="phase-cn">优雅关闭阶段</text>
+
+  <!-- main process line: each arrow represents an actual stage transition -->
+  <line x1="385" y1="410" x2="477" y2="410" class="solid"/>
+  <line x1="735" y1="410" x2="757" y2="410" class="solid"/>
+  <line x1="1015" y1="410" x2="1037" y2="410" class="solid"/>
+  <line x1="1295" y1="410" x2="1317" y2="410" class="solid"/>
+  <line x1="1575" y1="410" x2="1597" y2="410" class="solid"/>
+  <line x1="1855" y1="410" x2="1877" y2="410" class="solid"/>
+  <line x1="2135" y1="410" x2="2507" y2="410" class="solid"/>
+  <line x1="2740" y1="410" x2="2837" y2="410" class="solid"/>
+
+  <!-- create -->
+  <rect x="105" y="345" width="280" height="130" rx="54" fill="#eee7ff" stroke="#111827" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="245" y="397" text-anchor="middle" class="step-title">Create APIServer</text>
+  <text x="245" y="428" text-anchor="middle" class="step-sub mono">createAPIServer(cfg)</text>
+  <text x="245" y="454" text-anchor="middle" class="tiny">GracefulShutdown + DBManager</text>
+
+  <!-- PrepareRun six stages -->
+  <g filter="url(#shadow)">
+    <path d="M 480 345 H 700 L 735 410 L 700 475 H 480 Z" fill="#edf2ff" stroke="#111827" stroke-width="2.5"/>
+    <path d="M 760 345 H 980 L 1015 410 L 980 475 H 760 Z" fill="#e7f7ea" stroke="#111827" stroke-width="2.5"/>
+    <path d="M 1040 345 H 1260 L 1295 410 L 1260 475 H 1040 Z" fill="#fff1c7" stroke="#111827" stroke-width="2.5"/>
+    <path d="M 1320 345 H 1540 L 1575 410 L 1540 475 H 1320 Z" fill="#edf2ff" stroke="#111827" stroke-width="2.5"/>
+    <path d="M 1600 345 H 1820 L 1855 410 L 1820 475 H 1600 Z" fill="#edf2ff" stroke="#111827" stroke-width="2.5"/>
+    <path d="M 1880 345 H 2100 L 2135 410 L 2100 475 H 1880 Z" fill="#edf2ff" stroke="#111827" stroke-width="2.5"/>
+  </g>
+
+  <text x="600" y="397" text-anchor="middle" class="step-title">Runtime Config</text>
+  <text x="600" y="428" text-anchor="middle" class="step-sub">解析运行模式</text>
+  <text x="600" y="452" text-anchor="middle" class="tiny mono">prepareRuntime</text>
+
+  <text x="880" y="397" text-anchor="middle" class="step-title">Resources</text>
+  <text x="880" y="428" text-anchor="middle" class="step-sub">初始化基础资源</text>
+  <text x="880" y="452" text-anchor="middle" class="tiny mono">prepareResources</text>
+
+  <text x="1160" y="397" text-anchor="middle" class="step-title">Container</text>
+  <text x="1160" y="428" text-anchor="middle" class="step-sub">创建并初始化容器</text>
+  <text x="1160" y="452" text-anchor="middle" class="tiny mono">prepareContainer</text>
+
+  <text x="1440" y="397" text-anchor="middle" class="step-title">Transports</text>
+  <text x="1440" y="428" text-anchor="middle" class="step-sub">构建并注册 API</text>
+  <text x="1440" y="452" text-anchor="middle" class="tiny mono">prepareTransports</text>
+
+  <text x="1720" y="397" text-anchor="middle" class="step-title">Runtime Tasks</text>
+  <text x="1720" y="428" text-anchor="middle" class="step-sub">启动进程后台任务</text>
+  <text x="1720" y="452" text-anchor="middle" class="tiny mono">startRuntimeTasks</text>
+
+  <text x="2000" y="397" text-anchor="middle" class="step-title">Shutdown Hooks</text>
+  <text x="2000" y="428" text-anchor="middle" class="step-sub">注册关闭回调</text>
+  <text x="2000" y="452" text-anchor="middle" class="tiny mono">registerShutdownCallbacks</text>
+
+  <!-- prepared boundary -->
+  <line x1="2200" y1="305" x2="2200" y2="510" class="divider"/>
+  <rect x="2160" y="298" width="210" height="44" rx="22" fill="#ffffff" stroke="#4f6fca" stroke-width="2"/>
+  <text x="2265" y="326" text-anchor="middle" class="small mono">preparedAPIServer</text>
+
+  <!-- running -->
+  <rect x="2510" y="345" width="230" height="130" rx="18" fill="#edf2ff" stroke="#111827" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="2625" y="397" text-anchor="middle" class="step-title">Run Services</text>
+  <text x="2625" y="428" text-anchor="middle" class="step-sub mono">prepared.Run()</text>
+  <text x="2625" y="452" text-anchor="middle" class="tiny">HTTP + gRPC 并发运行</text>
+
+  <!-- shutdown -->
+  <rect x="2840" y="345" width="250" height="130" rx="58" fill="#eee7ff" stroke="#111827" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="2965" y="397" text-anchor="middle" class="step-title">Graceful Shutdown</text>
+  <text x="2965" y="428" text-anchor="middle" class="step-sub">停止接流量并释放资源</text>
+  <text x="2965" y="452" text-anchor="middle" class="tiny mono">runShutdownSequence</text>
+
+  <!-- dashed expansion connectors -->
+  <path d="M 600 475 V 545" class="dashed"/>
+  <path d="M 880 475 V 545" class="dashed"/>
+  <path d="M 1160 475 V 545" class="dashed"/>
+  <path d="M 1440 475 V 545" class="dashed"/>
+  <path d="M 1720 475 V 545" class="dashed"/>
+  <path d="M 2000 475 V 545" class="dashed"/>
+  <path d="M 2625 475 V 545" class="dashed"/>
+  <path d="M 2965 475 V 545" class="dashed"/>
+
+  <!-- prepare runtime detail -->
+  <rect x="475" y="545" width="245" height="265" rx="18" fill="#f8faff" stroke="#8aa1df" stroke-width="2"/>
+  <text x="598" y="582" text-anchor="middle" class="panel-title">运行模式</text>
+  <line x1="500" y1="600" x2="695" y2="600" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="500" y="638" class="detail">1. 解析 RuntimeProfile</text>
+  <text x="500" y="677" class="detail">2. 判断降级启动</text>
+  <text x="500" y="716" class="detail">3. 创建 Lifecycle</text>
+  <rect x="500" y="746" width="195" height="42" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="598" y="773" text-anchor="middle" class="small">控制启动策略与错误边界</text>
+
+  <!-- resources detail -->
+  <rect x="745" y="545" width="300" height="390" rx="18" fill="#f0fbf2" stroke="#63a66f" stroke-width="2"/>
+  <text x="895" y="582" text-anchor="middle" class="panel-title">基础资源</text>
+  <text x="895" y="610" text-anchor="middle" class="panel-sub">为 Container 提供适配器</text>
+  <rect x="770" y="638" width="250" height="52" rx="12" fill="#ffffff" stroke="#8bc595"/>
+  <text x="895" y="670" text-anchor="middle" class="detail mono">DatabaseManager.Initialize</text>
+  <rect x="770" y="704" width="250" height="52" rx="12" fill="#ffffff" stroke="#8bc595"/>
+  <text x="895" y="736" text-anchor="middle" class="detail">获取 MySQL / Redis Client</text>
+  <rect x="770" y="770" width="250" height="52" rx="12" fill="#ffffff" stroke="#8bc595"/>
+  <text x="895" y="802" text-anchor="middle" class="detail">解析 IDP Encryption Key</text>
+  <rect x="770" y="836" width="250" height="52" rx="12" fill="#ffffff" stroke="#8bc595"/>
+  <text x="895" y="868" text-anchor="middle" class="detail">创建 EventBus（可降级）</text>
+  <text x="895" y="916" text-anchor="middle" class="tiny">密钥是解析与校验，不是“初始化”</text>
+
+  <!-- container summary detail -->
+  <rect x="1070" y="545" width="265" height="265" rx="18" fill="#fff9e8" stroke="#d6a631" stroke-width="2"/>
+  <text x="1202" y="582" text-anchor="middle" class="panel-title">组合根入口</text>
+  <line x1="1095" y1="600" x2="1310" y2="600" stroke="#ead28c" stroke-width="2"/>
+  <text x="1095" y="638" class="detail mono">NewContainerWithOptions</text>
+  <text x="1095" y="677" class="detail mono">Container.Initialize</text>
+  <text x="1095" y="716" class="detail mono">validateCriticalModules</text>
+  <text x="1202" y="772" text-anchor="middle" class="tiny">验证关键模块属于 Process，</text>
+  <text x="1202" y="794" text-anchor="middle" class="tiny">不在 Container.Initialize 内部</text>
+
+  <!-- transport detail -->
+  <rect x="1360" y="545" width="300" height="390" rx="18" fill="#f7f9ff" stroke="#7d96d7" stroke-width="2"/>
+  <text x="1510" y="582" text-anchor="middle" class="panel-title">协议适配器</text>
+  <text x="1510" y="610" text-anchor="middle" class="panel-sub">此时只构建与注册，不监听</text>
+  <rect x="1385" y="638" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1510" y="670" text-anchor="middle" class="detail">构建 HTTP Server</text>
+  <rect x="1385" y="704" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1510" y="736" text-anchor="middle" class="detail">构建 gRPC Server</text>
+  <rect x="1385" y="770" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1510" y="802" text-anchor="middle" class="detail mono">BuildRESTDeps → Routes</text>
+  <rect x="1385" y="836" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1510" y="868" text-anchor="middle" class="detail mono">BuildGRPCDeps → Services</text>
+  <text x="1510" y="916" text-anchor="middle" class="tiny">模块只暴露 Transport 需要的窄依赖</text>
+
+  <!-- runtime tasks detail -->
+  <rect x="1685" y="545" width="300" height="390" rx="18" fill="#f7f9ff" stroke="#7d96d7" stroke-width="2"/>
+  <text x="1835" y="582" text-anchor="middle" class="panel-title">进程级后台任务</text>
+  <text x="1835" y="610" text-anchor="middle" class="panel-sub mono">BuildRuntimeDeps</text>
+  <rect x="1710" y="638" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1835" y="670" text-anchor="middle" class="detail">JWKS Key Rotation</text>
+  <rect x="1710" y="704" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1835" y="736" text-anchor="middle" class="detail">Transactional Outbox Relay</text>
+  <rect x="1710" y="770" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1835" y="802" text-anchor="middle" class="detail">AuthZ Policy Sync</text>
+  <rect x="1710" y="836" width="250" height="52" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="1835" y="868" text-anchor="middle" class="detail">注册对应 Stop Hook</text>
+  <text x="1835" y="916" text-anchor="middle" class="tiny">Suggest Refresh 由 Suggest 初始化时启动</text>
+
+  <!-- shutdown callback detail -->
+  <rect x="2010" y="545" width="390" height="390" rx="18" fill="#f7f9ff" stroke="#7d96d7" stroke-width="2"/>
+  <text x="2205" y="582" text-anchor="middle" class="panel-title">关闭回调</text>
+  <text x="2205" y="610" text-anchor="middle" class="panel-sub">把资源释放顺序注册到 GracefulShutdown</text>
+  <rect x="2040" y="640" width="330" height="72" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="2205" y="670" text-anchor="middle" class="detail">Lifecycle Hooks</text>
+  <text x="2205" y="695" text-anchor="middle" class="small">停止 Rotation / Outbox / Policy Sync</text>
+  <rect x="2040" y="730" width="330" height="72" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="2205" y="760" text-anchor="middle" class="detail mono">buildShutdownSequenceDeps</text>
+  <text x="2205" y="785" text-anchor="middle" class="small">从 Container 取得 Drain 与 Cleanup 能力</text>
+  <rect x="2040" y="820" width="330" height="72" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="2205" y="850" text-anchor="middle" class="detail mono">runShutdownSequence</text>
+  <text x="2205" y="875" text-anchor="middle" class="small">收到信号后按既定顺序执行</text>
+  <text x="2205" y="916" text-anchor="middle" class="tiny">注册回调 ≠ 立即关闭</text>
+
+  <!-- running detail -->
+  <rect x="2505" y="545" width="240" height="390" rx="18" fill="#f7f9ff" stroke="#7d96d7" stroke-width="2"/>
+  <text x="2625" y="582" text-anchor="middle" class="panel-title">并发运行</text>
+  <rect x="2530" y="625" width="190" height="58" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="2625" y="661" text-anchor="middle" class="detail mono">gs.Start()</text>
+  <line x1="2625" y1="683" x2="2625" y2="724" class="solid"/>
+  <rect x="2530" y="725" width="190" height="58" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="2625" y="761" text-anchor="middle" class="detail mono">RunGroup</text>
+  <path d="M 2625 783 V 815 H 2575 V 842" class="solid"/>
+  <path d="M 2625 815 H 2675 V 842" class="solid"/>
+  <rect x="2520" y="844" width="108" height="58" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <rect x="2638" y="844" width="108" height="58" rx="12" fill="#ffffff" stroke="#a6b7e6"/>
+  <text x="2574" y="879" text-anchor="middle" class="small">HTTP.Run</text>
+  <text x="2692" y="879" text-anchor="middle" class="small">gRPC.Run</text>
+  <text x="2625" y="925" text-anchor="middle" class="tiny">任一服务错误都会结束 RunGroup</text>
+
+  <!-- shutdown detail -->
+  <rect x="2830" y="545" width="270" height="795" rx="18" fill="#fff8fc" stroke="#b58ad9" stroke-width="2"/>
+  <text x="2965" y="582" text-anchor="middle" class="panel-title">反向收敛</text>
+  <text x="2965" y="610" text-anchor="middle" class="panel-sub">POSIX Signal 触发</text>
+  <g>
+    <rect x="2855" y="635" width="220" height="68" rx="12" fill="#ffffff" stroke="#c8a8e4"/>
+    <text x="2965" y="663" text-anchor="middle" class="detail">1. 进入 Draining</text>
+    <text x="2965" y="687" text-anchor="middle" class="tiny">gRPC → NOT_SERVING</text>
+    <line x1="2965" y1="703" x2="2965" y2="728" class="solid"/>
+    <rect x="2855" y="730" width="220" height="68" rx="12" fill="#ffffff" stroke="#c8a8e4"/>
+    <text x="2965" y="758" text-anchor="middle" class="detail">2. 等待 DrainDelay</text>
+    <text x="2965" y="782" text-anchor="middle" class="tiny">给在途请求留出窗口</text>
+    <line x1="2965" y1="798" x2="2965" y2="823" class="solid"/>
+    <rect x="2855" y="825" width="220" height="68" rx="12" fill="#ffffff" stroke="#c8a8e4"/>
+    <text x="2965" y="853" text-anchor="middle" class="detail">3. 执行 Lifecycle Hooks</text>
+    <text x="2965" y="877" text-anchor="middle" class="tiny">停止三个进程级后台任务</text>
+    <line x1="2965" y1="893" x2="2965" y2="918" class="solid"/>
+    <rect x="2855" y="920" width="220" height="68" rx="12" fill="#ffffff" stroke="#c8a8e4"/>
+    <text x="2965" y="948" text-anchor="middle" class="detail">4. Cleanup Modules</text>
+    <text x="2965" y="972" text-anchor="middle" class="tiny">Suggest → Identity</text>
+    <line x1="2965" y1="988" x2="2965" y2="1013" class="solid"/>
+    <rect x="2855" y="1015" width="220" height="68" rx="12" fill="#ffffff" stroke="#c8a8e4"/>
+    <text x="2965" y="1043" text-anchor="middle" class="detail">5. 关闭数据库连接</text>
+    <text x="2965" y="1067" text-anchor="middle" class="tiny mono">dbManager.Close</text>
+    <line x1="2965" y1="1083" x2="2965" y2="1108" class="solid"/>
+    <rect x="2855" y="1110" width="220" height="68" rx="12" fill="#ffffff" stroke="#c8a8e4"/>
+    <text x="2965" y="1138" text-anchor="middle" class="detail">6. 关闭 HTTP / gRPC</text>
+    <text x="2965" y="1162" text-anchor="middle" class="tiny">释放监听端口</text>
+  </g>
+  <rect x="2855" y="1210" width="220" height="88" rx="44" fill="#eee7ff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="2965" y="1250" text-anchor="middle" class="step-title">Process End</text>
+  <text x="2965" y="1277" text-anchor="middle" class="small">关闭完成</text>
+
+  <!-- container expansion -->
+  <path d="M 1202 810 V 1015 H 1090 V 1060" class="dashed"/>
+  <rect x="500" y="1050" width="1880" height="360" rx="22" fill="#fffdf4" stroke="#d6a631" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="540" y="1094" class="panel-title">Container.Initialize：建立并持有模块对象图</text>
+  <text x="540" y="1128" class="panel-sub">初始化顺序用于满足依赖，不代表一次业务请求的调用链。</text>
+
+  <g>
+    <rect x="540" y="1170" width="180" height="92" rx="14" fill="#f3f4f6" stroke="#94a3b8" stroke-width="2"/>
+    <text x="630" y="1205" text-anchor="middle" class="module">Event Runtime</text>
+    <text x="630" y="1235" text-anchor="middle" class="capability">Catalog / Outbox</text>
+    <line x1="720" y1="1216" x2="760" y2="1216" class="solid"/>
+
+    <rect x="765" y="1170" width="180" height="92" rx="14" fill="#ffe8e8" stroke="#dd7c7c" stroke-width="2"/>
+    <text x="855" y="1205" text-anchor="middle" class="module">IDP</text>
+    <text x="855" y="1235" text-anchor="middle" class="capability">ExternalIdentity</text>
+    <line x1="945" y1="1216" x2="985" y2="1216" class="solid"/>
+
+    <rect x="990" y="1170" width="180" height="92" rx="14" fill="#e8f7ea" stroke="#63a66f" stroke-width="2"/>
+    <text x="1080" y="1205" text-anchor="middle" class="module">AuthN</text>
+    <text x="1080" y="1235" text-anchor="middle" class="capability">Principal / Session</text>
+    <line x1="1170" y1="1216" x2="1210" y2="1216" class="solid"/>
+
+    <rect x="1215" y="1170" width="180" height="92" rx="14" fill="#eee8ff" stroke="#8b75cb" stroke-width="2"/>
+    <text x="1305" y="1205" text-anchor="middle" class="module">AuthZ</text>
+    <text x="1305" y="1235" text-anchor="middle" class="capability">Decision / Policy</text>
+    <line x1="1395" y1="1216" x2="1435" y2="1216" class="solid"/>
+
+    <rect x="1440" y="1170" width="180" height="92" rx="14" fill="#fff1c7" stroke="#d6a631" stroke-width="2"/>
+    <text x="1530" y="1205" text-anchor="middle" class="module">Identity</text>
+    <text x="1530" y="1235" text-anchor="middle" class="capability">User / Profile</text>
+    <line x1="1620" y1="1216" x2="1660" y2="1216" class="solid"/>
+
+    <rect x="1665" y="1170" width="180" height="92" rx="14" fill="#e9f0ff" stroke="#6f8ad4" stroke-width="2"/>
+    <text x="1755" y="1205" text-anchor="middle" class="module">Suggest</text>
+    <text x="1755" y="1235" text-anchor="middle" class="capability">Profile Read Model</text>
+    <line x1="1845" y1="1216" x2="1885" y2="1216" class="solid"/>
+
+    <rect x="1890" y="1170" width="210" height="92" rx="14" fill="#f3f4f6" stroke="#94a3b8" stroke-width="2"/>
+    <text x="1995" y="1205" text-anchor="middle" class="module">Cache Governance</text>
+    <text x="1995" y="1235" text-anchor="middle" class="capability">Readiness / Debug</text>
+  </g>
+
+  <rect x="540" y="1300" width="1040" height="68" rx="14" fill="#ffffff" stroke="#d6a631" stroke-width="1.8"/>
+  <text x="1060" y="1328" text-anchor="middle" class="callout">moduleGraph 通过窄能力完成接线</text>
+  <text x="1060" y="1354" text-anchor="middle" class="small mono">Resolver · Reader · Revoker · Authorization · Publisher</text>
+  <rect x="1610" y="1300" width="440" height="68" rx="14" fill="#ffffff" stroke="#d6a631" stroke-width="1.8"/>
+  <text x="1830" y="1328" text-anchor="middle" class="callout mono">validateCriticalModules</text>
+  <text x="1830" y="1354" text-anchor="middle" class="small">Process 在容器初始化后校验启动底线</text>
+  <rect x="2080" y="1300" width="260" height="68" rx="14" fill="#fff8e8" stroke="#d6a631" stroke-width="1.8"/>
+  <text x="2210" y="1328" text-anchor="middle" class="callout">持有的是实例</text>
+  <text x="2210" y="1354" text-anchor="middle" class="small">不是一次性装配步骤</text>
+
+  <!-- persistent container lifetime -->
+  <line x1="1160" y1="1490" x2="2940" y2="1490" stroke="#d97706" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="1160" cy="1490" r="14" fill="#d97706"/>
+  <line x1="2940" y1="1474" x2="2940" y2="1506" stroke="#d97706" stroke-width="8" stroke-linecap="round"/>
+  <text x="1160" y="1452" text-anchor="middle" class="callout" fill="#b45309">Container 创建</text>
+  <text x="2050" y="1452" text-anchor="middle" class="callout" fill="#b45309">apiServer.container 持续持有同一个实例</text>
+  <text x="2940" y="1452" text-anchor="middle" class="callout" fill="#b45309">Cleanup</text>
+
+  <circle cx="1510" cy="1490" r="9" fill="#ffffff" stroke="#d97706" stroke-width="5"/>
+  <circle cx="1835" cy="1490" r="9" fill="#ffffff" stroke="#d97706" stroke-width="5"/>
+  <circle cx="2205" cy="1490" r="9" fill="#ffffff" stroke="#d97706" stroke-width="5"/>
+  <circle cx="2625" cy="1490" r="9" fill="#ffffff" stroke="#d97706" stroke-width="5"/>
+  <text x="1510" y="1534" text-anchor="middle" class="small mono">BuildRESTDeps / BuildGRPCDeps</text>
+  <text x="1835" y="1572" text-anchor="middle" class="small mono">BuildRuntimeDeps</text>
+  <text x="2205" y="1534" text-anchor="middle" class="small">Readiness / Capability 状态</text>
+  <text x="2625" y="1572" text-anchor="middle" class="small">运行期服务与请求处理</text>
+  <path d="M 1510 1478 V 935" class="dashed"/>
+  <path d="M 1835 1478 V 935" class="dashed"/>
+  <path d="M 2205 1478 V 935" class="dashed"/>
+  <path d="M 2625 1478 V 935" class="dashed"/>
+  <path d="M 2940 1478 V 1340" class="dashed"/>
+
+  <!-- legend -->
+  <line x1="125" y1="1710" x2="210" y2="1710" class="solid"/>
+  <text x="230" y="1717" class="small">Process 执行顺序</text>
+  <line x1="520" y1="1710" x2="605" y2="1710" class="dashed"/>
+  <text x="625" y="1717" class="small">阶段细节展开 / 能力引用</text>
+  <line x1="1020" y1="1710" x2="1105" y2="1710" stroke="#d97706" stroke-width="8" stroke-linecap="round"/>
+  <text x="1125" y="1717" class="small">Container 实例生命周期</text>
+  <rect x="1550" y="1682" width="1510" height="58" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="2305" y="1718" text-anchor="middle" class="callout">一句话：Process 编排生命周期；Container 组装对象图；prepared.Run 才真正启动 HTTP / gRPC。</text>
+</svg>
