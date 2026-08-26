@@ -1,0 +1,120 @@
+name: Production AuthZ V3 Convergence
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: AuthZ V3 convergence operation
+        required: true
+        type: choice
+        options:
+          - preflight
+          - apply
+          - verify
+          - evidence
+      expected_source_hash:
+        description: Exact state_hash emitted by preflight; required for apply
+        required: false
+        type: string
+      confirmation:
+        description: Type APPLY_AUTHZ_V3_CONVERGENCE for apply
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-authz-v3-production-convergence
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    name: AuthZ V3 ${{ inputs.operation }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      AUTHZ_V3_OPERATION: ${{ inputs.operation }}
+      AUTHZ_V3_EXPECTED_SOURCE_HASH: ${{ inputs.expected_source_hash }}
+      AUTHZ_V3_CONFIRMATION: ${{ inputs.confirmation }}
+      EXPECTED_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@v6
+
+      - name: Run convergence operation on deployed IAM
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          AUTHZ_V3_OPERATION: ${{ env.AUTHZ_V3_OPERATION }}
+          AUTHZ_V3_EXPECTED_SOURCE_HASH: ${{ env.AUTHZ_V3_EXPECTED_SOURCE_HASH }}
+          AUTHZ_V3_CONFIRMATION: ${{ env.AUTHZ_V3_CONFIRMATION }}
+          EXPECTED_BUILD_SHA: ${{ env.EXPECTED_BUILD_SHA }}
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          envs: AUTHZ_V3_OPERATION,AUTHZ_V3_EXPECTED_SOURCE_HASH,AUTHZ_V3_CONFIRMATION,EXPECTED_BUILD_SHA
+          script: |
+            set -Eeuo pipefail
+
+            container=iam-apiserver
+            image=$(sudo docker inspect "$container" --format '{{.Config.Image}}')
+            deployed_sha=${image##*:}
+            if [ "$deployed_sha" != "$EXPECTED_BUILD_SHA" ]; then
+              echo "IAM image SHA mismatch: deployed=$deployed_sha expected=$EXPECTED_BUILD_SHA" >&2
+              exit 1
+            fi
+
+            case "$AUTHZ_V3_OPERATION" in
+              preflight|verify|evidence)
+                if [ -n "$AUTHZ_V3_EXPECTED_SOURCE_HASH" ] || [ -n "$AUTHZ_V3_CONFIRMATION" ]; then
+                  echo "Hash and confirmation are accepted only for apply" >&2
+                  exit 1
+                fi
+                ;;
+              apply)
+                if [ "$AUTHZ_V3_CONFIRMATION" != "APPLY_AUTHZ_V3_CONVERGENCE" ]; then
+                  echo "Exact apply confirmation is required" >&2
+                  exit 1
+                fi
+                if ! printf '%s' "$AUTHZ_V3_EXPECTED_SOURCE_HASH" | grep -Eq '^[0-9a-f]{64}$'; then
+                  echo "A valid preflight state hash is required" >&2
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "Unsupported AuthZ V3 convergence operation" >&2
+                exit 1
+                ;;
+            esac
+
+            sudo docker exec \
+              -e AUTHZ_V3_OPERATION="$AUTHZ_V3_OPERATION" \
+              -e AUTHZ_V3_EXPECTED_SOURCE_HASH="$AUTHZ_V3_EXPECTED_SOURCE_HASH" \
+              -e AUTHZ_V3_CONFIRMATION="$AUTHZ_V3_CONFIRMATION" \
+              -e IAM_BUILD_SHA="$EXPECTED_BUILD_SHA" \
+              "$container" sh -lc '
+                set -eu
+                mysql_endpoint=${IAM_APISERVER_MYSQL_HOST:?}
+                export MYSQL_HOST=${mysql_endpoint%:*}
+                export MYSQL_PORT=${mysql_endpoint##*:}
+                export MYSQL_USERNAME=${IAM_APISERVER_MYSQL_USERNAME:?}
+                export MYSQL_PASSWORD=${IAM_APISERVER_MYSQL_PASSWORD:?}
+                export MYSQL_DBNAME=${IAM_APISERVER_MYSQL_DATABASE:?}
+                case "$AUTHZ_V3_OPERATION" in
+                  apply)
+                    exec /app/iam-maintenance authz-v3-converge apply \
+                      --confirm="$AUTHZ_V3_CONFIRMATION" \
+                      --expected-source-hash="$AUTHZ_V3_EXPECTED_SOURCE_HASH" \
+                      --events-catalog=/app/configs/events.yaml
+                    ;;
+                  evidence)
+                    exec /app/iam-maintenance authz-v3-converge evidence --build-sha="$IAM_BUILD_SHA"
+                    ;;
+                  *)
+                    exec /app/iam-maintenance authz-v3-converge "$AUTHZ_V3_OPERATION"
+                    ;;
+                esac
+              '
