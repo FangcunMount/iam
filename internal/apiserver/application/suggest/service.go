@@ -51,7 +51,7 @@ func (s *Service) SuggestProfile(ctx context.Context, req SuggestProfileRequest)
 	if s.scopeProvider == nil {
 		return []ProfileSuggestItem{}, nil
 	}
-	if req.Principal.OperatorID <= 0 && !req.Principal.IsSuperAdmin {
+	if req.Principal.OperatorID <= 0 {
 		return nil, ErrUnauthenticated
 	}
 

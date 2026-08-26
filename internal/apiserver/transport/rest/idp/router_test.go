@@ -192,9 +192,18 @@ func newIDPRouter(t *testing.T, middlewares []gin.HandlerFunc, appService appsvc
 	gin.SetMode(gin.TestMode)
 
 	engine := gin.New()
+	var authMiddleware gin.HandlerFunc
+	var permissionOrGlobal func(string, string) gin.HandlerFunc
+	if len(middlewares) > 0 {
+		authMiddleware = middlewares[0]
+		permissionOrGlobal = func(string, string) gin.HandlerFunc {
+			return func(c *gin.Context) { c.Next() }
+		}
+	}
 	Register(engine, Dependencies{
-		WechatAppHandler: handler.NewWechatAppHandler(appService, fakeCredentialService{}, fakeTokenService{}),
-		AdminMiddlewares: middlewares,
+		WechatAppHandler:   handler.NewWechatAppHandler(appService, fakeCredentialService{}, fakeTokenService{}),
+		AuthMiddleware:     authMiddleware,
+		PermissionOrGlobal: permissionOrGlobal,
 	})
 	return engine
 }

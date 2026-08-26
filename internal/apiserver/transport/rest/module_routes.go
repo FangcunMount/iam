@@ -22,7 +22,7 @@ func (r *Router) registerModuleRoutes(engine *gin.Engine, deps routeDependencies
 	// 注册 AuthZ 模块 授权路由
 	r.registerAuthzRoutes(engine, deps.authz, authMiddleware)
 	// 注册 IDP 模块 IDP路由
-	r.registerIDPRoutes(engine, deps)
+	r.registerIDPRoutes(engine, deps, authMiddleware)
 	// 注册 Identity 模块 身份路由
 	r.registerIdentityRoutes(engine, deps.user, authMiddleware)
 	// 注册 Suggest 模块 建议路由
@@ -42,8 +42,8 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies,
 			LoginIdentityHandler:   deps.authn.LoginIdentityHandler,
 			WechatOpenLoginHandler: deps.authn.WechatOpenLoginHandler,
 			JWKSHandler:            deps.authn.JWKSHandler,
-			AdminMiddlewares:       deps.adminMiddlewares,
 			AuthMiddleware:         authRequired,
+			PermissionOrGlobal:     authMiddleware.RequirePermissionOrGlobal,
 		}
 		authnhttp.Register(engine, authnDeps)
 		if r.deps.SeedMockAuth.Enabled {
@@ -65,13 +65,13 @@ func (r *Router) registerAuthnRoutes(engine *gin.Engine, deps routeDependencies,
 func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
 	if r.deps.ModuleStatus.authzAvailable() && authzRoutesAvailable(deps) && authMiddleware != nil {
 		authzhttp.Register(engine, authzhttp.Dependencies{
-			RoleHandler:               deps.RoleHandler,
-			RoleBindingHandler:        deps.RoleBindingHandler,
-			PermissionGrantHandler:    deps.PermissionGrantHandler,
-			RoleInheritanceHandler:    deps.RoleInheritanceHandler,
-			ResourceHandler:           deps.ResourceHandler,
-			AuthMiddleware:            authMiddleware.AuthRequired(),
-			PermissionOrPlatformAdmin: authMiddleware.RequirePermissionOrPlatformAdmin,
+			RoleHandler:            deps.RoleHandler,
+			RoleBindingHandler:     deps.RoleBindingHandler,
+			PermissionGrantHandler: deps.PermissionGrantHandler,
+			RoleInheritanceHandler: deps.RoleInheritanceHandler,
+			ResourceHandler:        deps.ResourceHandler,
+			AuthMiddleware:         authMiddleware.AuthRequired(),
+			PermissionOrGlobal:     authMiddleware.RequirePermissionOrGlobal,
 		})
 		log.Info("✅ Authz module routes registered")
 		return
@@ -84,11 +84,12 @@ func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMid
 }
 
 // registerIDPRoutes 注册 IDP 模块 IDP路由
-func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies) {
-	if r.deps.ModuleStatus.idpAvailable() && deps.idp.WechatAppHandler != nil {
+func (r *Router) registerIDPRoutes(engine *gin.Engine, deps routeDependencies, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
+	if r.deps.ModuleStatus.idpAvailable() && deps.idp.WechatAppHandler != nil && authMiddleware != nil {
 		idphttp.Register(engine, idphttp.Dependencies{
-			WechatAppHandler: deps.idp.WechatAppHandler,
-			AdminMiddlewares: deps.adminMiddlewares,
+			WechatAppHandler:   deps.idp.WechatAppHandler,
+			AuthMiddleware:     authMiddleware.AuthRequired(),
+			PermissionOrGlobal: authMiddleware.RequirePermissionOrGlobal,
 		})
 		log.Info("✅ IDP module routes registered")
 		return

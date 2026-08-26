@@ -11,30 +11,25 @@ import (
 )
 
 type stubRouteAuth struct {
-	platformRoles []string
-	tenantRoles   map[string][]string
-	allowMobile   bool
-	err           error
+	allowPlatformProfiles bool
+	allowPlatformMobile   bool
+	allowTenantMobile     bool
+	err                   error
 }
 
-func (s stubRouteAuth) AuthorizeRoute(context.Context, string, string, string, string) (bool, error) {
+func (s stubRouteAuth) AuthorizeRoute(_ context.Context, _, domain, _, action string) (bool, error) {
 	if s.err != nil {
 		return false, s.err
 	}
-	return s.allowMobile, nil
-}
-
-func (s stubRouteAuth) DirectRoleKeys(_ context.Context, _ string, dom string) ([]string, error) {
-	if s.err != nil {
-		return nil, s.err
+	if domain == tenant.PlatformID {
+		if action == appsuggest.ActionList {
+			return s.allowPlatformProfiles, nil
+		}
+		if action == appsuggest.ActionSearchByMobile {
+			return s.allowPlatformMobile, nil
+		}
 	}
-	if dom == tenant.PlatformID {
-		return append([]string(nil), s.platformRoles...), nil
-	}
-	if s.tenantRoles != nil {
-		return append([]string(nil), s.tenantRoles[dom]...), nil
-	}
-	return nil, nil
+	return action == appsuggest.ActionSearchByMobile && s.allowTenantMobile, nil
 }
 
 var (
@@ -56,9 +51,10 @@ func TestOperatingProfileAccessScope_routeAuthNil(t *testing.T) {
 	}
 }
 
-func TestOperatingProfileAccessScope_platformAdmin(t *testing.T) {
+func TestOperatingProfileAccessScope_platformProfilePermission(t *testing.T) {
 	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
-		platformRoles: []string{"role:iam:admin"},
+		allowPlatformProfiles: true,
+		allowPlatformMobile:   true,
 	}, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
@@ -73,10 +69,7 @@ func TestOperatingProfileAccessScope_platformAdmin(t *testing.T) {
 }
 
 func TestOperatingProfileAccessScope_tenantAdminGetsOrgIDs(t *testing.T) {
-	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
-		tenantRoles: map[string][]string{"fangcun": {"role:tenant_admin"}},
-		allowMobile: true,
-	}, nil)
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{allowTenantMobile: true}, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
 		OrgID:        1,
@@ -94,9 +87,7 @@ func TestOperatingProfileAccessScope_tenantAdminGetsOrgIDs(t *testing.T) {
 }
 
 func TestOperatingProfileAccessScope_plainUserUsesOperatorScope(t *testing.T) {
-	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
-		tenantRoles: map[string][]string{"fangcun": {"role:user"}},
-	}, nil)
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{}, nil)
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
 		TenantDomain: "fangcun",
@@ -136,18 +127,19 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 		{
 			name:           "route_auth_nil",
 			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
+			wantOrgIDs:     1,
 			wantOperatorID: 100,
 		},
 		{
-			name:       "platform_admin",
-			routeAuth:  stubRouteAuth{platformRoles: []string{"role:iam:admin"}},
+			name:       "platform_profile_permission",
+			routeAuth:  stubRouteAuth{allowPlatformProfiles: true, allowPlatformMobile: true},
 			principal:  domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			wantAll:    true,
 			wantMobile: true,
 		},
 		{
-			name:           "tenant_admin",
-			routeAuth:      stubRouteAuth{tenantRoles: map[string][]string{"fangcun": {"role:tenant_admin"}}, allowMobile: true},
+			name:           "tenant_profile_permission",
+			routeAuth:      stubRouteAuth{allowTenantMobile: true},
 			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			wantOrgIDs:     1,
 			wantOperatorID: 100,
@@ -155,15 +147,17 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 		},
 		{
 			name:           "plain_user",
-			routeAuth:      stubRouteAuth{tenantRoles: map[string][]string{"fangcun": {"role:user"}}},
+			routeAuth:      stubRouteAuth{},
 			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
+			wantOrgIDs:     1,
 			wantOperatorID: 100,
 		},
 		{
 			name:           "plain_user_with_visibility",
-			routeAuth:      stubRouteAuth{tenantRoles: map[string][]string{"fangcun": {"role:user"}}},
+			routeAuth:      stubRouteAuth{},
 			principal:      domainsuggest.OperatingPrincipal{OperatorID: 100, OrgID: 1, TenantDomain: "fangcun"},
 			visibility:     visibilityStub{ids: []int64{7, 9}},
+			wantOrgIDs:     1,
 			wantOperatorID: 100,
 			wantProfileIDs: 2,
 		},
@@ -200,9 +194,7 @@ func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 }
 
 func TestOperatingProfileAccessScope_visibilityMerge(t *testing.T) {
-	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
-		tenantRoles: map[string][]string{"fangcun": {"role:user"}},
-	}, visibilityStub{ids: []int64{7, 9, 7}})
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{}, visibilityStub{ids: []int64{7, 9, 7}})
 	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
 		OperatorID:   100,
 		TenantDomain: "fangcun",

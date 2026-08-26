@@ -31,8 +31,7 @@ func NewOperatingProfileAccessScopeProvider(
 // ResolveProfileAccessScope 实现 ProfileAccessScopeProvider。
 //
 // 权限语义：
-// - 平台域上的平台管理员：AllProfile；
-// - 业务租户域上持有 tenant_admin / super_admin（租户级）：合并 Principal 已有的 OrgIDs；
+// - 平台域具备 profiles/list PermissionGrant：AllProfile；
 // - 其余主体：仅 OperatorID + principal.OrgIDs；
 // - routeAuth 不可用：仅 OperatorID + OrgIDs。
 func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
@@ -42,13 +41,6 @@ func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
 	if p == nil {
 		return domainsuggest.ProfileAccessScope{}, fmt.Errorf("profile access scope provider is nil")
 	}
-	if principal.IsSuperAdmin {
-		return domainsuggest.ProfileAccessScope{
-			AllProfile:        true,
-			AllowMobileSearch: true,
-		}, nil
-	}
-
 	sub := "user:" + strconv.FormatInt(principal.OperatorID, 10)
 	if p.routeAuth == nil {
 		out := p.scopeOperatorAndOrg(principal, false)
@@ -58,7 +50,7 @@ func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
 		return out, nil
 	}
 
-	scope, ok, err := p.tryPlatformAdminScope(ctx, sub)
+	scope, ok, err := p.tryPlatformProfileScope(ctx, sub)
 	if err != nil {
 		return domainsuggest.ProfileAccessScope{}, err
 	}
@@ -71,45 +63,40 @@ func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
 		tenantDom = tenant.DefaultID
 	}
 
-	roles, err := p.routeAuth.DirectRoleKeys(ctx, sub, tenantDom)
-	if err != nil {
-		return domainsuggest.ProfileAccessScope{}, err
-	}
-
 	mobileOK, err := p.mobileSearchAllowed(ctx, sub, tenantDom)
 	if err != nil {
 		return domainsuggest.ProfileAccessScope{}, err
 	}
 
 	out := p.scopeOperatorAndOrg(principal, mobileOK)
-	if tenantWideDataRoleKeys(roles) {
-		if ids := principalOrgIDs(principal); len(ids) > 0 {
-			out.OrgIDs = mergeUniqueInt64(out.OrgIDs, ids)
-		}
-	}
 	if err := p.mergeVisibility(ctx, principal, &out); err != nil {
 		return domainsuggest.ProfileAccessScope{}, err
 	}
 	return out, nil
 }
 
-func (p *OperatingProfileAccessScopeProvider) tryPlatformAdminScope(
+func (p *OperatingProfileAccessScopeProvider) tryPlatformProfileScope(
 	ctx context.Context,
 	sub string,
 ) (domainsuggest.ProfileAccessScope, bool, error) {
-	roles, err := p.routeAuth.DirectRoleKeys(ctx, sub, tenant.PlatformID)
+	allowed, err := p.routeAuth.AuthorizeRoute(
+		ctx, sub, tenant.PlatformID, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionList,
+	)
 	if err != nil {
 		return domainsuggest.ProfileAccessScope{}, false, err
 	}
-	for _, r := range roles {
-		if authn.IsPlatformAdminRole(r) {
-			return domainsuggest.ProfileAccessScope{
-				AllProfile:        true,
-				AllowMobileSearch: true,
-			}, true, nil
-		}
+	if !allowed {
+		return domainsuggest.ProfileAccessScope{}, false, nil
 	}
-	return domainsuggest.ProfileAccessScope{}, false, nil
+	mobileAllowed, err := p.routeAuth.AuthorizeRoute(
+		ctx, sub, tenant.PlatformID, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionSearchByMobile,
+	)
+	if err != nil {
+		return domainsuggest.ProfileAccessScope{}, false, err
+	}
+	return domainsuggest.ProfileAccessScope{
+		AllProfile: true, AllowMobileSearch: mobileAllowed,
+	}, true, nil
 }
 
 func (p *OperatingProfileAccessScopeProvider) mobileSearchAllowed(ctx context.Context, sub, tenantDom string) (bool, error) {
@@ -123,7 +110,7 @@ func (p *OperatingProfileAccessScopeProvider) mobileSearchAllowed(ctx context.Co
 func (p *OperatingProfileAccessScopeProvider) scopeOperatorAndOrg(principal domainsuggest.OperatingPrincipal, mobileOK bool) domainsuggest.ProfileAccessScope {
 	return domainsuggest.ProfileAccessScope{
 		OperatorID:        principal.OperatorID,
-		OrgIDs:            append([]int64(nil), principal.OrgIDs...),
+		OrgIDs:            principalOrgIDs(principal),
 		AllowMobileSearch: mobileOK,
 	}
 }
@@ -176,15 +163,4 @@ func mergeUniqueInt64(a, b []int64) []int64 {
 	}
 	slices.Sort(out)
 	return out
-}
-
-func tenantWideDataRoleKeys(roleKeys []string) bool {
-	for _, r := range roleKeys {
-		switch authn.NormalizeRoleName(r) {
-		case "tenant_admin", "super_admin":
-			return true
-		default:
-		}
-	}
-	return false
 }

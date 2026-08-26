@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
 
@@ -55,95 +54,22 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 	}
 }
 
-func TestRequirePlatformAdminAllowsSuperAdminFromPlatformDomain(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	engine := gin.New()
-	engine.Use(func(c *gin.Context) {
-		requestctx.SetUserID(c, meta.FromUint64(10001))
-		requestctx.SetTenantID(c, tenant.DefaultID)
-		c.Next()
-	})
-
-	middleware := NewJWTAuthMiddleware(nil, routeAuthorizationStub{
-		rolesByDomain: map[string][]string{
-			tenant.DefaultID:  {"role:qs:admin"},
-			tenant.PlatformID: {"role:super_admin"},
-		},
-	})
-
-	engine.GET("/protected", middleware.RequirePlatformAdmin(), func(c *gin.Context) {
-		c.Status(http.StatusNoContent)
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
-	recorder := httptest.NewRecorder()
-	engine.ServeHTTP(recorder, req)
-
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusNoContent, recorder.Body.String())
-	}
-}
-
-func TestRequirePlatformAdminRejectsTenantOnlyRoles(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	engine := gin.New()
-	engine.Use(func(c *gin.Context) {
-		requestctx.SetUserID(c, meta.FromUint64(10001))
-		requestctx.SetTenantID(c, tenant.DefaultID)
-		c.Next()
-	})
-
-	middleware := NewJWTAuthMiddleware(nil, routeAuthorizationStub{
-		rolesByDomain: map[string][]string{
-			tenant.DefaultID: {"role:qs:admin"},
-		},
-	})
-
-	engine.GET("/protected", middleware.RequirePlatformAdmin(), func(c *gin.Context) {
-		c.Status(http.StatusNoContent)
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
-	recorder := httptest.NewRecorder()
-	engine.ServeHTTP(recorder, req)
-
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusForbidden, recorder.Body.String())
-	}
-}
-
 func TestNormalizeRoleName(t *testing.T) {
-	got := []string{
-		NormalizeRoleName("role:super_admin"),
-		NormalizeRoleName(" iam:admin "),
-	}
-	want := []string{"super_admin", "iam:admin"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("NormalizeRoleName() = %#v, want %#v", got, want)
+	if got := NormalizeRoleName("role:qs:evaluator"); got != "qs:evaluator" {
+		t.Fatalf("NormalizeRoleName() = %q, want %q", got, "qs:evaluator")
 	}
 }
 
 type routeAuthorizationStub struct {
-	rolesByDomain map[string][]string
-	allowed       bool
-	authorizeErr  error
-	rolesErr      error
+	allowedByDomain map[string]bool
+	errorsByDomain  map[string]error
 }
 
-func (s routeAuthorizationStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, error) {
-	return s.allowed, s.authorizeErr
+func (s routeAuthorizationStub) AuthorizeRoute(_ context.Context, _, domain, _, _ string) (bool, error) {
+	return s.allowedByDomain[domain], s.errorsByDomain[domain]
 }
 
-func (s routeAuthorizationStub) DirectRoleKeys(_ context.Context, _, domain string) ([]string, error) {
-	if s.rolesErr != nil {
-		return nil, s.rolesErr
-	}
-	return append([]string(nil), s.rolesByDomain[domain]...), nil
-}
-
-func TestRequirePermissionOrPlatformAdmin(t *testing.T) {
+func TestRequirePermissionOrGlobal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -153,34 +79,45 @@ func TestRequirePermissionOrPlatformAdmin(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "exact permission",
-			runtime:    routeAuthorizationStub{allowed: true},
+			name:       "domain permission",
+			runtime:    routeAuthorizationStub{allowedByDomain: map[string]bool{tenant.DefaultID: true}},
 			withUser:   true,
 			wantStatus: http.StatusNoContent,
 		},
 		{
-			name: "platform administrator",
-			runtime: routeAuthorizationStub{rolesByDomain: map[string][]string{
-				tenant.PlatformID: {"role:super_admin"},
-			}},
+			name:       "platform permission",
+			runtime:    routeAuthorizationStub{allowedByDomain: map[string]bool{tenant.PlatformID: true}},
 			withUser:   true,
 			wantStatus: http.StatusNoContent,
 		},
 		{
-			name:       "neither permission nor administrator",
+			name:       "both domains deny",
 			runtime:    routeAuthorizationStub{},
 			withUser:   true,
 			wantStatus: http.StatusForbidden,
 		},
 		{
-			name:       "permission backend failure",
-			runtime:    routeAuthorizationStub{authorizeErr: errors.New("permission sentinel")},
+			name: "domain failure and platform deny",
+			runtime: routeAuthorizationStub{errorsByDomain: map[string]error{
+				tenant.DefaultID: errors.New("domain sentinel"),
+			}},
 			withUser:   true,
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
-			name:       "role backend failure",
-			runtime:    routeAuthorizationStub{rolesErr: errors.New("role sentinel")},
+			name: "domain failure but platform allows",
+			runtime: routeAuthorizationStub{
+				allowedByDomain: map[string]bool{tenant.PlatformID: true},
+				errorsByDomain:  map[string]error{tenant.DefaultID: errors.New("domain sentinel")},
+			},
+			withUser:   true,
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "platform failure and domain deny",
+			runtime: routeAuthorizationStub{errorsByDomain: map[string]error{
+				tenant.PlatformID: errors.New("platform sentinel"),
+			}},
 			withUser:   true,
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -206,7 +143,7 @@ func TestRequirePermissionOrPlatformAdmin(t *testing.T) {
 			}
 			middleware := NewJWTAuthMiddleware(nil, tt.runtime)
 			engine.GET("/protected",
-				middleware.RequirePermissionOrPlatformAdmin("iam:authz:collection:roles", "read"),
+				middleware.RequirePermissionOrGlobal("iam:authz:collection:roles", "read"),
 				func(c *gin.Context) { c.Status(http.StatusNoContent) },
 			)
 
