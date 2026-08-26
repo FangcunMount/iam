@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from urllib.parse import urlparse
 
 import yaml
 
@@ -28,6 +29,13 @@ def fail(message: str) -> None:
 def load_yaml(relative: str) -> dict:
     with (ROOT / relative).open(encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
+
+
+def openapi_server_path(contract: dict) -> str:
+    server_url = contract.get("servers", [{}])[0].get("url", "")
+    parsed = urlparse(server_url)
+    path = parsed.path if parsed.scheme else server_url
+    return path.rstrip("/")
 
 
 def active_markdown_files() -> list[Path]:
@@ -82,6 +90,8 @@ def check_runtime_configuration() -> None:
 
 def check_generated_document_facts() -> None:
     api_readme = (ROOT / "api/README.md").read_text(encoding="utf-8")
+    rest_readme = (ROOT / "api/rest/README.md").read_text(encoding="utf-8")
+    grpc_readme = (ROOT / "api/grpc/README.md").read_text(encoding="utf-8")
     documented_services = {
         f"api/{href}": re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`", cell)
         for href, cell in re.findall(
@@ -108,7 +118,66 @@ def check_generated_document_facts() -> None:
                 f"documented={documented_services[relative]} actual={services}"
             )
 
-    rest_readme = (ROOT / "api/rest/README.md").read_text(encoding="utf-8")
+    authz_contract = load_yaml("api/rest/authz.v3.yaml")
+    authz_base = openapi_server_path(authz_contract)
+    authz_paths = {
+        authz_base + path: operations
+        for path, operations in authz_contract.get("paths", {}).items()
+    }
+    for method, route in (
+        ("get", "/api/v3/authz/roles"),
+        ("post", "/api/v3/authz/grants"),
+    ):
+        if method not in authz_paths.get(route, {}):
+            fail(f"AuthZ REST contract is missing documented {method.upper()} {route}")
+        if f"{method.upper()} {route}" not in api_readme:
+            fail(f"api/README.md is missing current AuthZ management URL {method.upper()} {route}")
+    if any(path.endswith("/check") for path in authz_paths):
+        fail("AuthZ REST v3 must not expose authorization Check")
+
+    all_api_markdown = "\n".join((api_readme, rest_readme, grpc_readme))
+    if "/api/v2/authz" in all_api_markdown:
+        fail("API README files still contain retired /api/v2/authz URLs")
+
+    authz_proto = (ROOT / "api/grpc/iam/authz/v3/authz.proto").read_text(
+        encoding="utf-8"
+    )
+    package_match = re.search(r"^package\s+([A-Za-z0-9_.]+);", authz_proto, re.MULTILINE)
+    if package_match is None or "service AuthorizationService" not in authz_proto or not re.search(
+        r"\brpc\s+Check\s*\(", authz_proto
+    ):
+        fail("AuthZ gRPC proto no longer declares AuthorizationService/Check")
+    check_method = f"{package_match.group(1)}.AuthorizationService/Check"
+    for relative, readme in (
+        ("api/README.md", api_readme),
+        ("api/rest/README.md", rest_readme),
+    ):
+        if check_method not in readme:
+            fail(f"{relative} is missing the canonical gRPC Check method {check_method}")
+
+    openapi_paths: dict[str, set[str]] = {}
+    for contract_path in sorted((ROOT / "api/rest").glob("*.yaml")):
+        contract = load_yaml(str(contract_path.relative_to(ROOT)))
+        base = openapi_server_path(contract)
+        for route, operations in contract.get("paths", {}).items():
+            openapi_paths.setdefault(base + route, set()).update(
+                method.lower()
+                for method in operations
+                if method.lower() in {"get", "post", "put", "patch", "delete"}
+            )
+    for match in re.finditer(
+        r"^curl(?:\s+-X\s+(GET|POST|PUT|PATCH|DELETE))?\s+https://iam\.example\.com([^\s\\]+)",
+        rest_readme,
+        re.MULTILINE,
+    ):
+        method = (match.group(1) or "GET").lower()
+        route = match.group(2)
+        if method not in openapi_paths.get(route, set()):
+            fail(
+                "api/rest/README.md request URL is absent from OpenAPI contracts: "
+                f"{method.upper()} {route}"
+            )
+
     authorization_examples = []
     for raw_payload in re.findall(r"-d\s+'(\{[^'\n]+\})'", rest_readme):
         try:
@@ -214,8 +283,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 27:
-        fail(f"documented latest migration is 27, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 28:
+        fail(f"documented latest migration is 28, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -311,6 +380,18 @@ def check_migrations() -> None:
     ):
         if token not in cleanup_retirement:
             fail(f"migration 000024 is missing {token}")
+    global_identifier_guard = (
+        directory / "000028_authn_global_identifier_unique_guard.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in (
+        "iam_authn_global_identifier_conflicts",
+        "COUNT(DISTINCT `user_id`) > 1",
+        "ROW_NUMBER() OVER",
+        "SET `identity`.`global_identifier` = NULL",
+        "uk_auth_login_identities_global",
+    ):
+        if token not in global_identifier_guard:
+            fail(f"migration 000028 is missing {token}")
 
 def check_database_schema_sources() -> None:
     retired_snapshot = ROOT / "configs/mysql/schema.sql"
@@ -551,11 +632,12 @@ def check_database_operations_facts() -> None:
         encoding="utf-8"
     )
 
-    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 7:
+    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 8:
         fail("database workflow no longer routes all operations through the repository script")
     for token in (
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "performance-schema-status",
+        "global-identifier-guard-preflight",
         "rolebinding-guard-preflight",
         "rolebinding-deduplicate-dry-run",
         "rolebinding-deduplicate-apply",
@@ -588,7 +670,7 @@ def check_database_operations_facts() -> None:
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
         "retired_tables_present=",
-        "expected_version=27",
+        "expected_version=28",
         "performance schema capability:",
         "sys_table_statistics_select=",
         "rds_table_statistics_enabled=",
@@ -605,6 +687,7 @@ def check_database_operations_facts() -> None:
         "TestRetireUnusedAuditTablesMigrationMySQL",
         "TestRetireLegacyAuthNTablesMigrationMySQL",
         "TestRetireSeeddataCleanupTablesMigrationMySQL",
+        "TestAuthNGlobalIdentifierUniqueGuardMigrationMySQL",
         "TestFullMigrationChainAndBootstrapMySQL",
         "IAM_DB_OPS_OPERATION=backup",
         "IAM_DB_OPS_OPERATION=restore",

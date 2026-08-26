@@ -12,10 +12,10 @@ import (
 type PO struct {
 	base.AuditFields
 	UserID           meta.ID    `gorm:"column:user_id;type:bigint unsigned;not null;index:idx_user_id"`
-	Provider         string     `gorm:"column:provider;type:varchar(32);not null;uniqueIndex:uk_provider_realm_identifier,priority:1"`
+	Provider         string     `gorm:"column:provider;type:varchar(32);not null;uniqueIndex:uk_provider_realm_identifier,priority:1;uniqueIndex:uk_auth_login_identities_global,priority:1"`
 	Realm            string     `gorm:"column:realm;type:varchar(128);not null;default:'';uniqueIndex:uk_provider_realm_identifier,priority:2"`
 	Identifier       string     `gorm:"column:identifier;type:varchar(255);not null;uniqueIndex:uk_provider_realm_identifier,priority:3"`
-	GlobalIdentifier *string    `gorm:"column:global_identifier;type:varchar(255);index:idx_global_identifier"`
+	GlobalIdentifier *string    `gorm:"column:global_identifier;type:varchar(255);index:idx_global_identifier;uniqueIndex:uk_auth_login_identities_global,priority:2"`
 	Status           string     `gorm:"column:status;type:varchar(32);not null"`
 	VerifiedAt       *time.Time `gorm:"column:verified_at;type:datetime"`
 	LinkedAt         time.Time  `gorm:"column:linked_at;type:datetime;not null"`

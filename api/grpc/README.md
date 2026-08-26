@@ -1,6 +1,6 @@
 # gRPC API 契约
 
-IAM gRPC 面向可信服务间调用。当前只发布 v2 proto，所有服务由 `iam-apiserver` 同一进程注册，运行时注册在 [internal/apiserver/transport/grpc/registry.go](../../internal/apiserver/transport/grpc/registry.go)。
+IAM gRPC 面向可信服务间调用。AuthN、Identity、IDP 使用 v2，AuthZ 使用 v3；所有服务由 `iam-apiserver` 同一进程注册，运行时注册在 [internal/apiserver/transport/grpc/registry.go](../../internal/apiserver/transport/grpc/registry.go)。
 
 ## Proto 布局
 
@@ -52,7 +52,7 @@ ctx = metadata.AppendToOutgoingContext(ctx,
 authzClient := authzv3.NewAuthorizationServiceClient(conn)
 snapshot, err := authzClient.GetAuthorizationSnapshot(ctx, &authzv3.GetAuthorizationSnapshotRequest{
     Subject: "user:1024",
-    TenantId: "default",
+    Domain:   "default",
     AppName:  "qs",
 })
 

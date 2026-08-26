@@ -91,6 +91,9 @@ func findExistingLoginIdentity(ctx context.Context, repo loginidentity.Repositor
 // createLoginIdentity 创建登录身份。
 func createLoginIdentity(ctx context.Context, repo loginidentity.Repository, identity *loginidentity.LoginIdentity) (*loginidentity.LoginIdentity, error) {
 	if err := repo.Create(ctx, identity); err != nil {
+		if perrors.IsCode(err, code.ErrGlobalIdentifierExists) || perrors.IsCode(err, code.ErrLoginIdentityExists) {
+			return nil, err
+		}
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to save login identity: %v", err)
 	}
 	return identity, nil

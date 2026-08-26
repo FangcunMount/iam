@@ -184,7 +184,7 @@ password hash；
 Credential material；
 provider access token；
 完整 User/Profile/ProfileLink 写模型；
-完整 Permission / RoleBinding。
+完整 Assignment / RoleInheritance / PermissionGrant / ConstraintSet。
 ```
 
 ---
@@ -754,7 +754,7 @@ Identity 不直接操作 token store。
 AccessToken 验签成功不等于授权通过；
 Principal 可以映射为 Subject；
 AuthZ Check 决定资源访问是否允许；
-Token 不应携带完整 Permission / RoleBinding。
+Token 不应携带完整 Assignment / RoleInheritance / PermissionGrant / ConstraintSet。
 ```
 
 ---

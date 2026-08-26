@@ -30,8 +30,8 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run full migration chain: %v", err)
 	}
-	if !migrated || version != 27 {
-		t.Fatalf("full migration result = version %d migrated=%v, want version 27 migrated=true", version, migrated)
+	if !migrated || version != 28 {
+		t.Fatalf("full migration result = version %d migrated=%v, want version 28 migrated=true", version, migrated)
 	}
 	db := openMigrationMySQL(t)
 	for _, retired := range []string{

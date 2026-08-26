@@ -126,7 +126,7 @@ require_value() {
 
 validate_configuration() {
   case "$OPERATION" in
-    backup|restore|status|performance-schema-status|rolebinding-guard-preflight|rolebinding-deduplicate-dry-run|rolebinding-deduplicate-apply) ;;
+    backup|restore|status|performance-schema-status|global-identifier-guard-preflight|rolebinding-guard-preflight|rolebinding-deduplicate-dry-run|rolebinding-deduplicate-apply) ;;
     *) fail "unsupported operation"; return 1 ;;
   esac
 
@@ -354,8 +354,8 @@ database_status() {
   printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'27\t0\t1' ]; then
-    fail "migration status is not version 27 clean"
+  if [ "$migration_state" != $'28\t0\t1' ]; then
+    fail "migration status is not version 28 clean"
     return 1
   fi
   if [ "$schema_guard_state" != $'16\t16\t0' ]; then
@@ -371,13 +371,71 @@ database_status() {
     return 1
   fi
   echo "schema guard: result=success required_base_tables=16 schema_objects=16 unexpected_objects=0"
-  echo "retirement guard: result=success expected_version=27 retired_tables_present=0 retired_table_privileges=0"
+  echo "retirement guard: result=success expected_version=28 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {
   local sql="$1"
   "$MYSQL_BIN" --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names --raw \
     "$MYSQL_DBNAME" -e "$sql" 2>"$ERROR_PATH"
+}
+
+global_identifier_guard_preflight() {
+  require_mysql8_client "$MYSQL_BIN" mysql || return 1
+  prepare_backup_directory || return 1
+  prepare_defaults_file
+  ERROR_PATH="$BACKUP_DIR/.iam_global_identifier_guard_preflight.error"
+
+  local migration_state version dirty row_count invalid_count conflict_groups duplicate_state index_count
+  if ! migration_state="$(mysql_scalar 'SELECT COALESCE(MAX(version), -1), COALESCE(MAX(dirty + 0), -1), COUNT(*) FROM schema_migrations;')"; then
+    fail "migration state query failed"
+    return 1
+  fi
+  if ! [[ "$migration_state" =~ ^[0-9]+$'\t'[01]$'\t'[0-9]+$ ]]; then
+    fail "migration state is invalid"
+    return 1
+  fi
+  IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
+  if { [ "$version" -lt "27" ] || [ "$version" -gt "28" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "global identifier guard preflight requires clean migration version 27 or 28"
+    return 1
+  fi
+
+  if ! invalid_count="$(mysql_scalar "/* iam_authn_global_identifier_invalid */ SELECT COUNT(*) FROM auth_login_identities WHERE global_identifier IS NOT NULL AND (TRIM(global_identifier) = '' OR BINARY global_identifier <> BINARY TRIM(global_identifier) OR TRIM(provider) = '' OR BINARY provider <> BINARY TRIM(provider) OR user_id = 0);")"; then
+    fail "global identifier canonical-form query failed"
+    return 1
+  fi
+  if ! conflict_groups="$(mysql_scalar "/* iam_authn_global_identifier_conflicts */ SELECT COUNT(*) FROM (SELECT provider, global_identifier FROM auth_login_identities WHERE global_identifier IS NOT NULL AND TRIM(global_identifier) <> '' GROUP BY provider, global_identifier HAVING COUNT(DISTINCT user_id) > 1) AS conflicts;")"; then
+    fail "global identifier ownership-conflict query failed"
+    return 1
+  fi
+  if ! duplicate_state="$(mysql_scalar "/* iam_authn_global_identifier_duplicates */ SELECT COUNT(*), COALESCE(SUM(identity_count - 1), 0) FROM (SELECT COUNT(*) AS identity_count FROM auth_login_identities WHERE global_identifier IS NOT NULL GROUP BY provider, global_identifier HAVING COUNT(*) > 1) AS duplicate_groups;")"; then
+    fail "global identifier duplicate query failed"
+    return 1
+  fi
+  if ! index_count="$(mysql_scalar "/* iam_authn_global_identifier_index */ SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth_login_identities' AND INDEX_NAME = 'uk_auth_login_identities_global';")"; then
+    fail "global identifier guard schema query failed"
+    return 1
+  fi
+
+  if ! [[ "$invalid_count" =~ ^[0-9]+$ ]] || ! [[ "$conflict_groups" =~ ^[0-9]+$ ]] || ! [[ "$duplicate_state" =~ ^[0-9]+$'\t'[0-9]+$ ]] || ! [[ "$index_count" =~ ^[0-9]+$ ]]; then
+    fail "global identifier preflight result is invalid"
+    return 1
+  fi
+  if [ "$invalid_count" != "0" ] || [ "$conflict_groups" != "0" ]; then
+    echo "global identifier guard preflight: result=blocked migration_version=$version invalid_rows=$invalid_count cross_user_conflict_groups=$conflict_groups duplicate_state=$duplicate_state index_count=$index_count"
+    fail "global identifier data must be reconciled before migration 000028"
+    return 1
+  fi
+  case "$version:$index_count" in
+    27:0|28:1) ;;
+    *)
+      fail "global identifier guard schema is inconsistent with migration version"
+      return 1
+      ;;
+  esac
+
+  echo "global identifier guard preflight: result=success migration_version=$version invalid_rows=0 cross_user_conflict_groups=0 duplicate_state=$duplicate_state index_count=$index_count"
 }
 
 rolebinding_guard_preflight() {
@@ -396,8 +454,8 @@ rolebinding_guard_preflight() {
     return 1
   fi
   IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
-  if { [ "$version" -lt "24" ] || [ "$version" -gt "27" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
-    fail "RoleBinding guard preflight requires clean migration version 24 through 27"
+  if { [ "$version" -lt "24" ] || [ "$version" -gt "28" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "RoleBinding guard preflight requires clean migration version 24 through 28"
     return 1
   fi
 
@@ -416,7 +474,7 @@ rolebinding_guard_preflight() {
     return 1
   fi
   case "$version:$guard_state" in
-    24:$'0\t0'|25:$'1\t1'|26:$'1\t1'|27:$'1\t1') ;;
+    24:$'0\t0'|25:$'1\t1'|26:$'1\t1'|27:$'1\t1'|28:$'1\t1') ;;
     *)
       fail "RoleBinding guard schema is inconsistent with migration version"
       return 1
@@ -769,6 +827,7 @@ main() {
     restore) restore_database ;;
     status) database_status ;;
     performance-schema-status) performance_schema_status ;;
+    global-identifier-guard-preflight) global_identifier_guard_preflight ;;
     rolebinding-guard-preflight) rolebinding_guard_preflight ;;
     rolebinding-deduplicate-dry-run) rolebinding_deduplicate_dry_run ;;
     rolebinding-deduplicate-apply) rolebinding_deduplicate_apply ;;

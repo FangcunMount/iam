@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000027 和相关测试核对；生产已验收 `version=27, dirty=0`。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000028 和相关测试核对；最近一次生产验收仍为 `version=27, dirty=0`，000028 尚无生产执行证据。
 
 ## 1. 本文回答
 
@@ -186,7 +186,7 @@ DatabaseManager.Initialize
 
 - 迁移使用独立 `sql.DB`，避免关闭 migrator 时影响业务 GORM 连接；
 - dirty version 直接失败，需要人工核查，不能自动 force；
-- up/down 必须成对，当前事实门禁要求最新版本为 27；
+- up/down 必须成对，当前仓库事实门禁要求最新版本为 28；
 - 迁移失败会终止正常启动；MySQL 未配置时开发/显式 degraded 场景可跳过，但 release 模式随后会在资源/关键模块校验处 fail closed。
 
 `000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除 `children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
@@ -196,6 +196,8 @@ DatabaseManager.Initialize
 `000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对 `(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复 active 事实，创建索引会 fail closed，不会自动删除授权数据。
 
 `000026` 增加 `authz_permission_grants`、`authz_role_inheritances` 和资源属性 Schema；`000027` 在离线转换证据存在时不可逆删除 `casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds`。生产切换与发布后只读验收已证明 `version=27, dirty=0`、16 张 BASE TABLE 精确匹配以及三类旧对象缺失；一次性转换入口已经从仓库删除，历史 migration 继续保留以支持新库完整重放。
+
+`000028` 为 `auth_login_identities(provider, global_identifier)` 建立唯一索引。它先拒绝空白、未规范化或跨 User 冲突，再把同一 User 的历史重复值确定性收敛为一条 canonical 行；其他 realm 行保留但将该字段置为 NULL。该迁移不新增表，当前只有仓库实现和测试证据，不能表述为已经部署生产。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 

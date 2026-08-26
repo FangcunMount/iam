@@ -235,7 +235,7 @@ case "$*" in
 	  *"iam_retired_table_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
 	  *"iam_retired_privilege_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_PRIVILEGES:-0}" ;;
 	  *'ORDER BY TABLE_TYPE, TABLE_NAME'*) printf 'type=BASE_TABLE name=users\ntype=VIEW name=active_users\n' ;;
-	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-27\t0\t1}" ;;
+	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-28\t0\t1}" ;;
   *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
@@ -265,7 +265,7 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=27", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success", "expected_version=27"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=28", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success", "expected_version=28"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
@@ -368,14 +368,93 @@ esac
 		guardOutput, guardErr := runScript(t, bin, map[string]string{
 			"IAM_DB_OPS_OPERATION":     "rolebinding-guard-preflight",
 			"IAM_DB_OPS_BACKUP_DIR":    backupDir,
-			"IAM_FAKE_MIGRATION_STATE": "27\t0\t1",
+			"IAM_FAKE_MIGRATION_STATE": "28\t0\t1",
 			"IAM_FAKE_GUARD_STATE":     "1\t1",
 			"IAM_FAKE_DUPLICATE_STATE": "0\t0\t0",
 		})
 		requireNoError(t, guardErr)
-		for _, want := range []string{"result=success", "migration_version=27", "guard_state=1\t1"} {
+		for _, want := range []string{"result=success", "migration_version=28", "guard_state=1\t1"} {
 			if !strings.Contains(guardOutput, want) {
 				t.Fatalf("final-schema preflight output missing %q: %s", want, guardOutput)
+			}
+		}
+	})
+}
+
+func TestGlobalIdentifierGuardPreflightIsReadOnlyAndFailClosed(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	backupDir := filepath.Join(root, "backups")
+	requireNoError(t, os.MkdirAll(bin, 0o700))
+	requireNoError(t, os.MkdirAll(backupDir, 0o700))
+	writeExecutable(t, bin, "mysql", `#!/bin/sh
+if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
+case "$*" in
+  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-27\t0\t1}" ;;
+  *'iam_authn_global_identifier_invalid'*) printf '%s\n' "${IAM_FAKE_INVALID_COUNT:-0}" ;;
+  *'iam_authn_global_identifier_conflicts'*) printf '%s\n' "${IAM_FAKE_CONFLICT_GROUPS:-0}" ;;
+  *'iam_authn_global_identifier_duplicates'*) printf '%b\n' "${IAM_FAKE_DUPLICATE_STATE:-2\t3}" ;;
+  *'iam_authn_global_identifier_index'*) printf '%s\n' "${IAM_FAKE_INDEX_COUNT:-0}" ;;
+  *) exit 91 ;;
+esac
+`)
+
+	output, err := runScript(t, bin, map[string]string{
+		"IAM_DB_OPS_OPERATION":  "global-identifier-guard-preflight",
+		"IAM_DB_OPS_BACKUP_DIR": backupDir,
+	})
+	requireNoError(t, err)
+	assertSafeOutput(t, output)
+	for _, want := range []string{
+		"result=success", "migration_version=27", "invalid_rows=0",
+		"cross_user_conflict_groups=0", "duplicate_state=2\t3", "index_count=0",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("preflight output missing %q: %s", want, output)
+		}
+	}
+
+	for name, overrides := range map[string]map[string]string{
+		"noncanonical data": {
+			"IAM_FAKE_INVALID_COUNT": "1",
+		},
+		"cross user conflict": {
+			"IAM_FAKE_CONFLICT_GROUPS": "2",
+		},
+		"dirty migration": {
+			"IAM_FAKE_MIGRATION_STATE": "27\t1\t1",
+		},
+		"unexpected pre-migration index": {
+			"IAM_FAKE_INDEX_COUNT": "1",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			caseEnv := map[string]string{
+				"IAM_DB_OPS_OPERATION":  "global-identifier-guard-preflight",
+				"IAM_DB_OPS_BACKUP_DIR": backupDir,
+			}
+			for key, value := range overrides {
+				caseEnv[key] = value
+			}
+			guardOutput, guardErr := runScript(t, bin, caseEnv)
+			if guardErr == nil || !strings.Contains(guardOutput, "database operation failed") {
+				t.Fatalf("preflight did not fail closed: err=%v output=%s", guardErr, guardOutput)
+			}
+			assertSafeOutput(t, guardOutput)
+		})
+	}
+
+	t.Run("post migration schema remains eligible", func(t *testing.T) {
+		guardOutput, guardErr := runScript(t, bin, map[string]string{
+			"IAM_DB_OPS_OPERATION":     "global-identifier-guard-preflight",
+			"IAM_DB_OPS_BACKUP_DIR":    backupDir,
+			"IAM_FAKE_MIGRATION_STATE": "28\t0\t1",
+			"IAM_FAKE_INDEX_COUNT":     "1",
+		})
+		requireNoError(t, guardErr)
+		for _, want := range []string{"result=success", "migration_version=28", "index_count=1"} {
+			if !strings.Contains(guardOutput, want) {
+				t.Fatalf("post-migration preflight output missing %q: %s", want, guardOutput)
 			}
 		}
 	})
@@ -500,7 +579,7 @@ case "$*" in
 	  *"iam_retired_table_guard"*) printf '0\n' ;;
 	  *"iam_retired_privilege_guard"*) printf '0\n' ;;
 	  *"ORDER BY TABLE_TYPE, TABLE_NAME"*) printf 'type=BASE_TABLE name=users\n' ;;
-	  *"MAX(version)"*) printf '27\t0\t1\n' ;;
+	  *"MAX(version)"*) printf '28\t0\t1\n' ;;
 	  *"IS_USED_LOCK"*) printf 'none\tfree\t-1\n' ;;
 	  *"SUM(data_length"*) printf '12.5\n' ;;
   *"COUNT(*)"*) printf '7\n' ;;
@@ -533,14 +612,14 @@ func TestWorkflowUsesSingleCheckedOutScriptAndMySQLIntegration(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join(repo, ".github", "workflows", "db-ops.yml"))
 	requireNoError(t, err)
 	source := string(workflow)
-	if strings.Count(source, "uses: actions/checkout@v6") != 7 {
+	if strings.Count(source, "uses: actions/checkout@v6") != 8 {
 		t.Fatal("every database operation job must checkout the repository script")
 	}
-	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 7 {
+	if strings.Count(source, "script_path: scripts/dbops/database-operation.sh") != 8 {
 		t.Fatal("every database operation job must use the single script_path")
 	}
 	for _, want := range []string{
-		"backup", "restore", "status", "performance-schema-status", "rolebinding-guard-preflight",
+		"backup", "restore", "status", "performance-schema-status", "global-identifier-guard-preflight", "rolebinding-guard-preflight",
 		"rolebinding-deduplicate-dry-run", "rolebinding-deduplicate-apply",
 		"IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
 	} {

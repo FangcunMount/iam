@@ -52,7 +52,7 @@ Login 不直接负责：
 已登录用户绑定新的 LoginIdentity；
 创建业务 Profile 或 ProfileLink；
 最终资源授权 Check；
-Role / Permission / RoleBinding 判定。
+Role / Assignment / PermissionGrant / ConstraintSet 判定。
 ```
 
 Token 和 Session 的关系要严格区分：
@@ -538,7 +538,7 @@ Principal 不应包含：
 完整 Profile/ProfileLink；
 Credential material；
 password hash；
-完整 Permission / RoleBinding；
+完整 Assignment / RoleInheritance / PermissionGrant / ConstraintSet；
 provider access token。
 ```
 

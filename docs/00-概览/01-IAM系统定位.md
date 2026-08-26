@@ -187,7 +187,7 @@ AuthZ 是授权域。
 某个 Subject，
 在某个授权域下，
 能不能对某个 Resource 执行某个 Action，
-并满足某个 Scope？
+并让受信 ObjectAttributes 满足 PermissionGrant 的 ConstraintSet？
 ```
 
 AuthZ 的核心对象是：
@@ -196,10 +196,12 @@ AuthZ 的核心对象是：
 Subject；
 Resource；
 Action；
-Scope；
+ObjectAttribute；
 Role；
-Permission；
-RoleBinding；
+Assignment；
+RoleInheritance；
+PermissionGrant；
+ConstraintSet；
 AuthorizationDecision；
 PolicyVersion。
 ```
@@ -277,7 +279,7 @@ IAM 的核心不是“维护用户表”，而是围绕身份与访问管理组�
 ```text
 Identity 维护 User/Profile/ProfileLink；
 AuthN 维护 LoginIdentity/Credential/Session/Token；
-AuthZ 维护 Subject/Role/Permission/RoleBinding；
+AuthZ 维护 Subject/Role/Assignment/RoleInheritance/PermissionGrant；
 IDP 适配外部身份源；
 Suggest 构建 Profile 联想搜索读模型。
 ```
@@ -314,9 +316,11 @@ IAM 的 AuthZ 需要解决：
 ```text
 授权主体如何表达；
 资源如何建模；
-Action 和 Scope 如何参与判定；
-Role 如何聚合 Permission；
-RoleBinding 如何表达 Subject 持有 Role；
+Action 和受信 ObjectAttributes 如何参与判定；
+Role 如何聚合 PermissionGrant；
+Assignment 如何表达 Subject 在 Tenant 内持有 Role；
+RoleInheritance 如何复用角色能力；
+ConstraintSet 如何限制对象级 Grant；
 Check 如何在运行时快速判定；
 PolicyVersion 和 Outbox 如何传播授权事实变化。
 ```

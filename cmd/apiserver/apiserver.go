@@ -36,8 +36,8 @@
 // @tag.description 角色管理 - 创建、查询、更新、删除角色
 // @tag.name Authorization-Assignments
 // @tag.description 角色分配 - 授予、撤销用户或组的角色
-// @tag.name Authorization-Policies
-// @tag.description 策略管理 - 添加、移除 RBAC 策略规则
+// @tag.name Authorization-Grants
+// @tag.description PermissionGrant 管理 - 授予、查询和撤销资源动作能力
 // @tag.name Authorization-Resources
 // @tag.description 资源管理 - 创建、查询、更新受保护资源
 

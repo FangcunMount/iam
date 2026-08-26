@@ -252,6 +252,26 @@ func TestAuthZPermissionGrantExpansionMigrationIsAdditiveAndGuarded(t *testing.T
 	assertSQLContains(t, down, "DROP COLUMN `attribute_schema`")
 }
 
+func TestAuthNGlobalIdentifierUniqueGuardMigration(t *testing.T) {
+	up := migrationSQL(t, "000028_authn_global_identifier_unique_guard.up.sql")
+	for _, fragment := range []string{
+		"iam_authn_global_identifier_conflicts",
+		"COUNT(DISTINCT `user_id`) > 1",
+		"ROW_NUMBER() OVER",
+		"CASE WHEN `status` = 'active' THEN 0 ELSE 1 END",
+		"UPDATE `auth_login_identities`",
+		"SET `identity`.`global_identifier` = NULL",
+		"ADD UNIQUE KEY `uk_auth_login_identities_global`",
+	} {
+		assertSQLContains(t, up, fragment)
+	}
+	assertSQLNotContains(t, up, "DELETE FROM `auth_login_identities`")
+	assertSQLNotContains(t, up, "CREATE TABLE `auth_login_global_identifier_owners`")
+
+	down := migrationSQL(t, "000028_authn_global_identifier_unique_guard.down.sql")
+	assertSQLContains(t, down, "DROP INDEX `uk_auth_login_identities_global`")
+}
+
 func TestAuthZLegacyRetirementRequiresEvidenceAndIsIrreversible(t *testing.T) {
 	up := migrationSQL(t, "000027_retire_legacy_authz.up.sql")
 	for _, fragment := range []string{

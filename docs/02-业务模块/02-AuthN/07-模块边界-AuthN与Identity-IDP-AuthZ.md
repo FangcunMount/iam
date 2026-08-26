@@ -115,7 +115,7 @@ AuthN 只负责让请求上下文拥有可信身份；Suggest 自己负责关键
 
 ## 8. 事实源
 
-- AuthN/Identity 状态检查：`domain/authn/session/evaluator.go`
+- AuthN/Identity 状态检查：`domain/authn/admission/policy.go`、`application/authn/admission/guard.go`
 - SignUp UoW：`application/authn/signup`、`infra/mysql/uow/authn`
 - IDP proof：`application/authn/signin/proof`、`application/idp/externalidentity`
 - AuthN 组合根：`container/authn/application.go`、`container/authn/infra.go`

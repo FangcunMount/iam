@@ -4555,8 +4555,8 @@ const docTemplate = `{
             "name": "Authorization-Assignments"
         },
         {
-            "description": "策略管理 - 添加、移除 RBAC 策略规则",
-            "name": "Authorization-Policies"
+            "description": "PermissionGrant 管理 - 授予、查询和撤销资源动作能力",
+            "name": "Authorization-Grants"
         },
         {
             "description": "资源管理 - 创建、查询、更新受保护资源",
