@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
@@ -17,8 +18,14 @@ type cacheInvalidator interface {
 
 // ReloadRuntimePolicy 从最新数据库事实重建并原子替换原生授权快照。
 func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, operation string) {
+	_ = ReloadRuntimePolicyWithError(ctx, adapter, operation)
+}
+
+// ReloadRuntimePolicyWithError 从最新数据库事实重建并原子替换原生授权快照，
+// 并将最终失败返回给需要重试语义的调用方（例如策略版本事件消费者）。
+func ReloadRuntimePolicyWithError(ctx context.Context, adapter RuntimePolicyReloader, operation string) error {
 	if adapter == nil {
-		return
+		return nil
 	}
 
 	started := time.Now()
@@ -34,7 +41,7 @@ func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, ope
 				log.Int("attempt", attempt),
 				log.Int64("duration_ms", time.Since(started).Milliseconds()),
 			)
-			return
+			return nil
 		} else {
 			lastErr = err
 			log.ErrorContext(ctx, "failed to reload authz runtime policy",
@@ -46,7 +53,11 @@ func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, ope
 			)
 		}
 		if attempt < 3 {
-			time.Sleep(100 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("reload authz runtime policy after %s: %w", operation, ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
 		}
 	}
 
@@ -56,4 +67,5 @@ func ReloadRuntimePolicy(ctx context.Context, adapter RuntimePolicyReloader, ope
 		log.Int64("duration_ms", time.Since(started).Milliseconds()),
 		log.Err(lastErr),
 	)
+	return fmt.Errorf("reload authz runtime policy after %s: %w", operation, lastErr)
 }

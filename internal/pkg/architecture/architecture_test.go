@@ -2192,20 +2192,6 @@ func extractInsertStatement(t *testing.T, sql, table string) string {
 	return statement[:end+1]
 }
 
-func extractCasbinPolicyObjectsFromSQL(t *testing.T, sql string) []string {
-	t.Helper()
-	re := regexp.MustCompile(`(?is)SELECT\s+'p'\s*(?:AS\s+` + "`ptype`" + `)?\s*,\s*'[^']+'\s*(?:AS\s+` + "`v0`" + `)?\s*,\s*'[^']+'\s*(?:AS\s+` + "`v1`" + `)?\s*,\s*'([^']+)'\s*(?:AS\s+` + "`v2`" + `)?`)
-	matches := re.FindAllStringSubmatch(sql, -1)
-	values := make([]string, 0, len(matches))
-	for _, match := range matches {
-		values = append(values, match[1])
-	}
-	if len(values) == 0 {
-		t.Fatal("casbin p-rule bootstrap objects not found")
-	}
-	return values
-}
-
 func assertFourSegmentResourceValues(t *testing.T, label string, values []string) {
 	t.Helper()
 	for _, value := range values {

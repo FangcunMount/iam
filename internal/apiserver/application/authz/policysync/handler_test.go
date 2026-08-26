@@ -2,6 +2,7 @@ package policysync
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -49,6 +50,18 @@ func TestHandlerRejectsInvalidPayload(t *testing.T) {
 	require.Zero(t, reloader.reloads)
 }
 
+func TestHandlerReturnsReloadFailureForMessageRetry(t *testing.T) {
+	t.Parallel()
+
+	reloader := &reloaderStub{err: errors.New("database unavailable")}
+	handler := NewHandler(reloader, nil)
+
+	err := handler.Handle(context.Background(), []byte(`{"tenant_id":"tenant-a","version":7}`), eventing.AuthzVersionChanged)
+
+	require.ErrorContains(t, err, "reload authz runtime policy")
+	require.Equal(t, 3, reloader.reloads)
+}
+
 func TestInstanceChannelIsEphemeralAndInstanceScoped(t *testing.T) {
 	t.Parallel()
 
@@ -68,11 +81,12 @@ func TestInstanceChannelSanitizesHostName(t *testing.T) {
 
 type reloaderStub struct {
 	reloads int
+	err     error
 }
 
 func (s *reloaderStub) LoadPolicy(context.Context) error {
 	s.reloads++
-	return nil
+	return s.err
 }
 
 type recorderStub struct {

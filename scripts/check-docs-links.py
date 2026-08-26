@@ -49,7 +49,6 @@ RETIRED_REFERENCES = [
     "internal/apiserver/domain/authn/session/evaluator.go",
     "domain/authn/session/evaluator.go",
     "internal/apiserver/infra/redis/authn",
-    "configs/casbin_model.conf",
     "RefQuery",
     "RefCommand",
     "IsRef",
