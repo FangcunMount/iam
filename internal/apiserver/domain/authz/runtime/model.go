@@ -138,9 +138,10 @@ type PermissionEntry struct {
 }
 
 type SubjectSnapshot struct {
-	Roles         []string
-	Permissions   []PermissionEntry
-	PolicyVersion int64
+	DirectRoles    []string
+	EffectiveRoles []string
+	Permissions    []PermissionEntry
+	PolicyVersion  int64
 }
 
 func ValidateAttributes(schema attribute.Schema, attributes constraint.Attributes) error {

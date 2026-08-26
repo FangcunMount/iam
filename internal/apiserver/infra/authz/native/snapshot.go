@@ -162,12 +162,17 @@ func (s *Snapshot) Check(request authzruntime.Request) (authzruntime.Decision, e
 }
 
 func (s *Snapshot) SubjectSnapshot(sub subject.Ref, tenantID, appName string) (authzruntime.SubjectSnapshot, error) {
-	roles, err := s.roleNamesForSubject(sub, tenantID)
+	effectiveRoles, err := s.roleNamesForSubject(sub, tenantID)
 	if err != nil {
 		return authzruntime.SubjectSnapshot{}, err
 	}
+	directRoleKeys, err := s.DirectRoleKeys(sub, tenantID)
+	if err != nil {
+		return authzruntime.SubjectSnapshot{}, err
+	}
+	directRoles := appRoleNames(directRoleKeys, appName, true)
 	modeByPermission := make(map[string]authzruntime.AuthorizationMode)
-	for _, roleName := range roles {
+	for _, roleName := range effectiveRoles {
 		for _, grant := range s.grantsByRole[tenantRoleKey(tenantID, roleName)] {
 			resourceApp, ok := resource.AppNameFromKey(grant.ResourcePatternString())
 			if !ok || resourceApp != appName {
@@ -194,13 +199,12 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, tenantID, appName string) (a
 		}
 		return permissions[i].Resource < permissions[j].Resource
 	})
-	appRoles := make([]string, 0, len(roles))
-	for _, roleName := range roles {
-		if app, ok := roleAppName(roleName); ok && app == appName {
-			appRoles = append(appRoles, roleName)
-		}
-	}
-	return authzruntime.SubjectSnapshot{Roles: appRoles, Permissions: permissions, PolicyVersion: s.versions[tenantID]}, nil
+	return authzruntime.SubjectSnapshot{
+		DirectRoles:    directRoles,
+		EffectiveRoles: appRoleNames(effectiveRoles, appName, false),
+		Permissions:    permissions,
+		PolicyVersion:  s.versions[tenantID],
+	}, nil
 }
 
 func (s *Snapshot) DirectRoleKeys(sub subject.Ref, tenantID string) ([]string, error) {
@@ -223,6 +227,37 @@ func (s *Snapshot) roleNamesForSubject(sub subject.Ref, tenantID string) ([]stri
 	}
 	sort.Strings(roleNames)
 	return roleNames, nil
+}
+
+func appRoleNames(values []string, appName string, encoded bool) []string {
+	roles := make([]string, 0, len(values))
+	for _, value := range values {
+		roleName := value
+		if encoded {
+			if !strings.HasPrefix(value, "role:") {
+				continue
+			}
+			roleName = strings.TrimPrefix(value, "role:")
+		}
+		if app, ok := roleAppName(roleName); ok && app == appName {
+			roles = append(roles, roleName)
+		}
+	}
+	return uniqueSortedStrings(roles)
+}
+
+func uniqueSortedStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func (s *Snapshot) LoadedAt() time.Time { return s.loadedAt }

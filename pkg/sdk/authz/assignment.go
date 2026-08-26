@@ -24,3 +24,13 @@ func (c *Client) RevokeAssignment(ctx context.Context, req *authzv3.RevokeAssign
 	}
 	return resp, nil
 }
+
+// ReplaceManagedAssignments atomically replaces only the role set delegated to
+// the authenticated calling service. Assignments owned by other services are preserved.
+func (c *Client) ReplaceManagedAssignments(ctx context.Context, req *authzv3.ReplaceManagedAssignmentsRequest) (*authzv3.ReplaceManagedAssignmentsResponse, error) {
+	resp, err := c.authorizationService.ReplaceManagedAssignments(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return resp, nil
+}

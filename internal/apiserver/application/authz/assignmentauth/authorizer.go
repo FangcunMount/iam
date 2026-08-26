@@ -2,14 +2,16 @@ package assignmentauth
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
 type Operation string
 
 const (
-	OperationGrant  Operation = "grant"
-	OperationRevoke Operation = "revoke"
+	OperationGrant   Operation = "grant"
+	OperationRevoke  Operation = "revoke"
+	OperationReplace Operation = "replace"
 )
 
 type Request struct {
@@ -18,6 +20,14 @@ type Request struct {
 	Subject        string
 	Domain         string
 	RoleName       string
+	DelegatedActor string
+}
+
+type ReplacementRequest struct {
+	CallerService  string
+	Subject        string
+	Domain         string
+	RoleNames      []string
 	DelegatedActor string
 }
 
@@ -36,6 +46,7 @@ type Config struct {
 
 type Authorizer interface {
 	AuthorizeAssignment(Request) error
+	AuthorizeReplacement(ReplacementRequest) ([]string, error)
 }
 
 type DeniedError struct {
@@ -112,6 +123,38 @@ func (a *ruleAuthorizer) AuthorizeAssignment(request Request) error {
 	return nil
 }
 
+func (a *ruleAuthorizer) AuthorizeReplacement(request ReplacementRequest) ([]string, error) {
+	serviceName := strings.TrimSpace(request.CallerService)
+	constraint, ok := a.config.Services[serviceName]
+	if !ok {
+		return nil, &DeniedError{Reason: "service_not_configured"}
+	}
+	if constraint.AllowAll {
+		return nil, &DeniedError{Reason: "replacement_requires_explicit_managed_roles"}
+	}
+	if !contains(constraint.Domains, request.Domain) {
+		return nil, &DeniedError{Reason: "domain_not_allowed"}
+	}
+	parts := strings.SplitN(strings.TrimSpace(request.Subject), ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" || !contains(constraint.SubjectTypes, parts[0]) {
+		return nil, &DeniedError{Reason: "subject_not_allowed"}
+	}
+	managedRoles := sortedSet(constraint.Roles)
+	managedSet := normalizeSet(managedRoles)
+	for _, roleName := range request.RoleNames {
+		if _, ok := managedSet[strings.TrimSpace(roleName)]; !ok {
+			return nil, &DeniedError{Reason: "role_not_allowed"}
+		}
+	}
+	if constraint.RequireDelegatedActorOnGrant {
+		actor := strings.SplitN(strings.TrimSpace(request.DelegatedActor), ":", 2)
+		if len(actor) != 2 || actor[0] != "user" || actor[1] == "" {
+			return nil, &DeniedError{Reason: "delegated_actor_required"}
+		}
+	}
+	return managedRoles, nil
+}
+
 func contains(values []string, wanted string) bool {
 	_, ok := normalizeSet(values)[strings.TrimSpace(wanted)]
 	return ok
@@ -125,5 +168,15 @@ func normalizeSet(values []string) map[string]struct{} {
 			result[value] = struct{}{}
 		}
 	}
+	return result
+}
+
+func sortedSet(values []string) []string {
+	set := normalizeSet(values)
+	result := make([]string, 0, len(set))
+	for value := range set {
+		result = append(result, value)
+	}
+	sort.Strings(result)
 	return result
 }

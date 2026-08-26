@@ -84,7 +84,8 @@ func TestAuthorizationServerRejectsDuplicateAndUntrustedAttributes(t *testing.T)
 
 func TestAuthorizationServerSnapshotPreservesAuthorizationMode(t *testing.T) {
 	reader := &snapshotReaderFake{snapshot: authzruntime.SubjectSnapshot{
-		Roles: []string{"qs:evaluator"}, PolicyVersion: 7,
+		DirectRoles:    []string{"qs:evaluator"},
+		EffectiveRoles: []string{"qs:evaluator", "qs:staff"}, PolicyVersion: 7,
 		Permissions: []authzruntime.PermissionEntry{{
 			Resource: assessmentResource, Action: "retry", Mode: authzruntime.ModeObjectCheckRequired,
 		}},
@@ -95,6 +96,8 @@ func TestAuthorizationServerSnapshotPreservesAuthorizationMode(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.EqualValues(t, 7, resp.PolicyVersion)
+	require.Equal(t, []string{"qs:evaluator", "qs:staff"}, resp.Roles)
+	require.Equal(t, []string{"qs:evaluator"}, resp.DirectRoles)
 	require.Equal(t, authzv3.AuthorizationMode_OBJECT_CHECK_REQUIRED, resp.Permissions[0].Mode)
 }
 
@@ -104,7 +107,7 @@ func TestAuthorizationServerAssignmentsUseV3AndConstraints(t *testing.T) {
 		Services: map[string]assignmentauth.ServiceConstraint{
 			"qs-apiserver.svc": {
 				Domains: []string{"fangcun"}, SubjectTypes: []string{"user"},
-				Roles: []string{"qs:evaluator"}, RequireDelegatedActorOnGrant: true,
+				Roles: []string{"qs:evaluator", "qs:staff"}, RequireDelegatedActorOnGrant: true,
 			},
 		},
 	})
@@ -112,17 +115,29 @@ func TestAuthorizationServerAssignmentsUseV3AndConstraints(t *testing.T) {
 	commands := &roleBindingCommandsFake{}
 	srv := &authorizationServer{roleBindings: commands, assignmentAuthorizer: authorizer}
 
-	_, err = srv.GrantAssignment(serviceContext("qs-apiserver.svc"), &authzv3.GrantAssignmentRequest{
+	grantResponse, err := srv.GrantAssignment(serviceContext("qs-apiserver.svc"), &authzv3.GrantAssignmentRequest{
 		Subject: "user:100", Domain: "fangcun", RoleName: "qs:evaluator", GrantedBy: "user:1",
 	})
 	require.NoError(t, err)
 	require.Len(t, commands.grants, 1)
+	require.EqualValues(t, 11, grantResponse.PolicyVersion)
 
-	_, err = srv.RevokeAssignment(serviceContext("qs-apiserver.svc"), &authzv3.RevokeAssignmentRequest{
+	revokeResponse, err := srv.RevokeAssignment(serviceContext("qs-apiserver.svc"), &authzv3.RevokeAssignmentRequest{
 		Subject: "user:100", Domain: "fangcun", RoleName: "qs:evaluator",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "service:qs-apiserver.svc", commands.revokes[0].ChangedBy)
+	require.EqualValues(t, 12, revokeResponse.PolicyVersion)
+
+	replaceResponse, err := srv.ReplaceManagedAssignments(serviceContext("qs-apiserver.svc"), &authzv3.ReplaceManagedAssignmentsRequest{
+		Subject: "user:100", Domain: "fangcun", RoleNames: []string{"qs:evaluator", "qs:staff"},
+		ChangedBy: "user:1", Reason: "staff role update",
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"qs:evaluator", "qs:staff"}, replaceResponse.DirectRoles)
+	require.EqualValues(t, 13, replaceResponse.PolicyVersion)
+	require.True(t, replaceResponse.Changed)
+	require.Len(t, commands.replacements, 1)
 }
 
 func TestAuthorizationV3GRPCAssessmentRetryMatrix(t *testing.T) {
@@ -305,26 +320,37 @@ func (f *snapshotReaderFake) Read(_ context.Context, _ subject.Ref, _, _ string)
 }
 
 type roleBindingCommandsFake struct {
-	grants    []rolebindingApp.GrantByRoleNameCommand
-	revokes   []rolebindingApp.RevokeByRoleNameCommand
-	grantErr  error
-	revokeErr error
+	grants       []rolebindingApp.GrantByRoleNameCommand
+	revokes      []rolebindingApp.RevokeByRoleNameCommand
+	replacements []rolebindingApp.ReplaceManagedAssignmentsCommand
+	grantErr     error
+	revokeErr    error
+	replaceErr   error
 }
 
-func (f *roleBindingCommandsFake) GrantByRoleName(_ context.Context, cmd rolebindingApp.GrantByRoleNameCommand) error {
+func (f *roleBindingCommandsFake) GrantByRoleName(_ context.Context, cmd rolebindingApp.GrantByRoleNameCommand) (int64, error) {
 	f.grants = append(f.grants, cmd)
-	return f.grantErr
+	return 11, f.grantErr
 }
 
-func (f *roleBindingCommandsFake) RevokeByRoleName(_ context.Context, cmd rolebindingApp.RevokeByRoleNameCommand) error {
+func (f *roleBindingCommandsFake) RevokeByRoleName(_ context.Context, cmd rolebindingApp.RevokeByRoleNameCommand) (int64, error) {
 	f.revokes = append(f.revokes, cmd)
-	return f.revokeErr
+	return 12, f.revokeErr
+}
+
+func (f *roleBindingCommandsFake) ReplaceManagedAssignments(_ context.Context, cmd rolebindingApp.ReplaceManagedAssignmentsCommand) (rolebindingApp.ReplaceManagedAssignmentsResult, error) {
+	f.replacements = append(f.replacements, cmd)
+	return rolebindingApp.ReplaceManagedAssignmentsResult{DirectRoles: cmd.RoleNames, PolicyVersion: 13, Changed: true}, f.replaceErr
 }
 
 type assignmentAuthorizerErrorStub struct{}
 
 func (assignmentAuthorizerErrorStub) AuthorizeAssignment(assignmentauth.Request) error {
 	return errors.New("constraint repository unavailable")
+}
+
+func (assignmentAuthorizerErrorStub) AuthorizeReplacement(assignmentauth.ReplacementRequest) ([]string, error) {
+	return nil, errors.New("constraint repository unavailable")
 }
 
 func serviceContext(serviceName string) context.Context {

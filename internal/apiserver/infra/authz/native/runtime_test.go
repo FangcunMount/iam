@@ -71,7 +71,8 @@ func TestRuntimeSnapshotPreservesConditionalMode(t *testing.T) {
 
 	snapshot, err := runtime.GetAuthorizationSnapshot(context.Background(), sub, "fangcun", "qs")
 	require.NoError(t, err)
-	require.Contains(t, snapshot.Roles, "qs:evaluator")
+	require.Equal(t, []string{"qs:evaluator"}, snapshot.DirectRoles)
+	require.Equal(t, []string{"qs:evaluator", "qs:staff"}, snapshot.EffectiveRoles)
 	require.Contains(t, snapshot.Permissions, authzruntime.PermissionEntry{
 		Resource: assessmentResource, Action: "retry", Mode: authzruntime.ModeObjectCheckRequired,
 	})
@@ -94,7 +95,8 @@ func TestRuntimeSnapshotIncludesQSAdminWildcardAsUnconditionalCandidate(t *testi
 
 	snapshot, err := runtime.GetAuthorizationSnapshot(context.Background(), sub, "fangcun", "qs")
 	require.NoError(t, err)
-	require.Contains(t, snapshot.Roles, "qs:admin")
+	require.Contains(t, snapshot.DirectRoles, "qs:admin")
+	require.Contains(t, snapshot.EffectiveRoles, "qs:admin")
 	require.Contains(t, snapshot.Permissions, authzruntime.PermissionEntry{
 		Resource: "qs:*:*:*", Action: "*", Mode: authzruntime.ModeUnconditional,
 	})
@@ -185,6 +187,10 @@ func assessmentDataset(t testing.TB) native.Dataset {
 			{TenantID: "fangcun", SubjectKey: "user:2", RoleID: meta.FromUint64(12)},
 			{TenantID: "fangcun", SubjectKey: "user:3", RoleID: meta.FromUint64(13)},
 			{TenantID: "fangcun", SubjectKey: "user:4", RoleID: meta.FromUint64(14)},
+		},
+		Inheritances: []native.InheritanceRecord{
+			{TenantID: "fangcun", RoleID: meta.FromUint64(12), InheritedRoleID: meta.FromUint64(14)},
+			{TenantID: "fangcun", RoleID: meta.FromUint64(13), InheritedRoleID: meta.FromUint64(14)},
 		},
 		Grants:    []*permissiongrant.Grant{&admin, &evaluatorRetry, &evaluatorBatch, &planRetry},
 		Resources: []*resource.Resource{&assessment},
