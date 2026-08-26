@@ -65,6 +65,20 @@ func TestConvergedCountsRequireOnlyApprovedIntermediateOrFinal(t *testing.T) {
 	require.False(t, isCatalogConvergedCounts(AuthzV3Counts{Roles: 9, Resources: 27, Assignments: 134, Inheritances: 8, Grants: 100}))
 }
 
+func TestGrantReplacementManifestDoesNotRevokeUnchangedGrants(t *testing.T) {
+	removals := make(map[grantSpec]struct{}, len(sourceGrantRemovals))
+	for _, spec := range sourceGrantRemovals {
+		removals[spec] = struct{}{}
+	}
+	for _, spec := range targetGrantAdditions {
+		_, duplicated := removals[spec]
+		require.False(t, duplicated, "unchanged grant must not be both revoked and recreated: %+v", spec)
+	}
+	require.Len(t, sourceGrantRemovals, 12)
+	require.Len(t, targetGrantAdditions, 7)
+	require.Equal(t, sourceCounts.Grants-len(sourceGrantRemovals)+len(targetGrantAdditions), targetCounts.Grants)
+}
+
 func TestStateHashDoesNotExposeSubjectAndIsOrderIndependent(t *testing.T) {
 	roleID := meta.FromUint64(1)
 	makeState := func(subjects ...string) *convergeState {
