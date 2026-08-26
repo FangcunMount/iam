@@ -92,10 +92,13 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]
 	return users, nil
 }
 
-// FindByNickname returns all exact nickname matches. Nicknames are not unique.
+// FindByNickname returns all exact display-nickname matches. The public identity
+// contract falls back to name when the persisted nickname is empty.
 func (r *Repository) FindByNickname(ctx context.Context, nickname string) ([]*domain.User, error) {
 	var pos []*UserPO
-	if err := r.WithContext(ctx).Where("nickname = ?", nickname).Find(&pos).Error; err != nil {
+	if err := r.WithContext(ctx).
+		Where("nickname = ? OR ((nickname IS NULL OR nickname = '') AND name = ?)", nickname, nickname).
+		Find(&pos).Error; err != nil {
 		return nil, err
 	}
 	return r.mapper.ToBOs(pos), nil
