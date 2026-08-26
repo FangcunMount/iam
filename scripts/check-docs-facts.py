@@ -632,11 +632,12 @@ def check_database_operations_facts() -> None:
         encoding="utf-8"
     )
 
-    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 7:
+    if workflow.count("script_path: scripts/dbops/database-operation.sh") != 8:
         fail("database workflow no longer routes all operations through the repository script")
     for token in (
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "performance-schema-status",
+        "global-identifier-guard-preflight",
         "rolebinding-guard-preflight",
         "rolebinding-deduplicate-dry-run",
         "rolebinding-deduplicate-apply",
