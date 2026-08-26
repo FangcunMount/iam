@@ -60,8 +60,9 @@ func loadConfig(path string) (assignmentauth.Config, error) {
 }
 
 const (
-	grantAssignmentMethod  = "/iam.authz.v3.AuthorizationService/GrantAssignment"
-	revokeAssignmentMethod = "/iam.authz.v3.AuthorizationService/RevokeAssignment"
+	grantAssignmentMethod    = "/iam.authz.v3.AuthorizationService/GrantAssignment"
+	revokeAssignmentMethod   = "/iam.authz.v3.AuthorizationService/RevokeAssignment"
+	replaceAssignmentsMethod = "/iam.authz.v3.AuthorizationService/ReplaceManagedAssignments"
 )
 
 func validateAgainstACL(config assignmentauth.Config, aclPath string) error {
@@ -84,7 +85,8 @@ func validateAgainstACL(config assignmentauth.Config, aclPath string) error {
 			continue
 		}
 		if allowsMethod(service.AllowedMethods, grantAssignmentMethod) ||
-			allowsMethod(service.AllowedMethods, revokeAssignmentMethod) {
+			allowsMethod(service.AllowedMethods, revokeAssignmentMethod) ||
+			allowsMethod(service.AllowedMethods, replaceAssignmentsMethod) {
 			mutatingServices[strings.TrimSpace(service.ServiceName)] = struct{}{}
 		}
 	}

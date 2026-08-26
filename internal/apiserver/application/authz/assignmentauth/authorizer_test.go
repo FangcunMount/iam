@@ -93,11 +93,26 @@ func TestAuthorizeReplacementReturnsEntireManagedSetAndRejectsEscalation(t *test
 	if !reflect.DeepEqual(managed, want) {
 		t.Fatalf("managed roles = %v, want %v", managed, want)
 	}
+	managed, err = authorizer.AuthorizeReplacement(ReplacementRequest{
+		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
+		RoleNames: []string{"qs:evaluator"}, DelegatedActor: "service:qs-apiserver.svc",
+	})
+	if err != nil || !reflect.DeepEqual(managed, want) {
+		t.Fatalf("service-authored replacement = %v, %v, want %v", managed, err, want)
+	}
+	_, err = authorizer.AuthorizeReplacement(ReplacementRequest{
+		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
+		RoleNames: []string{"qs:evaluator"}, DelegatedActor: "service:other.svc",
+	})
+	var denied *DeniedError
+	if !errors.As(err, &denied) || denied.Reason != "delegated_actor_required" {
+		t.Fatalf("mismatched service actor error = %v, want delegated_actor_required", err)
+	}
 	_, err = authorizer.AuthorizeReplacement(ReplacementRequest{
 		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
 		RoleNames: []string{"tenant_admin"}, DelegatedActor: "user:20",
 	})
-	var denied *DeniedError
+	denied = nil
 	if !errors.As(err, &denied) || denied.Reason != "role_not_allowed" {
 		t.Fatalf("AuthorizeReplacement() error = %v, want role_not_allowed", err)
 	}

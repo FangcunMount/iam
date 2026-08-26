@@ -37,6 +37,7 @@ services:
     allowed_methods:
       - /iam.authz.v3.AuthorizationService/GrantAssignment
       - /iam.authz.v3.AuthorizationService/RevokeAssignment
+      - /iam.authz.v3.AuthorizationService/ReplaceManagedAssignments
   - service_name: admin
     enabled: true
     allowed_methods:
@@ -60,6 +61,26 @@ services:
   - service_name: unbounded.svc
     enabled: true
     allowed_methods: [/iam.authz.v3.AuthorizationService/GrantAssignment]
+`,
+			wantErr: "has no request constraint",
+		},
+		{
+			name: "replace capability without constraint",
+			constraints: `
+default_policy: deny
+services:
+  admin:
+    allow_all: true
+`,
+			acl: `
+default_policy: deny
+services:
+  - service_name: admin
+    enabled: true
+    allowed_methods: [/iam.authz.v3.AuthorizationService/*]
+  - service_name: unbounded.svc
+    enabled: true
+    allowed_methods: [/iam.authz.v3.AuthorizationService/ReplaceManagedAssignments]
 `,
 			wantErr: "has no request constraint",
 		},
