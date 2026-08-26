@@ -234,6 +234,21 @@ func (s *UserRepoStub) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.I
 	return out, nil
 }
 
+func (s *UserRepoStub) FindByNickname(_ context.Context, nickname string) ([]*user.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.FindErr != nil {
+		return nil, s.FindErr
+	}
+	var matches []*user.User
+	for _, candidate := range s.UsersByID {
+		if candidate != nil && candidate.Nickname == nickname {
+			matches = append(matches, candidate)
+		}
+	}
+	return matches, nil
+}
+
 func (s *UserRepoStub) FindByPhone(ctx context.Context, phone meta.Phone) (*user.User, error) {
 	s.mu.Lock()
 	s.FindPhoneCalls++

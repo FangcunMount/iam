@@ -65,3 +65,17 @@ func TestUserRepositoryFindByIDsReturnsFoundUsersOnly(t *testing.T) {
 	require.Equal(t, "bob", got[meta.FromUint64(11)].Name)
 	require.Nil(t, got[meta.FromUint64(404)])
 }
+
+func TestUserRepositoryFindByNicknameReturnsAllExactMatches(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&UserPO{}))
+	for id, nickname := range map[uint64]string{10: "matrix", 11: "matrix", 12: "other"} {
+		row := &UserPO{Nickname: nickname, Status: 1}
+		row.ID = meta.FromUint64(id)
+		require.NoError(t, db.Create(row).Error)
+	}
+
+	got, err := NewRepository(db).FindByNickname(context.Background(), "matrix")
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+}

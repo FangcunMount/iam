@@ -69,8 +69,19 @@ func (s *identityReadServer) SearchUsers(ctx context.Context, req *identityv2.Se
 	if len(req.GetPhones()) > 0 {
 		return s.searchUsersByPhones(ctx, req)
 	}
+	if keyword := strings.TrimSpace(req.GetKeyword()); keyword != "" {
+		users, err := s.userQuerySvc.FindByNickname(ctx, keyword)
+		if err != nil {
+			return nil, toGRPCError(err)
+		}
+		response := &identityv2.SearchUsersResponse{Total: int32(len(users)), Page: req.GetPage()}
+		for _, user := range users {
+			response.Users = append(response.Users, userResultToProto(user))
+		}
+		return response, nil
+	}
 
-	// 其他搜索条件暂不支持
+	// 邮箱搜索条件暂不支持。
 	return &identityv2.SearchUsersResponse{
 		Total: 0,
 		Page:  req.GetPage(),

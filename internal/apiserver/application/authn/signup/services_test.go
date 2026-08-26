@@ -52,6 +52,16 @@ func (s *userRepoStub) FindByIDs(_ context.Context, ids []meta.ID) (map[meta.ID]
 	return out, nil
 }
 
+func (s *userRepoStub) FindByNickname(_ context.Context, nickname string) ([]*userDomain.User, error) {
+	var matches []*userDomain.User
+	for _, user := range s.users {
+		if user.Nickname == nickname {
+			matches = append(matches, user)
+		}
+	}
+	return matches, nil
+}
+
 func (s *userRepoStub) FindByPhone(_ context.Context, phone meta.Phone) (*userDomain.User, error) {
 	s.findByPhoneCalls++
 	for _, user := range s.users {

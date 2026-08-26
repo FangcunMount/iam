@@ -16,6 +16,7 @@ type Repository interface {
 
 	FindByID(ctx context.Context, id meta.ID) (*User, error)
 	FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]*User, error)
+	FindByNickname(ctx context.Context, nickname string) ([]*User, error)
 	// FindByPhone returns nil, nil when the phone is not bound to any user.
 	FindByPhone(ctx context.Context, phone meta.Phone) (*User, error)
 

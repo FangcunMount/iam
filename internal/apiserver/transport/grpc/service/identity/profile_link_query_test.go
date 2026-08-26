@@ -113,9 +113,10 @@ func (s *profileLinkQueryStub) ListLinksForProfileIncludingRevoked(context.Conte
 }
 
 type userQueryStub struct {
-	users        map[string]*userApp.UserResult
-	batchCalls   [][]meta.ID
-	getByIDCalls int
+	users         map[string]*userApp.UserResult
+	nicknameUsers []*userApp.UserResult
+	batchCalls    [][]meta.ID
+	getByIDCalls  int
 }
 
 func (s *userQueryStub) GetByID(context.Context, meta.ID) (*userApp.UserResult, error) {
@@ -128,4 +129,7 @@ func (s *userQueryStub) BatchGetByID(_ context.Context, userIDs []meta.ID) (map[
 }
 func (s *userQueryStub) GetByPhone(context.Context, string) (*userApp.UserResult, error) {
 	return nil, nil
+}
+func (s *userQueryStub) FindByNickname(context.Context, string) ([]*userApp.UserResult, error) {
+	return s.nicknameUsers, nil
 }

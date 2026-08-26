@@ -92,6 +92,15 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []meta.ID) (map[meta.ID]
 	return users, nil
 }
 
+// FindByNickname returns all exact nickname matches. Nicknames are not unique.
+func (r *Repository) FindByNickname(ctx context.Context, nickname string) ([]*domain.User, error) {
+	var pos []*UserPO
+	if err := r.WithContext(ctx).Where("nickname = ?", nickname).Find(&pos).Error; err != nil {
+		return nil, err
+	}
+	return r.mapper.ToBOs(pos), nil
+}
+
 // FindByPhone 根据手机号查找用户
 func (r *Repository) FindByPhone(ctx context.Context, phone meta.Phone) (*domain.User, error) {
 	var po UserPO

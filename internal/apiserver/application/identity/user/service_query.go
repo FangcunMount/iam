@@ -111,6 +111,25 @@ func userIDsForBatch(userIDs []meta.ID) []meta.ID {
 	return ids
 }
 
+// FindByNickname 根据昵称精确查询用户。
+func (s *directory) FindByNickname(ctx context.Context, nickname string) ([]*UserResult, error) {
+	var results []*UserResult
+	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx uow.TxRepositories) error {
+		users, err := tx.Users.FindByNickname(txCtx, nickname)
+		if err != nil {
+			return err
+		}
+		results = make([]*UserResult, 0, len(users))
+		for _, u := range users {
+			if u != nil {
+				results = append(results, toUserResult(u))
+			}
+		}
+		return nil
+	})
+	return results, err
+}
+
 // GetByPhone 根据手机号查询用户
 func (s *directory) GetByPhone(ctx context.Context, phone string) (*UserResult, error) {
 	var result *UserResult
