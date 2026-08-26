@@ -1,12 +1,14 @@
 package maintenance
 
 import (
+	"errors"
 	"testing"
 
 	rolerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
 	bindingrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,4 +104,12 @@ func TestStateHashDoesNotExposeSubjectAndIsOrderIndependent(t *testing.T) {
 	require.Equal(t, left, right)
 	require.NotContains(t, left, "100")
 	require.Len(t, left, 64)
+}
+
+func TestConvergenceFailureCodeExposesOnlyStableErrorClass(t *testing.T) {
+	require.Equal(t, "mysql_1054", convergenceFailureCode(&mysqldriver.MySQLError{
+		Number:  1054,
+		Message: "sensitive database detail",
+	}))
+	require.Equal(t, "non_mysql_error", convergenceFailureCode(errors.New("sensitive application detail")))
 }
