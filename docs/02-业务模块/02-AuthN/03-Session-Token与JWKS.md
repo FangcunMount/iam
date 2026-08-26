@@ -83,6 +83,16 @@ Session 是先延长，refresh token 后轮换。如果轮换最终冲突或 Red
 
 Identity 的 deactivate/block 会在同一 MySQL 事务中写 session-revocation outbox，后台 worker 最终撤销 Redis Session；同时在线 Token 验证还会读取当前 User/LoginIdentity 状态，关闭事件消费延迟窗口。详见 [Identity 与 AuthN 的边界](../01-Identity/04-模块边界-Identity与AuthN-AuthZ-Suggest.md) 与 [事件和 Transactional Outbox](../../03-基础设施/03-事件与Transactional-Outbox.md)。
 
+管理员 Session 撤销入口需要用户 JWT，并检查 `iam:authn:collection:sessions` 的明确 Action：
+
+| 请求 | Action |
+|---|---|
+| `POST /api/v2/admin/sessions/{sessionId}/revoke` | `revoke` |
+| `POST /api/v2/admin/login-identities/{loginIdentityId}/sessions/revoke` | `revoke_by_login_identity` |
+| `POST /api/v2/admin/users/{userId}/sessions/revoke` | `revoke_by_user` |
+
+三条路由都先检查当前 Tenant，再检查平台域；不按管理员角色名称旁路。它们是管理操作，不改变退出、refresh 撤销与 Identity 状态事件的既有链路。
+
 ## 6. IAM 在线验证与 SDK 本地验签不是一回事
 
 IAM 内部 `token.verifier.VerifyToken` 对用户 token 执行：

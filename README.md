@@ -40,15 +40,17 @@ IAM 可以拆解为三个核心模块和两个辅助模块。
 
 ## 软件架构
 
-### 分层架构
+### 分层与端口
 
 ![IAM 分层架构图](docs/_images/architecture/layer-architecture.png)
 
-![IAM 数据流架构](docs/_images/architecture/dataflow-architecture.png)
+[SVG 图源](docs/_images/architecture/layer-architecture.svg)
 
-### 六边形架构
+### 运行时与组合根
 
-![IAM 六边形架构图](docs/_images/architecture/hexagonal-architecture.png)
+![IAM 进程生命周期与运行时装配](docs/_images/architecture/runtime-composition-lifecycle.png)
+
+[SVG 图源](docs/_images/architecture/runtime-composition-lifecycle.svg)
 
 | 层次 | 位置 | 职责 |
 | --- | --- | --- |
@@ -78,6 +80,8 @@ infra 管外部资源。
 
 ![IAM 模块边界图](docs/_images/architecture/module-boundary.png)
 
+[SVG 图源](docs/_images/architecture/module-boundary.svg)
+
 | 模块 | 边界 |
 | --- | --- |
 | AuthN | AuthN 负责认证态，负责 LoginIdentity、Credential、Session、Token、JWKS |
@@ -85,6 +89,12 @@ infra 管外部资源。
 | Identity | Identity 负责用户和业务档案关系，负责 User、Profile、ProfileLink |
 | IDP | IDP 负责外部身份源基础设施，负责微信、企微等外部身份源适配 |
 | Suggest | Suggest 负责 Profile 联想搜索读模型，负责 Profile 联想搜索读模型 |
+
+三个核心模块的事实所有权与协作边界见下图：
+
+![IAM 三核心模块领域模型 V8](docs/_images/architecture/core-domain-model-v8.png)
+
+[SVG 图源](docs/_images/architecture/core-domain-model-v8.svg)
 
 ## 快速开始
 

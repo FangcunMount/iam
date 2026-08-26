@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1800" viewBox="0 0 2600 1800" role="img" aria-labelledby="title desc">
+  <title id="title">AuthZ v3 领域模型与运行时编译图</title>
+  <desc id="desc">展示 Subject、Tenant、Assignment、Role、RoleInheritance、PermissionGrant、Resource、ConstraintSet、ObjectContext 和 Decision，以及 MySQL 权威事实如何编译为包含 Casbin RoleManager 与原生 Grant 索引的不可变快照。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker>
+    <marker id="purpleArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6d45bf"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#172033" flood-opacity="0.10"/></filter>
+    <style>
+      .bg{fill:#f8fafc}.title{font:700 46px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#172033}.subtitle{font:400 22px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#64748b}.section{font:700 28px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#172033}.sectionSub{font:400 18px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#64748b}.boxTitle{font:700 24px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#172033}.stereo{font:700 14px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;letter-spacing:1px;fill:#6d45bf}.field{font:400 17px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#475569}.note{font:400 15px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#64748b}.edge{stroke:#334155;stroke-width:3;fill:none;marker-end:url(#arrow)}.dashed{stroke:#2563eb;stroke-width:3;stroke-dasharray:12 10;fill:none;marker-end:url(#arrow)}.compile{stroke:#6d45bf;stroke-width:4;fill:none;marker-end:url(#purpleArrow)}.edgeLabel{font:600 15px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#334155}.card{fill:#fff;stroke:#8b6bd1;stroke-width:2.5;rx:18}.factBand{fill:#f2edff;stroke:#8b6bd1;stroke-width:2.5;rx:26}.runtimeBand{fill:#eef8f1;stroke:#3a9060;stroke-width:2.5;rx:26}.runtimeCard{fill:#fff;stroke:#3a9060;stroke-width:2.5;rx:18}.external{fill:#fffaf0;stroke:#d69a19;stroke-width:2.5;rx:18}.source{fill:#fff7dd;stroke:#d69a19;stroke-width:2.5;rx:18}.divider{stroke:#dbe3ef;stroke-width:2}
+    </style>
+  </defs>
+  <rect class="bg" width="2600" height="1800"/>
+
+  <text x="90" y="78" class="title">AuthZ v3 领域模型：授权事实、不可变快照与判定</text>
+  <text x="90" y="116" class="subtitle">MySQL 保存权威事实；Casbin 只计算角色闭包；原生运行时匹配 PermissionGrant 并求值 ConstraintSet。</text>
+
+  <rect x="70" y="155" width="2460" height="850" class="factBand" filter="url(#shadow)"/>
+  <text x="105" y="205" class="section">01｜长期授权事实</text>
+  <text x="105" y="237" class="sectionSub">同一 Tenant 内：Subject 通过 Assignment 获得直接角色；角色通过继承获得父角色能力；Grant 把角色连接到资源能力。</text>
+
+  <rect x="105" y="280" width="300" height="180" class="external"/>
+  <text x="255" y="320" text-anchor="middle" class="stereo">IDENTITY · EXTERNAL</text>
+  <text x="255" y="364" text-anchor="middle" class="boxTitle">User</text>
+  <line x1="135" y1="382" x2="375" y2="382" class="divider"/>
+  <text x="255" y="414" text-anchor="middle" class="field">ID · Status</text>
+  <text x="255" y="440" text-anchor="middle" class="note">稳定身份锚点</text>
+
+  <rect x="485" y="280" width="330" height="180" class="card"/>
+  <text x="650" y="320" text-anchor="middle" class="stereo">VALUE OBJECT</text>
+  <text x="650" y="364" text-anchor="middle" class="boxTitle">Subject.Ref</text>
+  <line x1="515" y1="382" x2="785" y2="382" class="divider"/>
+  <text x="650" y="414" text-anchor="middle" class="field">Type · ID</text>
+  <text x="650" y="440" text-anchor="middle" class="note">user / group / service；当前写链 resolver 仅 user</text>
+
+  <rect x="915" y="280" width="360" height="230" class="card"/>
+  <text x="1095" y="320" text-anchor="middle" class="stereo">AGGREGATE ROOT</text>
+  <text x="1095" y="364" text-anchor="middle" class="boxTitle">Assignment</text>
+  <text x="1095" y="391" text-anchor="middle" class="note">code: rolebinding.Binding</text>
+  <line x1="945" y1="408" x2="1245" y2="408" class="divider"/>
+  <text x="1095" y="438" text-anchor="middle" class="field">SubjectType · SubjectID</text>
+  <text x="1095" y="464" text-anchor="middle" class="field">RoleID · TenantID · GrantedBy</text>
+  <text x="1095" y="490" text-anchor="middle" class="note">Subject → Direct Role；active tuple 唯一</text>
+
+  <rect x="1380" y="280" width="330" height="230" class="card"/>
+  <text x="1545" y="320" text-anchor="middle" class="stereo">AGGREGATE ROOT</text>
+  <text x="1545" y="364" text-anchor="middle" class="boxTitle">Role</text>
+  <line x1="1410" y1="382" x2="1680" y2="382" class="divider"/>
+  <text x="1545" y="414" text-anchor="middle" class="field">ID · TenantID · Name</text>
+  <text x="1545" y="440" text-anchor="middle" class="field">DisplayName · Description</text>
+  <text x="1545" y="474" text-anchor="middle" class="note">角色名不是 allow 条件</text>
+
+  <rect x="1810" y="280" width="380" height="230" class="card"/>
+  <text x="2000" y="320" text-anchor="middle" class="stereo">RELATION ENTITY</text>
+  <text x="2000" y="364" text-anchor="middle" class="boxTitle">RoleInheritance</text>
+  <line x1="1840" y1="382" x2="2160" y2="382" class="divider"/>
+  <text x="2000" y="414" text-anchor="middle" class="field">ChildRoleID → ParentRoleID</text>
+  <text x="2000" y="440" text-anchor="middle" class="field">TenantID · RevokedAt · Version</text>
+  <text x="2000" y="474" text-anchor="middle" class="note">同 Tenant · 无自环 · DAG</text>
+
+  <path d="M405 370 L485 370" class="dashed"/>
+  <text x="445" y="350" text-anchor="middle" class="edgeLabel">UserID</text>
+  <path d="M815 395 L915 395" class="edge"/>
+  <text x="865" y="374" text-anchor="middle" class="edgeLabel">receives</text>
+  <path d="M1275 395 L1380 395" class="edge"/>
+  <text x="1327" y="374" text-anchor="middle" class="edgeLabel">direct role</text>
+  <path d="M1710 395 L1810 395" class="edge"/>
+  <text x="1760" y="374" text-anchor="middle" class="edgeLabel">child</text>
+  <path d="M2190 395 C2280 395 2280 550 1545 550 L1545 510" class="edge"/>
+  <text x="2200" y="536" class="edgeLabel">parent role</text>
+
+  <rect x="450" y="625" width="500" height="270" class="card"/>
+  <text x="700" y="666" text-anchor="middle" class="stereo">RESOURCE CATALOG · AGGREGATE ROOT</text>
+  <text x="700" y="710" text-anchor="middle" class="boxTitle">Resource</text>
+  <line x1="485" y1="730" x2="915" y2="730" class="divider"/>
+  <text x="700" y="764" text-anchor="middle" class="field">ID · Key = app:domain:type:name</text>
+  <text x="700" y="794" text-anchor="middle" class="field">Actions[] · ObjectAttributeSchema[]</text>
+  <text x="700" y="832" text-anchor="middle" class="note">定义能力合同，不保存业务对象实例</text>
+  <text x="700" y="858" text-anchor="middle" class="note">请求 Resource 必须具体；Grant Pattern 可逐段通配</text>
+
+  <rect x="1080" y="600" width="560" height="320" class="card"/>
+  <text x="1360" y="640" text-anchor="middle" class="stereo">AUTHORIZATION FACT · AGGREGATE ROOT</text>
+  <text x="1360" y="684" text-anchor="middle" class="boxTitle">PermissionGrant</text>
+  <text x="1360" y="711" text-anchor="middle" class="note">code: permissiongrant.Grant</text>
+  <line x1="1115" y1="730" x2="1605" y2="730" class="divider"/>
+  <text x="1360" y="762" text-anchor="middle" class="field">TenantID · RoleID · ResourceID</text>
+  <text x="1360" y="790" text-anchor="middle" class="field">ResourcePattern · ActionPattern</text>
+  <text x="1360" y="818" text-anchor="middle" class="field">ConstraintSet · GrantKey · RevokedAt</text>
+  <text x="1360" y="856" text-anchor="middle" class="note">managed：catalog resource + concrete action</text>
+  <text x="1360" y="882" text-anchor="middle" class="note">system：仅可信 bootstrap，可无条件 wildcard</text>
+
+  <rect x="1800" y="625" width="560" height="270" class="card"/>
+  <text x="2080" y="666" text-anchor="middle" class="stereo">VALUE OBJECT · VERSION 1</text>
+  <text x="2080" y="710" text-anchor="middle" class="boxTitle">ConstraintSet</text>
+  <line x1="1835" y1="730" x2="2325" y2="730" class="divider"/>
+  <text x="2080" y="764" text-anchor="middle" class="field">all_of[0..8] · operator = eq</text>
+  <text x="2080" y="794" text-anchor="middle" class="field">object.* · string / int64 / bool</text>
+  <text x="2080" y="832" text-anchor="middle" class="note">条件必须符合 Resource attribute schema</text>
+  <text x="2080" y="858" text-anchor="middle" class="note">list / search / batch 不接受条件 Grant</text>
+
+  <path d="M1545 510 L1545 575 L1360 575 L1360 600" class="edge"/>
+  <text x="1458" y="564" text-anchor="middle" class="edgeLabel">owns grants</text>
+  <path d="M1080 760 L950 760" class="edge"/>
+  <text x="1015" y="740" text-anchor="middle" class="edgeLabel">targets</text>
+  <path d="M1640 760 L1800 760" class="edge"/>
+  <text x="1720" y="740" text-anchor="middle" class="edgeLabel">constrained by</text>
+
+  <rect x="70" y="1040" width="2460" height="670" class="runtimeBand" filter="url(#shadow)"/>
+  <text x="105" y="1090" class="section">02｜从权威事实编译为不可变运行时</text>
+  <text x="105" y="1122" class="sectionSub">Reload 完整成功才原子替换；失败保留旧 Snapshot。请求期不查询权限事实表。</text>
+
+  <rect x="110" y="1170" width="370" height="210" class="source"/>
+  <text x="295" y="1210" text-anchor="middle" class="stereo">SOURCE OF TRUTH</text>
+  <text x="295" y="1252" text-anchor="middle" class="boxTitle">MySQL AuthZ Facts</text>
+  <line x1="145" y1="1270" x2="445" y2="1270" class="divider"/>
+  <text x="295" y="1302" text-anchor="middle" class="field">Role · Assignment · Inheritance</text>
+  <text x="295" y="1330" text-anchor="middle" class="field">Grant · Resource · PolicyVersion</text>
+  <text x="295" y="1358" text-anchor="middle" class="note">read-only REPEATABLE READ</text>
+
+  <rect x="580" y="1170" width="360" height="210" class="runtimeCard"/>
+  <text x="760" y="1210" text-anchor="middle" class="stereo">COMPILER</text>
+  <text x="760" y="1252" text-anchor="middle" class="boxTitle">BuildSnapshot</text>
+  <line x1="615" y1="1270" x2="905" y2="1270" class="divider"/>
+  <text x="760" y="1302" text-anchor="middle" class="field">交叉引用 · Tenant · DAG</text>
+  <text x="760" y="1330" text-anchor="middle" class="field">Resource/schema/Grant 全量校验</text>
+  <text x="760" y="1358" text-anchor="middle" class="note">发布到 atomic.Pointer</text>
+
+  <rect x="1040" y="1150" width="430" height="245" class="runtimeCard"/>
+  <text x="1255" y="1190" text-anchor="middle" class="stereo">SNAPSHOT COMPONENT</text>
+  <text x="1255" y="1232" text-anchor="middle" class="boxTitle">Casbin RoleManager</text>
+  <line x1="1075" y1="1250" x2="1435" y2="1250" class="divider"/>
+  <text x="1255" y="1282" text-anchor="middle" class="field">Subject → Direct Role</text>
+  <text x="1255" y="1310" text-anchor="middle" class="field">Child Role → Parent Role</text>
+  <text x="1255" y="1344" text-anchor="middle" class="note">只计算 effective roles；不装载 Grant</text>
+  <text x="1255" y="1370" text-anchor="middle" class="note">max hierarchy level = 32</text>
+
+  <rect x="1540" y="1150" width="430" height="245" class="runtimeCard"/>
+  <text x="1755" y="1190" text-anchor="middle" class="stereo">SNAPSHOT COMPONENT</text>
+  <text x="1755" y="1232" text-anchor="middle" class="boxTitle">Native Grant Index</text>
+  <line x1="1575" y1="1250" x2="1935" y2="1250" class="divider"/>
+  <text x="1755" y="1282" text-anchor="middle" class="field">grantsByRole[tenant + role]</text>
+  <text x="1755" y="1310" text-anchor="middle" class="field">Resource schema · PolicyVersion</text>
+  <text x="1755" y="1344" text-anchor="middle" class="note">原生匹配 Resource / Action</text>
+  <text x="1755" y="1370" text-anchor="middle" class="note">原生求值 ConstraintSet</text>
+
+  <path d="M480 1275 L580 1275" class="compile"/>
+  <text x="530" y="1254" text-anchor="middle" class="edgeLabel">load</text>
+  <path d="M940 1240 L1040 1240" class="compile"/>
+  <path d="M940 1310 L1540 1310" class="compile"/>
+
+  <rect x="220" y="1480" width="650" height="165" class="runtimeCard"/>
+  <text x="545" y="1520" text-anchor="middle" class="stereo">REQUEST VALUE</text>
+  <text x="545" y="1560" text-anchor="middle" class="boxTitle">Authorization Request</text>
+  <line x1="255" y1="1578" x2="835" y2="1578" class="divider"/>
+  <text x="545" y="1610" text-anchor="middle" class="field">Subject · Tenant · Resource · Action · ObjectContext</text>
+  <text x="545" y="1636" text-anchor="middle" class="note">ObjectID + trusted ObjectAttributes</text>
+
+  <rect x="1050" y="1460" width="480" height="205" class="runtimeCard"/>
+  <text x="1290" y="1500" text-anchor="middle" class="stereo">NATIVE RUNTIME PORT</text>
+  <text x="1290" y="1542" text-anchor="middle" class="boxTitle">AuthorizationChecker.Check</text>
+  <line x1="1085" y1="1560" x2="1495" y2="1560" class="divider"/>
+  <text x="1290" y="1592" text-anchor="middle" class="field">effective roles → Grant candidates</text>
+  <text x="1290" y="1620" text-anchor="middle" class="field">pattern/action/schema/constraint evaluation</text>
+  <text x="1290" y="1648" text-anchor="middle" class="note">默认拒绝；错误不降级为 allow</text>
+
+  <rect x="1740" y="1460" width="620" height="205" class="runtimeCard"/>
+  <text x="2050" y="1500" text-anchor="middle" class="stereo">RESULT VALUE</text>
+  <text x="2050" y="1542" text-anchor="middle" class="boxTitle">Decision</text>
+  <line x1="1775" y1="1560" x2="2325" y2="1560" class="divider"/>
+  <text x="2050" y="1592" text-anchor="middle" class="field">Allowed · Reason · DenyCode</text>
+  <text x="2050" y="1620" text-anchor="middle" class="field">MatchedGrantID · MatchedRole · PolicyVersion</text>
+  <text x="2050" y="1648" text-anchor="middle" class="note">MissingAttributeKeys · EvaluatedAt</text>
+
+  <path d="M870 1565 L1050 1565" class="edge"/>
+  <path d="M1470 1395 L1375 1460" class="edge"/>
+  <path d="M1755 1395 L1455 1460" class="edge"/>
+  <path d="M1530 1565 L1740 1565" class="edge"/>
+
+  <rect x="70" y="1735" width="2460" height="42" rx="16" fill="#eef2f7" stroke="#cbd5e1"/>
+  <text x="1300" y="1763" text-anchor="middle" class="edgeLabel">稳定边界：Assignment 是直接事实；RoleInheritance 只派生有效角色；PermissionGrant 才产生 allow；ObjectAttributes 必须由拥有对象事实的服务端提供。</text>
+</svg>

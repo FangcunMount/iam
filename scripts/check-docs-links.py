@@ -49,6 +49,12 @@ RETIRED_REFERENCES = [
     "internal/apiserver/domain/authn/session/evaluator.go",
     "domain/authn/session/evaluator.go",
     "internal/apiserver/infra/redis/authn",
+    "configs/casbin_model.conf",
+    "internal/apiserver/infra/casbin/model.conf",
+    "internal/apiserver/modules/authz/infra/casbin/model.conf",
+    "internal/apiserver/infra/mysql/casbinrule",
+    "internal/apiserver/domain/authz/policy/port/driven/casbin.go",
+    "IsSuperAdmin",
     "RefQuery",
     "RefCommand",
     "IsRef",
@@ -57,9 +63,17 @@ RETIRED_REFERENCES = [
     "SuggestSnapshot",
     "SuggestResult",
     "ProfileSuggestResult",
+    "authn-domain-model.png",
+    "authn-domain-model-v2",
+    "authz-domain-model-v1",
+    "core-domain-model.png",
+    "core-domain-model-v7",
+    "core-module-identity-anchor",
+    "supporting-domain-model",
 ]
 
 INLINE_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)\n]+)\)")
+IMAGE_LINK_RE = re.compile(r"!\[[^\]]*\]\(([^)\n]+)\)")
 REFERENCE_LINK_RE = re.compile(r"^\s*\[[^\]]+\]:\s+(\S+)", re.MULTILINE)
 BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 REPO_PATH_PREFIXES = (
@@ -146,6 +160,7 @@ def collect_link_issues(files: list[Path], root: Path) -> list[str]:
     for file_path in files:
         text = file_path.read_text(encoding="utf-8")
         links = [m.group(1) for m in INLINE_LINK_RE.finditer(text)]
+        links.extend(m.group(1) for m in IMAGE_LINK_RE.finditer(text))
         links.extend(m.group(1) for m in REFERENCE_LINK_RE.finditer(text))
         for raw in links:
             dest = normalize_destination(raw)

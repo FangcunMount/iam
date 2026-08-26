@@ -54,6 +54,22 @@ def proto_services(path: Path) -> list[str]:
     )
 
 
+def proto_service_rpcs(path: Path, service: str) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(
+        rf"^\s*service\s+{re.escape(service)}\s*\{{(.*?)^\s*\}}",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if match is None:
+        return []
+    return re.findall(
+        r"^\s*rpc\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+        match.group(1),
+        re.MULTILINE,
+    )
+
+
 def check_runtime_configuration() -> None:
     for relative in (
         "configs/apiserver.dev.yaml",
@@ -89,6 +105,7 @@ def check_runtime_configuration() -> None:
 
 
 def check_generated_document_facts() -> None:
+    root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
     api_readme = (ROOT / "api/README.md").read_text(encoding="utf-8")
     rest_readme = (ROOT / "api/rest/README.md").read_text(encoding="utf-8")
     grpc_readme = (ROOT / "api/grpc/README.md").read_text(encoding="utf-8")
@@ -142,6 +159,7 @@ def check_generated_document_facts() -> None:
     authz_proto = (ROOT / "api/grpc/iam/authz/v3/authz.proto").read_text(
         encoding="utf-8"
     )
+    authz_proto_path = ROOT / "api/grpc/iam/authz/v3/authz.proto"
     package_match = re.search(r"^package\s+([A-Za-z0-9_.]+);", authz_proto, re.MULTILINE)
     if package_match is None or "service AuthorizationService" not in authz_proto or not re.search(
         r"\brpc\s+Check\s*\(", authz_proto
@@ -155,6 +173,141 @@ def check_generated_document_facts() -> None:
         if check_method not in readme:
             fail(f"{relative} is missing the canonical gRPC Check method {check_method}")
 
+    authz_rpcs = proto_service_rpcs(authz_proto_path, "AuthorizationService")
+    grpc_authz_row = re.search(
+        r"^\|\s*\[[^\]]+\]\(iam/authz/v3/authz\.proto\)\s*\|\s*`AuthorizationService`\s*\|\s*(.*?)\s*\|$",
+        grpc_readme,
+        re.MULTILINE,
+    )
+    if grpc_authz_row is None:
+        fail("api/grpc/README.md is missing the AuthorizationService capability row")
+    documented_authz_rpcs = re.findall(
+        r"[A-Za-z_][A-Za-z0-9_]*", grpc_authz_row.group(1)
+    )
+    if documented_authz_rpcs != authz_rpcs:
+        fail(
+            "api/grpc/README.md AuthorizationService RPCs differ from proto: "
+            f"documented={documented_authz_rpcs} actual={authz_rpcs}"
+        )
+
+    for token in (
+        "repeated string roles = 1;",
+        "repeated string direct_roles = 4;",
+    ):
+        if token not in authz_proto:
+            fail(f"AuthZ snapshot proto is missing {token}")
+    for relative, readme in (
+        ("api/grpc/README.md", grpc_readme),
+        ("pkg/sdk/docs/06-authz.md", (ROOT / "pkg/sdk/docs/06-authz.md").read_text(encoding="utf-8")),
+        ("docs/02-业务模块/03-AuthZ/README.md", (ROOT / "docs/02-业务模块/03-AuthZ/README.md").read_text(encoding="utf-8")),
+    ):
+        for token in ("direct_roles", "ReplaceManagedAssignments"):
+            if token not in readme:
+                fail(f"{relative} is missing current AuthZ token {token}")
+
+    authz_doc_dir = ROOT / "docs/02-业务模块/03-AuthZ"
+    canonical_authz_docs = {
+        "00-模块总览.md": "# AuthZ 模块总览",
+        "01-领域模型设计.md": "# AuthZ 领域模型设计",
+        "02-关键链路-授权判定与不可变快照.md": "# 关键链路：授权判定与不可变快照",
+        "03-关键链路-授权写入与受管Assignment.md": "# 关键链路：授权写入与受管 Assignment",
+        "04-关键链路-多实例策略收敛.md": "# 关键链路：多实例策略收敛",
+        "05-关键链路-REST管理与路由授权.md": "# 关键链路：REST 管理与路由授权",
+        "06-关键链路-gRPC服务间授权与SDK.md": "# 关键链路：gRPC 服务间授权与 SDK",
+        "07-模块边界-AuthZ与AuthN-Identity-Suggest.md": "# 模块边界：AuthZ 与 AuthN、Identity、Suggest",
+        "08-分层架构与代码索引.md": "# 分层架构与代码索引",
+    }
+    authz_index = (authz_doc_dir / "README.md").read_text(encoding="utf-8")
+    for heading in ("一、模块总览", "二、领域模型设计", "三、关键链路分析"):
+        if heading not in authz_index:
+            fail(f"AuthZ canonical README is missing directory section {heading}")
+    for filename, title in canonical_authz_docs.items():
+        path = authz_doc_dir / filename
+        if not path.exists():
+            fail(f"AuthZ canonical documentation is missing {filename}")
+        text = path.read_text(encoding="utf-8")
+        if title not in text:
+            fail(f"AuthZ canonical document {filename} is missing title {title}")
+        if not ACTIVE_STATUS_PATTERN.search(text):
+            fail(f"AuthZ canonical document {filename} has no active status marker")
+        if len(text.splitlines()) < 120:
+            fail(f"AuthZ canonical document is unexpectedly thin: {filename}")
+
+    canonical_diagrams = {
+        "docs/_images/architecture/authz-domain-model-v2.svg": (
+            "Assignment",
+            "RoleInheritance",
+            "PermissionGrant",
+            "ConstraintSet",
+            "ObjectAttributes",
+            "Casbin RoleManager",
+            "Native Grant Index",
+        ),
+        "docs/_images/architecture/core-domain-model-v8.svg": (
+            "AdmissionPolicy",
+            "LifetimePolicy",
+            "Assignment",
+            "RoleInheritance",
+            "PermissionGrant",
+            "ConstraintSet",
+            "Casbin RoleManager",
+        ),
+        "docs/_images/architecture/module-boundary.svg": (
+            "ExternalIdentityResolver",
+            "UserStatusReader",
+            "UserResolver",
+            "SessionRevoker",
+            "RoleNameReader",
+            "RouteAuthorization",
+        ),
+        "docs/_images/architecture/layer-architecture.svg": (
+            "BuildRESTDeps",
+            "BuildGRPCDeps",
+            "BuildRuntimeDeps",
+            "AuthZ Native Snapshot",
+            "Casbin 仅 RoleManager",
+        ),
+        "docs/_images/architecture/runtime-composition-lifecycle.svg": (
+            "prepareRuntime",
+            "prepareResources",
+            "prepareContainer",
+            "prepareTransports",
+            "startRuntimeTasks",
+            "registerShutdownCallbacks",
+        ),
+    }
+    forbidden_diagram_terms = {
+        "docs/_images/architecture/authz-domain-model-v2.svg": (
+            ">RoleBinding<",
+            ">Permission<",
+            "ObjectScope",
+            "DecisionEngine",
+            "MatchedPermission",
+        ),
+        "docs/_images/architecture/core-domain-model-v8.svg": (
+            ">RoleBinding<",
+            ">Permission<",
+            "ObjectScope",
+            "DecisionEngine",
+            "MatchedPermission",
+        ),
+        "docs/_images/architecture/layer-architecture.svg": (
+            "Casbin Runtime",
+        ),
+    }
+    for relative, required_terms in canonical_diagrams.items():
+        svg_path = ROOT / relative
+        png_path = svg_path.with_suffix(".png")
+        if not svg_path.exists() or not png_path.exists():
+            fail(f"canonical architecture diagram is missing SVG/PNG pair: {relative}")
+        svg = svg_path.read_text(encoding="utf-8")
+        for term in required_terms:
+            if term not in svg:
+                fail(f"canonical architecture diagram {relative} is missing {term}")
+        for term in forbidden_diagram_terms.get(relative, ()):
+            if term in svg:
+                fail(f"canonical architecture diagram {relative} contains retired term {term}")
+
     openapi_paths: dict[str, set[str]] = {}
     for contract_path in sorted((ROOT / "api/rest").glob("*.yaml")):
         contract = load_yaml(str(contract_path.relative_to(ROOT)))
@@ -165,6 +318,31 @@ def check_generated_document_facts() -> None:
                 for method in operations
                 if method.lower() in {"get", "post", "put", "patch", "delete"}
             )
+
+    runtime_readme_routes = {
+        "/.well-known/jwks.json": {"get"},
+        "/api/v3/authz/health": {"get"},
+        "/api/v2/idp/health": {"get"},
+    }
+    for route, methods in runtime_readme_routes.items():
+        openapi_paths.setdefault(route, set()).update(methods)
+
+    request_readmes = {
+        "README.md": root_readme,
+        "api/README.md": api_readme,
+        "api/rest/README.md": rest_readme,
+    }
+    request_pattern = re.compile(
+        r"\b(GET|POST|PUT|PATCH|DELETE)\s+(/[^\s`|、，]+)"
+    )
+    for relative, readme in request_readmes.items():
+        for method, raw_route in request_pattern.findall(readme):
+            route = raw_route.split("?", 1)[0].rstrip(".,;:。；")
+            if method.lower() not in openapi_paths.get(route, set()):
+                fail(
+                    f"{relative} request URL is absent from current REST contracts: "
+                    f"{method} {route}"
+                )
     for match in re.finditer(
         r"^curl(?:\s+-X\s+(GET|POST|PUT|PATCH|DELETE))?\s+https://iam\.example\.com([^\s\\]+)",
         rest_readme,
@@ -218,7 +396,6 @@ def check_generated_document_facts() -> None:
     dev_port = dev.get("insecure", {}).get("bind-port")
     if not isinstance(dev_port, int):
         fail("configs/apiserver.dev.yaml insecure.bind-port must be an integer")
-    root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
     quick_start = re.search(
         r"^### 健康检查\s+(.*?)(?=^### |\Z)",
         root_readme,

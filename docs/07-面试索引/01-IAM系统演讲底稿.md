@@ -142,9 +142,11 @@
 >
 > 所以 AuthN 和 AuthZ 会在一次请求中前后衔接，但不需要让 AuthN 领域模块直接把 Principal 转成 AuthZ 的 Subject。Identity User 是它们共同的稳定身份锚点。
 >
-> AuthZ 采用 RBAC 加对象属性条件。Role 聚合稳定能力，PermissionGrant 表达对 Resource 的单一 Action，ConstraintSet 限定对象属性；组织归属等关系仍由拥有事实的业务模块判断。这样既不把每个对象编码进角色名，也不把业务数据库复制到 IAM。
+> AuthZ 采用 RBAC 加对象属性条件。Assignment 只表达 Subject 直接获得的 Role，RoleInheritance 计算继承角色，PermissionGrant 表达 Role 对 Resource 的 Action，ConstraintSet 限定对象属性。所以快照中 direct roles 与包含继承结果的 effective roles 不能混用；组织归属等关系仍由拥有事实的业务模块判断。
 >
-> 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有原生不可变授权快照。MySQL 中的 Assignment、RoleInheritance、PermissionGrant、Resource Schema 和 PolicyVersion 是权威事实；Casbin 只在快照内计算直接及继承 Role，既不保存也不执行权限规则。
+> 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有原生不可变授权快照。MySQL 中的 Assignment、RoleInheritance、PermissionGrant、Resource Schema 和 PolicyVersion 是权威事实；Casbin 只在快照内计算 Subject→Role 与 Role→ParentRole 两类角色边，Resource/Action 匹配和 ConstraintSet 求值由 IAM 原生 runtime 完成。
+>
+> 对外接口也按控制面与执行面分开：REST v3 管理 Role、Assignment、Grant、Inheritance 和 Resource，不提供 Check；可信业务服务通过 gRPC v3 `Check` 做判定。Assignment gRPC 写入还要同时通过方法 ACL 与内容级 constraints。`ReplaceManagedAssignments` 只替换调用服务受管的角色子集，保留其他 Assignment，不是覆盖用户全部角色。
 >
 > 当 Grant、Revoke、Assignment 或 RoleInheritance 发生变化时，AuthZ UnitOfWork 在同一个 MySQL 事务中写入管理事实、PolicyVersion 和 Outbox event。事务提交后，当前实例直接 reload；Outbox relay 在 EventBus 启用时把版本事件发到 NSQ，其他实例用独立 ephemeral channel 订阅，再从 MySQL 重新加载。
 >
@@ -156,7 +158,7 @@
 
 > 授权决策不只用于高风险写操作。IAM 还有一个很典型的派生场景：管理端要快速搜索自己可见范围内的 Profile。
 
-详细设计见 [AuthZ 授权模型](../02-业务模块/03-AuthZ/01-授权模型与匹配语义.md)、[授权写入与多实例一致性](../02-业务模块/03-AuthZ/03-授权写入与多实例一致性.md)、[事件与 Transactional Outbox](../03-基础设施/03-事件与Transactional-Outbox.md)。
+详细设计见 [AuthZ 领域模型](../02-业务模块/03-AuthZ/01-领域模型设计.md)、[授权写入与受管 Assignment](../02-业务模块/03-AuthZ/03-关键链路-授权写入与受管Assignment.md)、[多实例策略收敛](../02-业务模块/03-AuthZ/04-关键链路-多实例策略收敛.md)。
 
 ### 3.5 案例三：Suggest 为什么是派生读模型（约 2 分钟）
 
@@ -318,6 +320,18 @@
 
 > 不同测试只保护自己的证据层。单元测试不证明路由已注册，契约测试不证明 MySQL/Redis/MQ 实际连接，集成测试不证明生产使用了同一个 SHA 和配置。生产验收需要绑定发布版本、迁移、探针、可观测性、备份恢复和真实业务样本。
 
+### 8.11 direct roles 和 effective roles 有什么区别？
+
+> Direct roles 是 Subject 通过 Assignment 直接获得的角色；effective roles 还包含 RoleInheritance 上所有可达的 parent roles。`GetAuthorizationSnapshot.roles` 是 effective roles，`direct_roles` 才能用于编辑 Assignment。如果把 effective roles 整体回写，就会把继承结果物化成新事实，以后撤销继承边也不会撤掉该权限。
+
+### 8.12 `ReplaceManagedAssignments` 为什么不是全量覆盖？
+
+> 一个业务服务只应管理它被 constraints 授权的 Role 子集 M。Replace 的结果是保留 M 以外 Assignment，只用目标集合 T 替换 M 内部状态。响应 `direct_roles` 当前只是 T，不是用户全部 direct roles。它保护多个服务分别拥有 Assignment 子集时不互相覆盖。
+
+### 8.13 AuthZ 为什么同时有 REST 与 gRPC？
+
+> 两者不是机械对称。REST v3 是管理控制面，管 Role、Assignment、Grant、Inheritance 和 Resource；gRPC v3 是可信服务间的执行面，提供 Check、Snapshot 和受限 Assignment 写入。REST 没有 `/check`，业务服务不应通过列出 Grant 后自己复制授权算法。
+
 ## 9. 别说过头：当前能力边界
 
 | 不准确说法 | 当前可证明说法 |
@@ -327,6 +341,9 @@
 | AuthN 认证成功后直接调用 AuthZ | 请求通过 Identity User 锚点对齐认证上下文和 AuthZ Subject |
 | JWT 签名正确就代表当前登录有效 | 本地 JWKS 验签不检查 Session、撤销标记和当前身份状态 |
 | Casbin 是权限真相或完整执行引擎 | MySQL 授权事实是真相，IAM 原生快照执行权限规则，Casbin 只计算内存角色图 |
+| `roles` 就是用户直接角色 | snapshot `roles` 是包含继承结果的 effective roles，直接 Assignment 要读 `direct_roles` |
+| Replace 会覆盖用户所有角色 | 只替换 constraints 划定的受管子集，保留非受管 Assignment；响应也只返目标受管子集 |
+| AuthZ REST 提供权限 Check | REST v3 是管理接口，授权 `Check` 由 gRPC v3 提供 |
 | Outbox 保证 exactly-once | Outbox 保证业务提交与发布意图原子，投递倾向 at-least-once |
 | 授权变更在所有实例立即强一致 | 当前实例直接 reload，其他实例通过事件最终收敛，没有全实例 barrier |
 | Suggest 搜到了就代表可读取详情 | Suggest 只返回当前查询范围内的脱敏候选 |
@@ -363,6 +380,8 @@ Suggest、Outbox 重复窗口、分层架构和工程门禁留给追问。
 - [ ] 画出 provider proof -> ExternalIdentity -> LoginIdentity -> User -> Principal -> Session/Token 链路；
 - [ ] 不画 AuthN -> AuthZ 模块直连，能说清 Identity User 锚点与请求上下文；
 - [ ] 说清 MySQL 事实、原生不可变快照、Casbin 内存角色图、Outbox 意图和 NSQ 通知的不同责任；
+- [ ] 能解释 direct roles 与 effective roles，不会把继承角色回写为 Assignment；
+- [ ] 能说清 REST v3 管控制面、gRPC v3 提供 Check，以及 Replace 只覆盖受管子集；
 - [ ] 用“publish 成功、mark 失败”解释为什么不是 exactly-once；
 - [ ] 说清 Revoke 传播延迟比 Grant 传播延迟更偏安全风险；
 - [ ] 说清 Suggest 可见候选不等于详情授权；

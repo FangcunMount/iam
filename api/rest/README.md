@@ -7,7 +7,7 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | 文件 | 说明 |
 | ---- | ---- |
 | [authn.v2.yaml](authn.v2.yaml) | v2 认证、Challenge、LoginIdentity、Token、JWKS 和 signup |
-| [authz.v3.yaml](authz.v3.yaml) | PermissionGrant、角色、assignment、资源与属性 Schema |
+| [authz.v3.yaml](authz.v3.yaml) | PermissionGrant、Role、Assignment、RoleInheritance、Resource 与属性 Schema 管理；不含 `Check` |
 | [identity.v2.yaml](identity.v2.yaml) | 当前用户、profiles、profile-links 查询；Profile/ProfileLink 创建命令走 gRPC |
 | [idp.v2.yaml](idp.v2.yaml) | IDP 健康检查和微信应用配置 |
 | [suggest.v2.yaml](suggest.v2.yaml) | 儿童档案联想搜索 |
@@ -20,10 +20,11 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | 登录挑战 | `POST /api/v2/authn/challenges/phone-otp` |
 | Token | `POST /api/v2/authn/refresh_token`、`POST /api/v2/authn/logout`、`POST /api/v2/authn/verify` |
 | JWKS | `GET /.well-known/jwks.json`、`GET /api/v2/.well-known/jwks.json` |
-| LoginIdentity | `GET /api/v2/authn/login-identities`、`POST /api/v2/authn/login-identities/*`、`DELETE /api/v2/authn/login-identities/{id}` |
+| AuthN JWKS 管理 | `/api/v2/authn/admin/jwks/keys` 及其 publishable、grace、retire、force-retire、cleanup 子路由 |
+| LoginIdentity | `GET /api/v2/authn/login-identities`、`POST /api/v2/authn/login-identities/phone`、`DELETE /api/v2/authn/login-identities/{id}` |
 | Signup | `POST /api/v2/authn/signups/wechat-miniprogram` |
 | AuthZ 管理面 | `GET /api/v3/authz/health`、`/api/v3/authz/{roles,assignments,grants,role-inheritances,resources}` |
-| Identity | `/api/v2/identity/me`、`/api/v2/identity/me/profiles`、`GET /api/v2/identity/profiles/*`、`GET /api/v2/identity/profile-links` |
+| Identity | `GET /api/v2/identity/me`、`GET /api/v2/identity/me/profiles`、`GET /api/v2/identity/profiles/{id}`、`GET /api/v2/identity/profile-links` |
 | IDP | `/api/v2/idp/health`、`/api/v2/idp/wechat-apps/*` |
 | Suggest | `GET /api/v2/suggest/profile` |
 | Debug | `/debug/routes`、`/debug/modules`、`/debug/cache-governance/*` |
@@ -56,7 +57,7 @@ curl https://iam.example.com/api/v3/authz/roles \
   -H "Authorization: Bearer ${IAM_ACCESS_TOKEN}"
 ```
 
-AuthZ REST v3 只承接管理命令和查询。权限判定是可信服务间调用，使用 gRPC v3：
+AuthZ REST v3 只承接管理命令和查询，不存在 REST `Check`。权限判定是可信服务间调用，使用 gRPC v3：
 
 ```bash
 grpcurl \

@@ -1,10 +1,12 @@
 # IAM 重构与生产验收记录
 
-> 状态：已实现 · 本文按截至 2026-08-26 的可复核证据记录迁移、发布与生产观察结果；未完成项不视为已验收。
+> 状态：已实现 · 本文是截至 2026-08-26 的历史生产验收记录；未完成项不视为已验收，后续 HEAD 不自动继承这些发布结论。
 
 ## 1. 当前结论
 
-截至 2026-08-26，生产库已验收 `version=28, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 与 000028 AuthN 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851` 均已部署并通过独立健康检查。`000019–000028` 的仓库事实、迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
+截至 2026-08-26，生产库曾验收 `version=28, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 与 000028 AuthN 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851` 均已部署并通过独立健康检查。`000019–000028` 的历史迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
+
+本文没有证明当前仓库 HEAD 的 AuthN/AuthZ 后续重构、`ReplaceManagedAssignments`、direct/effective roles 或 `authz-v3-converge` 已经部署到生产。它们需要重新绑定精确 SHA、CI、部署、健康检查和数据/授权验证证据。
 
 000028 发布前已完成可恢复备份与只读数据预检，发布后又分别验证迁移版本、唯一索引、数据冲突计数、容器健康、公网端点与运行 SHA。下述链接是分层证据，不用任何一个绿色 run 代替整条发布结论。
 
@@ -23,7 +25,7 @@
 | 数据库操作单一脚本 | 已实现 | `scripts/dbops/database-operation.sh`、`database_operation_test.go` |
 | MySQL 8 合成备份恢复与 migration 25 guard | 已实现并完成同 SHA 验收 | [MySQL 8 run `32791721351`](https://github.com/FangcunMount/iam/actions/runs/32791721351) 覆盖 full-chain migration、复合唯一索引并发语义、生产同款 preflight 与 backup/restore fixture |
 | 文档可生成事实门禁 | 已实现 | `scripts/check-docs-facts.py` 从 proto、bootstrap、开发配置和 active Markdown 生成期望值，校验服务矩阵、资源示例、Quick Start 端口和状态计数 |
-| Active docs 语义分类 | 已生成核对 | Active docs 状态计数：总计 `78` 篇，`已实现` `78` 篇，`规划改造` `0` 篇。历史目标提示词已退出 active 层 |
+| Active docs 语义分类 | 已生成核对 | Active docs 状态计数：总计 `81` 篇，`已实现` `81` 篇，`规划改造` `0` 篇。历史目标提示词已退出 active 层 |
 | 遗留资产退役 | 已完成生产验收 | `000019–000024` 的批次证据见 [遗留资产、兼容层与数据库退役审计](../05-工程质量与运维/06-遗留资产兼容层与数据库退役审计.md) |
 | AuthZ v3 一步到位切换 | 已完成生产验收 | [切换 `32859067799`](https://github.com/FangcunMount/iam/actions/runs/32859067799)、[数据库状态 `32876762969`](https://github.com/FangcunMount/iam/actions/runs/32876762969)、[RoleBinding guard `32876761874`](https://github.com/FangcunMount/iam/actions/runs/32876761874) |
 

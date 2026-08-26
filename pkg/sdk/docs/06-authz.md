@@ -74,8 +74,10 @@
 | 批量判定 | ❌ 未封装 | 需业务侧自行扩展 |
 | 对象条件判定 | ✅ 已支持 | `CheckObject`，提交可信 `ObjectContext` |
 | 授权快照 | ✅ 已支持 | `GetAuthorizationSnapshot` |
+| Assignment 增量写入 | ✅ 已支持 | `GrantAssignment` / `RevokeAssignment` |
+| 受管 Assignment 替换 | ✅ 已支持 | `ReplaceManagedAssignments` |
 | Explain / 调试原因 | ✅ 基础支持 | 响应包含 reason、deny code 和匹配 Grant |
-| 策略管理 | ❌ 不在 SDK `Authz()` 范围 | 管理面属于 REST / 后台能力 |
+| Role/Grant/Resource/Inheritance 管理 | ❌ 不在 SDK `Authz()` 范围 | 这些管理面属于 REST v3 / 后台能力 |
 
 ### 3 行代码开始
 
@@ -101,7 +103,7 @@ allowed, err := client.Authz().Allow(
 
 不适合直接讲成 `Authz()` 已经覆盖的场景：
 
-- 角色、资源、策略、Assignment 的管理
+- Role、PermissionGrant、Resource、RoleInheritance 的管理
 - 批量判定
 - 带解释信息的判定
 - 菜单树、按钮树、资源树裁剪
@@ -182,13 +184,17 @@ allowed, err := client.Authz().Allow(
 
 ## 3. 核心设计
 
-### 3.1 `Check`、`CheckObject`、`Allow`、`Raw` 的分工
+### 3.1 判定、快照与 Assignment 方法的分工
 
 | 方法 | 适用场景 | 返回值 | 说明 |
 | ---- | ---- | ---- | ---- |
 | `Check` | 你需要直接对齐 proto | `*CheckResponse` | 最接近 gRPC 合同 |
 | `CheckObject` | 已加载对象并需要属性条件判定 | `*CheckResponse` | 携带对象 ID 与类型化属性 |
 | `Allow` | 只判断无条件 Grant | `bool` | 不提交对象属性，条件 Grant 会 fail-closed |
+| `GetAuthorizationSnapshot` | 读取当前授权视图 | `*GetAuthorizationSnapshotResponse` | `roles` 是有效角色，`direct_roles` 是直接 Assignment |
+| `GrantAssignment` | 增量授予直接角色 | `*GrantAssignmentResponse` | 受服务 ACL 与 Assignment constraints 约束 |
+| `RevokeAssignment` | 增量撤销直接角色 | `*RevokeAssignmentResponse` | 受服务 ACL 与 Assignment constraints 约束 |
+| `ReplaceManagedAssignments` | 替换受管角色子集 | `*ReplaceManagedAssignmentsResponse` | 保留非受管 Assignment；响应是目标受管子集 |
 | `Raw` | SDK 暂未封装更多调用风格 | `AuthorizationServiceClient` | 直接回退到原始 gRPC |
 
 当前实现非常薄，核心路径就是：

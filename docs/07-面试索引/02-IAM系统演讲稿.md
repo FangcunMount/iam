@@ -93,7 +93,7 @@ Suggest 提供面向 Profile 的搜索投影。
 
 ### 1.3 IAM 在业务系统中如何落位
 
-![跨业务系统领域角色与 IAM 身份映射](../_images/architecture/business-system-iam-identity-mapping.png)
+![跨业务系统领域角色与 IAM 身份映射](../_images/architecture/cross-system-identity-concept.png)
 
 业务系统不会把 Doctor、Patient、Teacher 或 Testee 迁入 IAM，而是在保留自己领域对象的前提下，引用 IAM 提供的两类稳定身份锚点。
 
@@ -198,9 +198,9 @@ IDP 和 Suggest 可以支撑核心模块，但不能吞并核心模块职责。
 
 #### 2.2.2 三个核心模块如何协作
 
-![IAM 三核心模块领域模型](../_images/architecture/core-domain-model-v7.png)
+![IAM 三核心模块领域模型](../_images/architecture/core-domain-model-v8.png)
 
-> Canonical 领域模型图：本图以当前 Domain、Application 端口、组合根注入和数据库迁移为事实依据，是演讲时解释 Identity、AuthN、AuthZ 的主图。
+> Canonical 领域模型图 V8：本图以当前 Domain、Application 端口、组合根注入和数据库迁移为事实依据，是演讲时解释 Identity、AuthN、AuthZ 的主图。
 
 这张图不是数据库 ER 图，也不是登录时序图，而是用来表达“谁拥有什么事实、模型承担什么责任、模块以什么能力连接”的领域模型图。
 
@@ -223,7 +223,9 @@ AuthN 不会把 `Principal` 领域对象直接交给 AuthZ。资源服务在认�
 两个关键不变量已经落到实现：
 
 - RefreshToken 只有在曾经有效且已被原子换新后再次出现，才会被判定为重放并撤销对应 Session；任意未签发令牌不会触发会话撤销。
-- 同一 `Subject + Role + Tenant` 的 active Assignment 由数据库唯一索引保护，并发写入不依赖应用层“先查后写”。
+- 同一 `subject_type + subject_id + role_id + tenant_id` 的 active Assignment 由数据库唯一索引保护，并发写入不依赖应用层“先查后写”。
+- Assignment 只产生 direct roles，RoleInheritance 才产生继承的 effective roles；编辑 Assignment 不能把两者混用。
+- REST v3 只管理 AuthZ 事实，授权 `Check` 由 gRPC v3 提供；服务间 Assignment 写入还需方法 ACL 与内容级 constraints。
 
 #### 2.2.3 辅助模块如何支撑核心模块
 
@@ -281,7 +283,7 @@ Application / Domain
 | AuthZ | Identity | `UserResolver` |
 | Identity | AuthZ | `RoleNameReader` |
 | Identity | AuthN | `SessionRevoker` |
-| Suggest | AuthZ | `RouteAuthorization` |
+| Suggest | AuthZ | `RouteAuthorization`，用明确 Resource/Action 派生 `ProfileAccessScope` |
 
 例如：
 
@@ -289,7 +291,7 @@ Application / Domain
 - AuthN 不直接读取 Identity User Repository，只通过 `UserStatusReader` 判断 User 状态；
 - AuthZ 不直接读取 Identity User Repository，只通过 `UserResolver` 校验 User Subject；
 - Identity 撤销用户时不需要操作 AuthN 的 Session Repository，只需要调用 `SessionRevoker`；
-- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或原生快照实现，只需要窄的 route/role 查询端口来构造自己的查询范围。
+- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或原生快照实现，只通过窄的 `RouteAuthorization` 对 `profiles/search`、平台 `profiles/list` 和 `profiles/search_by_mobile` 等 Resource/Action capability 求值查询范围，不依赖角色名特例。
 
 AuthN 和 AuthZ 也不需要建立领域模型直连：
 
@@ -411,8 +413,9 @@ IAM 面向多个拥有不同业务身份和业务对象的系统，提供统一�
 | --- | --- |
 | IAM 的定位和业务边界 | [IAM 系统定位](../00-概览/01-IAM系统定位.md)、[模块划分与协作关系](../00-概览/02-模块划分与协作关系.md) |
 | User、Profile 与 ProfileLink | [Identity 领域模型](../02-业务模块/01-Identity/01-领域模型-User-Profile-ProfileLink.md) |
-| Identity、AuthN、AuthZ 三核心领域模型 | [Canonical V7 领域模型图](../_images/architecture/core-domain-model-v7.png) |
+| Identity、AuthN、AuthZ 三核心领域模型 | [Canonical V8 领域模型图](../_images/architecture/core-domain-model-v8.png) |
 | AuthN 与 AuthZ 边界 | [身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md) |
+| AuthZ 模块、领域模型与关键链路 | [AuthZ canonical 文档](../02-业务模块/03-AuthZ/README.md) |
 | 分层、端口和依赖方向 | [架构风格与设计原则](../00-概览/05-架构风格与设计原则.md) |
 | Process、Container 和运行时装配 | [启动与组合根](../01-运行时/01-启动与组合根.md) |
 | 测试与架构护栏 | [测试、契约与验收证据](../05-工程质量与运维/02-测试契约与验收证据.md) |

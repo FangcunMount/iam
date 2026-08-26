@@ -1,43 +1,167 @@
 # AuthZ：RBAC 与对象属性条件授权
 
-> 状态：已实现 · 已完成生产切换。本目录描述 AuthZ v3 最终模型。AuthZ 切换在 000027 闭合；生产数据库现已验收 `version=28, dirty=0`，000028 仅增加 AuthN `global_identifier` 唯一性约束，不改变 AuthZ 模型。AuthZ v2、字符串 Scope、持久化 Casbin 权限事实和一次性切换入口均已退役。
+> 状态：已实现 · 本目录以当前仓库代码为准。历史生产切换证据只证明当时指定 SHA 与数据库状态，不自动证明当前 HEAD 已发布或通过生产验收。
 
-AuthZ 回答：可信 Subject 在某个 Tenant 中，能否对 Resource 执行 Action；对象级动作还可以依据服务端提交的受信对象属性求值。业务关系仍由拥有事实的业务模块判断。
+AuthZ 回答一个问题：可信 Subject 在某个 Tenant 中，是否可以对 Resource 执行 Action；对象级动作还可以根据业务服务提交的受信对象属性求值。业务归属关系仍由拥有事实的业务模块判断。
+
+## 30 秒结论
+
+```text
+MySQL 权限事实
+  -> Assignment + RoleInheritance 组成角色图
+  -> PermissionGrant + Resource.attribute_schema 组成授权索引
+  -> 原子构建 AuthorizationRuntimeSnapshot
+  -> gRPC v3 Check / GetAuthorizationSnapshot / 进程内路由授权
+```
+
+- REST v3 是管理接口；授权判定 `Check` 由 gRPC v3 提供。
+- `roles` 表示包含继承结果的有效角色，`direct_roles` 表示直接 Assignment。
+- `ReplaceManagedAssignments` 只替换约束策略认定的“受管角色集合”，并保留集合外 Assignment。
+- Casbin 仍是直接依赖，但只承担内存角色图计算：Subject→Role 和 Role→Role；权限匹配与 `ConstraintSet` 求值由原生运行时完成。
+- 授权写入、策略版本递增和 Outbox 入队处于同一事务；实例通过本地 reload 和版本事件收敛。
 
 ## 阅读路径
 
-1. [模块总览](00-模块总览.md)：最终事实、运行时与 API 总图。
-2. [授权模型与匹配语义](01-授权模型与匹配语义.md)：Role、PermissionGrant、ConstraintSet 的语义。
-3. [权限检查与原生运行时](02-权限检查与Casbin运行时.md)：v3 Check 和不可变快照。
-4. [授权写入与多实例一致性](03-授权写入与多实例一致性.md)：事务、版本、Outbox 与 reload。
-5. [内存角色图与授权索引](04-Casbin运行时模型.md)：Casbin 的唯一剩余职责和原生求值流程。
-6. [模块边界与代码索引](05-模块边界与代码索引.md)：跨模块边界和修改落点。
+### 一、模块总览
 
-## 最终责任链
+1. [模块总览](00-模块总览.md)：建立事实、投影、控制面、执行面、信任和失败边界的整体模型。
+
+### 二、领域模型设计
+
+2. [领域模型设计](01-领域模型设计.md)：深入 Subject、Tenant、Role、Assignment、RoleInheritance、PermissionGrant、Resource、ConstraintSet 和 ObjectAttributes 的责任与不变量。
+
+### 三、关键链路分析
+
+3. [授权判定与不可变快照](02-关键链路-授权判定与不可变快照.md)：深入 Dataset、`BuildSnapshot`、`Check`、Casbin 角色图、Decision 与可观测性。
+4. [授权写入与受管 Assignment](03-关键链路-授权写入与受管Assignment.md)：深入 UoW、增量写入、受管集合替换、幂等与并发边界。
+5. [多实例策略收敛](04-关键链路-多实例策略收敛.md)：深入 PolicyVersion、Outbox、ephemeral subscriber、reload、健康和维护证据。
+6. [REST 管理与路由授权](05-关键链路-REST管理与路由授权.md)：深入 REST 控制面、JWT Principal、Resource/Action 路由矩阵与 current/platform Tenant 判定。
+7. [gRPC 服务间授权与 SDK](06-关键链路-gRPC服务间授权与SDK.md)：深入 `Check`、Snapshot、Assignment RPC、服务身份、ACL、属性白名单和 SDK。
+8. [模块边界](07-模块边界-AuthZ与AuthN-Identity-Suggest.md)：深入 AuthZ 与 AuthN、Identity、IDP、Suggest 及业务服务的事实所有权。
+
+### 四、落地导航
+
+9. [分层架构与代码索引](08-分层架构与代码索引.md)：定位组合根、修改落点、故障链、验证证据与文档维护规则。
+
+## 本目录要回答的设计问题
+
+本目录不是 API 清单，而是要把以下问题闭合：
+
+| 问题 | 当前答案 | 深入位置 |
+|---|---|---|
+| 权限事实由谁拥有 | MySQL 中的 AuthZ v3 表；业务对象事实留在业务模块 | 00、01 |
+| Subject 为什么能得到某个 Role | 直接 Assignment，加 RoleInheritance 闭包 | 01、02 |
+| Role 为什么能执行动作 | 命中 PermissionGrant 的 Resource/Action，且条件满足 | 01、02 |
+| 对象属性为什么可信 | gRPC transport 按调用服务与资源白名单接收，业务服务负责加载对象 | 00、02、06、07 |
+| 请求期为什么不查权限表 | 启动/reload 构建不可变快照，请求只读原子指针 | 02、04 |
+| 写成功后何时生效 | 本实例尽力立即 reload，其他实例通过 durable version event 最终收敛 | 03、04 |
+| 服务能不能随意改用户角色 | gRPC ACL 控制方法，Assignment constraints 控制 domain/subject/role/actor | 03、06 |
+| Casbin 还做什么 | 只计算 Assignment 与 RoleInheritance 构成的角色图 | 00、02 |
+| 如何证明文档没有漂移 | proto/OpenAPI/route/architecture/docs facts 与聚焦测试分层证明 | 08 |
+
+## 设计核心：把五类变化拆开
+
+AuthZ 当前结构的关键不是“用了 RBAC”，而是把五类变化隔离：
+
+1. **主体变化**：User 是否存在由 Identity 负责；AuthZ 只持有 Subject 引用。
+2. **组织变化**：谁被直接授予什么角色由 Assignment 负责。
+3. **岗位复用变化**：角色之间如何继承由 RoleInheritance 负责。
+4. **能力变化**：角色能对什么资源做什么由 PermissionGrant 负责。
+5. **对象状态变化**：具体对象的 origin/status/owner 等由业务模块加载，并以受信属性进入 Check。
+
+如果把这些事实压回一条字符串 policy，会产生三类耦合：用户关系与权限事实共用生命周期、业务对象属性被迫进入 IAM、管理写模型与执行 matcher 同时变化。当前模型接受更多显式对象与表，换取可审计的责任边界和可独立演进的运行时。
+
+## 控制面与数据面
 
 ```text
-AuthN Principal / trusted service identity
-  -> AuthZ Subject + Tenant
-  -> Assignment + RoleInheritance
-  -> PermissionGrant(Resource, Action, ConstraintSet)
-  -> AuthorizationRuntimeSnapshot
-  -> AuthZ v3 Decision
+控制面（低频写）
+REST v3 / Assignment gRPC
+  -> Application Command
+  -> Domain invariant
+  -> MySQL + PolicyVersion + Outbox
+
+数据面（高频读）
+可信服务 / IAM route middleware
+  -> Check / AuthorizeRoute
+  -> immutable snapshot
+  -> Decision
 ```
 
-- `authz_assignments` 保存 Subject 到 Role。
-- `authz_role_inheritances` 保存 Role 到父 Role，禁止循环。
-- `authz_permission_grants` 保存 Role 的资源、动作和对象属性条件。
-- `authz_resources.attribute_schema` 注册允许参与授权的对象属性。
-- `authz_policy_versions` 与 Outbox 协调运行时 reload。
-- Casbin 只在内存中计算角色继承，不加载或保存权限规则。
+控制面可以承担事务、锁与依赖校验；数据面必须避免每次请求 join 多张表。二者通过策略版本和完整快照重建连接，而不是共享一套可变缓存对象。
 
-快照用于路由能力候选判断：`UNCONDITIONAL` 可直接满足通用 capability；`OBJECT_CHECK_REQUIRED` 必须在业务服务加载对象后调用 v3 `Check`。列表、搜索和批量操作不接受条件 Grant。
+## 当前模型选择与代价
 
-## 生产切换证据
+| 选择 | 解决的问题 | 接受的代价 |
+|---|---|---|
+| allow-only、默认拒绝 | 决策组合简单，避免 allow/deny 优先级歧义 | 复杂例外需重新设计角色或条件 |
+| 四段 Resource | 跨应用命名稳定，通配规则可审计 | 资源命名必须前置治理 |
+| 类型化 ConstraintSet v1 | 条件可校验、可版本化、可解释 | 当前只有 `eq`、`all_of` 和最多 8 个谓词 |
+| 不可变全量快照 | 请求期无锁读，失败不发布半快照 | reload 成本与多实例滞后需要运维治理 |
+| Casbin 仅算角色图 | 复用成熟继承闭包，权限语义归 IAM | 仍保留一个第三方运行时依赖 |
+| durable version event | 数据提交与通知记录同事务 | 不是跨实例同步 barrier，仍是最终一致 |
+| 受管 Assignment 替换 | 一个服务只能覆盖自己的角色集合 | constraints 配置和并发语义更复杂 |
 
-- [一次性切换 run `32859067799`](https://github.com/FangcunMount/iam/actions/runs/32859067799) 从 000025 完成 000026 转换与 000027 退役；转换结果为 105 条 Grant、6 条 RoleInheritance，verify/evidence 的规范化 hash 一致。
-- [发布后数据库状态 run `32876762969`](https://github.com/FangcunMount/iam/actions/runs/32876762969) 证明 `version=27, dirty=0`，最终 16 张 BASE TABLE 精确匹配，`casbin_rule`、`authz_cutover_state` 与 `scope_kinds` 均不存在。
-- [RoleBinding guard run `32876761874`](https://github.com/FangcunMount/iam/actions/runs/32876761874) 证明 active 重复组与额外行均为 0，guard 结构完整。
-- [最终 IAM 发布 run `32877019508`](https://github.com/FangcunMount/iam/actions/runs/32877019508) 与[独立健康检查 run `32877567211`](https://github.com/FangcunMount/iam/actions/runs/32877567211) 证明 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 已部署，容器 healthy，`/healthz`、`/readyz` 均为 200，MySQL/Redis 可达。
+## 最小不可破坏不变量
 
-切换使用的生产备份、证据文件和旧镜像按 30 天恢复保留期保存，但不再作为在线兼容路径。仓库只保留不可改写的历史 migration 与旧对象缺失性门禁，不保留可再次执行转换的命令或 workflow。
+任何重构至少必须保持：
+
+```text
+默认拒绝；
+Tenant 隔离；
+Assignment 与 RoleInheritance 不混淆；
+继承图无环；
+direct roles 与 effective roles 不混淆；
+条件属性必须有 Resource schema 且来自受信服务；
+列表/搜索/批量动作不能由条件 Grant 放行；
+权限事实、PolicyVersion 与 Outbox 同事务；
+新快照完整构建成功后才原子发布；
+REST 管理与 gRPC Check 边界不倒置。
+```
+
+这些是不变量，不是实现偏好。若要改变其中一项，应先修改领域合同与威胁模型，再改实现和文档。
+
+## 如何阅读 Decision
+
+`Check` 不只返回布尔值：
+
+- 允许时给出 matched Grant、matched Role 与策略版本；
+- 未命中时返回 `policy_not_matched`；
+- 条件所需属性缺失时返回 `attribute_missing` 和缺失 key；
+- 输入属性未注册、类型不符或来源不可信属于合同错误，不伪装成普通 deny。
+
+“普通 deny”与“调用方违反属性合同”是不同问题：前者是权限事实结论，后者是接入错误。监控与业务日志不应把二者混成一个失败率。
+
+## 本目录不承诺什么
+
+- 不承诺历史生产验收自动覆盖当前 HEAD。
+- 不承诺 Outbox publish 成功即所有实例加载完成。
+- 不承诺 `ReplaceManagedAssignments` 已在 MySQL 并发场景下线性化。
+- 不承诺快照 permission 列表等价于对象级 allow；`OBJECT_CHECK_REQUIRED` 仍要加载对象并 Check。
+- 不承诺 role name 是权限；任何放行最终都必须命中 PermissionGrant。
+- 不承诺文档门禁能理解所有自然语言；它只保护已编码的结构和关键事实。
+
+## 当前必须保留的边界
+
+- MySQL 是权限事实源；快照、Casbin 角色图和进程内索引都是可重建投影。
+- `RequirePermissionOrGlobal` 先检查当前 Tenant，再检查平台域；“平台域只有通配 Grant 才能全局放行”是当前数据基线，不是代码强制不变量。
+- `ReplaceManagedAssignments` 的返回值当前是目标受管角色子集，不等同于持久化后的全部直接角色。
+- MySQL `REPEATABLE READ` 下并发替换同一 Subject 的串行语义尚无专门并发证明；现有测试覆盖原子性、幂等和回滚。
+- Assignment 约束授权器缺失时，增量 Grant/Revoke 与批量 Replace 的失败行为并不对称，部署配置必须显式提供实现。
+
+## 事实来源与证据边界
+
+发生冲突时按以下优先级校对：组合根与运行时代码 > protobuf/OpenAPI/数据库 migration > 测试与门禁 > 本目录说明 > 历史专题和演讲材料。
+
+历史切换、发布与健康检查证据保留在[生产验收记录](../../01-运行时/08-IAM重构最终验收记录.md)中。它们用于追溯，不作为当前 HEAD 已发布的证明。
+
+## 快速验证
+
+```bash
+go test ./internal/apiserver/domain/authz/... \
+  ./internal/apiserver/application/authz/... \
+  ./internal/apiserver/infra/authz/...
+python3 scripts/check-docs-links.py
+python3 scripts/check-docs-facts.py
+python3 scripts/check-route-contracts.py
+python3 scripts/check-openapi-contracts.py
+```

@@ -22,7 +22,7 @@ api/
 | 契约 | 当前能力 |
 | ---- | ---- |
 | [rest/authn.v2.yaml](rest/authn.v2.yaml) | 使用 `auth_method + method_payload` 的显式登录、登录准备、刷新、登出、验证、JWKS、账户和 signup |
-| [rest/authz.v3.yaml](rest/authz.v3.yaml) | PermissionGrant、角色、assignment、资源与属性 Schema 管理 |
+| [rest/authz.v3.yaml](rest/authz.v3.yaml) | PermissionGrant、Role、Assignment、RoleInheritance、Resource 与属性 Schema 管理；不提供授权判定 |
 | [rest/identity.v2.yaml](rest/identity.v2.yaml) | 当前用户、profiles、profile-links |
 | [rest/idp.v2.yaml](rest/idp.v2.yaml) | IDP 健康检查和微信应用管理 |
 | [rest/suggest.v2.yaml](rest/suggest.v2.yaml) | 儿童档案联想搜索 |
@@ -50,7 +50,7 @@ AuthZ REST v3 是角色、Assignment、RoleInheritance、PermissionGrant 与 Res
 | 契约 | 服务 |
 | ---- | ---- |
 | [grpc/iam/authn/v2/authn.proto](grpc/iam/authn/v2/authn.proto) | `AuthService`、`AuthSignupService`、`AuthChallengeService`、`LoginIdentityService`、`JWKSService` |
-| [grpc/iam/authz/v3/authz.proto](grpc/iam/authz/v3/authz.proto) | `AuthorizationService`：原生 RBAC + 对象属性授权 |
+| [grpc/iam/authz/v3/authz.proto](grpc/iam/authz/v3/authz.proto) | `AuthorizationService`：Check、授权快照和 Assignment 服务间写入 |
 | [grpc/iam/identity/v2/identity.proto](grpc/iam/identity/v2/identity.proto) | `IdentityRead`、`ProfileLinkQuery`、`ProfileCommand`、`ProfileLinkCommand`、`IdentityLifecycle` |
 | [grpc/iam/idp/v2/idp.proto](grpc/iam/idp/v2/idp.proto) | `IDPService` |
 

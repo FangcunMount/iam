@@ -102,7 +102,20 @@ GET /api/v2/.well-known/jwks.json
 
 响应只包含公钥，并保留现有 JSON、ETag 和 Cache-Control 语义。公共 JWKS 每次构建以数据库为真相层；当前进程快照只用于 ETag、观测和减少重复构建，不参与决定数据库中的 active 状态。资源服务应固定可信 issuer/JWKS URL，校验算法 allowlist、签名以及 `iss/aud/exp/nbf`；`kid` 未命中时可刷新，但不得跳过验签或接受任意 `jku/jwk`。
 
-管理入口保持原 REST 形状；`POST /authn/admin/jwks/keys` 仍返回 `201 KeyResponse`。
+管理入口统一位于 `/api/v2/authn/admin/jwks/keys`。它们需要用户 JWT，并通过 `RequirePermissionOrGlobal` 检查 `iam:authn:collection:jwks` 上的明确 Action：
+
+| 请求 | Action |
+|---|---|
+| `POST /api/v2/authn/admin/jwks/keys` | `create` |
+| `GET /api/v2/authn/admin/jwks/keys` | `list` |
+| `GET /api/v2/authn/admin/jwks/keys/{kid}` | `read` |
+| `POST /api/v2/authn/admin/jwks/keys/{kid}/retire` | `retire` |
+| `POST /api/v2/authn/admin/jwks/keys/{kid}/force-retire` | `force_retire` |
+| `POST /api/v2/authn/admin/jwks/keys/{kid}/grace` | `enter_grace` |
+| `POST /api/v2/authn/admin/jwks/keys/cleanup` | `cleanup` |
+| `GET /api/v2/authn/admin/jwks/keys/publishable` | `list_publishable` |
+
+授权先检查当前 Tenant，再检查平台域中相同 Resource/Action。实现不读取 `super_admin` 等角色名来跳过 PermissionGrant。`POST /api/v2/authn/admin/jwks/keys` 返回 `201 KeyResponse`。
 
 ## 7. 运行、备份和紧急退役
 

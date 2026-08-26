@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1350" viewBox="0 0 2400 1350" role="img" aria-labelledby="title desc">
+  <title id="title">IAM 模块边界与窄能力协作关系</title>
+  <desc id="desc">展示 Identity、AuthN、AuthZ、IDP、Suggest 五个模块的事实所有权，以及 ExternalIdentityResolver、UserStatusReader、UserResolver、SessionRevoker、RoleNameReader、RouteAuthorization 和 Profile 事实加载等窄能力协作。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#334155"/></marker>
+    <marker id="blueArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#172033" flood-opacity="0.10"/></filter>
+    <style>
+      .bg{fill:#f8fafc}.title{font:700 46px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#172033}.subtitle{font:400 22px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#64748b}.module{font:700 34px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#172033}.question{font:600 18px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#334155}.facts{font:500 18px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#475569}.note{font:400 15px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#64748b}.edgeLabel{font:600 16px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#334155}.card{stroke-width:3;rx:24}.edge{stroke:#334155;stroke-width:3;fill:none;marker-end:url(#arrow)}.cap{stroke:#2563eb;stroke-width:3;stroke-dasharray:12 10;fill:none;marker-end:url(#blueArrow)}.external{fill:#fff;stroke:#94a3b8;stroke-width:2.5;rx:20}.labelBox{fill:#fff;stroke:#cbd5e1;stroke-width:1.5;rx:12}
+    </style>
+  </defs>
+  <rect class="bg" width="2400" height="1350"/>
+  <text x="75" y="75" class="title">IAM 模块边界：事实归属与窄能力协作</text>
+  <text x="75" y="114" class="subtitle">箭头表示能力使用或事实输入，不表示共享聚合、数据库外键，也不等于 Go import 方向。</text>
+
+  <rect x="80" y="190" width="390" height="235" class="external" filter="url(#shadow)"/>
+  <text x="275" y="250" text-anchor="middle" class="module">External Provider</text>
+  <text x="275" y="290" text-anchor="middle" class="question">微信 / 企微 / OAuth</text>
+  <text x="275" y="340" text-anchor="middle" class="facts">一次性 code / proof</text>
+  <text x="275" y="375" text-anchor="middle" class="note">IAM 外部信任域</text>
+
+  <rect x="655" y="180" width="440" height="270" class="card" fill="#eef3ff" stroke="#4d6cc5" filter="url(#shadow)"/>
+  <text x="875" y="238" text-anchor="middle" class="module">IDP</text>
+  <text x="875" y="276" text-anchor="middle" class="question">如何吸收 Provider 差异？</text>
+  <text x="875" y="326" text-anchor="middle" class="facts">WechatApp · Credentials · AppToken</text>
+  <text x="875" y="360" text-anchor="middle" class="facts">ExternalIdentityResolver</text>
+  <text x="875" y="405" text-anchor="middle" class="note">输出请求级、已验证 ExternalIdentity</text>
+
+  <rect x="1480" y="180" width="560" height="270" class="card" fill="#edf8f0" stroke="#36905d" filter="url(#shadow)"/>
+  <text x="1760" y="238" text-anchor="middle" class="module">AuthN</text>
+  <text x="1760" y="276" text-anchor="middle" class="question">如何证明当前请求者身份？</text>
+  <text x="1760" y="326" text-anchor="middle" class="facts">LoginIdentity · Credential · Challenge</text>
+  <text x="1760" y="360" text-anchor="middle" class="facts">Principal · Session · Access/Refresh Token</text>
+  <text x="1760" y="405" text-anchor="middle" class="note">AdmissionPolicy 管认证准入，不做资源授权</text>
+
+  <rect x="900" y="560" width="600" height="290" class="card" fill="#fff8df" stroke="#d59a16" filter="url(#shadow)"/>
+  <text x="1200" y="620" text-anchor="middle" class="module">Identity</text>
+  <text x="1200" y="658" text-anchor="middle" class="question">用户是谁，自然人档案是什么？</text>
+  <text x="1200" y="710" text-anchor="middle" class="facts">User · Profile · ProfileLink</text>
+  <text x="1200" y="748" text-anchor="middle" class="facts">UserStatusReader · UserResolver</text>
+  <text x="1200" y="790" text-anchor="middle" class="note">拥有稳定身份事实；不校验 Token，不做资源授权</text>
+
+  <rect x="135" y="915" width="620" height="280" class="card" fill="#f3effd" stroke="#7652c8" filter="url(#shadow)"/>
+  <text x="445" y="975" text-anchor="middle" class="module">Suggest</text>
+  <text x="445" y="1013" text-anchor="middle" class="question">如何搜索当前可见的 Profile？</text>
+  <text x="445" y="1065" text-anchor="middle" class="facts">ProfileSearchTerm · SuggestionIndex</text>
+  <text x="445" y="1100" text-anchor="middle" class="facts">ProfileAccessScope · masked result</text>
+  <text x="445" y="1142" text-anchor="middle" class="note">派生、可重建读模型；不拥有 Profile 或权限事实</text>
+
+  <rect x="1645" y="915" width="620" height="280" class="card" fill="#f3effd" stroke="#7652c8" filter="url(#shadow)"/>
+  <text x="1955" y="975" text-anchor="middle" class="module">AuthZ</text>
+  <text x="1955" y="1013" text-anchor="middle" class="question">谁能对哪个资源执行什么动作？</text>
+  <text x="1955" y="1065" text-anchor="middle" class="facts">Subject · Role · Assignment · RoleInheritance</text>
+  <text x="1955" y="1100" text-anchor="middle" class="facts">PermissionGrant · Resource · ConstraintSet</text>
+  <text x="1955" y="1142" text-anchor="middle" class="note">不可变 Snapshot 返回可解释 Decision</text>
+
+  <path d="M470 305 L655 305" class="edge"/>
+  <rect x="492" y="264" width="142" height="32" class="labelBox"/>
+  <text x="563" y="286" text-anchor="middle" class="edgeLabel">exchange proof</text>
+
+  <path d="M1095 315 L1480 315" class="cap"/>
+  <rect x="1190" y="270" width="205" height="34" class="labelBox"/>
+  <text x="1292" y="293" text-anchor="middle" class="edgeLabel">ExternalIdentityResolver</text>
+
+  <path d="M1515 450 C1515 525 1435 545 1410 560" class="cap"/>
+  <rect x="1430" y="480" width="190" height="34" class="labelBox"/>
+  <text x="1525" y="503" text-anchor="middle" class="edgeLabel">UserStatusReader</text>
+
+  <path d="M985 850 C900 900 760 930 755 1010" class="cap"/>
+  <rect x="750" y="875" width="230" height="34" class="labelBox"/>
+  <text x="865" y="898" text-anchor="middle" class="edgeLabel">Full / Delta Profile facts</text>
+
+  <path d="M1500 735 C1580 770 1650 835 1700 915" class="cap"/>
+  <rect x="1532" y="785" width="155" height="34" class="labelBox"/>
+  <text x="1609" y="808" text-anchor="middle" class="edgeLabel">UserResolver</text>
+
+  <path d="M1645 1080 C1300 1080 1050 1080 755 1080" class="cap"/>
+  <rect x="1080" y="1037" width="245" height="34" class="labelBox"/>
+  <text x="1202" y="1060" text-anchor="middle" class="edgeLabel">RouteAuthorization capability</text>
+
+  <path d="M1500 675 C1580 620 1660 540 1700 450" class="cap"/>
+  <rect x="1515" y="555" width="205" height="34" class="labelBox"/>
+  <text x="1617" y="578" text-anchor="middle" class="edgeLabel">SessionRevoker</text>
+  <text x="1505" y="612" class="note">Identity 状态变化后调用 AuthN 撤销能力</text>
+
+  <path d="M1645 1000 C1510 950 1470 875 1460 850" class="cap"/>
+  <rect x="1490" y="888" width="180" height="34" class="labelBox"/>
+  <text x="1580" y="911" text-anchor="middle" class="edgeLabel">RoleNameReader</text>
+  <text x="1492" y="943" class="note">Identity 在关系写入时读取授权角色名</text>
+
+  <path d="M1760 450 C1760 640 1900 735 1955 915" class="edge"/>
+  <rect x="1750" y="665" width="230" height="34" class="labelBox"/>
+  <text x="1865" y="688" text-anchor="middle" class="edgeLabel">trusted request context</text>
+  <text x="1752" y="724" class="note">请求链衔接，不构成 AuthN → AuthZ 领域依赖</text>
+
+  <rect x="80" y="1245" width="2240" height="58" rx="18" fill="#eef2f7" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="1200" y="1282" text-anchor="middle" class="edgeLabel">组合根真实初始化顺序：Event Runtime → IDP → AuthN → AuthZ → Identity → Suggest → Cache Governance；顺序用于满足能力装配，不代表业务调用链。</text>
+</svg>

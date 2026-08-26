@@ -199,6 +199,7 @@ Action；
 ObjectAttribute；
 Role；
 Assignment；
+DirectRole / EffectiveRole；
 RoleInheritance；
 PermissionGrant；
 ConstraintSet；
@@ -279,7 +280,7 @@ IAM 的核心不是“维护用户表”，而是围绕身份与访问管理组�
 ```text
 Identity 维护 User/Profile/ProfileLink；
 AuthN 维护 LoginIdentity/Credential/Session/Token；
-AuthZ 维护 Subject/Role/Assignment/RoleInheritance/PermissionGrant；
+AuthZ 维护 Subject/Role/Assignment/RoleInheritance/PermissionGrant，并区分直接角色与继承后的有效角色；
 IDP 适配外部身份源；
 Suggest 构建 Profile 联想搜索读模型。
 ```

@@ -23,7 +23,7 @@ api/grpc/iam/
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `AuthChallengeService` | SendLoginPhoneOTP |
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `LoginIdentityService` | ListLoginIdentities、SendPhoneLinkChallenge、LinkPhone、LinkWechatMiniProgram、LinkWecom、UnlinkLoginIdentity |
 | [iam/authn/v2/authn.proto](iam/authn/v2/authn.proto) | `JWKSService` | GetJWKS |
-| [iam/authz/v3/authz.proto](iam/authz/v3/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment |
+| [iam/authz/v3/authz.proto](iam/authz/v3/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment、ReplaceManagedAssignments |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileCommand` | CreateProfile |
@@ -62,6 +62,8 @@ linked, err := identityClient.HasProfileLink(ctx, &identityv2.HasProfileLinkRequ
     ProfileId: "2048",
 })
 ```
+
+AuthZ v3 的 `Check` 是可信服务使用的授权判定入口；REST v3 只负责权限事实管理。快照响应中 `roles` 是包含继承结果的有效角色，`direct_roles` 只包含直接 Assignment。`ReplaceManagedAssignments` 只替换调用服务受管的角色子集；其响应 `direct_roles` 当前表示目标受管子集，若要读取持久化后的全部直接角色，应再次调用 `GetAuthorizationSnapshot`。
 
 ## 验证
 

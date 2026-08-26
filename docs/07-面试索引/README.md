@@ -13,7 +13,7 @@ IAM 是一套面向业务系统接入的身份与访问管理服务，核心回�
 | 案例 | 可讲主线 | Canonical 证据 |
 | --- | --- | --- |
 | 外部身份如何安全进入 IAM | IDP Resolver 把 provider code 解析成请求级 `ExternalIdentity`；AuthN 的 SignIn、SignUp、Linking 再按各自语义映射为认证输入或 LoginIdentity ProviderKey。该对象不持久化，也不拥有 User、LoginIdentity 或 Session | [注册登录与身份绑定](../02-业务模块/02-AuthN/02-注册登录与身份绑定.md)、[外部身份解析与 AuthN 协作](../02-业务模块/04-IDP/02-外部身份解析与AuthN协作.md) |
-| 授权事实与多实例运行时怎样一致 | MySQL 保存 Assignment/RoleInheritance/PermissionGrant 等管理事实，IAM 原生不可变快照执行判定；Casbin 只计算内存角色图。写入提交后通过 PolicyVersion、Outbox 和事件通知其他实例 reload，并显式保留无请求级全实例 barrier 的边界 | [权限检查与原生运行时](../02-业务模块/03-AuthZ/02-权限检查与Casbin运行时.md)、[授权写入与多实例一致性](../02-业务模块/03-AuthZ/03-授权写入与多实例一致性.md) |
+| 授权事实与多实例运行时怎样一致 | MySQL 保存 Assignment/RoleInheritance/PermissionGrant 等管理事实，IAM 原生不可变快照执行判定；Casbin 只计算内存角色图。写入提交后通过 PolicyVersion、Outbox 和事件通知其他实例 reload，并显式保留无请求级全实例 barrier 的边界 | [授权判定与不可变快照](../02-业务模块/03-AuthZ/02-关键链路-授权判定与不可变快照.md)、[授权写入与受管 Assignment](../02-业务模块/03-AuthZ/03-关键链路-授权写入与受管Assignment.md)、[多实例策略收敛](../02-业务模块/03-AuthZ/04-关键链路-多实例策略收敛.md) |
 | Suggest 为什么是派生读模型 | Identity 保存 Profile 主数据，Suggest 通过 Full/Delta 构建进程内索引，按 `ProfileAccessScope` 过滤并返回脱敏候选；搜索可见不等于详情授权 | [Suggest 为什么是读模型](../06-专题设计/05-Suggest为什么是读模型.md)、[Suggest 模块](../02-业务模块/05-Suggest/README.md) |
 
 ## 3. 高频问题到 canonical 文档
@@ -22,7 +22,10 @@ IAM 是一套面向业务系统接入的身份与访问管理服务，核心回�
 | --- | --- |
 | Identity、AuthN、AuthZ 为什么不能合并？ | [身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md) |
 | Session、Access Token、Refresh Token 和本地 JWKS 验签各保证什么？ | [Session、Token 与 JWKS](../02-业务模块/02-AuthN/03-Session-Token与JWKS.md) |
-| 为什么 Casbin 只保留为内存角色图计算器？ | [Casbin 作为授权执行引擎](../06-专题设计/06-Casbin作为授权执行引擎.md) |
+| 为什么 Casbin 只保留为内存角色图计算器？ | [Casbin 为什么只保留为角色图计算器](../06-专题设计/06-Casbin作为授权执行引擎.md) |
+| direct roles 与 effective roles 为什么不能混用？ | [AuthZ 领域模型设计](../02-业务模块/03-AuthZ/01-领域模型设计.md) |
+| REST v3 与 gRPC v3 分别做什么？ | [REST 管理与路由授权](../02-业务模块/03-AuthZ/05-关键链路-REST管理与路由授权.md)、[gRPC 服务间授权与 SDK](../02-业务模块/03-AuthZ/06-关键链路-gRPC服务间授权与SDK.md) |
+| `ReplaceManagedAssignments` 是否会覆盖用户全部角色？ | [授权写入与受管 Assignment](../02-业务模块/03-AuthZ/03-关键链路-授权写入与受管Assignment.md) |
 | MySQL、Redis、Outbox 和进程内投影怎样选择一致性策略？ | [事务缓存与事件一致性](../06-专题设计/02-事务缓存与事件一致性.md) |
 | Suggest 为什么不是 Identity Repository？ | [Suggest 为什么是读模型](../06-专题设计/05-Suggest为什么是读模型.md) |
 | 进程存活、可以接流量和派生状态新鲜为什么是不同状态？ | [后台任务、Readiness 与优雅关闭](../01-运行时/03-后台任务就绪与优雅关闭.md) |

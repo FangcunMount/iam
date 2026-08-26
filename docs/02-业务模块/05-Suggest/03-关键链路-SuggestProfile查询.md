@@ -80,12 +80,12 @@ TenantDomain <- JWT tenant domain
 OrgID        <- business org ID
 ```
 
-`OperatingProfileAccessScopeProvider` 再组合角色、手机号搜索权限和可见 ProfileID：
+`OperatingProfileAccessScopeProvider` 再组合 PermissionGrant、手机号搜索权限和可见 ProfileID：
 
 | 主体 | 当前 scope |
 | --- | --- |
-| `IsSuperAdmin` 或平台管理员角色 | `AllProfile=true`，允许手机号搜索 |
-| tenant_admin / super_admin | 合并 Principal 的业务 OrgID 范围 |
+| platform 域允许 `profiles/list` | `AllProfile=true`；再独立检查 platform `search_by_mobile` |
+| 当前 tenant 允许 `search_by_mobile` | 保留普通可见范围，并允许手机号搜索 |
 | 普通操作员 | OperatorID + 可选 OrgIDs + visibility resolver 返回的 ProfileIDs |
 | AuthZ runtime 不可用（nil） | 不报错；退化到 OperatorID/OrgIDs/visibility |
 
@@ -97,6 +97,8 @@ action   = search_by_mobile
 ```
 
 当前 visibility resolver 按 `profiles.created_by = OperatorID` 查询，是过渡读模型。Store 对候选执行本地 `ScopePolicy`，不会逐候选调用 AuthZ Check。
+
+当前链路不读取旧的超级管理员布尔标志，也不按 `tenant_admin`/`super_admin` 等角色名旁路；授权依据是明确的 Resource/Action PermissionGrant。
 
 ## 5. 搜索策略
 
