@@ -148,7 +148,9 @@ func (a *ruleAuthorizer) AuthorizeReplacement(request ReplacementRequest) ([]str
 	}
 	if constraint.RequireDelegatedActorOnGrant {
 		actor := strings.SplitN(strings.TrimSpace(request.DelegatedActor), ":", 2)
-		if len(actor) != 2 || actor[0] != "user" || actor[1] == "" {
+		validUser := len(actor) == 2 && actor[0] == "user" && actor[1] != ""
+		validCallingService := len(actor) == 2 && actor[0] == "service" && actor[1] == serviceName
+		if !validUser && !validCallingService {
 			return nil, &DeniedError{Reason: "delegated_actor_required"}
 		}
 	}

@@ -61,6 +61,7 @@ services:
       - /iam.authz.v3.AuthorizationService/GetAuthorizationSnapshot
       - /iam.authz.v3.AuthorizationService/GrantAssignment
       - /iam.authz.v3.AuthorizationService/RevokeAssignment
+      - /iam.authz.v3.AuthorizationService/ReplaceManagedAssignments
     denied_methods: []
 
   # QS Collection Server - 数据收集服务

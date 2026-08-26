@@ -934,6 +934,7 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	assertFileContains(t, root, "web/swagger-ui/swagger-ui-dist/swagger-initializer.js", "/openapi/authz.v3.yaml")
 	assertFileLacks(t, root, "web/swagger-ui/swagger-ui-dist/swagger-initializer.js", "authz.v2")
 	assertFileContains(t, root, "internal/apiserver/infra/authz/assignmentconstraints/loader.go", "/iam.authz.v3.AuthorizationService/GrantAssignment")
+	assertFileContains(t, root, "configs/grpc_acl.yaml", "/iam.authz.v3.AuthorizationService/ReplaceManagedAssignments")
 	assertFileLacks(t, root, "internal/apiserver/infra/authz/assignmentconstraints/loader.go", "iam.authz.v2")
 	assertFileLacks(t, root, "pkg/sdk/docs/06-authz.md", "iam.authz.v2")
 }
