@@ -48,6 +48,10 @@ func TestRepositoryHistoricalRevokedGrantMySQLConcurrencyRegression(t *testing.T
 	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&repo.GrantPO{}))
+	// The production migration makes audit columns NOT NULL. Keep this test from
+	// accepting a nullable AutoMigrate schema that masks system-context revokes.
+	require.NoError(t, db.Exec(`ALTER TABLE authz_permission_grants
+		MODIFY updated_by BIGINT UNSIGNED NOT NULL DEFAULT 0`).Error)
 	require.NoError(t, db.Unscoped().Where("tenant_id = ?", "tenant-a").Delete(&repo.GrantPO{}).Error)
 	t.Cleanup(func() {
 		require.NoError(t, db.Unscoped().Where("tenant_id = ?", "tenant-a").Delete(&repo.GrantPO{}).Error)

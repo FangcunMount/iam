@@ -47,7 +47,7 @@ func (r *Repository) Revoke(ctx context.Context, id meta.ID) error {
 		Updates(map[string]any{
 			"revoked_at": now,
 			"updated_at": now,
-			"updated_by": mysql.UserIDOrZero(ctx),
+			"updated_by": mysql.UserIDOrZero(ctx).Uint64(),
 			"version":    gorm.Expr("version + 1"),
 		})
 	return result.Error
