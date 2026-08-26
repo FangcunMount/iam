@@ -121,8 +121,6 @@ var sourceGrantRemovals = []grantSpec{
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:policies", "write"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:policies", "delete"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "read"),
-	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "grant"),
-	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "revoke"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "delete"),
 	unconditionalGrant("fangcun", "super_admin", "iam:identity:collection:profiles", "search_by_mobile"),
 }
@@ -132,8 +130,6 @@ var targetGrantAdditions = []grantSpec{
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:permission_grants", "create"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:permission_grants", "revoke"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "list"),
-	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "grant"),
-	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:assignments", "revoke"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:role_inheritances", "list"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:role_inheritances", "grant"),
 	unconditionalGrant("fangcun", "tenant_admin", "iam:authz:collection:role_inheritances", "revoke"),
