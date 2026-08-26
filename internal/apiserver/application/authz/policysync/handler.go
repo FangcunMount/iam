@@ -89,6 +89,5 @@ func (h *VersionEventHandler) Handle(ctx context.Context, payload []byte, eventT
 	if h.recorder != nil {
 		h.recorder.RecordPolicyVersionEvent(versionEvent.TenantID, versionEvent.Version, now)
 	}
-	authzshared.ReloadRuntimePolicy(ctx, h.reloader, "version_changed_event")
-	return nil
+	return authzshared.ReloadRuntimePolicyWithError(ctx, h.reloader, "version_changed_event")
 }
