@@ -22,21 +22,26 @@
 Auth() / Authz() / Identity() / Profile() / ProfileLink() / IDP()
 ```
 
-调用方必须 `Close()`。拆分 `Identity/Profile/ProfileLink` 是为了让命令边界清楚：创建 Profile 走 `Profile()`，关系查询/命令走 `ProfileLink()`，不是把所有方法塞进一个万能 Identity client。
+调用方必须 `Close()`。拆分 `Identity/Profile/ProfileLink` 是为了让命令边界清楚：创建 Profile 走 `Profile()`，关系查询/命令走 `ProfileLink()`，
+不是把所有方法塞进一个万能 Identity client。
 
-稳定 public surface 只包括 `pkg/sdk`、列出的子包和公开配置/错误 facade。`pkg/sdk/internal/{transport,observability,errorsx}` 可随内部实现变化，接入方不能 import。
+稳定 public surface 只包括 `pkg/sdk`、列出的子包和公开配置/错误 facade。`pkg/sdk/internal/{transport,observability,errorsx}` 可随内部实现变化，接入方不能
+import。
 
 ## 3. 连接与重试
 
-SDK Config 包含 endpoint、TLS、dial/request timeout、keepalive、retry、load balancer、circuit breaker、observability 和 metadata。Dial 构建 interceptor 链，再在 DialTimeout context 中建立 gRPC connection。
+SDK Config 包含 endpoint、TLS、dial/request timeout、keepalive、retry、load balancer、circuit breaker、observability 和 metadata。
+Dial 构建 interceptor 链，再在 DialTimeout context 中建立 gRPC connection。
 
 重试只能用于明确幂等的方法或在服务端具有 idempotency key 的写操作。网络错误发生时，客户端无法判断请求是在到达前失败还是提交后响应丢失；对 Grant/Create 等写 RPC 盲重试可能重复副作用。
 
-SDK 内部有 per-method retry defaults 和 error classification，但调用方仍应按具体 API 合同确认。不要把 `Unavailable` 一律无限重试；应有 bounded attempts、backoff、deadline 和 circuit breaker。
+SDK 内部有 per-method retry defaults 和 error classification，但调用方仍应按具体 API 合同确认。不要把 `Unavailable` 一律无限重试；应有 bounded
+attempts、backoff、deadline 和 circuit breaker。
 
 ## 4. ServiceAuthHelper 生命周期
 
-`NewServiceAuthHelper` 构造时先同步获取 service token，失败则不返回半可用 helper；成功后启动 refresh loop，在 `RefreshBefore` 窗口提前续期。调用方用 `NewAuthenticatedContext` 注入 Authorization metadata，并在退出时 `Stop()`。
+`NewServiceAuthHelper` 构造时先同步获取 service token，失败则不返回半可用 helper；成功后启动 refresh loop，在 `RefreshBefore` 窗口提前续期。调用方用
+`NewAuthenticatedContext` 注入 Authorization metadata，并在退出时 `Stop()`。
 
 它解决 token 刷新，不解决服务授权：签发 token 的 subject/audience 仍需服务端 ACL/AuthZ，mTLS identity match 也应按生产配置启用。
 
@@ -81,7 +86,8 @@ IsNotFound / IsUnauthorized / IsPermissionDenied / IsRetryable
 GRPCCode / Message / ToHTTPStatus
 ```
 
-不要解析中英文 message。服务端可能为安全原因收敛内部错误文案，但稳定 code/status 仍可支持程序分支。日志应记录 request ID、method、code、latency，不记录 bearer token、密码、OTP 或完整请求体。
+不要解析中英文 message。服务端可能为安全原因收敛内部错误文案，但稳定 code/status 仍可支持程序分支。日志应记录 request ID、method、code、latency，不记录 bearer token、密码、OTP
+或完整请求体。
 
 ## 8. 最小生产接入清单
 
@@ -98,7 +104,8 @@ GRPCCode / Message / ToHTTPStatus
 
 ## 9. Public API 如何防漂移
 
-`pkg/sdk/public_api_compile_test.go` 从外部测试包导入所有承诺的 public symbol，能发现 rename/remove、internal 泄漏和构造签名变化。它不能证明网络行为或语义兼容，因此还需要子包单测、server contract test 和接入 E2E。
+`pkg/sdk/public_api_compile_test.go` 从外部测试包导入所有承诺的 public symbol，能发现 rename/remove、internal 泄漏和构造签名变化。它不能证明网络行为或语义兼容，
+因此还需要子包单测、server contract test 和接入 E2E。
 
 升级 SDK 时，至少分开报告：
 

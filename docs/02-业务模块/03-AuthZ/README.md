@@ -28,7 +28,8 @@ MySQL 权限事实
 
 ### 二、领域模型设计
 
-2. [领域模型设计](01-领域模型设计.md)：深入 Subject、Tenant、Role、Assignment、RoleInheritance、PermissionGrant、Resource、ConstraintSet 和 ObjectAttributes 的责任与不变量。
+2. [领域模型设计](01-领域模型设计.md)：深入 Subject、Tenant、Role、Assignment、RoleInheritance、PermissionGrant、Resource、ConstraintSet 和
+   ObjectAttributes 的责任与不变量。
 
 ### 三、关键链路分析
 
@@ -48,7 +49,7 @@ MySQL 权限事实
 本目录不是 API 清单，而是要把以下问题闭合：
 
 | 问题 | 当前答案 | 深入位置 |
-|---|---|---|
+| --- | --- | --- |
 | 权限事实由谁拥有 | MySQL 中的 AuthZ v3 表；业务对象事实留在业务模块 | 00、01 |
 | Subject 为什么能得到某个 Role | 直接 Assignment，加 RoleInheritance 闭包 | 01、02 |
 | Role 为什么能执行动作 | 命中 PermissionGrant 的 Resource/Action，且条件满足 | 01、02 |
@@ -92,7 +93,7 @@ REST v3 / Assignment gRPC
 ## 当前模型选择与代价
 
 | 选择 | 解决的问题 | 接受的代价 |
-|---|---|---|
+| --- | --- | --- |
 | allow-only、默认拒绝 | 决策组合简单，避免 allow/deny 优先级歧义 | 复杂例外需重新设计角色或条件 |
 | 四段 Resource | 跨应用命名稳定，通配规则可审计 | 资源命名必须前置治理 |
 | 类型化 ConstraintSet v1 | 条件可校验、可版本化、可解释 | 当前只有 `eq`、`all_of` 和最多 8 个谓词 |

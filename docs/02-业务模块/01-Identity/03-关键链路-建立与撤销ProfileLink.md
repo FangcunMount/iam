@@ -15,7 +15,8 @@
 
 ## 2. 30 秒结论
 
-ProfileLink 是 Identity 中可独立查询和撤销的关系事实。建立关系要在一个 Identity 事务中确认 User/Profile 存在、检查 active pair 和 active self，然后插入 ProfileLink。
+ProfileLink 是 Identity 中可独立查询和撤销的关系事实。建立关系要在一个 Identity 事务中确认 User/Profile 存在、检查 active pair 和 active self，然后插入
+ProfileLink。
 
 ```text
 Establish
@@ -111,21 +112,21 @@ flowchart LR
 
 > 标签：设计决策 · proto、mapper 和 `TypeFromRelation` 可证明
 
-**解决的问题**
+#### 解决的问题
 
 防止调用方传入自相矛盾的 `relation=self, type=relation` 或 `relation=parent, type=self`。
 
-**选择**
+#### 选择
 
 gRPC 只提供 relation enum；domain 统一将 `RelSelf` 推导为 `TypeSelf`，其他 relation 推导为 `TypeRelation`。
 
-**替代方案**
+#### 替代方案
 
 1. relation/type 都由调用方提供，服务端校验组合；
 2. 只持久化 relation，type 在查询时计算；
 3. 只保留 type，丢弃细分关系。
 
-**取舍**
+#### 取舍
 
 当前方案保持对外输入单一，但在存储中留下可由 relation 派生的冗余 type。为什么长期必须持久化两者尚缺决策记录，详见 [01-领域模型](01-领域模型-User-Profile-ProfileLink.md)。
 
@@ -133,24 +134,24 @@ gRPC 只提供 relation enum；domain 统一将 `RelSelf` 推导为 `TypeSelf`�
 
 > 标签：设计决策 · `SelfProfileGuard`、migration `000007` 和并发测试可证明
 
-**解决的问题**
+#### 解决的问题
 
 应用预检查可以提供业务错误，但两个并发请求可能同时看到“没有 self”。
 
-**选择**
+#### 选择
 
 - `SelfProfileGuard` 在事务内检查 active self；
 - repository 为 active self 写入 `self_key=user_id`；
 - `uk_active_self_profile_link(self_key)` 在数据库中只允许一条；
 - revoked 时 `self_key` 变为 `NULL`，释放 active 唯一位。
 
-**替代方案**
+#### 替代方案
 
 - 只依靠 application 查询；
 - 对 User 行加锁并在代码中串行化；
 - 在 User 上保存固定 self_profile_id。
 
-**取舍**
+#### 取舍
 
 `self_key` 是为 MySQL 表达“只对 active self 唯一”引入的持久化技巧，它不是新的领域概念。
 
@@ -158,21 +159,21 @@ gRPC 只提供 relation enum；domain 统一将 `RelSelf` 推导为 `TypeSelf`�
 
 > 标签：设计决策 · entity、repository 和 REST/gRPC query 契约可证明
 
-**解决的问题**
+#### 解决的问题
 
 在不丢失关系历史的前提下，保证日常业务查询不误用已失效关系。
 
-**选择**
+#### 选择
 
 `RevokedAt=nil` 为 active；撤销只写时间。Repository 默认方法追加 `revoked_at IS NULL`，只有 `IncludingRevoked` 方法读取历史。
 
-**替代方案**
+#### 替代方案
 
 1. 物理删除 ProfileLink；
 2. 所有查询默认返回历史，调用方自行过滤；
 3. 主表只保留 active，撤销后搬到审计表。
 
-**取舍**
+#### 取舍
 
 软撤销使查询和唯一性模型更复杂，所有派生读模型也必须显式处理 `revoked_at`。当前 Suggest Loader 没有过滤它，是已知缺口。
 
@@ -182,7 +183,7 @@ gRPC 只提供 relation enum；domain 统一将 `RelSelf` 推导为 `TypeSelf`�
 
 proto 的 batch response 同时定义 `revoked/created` 和 `failures`。Transport 遍历每条记录，复用单条 gRPC handler，因此每条都开启独立 application 事务。
 
-**替代方案**
+#### 替代方案
 
 - 整批单事务，任一失败全部回滚；
 - 先全量预检，全部合法后再批量写入；
@@ -194,7 +195,8 @@ proto 的 batch response 同时定义 `revoked/created` 和 `failures`。Transpo
 
 ### 7.1 输入与解析
 
-gRPC `EstablishProfileLink` 要求非空 `user_id` 和 `profile_id`。`relation` 通过 `protoRelationToString` 转换；unspecified 和未知枚举均映射为 `other`。
+gRPC `EstablishProfileLink` 要求非空 `user_id` 和 `profile_id`。`relation` 通过 `protoRelationToString` 转换；unspecified 和未知枚举均映射为
+`other`。
 
 application 再调用 `domain.ParseRelation`，同样会把未知字符串降级为 `RelOther`。所以当前入口不存在“未知 relation 返回 InvalidArgument”的行为。
 
@@ -243,7 +245,8 @@ gRPC 支持两类 selector：
 - `profile_link_id`；
 - `user_id + profile_id`。
 
-ID selector 会先加载 ProfileLink，并显式拒绝 `nil` 或已 revoked 实体。Pair selector 通过 repository active-only 查询解析。两条路径都要求当前存在 active link。
+ID selector 会先加载 ProfileLink，并显式拒绝 `nil` 或已 revoked 实体。Pair selector 通过 repository active-only 查询解析。两条路径都要求当前存在 active
+link。
 
 ### 8.2 时序
 
@@ -302,7 +305,8 @@ sequenceDiagram
 | 系统侧 gRPC | `profilelink.Directory` | 按请求的 UserID/ProfileID 查询，不应用 REST 当前 User 限制 |
 | 当前用户 REST | `MyProfileLinks` | UserID 强制改为当前 User；按 Profile 查询前要求当前 User 有 active link |
 
-REST `include_revoked=true` 会使 `Active=false`，然后调用 `IncludingRevoked` 查询。兼容参数 `active=false` 也是“包含 revoked”，而不是“只返回 revoked”。
+REST `include_revoked=true` 会使 `Active=false`，然后调用 `IncludingRevoked` 查询。兼容参数 `active=false` 也是“包含 revoked”，而不是“只返回
+revoked”。
 
 ### 9.2 查询的组装代价
 

@@ -4,7 +4,8 @@
 
 ## 1. 结论
 
-Suggest 索引只存在于进程内，不写入文件。启动时先执行 Full refresh，成功后才启动 Cron。Full 与 Delta 共用一把非阻塞刷新锁：任务重叠时后到任务返回 `refresh_in_progress` 并立即结束，不堆积刷新 goroutine。
+Suggest 索引只存在于进程内，不写入文件。启动时先执行 Full refresh，成功后才启动 Cron。Full 与 Delta 共用一把非阻塞刷新锁：任务重叠时后到任务返回 `refresh_in_progress` 并立即结束，
+不堆积刷新 goroutine。
 
 ```text
 Full:  windowStart -> MySQL Full -> Runtime.Replace -> lastFetch=windowStart
@@ -36,7 +37,8 @@ sequenceDiagram
 
 Full 使用新 Store 原子替换当前指针；构建期间查询继续读取旧 Store。Delta 在当前 Store 的互斥区内撤销旧键，再导入 upsert 或删除 tombstone。
 
-两种更新的原子性不同：Full 是“构建新快照后换指针”，查询要么看到完整旧 Store、要么看到完整新 Store；Delta 是“在现有 Store 的写锁中逐项修改”，同一进程的查询不会看到某个 Profile 已删旧 name key 却尚未写新 key 的中间状态。Delta 不是跨 Profile 的数据库事务，但 Store 写锁使一次 ImportTerms 对并发查询整体不可见。
+两种更新的原子性不同：Full 是“构建新快照后换指针”，查询要么看到完整旧 Store、要么看到完整新 Store；Delta 是“在现有 Store 的写锁中逐项修改”，同一进程的查询不会看到某个 Profile 已删旧 name
+key 却尚未写新 key 的中间状态。Delta 不是跨 Profile 的数据库事务，但 Store 写锁使一次 ImportTerms 对并发查询整体不可见。
 
 ## 3. 游标不变量
 
@@ -47,7 +49,9 @@ Full 使用新 Store 原子替换当前指针；构建期间查询继续读取�
 - Loader 或 Runtime 更新失败时不推进游标。
 - 首次 Full 尚未成功时，Delta 直接结束。
 
-默认 Full/Delta 共用同一 eligibility：Profile 未软删除，至少一个 ProfileLink 未删除且 `revoked_at IS NULL`，关联 User 未软删除。Delta 的 affected set 覆盖 Profile、ProfileLink 和 User 的更新/删除；每个 affected Profile 都重新计算，仍有效时输出完整 upsert，最后一个有效关系失效时输出 `DisplayName` 为空的 tombstone。自定义 `full_sql/delta_sql` 必须承担相同 active-link、active-user 与 tombstone 协议。
+默认 Full/Delta 共用同一 eligibility：Profile 未软删除，至少一个 ProfileLink 未删除且 `revoked_at IS NULL`，关联 User 未软删除。Delta 的 affected set
+覆盖 Profile、ProfileLink 和 User 的更新/删除；每个 affected Profile 都重新计算，仍有效时输出完整 upsert，最后一个有效关系失效时输出 `DisplayName` 为空的
+tombstone。自定义 `full_sql/delta_sql` 必须承担相同 active-link、active-user 与 tombstone 协议。
 
 ## 4. 为什么游标保存查询开始时间
 
@@ -61,7 +65,8 @@ t0 -------- t1 -------- change X -------- t2
 
 代价是边界重叠与重复项。Store 的 upsert/remove 必须幂等：同一 Profile 重复出现时先撤销旧 keys，再写完整 term；同一 tombstone 重复出现也只会保持不存在。
 
-当前 SQL 使用 `>`，如果数据库时间精度不足、两个变更恰好等于 watermark，理论上仍可能存在边界风险。更强方案是使用数据库递增 change sequence、outbox offset，或 `(updated_at, primary_key)` 复合游标，而不是只依赖应用时钟。
+当前 SQL 使用 `>`，如果数据库时间精度不足、两个变更恰好等于 watermark，理论上仍可能存在边界风险。更强方案是使用数据库递增 change sequence、outbox offset，或
+`(updated_at, primary_key)` 复合游标，而不是只依赖应用时钟。
 
 ## 5. affected set 与重新计算
 
@@ -79,7 +84,8 @@ SELECT * FROM profiles WHERE updated_at > ?
 
 然后对每个 affected Profile 重新执行完整 eligibility 与聚合，输出新的 DisplayName、mobiles、owner 和 weight。这样手机号变化、关系撤销和用户删除都会改写同一个派生 term。
 
-为什么要“重新计算完整 term”而不是发送字段 patch：Store 同时维护 `terms`、Trie keys、Hash keys 和 `profileKeys` 反向索引。局部 patch 很容易漏删旧手机号/拼音 key；完整 replacement 可以统一执行 remove-old-keys + import-new-keys。
+为什么要“重新计算完整 term”而不是发送字段 patch：Store 同时维护 `terms`、Trie keys、Hash keys 和 `profileKeys` 反向索引。局部 patch 很容易漏删旧手机号/拼音 key；完整
+replacement 可以统一执行 remove-old-keys + import-new-keys。
 
 ## 6. tombstone 协议
 
@@ -101,7 +107,8 @@ tombstone 必须覆盖的不只是 Profile soft delete，还包括：
 
 若 Delta 只返回当前 eligible rows，消失的 Profile 不会产生任何行，旧索引就会永久保留。Full 能在下一次整体替换时修复，但两个 Full 之间会持续暴露幽灵候选。
 
-用空 DisplayName 作为 tombstone 简单，但把“真实空名称”与“删除”复用了一个字段。当前领域本身不会索引空名称；若未来允许匿名/空展示名，应该为 refresh item 增加显式 operation/type，而不是继续沿用隐式约定。
+用空 DisplayName 作为 tombstone 简单，但把“真实空名称”与“删除”复用了一个字段。当前领域本身不会索引空名称；若未来允许匿名/空展示名，应该为 refresh item 增加显式 operation/type，
+而不是继续沿用隐式约定。
 
 ## 7. Full 与 Delta 的取舍
 
@@ -149,7 +156,8 @@ Cleanup 先 cancel refresh context，再等待 cron stop。具体 SQL 是否能�
 | 刷新任务重叠 | 后到任务跳过并记录非错误状态 |
 | 后续 Cron 失败 | 记录不含候选数据的错误，继续使用当前索引 |
 
-“继续使用旧索引”是可用性选择，不是无风险降级。旧数据可能包含已经 revoke 的 ProfileLink；详情接口必须重新授权，且运维应对 index age/refresh failure 告警。当前 health 只知道是否至少成功过一次，尚不能执行基于 age SLA 的自动摘流。
+“继续使用旧索引”是可用性选择，不是无风险降级。旧数据可能包含已经 revoke 的 ProfileLink；详情接口必须重新授权，且运维应对 index age/refresh failure 告警。当前 health
+只知道是否至少成功过一次，尚不能执行基于 age SLA 的自动摘流。
 
 ## 11. 自定义 SQL 契约清单
 

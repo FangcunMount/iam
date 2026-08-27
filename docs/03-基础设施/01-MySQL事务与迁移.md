@@ -34,7 +34,8 @@ application use case
 
 ### 3.1 单仓储写入不等于业务事务
 
-注册可能同时创建 `User`、`LoginIdentity`、`Credential`；授权变更可能同时写角色绑定或权限事实、递增 `PolicyVersion`、暂存 Outbox 事件；封禁用户需要更新 `users` 并暂存 Session 吊销任务。
+注册可能同时创建 `User`、`LoginIdentity`、`Credential`；授权变更可能同时写角色绑定或权限事实、递增 `PolicyVersion`、暂存 Outbox 事件；封禁用户需要更新 `users` 并暂存
+Session 吊销任务。
 
 如果每个 repository 自己提交，失败会留下半成品：
 
@@ -76,7 +77,8 @@ Credential 未创建
 5. 回调返回 error 时回滚，nil 时提交；
 6. 可选 after-commit hook 只在提交成功后执行。
 
-这种做法避免在每个 repository 方法参数里传 `*gorm.DB`，但也带来一个重要约束：事务内代码必须沿用传入的 `txCtx`。错误地改用外层 `ctx`，repository 会退回普通 DB handle，事务原子性就会被绕开。
+这种做法避免在每个 repository 方法参数里传 `*gorm.DB`，但也带来一个重要约束：事务内代码必须沿用传入的 `txCtx`。错误地改用外层 `ctx`，repository 会退回普通 DB handle，
+事务原子性就会被绕开。
 
 `internal/pkg/architecture` 和 UoW 测试用于保护这条约束，但 code review 仍需检查 context 传递。
 
@@ -149,7 +151,8 @@ Repository 不应负责：
 
 ### 7.1 悲观锁的使用
 
-`UnlinkOwnedUnlessLastActive` 在 MySQL 中对用户的 LoginIdentity 集合加 `FOR UPDATE`，再计算 active 数量并更新目标。这把“不能解绑最后一个活跃登录身份”的检查和写入放在同一锁范围中。
+`UnlinkOwnedUnlessLastActive` 在 MySQL 中对用户的 LoginIdentity 集合加 `FOR UPDATE`，再计算 active 数量并更新目标。
+这把“不能解绑最后一个活跃登录身份”的检查和写入放在同一锁范围中。
 
 它没有只依靠下面这种竞态写法：
 
@@ -165,7 +168,8 @@ count active -> if count > 1 -> update
 
 ### 7.3 软删除与 active guard
 
-部分表使用软删除；普通唯一索引可能阻止“历史记录保留但允许重新创建”。当前迁移通过 generated active column/guard 将唯一性限定在 active 行。文档和 repository 查询必须同时说明是否包含已撤销/软删除记录。
+部分表使用软删除；普通唯一索引可能阻止“历史记录保留但允许重新创建”。当前迁移通过 generated active column/guard 将唯一性限定在 active 行。文档和 repository 查询必须同时说明是否包含已撤销/
+软删除记录。
 
 ## 8. 迁移机制
 
@@ -189,17 +193,31 @@ DatabaseManager.Initialize
 - up/down 必须成对，当前仓库事实门禁要求最新版本为 28；
 - 迁移失败会终止正常启动；MySQL 未配置时开发/显式 degraded 场景可跳过，但 release 模式随后会在资源/关键模块校验处 fail closed。
 
-`000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除 `children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
+`000019` 是单独授权的 Identity contract migration：只补齐而不覆盖 canonical `profiles/profile_links`，对账和数据库依赖检查全部通过后，才删除
+`children/guardianships`。它的 down 明确不可逆；生产回退依赖已验证备份，而不是重建空旧表。
 
-`000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收 `version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，已在生产验收 `version=22, dirty=0` 且三表不存在。`000023` 只退役已由 format v5 收敛的 `auth_accounts/auth_credentials_legacy`，先断言 canonical schema、数据映射与数据库对象依赖，再执行一条原子 DROP；生产已验收 `version=23, dirty=0` 且两表不存在，没有重新 merge 旧数据。`000024` 只退役四张一次性 seeddata 清理副本，要求两副本全字段一致、各 1,359 行、与 canonical ID 零重叠且无数据库依赖；不向 canonical 回填。destructive down 均 fail closed，恢复依赖发布前完整备份。
+`000020` 单独退役冗余的 `schema_version`，已在生产验收 `version=20, dirty=0` 且旧表不存在。`000021` 单独退役 `tenants/data_dictionary`，已在生产验收
+`version=21, dirty=0`。`000022` 只退役零行、无运行时读写适配器的 `operation_logs/audit_logs/auth_token_audit`，已在生产验收
+`version=22, dirty=0` 且三表不存在。`000023` 只退役已由 format v5 收敛的 `auth_accounts/auth_credentials_legacy`，先断言 canonical schema、
+数据映射与数据库对象依赖，再执行一条原子 DROP；生产已验收 `version=23, dirty=0` 且两表不存在，没有重新 merge 旧数据。`000024` 只退役四张一次性 seeddata 清理副本，要求两副本全字段一致、各
+1, 359 行、与 canonical ID 零重叠且无数据库依赖；不向 canonical 回填。destructive down 均 fail closed，恢复依赖发布前完整备份。
 
-`000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对 `(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复 active 事实，创建索引会 fail closed，不会自动删除授权数据。
+`000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对
+`(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复
+active 事实，创建索引会 fail closed，不会自动删除授权数据。
 
-`000026` 增加 `authz_permission_grants`、`authz_role_inheritances` 和资源属性 Schema；`000027` 在离线转换证据存在时不可逆删除 `casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds`。生产切换与发布后只读验收已证明 `version=27, dirty=0`、16 张 BASE TABLE 精确匹配以及三类旧对象缺失；一次性转换入口已经从仓库删除，历史 migration 继续保留以支持新库完整重放。
+`000026` 增加 `authz_permission_grants`、`authz_role_inheritances` 和资源属性 Schema；`000027` 在离线转换证据存在时不可逆删除 `casbin_rule`、
+`authz_cutover_state` 与 `authz_resources.scope_kinds`。生产切换与发布后只读验收已证明 `version=27, dirty=0`、16 张 BASE TABLE
+精确匹配以及三类旧对象缺失；一次性转换入口已经从仓库删除，历史 migration 继续保留以支持新库完整重放。
 
-`000028` 为 `auth_login_identities(provider, global_identifier)` 建立唯一索引。它先拒绝空白、未规范化或跨 User 冲突，再把同一 User 的历史重复值确定性收敛为一条 canonical 行；其他 realm 行保留但将该字段置为 NULL。该迁移不新增表。[发布前预检](https://github.com/FangcunMount/iam/actions/runs/32924963311) 证明非法行、跨 User 冲突和重复均为 0；[发布后状态](https://github.com/FangcunMount/iam/actions/runs/32925876593) 与[唯一性 guard](https://github.com/FangcunMount/iam/actions/runs/32926175510) 证明 `version=28, dirty=0`、16 张 BASE TABLE 且唯一索引计数为 1。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
+`000028` 为 `auth_login_identities(provider, global_identifier)` 建立唯一索引。它先拒绝空白、未规范化或跨 User 冲突，再把同一 User 的历史重复值确定性收敛为一条
+canonical 行；其他 realm 行保留但将该字段置为 NULL。该迁移不新增表。[发布前预检](https://github.com/FangcunMount/iam/actions/runs/32924963311)
+证明非法行、跨 User 冲突和重复均为 0；[发布后状态](https://github.com/FangcunMount/iam/actions/runs/32925876593) 与
+[唯一性 guard](https://github.com/FangcunMount/iam/actions/runs/32926175510) 证明 `version=28, dirty=0`、16 张 BASE TABLE
+且唯一索引计数为 1。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
 
-`internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
+`internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，不含
+DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
 
 ## 9. 为什么不采用其他方案
 

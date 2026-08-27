@@ -4,7 +4,8 @@
 
 ## 结论
 
-AuthZ 的责任是根据受信的 Subject、Tenant、Resource、Action 和最小 ObjectAttributes 做授权决策。它不负责证明调用者是谁，不拥有用户与登录身份，不拥有业务对象，也不自己决定查询数据的最终范围。
+AuthZ 的责任是根据受信的 Subject、Tenant、Resource、Action 和最小 ObjectAttributes 做授权决策。它不负责证明调用者是谁，不拥有用户与登录身份，不拥有业务对象，
+也不自己决定查询数据的最终范围。
 
 ```text
 AuthN       证明人/服务身份，产生 Principal
@@ -19,7 +20,7 @@ Suggest     组合 Principal + Capability + Identity 查询得到最终建议
 ## 事实拥有矩阵
 
 | 事实/能力 | 拥有模块 | AuthZ 如何使用 | 不允许的捷径 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 密码、验证码、外部登录、Session | AuthN | 不读取；只接收已验证 Principal | 用“登录成功”代替权限检查 |
 | User 存在性/状态 | Identity | Assignment 写入通过 User resolver 校验 | 在 AuthZ 复制 User 属性 |
 | Profile/ProfileLink | Identity | Suggest 根据 capability 选择查询范围 | 把 profile 所属关系长期写成 Role |
@@ -62,7 +63,8 @@ caller service: qs-apiserver.svc
 subject:        user:42
 ```
 
-caller service 决定能否调用 RPC、能否提交某个对象属性、能管理哪些 Assignment；Subject 则参与 Role/Grant 判定。用 Subject 字段伪造 caller service，或用 service identity 直接代替用户 Subject，都会混淆威胁边界。
+caller service 决定能否调用 RPC、能否提交某个对象属性、能管理哪些 Assignment；Subject 则参与 Role/Grant 判定。用 Subject 字段伪造 caller service，或用 service
+identity 直接代替用户 Subject，都会混淆威胁边界。
 
 ## Identity → AuthZ：存在性解析，不复制用户模型
 
@@ -145,7 +147,7 @@ PolicyVersion 事件不是给业务服务的权限 delta 流。外部服务不�
 ## 失败责任矩阵
 
 | 故障 | 首要负责模块 | 预期处理 |
-|---|---|---|
+| --- | --- | --- |
 | token 无效/过期/撤销 | AuthN | 认证失败，不进入 AuthZ |
 | User 不存在 | Identity + Assignment 写链 | 拒绝建立新 Assignment |
 | 无匹配 Grant | AuthZ | 正常 deny |

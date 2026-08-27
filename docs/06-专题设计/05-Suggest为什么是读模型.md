@@ -4,7 +4,8 @@
 
 ## 1. 30 秒结论
 
-Suggest 被设计成读模型，是因为 Profile 主数据的正确性和联想搜索的查询形态不同：Identity 负责 User、Profile、ProfileLink 的写入和不变量；Suggest 只派生适合姓名、拼音、ID、手机号匹配的索引，并按当前操作者范围返回脱敏候选。
+Suggest 被设计成读模型，是因为 Profile 主数据的正确性和联想搜索的查询形态不同：Identity 负责 User、Profile、ProfileLink 的写入和不变量；Suggest 只派生适合姓名、拼音、ID、
+手机号匹配的索引，并按当前操作者范围返回脱敏候选。
 
 ```text
 Identity facts -> ProfileSearchTerm -> process-local search index -> safe candidate

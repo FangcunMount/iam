@@ -36,7 +36,8 @@ AuthN SignUp
 - Identity REST 没有 User、Profile 或 ProfileLink 创建路由；
 - AuthN REST/gRPC signup 是另一条会产生 User 记录的跨模块链路，不能被忽略。
 
-最重要的一致性差异是：Identity `CreateUser` 会对非空 Phone 执行唯一性预检查；AuthN signup 会根据 LoginIdentity 复用 User，不按 Phone 复用，也不调用该 checker。数据库又没有 Phone 唯一键，所以“非空 Phone 全局唯一”并不是当前系统级保证。
+最重要的一致性差异是：Identity `CreateUser` 会对非空 Phone 执行唯一性预检查；AuthN signup 会根据 LoginIdentity 复用 User，不按 Phone 复用，也不调用该 checker。
+数据库又没有 Phone 唯一键，所以“非空 Phone 全局唯一”并不是当前系统级保证。
 
 ## 3. 问题背景
 
@@ -113,25 +114,25 @@ flowchart LR
 
 > 标签：设计决策 · 提交 `0d62d27d` 和当前测试可证明
 
-**解决的问题**
+#### 解决的问题
 
 允许“已有 IAM User，尚未建档”，并让建档流程区分本人和关系人。
 
-**选择**
+#### 选择
 
 `user.Creator.Create` 只构造和保存 User。Profile 必须由后续明确用例创建。
 
-**替代方案**
+#### 替代方案
 
 1. User 创建时自动创建空 self Profile；
 2. 将 User 资料直接当成 Profile；
 3. 对外只暴露固定的 User + self Profile 组合命令。
 
-**未采用原因**
+#### 未采用原因
 
 这些方案都默认注册信息足以建档，且首次 Profile 必然是 self，不符合当前允许关系人建档的模型。
 
-**代价与后果**
+#### 代价与后果
 
 调用方必须显式处理“无 self Profile”，也不能将 User 创建成功当成建档成功。
 
@@ -139,25 +140,25 @@ flowchart LR
 
 > 标签：设计决策 · 提交 `5dd54232`、`MyProfiles.Create` 和 Identity UOW 可证明
 
-**解决的问题**
+#### 解决的问题
 
 防止 Profile 成功落库、ProfileLink 创建失败后留下孤立档案。
 
-**选择**
+#### 选择
 
 `MyProfiles.Create` 使用同一个 Identity UnitOfWork 完成 Profile 和 ProfileLink 写入，并同时返回两个结果。
 
-**替代方案**
+#### 替代方案
 
 1. 暴露 standalone `CreateProfile` 和 `EstablishProfileLink`，由调用方编排；
 2. 先建 Profile，链接失败后删除或异步补偿；
 3. 允许孤立 Profile，由后续归属任务处理。
 
-**未采用原因**
+#### 未采用原因
 
 当前建档语义已经知道 User 和 relation，没有必要为一个本地 MySQL 可原子完成的写入引入孤立状态和补偿机制。
 
-**代价与后果**
+#### 代价与后果
 
 如果未来出现“先批量导入档案，之后再建立归属”的需求，应新增专门用例和孤立数据治理，而不是把当前组合用例拆散。
 
@@ -165,21 +166,22 @@ flowchart LR
 
 > 标签：设计决策 · 提交 `5dd54232`、当前 router 和 proto 可证明
 
-**解决的问题**
+#### 解决的问题
 
 区分面向当前登录用户的自助查改，与受信内部服务的身份创建和编排。
 
-**选择**
+#### 选择
 
-Identity REST 仅保留 `/identity/me`、Profile 和 ProfileLink 查改；Identity 创建 User/Profile 只位于 gRPC `IdentityLifecycle` 和 `ProfileCommand`。
+Identity REST 仅保留 `/identity/me`、Profile 和 ProfileLink 查改；Identity 创建 User/Profile 只位于 gRPC `IdentityLifecycle` 和
+`ProfileCommand`。
 
-**替代方案**
+#### 替代方案
 
 - REST 和 gRPC 暴露完全对称的写入能力；
 - 客户端直接调用 application；
 - 所有写入都收敛到 AuthN signup。
 
-**代价与后果**
+#### 代价与后果
 
 能力不对称降低了外部写入面，但接入方和文档必须明确区分 Identity API 与 AuthN signup，不能从 application 已有类型推导 REST 也有同名路由。
 
@@ -187,27 +189,29 @@ Identity REST 仅保留 `/identity/me`、Profile 和 ProfileLink 查改；Identi
 
 > 标签：设计决策 · AuthN UOW、signup steps 和契约测试可证明
 
-**解决的问题**
+#### 解决的问题
 
 避免创建 User 后 LoginIdentity/Credential 失败，或 LoginIdentity 成功后 User 不存在的半完成账号。
 
-**选择**
+#### 选择
 
-AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN LoginIdentity 和 Credential repository ports。signup 先按 LoginIdentity provider key 解析 User，未命中时创建 User，再确保 LoginIdentity/Credential。
+AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN LoginIdentity 和 Credential repository ports。signup 先按
+LoginIdentity provider key 解析 User，未命中时创建 User，再确保 LoginIdentity/Credential。
 
-**替代方案**
+#### 替代方案
 
 1. AuthN 先调用 Identity gRPC，再开始 AuthN 本地事务；
 2. 通过事件异步创建 User 或 LoginIdentity；
 3. 允许部分成功并建立补偿工作流。
 
-**未采用原因**
+#### 未采用原因
 
 当前三类记录使用同一 MySQL 事务基础，可直接获得原子性；分布式调用或异步补偿会增加中间状态和运维成本。
 
-**边界代价**
+#### 边界代价
 
-AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，不应扩展成 AuthN 可以任意编辑 User/Profile/ProfileLink。
+AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，不应扩展成
+AuthN 可以任意编辑 User/Profile/ProfileLink。
 
 ### 6.5 决策 E：唯一性使用“业务预检查 + DB 兜底”
 
@@ -317,11 +321,14 @@ sequenceDiagram
 4. 没有命中 LoginIdentity 时创建新 User；
 5. 不会仅因 Phone 相同就复用旧 User。
 
-测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，但也意味着 Phone 在这条链路中不是用户合并键。
+测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，但也意味着
+Phone 在这条链路中不是用户合并键。
 
 ### 8.3 当前一致性边界
 
-AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有复用 Identity `user.Creator` 的友好预检查；最终并发一致性由 `users.active_phone` 生成列和 `uk_users_active_phone` 唯一索引保证。同 Phone 不能经由不同 LoginIdentity 创建多个活跃 User，数据库冲突统一映射为现有 `ErrUserAlreadyExists`。
+AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有复用 Identity `user.Creator` 的友好预检查；最终并发一致性由
+`users.active_phone` 生成列和 `uk_users_active_phone` 唯一索引保证。同 Phone 不能经由不同 LoginIdentity 创建多个活跃 User，数据库冲突统一映射为现有
+`ErrUserAlreadyExists`。
 
 Phone 仍不是账号自动合并键：signup 不会仅凭 Phone 把新 LoginIdentity 绑定到旧 User；唯一索引只负责拒绝重复活跃手机号，不执行隐式账号合并。软删除 User 后，该手机号可被重新使用。
 

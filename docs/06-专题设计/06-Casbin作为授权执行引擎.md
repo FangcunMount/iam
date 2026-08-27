@@ -11,7 +11,8 @@
 | Casbin role manager | 装载 Subject→Role 的 Assignment 与 Role→Role 的继承边，计算有效 Role |
 | transport/application | 建立可信 Subject/Tenant/Resource/Action/ObjectAttributes |
 
-Assignment 与角色继承组成一个成熟、封闭的图计算问题，保留 Casbin role manager 可以复用其 domain-aware 关系和继承闭包能力。PermissionGrant 条件则是 IAM 自己的版本化契约，需要类型、Schema、错误码、审计标识和快照模式，适合由领域与原生 runtime 显式实现。
+Assignment 与角色继承组成一个成熟、封闭的图计算问题，保留 Casbin role manager 可以复用其 domain-aware 关系和继承闭包能力。PermissionGrant 条件则是 IAM 自己的版本化契约，
+需要类型、Schema、错误码、审计标识和快照模式，适合由领域与原生 runtime 显式实现。
 
 ## 2. 为什么不再让 Casbin 执行权限规则
 
@@ -39,6 +40,7 @@ role closure
 
 ## 4. 演进约束
 
-当前只支持 allow-only、对象属性、`EQ` 和 Grant 内 AND。若将来增加运算符或属性类型，应扩展版本化 ConstraintSet 和兼容测试，而不是把条件塞回字符串 matcher。主体属性、环境属性和业务关系是否进入 IAM，必须分别评估事实所有权、新鲜度、可重放性和故障语义。
+当前只支持 allow-only、对象属性、`EQ` 和 Grant 内 AND。若将来增加运算符或属性类型，应扩展版本化 ConstraintSet 和兼容测试，而不是把条件塞回字符串 matcher。主体属性、环境属性和业务关系是否进入
+IAM，必须分别评估事实所有权、新鲜度、可重放性和故障语义。
 
 若将来删除 Casbin，必须先提供 Assignment 与 RoleInheritance 的等价图实现，并覆盖多层继承、循环拒绝、Tenant 隔离和 reload 原子性；“权限规则已由原生 runtime 执行”本身不是删除依据。

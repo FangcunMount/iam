@@ -30,7 +30,8 @@ AuthN 当前会读取/写入 User，主要发生在：
 
 ### Session 状态不是 User 状态
 
-User blocked 后已有 Session 可能尚在 Redis；Session revoke 是派生收敛动作。在线 Verify 还会重新检查 User/LoginIdentity 状态，因此即使异步批量撤销尚未完成，也不应仅凭 Session active 放行。
+User blocked 后已有 Session 可能尚在 Redis；Session revoke 是派生收敛动作。在线 Verify 还会重新检查 User/LoginIdentity 状态，因此即使异步批量撤销尚未完成，也不应仅凭
+Session active 放行。
 
 ### 禁止的耦合
 
@@ -41,7 +42,8 @@ User blocked 后已有 Session 可能尚在 Redis；Session revoke 是派生收�
 
 ## 3. AuthN 与 IDP
 
-IDP 管理 provider 应用配置、AppSecret 和 provider AppToken，并通过窄 `ExternalIdentity Resolver` 完成应用查询、密钥解密和 code exchange。AuthN 只提交 provider/realm/code、消费标准结果，再决定这个外部身份用于 Login、Linking 还是 SignUp。
+IDP 管理 provider 应用配置、AppSecret 和 provider AppToken，并通过窄 `ExternalIdentity Resolver` 完成应用查询、密钥解密和 code exchange。AuthN 只提交
+provider/realm/code、消费标准结果，再决定这个外部身份用于 Login、Linking 还是 SignUp。
 
 | IDP 概念 | AuthN 概念 | 为什么不同 |
 | --- | --- | --- |
@@ -55,7 +57,8 @@ IDP 管理 provider 应用配置、AppSecret 和 provider AppToken，并通过�
 
 ### 信任边界
 
-公共 REST SignUp 只接受 appID + jsCode，由 IDP Resolver 查配置、解密 AppSecret 并调用 provider；它不应直接信任调用方提供的 openid。应用层内部保留的预解析 openid/unionid 分支标记为请求内 `TrustedLegacyInput`，不会伪装为 provider 已验证结果，也不进入公共协议、数据库 Metadata 或 `VerifiedAt`。
+公共 REST SignUp 只接受 appID + jsCode，由 IDP Resolver 查配置、解密 AppSecret 并调用 provider；它不应直接信任调用方提供的 openid。应用层内部保留的预解析
+openid/unionid 分支标记为请求内 `TrustedLegacyInput`，不会伪装为 provider 已验证结果，也不进入公共协议、数据库 Metadata 或 `VerifiedAt`。
 
 ## 4. AuthN 与 AuthZ
 
@@ -84,7 +87,8 @@ AND AuthZ resource check
 
 ## 5. AuthN 与 Suggest
 
-Suggest 从 JWT 上下文读取 user/tenant/org，构造最小 `OperatingPrincipal`，再通过 AuthZ/visibility 解析可见范围。它不读取 Credential、Challenge、Session 或 provider secret。
+Suggest 从 JWT 上下文读取 user/tenant/org，构造最小 `OperatingPrincipal`，再通过 AuthZ/visibility 解析可见范围。它不读取 Credential、Challenge、
+Session 或 provider secret。
 
 AuthN 只负责让请求上下文拥有可信身份；Suggest 自己负责关键词安全、scope 过滤和手机号脱敏。
 
@@ -96,7 +100,8 @@ AuthN 只负责让请求上下文拥有可信身份；Suggest 自己负责关键
 
 ### 同步端口
 
-用于当前请求必须拿到结果的能力，例如 AuthN 调 IDP provider adapter 解析 code、AdmissionPolicy 通过 `UserStatusReader` 读取 User 状态。端口暴露业务结果，不暴露具体 SDK/GORM。
+用于当前请求必须拿到结果的能力，例如 AuthN 调 IDP provider adapter 解析 code、AdmissionPolicy 通过 `UserStatusReader` 读取 User 状态。端口暴露业务结果，不暴露具体
+SDK/GORM。
 
 ### Outbox/event
 

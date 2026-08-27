@@ -38,7 +38,8 @@ Provider app / secret / provider token
 
 - domain：`internal/apiserver/domain/idp/wechatapp`
 - application：`internal/apiserver/application/idp`
-- persistence/cache/crypto：`internal/apiserver/infra/mysql/wechatapp`、`internal/apiserver/infra/cache/redis`、`internal/apiserver/infra/crypto`
+- persistence/cache/crypto：`internal/apiserver/infra/mysql/wechatapp`、`internal/apiserver/infra/cache/redis`、
+  `internal/apiserver/infra/crypto`
 - provider adapters：`internal/apiserver/infra/wechat`、`internal/apiserver/infra/wechatapi`
 - composition：`internal/apiserver/container/idp`
 

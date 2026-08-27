@@ -417,7 +417,8 @@ OTP 通常不是长期 Credential；
 OTP 登录是否允许自动 Onboarding，必须由上层用例明确。
 ```
 
-同一 SMS Challenge 默认最多允许 5 次错误验证。错误次数与 Challenge 的当前 `SecretHash` 版本绑定：Challenge 被覆盖后，旧 verifier 不能消耗或累计到新 Challenge；达到上限时 Challenge 与尝试记录原子删除。Redis 异常时验证 fail closed。该机制不是 IP/device 限流，外围暴力流量仍由 ingress/WAF 治理。
+同一 SMS Challenge 默认最多允许 5 次错误验证。错误次数与 Challenge 的当前 `SecretHash` 版本绑定：Challenge 被覆盖后，旧 verifier 不能消耗或累计到新 Challenge；
+达到上限时 Challenge 与尝试记录原子删除。Redis 异常时验证 fail closed。该机制不是 IP/device 限流，外围暴力流量仍由 ingress/WAF 治理。
 
 ---
 
@@ -502,7 +503,8 @@ User 是否 inactive；
 User 是否 blocked。
 ```
 
-当前 SignIn 在 proof 验证和 Credential 状态记录之后、创建 Session/Token 之前统一执行 `AdmissionPolicy`。`blocked User`、`inactive User`、`disabled LoginIdentity` 和状态查询错误都禁止调用 `SessionEstablisher`；Refresh 和在线 Verify 复用同一错误映射。
+当前 SignIn 在 proof 验证和 Credential 状态记录之后、创建 Session/Token 之前统一执行 `AdmissionPolicy`。`blocked User`、`inactive User`、
+`disabled LoginIdentity` 和状态查询错误都禁止调用 `SessionEstablisher`；Refresh 和在线 Verify 复用同一错误映射。
 
 边界：
 

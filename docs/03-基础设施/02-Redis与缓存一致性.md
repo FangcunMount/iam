@@ -12,7 +12,8 @@
 
 ## 2. 30 秒结论
 
-IAM 不是把 Redis 当成一个泛化 `map[string]any`，而是先登记 13 个稳定 cache family，再为每个 family 明确：owner、key pattern、数据角色、Redis 类型、编码、TTL 来源、写入和失效方式。其中 Suggest 的 Redis/进程内限流是互斥可选 family，治理面只把实际启用的后端计入运行状态。
+IAM 不是把 Redis 当成一个泛化 `map[string]any`，而是先登记 13 个稳定 cache family，再为每个 family 明确：owner、key pattern、数据角色、Redis 类型、编码、TTL
+来源、写入和失效方式。其中 Suggest 的 Redis/进程内限流是互斥可选 family，治理面只把实际启用的后端计入运行状态。
 
 最关键的区分是：
 
@@ -103,7 +104,8 @@ Challenge 成功消费也用 compare-and-delete Lua；失败次数脚本只给�
 
 ### 6.3 WATCH
 
-Session revoke/extend 要读取对象、判断状态、修改 payload 并维护索引，逻辑比简单 compare-and-delete 更复杂，因此使用 WATCH + retry。版本冲突最多重试 5 次，并线性 backoff；耗尽后返回明确 optimistic transaction conflict。
+Session revoke/extend 要读取对象、判断状态、修改 payload 并维护索引，逻辑比简单 compare-and-delete 更复杂，因此使用 WATCH + retry。版本冲突最多重试 5 次，并线性
+backoff；耗尽后返回明确 optimistic transaction conflict。
 
 ## 7. Session 主对象与索引一致性
 
@@ -147,7 +149,8 @@ commit
 
 这选择了最终一致性，而不是在数据库事务内直接调用 Redis。原因：Redis 成功后 MySQL 回滚会误杀会话；Redis 失败又会让数据库事务无法可靠补偿。
 
-登录、refresh 和在线 verify 同时执行 `AdmissionPolicy`，通过 Identity 的 `UserStatusReader` 与 AuthN 的 LoginIdentity Repository 读取当前状态。这是“异步吊销窗口”内的同步安全门；revocation worker 负责清理存量 Session。
+登录、refresh 和在线 verify 同时执行 `AdmissionPolicy`，通过 Identity 的 `UserStatusReader` 与 AuthN 的 LoginIdentity Repository 读取当前状态。
+这是“异步吊销窗口”内的同步安全门；revocation worker 负责清理存量 Session。
 
 ## 9. IDP access token 的防击穿
 

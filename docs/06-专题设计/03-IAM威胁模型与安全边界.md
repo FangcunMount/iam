@@ -115,7 +115,8 @@ Envelope encryption/KMS 的价值是把“能读数据库”和“能解密 secr
 - route/object mismatch：路由 capability 通过后未加载对象并执行所需的 ObjectAttribute Check；
 - service credential compromise：可信服务 token 被用于越权管理 RPC。
 
-控制包括可信上下文构造、default deny、PermissionGrant/Resource Schema 校验、per-instance broadcast/reload health、mTLS+service auth+ACL 和敏感操作对象级 Check。
+控制包括可信上下文构造、default deny、PermissionGrant/Resource Schema 校验、per-instance broadcast/reload health、mTLS + service auth +
+ACL 和敏感操作对象级 Check。
 
 ### 6.1 Confused deputy 的完整路径
 
@@ -127,13 +128,15 @@ Envelope encryption/KMS 的价值是把“能读数据库”和“能解密 secr
   -> 原生 runtime 对这组伪造输入正确返回 allow
 ```
 
-因此值对象格式合法远远不够。Subject 来自 Principal/service identity，Tenant 来自可信绑定，Resource/Action 来自服务端注册表，对象属性来自服务端已加载的领域对象。这些构造点都属于授权机制的一部分。
+因此值对象格式合法远远不够。Subject 来自 Principal/service identity，Tenant 来自可信绑定，Resource/Action 来自服务端注册表，对象属性来自服务端已加载的领域对象。
+这些构造点都属于授权机制的一部分。
 
 ### 6.2 撤权比赋权更危险
 
 grant 传播慢通常造成暂时拒绝；revoke 传播慢可能继续放行。对二者使用相同“最终一致即可”的 SLO 会低估风险。
 
-当前通过 durable outbox、每实例 channel、reload health/readiness 收敛，但没有 per-tenant loaded-version barrier。因此应急撤权仍需结合摘流量、在线确认或更强栅栏，不能仅依据写接口 200 响应。
+当前通过 durable outbox、每实例 channel、reload health/readiness 收敛，但没有 per-tenant loaded-version barrier。因此应急撤权仍需结合摘流量、
+在线确认或更强栅栏，不能仅依据写接口 200 响应。
 
 ## 7. 数据泄漏威胁
 
@@ -193,7 +196,8 @@ Suggest 内存含手机号，日志过去可能包含 token/SQL，备份含完�
 
 审计需要 actor、action、resource、tenant、request ID、结果和时间；隐私要求不收集秘密、最小化个人数据、限制保留。好的审计记录“发生了什么”，不是复制整个请求/响应。
 
-对 Grant/Revoke、credential rotation、session revoke、database restore 等高风险动作，还需记录 change reason、批准/操作者和事实版本，但不能把 secret/token 或完整 SQL 作为证据。
+对 Grant/Revoke、credential rotation、session revoke、database restore 等高风险动作，还需记录 change reason、批准/操作者和事实版本，但不能把
+secret/token 或完整 SQL 作为证据。
 
 ### 9.1 审计事实与普通日志
 
@@ -239,11 +243,13 @@ Suggest 内存含手机号，日志过去可能包含 token/SQL，备份含完�
 
 ### AuthZ revoke 后仍被允许
 
-按 `committed -> published -> delivered -> loaded -> checked` 逐层定位，不能只重复写 revoke。需要确认命中的实例/channel、reload error/time、实际 matcher input 和 Decision matched policy。
+按 `committed -> published -> delivered -> loaded -> checked` 逐层定位，不能只重复写 revoke。需要确认命中的实例/ channel、reload error/time、实际
+matcher input 和 Decision matched policy。
 
 ### provider AppSecret 轮换后调用失败
 
-同时检查数据库密文、master key 解密、provider 端新 secret、Redis AppToken 和 cache invalidation。当前单槽轮换没有 previous-secret grace，回滚与缓存策略必须由运维显式控制。
+同时检查数据库密文、master key 解密、provider 端新 secret、Redis AppToken 和 cache invalidation。当前单槽轮换没有 previous-secret grace，
+回滚与缓存策略必须由运维显式控制。
 
 ## 13. 面试追问
 

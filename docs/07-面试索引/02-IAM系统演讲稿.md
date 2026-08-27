@@ -144,7 +144,8 @@ IAM AuthZ 判断：
 
 > IAM 统一的是身份锚点、认证证明和访问授权；业务系统仍然拥有自己的领域对象、业务关系和专业规则。
 
-事实依据：[Identity 领域模型](../02-业务模块/01-Identity/01-领域模型-User-Profile-ProfileLink.md) · [身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md)
+事实依据：[Identity 领域模型](../02-业务模块/01-Identity/01-领域模型-User-Profile-ProfileLink.md) ·
+[身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md)
 
 ---
 
@@ -218,7 +219,8 @@ Principal  = AuthN 对本次认证结果的表达
 Subject    = AuthZ 用于赋权和判定的主体引用
 ```
 
-AuthN 不会把 `Principal` 领域对象直接交给 AuthZ。资源服务在认证完成后从可信请求上下文取得 `UserID / TenantID`，再以 Identity User 为锚点构造 AuthZ Subject。因此 AuthN 和 AuthZ 不直接关联彼此的领域模型，二者都以 Identity User 为稳定桥梁。
+AuthN 不会把 `Principal` 领域对象直接交给 AuthZ。资源服务在认证完成后从可信请求上下文取得 `UserID / TenantID`，再以 Identity User 为锚点构造 AuthZ Subject。因此
+AuthN 和 AuthZ 不直接关联彼此的领域模型，二者都以 Identity User 为稳定桥梁。
 
 两个关键不变量已经落到实现：
 
@@ -291,7 +293,8 @@ Application / Domain
 - AuthN 不直接读取 Identity User Repository，只通过 `UserStatusReader` 判断 User 状态；
 - AuthZ 不直接读取 Identity User Repository，只通过 `UserResolver` 校验 User Subject；
 - Identity 撤销用户时不需要操作 AuthN 的 Session Repository，只需要调用 `SessionRevoker`；
-- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或原生快照实现，只通过窄的 `RouteAuthorization` 对 `profiles/search`、平台 `profiles/list` 和 `profiles/search_by_mobile` 等 Resource/Action capability 求值查询范围，不依赖角色名特例。
+- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或原生快照实现，只通过窄的 `RouteAuthorization` 对 `profiles/search`、平台
+  `profiles/list` 和 `profiles/search_by_mobile` 等 Resource/Action capability 求值查询范围，不依赖角色名特例。
 
 AuthN 和 AuthZ 也不需要建立领域模型直连：
 
@@ -334,7 +337,8 @@ cmd / app
   -> 注册优雅关闭回调
 ```
 
-Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部角色图使用 Casbin role manager）和 Suggest Runtime 装配给对应模块，但不执行认证、授权或身份关系等业务用例。
+Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部角色图使用 Casbin role manager）和 Suggest
+Runtime 装配给对应模块，但不执行认证、授权或身份关系等业务用例。
 
 > Process 管理进程生命周期，Container 只负责组装系统；它们都不应该成为新的业务模块。
 
@@ -401,7 +405,8 @@ Architecture Tests   -> 防止边界在演进中漂移
 
 IAM 面向多个拥有不同业务身份和业务对象的系统，提供统一身份锚点、可信认证和访问授权。它不接管 Doctor、Patient、Teacher 或 Testee 等业务对象，也不取代诊疗、教学和测评领域规则。
 
-在系统内部，IAM 按业务问题划分 Identity、AuthN、AuthZ、IDP 和 Suggest，使用 Ports & Adapters 保护模块内部，通过窄能力表达模块协作，最后由 Process 和 Container 组装为一个模块化单体。
+在系统内部，IAM 按业务问题划分 Identity、AuthN、AuthZ、IDP 和 Suggest，使用 Ports & Adapters 保护模块内部，通过窄能力表达模块协作，最后由 Process 和 Container
+组装为一个模块化单体。
 
 > IAM 的价值不在于接口数量，而在于让业务边界、代码依赖和运行时装配保持一致。
 

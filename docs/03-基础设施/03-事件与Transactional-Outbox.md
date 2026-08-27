@@ -26,7 +26,8 @@ durable_outbox
   -> MQ subscriber
 ```
 
-当前 `iam.authz.version_changed` 使用 durable outbox；`iam.login_otp_sms` 使用 best effort。代码会拒绝把 durable event 直接交给普通 publisher，也会拒绝把 best-effort event 写入 outbox，从机制上避免调用者选错通道。
+当前 `iam.authz.version_changed` 使用 durable outbox；`iam.login_otp_sms` 使用 best effort。代码会拒绝把 durable event 直接交给普通
+publisher，也会拒绝把 best-effort event 写入 outbox，从机制上避免调用者选错通道。
 
 ## 3. 为什么需要事件目录
 
@@ -39,7 +40,8 @@ durable_outbox
 
 启动时 `platform.InitEventing` 加载目录。目录缺失或事件引用不存在 topic 会初始化失败；`docs-facts` 也会静态校验配置内部引用。
 
-事件目录不是 schema registry：当前 payload 仍由 Go struct/map + JSON codec 定义，没有独立版本化 schema。修改 payload 时需要同时检查 producer、consumer、兼容窗口和重放数据。
+事件目录不是 schema registry：当前 payload 仍由 Go struct/map + JSON codec 定义，没有独立版本化 schema。修改 payload 时需要同时检查 producer、consumer、
+兼容窗口和重放数据。
 
 ## 4. 为什么数据库事务里不能直接发 MQ
 
@@ -162,7 +164,8 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 
 ## 9. AuthZ 原生 runtime 与事件的关系
 
-数据库中的 Assignment、RoleInheritance、PermissionGrant 和 Resource Schema 是授权事实源，不可变 runtime snapshot 是进程内判定快照。事件不是授权事实，只是“请重新加载”的协调信号。
+数据库中的 Assignment、RoleInheritance、PermissionGrant 和 Resource Schema 是授权事实源，不可变 runtime snapshot 是进程内判定快照。事件不是授权事实，
+只是“请重新加载”的协调信号。
 
 这带来两个重要结论：
 

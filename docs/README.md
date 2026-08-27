@@ -117,7 +117,8 @@ docs/
 
 ### 4.4 面试与架构评审
 
-先用 [面试索引](07-面试索引/README.md) 选择可公开的结论和个人贡献口径，以 [IAM 系统演讲稿](07-面试索引/02-IAM系统演讲稿.md) 作为现场展示页面，再用 [IAM 系统演讲底稿](07-面试索引/01-IAM系统演讲底稿.md) 练习 90 秒、5 分钟和 15 分钟讲述，最后回到模块正文与专题验证细节：
+先用 [面试索引](07-面试索引/README.md) 选择可公开的结论和个人贡献口径，以 [IAM 系统演讲稿](07-面试索引/02-IAM系统演讲稿.md) 作为现场展示页面，再用
+[IAM 系统演讲底稿](07-面试索引/01-IAM系统演讲底稿.md) 练习 90 秒、5 分钟和 15 分钟讲述，最后回到模块正文与专题验证细节：
 
 1. [身份、认证与授权边界](06-专题设计/01-身份认证与授权边界.md)
 2. [事务、缓存与事件的一致性谱系](06-专题设计/02-事务缓存与事件一致性.md)
@@ -192,7 +193,8 @@ make docs-hygiene
 make docs-facts
 ```
 
-这两个门禁分别检查链接/路径/结构和已编码的关键事实，但不证明全部业务语义。按改动范围继续运行 module tests、architecture tests、contract validation、SDK compile、MySQL/Redis integration，以及 staging/production observation；每类证据分别报告。
+这两个门禁分别检查链接/路径/结构和已编码的关键事实，但不证明全部业务语义。按改动范围继续运行 module tests、architecture tests、contract validation、SDK compile、
+MySQL/Redis integration，以及 staging/production observation；每类证据分别报告。
 
 ## 9. 当前必须诚实保留的边界
 

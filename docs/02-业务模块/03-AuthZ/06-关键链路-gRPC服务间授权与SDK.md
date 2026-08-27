@@ -15,18 +15,20 @@ REST v3 不提供 Check。外部业务服务不应下载 Role/Grant 后自行实
 ## RPC 契约矩阵
 
 | RPC | 类型 | 输入核心 | 输出核心 | 额外授权 |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `Check` | 读/判定 | subject、domain、resource、action、optional object context | allowed、reason、matched evidence、policy version | service identity + method ACL + attribute trust whitelist |
 | `GetAuthorizationSnapshot` | 读/视图 | subject、domain、app_name | effective roles、direct roles、permissions、version | service identity + method ACL |
 | `GrantAssignment` | 增量写 | subject、domain、role_name、granted_by | policy version | service identity + method ACL + Assignment constraints |
 | `RevokeAssignment` | 增量写 | subject、domain、role_name、revoked_by/reason | policy version | 同上 |
 | `ReplaceManagedAssignments` | 集合写 | subject、domain、role_names、changed_by/reason | managed target subset、version、changed | service identity + method ACL + explicit managed role set |
 
-proto `api/grpc/iam/authz/v3/authz.proto` 是 RPC 名、字段号、枚举值与响应形状的机器真相源。`api/grpc/README.md` 与 `pkg/sdk/docs/06-authz.md` 只做使用说明，不能重新定义契约。
+proto `api/grpc/iam/authz/v3/authz.proto` 是 RPC 名、字段号、枚举值与响应形状的机器真相源。`api/grpc/README.md` 与 `pkg/sdk/docs/06-authz.md`
+只做使用说明，不能重新定义契约。
 
 ## 服务身份是所有 RPC 的前置条件
 
-AuthorizationService 的五个 RPC 都调用 `requireServiceIdentity`。transport 只信任 gRPC interceptor 写入 context 的 service identity，不接受 request body 中的 caller name 代替认证结果。
+AuthorizationService 的五个 RPC 都调用 `requireServiceIdentity`。transport 只信任 gRPC interceptor 写入 context 的 service identity，
+不接受 request body 中的 caller name 代替认证结果。
 
 信任链可拆为：
 
@@ -92,7 +94,7 @@ attribute_key  = object.origin_type
 ### 响应解释
 
 | 字段 | 意义 |
-|---|---|
+| --- | --- |
 | `allowed` | 最终 allow/deny |
 | `reason` | `ALLOWED`、`NOT_MATCHED` 或 `ATTRIBUTE_MISSING` |
 | `deny_code` | 稳定的 deny 机器代码 |
@@ -121,7 +123,8 @@ SDK 提供两个方便方法：
 - `permissions`：指定 app 下去重合并的 Resource/Action 与 mode。
 - `policy_version`：当前快照的 Tenant version。
 
-`UNCONDITIONAL` 表示存在至少一条无条件 Grant；`OBJECT_CHECK_REQUIRED` 表示所有候选 Grant 都需具体对象检查。快照不包含某个具体对象的最终 allow，所以 UI/服务不能把 `OBJECT_CHECK_REQUIRED` 当成已授权。
+`UNCONDITIONAL` 表示存在至少一条无条件 Grant；`OBJECT_CHECK_REQUIRED` 表示所有候选 Grant 都需具体对象检查。快照不包含某个具体对象的最终 allow，所以 UI/服务不能把
+`OBJECT_CHECK_REQUIRED` 当成已授权。
 
 编辑 Assignment 只能使用 `direct_roles`。如果把 `roles` 整体回写，会把 inherited role 物化为新 Assignment。
 
@@ -136,7 +139,8 @@ method ACL
   -> application/domain/UoW
 ```
 
-`configs/grpc_assignment_constraints.yaml` 当前对 `qs-apiserver.svc` 允许 `fangcun` domain、`user` Subject 类型与明确的 `qs:*` Role 集合，并要求 Grant 携带 delegated actor。
+`configs/grpc_assignment_constraints.yaml` 当前对 `qs-apiserver.svc` 允许 `fangcun` domain、`user` Subject 类型与明确的 `qs:*` Role
+集合，并要求 Grant 携带 delegated actor。
 
 constraints 缺失时的当前行为不对称：
 
@@ -147,7 +151,8 @@ constraints 缺失时的当前行为不对称：
 
 ### 为什么 `admin allow_all` 不能直接 Replace
 
-Replace 不是“我能改 Assignment”这一个 bool 问题，而是必须得到调用方拥有的具体 Role 子集 M。无边界 `allow_all` 无法表达“哪些 Assignment 属于该调用方管理”，因此 replacement authorizer 要求显式 roles，不接受 allow-all 等价扩张。
+Replace 不是“我能改 Assignment”这一个 bool 问题，而是必须得到调用方拥有的具体 Role 子集 M。无边界 `allow_all` 无法表达“哪些 Assignment 属于该调用方管理”，因此
+replacement authorizer 要求显式 roles，不接受 allow-all 等价扩张。
 
 ## `ReplaceManagedAssignments` 响应的精确语义
 
@@ -181,7 +186,7 @@ Replace 不是“我能改 Assignment”这一个 bool 问题，而是必须得�
 ## 错误分层
 
 | 层 | 典型错误 | 调用方应如何理解 |
-|---|---|---|
+| --- | --- | --- |
 | 传输认证 | 缺 service identity | 调用凭据/拦截器配置错误 |
 | 方法 ACL | caller 无权调 RPC | 服务能力配置错误或未授权 |
 | 输入合同 | Subject/Resource/attribute 格式错 | 调用方 bug，不宜盲目重试 |
@@ -198,7 +203,8 @@ native runtime 统计 Check allowed/denied/error 和延迟；Assignment transpor
 iam_grpc_assignment_authorization_total{service,operation,result}
 ```
 
-`result` 区分 allowed/denied/failed。denied 表示明确不允许，failed 表示 authorizer/config 自身错误。这个指标不证明后续事务已提交，所以不能将 allowed 计数直接当作 Assignment 变更成功数。
+`result` 区分 allowed/denied/failed。denied 表示明确不允许，failed 表示 authorizer/config 自身错误。这个指标不证明后续事务已提交，所以不能将 allowed 计数直接当作
+Assignment 变更成功数。
 
 ## 验证证据
 

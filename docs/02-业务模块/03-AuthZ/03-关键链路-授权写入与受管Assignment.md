@@ -4,7 +4,8 @@
 
 ## 结论
 
-AuthZ 写入遵循同一条提交链：校验领域不变量，在 Unit of Work 内写业务事实、递增策略版本并写 Outbox，提交后 reload 当前实例。Assignment 同时提供增量 Grant/Revoke 与“只替换受管集合”的批量接口。
+AuthZ 写入遵循同一条提交链：校验领域不变量，在 Unit of Work 内写业务事实、递增策略版本并写 Outbox，提交后 reload 当前实例。Assignment 同时提供增量 Grant/Revoke
+与“只替换受管集合”的批量接口。
 
 一次“写成功”要分成三个时刻理解：
 
@@ -43,7 +44,7 @@ reload 需要重读完整 AuthZ 数据集并构建快照。将它放在写事务
 ## 写操作分类
 
 | 操作 | 核心不变量 |
-|---|---|
+| --- | --- |
 | Create/Update/Delete Role | Tenant 边界、被引用关系与版本一致性 |
 | Grant/Revoke Assignment | Subject→Role 直接关系；约束授权器决定可管理范围 |
 | ReplaceManagedAssignments | 只替换约束策略定义的受管角色集合 |
@@ -79,7 +80,8 @@ gRPC service identity + method ACL
   -> increment PolicyVersion + stage Outbox
 ```
 
-方法 ACL 只能回答“该服务能否调用 GrantAssignment”，不能回答“它能否在任意 Tenant 给任意 Subject 授任意 Role”。Assignment constraints 是内容级的第二道授权，两者不可互相替代。
+方法 ACL 只能回答“该服务能否调用 GrantAssignment”，不能回答“它能否在任意 Tenant 给任意 Subject 授任意 Role”。Assignment constraints 是内容级的第二道授权，
+两者不可互相替代。
 
 ## `ReplaceManagedAssignments`
 
@@ -145,7 +147,8 @@ no-op 不递增版本非常重要。如果一个调用方周期性上报相同�
 
 ## 当前并发边界
 
-现有实现会锁定相关角色，但读取 Subject 当前 Assignment 的查询本身不是显式锁定读。在 MySQL 默认 `REPEATABLE READ` 下，两个请求并发替换同一 Subject 时，等待锁之后是否一定观察到对方已提交结果，目前没有专门的 MySQL 并发测试证明。
+现有实现会锁定相关角色，但读取 Subject 当前 Assignment 的查询本身不是显式锁定读。在 MySQL 默认 `REPEATABLE READ` 下，两个请求并发替换同一 Subject 时，
+等待锁之后是否一定观察到对方已提交结果，目前没有专门的 MySQL 并发测试证明。
 
 因此当前可以声称：
 
@@ -164,7 +167,8 @@ no-op 不递增版本非常重要。如果一个调用方周期性上报相同�
 
 active unique guard 能阻止两个事务同时创建完全相同的活跃 Assignment，但 Replace 要保护的是“多条记录组成的集合”。
 
-当前代码先锁定 M 中 Role，再使用普通 `ListBySubject` 读取当前 Assignment。在 MySQL `REPEATABLE READ` 下，该普通读的 read view 时机与锁等待后的可见性需要用真实 MySQL 并发测试确认。只看到“锁了 Role”不足以推导整个替换已线性化。
+当前代码先锁定 M 中 Role，再使用普通 `ListBySubject` 读取当前 Assignment。在 MySQL `REPEATABLE READ` 下，该普通读的 read view 时机与锁等待后的可见性需要用真实
+MySQL 并发测试确认。只看到“锁了 Role”不足以推导整个替换已线性化。
 
 如要修复，应先定义所需语义（例如按 Tenant+Subject 串行、最后提交者获胜或使用 expected version 的乐观并发），再选择主体级锁、锁定读或版本检查。不应只在代码中多加一个锁就宣布问题解决。
 
@@ -177,7 +181,8 @@ Assignment 写入依赖约束授权器。当前缺失实现时的行为不完全
 
 生产和开发配置已经显式提供约束文件，但默认空配置仍可能触发上述差异。部署检查应把约束实现或文件视为必填项，不能依赖默认值。
 
-constraints 不只列出角色，还将 caller service、allowed methods、Tenant/domain、Subject 类型/范围、Role 集合与 delegated actor 规则绑在一起。配置与 `grpc_acl.yaml` 必须做覆盖对齐：
+constraints 不只列出角色，还将 caller service、allowed methods、Tenant/domain、Subject 类型/范围、Role 集合与 delegated actor 规则绑在一起。配置与
+`grpc_acl.yaml` 必须做覆盖对齐：
 
 - ACL 有方法但 constraints 无 caller 规则：实际调用将被内容级拒绝或失败。
 - constraints 允许 caller 但 ACL 没有方法：请求根本到不了应用层。
@@ -189,11 +194,13 @@ constraints 不只列出角色，还将 caller service、allowed methods、Tenan
 
 所有管理写入都应记录可信 actor：用户管理请求来自 AuthN Principal，服务间请求来自已认证服务身份。actor 不得由请求体自由指定。写命令的错误映射应区分输入错误、无权限、事实冲突和基础设施错误。
 
-当前 gRPC 契约仍包含 `granted_by` / `revoked_by` / `changed_by`，它们是 delegated actor 信息，不能覆盖传输层得到的 caller service。Assignment constraints 必须决定调用服务是否允许代表该 actor 写入。Revoke 未提供 delegated actor 时，transport 会回退为 `service:<caller>`。
+当前 gRPC 契约仍包含 `granted_by` / `revoked_by` / `changed_by`，它们是 delegated actor 信息，不能覆盖传输层得到的 caller service。Assignment
+constraints 必须决定调用服务是否允许代表该 actor 写入。Revoke 未提供 delegated actor 时，transport 会回退为 `service:<caller>`。
 
 ## 提交后 reload 的错误语义
 
-普通 AuthZ command 在提交后调用 `ReloadRuntimePolicy`，它会重试 3 次，每次间隔 100ms，但外层命令当前不把最终 reload 错误返回给调用方。这是有意区分“事实提交失败”与“快照收敛延迟”，但也带来明确的撤权窗口。
+普通 AuthZ command 在提交后调用 `ReloadRuntimePolicy`，它会重试 3 次，每次间隔 100ms，但外层命令当前不把最终 reload 错误返回给调用方。这是有意区分“事实提交失败”与“快照收敛延迟”，
+但也带来明确的撤权窗口。
 
 事件消费者则调用可返错的 reload 版本，最终失败会交给消息机制重试。因此运维上必须监控 reload failure 和 policy version lag，不能把命令 200/gRPC OK 解读为所有实例已生效。
 
@@ -208,7 +215,7 @@ constraints 不只列出角色，还将 caller service、allowed methods、Tenan
 ## 证据矩阵
 
 | 结论 | 当前证据 | 尚未证明 |
-|---|---|---|
+| --- | --- | --- |
 | 单次 Replace 原子 | SQLite UoW 回滚测试 | MySQL 异常注入的所有分支 |
 | 串行请求幂等 | no-op 测试，版本/事件不变 | 并发相同/不同目标的线性化 |
 | 非受管关系保留 | managed/unmanaged fixture | 配置误把角色纳入 M 时的业务安全性 |

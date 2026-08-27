@@ -4,13 +4,18 @@
 
 ## 1. 当前结论
 
-截至 2026-08-26，生产库曾验收 `version=28, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6` 与 000028 AuthN 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851` 均已部署并通过独立健康检查。`000019–000028` 的历史迁移发布和部署观察已经闭合；migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
+截至 2026-08-26，生产库曾验收 `version=28, dirty=0`，16 张 BASE TABLE 精确匹配，active RoleBinding 重复组为 0；`casbin_rule`、
+`authz_cutover_state` 与 `authz_resources.scope_kinds` 均不存在。AuthZ v3 功能基线 SHA `d3f58369d8c58dbf50ae15282f5641bc370055a6`
+与 000028 AuthN 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851` 均已部署并通过独立健康检查。`000019–000028` 的历史迁移发布和部署观察已经闭合；
+migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBinding guard 的历史发布证据保留。
 
-本文没有证明当前仓库 HEAD 的 AuthN/AuthZ 后续重构、`ReplaceManagedAssignments`、direct/effective roles 或 `authz-v3-converge` 已经部署到生产。它们需要重新绑定精确 SHA、CI、部署、健康检查和数据/授权验证证据。
+本文没有证明当前仓库 HEAD 的 AuthN/AuthZ 后续重构、`ReplaceManagedAssignments`、direct/effective roles 或 `authz-v3-converge` 已经部署到生产。
+它们需要重新绑定精确 SHA、CI、部署、健康检查和数据/授权验证证据。
 
 000028 发布前已完成可恢复备份与只读数据预检，发布后又分别验证迁移版本、唯一索引、数据冲突计数、容器健康、公网端点与运行 SHA。下述链接是分层证据，不用任何一个绿色 run 代替整条发布结论。
 
-整体历史验收仍未完全关闭：完整镜像 digest 没有在本安全台账中单独固化，长期 RDS/宿主机备份策略以及 5.4 安全处置历史元数据仍有缺口。缺少的证据必须由对应 workflow 或运维记录产生，不能根据当前系统状态反推，也不能为了补记录再次清除 Refresh Token 或历史日志。
+整体历史验收仍未完全关闭：完整镜像 digest 没有在本安全台账中单独固化，长期 RDS/宿主机备份策略以及 5.4 安全处置历史元数据仍有缺口。缺少的证据必须由对应 workflow 或运维记录产生，不能根据当前系统状态反推，
+也不能为了补记录再次清除 Refresh Token 或历史日志。
 
 ## 2. 安全记录规则
 
@@ -31,7 +36,8 @@
 
 ## 4. 最终发布证据
 
-以下条目绑定 000028 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851`。成功 run 只证明对应层，不自动补齐其他证据；历史 RoleBinding guard 和 AuthZ v3 最终切换证据另列在其后。
+以下条目绑定 000028 功能发布 SHA `9fab2d674a5d0e11e11dbd8a24098aba8b1c7851`。成功 run 只证明对应层，不自动补齐其他证据；历史 RoleBinding guard 和 AuthZ
+v3 最终切换证据另列在其后。
 
 | 项目 | 当前状态 | 责任方 | 完成条件与安全元数据 |
 | --- | --- | --- | --- |
@@ -102,4 +108,5 @@ RDS 基础备份满足当前最低保护要求，但增强恢复能力只完成�
 
 ## 7. 关闭条件
 
-当前可以分别陈述“仓库门禁通过”“`000019–000028` 生产迁移完成”“AuthZ v3 与 000028 AuthN 功能 SHA 均已部署且健康检查成功”，不能合并成“所有历史安全与恢复事项已最终关闭”。只有第 4、5、6 节剩余项都有真实、安全的元数据证据，才能把整个 IAM 历史治理结论改为“最终验收全部完成”；这些历史缺口不改变本轮功能发布已完成的结论。
+当前可以分别陈述“仓库门禁通过”“`000019–000028` 生产迁移完成”“AuthZ v3 与 000028 AuthN 功能 SHA 均已部署且健康检查成功”，不能合并成“所有历史安全与恢复事项已最终关闭”。只有第 4、5、6
+节剩余项都有真实、安全的元数据证据，才能把整个 IAM 历史治理结论改为“最终验收全部完成”；这些历史缺口不改变本轮功能发布已完成的结论。

@@ -98,21 +98,21 @@ flowchart LR
 
 > 标签：设计决策 · 当前模型和持久化引用可证明
 
-**解决的问题**
+#### 解决的问题
 
 让多个上下文能引用同一个主体，又不迫使 User 同时包含认证、授权和搜索字段。
 
-**选择**
+#### 选择
 
 AuthN LoginIdentity/Session 保存 UserID；AuthZ Subject 使用 `{Type, ID}` 引用；Suggest 使用 ProfileID 和局部搜索投影。
 
-**替代方案**
+#### 替代方案
 
 1. 所有模块传递并共享完整 User/Profile domain entity；
 2. 在各模块复制一份 User 主数据；
 3. 用外部 openid、username 或 phone 作为跨模块主键。
 
-**取舍**
+#### 取舍
 
 ID/reference 可以维持语义和生命周期独立，但消费方需要查询、缓存或派生自己的读模型，并处理主数据不可用或滞后。
 
@@ -120,19 +120,20 @@ ID/reference 可以维持语义和生命周期独立，但消费方需要查询�
 
 > 标签：设计决策 · AuthN UOW、signup steps 和提交历史可证明
 
-AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当前它们都使用同一 MySQL 事务基础，因此 AuthN UOW 提供 Identity `user.Repository` port，signup 直接使用 Identity domain 构造和 repository port。
+AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当前它们都使用同一 MySQL 事务基础，因此 AuthN UOW 提供 Identity `user.Repository`
+port，signup 直接使用 Identity domain 构造和 repository port。
 
-**为什么不先调 Identity gRPC**
+#### 为什么不先调 Identity gRPC
 
 这会把一个本地原子事务拆成两次服务调用，并引入 User 已创建、LoginIdentity 失败后的补偿状态。
 
-**接受的代价**
+#### 接受的代价
 
 - AuthN application/UOW 依赖 Identity domain repository port；
 - Identity `user.Creator` 中的 Phone checker 不会自动被 signup 复用；
 - 三个模型如果未来拆到不同数据库，当前事务设计必须复议。
 
-**护栏**
+#### 护栏
 
 这个例外仅支持 signup 所需的 User 解析/创建。它不授权 AuthN 任意修改 Profile、ProfileLink 或 User lifecycle。
 
@@ -140,32 +141,35 @@ AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当
 
 > 标签：当前设计决策 + 已知一致性缺口
 
-Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而不依赖 Session repository concrete。`Block` 先在 Identity UOW 中保存 blocked，提交成功后再调用 `RevokeByUser`。
+Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而不依赖 Session repository concrete。`Block` 先在 Identity UOW
+中保存 blocked，提交成功后再调用 `RevokeByUser`。
 
-**替代方案**
+#### 替代方案
 
 1. Identity 直接删除 Redis/Session 数据；
 2. 把 User status 和 Session 强行放入同一个技术事务；
 3. UserBlocked/UserDeactivated 本地安全 Outbox 异步撤销；
 4. 每次 Session/Token 使用时实时查 User status。
 
-**当前方案的好处**
+#### 当前方案的好处
 
 依赖面窄，Identity 不需要了解 AuthN 存储细节；User 状态和撤销任务在同一 MySQL 事务中提交，在线 Verify 同时实时检查 User 状态。
 
-**当前方案的代价**
+#### 当前方案的代价
 
-Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数退避，超过 `stale_processing_after` 的 processing 任务可重新 claim。API 在 MySQL 状态和任务提交后返回成功；MySQL 与 Redis 之间不宣称原子提交或 exactly-once。
+Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数退避，超过 `stale_processing_after` 的 processing 任务可重新 claim。API 在 MySQL
+状态和任务提交后返回成功；MySQL 与 Redis 之间不宣称原子提交或 exactly-once。
 
 ### 6.4 决策 D：`/identity/me` 的 roles 是可降级展示增强
 
 > 标签：当前实现；设计动机可从降级语义推导，尚无独立 ADR
 
-Identity REST `UserHandler` 接收 `RoleNameReader`，按当前 tenant domain 和 platform domain 查询并去重角色名。如果 reader 为 nil、subject 构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
+Identity REST `UserHandler` 接收 `RoleNameReader`，按当前 tenant domain 和 platform domain 查询并去重角色名。如果 reader 为 nil、subject
+构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
 
 这说明当前 roles 是 response enrichment，不是 Identity User 事实，也不是 `/me` 请求的授权决策。
 
-**风险**
+#### 风险
 
 消费方如果将“roles 为空”理解为“用户确实无角色”，无法区分无角色与 AuthZ 查询失败。若这一区别对产品有意义，需要显式的降级状态或独立角色查询。
 
@@ -175,15 +179,16 @@ Identity REST `UserHandler` 接收 `RoleNameReader`，按当前 tenant domain �
 
 Identity 保持 Profile 写模型简洁；Suggest 将 Profile 姓名、手机号等派生为 `ProfileSearchTerm`，并维护 Trie/Hash 进程内索引。
 
-**为什么不直接用 Identity repository 做模糊搜索**
+#### 为什么不直接用 Identity repository 做模糊搜索
 
 - 拼音、前缀、手机号精确匹配的数据形态不同于事务写模型；
 - 排序、限流、脱敏和降级不应进入 Profile 实体；
 - 索引可重建，可以接受最终一致。
 
-**当前实现代价**
+#### 当前实现代价
 
-Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直接 SQL 读取 `profiles/profile_links/users`。这是对 Identity 存储 schema 的读依赖，任何表结构或 revoked 语义变化都必须同步 Suggest Loader。
+Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直接 SQL 读取 `profiles/profile_links/users`。这是对 Identity 存储 schema 的读依赖，
+任何表结构或 revoked 语义变化都必须同步 Suggest Loader。
 
 详见 [Suggest 为什么采用派生读模型](../../06-专题设计/05-Suggest为什么是读模型.md)。
 
@@ -223,7 +228,8 @@ Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直�
 | Profile | Resource 或 ObjectAttributes 可能引用的 ID |
 | ProfileLink | 可供业务服务构造受信对象上下文，但不是 Assignment、PermissionGrant 或 AuthorizationDecision |
 
-User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`。ProfileLink 不是 PermissionGrant，也不会自动变成 Assignment 或 Casbin role link。
+User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`。ProfileLink 不是 PermissionGrant，也不会自动变成 Assignment 或 Casbin role
+link。
 
 ### 8.2 已实现协作
 
@@ -234,7 +240,8 @@ User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`�
 
 ### 8.3 局部 ProfileLink 前置不等于通用 AuthZ
 
-Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有 Resource/Action/ConstraintSet 输入，不能代替通用授权。
+Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有
+Resource/Action/ConstraintSet 输入，不能代替通用授权。
 
 无作用域的 REST `/identity/profiles/search` 已下线。需要候选搜索时使用 `/suggest/profile`，由 Suggest 的 scope provider 和手机号权限控制可见范围与脱敏。
 
@@ -251,9 +258,11 @@ IDP 当前主要模型位于 `internal/apiserver/domain/idp/wechatapp`：
 - `AppAccessToken`；
 - `SecretVault`、`AppTokenProvider`、token cache 等 ports。
 
-IDP 的通用值对象位于 `internal/apiserver/domain/idp/externalidentity`。它只在一次 provider exchange 请求内存在，包含 provider、realm、受限 identifiers 和 VerifiedAt，不进入 Identity、数据库或公开协议。
+IDP 的通用值对象位于 `internal/apiserver/domain/idp/externalidentity`。它只在一次 provider exchange 请求内存在，包含 provider、realm、受限
+identifiers 和 VerifiedAt，不进入 Identity、数据库或公开协议。
 
-Identity v2 proto 虽然也定义同名 `ExternalIdentity` message 和 User request/response 字段，但 Identity handler 当前仍忽略输入，response mapper 返回空列表。这是另一份历史 transport 契约，不是 IDP 请求内值对象，也未因本次重构落地。
+Identity v2 proto 虽然也定义同名 `ExternalIdentity` message 和 User request/response 字段，但 Identity handler 当前仍忽略输入，response
+mapper 返回空列表。这是另一份历史 transport 契约，不是 IDP 请求内值对象，也未因本次重构落地。
 
 ### 9.2 实际微信小程序 signup 链路
 
@@ -267,11 +276,13 @@ AuthN signup
   -> 建立 LoginIdentity.UserID 引用
 ```
 
-AuthN application 编排业务用例，但 provider 交换细节完全归 IDP Resolver。IDP 不直接创建 User、LoginIdentity、Principal、Session 或 IAM Token；Identity 也不需要知道 app secret、provider code 或 ExternalIdentity。
+AuthN application 编排业务用例，但 provider 交换细节完全归 IDP Resolver。IDP 不直接创建 User、LoginIdentity、Principal、Session 或 IAM Token；
+Identity 也不需要知道 app secret、provider code 或 ExternalIdentity。
 
 ### 9.3 已实现的中间抽象
 
-IDP 已统一产出请求内 `ExternalIdentity`，覆盖微信小程序、微信开放平台和企业微信。AuthN 的单一 mapper 按 SignIn、SignUp、Linking 的既有策略转换它；历史内部直传 OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。仍不能把 Identity v2 proto message 当成这一领域对象。
+IDP 已统一产出请求内 `ExternalIdentity`，覆盖微信小程序、微信开放平台和企业微信。AuthN 的单一 mapper 按 SignIn、SignUp、Linking 的既有策略转换它；历史内部直传
+OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。仍不能把 Identity v2 proto message 当成这一领域对象。
 
 ## 10. Identity 与 Suggest
 

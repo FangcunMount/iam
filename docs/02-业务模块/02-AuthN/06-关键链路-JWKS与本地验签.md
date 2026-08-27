@@ -74,7 +74,8 @@ sequenceDiagram
 
 多实例自动任务在事务内重新判断是否到期，只有一个实例完成轮换；并发初始化只有一个胜者。管理员显式创建可以按事务顺序完成多次轮换，但唯一索引保证任意时刻数据库最多一个 active。
 
-数据库提交前失败会补偿删除候选 PEM。提交后 cache 刷新或清理失败不会回滚已经生效的签名密钥，只记录可重试告警。管理端创建、状态变更和 Scheduler 自动轮换都通过同一个 `KeyLifecycleAppService`；查询由只读 management 服务负责。
+数据库提交前失败会补偿删除候选 PEM。提交后 cache 刷新或清理失败不会回滚已经生效的签名密钥，只记录可重试告警。管理端创建、状态变更和 Scheduler 自动轮换都通过同一个 `KeyLifecycleAppService`；
+查询由只读 management 服务负责。
 
 ## 5. 生命周期规则
 
@@ -100,12 +101,14 @@ GET /.well-known/jwks.json
 GET /api/v2/.well-known/jwks.json
 ```
 
-响应只包含公钥，并保留现有 JSON、ETag 和 Cache-Control 语义。公共 JWKS 每次构建以数据库为真相层；当前进程快照只用于 ETag、观测和减少重复构建，不参与决定数据库中的 active 状态。资源服务应固定可信 issuer/JWKS URL，校验算法 allowlist、签名以及 `iss/aud/exp/nbf`；`kid` 未命中时可刷新，但不得跳过验签或接受任意 `jku/jwk`。
+响应只包含公钥，并保留现有 JSON、ETag 和 Cache-Control 语义。公共 JWKS 每次构建以数据库为真相层；当前进程快照只用于 ETag、观测和减少重复构建，不参与决定数据库中的 active 状态。资源服务应固定可信
+issuer/JWKS URL，校验算法 allowlist、签名以及 `iss/aud/exp/nbf`；`kid` 未命中时可刷新，但不得跳过验签或接受任意 `jku/jwk`。
 
-管理入口统一位于 `/api/v2/authn/admin/jwks/keys`。它们需要用户 JWT，并通过 `RequirePermissionOrGlobal` 检查 `iam:authn:collection:jwks` 上的明确 Action：
+管理入口统一位于 `/api/v2/authn/admin/jwks/keys`。它们需要用户 JWT，并通过 `RequirePermissionOrGlobal` 检查 `iam:authn:collection:jwks` 上的明确
+Action：
 
 | 请求 | Action |
-|---|---|
+| --- | --- |
 | `POST /api/v2/authn/admin/jwks/keys` | `create` |
 | `GET /api/v2/authn/admin/jwks/keys` | `list` |
 | `GET /api/v2/authn/admin/jwks/keys/{kid}` | `read` |
@@ -115,7 +118,8 @@ GET /api/v2/.well-known/jwks.json
 | `POST /api/v2/authn/admin/jwks/keys/cleanup` | `cleanup` |
 | `GET /api/v2/authn/admin/jwks/keys/publishable` | `list_publishable` |
 
-授权先检查当前 Tenant，再检查平台域中相同 Resource/Action。实现不读取 `super_admin` 等角色名来跳过 PermissionGrant。`POST /api/v2/authn/admin/jwks/keys` 返回 `201 KeyResponse`。
+授权先检查当前 Tenant，再检查平台域中相同 Resource/Action。实现不读取 `super_admin` 等角色名来跳过 PermissionGrant。
+`POST /api/v2/authn/admin/jwks/keys` 返回 `201 KeyResponse`。
 
 ## 7. 运行、备份和紧急退役
 
@@ -124,7 +128,8 @@ GET /api/v2/.well-known/jwks.json
 - 安全事件下只能 force-retire 非 active key；active 需要先创建并激活新 key，再撤销旧 key。
 - 轮换后至少观察一个完整 AccessToken TTL，确认旧 Token 在 grace 期仍能验证、新 Token 使用新 `kid`。
 - 日志和指标只记录 `kid`、状态、计数和结果，不记录 PEM、Token 或私钥参数。
-- 生命周期指标包括 `iam_jwks_lifecycle_operations_total{operation,result}`、`iam_jwks_post_commit_failures_total{stage}`、`iam_jwks_scheduler_executions_total{result}`；既有轮换结果和最后成功时间指标继续保留。
+- 生命周期指标包括 `iam_jwks_lifecycle_operations_total{operation,result}`、`iam_jwks_post_commit_failures_total{stage}`、
+  `iam_jwks_scheduler_executions_total{result}`；既有轮换结果和最后成功时间指标继续保留。
 
 ## 8. 事实源与验证
 
