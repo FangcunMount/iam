@@ -14,7 +14,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 
-	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -27,7 +27,7 @@ func TestRedisStoreRefreshTokenLifecycle(t *testing.T) {
 
 	store := NewRedisStore(client)
 	ctx := context.Background()
-	refreshToken := tokenapp.NewRefreshToken(
+	refreshToken := tokendomain.NewRefreshToken(
 		"rt-1",
 		"refresh-value",
 		"session-1",
@@ -98,7 +98,7 @@ func TestRedisStoreRefreshTokenLogsDoNotContainCredentialOrKey(t *testing.T) {
 	})
 
 	const sentinel = "refresh-token-secret-sentinel-5-4"
-	token := tokenapp.NewRefreshToken(
+	token := tokendomain.NewRefreshToken(
 		"rt-security",
 		sentinel,
 		"session-security",
@@ -187,7 +187,7 @@ func TestRedisStoreRejectsExpiredRefreshToken(t *testing.T) {
 
 	store := NewRedisStore(client)
 	ctx := context.Background()
-	expiredToken := tokenapp.NewRefreshToken(
+	expiredToken := tokendomain.NewRefreshToken(
 		"rt-expired",
 		"expired-value",
 		"session-expired",
@@ -214,7 +214,7 @@ func TestRedisStoreRotateRefreshTokenIsSingleUse(t *testing.T) {
 
 	store := NewRedisStore(client)
 	ctx := context.Background()
-	oldToken := tokenapp.NewRefreshToken(
+	oldToken := tokendomain.NewRefreshToken(
 		"old-id", "old-value", "session-id",
 		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
 		nil, nil, time.Hour,
@@ -233,7 +233,7 @@ func TestRedisStoreRotateRefreshTokenIsSingleUse(t *testing.T) {
 	for i := range 2 {
 		go func(index int) {
 			<-start
-			candidate := tokenapp.NewRefreshToken(
+			candidate := tokendomain.NewRefreshToken(
 				fmt.Sprintf("new-id-%d", index),
 				fmt.Sprintf("new-value-%d", index),
 				fmt.Sprintf("new-session-%d", index),
@@ -300,12 +300,12 @@ func TestRedisStoreRotateRefreshTokenRejectsMismatchedOldIDWithoutMutation(t *te
 
 	store := NewRedisStore(client)
 	ctx := context.Background()
-	oldToken := tokenapp.NewRefreshToken(
+	oldToken := tokendomain.NewRefreshToken(
 		"old-id", "old-value", "session-id",
 		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
 		nil, nil, time.Hour,
 	)
-	candidate := tokenapp.NewRefreshToken(
+	candidate := tokendomain.NewRefreshToken(
 		"new-id", "new-value", "session-id",
 		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
 		nil, nil, time.Hour,

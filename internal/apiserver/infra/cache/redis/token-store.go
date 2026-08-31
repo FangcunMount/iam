@@ -10,9 +10,9 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -85,7 +85,7 @@ type consumedRefreshTokenData struct {
 }
 
 // SaveRefreshToken 保存刷新令牌
-func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token) error {
+func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokendomain.RefreshToken) error {
 	if token == nil {
 		return fmt.Errorf("token is nil")
 	}
@@ -115,7 +115,7 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokenapp.Token
 	return nil
 }
 
-func refreshTokenDataFromToken(token *tokenapp.Token) refreshTokenData {
+func refreshTokenDataFromToken(token *tokendomain.RefreshToken) refreshTokenData {
 	return refreshTokenData{
 		TokenID:         token.ID,
 		SessionID:       token.SessionID,
@@ -131,7 +131,7 @@ func refreshTokenDataFromToken(token *tokenapp.Token) refreshTokenData {
 }
 
 // RotateRefreshToken 原子写入新刷新令牌并消费仍匹配的旧令牌。
-func (s *RedisStore) RotateRefreshToken(ctx context.Context, oldValue, expectedOldID string, newToken *tokenapp.Token) (bool, error) {
+func (s *RedisStore) RotateRefreshToken(ctx context.Context, oldValue, expectedOldID string, newToken *tokendomain.RefreshToken) (bool, error) {
 	if newToken == nil {
 		return false, fmt.Errorf("new token is nil")
 	}
@@ -162,7 +162,7 @@ func (s *RedisStore) RotateRefreshToken(ctx context.Context, oldValue, expectedO
 }
 
 // GetConsumedRefreshToken 获取已消费刷新令牌对应的最小重放检测事实。
-func (s *RedisStore) GetConsumedRefreshToken(ctx context.Context, tokenValue string) (*tokenapp.ConsumedRefreshToken, error) {
+func (s *RedisStore) GetConsumedRefreshToken(ctx context.Context, tokenValue string) (*tokendomain.ConsumedRefreshToken, error) {
 	storeKey, err := newStoreKey(consumedRefreshTokenRedisKey(tokenValue))
 	if err != nil {
 		return nil, err
@@ -174,14 +174,14 @@ func (s *RedisStore) GetConsumedRefreshToken(ctx context.Context, tokenValue str
 	if !found {
 		return nil, nil
 	}
-	return &tokenapp.ConsumedRefreshToken{
+	return &tokendomain.ConsumedRefreshToken{
 		SessionID: data.SessionID,
 		UserID:    meta.FromUint64(data.UserID),
 	}, nil
 }
 
 // GetRefreshToken 获取刷新令牌
-func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*tokenapp.Token, error) {
+func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*tokendomain.RefreshToken, error) {
 	key := refreshTokenRedisKey(tokenValue)
 	storeKey, err := newStoreKey(key)
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *RedisStore) GetRefreshToken(ctx context.Context, tokenValue string) (*t
 	userID := meta.FromUint64(data.UserID)
 	loginIdentityID := meta.FromUint64(data.LoginIdentityID)
 	tenantID := meta.FromUint64(data.TenantID)
-	token := tokenapp.NewRefreshTokenWithExpiry(
+	token := tokendomain.NewRefreshTokenWithExpiry(
 		data.TokenID,
 		tokenValue,
 		data.SessionID,

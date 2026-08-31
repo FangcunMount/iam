@@ -16,6 +16,7 @@ import (
 	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	tokenjwt "github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/jwt"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	resp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/response"
@@ -30,14 +31,14 @@ import (
 
 type noopTokenStore struct{}
 
-func (noopTokenStore) SaveRefreshToken(context.Context, *tokenapp.Token) error { return nil }
-func (noopTokenStore) RotateRefreshToken(context.Context, string, string, *tokenapp.Token) (bool, error) {
+func (noopTokenStore) SaveRefreshToken(context.Context, *tokendomain.RefreshToken) error { return nil }
+func (noopTokenStore) RotateRefreshToken(context.Context, string, string, *tokendomain.RefreshToken) (bool, error) {
 	return true, nil
 }
-func (noopTokenStore) GetRefreshToken(context.Context, string) (*tokenapp.Token, error) {
+func (noopTokenStore) GetRefreshToken(context.Context, string) (*tokendomain.RefreshToken, error) {
 	return nil, nil
 }
-func (noopTokenStore) GetConsumedRefreshToken(context.Context, string) (*tokenapp.ConsumedRefreshToken, error) {
+func (noopTokenStore) GetConsumedRefreshToken(context.Context, string) (*tokendomain.ConsumedRefreshToken, error) {
 	return nil, nil
 }
 func (noopTokenStore) DeleteRefreshToken(context.Context, string) error { return nil }
@@ -105,8 +106,8 @@ func (s *memorySessionStore) RevokeByLoginIdentity(_ context.Context, loginIdent
 
 type allowAllAdmissionPolicy struct{}
 
-func (allowAllAdmissionPolicy) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
-	return admissiondomain.Decision{Status: admissiondomain.StatusActive}, nil
+func (allowAllAdmissionPolicy) Evaluate(_ context.Context, subject admissiondomain.Subject) (admissiondomain.Decision, error) {
+	return admissiondomain.Admit(subject), nil
 }
 
 type fixedSigningKeySource struct {

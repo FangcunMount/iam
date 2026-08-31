@@ -23,19 +23,12 @@ func TestResolveMintTenantIDPrefersSession(t *testing.T) {
 
 func TestAccessTokenSubjectFromAuthUsesSessionSessionID(t *testing.T) {
 	principal := &authentication.Principal{
-		UserID:          meta.FromUint64(10),
-		LoginIdentityID: meta.FromUint64(20),
-		TenantID:        meta.FromUint64(1),
-		AuthMethod:      "password",
-		Realm:           "fangcun",
+		UserID: meta.FromUint64(10), LoginIdentityID: meta.FromUint64(20), TenantID: meta.FromUint64(1),
+		AuthMethod: "password", Realm: "fangcun",
 	}
 	sess := &sessiondomain.Session{
-		SessionID:       "sid-1",
-		UserID:          meta.FromUint64(10),
-		LoginIdentityID: meta.FromUint64(20),
-		TenantID:        meta.FromUint64(2),
-		AuthMethod:      "password",
-		Realm:           "fangcun",
+		SessionID: "sid-1", UserID: meta.FromUint64(10), LoginIdentityID: meta.FromUint64(20),
+		TenantID: meta.FromUint64(2), AuthMethod: "password", Realm: "fangcun",
 	}
 	got := accessTokenSubjectFromAuth(principal, sess)
 	require.Equal(t, "sid-1", got.SessionID)

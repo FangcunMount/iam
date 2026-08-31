@@ -742,7 +742,7 @@ def check_security_delivery_facts() -> None:
         ROOT / "internal/apiserver/infra/cache/redis/token-store.go"
     ).read_text(encoding="utf-8")
     refresher = (
-        ROOT / "internal/apiserver/application/authn/token/refresher.go"
+        ROOT / "internal/apiserver/domain/authn/token/refresher.go"
     ).read_text(encoding="utf-8")
     profile_link = (
         ROOT

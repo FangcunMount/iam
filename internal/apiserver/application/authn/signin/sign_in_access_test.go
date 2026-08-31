@@ -21,15 +21,15 @@ import (
 func TestSignInChecksAdmissionBeforeIssuingTokens(t *testing.T) {
 	tests := []struct {
 		name     string
-		status   admissiondomain.Status
+		reason   admissiondomain.DenialReason
 		checkErr error
 		wantCode int
 		wantCall bool
 	}{
-		{name: "active", status: admissiondomain.StatusActive, wantCall: true},
-		{name: "blocked user", status: admissiondomain.StatusBlocked, wantCode: code.ErrUserBlocked},
-		{name: "disabled identity", status: admissiondomain.StatusDisabled, wantCode: code.ErrLoginIdentityDisabled},
-		{name: "inactive user", status: admissiondomain.StatusInactive, wantCode: code.ErrUserInactive},
+		{name: "active", wantCall: true},
+		{name: "blocked user", reason: admissiondomain.ReasonUserBlocked, wantCode: code.ErrUserBlocked},
+		{name: "disabled identity", reason: admissiondomain.ReasonLoginIdentityDisabled, wantCode: code.ErrLoginIdentityDisabled},
+		{name: "inactive user", reason: admissiondomain.ReasonUserInactive, wantCode: code.ErrUserInactive},
 		{name: "checker failure", checkErr: errors.New("database unavailable"), wantCode: code.ErrInternalServerError},
 	}
 	for _, tt := range tests {
@@ -46,7 +46,7 @@ func TestSignInChecksAdmissionBeforeIssuingTokens(t *testing.T) {
 				MethodRegistry:     signInMethodRegistryStub{},
 				ProofFactory:       signInProofFactoryStub{},
 				Authenticator:      authentication.NewAuthenticator(strategy),
-				AdmissionPolicy:    signInAdmissionPolicyStub{status: tt.status, err: tt.checkErr},
+				AdmissionPolicy:    signInAdmissionPolicyStub{reason: tt.reason, err: tt.checkErr},
 			})
 
 			result, err := usecase.Execute(context.Background(), method.LoginRequest{})
@@ -133,12 +133,18 @@ func (s signInStrategyStub) Authenticate(context.Context, authentication.AuthCre
 }
 
 type signInAdmissionPolicyStub struct {
-	status admissiondomain.Status
+	reason admissiondomain.DenialReason
 	err    error
 }
 
-func (s signInAdmissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
-	return admissiondomain.Decision{Status: s.status}, s.err
+func (s signInAdmissionPolicyStub) Evaluate(_ context.Context, subject admissiondomain.Subject) (admissiondomain.Decision, error) {
+	if s.err != nil {
+		return admissiondomain.Decision{}, s.err
+	}
+	if s.reason != "" {
+		return admissiondomain.Deny(subject, s.reason), nil
+	}
+	return admissiondomain.Admit(subject), nil
 }
 
 type sessionEstablisherStub struct {

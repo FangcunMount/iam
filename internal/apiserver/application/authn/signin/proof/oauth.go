@@ -29,14 +29,18 @@ func (*wechatBuilder) CredentialKind() method.CredentialKind {
 
 // Build 构建微信小程序登录方式
 func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
+	// 验证微信小程序登录方式凭证是否有效
 	wechatMiniPayload, ok := payload.(method.WechatMiniPayload)
 	if !ok {
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid wechat payload")
 	}
 
+	// 检查微信小程序登录方式凭证解析器是否可用
 	if b.resolver == nil {
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "wechat app configuration service not available")
 	}
+
+	// 解析微信小程序登录方式凭证，返回微信身份信息
 	resolved, err := b.resolver.Resolve(ctx, idpresolver.ResolveRequest{
 		Provider: idpidentity.ProviderWechatMinip,
 		Realm:    wechatMiniPayload.AppID,
@@ -45,7 +49,9 @@ func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, commo
 	if err != nil {
 		return nil, authnexternal.MapLoginProofError(ctx, err, string(method.CredentialKindWechatMinip))
 	}
-	identity, err := authnexternal.Wechat(resolved)
+
+	// 映射微信小程序登录方式凭证，返回微信身份信息
+	wechatIdentity, err := authnexternal.Wechat(resolved)
 	if err != nil {
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "failed to map wechat external identity: %v", err)
 	}
@@ -54,9 +60,9 @@ func (b *wechatBuilder) Build(ctx context.Context, payload method.Payload, commo
 		TenantID:  common.TenantID,
 		RemoteIP:  common.RemoteIP,
 		UserAgent: common.UserAgent,
-		AppID:     identity.Realm,
-		OpenID:    identity.OpenID,
-		UnionID:   identity.UnionID,
+		AppID:     wechatIdentity.Realm,
+		OpenID:    wechatIdentity.OpenID,
+		UnionID:   wechatIdentity.UnionID,
 	})
 }
 

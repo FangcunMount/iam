@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/logger"
-	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
@@ -28,7 +28,7 @@ type Generator struct {
 	attributeEncoder    jwtAttributeEncoder
 }
 
-var _ tokenapp.AccessTokenCodec = (*Generator)(nil)
+var _ tokendomain.AccessTokenCodec = (*Generator)(nil)
 
 func NewGenerator(
 	issuer string,
@@ -63,7 +63,7 @@ type CustomClaims struct {
 	jwtv4.RegisteredClaims
 }
 
-func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokenapp.AccessTokenSubject, expiresIn time.Duration) (*tokenapp.Token, error) {
+func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokendomain.AccessTokenSubject, expiresIn time.Duration) (*tokendomain.AccessToken, error) {
 	l := logger.L(ctx)
 	l.Debugw("IssueAccessToken", "subject", fmt.Sprintf("%+v", subject), "expiresIn", expiresIn)
 	now := time.Now()
@@ -73,12 +73,12 @@ func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokenapp.Acce
 	realm := subject.Realm
 
 	claims := CustomClaims{
-		TokenType:       string(tokenapp.TokenTypeAccess),
+		TokenType:       string(tokendomain.TokenTypeAccess),
 		SessionID:       subject.SessionID,
 		UserID:          subject.UserID.String(),
 		LoginIdentityID: loginIdentityID.String(),
 		OrgID:           businessOrgIDClaim(subject.Claims),
-		TenantID:        tokenapp.TenantDomainFromClaims(subject.Claims, subject.Realm),
+		TenantID:        tenantDomainFromClaims(subject.Claims, subject.Realm),
 		AuthMethod:      authMethod,
 		Realm:           realm,
 		Attributes:      cloneStringMap(g.attributeEncoder.EncodeAttributes(subject.Claims)),
@@ -99,7 +99,7 @@ func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokenapp.Acce
 		return nil, err
 	}
 
-	token := tokenapp.NewAccessToken(
+	token := tokendomain.NewAccessToken(
 		tokenID,
 		tokenString,
 		subject.SessionID,
@@ -114,11 +114,11 @@ func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokenapp.Acce
 	return token, nil
 }
 
-func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*tokenapp.Token, error) {
+func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*tokendomain.ServiceToken, error) {
 	now := time.Now()
 	tokenID := uuid.NewString()
 	claims := CustomClaims{
-		TokenType:  string(tokenapp.TokenTypeService),
+		TokenType:  string(tokendomain.TokenTypeService),
 		Attributes: cloneStringMap(attributes),
 		RegisteredClaims: jwtv4.RegisteredClaims{
 			ID:        tokenID,
@@ -134,10 +134,10 @@ func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audie
 	if err != nil {
 		return nil, err
 	}
-	return tokenapp.NewServiceToken(tokenID, tokenString, subject, audience, attributes, expiresIn), nil
+	return tokendomain.NewServiceToken(tokenID, tokenString, subject, audience, attributes, expiresIn), nil
 }
 
-func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*tokenapp.TokenClaims, error) {
+func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*tokendomain.TokenClaims, error) {
 	parsed, err := jwtv4.ParseWithClaims(tokenValue, &CustomClaims{}, func(token *jwtv4.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwtv4.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -169,14 +169,14 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 		return nil, fmt.Errorf("invalid token claims")
 	}
 
-	tokenType := tokenapp.TokenType(claims.TokenType)
+	tokenType := tokendomain.TokenType(claims.TokenType)
 	if tokenType == "" {
-		tokenType = tokenapp.TokenTypeAccess
+		tokenType = tokendomain.TokenTypeAccess
 	}
 	loginIdentityID := parseStringID(claims.LoginIdentityID)
 	orgID := parseStringID(claims.OrgID)
 	tenantDomain, _ := parseTenantIDClaim(claims.TenantID)
-	tokenClaims := tokenapp.NewTokenClaims(
+	tokenClaims := tokendomain.NewTokenClaims(
 		tokenType,
 		claims.ID,
 		claims.Subject,

@@ -698,7 +698,7 @@ Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
 | password 错误返回“用户存在但密码错” | 账户枚举风险 | 对外统一认证失败 |
 | Challenge 验证成功但不消费 | 可重放攻击 | 成功后必须消费 |
 | provider access token 当 IAM AccessToken | 外部凭证和 IAM 凭证混淆 | IDP AppToken/provider token 只用于外部 provider |
-| Token 签发写在 domain LoginIdentity 实体里 | 领域模型污染运行时实现 | Token 签发由 application/runtime 处理 |
+| Token 签发写在 LoginIdentity 实体里 | 聚合职责混乱 | 由独立 Token 领域服务表达签发规则，application 编排登录用例 |
 | 日志打印密码/验证码/token | 严重安全风险 | 日志脱敏并避免敏感材料 |
 | Login 直接写 RoleBinding | AuthN 吞并 AuthZ | 授权归 AuthZ 用例 |
 
@@ -714,7 +714,8 @@ Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
 | Challenge 模型 | `../../../internal/apiserver/domain/authn` |
 | Principal 模型 | `../../../internal/apiserver/domain/authn/authentication/principal.go` |
 | AuthN login application | `../../../internal/apiserver/application/authn` |
-| Token application/runtime | `../../../internal/apiserver/application/authn/token` |
+| Token 领域模型与生命周期服务 | `../../../internal/apiserver/domain/authn/token` |
+| Token application facade/DTO | `../../../internal/apiserver/application/authn/token` |
 | Identity User application | `../../../internal/apiserver/application/identity/user` |
 | IDP ExternalIdentity | `../../../internal/apiserver/domain/idp` |
 | AuthN infra repository/store | `../../../internal/apiserver/infra` |
@@ -753,6 +754,7 @@ go test ./internal/apiserver/application/authn/...
 
 ```bash
 go test ./internal/apiserver/application/authn/token/...
+go test ./internal/apiserver/domain/authn/token/...
 go test ./internal/apiserver/infra/...
 ```
 

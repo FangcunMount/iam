@@ -13,65 +13,67 @@ import (
 // 它判断 User 与 LoginIdentity 是否允许建立或继续维持认证状态，
 // 不负责资源访问授权。
 type Policy interface {
-	Evaluate(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (Decision, error)
+	Evaluate(ctx context.Context, subject Subject) (Decision, error)
 }
 
+// LoginIdentityReader 暴露认证准入所需的最小 LoginIdentity 事实读取能力。
+type LoginIdentityReader interface {
+	GetByID(ctx context.Context, id meta.ID) (*loginidentitydomain.LoginIdentity, error)
+}
+
+// policy 汇集 AuthN 的 LoginIdentity 事实与 Identity 暴露的 User 状态事实。
 type policy struct {
-	userStatusReader  useraccess.UserStatusReader
-	loginIdentityRepo loginidentitydomain.Repository
+	userStatusReader    useraccess.UserStatusReader
+	loginIdentityReader LoginIdentityReader
 }
 
 // NewPolicy 创建认证准入策略。
-func NewPolicy(userStatusReader useraccess.UserStatusReader, loginIdentityRepo loginidentitydomain.Repository) Policy {
+func NewPolicy(userStatusReader useraccess.UserStatusReader, loginIdentityReader LoginIdentityReader) Policy {
 	return &policy{
-		userStatusReader:  userStatusReader,
-		loginIdentityRepo: loginIdentityRepo,
+		userStatusReader:    userStatusReader,
+		loginIdentityReader: loginIdentityReader,
 	}
 }
 
 // Evaluate 判断 User 与 LoginIdentity 是否允许建立或继续维持认证状态。
-func (p *policy) Evaluate(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (Decision, error) {
-	if p.loginIdentityRepo == nil {
-		return Decision{Status: StatusDisabled, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+func (p *policy) Evaluate(ctx context.Context, subject Subject) (Decision, error) {
+	if p == nil || p.loginIdentityReader == nil {
+		return Decision{}, fmt.Errorf("login identity reader is not configured")
 	}
-	identity, err := p.loginIdentityRepo.GetByID(ctx, loginIdentityID)
+
+	// LoginIdentity 必须存在、归属于声明的 User，且当前可用。
+	identity, err := p.loginIdentityReader.GetByID(ctx, subject.LoginIdentityID)
 	if err != nil {
 		return Decision{}, fmt.Errorf("load login identity status: %w", err)
 	}
 	if identity == nil {
-		return Decision{Status: StatusDisabled, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+		return Deny(subject, ReasonLoginIdentityMissing), nil
 	}
-	if identity.UserID != userID {
-		return Decision{Status: StatusBlocked, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+	if identity.UserID != subject.UserID {
+		return Deny(subject, ReasonIdentityOwnerMismatch), nil
 	}
-	if !identity.Status.IsActive() {
-		return Decision{Status: StatusDisabled, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+	if !identity.IsActive() {
+		return Deny(subject, ReasonLoginIdentityDisabled), nil
 	}
-	return p.evaluateUser(ctx, userID, loginIdentityID)
-}
 
-func (p *policy) evaluateUser(ctx context.Context, userID meta.ID, loginIdentityID meta.ID) (Decision, error) {
+	// User 必须存在且处于 active 状态。
 	if p.userStatusReader == nil {
 		return Decision{}, fmt.Errorf("identity user status reader is not configured")
 	}
-	status, err := p.userStatusReader.ReadUserStatus(ctx, userID)
+	userStatus, err := p.userStatusReader.ReadUserStatus(ctx, subject.UserID)
 	if err != nil {
 		return Decision{}, fmt.Errorf("load user status: %w", err)
 	}
-	switch status {
-	case useraccess.StatusMissing, useraccess.StatusBlocked:
-		return Decision{Status: StatusBlocked, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+	switch userStatus {
+	case useraccess.StatusMissing:
+		return Deny(subject, ReasonUserMissing), nil
+	case useraccess.StatusBlocked:
+		return Deny(subject, ReasonUserBlocked), nil
 	case useraccess.StatusInactive:
-		return Decision{Status: StatusInactive, UserID: userID, LoginIdentityID: loginIdentityID}, nil
+		return Deny(subject, ReasonUserInactive), nil
 	case useraccess.StatusActive:
-		// Continue below.
+		return Admit(subject), nil
 	default:
-		return Decision{}, fmt.Errorf("identity returned unknown user status %q", status)
+		return Decision{}, fmt.Errorf("identity returned unknown user status %q", userStatus)
 	}
-
-	return Decision{
-		Status:          StatusActive,
-		UserID:          userID,
-		LoginIdentityID: loginIdentityID,
-	}, nil
 }

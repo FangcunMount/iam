@@ -65,7 +65,7 @@ func TestSecuritySensitiveLogsAndGRPCErrorsStayPublicSafe(t *testing.T) {
 			`log.String("key", key)`,
 			`log.String("error", err.Error())`,
 		},
-		"internal/apiserver/application/authn/token/refresher.go": {
+		"internal/apiserver/domain/authn/token/refresher.go": {
 			"token_hint",
 			"MaskToken",
 		},
@@ -1404,12 +1404,11 @@ func TestAuthnOnboardingAndProfileLinkContractsDoNotRegress(t *testing.T) {
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/authn/router.go", "/wechat/register")
 }
 
-func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
+func TestAuthnTokenDomainStaysBehindPortsAndAdapters(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
 	for _, rel := range []string{
-		"internal/apiserver/domain/authn/token",
 		"internal/apiserver/domain/authn/jwks",
 		"internal/apiserver/infra/authentication",
 		"internal/apiserver/infra/jwt",
@@ -1419,12 +1418,11 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(matches) > 0 {
-			t.Fatalf("%s is retired token implementation code; keep token use cases in application/authn/token and JWT encoding in infra/token/jwt", rel)
+			t.Fatalf("%s is retired token implementation code; keep Token domain services in domain/authn/token and JWT encoding in infra/token/jwt", rel)
 		}
 	}
 
 	forbiddenImports := map[string]struct{}{
-		modulePath + "internal/apiserver/domain/authn/token":   {},
 		modulePath + "internal/apiserver/domain/authn/jwks":    {},
 		modulePath + "internal/apiserver/infra/authentication": {},
 		modulePath + "internal/apiserver/infra/jwt":            {},
@@ -1440,7 +1438,7 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 		}
 		for _, imp := range imports {
 			if _, forbidden := forbiddenImports[imp]; forbidden {
-				t.Fatalf("%s imports %s; JWT libraries and retired token packages must stay behind infra/token/jwt or application token ports", rel, imp)
+				t.Fatalf("%s imports %s; JWT libraries and retired token packages must stay behind infra/token/jwt or domain token ports", rel, imp)
 			}
 		}
 	})
@@ -1459,11 +1457,24 @@ func TestAuthnTokenImplementationStaysOutOfDomain(t *testing.T) {
 	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "infra", "token", "jwt"), func(path string, imports []string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/domain/authn/") {
-				t.Fatalf("%s imports %s; JWT infrastructure must implement application ports without depending on authn domain packages", rel, imp)
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/application/authn/") {
+				t.Fatalf("%s imports %s; JWT infrastructure must implement domain token ports without depending on application packages", rel, imp)
 			}
 		}
 	})
+
+	for _, rel := range []string{
+		"internal/apiserver/application/authn/token/issuer.go",
+		"internal/apiserver/application/authn/token/refresher.go",
+		"internal/apiserver/application/authn/token/verifier.go",
+		"internal/apiserver/application/authn/token/revoker.go",
+	} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+			t.Fatalf("%s duplicates Token lifecycle behavior owned by domain/authn/token", rel)
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
 
 	forbiddenDomainTokens := []string{
 		"AccessClaims",

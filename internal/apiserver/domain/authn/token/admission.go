@@ -1,4 +1,4 @@
-package admission
+package token
 
 import (
 	"context"
@@ -8,13 +8,8 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
-// Require evaluates the current User/LoginIdentity state and maps a denied
-// decision to the stable AuthN/Identity application error contract.
-func Require(
-	ctx context.Context,
-	policy admissiondomain.Policy,
-	subject admissiondomain.Subject,
-) error {
+// requireAdmission 将领域准入判定收敛为 Token 生命周期使用的稳定错误语义。
+func requireAdmission(ctx context.Context, policy AdmissionPolicy, subject admissiondomain.Subject) error {
 	if policy == nil {
 		return perrors.WithCode(code.ErrInternalServerError, "admission policy is not configured")
 	}
