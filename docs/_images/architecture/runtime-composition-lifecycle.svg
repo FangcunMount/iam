@@ -284,7 +284,7 @@
 
     <rect x="990" y="1170" width="180" height="92" rx="14" fill="#e8f7ea" stroke="#63a66f" stroke-width="2"/>
     <text x="1080" y="1205" text-anchor="middle" class="module">AuthN</text>
-    <text x="1080" y="1235" text-anchor="middle" class="capability">Principal / Session</text>
+    <text x="1080" y="1235" text-anchor="middle" class="capability">Principal → Grant</text>
     <line x1="1170" y1="1216" x2="1210" y2="1216" class="solid"/>
 
     <rect x="1215" y="1170" width="180" height="92" rx="14" fill="#eee8ff" stroke="#8b75cb" stroke-width="2"/>

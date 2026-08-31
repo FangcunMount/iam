@@ -170,7 +170,7 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	}
 
 	// 与登录成功后的签发路径一致：IssueToken → access_token JWT
-	pair, err := tokens.SessionEstablisher.EstablishSession(ctx, principal)
+	pair, err := tokens.AuthenticationGrantIssuer.IssueAuthentication(ctx, principal)
 	require.NoError(t, err)
 	require.NotNil(t, pair)
 	require.NotNil(t, pair.AccessToken)
@@ -248,7 +248,7 @@ func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {
 		LoginIdentityID: meta.FromUint64(8),
 		TenantID:        meta.FromUint64(9),
 	}
-	pair, err := tokens.SessionEstablisher.EstablishSession(ctx, principal)
+	pair, err := tokens.AuthenticationGrantIssuer.IssueAuthentication(ctx, principal)
 	require.NoError(t, err)
 
 	grpcSrv := &authServiceServer{tokenVerifier: tokens.Verifier}
@@ -278,7 +278,7 @@ func TestIntegration_VerifyToken_GRPC_IncludeMetadata(t *testing.T) {
 		LoginIdentityID: meta.FromUint64(43),
 		TenantID:        meta.FromUint64(44),
 	}
-	pair, err := tokens.SessionEstablisher.EstablishSession(ctx, principal)
+	pair, err := tokens.AuthenticationGrantIssuer.IssueAuthentication(ctx, principal)
 	require.NoError(t, err)
 
 	grpcSrv := &authServiceServer{tokenVerifier: tokens.Verifier}

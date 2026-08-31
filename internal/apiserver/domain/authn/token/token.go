@@ -3,7 +3,6 @@ package token
 import (
 	"time"
 
-	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -155,18 +154,6 @@ type UserTokenSet struct {
 // NewUserTokenSet 创建用户令牌集合。
 func NewUserTokenSet(accessToken *AccessToken, refreshToken *RefreshToken) *UserTokenSet {
 	return &UserTokenSet{AccessToken: accessToken, RefreshToken: refreshToken}
-}
-
-// AuthenticationGrant 表示一次认证成功后建立的完整在线认证结果。
-// Session 表达服务端认证状态，TokenSet 表达交付给调用方的凭证集合。
-type AuthenticationGrant struct {
-	Session  *sessiondomain.Session
-	TokenSet *UserTokenSet
-}
-
-// NewAuthenticationGrant 创建认证结果。
-func NewAuthenticationGrant(session *sessiondomain.Session, tokenSet *UserTokenSet) *AuthenticationGrant {
-	return &AuthenticationGrant{Session: session, TokenSet: tokenSet}
 }
 
 // ConsumedRefreshToken 是旧刷新令牌成功轮换后留下的最小重放检测事实。

@@ -243,9 +243,16 @@ def check_generated_document_facts() -> None:
             "Casbin RoleManager",
             "Native Grant Index",
         ),
-        "docs/_images/architecture/core-domain-model-v8.svg": (
+        "docs/_images/architecture/core-domain-model-v7.svg": (
             "AdmissionPolicy",
             "LifetimePolicy",
+            "AuthenticationGrant",
+            "GrantIssuer",
+            "ServiceToken",
+            "TokenSetMinter",
+            "Refresher",
+            "Verifier",
+            "Revoker",
             "Assignment",
             "RoleInheritance",
             "PermissionGrant",
@@ -284,7 +291,7 @@ def check_generated_document_facts() -> None:
             "DecisionEngine",
             "MatchedPermission",
         ),
-        "docs/_images/architecture/core-domain-model-v8.svg": (
+        "docs/_images/architecture/core-domain-model-v7.svg": (
             ">RoleBinding<",
             ">Permission<",
             "ObjectScope",

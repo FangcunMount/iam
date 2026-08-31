@@ -375,7 +375,7 @@ Credential 创建失败时，LoginIdentity 是否保留需要明确事务或补�
 删除 Profile；
 删除 ProfileLink；
 撤销所有 Session，除非有明确安全策略；
-删除 AuthZ RoleBinding；
+删除 AuthZ Assignment / PermissionGrant；
 删除 Suggest Index。
 ```
 
@@ -572,8 +572,8 @@ IDP 不直接修改 LoginIdentity repository。
 Linking 本身不是授权判定；
 管理端代用户绑定身份可能需要 AuthZ Check；
 普通用户给自己绑定身份主要依赖 Principal + Proof；
-绑定 LoginIdentity 不创建 RoleBinding；
-解绑 LoginIdentity 不删除 Permission。
+绑定 LoginIdentity 不创建 Assignment；
+解绑 LoginIdentity 不删除 PermissionGrant。
 ```
 
 ---
@@ -601,7 +601,7 @@ Suggest 可以使用 Principal/UserID 作为查询上下文；
 | 解绑 LoginIdentity 时删除 User | 登录入口和内部身份混淆 | 解绑只影响登录方式 |
 | 允许解绑最后一个登录方式 | 用户可能无法恢复账户 | 至少保留一个可用登录方式或提供恢复机制 |
 | 绑定成功但 Credential 创建失败 | 产生不可用登录身份 | 事务或补偿保证一致性 |
-| Linking 直接写 RoleBinding | AuthN 吞并 AuthZ | 授权归 AuthZ 用例 |
+| Linking 直接写 Assignment / PermissionGrant | AuthN 吞并 AuthZ | 授权归 AuthZ 用例 |
 | Linking 直接写 Suggest Index | AuthN 污染搜索读模型 | Suggest 通过读模型刷新处理 |
 
 ---

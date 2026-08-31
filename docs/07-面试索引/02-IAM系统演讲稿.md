@@ -199,9 +199,9 @@ IDP 和 Suggest 可以支撑核心模块，但不能吞并核心模块职责。
 
 #### 2.2.2 三个核心模块如何协作
 
-![IAM 三核心模块领域模型](../_images/architecture/core-domain-model-v8.png)
+![IAM 三核心模块领域模型](../_images/architecture/core-domain-model-v7.png)
 
-> Canonical 领域模型图 V8：本图以当前 Domain、Application 端口、组合根注入和数据库迁移为事实依据，是演讲时解释 Identity、AuthN、AuthZ 的主图。
+> Canonical 领域模型图 V7：本图以当前 Domain、Application 端口、组合根注入和数据库迁移为事实依据，是演讲时解释 Identity、AuthN、AuthZ 的主图。
 
 这张图不是数据库 ER 图，也不是登录时序图，而是用来表达“谁拥有什么事实、模型承担什么责任、模块以什么能力连接”的领域模型图。
 
@@ -418,7 +418,7 @@ IAM 面向多个拥有不同业务身份和业务对象的系统，提供统一�
 | --- | --- |
 | IAM 的定位和业务边界 | [IAM 系统定位](../00-概览/01-IAM系统定位.md)、[模块划分与协作关系](../00-概览/02-模块划分与协作关系.md) |
 | User、Profile 与 ProfileLink | [Identity 领域模型](../02-业务模块/01-Identity/01-领域模型-User-Profile-ProfileLink.md) |
-| Identity、AuthN、AuthZ 三核心领域模型 | [Canonical V8 领域模型图](../_images/architecture/core-domain-model-v8.png) |
+| Identity、AuthN、AuthZ 三核心领域模型 | [Canonical V7 领域模型图](../_images/architecture/core-domain-model-v7.png) |
 | AuthN 与 AuthZ 边界 | [身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md) |
 | AuthZ 模块、领域模型与关键链路 | [AuthZ canonical 文档](../02-业务模块/03-AuthZ/README.md) |
 | 分层、端口和依赖方向 | [架构风格与设计原则](../00-概览/05-架构风格与设计原则.md) |

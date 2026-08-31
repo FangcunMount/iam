@@ -78,7 +78,7 @@
   <text x="655" y="890" class="bandTitle">领域层｜domain</text>
   <text x="655" y="919" class="bandSub">实体、值对象、领域策略、不变量与端口；不依赖 transport / infra</text>
   <rect x="700" y="960" width="320" height="72" class="card" stroke="#d59a16"/><text x="860" y="990" text-anchor="middle" class="boxTitle">Identity</text><text x="860" y="1016" text-anchor="middle" class="field">User / Profile / ProfileLink</text>
-  <rect x="1060" y="960" width="320" height="72" class="card" stroke="#d59a16"/><text x="1220" y="990" text-anchor="middle" class="boxTitle">AuthN</text><text x="1220" y="1016" text-anchor="middle" class="field">LoginIdentity / Session / Admission</text>
+  <rect x="1060" y="960" width="320" height="72" class="card" stroke="#d59a16"/><text x="1220" y="990" text-anchor="middle" class="boxTitle">AuthN</text><text x="1220" y="1016" text-anchor="middle" class="field">Login · Admission · Grant · Token</text>
   <rect x="1420" y="960" width="320" height="72" class="card" stroke="#d59a16"/><text x="1580" y="990" text-anchor="middle" class="boxTitle">AuthZ</text><text x="1580" y="1016" text-anchor="middle" class="field">Assignment / Grant / Constraint</text>
   <rect x="1780" y="960" width="320" height="72" class="card" stroke="#d59a16"/><text x="1940" y="990" text-anchor="middle" class="boxTitle">IDP</text><text x="1940" y="1016" text-anchor="middle" class="field">WechatApp / ExternalIdentity</text>
   <rect x="2140" y="960" width="320" height="72" class="card" stroke="#d59a16"/><text x="2300" y="990" text-anchor="middle" class="boxTitle">Suggest</text><text x="2300" y="1016" text-anchor="middle" class="field">SearchTerm / AccessScope</text>

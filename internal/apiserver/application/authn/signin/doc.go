@@ -4,7 +4,7 @@
 //  1. MethodRegistry 根据 AuthMethod 选择登录方式并校验 method payload；
 //  2. ProofFactory 根据 CredentialKind 构造领域 AuthCredential；
 //  3. 领域 Authenticator 完成凭据认证并返回 Principal；
-//  4. SessionEstablisher 为 Principal 建立在线会话并返回 TokenPair。
+//  4. AuthenticationGrantIssuer 为 Principal 建立完整在线认证结果并返回 TokenPair。
 //
 // 请求上下文规范：
 // TenantID、RemoteIP、UserAgent 必须由 transport / compatibility 层写入

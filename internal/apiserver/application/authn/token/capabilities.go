@@ -6,14 +6,16 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	admissionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	grantdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/grant"
 	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // application 组合令牌用例协作者，并分别实现对外窄能力。
 type application struct {
-	issuer             tokendomain.Issuer
+	grantIssuer        grantdomain.Issuer
 	serviceTokenIssuer tokendomain.ServiceTokenIssuer
 	refresher          tokendomain.Refresher
 	verifier           tokendomain.Verifier
@@ -35,43 +37,47 @@ type Dependencies struct {
 }
 
 var (
-	_ SessionEstablisher = (*application)(nil)
-	_ ServiceTokenIssuer = (*application)(nil)
-	_ Refresher          = (*application)(nil)
-	_ Revoker            = (*application)(nil)
-	_ Verifier           = (*application)(nil)
+	_ AuthenticationGrantIssuer = (*application)(nil)
+	_ ServiceTokenIssuer        = (*application)(nil)
+	_ Refresher                 = (*application)(nil)
+	_ Revoker                   = (*application)(nil)
+	_ Verifier                  = (*application)(nil)
 )
 
 // NewCapabilities 装配并返回相互独立的令牌用例能力。
 func NewCapabilities(deps Dependencies) Capabilities {
 	domainCapabilities := tokendomain.NewCapabilities(tokendomain.Dependencies{
 		AccessTokenCodec: deps.AccessTokenCodec, TokenStore: deps.TokenStore,
-		SessionCreator: deps.SessionCreator, SessionLoader: deps.SessionLoader,
+		SessionLoader:  deps.SessionLoader,
 		SessionRevoker: deps.SessionRevoker, SessionExtender: deps.SessionExtender,
 		SessionRefreshExpirer: deps.SessionRefreshExpirer, AdmissionPolicy: deps.AdmissionPolicy,
 		RefreshClaimsCodec: deps.RefreshClaimsCodec, AccessTTL: deps.AccessTTL,
 	})
+	grantIssuer := grantdomain.NewIssuer(grantdomain.Dependencies{
+		AdmissionPolicy: deps.AdmissionPolicy, SessionCreator: deps.SessionCreator,
+		TokenSetMinter: domainCapabilities.TokenSetMinter, RefreshTokenSaver: deps.TokenStore,
+	})
 	app := &application{
-		issuer:             domainCapabilities.Issuer,
+		grantIssuer:        grantIssuer,
 		serviceTokenIssuer: domainCapabilities.ServiceTokenIssuer,
 		refresher:          domainCapabilities.Refresher,
 		verifier:           domainCapabilities.Verifier,
 		revoker:            domainCapabilities.Revoker,
 	}
 	return Capabilities{
-		SessionEstablisher: app,
-		ServiceTokenIssuer: app,
-		Refresher:          app,
-		Revoker:            app,
-		Verifier:           app,
+		AuthenticationGrantIssuer: app,
+		ServiceTokenIssuer:        app,
+		Refresher:                 app,
+		Revoker:                   app,
+		Verifier:                  app,
 	}
 }
 
-// EstablishSession 在认证完成后创建 Session 并返回 access/refresh token pair。
-func (s *application) EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
-	grant, err := s.issuer.Issue(ctx, principal)
+// IssueAuthentication 在认证完成后颁发 Session + TokenSet，并返回应用层 token pair。
+func (s *application) IssueAuthentication(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
+	grant, err := s.grantIssuer.Issue(ctx, principal)
 	if err != nil {
-		return nil, err
+		return nil, admissionapp.MapError(err)
 	}
 	return tokenPairFromDomain(grant.TokenSet), nil
 }
@@ -92,7 +98,7 @@ func (s *application) IssueServiceToken(ctx context.Context, req IssueServiceTok
 func (s *application) RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error) {
 	tokenSet, err := s.refresher.RefreshToken(ctx, refreshToken)
 	if err != nil {
-		return nil, err
+		return nil, admissionapp.MapError(err)
 	}
 
 	return &TokenRefreshResult{
@@ -123,6 +129,7 @@ func (s *application) RevokeRefreshToken(ctx context.Context, refreshToken strin
 func (s *application) VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error) {
 	claims, err := s.verifier.VerifyToken(ctx, req.AccessToken)
 	if err != nil {
+		err = admissionapp.MapError(err)
 		failureCode := tokenVerificationFailureCode(err)
 		if failureCode == 0 {
 			return nil, err

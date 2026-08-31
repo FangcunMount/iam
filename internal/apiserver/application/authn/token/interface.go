@@ -7,10 +7,10 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 )
 
-// SessionEstablisher 在认证成功后建立在线会话并返回会话令牌。
-// 调用方无需感知 access token、refresh token 与 Session 的内部装配过程。
-type SessionEstablisher interface {
-	EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
+// AuthenticationGrantIssuer 在认证成功后颁发完整在线认证结果。
+// 调用方无需感知 Session、access token 与 refresh token 的内部装配过程。
+type AuthenticationGrantIssuer interface {
+	IssueAuthentication(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
 }
 
 // ServiceTokenIssuer 签发不绑定用户 Session 的服务间访问令牌。
@@ -37,11 +37,11 @@ type Verifier interface {
 // Capabilities 是组合根输出的令牌用例能力集合。
 // 它只承载窄接口，不是供业务代码依赖的统一门面。
 type Capabilities struct {
-	SessionEstablisher SessionEstablisher
-	ServiceTokenIssuer ServiceTokenIssuer
-	Refresher          Refresher
-	Revoker            Revoker
-	Verifier           Verifier
+	AuthenticationGrantIssuer AuthenticationGrantIssuer
+	ServiceTokenIssuer        ServiceTokenIssuer
+	Refresher                 Refresher
+	Revoker                   Revoker
+	Verifier                  Verifier
 }
 
 // ================== DTOs ==================

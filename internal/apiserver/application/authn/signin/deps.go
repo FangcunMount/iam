@@ -6,7 +6,6 @@ import (
 	credentialapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/credential"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
-	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 )
 
@@ -22,10 +21,9 @@ type ProofFactory interface {
 
 // Dependencies 是 SignIn 用例依赖。
 type Dependencies struct {
-	SessionEstablisher tokenapp.SessionEstablisher
-	MethodRegistry     MethodRegistry
-	ProofFactory       ProofFactory
-	Authenticator      *authentication.Authenticator
-	CredentialRecorder credentialapp.Recorder
-	AdmissionPolicy    admissiondomain.Policy
+	AuthenticationGrantIssuer tokenapp.AuthenticationGrantIssuer
+	MethodRegistry            MethodRegistry
+	ProofFactory              ProofFactory
+	Authenticator             *authentication.Authenticator
+	CredentialRecorder        credentialapp.Recorder
 }

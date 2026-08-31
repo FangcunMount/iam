@@ -13,7 +13,6 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
 	tokenApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
-	admissionDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -49,13 +48,12 @@ func TestPhoneOTPLoginConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 	authenticator := authentication.NewAuthenticator(
 		newPhoneOTPAuthStrategy(identityRepo, challengeService),
 	)
-	sessionEstablisher := &authnSessionEstablisherStub{}
+	grantIssuer := &authnAuthenticationGrantIssuerStub{}
 	signIn := signin.New(signin.Dependencies{
-		SessionEstablisher: sessionEstablisher,
-		Authenticator:      authenticator,
-		MethodRegistry:     method.DefaultSelector(),
-		ProofFactory:       proof.DefaultFactory(nil, nil),
-		AdmissionPolicy:    authnAdmissionPolicyStub{},
+		AuthenticationGrantIssuer: grantIssuer,
+		Authenticator:             authenticator,
+		MethodRegistry:            method.DefaultSelector(),
+		ProofFactory:              proof.DefaultFactory(nil, nil),
 	})
 
 	result, err := signIn.Execute(ctx, method.LoginRequest{
@@ -291,15 +289,9 @@ func authnLinkingProviderKey(provider loginidentity.Provider, realm, identifier 
 	return string(provider) + "|" + realm + "|" + identifier
 }
 
-type authnSessionEstablisherStub struct{}
+type authnAuthenticationGrantIssuerStub struct{}
 
-type authnAdmissionPolicyStub struct{}
-
-func (authnAdmissionPolicyStub) Evaluate(_ context.Context, subject admissionDomain.Subject) (admissionDomain.Decision, error) {
-	return admissionDomain.Admit(subject), nil
-}
-
-func (s *authnSessionEstablisherStub) EstablishSession(_ context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
+func (s *authnAuthenticationGrantIssuerStub) IssueAuthentication(_ context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {
 	access := tokenApp.NewAccessToken(
 		"access-id",
 		"access-token",

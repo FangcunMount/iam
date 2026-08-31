@@ -8,7 +8,7 @@
 IDP 证明外部账号
   -> AuthN 绑定/认证 LoginIdentity
   -> Identity 提供长期 User 状态
-  -> AuthN 产生 Principal / Session / Token
+  -> AuthN 产生 Principal，并颁发 AuthenticationGrant(Session + UserTokenSet)
   -> AuthZ 对 Subject 做资源判定
 ```
 
@@ -62,7 +62,7 @@ openid/unionid 分支标记为请求内 `TrustedLegacyInput`，不会伪装为 p
 
 ## 4. AuthN 与 AuthZ
 
-AuthN 的终点是 Principal，AuthZ 的起点是 Subject。典型转换只取：
+AuthN 的身份证明阶段产生 Principal，在线 SignIn 用例还会将其颁发为 `AuthenticationGrant`。AuthZ 不消费 Grant 或 Session 写模型，而从可信 Principal/token claims 构造 Subject。典型转换只取：
 
 ```text
 Principal.UserID -> subject.NewUserRef(UserID)
@@ -72,7 +72,7 @@ JWT middleware 可以把 UserID、tenant domain、org、AMR 等放进请求上�
 
 ### 为什么 role snapshot 不等于授权
 
-Token 或 snapshot 中的 roles/permissions 可能在签发后过期；撤权不会修改已经签名的 JWT。它们可以用于界面导航或减少非关键查询，但不能替代需要最新策略的服务端判定。
+当前 AuthN Token 不携带完整 Assignment / PermissionGrant / ConstraintSet。即使下游自行缓存 role/permission snapshot，也可能在签发或缓存后过期；撤权不会修改已经签名的 JWT。这类派生信息可用于界面导航，但不能替代需要最新策略的服务端判定。
 
 ### 最近认证不是授权
 

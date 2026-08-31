@@ -1,6 +1,6 @@
 // Package token implements AuthN token application use cases.
 //
-// 组合根通过 Capabilities 输出彼此独立的令牌用例能力：会话建立、刷新、
+// 组合根通过 Capabilities 输出彼此独立的用例能力：认证结果颁发、刷新、
 // 在线验证、撤销和服务令牌签发。调用方只依赖实际使用的窄接口。
 //
 // revoker 是 token 包内部的撤销门面，实际职责委托给更小的用例组件。
