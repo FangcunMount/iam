@@ -2,6 +2,7 @@ package admission
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	loginidentitydomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -10,105 +11,175 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPolicyAdmitsActiveLoginIdentityAndUser(t *testing.T) {
-	ctx := context.Background()
-	userID := meta.FromUint64(1001)
-	loginIdentityID := meta.FromUint64(2001)
+func TestPolicyEvaluatesAdmissionDecisionTable(t *testing.T) {
+	t.Parallel()
 
-	users := &userStatusReaderStub{byID: map[meta.ID]useraccess.Status{userID: useraccess.StatusActive}}
-	identities := &loginIdentityRepoStub{byID: map[meta.ID]*loginidentitydomain.LoginIdentity{
-		loginIdentityID: {
-			ID: loginIdentityID, UserID: userID,
-			Provider: loginidentitydomain.ProviderUsername, Realm: loginidentitydomain.RealmDefault,
-			Identifier: "zhangsan", Status: loginidentitydomain.StatusActive,
+	subject := Subject{
+		UserID:          meta.FromUint64(1001),
+		LoginIdentityID: meta.FromUint64(2001),
+	}
+	activeIdentity := func(userID meta.ID) *loginidentitydomain.LoginIdentity {
+		return &loginidentitydomain.LoginIdentity{
+			ID:         subject.LoginIdentityID,
+			UserID:     userID,
+			Provider:   loginidentitydomain.ProviderUsername,
+			Realm:      loginidentitydomain.RealmDefault,
+			Identifier: "zhangsan",
+			Status:     loginidentitydomain.StatusActive,
+		}
+	}
+
+	tests := []struct {
+		name          string
+		identity      *loginidentitydomain.LoginIdentity
+		userStatus    useraccess.Status
+		wantOutcome   Outcome
+		wantReason    DenialReason
+		wantUserReads int
+	}{
+		{
+			name:          "active identity owned by active user is admitted",
+			identity:      activeIdentity(subject.UserID),
+			userStatus:    useraccess.StatusActive,
+			wantOutcome:   OutcomeAdmitted,
+			wantUserReads: 1,
 		},
-	}}
+		{
+			name:        "missing login identity is denied before reading user",
+			wantOutcome: OutcomeDenied,
+			wantReason:  ReasonLoginIdentityMissing,
+		},
+		{
+			name:        "identity owned by another user is denied before reading user",
+			identity:    activeIdentity(meta.FromUint64(1002)),
+			wantOutcome: OutcomeDenied,
+			wantReason:  ReasonIdentityOwnerMismatch,
+		},
+		{
+			name: "disabled login identity is denied before reading user",
+			identity: &loginidentitydomain.LoginIdentity{
+				ID:     subject.LoginIdentityID,
+				UserID: subject.UserID,
+				Status: loginidentitydomain.StatusDisabled,
+			},
+			wantOutcome: OutcomeDenied,
+			wantReason:  ReasonLoginIdentityDisabled,
+		},
+		{
+			name:          "missing user is denied",
+			identity:      activeIdentity(subject.UserID),
+			userStatus:    useraccess.StatusMissing,
+			wantOutcome:   OutcomeDenied,
+			wantReason:    ReasonUserMissing,
+			wantUserReads: 1,
+		},
+		{
+			name:          "blocked user is denied",
+			identity:      activeIdentity(subject.UserID),
+			userStatus:    useraccess.StatusBlocked,
+			wantOutcome:   OutcomeDenied,
+			wantReason:    ReasonUserBlocked,
+			wantUserReads: 1,
+		},
+		{
+			name:          "inactive user is denied",
+			identity:      activeIdentity(subject.UserID),
+			userStatus:    useraccess.StatusInactive,
+			wantOutcome:   OutcomeDenied,
+			wantReason:    ReasonUserInactive,
+			wantUserReads: 1,
+		},
+	}
 
-	decision, err := NewPolicy(users, identities).Evaluate(ctx, userID, loginIdentityID)
-	require.NoError(t, err)
-	require.True(t, decision.IsAdmitted())
-	require.Equal(t, StatusActive, decision.Status)
-	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			users := &userStatusReaderStub{status: tt.userStatus}
+			identities := &loginIdentityReaderStub{identity: tt.identity}
+
+			decision, err := NewPolicy(users, identities).Evaluate(context.Background(), subject)
+
+			require.NoError(t, err)
+			require.Equal(t, subject, decision.Subject)
+			require.Equal(t, tt.wantOutcome, decision.Outcome)
+			require.Equal(t, tt.wantReason, decision.Reason)
+			require.Equal(t, tt.wantOutcome == OutcomeAdmitted, decision.IsAdmitted())
+			require.Equal(t, tt.wantUserReads, users.calls)
+		})
+	}
 }
 
-func TestPolicyDeniesDisabledLoginIdentityAndBlockedUser(t *testing.T) {
-	ctx := context.Background()
-	userID := meta.FromUint64(1001)
-	disabledIdentityID := meta.FromUint64(2001)
-	blockedIdentityID := meta.FromUint64(2002)
+func TestPolicyReturnsTechnicalErrorsSeparatelyFromDenial(t *testing.T) {
+	t.Parallel()
 
-	users := &userStatusReaderStub{byID: map[meta.ID]useraccess.Status{userID: useraccess.StatusBlocked}}
-	identities := &loginIdentityRepoStub{byID: map[meta.ID]*loginidentitydomain.LoginIdentity{
-		disabledIdentityID: {
-			ID: disabledIdentityID, UserID: userID,
-			Provider: loginidentitydomain.ProviderPhone, Realm: loginidentitydomain.RealmGlobal,
-			Identifier: "+8613811112222", Status: loginidentitydomain.StatusDisabled,
+	subject := Subject{UserID: meta.FromUint64(1001), LoginIdentityID: meta.FromUint64(2001)}
+	activeIdentity := &loginidentitydomain.LoginIdentity{
+		ID:     subject.LoginIdentityID,
+		UserID: subject.UserID,
+		Status: loginidentitydomain.StatusActive,
+	}
+
+	tests := []struct {
+		name     string
+		users    useraccess.UserStatusReader
+		identity LoginIdentityReader
+		want     string
+	}{
+		{
+			name:  "login identity reader is required",
+			users: &userStatusReaderStub{status: useraccess.StatusActive},
+			want:  "login identity reader is not configured",
 		},
-		blockedIdentityID: {
-			ID: blockedIdentityID, UserID: userID,
-			Provider: loginidentitydomain.ProviderPhone, Realm: loginidentitydomain.RealmGlobal,
-			Identifier: "+8613811113333", Status: loginidentitydomain.StatusActive,
+		{
+			name:     "login identity read failure",
+			users:    &userStatusReaderStub{status: useraccess.StatusActive},
+			identity: &loginIdentityReaderStub{err: errors.New("database unavailable")},
+			want:     "load login identity status",
 		},
-	}}
-
-	decision, err := NewPolicy(users, identities).Evaluate(ctx, userID, disabledIdentityID)
-	require.NoError(t, err)
-	require.Equal(t, StatusDisabled, decision.Status)
-
-	decision, err = NewPolicy(users, identities).Evaluate(ctx, userID, blockedIdentityID)
-	require.NoError(t, err)
-	require.Equal(t, StatusBlocked, decision.Status)
-}
-
-func TestPolicyDistinguishesInactiveUser(t *testing.T) {
-	ctx := context.Background()
-	userID := meta.FromUint64(1001)
-	loginIdentityID := meta.FromUint64(2001)
-	users := &userStatusReaderStub{byID: map[meta.ID]useraccess.Status{userID: useraccess.StatusInactive}}
-	identities := &loginIdentityRepoStub{byID: map[meta.ID]*loginidentitydomain.LoginIdentity{
-		loginIdentityID: {
-			ID: loginIdentityID, UserID: userID,
-			Provider: loginidentitydomain.ProviderUsername, Realm: loginidentitydomain.RealmDefault,
-			Identifier: "inactive-user", Status: loginidentitydomain.StatusActive,
+		{
+			name:     "user status reader is required",
+			identity: &loginIdentityReaderStub{identity: activeIdentity},
+			want:     "identity user status reader is not configured",
 		},
-	}}
+		{
+			name:     "user status read failure",
+			users:    &userStatusReaderStub{err: errors.New("identity unavailable")},
+			identity: &loginIdentityReaderStub{identity: activeIdentity},
+			want:     "load user status",
+		},
+		{
+			name:     "unknown user status",
+			users:    &userStatusReaderStub{status: useraccess.Status("suspended")},
+			identity: &loginIdentityReaderStub{identity: activeIdentity},
+			want:     "unknown user status",
+		},
+	}
 
-	decision, err := NewPolicy(users, identities).Evaluate(ctx, userID, loginIdentityID)
-	require.NoError(t, err)
-	require.Equal(t, StatusInactive, decision.Status)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decision, err := NewPolicy(tt.users, tt.identity).Evaluate(context.Background(), subject)
+
+			require.ErrorContains(t, err, tt.want)
+			require.Equal(t, Decision{}, decision)
+		})
+	}
 }
 
 type userStatusReaderStub struct {
-	byID map[meta.ID]useraccess.Status
+	status useraccess.Status
+	err    error
+	calls  int
 }
 
-func (s *userStatusReaderStub) ReadUserStatus(_ context.Context, id meta.ID) (useraccess.Status, error) {
-	status, ok := s.byID[id]
-	if !ok {
-		return useraccess.StatusMissing, nil
-	}
-	return status, nil
+func (s *userStatusReaderStub) ReadUserStatus(context.Context, meta.ID) (useraccess.Status, error) {
+	s.calls++
+	return s.status, s.err
 }
 
-type loginIdentityRepoStub struct {
-	byID map[meta.ID]*loginidentitydomain.LoginIdentity
+type loginIdentityReaderStub struct {
+	identity *loginidentitydomain.LoginIdentity
+	err      error
 }
 
-func (s *loginIdentityRepoStub) Create(context.Context, *loginidentitydomain.LoginIdentity) error {
-	return nil
-}
-func (s *loginIdentityRepoStub) GetByID(_ context.Context, id meta.ID) (*loginidentitydomain.LoginIdentity, error) {
-	return s.byID[id], nil
-}
-func (s *loginIdentityRepoStub) GetByProviderKey(context.Context, loginidentitydomain.Provider, string, string) (*loginidentitydomain.LoginIdentity, error) {
-	return nil, nil
-}
-func (s *loginIdentityRepoStub) GetByGlobalIdentifier(context.Context, loginidentitydomain.Provider, string) (*loginidentitydomain.LoginIdentity, error) {
-	return nil, nil
-}
-func (s *loginIdentityRepoStub) ListByUserID(context.Context, meta.ID) ([]*loginidentitydomain.LoginIdentity, error) {
-	return nil, nil
-}
-func (s *loginIdentityRepoStub) UpdateStatus(context.Context, meta.ID, loginidentitydomain.Status) error {
-	return nil
+func (s *loginIdentityReaderStub) GetByID(context.Context, meta.ID) (*loginidentitydomain.LoginIdentity, error) {
+	return s.identity, s.err
 }

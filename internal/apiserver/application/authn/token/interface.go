@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 )
 
 // SessionEstablisher 在认证成功后建立在线会话并返回会话令牌。
@@ -43,54 +42,6 @@ type Capabilities struct {
 	Refresher          Refresher
 	Revoker            Revoker
 	Verifier           Verifier
-}
-
-// RefreshClaimsCodec 将认证主体附加 claims 编码为 refresh/session 共用的字符串快照。
-type RefreshClaimsCodec interface {
-	Encode(map[string]any) map[string]string
-	Decode(map[string]string) map[string]any
-}
-
-// sessionEstablisherPort 创建 Session，并持久化首个 refresh token。
-type sessionEstablisherPort interface {
-	EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error)
-}
-
-// tokenPairMinterPort 在既有 Session 上生成尚未持久化的 access/refresh token pair。
-type tokenPairMinterPort interface {
-	MintTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error)
-}
-
-// serviceTokenIssuerPort 用于签发服务间访问令牌。
-type serviceTokenIssuerPort interface {
-	// IssueServiceToken 签发服务间访问令牌
-	// 职责：签发服务间访问令牌
-	// 返回值：访问令牌对
-	IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*TokenPair, error)
-}
-
-// refresherPort 根据 refresh token 刷新 access token 和 refresh token。
-type refresherPort interface {
-	// RefreshToken 刷新访问令牌
-	// 职责：根据 refresh token 刷新 access token 和 refresh token
-	// 返回值：访问令牌对
-	RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error)
-
-	// RevokeRefreshToken 删除刷新令牌
-	// 职责：删除刷新令牌，并标记访问令牌已撤销
-	RevokeRefreshToken(ctx context.Context, refreshTokenValue string) error
-}
-
-// verifierPort 在线验证 JWT bearer（用户 access 或 service access）。
-type verifierPort interface {
-	// VerifyToken 验证 bearer：解析 JWT；用户令牌另查撤销表、session 与主体状态。
-	VerifyToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
-}
-
-// revokerPort 撤销 JWT bearer 并视情况撤销关联会话。
-type revokerPort interface {
-	// RevokeBearerToken 撤销 JWT bearer（用户 access 或 service access）。
-	RevokeBearerToken(ctx context.Context, tokenValue string) error
 }
 
 // ================== DTOs ==================

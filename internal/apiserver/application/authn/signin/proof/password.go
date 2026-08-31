@@ -24,10 +24,13 @@ func (passwordBuilder) CredentialKind() method.CredentialKind {
 
 // Build 构建密码登录方式
 func (passwordBuilder) Build(_ context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
+	// 验证密码登录方式凭证是否有效
 	passwordPayload, ok := payload.(method.PasswordPayload)
 	if !ok {
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid password payload")
 	}
+
+	// 构建密码登录方式凭证
 	return authentication.NewPasswordCredential(authentication.PasswordProofSpec{
 		TenantID:  common.TenantID,
 		RemoteIP:  common.RemoteIP,

@@ -10,7 +10,6 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
-// validatePrincipalSessionAlignment 校验认证主体与既有 session 的身份上下文一致。
 func validatePrincipalSessionAlignment(principal *authentication.Principal, sess *sessiondomain.Session) error {
 	if principal == nil || sess == nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "principal and session are required")
@@ -36,7 +35,6 @@ func validatePrincipalSessionAlignment(principal *authentication.Principal, sess
 	return nil
 }
 
-// resolveMintTenantID 在 mint 阶段统一租户 ID：优先 session，其次 principal。
 func resolveMintTenantID(principal *authentication.Principal, sess *sessiondomain.Session) meta.ID {
 	if sess != nil && !sess.TenantID.IsZero() {
 		return sess.TenantID
@@ -47,14 +45,12 @@ func resolveMintTenantID(principal *authentication.Principal, sess *sessiondomai
 	return meta.ZeroID
 }
 
-// accessTokenSubjectFromAuth 将领域主体与会话合并为 access token 编码快照。
 func accessTokenSubjectFromAuth(principal *authentication.Principal, sess *sessiondomain.Session) *AccessTokenSubject {
-	tenantID := resolveMintTenantID(principal, sess)
 	return &AccessTokenSubject{
 		UserID:          principal.UserID,
 		LoginIdentityID: principal.LoginIdentityID,
 		SessionID:       sess.SessionID,
-		TenantID:        tenantID,
+		TenantID:        resolveMintTenantID(principal, sess),
 		AuthMethod:      coalesceNonEmpty(principal.AuthMethod, sess.AuthMethod),
 		Realm:           coalesceNonEmpty(principal.Realm, sess.Realm),
 		AMR:             append([]string(nil), principal.AMR...),

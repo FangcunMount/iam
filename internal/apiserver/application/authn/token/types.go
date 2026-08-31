@@ -1,35 +1,23 @@
 package token
 
 import (
-	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
-	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 )
 
-// SessionCreator 是 token 用例依赖的会话创建协作者。
-type SessionCreator = sessiondomain.Creator
-
-// SessionLoader 是 token 用例依赖的会话加载协作者。
-type SessionLoader = sessiondomain.Loader
-
-// SessionRevoker 是 token 用例依赖的会话撤销协作者。
-type SessionRevoker = sessiondomain.Revoker
-
-// SessionExtender 是 token 用例依赖的会话延期协作者。
-type SessionExtender = sessiondomain.Extender
-
-// SessionRefreshExpirer 是 token 用例依赖的 refresh 过期时间计算协作者。
-type SessionRefreshExpirer = sessiondomain.RefreshExpirer
-
-// AdmissionPolicy 是 token 用例依赖的认证准入策略。
-type AdmissionPolicy = admissiondomain.Policy
-
-// TokenType 表示 IAM 内部令牌用途。
-type TokenType string
+type SessionCreator = tokendomain.SessionCreator
+type SessionLoader = tokendomain.SessionLoader
+type SessionRevoker = tokendomain.SessionRevoker
+type SessionExtender = tokendomain.SessionExtender
+type SessionRefreshExpirer = tokendomain.SessionRefreshExpirer
+type AdmissionPolicy = tokendomain.AdmissionPolicy
+type TokenType = tokendomain.TokenType
+type TokenClaims = tokendomain.TokenClaims
+type ConsumedRefreshToken = tokendomain.ConsumedRefreshToken
 
 const (
-	TokenTypeAccess  TokenType = "access"  // 访问令牌
-	TokenTypeRefresh TokenType = "refresh" // 刷新令牌
-	TokenTypeService TokenType = "service" // 服务令牌
+	TokenTypeAccess  = tokendomain.TokenTypeAccess
+	TokenTypeRefresh = tokendomain.TokenTypeRefresh
+	TokenTypeService = tokendomain.TokenTypeService
 )
 
 // cloneStrings 克隆字符串切片

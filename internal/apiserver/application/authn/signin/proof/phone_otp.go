@@ -24,10 +24,13 @@ func (phoneOTPBuilder) CredentialKind() method.CredentialKind {
 
 // Build 构建手机号验证码登录方式
 func (phoneOTPBuilder) Build(_ context.Context, payload method.Payload, common method.CommonPayload) (authentication.AuthCredential, error) {
+	// 验证手机号验证码登录方式凭证是否有效
 	phonePayload, ok := payload.(method.PhoneOTPPayload)
 	if !ok {
 		return nil, perrors.WithCode(code.ErrProofBuildFailed, "invalid phone otp payload")
 	}
+
+	// 构建手机号验证码登录方式凭证
 	return authentication.NewPhoneOTPCredential(authentication.PhoneOTPProofSpec{
 		TenantID:  common.TenantID,
 		RemoteIP:  common.RemoteIP,

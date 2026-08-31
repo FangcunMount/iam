@@ -295,8 +295,8 @@ type authnSessionEstablisherStub struct{}
 
 type authnAdmissionPolicyStub struct{}
 
-func (authnAdmissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissionDomain.Decision, error) {
-	return admissionDomain.Decision{Status: admissionDomain.StatusActive}, nil
+func (authnAdmissionPolicyStub) Evaluate(_ context.Context, subject admissionDomain.Subject) (admissionDomain.Decision, error) {
+	return admissionDomain.Admit(subject), nil
 }
 
 func (s *authnSessionEstablisherStub) EstablishSession(_ context.Context, principal *authentication.Principal) (*tokenApp.TokenPair, error) {

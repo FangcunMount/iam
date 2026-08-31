@@ -157,7 +157,8 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 ## 10. 事实来源与验证
 
-- 签发/刷新/验证：`internal/apiserver/application/authn/token`
+- Token 模型、签发、刷新、验证与撤销：`internal/apiserver/domain/authn/token`
+- Token 应用 DTO 与门面：`internal/apiserver/application/authn/token`
 - Session 领域：`internal/apiserver/domain/authn/session`
 - Redis 存储：`internal/apiserver/infra/cache/redis`
 - Key/JWKS 应用：`internal/apiserver/application/authn/jwks`
@@ -167,6 +168,7 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 ```bash
 go test \
+  ./internal/apiserver/domain/authn/token \
   ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
   ./internal/apiserver/application/authn/jwks \

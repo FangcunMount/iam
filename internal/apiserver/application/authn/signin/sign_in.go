@@ -9,6 +9,7 @@ import (
 	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/principal"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
@@ -33,41 +34,44 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 		return nil, err
 	}
 
-	// 构建领域认证凭据
+	// 构建认证主体凭据
 	credential, err := s.buildCredential(ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	// 领域认证
+	// 验证认证凭据，形成领域认证决策。
 	decision, err := s.authenticate(ctx, credential)
 	if err != nil {
 		return nil, err
 	}
 
-	// 记录认证结果
+	// 认证失败也必须先记录，避免绕过失败计数与锁定策略。
 	if err := s.recordCredential(ctx, decision); err != nil {
 		return nil, err
 	}
 
-	// 如果认证不通过，返回认证失败
+	// 将领域认证决策映射为稳定的应用错误契约。
 	if !decision.OK {
 		return nil, authfailure.Error(decision.Code)
 	}
-
 	if decision.Principal == nil {
 		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "authentication principal is missing")
 	}
+
+	// 判断认证主体是否允许建立或继续维持认证状态
 	if err := admissionapp.Require(
 		ctx,
 		s.deps.AdmissionPolicy,
-		decision.Principal.UserID,
-		decision.Principal.LoginIdentityID,
+		admissiondomain.Subject{
+			UserID:          decision.Principal.UserID,
+			LoginIdentityID: decision.Principal.LoginIdentityID,
+		},
 	); err != nil {
 		return nil, err
 	}
 
-	// 签发 TokenPair
+	// 签发 TokenPair，返回登录结果
 	return s.issueTokenPair(ctx, decision.Principal)
 }
 
@@ -105,16 +109,17 @@ func (s *SignIn) buildCredential(ctx context.Context, cmd method.LoginRequest) (
 	return credential, nil
 }
 
-// authenticate 领域认证
+// authenticate 认证主体凭据认证
 // 参数：ctx 上下文, credential 领域认证凭据
 // 返回：认证决策, 错误
-// 职责：领域认证，返回认证决策
+// 职责：认证主体凭据认证，返回认证决策
 func (s *SignIn) authenticate(ctx context.Context, credential authentication.AuthCredential) (authentication.AuthDecision, error) {
-	// 领域认证
+	// 认证主体凭据认证
 	decision, err := s.deps.Authenticator.Authenticate(ctx, credential)
 	if err != nil {
 		return authentication.AuthDecision{}, perrors.WrapC(err, code.ErrInternalServerError, "failed to authenticate")
 	}
+
 	// 返回认证决策
 	return decision, nil
 }

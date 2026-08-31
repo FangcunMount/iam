@@ -7,16 +7,17 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // application 组合令牌用例协作者，并分别实现对外窄能力。
 type application struct {
-	sessionEstablisher sessionEstablisherPort
-	serviceTokenIssuer serviceTokenIssuerPort
-	refresher          refresherPort
-	verifier           verifierPort
-	revoker            revokerPort
+	issuer             tokendomain.Issuer
+	serviceTokenIssuer tokendomain.ServiceTokenIssuer
+	refresher          tokendomain.Refresher
+	verifier           tokendomain.Verifier
+	revoker            tokendomain.Revoker
 }
 
 // Dependencies 是令牌用例能力的装配依赖。
@@ -43,40 +44,19 @@ var (
 
 // NewCapabilities 装配并返回相互独立的令牌用例能力。
 func NewCapabilities(deps Dependencies) Capabilities {
-	issuerComponents := newIssuer(
-		deps.AccessTokenCodec,
-		deps.TokenStore,
-		deps.SessionCreator,
-		deps.SessionRefreshExpirer,
-		deps.RefreshClaimsCodec,
-		deps.AccessTTL,
-	)
-	tokenRefresher := newRefresher(
-		issuerComponents.tokenPairMinter,
-		deps.TokenStore,
-		deps.SessionLoader,
-		deps.SessionRevoker,
-		deps.SessionExtender,
-		deps.AdmissionPolicy,
-		deps.RefreshClaimsCodec,
-	)
-	tokenVerifier := newVerifier(
-		deps.AccessTokenCodec,
-		deps.TokenStore,
-		deps.SessionLoader,
-		deps.AdmissionPolicy,
-	)
-	revoker := newRevoker(
-		deps.AccessTokenCodec,
-		deps.TokenStore,
-		deps.SessionRevoker,
-	)
+	domainCapabilities := tokendomain.NewCapabilities(tokendomain.Dependencies{
+		AccessTokenCodec: deps.AccessTokenCodec, TokenStore: deps.TokenStore,
+		SessionCreator: deps.SessionCreator, SessionLoader: deps.SessionLoader,
+		SessionRevoker: deps.SessionRevoker, SessionExtender: deps.SessionExtender,
+		SessionRefreshExpirer: deps.SessionRefreshExpirer, AdmissionPolicy: deps.AdmissionPolicy,
+		RefreshClaimsCodec: deps.RefreshClaimsCodec, AccessTTL: deps.AccessTTL,
+	})
 	app := &application{
-		sessionEstablisher: issuerComponents.sessionEstablisher,
-		serviceTokenIssuer: issuerComponents.serviceTokenIssuer,
-		refresher:          tokenRefresher,
-		verifier:           tokenVerifier,
-		revoker:            revoker,
+		issuer:             domainCapabilities.Issuer,
+		serviceTokenIssuer: domainCapabilities.ServiceTokenIssuer,
+		refresher:          domainCapabilities.Refresher,
+		verifier:           domainCapabilities.Verifier,
+		revoker:            domainCapabilities.Revoker,
 	}
 	return Capabilities{
 		SessionEstablisher: app,
@@ -89,30 +69,34 @@ func NewCapabilities(deps Dependencies) Capabilities {
 
 // EstablishSession 在认证完成后创建 Session 并返回 access/refresh token pair。
 func (s *application) EstablishSession(ctx context.Context, principal *authentication.Principal) (*TokenPair, error) {
-	return s.sessionEstablisher.EstablishSession(ctx, principal)
+	grant, err := s.issuer.Issue(ctx, principal)
+	if err != nil {
+		return nil, err
+	}
+	return tokenPairFromDomain(grant.TokenSet), nil
 }
 
 // IssueServiceToken 签发服务间访问令牌。
 // 服务令牌不绑定 session，也不生成 refresh token。
 func (s *application) IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error) {
-	tokenPair, err := s.serviceTokenIssuer.IssueServiceToken(ctx, req.Subject, req.Audience, req.Attributes, req.TTL)
+	serviceToken, err := s.serviceTokenIssuer.IssueServiceToken(ctx, req.Subject, req.Audience, req.Attributes, req.TTL)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to issue service token")
 	}
 
-	return &TokenIssueResult{TokenPair: tokenPair}, nil
+	return &TokenIssueResult{TokenPair: NewTokenPair(tokenFromService(serviceToken), nil)}, nil
 }
 
 // RefreshToken 使用 refresh token 轮换出新的 access/refresh token pair。
 // 具体流程由内部 refresher 完成，包括 refresh token 读取、旧 token 删除和 session 延期。
 func (s *application) RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error) {
-	tokenPair, err := s.refresher.RefreshToken(ctx, refreshToken)
+	tokenSet, err := s.refresher.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
 
 	return &TokenRefreshResult{
-		TokenPair: tokenPair,
+		TokenPair: tokenPairFromDomain(tokenSet),
 	}, nil
 }
 

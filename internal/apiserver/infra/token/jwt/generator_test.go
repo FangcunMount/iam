@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
@@ -21,7 +21,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	t.Parallel()
 
 	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api", "collection-api"})
-	subject := &tokenapp.AccessTokenSubject{
+	subject := &tokendomain.AccessTokenSubject{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
 		AMR:             []string{"pwd"},
@@ -44,7 +44,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 
 	claims, err := generator.VerifyAccessToken(context.Background(), token.Value)
 	require.NoError(t, err)
-	require.Equal(t, tokenapp.TokenTypeAccess, claims.TokenType)
+	require.Equal(t, tokendomain.TokenTypeAccess, claims.TokenType)
 	require.Equal(t, subject.UserID, claims.UserID)
 	require.Equal(t, subject.LoginIdentityID, claims.LoginIdentityID)
 	require.Equal(t, meta.MustFromUint64(1), claims.OrgID)
@@ -58,7 +58,7 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 	t.Parallel()
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
-	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.AccessTokenSubject{
+	token, err := generator.IssueAccessToken(context.Background(), &tokendomain.AccessTokenSubject{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
 		Claims: map[string]any{
@@ -99,7 +99,7 @@ func TestGeneratorLegacyNumericTenantIDDoesNotInferOrg(t *testing.T) {
 	t.Parallel()
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
-	token, err := generator.IssueAccessToken(context.Background(), &tokenapp.AccessTokenSubject{
+	token, err := generator.IssueAccessToken(context.Background(), &tokendomain.AccessTokenSubject{
 		UserID:          meta.MustFromUint64(1002),
 		LoginIdentityID: meta.MustFromUint64(1001),
 		Claims:          map[string]any{"tenant_domain": "fangcun"},
@@ -120,7 +120,7 @@ func TestGeneratorRejectsNoneAlgorithm(t *testing.T) {
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
 	claims := CustomClaims{
-		TokenType: string(tokenapp.TokenTypeAccess),
+		TokenType: string(tokendomain.TokenTypeAccess),
 		UserID:    "1002",
 		RegisteredClaims: jwtv4.RegisteredClaims{
 			ID:        "none-token",

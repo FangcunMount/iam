@@ -86,8 +86,8 @@ func newSessionServiceForTest(t *testing.T, tokens sessionTokenCapabilities, aut
 
 type sessionAdmissionPolicyStub struct{}
 
-func (sessionAdmissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
-	return admissiondomain.Decision{Status: admissiondomain.StatusActive}, nil
+func (sessionAdmissionPolicyStub) Evaluate(_ context.Context, subject admissiondomain.Subject) (admissiondomain.Decision, error) {
+	return admissiondomain.Admit(subject), nil
 }
 
 func TestMethodSelectorUsesAuthMethodAsAuthority(t *testing.T) {

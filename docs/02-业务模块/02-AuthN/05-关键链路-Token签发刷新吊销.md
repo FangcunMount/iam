@@ -805,7 +805,8 @@ AccessToken 不能直接代表可搜索所有 Profile。
 | --- | --- |
 | Principal 模型 | `../../../internal/apiserver/domain/authn/authentication/principal.go` |
 | AuthN domain | `../../../internal/apiserver/domain/authn` |
-| Token application/runtime | `../../../internal/apiserver/application/authn/token` |
+| Token 领域模型与生命周期服务 | `../../../internal/apiserver/domain/authn/token` |
+| Token application facade/DTO | `../../../internal/apiserver/application/authn/token` |
 | AuthN application | `../../../internal/apiserver/application/authn` |
 | Session / RefreshToken store | `../../../internal/apiserver/infra` |
 | JWT signer/verifier / JWKS provider | `../../../internal/apiserver/infra` |
@@ -834,6 +835,7 @@ make docs-hygiene
 
 ```bash
 go test ./internal/apiserver/application/authn/token/...
+go test ./internal/apiserver/domain/authn/token/...
 go test ./internal/apiserver/application/authn/...
 go test ./internal/apiserver/domain/authn/...
 ```

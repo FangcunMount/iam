@@ -47,15 +47,15 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 
 	start := make(chan struct{})
 	type result struct {
-		pair *TokenPair
-		err  error
+		set *UserTokenSet
+		err error
 	}
 	results := make(chan result, 2)
 	for range 2 {
 		go func() {
 			<-start
-			pair, err := refresher.RefreshToken(context.Background(), old.Value)
-			results <- result{pair: pair, err: err}
+			set, err := refresher.RefreshToken(context.Background(), old.Value)
+			results <- result{set: set, err: err}
 		}()
 	}
 	close(start)
@@ -65,12 +65,12 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 	for range 2 {
 		got := <-results
 		switch {
-		case got.err == nil && got.pair != nil:
+		case got.err == nil && got.set != nil:
 			successes++
 		case perrors.IsCode(got.err, code.ErrRefreshTokenNotFound):
 			notFound++
 		default:
-			t.Fatalf("RefreshToken() pair = %#v, err = %v", got.pair, got.err)
+			t.Fatalf("RefreshToken() set = %#v, err = %v", got.set, got.err)
 		}
 	}
 	if successes != 1 || notFound != 1 {
@@ -101,9 +101,9 @@ func TestRefresherReplayedConsumedTokenRevokesSession(t *testing.T) {
 		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewDefaultRefreshClaimsCodec(),
 	)
 
-	pair, err := refresher.RefreshToken(context.Background(), old.Value)
-	if pair != nil || !perrors.IsCode(err, code.ErrRefreshTokenNotFound) {
-		t.Fatalf("RefreshToken() pair = %#v, err = %v, want not found", pair, err)
+	set, err := refresher.RefreshToken(context.Background(), old.Value)
+	if set != nil || !perrors.IsCode(err, code.ErrRefreshTokenNotFound) {
+		t.Fatalf("RefreshToken() set = %#v, err = %v, want not found", set, err)
 	}
 	if got := revoker.count(); got != 1 {
 		t.Fatalf("session revocations = %d, want 1", got)
@@ -118,9 +118,9 @@ func TestRefresherUnknownTokenDoesNotRevokeSession(t *testing.T) {
 		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewDefaultRefreshClaimsCodec(),
 	)
 
-	pair, err := refresher.RefreshToken(context.Background(), "never-issued")
-	if pair != nil || !perrors.IsCode(err, code.ErrRefreshTokenNotFound) {
-		t.Fatalf("RefreshToken() pair = %#v, err = %v, want not found", pair, err)
+	set, err := refresher.RefreshToken(context.Background(), "never-issued")
+	if set != nil || !perrors.IsCode(err, code.ErrRefreshTokenNotFound) {
+		t.Fatalf("RefreshToken() set = %#v, err = %v, want not found", set, err)
 	}
 	if got := revoker.count(); got != 0 {
 		t.Fatalf("session revocations = %d, want 0", got)
@@ -140,9 +140,9 @@ func TestRefresherExtensionFailurePreservesOldToken(t *testing.T) {
 		NewDefaultRefreshClaimsCodec(),
 	)
 
-	pair, err := refresher.RefreshToken(context.Background(), old.Value)
-	if err == nil || pair != nil {
-		t.Fatalf("RefreshToken() pair = %#v, err = %v, want failure", pair, err)
+	set, err := refresher.RefreshToken(context.Background(), old.Value)
+	if err == nil || set != nil {
+		t.Fatalf("RefreshToken() set = %#v, err = %v, want failure", set, err)
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -159,7 +159,7 @@ type atomicTokenPairMinterStub struct {
 	next int
 }
 
-func (s *atomicTokenPairMinterStub) MintTokenPair(_ context.Context, principal *authentication.Principal, session *sessiondomain.Session) (*TokenPair, error) {
+func (s *atomicTokenPairMinterStub) MintTokenSet(_ context.Context, principal *authentication.Principal, session *sessiondomain.Session) (*UserTokenSet, error) {
 	s.mu.Lock()
 	s.next++
 	n := s.next
@@ -177,19 +177,19 @@ func (s *atomicTokenPairMinterStub) MintTokenPair(_ context.Context, principal *
 		meta.FromUint64(uint64(300+n)).String(),
 		meta.FromUint64(uint64(400+n)).String(),
 	)
-	return NewTokenPair(access, refresh), nil
+	return NewUserTokenSet(access, refresh), nil
 }
 
 type atomicTokenStoreStub struct {
 	mu          sync.Mutex
-	tokens      map[string]*Token
+	tokens      map[string]*RefreshToken
 	consumed    map[string]*ConsumedRefreshToken
 	rotateCalls int
 }
 
-func newAtomicTokenStoreStub(tokens ...*Token) *atomicTokenStoreStub {
+func newAtomicTokenStoreStub(tokens ...*RefreshToken) *atomicTokenStoreStub {
 	out := &atomicTokenStoreStub{
-		tokens:   make(map[string]*Token),
+		tokens:   make(map[string]*RefreshToken),
 		consumed: make(map[string]*ConsumedRefreshToken),
 	}
 	for _, token := range tokens {
@@ -204,20 +204,20 @@ func (s *atomicTokenStoreStub) GetConsumedRefreshToken(_ context.Context, value 
 	return s.consumed[value], nil
 }
 
-func (s *atomicTokenStoreStub) SaveRefreshToken(_ context.Context, token *Token) error {
+func (s *atomicTokenStoreStub) SaveRefreshToken(_ context.Context, token *RefreshToken) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tokens[token.Value] = token
 	return nil
 }
 
-func (s *atomicTokenStoreStub) GetRefreshToken(_ context.Context, value string) (*Token, error) {
+func (s *atomicTokenStoreStub) GetRefreshToken(_ context.Context, value string) (*RefreshToken, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.tokens[value], nil
 }
 
-func (s *atomicTokenStoreStub) RotateRefreshToken(_ context.Context, oldValue, expectedOldID string, newToken *Token) (bool, error) {
+func (s *atomicTokenStoreStub) RotateRefreshToken(_ context.Context, oldValue, expectedOldID string, newToken *RefreshToken) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.rotateCalls++
@@ -305,11 +305,11 @@ func (s sessionExtenderStub) ExtendToRefreshExpiry(context.Context, *sessiondoma
 
 type admissionPolicyStub struct{}
 
-func (admissionPolicyStub) Evaluate(context.Context, meta.ID, meta.ID) (admissiondomain.Decision, error) {
-	return admissiondomain.Decision{Status: admissiondomain.StatusActive}, nil
+func (admissionPolicyStub) Evaluate(_ context.Context, subject admissiondomain.Subject) (admissiondomain.Decision, error) {
+	return admissiondomain.Admit(subject), nil
 }
 
-func testRefreshToken(id, value string) *Token {
+func testRefreshToken(id, value string) *RefreshToken {
 	token := NewRefreshToken(
 		id, value, "session-id",
 		meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),

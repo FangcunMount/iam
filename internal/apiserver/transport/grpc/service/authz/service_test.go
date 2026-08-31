@@ -2,7 +2,6 @@ package authz
 
 import (
 	"context"
-	"errors"
 	"net"
 	"sort"
 	"testing"
@@ -341,16 +340,6 @@ func (f *roleBindingCommandsFake) RevokeByRoleName(_ context.Context, cmd rolebi
 func (f *roleBindingCommandsFake) ReplaceManagedAssignments(_ context.Context, cmd rolebindingApp.ReplaceManagedAssignmentsCommand) (rolebindingApp.ReplaceManagedAssignmentsResult, error) {
 	f.replacements = append(f.replacements, cmd)
 	return rolebindingApp.ReplaceManagedAssignmentsResult{DirectRoles: cmd.RoleNames, PolicyVersion: 13, Changed: true}, f.replaceErr
-}
-
-type assignmentAuthorizerErrorStub struct{}
-
-func (assignmentAuthorizerErrorStub) AuthorizeAssignment(assignmentauth.Request) error {
-	return errors.New("constraint repository unavailable")
-}
-
-func (assignmentAuthorizerErrorStub) AuthorizeReplacement(assignmentauth.ReplacementRequest) ([]string, error) {
-	return nil, errors.New("constraint repository unavailable")
 }
 
 func serviceContext(serviceName string) context.Context {

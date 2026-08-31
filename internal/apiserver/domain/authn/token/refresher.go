@@ -5,15 +5,14 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
-	admissionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/admission"
+	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
-// refresher 用于根据 refresh token 刷新 access token 和 refresh token。
 type refresher struct {
-	tokenPairMinter    tokenPairMinterPort
+	tokenSetMinter     TokenSetMinter
 	tokenStore         Store
 	sessionLoader      SessionLoader
 	sessionRevoker     SessionRevoker
@@ -22,71 +21,43 @@ type refresher struct {
 	refreshClaimsCodec RefreshClaimsCodec
 }
 
-// 确保 refresher 实现 refresherPort 接口。
-var _ refresherPort = (*refresher)(nil)
-
-// newRefresher 创建 refresher。
-func newRefresher(
-	tokenPairMinter tokenPairMinterPort,
-	tokenStore Store,
-	sessionLoader SessionLoader,
-	sessionRevoker SessionRevoker,
-	sessionExtender SessionExtender,
-	admissionPolicy AdmissionPolicy,
-	refreshClaimsCodec RefreshClaimsCodec,
-) refresherPort {
+func newRefresher(tokenSetMinter TokenSetMinter, tokenStore Store, sessionLoader SessionLoader, sessionRevoker SessionRevoker, sessionExtender SessionExtender, admissionPolicy AdmissionPolicy, refreshClaimsCodec RefreshClaimsCodec) Refresher {
 	return &refresher{
-		tokenPairMinter:    tokenPairMinter,
-		tokenStore:         tokenStore,
-		sessionLoader:      sessionLoader,
-		sessionRevoker:     sessionRevoker,
-		sessionExtender:    sessionExtender,
-		admissionPolicy:    admissionPolicy,
+		tokenSetMinter: tokenSetMinter, tokenStore: tokenStore, sessionLoader: sessionLoader,
+		sessionRevoker: sessionRevoker, sessionExtender: sessionExtender, admissionPolicy: admissionPolicy,
 		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
 	}
 }
 
-// RefreshToken 刷新访问令牌
-// 职责：根据 refresh token 刷新 access token 和 refresh token。
-// 返回值必须包含 access token 和 refresh token。
-func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) (*TokenPair, error) {
-	// 加载刷新令牌
+func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) (*UserTokenSet, error) {
 	refreshToken, err := s.loadRefreshToken(ctx, refreshTokenValue)
 	if err != nil {
 		return nil, err
 	}
-
-	// 加载活跃会话
 	sess, err := s.loadActiveSession(ctx, refreshToken.SessionID)
 	if err != nil {
 		return nil, err
 	}
-
-	// 确保认证主体满足准入策略
 	if err := s.requireAdmission(ctx, refreshToken); err != nil {
 		return nil, err
 	}
-
-	// 确保刷新令牌可用
 	if err := s.ensureRefreshTokenUsable(ctx, refreshTokenValue, refreshToken); err != nil {
 		return nil, err
 	}
 
-	// 从刷新令牌创建主体
 	principal := s.principalFromRefreshToken(refreshToken)
-	newTokenPair, err := s.issueRotatedTokenPair(ctx, principal, sess)
+	newTokenSet, err := s.issueRotatedTokenSet(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := s.sessionExtender.ExtendToRefreshExpiry(ctx, sess, newTokenPair.RefreshToken.ExpiresAt); err != nil {
+	if err := s.sessionExtender.ExtendToRefreshExpiry(ctx, sess, newTokenSet.RefreshToken.ExpiresAt); err != nil {
 		if perrors.IsCode(err, code.ErrSessionInactive) || perrors.IsCode(err, code.ErrInvalidArgument) {
 			return nil, err
 		}
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to extend session ttl")
 	}
 
-	rotated, err := s.tokenStore.RotateRefreshToken(ctx, refreshTokenValue, refreshToken.ID, newTokenPair.RefreshToken)
+	rotated, err := s.tokenStore.RotateRefreshToken(ctx, refreshTokenValue, refreshToken.ID, newTokenSet.RefreshToken)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to rotate refresh token")
 	}
@@ -102,40 +73,32 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 		}
 		return nil, perrors.WithCode(code.ErrRefreshTokenNotFound, "refresh token not found")
 	}
-
-	// 返回新的令牌对
-	return newTokenPair, nil
+	return newTokenSet, nil
 }
 
-// RevokeRefreshToken 删除 refresh token；如果能解析到 session，则同步撤销该 session。
-// 职责：撤销单个 refresh token。
 func (s *refresher) RevokeRefreshToken(ctx context.Context, refreshTokenValue string) error {
-	// 加载刷新令牌
 	refreshToken, err := s.tokenStore.GetRefreshToken(ctx, refreshTokenValue)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrInternalServerError, "failed to load refresh token")
 	}
-	// 如果刷新令牌存在且有会话ID，则撤销会话
 	if refreshToken != nil && refreshToken.SessionID != "" {
 		if err := s.sessionRevoker.Revoke(ctx, refreshToken.SessionID, "refresh_token_revoked", refreshToken.UserID.String()); err != nil {
 			return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke refresh token session")
 		}
 	}
-	// 删除刷新令牌
 	if err := s.tokenStore.DeleteRefreshToken(ctx, refreshTokenValue); err != nil {
 		return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke refresh token")
 	}
 	return nil
 }
 
-// loadRefreshToken 加载刷新令牌
-func (s *refresher) loadRefreshToken(ctx context.Context, refreshTokenValue string) (*Token, error) {
-	refreshToken, err := s.tokenStore.GetRefreshToken(ctx, refreshTokenValue)
+func (s *refresher) loadRefreshToken(ctx context.Context, value string) (*RefreshToken, error) {
+	refreshToken, err := s.tokenStore.GetRefreshToken(ctx, value)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "refresh token not found or invalid")
 	}
 	if refreshToken == nil {
-		consumed, consumedErr := s.tokenStore.GetConsumedRefreshToken(ctx, refreshTokenValue)
+		consumed, consumedErr := s.tokenStore.GetConsumedRefreshToken(ctx, value)
 		if consumedErr != nil {
 			return nil, perrors.WrapC(consumedErr, code.ErrInternalServerError, "failed to inspect consumed refresh token")
 		}
@@ -164,7 +127,6 @@ func (s *refresher) revokeReplaySession(ctx context.Context, sessionID, userID s
 	return nil
 }
 
-// loadActiveSession 加载活跃会话
 func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*sessiondomain.Session, error) {
 	sess, err := s.sessionLoader.GetActive(ctx, sessionID)
 	if err != nil {
@@ -176,22 +138,21 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 	return sess, nil
 }
 
-// requireAdmission 确保认证主体满足准入策略。
-func (s *refresher) requireAdmission(ctx context.Context, refreshToken *Token) error {
-	return admissionapp.Require(ctx, s.admissionPolicy, refreshToken.UserID, refreshToken.LoginIdentityID)
+func (s *refresher) requireAdmission(ctx context.Context, refreshToken *RefreshToken) error {
+	return requireAdmission(ctx, s.admissionPolicy, admissiondomain.Subject{
+		UserID: refreshToken.UserID, LoginIdentityID: refreshToken.LoginIdentityID,
+	})
 }
 
-// ensureRefreshTokenUsable 确保刷新令牌可用
-func (s *refresher) ensureRefreshTokenUsable(ctx context.Context, refreshTokenValue string, refreshToken *Token) error {
+func (s *refresher) ensureRefreshTokenUsable(ctx context.Context, value string, refreshToken *RefreshToken) error {
 	if !refreshToken.IsExpired() {
 		return nil
 	}
-	_ = s.tokenStore.DeleteRefreshToken(ctx, refreshTokenValue)
+	_ = s.tokenStore.DeleteRefreshToken(ctx, value)
 	return perrors.WithCode(code.ErrRefreshTokenExpired, "refresh token has expired")
 }
 
-// principalFromRefreshToken 从刷新令牌创建主体
-func (s *refresher) principalFromRefreshToken(refreshToken *Token) *authentication.Principal {
+func (s *refresher) principalFromRefreshToken(refreshToken *RefreshToken) *authentication.Principal {
 	amr := refreshToken.AMR
 	if len(amr) == 0 {
 		amr = []string{"jwt"}
@@ -201,28 +162,22 @@ func (s *refresher) principalFromRefreshToken(refreshToken *Token) *authenticati
 		claims = make(map[string]any)
 	}
 	return &authentication.Principal{
-		UserID:          refreshToken.UserID,
-		LoginIdentityID: refreshToken.LoginIdentityID,
-		TenantID:        refreshToken.TenantID,
-		SessionID:       refreshToken.SessionID,
-		AuthMethod:      refreshToken.AuthMethod,
-		Realm:           refreshToken.Realm,
-		AMR:             amr,
-		Claims:          claims,
+		UserID: refreshToken.UserID, LoginIdentityID: refreshToken.LoginIdentityID,
+		TenantID: refreshToken.TenantID, SessionID: refreshToken.SessionID,
+		AuthMethod: refreshToken.AuthMethod, Realm: refreshToken.Realm, AMR: amr, Claims: claims,
 	}
 }
 
-// issueRotatedTokenPair 颁发新的令牌对
-func (s *refresher) issueRotatedTokenPair(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*TokenPair, error) {
-	if s.tokenPairMinter == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "token pair minter is not configured")
+func (s *refresher) issueRotatedTokenSet(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*UserTokenSet, error) {
+	if s.tokenSetMinter == nil {
+		return nil, perrors.WithCode(code.ErrInternalServerError, "token set minter is not configured")
 	}
-	newTokenPair, err := s.tokenPairMinter.MintTokenPair(ctx, principal, sess)
+	set, err := s.tokenSetMinter.MintTokenSet(ctx, principal, sess)
 	if err != nil {
 		return nil, err
 	}
-	if newTokenPair == nil || newTokenPair.AccessToken == nil || newTokenPair.RefreshToken == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "token pair minter returned incomplete token pair")
+	if set == nil || set.AccessToken == nil || set.RefreshToken == nil {
+		return nil, perrors.WithCode(code.ErrInternalServerError, "token set minter returned incomplete token set")
 	}
-	return newTokenPair, nil
+	return set, nil
 }
