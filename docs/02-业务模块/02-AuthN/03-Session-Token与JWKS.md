@@ -18,12 +18,13 @@ JWT 负责可验证声明，Redis 负责在线撤销和续期状态，MySQL 负�
 
 ## 2. 登录签发
 
-`IssueToken` 的实际步骤是：
+`grant.Issuer.Issue` 的实际步骤是：
 
-1. 用 Principal 创建 Session；
-2. 在 Session 上 mint access/refresh pair；
-3. 把 refresh token 保存到 Redis；
-4. 返回令牌对。
+1. 通过 `AdmissionPolicy` 确认 User 与 LoginIdentity 允许建立认证状态；
+2. 用 Principal 创建 Session；
+3. 由 `TokenSetMinter` 在 Session 上 mint `UserTokenSet`；
+4. 把 RefreshToken 保存到 Redis；
+5. 返回 `AuthenticationGrant = Session + UserTokenSet`。
 
 Access token 包含 user、login identity、session、tenant、auth method、realm、AMR 等声明并由当前 active key 签名。Refresh token 是不透明随机值，
 服务端存储其结构化状态。
@@ -157,7 +158,8 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 ## 10. 事实来源与验证
 
-- Token 模型、签发、刷新、验证与撤销：`internal/apiserver/domain/authn/token`
+- 认证结果与初始颁发：`internal/apiserver/domain/authn/grant`
+- Token 模型、mint、刷新、验证与撤销：`internal/apiserver/domain/authn/token`
 - Token 应用 DTO 与门面：`internal/apiserver/application/authn/token`
 - Session 领域：`internal/apiserver/domain/authn/session`
 - Redis 存储：`internal/apiserver/infra/cache/redis`
@@ -168,6 +170,7 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 ```bash
 go test \
+  ./internal/apiserver/domain/authn/grant \
   ./internal/apiserver/domain/authn/token \
   ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \

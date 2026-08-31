@@ -92,9 +92,9 @@ infra 管外部资源。
 
 三个核心模块的事实所有权与协作边界见下图：
 
-![IAM 三核心模块领域模型 V8](docs/_images/architecture/core-domain-model-v8.png)
+![IAM 三核心模块领域模型 V7](docs/_images/architecture/core-domain-model-v7.png)
 
-[SVG 图源](docs/_images/architecture/core-domain-model-v8.svg)
+[SVG 图源](docs/_images/architecture/core-domain-model-v7.svg)
 
 ## 快速开始
 

@@ -70,7 +70,7 @@ func (c *Container) checkAuthnReady(context.Context) error {
 		return errors.New("authn unavailable")
 	}
 	tokens := c.AuthnModule.ApplicationCapabilities().Tokens
-	if tokens.SessionEstablisher == nil || tokens.Refresher == nil || tokens.Revoker == nil || tokens.Verifier == nil || tokens.ServiceTokenIssuer == nil {
+	if tokens.AuthenticationGrantIssuer == nil || tokens.Refresher == nil || tokens.Revoker == nil || tokens.Verifier == nil || tokens.ServiceTokenIssuer == nil {
 		return errors.New("authn token service unavailable")
 	}
 	return nil

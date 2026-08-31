@@ -30,8 +30,8 @@
   <text x="1760" y="238" text-anchor="middle" class="module">AuthN</text>
   <text x="1760" y="276" text-anchor="middle" class="question">如何证明当前请求者身份？</text>
   <text x="1760" y="326" text-anchor="middle" class="facts">LoginIdentity · Credential · Challenge</text>
-  <text x="1760" y="360" text-anchor="middle" class="facts">Principal · Session · Access/Refresh Token</text>
-  <text x="1760" y="405" text-anchor="middle" class="note">AdmissionPolicy 管认证准入，不做资源授权</text>
+  <text x="1760" y="360" text-anchor="middle" class="facts">Principal · AuthenticationGrant · ServiceToken</text>
+  <text x="1760" y="405" text-anchor="middle" class="note">AdmissionPolicy 管准入；GrantIssuer 形成 Session + TokenSet</text>
 
   <rect x="900" y="560" width="600" height="290" class="card" fill="#fff8df" stroke="#d59a16" filter="url(#shadow)"/>
   <text x="1200" y="620" text-anchor="middle" class="module">Identity</text>

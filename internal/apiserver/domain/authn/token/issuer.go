@@ -11,67 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// issuerComponents 是认证颁发器的组件。
-type issuerComponents struct {
-	authenticationIssuer Issuer             // 认证结果颁发器
-	tokenSetMinter       TokenSetMinter     // 用户令牌颁发器
-	serviceTokenIssuer   ServiceTokenIssuer // 服务令牌颁发器
-}
-
-// newIssuer 创建认证颁发器。
-func newIssuer(tokenCodec AccessTokenCodec, tokenStore Store, sessionCreator SessionCreator, refreshExpirer SessionRefreshExpirer, refreshClaimsCodec RefreshClaimsCodec, accessTTL time.Duration) issuerComponents {
-	// 创建用户令牌颁发器
-	minter := newTokenSetMinter(tokenCodec, refreshExpirer, refreshClaimsCodec, accessTTL)
-	// 创建会话建立器
-	return issuerComponents{
-		authenticationIssuer: newAuthenticationIssuer(sessionCreator, tokenStore, minter),
-		tokenSetMinter:       minter,
-		serviceTokenIssuer:   newServiceTokenIssuer(tokenCodec, accessTTL),
-	}
-}
-
-// authenticationIssuer 是认证结果颁发器的实现。
-type authenticationIssuer struct {
-	sessionCreator SessionCreator // 会话创建器
-	tokenStore     Store          // 令牌存储器
-	tokenSetMinter TokenSetMinter // 用户令牌颁发器
-}
-
-// newAuthenticationIssuer 创建认证结果颁发器。
-func newAuthenticationIssuer(sessionCreator SessionCreator, tokenStore Store, minter TokenSetMinter) Issuer {
-	return &authenticationIssuer{sessionCreator: sessionCreator, tokenStore: tokenStore, tokenSetMinter: minter}
-}
-
-// Issue 建立会话并颁发用户令牌，返回完整认证结果。
-func (s *authenticationIssuer) Issue(ctx context.Context, principal *authentication.Principal) (*AuthenticationGrant, error) {
-	if principal == nil {
-		return nil, perrors.WithCode(code.ErrInvalidArgument, "principal is required")
-	}
-	// 创建会话
-	sess, err := s.sessionCreator.Create(ctx, principal)
-	if err != nil {
-		if perrors.IsCode(err, code.ErrInvalidArgument) {
-			return nil, err
-		}
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to create session")
-	}
-	// 颁发用户令牌
-	if s.tokenSetMinter == nil {
-		return nil, perrors.WithCode(code.ErrInternalServerError, "token set minter is not configured")
-	}
-	// 颁发用户令牌
-	set, err := s.tokenSetMinter.MintTokenSet(ctx, principal, sess)
-	if err != nil {
-		return nil, err
-	}
-	// 保存刷新令牌
-	if err := s.tokenStore.SaveRefreshToken(ctx, set.RefreshToken); err != nil {
-		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to save refresh token")
-	}
-	// 返回用户令牌
-	return NewAuthenticationGrant(sess, set), nil
-}
-
 // tokenSetMinter 是用户令牌颁发器的实现。
 type tokenSetMinter struct {
 	tokenCodec         AccessTokenCodec

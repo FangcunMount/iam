@@ -4,12 +4,10 @@ import (
 	"context"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	admissionapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/authfailure"
 	authnexternal "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/externalidentity"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/principal"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
-	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
@@ -59,19 +57,7 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "authentication principal is missing")
 	}
 
-	// 判断认证主体是否允许建立或继续维持认证状态
-	if err := admissionapp.Require(
-		ctx,
-		s.deps.AdmissionPolicy,
-		admissiondomain.Subject{
-			UserID:          decision.Principal.UserID,
-			LoginIdentityID: decision.Principal.LoginIdentityID,
-		},
-	); err != nil {
-		return nil, err
-	}
-
-	// 签发 TokenPair，返回登录结果
+	// 颁发完整在线认证结果。领域颁发器在创建 Session 前执行 Admission。
 	return s.issueTokenPair(ctx, decision.Principal)
 }
 
@@ -81,7 +67,7 @@ func (s *SignIn) Execute(ctx context.Context, cmd method.LoginRequest) (*Result,
 // 职责：确保依赖已准备好，返回错误
 func (s *SignIn) ensureReady() error {
 	d := s.deps
-	if s == nil || d.SessionEstablisher == nil || d.MethodRegistry == nil || d.ProofFactory == nil || d.Authenticator == nil || d.AdmissionPolicy == nil {
+	if s == nil || d.AuthenticationGrantIssuer == nil || d.MethodRegistry == nil || d.ProofFactory == nil || d.Authenticator == nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "login service is not initialized")
 	}
 	return nil
@@ -133,9 +119,9 @@ func (s *SignIn) issueTokenPair(ctx context.Context, p *authentication.Principal
 	principal.EnsureTokenContext(p)
 
 	// 签发 TokenPair
-	tokenPair, err := s.deps.SessionEstablisher.EstablishSession(ctx, p)
+	tokenPair, err := s.deps.AuthenticationGrantIssuer.IssueAuthentication(ctx, p)
 	if err != nil {
-		return nil, perrors.WithCode(code.ErrAuthenticationFailed, "failed to issue token: %w", err)
+		return nil, wrapStageError(err, code.ErrAuthenticationFailed, "failed to issue authentication grant")
 	}
 
 	// 由认证主体构造登录结果

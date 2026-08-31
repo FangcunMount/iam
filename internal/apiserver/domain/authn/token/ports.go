@@ -46,17 +46,11 @@ type RefreshClaimsCodec interface {
 	Decode(map[string]string) map[string]any
 }
 
-type SessionCreator = sessiondomain.Creator
 type SessionLoader = sessiondomain.Loader
 type SessionRevoker = sessiondomain.Revoker
 type SessionExtender = sessiondomain.Extender
 type SessionRefreshExpirer = sessiondomain.RefreshExpirer
 type AdmissionPolicy = admissiondomain.Policy
-
-// Issuer 将已认证主体颁发为完整在线认证结果（Session + TokenSet）。
-type Issuer interface {
-	Issue(ctx context.Context, principal *authentication.Principal) (*AuthenticationGrant, error)
-}
 
 // TokenSetMinter 在既有 Session 上签发尚未持久化的用户令牌集合。
 type TokenSetMinter interface {

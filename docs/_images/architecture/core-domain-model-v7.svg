@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="4200" height="3500" viewBox="0 0 4200 3500" role="img" aria-labelledby="title desc">
   <title id="title">IAM 三核心模块领域模型 V7（准入策略与边界语义）</title>
-  <desc id="desc">中心区域展示 Identity、AuthN、AuthZ 三个限界上下文。色相表示所属上下文；白底细边框表示实体、值对象与结果模型；白底粗边框表示聚合根；浅主题色底表示领域服务与领域策略。应用能力和基础设施实现仅在外部知识 Tips 中说明。</desc>
+  <desc id="desc">中心区域展示 Identity、AuthN、AuthZ 三个限界上下文。色相表示所属上下文；白底细边框表示实体、值对象与结果模型；白底粗边框表示聚合根；浅主题色底表示领域服务与领域策略。AuthN 以 Admission、AuthenticationGrant、Session 与 Token 领域服务表达完整认证结果，JWT、KeySet、JWKS 与 Redis 仅作为适配边界说明。</desc>
 
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -58,7 +58,7 @@
 
   <rect width="4200" height="3500" fill="#ffffff"/>
   <text x="2100" y="82" text-anchor="middle" class="title">IAM 三核心模块领域模型 V7｜准入策略与边界语义</text>
-  <text x="2100" y="124" text-anchor="middle" class="subtitle">领域模型留在所属上下文；应用窄能力、协议实现与基础设施通过周边 Tips 说明</text>
+  <text x="2100" y="124" text-anchor="middle" class="subtitle">领域模型留在所属上下文；认证结果由 Grant 领域服务形成，协议实现与基础设施通过周边 Tips 说明</text>
 
   <!-- External knowledge-note connectors: explanatory only, never domain dependencies -->
   <path d="M410 460 C410 575 870 650 870 905" class="knowledge-line"/>
@@ -66,8 +66,8 @@
   <path d="M2090 460 C2090 620 2100 820 2100 1162" class="knowledge-line"/>
   <path d="M2880 460 C2880 600 2995 720 2995 873" class="knowledge-line"/>
   <path d="M3710 460 C3710 650 3440 860 3440 1225" class="knowledge-line"/>
-  <path d="M410 2600 V2525 H348 V2100" class="knowledge-line"/>
-  <path d="M1130 2600 V2525 H845 V2300" class="knowledge-line"/>
+  <path d="M410 2600 V2525 H290 V2100" class="knowledge-line"/>
+  <path d="M1130 2600 V2525 H1035 V2300" class="knowledge-line"/>
   <path d="M2090 2600 V2570 H2460 V1405 H2365" class="knowledge-line"/>
   <path d="M2880 2600 V2570 H2480 V1700 H2530" class="knowledge-line"/>
   <path d="M3710 2600 V2570 H4170 V2200 H4110" class="knowledge-line"/>
@@ -192,78 +192,101 @@
   <!-- AuthN section 3 -->
   <rect x="90" y="1465" width="1580" height="650" rx="20" fill="#f9fdf9" stroke="#b7dfc3" stroke-width="2"/>
   <text x="125" y="1505" class="section-title">3｜在线认证状态与令牌</text>
-  <text x="125" y="1533" class="section-desc">认证成功只形成 Principal；AdmissionPolicy 决定是否允许建立或维持在线认证状态</text>
+  <text x="125" y="1533" class="section-desc">认证成功只形成 Principal；GrantIssuer 在 Admission 通过后建立 AuthenticationGrant（Session + UserTokenSet）</text>
 
   <g filter="url(#shadow)">
-    <rect x="125" y="1570" width="445" height="230" rx="17" class="authn-behavior"/>
+    <rect x="125" y="1570" width="330" height="230" rx="17" class="authn-behavior"/>
     <text x="150" y="1600" class="stereotype">DOMAIN POLICY · AUTHN ADMISSION</text>
-    <text x="348" y="1633" text-anchor="middle" class="model">AdmissionPolicy｜认证准入策略</text>
-    <line x1="125" y1="1653" x2="570" y2="1653" class="divider"/>
-    <text x="150" y="1685" class="operation">Evaluate(userID, loginIdentityID)</text>
-    <text x="150" y="1717" class="field">LoginIdentity Repository · UserStatusReader</text>
-    <text x="150" y="1749" class="field">校验归属关系与双方当前状态</text>
+    <text x="290" y="1633" text-anchor="middle" class="model">AdmissionPolicy</text>
+    <line x1="125" y1="1653" x2="455" y2="1653" class="divider"/>
+    <text x="150" y="1685" class="operation">Evaluate(subject)</text>
+    <text x="150" y="1717" class="field">LoginIdentityReader</text>
+    <text x="150" y="1749" class="field">UserStatusReader · fail closed</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="630" y="1570" width="430" height="230" rx="17" class="authn-model"/>
+    <rect x="495" y="1570" width="330" height="230" rx="17" class="authn-model"/>
     <text x="655" y="1600" class="stereotype">POLICY RESULT VALUE</text>
-    <text x="845" y="1633" text-anchor="middle" class="model">AdmissionDecision｜准入判定</text>
-    <line x1="630" y1="1653" x2="1060" y2="1653" class="divider"/>
-    <text x="655" y="1685" class="field">UserID · LoginIdentityID</text>
-    <text x="655" y="1717" class="field">Status</text>
-    <text x="655" y="1749" class="field">active · blocked · disabled · inactive</text>
+    <text x="660" y="1633" text-anchor="middle" class="model">AdmissionDecision</text>
+    <line x1="495" y1="1653" x2="825" y2="1653" class="divider"/>
+    <text x="520" y="1685" class="field">Subject：UserID · LoginIdentityID</text>
+    <text x="520" y="1717" class="field">Outcome：admitted · denied</text>
+    <text x="520" y="1749" class="field">Reason：missing · blocked · disabled</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1120" y="1570" width="470" height="230" rx="17" class="authn-behavior"/>
-    <text x="1145" y="1600" class="stereotype">DOMAIN POLICY · SESSION LIFETIME</text>
-    <text x="1355" y="1633" text-anchor="middle" class="model">LifetimePolicy｜生命周期策略</text>
-    <line x1="1120" y1="1653" x2="1590" y2="1653" class="divider"/>
-    <text x="1145" y="1685" class="operation">InitialExpiresAt(now)</text>
-    <text x="1145" y="1717" class="operation">RefreshTokenExpiresAt(now, session)</text>
-    <text x="1145" y="1749" class="field">refreshTTL · sessionMaxTTL</text>
+    <rect x="865" y="1570" width="340" height="230" rx="17" class="authn-behavior"/>
+    <text x="890" y="1600" class="stereotype">DOMAIN SERVICE · AUTH RESULT</text>
+    <text x="1035" y="1633" text-anchor="middle" class="model">GrantIssuer</text>
+    <line x1="865" y1="1653" x2="1205" y2="1653" class="divider"/>
+    <text x="890" y="1685" class="operation">Issue(principal)</text>
+    <text x="890" y="1717" class="field">Require Admission → Create Session</text>
+    <text x="890" y="1749" class="field">Mint TokenSet → Save RefreshToken</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="125" y="1860" width="445" height="195" rx="17" class="authn-aggregate"/>
+    <rect x="1245" y="1570" width="345" height="230" rx="17" class="authn-behavior"/>
+    <text x="1270" y="1600" class="stereotype">DOMAIN POLICY · SESSION LIFETIME</text>
+    <text x="1418" y="1633" text-anchor="middle" class="model">LifetimePolicy</text>
+    <line x1="1245" y1="1653" x2="1590" y2="1653" class="divider"/>
+    <text x="1270" y="1685" class="operation">InitialExpiresAt(now)</text>
+    <text x="1270" y="1717" class="operation">RefreshTokenExpiresAt(now, session)</text>
+    <text x="1270" y="1749" class="field">refreshTTL · sessionMaxTTL</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="125" y="1860" width="330" height="195" rx="17" class="authn-aggregate"/>
     <text x="150" y="1890" class="stereotype">AGGREGATE ROOT</text>
-    <text x="348" y="1923" text-anchor="middle" class="model">Session｜认证会话</text>
-    <line x1="125" y1="1943" x2="570" y2="1943" class="divider"/>
-    <text x="150" y="1975" class="field">SessionID · UserID · LoginIdentityID · TenantID</text>
+    <text x="290" y="1923" text-anchor="middle" class="model">Session｜认证会话</text>
+    <line x1="125" y1="1943" x2="455" y2="1943" class="divider"/>
+    <text x="150" y="1975" class="field">SessionID · UserID · LoginIdentityID</text>
     <text x="150" y="2003" class="field">Status · ExpiresAt · RevokedAt</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="630" y="1860" width="430" height="195" rx="17" class="authn-model"/>
-    <text x="655" y="1890" class="stereotype">APPLICATION RESULT · ACCESS TOKEN</text>
-    <text x="845" y="1923" text-anchor="middle" class="model">AccessToken</text>
-    <line x1="630" y1="1943" x2="1060" y2="1943" class="divider"/>
-    <text x="655" y="1975" class="field">Subject · SessionID · TenantID</text>
-    <text x="655" y="2003" class="field">Audience · AMR · IssuedAt · ExpiresAt</text>
+    <rect x="495" y="1860" width="330" height="195" rx="17" class="authn-model"/>
+    <text x="520" y="1890" class="stereotype">DOMAIN RESULT</text>
+    <text x="660" y="1923" text-anchor="middle" class="model">AuthenticationGrant</text>
+    <line x1="495" y1="1943" x2="825" y2="1943" class="divider"/>
+    <text x="520" y="1975" class="field">Session</text>
+    <text x="520" y="2003" class="field">UserTokenSet</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1120" y="1860" width="470" height="195" rx="17" class="authn-model"/>
-    <text x="1145" y="1890" class="stereotype">APPLICATION RESULT · REFRESH TOKEN</text>
-    <text x="1355" y="1923" text-anchor="middle" class="model">RefreshToken</text>
-    <line x1="1120" y1="1943" x2="1590" y2="1943" class="divider"/>
-    <text x="1145" y="1975" class="field">ID · SessionID · UserID · LoginIdentityID</text>
-    <text x="1145" y="2003" class="field">TenantID · AMR · IssuedAt · ExpiresAt</text>
+    <rect x="865" y="1860" width="340" height="195" rx="17" class="authn-model"/>
+    <text x="890" y="1890" class="stereotype">DOMAIN OBJECT FAMILY</text>
+    <text x="1035" y="1923" text-anchor="middle" class="model">Token Models</text>
+    <line x1="865" y1="1943" x2="1205" y2="1943" class="divider"/>
+    <text x="890" y="1975" class="field">AccessToken · RefreshToken · ServiceToken</text>
+    <text x="890" y="2003" class="field">UserTokenSet · TokenClaims</text>
+    <text x="890" y="2031" class="field">ConsumedRefreshToken</text>
   </g>
 
-  <path d="M1238 1362 V1448 H348 V1568" class="solid"/>
-  <text x="790" y="1438" text-anchor="middle" class="relation">认证成功后执行准入判定</text>
-  <path d="M572 1685 H628" class="solid"/>
-  <text x="600" y="1666" text-anchor="middle" class="relation">返回</text>
-  <path d="M845 1802 V1828 H348 V1858" class="solid"/>
-  <text x="585" y="1820" text-anchor="middle" class="relation">active 时允许建立 Session</text>
-  <path d="M1355 1802 V1838 H520 V1858" class="association"/>
-  <path d="M1355 1802 V1858" class="association"/>
-  <text x="1020" y="1820" text-anchor="middle" class="relation">约束 Session 与 RefreshToken 过期边界</text>
-  <path d="M570 1958 H628" class="solid"/>
-  <text x="600" y="1939" text-anchor="middle" class="relation">绑定</text>
-  <path d="M570 2018 H1090 V1958 H1118" class="solid"/>
-  <text x="845" y="2046" text-anchor="middle" class="relation">绑定并参与轮换</text>
+  <g filter="url(#shadow)">
+    <rect x="1245" y="1860" width="345" height="195" rx="17" class="authn-behavior"/>
+    <text x="1270" y="1890" class="stereotype">DOMAIN SERVICES · TOKEN LIFECYCLE</text>
+    <text x="1418" y="1923" text-anchor="middle" class="model">Token Services</text>
+    <line x1="1245" y1="1943" x2="1590" y2="1943" class="divider"/>
+    <text x="1270" y="1975" class="field">TokenSetMinter · ServiceTokenIssuer</text>
+    <text x="1270" y="2003" class="field">Refresher · Verifier · Revoker</text>
+  </g>
+
+  <path d="M1238 1362 V1448 H290 V1568" class="solid"/>
+  <text x="760" y="1438" text-anchor="middle" class="relation">认证成功后由 Grant 流程执行准入</text>
+  <path d="M455 1685 H493" class="solid"/>
+  <text x="474" y="1666" text-anchor="middle" class="relation">返回</text>
+  <path d="M825 1685 H863" class="solid"/>
+  <text x="844" y="1666" text-anchor="middle" class="relation">admitted</text>
+  <path d="M1035 1802 V1835 H660 V1858" class="solid"/>
+  <text x="850" y="1826" text-anchor="middle" class="relation">返回完整认证结果</text>
+  <path d="M455 1958 H493" class="solid"/>
+  <text x="474" y="1939" text-anchor="middle" class="relation">组成</text>
+  <path d="M865 1958 H827" class="solid"/>
+  <text x="846" y="1939" text-anchor="middle" class="relation">组成</text>
+  <path d="M1243 1958 H1207" class="solid"/>
+  <text x="1225" y="1939" text-anchor="middle" class="relation">产生</text>
+  <path d="M1418 1802 V1858" class="association"/>
+  <text x="1445" y="1828" class="relation">约束</text>
 
   <!-- Identity bounded context -->
   <rect x="1755" y="175" width="690" height="1990" rx="28" fill="#fff9e8" stroke="#d29b23" stroke-width="3" filter="url(#shadow)"/>
@@ -317,7 +340,7 @@
   <text x="2100" y="1815" text-anchor="middle" class="model">Identity 边界规则</text>
   <text x="1865" y="1860" class="note">• 拥有 User / Profile 生命周期</text>
   <text x="1865" y="1902" class="note">• 不校验 Credential / Token</text>
-  <text x="1865" y="1944" class="note">• 不拥有 Role / Permission</text>
+  <text x="1865" y="1944" class="note">• 不拥有 Role / Assignment / PermissionGrant</text>
   <text x="1865" y="1986" class="note">• 对外暴露 UserStatusReader / UserResolver</text>
 
   <!-- AuthZ bounded context -->
@@ -325,12 +348,12 @@
   <rect x="2495" y="175" width="1650" height="112" rx="28" fill="#e8def8"/>
   <path d="M2495 258 H4145" stroke="#7653b5" stroke-width="2"/>
   <text x="3320" y="220" text-anchor="middle" class="context-title">AuthZ｜授权上下文</text>
-  <text x="3320" y="250" text-anchor="middle" class="context-sub">Subject × Tenant × Resource × Action × ObjectScope → allow / deny</text>
+  <text x="3320" y="250" text-anchor="middle" class="context-sub">Subject × Tenant × Resource × Action × ObjectContext → allow / deny</text>
 
   <!-- AuthZ section 1 -->
   <rect x="2530" y="315" width="1580" height="765" rx="20" fill="#fcfaff" stroke="#cbbce6" stroke-width="2"/>
   <text x="2565" y="355" class="section-title">1｜长期授权事实</text>
-  <text x="2565" y="383" class="section-desc">Subject 通过 RoleBinding 获得 Role，Role 通过 Permission 获得对资源能力的授权</text>
+  <text x="2565" y="383" class="section-desc">Assignment 赋予直接角色，RoleInheritance 派生角色闭包，PermissionGrant 表达允许规则与条件</text>
 
   <g filter="url(#shadow)">
     <rect x="2570" y="420" width="390" height="205" rx="17" class="authz-model"/>
@@ -343,11 +366,11 @@
 
   <g filter="url(#shadow)">
     <rect x="3030" y="420" width="450" height="205" rx="17" class="authz-aggregate"/>
-    <text x="3055" y="450" class="stereotype">AGGREGATE ROOT</text>
-    <text x="3255" y="483" text-anchor="middle" class="model">RoleBinding｜角色绑定</text>
+    <text x="3055" y="450" class="stereotype">AUTHORIZATION FACT</text>
+    <text x="3255" y="483" text-anchor="middle" class="model">Assignment｜角色分配</text>
     <line x1="3030" y1="503" x2="3480" y2="503" class="divider"/>
-    <text x="3055" y="537" class="field">ID · SubjectType · SubjectID</text>
-    <text x="3055" y="569" class="field">RoleID · TenantID · GrantedBy</text>
+    <text x="3055" y="537" class="field">ID · SubjectRef · RoleID</text>
+    <text x="3055" y="569" class="field">TenantID · GrantedBy · RevokedAt</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -366,29 +389,29 @@
 
   <g filter="url(#shadow)">
     <rect x="2780" y="755" width="610" height="245" rx="17" class="authz-model"/>
-    <text x="2805" y="785" class="stereotype">AUTHORIZATION FACT</text>
-    <text x="3085" y="818" text-anchor="middle" class="model">Permission｜权限事实</text>
+    <text x="2805" y="785" class="stereotype">AUTHORIZATION FACT · DAG EDGE</text>
+    <text x="3085" y="818" text-anchor="middle" class="model">RoleInheritance｜角色继承</text>
     <line x1="2780" y1="838" x2="3390" y2="838" class="divider"/>
-    <text x="2805" y="872" class="field">RoleName · TenantID</text>
-    <text x="2805" y="904" class="field">ResourceKey(Pattern) · Action(Pattern)</text>
-    <text x="2805" y="936" class="field">Scope{Kind, Value}</text>
+    <text x="2805" y="872" class="field">ChildRoleID · ParentRoleID · TenantID</text>
+    <text x="2805" y="904" class="field">GrantedBy · RevokedAt</text>
+    <text x="2805" y="936" class="field">只派生 effective roles，不复制 Grant</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="3490" y="755" width="570" height="270" rx="17" class="authz-aggregate"/>
-    <text x="3515" y="785" class="stereotype">RESOURCE CATALOG · AGGREGATE ROOT</text>
-    <text x="3775" y="818" text-anchor="middle" class="model">Resource Catalog｜资源能力目录</text>
+    <text x="3515" y="785" class="stereotype">AUTHORIZATION FACT</text>
+    <text x="3775" y="818" text-anchor="middle" class="model">PermissionGrant｜权限授予</text>
     <line x1="3490" y1="838" x2="4060" y2="838" class="divider"/>
-    <text x="3515" y="872" class="field">ID · Key · DisplayName</text>
-    <text x="3515" y="904" class="field">AppName · Domain · Type</text>
-    <text x="3515" y="936" class="field">Actions[] · ScopeKinds[]</text>
-    <text x="3515" y="968" class="small">Key: &lt;app&gt;:&lt;domain&gt;:&lt;type&gt;:&lt;name/pattern&gt;</text>
+    <text x="3515" y="872" class="field">RoleID · TenantID · ResourcePattern</text>
+    <text x="3515" y="904" class="field">ActionPattern · GrantKey · RevokedAt</text>
+    <text x="3515" y="936" class="field">ConstraintSet：all_of · eq · object.*</text>
+    <text x="3515" y="968" class="small">Resource Catalog / AttributeSchema 约束可授权能力与属性</text>
   </g>
 
   <path d="M3805 627 V690 H3085 V753" class="solid"/>
-  <text x="3445" y="680" text-anchor="middle" class="relation">拥有 0..*</text>
+  <text x="3445" y="680" text-anchor="middle" class="relation">定义继承关系</text>
   <path d="M3392 875 H3488" class="association"/>
-  <text x="3440" y="857" text-anchor="middle" class="relation">匹配 Key / Action / Scope</text>
+  <text x="3440" y="857" text-anchor="middle" class="relation">角色闭包参与 Grant 匹配</text>
 
   <!-- AuthZ section 2 -->
   <rect x="2530" y="1110" width="1580" height="450" rx="20" fill="#faf7ff" stroke="#cbbce6" stroke-width="2"/>
@@ -397,21 +420,21 @@
 
   <g filter="url(#shadow)">
     <rect x="2570" y="1225" width="510" height="250" rx="17" class="authz-behavior"/>
-    <text x="2595" y="1255" class="stereotype">DOMAIN SERVICE</text>
-    <text x="2825" y="1288" text-anchor="middle" class="model">AuthorizationPolicy</text>
+    <text x="2595" y="1255" class="stereotype">APPLICATION COMMANDS</text>
+    <text x="2825" y="1288" text-anchor="middle" class="model">Policy Mutation</text>
     <line x1="2570" y1="1308" x2="3080" y2="1308" class="divider"/>
-    <text x="2595" y="1342" class="operation">BindRole / UnbindRole</text>
-    <text x="2595" y="1374" class="operation">GrantPermission / RevokePermission</text>
+    <text x="2595" y="1342" class="operation">Assignment / RoleInheritance</text>
+    <text x="2595" y="1374" class="operation">PermissionGrant / Resource</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="3170" y="1225" width="430" height="250" rx="17" class="authz-model"/>
-    <text x="3195" y="1255" class="stereotype">CHANGE VALUE</text>
-    <text x="3385" y="1288" text-anchor="middle" class="model">PolicyChange</text>
+    <text x="3195" y="1255" class="stereotype">TRANSACTION BOUNDARY</text>
+    <text x="3385" y="1288" text-anchor="middle" class="model">UnitOfWork</text>
     <line x1="3170" y1="1308" x2="3600" y2="1308" class="divider"/>
-    <text x="3195" y="1342" class="field">Kind · TenantID</text>
-    <text x="3195" y="1374" class="field">Actor · Reason</text>
-    <text x="3195" y="1406" class="field">Permission / RoleBinding</text>
+    <text x="3195" y="1342" class="field">Fact + PolicyVersion + Outbox</text>
+    <text x="3195" y="1374" class="field">commit / rollback</text>
+    <text x="3195" y="1406" class="field">post-commit best-effort reload</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -426,16 +449,16 @@
   </g>
 
   <path d="M3082 1350 H3168" class="policy-link"/>
-  <text x="3125" y="1332" text-anchor="middle" class="relation">产生</text>
+  <text x="3125" y="1332" text-anchor="middle" class="relation">事务执行</text>
   <path d="M3602 1350 H3688" class="policy-link"/>
   <text x="3645" y="1332" text-anchor="middle" class="relation">提交后推进</text>
   <path d="M2825 1223 V1090 H3255 V627" class="association"/>
-  <text x="3045" y="1082" text-anchor="middle" class="relation">修改 RoleBinding / Permission</text>
+  <text x="3045" y="1082" text-anchor="middle" class="relation">修改 Assignment / Inheritance / Grant / Resource</text>
 
   <!-- AuthZ section 3 -->
   <rect x="2530" y="1590" width="1580" height="525" rx="20" fill="#fcfaff" stroke="#cbbce6" stroke-width="2"/>
   <text x="2565" y="1630" class="section-title">3｜单次授权判定</text>
-  <text x="2565" y="1658" class="section-desc">资源服务从可信上下文构造 Subject、Tenant 与 ObjectScope，再提交五元组进行 Check</text>
+  <text x="2565" y="1658" class="section-desc">资源服务从可信上下文构造 Subject、Tenant 与 ObjectContext，再提交五元组由不可变运行时快照判定</text>
 
   <g filter="url(#shadow)">
     <rect x="2570" y="1710" width="540" height="215" rx="17" class="authz-model"/>
@@ -444,7 +467,7 @@
     <line x1="2570" y1="1793" x2="3110" y2="1793" class="divider"/>
     <text x="2595" y="1827" class="field">Subject · TenantID</text>
     <text x="2595" y="1859" class="field">ResourceKey · Action</text>
-    <text x="2595" y="1891" class="field">ObjectScope</text>
+    <text x="2595" y="1891" class="field">ObjectContext</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -457,14 +480,14 @@
   <g filter="url(#shadow)">
     <rect x="2860" y="1960" width="250" height="105" rx="15" class="authz-model"/>
     <text x="2880" y="1987" class="stereotype">VALUE OBJECT</text>
-    <text x="2985" y="2020" text-anchor="middle" class="model">Scope｜对象范围</text>
-    <text x="2880" y="2048" class="small">all:* · origin:&lt;value&gt;</text>
+    <text x="2985" y="2020" text-anchor="middle" class="model">ObjectContext</text>
+    <text x="2880" y="2048" class="small">ObjectID · object.* attributes</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="3190" y="1740" width="390" height="220" rx="17" class="authz-behavior"/>
-    <text x="3215" y="1770" class="stereotype">APPLICATION PORT</text>
-    <text x="3385" y="1803" text-anchor="middle" class="model">DecisionEngine</text>
+    <text x="3215" y="1770" class="stereotype">APPLICATION CHECKER</text>
+    <text x="3385" y="1803" text-anchor="middle" class="model">NativeChecker</text>
     <line x1="3190" y1="1823" x2="3580" y2="1823" class="divider"/>
     <text x="3215" y="1857" class="operation">Check(request)</text>
   </g>
@@ -476,7 +499,7 @@
     <line x1="3660" y1="1793" x2="4060" y2="1793" class="divider"/>
     <text x="3685" y="1827" class="field">Allowed · Reason · DenyCode</text>
     <text x="3685" y="1859" class="field">MatchedRole</text>
-    <text x="3685" y="1891" class="field">MatchedPermission</text>
+    <text x="3685" y="1891" class="field">MatchedGrantID · MissingAttributeKeys</text>
     <text x="3685" y="1923" class="field">PolicyVersion · EvaluatedAt</text>
   </g>
 
@@ -489,7 +512,7 @@
   <path d="M2695 1958 V1927" class="association"/>
   <path d="M2985 1958 V1927" class="association"/>
   <path d="M3085 1002 V1540 H3385 V1738" class="association"/>
-  <text x="3205" y="1530" text-anchor="middle" class="relation">读取 Role / Permission / Resource Catalog</text>
+  <text x="3205" y="1530" text-anchor="middle" class="relation">读取 Assignment / Role / Grant / Resource Catalog</text>
   <path d="M3875 1512 V1680 H3385 V1738" class="association"/>
   <text x="3650" y="1670" text-anchor="middle" class="relation">携带当前 PolicyVersion</text>
 
@@ -502,7 +525,7 @@
   <rect x="2295" y="490" width="440" height="36" rx="18" fill="#ffffff"/>
   <text x="2515" y="515" text-anchor="middle" class="relation-blue">UserResolver：Subject(user).ID → User.ID</text>
 
-  <path d="M1833 600 H1725 V1548 H348 V1568" class="reference"/>
+  <path d="M1833 600 H1725 V1548 H290 V1568" class="reference"/>
   <rect x="1090" y="1518" width="580" height="34" rx="17" fill="#ffffff"/>
   <text x="1380" y="1542" text-anchor="middle" class="relation-blue">UserStatusReader：Identity.User.Status → AuthN 访问门禁</text>
 
@@ -514,8 +537,8 @@
   <circle cx="2100" cy="1162" r="9" class="knowledge-anchor"/>
   <circle cx="2995" cy="873" r="9" class="knowledge-anchor"/>
   <circle cx="3440" cy="1225" r="9" class="knowledge-anchor"/>
-  <circle cx="348" cy="2100" r="9" class="knowledge-anchor"/>
-  <circle cx="845" cy="2300" r="9" class="knowledge-anchor"/>
+  <circle cx="290" cy="2100" r="9" class="knowledge-anchor"/>
+  <circle cx="1035" cy="2300" r="9" class="knowledge-anchor"/>
   <circle cx="2365" cy="1405" r="9" class="knowledge-anchor"/>
   <circle cx="2530" cy="1700" r="9" class="knowledge-anchor"/>
   <circle cx="4110" cy="2200" r="9" class="knowledge-anchor"/>
@@ -568,11 +591,11 @@
     <rect x="3290" y="160" width="840" height="300" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="3320" y="195" class="knowledge-tag">AUTHZ · 领域知识</text>
     <text x="3320" y="232" class="knowledge-title">权限与资源匹配</text>
-    <text x="3320" y="272" class="knowledge-text">• Permission 描述 ResourceKey、Action 与 Scope</text>
-    <text x="3320" y="307" class="knowledge-text">• Resource Catalog 定义可授权的动作与范围类型</text>
+    <text x="3320" y="272" class="knowledge-text">• PermissionGrant 描述 ResourcePattern、Action 与 ConstraintSet</text>
+    <text x="3320" y="307" class="knowledge-text">• Resource Catalog 定义 Action 与 AttributeSchema</text>
     <text x="3320" y="342" class="knowledge-text">• 它是能力目录，不是 Patient / Report 等业务对象实例</text>
     <text x="3320" y="377" class="knowledge-text">• ResourceKey 与 Action 支持模式匹配</text>
-    <text x="3320" y="412" class="knowledge-text">• AuthZ Scope 不等于 ProfileLink 或 Suggest 可见范围</text>
+    <text x="3320" y="412" class="knowledge-text">• Casbin RoleManager 只计算直接与继承角色闭包</text>
   </g>
 
   <!-- Bottom knowledge notes -->
@@ -583,7 +606,7 @@
     <text x="100" y="2712" class="knowledge-text">• AuthDecision 成功时才产生 Principal</text>
     <text x="100" y="2747" class="knowledge-text">• 认证成功不等于允许建立在线会话</text>
     <text x="100" y="2782" class="knowledge-text">• AdmissionPolicy 校验 User、LoginIdentity 归属与状态</text>
-    <text x="100" y="2817" class="knowledge-text">• 仅 active Decision 允许建立或维持 Session</text>
+    <text x="100" y="2817" class="knowledge-text">• 仅 admitted Decision 允许建立或维持 Session</text>
     <text x="100" y="2852" class="knowledge-text">• Principal 是请求级认证结果，不是稳定 User</text>
     <text x="100" y="2887" class="knowledge-text">• Admission 只控制认证状态，不负责资源授权</text>
   </g>
@@ -593,11 +616,11 @@
     <text x="810" y="2635" class="knowledge-tag">AUTHN · 领域知识</text>
     <text x="810" y="2672" class="knowledge-title">会话、令牌与适配边界</text>
     <text x="810" y="2712" class="knowledge-text">• LifetimePolicy 约束滑动 TTL 与绝对生命周期</text>
-    <text x="810" y="2747" class="knowledge-text">• SessionEstablisher、Refresher 等是应用层窄能力</text>
-    <text x="810" y="2782" class="knowledge-text">• AccessToken / RefreshToken 是应用结果，不是聚合根</text>
-    <text x="810" y="2817" class="knowledge-text">• RefreshToken 原子轮换；重放会撤销对应 Session</text>
-    <text x="810" y="2852" class="knowledge-text">• JWT 验签后仍需检查 Session 与 AdmissionPolicy</text>
-    <text x="810" y="2887" class="knowledge-text">• AccessTokenCodec、KeySet、JWKS 位于适配/协议边界</text>
+    <text x="810" y="2747" class="knowledge-text">• GrantIssuer 领域服务形成 Session + UserTokenSet</text>
+    <text x="810" y="2782" class="knowledge-text">• Access / Refresh / Service Token 均为领域对象</text>
+    <text x="810" y="2817" class="knowledge-text">• Refresher、Verifier、Revoker 是令牌领域服务</text>
+    <text x="810" y="2852" class="knowledge-text">• 用户 Token 在线验证仍检查 Session 与 Admission</text>
+    <text x="810" y="2887" class="knowledge-text">• JWT Codec、KeySet、JWKS、Redis 位于适配边界</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -615,20 +638,20 @@
     <rect x="2500" y="2600" width="760" height="350" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="2530" y="2635" class="knowledge-tag">AUTHZ · 领域知识</text>
     <text x="2530" y="2672" class="knowledge-title">策略变更规则</text>
-    <text x="2530" y="2712" class="knowledge-text">• AuthorizationPolicy 修改 RoleBinding 或 Permission</text>
+    <text x="2530" y="2712" class="knowledge-text">• 应用命令修改 Assignment、Inheritance、Grant 或 Resource</text>
     <text x="2530" y="2747" class="knowledge-text">• 事实提交后才推进租户 PolicyVersion</text>
     <text x="2530" y="2782" class="knowledge-text">• 已提交版本不代表所有实例已经加载</text>
     <text x="2530" y="2817" class="knowledge-text">• VersionChangedEvent 只是缓存失效与收敛信号</text>
     <text x="2530" y="2852" class="knowledge-text">• 策略变更和单次授权判定是两类语义</text>
-    <text x="2530" y="2887" class="knowledge-text">• 同一 Subject / Role / Tenant 只允许一个 active RoleBinding</text>
+    <text x="2530" y="2887" class="knowledge-text">• 同一 Subject / Role / Tenant 只允许一个 active Assignment</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="3290" y="2600" width="840" height="350" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="3320" y="2635" class="knowledge-tag">AUTHZ · 领域知识</text>
     <text x="3320" y="2672" class="knowledge-title">授权判定规则</text>
-    <text x="3320" y="2712" class="knowledge-text">• Subject、Tenant 与 Scope 必须来自服务端可信上下文</text>
-    <text x="3320" y="2747" class="knowledge-text">• 客户端自报的 UserID / TenantID / Scope 不可信</text>
+    <text x="3320" y="2712" class="knowledge-text">• Subject、Tenant 与 ObjectContext 必须来自可信上下文</text>
+    <text x="3320" y="2747" class="knowledge-text">• 客户端自报的 UserID / TenantID / object.* 不可信</text>
     <text x="3320" y="2782" class="knowledge-text">• 无匹配策略时默认拒绝：Deny(not_matched)</text>
     <text x="3320" y="2817" class="knowledge-text">• 执行错误必须返回 error，不能降级为放行</text>
     <text x="3320" y="2852" class="knowledge-text">• 请求不携带 AuthN Principal 领域对象</text>

@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
+// validatePrincipalSessionAlignment 验证 principal 和 session 是否对齐
 func validatePrincipalSessionAlignment(principal *authentication.Principal, sess *sessiondomain.Session) error {
 	if principal == nil || sess == nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "principal and session are required")
@@ -35,6 +36,7 @@ func validatePrincipalSessionAlignment(principal *authentication.Principal, sess
 	return nil
 }
 
+// resolveMintTenantID 解析颁发令牌的租户ID
 func resolveMintTenantID(principal *authentication.Principal, sess *sessiondomain.Session) meta.ID {
 	if sess != nil && !sess.TenantID.IsZero() {
 		return sess.TenantID
@@ -45,6 +47,7 @@ func resolveMintTenantID(principal *authentication.Principal, sess *sessiondomai
 	return meta.ZeroID
 }
 
+// accessTokenSubjectFromAuth 从认证结果中生成访问令牌主体
 func accessTokenSubjectFromAuth(principal *authentication.Principal, sess *sessiondomain.Session) *AccessTokenSubject {
 	return &AccessTokenSubject{
 		UserID:          principal.UserID,
@@ -58,6 +61,7 @@ func accessTokenSubjectFromAuth(principal *authentication.Principal, sess *sessi
 	}
 }
 
+// coalesceNonEmpty 合并非空字符串
 func coalesceNonEmpty(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {

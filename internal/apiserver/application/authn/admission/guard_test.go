@@ -1,7 +1,6 @@
 package admission
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRequireMapsAdmissionDecisionToStableErrorCode(t *testing.T) {
+func TestMapErrorMapsAdmissionDomainErrorsToStableErrorCode(t *testing.T) {
 	t.Parallel()
 
 	subject := admissiondomain.Subject{
@@ -20,28 +19,23 @@ func TestRequireMapsAdmissionDecisionToStableErrorCode(t *testing.T) {
 		LoginIdentityID: meta.FromUint64(2),
 	}
 	tests := []struct {
-		name      string
-		decision  admissiondomain.Decision
-		policyErr error
-		wantCode  int
+		name     string
+		err      error
+		wantCode int
 	}{
-		{name: "admitted", decision: admissiondomain.Admit(subject)},
-		{name: "identity missing", decision: admissiondomain.Deny(subject, admissiondomain.ReasonLoginIdentityMissing), wantCode: code.ErrLoginIdentityDisabled},
-		{name: "identity disabled", decision: admissiondomain.Deny(subject, admissiondomain.ReasonLoginIdentityDisabled), wantCode: code.ErrLoginIdentityDisabled},
-		{name: "identity owner mismatch", decision: admissiondomain.Deny(subject, admissiondomain.ReasonIdentityOwnerMismatch), wantCode: code.ErrUserBlocked},
-		{name: "user missing", decision: admissiondomain.Deny(subject, admissiondomain.ReasonUserMissing), wantCode: code.ErrUserBlocked},
-		{name: "user blocked", decision: admissiondomain.Deny(subject, admissiondomain.ReasonUserBlocked), wantCode: code.ErrUserBlocked},
-		{name: "user inactive", decision: admissiondomain.Deny(subject, admissiondomain.ReasonUserInactive), wantCode: code.ErrUserInactive},
-		{name: "policy failure", policyErr: errors.New("status unavailable"), wantCode: code.ErrInternalServerError},
+		{name: "nil"},
+		{name: "identity missing", err: deniedError(subject, admissiondomain.ReasonLoginIdentityMissing), wantCode: code.ErrLoginIdentityDisabled},
+		{name: "identity disabled", err: deniedError(subject, admissiondomain.ReasonLoginIdentityDisabled), wantCode: code.ErrLoginIdentityDisabled},
+		{name: "identity owner mismatch", err: deniedError(subject, admissiondomain.ReasonIdentityOwnerMismatch), wantCode: code.ErrUserBlocked},
+		{name: "user missing", err: deniedError(subject, admissiondomain.ReasonUserMissing), wantCode: code.ErrUserBlocked},
+		{name: "user blocked", err: deniedError(subject, admissiondomain.ReasonUserBlocked), wantCode: code.ErrUserBlocked},
+		{name: "user inactive", err: deniedError(subject, admissiondomain.ReasonUserInactive), wantCode: code.ErrUserInactive},
+		{name: "policy failure", err: &admissiondomain.EvaluationError{Err: errors.New("status unavailable")}, wantCode: code.ErrInternalServerError},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			policy := &policyStub{decision: tt.decision, err: tt.policyErr}
-
-			err := Require(context.Background(), policy, subject)
-
-			require.Equal(t, subject, policy.subject)
+			err := MapError(tt.err)
 			if tt.wantCode == 0 {
 				require.NoError(t, err)
 				return
@@ -52,13 +46,12 @@ func TestRequireMapsAdmissionDecisionToStableErrorCode(t *testing.T) {
 	}
 }
 
-type policyStub struct {
-	decision admissiondomain.Decision
-	err      error
-	subject  admissiondomain.Subject
+func TestMapErrorPreservesNonAdmissionError(t *testing.T) {
+	t.Parallel()
+	want := errors.New("token store unavailable")
+	require.ErrorIs(t, MapError(want), want)
 }
 
-func (s *policyStub) Evaluate(_ context.Context, subject admissiondomain.Subject) (admissiondomain.Decision, error) {
-	s.subject = subject
-	return s.decision, s.err
+func deniedError(subject admissiondomain.Subject, reason admissiondomain.DenialReason) error {
+	return &admissiondomain.DeniedError{Decision: admissiondomain.Deny(subject, reason)}
 }

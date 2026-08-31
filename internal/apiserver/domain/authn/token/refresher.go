@@ -139,7 +139,7 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 }
 
 func (s *refresher) requireAdmission(ctx context.Context, refreshToken *RefreshToken) error {
-	return requireAdmission(ctx, s.admissionPolicy, admissiondomain.Subject{
+	return admissiondomain.Require(ctx, s.admissionPolicy, admissiondomain.Subject{
 		UserID: refreshToken.UserID, LoginIdentityID: refreshToken.LoginIdentityID,
 	})
 }

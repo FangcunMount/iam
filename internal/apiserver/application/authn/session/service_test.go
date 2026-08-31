@@ -10,7 +10,6 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
-	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -21,7 +20,7 @@ type sessionTokenCapabilitiesStub struct {
 	captured *authentication.Principal
 }
 
-func (s *sessionTokenCapabilitiesStub) EstablishSession(ctx context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
+func (s *sessionTokenCapabilitiesStub) IssueAuthentication(ctx context.Context, principal *authentication.Principal) (*tokenapp.TokenPair, error) {
 	s.captured = principal
 	access := tokenapp.NewAccessToken(
 		"access-id",
@@ -59,7 +58,7 @@ func (s *sessionTokenCapabilitiesStub) RevokeRefreshToken(ctx context.Context, t
 }
 
 type sessionTokenCapabilities interface {
-	tokenapp.SessionEstablisher
+	tokenapp.AuthenticationGrantIssuer
 	tokenapp.Refresher
 	tokenapp.Revoker
 }
@@ -68,12 +67,11 @@ func newSessionServiceForTest(t *testing.T, tokens sessionTokenCapabilities, aut
 	t.Helper()
 
 	signIn := signin.New(signin.Dependencies{
-		SessionEstablisher: tokens,
-		Authenticator:      auth,
-		MethodRegistry:     method.DefaultSelector(),
-		ProofFactory:       proof.DefaultFactory(nil, nil),
-		CredentialRecorder: nil,
-		AdmissionPolicy:    sessionAdmissionPolicyStub{},
+		AuthenticationGrantIssuer: tokens,
+		Authenticator:             auth,
+		MethodRegistry:            method.DefaultSelector(),
+		ProofFactory:              proof.DefaultFactory(nil, nil),
+		CredentialRecorder:        nil,
 	})
 	svc, err := NewApplicationService(Dependencies{
 		Refresher: tokens,
@@ -82,12 +80,6 @@ func newSessionServiceForTest(t *testing.T, tokens sessionTokenCapabilities, aut
 	})
 	require.NoError(t, err)
 	return svc
-}
-
-type sessionAdmissionPolicyStub struct{}
-
-func (sessionAdmissionPolicyStub) Evaluate(_ context.Context, subject admissiondomain.Subject) (admissiondomain.Decision, error) {
-	return admissiondomain.Admit(subject), nil
 }
 
 func TestMethodSelectorUsesAuthMethodAsAuthority(t *testing.T) {

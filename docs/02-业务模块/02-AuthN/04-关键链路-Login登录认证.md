@@ -17,7 +17,7 @@
 - Login 的失败边界、安全策略、审计和防枚举如何处理？
 - 修改该链路时应该核对哪些代码和测试？
 
-本文只讲“登录请求如何被证明为 Principal”。
+本文以“登录请求如何被证明为 Principal”为主线，同时说明公开 SignIn 用例如何继续颁发 `AuthenticationGrant`。
 注册与身份开通见 [02-注册登录与身份绑定.md](02-注册登录与身份绑定.md)；
 Linking 登录身份绑定见 [03-关键链路-Linking登录身份绑定.md](03-关键链路-Linking登录身份绑定.md)；
 AuthN 领域模型见 [01-领域模型与认证策略.md](01-领域模型与认证策略.md)。
@@ -35,11 +35,13 @@ login request
   -> parse authentication proof
   -> resolve LoginIdentity
   -> verify Credential / Challenge / external proof
-  -> evaluate User and LoginIdentity status
   -> build Principal
+  -> AuthenticationGrantIssuer
+       -> evaluate User and LoginIdentity admission
+       -> build Session + UserTokenSet
 ```
 
-Login 的领域终点是：
+`authentication.Authenticator` 的领域终点是：
 
 ```text
 Principal
@@ -59,8 +61,8 @@ Token 和 Session 的关系要严格区分：
 
 ```text
 Login 证明身份并生成 Principal；
-Session/Token 链路把 Principal 转换为登录态和访问凭证；
-上层接口可以组合 Login + Session/Token，但领域文档应区分两段。
+Grant 链路把 Principal 转换为 `AuthenticationGrant = Session + UserTokenSet`；
+当前 SignIn 应用用例组合了这两段，但领域文档仍应区分“证明身份”与“颁发在线认证结果”。
 ```
 
 如果只记一句话：
@@ -113,15 +115,15 @@ Principal -> Session/Token
 | Onboarding | 登录身份可能不存在 | 首次开通登录身份并绑定 User | `User`、`LoginIdentity`、可选 `Credential` |
 | Linking | 已有 Principal/UserID | 给当前 User 绑定或解绑登录身份 | `LoginIdentity`、可选 `Credential` |
 | Login | 已有登录身份或可解析外部身份 | 证明请求者是谁 | `Principal` |
-| Session/Token | 已有 Principal | 维持登录态并签发访问凭证 | `Session`、`AccessToken`、`RefreshToken` |
+| AuthenticationGrant | 已有 Principal | 准入通过后建立完整在线认证结果 | `Session`、`UserTokenSet` |
 | AuthZ Check | 已有 Principal 或 Subject | 判断是否允许访问资源 | `AuthorizationDecision` |
 
 关键边界：
 
 ```text
 Login 不创建 ProfileLink；
-Login 不写 RoleBinding；
-Login 不决定 Permission；
+Login 不写 Assignment / PermissionGrant；
+Login 不决定资源权限；
 Login 不等于 Onboarding；
 Login 不等于 Linking；
 Token 验签成功不等于授权通过。
@@ -208,7 +210,7 @@ ExpiresIn；
 TokenType。
 ```
 
-则说明该接口组合了 Session/Token 签发链路。该组合应在 Session/Token 文档中继续展开。
+则说明该接口已通过应用层 `AuthenticationGrantIssuer` 组合了 Grant 颁发链路。对外响应仅映射 token pair，不单独暴露 SessionID。
 
 注意：
 
@@ -503,8 +505,9 @@ User 是否 inactive；
 User 是否 blocked。
 ```
 
-当前 SignIn 在 proof 验证和 Credential 状态记录之后、创建 Session/Token 之前统一执行 `AdmissionPolicy`。`blocked User`、`inactive User`、
-`disabled LoginIdentity` 和状态查询错误都禁止调用 `SessionEstablisher`；Refresh 和在线 Verify 复用同一错误映射。
+当前 SignIn 在 proof 验证和 Credential 状态记录后，只调用 `AuthenticationGrantIssuer`。领域 `GrantIssuer` 在创建 Session/Token 前统一执行
+`AdmissionPolicy`；`blocked User`、`inactive User`、`disabled LoginIdentity` 和状态查询错误都会阻止 Session 创建。`Refresher` 和用户 token 的在线
+`Verifier` 复用同一准入规则和错误映射；ServiceToken 不走用户 Session/Admission 检查。
 
 边界：
 
@@ -613,7 +616,7 @@ Login 通常不是幂等写链路，但会修改安全状态。
 消费 Challenge；
 更新 lastLoginAt；
 写审计日志；
-后续创建 Session / Token。
+通过 GrantIssuer 创建 Session / UserTokenSet。
 ```
 
 并发风险：
@@ -698,9 +701,9 @@ Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
 | password 错误返回“用户存在但密码错” | 账户枚举风险 | 对外统一认证失败 |
 | Challenge 验证成功但不消费 | 可重放攻击 | 成功后必须消费 |
 | provider access token 当 IAM AccessToken | 外部凭证和 IAM 凭证混淆 | IDP AppToken/provider token 只用于外部 provider |
-| Token 签发写在 LoginIdentity 实体里 | 聚合职责混乱 | 由独立 Token 领域服务表达签发规则，application 编排登录用例 |
+| Token 签发写在 LoginIdentity 实体里 | 聚合职责混乱 | Token 领域服务表达令牌生命周期，GrantIssuer 颁发完整认证结果，application 只做用例组合 |
 | 日志打印密码/验证码/token | 严重安全风险 | 日志脱敏并避免敏感材料 |
-| Login 直接写 RoleBinding | AuthN 吞并 AuthZ | 授权归 AuthZ 用例 |
+| Login 直接写 Assignment / PermissionGrant | AuthN 吞并 AuthZ | 授权归 AuthZ 用例 |
 
 ---
 
@@ -714,6 +717,7 @@ Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
 | Challenge 模型 | `../../../internal/apiserver/domain/authn` |
 | Principal 模型 | `../../../internal/apiserver/domain/authn/authentication/principal.go` |
 | AuthN login application | `../../../internal/apiserver/application/authn` |
+| AuthenticationGrant 与 GrantIssuer | `../../../internal/apiserver/domain/authn/grant` |
 | Token 领域模型与生命周期服务 | `../../../internal/apiserver/domain/authn/token` |
 | Token application facade/DTO | `../../../internal/apiserver/application/authn/token` |
 | Identity User application | `../../../internal/apiserver/application/identity/user` |
@@ -754,6 +758,7 @@ go test ./internal/apiserver/application/authn/...
 
 ```bash
 go test ./internal/apiserver/application/authn/token/...
+go test ./internal/apiserver/domain/authn/grant/...
 go test ./internal/apiserver/domain/authn/token/...
 go test ./internal/apiserver/infra/...
 ```
@@ -799,15 +804,18 @@ login request
   -> parse authentication proof
   -> resolve LoginIdentity
   -> verify Credential / Challenge / external proof
-  -> evaluate LoginIdentity and User status
   -> build Principal
+  -> AuthenticationGrantIssuer
+       -> evaluate LoginIdentity and User admission
+       -> build Session + UserTokenSet
 ```
 
 最重要的边界是：
 
 ```text
-Login 的领域终点是 Principal；
-Token/Session 是后续链路；
+Authenticator 的领域终点是 Principal；
+GrantIssuer 把 Principal 颁发为 AuthenticationGrant；
+当前 SignIn 应用用例组合这两段；
 Login 不是 Onboarding；
 Login 不是 Linking；
 Login 不创建 ProfileLink；
@@ -815,4 +823,4 @@ Login 不做 AuthZ Check；
 Token 验签成功不等于授权通过。
 ```
 
-下一篇应继续编写 Session / Token 签发链路，说明 Principal 如何转化为 Session、AccessToken、RefreshToken，以及 Refresh / Logout / Revoke 如何治理登录态。
+详细颁发与生命周期见 [05-关键链路-Token签发刷新吊销.md](05-关键链路-Token签发刷新吊销.md)，其中说明 Principal 如何转化为 `AuthenticationGrant`，以及 Refresh / Logout / Revoke 如何治理登录态。

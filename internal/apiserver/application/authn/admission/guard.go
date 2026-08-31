@@ -1,30 +1,32 @@
 package admission
 
 import (
-	"context"
+	"errors"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	admissiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/admission"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
-// Require evaluates the current User/LoginIdentity state and maps a denied
-// decision to the stable AuthN/Identity application error contract.
-func Require(
-	ctx context.Context,
-	policy admissiondomain.Policy,
-	subject admissiondomain.Subject,
-) error {
-	if policy == nil {
-		return perrors.WithCode(code.ErrInternalServerError, "admission policy is not configured")
-	}
-	decision, err := policy.Evaluate(ctx, subject)
-	if err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate authentication admission")
-	}
-	if decision.IsAdmitted() {
+// MapError 将 Admission 领域错误映射为稳定的 AuthN/Identity 应用错误契约。
+// 非 Admission 错误保持不变，供调用方继续按所属用例处理。
+func MapError(err error) error {
+	if err == nil {
 		return nil
 	}
+
+	var denied *admissiondomain.DeniedError
+	if errors.As(err, &denied) {
+		return mapDeniedDecision(denied.Decision)
+	}
+	var evaluation *admissiondomain.EvaluationError
+	if errors.As(err, &evaluation) {
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to evaluate authentication admission")
+	}
+	return err
+}
+
+func mapDeniedDecision(decision admissiondomain.Decision) error {
 	switch decision.Reason {
 	case admissiondomain.ReasonIdentityOwnerMismatch,
 		admissiondomain.ReasonUserMissing,

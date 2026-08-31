@@ -66,7 +66,7 @@ func (s *verifier) checkSessionActive(ctx context.Context, sessionID string) err
 }
 
 func (s *verifier) requireAdmission(ctx context.Context, userID, loginIdentityID meta.ID) error {
-	return requireAdmission(ctx, s.admissionPolicy, admissiondomain.Subject{
+	return admissiondomain.Require(ctx, s.admissionPolicy, admissiondomain.Subject{
 		UserID: userID, LoginIdentityID: loginIdentityID,
 	})
 }

@@ -4,7 +4,7 @@ import "time"
 
 // Capabilities 是 AuthN Token 领域对外提供的窄角色能力集合。
 type Capabilities struct {
-	Issuer             Issuer
+	TokenSetMinter     TokenSetMinter
 	ServiceTokenIssuer ServiceTokenIssuer
 	Refresher          Refresher
 	Verifier           Verifier
@@ -15,7 +15,6 @@ type Capabilities struct {
 type Dependencies struct {
 	AccessTokenCodec      AccessTokenCodec
 	TokenStore            Store
-	SessionCreator        SessionCreator
 	SessionLoader         SessionLoader
 	SessionRevoker        SessionRevoker
 	SessionExtender       SessionExtender
@@ -27,22 +26,13 @@ type Dependencies struct {
 
 // NewCapabilities 装配 Token 的签发、刷新、验证和撤销领域能力。
 func NewCapabilities(deps Dependencies) Capabilities {
-	// 创建认证颁发器
-	issuer := newIssuer(
-		deps.AccessTokenCodec,
-		deps.TokenStore,
-		deps.SessionCreator,
-		deps.SessionRefreshExpirer,
-		deps.RefreshClaimsCodec,
-		deps.AccessTTL,
-	)
-	// 创建认证颁发器的组件
+	minter := newTokenSetMinter(deps.AccessTokenCodec, deps.SessionRefreshExpirer, deps.RefreshClaimsCodec, deps.AccessTTL)
 	return Capabilities{
-		Issuer:             issuer.authenticationIssuer,
-		ServiceTokenIssuer: issuer.serviceTokenIssuer,
+		TokenSetMinter:     minter,
+		ServiceTokenIssuer: newServiceTokenIssuer(deps.AccessTokenCodec, deps.AccessTTL),
 		// 创建认证刷新器
 		Refresher: newRefresher(
-			issuer.tokenSetMinter,
+			minter,
 			deps.TokenStore,
 			deps.SessionLoader,
 			deps.SessionRevoker,

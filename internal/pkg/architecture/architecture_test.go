@@ -405,7 +405,7 @@ func TestAuthnModuleDoesNotExposeConcreteApplicationFields(t *testing.T) {
 	}
 }
 
-func TestAuthnTokenConsumersDependOnNarrowCapabilities(t *testing.T) {
+func TestAuthnConsumersDependOnNarrowCapabilities(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
@@ -416,8 +416,8 @@ func TestAuthnTokenConsumersDependOnNarrowCapabilities(t *testing.T) {
 	}{
 		{
 			path:      "internal/apiserver/application/authn/signin/deps.go",
-			required:  []string{"tokenapp.SessionEstablisher"},
-			forbidden: []string{"TokenApplicationService", "tokenapp.Capabilities"},
+			required:  []string{"tokenapp.AuthenticationGrantIssuer"},
+			forbidden: []string{"TokenApplicationService", "tokenapp.Capabilities", "AdmissionPolicy", "SessionCreator", "TokenSetMinter"},
 		},
 		{
 			path:      "internal/apiserver/application/authn/session/service.go",
@@ -450,6 +450,24 @@ func TestAuthnTokenConsumersDependOnNarrowCapabilities(t *testing.T) {
 	}
 }
 
+func TestAuthnGrantOwnsAdmissionAndSessionTokenCoordination(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	assertFileContains(t, root, "internal/apiserver/domain/authn/grant/grant.go", "type AuthenticationGrant struct")
+	assertFileContains(t, root, "internal/apiserver/domain/authn/grant/issuer.go", "admissiondomain.Require(")
+	assertFileContains(t, root, "internal/apiserver/domain/authn/grant/issuer.go", "s.sessionCreator.Create(")
+	assertFileContains(t, root, "internal/apiserver/domain/authn/grant/issuer.go", "s.tokenSetMinter.MintTokenSet(")
+
+	tokenSource, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "domain", "authn", "token", "token.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(tokenSource), "type AuthenticationGrant struct") {
+		t.Fatal("domain/authn/token must not own AuthenticationGrant; Session + TokenSet coordination belongs to domain/authn/grant")
+	}
+}
+
 func TestAuthnAdmissionPolicyDoesNotRegressToSubjectAccessSessionModel(t *testing.T) {
 	t.Parallel()
 
@@ -470,7 +488,9 @@ func TestAuthnAdmissionPolicyDoesNotRegressToSubjectAccessSessionModel(t *testin
 	}
 
 	assertFileContains(t, root, "internal/apiserver/domain/authn/admission/policy.go", "type Policy interface")
-	assertFileContains(t, root, "internal/apiserver/application/authn/admission/guard.go", "func Require(")
+	assertFileContains(t, root, "internal/apiserver/domain/authn/admission/require.go", "func Require(")
+	assertFileContains(t, root, "internal/apiserver/application/authn/admission/guard.go", "func MapError(")
+	assertFileContains(t, root, "internal/apiserver/domain/authn/grant/issuer.go", "admissiondomain.Require(")
 }
 
 func TestRESTRegistrarsDoNotUsePackageGlobalDependencies(t *testing.T) {

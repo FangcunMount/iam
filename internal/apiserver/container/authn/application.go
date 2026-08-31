@@ -92,9 +92,9 @@ func (m *AuthnModule) initializeApplication(
 	}
 
 	signIn := signin.New(signin.Dependencies{
-		SessionEstablisher: tokenCapabilities.SessionEstablisher,
-		Authenticator:      authenticator,
-		MethodRegistry:     method.DefaultSelector(),
+		AuthenticationGrantIssuer: tokenCapabilities.AuthenticationGrantIssuer,
+		Authenticator:             authenticator,
+		MethodRegistry:            method.DefaultSelector(),
 		CredentialRecorder: credentialApp.NewRecorder(credentialApp.Dependencies{
 			Credentials: infra.credentialRepo,
 			LockoutPolicy: credentialDomain.LockoutPolicy{
@@ -103,8 +103,7 @@ func (m *AuthnModule) initializeApplication(
 				LockDuration: authOptions.PasswordLockout.LockDuration,
 			},
 		}),
-		AdmissionPolicy: infra.admissionPolicy,
-		ProofFactory:    proof.DefaultFactory(infra.externalResolver, challengeService),
+		ProofFactory: proof.DefaultFactory(infra.externalResolver, challengeService),
 	})
 
 	userSessionService, err := session.NewApplicationService(session.Dependencies{

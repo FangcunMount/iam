@@ -9,7 +9,7 @@
 本文回答 8 个问题：
 
 - Token 签发、刷新、吊销链路解决什么问题？
-- `Principal`、`Session`、`AccessToken`、`RefreshToken` 的边界是什么？
+- `Principal`、`AuthenticationGrant`、`Session`、`UserTokenSet` 与三类 Token 的边界是什么？
 - 登录成功后，AuthN 如何把 `Principal` 转换为可携带的访问凭证？
 - AccessToken 与 RefreshToken 为什么必须拆开？
 - RefreshToken 刷新时如何校验 Session、轮换 token、防重放？
@@ -35,22 +35,26 @@ Token 链路的目标是：
 
 ```text
 Principal
-  -> create Session
-  -> issue AccessToken
-  -> issue RefreshToken
+  -> GrantIssuer
+       -> AdmissionPolicy
+       -> AuthenticationGrant
+            -> Session
+            -> UserTokenSet(AccessToken + RefreshToken)
   -> verify AccessToken
   -> refresh AccessToken
   -> rotate RefreshToken
-  -> revoke Session / RefreshToken
+  -> revoke AccessToken / RefreshToken / Session
 ```
 
 关键边界：
 
 ```text
 Principal 是认证结果；
+AuthenticationGrant 是 Session + UserTokenSet 的完整在线认证结果；
 Session 是服务端登录态；
 AccessToken 是短期访问凭证；
 RefreshToken 是续期凭证；
+ServiceToken 是不建立用户 Session 的服务间凭证；
 JWKS 是公钥验签能力；
 Token 验签成功不等于 AuthZ 授权通过。
 ```
@@ -63,12 +67,12 @@ Token 验签成功不等于 AuthZ 授权通过。
 
 ## 3. Token 链路定位
 
-Login 的领域终点是 `Principal`。
+`authentication.Authenticator` 的领域终点是 `Principal`；公开 SignIn 用例还会继续调用 `AuthenticationGrantIssuer`。
 
 但客户端不能在每次请求里直接携带完整 Principal，因此 AuthN 需要把 Principal 转化为可携带凭证：
 
 ```text
-Principal -> AccessToken / RefreshToken
+Principal -> AuthenticationGrant(Session + UserTokenSet)
 ```
 
 同时，Token 不能只有客户端自包含数据，还需要服务端治理能力：
@@ -101,30 +105,41 @@ RefreshToken 泄露后如何降低风险？
 ```mermaid
 flowchart TD
     P["Principal\n认证成功后的运行时主体"]
+    GI["GrantIssuer\n完整认证结果颁发"]
+    AP["AdmissionPolicy\nUser / LoginIdentity 准入"]
+    G["AuthenticationGrant\nSession + UserTokenSet"]
     S["Session\n服务端登录态\nactive / revoked / expired"]
-    AT["AccessToken\n短期访问凭证\nJWT / opaque token"]
+    TS["UserTokenSet\n用户令牌集合"]
+    AT["AccessToken\n短期访问凭证\nRS256 JWT"]
     RT["RefreshToken\n续期凭证\n可撤销 / 可轮换"]
+    ST["ServiceToken\n服务间凭证\n无用户 Session / Refresh"]
     JWKS["JWKS\n公钥集合\n用于验签"]
     AuthZ["AuthZ.Check\n资源授权判断"]
 
-    P -->|create| S
-    S -->|issue| AT
-    S -->|issue| RT
-    RT -->|refresh| AT
-    RT -->|rotate optional| RT
+    P --> GI
+    GI -->|require| AP
+    GI -->|issue| G
+    G --> S
+    G --> TS
+    TS --> AT
+    TS --> RT
+    RT -->|strict rotate| TS
     AT -->|verify signature / claims| JWKS
     AT -->|recover Principal / Subject input| AuthZ
     S -->|logout / revoke / user blocked| Revoked["revoked state"]
+    ST -->|service identity| AuthZ
 ```
 
 读图规则：
 
 ```text
 Principal 不直接等于 token；
+AuthenticationGrant 显式绑定本次建立的 Session 和 UserTokenSet；
 Session 是服务端状态，不是 User 状态；
 AccessToken 短期有效，通常用于 API 请求；
 RefreshToken 较长期有效，只用于换取新 AccessToken；
 RefreshToken 不应该被当作 Bearer AccessToken 使用；
+ServiceToken 不得伪装成用户 Session，也不具有 Refresh 能力；
 JWKS 只暴露公钥，不暴露私钥；
 AuthZ.Check 不属于 Token 链路。
 ```
@@ -136,9 +151,12 @@ AuthZ.Check 不属于 Token 链路。
 | 对象 | 作用 | 生命周期 | 不是什么 |
 | --- | --- | --- | --- |
 | `Principal` | 认证成功后的主体表达 | Login 成功后产生，请求或 Session 上下文中使用 | 不是 User，不是 JWT |
+| `AuthenticationGrant` | 完整在线认证结果 | 初始颁发时产生 | 不是对外 DTO，不单独持久化 |
 | `Session` | 服务端登录态 | 创建、刷新、撤销、过期 | 不是 User 状态，不是权限 |
-| `AccessToken` | 短期访问凭证 | 签发、验签、过期、可选黑名单 | 不是 RefreshToken，不等于授权通过 |
+| `UserTokenSet` | 一次建立或续期产生的用户令牌集合 | 初始颁发或刷新时产生 | 不是 Session，不包含 ServiceToken |
+| `AccessToken` | 短期访问凭证 | 签发、验签、过期、撤销标记 | 不是 RefreshToken，不等于授权通过 |
 | `RefreshToken` | 续期凭证 | 签发、校验、轮换、吊销、过期 | 不是 AccessToken |
+| `ServiceToken` | 服务间访问凭证 | 签发、验签、过期 | 不是用户令牌，不建立 Session/RefreshToken |
 | `JWKS` | 公钥发布 | key 发布、rotation、retire | 不暴露私钥，不表达授权 |
 
 最重要的边界：
@@ -159,22 +177,19 @@ Token 签发链路用于把 `Principal` 转换成客户端可携带凭证。
 输入：
 
 ```text
-Principal；
-客户端上下文：device / ip / user-agent / appID；
-Session 策略：ttl / max age / revoke policy；
-Token 策略：issuer / audience / access ttl / refresh ttl / keyID。
+Principal。
 ```
+
+Session/Token TTL、issuer、audience 和当前签名密钥都是颁发器的组合时依赖或配置，不是每次 SignIn 由客户端传入的领域命令。
 
 输出：
 
 ```text
-SessionID；
-AccessToken；
-RefreshToken；
-ExpiresIn；
-TokenType；
-可选 RefreshExpiresIn。
+领域输出：AuthenticationGrant(Session + UserTokenSet)；
+对外 token pair：AccessToken、RefreshToken、ExpiresIn、TokenType。
 ```
+
+SessionID 保留在领域 Grant 和 token claims 内部用于关联在线状态；当前 REST/gRPC 登录与刷新响应不单独暴露 SessionID。
 
 响应中不应包含：
 
@@ -194,31 +209,38 @@ provider access token；
 ```mermaid
 sequenceDiagram
     participant Login as Login Application
-    participant A as AuthN Token Application
-    participant SS as Session Store
-    participant TR as Token Runtime
-    participant KS as KeySet / Signer
+    participant A as AuthenticationGrantIssuer Adapter
+    participant G as Domain GrantIssuer
+    participant AP as AdmissionPolicy
+    participant SC as SessionCreator
+    participant TM as TokenSetMinter
+    participant C as AccessTokenCodec / Signer
+    participant RS as RefreshToken Store
 
-    Login-->>A: Principal
-    A->>SS: Create Session(Principal, client context, expiresAt)
-    SS-->>A: SessionID
-    A->>KS: Select signing key(kid)
-    KS-->>A: Private key handle / signer
-    A->>TR: Issue AccessToken(Principal, SessionID, kid, ttl)
-    TR-->>A: AccessToken
-    A->>TR: Issue RefreshToken(SessionID, ttl, rotation policy)
-    TR-->>A: RefreshToken
-    A-->>Login: token response
+    Login->>A: IssueAuthentication(Principal)
+    A->>G: Issue(Principal)
+    G->>AP: Require(UserID, LoginIdentityID)
+    AP-->>G: admitted
+    G->>SC: Create(Principal)
+    SC-->>G: Session
+    G->>TM: MintTokenSet(Principal, Session)
+    TM->>C: IssueAccessToken(subject, ttl)
+    C-->>TM: AccessToken
+    TM-->>G: UserTokenSet(AccessToken, RefreshToken)
+    G->>RS: SaveRefreshToken(RefreshToken)
+    G-->>A: AuthenticationGrant(Session, UserTokenSet)
+    A-->>Login: TokenPair
 ```
 
 关键规则：
 
 ```text
-Session 应先创建，再签发与 Session 绑定的 token；
+Admission 必须在 Session 创建之前通过；
+Session 应先创建，再 mint 与 Session 绑定的 UserTokenSet；
 AccessToken 应短期有效；
 RefreshToken 应与 Session 绑定；
 Token claim 只携带必要认证上下文；
-signing private key 不应泄露到 application 外部；
+signing private key 不应越过 codec/signer 适配器边界；
 签发失败不能伪造登录成功。
 ```
 
@@ -237,14 +259,13 @@ audience；
 issuedAt；
 expiresAt；
 notBefore；
-keyID；
 sessionID；
 loginIdentityID；
 auth method / AMR；
 tokenID / jti。
 ```
 
-具体 claim 以 Token 实现和契约为准。
+`kid` 位于 JOSE header，用于选择验签公钥，不是 payload claim。具体声明以 Token 实现和契约为准。
 
 AccessToken 不应携带：
 
@@ -254,7 +275,7 @@ password hash；
 RefreshToken；
 private key；
 完整 ProfileLink；
-完整 RoleBinding / Permission；
+完整 Assignment / RoleInheritance / PermissionGrant / ConstraintSet；
 敏感 provider token。
 ```
 
@@ -265,27 +286,29 @@ private key；
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant MW as Auth Middleware
-    participant TR as Token Verifier
-    participant JWKS as JWKS / KeySet
-    participant SS as Session Store Optional
-    participant Req as Request Context
+    participant A as Token Application
+    participant V as Domain Verifier
+    participant Codec as AccessTokenCodec / KeySet
+    participant TS as Token Store
+    participant SS as Session Store
+    participant AP as AdmissionPolicy
 
-    C->>MW: Authorization: Bearer access_token
-    MW->>TR: Parse token header / claims
-    TR->>JWKS: Resolve public key by kid
-    JWKS-->>TR: public key
-    TR->>TR: Verify signature, exp, nbf, iss, aud
-    opt session check required
-        TR->>SS: Check session active(sessionID)
-        SS-->>TR: active / revoked / expired
+    C->>A: VerifyToken(access_token)
+    A->>V: VerifyToken(value)
+    V->>Codec: VerifyAccessToken(value)
+    Codec-->>V: TokenClaims
+    alt service token
+        V-->>A: claims
+    else user token
+        V->>TS: IsAccessTokenRevoked(jti)
+        TS-->>V: false
+        V->>SS: GetActive(sessionID)
+        SS-->>V: active Session
+        V->>AP: Require(UserID, LoginIdentityID)
+        AP-->>V: admitted
+        V-->>A: claims
     end
-    alt valid
-        TR-->>MW: Principal / auth context
-        MW->>Req: attach Principal
-    else invalid
-        TR-->>MW: unauthenticated
-    end
+    A-->>C: valid / invalid
 ```
 
 验证至少应考虑：
@@ -297,10 +320,13 @@ sequenceDiagram
 签发方 iss；
 受众 aud；
 keyID / kid；
-tokenID / jti，可选；
-Session 状态，可选但推荐用于强撤销；
-黑名单，可选。
+tokenID / jti；
+用户 token 的 access-token revocation marker；
+用户 token 的 active Session；
+用户 token 的 User/LoginIdentity Admission。
 ```
+
+这是 IAM 在线 `VerifyToken` 的固定用户令牌语义，不是“可选 Session check”。ServiceToken 在密码学验证后返回 claims，不走用户 Session/Admission；下游 SDK 的本地 JWKS 验签是另一种离线语义。
 
 ---
 
@@ -322,11 +348,10 @@ Refresh 链路用于在 AccessToken 过期后获取新的 AccessToken。
 Refresh 输入：
 
 ```text
-RefreshToken；
-client context；
-可选 device binding；
-可选 rotation metadata。
+RefreshToken value。
 ```
+
+当前领域 `Refresher` 从服务端 RefreshToken 事实恢复 SessionID、UserID、LoginIdentityID 与认证上下文；客户端不传入 device 或 rotation metadata 作为可信事实。
 
 Refresh 输出：
 
@@ -334,7 +359,7 @@ Refresh 输出：
 new AccessToken；
 new RefreshToken；
 expiresIn；
-可选 refreshExpiresIn。
+tokenType。
 ```
 
 ---
@@ -345,33 +370,41 @@ expiresIn；
 sequenceDiagram
     participant C as Client
     participant A as AuthN Token Application
-    participant TR as Token Runtime
+    participant R as Domain Refresher
+    participant TS as RefreshToken Store
     participant SS as Session Store
-    participant KS as KeySet / Signer
+    participant AP as AdmissionPolicy
+    participant TM as TokenSetMinter
 
     C->>A: refresh(refresh_token)
-    A->>TR: Parse and validate RefreshToken
-    alt refresh token invalid/expired/revoked
-        TR-->>A: invalid
+    A->>R: RefreshToken(value)
+    R->>TS: GetRefreshToken(value)
+    alt token missing
+        R->>TS: GetConsumedRefreshToken(value)
+        opt consumed marker exists
+            R->>SS: Revoke Session(reason=refresh_token_replay)
+        end
         A-->>C: refresh failed
-    else refresh token valid
-        TR-->>A: SessionID / token metadata
-        A->>SS: Load Session(SessionID)
+    else refresh token exists
+        R->>SS: GetActive(SessionID)
         alt session revoked/expired
-            SS-->>A: invalid session
+            SS-->>R: invalid session
             A-->>C: refresh failed
         else session active
-            SS-->>A: Session / Principal
-            A->>A: Check User/LoginIdentity status
-            A->>KS: Mint candidate AccessToken and RefreshToken
-            A->>SS: Extend Session to candidate refresh expiry
-            A->>TR: Atomically replace old RefreshToken with candidate
+            SS-->>R: Session
+            R->>AP: Require(UserID, LoginIdentityID)
+            R->>R: Check refresh expiry
+            R->>TM: MintTokenSet(Principal, Session)
+            TM-->>R: candidate UserTokenSet
+            R->>SS: ExtendToRefreshExpiry(Session, candidate expiry)
+            R->>TS: RotateRefreshToken(old, expected ID, candidate)
             alt old token already consumed
-                TR-->>A: rotation conflict
-                A->>SS: Revoke Session(reason=refresh_token_replay)
+                TS-->>R: rotation conflict
+                R->>SS: Revoke Session(reason=refresh_token_replay)
                 A-->>C: 401 refresh token not found
             else rotation succeeds
-                A-->>C: new token response
+                R-->>A: new UserTokenSet
+                A-->>C: new token pair
             end
         end
     end
@@ -445,7 +478,7 @@ Session 延长失败时旧 RefreshToken 保持有效，新 RefreshToken 不落�
 | Logout | 当前用户主动退出 | 用户点击退出登录 |
 | Revoke Session | 让某个 Session 失效 | 管理端踢下线、User blocked、风险控制 |
 | Revoke RefreshToken | 让某个 refresh 凭证失效 | token 泄露、设备退出 |
-| Blacklist AccessToken | 让尚未过期的 AccessToken 失效 | 高安全需求下的强撤销 |
+| Revoke AccessToken | 写入 jti revocation marker 并撤销关联 Session | 当前 access token 泄露、退出 |
 
 边界：
 
@@ -464,20 +497,28 @@ User blocked 可触发 Session revoke，但 User 状态仍属于 Identity。
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant MW as Auth Middleware
-    participant A as AuthN Token Application
-    participant SS as Session Store
-    participant TR as Token Runtime
+    participant S as SignOut Application
+    participant T as Token Capabilities
+    participant TS as Token Store
+    participant SS as Session Revoker
 
-    C->>MW: logout with access token
-    MW-->>A: Principal / SessionID
-    A->>SS: Revoke Session(SessionID, reason=logout)
-    A->>TR: Revoke RefreshToken(SessionID)
-    opt access token blacklist enabled
-        A->>TR: Blacklist AccessToken(jti, exp)
+    C->>S: logout(access_token and/or refresh_token)
+    opt refresh token supplied
+        S->>T: RevokeRefreshToken(value)
+        T->>TS: GetRefreshToken(value)
+        T->>SS: Revoke associated Session
+        T->>TS: DeleteRefreshToken(value)
     end
-    A-->>C: logout success
+    opt access token supplied
+        S->>T: RevokeAccessToken(value)
+        T->>T: VerifyAccessToken(value)
+        T->>TS: MarkAccessTokenRevoked(jti, remaining TTL)
+        T->>SS: Revoke associated Session
+    end
+    S-->>C: logout success / explicit failure
 ```
+
+Logout 命令使用调用方显式提供的 access token 和/或 refresh token，不从 middleware Principal 推导 SessionID。两类撤销都会根据令牌内的关联事实撤销对应 Session。
 
 ---
 
@@ -486,21 +527,17 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Identity as Identity User Lifecycle
-    participant A as AuthN Session Revoker
+    participant O as Transactional Outbox / Worker
+    participant A as Session Revoker Port
     participant SS as Session Store
-    participant TR as Token Runtime
 
-    Identity->>A: RevokeByUser(userID, reason=user_blocked)
-    A->>SS: Find active sessions by userID
-    SS-->>A: sessions
-    loop each session
-        A->>SS: Revoke Session
-        A->>TR: Revoke RefreshToken
-        opt blacklist access token
-            A->>TR: Blacklist active access token jti
-        end
-    end
+    Identity->>O: commit User status + revocation event
+    O->>A: RevokeByUser(userID, reason)
+    A->>SS: RevokeByUser(userID, reason)
+    SS-->>A: sessions revoked / stale indexes cleaned
 ```
+
+这条状态收敛链只通过 `session.Revoker.RevokeByUser` 撤销 Session，不枚举或反查每个 AccessToken/RefreshToken，也不批量写 access-token revocation marker。在事件消费完成前，用户 token 的在线 Verifier 还会执行 Admission，关闭传播延迟窗口。
 
 关键规则：
 
@@ -509,7 +546,8 @@ User blocked 属于 Identity 状态变化；
 Session revoke 属于 AuthN；
 二者通过受控 port 协作，例如 session.Revoker；
 Identity 不应直接操作 token store；
-AuthN 不应修改 User 状态。
+AuthN 不应修改 User 状态；
+在线 Admission 与异步 Session revoke 同时保留，分别负责 fail-closed 与最终状态收敛。
 ```
 
 ---
@@ -591,17 +629,17 @@ key rotation 不应导致未过期 token 大面积失效，除非安全事件要
 
 ---
 
-## 13. 黑名单与 Session Check 的取舍
+## 13. 在线 Verify 与本地 JWKS 验签
 
-AccessToken 常见有两种治理方式。
+AccessToken 在当前系统中存在两种明确不同的验证语义。
 
-### 13.1 纯 JWT 短 TTL
+### 13.1 下游 SDK 本地 JWKS 验签
 
 特点：
 
 ```text
 AccessToken 自包含；
-资源服务只验签和检查 exp；
+资源服务验证签名、issuer、audience、exp、nbf 等约束；
 服务端不查 Session；
 性能好；
 强撤销能力弱，只能等短 TTL 过期。
@@ -617,14 +655,13 @@ AccessToken TTL 很短；
 
 ---
 
-### 13.2 JWT + Session Check / 黑名单
+### 13.2 IAM 在线 VerifyToken
 
 特点：
 
 ```text
 AccessToken 仍可自包含；
-验证时额外检查 Session 是否 active；
-必要时检查 jti 黑名单；
+用户 token 验证时固定检查 jti revocation marker、active Session 和 Admission；
 强撤销能力更好；
 增加存储依赖和延迟。
 ```
@@ -638,11 +675,7 @@ User blocked 必须快速生效；
 安全优先于极致性能。
 ```
 
-本文不强制选择，具体取舍见：
-
-```text
-03-Session-Token与JWKS.md
-```
+当前 IAM 在线接口已选择第二种语义，并非未决策项；ServiceToken 是例外，密码学验证后不查用户 Session/Admission。下游服务若选择 SDK 本地验签，必须明确接受 access token 剩余寿命内的撤销延迟。详细取舍见 [03-Session-Token与JWKS.md](03-Session-Token与JWKS.md)。
 
 ---
 
@@ -651,9 +684,10 @@ User blocked 必须快速生效；
 | 场景 | 期望行为 | 说明 |
 | --- | --- | --- |
 | Principal 为空 | 拒绝签发 | Login 未成功不能签发 token |
+| Admission 拒绝或状态查询失败 | 拒绝签发 | 不得创建 Session |
 | Session 创建失败 | 签发失败 | 不应返回 token |
-| AccessToken 签名失败 | 签发失败 | 不应返回半成功响应 |
-| RefreshToken 签发失败 | 整体失败或补偿 | 取决于事务策略 |
+| AccessToken mint 失败 | 签发失败 | 不返回半成功响应；当前可留下孤儿 Session |
+| RefreshToken mint / 初始保存失败 | 整体失败 | 不返回 token pair；当前可留下孤儿 Session |
 | RefreshToken 无效/过期/撤销 | Refresh 失败 | 需要重新登录 |
 | Session revoked/expired | Refresh 失败 | 不应签发新 AccessToken |
 | 已消费 RefreshToken 重复使用 | 撤销对应 Session，并返回 `ErrRefreshTokenNotFound` / HTTP 401 | 不扩散为跨 Session 的 token-family 撤销 |
@@ -729,9 +763,10 @@ logout 重复提交可以返回成功或已退出；
 
 ```text
 Login 生成 Principal；
-Token 链路消费 Principal；
+GrantIssuer 消费 Principal 并返回 AuthenticationGrant；
+Token 领域服务负责 mint、refresh、verify、revoke 生命周期；
 Login 失败不能创建 Session/Token；
-一个接口可以组合 Login + Token，但文档语义要拆开。
+当前 SignIn 应用用例组合 Login + Grant，但领域语义仍要分清。
 ```
 
 ---
@@ -792,7 +827,7 @@ AccessToken 不能直接代表可搜索所有 Profile。
 | RefreshToken 不轮换且长期有效 | 泄露风险高 | 可采用轮换和重放检测 |
 | JWT 验签成功直接放行资源 | 认证和授权混淆 | 认证后继续 AuthZ Check |
 | JWKS 暴露 private key | 严重安全事故 | JWKS 只暴露 public key |
-| User blocked 后 AccessToken 仍长期有效 | 封禁不生效 | 短 TTL / Session check / blacklist |
+| User blocked 后 AccessToken 仍长期有效 | 封禁不生效 | 保留在线 Admission + Session revoke，并限制 TTL |
 | Logout 只让客户端删除 token | 服务端无法治理 | 服务端 revoke Session/RefreshToken |
 | Token claim 塞完整权限模型 | token 过大且权限漂移 | 只携带必要认证上下文，授权实时 Check |
 | 日志打印 token | 凭证泄露 | 日志脱敏，避免打印完整 token |
@@ -805,6 +840,7 @@ AccessToken 不能直接代表可搜索所有 Profile。
 | --- | --- |
 | Principal 模型 | `../../../internal/apiserver/domain/authn/authentication/principal.go` |
 | AuthN domain | `../../../internal/apiserver/domain/authn` |
+| AuthenticationGrant 与初始颁发 | `../../../internal/apiserver/domain/authn/grant` |
 | Token 领域模型与生命周期服务 | `../../../internal/apiserver/domain/authn/token` |
 | Token application facade/DTO | `../../../internal/apiserver/application/authn/token` |
 | AuthN application | `../../../internal/apiserver/application/authn` |
@@ -835,6 +871,7 @@ make docs-hygiene
 
 ```bash
 go test ./internal/apiserver/application/authn/token/...
+go test ./internal/apiserver/domain/authn/grant/...
 go test ./internal/apiserver/domain/authn/token/...
 go test ./internal/apiserver/application/authn/...
 go test ./internal/apiserver/domain/authn/...
@@ -884,25 +921,27 @@ Token 签发、刷新、吊销链路可以压缩成：
 
 ```text
 Principal
-  -> create Session
-  -> issue AccessToken
-  -> issue RefreshToken
+  -> GrantIssuer
+       -> AdmissionPolicy
+       -> AuthenticationGrant(Session + UserTokenSet)
   -> verify AccessToken
   -> refresh AccessToken
   -> rotate RefreshToken
-  -> revoke Session / RefreshToken
+  -> revoke AccessToken / RefreshToken / Session
 ```
 
 最重要的边界是：
 
 ```text
 Principal 是认证结果；
+AuthenticationGrant 是完整在线认证结果；
 Session 是服务端登录态；
 AccessToken 是短期访问凭证；
 RefreshToken 是续期凭证；
+ServiceToken 是无用户 Session/Refresh 的服务间凭证；
 JWKS 只暴露公钥；
 AccessToken 验签成功不等于 AuthZ 授权通过；
 User blocked 通过受控 port 触发 AuthN Session revoke。
 ```
 
-下一篇应继续编写 Auth Middleware / Principal 注入链路，说明服务端如何从 Bearer Token 恢复 Principal，并把认证上下文传递给后续 application 与 AuthZ。
+下游本地验签与跨模块传递边界分别见 [06-关键链路-JWKS与本地验签.md](06-关键链路-JWKS与本地验签.md) 和 [07-模块边界-AuthN与Identity-IDP-AuthZ.md](07-模块边界-AuthN与Identity-IDP-AuthZ.md)。
