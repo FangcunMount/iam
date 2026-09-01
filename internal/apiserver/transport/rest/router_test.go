@@ -327,7 +327,7 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
 	router := newRouterForTest(deps, RouterOptions{})
 
-	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, casbinStub{}))
+	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, routeAuthorizationStub{}))
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/login-identities/:loginIdentityId/sessions/revoke")
@@ -529,14 +529,10 @@ func (sessionServiceStub) RevokeAllSessionsByUser(_ context.Context, _ string, _
 
 var _ sessionapp.Revoker = sessionServiceStub{}
 
-type casbinStub struct{}
+type routeAuthorizationStub struct{}
 
-func (casbinStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, error) {
+func (routeAuthorizationStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, error) {
 	return true, nil
-}
-
-func (casbinStub) DirectRoleKeys(_ context.Context, _, _ string) ([]string, error) {
-	return []string{"role:admin"}, nil
 }
 
 type tokenServiceStub struct{}

@@ -582,7 +582,7 @@
     <text x="3320" y="307" class="knowledge-text">• Resource Catalog 定义 Action 与 AttributeSchema</text>
     <text x="3320" y="342" class="knowledge-text">• 它是能力目录，不是 Patient / Report 等业务对象实例</text>
     <text x="3320" y="377" class="knowledge-text">• ResourceKey 与 Action 支持模式匹配</text>
-    <text x="3320" y="412" class="knowledge-text">• Casbin RoleManager 只计算直接与继承角色闭包</text>
+    <text x="3320" y="412" class="knowledge-text">• 自有不可变角色图计算直接与继承角色闭包</text>
   </g>
 
   <!-- Bottom knowledge notes -->

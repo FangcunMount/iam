@@ -193,7 +193,7 @@ IDP 和 Suggest 可以支撑核心模块，但不能吞并核心模块职责。
 
 - 微信接口变化不应该迫使 AuthN 领域模型同步变化；
 - 搜索索引实现变化不应该改动 Identity Profile 主数据模型；
-- Casbin 技术实现变化不应该污染 AuthZ 的业务语义。
+- 角色图技术实现变化不应该污染 AuthZ 的业务语义。
 
 > DDD 回答“系统应该有哪些业务模块”，单一职责原则进一步检查“每个模块是否只有一个主要变化原因”。
 
@@ -258,9 +258,9 @@ Application / Domain
 | 层次 | 主要职责 | 不应该承担 |
 | --- | --- | --- |
 | Transport | REST/gRPC 契约、DTO 映射、上下文解析、错误映射 | 业务规则和认证方式分派 |
-| Application | 用例编排、事务边界、端口调用、跨模块协作 | 直接依赖 MySQL、Redis、JWT、Casbin |
+| Application | 用例编排、事务边界、端口调用、跨模块协作 | 直接依赖 MySQL、Redis、JWT 或角色图实现 |
 | Domain | 实体、值对象、业务规则和不变量 | 协议、数据库和第三方 API 细节 |
-| Infra | Repository、Cache、JWT、Casbin、Provider、Trie/Hash 等适配器 | 重新定义业务语义 |
+| Infra | Repository、Cache、JWT、AuthZ Snapshot、Provider、Trie/Hash 等适配器 | 重新定义业务语义 |
 
 这里最重要的不是分成了几层，而是依赖方向：
 
@@ -337,7 +337,7 @@ cmd / app
   -> 注册优雅关闭回调
 ```
 
-Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部角色图使用 Casbin role manager）和 Suggest
+Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部使用自有不可变角色图）和 Suggest
 Runtime 装配给对应模块，但不执行认证、授权或身份关系等业务用例。
 
 > Process 管理进程生命周期，Container 只负责组装系统；它们都不应该成为新的业务模块。
@@ -351,7 +351,7 @@ Runtime 装配给对应模块，但不执行认证、授权或身份关系等业
 | Domain 不得依赖 Infra、数据库和 Transport | 保持领域模型纯粹 |
 | Application 不得依赖 Transport 和 Infra 实现 | 迫使外部能力经过端口接入 |
 | REST Router 不得直接访问 Container | 防止 Transport 穿透组合根 |
-| Casbin 技术事实不得污染 AuthZ Domain | 保持授权业务语义稳定 |
+| 角色图实现细节不得污染 AuthZ Domain | 保持授权业务语义稳定 |
 | JWT、Suggest Runtime 等实现必须位于端口之外 | 保持适配器可替换 |
 | AuthN/AuthZ Domain 不得直接导入 Identity User Repository | 强制 User 访问经过 Identity 窄能力 |
 | 模块能力只能在指定 collector 和 module graph 中导航 | 防止任意穿透模块内部 |

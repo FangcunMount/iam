@@ -391,7 +391,7 @@ container：组合根和依赖装配；
 transport：REST/gRPC 协议适配；
 application：用例编排；
 domain：领域模型和业务规则；
-infra：数据库、缓存、token、casbin、外部服务等基础设施适配。
+infra：数据库、缓存、token、授权快照、外部服务等基础设施适配。
 ```
 
 运行时细节见 [01-运行时](../01-运行时/README.md)。

@@ -111,7 +111,7 @@ func routeMatrixDeps() Deps {
 		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
 		RoleInheritanceHandler: authzhandler.NewRoleInheritanceHandler(nil),
 		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
-		RouteAuthorization:     casbinStub{},
+		RouteAuthorization:     routeAuthorizationStub{},
 	}
 	deps.IDP = IDPDeps{
 		WechatAppHandler: idphandler.NewWechatAppHandler(nil, nil, nil),

@@ -48,7 +48,7 @@
 
 ```text
 外部身份接入：provider proof -> IDP ExternalIdentity -> AuthN -> Identity -> Session / Token
-授权决策与传播：Identity User -> AuthZ -> MySQL 事实 / 原生快照 / Casbin 角色图 -> Outbox / NSQ
+授权决策与传播：Identity User -> AuthZ -> MySQL 事实 / 原生快照 / 不可变角色图 -> Outbox / NSQ
 可见资料搜索：Identity facts + 授权范围 -> Suggest read model
 ```
 
@@ -159,7 +159,7 @@
 > Action，ConstraintSet 限定对象属性。所以快照中 direct roles 与包含继承结果的 effective roles 不能混用；组织归属等关系仍由拥有事实的业务模块判断。
 >
 > 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有原生不可变授权快照。MySQL 中的 Assignment、RoleInheritance、PermissionGrant、Resource Schema 和
-> PolicyVersion 是权威事实；Casbin 只在快照内计算 Subject→Role 与 Role→ParentRole 两类角色边，Resource/Action 匹配和 ConstraintSet 求值由 IAM 原生
+> PolicyVersion 是权威事实；自有不可变角色图在快照内计算 Subject→Role 与 Role→ParentRole 两类角色边，Resource/Action 匹配和 ConstraintSet 求值由 IAM 领域
 > runtime 完成。
 >
 > 对外接口也按控制面与执行面分开：REST v3 管理 Role、Assignment、Grant、Inheritance 和 Resource，不提供 Check；可信业务服务通过 gRPC v3 `Check` 做判定。
@@ -216,7 +216,7 @@
 > capabilities，但它不执行业务用例。
 >
 > 请求进入以后，Transport 只处理 REST/gRPC 契约映射、认证上下文和错误映射；Application 编排用例、事务边界和跨模块端口；Domain 保留领域对象、业务规则和不变量；Infra 实现 MySQL、
-> Redis、NSQ、Casbin、provider 和搜索索引等适配器。
+> Redis、NSQ、授权快照、provider 和搜索索引等适配器。
 >
 > 依赖规则可以压缩成一句话：Transport 调用 Application，Application 执行 Domain 规则并依赖端口，Infra 实现端口，Container 在启动时完成选择和注入。
 >
@@ -333,10 +333,10 @@
 > Access Token 是短期访问声明，适合随请求传递并做签名验证；Refresh Token 是取得新 token pair 的高价值续期能力；Session 是服务端对整段登录期的在线状态。三者分开后，既能保留 JWT
 > 本地验签的效率，又能通过 Session 和 Refresh 状态支持撤销与续期控制。
 
-### 8.5 为什么 Casbin 只保留为角色图计算器？
+### 8.5 为什么最终从 Casbin 迁移到自有角色图？
 
 > 最终授权不仅要解析角色，还要校验 Resource Schema、执行类型化 ConstraintSet、返回 matched Grant 和实际加载版本。MySQL 因此保存 Assignment、RoleInheritance、
-> PermissionGrant 等管理事实，IAM 原生 runtime 执行权限判定；Casbin 只复用 domain-aware 角色继承图计算。事件也只是让快照 reload 的协调信号，不是策略真相。
+> PermissionGrant 等管理事实由 IAM 领域表达，Evaluator 执行权限判定；自有不可变角色图计算 Tenant 隔离的角色继承闭包。事件也只是让快照 reload 的协调信号，不是策略真相。
 
 ### 8.6 有了 MQ，为什么还需要 Outbox？
 
@@ -386,7 +386,7 @@
 | `ExternalIdentity` 就是已绑定的 IAM 外部账户 | 它是 IDP 产出的请求级已验证 proof，不持久化，不拥有 User/LoginIdentity/Session；绑定关系仍由 AuthN LoginIdentity 表达 |
 | AuthN 认证成功后直接调用 AuthZ | 请求通过 Identity User 锚点对齐认证上下文和 AuthZ Subject |
 | JWT 签名正确就代表当前登录有效 | 本地 JWKS 验签不检查 Session、撤销标记和当前身份状态 |
-| Casbin 是权限真相或完整执行引擎 | MySQL 授权事实是真相，IAM 原生快照执行权限规则，Casbin 只计算内存角色图 |
+| 第三方权限引擎是权限真相 | MySQL 授权事实是真相，领域 Evaluator 执行权限规则，自有角色图只计算继承闭包 |
 | `roles` 就是用户直接角色 | snapshot `roles` 是包含继承结果的 effective roles，直接 Assignment 要读 `direct_roles` |
 | Replace 会覆盖用户所有角色 | 只替换 constraints 划定的受管子集，保留非受管 Assignment；响应也只返目标受管子集 |
 | AuthZ REST 提供权限 Check | REST v3 是管理接口，授权 `Check` 由 gRPC v3 提供 |
@@ -417,7 +417,7 @@
 1. 3.1 开场；
 2. 3.2 五个模块，每个只讲一句；
 3. 3.3 外部身份链，用来串联 IDP、AuthN 和 Identity；
-4. 3.4 只讲 AuthN 与 AuthZ 通过 Identity User 对齐，以及 MySQL 事实、原生不可变快照与 Casbin 内存角色图的边界；
+4. 3.4 只讲 AuthN 与 AuthZ 通过 Identity User 对齐，以及 MySQL 事实、原生不可变快照与自有角色图的边界；
 5. 3.7 最后一段总结。
 
 Suggest、Outbox 重复窗口、分层架构和工程门禁留给追问。
@@ -427,7 +427,7 @@ Suggest、Outbox 重复窗口、分层架构和工程门禁留给追问。
 - [ ] 不看文档，30 秒内说出“三问五模块”；
 - [ ] 画出 provider proof -> ExternalIdentity -> LoginIdentity -> User -> Principal -> Session/Token 链路；
 - [ ] 不画 AuthN -> AuthZ 模块直连，能说清 Identity User 锚点与请求上下文；
-- [ ] 说清 MySQL 事实、原生不可变快照、Casbin 内存角色图、Outbox 意图和 NSQ 通知的不同责任；
+- [ ] 说清 MySQL 事实、原生不可变快照、自有角色图、Outbox 意图和 NSQ 通知的不同责任；
 - [ ] 能解释 direct roles 与 effective roles，不会把继承角色回写为 Assignment；
 - [ ] 能说清 REST v3 管控制面、gRPC v3 提供 Check，以及 Replace 只覆盖受管子集；
 - [ ] 用“publish 成功、mark 失败”解释为什么不是 exactly-once；
@@ -446,7 +446,7 @@ Suggest、Outbox 重复窗口、分层架构和工程门禁留给追问。
 | Identity/AuthN/AuthZ/IDP/Suggest 精确边界 | [Identity 跨模块边界](../02-业务模块/01-Identity/04-模块边界-Identity与AuthN-AuthZ-Suggest.md) |
 | ExternalIdentity 模型、解析与 AuthN 映射链 | `internal/apiserver/domain/idp/externalidentity`、`internal/apiserver/application/idp/externalidentity`、`internal/apiserver/application/authn/externalidentity` |
 | AuthN 模型、Session、Token 和 JWKS | [AuthN](../02-业务模块/02-AuthN/README.md) |
-| AuthZ 模型、Casbin 和多实例传播 | [AuthZ](../02-业务模块/03-AuthZ/README.md) |
+| AuthZ 模型、不可变角色图和多实例传播 | [AuthZ](../02-业务模块/03-AuthZ/README.md) |
 | IDP 凭据和 provider 协作 | [IDP](../02-业务模块/04-IDP/README.md) |
 | Suggest 读模型 | [Suggest](../02-业务模块/05-Suggest/README.md) |
 | 事务、缓存、Outbox 与一致性谱系 | [事务、缓存与事件一致性](../06-专题设计/02-事务缓存与事件一致性.md) |

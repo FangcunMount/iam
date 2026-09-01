@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1800" viewBox="0 0 2600 1800" role="img" aria-labelledby="title desc">
   <title id="title">AuthZ v3 领域模型与运行时编译图</title>
-  <desc id="desc">展示 Subject、Tenant、Assignment、Role、RoleInheritance、PermissionGrant、Resource、ConstraintSet、ObjectContext 和 Decision，以及 MySQL 权威事实如何编译为包含 Casbin RoleManager 与原生 Grant 索引的不可变快照。</desc>
+  <desc id="desc">展示 Subject、Tenant、Assignment、Role、RoleInheritance、PermissionGrant、Resource、ConstraintSet、ObjectContext 和 Decision，以及 MySQL 权威事实如何编译为包含自有不可变角色图与 Grant 索引的不可变快照。</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker>
     <marker id="purpleArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6d45bf"/></marker>
@@ -12,7 +12,7 @@
   <rect class="bg" width="2600" height="1800"/>
 
   <text x="90" y="78" class="title">AuthZ v3 领域模型：授权事实、不可变快照与判定</text>
-  <text x="90" y="116" class="subtitle">MySQL 保存权威事实；Casbin 只计算角色闭包；原生运行时匹配 PermissionGrant 并求值 ConstraintSet。</text>
+  <text x="90" y="116" class="subtitle">MySQL 保存权威事实；自有角色图计算有效角色；领域 Evaluator 匹配 PermissionGrant 并求值 ConstraintSet。</text>
 
   <rect x="70" y="155" width="2460" height="850" class="factBand" filter="url(#shadow)"/>
   <text x="105" y="205" class="section">01｜长期授权事实</text>
@@ -126,7 +126,7 @@
 
   <rect x="1040" y="1150" width="430" height="245" class="runtimeCard"/>
   <text x="1255" y="1190" text-anchor="middle" class="stereo">SNAPSHOT COMPONENT</text>
-  <text x="1255" y="1232" text-anchor="middle" class="boxTitle">Casbin RoleManager</text>
+  <text x="1255" y="1232" text-anchor="middle" class="boxTitle">Immutable Role Graph</text>
   <line x1="1075" y1="1250" x2="1435" y2="1250" class="divider"/>
   <text x="1255" y="1282" text-anchor="middle" class="field">Subject → Direct Role</text>
   <text x="1255" y="1310" text-anchor="middle" class="field">Child Role → Parent Role</text>

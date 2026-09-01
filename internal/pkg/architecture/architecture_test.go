@@ -931,6 +931,7 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	}
 	for _, rel := range []string{
 		"configs/casbin_model.conf",
+		"internal/apiserver/infra/authz/native/casbin_role_resolver.go",
 		"api/rest/authz.v2.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); !os.IsNotExist(err) {
@@ -948,6 +949,8 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	assertFileContains(t, root, "api/grpc/iam/authz/v3/authz.proto", "OBJECT_CHECK_REQUIRED")
 	assertFileContains(t, root, "api/grpc/iam/authz/v3/authz.proto", "oneof value")
 	assertFileContains(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "BuildSnapshot")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/native/role_graph.go", "type roleGraph struct")
+	assertFileLacks(t, root, "go.mod", "github.com/casbin/")
 	assertFileContains(t, root, "internal/apiserver/domain/authz/permissiongrant/grant.go", "Constraint")
 	assertFileLacks(t, root, "internal/apiserver/domain/authz/resource/action.go", "type Scope")
 	assertFileLacks(t, root, "internal/apiserver/domain/authz/resource/action.go", "ScopeAll")
@@ -1072,6 +1075,7 @@ func TestAuthzDecisionPolicyLivesInTheAuthorizationDomain(t *testing.T) {
 	assertFileContains(t, root, "internal/apiserver/domain/authz/authorization/evaluator.go", "type Evaluator struct")
 	assertFileContains(t, root, "internal/apiserver/domain/authz/authorization/role_resolver.go", "type RoleResolver interface")
 	assertFileContains(t, root, "internal/apiserver/infra/authz/native/runtime.go", "r.evaluator.Evaluate")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/native/role_graph.go", "var _ authorization.RoleResolver")
 	assertFileLacks(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "func (s *Snapshot) Check")
 	assertFileLacks(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "default-role-manager")
 	assertFileLacks(t, root, "internal/apiserver/application/authz/authorization/checker.go", "NativeChecker")

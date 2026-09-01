@@ -1,7 +1,6 @@
 package native
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -65,7 +64,7 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		resourcesByID[catalogResource.ID.Uint64()] = catalogResource
 	}
 
-	roleResolver := newCasbinRoleResolver(maxRoleHierarchyLevel)
+	roleGraphBuilder := newRoleGraphBuilder()
 	for _, assignment := range dataset.Assignments {
 		roleRecord, ok := roleByID[assignment.RoleID]
 		if !ok || roleRecord.TenantID != assignment.TenantID {
@@ -83,9 +82,7 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := roleResolver.addAssignment(sub, roleName, tenantID); err != nil {
-			return nil, fmt.Errorf("add assignment role link: %w", err)
-		}
+		roleGraphBuilder.addAssignment(sub, roleName, tenantID)
 	}
 	if err := validateInheritanceGraph(dataset.Inheritances, roleByID); err != nil {
 		return nil, err
@@ -105,10 +102,9 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := roleResolver.addInheritance(childName, parentName, tenantID); err != nil {
-			return nil, fmt.Errorf("add role inheritance link: %w", err)
-		}
+		roleGraphBuilder.addInheritance(childName, parentName, tenantID)
 	}
+	roleResolver := roleGraphBuilder.build(maxRoleHierarchyLevel)
 
 	grantsByRole := make(map[tenant.ID]map[role.Name][]*permissiongrant.Grant)
 	for _, grant := range dataset.Grants {
@@ -223,22 +219,6 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, tenantID, appName string) (a
 	}, nil
 }
 
-func (s *Snapshot) DirectRoleKeys(sub subject.Ref, tenantID string) ([]string, error) {
-	tenantValue, err := tenant.NewID(tenantID)
-	if err != nil {
-		return nil, err
-	}
-	roles, err := s.roles.DirectRoles(sub, tenantValue)
-	if err != nil {
-		return nil, err
-	}
-	keys := make([]string, 0, len(roles))
-	for _, roleName := range roles {
-		keys = append(keys, roleKey(roleName.String()))
-	}
-	return keys, nil
-}
-
 func (s *Snapshot) roleNamesForSubject(sub subject.Ref, tenantID string) ([]string, error) {
 	tenantValue, err := tenant.NewID(tenantID)
 	if err != nil {
@@ -329,8 +309,6 @@ func validateInheritanceGraph(records []InheritanceRecord, roles map[meta.ID]Rol
 	}
 	return nil
 }
-
-func roleKey(name string) string { return "role:" + name }
 
 func parseSubjectKey(value string) (subject.Ref, error) {
 	parts := strings.SplitN(strings.TrimSpace(value), ":", 2)

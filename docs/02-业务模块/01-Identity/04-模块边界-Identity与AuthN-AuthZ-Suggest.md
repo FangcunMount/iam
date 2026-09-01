@@ -228,8 +228,7 @@ Suggest 尚未通过 event/outbox 获取变化，而是在 infra Loader 中直�
 | Profile | Resource 或 ObjectAttributes 可能引用的 ID |
 | ProfileLink | 可供业务服务构造受信对象上下文，但不是 Assignment、PermissionGrant 或 AuthorizationDecision |
 
-User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`。ProfileLink 不是 PermissionGrant，也不会自动变成 Assignment 或 Casbin role
-link。
+User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`。ProfileLink 不是 PermissionGrant，也不会自动变成 Assignment 或角色继承边。
 
 ### 8.2 已实现协作
 

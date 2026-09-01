@@ -103,18 +103,6 @@ func (r *Runtime) AuthorizeRoute(ctx context.Context, subjectKey, tenantID, reso
 	return decision.Allowed, err
 }
 
-func (r *Runtime) DirectRoleKeys(_ context.Context, subjectKey, tenantID string) ([]string, error) {
-	sub, err := parseSubjectKey(subjectKey)
-	if err != nil {
-		return nil, err
-	}
-	snapshot := r.current.Load()
-	if snapshot == nil {
-		return nil, fmt.Errorf("authorization runtime snapshot is unavailable")
-	}
-	return snapshot.DirectRoleKeys(sub, tenantID)
-}
-
 func (r *Runtime) RoleNamesForSubject(_ context.Context, sub subject.Ref, tenantID string) ([]string, error) {
 	snapshot := r.current.Load()
 	if snapshot == nil {

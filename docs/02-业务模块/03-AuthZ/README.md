@@ -17,7 +17,7 @@ MySQL 权限事实
 - REST v3 是管理接口；授权判定 `Check` 由 gRPC v3 提供。
 - `roles` 表示包含继承结果的有效角色，`direct_roles` 表示直接 Assignment。
 - `ReplaceManagedAssignments` 只替换约束策略认定的“受管角色集合”，并保留集合外 Assignment。
-- Casbin 仍是直接依赖，但只承担内存角色图计算：Subject→Role 和 Role→Role；权限匹配与 `ConstraintSet` 求值由原生运行时完成。
+- 自有不可变角色图承担 Subject→Role 和 Role→Role 闭包计算；权限匹配与 `ConstraintSet` 求值由领域 `Evaluator` 完成，运行时不再依赖 Casbin。
 - 授权写入、策略版本递增和 Outbox 入队处于同一事务；实例通过本地 reload 和版本事件收敛。
 
 ## 阅读路径
@@ -33,7 +33,7 @@ MySQL 权限事实
 
 ### 三、关键链路分析
 
-3. [授权判定与不可变快照](02-关键链路-授权判定与不可变快照.md)：深入 Dataset、`BuildSnapshot`、`Check`、Casbin 角色图、Decision 与可观测性。
+3. [授权判定与不可变快照](02-关键链路-授权判定与不可变快照.md)：深入 Dataset、`BuildSnapshot`、`Check`、不可变角色图、Decision 与可观测性。
 4. [授权写入与受管 Assignment](03-关键链路-授权写入与受管Assignment.md)：深入 UoW、增量写入、受管集合替换、幂等与并发边界。
 5. [多实例策略收敛](04-关键链路-多实例策略收敛.md)：深入 PolicyVersion、Outbox、ephemeral subscriber、reload、健康和维护证据。
 6. [REST 管理与路由授权](05-关键链路-REST管理与路由授权.md)：深入 REST 控制面、JWT Principal、Resource/Action 路由矩阵与 current/platform Tenant 判定。
@@ -57,7 +57,7 @@ MySQL 权限事实
 | 请求期为什么不查权限表 | 启动/reload 构建不可变快照，请求只读原子指针 | 02、04 |
 | 写成功后何时生效 | 本实例尽力立即 reload，其他实例通过 durable version event 最终收敛 | 03、04 |
 | 服务能不能随意改用户角色 | gRPC ACL 控制方法，Assignment constraints 控制 domain/subject/role/actor | 03、06 |
-| Casbin 还做什么 | 只计算 Assignment 与 RoleInheritance 构成的角色图 | 00、02 |
+| 角色闭包怎样计算 | Snapshot 内的自有不可变角色图计算 Assignment 与 RoleInheritance | 00、02 |
 | 如何证明文档没有漂移 | proto/OpenAPI/route/architecture/docs facts 与聚焦测试分层证明 | 08 |
 
 ## 设计核心：把五类变化拆开
@@ -98,7 +98,7 @@ REST v3 / Assignment gRPC
 | 四段 Resource | 跨应用命名稳定，通配规则可审计 | 资源命名必须前置治理 |
 | 类型化 ConstraintSet v1 | 条件可校验、可版本化、可解释 | 当前只有 `eq`、`all_of` 和最多 8 个谓词 |
 | 不可变全量快照 | 请求期无锁读，失败不发布半快照 | reload 成本与多实例滞后需要运维治理 |
-| Casbin 仅算角色图 | 复用成熟继承闭包，权限语义归 IAM | 仍保留一个第三方运行时依赖 |
+| 自有不可变角色图 | 类型化表达继承闭包，权限语义和运行时实现均归 IAM | 需要自行保护深度边界、去重与 Tenant 隔离 |
 | durable version event | 数据提交与通知记录同事务 | 不是跨实例同步 barrier，仍是最终一致 |
 | 受管 Assignment 替换 | 一个服务只能覆盖自己的角色集合 | constraints 配置和并发语义更复杂 |
 
@@ -143,7 +143,7 @@ REST 管理与 gRPC Check 边界不倒置。
 
 ## 当前必须保留的边界
 
-- MySQL 是权限事实源；快照、Casbin 角色图和进程内索引都是可重建投影。
+- MySQL 是权限事实源；不可变角色图、Grant 索引和完整快照都是可重建投影。
 - `RequirePermissionOrGlobal` 先检查当前 Tenant，再检查平台域；“平台域只有通配 Grant 才能全局放行”是当前数据基线，不是代码强制不变量。
 - `ReplaceManagedAssignments` 的返回值当前是目标受管角色子集，不等同于持久化后的全部直接角色。
 - MySQL `REPEATABLE READ` 下并发替换同一 Subject 的串行语义尚无专门并发证明；现有测试覆盖原子性、幂等和回滚。

@@ -240,7 +240,7 @@ def check_generated_document_facts() -> None:
             "PermissionGrant",
             "ConstraintSet",
             "ObjectAttributes",
-            "Casbin RoleManager",
+            "Immutable Role Graph",
             "Native Grant Index",
         ),
         "docs/_images/architecture/core-domain-model-v7.svg": (
@@ -257,7 +257,7 @@ def check_generated_document_facts() -> None:
             "RoleInheritance",
             "PermissionGrant",
             "ConstraintSet",
-            "Casbin RoleManager",
+            "自有不可变角色图",
         ),
         "docs/_images/architecture/module-boundary.svg": (
             "ExternalIdentityResolver",
@@ -272,7 +272,7 @@ def check_generated_document_facts() -> None:
             "BuildGRPCDeps",
             "BuildRuntimeDeps",
             "AuthZ Native Snapshot",
-            "Casbin 仅 RoleManager",
+            "自有不可变角色图",
         ),
         "docs/_images/architecture/runtime-composition-lifecycle.svg": (
             "prepareRuntime",
@@ -290,6 +290,7 @@ def check_generated_document_facts() -> None:
             "ObjectScope",
             "DecisionEngine",
             "MatchedPermission",
+            "Casbin RoleManager",
         ),
         "docs/_images/architecture/core-domain-model-v7.svg": (
             ">RoleBinding<",
@@ -297,9 +298,11 @@ def check_generated_document_facts() -> None:
             "ObjectScope",
             "DecisionEngine",
             "MatchedPermission",
+            "Casbin RoleManager",
         ),
         "docs/_images/architecture/layer-architecture.svg": (
             "Casbin Runtime",
+            "Casbin 仅 RoleManager",
         ),
     }
     for relative, required_terms in canonical_diagrams.items():
