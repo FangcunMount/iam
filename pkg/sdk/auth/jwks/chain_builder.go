@@ -32,10 +32,19 @@ func buildDefaultChain(b *managerBuilder) KeyFetcher {
 	}
 
 	if b.enableCache {
-		return NewCacheFetcher(
-			WithCacheTTL(b.config.RefreshInterval),
+		cacheOptions := []CacheFetcherOption{
 			WithCacheNext(tail),
-		)
+			WithCacheFallbackOnError(b.config.FallbackOnError),
+			WithCacheMaxStale(b.config.CacheTTL),
+		}
+		refreshAfter := b.config.RefreshInterval
+		if b.config.CacheTTL > 0 && (refreshAfter <= 0 || refreshAfter > b.config.CacheTTL) {
+			refreshAfter = b.config.CacheTTL
+		}
+		if refreshAfter > 0 {
+			cacheOptions = append(cacheOptions, WithCacheTTL(refreshAfter))
+		}
+		return NewCacheFetcher(cacheOptions...)
 	}
 
 	return tail

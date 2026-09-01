@@ -7,7 +7,6 @@ import (
 	"github.com/FangcunMount/component-base/pkg/logger"
 	authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
 	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
-	iamerrors "github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
@@ -56,50 +55,21 @@ func (s *LocalVerifyStrategy) Verify(ctx context.Context, tokenString string, op
 	keySet, err := s.jwksManager.GetKeySet(ctx)
 	if err != nil {
 		logger.L(ctx).Errorw("LocalVerifyStrategy get keys failed", "strategy", s.Name(), "error", err.Error())
-		return nil, fmt.Errorf("local-strategy: get keys: %w", err)
+		return nil, allowRemoteFallback(fmt.Errorf("local-strategy: get keys: %w", err))
+	}
+	if keySet == nil || keySet.Len() == 0 {
+		return nil, allowRemoteFallback(fmt.Errorf("local-strategy: jwks key set is empty"))
 	}
 
-	var verifyOpts []jwt.ParseOption
-	algorithms := s.getAllowedAlgorithms()
-	if len(algorithms) == 1 {
-		verifyOpts = append(verifyOpts, jwt.WithKeySet(keySet, algorithms[0]))
-	} else {
-		verifyOpts = append(verifyOpts, jwt.WithKeySet(keySet))
+	policy := newVerificationPolicy(s.config, opts)
+	if err := policy.validateAlgorithm(tokenString); err != nil {
+		return nil, err
 	}
-
-	audience := opts.ExpectedAudience
-	if len(audience) == 0 && s.config != nil {
-		audience = s.config.AllowedAudience
-	}
-	if len(audience) > 0 {
-		for _, aud := range audience {
-			verifyOpts = append(verifyOpts, jwt.WithAudience(aud))
-		}
-	}
-
-	issuer := opts.ExpectedIssuer
-	if issuer == "" && s.config != nil {
-		issuer = s.config.AllowedIssuer
-	}
-	if issuer != "" {
-		verifyOpts = append(verifyOpts, jwt.WithIssuer(issuer))
-	}
-
-	if s.config != nil && s.config.ClockSkew > 0 {
-		verifyOpts = append(verifyOpts, jwt.WithAcceptableSkew(s.config.ClockSkew))
-	}
-	if s.config != nil && len(s.config.RequiredClaims) > 0 {
-		for _, claim := range s.config.RequiredClaims {
-			verifyOpts = append(verifyOpts, jwt.WithRequiredClaim(claim))
-		}
-	}
+	verifyOpts := policy.appendParseOptions([]jwt.ParseOption{jwt.WithKeySet(keySet)})
 
 	token, err := jwt.Parse([]byte(tokenString), verifyOpts...)
 	if err != nil {
-		if jwt.IsValidationError(err) {
-			return nil, iamerrors.ErrTokenExpired
-		}
-		return nil, fmt.Errorf("local-strategy: parse token: %w", err)
+		return nil, mapTokenValidationError(err)
 	}
 
 	claims := extractClaims(token)

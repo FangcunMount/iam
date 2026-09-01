@@ -54,7 +54,7 @@
 2️⃣ Verifier 选择策略
    ┌─ 有 JWKS? → Local (本地验证)
    ├─ 无 JWKS? → Remote (远程验证)
-   └─ 启用缓存? → Caching (缓存策略)
+   └─ JWKS 基础设施失败? → Remote fallback
           ↓
 3️⃣ JWKS Manager 获取密钥
    ┌─ Cache 命中? → 直接返回 (0.1ms)
@@ -63,9 +63,11 @@
    └─ Seed 存在? → 兜底返回 (0.5ms)
           ↓
 4️⃣ 验证 JWT
+   ✓ 算法 allowlist
    ✓ 签名验证
    ✓ 过期时间检查
    ✓ Audience/Issuer 校验
+   ✓ Required Claims
           ↓
 5️⃣ 返回结果
    Valid: true
@@ -81,20 +83,19 @@
 | 🚀 **本地+缓存** | <1ms | ⭐⭐⭐⭐⭐ | 高频、可接受最终一致撤销语义的 API |
 | ⚡ **本地验证** | 1-5ms | ⭐⭐⭐⭐ | 常规高频 API |
 | 🌐 **远程验证** | 20-50ms | ⭐⭐⭐ | 需要权威判断 revoke / session / subject state 的操作 |
-| 🔄 **Fallback** | 自适应 | ⭐⭐⭐⭐⭐ | 生产常用折中方案 |
+| 🔄 **Fallback** | 自适应 | ⭐⭐⭐⭐⭐ | 仅在 JWKS 获取故障时远程求证；Token 语义失败直接拒绝 |
 
 ### 降级链路
 
 ```text
-正常: HTTP JWKS (10ms)
-  ↓ 失败
-降级1: gRPC JWKS (20ms)
-  ↓ 失败
-降级2: 内存 Cache (0.1ms)
-  ↓ 失败
-降级3: 本地 Seed (0.5ms)
-  ↓ 失败
-兜底: Remote 验证 (50ms)
+密钥获取: Fresh Cache → HTTP JWKS → gRPC JWKS → Seed
+  ↓ 刷新失败
+旧缓存: 仅在 FallbackOnError=true 且未超过 CacheTTL 时继续使用
+  ↓ 无可用密钥
+Token 验证: Remote fallback
+
+签名、算法、过期时间、issuer/audience、required claims 失败
+  → 直接拒绝，不做 Remote fallback
 ```
 
 ### 3 行代码开始
@@ -158,7 +159,7 @@ if result.Valid {
 TokenVerifier (Strategy 模式)
 ├── LocalVerifyStrategy     ← 使用 JWKS 本地验证
 ├── RemoteVerifyStrategy    ← 调用 IAM 服务验证
-├── FallbackVerifyStrategy  ← 先本地，失败后远程
+├── FallbackVerifyStrategy  ← 先本地，仅 JWKS 基础设施失败后远程
 └── CachingVerifyStrategy   ← 添加结果缓存
 
 JWKSManager (Chain of Responsibility 模式)
@@ -312,7 +313,7 @@ type JWKSConfig struct {
     // RequestTimeout HTTP 请求超时
     RequestTimeout time.Duration
     
-    // CacheTTL 缓存 TTL
+    // CacheTTL 旧密钥允许继续使用的最大时长
     CacheTTL time.Duration
     
     // HTTPClient 自定义 HTTP 客户端
@@ -321,7 +322,7 @@ type JWKSConfig struct {
     // CustomHeaders 自定义请求头
     CustomHeaders map[string]string
     
-    // FallbackOnError 失败时使用缓存
+    // FallbackOnError 刷新失败时，在 CacheTTL 内使用旧缓存
     FallbackOnError bool
 }
 ```
@@ -486,9 +487,9 @@ jwksManager, err := authjwks.NewJWKSManager(cfg,
 
 ```go
 &JWKSConfig{
-    RefreshInterval: 5 * time.Minute,  // 定期刷新
-    CacheTTL:        1 * time.Hour,    // 缓存 1 小时
-    FallbackOnError: true,             // 失败时使用缓存
+    RefreshInterval: 5 * time.Minute,  // 刷新尝试间隔
+    CacheTTL:        1 * time.Hour,    // 旧密钥最大可用时长
+    FallbackOnError: true,             // 刷新失败时仅在 CacheTTL 内使用旧缓存
 }
 ```
 
@@ -633,7 +634,7 @@ A: SDK 会自动刷新 JWKS。配置合理的 `RefreshInterval`（如 5 分钟�
 
 ### Q: 本地验证失败会怎样？
 
-A: 如果提供了 gRPC 客户端，会自动降级到远程验证。
+A: 只有 JWKS 获取等基础设施故障才会在配置了 gRPC 客户端时降级到远程验证。签名、算法、过期时间、issuer/audience 或 required claims 验证失败会直接拒绝，远程验证也不会放宽这些约束。
 
 ### Q: 如何减少对 IAM 服务的依赖？
 

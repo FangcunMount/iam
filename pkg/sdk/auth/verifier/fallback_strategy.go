@@ -32,6 +32,10 @@ func (s *FallbackVerifyStrategy) Verify(ctx context.Context, token string, opts 
 		logger.L(ctx).Debugw("FallbackVerifyStrategy primary verify success", "primary", s.primary.Name())
 		return result, nil
 	}
+	if !canFallbackRemotely(err) {
+		logger.L(ctx).Debugw("FallbackVerifyStrategy primary rejected token without fallback", "primary", s.primary.Name(), "error", err.Error())
+		return nil, err
+	}
 
 	if s.fallback != nil {
 		logger.L(ctx).Warnw("FallbackVerifyStrategy primary verify failed, trying fallback", "primary", s.primary.Name(), "fallback", s.fallback.Name(), "error", err.Error())

@@ -2,6 +2,8 @@ package sdk
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
 	"time"
 
@@ -10,6 +12,8 @@ import (
 	authjwks "github.com/FangcunMount/iam/v3/pkg/sdk/auth/jwks"
 	authserviceauth "github.com/FangcunMount/iam/v3/pkg/sdk/auth/serviceauth"
 	authverifier "github.com/FangcunMount/iam/v3/pkg/sdk/auth/verifier"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -134,7 +138,17 @@ func TestAuthSubpackagesComposeWithSDKClient(t *testing.T) {
 	}, jwksManager, client.Auth())
 	require.NoError(t, err)
 
-	result, err := verifier.Verify(context.Background(), "jwt-token", nil)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	jwtToken := jwt.New()
+	require.NoError(t, jwtToken.Set(jwt.SubjectKey, "user:1"))
+	require.NoError(t, jwtToken.Set(jwt.IssuerKey, "https://iam.example.com"))
+	require.NoError(t, jwtToken.Set(jwt.AudienceKey, []string{"qs-api"}))
+	require.NoError(t, jwtToken.Set(jwt.ExpirationKey, time.Now().Add(time.Minute)))
+	signedToken, err := jwt.Sign(jwtToken, jwt.WithKey(jwa.RS256, privateKey))
+	require.NoError(t, err)
+
+	result, err := verifier.Verify(context.Background(), string(signedToken), nil)
 	require.NoError(t, err)
 	require.Equal(t, "sid-1", result.Claims.SessionID)
 

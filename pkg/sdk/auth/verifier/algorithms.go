@@ -1,14 +1,17 @@
 package verifier
 
-import "github.com/lestrrat-go/jwx/v2/jwa"
+import (
+	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+)
 
-func (s *LocalVerifyStrategy) getAllowedAlgorithms() []jwa.SignatureAlgorithm {
-	if s.config == nil || len(s.config.Algorithms) == 0 {
+func configuredAlgorithms(cfg *config.TokenVerifyConfig) []jwa.SignatureAlgorithm {
+	if cfg == nil || len(cfg.Algorithms) == 0 {
 		return []jwa.SignatureAlgorithm{jwa.RS256}
 	}
 
-	algorithms := make([]jwa.SignatureAlgorithm, 0, len(s.config.Algorithms))
-	for _, alg := range s.config.Algorithms {
+	algorithms := make([]jwa.SignatureAlgorithm, 0, len(cfg.Algorithms))
+	for _, alg := range cfg.Algorithms {
 		switch alg {
 		case "RS256":
 			algorithms = append(algorithms, jwa.RS256)
@@ -33,8 +36,5 @@ func (s *LocalVerifyStrategy) getAllowedAlgorithms() []jwa.SignatureAlgorithm {
 		}
 	}
 
-	if len(algorithms) == 0 {
-		return []jwa.SignatureAlgorithm{jwa.RS256}
-	}
 	return algorithms
 }

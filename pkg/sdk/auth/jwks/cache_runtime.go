@@ -13,10 +13,10 @@ func (f *CacheFetcher) cachedSnapshot() (jwk.Set, time.Time) {
 	return f.keySet, f.updated
 }
 
-func (f *CacheFetcher) fetchAndRefresh(ctx context.Context, stale jwk.Set) (jwk.Set, error) {
+func (f *CacheFetcher) fetchAndRefresh(ctx context.Context, stale jwk.Set, staleUpdated time.Time) (jwk.Set, error) {
 	newKeySet, err := f.next.Fetch(ctx)
 	if err != nil {
-		if stale != nil {
+		if f.canUseStale(stale, staleUpdated) {
 			f.stats.IncrSuccesses()
 			return stale, nil
 		}
@@ -31,4 +31,11 @@ func (f *CacheFetcher) fetchAndRefresh(ctx context.Context, stale jwk.Set) (jwk.
 
 	f.stats.IncrSuccesses()
 	return newKeySet, nil
+}
+
+func (f *CacheFetcher) canUseStale(stale jwk.Set, updated time.Time) bool {
+	if !f.fallbackOnError || stale == nil || updated.IsZero() || f.maxStale <= 0 {
+		return false
+	}
+	return time.Since(updated) <= f.maxStale
 }

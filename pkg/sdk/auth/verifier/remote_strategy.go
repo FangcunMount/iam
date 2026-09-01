@@ -36,6 +36,9 @@ func (s *RemoteVerifyStrategy) Verify(ctx context.Context, tokenString string, o
 	if opts == nil {
 		opts = &VerifyOptions{}
 	}
+	if err := newVerificationPolicy(s.config, opts).validateTokenEnvelope(tokenString); err != nil {
+		return nil, err
+	}
 
 	resp, err := s.authClient.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:      tokenString,
@@ -48,9 +51,15 @@ func (s *RemoteVerifyStrategy) Verify(ctx context.Context, tokenString string, o
 		logger.L(ctx).Warnw("RemoteVerifyStrategy verify failed", "strategy", s.Name(), "error", err.Error())
 		return nil, err
 	}
+	if resp == nil {
+		return nil, invalidTokenError("remote verification returned no response")
+	}
 	if !resp.Valid {
 		logger.L(ctx).Warnw("RemoteVerifyStrategy token invalid", "strategy", s.Name())
-		return nil, fmt.Errorf("remote-strategy: verify token invalid")
+		return nil, invalidTokenError("remote verification rejected token")
+	}
+	if resp.Claims == nil {
+		return nil, invalidTokenError("remote verification returned no claims")
 	}
 
 	claims := &TokenClaims{
