@@ -40,7 +40,7 @@ type ApplicationCapabilities struct {
 	RoleBindingDirectory        bindingApp.Directory
 	RouteAuthorization          authn.RouteAuthorizationRuntime
 	RuntimeHealth               RuntimeHealthReporter
-	AuthorizationChecker        *authorizationApp.NativeChecker
-	AuthorizationSnapshotReader *authorizationApp.NativeSnapshotReader
+	AuthorizationChecker        *authorizationApp.Checker
+	AuthorizationSnapshotReader *authorizationApp.SnapshotReader
 	AssignmentRequestAuthorizer assignmentAuthApp.Authorizer
 }

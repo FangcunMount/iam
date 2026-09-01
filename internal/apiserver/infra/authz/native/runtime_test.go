@@ -8,11 +8,12 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/runtime"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/native"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -52,15 +53,15 @@ func TestRuntimeMissingAttributeDeniesWithReason(t *testing.T) {
 	runtime := newAssessmentRuntime(t)
 	sub, err := subject.NewUserRef(meta.FromUint64(2))
 	require.NoError(t, err)
-	object, err := authzruntime.NewObjectContext("assessment-1", nil)
+	object, err := authorization.NewObjectContext("assessment-1", nil)
 	require.NoError(t, err)
-	request, err := authzruntime.NewRequest(sub, "fangcun", assessmentResource, "retry", object)
+	request, err := authorization.NewRequest(sub, "fangcun", assessmentResource, "retry", object)
 	require.NoError(t, err)
 
 	decision, err := runtime.Check(context.Background(), request)
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
-	require.Equal(t, authzruntime.ReasonAttributeMissing, decision.Reason)
+	require.Equal(t, authorization.ReasonAttributeMissing, decision.Reason)
 	require.Equal(t, []string{attribute.ObjectOriginType}, decision.MissingAttributeKeys)
 }
 
@@ -73,11 +74,11 @@ func TestRuntimeSnapshotPreservesConditionalMode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"qs:evaluator"}, snapshot.DirectRoles)
 	require.Equal(t, []string{"qs:evaluator", "qs:staff"}, snapshot.EffectiveRoles)
-	require.Contains(t, snapshot.Permissions, authzruntime.PermissionEntry{
-		Resource: assessmentResource, Action: "retry", Mode: authzruntime.ModeObjectCheckRequired,
+	require.Contains(t, snapshot.Permissions, authorizationapp.PermissionEntry{
+		Resource: assessmentResource, Action: "retry", Mode: authorizationapp.ModeObjectCheckRequired,
 	})
-	require.Contains(t, snapshot.Permissions, authzruntime.PermissionEntry{
-		Resource: assessmentResource, Action: "batch_evaluate", Mode: authzruntime.ModeUnconditional,
+	require.Contains(t, snapshot.Permissions, authorizationapp.PermissionEntry{
+		Resource: assessmentResource, Action: "batch_evaluate", Mode: authorizationapp.ModeUnconditional,
 	})
 
 	allowed, err := runtime.AuthorizeRoute(context.Background(), sub.String(), "fangcun", assessmentResource, "retry")
@@ -97,14 +98,14 @@ func TestRuntimeSnapshotIncludesQSAdminWildcardAsUnconditionalCandidate(t *testi
 	require.NoError(t, err)
 	require.Contains(t, snapshot.DirectRoles, "qs:admin")
 	require.Contains(t, snapshot.EffectiveRoles, "qs:admin")
-	require.Contains(t, snapshot.Permissions, authzruntime.PermissionEntry{
-		Resource: "qs:*:*:*", Action: "*", Mode: authzruntime.ModeUnconditional,
+	require.Contains(t, snapshot.Permissions, authorizationapp.PermissionEntry{
+		Resource: "qs:*:*:*", Action: "*", Mode: authorizationapp.ModeUnconditional,
 	})
 }
 
 func TestRuntimeFailedReloadKeepsPreviousSnapshot(t *testing.T) {
 	source := &mutableSource{dataset: assessmentDataset(t)}
-	runtime, err := native.NewRuntime(context.Background(), source)
+	runtime, err := native.NewRuntime(context.Background(), source, authorization.NewEvaluator())
 	require.NoError(t, err)
 
 	source.mu.Lock()
@@ -144,7 +145,11 @@ func (s *mutableSource) Load(context.Context) (native.Dataset, error) {
 
 func newAssessmentRuntime(t testing.TB) *native.Runtime {
 	t.Helper()
-	runtime, err := native.NewRuntime(context.Background(), &mutableSource{dataset: assessmentDataset(t)})
+	runtime, err := native.NewRuntime(
+		context.Background(),
+		&mutableSource{dataset: assessmentDataset(t)},
+		authorization.NewEvaluator(),
+	)
 	require.NoError(t, err)
 	return runtime
 }
@@ -198,15 +203,15 @@ func assessmentDataset(t testing.TB) native.Dataset {
 	}
 }
 
-func checkRequest(t testing.TB, userID uint64, action, originType string) authzruntime.Request {
+func checkRequest(t testing.TB, userID uint64, action, originType string) authorization.Request {
 	t.Helper()
 	sub, err := subject.NewUserRef(meta.FromUint64(userID))
 	require.NoError(t, err)
-	object, err := authzruntime.NewObjectContext("assessment-1", constraint.Attributes{
+	object, err := authorization.NewObjectContext("assessment-1", constraint.Attributes{
 		attribute.ObjectOriginType: constraint.StringValue(originType),
 	})
 	require.NoError(t, err)
-	request, err := authzruntime.NewRequest(sub, "fangcun", assessmentResource, action, object)
+	request, err := authorization.NewRequest(sub, "fangcun", assessmentResource, action, object)
 	require.NoError(t, err)
 	return request
 }

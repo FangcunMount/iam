@@ -11,8 +11,8 @@ import (
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	rolebindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	authorizationdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
-	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/runtime"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	iamgrpc "github.com/FangcunMount/iam/v3/internal/pkg/grpc"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -27,11 +27,11 @@ const (
 )
 
 type authorizationChecker interface {
-	Check(context.Context, authzruntime.Request) (authzruntime.Decision, error)
+	Check(context.Context, authorizationdomain.Request) (authorizationdomain.Decision, error)
 }
 
 type authorizationSnapshotReader interface {
-	Read(context.Context, subject.Ref, string, string) (authzruntime.SubjectSnapshot, error)
+	Read(context.Context, subject.Ref, string, string) (authzapp.SubjectSnapshot, error)
 }
 
 type Service struct{ srv authorizationServer }
@@ -86,7 +86,7 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv3.CheckReque
 	if err != nil {
 		return nil, err
 	}
-	request, err := authzruntime.NewRequest(sub, req.Domain, req.Resource, req.Action, object)
+	request, err := authorizationdomain.NewRequest(sub, req.Domain, req.Resource, req.Action, object)
 	if err != nil {
 		return nil, iamgrpc.ToStatusError(err)
 	}
@@ -224,24 +224,24 @@ func (s *authorizationServer) ReplaceManagedAssignments(ctx context.Context, req
 	}, nil
 }
 
-func parseObjectContext(callerService, resourceKey string, input *authzv3.ObjectContext) (authzruntime.ObjectContext, error) {
+func parseObjectContext(callerService, resourceKey string, input *authzv3.ObjectContext) (authorizationdomain.ObjectContext, error) {
 	if input == nil {
-		return authzruntime.NewObjectContext("", nil)
+		return authorizationdomain.NewObjectContext("", nil)
 	}
 	attributes := make(constraint.Attributes, len(input.Attributes))
 	for _, item := range input.Attributes {
 		if item == nil || strings.TrimSpace(item.Key) == "" || item.Value == nil {
-			return authzruntime.ObjectContext{}, status.Error(codes.InvalidArgument, "each object attribute requires a key and typed value")
+			return authorizationdomain.ObjectContext{}, status.Error(codes.InvalidArgument, "each object attribute requires a key and typed value")
 		}
 		key := strings.TrimSpace(item.Key)
 		if _, exists := attributes[key]; exists {
-			return authzruntime.ObjectContext{}, status.Errorf(codes.InvalidArgument, "duplicate object attribute: %s", key)
+			return authorizationdomain.ObjectContext{}, status.Errorf(codes.InvalidArgument, "duplicate object attribute: %s", key)
 		}
 		if key != attribute.ObjectOriginType || resourceKey != assessmentResource {
-			return authzruntime.ObjectContext{}, status.Errorf(codes.InvalidArgument, "unsupported object attribute: %s", key)
+			return authorizationdomain.ObjectContext{}, status.Errorf(codes.InvalidArgument, "unsupported object attribute: %s", key)
 		}
 		if callerService != trustedAssessmentAttributeService {
-			return authzruntime.ObjectContext{}, status.Error(codes.PermissionDenied, "caller is not trusted to provide this object attribute")
+			return authorizationdomain.ObjectContext{}, status.Error(codes.PermissionDenied, "caller is not trusted to provide this object attribute")
 		}
 		switch value := item.Value.(type) {
 		case *authzv3.ObjectAttribute_StringValue:
@@ -251,12 +251,12 @@ func parseObjectContext(callerService, resourceKey string, input *authzv3.Object
 		case *authzv3.ObjectAttribute_BoolValue:
 			attributes[key] = constraint.BoolValue(value.BoolValue)
 		default:
-			return authzruntime.ObjectContext{}, status.Error(codes.InvalidArgument, "unsupported object attribute value")
+			return authorizationdomain.ObjectContext{}, status.Error(codes.InvalidArgument, "unsupported object attribute value")
 		}
 	}
-	object, err := authzruntime.NewObjectContext(input.ObjectId, attributes)
+	object, err := authorizationdomain.NewObjectContext(input.ObjectId, attributes)
 	if err != nil {
-		return authzruntime.ObjectContext{}, iamgrpc.ToStatusError(err)
+		return authorizationdomain.ObjectContext{}, iamgrpc.ToStatusError(err)
 	}
 	return object, nil
 }
@@ -337,11 +337,11 @@ func parseSubjectKey(value string) (subject.Ref, error) {
 	return subject.NewRef(subject.Type(parts[0]), id)
 }
 
-func toProtoPermissions(entries []authzruntime.PermissionEntry) []*authzv3.PermissionEntry {
+func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv3.PermissionEntry {
 	permissions := make([]*authzv3.PermissionEntry, 0, len(entries))
 	for _, entry := range entries {
 		mode := authzv3.AuthorizationMode_OBJECT_CHECK_REQUIRED
-		if entry.Mode == authzruntime.ModeUnconditional {
+		if entry.Mode == authzapp.ModeUnconditional {
 			mode = authzv3.AuthorizationMode_UNCONDITIONAL
 		}
 		permissions = append(permissions, &authzv3.PermissionEntry{Resource: entry.Resource, Action: entry.Action, Mode: mode})
@@ -349,13 +349,13 @@ func toProtoPermissions(entries []authzruntime.PermissionEntry) []*authzv3.Permi
 	return permissions
 }
 
-func toProtoReason(reason authzruntime.Reason) authzv3.DecisionReason {
+func toProtoReason(reason authorizationdomain.Reason) authzv3.DecisionReason {
 	switch reason {
-	case authzruntime.ReasonAllowed:
+	case authorizationdomain.ReasonAllowed:
 		return authzv3.DecisionReason_ALLOWED
-	case authzruntime.ReasonAttributeMissing:
+	case authorizationdomain.ReasonAttributeMissing:
 		return authzv3.DecisionReason_ATTRIBUTE_MISSING
-	case authzruntime.ReasonNotMatched:
+	case authorizationdomain.ReasonNotMatched:
 		return authzv3.DecisionReason_NOT_MATCHED
 	default:
 		return authzv3.DecisionReason_DECISION_REASON_UNSPECIFIED
@@ -363,4 +363,4 @@ func toProtoReason(reason authzruntime.Reason) authzv3.DecisionReason {
 }
 
 var _ authzv3.AuthorizationServiceServer = (*authorizationServer)(nil)
-var _ authorizationChecker = (*authzapp.NativeChecker)(nil)
+var _ authorizationChecker = (*authzapp.Checker)(nil)

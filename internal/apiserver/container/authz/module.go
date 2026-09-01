@@ -30,8 +30,8 @@ type AuthzModule struct {
 	roleInheritanceService      *roleInheritanceApp.Service
 	roleBindingCommands         bindingApp.Commands
 	roleBindingDirectory        bindingApp.Directory
-	authorizationChecker        *authorizationApp.NativeChecker
-	authorizationSnapshotReader *authorizationApp.NativeSnapshotReader
+	authorizationChecker        *authorizationApp.Checker
+	authorizationSnapshotReader *authorizationApp.SnapshotReader
 	assignmentRequestAuthorizer assignmentAuthApp.Authorizer
 }
 
@@ -52,14 +52,14 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 		return fmt.Errorf("identity user resolver is required")
 	}
 
-	infra, err := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver)
-	if err != nil {
+	infra := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver)
+	domain := m.initializeDomain(infra, deps.UserResolver)
+	if err := m.initializeRuntime(infra, domain); err != nil {
 		return err
 	}
-	domain := m.initializeDomain(infra, deps.UserResolver)
-	m.initializeRuntime(infra)
 	m.initializeApplication(infra, domain)
 	if strings.TrimSpace(deps.AssignmentConstraintsFile) != "" {
+		var err error
 		if deps.GRPCACLEnabled {
 			m.assignmentRequestAuthorizer, err = assignmentConstraints.LoadWithACL(
 				deps.AssignmentConstraintsFile,

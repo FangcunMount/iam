@@ -1,9 +1,6 @@
 package authz
 
 import (
-	"context"
-	"fmt"
-
 	"gorm.io/gorm"
 
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
@@ -27,6 +24,7 @@ import (
 
 type authzInfrastructureComponents struct {
 	nativeRuntime *nativeInfra.Runtime
+	nativeSource  nativeInfra.Source
 
 	roleRepository            roleDomain.Repository
 	bindingRepository         bindingDomain.Repository
@@ -41,14 +39,9 @@ func (m *AuthzModule) initializeInfrastructure(
 	db *gorm.DB,
 	eventStager event.Stager,
 	userResolver useraccess.UserResolver,
-) (*authzInfrastructureComponents, error) {
-	nativeRuntime, err := nativeInfra.NewRuntime(context.Background(), nativeInfra.NewMySQLSource(db))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create native authorization runtime: %w", err)
-	}
-
+) *authzInfrastructureComponents {
 	return &authzInfrastructureComponents{
-		nativeRuntime:             nativeRuntime,
+		nativeSource:              nativeInfra.NewMySQLSource(db),
 		roleRepository:            roleInfra.NewRoleRepository(db),
 		bindingRepository:         bindingInfra.NewBindingRepository(db),
 		resourceRepository:        resourceInfra.NewResourceRepository(db),
@@ -56,5 +49,5 @@ func (m *AuthzModule) initializeInfrastructure(
 		permissionGrantRepository: permissionGrantInfra.NewRepository(db),
 		roleInheritanceRepository: roleInheritanceInfra.NewRepository(db),
 		unitOfWork:                mysqlAuthzUow.NewUnitOfWork(db, userResolver, eventStager),
-	}, nil
+	}
 }

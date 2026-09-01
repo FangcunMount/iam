@@ -1065,6 +1065,27 @@ func TestAuthzTestsDoNotAddRootDomainFacadeImports(t *testing.T) {
 	})
 }
 
+func TestAuthzDecisionPolicyLivesInTheAuthorizationDomain(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	assertFileContains(t, root, "internal/apiserver/domain/authz/authorization/evaluator.go", "type Evaluator struct")
+	assertFileContains(t, root, "internal/apiserver/domain/authz/authorization/role_resolver.go", "type RoleResolver interface")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/native/runtime.go", "r.evaluator.Evaluate")
+	assertFileLacks(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "func (s *Snapshot) Check")
+	assertFileLacks(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "default-role-manager")
+	assertFileLacks(t, root, "internal/apiserver/application/authz/authorization/checker.go", "NativeChecker")
+
+	retiredRuntime := filepath.Join(root, "internal", "apiserver", "domain", "authz", "runtime")
+	matches, err := filepath.Glob(filepath.Join(retiredRuntime, "*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) > 0 {
+		t.Fatalf("retired AuthZ domain runtime package still contains files: %v", matches)
+	}
+}
+
 func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	t.Parallel()
 

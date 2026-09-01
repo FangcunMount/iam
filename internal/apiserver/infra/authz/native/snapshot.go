@@ -7,20 +7,22 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	authorizationdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/runtime"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
-	defaultrolemanager "github.com/casbin/casbin/v2/rbac/default-role-manager"
 )
 
 const maxRoleHierarchyLevel = 32
 
 type Snapshot struct {
-	roles        *defaultrolemanager.RoleManager
-	grantsByRole map[string][]*permissiongrant.Grant
+	roles        authorizationdomain.RoleResolver
+	grantsByRole map[tenant.ID]map[role.Name][]*permissiongrant.Grant
 	resources    map[string]*resource.Resource
 	versions     map[string]int64
 	loadedAt     time.Time
@@ -63,16 +65,25 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		resourcesByID[catalogResource.ID.Uint64()] = catalogResource
 	}
 
-	roleManager := defaultrolemanager.NewRoleManager(maxRoleHierarchyLevel)
+	roleResolver := newCasbinRoleResolver(maxRoleHierarchyLevel)
 	for _, assignment := range dataset.Assignments {
-		role, ok := roleByID[assignment.RoleID]
-		if !ok || role.TenantID != assignment.TenantID {
+		roleRecord, ok := roleByID[assignment.RoleID]
+		if !ok || roleRecord.TenantID != assignment.TenantID {
 			return nil, perrors.WithCode(code.ErrInvalidArgument, "assignment references an unknown or cross-tenant role")
 		}
-		if _, err := parseSubjectKey(assignment.SubjectKey); err != nil {
+		sub, err := parseSubjectKey(assignment.SubjectKey)
+		if err != nil {
 			return nil, err
 		}
-		if err := roleManager.AddLink(assignment.SubjectKey, roleKey(role.Name), assignment.TenantID); err != nil {
+		roleName, err := role.NewName(roleRecord.Name)
+		if err != nil {
+			return nil, err
+		}
+		tenantID, err := tenant.NewID(assignment.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		if err := roleResolver.addAssignment(sub, roleName, tenantID); err != nil {
 			return nil, fmt.Errorf("add assignment role link: %w", err)
 		}
 	}
@@ -80,20 +91,32 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		return nil, err
 	}
 	for _, inheritance := range dataset.Inheritances {
-		role := roleByID[inheritance.RoleID]
+		roleRecord := roleByID[inheritance.RoleID]
 		inherited := roleByID[inheritance.InheritedRoleID]
-		if err := roleManager.AddLink(roleKey(role.Name), roleKey(inherited.Name), inheritance.TenantID); err != nil {
+		childName, err := role.NewName(roleRecord.Name)
+		if err != nil {
+			return nil, err
+		}
+		parentName, err := role.NewName(inherited.Name)
+		if err != nil {
+			return nil, err
+		}
+		tenantID, err := tenant.NewID(inheritance.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		if err := roleResolver.addInheritance(childName, parentName, tenantID); err != nil {
 			return nil, fmt.Errorf("add role inheritance link: %w", err)
 		}
 	}
 
-	grantsByRole := make(map[string][]*permissiongrant.Grant)
+	grantsByRole := make(map[tenant.ID]map[role.Name][]*permissiongrant.Grant)
 	for _, grant := range dataset.Grants {
 		if grant == nil || !grant.IsActive() {
 			continue
 		}
-		role, ok := roleByID[grant.RoleID]
-		if !ok || role.TenantID != grant.TenantIDString() {
+		roleRecord, ok := roleByID[grant.RoleID]
+		if !ok || roleRecord.TenantID != grant.TenantIDString() {
 			return nil, perrors.WithCode(code.ErrInvalidArgument, "permission grant references an unknown or cross-tenant role")
 		}
 		if grant.ResourceID.Uint64() != 0 {
@@ -105,13 +128,22 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 				return nil, err
 			}
 		}
-		key := tenantRoleKey(grant.TenantIDString(), role.Name)
-		grantsByRole[key] = append(grantsByRole[key], grant)
+		tenantID := grant.TenantID
+		roleName, err := role.NewName(roleRecord.Name)
+		if err != nil {
+			return nil, err
+		}
+		if grantsByRole[tenantID] == nil {
+			grantsByRole[tenantID] = make(map[role.Name][]*permissiongrant.Grant)
+		}
+		grantsByRole[tenantID][roleName] = append(grantsByRole[tenantID][roleName], grant)
 	}
-	for key := range grantsByRole {
-		sort.Slice(grantsByRole[key], func(i, j int) bool {
-			return grantsByRole[key][i].ID.Uint64() < grantsByRole[key][j].ID.Uint64()
-		})
+	for _, grantsForTenant := range grantsByRole {
+		for roleName := range grantsForTenant {
+			sort.Slice(grantsForTenant[roleName], func(i, j int) bool {
+				return grantsForTenant[roleName][i].ID.Uint64() < grantsForTenant[roleName][j].ID.Uint64()
+			})
+		}
 	}
 
 	versions := make(map[string]int64, len(dataset.Versions))
@@ -119,79 +151,63 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		versions[strings.TrimSpace(tenantID)] = version
 	}
 	return &Snapshot{
-		roles: roleManager, grantsByRole: grantsByRole, resources: resources,
+		roles: roleResolver, grantsByRole: grantsByRole, resources: resources,
 		versions: versions, loadedAt: loadedAt,
 	}, nil
 }
 
-func (s *Snapshot) Check(request authzruntime.Request) (authzruntime.Decision, error) {
+func (s *Snapshot) EvaluationContext(request authorizationdomain.Request) (authorizationdomain.EvaluationContext, error) {
 	if s == nil || s.roles == nil {
-		return authzruntime.Decision{}, perrors.WithCode(code.ErrInternalServerError, "authorization runtime snapshot is unavailable")
+		return authorizationdomain.EvaluationContext{}, perrors.WithCode(code.ErrInternalServerError, "authorization runtime snapshot is unavailable")
 	}
 	tenantID := request.TenantIDString()
-	policyVersion := s.versions[tenantID]
-	roles, err := s.roleNamesForSubject(request.Subject, tenantID)
+	roles, err := s.roles.EffectiveRoles(request.Subject, request.TenantID)
 	if err != nil {
-		return authzruntime.Decision{}, err
-	}
-	if catalogResource := s.resources[request.ResourceKey.String()]; catalogResource != nil {
-		if err := authzruntime.ValidateAttributes(catalogResource.AttributeSchema, request.Object.Attributes); err != nil {
-			return authzruntime.Decision{}, err
-		}
-	} else if len(request.Object.Attributes) > 0 {
-		return authzruntime.Decision{}, perrors.WithCode(code.ErrInvalidArgument, "object attributes require a registered resource")
+		return authorizationdomain.EvaluationContext{}, err
 	}
 
-	missing := make([]string, 0)
-	for _, roleName := range roles {
-		for _, grant := range s.grantsByRole[tenantRoleKey(tenantID, roleName)] {
-			if !grant.CoversResource(request.ResourceKey) || !grant.MatchesAction(request.Action) {
-				continue
-			}
-			evaluation, err := grant.Evaluate(request.Object.Attributes)
-			if err != nil {
-				return authzruntime.Decision{}, err
-			}
-			if evaluation.Matched {
-				return authzruntime.Allow(grant.ID, roleName, policyVersion, time.Now()), nil
-			}
-			missing = append(missing, evaluation.MissingAttributeKeys...)
-		}
-	}
-	return authzruntime.Deny(policyVersion, missing, time.Now()), nil
+	return authorizationdomain.EvaluationContext{
+		EffectiveRoles: roles,
+		GrantsByRole:   s.grantsByRole[request.TenantID],
+		Resource:       s.resources[request.ResourceKey.String()],
+		PolicyVersion:  s.versions[tenantID],
+	}, nil
 }
 
-func (s *Snapshot) SubjectSnapshot(sub subject.Ref, tenantID, appName string) (authzruntime.SubjectSnapshot, error) {
-	effectiveRoles, err := s.roleNamesForSubject(sub, tenantID)
+func (s *Snapshot) SubjectSnapshot(sub subject.Ref, tenantID, appName string) (authorizationapp.SubjectSnapshot, error) {
+	tenantValue, err := tenant.NewID(tenantID)
 	if err != nil {
-		return authzruntime.SubjectSnapshot{}, err
+		return authorizationapp.SubjectSnapshot{}, err
 	}
-	directRoleKeys, err := s.DirectRoleKeys(sub, tenantID)
+	effectiveRoles, err := s.roles.EffectiveRoles(sub, tenantValue)
 	if err != nil {
-		return authzruntime.SubjectSnapshot{}, err
+		return authorizationapp.SubjectSnapshot{}, err
 	}
-	directRoles := appRoleNames(directRoleKeys, appName, true)
-	modeByPermission := make(map[string]authzruntime.AuthorizationMode)
+	directRoles, err := s.roles.DirectRoles(sub, tenantValue)
+	if err != nil {
+		return authorizationapp.SubjectSnapshot{}, err
+	}
+	modeByPermission := make(map[string]authorizationapp.AuthorizationMode)
 	for _, roleName := range effectiveRoles {
-		for _, grant := range s.grantsByRole[tenantRoleKey(tenantID, roleName)] {
+		for _, grant := range s.grantsByRole[tenantValue][roleName] {
 			resourceApp, ok := resource.AppNameFromKey(grant.ResourcePatternString())
 			if !ok || resourceApp != appName {
 				continue
 			}
 			key := grant.ResourcePatternString() + "\x00" + grant.ActionString()
-			mode := authzruntime.ModeObjectCheckRequired
+			mode := authorizationapp.ModeObjectCheckRequired
 			if !grant.IsConditional() {
-				mode = authzruntime.ModeUnconditional
+				mode = authorizationapp.ModeUnconditional
 			}
-			if current, exists := modeByPermission[key]; !exists || current == authzruntime.ModeObjectCheckRequired && mode == authzruntime.ModeUnconditional {
+			if current, exists := modeByPermission[key]; !exists || current == authorizationapp.ModeObjectCheckRequired && mode == authorizationapp.ModeUnconditional {
 				modeByPermission[key] = mode
 			}
 		}
 	}
-	permissions := make([]authzruntime.PermissionEntry, 0, len(modeByPermission))
+	permissions := make([]authorizationapp.PermissionEntry, 0, len(modeByPermission))
 	for key, mode := range modeByPermission {
 		parts := strings.SplitN(key, "\x00", 2)
-		permissions = append(permissions, authzruntime.PermissionEntry{Resource: parts[0], Action: parts[1], Mode: mode})
+		permissions = append(permissions, authorizationapp.PermissionEntry{Resource: parts[0], Action: parts[1], Mode: mode})
 	}
 	sort.Slice(permissions, func(i, j int) bool {
 		if permissions[i].Resource == permissions[j].Resource {
@@ -199,48 +215,51 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, tenantID, appName string) (a
 		}
 		return permissions[i].Resource < permissions[j].Resource
 	})
-	return authzruntime.SubjectSnapshot{
-		DirectRoles:    directRoles,
-		EffectiveRoles: appRoleNames(effectiveRoles, appName, false),
+	return authorizationapp.SubjectSnapshot{
+		DirectRoles:    appScopedRoleNames(directRoles, appName),
+		EffectiveRoles: appScopedRoleNames(effectiveRoles, appName),
 		Permissions:    permissions,
 		PolicyVersion:  s.versions[tenantID],
 	}, nil
 }
 
 func (s *Snapshot) DirectRoleKeys(sub subject.Ref, tenantID string) ([]string, error) {
-	roles, err := s.roles.GetRoles(sub.String(), tenantID)
+	tenantValue, err := tenant.NewID(tenantID)
 	if err != nil {
 		return nil, err
 	}
-	sort.Strings(roles)
-	return roles, nil
+	roles, err := s.roles.DirectRoles(sub, tenantValue)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(roles))
+	for _, roleName := range roles {
+		keys = append(keys, roleKey(roleName.String()))
+	}
+	return keys, nil
 }
 
 func (s *Snapshot) roleNamesForSubject(sub subject.Ref, tenantID string) ([]string, error) {
-	roleKeys, err := s.roles.GetImplicitRoles(sub.String(), tenantID)
+	tenantValue, err := tenant.NewID(tenantID)
 	if err != nil {
 		return nil, err
 	}
-	roleNames := make([]string, 0, len(roleKeys))
-	for _, key := range roleKeys {
-		roleNames = append(roleNames, strings.TrimPrefix(key, "role:"))
+	roles, err := s.roles.EffectiveRoles(sub, tenantValue)
+	if err != nil {
+		return nil, err
 	}
-	sort.Strings(roleNames)
+	roleNames := make([]string, 0, len(roles))
+	for _, roleName := range roles {
+		roleNames = append(roleNames, roleName.String())
+	}
 	return roleNames, nil
 }
 
-func appRoleNames(values []string, appName string, encoded bool) []string {
+func appScopedRoleNames(values []role.Name, appName string) []string {
 	roles := make([]string, 0, len(values))
 	for _, value := range values {
-		roleName := value
-		if encoded {
-			if !strings.HasPrefix(value, "role:") {
-				continue
-			}
-			roleName = strings.TrimPrefix(value, "role:")
-		}
-		if app, ok := roleAppName(roleName); ok && app == appName {
-			roles = append(roles, roleName)
+		if app, ok := value.App(); ok && app == appName {
+			roles = append(roles, value.String())
 		}
 	}
 	return uniqueSortedStrings(roles)
@@ -312,16 +331,6 @@ func validateInheritanceGraph(records []InheritanceRecord, roles map[meta.ID]Rol
 }
 
 func roleKey(name string) string { return "role:" + name }
-
-func tenantRoleKey(tenantID, roleName string) string { return tenantID + "\x00" + roleName }
-
-func roleAppName(roleName string) (string, bool) {
-	parts := strings.Split(roleName, ":")
-	if len(parts) < 2 || parts[0] == "" {
-		return "", false
-	}
-	return parts[0], true
-}
 
 func parseSubjectKey(value string) (subject.Ref, error) {
 	parts := strings.SplitN(strings.TrimSpace(value), ":", 2)

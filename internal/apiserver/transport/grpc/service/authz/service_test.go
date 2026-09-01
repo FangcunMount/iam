@@ -10,12 +10,13 @@ import (
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
 	assignmentauth "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	rolebindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/runtime"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/native"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -36,8 +37,8 @@ func TestAuthorizationServerRequiresServiceIdentity(t *testing.T) {
 }
 
 func TestAuthorizationServerCheckMapsTypedObjectContext(t *testing.T) {
-	checker := &checkerFake{decision: authzruntime.Decision{
-		Allowed: true, Reason: authzruntime.ReasonAllowed,
+	checker := &checkerFake{decision: authorization.Decision{
+		Allowed: true, Reason: authorization.ReasonAllowed,
 		MatchedGrantID: meta.FromUint64(100), MatchedRole: "qs:evaluator", PolicyVersion: 12,
 	}}
 	srv := &authorizationServer{checker: checker}
@@ -82,11 +83,11 @@ func TestAuthorizationServerRejectsDuplicateAndUntrustedAttributes(t *testing.T)
 }
 
 func TestAuthorizationServerSnapshotPreservesAuthorizationMode(t *testing.T) {
-	reader := &snapshotReaderFake{snapshot: authzruntime.SubjectSnapshot{
+	reader := &snapshotReaderFake{snapshot: authzapp.SubjectSnapshot{
 		DirectRoles:    []string{"qs:evaluator"},
 		EffectiveRoles: []string{"qs:evaluator", "qs:staff"}, PolicyVersion: 7,
-		Permissions: []authzruntime.PermissionEntry{{
-			Resource: assessmentResource, Action: "retry", Mode: authzruntime.ModeObjectCheckRequired,
+		Permissions: []authzapp.PermissionEntry{{
+			Resource: assessmentResource, Action: "retry", Mode: authzapp.ModeObjectCheckRequired,
 		}},
 	}}
 	srv := &authorizationServer{snapshotReader: reader}
@@ -170,7 +171,7 @@ func TestAuthorizationV3GRPCAssessmentRetryMatrix(t *testing.T) {
 				require.NotEmpty(t, response.GetMatchedRole())
 			} else {
 				require.Equal(t, authzv3.DecisionReason_NOT_MATCHED, response.GetReason())
-				require.Equal(t, authzruntime.DenyCodePolicyNotMatched, response.GetDenyCode())
+				require.Equal(t, authorization.DenyCodePolicyNotMatched, response.GetDenyCode())
 			}
 		})
 	}
@@ -261,7 +262,7 @@ func newMatrixRuntime(t *testing.T) *native.Runtime {
 		Grants:    []*permissiongrant.Grant{&admin, &evaluator, &planManager},
 		Resources: []*resource.Resource{&assessment},
 		Versions:  map[string]int64{"fangcun": 41},
-	}})
+	}}, authorization.NewEvaluator())
 	require.NoError(t, err)
 	return runtime
 }
@@ -293,27 +294,27 @@ func newAuthorizationTestClient(t *testing.T, checker authorizationChecker) (aut
 }
 
 type checkerFake struct {
-	decision authzruntime.Decision
+	decision authorization.Decision
 	err      error
-	calls    []authzruntime.Request
+	calls    []authorization.Request
 }
 
-func (f *checkerFake) Check(_ context.Context, request authzruntime.Request) (authzruntime.Decision, error) {
+func (f *checkerFake) Check(_ context.Context, request authorization.Request) (authorization.Decision, error) {
 	f.calls = append(f.calls, request)
 	if f.err != nil {
-		return authzruntime.Decision{}, f.err
+		return authorization.Decision{}, f.err
 	}
 	return f.decision, nil
 }
 
 type snapshotReaderFake struct {
-	snapshot authzruntime.SubjectSnapshot
+	snapshot authzapp.SubjectSnapshot
 	err      error
 }
 
-func (f *snapshotReaderFake) Read(_ context.Context, _ subject.Ref, _, _ string) (authzruntime.SubjectSnapshot, error) {
+func (f *snapshotReaderFake) Read(_ context.Context, _ subject.Ref, _, _ string) (authzapp.SubjectSnapshot, error) {
 	if f.err != nil {
-		return authzruntime.SubjectSnapshot{}, f.err
+		return authzapp.SubjectSnapshot{}, f.err
 	}
 	return f.snapshot, nil
 }

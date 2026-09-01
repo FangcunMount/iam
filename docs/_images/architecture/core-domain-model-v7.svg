@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="4200" height="3500" viewBox="0 0 4200 3500" role="img" aria-labelledby="title desc">
-  <title id="title">IAM 三核心模块领域模型 V7（准入策略与边界语义）</title>
-  <desc id="desc">中心区域展示 Identity、AuthN、AuthZ 三个限界上下文。色相表示所属上下文；白底细边框表示实体、值对象与结果模型；白底粗边框表示聚合根；浅主题色底表示领域服务与领域策略。AuthN 以 Admission、AuthenticationGrant、Session 与 Token 领域服务表达完整认证结果，JWT、KeySet、JWKS 与 Redis 仅作为适配边界说明。</desc>
+  <title id="title">IAM 三核心模块领域模型 V7（核心对象与领域服务）</title>
+  <desc id="desc">中心区域展示 Identity、AuthN、AuthZ 三个限界上下文。色相表示所属上下文；白底细边框表示实体、值对象与结果模型；白底粗边框表示聚合根；浅主题色底表示领域服务与领域策略。AuthN 先展示 LoginIdentity、Credential、Challenge、Session、Token 五个核心对象，再以认证、准入、颁发以及验证、刷新、撤销两段领域服务说明在线认证状态如何建立、维持与终止；JWT、KeySet、JWKS 与 Redis 仅作为适配边界说明。</desc>
 
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -11,6 +11,9 @@
     </marker>
     <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 Z" fill="#4267b2"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2f855a"/>
     </marker>
     <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 Z" fill="#7653b5"/>
@@ -41,12 +44,17 @@
       .solid { fill: none; stroke: #334155; stroke-width: 3; marker-end: url(#arrow); }
       .association { fill: none; stroke: #64748b; stroke-width: 3; }
       .reference { fill: none; stroke: #4267b2; stroke-width: 3; stroke-dasharray: 12 9; marker-end: url(#arrowBlue); }
+      .admission-link { fill: none; stroke: #2f855a; stroke-width: 3; stroke-dasharray: 10 7; marker-end: url(#arrowGreen); }
       .policy-link { fill: none; stroke: #7653b5; stroke-width: 3; marker-end: url(#arrowPurple); }
       .divider { stroke: #e2e8f0; stroke-width: 1.5; }
       /* V7 semantic model colors: hue=context, fill=model kind, weight=aggregate boundary */
       .authn-model { fill: #ffffff; stroke: #7bb98d; stroke-width: 2.2; }
       .authn-aggregate { fill: #ffffff; stroke: #2f855a; stroke-width: 3.2; }
       .authn-behavior { fill: #e9f7ed; stroke: #2f855a; stroke-width: 2.8; }
+      .authn-result { fill: #ffffff; stroke: #91caa1; stroke-width: 2; }
+      .authn-adapter { fill: #fbfefc; stroke: #7bb98d; stroke-width: 2; stroke-dasharray: 9 7; }
+      .compact-model { font-size: 21px; font-weight: 700; }
+      .result-text { font-size: 17px; font-weight: 700; fill: #2f6f43; }
       .identity-model { fill: #ffffff; stroke: #e0b94f; stroke-width: 2.2; }
       .identity-aggregate { fill: #ffffff; stroke: #d29b23; stroke-width: 3.2; }
       .identity-behavior { fill: #fff3c8; stroke: #d29b23; stroke-width: 2.8; }
@@ -57,17 +65,17 @@
   </defs>
 
   <rect width="4200" height="3500" fill="#ffffff"/>
-  <text x="2100" y="82" text-anchor="middle" class="title">IAM 三核心模块领域模型 V7｜准入策略与边界语义</text>
-  <text x="2100" y="124" text-anchor="middle" class="subtitle">领域模型留在所属上下文；认证结果由 Grant 领域服务形成，协议实现与基础设施通过周边 Tips 说明</text>
+  <text x="2100" y="82" text-anchor="middle" class="title">IAM 三核心模块领域模型 V7｜核心对象与领域服务</text>
+  <text x="2100" y="124" text-anchor="middle" class="subtitle">Identity、AuthN、AuthZ 的核心名词与协作；AuthN 重点展开认证状态如何建立、维持与终止</text>
 
   <!-- External knowledge-note connectors: explanatory only, never domain dependencies -->
-  <path d="M410 460 C410 575 870 650 870 905" class="knowledge-line"/>
-  <path d="M1130 460 C1130 650 1295 900 1295 1320" class="knowledge-line"/>
+  <path d="M410 460 C410 575 265 700 265 885" class="knowledge-line"/>
+  <path d="M1130 460 C1130 690 320 940 320 1375" class="knowledge-line"/>
   <path d="M2090 460 C2090 620 2100 820 2100 1162" class="knowledge-line"/>
   <path d="M2880 460 C2880 600 2995 720 2995 873" class="knowledge-line"/>
   <path d="M3710 460 C3710 650 3440 860 3440 1225" class="knowledge-line"/>
-  <path d="M410 2600 V2525 H290 V2100" class="knowledge-line"/>
-  <path d="M1130 2600 V2525 H1035 V2300" class="knowledge-line"/>
+  <path d="M410 2600 V2525 H290 V1875" class="knowledge-line"/>
+  <path d="M1130 2600 V2525 H1418 V2325" class="knowledge-line"/>
   <path d="M2090 2600 V2570 H2460 V1405 H2365" class="knowledge-line"/>
   <path d="M2880 2600 V2570 H2480 V1700 H2530" class="knowledge-line"/>
   <path d="M3710 2600 V2570 H4170 V2200 H4110" class="knowledge-line"/>
@@ -78,215 +86,194 @@
   <rect x="55" y="175" width="1650" height="112" rx="28" fill="#dff3e5"/>
   <path d="M55 258 H1705" stroke="#4a9b61" stroke-width="2"/>
   <text x="880" y="220" text-anchor="middle" class="context-title">AuthN｜认证上下文</text>
-  <text x="880" y="250" text-anchor="middle" class="context-sub">拥有登录身份、认证证明、认证结果、会话与令牌状态</text>
+  <text x="880" y="250" text-anchor="middle" class="context-sub">五个核心对象；领域服务建立、维持并终止在线认证状态</text>
 
-  <!-- AuthN section 1 -->
-  <rect x="90" y="315" width="1580" height="405" rx="20" fill="#fbfefc" stroke="#b7dfc3" stroke-width="2"/>
-  <text x="125" y="355" class="section-title">1｜长期认证事实</text>
-  <text x="125" y="383" class="section-desc">登录入口与可长期持有的认证材料</text>
+  <!-- AuthN core domain objects -->
+  <rect x="90" y="315" width="1580" height="425" rx="20" fill="#fbfefc" stroke="#b7dfc3" stroke-width="2"/>
+  <text x="125" y="355" class="section-title">核心领域对象｜AuthN 持有什么</text>
+  <text x="125" y="383" class="section-desc">稳定领域名词：登录入口、长期与一次性认证材料、在线认证状态、可携带认证凭证</text>
 
   <g filter="url(#shadow)">
-    <rect x="145" y="420" width="660" height="235" rx="18" class="authn-aggregate"/>
-    <text x="175" y="452" class="stereotype">AGGREGATE ROOT</text>
-    <text x="475" y="485" text-anchor="middle" class="model">LoginIdentity｜登录身份</text>
-    <line x1="145" y1="505" x2="805" y2="505" class="divider"/>
-    <text x="175" y="538" class="field">ID · UserID</text>
-    <text x="175" y="570" class="field">Provider · Realm · Identifier</text>
-    <text x="175" y="602" class="field">GlobalIdentifier · Status · VerifiedAt</text>
+    <rect x="125" y="420" width="280" height="250" rx="17" class="authn-aggregate"/>
+    <text x="145" y="448" class="stereotype">STABLE LOGIN ENTRY</text>
+    <text x="265" y="480" text-anchor="middle" class="compact-model">LoginIdentity｜登录身份</text>
+    <line x1="125" y1="500" x2="405" y2="500" class="divider"/>
+    <text x="145" y="532" class="field">归属：UserID</text>
+    <text x="145" y="562" class="field">键：Provider + Realm + Identifier</text>
+    <text x="145" y="592" class="field">状态：active / disabled</text>
+    <text x="145" y="622" class="small">回答“用哪个身份登录”</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="940" y="420" width="650" height="235" rx="18" class="authn-model"/>
-    <text x="970" y="452" class="stereotype">ENTITY</text>
-    <text x="1265" y="485" text-anchor="middle" class="model">Credential｜登录凭据</text>
-    <line x1="940" y1="505" x2="1590" y2="505" class="divider"/>
-    <text x="970" y="538" class="field">ID · LoginIdentityID · Type</text>
-    <text x="970" y="570" class="field">Material · Algo · Status</text>
-    <text x="970" y="602" class="field">FailedAttempts · LockedUntil</text>
-  </g>
-  <path d="M940 555 H807" class="solid"/>
-  <text x="873" y="536" text-anchor="middle" class="relation">属于</text>
-  <text x="918" y="580" text-anchor="end" class="small">0..*</text>
-  <text x="826" y="580" class="small">1</text>
-
-  <!-- AuthN section 2 -->
-  <rect x="90" y="750" width="1580" height="685" rx="20" fill="#f6fcf8" stroke="#b7dfc3" stroke-width="2"/>
-  <text x="125" y="790" class="section-title">2｜单次认证语义</text>
-  <text x="125" y="818" class="section-desc">AuthCredential 提供 Kind，Authenticator 选择 AuthStrategy，成功后形成 Principal</text>
-
-  <g filter="url(#shadow)">
-    <rect x="125" y="855" width="385" height="230" rx="17" class="authn-model"/>
-    <text x="150" y="885" class="stereotype">SHORT-LIVED ENTITY</text>
-    <text x="318" y="918" text-anchor="middle" class="model">Challenge｜认证挑战</text>
-    <line x1="125" y1="938" x2="510" y2="938" class="divider"/>
-    <text x="150" y="970" class="field">ID · Type · Scene</text>
-    <text x="150" y="1002" class="field">Target · SecretHash · Attempts</text>
-    <text x="150" y="1034" class="field">ExpiresAt · ConsumedAt</text>
+    <rect x="430" y="420" width="280" height="250" rx="17" class="authn-model"/>
+    <text x="450" y="448" class="stereotype">DURABLE AUTH MATERIAL</text>
+    <text x="570" y="480" text-anchor="middle" class="compact-model">Credential｜登录凭据</text>
+    <line x1="430" y1="500" x2="710" y2="500" class="divider"/>
+    <text x="450" y="532" class="field">归属：LoginIdentity</text>
+    <text x="450" y="562" class="field">材料：hash / protected material</text>
+    <text x="450" y="592" class="field">状态：failures / lockout</text>
+    <text x="450" y="622" class="small">回答“如何验证控制关系”</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="555" y="855" width="430" height="230" rx="17" class="authn-model"/>
-    <text x="580" y="885" class="stereotype">INTERFACE · PROOF VALUE</text>
-    <text x="770" y="918" text-anchor="middle" class="model">AuthCredential</text>
-    <line x1="555" y1="938" x2="985" y2="938" class="divider"/>
-    <text x="580" y="970" class="operation">CredentialKind()</text>
-    <text x="580" y="1002" class="field">password · phone_otp · oauth_wecom</text>
-    <text x="580" y="1034" class="field">oauth_wx_minip · oauth_wx_open</text>
+    <rect x="735" y="420" width="280" height="250" rx="17" class="authn-model"/>
+    <text x="755" y="448" class="stereotype">ONE-SHOT PROOF</text>
+    <text x="875" y="480" text-anchor="middle" class="compact-model">Challenge｜认证挑战</text>
+    <line x1="735" y1="500" x2="1015" y2="500" class="divider"/>
+    <text x="755" y="532" class="field">场景：OTP / OAuth state</text>
+    <text x="755" y="562" class="field">约束：TTL / attempts</text>
+    <text x="755" y="592" class="field">消费：成功一次且不可重放</text>
+    <text x="755" y="622" class="small">部分认证策略使用</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1030" y="855" width="250" height="230" rx="17" class="authn-behavior"/>
-    <text x="1050" y="885" class="stereotype">DOMAIN SERVICE · DISPATCHER</text>
-    <text x="1155" y="918" text-anchor="middle" class="model">Authenticator</text>
-    <line x1="1030" y1="938" x2="1280" y2="938" class="divider"/>
-    <text x="1050" y="973" class="operation">Authenticate(proof)</text>
-    <text x="1050" y="1005" class="field">strategyFor(kind)</text>
-    <text x="1050" y="1037" class="field">统一处理 AuthDecision</text>
-  </g>
-
-
-  <g filter="url(#shadow)">
-    <rect x="1310" y="855" width="280" height="230" rx="17" class="authn-behavior"/>
-    <text x="1330" y="885" class="stereotype">DOMAIN SERVICE INTERFACE</text>
-    <text x="1450" y="918" text-anchor="middle" class="model">AuthStrategy｜策略族</text>
-    <line x1="1310" y1="938" x2="1590" y2="938" class="divider"/>
-    <text x="1330" y="970" class="operation">Kind() · Authenticate(proof)</text>
-    <text x="1330" y="1002" class="field">Password · PhoneOTP</text>
-    <text x="1330" y="1034" class="field">WechatMini · WechatOpen</text>
-    <text x="1330" y="1066" class="field">WeCom</text>
-  </g>
-  <path d="M1282 970 H1308" class="solid"/>
-  <text x="1295" y="951" text-anchor="middle" class="relation">按 Kind 选择</text>
-
-  <path d="M510 970 H553" class="solid"/>
-  <text x="532" y="951" text-anchor="middle" class="relation">支持</text>
-  <path d="M987 970 H1028" class="solid"/>
-  <text x="1007" y="951" text-anchor="middle" class="relation">提交</text>
-  <path d="M805 555 V690 H1450 V853" class="association"/>
-  <text x="1125" y="680" text-anchor="middle" class="relation">向具体策略提供登录身份与长期凭据</text>
-
-  <g filter="url(#shadow)">
-    <rect x="325" y="1150" width="515" height="210" rx="17" class="authn-model"/>
-    <text x="350" y="1180" class="stereotype">RESULT VALUE</text>
-    <text x="583" y="1213" text-anchor="middle" class="model">AuthDecision｜认证判定</text>
-    <line x1="325" y1="1233" x2="840" y2="1233" class="divider"/>
-    <text x="350" y="1265" class="field">OK · Code</text>
-    <text x="350" y="1297" class="field">LoginIdentityID · CredentialID</text>
-    <text x="350" y="1320" class="field">ShouldRotate · Principal(0..1)</text>
+    <rect x="1040" y="420" width="280" height="250" rx="17" class="authn-aggregate"/>
+    <text x="1060" y="448" class="stereotype">ONLINE AUTH STATE</text>
+    <text x="1180" y="480" text-anchor="middle" class="compact-model">Session｜认证会话</text>
+    <line x1="1040" y1="500" x2="1320" y2="500" class="divider"/>
+    <text x="1060" y="532" class="field">主体：User + LoginIdentity</text>
+    <text x="1060" y="562" class="field">状态：active / revoked / expired</text>
+    <text x="1060" y="592" class="field">内容：AMR / Claims / Tenant</text>
+    <text x="1060" y="622" class="small">LifetimePolicy 约束登录期</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="945" y="1150" width="585" height="210" rx="17" class="authn-model"/>
-    <text x="970" y="1180" class="stereotype">AUTHENTICATION RESULT</text>
-    <text x="1238" y="1213" text-anchor="middle" class="model">Principal｜已认证主体</text>
-    <line x1="945" y1="1233" x2="1530" y2="1233" class="divider"/>
-    <text x="970" y="1265" class="field">UserID · LoginIdentityID</text>
-    <text x="970" y="1297" class="field">TenantID · SessionID · AuthMethod</text>
-    <text x="970" y="1320" class="field">Realm · AMR · Claims</text>
-  </g>
-  <path d="M1450 1087 V1115 H583 V1148" class="solid"/>
-  <text x="1015" y="1106" text-anchor="middle" class="relation">返回统一 AuthDecision</text>
-  <path d="M842 1255 H943" class="solid"/>
-  <text x="892" y="1237" text-anchor="middle" class="relation">成功时包含</text>
-
-  <!-- AuthN section 3 -->
-  <rect x="90" y="1465" width="1580" height="650" rx="20" fill="#f9fdf9" stroke="#b7dfc3" stroke-width="2"/>
-  <text x="125" y="1505" class="section-title">3｜在线认证状态与令牌</text>
-  <text x="125" y="1533" class="section-desc">认证成功只形成 Principal；GrantIssuer 在 Admission 通过后建立 AuthenticationGrant（Session + UserTokenSet）</text>
-
-  <g filter="url(#shadow)">
-    <rect x="125" y="1570" width="330" height="230" rx="17" class="authn-behavior"/>
-    <text x="150" y="1600" class="stereotype">DOMAIN POLICY · AUTHN ADMISSION</text>
-    <text x="290" y="1633" text-anchor="middle" class="model">AdmissionPolicy</text>
-    <line x1="125" y1="1653" x2="455" y2="1653" class="divider"/>
-    <text x="150" y="1685" class="operation">Evaluate(subject)</text>
-    <text x="150" y="1717" class="field">LoginIdentityReader</text>
-    <text x="150" y="1749" class="field">UserStatusReader · fail closed</text>
+    <rect x="1345" y="420" width="280" height="250" rx="17" class="authn-model"/>
+    <text x="1365" y="448" class="stereotype">PORTABLE CREDENTIAL</text>
+    <text x="1485" y="480" text-anchor="middle" class="compact-model">Token｜认证凭证</text>
+    <line x1="1345" y1="500" x2="1625" y2="500" class="divider"/>
+    <text x="1365" y="532" class="field">UserTokenSet</text>
+    <text x="1365" y="562" class="field">= AccessToken + RefreshToken</text>
+    <text x="1365" y="592" class="field">ServiceToken：独立服务分支</text>
+    <text x="1365" y="622" class="small">携带声明，不替代 AuthZ</text>
   </g>
 
+  <path d="M570 672 V708 H265 V672" class="solid"/>
+  <text x="418" y="700" text-anchor="middle" class="relation">Credential 从属于 LoginIdentity</text>
+  <path d="M1485 672 V708 H1180 V672" class="solid"/>
+  <text x="1332" y="700" text-anchor="middle" class="relation">用户 Token 绑定 Session</text>
+
+  <!-- AuthN core service flow: establish authentication state -->
+  <rect x="90" y="770" width="1580" height="600" rx="20" fill="#f6fcf8" stroke="#b7dfc3" stroke-width="2"/>
+  <text x="125" y="810" class="section-title">核心领域服务主线｜如何建立认证状态</text>
+  <text x="125" y="838" class="section-desc">领域语义顺序：证明控制关系 → 检查当前准入 → 建立 Session + UserTokenSet；Admission 由 GrantIssuer 在创建状态前执行</text>
+
   <g filter="url(#shadow)">
-    <rect x="495" y="1570" width="330" height="230" rx="17" class="authn-model"/>
-    <text x="655" y="1600" class="stereotype">POLICY RESULT VALUE</text>
-    <text x="660" y="1633" text-anchor="middle" class="model">AdmissionDecision</text>
-    <line x1="495" y1="1653" x2="825" y2="1653" class="divider"/>
-    <text x="520" y="1685" class="field">Subject：UserID · LoginIdentityID</text>
-    <text x="520" y="1717" class="field">Outcome：admitted · denied</text>
-    <text x="520" y="1749" class="field">Reason：missing · blocked · disabled</text>
+    <rect x="125" y="900" width="390" height="250" rx="18" class="authn-behavior"/>
+    <text x="150" y="930" class="stereotype">CORE DOMAIN SERVICE · AUTHENTICATE</text>
+    <text x="320" y="965" text-anchor="middle" class="model">Authenticator｜用户认证</text>
+    <line x1="125" y1="985" x2="515" y2="985" class="divider"/>
+    <text x="150" y="1017" class="operation">Authenticate(AuthCredential)</text>
+    <text x="150" y="1049" class="field">读取 LoginIdentity / Credential</text>
+    <text x="150" y="1081" class="field">部分策略消费 Challenge</text>
+    <text x="150" y="1113" class="small">AuthStrategy：Password / OTP / OAuth</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="865" y="1570" width="340" height="230" rx="17" class="authn-behavior"/>
-    <text x="890" y="1600" class="stereotype">DOMAIN SERVICE · AUTH RESULT</text>
-    <text x="1035" y="1633" text-anchor="middle" class="model">GrantIssuer</text>
-    <line x1="865" y1="1653" x2="1205" y2="1653" class="divider"/>
-    <text x="890" y="1685" class="operation">Issue(principal)</text>
-    <text x="890" y="1717" class="field">Require Admission → Create Session</text>
-    <text x="890" y="1749" class="field">Mint TokenSet → Save RefreshToken</text>
+    <rect x="640" y="900" width="390" height="250" rx="18" class="authn-behavior"/>
+    <text x="665" y="930" class="stereotype">CORE DOMAIN POLICY · CONTINUOUS GATE</text>
+    <text x="835" y="965" text-anchor="middle" class="model">AdmissionPolicy｜认证准入</text>
+    <line x1="640" y1="985" x2="1030" y2="985" class="divider"/>
+    <text x="665" y="1017" class="operation">Evaluate(UserID, LoginIdentityID)</text>
+    <text x="665" y="1049" class="field">检查 User.Status + LoginIdentity</text>
+    <text x="665" y="1081" class="field">结果：admitted / denied</text>
+    <text x="665" y="1113" class="small">不可读取事实时 fail closed</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="1245" y="1570" width="345" height="230" rx="17" class="authn-behavior"/>
-    <text x="1270" y="1600" class="stereotype">DOMAIN POLICY · SESSION LIFETIME</text>
-    <text x="1418" y="1633" text-anchor="middle" class="model">LifetimePolicy</text>
-    <line x1="1245" y1="1653" x2="1590" y2="1653" class="divider"/>
-    <text x="1270" y="1685" class="operation">InitialExpiresAt(now)</text>
-    <text x="1270" y="1717" class="operation">RefreshTokenExpiresAt(now, session)</text>
-    <text x="1270" y="1749" class="field">refreshTTL · sessionMaxTTL</text>
+    <rect x="1155" y="900" width="390" height="250" rx="18" class="authn-behavior"/>
+    <text x="1180" y="930" class="stereotype">CORE DOMAIN SERVICE · ISSUE RESULT</text>
+    <text x="1350" y="965" text-anchor="middle" class="model">GrantIssuer｜认证结果颁发</text>
+    <line x1="1155" y1="985" x2="1545" y2="985" class="divider"/>
+    <text x="1180" y="1017" class="operation">Issue(Principal)</text>
+    <text x="1180" y="1049" class="field">1. Require Admission</text>
+    <text x="1180" y="1081" class="field">2. Create Session</text>
+    <text x="1180" y="1113" class="field">3. TokenSetMinter → UserTokenSet</text>
+    <text x="1180" y="1138" class="small">保存初始 RefreshToken</text>
+  </g>
+
+  <path d="M517 1025 H638" class="solid"/>
+  <rect x="530" y="992" width="95" height="31" rx="15" class="authn-result"/>
+  <text x="578" y="1014" text-anchor="middle" class="small">Principal</text>
+  <path d="M1032 1025 H1153" class="solid"/>
+  <rect x="1045" y="992" width="95" height="31" rx="15" class="authn-result"/>
+  <text x="1093" y="1014" text-anchor="middle" class="small">admitted</text>
+
+  <rect x="155" y="1190" width="330" height="90" rx="17" class="authn-result"/>
+  <text x="320" y="1223" text-anchor="middle" class="result-text">AuthDecision｜认证判定</text>
+  <text x="320" y="1252" text-anchor="middle" class="small">成功时包含 Principal；失败也记录凭据结果</text>
+  <path d="M320 1152 V1188" class="association"/>
+
+  <rect x="670" y="1190" width="330" height="90" rx="17" class="authn-result"/>
+  <text x="835" y="1223" text-anchor="middle" class="result-text">AdmissionDecision｜准入判定</text>
+  <text x="835" y="1252" text-anchor="middle" class="small">拒绝时不建立或维持认证状态</text>
+  <path d="M835 1152 V1188" class="association"/>
+
+  <rect x="1175" y="1180" width="350" height="110" rx="17" class="authn-result"/>
+  <text x="1350" y="1217" text-anchor="middle" class="result-text">AuthenticationGrant｜认证结果</text>
+  <text x="1350" y="1248" text-anchor="middle" class="field">Session + UserTokenSet</text>
+  <text x="1350" y="1275" text-anchor="middle" class="small">一次颁发结果，不独立持久化</text>
+  <path d="M1350 1152 V1178" class="association"/>
+
+  <!-- AuthN service continuation: govern online authentication state -->
+  <rect x="90" y="1400" width="1580" height="715" rx="20" fill="#f5fbf7" stroke="#b7dfc3" stroke-width="2"/>
+  <text x="125" y="1440" class="section-title">领域服务续篇｜如何维持或终止认证状态</text>
+  <text x="125" y="1468" class="section-desc">AuthenticationGrant 建立状态后，Verifier、Refresher、Revoker 围绕同一 Session 与 Token 生命周期协作</text>
+
+  <rect x="125" y="1510" width="900" height="100" rx="18" class="authn-result"/>
+  <text x="575" y="1547" text-anchor="middle" class="result-text">用户在线认证状态｜Session + UserTokenSet</text>
+  <text x="575" y="1580" text-anchor="middle" class="field">Session 提供即时失效；AccessToken 携带声明；RefreshToken 负责续期</text>
+
+  <rect x="1085" y="1510" width="450" height="100" rx="18" class="authn-result"/>
+  <text x="1310" y="1547" text-anchor="middle" class="result-text">服务凭证支线｜ServiceTokenIssuer → ServiceToken</text>
+  <text x="1310" y="1580" text-anchor="middle" class="field">无用户 Session · 无 Refresh · 不执行用户 Admission</text>
+
+  <path d="M1350 1292 V1385 H110 V1560 H123" class="solid"/>
+  <text x="112" y="1380" class="relation">形成</text>
+  <path d="M1032 1090 H1080 V1485 H800 V1508" class="admission-link"/>
+  <text x="925" y="1478" text-anchor="middle" class="relation">持续准入约束：Verify / Refresh</text>
+
+  <g filter="url(#shadow)">
+    <rect x="125" y="1650" width="400" height="260" rx="18" class="authn-behavior"/>
+    <text x="150" y="1680" class="stereotype">DOMAIN SERVICE · VERIFY</text>
+    <text x="325" y="1715" text-anchor="middle" class="model">Verifier｜验证认证凭证</text>
+    <line x1="125" y1="1735" x2="525" y2="1735" class="divider"/>
+    <text x="150" y="1767" class="operation">VerifyToken(token)</text>
+    <text x="150" y="1799" class="field">用户 Token：撤销检查 + Session + Admission</text>
+    <text x="150" y="1831" class="field">ServiceToken：仅验证签名与声明</text>
+    <text x="150" y="1863" class="small">验证真实性，不代替 AuthZ</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="125" y="1860" width="330" height="195" rx="17" class="authn-aggregate"/>
-    <text x="150" y="1890" class="stereotype">AGGREGATE ROOT</text>
-    <text x="290" y="1923" text-anchor="middle" class="model">Session｜认证会话</text>
-    <line x1="125" y1="1943" x2="455" y2="1943" class="divider"/>
-    <text x="150" y="1975" class="field">SessionID · UserID · LoginIdentityID</text>
-    <text x="150" y="2003" class="field">Status · ExpiresAt · RevokedAt</text>
+    <rect x="570" y="1650" width="470" height="260" rx="18" class="authn-behavior"/>
+    <text x="595" y="1680" class="stereotype">DOMAIN SERVICE · REFRESH</text>
+    <text x="805" y="1715" text-anchor="middle" class="model">Refresher｜续期认证状态</text>
+    <line x1="570" y1="1735" x2="1040" y2="1735" class="divider"/>
+    <text x="595" y="1767" class="operation">RefreshToken(refreshToken)</text>
+    <text x="595" y="1799" class="field">加载 active Session + Require Admission</text>
+    <text x="595" y="1831" class="field">原子轮换 RefreshToken · 延长 Session</text>
+    <text x="595" y="1863" class="small">重放旧 RefreshToken → 撤销 Session</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="495" y="1860" width="330" height="195" rx="17" class="authn-model"/>
-    <text x="520" y="1890" class="stereotype">DOMAIN RESULT</text>
-    <text x="660" y="1923" text-anchor="middle" class="model">AuthenticationGrant</text>
-    <line x1="495" y1="1943" x2="825" y2="1943" class="divider"/>
-    <text x="520" y="1975" class="field">Session</text>
-    <text x="520" y="2003" class="field">UserTokenSet</text>
+    <rect x="1085" y="1650" width="450" height="260" rx="18" class="authn-behavior"/>
+    <text x="1110" y="1680" class="stereotype">DOMAIN SERVICE · REVOKE</text>
+    <text x="1310" y="1715" text-anchor="middle" class="model">Revoker｜终止认证状态</text>
+    <line x1="1085" y1="1735" x2="1535" y2="1735" class="divider"/>
+    <text x="1110" y="1767" class="operation">RevokeBearerToken / RevokeSession</text>
+    <text x="1110" y="1799" class="field">BearerToken：标记撤销并终止关联 Session</text>
+    <text x="1110" y="1831" class="field">Session：按 User / LoginIdentity 批量终止</text>
+    <text x="1110" y="1863" class="small">RefreshToken 撤销由 Refresher 负责</text>
   </g>
 
-  <g filter="url(#shadow)">
-    <rect x="865" y="1860" width="340" height="195" rx="17" class="authn-model"/>
-    <text x="890" y="1890" class="stereotype">DOMAIN OBJECT FAMILY</text>
-    <text x="1035" y="1923" text-anchor="middle" class="model">Token Models</text>
-    <line x1="865" y1="1943" x2="1205" y2="1943" class="divider"/>
-    <text x="890" y="1975" class="field">AccessToken · RefreshToken · ServiceToken</text>
-    <text x="890" y="2003" class="field">UserTokenSet · TokenClaims</text>
-    <text x="890" y="2031" class="field">ConsumedRefreshToken</text>
-  </g>
+  <path d="M325 1612 V1648" class="solid"/>
+  <path d="M805 1612 V1648" class="solid"/>
+  <path d="M1027 1560 H1060 V1780 H1083" class="solid"/>
 
-  <g filter="url(#shadow)">
-    <rect x="1245" y="1860" width="345" height="195" rx="17" class="authn-behavior"/>
-    <text x="1270" y="1890" class="stereotype">DOMAIN SERVICES · TOKEN LIFECYCLE</text>
-    <text x="1418" y="1923" text-anchor="middle" class="model">Token Services</text>
-    <line x1="1245" y1="1943" x2="1590" y2="1943" class="divider"/>
-    <text x="1270" y="1975" class="field">TokenSetMinter · ServiceTokenIssuer</text>
-    <text x="1270" y="2003" class="field">Refresher · Verifier · Revoker</text>
-  </g>
-
-  <path d="M1238 1362 V1448 H290 V1568" class="solid"/>
-  <text x="760" y="1438" text-anchor="middle" class="relation">认证成功后由 Grant 流程执行准入</text>
-  <path d="M455 1685 H493" class="solid"/>
-  <text x="474" y="1666" text-anchor="middle" class="relation">返回</text>
-  <path d="M825 1685 H863" class="solid"/>
-  <text x="844" y="1666" text-anchor="middle" class="relation">admitted</text>
-  <path d="M1035 1802 V1835 H660 V1858" class="solid"/>
-  <text x="850" y="1826" text-anchor="middle" class="relation">返回完整认证结果</text>
-  <path d="M455 1958 H493" class="solid"/>
-  <text x="474" y="1939" text-anchor="middle" class="relation">组成</text>
-  <path d="M865 1958 H827" class="solid"/>
-  <text x="846" y="1939" text-anchor="middle" class="relation">组成</text>
-  <path d="M1243 1958 H1207" class="solid"/>
-  <text x="1225" y="1939" text-anchor="middle" class="relation">产生</text>
-  <path d="M1418 1802 V1858" class="association"/>
-  <text x="1445" y="1828" class="relation">约束</text>
+  <rect x="125" y="1950" width="1410" height="115" rx="18" class="authn-adapter"/>
+  <text x="150" y="1982" class="stereotype">INFRASTRUCTURE ADAPTER BOUNDARY</text>
+  <text x="830" y="2014" text-anchor="middle" class="result-text">JWT / KeySet / JWKS / Redis</text>
+  <text x="830" y="2047" text-anchor="middle" class="field">实现签名、验签、密钥发布、短期状态与撤销存储；不属于 AuthN 核心领域模型</text>
 
   <!-- Identity bounded context -->
   <rect x="1755" y="175" width="690" height="1990" rx="28" fill="#fff9e8" stroke="#d29b23" stroke-width="3" filter="url(#shadow)"/>
@@ -517,7 +504,7 @@
   <text x="3650" y="1670" text-anchor="middle" class="relation">携带当前 PolicyVersion</text>
 
   <!-- Cross-context references. No AuthN to AuthZ domain dependency. -->
-  <path d="M805 535 V395 H1740 Q1768 395 1768 580 H1833" class="reference"/>
+  <path d="M405 535 V395 H1740 Q1768 395 1768 580 H1833" class="reference"/>
   <rect x="1465" y="366" width="275" height="36" rx="18" fill="#ffffff"/>
   <text x="1602" y="391" text-anchor="middle" class="relation-blue">UserID → User.ID</text>
 
@@ -525,20 +512,20 @@
   <rect x="2295" y="490" width="440" height="36" rx="18" fill="#ffffff"/>
   <text x="2515" y="515" text-anchor="middle" class="relation-blue">UserResolver：Subject(user).ID → User.ID</text>
 
-  <path d="M1833 600 H1725 V1548 H290 V1568" class="reference"/>
-  <rect x="1090" y="1518" width="580" height="34" rx="17" fill="#ffffff"/>
-  <text x="1380" y="1542" text-anchor="middle" class="relation-blue">UserStatusReader：Identity.User.Status → AuthN 访问门禁</text>
+  <path d="M1833 600 H1725 V300 H75 V760 H835 V898" class="reference"/>
+  <rect x="1160" y="286" width="510" height="29" rx="15" fill="#ffffff"/>
+  <text x="1415" y="307" text-anchor="middle" class="relation-blue">UserStatusReader：User.Status → AuthN Admission</text>
 
   </g>
 
   <!-- Knowledge-note anchors -->
-  <circle cx="870" cy="905" r="9" class="knowledge-anchor"/>
-  <circle cx="1295" cy="1320" r="9" class="knowledge-anchor"/>
+  <circle cx="265" cy="885" r="9" class="knowledge-anchor"/>
+  <circle cx="320" cy="1375" r="9" class="knowledge-anchor"/>
   <circle cx="2100" cy="1162" r="9" class="knowledge-anchor"/>
   <circle cx="2995" cy="873" r="9" class="knowledge-anchor"/>
   <circle cx="3440" cy="1225" r="9" class="knowledge-anchor"/>
-  <circle cx="290" cy="2100" r="9" class="knowledge-anchor"/>
-  <circle cx="1035" cy="2300" r="9" class="knowledge-anchor"/>
+  <circle cx="290" cy="1875" r="9" class="knowledge-anchor"/>
+  <circle cx="1418" cy="2325" r="9" class="knowledge-anchor"/>
   <circle cx="2365" cy="1405" r="9" class="knowledge-anchor"/>
   <circle cx="2530" cy="1700" r="9" class="knowledge-anchor"/>
   <circle cx="4110" cy="2200" r="9" class="knowledge-anchor"/>
@@ -558,12 +545,12 @@
   <g filter="url(#shadow)">
     <rect x="780" y="160" width="700" height="300" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="810" y="195" class="knowledge-tag">AUTHN · 领域知识</text>
-    <text x="810" y="232" class="knowledge-title">认证证明与多态策略</text>
-    <text x="810" y="272" class="knowledge-text">• AuthCredential 通过 CredentialKind 表达证明类型</text>
-    <text x="810" y="307" class="knowledge-text">• Authenticator 根据 Kind 选择已注册 AuthStrategy</text>
-    <text x="810" y="342" class="knowledge-text">• 每个 AuthStrategy 只负责一种认证方式</text>
-    <text x="810" y="377" class="knowledge-text">• Challenge 是部分策略使用的短期认证挑战</text>
-    <text x="810" y="412" class="knowledge-text">• 具体策略由 Container 在进程启动时完成装配</text>
+    <text x="810" y="232" class="knowledge-title">认证对象与认证服务</text>
+    <text x="810" y="272" class="knowledge-text">• LoginIdentity、Credential、Challenge 是认证对象</text>
+    <text x="810" y="307" class="knowledge-text">• AuthCredential 是请求级证明，不是持久化领域对象</text>
+    <text x="810" y="342" class="knowledge-text">• Authenticator 根据 Kind 选择已注册 AuthStrategy</text>
+    <text x="810" y="377" class="knowledge-text">• 每个 AuthStrategy 只验证一种证明方式</text>
+    <text x="810" y="412" class="knowledge-text">• AuthDecision 成功时才产生请求级 Principal</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -602,25 +589,25 @@
   <g filter="url(#shadow)">
     <rect x="70" y="2600" width="680" height="350" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="100" y="2635" class="knowledge-tag">AUTHN · 领域知识</text>
-    <text x="100" y="2672" class="knowledge-title">认证结果规则</text>
-    <text x="100" y="2712" class="knowledge-text">• AuthDecision 成功时才产生 Principal</text>
-    <text x="100" y="2747" class="knowledge-text">• 认证成功不等于允许建立在线会话</text>
-    <text x="100" y="2782" class="knowledge-text">• AdmissionPolicy 校验 User、LoginIdentity 归属与状态</text>
-    <text x="100" y="2817" class="knowledge-text">• 仅 admitted Decision 允许建立或维持 Session</text>
-    <text x="100" y="2852" class="knowledge-text">• Principal 是请求级认证结果，不是稳定 User</text>
+    <text x="100" y="2672" class="knowledge-title">建立在线认证状态</text>
+    <text x="100" y="2712" class="knowledge-text">• Authenticator 证明控制关系并产生 Principal</text>
+    <text x="100" y="2747" class="knowledge-text">• Principal 只表示本次认证成功，不表示已经建立登录态</text>
+    <text x="100" y="2782" class="knowledge-text">• GrantIssuer 在创建状态前调用 AdmissionPolicy</text>
+    <text x="100" y="2817" class="knowledge-text">• Admission 拒绝时不创建 Session 或用户 Token</text>
+    <text x="100" y="2852" class="knowledge-text">• AuthenticationGrant = Session + UserTokenSet</text>
     <text x="100" y="2887" class="knowledge-text">• Admission 只控制认证状态，不负责资源授权</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="780" y="2600" width="700" height="350" rx="18" fill="#fff0d4" stroke="#e5a354" stroke-width="2"/>
     <text x="810" y="2635" class="knowledge-tag">AUTHN · 领域知识</text>
-    <text x="810" y="2672" class="knowledge-title">会话、令牌与适配边界</text>
-    <text x="810" y="2712" class="knowledge-text">• LifetimePolicy 约束滑动 TTL 与绝对生命周期</text>
-    <text x="810" y="2747" class="knowledge-text">• GrantIssuer 领域服务形成 Session + UserTokenSet</text>
-    <text x="810" y="2782" class="knowledge-text">• Access / Refresh / Service Token 均为领域对象</text>
-    <text x="810" y="2817" class="knowledge-text">• Refresher、Verifier、Revoker 是令牌领域服务</text>
-    <text x="810" y="2852" class="knowledge-text">• 用户 Token 在线验证仍检查 Session 与 Admission</text>
-    <text x="810" y="2887" class="knowledge-text">• JWT Codec、KeySet、JWKS、Redis 位于适配边界</text>
+    <text x="810" y="2672" class="knowledge-title">维持或终止认证状态</text>
+    <text x="810" y="2712" class="knowledge-text">• Session + UserTokenSet 共同表达用户在线认证状态</text>
+    <text x="810" y="2747" class="knowledge-text">• Verifier、Refresher 持续检查 Session 与 Admission</text>
+    <text x="810" y="2782" class="knowledge-text">• Refresher 原子轮换令牌，并在生命周期上限内延长 Session</text>
+    <text x="810" y="2817" class="knowledge-text">• RefreshToken 重放会触发对应 Session 撤销</text>
+    <text x="810" y="2852" class="knowledge-text">• ServiceToken 无用户 Session、无 Refresh、无用户 Admission</text>
+    <text x="810" y="2887" class="knowledge-text">• JWT / JWKS / Redis 是适配实现，不是核心领域模型</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -684,6 +671,8 @@
   <text x="1705" y="3257" class="small">策略变更语义</text>
   <line x1="2140" y1="3250" x2="2220" y2="3250" class="knowledge-line"/>
   <text x="2235" y="3257" class="small">领域知识解释线，不表示依赖</text>
+  <line x1="3140" y1="3250" x2="3220" y2="3250" class="admission-link"/>
+  <text x="3235" y="3257" class="small">AuthN 持续准入约束</text>
   <text x="2100" y="3310" text-anchor="middle" class="small">阅读顺序：先看中心模型与关系，再看颜色图例，最后看橙色便签中的不变量、约束和易混淆点。</text>
 
   <text x="2100" y="3420" text-anchor="middle" class="subtitle">三条稳定边界：Identity 拥有 User；AuthN 产生 Principal；AuthZ 使用 Subject</text>

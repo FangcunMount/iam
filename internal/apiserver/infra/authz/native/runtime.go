@@ -7,21 +7,23 @@ import (
 	"sync/atomic"
 	"time"
 
-	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/runtime"
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	authorizationdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 )
 
 type Runtime struct {
-	source  Source
-	current atomic.Pointer[Snapshot]
-	health  runtimeHealth
+	source    Source
+	evaluator authorizationdomain.Evaluator
+	current   atomic.Pointer[Snapshot]
+	health    runtimeHealth
 }
 
-func NewRuntime(ctx context.Context, source Source) (*Runtime, error) {
+func NewRuntime(ctx context.Context, source Source, evaluator authorizationdomain.Evaluator) (*Runtime, error) {
 	if source == nil {
 		return nil, fmt.Errorf("authorization runtime source is required")
 	}
-	runtime := &Runtime{source: source}
+	runtime := &Runtime{source: source, evaluator: evaluator}
 	if err := runtime.LoadPolicy(ctx); err != nil {
 		return nil, err
 	}
@@ -53,14 +55,19 @@ func (r *Runtime) LoadPolicy(ctx context.Context) error {
 
 func (r *Runtime) InvalidateCache() {}
 
-func (r *Runtime) Check(_ context.Context, request authzruntime.Request) (authzruntime.Decision, error) {
+func (r *Runtime) Check(_ context.Context, request authorizationdomain.Request) (authorizationdomain.Decision, error) {
 	started := time.Now()
 	snapshot := r.current.Load()
 	if snapshot == nil {
 		recordCheck("error", started)
-		return authzruntime.Decision{}, fmt.Errorf("authorization runtime snapshot is unavailable")
+		return authorizationdomain.Decision{}, fmt.Errorf("authorization runtime snapshot is unavailable")
 	}
-	decision, err := snapshot.Check(request)
+	evaluationContext, err := snapshot.EvaluationContext(request)
+	if err != nil {
+		recordCheck("error", started)
+		return authorizationdomain.Decision{}, err
+	}
+	decision, err := r.evaluator.Evaluate(request, evaluationContext, time.Time{})
 	result := "denied"
 	if err != nil {
 		result = "error"
@@ -71,10 +78,10 @@ func (r *Runtime) Check(_ context.Context, request authzruntime.Request) (authzr
 	return decision, err
 }
 
-func (r *Runtime) GetAuthorizationSnapshot(_ context.Context, sub subject.Ref, tenantID, appName string) (authzruntime.SubjectSnapshot, error) {
+func (r *Runtime) GetAuthorizationSnapshot(_ context.Context, sub subject.Ref, tenantID, appName string) (authorizationapp.SubjectSnapshot, error) {
 	snapshot := r.current.Load()
 	if snapshot == nil {
-		return authzruntime.SubjectSnapshot{}, fmt.Errorf("authorization runtime snapshot is unavailable")
+		return authorizationapp.SubjectSnapshot{}, fmt.Errorf("authorization runtime snapshot is unavailable")
 	}
 	return snapshot.SubjectSnapshot(sub, tenantID, appName)
 }
@@ -84,11 +91,11 @@ func (r *Runtime) AuthorizeRoute(ctx context.Context, subjectKey, tenantID, reso
 	if err != nil {
 		return false, err
 	}
-	object, err := authzruntime.NewObjectContext("", nil)
+	object, err := authorizationdomain.NewObjectContext("", nil)
 	if err != nil {
 		return false, err
 	}
-	request, err := authzruntime.NewRequest(sub, tenantID, resourceKey, action, object)
+	request, err := authorizationdomain.NewRequest(sub, tenantID, resourceKey, action, object)
 	if err != nil {
 		return false, err
 	}

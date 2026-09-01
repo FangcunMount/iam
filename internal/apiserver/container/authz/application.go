@@ -38,6 +38,6 @@ func (m *AuthzModule) initializeApplication(
 	)
 	m.roleBindingDirectory = bindingApp.NewDirectory(domain.roleBindingValidator, infra.bindingRepository)
 
-	m.authorizationChecker = authorizationApp.NewNativeChecker(infra.nativeRuntime)
-	m.authorizationSnapshotReader = authorizationApp.NewNativeSnapshotReader(infra.nativeRuntime)
+	m.authorizationChecker = authorizationApp.NewChecker(infra.nativeRuntime)
+	m.authorizationSnapshotReader = authorizationApp.NewSnapshotReader(infra.nativeRuntime)
 }
