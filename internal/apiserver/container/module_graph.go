@@ -23,7 +23,7 @@ func (g *moduleGraph) identityModuleDependencies() identity.IdentityModuleDeps {
 	revocation := g.container.runtimeOptions.Identity.SessionRevocation
 	return identity.IdentityModuleDeps{
 		DB:             g.container.mysqlDB,
-		RoleNames:      g.roleNameReader(),
+		EffectiveRoles: g.effectiveRoleReader(),
 		SessionRevoker: g.sessionRevoker(),
 		SessionRevocationConfig: sessionrevocation.WorkerConfig{
 			PollInterval:         revocation.PollInterval,
@@ -94,16 +94,16 @@ func (g *moduleGraph) suggestModuleDependencies() suggest.SuggestModuleDeps {
 		RedisClient: g.container.redisClient,
 	}
 	if g.container.AuthzModule != nil {
-		deps.RouteAuthorization = g.container.AuthzModule.ApplicationCapabilities().RouteAuthorization
+		deps.RoutePermissionChecker = g.container.AuthzModule.ApplicationCapabilities().RoutePermissionChecker
 	}
 	return deps
 }
 
-func (g *moduleGraph) roleNameReader() identity.RoleNameReader {
+func (g *moduleGraph) effectiveRoleReader() identity.EffectiveRoleReader {
 	if g == nil || g.container == nil || g.container.AuthzModule == nil {
 		return nil
 	}
-	return g.container.AuthzModule.RoleNameReader()
+	return g.container.AuthzModule.EffectiveRoleReader()
 }
 
 func (g *moduleGraph) sessionRevoker() sessiondomain.Revoker {

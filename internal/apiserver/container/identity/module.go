@@ -24,7 +24,7 @@ type IdentityModule struct {
 	profileLinkCommands    appprofilelink.Commands
 	profileLinkDirectory   appprofilelink.Directory
 	myProfileLinks         appprofilelink.MyProfileLinks
-	roleNames              RoleNameReader
+	effectiveRoles         EffectiveRoleReader
 	sessionRevocationStore *sessionrevocation.Store
 	stopSessionRevocation  context.CancelFunc
 	sessionRevocationDone  chan struct{}
@@ -63,7 +63,7 @@ func (m *IdentityModule) InitializeWithDeps(deps IdentityModuleDeps) error {
 	m.profileLinkCommands = profileLinkCommands
 	m.profileLinkDirectory = profileLinkDirectory
 	m.myProfileLinks = myProfileLinks
-	m.roleNames = deps.RoleNames
+	m.effectiveRoles = deps.EffectiveRoles
 	m.sessionRevocationStore = sessionrevocation.NewStore(deps.DB)
 	if deps.SessionRevoker != nil && deps.SessionRevocationConfig.PollInterval > 0 {
 		worker := sessionrevocation.NewWorker(m.sessionRevocationStore, deps.SessionRevoker, deps.SessionRevocationConfig)
@@ -117,6 +117,6 @@ func (m *IdentityModule) ApplicationCapabilities() ApplicationCapabilities {
 		ProfileLinkCommands:  m.profileLinkCommands,
 		ProfileLinkDirectory: m.profileLinkDirectory,
 		MyProfileLinks:       m.myProfileLinks,
-		RoleNames:            m.roleNames,
+		EffectiveRoles:       m.effectiveRoles,
 	}
 }

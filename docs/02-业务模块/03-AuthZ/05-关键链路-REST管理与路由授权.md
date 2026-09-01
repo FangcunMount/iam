@@ -1,10 +1,11 @@
 # 关键链路：REST 管理与路由授权
 
-> 状态：已实现 · 本文以当前 Gin router、JWT middleware、permission catalog 与 OpenAPI 为依据。
+> 状态：已实现 · 本文以当前 Gin router、AuthN/AuthZ middleware、permission catalog 与 OpenAPI 为依据。
 
 ## 结论
 
-REST v3 只承担 AuthZ 管理；真正的授权判定由 gRPC v3 `Check` 提供。IAM 自身的管理路由使用用户 JWT 和明确的 Resource/Action，服务间写入使用可信服务身份与 Assignment 约束。
+REST v3 只承担 AuthZ 管理；外部服务的授权判定由 gRPC v3 `Check` 提供。IAM 自身的管理路由先由 AuthN middleware 建立 Principal，再由 AuthZ middleware 使用明确的
+Resource/Action 施权；服务间写入使用可信服务身份与 Assignment 约束。
 
 ## REST v3：管理接口
 
@@ -68,10 +69,10 @@ AuthZ router 先注册模块局部 health，然后要求 Role handler、JWT `Aut
 | IAM REST 管理路由 | AuthN 用户 JWT | `RequirePermissionOrGlobal(Resource, Action)` |
 | 调试/运维路由 | AuthN 用户 JWT | 明确的运维 Resource/Action |
 
-请求体中的 Subject、角色名或 actor 字符串不能替代传输层认证结果。
+请求体中的 Subject、角色名或 actor 字符串不能替代传输层认证结果。AuthN middleware 只负责认证并写入可信请求上下文，不持有 Resource/Action，也不执行授权判定。
 
 REST 路由上的 Principal 来自 AuthN token verifier 返回的已验证 claims。JWT middleware 将 UserID、LoginIdentityID、TenantDomain、OrgID 和
-TokenID 写入 request context。路由授权只使用其中 UserID 构造 `user:<id>` Subject，用 TenantDomain 作为当前 Tenant。
+TokenID 写入 request context。AuthZ `RouteDecisionService` 只使用其中 UserID 构造 `subject.Ref`，用 TenantDomain 作为当前 Tenant，再把路由能力转换为领域 `Request`。
 
 这意味着：
 
@@ -100,7 +101,7 @@ IAM 管理路由的授权顺序是：
 | 当前已是 platform 且 deny | 不重复检查 | 403 |
 | 当前已是 platform 且 error | 不重复检查 | 500 |
 
-中间件还对 `domain_permission`、`global_permission`、`denied`、`unauthenticated`、`error` 做低基数记录。这些结果是路由授权观测，不代替 native Check 的
+AuthZ middleware 还对 `domain_permission`、`global_permission`、`denied`、`unauthenticated`、`error` 做低基数记录。这些结果是路由授权观测，不代替 runtime Check 的
 allowed/denied/error 指标。
 
 这里没有 `super_admin`、`tenant_admin` 等角色名旁路。当前 bootstrap 通过平台域通配 PermissionGrant 提供全局能力，但中间件代码本身接受平台域内任何匹配 Grant。
@@ -147,7 +148,6 @@ contract 仍对齐。
 AuthN 的公开 JWKS 与受保护管理接口要区分：
 
 - 公共 JWKS 只用于验签公钥发布；
--管理 JWKS 与 Session 撤销路由使用用户 JWT；
 - 管理 JWKS 与 Session 撤销路由使用用户 JWT；
 - 路由分别检查 `jwks` 或 `sessions` Resource 下的明确 Action；
 - 同样遵循当前 Tenant 后平台域的授权顺序。
@@ -188,7 +188,7 @@ docs-facts 现在会抽取 README 中带 HTTP method 的 URL，并与 OpenAPI �
 | token 缺失/无效 | 401/认证错误 | 进入授权或 handler |
 | 已认证但两个 Tenant 都 deny | 403 | 根据 role name 放行 |
 | routeAuth 未配置 | 500 | 只做 JWT 后放行 |
-| native runtime 错误 | 500 | 转成 403 隐藏故障 |
+| authorization runtime 错误 | 500 | 转成 403 隐藏故障 |
 | handler DTO/领域输入错误 | 4xx | 跳过 command constructor |
 | 引用冲突/已存在 | 冲突类业务错误 | 伪装成成功并静默忽略 |
 | DB/UoW 失败 | 5xx | 留下部分版本/事件 |
@@ -197,7 +197,7 @@ docs-facts 现在会抽取 README 中带 HTTP method 的 URL，并与 OpenAPI �
 
 - `router_permissions_test.go` 锁定 AuthZ 子路由的 Resource/Action 绑定。
 - `router_matrix_test.go` 锁定路由注册矩阵与模块局部 health。
-- JWT middleware 测试锁定 current Tenant→platform 顺序、allow/deny/error 组合。
+- AuthN middleware 测试锁定 token 验证与 Principal 上下文；AuthZ middleware 测试锁定 current Tenant→platform 顺序、allow/deny/error 组合。
 - `check-route-contracts.py` 比对实际路由与 permission catalog/contract。
 - `check-openapi-contracts.py` 比对 OpenAPI 关键契约。
 - `check-docs-facts.py` 锁定 REST 管理与 gRPC Check 分工，并校验 README 请求 URL。

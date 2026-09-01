@@ -24,10 +24,10 @@ func TestResolveRolesIncludesPlatformRoles(t *testing.T) {
 	requestctx.SetTenantID(c, "fangcun")
 
 	h := &UserHandler{
-		roles: userRoleLookupStub{
+		effectiveRoles: userRoleLookupStub{
 			rolesByDomain: map[string][]string{
-				tenant.DefaultID:  {"role:qs:admin"},
-				tenant.PlatformID: {"role:super_admin"},
+				tenant.DefaultID:  {"qs:admin"},
+				tenant.PlatformID: {"super_admin"},
 			},
 		},
 	}
@@ -62,6 +62,6 @@ type userRoleLookupStub struct {
 	rolesByDomain map[string][]string
 }
 
-func (s userRoleLookupStub) RoleNamesForSubject(_ context.Context, _ subject.Ref, domain string) ([]string, error) {
+func (s userRoleLookupStub) EffectiveRoleNamesForSubject(_ context.Context, _ subject.Ref, domain string) ([]string, error) {
 	return append([]string(nil), s.rolesByDomain[domain]...), nil
 }

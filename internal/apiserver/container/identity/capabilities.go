@@ -18,5 +18,5 @@ type ApplicationCapabilities struct {
 	ProfileLinkCommands  appprofilelink.Commands
 	ProfileLinkDirectory appprofilelink.Directory
 	MyProfileLinks       appprofilelink.MyProfileLinks
-	RoleNames            RoleNameReader
+	EffectiveRoles       EffectiveRoleReader
 }

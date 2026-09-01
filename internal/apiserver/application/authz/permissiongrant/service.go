@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
+	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
@@ -13,8 +13,6 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
-
-type RuntimeReloader interface{ LoadPolicy(context.Context) error }
 
 type CreateCommand struct {
 	TenantID    string
@@ -35,10 +33,10 @@ type RevokeCommand struct {
 type Service struct {
 	uow      authzuow.UnitOfWork
 	repo     domain.Repository
-	reloader RuntimeReloader
+	reloader policychange.RuntimePolicyReloader
 }
 
-func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader RuntimeReloader) *Service {
+func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader policychange.RuntimePolicyReloader) *Service {
 	return &Service{uow: uow, repo: repo, reloader: reloader}
 }
 
@@ -81,7 +79,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 		if err != nil {
 			return err
 		}
-		if err := authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version); err != nil {
+		if err := policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version); err != nil {
 			return err
 		}
 		created = grant
@@ -90,7 +88,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 	if err != nil {
 		return nil, err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "permission_grant_created")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "permission_grant_created")
 	return &created, nil
 }
 
@@ -122,12 +120,12 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err != nil {
 		return err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "permission_grant_revoked")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "permission_grant_revoked")
 	return nil
 }
 

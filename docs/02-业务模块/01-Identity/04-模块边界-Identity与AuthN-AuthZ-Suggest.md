@@ -20,7 +20,7 @@ Identity 是 User、Profile、ProfileLink 的主事实边界，但不是完全�
 | 协作方 | Identity 与它的真实关系 | 一致性/失败语义 |
 | --- | --- | --- |
 | AuthN | LoginIdentity/Session 以 UserID 引用 User；AuthN signup 在自己 UOW 中使用 Identity User repository port；Identity 状态变更写本地安全 Outbox | signup 与 User 同 MySQL 事务；状态与任务同事务，Redis Session 最终幂等撤销 |
-| AuthZ | Identity REST `/me` 用 `RoleNameReader` 补充角色名；Profile REST 的 ProfileLink 前置是局部访问规则 | 角色读取失败时返回无 roles 的 User；不执行通用 AuthZ Check |
+| AuthZ | Identity REST `/me` 用 `EffectiveRoleReader` 补充角色名；Profile REST 的 ProfileLink 前置是局部访问规则 | 角色读取失败时返回无 roles 的 User；不执行通用 AuthZ Check |
 | IDP | IDP 管理 WechatApp/Credential/AppAccessToken，并产出请求内 `ExternalIdentity`；AuthN 只消费 Resolver | `ExternalIdentity` 不传给 Identity；AuthN 映射为 LoginIdentity ProviderKey/User 关联 |
 | Suggest | Suggest infra 直接从 Identity MySQL 表 Full/Delta 派生索引，再结合 AuthZ runtime 与可见 ProfileID 生成 scope | 最终一致；默认 Loader 统一过滤 deleted/revoked Profile、ProfileLink 和 User，并用 tombstone 删除失效项 |
 
@@ -65,7 +65,7 @@ Suggest principal   -> 联想查询的操作者和数据范围是什么？
 | signup 不留半完成账号 | AuthN UOW 显式使用 User repository port 参与本地事务 |
 | 封禁/停用后应尽快失效 Session | Identity application 同事务写本地任务，Worker 调用窄 `SessionRevoker` port |
 | 展示信息不得倒置主从关系 | `/me` 角色读取失败时降级为无 roles |
-| 身份关系不等于权限 | ProfileLink 不保存 RoleBinding/Permission，不自动生成 policy |
+| 身份关系不等于权限 | ProfileLink 不保存 Assignment/PermissionGrant，不自动生成 policy |
 | 搜索性能不污染写模型 | Suggest 维护 ProfileSearchTerm 和进程内索引 |
 | 现有运行时不得被理想图覆盖 | 直接 SQL、同步 port、忽略的 proto 字段均明确记录 |
 
@@ -83,7 +83,7 @@ flowchart LR
     AUTHN -->|"signup UOW uses User repository port"| IDENTITY
     IDENTITY -->|"durable revocation task + worker"| AUTHN
 
-    IDENTITY -->|"REST /me RoleNameReader"| AUTHZ
+    IDENTITY -->|"REST /me EffectiveRoleReader"| AUTHZ
     SUGGEST -->|"route roles and mobile-search authorization"| AUTHZ
 
     AUTHN -->|"Resolve(provider, realm, code)"| IDP
@@ -164,7 +164,7 @@ Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数�
 
 > 标签：当前实现；设计动机可从降级语义推导，尚无独立 ADR
 
-Identity REST `UserHandler` 接收 `RoleNameReader`，按当前 tenant domain 和 platform domain 查询并去重角色名。如果 reader 为 nil、subject
+Identity REST `UserHandler` 接收 `EffectiveRoleReader`，按当前 tenant domain 和 platform domain 查询并去重有效角色名。如果 reader 为 nil、subject
 构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
 
 这说明当前 roles 是 response enrichment，不是 Identity User 事实，也不是 `/me` 请求的授权决策。
@@ -232,7 +232,7 @@ User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`�
 
 ### 8.2 已实现协作
 
-- Identity container 接收 `RoleNameReader`；
+- Identity container 接收 `EffectiveRoleReader`；
 - REST `GET/PATCH /identity/me` 查询 tenant/platform 角色名并补充响应；
 - `/identity/me/profiles` 和 `/identity/profiles/:id` 用当前 User 的 active ProfileLink 做局部访问前置；
 - Suggest scope provider 使用 AuthZ route runtime 获取角色和手机号搜索能力。
@@ -328,7 +328,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 | --- | --- | --- | --- |
 | AuthN signup | Identity User | domain repository port + shared MySQL UOW | 保证 signup 原子性 |
 | Identity lifecycle | AuthN Session | `session.Revoker` port | 封禁后失效会话 |
-| Identity REST | AuthZ | `RoleNameReader` | `/me` 响应展示增强 |
+| Identity REST | AuthZ | `EffectiveRoleReader` | `/me` 响应展示增强 |
 | Suggest infra | Identity storage | read-only Full/Delta SQL | 派生搜索索引 |
 | Suggest scope infra | AuthZ runtime | route/role query | 生成搜索范围和 mobile capability |
 | AuthN signup/linking/signin | IDP ExternalIdentity Resolver | `Resolve(provider, realm, code)` | AuthN 不理解 secret、app repository 或 provider SDK |
@@ -339,7 +339,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 - Identity domain 存储 Principal、Subject、Permission、provider token 或 search index 字段；
 - Identity application 直接读写 AuthN/AuthZ/Suggest repository concrete；
 - AuthN 因 signup 特例而接管 Profile/ProfileLink 任意写入；
-- ProfileLink.Rel 直接生成通用 Permission/RoleBinding；
+- ProfileLink.Rel 直接生成通用 PermissionGrant/Assignment；
 - Suggest 回写 Profile 主数据；
 - 把 Identity v2 proto 的同名 `ExternalIdentity` 字段与 IDP 请求内值对象混为一谈；
 - 把 Suggest SQL 直读描述为已实现事件订阅。

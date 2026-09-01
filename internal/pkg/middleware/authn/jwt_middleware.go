@@ -12,34 +12,17 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v3/pkg/core"
-	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
-
-// RouteAuthorizationRuntime 可选注入路由级授权运行时。
-// 为 nil 时 RequireRole / RequirePermission 返回服务不可用。
-type RouteAuthorizationRuntime interface {
-	AuthorizeRoute(ctx context.Context, sub, tenantID, resourceKey, action string) (bool, error)
-}
 
 // JWTAuthMiddleware JWT 认证中间件
 // 使用新的认证模块来验证令牌
 type JWTAuthMiddleware struct {
-	verifier  token.Verifier
-	routeAuth RouteAuthorizationRuntime
+	verifier token.Verifier
 }
 
 // NewJWTAuthMiddleware 创建 JWT 认证中间件。
-// routeAuth 可为 nil（仅 JWT 校验，不做角色/权限判定）。
-func NewJWTAuthMiddleware(verifier token.Verifier, routeAuth RouteAuthorizationRuntime) *JWTAuthMiddleware {
-	return &JWTAuthMiddleware{
-		verifier:  verifier,
-		routeAuth: routeAuth,
-	}
-}
-
-// SupportsRoleCheck 返回当前中间件是否具备角色判定能力。
-func (m *JWTAuthMiddleware) SupportsRoleCheck() bool {
-	return m != nil && m.routeAuth != nil
+func NewJWTAuthMiddleware(verifier token.Verifier) *JWTAuthMiddleware {
+	return &JWTAuthMiddleware{verifier: verifier}
 }
 
 // AuthRequired 认证必需中间件
@@ -94,103 +77,6 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 		}
 
 		c.Next()
-	}
-}
-
-// RequirePermission 对资源键与动作执行路由级授权判定。
-// 必须在 AuthRequired 之后使用。
-func (m *JWTAuthMiddleware) RequirePermission(resourceObj, action string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if m.routeAuth == nil {
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
-			c.Abort()
-			return
-		}
-		userID, ok := requestctx.UserID(c)
-		if !ok {
-			core.WriteResponse(c, errors.WithCode(code.ErrUnauthorized, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
-		uid := userID.String()
-		sub := "user:" + uid
-		dom := requestctx.TenantIDOrDefault(c)
-		allowed, err := m.routeAuth.AuthorizeRoute(c.Request.Context(), sub, dom, resourceObj, action)
-		if err != nil {
-			log.Errorw("route authorization failed", "sub", sub, "dom", dom)
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
-			c.Abort()
-			return
-		}
-		if !allowed {
-			core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
-			c.Abort()
-			return
-		}
-		c.Next()
-	}
-}
-
-// RequirePermissionOrGlobal checks the exact permission in the request domain
-// and then in the platform domain. The platform wildcard PermissionGrant is the
-// only global authorization mechanism; role names never grant capabilities.
-func (m *JWTAuthMiddleware) RequirePermissionOrGlobal(resourceObj, action string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if m.routeAuth == nil {
-			recordHTTPAuthorization(resourceObj, action, "error")
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
-			c.Abort()
-			return
-		}
-		userID, ok := requestctx.UserID(c)
-		if !ok {
-			recordHTTPAuthorization(resourceObj, action, "unauthenticated")
-			core.WriteResponse(c, errors.WithCode(code.ErrTokenInvalid, "Not authenticated"), nil)
-			c.Abort()
-			return
-		}
-
-		sub := "user:" + userID.String()
-		dom := requestctx.TenantIDOrDefault(c)
-		allowed, tenantErr := m.routeAuth.AuthorizeRoute(
-			c.Request.Context(),
-			sub,
-			dom,
-			resourceObj,
-			action,
-		)
-		if allowed {
-			recordHTTPAuthorization(resourceObj, action, "domain_permission")
-			c.Next()
-			return
-		}
-
-		var globalErr error
-		if dom != tenant.PlatformID {
-			var globalAllowed bool
-			globalAllowed, globalErr = m.routeAuth.AuthorizeRoute(
-				c.Request.Context(), sub, tenant.PlatformID, resourceObj, action,
-			)
-			if globalAllowed {
-				recordHTTPAuthorization(resourceObj, action, "global_permission")
-				c.Next()
-				return
-			}
-		}
-		if tenantErr != nil || globalErr != nil {
-			recordHTTPAuthorization(resourceObj, action, "error")
-			log.Errorw("route authorization check failed",
-				"resource", resourceObj,
-				"action", action,
-			)
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
-			c.Abort()
-			return
-		}
-
-		recordHTTPAuthorization(resourceObj, action, "denied")
-		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
-		c.Abort()
 	}
 }
 

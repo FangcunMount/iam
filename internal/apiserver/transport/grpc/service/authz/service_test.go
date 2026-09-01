@@ -9,16 +9,16 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
-	assignmentauth "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	assignmentadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	rolebindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/native"
+	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/runtime"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -102,9 +102,9 @@ func TestAuthorizationServerSnapshotPreservesAuthorizationMode(t *testing.T) {
 }
 
 func TestAuthorizationServerAssignmentsUseV3AndConstraints(t *testing.T) {
-	authorizer, err := assignmentauth.New(assignmentauth.Config{
+	policy, err := assignmentadmission.New(assignmentadmission.Config{
 		DefaultPolicy: "deny",
-		Services: map[string]assignmentauth.ServiceConstraint{
+		Services: map[string]assignmentadmission.ServiceConstraint{
 			"qs-apiserver.svc": {
 				Domains: []string{"fangcun"}, SubjectTypes: []string{"user"},
 				Roles: []string{"qs:evaluator", "qs:staff"}, RequireDelegatedActorOnGrant: true,
@@ -112,8 +112,8 @@ func TestAuthorizationServerAssignmentsUseV3AndConstraints(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	commands := &roleBindingCommandsFake{}
-	srv := &authorizationServer{roleBindings: commands, assignmentAuthorizer: authorizer}
+	commands := &assignmentCommandsFake{}
+	srv := &authorizationServer{assignments: commands, assignmentAdmission: policy}
 
 	grantResponse, err := srv.GrantAssignment(serviceContext("qs-apiserver.svc"), &authzv3.GrantAssignmentRequest{
 		Subject: "user:100", Domain: "fangcun", RoleName: "qs:evaluator", GrantedBy: "user:1",
@@ -215,11 +215,13 @@ func assessmentCheckRequest(subjectKey, originType string) *authzv3.CheckRequest
 	}
 }
 
-type staticRuntimeSource struct{ dataset native.Dataset }
+type staticRuntimeSource struct{ dataset authzruntime.Dataset }
 
-func (s staticRuntimeSource) Load(context.Context) (native.Dataset, error) { return s.dataset, nil }
+func (s staticRuntimeSource) Load(context.Context) (authzruntime.Dataset, error) {
+	return s.dataset, nil
+}
 
-func newMatrixRuntime(t *testing.T) *native.Runtime {
+func newMatrixRuntime(t *testing.T) *authzruntime.Runtime {
 	t.Helper()
 	assessment, err := resource.NewResource(
 		assessmentResource,
@@ -246,14 +248,14 @@ func newMatrixRuntime(t *testing.T) *native.Runtime {
 	require.NoError(t, err)
 	admin.ID, evaluator.ID, planManager.ID = meta.FromUint64(100), meta.FromUint64(102), meta.FromUint64(103)
 
-	runtime, err := native.NewRuntime(context.Background(), staticRuntimeSource{dataset: native.Dataset{
-		Roles: []native.RoleRecord{
+	runtime, err := authzruntime.NewRuntime(context.Background(), staticRuntimeSource{dataset: authzruntime.Dataset{
+		Roles: []authzruntime.RoleRecord{
 			{ID: meta.FromUint64(11), TenantID: "fangcun", Name: "qs:admin"},
 			{ID: meta.FromUint64(12), TenantID: "fangcun", Name: "qs:evaluator"},
 			{ID: meta.FromUint64(13), TenantID: "fangcun", Name: "qs:evaluation_plan_manager"},
 			{ID: meta.FromUint64(14), TenantID: "fangcun", Name: "qs:staff"},
 		},
-		Assignments: []native.AssignmentRecord{
+		Assignments: []authzruntime.AssignmentRecord{
 			{TenantID: "fangcun", SubjectKey: "user:1", RoleID: meta.FromUint64(11)},
 			{TenantID: "fangcun", SubjectKey: "user:2", RoleID: meta.FromUint64(12)},
 			{TenantID: "fangcun", SubjectKey: "user:3", RoleID: meta.FromUint64(13)},
@@ -319,28 +321,28 @@ func (f *snapshotReaderFake) Read(_ context.Context, _ subject.Ref, _, _ string)
 	return f.snapshot, nil
 }
 
-type roleBindingCommandsFake struct {
-	grants       []rolebindingApp.GrantByRoleNameCommand
-	revokes      []rolebindingApp.RevokeByRoleNameCommand
-	replacements []rolebindingApp.ReplaceManagedAssignmentsCommand
+type assignmentCommandsFake struct {
+	grants       []assignmentApp.GrantByRoleNameCommand
+	revokes      []assignmentApp.RevokeByRoleNameCommand
+	replacements []assignmentApp.ReplaceManagedAssignmentsCommand
 	grantErr     error
 	revokeErr    error
 	replaceErr   error
 }
 
-func (f *roleBindingCommandsFake) GrantByRoleName(_ context.Context, cmd rolebindingApp.GrantByRoleNameCommand) (int64, error) {
+func (f *assignmentCommandsFake) GrantByRoleName(_ context.Context, cmd assignmentApp.GrantByRoleNameCommand) (int64, error) {
 	f.grants = append(f.grants, cmd)
 	return 11, f.grantErr
 }
 
-func (f *roleBindingCommandsFake) RevokeByRoleName(_ context.Context, cmd rolebindingApp.RevokeByRoleNameCommand) (int64, error) {
+func (f *assignmentCommandsFake) RevokeByRoleName(_ context.Context, cmd assignmentApp.RevokeByRoleNameCommand) (int64, error) {
 	f.revokes = append(f.revokes, cmd)
 	return 12, f.revokeErr
 }
 
-func (f *roleBindingCommandsFake) ReplaceManagedAssignments(_ context.Context, cmd rolebindingApp.ReplaceManagedAssignmentsCommand) (rolebindingApp.ReplaceManagedAssignmentsResult, error) {
+func (f *assignmentCommandsFake) ReplaceManagedAssignments(_ context.Context, cmd assignmentApp.ReplaceManagedAssignmentsCommand) (assignmentApp.ReplaceManagedAssignmentsResult, error) {
 	f.replacements = append(f.replacements, cmd)
-	return rolebindingApp.ReplaceManagedAssignmentsResult{DirectRoles: cmd.RoleNames, PolicyVersion: 13, Changed: true}, f.replaceErr
+	return assignmentApp.ReplaceManagedAssignmentsResult{DirectRoles: cmd.RoleNames, PolicyVersion: 13, Changed: true}, f.replaceErr
 }
 
 func serviceContext(serviceName string) context.Context {

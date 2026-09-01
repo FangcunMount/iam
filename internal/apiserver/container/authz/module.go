@@ -4,35 +4,34 @@ import (
 	"fmt"
 	"strings"
 
-	assignmentAuthApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	assignmentAdmissionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authorizationApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
+	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
-	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
 	roleInheritanceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/roleinheritance"
-	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
 	assignmentConstraints "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/assignmentconstraints"
-	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
 
 // AuthzModule 授权模块
 type AuthzModule struct {
-	routeAuthorization          authn.RouteAuthorizationRuntime
-	roleNames                   RoleNameReader
+	routeDecisionService        authorizationApp.RoutePermissionChecker
+	effectiveRoles              EffectiveRoleReader
 	runtimeHealth               RuntimeHealthReporter
-	policyReloader              authzshared.RuntimePolicyReloader
+	policyReloader              policychange.RuntimePolicyReloader
 	resourceCatalog             resourceApp.Catalog
 	resourceDirectory           resourceApp.Directory
 	roleCatalog                 roleApp.Catalog
 	roleDirectory               roleApp.Directory
 	permissionGrantService      *permissionGrantApp.Service
 	roleInheritanceService      *roleInheritanceApp.Service
-	roleBindingCommands         bindingApp.Commands
-	roleBindingDirectory        bindingApp.Directory
-	authorizationChecker        *authorizationApp.Checker
+	assignmentCommands          assignmentApp.Commands
+	assignmentDirectory         assignmentApp.Directory
+	authorizationDecisions      *authorizationApp.DecisionService
 	authorizationSnapshotReader *authorizationApp.SnapshotReader
-	assignmentRequestAuthorizer assignmentAuthApp.Authorizer
+	assignmentAdmissionPolicy   assignmentAdmissionApp.Policy
 }
 
 // NewAuthzModule 创建授权模块
@@ -61,12 +60,12 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	if strings.TrimSpace(deps.AssignmentConstraintsFile) != "" {
 		var err error
 		if deps.GRPCACLEnabled {
-			m.assignmentRequestAuthorizer, err = assignmentConstraints.LoadWithACL(
+			m.assignmentAdmissionPolicy, err = assignmentConstraints.LoadWithACL(
 				deps.AssignmentConstraintsFile,
 				deps.GRPCACLConfigFile,
 			)
 		} else {
-			m.assignmentRequestAuthorizer, err = assignmentConstraints.Load(deps.AssignmentConstraintsFile)
+			m.assignmentAdmissionPolicy, err = assignmentConstraints.Load(deps.AssignmentConstraintsFile)
 		}
 		if err != nil {
 			return err
@@ -86,19 +85,19 @@ func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 		RoleDirectory:               m.roleDirectory,
 		PermissionGrantService:      m.permissionGrantService,
 		RoleInheritanceService:      m.roleInheritanceService,
-		RoleBindingCommands:         m.roleBindingCommands,
-		RoleBindingDirectory:        m.roleBindingDirectory,
-		RouteAuthorization:          m.routeAuthorization,
+		AssignmentCommands:          m.assignmentCommands,
+		AssignmentDirectory:         m.assignmentDirectory,
+		RoutePermissionChecker:      m.routeDecisionService,
 		RuntimeHealth:               m.runtimeHealth,
-		AuthorizationChecker:        m.authorizationChecker,
+		AuthorizationDecisions:      m.authorizationDecisions,
 		AuthorizationSnapshotReader: m.authorizationSnapshotReader,
-		AssignmentRequestAuthorizer: m.assignmentRequestAuthorizer,
+		AssignmentAdmissionPolicy:   m.assignmentAdmissionPolicy,
 	}
 }
 
-func (m *AuthzModule) RoleNameReader() RoleNameReader {
+func (m *AuthzModule) EffectiveRoleReader() EffectiveRoleReader {
 	if m == nil {
 		return nil
 	}
-	return m.roleNames
+	return m.effectiveRoles
 }

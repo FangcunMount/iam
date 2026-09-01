@@ -148,12 +148,12 @@ AuthZ command service
        increment policy_versions
        Stage iam.authz.version_changed
   -> commit
-  -> 当前实例 Reload native runtime
+  -> 当前实例 Reload immutable-snapshot runtime
 
 Outbox relay
   -> topic iam.authz.version
   -> 每个实例使用独立 ephemeral channel 订阅
-  -> VersionEventHandler decode tenant/version
+  -> PolicyPublication.Service decode tenant/version
   -> record observed version event
   -> Build immutable snapshot from DB
 ```
@@ -162,7 +162,7 @@ Outbox relay
 
 Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每个实例，而不是让实例组成只消费一次的工作队列。否则只有一个实例 reload，其余实例会继续使用旧快照。
 
-## 9. AuthZ 原生 runtime 与事件的关系
+## 9. AuthZ authorization runtime 与事件的关系
 
 数据库中的 Assignment、RoleInheritance、PermissionGrant 和 Resource Schema 是授权事实源，不可变 runtime snapshot 是进程内判定快照。事件不是授权事实，
 只是“请重新加载”的协调信号。
@@ -232,7 +232,7 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 | relay | `internal/apiserver/infra/messaging/outbox_relay.go` |
 | composition | `internal/apiserver/container/platform/eventing.go` |
 | AuthZ command services | `internal/apiserver/application/authz` |
-| AuthZ consumer | `internal/apiserver/application/authz/policysync/handler.go` |
+| AuthZ consumer | `internal/apiserver/application/authz/policypublication/service.go` |
 
 ## 15. Verify
 
@@ -240,7 +240,7 @@ Subscriber channel 包含 hostname + pid + `#ephemeral`，目的是广播到每�
 make docs-facts
 go test ./pkg/eventcatalog ./pkg/eventcodec ./pkg/eventmessaging ./pkg/eventruntime ./pkg/outboxcore
 go test ./internal/apiserver/infra/mysql/eventoutbox ./internal/apiserver/infra/messaging
-go test ./internal/apiserver/application/authz/... ./internal/apiserver/infra/authz/native/...
+go test ./internal/apiserver/application/authz/... ./internal/apiserver/infra/authz/runtime/...
 ```
 
 ## 16. 面试追问

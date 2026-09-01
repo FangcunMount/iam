@@ -89,7 +89,7 @@ attribute_key  = object.origin_type
 
 其他 key/resource 返回 `InvalidArgument`，其他 caller 尝试提交该属性返回 `PermissionDenied`。重复 key、缺 typed value、带属性却缺 `object_id` 也会失败。
 
-传输层可以解析 string/int64/bool 三种 oneof，但是否符合具体 Resource schema 仍由 native runtime 校验。“proto 能表达某类型”不等于“某个 caller 已被允许提交它”。
+传输层可以解析 string/int64/bool 三种 oneof，但是否符合具体 Resource schema 仍由 authorization runtime 校验。“proto 能表达某类型”不等于“某个 caller 已被允许提交它”。
 
 ### 响应解释
 
@@ -197,7 +197,7 @@ replacement authorizer 要求显式 roles，不接受 allow-all 等价扩张。
 
 ## 可观测性
 
-native runtime 统计 Check allowed/denied/error 和延迟；Assignment transport 另外统计：
+authorization runtime 统计 Check allowed/denied/error 和延迟；Assignment transport 另外统计：
 
 ```text
 iam_grpc_assignment_authorization_total{service,operation,result}

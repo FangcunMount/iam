@@ -877,7 +877,7 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 		"AuthnModule.GRPCService",
 		"AuthnModule.RotationScheduler",
 		"AuthzModule.RoleHandler",
-		"AuthzModule.RoleBindingHandler",
+		"AuthzModule.AssignmentHandler",
 		"AuthzModule.PolicyHandler",
 		"AuthzModule.ResourceHandler",
 		"AuthzModule.CheckHandler",
@@ -920,6 +920,13 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 		"internal/apiserver/infra/casbin",
 		"internal/apiserver/infra/mysql/casbinrule",
 		"internal/apiserver/domain/authz/scope",
+		"internal/apiserver/application/authz/assignmentauth",
+		"internal/apiserver/application/authz/policysync",
+		"internal/apiserver/application/authz/rolebinding",
+		"internal/apiserver/application/authz/shared",
+		"internal/apiserver/domain/authz/rolebinding",
+		"internal/apiserver/infra/authz/native",
+		"internal/apiserver/infra/mysql/rolebinding",
 	} {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(rel), "*"))
 		if err != nil {
@@ -931,7 +938,9 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	}
 	for _, rel := range []string{
 		"configs/casbin_model.conf",
-		"internal/apiserver/infra/authz/native/casbin_role_resolver.go",
+		"internal/apiserver/infra/authz/runtime/casbin_role_resolver.go",
+		"internal/pkg/middleware/authn/metrics.go",
+		"internal/pkg/middleware/authn/roles.go",
 		"api/rest/authz.v2.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); !os.IsNotExist(err) {
@@ -948,8 +957,8 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	}
 	assertFileContains(t, root, "api/grpc/iam/authz/v3/authz.proto", "OBJECT_CHECK_REQUIRED")
 	assertFileContains(t, root, "api/grpc/iam/authz/v3/authz.proto", "oneof value")
-	assertFileContains(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "BuildSnapshot")
-	assertFileContains(t, root, "internal/apiserver/infra/authz/native/role_graph.go", "type roleGraph struct")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/runtime/snapshot.go", "BuildSnapshot")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/runtime/role_graph.go", "type roleGraph struct")
 	assertFileLacks(t, root, "go.mod", "github.com/casbin/")
 	assertFileContains(t, root, "internal/apiserver/domain/authz/permissiongrant/grant.go", "Constraint")
 	assertFileLacks(t, root, "internal/apiserver/domain/authz/resource/action.go", "type Scope")
@@ -960,6 +969,19 @@ func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
 	assertFileContains(t, root, "configs/grpc_acl.yaml", "/iam.authz.v3.AuthorizationService/ReplaceManagedAssignments")
 	assertFileLacks(t, root, "internal/apiserver/infra/authz/assignmentconstraints/loader.go", "iam.authz.v2")
 	assertFileLacks(t, root, "pkg/sdk/docs/06-authz.md", "iam.authz.v2")
+}
+
+func TestAuthnAndAuthzHTTPMiddlewareStaySeparated(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	authnMiddleware := "internal/pkg/middleware/authn/jwt_middleware.go"
+	authzMiddleware := "internal/pkg/middleware/authz/middleware.go"
+	assertFileContains(t, root, authnMiddleware, "func (m *JWTAuthMiddleware) AuthRequired")
+	assertFileLacks(t, root, authnMiddleware, "RequirePermission")
+	assertFileLacks(t, root, authnMiddleware, "RoutePermissionChecker")
+	assertFileContains(t, root, authzMiddleware, "type RoutePermissionChecker interface")
+	assertFileContains(t, root, authzMiddleware, "RequirePermissionOrGlobal")
 }
 
 func TestAuthzBootstrapSeedsUseFourSegmentResourceKeys(t *testing.T) {
@@ -1000,7 +1022,8 @@ func TestAuthzAuthorizationDoesNotUseRoleNameAdministratorBypasses(t *testing.T)
 			assertFileLacks(t, root, check.path, value)
 		}
 	}
-	assertFileContains(t, root, "internal/pkg/middleware/authn/jwt_middleware.go", "RequirePermissionOrGlobal")
+	assertFileContains(t, root, "internal/pkg/middleware/authz/middleware.go", "RequirePermissionOrGlobal")
+	assertFileLacks(t, root, "internal/pkg/middleware/authn/jwt_middleware.go", "RequirePermission")
 }
 
 func TestAuthzStandaloneBootstrapUsesCanonicalTenantDomain(t *testing.T) {
@@ -1074,11 +1097,11 @@ func TestAuthzDecisionPolicyLivesInTheAuthorizationDomain(t *testing.T) {
 	root := repoRoot(t)
 	assertFileContains(t, root, "internal/apiserver/domain/authz/authorization/evaluator.go", "type Evaluator struct")
 	assertFileContains(t, root, "internal/apiserver/domain/authz/authorization/role_resolver.go", "type RoleResolver interface")
-	assertFileContains(t, root, "internal/apiserver/infra/authz/native/runtime.go", "r.evaluator.Evaluate")
-	assertFileContains(t, root, "internal/apiserver/infra/authz/native/role_graph.go", "var _ authorization.RoleResolver")
-	assertFileLacks(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "func (s *Snapshot) Check")
-	assertFileLacks(t, root, "internal/apiserver/infra/authz/native/snapshot.go", "default-role-manager")
-	assertFileLacks(t, root, "internal/apiserver/application/authz/authorization/checker.go", "NativeChecker")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/runtime/runtime.go", "r.evaluator.Evaluate")
+	assertFileContains(t, root, "internal/apiserver/infra/authz/runtime/role_graph.go", "var _ authorization.RoleResolver")
+	assertFileLacks(t, root, "internal/apiserver/infra/authz/runtime/snapshot.go", "func (s *Snapshot) Check")
+	assertFileLacks(t, root, "internal/apiserver/infra/authz/runtime/snapshot.go", "default-role-manager")
+	assertFileLacks(t, root, "internal/apiserver/application/authz/authorization/decision_service.go", "NativeChecker")
 
 	retiredRuntime := filepath.Join(root, "internal", "apiserver", "domain", "authz", "runtime")
 	matches, err := filepath.Glob(filepath.Join(retiredRuntime, "*"))

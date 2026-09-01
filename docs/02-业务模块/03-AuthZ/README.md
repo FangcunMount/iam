@@ -83,7 +83,7 @@ REST v3 / Assignment gRPC
 
 数据面（高频读）
 可信服务 / IAM route middleware
-  -> Check / AuthorizeRoute
+  -> DecisionService.Check / RouteDecisionService.CheckRoutePermission
   -> immutable snapshot
   -> Decision
 ```

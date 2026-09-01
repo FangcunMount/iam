@@ -34,3 +34,17 @@ func TestRefRejectsUnsupportedOrIncompleteSubject(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRefAcceptsCanonicalSubject(t *testing.T) {
+	ref, err := subject.ParseRef(" user:42 ")
+	require.NoError(t, err)
+	require.Equal(t, subject.TypeUser, ref.Type)
+	require.Equal(t, meta.FromUint64(42), ref.ID)
+}
+
+func TestParseRefRejectsMalformedSubject(t *testing.T) {
+	for _, value := range []string{"", "user", "user:", "robot:42", "user:not-an-id"} {
+		_, err := subject.ParseRef(value)
+		require.True(t, perrors.IsCode(err, code.ErrInvalidArgument), value)
+	}
+}

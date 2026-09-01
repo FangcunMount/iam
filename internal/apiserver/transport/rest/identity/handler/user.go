@@ -14,7 +14,6 @@ import (
 	responsedto "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/response"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
-	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v3/pkg/core"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
@@ -22,17 +21,17 @@ import (
 
 var _ = core.ErrResponse{}
 
-type RoleNameReader interface {
-	RoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
+type EffectiveRoleReader interface {
+	EffectiveRoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
 }
 
 // UserHandler 基础用户 REST 处理器
 type UserHandler struct {
 	*BaseHandler
-	userApp    appuser.Creator
-	profileApp appuser.Editor
-	userQuery  appuser.Directory
-	roles      RoleNameReader
+	userApp        appuser.Creator
+	profileApp     appuser.Editor
+	userQuery      appuser.Directory
+	effectiveRoles EffectiveRoleReader
 }
 
 // NewUserHandler 创建用户处理器。角色读取器可为 nil，此时 /identity/me 不返回 roles。
@@ -40,14 +39,14 @@ func NewUserHandler(
 	userApp appuser.Creator,
 	profileApp appuser.Editor,
 	userQuery appuser.Directory,
-	roles RoleNameReader,
+	roles EffectiveRoleReader,
 ) *UserHandler {
 	return &UserHandler{
-		BaseHandler: NewBaseHandler(),
-		userApp:     userApp,
-		profileApp:  profileApp,
-		userQuery:   userQuery,
-		roles:       roles,
+		BaseHandler:    NewBaseHandler(),
+		userApp:        userApp,
+		profileApp:     profileApp,
+		userQuery:      userQuery,
+		effectiveRoles: roles,
 	}
 }
 
@@ -149,7 +148,7 @@ func extractContactValues(contacts []requestdto.UserContactUpsert) (phone string
 }
 
 func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
-	if h.roles == nil || userID.IsZero() {
+	if h.effectiveRoles == nil || userID.IsZero() {
 		return nil
 	}
 	subjectRef, err := subject.NewUserRef(userID)
@@ -164,7 +163,7 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
 	seen := make(map[string]struct{}, 4)
 	out := make([]string, 0, 4)
 	for idx, dom := range domains {
-		raw, err := h.roles.RoleNamesForSubject(c.Request.Context(), subjectRef, dom)
+		raw, err := h.effectiveRoles.EffectiveRoleNamesForSubject(c.Request.Context(), subjectRef, dom)
 		if err != nil {
 			log.Debugw("me: role name lookup failed", "subject_type", string(subjectRef.Type), "subject_id", subjectRef.ID, "domain", dom, "error", err)
 			if idx == 0 {
@@ -179,7 +178,7 @@ func (h *UserHandler) resolveRoles(c *gin.Context, userID meta.ID) []string {
 			continue
 		}
 		for _, r := range raw {
-			r = authn.NormalizeRoleName(r)
+			r = strings.TrimSpace(r)
 			if r == "" {
 				continue
 			}

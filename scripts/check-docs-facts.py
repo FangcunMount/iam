@@ -241,7 +241,10 @@ def check_generated_document_facts() -> None:
             "ConstraintSet",
             "ObjectAttributes",
             "Immutable Role Graph",
-            "Native Grant Index",
+            "Snapshot Grant Index",
+            "DecisionService.Check",
+            "AuthorizationEvaluator.Evaluate",
+            "AuthZ Middleware",
         ),
         "docs/_images/architecture/core-domain-model-v7.svg": (
             "AdmissionPolicy",
@@ -264,14 +267,14 @@ def check_generated_document_facts() -> None:
             "UserStatusReader",
             "UserResolver",
             "SessionRevoker",
-            "RoleNameReader",
-            "RouteAuthorization",
+            "EffectiveRoleReader",
+            "RoutePermissionChecker",
         ),
         "docs/_images/architecture/layer-architecture.svg": (
             "BuildRESTDeps",
             "BuildGRPCDeps",
             "BuildRuntimeDeps",
-            "AuthZ Native Snapshot",
+            "AuthZ Immutable Snapshot",
             "自有不可变角色图",
         ),
         "docs/_images/architecture/runtime-composition-lifecycle.svg": (
@@ -665,7 +668,7 @@ def check_readiness_facts() -> None:
     metric_sources = "\n".join(
         path.read_text(encoding="utf-8")
         for path in (
-            ROOT / "internal/pkg/middleware/authn/metrics.go",
+            ROOT / "internal/pkg/middleware/authz/metrics.go",
             ROOT / "internal/apiserver/application/authn/challenge/metrics.go",
             ROOT / "internal/apiserver/transport/grpc/service/authz/metrics.go",
             ROOT / "internal/apiserver/infra/mysql/sessionrevocation/metrics.go",

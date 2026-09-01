@@ -339,7 +339,7 @@
 
   <!-- AuthZ section 1 -->
   <rect x="2530" y="315" width="1580" height="765" rx="20" fill="#fcfaff" stroke="#cbbce6" stroke-width="2"/>
-  <text x="2565" y="355" class="section-title">1｜长期授权事实</text>
+  <text x="2565" y="355" class="section-title">1｜建权与赋权：长期授权事实</text>
   <text x="2565" y="383" class="section-desc">Assignment 赋予直接角色，RoleInheritance 派生角色闭包，PermissionGrant 表达允许规则与条件</text>
 
   <g filter="url(#shadow)">
@@ -402,8 +402,8 @@
 
   <!-- AuthZ section 2 -->
   <rect x="2530" y="1110" width="1580" height="450" rx="20" fill="#faf7ff" stroke="#cbbce6" stroke-width="2"/>
-  <text x="2565" y="1150" class="section-title">2｜策略变更语义</text>
-  <text x="2565" y="1178" class="section-desc">修改授权事实、推进租户策略版本并发布版本变更事件</text>
+  <text x="2565" y="1150" class="section-title">2｜策略变更与发布</text>
+  <text x="2565" y="1178" class="section-desc">修改授权事实、推进策略版本、发布变更事件并重建不可变运行时快照</text>
 
   <g filter="url(#shadow)">
     <rect x="2570" y="1225" width="510" height="250" rx="17" class="authz-behavior"/>
@@ -431,8 +431,8 @@
     <line x1="3690" y1="1308" x2="4060" y2="1308" class="divider"/>
     <text x="3715" y="1342" class="field">TenantID · Version</text>
     <text x="3715" y="1374" class="field">ChangedBy · Reason</text>
-    <text x="3715" y="1410" class="field">VersionChangedEvent</text>
-    <text x="3715" y="1442" class="field">TenantID · Version</text>
+    <text x="3715" y="1410" class="field">PolicyPublication.Service</text>
+    <text x="3715" y="1442" class="field">VersionChangedEvent → Snapshot</text>
   </g>
 
   <path d="M3082 1350 H3168" class="policy-link"/>
@@ -444,8 +444,8 @@
 
   <!-- AuthZ section 3 -->
   <rect x="2530" y="1590" width="1580" height="525" rx="20" fill="#fcfaff" stroke="#cbbce6" stroke-width="2"/>
-  <text x="2565" y="1630" class="section-title">3｜单次授权判定</text>
-  <text x="2565" y="1658" class="section-desc">资源服务从可信上下文构造 Subject、Tenant 与 ObjectContext，再提交五元组由不可变运行时快照判定</text>
+  <text x="2565" y="1630" class="section-title">3｜验权与决策 → 施权与执行</text>
+  <text x="2565" y="1658" class="section-desc">DecisionService 调用不可变运行时与领域 Evaluator 产生 Decision；HTTP Middleware 只按结果放行、阻断或报告错误</text>
 
   <g filter="url(#shadow)">
     <rect x="2570" y="1710" width="540" height="215" rx="17" class="authz-model"/>
@@ -473,10 +473,11 @@
 
   <g filter="url(#shadow)">
     <rect x="3190" y="1740" width="390" height="220" rx="17" class="authz-behavior"/>
-    <text x="3215" y="1770" class="stereotype">APPLICATION CHECKER</text>
-    <text x="3385" y="1803" text-anchor="middle" class="model">NativeChecker</text>
+    <text x="3215" y="1770" class="stereotype">APPLICATION DECISION SERVICE</text>
+    <text x="3385" y="1803" text-anchor="middle" class="model">DecisionService</text>
     <line x1="3190" y1="1823" x2="3580" y2="1823" class="divider"/>
-    <text x="3215" y="1857" class="operation">Check(request)</text>
+    <text x="3215" y="1857" class="operation">Check(request) → Runtime.Check</text>
+    <text x="3215" y="1891" class="field">Domain AuthorizationEvaluator.Evaluate</text>
   </g>
 
   <g filter="url(#shadow)">
@@ -494,6 +495,9 @@
   <text x="3150" y="1832" text-anchor="middle" class="relation">提交</text>
   <path d="M3582 1850 H3658" class="solid"/>
   <text x="3620" y="1832" text-anchor="middle" class="relation">返回</text>
+  <rect x="3190" y="2010" width="870" height="72" rx="15" class="authz-behavior"/>
+  <text x="3215" y="2038" class="stereotype">ENFORCEMENT BOUNDARY</text>
+  <text x="3625" y="2065" text-anchor="middle" class="operation">AuthZ Middleware：ALLOW → handler · DENY → 403 · ERROR → 500</text>
   <path d="M2765 627 V1690 H2840 V1708" class="association"/>
   <text x="2795" y="1680" class="relation">提供 Subject</text>
   <path d="M2695 1958 V1927" class="association"/>

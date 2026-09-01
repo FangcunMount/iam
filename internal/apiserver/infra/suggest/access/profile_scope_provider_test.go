@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
-	authn "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
@@ -17,7 +17,7 @@ type stubRouteAuth struct {
 	err                   error
 }
 
-func (s stubRouteAuth) AuthorizeRoute(_ context.Context, _, domain, _, action string) (bool, error) {
+func (s stubRouteAuth) CheckRoutePermission(_ context.Context, _, domain, _, action string) (bool, error) {
 	if s.err != nil {
 		return false, s.err
 	}
@@ -33,7 +33,7 @@ func (s stubRouteAuth) AuthorizeRoute(_ context.Context, _, domain, _, action st
 }
 
 var (
-	_ authn.RouteAuthorizationRuntime         = stubRouteAuth{}
+	_ authorizationapp.RoutePermissionChecker = stubRouteAuth{}
 	_ appsuggest.ProfileVisibilityIDsResolver = visibilityStub{}
 )
 
@@ -115,7 +115,7 @@ func (v visibilityStub) VisibleProfileIDs(context.Context, domainsuggest.Operati
 func TestOperatingProfileAccessScope_roleMatrix(t *testing.T) {
 	cases := []struct {
 		name           string
-		routeAuth      authn.RouteAuthorizationRuntime
+		routeAuth      authorizationapp.RoutePermissionChecker
 		principal      domainsuggest.OperatingPrincipal
 		visibility     appsuggest.ProfileVisibilityIDsResolver
 		wantAll        bool

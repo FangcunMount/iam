@@ -18,7 +18,7 @@ func TestRegisterBindsAuthzRoutesToExplicitPermissions(t *testing.T) {
 	}
 	Register(gin.New(), Dependencies{
 		RoleHandler:            handler.NewRoleHandler(nil, nil),
-		RoleBindingHandler:     handler.NewRoleBindingHandler(nil, nil),
+		AssignmentHandler:      handler.NewAssignmentHandler(nil, nil),
 		PermissionGrantHandler: handler.NewPermissionGrantHandler(nil),
 		RoleInheritanceHandler: handler.NewRoleInheritanceHandler(nil),
 		ResourceHandler:        handler.NewResourceHandler(nil, nil),

@@ -6,26 +6,26 @@ import (
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	"gopkg.in/yaml.v3"
 )
 
-func Load(path string) (assignmentauth.Authorizer, error) {
+func Load(path string) (assignmentadmission.Policy, error) {
 	config, err := loadConfig(path)
 	if err != nil {
 		return nil, err
 	}
-	authorizer, err := assignmentauth.New(config)
+	policy, err := assignmentadmission.New(config)
 	if err != nil {
 		return nil, fmt.Errorf("validate grpc authz assignment constraints: %w", err)
 	}
-	return authorizer, nil
+	return policy, nil
 }
 
 // LoadWithACL loads the request-content constraints and verifies that their
 // service coverage exactly matches the services which the method ACL permits
 // to mutate assignments.
-func LoadWithACL(path, aclPath string) (assignmentauth.Authorizer, error) {
+func LoadWithACL(path, aclPath string) (assignmentadmission.Policy, error) {
 	config, err := loadConfig(path)
 	if err != nil {
 		return nil, err
@@ -33,28 +33,28 @@ func LoadWithACL(path, aclPath string) (assignmentauth.Authorizer, error) {
 	if err := validateAgainstACL(config, aclPath); err != nil {
 		return nil, err
 	}
-	authorizer, err := assignmentauth.New(config)
+	policy, err := assignmentadmission.New(config)
 	if err != nil {
 		return nil, fmt.Errorf("validate grpc authz assignment constraints: %w", err)
 	}
-	return authorizer, nil
+	return policy, nil
 }
 
-func loadConfig(path string) (assignmentauth.Config, error) {
+func loadConfig(path string) (assignmentadmission.Config, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return assignmentauth.Config{}, fmt.Errorf("grpc authz assignment constraints file is required")
+		return assignmentadmission.Config{}, fmt.Errorf("grpc authz assignment constraints file is required")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return assignmentauth.Config{}, fmt.Errorf("read grpc authz assignment constraints: %w", err)
+		return assignmentadmission.Config{}, fmt.Errorf("read grpc authz assignment constraints: %w", err)
 	}
-	var config assignmentauth.Config
+	var config assignmentadmission.Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return assignmentauth.Config{}, fmt.Errorf("parse grpc authz assignment constraints: %w", err)
+		return assignmentadmission.Config{}, fmt.Errorf("parse grpc authz assignment constraints: %w", err)
 	}
-	if err := assignmentauth.Validate(config); err != nil {
-		return assignmentauth.Config{}, fmt.Errorf("validate grpc authz assignment constraints: %w", err)
+	if err := assignmentadmission.Validate(config); err != nil {
+		return assignmentadmission.Config{}, fmt.Errorf("validate grpc authz assignment constraints: %w", err)
 	}
 	return config, nil
 }
@@ -65,7 +65,7 @@ const (
 	replaceAssignmentsMethod = "/iam.authz.v3.AuthorizationService/ReplaceManagedAssignments"
 )
 
-func validateAgainstACL(config assignmentauth.Config, aclPath string) error {
+func validateAgainstACL(config assignmentadmission.Config, aclPath string) error {
 	aclPath = strings.TrimSpace(aclPath)
 	if aclPath == "" {
 		return fmt.Errorf("grpc acl config file is required when assignment constraints are enabled")

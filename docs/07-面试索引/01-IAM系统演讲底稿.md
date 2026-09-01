@@ -48,7 +48,7 @@
 
 ```text
 外部身份接入：provider proof -> IDP ExternalIdentity -> AuthN -> Identity -> Session / Token
-授权决策与传播：Identity User -> AuthZ -> MySQL 事实 / 原生快照 / 不可变角色图 -> Outbox / NSQ
+授权决策与传播：Identity User -> AuthZ -> MySQL 事实 / 不可变快照 / 角色图 -> Outbox / NSQ
 可见资料搜索：Identity facts + 授权范围 -> Suggest read model
 ```
 
@@ -290,7 +290,7 @@
 | --- | --- | --- | --- |
 | Identity | MySQL 中的 User、Profile、ProfileLink | 业务查询 DTO，Suggest 不拥有主数据 | repository 从 MySQL 读取 |
 | AuthN | LoginIdentity/Credential/JWKS metadata 与 Redis 中的在线状态 | JWT claims、JWKS 客户端快照 | 在线 Verify 或 JWKS refresh |
-| AuthZ | MySQL Assignment/Inheritance/PermissionGrant/Resource Schema | 进程内不可变原生快照 | 完整构建后原子替换 |
+| AuthZ | MySQL Assignment/Inheritance/PermissionGrant/Resource Schema | 进程内不可变授权快照 | 完整构建后原子替换 |
 | Suggest | Identity Profile facts 与当前可见性事实 | 进程内 Trie/Hash 索引 | Full/Delta refresh |
 | 事件 | 业务表和 Outbox 发布意图 | MQ 消息只是协调信号 | relay 重试，consumer 幂等处理 |
 
@@ -405,7 +405,7 @@
 > 项目按变化原因拆成五个模块：Identity 管内部身份事实，AuthN 管登录证明、Session 和 Token，AuthZ 管资源授权决策；IDP 隔离外部 provider，Suggest 派生可见、脱敏的 Profile
 > 搜索读模型。
 >
-> 工程上，MySQL 保存业务事实，Redis 承载在线状态，AuthZ 原生快照、JWKS 快照和 Suggest 索引都是可重建投影。AuthZ 策略通过事务、Outbox 和可选 NSQ 促进多实例收敛，语义是
+> 工程上，MySQL 保存业务事实，Redis 承载在线状态，AuthZ 不可变快照、JWKS 快照和 Suggest 索引都是可重建投影。AuthZ 策略通过事务、Outbox 和可选 NSQ 促进多实例收敛，语义是
 > at-least-once，不是 exactly-once。
 >
 > 它的价值不在于接口数量，而在于为身份、认证、授权和投影建立清晰的事实源、失败语义和验证边界。

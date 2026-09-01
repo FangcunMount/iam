@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
+	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -16,10 +16,10 @@ import (
 type RoleCatalog struct {
 	roleValidator roleDomain.Validator
 	uow           authzuow.UnitOfWork
-	reloader      authzshared.RuntimePolicyReloader
+	reloader      policychange.RuntimePolicyReloader
 }
 
-func NewRoleCatalog(roleValidator roleDomain.Validator, uow authzuow.UnitOfWork, reloader authzshared.RuntimePolicyReloader) *RoleCatalog {
+func NewRoleCatalog(roleValidator roleDomain.Validator, uow authzuow.UnitOfWork, reloader policychange.RuntimePolicyReloader) *RoleCatalog {
 	return &RoleCatalog{roleValidator: roleValidator, uow: uow, reloader: reloader}
 }
 
@@ -42,12 +42,12 @@ func (s *RoleCatalog) CreateRole(ctx context.Context, cmd CreateRoleCommand) (*r
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantIDString(), version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantIDString(), version)
 	})
 	if err != nil {
 		return nil, err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "authorization_role_created")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "authorization_role_created")
 	return &created, nil
 }
 
@@ -80,12 +80,12 @@ func (s *RoleCatalog) UpdateRole(ctx context.Context, cmd UpdateRoleCommand) (*r
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err != nil {
 		return nil, err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "authorization_role_updated")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "authorization_role_updated")
 	return updated, nil
 }
 
@@ -104,7 +104,7 @@ func (s *RoleCatalog) DeleteRole(ctx context.Context, cmd DeleteRoleCommand) err
 		if !role.BelongsToTenant(cmd.TenantID) {
 			return perrors.WithCode(code.ErrInvalidArgument, "role does not belong to tenant")
 		}
-		bindings, err := tx.Bindings.ListByRole(txCtx, cmd.ID, cmd.TenantID)
+		assignments, err := tx.Assignments.ListByRole(txCtx, cmd.ID, cmd.TenantID)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func (s *RoleCatalog) DeleteRole(ctx context.Context, cmd DeleteRoleCommand) err
 		if err != nil {
 			return err
 		}
-		if err := authzshared.EnsureRoleUnused(cmd.ID, bindings, grants, inheritances); err != nil {
+		if err := policychange.EnsureRoleUnused(cmd.ID, assignments, grants, inheritances); err != nil {
 			return err
 		}
 		if err := tx.Roles.Delete(txCtx, cmd.ID); err != nil {
@@ -126,10 +126,10 @@ func (s *RoleCatalog) DeleteRole(ctx context.Context, cmd DeleteRoleCommand) err
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err == nil {
-		authzshared.ReloadRuntimePolicy(ctx, s.reloader, "authorization_role_deleted")
+		policychange.ReloadRuntimePolicy(ctx, s.reloader, "authorization_role_deleted")
 	}
 	return err
 }

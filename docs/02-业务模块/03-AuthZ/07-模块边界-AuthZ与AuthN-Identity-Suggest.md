@@ -68,7 +68,7 @@ identity 直接代替用户 Subject，都会混淆威胁边界。
 
 ## Identity → AuthZ：存在性解析，不复制用户模型
 
-Assignment 要防止给不存在的 Subject 授角色。当前 rolebinding validator 通过 SubjectResolverRegistry 调用 Identity User resolver 做存在性检查。
+Assignment 要防止给不存在的 Subject 授角色。当前 assignment validator 通过 SubjectResolverRegistry 调用 Identity User resolver 做存在性检查。
 
 这是一个反腐层：
 

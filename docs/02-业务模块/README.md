@@ -40,7 +40,7 @@ IDP external proof
 - ExternalIdentity、LoginIdentity、User、Principal、Subject 是不同对象；
 - ProfileLink 是身份关系，不是授权事实；
 - provider AppToken 不是 IAM Token；
-- AuthZ 原生快照（含自有不可变角色图）和 Suggest Store 是派生 runtime，不是主数据；
+- AuthZ 不可变快照（含自有不可变角色图）和 Suggest Store 是派生 runtime，不是主数据；
 - Token 验签、主体当前状态、资源授权是三步独立判断。
 
 跨模块深入阅读：[统一模型](../00-概览/06-跨模块统一模型.md)、[身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md) 与

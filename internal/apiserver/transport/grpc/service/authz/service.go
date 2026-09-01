@@ -7,9 +7,9 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
-	assignmentauth "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	assignmentadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	rolebindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	authorizationdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
@@ -39,16 +39,16 @@ type Service struct{ srv authorizationServer }
 func NewService(
 	checker authorizationChecker,
 	snapshotReader authorizationSnapshotReader,
-	roleBindings rolebindingApp.NamedCommands,
-	assignmentAuthorizers ...assignmentauth.Authorizer,
+	assignments assignmentApp.NamedCommands,
+	assignmentPolicies ...assignmentadmission.Policy,
 ) *Service {
-	var assignmentAuthorizer assignmentauth.Authorizer
-	if len(assignmentAuthorizers) > 0 {
-		assignmentAuthorizer = assignmentAuthorizers[0]
+	var assignmentPolicy assignmentadmission.Policy
+	if len(assignmentPolicies) > 0 {
+		assignmentPolicy = assignmentPolicies[0]
 	}
 	return &Service{srv: authorizationServer{
 		checker: checker, snapshotReader: snapshotReader,
-		roleBindings: roleBindings, assignmentAuthorizer: assignmentAuthorizer,
+		assignments: assignments, assignmentAdmission: assignmentPolicy,
 	}}
 }
 
@@ -61,10 +61,10 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authorizationServer struct {
 	authzv3.UnimplementedAuthorizationServiceServer
-	checker              authorizationChecker
-	snapshotReader       authorizationSnapshotReader
-	roleBindings         rolebindingApp.NamedCommands
-	assignmentAuthorizer assignmentauth.Authorizer
+	checker             authorizationChecker
+	snapshotReader      authorizationSnapshotReader
+	assignments         assignmentApp.NamedCommands
+	assignmentAdmission assignmentadmission.Policy
 }
 
 func (s *authorizationServer) Check(ctx context.Context, req *authzv3.CheckRequest) (*authzv3.CheckResponse, error) {
@@ -130,14 +130,14 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv3.
 	if _, err := requireServiceIdentity(ctx); err != nil {
 		return nil, err
 	}
-	if s.roleBindings == nil {
+	if s.assignments == nil {
 		return nil, status.Error(codes.Unavailable, "assignment service is unavailable")
 	}
 	if req == nil || req.Subject == "" || req.Domain == "" || req.RoleName == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, and role_name are required")
 	}
-	if _, err := authorizeAssignmentRequest(ctx, s.assignmentAuthorizer, assignmentauth.Request{
-		Operation: assignmentauth.OperationGrant, Subject: req.Subject, Domain: req.Domain,
+	if _, err := admitAssignmentRequest(ctx, s.assignmentAdmission, assignmentadmission.Request{
+		Operation: assignmentadmission.OperationGrant, Subject: req.Subject, Domain: req.Domain,
 		RoleName: req.RoleName, DelegatedActor: req.GrantedBy,
 	}); err != nil {
 		return nil, err
@@ -146,11 +146,11 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv3.
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	cmd, err := rolebindingApp.NewGrantByRoleNameCommand(sub, req.Domain, req.RoleName, req.GrantedBy)
+	cmd, err := assignmentApp.NewGrantByRoleNameCommand(sub, req.Domain, req.RoleName, req.GrantedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	policyVersion, err := s.roleBindings.GrantByRoleName(ctx, cmd)
+	policyVersion, err := s.assignments.GrantByRoleName(ctx, cmd)
 	if err != nil {
 		return nil, iamgrpc.ToStatusError(err)
 	}
@@ -161,14 +161,14 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv3
 	if _, err := requireServiceIdentity(ctx); err != nil {
 		return nil, err
 	}
-	if s.roleBindings == nil {
+	if s.assignments == nil {
 		return nil, status.Error(codes.Unavailable, "assignment service is unavailable")
 	}
 	if req == nil || req.Subject == "" || req.Domain == "" || req.RoleName == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, and role_name are required")
 	}
-	callerService, err := authorizeAssignmentRequest(ctx, s.assignmentAuthorizer, assignmentauth.Request{
-		Operation: assignmentauth.OperationRevoke, Subject: req.Subject, Domain: req.Domain,
+	callerService, err := admitAssignmentRequest(ctx, s.assignmentAdmission, assignmentadmission.Request{
+		Operation: assignmentadmission.OperationRevoke, Subject: req.Subject, Domain: req.Domain,
 		RoleName: req.RoleName, DelegatedActor: req.RevokedBy,
 	})
 	if err != nil {
@@ -178,11 +178,11 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv3
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	cmd, err := rolebindingApp.NewRevokeByRoleNameCommand(sub, req.Domain, req.RoleName, revokeActor(req.RevokedBy, callerService), req.Reason)
+	cmd, err := assignmentApp.NewRevokeByRoleNameCommand(sub, req.Domain, req.RoleName, revokeActor(req.RevokedBy, callerService), req.Reason)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	policyVersion, err := s.roleBindings.RevokeByRoleName(ctx, cmd)
+	policyVersion, err := s.assignments.RevokeByRoleName(ctx, cmd)
 	if err != nil {
 		return nil, iamgrpc.ToStatusError(err)
 	}
@@ -193,13 +193,13 @@ func (s *authorizationServer) ReplaceManagedAssignments(ctx context.Context, req
 	if _, err := requireServiceIdentity(ctx); err != nil {
 		return nil, err
 	}
-	if s.roleBindings == nil {
+	if s.assignments == nil {
 		return nil, status.Error(codes.Unavailable, "assignment service is unavailable")
 	}
 	if req == nil || strings.TrimSpace(req.Subject) == "" || strings.TrimSpace(req.Domain) == "" || strings.TrimSpace(req.ChangedBy) == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, and changed_by are required")
 	}
-	managedRoles, err := authorizeAssignmentReplacement(ctx, s.assignmentAuthorizer, assignmentauth.ReplacementRequest{
+	managedRoles, err := admitAssignmentReplacement(ctx, s.assignmentAdmission, assignmentadmission.ReplacementRequest{
 		Subject: req.Subject, Domain: req.Domain, RoleNames: req.RoleNames, DelegatedActor: req.ChangedBy,
 	})
 	if err != nil {
@@ -209,13 +209,13 @@ func (s *authorizationServer) ReplaceManagedAssignments(ctx context.Context, req
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	cmd, err := rolebindingApp.NewReplaceManagedAssignmentsCommand(
+	cmd, err := assignmentApp.NewReplaceManagedAssignmentsCommand(
 		sub, req.Domain, req.RoleNames, managedRoles, req.ChangedBy, req.Reason,
 	)
 	if err != nil {
 		return nil, iamgrpc.ToStatusError(err)
 	}
-	result, err := s.roleBindings.ReplaceManagedAssignments(ctx, cmd)
+	result, err := s.assignments.ReplaceManagedAssignments(ctx, cmd)
 	if err != nil {
 		return nil, iamgrpc.ToStatusError(err)
 	}
@@ -276,19 +276,19 @@ func revokeActor(revokedBy, callerService string) string {
 	return "service:" + callerService
 }
 
-func authorizeAssignmentRequest(ctx context.Context, authorizer assignmentauth.Authorizer, request assignmentauth.Request) (string, error) {
+func admitAssignmentRequest(ctx context.Context, policy assignmentadmission.Policy, request assignmentadmission.Request) (string, error) {
 	identity, ok := interceptors.ServiceIdentityFromContext(ctx)
 	if !ok || identity == nil || strings.TrimSpace(identity.ServiceName) == "" {
 		recordAssignmentAuthorization("unknown", string(request.Operation), "denied")
 		return "", status.Error(codes.PermissionDenied, "assignment caller identity is required")
 	}
 	request.CallerService = strings.TrimSpace(identity.ServiceName)
-	if authorizer == nil {
+	if policy == nil {
 		recordAssignmentAuthorization(request.CallerService, string(request.Operation), "allowed")
 		return request.CallerService, nil
 	}
-	if err := authorizer.AuthorizeAssignment(request); err != nil {
-		var denied *assignmentauth.DeniedError
+	if err := policy.AuthorizeAssignment(request); err != nil {
+		var denied *assignmentadmission.DeniedError
 		if errors.As(err, &denied) {
 			recordAssignmentAuthorization(request.CallerService, string(request.Operation), "denied")
 			return "", status.Error(codes.PermissionDenied, "assignment request is not allowed")
@@ -300,28 +300,28 @@ func authorizeAssignmentRequest(ctx context.Context, authorizer assignmentauth.A
 	return request.CallerService, nil
 }
 
-func authorizeAssignmentReplacement(ctx context.Context, authorizer assignmentauth.Authorizer, request assignmentauth.ReplacementRequest) ([]string, error) {
+func admitAssignmentReplacement(ctx context.Context, policy assignmentadmission.Policy, request assignmentadmission.ReplacementRequest) ([]string, error) {
 	identity, ok := interceptors.ServiceIdentityFromContext(ctx)
 	if !ok || identity == nil || strings.TrimSpace(identity.ServiceName) == "" {
-		recordAssignmentAuthorization("unknown", string(assignmentauth.OperationReplace), "denied")
+		recordAssignmentAuthorization("unknown", string(assignmentadmission.OperationReplace), "denied")
 		return nil, status.Error(codes.PermissionDenied, "assignment caller identity is required")
 	}
 	request.CallerService = strings.TrimSpace(identity.ServiceName)
-	if authorizer == nil {
-		recordAssignmentAuthorization(request.CallerService, string(assignmentauth.OperationReplace), "failed")
+	if policy == nil {
+		recordAssignmentAuthorization(request.CallerService, string(assignmentadmission.OperationReplace), "failed")
 		return nil, status.Error(codes.Internal, "managed assignment constraints are unavailable")
 	}
-	managedRoles, err := authorizer.AuthorizeReplacement(request)
+	managedRoles, err := policy.AuthorizeReplacement(request)
 	if err != nil {
-		var denied *assignmentauth.DeniedError
+		var denied *assignmentadmission.DeniedError
 		if errors.As(err, &denied) {
-			recordAssignmentAuthorization(request.CallerService, string(assignmentauth.OperationReplace), "denied")
+			recordAssignmentAuthorization(request.CallerService, string(assignmentadmission.OperationReplace), "denied")
 			return nil, status.Error(codes.PermissionDenied, "assignment request is not allowed")
 		}
-		recordAssignmentAuthorization(request.CallerService, string(assignmentauth.OperationReplace), "failed")
+		recordAssignmentAuthorization(request.CallerService, string(assignmentadmission.OperationReplace), "failed")
 		return nil, status.Error(codes.Internal, "assignment authorization failed")
 	}
-	recordAssignmentAuthorization(request.CallerService, string(assignmentauth.OperationReplace), "allowed")
+	recordAssignmentAuthorization(request.CallerService, string(assignmentadmission.OperationReplace), "allowed")
 	return managedRoles, nil
 }
 
@@ -363,4 +363,4 @@ func toProtoReason(reason authorizationdomain.Reason) authzv3.DecisionReason {
 }
 
 var _ authzv3.AuthorizationServiceServer = (*authorizationServer)(nil)
-var _ authorizationChecker = (*authzapp.Checker)(nil)
+var _ authorizationChecker = (*authzapp.DecisionService)(nil)

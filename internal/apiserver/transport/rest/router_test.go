@@ -21,6 +21,7 @@ import (
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
 
 	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	authzMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authz"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 	"github.com/FangcunMount/iam/v3/pkg/version"
 	"github.com/stretchr/testify/require"
@@ -327,7 +328,11 @@ func TestRegisterAdminRoutesRegistersSessionControlRoutes(t *testing.T) {
 	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
 	router := newRouterForTest(deps, RouterOptions{})
 
-	router.registerAdminRoutes(engine, authnMiddleware.NewJWTAuthMiddleware(nil, routeAuthorizationStub{}))
+	router.registerAdminRoutes(
+		engine,
+		authnMiddleware.NewJWTAuthMiddleware(nil),
+		authzMiddleware.NewMiddleware(routeAuthorizationStub{}),
+	)
 
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
 	assertRouteRegistered(t, engine, http.MethodPost, "/api/v2/admin/login-identities/:loginIdentityId/sessions/revoke")
@@ -355,7 +360,7 @@ func TestRegisterAdminRoutesFailsClosedWithoutAdminProtection(t *testing.T) {
 	deps.Authn.SessionAdminHandler = authhandler.NewSessionAdminHandler(sessionServiceStub{})
 	router := newRouterForTest(deps, RouterOptions{})
 
-	router.registerAdminRoutes(engine, nil)
+	router.registerAdminRoutes(engine, nil, nil)
 
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/sessions/:sessionId/revoke")
 	assertRouteNotRegistered(t, engine, http.MethodPost, "/api/v2/admin/login-identities/:loginIdentityId/sessions/revoke")
@@ -398,7 +403,7 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 	}
 	deps.Authz = AuthzDeps{
 		RoleHandler:            authzhandler.NewRoleHandler(nil, nil),
-		RoleBindingHandler:     authzhandler.NewRoleBindingHandler(nil, nil),
+		AssignmentHandler:      authzhandler.NewAssignmentHandler(nil, nil),
 		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
 		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
 	}
@@ -531,7 +536,7 @@ var _ sessionapp.Revoker = sessionServiceStub{}
 
 type routeAuthorizationStub struct{}
 
-func (routeAuthorizationStub) AuthorizeRoute(_ context.Context, _, _, _, _ string) (bool, error) {
+func (routeAuthorizationStub) CheckRoutePermission(_ context.Context, _, _, _, _ string) (bool, error) {
 	return true, nil
 }
 

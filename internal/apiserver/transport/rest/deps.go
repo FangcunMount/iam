@@ -15,7 +15,7 @@ import (
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
 	idphandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/handler"
-	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	authzMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authz"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
@@ -67,11 +67,11 @@ type AuthnDeps struct {
 // AuthzDeps 授权依赖
 type AuthzDeps struct {
 	RoleHandler            *authzhandler.RoleHandler
-	RoleBindingHandler     *authzhandler.RoleBindingHandler
+	AssignmentHandler      *authzhandler.AssignmentHandler
 	PermissionGrantHandler *authzhandler.PermissionGrantHandler
 	RoleInheritanceHandler *authzhandler.RoleInheritanceHandler
 	ResourceHandler        *authzhandler.ResourceHandler
-	RouteAuthorization     authnMiddleware.RouteAuthorizationRuntime
+	RoutePermissionChecker authzMiddleware.RoutePermissionChecker
 	HealthReporter         AuthzHealthReporter
 }
 

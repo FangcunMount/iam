@@ -283,9 +283,9 @@ Application / Domain
 | AuthN | IDP | `ExternalIdentityResolver` |
 | AuthN | Identity | `UserStatusReader` |
 | AuthZ | Identity | `UserResolver` |
-| Identity | AuthZ | `RoleNameReader` |
+| Identity | AuthZ | `EffectiveRoleReader` |
 | Identity | AuthN | `SessionRevoker` |
-| Suggest | AuthZ | `RouteAuthorization`，用明确 Resource/Action 派生 `ProfileAccessScope` |
+| Suggest | AuthZ | `RoutePermissionChecker`，用明确 Resource/Action 派生 `ProfileAccessScope` |
 
 例如：
 
@@ -293,7 +293,7 @@ Application / Domain
 - AuthN 不直接读取 Identity User Repository，只通过 `UserStatusReader` 判断 User 状态；
 - AuthZ 不直接读取 Identity User Repository，只通过 `UserResolver` 校验 User Subject；
 - Identity 撤销用户时不需要操作 AuthN 的 Session Repository，只需要调用 `SessionRevoker`；
-- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或原生快照实现，只通过窄的 `RouteAuthorization` 对 `profiles/search`、平台
+- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或不可变快照实现，只通过窄的 `RoutePermissionChecker` 对 `profiles/search`、平台
   `profiles/list` 和 `profiles/search_by_mobile` 等 Resource/Action capability 求值查询范围，不依赖角色名特例。
 
 AuthN 和 AuthZ 也不需要建立领域模型直连：

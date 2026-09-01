@@ -6,26 +6,26 @@ import (
 	"slices"
 	"strconv"
 
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
-	authn "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 // OperatingProfileAccessScopeProvider 将 operating 身份与可选的 ProfileID 解析器合并为 ProfileAccessScope。
 // 实现 appsuggest.ProfileAccessScopeProvider，放在 infra 层以免 application/suggest 依赖 AuthZ 细节。
 type OperatingProfileAccessScopeProvider struct {
-	routeAuth  authn.RouteAuthorizationRuntime
-	visibility appsuggest.ProfileVisibilityIDsResolver
+	permissions authorizationapp.RoutePermissionChecker
+	visibility  appsuggest.ProfileVisibilityIDsResolver
 }
 
 // NewOperatingProfileAccessScopeProvider 创建 Provider。
 // routeAuth 可为 nil（降级为仅 OperatorID + OrgIDs）；visibility 可为 nil。
 func NewOperatingProfileAccessScopeProvider(
-	routeAuth authn.RouteAuthorizationRuntime,
+	permissions authorizationapp.RoutePermissionChecker,
 	visibility appsuggest.ProfileVisibilityIDsResolver,
 ) *OperatingProfileAccessScopeProvider {
-	return &OperatingProfileAccessScopeProvider{routeAuth: routeAuth, visibility: visibility}
+	return &OperatingProfileAccessScopeProvider{permissions: permissions, visibility: visibility}
 }
 
 // ResolveProfileAccessScope 实现 ProfileAccessScopeProvider。
@@ -42,7 +42,7 @@ func (p *OperatingProfileAccessScopeProvider) ResolveProfileAccessScope(
 		return domainsuggest.ProfileAccessScope{}, fmt.Errorf("profile access scope provider is nil")
 	}
 	sub := "user:" + strconv.FormatInt(principal.OperatorID, 10)
-	if p.routeAuth == nil {
+	if p.permissions == nil {
 		out := p.scopeOperatorAndOrg(principal, false)
 		if err := p.mergeVisibility(ctx, principal, &out); err != nil {
 			return domainsuggest.ProfileAccessScope{}, err
@@ -79,7 +79,7 @@ func (p *OperatingProfileAccessScopeProvider) tryPlatformProfileScope(
 	ctx context.Context,
 	sub string,
 ) (domainsuggest.ProfileAccessScope, bool, error) {
-	allowed, err := p.routeAuth.AuthorizeRoute(
+	allowed, err := p.permissions.CheckRoutePermission(
 		ctx, sub, tenant.PlatformID, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionList,
 	)
 	if err != nil {
@@ -88,7 +88,7 @@ func (p *OperatingProfileAccessScopeProvider) tryPlatformProfileScope(
 	if !allowed {
 		return domainsuggest.ProfileAccessScope{}, false, nil
 	}
-	mobileAllowed, err := p.routeAuth.AuthorizeRoute(
+	mobileAllowed, err := p.permissions.CheckRoutePermission(
 		ctx, sub, tenant.PlatformID, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionSearchByMobile,
 	)
 	if err != nil {
@@ -100,7 +100,7 @@ func (p *OperatingProfileAccessScopeProvider) tryPlatformProfileScope(
 }
 
 func (p *OperatingProfileAccessScopeProvider) mobileSearchAllowed(ctx context.Context, sub, tenantDom string) (bool, error) {
-	allowed, err := p.routeAuth.AuthorizeRoute(ctx, sub, tenantDom, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionSearchByMobile)
+	allowed, err := p.permissions.CheckRoutePermission(ctx, sub, tenantDom, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionSearchByMobile)
 	if err != nil {
 		return false, err
 	}

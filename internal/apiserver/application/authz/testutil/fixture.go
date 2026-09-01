@@ -10,11 +10,11 @@ import (
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	roleInheritanceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/roleinheritance"
+	assignmentRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/assignment"
 	permissionGrantRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/permissiongrant"
 	policyRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/policy"
 	resourceRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/resource"
 	roleRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
-	roleBindingRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
 	roleInheritanceRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/roleinheritance"
 	mysqlAuthzUOW "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v3/pkg/event"
@@ -51,7 +51,7 @@ func NewFixture(t *testing.T, stager event.Stager) *Fixture {
 		t.Cleanup(func() { _ = sqlDB.Close() })
 	}
 	require.NoError(t, db.AutoMigrate(
-		&roleRepo.RolePO{}, &roleBindingRepo.BindingPO{}, &resourceRepo.ResourcePO{},
+		&roleRepo.RolePO{}, &assignmentRepo.AssignmentPO{}, &resourceRepo.ResourcePO{},
 		&permissionGrantRepo.GrantPO{}, &roleInheritanceRepo.InheritancePO{}, &policyRepo.PolicyVersionPO{},
 	))
 	return &Fixture{

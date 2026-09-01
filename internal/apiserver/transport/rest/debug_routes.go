@@ -8,11 +8,12 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	authzMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authz"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // registerCacheGovernanceDebugRoutes 注册缓存治理调试路由
-func (r *Router) registerCacheGovernanceDebugRoutes(engine *gin.Engine, authMiddleware *authnMiddleware.JWTAuthMiddleware) {
+func (r *Router) registerCacheGovernanceDebugRoutes(engine *gin.Engine, authMiddleware *authnMiddleware.JWTAuthMiddleware, authorizationMiddleware *authzMiddleware.Middleware) {
 	// 如果引擎为空或缓存治理调试未启用，则返回
 	if engine == nil || !r.cacheGovernanceDebugEnabled() {
 		return
@@ -26,8 +27,7 @@ func (r *Router) registerCacheGovernanceDebugRoutes(engine *gin.Engine, authMidd
 		return
 	}
 
-	// 如果认证中间件不支持角色检查，则跳过缓存治理调试路由
-	if authMiddleware == nil || !authMiddleware.SupportsRoleCheck() {
+	if authMiddleware == nil || authorizationMiddleware == nil || !authorizationMiddleware.Available() {
 		log.Warn("Skip cache governance debug routes: admin protection enabled but authz middleware is unavailable")
 		return
 	}
@@ -36,7 +36,7 @@ func (r *Router) registerCacheGovernanceDebugRoutes(engine *gin.Engine, authMidd
 	debug := engine.Group("/debug/cache-governance")
 	debug.Use(
 		authMiddleware.AuthRequired(),
-		authMiddleware.RequirePermissionOrGlobal(authzapp.ResourceCacheGovernance, authzapp.ActionRead),
+		authorizationMiddleware.RequirePermissionOrGlobal(authzapp.ResourceCacheGovernance, authzapp.ActionRead),
 	)
 	{
 		// 注册缓存治理目录路由

@@ -206,9 +206,10 @@ constraints 必须决定调用服务是否允许代表该 actor 写入。Revoke 
 
 ## 主要代码与测试
 
-- `internal/apiserver/application/authz/rolebinding/command_service.go`：Assignment 增量写入与批量替换。
-- `internal/apiserver/application/authz/rolebinding/types.go`：批量替换命令及输入不变量。
-- `internal/apiserver/domain/authz/service`：领域校验与约束端口。
+- `internal/apiserver/application/authz/assignment/command_service.go`：Assignment 增量写入与批量替换。
+- `internal/apiserver/application/authz/assignment/types.go`：批量替换命令及输入不变量。
+- `internal/apiserver/application/authz/assignmentadmission`：服务间 Assignment 写入的内容级准入策略。
+- `internal/apiserver/domain/authz/assignment`：Assignment 聚合、主体解析与写入不变量。
 - `internal/apiserver/infra/mysql/uow/authz`：仓储 Unit of Work 与语义测试。
 - `internal/apiserver/infra/mysql/uow/authz/replace_managed_assignments_test.go`：原子性、幂等、保留和回滚测试。
 

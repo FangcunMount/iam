@@ -59,7 +59,7 @@ Credential 未创建
 | active user phone 唯一 | `UniquenessChecker` | migration 000017 的 active phone generated column + unique index |
 | 每个 User 最多一个 active self ProfileLink | `SelfProfileGuard` | migration 000007 的 active self guard |
 | 只能有一个 active JWKS key | key lifecycle check | migration 000016 的 single-active guard |
-| 同一 Subject/Role/Tenant 最多一个 active RoleBinding | RoleBinding validator | migration 000025 的 generated `active_guard` + composite unique index |
+| 同一 Subject/Role/Tenant 最多一个 active Assignment | Assignment validator | migration 000025 的 generated `active_guard` + composite unique index |
 | LoginIdentity provider key 唯一 | repository lookup/builder | `login_identities` 唯一索引 |
 
 数据库错误再由 repository translator 映射为稳定业务错误，避免把 MySQL 1062 直接泄漏给上层。
@@ -115,7 +115,7 @@ AuthZ UoW 聚合：
 - `PolicyVersion` repository；
 - `event.Stager`。
 
-AuthZ command service 在一个事务里完成管理事实、版本递增和 Outbox 暂存。提交后才触发当前实例的原生 runtime reload。
+AuthZ command service 在一个事务里完成管理事实、版本递增和 Outbox 暂存。提交后才触发当前实例的 authorization runtime reload。
 
 这避免出现“内存快照已允许，但数据库事务随后回滚”的反向不一致。
 
@@ -203,7 +203,7 @@ DatabaseManager.Initialize
 1, 359 行、与 canonical ID 零重叠且无数据库依赖；不向 canonical 回填。destructive down 均 fail closed，恢复依赖发布前完整备份。
 
 `000025` 为 `authz_assignments` 增加由 MySQL 计算的 `active_guard`，并对
-`(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active RoleBinding 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复
+`(subject_type, subject_id, role_id, tenant_id, active_guard)` 建立复合唯一索引。这使 active Assignment 的唯一性不再依赖 ORM 填充字段；迁移前若已有重复
 active 事实，创建索引会 fail closed，不会自动删除授权数据。
 
 `000026` 增加 `authz_permission_grants`、`authz_role_inheritances` 和资源属性 Schema；`000027` 在离线转换证据存在时不可逆删除 `casbin_rule`、

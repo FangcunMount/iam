@@ -271,7 +271,7 @@ sequenceDiagram
 
 - 删除 User 或 Profile；
 - 物理删除 ProfileLink；
-- 修改 AuthZ RoleBinding/Permission；
+- 修改 AuthZ Assignment/PermissionGrant；
 - 撤销 AuthN Session；
 - 直接刷新 Suggest 索引。
 

@@ -109,7 +109,7 @@ Envelope encryption/KMS 的价值是把“能读数据库”和“能解密 secr
 ## 6. 授权威胁
 
 - confused deputy：服务用客户端提供的 Subject/Tenant 做 Check；
-- stale revoke：某实例原生授权快照未 reload；
+- stale revoke：某实例不可变授权快照未 reload；
 - over-broad pattern：受信系统 Grant 的 resource/action wildcard 过宽；
 - UI-only auth：前端隐藏按钮但服务未 Check；
 - route/object mismatch：路由 capability 通过后未加载对象并执行所需的 ObjectAttribute Check；
@@ -125,7 +125,7 @@ ACL 和敏感操作对象级 Check。
 ```text
 普通用户提交 tenant=admin-tenant, subject=service:root
   -> handler 原样构造 CheckCommand
-  -> 原生 runtime 对这组伪造输入正确返回 allow
+  -> authorization runtime 对这组伪造输入正确返回 allow
 ```
 
 因此值对象格式合法远远不够。Subject 来自 Principal/service identity，Tenant 来自可信绑定，Resource/Action 来自服务端注册表，对象属性来自服务端已加载的领域对象。
@@ -275,5 +275,5 @@ matcher input 和 Decision matched policy。
 
 ```bash
 make docs-facts
-go test ./internal/pkg/architecture/... ./internal/apiserver/application/authn/... ./internal/apiserver/infra/authz/native/... ./internal/apiserver/transport/grpc/...
+go test ./internal/pkg/architecture/... ./internal/apiserver/application/authn/... ./internal/apiserver/infra/authz/runtime/... ./internal/apiserver/transport/grpc/...
 ```

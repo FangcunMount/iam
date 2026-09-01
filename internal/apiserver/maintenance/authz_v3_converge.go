@@ -10,16 +10,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/roleinheritance"
+	assignmentrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/assignment"
 	permissiongrantrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/permissiongrant"
 	resourcerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/resource"
 	rolerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
-	bindingrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
 	roleinheritancerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/roleinheritance"
 	dbmysql "github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -82,7 +82,7 @@ type AuthzV3ConvergePlan struct {
 type convergeState struct {
 	roles        []*rolerepo.RolePO
 	resources    []*resourcerepo.ResourcePO
-	assignments  []*bindingrepo.BindingPO
+	assignments  []*assignmentrepo.AssignmentPO
 	inheritances []*roleinheritancerepo.InheritancePO
 	grants       []*permissiongrantrepo.GrantPO
 	users        map[string]convergeUserState
@@ -876,7 +876,7 @@ func ApplyAuthzV3Convergence(ctx context.Context, db *gorm.DB, uow authzuow.Unit
 				plan.block("apply_policy_version_increment_failed_" + tenantID)
 				return err
 			}
-			if err := shared.StagePolicyVersionChanged(txCtx, repos.Events, tenantID, version); err != nil {
+			if err := policychange.StagePolicyVersionChanged(txCtx, repos.Events, tenantID, version); err != nil {
 				plan.block("apply_policy_version_event_failed_" + tenantID)
 				return err
 			}
@@ -1083,7 +1083,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 	if err != nil || subjectID.IsZero() {
 		return fmt.Errorf("validated missing subject id is invalid")
 	}
-	bindings, err := repos.Bindings.ListBySubject(ctx, "user", subjectID, "fangcun")
+	assignments, err := repos.Assignments.ListBySubject(ctx, "user", subjectID, "fangcun")
 	if err != nil {
 		return err
 	}
@@ -1096,10 +1096,10 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		roleNamesByID[item.ID] = name
 	}
 	removed := 0
-	for _, binding := range bindings {
-		if _, ok := roleNamesByID[binding.RoleID]; ok {
+	for _, assignment := range assignments {
+		if _, ok := roleNamesByID[assignment.RoleID]; ok {
 			removed++
-			if err := repos.Bindings.Delete(ctx, binding.ID); err != nil {
+			if err := repos.Assignments.Delete(ctx, assignment.ID); err != nil {
 				return err
 			}
 		}

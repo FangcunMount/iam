@@ -4,21 +4,20 @@ import (
 	"context"
 	"time"
 
-	assignmentAuthApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentauth"
+	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	assignmentAdmissionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authorizationApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
-	bindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
 	roleInheritanceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/roleinheritance"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
-	"github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
 )
 
-// RoleNameReader resolves role names for a subject within a tenant.
-// The method shape matches identity.RoleNameReader without importing identity.
-type RoleNameReader interface {
-	RoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
+// EffectiveRoleReader resolves direct and inherited roles for a subject.
+// The method shape matches identity.EffectiveRoleReader without importing identity.
+type EffectiveRoleReader interface {
+	EffectiveRoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
 }
 
 // RuntimeHealthReporter exposes authz runtime reload health.
@@ -36,11 +35,11 @@ type ApplicationCapabilities struct {
 	RoleDirectory               roleApp.Directory
 	PermissionGrantService      *permissionGrantApp.Service
 	RoleInheritanceService      *roleInheritanceApp.Service
-	RoleBindingCommands         bindingApp.Commands
-	RoleBindingDirectory        bindingApp.Directory
-	RouteAuthorization          authn.RouteAuthorizationRuntime
+	AssignmentCommands          assignmentApp.Commands
+	AssignmentDirectory         assignmentApp.Directory
+	RoutePermissionChecker      authorizationApp.RoutePermissionChecker
 	RuntimeHealth               RuntimeHealthReporter
-	AuthorizationChecker        *authorizationApp.Checker
+	AuthorizationDecisions      *authorizationApp.DecisionService
 	AuthorizationSnapshotReader *authorizationApp.SnapshotReader
-	AssignmentRequestAuthorizer assignmentAuthApp.Authorizer
+	AssignmentAdmissionPolicy   assignmentAdmissionApp.Policy
 }

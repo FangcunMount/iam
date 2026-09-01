@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
+	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -16,13 +16,13 @@ import (
 type ResourceCatalog struct {
 	resourceValidator resourceDomain.Validator
 	uow               authzuow.UnitOfWork
-	reloader          authzshared.RuntimePolicyReloader
+	reloader          policychange.RuntimePolicyReloader
 }
 
 func NewResourceCatalog(
 	resourceValidator resourceDomain.Validator,
 	uow authzuow.UnitOfWork,
-	reloader authzshared.RuntimePolicyReloader,
+	reloader policychange.RuntimePolicyReloader,
 ) *ResourceCatalog {
 	return &ResourceCatalog{resourceValidator: resourceValidator, uow: uow, reloader: reloader}
 }
@@ -51,12 +51,12 @@ func (s *ResourceCatalog) CreateResource(ctx context.Context, cmd CreateResource
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err != nil {
 		return nil, err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "authorization_resource_created")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "authorization_resource_created")
 	return &created, nil
 }
 
@@ -96,18 +96,18 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 		if err != nil {
 			return err
 		}
-		if err := authzshared.ValidateResourceDependencies(*updated, grants); err != nil {
+		if err := policychange.ValidateResourceDependencies(*updated, grants); err != nil {
 			return err
 		}
 		if err := tx.Resources.Update(txCtx, updated); err != nil {
 			return err
 		}
-		for _, tenantID := range authzshared.AffectedResourceTenantIDs(cmd.TenantID, grants) {
+		for _, tenantID := range policychange.AffectedResourceTenantIDs(cmd.TenantID, grants) {
 			version, err := tx.PolicyVersions.Increment(txCtx, tenantID, cmd.ChangedBy, "authorization resource updated")
 			if err != nil {
 				return err
 			}
-			if err := authzshared.StagePolicyVersionChanged(txCtx, tx.Events, tenantID, version); err != nil {
+			if err := policychange.StagePolicyVersionChanged(txCtx, tx.Events, tenantID, version); err != nil {
 				return err
 			}
 		}
@@ -116,7 +116,7 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 	if err != nil {
 		return nil, err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "authorization_resource_updated")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "authorization_resource_updated")
 	return updated, nil
 }
 
@@ -135,7 +135,7 @@ func (s *ResourceCatalog) DeleteResource(ctx context.Context, cmd DeleteResource
 		if err != nil {
 			return err
 		}
-		if err := authzshared.EnsureResourceUnused(grants); err != nil {
+		if err := policychange.EnsureResourceUnused(grants); err != nil {
 			return err
 		}
 		if err := tx.Resources.Delete(txCtx, cmd.ID); err != nil {
@@ -145,10 +145,10 @@ func (s *ResourceCatalog) DeleteResource(ctx context.Context, cmd DeleteResource
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err == nil {
-		authzshared.ReloadRuntimePolicy(ctx, s.reloader, "authorization_resource_deleted")
+		policychange.ReloadRuntimePolicy(ctx, s.reloader, "authorization_resource_deleted")
 	}
 	return err
 }

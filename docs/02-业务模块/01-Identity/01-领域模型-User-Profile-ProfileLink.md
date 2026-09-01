@@ -169,7 +169,7 @@ RevokedAt
 | `User.profile_ids` | 难以表达关系类型、建立/撤销时间和反向查询 |
 | `Profile.owner_user_id` | 只能表达单一所有者，不支持多对多 |
 | 两个集合分别维护 | 产生双写一致性问题，仍无处存放关系属性 |
-| AuthZ RoleBinding/Permission | 只能表达授权关系，不能作为业务身份关系的主事实 |
+| AuthZ Assignment/PermissionGrant | 只能表达授权关系，不能作为业务身份关系的主事实 |
 
 #### 后果
 

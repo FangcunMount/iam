@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	assignmentrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/assignment"
 	rolerepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
-	bindingrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	mysqldriver "github.com/go-sql-driver/mysql"
@@ -25,8 +25,8 @@ func TestFindMissingSubjectRequiresExactFingerprintAndFourRoles(t *testing.T) {
 			Name:        name,
 		})
 		state.assignments = append(state.assignments,
-			&bindingrepo.BindingPO{RoleID: id.Uint64(), TenantID: "fangcun", SubjectType: "user", SubjectID: "100"},
-			&bindingrepo.BindingPO{RoleID: id.Uint64(), TenantID: "fangcun", SubjectType: "user", SubjectID: "999"},
+			&assignmentrepo.AssignmentPO{RoleID: id.Uint64(), TenantID: "fangcun", SubjectType: "user", SubjectID: "100"},
+			&assignmentrepo.AssignmentPO{RoleID: id.Uint64(), TenantID: "fangcun", SubjectType: "user", SubjectID: "999"},
 		)
 	}
 	state.roles = roles
@@ -45,11 +45,11 @@ func TestFindMissingSubjectBlocksUnexpectedInactiveAssignments(t *testing.T) {
 		state.roles = append(state.roles, &rolerepo.RolePO{
 			AuditFields: mysql.AuditFields{ID: id}, TenantID: "fangcun", Name: name,
 		})
-		state.assignments = append(state.assignments, &bindingrepo.BindingPO{
+		state.assignments = append(state.assignments, &assignmentrepo.AssignmentPO{
 			RoleID: id.Uint64(), TenantID: "fangcun", SubjectType: "user", SubjectID: "999",
 		})
 	}
-	state.assignments = append(state.assignments, &bindingrepo.BindingPO{
+	state.assignments = append(state.assignments, &assignmentrepo.AssignmentPO{
 		RoleID: 1, TenantID: "fangcun", SubjectType: "user", SubjectID: "unexpected",
 	})
 
@@ -91,7 +91,7 @@ func TestStateHashDoesNotExposeSubjectAndIsOrderIndependent(t *testing.T) {
 			users: map[string]convergeUserState{},
 		}
 		for _, subjectID := range subjects {
-			state.assignments = append(state.assignments, &bindingrepo.BindingPO{
+			state.assignments = append(state.assignments, &assignmentrepo.AssignmentPO{
 				TenantID: "fangcun", SubjectType: "user", SubjectID: subjectID, RoleID: roleID.Uint64(),
 			})
 		}

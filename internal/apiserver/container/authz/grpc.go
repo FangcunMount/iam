@@ -12,10 +12,10 @@ func CollectGRPC(available bool, mod *AuthzModule, registrations *[]grpctranspor
 	}
 	caps := mod.ApplicationCapabilities()
 	service := authzgrpc.NewService(
-		caps.AuthorizationChecker,
+		caps.AuthorizationDecisions,
 		caps.AuthorizationSnapshotReader,
-		caps.RoleBindingCommands,
-		caps.AssignmentRequestAuthorizer,
+		caps.AssignmentCommands,
+		caps.AssignmentAdmissionPolicy,
 	)
 	*registrations = append(*registrations, grpctransport.Registration{
 		Module:      "authz",

@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	rolebindingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/rolebinding"
+	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	assignmentDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
-	bindingDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/rolebinding"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	assignmentRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/assignment"
 	policyRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/policy"
 	roleRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
-	bindingRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/rolebinding"
 	authzUOW "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/testhelpers"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -24,25 +24,25 @@ import (
 
 func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.T) {
 	db := testhelpers.SetupTempSQLiteDB(t)
-	require.NoError(t, db.AutoMigrate(&roleRepo.RolePO{}, &bindingRepo.BindingPO{}, &policyRepo.PolicyVersionPO{}))
+	require.NoError(t, db.AutoMigrate(&roleRepo.RolePO{}, &assignmentRepo.AssignmentPO{}, &policyRepo.PolicyVersionPO{}))
 
 	ctx := context.Background()
 	roles := roleRepo.NewRoleRepository(db)
-	bindings := bindingRepo.NewBindingRepository(db)
+	assignments := assignmentRepo.NewRepository(db)
 	roleByName := seedRoles(t, ctx, roles, "tenant_admin", "qs:staff", "qs:evaluator", "qs:content_manager")
 	userID := meta.FromUint64(100)
-	seedBinding(t, ctx, bindings, userID, roleByName["tenant_admin"].ID)
-	seedBinding(t, ctx, bindings, userID, roleByName["qs:evaluator"].ID)
+	seedAssignment(t, ctx, assignments, userID, roleByName["tenant_admin"].ID)
+	seedAssignment(t, ctx, assignments, userID, roleByName["qs:evaluator"].ID)
 
 	stager := &eventStager{}
 	uow := authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager)
-	validator := bindingDomain.NewValidator(bindings, roles, existingUserResolver{})
-	service := rolebindingApp.NewCommandService(validator, roles, uow, nil)
+	validator := assignmentDomain.NewValidator(assignments, roles, existingUserResolver{})
+	service := assignmentApp.NewCommandService(validator, roles, uow, nil)
 	sub, err := subject.NewUserRef(userID)
 	require.NoError(t, err)
 	managed := []string{"qs:staff", "qs:evaluator", "qs:content_manager"}
 
-	cmd, err := rolebindingApp.NewReplaceManagedAssignmentsCommand(
+	cmd, err := assignmentApp.NewReplaceManagedAssignmentsCommand(
 		sub, "fangcun", []string{"qs:staff", "qs:content_manager"}, managed,
 		"user:200", "staff role update",
 	)
@@ -52,7 +52,7 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 	require.True(t, result.Changed)
 	require.EqualValues(t, 1, result.PolicyVersion)
 	require.Equal(t, []string{"qs:content_manager", "qs:staff"}, result.DirectRoles)
-	require.Equal(t, []string{"qs:content_manager", "qs:staff", "tenant_admin"}, assignedRoleNames(t, ctx, bindings, roles, userID))
+	require.Equal(t, []string{"qs:content_manager", "qs:staff", "tenant_admin"}, assignedRoleNames(t, ctx, assignments, roles, userID))
 	require.Len(t, stager.events, 1)
 
 	result, err = service.ReplaceManagedAssignments(ctx, cmd)
@@ -62,14 +62,14 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 	require.Len(t, stager.events, 1, "idempotent replacement must not emit another version event")
 
 	stager.err = errors.New("outbox unavailable")
-	rollbackCmd, err := rolebindingApp.NewReplaceManagedAssignmentsCommand(
+	rollbackCmd, err := assignmentApp.NewReplaceManagedAssignmentsCommand(
 		sub, "fangcun", []string{"qs:evaluator"}, managed,
 		"user:200", "rollback proof",
 	)
 	require.NoError(t, err)
 	_, err = service.ReplaceManagedAssignments(ctx, rollbackCmd)
 	require.ErrorContains(t, err, "outbox unavailable")
-	require.Equal(t, []string{"qs:content_manager", "qs:staff", "tenant_admin"}, assignedRoleNames(t, ctx, bindings, roles, userID))
+	require.Equal(t, []string{"qs:content_manager", "qs:staff", "tenant_admin"}, assignedRoleNames(t, ctx, assignments, roles, userID))
 	current, err := policyRepo.NewPolicyVersionRepository(db).GetCurrent(ctx, "fangcun")
 	require.NoError(t, err)
 	require.NotNil(t, current)
@@ -79,11 +79,11 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 func TestReplaceManagedAssignmentsCommandRejectsDuplicateAndUnmanagedTargets(t *testing.T) {
 	sub, err := subject.NewUserRef(meta.FromUint64(100))
 	require.NoError(t, err)
-	_, err = rolebindingApp.NewReplaceManagedAssignmentsCommand(
+	_, err = assignmentApp.NewReplaceManagedAssignmentsCommand(
 		sub, "fangcun", []string{"qs:staff", "qs:staff"}, []string{"qs:staff"}, "user:200", "",
 	)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
-	_, err = rolebindingApp.NewReplaceManagedAssignmentsCommand(
+	_, err = assignmentApp.NewReplaceManagedAssignmentsCommand(
 		sub, "fangcun", []string{"tenant_admin"}, []string{"qs:staff"}, "user:200", "",
 	)
 	require.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
@@ -119,28 +119,28 @@ func seedRoles(t *testing.T, ctx context.Context, repo roleDomain.Repository, na
 	return result
 }
 
-func seedBinding(t *testing.T, ctx context.Context, repo bindingDomain.Repository, subjectID, roleID meta.ID) {
+func seedAssignment(t *testing.T, ctx context.Context, repo assignmentDomain.Repository, subjectID, roleID meta.ID) {
 	t.Helper()
-	binding, err := bindingDomain.NewBinding(
-		bindingDomain.SubjectTypeUser, subjectID, roleID, "fangcun", bindingDomain.WithGrantedBy("seed"),
+	assignment, err := assignmentDomain.NewAssignment(
+		assignmentDomain.SubjectTypeUser, subjectID, roleID, "fangcun", assignmentDomain.WithGrantedBy("seed"),
 	)
 	require.NoError(t, err)
-	require.NoError(t, repo.Create(ctx, &binding))
+	require.NoError(t, repo.Create(ctx, &assignment))
 }
 
 func assignedRoleNames(
 	t *testing.T,
 	ctx context.Context,
-	bindings bindingDomain.Repository,
+	assignments assignmentDomain.Repository,
 	roles roleDomain.Repository,
 	subjectID meta.ID,
 ) []string {
 	t.Helper()
-	rows, err := bindings.ListBySubject(ctx, bindingDomain.SubjectTypeUser, subjectID, "fangcun")
+	rows, err := assignments.ListBySubject(ctx, assignmentDomain.SubjectTypeUser, subjectID, "fangcun")
 	require.NoError(t, err)
 	names := make([]string, 0, len(rows))
-	for _, binding := range rows {
-		role, err := roles.FindByID(ctx, binding.RoleID)
+	for _, assignment := range rows {
+		role, err := roles.FindByID(ctx, assignment.RoleID)
 		require.NoError(t, err)
 		names = append(names, role.NameString())
 	}

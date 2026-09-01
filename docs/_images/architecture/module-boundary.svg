@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1350" viewBox="0 0 2400 1350" role="img" aria-labelledby="title desc">
   <title id="title">IAM 模块边界与窄能力协作关系</title>
-  <desc id="desc">展示 Identity、AuthN、AuthZ、IDP、Suggest 五个模块的事实所有权，以及 ExternalIdentityResolver、UserStatusReader、UserResolver、SessionRevoker、RoleNameReader、RouteAuthorization 和 Profile 事实加载等窄能力协作。</desc>
+  <desc id="desc">展示 Identity、AuthN、AuthZ、IDP、Suggest 五个模块的事实所有权，以及 ExternalIdentityResolver、UserStatusReader、UserResolver、SessionRevoker、EffectiveRoleReader、RoutePermissionChecker 和 Profile 事实加载等窄能力协作。</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#334155"/></marker>
     <marker id="blueArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563eb"/></marker>
@@ -76,7 +76,7 @@
 
   <path d="M1645 1080 C1300 1080 1050 1080 755 1080" class="cap"/>
   <rect x="1080" y="1037" width="245" height="34" class="labelBox"/>
-  <text x="1202" y="1060" text-anchor="middle" class="edgeLabel">RouteAuthorization capability</text>
+  <text x="1202" y="1060" text-anchor="middle" class="edgeLabel">RoutePermissionChecker capability</text>
 
   <path d="M1500 675 C1580 620 1660 540 1700 450" class="cap"/>
   <rect x="1515" y="555" width="205" height="34" class="labelBox"/>
@@ -85,8 +85,8 @@
 
   <path d="M1645 1000 C1510 950 1470 875 1460 850" class="cap"/>
   <rect x="1490" y="888" width="180" height="34" class="labelBox"/>
-  <text x="1580" y="911" text-anchor="middle" class="edgeLabel">RoleNameReader</text>
-  <text x="1492" y="943" class="note">Identity 在关系写入时读取授权角色名</text>
+  <text x="1580" y="911" text-anchor="middle" class="edgeLabel">EffectiveRoleReader</text>
+  <text x="1492" y="943" class="note">Identity 在 /me 响应中读取有效角色名</text>
 
   <path d="M1760 450 C1760 640 1900 735 1955 915" class="edge"/>
   <rect x="1750" y="665" width="230" height="34" class="labelBox"/>

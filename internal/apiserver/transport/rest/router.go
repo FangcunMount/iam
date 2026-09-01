@@ -8,6 +8,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/log"
 	cachegovernancehandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/cachegovernance/handler"
 	authnMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authn"
+	authzMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authz"
 )
 
 // Router 集中的路由管理器
@@ -19,12 +20,13 @@ type Router struct {
 
 // routeDependencies 路由依赖
 type routeDependencies struct {
-	authn          AuthnDeps
-	authz          AuthzDeps
-	idp            IDPDeps
-	user           UserDeps
-	suggest        SuggestDeps
-	authMiddleware *authnMiddleware.JWTAuthMiddleware
+	authn           AuthnDeps
+	authz           AuthzDeps
+	idp             IDPDeps
+	user            UserDeps
+	suggest         SuggestDeps
+	authMiddleware  *authnMiddleware.JWTAuthMiddleware
+	authzMiddleware *authzMiddleware.Middleware
 }
 
 // NewRouter 创建路由管理器
@@ -49,7 +51,7 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 
 	// 如果容器未初始化，则注册缓存治理调试路由
 	if !r.deps.ModuleStatus.containerAvailable() {
-		r.registerCacheGovernanceDebugRoutes(engine, nil)
+		r.registerCacheGovernanceDebugRoutes(engine, nil, nil)
 		fmt.Printf("⚠️  container not initialized, skipped module route registration\n")
 		return
 	}
@@ -57,18 +59,19 @@ func (r *Router) RegisterRoutes(engine *gin.Engine) {
 	// 解析路由依赖
 	deps := r.resolveRouteDependencies()
 	authMiddleware := deps.authMiddleware
+	authorizationMiddleware := deps.authzMiddleware
 	if authMiddleware == nil {
 		log.Warn("Authn module unavailable; protected routes will not be registered")
 	}
 
 	// 注册缓存治理调试路由
-	r.registerCacheGovernanceDebugRoutes(engine, authMiddleware)
+	r.registerCacheGovernanceDebugRoutes(engine, authMiddleware, authorizationMiddleware)
 
 	// 注册模块路由
-	r.registerModuleRoutes(engine, deps, authMiddleware)
+	r.registerModuleRoutes(engine, deps, authMiddleware, authorizationMiddleware)
 
 	// 注册管理员路由
-	r.registerAdminRoutes(engine, authMiddleware)
+	r.registerAdminRoutes(engine, authMiddleware, authorizationMiddleware)
 
 	log.Info("🔗 All routes registration completed")
 }
@@ -90,7 +93,10 @@ func (r *Router) resolveRouteDependencies() routeDependencies {
 
 	// 创建认证中间件
 	if r.deps.ModuleStatus.authnAvailable() && deps.authn.TokenVerifier != nil {
-		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenVerifier, deps.authz.RouteAuthorization)
+		deps.authMiddleware = authnMiddleware.NewJWTAuthMiddleware(deps.authn.TokenVerifier)
+	}
+	if deps.authz.RoutePermissionChecker != nil {
+		deps.authzMiddleware = authzMiddleware.NewMiddleware(deps.authz.RoutePermissionChecker)
 	}
 
 	// 返回路由依赖

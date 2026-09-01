@@ -43,6 +43,19 @@ func NewUserRef(id meta.ID) (Ref, error) {
 	return NewRef(TypeUser, id)
 }
 
+// ParseRef parses the canonical <type>:<id> representation of a subject.
+func ParseRef(value string) (Ref, error) {
+	parts := strings.SplitN(strings.TrimSpace(value), ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return Ref{}, perrors.WithCode(code.ErrInvalidArgument, "subject must use <type>:<id>")
+	}
+	id, err := meta.ParseID(parts[1])
+	if err != nil {
+		return Ref{}, perrors.WithCode(code.ErrInvalidArgument, "subject id is invalid")
+	}
+	return NewRef(Type(parts[0]), id)
+}
+
 func (r Ref) IsZero() bool {
 	return r.Type == "" || r.ID.IsZero()
 }

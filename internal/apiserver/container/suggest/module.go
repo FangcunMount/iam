@@ -58,7 +58,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 			time.Duration(cfg.VisibilityCacheTTLSeconds)*time.Second,
 		)
 	}
-	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RouteAuthorization, visibility)
+	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RoutePermissionChecker, visibility)
 	runtime := searchruntime.NewRuntime()
 	metrics := suggestmetrics.Recorder{}
 	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider, metrics)

@@ -4,22 +4,21 @@ import (
 	"context"
 	"fmt"
 
-	nativeInfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/native"
+	authzRuntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/runtime"
 )
 
 func (m *AuthzModule) initializeRuntime(infra *authzInfrastructureComponents, domain *authzDomainComponents) error {
-	nativeRuntime, err := nativeInfra.NewRuntime(
+	runtime, err := authzRuntime.NewRuntime(
 		context.Background(),
-		infra.nativeSource,
+		infra.policySource,
 		domain.authorizationEvaluator,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create native authorization runtime: %w", err)
+		return fmt.Errorf("failed to create authorization snapshot runtime: %w", err)
 	}
-	infra.nativeRuntime = nativeRuntime
-	m.routeAuthorization = infra.nativeRuntime
-	m.roleNames = infra.nativeRuntime
-	m.runtimeHealth = infra.nativeRuntime
-	m.policyReloader = infra.nativeRuntime
+	infra.authorizationRuntime = runtime
+	m.effectiveRoles = runtime
+	m.runtimeHealth = runtime
+	m.policyReloader = runtime
 	return nil
 }

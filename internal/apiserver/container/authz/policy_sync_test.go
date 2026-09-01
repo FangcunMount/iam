@@ -6,7 +6,7 @@ import (
 	"time"
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policysync"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policypublication"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
 	"github.com/stretchr/testify/require"
 )
@@ -26,9 +26,9 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 	require.NotNil(t, sync)
 	require.NoError(t, sync.Start(context.Background()))
 
-	require.Equal(t, policysync.Topic, subscriber.topic)
+	require.Equal(t, policypublication.Topic, subscriber.topic)
 	require.Equal(t, sync.Channel(), subscriber.channel)
-	require.Contains(t, subscriber.channel, policysync.ChannelPrefix+".")
+	require.Contains(t, subscriber.channel, policypublication.ChannelPrefix+".")
 	require.Contains(t, subscriber.channel, "#ephemeral")
 	require.Equal(t, subscriber.channel, recorder.policySyncChannel)
 	msg := cbmessaging.NewMessage("msg-1", []byte(`{"tenant_id":"tenant-a","version":12}`))

@@ -10,7 +10,7 @@ import (
 
 type Dependencies struct {
 	RoleHandler            *handler.RoleHandler
-	RoleBindingHandler     *handler.RoleBindingHandler
+	AssignmentHandler      *handler.AssignmentHandler
 	PermissionGrantHandler *handler.PermissionGrantHandler
 	RoleInheritanceHandler *handler.RoleInheritanceHandler
 	ResourceHandler        *handler.ResourceHandler
@@ -38,8 +38,8 @@ func Register(engine *gin.Engine, deps Dependencies) {
 	roles.DELETE("/:id", deps.PermissionOrGlobal(authzapp.ResourceRoles, authzapp.ActionDelete), deps.RoleHandler.DeleteRole)
 	roles.GET("/:id", deps.PermissionOrGlobal(authzapp.ResourceRoles, authzapp.ActionRead), deps.RoleHandler.GetRole)
 	roles.GET("", deps.PermissionOrGlobal(authzapp.ResourceRoles, authzapp.ActionList), deps.RoleHandler.ListRoles)
-	if deps.RoleBindingHandler != nil {
-		roles.GET("/:id/assignments", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionList), deps.RoleBindingHandler.ListRoleBindingsByRole)
+	if deps.AssignmentHandler != nil {
+		roles.GET("/:id/assignments", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionList), deps.AssignmentHandler.ListAssignmentsByRole)
 	}
 	if deps.PermissionGrantHandler != nil {
 		roles.GET("/:id/grants", deps.PermissionOrGlobal(authzapp.ResourcePermissionGrants, authzapp.ActionList), deps.PermissionGrantHandler.ListRoleGrants)
@@ -53,12 +53,12 @@ func Register(engine *gin.Engine, deps Dependencies) {
 		inheritances.DELETE("/:id", deps.PermissionOrGlobal(authzapp.ResourceRoleInheritances, authzapp.ActionRevoke), deps.RoleInheritanceHandler.Revoke)
 	}
 
-	if deps.RoleBindingHandler != nil {
+	if deps.AssignmentHandler != nil {
 		assignments := g.Group("/assignments")
-		assignments.POST("/grant", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionGrant), deps.RoleBindingHandler.GrantRoleBinding)
-		assignments.POST("/revoke", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionRevoke), deps.RoleBindingHandler.RevokeRoleBinding)
-		assignments.DELETE("/:id", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionRevoke), deps.RoleBindingHandler.RevokeRoleBindingByID)
-		assignments.GET("/subject", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionList), deps.RoleBindingHandler.ListRoleBindingsBySubject)
+		assignments.POST("/grant", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionGrant), deps.AssignmentHandler.GrantAssignment)
+		assignments.POST("/revoke", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionRevoke), deps.AssignmentHandler.RevokeAssignment)
+		assignments.DELETE("/:id", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionRevoke), deps.AssignmentHandler.RevokeAssignmentByID)
+		assignments.GET("/subject", deps.PermissionOrGlobal(authzapp.ResourceAssignments, authzapp.ActionList), deps.AssignmentHandler.ListAssignmentsBySubject)
 	}
 
 	if deps.ResourceHandler != nil {

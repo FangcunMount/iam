@@ -165,7 +165,7 @@ docs/
 1. **变化原因决定模块边界**：User、LoginIdentity、Session、PermissionGrant 和 provider app 因不同原因变化，不能因都带 ID 就合表。
 2. **强声明必须由足够强的证明推导**：openid、JWT 签名、ProfileLink、UI capability 都不能单独推出资源允许。
 3. **一致性按不变量和风险选择**：同库事务、数据库约束、Redis Lua、Outbox、可重建投影各自解决不同问题。
-4. **投影永远回到事实源**：AuthZ 原生快照（含内存角色图）、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
+4. **投影永远回到事实源**：AuthZ 不可变快照（含内存角色图）、Suggest Store、JWKS snapshot 和普通 cache 不能成为隐式第二份主数据。
 5. **安全方向必须显式**：依赖失败时是拒绝、保留旧值、返回空结果还是继续服务，要说明失去的语义和观测方式。
 
 ## 7. 机器事实入口
@@ -177,7 +177,7 @@ docs/
 | Go SDK | `pkg/sdk` + `public_api_compile_test.go` |
 | 数据结构 | `internal/pkg/migration/migrations` |
 | 事件语义 | `configs/events.yaml` |
-| AuthZ 判定契约与运行时 | `api/grpc/iam/authz/v3/authz.proto` + `internal/apiserver/infra/authz/native` |
+| AuthZ 判定契约与运行时 | `api/grpc/iam/authz/v3/authz.proto` + `internal/apiserver/infra/authz/runtime` |
 | 运行模式 | `internal/pkg/server/runtime_profile.go` + dev/prod config |
 | 分层边界 | `internal/pkg/architecture` |
 | 人工/生产证据 | [IAM 重构与生产验收记录](01-运行时/08-IAM重构最终验收记录.md) |

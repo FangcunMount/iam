@@ -104,7 +104,7 @@
   <text x="2490" y="535" text-anchor="middle" class="object mono">{ Type: user, ID: UserID }</text>
 
   <rect x="2180" y="582" width="290" height="62" rx="12" fill="#ffffff" stroke="#bbaaDB"/>
-  <text x="2325" y="621" text-anchor="middle" class="object">Role / RoleBinding</text>
+  <text x="2325" y="621" text-anchor="middle" class="object">Role / Assignment</text>
   <rect x="2490" y="582" width="310" height="62" rx="12" fill="#ffffff" stroke="#bbaaDB"/>
   <text x="2645" y="621" text-anchor="middle" class="object">Permission / Resource</text>
   <rect x="2180" y="663" width="620" height="56" rx="12" fill="#ffffff" stroke="#8264bd" stroke-width="2"/>
@@ -120,7 +120,7 @@
   <path d="M2130 535 H2050 Q2015 535 2015 510 V510 Q2015 495 1980 495" class="semantic"/>
   <rect x="1825" y="420" width="350" height="55" rx="12" fill="#ffffff" stroke="#94a3b8" stroke-width="1.6"/>
   <text x="2000" y="444" text-anchor="middle" class="label">以 UserID 为授权主体锚点</text>
-  <text x="2000" y="466" text-anchor="middle" class="small">建立 RoleBinding 时校验 User 存在</text>
+  <text x="2000" y="466" text-anchor="middle" class="small">建立 Assignment 时校验 User 存在</text>
 
   <!-- no direct dependency statement -->
   <path d="M760 805 H2240" stroke="#94a3b8" stroke-width="2.5" stroke-dasharray="8 8"/>
@@ -170,7 +170,7 @@
 
   <rect x="2120" y="1060" width="390" height="192" rx="22" fill="#f4efff" stroke="#8264bd" stroke-width="2.5" filter="url(#shadow)"/>
   <text x="2315" y="1103" text-anchor="middle" class="flow-title">AuthZ Capability</text>
-  <text x="2315" y="1137" text-anchor="middle" class="object-strong mono">AuthorizationChecker.Check</text>
+  <text x="2315" y="1137" text-anchor="middle" class="object-strong mono">DecisionService.Check</text>
   <text x="2315" y="1174" text-anchor="middle" class="flow-sub mono">Subject + Resource + Action + Scope</text>
   <rect x="2185" y="1196" width="260" height="35" rx="10" fill="#ffffff" stroke="#a892d1"/>
   <text x="2315" y="1220" text-anchor="middle" class="small">独立执行授权策略</text>

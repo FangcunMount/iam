@@ -10,16 +10,16 @@ import (
 	sessionrevocation "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/sessionrevocation"
 )
 
-// RoleNameReader resolves role names for a subject within a tenant.
-type RoleNameReader interface {
-	RoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
+// EffectiveRoleReader resolves direct and inherited roles for a subject.
+type EffectiveRoleReader interface {
+	EffectiveRoleNamesForSubject(ctx context.Context, subject subject.Ref, tenantID string) ([]string, error)
 }
 
 // IdentityModuleDeps contains the runtime dependencies required to assemble the
 // identity module.
 type IdentityModuleDeps struct {
 	DB                      *gorm.DB
-	RoleNames               RoleNameReader
+	EffectiveRoles          EffectiveRoleReader
 	SessionRevoker          sessiondomain.Revoker
 	SessionRevocationConfig sessionrevocation.WorkerConfig
 }

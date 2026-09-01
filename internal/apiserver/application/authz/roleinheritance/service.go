@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	authzshared "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/shared"
+	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/roleinheritance"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -29,10 +29,10 @@ type RevokeCommand struct {
 type Service struct {
 	uow      authzuow.UnitOfWork
 	repo     domain.Repository
-	reloader authzshared.RuntimePolicyReloader
+	reloader policychange.RuntimePolicyReloader
 }
 
-func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader authzshared.RuntimePolicyReloader) *Service {
+func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader policychange.RuntimePolicyReloader) *Service {
 	return &Service{uow: uow, repo: repo, reloader: reloader}
 }
 
@@ -54,12 +54,12 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Inheri
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err != nil {
 		return nil, err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "role_inheritance_created")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "role_inheritance_created")
 	return &inheritance, nil
 }
 
@@ -91,12 +91,12 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 		if err != nil {
 			return err
 		}
-		return authzshared.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
+		return policychange.StagePolicyVersionChanged(txCtx, tx.Events, cmd.TenantID, version)
 	})
 	if err != nil {
 		return err
 	}
-	authzshared.ReloadRuntimePolicy(ctx, s.reloader, "role_inheritance_revoked")
+	policychange.ReloadRuntimePolicy(ctx, s.reloader, "role_inheritance_revoked")
 	return nil
 }
 
