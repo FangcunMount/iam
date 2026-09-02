@@ -407,7 +407,7 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
 		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
 	}
-	deps.Suggest.Service = appsuggest.NewServiceWithRuntime(appsuggest.Config{}, nil, nil, nil)
+	deps.Suggest.Service = appsuggest.DegradedService
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateIdentity)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthz)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateSuggest)

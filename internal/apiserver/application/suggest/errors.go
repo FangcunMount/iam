@@ -1,11 +1,13 @@
 package suggest
 
-import "errors"
+import (
+	"errors"
 
-var (
-	// ErrUnauthenticated 表示缺少有效操作员身份。
-	ErrUnauthenticated = errors.New("unauthenticated operating principal")
-	// ErrRefreshInProgress indicates that a full or delta refresh already owns
-	// the process-local refresh slot.
-	ErrRefreshInProgress = errors.New("suggest refresh already in progress")
+	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
 )
+
+// ErrUnauthenticated 操作员未认证。
+var ErrUnauthenticated = errors.New("unauthenticated")
+
+// ErrRefreshInProgress 刷新互斥锁已被占用。
+var ErrRefreshInProgress = apprefresh.ErrRefreshInProgress

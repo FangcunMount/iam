@@ -5,22 +5,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 
 // OperatingPrincipalFromGin 从 JWT 上下文提取 suggest 用身份快照。
-func OperatingPrincipalFromGin(c *gin.Context) (domainsuggest.OperatingPrincipal, bool) {
+func OperatingPrincipalFromGin(c *gin.Context) (visibility.Principal, bool) {
 	if c == nil {
-		return domainsuggest.OperatingPrincipal{}, false
+		return visibility.Principal{}, false
 	}
 	uid, ok := requestctx.UserID(c)
 	if !ok || uid.IsZero() {
-		return domainsuggest.OperatingPrincipal{}, false
+		return visibility.Principal{}, false
 	}
 	dom := requestctx.TenantIDOrDefault(c)
-	principal := domainsuggest.OperatingPrincipal{
+	principal := visibility.Principal{
 		OperatorID:   int64(uid),
 		TenantDomain: resolveAuthorizationDomain(dom),
 	}
@@ -31,7 +31,6 @@ func OperatingPrincipalFromGin(c *gin.Context) (domainsuggest.OperatingPrincipal
 }
 
 // resolveAuthorizationDomain 将 JWT 上下文中的 tenant 标识解析为授权域 string。
-// 数值 tenant_id（历史误用为 org_id）映射回默认业务域 fangcun。
 func resolveAuthorizationDomain(raw string) string {
 	if raw == "" || raw == tenant.DefaultID || raw == tenant.PlatformID {
 		if raw == "" {

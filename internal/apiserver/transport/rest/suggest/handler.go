@@ -2,11 +2,10 @@ package suggest
 
 import (
 	stderrors "errors"
-	"time"
 
 	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
-	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	domainsearch "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/search"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/pkg/core"
 	"github.com/gin-gonic/gin"
@@ -16,7 +15,7 @@ import (
 type Dependencies struct {
 	Service     appsuggest.ProfileSuggestor
 	Middlewares []gin.HandlerFunc
-	Metrics     appsuggest.SuggestMetrics
+	Metrics     appsuggest.RateLimitMetrics
 	RateLimiter appsuggest.RateLimiter
 }
 
@@ -38,13 +37,13 @@ type Handler struct {
 	*core.BaseHandler
 	svc     appsuggest.ProfileSuggestor
 	limits  appsuggest.RateLimiter
-	metrics appsuggest.SuggestMetrics
+	metrics appsuggest.RateLimitMetrics
 }
 
 // NewHandler creates a suggest handler.
-func NewHandler(svc appsuggest.ProfileSuggestor, limits appsuggest.RateLimiter, metrics appsuggest.SuggestMetrics) *Handler {
+func NewHandler(svc appsuggest.ProfileSuggestor, limits appsuggest.RateLimiter, metrics appsuggest.RateLimitMetrics) *Handler {
 	if metrics == nil {
-		metrics = noopSuggestMetrics{}
+		metrics = noopRateLimitMetrics{}
 	}
 	return &Handler{
 		BaseHandler: core.NewBaseHandler(),
@@ -54,12 +53,9 @@ func NewHandler(svc appsuggest.ProfileSuggestor, limits appsuggest.RateLimiter, 
 	}
 }
 
-type noopSuggestMetrics struct{}
+type noopRateLimitMetrics struct{}
 
-func (noopSuggestMetrics) RecordQuery(string, int, bool)                     {}
-func (noopSuggestMetrics) ObserveRefresh(string, float64)                    {}
-func (noopSuggestMetrics) RecordRefresh(string, string, int, int, time.Time) {}
-func (noopSuggestMetrics) RecordRateLimited(bool)                            {}
+func (noopRateLimitMetrics) RecordRateLimited(bool) {}
 
 // Profile 处理档案联想查询
 // @Summary 档案联想搜索
@@ -92,7 +88,7 @@ func (h *Handler) Profile(c *gin.Context) {
 	}
 
 	if h.limits != nil {
-		kw := domainsuggest.NewKeyword(query.K)
+		kw := domainsearch.NewKeyword(query.K)
 		mobile := kw.IsMobileShaped()
 		if !h.limits.Allow(principal.OperatorID, mobile) {
 			h.metrics.RecordRateLimited(mobile)

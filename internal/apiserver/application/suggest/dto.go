@@ -1,12 +1,12 @@
 package suggest
 
 import (
-	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 )
 
 // SuggestProfileRequest 档案联想查询入参。
 type SuggestProfileRequest struct {
-	Principal domainsuggest.OperatingPrincipal
+	Principal visibility.Principal
 	Keyword   string
 	Limit     int
 }

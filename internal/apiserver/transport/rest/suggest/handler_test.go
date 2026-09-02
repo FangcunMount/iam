@@ -94,7 +94,7 @@ func TestProfileRateLimitedSecondRequest(t *testing.T) {
 	engine := gin.New()
 	Register(engine, Dependencies{
 		Service: suggestorStub{},
-		RateLimiter: ratelimit.NewMemoryLimiter(appsuggest.RateLimitConfig{
+		RateLimiter: ratelimit.NewMemoryLimiter(ratelimit.Config{
 			PerOperatorQPS:                1,
 			PerOperatorBurst:              1,
 			MobileKeywordPerOperatorQPS:   1,
@@ -126,7 +126,7 @@ func TestProfileRateLimitedMobileKeywordUsesMobileBucket(t *testing.T) {
 	engine := gin.New()
 	Register(engine, Dependencies{
 		Service: suggestorStub{},
-		RateLimiter: ratelimit.NewMemoryLimiter(appsuggest.RateLimitConfig{
+		RateLimiter: ratelimit.NewMemoryLimiter(ratelimit.Config{
 			PerOperatorQPS:                100,
 			PerOperatorBurst:              100,
 			MobileKeywordPerOperatorQPS:   1,
