@@ -124,18 +124,45 @@ func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileSearchTerm, e
 	return l.query(ctx, l.config.FullSQL)
 }
 
-// Delta 增量拉取，按时间过滤。
-// 索引层：同一 profileID 会先撤销旧 Trie/Hash 键；DisplayName 为空视为删除。
-// 默认 Delta SQL：返回 since 之后更新的活跃档案，以及 since 之后软删除的 tombstone（name=”）。
-// 自定义 DeltaSQL 须自行保证 tombstone 协议，或仅全量刷新。
-func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
+// Delta 增量拉取，按时间过滤；在 adapter 边界将空 name 转为显式 Delete。
+func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileIndexMutation, error) {
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
 	}
+	var terms []domainsuggest.ProfileSearchTerm
+	var err error
 	if l.defaultDelta {
-		return l.query(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
+		terms, err = l.query(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
+	} else {
+		terms, err = l.query(ctx, l.config.DeltaSQL, since, since)
 	}
-	return l.query(ctx, l.config.DeltaSQL, since, since)
+	if err != nil {
+		return nil, err
+	}
+	return termsToMutations(terms), nil
+}
+
+func termsToMutations(terms []domainsuggest.ProfileSearchTerm) []domainsuggest.ProfileIndexMutation {
+	out := make([]domainsuggest.ProfileIndexMutation, 0, len(terms))
+	for _, term := range terms {
+		if term.ProfileID <= 0 {
+			continue
+		}
+		if strings.TrimSpace(term.DisplayName) == "" {
+			m, err := domainsuggest.NewProfileIndexDelete(term.ProfileID)
+			if err != nil {
+				continue
+			}
+			out = append(out, m)
+			continue
+		}
+		m, err := domainsuggest.NewProfileIndexUpsert(term)
+		if err != nil {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
 }
 
 type record struct {

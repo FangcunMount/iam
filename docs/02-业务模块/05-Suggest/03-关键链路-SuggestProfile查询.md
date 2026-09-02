@@ -16,10 +16,9 @@ GET /api/v2/suggest/profile?k=<keyword>&limit=<n>
 JWT context
   -> OperatingPrincipal
   -> ProfileAccessScope
-  -> mobile_denied / numeric_exact / prefix_text
+  -> SearchPolicy (mobile_denied / numeric_exact / prefix_text)
   -> Store 召回
-  -> scope 过滤
-  -> 排序和 limit
+  -> CandidateSelectionPolicy
   -> MobileMask
   -> REST DTO
 ```
@@ -62,9 +61,9 @@ sequenceDiagram
     H->>S: SuggestProfile(request)
     S->>P: ResolveProfileAccessScope
     P-->>S: scope
-    S->>S: select search strategy
+    S->>S: SearchPolicy.Decide
     S->>I: SuggestProfile(query, scope)
-    I->>I: recall -> scope filter -> rank -> limit
+    I->>I: recall -> CandidateSelectionPolicy -> limit
     I-->>S: ProfileSearchTerm[]
     S-->>H: ProfileSuggestItem[]
     H-->>C: ProfileSuggestResponseItem[]
@@ -80,7 +79,7 @@ TenantDomain <- JWT tenant domain
 OrgID        <- business org ID
 ```
 
-`OperatingProfileAccessScopeProvider` 再组合 PermissionGrant、手机号搜索权限和可见 ProfileID：
+`ProfileAccessScopeResolver`（infra 经 `OperatingProfileAccessScopeProvider` 装配）再组合 AuthZ 事实、visibility 与 `ScopeResolutionPolicy`：
 
 | 主体 | 当前 scope |
 | --- | --- |
@@ -102,7 +101,7 @@ action   = search_by_mobile
 
 ## 5. 搜索策略
 
-application 按顺序选择第一个支持当前关键词的策略：
+application 按 `SearchPolicy.Decide` 一次决策：
 
 | 策略 | 条件 | 结果 |
 | --- | --- | --- |

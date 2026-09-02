@@ -97,6 +97,7 @@ func (k Keyword) IsDigits() bool {
 // Query 表达一次档案联想查询及其限制。
 type Query struct {
 	Keyword        Keyword
+	SearchMode     SearchMode
 	Limit          int
 	InternalLimit  int
 	KeyPadLen      int
@@ -105,6 +106,11 @@ type Query struct {
 
 // NewQuery 构造 Query；wildcardKeyCap<=0 时使用 DefaultWildcardKeyCap。
 func NewQuery(keyword string, limit, internalLimit, keyPadLen, wildcardKeyCap int) Query {
+	return NewQueryWithMode(keyword, SearchModeNone, limit, internalLimit, keyPadLen, wildcardKeyCap)
+}
+
+// NewQueryWithMode 构造带召回模式的 Query。
+func NewQueryWithMode(keyword string, mode SearchMode, limit, internalLimit, keyPadLen, wildcardKeyCap int) Query {
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
@@ -122,6 +128,7 @@ func NewQuery(keyword string, limit, internalLimit, keyPadLen, wildcardKeyCap in
 	}
 	return Query{
 		Keyword:        NewKeyword(keyword),
+		SearchMode:     mode,
 		Limit:          limit,
 		InternalLimit:  internalLimit,
 		KeyPadLen:      keyPadLen,

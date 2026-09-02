@@ -9,7 +9,7 @@ Suggest 索引只存在于进程内，不写入文件。启动时先执行 Full 
 
 ```text
 Full:  windowStart -> MySQL Full -> Runtime.Replace -> lastFetch=windowStart
-Delta: lastFetch -> windowStart -> MySQL Delta(since) -> Runtime.ImportDelta -> lastFetch=windowStart
+Delta: lastFetch -> windowStart -> MySQL Delta(since) -> Runtime.ApplyDelta -> lastFetch=windowStart
 ```
 
 查询窗口在访问 Loader 之前捕获。这样查询期间发生的变更最晚会在下一次 Delta 中被重复读取，不会因为“查询结束后才取 now”而被游标跳过。
@@ -30,7 +30,7 @@ sequenceDiagram
         R->>R: capture windowStart
         R->>L: Full() / Delta(lastFetch)
         L-->>R: terms / tombstones
-        R->>RT: Replace / ImportDelta
+        R->>RT: Replace / ApplyDelta
         R->>R: lastFetch = windowStart
     end
 ```
@@ -89,26 +89,7 @@ replacement 可以统一执行 remove-old-keys + import-new-keys。
 
 ## 6. tombstone 协议
 
-`DisplayName == ""` 是当前内部 tombstone：
-
-```text
-ProfileID = affected id
-DisplayName = empty
-other fields may be empty
-```
-
-Store 收到后调用 `removeProfileLocked`，根据 `profileKeys` 删除所有 Trie/Hash 引用，再删除 term。
-
-tombstone 必须覆盖的不只是 Profile soft delete，还包括：
-
-- 最后一个 active ProfileLink 被 revoke/delete；
-- 所有关联 User 都被 soft delete；
-- 自定义 eligibility 由 true 变 false。
-
-若 Delta 只返回当前 eligible rows，消失的 Profile 不会产生任何行，旧索引就会永久保留。Full 能在下一次整体替换时修复，但两个 Full 之间会持续暴露幽灵候选。
-
-用空 DisplayName 作为 tombstone 简单，但把“真实空名称”与“删除”复用了一个字段。当前领域本身不会索引空名称；若未来允许匿名/空展示名，应该为 refresh item 增加显式 operation/type，
-而不是继续沿用隐式约定。
+Delta 在 MySQL adapter 边界将空 `name` 转为显式 `ProfileIndexDelete`；domain/application/runtime 不再解释 `DisplayName == ""`。
 
 ## 7. Full 与 Delta 的取舍
 

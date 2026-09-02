@@ -93,7 +93,7 @@ func (h *Handler) Profile(c *gin.Context) {
 
 	if h.limits != nil {
 		kw := domainsuggest.NewKeyword(query.K)
-		mobile := kw.IsDigits() && domainsuggest.LooksLikeMobile(kw.String())
+		mobile := kw.IsMobileShaped()
 		if !h.limits.Allow(principal.OperatorID, mobile) {
 			h.metrics.RecordRateLimited(mobile)
 			h.Error(c, pkgerrors.WithCode(code.ErrRateLimited, "%s", "suggest rate limit exceeded"))

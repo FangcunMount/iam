@@ -46,11 +46,11 @@ func TestProfileIndexRefresherFailureDoesNotAdvanceCursor(t *testing.T) {
 	previous := time.Date(2026, 7, 24, 8, 0, 0, 0, time.UTC)
 	wantErr := errors.New("import failed")
 	loader := &recordingSuggestLoader{
-		delta: []domainsuggest.ProfileSearchTerm{
-			domainsuggest.NewProfileSearchTerm(1, "profile", nil, 1, 0, nil),
+		delta: []domainsuggest.ProfileIndexMutation{
+			mustUpsert(domainsuggest.NewProfileSearchTerm(1, "profile", nil, 1, 0, nil)),
 		},
 	}
-	refresher := NewProfileIndexRefresher(loader, &suggestRuntimeStub{importErr: wantErr}, nil)
+	refresher := NewProfileIndexRefresher(loader, &suggestRuntimeStub{applyErr: wantErr}, nil)
 	refresher.lastFetch = previous
 	refresher.now = func() time.Time { return previous.Add(time.Minute) }
 
@@ -93,16 +93,16 @@ func TestProfileIndexRefresherRejectsOverlappingRefreshes(t *testing.T) {
 
 type recordingSuggestLoader struct {
 	since time.Time
-	delta []domainsuggest.ProfileSearchTerm
+	delta []domainsuggest.ProfileIndexMutation
 }
 
 func (l *recordingSuggestLoader) Full(context.Context) ([]domainsuggest.ProfileSearchTerm, error) {
 	return nil, nil
 }
 
-func (l *recordingSuggestLoader) Delta(_ context.Context, since time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
+func (l *recordingSuggestLoader) Delta(_ context.Context, since time.Time) ([]domainsuggest.ProfileIndexMutation, error) {
 	l.since = since
-	return append([]domainsuggest.ProfileSearchTerm(nil), l.delta...), nil
+	return append([]domainsuggest.ProfileIndexMutation(nil), l.delta...), nil
 }
 
 type blockingSuggestLoader struct {
@@ -120,7 +120,71 @@ func (l *blockingSuggestLoader) Full(context.Context) ([]domainsuggest.ProfileSe
 	return nil, nil
 }
 
-func (l *blockingSuggestLoader) Delta(context.Context, time.Time) ([]domainsuggest.ProfileSearchTerm, error) {
+func (l *blockingSuggestLoader) Delta(context.Context, time.Time) ([]domainsuggest.ProfileIndexMutation, error) {
 	l.deltaCalls++
 	return nil, nil
+}
+
+type recordingSuggestMetrics struct {
+	kind       string
+	result     string
+	upserts    int
+	tombstones int
+}
+
+func (m *recordingSuggestMetrics) RecordQuery(string, int, bool)  {}
+func (m *recordingSuggestMetrics) ObserveRefresh(string, float64) {}
+func (m *recordingSuggestMetrics) RecordRateLimited(bool)         {}
+func (m *recordingSuggestMetrics) RecordRefresh(kind, result string, upserts, tombstones int, _ time.Time) {
+	m.kind = kind
+	m.result = result
+	m.upserts = upserts
+	m.tombstones = tombstones
+}
+
+func TestProfileIndexRefresherCountsMutationItems(t *testing.T) {
+	upserts, tombstones := countMutationItems([]domainsuggest.ProfileIndexMutation{
+		mustUpsert(domainsuggest.NewProfileSearchTerm(1, "a", nil, 1, 0, nil)),
+		mustDelete(2),
+		mustUpsert(domainsuggest.NewProfileSearchTerm(3, "c", nil, 1, 0, nil)),
+	})
+	if upserts != 2 || tombstones != 1 {
+		t.Fatalf("upserts=%d tombstones=%d, want 2/1", upserts, tombstones)
+	}
+}
+
+func mustDelete(id int64) domainsuggest.ProfileIndexMutation {
+	m, err := domainsuggest.NewProfileIndexDelete(id)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
+func TestProfileIndexRefresherFullMetricsRecordUpsertAndTombstone(t *testing.T) {
+	metrics := &recordingSuggestMetrics{}
+	runtime := &suggestRuntimeStub{}
+	loader := &suggestLoaderStub{
+		full: []domainsuggest.ProfileSearchTerm{
+			domainsuggest.NewProfileSearchTerm(1, "a", nil, 1, 0, nil),
+			domainsuggest.NewProfileSearchTerm(2, "", nil, 1, 0, nil),
+		},
+	}
+	refresher := NewProfileIndexRefresher(loader, runtime, metrics)
+	if err := refresher.RunFull(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if metrics.kind != "full" || metrics.result != "success" || metrics.upserts != 1 || metrics.tombstones != 1 {
+		t.Fatalf("metrics = (%s,%s,%d,%d)", metrics.kind, metrics.result, metrics.upserts, metrics.tombstones)
+	}
+}
+
+func TestProfileIndexRefresherDeltaBeforeFirstFullIsNoOp(t *testing.T) {
+	refresher := NewProfileIndexRefresher(&suggestLoaderStub{}, &suggestRuntimeStub{}, nil)
+	if err := refresher.RunDelta(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !refresher.lastFetch.IsZero() {
+		t.Fatalf("lastFetch advanced without full: %v", refresher.lastFetch)
+	}
 }

@@ -13,7 +13,7 @@ import (
 
 // ProfileIndexRefresher refreshes the profile suggestion index.
 type ProfileIndexRefresher struct {
-	source          ProfileCandidateSource
+	source          ProfileIndexSource
 	runtime         ProfileSuggestionRuntime
 	metrics         SuggestMetrics
 	lastFetch       time.Time
@@ -23,7 +23,7 @@ type ProfileIndexRefresher struct {
 }
 
 // NewProfileIndexRefresher creates a profile suggestion index refresher.
-func NewProfileIndexRefresher(source ProfileCandidateSource, runtime ProfileSuggestionRuntime, metrics SuggestMetrics) *ProfileIndexRefresher {
+func NewProfileIndexRefresher(source ProfileIndexSource, runtime ProfileSuggestionRuntime, metrics SuggestMetrics) *ProfileIndexRefresher {
 	if metrics == nil {
 		metrics = noopSuggestMetrics{}
 	}
@@ -58,12 +58,13 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) (runErr error) {
 	if err != nil {
 		return err
 	}
+	indexable := filterIndexableTerms(candidates)
 	if r.runtime != nil {
-		r.runtime.Replace(candidates)
+		r.runtime.Replace(indexable)
 	}
 	r.lastFetch = windowStart
 	r.lastSuccessUnix.Store(time.Now().UTC().Unix())
-	upserts, tombstones := classifyRefreshItems(candidates)
+	upserts, tombstones := countFullItems(candidates, indexable)
 	r.metrics.RecordRefresh("full", "success", upserts, tombstones, time.Now().UTC())
 	log.InfoContext(ctx, "suggest full sync completed",
 		log.String("result", "success"),
@@ -96,11 +97,11 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) (runErr error) {
 			r.metrics.RecordRefresh("delta", "failed", 0, 0, time.Time{})
 		}
 	}()
-	candidates, err := r.source.Delta(ctx, since)
+	mutations, err := r.source.Delta(ctx, since)
 	if err != nil {
 		return err
 	}
-	if len(candidates) == 0 {
+	if len(mutations) == 0 {
 		r.lastFetch = windowStart
 		r.lastSuccessUnix.Store(time.Now().UTC().Unix())
 		r.metrics.RecordRefresh("delta", "success", 0, 0, time.Now().UTC())
@@ -114,16 +115,16 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) (runErr error) {
 	if r.runtime == nil {
 		return fmt.Errorf("suggest store not initialized")
 	}
-	if err := r.runtime.ImportDelta(candidates); err != nil {
+	if err := r.runtime.ApplyDelta(mutations); err != nil {
 		return err
 	}
 	r.lastFetch = windowStart
 	r.lastSuccessUnix.Store(time.Now().UTC().Unix())
-	upserts, tombstones := classifyRefreshItems(candidates)
+	upserts, tombstones := countMutationItems(mutations)
 	r.metrics.RecordRefresh("delta", "success", upserts, tombstones, time.Now().UTC())
 	log.InfoContext(ctx, "suggest delta sync completed",
 		log.String("result", "success"),
-		log.Int("count", len(candidates)),
+		log.Int("count", len(mutations)),
 		log.Int64("duration_ms", time.Since(started).Milliseconds()),
 	)
 	return nil
@@ -133,13 +134,34 @@ func (r *ProfileIndexRefresher) HasSuccessfulRefresh() bool {
 	return r != nil && r.lastSuccessUnix.Load() > 0
 }
 
-func classifyRefreshItems(candidates []domainsuggest.ProfileSearchTerm) (upserts, tombstones int) {
+func filterIndexableTerms(candidates []domainsuggest.ProfileSearchTerm) []domainsuggest.ProfileSearchTerm {
+	out := make([]domainsuggest.ProfileSearchTerm, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.DisplayName == "" {
-			tombstones++
+		if candidate.ProfileID <= 0 || candidate.DisplayName == "" {
 			continue
 		}
-		upserts++
+		out = append(out, candidate)
+	}
+	return out
+}
+
+func countFullItems(raw, indexable []domainsuggest.ProfileSearchTerm) (upserts, tombstones int) {
+	upserts = len(indexable)
+	tombstones = len(raw) - len(indexable)
+	if tombstones < 0 {
+		tombstones = 0
+	}
+	return upserts, tombstones
+}
+
+func countMutationItems(mutations []domainsuggest.ProfileIndexMutation) (upserts, tombstones int) {
+	for _, m := range mutations {
+		switch m.Operation {
+		case domainsuggest.ProfileIndexUpsert:
+			upserts++
+		case domainsuggest.ProfileIndexDelete:
+			tombstones++
+		}
 	}
 	return upserts, tombstones
 }

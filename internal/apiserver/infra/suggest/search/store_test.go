@@ -150,3 +150,33 @@ func TestImportTermsEmptyDisplayRemovesProfile(t *testing.T) {
 		t.Fatalf("Len = %d", s.Len())
 	}
 }
+
+func TestImportTermsRepeatedTombstoneIsIdempotent(t *testing.T) {
+	s := Load([]domainsuggest.ProfileSearchTerm{
+		domainsuggest.NewProfileSearchTerm(1, "张三", nil, 5, 0, nil),
+	})
+	tomb := domainsuggest.NewProfileSearchTerm(1, "", nil, 5, 0, nil)
+	s.ImportTerms([]domainsuggest.ProfileSearchTerm{tomb})
+	s.ImportTerms([]domainsuggest.ProfileSearchTerm{tomb})
+	if s.Len() != 0 {
+		t.Fatalf("Len = %d, want 0 after repeated tombstone", s.Len())
+	}
+}
+
+func TestImportTermsMobileChangeRevokesOldHashKey(t *testing.T) {
+	s := Load([]domainsuggest.ProfileSearchTerm{
+		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13800138000"}, 5, 0, nil),
+	})
+	s.ImportTerms([]domainsuggest.ProfileSearchTerm{
+		domainsuggest.NewProfileSearchTerm(1, "张三", []string{"13900139000"}, 5, 0, nil),
+	})
+	all := domainsuggest.ProfileAccessScope{AllProfile: true}
+	old := s.SuggestProfile(domainsuggest.NewQuery("13800138000", 5, 50, 8, 0), all)
+	if len(old) != 0 {
+		t.Fatalf("old mobile still matches: %#v", old)
+	}
+	nu := s.SuggestProfile(domainsuggest.NewQuery("13900139000", 5, 50, 8, 0), all)
+	if len(nu) != 1 || nu[0].ProfileID != 1 {
+		t.Fatalf("new mobile = %#v", nu)
+	}
+}

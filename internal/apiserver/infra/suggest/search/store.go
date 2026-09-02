@@ -55,9 +55,31 @@ func (s *Store) RemoveProfile(profileID int64) {
 }
 
 // ImportTerms 合并写入档案项；同一 profileID 会先撤销旧键再写入（支持增量修正）。
-// DisplayName 为空的项视为删除该 profile。
 func (s *Store) ImportTerms(terms []suggest.ProfileSearchTerm) {
 	if s == nil || len(terms) == 0 {
+		return
+	}
+	mutations := make([]suggest.ProfileIndexMutation, 0, len(terms))
+	for _, term := range terms {
+		if term.ProfileID <= 0 {
+			continue
+		}
+		if strings.TrimSpace(term.DisplayName) == "" {
+			if m, err := suggest.NewProfileIndexDelete(term.ProfileID); err == nil {
+				mutations = append(mutations, m)
+			}
+			continue
+		}
+		if m, err := suggest.NewProfileIndexUpsert(term); err == nil {
+			mutations = append(mutations, m)
+		}
+	}
+	s.ApplyMutations(mutations)
+}
+
+// ApplyMutations 按显式操作 upsert 或 delete。
+func (s *Store) ApplyMutations(mutations []suggest.ProfileIndexMutation) {
+	if s == nil || len(mutations) == 0 {
 		return
 	}
 	s.mu.Lock()
@@ -65,21 +87,25 @@ func (s *Store) ImportTerms(terms []suggest.ProfileSearchTerm) {
 	if s.profileKeys == nil {
 		s.profileKeys = make(map[int64]profileKeySet)
 	}
-	for _, term := range terms {
-		if term.ProfileID <= 0 {
-			continue
+	for _, mutation := range mutations {
+		switch mutation.Operation {
+		case suggest.ProfileIndexDelete:
+			if mutation.ProfileID > 0 {
+				s.removeProfileLocked(mutation.ProfileID)
+			}
+		case suggest.ProfileIndexUpsert:
+			term := mutation.Term
+			if term.ProfileID <= 0 || strings.TrimSpace(term.DisplayName) == "" {
+				continue
+			}
+			if prev, ok := s.profileKeys[term.ProfileID]; ok {
+				s.unindexKeysLocked(prev, term.ProfileID)
+			}
+			tk := s.trie.ImportTerm(term)
+			hk := s.hash.ImportTerm(term)
+			s.terms[term.ProfileID] = term
+			s.profileKeys[term.ProfileID] = profileKeySet{trieKeys: tk, hashKeys: hk}
 		}
-		if strings.TrimSpace(term.DisplayName) == "" {
-			s.removeProfileLocked(term.ProfileID)
-			continue
-		}
-		if prev, ok := s.profileKeys[term.ProfileID]; ok {
-			s.unindexKeysLocked(prev, term.ProfileID)
-		}
-		tk := s.trie.ImportTerm(term)
-		hk := s.hash.ImportTerm(term)
-		s.terms[term.ProfileID] = term
-		s.profileKeys[term.ProfileID] = profileKeySet{trieKeys: tk, hashKeys: hk}
 	}
 }
 
@@ -101,7 +127,7 @@ func (s *Store) removeProfileLocked(profileID int64) {
 	delete(s.terms, profileID)
 }
 
-// SuggestProfile 先按关键词召回，再按 scope 过滤，最后排序截断。
+// SuggestProfile 先按 SearchMode 召回，再按 scope 过滤，最后排序截断。
 func (s *Store) SuggestProfile(query suggest.Query, scope suggest.ProfileAccessScope) []suggest.ProfileSearchTerm {
 	if s == nil {
 		return nil
@@ -109,24 +135,26 @@ func (s *Store) SuggestProfile(query suggest.Query, scope suggest.ProfileAccessS
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	mode := query.SearchMode
+	if mode == suggest.SearchModeNone {
+		if query.Keyword.IsDigits() {
+			mode = suggest.SearchModeExact
+		} else {
+			mode = suggest.SearchModePrefix
+		}
+	}
+
 	var matched []suggest.RankedProfileSearchTerm
-	if query.Keyword.IsDigits() {
+	switch mode {
+	case suggest.SearchModeExact:
 		matched = s.hashMatchedRanked(query)
-	} else {
+	default:
 		matched = s.trieMatchedRanked(query)
 	}
 
-	visible := make([]suggest.RankedProfileSearchTerm, 0, min(len(matched), query.Limit))
-	policy := suggest.ScopePolicy{}
-	compiled := suggest.CompileProfileAccessScope(scope)
-	for _, rt := range matched {
-		if !policy.AllowsCompiled(compiled, rt.Term) {
-			continue
-		}
-		visible = append(visible, rt)
-	}
-	suggestmetrics.ObserveIndexFilter(len(matched), len(visible))
-	return suggest.RankingPolicy{}.RankRankedForQuery(visible, query)
+	result := suggest.NewCandidateSelectionPolicy().Select(matched, scope, query)
+	suggestmetrics.ObserveIndexFilter(result.MatchedCount, result.VisibleCount)
+	return result.Terms
 }
 
 func (s *Store) hashMatchedRanked(q suggest.Query) []suggest.RankedProfileSearchTerm {

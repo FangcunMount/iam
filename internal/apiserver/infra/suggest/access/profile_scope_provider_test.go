@@ -2,6 +2,7 @@ package access
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
@@ -204,5 +205,77 @@ func TestOperatingProfileAccessScope_visibilityMerge(t *testing.T) {
 	}
 	if len(scope.ProfileIDs) != 2 || scope.ProfileIDs[0] != 7 || scope.ProfileIDs[1] != 9 {
 		t.Fatalf("ProfileIDs = %v", scope.ProfileIDs)
+	}
+}
+
+type countingVisibilityStub struct {
+	ids   []int64
+	calls int
+}
+
+func (v *countingVisibilityStub) VisibleProfileIDs(context.Context, domainsuggest.OperatingPrincipal) ([]int64, error) {
+	v.calls++
+	return append([]int64(nil), v.ids...), nil
+}
+
+func TestOperatingProfileAccessScope_platformListSkipsVisibility(t *testing.T) {
+	vis := &countingVisibilityStub{ids: []int64{99}}
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
+		allowPlatformProfiles: true,
+	}, vis)
+	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
+		OperatorID:   100,
+		TenantDomain: "fangcun",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scope.AllProfile {
+		t.Fatalf("AllProfile = false, want true")
+	}
+	if vis.calls != 0 {
+		t.Fatalf("visibility calls = %d, want 0", vis.calls)
+	}
+}
+
+func TestOperatingProfileAccessScope_checkerErrorFails(t *testing.T) {
+	wantErr := errors.New("authz down")
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{err: wantErr}, nil)
+	_, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
+		OperatorID:   100,
+		TenantDomain: "fangcun",
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
+func TestOperatingProfileAccessScope_visibilityErrorFails(t *testing.T) {
+	wantErr := errors.New("visibility failed")
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{}, visibilityStub{err: wantErr})
+	_, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
+		OperatorID:   100,
+		TenantDomain: "fangcun",
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
+func TestOperatingProfileAccessScope_platformMobileExclusiveFromTenantMobile(t *testing.T) {
+	p := NewOperatingProfileAccessScopeProvider(stubRouteAuth{
+		allowPlatformProfiles: true,
+		allowPlatformMobile:   true,
+		allowTenantMobile:     false,
+	}, nil)
+	scope, err := p.ResolveProfileAccessScope(context.Background(), domainsuggest.OperatingPrincipal{
+		OperatorID:   100,
+		TenantDomain: "fangcun",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scope.AllProfile || !scope.AllowMobileSearch {
+		t.Fatalf("scope = %#v", scope)
 	}
 }

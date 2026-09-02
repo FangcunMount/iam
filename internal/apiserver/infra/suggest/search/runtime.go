@@ -44,8 +44,8 @@ func (r *Runtime) Replace(terms []domainsuggest.ProfileSearchTerm) appsuggest.Pr
 	return store
 }
 
-// ImportDelta merges terms into the active store。
-func (r *Runtime) ImportDelta(terms []domainsuggest.ProfileSearchTerm) error {
+// ApplyDelta merges mutations into the active store。
+func (r *Runtime) ApplyDelta(mutations []domainsuggest.ProfileIndexMutation) error {
 	if r == nil {
 		return fmt.Errorf("suggest runtime is nil")
 	}
@@ -57,7 +57,7 @@ func (r *Runtime) ImportDelta(terms []domainsuggest.ProfileSearchTerm) error {
 	if !ok || store == nil {
 		return fmt.Errorf("invalid suggest store")
 	}
-	store.ImportTerms(terms)
+	store.ApplyMutations(mutations)
 	suggestmetrics.SetIndexTerms(store.Len())
 	return nil
 }

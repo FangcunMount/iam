@@ -1029,7 +1029,7 @@ func TestAuthzAuthorizationDoesNotUseRoleNameAdministratorBypasses(t *testing.T)
 			legacy: []string{"RequirePlatformAdmin", "RequirePermissionOrPlatformAdmin", "IsPlatformAdminRole"},
 		},
 		{
-			path:   "internal/apiserver/infra/suggest/access/profile_scope_provider.go",
+			path:   "internal/apiserver/infra/suggest/access/authz_facts_reader.go",
 			legacy: []string{"IsSuperAdmin", "tenant_admin", "super_admin", "IsPlatformAdminRole"},
 		},
 	} {
@@ -1210,6 +1210,12 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 			}
 		}
 	})
+
+	assertFileLacks(t, root, "internal/apiserver/transport/rest/suggest/handler.go", "AllowMobileSearch")
+	assertFileContains(t, root, "internal/apiserver/domain/suggest/search_policy.go", "type SearchPolicy struct")
+	assertFileContains(t, root, "internal/apiserver/domain/suggest/scope_resolution.go", "type ScopeResolutionPolicy struct")
+	assertFileContains(t, root, "internal/apiserver/domain/suggest/index_mutation.go", "type ProfileIndexMutation struct")
+	assertFileContains(t, root, "internal/apiserver/application/suggest/service.go", "searchPolicy")
 }
 
 func TestSuggestRetiredNumericTenantFieldsDoNotReturn(t *testing.T) {

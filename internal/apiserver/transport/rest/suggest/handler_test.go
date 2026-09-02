@@ -121,6 +121,38 @@ func TestProfileRateLimitedSecondRequest(t *testing.T) {
 	}
 }
 
+func TestProfileRateLimitedMobileKeywordUsesMobileBucket(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	Register(engine, Dependencies{
+		Service: suggestorStub{},
+		RateLimiter: ratelimit.NewMemoryLimiter(appsuggest.RateLimitConfig{
+			PerOperatorQPS:                100,
+			PerOperatorBurst:              100,
+			MobileKeywordPerOperatorQPS:   1,
+			MobileKeywordPerOperatorBurst: 1,
+		}),
+		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
+			requestctx.SetUserID(c, meta.ID(100))
+			c.Next()
+		}},
+	})
+
+	reqFactory := func() *http.Request {
+		return httptest.NewRequest(http.MethodGet, "/api/v2/suggest/profile?k=13812345678", nil)
+	}
+	w1 := httptest.NewRecorder()
+	engine.ServeHTTP(w1, reqFactory())
+	if w1.Code != http.StatusOK {
+		t.Fatalf("first status = %d", w1.Code)
+	}
+	w2 := httptest.NewRecorder()
+	engine.ServeHTTP(w2, reqFactory())
+	if w2.Code != http.StatusTooManyRequests {
+		t.Fatalf("second mobile status = %d, want 429", w2.Code)
+	}
+}
+
 type suggestorStub struct {
 	items []appsuggest.ProfileSuggestItem
 }
