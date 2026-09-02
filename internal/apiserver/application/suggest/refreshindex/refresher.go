@@ -1,4 +1,4 @@
-package suggest
+package refreshindex
 
 import (
 	"context"
@@ -8,35 +8,35 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	domainprofile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
 )
 
-// ProfileIndexRefresher refreshes the profile suggestion index.
-type ProfileIndexRefresher struct {
-	source          ProfileIndexSource
-	runtime         ProfileSuggestionRuntime
-	metrics         SuggestMetrics
+// Refresher 编排 Full/Delta 刷新、游标与互斥。
+type Refresher struct {
+	source          ProjectionSource
+	writer          IndexWriter
+	metrics         Metrics
 	lastFetch       time.Time
 	now             func() time.Time
 	refreshMu       sync.Mutex
 	lastSuccessUnix atomic.Int64
 }
 
-// NewProfileIndexRefresher creates a profile suggestion index refresher.
-func NewProfileIndexRefresher(source ProfileIndexSource, runtime ProfileSuggestionRuntime, metrics SuggestMetrics) *ProfileIndexRefresher {
+// NewRefresher 创建 refresher。
+func NewRefresher(source ProjectionSource, writer IndexWriter, metrics Metrics) *Refresher {
 	if metrics == nil {
-		metrics = noopSuggestMetrics{}
+		metrics = noopMetrics{}
 	}
-	return &ProfileIndexRefresher{
+	return &Refresher{
 		source:  source,
-		runtime: runtime,
+		writer:  writer,
 		metrics: metrics,
 		now:     time.Now,
 	}
 }
 
-// RunFull replaces the active index with a full candidate set.
-func (r *ProfileIndexRefresher) RunFull(ctx context.Context) (runErr error) {
+// RunFull 全量替换索引。
+func (r *Refresher) RunFull(ctx context.Context) (runErr error) {
 	if r == nil || r.source == nil {
 		return fmt.Errorf("suggest refresher missing source")
 	}
@@ -54,13 +54,16 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) (runErr error) {
 			r.metrics.RecordRefresh("full", "failed", 0, 0, time.Time{})
 		}
 	}()
+
 	candidates, err := r.source.Full(ctx)
 	if err != nil {
 		return err
 	}
-	indexable := filterIndexableTerms(candidates)
-	if r.runtime != nil {
-		r.runtime.Replace(indexable)
+	indexable := filterIndexableProfiles(candidates)
+	if r.writer != nil {
+		if err := r.writer.Replace(ctx, indexable); err != nil {
+			return err
+		}
 	}
 	r.lastFetch = windowStart
 	r.lastSuccessUnix.Store(time.Now().UTC().Unix())
@@ -74,8 +77,8 @@ func (r *ProfileIndexRefresher) RunFull(ctx context.Context) (runErr error) {
 	return nil
 }
 
-// RunDelta imports candidates changed since the previous successful refresh.
-func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) (runErr error) {
+// RunDelta 增量刷新索引。
+func (r *Refresher) RunDelta(ctx context.Context) (runErr error) {
 	if r == nil || r.source == nil {
 		return fmt.Errorf("suggest refresher missing source")
 	}
@@ -97,11 +100,12 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) (runErr error) {
 			r.metrics.RecordRefresh("delta", "failed", 0, 0, time.Time{})
 		}
 	}()
-	mutations, err := r.source.Delta(ctx, since)
+
+	changes, err := r.source.Delta(ctx, since)
 	if err != nil {
 		return err
 	}
-	if len(mutations) == 0 {
+	if len(changes) == 0 {
 		r.lastFetch = windowStart
 		r.lastSuccessUnix.Store(time.Now().UTC().Unix())
 		r.metrics.RecordRefresh("delta", "success", 0, 0, time.Now().UTC())
@@ -112,32 +116,33 @@ func (r *ProfileIndexRefresher) RunDelta(ctx context.Context) (runErr error) {
 		)
 		return nil
 	}
-	if r.runtime == nil {
+	if r.writer == nil {
 		return fmt.Errorf("suggest store not initialized")
 	}
-	if err := r.runtime.ApplyDelta(mutations); err != nil {
+	if err := r.writer.Apply(ctx, changes); err != nil {
 		return err
 	}
 	r.lastFetch = windowStart
 	r.lastSuccessUnix.Store(time.Now().UTC().Unix())
-	upserts, tombstones := countMutationItems(mutations)
+	upserts, tombstones := countChangeItems(changes)
 	r.metrics.RecordRefresh("delta", "success", upserts, tombstones, time.Now().UTC())
 	log.InfoContext(ctx, "suggest delta sync completed",
 		log.String("result", "success"),
-		log.Int("count", len(mutations)),
+		log.Int("count", len(changes)),
 		log.Int64("duration_ms", time.Since(started).Milliseconds()),
 	)
 	return nil
 }
 
-func (r *ProfileIndexRefresher) HasSuccessfulRefresh() bool {
+// HasSuccessfulRefresh 是否至少成功刷新过一次。
+func (r *Refresher) HasSuccessfulRefresh() bool {
 	return r != nil && r.lastSuccessUnix.Load() > 0
 }
 
-func filterIndexableTerms(candidates []domainsuggest.ProfileSearchTerm) []domainsuggest.ProfileSearchTerm {
-	out := make([]domainsuggest.ProfileSearchTerm, 0, len(candidates))
+func filterIndexableProfiles(candidates []domainprofile.SuggestibleProfile) []domainprofile.SuggestibleProfile {
+	out := make([]domainprofile.SuggestibleProfile, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.ProfileID <= 0 || candidate.DisplayName == "" {
+		if candidate.ID() <= 0 || candidate.DisplayName() == "" {
 			continue
 		}
 		out = append(out, candidate)
@@ -145,7 +150,7 @@ func filterIndexableTerms(candidates []domainsuggest.ProfileSearchTerm) []domain
 	return out
 }
 
-func countFullItems(raw, indexable []domainsuggest.ProfileSearchTerm) (upserts, tombstones int) {
+func countFullItems(raw, indexable []domainprofile.SuggestibleProfile) (upserts, tombstones int) {
 	upserts = len(indexable)
 	tombstones = len(raw) - len(indexable)
 	if tombstones < 0 {
@@ -154,12 +159,12 @@ func countFullItems(raw, indexable []domainsuggest.ProfileSearchTerm) (upserts, 
 	return upserts, tombstones
 }
 
-func countMutationItems(mutations []domainsuggest.ProfileIndexMutation) (upserts, tombstones int) {
-	for _, m := range mutations {
-		switch m.Operation {
-		case domainsuggest.ProfileIndexUpsert:
+func countChangeItems(changes []ProjectionChange) (upserts, tombstones int) {
+	for _, c := range changes {
+		switch c.Kind() {
+		case ChangeUpsert:
 			upserts++
-		case domainsuggest.ProfileIndexDelete:
+		case ChangeDelete:
 			tombstones++
 		}
 	}

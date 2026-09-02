@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
+	domainprofile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
 	"gorm.io/gorm"
 )
 
@@ -120,47 +121,47 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 }
 
 // Full 全量拉取
-func (l *Loader) Full(ctx context.Context) ([]domainsuggest.ProfileSearchTerm, error) {
+func (l *Loader) Full(ctx context.Context) ([]domainprofile.SuggestibleProfile, error) {
 	return l.query(ctx, l.config.FullSQL)
 }
 
 // Delta 增量拉取，按时间过滤；在 adapter 边界将空 name 转为显式 Delete。
-func (l *Loader) Delta(ctx context.Context, since time.Time) ([]domainsuggest.ProfileIndexMutation, error) {
+func (l *Loader) Delta(ctx context.Context, since time.Time) ([]apprefresh.ProjectionChange, error) {
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
 	}
-	var terms []domainsuggest.ProfileSearchTerm
+	var profiles []domainprofile.SuggestibleProfile
 	var err error
 	if l.defaultDelta {
-		terms, err = l.query(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
+		profiles, err = l.query(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
 	} else {
-		terms, err = l.query(ctx, l.config.DeltaSQL, since, since)
+		profiles, err = l.query(ctx, l.config.DeltaSQL, since, since)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return termsToMutations(terms), nil
+	return profilesToChanges(profiles), nil
 }
 
-func termsToMutations(terms []domainsuggest.ProfileSearchTerm) []domainsuggest.ProfileIndexMutation {
-	out := make([]domainsuggest.ProfileIndexMutation, 0, len(terms))
-	for _, term := range terms {
-		if term.ProfileID <= 0 {
+func profilesToChanges(profiles []domainprofile.SuggestibleProfile) []apprefresh.ProjectionChange {
+	out := make([]apprefresh.ProjectionChange, 0, len(profiles))
+	for _, p := range profiles {
+		if p.ID() <= 0 {
 			continue
 		}
-		if strings.TrimSpace(term.DisplayName) == "" {
-			m, err := domainsuggest.NewProfileIndexDelete(term.ProfileID)
+		if strings.TrimSpace(p.DisplayName()) == "" {
+			ch, err := apprefresh.Delete(p.ID())
 			if err != nil {
 				continue
 			}
-			out = append(out, m)
+			out = append(out, ch)
 			continue
 		}
-		m, err := domainsuggest.NewProfileIndexUpsert(term)
+		ch, err := apprefresh.Upsert(p)
 		if err != nil {
 			continue
 		}
-		out = append(out, m)
+		out = append(out, ch)
 	}
 	return out
 }
@@ -174,7 +175,7 @@ type record struct {
 	Weight           int     `gorm:"column:weight"`
 }
 
-func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]domainsuggest.ProfileSearchTerm, error) {
+func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]domainprofile.SuggestibleProfile, error) {
 	if l.db == nil {
 		return nil, fmt.Errorf("suggest loader db is nil")
 	}
@@ -184,9 +185,9 @@ func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]
 		return nil, err
 	}
 
-	out := make([]domainsuggest.ProfileSearchTerm, 0, len(rows))
+	out := make([]domainprofile.SuggestibleProfile, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, row.profileSearchTerm())
+		out = append(out, row.suggestibleProfile())
 	}
 
 	log.Infow("suggest loader finished query", "count", len(out))
@@ -194,7 +195,7 @@ func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]
 	return out, nil
 }
 
-func (r record) profileSearchTerm() domainsuggest.ProfileSearchTerm {
+func (r record) suggestibleProfile() domainprofile.SuggestibleProfile {
 	mobiles := ""
 	if r.Mobiles != nil {
 		mobiles = *r.Mobiles
@@ -203,7 +204,7 @@ func (r record) profileSearchTerm() domainsuggest.ProfileSearchTerm {
 	if r.OwnerOperatorIDs != nil {
 		owners = *r.OwnerOperatorIDs
 	}
-	return domainsuggest.NewProfileSearchTerm(
+	return domainprofile.New(
 		r.ID,
 		r.Name,
 		splitMobiles(mobiles),
@@ -212,6 +213,8 @@ func (r record) profileSearchTerm() domainsuggest.ProfileSearchTerm {
 		splitInt64CSV(owners),
 	)
 }
+
+var _ apprefresh.ProjectionSource = (*Loader)(nil)
 
 func splitInt64CSV(value string) []int64 {
 	value = strings.TrimSpace(value)

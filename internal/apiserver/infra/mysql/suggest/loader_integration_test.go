@@ -5,8 +5,12 @@ import (
 	"testing"
 	"time"
 
-	domainsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
-	searchruntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/search"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
+	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
+	domainprofile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
+	domainsearch "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/search"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
+	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -17,18 +21,26 @@ func TestLoaderFullDeltaEquivalenceOnActiveProfile(t *testing.T) {
 	seedActiveProfile(db, t, 1, "张三", 100, "13800138000", now)
 
 	loader := NewLoader(db, LoaderConfig{})
-	fullTerms, err := loader.Full(context.Background())
+	fullProfiles, err := loader.Full(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fullTerms) != 1 || fullTerms[0].DisplayName != "张三" {
-		t.Fatalf("full = %#v", fullTerms)
+	if len(fullProfiles) != 1 || fullProfiles[0].DisplayName() != "张三" {
+		t.Fatalf("full = %#v", fullProfiles)
 	}
 
-	fullStore := searchruntime.Load(fullTerms)
-	out := fullStore.SuggestProfile(domainsuggest.NewQueryWithMode("张", domainsuggest.SearchModePrefix, 5, 50, 8, 0), domainsuggest.ProfileAccessScope{AllProfile: true})
-	if len(out) != 1 || out[0].ProfileID != 1 {
-		t.Fatalf("full suggest = %#v", out)
+	store := suggestmemory.Load(fullProfiles, suggestmemory.Config{})
+	candidates, err := store.Recall(context.Background(), appquery.RecallRequest{
+		Keyword:         domainsearch.NewKeyword("张"),
+		Intent:          domainsearch.IntentTextPrefix,
+		CandidateBudget: 50,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := domainsearch.SelectionPolicy{}.Select(candidates, visibility.NewScope(true, true, 0, nil, nil), domainsearch.NewKeyword("张"), 5)
+	if len(out.Profiles) != 1 || out.Profiles[0].ID() != 1 {
+		t.Fatalf("full suggest = %#v", out.Profiles)
 	}
 }
 
@@ -46,12 +58,12 @@ func TestLoaderDeltaDeleteOnProfileSoftDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mutations, err := loader.Delta(context.Background(), since)
+	changes, err := loader.Delta(context.Background(), since)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mutations) != 1 || mutations[0].Operation != domainsuggest.ProfileIndexDelete {
-		t.Fatalf("mutations = %#v", mutations)
+	if len(changes) != 1 || changes[0].Kind() != apprefresh.ChangeDelete {
+		t.Fatalf("changes = %#v", changes)
 	}
 }
 
@@ -66,28 +78,29 @@ func TestLoaderDeltaUpsertAfterMobileChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mutations, err := loader.Delta(context.Background(), since)
+	changes, err := loader.Delta(context.Background(), since)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mutations) != 1 || mutations[0].Operation != domainsuggest.ProfileIndexUpsert {
-		t.Fatalf("mutations = %#v", mutations)
+	if len(changes) != 1 || changes[0].Kind() != apprefresh.ChangeUpsert {
+		t.Fatalf("changes = %#v", changes)
 	}
-	if len(mutations[0].Term.Mobiles) != 1 || mutations[0].Term.Mobiles[0] != "13900139000" {
-		t.Fatalf("mobiles = %#v", mutations[0].Term.Mobiles)
+	mobiles := changes[0].Profile().Mobiles()
+	if len(mobiles) != 1 || mobiles[0] != "13900139000" {
+		t.Fatalf("mobiles = %#v", mobiles)
 	}
 }
 
-func TestTermsToMutations(t *testing.T) {
-	mutations := termsToMutations([]domainsuggest.ProfileSearchTerm{
-		domainsuggest.NewProfileSearchTerm(1, "a", nil, 1, 0, nil),
-		domainsuggest.NewProfileSearchTerm(2, "", nil, 1, 0, nil),
+func TestProfilesToChanges(t *testing.T) {
+	changes := profilesToChanges([]domainprofile.SuggestibleProfile{
+		domainprofile.New(1, "a", nil, 1, 0, nil),
+		domainprofile.New(2, "", nil, 1, 0, nil),
 	})
-	if len(mutations) != 2 {
-		t.Fatalf("len = %d", len(mutations))
+	if len(changes) != 2 {
+		t.Fatalf("len = %d", len(changes))
 	}
-	if mutations[0].Operation != domainsuggest.ProfileIndexUpsert || mutations[1].Operation != domainsuggest.ProfileIndexDelete {
-		t.Fatalf("ops = %d,%d", mutations[0].Operation, mutations[1].Operation)
+	if changes[0].Kind() != apprefresh.ChangeUpsert || changes[1].Kind() != apprefresh.ChangeDelete {
+		t.Fatalf("kinds = %d,%d", changes[0].Kind(), changes[1].Kind())
 	}
 }
 
