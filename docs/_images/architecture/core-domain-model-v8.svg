@@ -1,0 +1,567 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="4800" height="3300" viewBox="0 0 4800 3300" role="img" aria-labelledby="title desc">
+  <title id="title">IAM 核心领域模型 V8｜聚合边界与领域知识</title>
+  <desc id="desc">Identity、AuthN、AuthZ 三个限界上下文的领域模型图。明确 13 个聚合根及聚合边界、值对象、非聚合领域结果、已颁发凭证、稳定 ID 引用和关键领域不变量；不展示领域服务、应用服务、流程编排与基础设施。</desc>
+
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/>
+    </filter>
+    <marker id="refArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#3b6ea8"/>
+    </marker>
+    <style>
+      text { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif; fill: #1f2937; }
+      .page-title { font-size: 58px; font-weight: 750; }
+      .page-subtitle { font-size: 24px; fill: #64748b; }
+      .context-title { font-size: 36px; font-weight: 750; }
+      .context-subtitle { font-size: 19px; fill: #475569; }
+      .aggregate-label { font-size: 15px; font-weight: 750; letter-spacing: 1.1px; }
+      .root-title { font-size: 27px; font-weight: 750; }
+      .field { font-size: 17px; fill: #475569; }
+      .small { font-size: 15px; fill: #64748b; }
+      .vo-title { font-size: 17px; font-weight: 700; }
+      .vo-body { font-size: 14px; fill: #64748b; }
+      .section-title { font-size: 21px; font-weight: 750; }
+      .section-note { font-size: 16px; fill: #64748b; }
+      .knowledge-title { font-size: 18px; font-weight: 750; fill: #7c3f12; }
+      .knowledge-text { font-size: 16px; fill: #6b3b18; }
+      .relation { font-size: 15px; font-weight: 650; fill: #47617d; }
+      .footer-title { font-size: 29px; font-weight: 750; }
+      .footer-text { font-size: 18px; fill: #475569; }
+      .legend { font-size: 15px; fill: #475569; }
+
+      .context-identity { fill: #fffaf0; stroke: #d29b23; stroke-width: 3; }
+      .context-authn { fill: #f3faf5; stroke: #2f855a; stroke-width: 3; }
+      .context-authz { fill: #f8f4fd; stroke: #7653b5; stroke-width: 3; }
+      .head-identity { fill: #ffefbd; }
+      .head-authn { fill: #dff3e5; }
+      .head-authz { fill: #e8def8; }
+
+      .aggregate-boundary { fill: #ffffff; fill-opacity: 0.72; stroke-width: 2.5; stroke-dasharray: 12 8; }
+      .boundary-identity { stroke: #d29b23; }
+      .boundary-authn { stroke: #2f855a; }
+      .boundary-authz { stroke: #7653b5; }
+      .root-identity { fill: #fff7d6; stroke: #c58a12; stroke-width: 2.4; }
+      .root-authn { fill: #e8f7ec; stroke: #2f855a; stroke-width: 2.4; }
+      .root-authz { fill: #f0e9fb; stroke: #7653b5; stroke-width: 2.4; }
+      .vo { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.8; }
+      .non-aggregate { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; }
+      .domain-result { fill: #eef5ff; stroke: #4f77aa; stroke-width: 2; }
+      .issued-credential { fill: #edf8f0; stroke: #4a9b61; stroke-width: 2; }
+      .knowledge { fill: #fff0df; stroke: #df8d3b; stroke-width: 2; }
+      .divider { stroke: #cbd5e1; stroke-width: 1.4; }
+      .association { fill: none; stroke: #64748b; stroke-width: 2.5; }
+      .reference { fill: none; stroke: #3b6ea8; stroke-width: 2.7; stroke-dasharray: 11 8; marker-end: url(#refArrow); }
+      .knowledge-link { fill: none; stroke: #d97706; stroke-width: 2; stroke-dasharray: 4 7; }
+    </style>
+  </defs>
+
+  <rect width="4800" height="3300" fill="#ffffff"/>
+  <text id="core-domain-model-v8" x="2400" y="76" text-anchor="middle" class="page-title">IAM 核心领域模型 V8｜聚合边界与领域知识</text>
+  <text x="2400" y="121" text-anchor="middle" class="page-subtitle">整体介绍回答“谁拥有什么业务事实、哪些事实必须一致”；流程、领域服务与应用服务进入模块详图</text>
+  <rect x="1580" y="145" width="1640" height="42" rx="21" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="2400" y="172" text-anchor="middle" class="small">当前模型：3 个限界上下文 · 13 个小聚合 · 以稳定 ID 跨聚合协作</text>
+
+  <!-- Identity bounded context -->
+  <rect x="60" y="220" width="1160" height="2700" rx="30" class="context-identity" filter="url(#shadow)"/>
+  <rect x="60" y="220" width="1160" height="112" rx="30" class="head-identity"/>
+  <path d="M60 298 H1220" stroke="#d29b23" stroke-width="2"/>
+  <text x="640" y="265" text-anchor="middle" class="context-title">Identity｜身份上下文</text>
+  <text x="640" y="296" text-anchor="middle" class="context-subtitle">拥有稳定 User、自然人 Profile 与二者的关系事实</text>
+  <a href="../../02-业务模块/01-Identity/00-模块总览.md">
+    <rect x="1030" y="244" width="150" height="42" rx="21" fill="#ffffff" fill-opacity="0.75" stroke="#d29b23"/>
+    <text x="1105" y="271" text-anchor="middle" class="small">模块详解 →</text>
+  </a>
+
+  <rect x="100" y="370" width="1080" height="200" rx="18" class="knowledge"/>
+  <text x="130" y="405" class="knowledge-title">领域知识｜三个模型不可互相替代</text>
+  <text x="130" y="443" class="knowledge-text">• User 回答“谁可以使用系统”；Profile 回答“业务服务的是哪个自然人”</text>
+  <text x="130" y="477" class="knowledge-text">• ProfileLink 是有独立生命周期的身份关系事实，不是 User/Profile 的内部集合</text>
+  <text x="130" y="511" class="knowledge-text">• AuthN、AuthZ 只引用稳定 ID，不接管 Identity 的生命周期</text>
+  <path d="M640 570 V612" class="knowledge-link"/>
+
+  <!-- Identity / User aggregate -->
+  <rect x="100" y="620" width="1080" height="405" rx="22" class="aggregate-boundary boundary-identity"/>
+  <text x="128" y="651" class="aggregate-label" fill="#9a6a08">AGGREGATE 01｜USER</text>
+  <g filter="url(#shadow)">
+    <rect x="130" y="688" width="500" height="260" rx="17" class="root-identity"/>
+    <text x="155" y="720" class="aggregate-label" fill="#9a6a08">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="380" y="762" text-anchor="middle" class="root-title">User｜系统使用者</text>
+    <line x1="130" y1="785" x2="630" y2="785" class="divider"/>
+    <text x="155" y="821" class="field">ID · Name · Nickname</text>
+    <text x="155" y="855" class="field">Phone · Email · Status</text>
+    <text x="155" y="905" class="small">生命周期：active / inactive / blocked</text>
+  </g>
+  <rect x="680" y="688" width="220" height="112" rx="13" class="vo"/>
+  <text x="790" y="722" text-anchor="middle" class="vo-title">Phone</text>
+  <text x="790" y="753" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="790" y="781" text-anchor="middle" class="vo-body">规范化电话号码</text>
+  <rect x="930" y="688" width="220" height="112" rx="13" class="vo"/>
+  <text x="1040" y="722" text-anchor="middle" class="vo-title">Email</text>
+  <text x="1040" y="753" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="1040" y="781" text-anchor="middle" class="vo-body">规范化邮箱</text>
+  <rect x="680" y="830" width="470" height="118" rx="13" class="vo"/>
+  <text x="915" y="866" text-anchor="middle" class="vo-title">User.Status</text>
+  <text x="915" y="897" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; active · inactive · blocked</text>
+  <text x="915" y="927" text-anchor="middle" class="vo-body">决定 User 当前是否可被认证准入</text>
+
+  <!-- Identity / ProfileLink aggregate -->
+  <rect x="100" y="1080" width="1080" height="405" rx="22" class="aggregate-boundary boundary-identity"/>
+  <text x="128" y="1111" class="aggregate-label" fill="#9a6a08">AGGREGATE 02｜PROFILE LINK</text>
+  <g filter="url(#shadow)">
+    <rect x="130" y="1148" width="500" height="260" rx="17" class="root-identity"/>
+    <text x="155" y="1180" class="aggregate-label" fill="#9a6a08">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="380" y="1222" text-anchor="middle" class="root-title">ProfileLink｜身份关系</text>
+    <line x1="130" y1="1245" x2="630" y2="1245" class="divider"/>
+    <text x="155" y="1281" class="field">ID · UserID · ProfileID</text>
+    <text x="155" y="1315" class="field">Type · Relation</text>
+    <text x="155" y="1349" class="field">EstablishedAt · RevokedAt</text>
+    <text x="155" y="1383" class="small">撤销幂等；保留首次撤销时间</text>
+  </g>
+  <rect x="680" y="1148" width="470" height="112" rx="13" class="vo"/>
+  <text x="915" y="1182" text-anchor="middle" class="vo-title">ProfileLink.Type</text>
+  <text x="915" y="1213" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 关系类型</text>
+  <text x="915" y="1241" text-anchor="middle" class="vo-body">区分自我档案与其他关联方式</text>
+  <rect x="680" y="1290" width="470" height="118" rx="13" class="vo"/>
+  <text x="915" y="1326" text-anchor="middle" class="vo-title">ProfileLink.Relation</text>
+  <text x="915" y="1357" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 关系语义</text>
+  <text x="915" y="1387" text-anchor="middle" class="vo-body">随关系事实一起建立、撤销</text>
+
+  <!-- Identity / Profile aggregate -->
+  <rect x="100" y="1540" width="1080" height="405" rx="22" class="aggregate-boundary boundary-identity"/>
+  <text x="128" y="1571" class="aggregate-label" fill="#9a6a08">AGGREGATE 03｜PROFILE</text>
+  <g filter="url(#shadow)">
+    <rect x="130" y="1608" width="500" height="260" rx="17" class="root-identity"/>
+    <text x="155" y="1640" class="aggregate-label" fill="#9a6a08">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="380" y="1682" text-anchor="middle" class="root-title">Profile｜自然人档案</text>
+    <line x1="130" y1="1705" x2="630" y2="1705" class="divider"/>
+    <text x="155" y="1741" class="field">ID · Name</text>
+    <text x="155" y="1775" class="field">IDCard · Gender · Birthday</text>
+    <text x="155" y="1825" class="small">表达自然人资料，不承担登录能力</text>
+  </g>
+  <rect x="680" y="1608" width="220" height="112" rx="13" class="vo"/>
+  <text x="790" y="1642" text-anchor="middle" class="vo-title">IDCard</text>
+  <text x="790" y="1673" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="790" y="1701" text-anchor="middle" class="vo-body">证件身份信息</text>
+  <rect x="930" y="1608" width="220" height="112" rx="13" class="vo"/>
+  <text x="1040" y="1642" text-anchor="middle" class="vo-title">Gender</text>
+  <text x="1040" y="1673" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="1040" y="1701" text-anchor="middle" class="vo-body">性别</text>
+  <rect x="680" y="1750" width="470" height="118" rx="13" class="vo"/>
+  <text x="915" y="1786" text-anchor="middle" class="vo-title">Birthday</text>
+  <text x="915" y="1817" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 出生日期</text>
+  <text x="915" y="1847" text-anchor="middle" class="vo-body">按值表达，无独立身份</text>
+
+  <path d="M380 948 V1146" class="association"/>
+  <rect x="250" y="1003" width="260" height="36" rx="18" fill="#ffffff"/>
+  <text x="380" y="1028" text-anchor="middle" class="relation">User 1 ← 0..* ProfileLink</text>
+  <path d="M380 1408 V1606" class="association"/>
+  <rect x="235" y="1463" width="290" height="36" rx="18" fill="#ffffff"/>
+  <text x="380" y="1488" text-anchor="middle" class="relation">Profile 1 ← 0..* ProfileLink</text>
+
+  <rect x="100" y="2010" width="1080" height="700" rx="20" class="knowledge"/>
+  <text x="130" y="2050" class="knowledge-title">领域不变量｜跨聚合一致性</text>
+  <text x="130" y="2092" class="knowledge-text">User</text>
+  <text x="160" y="2128" class="knowledge-text">• 活跃手机号在系统内唯一</text>
+  <text x="160" y="2162" class="knowledge-text">• 状态由 User 自己表达；其他上下文只能读取</text>
+  <text x="130" y="2212" class="knowledge-text">Profile</text>
+  <text x="160" y="2248" class="knowledge-text">• IDCard 在有效档案中唯一</text>
+  <text x="130" y="2298" class="knowledge-text">ProfileLink</text>
+  <text x="160" y="2334" class="knowledge-text">• 同一 User 最多存在一个活跃 self 关系</text>
+  <text x="160" y="2368" class="knowledge-text">• 撤销关系不删除 User 或 Profile</text>
+  <line x1="130" y1="2410" x2="1150" y2="2410" stroke="#e3a566"/>
+  <text x="130" y="2454" class="knowledge-title">边界结论</text>
+  <text x="130" y="2492" class="knowledge-text">三者都是单实体聚合：聚合根就是该聚合唯一实体。</text>
+  <text x="130" y="2528" class="knowledge-text">关系数量与唯一性需要仓储/应用事务协同维护，</text>
+  <text x="130" y="2562" class="knowledge-text">但关系的建立、活跃和撤销语义仍归 ProfileLink。</text>
+  <text x="130" y="2620" class="small">跨上下文锚点：User.ID</text>
+
+  <!-- AuthN bounded context -->
+  <rect x="1260" y="220" width="1900" height="2700" rx="30" class="context-authn" filter="url(#shadow)"/>
+  <rect x="1260" y="220" width="1900" height="112" rx="30" class="head-authn"/>
+  <path d="M1260 298 H3160" stroke="#2f855a" stroke-width="2"/>
+  <text x="2210" y="265" text-anchor="middle" class="context-title">AuthN｜认证上下文</text>
+  <text x="2210" y="296" text-anchor="middle" class="context-subtitle">拥有长期认证关系、一次性挑战、在线会话与令牌生命周期</text>
+  <a href="../../02-业务模块/02-AuthN/00-模块总览.md">
+    <rect x="2960" y="244" width="160" height="42" rx="21" fill="#ffffff" fill-opacity="0.75" stroke="#2f855a"/>
+    <text x="3040" y="271" text-anchor="middle" class="small">模块详解 →</text>
+  </a>
+
+  <rect x="1300" y="370" width="1820" height="190" rx="18" class="knowledge"/>
+  <text x="1330" y="405" class="knowledge-title">领域知识｜认证不是一次布尔判断</text>
+  <text x="1330" y="443" class="knowledge-text">• LoginIdentity 是稳定登录入口；Credential 是独立的长期控制材料；二者分别演化</text>
+  <text x="1330" y="477" class="knowledge-text">• Challenge 处理一次性证明；Session 与 RefreshToken 处理成功认证后的在线生命周期</text>
+  <text x="1330" y="511" class="knowledge-text">• AuthDecision、Principal、AdmissionDecision 与令牌颁发结果是领域值/结果，不是聚合根</text>
+
+  <!-- AuthN aggregate 04 LoginIdentity -->
+  <rect x="1300" y="610" width="870" height="370" rx="22" class="aggregate-boundary boundary-authn"/>
+  <text x="1328" y="641" class="aggregate-label" fill="#276749">AGGREGATE 04｜LOGIN IDENTITY</text>
+  <g filter="url(#shadow)">
+    <rect x="1330" y="678" width="490" height="235" rx="17" class="root-authn"/>
+    <text x="1355" y="710" class="aggregate-label" fill="#276749">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="1575" y="751" text-anchor="middle" class="root-title">LoginIdentity｜登录身份</text>
+    <line x1="1330" y1="774" x2="1820" y2="774" class="divider"/>
+    <text x="1355" y="810" class="field">ID · UserID · Provider · Realm</text>
+    <text x="1355" y="844" class="field">Identifier · GlobalIdentifier</text>
+    <text x="1355" y="878" class="field">Status · VerifiedAt · LinkedAt</text>
+  </g>
+  <rect x="1850" y="678" width="290" height="105" rx="13" class="vo"/>
+  <text x="1995" y="712" text-anchor="middle" class="vo-title">ProviderKey</text>
+  <text x="1995" y="743" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="1995" y="770" text-anchor="middle" class="vo-body">Provider + Realm + Identifier</text>
+  <rect x="1850" y="808" width="290" height="105" rx="13" class="vo"/>
+  <text x="1995" y="842" text-anchor="middle" class="vo-title">LoginIdentity.Status</text>
+  <text x="1995" y="873" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="1995" y="900" text-anchor="middle" class="vo-body">active · disabled</text>
+
+  <!-- AuthN aggregate 05 Credential -->
+  <rect x="2210" y="610" width="910" height="370" rx="22" class="aggregate-boundary boundary-authn"/>
+  <text x="2238" y="641" class="aggregate-label" fill="#276749">AGGREGATE 05｜CREDENTIAL</text>
+  <g filter="url(#shadow)">
+    <rect x="2240" y="678" width="500" height="235" rx="17" class="root-authn"/>
+    <text x="2265" y="710" class="aggregate-label" fill="#276749">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="2490" y="751" text-anchor="middle" class="root-title">Credential｜登录凭据</text>
+    <line x1="2240" y1="774" x2="2740" y2="774" class="divider"/>
+    <text x="2265" y="810" class="field">ID · LoginIdentityID · Type</text>
+    <text x="2265" y="844" class="field">Material · Algo · ParamsJSON</text>
+    <text x="2265" y="878" class="field">Status · FailedAttempts · LockedUntil</text>
+  </g>
+  <rect x="2770" y="678" width="320" height="105" rx="13" class="vo"/>
+  <text x="2930" y="712" text-anchor="middle" class="vo-title">CredentialType / Status</text>
+  <text x="2930" y="743" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="2930" y="770" text-anchor="middle" class="vo-body">password 等 · enabled / disabled</text>
+  <rect x="2770" y="808" width="320" height="105" rx="13" class="vo"/>
+  <text x="2930" y="842" text-anchor="middle" class="vo-title">LockoutPolicy</text>
+  <text x="2930" y="873" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="2930" y="900" text-anchor="middle" class="vo-body">阈值 · 锁定时长 · 是否启用</text>
+  <path d="M2240 795 H2172" class="reference"/>
+  <rect x="2040" y="758" width="180" height="30" rx="15" fill="#ffffff"/>
+  <text x="2130" y="780" text-anchor="middle" class="small">0..* → 1（ID）</text>
+
+  <!-- AuthN aggregate 06 Challenge -->
+  <rect x="1300" y="1025" width="870" height="360" rx="22" class="aggregate-boundary boundary-authn"/>
+  <text x="1328" y="1056" class="aggregate-label" fill="#276749">AGGREGATE 06｜AUTH CHALLENGE</text>
+  <g filter="url(#shadow)">
+    <rect x="1330" y="1093" width="500" height="225" rx="17" class="root-authn"/>
+    <text x="1355" y="1125" class="aggregate-label" fill="#276749">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="1580" y="1166" text-anchor="middle" class="root-title">AuthChallenge｜认证挑战</text>
+    <line x1="1330" y1="1189" x2="1830" y2="1189" class="divider"/>
+    <text x="1355" y="1225" class="field">ID · Type · Scene · Target</text>
+    <text x="1355" y="1259" class="field">SecretHash · Payload · Attempts</text>
+    <text x="1355" y="1293" class="field">ExpiresAt · ConsumedAt</text>
+  </g>
+  <rect x="1860" y="1093" width="280" height="105" rx="13" class="vo"/>
+  <text x="2000" y="1127" text-anchor="middle" class="vo-title">ChallengeType</text>
+  <text x="2000" y="1158" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="2000" y="1185" text-anchor="middle" class="vo-body">OTP / OAuth state 等</text>
+  <rect x="1860" y="1223" width="280" height="95" rx="13" class="vo"/>
+  <text x="2000" y="1257" text-anchor="middle" class="vo-title">Challenge 状态</text>
+  <text x="2000" y="1288" text-anchor="middle" class="vo-body">未消费 · 已消费 · 已过期</text>
+
+  <!-- AuthN aggregate 07 Session -->
+  <rect x="2210" y="1025" width="910" height="360" rx="22" class="aggregate-boundary boundary-authn"/>
+  <text x="2238" y="1056" class="aggregate-label" fill="#276749">AGGREGATE 07｜SESSION</text>
+  <g filter="url(#shadow)">
+    <rect x="2240" y="1093" width="500" height="225" rx="17" class="root-authn"/>
+    <text x="2265" y="1125" class="aggregate-label" fill="#276749">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="2490" y="1166" text-anchor="middle" class="root-title">Session｜认证会话</text>
+    <line x1="2240" y1="1189" x2="2740" y2="1189" class="divider"/>
+    <text x="2265" y="1225" class="field">SessionID · UserID · LoginIdentityID</text>
+    <text x="2265" y="1259" class="field">TenantID · AMR · SessionClaims</text>
+    <text x="2265" y="1293" class="field">Status · ExpiresAt · RevokedAt</text>
+  </g>
+  <rect x="2770" y="1093" width="320" height="105" rx="13" class="vo"/>
+  <text x="2930" y="1127" text-anchor="middle" class="vo-title">Session.Status</text>
+  <text x="2930" y="1158" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="2930" y="1185" text-anchor="middle" class="vo-body">active · revoked · expired</text>
+  <rect x="2770" y="1223" width="320" height="95" rx="13" class="vo"/>
+  <text x="2930" y="1257" text-anchor="middle" class="vo-title">AMR / SessionClaims</text>
+  <text x="2930" y="1288" text-anchor="middle" class="vo-body">认证方法与会话声明值</text>
+
+  <!-- AuthN aggregate 08 RefreshToken -->
+  <rect x="1300" y="1430" width="870" height="365" rx="22" class="aggregate-boundary boundary-authn"/>
+  <text x="1328" y="1461" class="aggregate-label" fill="#276749">AGGREGATE 08｜REFRESH TOKEN</text>
+  <g filter="url(#shadow)">
+    <rect x="1330" y="1498" width="500" height="230" rx="17" class="root-authn"/>
+    <text x="1355" y="1530" class="aggregate-label" fill="#276749">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="1580" y="1571" text-anchor="middle" class="root-title">RefreshToken｜刷新令牌</text>
+    <line x1="1330" y1="1594" x2="1830" y2="1594" class="divider"/>
+    <text x="1355" y="1630" class="field">TokenMetadata</text>
+    <text x="1355" y="1664" class="field">SessionID · UserID · LoginIdentityID</text>
+    <text x="1355" y="1698" class="field">TenantID · AMR · SessionClaims</text>
+  </g>
+  <rect x="1860" y="1498" width="280" height="105" rx="13" class="vo"/>
+  <text x="2000" y="1532" text-anchor="middle" class="vo-title">TokenMetadata</text>
+  <text x="2000" y="1563" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="2000" y="1590" text-anchor="middle" class="vo-body">ID · Value · IssuedAt · ExpiresAt</text>
+  <rect x="1860" y="1628" width="280" height="100" rx="13" class="vo"/>
+  <text x="2000" y="1662" text-anchor="middle" class="vo-title">TokenClaims</text>
+  <text x="2000" y="1693" text-anchor="middle" class="vo-body">认证上下文声明值</text>
+  <path d="M2172 1612 H2190 V1205 H2208" class="reference"/>
+  <rect x="2050" y="1393" width="300" height="32" rx="16" fill="#ffffff"/>
+  <text x="2200" y="1416" text-anchor="middle" class="small">RefreshToken.SessionID → Session</text>
+
+  <!-- AuthN non-aggregate request/result values -->
+  <rect x="2210" y="1430" width="910" height="365" rx="22" class="non-aggregate"/>
+  <text x="2238" y="1462" class="section-title">认证请求值与判定结果｜非聚合</text>
+  <text x="2238" y="1490" class="section-note">只在一次认证/准入判断中传递，不独立维护生命周期</text>
+  <rect x="2240" y="1520" width="400" height="105" rx="13" class="vo"/>
+  <text x="2440" y="1554" text-anchor="middle" class="vo-title">AuthCredential｜认证证明</text>
+  <text x="2440" y="1585" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 请求携带的 proof</text>
+  <text x="2440" y="1612" text-anchor="middle" class="vo-body">不持久化为长期 Credential</text>
+  <rect x="2670" y="1520" width="420" height="105" rx="13" class="domain-result"/>
+  <text x="2880" y="1554" text-anchor="middle" class="vo-title">AuthDecision｜认证判定</text>
+  <text x="2880" y="1585" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt; OK · Code</text>
+  <text x="2880" y="1612" text-anchor="middle" class="vo-body">CredentialRecord · Principal</text>
+  <rect x="2240" y="1650" width="400" height="110" rx="13" class="vo"/>
+  <text x="2440" y="1684" text-anchor="middle" class="vo-title">Principal｜认证主体</text>
+  <text x="2440" y="1715" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; UserID · LoginIdentityID</text>
+  <text x="2440" y="1742" text-anchor="middle" class="vo-body">TenantID · AMR · Claims</text>
+  <rect x="2670" y="1650" width="420" height="110" rx="13" class="domain-result"/>
+  <text x="2880" y="1684" text-anchor="middle" class="vo-title">AdmissionDecision｜准入判定</text>
+  <text x="2880" y="1715" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt; Status</text>
+  <text x="2880" y="1742" text-anchor="middle" class="vo-body">UserID · LoginIdentityID</text>
+
+  <!-- AuthN issued objects -->
+  <rect x="1300" y="1840" width="1820" height="315" rx="22" class="non-aggregate"/>
+  <text x="1330" y="1874" class="section-title">认证结果与已颁发凭证｜领域对象，但不是独立聚合</text>
+  <text x="1330" y="1902" class="section-note">RefreshToken 因拥有单次轮换、重放检测和存储生命周期，已在上方单独建模为聚合根</text>
+  <rect x="1330" y="1932" width="410" height="170" rx="15" class="domain-result"/>
+  <text x="1535" y="1968" text-anchor="middle" class="vo-title">AuthenticationGrant｜认证结果</text>
+  <text x="1535" y="2002" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt;</text>
+  <text x="1535" y="2034" text-anchor="middle" class="vo-body">Session + UserTokenSet</text>
+  <text x="1535" y="2066" text-anchor="middle" class="vo-body">一次建立/续期的组合结果</text>
+  <rect x="1770" y="1932" width="410" height="170" rx="15" class="domain-result"/>
+  <text x="1975" y="1968" text-anchor="middle" class="vo-title">UserTokenSet｜令牌集合</text>
+  <text x="1975" y="2002" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt;</text>
+  <text x="1975" y="2034" text-anchor="middle" class="vo-body">AccessToken + RefreshToken</text>
+  <text x="1975" y="2066" text-anchor="middle" class="vo-body">不独立持久化</text>
+  <rect x="2210" y="1932" width="410" height="170" rx="15" class="issued-credential"/>
+  <text x="2415" y="1968" text-anchor="middle" class="vo-title">AccessToken｜访问令牌</text>
+  <text x="2415" y="2002" text-anchor="middle" class="vo-body">&lt;&lt;issued credential&gt;&gt;</text>
+  <text x="2415" y="2034" text-anchor="middle" class="vo-body">绑定用户 Session · 短期有效</text>
+  <text x="2415" y="2066" text-anchor="middle" class="vo-body">编码后的认证声明凭证</text>
+  <rect x="2650" y="1932" width="440" height="170" rx="15" class="issued-credential"/>
+  <text x="2870" y="1968" text-anchor="middle" class="vo-title">ServiceToken｜服务令牌</text>
+  <text x="2870" y="2002" text-anchor="middle" class="vo-body">&lt;&lt;issued credential&gt;&gt;</text>
+  <text x="2870" y="2034" text-anchor="middle" class="vo-body">无 User · 无 Session · 无 RefreshToken</text>
+  <text x="2870" y="2066" text-anchor="middle" class="vo-body">面向服务主体与 Audience</text>
+
+  <rect x="1300" y="2200" width="1820" height="510" rx="20" class="knowledge"/>
+  <text x="1330" y="2240" class="knowledge-title">领域不变量｜认证关系、一次性证明与在线状态</text>
+  <line x1="2208" y1="2260" x2="2208" y2="2675" stroke="#e3a566"/>
+  <text x="1330" y="2284" class="knowledge-text">登录身份与凭据</text>
+  <text x="1360" y="2320" class="knowledge-text">• Provider + Realm + Identifier 唯一</text>
+  <text x="1360" y="2354" class="knowledge-text">• GlobalIdentifier 只能归属一个 LoginIdentity</text>
+  <text x="1360" y="2388" class="knowledge-text">• 每个 LoginIdentity / CredentialType 最多一份长期凭据</text>
+  <text x="1360" y="2422" class="knowledge-text">• 失败计数、锁定与认证记录必须原子更新</text>
+  <text x="1330" y="2470" class="knowledge-text">一次性挑战</text>
+  <text x="1360" y="2506" class="knowledge-text">• Challenge 只能成功消费一次</text>
+  <text x="1360" y="2540" class="knowledge-text">• 过期、已消费或尝试耗尽后均不可继续使用</text>
+  <text x="2250" y="2284" class="knowledge-text">准入与会话</text>
+  <text x="2280" y="2320" class="knowledge-text">• UserID 与 LoginIdentity.UserID 必须一致且双方 active</text>
+  <text x="2280" y="2354" class="knowledge-text">• 被撤销的 Session 不得继续续期或签发用户令牌</text>
+  <text x="2280" y="2388" class="knowledge-text">• RefreshToken 有效期不得越过 Session 生命周期</text>
+  <text x="2250" y="2436" class="knowledge-text">令牌轮换</text>
+  <text x="2280" y="2472" class="knowledge-text">• RefreshToken 单次使用并原子轮换</text>
+  <text x="2280" y="2506" class="knowledge-text">• 已消费令牌再次出现视为重放，并撤销关联 Session</text>
+  <text x="2280" y="2540" class="knowledge-text">• 令牌声明中的主体必须与 Session 对齐</text>
+  <line x1="1330" y1="2580" x2="3090" y2="2580" stroke="#e3a566"/>
+  <text x="2210" y="2624" text-anchor="middle" class="knowledge-title">边界结论：Session 与 RefreshToken 都有自己的身份、生命周期和不变量，因此分别构成聚合。</text>
+  <text x="2210" y="2660" text-anchor="middle" class="small">跨聚合一致性由领域策略、仓储原子操作和应用事务协同维护；它们不因此合并为一个大聚合。</text>
+
+  <!-- AuthZ bounded context -->
+  <rect x="3200" y="220" width="1540" height="2700" rx="30" class="context-authz" filter="url(#shadow)"/>
+  <rect x="3200" y="220" width="1540" height="112" rx="30" class="head-authz"/>
+  <path d="M3200 298 H4740" stroke="#7653b5" stroke-width="2"/>
+  <text x="3970" y="265" text-anchor="middle" class="context-title">AuthZ｜授权上下文</text>
+  <text x="3970" y="296" text-anchor="middle" class="context-subtitle">拥有角色、资源目录、赋权事实、继承事实与权限授予事实</text>
+  <a href="../../02-业务模块/03-AuthZ/00-模块总览.md">
+    <rect x="4540" y="244" width="160" height="42" rx="21" fill="#ffffff" fill-opacity="0.75" stroke="#7653b5"/>
+    <text x="4620" y="271" text-anchor="middle" class="small">模块详解 →</text>
+  </a>
+
+  <rect x="3240" y="370" width="1460" height="170" rx="18" class="knowledge"/>
+  <text x="3270" y="405" class="knowledge-title">领域知识｜授权事实不是一张万能规则表</text>
+  <text x="3270" y="443" class="knowledge-text">• Role 负责命名能力集合；能力本身来自独立的 PermissionGrant</text>
+  <text x="3270" y="477" class="knowledge-text">• Assignment、RoleInheritance、PermissionGrant 分别表达赋权、复用与许可，不互相替代</text>
+  <text x="3270" y="511" class="knowledge-text">• Tenant.ID 约束所有授权事实；Resource 是可授权能力目录，不是业务对象实例</text>
+
+  <!-- AuthZ aggregate 09 Role -->
+  <rect x="3240" y="585" width="710" height="350" rx="22" class="aggregate-boundary boundary-authz"/>
+  <text x="3268" y="616" class="aggregate-label" fill="#6941a5">AGGREGATE 09｜ROLE</text>
+  <g filter="url(#shadow)">
+    <rect x="3270" y="653" width="405" height="215" rx="17" class="root-authz"/>
+    <text x="3295" y="685" class="aggregate-label" fill="#6941a5">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="3472" y="726" text-anchor="middle" class="root-title">Role｜角色</text>
+    <line x1="3270" y1="749" x2="3675" y2="749" class="divider"/>
+    <text x="3295" y="785" class="field">ID · Name · DisplayName</text>
+    <text x="3295" y="819" class="field">TenantID · Description</text>
+    <text x="3295" y="851" class="small">本身不内嵌权限集合</text>
+  </g>
+  <rect x="3700" y="653" width="220" height="95" rx="13" class="vo"/>
+  <text x="3810" y="686" text-anchor="middle" class="vo-title">Role.Name</text>
+  <text x="3810" y="717" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <rect x="3700" y="773" width="220" height="95" rx="13" class="vo"/>
+  <text x="3810" y="806" text-anchor="middle" class="vo-title">Tenant.ID</text>
+  <text x="3810" y="837" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+
+  <!-- AuthZ aggregate 10 Resource -->
+  <rect x="3990" y="585" width="710" height="350" rx="22" class="aggregate-boundary boundary-authz"/>
+  <text x="4018" y="616" class="aggregate-label" fill="#6941a5">AGGREGATE 10｜RESOURCE</text>
+  <g filter="url(#shadow)">
+    <rect x="4020" y="653" width="405" height="215" rx="17" class="root-authz"/>
+    <text x="4045" y="685" class="aggregate-label" fill="#6941a5">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="4222" y="726" text-anchor="middle" class="root-title">Resource｜资源目录</text>
+    <line x1="4020" y1="749" x2="4425" y2="749" class="divider"/>
+    <text x="4045" y="785" class="field">ID · Key · Actions</text>
+    <text x="4045" y="819" class="field">App · Domain · Type</text>
+    <text x="4045" y="851" class="field">AttributeSchema</text>
+  </g>
+  <rect x="4450" y="653" width="220" height="95" rx="13" class="vo"/>
+  <text x="4560" y="686" text-anchor="middle" class="vo-title">Resource.Key</text>
+  <text x="4560" y="717" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <rect x="4450" y="773" width="220" height="95" rx="13" class="vo"/>
+  <text x="4560" y="803" text-anchor="middle" class="vo-title">Action / Schema</text>
+  <text x="4560" y="832" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="4560" y="858" text-anchor="middle" class="vo-body">允许动作与属性契约</text>
+
+  <!-- AuthZ aggregate 11 Assignment -->
+  <rect x="3240" y="980" width="710" height="350" rx="22" class="aggregate-boundary boundary-authz"/>
+  <text x="3268" y="1011" class="aggregate-label" fill="#6941a5">AGGREGATE 11｜ASSIGNMENT</text>
+  <g filter="url(#shadow)">
+    <rect x="3270" y="1048" width="405" height="215" rx="17" class="root-authz"/>
+    <text x="3295" y="1080" class="aggregate-label" fill="#6941a5">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="3472" y="1121" text-anchor="middle" class="root-title">Assignment｜角色分配</text>
+    <line x1="3270" y1="1144" x2="3675" y2="1144" class="divider"/>
+    <text x="3295" y="1180" class="field">ID · SubjectType · SubjectID</text>
+    <text x="3295" y="1214" class="field">RoleID · TenantID · GrantedBy</text>
+    <text x="3295" y="1246" class="small">表达当前 direct role 事实</text>
+  </g>
+  <rect x="3700" y="1048" width="220" height="95" rx="13" class="vo"/>
+  <text x="3810" y="1081" text-anchor="middle" class="vo-title">Subject.Ref</text>
+  <text x="3810" y="1112" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <rect x="3700" y="1168" width="220" height="95" rx="13" class="vo"/>
+  <text x="3810" y="1201" text-anchor="middle" class="vo-title">Tenant.ID</text>
+  <text x="3810" y="1232" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <path d="M3472 1046 V937" class="reference"/>
+  <text x="3492" y="965" class="small">RoleID → Role.ID</text>
+
+  <!-- AuthZ aggregate 12 RoleInheritance -->
+  <rect x="3990" y="980" width="710" height="350" rx="22" class="aggregate-boundary boundary-authz"/>
+  <text x="4018" y="1011" class="aggregate-label" fill="#6941a5">AGGREGATE 12｜ROLE INHERITANCE</text>
+  <g filter="url(#shadow)">
+    <rect x="4020" y="1048" width="405" height="215" rx="17" class="root-authz"/>
+    <text x="4045" y="1080" class="aggregate-label" fill="#6941a5">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="4222" y="1121" text-anchor="middle" class="root-title">RoleInheritance｜角色继承</text>
+    <line x1="4020" y1="1144" x2="4425" y2="1144" class="divider"/>
+    <text x="4045" y="1180" class="field">ID · RoleID · InheritedRoleID</text>
+    <text x="4045" y="1214" class="field">TenantID · GrantedBy · RevokedAt</text>
+    <text x="4045" y="1246" class="small">一条有生命周期的 DAG 边</text>
+  </g>
+  <rect x="4450" y="1048" width="220" height="95" rx="13" class="vo"/>
+  <text x="4560" y="1081" text-anchor="middle" class="vo-title">Role Ref Pair</text>
+  <text x="4560" y="1112" text-anchor="middle" class="vo-body">子角色 / 被继承角色</text>
+  <rect x="4450" y="1168" width="220" height="95" rx="13" class="vo"/>
+  <text x="4560" y="1201" text-anchor="middle" class="vo-title">Tenant.ID</text>
+  <text x="4560" y="1232" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <path d="M4222 1046 V960 H3810 V870" class="reference"/>
+  <text x="4025" y="952" class="small">RoleID / InheritedRoleID → Role.ID</text>
+
+  <!-- AuthZ aggregate 13 PermissionGrant -->
+  <rect x="3240" y="1375" width="1460" height="405" rx="22" class="aggregate-boundary boundary-authz"/>
+  <text x="3268" y="1406" class="aggregate-label" fill="#6941a5">AGGREGATE 13｜PERMISSION GRANT</text>
+  <g filter="url(#shadow)">
+    <rect x="3270" y="1443" width="655" height="270" rx="17" class="root-authz"/>
+    <text x="3295" y="1475" class="aggregate-label" fill="#6941a5">&lt;&lt;aggregate root&gt;&gt;</text>
+    <text x="3597" y="1516" text-anchor="middle" class="root-title">PermissionGrant｜权限授予</text>
+    <line x1="3270" y1="1539" x2="3925" y2="1539" class="divider"/>
+    <text x="3295" y="1575" class="field">ID · TenantID · RoleID · ResourceID</text>
+    <text x="3295" y="1609" class="field">ResourcePattern · ActionPattern · ConstraintSet</text>
+    <text x="3295" y="1643" class="field">GrantKey · GrantedBy · GrantedAt · RevokedAt</text>
+    <text x="3295" y="1681" class="small">一条 allow-only 授权事实；支持幂等撤销</text>
+  </g>
+  <rect x="3960" y="1443" width="340" height="110" rx="13" class="vo"/>
+  <text x="4130" y="1477" text-anchor="middle" class="vo-title">Resource.Pattern</text>
+  <text x="4130" y="1508" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 可覆盖资源键</text>
+  <text x="4130" y="1536" text-anchor="middle" class="vo-body">受 Resource.Key 目录约束</text>
+  <rect x="4330" y="1443" width="340" height="110" rx="13" class="vo"/>
+  <text x="4500" y="1477" text-anchor="middle" class="vo-title">Action.Pattern</text>
+  <text x="4500" y="1508" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; 动作匹配</text>
+  <text x="4500" y="1536" text-anchor="middle" class="vo-body">托管授权必须是目录动作</text>
+  <rect x="3960" y="1583" width="710" height="130" rx="13" class="vo"/>
+  <text x="4315" y="1619" text-anchor="middle" class="vo-title">ConstraintSet｜条件集合</text>
+  <text x="4315" y="1650" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt; Version · AllOf(Predicates)</text>
+  <text x="4315" y="1680" text-anchor="middle" class="vo-body">只使用 Resource.AttributeSchema 声明的 typed object attributes</text>
+  <path d="M3597 1441 V1360 H3472 V1332" class="reference"/>
+  <path d="M3927 1478 H3970 V955 H4222 V937" class="reference"/>
+  <text x="3865" y="1352" class="small">RoleID / ResourceID 稳定引用</text>
+
+  <!-- AuthZ request/result values -->
+  <rect x="3240" y="1825" width="1460" height="360" rx="22" class="non-aggregate"/>
+  <text x="3270" y="1859" class="section-title">验权输入与判定结果｜非聚合</text>
+  <text x="3270" y="1887" class="section-note">这些对象表达一次权限检查，不拥有授权事实，也不执行资源动作</text>
+  <rect x="3270" y="1920" width="440" height="205" rx="15" class="vo"/>
+  <text x="3490" y="1957" text-anchor="middle" class="vo-title">AuthorizationRequest｜授权请求</text>
+  <text x="3490" y="1991" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="3490" y="2023" text-anchor="middle" class="vo-body">Subject.Ref · Tenant.ID</text>
+  <text x="3490" y="2055" text-anchor="middle" class="vo-body">Resource.Key · Action · ObjectContext</text>
+  <text x="3490" y="2087" text-anchor="middle" class="vo-body">不接受客户端自报角色</text>
+  <rect x="3740" y="1920" width="430" height="205" rx="15" class="vo"/>
+  <text x="3955" y="1957" text-anchor="middle" class="vo-title">ObjectContext｜对象上下文</text>
+  <text x="3955" y="1991" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
+  <text x="3955" y="2023" text-anchor="middle" class="vo-body">ObjectID · ObjectAttributes</text>
+  <text x="3955" y="2055" text-anchor="middle" class="vo-body">属性由业务事实拥有者提供</text>
+  <text x="3955" y="2087" text-anchor="middle" class="vo-body">且必须满足 AttributeSchema</text>
+  <rect x="4200" y="1920" width="470" height="205" rx="15" class="domain-result"/>
+  <text x="4435" y="1957" text-anchor="middle" class="vo-title">Decision｜授权判定</text>
+  <text x="4435" y="1991" text-anchor="middle" class="vo-body">&lt;&lt;domain result&gt;&gt;</text>
+  <text x="4435" y="2023" text-anchor="middle" class="vo-body">Allowed · Reason · DenyCode</text>
+  <text x="4435" y="2055" text-anchor="middle" class="vo-body">MatchedRole · MatchedGrantID</text>
+  <text x="4435" y="2087" text-anchor="middle" class="vo-body">MissingAttributeKeys · EvaluatedAt</text>
+
+  <rect x="3240" y="2230" width="1460" height="480" rx="20" class="knowledge"/>
+  <text x="3270" y="2270" class="knowledge-title">领域不变量｜授权事实必须可解释、可约束、可拒绝</text>
+  <text x="3270" y="2314" class="knowledge-text">角色与赋权</text>
+  <text x="3300" y="2350" class="knowledge-text">• Role.Name 在 Tenant 内唯一；活跃 Assignment 业务键唯一</text>
+  <text x="3300" y="2384" class="knowledge-text">• Role 删除前不得仍被赋权、继承或权限授予引用</text>
+  <text x="3270" y="2432" class="knowledge-text">角色继承</text>
+  <text x="3300" y="2468" class="knowledge-text">• 只能在同一 Tenant 内继承；不能自继承；整个角色图不能成环</text>
+  <text x="3270" y="2516" class="knowledge-text">资源与权限授予</text>
+  <text x="3300" y="2552" class="knowledge-text">• PermissionGrant 必须通过 Resource 的动作与属性 Schema 校验</text>
+  <text x="3300" y="2586" class="knowledge-text">• 条件授权不得覆盖 list / search / batch；活跃 GrantKey 唯一</text>
+  <text x="3300" y="2620" class="knowledge-text">• Resource 更新不得使现有活跃 PermissionGrant 失效</text>
+  <line x1="3270" y1="2650" x2="4670" y2="2650" stroke="#e3a566"/>
+  <text x="3970" y="2688" text-anchor="middle" class="knowledge-title">判定原则：默认拒绝；规则不匹配或条件属性缺失时均 fail closed。</text>
+
+  <!-- Cross-context stable references -->
+  <path d="M1330 795 H1235 Q1200 795 1200 818 H630" class="reference"/>
+  <rect x="900" y="760" width="390" height="35" rx="17" fill="#ffffff"/>
+  <text x="1095" y="785" text-anchor="middle" class="relation">LoginIdentity.UserID → Identity.User.ID</text>
+  <path d="M3700 1095 H3180 V2860 H1240 V2940 H35 V818 H128" class="reference"/>
+  <rect x="2400" y="2825" width="640" height="36" rx="18" fill="#ffffff"/>
+  <text x="2720" y="2850" text-anchor="middle" class="relation">Subject.Ref(user).ID → Identity.User.ID｜跨上下文稳定 ID 引用</text>
+
+  <!-- Footer / legend -->
+  <rect x="60" y="2980" width="4680" height="260" rx="24" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="2400" y="3030" text-anchor="middle" class="footer-title">V8 只表达领域模型：聚合边界、对象分类、关系与必须成立的领域知识</text>
+  <text x="2400" y="3068" text-anchor="middle" class="footer-text">当前核心模型以“单实体聚合”为主：聚合根本身就是实体；没有证据支持的内部实体不人为补造。</text>
+
+  <rect x="200" y="3110" width="130" height="72" rx="12" class="aggregate-boundary boundary-authn"/>
+  <rect x="220" y="3130" width="90" height="34" rx="8" class="root-authn"/>
+  <text x="350" y="3154" class="legend">聚合边界 + &lt;&lt;aggregate root&gt;&gt;</text>
+
+  <rect x="1120" y="3120" width="110" height="52" rx="10" class="vo"/>
+  <text x="1250" y="3154" class="legend">&lt;&lt;value object&gt;&gt; 值对象</text>
+
+  <rect x="1920" y="3120" width="110" height="52" rx="10" class="domain-result"/>
+  <text x="2050" y="3154" class="legend">&lt;&lt;domain result&gt;&gt; 领域结果</text>
+
+  <rect x="2790" y="3120" width="110" height="52" rx="10" class="issued-credential"/>
+  <text x="2920" y="3154" class="legend">&lt;&lt;issued credential&gt;&gt; 已颁发凭证</text>
+
+  <rect x="3820" y="3120" width="110" height="52" rx="10" class="knowledge"/>
+  <text x="3950" y="3154" class="legend">领域知识 / 跨聚合不变量</text>
+
+  <text x="2400" y="3218" text-anchor="middle" class="small">V7 保留为“领域模型 + 领域服务”的综合讲解图；AuthN / AuthZ 详细页继续展开业务流程、领域服务、应用服务与代码设计。</text>
+</svg>

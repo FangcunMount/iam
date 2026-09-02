@@ -2,16 +2,11 @@ package challenge
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/component-base/pkg/logger"
 	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -23,13 +18,12 @@ const (
 	// SceneWechatOpenLink 微信开放平台扫码绑定场景（user_id 必填，来自已登录用户）。
 	SceneWechatOpenLink = "wechat_open_link"
 
-	PayloadKeyAppID       = "app_id"
-	PayloadKeyRedirectURI = "redirect_uri"
-	PayloadKeyNonce       = "nonce"
-	PayloadKeyUserID      = "user_id"
+	PayloadKeyAppID       = challengeDomain.OAuthPayloadKeyAppID
+	PayloadKeyRedirectURI = challengeDomain.OAuthPayloadKeyRedirectURI
+	PayloadKeyNonce       = challengeDomain.OAuthPayloadKeyNonce
+	PayloadKeyUserID      = challengeDomain.OAuthPayloadKeyUserID
 
-	defaultOAuthStateTTL  = 10 * time.Minute
-	oauthStateRandomBytes = 32
+	defaultOAuthStateTTL = challengeDomain.DefaultOAuthStateTTL
 )
 
 // StartWechatOpenLoginInput 创建微信开放平台扫码登录 OAuth state 的输入
@@ -47,8 +41,6 @@ type StartWechatOpenLoginResult struct {
 }
 
 // StartWechatOpenLinkInput 创建微信开放平台扫码绑定 OAuth state 的输入。
-//
-// UserID 来自已登录的 Operating 用户，由 callback usecase 注入，禁止来自前端 payload。
 type StartWechatOpenLinkInput struct {
 	AppID       string
 	RedirectURI string
@@ -64,8 +56,6 @@ type StartWechatOpenLinkResult struct {
 }
 
 // WechatOpenOAuthStateContext 消费 state 后恢复的上下文。
-//
-// UserID 仅在绑定场景非空；登录场景必为零值。
 type WechatOpenOAuthStateContext struct {
 	AppID       string
 	RedirectURI string
@@ -93,33 +83,35 @@ type WechatOpenLinkOAuthStateVerifier interface {
 	VerifyAndConsumeWechatOpenLink(ctx context.Context, state string) (WechatOpenOAuthStateContext, error)
 }
 
-// WechatOpenOAuthStateCreator 创建微信开放平台扫码登录 OAuth state
 type oauthStateCreator struct {
 	repo challengeDomain.Repository
 	ttl  time.Duration
 	now  func() time.Time
 }
 
-// WechatOpenOAuthStateVerifier 校验并一次性消费微信开放平台扫码登录 OAuth state
 type oauthStateVerifier struct {
-	repo challengeDomain.Repository
-	now  func() time.Time
+	domain *challengeDomain.OAuthStateVerifier
+	now    func() time.Time
 }
 
-// newOAuthStateCreator 创建微信开放平台扫码登录 OAuth state 创建器
 func newOAuthStateCreator(repo challengeDomain.Repository, ttl time.Duration) *oauthStateCreator {
 	if ttl <= 0 {
 		ttl = defaultOAuthStateTTL
 	}
-	return &oauthStateCreator{repo: repo, ttl: ttl, now: time.Now}
+	return &oauthStateCreator{
+		repo: repo,
+		ttl:  ttl,
+		now:  time.Now,
+	}
 }
 
-// newOAuthStateVerifier 创建微信开放平台扫码登录 OAuth state 验证器
 func newOAuthStateVerifier(repo challengeDomain.Repository) *oauthStateVerifier {
-	return &oauthStateVerifier{repo: repo, now: time.Now}
+	return &oauthStateVerifier{
+		domain: challengeDomain.NewOAuthStateVerifier(repo),
+		now:    time.Now,
+	}
 }
 
-// StartWechatOpenLogin 创建微信开放平台扫码登录 OAuth state（user_id 必空）
 func (c *oauthStateCreator) StartWechatOpenLogin(ctx context.Context, input StartWechatOpenLoginInput) (*StartWechatOpenLoginResult, error) {
 	created, err := c.create(ctx, SceneWechatOpenLogin, input.AppID, input.RedirectURI, meta.ZeroID, input.Nonce)
 	if err != nil {
@@ -128,7 +120,6 @@ func (c *oauthStateCreator) StartWechatOpenLogin(ctx context.Context, input Star
 	return &StartWechatOpenLoginResult{State: created.state, Nonce: created.nonce, ExpiresAt: created.expiresAt}, nil
 }
 
-// StartWechatOpenLink 创建微信开放平台扫码绑定 OAuth state（user_id 必填）
 func (c *oauthStateCreator) StartWechatOpenLink(ctx context.Context, input StartWechatOpenLinkInput) (*StartWechatOpenLinkResult, error) {
 	if input.UserID.IsZero() {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "user_id is required for wechat open link state")
@@ -140,135 +131,80 @@ func (c *oauthStateCreator) StartWechatOpenLink(ctx context.Context, input Start
 	return &StartWechatOpenLinkResult{State: created.state, Nonce: created.nonce, ExpiresAt: created.expiresAt}, nil
 }
 
-// createdOAuthState 内部创建结果。
 type createdOAuthState struct {
 	state     string
 	nonce     string
 	expiresAt time.Time
 }
 
-// create 创建指定场景的 OAuth state challenge。userID 为零值时不写入 payload。
 func (c *oauthStateCreator) create(ctx context.Context, scene, rawAppID, rawRedirectURI string, userID meta.ID, rawNonce string) (createdOAuthState, error) {
 	if c.repo == nil {
 		return createdOAuthState{}, perrors.WithCode(code.ErrInternalServerError, "challenge repository is not configured")
 	}
-	appID := strings.TrimSpace(rawAppID)
-	redirectURI := strings.TrimSpace(rawRedirectURI)
-	if appID == "" {
-		return createdOAuthState{}, perrors.WithCode(code.ErrInvalidArgument, "app_id is required")
-	}
-	if redirectURI == "" {
-		return createdOAuthState{}, perrors.WithCode(code.ErrInvalidArgument, "redirect_uri is required")
-	}
-
-	nonce := strings.TrimSpace(rawNonce)
-	if nonce == "" {
-		var err error
-		nonce, err = randomOAuthToken()
-		if err != nil {
-			return createdOAuthState{}, perrors.WithCode(code.ErrInternalServerError, "failed to generate oauth nonce: %v", err)
-		}
-	}
-
-	state, err := randomOAuthToken()
-	if err != nil {
-		return createdOAuthState{}, perrors.WithCode(code.ErrInternalServerError, "failed to generate oauth state: %v", err)
-	}
-
-	payload := map[string]string{
-		PayloadKeyAppID:       appID,
-		PayloadKeyRedirectURI: redirectURI,
-		PayloadKeyNonce:       nonce,
+	spec := challengeDomain.OAuthStateSpec{
+		Scene:       scene,
+		AppID:       strings.TrimSpace(rawAppID),
+		RedirectURI: strings.TrimSpace(rawRedirectURI),
+		Nonce:       strings.TrimSpace(rawNonce),
+		TTL:         c.ttl,
+		Now:         c.now(),
 	}
 	if !userID.IsZero() {
-		payload[PayloadKeyUserID] = userID.String()
+		spec.UserID = userID.String()
 	}
-
-	now := c.now()
-	expiresAt := now.Add(c.ttl)
-	challenge := &challengeDomain.AuthChallenge{
-		ID:         oauthStateChallengeID(scene, state),
-		Type:       challengeDomain.TypeOAuthState,
-		Scene:      scene,
-		Target:     appID,
-		SecretHash: oauthStateSecretHash(state),
-		Payload:    payload,
-		ExpiresAt:  expiresAt,
-		CreatedAt:  now,
+	issued, err := challengeDomain.IssueOAuthState(spec)
+	if err != nil {
+		if isOAuthIssueArgumentError(err) {
+			return createdOAuthState{}, perrors.WithCode(code.ErrInvalidArgument, "%s", err.Error())
+		}
+		return createdOAuthState{}, perrors.WithCode(code.ErrInternalServerError, "%v", err)
 	}
-	if err := c.repo.Create(ctx, challenge); err != nil {
+	if err := c.repo.Create(ctx, issued.Challenge); err != nil {
 		return createdOAuthState{}, err
 	}
-	return createdOAuthState{state: state, nonce: nonce, expiresAt: expiresAt}, nil
+	return createdOAuthState{state: issued.State, nonce: issued.Nonce, expiresAt: issued.ExpiresAt}, nil
 }
 
-// VerifyAndConsumeWechatOpenLogin 校验并一次性消费登录场景 OAuth state
 func (v *oauthStateVerifier) VerifyAndConsumeWechatOpenLogin(ctx context.Context, state string) (WechatOpenOAuthStateContext, error) {
 	return v.verifyAndConsume(ctx, SceneWechatOpenLogin, state)
 }
 
-// VerifyAndConsumeWechatOpenLink 校验并一次性消费绑定场景 OAuth state
 func (v *oauthStateVerifier) VerifyAndConsumeWechatOpenLink(ctx context.Context, state string) (WechatOpenOAuthStateContext, error) {
 	return v.verifyAndConsume(ctx, SceneWechatOpenLink, state)
 }
 
-// verifyAndConsume 按场景校验并一次性消费 OAuth state。
 func (v *oauthStateVerifier) verifyAndConsume(ctx context.Context, scene, state string) (WechatOpenOAuthStateContext, error) {
 	empty := WechatOpenOAuthStateContext{}
-	if v.repo == nil {
+	if v == nil || v.domain == nil {
 		return empty, perrors.WithCode(code.ErrInternalServerError, "challenge repository is not configured")
 	}
-	state = strings.TrimSpace(state)
-	if state == "" {
-		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state is required")
-	}
-
-	challengeID := oauthStateChallengeID(scene, state)
-	challenge, err := v.repo.Get(ctx, challengeID)
+	verification, err := v.domain.VerifyAndConsume(ctx, challengeDomain.VerifyOAuthStateInput{
+		Scene: scene,
+		State: state,
+		Now:   v.now(),
+	})
 	if err != nil {
+		if isOAuthStateMismatchError(err) || verification.Result.Outcome == challengeDomain.VerificationRejected {
+			return empty, perrors.WithCode(code.ErrStateMismatch, "%s", err.Error())
+		}
+		if verification.Result.Outcome == challengeDomain.VerificationInfrastructureError {
+			return empty, perrors.WithCode(code.ErrInternalServerError, "%s", err.Error())
+		}
 		return empty, err
 	}
-	if challenge == nil {
-		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state not found")
-	}
-	if challenge.Type != challengeDomain.TypeOAuthState || challenge.Scene != scene {
-		return empty, perrors.WithCode(code.ErrStateMismatch, "invalid oauth state challenge")
-	}
-	now := v.now()
-	if challenge.IsConsumed() {
+	if verification.Result.Outcome != challengeDomain.VerificationSuccess {
 		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state already used")
 	}
-	if challenge.IsExpired(now) {
-		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state expired")
-	}
-	if subtle.ConstantTimeCompare(challenge.SecretHash, oauthStateSecretHash(state)) != 1 {
-		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state mismatch")
-	}
-	consumed, err := v.repo.ConsumeIfSecretMatches(ctx, challengeID, challenge.SecretHash)
-	if err != nil {
-		return empty, err
-	}
-	if !consumed {
-		logger.L(ctx).Infow("oauth state consumption rejected because it was already consumed",
-			"challenge_type", challengeDomain.TypeOAuthState,
-			"scene", scene,
-		)
-		return empty, perrors.WithCode(code.ErrStateMismatch, "oauth state already used")
-	}
-	return wechatOpenOAuthStateContextFromPayload(challenge.Payload), nil
+	return wechatOpenOAuthStateContextFromDomain(verification.Context), nil
 }
 
-// wechatOpenOAuthStateContextFromPayload 从 OAuth state 的 payload 中恢复上下文
-func wechatOpenOAuthStateContextFromPayload(payload map[string]string) WechatOpenOAuthStateContext {
-	if payload == nil {
-		return WechatOpenOAuthStateContext{}
-	}
+func wechatOpenOAuthStateContextFromDomain(ctx challengeDomain.OAuthStateContext) WechatOpenOAuthStateContext {
 	out := WechatOpenOAuthStateContext{
-		AppID:       payload[PayloadKeyAppID],
-		RedirectURI: payload[PayloadKeyRedirectURI],
-		Nonce:       payload[PayloadKeyNonce],
+		AppID:       ctx.AppID,
+		RedirectURI: ctx.RedirectURI,
+		Nonce:       ctx.Nonce,
 	}
-	if raw := strings.TrimSpace(payload[PayloadKeyUserID]); raw != "" {
+	if raw := strings.TrimSpace(ctx.UserID); raw != "" {
 		if id, err := meta.ParseID(raw); err == nil {
 			out.UserID = id
 		}
@@ -276,22 +212,25 @@ func wechatOpenOAuthStateContextFromPayload(payload map[string]string) WechatOpe
 	return out
 }
 
-// oauthStateChallengeID 构造 OAuth state 挑战 ID
 func oauthStateChallengeID(scene, state string) string {
-	return fmt.Sprintf("oauth_state:%s:%s", strings.TrimSpace(scene), strings.TrimSpace(state))
+	return challengeDomain.OAuthStateChallengeID(scene, state)
 }
 
-// oauthStateSecretHash 计算 OAuth state 的密钥哈希
 func oauthStateSecretHash(state string) []byte {
-	sum := sha256.Sum256([]byte("oauth_state\x00" + strings.TrimSpace(state)))
-	return sum[:]
+	return challengeDomain.OAuthStateSecretHash(state)
 }
 
-// randomOAuthToken 生成随机 OAuth token
-func randomOAuthToken() (string, error) {
-	buf := make([]byte, oauthStateRandomBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("rand.Read: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
+func isOAuthIssueArgumentError(err error) bool {
+	return errors.Is(err, challengeDomain.ErrAppIDRequired) ||
+		errors.Is(err, challengeDomain.ErrRedirectURIRequired) ||
+		errors.Is(err, challengeDomain.ErrOAuthSceneRequired)
+}
+
+func isOAuthStateMismatchError(err error) bool {
+	return errors.Is(err, challengeDomain.ErrOAuthStateRequired) ||
+		errors.Is(err, challengeDomain.ErrOAuthStateNotFound) ||
+		errors.Is(err, challengeDomain.ErrOAuthStateInvalid) ||
+		errors.Is(err, challengeDomain.ErrOAuthStateAlreadyUsed) ||
+		errors.Is(err, challengeDomain.ErrOAuthStateExpired) ||
+		errors.Is(err, challengeDomain.ErrOAuthStateMismatch)
 }

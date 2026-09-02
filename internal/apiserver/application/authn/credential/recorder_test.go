@@ -9,7 +9,6 @@ import (
 
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	credDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/credential"
-	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -24,19 +23,20 @@ func TestRecorderRecordsFailureSuccessAndRotation(t *testing.T) {
 	rec := NewRecorder(Dependencies{Credentials: repo, Now: func() time.Time { return now }})
 
 	err := rec.Record(context.Background(), authentication.AuthDecision{
-		OK:           false,
-		Code:         code.ErrInvalidCredentials,
-		CredentialID: cred.ID,
+		OK:               false,
+		CredentialEffect: authentication.CredentialEffectRecordFailure,
+		CredentialID:     cred.ID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, cred.FailedAttempts)
 	require.NotNil(t, cred.LastFailureAt)
 
 	err = rec.Record(context.Background(), authentication.AuthDecision{
-		OK:           true,
-		CredentialID: cred.ID,
-		ShouldRotate: true,
-		NewMaterial:  []byte("new"),
+		OK:               true,
+		CredentialEffect: authentication.CredentialEffectRecordSuccess,
+		CredentialID:     cred.ID,
+		ShouldRotate:     true,
+		NewMaterial:      []byte("new"),
 	})
 	require.NoError(t, err)
 	require.Equal(t, 0, cred.FailedAttempts)
@@ -61,31 +61,23 @@ func (s *credentialRepoStub) UpdateStatus(context.Context, meta.ID, credDomain.C
 	return nil
 }
 
-func (s *credentialRepoStub) RecordAuthenticationFailure(_ context.Context, id meta.ID, now time.Time, policy credDomain.LockoutPolicy) (credDomain.AuthenticationState, error) {
-	cred := s.items[id]
+func (s *credentialRepoStub) ApplyAuthenticationTransition(_ context.Context, transition credDomain.AuthenticationTransition) (credDomain.AuthenticationState, error) {
+	cred := s.items[transition.CredentialID]
 	if cred == nil {
 		return credDomain.AuthenticationState{}, nil
 	}
-	cred.RecordFailure(now)
-	newlyLocked := cred.ApplyLockPolicy(now, policy)
-	return credDomain.AuthenticationState{
-		FailedAttempts: cred.FailedAttempts,
-		LockedUntil:    cred.LockedUntil,
-		NewlyLocked:    newlyLocked,
-	}, nil
-}
-
-func (s *credentialRepoStub) RecordAuthenticationSuccess(_ context.Context, id meta.ID, now time.Time, rotation *credDomain.MaterialRotation) error {
-	cred := s.items[id]
-	if cred == nil {
-		return nil
+	switch transition.Kind {
+	case credDomain.TransitionRecordFailure:
+		return credDomain.ApplyAuthenticationTransition(cred, transition), nil
+	case credDomain.TransitionRecordSuccess:
+		credDomain.ApplyAuthenticationTransition(cred, transition)
+		if transition.Rotation != nil {
+			s.material = append([]byte(nil), transition.Rotation.Material...)
+		}
+		return credDomain.AuthenticationState{}, nil
+	default:
+		return credDomain.AuthenticationState{}, nil
 	}
-	cred.RecordSuccess(now)
-	if rotation != nil {
-		s.material = append([]byte(nil), rotation.Material...)
-		cred.RotateMaterial(rotation.Material, rotation.Algo)
-	}
-	return nil
 }
 
 func (s *credentialRepoStub) GetByID(_ context.Context, id meta.ID) (*credDomain.Credential, error) {

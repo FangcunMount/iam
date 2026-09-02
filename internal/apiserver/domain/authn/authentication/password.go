@@ -151,10 +151,11 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	storedHash := passwordRecord.PasswordHash
 	if !p.passwordMatches(storedHash, plaintextWithPepper) {
 		return AuthDecision{
-			OK:              false,
-			Code:            code.ErrInvalidCredentials,
-			LoginIdentityID: loginIdentityID,
-			CredentialID:    credentialID,
+			OK:               false,
+			Code:             code.ErrInvalidCredentials,
+			LoginIdentityID:  loginIdentityID,
+			CredentialID:     credentialID,
+			CredentialEffect: CredentialEffectRecordFailure,
 		}, nil
 	}
 
@@ -244,11 +245,12 @@ func (p *PasswordAuthStrategy) buildPasswordSuccessDecision(
 	}
 
 	return AuthDecision{
-		OK:              true,
-		Principal:       principal,
-		LoginIdentityID: loginIdentityID,
-		CredentialID:    credentialID,
-		ShouldRotate:    shouldRotate,
-		NewMaterial:     newMaterial,
+		OK:               true,
+		Principal:        principal,
+		LoginIdentityID:  loginIdentityID,
+		CredentialID:     credentialID,
+		CredentialEffect: CredentialEffectRecordSuccess,
+		ShouldRotate:     shouldRotate,
+		NewMaterial:      newMaterial,
 	}
 }

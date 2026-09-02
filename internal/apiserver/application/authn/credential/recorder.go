@@ -42,35 +42,44 @@ func (r *recorder) Record(ctx context.Context, decision authentication.AuthDecis
 	if r == nil || r.deps.Credentials == nil || decision.CredentialID.IsZero() {
 		return nil
 	}
-	switch decision.Code {
-	case code.ErrInvalidCredentials, code.ErrAuthenticationFailed:
-		// 认证失败（含密码错误等），记录失败次数与最近失败时间。
+	switch decision.CredentialEffect {
+	case authentication.CredentialEffectRecordFailure:
 		return r.recordFailure(ctx, decision.CredentialID, r.now())
+	case authentication.CredentialEffectRecordSuccess:
+		return r.recordSuccess(ctx, decision)
 	default:
-		if !decision.OK {
-			return nil
-		}
-		// 认证成功，记录认证成功状态。
-		return r.recordSuccess(ctx, decision.CredentialID, decision, r.now())
+		return nil
 	}
 }
 
 // recordSuccess 记录认证成功状态。
-func (r *recorder) recordSuccess(ctx context.Context, credentialID meta.ID, decision authentication.AuthDecision, now time.Time) error {
+func (r *recorder) recordSuccess(ctx context.Context, decision authentication.AuthDecision) error {
+	// 凭据材料是否需要轮换
 	var rotation *credDomain.MaterialRotation
 	if decision.ShouldRotate && len(decision.NewMaterial) > 0 {
 		rotation = &credDomain.MaterialRotation{Material: decision.NewMaterial, Algo: decision.NewAlgo}
 	}
-	err := r.deps.Credentials.RecordAuthenticationSuccess(ctx, credentialID, now, rotation)
+
+	// 创建成功迁移
+	transition := credDomain.NewSuccessTransition(decision.CredentialID, r.now(), rotation)
+
+	// 应用成功迁移
+	_, err := r.deps.Credentials.ApplyAuthenticationTransition(ctx, transition)
+	// 如果凭据不存在，则返回
 	if perrors.IsCode(err, code.ErrCredentialNotFound) {
 		return nil
+	} else if err != nil {
+		return err
 	}
-	return err
+
+	// 返回成功
+	return nil
 }
 
 // recordFailure 记录认证失败状态。
 func (r *recorder) recordFailure(ctx context.Context, credentialID meta.ID, now time.Time) error {
-	state, err := r.deps.Credentials.RecordAuthenticationFailure(ctx, credentialID, now, r.deps.LockoutPolicy)
+	transition := credDomain.NewFailureTransition(credentialID, now, r.deps.LockoutPolicy)
+	state, err := r.deps.Credentials.ApplyAuthenticationTransition(ctx, transition)
 	if perrors.IsCode(err, code.ErrCredentialNotFound) {
 		return nil
 	}

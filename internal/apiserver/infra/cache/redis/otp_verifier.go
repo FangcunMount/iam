@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 )
 
 // OTPVerifierImpl OTP验证器的Redis实现
@@ -23,8 +23,8 @@ type OTPVerifierImpl struct {
 
 // 确保实现了接口
 var (
-	_ authentication.OTPSendGate  = (*OTPVerifierImpl)(nil)
-	_ authentication.OTPSendQuota = (*OTPVerifierImpl)(nil)
+	_ challengeApp.OTPSendGate  = (*OTPVerifierImpl)(nil)
+	_ challengeApp.OTPSendQuota = (*OTPVerifierImpl)(nil)
 )
 
 // NewOTPVerifier 创建 OTP 发送频控 Redis 适配器。
@@ -99,9 +99,9 @@ return 1
 `
 
 // TryConsume 滑动窗口计数：清理窗口外记录后，原子追加本次发送记录并设置 TTL。
-func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (authentication.OTPSendQuotaLease, bool, error) {
+func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (challengeApp.OTPSendQuotaLease, bool, error) {
 	if limit <= 0 || window <= 0 {
-		return authentication.OTPSendQuotaLease{}, true, nil
+		return challengeApp.OTPSendQuotaLease{}, true, nil
 	}
 	nowMillis := v.now().UnixMilli()
 	windowMillis := int64(window / time.Millisecond)
@@ -112,12 +112,12 @@ func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dime
 	key := otpSendQuotaRedisKey(phoneE164, scene, dimension)
 	res, err := v.client.Eval(ctx, otpQuotaTryConsumeLua, []string{key}, nowMillis, windowMillis, limit, member).Int()
 	if err != nil {
-		return authentication.OTPSendQuotaLease{}, false, fmt.Errorf("otp send quota consume: %w", err)
+		return challengeApp.OTPSendQuotaLease{}, false, fmt.Errorf("otp send quota consume: %w", err)
 	}
 	if res == 0 {
-		return authentication.OTPSendQuotaLease{}, false, nil
+		return challengeApp.OTPSendQuotaLease{}, false, nil
 	}
-	return authentication.OTPSendQuotaLease{
+	return challengeApp.OTPSendQuotaLease{
 		PhoneE164: phoneE164,
 		Scene:     scene,
 		Dimension: dimension,
@@ -127,7 +127,7 @@ func (v *OTPVerifierImpl) TryConsume(ctx context.Context, phoneE164, scene, dime
 }
 
 // Rollback 回退 lease 对应的一次滑动窗口成员（发送失败时调用）；不会产生负数或长期空 key。
-func (v *OTPVerifierImpl) Rollback(ctx context.Context, lease authentication.OTPSendQuotaLease) error {
+func (v *OTPVerifierImpl) Rollback(ctx context.Context, lease challengeApp.OTPSendQuotaLease) error {
 	if lease.IsZero() {
 		return nil
 	}

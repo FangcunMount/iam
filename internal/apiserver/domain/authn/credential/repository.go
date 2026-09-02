@@ -29,15 +29,11 @@ type Repository interface {
 	// Create 创建凭据
 	Create(ctx context.Context, c *Credential) error
 
-	// —— 更新凭据 ——
 	// UpdateStatus 更新凭据状态
 	UpdateStatus(ctx context.Context, id meta.ID, status CredentialStatus) error
-	// RecordAuthenticationFailure 原子递增失败次数并应用锁定策略。
-	RecordAuthenticationFailure(ctx context.Context, id meta.ID, now time.Time, policy LockoutPolicy) (AuthenticationState, error)
-	// RecordAuthenticationSuccess 原子清零失败次数并完成可选材料轮换。
-	RecordAuthenticationSuccess(ctx context.Context, id meta.ID, now time.Time, rotation *MaterialRotation) error
+	// ApplyAuthenticationTransition 原子执行认证状态迁移。
+	ApplyAuthenticationTransition(ctx context.Context, transition AuthenticationTransition) (AuthenticationState, error)
 
-	// —— 查询凭据 ——
 	// GetByID 根据凭据ID查询凭据
 	GetByID(ctx context.Context, id meta.ID) (*Credential, error)
 	// GetByLoginIdentityIDAndType 根据登录身份ID和凭据类型查询密码类型凭据

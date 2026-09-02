@@ -199,11 +199,27 @@ IDP 和 Suggest 可以支撑核心模块，但不能吞并核心模块职责。
 
 #### 2.2.2 三个核心模块如何协作
 
-![IAM 三核心模块领域模型](../_images/architecture/core-domain-model-v7.png)
+![IAM 三核心模块领域模型](../_images/architecture/core-domain-model-v8.png)
 
-> Canonical 领域模型图 V7：本图以当前 Domain、Application 端口、组合根注入和数据库迁移为事实依据，是演讲时解释 Identity、AuthN、AuthZ 的主图。
+> Canonical 核心领域模型图 V8：本图以当前 Domain 模型、聚合边界与稳定跨上下文引用为事实依据，是整体介绍 Identity、AuthN、AuthZ 时的主图。
 
-这张图不是数据库 ER 图，也不是登录时序图，而是用来表达“谁拥有什么事实、模型承担什么责任、模块以什么能力连接”的领域模型图。
+这张图不是数据库 ER 图，也不是登录时序图，而是用来表达“谁拥有什么事实、哪些对象必须在一个一致性边界内变化、模型之间如何关联、哪些领域规则必须成立”的领域模型图。
+
+整体介绍按限界上下文与聚合边界讲：
+
+```text
+Identity：User｜ProfileLink｜Profile
+AuthN：LoginIdentity｜Credential｜AuthChallenge｜Session｜RefreshToken
+AuthZ：Role｜Resource｜Assignment｜RoleInheritance｜PermissionGrant
+```
+
+这 13 个模型当前都以聚合根身份承担各自生命周期和不变量，整体上是多个小聚合，而不是每个上下文一个大聚合。请求值、领域结果与已颁发凭证会单列展示，但不因此被画成聚合根。
+
+进入模块详解后，再沿业务动作展开领域服务和应用服务：AuthN 使用“建立认证关系 → 确认身份与准入 → 延续认证状态”，AuthZ 使用“建权与赋权 → 验权与决策 →
+施权与执行”。V7 保留为领域模型与服务的综合讲解图；V8 不展示服务编排、运行时投影和基础设施。
+
+模块入口：[Identity](../02-业务模块/01-Identity/00-模块总览.md) · [AuthN](../02-业务模块/02-AuthN/00-模块总览.md) ·
+[AuthZ](../02-业务模块/03-AuthZ/00-模块总览.md)
 
 | 模块 | 自己拥有的事实 | 与 Identity 的边界 |
 | --- | --- | --- |
@@ -418,7 +434,8 @@ IAM 面向多个拥有不同业务身份和业务对象的系统，提供统一�
 | --- | --- |
 | IAM 的定位和业务边界 | [IAM 系统定位](../00-概览/01-IAM系统定位.md)、[模块划分与协作关系](../00-概览/02-模块划分与协作关系.md) |
 | User、Profile 与 ProfileLink | [Identity 领域模型](../02-业务模块/01-Identity/01-领域模型-User-Profile-ProfileLink.md) |
-| Identity、AuthN、AuthZ 三核心领域模型 | [Canonical V7 领域模型图](../_images/architecture/core-domain-model-v7.png) |
+| Identity、AuthN、AuthZ 三核心领域模型 | [Canonical V8 核心领域模型图](../_images/architecture/core-domain-model-v8.png) |
+| 领域模型、领域服务与应用边界综合讲解 | [V7 综合图](../_images/architecture/core-domain-model-v7.png) |
 | AuthN 与 AuthZ 边界 | [身份认证与授权边界](../06-专题设计/01-身份认证与授权边界.md) |
 | AuthZ 模块、领域模型与关键链路 | [AuthZ canonical 文档](../02-业务模块/03-AuthZ/README.md) |
 | 分层、端口和依赖方向 | [架构风格与设计原则](../00-概览/05-架构风格与设计原则.md) |

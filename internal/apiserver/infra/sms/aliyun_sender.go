@@ -15,7 +15,7 @@ import (
 	credential "github.com/aliyun/credentials-go/credentials"
 	"github.com/nyaruka/phonenumbers"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
 )
 
 const (
@@ -37,7 +37,7 @@ type AliyunSender struct {
 	readTimeout    int
 }
 
-var _ authentication.SMSSender = (*AliyunSender)(nil)
+var _ challengeApp.SMSSender = (*AliyunSender)(nil)
 
 type aliyunSMSClient interface {
 	SendSmsVerifyCodeWithOptions(request *dypnsapi.SendSmsVerifyCodeRequest, runtime *util.RuntimeOptions) (*dypnsapi.SendSmsVerifyCodeResponse, error)

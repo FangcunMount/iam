@@ -7,13 +7,17 @@ AuthZ 回答一个问题：可信 Subject 在某个 Tenant 中，是否可以对
 ## 30 秒结论
 
 ```text
-MySQL 权限事实
-  -> Assignment + RoleInheritance 组成角色图
-  -> PermissionGrant + Resource.attribute_schema 组成授权索引
-  -> 原子构建 AuthorizationRuntimeSnapshot
-  -> gRPC v3 Check / GetAuthorizationSnapshot / 进程内路由授权
+建权与赋权
+  -> Role / Assignment / RoleInheritance / PermissionGrant / Resource
+验权与决策
+  -> AuthorizationRequest + RuntimeSnapshot -> DecisionService / Evaluator -> Decision
+施权与执行
+  -> Middleware / 业务服务消费 Decision -> continue / deny / error
 ```
 
+- `PolicyVersion + Outbox + reload` 是建权与赋权后的发布收敛机制，不是独立授权子域。
+- 不可变角色图与 Grant 索引是验权运行时的可重建投影，不是第二份权限事实。
+- 施权边界不重新解释 Role 或 Grant；它只把 Decision 落实为执行、拒绝或系统错误。
 - REST v3 是管理接口；授权判定 `Check` 由 gRPC v3 提供。
 - `roles` 表示包含继承结果的有效角色，`direct_roles` 表示直接 Assignment。
 - `ReplaceManagedAssignments` 只替换约束策略认定的“受管角色集合”，并保留集合外 Assignment。

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -52,7 +52,7 @@ func TestOTPVerifierTryConsumeQuota(t *testing.T) {
 	ctx := context.Background()
 
 	const limit = 2
-	var lease authentication.OTPSendQuotaLease
+	var lease challengeApp.OTPSendQuotaLease
 	for i := 1; i <= limit; i++ {
 		gotLease, ok, err := verifier.TryConsume(ctx, "+8613800138000", "login", "hourly", limit, time.Hour)
 		if err != nil {
@@ -259,10 +259,10 @@ func TestOTPVerifierRollbackIsSafeForEmptyOrMissingLease(t *testing.T) {
 	verifier := NewOTPVerifier(client)
 	ctx := context.Background()
 
-	if err := verifier.Rollback(ctx, authentication.OTPSendQuotaLease{}); err != nil {
+	if err := verifier.Rollback(ctx, challengeApp.OTPSendQuotaLease{}); err != nil {
 		t.Fatalf("Rollback() empty lease error = %v", err)
 	}
-	if err := verifier.Rollback(ctx, authentication.OTPSendQuotaLease{
+	if err := verifier.Rollback(ctx, challengeApp.OTPSendQuotaLease{
 		PhoneE164: "+8613800138000",
 		Scene:     "login",
 		Dimension: "hourly",

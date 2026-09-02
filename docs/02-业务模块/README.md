@@ -12,6 +12,16 @@
 | IDP | 怎样安全接入外部 provider | [IDP](04-IDP/README.md) |
 | Suggest | 怎样构建可见 Profile 联想读模型 | [Suggest](05-Suggest/README.md) |
 
+![IAM 三核心模块领域模型 V8](../_images/architecture/core-domain-model-v8.png)
+
+[V8 SVG 图源](../_images/architecture/core-domain-model-v8.svg)
+
+V8 是整体介绍时的核心领域模型入口：以 Identity、AuthN、AuthZ 三个限界上下文为边界，明确 13 个聚合根、聚合内值对象、非聚合领域结果、稳定 ID 引用和关键领域不变量。当前核心模型以单实体聚合为主，因此不会为了形式完整而虚构聚合内部实体。进入对应模块文档后，再展开领域服务、应用服务和具体场景链路：
+
+- [Identity 模块详解](01-Identity/00-模块总览.md)
+- [AuthN 模块详解](02-AuthN/00-模块总览.md)
+- [AuthZ 模块详解](03-AuthZ/00-模块总览.md)
+
 本目录是业务知识的主层，不以专题文档替代模块自身解释。每个模块按同一组问题展开：
 
 ```text

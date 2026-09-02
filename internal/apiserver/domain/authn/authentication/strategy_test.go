@@ -89,6 +89,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	require.False(t, d5.OK)
 	require.Equal(t, code.ErrInvalidCredentials, d5.Code)
 	require.Equal(t, meta.FromUint64(100), d5.CredentialID)
+	require.Equal(t, authentication.CredentialEffectRecordFailure, d5.CredentialEffect)
 
 	// 5. disabled password credential
 	disabledCreds := &loginIdentityCredentialRepoTestDouble{
@@ -127,6 +128,7 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	require.True(t, d6.OK)
 	require.True(t, d6.ShouldRotate)
 	require.Equal(t, []byte("new-hash"), d6.NewMaterial)
+	require.Equal(t, authentication.CredentialEffectRecordSuccess, d6.CredentialEffect)
 
 	// 8. success, no rehash
 	a7 := makeAuth(newLoginIdentityRepoTestDouble(makeLookup(loginidentity.StatusActive)), credRepo(meta.FromUint64(200), stored), &hasherStub{pepper: pepper, need: false})

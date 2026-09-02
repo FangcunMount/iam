@@ -122,3 +122,18 @@ func TestWechatOpenLinkRequiresUserID(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, code.ErrInvalidArgument, perrors.ParseCoder(err).Code())
 }
+
+func TestWechatOpenOAuthStateVerificationFailsClosedWithoutRepository(t *testing.T) {
+	t.Parallel()
+
+	service := NewService(
+		nil,
+		SMSOTPDelivery{},
+		NewCreator(nil),
+		NewVerifier(nil),
+	)
+
+	_, err := service.VerifyAndConsumeWechatOpenLogin(context.Background(), "state-1")
+	require.Error(t, err)
+	require.Equal(t, code.ErrInternalServerError, perrors.ParseCoder(err).Code())
+}

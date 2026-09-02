@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/eventing"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 )
@@ -25,7 +25,7 @@ type MQLoginOTPSender struct {
 	publisher event.Publisher
 }
 
-var _ authentication.SMSSender = (*MQLoginOTPSender)(nil)
+var _ challengeApp.SMSSender = (*MQLoginOTPSender)(nil)
 
 func NewMQLoginOTPSenderWithPublisher(publisher event.Publisher) *MQLoginOTPSender {
 	return &MQLoginOTPSender{publisher: publisher}

@@ -2,24 +2,20 @@ package challenge
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"strings"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
 const (
-	SceneLoginPhoneOTP   = "login"         // 登录场景
-	SceneLinkPhoneOTP    = "link_phone"    // 绑定手机号场景
-	defaultSMSOTPTTL     = 5 * time.Minute // 默认短信验证码 TTL
-	defaultSMSOTPCodeLen = 6               // 默认短信验证码长度
+	SceneLoginPhoneOTP = "login"      // 登录场景
+	SceneLinkPhoneOTP  = "link_phone" // 绑定手机号场景
 )
 
 // LoginPhoneOTPSender 发送登录短信验证码。
@@ -74,7 +70,7 @@ func NewService(repo challengeDomain.Repository, delivery SMSOTPDelivery, creato
 		delivery:      &delivery,
 		creator:       creator,
 		verifier:      verifier,
-		oauthCreator:  newOAuthStateCreator(repo, defaultOAuthStateTTL),
+		oauthCreator:  newOAuthStateCreator(repo, challengeDomain.DefaultOAuthStateTTL),
 		oauthVerifier: newOAuthStateVerifier(repo),
 	}
 }
@@ -192,7 +188,7 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 		dimension string
 		window    time.Duration
 	}
-	var leases []authentication.OTPSendQuotaLease
+	var leases []OTPSendQuotaLease
 	rollback = func() {
 		for _, lease := range leases {
 			if err := s.delivery.Quota.Rollback(ctx, lease); err != nil {
@@ -262,16 +258,5 @@ func (s *service) deleteSMSOTP(ctx context.Context, scene, rawPhone string) erro
 	if err != nil {
 		return perrors.WithCode(code.ErrInvalidArgument, "invalid phone: %v", err)
 	}
-	return s.repo.Delete(ctx, smsOTPChallengeID(strings.TrimSpace(scene), phone.String()))
-}
-
-// smsOTPChallengeID 生成短信验证码挑战 ID
-func smsOTPChallengeID(scene, phoneE164 string) string {
-	return fmt.Sprintf("sms_otp:%s:%s", strings.TrimSpace(scene), strings.TrimSpace(phoneE164))
-}
-
-// smsOTPSecretHash 生成短信验证码挑战密钥
-func smsOTPSecretHash(scene, phoneE164, otp string) []byte {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(scene) + "\x00" + strings.TrimSpace(phoneE164) + "\x00" + strings.TrimSpace(otp)))
-	return sum[:]
+	return s.repo.Delete(ctx, challengeDomain.SMSOTPChallengeID(strings.TrimSpace(scene), phone.String()))
 }

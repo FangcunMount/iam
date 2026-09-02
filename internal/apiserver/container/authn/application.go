@@ -134,7 +134,7 @@ func (m *AuthnModule) initializeApplication(
 	return nil
 }
 
-func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiserveroptions.SMSOptions) (authentication.SMSSender, error) {
+func buildLoginSMSSender(infra *authnInfrastructureComponents, smsOptions apiserveroptions.SMSOptions) (challengeApp.SMSSender, error) {
 	smsProvider := strings.ToLower(strings.TrimSpace(smsOptions.Provider))
 	if smsProvider == "" {
 		smsProvider = "log"

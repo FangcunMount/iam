@@ -75,7 +75,6 @@ RETIRED_REFERENCES = [
     "authn-domain-model-v2",
     "authz-domain-model-v1",
     "core-domain-model.png",
-    "core-domain-model-v8",
     "core-module-identity-anchor",
     "supporting-domain-model",
 ]

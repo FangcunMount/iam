@@ -102,7 +102,7 @@ func TestCredentialRepository_RecordAuthenticationFailure_ConcurrentLockout(t *t
 	for range concurrency {
 		go func() {
 			defer wg.Done()
-			state, err := repo.RecordAuthenticationFailure(ctx, cred.ID, now, policy)
+			state, err := repo.ApplyAuthenticationTransition(ctx, domain.NewFailureTransition(cred.ID, now, policy))
 			if err != nil {
 				errs <- err
 				return

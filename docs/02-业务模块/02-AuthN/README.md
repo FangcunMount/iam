@@ -4,9 +4,21 @@
 
 AuthN 证明“当前请求者是谁”，维持认证会话，并把认证结果转化为可验证令牌。它不维护 User/Profile 档案，不配置外部身份源，也不回答资源授权问题。
 
+从领域知识看，AuthN 不是一串 provider、Session 和 JWT 组件，而是三个连续子域：
+
+```text
+建立认证关系 → 确认身份与准入 → 延续认证状态
+```
+
+- 建立认证关系：用 `LoginIdentity`、`Credential` 表达“系统凭什么认识你”；
+- 确认身份与准入：用 `Challenge`、`Authenticator`、`AuthDecision`、`Principal`、`AdmissionPolicy` 表达“如何确认现在是你”；
+- 延续认证状态：用 `AuthenticationGrant`、`Session`、Token 与 `GrantIssuer`、`Verifier`、`Refresher`、`Revoker` 表达“如何让系统持续相信是你”。
+
+JWT、JWKS 和 Redis 是第三段的适配实现，不是与三个子域并列的领域阶段。
+
 ## 阅读路径
 
-1. [模块总览](00-模块总览.md)：先建立 proof → identity → principal → authentication grant → authorization 的统一模型。
+1. [模块总览](00-模块总览.md)：先建立“认证关系 → 身份与准入 → 认证状态”的统一模型。
 2. [领域模型与认证策略](01-领域模型与认证策略.md)：区分 LoginIdentity、Credential、Challenge、Principal、Session、AuthenticationGrant 和 Token 概念族。
 3. [注册、登录与身份绑定](02-注册登录与身份绑定.md)：理解三条写链路的事务、幂等和并发边界。
 4. [Session、Token 与 JWKS](03-Session-Token与JWKS.md)：理解在线状态、刷新轮换、撤销与两种验签语义。

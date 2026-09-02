@@ -50,6 +50,21 @@ func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain
 	return r.updateCredential(ctx, id, map[string]interface{}{"status": status.String()}, "status")
 }
 
+func (r *Repository) ApplyAuthenticationTransition(
+	ctx context.Context,
+	transition domain.AuthenticationTransition,
+) (domain.AuthenticationState, error) {
+	switch transition.Kind {
+	case domain.TransitionRecordFailure:
+		return r.RecordAuthenticationFailure(ctx, transition.CredentialID, transition.Now, transition.LockoutPolicy)
+	case domain.TransitionRecordSuccess:
+		err := r.RecordAuthenticationSuccess(ctx, transition.CredentialID, transition.Now, transition.Rotation)
+		return domain.AuthenticationState{}, err
+	default:
+		return domain.AuthenticationState{}, nil
+	}
+}
+
 func (r *Repository) RecordAuthenticationFailure(
 	ctx context.Context,
 	id meta.ID,

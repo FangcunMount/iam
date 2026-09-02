@@ -72,7 +72,7 @@ func TestSecuritySensitiveLogsAndGRPCErrorsStayPublicSafe(t *testing.T) {
 		"internal/apiserver/application/authn/session/sign_out.go": {
 			`"error", err.Error()`,
 		},
-		"internal/apiserver/domain/authn/authentication/authenticater.go": {
+		"internal/apiserver/domain/authn/authentication/authenticator.go": {
 			`"error", err.Error()`,
 		},
 		"internal/apiserver/transport/grpc/service/identity/profile_link_command.go": {

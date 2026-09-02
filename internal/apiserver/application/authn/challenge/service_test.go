@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 	"github.com/stretchr/testify/require"
 )
@@ -166,7 +165,7 @@ func TestSendLoginPhoneOTPRollsBackQuotaAndDeletesChallengeWhenSMSFails(t *testi
 
 	require.Error(t, err)
 	require.Equal(t, []string{"hourly", "daily"}, quota.rollbackDimensions())
-	require.Equal(t, []string{smsOTPChallengeID(SceneLoginPhoneOTP, "+8613800138000")}, repo.deleted)
+	require.Equal(t, []string{challengeDomain.SMSOTPChallengeID(SceneLoginPhoneOTP, "+8613800138000")}, repo.deleted)
 	require.Empty(t, repo.items)
 }
 
@@ -324,20 +323,20 @@ func (s *smsSenderStub) SendLoginOTP(_ context.Context, phoneE164, code string) 
 
 type smsOTPQuotaStub struct {
 	calls          []string
-	rollbacks      []authentication.OTPSendQuotaLease
+	rollbacks      []OTPSendQuotaLease
 	denyDimensions map[string]bool
 	events         *[]string
 }
 
-func (s *smsOTPQuotaStub) TryConsume(_ context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (authentication.OTPSendQuotaLease, bool, error) {
+func (s *smsOTPQuotaStub) TryConsume(_ context.Context, phoneE164, scene, dimension string, limit int, window time.Duration) (OTPSendQuotaLease, bool, error) {
 	if s.events != nil {
 		*s.events = append(*s.events, "quota:"+dimension)
 	}
 	s.calls = append(s.calls, dimension)
 	if s.denyDimensions[dimension] {
-		return authentication.OTPSendQuotaLease{}, false, nil
+		return OTPSendQuotaLease{}, false, nil
 	}
-	return authentication.OTPSendQuotaLease{
+	return OTPSendQuotaLease{
 		PhoneE164: phoneE164,
 		Scene:     scene,
 		Dimension: dimension,
@@ -346,7 +345,7 @@ func (s *smsOTPQuotaStub) TryConsume(_ context.Context, phoneE164, scene, dimens
 	}, true, nil
 }
 
-func (s *smsOTPQuotaStub) Rollback(_ context.Context, lease authentication.OTPSendQuotaLease) error {
+func (s *smsOTPQuotaStub) Rollback(_ context.Context, lease OTPSendQuotaLease) error {
 	s.rollbacks = append(s.rollbacks, lease)
 	return nil
 }

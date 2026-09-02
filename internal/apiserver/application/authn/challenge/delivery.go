@@ -3,7 +3,7 @@ package challenge
 import (
 	"time"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
+	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
 )
 
 const (
@@ -13,9 +13,9 @@ const (
 
 // SMSOTPDelivery 短信验证码发送依赖
 type SMSOTPDelivery struct {
-	Gate        authentication.OTPSendGate
-	Quota       authentication.OTPSendQuota
-	SMS         authentication.SMSSender
+	Gate        OTPSendGate
+	Quota       OTPSendQuota
+	SMS         SMSSender
 	TTL         time.Duration
 	Cooldown    time.Duration
 	CodeLen     int
@@ -26,7 +26,7 @@ type SMSOTPDelivery struct {
 // effectiveTTL 获取有效的 TTL
 func (d *SMSOTPDelivery) effectiveTTL() time.Duration {
 	if d == nil || d.TTL <= 0 {
-		return defaultSMSOTPTTL
+		return challengeDomain.DefaultSMSOTPTTL
 	}
 	return d.TTL
 }
@@ -42,10 +42,10 @@ func (d *SMSOTPDelivery) effectiveCooldown() time.Duration {
 // effectiveCodeLen 获取有效的验证码长度
 func (d *SMSOTPDelivery) effectiveCodeLen() int {
 	if d == nil || d.CodeLen <= 0 {
-		return defaultSMSOTPCodeLen
+		return challengeDomain.DefaultSMSOTPCodeLen
 	}
-	if d.CodeLen > 12 {
-		return 12
+	if d.CodeLen > challengeDomain.MaxSMSOTPCodeLen {
+		return challengeDomain.MaxSMSOTPCodeLen
 	}
 	return d.CodeLen
 }

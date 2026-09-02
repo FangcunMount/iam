@@ -54,7 +54,7 @@ func TestCredentialRepositoryUpdatesStatusAndRecordsFailure(t *testing.T) {
 
 	require.NoError(t, repo.UpdateStatus(ctx, cred.ID, cred.Status))
 	now := time.Now().UTC().Truncate(time.Second)
-	state, err := repo.RecordAuthenticationFailure(ctx, cred.ID, now, credDomain.LockoutPolicy{})
+	state, err := repo.ApplyAuthenticationTransition(ctx, credDomain.NewFailureTransition(cred.ID, now, credDomain.LockoutPolicy{}))
 	require.NoError(t, err)
 	require.Equal(t, 1, state.FailedAttempts)
 
@@ -79,16 +79,17 @@ func TestCredentialRepositoryRecordsAuthenticationSuccessAtomically(t *testing.T
 	cred := credDomain.NewPasswordCredential(meta.FromUint64(2001), []byte("old-hash"), "argon2id")
 	require.NoError(t, repo.Create(ctx, cred))
 	for range 4 {
-		_, err := repo.RecordAuthenticationFailure(ctx, cred.ID, time.Now(), credDomain.LockoutPolicy{})
+		_, err := repo.ApplyAuthenticationTransition(ctx, credDomain.NewFailureTransition(cred.ID, time.Now(), credDomain.LockoutPolicy{}))
 		require.NoError(t, err)
 	}
 
 	newAlgo := "argon2id-v2"
 	now := time.Now().UTC().Truncate(time.Second)
-	require.NoError(t, repo.RecordAuthenticationSuccess(ctx, cred.ID, now, &credDomain.MaterialRotation{
+	_, err := repo.ApplyAuthenticationTransition(ctx, credDomain.NewSuccessTransition(cred.ID, now, &credDomain.MaterialRotation{
 		Material: []byte("new-hash"),
 		Algo:     &newAlgo,
 	}))
+	require.NoError(t, err)
 
 	found, err := repo.GetByID(ctx, cred.ID)
 	require.NoError(t, err)

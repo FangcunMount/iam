@@ -92,7 +92,7 @@ func (s *ensureCredentialStep) ensurePasswordCredential(
 
 // issuePasswordCredential 颁发密码凭据。
 func (s *ensureCredentialStep) issuePasswordCredential(
-	issuer credDomain.CredentialIssuer,
+	issuer passwordCredentialIssuer,
 	loginIdentityID meta.ID,
 	req *preparedSignup,
 ) (*credDomain.Credential, error) {
@@ -120,4 +120,8 @@ func (s *ensureCredentialStep) findExistingCredential(
 		return nil, perrors.WithCode(code.ErrDatabase, "failed to find credential: %v", err)
 	}
 	return credential, err
+}
+
+type passwordCredentialIssuer interface {
+	IssuePasswordCredential(req credDomain.PasswordCredentialRequest) (*credDomain.Credential, error)
 }
