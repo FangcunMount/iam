@@ -8,7 +8,6 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	linking "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
 	testutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/testutil"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -56,7 +55,7 @@ func TestRepositoryCreateMovesInactiveCanonicalGlobalIdentifier(t *testing.T) {
 
 	first := newGlobalIdentity(t, 100, "wx-app-a", "openid-a", "union-1")
 	require.NoError(t, repo.Create(ctx, first))
-	require.NoError(t, repo.UpdateStatus(ctx, first.ID, domain.StatusDeleted))
+	require.NoError(t, db.Model(&PO{}).Where("id = ?", first.ID).Update("status", string(domain.StatusDeleted)).Error)
 
 	replacement := newGlobalIdentity(t, 100, "wx-app-b", "openid-b", "union-1")
 	require.NoError(t, repo.Create(ctx, replacement))
@@ -84,7 +83,7 @@ func TestRepositoryUnlinkTransfersCanonicalGlobalIdentifier(t *testing.T) {
 
 	outcome, err := repo.UnlinkOwnedUnlessLastActive(ctx, meta.FromUint64(100), first.ID)
 	require.NoError(t, err)
-	require.Equal(t, linking.UnlinkOutcomeUnlinked, outcome)
+	require.Equal(t, domain.UnlinkOutcomeUnlinked, outcome)
 
 	var firstPO, secondPO PO
 	require.NoError(t, db.First(&firstPO, "id = ?", first.ID).Error)

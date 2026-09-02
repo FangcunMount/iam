@@ -29,9 +29,6 @@ func AssessUsability(ch *AuthChallenge, now time.Time, typ ChallengeType, scene 
 	if ch.Scene != scene {
 		return UsabilityWrongScene
 	}
-	if ch.IsConsumed() {
-		return UsabilityConsumed
-	}
 	if ch.IsExpired(now) {
 		return UsabilityExpired
 	}
@@ -53,13 +50,16 @@ func secretHashMatches(stored, expected []byte) bool {
 
 // consumeOnce 消费一次挑战。
 func consumeOnce(ctx context.Context, repo Repository, challengeID string, expectedHash []byte) (VerificationResult, error) {
+	// 消费挑战
 	consumed, err := repo.ConsumeIfSecretMatches(ctx, challengeID, expectedHash)
 	if err != nil {
 		return VerificationResult{Outcome: VerificationInfrastructureError}, err
 	}
+	// 如果挑战未被消费，则返回验证失败
 	if !consumed {
 		return VerificationResult{Outcome: VerificationRejected}, nil
 	}
+	// 返回验证成功
 	return VerificationResult{Outcome: VerificationSuccess}, nil
 }
 

@@ -2,7 +2,6 @@ package linking
 
 import (
 	"context"
-	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	loginidentity "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -35,11 +34,11 @@ func (l *linker) Unlink(ctx context.Context, cmd UnlinkCommand) error {
 		return err
 	}
 	switch outcome {
-	case UnlinkOutcomeUnlinked:
+	case loginidentity.UnlinkOutcomeUnlinked:
 		return nil
-	case UnlinkOutcomeNotFound:
+	case loginidentity.UnlinkOutcomeNotFound:
 		return perrors.WithCode(code.ErrLoginIdentityNotFound, "login identity not found")
-	case UnlinkOutcomeLastActive:
+	case loginidentity.UnlinkOutcomeLastActive:
 		return perrors.WithCode(code.ErrInvalidArgument, "cannot unlink the last active login identity")
 	default:
 		return perrors.WithCode(code.ErrInternalServerError, "unexpected login identity unlink outcome")
@@ -75,38 +74,21 @@ func (l *linker) loadOwnedLoginIdentity(ctx context.Context, cmd UnlinkCommand) 
 
 // ensureUnlinkReauthentication 检查是否需要重新认证。
 func (l *linker) ensureUnlinkReauthentication(identity *loginidentity.LoginIdentity, cmd UnlinkCommand) error {
-	// 检查是否需要重新认证。
-	if l.requiresRecentAuthentication(identity, cmd) && !l.hasRecentAuthentication(cmd.AuthenticatedAt) {
+	policy := loginidentity.UnlinkPolicy{
+		RecentAuthWindow: l.recentAuthWindow(),
+		FutureClockSkew:  loginidentity.DefaultFutureClockSkew,
+	}
+	switch policy.AssessRecentAuthentication(loginidentity.UnlinkReauthRequest{
+		Identity:               identity,
+		CurrentLoginIdentityID: cmd.CurrentLoginIdentityID,
+		AuthenticatedAt:        cmd.AuthenticatedAt,
+		Now:                    l.now(),
+	}) {
+	case loginidentity.UnlinkReauthOK:
+		return nil
+	case loginidentity.UnlinkReauthRequired, loginidentity.UnlinkReauthInvalidTimestamp:
 		return perrors.WithCode(code.ErrReauthenticationRequired, "recent authentication required")
-	}
-	return nil
-}
-
-// requiresRecentAuthentication 检查是否需要重新认证。
-func (l *linker) requiresRecentAuthentication(identity *loginidentity.LoginIdentity, cmd UnlinkCommand) bool {
-	if identity == nil {
-		return false
-	}
-	if !cmd.CurrentLoginIdentityID.IsZero() && identity.ID == cmd.CurrentLoginIdentityID {
-		return true
-	}
-	switch identity.Provider {
-	case loginidentity.ProviderUsername, loginidentity.ProviderPhone:
-		return true
 	default:
-		return false
+		return perrors.WithCode(code.ErrInternalServerError, "unexpected unlink reauthentication decision")
 	}
-}
-
-// hasRecentAuthentication 检查是否在最近认证窗口内。
-func (l *linker) hasRecentAuthentication(authenticatedAt *time.Time) bool {
-	if authenticatedAt == nil || authenticatedAt.IsZero() {
-		return false
-	}
-	now := l.now().UTC()
-	authAt := authenticatedAt.UTC()
-	if authAt.After(now.Add(time.Minute)) {
-		return false
-	}
-	return now.Sub(authAt) <= l.recentAuthWindow()
 }

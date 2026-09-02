@@ -76,16 +76,21 @@ func findExistingLoginIdentity(ctx context.Context, repo loginidentity.Repositor
 	if err != nil {
 		return nil, err
 	}
-	if existing != nil {
-		if existing.UserID != identity.UserID {
-			return nil, perrors.WithCode(code.ErrLoginIdentityExists, "login identity already belongs to another user")
-		}
-		if !existing.IsActive() {
-			return nil, perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is not active")
-		}
+	switch loginidentity.AssessBinding(loginidentity.BindingRequest{
+		RequestUserID: identity.UserID,
+		Existing:      existing,
+	}) {
+	case loginidentity.BindingCreate:
+		return nil, nil
+	case loginidentity.BindingReuse:
 		return existing, nil
+	case loginidentity.BindingConflictOtherUser:
+		return nil, perrors.WithCode(code.ErrLoginIdentityExists, "login identity already belongs to another user")
+	case loginidentity.BindingInactiveSameUser:
+		return nil, perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is not active")
+	default:
+		return nil, perrors.WithCode(code.ErrDatabase, "unexpected login identity binding decision")
 	}
-	return nil, nil
 }
 
 // createLoginIdentity 创建登录身份。

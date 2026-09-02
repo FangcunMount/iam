@@ -189,10 +189,6 @@ func (s *loginIdentityRepoStub) ListByUserID(context.Context, meta.ID) ([]*login
 	return nil, nil
 }
 
-func (s *loginIdentityRepoStub) UpdateStatus(context.Context, meta.ID, loginidentity.Status) error {
-	return nil
-}
-
 func providerKey(provider loginidentity.Provider, realm, identifier string) string {
 	return string(provider) + "|" + realm + "|" + identifier
 }

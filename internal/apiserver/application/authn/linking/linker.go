@@ -69,11 +69,11 @@ func (l *linker) repo() loginidentity.Repository {
 	return l.deps.LoginIdentities
 }
 
-func (l *linker) identityUnlinker() AtomicIdentityUnlinker {
+func (l *linker) identityUnlinker() loginidentity.AtomicIdentityUnlinker {
 	if l.deps.IdentityUnlinker != nil {
 		return l.deps.IdentityUnlinker
 	}
-	unlinker, _ := l.deps.LoginIdentities.(AtomicIdentityUnlinker)
+	unlinker, _ := l.deps.LoginIdentities.(loginidentity.AtomicIdentityUnlinker)
 	return unlinker
 }
 

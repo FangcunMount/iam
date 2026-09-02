@@ -170,10 +170,10 @@ func (s *service) createSMSOTP(ctx context.Context, e164, scene string) (*SMSOTP
 }
 
 const (
-	quotaDimensionHourly = "hourly"
-	quotaDimensionDaily  = "daily"
-	quotaWindowHourly    = time.Hour
-	quotaWindowDaily     = 24 * time.Hour
+	quotaDimensionHourly = challengeDomain.QuotaDimensionHourly
+	quotaDimensionDaily  = challengeDomain.QuotaDimensionDaily
+	quotaWindowHourly    = challengeDomain.QuotaWindowHourly
+	quotaWindowDaily     = challengeDomain.QuotaWindowDaily
 )
 
 // acquireSendQuota 按小时/天维度累计发送次数，任一维度超限即拒绝。

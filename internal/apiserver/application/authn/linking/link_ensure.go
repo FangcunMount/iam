@@ -26,16 +26,20 @@ func (l *linker) ensureProviderKey(
 	if err != nil {
 		return nil, err
 	}
-	if existing != nil {
-		// 如果存在相同的登录身份，则检查是否属于当前用户。
-		if existing.UserID != userID {
-			return nil, perrors.WithCode(code.ErrLoginIdentityExists, "login identity already belongs to another user")
-		}
-		// 如果登录身份不是活跃的，则返回错误。
-		if !existing.IsActive() {
-			return nil, perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is not active")
-		}
+	switch loginidentity.AssessBinding(loginidentity.BindingRequest{
+		RequestUserID: userID,
+		Existing:      existing,
+	}) {
+	case loginidentity.BindingReuse:
 		return &LinkResult{Identity: existing, Reused: true}, nil
+	case loginidentity.BindingConflictOtherUser:
+		return nil, perrors.WithCode(code.ErrLoginIdentityExists, "login identity already belongs to another user")
+	case loginidentity.BindingInactiveSameUser:
+		return nil, perrors.WithCode(code.ErrLoginIdentityDisabled, "login identity is not active")
+	case loginidentity.BindingCreate:
+		// continue below
+	default:
+		return nil, perrors.WithCode(code.ErrInternalServerError, "unexpected login identity binding decision")
 	}
 
 	// 创建新的登录身份。
@@ -67,7 +71,7 @@ func (l *linker) ensureGlobalIdentifierAvailable(ctx context.Context, userID met
 	}
 
 	// 如果存在相同的登录身份，则检查是否属于当前用户。
-	if existing != nil && existing.UserID != userID {
+	if existing != nil && loginidentity.AssessGlobalIdentifierAvailability(userID, existing) == loginidentity.GlobalIdentifierOwnedByOtherUser {
 		return perrors.WithCode(code.ErrGlobalIdentifierExists, "global identifier already belongs to another user")
 	}
 	return nil

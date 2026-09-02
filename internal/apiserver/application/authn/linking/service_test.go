@@ -314,6 +314,81 @@ func TestUnlinkCurrentSessionIdentityRequiresRecentAuthentication(t *testing.T) 
 	require.Equal(t, loginidentity.StatusDeleted, repo.byID[meta.FromUint64(1)].Status)
 }
 
+func TestUnlinkRejectsFutureAuthenticationBeyondClockSkew(t *testing.T) {
+	t.Parallel()
+
+	repo := newLinkingIdentityRepoStub()
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(1),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderUsername,
+		Realm:      loginidentity.RealmDefault,
+		Identifier: "zhangsan",
+		Status:     loginidentity.StatusActive,
+	})
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(2),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderWechatMinip,
+		Realm:      "wx-app",
+		Identifier: "openid",
+		Status:     loginidentity.StatusActive,
+	})
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	futureAuthTime := now.Add(2 * time.Minute)
+	linker := NewLinker(Dependencies{
+		LoginIdentities:  repo,
+		Now:              func() time.Time { return now },
+		RecentAuthWindow: 10 * time.Minute,
+	})
+
+	err := linker.Unlink(context.Background(), UnlinkCommand{
+		UserID:          meta.FromUint64(100),
+		LoginIdentityID: meta.FromUint64(1),
+		AuthenticatedAt: &futureAuthTime,
+	})
+
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
+	require.Equal(t, loginidentity.StatusActive, repo.byID[meta.FromUint64(1)].Status)
+}
+
+func TestUnlinkNonSensitiveIdentityDoesNotRequireRecentAuthentication(t *testing.T) {
+	t.Parallel()
+
+	repo := newLinkingIdentityRepoStub()
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(1),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderWechatMinip,
+		Realm:      "wx-app",
+		Identifier: "openid",
+		Status:     loginidentity.StatusActive,
+	})
+	repo.store(&loginidentity.LoginIdentity{
+		ID:         meta.FromUint64(2),
+		UserID:     meta.FromUint64(100),
+		Provider:   loginidentity.ProviderWecom,
+		Realm:      "corp",
+		Identifier: "userid",
+		Status:     loginidentity.StatusActive,
+	})
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	linker := NewLinker(Dependencies{
+		LoginIdentities:  repo,
+		Now:              func() time.Time { return now },
+		RecentAuthWindow: 10 * time.Minute,
+	})
+
+	err := linker.Unlink(context.Background(), UnlinkCommand{
+		UserID:          meta.FromUint64(100),
+		LoginIdentityID: meta.FromUint64(1),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, loginidentity.StatusDeleted, repo.byID[meta.FromUint64(1)].Status)
+}
+
 type linkingIdentityRepoStub struct {
 	nextID meta.ID
 	byID   map[meta.ID]*loginidentity.LoginIdentity
@@ -359,21 +434,14 @@ func (s *linkingIdentityRepoStub) ListByUserID(_ context.Context, userID meta.ID
 	return out, nil
 }
 
-func (s *linkingIdentityRepoStub) UpdateStatus(_ context.Context, id meta.ID, status loginidentity.Status) error {
-	if identity := s.byID[id]; identity != nil {
-		identity.Status = status
-	}
-	return nil
-}
-
 func (s *linkingIdentityRepoStub) UnlinkOwnedUnlessLastActive(
 	_ context.Context,
 	userID meta.ID,
 	loginIdentityID meta.ID,
-) (UnlinkOutcome, error) {
+) (loginidentity.UnlinkOutcome, error) {
 	identity := s.byID[loginIdentityID]
 	if identity == nil || identity.UserID != userID {
-		return UnlinkOutcomeNotFound, nil
+		return loginidentity.UnlinkOutcomeNotFound, nil
 	}
 	activeCount := 0
 	for _, candidate := range s.byID {
@@ -382,10 +450,10 @@ func (s *linkingIdentityRepoStub) UnlinkOwnedUnlessLastActive(
 		}
 	}
 	if identity.Status == loginidentity.StatusActive && activeCount <= 1 {
-		return UnlinkOutcomeLastActive, nil
+		return loginidentity.UnlinkOutcomeLastActive, nil
 	}
 	identity.Status = loginidentity.StatusDeleted
-	return UnlinkOutcomeUnlinked, nil
+	return loginidentity.UnlinkOutcomeUnlinked, nil
 }
 
 func (s *linkingIdentityRepoStub) store(identity *loginidentity.LoginIdentity) {

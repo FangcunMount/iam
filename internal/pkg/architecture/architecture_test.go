@@ -182,6 +182,21 @@ func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {
 	})
 }
 
+func TestMySQLLoginIdentityDoesNotDependOnApplicationLinking(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbidden := modulePath + "internal/apiserver/application/authn/linking"
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "infra", "mysql", "loginidentity"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if imp == forbidden {
+				t.Fatalf("%s imports %s; login identity infrastructure must depend on domain ports only", rel, imp)
+			}
+		}
+	})
+}
+
 func TestApplicationPackagesDoNotAddTransportOrInfrastructureDependencies(t *testing.T) {
 	t.Parallel()
 

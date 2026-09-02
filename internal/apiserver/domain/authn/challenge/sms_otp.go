@@ -107,30 +107,45 @@ func NewSMSOTPVerifier(repo Repository, configuredMaxAttempts ...int) *SMSOTPVer
 
 // VerifyAndConsume 校验并消费短信验证码挑战。
 func (v *SMSOTPVerifier) VerifyAndConsume(ctx context.Context, input VerifySMSOTPInput) (VerificationResult, error) {
+	// 检验验证器是否配置
 	if v == nil || v.Repo == nil {
 		return VerificationResult{Outcome: VerificationInfrastructureError}, ErrRepositoryNotConfigured
 	}
+
+	// 检验输入是否合法
 	scene := strings.TrimSpace(input.Scene)
 	otp := strings.TrimSpace(input.OTP)
 	phoneE164 := strings.TrimSpace(input.PhoneE164)
+
+	// 如果输入不合法，则返回验证失败
 	if scene == "" || otp == "" || phoneE164 == "" {
 		return VerificationResult{Outcome: VerificationInvalidInput}, nil
 	}
 	now := normalizeVerificationTime(input.Now)
 
+	// 获取挑战
 	challengeID := SMSOTPChallengeID(scene, phoneE164)
+
+	// 获取挑战
 	challenge, err := v.Repo.Get(ctx, challengeID)
 	if err != nil {
 		return VerificationResult{Outcome: VerificationInfrastructureError}, err
 	}
+
+	// 检验挑战是否可用
 	if AssessUsability(challenge, now, TypeSMSOTP, scene) != UsabilityOK {
 		return VerificationResult{Outcome: VerificationRejected}, nil
 	}
 
+	// 计算期望的密钥哈希
 	expected := SMSOTPSecretHash(scene, phoneE164, otp)
+
+	// 检验密钥哈希是否匹配
 	if !secretHashMatches(challenge.SecretHash, expected) {
 		return recordFailedVerification(ctx, v.Repo, challengeID, challenge.SecretHash, v.MaxAttempts)
 	}
+
+	// 消费挑战
 	return consumeOnce(ctx, v.Repo, challengeID, expected)
 }
 

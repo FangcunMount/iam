@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	linking "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
 	authn "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -50,20 +49,22 @@ func (r *Repository) Create(ctx context.Context, identity *domain.LoginIdentity)
 	if existing == nil {
 		return perrors.WithCode(code.ErrLoginIdentityExists, "login identity already exists")
 	}
-	if existing.UserID != identity.UserID {
+	switch domain.AssessCanonicalClaim(identity.UserID, existing) {
+	case domain.CanonicalClaimConflictOtherUser:
 		return perrors.WithCode(code.ErrGlobalIdentifierExists, "global identifier already belongs to another user")
-	}
-	if !existing.IsActive() {
+	case domain.CanonicalClaimTransferFromInactiveAnchor:
 		return r.moveInactiveGlobalIdentifier(ctx, po, identity, globalIdentifier)
+	case domain.CanonicalClaimKeepExistingAnchor:
+		po.GlobalIdentifier = nil
+		if err := r.createAndSync(ctx, po, identity); err != nil {
+			return fmt.Errorf("failed to create login identity without duplicate global identifier: %w", err)
+		}
+		return nil
+	case domain.CanonicalClaimStoreOnNewRow:
+		return perrors.WithCode(code.ErrLoginIdentityExists, "login identity already exists")
+	default:
+		return fmt.Errorf("unexpected canonical claim decision")
 	}
-
-	// 同一 User 的其他 realm LoginIdentity 不重复保存 global_identifier；
-	// 唯一的 canonical 行已经承担跨 realm 查找锚点。
-	po.GlobalIdentifier = nil
-	if err := r.createAndSync(ctx, po, identity); err != nil {
-		return fmt.Errorf("failed to create login identity without duplicate global identifier: %w", err)
-	}
-	return nil
 }
 
 // getByGlobalIdentifierForConflict uses a current/locking read on MySQL. A
@@ -126,21 +127,30 @@ func (r *Repository) moveInactiveGlobalIdentifier(
 		if anchor.UserID != identity.UserID {
 			return perrors.WithCode(code.ErrGlobalIdentifierExists, "global identifier already belongs to another user")
 		}
-		if domain.Status(anchor.Status) == domain.StatusActive {
+		switch domain.AssessCanonicalClaim(identity.UserID, r.mapper.ToDO(&anchor)) {
+		case domain.CanonicalClaimKeepExistingAnchor:
 			po.GlobalIdentifier = nil
 			return r.createAndSync(txCtx, po, identity)
+		case domain.CanonicalClaimTransferFromInactiveAnchor:
+			globalIdentifier := strings.TrimSpace(globalIdentifier)
+			result := r.WithContext(txCtx).
+				Model(&PO{}).
+				Where("id = ? AND global_identifier = ?", anchor.ID, globalIdentifier).
+				Update("global_identifier", nil)
+			if result.Error != nil {
+				return fmt.Errorf("release inactive canonical global login identity: %w", result.Error)
+			}
+			if result.RowsAffected != 1 {
+				return fmt.Errorf("release inactive canonical global login identity: anchor changed")
+			}
+			return r.createAndSync(txCtx, po, identity)
+		case domain.CanonicalClaimStoreOnNewRow:
+			return r.createAndSync(txCtx, po, identity)
+		case domain.CanonicalClaimConflictOtherUser:
+			return perrors.WithCode(code.ErrGlobalIdentifierExists, "global identifier already belongs to another user")
+		default:
+			return fmt.Errorf("unexpected canonical claim decision")
 		}
-		result := r.WithContext(txCtx).
-			Model(&PO{}).
-			Where("id = ? AND global_identifier = ?", anchor.ID, globalIdentifier).
-			Update("global_identifier", nil)
-		if result.Error != nil {
-			return fmt.Errorf("release inactive canonical global login identity: %w", result.Error)
-		}
-		if result.RowsAffected != 1 {
-			return fmt.Errorf("release inactive canonical global login identity: anchor changed")
-		}
-		return r.createAndSync(txCtx, po, identity)
 	})
 	if err != nil {
 		if perrors.IsCode(err, code.ErrGlobalIdentifierExists) {
@@ -204,26 +214,12 @@ func (r *Repository) ListByUserID(ctx context.Context, userID meta.ID) ([]*domai
 	return result, nil
 }
 
-func (r *Repository) UpdateStatus(ctx context.Context, id meta.ID, status domain.Status) error {
-	result := r.WithContext(ctx).
-		Model(&PO{}).
-		Where("id = ?", id).
-		Update("status", string(status))
-	if result.Error != nil {
-		return fmt.Errorf("failed to update login identity status: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return perrors.WithCode(code.ErrLoginIdentityNotFound, "login identity not found")
-	}
-	return nil
-}
-
 func (r *Repository) UnlinkOwnedUnlessLastActive(
 	ctx context.Context,
 	userID meta.ID,
 	loginIdentityID meta.ID,
-) (linking.UnlinkOutcome, error) {
-	var outcome linking.UnlinkOutcome
+) (domain.UnlinkOutcome, error) {
+	var outcome domain.UnlinkOutcome
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := tx.Where("user_id = ?", userID).
 			Order("user_id ASC, id ASC")
@@ -246,33 +242,28 @@ func (r *Repository) UnlinkOwnedUnlessLastActive(
 			}
 		}
 		if target == nil {
-			outcome = linking.UnlinkOutcomeNotFound
+			outcome = domain.UnlinkOutcomeNotFound
 			return nil
 		}
 		if domain.Status(target.Status) == domain.StatusActive && activeCount <= 1 {
-			outcome = linking.UnlinkOutcomeLastActive
+			outcome = domain.UnlinkOutcomeLastActive
 			return nil
 		}
 		if target.GlobalIdentifier != nil {
-			var replacement *PO
+			targetIdentity := r.mapper.ToDO(target)
+			lockedIdentities := make([]*domain.LoginIdentity, 0, len(identities))
 			for i := range identities {
-				candidate := &identities[i]
-				if candidate.ID != target.ID &&
-					candidate.Provider == target.Provider &&
-					domain.Status(candidate.Status) == domain.StatusActive {
-					replacement = candidate
-					break
-				}
+				lockedIdentities = append(lockedIdentities, r.mapper.ToDO(&identities[i]))
 			}
-			if replacement != nil {
-				globalIdentifier := *target.GlobalIdentifier
+			if replacement := domain.SelectCanonicalReplacement(targetIdentity, lockedIdentities); replacement != nil {
+				globalIdentifier := replacement.GlobalIdentifier
 				if err := tx.Model(&PO{}).
-					Where("id = ? AND global_identifier = ?", target.ID, globalIdentifier).
+					Where("id = ? AND global_identifier = ?", replacement.TargetID, globalIdentifier).
 					Update("global_identifier", nil).Error; err != nil {
 					return fmt.Errorf("release canonical global identifier during unlink: %w", err)
 				}
 				result := tx.Model(&PO{}).
-					Where("id = ? AND global_identifier IS NULL", replacement.ID).
+					Where("id = ? AND global_identifier IS NULL", replacement.ReplacementID).
 					Update("global_identifier", globalIdentifier)
 				if result.Error != nil {
 					return fmt.Errorf("transfer canonical global identifier during unlink: %w", result.Error)
@@ -289,10 +280,10 @@ func (r *Repository) UnlinkOwnedUnlessLastActive(
 			return fmt.Errorf("unlink login identity: %w", result.Error)
 		}
 		if result.RowsAffected == 0 {
-			outcome = linking.UnlinkOutcomeNotFound
+			outcome = domain.UnlinkOutcomeNotFound
 			return nil
 		}
-		outcome = linking.UnlinkOutcomeUnlinked
+		outcome = domain.UnlinkOutcomeUnlinked
 		return nil
 	})
 	return outcome, err

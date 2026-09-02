@@ -23,10 +23,6 @@ func TestAssessUsability(t *testing.T) {
 	require.Equal(t, UsabilityWrongScene, AssessUsability(ch, now, TypeSMSOTP, "link_phone"))
 	require.Equal(t, UsabilityOK, AssessUsability(ch, now, TypeSMSOTP, "login"))
 
-	ch.ConsumedAt = &now
-	require.Equal(t, UsabilityConsumed, AssessUsability(ch, now, TypeSMSOTP, "login"))
-
-	ch.ConsumedAt = nil
 	ch.ExpiresAt = now.Add(-time.Second)
 	require.Equal(t, UsabilityExpired, AssessUsability(ch, now, TypeSMSOTP, "login"))
 }
@@ -58,11 +54,15 @@ func TestRecordFailedVerificationExhaustsChallenge(t *testing.T) {
 }
 
 type consumeRepoStub struct {
-	items map[string]*AuthChallenge
+	items    map[string]*AuthChallenge
+	attempts map[string]int
 }
 
 func newConsumeRepoStub() *consumeRepoStub {
-	return &consumeRepoStub{items: map[string]*AuthChallenge{}}
+	return &consumeRepoStub{
+		items:    map[string]*AuthChallenge{},
+		attempts: map[string]int{},
+	}
 }
 
 func (s *consumeRepoStub) Create(context.Context, *AuthChallenge) error { return nil }
@@ -90,9 +90,10 @@ func (s *consumeRepoStub) RecordFailedAttemptIfCurrent(
 	if item == nil || !secretHashMatches(item.SecretHash, currentSecretHash) {
 		return false, false, nil
 	}
-	item.Attempts++
-	if item.Attempts >= maxAttempts {
+	s.attempts[id]++
+	if s.attempts[id] >= maxAttempts {
 		delete(s.items, id)
+		delete(s.attempts, id)
 		return true, true, nil
 	}
 	return true, false, nil

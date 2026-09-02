@@ -16,10 +16,13 @@ type Verifier interface {
 	VerifyAndConsume(ctx context.Context, scene, rawPhone, otp string) (bool, error)
 }
 
+// verifier 短信验证码验证器
 type verifier struct {
 	domain *challengeDomain.SMSOTPVerifier
 }
 
+// _ Verifier = (*verifier)(nil) 确保 verifier 实现了 Verifier 接口
+// 用于静态检查，确保 verifier 实现了 Verifier 接口
 var _ Verifier = (*verifier)(nil)
 
 // NewVerifier 创建短信验证码验证器
@@ -29,10 +32,13 @@ func NewVerifier(repo challengeDomain.Repository, configuredMaxAttempts ...int) 
 
 // VerifyAndConsume 验证并消费短信验证码
 func (s *verifier) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp string) (bool, error) {
+	// 检验验证器是否配置
 	if s.domain == nil {
 		recordOTPVerification(scene, "failed")
 		return false, perrors.WithCode(code.ErrInternalServerError, "challenge repository is not configured")
 	}
+
+	// 检验输入是否合法
 	phone, err := meta.NewPhone(rawPhone)
 	if err != nil {
 		recordOTPVerification(scene, "invalid")
@@ -45,6 +51,7 @@ func (s *verifier) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp st
 		return false, nil
 	}
 
+	// 验证并消费短信验证码
 	result, err := s.domain.VerifyAndConsume(ctx, challengeDomain.VerifySMSOTPInput{
 		Scene:     scene,
 		PhoneE164: phone.String(),
@@ -54,11 +61,15 @@ func (s *verifier) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp st
 		recordOTPVerification(scene, "failed")
 		return false, err
 	}
+
+	// 根据验证结果记录日志
 	switch result.Outcome {
 	case challengeDomain.VerificationSuccess:
+		// 验证成功
 		recordOTPVerification(scene, "success")
 		return true, nil
 	case challengeDomain.VerificationExhausted:
+		// 验证次数耗尽
 		recordOTPVerification(scene, "exhausted")
 		logger.L(ctx).Infow("challenge rejected after maximum verification attempts",
 			"challenge_type", challengeDomain.TypeSMSOTP,
@@ -66,12 +77,15 @@ func (s *verifier) VerifyAndConsume(ctx context.Context, scene, rawPhone, otp st
 		)
 		return false, nil
 	case challengeDomain.VerificationRejected:
+		// 验证被拒绝
 		recordOTPVerification(scene, "rejected")
 		return false, nil
 	case challengeDomain.VerificationInvalidInput:
+		// 验证输入无效
 		recordOTPVerification(scene, "invalid")
 		return false, nil
 	default:
+		// 验证失败
 		recordOTPVerification(scene, "failed")
 		return false, nil
 	}

@@ -32,24 +32,10 @@ type PhoneLinkChallengeVerifier interface {
 	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) bool
 }
 
-// UnlinkOutcome 是仓储在同一事务内核对归属、活跃身份数量并解绑后的结果。
-type UnlinkOutcome uint8
-
-const (
-	UnlinkOutcomeUnlinked UnlinkOutcome = iota + 1
-	UnlinkOutcomeNotFound
-	UnlinkOutcomeLastActive
-)
-
-// AtomicIdentityUnlinker 保证“至少保留一个活跃身份”与状态更新不可被并发穿透。
-type AtomicIdentityUnlinker interface {
-	UnlinkOwnedUnlessLastActive(ctx context.Context, userID, loginIdentityID meta.ID) (UnlinkOutcome, error)
-}
-
 // Dependencies 是登录身份绑定应用服务依赖。
 type Dependencies struct {
 	LoginIdentities  loginidentity.Repository
-	IdentityUnlinker AtomicIdentityUnlinker
+	IdentityUnlinker loginidentity.AtomicIdentityUnlinker
 	PhoneLinkOTP     PhoneLinkChallengeVerifier
 	ExternalIdentity idpresolver.Resolver
 	RecentAuthWindow time.Duration

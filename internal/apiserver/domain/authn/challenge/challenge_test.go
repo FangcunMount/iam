@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAuthChallengeLifecycle(t *testing.T) {
+func TestAuthChallengeExpiry(t *testing.T) {
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	c := &challenge.AuthChallenge{
 		ID:         "challenge-1",
@@ -21,19 +21,12 @@ func TestAuthChallengeLifecycle(t *testing.T) {
 	}
 
 	require.False(t, c.IsExpired(now))
-	require.False(t, c.IsConsumed())
-
-	consumedAt := now.Add(10 * time.Second)
-	c.ConsumeAt(consumedAt)
-	require.True(t, c.IsConsumed())
-	require.Equal(t, consumedAt, *c.ConsumedAt)
 	require.True(t, c.IsExpired(c.ExpiresAt), "expiry boundary is closed")
 }
 
 func TestNilChallengeIsUnavailable(t *testing.T) {
 	var c *challenge.AuthChallenge
 	require.True(t, c.IsExpired(time.Now()))
-	require.False(t, c.IsConsumed())
 }
 
 func TestChallengeTypesAreStableProtocolValues(t *testing.T) {

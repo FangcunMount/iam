@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	linking "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
 	testutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/identity/testutil"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -35,7 +34,7 @@ func TestRepository_UnlinkOwnedUnlessLastActive_Concurrent(t *testing.T) {
 		_ = db.Unscoped().Where("user_id = ?", userID).Delete(&PO{}).Error
 	})
 
-	outcomes := make(chan linking.UnlinkOutcome, len(identities))
+	outcomes := make(chan domain.UnlinkOutcome, len(identities))
 	errs := make(chan error, len(identities))
 	var wg sync.WaitGroup
 	wg.Add(len(identities))
@@ -57,12 +56,12 @@ func TestRepository_UnlinkOwnedUnlessLastActive_Concurrent(t *testing.T) {
 	for err := range errs {
 		require.NoError(t, err)
 	}
-	counts := map[linking.UnlinkOutcome]int{}
+	counts := map[domain.UnlinkOutcome]int{}
 	for outcome := range outcomes {
 		counts[outcome]++
 	}
-	require.Equal(t, 1, counts[linking.UnlinkOutcomeUnlinked])
-	require.Equal(t, 1, counts[linking.UnlinkOutcomeLastActive])
+	require.Equal(t, 1, counts[domain.UnlinkOutcomeUnlinked])
+	require.Equal(t, 1, counts[domain.UnlinkOutcomeLastActive])
 
 	stored, err := repo.ListByUserID(ctx, userID)
 	require.NoError(t, err)
@@ -93,7 +92,7 @@ func TestRepository_UnlinkOwnedUnlessLastActive_HidesForeignIdentity(t *testing.
 
 	outcome, err := repo.UnlinkOwnedUnlessLastActive(ctx, ownerID+1, identity.ID)
 	require.NoError(t, err)
-	require.Equal(t, linking.UnlinkOutcomeNotFound, outcome)
+	require.Equal(t, domain.UnlinkOutcomeNotFound, outcome)
 	stored, err := repo.GetByID(ctx, identity.ID)
 	require.NoError(t, err)
 	require.Equal(t, domain.StatusActive, stored.Status)

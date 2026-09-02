@@ -115,11 +115,15 @@ func TestSMSOTPVerifierExhaustsAfterMaxAttempts(t *testing.T) {
 }
 
 type challengeRepoStub struct {
-	items map[string]*challenge.AuthChallenge
+	items    map[string]*challenge.AuthChallenge
+	attempts map[string]int
 }
 
 func newChallengeRepoStub() *challengeRepoStub {
-	return &challengeRepoStub{items: map[string]*challenge.AuthChallenge{}}
+	return &challengeRepoStub{
+		items:    map[string]*challenge.AuthChallenge{},
+		attempts: map[string]int{},
+	}
 }
 
 func (s *challengeRepoStub) Create(_ context.Context, item *challenge.AuthChallenge) error {
@@ -153,9 +157,10 @@ func (s *challengeRepoStub) RecordFailedAttemptIfCurrent(
 	if item == nil || string(item.SecretHash) != string(currentSecretHash) {
 		return false, false, nil
 	}
-	item.Attempts++
-	if item.Attempts >= maxAttempts {
+	s.attempts[id]++
+	if s.attempts[id] >= maxAttempts {
 		delete(s.items, id)
+		delete(s.attempts, id)
 		return true, true, nil
 	}
 	return true, false, nil

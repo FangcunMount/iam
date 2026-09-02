@@ -1,6 +1,10 @@
 package options
 
-import "time"
+import (
+	"time"
+
+	challengeDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/challenge"
+)
 
 // RemovedAppOptions captures removed app.* keys solely so startup can reject
 // stale configuration instead of silently ignoring it.
@@ -133,12 +137,12 @@ type SMSAliyunOptions struct {
 func NewSMSOptions() *SMSOptions {
 	return &SMSOptions{
 		Provider:             "log",
-		LoginOTPTTL:          5 * time.Minute,
-		LoginOTPSendCooldown: 60 * time.Second,
-		LoginOTPCodeLength:   6,
-		LoginOTPMaxAttempts:  5,
-		LoginOTPHourlyLimit:  5,
-		LoginOTPDailyLimit:   10,
+		LoginOTPTTL:          challengeDomain.DefaultSMSOTPTTL,
+		LoginOTPSendCooldown: challengeDomain.DefaultSMSOTPSendCooldown,
+		LoginOTPCodeLength:   challengeDomain.DefaultSMSOTPCodeLen,
+		LoginOTPMaxAttempts:  challengeDomain.DefaultMaxVerifyAttempts,
+		LoginOTPHourlyLimit:  challengeDomain.DefaultSMSOTPHourlyLimit,
+		LoginOTPDailyLimit:   challengeDomain.DefaultSMSOTPDailyLimit,
 		Aliyun: SMSAliyunOptions{
 			Endpoint:      "dypnsapi.aliyuncs.com",
 			CodeParamName: "code",

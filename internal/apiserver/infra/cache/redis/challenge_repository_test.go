@@ -206,3 +206,38 @@ func TestChallengeRepositoryStaleFailureDoesNotAffectReplacement(t *testing.T) {
 		t.Fatal("replacement challenge was deleted")
 	}
 }
+
+func TestChallengeRepositoryLoadsLegacyJSONWithDecorativeFields(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	repo := NewChallengeRepository(client)
+	ctx := context.Background()
+	challengeID := "sms_otp:login:+8613800138000"
+	secretHash := []byte("legacy-hash")
+	rawKey := challengeRedisKey(challengeID)
+	legacyJSON := `{"ID":"` + challengeID + `","Type":"sms_otp","Scene":"login","Target":"+8613800138000","SecretHash":"bGVnYWN5LWhhc2g=","Attempts":3,"ConsumedAt":"2026-08-24T12:00:00Z","ExpiresAt":"2099-01-01T00:00:00Z","CreatedAt":"2026-08-24T12:00:00Z"}`
+	if err := mr.Set(rawKey, legacyJSON); err != nil {
+		t.Fatalf("seed legacy challenge json: %v", err)
+	}
+
+	loaded, err := repo.Get(ctx, challengeID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if loaded == nil || loaded.ID != challengeID {
+		t.Fatalf("loaded challenge = %#v", loaded)
+	}
+
+	consumed, err := repo.ConsumeIfSecretMatches(ctx, challengeID, secretHash)
+	if err != nil {
+		t.Fatalf("ConsumeIfSecretMatches() error = %v", err)
+	}
+	if !consumed {
+		t.Fatal("ConsumeIfSecretMatches() = false, want true")
+	}
+	if mr.Exists(rawKey) {
+		t.Fatalf("expected challenge key %q to be consumed", rawKey)
+	}
+}

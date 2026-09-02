@@ -273,13 +273,6 @@ func (s *authnLinkingIdentityRepoStub) ListByUserID(_ context.Context, userID me
 	return out, nil
 }
 
-func (s *authnLinkingIdentityRepoStub) UpdateStatus(_ context.Context, id meta.ID, status loginidentity.Status) error {
-	if identity := s.byID[id]; identity != nil {
-		identity.Status = status
-	}
-	return nil
-}
-
 func (s *authnLinkingIdentityRepoStub) store(identity *loginidentity.LoginIdentity) {
 	s.byID[identity.ID] = identity
 	s.byKey[authnLinkingProviderKey(identity.Provider, identity.Realm, identity.Identifier)] = identity
