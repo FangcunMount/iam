@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -41,7 +40,7 @@ func (r *RedisLimiter) Ping(ctx context.Context) error {
 }
 
 // NewRedisLimiter 创建 Redis 限流器。
-func NewRedisLimiter(client *redis.Client, cfg appsuggest.RateLimitConfig) *RedisLimiter {
+func NewRedisLimiter(client *redis.Client, cfg Config) *RedisLimiter {
 	stdBurst := cfg.PerOperatorBurst
 	if stdBurst <= 0 {
 		stdBurst = 5

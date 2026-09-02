@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	"github.com/alicebob/miniredis/v2"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -14,7 +13,7 @@ func TestRedisLimiterSharedQuotaAcrossInstances(t *testing.T) {
 	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
 
-	cfg := appsuggest.RateLimitConfig{
+	cfg := Config{
 		PerOperatorQPS:   10,
 		PerOperatorBurst: 2,
 		Backend:          "redis",
@@ -38,7 +37,7 @@ func TestRedisLimiterMobileBucketSeparate(t *testing.T) {
 	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
 
-	lim := NewRedisLimiter(client, appsuggest.RateLimitConfig{
+	lim := NewRedisLimiter(client, Config{
 		PerOperatorQPS:                10,
 		PerOperatorBurst:              1,
 		MobileKeywordPerOperatorBurst: 1,
@@ -56,7 +55,7 @@ func TestRedisLimiterMobileBucketSeparate(t *testing.T) {
 }
 
 func TestRedisLimiterPingFailsWithoutClient(t *testing.T) {
-	limiter := NewRedisLimiter(nil, appsuggest.RateLimitConfig{PerOperatorBurst: 1})
+	limiter := NewRedisLimiter(nil, Config{PerOperatorBurst: 1})
 	if err := limiter.Ping(context.Background()); err == nil {
 		t.Fatal("Ping() error = nil, want unavailable error")
 	}

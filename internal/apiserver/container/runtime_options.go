@@ -1,7 +1,7 @@
 package container
 
 import (
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	suggestmodule "github.com/FangcunMount/iam/v3/internal/apiserver/container/suggest"
 	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 	genericoptions "github.com/FangcunMount/iam/v3/internal/pkg/options"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
@@ -16,7 +16,7 @@ type RuntimeOptions struct {
 	SMS                           apiserveroptions.SMSOptions
 	Identity                      apiserveroptions.IdentityOptions
 	Health                        apiserveroptions.HealthOptions
-	Suggest                       appsuggest.Config
+	Suggest                       suggestmodule.ModuleConfig
 	Events                        apiserveroptions.EventOptions
 	GRPCACLEnabled                bool
 	GRPCACLConfigFile             string
@@ -43,22 +43,7 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		GRPCACLEnabled:                defaults.GRPCOptions.ACL != nil && defaults.GRPCOptions.ACL.Enabled,
 		GRPCACLConfigFile:             grpcACLConfigFile(defaults.GRPCOptions),
 		GRPCAssignmentConstraintsFile: defaults.GRPCOptions.AuthzAssignmentConstraintsFile,
-		Suggest: appsuggest.Config{
-			Enable:                    defaults.Suggest.Enable,
-			Required:                  defaults.Suggest.Required,
-			FullSyncCron:              defaults.Suggest.FullSyncCron,
-			DeltaSyncCron:             defaults.Suggest.DeltaSyncCron,
-			MaxResults:                defaults.Suggest.MaxResults,
-			InternalMaxResults:        defaults.Suggest.InternalMaxResults,
-			KeyPadLen:                 defaults.Suggest.KeyPadLen,
-			FullSQL:                   defaults.Suggest.FullSQL,
-			DeltaSQL:                  defaults.Suggest.DeltaSQL,
-			DisableMobileMask:         defaults.Suggest.DisableMobileMask,
-			LoaderPlaceholderOrgID:    defaults.Suggest.LoaderPlaceholderOrgID,
-			WildcardKeyCap:            defaults.Suggest.WildcardKeyCap,
-			VisibilityCacheTTLSeconds: defaults.Suggest.VisibilityCacheTTLSeconds,
-			RateLimit:                 suggestRateLimitConfig(*defaults.Suggest),
-		}.WithDefaults(),
+		Suggest:                       suggestmodule.ModuleConfigFromOptions(*defaults.Suggest),
 	}
 	if opts.Auth != nil {
 		runtime.Auth = *opts.Auth
@@ -89,22 +74,7 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		}
 	}
 	if opts.Suggest != nil {
-		runtime.Suggest = appsuggest.Config{
-			Enable:                    opts.Suggest.Enable,
-			Required:                  opts.Suggest.Required,
-			FullSyncCron:              opts.Suggest.FullSyncCron,
-			DeltaSyncCron:             opts.Suggest.DeltaSyncCron,
-			MaxResults:                opts.Suggest.MaxResults,
-			InternalMaxResults:        opts.Suggest.InternalMaxResults,
-			KeyPadLen:                 opts.Suggest.KeyPadLen,
-			FullSQL:                   opts.Suggest.FullSQL,
-			DeltaSQL:                  opts.Suggest.DeltaSQL,
-			DisableMobileMask:         opts.Suggest.DisableMobileMask,
-			LoaderPlaceholderOrgID:    opts.Suggest.LoaderPlaceholderOrgID,
-			WildcardKeyCap:            opts.Suggest.WildcardKeyCap,
-			VisibilityCacheTTLSeconds: opts.Suggest.VisibilityCacheTTLSeconds,
-			RateLimit:                 suggestRateLimitConfig(*opts.Suggest),
-		}.WithDefaults()
+		runtime.Suggest = suggestmodule.ModuleConfigFromOptions(*opts.Suggest)
 	}
 	if runtime.Events.CatalogPath == "" {
 		runtime.Events.CatalogPath = defaults.Events.CatalogPath
@@ -120,15 +90,4 @@ func grpcACLConfigFile(options *genericoptions.GRPCOptions) string {
 		return ""
 	}
 	return options.ACL.ConfigFile
-}
-
-func suggestRateLimitConfig(o apiserveroptions.SuggestOptions) appsuggest.RateLimitConfig {
-	return appsuggest.RateLimitConfig{
-		PerOperatorQPS:                o.RateLimit.PerOperatorQPS,
-		PerOperatorBurst:              o.RateLimit.PerOperatorBurst,
-		MobileKeywordPerOperatorQPS:   o.RateLimit.MobileKeywordPerOperatorQPS,
-		MobileKeywordPerOperatorBurst: o.RateLimit.MobileKeywordPerOperatorBurst,
-		Backend:                       o.RateLimit.Backend,
-		OperatorMapMaxEntries:         o.RateLimit.OperatorMapMaxEntries,
-	}
 }

@@ -1,13 +1,9 @@
 package ratelimit
 
-import (
-	"testing"
-
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
-)
+import "testing"
 
 func TestMemoryLimiterEvictsWhenMapFull(t *testing.T) {
-	lim := NewMemoryLimiter(appsuggest.RateLimitConfig{
+	lim := NewMemoryLimiter(Config{
 		PerOperatorQPS:        100,
 		PerOperatorBurst:      100,
 		OperatorMapMaxEntries: 2,

@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	"golang.org/x/time/rate"
 )
 
@@ -31,7 +30,7 @@ type MemoryLimiter struct {
 }
 
 // NewMemoryLimiter 创建进程内限流器。
-func NewMemoryLimiter(cfg appsuggest.RateLimitConfig) *MemoryLimiter {
+func NewMemoryLimiter(cfg Config) *MemoryLimiter {
 	stdBurst := cfg.PerOperatorBurst
 	if stdBurst <= 0 {
 		stdBurst = 5
