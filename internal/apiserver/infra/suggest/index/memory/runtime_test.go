@@ -11,7 +11,7 @@ import (
 )
 
 func TestRuntimeRecallUninitializedReturnsEmpty(t *testing.T) {
-	r := NewRuntime(Config{})
+	r := NewRuntime(Config{}, nil)
 	got, err := r.Recall(context.Background(), appquery.RecallRequest{
 		Keyword: domainsearch.NewKeyword("张"),
 		Intent:  domainsearch.IntentTextPrefix,
@@ -25,7 +25,7 @@ func TestRuntimeRecallUninitializedReturnsEmpty(t *testing.T) {
 }
 
 func TestRuntimeReplaceInstallsStore(t *testing.T) {
-	r := NewRuntime(Config{})
+	r := NewRuntime(Config{}, nil)
 	profiles := []profile.SuggestibleProfile{
 		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}
@@ -46,7 +46,7 @@ func TestRuntimeReplaceInstallsStore(t *testing.T) {
 }
 
 func TestRuntimeApplyWithoutInitializationFails(t *testing.T) {
-	r := NewRuntime(Config{})
+	r := NewRuntime(Config{}, nil)
 	upsert, err := apprefresh.Upsert(profile.MustNew(1, "a", nil, 1, 0, nil))
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestRuntimeApplyWithoutInitializationFails(t *testing.T) {
 }
 
 func TestRuntimeApplyAppendsToCurrentIndex(t *testing.T) {
-	r := NewRuntime(Config{})
+	r := NewRuntime(Config{}, nil)
 	if err := r.Replace(context.Background(), []profile.SuggestibleProfile{
 		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}); err != nil {

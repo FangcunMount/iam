@@ -254,15 +254,3 @@ func TestQueryProfileDisableMobileMask(t *testing.T) {
 		t.Fatalf("got=%#v", got)
 	}
 }
-
-func TestDecisionKindLabel(t *testing.T) {
-	if appquery.DecisionKindLabel(domainsearch.DecisionDenied) != "mobile_denied" {
-		t.Fatal("denied label")
-	}
-	if appquery.DecisionKindLabel(domainsearch.DecisionNumericExact) != "numeric_exact" {
-		t.Fatal("numeric label")
-	}
-	if appquery.DecisionKindLabel(domainsearch.DecisionPrefixText) != "prefix_text" {
-		t.Fatal("prefix label")
-	}
-}

@@ -3,7 +3,6 @@ package queryprofile
 import (
 	"context"
 
-	domainsearch "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/search"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 )
 
@@ -43,15 +42,3 @@ func (r *ScopeResolverService) ResolveScope(ctx context.Context, principal visib
 }
 
 var _ ScopeResolver = (*ScopeResolverService)(nil)
-
-// DecisionKindLabel 将 DecisionKind 映射为 Prometheus 策略标签。
-func DecisionKindLabel(kind domainsearch.DecisionKind) string {
-	switch kind {
-	case domainsearch.DecisionDenied:
-		return "mobile_denied"
-	case domainsearch.DecisionNumericExact:
-		return "numeric_exact"
-	default:
-		return "prefix_text"
-	}
-}

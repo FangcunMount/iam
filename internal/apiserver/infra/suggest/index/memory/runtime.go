@@ -9,18 +9,21 @@ import (
 	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
 	domainprofile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
 	domainsearch "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/search"
-	suggestmetrics "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/metrics"
 )
 
 // Runtime 持有进程内 suggest Store 快照指针。
 type Runtime struct {
-	active atomic.Value // *Store
-	cfg    Config
+	active  atomic.Value // *Store
+	cfg     Config
+	metrics IndexMetrics
 }
 
 // NewRuntime 创建 Runtime。
-func NewRuntime(cfg Config) *Runtime {
-	r := &Runtime{cfg: cfg.WithDefaults()}
+func NewRuntime(cfg Config, metrics IndexMetrics) *Runtime {
+	if metrics == nil {
+		metrics = noopIndexMetrics{}
+	}
+	r := &Runtime{cfg: cfg.WithDefaults(), metrics: metrics}
 	r.active.Store((*Store)(nil))
 	return r
 }
@@ -53,7 +56,7 @@ func (r *Runtime) Replace(ctx context.Context, profiles []domainprofile.Suggesti
 	}
 	store := Load(profiles, r.cfg)
 	r.active.Store(store)
-	suggestmetrics.SetIndexTerms(store.Len())
+	r.metrics.SetIndexTerms(store.Len())
 	return nil
 }
 
@@ -67,7 +70,7 @@ func (r *Runtime) Apply(ctx context.Context, changes []apprefresh.ProjectionChan
 		return fmt.Errorf("suggest store not initialized")
 	}
 	store.ApplyChanges(changes)
-	suggestmetrics.SetIndexTerms(store.Len())
+	r.metrics.SetIndexTerms(store.Len())
 	return nil
 }
 

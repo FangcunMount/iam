@@ -1242,6 +1242,15 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "internal/apiserver/infra/suggest/search")); err == nil {
 		t.Fatal("legacy infra/suggest/search should be removed")
 	}
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "infra", "suggest", "index", "memory"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if imp == modulePath+"internal/apiserver/infra/suggest/metrics" {
+				t.Fatalf("%s imports metrics directly; inject IndexMetrics from container instead", rel)
+			}
+		}
+	})
 }
 
 func TestSuggestRetiredNumericTenantFieldsDoNotReturn(t *testing.T) {

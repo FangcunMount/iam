@@ -17,7 +17,19 @@ type RateLimitRecorder interface {
 type Recorder struct{}
 
 func (Recorder) RecordQuery(kind domainsearch.DecisionKind, resultCount int, mobileShaped bool) {
-	RecordQuery(appquery.DecisionKindLabel(kind), resultCount, mobileShaped)
+	RecordQuery(DecisionKindLabel(kind), resultCount, mobileShaped)
+}
+
+// DecisionKindLabel 将 DecisionKind 映射为 Prometheus 策略标签。
+func DecisionKindLabel(kind domainsearch.DecisionKind) string {
+	switch kind {
+	case domainsearch.DecisionDenied:
+		return "mobile_denied"
+	case domainsearch.DecisionNumericExact:
+		return "numeric_exact"
+	default:
+		return "prefix_text"
+	}
 }
 
 func (Recorder) ObserveSelection(matched, visible int) {
@@ -34,6 +46,11 @@ func (Recorder) RecordRefresh(kind, result string, upserts, tombstones int, comp
 
 func (Recorder) RecordRateLimited(mobileKeyword bool) {
 	RecordRateLimited(mobileKeyword)
+}
+
+// SetIndexTerms 实现 memory.IndexMetrics。
+func (Recorder) SetIndexTerms(n int) {
+	SetIndexTerms(n)
 }
 
 var (
