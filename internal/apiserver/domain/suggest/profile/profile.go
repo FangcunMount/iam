@@ -33,7 +33,22 @@ func New(
 	if displayName == "" {
 		return SuggestibleProfile{}, fmt.Errorf("display name required")
 	}
-	return rawProjection(profileID, displayName, mobiles, weight, orgID, ownerOperatorIDs), nil
+	cleanMobiles := make([]string, 0, len(mobiles))
+	for _, mobile := range mobiles {
+		mobile = strings.TrimSpace(mobile)
+		if mobile == "" {
+			continue
+		}
+		cleanMobiles = append(cleanMobiles, mobile)
+	}
+	return SuggestibleProfile{
+		id:               profileID,
+		displayName:      displayName,
+		mobiles:          cleanMobiles,
+		weight:           weight,
+		orgID:            orgID,
+		ownerOperatorIDs: uniqueInt64(ownerOperatorIDs),
+	}, nil
 }
 
 // MustNew 同 New，校验失败时 panic；仅供测试与静态 fixture。
@@ -50,44 +65,6 @@ func MustNew(
 		panic(err)
 	}
 	return p
-}
-
-// RawProjection 在 loader/refresh 边界保留原始行语义（含 tombstone 空名称），不做校验。
-func RawProjection(
-	profileID int64,
-	displayName string,
-	mobiles []string,
-	weight int,
-	orgID int64,
-	ownerOperatorIDs []int64,
-) SuggestibleProfile {
-	return rawProjection(profileID, displayName, mobiles, weight, orgID, ownerOperatorIDs)
-}
-
-func rawProjection(
-	profileID int64,
-	displayName string,
-	mobiles []string,
-	weight int,
-	orgID int64,
-	ownerOperatorIDs []int64,
-) SuggestibleProfile {
-	cleanMobiles := make([]string, 0, len(mobiles))
-	for _, mobile := range mobiles {
-		mobile = strings.TrimSpace(mobile)
-		if mobile == "" {
-			continue
-		}
-		cleanMobiles = append(cleanMobiles, mobile)
-	}
-	return SuggestibleProfile{
-		id:               profileID,
-		displayName:      strings.TrimSpace(displayName),
-		mobiles:          cleanMobiles,
-		weight:           weight,
-		orgID:            orgID,
-		ownerOperatorIDs: uniqueInt64(ownerOperatorIDs),
-	}
 }
 
 func uniqueInt64(ids []int64) []int64 {

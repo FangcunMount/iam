@@ -2,6 +2,7 @@ package suggest
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,6 +101,33 @@ func TestRecordDeltaChange(t *testing.T) {
 	del, err := deleteRow.deltaChange()
 	if err != nil || del.Kind() != apprefresh.ChangeDelete {
 		t.Fatalf("delete = %#v err=%v", del, err)
+	}
+}
+
+func TestLoaderFullFailsOnMalformedProjection(t *testing.T) {
+	db := newSuggestLoaderSQLiteDB(t)
+	loader := NewLoader(db, LoaderConfig{
+		FullSQL: `SELECT 0 AS id, 'invalid' AS name, 0 AS org_id,
+			'' AS mobiles, '' AS owner_operator_ids, 1 AS weight`,
+	})
+
+	_, err := loader.Full(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "map full suggest profile") {
+		t.Fatalf("Full() error = %v", err)
+	}
+}
+
+func TestLoaderDeltaFailsOnMalformedProjection(t *testing.T) {
+	db := newSuggestLoaderSQLiteDB(t)
+	loader := NewLoader(db, LoaderConfig{
+		DeltaSQL: `SELECT 0 AS id, 'invalid' AS name, 0 AS org_id,
+			'' AS mobiles, '' AS owner_operator_ids, 1 AS weight
+			WHERE ? = ?`,
+	})
+
+	_, err := loader.Delta(context.Background(), time.Now())
+	if err == nil || !strings.Contains(err.Error(), "map delta suggest profile") {
+		t.Fatalf("Delta() error = %v", err)
 	}
 }
 

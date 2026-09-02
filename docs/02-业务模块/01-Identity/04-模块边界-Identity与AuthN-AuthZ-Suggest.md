@@ -375,8 +375,8 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 ```bash
 go test ./internal/apiserver/application/identity/user
 go test ./internal/apiserver/application/authn/signup
-go test ./internal/apiserver/application/suggest
-go test ./internal/apiserver/infra/mysql/suggest ./internal/apiserver/infra/suggest/access ./internal/apiserver/infra/suggest/search
+go test ./internal/apiserver/application/suggest/...
+go test ./internal/apiserver/infra/mysql/suggest ./internal/apiserver/infra/suggest/...
 go test ./internal/apiserver/container/identity
 go test ./internal/pkg/architecture
 ```

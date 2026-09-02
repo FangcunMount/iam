@@ -30,7 +30,7 @@ func TestModuleConfigFromOptionsDefaults(t *testing.T) {
 }
 
 func TestModuleConfigFromOptionsMapsExplicitValues(t *testing.T) {
-	cfg := ModuleConfigFromOptions(apiserveroptions.SuggestOptions{
+	options := apiserveroptions.SuggestOptions{
 		Enable:                    true,
 		Required:                  true,
 		FullSyncCron:              "0 * * * *",
@@ -42,7 +42,14 @@ func TestModuleConfigFromOptionsMapsExplicitValues(t *testing.T) {
 		DisableMobileMask:         true,
 		LoaderPlaceholderOrgID:    7,
 		VisibilityCacheTTLSeconds: 60,
-	})
+	}
+	options.RateLimit.PerOperatorQPS = 5
+	options.RateLimit.PerOperatorBurst = 12
+	options.RateLimit.MobileKeywordPerOperatorQPS = 2
+	options.RateLimit.MobileKeywordPerOperatorBurst = 4
+	options.RateLimit.Backend = "redis"
+	options.RateLimit.OperatorMapMaxEntries = 1234
+	cfg := ModuleConfigFromOptions(options)
 
 	if !cfg.Enable || !cfg.Required {
 		t.Fatal("enable/required not mapped")
@@ -61,6 +68,14 @@ func TestModuleConfigFromOptionsMapsExplicitValues(t *testing.T) {
 	}
 	if cfg.Visibility.CacheTTLSeconds != 60 {
 		t.Fatalf("visibility ttl = %d", cfg.Visibility.CacheTTLSeconds)
+	}
+	if cfg.RateLimit.PerOperatorQPS != 5 ||
+		cfg.RateLimit.PerOperatorBurst != 12 ||
+		cfg.RateLimit.MobileKeywordPerOperatorQPS != 2 ||
+		cfg.RateLimit.MobileKeywordPerOperatorBurst != 4 ||
+		cfg.RateLimit.Backend != "redis" ||
+		cfg.RateLimit.OperatorMapMaxEntries != 1234 {
+		t.Fatalf("rate limit = %+v", cfg.RateLimit)
 	}
 }
 

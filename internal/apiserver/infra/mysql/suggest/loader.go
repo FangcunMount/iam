@@ -128,7 +128,11 @@ func (l *Loader) Full(ctx context.Context) ([]domainprofile.SuggestibleProfile, 
 	}
 	out := make([]domainprofile.SuggestibleProfile, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, row.fullProfile())
+		p, err := row.fullProfile()
+		if err != nil {
+			return nil, fmt.Errorf("map full suggest profile %d: %w", row.ID, err)
+		}
+		out = append(out, p)
 	}
 	log.Infow("suggest loader finished query", "count", len(out))
 	return out, nil
@@ -165,7 +169,7 @@ func (l *Loader) Delta(ctx context.Context, since time.Time) ([]apprefresh.Proje
 	for _, row := range rows {
 		ch, err := row.deltaChange()
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("map delta suggest profile %d: %w", row.ID, err)
 		}
 		out = append(out, ch)
 	}
@@ -181,7 +185,7 @@ type record struct {
 	Weight           int     `gorm:"column:weight"`
 }
 
-func (r record) fullProfile() domainprofile.SuggestibleProfile {
+func (r record) fullProfile() (domainprofile.SuggestibleProfile, error) {
 	mobiles := ""
 	if r.Mobiles != nil {
 		mobiles = *r.Mobiles
@@ -190,7 +194,7 @@ func (r record) fullProfile() domainprofile.SuggestibleProfile {
 	if r.OwnerOperatorIDs != nil {
 		owners = *r.OwnerOperatorIDs
 	}
-	return domainprofile.RawProjection(
+	return domainprofile.New(
 		r.ID,
 		r.Name,
 		splitMobiles(mobiles),

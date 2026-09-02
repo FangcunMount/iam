@@ -17,6 +17,7 @@ REST_SPECS = [
     ROOT / "api/rest/identity.v2.yaml",
     ROOT / "api/rest/authz.v3.yaml",
     ROOT / "api/rest/idp.v2.yaml",
+    ROOT / "api/rest/suggest.v2.yaml",
 ]
 
 
@@ -56,6 +57,59 @@ def compare(sw_definitions: dict, oas_schemas: dict, spec_name: str) -> list[str
     return diffs
 
 
+def schema_shape(schema: dict) -> dict:
+    """Normalize the contract-relevant schema shape across Swagger 2 / OAS 3 refs."""
+    shape = {}
+    if "type" in schema:
+        shape["type"] = schema["type"]
+    if "$ref" in schema:
+        shape["ref"] = schema["$ref"].rsplit("/", 1)[-1]
+    if "items" in schema:
+        shape["items"] = schema_shape(schema["items"])
+    if "properties" in schema:
+        shape["properties"] = {
+            name: schema_shape(value)
+            for name, value in sorted(schema["properties"].items())
+        }
+    if "required" in schema:
+        shape["required"] = sorted(schema["required"])
+    return shape
+
+
+def compare_suggest_response(swagger: dict, oas: dict) -> list[str]:
+    """Ensure the Suggest path and its typed response component stay aligned."""
+    diffs = []
+    sw_response = (
+        swagger.get("paths", {})
+        .get("/v2/suggest/profile", {})
+        .get("get", {})
+        .get("responses", {})
+        .get("200", {})
+        .get("schema", {})
+    )
+    oas_response = (
+        oas.get("paths", {})
+        .get("/suggest/profile", {})
+        .get("get", {})
+        .get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if schema_shape(sw_response) != schema_shape(oas_response):
+        diffs.append(
+            "suggest.v2.yaml: GET /suggest/profile 200 response differs from swagger"
+        )
+
+    name = "internal_apiserver_transport_rest_suggest.ProfileSuggestResponse"
+    sw_schema = swagger.get("definitions", {}).get(name, {})
+    oas_schema = oas.get("components", {}).get("schemas", {}).get(name, {})
+    if schema_shape(sw_schema) != schema_shape(oas_schema):
+        diffs.append(f"suggest.v2.yaml: schema {name} shape differs from swagger")
+    return diffs
+
+
 def main() -> int:
     swagger = load_yaml(SWAGGER_PATH)
     sw_defs = swagger.get("definitions", {})
@@ -79,6 +133,12 @@ def main() -> int:
             diffs.extend(compare(sw_groups["authz"], oas_schemas, spec_path.name))
         elif "idp" in spec_path.name:
             diffs.extend(compare(sw_groups["idp"], oas_schemas, spec_path.name))
+        elif "suggest" in spec_path.name:
+            suggest_defs = {
+                k: v for k, v in sw_defs.items() if "transport_rest_suggest" in k
+            }
+            diffs.extend(compare(suggest_defs, oas_schemas, spec_path.name))
+            diffs.extend(compare_suggest_response(swagger, oas))
 
     if diffs:
         for d in diffs:

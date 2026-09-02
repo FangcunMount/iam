@@ -43,7 +43,10 @@ func TestRecordMapsToSuggestibleProfile(t *testing.T) {
 		Weight:           5,
 	}
 
-	p := row.fullProfile()
+	p, err := row.fullProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if p.ID() != 7 || p.DisplayName() != "张三" || p.Weight() != 5 || p.OrgID() != 2 {
 		t.Fatalf("profile = %#v", p)
@@ -61,9 +64,29 @@ func TestRecordMapsToSuggestibleProfile(t *testing.T) {
 func TestRecordOwnerOperatorFromCreatedByCSV(t *testing.T) {
 	owners := "42"
 	row := record{ID: 1, Name: "a", OwnerOperatorIDs: &owners}
-	p := row.fullProfile()
+	p, err := row.fullProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ownerList := p.OwnerOperatorIDs()
 	if len(ownerList) != 1 || ownerList[0] != 42 {
 		t.Fatalf("OwnerOperatorIDs = %#v", ownerList)
+	}
+}
+
+func TestRecordFullProfileRejectsMalformedProjection(t *testing.T) {
+	for _, row := range []record{
+		{ID: 0, Name: "a"},
+		{ID: 1, Name: "  "},
+	} {
+		if _, err := row.fullProfile(); err == nil {
+			t.Fatalf("fullProfile(%+v) error = nil", row)
+		}
+	}
+}
+
+func TestRecordDeltaChangeRejectsInvalidID(t *testing.T) {
+	if _, err := (record{ID: 0, Name: "a"}).deltaChange(); err == nil {
+		t.Fatal("deltaChange() error = nil")
 	}
 }

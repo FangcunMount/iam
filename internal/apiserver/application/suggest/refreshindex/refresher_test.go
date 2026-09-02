@@ -110,20 +110,51 @@ func TestRefresherRejectsOverlappingRefreshes(t *testing.T) {
 	}
 }
 
-func TestRefresherFullMetricsRecordUpsertAndTombstone(t *testing.T) {
+func TestRefresherFullMetricsRecordUpserts(t *testing.T) {
 	metrics := &recordingMetrics{}
 	writer := &writerStub{}
 	loader := &loaderStub{
 		full: []profile.SuggestibleProfile{
 			profile.MustNew(1, "a", nil, 1, 0, nil),
-			profile.RawProjection(2, "", nil, 1, 0, nil),
 		},
 	}
 	refresher := NewRefresher(loader, writer, metrics)
 	if err := refresher.RunFull(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if metrics.kind != "full" || metrics.result != "success" || metrics.upserts != 1 || metrics.tombstones != 1 {
+	if metrics.kind != "full" || metrics.result != "success" || metrics.upserts != 1 || metrics.tombstones != 0 {
+		t.Fatalf("metrics = (%s,%s,%d,%d)", metrics.kind, metrics.result, metrics.upserts, metrics.tombstones)
+	}
+}
+
+func TestRefresherNonEmptyDeltaAppliesCountsAndAdvancesCursor(t *testing.T) {
+	previous := time.Date(2026, 7, 24, 8, 0, 0, 0, time.UTC)
+	windowStart := previous.Add(time.Minute)
+	upsert, err := Upsert(profile.MustNew(1, "a", nil, 1, 0, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleteChange, err := Delete(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loader := &recordingLoader{delta: []ProjectionChange{upsert, deleteChange}}
+	writer := &writerStub{}
+	metrics := &recordingMetrics{}
+	refresher := NewRefresher(loader, writer, metrics)
+	refresher.lastFetch = previous
+	refresher.now = func() time.Time { return windowStart }
+
+	if err := refresher.RunDelta(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(writer.applied) != 2 {
+		t.Fatalf("applied = %#v", writer.applied)
+	}
+	if !refresher.lastFetch.Equal(windowStart) {
+		t.Fatalf("lastFetch = %s, want %s", refresher.lastFetch, windowStart)
+	}
+	if metrics.kind != "delta" || metrics.result != "success" || metrics.upserts != 1 || metrics.tombstones != 1 {
 		t.Fatalf("metrics = (%s,%s,%d,%d)", metrics.kind, metrics.result, metrics.upserts, metrics.tombstones)
 	}
 }
@@ -157,6 +188,25 @@ func TestRefresherFullWithoutWriterFails(t *testing.T) {
 	}
 	if refresher.HasSuccessfulRefresh() {
 		t.Fatal("HasSuccessfulRefresh = true after writer failure")
+	}
+}
+
+func TestRefresherReplaceFailureDoesNotAdvanceCursorOrHealth(t *testing.T) {
+	previous := time.Date(2026, 7, 24, 8, 0, 0, 0, time.UTC)
+	wantErr := errors.New("replace failed")
+	refresher := NewRefresher(&loaderStub{
+		full: []profile.SuggestibleProfile{profile.MustNew(1, "a", nil, 1, 0, nil)},
+	}, &writerStub{replaceErr: wantErr}, nil)
+	refresher.lastFetch = previous
+
+	if err := refresher.RunFull(context.Background()); !errors.Is(err, wantErr) {
+		t.Fatalf("RunFull() error = %v, want %v", err, wantErr)
+	}
+	if !refresher.lastFetch.Equal(previous) {
+		t.Fatal("lastFetch advanced after replace failure")
+	}
+	if refresher.HasSuccessfulRefresh() {
+		t.Fatal("HasSuccessfulRefresh = true after replace failure")
 	}
 }
 
@@ -236,12 +286,16 @@ func (l *blockingLoader) Delta(context.Context, time.Time) ([]ProjectionChange, 
 }
 
 type writerStub struct {
-	replaced []profile.SuggestibleProfile
-	applied  []ProjectionChange
-	applyErr error
+	replaced   []profile.SuggestibleProfile
+	applied    []ProjectionChange
+	replaceErr error
+	applyErr   error
 }
 
 func (w *writerStub) Replace(_ context.Context, profiles []profile.SuggestibleProfile) error {
+	if w.replaceErr != nil {
+		return w.replaceErr
+	}
 	w.replaced = append([]profile.SuggestibleProfile(nil), profiles...)
 	return nil
 }

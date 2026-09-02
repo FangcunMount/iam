@@ -41,22 +41,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    description: 业务错误码，0 表示成功
-                  message:
-                    type: string
-                    description: 响应消息
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem'
-                required:
-                - code
-                - message
-                - data
+                $ref: '#/components/schemas/internal_apiserver_transport_rest_suggest.ProfileSuggestResponse'
         '400':
           description: 参数缺失
           content:
@@ -88,6 +73,21 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    internal_apiserver_transport_rest_suggest.ProfileSuggestResponse:
+      properties:
+        code:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem'
+        message:
+          type: string
+      required:
+      - code
+      - data
+      - message
+      type: object
     github_com_FangcunMount_iam_v2_pkg_core.ErrResponse:
       properties:
         code:

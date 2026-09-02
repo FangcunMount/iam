@@ -1,10 +1,6 @@
 package ratelimit
 
-import (
-	"math"
-
-	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
-)
+import "math"
 
 // Config REST 层按操作员限流；PerOperatorQPS<=0 表示关闭。
 type Config struct {
@@ -14,19 +10,6 @@ type Config struct {
 	MobileKeywordPerOperatorBurst int
 	Backend                       string
 	OperatorMapMaxEntries         int
-}
-
-// ConfigFromOptions 从 SuggestOptions 映射限流配置。
-func ConfigFromOptions(o apiserveroptions.SuggestOptions) Config {
-	cfg := Config{
-		PerOperatorQPS:                o.RateLimit.PerOperatorQPS,
-		PerOperatorBurst:              o.RateLimit.PerOperatorBurst,
-		MobileKeywordPerOperatorQPS:   o.RateLimit.MobileKeywordPerOperatorQPS,
-		MobileKeywordPerOperatorBurst: o.RateLimit.MobileKeywordPerOperatorBurst,
-		Backend:                       o.RateLimit.Backend,
-		OperatorMapMaxEntries:         o.RateLimit.OperatorMapMaxEntries,
-	}
-	return cfg.WithDefaults()
 }
 
 // WithDefaults 填充默认值。

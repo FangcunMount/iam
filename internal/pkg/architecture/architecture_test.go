@@ -1251,6 +1251,15 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 			}
 		}
 	})
+
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "infra", "suggest"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if imp == modulePath+"internal/apiserver/options" {
+				t.Fatalf("%s imports global options; map options to adapter config in container/suggest", rel)
+			}
+		}
+	})
 }
 
 func TestSuggestRetiredNumericTenantFieldsDoNotReturn(t *testing.T) {

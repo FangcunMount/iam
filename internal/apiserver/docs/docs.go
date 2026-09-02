@@ -1993,10 +1993,7 @@ const docTemplate = `{
                     "200": {
                         "description": "联想结果（按权重降序，去重）",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem"
-                            }
+                            "$ref": "#/definitions/internal_apiserver_transport_rest_suggest.ProfileSuggestResponse"
                         }
                     },
                     "400": {
@@ -4491,6 +4488,28 @@ const docTemplate = `{
                 },
                 "reference": {
                     "description": "Reference 返回参考文档，可能有助于解决此错误",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_apiserver_transport_rest_suggest.ProfileSuggestResponse": {
+            "type": "object",
+            "required": [
+                "code",
+                "data",
+                "message"
+            ],
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem"
+                    }
+                },
+                "message": {
                     "type": "string"
                 }
             }

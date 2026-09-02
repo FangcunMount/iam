@@ -56,7 +56,14 @@ func ModuleConfigFromOptions(o apiserveroptions.SuggestOptions) ModuleConfig {
 			PlaceholderOrgID: o.LoaderPlaceholderOrgID,
 		},
 		Visibility: suggestvisibility.Config{CacheTTLSeconds: o.VisibilityCacheTTLSeconds},
-		RateLimit:  suggestratelimit.ConfigFromOptions(o),
+		RateLimit: suggestratelimit.Config{
+			PerOperatorQPS:                o.RateLimit.PerOperatorQPS,
+			PerOperatorBurst:              o.RateLimit.PerOperatorBurst,
+			MobileKeywordPerOperatorQPS:   o.RateLimit.MobileKeywordPerOperatorQPS,
+			MobileKeywordPerOperatorBurst: o.RateLimit.MobileKeywordPerOperatorBurst,
+			Backend:                       o.RateLimit.Backend,
+			OperatorMapMaxEntries:         o.RateLimit.OperatorMapMaxEntries,
+		}.WithDefaults(),
 	}
 }
 
