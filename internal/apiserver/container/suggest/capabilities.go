@@ -1,13 +1,15 @@
 package suggest
 
-import appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+import (
+	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	suggestratelimit "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
+)
 
-// ApplicationCapabilities contains suggest application collaborators used
-// by transports without exposing concrete transport objects from the module.
+// ApplicationCapabilities contains suggest application collaborators used by transports.
 type ApplicationCapabilities struct {
 	Service     appsuggest.ProfileSuggestor
-	RateLimit   appsuggest.RateLimitConfig
-	Metrics     appsuggest.SuggestMetrics
+	RateLimit   suggestratelimit.Config
+	Metrics     appsuggest.RateLimitMetrics
 	RateLimiter appsuggest.RateLimiter
 }
 

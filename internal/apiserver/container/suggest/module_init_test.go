@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -15,9 +15,9 @@ func TestSuggestModuleInitializeWithDepsProductionForbidsDisableMobileMask(t *te
 	err := module.InitializeWithDeps(SuggestModuleDeps{
 		DB:          &gorm.DB{},
 		Environment: genericapiserver.EnvironmentProduction,
-		Config: appsuggest.Config{
-			Enable:            true,
-			DisableMobileMask: true,
+		Config: ModuleConfig{
+			Enable: true,
+			Query:  appquery.Config{DisableMobileMask: true},
 		},
 	})
 	if err == nil || !strings.Contains(err.Error(), "disable_mobile_mask") {
@@ -32,10 +32,9 @@ func TestSuggestModuleInitializeWithDepsDevelopmentAllowsDisableMobileMask(t *te
 	err := module.InitializeWithDeps(SuggestModuleDeps{
 		DB:          newSuggestInitSQLiteDB(t),
 		Environment: genericapiserver.EnvironmentDevelopment,
-		Config: appsuggest.Config{
-			Enable:            true,
-			DisableMobileMask: true,
-			Required:          false,
+		Config: ModuleConfig{
+			Enable: true,
+			Query:  appquery.Config{DisableMobileMask: true},
 		},
 	})
 	if err != nil {

@@ -1,43 +1,40 @@
-package search
+package memory
 
 import (
 	"strings"
 
 	"github.com/mozillazg/go-pinyin"
 
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest"
+	domainprofile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
 )
 
-// Trie 实现一个三元搜索树用于前缀/通配符查找
-type Trie struct {
-	root *node
+// ternarySearchTree 实现三元搜索树用于前缀/通配符查找。
+type ternarySearchTree struct {
+	root *tstNode
 }
 
-// node 节点
-type node struct {
-	small *node
-	equal *node
-	large *node
+type tstNode struct {
+	small *tstNode
+	equal *tstNode
+	large *tstNode
 	value []int64
 	r     rune
 	end   bool
 }
 
-// NewTrie 创建一个新的 Trie
-func NewTrie() *Trie {
-	return &Trie{}
+func newTST() *ternarySearchTree {
+	return &ternarySearchTree{}
 }
 
-// ImportTerm inserts profile search keys for one profile and返回本 term 写入的键（去重）。
-func (t *Trie) ImportTerm(term suggest.ProfileSearchTerm) []string {
+func (t *ternarySearchTree) importProfile(p domainprofile.SuggestibleProfile) []string {
 	if t == nil {
 		return nil
 	}
-	name := strings.TrimSpace(term.DisplayName)
-	if name == "" || term.ProfileID <= 0 {
+	name := strings.TrimSpace(p.DisplayName())
+	if name == "" || p.ID() <= 0 {
 		return nil
 	}
-	pid := term.ProfileID
+	pid := p.ID()
 	pyArgs := pinyin.NewArgs()
 	seen := make(map[string]struct{})
 	var keys []string
@@ -54,7 +51,7 @@ func (t *Trie) ImportTerm(term suggest.ProfileSearchTerm) []string {
 	}
 	put := func(key string) {
 		addKey(key)
-		t.Put(key, pid)
+		t.put(key, pid)
 	}
 
 	put(name)
@@ -75,7 +72,6 @@ func (t *Trie) ImportTerm(term suggest.ProfileSearchTerm) []string {
 	return keys
 }
 
-// uniq 去重
 func uniq(list []string) []string {
 	var out []string
 	for _, s := range list {
@@ -93,18 +89,17 @@ func uniq(list []string) []string {
 	return out
 }
 
-// Put 插入 profileID，键为提供的字符串
-func (t *Trie) Put(key string, profileID int64) {
+func (t *ternarySearchTree) put(key string, profileID int64) {
 	if key == "" || profileID <= 0 {
 		return
 	}
 	t.root = t.putRecursive(t.root, []rune(key), 0, profileID)
 }
 
-func (t *Trie) putRecursive(n *node, key []rune, idx int, profileID int64) *node {
+func (t *ternarySearchTree) putRecursive(n *tstNode, key []rune, idx int, profileID int64) *tstNode {
 	r := key[idx]
 	if n == nil {
-		n = &node{r: r}
+		n = &tstNode{r: r}
 	}
 	if r < n.r {
 		n.small = t.putRecursive(n.small, key, idx, profileID)
@@ -119,8 +114,7 @@ func (t *Trie) putRecursive(n *node, key []rune, idx int, profileID int64) *node
 	return n
 }
 
-// ProfileIDs 获取精确匹配键下的 profileID 列表
-func (t *Trie) ProfileIDs(key string) []int64 {
+func (t *ternarySearchTree) profileIDs(key string) []int64 {
 	n := t.root
 	rkey := []rune(key)
 	for i, r := range rkey {
@@ -144,8 +138,7 @@ func (t *Trie) ProfileIDs(key string) []int64 {
 	return nil
 }
 
-// RemoveProfileID 从精确键的终端列表中移除 profileID（用于增量修正）。
-func (t *Trie) RemoveProfileID(key string, profileID int64) {
+func (t *ternarySearchTree) removeProfileID(key string, profileID int64) {
 	if t == nil || key == "" || profileID <= 0 {
 		return
 	}
@@ -156,7 +149,7 @@ func (t *Trie) RemoveProfileID(key string, profileID int64) {
 	n.value = stripProfileID(n.value, profileID)
 }
 
-func (t *Trie) terminalNode(key string) *node {
+func (t *ternarySearchTree) terminalNode(key string) *tstNode {
 	n := t.root
 	rkey := []rune(key)
 	for i, r := range rkey {
@@ -196,20 +189,18 @@ func stripProfileID(ids []int64, pid int64) []int64 {
 	return out
 }
 
-// Wildcard 支持 '*' 或 '.' 通配符用于前缀匹配；maxKeys<=0 时使用 domain 默认值。
-func (t *Trie) Wildcard(key string, maxKeys int) []string {
+func (t *ternarySearchTree) wildcard(key string, maxKeys int) []string {
 	if key == "" || t == nil {
 		return nil
 	}
 	if maxKeys <= 0 {
-		maxKeys = suggest.DefaultWildcardKeyCap
+		maxKeys = DefaultWildcardKeyCap
 	}
 	realLen := len([]rune(strings.TrimRight(key, "*")))
 	return t.wildcardRecursive(t.root, []rune(key), realLen, 0, "", maxKeys)
 }
 
-// wildcardRecursive 递归通配符匹配
-func (t *Trie) wildcardRecursive(n *node, key []rune, realLen, idx int, prefix string, maxKeys int) (matches []string) {
+func (t *ternarySearchTree) wildcardRecursive(n *tstNode, key []rune, realLen, idx int, prefix string, maxKeys int) (matches []string) {
 	if n == nil {
 		return
 	}
@@ -235,8 +226,7 @@ func (t *Trie) wildcardRecursive(n *node, key []rune, realLen, idx int, prefix s
 	return
 }
 
-// collectAll 收集所有终端键，最多 maxKeys 个
-func (t *Trie) collectAll(n *node, prefix string, matches *[]string, maxKeys int) {
+func (t *ternarySearchTree) collectAll(n *tstNode, prefix string, matches *[]string, maxKeys int) {
 	if n == nil || len(*matches) >= maxKeys {
 		return
 	}

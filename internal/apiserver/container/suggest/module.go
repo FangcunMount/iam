@@ -4,28 +4,30 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
+	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
 	mysqlsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/suggest"
-	suggestaccess "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/access"
+	suggestauthz "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/authorization"
+	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
 	suggestmetrics "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/metrics"
 	suggestratelimit "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
-	searchruntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/search"
+	suggestvisibility "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/visibility"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 
 // SuggestModule 联想搜索模块
 type SuggestModule struct {
 	service     appsuggest.ProfileSuggestor
-	refresher   *appsuggest.ProfileIndexRefresher
+	refresher   *apprefresh.Refresher
 	rateLimiter appsuggest.RateLimiter
 	cron        *cron.Cron
 
-	config appsuggest.Config
+	config ModuleConfig
 	cancel context.CancelFunc
 }
 
@@ -36,7 +38,7 @@ func NewSuggestModule() *SuggestModule {
 
 // InitializeWithDeps 初始化联想模块。
 func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
-	cfg := deps.Config.WithDefaults()
+	cfg := deps.Config
 	m.config = cfg
 
 	if !cfg.Enable {
@@ -47,28 +49,26 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	if deps.DB == nil {
 		return fmt.Errorf("suggest module requires mysql connection")
 	}
-	if deps.Environment == genericapiserver.EnvironmentProduction && cfg.DisableMobileMask {
+	if deps.Environment == genericapiserver.EnvironmentProduction && cfg.Query.DisableMobileMask {
 		return fmt.Errorf("suggest.disable_mobile_mask is forbidden in production")
 	}
 
-	var visibility appsuggest.ProfileVisibilityIDsResolver = mysqlsuggest.NewProfileVisibilityResolver(deps.DB)
-	if cfg.VisibilityCacheTTLSeconds > 0 {
-		visibility = suggestaccess.NewCachedProfileVisibilityResolver(
-			visibility,
-			time.Duration(cfg.VisibilityCacheTTLSeconds)*time.Second,
-		)
+	var visibility appquery.VisibilityReader = mysqlsuggest.NewVisibilityReader(deps.DB)
+	if ttl := cfg.Visibility.CacheTTL(); ttl > 0 {
+		visibility = suggestvisibility.NewCachedReader(visibility, ttl)
 	}
-	scopeProvider := suggestaccess.NewOperatingProfileAccessScopeProvider(deps.RoutePermissionChecker, visibility)
-	runtime := searchruntime.NewRuntime()
-	metrics := suggestmetrics.Recorder{}
-	m.service = appsuggest.NewServiceWithRuntime(cfg, runtime, scopeProvider, metrics)
 
-	loader := mysqlsuggest.NewLoader(deps.DB, mysqlsuggest.LoaderConfig{
-		FullSQL:          cfg.FullSQL,
-		DeltaSQL:         cfg.DeltaSQL,
-		PlaceholderOrgID: cfg.LoaderPlaceholderOrgID,
-	})
-	m.refresher = appsuggest.NewProfileIndexRefresher(loader, runtime, metrics)
+	factsReader := suggestauthz.NewFactsReader(deps.RoutePermissionChecker)
+	scopeResolver := appquery.NewScopeResolver(factsReader, visibility)
+
+	runtime := suggestmemory.NewRuntime(cfg.Memory)
+	metrics := suggestmetrics.Recorder{}
+
+	querySvc := appquery.NewService(cfg.Query, scopeResolver, runtime, metrics)
+	m.service = appsuggest.NewProfileSuggestor(querySvc)
+
+	loader := mysqlsuggest.NewLoader(deps.DB, cfg.Loader)
+	m.refresher = apprefresh.NewRefresher(loader, runtime, metrics)
 	m.rateLimiter = suggestratelimit.NewFromConfig(cfg.RateLimit, deps.RedisClient)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -78,7 +78,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 			return fmt.Errorf("start suggest refresher: %w", err)
 		}
 		log.Errorw("suggest module degraded", "error", err)
-		m.service = appsuggest.DegradedService{}
+		m.service = appsuggest.DegradedService
 		return nil
 	}
 	m.cancel = cancel
@@ -138,7 +138,7 @@ func (m *SuggestModule) RuntimeCapabilities() RuntimeCapabilities {
 	return RuntimeCapabilities{Cleanup: m.Cleanup}
 }
 
-func (m *SuggestModule) startRefresher(ctx context.Context, cfg appsuggest.Config) error {
+func (m *SuggestModule) startRefresher(ctx context.Context, cfg ModuleConfig) error {
 	if m.refresher == nil {
 		return fmt.Errorf("suggest refresher not initialized")
 	}
@@ -149,7 +149,7 @@ func (m *SuggestModule) startRefresher(ctx context.Context, cfg appsuggest.Confi
 	m.cron = cron.New()
 	if _, err := m.cron.AddFunc(cfg.FullSyncCron, func() {
 		if err := m.refresher.RunFull(ctx); err != nil {
-			if errors.Is(err, appsuggest.ErrRefreshInProgress) {
+			if errors.Is(err, apprefresh.ErrRefreshInProgress) {
 				log.Info("suggest full sync skipped: refresh already in progress")
 				return
 			}
@@ -161,7 +161,7 @@ func (m *SuggestModule) startRefresher(ctx context.Context, cfg appsuggest.Confi
 	if cfg.DeltaSyncCron != "" {
 		if _, err := m.cron.AddFunc(cfg.DeltaSyncCron, func() {
 			if err := m.refresher.RunDelta(ctx); err != nil {
-				if errors.Is(err, appsuggest.ErrRefreshInProgress) {
+				if errors.Is(err, apprefresh.ErrRefreshInProgress) {
 					log.Info("suggest delta sync skipped: refresh already in progress")
 					return
 				}
