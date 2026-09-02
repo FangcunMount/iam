@@ -3,7 +3,7 @@ package suggest
 import (
 	"strconv"
 
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 )
 
 // ProfileSuggestResponseItem REST 返回项（不包含明文手机号）。
@@ -14,7 +14,7 @@ type ProfileSuggestResponseItem struct {
 	Weight     int    `json:"weight"`
 }
 
-func toProfileSuggestResponseItems(items []appsuggest.ProfileSuggestItem) []ProfileSuggestResponseItem {
+func toProfileSuggestResponseItems(items []appquery.ResultItem) []ProfileSuggestResponseItem {
 	out := make([]ProfileSuggestResponseItem, 0, len(items))
 	for _, it := range items {
 		out = append(out, ProfileSuggestResponseItem{

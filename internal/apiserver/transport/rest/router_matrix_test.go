@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
@@ -121,7 +121,7 @@ func routeMatrixDeps() Deps {
 		ProfileHandler:     uchandler.NewProfileHandler(nil),
 		ProfileLinkHandler: uchandler.NewProfileLinkHandler(nil),
 	}
-	deps.Suggest = SuggestDeps{Service: appsuggest.DegradedService}
+	deps.Suggest = SuggestDeps{Querier: appquery.DegradedQuerier{}}
 	deps.ModuleStatus = ModuleStatus{
 		Container: ModuleState{Bootstrapped: true, Available: true},
 		Modules: map[string]ModuleState{

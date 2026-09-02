@@ -6,7 +6,6 @@ import (
 
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
@@ -32,14 +31,14 @@ func (r *FactsReader) ReadAuthorizationFacts(
 	sub := "user:" + strconv.FormatInt(principal.OperatorID, 10)
 
 	listAllowed, err := r.permissions.CheckRoutePermission(
-		ctx, sub, tenant.PlatformID, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionList,
+		ctx, sub, tenant.PlatformID, appquery.ResourceIAMProfileCollection, appquery.ActionList,
 	)
 	if err != nil {
 		return visibility.AuthorizationFacts{}, err
 	}
 	if listAllowed {
 		mobileAllowed, err := r.permissions.CheckRoutePermission(
-			ctx, sub, tenant.PlatformID, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionSearchByMobile,
+			ctx, sub, tenant.PlatformID, appquery.ResourceIAMProfileCollection, appquery.ActionSearchByMobile,
 		)
 		if err != nil {
 			return visibility.AuthorizationFacts{}, err
@@ -55,7 +54,7 @@ func (r *FactsReader) ReadAuthorizationFacts(
 		tenantDom = tenant.DefaultID
 	}
 	mobileOK, err := r.permissions.CheckRoutePermission(
-		ctx, sub, tenantDom, appsuggest.ResourceIAMProfileCollection, appsuggest.ActionSearchByMobile,
+		ctx, sub, tenantDom, appquery.ResourceIAMProfileCollection, appquery.ActionSearchByMobile,
 	)
 	if err != nil {
 		return visibility.AuthorizationFacts{}, err

@@ -1,11 +1,9 @@
 package suggest
 
 import (
-	"context"
 	"testing"
 
 	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
 )
@@ -69,16 +67,10 @@ func TestModuleConfigFromOptionsMapsExplicitValues(t *testing.T) {
 func TestSuggestModuleCheckHealthRequiresSuccessfulRefresh(t *testing.T) {
 	module := NewSuggestModule()
 	module.config = ModuleConfig{Enable: true}
-	module.service = degradedSuggestor{}
+	module.querier = appquery.DegradedQuerier{}
 	if err := module.CheckHealth(); err == nil {
 		t.Fatal("CheckHealth() = nil without refresher success")
 	}
-}
-
-type degradedSuggestor struct{}
-
-func (degradedSuggestor) SuggestProfile(context.Context, appsuggest.SuggestProfileRequest) ([]appsuggest.ProfileSuggestItem, error) {
-	return nil, nil
 }
 
 func TestSuggestModuleCheckHealthDisabledPasses(t *testing.T) {

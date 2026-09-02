@@ -10,8 +10,8 @@ import (
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
-	suggestratelimit "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
+	suggesthttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/suggest"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
@@ -90,10 +90,9 @@ type UserDeps struct {
 
 // SuggestDeps 建议依赖
 type SuggestDeps struct {
-	Service     appsuggest.ProfileSuggestor
-	RateLimit   suggestratelimit.Config
-	Metrics     appsuggest.RateLimitMetrics
-	RateLimiter appsuggest.RateLimiter
+	Querier     appquery.Querier
+	Metrics     suggesthttp.RateLimitMetrics
+	RateLimiter suggesthttp.RateLimiter
 	RedisClient *redis.Client
 }
 

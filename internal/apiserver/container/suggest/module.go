@@ -8,7 +8,6 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
 	mysqlsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/suggest"
@@ -22,9 +21,9 @@ import (
 
 // SuggestModule 联想搜索模块
 type SuggestModule struct {
-	service     appsuggest.ProfileSuggestor
+	querier     appquery.Querier
 	refresher   *apprefresh.Refresher
-	rateLimiter appsuggest.RateLimiter
+	rateLimiter suggestratelimit.Limiter
 	cron        *cron.Cron
 
 	config ModuleConfig
@@ -65,7 +64,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	metrics := suggestmetrics.Recorder{}
 
 	querySvc := appquery.NewService(cfg.Query, scopeResolver, runtime, metrics)
-	m.service = appsuggest.NewProfileSuggestor(querySvc)
+	m.querier = querySvc
 
 	loader := mysqlsuggest.NewLoader(deps.DB, cfg.Loader)
 	m.refresher = apprefresh.NewRefresher(loader, runtime, metrics)
@@ -78,7 +77,7 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 			return fmt.Errorf("start suggest refresher: %w", err)
 		}
 		log.Errorw("suggest module degraded", "error", err)
-		m.service = appsuggest.DegradedService
+		m.querier = appquery.DegradedQuerier{}
 		return nil
 	}
 	m.cancel = cancel
@@ -106,7 +105,7 @@ func (m *SuggestModule) CheckHealth() error {
 	if !m.config.Enable {
 		return nil
 	}
-	if m.service == nil {
+	if m.querier == nil {
 		return fmt.Errorf("suggest service not initialized")
 	}
 	if m.refresher == nil || !m.refresher.HasSuccessfulRefresh() {
@@ -116,7 +115,7 @@ func (m *SuggestModule) CheckHealth() error {
 }
 
 func (m *SuggestModule) IsInitialized() bool {
-	return m != nil && m.service != nil
+	return m != nil && m.querier != nil
 }
 
 func (m *SuggestModule) ApplicationCapabilities() ApplicationCapabilities {
@@ -124,8 +123,7 @@ func (m *SuggestModule) ApplicationCapabilities() ApplicationCapabilities {
 		return ApplicationCapabilities{}
 	}
 	return ApplicationCapabilities{
-		Service:     m.service,
-		RateLimit:   m.config.RateLimit,
+		Querier:     m.querier,
 		Metrics:     suggestmetrics.Recorder{},
 		RateLimiter: m.rateLimiter,
 	}

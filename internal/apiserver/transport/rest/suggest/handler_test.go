@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
@@ -19,7 +19,7 @@ func TestProfileReturnsSuggestItems(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	Register(engine, Dependencies{
-		Service: suggestorStub{items: []appsuggest.ProfileSuggestItem{{
+		Querier: querierStub{items: []appquery.ResultItem{{
 			ProfileID:   1,
 			DisplayName: "张三",
 			MobileMask:  "138****8000",
@@ -54,7 +54,7 @@ func TestProfileMissingKeywordReturnsBindError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	Register(engine, Dependencies{
-		Service: suggestorStub{},
+		Querier: querierStub{},
 		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
 			requestctx.SetUserID(c, meta.ID(100))
 			c.Next()
@@ -74,7 +74,7 @@ func TestProfileMissingUserReturnsUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	Register(engine, Dependencies{
-		Service: suggestorStub{},
+		Querier: querierStub{},
 		Middlewares: []gin.HandlerFunc{func(c *gin.Context) {
 			c.Next()
 		}},
@@ -93,7 +93,7 @@ func TestProfileRateLimitedSecondRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	Register(engine, Dependencies{
-		Service: suggestorStub{},
+		Querier: querierStub{},
 		RateLimiter: ratelimit.NewMemoryLimiter(ratelimit.Config{
 			PerOperatorQPS:                1,
 			PerOperatorBurst:              1,
@@ -125,7 +125,7 @@ func TestProfileRateLimitedMobileKeywordUsesMobileBucket(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	Register(engine, Dependencies{
-		Service: suggestorStub{},
+		Querier: querierStub{},
 		RateLimiter: ratelimit.NewMemoryLimiter(ratelimit.Config{
 			PerOperatorQPS:                100,
 			PerOperatorBurst:              100,
@@ -153,10 +153,10 @@ func TestProfileRateLimitedMobileKeywordUsesMobileBucket(t *testing.T) {
 	}
 }
 
-type suggestorStub struct {
-	items []appsuggest.ProfileSuggestItem
+type querierStub struct {
+	items []appquery.ResultItem
 }
 
-func (s suggestorStub) SuggestProfile(context.Context, appsuggest.SuggestProfileRequest) ([]appsuggest.ProfileSuggestItem, error) {
-	return append([]appsuggest.ProfileSuggestItem(nil), s.items...), nil
+func (s querierStub) QueryProfile(context.Context, appquery.Command) ([]appquery.ResultItem, error) {
+	return append([]appquery.ResultItem(nil), s.items...), nil
 }

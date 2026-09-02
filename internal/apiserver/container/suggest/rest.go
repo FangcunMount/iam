@@ -12,8 +12,7 @@ func CollectREST(available bool, mod *SuggestModule, deps *resttransport.Deps, r
 		return
 	}
 	caps := mod.ApplicationCapabilities()
-	deps.Suggest.Service = caps.Service
-	deps.Suggest.RateLimit = caps.RateLimit
+	deps.Suggest.Querier = caps.Querier
 	deps.Suggest.Metrics = caps.Metrics
 	deps.Suggest.RateLimiter = caps.RateLimiter
 	deps.Suggest.RedisClient = redisClient

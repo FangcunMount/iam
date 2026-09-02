@@ -15,7 +15,7 @@ import (
 	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
@@ -407,7 +407,7 @@ func TestRouterSkipsProtectedRoutesWithoutJWTMiddleware(t *testing.T) {
 		PermissionGrantHandler: authzhandler.NewPermissionGrantHandler(nil),
 		ResourceHandler:        authzhandler.NewResourceHandler(nil, nil),
 	}
-	deps.Suggest.Service = appsuggest.DegradedService
+	deps.Suggest.Querier = appquery.DegradedQuerier{}
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateIdentity)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateAuthz)
 	markModuleAvailableForTest(&deps.ModuleStatus, moduleStateSuggest)

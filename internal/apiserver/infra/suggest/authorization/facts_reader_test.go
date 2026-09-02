@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	suggestauthz "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
@@ -24,14 +24,14 @@ func (s stubRouteAuth) CheckRoutePermission(_ context.Context, _, domain, _, act
 		return false, s.err
 	}
 	if domain == tenant.PlatformID {
-		if action == appsuggest.ActionList {
+		if action == appquery.ActionList {
 			return s.allowPlatformProfiles, nil
 		}
-		if action == appsuggest.ActionSearchByMobile {
+		if action == appquery.ActionSearchByMobile {
 			return s.allowPlatformMobile, nil
 		}
 	}
-	return action == appsuggest.ActionSearchByMobile && s.allowTenantMobile, nil
+	return action == appquery.ActionSearchByMobile && s.allowTenantMobile, nil
 }
 
 var _ authorizationapp.RoutePermissionChecker = stubRouteAuth{}

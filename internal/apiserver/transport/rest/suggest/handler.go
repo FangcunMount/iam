@@ -4,7 +4,7 @@ import (
 	stderrors "errors"
 
 	pkgerrors "github.com/FangcunMount/component-base/pkg/errors"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	domainsearch "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/search"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/pkg/core"
@@ -13,41 +13,41 @@ import (
 
 // Dependencies wires runtime dependencies for the handler.
 type Dependencies struct {
-	Service     appsuggest.ProfileSuggestor
+	Querier     appquery.Querier
 	Middlewares []gin.HandlerFunc
-	Metrics     appsuggest.RateLimitMetrics
-	RateLimiter appsuggest.RateLimiter
+	Metrics     RateLimitMetrics
+	RateLimiter RateLimiter
 }
 
 // Register registers routes onto the engine.
 func Register(engine *gin.Engine, deps Dependencies) {
-	if engine == nil || deps.Service == nil || len(deps.Middlewares) == 0 {
+	if engine == nil || deps.Querier == nil || len(deps.Middlewares) == 0 {
 		return
 	}
 
 	group := engine.Group("/api/v2/suggest")
 	group.Use(deps.Middlewares...)
 
-	h := NewHandler(deps.Service, deps.RateLimiter, deps.Metrics)
+	h := NewHandler(deps.Querier, deps.RateLimiter, deps.Metrics)
 	group.GET("/profile", h.Profile)
 }
 
 // Handler 提供 suggest 接口
 type Handler struct {
 	*core.BaseHandler
-	svc     appsuggest.ProfileSuggestor
-	limits  appsuggest.RateLimiter
-	metrics appsuggest.RateLimitMetrics
+	querier appquery.Querier
+	limits  RateLimiter
+	metrics RateLimitMetrics
 }
 
 // NewHandler creates a suggest handler.
-func NewHandler(svc appsuggest.ProfileSuggestor, limits appsuggest.RateLimiter, metrics appsuggest.RateLimitMetrics) *Handler {
+func NewHandler(querier appquery.Querier, limits RateLimiter, metrics RateLimitMetrics) *Handler {
 	if metrics == nil {
 		metrics = noopRateLimitMetrics{}
 	}
 	return &Handler{
 		BaseHandler: core.NewBaseHandler(),
-		svc:         svc,
+		querier:     querier,
 		limits:      limits,
 		metrics:     metrics,
 	}
@@ -97,13 +97,13 @@ func (h *Handler) Profile(c *gin.Context) {
 		}
 	}
 
-	list, err := h.svc.SuggestProfile(c, appsuggest.SuggestProfileRequest{
+	list, err := h.querier.QueryProfile(c, appquery.Command{
 		Principal: principal,
 		Keyword:   query.K,
 		Limit:     query.Limit,
 	})
 	if err != nil {
-		if stderrors.Is(err, appsuggest.ErrUnauthenticated) {
+		if stderrors.Is(err, appquery.ErrUnauthenticated) {
 			h.UnauthorizedResponse(c, "unauthenticated operating principal")
 			return
 		}
@@ -111,7 +111,7 @@ func (h *Handler) Profile(c *gin.Context) {
 		return
 	}
 	if list == nil {
-		list = []appsuggest.ProfileSuggestItem{}
+		list = []appquery.ResultItem{}
 	}
 
 	h.Success(c, toProfileSuggestResponseItems(list))

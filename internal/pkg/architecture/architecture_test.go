@@ -1176,7 +1176,6 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 
 	root := repoRoot(t)
 	for _, appRoot := range []string{
-		"internal/apiserver/application/suggest",
 		"internal/apiserver/application/suggest/queryprofile",
 		"internal/apiserver/application/suggest/refreshindex",
 	} {
@@ -1216,10 +1215,21 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, imp := range imports {
 			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/suggest") {
-				t.Fatalf("%s imports %s; REST suggest transport must depend on application ProfileSuggestor", rel, imp)
+				t.Fatalf("%s imports %s; REST suggest transport must depend on application queryprofile", rel, imp)
 			}
 		}
 	})
+
+	suggestRoot := filepath.Join(root, "internal", "apiserver", "application", "suggest")
+	if entries, err := os.ReadDir(suggestRoot); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+				continue
+			}
+			t.Fatalf("application/suggest root must not contain Go files; found %s", entry.Name())
+		}
+	}
+	assertFileLacks(t, root, "internal/apiserver/transport/rest/suggest/handler.go", "ProfileSuggestor")
 
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/suggest/handler.go", "AllowMobileSearch")
 	assertFileContains(t, root, "internal/apiserver/domain/suggest/search/keyword.go", "type AdmissionPolicy struct")

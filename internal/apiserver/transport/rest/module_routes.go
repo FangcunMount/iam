@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	appsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest"
+	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	authnhttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn"
 	authzhttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz"
 	userhttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity"
@@ -128,16 +128,16 @@ func (r *Router) registerIdentityRoutes(engine *gin.Engine, deps UserDeps, authM
 
 // registerSuggestRoutes 注册 Suggest 模块 建议路由
 func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, authMiddleware *authnMiddleware.JWTAuthMiddleware, authorizationMiddleware *authzMiddleware.Middleware) {
-	if r.deps.ModuleStatus.suggestAvailable() && deps.Service != nil && authMiddleware != nil {
+	if r.deps.ModuleStatus.suggestAvailable() && deps.Querier != nil && authMiddleware != nil {
 		middlewares := []gin.HandlerFunc{authMiddleware.AuthRequired()}
 		if r.deps.ModuleStatus.authzAvailable() && authorizationMiddleware != nil {
 			middlewares = append(middlewares, authorizationMiddleware.RequirePermission(
-				appsuggest.ResourceIAMProfileCollection,
-				appsuggest.ActionSearch,
+				appquery.ResourceIAMProfileCollection,
+				appquery.ActionSearch,
 			))
 		}
 		suggesthttp.Register(engine, suggesthttp.Dependencies{
-			Service:     deps.Service,
+			Querier:     deps.Querier,
 			Middlewares: middlewares,
 			Metrics:     deps.Metrics,
 			RateLimiter: deps.RateLimiter,
@@ -145,7 +145,7 @@ func (r *Router) registerSuggestRoutes(engine *gin.Engine, deps SuggestDeps, aut
 		log.Info("✅ Suggest module routes registered")
 		return
 	}
-	if r.deps.ModuleStatus.suggestAvailable() && deps.Service != nil {
+	if r.deps.ModuleStatus.suggestAvailable() && deps.Querier != nil {
 		log.Warn("⚠️  Suggest module initialized but JWT middleware unavailable; protected routes not registered")
 		return
 	}
