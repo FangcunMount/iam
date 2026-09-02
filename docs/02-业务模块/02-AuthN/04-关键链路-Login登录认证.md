@@ -683,9 +683,9 @@ AuthZ Check 在认证之后执行。
 
 ```text
 Login 不维护 Suggest Index；
-Login 不创建 ProfileSearchTerm；
+Login 不创建 `SuggestibleProfile`；
 Suggest 可以使用 Principal/UserID 作为查询上下文；
-Profile 可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
+Profile 可见性仍由 Suggest 的 `visibility.Scope` 与 AuthZ facts 控制。
 ```
 
 ---

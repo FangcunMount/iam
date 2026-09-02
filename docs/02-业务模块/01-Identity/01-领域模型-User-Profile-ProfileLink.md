@@ -557,7 +557,7 @@ AuthZ 回答：Subject 能对 Resource 执行什么 Action？
 - 有 ProfileLink 不等于拥有该 Profile 相关的所有资源权限；
 - 没有 ProfileLink 也不必然意味着没有任何通过机构角色获得的权限；
 - REST `MyProfiles.Get/Patch` 当前用 active ProfileLink 作为局部访问前置，这是具体用例的当前策略，不能推广成通用 AuthZ 模型；
-- Suggest 的 `ProfileAccessScope` 是搜索读模型的范围投影，不是 ProfileLink 的别名。
+- Suggest 的 `visibility.Scope` 是查询用例解析出的可见范围，不是 ProfileLink 的别名。
 
 ## 12. 已知缺口与决策待办
 

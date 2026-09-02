@@ -85,7 +85,7 @@
 
 **一句话目标：** 不是背模块名，而是讲出它们各自拥有什么事实。
 
-![IAM 模块边界与协作关系](../_images/architecture/module-boundary.png)
+![IAM 模块边界与协作关系](../_images/architecture/module-boundary.svg)
 
 **通稿：**
 
@@ -190,8 +190,8 @@
 > Profile 主数据的正确性和联想搜索的查询形态是两个不同问题。Identity 要维护 User、Profile 和 ProfileLink 的不变量；Suggest 要支持姓名、拼音、ID 和手机号等查询键的快速召回、排序、
 > 范围过滤和脱敏。
 >
-> 所以 Suggest 通过 Full 或 Delta loader 从 Identity facts 派生 `ProfileSearchTerm`，然后构建进程内 Trie 和 Hash 索引。查询时，系统根据可信
-> OperatingPrincipal 与身份/角色事实构造 `ProfileAccessScope`，先召回，再做 scope 过滤、排序、最终 limit 和脱敏。
+> 所以 Suggest 通过 Full 或 Delta loader 从 Identity facts 派生 `SuggestibleProfile`，然后由 memory adapter 构建进程内 TST 和 Hash 索引。查询时，系统根据可信
+> `visibility.Principal`、AuthZ 授权事实和可见 Profile 投影构造 `visibility.Scope`，先召回，再做 scope 过滤、排序、最终 limit 和脱敏。
 >
 > 这里必须区分“搜索可见”和“资源授权”。Suggest 返回一个脱敏 Profile 候选，只能证明它在本次搜索范围内可见，不能推导出详情读取、编辑或导出权限。后续动作仍然要通过自己的 AuthZ Resource、Action
 > 和必要的对象 Check。
@@ -350,7 +350,7 @@
 
 ### 8.8 Suggest 已经过滤了可见范围，为什么还要 AuthZ？
 
-> `ProfileAccessScope` 只是搜索所需的局部可见性投影，它只决定哪些脱敏候选可以进入当前搜索结果。搜到 Profile 不代表可以读取详情、修改或导出。后续操作需要自己的 Resource、Action 和必要的对象
+> `visibility.Scope` 只是搜索所需的局部范围模型，它只决定哪些脱敏候选可以进入当前搜索结果。搜到 Profile 不代表可以读取详情、修改或导出。后续操作需要自己的 Resource、Action 和必要的对象
 > Check，所以 Suggest 不能替代通用 AuthZ。
 
 ### 8.9 分层架构怎样防止模块变成大杂烩？

@@ -66,7 +66,7 @@ Suggest principal   -> 联想查询的操作者和数据范围是什么？
 | 封禁/停用后应尽快失效 Session | Identity application 同事务写本地任务，Worker 调用窄 `SessionRevoker` port |
 | 展示信息不得倒置主从关系 | `/me` 角色读取失败时降级为无 roles |
 | 身份关系不等于权限 | ProfileLink 不保存 Assignment/PermissionGrant，不自动生成 policy |
-| 搜索性能不污染写模型 | Suggest 维护 ProfileSearchTerm 和进程内索引 |
+| 搜索性能不污染写模型 | Suggest 维护 `SuggestibleProfile` 派生读模型和进程内索引 |
 | 现有运行时不得被理想图覆盖 | 直接 SQL、同步 port、忽略的 proto 字段均明确记录 |
 
 ## 5. 当前上下文映射
@@ -77,7 +77,7 @@ flowchart LR
     IDENTITY["Identity\nUser / Profile / ProfileLink"]
     AUTHZ["AuthZ\nSubject / Role / Permission / Check"]
     IDP["IDP\nWechatApp / Credential / AppAccessToken / ExternalIdentity"]
-    SUGGEST["Suggest\nProfileSearchTerm / Index / AccessScope"]
+    SUGGEST["Suggest\nSuggestibleProfile / Candidate / Scope"]
 
     AUTHN -->|"LoginIdentity.UserID"| IDENTITY
     AUTHN -->|"signup UOW uses User repository port"| IDENTITY
@@ -177,7 +177,7 @@ Identity REST `UserHandler` 接收 `EffectiveRoleReader`，按当前 tenant doma
 
 > 标签：设计决策 · Suggest 领域/application 护栏与专题设计可证明
 
-Identity 保持 Profile 写模型简洁；Suggest 将 Profile 姓名、手机号等派生为 `ProfileSearchTerm`，并维护 Trie/Hash 进程内索引。
+Identity 保持 Profile 写模型简洁；Suggest 将 Profile 姓名、手机号等派生为受约束的 `SuggestibleProfile`，并由 memory adapter 维护 TST/Hash 进程内索引。
 
 #### 为什么不直接用 Identity repository 做模糊搜索
 
@@ -289,11 +289,11 @@ OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。�
 
 | Identity | Suggest |
 | --- | --- |
-| Profile 主事实 | `ProfileSearchTerm` |
-| ProfileLink 关系事实 | `ProfileAccessScope` 所需的局部可见投影 |
-| MySQL 事务写模型 | Trie/Hash 进程内索引与 Full/Delta runtime |
+| Profile 主事实 | `SuggestibleProfile` 派生读模型 |
+| ProfileLink 关系事实 | `visibility.Scope` 所需的局部可见投影 |
+| MySQL 事务写模型 | TST/Hash 进程内索引与 Full/Delta runtime |
 
-Suggest Index/Index 可以从 Identity facts 重建，但不是 Profile 主表，也不能回写 Identity。
+Suggest 进程内索引可以从 Identity facts 重建，但不是 Profile 主表，也不能回写 Identity。
 
 ### 10.2 当前数据来源
 
@@ -302,23 +302,22 @@ Suggest Index/Index 可以从 Identity facts 重建，但不是 Profile 主表�
 - 从 `profiles` 读取 ID、Name、created_by；
 - 联结 `profile_links` 和 `users` 聚合 Phone；
 - Full 构建新 Store 并原子切换 runtime；
-- Delta 按 updated_at 读取变化，Profile 软删除通过空 Name tombstone 从索引移除。
+- Delta 按 updated_at 读取变化，adapter 将空 Name 行转换为显式 `ProjectionChange(Delete)`。
 
 当前没有订阅 Identity Profile/ProfileLink domain event 或 durable outbox topic。
 
-默认 SQL 只过滤 `profile_links.deleted_at IS NULL`，没有过滤 `revoked_at IS NULL`。因此已撤销 link 的 User Phone 仍可能进入 ProfileSearchTerm。
+默认 Full/Delta SQL 同时过滤 `profile_links.deleted_at IS NULL` 与 `revoked_at IS NULL`，已撤销 link 的 User Phone 不进入 `SuggestibleProfile`。
 
 ### 10.3 当前可见范围
 
-Suggest `OperatingProfileAccessScopeProvider` 结合：
+`queryprofile.ScopeResolverService` 结合：
 
-- platform admin/super admin 标记；
-- AuthZ route runtime 返回的 direct roles；
-- 手机号搜索 route authorization；
-- principal 的 OperatorID/OrgIDs；
-- `ProfileVisibilityResolver` 按 `profiles.created_by` 返回的 ProfileID。
+- AuthZ facts reader 返回的平台 `profiles/list` 与平台/tenant `search_by_mobile` 授权事实；
+- `visibility.Principal` 的 OperatorID/OrgIDs；
+- `VisibilityReader` 按 `profiles.created_by` 返回的 ProfileID；
+- `ResolutionPolicy` 生成最终 `visibility.Scope`。
 
-`profiles.created_by` 可见性是当前过渡读模型，不是 Identity 领域中的所有权规则。ProfileLink 参与候选构建，但不等于最终 `ProfileAccessScope`。
+`profiles.created_by` 可见性是当前过渡读模型，不是 Identity 领域中的所有权规则。ProfileLink 参与候选构建，但不等于最终 `visibility.Scope`。
 
 ## 11. 允许的依赖与禁止的耦合
 

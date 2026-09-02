@@ -8,7 +8,7 @@ Suggest 被设计成读模型，是因为 Profile 主数据的正确性和联想
 手机号匹配的索引，并按当前操作者范围返回脱敏候选。
 
 ```text
-Identity facts -> ProfileSearchTerm -> process-local search index -> safe candidate
+Identity facts -> SuggestibleProfile -> process-local search adapter -> safe result
 ```
 
 这个选择换来了查询性能、写模型隔离和可重建性，也引入了最终一致、内存敏感数据保护和重启重建成本。
@@ -23,7 +23,7 @@ Identity facts -> ProfileSearchTerm -> process-local search index -> safe candid
 | 维度 | Identity 写模型 | Suggest 读模型 |
 | --- | --- | --- |
 | 核心目标 | 保证身份事实和关系正确 | 快速召回可见候选 |
-| 主要对象 | User、Profile、ProfileLink | ProfileSearchTerm、Query、ProfileAccessScope |
+| 主要对象 | User、Profile、ProfileLink | SuggestibleProfile、Keyword、Candidate、Scope |
 | 数据形态 | 规范化事实、关系和生命周期 | 姓名/拼音键、ID/手机号键、排序字段、最小可见范围字段 |
 | 一致性 | 写入正确性优先 | 可以通过 Full/Delta 最终同步 |
 | 失败处理 | 不能伪造或丢失主事实 | 可以保留旧索引或保守返回空结果 |
@@ -35,21 +35,24 @@ Identity facts -> ProfileSearchTerm -> process-local search index -> safe candid
 
 ```mermaid
 flowchart LR
-    Identity["Identity tables"] --> Loader["ProfileCandidateSource"]
-    Loader --> Term["ProfileSearchTerm"]
-    Term --> Runtime["ProfileSuggestionRuntime"]
-    Runtime --> Index["Trie + Hash Store"]
-    Principal["OperatingPrincipal"] --> Scope["ProfileAccessScope"]
-    Scope --> Index
-    Index --> Item["ProfileSuggestItem"]
+    Identity["Identity tables"] --> Loader["ProjectionSource"]
+    Loader --> Profile["SuggestibleProfile / ProjectionChange"]
+    Profile --> Runtime["memory.Runtime"]
+    Runtime --> Index["TST + Hash Store"]
+    Principal["visibility.Principal"] --> Resolver["ScopeResolver"]
+    Resolver --> Scope["visibility.Scope"]
+    Index --> Recall["Candidate recall"]
+    Scope --> Select["SelectionPolicy"]
+    Recall --> Select
+    Select --> Item["queryprofile.ResultItem"]
 ```
 
 设计边界：
 
 - Loader 读取 Identity 表，但 Suggest 不拥有这些表。
-- Store 负责召回、scope 过滤、排序和 limit，不修改主数据。
-- AuthZ 提供角色和手机号搜索许可；索引本身不是权限事实源。
-- ProfileSuggestItem 是候选展示，不代表拥有详情读取、修改或导出权限。
+- Store 只负责候选召回；`SelectionPolicy` 负责 scope 过滤、去重、排序和 limit。
+- AuthZ facts reader 提供平台列表和手机号搜索许可；索引本身不是权限事实源。
+- `ResultItem` 是候选展示，不代表拥有详情读取、修改或导出权限。
 
 ## 4. 为什么不直接查 Identity 主表
 
@@ -61,11 +64,11 @@ flowchart LR
 - 可见范围过滤必须先于最终排序截断；
 - 搜索刷新、指标和降级不应阻塞 Identity 写入。
 
-当前实现用 MySQL Loader 批量派生 `ProfileSearchTerm`，查询走进程内 Trie/Hash，避免每次请求执行跨表模糊查询。
+当前实现用 MySQL Loader 批量派生 `SuggestibleProfile`，查询走进程内 TST/Hash adapter，避免每次请求执行跨表模糊查询。
 
 ## 5. 为什么 scope 不是授权结果
 
-`ProfileAccessScope` 是 Suggest 查询所需的局部投影：全量标记、OrgID、OperatorID、ProfileID 列表和手机号搜索开关。
+`visibility.Scope` 是 Suggest 查询所需的局部范围模型：全量标记、OrgID、OperatorID、ProfileID 列表和手机号搜索开关。
 
 它不能替代通用 AuthZ：
 
@@ -78,16 +81,16 @@ flowchart LR
 
 如果先从全局候选取前 N 条再过滤，无权限候选会挤占可见结果，结果数量也可能泄露候选分布。
 
-当前 Store 的顺序是：
+当前查询用例的顺序是：
 
 ```text
-recall up to InternalLimit
-  -> scope filter
-  -> rank
+Store recall up to CandidateBudget
+  -> SelectionPolicy scope filter
+  -> deduplicate and rank
   -> final Limit
 ```
 
-这里仍有 `InternalLimit` 召回上限，因此它不是无限候选上的完整排序；但权限过滤发生在最终返回截断之前。
+这里仍有 `CandidateBudget` 召回上限，因此它不是无限候选上的完整排序；但权限过滤发生在最终返回截断之前。
 
 ## 7. 可重建不等于持久化恢复
 

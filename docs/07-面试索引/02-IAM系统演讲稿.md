@@ -167,7 +167,7 @@ IAM 的整体形态是一个 **DDD 引导的模块化单体**：
 
 #### 2.2.1 五个业务模块如何形成
 
-![IAM 模块边界与协作关系](../_images/architecture/module-boundary.png)
+![IAM 模块边界与协作关系](../_images/architecture/module-boundary.svg)
 
 IAM 不按接口、数据库表或技术组件拆分，而是按业务问题和变化原因拆成三个核心模块和两个辅助模块。
 
@@ -286,7 +286,7 @@ Application / Domain
 - Infra 实现这些端口；
 - Container 在运行时把端口和适配器连接起来。
 
-例如，AuthN 依赖的是 `AccessTokenCodec`，而不是具体 JWT 库；Suggest 依赖的是 `ProfileSuggestionIndex`，而不是具体 Trie 或 Hash 实现。
+例如，AuthN 依赖的是 `AccessTokenCodec`，而不是具体 JWT 库；Suggest 查询用例依赖 `CandidateRecaller`，而不是具体 TST 或 Hash 实现。
 
 > Ports & Adapters 不是为了多画一层接口，而是让业务代码不知道外部技术的具体实现。
 
@@ -301,7 +301,7 @@ Application / Domain
 | AuthZ | Identity | `UserResolver` |
 | Identity | AuthZ | `EffectiveRoleReader` |
 | Identity | AuthN | `SessionRevoker` |
-| Suggest | AuthZ | `RoutePermissionChecker`，用明确 Resource/Action 派生 `ProfileAccessScope` |
+| Suggest | AuthZ | `AuthorizationFactsReader`，读取平台列表和手机号搜索授权事实并派生 `visibility.Scope` |
 
 例如：
 
@@ -309,8 +309,8 @@ Application / Domain
 - AuthN 不直接读取 Identity User Repository，只通过 `UserStatusReader` 判断 User 状态；
 - AuthZ 不直接读取 Identity User Repository，只通过 `UserResolver` 校验 User Subject；
 - Identity 撤销用户时不需要操作 AuthN 的 Session Repository，只需要调用 `SessionRevoker`；
-- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或不可变快照实现，只通过窄的 `RoutePermissionChecker` 对 `profiles/search`、平台
-  `profiles/list` 和 `profiles/search_by_mobile` 等 Resource/Action capability 求值查询范围，不依赖角色名特例。
+- Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或不可变快照实现；authorization adapter 只用窄的 `RoutePermissionChecker` 对平台
+  `profiles/list` 和平台/tenant `profiles/search_by_mobile` 等 Resource/Action 求值，再向 application 暴露 `AuthorizationFactsReader`，不依赖角色名特例。
 
 AuthN 和 AuthZ 也不需要建立领域模型直连：
 

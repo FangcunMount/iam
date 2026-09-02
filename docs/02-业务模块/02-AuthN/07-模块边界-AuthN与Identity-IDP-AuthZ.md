@@ -87,7 +87,7 @@ AND AuthZ resource check
 
 ## 5. AuthN 与 Suggest
 
-Suggest 从 JWT 上下文读取 user/tenant/org，构造最小 `OperatingPrincipal`，再通过 AuthZ/visibility 解析可见范围。它不读取 Credential、Challenge、
+Suggest 从 JWT 上下文读取 user/tenant/org，构造最小 `visibility.Principal`，再通过 AuthZ facts 与 visibility reader 解析 `visibility.Scope`。它不读取 Credential、Challenge、
 Session 或 provider secret。
 
 AuthN 只负责让请求上下文拥有可信身份；Suggest 自己负责关键词安全、scope 过滤和手机号脱敏。

@@ -43,8 +43,8 @@
   <rect x="135" y="915" width="620" height="280" class="card" fill="#f3effd" stroke="#7652c8" filter="url(#shadow)"/>
   <text x="445" y="975" text-anchor="middle" class="module">Suggest</text>
   <text x="445" y="1013" text-anchor="middle" class="question">如何搜索当前可见的 Profile？</text>
-  <text x="445" y="1065" text-anchor="middle" class="facts">ProfileSearchTerm · SuggestionIndex</text>
-  <text x="445" y="1100" text-anchor="middle" class="facts">ProfileAccessScope · masked result</text>
+  <text x="445" y="1065" text-anchor="middle" class="facts">SuggestibleProfile · CandidateRecaller</text>
+  <text x="445" y="1100" text-anchor="middle" class="facts">visibility.Scope · masked ResultItem</text>
   <text x="445" y="1142" text-anchor="middle" class="note">派生、可重建读模型；不拥有 Profile 或权限事实</text>
 
   <rect x="1645" y="915" width="620" height="280" class="card" fill="#f3effd" stroke="#7652c8" filter="url(#shadow)"/>

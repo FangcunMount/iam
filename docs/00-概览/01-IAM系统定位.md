@@ -55,7 +55,7 @@ flowchart TD
     AuthN["AuthN\n如何证明身份\nLoginIdentity / Credential / Challenge / Principal / Session / Token"]
     AuthZ["AuthZ\n能访问什么\nSubject / Role / Assignment / PermissionGrant / ConstraintSet"]
     IDP["IDP\n外部身份来源\nWechatApp / Credentials / AppToken / ExternalIdentity"]
-    Suggest["Suggest\n可见 Profile 联想搜索\nProfileSearchTerm / ProfileAccessScope / ProfileSuggestionIndex"]
+    Suggest["Suggest\n可见 Profile 联想搜索\nSuggestibleProfile / Candidate / Scope"]
 
     Client --> Access
     Access --> Identity
@@ -250,7 +250,7 @@ Suggest 是 Profile 联想搜索读模型模块。
 ```text
 管理端或业务后台如何快速搜索 Profile？
 如何基于进程内索引快速召回候选？
-如何用 ProfileAccessScope 控制可见范围？
+如何用 visibility.Scope 控制可见范围？
 手机号搜索如何脱敏、限流和治理？
 索引如何刷新和降级？
 ```
@@ -258,9 +258,9 @@ Suggest 是 Profile 联想搜索读模型模块。
 Suggest 的核心对象是：
 
 ```text
-ProfileSearchTerm；
-ProfileAccessScope；
-Snapshot。
+SuggestibleProfile；
+Keyword / Candidate；
+visibility.Scope / ResultItem。
 ```
 
 Suggest 不拥有 Profile 写模型，不负责认证，不负责通用授权策略管理，也不是核心身份域。
@@ -356,7 +356,7 @@ Suggest 的定位是辅助读模型：
 ```text
 从 Identity 消费 Profile 事实；
 构建搜索索引和快照；
-根据 ProfileAccessScope 过滤可见结果；
+根据 visibility.Scope 过滤可见结果；
 对手机号等敏感查询做脱敏、限流和安全治理。
 ```
 

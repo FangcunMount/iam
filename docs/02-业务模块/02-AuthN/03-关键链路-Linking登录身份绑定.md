@@ -584,7 +584,7 @@ Linking 本身不是授权判定；
 Linking 不维护 Suggest Index；
 绑定手机号或微信不等于创建 Profile 搜索项；
 Suggest 可以使用 Principal/UserID 作为查询上下文；
-搜索可见性仍由 Suggest/ProfileAccessScope/AuthZ 控制。
+搜索可见性仍由 Suggest 的 `visibility.Scope` 与 AuthZ facts 控制。
 ```
 
 ---
