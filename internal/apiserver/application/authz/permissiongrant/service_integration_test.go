@@ -16,7 +16,9 @@ import (
 )
 
 func TestPermissionGrantRevokeAlreadyRevokedIsIdempotentWithoutVersionBump(t *testing.T) {
-	fixture, service, stager := setupPermissionGrantService(t)
+	fixture, _, stager := setupPermissionGrantService(t)
+	reloader := &recordingReloader{}
+	service := permissionGrantApp.NewService(fixture.UnitOfWork, fixture.PermissionGrants, reloader)
 	role := seedRole(t, fixture.Roles, "qs:evaluator", "tenant-a")
 	resource := seedResource(t, fixture.Resources)
 	grant := seedGrant(t, fixture.PermissionGrants, role, resource, "tenant-a")
@@ -32,6 +34,7 @@ func TestPermissionGrantRevokeAlreadyRevokedIsIdempotentWithoutVersionBump(t *te
 	}))
 	require.Len(t, stager.events, 1, "duplicate revoke must not publish another policy version")
 	require.EqualValues(t, 1, fixture.PolicyVersionCount(t))
+	require.Equal(t, 1, reloader.calls, "duplicate revoke must not reload an unchanged runtime policy")
 }
 
 func setupPermissionGrantService(t *testing.T) (*authztestutil.Fixture, *permissionGrantApp.Service, *recordingStager) {
@@ -83,5 +86,12 @@ type recordingStager struct{ events []event.DomainEvent }
 
 func (s *recordingStager) Stage(_ context.Context, events ...event.DomainEvent) error {
 	s.events = append(s.events, events...)
+	return nil
+}
+
+type recordingReloader struct{ calls int }
+
+func (r *recordingReloader) LoadPolicy(context.Context) error {
+	r.calls++
 	return nil
 }

@@ -102,7 +102,11 @@ func (r *Repository) AtomicRevoke(ctx context.Context, id meta.ID, tenantID stri
 		return domain.RevokeOutcomeRevoked, nil
 	}
 	var po InheritancePO
-	findQuery := r.WithContext(ctx).Where("id = ?", id.Uint64())
+	findQuery := r.WithContext(ctx)
+	if findQuery.Dialector != nil && findQuery.Dialector.Name() != "sqlite" {
+		findQuery = findQuery.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	findQuery = findQuery.Where("id = ?", id.Uint64())
 	if strings.TrimSpace(tenantID) != "" {
 		findQuery = findQuery.Where("tenant_id = ?", strings.TrimSpace(tenantID))
 	}

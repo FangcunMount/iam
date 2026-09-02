@@ -36,6 +36,9 @@ func (s *AssignmentRepoStub) FindByID(ctx context.Context, id assignment.Assignm
 func (s *AssignmentRepoStub) ListBySubject(ctx context.Context, subjectType assignment.SubjectType, subjectID meta.ID, tenantID string) ([]*assignment.Assignment, error) {
 	return s.Assignments, s.Err
 }
+func (s *AssignmentRepoStub) ListBySubjectForUpdate(ctx context.Context, subjectType assignment.SubjectType, subjectID meta.ID, tenantID string) ([]*assignment.Assignment, error) {
+	return s.Assignments, s.Err
+}
 func (s *AssignmentRepoStub) ListByRole(ctx context.Context, roleID meta.ID, tenantID string) ([]*assignment.Assignment, error) {
 	return nil, s.Err
 }

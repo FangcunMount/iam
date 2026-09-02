@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"sync"
 	"testing"
 
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	authzAppUOW "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	assignmentDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
@@ -33,7 +35,9 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 	seedAssignment(t, ctx, assignments, userID, roleByName["qs:evaluator"].ID)
 
 	stager := &eventStager{}
-	uow := authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager)
+	uow := &lockingAssignmentReadUnitOfWork{
+		delegate: authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager),
+	}
 	validator := assignmentDomain.NewValidator(roles, existingUserResolver{})
 	service := assignmentApp.NewCommandService(validator, roles, uow, nil)
 	sub, err := subject.NewUserRef(userID)
@@ -51,15 +55,16 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 	require.EqualValues(t, 1, result.PolicyVersion)
 	require.Equal(t, []string{"qs:content_manager", "qs:staff"}, result.DirectRoles)
 	require.Equal(t, []string{"qs:content_manager", "qs:staff", "tenant_admin"}, assignedRoleNames(t, ctx, assignments, roles, userID))
-	require.Len(t, stager.events, 1)
+	require.Equal(t, 1, stager.Count())
+	require.True(t, uow.usedLockingRead, "replacement must read current assignments with a transaction lock")
 
 	result, err = service.ReplaceManagedAssignments(ctx, cmd)
 	require.NoError(t, err)
 	require.False(t, result.Changed)
 	require.EqualValues(t, 1, result.PolicyVersion)
-	require.Len(t, stager.events, 1, "idempotent replacement must not emit another version event")
+	require.Equal(t, 1, stager.Count(), "idempotent replacement must not emit another version event")
 
-	stager.err = errors.New("outbox unavailable")
+	stager.SetError(errors.New("outbox unavailable"))
 	rollbackCmd, err := assignmentApp.NewReplaceManagedAssignmentsCommand(
 		sub, "fangcun", []string{"qs:evaluator"}, managed,
 		"user:200", "rollback proof",
@@ -79,16 +84,75 @@ type existingUserResolver struct{}
 func (existingUserResolver) ResolveUser(context.Context, meta.ID) error { return nil }
 
 type eventStager struct {
+	mu     sync.Mutex
 	events []event.DomainEvent
 	err    error
 }
 
 func (s *eventStager) Stage(_ context.Context, events ...event.DomainEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.err != nil {
 		return s.err
 	}
 	s.events = append(s.events, events...)
 	return nil
+}
+
+func (s *eventStager) Count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.events)
+}
+
+func (s *eventStager) SetError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.err = err
+}
+
+type lockingAssignmentReadUnitOfWork struct {
+	delegate        authzAppUOW.UnitOfWork
+	usedLockingRead bool
+}
+
+func (u *lockingAssignmentReadUnitOfWork) WithinTx(
+	ctx context.Context,
+	fn func(context.Context, authzAppUOW.TxRepositories) error,
+) error {
+	return u.delegate.WithinTx(ctx, func(txCtx context.Context, tx authzAppUOW.TxRepositories) error {
+		tx.Assignments = &lockingAssignmentReadRepository{
+			Repository: tx.Assignments,
+			onLockingRead: func() {
+				u.usedLockingRead = true
+			},
+		}
+		return fn(txCtx, tx)
+	})
+}
+
+type lockingAssignmentReadRepository struct {
+	assignmentDomain.Repository
+	onLockingRead func()
+}
+
+func (r *lockingAssignmentReadRepository) ListBySubject(
+	context.Context,
+	assignmentDomain.SubjectType,
+	meta.ID,
+	string,
+) ([]*assignmentDomain.Assignment, error) {
+	return nil, errors.New("managed replacement must use ListBySubjectForUpdate")
+}
+
+func (r *lockingAssignmentReadRepository) ListBySubjectForUpdate(
+	ctx context.Context,
+	subjectType assignmentDomain.SubjectType,
+	subjectID meta.ID,
+	tenantID string,
+) ([]*assignmentDomain.Assignment, error) {
+	r.onLockingRead()
+	return r.Repository.ListBySubjectForUpdate(ctx, subjectType, subjectID, tenantID)
 }
 
 func seedRoles(t *testing.T, ctx context.Context, repo roleDomain.Repository, names ...string) map[string]*roleDomain.Role {

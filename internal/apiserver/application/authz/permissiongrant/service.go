@@ -101,6 +101,7 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 	if cmd.TenantID == "" || cmd.GrantID.IsZero() || cmd.RevokedBy == "" {
 		return perrors.WithCode(code.ErrInvalidArgument, "tenant, grant id, and revoked by are required")
 	}
+	revoked := false
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
 		grant, err := tx.PermissionGrants.FindByID(txCtx, cmd.GrantID)
 		if err != nil {
@@ -118,6 +119,7 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 			if !outcome.AppliesVersionChange() {
 				return nil
 			}
+			revoked = true
 		case domain.RevokeOutcomeNotFound:
 			return perrors.WithCode(code.ErrInvalidArgument, "permission grant not found")
 		default:
@@ -136,7 +138,9 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 	if err != nil {
 		return err
 	}
-	policychange.ReloadRuntimePolicy(ctx, s.reloader, "permission_grant_revoked")
+	if revoked {
+		policychange.ReloadRuntimePolicy(ctx, s.reloader, "permission_grant_revoked")
+	}
 	return nil
 }
 

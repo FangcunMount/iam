@@ -18,6 +18,8 @@ type Repository interface {
 	FindByID(ctx context.Context, id AssignmentID) (*Assignment, error)
 	// ListBySubject 根据主体列出赋权
 	ListBySubject(ctx context.Context, subjectType SubjectType, subjectID meta.ID, tenantID string) ([]*Assignment, error)
+	// ListBySubjectForUpdate 使用当前读锁定主体赋权，供事务内替换使用。
+	ListBySubjectForUpdate(ctx context.Context, subjectType SubjectType, subjectID meta.ID, tenantID string) ([]*Assignment, error)
 	// ListByRole 根据角色列出赋权
 	ListByRole(ctx context.Context, roleID meta.ID, tenantID string) ([]*Assignment, error)
 }

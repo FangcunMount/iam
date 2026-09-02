@@ -92,6 +92,26 @@ func TestAuthorizationServerRejectsDuplicateAndUntrustedAttributes(t *testing.T)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 }
 
+func TestAuthorizationServerUsesInjectedObjectAttributeAdmissionPolicy(t *testing.T) {
+	checker := &checkerFake{decision: authorization.Decision{Allowed: true, Reason: authorization.ReasonAllowed}}
+	policy := &recordingObjectAttributePolicy{}
+	srv := &authorizationServer{checker: checker, objectAttributeAdmission: policy}
+
+	_, err := srv.Check(serviceContext("custom-caller.svc"), &authzv3.CheckRequest{
+		Subject: "user:1", Domain: "fangcun", Resource: "custom:domain:collection:objects", Action: "read",
+		ObjectContext: &authzv3.ObjectContext{ObjectId: "object-1", Attributes: []*authzv3.ObjectAttribute{{
+			Key:   "object.custom",
+			Value: &authzv3.ObjectAttribute_StringValue{StringValue: "trusted"},
+		}}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []objectattributeadmission.Request{{
+		CallerService: "custom-caller.svc",
+		ResourceKey:   "custom:domain:collection:objects",
+		AttributeKey:  "object.custom",
+	}}, policy.requests)
+}
+
 func TestAuthorizationServerSnapshotPreservesAuthorizationMode(t *testing.T) {
 	reader := &snapshotReaderFake{snapshot: authzapp.SubjectSnapshot{
 		DirectRoles:    []string{"qs:evaluator"},
@@ -311,7 +331,7 @@ func newAuthorizationTestClient(t *testing.T, checker authorizationChecker) (aut
 		}), req)
 	}))
 	authzv3.RegisterAuthorizationServiceServer(server, &authorizationServer{
-		checker: checker,
+		checker:                  checker,
 		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
 	})
 	go func() { _ = server.Serve(listener) }()
@@ -333,6 +353,15 @@ type checkerFake struct {
 	decision authorization.Decision
 	err      error
 	calls    []authorization.Request
+}
+
+type recordingObjectAttributePolicy struct {
+	requests []objectattributeadmission.Request
+}
+
+func (p *recordingObjectAttributePolicy) AuthorizeAttribute(request objectattributeadmission.Request) error {
+	p.requests = append(p.requests, request)
+	return nil
 }
 
 func (f *checkerFake) Check(_ context.Context, request authorization.Request) (authorization.Decision, error) {

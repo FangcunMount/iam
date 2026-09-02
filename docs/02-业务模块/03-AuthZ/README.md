@@ -140,7 +140,7 @@ REST 管理与 gRPC Check 边界不倒置。
 
 - 不承诺历史生产验收自动覆盖当前 HEAD。
 - 不承诺 Outbox publish 成功即所有实例加载完成。
-- 不承诺 `ReplaceManagedAssignments` 已在 MySQL 并发场景下线性化。
+- 不承诺一次条件 MySQL 并发测试可以覆盖全部生产调度、隔离配置和受管集合组合。
 - 不承诺快照 permission 列表等价于对象级 allow；`OBJECT_CHECK_REQUIRED` 仍要加载对象并 Check。
 - 不承诺 role name 是权限；任何放行最终都必须命中 PermissionGrant。
 - 不承诺文档门禁能理解所有自然语言；它只保护已编码的结构和关键事实。
@@ -150,7 +150,7 @@ REST 管理与 gRPC Check 边界不倒置。
 - MySQL 是权限事实源；不可变角色图、Grant 索引和完整快照都是可重建投影。
 - `RequirePermissionOrGlobal` 先检查当前 Tenant，再检查平台域；“平台域只有通配 Grant 才能全局放行”是当前数据基线，不是代码强制不变量。
 - `ReplaceManagedAssignments` 的返回值当前是目标受管角色子集，不等同于持久化后的全部直接角色。
-- MySQL `REPEATABLE READ` 下并发替换同一 Subject 的串行语义尚无专门并发证明；现有测试覆盖原子性、幂等和回滚。
+- MySQL `REPEATABLE READ` 下使用锁定当前读重算 Subject Assignment；专门并发测试需要 `MYSQL_HOST`，被跳过时不能声明已有 MySQL 运行证明。
 - Assignment 约束授权器缺失时，增量 Grant/Revoke 与批量 Replace 的失败行为并不对称，部署配置必须显式提供实现。
 
 ## 事实来源与证据边界

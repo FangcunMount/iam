@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/database/mysql"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Repository Assignment 仓储实现。
@@ -64,10 +65,21 @@ func (r *Repository) FindByID(ctx context.Context, id domain.AssignmentID) (*dom
 
 // ListBySubject 根据主体列出赋权
 func (r *Repository) ListBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID meta.ID, tenantID string) ([]*domain.Assignment, error) {
+	return r.listBySubject(ctx, subjectType, subjectID, tenantID, false)
+}
+
+func (r *Repository) ListBySubjectForUpdate(ctx context.Context, subjectType domain.SubjectType, subjectID meta.ID, tenantID string) ([]*domain.Assignment, error) {
+	return r.listBySubject(ctx, subjectType, subjectID, tenantID, true)
+}
+
+func (r *Repository) listBySubject(ctx context.Context, subjectType domain.SubjectType, subjectID meta.ID, tenantID string, lock bool) ([]*domain.Assignment, error) {
 	var pos []*AssignmentPO
 
-	err := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID.String()).
-		Find(&pos).Error
+	query := r.WithContext(ctx).Where("tenant_id = ? AND subject_type = ? AND subject_id = ?", tenantID, string(subjectType), subjectID.String())
+	if lock && r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() != "sqlite" {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	err := query.Find(&pos).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list domains by subject: %w", err)
 	}

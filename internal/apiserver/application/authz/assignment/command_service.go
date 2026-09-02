@@ -211,7 +211,7 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 			}
 		}
 
-		assignments, err := tx.Assignments.ListBySubject(txCtx, assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, cmd.TenantID)
+		assignments, err := tx.Assignments.ListBySubjectForUpdate(txCtx, assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, cmd.TenantID)
 		if err != nil {
 			return errors.Wrap(err, "list subject assignments")
 		}

@@ -129,7 +129,7 @@ T = 本次请求期望保留的目标角色
 1. 再次校验 Subject 存在。
 2. 按 name 加载 M 中的 Role，确认均属于目标 Tenant。
 3. 按 Role ID 排序，再依次 `FOR UPDATE` 锁定，降低多角色并发时的死锁顺序不一致。
-4. 读取 Subject 当前全部直接 Assignment，只投影出属于 M 的部分。
+4. 使用 `ListBySubjectForUpdate` 当前读锁定 Subject 的直接 Assignment，只投影出属于 M 的部分；即使事务已建立旧快照，锁等待后也会读取最新已提交状态。
 5. 软删除 `currentManaged - T`。
 6. 创建 `T - currentManaged`，由 active unique guard 阻止重复活跃关系。
 7. 若没有变化，读取当前 PolicyVersion 后结束；若有变化，只递增一次版本并写一条事件。
@@ -147,30 +147,20 @@ no-op 不递增版本非常重要。如果一个调用方周期性上报相同�
 
 ## 当前并发边界
 
-现有实现会锁定相关角色，但读取 Subject 当前 Assignment 的查询本身不是显式锁定读。在 MySQL 默认 `REPEATABLE READ` 下，两个请求并发替换同一 Subject 时，
-等待锁之后是否一定观察到对方已提交结果，目前没有专门的 MySQL 并发测试证明。
+实现先按 Role ID 顺序锁定受管角色，再使用 `ListBySubjectForUpdate` 对 Subject 当前 Assignment 执行 MySQL 当前读。后一个事务即使在普通 Role 查询时已经建立
+`REPEATABLE READ` 快照，等待锁后也会基于最新已提交 Assignment 重新计算 ReplacementPlan。
 
-因此当前可以声称：
+`replace_managed_assignments_mysql_concurrent_test.go` 使用事务内 Role-read barrier，确定性保证两个事务都在加角色锁前完成普通读，再断言最终集合必须完整等于其中一个目标，且两次有变化的
+Replace 精确产生两个 PolicyVersion 和两个 Outbox 事件。该测试需要 `MYSQL_HOST`，默认 CI 或本地未配置 MySQL 时会跳过；跳过不能被报告成 MySQL 运行证据。
 
-- 单事务原子；
-- 串行调用幂等；
-- 非受管 Assignment 被保留；
-
-但不能声称：
-
-- 任意并发替换都严格线性化；
-- 最后完成的请求一定等价于最后写入者获胜。
-
-在补充 MySQL 并发测试和必要的锁定读/隔离设计前，上游应避免并发替换同一 Tenant+Subject。
+因此当前可以声称代码与测试 fixture 定义了该并发序列的串行结果，但不能由此承诺任意生产负载、不同数据库隔离配置或全部受管集合组合都已经得到部署后证明。
 
 ### 风险不在单条 Assignment 唯一性
 
 active unique guard 能阻止两个事务同时创建完全相同的活跃 Assignment，但 Replace 要保护的是“多条记录组成的集合”。
 
-当前代码先锁定 M 中 Role，再使用普通 `ListBySubject` 读取当前 Assignment。在 MySQL `REPEATABLE READ` 下，该普通读的 read view 时机与锁等待后的可见性需要用真实
-MySQL 并发测试确认。只看到“锁了 Role”不足以推导整个替换已线性化。
-
-如要修复，应先定义所需语义（例如按 Tenant+Subject 串行、最后提交者获胜或使用 expected version 的乐观并发），再选择主体级锁、锁定读或版本检查。不应只在代码中多加一个锁就宣布问题解决。
+只锁 Role 仍不足以保护“多条记录组成的集合”；当前实现依靠 `ListBySubjectForUpdate` 的当前读和行/范围锁保护该集合。修改查询索引、隔离级别、软删除条件或锁顺序时，必须重新运行真实
+MySQL 并发测试，不能只用 SQLite 结果推导 MySQL 语义。
 
 ## Assignment 约束配置
 
@@ -212,13 +202,15 @@ constraints 必须决定调用服务是否允许代表该 actor 写入。Revoke 
 - `internal/apiserver/domain/authz/assignment`：Assignment 聚合、主体解析与写入不变量。
 - `internal/apiserver/infra/mysql/uow/authz`：仓储 Unit of Work 与语义测试。
 - `internal/apiserver/infra/mysql/uow/authz/replace_managed_assignments_test.go`：原子性、幂等、保留和回滚测试。
+- `internal/apiserver/infra/mysql/uow/authz/replace_managed_assignments_mysql_concurrent_test.go`：需 MySQL 的事务内并发序列测试。
 
 ## 证据矩阵
 
 | 结论 | 当前证据 | 尚未证明 |
 | --- | --- | --- |
 | 单次 Replace 原子 | SQLite UoW 回滚测试 | MySQL 异常注入的所有分支 |
-| 串行请求幂等 | no-op 测试，版本/事件不变 | 并发相同/不同目标的线性化 |
+| 串行请求幂等 | no-op 测试，版本/事件不变 | 生产调用方重试风暴 |
+| 并发不同目标 Replace | MySQL 事务内 barrier + 完整集合/精确版本事件断言（需 `MYSQL_HOST`） | 未运行该条件测试的环境、不同隔离配置与全部生产调度 |
 | 非受管关系保留 | managed/unmanaged fixture | 配置误把角色纳入 M 时的业务安全性 |
 | 单条 Assignment 唯一 | migration active guard + repository concurrency test | 整个 Assignment 集合的事务序列 |
 | 提交后可通知 | PolicyVersion + Outbox 同事务 | 全部实例在固定时间内收敛 |

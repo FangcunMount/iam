@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
@@ -72,6 +73,62 @@ func TestRepositoryHistoricalRevokedGrantMySQLConcurrencyRegression(t *testing.T
 	require.Len(t, active, 1)
 }
 
+func TestRepositoryAtomicRevokeClassifiesConcurrentSnapshotAsAlreadyRevokedMySQL(t *testing.T) {
+	host := os.Getenv("MYSQL_HOST")
+	if host == "" {
+		t.Skip("MYSQL_HOST is not configured")
+	}
+	port := os.Getenv("MYSQL_PORT")
+	if port == "" {
+		port = "3306"
+	}
+	user := os.Getenv("MYSQL_USER")
+	if user == "" {
+		user = os.Getenv("MYSQL_USERNAME")
+	}
+	database := os.Getenv("MYSQL_DATABASE")
+	if database == "" {
+		database = os.Getenv("MYSQL_DBNAME")
+	}
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&loc=Local",
+		user, os.Getenv("MYSQL_PASSWORD"), host, port, database)
+	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&repo.GrantPO{}))
+
+	tenantID := fmt.Sprintf("revoke-snapshot-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		require.NoError(t, db.Unscoped().Where("tenant_id = ?", tenantID).Delete(&repo.GrantPO{}).Error)
+	})
+	repository := repo.NewRepository(db)
+	grant := mustGrantForTenant(t, tenantID)
+	require.NoError(t, repository.Create(context.Background(), &grant))
+
+	tx1 := db.Begin()
+	require.NoError(t, tx1.Error)
+	defer tx1.Rollback()
+	tx2 := db.Begin()
+	require.NoError(t, tx2.Error)
+	defer tx2.Rollback()
+	repo1 := repo.NewRepository(tx1)
+	repo2 := repo.NewRepository(tx2)
+
+	_, err = repo1.FindByID(context.Background(), grant.ID)
+	require.NoError(t, err)
+	_, err = repo2.FindByID(context.Background(), grant.ID)
+	require.NoError(t, err)
+
+	outcome, err := repo1.AtomicRevoke(context.Background(), grant.ID, tenantID)
+	require.NoError(t, err)
+	require.Equal(t, domain.RevokeOutcomeRevoked, outcome)
+	require.NoError(t, tx1.Commit().Error)
+
+	outcome, err = repo2.AtomicRevoke(context.Background(), grant.ID, tenantID)
+	require.NoError(t, err)
+	require.Equal(t, domain.RevokeOutcomeAlreadyRevoked, outcome)
+	require.NoError(t, tx2.Commit().Error)
+}
+
 func testRepositoryCreatesRevokesAndAllowsRegrant(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.AutoMigrate(&repo.GrantPO{}))
@@ -97,9 +154,13 @@ func testRepositoryCreatesRevokesAndAllowsRegrant(t *testing.T, db *gorm.DB) {
 }
 
 func mustGrant(t *testing.T) domain.Grant {
+	return mustGrantForTenant(t, "tenant-a")
+}
+
+func mustGrantForTenant(t *testing.T, tenantID string) domain.Grant {
 	t.Helper()
 	grant, err := domain.New(
-		meta.FromUint64(10), "tenant-a", resource.NewResourceID(20),
+		meta.FromUint64(10), tenantID, resource.NewResourceID(20),
 		"qs:evaluation:collection:assessments", "retry", constraint.Empty(), "operator-1",
 	)
 	require.NoError(t, err)

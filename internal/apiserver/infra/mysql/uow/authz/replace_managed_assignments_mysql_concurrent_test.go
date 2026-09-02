@@ -6,11 +6,11 @@ import (
 	"os"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
+	authzAppUOW "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	assignmentDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
@@ -54,42 +54,118 @@ func TestReplaceManagedAssignmentsMySQLConcurrentLinearization(t *testing.T) {
 	require.NoError(t, err)
 	managed := []string{"qs:staff", "qs:evaluator"}
 	stager := &eventStager{}
-	uow := authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager)
+	barrier := newRoleReadBarrier()
+	defer barrier.Release()
+	uow := &roleReadBarrierUnitOfWork{
+		delegate: authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager),
+		barrier:  barrier,
+	}
 	validator := assignmentDomain.NewValidator(roles, existingUserResolver{})
 	service := assignmentApp.NewCommandService(validator, roles, uow, nil)
 
 	policyVersions := policyRepo.NewPolicyVersionRepository(db)
 	beforeVersion := currentPolicyVersion(t, ctx, policyVersions, tenantID)
-	beforeEvents := len(stager.events)
+	beforeEvents := stager.Count()
 
-	barrier := make(chan struct{})
-	var overlap atomic.Bool
-	var wg sync.WaitGroup
-	wg.Add(2)
-	runReplace := func(target []string, changedBy string) {
-		defer wg.Done()
-		<-barrier
-		overlap.Store(true)
-		cmd, cmdErr := assignmentApp.NewReplaceManagedAssignmentsCommand(sub, tenantID, target, managed, changedBy, "concurrent-replace")
+	commands := make([]assignmentApp.ReplaceManagedAssignmentsCommand, 0, 2)
+	for _, input := range []struct {
+		target    []string
+		changedBy string
+	}{
+		{target: []string{"qs:staff"}, changedBy: "user:concurrent-a"},
+		{target: []string{"qs:evaluator"}, changedBy: "user:concurrent-b"},
+	} {
+		cmd, cmdErr := assignmentApp.NewReplaceManagedAssignmentsCommand(
+			sub, tenantID, input.target, managed, input.changedBy, "concurrent-replace",
+		)
 		require.NoError(t, cmdErr)
-		_, replaceErr := service.ReplaceManagedAssignments(ctx, cmd)
-		require.NoError(t, replaceErr)
+		commands = append(commands, cmd)
 	}
-	go runReplace([]string{"qs:staff"}, "user:concurrent-a")
-	go runReplace([]string{"qs:evaluator"}, "user:concurrent-b")
-	close(barrier)
-	wg.Wait()
-	require.True(t, overlap.Load(), "both replace operations must overlap")
+
+	type replaceResult struct {
+		result assignmentApp.ReplaceManagedAssignmentsResult
+		err    error
+	}
+	results := make(chan replaceResult, len(commands))
+	for _, cmd := range commands {
+		cmd := cmd
+		go func() {
+			result, replaceErr := service.ReplaceManagedAssignments(ctx, cmd)
+			results <- replaceResult{result: result, err: replaceErr}
+		}()
+	}
+	for range commands {
+		select {
+		case <-barrier.arrived:
+		case result := <-results:
+			require.NoError(t, result.err)
+			t.Fatal("replace returned before both transactions reached the role-read barrier")
+		case <-time.After(10 * time.Second):
+			t.Fatal("timed out waiting for concurrent replace transactions")
+		}
+	}
+	barrier.Release()
+	for range commands {
+		result := <-results
+		require.NoError(t, result.err)
+		require.True(t, result.result.Changed)
+	}
 
 	final := assignedTenantRoleNames(t, ctx, assignments, roles, tenantID, userID)
 	validTargets := [][]string{{"qs:staff"}, {"qs:evaluator"}}
 	require.Contains(t, validTargets, final, "concurrent replace must end in one complete managed target set")
 
 	afterVersion := currentPolicyVersion(t, ctx, policyVersions, tenantID)
-	require.GreaterOrEqual(t, afterVersion, beforeVersion+1)
-	require.LessOrEqual(t, afterVersion, beforeVersion+2)
-	require.GreaterOrEqual(t, len(stager.events), beforeEvents+1)
-	require.LessOrEqual(t, len(stager.events), beforeEvents+2)
+	require.Equal(t, beforeVersion+2, afterVersion)
+	require.Equal(t, beforeEvents+2, stager.Count())
+}
+
+type roleReadBarrier struct {
+	arrived     chan struct{}
+	release     chan struct{}
+	releaseOnce sync.Once
+}
+
+func newRoleReadBarrier() *roleReadBarrier {
+	return &roleReadBarrier{arrived: make(chan struct{}, 2), release: make(chan struct{})}
+}
+
+func (b *roleReadBarrier) ArriveAndWait() {
+	b.arrived <- struct{}{}
+	<-b.release
+}
+
+func (b *roleReadBarrier) Release() {
+	b.releaseOnce.Do(func() { close(b.release) })
+}
+
+type roleReadBarrierUnitOfWork struct {
+	delegate authzAppUOW.UnitOfWork
+	barrier  *roleReadBarrier
+}
+
+func (u *roleReadBarrierUnitOfWork) WithinTx(
+	ctx context.Context,
+	fn func(context.Context, authzAppUOW.TxRepositories) error,
+) error {
+	return u.delegate.WithinTx(ctx, func(txCtx context.Context, tx authzAppUOW.TxRepositories) error {
+		tx.Roles = &roleReadBarrierRepository{Repository: tx.Roles, barrier: u.barrier}
+		return fn(txCtx, tx)
+	})
+}
+
+type roleReadBarrierRepository struct {
+	roleDomain.Repository
+	barrier *roleReadBarrier
+	once    sync.Once
+}
+
+func (r *roleReadBarrierRepository) FindByName(ctx context.Context, tenantID, name string) (*roleDomain.Role, error) {
+	role, err := r.Repository.FindByName(ctx, tenantID, name)
+	if err == nil {
+		r.once.Do(r.barrier.ArriveAndWait)
+	}
+	return role, err
 }
 
 func mysqlDSN(host string) string {
