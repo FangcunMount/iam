@@ -1,21 +1,21 @@
-package policychange
+package policy
 
 import (
 	"sort"
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/roleinheritance"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
-	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
-// ValidateResourceDependencies proves that every active grant depending on a
-// catalog resource remains valid against the candidate catalog definition.
-func ValidateResourceDependencies(candidate resource.Resource, grants []*permissiongrant.Grant) error {
+// ResourceChangePolicy validates catalog changes against active permission grants.
+type ResourceChangePolicy struct{}
+
+// ValidateDependencies proves that every active grant depending on a catalog
+// resource remains valid against the candidate catalog definition.
+func (ResourceChangePolicy) ValidateDependencies(candidate resource.Resource, grants []*permissiongrant.Grant) error {
 	for _, grant := range grants {
 		if grant == nil || !grant.IsActive() {
 			continue
@@ -27,7 +27,8 @@ func ValidateResourceDependencies(candidate resource.Resource, grants []*permiss
 	return nil
 }
 
-func EnsureResourceUnused(grants []*permissiongrant.Grant) error {
+// EnsureUnused rejects deletion when active grants still reference the resource.
+func (ResourceChangePolicy) EnsureUnused(grants []*permissiongrant.Grant) error {
 	active := 0
 	for _, grant := range grants {
 		if grant != nil && grant.IsActive() {
@@ -40,27 +41,10 @@ func EnsureResourceUnused(grants []*permissiongrant.Grant) error {
 	return nil
 }
 
-func EnsureRoleUnused(roleID meta.ID, assignments []*assignment.Assignment, grants []*permissiongrant.Grant, inheritances []*roleinheritance.Inheritance) error {
-	if len(assignments) > 0 {
-		return perrors.WithCode(code.ErrRoleInUse, "role has %d active assignments", len(assignments))
-	}
-	for _, grant := range grants {
-		if grant != nil && grant.IsActive() {
-			return perrors.WithCode(code.ErrRoleInUse, "role has active permission grants")
-		}
-	}
-	for _, inheritance := range inheritances {
-		if inheritance != nil && inheritance.IsActive() && (inheritance.RoleID == roleID || inheritance.InheritedRoleID == roleID) {
-			return perrors.WithCode(code.ErrRoleInUse, "role participates in an active inheritance")
-		}
-	}
-	return nil
-}
-
 // AffectedResourceTenantIDs returns a stable tenant order for version bumps.
 // Resources are global catalog entries, so a compatible schema/action change
 // must notify every tenant with a dependent active grant.
-func AffectedResourceTenantIDs(changedByTenant string, grants []*permissiongrant.Grant) []string {
+func (ResourceChangePolicy) AffectedResourceTenantIDs(changedByTenant string, grants []*permissiongrant.Grant) []string {
 	seen := make(map[string]struct{}, len(grants)+1)
 	add := func(tenantID string) {
 		tenantID = strings.TrimSpace(tenantID)

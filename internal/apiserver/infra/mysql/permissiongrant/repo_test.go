@@ -84,7 +84,9 @@ func testRepositoryCreatesRevokesAndAllowsRegrant(t *testing.T, db *gorm.DB) {
 	err := repository.Create(ctx, &duplicate)
 	require.True(t, perrors.IsCode(err, code.ErrPermissionGrantAlreadyExists))
 
-	require.NoError(t, repository.Revoke(ctx, first.ID))
+	outcome, err := repository.AtomicRevoke(ctx, first.ID, "tenant-a")
+	require.NoError(t, err)
+	require.Equal(t, domain.RevokeOutcomeRevoked, outcome)
 	second := mustGrant(t)
 	require.NoError(t, repository.Create(ctx, &second))
 

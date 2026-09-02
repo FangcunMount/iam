@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 )
 
 type Operation string
@@ -18,17 +22,17 @@ const (
 type Request struct {
 	CallerService  string
 	Operation      Operation
-	Subject        string
-	Domain         string
-	RoleName       string
+	Subject        subject.Ref
+	Domain         tenant.ID
+	RoleName       role.Name
 	DelegatedActor string
 }
 
 type ReplacementRequest struct {
 	CallerService  string
-	Subject        string
-	Domain         string
-	RoleNames      []string
+	Subject        subject.Ref
+	Domain         tenant.ID
+	RoleNames      []role.Name
 	DelegatedActor string
 }
 
@@ -106,14 +110,13 @@ func (a *rulePolicy) AuthorizeAssignment(request Request) error {
 	if constraint.AllowAll {
 		return nil
 	}
-	if !contains(constraint.Domains, request.Domain) {
+	if !contains(constraint.Domains, request.Domain.String()) {
 		return &DeniedError{Reason: "domain_not_allowed"}
 	}
-	parts := strings.SplitN(strings.TrimSpace(request.Subject), ":", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" || !contains(constraint.SubjectTypes, parts[0]) {
+	if !contains(constraint.SubjectTypes, string(request.Subject.Type)) {
 		return &DeniedError{Reason: "subject_not_allowed"}
 	}
-	if !contains(constraint.Roles, request.RoleName) {
+	if !contains(constraint.Roles, request.RoleName.String()) {
 		return &DeniedError{Reason: "role_not_allowed"}
 	}
 	if request.Operation == OperationGrant && constraint.RequireDelegatedActorOnGrant {
@@ -134,17 +137,16 @@ func (a *rulePolicy) AuthorizeReplacement(request ReplacementRequest) ([]string,
 	if constraint.AllowAll {
 		return nil, &DeniedError{Reason: "replacement_requires_explicit_managed_roles"}
 	}
-	if !contains(constraint.Domains, request.Domain) {
+	if !contains(constraint.Domains, request.Domain.String()) {
 		return nil, &DeniedError{Reason: "domain_not_allowed"}
 	}
-	parts := strings.SplitN(strings.TrimSpace(request.Subject), ":", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" || !contains(constraint.SubjectTypes, parts[0]) {
+	if !contains(constraint.SubjectTypes, string(request.Subject.Type)) {
 		return nil, &DeniedError{Reason: "subject_not_allowed"}
 	}
 	managedRoles := sortedSet(constraint.Roles)
 	managedSet := normalizeSet(managedRoles)
 	for _, roleName := range request.RoleNames {
-		if _, ok := managedSet[strings.TrimSpace(roleName)]; !ok {
+		if _, ok := managedSet[roleName.String()]; !ok {
 			return nil, &DeniedError{Reason: "role_not_allowed"}
 		}
 	}

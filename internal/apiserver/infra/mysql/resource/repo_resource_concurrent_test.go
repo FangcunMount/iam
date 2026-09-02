@@ -37,7 +37,7 @@ func TestResourceRepository_Create_ConcurrentDuplicateDetection(t *testing.T) {
 			defer wg.Done()
 			// add tiny random delay to reduce SQLITE table-lock contention
 			time.Sleep(time.Millisecond * time.Duration(d))
-			r, err := domain.NewResource("app:domain:type:dup", []string{"read", "write"})
+			r, err := domain.NewResource("app:domain:type:dup", []string{"read", "write"}, domain.WithDisplayName("Dup"))
 			require.NoError(t, err)
 			if err := testhelpers.RetryOnDBLocked(func() error { return repo.Create(ctx, &r) }); err != nil {
 				errs <- err

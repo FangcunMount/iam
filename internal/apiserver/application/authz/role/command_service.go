@@ -7,6 +7,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
@@ -14,20 +15,21 @@ import (
 // RoleCatalog mutates tenant role definitions in the same transaction as the
 // policy version and outbox notification.
 type RoleCatalog struct {
-	roleValidator roleDomain.Validator
-	uow           authzuow.UnitOfWork
-	reloader      policychange.RuntimePolicyReloader
+	uow               authzuow.UnitOfWork
+	reloader          policychange.RuntimePolicyReloader
+	roleRemovalPolicy policyDomain.RoleRemovalPolicy
 }
 
-func NewRoleCatalog(roleValidator roleDomain.Validator, uow authzuow.UnitOfWork, reloader policychange.RuntimePolicyReloader) *RoleCatalog {
-	return &RoleCatalog{roleValidator: roleValidator, uow: uow, reloader: reloader}
+func NewRoleCatalog(uow authzuow.UnitOfWork, reloader policychange.RuntimePolicyReloader) *RoleCatalog {
+	return &RoleCatalog{
+		uow:               uow,
+		reloader:          reloader,
+		roleRemovalPolicy: policyDomain.RoleRemovalPolicy{},
+	}
 }
 
 func (s *RoleCatalog) CreateRole(ctx context.Context, cmd CreateRoleCommand) (*roleDomain.Role, error) {
 	if err := s.validateChange(cmd.TenantIDString(), cmd.ChangedBy); err != nil {
-		return nil, err
-	}
-	if err := s.roleValidator.ValidateCreateParameters(cmd.NameString(), cmd.DisplayName, cmd.TenantIDString()); err != nil {
 		return nil, err
 	}
 	created, err := roleDomain.NewRole(cmd.NameString(), cmd.DisplayName, cmd.TenantIDString(), roleDomain.WithDescription(cmd.Description))
@@ -116,7 +118,7 @@ func (s *RoleCatalog) DeleteRole(ctx context.Context, cmd DeleteRoleCommand) err
 		if err != nil {
 			return err
 		}
-		if err := policychange.EnsureRoleUnused(cmd.ID, assignments, grants, inheritances); err != nil {
+		if err := s.roleRemovalPolicy.EnsureUnused(cmd.ID, assignments, grants, inheritances); err != nil {
 			return err
 		}
 		if err := tx.Roles.Delete(txCtx, cmd.ID); err != nil {

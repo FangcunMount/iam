@@ -4,7 +4,38 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 )
+
+func mustSubject(t *testing.T, value string) subject.Ref {
+	t.Helper()
+	ref, err := subject.ParseRef(value)
+	if err != nil {
+		t.Fatalf("subject.ParseRef(%q) error = %v", value, err)
+	}
+	return ref
+}
+
+func mustTenant(t *testing.T, value string) tenant.ID {
+	t.Helper()
+	id, err := tenant.NewID(value)
+	if err != nil {
+		t.Fatalf("tenant.NewID(%q) error = %v", value, err)
+	}
+	return id
+}
+
+func mustRoleName(t *testing.T, value string) role.Name {
+	t.Helper()
+	name, err := role.NewName(value)
+	if err != nil {
+		t.Fatalf("role.NewName(%q) error = %v", value, err)
+	}
+	return name
+}
 
 func TestAuthorizerEnforcesServiceConstraints(t *testing.T) {
 	authorizer, err := New(Config{
@@ -26,9 +57,9 @@ func TestAuthorizerEnforcesServiceConstraints(t *testing.T) {
 	valid := Request{
 		CallerService:  "qs-apiserver.svc",
 		Operation:      OperationGrant,
-		Subject:        "user:10001",
-		Domain:         "fangcun",
-		RoleName:       "qs:staff",
+		Subject:        mustSubject(t, "user:10001"),
+		Domain:         mustTenant(t, "fangcun"),
+		RoleName:       mustRoleName(t, "qs:staff"),
 		DelegatedActor: "user:20001",
 	}
 	if err := authorizer.AuthorizeAssignment(valid); err != nil {
@@ -37,9 +68,9 @@ func TestAuthorizerEnforcesServiceConstraints(t *testing.T) {
 
 	for name, mutate := range map[string]func(*Request){
 		"service": func(r *Request) { r.CallerService = "unknown" },
-		"domain":  func(r *Request) { r.Domain = "platform" },
-		"subject": func(r *Request) { r.Subject = "service:10001" },
-		"role":    func(r *Request) { r.RoleName = "super_admin" },
+		"domain":  func(r *Request) { r.Domain = mustTenant(t, "platform") },
+		"subject": func(r *Request) { r.Subject = mustSubject(t, "service:10001") },
+		"role":    func(r *Request) { r.RoleName = mustRoleName(t, "super_admin") },
 		"actor":   func(r *Request) { r.DelegatedActor = "" },
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -83,8 +114,8 @@ func TestAuthorizeReplacementReturnsEntireManagedSetAndRejectsEscalation(t *test
 		t.Fatalf("New() error = %v", err)
 	}
 	managed, err := authorizer.AuthorizeReplacement(ReplacementRequest{
-		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
-		RoleNames: []string{"qs:evaluator"}, DelegatedActor: "user:20",
+		CallerService: "qs-apiserver.svc", Subject: mustSubject(t, "user:10"), Domain: mustTenant(t, "fangcun"),
+		RoleNames: []role.Name{mustRoleName(t, "qs:evaluator")}, DelegatedActor: "user:20",
 	})
 	if err != nil {
 		t.Fatalf("AuthorizeReplacement() error = %v", err)
@@ -94,23 +125,23 @@ func TestAuthorizeReplacementReturnsEntireManagedSetAndRejectsEscalation(t *test
 		t.Fatalf("managed roles = %v, want %v", managed, want)
 	}
 	managed, err = authorizer.AuthorizeReplacement(ReplacementRequest{
-		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
-		RoleNames: []string{"qs:evaluator"}, DelegatedActor: "service:qs-apiserver.svc",
+		CallerService: "qs-apiserver.svc", Subject: mustSubject(t, "user:10"), Domain: mustTenant(t, "fangcun"),
+		RoleNames: []role.Name{mustRoleName(t, "qs:evaluator")}, DelegatedActor: "service:qs-apiserver.svc",
 	})
 	if err != nil || !reflect.DeepEqual(managed, want) {
 		t.Fatalf("service-authored replacement = %v, %v, want %v", managed, err, want)
 	}
 	_, err = authorizer.AuthorizeReplacement(ReplacementRequest{
-		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
-		RoleNames: []string{"qs:evaluator"}, DelegatedActor: "service:other.svc",
+		CallerService: "qs-apiserver.svc", Subject: mustSubject(t, "user:10"), Domain: mustTenant(t, "fangcun"),
+		RoleNames: []role.Name{mustRoleName(t, "qs:evaluator")}, DelegatedActor: "service:other.svc",
 	})
 	var denied *DeniedError
 	if !errors.As(err, &denied) || denied.Reason != "delegated_actor_required" {
 		t.Fatalf("mismatched service actor error = %v, want delegated_actor_required", err)
 	}
 	_, err = authorizer.AuthorizeReplacement(ReplacementRequest{
-		CallerService: "qs-apiserver.svc", Subject: "user:10", Domain: "fangcun",
-		RoleNames: []string{"tenant_admin"}, DelegatedActor: "user:20",
+		CallerService: "qs-apiserver.svc", Subject: mustSubject(t, "user:10"), Domain: mustTenant(t, "fangcun"),
+		RoleNames: []role.Name{mustRoleName(t, "tenant_admin")}, DelegatedActor: "user:20",
 	})
 	denied = nil
 	if !errors.As(err, &denied) || denied.Reason != "role_not_allowed" {

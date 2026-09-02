@@ -1128,6 +1128,49 @@ func TestAuthzDecisionPolicyLivesInTheAuthorizationDomain(t *testing.T) {
 	}
 }
 
+func TestAuthzDomainDoesNotImportApplication(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	scanImports(t, filepath.Join(root, "internal", "apiserver", "domain", "authz"), func(path string, imports []string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, imp := range imports {
+			if strings.HasPrefix(imp, modulePath+"internal/apiserver/application/authz") {
+				t.Fatalf("%s imports %s; authz domain must not depend on application", rel, imp)
+			}
+		}
+	})
+}
+
+func TestAuthzCrossAggregatePolicyNotInApplication(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	dependencyPath := filepath.Join(root, "internal", "apiserver", "application", "authz", "policychange", "dependency_validation.go")
+	if _, err := os.Stat(dependencyPath); err == nil {
+		t.Fatalf("dependency_validation.go must be removed from application layer")
+	}
+	assertFileContains(t, root, "internal/apiserver/domain/authz/policy/resource_change_policy.go", "ResourceChangePolicy")
+	assertFileContains(t, root, "internal/apiserver/domain/authz/policy/role_removal_policy.go", "RoleRemovalPolicy")
+}
+
+func TestAuthzGRPCAssignmentAdmissionNeverFailOpen(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	assertFileContains(t, root, "internal/apiserver/container/authz/module.go", "assignment constraints file is required")
+	assertFileContains(t, root, "internal/apiserver/transport/grpc/service/authz/service.go",
+		`recordAssignmentAuthorization(request.CallerService, string(request.Operation), "failed")`)
+}
+
+func TestAuthzApplicationDoesNotComputeManagedAssignmentDiff(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	assertFileLacks(t, root, "internal/apiserver/application/authz/assignment/command_service.go", "currentManaged := make(map[string]")
+	assertFileContains(t, root, "internal/apiserver/domain/authz/assignment/replacement_policy.go", "type ReplacementPlan struct")
+}
+
 func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	t.Parallel()
 

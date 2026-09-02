@@ -2,7 +2,8 @@ package roleinheritance
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"strings"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -81,23 +82,40 @@ func (r *Repository) Create(ctx context.Context, inheritance *domain.Inheritance
 	})
 }
 
-func (r *Repository) Revoke(ctx context.Context, id meta.ID) error {
+func (r *Repository) AtomicRevoke(ctx context.Context, id meta.ID, tenantID string) (domain.RevokeOutcome, error) {
 	now := time.Now()
-	result := r.WithContext(ctx).Model(&InheritancePO{}).
-		Where("id = ? AND revoked_at IS NULL", id.Uint64()).
-		Updates(map[string]any{
-			"revoked_at": now,
-			"updated_at": now,
-			"updated_by": mysql.UserIDOrZero(ctx).Uint64(),
-			"version":    gorm.Expr("version + 1"),
-		})
+	query := r.WithContext(ctx).Model(&InheritancePO{}).
+		Where("id = ? AND revoked_at IS NULL", id.Uint64())
+	if strings.TrimSpace(tenantID) != "" {
+		query = query.Where("tenant_id = ?", strings.TrimSpace(tenantID))
+	}
+	result := query.Updates(map[string]any{
+		"revoked_at": now,
+		"updated_at": now,
+		"updated_by": mysql.UserIDOrZero(ctx).Uint64(),
+		"version":    gorm.Expr("version + 1"),
+	})
 	if result.Error != nil {
-		return result.Error
+		return "", result.Error
 	}
-	if result.RowsAffected != 1 {
-		return fmt.Errorf("role inheritance is not active: %w", gorm.ErrRecordNotFound)
+	if result.RowsAffected == 1 {
+		return domain.RevokeOutcomeRevoked, nil
 	}
-	return nil
+	var po InheritancePO
+	findQuery := r.WithContext(ctx).Where("id = ?", id.Uint64())
+	if strings.TrimSpace(tenantID) != "" {
+		findQuery = findQuery.Where("tenant_id = ?", strings.TrimSpace(tenantID))
+	}
+	if err := findQuery.First(&po).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.RevokeOutcomeNotFound, nil
+		}
+		return "", err
+	}
+	if po.RevokedAt != nil {
+		return domain.RevokeOutcomeAlreadyRevoked, nil
+	}
+	return domain.RevokeOutcomeNotFound, nil
 }
 
 func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.Inheritance, error) {

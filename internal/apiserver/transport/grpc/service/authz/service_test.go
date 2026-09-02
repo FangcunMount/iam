@@ -12,6 +12,7 @@ import (
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
 	assignmentadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	objectattributeadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/objectattributeadmission"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
@@ -29,7 +30,10 @@ import (
 )
 
 func TestAuthorizationServerRequiresServiceIdentity(t *testing.T) {
-	srv := &authorizationServer{checker: &checkerFake{}}
+	srv := &authorizationServer{
+		checker:                  &checkerFake{},
+		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+	}
 	_, err := srv.Check(context.Background(), &authzv3.CheckRequest{
 		Subject: "user:1", Domain: "fangcun", Resource: assessmentResource, Action: "retry",
 	})
@@ -41,7 +45,10 @@ func TestAuthorizationServerCheckMapsTypedObjectContext(t *testing.T) {
 		Allowed: true, Reason: authorization.ReasonAllowed,
 		MatchedGrantID: meta.FromUint64(100), MatchedRole: "qs:evaluator", PolicyVersion: 12,
 	}}
-	srv := &authorizationServer{checker: checker}
+	srv := &authorizationServer{
+		checker:                  checker,
+		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+	}
 	ctx := serviceContext("qs-apiserver.svc")
 	resp, err := srv.Check(ctx, &authzv3.CheckRequest{
 		Subject: "user:1", Domain: "fangcun", Resource: assessmentResource, Action: "retry",
@@ -64,7 +71,10 @@ func TestAuthorizationServerCheckMapsTypedObjectContext(t *testing.T) {
 }
 
 func TestAuthorizationServerRejectsDuplicateAndUntrustedAttributes(t *testing.T) {
-	srv := &authorizationServer{checker: &checkerFake{}}
+	srv := &authorizationServer{
+		checker:                  &checkerFake{},
+		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+	}
 	duplicate := []*authzv3.ObjectAttribute{
 		{Key: attribute.ObjectOriginType, Value: &authzv3.ObjectAttribute_StringValue{StringValue: "adhoc"}},
 		{Key: attribute.ObjectOriginType, Value: &authzv3.ObjectAttribute_StringValue{StringValue: "plan"}},
@@ -138,6 +148,26 @@ func TestAuthorizationServerAssignmentsUseV3AndConstraints(t *testing.T) {
 	require.EqualValues(t, 13, replaceResponse.PolicyVersion)
 	require.True(t, replaceResponse.Changed)
 	require.Len(t, commands.replacements, 1)
+}
+
+func TestAuthorizationServerRejectsNilAssignmentAdmissionPolicy(t *testing.T) {
+	srv := &authorizationServer{assignments: &assignmentCommandsFake{}}
+	ctx := serviceContext("qs-apiserver.svc")
+
+	_, err := srv.GrantAssignment(ctx, &authzv3.GrantAssignmentRequest{
+		Subject: "user:100", Domain: "fangcun", RoleName: "qs:evaluator", GrantedBy: "user:1",
+	})
+	require.Equal(t, codes.Internal, status.Code(err))
+
+	_, err = srv.RevokeAssignment(ctx, &authzv3.RevokeAssignmentRequest{
+		Subject: "user:100", Domain: "fangcun", RoleName: "qs:evaluator",
+	})
+	require.Equal(t, codes.Internal, status.Code(err))
+
+	_, err = srv.ReplaceManagedAssignments(ctx, &authzv3.ReplaceManagedAssignmentsRequest{
+		Subject: "user:100", Domain: "fangcun", RoleNames: []string{"qs:evaluator"}, ChangedBy: "user:1",
+	})
+	require.Equal(t, codes.Internal, status.Code(err))
 }
 
 func TestAuthorizationV3GRPCAssessmentRetryMatrix(t *testing.T) {
@@ -227,6 +257,7 @@ func newMatrixRuntime(t *testing.T) *authzruntime.Runtime {
 		assessmentResource,
 		[]string{"retry", "force_retry", "batch_evaluate"},
 		resource.WithID(resource.NewResourceID(20)),
+		resource.WithDisplayName("Assessments"),
 		resource.WithAttributeSchema(attribute.AssessmentSchema()),
 	)
 	require.NoError(t, err)
@@ -276,10 +307,13 @@ func newAuthorizationTestClient(t *testing.T, checker authorizationChecker) (aut
 		ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 	) (any, error) {
 		return handler(interceptors.ContextWithServiceIdentity(ctx, &interceptors.ServiceIdentity{
-			ServiceName: trustedAssessmentAttributeService,
+			ServiceName: objectattributeadmission.TrustedAssessmentAttributeService,
 		}), req)
 	}))
-	authzv3.RegisterAuthorizationServiceServer(server, &authorizationServer{checker: checker})
+	authzv3.RegisterAuthorizationServiceServer(server, &authorizationServer{
+		checker: checker,
+		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+	})
 	go func() { _ = server.Serve(listener) }()
 	connection, err := grpc.NewClient(
 		"passthrough:///bufnet",

@@ -9,7 +9,7 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context, grant *Grant) error
-	Revoke(ctx context.Context, id meta.ID) error
+	AtomicRevoke(ctx context.Context, id meta.ID, tenantID string) (RevokeOutcome, error)
 	FindByID(ctx context.Context, id meta.ID) (*Grant, error)
 	ListByRole(ctx context.Context, roleID meta.ID, tenantID string) ([]*Grant, error)
 	ListActiveByResource(ctx context.Context, resourceID resource.ResourceID) ([]*Grant, error)

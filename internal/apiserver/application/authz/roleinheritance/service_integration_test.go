@@ -48,6 +48,29 @@ func TestRoleInheritanceCreateRejectsCyclesAndRevokeAdvancesPolicy(t *testing.T)
 	require.EqualValues(t, 2, fixture.PolicyVersionCount(t))
 }
 
+func TestRoleInheritanceRevokeAlreadyRevokedReturnsError(t *testing.T) {
+	fixture, service, stager := setupRoleInheritanceService(t, nil)
+	roles := fixture.Roles
+	child := seedRole(t, roles, "qs:operator", "tenant-a")
+	parent := seedRole(t, roles, "qs:evaluator", "tenant-a")
+	created, err := service.Create(context.Background(), roleInheritanceApp.CreateCommand{
+		TenantID: "tenant-a", RoleID: child.ID, InheritedRoleID: parent.ID, GrantedBy: "operator-1",
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.Revoke(context.Background(), roleInheritanceApp.RevokeCommand{
+		TenantID: "tenant-a", ID: created.ID, RevokedBy: "operator-1",
+	}))
+	require.Len(t, stager.events, 2)
+
+	err = service.Revoke(context.Background(), roleInheritanceApp.RevokeCommand{
+		TenantID: "tenant-a", ID: created.ID, RevokedBy: "operator-1",
+	})
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+	require.Len(t, stager.events, 2, "duplicate revoke must not publish another policy version")
+	require.EqualValues(t, 2, fixture.PolicyVersionCount(t))
+}
+
 func TestRoleInheritanceCreateRejectsUnknownOrCrossTenantRole(t *testing.T) {
 	fixture, service, _ := setupRoleInheritanceService(t, nil)
 	roles := fixture.Roles

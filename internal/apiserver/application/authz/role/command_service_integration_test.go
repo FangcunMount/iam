@@ -27,7 +27,7 @@ func TestDeleteRoleRejectsRoleWithActiveGrant(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, grants.Create(context.Background(), &grant))
-	catalog := roleApp.NewRoleCatalog(roleDomain.NewValidator(roles), fixture.UnitOfWork, nil)
+	catalog := roleApp.NewRoleCatalog(fixture.UnitOfWork, nil)
 
 	err = catalog.DeleteRole(context.Background(), roleApp.DeleteRoleCommand{ID: role.ID, TenantID: "tenant-a", ChangedBy: "operator"})
 

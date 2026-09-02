@@ -10,10 +10,12 @@ import (
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
 	assignmentadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	objectattributeadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/objectattributeadmission"
 	authorizationdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 	iamgrpc "github.com/FangcunMount/iam/v3/internal/pkg/grpc"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"google.golang.org/grpc"
@@ -21,10 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const (
-	trustedAssessmentAttributeService = "qs-apiserver.svc"
-	assessmentResource                = "qs:evaluation:collection:assessments"
-)
+const assessmentResource = objectattributeadmission.AssessmentResource
 
 type authorizationChecker interface {
 	Check(context.Context, authorizationdomain.Request) (authorizationdomain.Decision, error)
@@ -40,15 +39,13 @@ func NewService(
 	checker authorizationChecker,
 	snapshotReader authorizationSnapshotReader,
 	assignments assignmentApp.NamedCommands,
-	assignmentPolicies ...assignmentadmission.Policy,
+	assignmentPolicy assignmentadmission.Policy,
+	objectAttributePolicy objectattributeadmission.Policy,
 ) *Service {
-	var assignmentPolicy assignmentadmission.Policy
-	if len(assignmentPolicies) > 0 {
-		assignmentPolicy = assignmentPolicies[0]
-	}
 	return &Service{srv: authorizationServer{
 		checker: checker, snapshotReader: snapshotReader,
 		assignments: assignments, assignmentAdmission: assignmentPolicy,
+		objectAttributeAdmission: objectAttributePolicy,
 	}}
 }
 
@@ -61,10 +58,11 @@ func (s *Service) Register(server *grpc.Server) {
 
 type authorizationServer struct {
 	authzv3.UnimplementedAuthorizationServiceServer
-	checker             authorizationChecker
-	snapshotReader      authorizationSnapshotReader
-	assignments         assignmentApp.NamedCommands
-	assignmentAdmission assignmentadmission.Policy
+	checker                  authorizationChecker
+	snapshotReader           authorizationSnapshotReader
+	assignments              assignmentApp.NamedCommands
+	assignmentAdmission      assignmentadmission.Policy
+	objectAttributeAdmission objectattributeadmission.Policy
 }
 
 func (s *authorizationServer) Check(ctx context.Context, req *authzv3.CheckRequest) (*authzv3.CheckResponse, error) {
@@ -82,7 +80,7 @@ func (s *authorizationServer) Check(ctx context.Context, req *authzv3.CheckReque
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	object, err := parseObjectContext(callerService, req.Resource, req.ObjectContext)
+	object, err := parseObjectContext(callerService, req.Resource, req.ObjectContext, s.objectAttributeAdmission)
 	if err != nil {
 		return nil, err
 	}
@@ -136,10 +134,13 @@ func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv3.
 	if req == nil || req.Subject == "" || req.Domain == "" || req.RoleName == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, and role_name are required")
 	}
-	if _, err := admitAssignmentRequest(ctx, s.assignmentAdmission, assignmentadmission.Request{
-		Operation: assignmentadmission.OperationGrant, Subject: req.Subject, Domain: req.Domain,
-		RoleName: req.RoleName, DelegatedActor: req.GrantedBy,
-	}); err != nil {
+	admissionRequest, err := newAssignmentAdmissionRequest(
+		assignmentadmission.OperationGrant, req.Subject, req.Domain, req.RoleName, req.GrantedBy,
+	)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if _, err := admitAssignmentRequest(ctx, s.assignmentAdmission, admissionRequest); err != nil {
 		return nil, err
 	}
 	sub, err := parseSubjectKey(req.Subject)
@@ -167,10 +168,13 @@ func (s *authorizationServer) RevokeAssignment(ctx context.Context, req *authzv3
 	if req == nil || req.Subject == "" || req.Domain == "" || req.RoleName == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, and role_name are required")
 	}
-	callerService, err := admitAssignmentRequest(ctx, s.assignmentAdmission, assignmentadmission.Request{
-		Operation: assignmentadmission.OperationRevoke, Subject: req.Subject, Domain: req.Domain,
-		RoleName: req.RoleName, DelegatedActor: req.RevokedBy,
-	})
+	admissionRequest, err := newAssignmentAdmissionRequest(
+		assignmentadmission.OperationRevoke, req.Subject, req.Domain, req.RoleName, req.RevokedBy,
+	)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	callerService, err := admitAssignmentRequest(ctx, s.assignmentAdmission, admissionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +203,11 @@ func (s *authorizationServer) ReplaceManagedAssignments(ctx context.Context, req
 	if req == nil || strings.TrimSpace(req.Subject) == "" || strings.TrimSpace(req.Domain) == "" || strings.TrimSpace(req.ChangedBy) == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject, domain, and changed_by are required")
 	}
-	managedRoles, err := admitAssignmentReplacement(ctx, s.assignmentAdmission, assignmentadmission.ReplacementRequest{
-		Subject: req.Subject, Domain: req.Domain, RoleNames: req.RoleNames, DelegatedActor: req.ChangedBy,
-	})
+	replacementRequest, err := replacementAdmissionRequest(req)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	managedRoles, err := admitAssignmentReplacement(ctx, s.assignmentAdmission, replacementRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -224,9 +230,12 @@ func (s *authorizationServer) ReplaceManagedAssignments(ctx context.Context, req
 	}, nil
 }
 
-func parseObjectContext(callerService, resourceKey string, input *authzv3.ObjectContext) (authorizationdomain.ObjectContext, error) {
+func parseObjectContext(callerService, resourceKey string, input *authzv3.ObjectContext, admission objectattributeadmission.Policy) (authorizationdomain.ObjectContext, error) {
 	if input == nil {
 		return authorizationdomain.NewObjectContext("", nil)
+	}
+	if admission == nil {
+		return authorizationdomain.ObjectContext{}, status.Error(codes.Internal, "object attribute admission policy is unavailable")
 	}
 	attributes := make(constraint.Attributes, len(input.Attributes))
 	for _, item := range input.Attributes {
@@ -237,11 +246,19 @@ func parseObjectContext(callerService, resourceKey string, input *authzv3.Object
 		if _, exists := attributes[key]; exists {
 			return authorizationdomain.ObjectContext{}, status.Errorf(codes.InvalidArgument, "duplicate object attribute: %s", key)
 		}
-		if key != attribute.ObjectOriginType || resourceKey != assessmentResource {
-			return authorizationdomain.ObjectContext{}, status.Errorf(codes.InvalidArgument, "unsupported object attribute: %s", key)
-		}
-		if callerService != trustedAssessmentAttributeService {
-			return authorizationdomain.ObjectContext{}, status.Error(codes.PermissionDenied, "caller is not trusted to provide this object attribute")
+		if err := admission.AuthorizeAttribute(objectattributeadmission.Request{
+			CallerService: callerService,
+			ResourceKey:   resourceKey,
+			AttributeKey:  key,
+		}); err != nil {
+			switch err.(type) {
+			case objectattributeadmission.ErrUnsupportedAttribute:
+				return authorizationdomain.ObjectContext{}, status.Errorf(codes.InvalidArgument, "%s", err.Error())
+			case objectattributeadmission.ErrUntrustedCaller:
+				return authorizationdomain.ObjectContext{}, status.Error(codes.PermissionDenied, err.Error())
+			default:
+				return authorizationdomain.ObjectContext{}, status.Error(codes.Internal, "object attribute authorization failed")
+			}
 		}
 		switch value := item.Value.(type) {
 		case *authzv3.ObjectAttribute_StringValue:
@@ -284,8 +301,8 @@ func admitAssignmentRequest(ctx context.Context, policy assignmentadmission.Poli
 	}
 	request.CallerService = strings.TrimSpace(identity.ServiceName)
 	if policy == nil {
-		recordAssignmentAuthorization(request.CallerService, string(request.Operation), "allowed")
-		return request.CallerService, nil
+		recordAssignmentAuthorization(request.CallerService, string(request.Operation), "failed")
+		return "", status.Error(codes.Internal, "managed assignment constraints are unavailable")
 	}
 	if err := policy.AuthorizeAssignment(request); err != nil {
 		var denied *assignmentadmission.DeniedError
@@ -323,6 +340,56 @@ func admitAssignmentReplacement(ctx context.Context, policy assignmentadmission.
 	}
 	recordAssignmentAuthorization(request.CallerService, string(assignmentadmission.OperationReplace), "allowed")
 	return managedRoles, nil
+}
+
+func newAssignmentAdmissionRequest(
+	operation assignmentadmission.Operation,
+	subjectValue, domainValue, roleNameValue, delegatedActor string,
+) (assignmentadmission.Request, error) {
+	sub, err := subject.ParseRef(subjectValue)
+	if err != nil {
+		return assignmentadmission.Request{}, err
+	}
+	domain, err := tenant.NewID(domainValue)
+	if err != nil {
+		return assignmentadmission.Request{}, err
+	}
+	roleName, err := role.NewName(roleNameValue)
+	if err != nil {
+		return assignmentadmission.Request{}, err
+	}
+	return assignmentadmission.Request{
+		Operation:      operation,
+		Subject:        sub,
+		Domain:         domain,
+		RoleName:       roleName,
+		DelegatedActor: delegatedActor,
+	}, nil
+}
+
+func replacementAdmissionRequest(req *authzv3.ReplaceManagedAssignmentsRequest) (assignmentadmission.ReplacementRequest, error) {
+	sub, err := subject.ParseRef(req.Subject)
+	if err != nil {
+		return assignmentadmission.ReplacementRequest{}, err
+	}
+	domain, err := tenant.NewID(req.Domain)
+	if err != nil {
+		return assignmentadmission.ReplacementRequest{}, err
+	}
+	roleNames := make([]role.Name, 0, len(req.RoleNames))
+	for _, value := range req.RoleNames {
+		roleName, err := role.NewName(value)
+		if err != nil {
+			return assignmentadmission.ReplacementRequest{}, err
+		}
+		roleNames = append(roleNames, roleName)
+	}
+	return assignmentadmission.ReplacementRequest{
+		Subject:        sub,
+		Domain:         domain,
+		RoleNames:      roleNames,
+		DelegatedActor: req.ChangedBy,
+	}, nil
 }
 
 func parseSubjectKey(value string) (subject.Ref, error) {

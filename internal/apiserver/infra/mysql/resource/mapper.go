@@ -32,7 +32,7 @@ func (m *Mapper) ToBO(po *ResourcePO) (*resource.Resource, error) {
 		return nil, err
 	}
 
-	r, err := resource.NewResource(
+	r, err := resource.RestoreResource(
 		po.Key,
 		actions,
 		resource.WithID(resource.NewResourceID(po.ID.Uint64())),

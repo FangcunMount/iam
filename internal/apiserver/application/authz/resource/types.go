@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
@@ -80,6 +81,9 @@ type DeleteResourceCommand struct {
 func NewUpdateResourceCommand(id resourceDomain.ResourceID, displayName *string, actions []string, schema *attribute.Schema, description *string) (UpdateResourceCommand, error) {
 	if id.Uint64() == 0 {
 		return UpdateResourceCommand{}, errors.WithCode(code.ErrInvalidArgument, "资源ID不能为空")
+	}
+	if displayName != nil && strings.TrimSpace(*displayName) == "" {
+		return UpdateResourceCommand{}, errors.WithCode(code.ErrInvalidArgument, "显示名称不能为空")
 	}
 	var actionStrings []string
 	if actions != nil {

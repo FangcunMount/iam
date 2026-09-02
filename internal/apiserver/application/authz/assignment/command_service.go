@@ -41,7 +41,7 @@ func (s *CommandService) Grant(ctx context.Context, cmd GrantCommand) (*assignme
 	}
 	var created *assignmentDomain.Assignment
 	_, err := s.commit(ctx, cmd.TenantID, cmd.GrantedBy, "binding grant", func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Assignments, tx.Roles, tx.UserResolver)
+		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.UserResolver)
 		if err := txValidator.CheckRoleExists(txCtx, cmd.RoleID, cmd.TenantID); err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func (s *CommandService) grantWithVersion(ctx context.Context, cmd GrantCommand)
 		return 0, err
 	}
 	return s.commit(ctx, cmd.TenantID, cmd.GrantedBy, "binding grant", func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Assignments, tx.Roles, tx.UserResolver)
+		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.UserResolver)
 		if err := txValidator.CheckRoleExists(txCtx, cmd.RoleID, cmd.TenantID); err != nil {
 			return err
 		}
@@ -183,13 +183,10 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 		return ReplaceManagedAssignmentsResult{}, err
 	}
 	cmd = validated
-	targetSet := make(map[string]struct{}, len(cmd.RoleNames))
-	for _, roleName := range cmd.RoleNames {
-		targetSet[roleName] = struct{}{}
-	}
-	result := ReplaceManagedAssignmentsResult{DirectRoles: append([]string(nil), cmd.RoleNames...)}
+	result := ReplaceManagedAssignmentsResult{}
+	replacementPolicy := assignmentDomain.ReplacementPolicy{}
 	err = s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Assignments, tx.Roles, tx.UserResolver)
+		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.UserResolver)
 		if err := txValidator.CheckSubjectExists(txCtx, assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, cmd.TenantID); err != nil {
 			return err
 		}
@@ -218,32 +215,32 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 		if err != nil {
 			return errors.Wrap(err, "list subject assignments")
 		}
-		managedByID := make(map[uint64]string, len(managedRoles))
-		for roleName, role := range managedRoles {
-			managedByID[role.ID.Uint64()] = roleName
+		managedBindings := make([]assignmentDomain.ManagedRoleBinding, 0, len(orderedRoles))
+		for _, role := range orderedRoles {
+			managedBindings = append(managedBindings, assignmentDomain.ManagedRoleBinding{
+				Name: role.Name,
+				ID:   role.ID,
+			})
 		}
-		currentManaged := make(map[string]*assignmentDomain.Assignment)
-		for _, assignment := range assignments {
-			if roleName, ok := managedByID[assignment.RoleID.Uint64()]; ok {
-				currentManaged[roleName] = assignment
-			}
+		plan, err := replacementPolicy.Plan(assignmentDomain.ReplacementRequest{
+			TargetRoleNames: cmd.RoleNames, ManagedRoleNames: cmd.ManagedRoleNames,
+		}, managedBindings, assignments)
+		if err != nil {
+			return err
 		}
-
-		for roleName, assignment := range currentManaged {
-			if _, keep := targetSet[roleName]; keep {
-				continue
-			}
-			if err := tx.Assignments.Delete(txCtx, assignment.ID); err != nil {
+		result.DirectRoles = make([]string, 0, len(plan.DirectRoles))
+		for _, roleName := range plan.DirectRoles {
+			result.DirectRoles = append(result.DirectRoles, roleName.String())
+		}
+		for _, assignmentID := range plan.Revokes {
+			if err := tx.Assignments.Delete(txCtx, assignmentID); err != nil {
 				return errors.Wrap(err, "revoke managed assignment")
 			}
-			result.Changed = true
 		}
-		for _, roleName := range cmd.RoleNames {
-			if _, exists := currentManaged[roleName]; exists {
-				continue
-			}
+		for _, roleName := range plan.Grants {
+			role := managedRoles[roleName.String()]
 			assignment, err := assignmentDomain.NewAssignment(
-				assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, managedRoles[roleName].ID,
+				assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, role.ID,
 				cmd.TenantID, assignmentDomain.WithGrantedBy(cmd.ChangedBy),
 			)
 			if err != nil {
@@ -252,8 +249,8 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 			if err := tx.Assignments.Create(txCtx, &assignment); err != nil {
 				return errors.Wrap(err, "grant managed assignment")
 			}
-			result.Changed = true
 		}
+		result.Changed = plan.Changed
 
 		if !result.Changed {
 			version, err := tx.PolicyVersions.GetCurrent(txCtx, cmd.TenantID)

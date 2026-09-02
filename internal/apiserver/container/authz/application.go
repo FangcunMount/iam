@@ -13,10 +13,10 @@ func (m *AuthzModule) initializeApplication(
 	infra *authzInfrastructureComponents,
 	domain *authzDomainComponents,
 ) {
-	m.resourceCatalog = resourceApp.NewResourceCatalog(domain.resourceValidator, infra.unitOfWork, infra.authorizationRuntime)
+	m.resourceCatalog = resourceApp.NewResourceCatalog(infra.unitOfWork, infra.authorizationRuntime)
 	m.resourceDirectory = resourceApp.NewResourceQueryService(infra.resourceRepository)
 
-	m.roleCatalog = roleApp.NewRoleCatalog(domain.roleValidator, infra.unitOfWork, infra.authorizationRuntime)
+	m.roleCatalog = roleApp.NewRoleCatalog(infra.unitOfWork, infra.authorizationRuntime)
 	m.roleDirectory = roleApp.NewRoleQueryService(infra.roleRepository)
 
 	m.permissionGrantService = permissionGrantApp.NewService(

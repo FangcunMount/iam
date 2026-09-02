@@ -8,7 +8,7 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context, inheritance *Inheritance) error
-	Revoke(ctx context.Context, id meta.ID) error
+	AtomicRevoke(ctx context.Context, id meta.ID, tenantID string) (RevokeOutcome, error)
 	FindByID(ctx context.Context, id meta.ID) (*Inheritance, error)
 	ListActiveByTenant(ctx context.Context, tenantID string) ([]*Inheritance, error)
 }

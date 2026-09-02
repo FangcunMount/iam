@@ -9,10 +9,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestResourceRenameRejectsEmptyDisplayName(t *testing.T) {
+	resource, err := NewResource("qs:evaluation:collection:assessments", []string{"read"}, WithDisplayName("Assessments"))
+	require.NoError(t, err)
+	require.NoError(t, resource.Rename("  Updated  "))
+	require.Equal(t, "Updated", resource.DisplayName)
+	require.True(t, perrors.IsCode(resource.Rename("   "), code.ErrInvalidArgument))
+}
+
+func TestNewResourceRejectsEmptyDisplayName(t *testing.T) {
+	_, err := NewResource("qs:evaluation:collection:assessments", []string{"read"})
+	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
+}
+
+func TestRestoreResourceAllowsHistoricalEmptyDisplayName(t *testing.T) {
+	resource, err := RestoreResource("qs:evaluation:collection:assessments", []string{"read"})
+	require.NoError(t, err)
+	require.Empty(t, resource.DisplayName)
+}
+
 func TestResourceOwnsActionsAndVersionedAttributeSchema(t *testing.T) {
 	resource, err := NewResource(
 		"qs:evaluation:collection:assessments",
 		[]string{"read", "retry", "force_retry"},
+		WithDisplayName("Assessments"),
 		WithAttributeSchema(attribute.AssessmentSchema()),
 	)
 	require.NoError(t, err)
@@ -25,6 +45,13 @@ func TestResourceOwnsActionsAndVersionedAttributeSchema(t *testing.T) {
 	require.NoError(t, resource.ChangeCatalog([]string{"read", "retry"}))
 	require.False(t, resource.HasAction("force_retry"))
 	require.True(t, perrors.IsCode(resource.ChangeCatalog(nil), code.ErrInvalidArgument))
+}
+
+func TestResourceChangeDescriptionTrimsWhitespace(t *testing.T) {
+	resource, err := NewResource("qs:evaluation:collection:assessments", []string{"read"}, WithDisplayName("Assessments"))
+	require.NoError(t, err)
+	resource.ChangeDescription("  notes  ")
+	require.Equal(t, "notes", resource.Description)
 }
 
 func TestResourceSeparatesExactKeysFromTrustedPatterns(t *testing.T) {

@@ -100,10 +100,10 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 
 	cmd, err := resourceApp.NewUpdateResourceCommand(
 		resourceDomain.NewResourceID(resourceID.Uint64()),
-		&req.DisplayName,
+		req.DisplayName,
 		req.Actions,
 		req.AttributeSchema,
-		&req.Description,
+		req.Description,
 	)
 	if err != nil {
 		handleError(c, err)

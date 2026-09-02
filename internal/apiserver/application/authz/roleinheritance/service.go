@@ -80,8 +80,15 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 		if inheritance.TenantIDString() != cmd.TenantID {
 			return perrors.WithCode(code.ErrInvalidArgument, "role inheritance does not belong to tenant")
 		}
-		if err := tx.RoleInheritances.Revoke(txCtx, cmd.ID); err != nil {
+		outcome, err := tx.RoleInheritances.AtomicRevoke(txCtx, cmd.ID, cmd.TenantID)
+		if err != nil {
 			return err
+		}
+		if outcome != domain.RevokeOutcomeRevoked {
+			if outcome == domain.RevokeOutcomeAlreadyRevoked {
+				return perrors.WithCode(code.ErrInvalidArgument, "role inheritance is not active")
+			}
+			return perrors.WithCode(code.ErrInvalidArgument, "role inheritance not found")
 		}
 		reason := strings.TrimSpace(cmd.Reason)
 		if reason == "" {

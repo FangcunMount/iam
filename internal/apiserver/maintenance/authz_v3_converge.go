@@ -948,8 +948,12 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 			if item.RoleID == roleID && item.ResourcePatternString() == spec.Resource && item.ActionString() == spec.Action && string(constraints) == spec.Constraints {
 				matched++
 				step = fmt.Sprintf("revoke_source_grant_%02d_update", specIndex)
-				if err := repos.PermissionGrants.Revoke(ctx, item.ID); err != nil {
+				outcome, err := repos.PermissionGrants.AtomicRevoke(ctx, item.ID, item.TenantIDString())
+				if err != nil {
 					return err
+				}
+				if outcome != permissiongrant.RevokeOutcomeRevoked {
+					return fmt.Errorf("source grant changed during convergence")
 				}
 			}
 		}

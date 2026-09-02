@@ -43,16 +43,6 @@ func WithReason(reason string) PolicyVersionOption {
 	return func(pv *PolicyVersion) { pv.Reason = reason }
 }
 
-// RedisKey 返回 Redis 中的版本键
-func (pv *PolicyVersion) RedisKey() string {
-	return "authz:policy_version:" + pv.TenantIDString()
-}
-
-// PubSubChannel 返回发布订阅通道
-func (pv *PolicyVersion) PubSubChannel() string {
-	return "authz:policy_changed"
-}
-
 func (pv PolicyVersion) TenantIDString() string {
 	return pv.TenantID.String()
 }

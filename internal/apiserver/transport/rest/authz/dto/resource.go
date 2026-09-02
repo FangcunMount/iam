@@ -20,10 +20,10 @@ type CreateResourceRequest struct {
 
 // UpdateResourceRequest 更新资源请求
 type UpdateResourceRequest struct {
-	DisplayName     string            `json:"display_name"`
+	DisplayName     *string           `json:"display_name"`
 	Actions         []string          `json:"actions" binding:"min=1"`
 	AttributeSchema *attribute.Schema `json:"attribute_schema"`
-	Description     string            `json:"description"`
+	Description     *string           `json:"description"`
 }
 
 // ResourceResponse 资源响应

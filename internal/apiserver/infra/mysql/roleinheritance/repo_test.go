@@ -29,7 +29,9 @@ func TestRepositoryRejectsCycleAndAllowsRegrantAfterRevoke(t *testing.T) {
 	err = repository.Create(ctx, &edgeCA)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 
-	require.NoError(t, repository.Revoke(ctx, edgeAB.ID))
+	outcome, err := repository.AtomicRevoke(ctx, edgeAB.ID, "tenant-a")
+	require.NoError(t, err)
+	require.Equal(t, domain.RevokeOutcomeRevoked, outcome)
 	regrant := mustInheritance(t, 1, 2)
 	require.NoError(t, repository.Create(ctx, &regrant))
 }

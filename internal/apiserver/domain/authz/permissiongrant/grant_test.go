@@ -82,6 +82,7 @@ func TestManagedGrantValidatesAgainstResourceSchema(t *testing.T) {
 		"qs:evaluation:collection:assessments",
 		[]string{"retry", "batch_evaluate"},
 		resource.WithID(resource.NewResourceID(20)),
+		resource.WithDisplayName("Assessments"),
 		resource.WithAttributeSchema(attribute.AssessmentSchema()),
 	)
 	require.NoError(t, err)
@@ -96,6 +97,7 @@ func TestManagedGrantValidatesAgainstResourceSchema(t *testing.T) {
 	otherResource, err := resource.NewResource(
 		"qs:evaluation:collection:other", []string{"retry"},
 		resource.WithID(resource.NewResourceID(20)),
+		resource.WithDisplayName("Other"),
 	)
 	require.NoError(t, err)
 	err = invalid.ValidateAgainst(otherResource)

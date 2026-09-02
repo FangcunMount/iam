@@ -161,6 +161,7 @@ func assessmentDataset(t testing.TB) authzruntime.Dataset {
 		assessmentResource,
 		[]string{"retry", "force_retry", "batch_evaluate"},
 		resource.WithID(resource.NewResourceID(20)),
+		resource.WithDisplayName("Assessments"),
 		resource.WithAttributeSchema(attribute.AssessmentSchema()),
 	)
 	require.NoError(t, err)

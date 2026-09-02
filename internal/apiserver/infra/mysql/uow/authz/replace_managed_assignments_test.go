@@ -6,7 +6,6 @@ import (
 	"sort"
 	"testing"
 
-	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
 	assignmentDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
@@ -16,7 +15,6 @@ import (
 	roleRepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
 	authzUOW "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/uow/authz"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/testhelpers"
-	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 	"github.com/stretchr/testify/require"
@@ -36,7 +34,7 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 
 	stager := &eventStager{}
 	uow := authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager)
-	validator := assignmentDomain.NewValidator(assignments, roles, existingUserResolver{})
+	validator := assignmentDomain.NewValidator(roles, existingUserResolver{})
 	service := assignmentApp.NewCommandService(validator, roles, uow, nil)
 	sub, err := subject.NewUserRef(userID)
 	require.NoError(t, err)
@@ -74,19 +72,6 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 	require.NoError(t, err)
 	require.NotNil(t, current)
 	require.EqualValues(t, 1, current.Version, "failed replacement must roll back the policy version")
-}
-
-func TestReplaceManagedAssignmentsCommandRejectsDuplicateAndUnmanagedTargets(t *testing.T) {
-	sub, err := subject.NewUserRef(meta.FromUint64(100))
-	require.NoError(t, err)
-	_, err = assignmentApp.NewReplaceManagedAssignmentsCommand(
-		sub, "fangcun", []string{"qs:staff", "qs:staff"}, []string{"qs:staff"}, "user:200", "",
-	)
-	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
-	_, err = assignmentApp.NewReplaceManagedAssignmentsCommand(
-		sub, "fangcun", []string{"tenant_admin"}, []string{"qs:staff"}, "user:200", "",
-	)
-	require.True(t, perrors.IsCode(err, code.ErrPermissionDenied))
 }
 
 type existingUserResolver struct{}

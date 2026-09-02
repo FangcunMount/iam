@@ -2,7 +2,6 @@ package assignment
 
 import (
 	"context"
-	"sort"
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
@@ -194,49 +193,10 @@ func NewReplaceManagedAssignmentsCommand(
 	if changedBy == "" {
 		return ReplaceManagedAssignmentsCommand{}, errors.WithCode(code.ErrInvalidArgument, "changed by is required")
 	}
-	targets, err := normalizeRoleNames(roleNames, true)
-	if err != nil {
-		return ReplaceManagedAssignmentsCommand{}, err
-	}
-	managed, err := normalizeRoleNames(managedRoleNames, false)
-	if err != nil {
-		return ReplaceManagedAssignmentsCommand{}, err
-	}
-	managedSet := make(map[string]struct{}, len(managed))
-	for _, roleName := range managed {
-		managedSet[roleName] = struct{}{}
-	}
-	for _, roleName := range targets {
-		if _, ok := managedSet[roleName]; !ok {
-			return ReplaceManagedAssignmentsCommand{}, errors.WithCode(code.ErrPermissionDenied, "role is outside the managed assignment set: %s", roleName)
-		}
-	}
 	return ReplaceManagedAssignmentsCommand{
-		Subject: sub, TenantID: tenantIDValue.String(), RoleNames: targets,
-		ManagedRoleNames: managed, ChangedBy: changedBy, Reason: strings.TrimSpace(reason),
+		Subject: sub, TenantID: tenantIDValue.String(), RoleNames: roleNames,
+		ManagedRoleNames: managedRoleNames, ChangedBy: changedBy, Reason: strings.TrimSpace(reason),
 	}, nil
-}
-
-func normalizeRoleNames(values []string, allowEmpty bool) ([]string, error) {
-	seen := make(map[string]struct{}, len(values))
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		roleName, err := roleDomain.NewName(value)
-		if err != nil {
-			return nil, err
-		}
-		name := roleName.String()
-		if _, exists := seen[name]; exists {
-			return nil, errors.WithCode(code.ErrInvalidArgument, "duplicate role name: %s", name)
-		}
-		seen[name] = struct{}{}
-		result = append(result, name)
-	}
-	if !allowEmpty && len(result) == 0 {
-		return nil, errors.WithCode(code.ErrInvalidArgument, "managed role names are required")
-	}
-	sort.Strings(result)
-	return result, nil
 }
 
 // ListBySubjectQuery 根据主体列出角色绑定查询。

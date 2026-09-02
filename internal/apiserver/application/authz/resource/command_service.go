@@ -7,6 +7,7 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
+	policyDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
@@ -14,24 +15,21 @@ import (
 // ResourceCatalog manages protected resource definitions transactionally with
 // policy versions and durable reload notifications.
 type ResourceCatalog struct {
-	resourceValidator resourceDomain.Validator
-	uow               authzuow.UnitOfWork
-	reloader          policychange.RuntimePolicyReloader
+	uow                  authzuow.UnitOfWork
+	reloader             policychange.RuntimePolicyReloader
+	resourceChangePolicy policyDomain.ResourceChangePolicy
 }
 
-func NewResourceCatalog(
-	resourceValidator resourceDomain.Validator,
-	uow authzuow.UnitOfWork,
-	reloader policychange.RuntimePolicyReloader,
-) *ResourceCatalog {
-	return &ResourceCatalog{resourceValidator: resourceValidator, uow: uow, reloader: reloader}
+func NewResourceCatalog(uow authzuow.UnitOfWork, reloader policychange.RuntimePolicyReloader) *ResourceCatalog {
+	return &ResourceCatalog{
+		uow:                  uow,
+		reloader:             reloader,
+		resourceChangePolicy: policyDomain.ResourceChangePolicy{},
+	}
 }
 
 func (s *ResourceCatalog) CreateResource(ctx context.Context, cmd CreateResourceCommand) (*resourceDomain.Resource, error) {
 	if err := s.validateChange(cmd.TenantID, cmd.ChangedBy); err != nil {
-		return nil, err
-	}
-	if err := s.resourceValidator.ValidateCreateParameters(cmd.Key, cmd.DisplayName, cmd.AppName, cmd.Domain, cmd.Type, cmd.Actions); err != nil {
 		return nil, err
 	}
 	created, err := resourceDomain.NewResource(
@@ -64,11 +62,6 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 	if err := s.validateChange(cmd.TenantID, cmd.ChangedBy); err != nil {
 		return nil, err
 	}
-	if cmd.Actions != nil {
-		if err := s.resourceValidator.ValidateUpdateParameters(cmd.Actions); err != nil {
-			return nil, err
-		}
-	}
 	var updated *resourceDomain.Resource
 	err := s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
 		var err error
@@ -77,7 +70,9 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 			return err
 		}
 		if cmd.DisplayName != nil {
-			updated.DisplayName = *cmd.DisplayName
+			if err := updated.Rename(*cmd.DisplayName); err != nil {
+				return err
+			}
 		}
 		if len(cmd.Actions) > 0 {
 			if err := updated.ChangeCatalog(cmd.Actions); err != nil {
@@ -90,19 +85,19 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 			}
 		}
 		if cmd.Description != nil {
-			updated.Description = *cmd.Description
+			updated.ChangeDescription(*cmd.Description)
 		}
 		grants, err := tx.PermissionGrants.ListActiveByResource(txCtx, cmd.ID)
 		if err != nil {
 			return err
 		}
-		if err := policychange.ValidateResourceDependencies(*updated, grants); err != nil {
+		if err := s.resourceChangePolicy.ValidateDependencies(*updated, grants); err != nil {
 			return err
 		}
 		if err := tx.Resources.Update(txCtx, updated); err != nil {
 			return err
 		}
-		for _, tenantID := range policychange.AffectedResourceTenantIDs(cmd.TenantID, grants) {
+		for _, tenantID := range s.resourceChangePolicy.AffectedResourceTenantIDs(cmd.TenantID, grants) {
 			version, err := tx.PolicyVersions.Increment(txCtx, tenantID, cmd.ChangedBy, "authorization resource updated")
 			if err != nil {
 				return err
@@ -135,7 +130,7 @@ func (s *ResourceCatalog) DeleteResource(ctx context.Context, cmd DeleteResource
 		if err != nil {
 			return err
 		}
-		if err := policychange.EnsureResourceUnused(grants); err != nil {
+		if err := s.resourceChangePolicy.EnsureUnused(grants); err != nil {
 			return err
 		}
 		if err := tx.Resources.Delete(txCtx, cmd.ID); err != nil {

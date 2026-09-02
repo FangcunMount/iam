@@ -109,8 +109,19 @@ func (s *Service) Revoke(ctx context.Context, cmd RevokeCommand) error {
 		if grant.TenantIDString() != cmd.TenantID {
 			return perrors.WithCode(code.ErrInvalidArgument, "permission grant does not belong to tenant")
 		}
-		if err := tx.PermissionGrants.Revoke(txCtx, cmd.GrantID); err != nil {
+		outcome, err := tx.PermissionGrants.AtomicRevoke(txCtx, cmd.GrantID, cmd.TenantID)
+		if err != nil {
 			return err
+		}
+		switch outcome {
+		case domain.RevokeOutcomeRevoked, domain.RevokeOutcomeAlreadyRevoked:
+			if !outcome.AppliesVersionChange() {
+				return nil
+			}
+		case domain.RevokeOutcomeNotFound:
+			return perrors.WithCode(code.ErrInvalidArgument, "permission grant not found")
+		default:
+			return perrors.WithCode(code.ErrInternalServerError, "unexpected permission grant revoke outcome")
 		}
 		reason := strings.TrimSpace(cmd.Reason)
 		if reason == "" {

@@ -57,7 +57,7 @@ func setupResourceCatalog(t *testing.T) (*authztestutil.Fixture, *resourceApp.Re
 	t.Helper()
 	stager := &recordingStager{}
 	fixture := authztestutil.NewFixture(t, stager)
-	catalog := resourceApp.NewResourceCatalog(resourceDomain.NewValidator(fixture.Resources), fixture.UnitOfWork, nil)
+	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil)
 	return fixture, catalog, fixture.Resources, fixture.PermissionGrants, stager
 }
 
@@ -66,6 +66,7 @@ func seedAssessmentResource(t *testing.T, repository resourceDomain.Repository) 
 	resource, err := resourceDomain.NewResource(
 		"qs:evaluation:collection:assessments",
 		[]string{"retry"},
+		resourceDomain.WithDisplayName("Assessments"),
 		resourceDomain.WithAttributeSchema(attribute.AssessmentSchema()),
 	)
 	require.NoError(t, err)

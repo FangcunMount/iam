@@ -1,0 +1,87 @@
+package permissiongrant_test
+
+import (
+	"context"
+	"testing"
+
+	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
+	authztestutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/testutil"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
+	permissiongrantDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
+	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/pkg/event"
+	"github.com/stretchr/testify/require"
+)
+
+func TestPermissionGrantRevokeAlreadyRevokedIsIdempotentWithoutVersionBump(t *testing.T) {
+	fixture, service, stager := setupPermissionGrantService(t)
+	role := seedRole(t, fixture.Roles, "qs:evaluator", "tenant-a")
+	resource := seedResource(t, fixture.Resources)
+	grant := seedGrant(t, fixture.PermissionGrants, role, resource, "tenant-a")
+
+	require.NoError(t, service.Revoke(context.Background(), permissionGrantApp.RevokeCommand{
+		TenantID: "tenant-a", GrantID: grant.ID, RevokedBy: "operator-1",
+	}))
+	require.Len(t, stager.events, 1)
+	require.EqualValues(t, 1, fixture.PolicyVersionCount(t))
+
+	require.NoError(t, service.Revoke(context.Background(), permissionGrantApp.RevokeCommand{
+		TenantID: "tenant-a", GrantID: grant.ID, RevokedBy: "operator-1",
+	}))
+	require.Len(t, stager.events, 1, "duplicate revoke must not publish another policy version")
+	require.EqualValues(t, 1, fixture.PolicyVersionCount(t))
+}
+
+func setupPermissionGrantService(t *testing.T) (*authztestutil.Fixture, *permissionGrantApp.Service, *recordingStager) {
+	t.Helper()
+	recording := &recordingStager{}
+	fixture := authztestutil.NewFixture(t, recording)
+	service := permissionGrantApp.NewService(fixture.UnitOfWork, fixture.PermissionGrants, nil)
+	return fixture, service, recording
+}
+
+func seedRole(t *testing.T, repository roleDomain.Repository, name, tenantID string) roleDomain.Role {
+	t.Helper()
+	role, err := roleDomain.NewRole(name, name, tenantID)
+	require.NoError(t, err)
+	require.NoError(t, repository.Create(context.Background(), &role))
+	return role
+}
+
+func seedResource(t *testing.T, repository resourceDomain.Repository) resourceDomain.Resource {
+	t.Helper()
+	resource, err := resourceDomain.NewResource(
+		"qs:evaluation:collection:assessments",
+		[]string{"retry"},
+		resourceDomain.WithDisplayName("Assessments"),
+		resourceDomain.WithAttributeSchema(attribute.AssessmentSchema()),
+	)
+	require.NoError(t, err)
+	require.NoError(t, repository.Create(context.Background(), &resource))
+	return resource
+}
+
+func seedGrant(
+	t *testing.T,
+	repository permissiongrantDomain.Repository,
+	role roleDomain.Role,
+	resource resourceDomain.Resource,
+	tenantID string,
+) permissiongrantDomain.Grant {
+	t.Helper()
+	grant, err := permissiongrantDomain.New(
+		role.ID, tenantID, resource.ID, resource.KeyString(), "retry", constraint.Empty(), "operator-1",
+	)
+	require.NoError(t, err)
+	require.NoError(t, repository.Create(context.Background(), &grant))
+	return grant
+}
+
+type recordingStager struct{ events []event.DomainEvent }
+
+func (s *recordingStager) Stage(_ context.Context, events ...event.DomainEvent) error {
+	s.events = append(s.events, events...)
+	return nil
+}

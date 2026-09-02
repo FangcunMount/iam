@@ -95,6 +95,7 @@ func evaluationFixture(
 		assessmentResource,
 		[]string{"retry"},
 		resource.WithID(resource.NewResourceID(20)),
+		resource.WithDisplayName("Assessments"),
 		resource.WithAttributeSchema(attribute.AssessmentSchema()),
 	)
 	require.NoError(t, err)

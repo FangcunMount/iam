@@ -63,7 +63,78 @@ func NewResource(key string, actions []string, opts ...ResourceOption) (Resource
 		return Resource{}, err
 	}
 	r.AttributeSchema = attributeSchema
+	if err := r.Rename(r.DisplayName); err != nil {
+		return Resource{}, err
+	}
 	return r, nil
+}
+
+// RestoreResource rehydrates a persisted resource without enforcing create-time metadata rules.
+func RestoreResource(key string, actions []string, opts ...ResourceOption) (Resource, error) {
+	resourceKey, err := NewKey(key)
+	if err != nil {
+		return Resource{}, err
+	}
+	normalizedActions, err := NormalizeActions(actions)
+	if err != nil {
+		return Resource{}, err
+	}
+	r := Resource{
+		Key:     resourceKey,
+		Actions: normalizedActions,
+	}
+	for _, opt := range opts {
+		opt(&r)
+	}
+	r.AppName = strings.TrimSpace(r.AppName)
+	r.Domain = strings.TrimSpace(r.Domain)
+	r.Type = strings.TrimSpace(r.Type)
+	r.DisplayName = strings.TrimSpace(r.DisplayName)
+	r.Description = strings.TrimSpace(r.Description)
+	if r.AppName == "" {
+		r.AppName = resourceKey.App()
+	}
+	if r.Domain == "" {
+		r.Domain = resourceKey.Domain()
+	}
+	if r.Type == "" {
+		r.Type = resourceKey.Type()
+	}
+	if r.AppName != resourceKey.App() {
+		return Resource{}, perrors.WithCode(code.ErrInvalidArgument, "resource app does not match key")
+	}
+	if r.Domain != resourceKey.Domain() || r.Type != resourceKey.Type() {
+		return Resource{}, perrors.WithCode(code.ErrInvalidArgument, "resource domain/type does not match key")
+	}
+	attributeSchema, err := r.AttributeSchema.Normalize()
+	if err != nil {
+		return Resource{}, err
+	}
+	r.AttributeSchema = attributeSchema
+	return r, nil
+}
+
+func normalizeDisplayName(displayName string) (string, error) {
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" {
+		return "", perrors.WithCode(code.ErrInvalidArgument, "显示名称不能为空")
+	}
+	return displayName, nil
+}
+
+// Rename updates the resource display name after trim and non-empty validation.
+func (r *Resource) Rename(displayName string) error {
+	normalized, err := normalizeDisplayName(displayName)
+	if err != nil {
+		return err
+	}
+	r.DisplayName = normalized
+	return nil
+}
+
+// ChangeDescription updates the resource description.
+func (r *Resource) ChangeDescription(description string) {
+	r.Description = strings.TrimSpace(description)
 }
 
 // ResourceOption 资源选项

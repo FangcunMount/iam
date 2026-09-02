@@ -7,6 +7,7 @@ import (
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
 	assignmentAdmissionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authorizationApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	objectattributeadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/objectattributeadmission"
 	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
 	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
@@ -17,21 +18,22 @@ import (
 
 // AuthzModule 授权模块
 type AuthzModule struct {
-	routeDecisionService        authorizationApp.RoutePermissionChecker
-	effectiveRoles              EffectiveRoleReader
-	runtimeHealth               RuntimeHealthReporter
-	policyReloader              policychange.RuntimePolicyReloader
-	resourceCatalog             resourceApp.Catalog
-	resourceDirectory           resourceApp.Directory
-	roleCatalog                 roleApp.Catalog
-	roleDirectory               roleApp.Directory
-	permissionGrantService      *permissionGrantApp.Service
-	roleInheritanceService      *roleInheritanceApp.Service
-	assignmentCommands          assignmentApp.Commands
-	assignmentDirectory         assignmentApp.Directory
-	authorizationDecisions      *authorizationApp.DecisionService
-	authorizationSnapshotReader *authorizationApp.SnapshotReader
-	assignmentAdmissionPolicy   assignmentAdmissionApp.Policy
+	routeDecisionService           authorizationApp.RoutePermissionChecker
+	effectiveRoles                 EffectiveRoleReader
+	runtimeHealth                  RuntimeHealthReporter
+	policyReloader                 policychange.RuntimePolicyReloader
+	resourceCatalog                resourceApp.Catalog
+	resourceDirectory              resourceApp.Directory
+	roleCatalog                    roleApp.Catalog
+	roleDirectory                  roleApp.Directory
+	permissionGrantService         *permissionGrantApp.Service
+	roleInheritanceService         *roleInheritanceApp.Service
+	assignmentCommands             assignmentApp.Commands
+	assignmentDirectory            assignmentApp.Directory
+	authorizationDecisions         *authorizationApp.DecisionService
+	authorizationSnapshotReader    *authorizationApp.SnapshotReader
+	assignmentAdmissionPolicy      assignmentAdmissionApp.Policy
+	objectAttributeAdmissionPolicy objectattributeadmission.Policy
 }
 
 // NewAuthzModule 创建授权模块
@@ -57,19 +59,25 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 		return err
 	}
 	m.initializeApplication(infra, domain)
-	if strings.TrimSpace(deps.AssignmentConstraintsFile) != "" {
-		var err error
-		if deps.GRPCACLEnabled {
-			m.assignmentAdmissionPolicy, err = assignmentConstraints.LoadWithACL(
-				deps.AssignmentConstraintsFile,
-				deps.GRPCACLConfigFile,
-			)
-		} else {
-			m.assignmentAdmissionPolicy, err = assignmentConstraints.Load(deps.AssignmentConstraintsFile)
-		}
-		if err != nil {
-			return err
-		}
+	if strings.TrimSpace(deps.AssignmentConstraintsFile) == "" {
+		return fmt.Errorf("assignment constraints file is required")
+	}
+	var err error
+	if deps.GRPCACLEnabled {
+		m.assignmentAdmissionPolicy, err = assignmentConstraints.LoadWithACL(
+			deps.AssignmentConstraintsFile,
+			deps.GRPCACLConfigFile,
+		)
+	} else {
+		m.assignmentAdmissionPolicy, err = assignmentConstraints.Load(deps.AssignmentConstraintsFile)
+	}
+	if err != nil {
+		return err
+	}
+	if deps.ObjectAttributeAdmissionPolicy != nil {
+		m.objectAttributeAdmissionPolicy = deps.ObjectAttributeAdmissionPolicy
+	} else {
+		m.objectAttributeAdmissionPolicy = objectattributeadmission.NewDefaultPolicy()
 	}
 	return nil
 }
@@ -79,19 +87,20 @@ func (m *AuthzModule) ApplicationCapabilities() ApplicationCapabilities {
 		return ApplicationCapabilities{}
 	}
 	return ApplicationCapabilities{
-		ResourceCatalog:             m.resourceCatalog,
-		ResourceDirectory:           m.resourceDirectory,
-		RoleCatalog:                 m.roleCatalog,
-		RoleDirectory:               m.roleDirectory,
-		PermissionGrantService:      m.permissionGrantService,
-		RoleInheritanceService:      m.roleInheritanceService,
-		AssignmentCommands:          m.assignmentCommands,
-		AssignmentDirectory:         m.assignmentDirectory,
-		RoutePermissionChecker:      m.routeDecisionService,
-		RuntimeHealth:               m.runtimeHealth,
-		AuthorizationDecisions:      m.authorizationDecisions,
-		AuthorizationSnapshotReader: m.authorizationSnapshotReader,
-		AssignmentAdmissionPolicy:   m.assignmentAdmissionPolicy,
+		ResourceCatalog:                m.resourceCatalog,
+		ResourceDirectory:              m.resourceDirectory,
+		RoleCatalog:                    m.roleCatalog,
+		RoleDirectory:                  m.roleDirectory,
+		PermissionGrantService:         m.permissionGrantService,
+		RoleInheritanceService:         m.roleInheritanceService,
+		AssignmentCommands:             m.assignmentCommands,
+		AssignmentDirectory:            m.assignmentDirectory,
+		RoutePermissionChecker:         m.routeDecisionService,
+		RuntimeHealth:                  m.runtimeHealth,
+		AuthorizationDecisions:         m.authorizationDecisions,
+		AuthorizationSnapshotReader:    m.authorizationSnapshotReader,
+		AssignmentAdmissionPolicy:      m.assignmentAdmissionPolicy,
+		ObjectAttributeAdmissionPolicy: m.objectAttributeAdmissionPolicy,
 	}
 }
 
