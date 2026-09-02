@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
@@ -16,8 +17,54 @@ type SuggestibleProfile struct {
 	ownerOperatorIDs []int64
 }
 
-// New 构建并规范化 SuggestibleProfile。
+// New 构建并规范化 SuggestibleProfile；非正 ID 或空名称返回错误。
 func New(
+	profileID int64,
+	displayName string,
+	mobiles []string,
+	weight int,
+	orgID int64,
+	ownerOperatorIDs []int64,
+) (SuggestibleProfile, error) {
+	if profileID <= 0 {
+		return SuggestibleProfile{}, fmt.Errorf("profile id must be positive")
+	}
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" {
+		return SuggestibleProfile{}, fmt.Errorf("display name required")
+	}
+	return rawProjection(profileID, displayName, mobiles, weight, orgID, ownerOperatorIDs), nil
+}
+
+// MustNew 同 New，校验失败时 panic；仅供测试与静态 fixture。
+func MustNew(
+	profileID int64,
+	displayName string,
+	mobiles []string,
+	weight int,
+	orgID int64,
+	ownerOperatorIDs []int64,
+) SuggestibleProfile {
+	p, err := New(profileID, displayName, mobiles, weight, orgID, ownerOperatorIDs)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+// RawProjection 在 loader/refresh 边界保留原始行语义（含 tombstone 空名称），不做校验。
+func RawProjection(
+	profileID int64,
+	displayName string,
+	mobiles []string,
+	weight int,
+	orgID int64,
+	ownerOperatorIDs []int64,
+) SuggestibleProfile {
+	return rawProjection(profileID, displayName, mobiles, weight, orgID, ownerOperatorIDs)
+}
+
+func rawProjection(
 	profileID int64,
 	displayName string,
 	mobiles []string,

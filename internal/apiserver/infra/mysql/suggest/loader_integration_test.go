@@ -7,7 +7,6 @@ import (
 
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	apprefresh "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/refreshindex"
-	domainprofile "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
 	domainsearch "github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/search"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
@@ -91,16 +90,16 @@ func TestLoaderDeltaUpsertAfterMobileChange(t *testing.T) {
 	}
 }
 
-func TestProfilesToChanges(t *testing.T) {
-	changes := profilesToChanges([]domainprofile.SuggestibleProfile{
-		domainprofile.New(1, "a", nil, 1, 0, nil),
-		domainprofile.New(2, "", nil, 1, 0, nil),
-	})
-	if len(changes) != 2 {
-		t.Fatalf("len = %d", len(changes))
+func TestRecordDeltaChange(t *testing.T) {
+	upsertRow := record{ID: 1, Name: "a"}
+	upsert, err := upsertRow.deltaChange()
+	if err != nil || upsert.Kind() != apprefresh.ChangeUpsert {
+		t.Fatalf("upsert = %#v err=%v", upsert, err)
 	}
-	if changes[0].Kind() != apprefresh.ChangeUpsert || changes[1].Kind() != apprefresh.ChangeDelete {
-		t.Fatalf("kinds = %d,%d", changes[0].Kind(), changes[1].Kind())
+	deleteRow := record{ID: 2, Name: ""}
+	del, err := deleteRow.deltaChange()
+	if err != nil || del.Kind() != apprefresh.ChangeDelete {
+		t.Fatalf("delete = %#v err=%v", del, err)
 	}
 }
 

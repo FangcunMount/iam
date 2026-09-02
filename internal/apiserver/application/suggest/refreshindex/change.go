@@ -23,11 +23,10 @@ type ProjectionChange struct {
 
 // Upsert 构造 upsert 变更。
 func Upsert(p domainprofile.SuggestibleProfile) (ProjectionChange, error) {
-	if p.ID() <= 0 {
-		return ProjectionChange{}, fmt.Errorf("profile id required for upsert")
-	}
-	if p.DisplayName() == "" {
-		return ProjectionChange{}, fmt.Errorf("display name required for upsert")
+	if _, err := domainprofile.New(
+		p.ID(), p.DisplayName(), p.Mobiles(), p.Weight(), p.OrgID(), p.OwnerOperatorIDs(),
+	); err != nil {
+		return ProjectionChange{}, err
 	}
 	return ProjectionChange{kind: ChangeUpsert, profileID: p.ID(), profile: p}, nil
 }

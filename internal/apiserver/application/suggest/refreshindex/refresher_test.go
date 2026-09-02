@@ -48,7 +48,7 @@ func TestRefresherEmptyDeltaAdvancesCursor(t *testing.T) {
 func TestRefresherFailureDoesNotAdvanceCursor(t *testing.T) {
 	previous := time.Date(2026, 7, 24, 8, 0, 0, 0, time.UTC)
 	wantErr := errors.New("apply failed")
-	upsert, err := Upsert(profile.New(1, "profile", nil, 1, 0, nil))
+	upsert, err := Upsert(profile.MustNew(1, "profile", nil, 1, 0, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,8 +115,8 @@ func TestRefresherFullMetricsRecordUpsertAndTombstone(t *testing.T) {
 	writer := &writerStub{}
 	loader := &loaderStub{
 		full: []profile.SuggestibleProfile{
-			profile.New(1, "a", nil, 1, 0, nil),
-			profile.New(2, "", nil, 1, 0, nil),
+			profile.MustNew(1, "a", nil, 1, 0, nil),
+			profile.RawProjection(2, "", nil, 1, 0, nil),
 		},
 	}
 	refresher := NewRefresher(loader, writer, metrics)
@@ -138,6 +138,25 @@ func TestRefresherDeltaBeforeFirstFullIsNoOp(t *testing.T) {
 	}
 	if refresher.HasSuccessfulRefresh() {
 		t.Fatal("HasSuccessfulRefresh = true before any successful refresh")
+	}
+}
+
+func TestRefresherFullWithoutWriterFails(t *testing.T) {
+	previous := time.Date(2026, 7, 24, 8, 0, 0, 0, time.UTC)
+	refresher := NewRefresher(&loaderStub{
+		full: []profile.SuggestibleProfile{profile.MustNew(1, "a", nil, 1, 0, nil)},
+	}, nil, nil)
+	refresher.lastFetch = previous
+
+	err := refresher.RunFull(context.Background())
+	if err == nil || err.Error() != "suggest store not initialized" {
+		t.Fatalf("RunFull() error = %v", err)
+	}
+	if !refresher.lastFetch.Equal(previous) {
+		t.Fatal("lastFetch advanced after writer failure")
+	}
+	if refresher.HasSuccessfulRefresh() {
+		t.Fatal("HasSuccessfulRefresh = true after writer failure")
 	}
 }
 

@@ -43,7 +43,7 @@ func TestRecordMapsToSuggestibleProfile(t *testing.T) {
 		Weight:           5,
 	}
 
-	p := row.suggestibleProfile()
+	p := row.fullProfile()
 
 	if p.ID() != 7 || p.DisplayName() != "张三" || p.Weight() != 5 || p.OrgID() != 2 {
 		t.Fatalf("profile = %#v", p)
@@ -61,7 +61,7 @@ func TestRecordMapsToSuggestibleProfile(t *testing.T) {
 func TestRecordOwnerOperatorFromCreatedByCSV(t *testing.T) {
 	owners := "42"
 	row := record{ID: 1, Name: "a", OwnerOperatorIDs: &owners}
-	p := row.suggestibleProfile()
+	p := row.fullProfile()
 	ownerList := p.OwnerOperatorIDs()
 	if len(ownerList) != 1 || ownerList[0] != 42 {
 		t.Fatalf("OwnerOperatorIDs = %#v", ownerList)

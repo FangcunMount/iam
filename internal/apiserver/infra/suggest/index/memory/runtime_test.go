@@ -27,7 +27,7 @@ func TestRuntimeRecallUninitializedReturnsEmpty(t *testing.T) {
 func TestRuntimeReplaceInstallsStore(t *testing.T) {
 	r := NewRuntime(Config{})
 	profiles := []profile.SuggestibleProfile{
-		profile.New(1, "张三", nil, 5, 0, nil),
+		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}
 	if err := r.Replace(context.Background(), profiles); err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestRuntimeReplaceInstallsStore(t *testing.T) {
 
 func TestRuntimeApplyWithoutInitializationFails(t *testing.T) {
 	r := NewRuntime(Config{})
-	upsert, err := apprefresh.Upsert(profile.New(1, "a", nil, 1, 0, nil))
+	upsert, err := apprefresh.Upsert(profile.MustNew(1, "a", nil, 1, 0, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,11 +60,11 @@ func TestRuntimeApplyWithoutInitializationFails(t *testing.T) {
 func TestRuntimeApplyAppendsToCurrentIndex(t *testing.T) {
 	r := NewRuntime(Config{})
 	if err := r.Replace(context.Background(), []profile.SuggestibleProfile{
-		profile.New(1, "张三", nil, 5, 0, nil),
+		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	upsert, err := apprefresh.Upsert(profile.New(2, "李四", []string{"13900139000"}, 3, 0, nil))
+	upsert, err := apprefresh.Upsert(profile.MustNew(2, "李四", []string{"13900139000"}, 3, 0, nil))
 	if err != nil {
 		t.Fatal(err)
 	}

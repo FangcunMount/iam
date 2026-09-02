@@ -6,6 +6,18 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
 )
 
+func TestScopeOrgIDsAndProfileIDsSorted(t *testing.T) {
+	scope := visibility.NewScope(false, false, 0, []int64{3, 1, 2}, []int64{9, 7, 8})
+	orgIDs := scope.OrgIDs()
+	if len(orgIDs) != 3 || orgIDs[0] != 1 || orgIDs[1] != 2 || orgIDs[2] != 3 {
+		t.Fatalf("OrgIDs = %v", orgIDs)
+	}
+	profileIDs := scope.ProfileIDs()
+	if len(profileIDs) != 3 || profileIDs[0] != 7 || profileIDs[1] != 8 || profileIDs[2] != 9 {
+		t.Fatalf("ProfileIDs = %v", profileIDs)
+	}
+}
+
 func TestScopeAllowsDimensions(t *testing.T) {
 	scope := visibility.NewScope(false, true, 100, []int64{10}, []int64{1, 2})
 

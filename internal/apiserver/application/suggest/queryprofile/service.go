@@ -12,6 +12,9 @@ import (
 // ErrUnauthenticated 操作员未认证。
 var ErrUnauthenticated = errors.New("unauthenticated")
 
+// ErrMissingDependencies 查询依赖未注入。
+var ErrMissingDependencies = errors.New("suggest query dependencies not configured")
+
 // Service 编排权限解析 → 查询准入 → 候选召回 → 选择排序 → 输出。
 type Service struct {
 	cfg           Config
@@ -60,7 +63,7 @@ func (s *Service) QueryProfile(ctx context.Context, cmd Command) ([]ResultItem, 
 	}
 
 	if s.scopeResolver == nil || s.recaller == nil {
-		return []ResultItem{}, nil
+		return nil, ErrMissingDependencies
 	}
 
 	scope, err := s.scopeResolver.ResolveScope(ctx, cmd.Principal)

@@ -122,7 +122,28 @@ func NewLoader(db *gorm.DB, cfg LoaderConfig) *Loader {
 
 // Full 全量拉取
 func (l *Loader) Full(ctx context.Context) ([]domainprofile.SuggestibleProfile, error) {
-	return l.query(ctx, l.config.FullSQL)
+	rows, err := l.queryRows(ctx, l.config.FullSQL)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domainprofile.SuggestibleProfile, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, row.fullProfile())
+	}
+	log.Infow("suggest loader finished query", "count", len(out))
+	return out, nil
+}
+
+func (l *Loader) queryRows(ctx context.Context, sql string, args ...interface{}) ([]record, error) {
+	if l.db == nil {
+		return nil, fmt.Errorf("suggest loader db is nil")
+	}
+
+	var rows []record
+	if err := l.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 // Delta 增量拉取，按时间过滤；在 adapter 边界将空 name 转为显式 Delete。
@@ -130,40 +151,25 @@ func (l *Loader) Delta(ctx context.Context, since time.Time) ([]apprefresh.Proje
 	if strings.TrimSpace(l.config.DeltaSQL) == "" {
 		return nil, nil
 	}
-	var profiles []domainprofile.SuggestibleProfile
+	var rows []record
 	var err error
 	if l.defaultDelta {
-		profiles, err = l.query(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
+		rows, err = l.queryRows(ctx, l.config.DeltaSQL, since, since, since, since, since, since, since)
 	} else {
-		profiles, err = l.query(ctx, l.config.DeltaSQL, since, since)
+		rows, err = l.queryRows(ctx, l.config.DeltaSQL, since, since)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return profilesToChanges(profiles), nil
-}
-
-func profilesToChanges(profiles []domainprofile.SuggestibleProfile) []apprefresh.ProjectionChange {
-	out := make([]apprefresh.ProjectionChange, 0, len(profiles))
-	for _, p := range profiles {
-		if p.ID() <= 0 {
-			continue
-		}
-		if strings.TrimSpace(p.DisplayName()) == "" {
-			ch, err := apprefresh.Delete(p.ID())
-			if err != nil {
-				continue
-			}
-			out = append(out, ch)
-			continue
-		}
-		ch, err := apprefresh.Upsert(p)
+	out := make([]apprefresh.ProjectionChange, 0, len(rows))
+	for _, row := range rows {
+		ch, err := row.deltaChange()
 		if err != nil {
 			continue
 		}
 		out = append(out, ch)
 	}
-	return out
+	return out, nil
 }
 
 type record struct {
@@ -175,27 +181,8 @@ type record struct {
 	Weight           int     `gorm:"column:weight"`
 }
 
-func (l *Loader) query(ctx context.Context, sql string, args ...interface{}) ([]domainprofile.SuggestibleProfile, error) {
-	if l.db == nil {
-		return nil, fmt.Errorf("suggest loader db is nil")
-	}
 
-	var rows []record
-	if err := l.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
-		return nil, err
-	}
-
-	out := make([]domainprofile.SuggestibleProfile, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, row.suggestibleProfile())
-	}
-
-	log.Infow("suggest loader finished query", "count", len(out))
-
-	return out, nil
-}
-
-func (r record) suggestibleProfile() domainprofile.SuggestibleProfile {
+func (r record) fullProfile() domainprofile.SuggestibleProfile {
 	mobiles := ""
 	if r.Mobiles != nil {
 		mobiles = *r.Mobiles
@@ -204,7 +191,7 @@ func (r record) suggestibleProfile() domainprofile.SuggestibleProfile {
 	if r.OwnerOperatorIDs != nil {
 		owners = *r.OwnerOperatorIDs
 	}
-	return domainprofile.New(
+	return domainprofile.RawProjection(
 		r.ID,
 		r.Name,
 		splitMobiles(mobiles),
@@ -212,6 +199,35 @@ func (r record) suggestibleProfile() domainprofile.SuggestibleProfile {
 		r.OrgID,
 		splitInt64CSV(owners),
 	)
+}
+
+func (r record) deltaChange() (apprefresh.ProjectionChange, error) {
+	if r.ID <= 0 {
+		return apprefresh.ProjectionChange{}, fmt.Errorf("profile id required for delta change")
+	}
+	if strings.TrimSpace(r.Name) == "" {
+		return apprefresh.Delete(r.ID)
+	}
+	mobiles := ""
+	if r.Mobiles != nil {
+		mobiles = *r.Mobiles
+	}
+	owners := ""
+	if r.OwnerOperatorIDs != nil {
+		owners = *r.OwnerOperatorIDs
+	}
+	p, err := domainprofile.New(
+		r.ID,
+		r.Name,
+		splitMobiles(mobiles),
+		r.Weight,
+		r.OrgID,
+		splitInt64CSV(owners),
+	)
+	if err != nil {
+		return apprefresh.ProjectionChange{}, err
+	}
+	return apprefresh.Upsert(p)
 }
 
 var _ apprefresh.ProjectionSource = (*Loader)(nil)

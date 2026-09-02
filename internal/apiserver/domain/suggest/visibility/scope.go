@@ -1,5 +1,7 @@
 package visibility
 
+import "slices"
+
 // Scope 表示权限侧解析后的 Profile 可见范围。
 type Scope struct {
 	allProfiles      bool
@@ -86,5 +88,6 @@ func setToSortedSlice(m map[int64]struct{}) []int64 {
 	for id := range m {
 		out = append(out, id)
 	}
+	slices.Sort(out)
 	return out
 }

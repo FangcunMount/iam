@@ -6,8 +6,17 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/profile"
 )
 
+func TestSuggestibleProfileNewValidates(t *testing.T) {
+	if _, err := profile.New(0, "a", nil, 1, 0, nil); err == nil {
+		t.Fatal("expected error for non-positive id")
+	}
+	if _, err := profile.New(1, "  ", nil, 1, 0, nil); err == nil {
+		t.Fatal("expected error for empty name")
+	}
+}
+
 func TestSuggestibleProfileNormalizes(t *testing.T) {
-	p := profile.New(42, " 张三 ", []string{" 13800138000 ", "", "13900139000"}, 7, 0, []int64{99, 99, 0})
+	p := profile.MustNew(42, " 张三 ", []string{" 13800138000 ", "", "13900139000"}, 7, 0, []int64{99, 99, 0})
 
 	if p.DisplayName() != "张三" {
 		t.Fatalf("DisplayName = %q, want 张三", p.DisplayName())

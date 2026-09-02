@@ -38,8 +38,8 @@ func TestAdmissionPolicyMatrix(t *testing.T) {
 
 func TestSelectionRankingMatchStrengthPriority(t *testing.T) {
 	candidates := []search.Candidate{
-		{Profile: profile.New(1, "wildcard-hit", nil, 5, 0, nil), Strength: search.MatchExpandedPrefix},
-		{Profile: profile.New(2, "exact-hit", nil, 5, 0, nil), Strength: search.MatchExact},
+		{Profile: profile.MustNew(1, "wildcard-hit", nil, 5, 0, nil), Strength: search.MatchExpandedPrefix},
+		{Profile: profile.MustNew(2, "exact-hit", nil, 5, 0, nil), Strength: search.MatchExact},
 	}
 	out := search.SelectionPolicy{}.Select(candidates, visibility.NewScope(true, true, 0, nil, nil), search.NewKeyword("张"), 10)
 	if len(out.Profiles) != 2 || out.Profiles[0].ID() != 2 {
@@ -49,9 +49,9 @@ func TestSelectionRankingMatchStrengthPriority(t *testing.T) {
 
 func TestSelectionKeepsBestWeightAndLimits(t *testing.T) {
 	candidates := []search.Candidate{
-		{Profile: profile.New(1, "first", nil, 1, 0, nil), Strength: search.MatchDirectPrefix},
-		{Profile: profile.New(2, "second", nil, 9, 0, nil), Strength: search.MatchDirectPrefix},
-		{Profile: profile.New(1, "duplicate", nil, 99, 0, nil), Strength: search.MatchDirectPrefix},
+		{Profile: profile.MustNew(1, "first", nil, 1, 0, nil), Strength: search.MatchDirectPrefix},
+		{Profile: profile.MustNew(2, "second", nil, 9, 0, nil), Strength: search.MatchDirectPrefix},
+		{Profile: profile.MustNew(1, "duplicate", nil, 99, 0, nil), Strength: search.MatchDirectPrefix},
 	}
 	out := search.SelectionPolicy{}.Select(candidates, visibility.NewScope(true, true, 0, nil, nil), search.NewKeyword(""), 2)
 	if len(out.Profiles) != 2 || out.Profiles[0].ID() != 1 || out.Profiles[1].ID() != 2 {

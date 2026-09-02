@@ -87,20 +87,20 @@ func TestQueryProfileUnauthenticated(t *testing.T) {
 	}
 }
 
-func TestQueryProfileNilDepsReturnsEmpty(t *testing.T) {
+func TestQueryProfileNilDepsReturnsError(t *testing.T) {
 	svc := appquery.NewService(appquery.Config{}, nil, nil, nil)
-	got, err := svc.QueryProfile(context.Background(), appquery.Command{
+	_, err := svc.QueryProfile(context.Background(), appquery.Command{
 		Principal: visibility.Principal{OperatorID: 1},
 		Keyword:   "a",
 	})
-	if err != nil || len(got) != 0 {
-		t.Fatalf("got=%#v err=%v", got, err)
+	if !errors.Is(err, appquery.ErrMissingDependencies) {
+		t.Fatalf("err=%v", err)
 	}
 }
 
 func TestQueryProfileMobileDeniedSkipsRecaller(t *testing.T) {
 	scope := &stubScope{scope: visibility.NewScope(true, false, 0, nil, nil)}
-	recaller := &stubRecaller{candidates: []domainsearch.Candidate{{Profile: profile.New(1, "a", nil, 1, 0, nil), Strength: domainsearch.MatchExact}}}
+	recaller := &stubRecaller{candidates: []domainsearch.Candidate{{Profile: profile.MustNew(1, "a", nil, 1, 0, nil), Strength: domainsearch.MatchExact}}}
 	metrics := &stubMetrics{}
 	svc := appquery.NewService(appquery.Config{}, scope, recaller, metrics)
 
@@ -146,8 +146,8 @@ func TestQueryProfileRecallErrorPropagates(t *testing.T) {
 
 func TestQueryProfileHappyPathPrefix(t *testing.T) {
 	candidates := []domainsearch.Candidate{
-		{Profile: profile.New(3, "张三丰", nil, 8, 0, nil), Strength: domainsearch.MatchDirectPrefix},
-		{Profile: profile.New(1, "张三", nil, 5, 0, nil), Strength: domainsearch.MatchDirectPrefix},
+		{Profile: profile.MustNew(3, "张三丰", nil, 8, 0, nil), Strength: domainsearch.MatchDirectPrefix},
+		{Profile: profile.MustNew(1, "张三", nil, 5, 0, nil), Strength: domainsearch.MatchDirectPrefix},
 	}
 	scope := &stubScope{scope: visibility.NewScope(true, true, 0, nil, nil)}
 	metrics := &stubMetrics{}
@@ -176,7 +176,7 @@ func TestQueryProfileLimitClamp(t *testing.T) {
 	candidates := make([]domainsearch.Candidate, 0, 30)
 	for i := int64(1); i <= 30; i++ {
 		candidates = append(candidates, domainsearch.Candidate{
-			Profile:  profile.New(i, "张", nil, int(i), 0, nil),
+			Profile:  profile.MustNew(i, "张", nil, int(i), 0, nil),
 			Strength: domainsearch.MatchDirectPrefix,
 		})
 	}
@@ -197,8 +197,8 @@ func TestQueryProfileLimitClamp(t *testing.T) {
 
 func TestQueryProfileScopeFiltersResults(t *testing.T) {
 	candidates := []domainsearch.Candidate{
-		{Profile: profile.New(1, "张三", nil, 5, 1, nil), Strength: domainsearch.MatchDirectPrefix},
-		{Profile: profile.New(2, "张磊", nil, 5, 2, nil), Strength: domainsearch.MatchDirectPrefix},
+		{Profile: profile.MustNew(1, "张三", nil, 5, 1, nil), Strength: domainsearch.MatchDirectPrefix},
+		{Profile: profile.MustNew(2, "张磊", nil, 5, 2, nil), Strength: domainsearch.MatchDirectPrefix},
 	}
 	scope := &stubScope{scope: visibility.NewScope(false, false, 0, []int64{1}, nil)}
 	metrics := &stubMetrics{}
@@ -221,7 +221,7 @@ func TestQueryProfileScopeFiltersResults(t *testing.T) {
 
 func TestQueryProfileDefaultMobileMask(t *testing.T) {
 	candidates := []domainsearch.Candidate{
-		{Profile: profile.New(1, "张三", []string{"13800138000"}, 5, 0, nil), Strength: domainsearch.MatchExact},
+		{Profile: profile.MustNew(1, "张三", []string{"13800138000"}, 5, 0, nil), Strength: domainsearch.MatchExact},
 	}
 	svc := appquery.NewService(appquery.Config{}, &stubScope{scope: visibility.NewScope(true, true, 0, nil, nil)}, &stubRecaller{candidates: candidates}, nil)
 
@@ -239,7 +239,7 @@ func TestQueryProfileDefaultMobileMask(t *testing.T) {
 
 func TestQueryProfileDisableMobileMask(t *testing.T) {
 	candidates := []domainsearch.Candidate{
-		{Profile: profile.New(1, "张三", []string{"13800138000"}, 5, 0, nil), Strength: domainsearch.MatchExact},
+		{Profile: profile.MustNew(1, "张三", []string{"13800138000"}, 5, 0, nil), Strength: domainsearch.MatchExact},
 	}
 	svc := appquery.NewService(appquery.Config{DisableMobileMask: true}, &stubScope{scope: visibility.NewScope(true, true, 0, nil, nil)}, &stubRecaller{candidates: candidates}, nil)
 

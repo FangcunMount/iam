@@ -60,10 +60,11 @@ func (r *Refresher) RunFull(ctx context.Context) (runErr error) {
 		return err
 	}
 	indexable := filterIndexableProfiles(candidates)
-	if r.writer != nil {
-		if err := r.writer.Replace(ctx, indexable); err != nil {
-			return err
-		}
+	if r.writer == nil {
+		return fmt.Errorf("suggest store not initialized")
+	}
+	if err := r.writer.Replace(ctx, indexable); err != nil {
+		return err
 	}
 	r.lastFetch = windowStart
 	r.lastSuccessUnix.Store(time.Now().UTC().Unix())

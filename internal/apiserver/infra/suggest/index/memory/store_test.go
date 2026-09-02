@@ -25,9 +25,9 @@ func recall(t *testing.T, store *Store, keyword string, intent domainsearch.Inte
 
 func TestRecallByPrefixAndPinyin(t *testing.T) {
 	store := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", []string{"13800138000"}, 5, 0, nil),
-		profile.New(3, "张三丰", []string{"18888888888"}, 8, 0, nil),
-		profile.New(2, "李四", []string{"13900139000"}, 3, 0, nil),
+		profile.MustNew(1, "张三", []string{"13800138000"}, 5, 0, nil),
+		profile.MustNew(3, "张三丰", []string{"18888888888"}, 8, 0, nil),
+		profile.MustNew(2, "李四", []string{"13900139000"}, 3, 0, nil),
 	}, Config{})
 
 	out := recall(t, store, "张", domainsearch.IntentTextPrefix, 50)
@@ -58,9 +58,9 @@ func TestRecallByPrefixAndPinyin(t *testing.T) {
 
 func TestRecallNumericExactDedupAndSort(t *testing.T) {
 	store := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", []string{"13900139000"}, 5, 0, nil),
-		profile.New(2, "李四", []string{"13900139000"}, 10, 0, nil),
-		profile.New(3, "王五", []string{"18800001111"}, 1, 0, nil),
+		profile.MustNew(1, "张三", []string{"13900139000"}, 5, 0, nil),
+		profile.MustNew(2, "李四", []string{"13900139000"}, 10, 0, nil),
+		profile.MustNew(3, "王五", []string{"18800001111"}, 1, 0, nil),
 	}, Config{})
 
 	out := recall(t, store, "13900139000", domainsearch.IntentNumericExact, 50)
@@ -71,7 +71,7 @@ func TestRecallNumericExactDedupAndSort(t *testing.T) {
 
 func TestRecallNumericExactByID(t *testing.T) {
 	store := Load([]profile.SuggestibleProfile{
-		profile.New(42, "张三", nil, 5, 0, nil),
+		profile.MustNew(42, "张三", nil, 5, 0, nil),
 	}, Config{})
 
 	out := recall(t, store, "42", domainsearch.IntentNumericExact, 50)
@@ -83,7 +83,7 @@ func TestRecallNumericExactByID(t *testing.T) {
 func TestRecallCandidateBudget(t *testing.T) {
 	profiles := make([]profile.SuggestibleProfile, 0, 10)
 	for i := int64(1); i <= 10; i++ {
-		profiles = append(profiles, profile.New(i, "张"+string(rune('0'+i)), nil, int(i), 0, nil))
+		profiles = append(profiles, profile.MustNew(i, "张"+string(rune('0'+i)), nil, int(i), 0, nil))
 	}
 	store := Load(profiles, Config{})
 
@@ -95,10 +95,10 @@ func TestRecallCandidateBudget(t *testing.T) {
 
 func TestApplyChangesClearsStaleTrieKeys(t *testing.T) {
 	s := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", nil, 5, 0, nil),
+		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}, Config{})
 	s.ApplyChanges([]apprefresh.ProjectionChange{
-		mustUpsert(profile.New(1, "李四", nil, 5, 0, nil)),
+		mustUpsert(profile.MustNew(1, "李四", nil, 5, 0, nil)),
 	})
 
 	out := recall(t, s, "张", domainsearch.IntentTextPrefix, 50)
@@ -113,7 +113,7 @@ func TestApplyChangesClearsStaleTrieKeys(t *testing.T) {
 
 func TestApplyChangesEmptyDisplayRemovesProfile(t *testing.T) {
 	s := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", nil, 5, 0, nil),
+		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}, Config{})
 	del, err := apprefresh.Delete(1)
 	if err != nil {
@@ -132,7 +132,7 @@ func TestApplyChangesEmptyDisplayRemovesProfile(t *testing.T) {
 
 func TestApplyChangesRepeatedTombstoneIsIdempotent(t *testing.T) {
 	s := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", nil, 5, 0, nil),
+		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}, Config{})
 	del, err := apprefresh.Delete(1)
 	if err != nil {
@@ -147,10 +147,10 @@ func TestApplyChangesRepeatedTombstoneIsIdempotent(t *testing.T) {
 
 func TestApplyChangesMobileChangeRevokesOldHashKey(t *testing.T) {
 	s := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", []string{"13800138000"}, 5, 0, nil),
+		profile.MustNew(1, "张三", []string{"13800138000"}, 5, 0, nil),
 	}, Config{})
 	s.ApplyChanges([]apprefresh.ProjectionChange{
-		mustUpsert(profile.New(1, "张三", []string{"13900139000"}, 5, 0, nil)),
+		mustUpsert(profile.MustNew(1, "张三", []string{"13900139000"}, 5, 0, nil)),
 	})
 
 	old := recall(t, s, "13800138000", domainsearch.IntentNumericExact, 50)
@@ -165,10 +165,10 @@ func TestApplyChangesMobileChangeRevokesOldHashKey(t *testing.T) {
 
 func TestReplaceProfilesReplacesIndex(t *testing.T) {
 	s := Load([]profile.SuggestibleProfile{
-		profile.New(1, "张三", nil, 5, 0, nil),
+		profile.MustNew(1, "张三", nil, 5, 0, nil),
 	}, Config{})
 	s.ReplaceProfiles([]profile.SuggestibleProfile{
-		profile.New(2, "李四", nil, 3, 0, nil),
+		profile.MustNew(2, "李四", nil, 3, 0, nil),
 	})
 	if s.Len() != 1 {
 		t.Fatalf("Len = %d", s.Len())
