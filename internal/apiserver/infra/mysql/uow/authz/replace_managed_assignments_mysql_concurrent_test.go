@@ -33,6 +33,11 @@ func TestReplaceManagedAssignmentsMySQLConcurrentLinearization(t *testing.T) {
 	dsn := mysqlDSN(host)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(
+		&roleRepo.RolePO{},
+		&assignmentRepo.AssignmentPO{},
+		&policyRepo.PolicyVersionPO{},
+	))
 
 	tenantID := fmt.Sprintf("replace-concurrent-%d", time.Now().UnixNano())
 	userID := meta.FromUint64(uint64(time.Now().UnixNano()%900_000_000 + 100_000_000))
