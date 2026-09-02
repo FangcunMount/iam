@@ -1029,7 +1029,7 @@ func TestAuthzAuthorizationDoesNotUseRoleNameAdministratorBypasses(t *testing.T)
 			legacy: []string{"RequirePlatformAdmin", "RequirePermissionOrPlatformAdmin", "IsPlatformAdminRole"},
 		},
 		{
-			path:   "internal/apiserver/infra/suggest/access/authz_facts_reader.go",
+			path:   "internal/apiserver/infra/suggest/authorization/facts_reader.go",
 			legacy: []string{"IsSuperAdmin", "tenant_admin", "super_admin", "IsPlatformAdminRole"},
 		},
 	} {
@@ -1175,29 +1175,39 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	scanImports(t, filepath.Join(root, "internal", "apiserver", "application", "suggest"), func(path string, imports []string) {
-		rel := filepath.ToSlash(mustRel(t, root, path))
-		for _, imp := range imports {
-			if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
-				imp == "os" ||
-				imp == "path/filepath" ||
-				imp == "github.com/robfig/cron/v3" {
-				t.Fatalf("%s imports %s; suggest application must depend on profile candidate ports instead of infra, filesystem, or cron scheduling", rel, imp)
+	for _, appRoot := range []string{
+		"internal/apiserver/application/suggest",
+		"internal/apiserver/application/suggest/queryprofile",
+		"internal/apiserver/application/suggest/refreshindex",
+	} {
+		scanImports(t, filepath.Join(root, appRoot), func(path string, imports []string) {
+			rel := filepath.ToSlash(mustRel(t, root, path))
+			for _, imp := range imports {
+				if strings.HasPrefix(imp, modulePath+"internal/apiserver/infra/") ||
+					imp == "os" ||
+					imp == "path/filepath" ||
+					imp == "github.com/robfig/cron/v3" {
+					t.Fatalf("%s imports %s; suggest application must depend on ports instead of infra, filesystem, or cron scheduling", rel, imp)
+				}
 			}
-		}
-	})
+		})
+	}
 
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "suggest"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
 		for _, token := range []string{
-			"name|id|mobiles",
-			"Trie",
-			"Hash",
+			"MetricName",
+			"Prometheus",
+			"InternalLimit",
+			"KeyPadLen",
+			"WildcardKeyCap",
+			"ProfileIndexMutation",
+			"MatchKindWildcard",
 			"ImportLines",
 			"cron",
 		} {
 			if strings.Contains(source, token) {
-				t.Fatalf("%s contains suggest infrastructure language %q; keep the domain to profile candidates, query, and ranking rules", rel, token)
+				t.Fatalf("%s contains forbidden suggest domain token %q", rel, token)
 			}
 		}
 	})
@@ -1212,10 +1222,16 @@ func TestSuggestProfileSuggestionBoundaries(t *testing.T) {
 	})
 
 	assertFileLacks(t, root, "internal/apiserver/transport/rest/suggest/handler.go", "AllowMobileSearch")
-	assertFileContains(t, root, "internal/apiserver/domain/suggest/search_policy.go", "type SearchPolicy struct")
-	assertFileContains(t, root, "internal/apiserver/domain/suggest/scope_resolution.go", "type ScopeResolutionPolicy struct")
-	assertFileContains(t, root, "internal/apiserver/domain/suggest/index_mutation.go", "type ProfileIndexMutation struct")
-	assertFileContains(t, root, "internal/apiserver/application/suggest/service.go", "searchPolicy")
+	assertFileContains(t, root, "internal/apiserver/domain/suggest/search/keyword.go", "type AdmissionPolicy struct")
+	assertFileContains(t, root, "internal/apiserver/domain/suggest/visibility/resolution_policy.go", "type ResolutionPolicy struct")
+	assertFileContains(t, root, "internal/apiserver/application/suggest/queryprofile/service.go", "SelectionPolicy")
+	assertFileContains(t, root, "internal/apiserver/application/suggest/refreshindex/change.go", "type ProjectionChange struct")
+	if _, err := os.Stat(filepath.Join(root, "internal/apiserver/application/suggest/service.go")); err == nil {
+		t.Fatal("legacy application/suggest/service.go should be removed")
+	}
+	if _, err := os.Stat(filepath.Join(root, "internal/apiserver/infra/suggest/search")); err == nil {
+		t.Fatal("legacy infra/suggest/search should be removed")
+	}
 }
 
 func TestSuggestRetiredNumericTenantFieldsDoNotReturn(t *testing.T) {
@@ -1223,9 +1239,9 @@ func TestSuggestRetiredNumericTenantFieldsDoNotReturn(t *testing.T) {
 
 	root := repoRoot(t)
 	for _, rel := range []string{
-		"internal/apiserver/domain/suggest/principal.go",
-		"internal/apiserver/domain/suggest/profile.go",
-		"internal/apiserver/domain/suggest/scope.go",
+		"internal/apiserver/domain/suggest/visibility/principal.go",
+		"internal/apiserver/domain/suggest/profile/profile.go",
+		"internal/apiserver/domain/suggest/visibility/scope.go",
 		"internal/apiserver/infra/mysql/suggest/loader.go",
 	} {
 		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
