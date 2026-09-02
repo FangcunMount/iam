@@ -43,7 +43,7 @@ type Metrics interface {
 type noopMetrics struct{}
 
 func (noopMetrics) RecordQuery(domainsearch.DecisionKind, int, bool) {}
-func (noopMetrics) ObserveSelection(int, int)                       {}
+func (noopMetrics) ObserveSelection(int, int)                        {}
 
 // Querier 查询用例端口。
 type Querier interface {

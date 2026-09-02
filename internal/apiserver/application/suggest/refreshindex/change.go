@@ -39,6 +39,6 @@ func Delete(profileID int64) (ProjectionChange, error) {
 	return ProjectionChange{kind: ChangeDelete, profileID: profileID}, nil
 }
 
-func (c ProjectionChange) Kind() ChangeKind                      { return c.kind }
-func (c ProjectionChange) ProfileID() int64                      { return c.profileID }
+func (c ProjectionChange) Kind() ChangeKind                          { return c.kind }
+func (c ProjectionChange) ProfileID() int64                          { return c.profileID }
 func (c ProjectionChange) Profile() domainprofile.SuggestibleProfile { return c.profile }

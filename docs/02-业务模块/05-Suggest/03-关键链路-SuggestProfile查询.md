@@ -32,6 +32,8 @@ JWT → visibility.Principal
 
 指标：`DecisionKind` 在 infra metrics 映射为 `mobile_denied` / `numeric_exact` / `prefix_text`。
 
+隐私：原始手机号只存在于进程内索引；响应默认脱敏，不写入文件或日志。
+
 ## 3. 已知限制（本轮不修复）
 
 召回窗口在 scope 过滤前按 `CandidateBudget` 截断，可能导致可见结果不足；属既有行为，需另立需求。

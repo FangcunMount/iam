@@ -3,9 +3,9 @@ package suggest
 import (
 	"testing"
 
-	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
 	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
+	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 )
 
 func TestModuleConfigFromOptionsDefaults(t *testing.T) {
@@ -31,17 +31,17 @@ func TestModuleConfigFromOptionsDefaults(t *testing.T) {
 
 func TestModuleConfigFromOptionsMapsExplicitValues(t *testing.T) {
 	cfg := ModuleConfigFromOptions(apiserveroptions.SuggestOptions{
-		Enable:                     true,
-		Required:                   true,
-		FullSyncCron:               "0 * * * *",
-		DeltaSyncCron:              "@every 5m",
-		MaxResults:                 15,
-		InternalMaxResults:         120,
-		KeyPadLen:                  30,
-		WildcardKeyCap:             80,
-		DisableMobileMask:          true,
-		LoaderPlaceholderOrgID:     7,
-		VisibilityCacheTTLSeconds:  60,
+		Enable:                    true,
+		Required:                  true,
+		FullSyncCron:              "0 * * * *",
+		DeltaSyncCron:             "@every 5m",
+		MaxResults:                15,
+		InternalMaxResults:        120,
+		KeyPadLen:                 30,
+		WildcardKeyCap:            80,
+		DisableMobileMask:         true,
+		LoaderPlaceholderOrgID:    7,
+		VisibilityCacheTTLSeconds: 60,
 	})
 
 	if !cfg.Enable || !cfg.Required {

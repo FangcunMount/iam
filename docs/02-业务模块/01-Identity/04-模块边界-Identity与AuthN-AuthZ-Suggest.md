@@ -369,7 +369,7 @@ Suggest `OperatingProfileAccessScopeProvider` 结合：
 | IDP 微信模型 | `internal/apiserver/domain/idp/wechatapp` |
 | 微信 signup 解析 | `internal/apiserver/application/authn/signup/wechat_signup.go` |
 | Suggest Loader | `internal/apiserver/infra/mysql/suggest/loader.go` |
-| Suggest scope | `internal/apiserver/infra/suggest/access/profile_scope_provider.go`、`internal/apiserver/infra/mysql/suggest/profile_visibility_resolver.go` |
+| Suggest scope | `internal/apiserver/infra/suggest/authorization/facts_reader.go`、`internal/apiserver/infra/mysql/suggest/visibility_reader.go` |
 | 依赖护栏 | `internal/pkg/architecture/architecture_test.go` |
 
 ```bash

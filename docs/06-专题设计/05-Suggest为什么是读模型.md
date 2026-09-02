@@ -125,9 +125,9 @@ recall up to InternalLimit
 | 内容 | 路径 |
 | --- | --- |
 | Identity 主数据 | `internal/apiserver/domain/identity`、`internal/apiserver/infra/mysql/profile`、`profilelink`、`user` |
-| Suggest 模型和用例 | `internal/apiserver/domain/suggest`、`internal/apiserver/application/suggest` |
-| Loader 和索引 | `internal/apiserver/infra/mysql/suggest`、`internal/apiserver/infra/suggest/search` |
-| Scope adapter | `internal/apiserver/infra/suggest/access` |
+| Suggest 模型和用例 | `internal/apiserver/domain/suggest`、`internal/apiserver/application/suggest/queryprofile`、`internal/apiserver/application/suggest/refreshindex` |
+| Loader 和索引 | `internal/apiserver/infra/mysql/suggest`、`internal/apiserver/infra/suggest/index/memory` |
+| Scope adapter | `internal/apiserver/infra/suggest/authorization`、`internal/apiserver/infra/suggest/visibility` |
 
 ```bash
 go test ./internal/apiserver/domain/suggest/...

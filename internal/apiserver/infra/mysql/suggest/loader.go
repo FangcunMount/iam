@@ -181,7 +181,6 @@ type record struct {
 	Weight           int     `gorm:"column:weight"`
 }
 
-
 func (r record) fullProfile() domainprofile.SuggestibleProfile {
 	mobiles := ""
 	if r.Mobiles != nil {

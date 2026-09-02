@@ -73,8 +73,8 @@ type Decision struct {
 	denialReason DenialReason
 }
 
-func (d Decision) Allowed() bool       { return d.denialReason == DenialNone && d.intent != IntentNone }
-func (d Decision) Intent() Intent      { return d.intent }
+func (d Decision) Allowed() bool              { return d.denialReason == DenialNone && d.intent != IntentNone }
+func (d Decision) Intent() Intent             { return d.intent }
 func (d Decision) DenialReason() DenialReason { return d.denialReason }
 
 // Kind 返回 metrics 映射用决策种类。

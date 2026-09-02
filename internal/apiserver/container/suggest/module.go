@@ -60,8 +60,8 @@ func (m *SuggestModule) InitializeWithDeps(deps SuggestModuleDeps) error {
 	factsReader := suggestauthz.NewFactsReader(deps.RoutePermissionChecker)
 	scopeResolver := appquery.NewScopeResolver(factsReader, visibility)
 
-	runtime := suggestmemory.NewRuntime(cfg.Memory, metrics)
 	metrics := suggestmetrics.Recorder{}
+	runtime := suggestmemory.NewRuntime(cfg.Memory, metrics)
 
 	querySvc := appquery.NewService(cfg.Query, scopeResolver, runtime, metrics)
 	m.querier = querySvc

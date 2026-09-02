@@ -109,12 +109,14 @@ func uniqueInt64(ids []int64) []int64 {
 	return out
 }
 
-func (p SuggestibleProfile) ID() int64               { return p.id }
-func (p SuggestibleProfile) DisplayName() string       { return p.displayName }
-func (p SuggestibleProfile) Weight() int               { return p.weight }
-func (p SuggestibleProfile) OrgID() int64              { return p.orgID }
-func (p SuggestibleProfile) Mobiles() []string         { return append([]string(nil), p.mobiles...) }
-func (p SuggestibleProfile) OwnerOperatorIDs() []int64 { return append([]int64(nil), p.ownerOperatorIDs...) }
+func (p SuggestibleProfile) ID() int64           { return p.id }
+func (p SuggestibleProfile) DisplayName() string { return p.displayName }
+func (p SuggestibleProfile) Weight() int         { return p.weight }
+func (p SuggestibleProfile) OrgID() int64        { return p.orgID }
+func (p SuggestibleProfile) Mobiles() []string   { return append([]string(nil), p.mobiles...) }
+func (p SuggestibleProfile) OwnerOperatorIDs() []int64 {
+	return append([]int64(nil), p.ownerOperatorIDs...)
+}
 
 // PrimaryMobile 返回第一个手机号；无则空串。
 func (p SuggestibleProfile) PrimaryMobile() string {

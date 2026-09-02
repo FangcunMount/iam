@@ -5,12 +5,12 @@ import (
 	"gorm.io/gorm"
 
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
-	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
 	mysqlsuggest "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/suggest"
+	suggestmemory "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/index/memory"
 	suggestratelimit "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/ratelimit"
 	suggestvisibility "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/visibility"
+	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )
 

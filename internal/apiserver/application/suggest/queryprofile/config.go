@@ -1,16 +1,16 @@
 package queryprofile
 
 const (
-	defaultMaxResults         = 20
+	defaultMaxResults          = 20
 	defaultCandidateBudgetMult = 10
-	defaultCandidateBudget    = defaultMaxResults * defaultCandidateBudgetMult
+	defaultCandidateBudget     = defaultMaxResults * defaultCandidateBudgetMult
 )
 
 // Config 控制查询用例行为。
 type Config struct {
-	MaxResults         int
-	CandidateBudget    int
-	DisableMobileMask  bool
+	MaxResults        int
+	CandidateBudget   int
+	DisableMobileMask bool
 }
 
 // WithDefaults 填充默认值。

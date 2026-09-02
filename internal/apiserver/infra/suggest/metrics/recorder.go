@@ -54,7 +54,7 @@ func (Recorder) SetIndexTerms(n int) {
 }
 
 var (
-	_ appquery.Metrics     = Recorder{}
-	_ apprefresh.Metrics   = Recorder{}
-	_ RateLimitRecorder    = Recorder{}
+	_ appquery.Metrics   = Recorder{}
+	_ apprefresh.Metrics = Recorder{}
+	_ RateLimitRecorder  = Recorder{}
 )

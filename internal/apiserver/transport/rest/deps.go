@@ -11,11 +11,11 @@ import (
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	readinessapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/readiness"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
-	suggesthttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/suggest"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	authzhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/handler"
 	uchandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/identity/handler"
 	idphandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/idp/handler"
+	suggesthttp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/suggest"
 	authzMiddleware "github.com/FangcunMount/iam/v3/internal/pkg/middleware/authz"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
 )

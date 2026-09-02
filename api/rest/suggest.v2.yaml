@@ -41,9 +41,22 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem'
-                type: array
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: 业务错误码，0 表示成功
+                  message:
+                    type: string
+                    description: 响应消息
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/internal_apiserver_transport_rest_suggest.ProfileSuggestResponseItem'
+                required:
+                - code
+                - message
+                - data
         '400':
           description: 参数缺失
           content:

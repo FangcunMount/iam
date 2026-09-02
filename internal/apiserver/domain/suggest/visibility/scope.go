@@ -4,11 +4,11 @@ import "slices"
 
 // Scope 表示权限侧解析后的 Profile 可见范围。
 type Scope struct {
-	allProfiles      bool
-	mobileSearch     bool
-	operatorID       int64
-	orgIDs           map[int64]struct{}
-	profileIDs       map[int64]struct{}
+	allProfiles  bool
+	mobileSearch bool
+	operatorID   int64
+	orgIDs       map[int64]struct{}
+	profileIDs   map[int64]struct{}
 }
 
 // NewScope 构造不可随意修改的 Scope。
@@ -77,8 +77,8 @@ func (s Scope) IsAllProfiles() bool      { return s.allProfiles }
 func (s Scope) OperatorID() int64        { return s.operatorID }
 
 // OrgIDs 返回去重后的 org ID 切片副本。
-func (s Scope) OrgIDs() []int64       { return setToSortedSlice(s.orgIDs) }
-func (s Scope) ProfileIDs() []int64   { return setToSortedSlice(s.profileIDs) }
+func (s Scope) OrgIDs() []int64     { return setToSortedSlice(s.orgIDs) }
+func (s Scope) ProfileIDs() []int64 { return setToSortedSlice(s.profileIDs) }
 
 func setToSortedSlice(m map[int64]struct{}) []int64 {
 	if len(m) == 0 {

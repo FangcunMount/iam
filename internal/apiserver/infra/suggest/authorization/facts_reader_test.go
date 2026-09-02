@@ -7,8 +7,8 @@ import (
 
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	appquery "github.com/FangcunMount/iam/v3/internal/apiserver/application/suggest/queryprofile"
-	suggestauthz "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/suggest/visibility"
+	suggestauthz "github.com/FangcunMount/iam/v3/internal/apiserver/infra/suggest/authorization"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
 )
 

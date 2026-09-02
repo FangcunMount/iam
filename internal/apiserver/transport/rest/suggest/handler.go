@@ -65,7 +65,7 @@ func (noopRateLimitMetrics) RecordRateLimited(bool) {}
 // @Produce  json
 // @Param k query string true "关键词；纯数字可为档案 ID 或手机号（手机号需授权）"
 // @Param limit           query    int  false "返回条数上限"
-// @Success 200 {array} ProfileSuggestResponseItem "联想结果（按权重降序，去重）"
+// @Success 200 {object} map[string]interface{} "{code,message,data:[ProfileSuggestResponseItem]}"
 // @Failure 400 {object} core.ErrResponse "参数缺失"
 // @Failure 401 {object} core.ErrResponse "未认证"
 // @Failure 403 {object} core.ErrResponse "无搜索权限"
