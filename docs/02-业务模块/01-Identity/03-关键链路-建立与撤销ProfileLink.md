@@ -15,8 +15,8 @@
 
 ## 2. 30 秒结论
 
-ProfileLink 是 Identity 中可独立查询和撤销的关系事实。建立关系要在一个 Identity 事务中确认 User/Profile 存在、检查 active pair 和 active self，然后插入
-ProfileLink。
+ProfileLink 是 Identity 中可独立查询和撤销的关系事实。建立关系要在一个 Identity 事务中确认 User/Profile 存在、检查 active pair 和 active self，
+然后插入 ProfileLink。
 
 ```text
 Establish
@@ -195,8 +195,8 @@ proto 的 batch response 同时定义 `revoked/created` 和 `failures`。Transpo
 
 ### 7.1 输入与解析
 
-gRPC `EstablishProfileLink` 要求非空 `user_id` 和 `profile_id`。`relation` 通过 `protoRelationToString` 转换；unspecified 和未知枚举均映射为
-`other`。
+gRPC `EstablishProfileLink` 要求非空 `user_id` 和 `profile_id`。`relation` 通过 `protoRelationToString` 转换；
+unspecified 和未知枚举均映射为 `other`。
 
 application 再调用 `domain.ParseRelation`，同样会把未知字符串降级为 `RelOther`。所以当前入口不存在“未知 relation 返回 InvalidArgument”的行为。
 
@@ -245,8 +245,8 @@ gRPC 支持两类 selector：
 - `profile_link_id`；
 - `user_id + profile_id`。
 
-ID selector 会先加载 ProfileLink，并显式拒绝 `nil` 或已 revoked 实体。Pair selector 通过 repository active-only 查询解析。两条路径都要求当前存在 active
-link。
+ID selector 会先加载 ProfileLink，并显式拒绝 `nil` 或已 revoked 实体。Pair selector 通过 repository active-only 查询解析。
+两条路径都要求当前存在 active link。
 
 ### 8.2 时序
 
@@ -305,8 +305,8 @@ sequenceDiagram
 | 系统侧 gRPC | `profilelink.Directory` | 按请求的 UserID/ProfileID 查询，不应用 REST 当前 User 限制 |
 | 当前用户 REST | `MyProfileLinks` | UserID 强制改为当前 User；按 Profile 查询前要求当前 User 有 active link |
 
-REST `include_revoked=true` 会使 `Active=false`，然后调用 `IncludingRevoked` 查询。兼容参数 `active=false` 也是“包含 revoked”，而不是“只返回
-revoked”。
+REST `include_revoked=true` 会使 `Active=false`，然后调用 `IncludingRevoked` 查询。兼容参数 `active=false` 也是“包含 revoked”，
+而不是“只返回 revoked”。
 
 ### 9.2 查询的组装代价
 

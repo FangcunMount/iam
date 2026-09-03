@@ -32,8 +32,8 @@ AuthZ 回答一个问题：可信 Subject 在某个 Tenant 中，是否可以对
 
 ### 二、领域模型设计
 
-2. [领域模型设计](01-领域模型设计.md)：深入 Subject、Tenant、Role、Assignment、RoleInheritance、PermissionGrant、Resource、ConstraintSet 和
-   ObjectAttributes 的责任与不变量。
+2. [领域模型设计](01-领域模型设计.md)：深入 Subject、Tenant、Role、Assignment、RoleInheritance、PermissionGrant、Resource、
+   ConstraintSet 和 ObjectAttributes 的责任与不变量。
 
 ### 三、关键链路分析
 

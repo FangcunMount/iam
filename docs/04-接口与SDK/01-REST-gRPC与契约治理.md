@@ -26,11 +26,11 @@ OpenAPI path + schema + security
   <-> SDK/caller（若有）
 ```
 
-Router 在运行时根据 ModuleState 和 middleware availability 注册，因此静态 OpenAPI 可能描述“完整服务能力”，某个 degraded 实例却不注册 protected route。生产
-release 不允许这种 critical degraded 形态；开发诊断时应以 `/debug/routes` /模块状态和 readiness 为准。
+Router 在运行时根据 ModuleState 和 middleware availability 注册，因此静态 OpenAPI 可能描述“完整服务能力”，某个 degraded 实例却不注册 protected route。
+生产 release 不允许这种 critical degraded 形态；开发诊断时应以 `/debug/routes` /模块状态和 readiness 为准。
 
-`router_matrix_test.go` 以实际 Gin route 表检查 public route 的 OpenAPI 覆盖，并保护已退役路径不回归。Swagger 注解生成物仍用于比对，但 canonical REST 文件在
-`api/rest`，不能手工只改 `internal/apiserver/docs/swagger.yaml`。
+`router_matrix_test.go` 以实际 Gin route 表检查 public route 的 OpenAPI 覆盖，并保护已退役路径不回归。Swagger 注解生成物仍用于比对，
+但 canonical REST 文件在 `api/rest`，不能手工只改 `internal/apiserver/docs/swagger.yaml`。
 
 ## 3. gRPC 契约闭环
 
@@ -42,8 +42,8 @@ api/grpc/iam/authz/v3/*.proto
 ```
 
 `container.grpcRegistrations()` 只收集 available module 的 registration，`transport/grpc.Registry` 完成注册后才将服务标为 SERVING。
-`proto_contract_test.go` 检查 proto service 与 Go runtime registration 的对应关系；模块级 alignment test 进一步防止“proto 声明了 service，但
-service wrapper 没有真正 Register”。
+`proto_contract_test.go` 检查 proto service 与 Go runtime registration 的对应关系；模块级 alignment test 进一步防止“proto 声明了 service，
+但 service wrapper 没有真正 Register”。
 
 Proto 演进规则：
 
@@ -57,8 +57,8 @@ Proto 演进规则：
 
 REST 调用方应依赖 HTTP status + 稳定业务 code；gRPC 调用方应依赖 `codes.Code` 和结构化错误，不解析 message 文本。
 
-服务端通过 `internal/pkg/grpc.ToStatusError` 把注册的业务错误映射为标准 status，并把 Internal/Unknown/DataLoss 等动态内部错误统一转成安全公共文案。这样既避免泄漏
-SQL/provider/密钥细节，也让 SDK 的 `IsNotFound`、`IsRetryable` 等谓词稳定工作。
+服务端通过 `internal/pkg/grpc.ToStatusError` 把注册的业务错误映射为标准 status，并把 Internal/Unknown/DataLoss 等动态内部错误统一转成安全公共文案。
+这样既避免泄漏 SQL/provider/密钥细节，也让 SDK 的 `IsNotFound`、`IsRetryable` 等谓词稳定工作。
 
 直接 `status.Errorf(codes.Internal, err.Error())` 同时破坏安全和兼容性，architecture test 对此做静态守卫。
 

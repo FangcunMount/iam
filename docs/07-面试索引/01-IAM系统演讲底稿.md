@@ -66,7 +66,7 @@
 
 **一句话目标：** 让听众先理解 IAM 为什么存在。
 
-**通稿：**
+#### 通稿
 
 > 我想介绍的项目是 IAM，也就是身份与访问管理系统。
 >
@@ -74,7 +74,7 @@
 >
 > 业务系统接入时会反复遇到三个问题：用户是谁？怎样证明当前请求者就是这个用户？他又能对某个资源做什么？IAM 就是围绕这三个问题建立的。
 
-**转场句：**
+#### 转场句
 
 > 围绕这三个问题，我们没有按 API 路径或数据库表拆分，而是按业务事实的变化原因拆成五个模块。
 
@@ -86,22 +86,22 @@
 
 ![IAM 模块边界与协作关系](../_images/architecture/module-boundary.svg)
 
-**通稿：**
+#### 通稿
 
 > 三个核心模块是 Identity、AuthN 和 AuthZ。
 >
-> Identity 回答“用户是谁”。它拥有 User、Profile 和 ProfileLink。User 是 IAM 内部的稳定身份锚点，Profile 是业务资料，ProfileLink 表达 User 与 Profile
-> 之间可建立、查询和撤销的关系。Identity 不验证密码，不签发 Token，也不做资源授权。
+> Identity 回答“用户是谁”。它拥有 User、Profile 和 ProfileLink。User 是 IAM 内部的稳定身份锚点，Profile 是业务资料，
+> ProfileLink 表达 User 与 Profile 之间可建立、查询和撤销的关系。Identity 不验证密码，不签发 Token，也不做资源授权。
 >
 > AuthN 回答“怎样证明当前是他”。它拥有 LoginIdentity、Credential、Challenge、Principal、Session 和 Token。LoginIdentity 解决一个用户可以通过用户名、手机号、
 > 微信或企微等不同入口进入同一个 User 的问题。Principal 是一次认证成功的运行时结果，Session 和 Token 把这次认证延续成可撤销、可刷新的登录状态。
 >
 > AuthZ 回答“能对资源做什么”。它不是只检查一个 `role == admin`，而是把 Subject、Tenant、Resource、Action 和受信对象属性一起放入授权请求中，再返回允许或拒绝的 Decision。
 >
-> 两个辅助模块是 IDP 和 Suggest。IDP 隔离微信、企微等 provider 的应用配置、凭据、AppToken 和协议差异，并把一次 provider proof 解析成请求级、已验证的
-> `ExternalIdentity`；它仍然不拥有 IAM User、LoginIdentity 或登录态。Suggest 从 Identity 事实派生联想搜索索引，但它不能回写 Profile，也不能成为通用授权引擎。
+> 两个辅助模块是 IDP 和 Suggest。IDP 隔离微信、企微等 provider 的应用配置、凭据、AppToken 和协议差异，并把一次 provider proof 解析成请求级、
+> 已验证的 `ExternalIdentity`；它仍然不拥有 IAM User、LoginIdentity 或登录态。Suggest 从 Identity 事实派生联想搜索索引，但它不能回写 Profile，也不能成为通用授权引擎。
 
-**转场句：**
+#### 转场句
 
 > 单独看模块定义还比较抽象。下面我用三条真实链路串起这五个模块。第一条是一个微信或企微身份怎样最终变成 IAM 的可信登录态。
 
@@ -111,16 +111,16 @@
 
 **一句话目标：** IDP 管 provider 差异，AuthN 管证明和登录态，Identity 管稳定 User。
 
-**通稿：**
+#### 通稿
 
 > 以微信登录为例，客户端拿到的 code 只是一份等待验证的外部证明，它不是 IAM User，也不能直接变成 Token。
 >
 > 当前代码中，AuthN 的 SignIn proof factory、SignUp prepare 和 Linking prepare 都通过 IDP 暴露的统一 Resolver capability 解析 provider
-> code。Resolver 读取 WechatApp 配置和加密凭据，通过 provider adapter 与外部平台交换，再把 provider、realm、openid/unionid 或企微 userid、verifiedAt
-> 组装成一个不可变的 `ExternalIdentity`。
+> code。Resolver 读取 WechatApp 配置和加密凭据，通过 provider adapter 与外部平台交换，再把 provider、realm、openid/unionid 或企微 userid、
+> verifiedAt 组装成一个不可变的 `ExternalIdentity`。
 >
-> `ExternalIdentity` 只能证明“当前请求已经通过 provider 验证并得到某个外部标识”。它是请求级 proof，不持久化，也不包含 IAM User、LoginIdentity 或可复用凭据。AuthN
-> 将它映射成自己能理解的微信/企微认证视图，再根据 provider、realm 和 identifier 查找 LoginIdentity，而 LoginIdentity 指向 Identity 中的稳定 User。
+> `ExternalIdentity` 只能证明“当前请求已经通过 provider 验证并得到某个外部标识”。它是请求级 proof，不持久化，也不包含 IAM User、LoginIdentity 或可复用凭据。
+> AuthN 将它映射成自己能理解的微信/企微认证视图，再根据 provider、realm 和 identifier 查找 LoginIdentity，而 LoginIdentity 指向 Identity 中的稳定 User。
 >
 > 只有在绑定、身份状态和认证策略都满足之后，AuthN 才会产生 Principal，创建 Session，并签发 Access Token 和 Refresh Token。
 >
@@ -129,13 +129,13 @@
 >
 > 这条链路最重要的设计是不让 provider 的 openid 或 unionid 污染内部 User 模型，也不让 IDP 因为能调用微信 API 就越界决定 IAM 登录态。
 
-**当前边界，需要主动讲准确：**
+#### 当前边界，需要主动讲准确
 
 > `domain/idp/externalidentity.ExternalIdentity` 当前支持 `wechat_minip`、`wechat_open` 和 `wecom` 三种 provider，并已被 SignIn、
-> SignUp、Linking 的 provider-code 链路共同消费。但它只是“请求级、已验证的外部身份证明”，不是新的用户聚合、登录绑定表或持久化身份主数据。SignUp 内部仍保留可信预解析 OpenID/UnionID
-> 的兼容分支，并显式标记为 `TrustedLegacyInput`；该分支不能被描述成 provider 已验证结果。
+> SignUp、Linking 的 provider-code 链路共同消费。但它只是“请求级、已验证的外部身份证明”，不是新的用户聚合、登录绑定表或持久化身份主数据。
+> SignUp 内部仍保留可信预解析 OpenID/UnionID 的兼容分支，并显式标记为 `TrustedLegacyInput`；该分支不能被描述成 provider 已验证结果。
 
-**转场句：**
+#### 转场句
 
 > 认证成功之后，下一个问题是这个用户能做什么。这里有一个容易误解的点：AuthN 不需要直接依赖 AuthZ，两者通过 Identity 中的稳定 User 对齐。
 
@@ -147,19 +147,20 @@
 
 **一句话目标：** AuthZ 用 MySQL 保存授权事实，用原生不可变快照执行高频判定，用 Outbox 和事件促进多实例投影收敛。
 
-**通稿：**
+#### 通稿
 
-> Token 被验证后，transport 或 middleware 只会形成可信的 `UserID` 和 `TenantID` 请求上下文。资源服务再以 Identity User 为锚点构造 AuthZ Subject，加上
-> Resource、Action 和已加载对象的受信属性，调用 AuthZ Check。
+> Token 被验证后，transport 或 middleware 只会形成可信的 `UserID` 和 `TenantID` 请求上下文。资源服务再以 Identity User 为锚点构造 AuthZ Subject，
+> 加上 Resource、Action 和已加载对象的受信属性，调用 AuthZ Check。
 >
 > 所以 AuthN 和 AuthZ 会在一次请求中前后衔接，但不需要让 AuthN 领域模块直接把 Principal 转成 AuthZ 的 Subject。Identity User 是它们共同的稳定身份锚点。
 >
-> AuthZ 采用 RBAC 加对象属性条件。Assignment 只表达 Subject 直接获得的 Role，RoleInheritance 计算继承角色，PermissionGrant 表达 Role 对 Resource 的
-> Action，ConstraintSet 限定对象属性。所以快照中 direct roles 与包含继承结果的 effective roles 不能混用；组织归属等关系仍由拥有事实的业务模块判断。
+> AuthZ 采用 RBAC 加对象属性条件。Assignment 只表达 Subject 直接获得的 Role，RoleInheritance 计算继承角色，
+> PermissionGrant 表达 Role 对 Resource 的 Action，ConstraintSet 限定对象属性。所以快照中 direct roles 与包含继承结果的 effective roles 不能混用；
+> 组织归属等关系仍由拥有事实的业务模块判断。
 >
-> 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有原生不可变授权快照。MySQL 中的 Assignment、RoleInheritance、PermissionGrant、Resource Schema 和
-> PolicyVersion 是权威事实；自有不可变角色图在快照内计算 Subject→Role 与 Role→ParentRole 两类角色边，Resource/Action 匹配和 ConstraintSet 求值由 IAM 领域
-> runtime 完成。
+> 授权系统还有一个一致性问题。为了低延迟判定，每个 IAM 实例都有原生不可变授权快照。MySQL 中的 Assignment、RoleInheritance、PermissionGrant、
+> Resource Schema 和 PolicyVersion 是权威事实；自有不可变角色图在快照内计算 Subject→Role 与 Role→ParentRole 两类角色边，
+> Resource/Action 匹配和 ConstraintSet 求值由 IAM 领域 runtime 完成。
 >
 > 对外接口也按控制面与执行面分开：REST v3 管理 Role、Assignment、Grant、Inheritance 和 Resource，不提供 Check；可信业务服务通过 gRPC v3 `Check` 做判定。
 > Assignment gRPC 写入还要同时通过方法 ACL 与内容级 constraints。`ReplaceManagedAssignments` 只替换调用服务受管的角色子集，保留其他 Assignment，不是覆盖用户全部角色。
@@ -167,12 +168,12 @@
 > 当 Grant、Revoke、Assignment 或 RoleInheritance 发生变化时，AuthZ UnitOfWork 在同一个 MySQL 事务中写入管理事实、PolicyVersion 和 Outbox event。
 > 事务提交后，当前实例直接 reload；Outbox relay 在 EventBus 启用时把版本事件发到 NSQ，其他实例用独立 ephemeral channel 订阅，再从 MySQL 重新加载。
 >
-> Outbox 解决的是“数据库事实已经提交，但进程在 publish 前崩溃”这个双写窗口。它保证业务提交和发布意图原子，但 MQ 成功后如果 relay 在标记 published 之前崩溃，事件还会重复发送。因此当前是
-> at-least-once，不是 exactly-once，消费者必须幂等。
+> Outbox 解决的是“数据库事实已经提交，但进程在 publish 前崩溃”这个双写窗口。它保证业务提交和发布意图原子，但 MQ 成功后如果 relay 在标记 published 之前崩溃，事件还会重复发送。
+> 因此当前是 at-least-once，不是 exactly-once，消费者必须幂等。
 >
 > 这套方案是最终一致的。当前没有请求级的全实例 loaded-version barrier。如果是 Grant 传播延迟，旧实例可能暂时拒绝，主要是可用性风险；如果是 Revoke 传播延迟，旧实例可能暂时允许，这是更重要的安全风险。
 
-**转场句：**
+#### 转场句
 
 > 授权决策不只用于高风险写操作。IAM 还有一个很典型的派生场景：管理端要快速搜索自己可见范围内的 Profile。
 
@@ -184,20 +185,20 @@
 
 **一句话目标：** Identity 保证身份事实，Suggest 针对查询形态构建可重建投影。
 
-**通稿：**
+#### 通稿
 
 > Profile 主数据的正确性和联想搜索的查询形态是两个不同问题。Identity 要维护 User、Profile 和 ProfileLink 的不变量；Suggest 要支持姓名、拼音、ID 和手机号等查询键的快速召回、排序、
 > 范围过滤和脱敏。
 >
-> 所以 Suggest 通过 Full 或 Delta loader 从 Identity facts 派生 `SuggestibleProfile`，然后由 memory adapter 构建进程内 TST 和 Hash 索引。查询时，系统根据可信
-> `visibility.Principal`、AuthZ 授权事实和可见 Profile 投影构造 `visibility.Scope`，先召回，再做 scope 过滤、排序、最终 limit 和脱敏。
+> 所以 Suggest 通过 Full 或 Delta loader 从 Identity facts 派生 `SuggestibleProfile`，然后由 memory adapter 构建进程内 TST 和 Hash 索引。查询时，
+> 系统根据可信 `visibility.Principal`、AuthZ 授权事实和可见 Profile 投影构造 `visibility.Scope`，先召回，再做 scope 过滤、排序、最终 limit 和脱敏。
 >
-> 这里必须区分“搜索可见”和“资源授权”。Suggest 返回一个脱敏 Profile 候选，只能证明它在本次搜索范围内可见，不能推导出详情读取、编辑或导出权限。后续动作仍然要通过自己的 AuthZ Resource、Action
-> 和必要的对象 Check。
+> 这里必须区分“搜索可见”和“资源授权”。Suggest 返回一个脱敏 Profile 候选，只能证明它在本次搜索范围内可见，不能推导出详情读取、编辑或导出权限。后续动作仍然要通过自己的 AuthZ Resource、
+> Action 和必要的对象 Check。
 >
 > Suggest 是可重建、最终一致的读模型。当前没有持久化索引快照，进程重启后依赖 Full refresh 重建；当前也只提供 REST，没有 Suggest gRPC 或 Go SDK。
 
-**转场句：**
+#### 转场句
 
 > 三条链路分别展示了身份事实、认证证明、授权决策和派生投影怎样协作。为了让这些边界不只停留在图上，代码层还需要一套稳定的分层和装配方式。
 
@@ -209,20 +210,20 @@
 
 ![IAM 分层架构](../_images/architecture/layer-architecture.png)
 
-**通稿：**
+#### 通稿
 
-> IAM 的进程外壳和业务分层是分开的。Process 负责配置、资源初始化、HTTP/gRPC 生命周期、后台任务和优雅关闭。Container 是 composition root，负责选择适配器、注入端口和导出 module
-> capabilities，但它不执行业务用例。
+> IAM 的进程外壳和业务分层是分开的。Process 负责配置、资源初始化、HTTP/gRPC 生命周期、后台任务和优雅关闭。Container 是 composition root，负责选择适配器、
+> 注入端口和导出 module capabilities，但它不执行业务用例。
 >
 > 请求进入以后，Transport 只处理 REST/gRPC 契约映射、认证上下文和错误映射；Application 编排用例、事务边界和跨模块端口；Domain 保留领域对象、业务规则和不变量；Infra 实现 MySQL、
 > Redis、NSQ、授权快照、provider 和搜索索引等适配器。
 >
 > 依赖规则可以压缩成一句话：Transport 调用 Application，Application 执行 Domain 规则并依赖端口，Infra 实现端口，Container 在启动时完成选择和注入。
 >
-> 对外契约也不追求机械对称。REST 面向 Web、App 和管理端，gRPC 主要面向可信服务间调用，Go SDK 封装核心 gRPC、部分 AuthN REST 和 JWKS 验签。一个能力要真正成立，不能只看 OpenAPI 或
-> proto 文件，还要看运行时注册、handler/service、application capability、错误语义、SDK 和契约测试是否闭合。
+> 对外契约也不追求机械对称。REST 面向 Web、App 和管理端，gRPC 主要面向可信服务间调用，Go SDK 封装核心 gRPC、部分 AuthN REST 和 JWKS 验签。一个能力要真正成立，
+> 不能只看 OpenAPI 或 proto 文件，还要看运行时注册、handler/service、application capability、错误语义、SDK 和契约测试是否闭合。
 
-**转场句：**
+#### 转场句
 
 > 分层解决了代码边界，但它还不能单独证明系统正确。最后我想讲一下项目怎样区分不同强度的工程证据。
 
@@ -232,7 +233,7 @@
 
 **一句话目标：** 不用“测试全绿”代替契约、装配、集成和生产证据。
 
-**通稿：**
+#### 通稿
 
 > 这个项目的另一个重点是证据分层。Domain 和 Application 测试保护业务规则；architecture test 防止 domain/application 反向依赖 infra 或 transport；OpenAPI、
 > proto、route 和 registration test 防止契约与注册漂移；MySQL、Redis 和适配器集成测试保护事务、唯一性和原子操作；readiness、metrics 和 logs 才能反映运行时投影和后台任务状态；
@@ -250,8 +251,8 @@
 
 ### 4.1 如果主要负责架构与核心链路
 
-> 我在这个项目中主要负责模块边界和核心链路的设计与落地。重点不是拆包本身，而是把 User、LoginIdentity、Session、Assignment 和 PermissionGrant 等变化原因不同的事实分开，再用
-> application port 和 composition root 让它们在运行时协作。我同时对外部身份接入、Session/Token、AuthZ 策略传播等链路补充了事务和失败语义验证。
+> 我在这个项目中主要负责模块边界和核心链路的设计与落地。重点不是拆包本身，而是把 User、LoginIdentity、Session、Assignment 和 PermissionGrant 等变化原因不同的事实分开，
+> 再用 application port 和 composition root 让它们在运行时协作。我同时对外部身份接入、Session/Token、AuthZ 策略传播等链路补充了事务和失败语义验证。
 
 ### 4.2 如果主要负责迁移与生产闭环
 
@@ -260,8 +261,8 @@
 
 ### 4.3 如果主要负责工程治理
 
-> 我在这个项目中主要补齐了架构、契约和文档的防漂移机制。包括用 architecture test 保护分层与模块边界，用 OpenAPI/proto/route/registration test 保护对外契约，用
-> `docs-hygiene` 和 `docs-facts` 检查链接、路径和可生成的关键事实。我会把这些门禁的结论限定在它们各自能证明的层次，不用一个绿色结果代替生产验收。
+> 我在这个项目中主要补齐了架构、契约和文档的防漂移机制。包括用 architecture test 保护分层与模块边界，用 OpenAPI/proto/route/registration test 保护对外契约，
+> 用 `docs-hygiene` 和 `docs-facts` 检查链接、路径和可生成的关键事实。我会把这些门禁的结论限定在它们各自能证明的层次，不用一个绿色结果代替生产验收。
 
 可公开的当前规模和交付结果统一见 [面试索引](README.md)，个人贡献必须在此基础上再按真实职责收窄。
 
@@ -280,8 +281,8 @@
 
 最简串联句：
 
-> provider proof 先由 IDP 解析成请求级 ExternalIdentity，AuthN 再用它查找 LoginIdentity，LoginIdentity 指向稳定 User；一次成功认证产生 Principal 和
-> Session，Token 携带可验证声明；资源服务再以 User 为锚点构造 Subject，请求 AuthZ 对当前 Resource、Action 和受信对象属性做 Decision。
+> provider proof 先由 IDP 解析成请求级 ExternalIdentity，AuthN 再用它查找 LoginIdentity，LoginIdentity 指向稳定 User；
+> 一次成功认证产生 Principal 和 Session，Token 携带可验证声明；资源服务再以 User 为锚点构造 Subject，请求 AuthZ 对当前 Resource、Action 和受信对象属性做 Decision。
 
 ## 6. 理解卡：哪些是事实，哪些是投影
 
@@ -324,13 +325,13 @@
 
 ### 8.3 为什么不只用 JWT？
 
-> JWT 适合携带可本地验签的签名声明，但签名正确不代表 Session 未撤销、User 仍可访问或 LoginIdentity 仍有效。所以项目同时保留短期 Access Token、Redis Session/Refresh
-> 状态和在线 Verify。低风险高频路径可本地验签，要求即时撤销的高风险路径应使用在线验证或更短 TTL。
+> JWT 适合携带可本地验签的签名声明，但签名正确不代表 Session 未撤销、User 仍可访问或 LoginIdentity 仍有效。所以项目同时保留短期 Access Token、
+> Redis Session/Refresh 状态和在线 Verify。低风险高频路径可本地验签，要求即时撤销的高风险路径应使用在线验证或更短 TTL。
 
 ### 8.4 Access Token、Refresh Token 和 Session 各自是什么？
 
-> Access Token 是短期访问声明，适合随请求传递并做签名验证；Refresh Token 是取得新 token pair 的高价值续期能力；Session 是服务端对整段登录期的在线状态。三者分开后，既能保留 JWT
-> 本地验签的效率，又能通过 Session 和 Refresh 状态支持撤销与续期控制。
+> Access Token 是短期访问声明，适合随请求传递并做签名验证；Refresh Token 是取得新 token pair 的高价值续期能力；Session 是服务端对整段登录期的在线状态。三者分开后，
+> 既能保留 JWT 本地验签的效率，又能通过 Session 和 Refresh 状态支持撤销与续期控制。
 
 ### 8.5 为什么最终从 Casbin 迁移到自有角色图？
 
@@ -339,8 +340,8 @@
 
 ### 8.6 有了 MQ，为什么还需要 Outbox？
 
-> 数据库提交和 MQ publish 之间没有共同原子性。先提交数据库再发 MQ，进程可能在中间崩溃导致事件丢失；先发 MQ 再提交数据库，又可能让消费者看到未成立事实。Outbox 把发布意图与业务事实一起提交，再由 relay
-> 恢复发布。它不保证 exactly-once，所以消费者仍必须幂等。
+> 数据库提交和 MQ publish 之间没有共同原子性。先提交数据库再发 MQ，进程可能在中间崩溃导致事件丢失；先发 MQ 再提交数据库，又可能让消费者看到未成立事实。Outbox 把发布意图与业务事实一起提交，
+> 再由 relay 恢复发布。它不保证 exactly-once，所以消费者仍必须幂等。
 
 ### 8.7 Revoke 怎样保证立即生效？
 
@@ -349,13 +350,13 @@
 
 ### 8.8 Suggest 已经过滤了可见范围，为什么还要 AuthZ？
 
-> `visibility.Scope` 只是搜索所需的局部范围模型，它只决定哪些脱敏候选可以进入当前搜索结果。搜到 Profile 不代表可以读取详情、修改或导出。后续操作需要自己的 Resource、Action 和必要的对象
-> Check，所以 Suggest 不能替代通用 AuthZ。
+> `visibility.Scope` 只是搜索所需的局部范围模型，它只决定哪些脱敏候选可以进入当前搜索结果。搜到 Profile 不代表可以读取详情、修改或导出。后续操作需要自己的 Resource、
+> Action 和必要的对象 Check，所以 Suggest 不能替代通用 AuthZ。
 
 ### 8.9 分层架构怎样防止模块变成大杂烩？
 
-> 模块内部的 Transport、Application、Domain 和 Infra 职责分开，模块之间通过窄端口和 module capabilities 协作，具体适配器只在 Container 装配。Architecture
-> test 用 Go import/AST 护栏防止 domain/application 反向依赖 infra 或 transport。它能防止一类结构退化，但不能单独证明运行时装配和业务语义正确。
+> 模块内部的 Transport、Application、Domain 和 Infra 职责分开，模块之间通过窄端口和 module capabilities 协作，具体适配器只在 Container 装配。
+> Architecture test 用 Go import/AST 护栏防止 domain/application 反向依赖 infra 或 transport。它能防止一类结构退化，但不能单独证明运行时装配和业务语义正确。
 
 ### 8.10 测试全绿为什么不等于生产已验收？
 
@@ -374,8 +375,8 @@
 
 ### 8.13 AuthZ 为什么同时有 REST 与 gRPC？
 
-> 两者不是机械对称。REST v3 是管理控制面，管 Role、Assignment、Grant、Inheritance 和 Resource；gRPC v3 是可信服务间的执行面，提供 Check、Snapshot 和受限
-> Assignment 写入。REST 没有 `/check`，业务服务不应通过列出 Grant 后自己复制授权算法。
+> 两者不是机械对称。REST v3 是管理控制面，管 Role、Assignment、Grant、Inheritance 和 Resource；gRPC v3 是可信服务间的执行面，提供 Check、
+> Snapshot 和受限 Assignment 写入。REST 没有 `/check`，业务服务不应通过列出 Grant 后自己复制授权算法。
 
 ## 9. 别说过头：当前能力边界
 
@@ -401,11 +402,11 @@
 
 > IAM 是一套面向业务系统的身份与访问管理服务，核心回答三个问题：用户是谁、如何证明当前是他、以及他能对某个资源做什么。
 >
-> 项目按变化原因拆成五个模块：Identity 管内部身份事实，AuthN 管登录证明、Session 和 Token，AuthZ 管资源授权决策；IDP 隔离外部 provider，Suggest 派生可见、脱敏的 Profile
-> 搜索读模型。
+> 项目按变化原因拆成五个模块：Identity 管内部身份事实，AuthN 管登录证明、Session 和 Token，AuthZ 管资源授权决策；IDP 隔离外部 provider，Suggest 派生可见、
+> 脱敏的 Profile 搜索读模型。
 >
-> 工程上，MySQL 保存业务事实，Redis 承载在线状态，AuthZ 不可变快照、JWKS 快照和 Suggest 索引都是可重建投影。AuthZ 策略通过事务、Outbox 和可选 NSQ 促进多实例收敛，语义是
-> at-least-once，不是 exactly-once。
+> 工程上，MySQL 保存业务事实，Redis 承载在线状态，AuthZ 不可变快照、JWKS 快照和 Suggest 索引都是可重建投影。AuthZ 策略通过事务、Outbox 和可选 NSQ 促进多实例收敛，
+> 语义是 at-least-once，不是 exactly-once。
 >
 > 它的价值不在于接口数量，而在于为身份、认证、授权和投影建立清晰的事实源、失败语义和验证边界。
 

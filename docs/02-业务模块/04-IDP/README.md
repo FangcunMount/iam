@@ -26,7 +26,7 @@ Provider app / secret / provider token
 - openid/unionid/wecom userid 都不是 IAM UserID。
 - IDP 不创建 User、不签发 IAM token、不做资源授权。
 
-## 当前实现要特别记住的四点
+## 当前实现要特别记住的五点
 
 - SecretVault 是本地 AES-256-GCM 实现，不等价于具备 key version/审计/托管签名的 KMS。
 - AppSecret 当前单槽覆盖轮换，没有 previous-secret 宽限或自动 cache invalidation。

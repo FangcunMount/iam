@@ -115,8 +115,8 @@ Envelope encryption/KMS 的价值是把“能读数据库”和“能解密 secr
 - route/object mismatch：路由 capability 通过后未加载对象并执行所需的 ObjectAttribute Check；
 - service credential compromise：可信服务 token 被用于越权管理 RPC。
 
-控制包括可信上下文构造、default deny、PermissionGrant/Resource Schema 校验、per-instance broadcast/reload health、mTLS + service auth +
-ACL 和敏感操作对象级 Check。
+控制包括可信上下文构造、default deny、PermissionGrant/Resource Schema 校验、per-instance broadcast/reload health、
+mTLS + service auth + ACL 和敏感操作对象级 Check。
 
 ### 6.1 Confused deputy 的完整路径
 
@@ -196,8 +196,8 @@ Suggest 内存含手机号，日志过去可能包含 token/SQL，备份含完�
 
 审计需要 actor、action、resource、tenant、request ID、结果和时间；隐私要求不收集秘密、最小化个人数据、限制保留。好的审计记录“发生了什么”，不是复制整个请求/响应。
 
-对 Grant/Revoke、credential rotation、session revoke、database restore 等高风险动作，还需记录 change reason、批准/操作者和事实版本，但不能把
-secret/token 或完整 SQL 作为证据。
+对 Grant/Revoke、credential rotation、session revoke、database restore 等高风险动作，还需记录 change reason、批准/操作者和事实版本，
+但不能把 secret/token 或完整 SQL 作为证据。
 
 ### 9.1 审计事实与普通日志
 
@@ -243,8 +243,8 @@ secret/token 或完整 SQL 作为证据。
 
 ### AuthZ revoke 后仍被允许
 
-按 `committed -> published -> delivered -> loaded -> checked` 逐层定位，不能只重复写 revoke。需要确认命中的实例/ channel、reload error/time、实际
-matcher input 和 Decision matched policy。
+按 `committed -> published -> delivered -> loaded -> checked` 逐层定位，不能只重复写 revoke。需要确认命中的实例/ channel、reload error/time、
+实际 matcher input 和 Decision matched policy。
 
 ### provider AppSecret 轮换后调用失败
 

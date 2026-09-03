@@ -28,7 +28,9 @@ Authorization: Bearer <token>
 
 `data` 在成功场景始终是数组而不是 `null`。ProfileID 在 domain/application 内是 `int64`，到 REST DTO 时转成字符串。
 
-P1 修复后，handler 的 Swagger 注解使用专用 `ProfileSuggestResponse`，生成 Swagger 与 `api/rest/suggest.v2.yaml` 都描述 `{code,message,data[]}`。`scripts/check-openapi-contracts.py` 当前会比较路径响应和顶层 envelope shape，但不会递归解引用 `ProfileSuggestResponseItem`；因此当前契约一致已经核实，item 字段的未来漂移仍需补一层门禁。
+P1 修复后，handler 的 Swagger 注解使用专用 `ProfileSuggestResponse`，生成 Swagger 与 `api/rest/suggest.v2.yaml` 都描述
+`{code,message,data[]}`。`scripts/check-openapi-contracts.py` 当前会比较路径响应和顶层 envelope shape，
+但不会递归解引用 `ProfileSuggestResponseItem`。因此当前契约一致已经核实。item 字段的未来漂移仍需补一层门禁。
 
 ## 2. 端到端顺序
 
@@ -63,7 +65,8 @@ sequenceDiagram
     H-->>U: envelope
 ```
 
-安全顺序不是可交换的。路由权限在进入 handler 前判断；手机号能力在访问包含原始手机号 key 的索引前判断；可见性过滤在最终 limit 前执行；脱敏在 domain profile 转 application result 时执行。
+安全顺序不是可交换的。路由权限在进入 handler 前判断；手机号能力在访问包含原始手机号 key 的索引前判断；可见性过滤在最终 limit 前执行；
+脱敏在 domain profile 转 application result 时执行。
 
 ## 3. 路由层授权
 
@@ -79,7 +82,8 @@ action   = search
 
 该层失败通常返回 `401` 或 `403`，不会进入 Suggest handler。
 
-如果 AuthZ 模块本身未装配，路由当前只挂 JWT middleware；后续 scope facts reader 会得到空平台能力，并限制在 owner/org/visibility 范围。这个降级边界必须结合模块部署约束理解，不能把“没挂路由权限”解释成全量放行。
+如果 AuthZ 模块本身未装配，路由当前只挂 JWT middleware；后续 scope facts reader 会得到空平台能力，并限制在 owner/org/visibility 范围。这个降级边界必须结合模块部署约束理解，
+不能把“没挂路由权限”解释成全量放行。
 
 ## 4. 请求绑定与 Principal
 
@@ -90,7 +94,8 @@ action   = search
 | `k` | query 必填；缺失或空字符串在 transport 层返回 `400` |
 | `limit` | 可选；`<=0` 或大于 `MaxResults` 时使用 `MaxResults` |
 
-空白字符串与空字符串的层次不同：`k=%20%20` 能通过 `binding:"required"`，随后 `NewKeyword` trim 为空并返回 `200 + []`；直接调用 application 时空字符串也返回空数组，而且不会访问 scope/index。
+空白字符串与空字符串的层次不同：`k=%20%20` 能通过 `binding:"required"`，随后 `NewKeyword` trim 为空并返回 `200 + []`；直接调用 application 时空字符串也返回空数组，
+而且不会访问 scope/index。
 
 ### 4.2 `visibility.Principal`
 
@@ -114,7 +119,8 @@ handler 在调用 `QueryProfile` 前按 OperatorID 限流。手机号形态关�
 | `memory` | 进程内 token bucket | 各实例独立 | 无外部依赖 |
 | `redis` | 约 1 秒 fixed window | 共享 | 50ms 超时或 Redis 错误时 fail-open |
 
-`per_operator_qps<=0` 表示关闭限流。memory adapter 用 `operator_map_max_entries` 限制桶数量，达到上限时淘汰最久未访问项。Redis 配置缺少 client 时记录告警并回退 memory。
+`per_operator_qps<=0` 表示关闭限流。memory adapter 用 `operator_map_max_entries` 限制桶数量，达到上限时淘汰最久未访问项。
+Redis 配置缺少 client 时记录告警并回退 memory。
 
 限流是滥用抑制，不是授权边界。Redis fail-open 不会绕过路由权限、scope 或手机号准入。
 
@@ -201,7 +207,8 @@ Hash key 包含：
 
 ### 8.3 Runtime 未初始化
 
-`Runtime.Recall` 在没有 active Store 时返回空候选而不是错误。正常启动会先 Full 再暴露可用模块；optional 启动失败则直接换成 `DegradedQuerier`。因此对外空数组可能表示无匹配、被过滤、未就绪或主动降级，排障必须看 health/metrics。
+`Runtime.Recall` 在没有 active Store 时返回空候选而不是错误。正常启动会先 Full 再暴露可用模块；optional 启动失败则直接换成 `DegradedQuerier`。因此对外空数组可能表示无匹配、
+被过滤、未就绪或主动降级，排障必须看 health/metrics。
 
 ## 9. 可见性过滤、去重与排序
 
@@ -220,7 +227,8 @@ Candidate[]
 
 先 filter 再 limit 可避免无权候选直接占满最终结果窗口；ProfileID 最后升序保证同分结果稳定。
 
-但 `CandidateBudget` 在 scope filter 之前生效。短前缀产生大量无权候选时，可见项可能落在召回窗口之后，所以最终返回条数可能小于 limit。这是当前已知召回质量限制，不应通过把授权过滤移进 TST 或无限扩大窗口偷偷解决。
+但 `CandidateBudget` 在 scope filter 之前生效。短前缀产生大量无权候选时，可见项可能落在召回窗口之后，所以最终返回条数可能小于 limit。这是当前已知召回质量限制，
+不应通过把授权过滤移进 TST 或无限扩大窗口偷偷解决。
 
 ## 10. 手机号输出
 
@@ -230,7 +238,8 @@ Candidate[]
 - 无手机号或过短手机号返回空，REST 因 `omitempty` 可不输出 `mobile_mask`；
 - 非生产环境可配置明文输出；production 初始化明确拒绝该配置。
 
-即使用户没有手机号搜索能力，只要可见候选由姓名/ID 命中，当前响应仍可能包含脱敏手机号。这是“搜索能力”和“展示掩码”分离后的现有合同；若业务要求无 mobile capability 时连掩码也不可见，应修改领域披露策略，而不是只改 transport。
+即使用户没有手机号搜索能力，只要可见候选由姓名/ID 命中，当前响应仍可能包含脱敏手机号。这是“搜索能力”和“展示掩码”分离后的现有合同；若业务要求无 mobile capability 时连掩码也不可见，应修改领域披露策略，
+而不是只改 transport。
 
 ## 11. 对外行为矩阵
 
@@ -249,7 +258,8 @@ Candidate[]
 
 ## 12. 日志与指标
 
-相对 Suggest 自身的派生状态，原始手机号只存在于进程内索引，不写入文件或日志；Identity MySQL 仍是它的权威事实源。这里的“日志”指 Suggest 专用业务日志：手机号形态查询只记录 OperatorID、TenantDomain、是否允许和关键词 rune 长度，不记录原始关键词。仍应单独确认通用 access log 是否包含完整 query string。
+相对 Suggest 自身的派生状态，原始手机号只存在于进程内索引，不写入文件或日志；Identity MySQL 仍是它的权威事实源。这里的“日志”指 Suggest 专用业务日志：手机号形态查询只记录 OperatorID、
+TenantDomain、是否允许和关键词 rune 长度，不记录原始关键词。仍应单独确认通用 access log 是否包含完整 query string。
 
 | 指标 | 含义 |
 | --- | --- |

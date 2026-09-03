@@ -4,8 +4,8 @@
 
 ## 结论
 
-REST v3 只承担 AuthZ 管理；外部服务的授权判定由 gRPC v3 `Check` 提供。IAM 自身的管理路由先由 AuthN middleware 建立 Principal，再由 AuthZ middleware 使用明确的
-Resource/Action 施权；服务间写入使用可信服务身份与 Assignment 约束。
+REST v3 只承担 AuthZ 管理；外部服务的授权判定由 gRPC v3 `Check` 提供。IAM 自身的管理路由先由 AuthN middleware 建立 Principal，
+再由 AuthZ middleware 使用明确的 Resource/Action 施权；服务间写入使用可信服务身份与 Assignment 约束。
 
 ## REST v3：管理接口
 
@@ -21,8 +21,8 @@ REST 路由统一挂在 `/api/v3/authz`：
 
 完整 method/path 以 `api/rest/authz.v3.yaml` 为准。REST 不提供 `/api/v3/authz/check`；需要判定的可信服务调用 gRPC。
 
-REST 是控制面，不是请求期权限决策面。若业务服务为了判定而调用 Role/Grant 列表并在本地重新实现 matcher，就会绕过快照、ConstraintSet 和 Decision 语义。服务间正确路径见
-[gRPC 服务间授权与 SDK](06-关键链路-gRPC服务间授权与SDK.md)。
+REST 是控制面，不是请求期权限决策面。若业务服务为了判定而调用 Role/Grant 列表并在本地重新实现 matcher，就会绕过快照、ConstraintSet 和 Decision 语义。
+服务间正确路径见 [gRPC 服务间授权与 SDK](06-关键链路-gRPC服务间授权与SDK.md)。
 
 ## AuthZ REST 路由与 Permission 矩阵
 
@@ -52,8 +52,8 @@ REST 是控制面，不是请求期权限决策面。若业务服务为了判定
 | `DELETE /api/v3/authz/resources/:id` | 同上 | `delete` | 删除未被引用 Resource |
 | `POST /api/v3/authz/resources/validate-action` | 同上 | `validate_action` | 验证 catalog 是否登记 Action |
 
-`GET /api/v3/authz/health` 是例外：它在受保护路由组之前注册，只返回 `status=ok,module=authz`。它不证明 runtime snapshot、MySQL、policy subscriber
-或全局 readiness 正常。
+`GET /api/v3/authz/health` 是例外：它在受保护路由组之前注册，只返回 `status=ok,module=authz`。它不证明 runtime snapshot、MySQL、
+policy subscriber 或全局 readiness 正常。
 
 ## 路由注册的 fail-closed 边界
 
@@ -71,8 +71,9 @@ AuthZ router 先注册模块局部 health，然后要求 Role handler、JWT `Aut
 
 请求体中的 Subject、角色名或 actor 字符串不能替代传输层认证结果。AuthN middleware 只负责认证并写入可信请求上下文，不持有 Resource/Action，也不执行授权判定。
 
-REST 路由上的 Principal 来自 AuthN token verifier 返回的已验证 claims。JWT middleware 将 UserID、LoginIdentityID、TenantDomain、OrgID 和
-TokenID 写入 request context。AuthZ `RouteDecisionService` 只使用其中 UserID 构造 `subject.Ref`，用 TenantDomain 作为当前 Tenant，再把路由能力转换为领域 `Request`。
+REST 路由上的 Principal 来自 AuthN token verifier 返回的已验证 claims。JWT middleware 将 UserID、LoginIdentityID、TenantDomain、
+OrgID 和 TokenID 写入 request context。AuthZ `RouteDecisionService` 只使用其中 UserID 构造 `subject.Ref`，
+用 TenantDomain 作为当前 Tenant，再把路由能力转换为领域 `Request`。
 
 这意味着：
 
@@ -101,14 +102,14 @@ IAM 管理路由的授权顺序是：
 | 当前已是 platform 且 deny | 不重复检查 | 403 |
 | 当前已是 platform 且 error | 不重复检查 | 500 |
 
-AuthZ middleware 还对 `domain_permission`、`global_permission`、`denied`、`unauthenticated`、`error` 做低基数记录。这些结果是路由授权观测，不代替 runtime Check 的
-allowed/denied/error 指标。
+AuthZ middleware 还对 `domain_permission`、`global_permission`、`denied`、`unauthenticated`、`error` 做低基数记录。这些结果是路由授权观测，
+不代替 runtime Check 的 allowed/denied/error 指标。
 
 这里没有 `super_admin`、`tenant_admin` 等角色名旁路。当前 bootstrap 通过平台域通配 PermissionGrant 提供全局能力，但中间件代码本身接受平台域内任何匹配 Grant。
 若要把“只有平台通配可全局放行”提升为强不变量，需要额外代码或数据门禁。
 
-当前代码注释说平台通配 Grant 是唯一全局授权机制，但实现并未检查 matched Grant 是否通配。所以文档必须以代码行为为准：“平台域中任何匹配的 PermissionGrant 均可放行”；bootstrap
-中的通配设计是当前数据基线。
+当前代码注释说平台通配 Grant 是唯一全局授权机制，但实现并未检查 matched Grant 是否通配。所以文档必须以代码行为为准：“平台域中任何匹配的 PermissionGrant 均可放行”；
+bootstrap 中的通配设计是当前数据基线。
 
 ## AuthZ 管理路由
 
@@ -122,8 +123,8 @@ Role、Assignment、Grant、RoleInheritance 和 Resource 路由分别绑定各�
 
 不能用“已经登录”替代管理权限，也不能通过角色名称直接绕过 Grant。
 
-REST handler 主要做四件事：绑定 DTO，从 URL/query/context 获取 ID 与 Tenant，构造 application command/query，将领域错误映射为 HTTP 响应。它不应在 handler
-内手工复制继承环、Grant schema 或事务版本校验。
+REST handler 主要做四件事：绑定 DTO，从 URL/query/context 获取 ID 与 Tenant，构造 application command/query，将领域错误映射为 HTTP 响应。
+它不应在 handler 内手工复制继承环、Grant schema 或事务版本校验。
 
 用户端 REST 使用数据库 ID 定位 Role/Resource/Grant/Inheritance；服务间 Assignment gRPC 为降低对 IAM 内部 ID 的耦合使用 stable role name。
 两条传输路径最终仍必须进入同一 application/domain/UoW 不变量。
@@ -140,8 +141,8 @@ AuthZ route authorizer 不只保护 `/api/v3/authz` 路由：
 | Suggest 搜索入口 | `iam:identity:collection:profiles` | `search` | 当前 Tenant `RequirePermission` |
 | Cache governance debug | `iam:ops:collection:cache_governance` | `read` | 生产必须 `RequirePermissionOrGlobal` |
 
-这意味着 permission catalog 已是跨模块的路由合同。改 AuthN 管理 URL 时，不能只更新 AuthN 文档；还必须确认 Resource/Action、bootstrap Grant 与 route
-contract 仍对齐。
+这意味着 permission catalog 已是跨模块的路由合同。改 AuthN 管理 URL 时，不能只更新 AuthN 文档；还必须确认 Resource/Action、
+bootstrap Grant 与 route contract 仍对齐。
 
 ## AuthN 管理路由
 
@@ -165,8 +166,8 @@ Suggest 不再根据旧的超级管理员布尔标志或角色名决定搜索范
 
 这里的 `TenantDomain` 是 IAM 授权域，不是“Casbin domain”的对外契约。
 
-Suggest 有两层授权：外层路由先要求当前 Tenant 的 `profiles/search`，进入 provider 后再用平台域的 `profiles/list` 决定是否获得 AllProfile scope，手机号搜索另需
-`search_by_mobile`。任何一层都不读 `super_admin` 角色名或旧布尔字段。
+Suggest 有两层授权：外层路由先要求当前 Tenant 的 `profiles/search`，进入 provider 后再用平台域的 `profiles/list` 决定是否获得 AllProfile scope，
+手机号搜索另需 `search_by_mobile`。任何一层都不读 `super_admin` 角色名或旧布尔字段。
 
 ## OpenAPI、Router 与 README 的责任
 

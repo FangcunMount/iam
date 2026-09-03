@@ -6,11 +6,12 @@
 
 ## 1. 90 秒项目介绍
 
-IAM 是一套面向业务系统接入的身份与访问管理服务，核心回答三个问题：用户是谁、怎样证明身份、能够访问什么资源。项目按变化原因拆成五个模块：Identity 管理 User、Profile 和 ProfileLink；AuthN 管理
-LoginIdentity、Principal、Session、Token 与 JWKS；AuthZ 管理 Subject、Role、Assignment、RoleInheritance、PermissionGrant、Resource
-Schema 和授权决策；IDP 隔离微信、企微等外部身份提供方；Suggest 从 Identity 与 AuthZ 事实派生脱敏搜索读模型。运行时由 process、container 和 transport 分别负责生命周期、
-依赖装配与 REST/gRPC 暴露。工程重点不是接口数量，而是事务、Redis 原子操作、Transactional Outbox、AuthZ/JWKS/Suggest 进程内投影，以及 readiness、
-迁移和生产证据共同构成的一致性与安全边界。详细定位见 [IAM 系统定位](../00-概览/01-IAM系统定位.md) 和 [跨模块统一模型](../00-概览/06-跨模块统一模型.md)。
+IAM 是一套面向业务系统接入的身份与访问管理服务，核心回答三个问题：用户是谁、怎样证明身份、能够访问什么资源。项目按变化原因拆成五个模块：Identity 管理 User、Profile 和 ProfileLink；
+AuthN 管理 LoginIdentity、Principal、Session、Token 与 JWKS；AuthZ 管理 Subject、Role、Assignment、RoleInheritance、PermissionGrant、
+Resource Schema 和授权决策；IDP 隔离微信、企微等外部身份提供方；Suggest 从 Identity 与 AuthZ 事实派生脱敏搜索读模型。运行时由 process、
+container 和 transport 分别负责生命周期、依赖装配与 REST/gRPC 暴露。工程重点不是接口数量，而是事务、Redis 原子操作、Transactional Outbox、
+AuthZ/JWKS/Suggest 进程内投影，以及 readiness、迁移和生产证据共同构成的一致性与安全边界。详细定位见 [IAM 系统定位](../00-概览/01-IAM系统定位.md) 和
+[跨模块统一模型](../00-概览/06-跨模块统一模型.md)。
 
 ## 2. 三个核心案例
 

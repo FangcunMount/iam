@@ -120,8 +120,8 @@ ID/reference 可以维持语义和生命周期独立，但消费方需要查询�
 
 > 标签：设计决策 · AuthN UOW、signup steps 和提交历史可证明
 
-AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当前它们都使用同一 MySQL 事务基础，因此 AuthN UOW 提供 Identity `user.Repository`
-port，signup 直接使用 Identity domain 构造和 repository port。
+AuthN signup 需要原子创建/复用 User、LoginIdentity 和 Credential。当前它们都使用同一 MySQL 事务基础，
+因此 AuthN UOW 提供 Identity `user.Repository` port，signup 直接使用 Identity domain 构造和 repository port。
 
 #### 为什么不先调 Identity gRPC
 
@@ -141,8 +141,8 @@ port，signup 直接使用 Identity domain 构造和 repository port。
 
 > 标签：当前设计决策 + 已知一致性缺口
 
-Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而不依赖 Session repository concrete。`Block` 先在 Identity UOW
-中保存 blocked，提交成功后再调用 `RevokeByUser`。
+Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而不依赖 Session repository concrete。
+`Block` 先在 Identity UOW 中保存 blocked，提交成功后再调用 `RevokeByUser`。
 
 #### 替代方案
 
@@ -157,15 +157,15 @@ Identity `StatusChanger` 依赖 AuthN domain 的 `session.Revoker` 接口，而�
 
 #### 当前方案的代价
 
-Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数退避，超过 `stale_processing_after` 的 processing 任务可重新 claim。API 在 MySQL
-状态和任务提交后返回成功；MySQL 与 Redis 之间不宣称原子提交或 exactly-once。
+Redis Session 撤销是最终一致的：Worker 失败时任务保留并指数退避，超过 `stale_processing_after` 的 processing 任务可重新 claim。
+API 在 MySQL 状态和任务提交后返回成功；MySQL 与 Redis 之间不宣称原子提交或 exactly-once。
 
 ### 6.4 决策 D：`/identity/me` 的 roles 是可降级展示增强
 
 > 标签：当前实现；设计动机可从降级语义推导，尚无独立 ADR
 
-Identity REST `UserHandler` 接收 `EffectiveRoleReader`，按当前 tenant domain 和 platform domain 查询并去重有效角色名。如果 reader 为 nil、subject
-构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
+Identity REST `UserHandler` 接收 `EffectiveRoleReader`，按当前 tenant domain 和 platform domain 查询并去重有效角色名。如果 reader 为 nil、
+subject 构造失败或查询报错，handler 返回无 roles 的 UserResponse，不使 `/me` 整体失败。
 
 这说明当前 roles 是 response enrichment，不是 Identity User 事实，也不是 `/me` 请求的授权决策。
 
@@ -239,8 +239,8 @@ User 不是 Subject 对象本身；AuthZ 可以用 UserID 构造 `subject.Ref`�
 
 ### 8.3 局部 ProfileLink 前置不等于通用 AuthZ
 
-Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，没有
-Resource/Action/ConstraintSet 输入，不能代替通用授权。
+Identity REST 在访问 Profile 详情/修改时，检查当前 User 是否与 Profile 存在 active link。这条规则只回答当前自助 Profile 用例的前置，
+没有 Resource/Action/ConstraintSet 输入，不能代替通用授权。
 
 无作用域的 REST `/identity/profiles/search` 已下线。需要候选搜索时使用 `/suggest/profile`，由 Suggest 的 scope provider 和手机号权限控制可见范围与脱敏。
 
@@ -257,11 +257,11 @@ IDP 当前主要模型位于 `internal/apiserver/domain/idp/wechatapp`：
 - `AppAccessToken`；
 - `SecretVault`、`AppTokenProvider`、token cache 等 ports。
 
-IDP 的通用值对象位于 `internal/apiserver/domain/idp/externalidentity`。它只在一次 provider exchange 请求内存在，包含 provider、realm、受限
-identifiers 和 VerifiedAt，不进入 Identity、数据库或公开协议。
+IDP 的通用值对象位于 `internal/apiserver/domain/idp/externalidentity`。它只在一次 provider exchange 请求内存在，包含 provider、realm、
+受限 identifiers 和 VerifiedAt，不进入 Identity、数据库或公开协议。
 
-Identity v2 proto 虽然也定义同名 `ExternalIdentity` message 和 User request/response 字段，但 Identity handler 当前仍忽略输入，response
-mapper 返回空列表。这是另一份历史 transport 契约，不是 IDP 请求内值对象，也未因本次重构落地。
+Identity v2 proto 虽然也定义同名 `ExternalIdentity` message 和 User request/response 字段，但 Identity handler 当前仍忽略输入，
+response mapper 返回空列表。这是另一份历史 transport 契约，不是 IDP 请求内值对象，也未因本次重构落地。
 
 ### 9.2 实际微信小程序 signup 链路
 
@@ -280,8 +280,8 @@ Identity 也不需要知道 app secret、provider code 或 ExternalIdentity。
 
 ### 9.3 已实现的中间抽象
 
-IDP 已统一产出请求内 `ExternalIdentity`，覆盖微信小程序、微信开放平台和企业微信。AuthN 的单一 mapper 按 SignIn、SignUp、Linking 的既有策略转换它；历史内部直传
-OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。仍不能把 Identity v2 proto message 当成这一领域对象。
+IDP 已统一产出请求内 `ExternalIdentity`，覆盖微信小程序、微信开放平台和企业微信。AuthN 的单一 mapper 按 SignIn、SignUp、Linking 的既有策略转换它；
+历史内部直传 OpenID/UnionID 走 `TrustedLegacyInput`，不伪装为 provider 验证结果。仍不能把 Identity v2 proto message 当成这一领域对象。
 
 ## 10. Identity 与 Suggest
 
@@ -306,7 +306,8 @@ Suggest 进程内索引可以从 Identity facts 重建，但不是 Profile 主�
 
 当前没有订阅 Identity Profile/ProfileLink domain event 或 durable outbox topic。
 
-默认 Full/Delta SQL 同时过滤 `profile_links.deleted_at IS NULL` 与 `revoked_at IS NULL`，已撤销 link 的 User Phone 不进入 `SuggestibleProfile`。
+默认 Full/Delta SQL 同时过滤 `profile_links.deleted_at IS NULL` 与 `revoked_at IS NULL`，
+已撤销 link 的 User Phone 不进入 `SuggestibleProfile`。
 
 ### 10.3 当前可见范围
 

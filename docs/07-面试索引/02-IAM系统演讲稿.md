@@ -215,8 +215,8 @@ AuthZ：Role｜Resource｜Assignment｜RoleInheritance｜PermissionGrant
 
 这 13 个模型当前都以聚合根身份承担各自生命周期和不变量，整体上是多个小聚合，而不是每个上下文一个大聚合。请求值、领域结果与已颁发凭证会单列展示，但不因此被画成聚合根。
 
-进入模块详解后，再沿业务动作展开领域服务和应用服务：AuthN 使用“建立认证关系 → 确认身份与准入 → 延续认证状态”，AuthZ 使用“建权与赋权 → 验权与决策 →
-施权与执行”。V7 保留为领域模型与服务的综合讲解图；V8 不展示服务编排、运行时投影和基础设施。
+进入模块详解后，再沿业务动作展开领域服务和应用服务：AuthN 使用“建立认证关系 → 确认身份与准入 → 延续认证状态”，AuthZ 使用“建权与赋权 → 验权与决策 → 施权与执行”。V7 保留为领域模型与服务的综合讲解图；
+V8 不展示服务编排、运行时投影和基础设施。
 
 模块入口：[Identity](../02-业务模块/01-Identity/00-模块总览.md) · [AuthN](../02-业务模块/02-AuthN/00-模块总览.md) ·
 [AuthZ](../02-业务模块/03-AuthZ/00-模块总览.md)
@@ -235,8 +235,8 @@ Principal  = AuthN 对本次认证结果的表达
 Subject    = AuthZ 用于赋权和判定的主体引用
 ```
 
-AuthN 不会把 `Principal` 领域对象直接交给 AuthZ。资源服务在认证完成后从可信请求上下文取得 `UserID / TenantID`，再以 Identity User 为锚点构造 AuthZ Subject。因此
-AuthN 和 AuthZ 不直接关联彼此的领域模型，二者都以 Identity User 为稳定桥梁。
+AuthN 不会把 `Principal` 领域对象直接交给 AuthZ。资源服务在认证完成后从可信请求上下文取得 `UserID / TenantID`，再以 Identity User 为锚点构造 AuthZ Subject。
+因此 AuthN 和 AuthZ 不直接关联彼此的领域模型，二者都以 Identity User 为稳定桥梁。
 
 两个关键不变量已经落到实现：
 
@@ -310,7 +310,8 @@ Application / Domain
 - AuthZ 不直接读取 Identity User Repository，只通过 `UserResolver` 校验 User Subject；
 - Identity 撤销用户时不需要操作 AuthN 的 Session Repository，只需要调用 `SessionRevoker`；
 - Suggest 不需要访问 AuthZ 内部的 Assignment、PermissionGrant 或不可变快照实现；authorization adapter 只用窄的 `RoutePermissionChecker` 对平台
-  `profiles/list` 和平台/tenant `profiles/search_by_mobile` 等 Resource/Action 求值，再向 application 暴露 `AuthorizationFactsReader`，不依赖角色名特例。
+  `profiles/list` 和平台/tenant `profiles/search_by_mobile` 等 Resource/Action 求值，
+  再向 application 暴露 `AuthorizationFactsReader`，不依赖角色名特例。
 
 AuthN 和 AuthZ 也不需要建立领域模型直连：
 
@@ -353,8 +354,8 @@ cmd / app
   -> 注册优雅关闭回调
 ```
 
-Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部使用自有不可变角色图）和 Suggest
-Runtime 装配给对应模块，但不执行认证、授权或身份关系等业务用例。
+Container 可以把 MySQL Repository、Redis Adapter、Provider Adapter、AuthZ 原生 Runtime（内部使用自有不可变角色图）和 Suggest Runtime 装配给对应模块，
+但不执行认证、授权或身份关系等业务用例。
 
 > Process 管理进程生命周期，Container 只负责组装系统；它们都不应该成为新的业务模块。
 
@@ -421,8 +422,8 @@ Architecture Tests   -> 防止边界在演进中漂移
 
 IAM 面向多个拥有不同业务身份和业务对象的系统，提供统一身份锚点、可信认证和访问授权。它不接管 Doctor、Patient、Teacher 或 Testee 等业务对象，也不取代诊疗、教学和测评领域规则。
 
-在系统内部，IAM 按业务问题划分 Identity、AuthN、AuthZ、IDP 和 Suggest，使用 Ports & Adapters 保护模块内部，通过窄能力表达模块协作，最后由 Process 和 Container
-组装为一个模块化单体。
+在系统内部，IAM 按业务问题划分 Identity、AuthN、AuthZ、IDP 和 Suggest，使用 Ports & Adapters 保护模块内部，通过窄能力表达模块协作，
+最后由 Process 和 Container 组装为一个模块化单体。
 
 > IAM 的价值不在于接口数量，而在于让业务边界、代码依赖和运行时装配保持一致。
 

@@ -17,10 +17,8 @@
 - Login 的失败边界、安全策略、审计和防枚举如何处理？
 - 修改该链路时应该核对哪些代码和测试？
 
-本文以“登录请求如何被证明为 Principal”为主线，同时说明公开 SignIn 用例如何继续颁发 `AuthenticationGrant`。
-注册与身份开通见 [02-注册登录与身份绑定.md](02-注册登录与身份绑定.md)；
-Linking 登录身份绑定见 [03-关键链路-Linking登录身份绑定.md](03-关键链路-Linking登录身份绑定.md)；
-AuthN 领域模型见 [01-领域模型与认证策略.md](01-领域模型与认证策略.md)。
+本文以“登录请求如何被证明为 Principal”为主线，同时说明公开 SignIn 用例如何继续颁发 `AuthenticationGrant`。注册与身份开通见 [02-注册登录与身份绑定.md](02-注册登录与身份绑定.md)；
+Linking 登录身份绑定见 [03-关键链路-Linking登录身份绑定.md](03-关键链路-Linking登录身份绑定.md)；AuthN 领域模型见 [01-领域模型与认证策略.md](01-领域模型与认证策略.md)。
 
 ---
 
@@ -505,9 +503,10 @@ User 是否 inactive；
 User 是否 blocked。
 ```
 
-当前 SignIn 在 proof 验证和 Credential 状态记录后，只调用 `AuthenticationGrantIssuer`。领域 `GrantIssuer` 在创建 Session/Token 前统一执行
-`AdmissionPolicy`；`blocked User`、`inactive User`、`disabled LoginIdentity` 和状态查询错误都会阻止 Session 创建。`Refresher` 和用户 token 的在线
-`Verifier` 复用同一准入规则和错误映射；ServiceToken 不走用户 Session/Admission 检查。
+当前 SignIn 在 proof 验证和 Credential 状态记录后，只调用 `AuthenticationGrantIssuer`。
+领域 `GrantIssuer` 在创建 Session/Token 前统一执行 `AdmissionPolicy`；`blocked User`、`inactive User`、
+`disabled LoginIdentity` 和状态查询错误都会阻止 Session 创建。`Refresher` 和用户 token 的在线 `Verifier` 复用同一准入规则和错误映射；
+ServiceToken 不走用户 Session/Admission 检查。
 
 边界：
 
@@ -823,4 +822,5 @@ Login 不做 AuthZ Check；
 Token 验签成功不等于授权通过。
 ```
 
-详细颁发与生命周期见 [05-关键链路-Token签发刷新吊销.md](05-关键链路-Token签发刷新吊销.md)，其中说明 Principal 如何转化为 `AuthenticationGrant`，以及 Refresh / Logout / Revoke 如何治理登录态。
+详细颁发与生命周期见 [05-关键链路-Token签发刷新吊销.md](05-关键链路-Token签发刷新吊销.md)，其中说明 Principal 如何转化为 `AuthenticationGrant`，
+以及 Refresh / Logout / Revoke 如何治理登录态。

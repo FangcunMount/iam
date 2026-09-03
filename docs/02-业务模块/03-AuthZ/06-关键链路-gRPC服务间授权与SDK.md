@@ -22,8 +22,8 @@ REST v3 不提供 Check。外部业务服务不应下载 Role/Grant 后自行实
 | `RevokeAssignment` | 增量写 | subject、domain、role_name、revoked_by/reason | policy version | 同上 |
 | `ReplaceManagedAssignments` | 集合写 | subject、domain、role_names、changed_by/reason | managed target subset、version、changed | service identity + method ACL + explicit managed role set |
 
-proto `api/grpc/iam/authz/v3/authz.proto` 是 RPC 名、字段号、枚举值与响应形状的机器真相源。`api/grpc/README.md` 与 `pkg/sdk/docs/06-authz.md`
-只做使用说明，不能重新定义契约。
+proto `api/grpc/iam/authz/v3/authz.proto` 是 RPC 名、字段号、枚举值与响应形状的机器真相源。
+`api/grpc/README.md` 与 `pkg/sdk/docs/06-authz.md` 只做使用说明，不能重新定义契约。
 
 ## 服务身份是所有 RPC 的前置条件
 
@@ -89,7 +89,8 @@ attribute_key  = object.origin_type
 
 其他 key/resource 返回 `InvalidArgument`，其他 caller 尝试提交该属性返回 `PermissionDenied`。重复 key、缺 typed value、带属性却缺 `object_id` 也会失败。
 
-传输层可以解析 string/int64/bool 三种 oneof，但是否符合具体 Resource schema 仍由 authorization runtime 校验。“proto 能表达某类型”不等于“某个 caller 已被允许提交它”。
+传输层可以解析 string/int64/bool 三种 oneof，但是否符合具体 Resource schema 仍由 authorization runtime 校验。
+“proto 能表达某类型”不等于“某个 caller 已被允许提交它”。
 
 ### 响应解释
 
@@ -123,8 +124,8 @@ SDK 提供两个方便方法：
 - `permissions`：指定 app 下去重合并的 Resource/Action 与 mode。
 - `policy_version`：当前快照的 Tenant version。
 
-`UNCONDITIONAL` 表示存在至少一条无条件 Grant；`OBJECT_CHECK_REQUIRED` 表示所有候选 Grant 都需具体对象检查。快照不包含某个具体对象的最终 allow，所以 UI/服务不能把
-`OBJECT_CHECK_REQUIRED` 当成已授权。
+`UNCONDITIONAL` 表示存在至少一条无条件 Grant；`OBJECT_CHECK_REQUIRED` 表示所有候选 Grant 都需具体对象检查。快照不包含某个具体对象的最终 allow，
+所以 UI/服务不能把 `OBJECT_CHECK_REQUIRED` 当成已授权。
 
 编辑 Assignment 只能使用 `direct_roles`。如果把 `roles` 整体回写，会把 inherited role 物化为新 Assignment。
 
@@ -139,8 +140,8 @@ method ACL
   -> application/domain/UoW
 ```
 
-`configs/grpc_assignment_constraints.yaml` 当前对 `qs-apiserver.svc` 允许 `fangcun` domain、`user` Subject 类型与明确的 `qs:*` Role
-集合，并要求 Grant 携带 delegated actor。
+`configs/grpc_assignment_constraints.yaml` 当前对 `qs-apiserver.svc` 允许 `fangcun` domain、
+`user` Subject 类型与明确的 `qs:*` Role 集合，并要求 Grant 携带 delegated actor。
 
 constraints 缺失时的当前行为不对称：
 
@@ -151,8 +152,8 @@ constraints 缺失时的当前行为不对称：
 
 ### 为什么 `admin allow_all` 不能直接 Replace
 
-Replace 不是“我能改 Assignment”这一个 bool 问题，而是必须得到调用方拥有的具体 Role 子集 M。无边界 `allow_all` 无法表达“哪些 Assignment 属于该调用方管理”，因此
-replacement authorizer 要求显式 roles，不接受 allow-all 等价扩张。
+Replace 不是“我能改 Assignment”这一个 bool 问题，而是必须得到调用方拥有的具体 Role 子集 M。无边界 `allow_all` 无法表达“哪些 Assignment 属于该调用方管理”，
+因此 replacement authorizer 要求显式 roles，不接受 allow-all 等价扩张。
 
 ## `ReplaceManagedAssignments` 响应的精确语义
 
@@ -203,8 +204,8 @@ authorization runtime 统计 Check allowed/denied/error 和延迟；Assignment t
 iam_grpc_assignment_authorization_total{service,operation,result}
 ```
 
-`result` 区分 allowed/denied/failed。denied 表示明确不允许，failed 表示 authorizer/config 自身错误。这个指标不证明后续事务已提交，所以不能将 allowed 计数直接当作
-Assignment 变更成功数。
+`result` 区分 allowed/denied/failed。denied 表示明确不允许，failed 表示 authorizer/config 自身错误。这个指标不证明后续事务已提交，
+所以不能将 allowed 计数直接当作 Assignment 变更成功数。
 
 ## 验证证据
 

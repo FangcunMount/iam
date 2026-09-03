@@ -33,8 +33,8 @@ IDP 证明“provider 对这次 code 返回了什么”；AuthN 再决定该外�
 5. AuthSecret 存在；
 6. 密文可解密。
 
-Resolver 只返回 IDP 分类错误，不依赖 AuthN 或 HTTP 错误码。登录 proof、signup 与 linking 分别把分类错误映射回既有公开 code/message，保留三个用例原有差异。结构化日志只记录
-provider、realm 和错误分类，不记录 code、secret、token 或完整 provider 响应。
+Resolver 只返回 IDP 分类错误，不依赖 AuthN 或 HTTP 错误码。登录 proof、signup 与 linking 分别把分类错误映射回既有公开 code/message，保留三个用例原有差异。
+结构化日志只记录 provider、realm 和错误分类，不记录 code、secret、token 或完整 provider 响应。
 
 显式 app type 校验很关键：同一个微信生态里，小程序、公众号、网站开放平台的 code 语义和 API 不同。只凭 appID 存在就调用错误 endpoint，既会造成失败，也可能混淆登录边界。企微当前没有新增独立存储枚举，
 Resolver 显式将 `wecom` 映射到历史 `MP` 类型，以在不做数据迁移的前提下防止跨类型取密钥。
@@ -45,8 +45,8 @@ Resolver 显式将 `wecom` 映射到历史 `MP` 类型，以在不做数据迁�
 - unionid：满足微信开放平台条件时跨多个关联 app 稳定；
 - wecom userid/open user id：属于企业微信身份域。
 
-它们都不是 IAM UserID。AuthN 把 provider、realm/app 和 identifier 组合成 ProviderKey；需要跨 realm 去重时才使用 GlobalIdentifier。不能在没有
-provider/realm 的情况下用裸 openid 查 User。
+它们都不是 IAM UserID。AuthN 把 provider、realm/app 和 identifier 组合成 ProviderKey；需要跨 realm 去重时才使用 GlobalIdentifier。
+不能在没有 provider/realm 的情况下用裸 openid 查 User。
 
 ## 4. code 是一次性 proof，不是 Credential
 
@@ -61,15 +61,15 @@ OAuth state/nonce 校验并消费
   -> LoginIdentity lookup/ensure
 ```
 
-OAuth state 的创建和消费属于 AuthN Challenge；provider API 交换属于 IDP adapter；LoginIdentity 归属判断再回到 AuthN。这种边界避免 IDP adapter 顺手创建
-User 或签发 IAM token。
+OAuth state 的创建和消费属于 AuthN Challenge；provider API 交换属于 IDP adapter；LoginIdentity 归属判断再回到 AuthN。
+这种边界避免 IDP adapter 顺手创建 User 或签发 IAM token。
 
 ## 5. 为什么外部交换在本地事务外
 
 provider 网络调用可能超时、限流或返回业务错误。SignUp 在 Prepare 阶段先调用 IDP Resolver，之后才进入 MySQL UoW 创建 User/LoginIdentity/Credential。
 
-好处是数据库事务短；代价是外部 proof 与本地 commit 之间存在时间差。当前依赖 provider code 的一次性交换和 prepared result 的请求内生命周期来约束，不会把 prepared result
-持久化后长期复用。
+好处是数据库事务短；代价是外部 proof 与本地 commit 之间存在时间差。当前依赖 provider code 的一次性交换和 prepared result 的请求内生命周期来约束，
+不会把 prepared result 持久化后长期复用。
 
 ## 6. ExternalIdentity 与 provider adapter 的当前形态
 

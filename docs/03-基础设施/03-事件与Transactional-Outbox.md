@@ -26,8 +26,8 @@ durable_outbox
   -> MQ subscriber
 ```
 
-当前 `iam.authz.version_changed` 使用 durable outbox；`iam.login_otp_sms` 使用 best effort。代码会拒绝把 durable event 直接交给普通
-publisher，也会拒绝把 best-effort event 写入 outbox，从机制上避免调用者选错通道。
+当前 `iam.authz.version_changed` 使用 durable outbox；`iam.login_otp_sms` 使用 best effort。
+代码会拒绝把 durable event 直接交给普通 publisher，也会拒绝把 best-effort event 写入 outbox，从机制上避免调用者选错通道。
 
 ## 3. 为什么需要事件目录
 
@@ -245,14 +245,14 @@ go test ./internal/apiserver/application/authz/... ./internal/apiserver/infra/au
 
 ## 16. 面试追问
 
-**Outbox 解决的是消息重复还是消息丢失？**
+### Outbox 解决的是消息重复还是消息丢失？
 
 核心解决“业务提交成功但发布意图丢失”的双写问题。它通过重试引入/接受重复，重复要由消费者幂等处理。
 
-**为什么 AuthZ 订阅要每实例独立 channel？**
+### 为什么 AuthZ 订阅要每实例独立 channel？
 
 策略快照存在每个进程内；一次策略变更必须让每个实例都 reload。共享竞争消费 channel 只会通知其中一个实例。
 
-**DB 才是真相源，为什么还需要 policy version？**
+### DB 才是真相源，为什么还需要 policy version？
 
 版本提供变化顺序和可观测性，便于判断运行时是否看到了最新事实；它不替代 PermissionGrant 等管理事实，也不直接完成授权判定。

@@ -87,7 +87,8 @@ Full 只有在以下步骤全部完成后才更新游标和成功时间：
 - 每一行都映射为合法 `SuggestibleProfile`；
 - writer 成功安装新 Store。
 
-MySQL Loader 现在通过 `profile.New` 构造每一项。ID 非正或名称为空会返回 `map full suggest profile <id>` 错误。Refresher 仍有一层防御性过滤，用于保护其他可能的 `ProjectionSource` 实现；生产 MySQL 路径的非法行会在到达该层之前失败。
+MySQL Loader 现在通过 `profile.New` 构造每一项。ID 非正或名称为空会返回 `map full suggest profile <id>` 错误。Refresher 仍有一层防御性过滤，
+用于保护其他可能的 `ProjectionSource` 实现。生产 MySQL 路径的非法行会在到达该层之前失败。
 
 ### 4.3 查询并发语义
 
@@ -219,15 +220,18 @@ id, name, org_id, mobiles, owner_operator_ids, weight
 
 当前 optional 启动降级不会继续启动刷新调度，因此不能在同一进程内自动恢复，通常需要修复依赖后重启。
 
-还有一个需要单独治理的健康检查边界：若初始 Full 已成功、随后 Cron 表达式注册失败，optional 分支会切到 `DegradedQuerier`，但 `HasSuccessfulRefresh` 已为真；现有 `CheckHealth` 可能报告健康。这不是 P1 投影闭环问题，但运维不能把当前 health 当作 querier 类型和调度状态的完整证明。
+还有一个需要单独治理的健康检查边界：
+
+- 若初始 Full 已成功、随后 Cron 表达式注册失败，optional 分支会切到 `DegradedQuerier`，但 `HasSuccessfulRefresh` 已为真；
+- 现有 `CheckHealth` 可能报告健康。这不是 P1 投影闭环问题，但运维不能把当前 health 当作 querier 类型和调度状态的完整证明。
 
 ## 11. 可观测性
 
 | 指标 | 关键 label/含义 |
 | --- | --- |
-| `iam_suggest_refresh_duration_seconds` | `kind=full|delta` |
-| `iam_suggest_refresh_total` | `kind` + `result=success|failed|refresh_in_progress` |
-| `iam_suggest_refresh_items_total` | `kind` + `operation=upsert|tombstone` |
+| `iam_suggest_refresh_duration_seconds` | `kind=full\delta` |
+| `iam_suggest_refresh_total` | `kind` + `result=success\failed\refresh_in_progress` |
+| `iam_suggest_refresh_items_total` | `kind` + `operation=upsert\tombstone` |
 | `iam_suggest_last_success_timestamp_seconds` | 每类刷新最后成功时间 |
 | `iam_suggest_index_terms` | 当前 Runtime 中的 Profile 数 |
 

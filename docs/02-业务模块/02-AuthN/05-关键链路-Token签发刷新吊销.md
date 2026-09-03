@@ -17,8 +17,7 @@
 - JWKS 在 AccessToken 验签中负责什么？
 - 修改该链路时应该核对哪些代码和测试？
 
-本文只讲 Principal 之后的 Session/Token 治理链路。
-Login 如何生成 Principal 见 [04-关键链路-Login登录认证.md](04-关键链路-Login登录认证.md)；
+本文只讲 Principal 之后的 Session/Token 治理链路。Login 如何生成 Principal 见 [04-关键链路-Login登录认证.md](04-关键链路-Login登录认证.md)；
 AuthN 领域模型见 [01-领域模型与认证策略.md](01-领域模型与认证策略.md)。
 
 ---
@@ -326,7 +325,8 @@ tokenID / jti；
 用户 token 的 User/LoginIdentity Admission。
 ```
 
-这是 IAM 在线 `VerifyToken` 的固定用户令牌语义，不是“可选 Session check”。ServiceToken 在密码学验证后返回 claims，不走用户 Session/Admission；下游 SDK 的本地 JWKS 验签是另一种离线语义。
+这是 IAM 在线 `VerifyToken` 的固定用户令牌语义，不是“可选 Session check”。ServiceToken 在密码学验证后返回 claims，不走用户 Session/Admission；
+下游 SDK 的本地 JWKS 验签是另一种离线语义。
 
 ---
 
@@ -351,7 +351,8 @@ Refresh 输入：
 RefreshToken value。
 ```
 
-当前领域 `Refresher` 从服务端 RefreshToken 事实恢复 SessionID、UserID、LoginIdentityID 与认证上下文；客户端不传入 device 或 rotation metadata 作为可信事实。
+当前领域 `Refresher` 从服务端 RefreshToken 事实恢复 SessionID、UserID、LoginIdentityID 与认证上下文；
+客户端不传入 device 或 rotation metadata 作为可信事实。
 
 Refresh 输出：
 
@@ -537,7 +538,8 @@ sequenceDiagram
     SS-->>A: sessions revoked / stale indexes cleaned
 ```
 
-这条状态收敛链只通过 `session.Revoker.RevokeByUser` 撤销 Session，不枚举或反查每个 AccessToken/RefreshToken，也不批量写 access-token revocation marker。在事件消费完成前，用户 token 的在线 Verifier 还会执行 Admission，关闭传播延迟窗口。
+这条状态收敛链只通过 `session.Revoker.RevokeByUser` 撤销 Session，不枚举或反查每个 AccessToken/RefreshToken，
+也不批量写 access-token revocation marker。在事件消费完成前，用户 token 的在线 Verifier 还会执行 Admission，关闭传播延迟窗口。
 
 关键规则：
 
@@ -675,7 +677,8 @@ User blocked 必须快速生效；
 安全优先于极致性能。
 ```
 
-当前 IAM 在线接口已选择第二种语义，并非未决策项；ServiceToken 是例外，密码学验证后不查用户 Session/Admission。下游服务若选择 SDK 本地验签，必须明确接受 access token 剩余寿命内的撤销延迟。详细取舍见 [03-Session-Token与JWKS.md](03-Session-Token与JWKS.md)。
+当前 IAM 在线接口已选择第二种语义，并非未决策项；ServiceToken 是例外，密码学验证后不查用户 Session/Admission。下游服务若选择 SDK 本地验签，
+必须明确接受 access token 剩余寿命内的撤销延迟。详细取舍见 [03-Session-Token与JWKS.md](03-Session-Token与JWKS.md)。
 
 ---
 
@@ -944,4 +947,5 @@ AccessToken 验签成功不等于 AuthZ 授权通过；
 User blocked 通过受控 port 触发 AuthN Session revoke。
 ```
 
-下游本地验签与跨模块传递边界分别见 [06-关键链路-JWKS与本地验签.md](06-关键链路-JWKS与本地验签.md) 和 [07-模块边界-AuthN与Identity-IDP-AuthZ.md](07-模块边界-AuthN与Identity-IDP-AuthZ.md)。
+下游本地验签与跨模块传递边界分别见 [06-关键链路-JWKS与本地验签.md](06-关键链路-JWKS与本地验签.md) 和
+[07-模块边界-AuthN与Identity-IDP-AuthZ.md](07-模块边界-AuthN与Identity-IDP-AuthZ.md)。

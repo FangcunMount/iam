@@ -195,8 +195,8 @@ Identity REST 仅保留 `/identity/me`、Profile 和 ProfileLink 查改；Identi
 
 #### 选择
 
-AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN LoginIdentity 和 Credential repository ports。signup 先按
-LoginIdentity provider key 解析 User，未命中时创建 User，再确保 LoginIdentity/Credential。
+AuthN `SignUp` 的 UOW 在同一 MySQL 事务中提供 Identity User、AuthN LoginIdentity 和 Credential repository ports。
+signup 先按 LoginIdentity provider key 解析 User，未命中时创建 User，再确保 LoginIdentity/Credential。
 
 #### 替代方案
 
@@ -210,8 +210,8 @@ LoginIdentity provider key 解析 User，未命中时创建 User，再确保 Log
 
 #### 边界代价
 
-AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，不应扩展成
-AuthN 可以任意编辑 User/Profile/ProfileLink。
+AuthN application/UOW 显式依赖 Identity `user.Repository` port，而不是 Identity application `Creator`。这是为了事务原子性接受的跨模块结构耦合，
+不应扩展成 AuthN 可以任意编辑 User/Profile/ProfileLink。
 
 ### 6.5 决策 E：唯一性使用“业务预检查 + DB 兜底”
 
@@ -321,14 +321,14 @@ sequenceDiagram
 4. 没有命中 LoginIdentity 时创建新 User；
 5. 不会仅因 Phone 相同就复用旧 User。
 
-测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，但也意味着
-Phone 在这条链路中不是用户合并键。
+测试 `TestUserResolverDoesNotReuseUserByPhoneWithoutLoginIdentity` 明确保护第 5 条。这避免了只凭联系字段将新 LoginIdentity 绑到旧 User，
+但也意味着 Phone 在这条链路中不是用户合并键。
 
 ### 8.3 当前一致性边界
 
-AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有复用 Identity `user.Creator` 的友好预检查；最终并发一致性由
-`users.active_phone` 生成列和 `uk_users_active_phone` 唯一索引保证。同 Phone 不能经由不同 LoginIdentity 创建多个活跃 User，数据库冲突统一映射为现有
-`ErrUserAlreadyExists`。
+AuthN signup 直接调用 `user.NewUser` 和 `user.Repository.Create`，没有复用 Identity `user.Creator` 的友好预检查；
+最终并发一致性由 `users.active_phone` 生成列和 `uk_users_active_phone` 唯一索引保证。同 Phone 不能经由不同 LoginIdentity 创建多个活跃 User，
+数据库冲突统一映射为现有 `ErrUserAlreadyExists`。
 
 Phone 仍不是账号自动合并键：signup 不会仅凭 Phone 把新 LoginIdentity 绑定到旧 User；唯一索引只负责拒绝重复活跃手机号，不执行隐式账号合并。软删除 User 后，该手机号可被重新使用。
 

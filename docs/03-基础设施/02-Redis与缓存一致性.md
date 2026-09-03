@@ -12,8 +12,8 @@
 
 ## 2. 30 秒结论
 
-IAM 不是把 Redis 当成一个泛化 `map[string]any`，而是先登记 13 个稳定 cache family，再为每个 family 明确：owner、key pattern、数据角色、Redis 类型、编码、TTL
-来源、写入和失效方式。其中 Suggest 的 Redis/进程内限流是互斥可选 family，治理面只把实际启用的后端计入运行状态。
+IAM 不是把 Redis 当成一个泛化 `map[string]any`，而是先登记 13 个稳定 cache family，再为每个 family 明确：owner、key pattern、数据角色、Redis 类型、编码、
+TTL 来源、写入和失效方式。其中 Suggest 的 Redis/进程内限流是互斥可选 family，治理面只把实际启用的后端计入运行状态。
 
 最关键的区分是：
 
@@ -104,8 +104,8 @@ Challenge 成功消费也用 compare-and-delete Lua；失败次数脚本只给�
 
 ### 6.3 WATCH
 
-Session revoke/extend 要读取对象、判断状态、修改 payload 并维护索引，逻辑比简单 compare-and-delete 更复杂，因此使用 WATCH + retry。版本冲突最多重试 5 次，并线性
-backoff；耗尽后返回明确 optimistic transaction conflict。
+Session revoke/extend 要读取对象、判断状态、修改 payload 并维护索引，逻辑比简单 compare-and-delete 更复杂，因此使用 WATCH + retry。版本冲突最多重试 5 次，
+并线性 backoff；耗尽后返回明确 optimistic transaction conflict。
 
 ## 7. Session 主对象与索引一致性
 
@@ -236,14 +236,14 @@ miniredis 可以验证命令和竞态契约，但不能替代真实 Redis 的持
 
 ## 15. 面试追问
 
-**Redis 里的 Session 到底是不是缓存？**
+### Redis 里的 Session 到底是不是缓存？
 
 按部署组件它常被泛称缓存；按数据语义它是当前会话权威状态。判断标准应是“丢失后能否从其他事实源无损重建”，不是存储产品名称。
 
-**Lua 和 WATCH 怎么选？**
+### Lua 和 WATCH 怎么选？
 
 固定少量命令、适合 compare-and-set 的操作用 Lua；需要读取复杂对象、执行 Go 领域判断并更新多个结构时用 WATCH + retry。两者都必须定义冲突结果。
 
-**为什么 AdmissionPolicy 不能被异步 Session 吊销替代？**
+### 为什么 AdmissionPolicy 不能被异步 Session 吊销替代？
 
 异步 worker 存在传播窗口且可能积压；同步检查当前 User/LoginIdentity 状态关闭安全窗口，worker 负责回收存量会话和减少后续成本。

@@ -22,11 +22,11 @@ IAM 当前最重要的基础设施问题不是“用了哪些组件”，而是�
 IAM 的基础设施设计可以归纳为四条原则：
 
 1. **MySQL 保存需要跨重启恢复的业务事实**。领域对象、授权事实、密钥元数据、Outbox 都以数据库为最终事实源。
-2. * * Redis 保存短生命周期、需要高频访问或原子竞争的运行时状态* *。Session、Refresh Token、Challenge 在当前实现中是 Redis 权威状态；Redis 丢失会导致会话失效，而不是从 MySQL
-   自动恢复。
+2. **Redis 保存短生命周期、需要高频访问或原子竞争的运行时状态**。Session、Refresh Token、Challenge 在当前实现中是 Redis 权威状态；Redis 丢失会导致会话失效，
+   而不是从 MySQL 自动恢复。
 3. **进程内对象只保存可重建快照**。例如 JWKS 发布快照和 AuthZ authorization runtime；它们不能成为唯一业务事实。
-4. * *跨资源一致性不伪装成单一事务* *。MySQL 内使用事务；MySQL 到 MQ 使用 Outbox；Redis 内使用 Lua 或 WATCH；MySQL 到 Redis 的身份状态传播使用专用 revocation
-   outbox 和幂等 worker。
+4. **跨资源一致性不伪装成单一事务**。MySQL 内使用事务；MySQL 到 MQ 使用 Outbox；Redis 内使用 Lua 或 WATCH；
+   MySQL 到 Redis 的身份状态传播使用专用 revocation outbox 和幂等 worker。
 
 ## 3. 事实源层次
 

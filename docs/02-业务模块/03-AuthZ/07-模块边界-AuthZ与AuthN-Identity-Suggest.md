@@ -63,8 +63,8 @@ caller service: qs-apiserver.svc
 subject:        user:42
 ```
 
-caller service 决定能否调用 RPC、能否提交某个对象属性、能管理哪些 Assignment；Subject 则参与 Role/Grant 判定。用 Subject 字段伪造 caller service，或用 service
-identity 直接代替用户 Subject，都会混淆威胁边界。
+caller service 决定能否调用 RPC、能否提交某个对象属性、能管理哪些 Assignment；Subject 则参与 Role/Grant 判定。用 Subject 字段伪造 caller service，
+或用 service identity 直接代替用户 Subject，都会混淆威胁边界。
 
 ## Identity → AuthZ：存在性解析，不复制用户模型
 

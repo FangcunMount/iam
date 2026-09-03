@@ -12,8 +12,8 @@
 | Native runtime | 编译并发布不可变快照，维护版本、reload 和运行健康 |
 | transport/application | 建立可信 Subject/Tenant/Resource/Action/ObjectAttributes |
 
-Assignment 与角色继承组成一个成熟、封闭的图计算问题。当前实现直接使用 `subject.Ref`、`tenant.ID` 和 `role.Name` 构建只读图，保留直接/有效角色、Tenant 隔离、稳定排序、菱形去重与 32 层边界。
-PermissionGrant 条件是 IAM 自己的版本化契约，由领域类型、Schema、错误码、审计标识和快照模式显式表达。
+Assignment 与角色继承组成一个成熟、封闭的图计算问题。当前实现直接使用 `subject.Ref`、`tenant.ID` 和 `role.Name` 构建只读图，保留直接/有效角色、Tenant 隔离、稳定排序、
+菱形去重与 32 层边界。PermissionGrant 条件是 IAM 自己的版本化契约，由领域类型、Schema、错误码、审计标识和快照模式显式表达。
 
 ## 2. 为什么最终退役 Casbin
 
@@ -42,7 +42,7 @@ role closure
 
 ## 4. 演进约束
 
-当前只支持 allow-only、对象属性、`EQ` 和 Grant 内 AND。若将来增加运算符或属性类型，应扩展版本化 ConstraintSet 和兼容测试，而不是把条件塞回字符串 matcher。主体属性、环境属性和业务关系是否进入
-IAM，必须分别评估事实所有权、新鲜度、可重放性和故障语义。
+当前只支持 allow-only、对象属性、`EQ` 和 Grant 内 AND。若将来增加运算符或属性类型，应扩展版本化 ConstraintSet 和兼容测试，而不是把条件塞回字符串 matcher。主体属性、
+环境属性和业务关系是否进入 IAM，必须分别评估事实所有权、新鲜度、可重放性和故障语义。
 
 Casbin 退役不改变 API、数据库事实或 reload 协议。历史 migration 和 `casbin_rule` 缺失性门禁继续保留；它们证明迁移历史和防止旧路径回归，不代表当前运行时仍依赖 Casbin。

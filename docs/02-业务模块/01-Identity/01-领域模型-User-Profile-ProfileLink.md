@@ -332,15 +332,13 @@ application 层的 `Block` 与 `Deactivate` 顺序是：
   -> 后台 Worker 最终幂等调用 AuthN SessionRevoker
 ```
 
-因此 User 状态与撤销任务原子提交，但 MySQL 状态与 Redis Session 撤销不是一个原子事务。
-在线 Verify 会实时拒绝 blocked/inactive User，补偿延迟不会使旧 Session 恢复有效。
+因此 User 状态与撤销任务原子提交，但 MySQL 状态与 Redis Session 撤销不是一个原子事务。在线 Verify 会实时拒绝 blocked/inactive User，补偿延迟不会使旧 Session 恢复有效。
 
 ### 6.5 手机号唯一性
 
 `optionalPhone("")` 返回空值，`UniquenessChecker` 跳过空手机号。非空手机号在创建或修改时执行 application 预检查。
 
-迁移 `000017_users_active_phone_unique_guard` 为未软删除 User 的非空手机号生成
-`active_phone`，并建立唯一索引。所以：
+迁移 `000017_users_active_phone_unique_guard` 为未软删除 User 的非空手机号生成 `active_phone`，并建立唯一索引。所以：
 
 ```text
 业务意图：非空 Phone 唯一

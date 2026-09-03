@@ -49,7 +49,8 @@ IDP 解析外部 provider 身份
 ## 当前实现要特别记住的七点
 
 - SignUp 的外部身份解析在事务外，本地 User/LoginIdentity/Credential 在一个 MySQL UoW 中提交。
-- `AuthenticationGrant = Session + UserTokenSet`；SignIn 只依赖应用 `AuthenticationGrantIssuer`，领域 `GrantIssuer` 内部先 Admission，再建立 Session 与令牌集合。
+- `AuthenticationGrant = Session + UserTokenSet`；SignIn 只依赖应用 `AuthenticationGrantIssuer`，
+  领域 `GrantIssuer` 内部先 Admission，再建立 Session 与令牌集合。
 - 用户 access token 是 RS256 JWT，但 IAM 在线验证仍检查撤销标记、Session 和主体状态。
 - Refresh token 使用 Redis Lua 原子轮换；当前先延长 Session，再轮换 token，失败时存在 TTL 已变化的窗口。
 - SDK 本地 JWKS 验签不具备 IAM 在线验证的即时撤销语义。

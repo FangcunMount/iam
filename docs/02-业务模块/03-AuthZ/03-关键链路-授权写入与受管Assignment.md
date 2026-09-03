@@ -4,8 +4,8 @@
 
 ## 结论
 
-AuthZ 写入遵循同一条提交链：校验领域不变量，在 Unit of Work 内写业务事实、递增策略版本并写 Outbox，提交后 reload 当前实例。Assignment 同时提供增量 Grant/Revoke
-与“只替换受管集合”的批量接口。
+AuthZ 写入遵循同一条提交链：校验领域不变量，在 Unit of Work 内写业务事实、递增策略版本并写 Outbox，提交后 reload 当前实例。
+Assignment 同时提供增量 Grant/Revoke 与“只替换受管集合”的批量接口。
 
 一次“写成功”要分成三个时刻理解：
 
@@ -147,11 +147,12 @@ no-op 不递增版本非常重要。如果一个调用方周期性上报相同�
 
 ## 当前并发边界
 
-实现先按 Role ID 顺序锁定受管角色，再使用 `ListBySubjectForUpdate` 对 Subject 当前 Assignment 执行 MySQL 当前读。后一个事务即使在普通 Role 查询时已经建立
-`REPEATABLE READ` 快照，等待锁后也会基于最新已提交 Assignment 重新计算 ReplacementPlan。
+实现先按 Role ID 顺序锁定受管角色，再使用 `ListBySubjectForUpdate` 对 Subject 当前 Assignment 执行 MySQL 当前读。
+后一个事务即使在普通 Role 查询时已经建立 `REPEATABLE READ` 快照，等待锁后也会基于最新已提交 Assignment 重新计算 ReplacementPlan。
 
-`replace_managed_assignments_mysql_concurrent_test.go` 使用事务内 Role-read barrier，确定性保证两个事务都在加角色锁前完成普通读，再断言最终集合必须完整等于其中一个目标，且两次有变化的
-Replace 精确产生两个 PolicyVersion 和两个 Outbox 事件。该测试需要 `MYSQL_HOST`，默认 CI 或本地未配置 MySQL 时会跳过；跳过不能被报告成 MySQL 运行证据。
+`replace_managed_assignments_mysql_concurrent_test.go` 使用事务内 Role-read barrier，确定性保证两个事务都在加角色锁前完成普通读，
+再断言最终集合必须完整等于其中一个目标，且两次有变化的 Replace 精确产生两个 PolicyVersion 和两个 Outbox 事件。该测试需要 `MYSQL_HOST`，默认 CI 或本地未配置 MySQL 时会跳过；
+跳过不能被报告成 MySQL 运行证据。
 
 因此当前可以声称代码与测试 fixture 定义了该并发序列的串行结果，但不能由此承诺任意生产负载、不同数据库隔离配置或全部受管集合组合都已经得到部署后证明。
 
@@ -159,8 +160,8 @@ Replace 精确产生两个 PolicyVersion 和两个 Outbox 事件。该测试需�
 
 active unique guard 能阻止两个事务同时创建完全相同的活跃 Assignment，但 Replace 要保护的是“多条记录组成的集合”。
 
-只锁 Role 仍不足以保护“多条记录组成的集合”；当前实现依靠 `ListBySubjectForUpdate` 的当前读和行/范围锁保护该集合。修改查询索引、隔离级别、软删除条件或锁顺序时，必须重新运行真实
-MySQL 并发测试，不能只用 SQLite 结果推导 MySQL 语义。
+只锁 Role 仍不足以保护“多条记录组成的集合”；当前实现依靠 `ListBySubjectForUpdate` 的当前读和行/范围锁保护该集合。修改查询索引、隔离级别、软删除条件或锁顺序时，必须重新运行真实 MySQL 并发测试，
+不能只用 SQLite 结果推导 MySQL 语义。
 
 ## Assignment 约束配置
 
@@ -171,8 +172,8 @@ Assignment 写入依赖约束授权器。当前缺失实现时的行为不完全
 
 生产和开发配置已经显式提供约束文件，但默认空配置仍可能触发上述差异。部署检查应把约束实现或文件视为必填项，不能依赖默认值。
 
-constraints 不只列出角色，还将 caller service、allowed methods、Tenant/domain、Subject 类型/范围、Role 集合与 delegated actor 规则绑在一起。配置与
-`grpc_acl.yaml` 必须做覆盖对齐：
+constraints 不只列出角色，还将 caller service、allowed methods、Tenant/domain、Subject 类型/范围、Role 集合与 delegated actor 规则绑在一起。
+配置与 `grpc_acl.yaml` 必须做覆盖对齐：
 
 - ACL 有方法但 constraints 无 caller 规则：实际调用将被内容级拒绝或失败。
 - constraints 允许 caller 但 ACL 没有方法：请求根本到不了应用层。
@@ -184,8 +185,8 @@ constraints 不只列出角色，还将 caller service、allowed methods、Tenan
 
 所有管理写入都应记录可信 actor：用户管理请求来自 AuthN Principal，服务间请求来自已认证服务身份。actor 不得由请求体自由指定。写命令的错误映射应区分输入错误、无权限、事实冲突和基础设施错误。
 
-当前 gRPC 契约仍包含 `granted_by` / `revoked_by` / `changed_by`，它们是 delegated actor 信息，不能覆盖传输层得到的 caller service。Assignment
-constraints 必须决定调用服务是否允许代表该 actor 写入。Revoke 未提供 delegated actor 时，transport 会回退为 `service:<caller>`。
+当前 gRPC 契约仍包含 `granted_by` / `revoked_by` / `changed_by`，它们是 delegated actor 信息，不能覆盖传输层得到的 caller service。
+Assignment constraints 必须决定调用服务是否允许代表该 actor 写入。Revoke 未提供 delegated actor 时，transport 会回退为 `service:<caller>`。
 
 ## 提交后 reload 的错误语义
 

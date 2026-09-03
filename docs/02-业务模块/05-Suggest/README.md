@@ -4,7 +4,8 @@
 
 ## 本目录回答
 
-Suggest 为 operating 后台提供低延迟的 Profile 候选搜索：它从 Identity 的 MySQL 事实构建可丢弃的进程内索引，在返回候选前解析 AuthZ 能力和数据可见范围，并对手机号搜索、限流和输出脱敏做额外保护。
+Suggest 为 operating 后台提供低延迟的 Profile 候选搜索：它从 Identity 的 MySQL 事实构建可丢弃的进程内索引，在返回候选前解析 AuthZ 能力和数据可见范围，并对手机号搜索、
+限流和输出脱敏做额外保护。
 
 它不拥有 User、Profile、ProfileLink，不负责详情读取授权，也不把 TST/Hash 这种检索算法冒充成领域模型。
 

@@ -68,13 +68,13 @@ sequenceDiagram
     T-->>C: new pair or failure
 ```
 
-`RotateRefreshToken(oldValue, expectedOldID, newToken)` 由 Redis Lua 原子完成：只有旧值仍存在且 ID 与预期相符时，才写入新值并删除旧值。两个并发 refresh
-只有一个能成功，另一个得到“旧 token 已消费”的冲突，而不是同时获得两组有效 refresh token。
+`RotateRefreshToken(oldValue, expectedOldID, newToken)` 由 Redis Lua 原子完成：只有旧值仍存在且 ID 与预期相符时，才写入新值并删除旧值。
+两个并发 refresh 只有一个能成功，另一个得到“旧 token 已消费”的冲突，而不是同时获得两组有效 refresh token。
 
 ### 当前顺序的残余风险
 
-Session 是先延长，refresh token 后轮换。如果轮换最终冲突或 Redis 报错，请求不会拿到新令牌，但 Session TTL 可能已经被延长。这不直接产生可使用的新凭证，却意味着失败请求也可能改变 Session
-生存时间。
+Session 是先延长，refresh token 后轮换。如果轮换最终冲突或 Redis 报错，请求不会拿到新令牌，但 Session TTL 可能已经被延长。这不直接产生可使用的新凭证，
+却意味着失败请求也可能改变 Session 生存时间。
 
 更严格的设计可把 Session 延长和 refresh 轮换放进同一 Lua 脚本，或先轮换再以幂等方式延长；前者要求两类键和校验逻辑共享一个原子脚本，后者则要处理“令牌已轮换但 Session 延长失败”的更危险窗口。
 当前选择优先避免发出已轮换但无活跃 Session 的令牌，接受失败时 TTL 可能延长的较小风险。
@@ -87,8 +87,9 @@ Session 是先延长，refresh token 后轮换。如果轮换最终冲突或 Red
 - Refresh token：撤销关联 Session，再删除 refresh token；
 - Session：按 session、User 或 LoginIdentity 撤销。
 
-Identity 的 deactivate/block 会在同一 MySQL 事务中写 session-revocation outbox，后台 worker 最终撤销 Redis Session；同时在线 Token 验证还会读取当前
-User/LoginIdentity 状态，关闭事件消费延迟窗口。详见 [Identity 与 AuthN 的边界](../01-Identity/04-模块边界-Identity与AuthN-AuthZ-Suggest.md) 与
+Identity 的 deactivate/block 会在同一 MySQL 事务中写 session-revocation outbox，后台 worker 最终撤销 Redis Session；
+同时在线 Token 验证还会读取当前 User/LoginIdentity 状态，关闭事件消费延迟窗口。详见
+[Identity 与 AuthN 的边界](../01-Identity/04-模块边界-Identity与AuthN-AuthZ-Suggest.md) 与
 [事件和 Transactional Outbox](../../03-基础设施/03-事件与Transactional-Outbox.md)。
 
 管理员 Session 撤销入口需要用户 JWT，并检查 `iam:authn:collection:sessions` 的明确 Action：
@@ -123,11 +124,11 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 ## 7. JWKS 与密钥轮换
 
-服务端使用 RS256：私钥用于签名且经 AES-GCM 保护后持久化，JWKS 只发布 active/grace key 的公钥信息。密钥经历 active、grace、retired 状态，使旧 access token
-在轮换后的有限窗口内仍可验证。
+服务端使用 RS256：私钥用于签名且经 AES-GCM 保护后持久化，JWKS 只发布 active/grace key 的公钥信息。密钥经历 active、grace、retired 状态，
+使旧 access token 在轮换后的有限窗口内仍可验证。
 
-轮换必须协调“新 key 可签名”和“验证方已能看到新公钥”。当前实现以 MySQL keyset 状态、原子 activation、内存发布快照和周期调度器完成生命周期；完整实现见
-[密码学、密钥与令牌](../../03-基础设施/04-密码学密钥与令牌.md)。
+轮换必须协调“新 key 可签名”和“验证方已能看到新公钥”。当前实现以 MySQL keyset 状态、原子 activation、内存发布快照和周期调度器完成生命周期；
+完整实现见 [密码学、密钥与令牌](../../03-基础设施/04-密码学密钥与令牌.md)。
 
 ## 8. 备选设计
 
@@ -139,8 +140,8 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 | consumed marker + Session revoke（当前） | 可识别已消费旧 token 的重放并撤销对应 Session | 合法重复提交也会触发强制重新登录 | 当前安全契约 |
 | refresh token family/reuse detection | 可追踪整条 token family 并执行家族级处置 | 需要 family 状态与事件处理 | 更高风险场景可增强 |
 
-当前 rotation 防止同一 refresh token 并发成功两次，并在成功轮换时原子写入不含令牌明文的 consumed marker。已消费旧 token 再次出现时会撤销对应 Session；任意未签发 token
-不会触发撤销。当前仍没有完整 token-family 图谱，也不会跨 Session 批量处置其他家族。
+当前 rotation 防止同一 refresh token 并发成功两次，并在成功轮换时原子写入不含令牌明文的 consumed marker。已消费旧 token 再次出现时会撤销对应 Session；
+任意未签发 token 不会触发撤销。当前仍没有完整 token-family 图谱，也不会跨 Session 批量处置其他家族。
 
 ## 9. 面试追问
 
