@@ -22,15 +22,11 @@ type Token struct {
 	LoginIdentityID meta.ID // 登录身份ID
 	TenantID        meta.ID // 租户ID
 
-	// --- 令牌主体上下文信息 ---
-	AuthMethod    string            // 认证方法
-	Realm         string            // 认证域
-	Audience      []string          // 受众
-	Attributes    map[string]string // 属性
-	AMR           []string          // 认证方法引用
-	SessionClaims map[string]string // 会话声明
-	IssuedAt      time.Time         // 颁发时间
-	ExpiresAt     time.Time         // 过期时间
+	// --- 对外令牌投影 ---
+	Audience   []string          // 受众
+	Attributes map[string]string // 属性
+	IssuedAt   time.Time         // 颁发时间
+	ExpiresAt  time.Time         // 过期时间
 }
 
 // NewAccessToken 创建访问令牌
@@ -81,11 +77,6 @@ func NewTokenPair(accessToken, refreshToken *Token) *TokenPair {
 	}
 }
 
-// NewTokenClaims 保留 application 调用契约并委托领域构造器。
-func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID, loginIdentityID, orgID meta.ID, tenantDomain, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *TokenClaims {
-	return tokendomain.NewTokenClaims(tokenType, tokenID, subject, sessionID, userID, loginIdentityID, orgID, tenantDomain, issuer, audience, attributes, amr, issuedAt, expiresAt)
-}
-
 func tokenPairFromDomain(set *tokendomain.UserTokenSet) *TokenPair {
 	if set == nil {
 		return nil
@@ -112,8 +103,7 @@ func tokenFromRefresh(token *tokendomain.RefreshToken) *Token {
 	return &Token{
 		ID: token.ID, Type: TokenTypeRefresh, Value: token.Value, SessionID: token.SessionID,
 		UserID: token.UserID, LoginIdentityID: token.LoginIdentityID, TenantID: token.TenantID,
-		AuthMethod: token.AuthMethod, Realm: token.Realm, AMR: cloneStrings(token.AMR),
-		SessionClaims: cloneStringMap(token.SessionClaims), IssuedAt: token.IssuedAt, ExpiresAt: token.ExpiresAt,
+		IssuedAt: token.IssuedAt, ExpiresAt: token.ExpiresAt,
 	}
 }
 

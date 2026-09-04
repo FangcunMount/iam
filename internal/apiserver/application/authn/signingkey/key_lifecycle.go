@@ -1,4 +1,4 @@
-package jwks
+package signingkey
 
 import (
 	"context"
@@ -13,23 +13,22 @@ import (
 const (
 	operationAdminCreate = "admin_create"
 	operationAutoRotate  = "auto_rotate"
-	operationEnterGrace  = "enter_grace"
 	operationRetire      = "retire"
 	operationForceRetire = "force_retire"
 	operationCleanup     = "cleanup"
 )
 
-// KeyLifecycleAppService is the single application boundary for JWKS mutations.
+// KeyLifecycleAppService is the single application boundary for signing-key mutations.
 type KeyLifecycleAppService struct {
 	lifecycle KeyLifecyclePort
-	publisher KeyPublisherPort
+	publisher PublishCacheRefresher
 	observer  LifecycleObserver
 	logger    log.Logger
 }
 
 func NewKeyLifecycleAppService(
 	lifecycle KeyLifecyclePort,
-	publisher KeyPublisherPort,
+	publisher PublishCacheRefresher,
 	observer LifecycleObserver,
 	logger log.Logger,
 ) *KeyLifecycleAppService {
@@ -64,14 +63,14 @@ func (s *KeyLifecycleAppService) CreateAndActivate(ctx context.Context, req Crea
 	key, changed, err := s.lifecycle.CreateAndActivate(ctx, req.Algorithm, req.NotBefore, req.NotAfter)
 	if err != nil {
 		s.record(operationAdminCreate, "failed")
-		s.logger.Errorw("jwks lifecycle operation failed", "operation", operationAdminCreate, "result", "failed", "automatic", false)
+		s.logger.Errorw("signing-key lifecycle operation failed", "operation", operationAdminCreate, "result", "failed", "automatic", false)
 		return nil, err
 	}
 	s.record(operationAdminCreate, mutationResult(changed))
 	if changed {
 		s.refreshPublishCache(ctx, operationAdminCreate, key.Kid, false)
 	}
-	s.logger.Infow("jwks lifecycle operation completed",
+	s.logger.Infow("signing-key lifecycle operation completed",
 		"operation", operationAdminCreate,
 		"result", mutationResult(changed),
 		"kid", key.Kid,
@@ -98,12 +97,12 @@ func (s *KeyLifecycleAppService) RotateIfDue(ctx context.Context) (*RotateKeyRes
 	key, changed, err := s.lifecycle.RotateIfDue(ctx)
 	if err != nil {
 		s.record(operationAutoRotate, "failed")
-		s.logger.Errorw("jwks lifecycle operation failed", "operation", operationAutoRotate, "result", "failed", "automatic", true)
+		s.logger.Errorw("signing-key lifecycle operation failed", "operation", operationAutoRotate, "result", "failed", "automatic", true)
 		return nil, err
 	}
 	s.record(operationAutoRotate, mutationResult(changed))
 	if key == nil {
-		s.logger.Debugw("jwks lifecycle operation completed",
+		s.logger.Debugw("signing-key lifecycle operation completed",
 			"operation", operationAutoRotate,
 			"result", "noop",
 			"automatic", true,
@@ -113,7 +112,7 @@ func (s *KeyLifecycleAppService) RotateIfDue(ctx context.Context) (*RotateKeyRes
 	if changed {
 		s.refreshPublishCache(ctx, operationAutoRotate, key.Kid, true)
 	}
-	s.logger.Infow("jwks lifecycle operation completed",
+	s.logger.Infow("signing-key lifecycle operation completed",
 		"operation", operationAutoRotate,
 		"result", mutationResult(changed),
 		"kid", key.Kid,
@@ -123,7 +122,7 @@ func (s *KeyLifecycleAppService) RotateIfDue(ctx context.Context) (*RotateKeyRes
 		NewKey: &RotatedKeyInfo{
 			Kid:       key.Kid,
 			Status:    key.Status,
-			Algorithm: key.JWK.Alg,
+			Algorithm: key.Algorithm,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
 			CreatedAt: key.CreatedAt,
@@ -140,10 +139,6 @@ func (s *KeyLifecycleAppService) ForceRetireKey(ctx context.Context, kid string)
 	return s.mutateKey(ctx, operationForceRetire, kid, s.lifecycle.ForceRetireKey)
 }
 
-func (s *KeyLifecycleAppService) EnterGracePeriod(ctx context.Context, kid string) error {
-	return s.mutateKey(ctx, operationEnterGrace, kid, s.lifecycle.EnterGracePeriod)
-}
-
 type CleanupExpiredKeysResponse struct {
 	DeletedCount int
 }
@@ -152,7 +147,7 @@ func (s *KeyLifecycleAppService) CleanupExpiredKeys(ctx context.Context) (*Clean
 	count, err := s.lifecycle.CleanupExpiredKeys(ctx)
 	if err != nil {
 		s.record(operationCleanup, "failed")
-		s.logger.Errorw("jwks lifecycle operation failed", "operation", operationCleanup, "result", "failed", "automatic", false)
+		s.logger.Errorw("signing-key lifecycle operation failed", "operation", operationCleanup, "result", "failed", "automatic", false)
 		return nil, err
 	}
 	changed := count > 0
@@ -160,7 +155,7 @@ func (s *KeyLifecycleAppService) CleanupExpiredKeys(ctx context.Context) (*Clean
 	if changed {
 		s.refreshPublishCache(ctx, operationCleanup, "", false)
 	}
-	s.logger.Infow("jwks lifecycle operation completed",
+	s.logger.Infow("signing-key lifecycle operation completed",
 		"operation", operationCleanup,
 		"result", mutationResult(changed),
 		"automatic", false,
@@ -175,12 +170,12 @@ func (s *KeyLifecycleAppService) mutateKey(
 ) error {
 	if err := mutate(ctx, kid); err != nil {
 		s.record(operation, "failed")
-		s.logger.Errorw("jwks lifecycle operation failed", "operation", operation, "result", "failed", "kid", kid, "automatic", false)
+		s.logger.Errorw("signing-key lifecycle operation failed", "operation", operation, "result", "failed", "kid", kid, "automatic", false)
 		return err
 	}
 	s.record(operation, "success")
 	s.refreshPublishCache(ctx, operation, kid, false)
-	s.logger.Infow("jwks lifecycle operation completed", "operation", operation, "result", "success", "kid", kid, "automatic", false)
+	s.logger.Infow("signing-key lifecycle operation completed", "operation", operation, "result", "success", "kid", kid, "automatic", false)
 	return nil
 }
 
@@ -221,7 +216,7 @@ func createKeyResponse(key *ManagedKey) *CreateKeyResponse {
 	return &CreateKeyResponse{
 		Kid:       key.Kid,
 		Status:    key.Status,
-		Algorithm: key.JWK.Alg,
+		Algorithm: key.Algorithm,
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
 		PublicJWK: &key.JWK,

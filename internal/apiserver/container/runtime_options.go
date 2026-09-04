@@ -11,7 +11,7 @@ import (
 type RuntimeOptions struct {
 	Environment                   genericapiserver.Environment
 	Auth                          apiserveroptions.AuthOptions
-	JWKS                          apiserveroptions.JWKSOptions
+	JWKS                          apiserveroptions.SigningKeyOptions
 	IDP                           apiserveroptions.IDPOptions
 	SMS                           apiserveroptions.SMSOptions
 	Identity                      apiserveroptions.IdentityOptions

@@ -57,8 +57,9 @@ func (s *KeySetBuilder) BuildJWKS(ctx context.Context) ([]byte, CacheTag, error)
 
 	// 提取公钥并构建 JWKS
 	publicKeys := make([]PublicJWK, 0, len(keys))
+	now := s.snapshot.nowUTC()
 	for _, key := range keys {
-		if key.ShouldPublish() {
+		if key.ShouldPublishAt(now) {
 			publicKeys = append(publicKeys, key.JWK)
 		}
 	}
@@ -94,8 +95,9 @@ func (s *KeySetBuilder) GetPublishableKeys(ctx context.Context) ([]*Key, error) 
 
 	// 过滤出应该发布的密钥
 	publishable := make([]*Key, 0, len(keys))
+	now := s.snapshot.nowUTC()
 	for _, key := range keys {
-		if key.ShouldPublish() {
+		if key.ShouldPublishAt(now) {
 			publishable = append(publishable, key)
 		}
 	}

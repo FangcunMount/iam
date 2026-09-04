@@ -182,6 +182,52 @@ func TestDomainPackagesDoNotAddInfrastructureDependencies(t *testing.T) {
 	})
 }
 
+func TestAuthnTokenDomainDoesNotDependOnJOSEAdapters(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbiddenPrefixes := []string{
+		modulePath + "internal/apiserver/application/authn/jwks",
+		modulePath + "internal/apiserver/infra/token/jwt",
+		modulePath + "internal/apiserver/infra/token/keyset",
+	}
+	scanImportsIncludingTests(t, filepath.Join(root, "internal", "apiserver", "domain", "authn", "token"), func(path string, imports []string) {
+		for _, imp := range imports {
+			for _, forbidden := range forbiddenPrefixes {
+				if strings.HasPrefix(imp, forbidden) {
+					rel := filepath.ToSlash(mustRel(t, root, path))
+					t.Fatalf("%s imports %s; token domain must stay independent from JWT/JWK adapters", rel, imp)
+				}
+			}
+		}
+	})
+}
+
+func TestJWKSApplicationRemainsPublicationOnly(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	forbidden := []string{
+		"KeyLifecyclePort",
+		"KeyLifecycleAppService",
+		"KeyManagementAppService",
+		"CreateAndActivate",
+		"ForceRetireKey",
+		"PrivateKey",
+	}
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "application", "authn", "jwks"), func(path, source string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		for _, fragment := range forbidden {
+			if strings.Contains(source, fragment) {
+				rel := filepath.ToSlash(mustRel(t, root, path))
+				t.Fatalf("%s contains %q; JWKS application package is a public-key publication boundary", rel, fragment)
+			}
+		}
+	})
+}
+
 func TestMySQLLoginIdentityDoesNotDependOnApplicationLinking(t *testing.T) {
 	t.Parallel()
 
@@ -1686,9 +1732,21 @@ func TestAuthnTokenDomainStaysBehindPortsAndAdapters(t *testing.T) {
 	}
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
+		if strings.HasPrefix(rel, "internal/apiserver/domain/authn/signingkey/") {
+			return
+		}
 		for _, token := range forbiddenDomainTokens {
 			if strings.Contains(source, token) {
 				t.Fatalf("%s contains retired JWT-shaped domain token %q; keep JWT claims and strategies in infra/token/jwt", rel, token)
+			}
+		}
+	})
+
+	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "domain", "authn", "signingkey"), func(path, source string) {
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for _, token := range []string{"type PublicJWK", "type JWKS", "crypto/rsa", "rsa.PrivateKey", "rsa.PublicKey"} {
+			if strings.Contains(source, token) {
+				t.Fatalf("%s contains cryptographic or JOSE wire material %q; signingkey domain may only own non-sensitive lifecycle facts", rel, token)
 			}
 		}
 	})
@@ -1747,23 +1805,33 @@ func TestAuthnTokenDomainStaysBehindPortsAndAdapters(t *testing.T) {
 	appJWKSModels := string(appJWKSModelsBytes)
 	for _, token := range forbiddenApplicationJWKSLifecycleTokens {
 		if strings.Contains(appJWKSModels, token) {
-			t.Fatalf("application/authn/jwks/models.go contains signing key lifecycle behavior %q; keep key lifecycle behavior in infra/token/keyset", token)
+			t.Fatalf("application/authn/jwks/models.go contains signing key lifecycle behavior %q; keep lifecycle rules in domain/authn/signingkey", token)
 		}
 	}
 
 	scanGoSources(t, filepath.Join(root, "internal", "apiserver", "infra", "token", "keyset"), func(path, source string) {
 		rel := filepath.ToSlash(mustRel(t, root, path))
-		if strings.Contains(source, "type Key =") || strings.Contains(source, "type KeyStatus =") {
-			t.Fatalf("%s aliases application jwks lifecycle types; keyset must own signing key models and map to application DTOs", rel)
+		if strings.Contains(source, "type Key =") {
+			t.Fatalf("%s aliases an application key model; infrastructure must map persistence/key material to application DTOs", rel)
 		}
 	})
+	keySource, err := os.ReadFile(filepath.Join(root, "internal", "apiserver", "infra", "token", "keyset", "key.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(keySource), "type KeyStatus = signingkeydomain.Status") {
+		t.Fatal("infra/token/keyset must reuse the domain signing-key lifecycle status")
+	}
+	if !strings.Contains(string(keySource), "signingkeydomain.Key") {
+		t.Fatal("infra/token/keyset must compose the domain signing-key entity instead of redefining lifecycle facts")
+	}
 }
 
-func TestJWKSMutationsUseSingleApplicationLifecycleBoundary(t *testing.T) {
+func TestSigningKeyMutationsUseSingleApplicationLifecycleBoundary(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	appDir := filepath.Join(root, "internal", "apiserver", "application", "authn", "jwks")
+	appDir := filepath.Join(root, "internal", "apiserver", "application", "authn", "signingkey")
 	for _, retired := range []string{
 		"KeyRotationAppService",
 		"KeyRotatorPort",
@@ -1807,7 +1875,6 @@ func TestJWKSMutationsUseSingleApplicationLifecycleBoundary(t *testing.T) {
 	for _, retired := range []string{
 		"keyManagementApp.RetireKey",
 		"keyManagementApp.ForceRetireKey",
-		"keyManagementApp.EnterGracePeriod",
 		"keyManagementApp.CleanupExpiredKeys",
 	} {
 		if strings.Contains(handler, retired) {
@@ -1817,7 +1884,6 @@ func TestJWKSMutationsUseSingleApplicationLifecycleBoundary(t *testing.T) {
 	for _, expected := range []string{
 		"keyLifecycleApp.RetireKey",
 		"keyLifecycleApp.ForceRetireKey",
-		"keyLifecycleApp.EnterGracePeriod",
 		"keyLifecycleApp.CleanupExpiredKeys",
 	} {
 		if !strings.Contains(handler, expected) {

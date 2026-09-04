@@ -61,6 +61,8 @@ func TestKey_ValidityAndExpiry(t *testing.T) {
 }
 
 func TestKey_StateTransitions(t *testing.T) {
+	now := time.Date(2026, 9, 4, 10, 0, 0, 0, time.UTC)
+	graceUntil := now.Add(time.Hour)
 	jwk := PublicJWK{Kty: "RSA", Use: "sig", Alg: "RS256", Kid: "kid", N: mustStr("n"), E: mustStr("e")}
 	k := NewKey("kid", jwk)
 	require.False(t, k.CreatedAt.IsZero())
@@ -69,26 +71,33 @@ func TestKey_StateTransitions(t *testing.T) {
 	updatedAt := k.UpdatedAt
 
 	// enter grace from active
-	require.NoError(t, k.EnterGrace())
+	require.NoError(t, k.EnterGrace(graceUntil, now))
 	assert.True(t, k.IsGrace())
 	assert.Equal(t, createdAt, k.CreatedAt)
-	assert.False(t, k.UpdatedAt.Before(updatedAt))
+	assert.Equal(t, now, k.UpdatedAt)
+	assert.Equal(t, graceUntil, *k.NotAfter)
+	assert.False(t, updatedAt.IsZero())
 
 	// cannot enter grace again
-	err := k.EnterGrace()
+	err := k.EnterGrace(graceUntil, now)
 	assert.Error(t, err)
 
-	// retire from grace
-	require.NoError(t, k.Retire())
+	// cannot retire before grace expires
+	require.Error(t, k.Retire(now))
+
+	// retire from expired grace
+	require.NoError(t, k.Retire(graceUntil))
 	assert.True(t, k.IsRetired())
 
 	// retire when already retired should fail (since not grace)
-	err = k.Retire()
+	err = k.Retire(graceUntil)
 	assert.Error(t, err)
 
-	// force retire always sets retired
+	// force retire protects the active signer
 	k4 := NewKey("kid2", jwk)
-	k4.ForceRetire()
+	require.Error(t, k4.ForceRetire(now))
+	require.NoError(t, k4.EnterGrace(graceUntil, now))
+	require.NoError(t, k4.ForceRetire(now))
 	assert.True(t, k4.IsRetired())
 }
 

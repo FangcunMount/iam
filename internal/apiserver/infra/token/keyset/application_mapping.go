@@ -1,6 +1,9 @@
 package keyset
 
-import appjwks "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+import (
+	appjwks "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	appsigningkey "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
+)
 
 func keyStatusFromString(status string) KeyStatus {
 	switch status {
@@ -15,7 +18,7 @@ func keyStatusFromString(status string) KeyStatus {
 	}
 }
 
-func toAppPublicJWK(jwk PublicJWK) appjwks.PublicJWK {
+func toJWKSPublicJWK(jwk PublicJWK) appjwks.PublicJWK {
 	return appjwks.PublicJWK{
 		Kty: jwk.Kty,
 		Use: jwk.Use,
@@ -29,29 +32,29 @@ func toAppPublicJWK(jwk PublicJWK) appjwks.PublicJWK {
 	}
 }
 
-// fromAppPublicJWK 将应用层的 PublicJWK 转换为领域层的 PublicJWK
-// func fromAppPublicJWK(jwk appjwks.PublicJWK) PublicJWK {
-// 	return PublicJWK{
-// 		Kty: jwk.Kty,
-// 		Use: jwk.Use,
-// 		Alg: jwk.Alg,
-// 		Kid: jwk.Kid,
-// 		N:   jwk.N,
-// 		E:   jwk.E,
-// 		Crv: jwk.Crv,
-// 		X:   jwk.X,
-// 		Y:   jwk.Y,
-// 	}
-// }
+func toSigningKeyPublicJWK(jwk PublicJWK) appsigningkey.PublicJWK {
+	return appsigningkey.PublicJWK{
+		Kty: jwk.Kty,
+		Use: jwk.Use,
+		Alg: jwk.Alg,
+		Kid: jwk.Kid,
+		N:   jwk.N,
+		E:   jwk.E,
+		Crv: jwk.Crv,
+		X:   jwk.X,
+		Y:   jwk.Y,
+	}
+}
 
-func toAppManagedKey(key *Key) *appjwks.ManagedKey {
+func toSigningKeyManagedKey(key *Key) *appsigningkey.ManagedKey {
 	if key == nil {
 		return nil
 	}
-	return &appjwks.ManagedKey{
+	return &appsigningkey.ManagedKey{
 		Kid:       key.Kid,
+		Algorithm: key.Algorithm,
 		Status:    key.Status.String(),
-		JWK:       toAppPublicJWK(key.JWK),
+		JWK:       toSigningKeyPublicJWK(key.JWK),
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
 		CreatedAt: key.CreatedAt,
@@ -59,13 +62,35 @@ func toAppManagedKey(key *Key) *appjwks.ManagedKey {
 	}
 }
 
-func toAppManagedKeys(keys []*Key) []*appjwks.ManagedKey {
+func toSigningKeyManagedKeys(keys []*Key) []*appsigningkey.ManagedKey {
 	if len(keys) == 0 {
 		return nil
 	}
-	out := make([]*appjwks.ManagedKey, 0, len(keys))
+	out := make([]*appsigningkey.ManagedKey, 0, len(keys))
 	for _, key := range keys {
-		out = append(out, toAppManagedKey(key))
+		out = append(out, toSigningKeyManagedKey(key))
+	}
+	return out
+}
+
+func toAppPublishableKeys(keys []*Key) []*appjwks.PublishableKey {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make([]*appjwks.PublishableKey, 0, len(keys))
+	for _, key := range keys {
+		if key == nil {
+			continue
+		}
+		out = append(out, &appjwks.PublishableKey{
+			Kid:       key.Kid,
+			Status:    key.Status.String(),
+			JWK:       toJWKSPublicJWK(key.JWK),
+			NotBefore: key.NotBefore,
+			NotAfter:  key.NotAfter,
+			CreatedAt: key.CreatedAt,
+			UpdatedAt: key.UpdatedAt,
+		})
 	}
 	return out
 }

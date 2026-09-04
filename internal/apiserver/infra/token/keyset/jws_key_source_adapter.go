@@ -12,7 +12,7 @@ import (
 	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 )
 
-type JWTKeySource struct {
+type JWSKeySourceAdapter struct {
 	manager interface {
 		GetActiveKey(ctx context.Context) (*Key, error)
 		GetKeyByKid(ctx context.Context, kid string) (*Key, error)
@@ -20,17 +20,17 @@ type JWTKeySource struct {
 	keyResolver PrivateKeyResolver
 }
 
-func NewJWTKeySource(manager interface {
+func NewJWSKeySourceAdapter(manager interface {
 	GetActiveKey(ctx context.Context) (*Key, error)
 	GetKeyByKid(ctx context.Context, kid string) (*Key, error)
-}, keyResolver PrivateKeyResolver) *JWTKeySource {
-	return &JWTKeySource{
+}, keyResolver PrivateKeyResolver) *JWSKeySourceAdapter {
+	return &JWSKeySourceAdapter{
 		manager:     manager,
 		keyResolver: keyResolver,
 	}
 }
 
-func (s *JWTKeySource) ActiveSigningKey(ctx context.Context) (*jwtinfra.SigningKey, error) {
+func (s *JWSKeySourceAdapter) ActiveSigningKey(ctx context.Context) (*jwtinfra.SigningKey, error) {
 	activeKey, err := s.manager.GetActiveKey(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active key: %w", err)
@@ -41,10 +41,10 @@ func (s *JWTKeySource) ActiveSigningKey(ctx context.Context) (*jwtinfra.SigningK
 	if !activeKey.CanSignAt(time.Now()) {
 		return nil, fmt.Errorf("key %s is not eligible for signing", activeKey.Kid)
 	}
-	if activeKey.JWK.Alg != pkgauth.TokenProfileAlgorithm {
-		return nil, fmt.Errorf("key %s uses unsupported algorithm %s", activeKey.Kid, activeKey.JWK.Alg)
+	if activeKey.Algorithm != pkgauth.TokenProfileAlgorithm {
+		return nil, fmt.Errorf("key %s uses unsupported algorithm %s", activeKey.Kid, activeKey.Algorithm)
 	}
-	rawKey, err := s.keyResolver.ResolveSigningKey(ctx, activeKey.Kid, activeKey.JWK.Alg)
+	rawKey, err := s.keyResolver.ResolveSigningKey(ctx, activeKey.Kid, activeKey.Algorithm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve private key: %w", err)
 	}
@@ -54,12 +54,12 @@ func (s *JWTKeySource) ActiveSigningKey(ctx context.Context) (*jwtinfra.SigningK
 	}
 	return &jwtinfra.SigningKey{
 		Kid:        activeKey.Kid,
-		Algorithm:  activeKey.JWK.Alg,
+		Algorithm:  activeKey.Algorithm,
 		PrivateKey: privateKey,
 	}, nil
 }
 
-func (s *JWTKeySource) VerificationKey(ctx context.Context, kid string) (*jwtinfra.VerificationKey, error) {
+func (s *JWSKeySourceAdapter) VerificationKey(ctx context.Context, kid string) (*jwtinfra.VerificationKey, error) {
 	key, err := s.manager.GetKeyByKid(ctx, kid)
 	if err != nil {
 		return nil, err
@@ -70,8 +70,8 @@ func (s *JWTKeySource) VerificationKey(ctx context.Context, kid string) (*jwtinf
 	if !key.CanVerifyAt(time.Now()) {
 		return nil, fmt.Errorf("key %s is not eligible for verification", kid)
 	}
-	if key.JWK.Alg != pkgauth.TokenProfileAlgorithm {
-		return nil, fmt.Errorf("key %s uses unsupported algorithm %s", kid, key.JWK.Alg)
+	if key.Algorithm != pkgauth.TokenProfileAlgorithm {
+		return nil, fmt.Errorf("key %s uses unsupported algorithm %s", kid, key.Algorithm)
 	}
 	publicKey, err := publicRSAKeyFromJWK(key.JWK)
 	if err != nil {
@@ -79,7 +79,7 @@ func (s *JWTKeySource) VerificationKey(ctx context.Context, kid string) (*jwtinf
 	}
 	return &jwtinfra.VerificationKey{
 		Kid:       key.Kid,
-		Algorithm: key.JWK.Alg,
+		Algorithm: key.Algorithm,
 		PublicKey: publicKey,
 	}, nil
 }

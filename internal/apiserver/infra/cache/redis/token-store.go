@@ -21,7 +21,7 @@ type RedisStore struct {
 	client                    *redis.Client
 	refreshTokens             *redisstore.ValueStore[refreshTokenData]
 	consumedRefreshTokens     *redisstore.ValueStore[consumedRefreshTokenData]
-	revokedAccessTokenMarkers *redisstore.ValueStore[string]
+	revokedBearerTokenMarkers *redisstore.ValueStore[string]
 }
 
 var rotateRefreshTokenScript = redis.NewScript(`
@@ -52,7 +52,7 @@ func NewRedisStore(client *redis.Client) *RedisStore {
 		client:                    client,
 		refreshTokens:             newJSONStore[refreshTokenData](client),
 		consumedRefreshTokens:     newJSONStore[consumedRefreshTokenData](client),
-		revokedAccessTokenMarkers: newStringStore(client),
+		revokedBearerTokenMarkers: newStringStore(client),
 	}
 }
 
@@ -61,7 +61,7 @@ func (s *RedisStore) FamilyInspectors() []cachegovernance.FamilyInspector {
 	return []cachegovernance.FamilyInspector{
 		newRedisFamilyInspector(cachemodel.FamilyAuthnRefreshToken, s.client, "刷新令牌采用 JSON String 存储。"),
 		newRedisFamilyInspector(cachemodel.FamilyAuthnConsumedRefreshToken, s.client, "已消费刷新令牌采用摘要 key + 最小 JSON marker 存储。"),
-		newRedisFamilyInspector(cachemodel.FamilyAuthnRevokedAccessToken, s.client, "已撤销访问令牌采用 marker String 存储。"),
+		newRedisFamilyInspector(cachemodel.FamilyAuthnRevokedAccessToken, s.client, "已撤销 access/service bearer token 采用 marker String 存储；family 名保留历史兼容。"),
 	}
 }
 
@@ -237,35 +237,35 @@ func (s *RedisStore) DeleteRefreshToken(ctx context.Context, tokenValue string) 
 	return nil
 }
 
-// MarkAccessTokenRevoked 标记访问令牌已撤销。
-func (s *RedisStore) MarkAccessTokenRevoked(ctx context.Context, tokenID string, expiry time.Duration) error {
-	key := revokedAccessTokenRedisKey(tokenID)
+// MarkBearerTokenRevoked 标记 access/service bearer token 已撤销。
+func (s *RedisStore) MarkBearerTokenRevoked(ctx context.Context, tokenID string, expiry time.Duration) error {
+	key := revokedBearerTokenRedisKey(tokenID)
 	storeKey, err := newStoreKey(key)
 	if err != nil {
 		return err
 	}
 
 	// 设置撤销标记，TTL 为令牌剩余有效期。
-	if err := s.revokedAccessTokenMarkers.Set(ctx, storeKey, "1", expiry); err != nil {
-		return fmt.Errorf("failed to mark access token revoked: %w", err)
+	if err := s.revokedBearerTokenMarkers.Set(ctx, storeKey, "1", expiry); err != nil {
+		return fmt.Errorf("failed to mark bearer token revoked: %w", err)
 	}
 
-	redisInfo(ctx, "access token marked revoked", log.String("token_id", tokenID), log.Duration("ttl", expiry))
+	redisInfo(ctx, "bearer token marked revoked", log.String("token_id", tokenID), log.Duration("ttl", expiry))
 	return nil
 }
 
-// IsAccessTokenRevoked 检查访问令牌是否已撤销。
-func (s *RedisStore) IsAccessTokenRevoked(ctx context.Context, tokenID string) (bool, error) {
-	key := revokedAccessTokenRedisKey(tokenID)
+// IsBearerTokenRevoked 检查 access/service bearer token 是否已撤销。
+func (s *RedisStore) IsBearerTokenRevoked(ctx context.Context, tokenID string) (bool, error) {
+	key := revokedBearerTokenRedisKey(tokenID)
 	storeKey, err := newStoreKey(key)
 	if err != nil {
 		return false, err
 	}
 
 	// 检查撤销标记是否存在。
-	exists, err := s.revokedAccessTokenMarkers.Exists(ctx, storeKey)
+	exists, err := s.revokedBearerTokenMarkers.Exists(ctx, storeKey)
 	if err != nil {
-		return false, fmt.Errorf("failed to check revoked access token marker: %w", err)
+		return false, fmt.Errorf("failed to check revoked bearer token marker: %w", err)
 	}
 
 	return exists, nil

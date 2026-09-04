@@ -30,28 +30,29 @@ type VerificationKey struct {
 	PublicKey *rsa.PublicKey
 }
 
-// SigningKeySource 签名密钥源
-type SigningKeySource interface {
+// JWSKeySource 签名密钥源
+type JWSKeySource interface {
 	ActiveSigningKey(ctx context.Context) (*SigningKey, error)
 	VerificationKey(ctx context.Context, kid string) (*VerificationKey, error)
 }
 
-// Generator JWT 生成器
-type Generator struct {
-	issuer              string           // 签发者
-	accessTokenAudience []string         // 访问令牌受众
-	keySource           SigningKeySource // 签名密钥源
+// JWSCompactTokenCodec 将 IAM access/service claims 编码为 JWS Compact Signed JWT，
+// 并把验签通过的 JWT Claims Set 投影为领域事实。
+type JWSCompactTokenCodec struct {
+	issuer              string       // 签发者
+	accessTokenAudience []string     // 访问令牌受众
+	keySource           JWSKeySource // JWS 签名与验签密钥源
 }
 
-// 实现 AccessTokenCodec 接口
-var _ tokendomain.AccessTokenCodec = (*Generator)(nil)
+// 实现 BearerTokenCodec 接口
+var _ tokendomain.BearerTokenCodec = (*JWSCompactTokenCodec)(nil)
 
-// 创建新的 JWT 生成器
-func NewGenerator(
+// NewJWSCompactTokenCodec 创建 Signed JWT 编解码器。
+func NewJWSCompactTokenCodec(
 	issuer string,
 	accessTokenAudience []string,
-	keySource SigningKeySource,
-) *Generator {
+	keySource JWSKeySource,
+) *JWSCompactTokenCodec {
 	if issuer == "" {
 		issuer = "https://iam.fangcunmount.cn"
 	}
@@ -59,7 +60,7 @@ func NewGenerator(
 	if len(accessTokenAudience) == 0 {
 		accessTokenAudience = []string{"qs-api", "collection-api"}
 	}
-	return &Generator{
+	return &JWSCompactTokenCodec{
 		issuer:              issuer,
 		accessTokenAudience: cloneStrings(accessTokenAudience),
 		keySource:           keySource,
@@ -81,7 +82,7 @@ type jwtPayloadClaims struct {
 }
 
 // IssueAccessToken 颁发访问令牌
-func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokendomain.AccessTokenSubject, expiresIn time.Duration) (*tokendomain.AccessToken, error) {
+func (g *JWSCompactTokenCodec) IssueAccessToken(ctx context.Context, subject *tokendomain.AccessTokenSubject, expiresIn time.Duration) (*tokendomain.AccessToken, error) {
 	// 只记录非敏感标识；subject 中可能包含第三方身份和业务属性。
 	l := logger.L(ctx)
 	l.Debugw("IssueAccessToken", "user_id", subject.UserID.String(), "session_id", subject.SessionID, "expires_in", expiresIn)
@@ -147,7 +148,7 @@ func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokendomain.A
 }
 
 // IssueServiceToken 颁发服务令牌
-func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*tokendomain.ServiceToken, error) {
+func (g *JWSCompactTokenCodec) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, expiresIn time.Duration) (*tokendomain.ServiceToken, error) {
 	// 获取当前时间
 	now := time.Now()
 	// 生成令牌 ID
@@ -176,9 +177,9 @@ func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audie
 	return tokendomain.NewServiceToken(tokenID, tokenString, subject, audience, allowedAttributes, expiresIn), nil
 }
 
-// VerifyAccessToken 验证访问令牌
+// VerifyBearerToken 验证 access/service bearer token。
 
-func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*tokendomain.TokenClaims, error) {
+func (g *JWSCompactTokenCodec) VerifyBearerToken(ctx context.Context, tokenValue string) (*tokendomain.VerifiedTokenClaims, error) {
 	// 解析 JWT
 	parsed, err := jwtv4.ParseWithClaims(tokenValue, &jwtPayloadClaims{},
 		func(token *jwtv4.Token) (interface{}, error) {
@@ -284,7 +285,7 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 
 // signClaims 签名 JWT 声明
 
-func (g *Generator) signClaims(ctx context.Context, claims jwtPayloadClaims) (string, error) {
+func (g *JWSCompactTokenCodec) signClaims(ctx context.Context, claims jwtPayloadClaims) (string, error) {
 	// 获取活动签名密钥
 	key, err := g.keySource.ActiveSigningKey(ctx)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
 	sessionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	signingkeyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 )
@@ -34,9 +35,9 @@ type ApplicationCapabilities struct {
 	CompleteWechatOpenLink       *linkingApp.CompleteWechatOpenLink
 	WechatOpen                   WechatOpenConfig
 	Tokens                       token.Capabilities
-	KeyManagementApp             *jwksApp.KeyManagementAppService
+	KeyManagementApp             *signingkeyApp.KeyManagementAppService
 	KeyPublishApp                *jwksApp.KeyPublishAppService
-	KeyLifecycleApp              *jwksApp.KeyLifecycleAppService
+	KeyLifecycleApp              *signingkeyApp.KeyLifecycleAppService
 }
 
 // RuntimeCapabilities exposes background collaborators owned by authn.

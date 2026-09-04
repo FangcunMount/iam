@@ -2,6 +2,7 @@ package token
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -13,13 +14,13 @@ import (
 
 // tokenSetMinter 是用户令牌颁发器的实现。
 type tokenSetMinter struct {
-	tokenCodec     AccessTokenCodec
+	tokenCodec     BearerTokenCodec
 	refreshExpirer SessionRefreshExpirer
 	accessTTL      time.Duration
 }
 
 // newTokenSetMinter 创建用户令牌颁发器。
-func newTokenSetMinter(tokenCodec AccessTokenCodec, refreshExpirer SessionRefreshExpirer, _ RefreshClaimsCodec, accessTTL time.Duration) TokenSetMinter {
+func newTokenSetMinter(tokenCodec BearerTokenCodec, refreshExpirer SessionRefreshExpirer, accessTTL time.Duration) TokenSetMinter {
 	return &tokenSetMinter{
 		tokenCodec: tokenCodec, refreshExpirer: refreshExpirer, accessTTL: accessTTL,
 	}
@@ -85,20 +86,23 @@ func (s *tokenSetMinter) issueRefreshToken(subject *AccessTokenSubject, sess *se
 
 // serviceTokenIssuer 是服务令牌颁发器的实现。
 type serviceTokenIssuer struct {
-	tokenCodec AccessTokenCodec
+	tokenCodec BearerTokenCodec
 	accessTTL  time.Duration
 }
 
 // newServiceTokenIssuer 创建服务令牌颁发器。
-func newServiceTokenIssuer(tokenCodec AccessTokenCodec, accessTTL time.Duration) ServiceTokenIssuer {
+func newServiceTokenIssuer(tokenCodec BearerTokenCodec, accessTTL time.Duration) ServiceTokenIssuer {
 	return &serviceTokenIssuer{tokenCodec: tokenCodec, accessTTL: accessTTL}
 }
 
 // IssueServiceToken 颁发服务令牌。
 func (s *serviceTokenIssuer) IssueServiceToken(ctx context.Context, subject string, audience []string, attributes map[string]string, ttl time.Duration) (*ServiceToken, error) {
 	// 验证主题
-	if subject == "" {
+	if strings.TrimSpace(subject) == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "subject is required")
+	}
+	if !hasNonEmptyAudience(audience) {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "audience is required")
 	}
 	// 验证 TTL
 	if ttl <= 0 {
@@ -109,4 +113,13 @@ func (s *serviceTokenIssuer) IssueServiceToken(ctx context.Context, subject stri
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate service token")
 	}
 	return token, nil
+}
+
+func hasNonEmptyAudience(audience []string) bool {
+	for _, value := range audience {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }

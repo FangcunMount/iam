@@ -646,16 +646,6 @@
       "code": "operation-operationId",
       "path": [
         "paths",
-        "/authn/admin/jwks/keys/{kid}/grace",
-        "post"
-      ],
-      "message": "Operation must have \"operationId\"."
-    },
-    {
-      "source": "api/rest/authn.v2.yaml",
-      "code": "operation-operationId",
-      "path": [
-        "paths",
         "/authn/admin/jwks/keys/{kid}/retire",
         "post"
       ],

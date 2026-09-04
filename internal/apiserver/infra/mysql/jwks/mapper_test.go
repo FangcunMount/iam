@@ -5,6 +5,7 @@ import (
 	"time"
 
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/keyset"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMapperToKeyEntityPreservesAuditTimestamps(t *testing.T) {
@@ -35,4 +36,20 @@ func TestMapperToKeyEntityPreservesAuditTimestamps(t *testing.T) {
 	if entity.UpdatedAt != updatedAt {
 		t.Fatalf("UpdatedAt = %v, want %v", entity.UpdatedAt, updatedAt)
 	}
+}
+
+func TestMapperRejectsPersistedAlgorithmThatDisagreesWithPublicJWK(t *testing.T) {
+	t.Parallel()
+
+	po := &KeyPO{
+		Kid:     "kid-1",
+		Status:  int8(domain.KeyActive),
+		Kty:     "RSA",
+		Use:     "sig",
+		Alg:     "RS384",
+		JwkJSON: []byte(`{"kty":"RSA","use":"sig","alg":"RS256","kid":"kid-1","n":"n","e":"AQAB"}`),
+	}
+
+	_, err := NewMapper().ToKeyEntity(po)
+	require.Error(t, err)
 }

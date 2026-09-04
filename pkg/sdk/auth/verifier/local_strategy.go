@@ -77,9 +77,10 @@ func (s *LocalVerifyStrategy) Verify(ctx context.Context, tokenString string, op
 		return nil, err
 	}
 	return &VerifyResult{
-		Valid:    true,
-		Claims:   claims,
-		Metadata: buildVerifyMetadataFromClaims(claims),
-		RawToken: token,
+		Valid:     true,
+		Claims:    claims,
+		Metadata:  buildVerifyMetadataFromClaims(claims),
+		ParsedJWT: token,
+		RawToken:  token,
 	}, nil
 }

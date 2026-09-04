@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	refreshTokenKeyspace              = rediskeyspace.New("refresh_token")
-	consumedRefreshTokenKeyspace      = rediskeyspace.New("consumed_refresh_token")
+	refreshTokenKeyspace         = rediskeyspace.New("refresh_token")
+	consumedRefreshTokenKeyspace = rediskeyspace.New("consumed_refresh_token")
+	// revoked_access_token is a legacy physical keyspace name shared by access/service bearer-token markers.
 	revokedAccessTokenKeyspace        = rediskeyspace.New("revoked_access_token")
 	sessionKeyspace                   = rediskeyspace.New("session")
 	userSessionIndexKeyspace          = rediskeyspace.New("user_session_index")
@@ -31,7 +32,7 @@ func consumedRefreshTokenRedisKey(tokenValue string) string {
 	return consumedRefreshTokenKeyspace.Prefix(fmt.Sprintf("%x", digest))
 }
 
-func revokedAccessTokenRedisKey(tokenID string) string {
+func revokedBearerTokenRedisKey(tokenID string) string {
 	return revokedAccessTokenKeyspace.Prefix(tokenID)
 }
 

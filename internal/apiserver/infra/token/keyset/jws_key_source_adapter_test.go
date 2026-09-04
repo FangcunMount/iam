@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJWTKeySourceReturnsActiveSigningKeyAndVerificationKey(t *testing.T) {
+func TestJWSKeySourceAdapterReturnsActiveSigningKeyAndVerificationKey(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -20,7 +20,7 @@ func TestJWTKeySourceReturnsActiveSigningKeyAndVerificationKey(t *testing.T) {
 	kid := "jwt-key-source-test"
 	key := NewKey(kid, publicJWKForTest(kid, &privateKey.PublicKey))
 
-	source := NewJWTKeySource(
+	source := NewJWSKeySourceAdapter(
 		jwtKeySourceManagerStub{active: key},
 		jwtKeySourceResolverStub{privateKey: privateKey},
 	)
@@ -39,7 +39,7 @@ func TestJWTKeySourceReturnsActiveSigningKeyAndVerificationKey(t *testing.T) {
 	require.Equal(t, privateKey.PublicKey.E, verificationKey.PublicKey.E)
 }
 
-func TestJWTKeySourceRejectsKeysOutsideVerificationLifecycle(t *testing.T) {
+func TestJWSKeySourceAdapterRejectsKeysOutsideVerificationLifecycle(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -56,7 +56,7 @@ func TestJWTKeySourceRejectsKeysOutsideVerificationLifecycle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			source := NewJWTKeySource(jwtKeySourceManagerStub{active: tt.key}, jwtKeySourceResolverStub{privateKey: privateKey})
+			source := NewJWSKeySourceAdapter(jwtKeySourceManagerStub{active: tt.key}, jwtKeySourceResolverStub{privateKey: privateKey})
 			_, err := source.VerificationKey(context.Background(), tt.key.Kid)
 			require.Error(t, err)
 		})

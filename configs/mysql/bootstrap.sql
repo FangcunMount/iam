@@ -153,7 +153,7 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
         JSON_ARRAY('read', 'update', 'enable', 'disable', 'set_unionid'), '登录身份读取、资料更新与启停用', NOW(), NOW(),
         0, 0, 0, 1),
        (901000011, 'iam:authn:collection:jwks', 'JWKS 密钥管理', 'iam', 'authn', 'collection',
-        JSON_ARRAY('create', 'read', 'list', 'retire', 'force_retire', 'enter_grace', 'cleanup', 'list_publishable'),
+        JSON_ARRAY('create', 'read', 'list', 'retire', 'force_retire', 'cleanup', 'list_publishable'),
         'JWT 签名密钥与发布管理', NOW(), NOW(), 0, 0, 0, 1),
        (901000012, 'iam:idp:collection:wechat_apps', '微信应用管理', 'iam', 'idp', 'collection',
         JSON_ARRAY('list', 'create', 'read', 'update', 'enable', 'disable', 'rotate_auth_secret',

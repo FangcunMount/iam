@@ -40,7 +40,7 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	_, hasLegacyAudience := rawClaims["audience"]
 	require.False(t, hasLegacyAudience)
 
-	claims, err := generator.VerifyAccessToken(context.Background(), token.Value)
+	claims, err := generator.VerifyBearerToken(context.Background(), token.Value)
 	require.NoError(t, err)
 	require.Equal(t, tokendomain.TokenTypeAccess, claims.TokenType)
 	require.Equal(t, subject.UserID, claims.UserID)
@@ -105,7 +105,7 @@ func TestGeneratorLegacyNumericTenantIDDoesNotInferOrg(t *testing.T) {
 	// 模拟历史 token：tenant_id 为数值、无 org_id。
 	legacy := strings.Replace(token.Value, `"tenant_id":"fangcun"`, `"tenant_id":"1"`, 1)
 
-	claims, err := generator.VerifyAccessToken(context.Background(), legacy)
+	claims, err := generator.VerifyBearerToken(context.Background(), legacy)
 	require.NoError(t, err)
 	require.Equal(t, tenant.DefaultID, claims.TenantDomain)
 	require.True(t, claims.OrgID.IsZero())
@@ -131,7 +131,7 @@ func TestGeneratorRejectsNoneAlgorithm(t *testing.T) {
 	raw, err := jwtv4.NewWithClaims(jwtv4.SigningMethodNone, claims).SignedString(jwtv4.UnsafeAllowNoneSignatureType)
 	require.NoError(t, err)
 
-	_, err = generator.VerifyAccessToken(context.Background(), raw)
+	_, err = generator.VerifyBearerToken(context.Background(), raw)
 	require.Error(t, err)
 }
 
@@ -165,7 +165,7 @@ func TestGeneratorRejectsAlgorithmsAndKeyMetadataOutsideProfile(t *testing.T) {
 			raw, err := token.SignedString(tt.key)
 			require.NoError(t, err)
 
-			_, err = generator.VerifyAccessToken(context.Background(), raw)
+			_, err = generator.VerifyBearerToken(context.Background(), raw)
 			require.Error(t, err)
 		})
 	}
@@ -183,7 +183,7 @@ func TestGeneratorRejectsJWKAlgorithmMismatch(t *testing.T) {
 	raw, err := token.SignedString(privateKey)
 	require.NoError(t, err)
 
-	_, err = generator.VerifyAccessToken(context.Background(), raw)
+	_, err = generator.VerifyBearerToken(context.Background(), raw)
 	require.Error(t, err)
 }
 
@@ -245,7 +245,7 @@ func TestGeneratorRejectsIssuerMismatch(t *testing.T) {
 	raw, err := token.SignedString(signingKey)
 	require.NoError(t, err)
 
-	_, err = generator.VerifyAccessToken(context.Background(), raw)
+	_, err = generator.VerifyBearerToken(context.Background(), raw)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unexpected token issuer")
 }
@@ -271,7 +271,7 @@ func TestGeneratorServiceTokenUsesRegisteredAudience(t *testing.T) {
 	require.False(t, hasLegacyAudience)
 }
 
-func newTestGenerator(t *testing.T, issuer string, accessAudience []string) (*Generator, *rsa.PrivateKey) {
+func newTestGenerator(t *testing.T, issuer string, accessAudience []string) (*JWSCompactTokenCodec, *rsa.PrivateKey) {
 	t.Helper()
 
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -286,7 +286,7 @@ func newTestGenerator(t *testing.T, issuer string, accessAudience []string) (*Ge
 		},
 	}
 
-	return NewGenerator(issuer, accessAudience, keySource), privKey
+	return NewJWSCompactTokenCodec(issuer, accessAudience, keySource), privKey
 }
 
 func parseRawClaims(t *testing.T, tokenValue string, key *rsa.PrivateKey) (*jwtPayloadClaims, jwtv4.MapClaims) {

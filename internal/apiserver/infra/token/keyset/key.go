@@ -4,29 +4,21 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
+	signingkeydomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/signingkey"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
-type KeyStatus uint8
+type KeyStatus = signingkeydomain.Status
 
 const (
-	KeyActive KeyStatus = iota + 1
-	KeyGrace
-	KeyRetired
+	KeyActive  = signingkeydomain.StatusActive
+	KeyGrace   = signingkeydomain.StatusGrace
+	KeyRetired = signingkeydomain.StatusRetired
 )
 
-func (s KeyStatus) String() string {
-	switch s {
-	case KeyActive:
-		return "active"
-	case KeyGrace:
-		return "grace"
-	case KeyRetired:
-		return "retired"
-	default:
-		return "unknown"
-	}
-}
+type RotationPolicy = signingkeydomain.RotationPolicy
+
+func DefaultRotationPolicy() RotationPolicy { return signingkeydomain.DefaultRotationPolicy() }
 
 type PublicJWK struct {
 	Kty string  `json:"kty"`
@@ -118,151 +110,45 @@ func (c *CacheTag) Matches(other CacheTag) bool {
 	return c.ETag == other.ETag
 }
 
-type RotationPolicy struct {
-	RotationInterval time.Duration
-	GracePeriod      time.Duration
-	MaxKeysInJWKS    int
-}
-
-func DefaultRotationPolicy() RotationPolicy {
-	return RotationPolicy{
-		RotationInterval: 30 * 24 * time.Hour,
-		GracePeriod:      7 * 24 * time.Hour,
-		MaxKeysInJWKS:    3,
-	}
-}
-
-func (p *RotationPolicy) Validate() error {
-	if p.RotationInterval <= 0 {
-		return errors.WithCode(code.ErrInvalidRotationInterval, "rotation interval must be positive")
-	}
-	if p.GracePeriod <= 0 {
-		return errors.WithCode(code.ErrInvalidGracePeriod, "grace period must be positive")
-	}
-	if p.MaxKeysInJWKS < 2 {
-		return errors.WithCode(code.ErrInvalidMaxKeys, "max keys must be at least 2")
-	}
-	if p.GracePeriod >= p.RotationInterval {
-		return errors.WithCode(code.ErrGracePeriodTooLong, "grace period must be shorter than rotation interval")
-	}
-	return nil
-}
-
 type Key struct {
-	Kid       string
-	Status    KeyStatus
-	JWK       PublicJWK
-	NotBefore *time.Time
-	NotAfter  *time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	signingkeydomain.Key
+	JWK PublicJWK
 }
 
 func NewKey(kid string, jwk PublicJWK, opts ...KeyOption) *Key {
-	now := time.Now()
-	key := &Key{
-		Kid:       kid,
-		Status:    KeyActive,
-		JWK:       jwk,
-		CreatedAt: now,
-		UpdatedAt: now,
+	return &Key{Key: *signingkeydomain.NewKey(kid, jwk.Alg, opts...), JWK: jwk}
+}
+
+type KeyOption = signingkeydomain.KeyOption
+
+func WithNotBefore(t time.Time) KeyOption { return signingkeydomain.WithNotBefore(t) }
+
+func WithNotAfter(t time.Time) KeyOption { return signingkeydomain.WithNotAfter(t) }
+
+func WithStatus(status KeyStatus) KeyOption { return signingkeydomain.WithStatus(status) }
+
+func RestoreKey(
+	kid string,
+	algorithm string,
+	jwk PublicJWK,
+	status KeyStatus,
+	notBefore, notAfter *time.Time,
+	createdAt, updatedAt time.Time,
+) *Key {
+	return &Key{
+		Key: *signingkeydomain.RestoreKey(
+			kid, algorithm, status, notBefore, notAfter, createdAt, updatedAt,
+		),
+		JWK: jwk,
 	}
-	for _, opt := range opts {
-		opt(key)
-	}
-	return key
-}
-
-type KeyOption func(*Key)
-
-func WithNotBefore(t time.Time) KeyOption {
-	return func(k *Key) {
-		k.NotBefore = &t
-	}
-}
-
-func WithNotAfter(t time.Time) KeyOption {
-	return func(k *Key) {
-		k.NotAfter = &t
-	}
-}
-
-func WithStatus(status KeyStatus) KeyOption {
-	return func(k *Key) {
-		k.Status = status
-	}
-}
-
-func (k *Key) IsActive() bool {
-	return k.Status == KeyActive
-}
-
-func (k *Key) IsGrace() bool {
-	return k.Status == KeyGrace
-}
-
-func (k *Key) IsRetired() bool {
-	return k.Status == KeyRetired
-}
-
-func (k *Key) CanSign() bool {
-	return k.CanSignAt(time.Now())
-}
-
-func (k *Key) CanVerify() bool {
-	return k.CanVerifyAt(time.Now())
-}
-
-func (k *Key) CanSignAt(now time.Time) bool {
-	return k != nil && k.IsActive() && k.IsValidAt(now)
-}
-
-func (k *Key) CanVerifyAt(now time.Time) bool {
-	return k != nil && (k.IsActive() || k.IsGrace()) && k.IsValidAt(now)
-}
-
-func (k *Key) ShouldPublish() bool {
-	return (k.IsActive() || k.IsGrace()) && !k.IsExpired(time.Now())
-}
-
-func (k *Key) IsExpired(now time.Time) bool {
-	return k.NotAfter != nil && !now.Before(*k.NotAfter)
-}
-
-func (k *Key) IsNotYetValid(now time.Time) bool {
-	return k.NotBefore != nil && now.Before(*k.NotBefore)
-}
-
-func (k *Key) IsValidAt(t time.Time) bool {
-	return !k.IsExpired(t) && !k.IsNotYetValid(t)
-}
-
-func (k *Key) EnterGrace() error {
-	if !k.IsActive() {
-		return errors.WithCode(code.ErrInvalidStateTransition, "can only enter grace period from active state")
-	}
-	k.Status = KeyGrace
-	k.UpdatedAt = time.Now()
-	return nil
-}
-
-func (k *Key) Retire() error {
-	if !k.IsGrace() {
-		return errors.WithCode(code.ErrInvalidStateTransition, "can only retire from grace period")
-	}
-	k.Status = KeyRetired
-	k.UpdatedAt = time.Now()
-	return nil
-}
-
-func (k *Key) ForceRetire() {
-	k.Status = KeyRetired
-	k.UpdatedAt = time.Now()
 }
 
 func (k *Key) Validate() error {
-	if k.Kid == "" {
-		return errors.WithCode(code.ErrInvalidKid, "kid cannot be empty")
+	if k == nil {
+		return errors.WithCode(code.ErrInvalidKid, "signing key is required")
+	}
+	if err := k.Key.Validate(); err != nil {
+		return err
 	}
 	if err := k.JWK.Validate(); err != nil {
 		return err
@@ -270,8 +156,8 @@ func (k *Key) Validate() error {
 	if k.JWK.Kid != k.Kid {
 		return errors.WithCode(code.ErrKidMismatch, "key.Kid and JWK.Kid must be equal")
 	}
-	if k.NotBefore != nil && k.NotAfter != nil && k.NotAfter.Before(*k.NotBefore) {
-		return errors.WithCode(code.ErrInvalidTimeRange, "NotAfter must be after NotBefore")
+	if k.JWK.Alg != k.Algorithm {
+		return errors.WithCode(code.ErrInvalidJWKAlg, "key algorithm and JWK alg must be equal")
 	}
 	return nil
 }

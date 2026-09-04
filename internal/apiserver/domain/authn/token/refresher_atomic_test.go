@@ -42,7 +42,7 @@ func TestRefresherConcurrentUseReturnsOnlyOneTokenPair(t *testing.T) {
 		revoker,
 		sessionExtenderStub{},
 		admissionPolicyStub{},
-		NewDefaultRefreshClaimsCodec(),
+		NewLegacyAuthenticationContextSnapshotDecoder(),
 	)
 
 	start := make(chan struct{})
@@ -98,7 +98,7 @@ func TestRefresherReplayedConsumedTokenRevokesSession(t *testing.T) {
 	revoker := &recordingSessionRevoker{}
 	refresher := newRefresher(
 		&atomicTokenPairMinterStub{}, store, sessionLoaderStub{session: testActiveSession()},
-		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewDefaultRefreshClaimsCodec(),
+		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewLegacyAuthenticationContextSnapshotDecoder(),
 	)
 
 	set, err := refresher.RefreshToken(context.Background(), old.Value)
@@ -115,7 +115,7 @@ func TestRefresherUnknownTokenDoesNotRevokeSession(t *testing.T) {
 	revoker := &recordingSessionRevoker{}
 	refresher := newRefresher(
 		&atomicTokenPairMinterStub{}, store, sessionLoaderStub{session: testActiveSession()},
-		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewDefaultRefreshClaimsCodec(),
+		revoker, sessionExtenderStub{}, admissionPolicyStub{}, NewLegacyAuthenticationContextSnapshotDecoder(),
 	)
 
 	set, err := refresher.RefreshToken(context.Background(), "never-issued")
@@ -137,7 +137,7 @@ func TestRefresherExtensionFailurePreservesOldToken(t *testing.T) {
 		sessionRevokerStub{},
 		sessionExtenderStub{err: errors.New("session store unavailable")},
 		admissionPolicyStub{},
-		NewDefaultRefreshClaimsCodec(),
+		NewLegacyAuthenticationContextSnapshotDecoder(),
 	)
 
 	set, err := refresher.RefreshToken(context.Background(), old.Value)
@@ -238,11 +238,11 @@ func (s *atomicTokenStoreStub) DeleteRefreshToken(_ context.Context, value strin
 	return nil
 }
 
-func (*atomicTokenStoreStub) MarkAccessTokenRevoked(context.Context, string, time.Duration) error {
+func (*atomicTokenStoreStub) MarkBearerTokenRevoked(context.Context, string, time.Duration) error {
 	return nil
 }
 
-func (*atomicTokenStoreStub) IsAccessTokenRevoked(context.Context, string) (bool, error) {
+func (*atomicTokenStoreStub) IsBearerTokenRevoked(context.Context, string) (bool, error) {
 	return false, nil
 }
 

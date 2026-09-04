@@ -24,16 +24,16 @@ type application struct {
 
 // Dependencies 是令牌用例能力的装配依赖。
 type Dependencies struct {
-	AccessTokenCodec      AccessTokenCodec      // 令牌编码器
-	TokenStore            Store                 // 令牌存储
-	SessionCreator        SessionCreator        // 会话创建器
-	SessionLoader         SessionLoader         // 会话加载器
-	SessionRevoker        SessionRevoker        // 会话撤销器
-	SessionExtender       SessionExtender       // 会话延期器
-	SessionRefreshExpirer SessionRefreshExpirer // refresh token 过期时间计算器
-	AdmissionPolicy       AdmissionPolicy       // 认证准入策略
-	RefreshClaimsCodec    RefreshClaimsCodec    // refresh/session claims 快照编解码
-	AccessTTL             time.Duration         // 令牌有效期
+	BearerTokenCodec      BearerTokenCodec                           // 令牌编码器
+	TokenStore            Store                                      // 令牌存储
+	SessionCreator        SessionCreator                             // 会话创建器
+	SessionLoader         SessionLoader                              // 会话加载器
+	SessionRevoker        SessionRevoker                             // 会话撤销器
+	SessionExtender       SessionExtender                            // 会话延期器
+	SessionRefreshExpirer SessionRefreshExpirer                      // refresh token 过期时间计算器
+	AdmissionPolicy       AdmissionPolicy                            // 认证准入策略
+	LegacyContextDecoder  LegacyAuthenticationContextSnapshotDecoder // 历史 refresh 认证上下文快照解码器
+	AccessTTL             time.Duration                              // 令牌有效期
 }
 
 var (
@@ -47,11 +47,11 @@ var (
 // NewCapabilities 装配并返回相互独立的令牌用例能力。
 func NewCapabilities(deps Dependencies) Capabilities {
 	domainCapabilities := tokendomain.NewCapabilities(tokendomain.Dependencies{
-		AccessTokenCodec: deps.AccessTokenCodec, TokenStore: deps.TokenStore,
+		BearerTokenCodec: deps.BearerTokenCodec, TokenStore: deps.TokenStore,
 		SessionLoader:  deps.SessionLoader,
 		SessionRevoker: deps.SessionRevoker, SessionExtender: deps.SessionExtender,
 		SessionRefreshExpirer: deps.SessionRefreshExpirer, AdmissionPolicy: deps.AdmissionPolicy,
-		RefreshClaimsCodec: deps.RefreshClaimsCodec, AccessTTL: deps.AccessTTL,
+		LegacyContextDecoder: deps.LegacyContextDecoder, AccessTTL: deps.AccessTTL,
 	})
 	grantIssuer := grantdomain.NewIssuer(grantdomain.Dependencies{
 		AdmissionPolicy: deps.AdmissionPolicy, SessionCreator: deps.SessionCreator,
@@ -87,6 +87,9 @@ func (s *application) IssueAuthentication(ctx context.Context, principal *authen
 func (s *application) IssueServiceToken(ctx context.Context, req IssueServiceTokenRequest) (*TokenIssueResult, error) {
 	serviceToken, err := s.serviceTokenIssuer.IssueServiceToken(ctx, req.Subject, req.Audience, req.Attributes, req.TTL)
 	if err != nil {
+		if perrors.IsCode(err, code.ErrInvalidArgument) {
+			return nil, err
+		}
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to issue service token")
 	}
 
@@ -106,11 +109,12 @@ func (s *application) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}, nil
 }
 
-// RevokeAccessToken 撤销单个 access token 及其关联会话。
+// RevokeAccessToken 保留已发布调用名，实际撤销 access/service bearer token；
+// 只有 access token 会连带撤销用户 Session。
 func (s *application) RevokeAccessToken(ctx context.Context, accessToken string) error {
 	err := s.revoker.RevokeBearerToken(ctx, accessToken)
 	if err != nil {
-		return perrors.WrapC(err, code.ErrTokenRevokeFailed, "failed to revoke access token")
+		return perrors.WrapC(err, code.ErrTokenRevokeFailed, "failed to revoke bearer token")
 	}
 
 	return nil

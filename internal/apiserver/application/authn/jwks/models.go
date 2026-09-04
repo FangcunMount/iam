@@ -38,8 +38,8 @@ func (c *CacheTag) Matches(other CacheTag) bool {
 	return c.ETag == other.ETag
 }
 
-// ManagedKey 表示密钥管理用例的签名密钥快照。
-type ManagedKey struct {
+// PublishableKey 表示公共 JWK Set 发布候选，不承载私钥管理能力。
+type PublishableKey struct {
 	Kid       string
 	Status    string
 	JWK       PublicJWK

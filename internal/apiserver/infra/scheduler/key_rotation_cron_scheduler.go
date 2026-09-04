@@ -9,13 +9,13 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/FangcunMount/component-base/pkg/log"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 )
 
 // KeyRotationCronScheduler 基于 Cron 表达式的密钥轮换调度器
 // 相比 Ticker 方式，Cron 更适合长周期任务，资源消耗更少
 type KeyRotationCronScheduler struct {
-	lifecycleApp *jwks.KeyLifecycleAppService
+	lifecycleApp *signingkey.KeyLifecycleAppService
 	logger       log.Logger
 
 	cronSpec string     // Cron 表达式，如 "0 2 * * *" 表示每天凌晨2点
@@ -41,7 +41,7 @@ type KeyRotationCronScheduler struct {
 //   - "@every 24h"       每24小时执行（推荐用于密钥轮换）
 //   - "@every 720h"      每30天执行
 func NewKeyRotationCronScheduler(
-	lifecycleApp *jwks.KeyLifecycleAppService,
+	lifecycleApp *signingkey.KeyLifecycleAppService,
 	cronSpec string,
 	logger log.Logger,
 ) *KeyRotationCronScheduler {

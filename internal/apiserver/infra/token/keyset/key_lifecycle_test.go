@@ -22,9 +22,9 @@ func TestKeyManagerCreateKeyAtomicallyReplacesActive(t *testing.T) {
 	repo := &lifecycleRepositoryStub{keys: map[string]*Key{"old": old}}
 	store := NewPEMPrivateKeyStorage(t.TempDir())
 	manager := NewKeyManagerWithPolicy(repo, NewRSAKeyGenerator(), store, RotationPolicy{
-		RotationInterval: 30 * 24 * time.Hour,
-		GracePeriod:      7 * 24 * time.Hour,
-		MaxKeysInJWKS:    3,
+		RotationInterval:   30 * 24 * time.Hour,
+		GracePeriod:        7 * 24 * time.Hour,
+		MaxPublishableKeys: 3,
 	})
 	manager.now = func() time.Time { return now }
 
@@ -215,13 +215,13 @@ func gaugeValue(t *testing.T, gauge metricWriter) float64 {
 
 func lifecycleTestKey(kid string, status KeyStatus, notBefore, notAfter time.Time) *Key {
 	n, e := "modulus", "AQAB"
-	return &Key{
-		Kid:       kid,
-		Status:    status,
-		JWK:       PublicJWK{Kty: "RSA", Use: "sig", Alg: "RS256", Kid: kid, N: &n, E: &e},
-		NotBefore: &notBefore,
-		NotAfter:  &notAfter,
-	}
+	return NewKey(
+		kid,
+		PublicJWK{Kty: "RSA", Use: "sig", Alg: "RS256", Kid: kid, N: &n, E: &e},
+		WithStatus(status),
+		WithNotBefore(notBefore),
+		WithNotAfter(notAfter),
+	)
 }
 
 type lifecycleRepositoryStub struct {
@@ -254,8 +254,9 @@ func (r *lifecycleRepositoryStub) Activate(_ context.Context, request Activation
 			(active.NotAfter == nil || active.NotAfter.After(request.Now)) {
 			return ActivationResult{Active: active}, nil
 		}
-		active.Status = KeyGrace
-		active.NotAfter = &request.GraceUntil
+		if err := active.EnterGrace(request.GraceUntil, request.Now); err != nil {
+			return ActivationResult{}, err
+		}
 	}
 	r.keys[request.Candidate.Kid] = request.Candidate
 	return ActivationResult{Activated: true, Active: request.Candidate}, nil

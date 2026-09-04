@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	signingkeyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/request"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -38,7 +38,7 @@ func (h *JWKSHandler) CreateKey(c *gin.Context) {
 		return
 	}
 
-	appReq := jwksApp.CreateKeyRequest{
+	appReq := signingkeyApp.CreateKeyRequest{
 		Algorithm: req.Algorithm,
 		NotBefore: req.NotBefore,
 		NotAfter:  req.NotAfter,
@@ -96,7 +96,7 @@ func (h *JWKSHandler) ListKeys(c *gin.Context) {
 		}
 	}
 
-	result, err := h.keyManagementApp.ListKeys(ctx, jwksApp.ListKeysRequest{
+	result, err := h.keyManagementApp.ListKeys(ctx, signingkeyApp.ListKeysRequest{
 		Status: status,
 		Limit:  limitInt,
 		Offset: offsetInt,
@@ -114,7 +114,7 @@ func (h *JWKSHandler) ListKeys(c *gin.Context) {
 			Algorithm: key.Algorithm,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
-			PublicJWK: key.PublicJWK,
+			PublicJWK: restPublicJWKFromSigningKey(key.PublicJWK),
 			CreatedAt: key.CreatedAt,
 			UpdatedAt: key.UpdatedAt,
 		}
@@ -160,7 +160,7 @@ func (h *JWKSHandler) GetKey(c *gin.Context) {
 	h.Success(c, keyByKidResponseFromResult(result))
 }
 
-func createKeyResponseFromResult(result *jwksApp.CreateKeyResponse) *response.KeyResponse {
+func createKeyResponseFromResult(result *signingkeyApp.CreateKeyResponse) *response.KeyResponse {
 	if result == nil {
 		return nil
 	}
@@ -170,12 +170,12 @@ func createKeyResponseFromResult(result *jwksApp.CreateKeyResponse) *response.Ke
 		Algorithm: result.Algorithm,
 		NotBefore: result.NotBefore,
 		NotAfter:  result.NotAfter,
-		PublicJWK: result.PublicJWK,
+		PublicJWK: restPublicJWKFromSigningKey(result.PublicJWK),
 		CreatedAt: result.CreatedAt,
 	}
 }
 
-func keyByKidResponseFromResult(result *jwksApp.GetKeyByKidResponse) *response.KeyResponse {
+func keyByKidResponseFromResult(result *signingkeyApp.GetKeyByKidResponse) *response.KeyResponse {
 	if result == nil {
 		return nil
 	}
@@ -185,8 +185,18 @@ func keyByKidResponseFromResult(result *jwksApp.GetKeyByKidResponse) *response.K
 		Algorithm: result.Algorithm,
 		NotBefore: result.NotBefore,
 		NotAfter:  result.NotAfter,
-		PublicJWK: result.PublicJWK,
+		PublicJWK: restPublicJWKFromSigningKey(result.PublicJWK),
 		CreatedAt: result.CreatedAt,
 		UpdatedAt: result.UpdatedAt,
+	}
+}
+
+func restPublicJWKFromSigningKey(jwk *signingkeyApp.PublicJWK) *response.PublicJWK {
+	if jwk == nil {
+		return nil
+	}
+	return &response.PublicJWK{
+		Kty: jwk.Kty, Use: jwk.Use, Alg: jwk.Alg, Kid: jwk.Kid,
+		N: jwk.N, E: jwk.E, Crv: jwk.Crv, X: jwk.X, Y: jwk.Y,
 	}
 }

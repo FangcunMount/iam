@@ -9,17 +9,17 @@ import (
 )
 
 type revoker struct {
-	tokenCodec     AccessTokenCodec
+	tokenCodec     BearerTokenCodec
 	tokenStore     Store
 	sessionRevoker SessionRevoker
 }
 
-func newRevoker(tokenCodec AccessTokenCodec, tokenStore Store, sessionRevoker SessionRevoker) Revoker {
+func newRevoker(tokenCodec BearerTokenCodec, tokenStore Store, sessionRevoker SessionRevoker) Revoker {
 	return &revoker{tokenCodec: tokenCodec, tokenStore: tokenStore, sessionRevoker: sessionRevoker}
 }
 
 func (s *revoker) RevokeBearerToken(ctx context.Context, tokenValue string) error {
-	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
+	claims, err := s.tokenCodec.VerifyBearerToken(ctx, tokenValue)
 	if err != nil {
 		return perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse token for revocation")
 	}
@@ -30,10 +30,10 @@ func (s *revoker) RevokeBearerToken(ctx context.Context, tokenValue string) erro
 	if expiry <= 0 {
 		return nil
 	}
-	if err := s.tokenStore.MarkAccessTokenRevoked(ctx, claims.TokenID, expiry); err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to mark access token revoked")
+	if err := s.tokenStore.MarkBearerTokenRevoked(ctx, claims.TokenID, expiry); err != nil {
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to mark bearer token revoked")
 	}
-	if claims.SessionID != "" {
+	if claims.TokenType == TokenTypeAccess && claims.SessionID != "" {
 		if err := s.sessionRevoker.Revoke(ctx, claims.SessionID, "access_token_revoked", claims.Subject); err != nil {
 			return perrors.WrapC(err, code.ErrInternalServerError, "failed to revoke token session")
 		}

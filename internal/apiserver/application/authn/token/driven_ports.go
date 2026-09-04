@@ -3,6 +3,6 @@ package token
 import tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 
 type Store = tokendomain.Store
-type AccessTokenCodec = tokendomain.AccessTokenCodec
+type BearerTokenCodec = tokendomain.BearerTokenCodec
 type AccessTokenSubject = tokendomain.AccessTokenSubject
-type RefreshClaimsCodec = tokendomain.RefreshClaimsCodec
+type LegacyAuthenticationContextSnapshotDecoder = tokendomain.LegacyAuthenticationContextSnapshotDecoder

@@ -13,6 +13,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/method"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin/proof"
+	signingkeyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
@@ -62,7 +63,7 @@ func (m *AuthnModule) initializeApplication(
 	})
 
 	tokenCapabilities := token.NewCapabilities(token.Dependencies{
-		AccessTokenCodec:      infra.jwtGenerator,
+		BearerTokenCodec:      infra.signedJWTCodec,
 		TokenStore:            infra.tokenStore,
 		SessionCreator:        domain.sessionCreator,
 		SessionLoader:         domain.sessionLoader,
@@ -70,7 +71,7 @@ func (m *AuthnModule) initializeApplication(
 		SessionExtender:       domain.sessionExtender,
 		SessionRefreshExpirer: domain.sessionRefreshExpirer,
 		AdmissionPolicy:       infra.admissionPolicy,
-		RefreshClaimsCodec:    token.NewDefaultRefreshClaimsCodec(),
+		LegacyContextDecoder:  token.NewLegacyAuthenticationContextSnapshotDecoder(),
 		AccessTTL:             domain.accessTTL,
 	})
 
@@ -120,10 +121,10 @@ func (m *AuthnModule) initializeApplication(
 	m.sessionRevokeApp = session.NewRevoker(domain.sessionRevoker)
 
 	logger := log.New(log.NewOptions())
-	m.keyManagementApp = jwksApp.NewKeyManagementAppService(keyset.NewApplicationKeyReader(infra.keyManager), logger)
+	m.keyManagementApp = signingkeyApp.NewKeyManagementAppService(keyset.NewApplicationKeyReader(infra.keyManager), logger)
 	keyPublisher := keyset.NewApplicationKeyPublisher(infra.keySetBuilder)
 	m.keyPublishApp = jwksApp.NewKeyPublishAppService(keyPublisher, logger)
-	m.keyLifecycleApp = jwksApp.NewKeyLifecycleAppService(
+	m.keyLifecycleApp = signingkeyApp.NewKeyLifecycleAppService(
 		keyset.NewApplicationKeyLifecycle(infra.keyRotation),
 		keyPublisher,
 		keyset.NewApplicationLifecycleObserver(),

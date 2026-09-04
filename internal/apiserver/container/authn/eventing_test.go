@@ -84,7 +84,7 @@ func authnEventingDeps(t *testing.T, db *gorm.DB, redisClient *goredis.Client, p
 	smsOptions.LoginOTPTTL = 5 * time.Minute
 	smsOptions.LoginOTPSendCooldown = time.Minute
 	smsOptions.LoginOTPCodeLength = 6
-	jwksOptions := *apiserveroptions.NewJWKSOptions()
+	jwksOptions := *apiserveroptions.NewSigningKeyOptions()
 	jwksOptions.AutoInit = true
 	jwksOptions.KeysDir = t.TempDir()
 	return AuthnModuleDeps{

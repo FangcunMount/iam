@@ -1,4 +1,4 @@
-package jwks
+package signingkey
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
-// KeyManagementAppService JWKS 管理应用服务
+// KeyManagementAppService 签名密钥管理查询应用服务。
 type KeyManagementAppService struct {
 	keyReader KeyReaderPort
 	logger    log.Logger
@@ -49,13 +49,13 @@ func (s *KeyManagementAppService) GetActiveKey(ctx context.Context) (*GetActiveK
 
 	s.logger.Debugw("Active key retrieved",
 		"kid", key.Kid,
-		"algorithm", key.JWK.Alg,
+		"algorithm", key.Algorithm,
 	)
 
 	return &GetActiveKeyResponse{
 		Kid:       key.Kid,
 		Status:    key.Status,
-		Algorithm: key.JWK.Alg,
+		Algorithm: key.Algorithm,
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
 		PublicJWK: &key.JWK,
@@ -89,7 +89,7 @@ func (s *KeyManagementAppService) GetKeyByKid(ctx context.Context, kid string) (
 	return &GetKeyByKidResponse{
 		Kid:       key.Kid,
 		Status:    key.Status,
-		Algorithm: key.JWK.Alg,
+		Algorithm: key.Algorithm,
 		NotBefore: key.NotBefore,
 		NotAfter:  key.NotAfter,
 		PublicJWK: &key.JWK,
@@ -150,7 +150,7 @@ func (s *KeyManagementAppService) ListKeys(ctx context.Context, req ListKeysRequ
 		keyInfos[i] = &KeyInfo{
 			Kid:       key.Kid,
 			Status:    key.Status,
-			Algorithm: key.JWK.Alg,
+			Algorithm: key.Algorithm,
 			NotBefore: key.NotBefore,
 			NotAfter:  key.NotAfter,
 			PublicJWK: &key.JWK,

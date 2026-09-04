@@ -542,12 +542,18 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 28:
-        fail(f"documented latest migration is 28, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 29:
+        fail(f"documented latest migration is 29, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
             fail(f"migration 000016 is missing {token}")
+    retire_enter_grace = (
+        directory / "000029_retire_jwks_enter_grace_action.up.sql"
+    ).read_text(encoding="utf-8")
+    for token in ("iam:authn:collection:jwks", "enter_grace", "JSON_REMOVE"):
+        if token not in retire_enter_grace:
+            fail(f"migration 000029 is missing {token}")
     phone = (directory / "000017_users_active_phone_unique_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_phone", "uk_users_active_phone"):
         if token not in phone:

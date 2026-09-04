@@ -3,7 +3,9 @@ package jwks
 import (
 	"encoding/json"
 
+	"github.com/FangcunMount/component-base/pkg/errors"
 	jwks "github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/keyset"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
 // Mapper 负责 Domain Entity 和 PO 之间的转换
@@ -18,6 +20,9 @@ func NewMapper() *Mapper {
 func (m *Mapper) ToKeyPO(key *jwks.Key) (*KeyPO, error) {
 	if key == nil {
 		return nil, nil
+	}
+	if err := key.Validate(); err != nil {
+		return nil, err
 	}
 
 	// 序列化 PublicJWK 为 JSON
@@ -56,15 +61,22 @@ func (m *Mapper) ToKeyEntity(po *KeyPO) (*jwks.Key, error) {
 	if err := json.Unmarshal(po.JwkJSON, &publicJWK); err != nil {
 		return nil, err
 	}
+	if po.Kty != publicJWK.Kty || po.Use != publicJWK.Use {
+		return nil, errors.WithCode(code.ErrInvalidJWK, "JWK columns and serialized public JWK must be equal")
+	}
 
-	key := &jwks.Key{
-		Kid:       po.Kid,
-		Status:    jwks.KeyStatus(po.Status),
-		JWK:       publicJWK,
-		NotBefore: po.NotBefore,
-		NotAfter:  po.NotAfter,
-		CreatedAt: po.CreatedAt,
-		UpdatedAt: po.UpdatedAt,
+	key := jwks.RestoreKey(
+		po.Kid,
+		po.Alg,
+		publicJWK,
+		jwks.KeyStatus(po.Status),
+		po.NotBefore,
+		po.NotAfter,
+		po.CreatedAt,
+		po.UpdatedAt,
+	)
+	if err := key.Validate(); err != nil {
+		return nil, err
 	}
 
 	return key, nil

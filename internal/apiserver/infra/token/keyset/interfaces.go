@@ -34,11 +34,6 @@ type Manager interface {
 	// kid: 密钥 ID
 	ForceRetireKey(ctx context.Context, kid string) error
 
-	// EnterGracePeriod 进入宽限期（Active → Grace）
-	// 只能对 Active 状态的密钥执行
-	// kid: 密钥 ID
-	EnterGracePeriod(ctx context.Context, kid string) error
-
 	// CleanupExpiredKeys 清理过期密钥
 	// 删除 NotAfter < now 且 Status = Retired 的密钥
 	// 返回：清理的密钥数量
@@ -73,13 +68,12 @@ type Publisher interface {
 	RefreshCache(ctx context.Context) error
 }
 
-// Lifecycle is the canonical JWKS mutation boundary implemented by keyset.
+// Lifecycle is the canonical signing-key mutation adapter implemented by keyset.
 type Lifecycle interface {
 	CreateAndActivate(ctx context.Context, alg string, notBefore, notAfter *time.Time) (*Key, bool, error)
 	RotateIfDue(ctx context.Context) (*Key, bool, error)
 	RetireKey(ctx context.Context, kid string) error
 	ForceRetireKey(ctx context.Context, kid string) error
-	EnterGracePeriod(ctx context.Context, kid string) error
 	CleanupExpiredKeys(ctx context.Context) (int, error)
 }
 

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	jwksApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	signingkeyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -32,7 +33,7 @@ func (s *jwksPublisherStub) BuildJWKS(context.Context) ([]byte, jwksApp.CacheTag
 	return s.json, s.tag, nil
 }
 
-func (s *jwksPublisherStub) GetPublishableKeys(context.Context) ([]*jwksApp.ManagedKey, error) {
+func (s *jwksPublisherStub) GetPublishableKeys(context.Context) ([]*jwksApp.PublishableKey, error) {
 	if s.publishableErr != nil {
 		return nil, s.publishableErr
 	}
@@ -224,20 +225,6 @@ func TestJWKSHandlerForceRetireKeyPropagatesApplicationError(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestJWKSHandlerEnterGracePeriodPropagatesApplicationError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{
-		graceErr: perrors.WithCode(code.ErrInvalidArgument, "invalid transition"),
-	}, &jwksPublisherStub{})
-
-	w := performJWKSAdminRequest(handler.EnterGracePeriod, http.MethodPost, "/admin/jwks/keys/kid-1/grace", nil, gin.Params{
-		{Key: "kid", Value: "kid-1"},
-	})
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-}
-
 func TestJWKSHandlerCleanupExpiredKeysPropagatesApplicationError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -272,8 +259,8 @@ func newJWKSHandlerForTest(publisher jwksApp.KeyPublisherPort) *JWKSHandler {
 
 func newJWKSAdminHandlerForTest(manager *jwksKeyManagerStub, publisher jwksApp.KeyPublisherPort) *JWKSHandler {
 	return NewJWKSHandler(
-		jwksApp.NewKeyManagementAppService(manager, log.NewLogger(zap.NewNop())),
-		jwksApp.NewKeyLifecycleAppService(manager, publisher, nil, log.NewLogger(zap.NewNop())),
+		signingkeyApp.NewKeyManagementAppService(manager, log.NewLogger(zap.NewNop())),
+		signingkeyApp.NewKeyLifecycleAppService(manager, publisher, nil, log.NewLogger(zap.NewNop())),
 		jwksApp.NewKeyPublishAppService(publisher, log.NewLogger(zap.NewNop())),
 	)
 }
@@ -310,34 +297,34 @@ type jwksKeyManagerStub struct {
 	getErr         error
 	retireErr      error
 	forceRetireErr error
-	graceErr       error
 	cleanupErr     error
 	listErr        error
 }
 
 var createdKeyTime = time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)
 
-func (s *jwksKeyManagerStub) CreateAndActivate(context.Context, string, *time.Time, *time.Time) (*jwksApp.ManagedKey, bool, error) {
+func (s *jwksKeyManagerStub) CreateAndActivate(context.Context, string, *time.Time, *time.Time) (*signingkeyApp.ManagedKey, bool, error) {
 	if s.createErr != nil {
 		return nil, false, s.createErr
 	}
-	return &jwksApp.ManagedKey{
+	return &signingkeyApp.ManagedKey{
 		Kid:       "created-kid",
+		Algorithm: "RS256",
 		Status:    "active",
-		JWK:       jwksApp.PublicJWK{Kid: "created-kid", Alg: "RS256"},
+		JWK:       signingkeyApp.PublicJWK{Kid: "created-kid", Alg: "RS256"},
 		CreatedAt: createdKeyTime,
 	}, true, nil
 }
 
-func (s *jwksKeyManagerStub) RotateIfDue(context.Context) (*jwksApp.ManagedKey, bool, error) {
+func (s *jwksKeyManagerStub) RotateIfDue(context.Context) (*signingkeyApp.ManagedKey, bool, error) {
 	return nil, false, nil
 }
 
-func (s *jwksKeyManagerStub) GetActiveKey(context.Context) (*jwksApp.ManagedKey, error) {
+func (s *jwksKeyManagerStub) GetActiveKey(context.Context) (*signingkeyApp.ManagedKey, error) {
 	return nil, nil
 }
 
-func (s *jwksKeyManagerStub) GetKeyByKid(context.Context, string) (*jwksApp.ManagedKey, error) {
+func (s *jwksKeyManagerStub) GetKeyByKid(context.Context, string) (*signingkeyApp.ManagedKey, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
@@ -352,10 +339,6 @@ func (s *jwksKeyManagerStub) ForceRetireKey(context.Context, string) error {
 	return s.forceRetireErr
 }
 
-func (s *jwksKeyManagerStub) EnterGracePeriod(context.Context, string) error {
-	return s.graceErr
-}
-
 func (s *jwksKeyManagerStub) CleanupExpiredKeys(context.Context) (int, error) {
 	if s.cleanupErr != nil {
 		return 0, s.cleanupErr
@@ -363,7 +346,7 @@ func (s *jwksKeyManagerStub) CleanupExpiredKeys(context.Context) (int, error) {
 	return 0, nil
 }
 
-func (s *jwksKeyManagerStub) ListKeys(context.Context, string, int, int) ([]*jwksApp.ManagedKey, int64, error) {
+func (s *jwksKeyManagerStub) ListKeys(context.Context, string, int, int) ([]*signingkeyApp.ManagedKey, int64, error) {
 	if s.listErr != nil {
 		return nil, 0, s.listErr
 	}

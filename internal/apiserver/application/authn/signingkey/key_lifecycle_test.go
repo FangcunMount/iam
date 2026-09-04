@@ -1,4 +1,4 @@
-package jwks
+package signingkey
 
 import (
 	"context"
@@ -80,22 +80,22 @@ func TestLifecycleMutationsRefreshPublishableState(t *testing.T) {
 
 	require.NoError(t, service.RetireKey(context.Background(), "retired"))
 	require.NoError(t, service.ForceRetireKey(context.Background(), "forced"))
-	require.NoError(t, service.EnterGracePeriod(context.Background(), "grace"))
 	result, err := service.CleanupExpiredKeys(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 2, result.DeletedCount)
-	require.Equal(t, 4, publisher.refreshCalls)
+	require.Equal(t, 3, publisher.refreshCalls)
 
 	lifecycle.cleanupCount = 0
 	_, err = service.CleanupExpiredKeys(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 4, publisher.refreshCalls, "empty cleanup is a no-op")
+	require.Equal(t, 3, publisher.refreshCalls, "empty cleanup is a no-op")
 }
 
 func testManagedKey(kid, status string) *ManagedKey {
 	now := time.Now()
 	return &ManagedKey{
 		Kid:       kid,
+		Algorithm: "RS256",
 		Status:    status,
 		JWK:       PublicJWK{Kid: kid, Alg: "RS256"},
 		NotBefore: &now,
@@ -126,10 +126,6 @@ func (s *keyLifecycleStub) ForceRetireKey(context.Context, string) error {
 	return s.err
 }
 
-func (s *keyLifecycleStub) EnterGracePeriod(context.Context, string) error {
-	return s.err
-}
-
 func (s *keyLifecycleStub) CleanupExpiredKeys(context.Context) (int, error) {
 	return s.cleanupCount, s.err
 }
@@ -137,22 +133,6 @@ func (s *keyLifecycleStub) CleanupExpiredKeys(context.Context) (int, error) {
 type keyPublisherStub struct {
 	refreshCalls int
 	refreshErr   error
-}
-
-func (s *keyPublisherStub) BuildJWKS(context.Context) ([]byte, CacheTag, error) {
-	return nil, CacheTag{}, nil
-}
-
-func (s *keyPublisherStub) GetPublishableKeys(context.Context) ([]*ManagedKey, error) {
-	return nil, nil
-}
-
-func (s *keyPublisherStub) ValidateCacheTag(context.Context, CacheTag) (bool, error) {
-	return false, nil
-}
-
-func (s *keyPublisherStub) GetCurrentCacheTag(context.Context) (CacheTag, error) {
-	return CacheTag{}, nil
 }
 
 func (s *keyPublisherStub) RefreshCache(context.Context) error {

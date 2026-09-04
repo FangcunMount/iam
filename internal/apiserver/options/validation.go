@@ -77,7 +77,7 @@ func (o *Options) Validate() []error {
 			errs = append(errs, errors.New("health.readiness.drain_delay must not be negative"))
 		}
 	}
-	errs = append(errs, o.validateJWKSOptions()...)
+	errs = append(errs, o.validateSigningKeyOptions()...)
 
 	return errs
 }
@@ -134,7 +134,7 @@ func (o *Options) validateRemovedSMSOptions() []error {
 	return []error{errors.New("sms.mq.topic has been removed; the catalog topic iam.notify.sms is fixed")}
 }
 
-func (o *Options) validateJWKSOptions() []error {
+func (o *Options) validateSigningKeyOptions() []error {
 	if o == nil || o.JWKS == nil {
 		return nil
 	}

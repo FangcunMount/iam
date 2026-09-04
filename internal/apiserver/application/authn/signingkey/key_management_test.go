@@ -1,4 +1,4 @@
-package jwks
+package signingkey
 
 import (
 	"context"
@@ -12,17 +12,18 @@ import (
 func TestKeyManagementAppServiceReadsStringStatusDTOs(t *testing.T) {
 	createdAt := time.Date(2026, 4, 28, 9, 30, 0, 0, time.UTC)
 	reader := &keyReaderStub{
-		active: &ManagedKey{Kid: "active-kid", Status: "active", JWK: PublicJWK{Alg: "RS256"}},
+		active: &ManagedKey{Kid: "active-kid", Algorithm: "RS256", Status: "active", JWK: PublicJWK{Alg: "RS256"}},
 		key: &ManagedKey{
 			Kid:       "grace-kid",
+			Algorithm: "RS384",
 			Status:    "grace",
 			JWK:       PublicJWK{Alg: "RS384"},
 			CreatedAt: createdAt,
 			UpdatedAt: createdAt.Add(time.Hour),
 		},
 		keys: []*ManagedKey{
-			{Kid: "active-kid", Status: "active", JWK: PublicJWK{Alg: "RS256"}},
-			{Kid: "grace-kid", Status: "grace", JWK: PublicJWK{Alg: "RS384"}},
+			{Kid: "active-kid", Algorithm: "RS256", Status: "active", JWK: PublicJWK{Alg: "RS256"}},
+			{Kid: "grace-kid", Algorithm: "RS384", Status: "grace", JWK: PublicJWK{Alg: "RS384"}},
 		},
 		total: 2,
 	}
@@ -31,10 +32,12 @@ func TestKeyManagementAppServiceReadsStringStatusDTOs(t *testing.T) {
 	active, err := service.GetActiveKey(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "active", active.Status)
+	require.Equal(t, "RS256", active.Algorithm)
 
 	key, err := service.GetKeyByKid(context.Background(), "grace-kid")
 	require.NoError(t, err)
 	require.Equal(t, "grace", key.Status)
+	require.Equal(t, "RS384", key.Algorithm)
 	require.Equal(t, createdAt, key.CreatedAt)
 
 	list, err := service.ListKeys(context.Background(), ListKeysRequest{Status: "grace", Limit: 20})

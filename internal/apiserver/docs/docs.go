@@ -408,67 +408,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v2/authn/admin/jwks/keys/{kid}/grace": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "将密钥状态从 Active 转为 Grace",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authentication-JWKS"
-                ],
-                "summary": "进入宽限期",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "密钥 ID",
-                        "name": "kid",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "进入宽限期成功"
-                    },
-                    "400": {
-                        "description": "参数错误或状态不允许",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "未认证",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "无权限",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "密钥不存在",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_pkg_core.ErrResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v2/authn/admin/jwks/keys/{kid}/retire": {
             "post": {
                 "security": [
@@ -3002,38 +2941,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK": {
-            "type": "object",
-            "properties": {
-                "alg": {
-                    "type": "string"
-                },
-                "crv": {
-                    "type": "string"
-                },
-                "e": {
-                    "type": "string"
-                },
-                "kid": {
-                    "type": "string"
-                },
-                "kty": {
-                    "type": "string"
-                },
-                "n": {
-                    "type": "string"
-                },
-                "use": {
-                    "type": "string"
-                },
-                "x": {
-                    "type": "string"
-                },
-                "y": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition": {
             "type": "object",
             "properties": {
@@ -3394,7 +3301,7 @@ const docTemplate = `{
                     "description": "公钥 JWK",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublicJWK"
                         }
                     ]
                 },
@@ -3459,7 +3366,7 @@ const docTemplate = `{
                     "description": "公钥 JWK",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublicJWK"
                         }
                     ]
                 },
@@ -3532,6 +3439,38 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublicJWK": {
+            "type": "object",
+            "properties": {
+                "alg": {
+                    "type": "string"
+                },
+                "crv": {
+                    "type": "string"
+                },
+                "e": {
+                    "type": "string"
+                },
+                "kid": {
+                    "type": "string"
+                },
+                "kty": {
+                    "type": "string"
+                },
+                "n": {
+                    "type": "string"
+                },
+                "use": {
+                    "type": "string"
+                },
+                "x": {
+                    "type": "string"
+                },
+                "y": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublishableKeyInfo": {
             "type": "object",
             "properties": {
@@ -3555,7 +3494,7 @@ const docTemplate = `{
                     "description": "公钥 JWK",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_application_authn_jwks.PublicJWK"
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authn_response.PublicJWK"
                         }
                     ]
                 },

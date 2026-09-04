@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 
-	tokenapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
@@ -18,22 +19,15 @@ func TestApplyVerifiedClaimsSetsTenantIDForRoleResolution(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/identity/me", nil)
 
-	claims := tokenapp.NewTokenClaims(
-		tokenapp.TokenTypeAccess,
-		"token-1",
-		"user:110001",
-		"sid-1",
-		meta.ID(110001),
-		meta.ID(613486856213901870),
-		meta.ID(1),
-		tenant.DefaultID,
-		"https://iam.fangcunmount.cn",
-		[]string{"qs-api"},
-		nil,
-		[]string{"pwd"},
-		time.Now(),
-		time.Now().Add(time.Hour),
-	)
+	now := time.Now()
+	claims, err := tokendomain.NewVerifiedUserTokenClaims(tokendomain.VerifiedTokenClaims{
+		TokenID: "token-1", Subject: meta.ID(110001).String(), SessionID: "sid-1",
+		UserID: meta.ID(110001), LoginIdentityID: meta.ID(613486856213901870), OrgID: meta.ID(1),
+		TenantDomain: tenant.DefaultID, Issuer: "https://iam.fangcunmount.cn",
+		Audience: []string{"qs-api"}, AMR: []string{"pwd"},
+		IssuedAt: now, NotBefore: now, ExpiresAt: now.Add(time.Hour),
+	})
+	require.NoError(t, err)
 
 	applyVerifiedClaims(c, claims)
 

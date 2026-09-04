@@ -30,10 +30,9 @@ func createTestKey(kid string, status jwks.KeyStatus) *jwks.Key {
 	notBefore := time.Now().Add(-1 * time.Hour)
 	notAfter := time.Now().Add(24 * time.Hour)
 
-	return &jwks.Key{
-		Kid:    kid,
-		Status: status,
-		JWK: jwks.PublicJWK{
+	return jwks.NewKey(
+		kid,
+		jwks.PublicJWK{
 			Kty: "RSA",
 			Use: "sig",
 			Kid: kid,
@@ -41,9 +40,10 @@ func createTestKey(kid string, status jwks.KeyStatus) *jwks.Key {
 			N:   stringPtr("test-modulus"),
 			E:   stringPtr("AQAB"),
 		},
-		NotBefore: &notBefore,
-		NotAfter:  &notAfter,
-	}
+		jwks.WithStatus(status),
+		jwks.WithNotBefore(notBefore),
+		jwks.WithNotAfter(notAfter),
+	)
 }
 
 func stringPtr(s string) *string {
@@ -213,7 +213,9 @@ func TestKeyRepository_FindPublishable(t *testing.T) {
 
 	// 创建已过期的密钥
 	expiredKey := createTestKey("expired-key", jwks.KeyActive)
+	pastNotBefore := now.Add(-3 * time.Hour)
 	pastTime := now.Add(-2 * time.Hour)
+	expiredKey.NotBefore = &pastNotBefore
 	expiredKey.NotAfter = &pastTime
 
 	keys := []*jwks.Key{activeKey, graceKey, retiredKey, expiredKey}
@@ -246,11 +248,15 @@ func TestKeyRepository_FindExpired(t *testing.T) {
 
 	// 创建已过期的密钥
 	expiredKey1 := createTestKey("expired-1", jwks.KeyActive)
+	notBefore1 := now.Add(-3 * time.Hour)
 	pastTime1 := now.Add(-2 * time.Hour)
+	expiredKey1.NotBefore = &notBefore1
 	expiredKey1.NotAfter = &pastTime1
 
 	expiredKey2 := createTestKey("expired-2", jwks.KeyGrace)
+	notBefore2 := now.Add(-2 * time.Hour)
 	pastTime2 := now.Add(-1 * time.Hour)
+	expiredKey2.NotBefore = &notBefore2
 	expiredKey2.NotAfter = &pastTime2
 
 	// 创建未过期的密钥

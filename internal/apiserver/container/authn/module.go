@@ -10,6 +10,7 @@ import (
 	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signin"
+	signingkeyApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
@@ -32,10 +33,10 @@ type AuthnModule struct {
 	wechatOpenConfig             WechatOpenConfig
 	tokenCapabilities            token.Capabilities
 
-	// JWKS 应用服务
-	keyManagementApp *jwksApp.KeyManagementAppService
+	// 签名密钥管理与公共 JWKS 发布应用服务
+	keyManagementApp *signingkeyApp.KeyManagementAppService
 	keyPublishApp    *jwksApp.KeyPublishAppService
-	keyLifecycleApp  *jwksApp.KeyLifecycleAppService
+	keyLifecycleApp  *signingkeyApp.KeyLifecycleAppService
 
 	// 调度器
 	rotationScheduler KeyRotationScheduler

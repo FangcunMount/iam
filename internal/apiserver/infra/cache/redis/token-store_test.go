@@ -145,11 +145,11 @@ func TestRedisStoreRevokedAccessTokenLifecycle(t *testing.T) {
 	ctx := context.Background()
 	tokenID := "black-token"
 
-	if err := store.MarkAccessTokenRevoked(ctx, tokenID, 30*time.Minute); err != nil {
-		t.Fatalf("MarkAccessTokenRevoked() error = %v", err)
+	if err := store.MarkBearerTokenRevoked(ctx, tokenID, 30*time.Minute); err != nil {
+		t.Fatalf("MarkBearerTokenRevoked() error = %v", err)
 	}
 
-	rawKey := revokedAccessTokenRedisKey(tokenID)
+	rawKey := revokedBearerTokenRedisKey(tokenID)
 	if !mr.Exists(rawKey) {
 		t.Fatalf("expected revoked access token key %q to exist", rawKey)
 	}
@@ -161,17 +161,17 @@ func TestRedisStoreRevokedAccessTokenLifecycle(t *testing.T) {
 		t.Fatalf("revoked access token marker = %q, want %q", rawValue, "1")
 	}
 
-	revoked, err := store.IsAccessTokenRevoked(ctx, tokenID)
+	revoked, err := store.IsBearerTokenRevoked(ctx, tokenID)
 	if err != nil {
-		t.Fatalf("IsAccessTokenRevoked() error = %v", err)
+		t.Fatalf("IsBearerTokenRevoked() error = %v", err)
 	}
 	if !revoked {
 		t.Fatalf("expected token to be marked revoked")
 	}
 
-	revoked, err = store.IsAccessTokenRevoked(ctx, "missing-token")
+	revoked, err = store.IsBearerTokenRevoked(ctx, "missing-token")
 	if err != nil {
-		t.Fatalf("IsAccessTokenRevoked() missing error = %v", err)
+		t.Fatalf("IsBearerTokenRevoked() missing error = %v", err)
 	}
 	if revoked {
 		t.Fatalf("expected missing token not to be marked revoked")

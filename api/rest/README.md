@@ -20,7 +20,7 @@ REST 契约使用 OpenAPI 3.1。OpenAPI 文件是字段、路径、认证和错�
 | 登录挑战 | `POST /api/v2/authn/challenges/phone-otp` |
 | Token | `POST /api/v2/authn/refresh_token`、`POST /api/v2/authn/logout`、`POST /api/v2/authn/verify` |
 | JWKS | `GET /.well-known/jwks.json`、`GET /api/v2/.well-known/jwks.json` |
-| AuthN JWKS 管理 | `/api/v2/authn/admin/jwks/keys` 及其 publishable、grace、retire、force-retire、cleanup 子路由 |
+| AuthN JWKS 管理 | `/api/v2/authn/admin/jwks/keys` 及其 publishable、retire、force-retire、cleanup 子路由 |
 | LoginIdentity | `GET /api/v2/authn/login-identities`、`POST /api/v2/authn/login-identities/phone`、`DELETE /api/v2/authn/login-identities/{id}` |
 | Signup | `POST /api/v2/authn/signups/wechat-miniprogram` |
 | AuthZ 管理面 | `GET /api/v3/authz/health`、`/api/v3/authz/{roles,assignments,grants,role-inheritances,resources}` |

@@ -8,7 +8,7 @@ import (
 	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 )
 
-// KeyRotation is the canonical keyset lifecycle mutation boundary.
+// KeyRotation coordinates signing-key lifecycle mutations over key material and persistence adapters.
 type KeyRotation struct {
 	manager *KeyManager
 	policy  RotationPolicy
@@ -54,7 +54,7 @@ func (s *KeyRotation) RotateIfDue(ctx context.Context) (*Key, bool, error) {
 	}
 	if !rotated {
 		recordRotationResult("noop")
-		s.logger.Debugw("jwks lifecycle operation completed", "operation", "auto_rotate", "result", "noop", "automatic", true)
+		s.logger.Debugw("signing-key lifecycle operation completed", "operation", "auto_rotate", "result", "noop", "automatic", true)
 		return key, false, nil
 	}
 	s.afterActivation(ctx, key, true)
@@ -77,14 +77,6 @@ func (s *KeyRotation) ForceRetireKey(ctx context.Context, kid string) error {
 	return nil
 }
 
-func (s *KeyRotation) EnterGracePeriod(ctx context.Context, kid string) error {
-	if err := s.manager.EnterGracePeriod(ctx, kid); err != nil {
-		return err
-	}
-	_ = s.RefreshStateMetrics(ctx)
-	return nil
-}
-
 func (s *KeyRotation) CleanupExpiredKeys(ctx context.Context) (int, error) {
 	count, err := s.manager.CleanupExpiredKeys(ctx)
 	if err != nil {
@@ -100,12 +92,12 @@ func (s *KeyRotation) afterActivation(ctx context.Context, key *Key, automatic b
 		s.logger.Warnw("jwks post-commit action failed", "stage", "cleanup")
 	}
 	active, grace, retired, err := s.refreshStateMetrics(ctx)
-	if err == nil && int(active+grace) > s.policy.MaxKeysInJWKS {
+	if err == nil && int(active+grace) > s.policy.MaxPublishableKeys {
 		s.logger.Warnw("jwks publishable key count exceeds soft limit",
 			"active", active,
 			"grace", grace,
 			"retired", retired,
-			"maxPublishableKeys", s.policy.MaxKeysInJWKS,
+			"maxPublishableKeys", s.policy.MaxPublishableKeys,
 		)
 	}
 	recordRotationResult("success")
@@ -113,7 +105,7 @@ func (s *KeyRotation) afterActivation(ctx context.Context, key *Key, automatic b
 	if automatic {
 		operation = "auto_rotate"
 	}
-	s.logger.Infow("jwks lifecycle operation completed",
+	s.logger.Infow("signing-key lifecycle operation completed",
 		"operation", operation,
 		"result", "success",
 		"kid", key.Kid,

@@ -117,6 +117,9 @@ func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv2.
 	if req == nil || strings.TrimSpace(req.GetSubject()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "subject is required")
 	}
+	if !hasNonEmptyAudience(req.GetAudience()) {
+		return nil, status.Error(codes.InvalidArgument, "audience is required")
+	}
 
 	var ttl time.Duration
 	if req.GetTtl() != nil {
@@ -144,4 +147,13 @@ func (s *authServiceServer) IssueServiceToken(ctx context.Context, req *authnv2.
 	return &authnv2.IssueServiceTokenResponse{
 		TokenPair: toProtoTokenPair(result.TokenPair),
 	}, nil
+}
+
+func hasNonEmptyAudience(values []string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }

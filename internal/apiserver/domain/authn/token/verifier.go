@@ -10,7 +10,7 @@ import (
 )
 
 type verifier struct {
-	tokenCodec      AccessTokenCodec
+	tokenCodec      BearerTokenCodec
 	tokenStore      Store
 	sessionLoader   SessionLoader
 	admissionPolicy AdmissionPolicy
@@ -19,30 +19,30 @@ type verifier struct {
 // 实现 Verifier 接口
 var _ Verifier = &verifier{}
 
-func newVerifier(tokenCodec AccessTokenCodec, tokenStore Store, sessionLoader SessionLoader, admissionPolicy AdmissionPolicy) Verifier {
+func newVerifier(tokenCodec BearerTokenCodec, tokenStore Store, sessionLoader SessionLoader, admissionPolicy AdmissionPolicy) Verifier {
 	return &verifier{
 		tokenCodec: tokenCodec, tokenStore: tokenStore,
 		sessionLoader: sessionLoader, admissionPolicy: admissionPolicy,
 	}
 }
 
-func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*TokenClaims, error) {
+func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*VerifiedTokenClaims, error) {
 	// 解析令牌（codec 负责签名、alg/kid、canonical issuer、exp/nbf/iat）
-	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
+	claims, err := s.tokenCodec.VerifyBearerToken(ctx, tokenValue)
 	if err != nil {
-		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse access token")
+		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse bearer token")
+	}
+	if claims.TokenType != TokenTypeAccess && claims.TokenType != TokenTypeService {
+		return nil, perrors.WithCode(code.ErrTokenInvalid, "unsupported token type for online verification: %s", claims.TokenType)
+	}
+
+	// access/service 都是在线可撤销的 bearer token；类型分流必须发生在撤销检查之后。
+	if err := s.checkTokenValid(ctx, claims); err != nil {
+		return nil, err
 	}
 	// 服务令牌只做密码学验证，不进入用户 Session/Admission 路径
 	if claims.TokenType == TokenTypeService {
 		return claims, nil
-	}
-	if claims.TokenType != TokenTypeAccess {
-		return nil, perrors.WithCode(code.ErrTokenInvalid, "unsupported token type for online verification: %s", claims.TokenType)
-	}
-
-	// 检查令牌是否被撤销
-	if err := s.checkTokenValid(ctx, claims); err != nil {
-		return nil, err
 	}
 	// 检查会话是否活跃
 	if err := s.checkSessionActive(ctx, claims.SessionID); err != nil {
@@ -55,13 +55,13 @@ func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*TokenCl
 	return claims, nil
 }
 
-func (s *verifier) checkTokenValid(ctx context.Context, claims *TokenClaims) error {
-	isRevoked, err := s.tokenStore.IsAccessTokenRevoked(ctx, claims.TokenID)
+func (s *verifier) checkTokenValid(ctx context.Context, claims *VerifiedTokenClaims) error {
+	isRevoked, err := s.tokenStore.IsBearerTokenRevoked(ctx, claims.TokenID)
 	if err != nil {
-		return perrors.WrapC(err, code.ErrInternalServerError, "failed to check revoked access token")
+		return perrors.WrapC(err, code.ErrInternalServerError, "failed to check revoked bearer token")
 	}
 	if isRevoked {
-		return perrors.WithCode(code.ErrTokenInvalid, "access token has been revoked")
+		return perrors.WithCode(code.ErrTokenInvalid, "bearer token has been revoked")
 	}
 	return nil
 }

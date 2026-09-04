@@ -201,7 +201,7 @@ func (s *KeyManager) GetActiveKey(ctx context.Context) (*Key, error) {
 	// 过滤出可以用于签名的密钥（未过期且状态正确）
 	now := s.now()
 	for _, key := range keys {
-		if key.CanSign() && key.IsValidAt(now) {
+		if key.CanSignAt(now) {
 			return key, nil
 		}
 	}
@@ -219,7 +219,7 @@ func (s *KeyManager) ValidateActiveKey(ctx context.Context, resolver PrivateKeyR
 	if resolver == nil {
 		return nil, errors.WithCode(code.ErrUnknown, "private key resolver is not configured")
 	}
-	privateKey, err := resolver.ResolveSigningKey(ctx, active.Kid, active.JWK.Alg)
+	privateKey, err := resolver.ResolveSigningKey(ctx, active.Kid, active.Algorithm)
 	if err != nil {
 		materialValidationFailures.WithLabelValues("resolve").Inc()
 		return nil, errors.WithCode(code.ErrUnknown, "resolve active private key %s: %v", active.Kid, err)
@@ -262,12 +262,8 @@ func (s *KeyManager) RetireKey(ctx context.Context, kid string) error {
 	if key == nil {
 		return errors.WithCode(code.ErrKeyNotFound, "key not found: %s", kid)
 	}
-	if !key.IsExpired(s.now()) {
-		return errors.WithCode(code.ErrInvalidStateTransition, "grace key cannot be retired before NotAfter")
-	}
-
 	// 状态转换（Grace → Retired）
-	if err := key.Retire(); err != nil {
+	if err := key.Retire(s.now()); err != nil {
 		return err
 	}
 
@@ -289,37 +285,8 @@ func (s *KeyManager) ForceRetireKey(ctx context.Context, kid string) error {
 	if key == nil {
 		return errors.WithCode(code.ErrKeyNotFound, "key not found: %s", kid)
 	}
-	if key.IsActive() {
-		return errors.WithCode(code.ErrInvalidStateTransition, "cannot force-retire the active signing key; activate a replacement first")
-	}
-
 	// 强制状态转换（任何状态 → Retired）
-	key.ForceRetire()
-
-	// 保存状态
-	if err := s.keyRepo.Update(ctx, key); err != nil {
-		return errors.WithCode(code.ErrDatabase, "failed to update key: %v", err)
-	}
-
-	return nil
-}
-
-// EnterGracePeriod 进入宽限期（Active → Grace）
-func (s *KeyManager) EnterGracePeriod(ctx context.Context, kid string) error {
-	key, err := s.keyRepo.FindByKid(ctx, kid)
-	if err != nil {
-		return errors.WithCode(code.ErrDatabase, "failed to find key: %v", err)
-	}
-
-	if key == nil {
-		return errors.WithCode(code.ErrKeyNotFound, "key not found: %s", kid)
-	}
-	if key.IsActive() {
-		return errors.WithCode(code.ErrInvalidStateTransition, "cannot move the only active signing key to grace; activate a replacement first")
-	}
-
-	// 状态转换（Active → Grace）
-	if err := key.EnterGrace(); err != nil {
+	if err := key.ForceRetire(s.now()); err != nil {
 		return err
 	}
 
@@ -352,7 +319,9 @@ func (s *KeyManager) CleanupExpiredKeys(ctx context.Context) (int, error) {
 			continue
 		}
 		if !key.IsRetired() {
-			key.ForceRetire()
+			if err := key.ForceRetire(s.now()); err != nil {
+				continue
+			}
 			if err := s.keyRepo.Update(ctx, key); err != nil {
 				continue
 			}

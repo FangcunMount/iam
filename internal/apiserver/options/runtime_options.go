@@ -44,15 +44,15 @@ func NewAuthOptions() *AuthOptions {
 	}
 }
 
-// JWKSOptions configures key storage and startup key initialization.
-type JWKSOptions struct {
-	KeysDir  string              `json:"keys_dir" mapstructure:"keys_dir"`
-	AutoInit bool                `json:"auto_init" mapstructure:"auto_init"`
-	Rotation JWKSRotationOptions `json:"rotation" mapstructure:"rotation"`
+// SigningKeyOptions configures key storage and startup key initialization.
+type SigningKeyOptions struct {
+	KeysDir  string                    `json:"keys_dir" mapstructure:"keys_dir"`
+	AutoInit bool                      `json:"auto_init" mapstructure:"auto_init"`
+	Rotation SigningKeyRotationOptions `json:"rotation" mapstructure:"rotation"`
 }
 
-// JWKSRotationOptions configures automatic signing-key rotation.
-type JWKSRotationOptions struct {
+// SigningKeyRotationOptions configures automatic signing-key rotation.
+type SigningKeyRotationOptions struct {
 	AutomaticEnabled  bool          `json:"automatic_enabled" mapstructure:"automatic_enabled"`
 	CheckCron         string        `json:"check_cron" mapstructure:"check_cron"`
 	RotationInterval  time.Duration `json:"rotation_interval" mapstructure:"rotation_interval"`
@@ -60,9 +60,9 @@ type JWKSRotationOptions struct {
 	MaxPublishableKey int           `json:"max_publishable_keys" mapstructure:"max_publishable_keys"`
 }
 
-func NewJWKSOptions() *JWKSOptions {
-	return &JWKSOptions{
-		Rotation: JWKSRotationOptions{
+func NewSigningKeyOptions() *SigningKeyOptions {
+	return &SigningKeyOptions{
+		Rotation: SigningKeyRotationOptions{
 			CheckCron:         "@every 1h",
 			RotationInterval:  30 * 24 * time.Hour,
 			GracePeriod:       7 * 24 * time.Hour,

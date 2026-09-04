@@ -17,13 +17,18 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
+	redisinfra "github.com/FangcunMount/iam/v3/internal/apiserver/infra/cache/redis"
 	tokenjwt "github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/jwt"
 	authhandler "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/handler"
 	resp "github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authn/response"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/pkg/core"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // 集成测试：与登录一致的签发链（IssueToken → JWT）→ 本地解析 tenant_id →
@@ -42,10 +47,10 @@ func (noopTokenStore) GetConsumedRefreshToken(context.Context, string) (*tokendo
 	return nil, nil
 }
 func (noopTokenStore) DeleteRefreshToken(context.Context, string) error { return nil }
-func (noopTokenStore) MarkAccessTokenRevoked(context.Context, string, time.Duration) error {
+func (noopTokenStore) MarkBearerTokenRevoked(context.Context, string, time.Duration) error {
 	return nil
 }
-func (noopTokenStore) IsAccessTokenRevoked(context.Context, string) (bool, error) { return false, nil }
+func (noopTokenStore) IsBearerTokenRevoked(context.Context, string) (bool, error) { return false, nil }
 
 type memorySessionStore struct {
 	sessions map[string]*sessiondomain.Session
@@ -110,22 +115,22 @@ func (allowAllAdmissionPolicy) Evaluate(_ context.Context, subject admissiondoma
 	return admissiondomain.Admit(subject), nil
 }
 
-type fixedSigningKeySource struct {
+type fixedJWSKeySource struct {
 	kid string
 	key *rsa.PrivateKey
 }
 
-func (s fixedSigningKeySource) ActiveSigningKey(context.Context) (*tokenjwt.SigningKey, error) {
+func (s fixedJWSKeySource) ActiveSigningKey(context.Context) (*tokenjwt.SigningKey, error) {
 	return &tokenjwt.SigningKey{Kid: s.kid, Algorithm: "RS256", PrivateKey: s.key}, nil
 }
 
-func (s fixedSigningKeySource) VerificationKey(context.Context, string) (*tokenjwt.VerificationKey, error) {
+func (s fixedJWSKeySource) VerificationKey(context.Context, string) (*tokenjwt.VerificationKey, error) {
 	return &tokenjwt.VerificationKey{Kid: s.kid, Algorithm: "RS256", PublicKey: &s.key.PublicKey}, nil
 }
 
 func newTestTokenStack(t *testing.T) (
 	tokenapp.Capabilities,
-	*tokenjwt.Generator,
+	*tokenjwt.JWSCompactTokenCodec,
 ) {
 	t.Helper()
 
@@ -133,12 +138,12 @@ func newTestTokenStack(t *testing.T) (
 	require.NoError(t, err)
 
 	kid := "integration-test-kid"
-	gen := tokenjwt.NewGenerator("https://iam.integration.test", []string{"qs-api", "collection-api"}, fixedSigningKeySource{kid: kid, key: priv})
+	gen := tokenjwt.NewJWSCompactTokenCodec("https://iam.integration.test", []string{"qs-api", "collection-api"}, fixedJWSKeySource{kid: kid, key: priv})
 	store := noopTokenStore{}
 	sessionStore := &memorySessionStore{}
 	lifetime := sessiondomain.NewLifetimePolicy(24*time.Hour, 24*time.Hour)
 	tokens := tokenapp.NewCapabilities(tokenapp.Dependencies{
-		AccessTokenCodec:      gen,
+		BearerTokenCodec:      gen,
 		TokenStore:            store,
 		SessionCreator:        sessiondomain.NewCreator(sessionStore, lifetime),
 		SessionLoader:         sessiondomain.NewLoader(sessionStore, lifetime),
@@ -146,7 +151,7 @@ func newTestTokenStack(t *testing.T) (
 		SessionExtender:       sessiondomain.NewExtender(sessionStore, lifetime),
 		SessionRefreshExpirer: sessiondomain.NewRefreshExpirer(lifetime),
 		AdmissionPolicy:       allowAllAdmissionPolicy{},
-		RefreshClaimsCodec:    tokenapp.NewDefaultRefreshClaimsCodec(),
+		LegacyContextDecoder:  tokenapp.NewLegacyAuthenticationContextSnapshotDecoder(),
 		AccessTTL:             time.Hour,
 	})
 	return tokens, gen
@@ -175,8 +180,8 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.NotNil(t, pair.AccessToken)
 	access := pair.AccessToken.Value
 
-	// 本地解析（与 apiserver 验签链相同的 Generator）
-	parsed, err := gen.VerifyAccessToken(ctx, access)
+	// 本地解析（与 apiserver 验签链相同的 JWSCompactTokenCodec）
+	parsed, err := gen.VerifyBearerToken(ctx, access)
 	require.NoError(t, err)
 	require.Equal(t, "fangcun", parsed.TenantDomain)
 	require.Equal(t, meta.FromUint64(9001), parsed.OrgID)
@@ -299,4 +304,63 @@ func TestIntegration_VerifyToken_GRPC_IncludeMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, gresp.Valid)
 	require.NotNil(t, gresp.Metadata)
+}
+
+func TestIntegration_ServiceTokenIssueVerifyRevokeRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	codec := tokenjwt.NewJWSCompactTokenCodec(
+		"https://iam.integration.test",
+		[]string{"qs-api"},
+		fixedJWSKeySource{kid: "service-integration-kid", key: privateKey},
+	)
+	tokens := tokenapp.NewCapabilities(tokenapp.Dependencies{
+		BearerTokenCodec: codec,
+		TokenStore:       redisinfra.NewRedisStore(client),
+		AccessTTL:        time.Hour,
+	})
+	server := &authServiceServer{
+		serviceTokenIssuer: tokens.ServiceTokenIssuer,
+		tokenVerifier:      tokens.Verifier,
+		tokenRevoker:       tokens.Revoker,
+	}
+
+	_, err = server.IssueServiceToken(ctx, &authnv2.IssueServiceTokenRequest{Subject: "service:worker"})
+	require.Error(t, err)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	issued, err := server.IssueServiceToken(ctx, &authnv2.IssueServiceTokenRequest{
+		Subject:  "service:worker",
+		Audience: []string{"qs-api"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, issued.TokenPair)
+	require.NotEmpty(t, issued.TokenPair.AccessToken)
+
+	verified, err := server.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
+		AccessToken:        issued.TokenPair.AccessToken,
+		ExpectedAudience:   []string{"qs-api"},
+		AcceptedTokenTypes: []authnv2.TokenType{authnv2.TokenType_TOKEN_TYPE_SERVICE},
+	})
+	require.NoError(t, err)
+	require.True(t, verified.Valid)
+	require.Equal(t, authnv2.TokenType_TOKEN_TYPE_SERVICE, verified.Claims.TokenType)
+	require.Equal(t, "service:worker", verified.Claims.Subject)
+
+	_, err = server.RevokeToken(ctx, &authnv2.RevokeTokenRequest{AccessToken: issued.TokenPair.AccessToken})
+	require.NoError(t, err)
+
+	verified, err = server.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
+		AccessToken:        issued.TokenPair.AccessToken,
+		ExpectedAudience:   []string{"qs-api"},
+		AcceptedTokenTypes: []authnv2.TokenType{authnv2.TokenType_TOKEN_TYPE_SERVICE},
+	})
+	require.NoError(t, err)
+	require.False(t, verified.Valid)
+	require.Nil(t, verified.Claims)
 }

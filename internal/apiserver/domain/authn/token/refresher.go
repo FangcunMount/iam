@@ -14,20 +14,20 @@ import (
 )
 
 type refresher struct {
-	tokenSetMinter     TokenSetMinter
-	tokenStore         Store
-	sessionLoader      SessionLoader
-	sessionRevoker     SessionRevoker
-	sessionExtender    SessionExtender
-	admissionPolicy    AdmissionPolicy
-	refreshClaimsCodec RefreshClaimsCodec
+	tokenSetMinter       TokenSetMinter
+	tokenStore           Store
+	sessionLoader        SessionLoader
+	sessionRevoker       SessionRevoker
+	sessionExtender      SessionExtender
+	admissionPolicy      AdmissionPolicy
+	legacyContextDecoder LegacyAuthenticationContextSnapshotDecoder
 }
 
-func newRefresher(tokenSetMinter TokenSetMinter, tokenStore Store, sessionLoader SessionLoader, sessionRevoker SessionRevoker, sessionExtender SessionExtender, admissionPolicy AdmissionPolicy, refreshClaimsCodec RefreshClaimsCodec) Refresher {
+func newRefresher(tokenSetMinter TokenSetMinter, tokenStore Store, sessionLoader SessionLoader, sessionRevoker SessionRevoker, sessionExtender SessionExtender, admissionPolicy AdmissionPolicy, legacyContextDecoder LegacyAuthenticationContextSnapshotDecoder) Refresher {
 	return &refresher{
 		tokenSetMinter: tokenSetMinter, tokenStore: tokenStore, sessionLoader: sessionLoader,
 		sessionRevoker: sessionRevoker, sessionExtender: sessionExtender, admissionPolicy: admissionPolicy,
-		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec),
+		legacyContextDecoder: normalizeLegacyContextDecoder(legacyContextDecoder),
 	}
 }
 
@@ -172,7 +172,7 @@ func (s *refresher) principalFromSession(sess *sessiondomain.Session, refreshTok
 		authMethod = strings.TrimSpace(refreshToken.AuthMethod)
 		realm = strings.TrimSpace(refreshToken.Realm)
 		amr = append([]string(nil), refreshToken.AMR...)
-		legacyClaims = s.refreshClaimsCodec.Decode(refreshToken.SessionClaims)
+		legacyClaims = s.legacyContextDecoder.Decode(refreshToken.SessionClaims)
 		if tokenContext.TenantDomain == "" && len(legacyClaims) > 0 {
 			tokenContext = tokenContextFromClaims(legacyClaims)
 		}

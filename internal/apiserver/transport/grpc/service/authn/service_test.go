@@ -11,6 +11,7 @@ import (
 	sessionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/session"
 	signupApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signup"
 	tokenApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/token"
+	tokenDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -102,24 +103,20 @@ func (s *tokenOperationsStub) VerifyToken(ctx context.Context, req tokenApp.Veri
 	if s.verifyErr != nil {
 		return nil, s.verifyErr
 	}
+	now := time.Now()
+	claims, err := tokenDomain.NewVerifiedUserTokenClaims(tokenDomain.VerifiedTokenClaims{
+		TokenID: "tid", Subject: meta.FromUint64(1).String(), SessionID: "sid-1",
+		UserID: meta.FromUint64(1), LoginIdentityID: meta.FromUint64(2), OrgID: meta.FromUint64(3),
+		TenantDomain: "fangcun", Issuer: "iam", Audience: []string{"test"},
+		Attributes: map[string]string{"scope": "internal", "level": "2"}, AMR: []string{"pwd"},
+		IssuedAt: now, NotBefore: now, ExpiresAt: now.Add(time.Minute),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &tokenApp.TokenVerifyResult{
-		Valid: true,
-		Claims: tokenApp.NewTokenClaims(
-			tokenApp.TokenTypeAccess,
-			"tid",
-			"user:1",
-			"sid-1",
-			meta.FromUint64(1),
-			meta.FromUint64(2),
-			meta.FromUint64(3),
-			"fangcun",
-			"iam",
-			[]string{"test"},
-			map[string]string{"scope": "internal", "level": "2"},
-			[]string{"pwd"},
-			time.Now(),
-			time.Now().Add(time.Minute),
-		),
+		Valid:  true,
+		Claims: claims,
 	}, nil
 }
 
@@ -238,6 +235,10 @@ func TestAuthServiceServerIssueServiceTokenValidation(t *testing.T) {
 	srv := &authServiceServer{serviceTokenIssuer: &tokenOperationsStub{}}
 
 	_, err := srv.IssueServiceToken(context.Background(), &authnv2.IssueServiceTokenRequest{})
+	require.Error(t, err)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	_, err = srv.IssueServiceToken(context.Background(), &authnv2.IssueServiceTokenRequest{Subject: "service:worker"})
 	require.Error(t, err)
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }

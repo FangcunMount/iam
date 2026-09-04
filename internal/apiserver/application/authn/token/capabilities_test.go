@@ -52,7 +52,7 @@ func TestApplicationMapsVerifyAdmissionDenialToExistingFailureContract(t *testin
 func TestApplicationRejectsDisallowedTokenType(t *testing.T) {
 	t.Parallel()
 
-	app := &application{verifier: verifierStub{claims: &tokendomain.TokenClaims{
+	app := &application{verifier: verifierStub{claims: &tokendomain.VerifiedTokenClaims{
 		TokenType: TokenTypeService,
 		Issuer:    "https://iam.fangcunmount.cn",
 		Audience:  []string{"qs-api"},
@@ -72,7 +72,7 @@ func TestApplicationRejectsDisallowedTokenType(t *testing.T) {
 func TestApplicationDefaultsToAccessTokenType(t *testing.T) {
 	t.Parallel()
 
-	app := &application{verifier: verifierStub{claims: &tokendomain.TokenClaims{
+	app := &application{verifier: verifierStub{claims: &tokendomain.VerifiedTokenClaims{
 		TokenType: TokenTypeService,
 	}}}
 	result, err := app.VerifyToken(context.Background(), VerifyTokenRequest{AccessToken: "service-token"})
@@ -103,10 +103,10 @@ func (s refresherStub) RevokeRefreshToken(context.Context, string) error {
 
 type verifierStub struct {
 	err    error
-	claims *tokendomain.TokenClaims
+	claims *tokendomain.VerifiedTokenClaims
 }
 
-func (s verifierStub) VerifyToken(context.Context, string) (*tokendomain.TokenClaims, error) {
+func (s verifierStub) VerifyToken(context.Context, string) (*tokendomain.VerifiedTokenClaims, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

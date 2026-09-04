@@ -12,7 +12,9 @@ type SessionExtender = tokendomain.SessionExtender
 type SessionRefreshExpirer = tokendomain.SessionRefreshExpirer
 type AdmissionPolicy = tokendomain.AdmissionPolicy
 type TokenType = tokendomain.TokenType
-type TokenClaims = tokendomain.TokenClaims
+
+// TokenClaims 是 application/transport 的兼容投影名；领域事实名为 VerifiedTokenClaims。
+type TokenClaims = tokendomain.VerifiedTokenClaims
 type VerifiedTokenClaims = tokendomain.VerifiedTokenClaims
 type ConsumedRefreshToken = tokendomain.ConsumedRefreshToken
 

@@ -5,38 +5,39 @@ import (
 	"time"
 
 	appjwks "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/jwks"
+	appsigningkey "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/signingkey"
 )
 
 type applicationKeyManager struct {
 	manager Reader
 }
 
-func NewApplicationKeyReader(manager Reader) appjwks.KeyReaderPort {
+func NewApplicationKeyReader(manager Reader) appsigningkey.KeyReaderPort {
 	return applicationKeyManager{manager: manager}
 }
 
-func (a applicationKeyManager) GetActiveKey(ctx context.Context) (*appjwks.ManagedKey, error) {
+func (a applicationKeyManager) GetActiveKey(ctx context.Context) (*appsigningkey.ManagedKey, error) {
 	key, err := a.manager.GetActiveKey(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return toAppManagedKey(key), nil
+	return toSigningKeyManagedKey(key), nil
 }
 
-func (a applicationKeyManager) GetKeyByKid(ctx context.Context, kid string) (*appjwks.ManagedKey, error) {
+func (a applicationKeyManager) GetKeyByKid(ctx context.Context, kid string) (*appsigningkey.ManagedKey, error) {
 	key, err := a.manager.GetKeyByKid(ctx, kid)
 	if err != nil {
 		return nil, err
 	}
-	return toAppManagedKey(key), nil
+	return toSigningKeyManagedKey(key), nil
 }
 
-func (a applicationKeyManager) ListKeys(ctx context.Context, status string, limit, offset int) ([]*appjwks.ManagedKey, int64, error) {
+func (a applicationKeyManager) ListKeys(ctx context.Context, status string, limit, offset int) ([]*appsigningkey.ManagedKey, int64, error) {
 	keys, total, err := a.manager.ListKeys(ctx, keyStatusFromString(status), limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
-	return toAppManagedKeys(keys), total, nil
+	return toSigningKeyManagedKeys(keys), total, nil
 }
 
 type applicationKeyPublisher struct {
@@ -52,12 +53,12 @@ func (a applicationKeyPublisher) BuildJWKS(ctx context.Context) ([]byte, appjwks
 	return jwksJSON, toAppCacheTag(tag), err
 }
 
-func (a applicationKeyPublisher) GetPublishableKeys(ctx context.Context) ([]*appjwks.ManagedKey, error) {
+func (a applicationKeyPublisher) GetPublishableKeys(ctx context.Context) ([]*appjwks.PublishableKey, error) {
 	keys, err := a.publisher.GetPublishableKeys(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return toAppManagedKeys(keys), nil
+	return toAppPublishableKeys(keys), nil
 }
 
 func (a applicationKeyPublisher) ValidateCacheTag(ctx context.Context, clientTag appjwks.CacheTag) (bool, error) {
@@ -77,24 +78,24 @@ type applicationKeyLifecycle struct {
 	lifecycle Lifecycle
 }
 
-func NewApplicationKeyLifecycle(lifecycle Lifecycle) appjwks.KeyLifecyclePort {
+func NewApplicationKeyLifecycle(lifecycle Lifecycle) appsigningkey.KeyLifecyclePort {
 	return applicationKeyLifecycle{lifecycle: lifecycle}
 }
 
-func (a applicationKeyLifecycle) CreateAndActivate(ctx context.Context, alg string, notBefore, notAfter *time.Time) (*appjwks.ManagedKey, bool, error) {
+func (a applicationKeyLifecycle) CreateAndActivate(ctx context.Context, alg string, notBefore, notAfter *time.Time) (*appsigningkey.ManagedKey, bool, error) {
 	key, changed, err := a.lifecycle.CreateAndActivate(ctx, alg, notBefore, notAfter)
 	if err != nil {
 		return nil, false, err
 	}
-	return toAppManagedKey(key), changed, nil
+	return toSigningKeyManagedKey(key), changed, nil
 }
 
-func (a applicationKeyLifecycle) RotateIfDue(ctx context.Context) (*appjwks.ManagedKey, bool, error) {
+func (a applicationKeyLifecycle) RotateIfDue(ctx context.Context) (*appsigningkey.ManagedKey, bool, error) {
 	key, rotated, err := a.lifecycle.RotateIfDue(ctx)
 	if err != nil {
 		return nil, false, err
 	}
-	return toAppManagedKey(key), rotated, nil
+	return toSigningKeyManagedKey(key), rotated, nil
 }
 
 func (a applicationKeyLifecycle) RetireKey(ctx context.Context, kid string) error {
@@ -105,17 +106,13 @@ func (a applicationKeyLifecycle) ForceRetireKey(ctx context.Context, kid string)
 	return a.lifecycle.ForceRetireKey(ctx, kid)
 }
 
-func (a applicationKeyLifecycle) EnterGracePeriod(ctx context.Context, kid string) error {
-	return a.lifecycle.EnterGracePeriod(ctx, kid)
-}
-
 func (a applicationKeyLifecycle) CleanupExpiredKeys(ctx context.Context) (int, error) {
 	return a.lifecycle.CleanupExpiredKeys(ctx)
 }
 
 type applicationLifecycleObserver struct{}
 
-func NewApplicationLifecycleObserver() appjwks.LifecycleObserver {
+func NewApplicationLifecycleObserver() appsigningkey.LifecycleObserver {
 	return applicationLifecycleObserver{}
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 func TestPrincipalFromSessionPrefersSessionContext(t *testing.T) {
-	s := &refresher{refreshClaimsCodec: normalizeRefreshClaimsCodec(nil)}
+	s := &refresher{legacyContextDecoder: normalizeLegacyContextDecoder(nil)}
 	authenticatedAt := time.Unix(1700000100, 0).UTC()
 	sess := sessiondomain.NewWithContexts(
 		"sid", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
@@ -32,7 +32,7 @@ func TestPrincipalFromSessionPrefersSessionContext(t *testing.T) {
 }
 
 func TestPrincipalFromSessionFallsBackToRefreshToken(t *testing.T) {
-	s := &refresher{refreshClaimsCodec: normalizeRefreshClaimsCodec(nil)}
+	s := &refresher{legacyContextDecoder: normalizeLegacyContextDecoder(nil)}
 	sess := &sessiondomain.Session{
 		SessionID: "sid", UserID: meta.FromUint64(1), LoginIdentityID: meta.FromUint64(2), TenantID: meta.FromUint64(3),
 		Status: sessiondomain.StatusActive, CreatedAt: time.Now().Add(-time.Hour), ExpiresAt: time.Now().Add(time.Hour),
@@ -50,7 +50,7 @@ func TestPrincipalFromSessionFallsBackToRefreshToken(t *testing.T) {
 }
 
 func TestPrincipalFromSessionDoesNotInventMissingHistoricalAuthTime(t *testing.T) {
-	s := &refresher{refreshClaimsCodec: normalizeRefreshClaimsCodec(nil)}
+	s := &refresher{legacyContextDecoder: normalizeLegacyContextDecoder(nil)}
 	sess := &sessiondomain.Session{
 		SessionID: "sid", UserID: meta.FromUint64(1), LoginIdentityID: meta.FromUint64(2),
 		TenantID: meta.FromUint64(3), Status: sessiondomain.StatusActive, ExpiresAt: time.Now().Add(time.Hour),

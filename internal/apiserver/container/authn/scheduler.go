@@ -11,7 +11,7 @@ type jwksRotationRuntimeOptions struct {
 	checkCron        string
 }
 
-func (m *AuthnModule) initializeSchedulers(jwksOptions apiserveroptions.JWKSOptions) {
+func (m *AuthnModule) initializeSchedulers(jwksOptions apiserveroptions.SigningKeyOptions) {
 	m.rotationOptions = jwksRotationRuntimeOptions{
 		automaticEnabled: jwksOptions.Rotation.AutomaticEnabled,
 		checkCron:        jwksOptions.Rotation.CheckCron,

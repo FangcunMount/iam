@@ -23,8 +23,9 @@ type Refresher interface {
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenRefreshResult, error)
 }
 
-// Revoker 撤销访问令牌或 refresh token，并按令牌类型收敛关联会话状态。
+// Revoker 撤销 bearer token 或 refresh token，并按令牌类型收敛关联会话状态。
 type Revoker interface {
+	// RevokeAccessToken 是已发布兼容名，可接收 access/service bearer token。
 	RevokeAccessToken(ctx context.Context, accessToken string) error
 	RevokeRefreshToken(ctx context.Context, refreshToken string) error
 }

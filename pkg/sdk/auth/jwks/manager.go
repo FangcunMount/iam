@@ -7,7 +7,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 
-// JWKSManager JWKS 密钥管理器（使用职责链模式）。
+// JWKSManager 获取、缓存并刷新远端公共 JWK Set；它不管理服务端签名私钥。
 type JWKSManager struct {
 	config *config.JWKSConfig
 	chain  KeyFetcher

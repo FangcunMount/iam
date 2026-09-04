@@ -35,7 +35,7 @@ func TestAuthnModuleInitializeWithRedisAdapters(t *testing.T) {
 	})
 
 	module := NewAuthnModule()
-	jwksOptions := *apiserveroptions.NewJWKSOptions()
+	jwksOptions := *apiserveroptions.NewSigningKeyOptions()
 	jwksOptions.AutoInit = true
 	jwksOptions.KeysDir = t.TempDir()
 	if err := module.InitializeWithDeps(AuthnModuleDeps{

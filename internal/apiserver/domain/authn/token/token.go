@@ -203,19 +203,6 @@ type VerifiedTokenClaims struct {
 	ExpiresAt time.Time
 }
 
-// TokenClaims 保留旧 application/transport 编译契约；新代码应使用 VerifiedTokenClaims。
-type TokenClaims = VerifiedTokenClaims
-
-// NewTokenClaims 创建验签后的令牌声明。
-func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID, loginIdentityID, orgID meta.ID, tenantDomain, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *VerifiedTokenClaims {
-	return &VerifiedTokenClaims{
-		TokenID: tokenID, TokenType: tokenType, Subject: subject, SessionID: sessionID,
-		UserID: userID, LoginIdentityID: loginIdentityID, OrgID: orgID, TenantDomain: tenantDomain,
-		Issuer: issuer, Audience: cloneStrings(audience), Attributes: cloneStringMap(attributes),
-		AMR: cloneStrings(amr), IssuedAt: issuedAt, ExpiresAt: expiresAt,
-	}
-}
-
 // NewVerifiedUserTokenClaims 构造并校验用户访问令牌事实。
 func NewVerifiedUserTokenClaims(claims VerifiedTokenClaims) (*VerifiedTokenClaims, error) {
 	claims.TokenType = TokenTypeAccess

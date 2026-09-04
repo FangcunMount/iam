@@ -22,7 +22,7 @@ func TestRegisterBindsJWKSAdminRoutesToExplicitActions(t *testing.T) {
 	})
 	for _, action := range []string{
 		authzapp.ActionCreate, authzapp.ActionList, authzapp.ActionRead,
-		"retire", "force_retire", "enter_grace", "cleanup", "list_publishable",
+		"retire", "force_retire", "cleanup", "list_publishable",
 	} {
 		require.Positive(t, captured[authzapp.ResourceJWKS+"/"+action], "missing JWKS action %s", action)
 	}

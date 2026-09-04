@@ -25,6 +25,9 @@ type VerifyResult struct {
 	Valid    bool
 	Claims   *TokenClaims
 	Metadata *VerifyMetadata
+	// ParsedJWT is the parsed and verified JWT object returned by the local strategy.
+	ParsedJWT jwt.Token
+	// Deprecated: use ParsedJWT. RawToken was a misleading name because the value is parsed, not raw bytes.
 	RawToken jwt.Token
 }
 

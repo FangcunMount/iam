@@ -115,7 +115,6 @@ func registerJWKSAdminEndpoints(
 		jwks.GET("/keys/:kid", permissionOrGlobal(authzapp.ResourceJWKS, authzapp.ActionRead), handler.GetKey)
 		jwks.POST("/keys/:kid/retire", permissionOrGlobal(authzapp.ResourceJWKS, "retire"), handler.RetireKey)
 		jwks.POST("/keys/:kid/force-retire", permissionOrGlobal(authzapp.ResourceJWKS, "force_retire"), handler.ForceRetireKey)
-		jwks.POST("/keys/:kid/grace", permissionOrGlobal(authzapp.ResourceJWKS, "enter_grace"), handler.EnterGracePeriod)
 		jwks.POST("/keys/cleanup", permissionOrGlobal(authzapp.ResourceJWKS, "cleanup"), handler.CleanupExpiredKeys)
 		jwks.GET("/keys/publishable", permissionOrGlobal(authzapp.ResourceJWKS, "list_publishable"), handler.GetPublishableKeys)
 	}

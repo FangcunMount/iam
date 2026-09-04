@@ -217,12 +217,15 @@ func (r *KeyRepository) Activate(ctx context.Context, request domain.ActivationR
 				result.Active = active
 				return nil
 			}
+			if err := active.EnterGrace(request.GraceUntil, request.Now); err != nil {
+				return err
+			}
 			if err := tx.Model(&KeyPO{}).
 				Where("kid = ? AND status = ?", activePO.Kid, int8(domain.KeyActive)).
 				Updates(map[string]any{
-					"status":     int8(domain.KeyGrace),
-					"not_after":  request.GraceUntil,
-					"updated_at": request.Now,
+					"status":     int8(active.Status),
+					"not_after":  active.NotAfter,
+					"updated_at": active.UpdatedAt,
 				}).Error; err != nil {
 				return fmt.Errorf("move active jwks key to grace: %w", err)
 			}

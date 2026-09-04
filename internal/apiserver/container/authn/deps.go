@@ -22,7 +22,7 @@ type AuthnModuleDeps struct {
 	EventPublisher   event.Publisher
 	Environment      genericapiserver.Environment
 	Auth             apiserveroptions.AuthOptions
-	JWKS             apiserveroptions.JWKSOptions
+	JWKS             apiserveroptions.SigningKeyOptions
 	WechatOpen       apiserveroptions.WechatOpenOptions
 	SMS              apiserveroptions.SMSOptions
 	UserStatusReader useraccess.UserStatusReader

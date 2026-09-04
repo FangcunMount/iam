@@ -51,7 +51,7 @@ type authnInfrastructureComponents struct {
 	keyManager        *keyset.KeyManager
 	keySetBuilder     *keyset.KeySetBuilder
 	keyRotation       *keyset.KeyRotation
-	jwtGenerator      *jwtinfra.Generator
+	signedJWTCodec    *jwtinfra.JWSCompactTokenCodec
 
 	tokenStore   *redisInfra.RedisStore
 	sessionStore *redisInfra.SessionStore
@@ -68,7 +68,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	userStatusReader useraccess.UserStatusReader,
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
-	jwksOptions apiserveroptions.JWKSOptions,
+	jwksOptions apiserveroptions.SigningKeyOptions,
 ) (*authnInfrastructureComponents, error) {
 	infra := &authnInfrastructureComponents{
 		db:             db,
@@ -111,7 +111,7 @@ func (m *AuthnModule) initializeInfrastructure(
 	return infra, nil
 }
 
-func configureJWKSStorage(infra *authnInfrastructureComponents, jwksOptions apiserveroptions.JWKSOptions) {
+func configureJWKSStorage(infra *authnInfrastructureComponents, jwksOptions apiserveroptions.SigningKeyOptions) {
 	keysDir := jwksOptions.KeysDir
 	if strings.TrimSpace(keysDir) == "" {
 		log.Warnw("jwks.keys_dir is empty; private keys will be looked up in current working directory", "jwks.keys_dir", keysDir)
@@ -127,12 +127,12 @@ func configureKeyServices(
 	infra *authnInfrastructureComponents,
 	environment genericapiserver.Environment,
 	authOptions apiserveroptions.AuthOptions,
-	jwksOptions apiserveroptions.JWKSOptions,
+	jwksOptions apiserveroptions.SigningKeyOptions,
 ) error {
 	policy := keyset.RotationPolicy{
-		RotationInterval: jwksOptions.Rotation.RotationInterval,
-		GracePeriod:      jwksOptions.Rotation.GracePeriod,
-		MaxKeysInJWKS:    jwksOptions.Rotation.MaxPublishableKey,
+		RotationInterval:   jwksOptions.Rotation.RotationInterval,
+		GracePeriod:        jwksOptions.Rotation.GracePeriod,
+		MaxPublishableKeys: jwksOptions.Rotation.MaxPublishableKey,
 	}
 	infra.keyManager = keyset.NewKeyManagerWithPolicy(infra.keyRepo, infra.keyGenerator, infra.privateKeyStorage, policy)
 	infra.keySetBuilder = keyset.NewKeySetBuilder(infra.keyRepo)
@@ -144,10 +144,10 @@ func configureKeyServices(
 	if err := ensureJWKSReady(infra, environment, jwksOptions, log.New(log.NewOptions())); err != nil {
 		return err
 	}
-	infra.jwtGenerator = jwtinfra.NewGenerator(
+	infra.signedJWTCodec = jwtinfra.NewJWSCompactTokenCodec(
 		authOptions.JWTIssuer,
 		authOptions.AccessTokenAudience,
-		keyset.NewJWTKeySource(infra.keyManager, infra.privKeyResolver),
+		keyset.NewJWSKeySourceAdapter(infra.keyManager, infra.privKeyResolver),
 	)
 	return nil
 }
@@ -155,7 +155,7 @@ func configureKeyServices(
 func ensureJWKSReady(
 	infra *authnInfrastructureComponents,
 	environment genericapiserver.Environment,
-	jwksOptions apiserveroptions.JWKSOptions,
+	jwksOptions apiserveroptions.SigningKeyOptions,
 	logger log.Logger,
 ) error {
 	ctx := context.Background()

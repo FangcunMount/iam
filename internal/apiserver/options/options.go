@@ -21,7 +21,7 @@ type Options struct {
 	NSQOptions              *genericoptions.NSQOptions             `json:"nsq"      mapstructure:"nsq"`
 	MigrationOptions        *genericoptions.MigrationOptions       `json:"migration" mapstructure:"migration"`
 	Auth                    *AuthOptions                           `json:"auth" mapstructure:"auth"`
-	JWKS                    *JWKSOptions                           `json:"jwks" mapstructure:"jwks"`
+	JWKS                    *SigningKeyOptions                     `json:"jwks" mapstructure:"jwks"`
 	IDP                     *IDPOptions                            `json:"idp" mapstructure:"idp"`
 	SMS                     *SMSOptions                            `json:"sms" mapstructure:"sms"`
 	Identity                *IdentityOptions                       `json:"identity" mapstructure:"identity"`
@@ -46,7 +46,7 @@ func NewOptions() *Options {
 		NSQOptions:              genericoptions.NewNSQOptions(),
 		MigrationOptions:        genericoptions.NewMigrationOptions(),
 		Auth:                    NewAuthOptions(),
-		JWKS:                    NewJWKSOptions(),
+		JWKS:                    NewSigningKeyOptions(),
 		IDP:                     NewIDPOptions(),
 		SMS:                     NewSMSOptions(),
 		Identity:                NewIdentityOptions(),
@@ -124,7 +124,7 @@ func (o *Options) ApplyDefaults() {
 		o.Auth = NewAuthOptions()
 	}
 	if o.JWKS == nil {
-		o.JWKS = NewJWKSOptions()
+		o.JWKS = NewSigningKeyOptions()
 	}
 	if o.IDP == nil {
 		o.IDP = NewIDPOptions()
