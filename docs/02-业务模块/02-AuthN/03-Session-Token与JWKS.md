@@ -26,8 +26,13 @@ JWT 负责可验证声明，Redis 负责在线撤销和续期状态，MySQL 负�
 4. 把 RefreshToken 保存到 Redis；
 5. 返回 `AuthenticationGrant = Session + UserTokenSet`。
 
-Access token 包含 user、login identity、session、tenant、auth method、realm、AMR 等声明并由当前 active key 签名。Refresh token 是不透明随机值，
-服务端存储其结构化状态。
+Access token 由当前 active RS256 key 签名，payload 是类型化投影（含 `user_id`/`login_identity_id`/`sid`/`tenant_id`/`amr`/`auth_time` 等）。
+JWT 可读但不保证机密；敏感字段默认不进入 access JWT。Refresh token 是不透明随机值，服务端只保存轮换/重放检测与 Session 关联；
+认证上下文与允许续期的投影以 Session 为权威来源。
+
+这里有四个不同对象，不能都叫“JWT Claims”：infra 的 `jwtPayloadClaims` 只负责 Payload 序列化；domain 的
+`VerifiedTokenClaims` 表达验签后的可信事实；gRPC/REST Claims 是传输 DTO；SDK `TokenClaims` 是公开兼容投影。
+JWT Header 中的 `kid/alg/typ` 不进入领域 Claims，Signature 也不是 Claims。
 
 ### 当前失败窗口
 
@@ -47,6 +52,10 @@ Session 创建成功后，若 mint 或 `SaveRefreshToken` 失败，请求返回�
 
 Session 在 Redis 中除主记录外，还维护按 User 和 LoginIdentity 的索引，以支持“退出全部设备”、禁用身份和封禁用户后的批量撤销。多键更新使用 WATCH 重试，失败必须显式返回，不能假装部分索引已经一致。
 
+新 Session 只保存强类型 `AuthContext` 与 `TokenContext`：前者持有 Method/Realm/AMR/AuthenticatedAt，后者只持有
+TenantDomain、OrgID 和准入后的 Attributes。Redis `schema_version=2` 不再写 `AuthMethod/Realm/AMR/SessionClaims`
+副本；读取历史 v1 JSON 时由 Redis adapter 映射为新模型，手机号和 provider 标识不会进入新的 TokenContext。
+
 ## 4. Refresh Token Rotation
 
 刷新流程当前按以下顺序执行：
@@ -60,6 +69,7 @@ sequenceDiagram
     C->>T: old refresh token
     T->>R: load old token
     T->>S: load active session
+    T->>T: rebuild Principal from Session
     T->>T: check User/LoginIdentity status
     T->>T: check expiry and mint new pair
     T->>S: extend to new refresh expiry
@@ -70,6 +80,13 @@ sequenceDiagram
 
 `RotateRefreshToken(oldValue, expectedOldID, newToken)` 由 Redis Lua 原子完成：只有旧值仍存在且 ID 与预期相符时，才写入新值并删除旧值。
 两个并发 refresh 只有一个能成功，另一个得到“旧 token 已消费”的冲突，而不是同时获得两组有效 refresh token。
+
+续期投影优先从 Session 重建；仅当历史 Session 缺少认证上下文时，才回退读取旧 RefreshToken 上的 `AuthMethod/Realm/AMR/SessionClaims`，并计数
+`iam_legacy_refresh_context_fallback_total`（不记录 claims 值）。新签发的 RefreshToken 不再写入这些重复字段。
+
+历史 access token 缺少顶层 `token_type` 或 `auth_time` 时，验证器会在兼容窗口内分别回退为 access 类型、
+从 `attributes.auth_time` 恢复认证时间，并计数 `iam_jwt_missing_token_type_total` 与
+`iam_jwt_legacy_attribute_auth_time_fallback_total`。删除兼容分支前，这些指标需在最大 access/refresh/session TTL 覆盖期内持续为零。
 
 ### 当前顺序的残余风险
 
@@ -102,18 +119,23 @@ Identity 的 deactivate/block 会在同一 MySQL 事务中写 session-revocation
 
 三条路由都先检查当前 Tenant，再检查平台域；不按管理员角色名称旁路。它们是管理操作，不改变退出、refresh 撤销与 Identity 状态事件的既有链路。
 
-## 6. IAM 在线验证与 SDK 本地验签不是一回事
+## 6. 三层验证语义
 
-IAM 内部 `token.verifier.VerifyToken` 对用户 token 执行：
+### Codec（JWT infra）
 
-1. 验签和标准 claims 校验；
-2. 查询 access-token revocation marker；
-3. 加载 active Session；
-4. 检查 User/LoginIdentity 当前状态。
+始终校验：`header.alg == JWK.alg == RS256`、configured canonical issuer、签名、`exp/nbf/iat`，并只解析已登记 `token_type`。
+在线 key source 只接受 active/grace 且满足 `not_before <= now < not_after` 的密钥；retired、尚未生效和已过期密钥均不能验签。
 
-对于 service token，当前验证器在识别 `TokenTypeService` 后直接返回 claims，不走用户 Session 与主体状态检查；服务访问还必须由传输层服务身份策略和 AuthZ 约束。
+### Application verification policy
 
-SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audience、clock skew 和 required claims 校验。它无法仅凭 JWKS 知道：
+在 codec 结果上约束 accepted token type 与 expected audience（集合至少一个交集）。未显式指定 token type 时安全默认只接受 `access`；
+service-only 路径必须显式接受 `service`，不再以空列表表示通用 introspection。
+
+### Domain verifier
+
+在密码学与场景策略通过后：access token 继续检查 revocation marker、active Session、Admission；service token 跳过 Session/Admission。
+
+SDK `LocalVerifyStrategy` 只覆盖 codec + 本地 policy（RS256、必填 issuer/audience、clock skew）。它无法仅凭 JWKS 知道：
 
 - token 是否刚刚被主动撤销；
 - Session 是否退出或过期；
@@ -124,7 +146,8 @@ SDK `LocalVerifyStrategy` 只从 JWKS 获取公钥并做签名、issuer、audien
 
 ## 7. JWKS 与密钥轮换
 
-服务端使用 RS256：私钥用于签名且经 AES-GCM 保护后持久化，JWKS 只发布 active/grace key 的公钥信息。密钥经历 active、grace、retired 状态，
+服务端 Token Profile 固定为 `RS256 + kid + JWS Compact`：创建/激活/轮换与 REST 参数只接受 RS256；签发要求 active key 的 `header.alg == JWK.alg == RS256`。
+私钥用于签名且经 AES-GCM 保护后持久化，JWKS 只发布 active/grace key 的公钥信息（含 `alg`）。密钥经历 active、grace、retired 状态，
 使旧 access token 在轮换后的有限窗口内仍可验证。
 
 轮换必须协调“新 key 可签名”和“验证方已能看到新公钥”。当前实现以 MySQL keyset 状态、原子 activation、内存发布快照和周期调度器完成生命周期；

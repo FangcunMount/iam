@@ -27,14 +27,17 @@ func newVerifier(tokenCodec AccessTokenCodec, tokenStore Store, sessionLoader Se
 }
 
 func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*TokenClaims, error) {
-	// 解析令牌
+	// 解析令牌（codec 负责签名、alg/kid、canonical issuer、exp/nbf/iat）
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse access token")
 	}
-	// 如果是服务令牌，则直接返回
+	// 服务令牌只做密码学验证，不进入用户 Session/Admission 路径
 	if claims.TokenType == TokenTypeService {
 		return claims, nil
+	}
+	if claims.TokenType != TokenTypeAccess {
+		return nil, perrors.WithCode(code.ErrTokenInvalid, "unsupported token type for online verification: %s", claims.TokenType)
 	}
 
 	// 检查令牌是否被撤销

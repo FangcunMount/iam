@@ -10,6 +10,7 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 )
 
 // RSAKeyGenerator RSA 密钥生成器
@@ -44,8 +45,9 @@ func (g *RSAKeyGenerator) GenerateKeyPair(ctx context.Context, algorithm, kid st
 	if !IsSupportedAlgorithm(algorithm) {
 		return nil, errors.WithCode(
 			code.ErrUnsupportedKty,
-			"unsupported algorithm: %s, supported: RS256, RS384, RS512",
+			"unsupported algorithm: %s, supported: %s",
 			algorithm,
+			pkgauth.TokenProfileAlgorithm,
 		)
 	}
 
@@ -85,18 +87,12 @@ func (g *RSAKeyGenerator) GenerateKeyPair(ctx context.Context, algorithm, kid st
 
 // SupportedAlgorithms 返回支持的算法列表
 func (g *RSAKeyGenerator) SupportedAlgorithms() []string {
-	return []string{"RS256", "RS384", "RS512"}
+	return []string{pkgauth.TokenProfileAlgorithm}
 }
 
 // IsSupportedAlgorithm 检查是否支持该算法
 func IsSupportedAlgorithm(algorithm string) bool {
-	supportedAlgorithms := []string{"RS256", "RS384", "RS512"}
-	for _, supported := range supportedAlgorithms {
-		if algorithm == supported {
-			return true
-		}
-	}
-	return false
+	return algorithm == pkgauth.TokenProfileAlgorithm
 }
 
 // getKeySizeForAlgorithm 根据算法获取推荐的密钥大小
@@ -154,29 +150,13 @@ func ValidateKeySize(keySize int) error {
 // GetAlgorithmInfo 获取算法信息
 func GetAlgorithmInfo(algorithm string) *AlgorithmInfo {
 	switch algorithm {
-	case "RS256":
+	case pkgauth.TokenProfileAlgorithm:
 		return &AlgorithmInfo{
-			Algorithm:       "RS256",
+			Algorithm:       pkgauth.TokenProfileAlgorithm,
 			HashAlgorithm:   "SHA-256",
 			RecommendedSize: 2048,
 			MinimumSize:     2048,
 			Description:     "RSA Signature with SHA-256",
-		}
-	case "RS384":
-		return &AlgorithmInfo{
-			Algorithm:       "RS384",
-			HashAlgorithm:   "SHA-384",
-			RecommendedSize: 2048,
-			MinimumSize:     2048,
-			Description:     "RSA Signature with SHA-384",
-		}
-	case "RS512":
-		return &AlgorithmInfo{
-			Algorithm:       "RS512",
-			HashAlgorithm:   "SHA-512",
-			RecommendedSize: 4096,
-			MinimumSize:     2048,
-			Description:     "RSA Signature with SHA-512",
 		}
 	default:
 		return nil

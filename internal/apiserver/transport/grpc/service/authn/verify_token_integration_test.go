@@ -115,12 +115,12 @@ type fixedSigningKeySource struct {
 	key *rsa.PrivateKey
 }
 
-func (s fixedSigningKeySource) ActiveSigningKey(context.Context) (string, *rsa.PrivateKey, error) {
-	return s.kid, s.key, nil
+func (s fixedSigningKeySource) ActiveSigningKey(context.Context) (*tokenjwt.SigningKey, error) {
+	return &tokenjwt.SigningKey{Kid: s.kid, Algorithm: "RS256", PrivateKey: s.key}, nil
 }
 
-func (s fixedSigningKeySource) VerificationKey(context.Context, string) (*rsa.PublicKey, error) {
-	return &s.key.PublicKey, nil
+func (s fixedSigningKeySource) VerificationKey(context.Context, string) (*tokenjwt.VerificationKey, error) {
+	return &tokenjwt.VerificationKey{Kid: s.kid, Algorithm: "RS256", PublicKey: &s.key.PublicKey}, nil
 }
 
 func newTestTokenStack(t *testing.T) (
@@ -161,11 +161,10 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	principal := &authentication.Principal{
 		UserID:          meta.FromUint64(1001),
 		LoginIdentityID: meta.FromUint64(2002),
-		AMR:             []string{string(authentication.AMRPassword)},
-		Claims: map[string]any{
-			"phone_number":  "+8613800138000",
-			"tenant_domain": "fangcun",
-			"org_id":        "9001",
+		AuthContext:     authentication.NewAuthenticationContext(authentication.MethodPassword, "global", []authentication.AMR{authentication.AMRPassword}, time.Now().UTC()),
+		TokenContext: authentication.TokenContext{
+			TenantDomain: "fangcun",
+			OrgID:        meta.FromUint64(9001),
 		},
 	}
 
@@ -184,7 +183,9 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.Equal(t, "1001", parsed.UserID.String())
 	require.Equal(t, "2002", parsed.LoginIdentityID.String())
 	require.Equal(t, []string{string(authentication.AMRPassword)}, parsed.AMR)
-	require.Equal(t, "+8613800138000", parsed.Attributes["phone_number"])
+	require.NotContains(t, parsed.Attributes, "phone_number")
+	require.NotZero(t, parsed.AuthenticatedAt)
+	require.Contains(t, parsed.Attributes, "auth_time")
 
 	// gRPC VerifyToken
 	grpcSrv := &authServiceServer{tokenVerifier: tokens.Verifier}
@@ -197,7 +198,8 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.Equal(t, "fangcun", gresp.Claims.TenantId)
 	require.Equal(t, "9001", gresp.Claims.OrgId)
 	require.Equal(t, []string{string(authentication.AMRPassword)}, gresp.Claims.Amr)
-	require.Equal(t, "+8613800138000", gresp.Claims.Attributes["phone_number"])
+	require.NotContains(t, gresp.Claims.Attributes, "phone_number")
+	require.Contains(t, gresp.Claims.Attributes, "auth_time")
 
 	gresp, err = grpcSrv.VerifyToken(ctx, &authnv2.VerifyTokenRequest{
 		AccessToken:      access,
@@ -229,14 +231,22 @@ func TestIntegration_LoginIssueToken_VerifyToken_GRPC_REST_TenantConsistent(t *t
 	require.NotNil(t, tv.Claims)
 	require.Equal(t, "1001", tv.Claims.UserID)
 	require.Equal(t, "2002", tv.Claims.LoginIdentityID)
-	// REST verify 仍暴露 legacy *int64 tenant_id；新 token 授权域/org 以 gRPC 为准
 	require.Nil(t, tv.Claims.TenantID)
+	require.Equal(t, "fangcun", tv.Claims.TenantDomain)
+	require.Equal(t, "9001", tv.Claims.OrgID)
 
 	// 与 gRPC 声明对齐（时间字段由同一套 claims 产生）
 	require.Equal(t, gresp.Claims.UserId, tv.Claims.UserID)
 	require.Equal(t, gresp.Claims.LoginIdentityId, tv.Claims.LoginIdentityID)
+	require.Equal(t, gresp.Claims.TenantDomain, tv.Claims.TenantDomain)
+	require.Equal(t, gresp.Claims.OrgId, tv.Claims.OrgID)
 	require.Equal(t, gresp.Claims.Amr, tv.Claims.Amr)
-	require.Equal(t, "+8613800138000", tv.Claims.Attributes["phone_number"])
+	require.Equal(t, "access", tv.Claims.TokenType)
+	require.Equal(t, authnv2.TokenType_TOKEN_TYPE_ACCESS, gresp.Claims.TokenType)
+	require.NotZero(t, tv.Claims.NotBefore)
+	require.NotZero(t, tv.Claims.AuthenticatedAt)
+	require.NotContains(t, tv.Claims.Attributes, "phone_number")
+	require.Contains(t, tv.Claims.Attributes, "auth_time")
 }
 
 func TestIntegration_VerifyToken_RejectsIssuerOrAudienceMismatch(t *testing.T) {

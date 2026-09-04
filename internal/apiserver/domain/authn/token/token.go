@@ -1,6 +1,8 @@
 package token
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -72,9 +74,6 @@ type AccessToken struct {
 	LoginIdentityID meta.ID // 登录身份ID
 	TenantID        meta.ID // 租户ID
 
-	// —— 认证信息 —— //
-	AuthMethod string // 认证方法
-	Realm      string // 认证域
 }
 
 func (*AccessToken) Kind() TokenType { return TokenTypeAccess }
@@ -103,6 +102,7 @@ type RefreshToken struct {
 	TenantID        meta.ID // 租户ID
 
 	// —— 认证信息 —— //
+	// Deprecated: 以下字段只用于读取迁移前 Redis refresh JSON；新签发不再写入。
 	AuthMethod    string            // 认证方法
 	Realm         string            // 认证域
 	AMR           []string          // 认证方法引用
@@ -173,10 +173,9 @@ type ConsumedRefreshToken struct {
 	UserID    meta.ID
 }
 
-// TokenClaims 令牌声明
-// 是验签后得到的令牌领域声明，不暴露 JWT Header/Signature。
-// 令牌声明包含令牌的元数据、主体、认证、属性、时间等信息。
-type TokenClaims struct {
+// VerifiedTokenClaims 是验签、标准时间校验和 canonical issuer 校验后得到的领域事实。
+// 它不是 JWT wire model，也不包含 JWT Header/Signature。
+type VerifiedTokenClaims struct {
 	// —— 令牌元数据 —— //
 	TokenID   string
 	TokenType TokenType
@@ -187,13 +186,11 @@ type TokenClaims struct {
 	UserID          meta.ID
 	LoginIdentityID meta.ID
 	TenantDomain    string
-	TenantID        meta.ID
 	OrgID           meta.ID
 
 	// —— 令牌认证 —— //
-	AuthMethod string
-	Realm      string
-	Issuer     string
+	Issuer          string
+	AuthenticatedAt time.Time
 
 	// —— 令牌属性 —— //
 	Audience   []string
@@ -202,12 +199,16 @@ type TokenClaims struct {
 
 	// —— 令牌时间 —— //
 	IssuedAt  time.Time
+	NotBefore time.Time
 	ExpiresAt time.Time
 }
 
+// TokenClaims 保留旧 application/transport 编译契约；新代码应使用 VerifiedTokenClaims。
+type TokenClaims = VerifiedTokenClaims
+
 // NewTokenClaims 创建验签后的令牌声明。
-func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID, loginIdentityID, orgID meta.ID, tenantDomain, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *TokenClaims {
-	return &TokenClaims{
+func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, userID, loginIdentityID, orgID meta.ID, tenantDomain, issuer string, audience []string, attributes map[string]string, amr []string, issuedAt, expiresAt time.Time) *VerifiedTokenClaims {
+	return &VerifiedTokenClaims{
 		TokenID: tokenID, TokenType: tokenType, Subject: subject, SessionID: sessionID,
 		UserID: userID, LoginIdentityID: loginIdentityID, OrgID: orgID, TenantDomain: tenantDomain,
 		Issuer: issuer, Audience: cloneStrings(audience), Attributes: cloneStringMap(attributes),
@@ -215,13 +216,89 @@ func NewTokenClaims(tokenType TokenType, tokenID, subject, sessionID string, use
 	}
 }
 
+// NewVerifiedUserTokenClaims 构造并校验用户访问令牌事实。
+func NewVerifiedUserTokenClaims(claims VerifiedTokenClaims) (*VerifiedTokenClaims, error) {
+	claims.TokenType = TokenTypeAccess
+	claims.normalize()
+	if err := claims.Validate(); err != nil {
+		return nil, err
+	}
+	return &claims, nil
+}
+
+// NewVerifiedServiceClaims 构造并校验服务令牌事实。
+func NewVerifiedServiceClaims(claims VerifiedTokenClaims) (*VerifiedTokenClaims, error) {
+	claims.TokenType = TokenTypeService
+	claims.normalize()
+	if err := claims.Validate(); err != nil {
+		return nil, err
+	}
+	return &claims, nil
+}
+
+// Validate 校验验签后仍需满足的类型相关领域不变量。
+func (c *VerifiedTokenClaims) Validate() error {
+	if c == nil {
+		return fmt.Errorf("verified token claims are required")
+	}
+	if strings.TrimSpace(c.TokenID) == "" || strings.TrimSpace(c.Subject) == "" || strings.TrimSpace(c.Issuer) == "" {
+		return fmt.Errorf("jti, sub and iss are required")
+	}
+	if len(c.Audience) == 0 {
+		return fmt.Errorf("aud is required")
+	}
+	if c.IssuedAt.IsZero() || c.NotBefore.IsZero() || c.ExpiresAt.IsZero() {
+		return fmt.Errorf("iat, nbf and exp are required")
+	}
+	if c.ExpiresAt.Before(c.NotBefore) || c.ExpiresAt.Equal(c.NotBefore) {
+		return fmt.Errorf("exp must be after nbf")
+	}
+	switch c.TokenType {
+	case TokenTypeAccess:
+		if strings.TrimSpace(c.SessionID) == "" || c.UserID.IsZero() || c.LoginIdentityID.IsZero() {
+			return fmt.Errorf("access token requires sid, user_id and login_identity_id")
+		}
+		if c.Subject != c.UserID.String() {
+			return fmt.Errorf("access token sub must equal user_id")
+		}
+	case TokenTypeService:
+		if c.SessionID != "" || !c.UserID.IsZero() || !c.LoginIdentityID.IsZero() {
+			return fmt.Errorf("service token must not contain user session identity")
+		}
+	default:
+		return fmt.Errorf("unsupported token type %q", c.TokenType)
+	}
+	return nil
+}
+
+func (c *VerifiedTokenClaims) normalize() {
+	c.TokenID = strings.TrimSpace(c.TokenID)
+	c.Subject = strings.TrimSpace(c.Subject)
+	c.SessionID = strings.TrimSpace(c.SessionID)
+	c.Issuer = strings.TrimSpace(c.Issuer)
+	c.TenantDomain = strings.TrimSpace(c.TenantDomain)
+	c.Audience = cloneStrings(c.Audience)
+	c.Attributes = cloneStringMap(c.Attributes)
+	c.AMR = cloneStrings(c.AMR)
+	c.IssuedAt = c.IssuedAt.UTC()
+	c.NotBefore = c.NotBefore.UTC()
+	c.ExpiresAt = c.ExpiresAt.UTC()
+	if !c.AuthenticatedAt.IsZero() {
+		c.AuthenticatedAt = c.AuthenticatedAt.UTC()
+	}
+}
+
 // IsExpiredAt 返回声明在指定时刻是否已过期。
-func (c *TokenClaims) IsExpiredAt(now time.Time) bool {
+func (c *VerifiedTokenClaims) IsExpiredAt(now time.Time) bool {
 	return c == nil || now.After(c.ExpiresAt)
 }
 
 // IsExpired 返回声明当前是否已过期。
-func (c *TokenClaims) IsExpired() bool { return c.IsExpiredAt(time.Now()) }
+func (c *VerifiedTokenClaims) IsExpired() bool { return c.IsExpiredAt(time.Now()) }
+
+func (c *VerifiedTokenClaims) IsNotYetValidAt(now time.Time) bool {
+	return c == nil || (!c.NotBefore.IsZero() && now.Before(c.NotBefore))
+}
 
 func cloneStrings(in []string) []string {
 	if len(in) == 0 {

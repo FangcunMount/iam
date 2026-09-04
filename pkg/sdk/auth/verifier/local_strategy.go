@@ -73,6 +73,9 @@ func (s *LocalVerifyStrategy) Verify(ctx context.Context, tokenString string, op
 	}
 
 	claims := extractClaims(token)
+	if err := policy.validateTokenType(claims.TokenType); err != nil {
+		return nil, err
+	}
 	return &VerifyResult{
 		Valid:    true,
 		Claims:   claims,

@@ -116,7 +116,7 @@ result, _ := verifier.Verify(ctx, token, nil)
 
 // 3️⃣ 使用结果
 if result.Valid {
-    log.Printf("用户: %s, 角色: %v", result.Claims.UserID, result.Claims.Roles)
+	log.Printf("用户: %s, 认证手段: %v", result.Claims.UserID, result.Claims.AMR)
     log.Printf("会话: %s", result.Claims.SessionID)
 }
 ```
@@ -360,16 +360,15 @@ type TokenClaims struct {
     LoginIdentityID string
     TenantDomain    string // IAM 授权域（JWT tenant_id）
     OrgID           string // 业务组织（JWT org_id 透传）
-    TenantID        string // Deprecated: 与 TenantDomain 相同，非业务 org
     Issuer          string
     Audience        []string
     IssuedAt        time.Time
     ExpiresAt       time.Time
     NotBefore       time.Time
-    Roles           []string
-    Scopes          []string
     TokenType       string
     AMR             []string
+    AuthenticatedAt time.Time
+    Attributes      map[string]string
     Extra           map[string]interface{}
 }
 
@@ -391,16 +390,16 @@ if orgID, ok := result.Claims.BusinessOrgID(); ok {
     log.Printf("org_id=%d domain=%s", orgID, domain)
 }
 
-// 检查角色
-if contains(result.Claims.Roles, "admin") {
-    log.Println("管理员用户")
-}
+// 角色和权限不进入 AuthN JWT；请调用 AuthZ 能力完成授权判断。
 
 // 检查过期
 if time.Now().After(result.Claims.ExpiresAt) {
     log.Println("Token 已过期")
 }
 ```
+
+`VerifyOptions.AllowedTokenTypes` 默认仅包含 `TOKEN_TYPE_ACCESS`。验证服务令牌时必须显式传入
+`TOKEN_TYPE_SERVICE`；本地和远端策略执行同一 token-type 约束。
 
 ## 高级用法
 

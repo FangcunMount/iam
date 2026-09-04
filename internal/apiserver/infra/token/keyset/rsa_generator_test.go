@@ -37,10 +37,8 @@ func TestRSAKeyGenerator_SupportedAlgorithms(t *testing.T) {
 	gen := NewRSAKeyGenerator()
 	algs := gen.SupportedAlgorithms()
 
-	assert.Len(t, algs, 3)
+	assert.Len(t, algs, 1)
 	assert.Contains(t, algs, "RS256")
-	assert.Contains(t, algs, "RS384")
-	assert.Contains(t, algs, "RS512")
 }
 
 func TestRSAKeyGenerator_GenerateKeyPair(t *testing.T) {
@@ -60,16 +58,16 @@ func TestRSAKeyGenerator_GenerateKeyPair(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "RS384 成功",
+			name:    "拒绝 RS384",
 			alg:     "RS384",
 			kid:     "test-kid-384",
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name:    "RS512 成功",
+			name:    "拒绝 RS512",
 			alg:     "RS512",
 			kid:     "test-kid-512",
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name:    "不支持的算法",
@@ -192,24 +190,8 @@ func TestGetAlgorithmInfo(t *testing.T) {
 			wantMinSize: 2048,
 			wantDesc:    "RSA Signature with SHA-256",
 		},
-		{
-			name:        "RS384",
-			alg:         "RS384",
-			wantNil:     false,
-			wantHash:    "SHA-384",
-			wantRecSize: 2048,
-			wantMinSize: 2048,
-			wantDesc:    "RSA Signature with SHA-384",
-		},
-		{
-			name:        "RS512",
-			alg:         "RS512",
-			wantNil:     false,
-			wantHash:    "SHA-512",
-			wantRecSize: 4096,
-			wantMinSize: 2048,
-			wantDesc:    "RSA Signature with SHA-512",
-		},
+		{name: "RS384", alg: "RS384", wantNil: true},
+		{name: "RS512", alg: "RS512", wantNil: true},
 		{
 			name:    "Unknown algorithm",
 			alg:     "RS128",
@@ -256,7 +238,7 @@ func BenchmarkRSAKeyGenerator_GenerateKeyPair_4096(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := gen.GenerateKeyPair(ctx, "RS512", "bench-kid")
+		_, err := gen.GenerateKeyPair(ctx, "RS256", "bench-kid")
 		if err != nil {
 			b.Fatal(err)
 		}

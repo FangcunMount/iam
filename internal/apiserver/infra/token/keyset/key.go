@@ -206,11 +206,19 @@ func (k *Key) IsRetired() bool {
 }
 
 func (k *Key) CanSign() bool {
-	return k.IsActive() && !k.IsExpired(time.Now())
+	return k.CanSignAt(time.Now())
 }
 
 func (k *Key) CanVerify() bool {
-	return (k.IsActive() || k.IsGrace()) && !k.IsExpired(time.Now())
+	return k.CanVerifyAt(time.Now())
+}
+
+func (k *Key) CanSignAt(now time.Time) bool {
+	return k != nil && k.IsActive() && k.IsValidAt(now)
+}
+
+func (k *Key) CanVerifyAt(now time.Time) bool {
+	return k != nil && (k.IsActive() || k.IsGrace()) && k.IsValidAt(now)
 }
 
 func (k *Key) ShouldPublish() bool {
@@ -218,7 +226,7 @@ func (k *Key) ShouldPublish() bool {
 }
 
 func (k *Key) IsExpired(now time.Time) bool {
-	return k.NotAfter != nil && now.After(*k.NotAfter)
+	return k.NotAfter != nil && !now.Before(*k.NotAfter)
 }
 
 func (k *Key) IsNotYetValid(now time.Time) bool {

@@ -18,14 +18,21 @@ type TokenVerifyResponse struct {
 
 // TokenClaims JWT 声明
 type TokenClaims struct {
-	UserID          string            `json:"user_id"`             // 用户 ID
-	LoginIdentityID string            `json:"login_identity_id"`   // 登录身份 ID
-	TenantID        *int64            `json:"tenant_id,omitempty"` // 租户 ID（可选）
-	Issuer          string            `json:"issuer"`              // 签发者
-	IssuedAt        time.Time         `json:"issued_at"`           // 签发时间
-	ExpiresAt       time.Time         `json:"expires_at"`          // 过期时间
-	JTI             string            `json:"jti,omitempty"`       // JWT ID（可选）
-	KID             string            `json:"kid,omitempty"`       // Key ID（可选）
+	UserID          string            `json:"user_id"`                    // 用户 ID
+	LoginIdentityID string            `json:"login_identity_id"`          // 登录身份 ID
+	TenantID        *int64            `json:"tenant_id,omitempty"`        // 历史租户数值 ID（兼容字段）
+	TenantDomain    string            `json:"tenant_domain,omitempty"`    // IAM 授权域
+	OrgID           string            `json:"org_id,omitempty"`           // 业务组织 ID
+	Subject         string            `json:"subject,omitempty"`          // 主体
+	SessionID       string            `json:"session_id,omitempty"`       // 会话 ID
+	Audience        []string          `json:"audience,omitempty"`         // 受众
+	Issuer          string            `json:"issuer"`                     // 签发者
+	IssuedAt        time.Time         `json:"issued_at"`                  // 签发时间
+	NotBefore       time.Time         `json:"not_before"`                 // 生效时间
+	ExpiresAt       time.Time         `json:"expires_at"`                 // 过期时间
+	AuthenticatedAt time.Time         `json:"authenticated_at,omitempty"` // 原始认证时间
+	TokenType       string            `json:"token_type"`                 // access/service
+	JTI             string            `json:"jti,omitempty"`              // JWT ID（可选）
 	Amr             []string          `json:"amr,omitempty"`
 	Attributes      map[string]string `json:"attributes,omitempty"`
 }

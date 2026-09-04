@@ -3,6 +3,7 @@ package session
 import (
 	"time"
 
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
@@ -28,10 +29,8 @@ type Session struct {
 	TenantID        meta.ID // 租户ID
 
 	// —— 认证信息 —— //
-	AuthMethod    string            // 认证方式
-	Realm         string            // 认证域
-	AMR           []string          // 认证方法引用
-	SessionClaims map[string]string // 认证声明
+	AuthContext  authentication.AuthenticationContext
+	TokenContext authentication.TokenContext
 
 	// —— 状态信息 —— //
 	Status       Status     // 状态
@@ -42,19 +41,13 @@ type Session struct {
 	RevokedBy    string     // 撤销者
 }
 
-// New 创建一个新的活跃会话。
-func New(sessionID string, userID, loginIdentityID, tenantID meta.ID, amr []string, sessionClaims map[string]string, expiresAt time.Time) *Session {
+// NewWithContexts 创建以强类型认证上下文和令牌上下文为权威来源的会话。
+func NewWithContexts(sessionID string, userID, loginIdentityID, tenantID meta.ID, authContext authentication.AuthenticationContext, tokenContext authentication.TokenContext, expiresAt time.Time) *Session {
 	now := time.Now()
 	return &Session{
-		SessionID:       sessionID,
-		UserID:          userID,
-		LoginIdentityID: loginIdentityID,
-		TenantID:        tenantID,
-		Status:          StatusActive,
-		AMR:             cloneStrings(amr),
-		SessionClaims:   cloneStringMap(sessionClaims),
-		CreatedAt:       now,
-		ExpiresAt:       expiresAt,
+		SessionID: sessionID, UserID: userID, LoginIdentityID: loginIdentityID, TenantID: tenantID,
+		AuthContext: authContext.Clone(), TokenContext: tokenContext.Clone(),
+		Status: StatusActive, CreatedAt: now, ExpiresAt: expiresAt,
 	}
 }
 
@@ -106,24 +99,4 @@ func (s *Session) Extend(expiresAt time.Time) {
 	if s.Status == StatusExpired {
 		s.Status = StatusActive
 	}
-}
-
-func cloneStrings(in []string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]string, len(in))
-	copy(out, in)
-	return out
-}
-
-func cloneStringMap(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
 }

@@ -44,9 +44,10 @@ func (m *JWTAuthMiddleware) AuthRequired() gin.HandlerFunc {
 
 		// 不记录完整 token，仅在中央验证处输出必要信息
 
-		// 验证令牌
+		// 验证令牌：资源访问中间件只接受用户 access token。
 		resp, err := m.verifier.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
-			AccessToken: tokenValue,
+			AccessToken:        tokenValue,
+			AcceptedTokenTypes: []token.TokenType{token.TokenTypeAccess},
 		})
 		if err != nil {
 			log.Errorw("token verification request failed",

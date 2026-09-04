@@ -10,10 +10,11 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
-	redisstore "github.com/FangcunMount/component-base/pkg/redis/store"
 	cachegovernance "github.com/FangcunMount/iam/v3/internal/apiserver/application/cachegovernance"
 	cachemodel "github.com/FangcunMount/iam/v3/internal/apiserver/cache"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	sessiondomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
+	"github.com/FangcunMount/iam/v3/internal/pkg/authnclaims"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/redis/go-redis/v9"
@@ -26,8 +27,7 @@ const (
 
 // SessionStore 基于 Redis 承载认证会话与用户/登录身份索引。
 type SessionStore struct {
-	client       *redis.Client
-	sessionStore *redisstore.ValueStore[*sessiondomain.Session]
+	client *redis.Client
 }
 
 var _ sessiondomain.Store = (*SessionStore)(nil)
@@ -35,9 +35,48 @@ var _ sessiondomain.Store = (*SessionStore)(nil)
 // NewSessionStore 创建 Redis 会话存储。
 func NewSessionStore(client *redis.Client) *SessionStore {
 	return &SessionStore{
-		client:       client,
-		sessionStore: newJSONStore[*sessiondomain.Session](client),
+		client: client,
 	}
+}
+
+const currentSessionSchemaVersion = 2
+
+type sessionAuthenticationContextData struct {
+	Method          string    `json:"method,omitempty"`
+	Realm           string    `json:"realm,omitempty"`
+	AMR             []string  `json:"amr,omitempty"`
+	AuthenticatedAt time.Time `json:"authenticated_at,omitempty"`
+}
+
+type sessionTokenContextData struct {
+	TenantDomain string            `json:"tenant_domain,omitempty"`
+	OrgID        uint64            `json:"org_id,omitempty"`
+	Attributes   map[string]string `json:"attributes,omitempty"`
+}
+
+// sessionData 是 Redis wire model。PascalCase 字段用于兼容既有 JSON；
+// schema_version/auth_context/token_context 是新写入的强类型扩展。
+type sessionData struct {
+	SchemaVersion   int                               `json:"schema_version,omitempty"`
+	SessionID       string                            `json:"SessionID"`
+	UserID          uint64                            `json:"UserID"`
+	LoginIdentityID uint64                            `json:"LoginIdentityID"`
+	TenantID        uint64                            `json:"TenantID"`
+	AuthContext     *sessionAuthenticationContextData `json:"auth_context,omitempty"`
+	TokenContext    *sessionTokenContextData          `json:"token_context,omitempty"`
+	Status          sessiondomain.Status              `json:"Status"`
+	CreatedAt       time.Time                         `json:"CreatedAt"`
+	ExpiresAt       time.Time                         `json:"ExpiresAt"`
+	RevokedAt       *time.Time                        `json:"RevokedAt,omitempty"`
+	RevokeReason    string                            `json:"RevokeReason,omitempty"`
+	RevokedBy       string                            `json:"RevokedBy,omitempty"`
+
+	// 仅用于读取 v1 历史 JSON；v2 写入不再填充。
+	AuthMethod      string            `json:"AuthMethod,omitempty"`
+	Realm           string            `json:"Realm,omitempty"`
+	AMR             []string          `json:"AMR,omitempty"`
+	AuthenticatedAt time.Time         `json:"AuthenticatedAt,omitempty"`
+	SessionClaims   map[string]string `json:"SessionClaims,omitempty"`
 }
 
 // Save 保存或覆盖会话主对象，并维护用户/登录身份索引。
@@ -52,7 +91,7 @@ func (s *SessionStore) Save(ctx context.Context, sess *sessiondomain.Session) er
 	if ttl <= 0 {
 		return fmt.Errorf("session ttl must be positive")
 	}
-	payload, err := json.Marshal(sess)
+	payload, err := encodeSessionPayload(sess)
 	if err != nil {
 		return fmt.Errorf("encode session payload: %w", err)
 	}
@@ -72,13 +111,16 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (*sessiondomai
 	if s == nil || s.client == nil {
 		return nil, fmt.Errorf("redis client is nil")
 	}
-	key, err := newStoreKey(sessionRedisKey(sessionID))
+	payload, err := s.client.Get(ctx, sessionRedisKey(sessionID)).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	sess, found, err := s.sessionStore.Get(ctx, key)
-	if err != nil || !found {
-		return sess, err
+	sess, err := decodeSessionPayload(payload)
+	if err != nil {
+		return nil, err
 	}
 	if sess != nil && sess.IsExpired() && sess.Status == sessiondomain.StatusActive {
 		sess.Status = sessiondomain.StatusExpired
@@ -98,7 +140,7 @@ func (s *SessionStore) Revoke(ctx context.Context, sessionID string, reason stri
 			return err
 		}
 		sess.Revoke(reason, revokedBy)
-		payload, err := json.Marshal(sess)
+		payload, err := encodeSessionPayload(sess)
 		if err != nil {
 			return fmt.Errorf("encode revoked session: %w", err)
 		}
@@ -135,7 +177,7 @@ func (s *SessionStore) Extend(ctx context.Context, sessionID string, expiresAt t
 		if ttl <= 0 {
 			return perrors.WithCode(code.ErrSessionInactive, "session extension must remain active")
 		}
-		payload, err := json.Marshal(sess)
+		payload, err := encodeSessionPayload(sess)
 		if err != nil {
 			return fmt.Errorf("encode extended session: %w", err)
 		}
@@ -207,11 +249,92 @@ func loadSessionForTransaction(ctx context.Context, tx *redis.Tx, key string) (*
 	if err != nil {
 		return nil, fmt.Errorf("load session transaction payload: %w", err)
 	}
-	var sess sessiondomain.Session
-	if err := json.Unmarshal(payload, &sess); err != nil {
-		return nil, fmt.Errorf("decode session transaction payload: %w", err)
+	return decodeSessionPayload(payload)
+}
+
+func encodeSessionPayload(sess *sessiondomain.Session) ([]byte, error) {
+	if sess == nil {
+		return nil, fmt.Errorf("session is nil")
 	}
-	return &sess, nil
+	authContext := sess.AuthContext.Clone()
+	tokenContext := sess.TokenContext.Clone()
+	data := sessionData{
+		SchemaVersion: currentSessionSchemaVersion,
+		SessionID:     sess.SessionID, UserID: sess.UserID.Uint64(), LoginIdentityID: sess.LoginIdentityID.Uint64(), TenantID: sess.TenantID.Uint64(),
+		AuthContext: &sessionAuthenticationContextData{
+			Method: string(authContext.Method), Realm: authContext.Realm,
+			AMR: authContext.AMRStrings(), AuthenticatedAt: authContext.AuthenticatedAt,
+		},
+		TokenContext: &sessionTokenContextData{
+			TenantDomain: tokenContext.TenantDomain, OrgID: tokenContext.OrgID.Uint64(), Attributes: tokenContext.Attributes,
+		},
+		Status: sess.Status, CreatedAt: sess.CreatedAt, ExpiresAt: sess.ExpiresAt,
+		RevokedAt: sess.RevokedAt, RevokeReason: sess.RevokeReason, RevokedBy: sess.RevokedBy,
+	}
+	return json.Marshal(data)
+}
+
+func decodeSessionPayload(payload []byte) (*sessiondomain.Session, error) {
+	var data sessionData
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return nil, fmt.Errorf("decode session payload: %w", err)
+	}
+	authContext := authentication.RestoreAuthenticationContext(
+		authentication.Method(data.AuthMethod), data.Realm, amrValues(data.AMR), data.AuthenticatedAt,
+	)
+	if data.AuthContext != nil {
+		authContext = authentication.RestoreAuthenticationContext(
+			authentication.Method(data.AuthContext.Method), data.AuthContext.Realm,
+			amrValues(data.AuthContext.AMR), data.AuthContext.AuthenticatedAt,
+		)
+	}
+	tokenContext := authentication.TokenContext{}
+	if data.TokenContext != nil {
+		tokenContext = authentication.TokenContext{
+			TenantDomain: data.TokenContext.TenantDomain,
+			OrgID:        meta.FromUint64(data.TokenContext.OrgID),
+			Attributes:   cloneStringValues(data.TokenContext.Attributes),
+		}
+	} else if len(data.SessionClaims) > 0 {
+		legacy := authnclaims.DecodeSnapshot(data.SessionClaims)
+		if domain, ok := legacy["tenant_domain"].(string); ok {
+			tokenContext.TenantDomain = domain
+		}
+		if raw, ok := legacy["org_id"].(string); ok {
+			if id, err := meta.ParseID(raw); err == nil {
+				tokenContext.OrgID = id
+			}
+		}
+		tokenContext.Attributes = authnclaims.EncodeJWTAttributes(legacy)
+	}
+	sess := &sessiondomain.Session{
+		SessionID: data.SessionID, UserID: meta.FromUint64(data.UserID), LoginIdentityID: meta.FromUint64(data.LoginIdentityID), TenantID: meta.FromUint64(data.TenantID),
+		AuthContext: authContext, TokenContext: tokenContext,
+		Status: data.Status, CreatedAt: data.CreatedAt, ExpiresAt: data.ExpiresAt,
+		RevokedAt: data.RevokedAt, RevokeReason: data.RevokeReason, RevokedBy: data.RevokedBy,
+	}
+	return sess, nil
+}
+
+func amrValues(values []string) []authentication.AMR {
+	out := make([]authentication.AMR, 0, len(values))
+	for _, value := range values {
+		if value != "" {
+			out = append(out, authentication.AMR(value))
+		}
+	}
+	return out
+}
+
+func cloneStringValues(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func (s *SessionStore) withSessionTransactionRetry(

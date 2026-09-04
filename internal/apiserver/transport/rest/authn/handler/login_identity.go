@@ -351,7 +351,14 @@ func currentAuthenticatedAt(c *gin.Context) *time.Time {
 		return nil
 	}
 	claims, ok := raw.(*tokenapp.TokenClaims)
-	if !ok || claims == nil || len(claims.Attributes) == 0 {
+	if !ok || claims == nil {
+		return nil
+	}
+	if !claims.AuthenticatedAt.IsZero() {
+		authTime := claims.AuthenticatedAt.UTC()
+		return &authTime
+	}
+	if len(claims.Attributes) == 0 {
 		return nil
 	}
 	authTime := strings.TrimSpace(claims.Attributes["auth_time"])

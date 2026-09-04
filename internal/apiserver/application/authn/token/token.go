@@ -100,7 +100,7 @@ func tokenFromAccess(token *tokendomain.AccessToken) *Token {
 	return &Token{
 		ID: token.ID, Type: TokenTypeAccess, Value: token.Value, Subject: token.Subject,
 		SessionID: token.SessionID, UserID: token.UserID, LoginIdentityID: token.LoginIdentityID,
-		TenantID: token.TenantID, AuthMethod: token.AuthMethod, Realm: token.Realm,
+		TenantID: token.TenantID,
 		IssuedAt: token.IssuedAt, ExpiresAt: token.ExpiresAt,
 	}
 }

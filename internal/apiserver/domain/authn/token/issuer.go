@@ -13,17 +13,15 @@ import (
 
 // tokenSetMinter 是用户令牌颁发器的实现。
 type tokenSetMinter struct {
-	tokenCodec         AccessTokenCodec
-	refreshExpirer     SessionRefreshExpirer
-	refreshClaimsCodec RefreshClaimsCodec
-	accessTTL          time.Duration
+	tokenCodec     AccessTokenCodec
+	refreshExpirer SessionRefreshExpirer
+	accessTTL      time.Duration
 }
 
 // newTokenSetMinter 创建用户令牌颁发器。
-func newTokenSetMinter(tokenCodec AccessTokenCodec, refreshExpirer SessionRefreshExpirer, refreshClaimsCodec RefreshClaimsCodec, accessTTL time.Duration) TokenSetMinter {
+func newTokenSetMinter(tokenCodec AccessTokenCodec, refreshExpirer SessionRefreshExpirer, _ RefreshClaimsCodec, accessTTL time.Duration) TokenSetMinter {
 	return &tokenSetMinter{
-		tokenCodec: tokenCodec, refreshExpirer: refreshExpirer,
-		refreshClaimsCodec: normalizeRefreshClaimsCodec(refreshClaimsCodec), accessTTL: accessTTL,
+		tokenCodec: tokenCodec, refreshExpirer: refreshExpirer, accessTTL: accessTTL,
 	}
 }
 
@@ -41,23 +39,29 @@ func (s *tokenSetMinter) MintTokenSet(ctx context.Context, principal *authentica
 
 	// 构建用户令牌主体
 	subject := accessTokenSubjectFromAuth(principal, sess)
-	claims := cloneAnyMap(subject.Claims)
 	now := time.Now().UTC()
-	// 确保认证时间
-	ensureAuthTime(claims, now)
+	subject.Attributes = cloneStringMap(subject.Attributes)
+	if subject.Attributes == nil {
+		subject.Attributes = map[string]string{}
+	}
+	if !subject.AuthenticatedAt.IsZero() {
+		authTime := subject.AuthenticatedAt.UTC().Format(time.RFC3339)
+		subject.Attributes["auth_time"] = authTime
+	}
 
 	// 颁发访问令牌
 	accessToken, err := s.tokenCodec.IssueAccessToken(ctx, &AccessTokenSubject{
 		UserID: subject.UserID, LoginIdentityID: subject.LoginIdentityID, SessionID: subject.SessionID,
-		TenantID: subject.TenantID, AuthMethod: subject.AuthMethod, Realm: subject.Realm,
-		AMR: append([]string(nil), subject.AMR...), Claims: claims,
+		TenantID: subject.TenantID, TenantDomain: subject.TenantDomain, OrgID: subject.OrgID,
+		AMR: append([]string(nil), subject.AMR...), AuthenticatedAt: subject.AuthenticatedAt,
+		Attributes: cloneStringMap(subject.Attributes),
 	}, s.accessTTL)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate access token")
 	}
 
 	// 颁发刷新令牌
-	refreshToken, err := s.issueRefreshToken(subject, sess, claims, now)
+	refreshToken, err := s.issueRefreshToken(subject, sess, now)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrInternalServerError, "failed to generate refresh token")
 	}
@@ -65,45 +69,18 @@ func (s *tokenSetMinter) MintTokenSet(ctx context.Context, principal *authentica
 }
 
 // issueRefreshToken 颁发刷新令牌。
-func (s *tokenSetMinter) issueRefreshToken(subject *AccessTokenSubject, sess *sessiondomain.Session, claims map[string]any, now time.Time) (*RefreshToken, error) {
+func (s *tokenSetMinter) issueRefreshToken(subject *AccessTokenSubject, sess *sessiondomain.Session, now time.Time) (*RefreshToken, error) {
 	refreshExpiresAt, err := s.refreshExpirer.NextRefreshExpiresAt(now, sess)
 	if err != nil {
 		return nil, err
 	}
+	// Session 持有认证上下文权威事实；新 RefreshToken 不再写入重复上下文。
 	token := NewRefreshTokenWithExpiry(
 		uuid.NewString(), uuid.NewString(), sess.SessionID, subject.UserID, subject.LoginIdentityID,
-		subject.TenantID, subject.AMR, s.refreshClaimsCodec.Encode(claims), refreshExpiresAt,
+		subject.TenantID, nil, nil, refreshExpiresAt,
 	)
 	token.IssuedAt = now
-	token.AuthMethod = subject.AuthMethod
-	token.Realm = subject.Realm
 	return token, nil
-}
-
-// ensureAuthTime 确保认证时间。
-func ensureAuthTime(claims map[string]any, now time.Time) {
-	if claims == nil {
-		return
-	}
-	if value, ok := claims["auth_time"]; ok && value != nil {
-		if text, ok := value.(string); ok && text != "" {
-			return
-		}
-		if t, ok := value.(time.Time); ok && !t.IsZero() {
-			claims["auth_time"] = t.UTC().Format(time.RFC3339)
-			return
-		}
-	}
-	claims["auth_time"] = now.Format(time.RFC3339)
-}
-
-// cloneAnyMap 克隆任意映射。
-func cloneAnyMap(in map[string]any) map[string]any {
-	out := make(map[string]any, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
-	return out
 }
 
 // serviceTokenIssuer 是服务令牌颁发器的实现。

@@ -38,6 +38,23 @@ func TestKeyManagerCreateKeyAtomicallyReplacesActive(t *testing.T) {
 	require.Len(t, repo.activeKeys(), 1)
 }
 
+func TestKeyManagerRejectsNonRS256Creation(t *testing.T) {
+	repo := &lifecycleRepositoryStub{keys: map[string]*Key{}}
+	manager := NewKeyManagerWithPolicy(
+		repo,
+		NewRSAKeyGenerator(),
+		NewPEMPrivateKeyStorage(t.TempDir()),
+		DefaultRotationPolicy(),
+	)
+
+	for _, algorithm := range []string{"", "RS384", "RS512"} {
+		key, err := manager.CreateKey(context.Background(), algorithm, nil, nil)
+		require.Error(t, err)
+		require.Nil(t, key)
+	}
+	require.Empty(t, repo.keys)
+}
+
 func TestKeyManagerActivationFailureRemovesCandidatePEM(t *testing.T) {
 	repo := &lifecycleRepositoryStub{
 		keys:        map[string]*Key{},

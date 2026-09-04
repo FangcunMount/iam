@@ -112,6 +112,21 @@ func TestJWKSHandlerCreateKeyReturnsBindError(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestJWKSHandlerCreateKeyRejectsNonRS256Algorithm(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newJWKSAdminHandlerForTest(&jwksKeyManagerStub{}, &jwksPublisherStub{})
+	w := performJWKSAdminRequest(
+		handler.CreateKey,
+		http.MethodPost,
+		"/admin/jwks/keys",
+		[]byte(`{"algorithm":"RS384"}`),
+		nil,
+	)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestJWKSHandlerCreateKeyPreservesCreatedResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -251,16 +251,8 @@ func (p *PasswordAuthStrategy) buildPasswordSuccessDecision(
 		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        tenantID,
-		AuthMethod:      "password",
-		Realm:           realm,
-		AMR:             []string{string(AMRPassword)},
-		Claims: map[string]any{
-			"login_identity_id": loginIdentityID.String(),
-			"auth_method":       "password",
-			"realm":             realm,
-			"auth_time":         ctx.Value("request_time"),
-		},
 	}
+	principal.ApplyAuthContext(NewAuthenticationContext(MethodPassword, realm, []AMR{AMRPassword}, time.Now().UTC()))
 
 	return AuthDecision{
 		OK:               true,

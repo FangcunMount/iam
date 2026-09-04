@@ -11,23 +11,36 @@ import (
 
 	"github.com/FangcunMount/component-base/pkg/logger"
 	tokendomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/token"
+	"github.com/FangcunMount/iam/v3/internal/pkg/authnclaims"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
+	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 	jwtv4 "github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
 
+type SigningKey struct {
+	Kid        string
+	Algorithm  string
+	PrivateKey *rsa.PrivateKey
+}
+
+type VerificationKey struct {
+	Kid       string
+	Algorithm string
+	PublicKey *rsa.PublicKey
+}
+
 // SigningKeySource 签名密钥源
 type SigningKeySource interface {
-	ActiveSigningKey(ctx context.Context) (kid string, privateKey *rsa.PrivateKey, err error)
-	VerificationKey(ctx context.Context, kid string) (*rsa.PublicKey, error)
+	ActiveSigningKey(ctx context.Context) (*SigningKey, error)
+	VerificationKey(ctx context.Context, kid string) (*VerificationKey, error)
 }
 
 // Generator JWT 生成器
 type Generator struct {
-	issuer              string              // 签发者
-	accessTokenAudience []string            // 访问令牌受众
-	keySource           SigningKeySource    // 签名密钥源
-	attributeEncoder    jwtAttributeEncoder // 属性编码器
+	issuer              string           // 签发者
+	accessTokenAudience []string         // 访问令牌受众
+	keySource           SigningKeySource // 签名密钥源
 }
 
 // 实现 AccessTokenCodec 接口
@@ -50,20 +63,18 @@ func NewGenerator(
 		issuer:              issuer,
 		accessTokenAudience: cloneStrings(accessTokenAudience),
 		keySource:           keySource,
-		attributeEncoder:    newJWTAttributeEncoder(),
 	}
 }
 
-// CustomClaims 自定义 JWT 声明
-type CustomClaims struct {
+// jwtPayloadClaims 是 JWT Payload 的 wire model，不向领域层泄漏。
+type jwtPayloadClaims struct {
 	TokenType       string            `json:"token_type,omitempty"`
 	SessionID       string            `json:"sid,omitempty"`
 	UserID          string            `json:"user_id,omitempty"`
 	LoginIdentityID string            `json:"login_identity_id,omitempty"`
 	OrgID           string            `json:"org_id,omitempty"`
 	TenantID        string            `json:"tenant_id,omitempty"`
-	AuthMethod      string            `json:"auth_method,omitempty"`
-	Realm           string            `json:"realm,omitempty"`
+	AuthTime        int64             `json:"auth_time,omitempty"`
 	Attributes      map[string]string `json:"attributes,omitempty"`
 	AMR             []string          `json:"amr,omitempty"`
 	jwtv4.RegisteredClaims
@@ -71,28 +82,37 @@ type CustomClaims struct {
 
 // IssueAccessToken 颁发访问令牌
 func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokendomain.AccessTokenSubject, expiresIn time.Duration) (*tokendomain.AccessToken, error) {
-	// 记录日志
+	// 只记录非敏感标识；subject 中可能包含第三方身份和业务属性。
 	l := logger.L(ctx)
-	l.Debugw("IssueAccessToken", "subject", fmt.Sprintf("%+v", subject), "expiresIn", expiresIn)
+	l.Debugw("IssueAccessToken", "user_id", subject.UserID.String(), "session_id", subject.SessionID, "expires_in", expiresIn)
 
 	// 准备令牌数据
 	now := time.Now()
 	tokenID := uuid.NewString()
 	loginIdentityID := subject.LoginIdentityID
-	authMethod := subject.AuthMethod
-	realm := subject.Realm
 
-	// 创建 JWT 声明
-	claims := CustomClaims{
+	// 创建 JWT 声明：adapter 只序列化领域投影结果，不再从任意 Claims/Realm 推断授权域。
+	orgID := strings.TrimSpace(subject.OrgID)
+	tenantDomain := strings.TrimSpace(subject.TenantDomain)
+	attributes := cloneStringMap(subject.Attributes)
+	authTimeUnix := int64(0)
+	if !subject.AuthenticatedAt.IsZero() {
+		authTimeUnix = subject.AuthenticatedAt.UTC().Unix()
+		if attributes == nil {
+			attributes = map[string]string{}
+		}
+		// 迁移窗口：同时写入 attributes.auth_time，供旧消费者双读。
+		attributes["auth_time"] = subject.AuthenticatedAt.UTC().Format(time.RFC3339)
+	}
+	claims := jwtPayloadClaims{
 		TokenType:       string(tokendomain.TokenTypeAccess),
 		SessionID:       subject.SessionID,
 		UserID:          subject.UserID.String(),
 		LoginIdentityID: loginIdentityID.String(),
-		OrgID:           businessOrgIDClaim(subject.Claims),
-		TenantID:        tenantDomainFromClaims(subject.Claims, subject.Realm),
-		AuthMethod:      authMethod,
-		Realm:           realm,
-		Attributes:      cloneStringMap(g.attributeEncoder.EncodeAttributes(subject.Claims)),
+		OrgID:           orgID,
+		TenantID:        tenantDomain,
+		AuthTime:        authTimeUnix,
+		Attributes:      attributes,
 		AMR:             cloneStrings(subject.AMR),
 		RegisteredClaims: jwtv4.RegisteredClaims{
 			ID:        tokenID,
@@ -123,10 +143,6 @@ func (g *Generator) IssueAccessToken(ctx context.Context, subject *tokendomain.A
 	)
 	// 设置登录身份 ID
 	token.LoginIdentityID = loginIdentityID
-	// 设置认证方法
-	token.AuthMethod = authMethod
-	// 设置认证域
-	token.Realm = realm
 	return token, nil
 }
 
@@ -136,10 +152,11 @@ func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audie
 	now := time.Now()
 	// 生成令牌 ID
 	tokenID := uuid.NewString()
+	allowedAttributes := authnclaims.EncodeServiceAttributes(attributes)
 	// 创建 JWT 声明
-	claims := CustomClaims{
+	claims := jwtPayloadClaims{
 		TokenType:  string(tokendomain.TokenTypeService),
-		Attributes: cloneStringMap(attributes),
+		Attributes: cloneStringMap(allowedAttributes),
 		RegisteredClaims: jwtv4.RegisteredClaims{
 			ID:        tokenID,
 			Subject:   subject,
@@ -156,19 +173,18 @@ func (g *Generator) IssueServiceToken(ctx context.Context, subject string, audie
 		return nil, err
 	}
 	// 创建服务令牌
-	return tokendomain.NewServiceToken(tokenID, tokenString, subject, audience, attributes, expiresIn), nil
+	return tokendomain.NewServiceToken(tokenID, tokenString, subject, audience, allowedAttributes, expiresIn), nil
 }
 
 // VerifyAccessToken 验证访问令牌
 
 func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*tokendomain.TokenClaims, error) {
 	// 解析 JWT
-	parsed, err := jwtv4.ParseWithClaims(tokenValue, &CustomClaims{},
+	parsed, err := jwtv4.ParseWithClaims(tokenValue, &jwtPayloadClaims{},
 		func(token *jwtv4.Token) (interface{}, error) {
-			// 如果签名方法不是 RSA，则返回错误
-			if _, ok := token.Method.(*jwtv4.SigningMethodRSA); !ok {
-				// 如果签名方法不是 RSA，则返回错误
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			headerAlgorithm, ok := token.Header["alg"].(string)
+			if !ok || headerAlgorithm != pkgauth.TokenProfileAlgorithm || token.Method.Alg() != pkgauth.TokenProfileAlgorithm {
+				return nil, fmt.Errorf("unexpected signing algorithm: %v", token.Header["alg"])
 			}
 			// 获取签名密钥 ID
 			kidInterface, ok := token.Header["kid"]
@@ -179,6 +195,9 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 			if !ok {
 				return nil, fmt.Errorf("invalid kid type in token header")
 			}
+			if kid == "" {
+				return nil, fmt.Errorf("empty kid in token header")
+			}
 
 			// 获取签名密钥
 			key, err := g.keySource.VerificationKey(ctx, kid)
@@ -188,25 +207,43 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 			if key == nil {
 				return nil, fmt.Errorf("key not found for kid %s", kid)
 			}
+			if key.Kid != kid {
+				return nil, fmt.Errorf("verification key kid mismatch: header=%s key=%s", kid, key.Kid)
+			}
+			if key.Algorithm != headerAlgorithm || key.Algorithm != pkgauth.TokenProfileAlgorithm {
+				return nil, fmt.Errorf("verification algorithm mismatch: header=%s key=%s", headerAlgorithm, key.Algorithm)
+			}
+			if key.PublicKey == nil {
+				return nil, fmt.Errorf("verification key is nil for kid %s", kid)
+			}
 
 			// 返回签名密钥
-			return key, nil
-		})
+			return key.PublicKey, nil
+		},
+		jwtv4.WithValidMethods([]string{pkgauth.TokenProfileAlgorithm}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
 
 	// 解析 JWT 声明
-	claims, ok := parsed.Claims.(*CustomClaims)
+	claims, ok := parsed.Claims.(*jwtPayloadClaims)
 	if !ok || !parsed.Valid {
 		return nil, fmt.Errorf("invalid token claims")
 	}
+	if claims.Issuer != g.issuer {
+		return nil, fmt.Errorf("unexpected token issuer: %q", claims.Issuer)
+	}
 
-	// 获取令牌类型
+	// 获取令牌类型。兼容窗口内缺失 token_type 仍按 access 处理，并记录有界指标。
 	tokenType := tokendomain.TokenType(claims.TokenType)
-	// 如果令牌类型为空，则设置为访问令牌类型
-	if tokenType == "" {
+	switch tokenType {
+	case "":
+		missingTokenTypeTotal.Inc()
 		tokenType = tokendomain.TokenTypeAccess
+	case tokendomain.TokenTypeAccess, tokendomain.TokenTypeService:
+	default:
+		return nil, fmt.Errorf("unsupported token_type: %q", claims.TokenType)
 	}
 
 	// 解析登录身份 ID
@@ -215,76 +252,61 @@ func (g *Generator) VerifyAccessToken(ctx context.Context, tokenValue string) (*
 	orgID := parseStringID(claims.OrgID)
 	// 解析租户 ID
 	tenantDomain, _ := parseTenantIDClaim(claims.TenantID)
-	// 创建令牌声明
-	tokenClaims := tokendomain.NewTokenClaims(
-		tokenType,
-		claims.ID,
-		claims.Subject,
-		claims.SessionID,
-		parseStringID(claims.UserID),
-		loginIdentityID,
-		orgID,
-		tenantDomain,
-		claims.Issuer,
-		[]string(claims.Audience),
-		claims.Attributes,
-		claims.AMR,
-		numericDateTime(claims.IssuedAt),
-		numericDateTime(claims.ExpiresAt),
-	)
-	// 设置认证方法
-	tokenClaims.AuthMethod = claims.AuthMethod
-	// 设置认证域
-	tokenClaims.Realm = claims.Realm
-	// 返回令牌声明
-	return tokenClaims, nil
+	attributes := cloneStringMap(claims.Attributes)
+	authTime := time.Time{}
+	if claims.AuthTime > 0 {
+		authTime = time.Unix(claims.AuthTime, 0).UTC()
+		if attributes == nil {
+			attributes = map[string]string{}
+		}
+		if attributes["auth_time"] == "" {
+			attributes["auth_time"] = authTime.Format(time.RFC3339)
+		}
+	} else if raw := strings.TrimSpace(attributes["auth_time"]); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			legacyAttributeAuthTimeFallbackTotal.Inc()
+			authTime = parsed.UTC()
+		}
+	}
+	verified := tokendomain.VerifiedTokenClaims{
+		TokenID: claims.ID, TokenType: tokenType, Subject: claims.Subject, SessionID: claims.SessionID,
+		UserID: parseStringID(claims.UserID), LoginIdentityID: loginIdentityID,
+		OrgID: orgID, TenantDomain: tenantDomain, Issuer: claims.Issuer,
+		Audience: []string(claims.Audience), Attributes: attributes, AMR: claims.AMR,
+		AuthenticatedAt: authTime, IssuedAt: numericDateTime(claims.IssuedAt),
+		NotBefore: numericDateTime(claims.NotBefore), ExpiresAt: numericDateTime(claims.ExpiresAt),
+	}
+	if tokenType == tokendomain.TokenTypeService {
+		return tokendomain.NewVerifiedServiceClaims(verified)
+	}
+	return tokendomain.NewVerifiedUserTokenClaims(verified)
 }
 
 // signClaims 签名 JWT 声明
 
-func (g *Generator) signClaims(ctx context.Context, claims CustomClaims) (string, error) {
+func (g *Generator) signClaims(ctx context.Context, claims jwtPayloadClaims) (string, error) {
 	// 获取活动签名密钥
-	kid, rsaPrivKey, err := g.keySource.ActiveSigningKey(ctx)
+	key, err := g.keySource.ActiveSigningKey(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve active signing key: %w", err)
+	}
+	if key == nil || key.PrivateKey == nil {
+		return "", fmt.Errorf("active signing key is nil")
+	}
+	if key.Kid == "" {
+		return "", fmt.Errorf("active signing key kid is empty")
+	}
+	if key.Algorithm != pkgauth.TokenProfileAlgorithm {
+		return "", fmt.Errorf("active signing key algorithm %q is not allowed", key.Algorithm)
 	}
 	// 创建 JWT 令牌
 	token := jwtv4.NewWithClaims(jwtv4.SigningMethodRS256, claims)
 	// 设置令牌类型
 	token.Header["typ"] = headerTypeJWT
 	// 设置签名密钥 ID
-	token.Header["kid"] = kid
+	token.Header["kid"] = key.Kid
 	// 签名 JWT 令牌
-	return token.SignedString(rsaPrivKey)
-}
-
-// businessOrgIDClaim 从 Principal.Claims 读取业务侧提供的 org_id，IAM 不生成默认值。
-func businessOrgIDClaim(claims map[string]any) string {
-	// 如果 claims 为空，则返回空字符串
-	if len(claims) == 0 {
-		return ""
-	}
-	// 获取 org_id
-	v, ok := claims["org_id"]
-	// 如果 org_id 不存在，则返回空字符串
-	if !ok || v == nil {
-		// 如果 org_id 不存在，则返回空字符串
-		return ""
-	}
-	// 获取 org_id 的值
-	switch t := v.(type) {
-	// 如果 org_id 的值为字符串，则返回字符串
-	case string:
-		// 如果 org_id 的值为字符串，则返回字符串
-		return strings.TrimSpace(t)
-	// 如果 org_id 的值为 fmt.Stringer，则返回字符串
-	case fmt.Stringer:
-		// 如果 org_id 的值为 fmt.Stringer，则返回字符串
-		return strings.TrimSpace(t.String())
-	default:
-		// 如果 org_id 的值为其他类型，则返回字符串
-		return strings.TrimSpace(fmt.Sprint(v))
-	}
+	return token.SignedString(key.PrivateKey)
 }
 
 // cloneStrings 克隆字符串切片

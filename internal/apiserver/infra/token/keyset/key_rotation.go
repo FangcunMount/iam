@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 )
 
 // KeyRotation is the canonical keyset lifecycle mutation boundary.
@@ -46,7 +47,7 @@ func (s *KeyRotation) Bootstrap(ctx context.Context, alg string) (*Key, bool, er
 }
 
 func (s *KeyRotation) RotateIfDue(ctx context.Context) (*Key, bool, error) {
-	key, rotated, err := s.manager.RotateIfDue(ctx, "RS256")
+	key, rotated, err := s.manager.RotateIfDue(ctx, pkgauth.TokenProfileAlgorithm)
 	if err != nil {
 		recordRotationResult("failed")
 		return nil, false, err

@@ -4,7 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 )
 
 const (
@@ -55,6 +58,9 @@ type CreateKeyResponse struct {
 }
 
 func (s *KeyLifecycleAppService) CreateAndActivate(ctx context.Context, req CreateKeyRequest) (*CreateKeyResponse, error) {
+	if req.Algorithm != pkgauth.TokenProfileAlgorithm {
+		return nil, errors.WithCode(code.ErrInvalidArgument, "algorithm must be %s", pkgauth.TokenProfileAlgorithm)
+	}
 	key, changed, err := s.lifecycle.CreateAndActivate(ctx, req.Algorithm, req.NotBefore, req.NotAfter)
 	if err != nil {
 		s.record(operationAdminCreate, "failed")

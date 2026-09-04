@@ -59,7 +59,7 @@ func TestCreatorCreateCapsInitialExpiryBySessionMaxTTL(t *testing.T) {
 		UserID:          meta.FromUint64(1),
 		LoginIdentityID: meta.FromUint64(2),
 		TenantID:        meta.FromUint64(3),
-		AMR:             []string{"pwd"},
+		AuthContext:     authentication.NewAuthenticationContext(authentication.MethodPassword, "global", []authentication.AMR{authentication.AMRPassword}, now),
 	})
 
 	require.NoError(t, err)

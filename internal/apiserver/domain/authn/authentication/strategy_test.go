@@ -159,5 +159,5 @@ func TestPasswordAuthStrategy_AllCases(t *testing.T) {
 	require.NotNil(t, d8.Principal)
 	require.Equal(t, mockIdentityID, d8.Principal.LoginIdentityID)
 	require.Equal(t, meta.FromUint64(23), d8.Principal.UserID)
-	require.Equal(t, loginidentity.RealmDefault, d8.Principal.Realm)
+	require.Equal(t, loginidentity.RealmDefault, d8.Principal.AuthContext.Realm)
 }

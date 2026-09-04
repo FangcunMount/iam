@@ -20,9 +20,10 @@ func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv2.Verify
 	}
 
 	result, err := s.tokenVerifier.VerifyToken(ctx, tokenApp.VerifyTokenRequest{
-		AccessToken:      req.GetAccessToken(),
-		ExpectedIssuer:   strings.TrimSpace(req.GetExpectedIssuer()),
-		ExpectedAudience: cloneAudience(req.GetExpectedAudience()),
+		AccessToken:        req.GetAccessToken(),
+		ExpectedIssuer:     strings.TrimSpace(req.GetExpectedIssuer()),
+		ExpectedAudience:   cloneAudience(req.GetExpectedAudience()),
+		AcceptedTokenTypes: acceptedDomainTokenTypes(req.GetAcceptedTokenTypes()),
 	})
 	if err != nil {
 		return nil, toGRPCError(err)
@@ -43,6 +44,26 @@ func (s *authServiceServer) VerifyToken(ctx context.Context, req *authnv2.Verify
 		resp.FailureReason = "token invalid or expired"
 	}
 	return resp, nil
+}
+
+func acceptedDomainTokenTypes(values []authnv2.TokenType) []tokenApp.TokenType {
+	if len(values) == 0 {
+		return []tokenApp.TokenType{tokenApp.TokenTypeAccess}
+	}
+	out := make([]tokenApp.TokenType, 0, len(values))
+	for _, value := range values {
+		switch value {
+		case authnv2.TokenType_TOKEN_TYPE_ACCESS:
+			out = append(out, tokenApp.TokenTypeAccess)
+		case authnv2.TokenType_TOKEN_TYPE_SERVICE:
+			out = append(out, tokenApp.TokenTypeService)
+		case authnv2.TokenType_TOKEN_TYPE_REFRESH:
+			out = append(out, tokenApp.TokenTypeRefresh)
+		default:
+			out = append(out, tokenApp.TokenType("invalid"))
+		}
+	}
+	return out
 }
 
 func (s *authServiceServer) RefreshToken(ctx context.Context, req *authnv2.RefreshTokenRequest) (*authnv2.RefreshTokenResponse, error) {

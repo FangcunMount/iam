@@ -125,7 +125,8 @@ func (s *application) RevokeRefreshToken(ctx context.Context, refreshToken strin
 	return nil
 }
 
-// VerifyToken 在线验证 access token，并检查可选的 issuer/audience 约束。
+// VerifyToken 在线验证令牌，并检查场景级 issuer/audience/token type 约束。
+// 密码学与 canonical issuer 由 codec 负责；撤销、Session、Admission 由 domain verifier 负责。
 func (s *application) VerifyToken(ctx context.Context, req VerifyTokenRequest) (*TokenVerifyResult, error) {
 	claims, err := s.verifier.VerifyToken(ctx, req.AccessToken)
 	if err != nil {
@@ -146,6 +147,14 @@ func (s *application) VerifyToken(ctx context.Context, req VerifyTokenRequest) (
 	}
 
 	if len(req.ExpectedAudience) > 0 && !containsAnyAudience(claims.Audience, req.ExpectedAudience) {
+		return &TokenVerifyResult{Valid: false, Claims: nil}, nil
+	}
+
+	acceptedTokenTypes := req.AcceptedTokenTypes
+	if len(acceptedTokenTypes) == 0 {
+		acceptedTokenTypes = []TokenType{TokenTypeAccess}
+	}
+	if !containsTokenType(acceptedTokenTypes, claims.TokenType) {
 		return &TokenVerifyResult{Valid: false, Claims: nil}, nil
 	}
 
@@ -172,6 +181,15 @@ func containsAnyAudience(actual []string, expected []string) bool {
 		}
 	}
 
+	return false
+}
+
+func containsTokenType(accepted []TokenType, actual TokenType) bool {
+	for _, tokenType := range accepted {
+		if tokenType == actual {
+			return true
+		}
+	}
 	return false
 }
 

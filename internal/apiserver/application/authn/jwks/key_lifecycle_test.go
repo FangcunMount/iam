@@ -45,6 +45,15 @@ func TestCommittedMutationSurvivesPublishRefreshFailure(t *testing.T) {
 	require.Equal(t, []string{"cache_refresh"}, observer.postCommitFailures)
 }
 
+func TestCreateAndActivateRejectsNonRS256Algorithm(t *testing.T) {
+	lifecycle := &keyLifecycleStub{key: testManagedKey("key-new", "active"), changed: true}
+	service := NewKeyLifecycleAppService(lifecycle, &keyPublisherStub{}, &lifecycleObserverStub{}, log.New(log.NewOptions()))
+
+	response, err := service.CreateAndActivate(context.Background(), CreateKeyRequest{Algorithm: "RS384"})
+	require.Error(t, err)
+	require.Nil(t, response)
+}
+
 func TestRotateIfDueRefreshesOnlyWhenRotated(t *testing.T) {
 	lifecycle := &keyLifecycleStub{key: testManagedKey("key-new", "active"), changed: true}
 	publisher := &keyPublisherStub{}

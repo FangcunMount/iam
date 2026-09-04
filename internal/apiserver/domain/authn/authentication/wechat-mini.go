@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -157,18 +158,8 @@ func (o *OAuthWechatMinipAuthStrategy) buildWechatMinipSuccessDecision(
 		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
-		AuthMethod:      "wechat_minip",
-		Realm:           credential.AppID,
-		AMR:             []string{string(AMRWx)},
-		Claims: map[string]any{
-			"wx_openid":         identity.openID,
-			"wx_unionid":        identity.unionID,
-			"login_identity_id": loginIdentityID.String(),
-			"auth_method":       "wechat_minip",
-			"realm":             credential.AppID,
-			"auth_time":         ctx.Value("request_time"),
-		},
 	}
+	principal.ApplyAuthContext(NewAuthenticationContext(MethodWechatMinip, credential.AppID, []AMR{AMRWx}, time.Now().UTC()))
 
 	return AuthDecision{
 		OK:              true,

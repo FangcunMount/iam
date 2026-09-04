@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -163,20 +164,8 @@ func (o *OAuthWeChatComAuthStrategy) buildWecomSuccessDecision(
 		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
-		AuthMethod:      "wecom",
-		Realm:           credential.CorpID,
-		AMR:             []string{string(AMRWecom)},
-		Claims: map[string]any{
-			"wecom_corp_id":      credential.CorpID,
-			"wecom_state":        credential.State,
-			"wecom_user_id":      identity.userID,
-			"wecom_open_user_id": identity.openUserID,
-			"login_identity_id":  loginIdentityID.String(),
-			"auth_method":        "wecom",
-			"realm":              credential.CorpID,
-			"auth_time":          ctx.Value("request_time"),
-		},
 	}
+	principal.ApplyAuthContext(NewAuthenticationContext(MethodWecom, credential.CorpID, []AMR{AMRWecom}, time.Now().UTC()))
 
 	return AuthDecision{
 		OK:              true,

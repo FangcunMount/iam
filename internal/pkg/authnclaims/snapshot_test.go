@@ -11,11 +11,22 @@ func TestEncodeSnapshotUsesJSONForNonStringValues(t *testing.T) {
 	require.Equal(t, `42`, got["n"])
 }
 
-func TestEncodeJWTAttributesSkipsReservedKeys(t *testing.T) {
+func TestEncodeJWTAttributesUsesAllowlist(t *testing.T) {
 	got := EncodeJWTAttributes(map[string]any{
-		"user_id":    "1",
-		"custom_key": "ok",
+		"user_id":      "1",
+		"auth_time":    "2026-01-02T03:04:05Z",
+		"phone_number": "+8613800138000",
+		"wx_openid":    "openid",
+		"custom_key":   "ok",
 	})
-	require.NotContains(t, got, "user_id")
-	require.Equal(t, "ok", got["custom_key"])
+	require.Equal(t, map[string]string{"auth_time": "2026-01-02T03:04:05Z"}, got)
+}
+
+func TestEncodeServiceAttributesUsesAllowlist(t *testing.T) {
+	got := EncodeServiceAttributes(map[string]string{
+		"scope": "internal",
+		"level": "2",
+		"secret": "nope",
+	})
+	require.Equal(t, map[string]string{"scope": "internal", "level": "2"}, got)
 }

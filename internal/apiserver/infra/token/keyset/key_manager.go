@@ -11,6 +11,7 @@ import (
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
+	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 	"github.com/google/uuid"
 )
 
@@ -97,6 +98,9 @@ func (s *KeyManager) createAndActivate(
 	notBefore, notAfter *time.Time,
 	mode activationMode,
 ) (keyActivationResult, error) {
+	if alg != pkgauth.TokenProfileAlgorithm {
+		return keyActivationResult{}, errors.WithCode(code.ErrInvalidJWKAlg, "algorithm must be %s", pkgauth.TokenProfileAlgorithm)
+	}
 	activator, ok := s.keyRepo.(AtomicActivator)
 	if !ok {
 		return keyActivationResult{}, errors.WithCode(code.ErrDatabase, "jwks repository does not support atomic activation")

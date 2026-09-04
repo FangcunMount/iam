@@ -43,11 +43,15 @@ message TokenClaims {
   repeated string audience = 6;
   string tenant_id = 7;
   string session_id = 8;
+  TokenType token_type = 9;
   google.protobuf.Timestamp issued_at = 10;
   google.protobuf.Timestamp expires_at = 11;
+  google.protobuf.Timestamp authenticated_at = 12;
+  google.protobuf.Timestamp not_before = 13;
   map<string, string> attributes = 20;
   repeated string amr = 21;
   string org_id = 22;
+  string tenant_domain = 23;
 }
 
 message TokenPair {
@@ -82,6 +86,7 @@ message VerifyTokenRequest {
   bool include_metadata = 3;
   string expected_issuer = 4;
   repeated string expected_audience = 5;
+  repeated TokenType accepted_token_types = 6;
 }
 
 message VerifyTokenResponse {

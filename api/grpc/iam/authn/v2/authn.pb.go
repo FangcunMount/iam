@@ -214,11 +214,15 @@ type TokenClaims struct {
 	Audience        []string               `protobuf:"bytes,6,rep,name=audience,proto3" json:"audience,omitempty"`
 	TenantId        string                 `protobuf:"bytes,7,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	SessionId       string                 `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	TokenType       TokenType              `protobuf:"varint,9,opt,name=token_type,json=tokenType,proto3,enum=iam.authn.v2.TokenType" json:"token_type,omitempty"`
 	IssuedAt        *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=issued_at,json=issuedAt,proto3" json:"issued_at,omitempty"`
 	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	AuthenticatedAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=authenticated_at,json=authenticatedAt,proto3" json:"authenticated_at,omitempty"`
+	NotBefore       *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
 	Attributes      map[string]string      `protobuf:"bytes,20,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Amr             []string               `protobuf:"bytes,21,rep,name=amr,proto3" json:"amr,omitempty"`
 	OrgId           string                 `protobuf:"bytes,22,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	TenantDomain    string                 `protobuf:"bytes,23,opt,name=tenant_domain,json=tenantDomain,proto3" json:"tenant_domain,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -309,6 +313,13 @@ func (x *TokenClaims) GetSessionId() string {
 	return ""
 }
 
+func (x *TokenClaims) GetTokenType() TokenType {
+	if x != nil {
+		return x.TokenType
+	}
+	return TokenType_TOKEN_TYPE_UNSPECIFIED
+}
+
 func (x *TokenClaims) GetIssuedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.IssuedAt
@@ -319,6 +330,20 @@ func (x *TokenClaims) GetIssuedAt() *timestamppb.Timestamp {
 func (x *TokenClaims) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *TokenClaims) GetAuthenticatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AuthenticatedAt
+	}
+	return nil
+}
+
+func (x *TokenClaims) GetNotBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotBefore
 	}
 	return nil
 }
@@ -340,6 +365,13 @@ func (x *TokenClaims) GetAmr() []string {
 func (x *TokenClaims) GetOrgId() string {
 	if x != nil {
 		return x.OrgId
+	}
+	return ""
+}
+
+func (x *TokenClaims) GetTenantDomain() string {
+	if x != nil {
+		return x.TenantDomain
 	}
 	return ""
 }
@@ -585,14 +617,15 @@ func (x *LoginResponse) GetTokenPair() *TokenPair {
 }
 
 type VerifyTokenRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	AccessToken      string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	ForceRemote      bool                   `protobuf:"varint,2,opt,name=force_remote,json=forceRemote,proto3" json:"force_remote,omitempty"`
-	IncludeMetadata  bool                   `protobuf:"varint,3,opt,name=include_metadata,json=includeMetadata,proto3" json:"include_metadata,omitempty"`
-	ExpectedIssuer   string                 `protobuf:"bytes,4,opt,name=expected_issuer,json=expectedIssuer,proto3" json:"expected_issuer,omitempty"`
-	ExpectedAudience []string               `protobuf:"bytes,5,rep,name=expected_audience,json=expectedAudience,proto3" json:"expected_audience,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken        string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	ForceRemote        bool                   `protobuf:"varint,2,opt,name=force_remote,json=forceRemote,proto3" json:"force_remote,omitempty"`
+	IncludeMetadata    bool                   `protobuf:"varint,3,opt,name=include_metadata,json=includeMetadata,proto3" json:"include_metadata,omitempty"`
+	ExpectedIssuer     string                 `protobuf:"bytes,4,opt,name=expected_issuer,json=expectedIssuer,proto3" json:"expected_issuer,omitempty"`
+	ExpectedAudience   []string               `protobuf:"bytes,5,rep,name=expected_audience,json=expectedAudience,proto3" json:"expected_audience,omitempty"`
+	AcceptedTokenTypes []TokenType            `protobuf:"varint,6,rep,packed,name=accepted_token_types,json=acceptedTokenTypes,proto3,enum=iam.authn.v2.TokenType" json:"accepted_token_types,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *VerifyTokenRequest) Reset() {
@@ -656,6 +689,13 @@ func (x *VerifyTokenRequest) GetExpectedIssuer() string {
 func (x *VerifyTokenRequest) GetExpectedAudience() []string {
 	if x != nil {
 		return x.ExpectedAudience
+	}
+	return nil
+}
+
+func (x *VerifyTokenRequest) GetAcceptedTokenTypes() []TokenType {
+	if x != nil {
+		return x.AcceptedTokenTypes
 	}
 	return nil
 }
@@ -2172,7 +2212,7 @@ const file_iam_authn_v2_authn_proto_rawDesc = "" +
 	"\n" +
 	"ExtraEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x9e\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfd\x05\n" +
 	"\vTokenClaims\x12\x19\n" +
 	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x17\n" +
@@ -2182,16 +2222,22 @@ const file_iam_authn_v2_authn_proto_rawDesc = "" +
 	"\baudience\x18\x06 \x03(\tR\baudience\x12\x1b\n" +
 	"\ttenant_id\x18\a \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\b \x01(\tR\tsessionId\x127\n" +
+	"session_id\x18\b \x01(\tR\tsessionId\x126\n" +
+	"\n" +
+	"token_type\x18\t \x01(\x0e2\x17.iam.authn.v2.TokenTypeR\ttokenType\x127\n" +
 	"\tissued_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\bissuedAt\x129\n" +
 	"\n" +
-	"expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12I\n" +
+	"expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12E\n" +
+	"\x10authenticated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x0fauthenticatedAt\x129\n" +
+	"\n" +
+	"not_before\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tnotBefore\x12I\n" +
 	"\n" +
 	"attributes\x18\x14 \x03(\v2).iam.authn.v2.TokenClaims.AttributesEntryR\n" +
 	"attributes\x12\x10\n" +
 	"\x03amr\x18\x15 \x03(\tR\x03amr\x12\x15\n" +
-	"\x06org_id\x18\x16 \x01(\tR\x05orgId\x1a=\n" +
+	"\x06org_id\x18\x16 \x01(\tR\x05orgId\x12#\n" +
+	"\rtenant_domain\x18\x17 \x01(\tR\ftenantDomain\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xac\x01\n" +
@@ -2216,13 +2262,14 @@ const file_iam_authn_v2_authn_proto_rawDesc = "" +
 	"\tdevice_id\x18\x03 \x01(\tR\bdeviceId\"G\n" +
 	"\rLoginResponse\x126\n" +
 	"\n" +
-	"token_pair\x18\x01 \x01(\v2\x17.iam.authn.v2.TokenPairR\ttokenPair\"\xdb\x01\n" +
+	"token_pair\x18\x01 \x01(\v2\x17.iam.authn.v2.TokenPairR\ttokenPair\"\xa6\x02\n" +
 	"\x12VerifyTokenRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12!\n" +
 	"\fforce_remote\x18\x02 \x01(\bR\vforceRemote\x12)\n" +
 	"\x10include_metadata\x18\x03 \x01(\bR\x0fincludeMetadata\x12'\n" +
 	"\x0fexpected_issuer\x18\x04 \x01(\tR\x0eexpectedIssuer\x12+\n" +
-	"\x11expected_audience\x18\x05 \x03(\tR\x10expectedAudience\"\xf1\x01\n" +
+	"\x11expected_audience\x18\x05 \x03(\tR\x10expectedAudience\x12I\n" +
+	"\x14accepted_token_types\x18\x06 \x03(\x0e2\x17.iam.authn.v2.TokenTypeR\x12acceptedTokenTypes\"\xf1\x01\n" +
 	"\x13VerifyTokenResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x121\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x19.iam.authn.v2.TokenStatusR\x06status\x121\n" +
@@ -2428,76 +2475,80 @@ var file_iam_authn_v2_authn_proto_goTypes = []any{
 }
 var file_iam_authn_v2_authn_proto_depIdxs = []int32{
 	35, // 0: iam.authn.v2.OperatorContext.extra:type_name -> iam.authn.v2.OperatorContext.ExtraEntry
-	39, // 1: iam.authn.v2.TokenClaims.issued_at:type_name -> google.protobuf.Timestamp
-	39, // 2: iam.authn.v2.TokenClaims.expires_at:type_name -> google.protobuf.Timestamp
-	36, // 3: iam.authn.v2.TokenClaims.attributes:type_name -> iam.authn.v2.TokenClaims.AttributesEntry
-	40, // 4: iam.authn.v2.TokenPair.expires_in:type_name -> google.protobuf.Duration
-	1,  // 5: iam.authn.v2.TokenMetadata.token_type:type_name -> iam.authn.v2.TokenType
-	0,  // 6: iam.authn.v2.TokenMetadata.status:type_name -> iam.authn.v2.TokenStatus
-	39, // 7: iam.authn.v2.TokenMetadata.issued_at:type_name -> google.protobuf.Timestamp
-	39, // 8: iam.authn.v2.TokenMetadata.expires_at:type_name -> google.protobuf.Timestamp
-	41, // 9: iam.authn.v2.LoginRequest.method_payload:type_name -> google.protobuf.Struct
-	4,  // 10: iam.authn.v2.LoginResponse.token_pair:type_name -> iam.authn.v2.TokenPair
-	0,  // 11: iam.authn.v2.VerifyTokenResponse.status:type_name -> iam.authn.v2.TokenStatus
-	3,  // 12: iam.authn.v2.VerifyTokenResponse.claims:type_name -> iam.authn.v2.TokenClaims
-	5,  // 13: iam.authn.v2.VerifyTokenResponse.metadata:type_name -> iam.authn.v2.TokenMetadata
-	37, // 14: iam.authn.v2.RefreshTokenRequest.context:type_name -> iam.authn.v2.RefreshTokenRequest.ContextEntry
-	4,  // 15: iam.authn.v2.RefreshTokenResponse.token_pair:type_name -> iam.authn.v2.TokenPair
-	2,  // 16: iam.authn.v2.RevokeTokenRequest.operator:type_name -> iam.authn.v2.OperatorContext
-	2,  // 17: iam.authn.v2.RevokeRefreshTokenRequest.operator:type_name -> iam.authn.v2.OperatorContext
-	40, // 18: iam.authn.v2.IssueServiceTokenRequest.ttl:type_name -> google.protobuf.Duration
-	2,  // 19: iam.authn.v2.IssueServiceTokenRequest.operator:type_name -> iam.authn.v2.OperatorContext
-	41, // 20: iam.authn.v2.IssueServiceTokenRequest.attributes:type_name -> google.protobuf.Struct
-	4,  // 21: iam.authn.v2.IssueServiceTokenResponse.token_pair:type_name -> iam.authn.v2.TokenPair
-	38, // 22: iam.authn.v2.SignUpWithWechatMiniProgramRequest.meta:type_name -> iam.authn.v2.SignUpWithWechatMiniProgramRequest.MetaEntry
-	18, // 23: iam.authn.v2.SignupResult.credential:type_name -> iam.authn.v2.SignupCredential
-	39, // 24: iam.authn.v2.AuthenticatedUserContext.authenticated_at:type_name -> google.protobuf.Timestamp
-	39, // 25: iam.authn.v2.LoginIdentity.verified_at:type_name -> google.protobuf.Timestamp
-	39, // 26: iam.authn.v2.LoginIdentity.linked_at:type_name -> google.protobuf.Timestamp
-	23, // 27: iam.authn.v2.ListLoginIdentitiesRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
-	24, // 28: iam.authn.v2.ListLoginIdentitiesResponse.items:type_name -> iam.authn.v2.LoginIdentity
-	23, // 29: iam.authn.v2.SendPhoneLinkChallengeRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
-	23, // 30: iam.authn.v2.LinkPhoneRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
-	23, // 31: iam.authn.v2.LinkWechatMiniProgramRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
-	23, // 32: iam.authn.v2.LinkWecomRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
-	23, // 33: iam.authn.v2.UnlinkLoginIdentityRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
-	24, // 34: iam.authn.v2.LinkLoginIdentityResponse.login_identity:type_name -> iam.authn.v2.LoginIdentity
-	39, // 35: iam.authn.v2.GetJWKSResponse.last_modified:type_name -> google.protobuf.Timestamp
-	6,  // 36: iam.authn.v2.AuthService.Login:input_type -> iam.authn.v2.LoginRequest
-	8,  // 37: iam.authn.v2.AuthService.VerifyToken:input_type -> iam.authn.v2.VerifyTokenRequest
-	10, // 38: iam.authn.v2.AuthService.RefreshToken:input_type -> iam.authn.v2.RefreshTokenRequest
-	12, // 39: iam.authn.v2.AuthService.RevokeToken:input_type -> iam.authn.v2.RevokeTokenRequest
-	14, // 40: iam.authn.v2.AuthService.RevokeRefreshToken:input_type -> iam.authn.v2.RevokeRefreshTokenRequest
-	16, // 41: iam.authn.v2.AuthService.IssueServiceToken:input_type -> iam.authn.v2.IssueServiceTokenRequest
-	19, // 42: iam.authn.v2.AuthSignupService.SignUpWithWechatMiniProgram:input_type -> iam.authn.v2.SignUpWithWechatMiniProgramRequest
-	21, // 43: iam.authn.v2.AuthChallengeService.SendLoginPhoneOTP:input_type -> iam.authn.v2.SendLoginPhoneOTPRequest
-	25, // 44: iam.authn.v2.LoginIdentityService.ListLoginIdentities:input_type -> iam.authn.v2.ListLoginIdentitiesRequest
-	27, // 45: iam.authn.v2.LoginIdentityService.SendPhoneLinkChallenge:input_type -> iam.authn.v2.SendPhoneLinkChallengeRequest
-	28, // 46: iam.authn.v2.LoginIdentityService.LinkPhone:input_type -> iam.authn.v2.LinkPhoneRequest
-	29, // 47: iam.authn.v2.LoginIdentityService.LinkWechatMiniProgram:input_type -> iam.authn.v2.LinkWechatMiniProgramRequest
-	30, // 48: iam.authn.v2.LoginIdentityService.LinkWecom:input_type -> iam.authn.v2.LinkWecomRequest
-	31, // 49: iam.authn.v2.LoginIdentityService.UnlinkLoginIdentity:input_type -> iam.authn.v2.UnlinkLoginIdentityRequest
-	33, // 50: iam.authn.v2.JWKSService.GetJWKS:input_type -> iam.authn.v2.GetJWKSRequest
-	7,  // 51: iam.authn.v2.AuthService.Login:output_type -> iam.authn.v2.LoginResponse
-	9,  // 52: iam.authn.v2.AuthService.VerifyToken:output_type -> iam.authn.v2.VerifyTokenResponse
-	11, // 53: iam.authn.v2.AuthService.RefreshToken:output_type -> iam.authn.v2.RefreshTokenResponse
-	13, // 54: iam.authn.v2.AuthService.RevokeToken:output_type -> iam.authn.v2.RevokeTokenResponse
-	15, // 55: iam.authn.v2.AuthService.RevokeRefreshToken:output_type -> iam.authn.v2.RevokeRefreshTokenResponse
-	17, // 56: iam.authn.v2.AuthService.IssueServiceToken:output_type -> iam.authn.v2.IssueServiceTokenResponse
-	20, // 57: iam.authn.v2.AuthSignupService.SignUpWithWechatMiniProgram:output_type -> iam.authn.v2.SignupResult
-	22, // 58: iam.authn.v2.AuthChallengeService.SendLoginPhoneOTP:output_type -> iam.authn.v2.MessageResponse
-	26, // 59: iam.authn.v2.LoginIdentityService.ListLoginIdentities:output_type -> iam.authn.v2.ListLoginIdentitiesResponse
-	22, // 60: iam.authn.v2.LoginIdentityService.SendPhoneLinkChallenge:output_type -> iam.authn.v2.MessageResponse
-	32, // 61: iam.authn.v2.LoginIdentityService.LinkPhone:output_type -> iam.authn.v2.LinkLoginIdentityResponse
-	32, // 62: iam.authn.v2.LoginIdentityService.LinkWechatMiniProgram:output_type -> iam.authn.v2.LinkLoginIdentityResponse
-	32, // 63: iam.authn.v2.LoginIdentityService.LinkWecom:output_type -> iam.authn.v2.LinkLoginIdentityResponse
-	22, // 64: iam.authn.v2.LoginIdentityService.UnlinkLoginIdentity:output_type -> iam.authn.v2.MessageResponse
-	34, // 65: iam.authn.v2.JWKSService.GetJWKS:output_type -> iam.authn.v2.GetJWKSResponse
-	51, // [51:66] is the sub-list for method output_type
-	36, // [36:51] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	1,  // 1: iam.authn.v2.TokenClaims.token_type:type_name -> iam.authn.v2.TokenType
+	39, // 2: iam.authn.v2.TokenClaims.issued_at:type_name -> google.protobuf.Timestamp
+	39, // 3: iam.authn.v2.TokenClaims.expires_at:type_name -> google.protobuf.Timestamp
+	39, // 4: iam.authn.v2.TokenClaims.authenticated_at:type_name -> google.protobuf.Timestamp
+	39, // 5: iam.authn.v2.TokenClaims.not_before:type_name -> google.protobuf.Timestamp
+	36, // 6: iam.authn.v2.TokenClaims.attributes:type_name -> iam.authn.v2.TokenClaims.AttributesEntry
+	40, // 7: iam.authn.v2.TokenPair.expires_in:type_name -> google.protobuf.Duration
+	1,  // 8: iam.authn.v2.TokenMetadata.token_type:type_name -> iam.authn.v2.TokenType
+	0,  // 9: iam.authn.v2.TokenMetadata.status:type_name -> iam.authn.v2.TokenStatus
+	39, // 10: iam.authn.v2.TokenMetadata.issued_at:type_name -> google.protobuf.Timestamp
+	39, // 11: iam.authn.v2.TokenMetadata.expires_at:type_name -> google.protobuf.Timestamp
+	41, // 12: iam.authn.v2.LoginRequest.method_payload:type_name -> google.protobuf.Struct
+	4,  // 13: iam.authn.v2.LoginResponse.token_pair:type_name -> iam.authn.v2.TokenPair
+	1,  // 14: iam.authn.v2.VerifyTokenRequest.accepted_token_types:type_name -> iam.authn.v2.TokenType
+	0,  // 15: iam.authn.v2.VerifyTokenResponse.status:type_name -> iam.authn.v2.TokenStatus
+	3,  // 16: iam.authn.v2.VerifyTokenResponse.claims:type_name -> iam.authn.v2.TokenClaims
+	5,  // 17: iam.authn.v2.VerifyTokenResponse.metadata:type_name -> iam.authn.v2.TokenMetadata
+	37, // 18: iam.authn.v2.RefreshTokenRequest.context:type_name -> iam.authn.v2.RefreshTokenRequest.ContextEntry
+	4,  // 19: iam.authn.v2.RefreshTokenResponse.token_pair:type_name -> iam.authn.v2.TokenPair
+	2,  // 20: iam.authn.v2.RevokeTokenRequest.operator:type_name -> iam.authn.v2.OperatorContext
+	2,  // 21: iam.authn.v2.RevokeRefreshTokenRequest.operator:type_name -> iam.authn.v2.OperatorContext
+	40, // 22: iam.authn.v2.IssueServiceTokenRequest.ttl:type_name -> google.protobuf.Duration
+	2,  // 23: iam.authn.v2.IssueServiceTokenRequest.operator:type_name -> iam.authn.v2.OperatorContext
+	41, // 24: iam.authn.v2.IssueServiceTokenRequest.attributes:type_name -> google.protobuf.Struct
+	4,  // 25: iam.authn.v2.IssueServiceTokenResponse.token_pair:type_name -> iam.authn.v2.TokenPair
+	38, // 26: iam.authn.v2.SignUpWithWechatMiniProgramRequest.meta:type_name -> iam.authn.v2.SignUpWithWechatMiniProgramRequest.MetaEntry
+	18, // 27: iam.authn.v2.SignupResult.credential:type_name -> iam.authn.v2.SignupCredential
+	39, // 28: iam.authn.v2.AuthenticatedUserContext.authenticated_at:type_name -> google.protobuf.Timestamp
+	39, // 29: iam.authn.v2.LoginIdentity.verified_at:type_name -> google.protobuf.Timestamp
+	39, // 30: iam.authn.v2.LoginIdentity.linked_at:type_name -> google.protobuf.Timestamp
+	23, // 31: iam.authn.v2.ListLoginIdentitiesRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
+	24, // 32: iam.authn.v2.ListLoginIdentitiesResponse.items:type_name -> iam.authn.v2.LoginIdentity
+	23, // 33: iam.authn.v2.SendPhoneLinkChallengeRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
+	23, // 34: iam.authn.v2.LinkPhoneRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
+	23, // 35: iam.authn.v2.LinkWechatMiniProgramRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
+	23, // 36: iam.authn.v2.LinkWecomRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
+	23, // 37: iam.authn.v2.UnlinkLoginIdentityRequest.actor:type_name -> iam.authn.v2.AuthenticatedUserContext
+	24, // 38: iam.authn.v2.LinkLoginIdentityResponse.login_identity:type_name -> iam.authn.v2.LoginIdentity
+	39, // 39: iam.authn.v2.GetJWKSResponse.last_modified:type_name -> google.protobuf.Timestamp
+	6,  // 40: iam.authn.v2.AuthService.Login:input_type -> iam.authn.v2.LoginRequest
+	8,  // 41: iam.authn.v2.AuthService.VerifyToken:input_type -> iam.authn.v2.VerifyTokenRequest
+	10, // 42: iam.authn.v2.AuthService.RefreshToken:input_type -> iam.authn.v2.RefreshTokenRequest
+	12, // 43: iam.authn.v2.AuthService.RevokeToken:input_type -> iam.authn.v2.RevokeTokenRequest
+	14, // 44: iam.authn.v2.AuthService.RevokeRefreshToken:input_type -> iam.authn.v2.RevokeRefreshTokenRequest
+	16, // 45: iam.authn.v2.AuthService.IssueServiceToken:input_type -> iam.authn.v2.IssueServiceTokenRequest
+	19, // 46: iam.authn.v2.AuthSignupService.SignUpWithWechatMiniProgram:input_type -> iam.authn.v2.SignUpWithWechatMiniProgramRequest
+	21, // 47: iam.authn.v2.AuthChallengeService.SendLoginPhoneOTP:input_type -> iam.authn.v2.SendLoginPhoneOTPRequest
+	25, // 48: iam.authn.v2.LoginIdentityService.ListLoginIdentities:input_type -> iam.authn.v2.ListLoginIdentitiesRequest
+	27, // 49: iam.authn.v2.LoginIdentityService.SendPhoneLinkChallenge:input_type -> iam.authn.v2.SendPhoneLinkChallengeRequest
+	28, // 50: iam.authn.v2.LoginIdentityService.LinkPhone:input_type -> iam.authn.v2.LinkPhoneRequest
+	29, // 51: iam.authn.v2.LoginIdentityService.LinkWechatMiniProgram:input_type -> iam.authn.v2.LinkWechatMiniProgramRequest
+	30, // 52: iam.authn.v2.LoginIdentityService.LinkWecom:input_type -> iam.authn.v2.LinkWecomRequest
+	31, // 53: iam.authn.v2.LoginIdentityService.UnlinkLoginIdentity:input_type -> iam.authn.v2.UnlinkLoginIdentityRequest
+	33, // 54: iam.authn.v2.JWKSService.GetJWKS:input_type -> iam.authn.v2.GetJWKSRequest
+	7,  // 55: iam.authn.v2.AuthService.Login:output_type -> iam.authn.v2.LoginResponse
+	9,  // 56: iam.authn.v2.AuthService.VerifyToken:output_type -> iam.authn.v2.VerifyTokenResponse
+	11, // 57: iam.authn.v2.AuthService.RefreshToken:output_type -> iam.authn.v2.RefreshTokenResponse
+	13, // 58: iam.authn.v2.AuthService.RevokeToken:output_type -> iam.authn.v2.RevokeTokenResponse
+	15, // 59: iam.authn.v2.AuthService.RevokeRefreshToken:output_type -> iam.authn.v2.RevokeRefreshTokenResponse
+	17, // 60: iam.authn.v2.AuthService.IssueServiceToken:output_type -> iam.authn.v2.IssueServiceTokenResponse
+	20, // 61: iam.authn.v2.AuthSignupService.SignUpWithWechatMiniProgram:output_type -> iam.authn.v2.SignupResult
+	22, // 62: iam.authn.v2.AuthChallengeService.SendLoginPhoneOTP:output_type -> iam.authn.v2.MessageResponse
+	26, // 63: iam.authn.v2.LoginIdentityService.ListLoginIdentities:output_type -> iam.authn.v2.ListLoginIdentitiesResponse
+	22, // 64: iam.authn.v2.LoginIdentityService.SendPhoneLinkChallenge:output_type -> iam.authn.v2.MessageResponse
+	32, // 65: iam.authn.v2.LoginIdentityService.LinkPhone:output_type -> iam.authn.v2.LinkLoginIdentityResponse
+	32, // 66: iam.authn.v2.LoginIdentityService.LinkWechatMiniProgram:output_type -> iam.authn.v2.LinkLoginIdentityResponse
+	32, // 67: iam.authn.v2.LoginIdentityService.LinkWecom:output_type -> iam.authn.v2.LinkLoginIdentityResponse
+	22, // 68: iam.authn.v2.LoginIdentityService.UnlinkLoginIdentity:output_type -> iam.authn.v2.MessageResponse
+	34, // 69: iam.authn.v2.JWKSService.GetJWKS:output_type -> iam.authn.v2.GetJWKSResponse
+	55, // [55:70] is the sub-list for method output_type
+	40, // [40:55] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_iam_authn_v2_authn_proto_init() }

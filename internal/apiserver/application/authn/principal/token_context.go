@@ -10,10 +10,7 @@ func EnsureTokenContext(p *authentication.Principal) {
 	if p == nil {
 		return
 	}
-	if p.Claims == nil {
-		p.Claims = make(map[string]any)
-	}
-	if _, ok := p.Claims["tenant_domain"]; !ok {
-		p.Claims["tenant_domain"] = tenant.DefaultID
+	if p.TokenContext.TenantDomain == "" {
+		p.TokenContext.TenantDomain = tenant.DefaultID
 	}
 }

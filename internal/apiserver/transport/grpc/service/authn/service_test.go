@@ -255,6 +255,7 @@ func TestAuthServiceServerVerifyTokenPassesExpectationGuards(t *testing.T) {
 	require.Equal(t, "jwt-token", stub.verifyReq.AccessToken)
 	require.Equal(t, "https://iam.fangcunmount.cn", stub.verifyReq.ExpectedIssuer)
 	require.Equal(t, []string{"qs-api"}, stub.verifyReq.ExpectedAudience)
+	require.Equal(t, []tokenApp.TokenType{tokenApp.TokenTypeAccess}, stub.verifyReq.AcceptedTokenTypes)
 }
 
 func TestAuthServiceServerTokenLifecycleErrorMapping(t *testing.T) {

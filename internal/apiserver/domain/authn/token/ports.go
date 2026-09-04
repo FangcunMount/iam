@@ -40,17 +40,19 @@ type AccessTokenCodec interface {
 	VerifyAccessToken(ctx context.Context, tokenValue string) (*TokenClaims, error)
 }
 
-// AccessTokenSubject 访问令牌编码所需的已绑定 Session 的认证主体快照
-// 它包含了访问令牌的认证主体信息，包括用户 ID、登录身份 ID、租户 ID、会话 ID、认证方法、认证域和认证方法引用
+// AccessTokenSubject 访问令牌编码所需的已绑定 Session 的认证主体快照。
+// 领域层完成投影后，JWT adapter 只负责序列化，不再从任意 Claims 推断授权域。
 type AccessTokenSubject struct {
 	UserID          meta.ID
 	LoginIdentityID meta.ID
 	TenantID        meta.ID
 	SessionID       string
-	AuthMethod      string
-	Realm           string
+	TenantDomain    string
+	OrgID           string
 	AMR             []string
-	Claims          map[string]any
+	AuthenticatedAt time.Time
+	// Attributes 是已经过准入的对外附加字段，不再代表任意 Principal.Claims。
+	Attributes map[string]string
 }
 
 // RefreshClaimsCodec 将认证声明编码为 Session/RefreshToken 共用的快照

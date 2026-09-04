@@ -32,6 +32,12 @@ func (s *CachingVerifyStrategy) Verify(ctx context.Context, token string, opts *
 	logger.L(ctx).Debugw("CachingVerifyStrategy verify start", "delegate", s.delegate.Name(), "ttl", s.ttl.String())
 	if cached, ok := s.cache.Get(token); ok {
 		logger.L(ctx).Debugw("CachingVerifyStrategy cache hit", "delegate", s.delegate.Name())
+		if cached == nil || cached.Claims == nil {
+			return nil, invalidTokenError("cached verification result has no claims")
+		}
+		if err := newVerificationPolicy(nil, opts).validateTokenType(cached.Claims.TokenType); err != nil {
+			return nil, err
+		}
 		return cached, nil
 	}
 

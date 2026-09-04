@@ -139,6 +139,7 @@ func TestRemoteVerifyStrategyPassesConfiguredIssuerAndAudience(t *testing.T) {
 	require.NotNil(t, stub.verifyReq)
 	require.Equal(t, "https://iam.fangcunmount.cn", stub.verifyReq.ExpectedIssuer)
 	require.Equal(t, []string{"qs-api"}, stub.verifyReq.ExpectedAudience)
+	require.Equal(t, []authnv2.TokenType{authnv2.TokenType_TOKEN_TYPE_ACCESS}, stub.verifyReq.AcceptedTokenTypes)
 }
 
 func TestRemoteVerifyStrategyOptionsOverrideConfig(t *testing.T) {
@@ -187,6 +188,25 @@ func TestRemoteVerifyStrategyOptionsOverrideConfig(t *testing.T) {
 	require.True(t, stub.verifyReq.IncludeMetadata)
 }
 
+func TestLocalVerifyStrategyRejectsServiceTokenByDefault(t *testing.T) {
+	privateKey, manager := newRS256Fixture(t)
+	token := signRS256Token(t, privateKey, map[string]interface{}{
+		jwt.SubjectKey: "service:worker", jwt.ExpirationKey: time.Now().Add(time.Minute), "token_type": "service",
+	})
+	strategy := NewLocalVerifyStrategy(manager)
+
+	result, err := strategy.Verify(context.Background(), token, nil)
+	require.Error(t, err)
+	require.ErrorIs(t, err, iamerrors.ErrTokenInvalid)
+	require.Nil(t, result)
+
+	result, err = strategy.Verify(context.Background(), token, &VerifyOptions{
+		AllowedTokenTypes: []authnv2.TokenType{authnv2.TokenType_TOKEN_TYPE_SERVICE},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "service", result.Claims.TokenType)
+}
+
 func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 	privateKey, _ := newRS256Fixture(t)
 	token := signRS256Token(t, privateKey, map[string]interface{}{
@@ -203,12 +223,17 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 				UserId:          "1",
 				LoginIdentityId: "2",
 				TenantId:        "fangcun",
+				TenantDomain:    "fangcun",
 				OrgId:           "42",
+				TokenType:       authnv2.TokenType_TOKEN_TYPE_ACCESS,
 				Issuer:          "https://iam.fangcunmount.cn",
 				Audience:        []string{"qs-api"},
 				Amr:             []string{"pwd", "otp"},
 				IssuedAt:        timestamppb.New(time.Now()),
+				NotBefore:       timestamppb.New(time.Now()),
+				AuthenticatedAt: timestamppb.New(time.Now().Add(-time.Minute)),
 				ExpiresAt:       timestamppb.New(time.Now().Add(time.Minute)),
+				Attributes:      map[string]string{"auth_time": time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)},
 			},
 			Metadata: &authnv2.TokenMetadata{
 				TokenType: authnv2.TokenType_TOKEN_TYPE_ACCESS,
@@ -230,6 +255,11 @@ func TestRemoteVerifyStrategyReturnsSessionID(t *testing.T) {
 	require.Equal(t, "fangcun", result.Claims.TenantDomain)
 	require.Equal(t, "42", result.Claims.OrgID)
 	require.Equal(t, []string{"pwd", "otp"}, result.Claims.AMR)
+	require.Equal(t, "access", result.Claims.TokenType)
+	require.NotZero(t, result.Claims.NotBefore)
+	require.NotZero(t, result.Claims.AuthenticatedAt)
+	require.Equal(t, result.Claims.AuthenticatedAt, result.Claims.AuthTime)
+	require.Contains(t, result.Claims.Attributes, "auth_time")
 	require.NotNil(t, result.Metadata)
 	require.Equal(t, authnv2.TokenType_TOKEN_TYPE_ACCESS, result.Metadata.TokenType)
 	require.Equal(t, authnv2.TokenStatus_TOKEN_STATUS_VALID, result.Metadata.Status)
@@ -334,6 +364,19 @@ func TestLocalVerifyStrategyAcceptsSingleAllowedAlgorithm(t *testing.T) {
 	require.True(t, result.Valid)
 }
 
+func TestLocalVerifyStrategyEmptyAlgorithmsDefaultsToRS256(t *testing.T) {
+	privateKey, manager := newRS256Fixture(t)
+	strategy := NewLocalVerifyStrategy(manager, WithLocalConfig(&config.TokenVerifyConfig{}))
+	token := signRS256Token(t, privateKey, map[string]interface{}{
+		jwt.SubjectKey:    "user:1",
+		jwt.ExpirationKey: time.Now().Add(time.Minute),
+	})
+
+	result, err := strategy.Verify(context.Background(), token, nil)
+	require.NoError(t, err)
+	require.True(t, result.Valid)
+}
+
 func TestLocalVerifyStrategyRejectsAlgorithmOutsideAllowlist(t *testing.T) {
 	privateKey, manager := newRS256Fixture(t)
 	strategy := NewLocalVerifyStrategy(manager, WithLocalConfig(&config.TokenVerifyConfig{
@@ -350,15 +393,57 @@ func TestLocalVerifyStrategyRejectsAlgorithmOutsideAllowlist(t *testing.T) {
 	require.Nil(t, result)
 }
 
+func TestNewTokenVerifierRejectsNonRS256Configuration(t *testing.T) {
+	_, manager := newRS256Fixture(t)
+
+	result, err := NewTokenVerifier(&config.TokenVerifyConfig{
+		AllowedIssuer:   "https://iam.fangcunmount.cn",
+		AllowedAudience: []string{"qs-api"},
+		Algorithms:      []string{"RS384"},
+	}, manager, nil)
+	require.Error(t, err)
+	require.Nil(t, result)
+}
+
+func TestNewTokenVerifierRejectsMissingIssuerOrAudience(t *testing.T) {
+	_, manager := newRS256Fixture(t)
+
+	_, err := NewTokenVerifier(nil, manager, nil)
+	require.Error(t, err)
+
+	_, err = NewTokenVerifier(&config.TokenVerifyConfig{AllowedAudience: []string{"qs-api"}}, manager, nil)
+	require.Error(t, err)
+
+	_, err = NewTokenVerifier(&config.TokenVerifyConfig{AllowedIssuer: "https://iam.fangcunmount.cn"}, manager, nil)
+	require.Error(t, err)
+}
+
+func TestNewTokenVerifierAcceptsNilAndEmptyAlgorithmConfiguration(t *testing.T) {
+	_, manager := newRS256Fixture(t)
+
+	for _, cfg := range []*config.TokenVerifyConfig{
+		{AllowedIssuer: "https://iam.fangcunmount.cn", AllowedAudience: []string{"qs-api"}, Algorithms: nil},
+		{AllowedIssuer: "https://iam.fangcunmount.cn", AllowedAudience: []string{"qs-api"}, Algorithms: []string{}},
+	} {
+		result, err := NewTokenVerifier(cfg, manager, nil)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	}
+}
+
 func TestTokenVerifierDoesNotFallbackForExpiredToken(t *testing.T) {
 	privateKey, manager := newRS256Fixture(t)
 	remote := &verifyTokenClientStub{verifyResp: validRemoteVerifyResponse()}
 	verifier, err := NewTokenVerifier(&config.TokenVerifyConfig{
-		Algorithms: []string{"RS256"},
+		AllowedIssuer:   "https://iam.fangcunmount.cn",
+		AllowedAudience: []string{"qs-api"},
+		Algorithms:      []string{"RS256"},
 	}, manager, remote)
 	require.NoError(t, err)
 	token := signRS256Token(t, privateKey, map[string]interface{}{
 		jwt.SubjectKey:    "user:1",
+		jwt.IssuerKey:     "https://iam.fangcunmount.cn",
+		jwt.AudienceKey:   []string{"qs-api"},
 		jwt.ExpirationKey: time.Now().Add(-time.Minute),
 	})
 

@@ -160,7 +160,7 @@ func TestRSAKeyGeneratorWithStorage_DifferentAlgorithms(t *testing.T) {
 	generator := keyset.NewRSAKeyGeneratorWithStorage(storage)
 
 	ctx := context.Background()
-	algorithms := []string{"RS256", "RS384", "RS512"}
+	algorithms := []string{"RS256"}
 
 	for _, alg := range algorithms {
 		kid := "test-key-" + alg

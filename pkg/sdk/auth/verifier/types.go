@@ -51,20 +51,27 @@ type TokenClaims struct {
 	// TenantDomain IAM 授权域（JWT tenant_id claim，如 fangcun）。
 	TenantDomain string
 	// OrgID 业务组织 ID（JWT org_id claim 透传）。
-	OrgID     string
-	Roles     []string
-	Scopes    []string
-	TokenType string
-	AMR       []string
-	Extra     map[string]interface{}
+	OrgID      string
+	Attributes map[string]string
+	// Deprecated: IAM 不签发角色；请通过 AuthZ 能力查询。
+	Roles []string
+	// Deprecated: IAM 不签发 scope；请通过 AuthZ 能力查询。
+	Scopes          []string
+	TokenType       string
+	AMR             []string
+	AuthenticatedAt time.Time
+	// Deprecated: use AuthenticatedAt.
+	AuthTime time.Time
+	Extra    map[string]interface{}
 }
 
 // VerifyOptions 验证选项。
 type VerifyOptions struct {
-	ForceRemote      bool
-	IncludeMetadata  bool
-	ExpectedAudience []string
-	ExpectedIssuer   string
+	ForceRemote       bool
+	IncludeMetadata   bool
+	ExpectedAudience  []string
+	ExpectedIssuer    string
+	AllowedTokenTypes []authnv2.TokenType
 }
 
 // VerifyResultCache 验证结果缓存接口。

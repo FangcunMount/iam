@@ -320,13 +320,13 @@ func testRefreshToken(id, value string) *RefreshToken {
 }
 
 func testActiveSession() *sessiondomain.Session {
-	return sessiondomain.New(
+	return sessiondomain.NewWithContexts(
 		"session-id",
 		meta.FromUint64(1),
 		meta.FromUint64(2),
 		meta.FromUint64(3),
-		nil,
-		nil,
+		authentication.RestoreAuthenticationContext(authentication.MethodPassword, "global", []authentication.AMR{authentication.AMRPassword}, time.Now().Add(-time.Hour).UTC()),
+		authentication.TokenContext{TenantDomain: "fangcun"},
 		time.Now().Add(time.Hour),
 	)
 }

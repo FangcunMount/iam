@@ -149,8 +149,8 @@ func testPrincipal() *authentication.Principal {
 }
 
 func testSession(principal *authentication.Principal) *sessiondomain.Session {
-	return sessiondomain.New(
+	return sessiondomain.NewWithContexts(
 		"session-id", principal.UserID, principal.LoginIdentityID, principal.TenantID,
-		nil, nil, time.Now().Add(time.Hour),
+		principal.AuthContext, principal.TokenContext, time.Now().Add(time.Hour),
 	)
 }

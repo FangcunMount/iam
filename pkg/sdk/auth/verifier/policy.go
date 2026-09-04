@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	authnv2 "github.com/FangcunMount/iam/v3/api/grpc/iam/authn/v2"
 	"github.com/FangcunMount/iam/v3/pkg/sdk/config"
 	iamerrors "github.com/FangcunMount/iam/v3/pkg/sdk/errors"
 	"github.com/lestrrat-go/jwx/v2/jws"
@@ -17,10 +18,16 @@ type verificationPolicy struct {
 	clockSkew         time.Duration
 	requiredClaims    []string
 	allowedAlgorithms map[string]struct{}
+	allowedTokenTypes map[authnv2.TokenType]struct{}
+	configurationErr  error
 }
 
 func newVerificationPolicy(cfg *config.TokenVerifyConfig, opts *VerifyOptions) verificationPolicy {
-	policy := verificationPolicy{allowedAlgorithms: make(map[string]struct{})}
+	policy := verificationPolicy{
+		allowedAlgorithms: make(map[string]struct{}),
+		allowedTokenTypes: make(map[authnv2.TokenType]struct{}),
+	}
+	policy.configurationErr = validateConfiguredAlgorithms(cfg)
 	if cfg != nil {
 		policy.issuer = cfg.AllowedIssuer
 		policy.audience = append([]string(nil), cfg.AllowedAudience...)
@@ -37,11 +44,25 @@ func newVerificationPolicy(cfg *config.TokenVerifyConfig, opts *VerifyOptions) v
 		if len(opts.ExpectedAudience) > 0 {
 			policy.audience = append([]string(nil), opts.ExpectedAudience...)
 		}
+		for _, tokenType := range opts.AllowedTokenTypes {
+			policy.allowedTokenTypes[tokenType] = struct{}{}
+		}
+	}
+	if len(policy.allowedTokenTypes) == 0 {
+		policy.allowedTokenTypes[authnv2.TokenType_TOKEN_TYPE_ACCESS] = struct{}{}
 	}
 	for _, algorithm := range configuredAlgorithms(cfg) {
 		policy.allowedAlgorithms[algorithm.String()] = struct{}{}
 	}
 	return policy
+}
+
+func (p verificationPolicy) validateTokenType(actual string) error {
+	tokenType := tokenTypeToProto(actual)
+	if _, ok := p.allowedTokenTypes[tokenType]; !ok {
+		return invalidTokenError("token type %q is not allowed", actual)
+	}
+	return nil
 }
 
 func (p verificationPolicy) appendParseOptions(options []jwt.ParseOption) []jwt.ParseOption {
@@ -91,6 +112,9 @@ func (p verificationPolicy) validateTokenEnvelope(tokenString string) error {
 }
 
 func (p verificationPolicy) validateAlgorithm(tokenString string) error {
+	if p.configurationErr != nil {
+		return invalidTokenError("invalid verifier configuration: %v", p.configurationErr)
+	}
 	message, err := jws.Parse([]byte(tokenString))
 	if err != nil {
 		return invalidTokenError("parse token header: %v", err)

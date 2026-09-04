@@ -24,13 +24,11 @@ func TestGeneratorAccessTokenUsesRegisteredAudienceAndParseRoundTrips(t *testing
 	subject := &tokendomain.AccessTokenSubject{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
+		SessionID:       "sid-1002",
+		TenantDomain:    "fangcun",
+		OrgID:           "1",
 		AMR:             []string{"pwd"},
-		Claims: map[string]any{
-			"display_name":  "seed-user",
-			"tenant_domain": "fangcun",
-			"org_id":        "1",
-			"kid":           "must-not-enter-payload",
-		},
+		Attributes:      map[string]string{"display_name": "seed-user"},
 	}
 
 	token, err := generator.IssueAccessToken(context.Background(), subject, 15*time.Minute)
@@ -61,12 +59,9 @@ func TestGeneratorTokenUsesJWSCompactHeaderPayloadSignatureContract(t *testing.T
 	token, err := generator.IssueAccessToken(context.Background(), &tokendomain.AccessTokenSubject{
 		LoginIdentityID: meta.MustFromUint64(1001),
 		UserID:          meta.MustFromUint64(1002),
-		Claims: map[string]any{
-			"tenant_domain": "fangcun",
-			"kid":           "payload-kid-is-reserved",
-			"alg":           "payload-alg-is-reserved",
-			"typ":           "payload-typ-is-reserved",
-		},
+		SessionID:       "sid-1002",
+		TenantDomain:    "fangcun",
+		Attributes:      map[string]string{"display_name": "seed-user"},
 	}, time.Minute)
 	require.NoError(t, err)
 
@@ -102,7 +97,8 @@ func TestGeneratorLegacyNumericTenantIDDoesNotInferOrg(t *testing.T) {
 	token, err := generator.IssueAccessToken(context.Background(), &tokendomain.AccessTokenSubject{
 		UserID:          meta.MustFromUint64(1002),
 		LoginIdentityID: meta.MustFromUint64(1001),
-		Claims:          map[string]any{"tenant_domain": "fangcun"},
+		SessionID:       "sid-1002",
+		TenantDomain:    "fangcun",
 	}, time.Minute)
 	require.NoError(t, err)
 
@@ -119,7 +115,7 @@ func TestGeneratorRejectsNoneAlgorithm(t *testing.T) {
 	t.Parallel()
 
 	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
-	claims := CustomClaims{
+	claims := jwtPayloadClaims{
 		TokenType: string(tokendomain.TokenTypeAccess),
 		UserID:    "1002",
 		RegisteredClaims: jwtv4.RegisteredClaims{
@@ -137,6 +133,121 @@ func TestGeneratorRejectsNoneAlgorithm(t *testing.T) {
 
 	_, err = generator.VerifyAccessToken(context.Background(), raw)
 	require.Error(t, err)
+}
+
+func TestGeneratorRejectsAlgorithmsAndKeyMetadataOutsideProfile(t *testing.T) {
+	t.Parallel()
+
+	generator, privateKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	claims := jwtPayloadClaims{RegisteredClaims: jwtv4.RegisteredClaims{
+		Subject:   "1002",
+		ExpiresAt: jwtv4.NewNumericDate(time.Now().Add(time.Minute)),
+	}}
+
+	tests := []struct {
+		name   string
+		method jwtv4.SigningMethod
+		key    any
+		kid    string
+	}{
+		{name: "HS256", method: jwtv4.SigningMethodHS256, key: []byte("secret"), kid: "test-key"},
+		{name: "RS384", method: jwtv4.SigningMethodRS384, key: privateKey, kid: "test-key"},
+		{name: "RS512", method: jwtv4.SigningMethodRS512, key: privateKey, kid: "test-key"},
+		{name: "missing kid", method: jwtv4.SigningMethodRS256, key: privateKey},
+		{name: "unknown kid", method: jwtv4.SigningMethodRS256, key: privateKey, kid: "unknown-key"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := jwtv4.NewWithClaims(tt.method, claims)
+			if tt.kid != "" {
+				token.Header["kid"] = tt.kid
+			}
+			raw, err := token.SignedString(tt.key)
+			require.NoError(t, err)
+
+			_, err = generator.VerifyAccessToken(context.Background(), raw)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestGeneratorRejectsJWKAlgorithmMismatch(t *testing.T) {
+	t.Parallel()
+
+	generator, privateKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	generator.keySource.(*signingKeySourceStub).keyAlgs = map[string]string{"test-key": "RS384"}
+	token := jwtv4.NewWithClaims(jwtv4.SigningMethodRS256, jwtPayloadClaims{
+		RegisteredClaims: jwtv4.RegisteredClaims{ExpiresAt: jwtv4.NewNumericDate(time.Now().Add(time.Minute))},
+	})
+	token.Header["kid"] = "test-key"
+	raw, err := token.SignedString(privateKey)
+	require.NoError(t, err)
+
+	_, err = generator.VerifyAccessToken(context.Background(), raw)
+	require.Error(t, err)
+}
+
+func TestGeneratorFailsClosedWhenActiveKeyAlgorithmIsNotRS256(t *testing.T) {
+	t.Parallel()
+
+	generator, _ := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	generator.keySource.(*signingKeySourceStub).algorithm = "RS384"
+
+	token, err := generator.IssueServiceToken(context.Background(), "service", []string{"api"}, nil, time.Minute)
+	require.Error(t, err)
+	require.Nil(t, token)
+}
+
+func TestGeneratorOmitsSensitiveAttributesAndAuthMethodRealm(t *testing.T) {
+	t.Parallel()
+
+	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	token, err := generator.IssueAccessToken(context.Background(), &tokendomain.AccessTokenSubject{
+		UserID:          meta.MustFromUint64(1002),
+		LoginIdentityID: meta.MustFromUint64(1001),
+		SessionID:       "sid-1002",
+		TenantDomain:    "fangcun",
+		AuthenticatedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+		Attributes:      map[string]string{"auth_time": "2026-01-02T03:04:05Z"},
+	}, time.Minute)
+	require.NoError(t, err)
+
+	_, rawClaims := parseRawClaims(t, token.Value, signingKey)
+	require.NotContains(t, rawClaims, "auth_method")
+	require.NotContains(t, rawClaims, "realm")
+	require.Equal(t, float64(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Unix()), rawClaims["auth_time"])
+	attrs, _ := rawClaims["attributes"].(map[string]any)
+	require.NotContains(t, attrs, "phone_number")
+	require.NotContains(t, attrs, "wx_openid")
+	require.Equal(t, "2026-01-02T03:04:05Z", attrs["auth_time"])
+}
+
+func TestGeneratorRejectsIssuerMismatch(t *testing.T) {
+	t.Parallel()
+
+	generator, signingKey := newTestGenerator(t, "https://iam.fangcunmount.cn", []string{"qs-api"})
+	claims := jwtPayloadClaims{
+		TokenType: string(tokendomain.TokenTypeAccess),
+		UserID:    "1002",
+		RegisteredClaims: jwtv4.RegisteredClaims{
+			ID:        "issuer-mismatch",
+			Subject:   "1002",
+			Issuer:    "https://issuer.invalid",
+			Audience:  jwtv4.ClaimStrings{"qs-api"},
+			IssuedAt:  jwtv4.NewNumericDate(time.Now()),
+			ExpiresAt: jwtv4.NewNumericDate(time.Now().Add(time.Minute)),
+			NotBefore: jwtv4.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwtv4.NewWithClaims(jwtv4.SigningMethodRS256, claims)
+	token.Header["typ"] = "JWT"
+	token.Header["kid"] = "test-key"
+	raw, err := token.SignedString(signingKey)
+	require.NoError(t, err)
+
+	_, err = generator.VerifyAccessToken(context.Background(), raw)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected token issuer")
 }
 
 func TestGeneratorServiceTokenUsesRegisteredAudience(t *testing.T) {
@@ -178,10 +289,10 @@ func newTestGenerator(t *testing.T, issuer string, accessAudience []string) (*Ge
 	return NewGenerator(issuer, accessAudience, keySource), privKey
 }
 
-func parseRawClaims(t *testing.T, tokenValue string, key *rsa.PrivateKey) (*CustomClaims, jwtv4.MapClaims) {
+func parseRawClaims(t *testing.T, tokenValue string, key *rsa.PrivateKey) (*jwtPayloadClaims, jwtv4.MapClaims) {
 	t.Helper()
 
-	var claims CustomClaims
+	var claims jwtPayloadClaims
 	parsed, err := jwtv4.ParseWithClaims(tokenValue, &claims, func(token *jwtv4.Token) (any, error) {
 		return &key.PublicKey, nil
 	})
@@ -207,14 +318,28 @@ func decodeJWTPart[T any](t *testing.T, raw string) T {
 
 type signingKeySourceStub struct {
 	kid        string
+	algorithm  string
 	privateKey *rsa.PrivateKey
 	publicKeys map[string]*rsa.PublicKey
+	keyAlgs    map[string]string
 }
 
-func (s *signingKeySourceStub) ActiveSigningKey(context.Context) (string, *rsa.PrivateKey, error) {
-	return s.kid, s.privateKey, nil
+func (s *signingKeySourceStub) ActiveSigningKey(context.Context) (*SigningKey, error) {
+	algorithm := s.algorithm
+	if algorithm == "" {
+		algorithm = "RS256"
+	}
+	return &SigningKey{Kid: s.kid, Algorithm: algorithm, PrivateKey: s.privateKey}, nil
 }
 
-func (s *signingKeySourceStub) VerificationKey(_ context.Context, kid string) (*rsa.PublicKey, error) {
-	return s.publicKeys[kid], nil
+func (s *signingKeySourceStub) VerificationKey(_ context.Context, kid string) (*VerificationKey, error) {
+	publicKey := s.publicKeys[kid]
+	if publicKey == nil {
+		return nil, nil
+	}
+	algorithm := "RS256"
+	if s.keyAlgs != nil && s.keyAlgs[kid] != "" {
+		algorithm = s.keyAlgs[kid]
+	}
+	return &VerificationKey{Kid: kid, Algorithm: algorithm, PublicKey: publicKey}, nil
 }

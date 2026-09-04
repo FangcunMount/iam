@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -158,17 +159,8 @@ func (p *PhoneOTPAuthStrategy) buildPhoneOTPSuccessDecision(
 		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
-		AuthMethod:      "phone_otp",
-		Realm:           loginidentity.RealmGlobal,
-		AMR:             []string{string(AMROTP)},
-		Claims: map[string]any{
-			"phone_number":      credential.PhoneE164,
-			"login_identity_id": loginIdentityID.String(),
-			"auth_method":       "phone_otp",
-			"realm":             loginidentity.RealmGlobal,
-			"auth_time":         ctx.Value("request_time"),
-		},
 	}
+	principal.ApplyAuthContext(NewAuthenticationContext(MethodPhoneOTP, loginidentity.RealmGlobal, []AMR{AMROTP}, time.Now().UTC()))
 
 	return AuthDecision{
 		OK:              true,

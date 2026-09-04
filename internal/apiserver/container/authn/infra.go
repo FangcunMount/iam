@@ -27,6 +27,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/token/keyset"
 	apiserveroptions "github.com/FangcunMount/iam/v3/internal/apiserver/options"
 	genericapiserver "github.com/FangcunMount/iam/v3/internal/pkg/server"
+	pkgauth "github.com/FangcunMount/iam/v3/pkg/auth"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
@@ -170,18 +171,18 @@ func ensureJWKSReady(
 		if !allowCreate {
 			return fmt.Errorf("no active jwks key and automatic initialization is disabled")
 		}
-		if _, _, err := infra.keyRotation.Bootstrap(ctx, "RS256"); err != nil {
+		if _, _, err := infra.keyRotation.Bootstrap(ctx, pkgauth.TokenProfileAlgorithm); err != nil {
 			return fmt.Errorf("bootstrap jwks active key: %w", err)
 		}
-		logger.Infow("auto-created initial jwks active key", "alg", "RS256")
+		logger.Infow("auto-created initial jwks active key", "alg", pkgauth.TokenProfileAlgorithm)
 	} else if !activeKeys[0].IsValidAt(time.Now()) {
 		if !allowCreate || activeKeys[0].IsNotYetValid(time.Now()) {
 			return fmt.Errorf("active jwks key is not currently valid")
 		}
-		if _, _, err := infra.keyRotation.CreateAndActivate(ctx, "RS256", nil, nil); err != nil {
+		if _, _, err := infra.keyRotation.CreateAndActivate(ctx, pkgauth.TokenProfileAlgorithm, nil, nil); err != nil {
 			return fmt.Errorf("replace expired jwks active key: %w", err)
 		}
-		logger.Infow("replaced expired jwks active key", "alg", "RS256")
+		logger.Infow("replaced expired jwks active key", "alg", pkgauth.TokenProfileAlgorithm)
 	}
 	if _, err := infra.keyManager.ValidateActiveKey(ctx, infra.privKeyResolver); err != nil {
 		return fmt.Errorf("validate active jwks key material: %w", err)

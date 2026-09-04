@@ -13,6 +13,7 @@ type SessionRefreshExpirer = tokendomain.SessionRefreshExpirer
 type AdmissionPolicy = tokendomain.AdmissionPolicy
 type TokenType = tokendomain.TokenType
 type TokenClaims = tokendomain.TokenClaims
+type VerifiedTokenClaims = tokendomain.VerifiedTokenClaims
 type ConsumedRefreshToken = tokendomain.ConsumedRefreshToken
 
 const (

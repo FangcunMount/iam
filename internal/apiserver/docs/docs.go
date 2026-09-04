@@ -3140,12 +3140,7 @@ const docTemplate = `{
             "properties": {
                 "algorithm": {
                     "description": "签名算法",
-                    "type": "string",
-                    "enum": [
-                        "RS256",
-                        "RS384",
-                        "RS512"
-                    ]
+                    "type": "string"
                 },
                 "notAfter": {
                     "description": "过期时间（可选）",
@@ -3637,6 +3632,17 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "audience": {
+                    "description": "受众",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "authenticated_at": {
+                    "description": "原始认证时间",
+                    "type": "string"
+                },
                 "expires_at": {
                     "description": "过期时间",
                     "type": "string"
@@ -3653,17 +3659,37 @@ const docTemplate = `{
                     "description": "JWT ID（可选）",
                     "type": "string"
                 },
-                "kid": {
-                    "description": "Key ID（可选）",
-                    "type": "string"
-                },
                 "login_identity_id": {
                     "description": "登录身份 ID",
                     "type": "string"
                 },
+                "not_before": {
+                    "description": "生效时间",
+                    "type": "string"
+                },
+                "org_id": {
+                    "description": "业务组织 ID",
+                    "type": "string"
+                },
+                "session_id": {
+                    "description": "会话 ID",
+                    "type": "string"
+                },
+                "subject": {
+                    "description": "主体",
+                    "type": "string"
+                },
+                "tenant_domain": {
+                    "description": "IAM 授权域",
+                    "type": "string"
+                },
                 "tenant_id": {
-                    "description": "租户 ID（可选）",
+                    "description": "历史租户数值 ID（兼容字段）",
                     "type": "integer"
+                },
+                "token_type": {
+                    "description": "access/service",
+                    "type": "string"
                 },
                 "user_id": {
                     "description": "用户 ID",

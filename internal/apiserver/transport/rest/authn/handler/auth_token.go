@@ -104,9 +104,10 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 	}
 
 	result, err := h.tokenVerifier.VerifyToken(c.Request.Context(), token.VerifyTokenRequest{
-		AccessToken:      reqBody.AccessToken,
-		ExpectedIssuer:   strings.TrimSpace(reqBody.ExpectedIssuer),
-		ExpectedAudience: append([]string(nil), reqBody.ExpectedAudience...),
+		AccessToken:        reqBody.AccessToken,
+		ExpectedIssuer:     strings.TrimSpace(reqBody.ExpectedIssuer),
+		ExpectedAudience:   append([]string(nil), reqBody.ExpectedAudience...),
+		AcceptedTokenTypes: []token.TokenType{token.TokenTypeAccess},
 	})
 	if err != nil {
 		h.Error(c, err)
@@ -119,11 +120,6 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 	}
 
 	if result.Valid && result.Claims != nil {
-		var tenantID *int64
-		if !result.Claims.TenantID.IsZero() {
-			value := int64(result.Claims.TenantID.Uint64())
-			tenantID = &value
-		}
 		amr := append([]string(nil), result.Claims.AMR...)
 		attrs := result.Claims.Attributes
 		var attrCopy map[string]string
@@ -133,13 +129,24 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 				attrCopy[k] = v
 			}
 		}
+		orgID := ""
+		if !result.Claims.OrgID.IsZero() {
+			orgID = result.Claims.OrgID.String()
+		}
 		response.Claims = &resp.TokenClaims{
 			UserID:          result.Claims.UserID.String(),
 			LoginIdentityID: result.Claims.LoginIdentityID.String(),
-			TenantID:        tenantID,
+			TenantDomain:    result.Claims.TenantDomain,
+			OrgID:           orgID,
+			Subject:         result.Claims.Subject,
+			SessionID:       result.Claims.SessionID,
+			Audience:        append([]string(nil), result.Claims.Audience...),
 			Issuer:          result.Claims.Issuer,
 			IssuedAt:        result.Claims.IssuedAt,
 			ExpiresAt:       result.Claims.ExpiresAt,
+			NotBefore:       result.Claims.NotBefore,
+			AuthenticatedAt: result.Claims.AuthenticatedAt,
+			TokenType:       string(result.Claims.TokenType),
 			JTI:             result.Claims.TokenID,
 			Amr:             amr,
 			Attributes:      attrCopy,

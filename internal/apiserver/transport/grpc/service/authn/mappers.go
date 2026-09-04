@@ -45,6 +45,13 @@ func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv2.TokenClaims {
 		Amr:        cloneAudience(claims.AMR),
 		IssuedAt:   timestamppb.New(claims.IssuedAt),
 		ExpiresAt:  timestamppb.New(claims.ExpiresAt),
+		TokenType:  tokenTypeToProto(claims.TokenType),
+	}
+	if !claims.NotBefore.IsZero() {
+		resp.NotBefore = timestamppb.New(claims.NotBefore)
+	}
+	if !claims.AuthenticatedAt.IsZero() {
+		resp.AuthenticatedAt = timestamppb.New(claims.AuthenticatedAt)
 	}
 	if claims.SessionID != "" {
 		resp.SessionId = claims.SessionID
@@ -57,6 +64,7 @@ func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv2.TokenClaims {
 	}
 	if domain := claims.TenantDomain; domain != "" {
 		resp.TenantId = domain
+		resp.TenantDomain = domain
 	}
 	if !claims.OrgID.IsZero() {
 		resp.OrgId = claims.OrgID.String()
@@ -64,16 +72,25 @@ func toProtoTokenClaims(claims *tokenApp.TokenClaims) *authnv2.TokenClaims {
 	return resp
 }
 
+func tokenTypeToProto(tokenType tokenApp.TokenType) authnv2.TokenType {
+	switch tokenType {
+	case tokenApp.TokenTypeService:
+		return authnv2.TokenType_TOKEN_TYPE_SERVICE
+	case tokenApp.TokenTypeRefresh:
+		return authnv2.TokenType_TOKEN_TYPE_REFRESH
+	case tokenApp.TokenTypeAccess:
+		return authnv2.TokenType_TOKEN_TYPE_ACCESS
+	default:
+		return authnv2.TokenType_TOKEN_TYPE_UNSPECIFIED
+	}
+}
+
 func buildTokenMetadata(claims *tokenApp.TokenClaims) *authnv2.TokenMetadata {
 	if claims == nil {
 		return nil
 	}
-	tokenType := authnv2.TokenType_TOKEN_TYPE_ACCESS
-	if claims.TokenType == tokenApp.TokenTypeService {
-		tokenType = authnv2.TokenType_TOKEN_TYPE_SERVICE
-	}
 	return &authnv2.TokenMetadata{
-		TokenType: tokenType,
+		TokenType: tokenTypeToProto(claims.TokenType),
 		Status:    authnv2.TokenStatus_TOKEN_STATUS_VALID,
 		IssuedAt:  timestamppb.New(claims.IssuedAt),
 		ExpiresAt: timestamppb.New(claims.ExpiresAt),

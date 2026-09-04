@@ -14,6 +14,12 @@ func NewTokenVerifier(cfg *config.TokenVerifyConfig, jwksManager *authjwks.JWKSM
 	logger.L(context.Background()).Debugw("NewTokenVerifier jwksManager", "jwksManager", jwksManager)
 	logger.L(context.Background()).Debugw("NewTokenVerifier authClient", "authClient", authClient)
 
+	if err := validateConfiguredAlgorithms(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateRequiredIssuerAudience(cfg); err != nil {
+		return nil, err
+	}
 	selector := NewStrategySelector(cfg, jwksManager, authClient)
 	strategy, err := selector.Select()
 	logger.L(context.Background()).Debugw("NewTokenVerifier strategy", "strategy", strategy)

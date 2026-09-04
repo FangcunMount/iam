@@ -61,6 +61,17 @@
 
 gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22）。
 
+## Token Profile / Verifier 收口（AuthN Token 重构）
+
+| 变更 | 影响 |
+| --- | --- |
+| 算法只接受 RS256 | `AllowedAlgorithms` 配置其他算法会构造失败；历史非 RS256 token 不可再本地验证 |
+| `AllowedIssuer` / `AllowedAudience` 必填 | 缺省构造失败；local/remote 同一规则 |
+| `auth_time` 双读 | 优先顶层 `auth_time`（unix），兼容 `attributes.auth_time`（RFC3339）；服务端回退命中由 `iam_jwt_legacy_attribute_auth_time_fallback_total` 计数 |
+| access JWT 不再含 `auth_method`/`realm` | 需要认证手段读 `amr`；需要原始认证时间读 `AuthenticatedAt`；`AuthTime` 仅为弃用别名 |
+| 敏感 attributes 默认不进入 JWT | 不要依赖 `phone_number`、provider 原始 ID 等旧透传字段 |
+| token type 默认策略 | Verify 默认只接受 access；service token 必须在 `AllowedTokenTypes` 中显式允许 |
+
 ## 新的公开边界
 
 ### 保留为公开入口

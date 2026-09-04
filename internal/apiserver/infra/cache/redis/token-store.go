@@ -116,16 +116,14 @@ func (s *RedisStore) SaveRefreshToken(ctx context.Context, token *tokendomain.Re
 }
 
 func refreshTokenDataFromToken(token *tokendomain.RefreshToken) refreshTokenData {
+	// 新写入不再持久化认证上下文副本；Session 为权威来源。
+	// 历史 JSON 中的 auth_method/realm/amr/session_claims 仍可由 GetRefreshToken 读入以支持 fallback。
 	return refreshTokenData{
 		TokenID:         token.ID,
 		SessionID:       token.SessionID,
 		UserID:          token.UserID.Uint64(),
 		LoginIdentityID: token.LoginIdentityID.Uint64(),
 		TenantID:        token.TenantID.Uint64(),
-		AuthMethod:      token.AuthMethod,
-		Realm:           token.Realm,
-		Amr:             token.AMR,
-		SessionClaims:   token.SessionClaims,
 		ExpiresAt:       token.ExpiresAt,
 	}
 }

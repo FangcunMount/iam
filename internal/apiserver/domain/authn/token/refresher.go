@@ -2,6 +2,8 @@ package token
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/logger"
@@ -38,14 +40,14 @@ func (s *refresher) RefreshToken(ctx context.Context, refreshTokenValue string) 
 	if err != nil {
 		return nil, err
 	}
-	if err := s.requireAdmission(ctx, refreshToken); err != nil {
+	if err := s.requireAdmission(ctx, sess); err != nil {
 		return nil, err
 	}
 	if err := s.ensureRefreshTokenUsable(ctx, refreshTokenValue, refreshToken); err != nil {
 		return nil, err
 	}
 
-	principal := s.principalFromRefreshToken(refreshToken)
+	principal := s.principalFromSession(sess, refreshToken)
 	newTokenSet, err := s.issueRotatedTokenSet(ctx, principal, sess)
 	if err != nil {
 		return nil, err
@@ -138,9 +140,9 @@ func (s *refresher) loadActiveSession(ctx context.Context, sessionID string) (*s
 	return sess, nil
 }
 
-func (s *refresher) requireAdmission(ctx context.Context, refreshToken *RefreshToken) error {
+func (s *refresher) requireAdmission(ctx context.Context, sess *sessiondomain.Session) error {
 	return admissiondomain.Require(ctx, s.admissionPolicy, admissiondomain.Subject{
-		UserID: refreshToken.UserID, LoginIdentityID: refreshToken.LoginIdentityID,
+		UserID: sess.UserID, LoginIdentityID: sess.LoginIdentityID,
 	})
 }
 
@@ -152,20 +154,76 @@ func (s *refresher) ensureRefreshTokenUsable(ctx context.Context, value string, 
 	return perrors.WithCode(code.ErrRefreshTokenExpired, "refresh token has expired")
 }
 
-func (s *refresher) principalFromRefreshToken(refreshToken *RefreshToken) *authentication.Principal {
-	amr := refreshToken.AMR
+// principalFromSession 以 Session 为认证上下文权威来源；仅当 Session 缺上下文时回退 RefreshToken 历史字段。
+func (s *refresher) principalFromSession(sess *sessiondomain.Session, refreshToken *RefreshToken) *authentication.Principal {
+	authContext := sess.AuthContext.Clone()
+	tokenContext := sess.TokenContext.Clone()
+	authMethod := strings.TrimSpace(string(authContext.Method))
+	realm := strings.TrimSpace(authContext.Realm)
+	amr := authContext.AMRStrings()
+	authenticatedAt := authContext.AuthenticatedAt
+	var legacyClaims map[string]any
+	if authenticatedAt.IsZero() {
+		authenticatedAt = sess.CreatedAt
+	}
+
+	if !sessionHasAuthContext(sess) {
+		legacyRefreshContextFallbackTotal.Inc()
+		authMethod = strings.TrimSpace(refreshToken.AuthMethod)
+		realm = strings.TrimSpace(refreshToken.Realm)
+		amr = append([]string(nil), refreshToken.AMR...)
+		legacyClaims = s.refreshClaimsCodec.Decode(refreshToken.SessionClaims)
+		if tokenContext.TenantDomain == "" && len(legacyClaims) > 0 {
+			tokenContext = tokenContextFromClaims(legacyClaims)
+		}
+	}
+
 	if len(amr) == 0 {
 		amr = []string{"jwt"}
 	}
-	claims := s.refreshClaimsCodec.Decode(refreshToken.SessionClaims)
-	if claims == nil {
-		claims = make(map[string]any)
+	if authenticatedAt.IsZero() {
+		authenticatedAt = resolveAuthenticatedAt(legacyClaims, time.Time{})
 	}
-	return &authentication.Principal{
-		UserID: refreshToken.UserID, LoginIdentityID: refreshToken.LoginIdentityID,
-		TenantID: refreshToken.TenantID, SessionID: refreshToken.SessionID,
-		AuthMethod: refreshToken.AuthMethod, Realm: refreshToken.Realm, AMR: amr, Claims: claims,
+
+	principal := &authentication.Principal{
+		UserID:          sess.UserID,
+		LoginIdentityID: sess.LoginIdentityID,
+		TenantID:        sess.TenantID,
+		SessionID:       sess.SessionID,
+		TokenContext:    tokenContext,
 	}
+	if authMethod != "" || realm != "" || len(amr) > 0 || !authenticatedAt.IsZero() {
+		principal.ApplyAuthContext(authentication.RestoreAuthenticationContext(
+			authentication.Method(authMethod),
+			realm,
+			amrStringsToAMR(amr),
+			authenticatedAt,
+		))
+	}
+	return principal
+}
+
+func sessionHasAuthContext(sess *sessiondomain.Session) bool {
+	if sess == nil {
+		return false
+	}
+	if sess.AuthContext.Method != "" || strings.TrimSpace(sess.AuthContext.Realm) != "" || len(sess.AuthContext.AMR) > 0 || !sess.AuthContext.AuthenticatedAt.IsZero() {
+		return true
+	}
+	return false
+}
+
+func amrStringsToAMR(values []string) []authentication.AMR {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]authentication.AMR, 0, len(values))
+	for _, value := range values {
+		if text := strings.TrimSpace(value); text != "" {
+			out = append(out, authentication.AMR(text))
+		}
+	}
+	return out
 }
 
 func (s *refresher) issueRotatedTokenSet(ctx context.Context, principal *authentication.Principal, sess *sessiondomain.Session) (*UserTokenSet, error) {

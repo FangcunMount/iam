@@ -8,7 +8,6 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
-	"github.com/FangcunMount/iam/v3/internal/pkg/authnclaims"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 )
 
@@ -36,9 +35,10 @@ func (c *creator) Create(ctx context.Context, principal *authentication.Principa
 		return nil, err
 	}
 
-	session := New(uuid.NewString(), principal.UserID, principal.LoginIdentityID, principal.TenantID, principal.AMR, authnclaims.EncodeSnapshot(principal.Claims), expiresAt)
-	session.AuthMethod = principal.AuthMethod
-	session.Realm = principal.Realm
+	session := NewWithContexts(
+		uuid.NewString(), principal.UserID, principal.LoginIdentityID, principal.TenantID,
+		principal.AuthContext, principal.TokenContext, expiresAt,
+	)
 
 	if err := c.store.Save(ctx, session); err != nil {
 		return nil, err

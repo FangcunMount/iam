@@ -47,8 +47,8 @@ func TestPasswordAuthStrategyWithLoginIdentityUsesPasswordCredentialV2(t *testin
 	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
 	require.Equal(t, loginIdentityID, decision.Principal.LoginIdentityID)
 	require.Equal(t, userID, decision.Principal.UserID)
-	require.Equal(t, "password", decision.Principal.AuthMethod)
-	require.Equal(t, tenantID.String(), decision.Principal.Realm)
+	require.Equal(t, "password", string(decision.Principal.AuthContext.Method))
+	require.Equal(t, tenantID.String(), decision.Principal.AuthContext.Realm)
 	require.Equal(t, 1, credRepo.findByLoginIdentityCalls)
 }
 
@@ -79,8 +79,8 @@ func TestPhoneOTPAuthStrategyWithLoginIdentityDoesNotRequireLongTermCredential(t
 	require.True(t, decision.OK)
 	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
 	require.True(t, decision.CredentialID.IsZero())
-	require.Equal(t, "phone_otp", decision.Principal.AuthMethod)
-	require.Equal(t, loginidentity.RealmGlobal, decision.Principal.Realm)
+	require.Equal(t, "phone_otp", string(decision.Principal.AuthContext.Method))
+	require.Equal(t, loginidentity.RealmGlobal, decision.Principal.AuthContext.Realm)
 }
 
 func TestWechatOpenAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T) {
@@ -112,10 +112,9 @@ func TestWechatOpenAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T)
 	require.True(t, decision.OK)
 	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
 	require.True(t, decision.CredentialID.IsZero())
-	require.Equal(t, "oauth_wx_open", decision.Principal.AuthMethod)
-	require.Equal(t, "wx-app", decision.Principal.Realm)
-	require.Equal(t, "openid-1", decision.Principal.Claims["wx_openid"])
-	require.Equal(t, "union-1", decision.Principal.Claims["wx_unionid"])
+	require.Equal(t, "oauth_wx_open", string(decision.Principal.AuthContext.Method))
+	require.Equal(t, "wx-app", decision.Principal.AuthContext.Realm)
+	require.Empty(t, decision.Principal.TokenContext.Attributes)
 }
 
 func TestWechatOpenAuthStrategyWithLoginIdentityPrefersOpenIDOverUnionIDFallback(t *testing.T) {
@@ -190,8 +189,8 @@ func TestWechatMinipAuthStrategyWithLoginIdentityFallsBackToUnionID(t *testing.T
 	require.True(t, decision.OK)
 	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
 	require.True(t, decision.CredentialID.IsZero())
-	require.Equal(t, "wechat_minip", decision.Principal.AuthMethod)
-	require.Equal(t, "wx-app", decision.Principal.Realm)
+	require.Equal(t, "wechat_minip", string(decision.Principal.AuthContext.Method))
+	require.Equal(t, "wx-app", decision.Principal.AuthContext.Realm)
 }
 
 func TestWechatMinipAuthStrategyFallsBackToMarkedLegacyUnionIdentifier(t *testing.T) {
@@ -302,10 +301,9 @@ func TestWecomAuthStrategyWithLoginIdentityDoesNotRequireLongTermCredential(t *t
 	require.True(t, decision.OK)
 	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
 	require.True(t, decision.CredentialID.IsZero())
-	require.Equal(t, "wecom", decision.Principal.AuthMethod)
-	require.Equal(t, "corp-1", decision.Principal.Realm)
-	require.Equal(t, "user-1", decision.Principal.Claims["wecom_user_id"])
-	require.Equal(t, "open-user-1", decision.Principal.Claims["wecom_open_user_id"])
+	require.Equal(t, "wecom", string(decision.Principal.AuthContext.Method))
+	require.Equal(t, "corp-1", decision.Principal.AuthContext.Realm)
+	require.Empty(t, decision.Principal.TokenContext.Attributes)
 }
 
 func TestWecomAuthStrategyFallsBackToOpenUserID(t *testing.T) {
@@ -336,8 +334,7 @@ func TestWecomAuthStrategyFallsBackToOpenUserID(t *testing.T) {
 	require.True(t, decision.OK)
 	require.Equal(t, loginIdentityID, decision.LoginIdentityID)
 	require.Equal(t, userID, decision.Principal.UserID)
-	require.Equal(t, "unbound-user", decision.Principal.Claims["wecom_user_id"])
-	require.Equal(t, "open-user-1", decision.Principal.Claims["wecom_open_user_id"])
+	require.Empty(t, decision.Principal.TokenContext.Attributes)
 }
 
 func TestWecomAuthStrategyPrefersUserIDOverOpenUserID(t *testing.T) {

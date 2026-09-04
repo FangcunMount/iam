@@ -66,9 +66,10 @@ type TokenRefreshResult struct {
 
 // VerifyTokenRequest 令牌验证请求 DTO。
 type VerifyTokenRequest struct {
-	AccessToken      string   // 访问令牌
-	ExpectedIssuer   string   // 预期签发者
-	ExpectedAudience []string // 预期受众
+	AccessToken        string      // 访问令牌
+	ExpectedIssuer     string      // 预期签发者
+	ExpectedAudience   []string    // 预期受众
+	AcceptedTokenTypes []TokenType // 场景允许的令牌类型；为空时安全默认只接受 access
 }
 
 // TokenVerifyResult 令牌验证结果 DTO。

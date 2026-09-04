@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"fmt"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/loginidentity"
@@ -147,18 +148,8 @@ func (o *OAuthWechatOpenAuthStrategy) buildWechatOpenSuccessDecision(ctx context
 		LoginIdentityID: loginIdentityID,
 		UserID:          userID,
 		TenantID:        credential.TenantID,
-		AuthMethod:      string(CredentialKindWechatOpen),
-		Realm:           credential.AppID,
-		AMR:             []string{string(AMRWxOpen)},
-		Claims: map[string]any{
-			"wx_openid":         identity.openID,
-			"wx_unionid":        identity.unionID,
-			"login_identity_id": loginIdentityID.String(),
-			"auth_method":       string(CredentialKindWechatOpen),
-			"realm":             credential.AppID,
-			"auth_time":         ctx.Value("request_time"),
-		},
 	}
+	principal.ApplyAuthContext(NewAuthenticationContext(MethodWechatOpen, credential.AppID, []AMR{AMRWxOpen}, time.Now().UTC()))
 
 	// 返回认证决策
 	return AuthDecision{

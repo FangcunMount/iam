@@ -301,7 +301,7 @@ func (s *authnAuthenticationGrantIssuerStub) IssueAuthentication(_ context.Conte
 		principal.UserID,
 		principal.LoginIdentityID,
 		principal.TenantID,
-		principal.AMR,
+		principal.AuthContext.AMRStrings(),
 		nil,
 		time.Hour,
 	)

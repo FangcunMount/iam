@@ -2,11 +2,13 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/authentication"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authn/session"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -14,6 +16,62 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSessionStoreWritesTypedV2ContextWithoutLegacyClaims(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	store := NewSessionStore(client)
+	authenticatedAt := time.Unix(1700000000, 0).UTC()
+	sess := session.NewWithContexts(
+		"sid-v2", meta.FromUint64(1), meta.FromUint64(2), meta.FromUint64(3),
+		authentication.RestoreAuthenticationContext(authentication.MethodPassword, "global", []authentication.AMR{authentication.AMRPassword}, authenticatedAt),
+		authentication.TokenContext{TenantDomain: "fangcun", OrgID: meta.FromUint64(9), Attributes: map[string]string{"auth_time": authenticatedAt.Format(time.RFC3339)}},
+		time.Now().Add(time.Hour),
+	)
+	require.NoError(t, store.Save(context.Background(), sess))
+
+	payload, err := client.Get(context.Background(), sessionRedisKey(sess.SessionID)).Bytes()
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"schema_version":2`)
+	require.NotContains(t, string(payload), "AuthMethod")
+	require.NotContains(t, string(payload), "SessionClaims")
+	require.NotContains(t, string(payload), "phone_number")
+
+	loaded, err := store.Get(context.Background(), sess.SessionID)
+	require.NoError(t, err)
+	require.Equal(t, authentication.MethodPassword, loaded.AuthContext.Method)
+	require.Equal(t, authenticatedAt, loaded.AuthContext.AuthenticatedAt)
+	require.Equal(t, "fangcun", loaded.TokenContext.TenantDomain)
+	require.Equal(t, meta.FromUint64(9), loaded.TokenContext.OrgID)
+}
+
+func TestSessionStoreReadsHistoricalDomainJSONIntoTypedContexts(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	store := NewSessionStore(client)
+	authenticatedAt := time.Unix(1700000000, 0).UTC()
+	payload, err := json.Marshal(map[string]any{
+		"SessionID": "sid-v1", "UserID": 1, "LoginIdentityID": 2, "TenantID": 3,
+		"AuthMethod": "password", "Realm": "global", "AMR": []string{"pwd"},
+		"AuthenticatedAt": authenticatedAt,
+		"SessionClaims": map[string]string{
+			"tenant_domain": "fangcun", "org_id": "9", "phone_number": "+8613800138000", "auth_time": authenticatedAt.Format(time.RFC3339),
+		},
+		"Status": "active", "CreatedAt": authenticatedAt, "ExpiresAt": time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+	require.NoError(t, client.Set(context.Background(), sessionRedisKey("sid-v1"), payload, time.Hour).Err())
+
+	loaded, err := store.Get(context.Background(), "sid-v1")
+	require.NoError(t, err)
+	require.Equal(t, authentication.MethodPassword, loaded.AuthContext.Method)
+	require.Equal(t, authenticatedAt, loaded.AuthContext.AuthenticatedAt)
+	require.Equal(t, "fangcun", loaded.TokenContext.TenantDomain)
+	require.Equal(t, meta.FromUint64(9), loaded.TokenContext.OrgID)
+	require.NotContains(t, loaded.TokenContext.Attributes, "phone_number")
+}
 
 func TestSessionStoreSaveAndRevokeAreIndexConsistent(t *testing.T) {
 	mr := miniredis.RunT(t)
@@ -109,13 +167,13 @@ func TestSessionStoreBulkRevokeCleansStaleIndexMember(t *testing.T) {
 }
 
 func newRedisTestSession(id string) *session.Session {
-	return session.New(
+	return session.NewWithContexts(
 		id,
 		meta.FromUint64(1001),
 		meta.FromUint64(2001),
 		meta.FromUint64(3001),
-		[]string{"pwd"},
-		map[string]string{"scope": "test"},
+		authentication.NewAuthenticationContext(authentication.MethodPassword, "global", []authentication.AMR{authentication.AMRPassword}, time.Now().UTC()),
+		authentication.TokenContext{TenantDomain: "fangcun"},
 		time.Now().Add(time.Hour),
 	)
 }

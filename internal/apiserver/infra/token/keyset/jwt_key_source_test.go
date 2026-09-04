@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -24,15 +25,42 @@ func TestJWTKeySourceReturnsActiveSigningKeyAndVerificationKey(t *testing.T) {
 		jwtKeySourceResolverStub{privateKey: privateKey},
 	)
 
-	activeKid, signingKey, err := source.ActiveSigningKey(context.Background())
+	signingKey, err := source.ActiveSigningKey(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, kid, activeKid)
-	require.Same(t, privateKey, signingKey)
+	require.Equal(t, kid, signingKey.Kid)
+	require.Equal(t, "RS256", signingKey.Algorithm)
+	require.Same(t, privateKey, signingKey.PrivateKey)
 
 	verificationKey, err := source.VerificationKey(context.Background(), kid)
 	require.NoError(t, err)
-	require.Equal(t, privateKey.PublicKey.N, verificationKey.N)
-	require.Equal(t, privateKey.PublicKey.E, verificationKey.E)
+	require.Equal(t, kid, verificationKey.Kid)
+	require.Equal(t, "RS256", verificationKey.Algorithm)
+	require.Equal(t, privateKey.PublicKey.N, verificationKey.PublicKey.N)
+	require.Equal(t, privateKey.PublicKey.E, verificationKey.PublicKey.E)
+}
+
+func TestJWTKeySourceRejectsKeysOutsideVerificationLifecycle(t *testing.T) {
+	t.Parallel()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	now := time.Now()
+
+	tests := []struct {
+		name string
+		key  *Key
+	}{
+		{name: "retired", key: NewKey("retired", publicJWKForTest("retired", &privateKey.PublicKey), WithStatus(KeyRetired))},
+		{name: "not yet valid", key: NewKey("future", publicJWKForTest("future", &privateKey.PublicKey), WithNotBefore(now.Add(time.Hour)))},
+		{name: "expired", key: NewKey("expired", publicJWKForTest("expired", &privateKey.PublicKey), WithNotAfter(now.Add(-time.Hour)))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := NewJWTKeySource(jwtKeySourceManagerStub{active: tt.key}, jwtKeySourceResolverStub{privateKey: privateKey})
+			_, err := source.VerificationKey(context.Background(), tt.key.Kid)
+			require.Error(t, err)
+		})
+	}
 }
 
 type jwtKeySourceManagerStub struct {
