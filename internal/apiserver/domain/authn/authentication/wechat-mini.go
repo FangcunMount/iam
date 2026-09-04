@@ -12,16 +12,7 @@ import (
 
 // ====================== 认证凭据（认证所需的数据） ========================
 
-// WechatMinipCredential 认证凭据（微信小程序登录所需的数据）
-type WechatMinipCredential struct {
-	TenantID  meta.ID
-	RemoteIP  string
-	UserAgent string
-	AppID     string
-	OpenID    string
-	UnionID   string
-}
-
+// WechatMiniProofSpec 微信小程序认证凭据规范
 type WechatMiniProofSpec struct {
 	TenantID  meta.ID
 	RemoteIP  string
@@ -31,12 +22,25 @@ type WechatMiniProofSpec struct {
 	UnionID   string
 }
 
-// CredentialKind 返回认证证明类型。
+// WechatMinipCredential 微信小程序认证凭据
+type WechatMinipCredential struct {
+	TenantID  meta.ID
+	RemoteIP  string
+	UserAgent string
+	AppID     string
+	OpenID    string
+	UnionID   string
+}
+
+// 确保 WechatMinipCredential 实现了 AuthCredential 接口
+var _ AuthCredential = (*WechatMinipCredential)(nil)
+
+// CredentialKind 返回认证凭据类型
 func (c *WechatMinipCredential) CredentialKind() CredentialKind {
 	return CredentialKindWechatMinip
 }
 
-// NewWechatMiniCredential 构造微信小程序认证凭据
+// NewWechatMiniCredential 创建 WechatMinipCredential 实例
 func NewWechatMiniCredential(spec WechatMiniProofSpec) (AuthCredential, error) {
 	if spec.AppID == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "wechat appid is required for wechat authentication")
@@ -85,16 +89,19 @@ func (o *OAuthWechatMinipAuthStrategy) Kind() CredentialKind {
 // 2. 检查 LoginIdentity 状态
 // 3. 返回认证判决
 func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
+	// 断言认证凭据类型
 	wechatCred, ok := credential.(*WechatMinipCredential)
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("wechat minip strategy expects *WechatMinipCredential, got %T", credential)
 	}
 	identity := wechatMinipIdentity{openID: wechatCred.OpenID, unionID: wechatCred.UnionID}
 
+	// 根据已验证的 openID/unionID 查找登录身份
 	lookup, err := o.findWechatMinipIdentity(ctx, wechatCred, identity)
 	if err != nil {
 		return AuthDecision{}, err
 	}
+	// 如果登录身份不存在，则返回认证失败
 	if lookup == nil || lookup.LoginIdentityID.IsZero() {
 		return AuthDecision{
 			OK:   false,
@@ -102,14 +109,17 @@ func (o *OAuthWechatMinipAuthStrategy) Authenticate(ctx context.Context, credent
 		}, nil
 	}
 
+	// 检查登录身份状态
 	statusFailure, err := loginIdentityStatusFailureDecision(ctx, o.identityRepo, lookup.LoginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
+	// 如果登录身份状态为失败，则返回认证失败
 	if statusFailure != nil {
 		return *statusFailure, nil
 	}
 
+	// 构造认证成功决策
 	return o.buildWechatMinipSuccessDecision(ctx, wechatCred, identity, lookup.LoginIdentityID, lookup.UserID, meta.ZeroID), nil
 }
 

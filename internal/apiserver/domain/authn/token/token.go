@@ -24,10 +24,13 @@ type Token interface {
 
 // TokenMetadata 是三类令牌共享的身份与生命周期信息。
 type TokenMetadata struct {
-	ID        string
-	Value     string
-	IssuedAt  time.Time
-	ExpiresAt time.Time
+	// —— 身份信息 —— //
+	ID    string // 令牌ID
+	Value string // 令牌值
+
+	// —— 生命周期信息 —— //
+	IssuedAt  time.Time // 令牌颁发时间
+	ExpiresAt time.Time // 令牌过期时间
 }
 
 // Metadata 返回令牌元数据的值副本。
@@ -60,13 +63,18 @@ func (m TokenMetadata) RemainingDuration() time.Duration {
 type AccessToken struct {
 	TokenMetadata
 
-	Subject         string
-	SessionID       string
-	UserID          meta.ID
-	LoginIdentityID meta.ID
-	TenantID        meta.ID
-	AuthMethod      string
-	Realm           string
+	// —— 主体信息 —— //
+	Subject string // 令牌主题
+
+	// —— 会话信息 —— //
+	SessionID       string  // 会话ID
+	UserID          meta.ID // 用户ID
+	LoginIdentityID meta.ID // 登录身份ID
+	TenantID        meta.ID // 租户ID
+
+	// —— 认证信息 —— //
+	AuthMethod string // 认证方法
+	Realm      string // 认证域
 }
 
 func (*AccessToken) Kind() TokenType { return TokenTypeAccess }
@@ -88,14 +96,17 @@ func NewAccessToken(id, value, sessionID string, userID, loginIdentityID, tenant
 type RefreshToken struct {
 	TokenMetadata
 
-	SessionID       string
-	UserID          meta.ID
-	LoginIdentityID meta.ID
-	TenantID        meta.ID
-	AuthMethod      string
-	Realm           string
-	AMR             []string
-	SessionClaims   map[string]string
+	// —— 会话信息 —— //
+	SessionID       string  // 会话ID
+	UserID          meta.ID // 用户ID
+	LoginIdentityID meta.ID // 登录身份ID
+	TenantID        meta.ID // 租户ID
+
+	// —— 认证信息 —— //
+	AuthMethod    string            // 认证方法
+	Realm         string            // 认证域
+	AMR           []string          // 认证方法引用
+	SessionClaims map[string]string // 认证声明
 }
 
 func (*RefreshToken) Kind() TokenType { return TokenTypeRefresh }
@@ -162,32 +173,34 @@ type ConsumedRefreshToken struct {
 	UserID    meta.ID
 }
 
-// TokenClaims 是验签后得到的令牌领域声明，不暴露 JWT Header/Signature。
+// TokenClaims 令牌声明
+// 是验签后得到的令牌领域声明，不暴露 JWT Header/Signature。
+// 令牌声明包含令牌的元数据、主体、认证、属性、时间等信息。
 type TokenClaims struct {
-	// ==== 令牌元数据 ====
+	// —— 令牌元数据 —— //
 	TokenID   string
 	TokenType TokenType
-	Subject   string
 	SessionID string
+	Subject   string
 
-	// ==== 令牌主体 ====
+	// —— 令牌主体 —— //
 	UserID          meta.ID
 	LoginIdentityID meta.ID
 	TenantDomain    string
 	TenantID        meta.ID
 	OrgID           meta.ID
 
-	// ==== 令牌认证 ====
+	// —— 令牌认证 —— //
 	AuthMethod string
 	Realm      string
 	Issuer     string
 
-	// ==== 令牌属性 ====
+	// —— 令牌属性 —— //
 	Audience   []string
 	Attributes map[string]string
 	AMR        []string
 
-	// ==== 令牌时间 ====
+	// —— 令牌时间 —— //
 	IssuedAt  time.Time
 	ExpiresAt time.Time
 }

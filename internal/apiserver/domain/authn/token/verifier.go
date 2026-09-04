@@ -16,6 +16,9 @@ type verifier struct {
 	admissionPolicy AdmissionPolicy
 }
 
+// 实现 Verifier 接口
+var _ Verifier = &verifier{}
+
 func newVerifier(tokenCodec AccessTokenCodec, tokenStore Store, sessionLoader SessionLoader, admissionPolicy AdmissionPolicy) Verifier {
 	return &verifier{
 		tokenCodec: tokenCodec, tokenStore: tokenStore,
@@ -24,19 +27,25 @@ func newVerifier(tokenCodec AccessTokenCodec, tokenStore Store, sessionLoader Se
 }
 
 func (s *verifier) VerifyToken(ctx context.Context, tokenValue string) (*TokenClaims, error) {
+	// 解析令牌
 	claims, err := s.tokenCodec.VerifyAccessToken(ctx, tokenValue)
 	if err != nil {
 		return nil, perrors.WrapC(err, code.ErrTokenInvalid, "failed to parse access token")
 	}
+	// 如果是服务令牌，则直接返回
 	if claims.TokenType == TokenTypeService {
 		return claims, nil
 	}
+
+	// 检查令牌是否被撤销
 	if err := s.checkTokenValid(ctx, claims); err != nil {
 		return nil, err
 	}
+	// 检查会话是否活跃
 	if err := s.checkSessionActive(ctx, claims.SessionID); err != nil {
 		return nil, err
 	}
+	// 检查准入策略
 	if err := s.requireAdmission(ctx, claims.UserID, claims.LoginIdentityID); err != nil {
 		return nil, err
 	}

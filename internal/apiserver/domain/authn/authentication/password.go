@@ -14,15 +14,7 @@ import (
 
 // ====================== 认证凭据（认证所需的数据） ========================
 
-// PasswordCredential 认证凭据（用户名+密码）
-type PasswordCredential struct {
-	TenantID  meta.ID
-	RemoteIP  string
-	UserAgent string
-	Username  string
-	Password  string
-}
-
+// PasswordProofSpec 密码认证凭据规范，用于构造 PasswordCredential 实例
 type PasswordProofSpec struct {
 	TenantID  meta.ID
 	RemoteIP  string
@@ -31,7 +23,19 @@ type PasswordProofSpec struct {
 	Password  string
 }
 
-// CredentialKind 返回认证证明类型。
+// PasswordCredential 用户名+密码认证凭据
+type PasswordCredential struct {
+	TenantID  meta.ID
+	RemoteIP  string
+	UserAgent string
+	Username  string
+	Password  string
+}
+
+// 确保 PasswordCredential 实现了 AuthCredential 接口
+var _ AuthCredential = (*PasswordCredential)(nil)
+
+// CredentialKind 返回认证凭据类型
 func (c *PasswordCredential) CredentialKind() CredentialKind {
 	return CredentialKindPassword
 }
@@ -94,22 +98,28 @@ func (p *PasswordAuthStrategy) Kind() CredentialKind {
 // 5. 检查是否需要密码rehash（算法升级）
 // 6. 返回认证判决
 func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
+	// 断言认证凭据类型
 	passwordCredential, ok := credential.(*PasswordCredential)
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("password strategy expects *PasswordCredential, got %T", credential)
 	}
+
+	// 根据用户名查找登录身份
 	lookup, err := p.identityRepo.FindUsernameIdentity(ctx, passwordCredential.TenantID, passwordCredential.Username)
 	if err != nil {
 		return AuthDecision{}, fmt.Errorf("failed to find login identity: %w", err)
 	}
+	// 如果登录身份不存在，则返回认证失败
 	if lookup == nil || lookup.LoginIdentityID.IsZero() {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrInvalidCredentials,
 		}, nil
 	}
+	// 获取登录身份ID和用户ID
 	loginIdentityID, userID := lookup.LoginIdentityID, lookup.UserID
 
+	// 检查登录身份状态
 	statusFailure, err := loginIdentityStatusFailureDecision(ctx, p.identityRepo, loginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
@@ -118,10 +128,12 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		return *statusFailure, nil
 	}
 
+	// 查找密码凭据
 	passwordRecord, found, err := p.findPasswordCredential(ctx, loginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
 	}
+	// 如果密码凭据不存在，则返回认证失败
 	if !found {
 		return AuthDecision{
 			OK:              false,
@@ -129,7 +141,9 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			LoginIdentityID: loginIdentityID,
 		}, nil
 	}
+	// 获取密码凭据ID
 	credentialID := passwordRecord.CredentialID
+	// 检查密码凭据状态
 	if passwordRecord.Status == credDomain.CredStatusDisabled {
 		return AuthDecision{
 			OK:              false,
@@ -138,6 +152,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 			CredentialID:    credentialID,
 		}, nil
 	}
+	// 检查密码凭据是否被锁定
 	if passwordRecord.LockedUntil != nil && time.Now().Before(*passwordRecord.LockedUntil) {
 		return AuthDecision{
 			OK:              false,
@@ -147,6 +162,7 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		}, nil
 	}
 
+	// 验证密码是否匹配
 	plaintextWithPepper := passwordCredential.Password + p.hasher.Pepper()
 	storedHash := passwordRecord.PasswordHash
 	if !p.passwordMatches(storedHash, plaintextWithPepper) {
@@ -159,7 +175,9 @@ func (p *PasswordAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		}, nil
 	}
 
+	// 尝试生成升级后的密码 hash
 	shouldRotate, newMaterial := p.rotationMaterial(storedHash, plaintextWithPepper)
+	// 构造认证成功决策
 	return p.buildPasswordSuccessDecision(ctx, passwordCredential, lookup, loginIdentityID, userID, credentialID, shouldRotate, newMaterial), nil
 }
 

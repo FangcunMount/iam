@@ -12,15 +12,6 @@ import (
 
 // ====================== 认证凭据（认证所需的数据） ========================
 
-// PhoneOTPCredential 认证凭据（手机号+验证码）
-type PhoneOTPCredential struct {
-	TenantID  meta.ID // 认证域
-	RemoteIP  string  // 认证客户端IP
-	UserAgent string  // 认证客户端UA
-	PhoneE164 string  // 手机号
-	OTP       string  // 验证码
-}
-
 // PhoneOTPProofSpec 手机号验证码认证凭据规格
 type PhoneOTPProofSpec struct {
 	TenantID  meta.ID // 认证域
@@ -30,7 +21,19 @@ type PhoneOTPProofSpec struct {
 	OTP       string  // 验证码
 }
 
-// CredentialKind 返回认证证明类型。
+// PhoneOTPCredential 认证凭据（手机号+验证码）
+type PhoneOTPCredential struct {
+	TenantID  meta.ID // 认证域
+	RemoteIP  string  // 认证客户端IP
+	UserAgent string  // 认证客户端UA
+	PhoneE164 string  // 手机号
+	OTP       string  // 验证码
+}
+
+// 确保 PhoneOTPCredential 实现了 AuthCredential 接口
+var _ AuthCredential = (*PhoneOTPCredential)(nil)
+
+// CredentialKind 返回认证凭据类型
 func (c *PhoneOTPCredential) CredentialKind() CredentialKind {
 	return CredentialKindPhoneOTP
 }
@@ -84,14 +87,17 @@ func (p *PhoneOTPAuthStrategy) Kind() CredentialKind {
 // Authenticate 执行手机验证码认证
 // 认证流程：
 // 1. 验证并消费OTP（防止重放攻击）
-// 2. 根据手机号查找凭据绑定
+// 2. 根据手机号查找登录身份
 // 3. 检查 LoginIdentity 状态
 // 4. 返回认证判决
 func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
+	// 断言认证凭据类型
 	otpCredential, ok := credential.(*PhoneOTPCredential)
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("phone otp strategy expects *PhoneOTPCredential, got %T", credential)
 	}
+
+	// 验证并消费OTP（防止重放攻击）
 	if !p.verifyLoginOTP(ctx, otpCredential) {
 		return AuthDecision{
 			OK:   false,
@@ -99,6 +105,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		}, nil
 	}
 
+	// 根据手机号查找登录身份
 	lookup, err := p.identityRepo.FindLoginIdentityByProviderKey(
 		ctx,
 		loginidentity.ProviderPhone,
@@ -115,6 +122,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		}, nil
 	}
 
+	// 检查登录身份状态
 	statusFailure, err := loginIdentityStatusFailureDecision(ctx, p.identityRepo, lookup.LoginIdentityID)
 	if err != nil {
 		return AuthDecision{}, err
@@ -123,6 +131,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 		return *statusFailure, nil
 	}
 
+	// 构造认证成功决策
 	return p.buildPhoneOTPSuccessDecision(
 		ctx,
 		otpCredential,

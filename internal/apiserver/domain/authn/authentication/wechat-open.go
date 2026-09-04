@@ -10,17 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
-// WechatOpenCredential 认证凭据（微信开放平台登录所需的数据）
-type WechatOpenCredential struct {
-	TenantID  meta.ID
-	RemoteIP  string
-	UserAgent string
-	AppID     string
-	OpenID    string
-	UnionID   string
-}
-
-// WechatOpenProofSpec 微信开放平台认证凭据规格
+// WechatOpenProofSpec 微信开放平台认证凭据规范
 type WechatOpenProofSpec struct {
 	TenantID  meta.ID
 	RemoteIP  string
@@ -30,7 +20,20 @@ type WechatOpenProofSpec struct {
 	UnionID   string
 }
 
-// CredentialKind 返回认证证明类型。
+// WechatOpenCredential 微信开放平台认证凭据
+type WechatOpenCredential struct {
+	TenantID  meta.ID
+	RemoteIP  string
+	UserAgent string
+	AppID     string
+	OpenID    string
+	UnionID   string
+}
+
+// 确保 WechatOpenCredential 实现了 AuthCredential 接口
+var _ AuthCredential = (*WechatOpenCredential)(nil)
+
+// CredentialKind 返回认证凭据类型
 func (c *WechatOpenCredential) CredentialKind() CredentialKind {
 	return CredentialKindWechatOpen
 }
@@ -85,7 +88,7 @@ func (o *OAuthWechatOpenAuthStrategy) Kind() CredentialKind {
 // 2. 检查 LoginIdentity 状态
 // 3. 返回认证判决
 func (o *OAuthWechatOpenAuthStrategy) Authenticate(ctx context.Context, credential AuthCredential) (AuthDecision, error) {
-	// 检查认证凭据类型
+	// 断言认证凭据类型
 	wechatCred, ok := credential.(*WechatOpenCredential)
 	if !ok {
 		return AuthDecision{}, fmt.Errorf("wechat open strategy expects *WechatOpenCredential, got %T", credential)
@@ -93,11 +96,12 @@ func (o *OAuthWechatOpenAuthStrategy) Authenticate(ctx context.Context, credenti
 
 	identity := wechatOpenIdentity{openID: wechatCred.OpenID, unionID: wechatCred.UnionID}
 
-	// 根据openID查找凭据绑定
+	// 根据openID查找登录身份
 	lookup, err := o.findWechatOpenIdentity(ctx, wechatCred, identity)
 	if err != nil {
 		return AuthDecision{}, err
 	}
+	// 如果登录身份不存在，则返回认证失败
 	if lookup == nil || lookup.LoginIdentityID.IsZero() {
 		return AuthDecision{
 			OK:   false,
@@ -114,7 +118,7 @@ func (o *OAuthWechatOpenAuthStrategy) Authenticate(ctx context.Context, credenti
 		return *statusFailure, nil
 	}
 
-	// 认证成功，构造Principal
+	// 构造认证成功决策
 	return o.buildWechatOpenSuccessDecision(ctx, wechatCred, identity, lookup.LoginIdentityID, lookup.UserID, meta.ZeroID), nil
 }
 

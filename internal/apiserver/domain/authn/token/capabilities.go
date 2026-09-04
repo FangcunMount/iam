@@ -26,11 +26,15 @@ type Dependencies struct {
 
 // NewCapabilities 装配 Token 的签发、刷新、验证和撤销领域能力。
 func NewCapabilities(deps Dependencies) Capabilities {
+	// 创建用户令牌颁发器
 	minter := newTokenSetMinter(deps.AccessTokenCodec, deps.SessionRefreshExpirer, deps.RefreshClaimsCodec, deps.AccessTTL)
+	// 创建服务令牌颁发器
 	return Capabilities{
-		TokenSetMinter:     minter,
+		// 创建用户令牌颁发器
+		TokenSetMinter: minter,
+		// 创建服务令牌颁发器
 		ServiceTokenIssuer: newServiceTokenIssuer(deps.AccessTokenCodec, deps.AccessTTL),
-		// 创建认证刷新器
+		// 创建刷新器
 		Refresher: newRefresher(
 			minter,
 			deps.TokenStore,
@@ -40,7 +44,9 @@ func NewCapabilities(deps Dependencies) Capabilities {
 			deps.AdmissionPolicy,
 			deps.RefreshClaimsCodec,
 		),
+		// 创建验证器
 		Verifier: newVerifier(deps.AccessTokenCodec, deps.TokenStore, deps.SessionLoader, deps.AdmissionPolicy),
-		Revoker:  newRevoker(deps.AccessTokenCodec, deps.TokenStore, deps.SessionRevoker),
+		// 创建撤销器
+		Revoker: newRevoker(deps.AccessTokenCodec, deps.TokenStore, deps.SessionRevoker),
 	}
 }

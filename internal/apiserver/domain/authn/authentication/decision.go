@@ -37,6 +37,7 @@ type AuthDecision struct {
 	NewAlgo      *string
 }
 
+// loginIdentityStatusFailureDecision 检查登录身份状态是否为失败
 func loginIdentityStatusFailureDecision(ctx context.Context, identityRepo LoginIdentityRepository, loginIdentityID meta.ID) (*AuthDecision, error) {
 	active, err := identityRepo.IsLoginIdentityActive(ctx, loginIdentityID)
 	if err != nil {

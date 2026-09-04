@@ -30,11 +30,11 @@ type Session struct {
 	// —— 认证信息 —— //
 	AuthMethod    string            // 认证方式
 	Realm         string            // 认证域
-	Status        Status            // 状态
 	AMR           []string          // 认证方法引用
 	SessionClaims map[string]string // 认证声明
 
 	// —— 状态信息 —— //
+	Status       Status     // 状态
 	CreatedAt    time.Time  // 创建时间
 	ExpiresAt    time.Time  // 过期时间
 	RevokedAt    *time.Time // 撤销时间
