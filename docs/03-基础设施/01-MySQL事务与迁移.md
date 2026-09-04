@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000028 和相关测试核对；最近一次生产验收为 `version=28, dirty=0`。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000029 和相关测试核对；最近一次生产验收仍为 `version=28, dirty=0`，000029 尚无生产执行证据。
 
 ## 1. 本文回答
 
@@ -217,6 +217,9 @@ destructive down 均 fail closed，恢复依赖发布前完整备份。
 [发布后状态](https://github.com/FangcunMount/iam/actions/runs/32925876593) 与
 [唯一性 guard](https://github.com/FangcunMount/iam/actions/runs/32926175510) 证明 `version=28, dirty=0`、
 16 张 BASE TABLE 且唯一索引计数为 1。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
+
+`000029` 随无成功路径的手工 `EnterGracePeriod` 管理接口一同退役 `iam:authn:collection:jwks` 上的 `enter_grace` Action。
+up/down 都只修改该资源的 JSON Action 集，不改变表结构；仓库测试已覆盖完整迁移链，但当前没有生产执行与发布后只读验收证据。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，
 不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
