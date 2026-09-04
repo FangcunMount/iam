@@ -341,14 +341,14 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 | `auth/serviceauth` | 状态型 helper | 刷新、退避、熔断、旧 token 回退 |
 | `identity` | 拆分式 Identity SDK | `Client` 负责 User / IdentityRead / IdentityLifecycle；`ProfileClient` 负责 ProfileCommand；`ProfileLinkClient` 负责 ProfileLink query/command |
 | `errors` | 小型 facade | 保留稳定谓词与映射，移除高级 matcher API |
-| `internal/transport` | 内聚 plumbing | gRPC 连接、metadata、默认拦截器链 |
+| `pkg/sdk/internal/transport` | 内聚 plumbing | gRPC 连接、metadata、默认拦截器链 |
 
 ## 迁移说明
 
 这轮 SDK 重构包含 breaking change：
 
-- `pkg/sdk/transport` 已删除
-- `pkg/sdk/observability` 已删除
+- 历史 v2 import `github.com/FangcunMount/iam/v2/pkg/sdk/transport` 已删除
+- 历史 v2 import `github.com/FangcunMount/iam/v2/pkg/sdk/observability` 已删除
 - `pkg/sdk/errors` 的高级分析 / matcher / handler API 已收回内部
 - `pkg/sdk/auth/loginv2` 是 REST AuthN v2 显式登录入口；`pkg/sdk/auth/client` 已对齐 gRPC v2 Login/token/JWKS/onboarding 契约
 - `pkg/sdk/idp` 已对齐 v2 WeChat app 查询与 access token 获取/刷新契约

@@ -232,7 +232,7 @@
     <text x="325" y="1843" text-anchor="middle" class="model">Verifier｜验证认证凭证</text>
     <line x1="125" y1="1863" x2="525" y2="1863" class="divider"/>
     <text x="150" y="1897" class="field">用户令牌：撤销 + Session + Admission</text>
-    <text x="150" y="1929" class="field">服务令牌：签名与声明</text>
+    <text x="150" y="1929" class="field">服务令牌：撤销 marker + 签名与声明</text>
     <text x="150" y="1961" class="small">真实性成立仍不等于 AuthZ 放行</text>
   </g>
 
@@ -253,7 +253,7 @@
     <line x1="1085" y1="1863" x2="1535" y2="1863" class="divider"/>
     <text x="1110" y="1897" class="field">撤销 BearerToken / Session</text>
     <text x="1110" y="1929" class="field">支持按 User / LoginIdentity 批量终止</text>
-    <text x="1110" y="1961" class="small">撤销语义收敛到同一 Session</text>
+    <text x="1110" y="1961" class="small">用户令牌联动 Session；服务令牌仅写 marker</text>
   </g>
 
   <path d="M865 1737 V1755 H325 V1778" class="association"/>

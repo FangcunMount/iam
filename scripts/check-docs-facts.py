@@ -355,6 +355,7 @@ def check_generated_document_facts() -> None:
             "五个核心对象",
             "2｜策略变更与发布",
             "3｜验权与决策 → 施权与执行",
+            "服务令牌：签名与声明",
         ),
         "docs/_images/architecture/core-domain-model-v8.svg": (
             "Authenticator",
@@ -371,6 +372,10 @@ def check_generated_document_facts() -> None:
             "UnitOfWork",
             "AuthZ Middleware",
             "Casbin",
+            "SecretHash · Payload · Attempts",
+            "ExpiresAt · ConsumedAt",
+            "AMR · SessionClaims",
+            ">TokenClaims<",
         ),
         "docs/_images/architecture/layer-architecture.svg": (
             "Casbin Runtime",
@@ -389,6 +394,18 @@ def check_generated_document_facts() -> None:
         for term in forbidden_diagram_terms.get(relative, ()):
             if term in svg:
                 fail(f"canonical architecture diagram {relative} contains retired term {term}")
+
+    token_lifecycle_doc = (
+        ROOT / "docs/02-业务模块/02-AuthN/05-关键链路-Token签发刷新吊销.md"
+    ).read_text(encoding="utf-8")
+    bearer_revocation_step = "V->>TS: IsBearerTokenRevoked(jti)"
+    service_token_branch = "alt service token"
+    if bearer_revocation_step not in token_lifecycle_doc:
+        fail("AuthN token lifecycle diagram is missing bearer-token revocation")
+    if service_token_branch not in token_lifecycle_doc:
+        fail("AuthN token lifecycle diagram is missing the service-token branch")
+    if token_lifecycle_doc.index(bearer_revocation_step) > token_lifecycle_doc.index(service_token_branch):
+        fail("AuthN token lifecycle diagram branches before bearer-token revocation")
 
     openapi_paths: dict[str, set[str]] = {}
     for contract_path in sorted((ROOT / "api/rest").glob("*.yaml")):

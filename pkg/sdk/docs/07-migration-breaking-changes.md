@@ -14,7 +14,7 @@
 - `v3.0.0` 的 Go module 路径是 `github.com/FangcunMount/iam/v3`；调用方必须同时更新依赖版本和 import path
 - REST URL、OpenAPI 版本/component ID 和 gRPC proto package 继续保持 v2；Go module major 升级不等于 wire 契约升级
 - 公开稳定入口现在固定为：`pkg/sdk`、`pkg/sdk/config`、`pkg/sdk/auth/client`、`pkg/sdk/auth/loginv2`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth`、`pkg/sdk/authz`、`pkg/sdk/identity`、`pkg/sdk/idp`、`pkg/sdk/errors`
-- `pkg/sdk/transport` 和 `pkg/sdk/observability` 已经移入 `pkg/sdk/internal/...`，不再对外公开
+- 历史 v2 import `github.com/FangcunMount/iam/v2/pkg/sdk/transport` 和 `github.com/FangcunMount/iam/v2/pkg/sdk/observability` 已分别移入 `pkg/sdk/internal/transport` 与 `pkg/sdk/internal/observability`，不再对外公开
 - `pkg/sdk/errors` 只保留小型 facade；高级 `Analyze / matcher / handler` 能力已收回内部
 - `pkg/sdk/auth` 兼容 façade 已删除，认证入口统一切到 `client`、`jwks`、`verifier`、`serviceauth`
 - REST AuthN v2 登录入口为 `pkg/sdk/auth/loginv2`；gRPC token/JWKS/onboarding 客户端统一走 `pkg/sdk/auth/client` 的 v2 契约
@@ -90,16 +90,16 @@ gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22�
 
 ### 已移入内部实现
 
-- `pkg/sdk/transport`
-- `pkg/sdk/observability`
+- `pkg/sdk/internal/transport`
+- `pkg/sdk/internal/observability`
 - `pkg/sdk/errors` 的高级分析 / matcher / handler 能力
 
 ## 替代关系
 
 | 旧入口 | 新入口 |
 | ---- | ---- |
-| `pkg/sdk/transport` | `pkg/sdk` + `pkg/sdk/config` |
-| `pkg/sdk/observability` | `Config.Observability` + `sdk.WithMetricsCollector(...)` / `sdk.WithTracingHook(...)` |
+| `github.com/FangcunMount/iam/v2/pkg/sdk/transport` | `pkg/sdk` + `pkg/sdk/config` |
+| `github.com/FangcunMount/iam/v2/pkg/sdk/observability` | `Config.Observability` + `sdk.WithMetricsCollector(...)` / `sdk.WithTracingHook(...)` |
 | `pkg/sdk/auth` | `pkg/sdk/auth/client`、`pkg/sdk/auth/loginv2`、`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`、`pkg/sdk/auth/serviceauth` |
 | `sdk.NewTokenVerifier(...)` | `authverifier.NewTokenVerifier(...)` |
 | `sdk.NewJWKSManager(...)` | `authjwks.NewJWKSManager(...)` |
@@ -135,7 +135,7 @@ gRPC `VerifyToken` 响应的 `TokenClaims` 已增加 `org_id` 字段（field 22�
 }
 ```
 
-### 1. 移除对 `pkg/sdk/transport` 的直接 import
+### 1. 移除对 `github.com/FangcunMount/iam/v2/pkg/sdk/transport` 的直接 import
 
 旧 v2 写法：
 
@@ -155,7 +155,7 @@ ctx = sdk.WithRequestID(ctx, "req-123")
 
 如果你原来直接操作 retry / timeout / metadata 拦截器，说明你已经越过了 SDK 公开边界。这类低层 plumbing 现在视为内部实现；对外稳定面只保留 `Config` 和 `ClientOption`。
 
-### 2. 移除对 `pkg/sdk/observability` 的直接 import
+### 2. 移除对 `github.com/FangcunMount/iam/v2/pkg/sdk/observability` 的直接 import
 
 旧 v2 写法：
 

@@ -296,11 +296,11 @@ sequenceDiagram
     A->>V: VerifyToken(value)
     V->>Codec: VerifyBearerToken(value)
     Codec-->>V: VerifiedTokenClaims
+    V->>TS: IsBearerTokenRevoked(jti)
+    TS-->>V: false
     alt service token
         V-->>A: claims
     else user token
-        V->>TS: IsBearerTokenRevoked(jti)
-        TS-->>V: false
         V->>SS: GetActive(sessionID)
         SS-->>V: active Session
         V->>AP: Require(UserID, LoginIdentityID)
@@ -320,7 +320,7 @@ sequenceDiagram
 受众 aud；
 keyID / kid；
 tokenID / jti；
-用户 token 的 access-token revocation marker；
+access/service bearer-token revocation marker；
 用户 token 的 active Session；
 用户 token 的 User/LoginIdentity Admission。
 ```

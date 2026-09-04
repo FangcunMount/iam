@@ -247,16 +247,16 @@
     <text x="1580" y="1166" text-anchor="middle" class="root-title">AuthChallenge｜认证挑战</text>
     <line x1="1330" y1="1189" x2="1830" y2="1189" class="divider"/>
     <text x="1355" y="1225" class="field">ID · Type · Scene · Target</text>
-    <text x="1355" y="1259" class="field">SecretHash · Payload · Attempts</text>
-    <text x="1355" y="1293" class="field">ExpiresAt · ConsumedAt</text>
+    <text x="1355" y="1259" class="field">SecretHash · Payload</text>
+    <text x="1355" y="1293" class="field">CreatedAt · ExpiresAt</text>
   </g>
   <rect x="1860" y="1093" width="280" height="105" rx="13" class="vo"/>
   <text x="2000" y="1127" text-anchor="middle" class="vo-title">ChallengeType</text>
   <text x="2000" y="1158" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
   <text x="2000" y="1185" text-anchor="middle" class="vo-body">OTP / OAuth state 等</text>
   <rect x="1860" y="1223" width="280" height="95" rx="13" class="vo"/>
-  <text x="2000" y="1257" text-anchor="middle" class="vo-title">Challenge 状态</text>
-  <text x="2000" y="1288" text-anchor="middle" class="vo-body">未消费 · 已消费 · 已过期</text>
+  <text x="2000" y="1257" text-anchor="middle" class="vo-title">消费与失败计数</text>
+  <text x="2000" y="1288" text-anchor="middle" class="vo-body">原子消费；attempts 独立计数</text>
 
   <!-- AuthN aggregate 07 Session -->
   <rect x="2210" y="1025" width="910" height="360" rx="22" class="aggregate-boundary boundary-authn"/>
@@ -267,16 +267,16 @@
     <text x="2490" y="1166" text-anchor="middle" class="root-title">Session｜认证会话</text>
     <line x1="2240" y1="1189" x2="2740" y2="1189" class="divider"/>
     <text x="2265" y="1225" class="field">SessionID · UserID · LoginIdentityID</text>
-    <text x="2265" y="1259" class="field">TenantID · AMR · SessionClaims</text>
-    <text x="2265" y="1293" class="field">Status · ExpiresAt · RevokedAt</text>
+    <text x="2265" y="1259" class="field">TenantID · AuthContext · TokenContext</text>
+    <text x="2265" y="1293" class="field">Status · CreatedAt · ExpiresAt</text>
   </g>
   <rect x="2770" y="1093" width="320" height="105" rx="13" class="vo"/>
   <text x="2930" y="1127" text-anchor="middle" class="vo-title">Session.Status</text>
   <text x="2930" y="1158" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
   <text x="2930" y="1185" text-anchor="middle" class="vo-body">active · revoked · expired</text>
   <rect x="2770" y="1223" width="320" height="95" rx="13" class="vo"/>
-  <text x="2930" y="1257" text-anchor="middle" class="vo-title">AMR / SessionClaims</text>
-  <text x="2930" y="1288" text-anchor="middle" class="vo-body">认证方法与会话声明值</text>
+  <text x="2930" y="1257" text-anchor="middle" class="vo-title">AuthContext / TokenContext</text>
+  <text x="2930" y="1288" text-anchor="middle" class="vo-body">认证上下文 · 令牌投影权威事实</text>
 
   <!-- AuthN aggregate 08 RefreshToken -->
   <rect x="1300" y="1430" width="870" height="365" rx="22" class="aggregate-boundary boundary-authn"/>
@@ -288,15 +288,15 @@
     <line x1="1330" y1="1594" x2="1830" y2="1594" class="divider"/>
     <text x="1355" y="1630" class="field">TokenMetadata</text>
     <text x="1355" y="1664" class="field">SessionID · UserID · LoginIdentityID</text>
-    <text x="1355" y="1698" class="field">TenantID · AMR · SessionClaims</text>
+    <text x="1355" y="1698" class="field">TenantID · Session 关联</text>
   </g>
   <rect x="1860" y="1498" width="280" height="105" rx="13" class="vo"/>
   <text x="2000" y="1532" text-anchor="middle" class="vo-title">TokenMetadata</text>
   <text x="2000" y="1563" text-anchor="middle" class="vo-body">&lt;&lt;value object&gt;&gt;</text>
   <text x="2000" y="1590" text-anchor="middle" class="vo-body">ID · Value · IssuedAt · ExpiresAt</text>
   <rect x="1860" y="1628" width="280" height="100" rx="13" class="vo"/>
-  <text x="2000" y="1662" text-anchor="middle" class="vo-title">TokenClaims</text>
-  <text x="2000" y="1693" text-anchor="middle" class="vo-body">认证上下文声明值</text>
+  <text x="2000" y="1662" text-anchor="middle" class="vo-title">Context ownership</text>
+  <text x="2000" y="1693" text-anchor="middle" class="vo-body">认证上下文从 Session 重建</text>
   <path d="M2172 1612 H2190 V1205 H2208" class="reference"/>
   <rect x="2050" y="1393" width="300" height="32" rx="16" fill="#ffffff"/>
   <text x="2200" y="1416" text-anchor="middle" class="small">RefreshToken.SessionID → Session</text>
@@ -345,7 +345,7 @@
   <text x="2870" y="1968" text-anchor="middle" class="vo-title">ServiceToken｜服务令牌</text>
   <text x="2870" y="2002" text-anchor="middle" class="vo-body">&lt;&lt;issued credential&gt;&gt;</text>
   <text x="2870" y="2034" text-anchor="middle" class="vo-body">无 User · 无 Session · 无 RefreshToken</text>
-  <text x="2870" y="2066" text-anchor="middle" class="vo-body">面向服务主体与 Audience</text>
+  <text x="2870" y="2066" text-anchor="middle" class="vo-body">Subject + Audience · 支持在线撤销</text>
 
   <rect x="1300" y="2200" width="1820" height="510" rx="20" class="knowledge"/>
   <text x="1330" y="2240" class="knowledge-title">领域不变量｜认证关系、一次性证明与在线状态</text>

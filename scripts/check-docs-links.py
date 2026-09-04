@@ -182,11 +182,11 @@ def collect_link_issues(files: list[Path], root: Path) -> list[str]:
 def normalize_code_path(raw: str) -> str | None:
     candidate = raw.strip().rstrip(".,;:，。；：")
     is_relative = candidate.startswith(("./", "../"))
-    is_repo_source_file = (
-        candidate.startswith(REPO_PATH_PREFIXES)
-        and Path(candidate).suffix in SOURCE_PATH_SUFFIXES
+    candidate_path = Path(candidate)
+    is_repo_source_path = candidate.startswith(REPO_PATH_PREFIXES) and (
+        candidate_path.suffix in SOURCE_PATH_SUFFIXES or candidate_path.suffix == ""
     )
-    if not (is_relative or is_repo_source_file):
+    if not (is_relative or is_repo_source_path):
         return None
     if any(char.isspace() for char in candidate):
         return None
