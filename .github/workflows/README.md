@@ -142,8 +142,8 @@ go test ./internal/pkg/migration -run "TestFullMigrationChainAndBootstrapMySQL" 
 
 - `backup`: 备份 MySQL，保留最近 3 份。
 - `restore`: 从 `iam_backup_YYYYMMDD_HHMMSS.sql.gz` 恢复。
-- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；fail closed 验证 `version=28, dirty=0`、16 张现役 BASE TABLE 精确白名单，以及历史退役表和 `casbin_rule` 持续不存在。[000028 发布后生产验收](https://github.com/FangcunMount/iam/actions/runs/32925876593) 已证明上述目标状态。Assignment 结构与重复事实由历史命名的独立 preflight 持续检查。
-- `global-identifier-guard-preflight`: 在发布 000028 前只读验证 migration 27 clean、`global_identifier` 规范格式、跨 User 冲突为 0，并报告可安全收敛的同 User 重复数量；发布后可在 version 28 验证唯一索引存在。
+- `status`: 只读输出 MySQL 客户端版本、连接状态、库总大小、表数量、schema 对象、备份摘要、`schema_migrations` 和迁移锁；fail closed 验证 `version=29, dirty=0`、16 张现役 BASE TABLE 精确白名单，以及历史退役表和 `casbin_rule` 持续不存在。[000029 受控收尾前状态](https://github.com/FangcunMount/iam/actions/runs/33861927119) 与[发布前完整备份](https://github.com/FangcunMount/iam/actions/runs/33862117713) 是本轮生产证据入口。Assignment 结构与重复事实由历史命名的独立 preflight 持续检查。
+- `global-identifier-guard-preflight`: 在发布 000028 前只读验证 migration 27 clean、`global_identifier` 规范格式、跨 User 冲突为 0，并报告可安全收敛的同 User 重复数量；发布后可在 version 28–29 验证唯一索引存在。
 - `rolebinding-guard-preflight`: 在发布 migration 000025 前只读检查 active RoleBinding 重复组、迁移 clean 状态及 guard 列/索引是否半完成；任一异常都 fail closed。
 - `rolebinding-deduplicate-dry-run`: 生成确定性的重复绑定候选报告、数量和指纹，不修改数据库。
 - `rolebinding-deduplicate-apply`: 要求 24 小时内全量备份，并在表写锁下复核候选数量与指纹后软删除冗余绑定；候选漂移时 fail closed。

@@ -1,6 +1,6 @@
 # MySQL、Unit of Work 与数据库迁移
 
-> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000029 和相关测试核对；最近一次生产验收仍为 `version=28, dirty=0`，000029 尚无生产执行证据。
+> 状态：已实现 · 已与 `internal/pkg/database/mysql`、三个模块 UoW、仓库迁移 000001–000029 和相关测试核对；2026-09-04 生产已受控收尾至 `version=29, dirty=0`。
 
 ## 1. 本文回答
 
@@ -219,7 +219,12 @@ destructive down 均 fail closed，恢复依赖发布前完整备份。
 16 张 BASE TABLE 且唯一索引计数为 1。down 只移除唯一索引，不猜测并恢复已去重字段；若需要恢复迁移前逐行值，必须使用发布前备份。
 
 `000029` 随无成功路径的手工 `EnterGracePeriod` 管理接口一同退役 `iam:authn:collection:jwks` 上的 `enter_grace` Action。
-up/down 都只修改该资源的 JSON Action 集，不改变表结构；仓库测试已覆盖完整迁移链，但当前没有生产执行与发布后只读验收证据。
+up/down 都只修改该资源的 JSON Action 集，不改变表结构。v3.2.0 首次生产执行暴露出迁移误用不存在的 `resource_key` 列，数据库因此停在
+`version=29, dirty=1`，目标 JSON 尚未改变。平台先生成[完整逻辑备份](https://github.com/FangcunMount/iam/actions/runs/33862117713)，再在停止 IAM migration runner、迁移锁空闲、
+目标资源精确为一行且 JSON 有效的前提下，以单事务使用 canonical `key` 列删除 action，并只在后置条件成立时把精确的 `29/dirty` 标记 clean；IAM 随后恢复 healthy。
+
+v3.2.1 对已发布的 000029 作一次有记录的补丁例外：只把错误列名修为 canonical `key`，使从 000028 或空库升级的环境可重放；不新增 000030，因为生产业务事实已经达到
+000029 目标状态，额外版本会制造无业务变化的迁移。静态契约测试禁止 `resource_key` 回流，MySQL full-chain 同时断言最终版本 29、目标资源唯一、JSON 有效且 `enter_grace` 缺席。
 
 `internal/pkg/migration/migrations/*.sql` 是 schema 的唯一事实源。`configs/mysql/bootstrap.sql` 只在 schema 已到达当前版本后重放幂等系统基线数据，
 不含 DDL，也不能替代迁移；静态 `schema.sql` 快照已经移除。
