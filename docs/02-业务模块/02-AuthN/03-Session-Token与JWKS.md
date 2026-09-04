@@ -9,12 +9,26 @@
 ```text
 RS256 Access Token
   + Redis Session
-  + Redis access-token revocation marker
+  + Redis bearer-token revocation marker
   + Redis Refresh Token
   + MySQL/JWKS key lifecycle
 ```
 
-JWT 负责可验证声明，Redis 负责在线撤销和续期状态，MySQL 负责签名密钥生命周期的持久事实。服务令牌是例外：它只有 access token，不创建用户 Session，也没有 refresh token。
+JWT 负责可验证声明，Redis 负责在线撤销和续期状态，MySQL 负责签名密钥生命周期的持久事实。Service Token 是独立的短期 bearer token：不创建用户 Session，也没有 Refresh Token，但仍受在线 token-ID 撤销检查约束。
+
+### JOSE/JWT 概念边界
+
+| 概念 | 当前代码中的含义与归属 |
+| --- | --- |
+| JWT Claims Set | `infra/token/jwt.jwtPayloadClaims`，只表示 Payload 的 wire model；不是完整令牌 |
+| JWS | `JWSCompactTokenCodec` 使用 RS256 对 Claims Set 签名，输出 `Header.Payload.Signature` 三段式紧凑序列化 |
+| Signed JWT | 当前 Access/Service bearer token 的实际 wire form：以 JWS 保护的 JWT；不是另一个独立领域实体 |
+| JWE | 当前未实现；JWT Payload 仅 Base64URL 编码、可被读取，不提供机密性 |
+| Signing Key | `domain/authn/signingkey.Key`，表达非敏感身份、算法、状态、有效期和签名/验签资格 |
+| JWK | `infra/token/keyset.PublicJWK`，一把公钥的 JOSE 线格式；不是 Signing Key 领域实体本身 |
+| JWKS | `infra/token/keyset.JWKS` 及 `application/authn/jwks`，发布多把可验签公钥的集合与缓存契约 |
+
+因此代码中的 `BearerTokenCodec` 是领域端口，`JWSCompactTokenCodec` 是具体 wire adapter；`VerifiedTokenClaims` 是完成验签、标准时间和 issuer 校验后的领域事实，不能反向当作 JWT Header、原始 Payload 或 Signature。
 
 ## 2. 登录签发
 
@@ -86,7 +100,28 @@ sequenceDiagram
 
 历史 access token 缺少顶层 `token_type` 或 `auth_time` 时，验证器会在兼容窗口内分别回退为 access 类型、
 从 `attributes.auth_time` 恢复认证时间，并计数 `iam_jwt_missing_token_type_total` 与
-`iam_jwt_legacy_attribute_auth_time_fallback_total`。删除兼容分支前，这些指标需在最大 access/refresh/session TTL 覆盖期内持续为零。
+`iam_jwt_legacy_attribute_auth_time_fallback_total`。
+
+### 兼容分支退役门禁
+
+历史 Refresh/JWT fallback 不能按发布日期或主观判断删除。领域策略 `LegacyFallbackRetirementPolicy` 定义：
+
+```text
+required_zero_window = max(access_token_ttl, refresh_token_ttl, session_max_ttl)
+retirement_start = max(全实例升级完成时间, 三项 fallback 指标最后一次增长时间)
+允许删除 = now - retirement_start >= required_zero_window
+```
+
+执行时必须同时满足：
+
+1. 所有 IAM 实例都已运行不再产生旧格式的新版本；滚动发布未结束时不开始计时；
+2. `iam_legacy_refresh_context_fallback_total`、`iam_jwt_missing_token_type_total`、
+   `iam_jwt_legacy_attribute_auth_time_fallback_total` 三项 counter 在整个窗口内均无增长；
+3. TTL 取观察期内所有实例实际配置过的最大值；任何指标再次增长或 TTL 上调，都要按新的较晚时间重新计时；
+4. 达到门禁后，在同一发布批次删除 fallback、对应指标和历史字段读取测试；未达到时只允许继续观测。
+
+按当前默认配置，窗口是 `max(15m, 7d, 24h) = 7d`。这里的“归零”指 `increase(counter[window]) == 0`，不是要求
+进程生命周期累计 counter 的绝对值回到 0。
 
 ### 当前顺序的残余风险
 
@@ -100,9 +135,11 @@ Session 是先延长，refresh token 后轮换。如果轮换最终冲突或 Red
 
 撤销有三层：
 
-- Access token：按 token ID 写入带 TTL 的 revocation marker；
+- Access/Service bearer token：按 token ID 写入带 TTL 的 revocation marker；
 - Refresh token：撤销关联 Session，再删除 refresh token；
 - Session：按 session、User 或 LoginIdentity 撤销。
+
+撤销 Access Token 时还会撤销其用户 Session；撤销 Service Token 只写 bearer-token marker，不触碰用户 Session。IAM 在线验证会检查两类 marker；仅依赖 JWKS 的 SDK 本地验签无法感知服务端撤销。
 
 Identity 的 deactivate/block 会在同一 MySQL 事务中写 session-revocation outbox，后台 worker 最终撤销 Redis Session；
 同时在线 Token 验证还会读取当前 User/LoginIdentity 状态，关闭事件消费延迟窗口。详见
@@ -133,7 +170,7 @@ service-only 路径必须显式接受 `service`，不再以空列表表示通用
 
 ### Domain verifier
 
-在密码学与场景策略通过后：access token 继续检查 revocation marker、active Session、Admission；service token 跳过 Session/Admission。
+在密码学验证后，access/service token 都先检查 bearer-token revocation marker。之后 access token 继续检查 active Session 与 Admission；service token 跳过用户 Session/Admission。
 
 SDK `LocalVerifyStrategy` 只覆盖 codec + 本地 policy（RS256、必填 issuer/audience、clock skew）。它无法仅凭 JWKS 知道：
 
@@ -147,7 +184,7 @@ SDK `LocalVerifyStrategy` 只覆盖 codec + 本地 policy（RS256、必填 issue
 ## 7. JWKS 与密钥轮换
 
 服务端 Token Profile 固定为 `RS256 + kid + JWS Compact`：创建/激活/轮换与 REST 参数只接受 RS256；签发要求 active key 的 `header.alg == JWK.alg == RS256`。
-私钥用于签名且经 AES-GCM 保护后持久化，JWKS 只发布 active/grace key 的公钥信息（含 `alg`）。密钥经历 active、grace、retired 状态，
+当前文件适配器把未加密 PKCS#8/PKCS#1 PEM 私钥写入受权限保护的目录（目录 `0700`、文件 `0600`），并不提供应用层 AES-GCM 包装；生产环境应使用加密磁盘或后续 KMS/HSM 适配器。JWKS 只发布 active/grace key 的公钥信息（含 `alg`）。密钥经历 active、grace、retired 状态，
 使旧 access token 在轮换后的有限窗口内仍可验证。
 
 轮换必须协调“新 key 可签名”和“验证方已能看到新公钥”。当前实现以 MySQL keyset 状态、原子 activation、内存发布快照和周期调度器完成生命周期；
@@ -187,7 +224,9 @@ SDK `LocalVerifyStrategy` 只覆盖 codec + 本地 policy（RS256、必填 issue
 - Token 应用 DTO 与门面：`internal/apiserver/application/authn/token`
 - Session 领域：`internal/apiserver/domain/authn/session`
 - Redis 存储：`internal/apiserver/infra/cache/redis`
-- Key/JWKS 应用：`internal/apiserver/application/authn/jwks`
+- 签名密钥领域规则：`internal/apiserver/domain/authn/signingkey`
+- 签名密钥管理应用：`internal/apiserver/application/authn/signingkey`
+- JWKS 公钥发布应用：`internal/apiserver/application/authn/jwks`
 - SDK：`pkg/sdk/auth/jwks`、`pkg/sdk/auth/verifier`
 - 重点测试：`token/refresher_atomic_test.go`、`token/principal_session_test.go`、`session/lifetime_policy_test.go`、
   `pkg/sdk/auth/jwks/jwks_test.go`
@@ -198,6 +237,8 @@ go test \
   ./internal/apiserver/domain/authn/token \
   ./internal/apiserver/application/authn/token \
   ./internal/apiserver/domain/authn/session \
+	./internal/apiserver/domain/authn/signingkey \
+	./internal/apiserver/application/authn/signingkey \
   ./internal/apiserver/application/authn/jwks \
   ./pkg/sdk/auth/jwks ./pkg/sdk/auth/verifier
 ```

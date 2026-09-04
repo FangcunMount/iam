@@ -213,7 +213,7 @@ sequenceDiagram
     participant AP as AdmissionPolicy
     participant SC as SessionCreator
     participant TM as TokenSetMinter
-    participant C as AccessTokenCodec / Signer
+    participant C as BearerTokenCodec / Signer
     participant RS as RefreshToken Store
 
     Login->>A: IssueAuthentication(Principal)
@@ -287,19 +287,19 @@ sequenceDiagram
     participant C as Client
     participant A as Token Application
     participant V as Domain Verifier
-    participant Codec as AccessTokenCodec / KeySet
+    participant Codec as BearerTokenCodec / KeySet
     participant TS as Token Store
     participant SS as Session Store
     participant AP as AdmissionPolicy
 
     C->>A: VerifyToken(access_token)
     A->>V: VerifyToken(value)
-    V->>Codec: VerifyAccessToken(value)
-    Codec-->>V: TokenClaims
+    V->>Codec: VerifyBearerToken(value)
+    Codec-->>V: VerifiedTokenClaims
     alt service token
         V-->>A: claims
     else user token
-        V->>TS: IsAccessTokenRevoked(jti)
+        V->>TS: IsBearerTokenRevoked(jti)
         TS-->>V: false
         V->>SS: GetActive(sessionID)
         SS-->>V: active Session
@@ -325,7 +325,7 @@ tokenID / jti；
 用户 token 的 User/LoginIdentity Admission。
 ```
 
-这是 IAM 在线 `VerifyToken` 的固定用户令牌语义，不是“可选 Session check”。ServiceToken 在密码学验证后返回 claims，不走用户 Session/Admission；
+这是 IAM 在线 `VerifyToken` 的固定用户令牌语义，不是“可选 Session check”。ServiceToken 在密码学验证后仍检查 bearer-token revocation marker，但不走用户 Session/Admission；
 下游 SDK 的本地 JWKS 验签是另一种离线语义。
 
 ---
@@ -512,8 +512,8 @@ sequenceDiagram
     end
     opt access token supplied
         S->>T: RevokeAccessToken(value)
-        T->>T: VerifyAccessToken(value)
-        T->>TS: MarkAccessTokenRevoked(jti, remaining TTL)
+        T->>T: VerifyBearerToken(value)
+        T->>TS: MarkBearerTokenRevoked(jti, remaining TTL)
         T->>SS: Revoke associated Session
     end
     S-->>C: logout success / explicit failure
@@ -677,7 +677,7 @@ User blocked 必须快速生效；
 安全优先于极致性能。
 ```
 
-当前 IAM 在线接口已选择第二种语义，并非未决策项；ServiceToken 是例外，密码学验证后不查用户 Session/Admission。下游服务若选择 SDK 本地验签，
+当前 IAM 在线接口已选择第二种语义，并非未决策项；ServiceToken 同样检查 bearer-token revocation marker，但不查用户 Session/Admission。下游服务若选择 SDK 本地验签，
 必须明确接受 access token 剩余寿命内的撤销延迟。详细取舍见 [03-Session-Token与JWKS.md](03-Session-Token与JWKS.md)。
 
 ---

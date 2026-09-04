@@ -1,6 +1,6 @@
-# 关键链路：JWKS 生命周期与本地验签
+# 关键链路：签名密钥生命周期、JWKS 发布与本地验签
 
-> 状态：已实现 · 已与 JWKS application、keyset/MySQL infra、container、迁移、REST 契约和并发测试核对。
+> 状态：已实现 · 已与 signingkey/JWKS application、keyset/MySQL infra、container、迁移、REST 契约和并发测试核对。
 
 ## 1. 结论
 
@@ -47,7 +47,7 @@ jwks:
 ```mermaid
 sequenceDiagram
     participant S as Scheduler/Admin
-    participant A as KeyLifecycleAppService
+    participant A as signingkey.KeyLifecycleAppService
     participant M as keyset lifecycle
     participant F as PrivateKeyStore
     participant DB as MySQL
@@ -74,7 +74,7 @@ sequenceDiagram
 
 多实例自动任务在事务内重新判断是否到期，只有一个实例完成轮换；并发初始化只有一个胜者。管理员显式创建可以按事务顺序完成多次轮换，但唯一索引保证任意时刻数据库最多一个 active。
 
-数据库提交前失败会补偿删除候选 PEM。提交后 cache 刷新或清理失败不会回滚已经生效的签名密钥，只记录可重试告警。管理端创建、状态变更和 Scheduler 自动轮换都通过同一个 `KeyLifecycleAppService`；
+数据库提交前失败会补偿删除候选 PEM。提交后 cache 刷新或清理失败不会回滚已经生效的签名密钥，只记录可重试告警。管理端创建、状态变更和 Scheduler 自动轮换都通过 `application/authn/signingkey.KeyLifecycleAppService`；
 查询由只读 management 服务负责。
 
 ## 5. 生命周期规则
@@ -114,7 +114,6 @@ Action：
 | `GET /api/v2/authn/admin/jwks/keys/{kid}` | `read` |
 | `POST /api/v2/authn/admin/jwks/keys/{kid}/retire` | `retire` |
 | `POST /api/v2/authn/admin/jwks/keys/{kid}/force-retire` | `force_retire` |
-| `POST /api/v2/authn/admin/jwks/keys/{kid}/grace` | `enter_grace` |
 | `POST /api/v2/authn/admin/jwks/keys/cleanup` | `cleanup` |
 | `GET /api/v2/authn/admin/jwks/keys/publishable` | `list_publishable` |
 
@@ -135,15 +134,19 @@ Action：
 
 | 内容 | 路径 |
 | --- | --- |
-| Application 编排 | `internal/apiserver/application/authn/jwks` |
-| 生命周期与 PEM | `internal/apiserver/infra/token/keyset` |
+| 生命周期领域规则 | `internal/apiserver/domain/authn/signingkey` |
+| 签名密钥管理编排 | `internal/apiserver/application/authn/signingkey` |
+| JWKS 公钥发布 | `internal/apiserver/application/authn/jwks` |
+| PEM、JWS key source 与 JWKS snapshot adapter | `internal/apiserver/infra/token/keyset` |
 | 原子数据库转换 | `internal/apiserver/infra/mysql/jwks` |
 | Scheduler/启动校验 | `internal/apiserver/infra/scheduler`、`internal/apiserver/container/authn` |
 | 单 active 迁移 | `internal/pkg/migration/migrations/000016_jwks_single_active_guard.*.sql` |
 | REST 契约 | `api/rest/authn.v2.yaml` |
 
 ```bash
-go test -race ./internal/apiserver/application/authn/jwks/... \
+go test -race ./internal/apiserver/domain/authn/signingkey/... \
+  ./internal/apiserver/application/authn/signingkey/... \
+  ./internal/apiserver/application/authn/jwks/... \
   ./internal/apiserver/infra/token/keyset/... \
   ./internal/apiserver/infra/mysql/jwks/... \
   ./internal/apiserver/container/authn

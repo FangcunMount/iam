@@ -286,7 +286,7 @@ Application / Domain
 - Infra 实现这些端口；
 - Container 在运行时把端口和适配器连接起来。
 
-例如，AuthN 依赖的是 `AccessTokenCodec`，而不是具体 JWT 库；Suggest 查询用例依赖 `CandidateRecaller`，而不是具体 TST 或 Hash 实现。
+例如，AuthN 依赖的是 `BearerTokenCodec`，而不是具体 JWT 库；Suggest 查询用例依赖 `CandidateRecaller`，而不是具体 TST 或 Hash 实现。
 
 > Ports & Adapters 不是为了多画一层接口，而是让业务代码不知道外部技术的具体实现。
 

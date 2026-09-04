@@ -506,7 +506,7 @@ User 是否 blocked。
 当前 SignIn 在 proof 验证和 Credential 状态记录后，只调用 `AuthenticationGrantIssuer`。
 领域 `GrantIssuer` 在创建 Session/Token 前统一执行 `AdmissionPolicy`；`blocked User`、`inactive User`、
 `disabled LoginIdentity` 和状态查询错误都会阻止 Session 创建。`Refresher` 和用户 token 的在线 `Verifier` 复用同一准入规则和错误映射；
-ServiceToken 不走用户 Session/Admission 检查。
+ServiceToken 检查 bearer-token revocation marker，但不走用户 Session/Admission 检查。
 
 边界：
 

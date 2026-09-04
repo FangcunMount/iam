@@ -7,9 +7,9 @@
 - 默认开发位置（示例）：`configs/keys`
 - 运行时由配置项 `jwks.keys_dir` 指定（`apiserver.prod.yaml`/`apiserver.dev.yaml`）。
 - 服务启动时可通过配置 `jwks.auto_init: true` 自动创建第一个活跃密钥（仅在开发场景推荐）。
-- 私钥文件格式：PKCS#8 PEM（未加密或加密均可，但代码期望可直接读取并解析为 RSA 私钥）。
+- 私钥文件格式：当前解析器支持未加密 PKCS#8 `PRIVATE KEY` 与 PKCS#1 `RSA PRIVATE KEY` PEM；不支持 `ENCRYPTED PRIVATE KEY`。
 - 支持的文件名：`{kid}.pem` 或 `key-{kid}.pem`（解析器会尝试这两种命名以兼容历史）。
-- 文件权限：建议 `0600`，仅允许服务运行用户读取。
+- 文件权限：写入目录使用 `0700`，私钥文件使用 `0600`，仅允许服务运行用户读取。
 
 ## 配置示例
 
