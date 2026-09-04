@@ -30,10 +30,11 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run full migration chain: %v", err)
 	}
-	if !migrated || version != 28 {
-		t.Fatalf("full migration result = version %d migrated=%v, want version 28 migrated=true", version, migrated)
+	if !migrated || version != 29 {
+		t.Fatalf("full migration result = version %d migrated=%v, want version 29 migrated=true", version, migrated)
 	}
 	db := openMigrationMySQL(t)
+	assertJWKSGraceActionRetired(t, db)
 	for _, retired := range []string{
 		"children", "guardianships", "schema_version", "tenants", "data_dictionary",
 		"operation_logs", "audit_logs", "auth_token_audit",
@@ -60,10 +61,36 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	}
 	assertCurrentSchemaTables(t, db, database)
 	assertNativeAuthzBootstrap(t, db)
+	assertJWKSGraceActionRetired(t, db)
 	for _, retired := range []string{"tenants", "data_dictionary"} {
 		assertTableExists(t, db, retired, false)
 	}
 	assertMigratedRoleBindingGuardUnderConcurrency(t, db)
+}
+
+func assertJWKSGraceActionRetired(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var resourceCount, validJSONCount, enterGraceCount int
+	if err := db.QueryRow(`
+SELECT COUNT(*),
+       COALESCE(SUM(JSON_VALID(actions)), 0),
+       COALESCE(SUM(JSON_SEARCH(actions, 'one', 'enter_grace') IS NOT NULL), 0)
+FROM authz_resources
+WHERE `+"`key`"+` = 'iam:authn:collection:jwks'`).Scan(
+		&resourceCount,
+		&validJSONCount,
+		&enterGraceCount,
+	); err != nil {
+		t.Fatalf("query JWKS resource actions: %v", err)
+	}
+	if resourceCount != 1 || validJSONCount != 1 || enterGraceCount != 0 {
+		t.Fatalf(
+			"JWKS resource/action state = resources %d valid JSON %d enter_grace %d, want 1/1/0",
+			resourceCount,
+			validJSONCount,
+			enterGraceCount,
+		)
+	}
 }
 
 func assertNativeAuthzBootstrap(t *testing.T, db *sql.DB) {

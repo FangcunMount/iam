@@ -272,6 +272,19 @@ func TestAuthNGlobalIdentifierUniqueGuardMigration(t *testing.T) {
 	assertSQLContains(t, down, "DROP INDEX `uk_auth_login_identities_global`")
 }
 
+func TestJWKSGraceActionRetirementUsesCanonicalResourceKey(t *testing.T) {
+	up := migrationSQL(t, "000029_retire_jwks_enter_grace_action.up.sql")
+	down := migrationSQL(t, "000029_retire_jwks_enter_grace_action.down.sql")
+
+	for _, migration := range []string{up, down} {
+		assertSQLContains(t, migration, "UPDATE `authz_resources`")
+		assertSQLContains(t, migration, "WHERE `key` = 'iam:authn:collection:jwks'")
+		assertSQLNotContains(t, migration, "resource_key")
+	}
+	assertSQLContains(t, up, "JSON_REMOVE")
+	assertSQLContains(t, down, "JSON_ARRAY_APPEND")
+}
+
 func TestAuthZLegacyRetirementRequiresEvidenceAndIsIrreversible(t *testing.T) {
 	up := migrationSQL(t, "000027_retire_legacy_authz.up.sql")
 	for _, fragment := range []string{
