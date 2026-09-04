@@ -354,8 +354,8 @@ database_status() {
   printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'28\t0\t1' ]; then
-    fail "migration status is not version 28 clean"
+  if [ "$migration_state" != $'29\t0\t1' ]; then
+    fail "migration status is not version 29 clean"
     return 1
   fi
   if [ "$schema_guard_state" != $'16\t16\t0' ]; then
@@ -371,7 +371,7 @@ database_status() {
     return 1
   fi
   echo "schema guard: result=success required_base_tables=16 schema_objects=16 unexpected_objects=0"
-  echo "retirement guard: result=success expected_version=28 retired_tables_present=0 retired_table_privileges=0"
+  echo "retirement guard: result=success expected_version=29 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {
@@ -396,8 +396,8 @@ global_identifier_guard_preflight() {
     return 1
   fi
   IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
-  if { [ "$version" -lt "27" ] || [ "$version" -gt "28" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
-    fail "global identifier guard preflight requires clean migration version 27 or 28"
+  if { [ "$version" -lt "27" ] || [ "$version" -gt "29" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "global identifier guard preflight requires clean migration version 27 through 29"
     return 1
   fi
 
@@ -428,7 +428,7 @@ global_identifier_guard_preflight() {
     return 1
   fi
   case "$version:$index_count" in
-    27:0|28:1) ;;
+    27:0|28:1|29:1) ;;
     *)
       fail "global identifier guard schema is inconsistent with migration version"
       return 1
@@ -454,8 +454,8 @@ rolebinding_guard_preflight() {
     return 1
   fi
   IFS=$'\t' read -r version dirty row_count <<<"$migration_state"
-  if { [ "$version" -lt "24" ] || [ "$version" -gt "28" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
-    fail "RoleBinding guard preflight requires clean migration version 24 through 28"
+  if { [ "$version" -lt "24" ] || [ "$version" -gt "29" ]; } || [ "$dirty" != "0" ] || [ "$row_count" != "1" ]; then
+    fail "RoleBinding guard preflight requires clean migration version 24 through 29"
     return 1
   fi
 
@@ -474,7 +474,7 @@ rolebinding_guard_preflight() {
     return 1
   fi
   case "$version:$guard_state" in
-    24:$'0\t0'|25:$'1\t1'|26:$'1\t1'|27:$'1\t1'|28:$'1\t1') ;;
+    24:$'0\t0'|25:$'1\t1'|26:$'1\t1'|27:$'1\t1'|28:$'1\t1'|29:$'1\t1') ;;
     *)
       fail "RoleBinding guard schema is inconsistent with migration version"
       return 1
