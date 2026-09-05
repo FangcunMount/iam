@@ -54,7 +54,7 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	}
 
 	infra := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver)
-	domain := m.initializeDomain(infra, deps.UserResolver)
+	domain := m.initializeDomain(infra)
 	if err := m.initializeRuntime(infra, domain); err != nil {
 		return err
 	}

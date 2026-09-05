@@ -13,8 +13,8 @@ import (
 
 func TestReplacementPolicyPreservesUnmanagedAssignments(t *testing.T) {
 	managed := []assignmentDomain.ManagedRoleBinding{
-		{Name: mustRoleName(t, "qs:evaluator"), ID: meta.FromUint64(10)},
-		{Name: mustRoleName(t, "qs:staff"), ID: meta.FromUint64(11)},
+		{Name: mustRoleName(t, "example:evaluator"), ID: meta.FromUint64(10)},
+		{Name: mustRoleName(t, "example:staff"), ID: meta.FromUint64(11)},
 	}
 	current := []*assignmentDomain.Assignment{
 		mustAssignment(t, 1, 10),
@@ -23,29 +23,29 @@ func TestReplacementPolicyPreservesUnmanagedAssignments(t *testing.T) {
 
 	plan, err := assignmentDomain.ReplacementPolicy{}.Plan(
 		assignmentDomain.ReplacementRequest{
-			TargetRoleNames:  []string{"qs:staff"},
-			ManagedRoleNames: []string{"qs:staff", "qs:evaluator"},
+			TargetRoleNames:  []string{"example:staff"},
+			ManagedRoleNames: []string{"example:staff", "example:evaluator"},
 		},
 		managed,
 		current,
 	)
 	require.NoError(t, err)
 	require.True(t, plan.Changed)
-	require.Equal(t, []roleDomain.Name{mustRoleName(t, "qs:staff")}, plan.DirectRoles)
+	require.Equal(t, []roleDomain.Name{mustRoleName(t, "example:staff")}, plan.DirectRoles)
 	require.Equal(t, []assignmentDomain.AssignmentID{assignmentDomain.NewAssignmentID(1)}, plan.Revokes)
-	require.Equal(t, []roleDomain.Name{mustRoleName(t, "qs:staff")}, plan.Grants)
+	require.Equal(t, []roleDomain.Name{mustRoleName(t, "example:staff")}, plan.Grants)
 }
 
 func TestReplacementPolicyNoOpWhenTargetMatchesCurrentManaged(t *testing.T) {
 	managed := []assignmentDomain.ManagedRoleBinding{
-		{Name: mustRoleName(t, "qs:evaluator"), ID: meta.FromUint64(10)},
+		{Name: mustRoleName(t, "example:evaluator"), ID: meta.FromUint64(10)},
 	}
 	current := []*assignmentDomain.Assignment{mustAssignment(t, 1, 10)}
 
 	plan, err := assignmentDomain.ReplacementPolicy{}.Plan(
 		assignmentDomain.ReplacementRequest{
-			TargetRoleNames:  []string{"qs:evaluator"},
-			ManagedRoleNames: []string{"qs:evaluator"},
+			TargetRoleNames:  []string{"example:evaluator"},
+			ManagedRoleNames: []string{"example:evaluator"},
 		},
 		managed,
 		current,
@@ -58,12 +58,12 @@ func TestReplacementPolicyNoOpWhenTargetMatchesCurrentManaged(t *testing.T) {
 
 func TestReplacementPolicyEmptyTargetRevokesAllManaged(t *testing.T) {
 	managed := []assignmentDomain.ManagedRoleBinding{
-		{Name: mustRoleName(t, "qs:evaluator"), ID: meta.FromUint64(10)},
+		{Name: mustRoleName(t, "example:evaluator"), ID: meta.FromUint64(10)},
 	}
 	current := []*assignmentDomain.Assignment{mustAssignment(t, 1, 10)}
 
 	plan, err := assignmentDomain.ReplacementPolicy{}.Plan(
-		assignmentDomain.ReplacementRequest{ManagedRoleNames: []string{"qs:evaluator"}},
+		assignmentDomain.ReplacementRequest{ManagedRoleNames: []string{"example:evaluator"}},
 		managed,
 		current,
 	)
@@ -75,12 +75,12 @@ func TestReplacementPolicyEmptyTargetRevokesAllManaged(t *testing.T) {
 
 func TestReplacementPolicyRejectsDuplicateAndUnmanagedTargets(t *testing.T) {
 	managed := []assignmentDomain.ManagedRoleBinding{
-		{Name: mustRoleName(t, "qs:staff"), ID: meta.FromUint64(10)},
+		{Name: mustRoleName(t, "example:staff"), ID: meta.FromUint64(10)},
 	}
 	_, err := assignmentDomain.ReplacementPolicy{}.Plan(
 		assignmentDomain.ReplacementRequest{
-			TargetRoleNames:  []string{"qs:staff", "qs:staff"},
-			ManagedRoleNames: []string{"qs:staff"},
+			TargetRoleNames:  []string{"example:staff", "example:staff"},
+			ManagedRoleNames: []string{"example:staff"},
 		},
 		managed,
 		nil,
@@ -90,7 +90,7 @@ func TestReplacementPolicyRejectsDuplicateAndUnmanagedTargets(t *testing.T) {
 	_, err = assignmentDomain.ReplacementPolicy{}.Plan(
 		assignmentDomain.ReplacementRequest{
 			TargetRoleNames:  []string{"tenant_admin"},
-			ManagedRoleNames: []string{"qs:staff"},
+			ManagedRoleNames: []string{"example:staff"},
 		},
 		managed,
 		nil,
@@ -100,9 +100,9 @@ func TestReplacementPolicyRejectsDuplicateAndUnmanagedTargets(t *testing.T) {
 
 func TestReplacementPolicyRevokesAreDeterministic(t *testing.T) {
 	managed := []assignmentDomain.ManagedRoleBinding{
-		{Name: mustRoleName(t, "qs:a"), ID: meta.FromUint64(10)},
-		{Name: mustRoleName(t, "qs:b"), ID: meta.FromUint64(11)},
-		{Name: mustRoleName(t, "qs:c"), ID: meta.FromUint64(12)},
+		{Name: mustRoleName(t, "example:a"), ID: meta.FromUint64(10)},
+		{Name: mustRoleName(t, "example:b"), ID: meta.FromUint64(11)},
+		{Name: mustRoleName(t, "example:c"), ID: meta.FromUint64(12)},
 	}
 	current := []*assignmentDomain.Assignment{
 		mustAssignment(t, 30, 10),
@@ -110,7 +110,7 @@ func TestReplacementPolicyRevokesAreDeterministic(t *testing.T) {
 		mustAssignment(t, 20, 12),
 	}
 	plan, err := assignmentDomain.ReplacementPolicy{}.Plan(
-		assignmentDomain.ReplacementRequest{ManagedRoleNames: []string{"qs:a", "qs:b", "qs:c"}},
+		assignmentDomain.ReplacementRequest{ManagedRoleNames: []string{"example:a", "example:b", "example:c"}},
 		managed,
 		current,
 	)

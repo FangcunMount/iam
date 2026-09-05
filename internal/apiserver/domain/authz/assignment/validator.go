@@ -7,7 +7,6 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
@@ -19,10 +18,10 @@ type validator struct {
 }
 
 // NewValidator 创建赋权规则验证器。
-func NewValidator(roleRepo role.Repository, userResolver useraccess.UserResolver) *validator {
+func NewValidator(roleRepo role.Repository, subjectResolver SubjectResolver) *validator {
 	return NewValidatorWithSubjectResolver(
 		roleRepo,
-		NewSubjectResolverRegistry(NewUserSubjectResolver(userResolver)),
+		NewSubjectResolverRegistry(subjectResolver),
 	)
 }
 

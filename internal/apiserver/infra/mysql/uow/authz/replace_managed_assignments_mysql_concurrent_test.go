@@ -3,6 +3,7 @@ package authz_test
 import (
 	"context"
 	"fmt"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/subjectresolver"
 	"os"
 	"sort"
 	"sync"
@@ -62,10 +63,10 @@ func TestReplaceManagedAssignmentsMySQLConcurrentLinearization(t *testing.T) {
 	barrier := newRoleReadBarrier()
 	defer barrier.Release()
 	uow := &roleReadBarrierUnitOfWork{
-		delegate: authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager),
+		delegate: authzUOW.NewUnitOfWork(db, subjectresolver.NewUserSubjectResolver(existingUserResolver{}), stager),
 		barrier:  barrier,
 	}
-	validator := assignmentDomain.NewValidator(roles, existingUserResolver{})
+	validator := assignmentDomain.NewValidator(roles, subjectresolver.NewUserSubjectResolver(existingUserResolver{}))
 	service := assignmentApp.NewCommandService(validator, roles, uow, nil)
 
 	policyVersions := policyRepo.NewPolicyVersionRepository(db)

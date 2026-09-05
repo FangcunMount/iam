@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/subjectresolver"
 	"gorm.io/gorm"
 
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
@@ -23,6 +24,7 @@ import (
 )
 
 type authzInfrastructureComponents struct {
+	subjectResolver      assignmentDomain.SubjectResolver
 	authorizationRuntime *authzRuntime.Runtime
 	policySource         authzRuntime.Source
 
@@ -40,7 +42,9 @@ func (m *AuthzModule) initializeInfrastructure(
 	eventStager event.Stager,
 	userResolver useraccess.UserResolver,
 ) *authzInfrastructureComponents {
+	resolver := assignmentDomain.NewSubjectResolverRegistry(subjectresolver.NewUserSubjectResolver(userResolver))
 	return &authzInfrastructureComponents{
+		subjectResolver:           resolver,
 		policySource:              authzRuntime.NewMySQLSource(db),
 		roleRepository:            roleInfra.NewRoleRepository(db),
 		assignmentRepository:      assignmentInfra.NewRepository(db),
@@ -48,6 +52,6 @@ func (m *AuthzModule) initializeInfrastructure(
 		policyVersionRepository:   policyInfra.NewPolicyVersionRepository(db),
 		permissionGrantRepository: permissionGrantInfra.NewRepository(db),
 		roleInheritanceRepository: roleInheritanceInfra.NewRepository(db),
-		unitOfWork:                mysqlAuthzUow.NewUnitOfWork(db, userResolver, eventStager),
+		unitOfWork:                mysqlAuthzUow.NewUnitOfWork(db, resolver, eventStager),
 	}
 }

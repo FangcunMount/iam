@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 	"sync"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -296,4 +297,15 @@ func (s *VaultStub) Encrypt(ctx context.Context, plaintext []byte) ([]byte, erro
 func (s *VaultStub) Decrypt(ctx context.Context, cipher []byte) ([]byte, error) { return nil, nil }
 func (s *VaultStub) Sign(ctx context.Context, keyRef string, data []byte) ([]byte, error) {
 	return nil, nil
+}
+
+func (r *RoleRepoStub) FindByTenantAndID(ctx context.Context, tenantID tenant.ID, id meta.ID) (*role.Role, error) {
+	item, err := r.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil || !item.BelongsToTenant(tenantID.String()) {
+		return nil, perrors.WithCode(code.ErrRoleNotFound, "role not found")
+	}
+	return item, nil
 }
