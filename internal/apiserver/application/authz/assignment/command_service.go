@@ -100,7 +100,7 @@ func (s *CommandService) executeGrant(ctx context.Context, cmd GrantCommand) (gr
 	}
 	var result grantResult
 	version, err := s.commit(ctx, cmd.TenantID, cmd.GrantedBy, "binding grant", func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.SubjectResolver)
+		txValidator := assignmentDomain.NewValidatorWithSubjectResolver(tx.Roles, tx.SubjectResolver)
 		if err := txValidator.CheckRoleExists(txCtx, cmd.RoleID, cmd.TenantID); err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 	result := ReplaceManagedAssignmentsResult{}
 	replacementPolicy := assignmentDomain.ReplacementPolicy{}
 	err = s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.SubjectResolver)
+		txValidator := assignmentDomain.NewValidatorWithSubjectResolver(tx.Roles, tx.SubjectResolver)
 		if err := txValidator.CheckSubjectExists(txCtx, assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, cmd.TenantID); err != nil {
 			return err
 		}
