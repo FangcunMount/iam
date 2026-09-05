@@ -30,7 +30,7 @@ migration 25 基线 `c84c638d46ade0a2b1b65379289931ef9e28b172` 仍作为 RoleBin
 | 数据库操作单一脚本 | 已实现 | `scripts/dbops/database-operation.sh`、`database_operation_test.go` |
 | MySQL 8 合成备份恢复与 migration 25 guard | 已实现并完成同 SHA 验收 | [MySQL 8 run `32791721351`](https://github.com/FangcunMount/iam/actions/runs/32791721351) 覆盖 full-chain migration、复合唯一索引并发语义、生产同款 preflight 与 backup/restore fixture |
 | 文档可生成事实门禁 | 已实现 | `scripts/check-docs-facts.py` 从 proto、bootstrap、开发配置和 active Markdown 生成期望值，校验服务矩阵、资源示例、Quick Start 端口和状态计数 |
-| Active docs 语义分类 | 已生成核对 | Active docs 状态计数：总计 `81` 篇，`已实现` `81` 篇，`规划改造` `0` 篇。历史目标提示词已退出 active 层 |
+| Active docs 语义分类 | 已生成核对 | Active docs 状态计数：总计 `82` 篇，`已实现` `82` 篇，`规划改造` `0` 篇。历史目标提示词已退出 active 层 |
 | 遗留资产退役 | 已完成生产验收 | `000019–000024` 的批次证据见 [遗留资产、兼容层与数据库退役审计](../05-工程质量与运维/06-遗留资产兼容层与数据库退役审计.md) |
 | AuthZ v3 一步到位切换 | 已完成生产验收 | [切换 `32859067799`](https://github.com/FangcunMount/iam/actions/runs/32859067799)、[数据库状态 `32876762969`](https://github.com/FangcunMount/iam/actions/runs/32876762969)、[RoleBinding guard `32876761874`](https://github.com/FangcunMount/iam/actions/runs/32876761874) |
 

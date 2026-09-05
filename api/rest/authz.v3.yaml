@@ -29,6 +29,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/assignments/grant:
     post:
       tags:
@@ -52,6 +58,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/assignments/revoke:
     post:
       tags:
@@ -70,6 +82,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/assignments/subject:
     get:
       tags:
@@ -104,6 +122,12 @@ paths:
                         $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
                       type: array
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/grants:
     post:
       tags:
@@ -129,6 +153,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/grants/{id}:
     delete:
       tags:
@@ -156,6 +186,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/resources:
     get:
       tags:
@@ -203,6 +239,12 @@ paths:
                         $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                       type: array
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
     post:
       tags:
       - Authorization-Resources
@@ -225,6 +267,19 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
+        '403':
+          description: Platform catalog permission required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+      description: Catalog writes require a matching platform Grant for the authenticated actor.
   /authz/resources/{id}:
     get:
       tags:
@@ -249,6 +304,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
     put:
       tags:
       - Authorization-Resources
@@ -278,6 +339,19 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
+        '403':
+          description: Platform catalog permission required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+      description: Catalog writes require a matching platform Grant for the authenticated actor.
     delete:
       tags:
       - Authorization-Resources
@@ -296,6 +370,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+        '403':
+          description: Platform catalog permission required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+      description: Catalog writes require a matching platform Grant for the authenticated actor.
   /authz/resources/key/{key}:
     get:
       tags:
@@ -320,6 +407,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ResourceResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/resources/validate-action:
     post:
       tags:
@@ -343,6 +436,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ValidateActionResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/role-inheritances:
     get:
       tags:
@@ -370,6 +469,12 @@ paths:
                         $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse'
                       type: array
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
     post:
       tags:
       - Authorization-Role-Inheritances
@@ -394,6 +499,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleInheritanceResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/role-inheritances/{id}:
     delete:
       tags:
@@ -421,6 +532,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/roles:
     get:
       tags:
@@ -453,6 +570,12 @@ paths:
                         $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                       type: array
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
     post:
       tags:
       - Authorization-Roles
@@ -475,6 +598,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/roles/{id}:
     get:
       tags:
@@ -499,6 +628,19 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                   type: object
+        '404':
+          description: Role not found in request tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
+      description: Role details are restricted to the authenticated request tenant, including platform callers.
     put:
       tags:
       - Authorization-Roles
@@ -528,6 +670,12 @@ paths:
                     data:
                       $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.RoleResponse'
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
     delete:
       tags:
       - Authorization-Roles
@@ -546,6 +694,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response'
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/roles/{id}/assignments:
     get:
       tags:
@@ -572,6 +726,12 @@ paths:
                         $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.AssignmentResponse'
                       type: array
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
   /authz/roles/{id}/grants:
     get:
       tags:
@@ -600,6 +760,12 @@ paths:
                         $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.PermissionGrantResponse'
                       type: array
                   type: object
+        '503':
+          description: Authorization policy unavailable (103002)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse'
 components:
   schemas:
     github_com_FangcunMount_iam_v2_internal_apiserver_domain_authz_attribute.Definition:
@@ -926,6 +1092,20 @@ components:
         valid:
           type: boolean
       type: object
+    github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse:
+      type: object
+      properties:
+        code:
+          description: Code 定义了业务错误代码
+          type: integer
+        message:
+          description: 'Message 包含此消息的详细信息
+
+            此消息适合暴露给外部'
+          type: string
+        reference:
+          description: Reference 返回参考文档，可能有助于解决此错误
+          type: string
 tags:
 - name: Authorization-Assignments
 - name: Authorization-Grants

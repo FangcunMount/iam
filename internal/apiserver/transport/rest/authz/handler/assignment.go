@@ -50,6 +50,7 @@ func convertToSubjectType(s string) (assignmentDomain.SubjectType, error) {
 // @Produce json
 // @Param request body dto.GrantRequest true "授予角色请求"
 // @Success 200 {object} dto.Response{data=dto.AssignmentResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/assignments/grant [post]
 func (h *AssignmentHandler) GrantAssignment(c *gin.Context) {
 	var req dto.GrantRequest
@@ -96,6 +97,7 @@ func (h *AssignmentHandler) GrantAssignment(c *gin.Context) {
 // @Produce json
 // @Param request body dto.RevokeRequest true "撤销角色请求"
 // @Success 200 {object} dto.Response
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/assignments/revoke [post]
 func (h *AssignmentHandler) RevokeAssignment(c *gin.Context) {
 	var req dto.RevokeRequest
@@ -140,6 +142,7 @@ func (h *AssignmentHandler) RevokeAssignment(c *gin.Context) {
 // @Tags Authorization-Assignments
 // @Param id path string true "分配ID"
 // @Success 200 {object} dto.Response
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/assignments/{id} [delete]
 func (h *AssignmentHandler) RevokeAssignmentByID(c *gin.Context) {
 	assignmentID, ok := parseIDParam(c, "id", "分配ID格式错误")
@@ -180,6 +183,7 @@ func (h *AssignmentHandler) RevokeAssignmentByID(c *gin.Context) {
 // @Param subject_type query string true "主体类型" Enums(user)
 // @Param subject_id query string true "主体ID"
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/assignments/subject [get]
 func (h *AssignmentHandler) ListAssignmentsBySubject(c *gin.Context) {
 	subjectTypeStr := c.Query("subject_type")
@@ -228,6 +232,7 @@ func (h *AssignmentHandler) ListAssignmentsBySubject(c *gin.Context) {
 // @Produce json
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response{data=[]dto.AssignmentResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/roles/{id}/assignments [get]
 func (h *AssignmentHandler) ListAssignmentsByRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")

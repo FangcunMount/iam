@@ -87,7 +87,7 @@ resource       = qs:evaluation:collection:assessments
 attribute_key  = object.origin_type
 ```
 
-其他 key/resource 返回 `InvalidArgument`，其他 caller 尝试提交该属性返回 `PermissionDenied`。重复 key、缺 typed value、带属性却缺 `object_id` 也会失败。
+默认配置中，其他 key/resource 返回 `InvalidArgument`，其他 caller 尝试提交该属性返回 `PermissionDenied`。可以通过显式配置注册新的 service/resource/attribute 组合。重复 key、缺 typed value、带属性却缺 `object_id` 也会失败。
 
 传输层可以解析 string/int64/bool 三种 oneof，但是否符合具体 Resource schema 仍由 authorization runtime 校验。
 “proto 能表达某类型”不等于“某个 caller 已被允许提交它”。
@@ -227,3 +227,9 @@ iam_grpc_assignment_authorization_total{service,operation,result}
 5. deny、invalid argument、permission denied、unavailable/internal 是否被调用方分开处理？
 6. proto、生成代码、SDK、ACL、constraints、测试和文档是否同步？
 7. 撤权成功后如何证明所有实例已收敛？
+
+## 属性配置与不可用状态
+
+`configs/authz_attribute_providers.yaml` 显式登记调用服务、资源键、属性键集合；默认保留上述 QS 组合，不存在硬编码生产回退。类型与枚举值由 Resource schema 管理。条件 Grant 的每个谓词均须存在提供者；配置允许预注册未来属性，未用于条件 Grant 的 schema 属性不强制注册。文件缺失、格式错误或既有 Grant 无提供者时拒绝启动；配置部署并重启生效。
+
+Check 与 GetAuthorizationSnapshot 超过新鲜度预算时返回 gRPC `Unavailable`。客户端必须传播错误，不能转换成 ALLOW 或正常的 `allowed=false`。proto 消息字段和 SDK 方法保持不变。IAM 的 60 秒边界不自动约束业务服务自身缓存。

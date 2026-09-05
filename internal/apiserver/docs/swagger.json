@@ -2000,6 +2000,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -2032,6 +2038,12 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2086,6 +2098,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -2110,6 +2128,12 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2158,6 +2182,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -2198,6 +2228,12 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2267,10 +2303,17 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             },
             "post": {
+                "description": "Catalog writes require a matching platform Grant for the authenticated actor.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2309,6 +2352,18 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "403": {
+                        "description": "Platform catalog permission required",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2349,6 +2404,12 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2395,6 +2456,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -2435,10 +2502,17 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             },
             "put": {
+                "description": "Catalog writes require a matching platform Grant for the authenticated actor.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2485,10 +2559,23 @@
                                 }
                             ]
                         }
+                    },
+                    "403": {
+                        "description": "Platform catalog permission required",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             },
             "delete": {
+                "description": "Catalog writes require a matching platform Grant for the authenticated actor.",
                 "tags": [
                     "Authorization-Resources"
                 ],
@@ -2507,6 +2594,18 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Platform catalog permission required",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2551,6 +2650,12 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2597,6 +2702,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -2637,6 +2748,12 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2688,6 +2805,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -2731,12 +2854,19 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/v3/authz/roles/{id}": {
             "get": {
+                "description": "Role details are restricted to the authenticated request tenant, including platform callers.",
                 "produces": [
                     "application/json"
                 ],
@@ -2770,6 +2900,18 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "404": {
+                        "description": "Role not found in request tenant",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2821,6 +2963,12 @@
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
+                        }
                     }
                 }
             },
@@ -2843,6 +2991,12 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2886,6 +3040,12 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -2931,6 +3091,12 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "Authorization policy unavailable (103002)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse"
                         }
                     }
                 }
@@ -3806,6 +3972,23 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_FangcunMount_iam_v2_internal_apiserver_transport_rest_authz_dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code 定义了业务错误代码",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "Message 包含此消息的详细信息\n此消息适合暴露给外部",
+                    "type": "string"
+                },
+                "reference": {
+                    "description": "Reference 返回参考文档，可能有助于解决此错误",
                     "type": "string"
                 }
             }

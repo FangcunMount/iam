@@ -30,7 +30,7 @@ REST 是控制面，不是请求期权限决策面。若业务服务为了判定
 | --- | --- | --- | --- |
 | `POST /api/v3/authz/roles` | `iam:authz:collection:roles` | `create` | 创建 Role |
 | `GET /api/v3/authz/roles` | 同上 | `list` | 列出 Role |
-| `GET /api/v3/authz/roles/:id` | 同上 | `read` | 读取 Role |
+| `GET /api/v3/authz/roles/:id` | 同上 | `read` | 读取当前请求租户的 Role |
 | `PUT /api/v3/authz/roles/:id` | 同上 | `update` | 更新 Role |
 | `DELETE /api/v3/authz/roles/:id` | 同上 | `delete` | 删除未被引用 Role |
 | `GET /api/v3/authz/roles/:id/assignments` | `iam:authz:collection:assignments` | `list` | 按 Role 列直接 Assignment |
@@ -84,7 +84,9 @@ OrgID 和 TokenID 写入 request context。AuthZ `RouteDecisionService` 只使�
 
 ## `RequirePermissionOrGlobal`
 
-IAM 管理路由的授权顺序是：
+Resource 目录写路由使用 `RequirePlatformPermission`，只对 platform 求值；应用服务再次验证可信 actor，保护进程内调用。租户管理员保留 read/list/validate_action，角色名称不构成授权证据。
+
+其余采用 `RequirePermissionOrGlobal` 的管理路由授权顺序是：
 
 1. 使用当前 Tenant 检查指定 Resource/Action；
 2. 当前 Tenant 不允许时，使用平台域再次检查同一 Resource/Action；
@@ -98,9 +100,9 @@ IAM 管理路由的授权顺序是：
 | deny | allow | 放行，记录 `global_permission` |
 | error | allow | 放行；平台匹配仍可成为独立证据 |
 | deny | deny | 403 |
-| error | deny/error | 500，不把运行时错误伪装成无权限 |
+| error | deny/error | 500；策略不可用错误返回 503 |
 | 当前已是 platform 且 deny | 不重复检查 | 403 |
-| 当前已是 platform 且 error | 不重复检查 | 500 |
+| 当前已是 platform 且 error | 不重复检查 | 普通内部错误 500，策略不可用 503 |
 
 AuthZ middleware 还对 `domain_permission`、`global_permission`、`denied`、`unauthenticated`、`error` 做低基数记录。这些结果是路由授权观测，
 不代替 runtime Check 的 allowed/denied/error 指标。
@@ -226,3 +228,9 @@ docs-facts 现在会抽取 README 中带 HTTP method 的 URL，并与 OpenAPI �
 3. 这个动作需要当前 Tenant 能力，还是允许平台域 fallback？
 4. 路由缺少 AuthZ 依赖时是不注册/返错，还是会意外放行？
 5. OpenAPI、router、permission catalog、bootstrap 和 README 的 method/path 是否一致？
+
+## 角色详情与不可用错误
+
+Handler 从认证请求上下文提取租户，调用 `GetRoleByID(ctx, tenant.ID, roleID)`；SQL 同时限定 tenant_id 与 id。其他租户的角色和不存在 ID 均返回 `ErrRoleNotFound` / 404。平台匹配 Grant 只满足路由准入，不赋予跨租户详情读取。
+
+任一首次检查返回 `ErrAuthorizationPolicyUnavailable` 时，中间件立即保留错误并返回 503。它不作为普通 DENY，也不继续寻找平台授权旁路。新鲜度合同见 [多实例策略收敛](04-关键链路-多实例策略收敛.md)。

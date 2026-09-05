@@ -34,6 +34,7 @@ func NewRoleHandler(
 // @Produce json
 // @Param request body dto.CreateRoleRequest true "创建角色请求"
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/roles [post]
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	var req dto.CreateRoleRequest
@@ -76,6 +77,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 // @Param id path string true "角色ID"
 // @Param request body dto.UpdateRoleRequest true "更新角色请求"
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/roles/{id} [put]
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
@@ -119,6 +121,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 // @Tags Authorization-Roles
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/roles/{id} [delete]
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
@@ -150,6 +153,9 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 // @Produce json
 // @Param id path string true "角色ID"
 // @Success 200 {object} dto.Response{data=dto.RoleResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
+// @Description Role details are restricted to the authenticated request tenant, including platform callers.
+// @Failure 404 {object} dto.ErrorResponse "Role not found in request tenant"
 // @Router /v3/authz/roles/{id} [get]
 func (h *RoleHandler) GetRole(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色ID格式错误")
@@ -183,6 +189,7 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 // @Param offset query int false "偏移量" default(0)
 // @Param limit query int false "每页数量" default(10)
 // @Success 200 {object} dto.ListResponse{data=[]dto.RoleResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/roles [get]
 func (h *RoleHandler) ListRoles(c *gin.Context) {
 	var query dto.ListRoleQuery

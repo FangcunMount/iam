@@ -356,3 +356,11 @@ _ = allowed
 - [服务间认证](./05-service-auth.md)
 - [../README.md](../README.md)
 - [../../../docs/04-接口与SDK/README.md](../../../docs/04-接口与SDK/README.md)
+
+## 策略新鲜度与调用方责任
+
+IAM 默认每 10 秒核对全部租户的数据库策略版本，单次同步超时 10 秒；最近一致性确认满 60 秒时，Check 和 GetAuthorizationSnapshot 返回 gRPC `Unavailable`。SDK 保留该错误语义，调用方应按服务不可用处理，不能将其转换成允许或普通 `allowed=false`。
+
+此时限只覆盖 IAM 本次查询。调用方自行缓存的授权结果或权限快照需要独立设置失效规则；已有缓存不会因 IAM 的 60 秒边界自动失效。事实提交成功也不表示全部实例即时收敛。
+
+可信 object 属性来自部署配置的 service/resource/attribute 精确组合，默认 QS 合同保持。未知调用服务被拒绝，缺失条件属性仍正常 DENY。proto 字段与 SDK 方法没有变化。

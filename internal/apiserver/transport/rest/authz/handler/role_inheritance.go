@@ -31,6 +31,7 @@ func NewRoleInheritanceHandler(service roleInheritanceService) *RoleInheritanceH
 // @Produce json
 // @Param request body dto.CreateRoleInheritanceRequest true "Role inheritance"
 // @Success 200 {object} dto.Response{data=dto.RoleInheritanceResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/role-inheritances [post]
 func (h *RoleInheritanceHandler) Create(c *gin.Context) {
 	var request dto.CreateRoleInheritanceRequest
@@ -67,6 +68,7 @@ func (h *RoleInheritanceHandler) Create(c *gin.Context) {
 // @Param id path string true "Role inheritance ID"
 // @Param request body dto.RevokeRoleInheritanceRequest false "Revoke"
 // @Success 200 {object} dto.Response
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/role-inheritances/{id} [delete]
 func (h *RoleInheritanceHandler) Revoke(c *gin.Context) {
 	id, ok := parseIDParam(c, "id", "角色继承 ID 格式错误")
@@ -104,6 +106,7 @@ func (h *RoleInheritanceHandler) Revoke(c *gin.Context) {
 // @Produce json
 // @Param role_id query string false "Receiving role ID"
 // @Success 200 {object} dto.Response{data=[]dto.RoleInheritanceResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/role-inheritances [get]
 func (h *RoleInheritanceHandler) List(c *gin.Context) {
 	var query dto.ListRoleInheritanceQuery

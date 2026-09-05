@@ -32,6 +32,7 @@ func NewPermissionGrantHandler(service permissionGrantService) *PermissionGrantH
 // @Produce json
 // @Param request body dto.CreatePermissionGrantRequest true "Grant"
 // @Success 200 {object} dto.Response{data=dto.PermissionGrantResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/grants [post]
 func (h *PermissionGrantHandler) CreateGrant(c *gin.Context) {
 	var req dto.CreatePermissionGrantRequest
@@ -70,6 +71,7 @@ func (h *PermissionGrantHandler) CreateGrant(c *gin.Context) {
 // @Param id path string true "Grant ID"
 // @Param request body dto.RevokePermissionGrantRequest false "Revoke"
 // @Success 200 {object} dto.Response
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/grants/{id} [delete]
 func (h *PermissionGrantHandler) RevokeGrant(c *gin.Context) {
 	grantID, ok := parseIDParam(c, "id", "Grant ID 格式错误")
@@ -107,6 +109,7 @@ func (h *PermissionGrantHandler) RevokeGrant(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Role ID"
 // @Success 200 {object} dto.Response{data=[]dto.PermissionGrantResponse}
+// @Failure 503 {object} dto.ErrorResponse "Authorization policy unavailable (103002)"
 // @Router /v3/authz/roles/{id}/grants [get]
 func (h *PermissionGrantHandler) ListRoleGrants(c *gin.Context) {
 	roleID, ok := parseIDParam(c, "id", "角色 ID 格式错误")
