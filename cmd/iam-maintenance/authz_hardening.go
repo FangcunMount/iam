@@ -59,7 +59,7 @@ func runAuthzHardening(args []string, output io.Writer) error {
 	if err != nil {
 		return errors.New("authorization database initialization failed")
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 	var report *maintenance.AuthzHardeningReport

@@ -356,16 +356,6 @@
       "code": "operation-description",
       "path": [
         "paths",
-        "/authz/resources",
-        "post"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
         "/authz/resources/key/{key}",
         "get"
       ],
@@ -387,27 +377,7 @@
       "path": [
         "paths",
         "/authz/resources/{id}",
-        "delete"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/resources/{id}",
         "get"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/resources/{id}",
-        "put"
       ],
       "message": "Operation \"description\" must be present and non-empty string."
     },
@@ -438,16 +408,6 @@
         "paths",
         "/authz/roles/{id}",
         "delete"
-      ],
-      "message": "Operation \"description\" must be present and non-empty string."
-    },
-    {
-      "source": "api/rest/authz.v3.yaml",
-      "code": "operation-description",
-      "path": [
-        "paths",
-        "/authz/roles/{id}",
-        "get"
       ],
       "message": "Operation \"description\" must be present and non-empty string."
     },

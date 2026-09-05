@@ -14,7 +14,7 @@ func Load(path string) (*objectattributeadmission.Registry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open authz attribute providers: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	decoder := yaml.NewDecoder(file)
 	decoder.KnownFields(true)
 	var config struct {
