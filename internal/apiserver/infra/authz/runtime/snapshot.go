@@ -1,25 +1,29 @@
 package runtime
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/objectattributeadmission"
 	authorizationdomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/roleinheritance"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 )
 
-const maxRoleHierarchyLevel = 32
+const maxRoleHierarchyLevel = roleinheritance.MaxHierarchyDepth
 
 type Snapshot struct {
+	verifiedAt   time.Time // proof belongs to this immutable publication
 	roles        authorizationdomain.RoleResolver
 	grantsByRole map[tenant.ID]map[role.Name][]*permissiongrant.Grant
 	resources    map[string]*resource.Resource
@@ -27,7 +31,11 @@ type Snapshot struct {
 	loadedAt     time.Time
 }
 
-func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
+func BuildSnapshot(dataset Dataset, loadedAt time.Time, providers ...objectattributeadmission.Coverage) (*Snapshot, error) {
+	var coverage objectattributeadmission.Coverage
+	if len(providers) > 0 {
+		coverage = providers[0]
+	}
 	if loadedAt.IsZero() {
 		loadedAt = time.Now()
 	}
@@ -60,6 +68,8 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		if _, exists := resources[key]; exists {
 			return nil, perrors.WithCode(code.ErrInvalidArgument, "duplicate runtime resource key: %s", key)
 		}
+		owned := catalogResource.Clone()
+		catalogResource = &owned
 		resources[key] = catalogResource
 		resourcesByID[catalogResource.ID.Uint64()] = catalogResource
 	}
@@ -124,6 +134,11 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 				return nil, err
 			}
 		}
+		if err := objectattributeadmission.RequireCoverage(coverage, grant.ResourcePatternString(), grant.Constraints); err != nil {
+			return nil, fmt.Errorf("grant %s: %w", grant.ID, err)
+		}
+		owned := grant.Clone()
+		grant = &owned
 		tenantID := grant.TenantID
 		roleName, err := role.NewName(roleRecord.Name)
 		if err != nil {
@@ -152,7 +167,7 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 	}, nil
 }
 
-func (s *Snapshot) EvaluationContext(request authorizationdomain.Request) (authorizationdomain.EvaluationContext, error) {
+func (s *Snapshot) evaluationContext(request authorizationdomain.Request) (authorizationdomain.EvaluationContext, error) {
 	if s == nil || s.roles == nil {
 		return authorizationdomain.EvaluationContext{}, perrors.WithCode(code.ErrInternalServerError, "authorization runtime snapshot is unavailable")
 	}
@@ -270,42 +285,13 @@ func (s *Snapshot) Versions() map[string]int64 {
 }
 
 func validateInheritanceGraph(records []InheritanceRecord, roles map[meta.ID]RoleRecord) error {
-	graph := make(map[string][]string)
-	for _, record := range records {
-		role, ok := roles[record.RoleID]
-		inherited, inheritedOK := roles[record.InheritedRoleID]
-		if !ok || !inheritedOK || role.TenantID != record.TenantID || inherited.TenantID != record.TenantID {
-			return perrors.WithCode(code.ErrInvalidArgument, "role inheritance references an unknown or cross-tenant role")
-		}
-		if role.ID == inherited.ID {
-			return perrors.WithCode(code.ErrInvalidArgument, "role inheritance contains a self-cycle")
-		}
-		graph[record.TenantID+"\x00"+role.Name] = append(graph[record.TenantID+"\x00"+role.Name], record.TenantID+"\x00"+inherited.Name)
+	nodes := make([]roleinheritance.RoleNode, 0, len(roles))
+	for _, r := range roles {
+		nodes = append(nodes, roleinheritance.RoleNode{ID: r.ID, TenantID: r.TenantID})
 	}
-	visiting := make(map[string]bool)
-	visited := make(map[string]bool)
-	var visit func(string) bool
-	visit = func(node string) bool {
-		if visiting[node] {
-			return true
-		}
-		if visited[node] {
-			return false
-		}
-		visiting[node] = true
-		for _, next := range graph[node] {
-			if visit(next) {
-				return true
-			}
-		}
-		visiting[node] = false
-		visited[node] = true
-		return false
+	edges := make([]*roleinheritance.Inheritance, 0, len(records))
+	for _, r := range records {
+		edges = append(edges, &roleinheritance.Inheritance{RoleID: r.RoleID, InheritedRoleID: r.InheritedRoleID, TenantID: tenant.ID(r.TenantID)})
 	}
-	for node := range graph {
-		if visit(node) {
-			return perrors.WithCode(code.ErrInvalidArgument, "role inheritance contains a cycle")
-		}
-	}
-	return nil
+	return roleinheritance.ValidateGraph(nodes, edges)
 }

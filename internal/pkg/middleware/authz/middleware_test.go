@@ -7,11 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
+	"github.com/gin-gonic/gin"
 )
 
 type routePermissionCheckerStub struct {
@@ -38,6 +39,7 @@ func TestRequirePermissionOrGlobal(t *testing.T) {
 		{name: "domain failure and platform deny", checker: routePermissionCheckerStub{errorsByTenant: map[string]error{tenant.DefaultID: errors.New("domain sentinel")}}, withUser: true, wantStatus: http.StatusInternalServerError},
 		{name: "domain failure but platform allows", checker: routePermissionCheckerStub{allowedByTenant: map[string]bool{tenant.PlatformID: true}, errorsByTenant: map[string]error{tenant.DefaultID: errors.New("domain sentinel")}}, withUser: true, wantStatus: http.StatusNoContent},
 		{name: "platform failure and domain deny", checker: routePermissionCheckerStub{errorsByTenant: map[string]error{tenant.PlatformID: errors.New("platform sentinel")}}, withUser: true, wantStatus: http.StatusInternalServerError},
+		{name: "expired policy", checker: routePermissionCheckerStub{errorsByTenant: map[string]error{tenant.DefaultID: perrors.WithCode(code.ErrAuthorizationPolicyUnavailable, "expired")}, allowedByTenant: map[string]bool{tenant.PlatformID: true}}, withUser: true, wantStatus: http.StatusServiceUnavailable},
 		{name: "missing principal", checker: routePermissionCheckerStub{}, wantStatus: http.StatusUnauthorized},
 	}
 

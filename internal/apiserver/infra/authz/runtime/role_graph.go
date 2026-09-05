@@ -114,6 +114,9 @@ func (g *roleGraph) EffectiveRoles(sub subject.Ref, tenantID tenant.ID) ([]role.
 		}
 		frontier = sortedRoleNames(next)
 	}
+	if len(frontier) > 0 {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "role hierarchy exceeds maximum depth")
+	}
 	sort.Slice(effective, func(i, j int) bool {
 		return effective[i].String() < effective[j].String()
 	})

@@ -109,8 +109,8 @@ func TestRoleGraphPreservesMaximumHierarchyLevel(t *testing.T) {
 	}
 
 	got, err := builder.build(maxRoleHierarchyLevel).EffectiveRoles(user, tenantID)
-	require.NoError(t, err)
-	require.Equal(t, roles[:maxRoleHierarchyLevel], got)
+	require.Error(t, err)
+	require.Nil(t, got)
 }
 
 func mustRoleName(t testing.TB, value string) role.Name {

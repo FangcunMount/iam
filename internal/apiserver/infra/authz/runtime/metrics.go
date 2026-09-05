@@ -6,7 +6,11 @@ import (
 )
 
 var (
-	authorizationChecks = promauto.NewCounterVec(prometheus.CounterOpts{
+	freshnessAge           = promauto.NewGauge(prometheus.GaugeOpts{Namespace: "iam", Subsystem: "authz_native", Name: "freshness_age_seconds", Help: "Age of last durable policy confirmation."})
+	expiredChecks          = promauto.NewCounter(prometheus.CounterOpts{Namespace: "iam", Subsystem: "authz_native", Name: "expired_checks_total", Help: "Queries rejected due to unavailable policy."})
+	versionCheckFailures   = promauto.NewCounter(prometheus.CounterOpts{Namespace: "iam", Subsystem: "authz_native", Name: "version_check_failures_total", Help: "Durable version checks that failed."})
+	subscriptionRegistered = promauto.NewGauge(prometheus.GaugeOpts{Namespace: "iam", Subsystem: "authz_native", Name: "subscription_registered", Help: "Policy event subscription registered, not a connectivity proof."})
+	authorizationChecks    = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "iam", Subsystem: "authz_native", Name: "checks_total",
 		Help: "Authorization snapshot decisions by low-cardinality result.",
 	}, []string{"result"})

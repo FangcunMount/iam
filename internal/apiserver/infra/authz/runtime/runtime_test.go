@@ -9,13 +9,13 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/runtime"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/assessment"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -62,7 +62,7 @@ func TestRuntimeMissingAttributeDeniesWithReason(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
 	require.Equal(t, authorization.ReasonAttributeMissing, decision.Reason)
-	require.Equal(t, []string{attribute.ObjectOriginType}, decision.MissingAttributeKeys)
+	require.Equal(t, []string{authzfixture.AttributeKey}, decision.MissingAttributeKeys)
 }
 
 func TestRuntimeSnapshotPreservesConditionalMode(t *testing.T) {
@@ -106,7 +106,7 @@ func TestRuntimeSnapshotIncludesQSAdminWildcardAsUnconditionalCandidate(t *testi
 
 func TestRuntimeFailedReloadKeepsPreviousSnapshot(t *testing.T) {
 	source := &mutableSource{dataset: assessmentDataset(t)}
-	runtime, err := authzruntime.NewRuntime(context.Background(), source, authorization.NewEvaluator())
+	runtime, err := authzruntime.NewRuntime(context.Background(), source, authorization.NewEvaluator(), authzruntime.WithAttributeProviders(authzfixture.Policy()))
 	require.NoError(t, err)
 
 	source.mu.Lock()
@@ -118,7 +118,7 @@ func TestRuntimeFailedReloadKeepsPreviousSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
 	ready, reloadErr, _ := runtime.ReloadHealth()
-	require.False(t, ready)
+	require.True(t, ready, "transient reload failure is within freshness budget")
 	require.ErrorContains(t, reloadErr, "database unavailable")
 }
 
@@ -149,7 +149,7 @@ func newAssessmentRuntime(t testing.TB) *authzruntime.Runtime {
 	runtime, err := authzruntime.NewRuntime(
 		context.Background(),
 		&mutableSource{dataset: assessmentDataset(t)},
-		authorization.NewEvaluator(),
+		authorization.NewEvaluator(), authzruntime.WithAttributeProviders(authzfixture.Policy()),
 	)
 	require.NoError(t, err)
 	return runtime
@@ -162,12 +162,12 @@ func assessmentDataset(t testing.TB) authzruntime.Dataset {
 		[]string{"retry", "force_retry", "batch_evaluate"},
 		resource.WithID(resource.NewResourceID(20)),
 		resource.WithDisplayName("Assessments"),
-		resource.WithAttributeSchema(attribute.AssessmentSchema()),
+		resource.WithAttributeSchema(authzfixture.Schema()),
 	)
 	require.NoError(t, err)
-	adhoc, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("adhoc")))
+	adhoc, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("adhoc")))
 	require.NoError(t, err)
-	plan, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("plan")))
+	plan, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("plan")))
 	require.NoError(t, err)
 	admin, err := permissiongrant.NewSystem(meta.FromUint64(11), "fangcun", resource.ResourceID{}, "qs:*:*:*", "*", constraint.Empty(), "bootstrap")
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func checkRequest(t testing.TB, userID uint64, action, originType string) author
 	sub, err := subject.NewUserRef(meta.FromUint64(userID))
 	require.NoError(t, err)
 	object, err := authorization.NewObjectContext("assessment-1", constraint.Attributes{
-		attribute.ObjectOriginType: constraint.StringValue(originType),
+		authzfixture.AttributeKey: constraint.StringValue(originType),
 	})
 	require.NoError(t, err)
 	request, err := authorization.NewRequest(sub, "fangcun", assessmentResource, action, object)

@@ -4,14 +4,13 @@ package authz
 import (
 	"context"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/requestctx"
 	"github.com/FangcunMount/iam/v3/pkg/core"
 	"github.com/FangcunMount/iam/v3/pkg/tenant"
+	"github.com/gin-gonic/gin"
 )
 
 // RoutePermissionChecker answers a route-level permission question without
@@ -64,7 +63,7 @@ func (m *Middleware) requirePermission(resourceKey, action, fixedTenant string) 
 		allowed, err := m.checker.CheckRoutePermission(c.Request.Context(), subjectKey, tenantID, resourceKey, action)
 		if err != nil {
 			log.Errorw("route authorization failed", "sub", subjectKey, "tenant_id", tenantID)
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
+			core.WriteResponse(c, authorizationError(err), nil)
 			c.Abort()
 			return
 		}
@@ -100,7 +99,13 @@ func (m *Middleware) RequirePermissionOrGlobal(resourceKey, action string) gin.H
 		allowed, tenantErr := m.checker.CheckRoutePermission(
 			c.Request.Context(), subjectKey, tenantID, resourceKey, action,
 		)
-		if allowed {
+		if errors.IsCode(tenantErr, code.ErrAuthorizationPolicyUnavailable) {
+			recordHTTPAuthorization(resourceKey, action, "error")
+			core.WriteResponse(c, tenantErr, nil)
+			c.Abort()
+			return
+		}
+		if allowed && tenantErr == nil {
 			recordHTTPAuthorization(resourceKey, action, "domain_permission")
 			c.Next()
 			return
@@ -112,7 +117,7 @@ func (m *Middleware) RequirePermissionOrGlobal(resourceKey, action string) gin.H
 			globalAllowed, globalErr = m.checker.CheckRoutePermission(
 				c.Request.Context(), subjectKey, tenant.PlatformID, resourceKey, action,
 			)
-			if globalAllowed {
+			if globalAllowed && globalErr == nil {
 				recordHTTPAuthorization(resourceKey, action, "global_permission")
 				c.Next()
 				return
@@ -121,7 +126,11 @@ func (m *Middleware) RequirePermissionOrGlobal(resourceKey, action string) gin.H
 		if tenantErr != nil || globalErr != nil {
 			recordHTTPAuthorization(resourceKey, action, "error")
 			log.Errorw("route authorization check failed", "resource", resourceKey, "action", action)
-			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization check failed"), nil)
+			if tenantErr != nil {
+				core.WriteResponse(c, authorizationError(tenantErr), nil)
+			} else {
+				core.WriteResponse(c, authorizationError(globalErr), nil)
+			}
 			c.Abort()
 			return
 		}
@@ -130,4 +139,11 @@ func (m *Middleware) RequirePermissionOrGlobal(resourceKey, action string) gin.H
 		core.WriteResponse(c, errors.WithCode(code.ErrPermissionDenied, "Forbidden"), nil)
 		c.Abort()
 	}
+}
+
+func authorizationError(err error) error {
+	if errors.IsCode(err, code.ErrAuthorizationPolicyUnavailable) {
+		return err
+	}
+	return errors.WithCode(code.ErrInternalServerError, "Authorization check failed")
 }

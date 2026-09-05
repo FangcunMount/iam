@@ -31,7 +31,7 @@ func NewObjectContext(objectID string, attributes constraint.Attributes) (Object
 		if err := value.Validate(); err != nil {
 			return ObjectContext{}, err
 		}
-		copyAttributes[key] = value
+		copyAttributes[key] = value.Clone()
 	}
 	return ObjectContext{ObjectID: objectID, Attributes: copyAttributes}, nil
 }

@@ -65,6 +65,8 @@ func (g *moduleGraph) authnModuleDependencies() authn.AuthnModuleDeps {
 func (g *moduleGraph) authzModuleDependencies() authz.AuthzModuleDeps {
 	userAccess := g.identityUserAccessCapabilities()
 	return authz.AuthzModuleDeps{
+		SyncConfig:                g.container.runtimeOptions.Authz.PolicySync,
+		AttributeProvidersFile:    g.container.runtimeOptions.Authz.AttributeProvidersFile,
 		DB:                        g.container.mysqlDB,
 		EventStager:               g.container.outboxStore,
 		GRPCACLEnabled:            g.container.runtimeOptions.GRPCACLEnabled,

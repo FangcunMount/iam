@@ -9,6 +9,7 @@ import (
 
 // RuntimeOptions contains typed bootstrap options consumed by the container.
 type RuntimeOptions struct {
+	Authz                         apiserveroptions.AuthzOptions
 	Environment                   genericapiserver.Environment
 	Auth                          apiserveroptions.AuthOptions
 	JWKS                          apiserveroptions.SigningKeyOptions
@@ -32,6 +33,7 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 	}
 
 	runtime := RuntimeOptions{
+		Authz:                         *defaults.Authz,
 		Environment:                   environment,
 		Auth:                          *defaults.Auth,
 		JWKS:                          *defaults.JWKS,
@@ -44,6 +46,9 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		GRPCACLConfigFile:             grpcACLConfigFile(defaults.GRPCOptions),
 		GRPCAssignmentConstraintsFile: defaults.GRPCOptions.AuthzAssignmentConstraintsFile,
 		Suggest:                       suggestmodule.ModuleConfigFromOptions(*defaults.Suggest),
+	}
+	if opts.Authz != nil {
+		runtime.Authz = *opts.Authz
 	}
 	if opts.Auth != nil {
 		runtime.Auth = *opts.Auth

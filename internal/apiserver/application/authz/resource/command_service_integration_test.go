@@ -2,16 +2,16 @@ package resource_test
 
 import (
 	"context"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	authztestutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/testutil"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	permissiongrantDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/assessment"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/pkg/event"
@@ -72,7 +72,7 @@ func seedAssessmentResource(t *testing.T, repository resourceDomain.Repository) 
 		"qs:evaluation:collection:assessments",
 		[]string{"retry"},
 		resourceDomain.WithDisplayName("Assessments"),
-		resourceDomain.WithAttributeSchema(attribute.AssessmentSchema()),
+		resourceDomain.WithAttributeSchema(authzfixture.Schema()),
 	)
 	require.NoError(t, err)
 	require.NoError(t, repository.Create(context.Background(), &resource))

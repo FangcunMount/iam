@@ -44,7 +44,7 @@ func (r *Repository) CreateChecked(ctx context.Context, inheritance *domain.Inhe
 			nodes = append(nodes, domain.RoleNode{ID: meta.FromUint64(id), TenantID: inheritance.TenantIDString()})
 		}
 		var rows []*InheritancePO
-		query := tx.Where("tenant_id = ? AND revoked_at IS NULL", inheritance.TenantIDString()).Order("id ASC")
+		query := tx.Where("tenant_id = ? AND revoked_at IS NULL AND deleted_at IS NULL", inheritance.TenantIDString()).Order("id ASC")
 		if tx.Dialector != nil && tx.Dialector.Name() != "sqlite" {
 			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 		}
@@ -126,7 +126,7 @@ func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.Inherita
 func (r *Repository) ListActiveByTenant(ctx context.Context, tenantID string) ([]*domain.Inheritance, error) {
 	var rows []*InheritancePO
 	if err := r.WithContext(ctx).
-		Where("tenant_id = ? AND revoked_at IS NULL", tenantID).
+		Where("tenant_id = ? AND revoked_at IS NULL AND deleted_at IS NULL", tenantID).
 		Order("id ASC").
 		Find(&rows).Error; err != nil {
 		return nil, err

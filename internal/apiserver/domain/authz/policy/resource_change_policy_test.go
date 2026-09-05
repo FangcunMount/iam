@@ -10,6 +10,7 @@ import (
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/authzschema"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,7 @@ import (
 
 func TestResourceChangePolicyRejectsInvalidCandidate(t *testing.T) {
 	grant := assessmentRetryGrant(t, "tenant-a")
-	candidate := assessmentResource(t, []string{"read"}, attribute.AssessmentSchema())
+	candidate := documentResource(t, []string{"read"}, authzfixture.Schema())
 
 	err := policy.ResourceChangePolicy{}.ValidateDependencies(candidate, []*permissiongrant.Grant{&grant})
 
@@ -27,7 +28,7 @@ func TestResourceChangePolicyRejectsInvalidCandidate(t *testing.T) {
 
 func TestResourceChangePolicyAcceptsCompatibleCandidate(t *testing.T) {
 	grant := assessmentRetryGrant(t, "tenant-a")
-	candidate := assessmentResource(t, []string{"retry", "read"}, attribute.AssessmentSchema())
+	candidate := documentResource(t, []string{"retry", "read"}, authzfixture.Schema())
 
 	require.NoError(t, policy.ResourceChangePolicy{}.ValidateDependencies(candidate, []*permissiongrant.Grant{&grant}))
 }
@@ -44,10 +45,10 @@ func TestResourceChangePolicyAffectedTenantIDsIncludesAllActiveGrantTenants(t *t
 	))
 }
 
-func assessmentResource(t *testing.T, actions []string, schema attribute.Schema) resource.Resource {
+func documentResource(t *testing.T, actions []string, schema attribute.Schema) resource.Resource {
 	t.Helper()
 	value, err := resource.NewResource(
-		"qs:evaluation:collection:assessments",
+		"example:catalog:collection:documents",
 		actions,
 		resource.WithID(resource.NewResourceID(101)),
 		resource.WithDisplayName("Assessments"),
@@ -59,14 +60,14 @@ func assessmentResource(t *testing.T, actions []string, schema attribute.Schema)
 
 func assessmentRetryGrant(t *testing.T, tenantID string) permissiongrant.Grant {
 	t.Helper()
-	origin := "adhoc"
-	constraints, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue(origin)))
+	origin := "active"
+	constraints, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue(origin)))
 	require.NoError(t, err)
 	grant, err := permissiongrant.New(
 		meta.FromUint64(7),
 		tenantID,
 		resource.NewResourceID(101),
-		"qs:evaluation:collection:assessments",
+		"example:catalog:collection:documents",
 		"retry",
 		constraints,
 		"operator",

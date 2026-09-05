@@ -105,6 +105,21 @@ func loadDataset(db *gorm.DB) (Dataset, error) {
 		resources = append(resources, catalogResource)
 	}
 
+	versions, err := readVersions(db)
+	if err != nil {
+		return Dataset{}, err
+	}
+
+	return Dataset{
+		Roles: roles, Assignments: assignments, Inheritances: inheritances,
+		Grants: grants, Resources: resources, Versions: versions,
+	}, nil
+}
+
+func (s *MySQLSource) ReadVersions(ctx context.Context) (map[string]int64, error) {
+	return readVersions(s.db.WithContext(ctx))
+}
+func readVersions(db *gorm.DB) (map[string]int64, error) {
 	type versionRow struct {
 		TenantID string `gorm:"column:tenant_id"`
 		Version  int64  `gorm:"column:policy_version"`
@@ -113,15 +128,12 @@ func loadDataset(db *gorm.DB) (Dataset, error) {
 	if err := db.Model(&policyrepo.PolicyVersionPO{}).
 		Select("tenant_id, MAX(policy_version) AS policy_version").
 		Where("deleted_at IS NULL").Group("tenant_id").Scan(&versionRows).Error; err != nil {
-		return Dataset{}, err
+		return nil, err
 	}
 	versions := make(map[string]int64, len(versionRows))
 	for _, row := range versionRows {
 		versions[row.TenantID] = row.Version
 	}
 
-	return Dataset{
-		Roles: roles, Assignments: assignments, Inheritances: inheritances,
-		Grants: grants, Resources: resources, Versions: versions,
-	}, nil
+	return versions, nil
 }

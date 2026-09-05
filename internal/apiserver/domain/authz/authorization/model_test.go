@@ -5,27 +5,27 @@ import (
 	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/authzschema"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 )
 
 func TestObjectContextRequiresIDForAttributes(t *testing.T) {
 	_, err := authorization.NewObjectContext("", constraint.Attributes{
-		attribute.ObjectOriginType: constraint.StringValue("adhoc"),
+		authzfixture.AttributeKey: constraint.StringValue("active"),
 	})
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }
 
 func TestValidateAttributesUsesResourceSchema(t *testing.T) {
-	require.NoError(t, authorization.ValidateAttributes(attribute.AssessmentSchema(), constraint.Attributes{
-		attribute.ObjectOriginType: constraint.StringValue("adhoc"),
+	require.NoError(t, authorization.ValidateAttributes(authzfixture.Schema(), constraint.Attributes{
+		authzfixture.AttributeKey: constraint.StringValue("active"),
 	}))
 
-	err := authorization.ValidateAttributes(attribute.AssessmentSchema(), constraint.Attributes{
-		attribute.ObjectOriginType: constraint.StringValue("unknown"),
+	err := authorization.ValidateAttributes(authzfixture.Schema(), constraint.Attributes{
+		authzfixture.AttributeKey: constraint.StringValue("unknown"),
 	})
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }

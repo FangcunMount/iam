@@ -237,3 +237,12 @@ func (id ResourceID) Uint64() uint64 {
 func (id ResourceID) String() string {
 	return idutil.ID(id).String()
 }
+
+func (r Resource) Clone() Resource {
+	out := r
+	if r.Actions != nil {
+		out.Actions = append([]Action{}, r.Actions...)
+	}
+	out.AttributeSchema = r.AttributeSchema.Clone()
+	return out
+}

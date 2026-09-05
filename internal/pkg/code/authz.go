@@ -15,6 +15,9 @@ const (
 
 	// ErrPermissionDenied - 403: Permission denied.
 	ErrPermissionDenied = 103001
+
+	// ErrAuthorizationPolicyUnavailable - 503: policy freshness cannot be established.
+	ErrAuthorizationPolicyUnavailable = 103002
 )
 
 // Authz: 角色相关错误 (103100～103199).
@@ -76,6 +79,8 @@ func registerAuthz() {
 	// 基础权限错误
 	registerAuthzCode(ErrUnauthorized, http.StatusForbidden, "Authorization failed")
 	registerAuthzCode(ErrPermissionDenied, http.StatusForbidden, "Permission denied")
+
+	registerAuthzCode(ErrAuthorizationPolicyUnavailable, http.StatusServiceUnavailable, "Authorization policy unavailable")
 
 	// 角色相关错误
 	registerAuthzCode(ErrRoleNotFound, http.StatusNotFound, "Role not found")

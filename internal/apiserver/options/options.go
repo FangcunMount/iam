@@ -10,6 +10,7 @@ import (
 
 // Options 包含所有配置项
 type Options struct {
+	Authz                   *AuthzOptions                          `json:"authz" mapstructure:"authz"`
 	Log                     *log.Options                           `json:"log"    mapstructure:"log"`
 	RemovedApp              *RemovedAppOptions                     `json:"-" mapstructure:"app"`
 	GenericServerRunOptions *genericoptions.ServerRunOptions       `json:"server" mapstructure:"server"`
@@ -35,6 +36,7 @@ type Options struct {
 // NewOptions 创建一个 Options 对象，包含默认参数
 func NewOptions() *Options {
 	return &Options{
+		Authz:                   NewAuthzOptions(),
 		Log:                     newRuntimeLogOptions(),
 		RemovedApp:              &RemovedAppOptions{},
 		GenericServerRunOptions: genericoptions.NewServerRunOptions(),
@@ -90,6 +92,9 @@ func (o *Options) String() string {
 
 // ApplyDefaults fills nil option groups with their default values.
 func (o *Options) ApplyDefaults() {
+	if o.Authz == nil {
+		o.Authz = NewAuthzOptions()
+	}
 	if o.Log == nil {
 		o.Log = newRuntimeLogOptions()
 	}
