@@ -4,23 +4,23 @@ import (
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/authzschema"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 )
 
 func TestManagedGrantUsesStableCanonicalKey(t *testing.T) {
-	constraints, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("adhoc")))
+	constraints, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("active")))
 	require.NoError(t, err)
 	grant, err := permissiongrant.New(
 		meta.FromUint64(10),
 		"tenant-a",
 		resource.NewResourceID(20),
-		"qs:evaluation:collection:assessments",
+		"example:catalog:collection:documents",
 		"retry",
 		constraints,
 		"operator-1",
@@ -31,7 +31,7 @@ func TestManagedGrantUsesStableCanonicalKey(t *testing.T) {
 
 	second, err := permissiongrant.New(
 		meta.FromUint64(10), "tenant-a", resource.NewResourceID(20),
-		"qs:evaluation:collection:assessments", "retry", constraints, "operator-2",
+		"example:catalog:collection:documents", "retry", constraints, "operator-2",
 	)
 	require.NoError(t, err)
 	require.Equal(t, grant.GrantKey, second.GrantKey)
@@ -40,19 +40,19 @@ func TestManagedGrantUsesStableCanonicalKey(t *testing.T) {
 func TestManagedGrantRequiresCatalogResourceAndConcreteAction(t *testing.T) {
 	_, err := permissiongrant.New(
 		meta.FromUint64(10), "tenant-a", resource.ResourceID{},
-		"qs:*:*:*", "retry", constraint.Empty(), "operator-1",
+		"example:*:*:*", "retry", constraint.Empty(), "operator-1",
 	)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 
 	_, err = permissiongrant.New(
 		meta.FromUint64(10), "tenant-a", resource.NewResourceID(20),
-		"qs:evaluation:collection:assessments", "*", constraint.Empty(), "operator-1",
+		"example:catalog:collection:documents", "*", constraint.Empty(), "operator-1",
 	)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }
 
 func TestSystemWildcardGrantMustBeUnconditional(t *testing.T) {
-	conditional, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("adhoc")))
+	conditional, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("active")))
 	require.NoError(t, err)
 	_, err = permissiongrant.NewSystem(
 		meta.FromUint64(10), "tenant-a", resource.ResourceID{},
@@ -71,31 +71,31 @@ func TestSystemWildcardGrantMustBeUnconditional(t *testing.T) {
 }
 
 func TestManagedGrantValidatesAgainstResourceSchema(t *testing.T) {
-	constraints, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("adhoc")))
+	constraints, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("active")))
 	require.NoError(t, err)
 	grant, err := permissiongrant.New(
 		meta.FromUint64(10), "tenant-a", resource.NewResourceID(20),
-		"qs:evaluation:collection:assessments", "retry", constraints, "operator-1",
+		"example:catalog:collection:documents", "retry", constraints, "operator-1",
 	)
 	require.NoError(t, err)
 	catalogResource, err := resource.NewResource(
-		"qs:evaluation:collection:assessments",
+		"example:catalog:collection:documents",
 		[]string{"retry", "batch_evaluate"},
 		resource.WithID(resource.NewResourceID(20)),
 		resource.WithDisplayName("Assessments"),
-		resource.WithAttributeSchema(attribute.AssessmentSchema()),
+		resource.WithAttributeSchema(authzfixture.Schema()),
 	)
 	require.NoError(t, err)
 	require.NoError(t, grant.ValidateAgainst(catalogResource))
 
 	invalid, err := permissiongrant.New(
 		meta.FromUint64(10), "tenant-a", resource.NewResourceID(20),
-		"qs:evaluation:collection:assessments", "retry",
+		"example:catalog:collection:documents", "retry",
 		constraint.Empty(), "operator-1",
 	)
 	require.NoError(t, err)
 	otherResource, err := resource.NewResource(
-		"qs:evaluation:collection:other", []string{"retry"},
+		"example:evaluation:collection:other", []string{"retry"},
 		resource.WithID(resource.NewResourceID(20)),
 		resource.WithDisplayName("Other"),
 	)
@@ -105,12 +105,12 @@ func TestManagedGrantValidatesAgainstResourceSchema(t *testing.T) {
 }
 
 func TestConditionalGrantCannotAuthorizeCollectionOrBatchActions(t *testing.T) {
-	constraints, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("adhoc")))
+	constraints, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("active")))
 	require.NoError(t, err)
 	for _, action := range []string{"list", "search", "batch_evaluate"} {
 		_, err := permissiongrant.New(
 			meta.FromUint64(10), "tenant-a", resource.NewResourceID(20),
-			"qs:evaluation:collection:assessments", action, constraints, "operator-1",
+			"example:catalog:collection:documents", action, constraints, "operator-1",
 		)
 		require.True(t, perrors.IsCode(err, code.ErrInvalidArgument), action)
 	}

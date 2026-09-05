@@ -3,6 +3,7 @@ package role
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
@@ -25,9 +26,10 @@ func NewRoleQueryService(
 // GetRoleByID 根据ID获取角色
 func (s *RoleQueryService) GetRoleByID(
 	ctx context.Context,
+	tenantID tenant.ID,
 	roleID meta.ID,
 ) (*roleDomain.Role, error) {
-	return s.roleRepo.FindByID(ctx, roleID)
+	return s.roleRepo.FindByTenantAndID(ctx, tenantID, roleID)
 }
 
 // GetRoleByName 根据名称获取角色（租户内）

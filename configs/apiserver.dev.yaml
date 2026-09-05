@@ -330,3 +330,11 @@ events:
   outbox_relay_interval: 2s
   outbox_relay_batch_size: 50
   outbox_relay_retry_delay: 10s
+
+# Policy confirmation budgets; no database reads occur on the Check path.
+authz:
+  policy-sync:
+    check-interval: 10s
+    sync-timeout: 10s
+    max-unconfirmed: 60s
+  attribute-providers-file: configs/authz_attribute_providers.yaml

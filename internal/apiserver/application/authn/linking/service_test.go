@@ -26,7 +26,8 @@ func TestLinkPhoneRequiresChallengeAndCreatesIdentity(t *testing.T) {
 	})
 
 	result, err := linker.Link(context.Background(), LinkRequest{
-		UserID: meta.FromUint64(100),
+		AuthenticatedAt: testAuthTime(time.Unix(100, 0)),
+		UserID:          meta.FromUint64(100),
 		Input: LinkPhoneInput{
 			Phone:   "13800138000",
 			OTPCode: "123456",
@@ -60,7 +61,8 @@ func TestLinkPhoneRejectsProviderKeyOwnedByAnotherUser(t *testing.T) {
 	})
 
 	_, err := linker.Link(context.Background(), LinkRequest{
-		UserID: meta.FromUint64(100),
+		AuthenticatedAt: testAuthTime(time.Now()),
+		UserID:          meta.FromUint64(100),
 		Input: LinkPhoneInput{
 			Phone:   phone,
 			OTPCode: "123456",
@@ -132,8 +134,9 @@ func TestLinkExternalIdentityUsesSingleResolvedProof(t *testing.T) {
 			})
 
 			result, err := linker.Link(context.Background(), LinkRequest{
-				UserID: meta.FromUint64(100),
-				Input:  tt.input,
+				AuthenticatedAt: testAuthTime(time.Now()),
+				UserID:          meta.FromUint64(100),
+				Input:           tt.input,
 			})
 
 			require.NoError(t, err)
@@ -506,8 +509,39 @@ func repoForExternalLink() *linkingIdentityRepoStub {
 	return newLinkingIdentityRepoStub()
 }
 
-func (s *linkingChallengeStub) VerifyAndConsumePhoneLinkOTP(_ context.Context, phone, code string) bool {
+func (s *linkingChallengeStub) VerifyAndConsumePhoneLinkOTP(_ context.Context, phone, code string) (bool, error) {
 	s.phone = phone
 	s.code = code
-	return s.ok
+	return s.ok, nil
+}
+
+func testAuthTime(t time.Time) *time.Time { return &t }
+
+func TestLinkRequiresRecentAuthenticationBeforeConsumingProof(t *testing.T) {
+	now := time.Date(2026, 9, 5, 10, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name string
+		at   *time.Time
+	}{
+		{"missing", nil}, {"zero", testAuthTime(time.Time{})},
+		{"stale", testAuthTime(now.Add(-11 * time.Minute))},
+		{"future", testAuthTime(now.Add(2 * time.Minute))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			otp := &linkingChallengeStub{ok: true}
+			resolver := &linkResolverStub{}
+			linker := NewLinker(Dependencies{LoginIdentities: newLinkingIdentityRepoStub(), PhoneLinkOTP: otp, ExternalIdentity: resolver, Now: func() time.Time { return now }})
+			for _, input := range []LinkLoginIdentityInput{
+				LinkPhoneInput{Phone: "13800138000", OTPCode: "123456"},
+				LinkWechatMiniInput{AppID: "app", Code: "code"},
+				LinkWechatOpenInput{AppID: "app", Code: "code"},
+				LinkWecomInput{CorpID: "corp", Code: "code"},
+			} {
+				_, err := linker.Link(context.Background(), LinkRequest{UserID: meta.FromUint64(100), AuthenticatedAt: tc.at, Input: input})
+				require.True(t, perrors.IsCode(err, code.ErrReauthenticationRequired))
+				require.Empty(t, otp.code)
+				require.Zero(t, resolver.calls)
+			}
+		})
+	}
 }

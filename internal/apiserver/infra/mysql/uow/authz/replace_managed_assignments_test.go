@@ -3,6 +3,7 @@ package authz_test
 import (
 	"context"
 	"errors"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/subjectresolver"
 	"sort"
 	"sync"
 	"testing"
@@ -36,9 +37,9 @@ func TestReplaceManagedAssignmentsIsAtomicAndPreservesUnmanagedRoles(t *testing.
 
 	stager := &eventStager{}
 	uow := &lockingAssignmentReadUnitOfWork{
-		delegate: authzUOW.NewUnitOfWork(db, existingUserResolver{}, stager),
+		delegate: authzUOW.NewUnitOfWork(db, subjectresolver.NewUserSubjectResolver(existingUserResolver{}), stager),
 	}
-	validator := assignmentDomain.NewValidator(roles, existingUserResolver{})
+	validator := assignmentDomain.NewValidator(roles, subjectresolver.NewUserSubjectResolver(existingUserResolver{}))
 	service := assignmentApp.NewCommandService(validator, roles, uow, nil)
 	sub, err := subject.NewUserRef(userID)
 	require.NoError(t, err)

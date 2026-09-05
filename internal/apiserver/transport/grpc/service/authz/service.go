@@ -23,8 +23,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const assessmentResource = objectattributeadmission.AssessmentResource
-
 type authorizationChecker interface {
 	Check(context.Context, authorizationdomain.Request) (authorizationdomain.Decision, error)
 }

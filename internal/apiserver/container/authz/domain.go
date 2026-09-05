@@ -3,7 +3,6 @@ package authz
 import (
 	assignmentDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	authorizationDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 )
 
 type authzDomainComponents struct {
@@ -11,12 +10,9 @@ type authzDomainComponents struct {
 	assignmentValidator    assignmentDomain.Validator
 }
 
-func (m *AuthzModule) initializeDomain(infra *authzInfrastructureComponents, userResolver useraccess.UserResolver) *authzDomainComponents {
-	subjectResolver := assignmentDomain.NewSubjectResolverRegistry(
-		assignmentDomain.NewUserSubjectResolver(userResolver),
-	)
+func (m *AuthzModule) initializeDomain(infra *authzInfrastructureComponents) *authzDomainComponents {
 	return &authzDomainComponents{
 		authorizationEvaluator: authorizationDomain.NewEvaluator(),
-		assignmentValidator:    assignmentDomain.NewValidatorWithSubjectResolver(infra.roleRepository, subjectResolver),
+		assignmentValidator:    assignmentDomain.NewValidatorWithSubjectResolver(infra.roleRepository, infra.subjectResolver),
 	}
 }

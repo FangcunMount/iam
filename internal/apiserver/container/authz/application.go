@@ -13,7 +13,8 @@ func (m *AuthzModule) initializeApplication(
 	infra *authzInfrastructureComponents,
 	domain *authzDomainComponents,
 ) {
-	m.resourceCatalog = resourceApp.NewResourceCatalog(infra.unitOfWork, infra.authorizationRuntime)
+	m.authorizationDecisions = authorizationApp.NewDecisionService(infra.authorizationRuntime)
+	m.resourceCatalog = resourceApp.NewResourceCatalog(infra.unitOfWork, infra.authorizationRuntime, m.authorizationDecisions)
 	m.resourceDirectory = resourceApp.NewResourceQueryService(infra.resourceRepository)
 
 	m.roleCatalog = roleApp.NewRoleCatalog(infra.unitOfWork, infra.authorizationRuntime)
@@ -22,7 +23,7 @@ func (m *AuthzModule) initializeApplication(
 	m.permissionGrantService = permissionGrantApp.NewService(
 		infra.unitOfWork,
 		infra.permissionGrantRepository,
-		infra.authorizationRuntime,
+		infra.authorizationRuntime, m.attributeProviders,
 	)
 	m.roleInheritanceService = roleInheritanceApp.NewService(
 		infra.unitOfWork,
@@ -38,7 +39,6 @@ func (m *AuthzModule) initializeApplication(
 	)
 	m.assignmentDirectory = assignmentApp.NewDirectory(domain.assignmentValidator, infra.assignmentRepository)
 
-	m.authorizationDecisions = authorizationApp.NewDecisionService(infra.authorizationRuntime)
 	m.routeDecisionService = authorizationApp.NewRouteDecisionService(m.authorizationDecisions)
 	m.authorizationSnapshotReader = authorizationApp.NewSnapshotReader(infra.authorizationRuntime)
 }

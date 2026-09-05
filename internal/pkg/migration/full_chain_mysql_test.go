@@ -101,7 +101,7 @@ func assertNativeAuthzBootstrap(t *testing.T, db *sql.DB) {
 		"active inheritances": "SELECT COUNT(*) FROM authz_role_inheritances WHERE revoked_at IS NULL AND deleted_at IS NULL",
 		"active grants":       "SELECT COUNT(*) FROM authz_permission_grants WHERE revoked_at IS NULL AND deleted_at IS NULL",
 	} {
-		want := map[string]int{"active roles": 9, "active resources": 27, "active inheritances": 8, "active grants": 100}[label]
+		want := map[string]int{"active roles": 9, "active resources": 27, "active inheritances": 8, "active grants": 97}[label]
 		var got int
 		if err := db.QueryRow(query).Scan(&got); err != nil {
 			t.Fatalf("query %s: %v", label, err)
@@ -120,6 +120,22 @@ func assertNativeAuthzBootstrap(t *testing.T, db *sql.DB) {
 			t.Fatalf("%s grant count = %d, want %d", name, count, want)
 		}
 	}
+	assertGrantCount("tenant catalog read capabilities", `
+SELECT COUNT(*)
+FROM authz_permission_grants g
+JOIN authz_roles r ON r.id = g.role_id AND r.deleted_at IS NULL
+WHERE r.tenant_id = 'fangcun' AND r.name = 'tenant_admin'
+  AND g.resource_pattern = 'iam:authz:collection:resources'
+  AND g.action IN ('read', 'list', 'validate_action')
+  AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 3)
+	assertGrantCount("non-platform catalog write grants", `
+SELECT COUNT(*)
+FROM authz_permission_grants g
+JOIN authz_roles r ON r.id = g.role_id AND r.deleted_at IS NULL
+WHERE r.tenant_id <> 'platform'
+  AND g.resource_pattern = 'iam:authz:collection:resources'
+  AND g.action IN ('create', 'update', 'delete', '*')
+  AND g.revoked_at IS NULL AND g.deleted_at IS NULL`, 0)
 	assertGrantCount("evaluator adhoc retry", `
 SELECT COUNT(*)
 FROM authz_permission_grants g

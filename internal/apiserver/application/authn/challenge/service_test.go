@@ -32,10 +32,12 @@ func TestLoginPhoneOTPCreatesChallengeAndConsumesOnce(t *testing.T) {
 	require.Equal(t, "+8613800138000", sms.phone)
 	require.NotEmpty(t, sms.code)
 
-	ok := service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	ok, err := service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	require.NoError(t, err)
 	require.True(t, ok)
 
-	ok = service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	ok, err = service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	require.NoError(t, err)
 	require.False(t, ok)
 }
 
@@ -60,10 +62,12 @@ func TestPhoneLinkOTPCreatesChallengeAndConsumesOnce(t *testing.T) {
 	require.Equal(t, "+8613800138000", sms.phone)
 	require.NotEmpty(t, sms.code)
 
-	ok := service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
+	ok, err := service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
+	require.NoError(t, err)
 	require.True(t, ok)
 
-	ok = service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
+	ok, err = service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", sms.code)
+	require.NoError(t, err)
 	require.False(t, ok)
 }
 
@@ -80,7 +84,9 @@ func TestPhoneOTPConsumeRepositoryErrorFailsClosed(t *testing.T) {
 	require.NoError(t, service.SendLoginPhoneOTP(ctx, "13800138000"))
 	repo.consumeErr = errors.New("redis unavailable")
 
-	require.False(t, service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code))
+	ok, err := service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", sms.code)
+	require.ErrorIs(t, err, repo.consumeErr)
+	require.False(t, ok)
 	require.NotEmpty(t, repo.items)
 }
 
@@ -100,13 +106,21 @@ func TestPhoneOTPVerifiersDoNotConsumeOtherScenes(t *testing.T) {
 
 	require.NoError(t, service.SendLoginPhoneOTP(ctx, "13800138000"))
 	loginCode := sms.code
-	require.False(t, service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", loginCode))
-	require.True(t, service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", loginCode))
+	ok, err := service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", loginCode)
+	require.NoError(t, err)
+	require.False(t, ok)
+	ok, err = service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", loginCode)
+	require.NoError(t, err)
+	require.True(t, ok)
 
 	require.NoError(t, service.SendPhoneLinkOTP(ctx, "13800138000"))
 	linkCode := sms.code
-	require.False(t, service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", linkCode))
-	require.True(t, service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", linkCode))
+	ok, err = service.VerifyAndConsumeLoginPhoneOTP(ctx, "13800138000", linkCode)
+	require.NoError(t, err)
+	require.False(t, ok)
+	ok, err = service.VerifyAndConsumePhoneLinkOTP(ctx, "13800138000", linkCode)
+	require.NoError(t, err)
+	require.True(t, ok)
 }
 
 func TestSendLoginPhoneOTPConsumesQuotaAndSendsInOrder(t *testing.T) {

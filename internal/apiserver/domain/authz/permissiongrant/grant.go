@@ -256,3 +256,13 @@ func Restore(
 	}
 	return grant, nil
 }
+
+func (g Grant) Clone() Grant {
+	out := g
+	out.Constraints = g.Constraints.Clone()
+	if g.RevokedAt != nil {
+		value := *g.RevokedAt
+		out.RevokedAt = &value
+	}
+	return out
+}

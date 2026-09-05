@@ -26,7 +26,7 @@ func TestIssuerRequiresAdmissionBeforeCreatingAuthenticationState(t *testing.T) 
 		admissiondomain.ReasonUserBlocked,
 	)}
 	issuer := NewIssuer(Dependencies{
-		AdmissionPolicy: policy, SessionCreator: creator, TokenSetMinter: minter, RefreshTokenSaver: saver,
+		AdmissionPolicy: policy, SessionCreator: creator, SessionRevoker: &recordingSessionRevoker{}, TokenSetMinter: minter, RefreshTokenSaver: saver,
 	})
 
 	result, err := issuer.Issue(context.Background(), principal)
@@ -83,7 +83,7 @@ func TestIssuerCreatesGrantAndPersistsInitialRefreshToken(t *testing.T) {
 		AdmissionPolicy: admissionPolicyStub{decision: admissiondomain.Admit(
 			admissiondomain.Subject{UserID: principal.UserID, LoginIdentityID: principal.LoginIdentityID},
 		)},
-		SessionCreator: creator, TokenSetMinter: minter, RefreshTokenSaver: saver,
+		SessionCreator: creator, SessionRevoker: &recordingSessionRevoker{}, TokenSetMinter: minter, RefreshTokenSaver: saver,
 	})
 
 	result, err := issuer.Issue(context.Background(), principal)
@@ -116,6 +116,7 @@ func (s *recordingSessionCreator) Create(context.Context, *authentication.Princi
 }
 
 type recordingTokenSetMinter struct {
+	err       error
 	set       *tokendomain.UserTokenSet
 	principal *authentication.Principal
 	session   *sessiondomain.Session
@@ -126,10 +127,11 @@ func (m *recordingTokenSetMinter) MintTokenSet(_ context.Context, principal *aut
 	m.called = true
 	m.principal = principal
 	m.session = session
-	return m.set, nil
+	return m.set, m.err
 }
 
 type recordingRefreshTokenSaver struct {
+	err    error
 	token  *tokendomain.RefreshToken
 	called bool
 }
@@ -137,7 +139,7 @@ type recordingRefreshTokenSaver struct {
 func (s *recordingRefreshTokenSaver) SaveRefreshToken(_ context.Context, token *tokendomain.RefreshToken) error {
 	s.called = true
 	s.token = token
-	return nil
+	return s.err
 }
 
 func testPrincipal() *authentication.Principal {
@@ -153,4 +155,77 @@ func testSession(principal *authentication.Principal) *sessiondomain.Session {
 		"session-id", principal.UserID, principal.LoginIdentityID, principal.TenantID,
 		principal.AuthContext, principal.TokenContext, time.Now().Add(time.Hour),
 	)
+}
+
+type recordingSessionRevoker struct {
+	sessionID, reason string
+	err               error
+	contextErr        error
+	deadline          bool
+}
+
+func (r *recordingSessionRevoker) Revoke(ctx context.Context, sid, reason, _ string) error {
+	r.sessionID, r.reason = sid, reason
+	r.contextErr = ctx.Err()
+	_, r.deadline = ctx.Deadline()
+	return r.err
+}
+
+func TestIssuerCompensatesFailedGrantEvenAfterRequestCancellation(t *testing.T) {
+	for _, stage := range []string{"mint", "save", "incomplete"} {
+		t.Run(stage, func(t *testing.T) {
+			principal := testPrincipal()
+			sess := testSession(principal)
+			failure := errors.New("injected grant failure")
+			minter := &recordingTokenSetMinter{set: &tokendomain.UserTokenSet{
+				AccessToken: &tokendomain.AccessToken{}, RefreshToken: &tokendomain.RefreshToken{},
+			}}
+			saver := &recordingRefreshTokenSaver{}
+			switch stage {
+			case "mint":
+				minter.err = failure
+			case "save":
+				saver.err = failure
+			case "incomplete":
+				minter.set = nil
+			}
+			for _, cleanupFails := range []bool{false, true} {
+				revoker := &recordingSessionRevoker{}
+				if cleanupFails {
+					revoker.err = errors.New("injected cleanup failure")
+				}
+				issuer := NewIssuer(Dependencies{
+					AdmissionPolicy: admissionPolicyStub{decision: admissiondomain.Admit(admissiondomain.Subject{})},
+					SessionCreator:  &recordingSessionCreator{session: sess}, SessionRevoker: revoker,
+					TokenSetMinter: minter, RefreshTokenSaver: saver,
+				})
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				result, err := issuer.Issue(ctx, principal)
+				require.Nil(t, result)
+				require.Error(t, err)
+				if stage != "incomplete" {
+					require.ErrorIs(t, err, failure)
+				}
+				if cleanupFails {
+					require.ErrorIs(t, err, revoker.err)
+				}
+				require.Equal(t, sess.SessionID, revoker.sessionID)
+				require.Equal(t, "authentication_grant_failed", revoker.reason)
+				require.NoError(t, revoker.contextErr)
+				require.True(t, revoker.deadline)
+			}
+		})
+	}
+}
+
+func TestIssuerRequiresCompensationBeforeCreatingSession(t *testing.T) {
+	creator := &recordingSessionCreator{}
+	issuer := NewIssuer(Dependencies{
+		AdmissionPolicy: admissionPolicyStub{decision: admissiondomain.Admit(admissiondomain.Subject{})},
+		SessionCreator:  creator, TokenSetMinter: &recordingTokenSetMinter{}, RefreshTokenSaver: &recordingRefreshTokenSaver{},
+	})
+	_, err := issuer.Issue(context.Background(), testPrincipal())
+	require.Error(t, err)
+	require.False(t, creator.called)
 }

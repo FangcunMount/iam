@@ -30,12 +30,12 @@ type PhoneLinkOTPSender interface {
 
 // LoginPhoneOTPVerifier 验证并消费登录短信验证码。
 type LoginPhoneOTPVerifier interface {
-	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, otp string) bool
+	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, otp string) (bool, error)
 }
 
 // PhoneLinkOTPVerifier 验证并消费手机号绑定短信验证码。
 type PhoneLinkOTPVerifier interface {
-	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) bool
+	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) (bool, error)
 }
 
 // Service 是 challenge 包对外暴露的验证码与 OAuth state 用例集合。
@@ -231,22 +231,13 @@ func (s *service) acquireSendQuota(ctx context.Context, e164, scene string) (rol
 }
 
 // VerifyAndConsumeLoginPhoneOTP 验证并消费登录短信验证码。
-func (s *service) VerifyAndConsumeLoginPhoneOTP(ctx context.Context, rawPhone, otp string) bool {
-	return s.verifyAndConsume(ctx, SceneLoginPhoneOTP, rawPhone, otp)
+func (s *service) VerifyAndConsumeLoginPhoneOTP(ctx context.Context, rawPhone, otp string) (bool, error) {
+	return s.verifier.VerifyAndConsume(ctx, SceneLoginPhoneOTP, rawPhone, otp)
 }
 
 // VerifyAndConsumePhoneLinkOTP 验证并消费手机号绑定短信验证码。
-func (s *service) VerifyAndConsumePhoneLinkOTP(ctx context.Context, rawPhone, otp string) bool {
-	return s.verifyAndConsume(ctx, SceneLinkPhoneOTP, rawPhone, otp)
-}
-
-// verifyAndConsume 验证并消费短信验证码。
-func (s *service) verifyAndConsume(ctx context.Context, scene, rawPhone, otp string) bool {
-	ok, err := s.verifier.VerifyAndConsume(ctx, scene, rawPhone, otp)
-	if err != nil {
-		return false
-	}
-	return ok
+func (s *service) VerifyAndConsumePhoneLinkOTP(ctx context.Context, rawPhone, otp string) (bool, error) {
+	return s.verifier.VerifyAndConsume(ctx, SceneLinkPhoneOTP, rawPhone, otp)
 }
 
 // deleteSMSOTP 删除短信验证码。

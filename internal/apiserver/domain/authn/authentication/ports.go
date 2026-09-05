@@ -19,5 +19,5 @@ type PasswordHasher interface {
 // 职责：验证登录 OTP 并消费（防止重放）。
 type LoginPhoneOTPVerifier interface {
 	// 验证并消费登录短信验证码
-	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, code string) bool
+	VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, code string) (bool, error)
 }

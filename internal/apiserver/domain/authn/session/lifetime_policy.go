@@ -79,18 +79,16 @@ func (p LifetimePolicy) EnsureActiveWithinLifetime(now time.Time, sess *Session)
 	return perrors.WithCode(code.ErrSessionInactive, "session maximum lifetime exceeded")
 }
 
-// ExpiryLimit 返回会话的最强已知过期边界。
+// ExpiryLimit 返回绝对生命周期上限。当前 ExpiresAt 是可滑动的有效期，
+// 仅在缺少绝对上限信息时保留它作为历史会话的保守边界。
 func (p LifetimePolicy) ExpiryLimit(sess *Session) (time.Time, bool) {
 	if sess == nil {
 		return time.Time{}, false
 	}
-	limit := sess.ExpiresAt
 	if p.sessionMaxTTL > 0 && !sess.CreatedAt.IsZero() {
-		maxExpiresAt := sess.CreatedAt.Add(p.sessionMaxTTL)
-		if limit.IsZero() || maxExpiresAt.Before(limit) {
-			limit = maxExpiresAt
-		}
+		return sess.CreatedAt.Add(p.sessionMaxTTL), true
 	}
+	limit := sess.ExpiresAt
 	if limit.IsZero() {
 		return time.Time{}, false
 	}

@@ -69,21 +69,5 @@ func (p UnlinkPolicy) requiresRecentAuthentication(req UnlinkReauthRequest) bool
 }
 
 func (p UnlinkPolicy) hasRecentAuthentication(authenticatedAt *time.Time, now time.Time) bool {
-	if authenticatedAt == nil || authenticatedAt.IsZero() {
-		return false
-	}
-	window := p.RecentAuthWindow
-	if window <= 0 {
-		window = DefaultRecentAuthWindow
-	}
-	skew := p.FutureClockSkew
-	if skew <= 0 {
-		skew = DefaultFutureClockSkew
-	}
-	now = now.UTC()
-	authAt := authenticatedAt.UTC()
-	if authAt.After(now.Add(skew)) {
-		return false
-	}
-	return now.Sub(authAt) <= window
+	return (RecentAuthenticationPolicy{Window: p.RecentAuthWindow, FutureClockSkew: p.FutureClockSkew}).Allows(authenticatedAt, now)
 }

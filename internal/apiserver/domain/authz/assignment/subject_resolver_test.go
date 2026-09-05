@@ -2,6 +2,7 @@ package assignment_test
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/subjectresolver"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -18,7 +19,7 @@ func TestSubjectResolverRegistryResolvesUsersAndRejectsUnsupportedSubjects(t *te
 	t.Parallel()
 
 	userResolver := testhelpers.NewUserResolverStub(meta.FromUint64(123))
-	registry := assignment.NewSubjectResolverRegistry(assignment.NewUserSubjectResolver(userResolver))
+	registry := assignment.NewSubjectResolverRegistry(subjectresolver.NewUserSubjectResolver(userResolver))
 	tenantID, err := tenant.NewID("tenant-a")
 	require.NoError(t, err)
 
@@ -37,7 +38,7 @@ func TestSubjectResolverRegistryResolvesUsersAndRejectsUnsupportedSubjects(t *te
 func TestUserSubjectResolverReportsMissingUsers(t *testing.T) {
 	t.Parallel()
 
-	registry := assignment.NewSubjectResolverRegistry(assignment.NewUserSubjectResolver(testhelpers.NewUserResolverStub()))
+	registry := assignment.NewSubjectResolverRegistry(subjectresolver.NewUserSubjectResolver(testhelpers.NewUserResolverStub()))
 	tenantID, err := tenant.NewID("tenant-a")
 	require.NoError(t, err)
 	userRef, err := subject.NewUserRef(meta.FromUint64(404))

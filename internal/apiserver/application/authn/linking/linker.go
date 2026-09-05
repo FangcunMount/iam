@@ -38,6 +38,12 @@ func (l *linker) link(ctx context.Context, req LinkRequest) (*LinkResult, error)
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "link input is required")
 	}
 
+	// 新增长期登录入口前，先验证原始认证时间；不能消费新证明后再补检查。
+	policy := loginidentity.RecentAuthenticationPolicy{Window: l.recentAuthWindow()}
+	if !policy.Allows(req.AuthenticatedAt, l.now()) {
+		return nil, perrors.WithCode(code.ErrReauthenticationRequired, "recent authentication required")
+	}
+
 	// 准备登录身份。
 	prepared, err := req.Input.prepareLink(ctx, l.prepareDeps(), req.UserID)
 	if err != nil {
@@ -87,7 +93,7 @@ func (l *linker) recentAuthWindow() time.Duration {
 	if l.deps.RecentAuthWindow > 0 {
 		return l.deps.RecentAuthWindow
 	}
-	return 10 * time.Minute
+	return loginidentity.DefaultRecentAuthWindow
 }
 
 // requireUserID 检查用户 ID 是否有效。

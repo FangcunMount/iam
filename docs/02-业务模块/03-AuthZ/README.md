@@ -170,3 +170,7 @@ python3 scripts/check-docs-facts.py
 python3 scripts/check-route-contracts.py
 python3 scripts/check-openapi-contracts.py
 ```
+
+## 安全边界与发布验收
+
+当前实现包含租户限定角色详情、platform 专属目录写入、逐租户防倒退的独占快照、60 秒新鲜度门禁、数据库版本补偿、32 节点继承上限和显式可信属性配置。维护命令与逐项验证见 [安全加固与发布验收](09-安全加固与发布验收.md)。

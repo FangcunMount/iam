@@ -18,7 +18,7 @@ type Catalog interface {
 }
 
 type Directory interface {
-	GetRoleByID(ctx context.Context, roleID meta.ID) (*roleDomain.Role, error)
+	GetRoleByID(ctx context.Context, tenantID tenant.ID, roleID meta.ID) (*roleDomain.Role, error)
 	GetRoleByName(ctx context.Context, tenantID, name string) (*roleDomain.Role, error)
 	ListRoles(ctx context.Context, query ListRolesQuery) (*ListRolesResult, error)
 	ListRolesByTenant(ctx context.Context, tenantID string) ([]*roleDomain.Role, error)

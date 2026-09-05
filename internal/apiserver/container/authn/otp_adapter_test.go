@@ -3,6 +3,7 @@ package authn
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -102,8 +103,10 @@ func TestPhoneLinkConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 		Now:             func() time.Time { return time.Unix(100, 0) },
 	})
 
+	authenticatedAt := time.Unix(100, 0)
 	result, err := linker.Link(ctx, linkingApp.LinkRequest{
-		UserID: meta.FromUint64(1001),
+		AuthenticatedAt: &authenticatedAt,
+		UserID:          meta.FromUint64(1001),
 		Input: linkingApp.LinkPhoneInput{
 			Phone:   phone,
 			OTPCode: smsSender.code,
@@ -117,7 +120,8 @@ func TestPhoneLinkConsumesChallengeThroughExplicitAdapter(t *testing.T) {
 	require.Empty(t, challengeRepo.items, "successful phone linking must consume the OTP challenge")
 
 	result, err = linker.Link(ctx, linkingApp.LinkRequest{
-		UserID: meta.FromUint64(1001),
+		AuthenticatedAt: &authenticatedAt,
+		UserID:          meta.FromUint64(1001),
 		Input: linkingApp.LinkPhoneInput{
 			Phone:   phone,
 			OTPCode: smsSender.code,
@@ -145,7 +149,8 @@ func newAuthnChallengeService(repo *authnChallengeRepoStub, smsSender *authnSMSS
 }
 
 type authnChallengeRepoStub struct {
-	items map[string]*challengeDomain.AuthChallenge
+	consumeErr error
+	items      map[string]*challengeDomain.AuthChallenge
 }
 
 func newAuthnChallengeRepoStub() *authnChallengeRepoStub {
@@ -162,6 +167,9 @@ func (s *authnChallengeRepoStub) Get(_ context.Context, id string) (*challengeDo
 }
 
 func (s *authnChallengeRepoStub) ConsumeIfSecretMatches(_ context.Context, id string, expectedHash []byte) (bool, error) {
+	if s.consumeErr != nil {
+		return false, s.consumeErr
+	}
 	item := s.items[id]
 	if item == nil || !bytes.Equal(item.SecretHash, expectedHash) {
 		return false, nil
@@ -306,4 +314,31 @@ func (s *authnAuthenticationGrantIssuerStub) IssueAuthentication(_ context.Conte
 		time.Hour,
 	)
 	return tokenApp.NewTokenPair(access, refresh), nil
+}
+
+func TestPhoneOTPInfrastructureErrorsSurviveLoginAndLinkAdapters(t *testing.T) {
+	ctx := context.Background()
+	repo := newAuthnChallengeRepoStub()
+	sms := &authnSMSSenderStub{}
+	challenges := newAuthnChallengeService(repo, sms)
+	failure := errors.New("redis consume unavailable")
+	repo.consumeErr = failure
+	require.NoError(t, challenges.SendLoginPhoneOTP(ctx, "13800138000"))
+	signIn := signin.New(signin.Dependencies{
+		AuthenticationGrantIssuer: &authnAuthenticationGrantIssuerStub{},
+		Authenticator:             authentication.NewAuthenticator(newPhoneOTPAuthStrategy(nil, challenges)),
+		MethodRegistry:            method.DefaultSelector(), ProofFactory: proof.DefaultFactory(nil, nil),
+	})
+	result, err := signIn.Execute(ctx, method.LoginRequest{AuthMethod: method.AuthMethodPhoneOTP, Payload: method.PhoneOTPPayload{PhoneE164: "13800138000", OTP: sms.code}})
+	require.Nil(t, result)
+	require.Equal(t, code.ErrInternalServerError, perrors.ParseCoder(err).Code())
+	require.ErrorIs(t, err, failure)
+
+	require.NoError(t, challenges.SendPhoneLinkOTP(ctx, "13800138000"))
+	linker := linkingApp.NewLinker(linkingApp.Dependencies{LoginIdentities: newAuthnLinkingIdentityRepoStub(), PhoneLinkOTP: newPhoneLinkOTPVerifierAdapter(challenges)})
+	authenticatedAt := time.Now()
+	linkResult, err := linker.Link(ctx, linkingApp.LinkRequest{UserID: meta.FromUint64(100), AuthenticatedAt: &authenticatedAt, Input: linkingApp.LinkPhoneInput{Phone: "13800138000", OTPCode: sms.code}})
+	require.Nil(t, linkResult)
+	require.Equal(t, code.ErrInternalServerError, perrors.ParseCoder(err).Code())
+	require.ErrorIs(t, err, failure)
 }

@@ -6,11 +6,11 @@ import (
 
 	permissionGrantApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/permissiongrant"
 	authztestutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/testutil"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	permissiongrantDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/assessment"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +59,7 @@ func seedResource(t *testing.T, repository resourceDomain.Repository) resourceDo
 		"qs:evaluation:collection:assessments",
 		[]string{"retry"},
 		resourceDomain.WithDisplayName("Assessments"),
-		resourceDomain.WithAttributeSchema(attribute.AssessmentSchema()),
+		resourceDomain.WithAttributeSchema(authzfixture.Schema()),
 	)
 	require.NoError(t, err)
 	require.NoError(t, repository.Create(context.Background(), &resource))
@@ -94,4 +94,22 @@ type recordingReloader struct{ calls int }
 func (r *recordingReloader) LoadPolicy(context.Context) error {
 	r.calls++
 	return nil
+}
+
+func TestConditionalGrantRequiresProviderBeforeCommit(t *testing.T) {
+	fixture, service, stager := setupPermissionGrantService(t)
+	role := seedRole(t, fixture.Roles, "reader", "tenant-a")
+	resource := seedResource(t, fixture.Resources)
+	conditions, err := constraint.New(constraint.Equal("object.origin_type", constraint.StringValue("adhoc")))
+	require.NoError(t, err)
+	command := permissionGrantApp.CreateCommand{TenantID: "tenant-a", RoleID: role.ID, ResourceID: resource.ID, Action: "retry", Constraints: conditions, GrantedBy: "seed"}
+	_, err = service.Create(context.Background(), command)
+	require.Error(t, err)
+	require.Zero(t, fixture.PolicyVersionCount(t))
+	require.Empty(t, stager.events)
+	service = permissionGrantApp.NewService(fixture.UnitOfWork, fixture.PermissionGrants, nil, authzfixture.Policy())
+	_, err = service.Create(context.Background(), command)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, fixture.PolicyVersionCount(t))
+	require.Len(t, stager.events, 1)
 }

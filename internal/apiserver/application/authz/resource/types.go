@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"strings"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
@@ -24,6 +25,7 @@ type Directory interface {
 }
 
 type CreateResourceCommand struct {
+	Actor           subject.Ref
 	TenantID        string
 	ChangedBy       string
 	Key             string
@@ -63,6 +65,7 @@ func NewCreateResourceCommand(key, displayName, appName, domain, typ string, act
 }
 
 type UpdateResourceCommand struct {
+	Actor           subject.Ref
 	TenantID        string
 	ChangedBy       string
 	ID              resourceDomain.ResourceID
@@ -73,6 +76,7 @@ type UpdateResourceCommand struct {
 }
 
 type DeleteResourceCommand struct {
+	Actor     subject.Ref
 	ID        resourceDomain.ResourceID
 	TenantID  string
 	ChangedBy string

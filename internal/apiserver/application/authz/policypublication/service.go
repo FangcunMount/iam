@@ -6,10 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
 	"time"
-	"unicode"
 
 	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/policy"
@@ -17,39 +14,8 @@ import (
 )
 
 const (
-	Topic         = "iam.authz.version"
-	ChannelPrefix = "iam-policy-sync"
+	Topic = "iam.authz.version"
 )
-
-func CurrentInstanceChannel() string {
-	hostname, _ := os.Hostname()
-	return InstanceChannel(hostname, os.Getpid())
-}
-
-func InstanceChannel(hostname string, pid int) string {
-	host := sanitizeChannelPart(hostname)
-	if host == "" {
-		host = "unknown"
-	}
-	if pid <= 0 {
-		pid = os.Getpid()
-	}
-	return fmt.Sprintf("%s.%s.%d#ephemeral", ChannelPrefix, host, pid)
-}
-
-func sanitizeChannelPart(value string) string {
-	value = strings.TrimSpace(value)
-	var builder strings.Builder
-	for _, r := range value {
-		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r), r == '-', r == '_', r == '.':
-			builder.WriteRune(r)
-		default:
-			builder.WriteByte('-')
-		}
-	}
-	return strings.Trim(builder.String(), "-_.")
-}
 
 type PolicyVersionEventRecorder interface {
 	RecordPolicyVersionEvent(tenantID string, version int64, eventAt time.Time)
@@ -86,6 +52,9 @@ func (s *Service) Handle(ctx context.Context, payload []byte, eventType string) 
 	now := time.Now()
 	if s.recorder != nil {
 		s.recorder.RecordPolicyVersionEvent(versionEvent.TenantID, versionEvent.Version, now)
+	}
+	if loaded, ok := s.reloader.(interface{ PolicyVersionLoaded(string, int64) bool }); ok && loaded.PolicyVersionLoaded(versionEvent.TenantID, versionEvent.Version) {
+		return nil
 	}
 	return policychange.ReloadRuntimePolicyWithError(ctx, s.reloader, "version_changed_event")
 }

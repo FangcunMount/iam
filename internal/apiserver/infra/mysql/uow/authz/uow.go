@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	appuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
+	assignmentDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/assignment"
 	assignmentrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/assignment"
 	permissiongrantrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/permissiongrant"
 	policyrepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/policy"
@@ -20,18 +20,18 @@ import (
 var _ appuow.UnitOfWork = (*unitOfWork)(nil)
 
 // NewUnitOfWork 创建基于 MySQL/GORM 的授权事务边界。
-func NewUnitOfWork(db *gorm.DB, userResolver useraccess.UserResolver, stagers ...event.Stager) appuow.UnitOfWork {
+func NewUnitOfWork(db *gorm.DB, subjectResolver assignmentDomain.SubjectResolver, stagers ...event.Stager) appuow.UnitOfWork {
 	var stager event.Stager
 	if len(stagers) > 0 {
 		stager = stagers[0]
 	}
-	return &unitOfWork{base: dbmysql.NewUnitOfWork(db), events: stager, userResolver: userResolver}
+	return &unitOfWork{base: dbmysql.NewUnitOfWork(db), events: stager, subjectResolver: subjectResolver}
 }
 
 type unitOfWork struct {
-	base         *dbmysql.UnitOfWork
-	events       event.Stager
-	userResolver useraccess.UserResolver
+	base            *dbmysql.UnitOfWork
+	events          event.Stager
+	subjectResolver assignmentDomain.SubjectResolver
 }
 
 func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context, tx appuow.TxRepositories) error) error {
@@ -51,7 +51,7 @@ func (u *unitOfWork) WithinTx(ctx context.Context, fn func(txCtx context.Context
 			Roles:            rolerepo.NewRoleRepository(tx),
 			Resources:        resourcerepo.NewResourceRepository(tx),
 			PolicyVersions:   policyrepo.NewPolicyVersionRepository(tx),
-			UserResolver:     u.userResolver,
+			SubjectResolver:  u.subjectResolver,
 			PermissionGrants: permissiongrantrepo.NewRepository(tx),
 			RoleInheritances: roleinheritancerepo.NewRepository(tx),
 			Events:           u.events,

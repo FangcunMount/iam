@@ -199,3 +199,7 @@ Snapshot 是 IAM 运行时投影。外部服务长期存储它会产生独立撤
 - 多实例在撤权后已达到目标收敛时间。
 
 这些结论需要跨仓集成测试、部署 SHA、运行时版本与真实请求样本。
+
+## SubjectResolver 适配边界
+
+AuthZ 领域声明 SubjectResolver；`infra/authz/subjectresolver.UserSubjectResolver` 适配 Identity UserResolver。组合根创建同一个注册器并传给领域验证器和 AuthZ UoW，事务用例不重新建立注册器。Group/Service 写入口仍关闭。AuthZ 的授权准入与 AuthN AdmissionPolicy 各自负责自己的用例边界。

@@ -99,7 +99,11 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 	}
 
 	// 验证并消费OTP（防止重放攻击）
-	if !p.verifyLoginOTP(ctx, otpCredential) {
+	verified, err := p.verifyLoginOTP(ctx, otpCredential)
+	if err != nil {
+		return AuthDecision{}, fmt.Errorf("verify login phone OTP: %w", err)
+	}
+	if !verified {
 		return AuthDecision{
 			OK:   false,
 			Code: code.ErrOTPInvalid,
@@ -143,7 +147,7 @@ func (p *PhoneOTPAuthStrategy) Authenticate(ctx context.Context, credential Auth
 }
 
 // verifyLoginOTP 验证OTP并标记为已使用
-func (p *PhoneOTPAuthStrategy) verifyLoginOTP(ctx context.Context, credential *PhoneOTPCredential) bool {
+func (p *PhoneOTPAuthStrategy) verifyLoginOTP(ctx context.Context, credential *PhoneOTPCredential) (bool, error) {
 	return p.otpVerifier.VerifyAndConsumeLoginPhoneOTP(ctx, credential.PhoneE164, credential.OTP)
 }
 

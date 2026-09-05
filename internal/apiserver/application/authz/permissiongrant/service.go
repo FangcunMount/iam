@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/objectattributeadmission"
 	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
@@ -31,13 +33,18 @@ type RevokeCommand struct {
 }
 
 type Service struct {
-	uow      authzuow.UnitOfWork
-	repo     domain.Repository
-	reloader policychange.RuntimePolicyReloader
+	providers objectattributeadmission.Coverage
+	uow       authzuow.UnitOfWork
+	repo      domain.Repository
+	reloader  policychange.RuntimePolicyReloader
 }
 
-func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader policychange.RuntimePolicyReloader) *Service {
-	return &Service{uow: uow, repo: repo, reloader: reloader}
+func NewService(uow authzuow.UnitOfWork, repo domain.Repository, reloader policychange.RuntimePolicyReloader, providers ...objectattributeadmission.Coverage) *Service {
+	var coverage objectattributeadmission.Coverage
+	if len(providers) > 0 {
+		coverage = providers[0]
+	}
+	return &Service{uow: uow, repo: repo, reloader: reloader, providers: coverage}
 }
 
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant, error) {
@@ -46,6 +53,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 	}
 	cmd.TenantID = strings.TrimSpace(cmd.TenantID)
 	cmd.GrantedBy = strings.TrimSpace(cmd.GrantedBy)
+	cmd.Action = strings.TrimSpace(cmd.Action)
 	if cmd.TenantID == "" || cmd.RoleID.IsZero() || cmd.ResourceID.Uint64() == 0 || cmd.GrantedBy == "" {
 		return nil, perrors.WithCode(code.ErrInvalidArgument, "tenant, role, resource, and granted by are required")
 	}
@@ -62,6 +70,9 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 		if err != nil {
 			return err
 		}
+		if cmd.TenantID != "platform" && catalogResource.KeyString() == authorizationapp.ResourceResources && (cmd.Action == "create" || cmd.Action == "update" || cmd.Action == "delete") {
+			return perrors.WithCode(code.ErrPermissionDenied, "catalog write grants require platform tenant")
+		}
 		grant, err := domain.New(
 			cmd.RoleID, cmd.TenantID, cmd.ResourceID, catalogResource.KeyString(),
 			cmd.Action, cmd.Constraints, cmd.GrantedBy,
@@ -71,6 +82,9 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 		}
 		if err := grant.ValidateAgainst(*catalogResource); err != nil {
 			return err
+		}
+		if err := objectattributeadmission.RequireCoverage(s.providers, grant.ResourcePatternString(), grant.Constraints); err != nil {
+			return perrors.WithCode(code.ErrInvalidArgument, "%s", err.Error())
 		}
 		if err := tx.PermissionGrants.Create(txCtx, &grant); err != nil {
 			return err

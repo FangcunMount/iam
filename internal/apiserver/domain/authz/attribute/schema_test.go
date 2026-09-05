@@ -5,16 +5,17 @@ import (
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/authzschema"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/stretchr/testify/require"
 )
 
-func TestAssessmentSchemaAllowsOnlyTrustedOriginValues(t *testing.T) {
-	schema := attribute.AssessmentSchema()
-	definition, ok := schema.Find(attribute.ObjectOriginType)
+func TestSchemaAllowsOnlyDeclaredStatusValues(t *testing.T) {
+	schema := authzfixture.Schema()
+	definition, ok := schema.Find(authzfixture.AttributeKey)
 	require.True(t, ok)
 	require.Equal(t, attribute.TypeString, definition.Type)
-	require.Equal(t, []string{"adhoc", "plan"}, definition.AllowedStringValues)
+	require.Equal(t, []string{"active", "paused"}, definition.AllowedStringValues)
 }
 
 func TestSchemaRejectsDuplicateAndInvalidDefinitions(t *testing.T) {

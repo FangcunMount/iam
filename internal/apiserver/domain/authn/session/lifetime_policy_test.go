@@ -49,3 +49,38 @@ func TestLifetimePolicyCapsExtensionByMaximumLifetime(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, sess.CreatedAt.Add(24*time.Hour), expiresAt)
 }
+
+func TestLifetimePolicySlidesRefreshWindowWithinAbsoluteLimit(t *testing.T) {
+	t.Parallel()
+	created := time.Date(2026, 9, 5, 10, 0, 0, 0, time.UTC)
+	policy := NewLifetimePolicy(time.Hour, 2*time.Hour)
+	expiry, err := policy.InitialExpiresAt(created)
+	require.NoError(t, err)
+	sess := &Session{CreatedAt: created, ExpiresAt: expiry, Status: StatusActive}
+	for _, tc := range []struct{ elapsed, want time.Duration }{
+		{30 * time.Minute, 90 * time.Minute},
+		{75 * time.Minute, 120 * time.Minute},
+	} {
+		now := created.Add(tc.elapsed)
+		refreshExpiry, err := policy.RefreshTokenExpiresAt(now, sess)
+		require.NoError(t, err)
+		require.Equal(t, created.Add(tc.want), refreshExpiry)
+		sess.ExpiresAt, err = policy.ExtensionExpiresAt(now, sess, refreshExpiry)
+		require.NoError(t, err)
+		require.Equal(t, refreshExpiry, sess.ExpiresAt)
+	}
+	_, err = policy.RefreshTokenExpiresAt(created.Add(2*time.Hour), sess)
+	require.Error(t, err)
+	require.True(t, perrors.IsCode(err, code.ErrSessionInactive))
+}
+
+func TestLifetimePolicyPreservesLegacyExpiryWithoutKnownAbsoluteLimit(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 9, 5, 10, 0, 0, 0, time.UTC)
+	sess := &Session{ExpiresAt: now.Add(30 * time.Minute)}
+	for _, maximum := range []time.Duration{0, 24 * time.Hour} {
+		expiry, err := NewLifetimePolicy(time.Hour, maximum).RefreshTokenExpiresAt(now, sess)
+		require.NoError(t, err)
+		require.Equal(t, sess.ExpiresAt, expiry)
+	}
+}

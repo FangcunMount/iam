@@ -2,6 +2,7 @@ package authn
 
 import (
 	"context"
+	"fmt"
 
 	challengeApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/challenge"
 	linkingApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authn/linking"
@@ -31,9 +32,9 @@ func newPhoneOTPAuthStrategy(
 	return authentication.NewPhoneOTPAuthStrategyWithLoginIdentity(identityRepo, newLoginPhoneOTPVerifierAdapter(verifier))
 }
 
-func (a *loginPhoneOTPVerifierAdapter) VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, code string) bool {
+func (a *loginPhoneOTPVerifierAdapter) VerifyAndConsumeLoginPhoneOTP(ctx context.Context, phoneE164, code string) (bool, error) {
 	if a == nil || a.verifier == nil {
-		return false
+		return false, fmt.Errorf("phone OTP verifier is not configured")
 	}
 	return a.verifier.VerifyAndConsumeLoginPhoneOTP(ctx, phoneE164, code)
 }
@@ -48,9 +49,9 @@ func newPhoneLinkOTPVerifierAdapter(verifier challengeApp.PhoneLinkOTPVerifier) 
 	return &phoneLinkOTPVerifierAdapter{verifier: verifier}
 }
 
-func (a *phoneLinkOTPVerifierAdapter) VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, code string) bool {
+func (a *phoneLinkOTPVerifierAdapter) VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, code string) (bool, error) {
 	if a == nil || a.verifier == nil {
-		return false
+		return false, fmt.Errorf("phone OTP verifier is not configured")
 	}
 	return a.verifier.VerifyAndConsumePhoneLinkOTP(ctx, phoneE164, code)
 }

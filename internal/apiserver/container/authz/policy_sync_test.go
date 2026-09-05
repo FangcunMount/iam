@@ -28,7 +28,7 @@ func TestAuthzPolicySyncSubscriberRegistersAndReloadsRuntime(t *testing.T) {
 
 	require.Equal(t, policypublication.Topic, subscriber.topic)
 	require.Equal(t, sync.Channel(), subscriber.channel)
-	require.Contains(t, subscriber.channel, policypublication.ChannelPrefix+".")
+	require.Contains(t, subscriber.channel, ChannelPrefix+".")
 	require.Contains(t, subscriber.channel, "#ephemeral")
 	require.Equal(t, subscriber.channel, recorder.policySyncChannel)
 	msg := cbmessaging.NewMessage("msg-1", []byte(`{"tenant_id":"tenant-a","version":12}`))

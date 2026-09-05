@@ -9,7 +9,6 @@ import (
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	roleDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
 	roleInheritanceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/roleinheritance"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/identity/useraccess"
 	"github.com/FangcunMount/iam/v3/pkg/event"
 )
 
@@ -18,7 +17,7 @@ type TxRepositories struct {
 	Roles            roleDomain.Repository
 	Resources        resourceDomain.Repository
 	PolicyVersions   policyDomain.Repository
-	UserResolver     useraccess.UserResolver
+	SubjectResolver  assignmentDomain.SubjectResolver
 	PermissionGrants permissionGrantDomain.Repository
 	RoleInheritances roleInheritanceDomain.Repository
 	Events           event.Stager

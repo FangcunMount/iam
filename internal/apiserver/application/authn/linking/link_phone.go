@@ -23,7 +23,10 @@ func (in LinkPhoneInput) prepareLink(ctx context.Context, deps linkPrepareDeps, 
 	}
 
 	// 验证挑战码。
-	ok := deps.phoneLinkOTP.VerifyAndConsumePhoneLinkOTP(ctx, phone.String(), in.OTPCode)
+	ok, err := deps.phoneLinkOTP.VerifyAndConsumePhoneLinkOTP(ctx, phone.String(), in.OTPCode)
+	if err != nil {
+		return preparedLink{}, perrors.WrapC(err, code.ErrInternalServerError, "failed to verify phone link challenge")
+	}
 	if !ok {
 		return preparedLink{}, perrors.WithCode(code.ErrInvalidCredential, "invalid phone link challenge")
 	}

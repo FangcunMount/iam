@@ -12,6 +12,11 @@ import (
 // Validate 验证命令行参数
 func (o *Options) Validate() []error {
 	var errs []error
+	if o.Authz != nil {
+		if err := o.Authz.PolicySync.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
 
 	errs = append(errs, o.GenericServerRunOptions.Validate()...)
 	errs = append(errs, o.MySQLOptions.Validate()...)

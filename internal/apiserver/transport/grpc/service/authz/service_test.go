@@ -7,19 +7,21 @@ import (
 	"testing"
 	"time"
 
+	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/component-base/pkg/grpc/interceptors"
 	authzv3 "github.com/FangcunMount/iam/v3/api/grpc/iam/authz/v3"
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
 	assignmentadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
 	authzapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	objectattributeadmission "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/objectattributeadmission"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/authorization"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	authzruntime "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/runtime"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/assessment"
+	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -29,10 +31,12 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
+const assessmentResource = authzfixture.Resource
+
 func TestAuthorizationServerRequiresServiceIdentity(t *testing.T) {
 	srv := &authorizationServer{
 		checker:                  &checkerFake{},
-		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+		objectAttributeAdmission: authzfixture.Policy(),
 	}
 	_, err := srv.Check(context.Background(), &authzv3.CheckRequest{
 		Subject: "user:1", Domain: "fangcun", Resource: assessmentResource, Action: "retry",
@@ -47,7 +51,7 @@ func TestAuthorizationServerCheckMapsTypedObjectContext(t *testing.T) {
 	}}
 	srv := &authorizationServer{
 		checker:                  checker,
-		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+		objectAttributeAdmission: authzfixture.Policy(),
 	}
 	ctx := serviceContext("qs-apiserver.svc")
 	resp, err := srv.Check(ctx, &authzv3.CheckRequest{
@@ -55,7 +59,7 @@ func TestAuthorizationServerCheckMapsTypedObjectContext(t *testing.T) {
 		ObjectContext: &authzv3.ObjectContext{
 			ObjectId: "assessment-1",
 			Attributes: []*authzv3.ObjectAttribute{{
-				Key:   attribute.ObjectOriginType,
+				Key:   authzfixture.AttributeKey,
 				Value: &authzv3.ObjectAttribute_StringValue{StringValue: "adhoc"},
 			}},
 		},
@@ -67,17 +71,17 @@ func TestAuthorizationServerCheckMapsTypedObjectContext(t *testing.T) {
 	require.Equal(t, "qs:evaluator", resp.MatchedRole)
 	require.Len(t, checker.calls, 1)
 	require.Equal(t, "assessment-1", checker.calls[0].Object.ObjectID)
-	require.Equal(t, "adhoc", *checker.calls[0].Object.Attributes[attribute.ObjectOriginType].String)
+	require.Equal(t, "adhoc", *checker.calls[0].Object.Attributes[authzfixture.AttributeKey].String)
 }
 
 func TestAuthorizationServerRejectsDuplicateAndUntrustedAttributes(t *testing.T) {
 	srv := &authorizationServer{
 		checker:                  &checkerFake{},
-		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+		objectAttributeAdmission: authzfixture.Policy(),
 	}
 	duplicate := []*authzv3.ObjectAttribute{
-		{Key: attribute.ObjectOriginType, Value: &authzv3.ObjectAttribute_StringValue{StringValue: "adhoc"}},
-		{Key: attribute.ObjectOriginType, Value: &authzv3.ObjectAttribute_StringValue{StringValue: "plan"}},
+		{Key: authzfixture.AttributeKey, Value: &authzv3.ObjectAttribute_StringValue{StringValue: "adhoc"}},
+		{Key: authzfixture.AttributeKey, Value: &authzv3.ObjectAttribute_StringValue{StringValue: "plan"}},
 	}
 	_, err := srv.Check(serviceContext("qs-apiserver.svc"), &authzv3.CheckRequest{
 		Subject: "user:1", Domain: "fangcun", Resource: assessmentResource, Action: "retry",
@@ -259,7 +263,7 @@ func assessmentCheckRequest(subjectKey, originType string) *authzv3.CheckRequest
 	return &authzv3.CheckRequest{
 		Subject: subjectKey, Domain: "fangcun", Resource: assessmentResource, Action: "retry",
 		ObjectContext: &authzv3.ObjectContext{ObjectId: "assessment-1", Attributes: []*authzv3.ObjectAttribute{{
-			Key:   attribute.ObjectOriginType,
+			Key:   authzfixture.AttributeKey,
 			Value: &authzv3.ObjectAttribute_StringValue{StringValue: originType},
 		}}},
 	}
@@ -278,12 +282,12 @@ func newMatrixRuntime(t *testing.T) *authzruntime.Runtime {
 		[]string{"retry", "force_retry", "batch_evaluate"},
 		resource.WithID(resource.NewResourceID(20)),
 		resource.WithDisplayName("Assessments"),
-		resource.WithAttributeSchema(attribute.AssessmentSchema()),
+		resource.WithAttributeSchema(authzfixture.Schema()),
 	)
 	require.NoError(t, err)
-	adhoc, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("adhoc")))
+	adhoc, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("adhoc")))
 	require.NoError(t, err)
-	plan, err := constraint.New(constraint.Equal(attribute.ObjectOriginType, constraint.StringValue("plan")))
+	plan, err := constraint.New(constraint.Equal(authzfixture.AttributeKey, constraint.StringValue("plan")))
 	require.NoError(t, err)
 	admin, err := permissiongrant.NewSystem(
 		meta.FromUint64(11), "fangcun", resource.ResourceID{}, "qs:*:*:*", "*", constraint.Empty(), "contract-test",
@@ -315,7 +319,7 @@ func newMatrixRuntime(t *testing.T) *authzruntime.Runtime {
 		Grants:    []*permissiongrant.Grant{&admin, &evaluator, &planManager},
 		Resources: []*resource.Resource{&assessment},
 		Versions:  map[string]int64{"fangcun": 41},
-	}}, authorization.NewEvaluator())
+	}}, authorization.NewEvaluator(), authzruntime.WithAttributeProviders(authzfixture.Policy()))
 	require.NoError(t, err)
 	return runtime
 }
@@ -327,12 +331,12 @@ func newAuthorizationTestClient(t *testing.T, checker authorizationChecker) (aut
 		ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 	) (any, error) {
 		return handler(interceptors.ContextWithServiceIdentity(ctx, &interceptors.ServiceIdentity{
-			ServiceName: objectattributeadmission.TrustedAssessmentAttributeService,
+			ServiceName: authzfixture.Service,
 		}), req)
 	}))
 	authzv3.RegisterAuthorizationServiceServer(server, &authorizationServer{
 		checker:                  checker,
-		objectAttributeAdmission: objectattributeadmission.NewDefaultPolicy(),
+		objectAttributeAdmission: authzfixture.Policy(),
 	})
 	go func() { _ = server.Serve(listener) }()
 	connection, err := grpc.NewClient(
@@ -410,4 +414,11 @@ func (f *assignmentCommandsFake) ReplaceManagedAssignments(_ context.Context, cm
 
 func serviceContext(serviceName string) context.Context {
 	return interceptors.ContextWithServiceIdentity(context.Background(), &interceptors.ServiceIdentity{ServiceName: serviceName})
+}
+
+func TestAuthorizationUnavailableRemainsGRPCUnavailable(t *testing.T) {
+	client, closeClient := newAuthorizationTestClient(t, &checkerFake{err: perrors.WithCode(code.ErrAuthorizationPolicyUnavailable, "expired")})
+	defer closeClient()
+	_, err := client.Check(context.Background(), assessmentCheckRequest("user:2", "adhoc"))
+	require.Equal(t, codes.Unavailable, status.Code(err))
 }

@@ -70,7 +70,10 @@ func New(predicates ...Predicate) (Set, error) {
 	return Set{Version: Version1, AllOf: predicates}.Normalize()
 }
 
-func (s Set) Normalize() (Set, error) {
+func (s Set) Normalize() (Set, error) { return s.normalize(true) }
+
+// Read-only evaluation may borrow scalar values; exported normalized values own them.
+func (s Set) normalize(ownValues bool) (Set, error) {
 	if s.Version != 0 && s.Version != Version1 {
 		return Set{}, perrors.WithCode(code.ErrInvalidArgument, "unsupported constraint set version: %d", s.Version)
 	}
@@ -89,6 +92,9 @@ func (s Set) Normalize() (Set, error) {
 			return Set{}, perrors.WithCode(code.ErrInvalidArgument, "duplicate constraint attribute: %s", predicate.Key)
 		}
 		seen[predicate.Key] = struct{}{}
+		if ownValues {
+			predicate.Value = predicate.Value.Clone()
+		}
 		normalized[index] = predicate
 	}
 	sort.Slice(normalized, func(i, j int) bool { return normalized[i].Key < normalized[j].Key })
@@ -96,12 +102,12 @@ func (s Set) Normalize() (Set, error) {
 }
 
 func (s Set) IsUnconditional() bool {
-	normalized, err := s.Normalize()
+	normalized, err := s.normalize(false)
 	return err == nil && len(normalized.AllOf) == 0
 }
 
 func (s Set) ValidateAgainst(schema attribute.Schema) error {
-	normalized, err := s.Normalize()
+	normalized, err := s.normalize(false)
 	if err != nil {
 		return err
 	}
@@ -137,7 +143,7 @@ func (s Set) ValidateAgainst(schema attribute.Schema) error {
 // Missing keys are a normal deny result; malformed or type-incompatible
 // values are contract errors.
 func (s Set) Evaluate(attributes Attributes) (Evaluation, error) {
-	normalized, err := s.Normalize()
+	normalized, err := s.normalize(false)
 	if err != nil {
 		return Evaluation{}, err
 	}
@@ -170,7 +176,7 @@ func (s Set) Evaluate(attributes Attributes) (Evaluation, error) {
 }
 
 func (s Set) CanonicalJSON() ([]byte, error) {
-	normalized, err := s.Normalize()
+	normalized, err := s.normalize(false)
 	if err != nil {
 		return nil, err
 	}
@@ -249,4 +255,32 @@ func valuesEqual(left, right Value) bool {
 	default:
 		return false
 	}
+}
+
+func (v Value) Clone() Value {
+	out := v
+	if v.String != nil {
+		value := *v.String
+		out.String = &value
+	}
+	if v.Int64 != nil {
+		value := *v.Int64
+		out.Int64 = &value
+	}
+	if v.Bool != nil {
+		value := *v.Bool
+		out.Bool = &value
+	}
+	return out
+}
+func (s Set) Clone() Set {
+	out := s
+	if s.AllOf != nil {
+		out.AllOf = make([]Predicate, len(s.AllOf))
+		copy(out.AllOf, s.AllOf)
+	}
+	for i := range out.AllOf {
+		out.AllOf[i].Value = out.AllOf[i].Value.Clone()
+	}
+	return out
 }

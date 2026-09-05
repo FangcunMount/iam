@@ -30,28 +30,21 @@ func NewRepository(db *gorm.DB) domain.Repository {
 	return &Repository{BaseRepository: base}
 }
 
-func (r *Repository) Create(ctx context.Context, inheritance *domain.Inheritance) error {
+func (r *Repository) CreateChecked(ctx context.Context, inheritance *domain.Inheritance) error {
 	return r.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if tx.Migrator().HasTable("authz_roles") {
-			var roleIDs []uint64
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-				Table("authz_roles").
-				Where("tenant_id = ? AND deleted_at IS NULL", inheritance.TenantIDString()).
-				Order("id ASC").
-				Pluck("id", &roleIDs).Error; err != nil {
-				return err
-			}
-			foundRole, foundInheritedRole := false, false
-			for _, roleID := range roleIDs {
-				foundRole = foundRole || roleID == inheritance.RoleID.Uint64()
-				foundInheritedRole = foundInheritedRole || roleID == inheritance.InheritedRoleID.Uint64()
-			}
-			if !foundRole || !foundInheritedRole {
-				return perrors.WithCode(code.ErrInvalidArgument, "role inheritance references an unknown or cross-tenant role")
-			}
+		if inheritance == nil {
+			return perrors.WithCode(code.ErrInvalidArgument, "inheritance required")
+		}
+		var roleIDs []uint64
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("authz_roles").Where("tenant_id = ? AND deleted_at IS NULL", inheritance.TenantIDString()).Order("id ASC").Pluck("id", &roleIDs).Error; err != nil {
+			return err
+		}
+		nodes := make([]domain.RoleNode, 0, len(roleIDs))
+		for _, id := range roleIDs {
+			nodes = append(nodes, domain.RoleNode{ID: meta.FromUint64(id), TenantID: inheritance.TenantIDString()})
 		}
 		var rows []*InheritancePO
-		query := tx.Where("tenant_id = ? AND revoked_at IS NULL", inheritance.TenantIDString()).Order("id ASC")
+		query := tx.Where("tenant_id = ? AND revoked_at IS NULL AND deleted_at IS NULL", inheritance.TenantIDString()).Order("id ASC")
 		if tx.Dialector != nil && tx.Dialector.Name() != "sqlite" {
 			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 		}
@@ -66,8 +59,8 @@ func (r *Repository) Create(ctx context.Context, inheritance *domain.Inheritance
 			}
 			existing = append(existing, edge)
 		}
-		if domain.WouldCreateCycle(existing, inheritance.RoleID, inheritance.InheritedRoleID) {
-			return perrors.WithCode(code.ErrInvalidArgument, "role inheritance would create a cycle")
+		if err := domain.ValidateGraph(nodes, append(existing, inheritance)); err != nil {
+			return err
 		}
 		po := r.mapper.ToPO(inheritance)
 		if err := tx.Create(po).Error; err != nil {
@@ -133,7 +126,7 @@ func (r *Repository) FindByID(ctx context.Context, id meta.ID) (*domain.Inherita
 func (r *Repository) ListActiveByTenant(ctx context.Context, tenantID string) ([]*domain.Inheritance, error) {
 	var rows []*InheritancePO
 	if err := r.WithContext(ctx).
-		Where("tenant_id = ? AND revoked_at IS NULL", tenantID).
+		Where("tenant_id = ? AND revoked_at IS NULL AND deleted_at IS NULL", tenantID).
 		Order("id ASC").
 		Find(&rows).Error; err != nil {
 		return nil, err

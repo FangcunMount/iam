@@ -227,3 +227,11 @@ Assignment constraints 必须决定调用服务是否允许代表该 actor 写�
 5. REST 的 ID 写入与 gRPC 的 role-name 写入是否仍经过同一不变量？
 6. caller identity、delegated actor、reason 和变更事实是否能完整追溯？
 7. 新的 RPC 是否同时进入 ACL、constraints、proto/SDK 和文档门禁？
+
+## 统一事务入口与目录版本域
+
+Assignment 的 ID 入口和名称入口共用 `executeGrant`，内部结果同时包含 Assignment 和提交版本；名称解析完成后复用同一参数验证、主体解析、角色锁、写入及版本/事件流程。撤销共用 `revokeWithVersion`，既有撤销幂等差异保持。事务 resolver 来自注入的 AuthZ 端口，不在用例里重新注册仅支持 User 的 Identity 适配器。
+
+Resource 创建、更新、删除先在应用服务执行 platform 目录写入准入，再进入事务。目录通知域统一为 platform；更新还递增依赖该资源的租户版本，去重后每租户一次，事件同事务写入。普通 Grant 管理接口不能向非 platform 角色新授予明确的目录 create/update/delete。
+
+继承写入使用 `CreateChecked`，按 ID 顺序锁定租户内所有 Role，再读取现有边并调用共享图策略；没有通过表存在性跳过校验的分支。

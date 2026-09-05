@@ -86,15 +86,18 @@ func TestCompleteWechatOpenLinkBindsToStateUser(t *testing.T) {
 	linker := &fakeLinker{result: &LinkResult{Identity: &loginidentity.LoginIdentity{ID: meta.FromUint64(1000)}}}
 	uc := NewCompleteWechatOpenLink(verifier, linker)
 
+	authenticatedAt := time.Now().Add(-time.Minute)
 	res, err := uc.Execute(context.Background(), CompleteWechatOpenLinkInput{
-		State:          "st",
-		Code:           "scan-code",
-		ExpectedUserID: meta.FromUint64(7),
+		AuthenticatedAt: &authenticatedAt,
+		State:           "st",
+		Code:            "scan-code",
+		ExpectedUserID:  meta.FromUint64(7),
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, meta.FromUint64(1000), res.Identity.ID)
 	require.Equal(t, meta.FromUint64(7), linker.gotReq.UserID)
+	require.Equal(t, &authenticatedAt, linker.gotReq.AuthenticatedAt)
 	input, ok := linker.gotReq.Input.(LinkWechatOpenInput)
 	require.True(t, ok)
 	require.Equal(t, "wx-app", input.AppID)

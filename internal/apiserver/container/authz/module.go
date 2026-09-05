@@ -3,6 +3,7 @@ package authz
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	assignmentApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignment"
 	assignmentAdmissionApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/assignmentadmission"
@@ -14,10 +15,13 @@ import (
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
 	roleInheritanceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/roleinheritance"
 	assignmentConstraints "github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/assignmentconstraints"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/infra/authz/attributeproviders"
 )
 
 // AuthzModule 授权模块
 type AuthzModule struct {
+	syncOnce                       sync.Once
+	policySync                     *policySyncSubscriber
 	routeDecisionService           authorizationApp.RoutePermissionChecker
 	effectiveRoles                 EffectiveRoleReader
 	runtimeHealth                  RuntimeHealthReporter
@@ -34,6 +38,7 @@ type AuthzModule struct {
 	authorizationSnapshotReader    *authorizationApp.SnapshotReader
 	assignmentAdmissionPolicy      assignmentAdmissionApp.Policy
 	objectAttributeAdmissionPolicy objectattributeadmission.Policy
+	attributeProviders             *objectattributeadmission.Registry
 }
 
 // NewAuthzModule 创建授权模块
@@ -53,16 +58,21 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 		return fmt.Errorf("identity user resolver is required")
 	}
 
+	providers, err := attributeproviders.Load(deps.AttributeProvidersFile)
+	if err != nil {
+		return err
+	}
+	m.attributeProviders = providers
+	m.objectAttributeAdmissionPolicy = providers
 	infra := m.initializeInfrastructure(deps.DB, deps.EventStager, deps.UserResolver)
-	domain := m.initializeDomain(infra, deps.UserResolver)
-	if err := m.initializeRuntime(infra, domain); err != nil {
+	domain := m.initializeDomain(infra)
+	if err := m.initializeRuntime(infra, domain, deps.SyncConfig); err != nil {
 		return err
 	}
 	m.initializeApplication(infra, domain)
 	if strings.TrimSpace(deps.AssignmentConstraintsFile) == "" {
 		return fmt.Errorf("assignment constraints file is required")
 	}
-	var err error
 	if deps.GRPCACLEnabled {
 		m.assignmentAdmissionPolicy, err = assignmentConstraints.LoadWithACL(
 			deps.AssignmentConstraintsFile,
@@ -73,11 +83,6 @@ func (m *AuthzModule) InitializeWithDeps(deps AuthzModuleDeps) error {
 	}
 	if err != nil {
 		return err
-	}
-	if deps.ObjectAttributeAdmissionPolicy != nil {
-		m.objectAttributeAdmissionPolicy = deps.ObjectAttributeAdmissionPolicy
-	} else {
-		m.objectAttributeAdmissionPolicy = objectattributeadmission.NewDefaultPolicy()
 	}
 	return nil
 }

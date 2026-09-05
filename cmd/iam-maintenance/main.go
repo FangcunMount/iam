@@ -48,6 +48,8 @@ func run(args []string, output io.Writer) error {
 		return runPurgeRefreshTokens(args[1:], output)
 	case "dispose-sensitive-logs":
 		return runDisposeSensitiveLogs(args[1:], output)
+	case "authz-hardening":
+		return runAuthzHardening(args[1:], output)
 	case "authz-v3-converge":
 		return runAuthzV3Converge(args[1:], output)
 	default:

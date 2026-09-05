@@ -16,6 +16,7 @@ type Dependencies struct {
 	ResourceHandler        *handler.ResourceHandler
 	AuthMiddleware         gin.HandlerFunc
 	PermissionOrGlobal     func(resource, action string) gin.HandlerFunc
+	PlatformPermission     func(resource, action string) gin.HandlerFunc
 }
 
 func Register(engine *gin.Engine, deps Dependencies) {
@@ -63,12 +64,19 @@ func Register(engine *gin.Engine, deps Dependencies) {
 
 	if deps.ResourceHandler != nil {
 		resources := g.Group("/resources")
-		resources.POST("", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionCreate), deps.ResourceHandler.CreateResource)
-		resources.PUT("/:id", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionUpdate), deps.ResourceHandler.UpdateResource)
-		resources.DELETE("/:id", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionDelete), deps.ResourceHandler.DeleteResource)
+		resources.POST("", platformPermission(deps, authzapp.ResourceResources, authzapp.ActionCreate), deps.ResourceHandler.CreateResource)
+		resources.PUT("/:id", platformPermission(deps, authzapp.ResourceResources, authzapp.ActionUpdate), deps.ResourceHandler.UpdateResource)
+		resources.DELETE("/:id", platformPermission(deps, authzapp.ResourceResources, authzapp.ActionDelete), deps.ResourceHandler.DeleteResource)
 		resources.GET("/:id", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionRead), deps.ResourceHandler.GetResource)
 		resources.GET("/key/:key", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionRead), deps.ResourceHandler.GetResourceByKey)
 		resources.GET("", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionList), deps.ResourceHandler.ListResources)
 		resources.POST("/validate-action", deps.PermissionOrGlobal(authzapp.ResourceResources, authzapp.ActionValidateAction), deps.ResourceHandler.ValidateAction)
 	}
+}
+
+func platformPermission(deps Dependencies, resource, action string) gin.HandlerFunc {
+	if deps.PlatformPermission == nil {
+		return func(c *gin.Context) { c.AbortWithStatus(http.StatusServiceUnavailable) }
+	}
+	return deps.PlatformPermission(resource, action)
 }

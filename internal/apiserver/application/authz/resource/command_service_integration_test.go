@@ -7,10 +7,11 @@ import (
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
 	authztestutil "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/testutil"
-	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/attribute"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
 	permissiongrantDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/permissiongrant"
 	resourceDomain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/resource"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	authzfixture "github.com/FangcunMount/iam/v3/internal/apiserver/testfixtures/assessment"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
 	"github.com/FangcunMount/iam/v3/internal/pkg/meta"
 	"github.com/FangcunMount/iam/v3/pkg/event"
@@ -26,6 +27,8 @@ func TestUpdateResourceRejectsCandidateThatInvalidatesActiveGrant(t *testing.T) 
 	require.NoError(t, err)
 	cmd.TenantID = "tenant-operator"
 	cmd.ChangedBy = "operator"
+	cmd.Actor, err = subject.NewUserRef(meta.FromUint64(1))
+	require.NoError(t, err)
 
 	_, err = catalog.UpdateResource(context.Background(), cmd)
 
@@ -47,6 +50,8 @@ func TestUpdateResourceVersionsEveryTenantWithAnActiveGrant(t *testing.T) {
 	require.NoError(t, err)
 	cmd.TenantID = "tenant-operator"
 	cmd.ChangedBy = "operator"
+	cmd.Actor, err = subject.NewUserRef(meta.FromUint64(1))
+	require.NoError(t, err)
 
 	_, err = catalog.UpdateResource(context.Background(), cmd)
 	require.NoError(t, err)
@@ -57,7 +62,7 @@ func setupResourceCatalog(t *testing.T) (*authztestutil.Fixture, *resourceApp.Re
 	t.Helper()
 	stager := &recordingStager{}
 	fixture := authztestutil.NewFixture(t, stager)
-	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil)
+	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil, allowCatalogWriter{})
 	return fixture, catalog, fixture.Resources, fixture.PermissionGrants, stager
 }
 
@@ -67,7 +72,7 @@ func seedAssessmentResource(t *testing.T, repository resourceDomain.Repository) 
 		"qs:evaluation:collection:assessments",
 		[]string{"retry"},
 		resourceDomain.WithDisplayName("Assessments"),
-		resourceDomain.WithAttributeSchema(attribute.AssessmentSchema()),
+		resourceDomain.WithAttributeSchema(authzfixture.Schema()),
 	)
 	require.NoError(t, err)
 	require.NoError(t, repository.Create(context.Background(), &resource))
@@ -88,4 +93,18 @@ type recordingStager struct{ events []event.DomainEvent }
 func (s *recordingStager) Stage(_ context.Context, events ...event.DomainEvent) error {
 	s.events = append(s.events, events...)
 	return nil
+}
+
+type allowCatalogWriter struct{}
+
+func (allowCatalogWriter) RequireCatalogWrite(context.Context, subject.Ref, string) error { return nil }
+
+func TestCatalogFailsClosedWithoutPlatformAuthorizer(t *testing.T) {
+	fixture := authztestutil.NewFixture(t, nil)
+	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil)
+	actor, err := subject.NewUserRef(meta.FromUint64(1))
+	require.NoError(t, err)
+	_, err = catalog.CreateResource(context.Background(), resourceApp.CreateResourceCommand{Actor: actor, TenantID: "platform", ChangedBy: "1"})
+	require.Error(t, err)
+	require.Zero(t, fixture.PolicyVersionCount(t))
 }

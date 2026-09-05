@@ -36,52 +36,11 @@ func NewCommandService(validator assignmentDomain.Validator, roles roleDomain.Re
 }
 
 func (s *CommandService) Grant(ctx context.Context, cmd GrantCommand) (*assignmentDomain.Assignment, error) {
-	if err := s.validator.ValidateGrantParameters(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID, cmd.GrantedBy); err != nil {
-		return nil, err
-	}
-	var created *assignmentDomain.Assignment
-	_, err := s.commit(ctx, cmd.TenantID, cmd.GrantedBy, "binding grant", func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.UserResolver)
-		if err := txValidator.CheckRoleExists(txCtx, cmd.RoleID, cmd.TenantID); err != nil {
-			return err
-		}
-		if err := txValidator.CheckSubjectExists(txCtx, cmd.SubjectType, cmd.SubjectID, cmd.TenantID); err != nil {
-			return err
-		}
-		role, err := tx.Roles.FindByIDForUpdate(txCtx, cmd.RoleID)
-		if err != nil {
-			return errors.Wrap(err, "获取角色失败")
-		}
-		if !role.BelongsToTenant(cmd.TenantID) {
-			return errors.New("角色不属于当前租户")
-		}
-		assignment, err := assignmentDomain.NewAssignment(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID, assignmentDomain.WithGrantedBy(cmd.GrantedBy))
-		if err != nil {
-			return err
-		}
-		if err := tx.Assignments.Create(txCtx, &assignment); err != nil {
-			return errors.Wrap(err, "创建赋权失败")
-		}
-		created = &assignment
-		return nil
-	})
-	return created, err
+	result, err := s.executeGrant(ctx, cmd)
+	return result.Assignment, err
 }
-
 func (s *CommandService) Revoke(ctx context.Context, cmd RevokeCommand) error {
-	if err := s.validator.ValidateRevokeParameters(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID); err != nil {
-		return err
-	}
-	_, err := s.commit(ctx, cmd.TenantID, cmd.ChangedBy, revokeReason(cmd.Reason), func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		role, err := tx.Roles.FindByIDForUpdate(txCtx, cmd.RoleID)
-		if err != nil {
-			return errors.Wrap(err, "获取角色失败")
-		}
-		if !role.BelongsToTenant(cmd.TenantID) {
-			return errors.New("角色不属于当前租户")
-		}
-		return tx.Assignments.DeleteBySubjectAndRole(txCtx, cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID)
-	})
+	_, err := s.revokeWithVersion(ctx, cmd)
 	return err
 }
 
@@ -111,7 +70,8 @@ func (s *CommandService) GrantByRoleName(ctx context.Context, cmd GrantByRoleNam
 	if err != nil {
 		return 0, err
 	}
-	return s.grantWithVersion(ctx, grant)
+	result, err := s.executeGrant(ctx, grant)
+	return result.Version, err
 }
 
 func (s *CommandService) RevokeByRoleName(ctx context.Context, cmd RevokeByRoleNameCommand) (int64, error) {
@@ -129,12 +89,18 @@ func (s *CommandService) RevokeByRoleName(ctx context.Context, cmd RevokeByRoleN
 	return s.revokeWithVersion(ctx, revoke)
 }
 
-func (s *CommandService) grantWithVersion(ctx context.Context, cmd GrantCommand) (int64, error) {
+type grantResult struct {
+	Assignment *assignmentDomain.Assignment
+	Version    int64
+}
+
+func (s *CommandService) executeGrant(ctx context.Context, cmd GrantCommand) (grantResult, error) {
 	if err := s.validator.ValidateGrantParameters(cmd.SubjectType, cmd.SubjectID, cmd.RoleID, cmd.TenantID, cmd.GrantedBy); err != nil {
-		return 0, err
+		return grantResult{}, err
 	}
-	return s.commit(ctx, cmd.TenantID, cmd.GrantedBy, "binding grant", func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.UserResolver)
+	var result grantResult
+	version, err := s.commit(ctx, cmd.TenantID, cmd.GrantedBy, "binding grant", func(txCtx context.Context, tx authzuow.TxRepositories) error {
+		txValidator := assignmentDomain.NewValidatorWithSubjectResolver(tx.Roles, tx.SubjectResolver)
 		if err := txValidator.CheckRoleExists(txCtx, cmd.RoleID, cmd.TenantID); err != nil {
 			return err
 		}
@@ -152,8 +118,17 @@ func (s *CommandService) grantWithVersion(ctx context.Context, cmd GrantCommand)
 		if err != nil {
 			return err
 		}
-		return tx.Assignments.Create(txCtx, &assignment)
+		if err := tx.Assignments.Create(txCtx, &assignment); err != nil {
+			return errors.Wrap(err, "创建赋权失败")
+		}
+		result.Assignment = &assignment
+		return nil
 	})
+	if err != nil {
+		return grantResult{}, err
+	}
+	result.Version = version
+	return result, nil
 }
 
 func (s *CommandService) revokeWithVersion(ctx context.Context, cmd RevokeCommand) (int64, error) {
@@ -186,7 +161,7 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 	result := ReplaceManagedAssignmentsResult{}
 	replacementPolicy := assignmentDomain.ReplacementPolicy{}
 	err = s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		txValidator := assignmentDomain.NewValidator(tx.Roles, tx.UserResolver)
+		txValidator := assignmentDomain.NewValidatorWithSubjectResolver(tx.Roles, tx.SubjectResolver)
 		if err := txValidator.CheckSubjectExists(txCtx, assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, cmd.TenantID); err != nil {
 			return err
 		}

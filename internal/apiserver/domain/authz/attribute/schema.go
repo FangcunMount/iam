@@ -16,8 +16,6 @@ const (
 	TypeBool   Type = "bool"
 )
 
-const ObjectOriginType = "object.origin_type"
-
 type Definition struct {
 	Key                 string   `json:"key"`
 	Type                Type     `json:"type"`
@@ -53,15 +51,6 @@ func NewSchema(definitions []Definition) (Schema, error) {
 	}
 	sort.Slice(normalized, func(i, j int) bool { return normalized[i].Key < normalized[j].Key })
 	return Schema{Version: 1, Attributes: normalized}, nil
-}
-
-func AssessmentSchema() Schema {
-	schema, _ := NewSchema([]Definition{{
-		Key:                 ObjectOriginType,
-		Type:                TypeString,
-		AllowedStringValues: []string{"adhoc", "plan"},
-	}})
-	return schema
 }
 
 func (s Schema) Normalize() (Schema, error) {
@@ -111,4 +100,19 @@ func normalizeDefinition(definition Definition) (Definition, error) {
 	sort.Strings(values)
 	definition.AllowedStringValues = values
 	return definition, nil
+}
+
+// Clone returns an independent attribute contract.
+func (s Schema) Clone() Schema {
+	out := s
+	if s.Attributes != nil {
+		out.Attributes = make([]Definition, len(s.Attributes))
+		copy(out.Attributes, s.Attributes)
+	}
+	for i := range out.Attributes {
+		if s.Attributes[i].AllowedStringValues != nil {
+			out.Attributes[i].AllowedStringValues = append([]string{}, s.Attributes[i].AllowedStringValues...)
+		}
+	}
+	return out
 }

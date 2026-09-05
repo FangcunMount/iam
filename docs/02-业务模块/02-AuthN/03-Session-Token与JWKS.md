@@ -50,10 +50,12 @@ JWT Header 中的 `kid/alg/typ` 不进入领域 Claims，Signature 也不是 Cla
 
 ### 当前失败窗口
 
-Session 创建成功后，若 mint 或 `SaveRefreshToken` 失败，请求返回失败，但已创建 Session 不会在同一事务中回滚。它没有暴露可用 refresh token，通常只能等待 TTL 或由清理逻辑收敛，
-但会产生短期孤儿 Session 和额外索引占用。
+Session 创建成功后，若 mint 返回错误或不完整的 TokenSet，或 `SaveRefreshToken` 失败，GrantIssuer 会以
+`authentication_grant_failed` 为原因撤销该 Session，并返回原始签发错误。撤销使用独立的 5 秒超时，客户端取消请求不会取消补偿。
+即使 RefreshToken 保存结果不确定，Session 撤销成功后它也不能继续在线认证或刷新。
 
-可选改进包括：保存失败时补偿撤销 Session，或用一段 Redis Lua 原子创建 Session 与 refresh token。后者原子性更强，但会把更多领域结构绑定到单个 Redis 脚本。当前代码尚未实现这两种改进。
+这仍是跨步骤补偿，不是单次原子提交。补偿也失败时，返回错误保留签发与撤销两阶段原因，并记录失败日志；此时孤儿会话仍可能存在，
+需要依靠 TTL 或运维处理。Session 创建本身返回错误时，也不能把跨存储结果宣称为全局回滚。
 
 ## 3. Session 生命周期与滑动续期
 
@@ -62,7 +64,10 @@ Session 创建成功后，若 mint 或 `SaveRefreshToken` 失败，请求返回�
 - `refreshTTL`：每次 refresh 后令牌的滑动窗口；
 - `sessionMaxTTL`：从 Session 创建开始计算的绝对上限。
 
+当前 `Session.ExpiresAt` 表示可滑动有效期，绝对上限单独由 `CreatedAt + sessionMaxTTL` 计算。
 新 refresh 的到期时间取 `now + refreshTTL` 与绝对上限中的较早者。这样活跃用户可以续期，但不能无限延长一条已长期存在的登录会话。
+
+缺少创建时间或未配置正数绝对上限时，保守沿用现有过期时间，不为历史会话推断新的生命周期。
 
 Session 在 Redis 中除主记录外，还维护按 User 和 LoginIdentity 的索引，以支持“退出全部设备”、禁用身份和封禁用户后的批量撤销。多键更新使用 WATCH 重试，失败必须显式返回，不能假装部分索引已经一致。
 
