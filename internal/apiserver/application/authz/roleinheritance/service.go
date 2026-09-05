@@ -47,7 +47,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Inheri
 		return nil, err
 	}
 	err = s.uow.WithinTx(ctx, func(txCtx context.Context, tx authzuow.TxRepositories) error {
-		if err := tx.RoleInheritances.Create(txCtx, &inheritance); err != nil {
+		if err := tx.RoleInheritances.CreateChecked(txCtx, &inheritance); err != nil {
 			return err
 		}
 		version, err := tx.PolicyVersions.Increment(txCtx, cmd.TenantID, cmd.GrantedBy, "role inheritance created")

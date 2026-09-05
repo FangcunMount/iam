@@ -2,6 +2,7 @@ package roleinheritance_test
 
 import (
 	"context"
+	rolepo "github.com/FangcunMount/iam/v3/internal/apiserver/infra/mysql/role"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -17,23 +18,26 @@ import (
 func TestRepositoryRejectsCycleAndAllowsRegrantAfterRevoke(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&repo.InheritancePO{}))
+	require.NoError(t, db.AutoMigrate(&repo.InheritancePO{}, &rolepo.RolePO{}))
+	for i := uint64(1); i <= 3; i++ {
+		require.NoError(t, db.Exec("INSERT INTO authz_roles (id,name,display_name,tenant_id,version) VALUES (?,?,?,?,1)", i, meta.FromUint64(i).String(), "Role", "tenant-a").Error)
+	}
 	repository := repo.NewRepository(db)
 	ctx := context.Background()
 
 	edgeAB := mustInheritance(t, 1, 2)
-	require.NoError(t, repository.Create(ctx, &edgeAB))
+	require.NoError(t, repository.CreateChecked(ctx, &edgeAB))
 	edgeBC := mustInheritance(t, 2, 3)
-	require.NoError(t, repository.Create(ctx, &edgeBC))
+	require.NoError(t, repository.CreateChecked(ctx, &edgeBC))
 	edgeCA := mustInheritance(t, 3, 1)
-	err = repository.Create(ctx, &edgeCA)
+	err = repository.CreateChecked(ctx, &edgeCA)
 	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 
 	outcome, err := repository.AtomicRevoke(ctx, edgeAB.ID, "tenant-a")
 	require.NoError(t, err)
 	require.Equal(t, domain.RevokeOutcomeRevoked, outcome)
 	regrant := mustInheritance(t, 1, 2)
-	require.NoError(t, repository.Create(ctx, &regrant))
+	require.NoError(t, repository.CreateChecked(ctx, &regrant))
 }
 
 func mustInheritance(t *testing.T, roleID, inheritedRoleID uint64) domain.Inheritance {

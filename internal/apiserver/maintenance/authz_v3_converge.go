@@ -1050,7 +1050,7 @@ func applyConvergenceMutations(ctx context.Context, repos authzuow.TxRepositorie
 		if err != nil {
 			return err
 		}
-		if err := repos.RoleInheritances.Create(ctx, &item); err != nil {
+		if err := repos.RoleInheritances.CreateChecked(ctx, &item); err != nil {
 			return err
 		}
 	}

@@ -7,7 +7,8 @@ import (
 )
 
 type Repository interface {
-	Create(ctx context.Context, inheritance *Inheritance) error
+	// CreateChecked locks the tenant graph and validates references, cycles and depth atomically.
+	CreateChecked(ctx context.Context, inheritance *Inheritance) error
 	AtomicRevoke(ctx context.Context, id meta.ID, tenantID string) (RevokeOutcome, error)
 	FindByID(ctx context.Context, id meta.ID) (*Inheritance, error)
 	ListActiveByTenant(ctx context.Context, tenantID string) ([]*Inheritance, error)
