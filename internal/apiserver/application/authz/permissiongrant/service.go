@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
+	authorizationapp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/authorization"
 	policychange "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/policychange"
 	authzuow "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/uow"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/constraint"
@@ -61,6 +62,9 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (*domain.Grant,
 		catalogResource, err := tx.Resources.FindByIDForUpdate(txCtx, cmd.ResourceID)
 		if err != nil {
 			return err
+		}
+		if cmd.TenantID != "platform" && catalogResource.KeyString() == authorizationapp.ResourceResources && (cmd.Action == "create" || cmd.Action == "update" || cmd.Action == "delete") {
+			return perrors.WithCode(code.ErrPermissionDenied, "catalog write grants require platform tenant")
 		}
 		grant, err := domain.New(
 			cmd.RoleID, cmd.TenantID, cmd.ResourceID, catalogResource.KeyString(),

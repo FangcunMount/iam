@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"strconv"
 
 	resourceApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/resource"
@@ -68,6 +69,11 @@ func (h *ResourceHandler) CreateResource(c *gin.Context) {
 		return
 	}
 	cmd.TenantID, cmd.ChangedBy = tenantID, userID.String()
+	cmd.Actor, err = subject.NewUserRef(userID)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 
 	createdResource, err := h.commander.CreateResource(c.Request.Context(), cmd)
 	if err != nil {
@@ -120,6 +126,11 @@ func (h *ResourceHandler) UpdateResource(c *gin.Context) {
 		return
 	}
 	cmd.TenantID, cmd.ChangedBy = tenantID, userID.String()
+	cmd.Actor, err = subject.NewUserRef(userID)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 
 	updatedResource, err := h.commander.UpdateResource(c.Request.Context(), cmd)
 	if err != nil {
@@ -152,8 +163,13 @@ func (h *ResourceHandler) DeleteResource(c *gin.Context) {
 		handleError(c, err)
 		return
 	}
+	actor, err := subject.NewUserRef(userID)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 	if err := h.commander.DeleteResource(c.Request.Context(), resourceApp.DeleteResourceCommand{
-		ID: resourceDomain.NewResourceID(resourceID.Uint64()), TenantID: tenantID, ChangedBy: userID.String(),
+		ID: resourceDomain.NewResourceID(resourceID.Uint64()), TenantID: tenantID, ChangedBy: userID.String(), Actor: actor,
 	}); err != nil {
 		handleError(c, err)
 		return

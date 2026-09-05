@@ -2,6 +2,8 @@ package resource
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
+	"github.com/FangcunMount/iam/v3/pkg/tenant"
 	"strings"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -14,14 +16,23 @@ import (
 
 // ResourceCatalog manages protected resource definitions transactionally with
 // policy versions and durable reload notifications.
+type CatalogWriteAuthorizer interface {
+	RequireCatalogWrite(context.Context, subject.Ref, string) error
+}
+
 type ResourceCatalog struct {
+	authorizer           CatalogWriteAuthorizer
 	uow                  authzuow.UnitOfWork
 	reloader             policychange.RuntimePolicyReloader
 	resourceChangePolicy policyDomain.ResourceChangePolicy
 }
 
-func NewResourceCatalog(uow authzuow.UnitOfWork, reloader policychange.RuntimePolicyReloader) *ResourceCatalog {
-	return &ResourceCatalog{
+func NewResourceCatalog(uow authzuow.UnitOfWork, reloader policychange.RuntimePolicyReloader, authorizers ...CatalogWriteAuthorizer) *ResourceCatalog {
+	var authorizer CatalogWriteAuthorizer
+	if len(authorizers) > 0 {
+		authorizer = authorizers[0]
+	}
+	return &ResourceCatalog{authorizer: authorizer,
 		uow:                  uow,
 		reloader:             reloader,
 		resourceChangePolicy: policyDomain.ResourceChangePolicy{},
@@ -29,6 +40,10 @@ func NewResourceCatalog(uow authzuow.UnitOfWork, reloader policychange.RuntimePo
 }
 
 func (s *ResourceCatalog) CreateResource(ctx context.Context, cmd CreateResourceCommand) (*resourceDomain.Resource, error) {
+	if err := s.requireWrite(ctx, cmd.Actor, "create"); err != nil {
+		return nil, err
+	}
+	cmd.TenantID = tenant.PlatformID
 	if err := s.validateChange(cmd.TenantID, cmd.ChangedBy); err != nil {
 		return nil, err
 	}
@@ -59,6 +74,10 @@ func (s *ResourceCatalog) CreateResource(ctx context.Context, cmd CreateResource
 }
 
 func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResourceCommand) (*resourceDomain.Resource, error) {
+	if err := s.requireWrite(ctx, cmd.Actor, "update"); err != nil {
+		return nil, err
+	}
+	cmd.TenantID = tenant.PlatformID
 	if err := s.validateChange(cmd.TenantID, cmd.ChangedBy); err != nil {
 		return nil, err
 	}
@@ -116,6 +135,10 @@ func (s *ResourceCatalog) UpdateResource(ctx context.Context, cmd UpdateResource
 }
 
 func (s *ResourceCatalog) DeleteResource(ctx context.Context, cmd DeleteResourceCommand) error {
+	if err := s.requireWrite(ctx, cmd.Actor, "delete"); err != nil {
+		return err
+	}
+	cmd.TenantID = tenant.PlatformID
 	if cmd.ID.Uint64() == 0 {
 		return perrors.WithCode(code.ErrInvalidArgument, "resource id is required")
 	}
@@ -156,4 +179,14 @@ func (s *ResourceCatalog) validateChange(tenantID, changedBy string) error {
 		return perrors.WithCode(code.ErrInvalidArgument, "tenant and changed by are required")
 	}
 	return nil
+}
+
+func (s *ResourceCatalog) requireWrite(ctx context.Context, actor subject.Ref, action string) error {
+	if s == nil || s.authorizer == nil {
+		return perrors.WithCode(code.ErrInternalServerError, "catalog write authorizer unavailable")
+	}
+	if actor.IsZero() {
+		return perrors.WithCode(code.ErrInvalidArgument, "authenticated actor is required")
+	}
+	return s.authorizer.RequireCatalogWrite(ctx, actor, action)
 }

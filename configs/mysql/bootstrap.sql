@@ -336,7 +336,7 @@ FROM (
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:role_inheritances',
                    JSON_ARRAY('list','grant','revoke'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authz:collection:resources',
-                   JSON_ARRAY('create','read','update','delete','list','validate_action'), '{"version":1,"all_of":[]}'
+                   JSON_ARRAY('read','list','validate_action'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'tenant_admin', 'iam:authn:collection:login_identities',
                    JSON_ARRAY('read','update','enable','disable'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'fangcun', 'user', 'iam:identity:instance:profile',

@@ -83,3 +83,15 @@ func (s *snapshotRuntimeStub) GetAuthorizationSnapshot(
 	s.appName = appName
 	return s.snapshot, nil
 }
+
+func TestCatalogWriteRequiresPlatformDecision(t *testing.T) {
+	actor, err := subject.NewUserRef(meta.FromUint64(42))
+	require.NoError(t, err)
+	runtime := &decisionRuntimeStub{}
+	service := authorizationapp.NewDecisionService(runtime)
+	require.True(t, perrors.IsCode(service.RequireCatalogWrite(context.Background(), actor, "update"), code.ErrPermissionDenied))
+	require.Equal(t, "platform", runtime.request.TenantIDString())
+	require.Equal(t, actor, runtime.request.Subject)
+	runtime.decision.Allowed = true
+	require.NoError(t, service.RequireCatalogWrite(context.Background(), actor, "update"))
+}

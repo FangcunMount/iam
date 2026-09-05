@@ -13,7 +13,8 @@ func (m *AuthzModule) initializeApplication(
 	infra *authzInfrastructureComponents,
 	domain *authzDomainComponents,
 ) {
-	m.resourceCatalog = resourceApp.NewResourceCatalog(infra.unitOfWork, infra.authorizationRuntime)
+	m.authorizationDecisions = authorizationApp.NewDecisionService(infra.authorizationRuntime)
+	m.resourceCatalog = resourceApp.NewResourceCatalog(infra.unitOfWork, infra.authorizationRuntime, m.authorizationDecisions)
 	m.resourceDirectory = resourceApp.NewResourceQueryService(infra.resourceRepository)
 
 	m.roleCatalog = roleApp.NewRoleCatalog(infra.unitOfWork, infra.authorizationRuntime)

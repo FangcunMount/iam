@@ -2,6 +2,7 @@ package resource_test
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/subject"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -26,6 +27,8 @@ func TestUpdateResourceRejectsCandidateThatInvalidatesActiveGrant(t *testing.T) 
 	require.NoError(t, err)
 	cmd.TenantID = "tenant-operator"
 	cmd.ChangedBy = "operator"
+	cmd.Actor, err = subject.NewUserRef(meta.FromUint64(1))
+	require.NoError(t, err)
 
 	_, err = catalog.UpdateResource(context.Background(), cmd)
 
@@ -47,6 +50,8 @@ func TestUpdateResourceVersionsEveryTenantWithAnActiveGrant(t *testing.T) {
 	require.NoError(t, err)
 	cmd.TenantID = "tenant-operator"
 	cmd.ChangedBy = "operator"
+	cmd.Actor, err = subject.NewUserRef(meta.FromUint64(1))
+	require.NoError(t, err)
 
 	_, err = catalog.UpdateResource(context.Background(), cmd)
 	require.NoError(t, err)
@@ -57,7 +62,7 @@ func setupResourceCatalog(t *testing.T) (*authztestutil.Fixture, *resourceApp.Re
 	t.Helper()
 	stager := &recordingStager{}
 	fixture := authztestutil.NewFixture(t, stager)
-	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil)
+	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil, allowCatalogWriter{})
 	return fixture, catalog, fixture.Resources, fixture.PermissionGrants, stager
 }
 
@@ -88,4 +93,18 @@ type recordingStager struct{ events []event.DomainEvent }
 func (s *recordingStager) Stage(_ context.Context, events ...event.DomainEvent) error {
 	s.events = append(s.events, events...)
 	return nil
+}
+
+type allowCatalogWriter struct{}
+
+func (allowCatalogWriter) RequireCatalogWrite(context.Context, subject.Ref, string) error { return nil }
+
+func TestCatalogFailsClosedWithoutPlatformAuthorizer(t *testing.T) {
+	fixture := authztestutil.NewFixture(t, nil)
+	catalog := resourceApp.NewResourceCatalog(fixture.UnitOfWork, nil)
+	actor, err := subject.NewUserRef(meta.FromUint64(1))
+	require.NoError(t, err)
+	_, err = catalog.CreateResource(context.Background(), resourceApp.CreateResourceCommand{Actor: actor, TenantID: "platform", ChangedBy: "1"})
+	require.Error(t, err)
+	require.Zero(t, fixture.PolicyVersionCount(t))
 }

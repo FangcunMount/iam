@@ -2,6 +2,8 @@ package role
 
 import (
 	"context"
+	"errors"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/role"
@@ -130,4 +132,18 @@ func (r *RoleRepository) List(ctx context.Context, tenantID string, offset, limi
 	}
 
 	return roles, total, nil
+}
+
+func (r *RoleRepository) FindByTenantAndID(ctx context.Context, tenantID tenant.ID, id meta.ID) (*domain.Role, error) {
+	var po RolePO
+	if tenantID.IsZero() {
+		return nil, perrors.WithCode(code.ErrInvalidArgument, "tenant is required")
+	}
+	if err := r.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID.String(), id.Uint64()).First(&po).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, perrors.WithCode(code.ErrRoleNotFound, "role not found")
+		}
+		return nil, err
+	}
+	return r.mapper.ToRoleBO(&po)
 }

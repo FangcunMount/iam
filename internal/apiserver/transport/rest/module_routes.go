@@ -82,6 +82,7 @@ func (r *Router) registerAuthzRoutes(engine *gin.Engine, deps AuthzDeps, authMid
 			ResourceHandler:        deps.ResourceHandler,
 			AuthMiddleware:         authMiddleware.AuthRequired(),
 			PermissionOrGlobal:     authorizationMiddleware.RequirePermissionOrGlobal,
+			PlatformPermission:     authorizationMiddleware.RequirePlatformPermission,
 		})
 		log.Info("✅ Authz module routes registered")
 		return

@@ -36,6 +36,14 @@ func (m *Middleware) Available() bool {
 // RequirePermission enforces a permission in the request tenant.
 // It must run after the AuthN middleware has established the principal.
 func (m *Middleware) RequirePermission(resourceKey, action string) gin.HandlerFunc {
+	return m.requirePermission(resourceKey, action, "")
+}
+
+func (m *Middleware) RequirePlatformPermission(resourceKey, action string) gin.HandlerFunc {
+	return m.requirePermission(resourceKey, action, tenant.PlatformID)
+}
+
+func (m *Middleware) requirePermission(resourceKey, action, fixedTenant string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !m.Available() {
 			core.WriteResponse(c, errors.WithCode(code.ErrInternalServerError, "Authorization engine not configured"), nil)
@@ -50,6 +58,9 @@ func (m *Middleware) RequirePermission(resourceKey, action string) gin.HandlerFu
 		}
 		subjectKey := "user:" + userID.String()
 		tenantID := requestctx.TenantIDOrDefault(c)
+		if fixedTenant != "" {
+			tenantID = fixedTenant
+		}
 		allowed, err := m.checker.CheckRoutePermission(c.Request.Context(), subjectKey, tenantID, resourceKey, action)
 		if err != nil {
 			log.Errorw("route authorization failed", "sub", subjectKey, "tenant_id", tenantID)

@@ -3,6 +3,7 @@ package handler
 
 import (
 	roleApp "github.com/FangcunMount/iam/v3/internal/apiserver/application/authz/role"
+	"github.com/FangcunMount/iam/v3/internal/apiserver/domain/authz/tenant"
 	"github.com/FangcunMount/iam/v3/internal/apiserver/transport/rest/authz/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -156,7 +157,17 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 		return
 	}
 
-	foundRole, err := h.queryer.GetRoleByID(c.Request.Context(), roleID)
+	tenantString, err := getTenantID(c)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	tenantID, err := tenant.NewID(tenantString)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	foundRole, err := h.queryer.GetRoleByID(c.Request.Context(), tenantID, roleID)
 	if err != nil {
 		handleError(c, err)
 		return
