@@ -18,6 +18,11 @@ type SessionCreator interface {
 	Create(ctx context.Context, principal *authentication.Principal) (*sessiondomain.Session, error)
 }
 
+// SessionRevoker 撤销签发未完成时已经创建的会话。
+type SessionRevoker interface {
+	Revoke(ctx context.Context, sessionID, reason, revokedBy string) error
+}
+
 // TokenSetMinter 是建立认证结果所需的用户令牌签发能力。
 type TokenSetMinter interface {
 	MintTokenSet(ctx context.Context, principal *authentication.Principal, session *sessiondomain.Session) (*tokendomain.UserTokenSet, error)

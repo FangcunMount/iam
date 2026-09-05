@@ -48,12 +48,13 @@ func (s *loginIdentityServiceServer) LinkPhone(ctx context.Context, req *authnv2
 	if s.linking == nil {
 		return nil, status.Error(codes.Unimplemented, "login identity service not configured")
 	}
-	userID, _, _, err := parseAuthenticatedUserContext(req.GetActor())
+	userID, _, authenticatedAt, err := parseAuthenticatedUserContext(req.GetActor())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	result, err := s.linking.Link(ctx, linkingApp.LinkRequest{
-		UserID: userID,
+		AuthenticatedAt: authenticatedAt,
+		UserID:          userID,
 		Input: linkingApp.LinkPhoneInput{
 			Phone:   req.GetPhone(),
 			OTPCode: req.GetOtpCode(),
@@ -69,12 +70,13 @@ func (s *loginIdentityServiceServer) LinkWechatMiniProgram(ctx context.Context, 
 	if s.linking == nil {
 		return nil, status.Error(codes.Unimplemented, "login identity service not configured")
 	}
-	userID, _, _, err := parseAuthenticatedUserContext(req.GetActor())
+	userID, _, authenticatedAt, err := parseAuthenticatedUserContext(req.GetActor())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	result, err := s.linking.Link(ctx, linkingApp.LinkRequest{
-		UserID: userID,
+		AuthenticatedAt: authenticatedAt,
+		UserID:          userID,
 		Input: linkingApp.LinkWechatMiniInput{
 			AppID: req.GetAppId(),
 			Code:  req.GetCode(),
@@ -90,12 +92,13 @@ func (s *loginIdentityServiceServer) LinkWecom(ctx context.Context, req *authnv2
 	if s.linking == nil {
 		return nil, status.Error(codes.Unimplemented, "login identity service not configured")
 	}
-	userID, _, _, err := parseAuthenticatedUserContext(req.GetActor())
+	userID, _, authenticatedAt, err := parseAuthenticatedUserContext(req.GetActor())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	result, err := s.linking.Link(ctx, linkingApp.LinkRequest{
-		UserID: userID,
+		AuthenticatedAt: authenticatedAt,
+		UserID:          userID,
 		Input: linkingApp.LinkWecomInput{
 			CorpID: req.GetCorpId(),
 			Code:   req.GetCode(),

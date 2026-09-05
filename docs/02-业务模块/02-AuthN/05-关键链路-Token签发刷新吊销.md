@@ -689,8 +689,9 @@ User blocked 必须快速生效；
 | Principal 为空 | 拒绝签发 | Login 未成功不能签发 token |
 | Admission 拒绝或状态查询失败 | 拒绝签发 | 不得创建 Session |
 | Session 创建失败 | 签发失败 | 不应返回 token |
-| AccessToken mint 失败 | 签发失败 | 不返回半成功响应；当前可留下孤儿 Session |
-| RefreshToken mint / 初始保存失败 | 整体失败 | 不返回 token pair；当前可留下孤儿 Session |
+| AccessToken mint 失败 | 签发失败 | 不返回半成功响应；补偿撤销已创建 Session |
+| RefreshToken mint / 初始保存失败 | 整体失败 | 不返回 token pair；补偿撤销已创建 Session |
+| 签发失败后的 Session 补偿也失败 | 保留两阶段错误并记录日志 | 独立 5 秒补偿超时；剩余状态由 TTL 或运维收敛 |
 | RefreshToken 无效/过期/撤销 | Refresh 失败 | 需要重新登录 |
 | Session revoked/expired | Refresh 失败 | 不应签发新 AccessToken |
 | 已消费 RefreshToken 重复使用 | 撤销对应 Session，并返回 `ErrRefreshTokenNotFound` / HTTP 401 | 不扩散为跨 Session 的 token-family 撤销 |

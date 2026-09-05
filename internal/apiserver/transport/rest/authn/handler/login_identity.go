@@ -137,7 +137,8 @@ func (h *LoginIdentityHandler) LinkPhone(c *gin.Context) {
 		return
 	}
 	result, err := h.linking.Link(c.Request.Context(), linkingapp.LinkRequest{
-		UserID: userID,
+		AuthenticatedAt: currentAuthenticatedAt(c),
+		UserID:          userID,
 		Input: linkingapp.LinkPhoneInput{
 			Phone:   body.Phone,
 			OTPCode: body.OTPCode,
@@ -175,7 +176,8 @@ func (h *LoginIdentityHandler) LinkWechatMiniProgram(c *gin.Context) {
 		return
 	}
 	result, err := h.linking.Link(c.Request.Context(), linkingapp.LinkRequest{
-		UserID: userID,
+		AuthenticatedAt: currentAuthenticatedAt(c),
+		UserID:          userID,
 		Input: linkingapp.LinkWechatMiniInput{
 			AppID: body.AppID,
 			Code:  body.Code,
@@ -260,9 +262,10 @@ func (h *LoginIdentityHandler) CompleteWechatOpenLink(c *gin.Context) {
 		return
 	}
 	result, err := h.wechatOpenComplete.Execute(c.Request.Context(), linkingapp.CompleteWechatOpenLinkInput{
-		State:          body.State,
-		Code:           body.Code,
-		ExpectedUserID: userID,
+		AuthenticatedAt: currentAuthenticatedAt(c),
+		State:           body.State,
+		Code:            body.Code,
+		ExpectedUserID:  userID,
 	})
 	if err != nil {
 		h.Error(c, err)
@@ -296,7 +299,8 @@ func (h *LoginIdentityHandler) LinkWecom(c *gin.Context) {
 		return
 	}
 	result, err := h.linking.Link(c.Request.Context(), linkingapp.LinkRequest{
-		UserID: userID,
+		AuthenticatedAt: currentAuthenticatedAt(c),
+		UserID:          userID,
 		Input: linkingapp.LinkWecomInput{
 			CorpID: body.CorpID,
 			Code:   body.Code,

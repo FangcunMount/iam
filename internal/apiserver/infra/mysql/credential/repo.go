@@ -88,20 +88,14 @@ func (r *Repository) RecordAuthenticationFailure(
 			}
 			return fmt.Errorf("lock credential authentication state: %w", err)
 		}
-		wasLocked := before.LockedUntil != nil && now.Before(*before.LockedUntil)
-
+		// 在行锁保护下使用领域迁移计算状态；仓储只持久化结果，避免 SQL
+		// 重复实现锁定规则及不同数据库的赋值顺序差异。
+		credential := r.mapper.ToDO(&before)
+		state = domain.ApplyAuthenticationTransition(credential, domain.NewFailureTransition(id, now, policy))
 		updates := map[string]interface{}{
-			"failed_attempts": gorm.Expr("failed_attempts + 1"),
-			"last_failure_at": now,
-		}
-		if policy.Enabled {
-			expectedLockUntil := now.Add(policy.LockDuration)
-			updates["locked_until"] = gorm.Expr(
-				"CASE WHEN failed_attempts + 1 >= ? AND (locked_until IS NULL OR locked_until <= ?) THEN ? ELSE locked_until END",
-				policy.Threshold,
-				now,
-				expectedLockUntil,
-			)
+			"failed_attempts": credential.FailedAttempts,
+			"last_failure_at": credential.LastFailureAt,
+			"locked_until":    credential.LockedUntil,
 		}
 		result := tx.Model(&V2PO{}).Where("id = ?", id.Uint64()).Updates(updates)
 		if result.Error != nil {
@@ -110,16 +104,7 @@ func (r *Repository) RecordAuthenticationFailure(
 		if result.RowsAffected == 0 {
 			return credentialNotFoundError()
 		}
-		var po V2PO
-		if err := tx.Select("failed_attempts", "locked_until").Where("id = ?", id.Uint64()).First(&po).Error; err != nil {
-			return fmt.Errorf("load credential authentication state: %w", err)
-		}
-		state.FailedAttempts = po.FailedAttempts
-		state.LockedUntil = po.LockedUntil
-		state.NewlyLocked = policy.Enabled &&
-			!wasLocked &&
-			po.LockedUntil != nil &&
-			now.Before(*po.LockedUntil)
+
 		return nil
 	})
 	return state, err

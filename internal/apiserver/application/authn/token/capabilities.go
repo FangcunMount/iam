@@ -55,6 +55,7 @@ func NewCapabilities(deps Dependencies) Capabilities {
 	})
 	grantIssuer := grantdomain.NewIssuer(grantdomain.Dependencies{
 		AdmissionPolicy: deps.AdmissionPolicy, SessionCreator: deps.SessionCreator,
+		SessionRevoker: deps.SessionRevoker,
 		TokenSetMinter: domainCapabilities.TokenSetMinter, RefreshTokenSaver: deps.TokenStore,
 	})
 	app := &application{

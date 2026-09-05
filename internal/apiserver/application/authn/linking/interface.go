@@ -29,7 +29,7 @@ type Linker interface {
 
 // PhoneLinkChallengeVerifier 是手机号绑定用例依赖的短期挑战消费端口。
 type PhoneLinkChallengeVerifier interface {
-	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) bool
+	VerifyAndConsumePhoneLinkOTP(ctx context.Context, phoneE164, otp string) (bool, error)
 }
 
 // Dependencies 是登录身份绑定应用服务依赖。
@@ -44,8 +44,10 @@ type Dependencies struct {
 
 // LinkRequest 统一绑定请求；Input 决定 prepare 变体。
 type LinkRequest struct {
-	UserID meta.ID                // 用户 ID。
-	Input  LinkLoginIdentityInput // 登录身份输入。
+	// AuthenticatedAt 由 transport 从可信认证上下文注入；不接受绑定 payload 的时间。
+	AuthenticatedAt *time.Time
+	UserID          meta.ID                // 用户 ID。
+	Input           LinkLoginIdentityInput // 登录身份输入。
 }
 
 // LinkLoginIdentityInput 各绑定入口实现本接口，在 prepare 阶段解析外部凭证并产出 ProviderKey。

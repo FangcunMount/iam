@@ -465,8 +465,8 @@ type otpVerifierTestDouble struct {
 	ok bool
 }
 
-func (s otpVerifierTestDouble) VerifyAndConsumeLoginPhoneOTP(context.Context, string, string) bool {
-	return s.ok
+func (s otpVerifierTestDouble) VerifyAndConsumeLoginPhoneOTP(context.Context, string, string) (bool, error) {
+	return s.ok, nil
 }
 
 var _ authentication.LoginIdentityCredentialRepository = (*loginIdentityCredentialRepoTestDouble)(nil)

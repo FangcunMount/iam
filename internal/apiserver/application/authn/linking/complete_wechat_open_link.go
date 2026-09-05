@@ -3,6 +3,7 @@ package linking
 import (
 	"context"
 	"strings"
+	"time"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v3/internal/pkg/code"
@@ -14,9 +15,11 @@ import (
 // ExpectedUserID 由 transport 从已验证 access token 注入，用于确认 state 归属调用方本人
 // （基本的归属/CSRF 校验，与产品准入边界无关）。零值表示跳过该校验。
 type CompleteWechatOpenLinkInput struct {
-	State          string
-	Code           string
-	ExpectedUserID meta.ID
+	// AuthenticatedAt 从当前调用方的可信认证上下文注入，不使用 OAuth 交换时间。
+	AuthenticatedAt *time.Time
+	State           string
+	Code            string
+	ExpectedUserID  meta.ID
 }
 
 // CompleteWechatOpenLink 消费绑定场景 OAuth state，并把微信开放平台身份绑定到 state 记录的用户。
@@ -56,7 +59,8 @@ func (u *CompleteWechatOpenLink) Execute(ctx context.Context, input CompleteWech
 	}
 
 	return u.linker.Link(ctx, LinkRequest{
-		UserID: stateCtx.UserID,
+		AuthenticatedAt: input.AuthenticatedAt,
+		UserID:          stateCtx.UserID,
 		Input: LinkWechatOpenInput{
 			AppID: stateCtx.AppID,
 			Code:  strings.TrimSpace(input.Code),
