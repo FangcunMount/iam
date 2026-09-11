@@ -332,3 +332,25 @@ func (f *checkerFake) Check(_ context.Context, r authorization.Request) (authori
 	f.calls = append(f.calls, r)
 	return f.decision, f.err
 }
+
+func TestAssignmentFactsRequireManagedCallerAndExplicitOptIn(t *testing.T) {
+	policy, err := assignmentadmission.New(assignmentadmission.Config{DefaultPolicy: "deny", Services: map[string]assignmentadmission.ServiceConstraint{"qs-apiserver.svc": {SubjectTypes: []string{"user"}, Roles: []string{"qs:result_reviewer"}, RequireDelegatedActorOnGrant: true}}})
+	require.NoError(t, err)
+	reader := &snapshotReaderFake{snapshot: authzapp.SubjectSnapshot{PolicyVersion: 7, AssignmentFactsComplete: true, AssignmentFacts: []authzapp.AssignmentRoleFact{{RoleID: "9", RoleName: "platform_admin", ManagementProtection: "protected"}}}}
+	server := &authorizationServer{snapshotReader: reader, assignmentAdmission: policy}
+	request := &authzv4.GetAuthorizationSnapshotRequest{Subject: "user:1", AppName: "qs"}
+	response, err := server.GetAuthorizationSnapshot(serviceContext("qs-apiserver.svc"), request)
+	require.NoError(t, err)
+	require.False(t, response.AssignmentFactsComplete)
+	require.Empty(t, response.AssignmentFacts)
+	request.IncludeAssignmentFacts = true
+	_, err = server.GetAuthorizationSnapshot(serviceContext("untrusted.svc"), request)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	response, err = server.GetAuthorizationSnapshot(serviceContext("qs-apiserver.svc"), request)
+	require.NoError(t, err)
+	require.True(t, response.AssignmentFactsComplete)
+	require.Equal(t, "platform_admin", response.AssignmentFacts[0].RoleName)
+	reader.snapshot.AssignmentFactsComplete = false
+	_, err = server.GetAuthorizationSnapshot(serviceContext("qs-apiserver.svc"), request)
+	require.Equal(t, codes.Unavailable, status.Code(err))
+}

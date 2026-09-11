@@ -7,12 +7,11 @@
 package authzv4
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -510,11 +509,13 @@ func (x *PermissionEntry) GetMode() AuthorizationMode {
 }
 
 type GetAuthorizationSnapshotRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Subject       string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
-	AppName       string                 `protobuf:"bytes,3,opt,name=app_name,json=appName,proto3" json:"app_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Subject string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	AppName string                 `protobuf:"bytes,3,opt,name=app_name,json=appName,proto3" json:"app_name,omitempty"`
+	// Restricted to callers admitted to managed assignment replacement.
+	IncludeAssignmentFacts bool `protobuf:"varint,4,opt,name=include_assignment_facts,json=includeAssignmentFacts,proto3" json:"include_assignment_facts,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *GetAuthorizationSnapshotRequest) Reset() {
@@ -561,6 +562,13 @@ func (x *GetAuthorizationSnapshotRequest) GetAppName() string {
 	return ""
 }
 
+func (x *GetAuthorizationSnapshotRequest) GetIncludeAssignmentFacts() bool {
+	if x != nil {
+		return x.IncludeAssignmentFacts
+	}
+	return false
+}
+
 type GetAuthorizationSnapshotResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// roles contains the directly assigned roles for app_name, identical to direct_roles.
@@ -568,9 +576,12 @@ type GetAuthorizationSnapshotResponse struct {
 	Permissions   []*PermissionEntry `protobuf:"bytes,2,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	PolicyVersion int64              `protobuf:"varint,3,opt,name=policy_version,json=policyVersion,proto3" json:"policy_version,omitempty"`
 	// direct_roles contains only assignments directly bound to the subject.
-	DirectRoles   []string `protobuf:"bytes,4,rep,name=direct_roles,json=directRoles,proto3" json:"direct_roles,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DirectRoles []string `protobuf:"bytes,4,rep,name=direct_roles,json=directRoles,proto3" json:"direct_roles,omitempty"`
+	// Full direct role facts, including other applications and global roles.
+	AssignmentFacts         []*AssignmentRoleFact `protobuf:"bytes,5,rep,name=assignment_facts,json=assignmentFacts,proto3" json:"assignment_facts,omitempty"`
+	AssignmentFactsComplete bool                  `protobuf:"varint,6,opt,name=assignment_facts_complete,json=assignmentFactsComplete,proto3" json:"assignment_facts_complete,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GetAuthorizationSnapshotResponse) Reset() {
@@ -629,6 +640,20 @@ func (x *GetAuthorizationSnapshotResponse) GetDirectRoles() []string {
 		return x.DirectRoles
 	}
 	return nil
+}
+
+func (x *GetAuthorizationSnapshotResponse) GetAssignmentFacts() []*AssignmentRoleFact {
+	if x != nil {
+		return x.AssignmentFacts
+	}
+	return nil
+}
+
+func (x *GetAuthorizationSnapshotResponse) GetAssignmentFactsComplete() bool {
+	if x != nil {
+		return x.AssignmentFactsComplete
+	}
+	return false
 }
 
 type GrantAssignmentRequest struct {
@@ -975,6 +1000,66 @@ func (x *ReplaceManagedAssignmentsResponse) GetChanged() bool {
 	return false
 }
 
+type AssignmentRoleFact struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	RoleId               string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	RoleName             string                 `protobuf:"bytes,2,opt,name=role_name,json=roleName,proto3" json:"role_name,omitempty"`
+	ManagementProtection string                 `protobuf:"bytes,3,opt,name=management_protection,json=managementProtection,proto3" json:"management_protection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *AssignmentRoleFact) Reset() {
+	*x = AssignmentRoleFact{}
+	mi := &file_iam_authz_v4_authz_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignmentRoleFact) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignmentRoleFact) ProtoMessage() {}
+
+func (x *AssignmentRoleFact) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_authz_v4_authz_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignmentRoleFact.ProtoReflect.Descriptor instead.
+func (*AssignmentRoleFact) Descriptor() ([]byte, []int) {
+	return file_iam_authz_v4_authz_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *AssignmentRoleFact) GetRoleId() string {
+	if x != nil {
+		return x.RoleId
+	}
+	return ""
+}
+
+func (x *AssignmentRoleFact) GetRoleName() string {
+	if x != nil {
+		return x.RoleName
+	}
+	return ""
+}
+
+func (x *AssignmentRoleFact) GetManagementProtection() string {
+	if x != nil {
+		return x.ManagementProtection
+	}
+	return ""
+}
+
 var File_iam_authz_v4_authz_proto protoreflect.FileDescriptor
 
 const file_iam_authz_v4_authz_proto_rawDesc = "" +
@@ -1009,15 +1094,18 @@ const file_iam_authz_v4_authz_proto_rawDesc = "" +
 	"\x0fPermissionEntry\x12\x1a\n" +
 	"\bresource\x18\x01 \x01(\tR\bresource\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\tR\x06action\x123\n" +
-	"\x04mode\x18\x03 \x01(\x0e2\x1f.iam.authz.v4.AuthorizationModeR\x04mode\"d\n" +
+	"\x04mode\x18\x03 \x01(\x0e2\x1f.iam.authz.v4.AuthorizationModeR\x04mode\"\x9e\x01\n" +
 	"\x1fGetAuthorizationSnapshotRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x19\n" +
-	"\bapp_name\x18\x03 \x01(\tR\aappNameJ\x04\b\x02\x10\x03R\x06domain\"\xc3\x01\n" +
+	"\bapp_name\x18\x03 \x01(\tR\aappName\x128\n" +
+	"\x18include_assignment_facts\x18\x04 \x01(\bR\x16includeAssignmentFactsJ\x04\b\x02\x10\x03R\x06domain\"\xcc\x02\n" +
 	" GetAuthorizationSnapshotResponse\x12\x14\n" +
 	"\x05roles\x18\x01 \x03(\tR\x05roles\x12?\n" +
 	"\vpermissions\x18\x02 \x03(\v2\x1d.iam.authz.v4.PermissionEntryR\vpermissions\x12%\n" +
 	"\x0epolicy_version\x18\x03 \x01(\x03R\rpolicyVersion\x12!\n" +
-	"\fdirect_roles\x18\x04 \x03(\tR\vdirectRoles\"|\n" +
+	"\fdirect_roles\x18\x04 \x03(\tR\vdirectRoles\x12K\n" +
+	"\x10assignment_facts\x18\x05 \x03(\v2 .iam.authz.v4.AssignmentRoleFactR\x0fassignmentFacts\x12:\n" +
+	"\x19assignment_facts_complete\x18\x06 \x01(\bR\x17assignmentFactsComplete\"|\n" +
 	"\x16GrantAssignmentRequest\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x1b\n" +
 	"\trole_name\x18\x03 \x01(\tR\broleName\x12\x1d\n" +
@@ -1043,7 +1131,11 @@ const file_iam_authz_v4_authz_proto_rawDesc = "" +
 	"!ReplaceManagedAssignmentsResponse\x12!\n" +
 	"\fdirect_roles\x18\x01 \x03(\tR\vdirectRoles\x12%\n" +
 	"\x0epolicy_version\x18\x02 \x01(\x03R\rpolicyVersion\x12\x18\n" +
-	"\achanged\x18\x03 \x01(\bR\achanged*i\n" +
+	"\achanged\x18\x03 \x01(\bR\achanged\"\x7f\n" +
+	"\x12AssignmentRoleFact\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12\x1b\n" +
+	"\trole_name\x18\x02 \x01(\tR\broleName\x123\n" +
+	"\x15management_protection\x18\x03 \x01(\tR\x14managementProtection*i\n" +
 	"\x11AuthorizationMode\x12\"\n" +
 	"\x1eAUTHORIZATION_MODE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rUNCONDITIONAL\x10\x01\x12\x1d\n" +
@@ -1073,7 +1165,7 @@ func file_iam_authz_v4_authz_proto_rawDescGZIP() []byte {
 }
 
 var file_iam_authz_v4_authz_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_iam_authz_v4_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_iam_authz_v4_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_iam_authz_v4_authz_proto_goTypes = []any{
 	(AuthorizationMode)(0),                    // 0: iam.authz.v4.AuthorizationMode
 	(DecisionReason)(0),                       // 1: iam.authz.v4.DecisionReason
@@ -1090,6 +1182,7 @@ var file_iam_authz_v4_authz_proto_goTypes = []any{
 	(*RevokeAssignmentResponse)(nil),          // 12: iam.authz.v4.RevokeAssignmentResponse
 	(*ReplaceManagedAssignmentsRequest)(nil),  // 13: iam.authz.v4.ReplaceManagedAssignmentsRequest
 	(*ReplaceManagedAssignmentsResponse)(nil), // 14: iam.authz.v4.ReplaceManagedAssignmentsResponse
+	(*AssignmentRoleFact)(nil),                // 15: iam.authz.v4.AssignmentRoleFact
 }
 var file_iam_authz_v4_authz_proto_depIdxs = []int32{
 	2,  // 0: iam.authz.v4.ObjectContext.attributes:type_name -> iam.authz.v4.ObjectAttribute
@@ -1097,21 +1190,22 @@ var file_iam_authz_v4_authz_proto_depIdxs = []int32{
 	1,  // 2: iam.authz.v4.CheckResponse.reason:type_name -> iam.authz.v4.DecisionReason
 	0,  // 3: iam.authz.v4.PermissionEntry.mode:type_name -> iam.authz.v4.AuthorizationMode
 	6,  // 4: iam.authz.v4.GetAuthorizationSnapshotResponse.permissions:type_name -> iam.authz.v4.PermissionEntry
-	4,  // 5: iam.authz.v4.AuthorizationService.Check:input_type -> iam.authz.v4.CheckRequest
-	7,  // 6: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:input_type -> iam.authz.v4.GetAuthorizationSnapshotRequest
-	9,  // 7: iam.authz.v4.AuthorizationService.GrantAssignment:input_type -> iam.authz.v4.GrantAssignmentRequest
-	11, // 8: iam.authz.v4.AuthorizationService.RevokeAssignment:input_type -> iam.authz.v4.RevokeAssignmentRequest
-	13, // 9: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:input_type -> iam.authz.v4.ReplaceManagedAssignmentsRequest
-	5,  // 10: iam.authz.v4.AuthorizationService.Check:output_type -> iam.authz.v4.CheckResponse
-	8,  // 11: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:output_type -> iam.authz.v4.GetAuthorizationSnapshotResponse
-	10, // 12: iam.authz.v4.AuthorizationService.GrantAssignment:output_type -> iam.authz.v4.GrantAssignmentResponse
-	12, // 13: iam.authz.v4.AuthorizationService.RevokeAssignment:output_type -> iam.authz.v4.RevokeAssignmentResponse
-	14, // 14: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:output_type -> iam.authz.v4.ReplaceManagedAssignmentsResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	15, // 5: iam.authz.v4.GetAuthorizationSnapshotResponse.assignment_facts:type_name -> iam.authz.v4.AssignmentRoleFact
+	4,  // 6: iam.authz.v4.AuthorizationService.Check:input_type -> iam.authz.v4.CheckRequest
+	7,  // 7: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:input_type -> iam.authz.v4.GetAuthorizationSnapshotRequest
+	9,  // 8: iam.authz.v4.AuthorizationService.GrantAssignment:input_type -> iam.authz.v4.GrantAssignmentRequest
+	11, // 9: iam.authz.v4.AuthorizationService.RevokeAssignment:input_type -> iam.authz.v4.RevokeAssignmentRequest
+	13, // 10: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:input_type -> iam.authz.v4.ReplaceManagedAssignmentsRequest
+	5,  // 11: iam.authz.v4.AuthorizationService.Check:output_type -> iam.authz.v4.CheckResponse
+	8,  // 12: iam.authz.v4.AuthorizationService.GetAuthorizationSnapshot:output_type -> iam.authz.v4.GetAuthorizationSnapshotResponse
+	10, // 13: iam.authz.v4.AuthorizationService.GrantAssignment:output_type -> iam.authz.v4.GrantAssignmentResponse
+	12, // 14: iam.authz.v4.AuthorizationService.RevokeAssignment:output_type -> iam.authz.v4.RevokeAssignmentResponse
+	14, // 15: iam.authz.v4.AuthorizationService.ReplaceManagedAssignments:output_type -> iam.authz.v4.ReplaceManagedAssignmentsResponse
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_iam_authz_v4_authz_proto_init() }
@@ -1130,7 +1224,7 @@ func file_iam_authz_v4_authz_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_authz_v4_authz_proto_rawDesc), len(file_iam_authz_v4_authz_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

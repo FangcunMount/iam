@@ -106,17 +106,34 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if req.IncludeAssignmentFacts {
+		caller, _ := requireServiceIdentity(ctx)
+		_, err := admitAssignmentReplacement(ctx, s.assignmentAdmission, assignmentadmission.ReplacementRequest{Subject: sub, DelegatedActor: "service:" + caller})
+		if err != nil {
+			return nil, err
+		}
+	}
 	snapshot, err := s.snapshotReader.Read(ctx, sub, req.AppName)
 	if err != nil {
 		return nil, iamgrpc.ToStatusError(err)
 	}
 	// Field numbers stay stable: roles and direct_roles both expose the app-
 	// filtered direct assignment set after inheritance retirement.
-	return &authzv4.GetAuthorizationSnapshotResponse{
+	response := &authzv4.GetAuthorizationSnapshotResponse{
 		Roles: snapshot.DirectRoles, DirectRoles: snapshot.DirectRoles,
 		Permissions:   toProtoPermissions(snapshot.Permissions),
 		PolicyVersion: snapshot.PolicyVersion,
-	}, nil
+	}
+	if req.IncludeAssignmentFacts {
+		if !snapshot.AssignmentFactsComplete {
+			return nil, status.Error(codes.Unavailable, "complete assignment facts unavailable")
+		}
+		for _, f := range snapshot.AssignmentFacts {
+			response.AssignmentFacts = append(response.AssignmentFacts, &authzv4.AssignmentRoleFact{RoleId: f.RoleID, RoleName: f.RoleName, ManagementProtection: f.ManagementProtection})
+		}
+		response.AssignmentFactsComplete = true
+	}
+	return response, nil
 }
 
 func (s *authorizationServer) GrantAssignment(ctx context.Context, req *authzv4.GrantAssignmentRequest) (*authzv4.GrantAssignmentResponse, error) {

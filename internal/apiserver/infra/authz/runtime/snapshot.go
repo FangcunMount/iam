@@ -17,6 +17,7 @@ import (
 )
 
 type Snapshot struct {
+	roleFacts    map[meta.ID]authorizationapp.AssignmentRoleFact
 	verifiedAt   time.Time // proof belongs to this immutable publication
 	roles        authorizationdomain.RoleResolver
 	roleNames    map[meta.ID]role.Name
@@ -111,16 +112,18 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		sort.Slice(grantsByRole[name], func(i, j int) bool { return grantsByRole[name][i].ID < grantsByRole[name][j].ID })
 	}
 	roleNames := make(map[meta.ID]role.Name, len(roleByID))
+	roleFacts := make(map[meta.ID]authorizationapp.AssignmentRoleFact, len(roleByID))
 	for id, r := range roleByID {
 		name, err := role.NewName(r.Name)
 		if err != nil {
 			return nil, err
 		}
 		roleNames[id] = name
+		roleFacts[id] = authorizationapp.AssignmentRoleFact{RoleID: id.String(), RoleName: name.String(), ManagementProtection: string(r.ManagementProtection)}
 	}
 
 	return &Snapshot{
-		roles: roleResolver, roleNames: roleNames, grantsByRole: grantsByRole, resources: resources,
+		roleFacts: roleFacts, roles: roleResolver, roleNames: roleNames, grantsByRole: grantsByRole, resources: resources,
 		version: dataset.Version, loadedAt: loadedAt,
 	}, nil
 }
@@ -152,6 +155,11 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, appName string) (authorizati
 	if err != nil {
 		return authorizationapp.SubjectSnapshot{}, err
 	}
+	facts := make([]authorizationapp.AssignmentRoleFact, 0, len(directRoles))
+	for _, id := range directRoles {
+		facts = append(facts, s.roleFacts[id])
+	}
+	sort.Slice(facts, func(i, j int) bool { return facts[i].RoleID < facts[j].RoleID })
 	modeByPermission := make(map[string]authorizationapp.AuthorizationMode)
 	for _, roleName := range effectiveRoles {
 		for _, grant := range s.grantsByRole[roleName] {
@@ -175,6 +183,7 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, appName string) (authorizati
 		return permissions[i].Resource < permissions[j].Resource
 	})
 	return authorizationapp.SubjectSnapshot{
+		AssignmentFacts: facts, AssignmentFactsComplete: true,
 		DirectRoles:    appScopedRoleNames(s.names(directRoles), appName),
 		EffectiveRoles: appScopedRoleNames(s.names(effectiveRoles), appName),
 		Permissions:    permissions,

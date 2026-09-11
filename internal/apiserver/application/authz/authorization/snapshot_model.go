@@ -12,9 +12,15 @@ type PermissionEntry struct {
 	Mode     AuthorizationMode
 }
 
+type AssignmentRoleFact struct {
+	RoleID, RoleName, ManagementProtection string
+}
+
 type SubjectSnapshot struct {
-	DirectRoles    []string
-	EffectiveRoles []string
-	Permissions    []PermissionEntry
-	PolicyVersion  int64
+	AssignmentFacts         []AssignmentRoleFact
+	AssignmentFactsComplete bool
+	DirectRoles             []string
+	EffectiveRoles          []string
+	Permissions             []PermissionEntry
+	PolicyVersion           int64
 }

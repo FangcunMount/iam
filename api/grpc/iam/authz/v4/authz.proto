@@ -71,6 +71,8 @@ message GetAuthorizationSnapshotRequest {
   reserved 2;
   reserved "domain";
   string app_name = 3;
+  // Restricted to callers admitted to managed assignment replacement.
+  bool include_assignment_facts = 4;
 }
 
 message GetAuthorizationSnapshotResponse {
@@ -80,6 +82,9 @@ message GetAuthorizationSnapshotResponse {
   int64 policy_version = 3;
   // direct_roles contains only assignments directly bound to the subject.
   repeated string direct_roles = 4;
+  // Full direct role facts, including other applications and global roles.
+  repeated AssignmentRoleFact assignment_facts = 5;
+  bool assignment_facts_complete = 6;
 }
 
 message GrantAssignmentRequest {
@@ -120,4 +125,10 @@ message ReplaceManagedAssignmentsResponse {
   repeated string direct_roles = 1;
   int64 policy_version = 2;
   bool changed = 3;
+}
+
+message AssignmentRoleFact {
+  string role_id = 1;
+  string role_name = 2;
+  string management_protection = 3;
 }

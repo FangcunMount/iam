@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	authorizationapp "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/authorization"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/authorization"
@@ -186,4 +187,20 @@ func BenchmarkRuntimeCheckAssessmentRetry(b *testing.B) {
 			b.Fatalf("Check() decision=%+v error=%v", decision, err)
 		}
 	}
+}
+
+func TestAssignmentFactsPreserveGlobalAndOtherApplicationRoles(t *testing.T) {
+	data := assessmentDataset(t)
+	data.Roles = append(data.Roles, authzruntime.RoleRecord{ID: meta.FromUint64(99), Name: "platform_admin", ManagementProtection: "protected"}, authzruntime.RoleRecord{ID: meta.FromUint64(100), Name: "other:manager", ManagementProtection: "standard"})
+	data.Assignments = append(data.Assignments, authzruntime.AssignmentRecord{SubjectKey: "user:2", RoleID: meta.FromUint64(99)}, authzruntime.AssignmentRecord{SubjectKey: "user:2", RoleID: meta.FromUint64(100)})
+	snapshot, err := authzruntime.BuildSnapshot(data, time.Now())
+	require.NoError(t, err)
+	sub, err := subject.ParseRef("user:2")
+	require.NoError(t, err)
+	result, err := snapshot.SubjectSnapshot(sub, "qs")
+	require.NoError(t, err)
+	require.Equal(t, []string{"qs:evaluator"}, result.DirectRoles)
+	require.True(t, result.AssignmentFactsComplete)
+	require.Len(t, result.AssignmentFacts, 3)
+	require.Contains(t, result.AssignmentFacts, authorizationapp.AssignmentRoleFact{RoleID: "99", RoleName: "platform_admin", ManagementProtection: "protected"})
 }
