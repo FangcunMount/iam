@@ -53,7 +53,14 @@ func TestDeploymentPreservesReleaseBoundMaintenanceACL(t *testing.T) {
 			}
 			command := exec.Command("bash", "-c", `set -euo pipefail
 source ./maintenance-acl.sh
-priv(){ "$@"; }
+# Production deploy sudo permits filesystem sync and ownership changes,
+# but deliberately does not permit cat, sha256sum or cp.
+priv(){
+  case "$1" in
+    test|rsync|chown) "$@" ;;
+    *) echo "sudo command not allowed: $1" >&2; return 1 ;;
+  esac
+}
 sha256sum(){ shasum -a 256 "$@"; }
 SUDO=priv
 preserve_maintenance_acl "$1" "$2" release-1`, "test", freeze, pkg)
