@@ -974,13 +974,14 @@ func TestContainerCapabilityNavigationStaysInCollectors(t *testing.T) {
 }
 
 func TestRetiredAuthzRuntimeAndV2ContractsDoNotRegress(t *testing.T) {
+	// The current assignment Scope value object intentionally reuses the scope
+	// package name; retired rolebinding/Casbin paths remain forbidden below.
 	t.Parallel()
 
 	root := repoRoot(t)
 	for _, rel := range []string{
 		"internal/apiserver/infra/casbin",
 		"internal/apiserver/infra/mysql/casbinrule",
-		"internal/apiserver/domain/authz/scope",
 		"internal/apiserver/application/authz/assignmentauth",
 		"internal/apiserver/application/authz/policysync",
 		"internal/apiserver/application/authz/rolebinding",

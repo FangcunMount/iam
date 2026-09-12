@@ -24,6 +24,7 @@ const (
 	AuthorizationService_GrantAssignment_FullMethodName           = "/iam.authz.v4.AuthorizationService/GrantAssignment"
 	AuthorizationService_RevokeAssignment_FullMethodName          = "/iam.authz.v4.AuthorizationService/RevokeAssignment"
 	AuthorizationService_ReplaceManagedAssignments_FullMethodName = "/iam.authz.v4.AuthorizationService/ReplaceManagedAssignments"
+	AuthorizationService_ReplaceScopedAssignments_FullMethodName  = "/iam.authz.v4.AuthorizationService/ReplaceScopedAssignments"
 )
 
 // AuthorizationServiceClient is the client API for AuthorizationService service.
@@ -35,6 +36,9 @@ type AuthorizationServiceClient interface {
 	GrantAssignment(ctx context.Context, in *GrantAssignmentRequest, opts ...grpc.CallOption) (*GrantAssignmentResponse, error)
 	RevokeAssignment(ctx context.Context, in *RevokeAssignmentRequest, opts ...grpc.CallOption) (*RevokeAssignmentResponse, error)
 	ReplaceManagedAssignments(ctx context.Context, in *ReplaceManagedAssignmentsRequest, opts ...grpc.CallOption) (*ReplaceManagedAssignmentsResponse, error)
+	// Separate RPC: older servers return Unimplemented, never interpret a scoped
+	// request as an empty legacy replacement.
+	ReplaceScopedAssignments(ctx context.Context, in *ReplaceScopedAssignmentsRequest, opts ...grpc.CallOption) (*ReplaceManagedAssignmentsResponse, error)
 }
 
 type authorizationServiceClient struct {
@@ -95,6 +99,16 @@ func (c *authorizationServiceClient) ReplaceManagedAssignments(ctx context.Conte
 	return out, nil
 }
 
+func (c *authorizationServiceClient) ReplaceScopedAssignments(ctx context.Context, in *ReplaceScopedAssignmentsRequest, opts ...grpc.CallOption) (*ReplaceManagedAssignmentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplaceManagedAssignmentsResponse)
+	err := c.cc.Invoke(ctx, AuthorizationService_ReplaceScopedAssignments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthorizationServiceServer is the server API for AuthorizationService service.
 // All implementations must embed UnimplementedAuthorizationServiceServer
 // for forward compatibility.
@@ -104,6 +118,9 @@ type AuthorizationServiceServer interface {
 	GrantAssignment(context.Context, *GrantAssignmentRequest) (*GrantAssignmentResponse, error)
 	RevokeAssignment(context.Context, *RevokeAssignmentRequest) (*RevokeAssignmentResponse, error)
 	ReplaceManagedAssignments(context.Context, *ReplaceManagedAssignmentsRequest) (*ReplaceManagedAssignmentsResponse, error)
+	// Separate RPC: older servers return Unimplemented, never interpret a scoped
+	// request as an empty legacy replacement.
+	ReplaceScopedAssignments(context.Context, *ReplaceScopedAssignmentsRequest) (*ReplaceManagedAssignmentsResponse, error)
 	mustEmbedUnimplementedAuthorizationServiceServer()
 }
 
@@ -128,6 +145,9 @@ func (UnimplementedAuthorizationServiceServer) RevokeAssignment(context.Context,
 }
 func (UnimplementedAuthorizationServiceServer) ReplaceManagedAssignments(context.Context, *ReplaceManagedAssignmentsRequest) (*ReplaceManagedAssignmentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplaceManagedAssignments not implemented")
+}
+func (UnimplementedAuthorizationServiceServer) ReplaceScopedAssignments(context.Context, *ReplaceScopedAssignmentsRequest) (*ReplaceManagedAssignmentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceScopedAssignments not implemented")
 }
 func (UnimplementedAuthorizationServiceServer) mustEmbedUnimplementedAuthorizationServiceServer() {}
 func (UnimplementedAuthorizationServiceServer) testEmbeddedByValue()                              {}
@@ -240,6 +260,24 @@ func _AuthorizationService_ReplaceManagedAssignments_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthorizationService_ReplaceScopedAssignments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceScopedAssignmentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthorizationServiceServer).ReplaceScopedAssignments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthorizationService_ReplaceScopedAssignments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthorizationServiceServer).ReplaceScopedAssignments(ctx, req.(*ReplaceScopedAssignmentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthorizationService_ServiceDesc is the grpc.ServiceDesc for AuthorizationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +304,10 @@ var AuthorizationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplaceManagedAssignments",
 			Handler:    _AuthorizationService_ReplaceManagedAssignments_Handler,
+		},
+		{
+			MethodName: "ReplaceScopedAssignments",
+			Handler:    _AuthorizationService_ReplaceScopedAssignments_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

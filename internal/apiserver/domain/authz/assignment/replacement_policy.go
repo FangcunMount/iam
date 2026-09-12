@@ -78,6 +78,9 @@ func (ReplacementPolicy) Plan(
 			continue
 		}
 		if roleName, ok := managedByID[assignment.RoleID.Uint64()]; ok {
+			if _, scoped := assignment.Scope(); scoped {
+				return ReplacementPlan{}, perrors.WithCode(code.ErrInvalidArgument, "company-scoped assignments require company-aware replacement")
+			}
 			currentManaged[roleName] = assignment
 		}
 	}

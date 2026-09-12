@@ -22,13 +22,9 @@
 
 `transport`、`observability` 和高级错误分析能力已经收回内部实现，不再作为公开稳定包。
 
-当前 Go module major 为 v3：
+当前 Go module major 为 v5，import 根路径为 `github.com/FangcunMount/iam/v5`。选择已经发布的 v5 标签安装；本文中的 Scope 新接口必须使用包含该实现的 SDK 版本，不能直接用现有 v5.1.0 替代。
 
-```bash
-go get github.com/FangcunMount/iam/v5@v3.0.0
-```
-
-REST/OpenAPI 和 gRPC proto package 仍为 v2；升级 SDK import path 时不要修改 wire 路径或 `iam.*.v2` package。
+Go module major 与线协议版本分别管理。AuthZ 使用 `api/grpc/iam/authz/v4`；不要仅因升级 SDK import path 而改写服务协议路径。
 
 ## 30 秒结论
 
@@ -348,3 +344,17 @@ client, err := sdk.NewClient(ctx, &sdk.Config{
 | JWT 验证 | [_examples/verifier/main.go](./_examples/verifier/main.go) | JWKS + verifier + 远程降级 |
 | 服务间认证 | [_examples/mtls/main.go](./_examples/mtls/main.go) | mTLS |
 | 授权判定 | [_examples/authz/main.go](./_examples/authz/main.go) | `Check` / `Allow` |
+
+## AuthZ 数据范围接入
+
+Scope 随角色分配保存，包含公司 `OrgID` 和 `STORES`（指定门店）或 `ALL_STORES`（公司全部门店）。IAM 负责返回资源、动作与范围的对应关系；业务系统负责验证当前运营身份和公司，并在查询、统计及写入中执行范围限制。普通 `Check` / `Allow` 的动作许可不能证明目标记录位于授权范围内。
+
+- 使用 `Authz().GetScopedAuthorizationSnapshot` 获取并校验版本为 1 的范围快照。旧服务、非法范围或非无条件权限会返回错误；不能捕获错误后回退成全公司权限。
+- 按当前公司、目标资源和具体动作匹配权限，再合并这些匹配项的范围。不同动作或公司的范围不能混用。
+- 缺少范围表示没有数据范围授权。`ALL_STORES` 也不使门店归属为空的受试者自动可见。数据列表须先按当前归属过滤，再分页和计数；总部内容等不属于门店数据的入口使用其明确的业务规则。
+- 管理角色分配时，请求 `IncludeAssignmentFacts=true`；SDK 同时通过 `ValidateAssignmentScopes` 校验完整分配事实。`Scope=nil` 表示该分配尚未配置，不表示全公司。
+- 使用 `ReplaceScopedAssignments` 提交当前公司的受管角色及范围，并携带读取时的 `ExpectedPolicyVersion`。版本冲突时重新读取并核对用户意图，不自动用新版本覆盖其他操作人的修改。请求结果不明时先查询事实。
+
+发布顺序为：发布含新接口的 SDK，更新消费者依赖并验证，随后在协调的维护窗口完成授权数据迁移和服务切换。仅升级 SDK 不会迁移存量分配；旧消费者也不会因为协议新增字段就自动执行数据范围过滤。
+
+完整迁移、指纹复核、策略版本及回滚要求见[Assignment Scope 迁移维护手册](../../docs/operations/assignment-scope-migration.md)。

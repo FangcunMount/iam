@@ -31,7 +31,7 @@ func (r *Runtime) PermissionEntriesForSubject(ctx context.Context, sub subject.R
 				continue
 			}
 			seen[key] = true
-			result = append(result, authzapp.PermissionEntry{Resource: g.ResourceKeyString(), Action: g.ActionString(), Mode: authzapp.ModeUnconditional})
+			result = append(result, authzapp.PermissionEntry{Resource: g.ResourceKeyString(), Action: g.ActionString(), Mode: authzapp.ModeUnconditional, Scopes: snapshot.permissionScopes(sub, g.ResourceKeyString(), g.ActionString())})
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {

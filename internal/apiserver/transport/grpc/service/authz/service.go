@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"errors"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"strings"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/management"
@@ -120,7 +121,7 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 	// Field numbers stay stable: roles and direct_roles both expose the app-
 	// filtered direct assignment set after inheritance retirement.
 	response := &authzv4.GetAuthorizationSnapshotResponse{
-		Roles: snapshot.DirectRoles, DirectRoles: snapshot.DirectRoles,
+		Roles: snapshot.DirectRoles, DirectRoles: snapshot.DirectRoles, ScopeContractVersion: 1,
 		Permissions:   toProtoPermissions(snapshot.Permissions),
 		PolicyVersion: snapshot.PolicyVersion,
 	}
@@ -130,6 +131,13 @@ func (s *authorizationServer) GetAuthorizationSnapshot(ctx context.Context, req 
 		}
 		for _, f := range snapshot.AssignmentFacts {
 			response.AssignmentFacts = append(response.AssignmentFacts, &authzv4.AssignmentRoleFact{RoleId: f.RoleID, RoleName: f.RoleName, ManagementProtection: f.ManagementProtection})
+		}
+		for _, f := range snapshot.AssignmentScopes {
+			item := &authzv4.AssignmentScopeFact{AssignmentId: f.AssignmentID, Role: &authzv4.AssignmentRoleFact{RoleId: f.Role.RoleID, RoleName: f.Role.RoleName, ManagementProtection: f.Role.ManagementProtection}}
+			if f.Scope != nil {
+				item.Scope = toProtoDataScope(*f.Scope)
+			}
+			response.AssignmentScopes = append(response.AssignmentScopes, item)
 		}
 		response.AssignmentFactsComplete = true
 	}
@@ -362,7 +370,11 @@ func toProtoPermissions(entries []authzapp.PermissionEntry) []*authzv4.Permissio
 	permissions := make([]*authzv4.PermissionEntry, 0, len(entries))
 	for _, entry := range entries {
 		mode := authzv4.AuthorizationMode_UNCONDITIONAL
-		permissions = append(permissions, &authzv4.PermissionEntry{Resource: entry.Resource, Action: entry.Action, Mode: mode})
+		item := &authzv4.PermissionEntry{Resource: entry.Resource, Action: entry.Action, Mode: mode}
+		for _, value := range entry.Scopes {
+			item.Scopes = append(item.Scopes, toProtoDataScope(value))
+		}
+		permissions = append(permissions, item)
 	}
 	return permissions
 }
@@ -387,4 +399,19 @@ func authenticatedManagementContext(ctx context.Context) context.Context {
 		return ctx
 	}
 	return management.WithAuthenticatedService(ctx, service)
+}
+
+func toProtoDataScope(value scope.Scope) *authzv4.DataScope {
+	kind := authzv4.DataScopeKind_DATA_SCOPE_KIND_UNSPECIFIED
+	switch value.Kind() {
+	case scope.AllStores:
+		kind = authzv4.DataScopeKind_ALL_STORES
+	case scope.Stores:
+		kind = authzv4.DataScopeKind_STORES
+	}
+	ids := make([]string, 0, len(value.StoreIDs()))
+	for _, id := range value.StoreIDs() {
+		ids = append(ids, id.String())
+	}
+	return &authzv4.DataScope{OrgId: value.OrgID().String(), Kind: kind, StoreIds: ids}
 }

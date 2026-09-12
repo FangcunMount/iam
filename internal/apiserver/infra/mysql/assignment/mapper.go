@@ -1,8 +1,12 @@
 package assignment
 
 import (
+	"encoding/json"
+	"fmt"
 	assignmentDomain "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/assignment"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
+	"math"
 )
 
 // Mapper 负责 Assignment 领域对象和持久化对象之间的转换。
@@ -19,13 +23,40 @@ func (m *Mapper) ToBO(po *AssignmentPO) (*assignmentDomain.Assignment, error) {
 		return nil, nil
 	}
 
+	opts := []assignmentDomain.Option{assignmentDomain.WithID(assignmentDomain.AssignmentID(po.ID)), assignmentDomain.WithGrantedBy(po.GrantedBy)}
+	if po.OrgID != 0 || po.ScopeKind != "" || po.ScopeStoreIDs != nil {
+		if po.OrgID > math.MaxInt64 {
+			return nil, fmt.Errorf("invalid assignment scope company")
+		}
+		var values []string
+		if po.ScopeStoreIDs != nil {
+			if err := json.Unmarshal([]byte(*po.ScopeStoreIDs), &values); err != nil {
+				return nil, fmt.Errorf("invalid assignment store IDs: %w", err)
+			}
+			if values == nil {
+				return nil, fmt.Errorf("assignment store IDs must be an array")
+			}
+		}
+		ids := make([]meta.ID, 0, len(values))
+		for _, value := range values {
+			id, err := meta.ParseID(value)
+			if err != nil || id <= 0 {
+				return nil, fmt.Errorf("invalid assignment store ID")
+			}
+			ids = append(ids, id)
+		}
+		value, err := scope.New(meta.ID(po.OrgID), scope.Kind(po.ScopeKind), ids)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, assignmentDomain.WithScope(value))
+	}
 	a, err := assignmentDomain.NewAssignment(
 		assignmentDomain.SubjectType(po.SubjectType),
 		meta.MustFromUint64(parseStoredID(po.SubjectID)),
 		meta.FromUint64(po.RoleID),
 
-		assignmentDomain.WithID(assignmentDomain.AssignmentID(po.ID)),
-		assignmentDomain.WithGrantedBy(po.GrantedBy),
+		opts...,
 	)
 	if err != nil {
 		return nil, err
@@ -47,6 +78,17 @@ func (m *Mapper) ToPO(bo *assignmentDomain.Assignment) *AssignmentPO {
 		GrantedBy: bo.GrantedBy,
 	}
 	id := meta.FromUint64(bo.ID.Uint64()) // 来自业务对象，必定有效
+	if value, ok := bo.Scope(); ok {
+		po.OrgID = value.OrgID().Uint64()
+		po.ScopeKind = string(value.Kind())
+		ids := make([]string, 0, len(value.StoreIDs()))
+		for _, storeID := range value.StoreIDs() {
+			ids = append(ids, storeID.String())
+		}
+		encoded, _ := json.Marshal(ids) // A string slice is always JSON encodable.
+		payload := string(encoded)
+		po.ScopeStoreIDs = &payload
+	}
 	po.ID = id
 
 	return po

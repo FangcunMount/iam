@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
 
@@ -18,6 +19,8 @@ type RoleRecord struct {
 }
 
 type AssignmentRecord struct {
+	ID         meta.ID
+	Scope      *scope.Scope
 	SubjectKey string
 	RoleID     meta.ID
 }

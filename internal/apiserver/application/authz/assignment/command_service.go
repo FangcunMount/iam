@@ -4,6 +4,8 @@ package assignment
 import (
 	"context"
 	admission "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/assignmentadmission"
+	policyDomain "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v5/internal/pkg/code"
 	"sort"
 	"strings"
 
@@ -159,12 +161,26 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 	if s == nil || s.uow == nil {
 		return ReplaceManagedAssignmentsResult{}, errors.New("role binding command service unavailable")
 	}
+	if cmd.OrgID < 0 || (cmd.OrgID == 0 && len(cmd.ScopedRoles) > 0) {
+		return ReplaceManagedAssignmentsResult{}, errors.WithCode(code.ErrInvalidArgument, "scoped replacement company is required")
+	}
+	if cmd.OrgID > 0 {
+		if len(cmd.RoleNames) > 0 {
+			return ReplaceManagedAssignmentsResult{}, errors.WithCode(code.ErrInvalidArgument, "scoped roles replace legacy role names")
+		}
+		cmd.RoleNames = make([]string, 0, len(cmd.ScopedRoles))
+		for _, target := range cmd.ScopedRoles {
+			cmd.RoleNames = append(cmd.RoleNames, target.RoleName.String())
+		}
+	}
 	validated, err := NewReplaceManagedAssignmentsCommand(
 		cmd.Subject, cmd.RoleNames, cmd.ManagedRoleNames, cmd.ChangedBy, cmd.Reason,
 	)
 	if err != nil {
 		return ReplaceManagedAssignmentsResult{}, err
 	}
+	validated.OrgID, validated.ScopedRoles = cmd.OrgID, cmd.ScopedRoles
+	validated.ExpectedPolicyVersion = cmd.ExpectedPolicyVersion
 	cmd = validated
 	if err := s.guard.RequireReplacement(ctx, cmd.Subject, cmd.RoleNames, cmd.ManagedRoleNames, cmd.ChangedBy); err != nil {
 		return ReplaceManagedAssignmentsResult{}, err
@@ -202,6 +218,22 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 		if err != nil {
 			return errors.Wrap(err, "list subject assignments")
 		}
+		if cmd.ExpectedPolicyVersion != 0 {
+			if cmd.ExpectedPolicyVersion < 0 {
+				return errors.WithCode(code.ErrInvalidArgument, "invalid expected policy version")
+			}
+			locker, ok := tx.PolicyVersions.(policyDomain.LockingRepository)
+			if !ok {
+				return errors.New("policy version lock unavailable")
+			}
+			current, err := locker.GetCurrentForUpdate(txCtx)
+			if err != nil {
+				return err
+			}
+			if current == nil || current.Version != cmd.ExpectedPolicyVersion {
+				return policyDomain.ErrStaleVersion
+			}
+		}
 		managedBindings := make([]assignmentDomain.ManagedRoleBinding, 0, len(orderedRoles))
 		for _, role := range orderedRoles {
 			managedBindings = append(managedBindings, assignmentDomain.ManagedRoleBinding{
@@ -209,9 +241,20 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 				ID:   role.ID,
 			})
 		}
-		plan, err := replacementPolicy.Plan(assignmentDomain.ReplacementRequest{
-			TargetRoleNames: cmd.RoleNames, ManagedRoleNames: cmd.ManagedRoleNames,
-		}, managedBindings, assignments)
+		var plan assignmentDomain.ReplacementPlan
+		if cmd.OrgID == 0 {
+			plan, err = replacementPolicy.Plan(assignmentDomain.ReplacementRequest{TargetRoleNames: cmd.RoleNames, ManagedRoleNames: cmd.ManagedRoleNames}, managedBindings, assignments)
+		} else {
+			var scoped assignmentDomain.ScopedReplacementPlan
+			scoped, err = replacementPolicy.PlanScoped(assignmentDomain.ScopedReplacementRequest{OrgID: cmd.OrgID, ManagedRoleNames: cmd.ManagedRoleNames, Targets: cmd.ScopedRoles}, managedBindings, assignments)
+			plan.Revokes, plan.Changed = scoped.Revokes, scoped.Changed
+			for _, grant := range scoped.Grants {
+				plan.Grants = append(plan.Grants, grant.RoleName)
+			}
+			for _, target := range cmd.ScopedRoles {
+				plan.DirectRoles = append(plan.DirectRoles, target.RoleName)
+			}
+		}
 		if err != nil {
 			return err
 		}
@@ -219,6 +262,7 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 		for _, roleName := range plan.DirectRoles {
 			result.DirectRoles = append(result.DirectRoles, roleName.String())
 		}
+		sort.Strings(result.DirectRoles)
 		for _, assignmentID := range plan.Revokes {
 			if err := tx.Assignments.Delete(txCtx, assignmentID); err != nil {
 				return errors.Wrap(err, "revoke managed assignment")
@@ -226,9 +270,17 @@ func (s *CommandService) ReplaceManagedAssignments(ctx context.Context, cmd Repl
 		}
 		for _, roleName := range plan.Grants {
 			role := managedRoles[roleName.String()]
+			options := []assignmentDomain.Option{assignmentDomain.WithGrantedBy(cmd.ChangedBy)}
+			if cmd.OrgID > 0 {
+				for _, target := range cmd.ScopedRoles {
+					if target.RoleName == roleName {
+						options = append(options, assignmentDomain.WithScope(target.Scope))
+						break
+					}
+				}
+			}
 			assignment, err := assignmentDomain.NewAssignment(
-				assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, role.ID,
-				assignmentDomain.WithGrantedBy(cmd.ChangedBy),
+				assignmentDomain.SubjectType(cmd.Subject.Type), cmd.Subject.ID, role.ID, options...,
 			)
 			if err != nil {
 				return err

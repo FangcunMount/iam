@@ -2,6 +2,8 @@ package authz
 
 import (
 	"context"
+	policyDomain "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"net"
 	"sort"
 	"testing"
@@ -337,12 +339,16 @@ func TestAssignmentFactsRequireManagedCallerAndExplicitOptIn(t *testing.T) {
 	policy, err := assignmentadmission.New(assignmentadmission.Config{DefaultPolicy: "deny", Services: map[string]assignmentadmission.ServiceConstraint{"qs-apiserver.svc": {SubjectTypes: []string{"user"}, Roles: []string{"qs:result_reviewer"}, RequireDelegatedActorOnGrant: true}}})
 	require.NoError(t, err)
 	reader := &snapshotReaderFake{snapshot: authzapp.SubjectSnapshot{PolicyVersion: 7, AssignmentFactsComplete: true, AssignmentFacts: []authzapp.AssignmentRoleFact{{RoleID: "9", RoleName: "platform_admin", ManagementProtection: "protected"}}}}
+	value, scopeErr := scope.New(1, scope.Stores, []meta.ID{123456789012345678})
+	require.NoError(t, scopeErr)
+	reader.snapshot.AssignmentScopes = []authzapp.AssignmentScopeFact{{AssignmentID: "100", Role: reader.snapshot.AssignmentFacts[0], Scope: &value}, {AssignmentID: "101", Role: reader.snapshot.AssignmentFacts[0]}}
 	server := &authorizationServer{snapshotReader: reader, assignmentAdmission: policy}
 	request := &authzv4.GetAuthorizationSnapshotRequest{Subject: "user:1", AppName: "qs"}
 	response, err := server.GetAuthorizationSnapshot(serviceContext("qs-apiserver.svc"), request)
 	require.NoError(t, err)
 	require.False(t, response.AssignmentFactsComplete)
 	require.Empty(t, response.AssignmentFacts)
+	require.Empty(t, response.AssignmentScopes)
 	request.IncludeAssignmentFacts = true
 	_, err = server.GetAuthorizationSnapshot(serviceContext("untrusted.svc"), request)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
@@ -350,7 +356,63 @@ func TestAssignmentFactsRequireManagedCallerAndExplicitOptIn(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, response.AssignmentFactsComplete)
 	require.Equal(t, "platform_admin", response.AssignmentFacts[0].RoleName)
+	require.Len(t, response.AssignmentScopes, 2)
+	require.Equal(t, "100", response.AssignmentScopes[0].AssignmentId)
+	require.Equal(t, []string{"123456789012345678"}, response.AssignmentScopes[0].Scope.StoreIds)
+	require.Nil(t, response.AssignmentScopes[1].Scope)
 	reader.snapshot.AssignmentFactsComplete = false
 	_, err = server.GetAuthorizationSnapshot(serviceContext("qs-apiserver.svc"), request)
 	require.Equal(t, codes.Unavailable, status.Code(err))
+}
+
+func TestSnapshotTransportsScopeWithLosslessIDs(t *testing.T) {
+	value, err := scope.New(1, scope.Stores, []meta.ID{123456789012345678})
+	require.NoError(t, err)
+	reader := &snapshotReaderFake{snapshot: authzapp.SubjectSnapshot{PolicyVersion: 7, Permissions: []authzapp.PermissionEntry{{Resource: assessmentResource, Action: "retry", Mode: authzapp.ModeUnconditional, Scopes: []scope.Scope{value}}}}}
+	server := &authorizationServer{snapshotReader: reader}
+	response, err := server.GetAuthorizationSnapshot(serviceContext("qs-apiserver.svc"), &authzv4.GetAuthorizationSnapshotRequest{Subject: "user:1", AppName: "qs"})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, response.ScopeContractVersion)
+	require.Len(t, response.Permissions, 1)
+	require.Len(t, response.Permissions[0].Scopes, 1)
+	got := response.Permissions[0].Scopes[0]
+	require.Equal(t, "1", got.OrgId)
+	require.Equal(t, []string{"123456789012345678"}, got.StoreIds)
+	require.Equal(t, authzv4.DataScopeKind_STORES, got.Kind)
+}
+
+func TestScopedAssignmentRPCPreservesAdmissionAndCompany(t *testing.T) {
+	policy, err := assignmentadmission.New(assignmentadmission.Config{DefaultPolicy: "deny", Services: map[string]assignmentadmission.ServiceConstraint{"qs-apiserver.svc": {SubjectTypes: []string{"user"}, Roles: []string{"qs:assessment_operator"}, RequireDelegatedActorOnGrant: true}}})
+	require.NoError(t, err)
+	commands := &assignmentCommandsFake{}
+	server := &authorizationServer{assignments: commands, assignmentAdmission: policy}
+	request := &authzv4.ReplaceScopedAssignmentsRequest{ExpectedPolicyVersion: 7, Subject: "user:100", OrgId: "1", ChangedBy: "user:1", Roles: []*authzv4.ScopedRoleAssignment{{RoleName: "qs:assessment_operator", Scope: &authzv4.DataScope{OrgId: "1", Kind: authzv4.DataScopeKind_STORES, StoreIds: []string{"10"}}}}}
+	_, err = server.ReplaceScopedAssignments(serviceContext("qs-apiserver.svc"), request)
+	require.NoError(t, err)
+	require.Len(t, commands.replacements, 1)
+	cmd := commands.replacements[0]
+	require.EqualValues(t, 1, cmd.OrgID)
+	require.EqualValues(t, 7, cmd.ExpectedPolicyVersion)
+	require.Empty(t, cmd.RoleNames)
+	require.True(t, cmd.ScopedRoles[0].Scope.ContainsStore(1, 10))
+	_, err = server.ReplaceScopedAssignments(serviceContext("untrusted.svc"), request)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	request.Roles[0].Scope.OrgId = "2"
+	_, err = server.ReplaceScopedAssignments(serviceContext("qs-apiserver.svc"), request)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	request.Roles[0].Scope.OrgId = "1"
+	request.Roles[0].RoleName = "platform_admin"
+	_, err = server.ReplaceScopedAssignments(serviceContext("qs-apiserver.svc"), request)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	require.Len(t, commands.replacements, 1, "rejected calls must not enter writes")
+	request.Roles[0].RoleName = "qs:assessment_operator"
+	request.ExpectedPolicyVersion = 0
+	_, err = server.ReplaceScopedAssignments(serviceContext("qs-apiserver.svc"), request)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	require.Len(t, commands.replacements, 1)
+	request.ExpectedPolicyVersion = 7
+	commands.replaceErr = policyDomain.ErrStaleVersion
+	_, err = server.ReplaceScopedAssignments(serviceContext("qs-apiserver.svc"), request)
+	require.Equal(t, codes.Aborted, status.Code(err))
+
 }

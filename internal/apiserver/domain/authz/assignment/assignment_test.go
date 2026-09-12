@@ -1,6 +1,7 @@
 package assignment_test
 
 import (
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -39,4 +40,30 @@ func TestAssignmentCreateRejectsInvalidState(t *testing.T) {
 			assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 		})
 	}
+}
+
+func TestAssignmentScopeIsExplicitAndRoleSpecific(t *testing.T) {
+	first, err := scope.New(1, scope.Stores, []meta.ID{10})
+	require.NoError(t, err)
+	second, err := scope.New(1, scope.Stores, []meta.ID{20})
+	require.NoError(t, err)
+	a, err := assignment.NewAssignment(assignment.SubjectTypeUser, 1, 42, assignment.WithGrantedBy("admin"), assignment.WithScope(first))
+	require.NoError(t, err)
+	b, err := assignment.NewAssignment(assignment.SubjectTypeUser, 1, 43, assignment.WithGrantedBy("admin"), assignment.WithScope(second))
+	require.NoError(t, err)
+	sa, ok := a.Scope()
+	require.True(t, ok)
+	sb, ok := b.Scope()
+	require.True(t, ok)
+	assert.True(t, sa.ContainsStore(1, 10))
+	assert.False(t, sa.ContainsStore(1, 20))
+	assert.True(t, sb.ContainsStore(1, 20))
+	assert.False(t, sb.ContainsStore(1, 10))
+	legacy, err := assignment.NewAssignment(assignment.SubjectTypeUser, 1, 42, assignment.WithGrantedBy("admin"))
+	require.NoError(t, err)
+	absent, ok := legacy.Scope()
+	assert.False(t, ok)
+	assert.False(t, absent.ContainsStore(1, 10))
+	_, err = assignment.NewAssignment(assignment.SubjectTypeUser, 1, 42, assignment.WithGrantedBy("admin"), assignment.WithScope(scope.Scope{}))
+	assert.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }

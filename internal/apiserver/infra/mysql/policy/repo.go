@@ -66,3 +66,16 @@ func (r *PolicyVersionRepository) Increment(ctx context.Context, changedBy, reas
 	}
 	return r.GetCurrent(ctx)
 }
+
+// GetCurrentForUpdate is called inside the assignment UOW after role/subject locks.
+func (r *PolicyVersionRepository) GetCurrentForUpdate(ctx context.Context) (*domain.PolicyVersion, error) {
+	var row PolicyVersionPO
+	q := r.db.WithContext(ctx)
+	if q.Dialector.Name() != "sqlite" {
+		q = q.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	if err := q.First(&row, 1).Error; err != nil {
+		return nil, err
+	}
+	return r.mapper.ToBO(&row), nil
+}

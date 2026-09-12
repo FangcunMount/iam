@@ -37,7 +37,7 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !migrated || version != 35 {
+	if !migrated || version != 37 {
 		t.Fatalf("migration version=%d changed=%v", version, migrated)
 	}
 	db := openMigrationMySQL(t)
@@ -294,6 +294,7 @@ ORDER BY TABLE_NAME`, database)
 		"iam_role_inheritance_archives",
 		"iam_role_model_migrations",
 		"iam_condition_retirement_migrations",
+		"iam_scope_migrations",
 		"authz_roles",
 		"domain_event_outbox",
 		"identity_session_revocation_outbox",

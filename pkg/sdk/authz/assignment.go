@@ -34,3 +34,13 @@ func (c *Client) ReplaceManagedAssignments(ctx context.Context, req *authzv4.Rep
 	}
 	return resp, nil
 }
+
+// ReplaceScopedAssignments changes only the caller-managed roles in one company.
+// It deliberately uses a distinct RPC: an older server must reject the request.
+func (c *Client) ReplaceScopedAssignments(ctx context.Context, req *authzv4.ReplaceScopedAssignmentsRequest) (*authzv4.ReplaceManagedAssignmentsResponse, error) {
+	response, err := c.authorizationService.ReplaceScopedAssignments(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return response, nil
+}

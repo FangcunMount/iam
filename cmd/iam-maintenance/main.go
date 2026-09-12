@@ -48,6 +48,10 @@ func run(args []string, output io.Writer) error {
 		return runAuthorizationVerify(args[1:], output)
 	case "authorization-migrate":
 		return runAuthorizationMigration(args[1:], output)
+	case "account-provision":
+		return runAccountProvision(args[1:], output)
+	case "scope-migrate":
+		return runScopeMigration(args[1:], output)
 	case "condition-authz-retire":
 		return runConditionRetirement(args[1:], output)
 	case "role-model-migrate":

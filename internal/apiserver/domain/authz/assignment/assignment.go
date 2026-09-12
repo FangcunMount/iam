@@ -3,6 +3,8 @@ package assignment
 import (
 	"strings"
 
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
+
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/subject"
@@ -21,6 +23,10 @@ type Assignment struct {
 	// ---- 分配角色 ----
 	RoleID meta.ID // 角色ID
 
+	// ---- 数据范围 ----
+	// 未配置范围不表示全公司；业务数据访问需要显式范围。
+	dataScope *scope.Scope
+
 	// ---- 分配来源 ----
 	GrantedBy string // 分配者标识
 }
@@ -35,6 +41,9 @@ func NewAssignment(subjectType SubjectType, subjectID meta.ID, roleID meta.ID, o
 	}
 	for _, opt := range opts {
 		opt(&a)
+	}
+	if a.dataScope != nil && a.dataScope.IsZero() {
+		return Assignment{}, perrors.WithCode(code.ErrInvalidArgument, "assignment scope must be explicit and valid")
 	}
 	a.GrantedBy = strings.TrimSpace(a.GrantedBy)
 	if _, err := subject.NewRef(subject.Type(subjectType), subjectID); err != nil {
@@ -54,6 +63,19 @@ type Option func(*Assignment)
 
 func WithID(id AssignmentID) Option  { return func(a *Assignment) { a.ID = id } }
 func WithGrantedBy(by string) Option { return func(a *Assignment) { a.GrantedBy = by } }
+
+// WithScope 绑定本次角色分配的数据范围，不修改角色的动作授权。
+func WithScope(value scope.Scope) Option {
+	return func(a *Assignment) { a.dataScope = &value }
+}
+
+// Scope 返回范围值。未配置时返回 false，不能推断为全公司范围。
+func (a Assignment) Scope() (scope.Scope, bool) {
+	if a.dataScope == nil {
+		return scope.Scope{}, false
+	}
+	return *a.dataScope, true
+}
 
 // AssignmentID 是赋权事实的标识。
 type AssignmentID meta.ID

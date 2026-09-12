@@ -3,6 +3,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 )
 
 // Repository 策略版本仓储接口（Driven Port）
@@ -13,4 +14,10 @@ type Repository interface {
 	Increment(ctx context.Context, changedBy, reason string) (*PolicyVersion, error)
 	// GetCurrent 获取当前版本
 	GetCurrent(ctx context.Context) (*PolicyVersion, error)
+}
+
+var ErrStaleVersion = errors.New("authorization policy changed; refresh before replacing assignments")
+
+type LockingRepository interface {
+	GetCurrentForUpdate(context.Context) (*PolicyVersion, error)
 }

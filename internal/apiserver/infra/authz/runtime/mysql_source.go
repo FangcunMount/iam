@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
 
@@ -14,7 +15,6 @@ import (
 	policyrepo "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/policy"
 	resourcerepo "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/resource"
 	rolerepo "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/role"
-	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 	"gorm.io/gorm"
 )
 
@@ -60,10 +60,15 @@ func loadDataset(db *gorm.DB) (Dataset, error) {
 	}
 	assignments := make([]AssignmentRecord, 0, len(assignmentRows))
 	for _, row := range assignmentRows {
-		assignments = append(assignments, AssignmentRecord{
-			SubjectKey: row.SubjectType + ":" + row.SubjectID,
-			RoleID:     meta.FromUint64(row.RoleID),
-		})
+		mapped, err := assignmentrepo.NewMapper().ToBO(row)
+		if err != nil {
+			return Dataset{}, err
+		}
+		record := AssignmentRecord{ID: meta.ID(mapped.ID), SubjectKey: row.SubjectType + ":" + row.SubjectID, RoleID: mapped.RoleID}
+		if value, ok := mapped.Scope(); ok {
+			record.Scope = &value
+		}
+		assignments = append(assignments, record)
 	}
 
 	var grantRows []*permissiongrantrepo.GrantPO

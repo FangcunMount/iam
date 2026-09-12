@@ -16,6 +16,11 @@ type AssignmentPO struct {
 	SubjectID   string `gorm:"column:subject_id;type:varchar(64);not null;index:idx_subject,priority:2;uniqueIndex:uk_authz_assignments_active,priority:2"`
 	RoleID      uint64 `gorm:"column:role_id;type:bigint unsigned;not null;index;uniqueIndex:uk_authz_assignments_active,priority:3"`
 
+	// 数据范围属于角色分配；OrgID=0 只表示历史未配置，不能解释为全公司。
+	OrgID         uint64  `gorm:"column:org_id;type:bigint unsigned;not null;default:0;uniqueIndex:uk_authz_assignments_active,priority:4"`
+	ScopeKind     string  `gorm:"column:scope_kind;type:varchar(32);not null;default:''"`
+	ScopeStoreIDs *string `gorm:"column:scope_store_ids;type:json"`
+
 	// ActiveGuard is computed by the database. Active rows get 1; deleted rows
 	// get NULL so MySQL's unique-key NULL semantics permit a later re-grant.
 	ActiveGuard *uint8    `gorm:"column:active_guard;type:tinyint GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END) STORED;->;uniqueIndex:uk_authz_assignments_active,priority:5"`

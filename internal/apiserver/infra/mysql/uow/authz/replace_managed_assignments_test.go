@@ -3,6 +3,7 @@ package authz_test
 import (
 	"context"
 	"errors"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"sort"
 	"sync"
 	"testing"
@@ -201,3 +202,61 @@ func assignedRoleNames(
 }
 
 var _ event.Stager = (*eventStager)(nil)
+
+func TestScopedReplacementPersistsRangeAndDoesNotTouchOtherCompany(t *testing.T) {
+	db := testhelpers.SetupTempSQLiteDB(t)
+	require.NoError(t, db.AutoMigrate(&roleRepo.RolePO{}, &assignmentRepo.AssignmentPO{}, &policyRepo.PolicyVersionPO{}))
+	ctx := management.WithAuthenticatedService(context.Background(), "admin")
+	roles := roleRepo.NewRoleRepository(db)
+	assignments := assignmentRepo.NewRepository(db)
+	dictionary := seedRoles(t, ctx, roles, "qs:assessment_operator")
+	role := dictionary["qs:assessment_operator"]
+	stager := &eventStager{}
+	uow := authzUOW.NewUnitOfWork(db, subjectresolver.NewUserSubjectResolver(existingUserResolver{}), stager)
+	validator := assignmentDomain.NewValidator(roles, subjectresolver.NewUserSubjectResolver(existingUserResolver{}))
+	service := assignmentApp.NewCommandService(validator, roles, uow, nil, management.NewGuard(nil))
+	sub, err := subject.NewUserRef(100)
+	require.NoError(t, err)
+	value, err := scope.New(1, scope.Stores, []meta.ID{10})
+	require.NoError(t, err)
+	other, err := scope.New(2, scope.Stores, []meta.ID{20})
+	require.NoError(t, err)
+	existing, err := assignmentDomain.NewAssignment(assignmentDomain.SubjectTypeUser, 100, role.ID, assignmentDomain.WithGrantedBy("admin"), assignmentDomain.WithScope(other))
+	require.NoError(t, err)
+	require.NoError(t, assignments.Create(ctx, &existing))
+	cmd := assignmentApp.ReplaceManagedAssignmentsCommand{Subject: sub, OrgID: 1, ManagedRoleNames: []string{role.Name.String()}, ScopedRoles: []assignmentDomain.ScopedRoleGrant{{RoleName: role.Name, Scope: value}}, ChangedBy: "user:200"}
+	result, err := service.ReplaceManagedAssignments(ctx, cmd)
+	require.NoError(t, err)
+	require.True(t, result.Changed)
+	require.Equal(t, 1, stager.Count())
+	repeated, err := service.ReplaceManagedAssignments(ctx, cmd)
+	require.NoError(t, err)
+	require.False(t, repeated.Changed)
+	require.Equal(t, result.PolicyVersion, repeated.PolicyVersion)
+	require.Equal(t, 1, stager.Count())
+	rows, err := assignments.ListBySubject(ctx, assignmentDomain.SubjectTypeUser, 100)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	restored, err := assignments.FindByID(ctx, existing.ID)
+	require.NoError(t, err)
+	got, ok := restored.Scope()
+	require.True(t, ok)
+	require.True(t, got.ContainsStore(2, 20))
+	cmd.ExpectedPolicyVersion = result.PolicyVersion + 1
+	stale := cmd
+	stale.ScopedRoles = nil
+	_, err = service.ReplaceManagedAssignments(ctx, stale)
+	require.Error(t, err)
+	require.Equal(t, 1, stager.Count(), "stale edit must not stage a policy event")
+	unchanged, err := assignments.ListBySubject(ctx, assignmentDomain.SubjectTypeUser, 100)
+	require.NoError(t, err)
+	require.Len(t, unchanged, 2)
+	cmd.ExpectedPolicyVersion = result.PolicyVersion
+	cmd.ScopedRoles = nil
+	_, err = service.ReplaceManagedAssignments(ctx, cmd)
+	require.NoError(t, err)
+	rows, err = assignments.ListBySubject(ctx, assignmentDomain.SubjectTypeUser, 100)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Equal(t, existing.ID, rows[0].ID)
+}

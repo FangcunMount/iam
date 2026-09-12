@@ -10,6 +10,9 @@ service AuthorizationService {
   rpc GrantAssignment(GrantAssignmentRequest) returns (GrantAssignmentResponse);
   rpc RevokeAssignment(RevokeAssignmentRequest) returns (RevokeAssignmentResponse);
   rpc ReplaceManagedAssignments(ReplaceManagedAssignmentsRequest) returns (ReplaceManagedAssignmentsResponse);
+  // Separate RPC: older servers return Unimplemented, never interpret a scoped
+  // request as an empty legacy replacement.
+  rpc ReplaceScopedAssignments(ReplaceScopedAssignmentsRequest) returns (ReplaceManagedAssignmentsResponse);
 }
 
 enum AuthorizationMode {
@@ -60,10 +63,24 @@ message CheckResponse {
   repeated string missing_attribute_keys = 7 [deprecated = true];
 }
 
+enum DataScopeKind {
+  DATA_SCOPE_KIND_UNSPECIFIED = 0;
+  ALL_STORES = 1;
+  STORES = 2;
+}
+
+// One company-specific range. Empty/missing scopes never imply unrestricted data.
+message DataScope {
+  string org_id = 1;
+  DataScopeKind kind = 2;
+  repeated string store_ids = 3;
+}
+
 message PermissionEntry {
   string resource = 1;
   string action = 2;
   AuthorizationMode mode = 3;
+  repeated DataScope scopes = 4;
 }
 
 message GetAuthorizationSnapshotRequest {
@@ -85,6 +102,11 @@ message GetAuthorizationSnapshotResponse {
   // Full direct role facts, including other applications and global roles.
   repeated AssignmentRoleFact assignment_facts = 5;
   bool assignment_facts_complete = 6;
+  // 1 means scopes are paired with each permission. 0 is an older producer;
+  // consumers requiring data scope must reject it rather than assume all stores.
+  uint32 scope_contract_version = 7;
+  // Per-assignment facts, supplied only with authorized include_assignment_facts.
+  repeated AssignmentScopeFact assignment_scopes = 8;
 }
 
 message GrantAssignmentRequest {
@@ -131,4 +153,26 @@ message AssignmentRoleFact {
   string role_id = 1;
   string role_name = 2;
   string management_protection = 3;
+}
+
+message ScopedRoleAssignment {
+  string role_name = 1;
+  DataScope scope = 2;
+}
+
+message ReplaceScopedAssignmentsRequest {
+  string subject = 1;
+  string org_id = 2;
+  repeated ScopedRoleAssignment roles = 3;
+  string changed_by = 4;
+  string reason = 5;
+  // Optimistic management edit guard; checked under the write transaction lock.
+  int64 expected_policy_version = 6;
+}
+
+message AssignmentScopeFact {
+ string assignment_id = 1;
+ AssignmentRoleFact role = 2;
+ // Absent means unconfigured, never all stores.
+ DataScope scope = 3;
 }

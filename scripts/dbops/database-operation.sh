@@ -327,7 +327,7 @@ database_status() {
     fail "database schema inventory query failed"
     return 1
   fi
-  if ! schema_guard_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_schema_guard */ SELECT COALESCE(SUM(TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME IN ('auth_credentials', 'auth_login_identities', 'authz_assignments', 'authz_permission_grants', 'authz_policy_versions', 'authz_resources', 'authz_roles', 'domain_event_outbox', 'identity_session_revocation_outbox', 'idp_wechat_apps', 'iam_role_inheritance_archives', 'iam_role_model_migrations', 'iam_condition_retirement_migrations', 'jwks_keys', 'profile_links', 'profiles', 'schema_migrations', 'users')), 0), COUNT(*), COALESCE(SUM(NOT (TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME IN ('iam_authorization_retirement_audit', 'auth_credentials', 'auth_login_identities', 'authz_assignments', 'authz_permission_grants', 'authz_policy_versions', 'authz_resources', 'authz_roles', 'domain_event_outbox', 'identity_session_revocation_outbox', 'idp_wechat_apps', 'iam_role_inheritance_archives', 'iam_role_model_migrations', 'iam_condition_retirement_migrations', 'jwks_keys', 'profile_links', 'profiles', 'schema_migrations', 'users'))), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE();" 2>"$ERROR_PATH")"; then
+  if ! schema_guard_state="$($MYSQL_BIN --defaults-extra-file="$MYSQL_DEFAULTS" --batch --skip-column-names "$MYSQL_DBNAME" -e "/* iam_schema_guard */ SELECT COALESCE(SUM(TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME IN ('auth_credentials', 'auth_login_identities', 'authz_assignments', 'authz_permission_grants', 'authz_policy_versions', 'authz_resources', 'authz_roles', 'domain_event_outbox', 'identity_session_revocation_outbox', 'idp_wechat_apps', 'iam_role_inheritance_archives', 'iam_role_model_migrations', 'iam_condition_retirement_migrations', 'iam_scope_migrations', 'jwks_keys', 'profile_links', 'profiles', 'schema_migrations', 'users')), 0), COUNT(*), COALESCE(SUM(NOT (TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME IN ('iam_authorization_retirement_audit', 'auth_credentials', 'auth_login_identities', 'authz_assignments', 'authz_permission_grants', 'authz_policy_versions', 'authz_resources', 'authz_roles', 'domain_event_outbox', 'identity_session_revocation_outbox', 'idp_wechat_apps', 'iam_role_inheritance_archives', 'iam_role_model_migrations', 'iam_condition_retirement_migrations', 'iam_scope_migrations', 'jwks_keys', 'profile_links', 'profiles', 'schema_migrations', 'users'))), 0) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE();" 2>"$ERROR_PATH")"; then
     fail "database schema guard query failed"
     return 1
   fi
@@ -354,11 +354,11 @@ database_status() {
   printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'35\t0\t1' ]; then
-    fail "migration status is not version 35 clean"
+  if [ "$migration_state" != $'37\t0\t1' ]; then
+    fail "migration status is not version 37 clean"
     return 1
   fi
-  if [ "$schema_guard_state" != $'18\t18\t0' ] && [ "$schema_guard_state" != $'18\t19\t0' ]; then
+  if [ "$schema_guard_state" != $'19\t19\t0' ] && [ "$schema_guard_state" != $'19\t20\t0' ]; then
     fail "database schema differs from the runtime and optional retirement-audit allowlist"
     return 1
   fi
@@ -370,8 +370,8 @@ database_status() {
     fail "retired table privileges are present"
     return 1
   fi
-  echo "schema guard: result=success required_base_tables=18 schema_objects=$(cut -f2 <<<"$schema_guard_state") unexpected_objects=0"
-  echo "retirement guard: result=success expected_version=35 retired_tables_present=0 retired_table_privileges=0"
+  echo "schema guard: result=success required_base_tables=19 schema_objects=$(cut -f2 <<<"$schema_guard_state") unexpected_objects=0"
+  echo "retirement guard: result=success expected_version=37 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {

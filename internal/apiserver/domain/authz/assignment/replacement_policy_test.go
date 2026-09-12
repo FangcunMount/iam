@@ -1,6 +1,7 @@
 package assignment_test
 
 import (
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/scope"
 	"testing"
 
 	perrors "github.com/FangcunMount/component-base/pkg/errors"
@@ -141,4 +142,17 @@ func mustAssignment(t *testing.T, assignmentID uint64, roleID uint64) *assignmen
 	)
 	require.NoError(t, err)
 	return &assignment
+}
+
+func TestLegacyReplacementRejectsScopedManagedAssignments(t *testing.T) {
+	current := []*assignmentDomain.Assignment{}
+	for _, org := range []meta.ID{1, 2} {
+		value, err := scope.New(org, scope.Stores, []meta.ID{10})
+		require.NoError(t, err)
+		a, err := assignmentDomain.NewAssignment(assignmentDomain.SubjectTypeUser, 1, 10, assignmentDomain.WithGrantedBy("admin"), assignmentDomain.WithScope(value))
+		require.NoError(t, err)
+		current = append(current, &a)
+	}
+	_, err := assignmentDomain.ReplacementPolicy{}.Plan(assignmentDomain.ReplacementRequest{ManagedRoleNames: []string{"example:evaluator"}}, []assignmentDomain.ManagedRoleBinding{{Name: mustRoleName(t, "example:evaluator"), ID: 10}}, current)
+	require.True(t, perrors.IsCode(err, code.ErrInvalidArgument))
 }

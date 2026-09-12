@@ -23,7 +23,7 @@ api/grpc/iam/
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `AuthChallengeService` | SendLoginPhoneOTP |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `LoginIdentityService` | ListLoginIdentities、SendPhoneLinkChallenge、LinkPhone、LinkWechatMiniProgram、LinkWecom、UnlinkLoginIdentity |
 | [iam/authn/v3/authn.proto](iam/authn/v3/authn.proto) | `JWKSService` | GetJWKS |
-| [iam/authz/v4/authz.proto](iam/authz/v4/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment、ReplaceManagedAssignments |
+| [iam/authz/v4/authz.proto](iam/authz/v4/authz.proto) | `AuthorizationService` | Check、GetAuthorizationSnapshot、GrantAssignment、RevokeAssignment、ReplaceManagedAssignments、ReplaceScopedAssignments |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `IdentityRead` | GetUser、BatchGetUsers、SearchUsers、GetProfile、BatchGetProfiles |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileLinkQuery` | HasProfileLink、ListProfiles、ListProfileLinks |
 | [iam/identity/v2/identity.proto](iam/identity/v2/identity.proto) | `ProfileCommand` | CreateProfile |
@@ -62,7 +62,7 @@ linked, err := identityClient.HasProfileLink(ctx, &identityv2.HasProfileLinkRequ
 })
 ```
 
-AuthZ v3 的 `Check` 是可信服务使用的授权判定入口；REST v3 只负责权限事实管理。快照响应中 `roles` 是包含继承结果的有效角色，`direct_roles` 只包含直接 Assignment。`ReplaceManagedAssignments` 只替换调用服务受管的角色子集；其响应 `direct_roles` 当前表示目标受管子集，若要读取持久化后的全部直接角色，应再次调用 `GetAuthorizationSnapshot`。
+AuthZ v4 的 `Check` 是可信服务使用的动作判定入口；REST 负责权限事实管理。角色继承已退役，快照 `roles` 与 `direct_roles` 使用相同应用过滤并表示直接角色集合。`ReplaceManagedAssignments` 只替换调用服务受管的角色子集；其响应 `direct_roles` 当前表示目标受管子集，若要读取持久化后的全部直接角色，应再次调用 `GetAuthorizationSnapshot`。
 
 ## 验证
 
@@ -72,3 +72,5 @@ go test ./internal/apiserver/transport/grpc ./pkg/sdk
 ```
 
 proto 与注册关系由 [internal/apiserver/transport/grpc/proto_contract_test.go](../../internal/apiserver/transport/grpc/proto_contract_test.go) 保护。
+
+Scope 消费者必须验证 `scope_contract_version=1`，按公司、资源和动作使用 `permissions.scopes`，由业务系统执行数据范围限制。未配置范围不表示全公司。管理调用使用完整 `assignment_scopes` 及 `ReplaceScopedAssignments`，提交 `expected_policy_version`；版本冲突须重新读取，不能盲目重试覆盖。旧 RPC 不能代替公司范围分配接口。

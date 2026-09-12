@@ -145,7 +145,10 @@ func NewRevokeByRoleNameCommand(sub subject.Ref, roleName, changedBy, reason str
 }
 
 type ReplaceManagedAssignmentsCommand struct {
-	Subject subject.Ref
+	ExpectedPolicyVersion int64
+	Subject               subject.Ref
+	OrgID                 meta.ID
+	ScopedRoles           []assignmentDomain.ScopedRoleGrant
 
 	RoleNames        []string
 	ManagedRoleNames []string

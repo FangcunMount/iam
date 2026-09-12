@@ -192,6 +192,14 @@ jobs:
               2>&1 | tee test-artifacts/authz-seed-assignment-repair-tests.txt
           test "${PIPESTATUS[0]}" = "0"
 
+          mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
+            -e 'DROP DATABASE IF EXISTS iam_scope_fixture; CREATE DATABASE iam_scope_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+          IAM_SCOPE_MYSQL_REQUIRED=1 MYSQL_DATABASE=iam_scope_fixture MYSQL_DBNAME=iam_scope_fixture \
+            go test ./internal/pkg/migration \
+              -run "^TestAssignmentScopeUpgradeAndRollbackMySQL$" -v -count=1 \
+              2>&1 | tee test-artifacts/assignment-scope-migration-tests.txt
+          test "${PIPESTATUS[0]}" = "0"
+
           MYSQL_DATABASE=iam_full_chain MYSQL_DBNAME=iam_full_chain \
             go test ./internal/pkg/migration \
               -run "TestFullMigrationChainAndBootstrapMySQL" \
@@ -202,7 +210,7 @@ jobs:
 
           MYSQL_DBNAME=iam_full_chain \
             IAM_DB_OPS_BACKUP_DIR="${RUNNER_TEMP}/iam-full-chain-dbops" \
-            IAM_DB_OPS_OPERATION=rolebinding-guard-preflight \
+            IAM_DB_OPS_OPERATION=status \
             scripts/dbops/database-operation.sh
 
       - name: Verify role model replay, archival and rollback with MySQL 8
@@ -210,6 +218,18 @@ jobs:
           ROLE_MODEL_REQUIRE_MYSQL: 'true'
           ROLE_MODEL_MYSQL_DSN: root:${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}@tcp(127.0.0.1:3306)/?parseTime=true
         run: go test ./internal/apiserver/maintenance/rolemodel ./internal/apiserver/maintenance/conditionretire -count=1 -v
+
+      - name: Verify Scope migration and compensation with isolated MySQL 8
+        env:
+          SCOPE_MIGRATION_REQUIRE_MYSQL: 'true'
+          SCOPE_MIGRATION_MYSQL_DSN: root:${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}@tcp(127.0.0.1:3306)/?parseTime=true
+        run: go test ./internal/apiserver/maintenance/scopemigrate -count=1 -v
+
+      - name: Verify account provisioning transaction and collision protection
+        env:
+          ACCOUNT_PROVISION_REQUIRE_MYSQL: 'true'
+          ACCOUNT_PROVISION_MYSQL_DSN: root:${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}@tcp(127.0.0.1:3306)/?parseTime=true
+        run: go test ./internal/apiserver/maintenance/accountprovision -count=1 -v
 
       - name: Verify database backup, restore, and status with MySQL 8
         env:
@@ -225,7 +245,7 @@ jobs:
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" \
             -e 'DROP DATABASE IF EXISTS iam_dbops_fixture; CREATE DATABASE iam_dbops_fixture CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
           mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USERNAME" "$MYSQL_DBNAME" \
-            -e 'CREATE TABLE auth_credentials (id BIGINT PRIMARY KEY); CREATE TABLE auth_login_identities (id BIGINT PRIMARY KEY); CREATE TABLE authz_assignments (id BIGINT PRIMARY KEY); CREATE TABLE authz_permission_grants (id BIGINT PRIMARY KEY); CREATE TABLE authz_policy_versions (id BIGINT PRIMARY KEY); CREATE TABLE authz_resources (id BIGINT PRIMARY KEY); CREATE TABLE authz_roles (id BIGINT PRIMARY KEY); CREATE TABLE domain_event_outbox (id BIGINT PRIMARY KEY); CREATE TABLE identity_session_revocation_outbox (id BIGINT PRIMARY KEY); CREATE TABLE idp_wechat_apps (id BIGINT PRIMARY KEY); CREATE TABLE iam_role_inheritance_archives (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE iam_role_model_migrations (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE jwks_keys (id BIGINT PRIMARY KEY); CREATE TABLE profile_links (id BIGINT PRIMARY KEY); CREATE TABLE profiles (id BIGINT PRIMARY KEY); CREATE TABLE users (id BIGINT PRIMARY KEY); CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL); INSERT INTO schema_migrations VALUES (35, 0); CREATE TABLE iam_condition_retirement_migrations (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored");'
+            -e 'CREATE TABLE auth_credentials (id BIGINT PRIMARY KEY); CREATE TABLE auth_login_identities (id BIGINT PRIMARY KEY); CREATE TABLE authz_assignments (id BIGINT PRIMARY KEY); CREATE TABLE authz_permission_grants (id BIGINT PRIMARY KEY); CREATE TABLE authz_policy_versions (id BIGINT PRIMARY KEY); CREATE TABLE authz_resources (id BIGINT PRIMARY KEY); CREATE TABLE authz_roles (id BIGINT PRIMARY KEY); CREATE TABLE domain_event_outbox (id BIGINT PRIMARY KEY); CREATE TABLE identity_session_revocation_outbox (id BIGINT PRIMARY KEY); CREATE TABLE idp_wechat_apps (id BIGINT PRIMARY KEY); CREATE TABLE iam_role_inheritance_archives (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE iam_role_model_migrations (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE jwks_keys (id BIGINT PRIMARY KEY); CREATE TABLE profile_links (id BIGINT PRIMARY KEY); CREATE TABLE profiles (id BIGINT PRIMARY KEY); CREATE TABLE users (id BIGINT PRIMARY KEY); CREATE TABLE schema_migrations (version BIGINT NOT NULL, dirty BOOLEAN NOT NULL); INSERT INTO schema_migrations VALUES (37, 0); CREATE TABLE iam_scope_migrations (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE iam_condition_retirement_migrations (migration_id VARCHAR(64) PRIMARY KEY); CREATE TABLE restore_fixture (id BIGINT PRIMARY KEY, value VARCHAR(32) NOT NULL); INSERT INTO restore_fixture VALUES (1, "restored");'
 
           IAM_DB_OPS_OPERATION=backup scripts/dbops/database-operation.sh
           backup_name="$(find "$IAM_DB_OPS_BACKUP_DIR" -maxdepth 1 -type f -name 'iam_backup_*.sql.gz' -exec basename {} \;)"

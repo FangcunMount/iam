@@ -17,14 +17,15 @@ import (
 )
 
 type Snapshot struct {
-	roleFacts    map[meta.ID]authorizationapp.AssignmentRoleFact
-	verifiedAt   time.Time // proof belongs to this immutable publication
-	roles        authorizationdomain.RoleResolver
-	roleNames    map[meta.ID]role.Name
-	grantsByRole map[meta.ID][]*permissiongrant.Grant
-	resources    map[string]*resource.Resource
-	version      int64
-	loadedAt     time.Time
+	assignmentsBySubject map[string][]AssignmentRecord
+	roleFacts            map[meta.ID]authorizationapp.AssignmentRoleFact
+	verifiedAt           time.Time // proof belongs to this immutable publication
+	roles                authorizationdomain.RoleResolver
+	roleNames            map[meta.ID]role.Name
+	grantsByRole         map[meta.ID][]*permissiongrant.Grant
+	resources            map[string]*resource.Resource
+	version              int64
+	loadedAt             time.Time
 }
 
 func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
@@ -68,6 +69,7 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		resourcesByID[catalogResource.ID.Uint64()] = catalogResource
 	}
 
+	assignmentsBySubject := map[string][]AssignmentRecord{}
 	directRoleBuilder := newDirectRoleBuilder()
 	for _, assignment := range dataset.Assignments {
 		_, ok := roleByID[assignment.RoleID]
@@ -78,6 +80,14 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
+		if assignment.Scope != nil {
+			value := *assignment.Scope
+			if value.IsZero() {
+				return nil, perrors.WithCode(code.ErrInvalidArgument, "invalid assignment scope in snapshot")
+			}
+			assignment.Scope = &value
+		}
+		assignmentsBySubject[sub.String()] = append(assignmentsBySubject[sub.String()], assignment)
 		directRoleBuilder.addAssignment(sub, assignment.RoleID)
 	}
 	roleResolver := directRoleBuilder.build()
@@ -123,7 +133,7 @@ func BuildSnapshot(dataset Dataset, loadedAt time.Time) (*Snapshot, error) {
 	}
 
 	return &Snapshot{
-		roleFacts: roleFacts, roles: roleResolver, roleNames: roleNames, grantsByRole: grantsByRole, resources: resources,
+		assignmentsBySubject: assignmentsBySubject, roleFacts: roleFacts, roles: roleResolver, roleNames: roleNames, grantsByRole: grantsByRole, resources: resources,
 		version: dataset.Version, loadedAt: loadedAt,
 	}, nil
 }
@@ -174,7 +184,7 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, appName string) (authorizati
 	permissions := make([]authorizationapp.PermissionEntry, 0, len(modeByPermission))
 	for key, mode := range modeByPermission {
 		parts := strings.SplitN(key, "\x00", 2)
-		permissions = append(permissions, authorizationapp.PermissionEntry{Resource: parts[0], Action: parts[1], Mode: mode})
+		permissions = append(permissions, authorizationapp.PermissionEntry{Resource: parts[0], Action: parts[1], Mode: mode, Scopes: s.permissionScopes(sub, parts[0], parts[1])})
 	}
 	sort.Slice(permissions, func(i, j int) bool {
 		if permissions[i].Resource == permissions[j].Resource {
@@ -183,7 +193,7 @@ func (s *Snapshot) SubjectSnapshot(sub subject.Ref, appName string) (authorizati
 		return permissions[i].Resource < permissions[j].Resource
 	})
 	return authorizationapp.SubjectSnapshot{
-		AssignmentFacts: facts, AssignmentFactsComplete: true,
+		AssignmentFacts: facts, AssignmentFactsComplete: true, AssignmentScopes: s.assignmentScopeFacts(sub),
 		DirectRoles:    appScopedRoleNames(s.names(directRoles), appName),
 		EffectiveRoles: appScopedRoleNames(s.names(effectiveRoles), appName),
 		Permissions:    permissions,
@@ -238,4 +248,18 @@ func (s *Snapshot) names(ids []meta.ID) []role.Name {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
+}
+
+func (s *Snapshot) assignmentScopeFacts(sub subject.Ref) []authorizationapp.AssignmentScopeFact {
+	result := make([]authorizationapp.AssignmentScopeFact, 0, len(s.assignmentsBySubject[sub.String()]))
+	for _, a := range s.assignmentsBySubject[sub.String()] {
+		fact := authorizationapp.AssignmentScopeFact{AssignmentID: a.ID.String(), Role: s.roleFacts[a.RoleID]}
+		if a.Scope != nil {
+			value := *a.Scope
+			fact.Scope = &value
+		}
+		result = append(result, fact)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].AssignmentID < result[j].AssignmentID })
+	return result
 }

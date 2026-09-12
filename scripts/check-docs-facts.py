@@ -516,8 +516,8 @@ def check_migrations() -> None:
     }
     if up != down:
         fail(f"migration up/down numbers differ: up-only={sorted(up-down)} down-only={sorted(down-up)}")
-    if not up or max(up) != 35:
-        fail(f"documented latest migration is 35, repository has {max(up) if up else 'none'}")
+    if not up or max(up) != 37:
+        fail(f"documented latest migration is 37, repository has {max(up) if up else 'none'}")
     migration = (directory / "000016_jwks_single_active_guard.up.sql").read_text(encoding="utf-8")
     for token in ("active_guard", "uk_jwks_keys_single_active"):
         if token not in migration:
@@ -909,7 +909,7 @@ def check_database_operations_facts() -> None:
         "IAM_DB_OPS_ALLOW_DOCKER_CLIENT",
         "mysql:8.0",
         "retired_tables_present=",
-        "expected_version=35",
+        "expected_version=37",
         "performance schema capability:",
         "sys_table_statistics_select=",
         "rds_table_statistics_enabled=",

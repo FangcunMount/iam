@@ -12,6 +12,7 @@ import (
 
 func TestJWKSSingleActiveMigrationMySQL(t *testing.T) {
 	db := openMigrationMySQL(t)
+	t.Cleanup(func() { _, _ = db.Exec("DROP TABLE IF EXISTS `jwks_keys`") })
 	up := migrationSQL(t, "000016_jwks_single_active_guard.up.sql")
 	down := migrationSQL(t, "000016_jwks_single_active_guard.down.sql")
 
@@ -96,10 +97,8 @@ func openMigrationMySQL(t *testing.T) *sql.DB {
 		_ = db.Close()
 		t.Fatalf("ping MySQL: %v", err)
 	}
-	t.Cleanup(func() {
-		_, _ = db.Exec("DROP TABLE IF EXISTS `jwks_keys`")
-		_ = db.Close()
-	})
+	// Connection cleanup must not remove another migration test's schema.
+	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
 
