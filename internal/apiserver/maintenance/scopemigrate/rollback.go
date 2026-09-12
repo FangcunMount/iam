@@ -131,7 +131,7 @@ func Rollback(ctx context.Context, iam, qs *gorm.DB, stager event.Stager, id, ac
 			if a.Version == old.Version {
 				continue
 			}
-			r := tx.Table("authz_assignments").Where("id = ? AND version = ?", a.ID, a.Version-1).Updates(map[string]any{"org_id": a.OrgID, "scope_kind": a.ScopeKind, "scope_store_ids": a.ScopeStoreIDs, "updated_at": a.UpdatedAt, "updated_by": a.UpdatedBy, "deleted_at": a.DeletedAt, "deleted_by": a.DeletedBy, "version": a.Version})
+			r := tx.Table("authz_assignments").Where("id = ? AND version = ?", a.ID, a.Version-1).Updates(map[string]any{"org_id": a.OrgID, "scope_kind": a.ScopeKind, "scope_store_ids": a.ScopeStoreIDs, "updated_at": a.UpdatedAt, "updated_by": a.UpdatedBy, "deleted_at": a.DeletedAt, "deleted_by": int64(a.DeletedBy), "version": a.Version})
 			if r.Error != nil {
 				return r.Error
 			}

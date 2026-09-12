@@ -102,3 +102,48 @@ func TestScopeRollbackFailureAndDriftPreserveFacts(t *testing.T) {
 		})
 	}
 }
+
+// Production migrations require deleted_by=0 for an active assignment.
+func TestScopeRollbackPreservesNonNullDeletedByMySQL(t *testing.T) {
+	iam, qs, input := applyFixture(t)
+	if iam.Dialector.Name() != "mysql" {
+		t.Skip("requires isolated MySQL")
+	}
+	for _, query := range []string{
+		"UPDATE authz_assignments SET deleted_by=0 WHERE deleted_by IS NULL",
+		"ALTER TABLE authz_assignments MODIFY deleted_by BIGINT NOT NULL DEFAULT 0",
+	} {
+		if err := iam.Exec(query).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx := context.Background()
+	plan, err := Preflight(ctx, iam, qs, "audit-column", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Apply(ctx, iam, qs, transactionalStager{}, "audit-column", "9", plan.Fingerprint, input, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Rollback(ctx, iam, qs, transactionalStager{}, "audit-column", "9", plan.Fingerprint, true); err != nil {
+		t.Fatal(err)
+	}
+	var row assignmentpo.AssignmentPO
+	if err := iam.First(&row, 1).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.DeletedBy != 0 || row.DeletedAt != nil || row.OrgID != 0 || row.ScopeKind != "" {
+		t.Fatalf("legacy active assignment not restored: %+v", row)
+	}
+	state, err := LoadSnapshot(ctx, iam, qs)
+	if err != nil || state.IAM.PolicyVersion != 7 {
+		t.Fatalf("policy must advance on rollback: %v", err)
+	}
+	var count int64
+	if err := iam.Table("test_outbox").Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("expected apply and rollback events, got %d", count)
+	}
+}
