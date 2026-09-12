@@ -99,7 +99,7 @@ rm -rf "$PACKAGE_DIR" "$DEPLOY_PACKAGE"
 mkdir -p "${PACKAGE_DIR}/configs/env" "${PACKAGE_DIR}/build/docker" "${PACKAGE_DIR}/scripts/cd"
 cp -r configs "$PACKAGE_DIR/"
 cp build/docker/docker-compose.prod.yml "${PACKAGE_DIR}/build/docker/docker-compose.prod.yml"
-cp scripts/cd/image-metadata.sh scripts/cd/remote-deploy.sh "${PACKAGE_DIR}/scripts/cd/"
+cp scripts/cd/image-metadata.sh scripts/cd/maintenance-acl.sh scripts/cd/remote-deploy.sh "${PACKAGE_DIR}/scripts/cd/"
 
 cat > "$ENV_FILE" <<EOF
 # Auto-generated production environment configuration

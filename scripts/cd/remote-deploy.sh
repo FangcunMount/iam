@@ -4,6 +4,8 @@ set -Eeuo pipefail
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/image-metadata.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/maintenance-acl.sh"
 
 : "${DOCKER_REGISTRY:?DOCKER_REGISTRY is required}"
 : "${DOCKER_REPOSITORY:?DOCKER_REPOSITORY is required}"
@@ -129,6 +131,7 @@ extract_package() {
 }
 
 sync_package() {
+  preserve_maintenance_acl /opt/iam/maintenance/authz-write-freeze "$DEPLOY_TMP" "$IMAGE_TAG"
   $SUDO rsync -a "$DEPLOY_TMP/build/docker/docker-compose.prod.yml" /opt/iam/build/docker/docker-compose.prod.yml
   $SUDO rsync -a "$DEPLOY_TMP/configs/" /opt/iam/configs/
   $SUDO rsync -a "$DEPLOY_TMP/scripts/cd/" /opt/iam/scripts/cd/
