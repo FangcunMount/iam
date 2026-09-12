@@ -193,6 +193,8 @@ VALUES (901000001, 'iam:identity:instance:profile', '个人资料', 'iam', 'iden
         JSON_ARRAY('read', 'list', 'import'), '版本化常模表的查询、详情读取与幂等导入', NOW(), NOW(), 0, 0, 0, 1),
        (901000027, 'iam:authn:collection:sessions', '会话管理', 'iam', 'authn', 'collection',
         JSON_ARRAY('revoke', 'revoke_by_login_identity', 'revoke_by_user'), '认证会话撤销管理', NOW(), NOW(), 0, 0, 0, 1),
+       (901000029, 'qs:statistics:collection:operations', '门店运营统计', 'qs', 'statistics', 'collection',
+        JSON_ARRAY('read'), '授权门店范围内的运营计数', NOW(), NOW(), 0, 0, 0, 1),
        (901000028, 'iam:ops:collection:cache_governance', '缓存治理', 'iam', 'ops', 'collection',
         JSON_ARRAY('read'), '缓存目录与运行状态只读治理', NOW(), NOW(), 0, 0, 0, 1)
 ON DUPLICATE KEY UPDATE `key`          = VALUES(`key`),
@@ -297,6 +299,12 @@ FROM (
                    JSON_ARRAY('read','update'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'qs:admin', 'qs:*:*:*',
                    JSON_ARRAY('*'), '{"version":1,"all_of":[]}'
+            UNION ALL SELECT 'qs:assessment_operator', 'qs:statistics:collection:operations',
+                   JSON_ARRAY('read'), '{"version":1,"all_of":[]}'
+            UNION ALL SELECT 'qs:evaluation_plan_manager', 'qs:statistics:collection:operations',
+                   JSON_ARRAY('read'), '{"version":1,"all_of":[]}'
+            UNION ALL SELECT 'qs:result_reviewer', 'qs:statistics:collection:operations',
+                   JSON_ARRAY('read'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'qs:content_manager', 'qs:questionnaire:collection:questionnaires',
                    JSON_ARRAY('create','read','list','update','delete','publish','unpublish','archive','statistics'), '{"version":1,"all_of":[]}'
             UNION ALL SELECT 'qs:content_manager', 'qs:scale:collection:scales',

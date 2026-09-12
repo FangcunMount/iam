@@ -23,3 +23,12 @@ AuthZ 根据 Subject 的直接 Assignment 找到角色，将多个角色的 Gran
 当前代码状态与生产切换状态分别记录。最终版本不能在残留有效条件 Grant 或非空资源属性模式的数据库上就绪；必须先按维护手册完成迁移。
 
 `ReplaceManagedAssignments` 只替换调用服务获准管理的角色集合，保留集合之外的分配；方法 ACL 与服务角色白名单共同生效。授权快照的 `direct_roles` 表示直接分配，不包含继承。
+
+
+## 运营统计目录配置
+
+`qs:statistics:collection:operations` 的 `read` 只表达运营计数访问。测评运营员、计划管理员、结果评估员获得该动作；内容管理员不新增权限，管理员继续沿用已有通配权限。实际数据范围仍由该动作对应 Assignment Scope 和 QS 有效 Operator 共同约束。
+
+`iam-maintenance statistics-operations preflight --report <新的受限文件>` 读取现有事实并输出指纹、待补目录与角色、已有 Grant ID 和策略版本。维护窗口暂停授权写入后，使用 `apply --fingerprint <预演指纹> --actor-id <有效平台管理员ID> --writes-stopped --report <新的受限文件>` 执行；可指定 `--event-catalog`。报告文件不覆盖，日志只输出摘要。
+
+事务内复核完整事实指纹，仅创建缺少的目录与三个读取 Grant，并原子递增 PolicyVersion、写 Outbox。已有等价授权复用；已配置状态使用当前预演指纹重跑不写入。目录动作冲突、角色保护类别异常或指纹漂移时停止，不覆盖后续授权变化。不新增或更新 Assignment，不修改 Scope；生产配置完成与 QS 统计发布、普通账号场景验收分别留证。

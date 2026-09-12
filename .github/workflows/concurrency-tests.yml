@@ -231,6 +231,12 @@ jobs:
           ACCOUNT_PROVISION_MYSQL_DSN: root:${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}@tcp(127.0.0.1:3306)/?parseTime=true
         run: go test ./internal/apiserver/maintenance/accountprovision -count=1 -v
 
+      - name: Verify operations catalog transaction and replay with isolated MySQL 8
+        env:
+          OPERATIONS_CATALOG_REQUIRE_MYSQL: 'true'
+          OPERATIONS_CATALOG_MYSQL_DSN: root:${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'root' }}@tcp(127.0.0.1:3306)/?parseTime=true
+        run: go test -count=1 ./internal/apiserver/maintenance/operationscatalog
+
       - name: Verify database backup, restore, and status with MySQL 8
         env:
           MYSQL_HOST: 127.0.0.1

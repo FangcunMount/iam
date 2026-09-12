@@ -72,6 +72,11 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 		t.Fatalf("bootstrap must use default username realm: count=%d err=%v", nonDefaultUsernames, err)
 	}
 	assertNativeAuthzBootstrap(t, db)
+	var operationGrants int
+	if err := db.QueryRow("SELECT COUNT(*) FROM authz_permission_grants g JOIN authz_roles r ON r.id=g.role_id WHERE g.resource_pattern='qs:statistics:collection:operations' AND g.action='read' AND g.revoked_at IS NULL AND g.deleted_at IS NULL AND r.name IN ('qs:assessment_operator','qs:evaluation_plan_manager','qs:result_reviewer')").Scan(&operationGrants); err != nil || operationGrants != 3 {
+		t.Fatalf("operations bootstrap grants=%d err=%v", operationGrants, err)
+	}
+
 	assertJWKSGraceActionRetired(t, db)
 	for _, retired := range []string{"tenants", "data_dictionary"} {
 		assertTableExists(t, db, retired, false)
@@ -111,7 +116,7 @@ func assertNativeAuthzBootstrap(t *testing.T, db *sql.DB) {
 		"active resources": "SELECT COUNT(*) FROM authz_resources WHERE deleted_at IS NULL",
 		"active grants":    "SELECT COUNT(*) FROM authz_permission_grants WHERE revoked_at IS NULL AND deleted_at IS NULL",
 	} {
-		want := map[string]int{"active roles": 8, "active resources": 26, "active grants": 104}[label]
+		want := map[string]int{"active roles": 8, "active resources": 27, "active grants": 107}[label]
 		var got int
 		if err := db.QueryRow(query).Scan(&got); err != nil {
 			t.Fatalf("query %s: %v", label, err)
