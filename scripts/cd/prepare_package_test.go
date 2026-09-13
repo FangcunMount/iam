@@ -247,3 +247,17 @@ func assertFileMode(t *testing.T, path string, want os.FileMode) {
 		t.Fatalf("%s mode = %04o, want %04o", path, got, want)
 	}
 }
+
+func TestPreparePackageIncludesImageRetention(t *testing.T) {
+	tmp := t.TempDir()
+	packageDir := filepath.Join(tmp, "package")
+	output, err := runPreparePackage(t, packageDir, filepath.Join(tmp, "package.tar.gz"), []string{"SEED_MOCK_AUTH_ENABLED=false"})
+	if err != nil {
+		t.Fatalf("prepare package: %v\n%s", err, output)
+	}
+	for _, name := range []string{"image-retention.py", "image-retention.sh"} {
+		if _, err := os.Stat(filepath.Join(packageDir, "scripts", "cd", name)); err != nil {
+			t.Fatalf("missing retention helper %s: %v", name, err)
+		}
+	}
+}

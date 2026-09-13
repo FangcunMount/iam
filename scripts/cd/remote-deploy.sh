@@ -5,6 +5,8 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/image-metadata.sh"
 # shellcheck source=/dev/null
+. "$SCRIPT_DIR/image-retention.sh"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/maintenance-acl.sh"
 
 : "${DOCKER_REGISTRY:?DOCKER_REGISTRY is required}"
@@ -448,6 +450,7 @@ echo "Image tag: ${IMAGE_TAG}"
 echo "=========================================="
 
 assert_deploy_hostname
+acquire_image_deploy_lock
 prepare_dirs_and_backup
 extract_package
 sync_package
@@ -456,6 +459,7 @@ setup_grpc_certs
 resolve_image_source
 deploy_service
 verify_service
+retain_successful_image "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 cleanup_old_backups
 rm -f "$PKG_PATH"
 
