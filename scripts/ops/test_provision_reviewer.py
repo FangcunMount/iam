@@ -19,6 +19,7 @@ class FakeAPI:
         self.members = [{'id': 'operator-1', 'user_id': '10001', 'org_id': '1',
                          'is_active': True, 'roles': ['qs:admin'], 'authz_projection_pending': False}]
         self.roles = {str(i): name for i, name in enumerate(sorted(p.ALLOWED_ROLES), 1)}
+        self.scope_missing = False
         self.posts = []
         self.fail_after = None
     def assignments(self, user):
@@ -28,6 +29,11 @@ class FakeAPI:
     def operators(self): return copy.deepcopy(self.members)
     def rows(self, path): return [{'id': 'grant-' + path, 'active': True}]
     def request(self, method, path, body=None):
+        if method == 'GET' and path.endswith('/authorization-scope'):
+            return {'data': {'operator_id': path.split('/')[-2],
+                'unconfigured_assignments': [{'role_id': '1', 'role_name':'qs:admin', 'scope':None, 'management_protection':'protected'}] if self.scope_missing else [],
+                'assignments': [{'role_id': '1', 'management_protection': 'protected',
+                                 'scope': {'org_id':'1', 'kind':'all_stores', 'store_ids':[]}}]}}
         if method == 'GET':
             i = path.split('/')[-1]
             return {'data': {'id': i, 'name': self.roles[i], 'management_protection': 'protected'}}
@@ -150,6 +156,13 @@ class ProvisionTest(unittest.TestCase):
         with self.assertRaises(FileExistsError):p.save(path,{'overwrite':True})
         link=self.directory/'symlink';link.symlink_to(path)
         with self.assertRaises(OSError):p.private_read(link)
+    def test_missing_scope_never_reports_provisioned(self):
+        self.plan()
+        self.api.scope_missing = True
+        with self.assertRaisesRegex(p.Stopped, 'scopes are missing'):
+            self.execute()
+        self.assertFalse(list(self.directory.glob('verification-*.json')))
+
     def test_https_and_redirect_boundaries(self):
         for url in ['http://example.org/api','https://user:secret@example.org','https://example.org?token=x']:
             with self.assertRaises(p.Stopped):p.API(url,'private')

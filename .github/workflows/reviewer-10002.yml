@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: preflight
-        options: [preflight, apply, verify]
+        options: [preflight, apply, verify, scope-preflight, scope-apply, scope-verify]
       plan_id:
         description: Apply/verify use the preflight plan ID (run ID-attempt)
         type: string
@@ -59,6 +59,7 @@ jobs:
           python3 -m unittest discover -s scripts/ops -p 'test_provision*.py'
           go test ./internal/apiserver/maintenance/accountprovision ./cmd/iam-maintenance
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o payload/iam-maintenance ./cmd/iam-maintenance
+          cp configs/events.yaml payload/
           cp scripts/ops/provision-reviewer-10002.py scripts/ops/reviewer-actions.py payload/
           chmod 0700 payload/iam-maintenance
           # scp-action v0.1.7 runs as UID 1000; keep inputs private while allowing upload.
@@ -85,7 +86,7 @@ jobs:
           username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
           key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
-          source: payload/iam-maintenance,payload/provision-reviewer-10002.py,payload/reviewer-actions.py,payload/private.json
+          source: payload/events.yaml,payload/iam-maintenance,payload/provision-reviewer-10002.py,payload/reviewer-actions.py,payload/private.json
           target: iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}
           tar_tmp_path: iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}/
           strip_components: 1

@@ -170,7 +170,83 @@ def observe_target(iam, qs, source, name):
     return actual, operators
 
 
+def scope_configuration(qs, operator_id):
+    data = qs.request('GET', '/operators/' + operator_id + '/authorization-scope')['data']
+    if str(data['operator_id']) != operator_id:
+        raise Stopped('Unexpected scope owner')
+    return data
+
+
+def verify_qs_scopes(qs, source, target):
+    reference = scope_configuration(qs, source['operator_id'])
+    actual = scope_configuration(qs, str(target['id']))
+    def normalized(data):
+        if any(a['role_name'] == 'platform_admin' or a['role_name'].startswith('qs:')
+               for a in data['unconfigured_assignments']):
+            raise Stopped('Company data scopes are missing; reviewer is not provisioned')
+        return sorted([{'role_id': str(a['role_id']), 'scope': a['scope'],
+                        'protection': a['management_protection']}
+                       for a in data['assignments'] + data['unconfigured_assignments']],
+                      key=lambda a: a['role_id'])
+    expected = normalized(reference)
+    if not expected or normalized(actual) != expected:
+        raise Stopped('Reviewer company data scopes differ from reference')
+
+
+def scope_command(args, mode, org_id, fingerprint=None):
+    receipt = args.directory / ('scope-' + mode + '-' + uuid.uuid4().hex + '.json')
+    command = [args.maintenance, 'reviewer-scope', mode, '--input',
+               str(args.directory / 'account.json'), '--org-id', org_id, '--report', str(receipt),
+               '--event-catalog', str(Path(args.maintenance).parent / 'events.yaml')]
+    if fingerprint:
+        command += ['--fingerprint', fingerprint]
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if result.returncode:
+        raise Stopped('Reviewer scope operation stopped; inspect private scope receipt')
+    return json.loads(private_read(receipt))['report']
+
+
+def execute_scope(args, iam, qs):
+    value = json.loads(private_read(args.directory / 'account.json'))
+    source = reference_snapshot(iam, qs)
+    actual, operators = observe_target(iam, qs, source, value['name'])
+    if actual != {r['id'] for r in source['roles']} or len(operators) != 1:
+        raise Stopped('Scope repair requires existing matching roles and QS membership')
+    membership = {k: operators[0][k] for k in ('id', 'user_id', 'org_id', 'name', 'is_active')}
+    basis = {'reference': source, 'target_membership': membership}
+    current = scope_command(args, 'preflight', source['org_id'])
+    if args.mode == 'scope-preflight':
+        plan = {'basis': basis, 'scope': current}
+        plan['fingerprint'] = digest(plan)
+        save(args.plan, plan)
+        print(json.dumps({'state': current['state'], 'fingerprint': plan['fingerprint'],
+                          'changes': current['plan']['changes'], 'org_id': source['org_id']}))
+        return
+    plan = json.loads(private_read(args.plan))
+    if plan['basis'] != basis or plan['fingerprint'] != digest({k: v for k, v in plan.items() if k != 'fingerprint'}):
+        raise Stopped('Reference or membership changed; repeat scope preflight')
+    if args.mode == 'scope-apply':
+        if args.approve_plan != plan['fingerprint'] or current['fingerprint'] != plan['scope']['fingerprint']:
+            raise Stopped('Scope repair requires the unchanged reviewed plan')
+        current = scope_command(args, 'apply', source['org_id'], current['fingerprint'])
+    if current['state'] != 'scope_matches_reference':
+        raise Stopped('Reviewer scope repair is not complete')
+    # Read current runtime facts, rather than treating a committed DB write as convergence.
+    verify_qs_scopes(qs, source, operators[0])
+    if reference_snapshot(iam, qs) != source:
+        raise Stopped('Reference changed during scope repair; inspect evidence')
+    _, after_members = observe_target(iam, qs, source, value['name'])
+    if len(after_members) != 1 or {k: after_members[0][k] for k in membership} != membership:
+        raise Stopped('QS membership changed during scope repair')
+    receipt = {'state': 'scope_verified', 'user_id': TARGET, 'reference_user_id': REFERENCE,
+               'org_id': source['org_id'], 'plan': plan['fingerprint'], 'human_review': 'not_performed'}
+    save(args.directory / ('scope-verification-' + uuid.uuid4().hex + '.json'), receipt)
+    print(json.dumps(receipt))
+
+
 def execute(args, iam, qs):
+    if args.mode.startswith('scope-'):
+        return execute_scope(args, iam, qs)
     value = json.loads(private_read(args.directory / 'account.json'))
     if value.get('user_id') != TARGET or value.get('actor_id') != REFERENCE:
         raise Stopped('This script only provisions 10002 with reference 10001')
@@ -220,6 +296,7 @@ def execute(args, iam, qs):
         if actual == {r['id'] for r in source['roles']} and operators:
             op = operators[0]
             if not op['authz_projection_pending'] and 'qs:admin' in (op['roles'] or []):
+                verify_qs_scopes(qs, source, op)
                 state = 'provisioned'
             else:
                 state = 'awaiting_projection'

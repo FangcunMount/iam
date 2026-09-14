@@ -50,6 +50,8 @@ func run(args []string, output io.Writer) error {
 		return runAuthorizationMigration(args[1:], output)
 	case "statistics-operations":
 		return runOperationsCatalog(args[1:], output)
+	case "reviewer-scope":
+		return runReviewerScope(args[1:], output)
 	case "account-provision":
 		return runAccountProvision(args[1:], output)
 	case "scope-migrate":
