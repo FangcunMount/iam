@@ -1,0 +1,117 @@
+name: Provision Reviewer 10002
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Preflight, apply reviewed plan, or read-only verify
+        type: choice
+        required: true
+        default: preflight
+        options: [preflight, apply, verify]
+      plan_id:
+        description: Apply/verify use the preflight plan ID (run ID-attempt)
+        type: string
+        default: ''
+      approve_plan:
+        description: Apply requires the SHA256 fingerprint printed by preflight
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iam-production-controlled-database-operation
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Validate private inputs
+        env:
+          REVIEWER_MODE: ${{ inputs.mode }}
+          REVIEWER_PLAN_ID: ${{ inputs.plan_id }}
+          REVIEWER_APPROVE_PLAN: ${{ inputs.approve_plan }}
+          REVIEWER_PASSWORD: ${{ secrets.IAM_REVIEWER_10002_PASSWORD }}
+          REVIEWER_TOKEN: ${{ secrets.IAM_REVIEWER_PROVISION_TOKEN }}
+          IAM_APISERVER_MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          IAM_APISERVER_MYSQL_PORT: ${{ secrets.MYSQL_PORT || '3306' }}
+          IAM_APISERVER_MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          IAM_APISERVER_MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          IAM_APISERVER_MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE || secrets.MYSQL_DBNAME }}
+        run: |
+          umask 077
+          mkdir payload
+          python3 scripts/ops/reviewer-actions.py pack --output payload/private.json
+
+      - name: Test and build maintenance tools
+        run: |
+          python3 -m unittest discover -s scripts/ops -p 'test_provision*.py'
+          go test ./internal/apiserver/maintenance/accountprovision ./cmd/iam-maintenance
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o payload/iam-maintenance ./cmd/iam-maintenance
+          cp scripts/ops/provision-reviewer-10002.py scripts/ops/reviewer-actions.py payload/
+          chmod 0700 payload/iam-maintenance
+
+      - name: Prepare private remote staging
+        id: staging
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          script: |
+            set -eu
+            umask 077
+            command -v python3 >/dev/null
+            mkdir -m 700 "$HOME/iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Upload private payload
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          source: payload/iam-maintenance,payload/provision-reviewer-10002.py,payload/reviewer-actions.py,payload/private.json
+          target: iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}
+          strip_components: 1
+
+      - name: Execute selected operation
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            umask 077
+            python3 "$HOME/iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}/reviewer-actions.py" run \
+              --payload "$HOME/iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Remove remote transient credentials
+        if: always() && steps.staging.outcome == 'success'
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.SVRB_PUBLIC_HOST || secrets.SVRB_PUBLIC_HOST || vars.SVRB_HOST || vars.SVRA_HOST }}
+          username: ${{ vars.SVRB_USERNAME || vars.SVRA_USERNAME }}
+          key: ${{ secrets.SVRB_SSH_KEY || secrets.SVRA_SSH_KEY }}
+          port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
+          script: |
+            rm -rf -- "$HOME/iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Remove runner transient credentials
+        if: always()
+        run: rm -f -- payload/private.json
