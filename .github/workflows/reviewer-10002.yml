@@ -61,6 +61,8 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o payload/iam-maintenance ./cmd/iam-maintenance
           cp scripts/ops/provision-reviewer-10002.py scripts/ops/reviewer-actions.py payload/
           chmod 0700 payload/iam-maintenance
+          # scp-action v0.1.7 runs as UID 1000; keep inputs private while allowing upload.
+          sudo chown -R 1000:1000 payload
 
       - name: Prepare private remote staging
         id: staging
@@ -85,6 +87,7 @@ jobs:
           port: ${{ vars.SVRB_SSH_PORT || vars.SVRA_SSH_PORT || 22 }}
           source: payload/iam-maintenance,payload/provision-reviewer-10002.py,payload/reviewer-actions.py,payload/private.json
           target: iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}
+          tar_tmp_path: iam-reviewer-upload-${{ github.run_id }}-${{ github.run_attempt }}/
           strip_components: 1
 
       - name: Execute selected operation
@@ -114,4 +117,4 @@ jobs:
 
       - name: Remove runner transient credentials
         if: always()
-        run: rm -f -- payload/private.json
+        run: sudo rm -f -- payload/private.json
