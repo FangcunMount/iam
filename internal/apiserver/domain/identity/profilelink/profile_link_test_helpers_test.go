@@ -3,6 +3,7 @@ package profilelink
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 )
@@ -169,4 +170,12 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+func (s *stubProfileLinkRepo) Restore(context.Context, *ProfileLink, time.Time) error {
+	panic("unexpected Restore")
+}
+
+func (s *seqProfileLinkRepo) Restore(context.Context, *ProfileLink, time.Time) error {
+	panic("unexpected Restore")
 }

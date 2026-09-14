@@ -119,7 +119,7 @@ jobs:
           export MYSQL_PWD="$MYSQL_PASSWORD"
           mkdir -p test-artifacts
           go test -p 1 ./internal/apiserver/infra/mysql/... \
-            -run "Concurrent|Concurrency" \
+            -run "Concurrent|Concurrency|RestoreChecksRevokedRow" \
             -v \
             -count=1 \
             2>&1 | tee test-artifacts/mysql-concurrency-tests.txt

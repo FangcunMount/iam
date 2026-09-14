@@ -139,3 +139,7 @@ func filterProfileLinksByType(links []*linkdomain.ProfileLink, typ linkdomain.Ty
 	}
 	return out
 }
+
+func (s *profileLinkRepoStub) Restore(context.Context, *linkdomain.ProfileLink, time.Time) error {
+	panic("unexpected Restore")
+}

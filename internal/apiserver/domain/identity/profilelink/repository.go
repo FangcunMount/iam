@@ -2,6 +2,7 @@ package profilelink
 
 import (
 	"context"
+	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/pkg/meta"
 )
@@ -12,6 +13,9 @@ import (
 // Repository 档案关系存储接口
 type Repository interface {
 	Create(ctx context.Context, profileLink *ProfileLink) error
+
+	// Restore re-establishes the same revoked link without replacing its identity.
+	Restore(ctx context.Context, profileLink *ProfileLink, revokedAt time.Time) error
 
 	FindByID(ctx context.Context, id meta.ID) (*ProfileLink, error)
 
