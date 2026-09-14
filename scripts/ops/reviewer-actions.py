@@ -20,16 +20,16 @@ DB_KEYS = ('HOST', 'PORT', 'USERNAME', 'PASSWORD', 'DATABASE')
 
 
 def validate(value):
-    if value.get('mode') not in ('preflight', 'apply', 'verify'):
+    if value.get('mode') not in ('preflight', 'apply', 'verify', 'scope-preflight', 'scope-apply', 'scope-verify'):
         raise p.Stopped('Invalid operation')
     for key in ('run_id', 'run_attempt'):
         if not re.fullmatch(r'[1-9][0-9]*', value.get(key, '')):
             raise p.Stopped('Invalid Actions run identifier')
     if not re.fullmatch(r'[0-9a-f]{40}', value.get('code_sha', '')):
         raise p.Stopped('An exact source commit is required')
-    if value['mode'] != 'preflight' and not re.fullmatch(r'[1-9][0-9]*-[1-9][0-9]*', value.get('plan_id', '')):
+    if not value['mode'].endswith('preflight') and not re.fullmatch(r'[1-9][0-9]*-[1-9][0-9]*', value.get('plan_id', '')):
         raise p.Stopped('Select the preflight plan ID from its run output')
-    if value['mode'] == 'apply' and not re.fullmatch(r'[0-9a-f]{64}', value.get('approve_plan', '')):
+    if value['mode'].endswith('apply') and not re.fullmatch(r'[0-9a-f]{64}', value.get('approve_plan', '')):
         raise p.Stopped('Apply requires the reviewed preflight fingerprint')
     password = value.get('password', '')
     if not 20 <= len(password.encode()) <= 128 or password.strip() != password:
@@ -68,16 +68,16 @@ def execute(value, payload, directory):
     if account_path.exists() or account_path.is_symlink():
         if json.loads(p.private_read(account_path)) != desired:
             raise p.Stopped('Retained account input differs; do not overwrite identity or password')
-    elif value['mode'] == 'preflight':
+    elif value['mode'].endswith('preflight'):
         p.save(account_path, desired)
     else:
         raise p.Stopped('Run preflight first; no retained account input exists')
-    plan_id = value['run_id'] + '-' + value['run_attempt'] if value['mode'] == 'preflight' else value['plan_id']
+    plan_id = value['run_id'] + '-' + value['run_attempt'] if value['mode'].endswith('preflight') else value['plan_id']
     plans = directory / 'plans'
     private_directory(plans)
     binding_path = plans / (plan_id + '.source.json')
     binding = {'code_sha': value['code_sha'], 'username': USERNAME, 'user_id': '10002'}
-    if value['mode'] == 'preflight':
+    if value['mode'].endswith('preflight'):
         p.save(binding_path, binding)
     elif json.loads(p.private_read(binding_path)) != binding:
         raise p.Stopped('Source commit differs from preflight; run a fresh preflight before applying')

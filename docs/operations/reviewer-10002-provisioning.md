@@ -87,7 +87,7 @@ python3 scripts/ops/provision-reviewer-10002.py verify \
 
 `apply` 按顺序创建 IAM User、用户名身份及密码 Credential，授予已核对的管理员角色，登记同组织 QS Operator。前三项身份事实使用正常 Signup 事务和密码算法；赋权使用 IAM `/authz/assignments/grant`，登记使用 QS `/operators`。不会直写授权表或 QS 业务库，也不恢复旧账号创建 RPC。
 
-`provisioned` 表示账号 ID 正确、直接角色匹配、运营身份存在且管理员授权投影已收敛。`awaiting_projection` 表示尚未完成，稍后使用只读 `verify`；不能以账号已插入替代权限收敛。
+`provisioned` 表示账号 ID 正确、直接角色匹配、运营身份存在、管理员授权投影已收敛且公司数据范围与10001一致。`awaiting_projection` 表示尚未完成，稍后使用只读 `verify`；不能以账号已插入替代权限收敛。
 
 开通后由实际的第二位审核者使用独立登录名和密码登录 Operating，确认进入 AI 治理与“安全与产品”批量审核。登录验收与实际审核记录另行确认，脚本的回执明确标记 `login_and_human_review: not_performed`。不要由脚本代签或借用 10001 的会话提交第二域审核。
 
@@ -105,3 +105,11 @@ python3 scripts/ops/provision-reviewer-10002.py verify \
 Python 测试覆盖预演无写入、指纹拒绝、角色及组织漂移、响应丢失后的恢复、重复执行、投影延迟、分页完整性和私有文件边界。维护模块的真实 MySQL 测试覆盖固定 ID、占用拒绝、事务回滚、重复执行不改密及权限撤销。CI 分别运行脚本单元测试和既有 MySQL 维护测试。
 
 这些测试不代表生产账号已开通，也不代表新账号已经登录或完成 AI 审核；生产证据以实际执行回执、权限收敛与本人操作为准。
+
+## 10002 公司范围修复
+
+普通角色授予接口不接受公司范围，角色一致不代表数据权限一致。当前 `provisioned` 复核额外读取两位管理员的 QS 范围事实；缺少范围或不一致时失败。
+
+已有 10002 使用同一 Actions 的 `scope-preflight → scope-apply → scope-verify`：先核对预演的两条候选分配及指纹，再填写对应 `plan_id` 和 `approve_plan`。这组操作不创建账号、不重新授予角色、不修改密码或 QS 身份，只为当前未配置的 `platform_admin`、`qs:admin` 分配复制 10001 的实际公司范围。IAM 专属角色必须已与参考一致；已配置的不同范围、额外角色、其他公司或来源漂移会停止。
+
+修复复用已有策略版本锁、CAS、PolicyVersion 和事务 Outbox。私有预演保存完整授权事实，写后校验只改变清单中的两条范围及其更新审计；失败回滚，成功后通过 QS 正式接口验证运行时范围一致。回执保存在已有私有目录，不记录密码或令牌。若写入成功但运行时未收敛，仅再次运行 `scope-verify`，不要重放旧 Apply 指纹。此工具不会提交人工审核。
