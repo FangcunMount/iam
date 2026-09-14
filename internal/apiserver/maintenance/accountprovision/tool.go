@@ -26,6 +26,7 @@ import (
 
 type Input struct {
 	RequestID string `json:"request_id"`
+	UserID    string `json:"user_id,omitempty"`
 	ActorID   string `json:"actor_id"`
 	Username  string `json:"username"`
 	Name      string `json:"name"`
@@ -47,6 +48,12 @@ func (i Input) Validate() error {
 	if err != nil || actor <= 0 || actor.String() != i.ActorID {
 		return fmt.Errorf("canonical actor ID required")
 	}
+	if i.UserID != "" {
+		id, e := meta.ParseID(i.UserID)
+		if e != nil || id <= 0 || id.String() != i.UserID || i.UserID == i.ActorID {
+			return fmt.Errorf("distinct canonical reserved user ID required")
+		}
+	}
 	if _, err = login.NewUsernameProviderKey(i.Username); err != nil {
 		return err
 	}
@@ -65,7 +72,12 @@ func (i Input) Validate() error {
 }
 func (i Input) fingerprint() string {
 	// Never put password material or its digest in reports or identity metadata.
-	raw, _ := json.Marshal([]string{i.RequestID, i.ActorID, i.Username, i.Name, i.Reason})
+	values := []string{i.RequestID, i.ActorID, i.Username, i.Name, i.Reason}
+	// Retain fingerprints for existing auto-ID provisioning receipts.
+	if i.UserID != "" {
+		values = append(values, "reserved-user-id", i.UserID)
+	}
+	raw, _ := json.Marshal(values)
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
@@ -86,6 +98,22 @@ func inspect(ctx context.Context, db *gorm.DB, input Input, hasher authenticatio
 	// Include deleted identities: a historical identifier is not an available new username.
 	err := db.WithContext(ctx).Table(identity.TableName()).Where("provider='username' AND realm='default' AND identifier=?", input.Username).Take(&identity).Error
 	if err == gorm.ErrRecordNotFound {
+		if input.UserID != "" {
+			// Do not adopt occupied IDs, tombstones, or orphan identity/authorization facts.
+			for _, q := range []string{
+				"SELECT COUNT(*) FROM users WHERE id=?",
+				"SELECT COUNT(*) FROM auth_login_identities WHERE user_id=?",
+				"SELECT COUNT(*) FROM authz_assignments WHERE subject_type='user' AND subject_id=?",
+			} {
+				var count int64
+				if e := db.WithContext(ctx).Raw(q, input.UserID).Scan(&count).Error; e != nil {
+					return report, e
+				}
+				if count != 0 {
+					return report, fmt.Errorf("reserved user ID is already referenced; no existing state may be adopted")
+				}
+			}
+		}
 		return report, nil
 	}
 	if err != nil {
@@ -95,7 +123,7 @@ func inspect(ctx context.Context, db *gorm.DB, input Input, hasher authenticatio
 	if json.Unmarshal(identity.Meta, &marker) != nil || marker["provision_request_id"] != input.RequestID || marker["provision_fingerprint"] != report.Fingerprint {
 		return report, fmt.Errorf("username already exists outside this provisioning request")
 	}
-	if identity.DeletedAt != nil || identity.Status != "active" {
+	if (input.UserID != "" && identity.UserID.String() != input.UserID) || identity.DeletedAt != nil || identity.Status != "active" {
 		return report, fmt.Errorf("provisioned identity changed state")
 	}
 	var owner struct {
@@ -164,7 +192,12 @@ func Apply(ctx context.Context, db *gorm.DB, input Input, hasher authentication.
 		if err != nil || report.State == "historical_completed" {
 			return err
 		}
-		service := signup.NewSignupService(authnuow.NewUnitOfWork(db), hasher, nil, userrepo.NewRepository(db))
+		uow := authnuow.NewUnitOfWork(db)
+		if input.UserID != "" {
+			id, _ := meta.ParseID(input.UserID)
+			uow = reservedUserUnitOfWork{base: uow, id: id}
+		}
+		service := signup.NewSignupService(uow, hasher, nil, userrepo.NewRepository(db))
 		result, err := service.SignUp(txctx, signup.SignupRequest{User: signup.SignupUserInput{Name: input.Name}, LoginIdentity: signup.UsernameLoginIdentityInput{Username: input.Username, Meta: map[string]string{"provision_request_id": input.RequestID, "provision_fingerprint": input.fingerprint(), "provision_reason": input.Reason}}, Credential: &signup.SignupCredentialInput{Password: &signup.PasswordCredentialInput{Plaintext: input.Password}}})
 		if err != nil {
 			return err

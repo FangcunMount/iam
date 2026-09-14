@@ -98,7 +98,7 @@ func TestMySQLProvisionUsesSignupTransactionWithoutGrantsAndNeverResetsExistingP
 			t.Fatal(err)
 		}
 	}
-	input := Input{RequestID: "account-test-1", ActorID: "10001", Username: "store_test_admin", Name: "专用门店管理员", Reason: "explicit provisioning test", Password: "PrivateTestPassword-123456"}
+	input := Input{UserID: "10002", RequestID: "account-test-1", ActorID: "10001", Username: "store_test_admin", Name: "专用门店管理员", Reason: "explicit provisioning test", Password: "PrivateTestPassword-123456"}
 	hasher := crypto.NewArgon2Hasher("test-pepper")
 	before, err := Preflight(context.Background(), db, input, hasher)
 	if err != nil || before.State != "pending" {
@@ -106,6 +106,16 @@ func TestMySQLProvisionUsesSignupTransactionWithoutGrantsAndNeverResetsExistingP
 	}
 	if _, err = Apply(context.Background(), db, input, hasher, "wrong"); err == nil {
 		t.Fatal("wrong fingerprint accepted")
+	}
+	// An explicitly reserved ID never replaces an existing account, even a tombstone.
+	if err = db.Exec("INSERT INTO users(id,name,email,status,created_at,updated_at,deleted_at,created_by,updated_by,deleted_by,version) VALUES(10002,'occupied','',1,NOW(),NOW(),NOW(),0,0,0,1)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err = Preflight(context.Background(), db, input, hasher); err == nil {
+		t.Fatal("occupied reserved ID accepted")
+	}
+	if err = db.Exec("DELETE FROM users WHERE id=10002").Error; err != nil {
+		t.Fatal(err)
 	}
 	// A failure after user and identity inserts must roll back all three signup facts.
 	if err = db.Exec("CREATE TRIGGER refuse_password BEFORE INSERT ON auth_credentials FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='injected credential failure'").Error; err != nil {
@@ -131,7 +141,7 @@ func TestMySQLProvisionUsesSignupTransactionWithoutGrantsAndNeverResetsExistingP
 		t.Fatal(err)
 	}
 	done, err := Apply(context.Background(), db, input, hasher, before.Fingerprint)
-	if err != nil || done.State != "historical_completed" || done.UserID == "" {
+	if err != nil || done.State != "historical_completed" || done.UserID != "10002" {
 		t.Fatal(done, err)
 	}
 	again, err := Apply(context.Background(), db, input, hasher, before.Fingerprint)
@@ -170,6 +180,7 @@ func TestMySQLProvisionUsesSignupTransactionWithoutGrantsAndNeverResetsExistingP
 	for _, id := range []string{"race-one", "race-two"} {
 		candidate := input
 		candidate.Username = "store_race_admin"
+		candidate.UserID = ""
 		candidate.RequestID = id
 		go func(value Input) {
 			report, err := Apply(context.Background(), db, value, hasher, value.fingerprint())

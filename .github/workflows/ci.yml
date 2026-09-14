@@ -63,6 +63,9 @@ jobs:
       - name: Check retired service authentication
         run: python3 scripts/check_service_token_retirement.py
 
+      - name: Test reserved reviewer provisioning
+        run: python3 -m unittest discover -s scripts/ops -p 'test_provision*.py' -v
+
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
