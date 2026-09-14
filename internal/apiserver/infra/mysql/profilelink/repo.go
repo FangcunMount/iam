@@ -2,6 +2,7 @@ package profilelink
 
 import (
 	"context"
+	"time"
 
 	"github.com/FangcunMount/component-base/pkg/errors"
 	domain "github.com/FangcunMount/iam/v5/internal/apiserver/domain/identity/profilelink"
@@ -204,4 +205,26 @@ func (r *Repository) toDomainSlice(pos []*ProfileLinkPO) []*domain.ProfileLink {
 		profileLinks = append(profileLinks, bo)
 	}
 	return profileLinks
+}
+
+// Restore changes only a matching revoked relationship. Existing active grants,
+// another user's row, and a changed revocation are never overwritten.
+func (r *Repository) Restore(ctx context.Context, link *domain.ProfileLink, revokedAt time.Time) error {
+	if link == nil || link.ID.IsZero() || !link.IsActive() || revokedAt.IsZero() {
+		return errors.WithCode(code.ErrInvalidArgument, "invalid profile link restoration")
+	}
+	po := r.mapper.ToPO(link)
+	result := r.WithContext(ctx).Model(&ProfileLinkPO{}).
+		Where("id = ? AND user_id = ? AND profile_id = ? AND type = ? AND revoked_at = ?", po.ID.Uint64(), po.UserID.Uint64(), po.ProfileID.Uint64(), po.Type, revokedAt).
+		Updates(map[string]interface{}{
+			"relation": po.Relation, "self_key": po.SelfKey, "established_at": po.EstablishedAt,
+			"revoked_at": nil, "version": gorm.Expr("version + 1"),
+		})
+	if result.Error != nil {
+		return translateProfileLinkError(result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return errors.WithCode(code.ErrIdentityProfileLinkExists, "profile link changed before restoration")
+	}
+	return nil
 }

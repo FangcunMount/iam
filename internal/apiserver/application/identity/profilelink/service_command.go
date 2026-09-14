@@ -134,7 +134,7 @@ func establishProfileLinkInTx(txCtx context.Context, tx uow.TxRepositories, dto 
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.ProfileLinks.Create(txCtx, profileLink); err != nil {
+	if err := persistEstablishedLink(txCtx, tx, profileLink); err != nil {
 		return nil, err
 	}
 	profile, err := tx.Profiles.FindByID(txCtx, profileLink.Profile)
@@ -199,4 +199,24 @@ func resolveRevokeSelector(txCtx context.Context, tx uow.TxRepositories, dto Rev
 	}
 
 	return dto.UserID, dto.ProfileID, nil, nil
+}
+
+// A revoked row still owns the (user, profile, type) unique key. Reuse it only
+// after the normal existence, relation and active-self checks have succeeded.
+func persistEstablishedLink(txCtx context.Context, tx uow.TxRepositories, link *domain.ProfileLink) error {
+	previous, err := tx.ProfileLinks.FindByUserIDAndTypeIncludingRevoked(txCtx, link.User, link.Type)
+	if err != nil {
+		return err
+	}
+	for _, old := range previous {
+		if old == nil || old.Profile != link.Profile || old.User != link.User || old.Type != link.Type {
+			continue
+		}
+		if old.IsActive() {
+			return perrors.WithCode(code.ErrIdentityProfileLinkExists, "profile link already exists")
+		}
+		link.ID = old.ID
+		return tx.ProfileLinks.Restore(txCtx, link, *old.RevokedAt)
+	}
+	return tx.ProfileLinks.Create(txCtx, link)
 }
