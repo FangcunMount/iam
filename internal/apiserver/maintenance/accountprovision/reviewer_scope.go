@@ -175,6 +175,18 @@ func ReviewerScopeApply(ctx context.Context, db *gorm.DB, input Input, hasher au
 		}
 		before := scopemigrate.Snapshot{IAM: r.Before}
 		now := time.Now().UTC().Truncate(time.Second)
+		// DATETIME has no zone. Use the database session's wall clock so a UTC
+		// maintenance DSN cannot write audit times eight hours behind the app.
+		if tx.Dialector.Name() == "mysql" {
+			var clock struct{ Now time.Time }
+			if e = tx.Raw("SELECT CURRENT_TIMESTAMP AS now").Scan(&clock).Error; e != nil {
+				return e
+			}
+			if clock.Now.IsZero() {
+				return fmt.Errorf("database clock unavailable")
+			}
+			now = clock.Now
+		}
 		for _, c := range r.Plan.Changes {
 			var old, source assignmentpo.AssignmentPO
 			for _, a := range r.Before.Assignments {

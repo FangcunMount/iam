@@ -103,6 +103,13 @@ func TestReviewerScopeRepairPreservesOtherFactsAndOutboxAtomicity(t *testing.T) 
 	db, input := reviewerFixture(t)
 	ctx := context.Background()
 	hasher := crypto.NewArgon2Hasher("")
+	if db.Dialector.Name() == "mysql" {
+		pool, e := db.DB()
+		require.NoError(t, e)
+		pool.SetMaxOpenConns(1)
+		require.NoError(t, db.Exec("SET time_zone = '+08:00'").Error)
+		require.NoError(t, db.Exec("UPDATE authz_assignments SET updated_at=CURRENT_TIMESTAMP").Error)
+	}
 	p, err := ReviewerScopePreflight(ctx, db, input, hasher, 1)
 	require.NoError(t, err)
 	require.Len(t, p.Plan.Changes, 2)
