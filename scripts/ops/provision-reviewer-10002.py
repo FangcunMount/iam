@@ -135,7 +135,7 @@ def reference_snapshot(iam, qs):
     if not {'platform_admin', 'qs:admin'} <= {r['name'] for r in roles}:
         raise Stopped('Reference must have platform_admin and qs:admin')
     refs = [r for r in qs.operators() if str(r['user_id']) == REFERENCE]
-    if len(refs) != 1 or not refs[0]['is_active'] or 'qs:admin' not in refs[0]['roles'] or refs[0]['authz_projection_pending']:
+    if len(refs) != 1 or not refs[0]['is_active'] or 'qs:admin' not in (refs[0]['roles'] or []) or refs[0]['authz_projection_pending']:
         raise Stopped('Reference QS administrator is missing, ambiguous, inactive, or not synchronized')
     return {'assignments': sorted(assignments, key=lambda a: str(a['id'])),
             'roles': sorted(roles, key=lambda r: r['id']),
@@ -219,7 +219,7 @@ def execute(args, iam, qs):
     if current['state'] == 'historical_completed' or args.mode == 'apply':
         if actual == {r['id'] for r in source['roles']} and operators:
             op = operators[0]
-            if 'qs:admin' in op['roles'] and not op['authz_projection_pending']:
+            if not op['authz_projection_pending'] and 'qs:admin' in (op['roles'] or []):
                 state = 'provisioned'
             else:
                 state = 'awaiting_projection'

@@ -125,12 +125,14 @@ class ProvisionTest(unittest.TestCase):
     def test_projection_delay_is_incomplete_and_verify_never_writes(self):
         self.plan(); self.execute()
         self.api.members[1]['authz_projection_pending'] = True
+        self.api.members[1]['roles'] = None
         self.args.mode = 'verify'
         with self.assertRaises(p.Stopped):self.execute()
         receipts = [json.loads(f.read_text()) for f in self.directory.glob('verification-*.json')]
         self.assertIn('awaiting_projection', {r['state'] for r in receipts})
         self.assertEqual(len(self.api.posts), 4)
         self.api.members[1]['authz_projection_pending'] = False
+        self.api.members[1]['roles'] = ['qs:admin']
         self.execute()
         self.assertEqual(len(self.api.posts), 4)
     def test_list_pagination_requires_complete_unique_inventory(self):
