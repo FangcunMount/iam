@@ -28,6 +28,7 @@ func (o ReliableMessagingOptions) Validate() error {
 	if !o.Enabled {
 		return nil
 	}
+
 	if o.Concurrency < 1 || o.Concurrency > 1000 || o.Lease <= 0 || o.Lease > 24*time.Hour ||
 		o.PublishTimeout < 2*time.Second || o.PublishTimeout >= o.Lease || o.WriteTimeout <= 0 || o.WriteTimeout >= o.Lease-o.PublishTimeout ||
 		o.RestartDelay <= 0 || o.RestartDelay > time.Minute || o.LegacyStale <= 0 || o.LegacyStale > 24*time.Hour ||

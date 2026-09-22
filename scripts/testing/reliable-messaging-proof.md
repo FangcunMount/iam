@@ -1,5 +1,7 @@
 # IAM reliable messaging proofs
 
+2026-09-22 route decision: the project initiator selected the SDK standard table after draining the legacy path. The historical-table candidate below is preserved as a checkpoint, not the final M3 design or rollout approval. Its fixed UTC+8 revision passed the complete isolated MySQL/NSQ proof, including actual maintenance connection factories under TZ=UTC and +08:00 preflight output. Standard-table transaction, monitoring and cutover proofs must replace the historical-specific acceptance cases before M3 review.
+
 Current M3 candidate: platform/process code selects the SDK only when `events.reliable_messaging.enabled` is explicitly true. The normal configurations retain false. The sections below retain earlier milestone evidence; earlier statements about unchanged wiring describe those historical batches. The final configuration and shutdown section is the current candidate contract. No M3 production enablement has been performed.
 
 ## M2 original IAM UoW proof
@@ -73,7 +75,7 @@ Schema rollback after SDK use is intentionally refused. Application rollback mus
 
 The actual SDK Relay with controlled Store/Publisher doubles proves recovery after a failed scan, surviving writeback after admission cancellation, join before driver drain, observable drain cancellation and retry, and no further scans. Error and unexpected nil exits both support cancellation during restart delay. The messaging package passed ten race-instrumented repetitions. These checks are included in the proof script; they are host runtime evidence, not SQL/NSQ durability tests.
 
-The candidate is not yet selected by platform/process bootstrap. Production still uses its original cancel-only relay hook. M3 must connect the runtime, implement resource-close behavior on drain failure, configure a host-owned producer and validate exclusive handoff before enabling it. An ordinary lifecycle hook that logs Stop errors and continues closing the DB does not satisfy this contract.
+The candidate is selected by the opt-in platform/process wiring described below. Production still uses its original cancel-only relay hook. Exclusive handoff must be validated before enabling the candidate. An ordinary lifecycle hook that logs Stop errors and continues closing the DB does not satisfy this contract.
 
 
 ## M3 platform selection and shutdown contract
@@ -104,3 +106,16 @@ Evidence: real MySQL plus NSQ `TestReliableMessagingPlatformWiring` uses actual 
 The real shutdown sequence with the real runtime adapter and controlled operations proves that join timeout and publisher-drain failure retain resources; a successful subsequent drain permits producer/hooks/DB close in order. A child process executes the actual graceful-shutdown dispatcher and verifies exit 1 on deadline failure, with exit 0 and DB-close exit 2 as failing alternatives. This is not a real SIGTERM, broker-kill or deployed container test.
 
 Remaining rollout gates include all legacy/bootstrap/maintenance writers, cross-process exclusion, forward/backward handoff rehearsal, historical corrupted-state readiness, metrics/thresholds and retention windows, complete policy subscriber reconciliation and business decisions. Configuration remains disabled pending final user review. Private SDK cross-repository CI authorization is still required.
+
+
+## M3 read-only preflight and historical clock correction
+
+The candidate `iam-maintenance reliable-messaging preflight` checks a bounded read-only, repeatable-read snapshot after schema 38. It reports database time as `database_time` with an explicit +08:00 offset and counts only, including active/expired/legacy publishing, quarantine, unknown states, malformed metadata, unfinished identity conflicts and published-content anomalies. It never claims, settles, deletes or replays rows. Truncation or query failure cannot report success. The actual CLI also runs against the disposable full-chain database in the proof script.
+
+SDK data readiness means the rows can be read or recovered after verified owner exclusion. Valid publishing rows set recovery_required and are compatible with SDK recovery; they prevent legacy rollback data readiness until settled. Published anomalies are reported but never re-enqueued. Schema removal requires unused metadata and only legacy states. writer_exclusion_verified and cutover_authorized remain false even on exit 0. The command does not establish a stopped process, a drained network call, a backup or a reviewed production decision. See [handoff procedure and retained writers](reliable-messaging-handoff.md).
+
+A real connection difference was found before M3 release: API uses loc=Local and its current container is UTC+8, whereas the maintenance database helper parses DATETIME as UTC. The initial candidate converted created_at to UTC before fingerprinting, so identical stored clock digits could produce different digests. The current mapper canonicalizes stored digits independently of driver loc; its Z timestamp remains only an immutable surrogate, not a claim about the original event instant. Stage now reads the stored row and installs its digest within the same host transaction.
+
+The user selected a fixed UTC+8 business clock. Candidate composition therefore fixes Stage timestamps and due/retry/update/publication times to database UTC plus eight hours, without a configurable historical offset. Candidate maintenance and migration connections explicitly select UTC+8 for driver parsing and the MySQL session; the existing API pool still uses loc=Local and requires its runtime timezone to remain UTC+8. The new rm_lease_until column remains database UTC for lease arithmetic. Historical scheduling digits still require a pre-cutover audit; a mixed-clock history must be resolved explicitly, not silently rewritten. These corrections affect unreleased IAM adapters, not the generic SDK identity contract or original wire bytes. Targeted package tests pass after this fixed-clock change; the complete isolated proof must be rerun before treating that revision as accepted.
+
+Real MySQL proof opens two pools using UTC and UTC+8, writes through the original UoW, repeats staging through the other pool and compares the preflight results. SDK claims a new row without test-side timestamp repair. An actual legacy Stager writes another row in UTC+8; SDK claims and retries it; a legacy claimant then takes that retry sequentially. Preflight cases cover unknown states, malformed claim metadata, content mismatch, expired/active leases, quarantine, truncation and payload-free output. This is a sequential storage handoff proof, not an overlapping-process exclusion or production rollback rehearsal.

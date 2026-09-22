@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"github.com/FangcunMount/iam/v5/internal/pkg/timezone"
 	"io"
 	"net"
 	"os"
@@ -186,6 +187,8 @@ func roleDatabase(prefix string) (*gorm.DB, error) {
 	cfg.Addr = net.JoinHostPort(host, port)
 	cfg.DBName = database
 	cfg.ParseTime = true
+	cfg.Loc = timezone.Location
+	cfg.Params = map[string]string{"time_zone": "'+08:00'"}
 	cfg.Timeout = 8 * time.Second
 	cfg.ReadTimeout = time.Minute
 	cfg.WriteTimeout = time.Minute

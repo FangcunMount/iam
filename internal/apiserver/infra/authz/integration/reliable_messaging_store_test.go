@@ -37,7 +37,7 @@ func TestReliableMessagingHistoricalStore(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(string(upgrade)).Error)
 	ctx := context.Background()
-	s, err := eventoutbox.NewReliableStore(db, "iam.authz.version.v2", time.Minute)
+	s, err := eventoutbox.NewReliableStore(db, "iam.authz.version.v2", time.Minute, 0)
 	require.NoError(t, err)
 	row := eventoutbox.OutboxPO{EventID: "old-intent", EventType: "iam.authz.version_changed.v2", AggregateType: "PolicyVersion", AggregateID: "2", TopicName: "iam.authz.version.v2", PayloadJSON: `{ "version":2,"extension":true }`, Status: "failed", AttemptCount: 7, NextAttemptAt: time.Now().Add(-time.Hour), CreatedAt: time.Now().Add(-time.Hour), UpdatedAt: time.Now().Add(-time.Hour)}
 	require.NoError(t, db.Create(&row).Error)
@@ -149,7 +149,7 @@ events:
     handler: iam-policy-sync
 `))
 	require.NoError(t, err)
-	stager, err := eventoutbox.NewReliableStager(eventcatalog.NewCatalog(cfg))
+	stager, err := eventoutbox.NewReliableStager(eventcatalog.NewCatalog(cfg), 0)
 	require.NoError(t, err)
 	ctx := context.Background()
 	original := policy.NewVersionChangedEvent(2)

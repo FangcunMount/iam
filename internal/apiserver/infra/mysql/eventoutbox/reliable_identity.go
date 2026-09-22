@@ -32,10 +32,15 @@ func policyIntent(row OutboxPO, expectedTopic string) (message.Message, error) {
 	if row.CreatedAt.IsZero() {
 		return message.Message{}, errors.New("historical creation time missing")
 	}
+	// DATETIME stores clock digits, not an offset. Canonicalize those persisted
+	// digits independently of the driver's loc setting. The Z suffix is only a
+	// stable SDK time surrogate; it is not evidence of the real event's timezone.
+	created := row.CreatedAt
+	canonicalTime := time.Date(created.Year(), created.Month(), created.Day(), created.Hour(), created.Minute(), created.Second(), created.Nanosecond(), time.UTC)
 	intent, err := message.New(message.Input{
 		Producer: "iam", ID: row.EventID, Destination: row.TopicName,
 		EventType: row.EventType, SchemaVersion: "v2", Scope: "scope:global",
-		ContentType: "application/json", OccurredAt: row.CreatedAt.UTC().Format(time.RFC3339Nano), Payload: []byte(row.PayloadJSON),
+		ContentType: "application/json", OccurredAt: canonicalTime.Format(time.RFC3339Nano), Payload: []byte(row.PayloadJSON),
 	})
 	if err != nil {
 		return message.Message{}, fmt.Errorf("historical policy intent: %w", err)

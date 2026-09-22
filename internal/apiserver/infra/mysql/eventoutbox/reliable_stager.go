@@ -19,21 +19,22 @@ import (
 // transaction. The caller must roll back that transaction on any Stage error.
 // Historical rows retain their original creation timestamp on duplicate append.
 type ReliableStager struct {
-	builder *Store
-	topic   string
+	builder     *Store
+	topic       string
+	clockOffset time.Duration
 }
 
 var _ event.Stager = (*ReliableStager)(nil)
 
-func NewReliableStager(catalog *eventcatalog.Catalog) (*ReliableStager, error) {
-	if catalog == nil {
+func NewReliableStager(catalog *eventcatalog.Catalog, clockOffset time.Duration) (*ReliableStager, error) {
+	if catalog == nil || !validHistoricalClock(clockOffset) {
 		return nil, errors.New("policy event catalog required")
 	}
 	topic, ok := catalog.GetTopicForEvent(eventing.AuthzVersionChanged)
 	if !ok || topic == "" || !catalog.IsDurableOutbox(eventing.AuthzVersionChanged) {
 		return nil, errors.New("durable policy route required")
 	}
-	return &ReliableStager{builder: NewStore(nil, catalog), topic: topic}, nil
+	return &ReliableStager{builder: NewStore(nil, catalog), topic: topic, clockOffset: clockOffset}, nil
 }
 func (s *ReliableStager) Stage(ctx context.Context, events ...event.DomainEvent) error {
 	if len(events) == 0 {
@@ -56,15 +57,23 @@ func (s *ReliableStager) Stage(ctx context.Context, events ...event.DomainEvent)
 		return err
 	}
 	for _, row := range rows {
-		intent, e := policyIntent(*row, s.topic)
+		_, e := policyIntent(*row, s.topic)
 		if e != nil {
 			return e
 		}
-		fingerprint := intent.Fingerprint()
-		candidate := reliableRow{OutboxPO: *row, Fingerprint: fingerprint[:]}
+		// Install the digest after reading the stored DATETIME digits: a MySQL
+		// driver's loc setting can transform input times during parameter encoding.
+		// Insert, read and digest update still belong to the same host transaction.
+		candidate := map[string]any{
+			"event_id": row.EventID, "event_type": row.EventType, "aggregate_type": row.AggregateType,
+			"aggregate_id": row.AggregateID, "topic_name": row.TopicName, "payload_json": row.PayloadJSON,
+			"status": row.Status, "attempt_count": row.AttemptCount,
+			"next_attempt_at": historicalClockNow(s.clockOffset),
+			"created_at":      historicalClockNow(s.clockOffset), "updated_at": historicalClockNow(s.clockOffset),
+		}
 		// The no-op duplicate update obtains the unique-index lock without replacing
 		// any historical content, state, retry count, timestamp or publication receipt.
-		if e = tx.WithContext(ctx).Clauses(clause.OnConflict{DoUpdates: clause.Assignments(map[string]any{"event_id": gorm.Expr("event_id")})}).Create(&candidate).Error; e != nil {
+		if e = tx.WithContext(ctx).Model(&reliableRow{}).Clauses(clause.OnConflict{DoUpdates: clause.Assignments(map[string]any{"event_id": gorm.Expr("event_id")})}).Create(candidate).Error; e != nil {
 			return e
 		}
 		var existing reliableRow

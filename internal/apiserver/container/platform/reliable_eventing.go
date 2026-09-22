@@ -9,6 +9,7 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	messagingInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/v5/internal/pkg/timezone"
 	"github.com/FangcunMount/iam/v5/pkg/outboxcore"
 	"github.com/FangcunMount/reliable-messaging/outbox"
 	"github.com/FangcunMount/reliable-messaging/relay"
@@ -30,12 +31,12 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 	if err := eventoutbox.CheckReliableSchema(ctx, deps.DB); err != nil {
 		return err
 	}
-	stager, err := eventoutbox.NewReliableStager(result.Catalog)
+	stager, err := eventoutbox.NewReliableStager(result.Catalog, timezone.Offset)
 	if err != nil {
 		return err
 	}
 	topic, _ := result.Catalog.GetTopicForEvent(eventing.AuthzVersionChanged)
-	store, err := eventoutbox.NewReliableStore(deps.DB, topic, opts.LegacyStale)
+	store, err := eventoutbox.NewReliableStore(deps.DB, topic, opts.LegacyStale, timezone.Offset)
 	if err != nil {
 		return err
 	}

@@ -22,15 +22,16 @@ type ReliableStore struct {
 	db          *gorm.DB
 	topic       string
 	legacyStale time.Duration
+	clockOffset time.Duration
 }
 
 var _ outbox.Store = (*ReliableStore)(nil)
 
-func NewReliableStore(db *gorm.DB, topic string, legacyStale time.Duration) (*ReliableStore, error) {
-	if db == nil || db.Dialector == nil || db.Dialector.Name() != "mysql" || topic == "" || legacyStale <= 0 || legacyStale > 24*time.Hour {
+func NewReliableStore(db *gorm.DB, topic string, legacyStale, clockOffset time.Duration) (*ReliableStore, error) {
+	if db == nil || db.Dialector == nil || db.Dialector.Name() != "mysql" || topic == "" || legacyStale <= 0 || legacyStale > 24*time.Hour || !validHistoricalClock(clockOffset) {
 		return nil, errors.New("MySQL, policy topic and bounded legacy lease required")
 	}
-	return &ReliableStore{db: db, topic: topic, legacyStale: legacyStale}, nil
+	return &ReliableStore{db: db, topic: topic, legacyStale: legacyStale, clockOffset: clockOffset}, nil
 }
 
 type reliableRow struct {
@@ -51,9 +52,9 @@ func (s *ReliableStore) ClaimDue(ctx context.Context, limit int, lease time.Dura
 	claims := make([]outbox.Claim, 0, limit)
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []reliableRow
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where(`(status IN ('pending','failed') AND next_attempt_at<=UTC_TIMESTAMP(6)) OR
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where(`(status IN ('pending','failed') AND next_attempt_at<=TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6))) OR
    (status='publishing' AND rm_claim_token IS NOT NULL AND rm_lease_until<=UTC_TIMESTAMP(6)) OR
-   (status='publishing' AND rm_claim_token IS NULL AND updated_at<=TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6)))`, -ceilMicros(s.legacyStale)).Order("created_at ASC, id ASC").Limit(limit).Find(&rows).Error
+   (status='publishing' AND rm_claim_token IS NULL AND updated_at<=TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6)))`, int64(s.clockOffset/time.Microsecond), int64(s.clockOffset/time.Microsecond)-ceilMicros(s.legacyStale)).Order("created_at ASC, id ASC").Limit(limit).Find(&rows).Error
 		if err != nil {
 			return err
 		}
@@ -67,7 +68,7 @@ func (s *ReliableStore) ClaimDue(ctx context.Context, limit int, lease time.Dura
 			}
 			if e != nil {
 				// Preserve evidence and remove this malformed row from automatic attempts.
-				if e = tx.Model(&OutboxPO{}).Where("id=?", row.ID).Updates(map[string]any{"status": "quarantined", "last_error": code, "rm_claim_token": nil, "rm_lease_until": nil, "updated_at": gorm.Expr("UTC_TIMESTAMP(6)")}).Error; e != nil {
+				if e = tx.Model(&OutboxPO{}).Where("id=?", row.ID).Updates(map[string]any{"status": "quarantined", "last_error": code, "rm_claim_token": nil, "rm_lease_until": nil, "updated_at": historicalClockNow(s.clockOffset)}).Error; e != nil {
 					return e
 				}
 				continue
@@ -79,7 +80,7 @@ func (s *ReliableStore) ClaimDue(ctx context.Context, limit int, lease time.Dura
 			token := hex.EncodeToString(random[:])
 			result := tx.Model(&OutboxPO{}).Where("id=?", row.ID).Updates(map[string]any{
 				"status": "publishing", "rm_claim_token": token, "rm_fingerprint": fingerprint[:], "rm_claim_version": gorm.Expr("rm_claim_version+1"), "rm_claim_count": gorm.Expr("rm_claim_count+1"),
-				"rm_lease_until": gorm.Expr("TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6))", ceilMicros(lease)), "updated_at": gorm.Expr("UTC_TIMESTAMP(6)"),
+				"rm_lease_until": gorm.Expr("TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6))", ceilMicros(lease)), "updated_at": historicalClockNow(s.clockOffset),
 			})
 			if result.Error != nil {
 				return result.Error
@@ -102,13 +103,13 @@ func (s *ReliableStore) ClaimDue(ctx context.Context, limit int, lease time.Dura
 }
 
 func (s *ReliableStore) Confirm(ctx context.Context, c outbox.Claim) error {
-	return s.mutate(ctx, c, map[string]any{"status": "published", "published_at": gorm.Expr("UTC_TIMESTAMP(6)")})
+	return s.mutate(ctx, c, map[string]any{"status": "published", "published_at": historicalClockNow(s.clockOffset)})
 }
 func (s *ReliableStore) Retry(ctx context.Context, c outbox.Claim, delay time.Duration, code string) error {
 	if delay <= 0 {
 		return errors.New("positive retry delay required")
 	}
-	return s.mutate(ctx, c, map[string]any{"status": "failed", "attempt_count": gorm.Expr("attempt_count+1"), "next_attempt_at": gorm.Expr("TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6))", ceilMicros(delay)+999), "last_error": code})
+	return s.mutate(ctx, c, map[string]any{"status": "failed", "attempt_count": gorm.Expr("attempt_count+1"), "next_attempt_at": gorm.Expr("TIMESTAMPADD(MICROSECOND,?,UTC_TIMESTAMP(6))", int64(s.clockOffset/time.Microsecond)+ceilMicros(delay)+999), "last_error": code})
 }
 func (s *ReliableStore) Quarantine(ctx context.Context, c outbox.Claim, code string) error {
 	return s.mutate(ctx, c, map[string]any{"status": "quarantined", "last_error": code})
@@ -121,7 +122,7 @@ func (s *ReliableStore) mutate(ctx context.Context, c outbox.Claim, fields map[s
 	fields["rm_claim_token"] = nil
 	fields["rm_lease_until"] = nil
 	fields["rm_claim_version"] = gorm.Expr("rm_claim_version+1")
-	fields["updated_at"] = gorm.Expr("UTC_TIMESTAMP(6)")
+	fields["updated_at"] = historicalClockNow(s.clockOffset)
 	result := s.db.WithContext(ctx).Model(&OutboxPO{}).Where("id=? AND status='publishing' AND rm_claim_token=? AND rm_claim_version=? AND rm_lease_until>UTC_TIMESTAMP(6)", id, c.Token, c.Version).Updates(fields)
 	if result.Error != nil {
 		return result.Error

@@ -16,7 +16,12 @@ func TestPolicyIntentPreservesHistoricalIdentityAndBytes(t *testing.T) {
 	require.Equal(t, row.EventID, in.ID)
 	require.Equal(t, []byte(row.PayloadJSON), in.Payload)
 	require.Equal(t, "scope:global", in.Scope)
-	require.Equal(t, "2026-09-22T02:00:00.123Z", in.OccurredAt)
+	require.Equal(t, "2026-09-22T10:00:00.123Z", in.OccurredAt)
+	otherLocation := row
+	otherLocation.CreatedAt = time.Date(2026, 9, 22, 10, 0, 0, 123000000, time.UTC)
+	other, err := policyIntent(otherLocation, row.TopicName)
+	require.NoError(t, err)
+	require.Equal(t, first.Fingerprint(), other.Fingerprint(), "same DATETIME digits must not depend on client timezone")
 	row.Status = "failed"
 	row.AttemptCount = 7
 	row.UpdatedAt = time.Now()

@@ -30,12 +30,14 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 (cd "$repo" && GOWORK="$build_dir/go.work" go test -race ./internal/apiserver/infra/messaging -run '^TestReliableRuntime' -count=10)
 (cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/proof" ./internal/apiserver/infra/authz/integration)
 (cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -o "$build_dir/migration-proof" ./internal/pkg/migration)
+(cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go build -o "$build_dir/iam-maintenance" ./cmd/iam-maintenance)
+(cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/maintenance-proof" ./cmd/iam-maintenance)
 "${compose[@]}" up -d --wait --wait-timeout 180 mysql nsqd
 "${compose[@]}" cp "$build_dir/proof" mysql:/tmp/iam-proof
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql" mysql:/tmp/iam-old-outbox.sql
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000038_reliable_messaging_claims.up.sql" mysql:/tmp/iam-rm-upgrade.sql
 "${compose[@]}" cp "$repo/configs/events.yaml" mysql:/tmp/iam-events.yaml
-"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_UPGRADE='/tmp/iam-rm-upgrade.sql' -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing|HistoricalStore|HistoricalStager|PlatformWiring)$' -test.v
+"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_UPGRADE='/tmp/iam-rm-upgrade.sql' -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing|HistoricalStore|HistoricalStager|PlatformWiring|PreflightAndTimezone)$' -test.v
 
 # Real production migration files and full fresh bootstrap use separate,
 # disposable databases in this same isolated MySQL container.
@@ -44,3 +46,10 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 "${compose[@]}" exec -T mysql mysql -uroot -e 'CREATE DATABASE rm_iam_migration; CREATE DATABASE rm_iam_full_chain;'
 "${compose[@]}" exec -T -e IAM_RM_MIGRATION_REQUIRED=1 -e MYSQL_HOST=127.0.0.1 -e MYSQL_USER=root -e MYSQL_PASSWORD='' -e MYSQL_DATABASE=rm_iam_migration mysql /tmp/iam-migration-proof -test.run '^TestReliableMessagingSchemaUpgradeAndRollbackMySQL$' -test.v
 "${compose[@]}" exec -T -e MYSQL_HOST=127.0.0.1 -e MYSQL_USER=root -e MYSQL_PASSWORD='' -e MYSQL_DATABASE=rm_iam_full_chain -e RM_IAM_BOOTSTRAP_SQL=/tmp/iam-bootstrap.sql -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml mysql /tmp/iam-migration-proof -test.run '^TestFullMigrationChainAndBootstrapMySQL$' -test.v
+
+# Exercise the actual read-only CLI against the fully migrated disposable DB.
+"${compose[@]}" cp "$build_dir/iam-maintenance" mysql:/tmp/iam-maintenance
+"${compose[@]}" exec -T -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance reliable-messaging preflight --event-catalog=/tmp/iam-events.yaml --target=sdk
+
+"${compose[@]}" cp "$build_dir/maintenance-proof" mysql:/tmp/iam-maintenance-proof
+"${compose[@]}" exec -T -e TZ=UTC -e IAM_RM_TIMEZONE_REQUIRED=1 -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain -e MYSQL_HOST=127.0.0.1 -e MYSQL_USER=root -e MYSQL_PASSWORD='' -e MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance-proof -test.run '^TestMaintenanceDatabaseTimezoneMySQL$' -test.v
