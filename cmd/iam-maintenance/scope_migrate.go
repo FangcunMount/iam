@@ -20,9 +20,9 @@ import (
 )
 
 type scopeOptions struct {
-	mode, id, actor, fingerprint, mapping, report, catalog string
-	stopped                                                bool
-	timeout                                                time.Duration
+	mode, id, actor, fingerprint, mapping, report, catalog, outboxMode string
+	stopped                                                            bool
+	timeout                                                            time.Duration
 }
 
 func parseScopeOptions(args []string) (scopeOptions, error) {
@@ -44,6 +44,7 @@ func parseScopeOptions(args []string) (scopeOptions, error) {
 	f.StringVar(&o.mapping, "mapping", "", "explicit version 1 assignment mapping JSON")
 	f.StringVar(&o.report, "report", "", "new absolute report path in private directory")
 	f.StringVar(&o.catalog, "event-catalog", "configs/events.yaml", "durable event catalog")
+	f.StringVar(&o.outboxMode, "outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
 	f.BoolVar(&o.stopped, "writes-stopped", false, "IAM authorization and QS membership/store writers paused")
 	f.DurationVar(&o.timeout, "timeout", 2*time.Minute, "overall operation timeout")
 	if err := f.Parse(args[1:]); err != nil {
@@ -178,7 +179,10 @@ func executeScopeMigration(o scopeOptions) (scopemigrate.Report, error) {
 		if e != nil {
 			return report, e
 		}
-		stager := eventoutbox.NewStore(iam, eventcatalog.NewCatalog(cfg))
+		stager, gateErr := eventoutbox.NewMaintenanceStager(ctx, iam, eventcatalog.NewCatalog(cfg), o.outboxMode)
+		if gateErr != nil {
+			return report, gateErr
+		}
 		if o.mode == "apply" {
 			_, err = scopemigrate.Apply(ctx, iam, qs, stager, o.id, o.actor, o.fingerprint, input, o.stopped)
 		} else {

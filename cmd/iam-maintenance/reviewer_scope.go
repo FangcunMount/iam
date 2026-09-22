@@ -26,6 +26,7 @@ func runReviewerScope(args []string, output io.Writer) error {
 	orgRaw := f.String("org-id", "", "QS verified common company")
 	fingerprint := f.String("fingerprint", "", "reviewed authorization facts")
 	catalog := f.String("event-catalog", "configs/events.yaml", "event catalog")
+	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
 	if err := f.Parse(args[1:]); err != nil || f.NArg() != 0 {
 		return errors.New("invalid reviewer scope arguments")
 	}
@@ -62,7 +63,11 @@ func runReviewerScope(args []string, output io.Writer) error {
 		if e != nil {
 			return errors.New("valid event catalog required")
 		}
-		report, err = accountprovision.ReviewerScopeApply(ctx, db, input, hasher, org, *fingerprint, eventoutbox.NewStore(db, eventcatalog.NewCatalog(cfg)))
+		stager, gateErr := eventoutbox.NewMaintenanceStager(ctx, db, eventcatalog.NewCatalog(cfg), *outboxMode)
+		err = gateErr
+		if err == nil {
+			report, err = accountprovision.ReviewerScopeApply(ctx, db, input, hasher, org, *fingerprint, stager)
+		}
 	}
 	evidence := struct {
 		Report accountprovision.ReviewerScopeReport `json:"report"`

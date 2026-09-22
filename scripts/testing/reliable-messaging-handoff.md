@@ -10,9 +10,13 @@ The user selected a standard table after legacy drain. M3 is a draft: no product
 | API legacy Relay | Original ID-only claims/writeback in legacy mode | Finish legacy work and terminate all old owners before SDK cutover |
 | SDK Relay | Shared Store with token/version/lease conditions | Stop admission and join/drain before releasing resources; retain recovery if standard work remains |
 | Fresh bootstrap 33/35 | Original insert-only Stager before standard migration 38 | First initialization still needs legacy notification drain; direct SDK-first fresh bootstrap is not yet implemented |
-| condition-authz-retire, statistics-operations, scope-migrate, role-model-migrate, reviewer-scope | Original insert-only Stager remains in current draft | Freeze during handoff; selection/retirement must be completed before final acceptance |
+| condition-authz-retire, statistics-operations, scope-migrate, role-model-migrate, reviewer-scope | Explicit --outbox-mode after standard schema installation; shared maintenance selector | Match the reviewed live Relay and freeze during handoff; complete business/cutover acceptance |
 
-Maintenance insert-only Stagers do not execute the unsafe old claim/mark operations, but they can create stranded legacy work after cutover. They must not be silently left enabled. This draft has not completed their final selection policy.
+Maintenance writers use `NewMaintenanceStager` before Apply/Rollback. On clean pre-38 databases without a standard table, omitted mode preserves the old writer. After standard schema installation an explicit `--outbox-mode=standard` or `--outbox-mode=legacy` is required. A dirty/missing journal is rejected; migrated databases must retain the standard schema in either mode. Standard mode rejects unfinished legacy work; legacy mode rejects unfinished standard work. Status/preflight/verify do not require this choice and retain their existing read-only paths. Existing fingerprint, actor, freeze and private-report requirements remain.
+
+The role migration wrapper forwards `IAM_ROLE_MODEL_OUTBOX_MODE` to its apply command. The reviewer provisioning script forwards `--outbox-mode` in its existing scope helper (its current top-level CLI does not expose scope operations; no new operation has been enabled). Direct reviewer-scope uses the same Go selector. Do not assume that an older copied binary/script includes these protections; inventory its reviewed version during handoff.
+
+The mode must match the running recovery owner. Empty tables cannot establish that mode or stop an old process from racing the check. This is an explicit operator choice and a data gate, not an ownership lock. All API and maintenance writers must be frozen during handoff.
 
 ## Data checks
 

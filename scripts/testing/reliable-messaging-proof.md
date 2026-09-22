@@ -26,6 +26,12 @@ Schema down is not application rollback. The guarded down SQL is tested directly
 
 Fresh bootstrap still emits its two legacy policy notifications before migration 38. The compiled preflight must reject immediate SDK cutover for that fixture and report legacy ownership. This explicitly identifies a remaining bootstrap-entry rollout step; it does not claim a new database can start directly in SDK mode.
 
+## Maintenance writer selection
+
+Five mutation entry points share `NewMaintenanceStager`: condition-authz-retire, statistics-operations, scope-migrate, role-model-migrate and reviewer-scope. After standard schema installation they require explicit `--outbox-mode=standard|legacy` matching the reviewed live Relay. Pre-38 omission preserves the legacy writer; dirty/missing schema evidence and opposite-table unfinished records reject selection. Read-only operations retain their existing paths.
+
+`TestReliableMessagingMaintenanceStager` uses real MySQL and the original host transaction. It checks implicit-mode rejection, pre-38 compatibility, dirty/missing schema, unfinished/unknown/case-malformed states in both directions, canceled queries, standard-only inserts and host rollback. Synthetic state fixtures establish data gates, not actual legacy drain or process exclusion. Individual maintenance business workflows retain their existing regression tests; this does not establish all five production workflows end to end.
+
 ## Read-only preflight and visibility
 
 `iam-maintenance reliable-messaging preflight` reads both tables under a bounded read-only repeatable-read transaction. The combined row budget includes historical published rows. Truncation, query errors, malformed metadata, unknown state and invalid unfinished standard content cannot report successful SDK data readiness. Published anomalies are reported and never replayed. Output contains counts and an explicit +08:00 database timestamp, not identities, payloads or claim tokens.
@@ -50,4 +56,4 @@ Candidate configuration under events.reliable_messaging: enabled=false, concurre
 
 ## Remaining acceptance
 
-Reviewed fixed SDK dependency and cross-repository CI access; all maintenance/bootstrap write entry points; real service-process forward/backward handoff; complete subscriber/decision acceptance; measured recovery/backlog/lock thresholds and observation window; final user review and separately authorized production rollout remain open. NSQ publish confirmation still does not prove consumer completion or durable replication.
+Reviewed fixed SDK dependency and cross-repository CI access; maintenance business acceptance and fresh-bootstrap legacy drain; real service-process forward/backward handoff; complete subscriber/decision acceptance; measured recovery/backlog/lock thresholds and observation window; final user review and separately authorized production rollout remain open. NSQ publish confirmation still does not prove consumer completion or durable replication.

@@ -24,6 +24,7 @@ func runOperationsCatalog(args []string, output io.Writer) error {
 	paused := f.Bool("writes-stopped", false, "authorization writes are paused")
 	path := f.String("report", "", "new restricted report path")
 	catalog := f.String("event-catalog", "configs/events.yaml", "event catalog")
+	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
 	if e := f.Parse(args[1:]); e != nil {
 		return e
 	}
@@ -54,7 +55,11 @@ func runOperationsCatalog(args []string, output io.Writer) error {
 		if err != nil {
 			return err
 		}
-		report, e = operationscatalog.Apply(ctx, db, eventoutbox.NewStore(db, eventcatalog.NewCatalog(cfg)), *fp, *actor, *paused)
+		stager, gateErr := eventoutbox.NewMaintenanceStager(ctx, db, eventcatalog.NewCatalog(cfg), *outboxMode)
+		e = gateErr
+		if e == nil {
+			report, e = operationscatalog.Apply(ctx, db, stager, *fp, *actor, *paused)
+		}
 	}
 	receipt := struct {
 		Report operationscatalog.Report `json:"report"`

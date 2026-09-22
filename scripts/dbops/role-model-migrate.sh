@@ -7,6 +7,7 @@ CONFIRM="${IAM_ROLE_MODEL_CONFIRM:-}"
 WRITES_STOPPED="${IAM_ROLE_MODEL_WRITES_STOPPED:-}"
 BIN="${IAM_ROLE_MODEL_BIN:-}"
 CATALOG="${IAM_ROLE_MODEL_CATALOG:-}"
+OUTBOX_MODE="${IAM_ROLE_MODEL_OUTBOX_MODE:-}"
 REPORT_DIR="${IAM_ROLE_MODEL_REPORT_DIR:-/opt/backups/iam/database/role-model}"
 TIMEOUT="${IAM_ROLE_MODEL_TIMEOUT:-10m}"
 TIMESTAMP="$(date -u +%Y%m%d_%H%M%S)"
@@ -90,6 +91,9 @@ PY
 run_tool() {
   local op="$1"
   shift
+  if [[ "$op" = apply || "$op" = rollback ]] && [[ -n "$OUTBOX_MODE" ]]; then
+    set -- "--outbox-mode=$OUTBOX_MODE" "$@"
+  fi
   "$BIN" role-model-migrate "$op" --timeout="$TIMEOUT" "$@"
 }
 
