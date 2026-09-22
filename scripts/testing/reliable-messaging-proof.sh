@@ -27,6 +27,7 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 # Host lifecycle contract uses actual scheduling/shutdown functions with controlled
 # dispatch/close boundaries. It does not substitute for the database/broker proofs.
 (cd "$repo" && GOWORK="$build_dir/go.work" go test -race -tags=reliable_messaging ./internal/apiserver/process -run '^TestReliableMessagingShutdownJoinBoundary$' -count=10)
+(cd "$repo" && GOWORK="$build_dir/go.work" go test -race ./internal/apiserver/infra/messaging -run '^TestReliableRuntime' -count=10)
 (cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/proof" ./internal/apiserver/infra/authz/integration)
 (cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -o "$build_dir/migration-proof" ./internal/pkg/migration)
 "${compose[@]}" up -d --wait --wait-timeout 180 mysql nsqd
