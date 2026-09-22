@@ -30,4 +30,5 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 (cd "$repo" && GOWORK="$build_dir/go.work" CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go test -c -tags=reliable_messaging -o "$build_dir/proof" ./internal/apiserver/infra/authz/integration)
 "${compose[@]}" up -d --wait --wait-timeout 180 mysql nsqd
 "${compose[@]}" cp "$build_dir/proof" mysql:/tmp/iam-proof
-"${compose[@]}" exec -T -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing)$' -test.v
+"${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql" mysql:/tmp/iam-old-outbox.sql
+"${compose[@]}" exec -T -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing|HistoricalStore)$' -test.v
