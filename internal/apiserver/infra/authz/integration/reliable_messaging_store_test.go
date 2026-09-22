@@ -33,12 +33,9 @@ func TestReliableMessagingHistoricalStore(t *testing.T) {
 	schema, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_SCHEMA"))
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(string(schema)).Error)
-	require.NoError(t, db.Exec(`ALTER TABLE domain_event_outbox
- ADD COLUMN rm_claim_token VARCHAR(64) NULL,
- ADD COLUMN rm_claim_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
- ADD COLUMN rm_claim_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
- ADD COLUMN rm_lease_until DATETIME(6) NULL,
- ADD COLUMN rm_fingerprint BINARY(32) NULL`).Error)
+	upgrade, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_UPGRADE"))
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(string(upgrade)).Error)
 	ctx := context.Background()
 	s, err := eventoutbox.NewReliableStore(db, "iam.authz.version.v2", time.Minute)
 	require.NoError(t, err)
@@ -136,12 +133,9 @@ func TestReliableMessagingHistoricalStager(t *testing.T) {
 	schema, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_SCHEMA"))
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(string(schema)).Error)
-	require.NoError(t, db.Exec(`ALTER TABLE domain_event_outbox
- ADD COLUMN rm_claim_token VARCHAR(64) NULL,
- ADD COLUMN rm_claim_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
- ADD COLUMN rm_claim_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
- ADD COLUMN rm_lease_until DATETIME(6) NULL,
- ADD COLUMN rm_fingerprint BINARY(32) NULL`).Error)
+	upgrade, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_UPGRADE"))
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(string(upgrade)).Error)
 	cfg, err := eventcatalog.Parse([]byte(`version: "1"
 topics:
   version:

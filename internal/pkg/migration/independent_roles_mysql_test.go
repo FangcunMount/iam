@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -44,7 +45,11 @@ func TestFreshDatabaseMigratesToIndependentRolesMySQL(t *testing.T) {
 
 func freshStagesForTest(t *testing.T, db *gorm.DB) []FreshStage {
 	t.Helper()
-	catalog, err := eventcatalog.Load(filepath.Join("..", "..", "..", "configs", "events.yaml"))
+	catalogPath := os.Getenv("RM_IAM_EVENTS_CATALOG")
+	if catalogPath == "" {
+		catalogPath = filepath.Join("..", "..", "..", "configs", "events.yaml")
+	}
+	catalog, err := eventcatalog.Load(catalogPath)
 	require.NoError(t, err)
 	ctx := context.Background()
 	return []FreshStage{

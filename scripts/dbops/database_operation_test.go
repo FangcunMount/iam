@@ -235,7 +235,7 @@ case "$*" in
 	  *"iam_retired_table_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
 	  *"iam_retired_privilege_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_PRIVILEGES:-0}" ;;
 	  *'ORDER BY TABLE_TYPE, TABLE_NAME'*) printf 'type=BASE_TABLE name=users\ntype=VIEW name=active_users\n' ;;
-	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-37\t0\t1}" ;;
+	  *'MAX(version)'*) printf '%b\n' "${IAM_FAKE_MIGRATION_STATE:-38\t0\t1}" ;;
   *'IS_USED_LOCK'*) printf 'none\tfree\t-1\n' ;;
   *'COUNT(*)'*) echo '7' ;;
   *'SUM(data_length'*) echo '12.5' ;;
@@ -265,7 +265,7 @@ esac
 	})
 	requireNoError(t, err)
 	assertSafeOutput(t, output)
-	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=37", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success", "expected_version=37"} {
+	for _, want := range []string{"mysql_client=8.0.36", "connection=success", "size_mb=12.5", "tables=7", "backups=1", "schema objects:", "type=BASE_TABLE name=users", "type=VIEW name=active_users", "schema_migrations=38", "retired_tables_present=0", "retired_table_privileges=0", "owner_state=none\tfree\t-1", "schema guard: result=success", "retirement guard: result=success", "expected_version=38"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("status output missing %q: %s", want, output)
 		}
@@ -279,7 +279,7 @@ esac
 			"IAM_FAKE_MIGRATION_STATE": "35\t0\t1",
 		},
 		"dirty scope schema": {
-			"IAM_FAKE_MIGRATION_STATE": "37\t1\t1",
+			"IAM_FAKE_MIGRATION_STATE": "38\t1\t1",
 		},
 		"migration not current": {
 			"IAM_FAKE_MIGRATION_STATE": "22\t0\t1",
@@ -588,7 +588,7 @@ case "$*" in
 	  *"iam_retired_table_guard"*) printf '0\n' ;;
 	  *"iam_retired_privilege_guard"*) printf '0\n' ;;
 	  *"ORDER BY TABLE_TYPE, TABLE_NAME"*) printf 'type=BASE_TABLE name=users\n' ;;
-	  *"MAX(version)"*) printf '37\t0\t1\n' ;;
+	  *"MAX(version)"*) printf '38\t0\t1\n' ;;
 	  *"IS_USED_LOCK"*) printf 'none\tfree\t-1\n' ;;
 	  *"SUM(data_length"*) printf '12.5\n' ;;
   *"COUNT(*)"*) printf '7\n' ;;

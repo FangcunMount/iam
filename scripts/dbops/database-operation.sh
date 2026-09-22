@@ -354,8 +354,8 @@ database_status() {
   printf 'schema objects:\n%s\n' "$schema_objects"
   echo "migration status: schema_migrations=$migration_state retired_tables_present=$retired_table_state retired_table_privileges=$retired_table_privilege_state"
   echo "migration lock: owner_state=$migration_lock_state"
-  if [ "$migration_state" != $'37\t0\t1' ]; then
-    fail "migration status is not version 37 clean"
+  if [ "$migration_state" != $'38\t0\t1' ]; then
+    fail "migration status is not version 38 clean"
     return 1
   fi
   if [ "$schema_guard_state" != $'19\t19\t0' ] && [ "$schema_guard_state" != $'19\t20\t0' ]; then
@@ -371,7 +371,7 @@ database_status() {
     return 1
   fi
   echo "schema guard: result=success required_base_tables=19 schema_objects=$(cut -f2 <<<"$schema_guard_state") unexpected_objects=0"
-  echo "retirement guard: result=success expected_version=37 retired_tables_present=0 retired_table_privileges=0"
+  echo "retirement guard: result=success expected_version=38 retired_tables_present=0 retired_table_privileges=0"
 }
 
 mysql_scalar() {
