@@ -9,6 +9,8 @@ import (
 
 // RuntimeOptions contains typed bootstrap options consumed by the container.
 type RuntimeOptions struct {
+	NSQEnabled                    bool
+	NSQAddress                    string
 	Authz                         apiserveroptions.AuthzOptions
 	Environment                   genericapiserver.Environment
 	Auth                          apiserveroptions.AuthOptions
@@ -46,6 +48,10 @@ func RuntimeOptionsFromAPIServerOptions(opts *apiserveroptions.Options, environm
 		GRPCACLConfigFile:             grpcACLConfigFile(defaults.GRPCOptions),
 		GRPCAssignmentConstraintsFile: defaults.GRPCOptions.AuthzAssignmentConstraintsFile,
 		Suggest:                       suggestmodule.ModuleConfigFromOptions(*defaults.Suggest),
+	}
+	if opts.NSQOptions != nil {
+		runtime.NSQEnabled = opts.NSQOptions.Enabled
+		runtime.NSQAddress = opts.NSQOptions.NSQdAddr
 	}
 	if opts.Authz != nil {
 		runtime.Authz = *opts.Authz

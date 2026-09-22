@@ -128,7 +128,9 @@ func (runtimeTaskStage) Name() string { return "start runtime tasks" }
 
 // Run 运行准备运行时任务阶段
 func (s runtimeTaskStage) Run(state *prepareState) error {
-	s.server.startRuntimeTasks(&state.runtime.lifecycle)
+	if err := s.server.startRuntimeTasks(&state.runtime.lifecycle); err != nil {
+		return err
+	}
 	log.Infow("hexagonal architecture initialized",
 		"server_mode", state.runtime.profile.ServerMode,
 		"environment", state.runtime.profile.Environment,

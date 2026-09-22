@@ -13,6 +13,14 @@ import (
 // Validate 验证命令行参数
 func (o *Options) Validate() []error {
 	var errs []error
+	if o.Events != nil {
+		if err := o.Events.ReliableMessaging.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+		if o.Events.ReliableMessaging.Enabled && (o.NSQOptions == nil || !o.NSQOptions.Enabled) {
+			errs = append(errs, errors.New("reliable messaging requires nsq.enabled"))
+		}
+	}
 	if o.Auth != nil {
 		cfg := tokendomain.IssuanceConfig{Issuer: o.Auth.JWTIssuer, Audience: o.Auth.AccessTokenAudience, AccessTTL: o.Auth.AccessTokenTTL}
 		if err := cfg.Validate(); err != nil {

@@ -32,10 +32,13 @@ type Container struct {
 	eventBus messaging.EventBus
 
 	// 事件平台
-	eventCatalog   *eventcatalog.Catalog
-	eventPublisher event.Publisher
-	outboxStore    *eventoutbox.Store
-	outboxRelay    messagingInfra.OutboxRelay
+	eventCatalog          *eventcatalog.Catalog
+	eventPublisher        event.Publisher
+	outboxStore           *eventoutbox.Store
+	eventStager           event.Stager
+	reliableRuntime       *messagingInfra.ReliableRuntime
+	closeReliableProducer func()
+	outboxRelay           messagingInfra.OutboxRelay
 
 	// 业务模块
 	AuthnModule            *authn.AuthnModule

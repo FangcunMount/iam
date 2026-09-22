@@ -110,6 +110,9 @@ func (s *apiServer) prepareResources(rt runtimeOutput) (resourceOutput, error) {
 	// 创建事件总线
 	eventBus, err := s.createEventBus()
 	if err != nil {
+		if s.reliableMessagingEnabled() {
+			return resourceOutput{}, fmt.Errorf("reliable messaging event bus: %w", err)
+		}
 		log.Warnw("event bus unavailable; continue without notifier", "error", err)
 		eventBus = nil
 	}
@@ -136,7 +139,7 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 
 	// 初始化容器
 	if err := s.container.Initialize(); err != nil {
-		if !rt.degradedAllowed {
+		if !rt.degradedAllowed || s.reliableMessagingEnabled() {
 			return containerOutput{}, fmt.Errorf("initialize container: %w", err)
 		}
 		log.Warnw("degraded startup: container initialization incomplete", "error", err, "server_mode", rt.profile.ServerMode)

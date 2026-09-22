@@ -1,4 +1,8 @@
-# M2 original IAM UoW proof
+# IAM reliable messaging proofs
+
+Current M3 candidate: platform/process code selects the SDK only when `events.reliable_messaging.enabled` is explicitly true. The normal configurations retain false. The sections below retain earlier milestone evidence; earlier statements about unchanged wiring describe those historical batches. The final configuration and shutdown section is the current candidate contract. No M3 production enablement has been performed.
+
+## M2 original IAM UoW proof
 
 Run `scripts/testing/reliable-messaging-proof.sh /absolute/path/to/reliable-messaging` with a local Docker context. The script creates a temporary Go workspace and isolated MySQL from the SDK's pinned Compose definition. It never rewrites either go.mod, accepts no external DSN, and cleans its own containers/database. Missing dependencies fail; the required proof does not skip.
 
@@ -70,3 +74,33 @@ Schema rollback after SDK use is intentionally refused. Application rollback mus
 The actual SDK Relay with controlled Store/Publisher doubles proves recovery after a failed scan, surviving writeback after admission cancellation, join before driver drain, observable drain cancellation and retry, and no further scans. Error and unexpected nil exits both support cancellation during restart delay. The messaging package passed ten race-instrumented repetitions. These checks are included in the proof script; they are host runtime evidence, not SQL/NSQ durability tests.
 
 The candidate is not yet selected by platform/process bootstrap. Production still uses its original cancel-only relay hook. M3 must connect the runtime, implement resource-close behavior on drain failure, configure a host-owned producer and validate exclusive handoff before enabling it. An ordinary lifecycle hook that logs Stop errors and continues closing the DB does not satisfy this contract.
+
+
+## M3 platform selection and shutdown contract
+
+The composition root now selects ReliableStager and the supervised SDK Relay together, with no legacy Relay in that process. Status reads continue using the original table. Startup requires configured NSQ, the existing subscriber EventBus, MySQL, a clean migration journal at 38 or later, and the new columns. Missing dependencies or schema fail startup, including an otherwise degraded development startup; they do not switch back to a legacy writer.
+
+IAM owns a dedicated go-nsq producer and lends it to the SDK adapter. The original EventBus remains responsible for other messaging and policy subscribers. The producer uses bounded dial/read/write timeouts and a heartbeat below its read timeout. Construction failures release it. Failed service preparation drains any allocated candidate runtime before releasing the producer.
+
+Candidate configuration under `events.reliable_messaging`:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| enabled | false | Explicit SDK selection; cross-process exclusive handoff remains an operational prerequisite |
+| concurrency | 1 | In-flight bound; legacy outbox_relay_batch_size is not reused as concurrency |
+| lease | 30s | Must exceed publish plus write timeouts |
+| publish_timeout | 5s | Also bounds producer dial/read/write; minimum 2s for heartbeat compatibility |
+| write_timeout | 5s | Admitted result writeback timeout |
+| restart_delay | 2s | Serial Run restart delay, at most 1m |
+| shutdown_timeout | 20s | Join and publisher drain budget; must exceed publish plus write, at most 5m |
+| legacy_stale | 1m | Legacy publishing age eligible for recovery after exclusive handoff |
+
+The existing `events.outbox_relay_interval` supplies polling (2s fallback), and `outbox_relay_retry_delay` supplies retry delay (existing fallback). Unknown policy-notification sends retry with the original identity; local rejection is quarantined. This policy does not apply to unknown AI model executions. These are technical defaults, not measured production recovery/latency acceptance thresholds.
+
+The production shutdown sequence now treats reliable Stop as a mandatory gate before closing the producer, later lifecycle resources or the DB. Failure is propagated rather than logged as completed. With SDK mode enabled, a shutdown error is logged and exits the process with code 1; without this handler, component-base's POSIX manager would exit 0 even after a callback error. The failing path intentionally does not claim graceful drain. Outstanding leased records require recovery; process termination necessarily releases OS resources. Stop is retryable at the runtime interface, but the production failure policy is nonzero termination, not indefinite in-process retry.
+
+Evidence: real MySQL plus NSQ `TestReliableMessagingPlatformWiring` uses actual platform construction, original authz UoW, candidate Stager/Relay and host producer; it receives exact historical payload bytes and observes published state. It checks absent/dirty migration rejection. The EventBus is a placeholder because this case tests the dedicated publisher, not subscriber bootstrap. The earlier policy-consumer proof is distinct; full subscriber topology and real authorization acceptance remain open.
+
+The real shutdown sequence with the real runtime adapter and controlled operations proves that join timeout and publisher-drain failure retain resources; a successful subsequent drain permits producer/hooks/DB close in order. A child process executes the actual graceful-shutdown dispatcher and verifies exit 1 on deadline failure, with exit 0 and DB-close exit 2 as failing alternatives. This is not a real SIGTERM, broker-kill or deployed container test.
+
+Remaining rollout gates include all legacy/bootstrap/maintenance writers, cross-process exclusion, forward/backward handoff rehearsal, historical corrupted-state readiness, metrics/thresholds and retention windows, complete policy subscriber reconciliation and business decisions. Configuration remains disabled pending final user review. Private SDK cross-repository CI authorization is still required.
