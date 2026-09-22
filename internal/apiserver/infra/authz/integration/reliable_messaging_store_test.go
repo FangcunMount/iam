@@ -4,6 +4,14 @@ package integration_test
 
 import (
 	"context"
+	"errors"
+	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
+	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
+	role "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
+	authzuow "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/uow/authz"
+	dbmysql "github.com/FangcunMount/iam/v5/internal/pkg/database/mysql"
+	"github.com/FangcunMount/iam/v5/pkg/event"
+	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"os"
 	"sync"
 	"testing"
@@ -117,4 +125,95 @@ func TestReliableMessagingHistoricalStore(t *testing.T) {
 		}
 	}
 	require.True(t, found, "quarantine must be visible")
+}
+
+func TestReliableMessagingHistoricalStager(t *testing.T) {
+	if os.Getenv("IAM_AUTHZ_TEST_MYSQL_DSN") == "" {
+		t.Fatal("isolated MySQL DSN required")
+	}
+	db := authzdb.Open(t, true)
+	require.NoError(t, db.Exec("DROP TABLE domain_event_outbox").Error)
+	schema, err := os.ReadFile(os.Getenv("RM_IAM_OUTBOX_SCHEMA"))
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(string(schema)).Error)
+	require.NoError(t, db.Exec(`ALTER TABLE domain_event_outbox
+ ADD COLUMN rm_claim_token VARCHAR(64) NULL,
+ ADD COLUMN rm_claim_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ ADD COLUMN rm_claim_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ ADD COLUMN rm_lease_until DATETIME(6) NULL,
+ ADD COLUMN rm_fingerprint BINARY(32) NULL`).Error)
+	cfg, err := eventcatalog.Parse([]byte(`version: "1"
+topics:
+  version:
+    name: iam.authz.version.v2
+events:
+  iam.authz.version_changed.v2:
+    topic: version
+    delivery: durable_outbox
+    aggregate: PolicyVersion
+    domain: authz
+    handler: iam-policy-sync
+`))
+	require.NoError(t, err)
+	stager, err := eventoutbox.NewReliableStager(eventcatalog.NewCatalog(cfg))
+	require.NoError(t, err)
+	ctx := context.Background()
+	original := policy.NewVersionChangedEvent(2)
+	require.ErrorIs(t, stager.Stage(ctx, original), dbmysql.ErrActiveTransactionRequired)
+	uow := authzuow.NewUnitOfWork(db, nil, stager)
+	require.NoError(t, uow.WithinTx(ctx, func(txctx context.Context, repos appuow.TxRepositories) error {
+		if _, e := repos.PolicyVersions.Increment(txctx, "rm-m3", "commit"); e != nil {
+			return e
+		}
+		return repos.Events.Stage(txctx, original)
+	}))
+	var before eventoutbox.OutboxPO
+	require.NoError(t, db.Where("event_id=?", original.EventID()).First(&before).Error)
+	var hash []byte
+	require.NoError(t, db.Raw("SELECT rm_fingerprint FROM domain_event_outbox WHERE event_id=?", original.EventID()).Row().Scan(&hash))
+	require.Len(t, hash, 32)
+	require.NoError(t, uow.WithinTx(ctx, func(txctx context.Context, repos appuow.TxRepositories) error {
+		return repos.Events.Stage(txctx, original)
+	}))
+	var after eventoutbox.OutboxPO
+	require.NoError(t, db.Where("event_id=?", original.EventID()).First(&after).Error)
+	require.Equal(t, before, after, "duplicate append must preserve the original row")
+	changed := changedPolicyPayload{DomainEvent: original}
+	businessRole, e := role.NewRole("rm-stage-conflict", "conflict")
+	require.NoError(t, e)
+	err = uow.WithinTx(ctx, func(txctx context.Context, repos appuow.TxRepositories) error {
+		if e := repos.Roles.Create(txctx, &businessRole); e != nil {
+			return e
+		}
+		if _, e := repos.PolicyVersions.Increment(txctx, "rm-m3", "conflict"); e != nil {
+			return e
+		}
+		return repos.Events.Stage(txctx, changed)
+	})
+	require.ErrorIs(t, err, outbox.ErrConflict)
+	var count int64
+	require.NoError(t, db.Raw("SELECT COUNT(*) FROM authz_roles WHERE name=?", "rm-stage-conflict").Scan(&count).Error)
+	require.Zero(t, count)
+	var version int64
+	require.NoError(t, db.Raw("SELECT MAX(policy_version) FROM authz_policy_versions").Scan(&version).Error)
+	require.EqualValues(t, 2, version)
+	abort := errors.New("host rollback")
+	next := policy.NewVersionChangedEvent(3)
+	err = uow.WithinTx(ctx, func(txctx context.Context, repos appuow.TxRepositories) error {
+		if e := repos.Events.Stage(txctx, next); e != nil {
+			return e
+		}
+		return abort
+	})
+	require.ErrorIs(t, err, abort)
+	require.NoError(t, db.Model(&eventoutbox.OutboxPO{}).Where("event_id=?", next.EventID()).Count(&count).Error)
+	require.Zero(t, count)
+	require.NoError(t, db.Model(&eventoutbox.OutboxPO{}).Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}
+
+type changedPolicyPayload struct{ event.DomainEvent }
+
+func (changedPolicyPayload) Payload() any {
+	return map[string]any{"version": 2, "extension": "conflict"}
 }
