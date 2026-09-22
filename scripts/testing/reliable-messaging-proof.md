@@ -36,3 +36,9 @@ Historical state mapping for the eventual host adapter:
 | unknown/new isolation states | Keep visible and classify explicitly; no silent success, deletion or rollback to a legacy-invisible backlog |
 
 The eventual adapter still needs this complete state mapping, corrupt/unknown record isolation, indexing and a reviewed forward/backward migration before M3 acceptance. The test proves a safe conditional-write mechanism and the unsafe overlap boundary; it does not approve production cutover.
+
+## Host shutdown boundary characterization
+
+`TestReliableMessagingShutdownJoinBoundary` runs the actual legacy `runOutboxRelay` and `runShutdownSequence` with a controlled admitted dispatch and database-close callback. The hook is supplied explicitly: cancel-only mirrors current `startRuntimeTasks`; cancel-and-join is a candidate contract, not a production change. The legacy case demonstrates database close while admitted dispatch remains active. The candidate waits for the Relay before database close. Both cases passed ten repetitions under the race detector; the proof script now runs this host-only test before the isolated storage/broker tests.
+
+This is not a real SQL connection closure or NSQ durability test, and it does not assert that the current production dispatch always continues after cancellation. It establishes why cancel alone cannot satisfy the SDK drain contract. M3 must wire and test actual Run supervision, bounded shutdown, adapter drain and host resource ownership; those are not implemented by this characterization.
