@@ -8,6 +8,8 @@ github.com/FangcunMount/component-base v0.6.1 h1:LRuZ7f4Ft2ElShEmDQDYlK6n94b/O5+
 github.com/FangcunMount/component-base v0.6.1/go.mod h1:YDJbNH8P+pNBE8MWgQCI1DptDXD2gCzBhHdd9kgSVFk=
 github.com/FangcunMount/reliable-messaging v0.1.0-m2.1 h1:hxV+esjIWRNC22gfdwzj9FZi/X9fsfGbXTt1nJp9V+Q=
 github.com/FangcunMount/reliable-messaging v0.1.0-m2.1/go.mod h1:w+diCX7X2ttl84hF66CVhfW0RYf16zKz+Q/FmH/VeFc=
+github.com/FangcunMount/reliable-messaging v0.1.0-m2.1.0.20260922073526-c35167f2ba5a h1:pINu8z4wl8Fd6h8tjWA8GNWpgtupBhN84A7muGgZrgo=
+github.com/FangcunMount/reliable-messaging v0.1.0-m2.1.0.20260922073526-c35167f2ba5a/go.mod h1:w+diCX7X2ttl84hF66CVhfW0RYf16zKz+Q/FmH/VeFc=
 github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc=
 github.com/KyleBanks/depth v1.2.1/go.mod h1:jzSb9d0L43HxTQfT+oSA1EEp2q+ne2uh6XgeJcm8brE=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=

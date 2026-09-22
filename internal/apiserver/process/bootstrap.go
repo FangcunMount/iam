@@ -1,12 +1,14 @@
 package process
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/log"
 	"github.com/FangcunMount/component-base/pkg/messaging"
 	"github.com/FangcunMount/component-base/pkg/processruntime"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	apiserveroptions "github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	grpctransport "github.com/FangcunMount/iam/v5/internal/apiserver/transport/grpc"
 	resttransport "github.com/FangcunMount/iam/v5/internal/apiserver/transport/rest"
@@ -139,7 +141,7 @@ func (s *apiServer) prepareContainer(rt runtimeOutput, resources resourceOutput)
 
 	// 初始化容器
 	if err := s.container.Initialize(); err != nil {
-		if !rt.degradedAllowed || s.reliableMessagingEnabled() {
+		if !rt.degradedAllowed || s.reliableMessagingEnabled() || errors.Is(err, eventoutbox.ErrUnsafeMessagingHandoff) {
 			return containerOutput{}, fmt.Errorf("initialize container: %w", err)
 		}
 		log.Warnw("degraded startup: container initialization incomplete", "error", err, "server_mode", rt.profile.ServerMode)

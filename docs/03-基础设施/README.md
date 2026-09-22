@@ -36,6 +36,7 @@ MySQL 持久业务事实
   ├─ roles / assignments / role_inheritances / permission_grants / resources / policy_versions
   ├─ jwks_keys 元数据
   ├─ domain_event_outbox
+	├─ rm_outbox（M3 SDK 标准表候选，仍属于原业务库）
   └─ identity_session_revocation_outbox
 
 Redis 运行时权威状态或派生缓存

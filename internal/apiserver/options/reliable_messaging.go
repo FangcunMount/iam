@@ -15,13 +15,12 @@ type ReliableMessagingOptions struct {
 	WriteTimeout    time.Duration `json:"write_timeout" mapstructure:"write_timeout"`
 	RestartDelay    time.Duration `json:"restart_delay" mapstructure:"restart_delay"`
 	ShutdownTimeout time.Duration `json:"shutdown_timeout" mapstructure:"shutdown_timeout"`
-	LegacyStale     time.Duration `json:"legacy_stale" mapstructure:"legacy_stale"`
 }
 
 func DefaultReliableMessagingOptions() ReliableMessagingOptions {
 	return ReliableMessagingOptions{Concurrency: 1, Lease: 30 * time.Second,
 		PublishTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second,
-		RestartDelay: 2 * time.Second, ShutdownTimeout: 20 * time.Second, LegacyStale: time.Minute}
+		RestartDelay: 2 * time.Second, ShutdownTimeout: 20 * time.Second}
 }
 
 func (o ReliableMessagingOptions) Validate() error {
@@ -31,7 +30,7 @@ func (o ReliableMessagingOptions) Validate() error {
 
 	if o.Concurrency < 1 || o.Concurrency > 1000 || o.Lease <= 0 || o.Lease > 24*time.Hour ||
 		o.PublishTimeout < 2*time.Second || o.PublishTimeout >= o.Lease || o.WriteTimeout <= 0 || o.WriteTimeout >= o.Lease-o.PublishTimeout ||
-		o.RestartDelay <= 0 || o.RestartDelay > time.Minute || o.LegacyStale <= 0 || o.LegacyStale > 24*time.Hour ||
+		o.RestartDelay <= 0 || o.RestartDelay > time.Minute ||
 		o.ShutdownTimeout <= o.PublishTimeout+o.WriteTimeout || o.ShutdownTimeout > 5*time.Minute {
 		return errors.New("invalid events.reliable_messaging bounds: positive durations, publish >= 2s, concurrency 1..1000, lease and shutdown must exceed publish plus write")
 	}

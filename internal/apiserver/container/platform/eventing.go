@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/FangcunMount/iam/v5/pkg/eventruntime"
+	outboxport "github.com/FangcunMount/iam/v5/pkg/outbox"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +39,7 @@ type Eventing struct {
 	CloseReliableProducer func()
 	Catalog               *eventcatalog.Catalog
 	Publisher             event.Publisher
-	Outbox                *eventoutbox.Store
+	Outbox                outboxport.StatusReader
 	Relay                 messagingInfra.OutboxRelay
 }
 
@@ -59,8 +61,16 @@ func InitEventing(deps EventingDeps) (*Eventing, error) {
 	if deps.DB == nil && !deps.ReliableMessaging.Enabled {
 		return result, nil
 	}
-	result.Outbox = eventoutbox.NewStore(deps.DB, catalog)
-	result.Stager = result.Outbox
+	if !deps.ReliableMessaging.Enabled {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := eventoutbox.CheckStandardDrained(ctx, deps.DB); err != nil {
+			return nil, err
+		}
+	}
+	legacyStore := eventoutbox.NewStore(deps.DB, catalog)
+	result.Outbox = legacyStore
+	result.Stager = legacyStore
 	if deps.ReliableMessaging.Enabled {
 		if err := initReliableEventing(deps, result); err != nil {
 			return nil, fmt.Errorf("initialize reliable messaging: %w", err)
@@ -71,7 +81,7 @@ func InitEventing(deps EventingDeps) (*Eventing, error) {
 		log.Warnw("event outbox relay not started: event bus unavailable", "store", "iam.domain_event_outbox")
 		return result, nil
 	}
-	result.Relay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", result.Outbox, deps.EventBus, messagingInfra.OutboxRelayOptions{
+	result.Relay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", legacyStore, deps.EventBus, messagingInfra.OutboxRelayOptions{
 		BatchSize:  deps.OutboxBatch,
 		RetryDelay: deps.OutboxRetry,
 	})

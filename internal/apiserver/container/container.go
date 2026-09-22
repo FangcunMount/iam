@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/messaging"
@@ -16,9 +17,9 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/idp"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/suggest"
 	messagingInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
-	eventoutbox "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
+	outboxport "github.com/FangcunMount/iam/v5/pkg/outbox"
 )
 
 // Container 容器
@@ -34,7 +35,7 @@ type Container struct {
 	// 事件平台
 	eventCatalog          *eventcatalog.Catalog
 	eventPublisher        event.Publisher
-	outboxStore           *eventoutbox.Store
+	outboxStore           outboxport.StatusReader
 	eventStager           event.Stager
 	reliableRuntime       *messagingInfra.ReliableRuntime
 	closeReliableProducer func()
@@ -79,13 +80,13 @@ func (c *Container) Initialize() error {
 	}
 
 	c.bootstrapErrors = make(map[string]string)
-	errors := c.runBootstrapPlan()
+	failures := c.runBootstrapPlan()
 	c.initialized = true
 	c.logBootstrapStatus()
 
 	// 如果有错误,返回组合错误(但容器仍然标记为已初始化)
-	if len(errors) > 0 {
-		return fmt.Errorf("some modules failed to initialize (%d errors)", len(errors))
+	if len(failures) > 0 {
+		return fmt.Errorf("some modules failed to initialize (%d errors): %w", len(failures), errors.Join(failures...))
 	}
 
 	return nil

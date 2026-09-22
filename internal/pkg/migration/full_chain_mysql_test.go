@@ -305,6 +305,7 @@ ORDER BY TABLE_NAME`, database)
 		"iam_scope_migrations",
 		"authz_roles",
 		"domain_event_outbox",
+		"rm_outbox",
 		"identity_session_revocation_outbox",
 		"idp_wechat_apps",
 		"jwks_keys",

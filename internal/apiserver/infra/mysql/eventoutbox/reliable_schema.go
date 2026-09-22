@@ -25,6 +25,8 @@ func CheckReliableSchema(ctx context.Context, db *gorm.DB) error {
 	}
 	// Resolve every required column even on an empty table. Exact column/index
 	// definitions are owned by migration 38 and its real MySQL contract tests.
-	return db.WithContext(ctx).Exec(`SELECT rm_claim_token, rm_claim_version, rm_claim_count,
-		rm_lease_until, rm_fingerprint FROM domain_event_outbox LIMIT 0`).Error
+	return db.WithContext(ctx).Exec(`SELECT id, producer, message_id, destination, event_type, schema_version, scope,
+        content_type, occurred_at, payload, fingerprint, state, next_attempt_at,
+        claim_token, lease_until, version, attempt_count, last_error_code,
+        transport_confirmed_at, created_at FROM rm_outbox LIMIT 0`).Error
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	readinessapp "github.com/FangcunMount/iam/v5/internal/apiserver/application/readiness"
@@ -127,6 +128,9 @@ func (c *Container) checkDomainEventOutboxReady(ctx context.Context) error {
 	}
 	maxAge := c.runtimeOptions.Health.Readiness.OutboxMaxPendingAge
 	for _, bucket := range snapshot.Buckets {
+		if bucket.Count > 0 && (strings.HasPrefix(bucket.Status, "legacy_") || bucket.Status == "standard_quarantined" || bucket.Status == "standard_unknown") {
+			return fmt.Errorf("domain event outbox requires intervention: %s", bucket.Status)
+		}
 		if bucket.Count > 0 && bucket.OldestAgeSeconds > maxAge.Seconds() {
 			return fmt.Errorf(
 				"domain event outbox %s backlog exceeded: oldest_age_seconds=%.0f threshold_seconds=%.0f",

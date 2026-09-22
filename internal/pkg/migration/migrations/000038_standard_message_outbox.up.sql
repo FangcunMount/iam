@@ -1,0 +1,26 @@
+-- SDK standard table in the host business database. Historical rows are untouched.
+CREATE TABLE rm_outbox (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  producer VARBINARY(128) NOT NULL,
+  message_id VARBINARY(128) NOT NULL,
+  destination VARBINARY(255) NOT NULL,
+  event_type VARBINARY(255) NOT NULL,
+  schema_version VARBINARY(128) NOT NULL,
+  scope VARBINARY(255) NOT NULL,
+  content_type VARBINARY(255) NOT NULL,
+  occurred_at VARBINARY(64) NOT NULL,
+  payload LONGBLOB NOT NULL,
+  fingerprint BINARY(32) NOT NULL,
+  state VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pending',
+  next_attempt_at DATETIME(6) NOT NULL,
+  claim_token VARBINARY(64) NULL,
+  lease_until DATETIME(6) NULL,
+  version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  attempt_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  last_error_code VARCHAR(128) NOT NULL DEFAULT '',
+  transport_confirmed_at DATETIME(6) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
+  UNIQUE KEY identity_key (producer,message_id,destination),
+  KEY due_idx (state,next_attempt_at,id),
+  KEY lease_idx (state,lease_until,id)
+) ENGINE=InnoDB;

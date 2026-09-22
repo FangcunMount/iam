@@ -9,10 +9,10 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	messagingInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
-	"github.com/FangcunMount/iam/v5/internal/pkg/timezone"
 	"github.com/FangcunMount/iam/v5/pkg/outboxcore"
 	"github.com/FangcunMount/reliable-messaging/outbox"
 	"github.com/FangcunMount/reliable-messaging/relay"
+	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
 	"github.com/FangcunMount/reliable-messaging/transport"
 	nsqtransport "github.com/FangcunMount/reliable-messaging/transport/nsq"
 	"github.com/nsqio/go-nsq"
@@ -31,12 +31,19 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 	if err := eventoutbox.CheckReliableSchema(ctx, deps.DB); err != nil {
 		return err
 	}
-	stager, err := eventoutbox.NewReliableStager(result.Catalog, timezone.Offset)
+	stager, err := eventoutbox.NewStandardStager(result.Catalog)
 	if err != nil {
 		return err
 	}
 	topic, _ := result.Catalog.GetTopicForEvent(eventing.AuthzVersionChanged)
-	store, err := eventoutbox.NewReliableStore(deps.DB, topic, opts.LegacyStale, timezone.Offset)
+	if err := eventoutbox.CheckLegacyDrained(ctx, deps.DB); err != nil {
+		return err
+	}
+	pool, err := deps.DB.DB()
+	if err != nil {
+		return err
+	}
+	store, err := sdkmysql.New(pool)
 	if err != nil {
 		return err
 	}
@@ -91,6 +98,7 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 		return err
 	}
 	result.Stager = stager
+	result.Outbox = eventoutbox.NewStandardStatusReader(deps.DB)
 	result.ReliableRuntime = runtime
 	result.CloseReliableProducer = producer.Stop
 	success = true

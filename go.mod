@@ -3,7 +3,7 @@ module github.com/FangcunMount/iam/v5
 go 1.25.9
 
 require (
-	github.com/FangcunMount/reliable-messaging v0.1.0-m2.1
+	github.com/FangcunMount/reliable-messaging v0.1.0-m2.1.0.20260922073526-c35167f2ba5a
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.2.1
 	github.com/alibabacloud-go/dypnsapi-20170525/v3 v3.0.0
 	github.com/alibabacloud-go/tea v1.5.0

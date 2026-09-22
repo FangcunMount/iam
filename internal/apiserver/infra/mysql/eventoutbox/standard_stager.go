@@ -69,10 +69,8 @@ func (s *StandardStager) intent(evt event.DomainEvent) (message.Message, error) 
 	if err != nil {
 		return message.Message{}, err
 	}
-	var data struct {
-		Version int64 `json:"version"`
-	}
-	if err := json.Unmarshal(payload, &data); err != nil || data.Version <= 0 || evt.AggregateID() != strconv.FormatInt(data.Version, 10) {
+	version, err := policyPayloadVersion(payload)
+	if err != nil || evt.AggregateID() != strconv.FormatInt(version, 10) {
 		return message.Message{}, errors.New("invalid policy version payload")
 	}
 	return message.New(message.Input{
@@ -80,4 +78,14 @@ func (s *StandardStager) intent(evt event.DomainEvent) (message.Message, error) 
 		EventType: evt.EventType(), SchemaVersion: "v2", Scope: "scope:global",
 		ContentType: "application/json", OccurredAt: evt.OccurredAt().In(timezone.Location).Format(time.RFC3339Nano), Payload: payload,
 	})
+}
+
+func policyPayloadVersion(payload []byte) (int64, error) {
+	var data struct {
+		Version int64 `json:"version"`
+	}
+	if err := json.Unmarshal(payload, &data); err != nil || data.Version <= 0 {
+		return 0, errors.New("invalid policy version payload")
+	}
+	return data.Version, nil
 }

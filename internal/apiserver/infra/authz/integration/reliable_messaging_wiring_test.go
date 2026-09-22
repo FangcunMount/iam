@@ -10,6 +10,7 @@ import (
 
 	cbmessaging "github.com/FangcunMount/component-base/pkg/messaging"
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/container"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/platform"
 	policy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
@@ -47,7 +48,7 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	platformEventing, err := platform.InitEventing(deps)
 	require.NoError(t, err)
 	require.Nil(t, platformEventing.Relay, "legacy Relay must not be selected alongside SDK")
-	require.IsType(t, &eventoutbox.ReliableStager{}, platformEventing.Stager)
+	require.IsType(t, &eventoutbox.StandardStager{}, platformEventing.Stager)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -84,19 +85,40 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 		}
 		return repos.Events.Stage(ctx, evt)
 	}))
-	var before eventoutbox.OutboxPO
-	require.NoError(t, db.Where("event_id=?", evt.EventID()).First(&before).Error)
+	var before []byte
+	require.NoError(t, db.Raw("SELECT payload FROM rm_outbox WHERE message_id=?", evt.EventID()).Row().Scan(&before))
+	disabled := deps
+	disabled.ReliableMessaging.Enabled = false
+	_, err = platform.InitEventing(disabled)
+	require.ErrorIs(t, err, eventoutbox.ErrUnsafeMessagingHandoff, "cannot disable SDK with pending standard work")
+	eventOptions := *options.NewEventOptions()
+	eventOptions.CatalogPath = deps.CatalogPath
+	blockedContainer := container.NewContainerWithOptions(db, nil, nil, nil, container.RuntimeOptions{Events: eventOptions})
+	require.ErrorIs(t, blockedContainer.Initialize(), eventoutbox.ErrUnsafeMessagingHandoff, "container must preserve the cause for the process degraded-startup gate")
+	require.Nil(t, blockedContainer.AuthzModule, "unsafe handoff must stop bootstrap before initializing other modules")
+	snapshot, err := platformEventing.Outbox.OutboxStatusSnapshot(context.Background(), time.Now())
+	require.NoError(t, err)
+	require.Len(t, snapshot.Buckets, 1)
+	require.Equal(t, "standard_pending", snapshot.Buckets[0].Status)
+	require.EqualValues(t, 1, snapshot.Buckets[0].Count)
 	require.NoError(t, platformEventing.ReliableRuntime.Start(context.Background()))
 	select {
 	case body := <-received:
-		require.Equal(t, []byte(before.PayloadJSON), body, "actual NSQ receives original wire bytes")
+		require.Equal(t, before, body, "actual NSQ receives original wire bytes")
 	case <-time.After(10 * time.Second):
 		t.Fatal("candidate publisher did not deliver")
 	}
 	require.Eventually(t, func() bool {
-		var row eventoutbox.OutboxPO
-		return db.Where("event_id=?", evt.EventID()).First(&row).Error == nil && row.Status == "published"
+		var state string
+		return db.Raw("SELECT state FROM rm_outbox WHERE message_id=?", evt.EventID()).Row().Scan(&state) == nil && state == "published"
 	}, 5*time.Second, 10*time.Millisecond)
+	var oldCount int64
+	require.NoError(t, db.Table("domain_event_outbox").Count(&oldCount).Error)
+	require.Zero(t, oldCount)
+	// Unknown legacy work must block SDK startup, without changing the row.
+	require.NoError(t, db.Exec(`INSERT INTO domain_event_outbox(event_id,event_type,aggregate_type,aggregate_id,topic_name,payload_json,status,next_attempt_at) VALUES('old-pending','unknown','unknown','unknown','unknown','{}','pending',CURRENT_TIMESTAMP(3))`).Error)
+	_, err = platform.InitEventing(deps)
+	require.ErrorIs(t, err, eventoutbox.ErrUnsafeMessagingHandoff)
 	// Receiving bytes and published state are transport evidence. Full policy
 	// subscriber topology, business decisions and crash recovery remain M3 gates.
 }
