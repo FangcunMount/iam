@@ -64,7 +64,11 @@ func initReliableEventing(deps EventingDeps, result *Eventing) error {
 			producer.Stop()
 		}
 	}()
-	publisher, err := nsqtransport.New(producer, map[string]string{topic: topic}, opts.Concurrency)
+	wireTransport, err := nsqtransport.New(producer, map[string]string{topic: topic}, opts.Concurrency)
+	if err != nil {
+		return err
+	}
+	publisher, err := messagingInfra.NewPolicyWirePublisher(wireTransport)
 	if err != nil {
 		return err
 	}

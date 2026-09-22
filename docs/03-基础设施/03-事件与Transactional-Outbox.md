@@ -4,7 +4,7 @@
 
 M3 候选新增 SDK 标准表路径：`events.reliable_messaging.enabled=true` 时，原业务事务经 StandardStager 写入 `rm_outbox`，投递直接复用 reliable-messaging 的 MySQL Store、Relay 和 NSQ 适配器。默认仍为 false，下文的历史表链路描述默认模式。标准表候选尚未完成生产切换验收。
 
-启用 SDK 前必须排空旧链路；新表仍有未完成记录时不能关闭 SDK 恢复能力。只读预检、双表积压可见性和启动限制不会自动证明旧进程退出或全部策略实例收敛。维护命令、初始化入口和真实进程回退仍在收口，详见 [隔离验证](../../scripts/testing/reliable-messaging-proof.md) 与 [切换候选流程](../../scripts/testing/reliable-messaging-handoff.md)。历史表及已发布记录保留，首次切换不清空它们。
+启用 SDK 前必须排空旧链路；新表仍有未完成记录时不能关闭 SDK 恢复能力。只读预检、双表积压可见性和启动限制不会自动证明旧进程退出或全部策略实例收敛。维护命令已显式选择写入模式，初始化保留受控旧链路排空阶段；完整服务切换/回退和业务验收仍未完成，详见 [隔离验证](../../scripts/testing/reliable-messaging-proof.md) 与 [切换候选流程](../../scripts/testing/reliable-messaging-handoff.md)。历史表及已发布记录保留，首次切换不清空它们。
 
 ## 1. 本文回答
 

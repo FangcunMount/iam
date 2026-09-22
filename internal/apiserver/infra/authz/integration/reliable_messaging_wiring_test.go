@@ -104,7 +104,12 @@ func TestReliableMessagingPlatformWiring(t *testing.T) {
 	require.NoError(t, platformEventing.ReliableRuntime.Start(context.Background()))
 	select {
 	case body := <-received:
-		require.Equal(t, before, body, "actual NSQ receives original wire bytes")
+		envelope, ok, err := cbmessaging.DecodeMessagePayload(body)
+		require.NoError(t, err)
+		require.True(t, ok, "retain the original component-base wire envelope")
+		require.Equal(t, evt.EventID(), envelope.UUID, "broker ID must not replace application identity")
+		require.Equal(t, before, envelope.Payload)
+		require.Equal(t, map[string]string{"event_type": evt.EventType(), "aggregate_type": "PolicyVersion", "aggregate_id": "2", "source": "iam-outbox-relay"}, envelope.Metadata)
 	case <-time.After(10 * time.Second):
 		t.Fatal("candidate publisher did not deliver")
 	}

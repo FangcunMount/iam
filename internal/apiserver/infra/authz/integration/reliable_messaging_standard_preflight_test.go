@@ -125,7 +125,7 @@ func TestReliableMessagingStandardPreflight(t *testing.T) {
 	require.NoError(t, err)
 	tx, err := pool.BeginTx(ctx, nil)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	appender, err := sdkmysql.Bind(tx)
 	require.NoError(t, err)
 	require.NoError(t, appender.Append(ctx, invalidPolicy, time.Now()))

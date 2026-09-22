@@ -58,3 +58,7 @@ python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert r["legacy_unfinis
 
 "${compose[@]}" cp "$build_dir/maintenance-proof" mysql:/tmp/iam-maintenance-proof
 "${compose[@]}" exec -T -e TZ=UTC -e IAM_RM_TIMEZONE_REQUIRED=1 -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain -e MYSQL_HOST=127.0.0.1 -e MYSQL_USER=root -e MYSQL_PASSWORD='' -e MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance-proof -test.run '^TestMaintenanceDatabaseTimezoneMySQL$' -test.v
+
+# Child processes use the actual old EventBus/Relay and SDK composition in turn.
+# No SQL fixture marks notifications published: both paths must deliver to NSQ.
+"${compose[@]}" exec -T -e IAM_RM_BOOTSTRAP_REQUIRED=1 -e RM_IAM_NSQ_TCP=nsqd:4150 -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e IAM_APISERVER_MYSQL_HOST=127.0.0.1 -e IAM_APISERVER_MYSQL_USERNAME=root -e IAM_APISERVER_MYSQL_PASSWORD='' -e IAM_APISERVER_MYSQL_DATABASE=rm_iam_full_chain mysql /tmp/iam-maintenance-proof -test.run '^TestMaintenanceBootstrapHandoff$' -test.v

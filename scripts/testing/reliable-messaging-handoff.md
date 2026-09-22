@@ -9,7 +9,7 @@ The user selected a standard table after legacy drain. M3 is a draft: no product
 | API authz UoW | StandardStager in SDK mode; original Stager in legacy mode | Freeze writes and verify all instances use the reviewed image/mode |
 | API legacy Relay | Original ID-only claims/writeback in legacy mode | Finish legacy work and terminate all old owners before SDK cutover |
 | SDK Relay | Shared Store with token/version/lease conditions | Stop admission and join/drain before releasing resources; retain recovery if standard work remains |
-| Fresh bootstrap 33/35 | Original insert-only Stager before standard migration 38 | First initialization still needs legacy notification drain; direct SDK-first fresh bootstrap is not yet implemented |
+| Fresh bootstrap 33/35 | Original insert-only Stager before standard migration 38 | Retained one-time legacy bootstrap; actual drain and sequential messaging-process handoff proven in isolation, complete-service rehearsal still required |
 | condition-authz-retire, statistics-operations, scope-migrate, role-model-migrate, reviewer-scope | Explicit --outbox-mode after standard schema installation; shared maintenance selector | Match the reviewed live Relay and freeze during handoff; complete business/cutover acceptance |
 
 Maintenance writers use `NewMaintenanceStager` before Apply/Rollback. On clean pre-38 databases without a standard table, omitted mode preserves the old writer. After standard schema installation an explicit `--outbox-mode=standard` or `--outbox-mode=legacy` is required. A dirty/missing journal is rejected; migrated databases must retain the standard schema in either mode. Standard mode rejects unfinished legacy work; legacy mode rejects unfinished standard work. Status/preflight/verify do not require this choice and retain their existing read-only paths. Existing fingerprint, actor, freeze and private-report requirements remain.
@@ -30,6 +30,12 @@ iam-maintenance reliable-messaging preflight --event-catalog=/app/configs/events
 The report requires clean schema 38 and sufficient combined row budget. sdk requires no unfinished legacy work; legacy requires no unfinished standard work. Unknown, quarantined or malformed work requires classification. Published content anomalies stay reported, without becoming retry candidates. schema-down additionally requires zero standard rows, including published evidence. Neither writer exclusion nor production authorization is inferred.
 
 Record image/revision, report database_time (+08:00), process state and consumer versions together. Repeat immediately before handoff. Bounded snapshots cannot prevent another process from writing after the snapshot.
+
+## Fresh database sequence
+
+Migrations 33/35 require the original notification transaction before table 38 exists. Keep the freshly initialized service in reviewed legacy mode under a write freeze, drain those original notifications through its actual Relay, verify subscriber convergence, terminate the legacy owner, then run SDK preflight and enable the standard mode. Do not rewrite old migrations, suppress the notifications, fake published states, or choose SDK mode merely from schema presence. Direct SDK-first initialization is not supported by this candidate. Retirement of this one-time legacy purpose belongs to the later legacy-removal design.
+
+The isolated proof delivers both original notifications and a later standard message through NSQ using sequential child processes. It also checks a clean restart and a drained return to legacy mode. Those children use actual messaging composition but are not the full API service; the production signal, topology, writer-freeze and business checks remain mandatory.
 
 ## Forward transition
 
