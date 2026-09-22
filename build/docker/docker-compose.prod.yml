@@ -50,6 +50,8 @@ services:
       placement:
         constraints:
           - node.hostname == serverB
+    # Includes the SDK 20s drain budget plus other shutdown hooks.
+    stop_grace_period: 60s
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9080/healthz"]

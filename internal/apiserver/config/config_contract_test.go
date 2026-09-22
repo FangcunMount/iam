@@ -367,3 +367,25 @@ func assertBoolPtr(t *testing.T, label string, got *bool, want bool) {
 		t.Fatalf("%s = %v, want %v", label, *got, want)
 	}
 }
+
+func TestProductionReliableMessagingEnvironmentSelectsMode(t *testing.T) {
+	for _, mode := range []string{"false", "true"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Setenv("IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED", mode)
+			reader := viper.New()
+			reader.SetConfigFile(filepath.Join(repoRoot(t), "configs/apiserver.prod.yaml"))
+			reader.SetEnvPrefix("IAM_APISERVER")
+			reader.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+			reader.AutomaticEnv()
+			if err := reader.ReadInConfig(); err != nil {
+				t.Fatal(err)
+			}
+			opts := apiserveroptions.NewOptions()
+			if err := reader.Unmarshal(opts); err != nil {
+				t.Fatal(err)
+			}
+			assertEqual(t, "reliable messaging mode", opts.Events.ReliableMessaging.Enabled, mode == "true")
+			assertEqual(t, "reliable messaging drain", opts.Events.ReliableMessaging.ShutdownTimeout, 20*time.Second)
+		})
+	}
+}

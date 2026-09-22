@@ -159,6 +159,7 @@ jobs:
 
       - name: Prepare deployment package
         env:
+          IAM_RELIABLE_MESSAGING_ENABLED: ${{ vars.IAM_RELIABLE_MESSAGING_ENABLED || 'false' }}
           MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
           MYSQL_PORT: ${{ secrets.MYSQL_PORT || 3306 }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}

@@ -231,7 +231,7 @@ func TestRestoreAndStatusReturnMetadataOnly(t *testing.T) {
 if [ "$1" = "--version" ]; then echo 'mysql  Ver 8.0.36'; exit 0; fi
 case "$*" in
   *'SELECT 1;'*) echo '1' ;;
-	  *"iam_schema_guard"*) printf '%b\n' "${IAM_FAKE_SCHEMA_GUARD:-19\t19\t0}" ;;
+	  *"iam_schema_guard"*) printf '%b\n' "${IAM_FAKE_SCHEMA_GUARD:-20\t20\t0}" ;;
 	  *"iam_retired_table_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_TABLES:-0}" ;;
 	  *"iam_retired_privilege_guard"*) printf '%s\n' "${IAM_FAKE_RETIRED_PRIVILEGES:-0}" ;;
 	  *'ORDER BY TABLE_TYPE, TABLE_NAME'*) printf 'type=BASE_TABLE name=users\ntype=VIEW name=active_users\n' ;;
@@ -272,6 +272,9 @@ esac
 	}
 
 	for name, overrides := range map[string]map[string]string{
+		"standard Outbox missing": {
+			"IAM_FAKE_SCHEMA_GUARD": "19\t19\t0",
+		},
 		"scope receipt table missing": {
 			"IAM_FAKE_SCHEMA_GUARD": "18\t18\t0",
 		},
@@ -584,7 +587,7 @@ if [ "${1:-}" = "--version" ]; then
   exit 0
 fi
 case "$*" in
-	  *"iam_schema_guard"*) printf '19\t19\t0\n' ;;
+	  *"iam_schema_guard"*) printf '20\t20\t0\n' ;;
 	  *"iam_retired_table_guard"*) printf '0\n' ;;
 	  *"iam_retired_privilege_guard"*) printf '0\n' ;;
 	  *"ORDER BY TABLE_TYPE, TABLE_NAME"*) printf 'type=BASE_TABLE name=users\n' ;;
