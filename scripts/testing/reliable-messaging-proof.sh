@@ -37,7 +37,7 @@ case "$architecture" in aarch64|arm64) goarch=arm64;;x86_64|amd64) goarch=amd64;
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000006_add_domain_event_outbox.up.sql" mysql:/tmp/iam-old-outbox.sql
 "${compose[@]}" cp "$repo/internal/pkg/migration/migrations/000038_reliable_messaging_claims.up.sql" mysql:/tmp/iam-rm-upgrade.sql
 "${compose[@]}" cp "$repo/configs/events.yaml" mysql:/tmp/iam-events.yaml
-"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_UPGRADE='/tmp/iam-rm-upgrade.sql' -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing|HistoricalStore|HistoricalStager|PlatformWiring|PreflightAndTimezone)$' -test.v
+"${compose[@]}" exec -T -e RM_IAM_EVENTS_CATALOG=/tmp/iam-events.yaml -e RM_IAM_OUTBOX_UPGRADE='/tmp/iam-rm-upgrade.sql' -e RM_IAM_OUTBOX_SCHEMA='/tmp/iam-old-outbox.sql' -e RM_IAM_NSQ_TCP='nsqd:4150' -e RM_IAM_NSQ_HTTP='http://nsqd:4151' -e IAM_AUTHZ_TEST_MYSQL_DSN='root@tcp(127.0.0.1:3306)/?parseTime=true&loc=UTC' mysql /tmp/iam-proof -test.run '^TestReliableMessaging(OriginalUoW|PolicyConsumer|HistoricalFencing|HistoricalStore|HistoricalStager|PlatformWiring|PreflightAndTimezone|StandardUoW)$' -test.v
 
 # Real production migration files and full fresh bootstrap use separate,
 # disposable databases in this same isolated MySQL container.
