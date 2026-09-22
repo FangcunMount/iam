@@ -1,0 +1,3 @@
+# Checkout authentication must never enter builder layers or exported cache.
+.git
+**/iam-module-auth.*

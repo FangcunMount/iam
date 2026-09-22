@@ -6,6 +6,8 @@ services:
     build:
       context: ../..
       dockerfile: build/docker/Dockerfile
+      secrets:
+        - private_git_config
       args:
         VERSION: ${VERSION:-dev}
         BUILD_TIME: ${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}
@@ -100,6 +102,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+secrets:
+  private_git_config:
+    file: ${PRIVATE_MODULE_GIT_CONFIG:-/dev/null}
 
 networks:
   iam-network:

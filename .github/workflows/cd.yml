@@ -63,6 +63,13 @@ jobs:
         with:
           ref: ${{ env.DEPLOY_SHA }}
 
+      - name: Configure private SDK access
+        id: private-modules
+        uses: ./.github/actions/private-modules
+        with:
+          client-id: ${{ vars.IAM_MODULES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.IAM_MODULES_APP_PRIVATE_KEY }}
+
       - name: Test image retention policy
         run: python3 scripts/cd/test_image_retention.py
 
@@ -90,12 +97,21 @@ jobs:
           password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
 
       - name: Build and publish image
+        env:
+          PRIVATE_MODULE_GIT_CONFIG: ${{ steps.private-modules.outputs.config-path }}
         run: |
           make cd-image \
             SERVICE="${SERVICE}" \
             DEPLOY_REF="${DEPLOY_REF}" \
             DEPLOY_SHA="${DEPLOY_SHA}" \
             BUILD_TIME="${BUILD_TIME}"
+
+      - name: Remove temporary SDK credentials
+        if: always()
+        env:
+          MODULE_CONFIG: ${{ steps.private-modules.outputs.config-path }}
+        run: |
+          if [ -n "$MODULE_CONFIG" ]; then rm -f -- "$MODULE_CONFIG"; fi
 
   deploy:
     name: Deploy to Production

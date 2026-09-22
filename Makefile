@@ -698,8 +698,10 @@ docker-mysql-logs: ## 查看 Docker MySQL 日志
 .PHONY: docker-compose-up docker-compose-down docker-compose-restart
 
 docker-build: ## 构建 Docker 镜像
+	@test -n "$$PRIVATE_MODULE_GIT_CONFIG" && test -f "$$PRIVATE_MODULE_GIT_CONFIG" || { echo "PRIVATE_MODULE_GIT_CONFIG must reference a temporary SDK read credential file" >&2; exit 1; }
 	@echo "$(COLOR_BOLD)$(COLOR_BLUE)🐳 构建 Docker 镜像...$(COLOR_RESET)"
 	@docker build \
+		--secret "id=private_git_config,src=$$PRIVATE_MODULE_GIT_CONFIG" \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \

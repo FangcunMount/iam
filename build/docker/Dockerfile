@@ -16,13 +16,15 @@ RUN apk add --no-cache git make
 # 设置 Go 环境变量
 ENV GO111MODULE=on \
     GOPROXY=https://goproxy.cn,direct \
+    GOPRIVATE=github.com/FangcunMount/reliable-messaging \
     CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64
 
 # 复制 go mod 文件并下载依赖
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=secret,id=private_git_config,required=true \
+    GIT_CONFIG_GLOBAL=/run/secrets/private_git_config GIT_TERMINAL_PROMPT=0 go mod download
 
 # 复制源代码
 COPY . .
