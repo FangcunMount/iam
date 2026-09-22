@@ -3,15 +3,26 @@
 package integration_test
 
 import (
+	"bufio"
 	"context"
+	"encoding/binary"
 	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/policypublication"
 	appuow "github.com/FangcunMount/iam/v5/internal/apiserver/application/authz/uow"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/authorization"
 	domainpolicy "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/policy"
 	domainrole "github.com/FangcunMount/iam/v5/internal/apiserver/domain/authz/role"
+	authzruntime "github.com/FangcunMount/iam/v5/internal/apiserver/infra/authz/runtime"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 	policyrepo "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/policy"
 	rolerepo "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/role"
@@ -21,6 +32,9 @@ import (
 	"github.com/FangcunMount/reliable-messaging/message"
 	"github.com/FangcunMount/reliable-messaging/outbox"
 	sdkmysql "github.com/FangcunMount/reliable-messaging/storage/mysql"
+	"github.com/FangcunMount/reliable-messaging/transport"
+	sdknsq "github.com/FangcunMount/reliable-messaging/transport/nsq"
+	"github.com/nsqio/go-nsq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -127,4 +141,236 @@ func TestReliableMessagingOriginalUoW(t *testing.T) {
 	require.Len(t, claims, 1)
 	require.Equal(t, committed.Fingerprint(), claims[0].Message.Fingerprint())
 	require.NoError(t, store.Confirm(ctx, claims[0]))
+}
+
+type countedMySQLSource struct {
+	*authzruntime.MySQLSource
+	loads atomic.Int32
+}
+
+func (s *countedMySQLSource) Load(ctx context.Context) (authzruntime.Dataset, error) {
+	s.loads.Add(1)
+	return s.MySQLSource.Load(ctx)
+}
+
+func TestReliableMessagingPolicyConsumer(t *testing.T) {
+	address, httpAddress := os.Getenv("RM_IAM_NSQ_TCP"), os.Getenv("RM_IAM_NSQ_HTTP")
+	if os.Getenv("IAM_AUTHZ_TEST_MYSQL_DSN") == "" || address == "" || httpAddress == "" {
+		t.Fatal("isolated MySQL and NSQ required")
+	}
+	db := authzdb.Open(t, true)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	config := nsq.NewConfig()
+	config.DialTimeout = time.Second
+	config.HeartbeatInterval = time.Second
+	config.ReadTimeout = 3 * time.Second
+	config.WriteTimeout = time.Second
+	config.MsgTimeout = time.Second
+	topic := "iam-rm-consumer-proof"
+	httpClient := &http.Client{Timeout: 3 * time.Second}
+	sources := make([]*countedMySQLSource, 2)
+	runtimes := make([]*authzruntime.Runtime, 2)
+	type delivery struct {
+		instance int
+		attempt  uint16
+		id       string
+	}
+	delivered := make(chan delivery, 16)
+	for i := range runtimes {
+		sources[i] = &countedMySQLSource{MySQLSource: authzruntime.NewMySQLSource(db)}
+		runtime, err := authzruntime.NewRuntime(ctx, sources[i], authorization.NewEvaluator())
+		require.NoError(t, err)
+		runtimes[i] = runtime
+		channel := fmt.Sprintf("proof-instance-%d", i)
+		for _, path := range []string{"/topic/create?topic=" + topic, "/channel/create?topic=" + topic + "&channel=" + channel} {
+			request, e := http.NewRequestWithContext(ctx, "POST", httpAddress+path, nil)
+			require.NoError(t, e)
+			response, e := httpClient.Do(request)
+			require.NoError(t, e)
+			response.Body.Close()
+			require.Equal(t, 200, response.StatusCode)
+		}
+		consumer, err := nsq.NewConsumer(topic, channel, config)
+		require.NoError(t, err)
+		consumer.SetLogger(nil, nsq.LogLevelError)
+		handler := policypublication.NewService(runtime, runtime)
+		consumer.AddHandler(nsq.HandlerFunc(func(msg *nsq.Message) error {
+			if err := handler.Handle(ctx, msg.Body, ""); err != nil {
+				return err
+			}
+			select {
+			case delivered <- delivery{i, msg.Attempts, string(msg.ID[:])}:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}))
+		proxyAddress, stopProxy := dropFirstFINProxy(t, ctx, address)
+		defer stopProxy()
+		require.NoError(t, consumer.ConnectToNSQD(proxyAddress))
+		defer func() {
+			consumer.Stop()
+			select {
+			case <-consumer.StopChan:
+			case <-time.After(5 * time.Second):
+				t.Error("consumer stop timeout")
+			}
+		}()
+	}
+	producer, err := nsq.NewProducer(address, config)
+	require.NoError(t, err)
+	producer.SetLogger(nil, nsq.LogLevelError)
+	defer producer.Stop()
+	publisher, err := sdknsq.New(producer, map[string]string{"authz-version": topic}, 1)
+	require.NoError(t, err)
+	uow := authzuow.NewUnitOfWork(db, nil)
+	advance := func(expected int64) {
+		t.Helper()
+		require.NoError(t, uow.WithinTx(ctx, func(txCtx context.Context, repos appuow.TxRepositories) error {
+			v, e := repos.PolicyVersions.Increment(txCtx, "proof", "consumer compatibility")
+			if e == nil && v.Version != expected {
+				return fmt.Errorf("version %d", v.Version)
+			}
+			return e
+		}))
+	}
+	send := func(version int64, expectRedelivery bool) {
+		t.Helper()
+		m, e := message.New(message.Input{Producer: "iam", ID: fmt.Sprintf("version-%d", version), Destination: "authz-version", EventType: "iam.authz.version_changed.v2", SchemaVersion: "v2", Scope: "scope:global", ContentType: "application/json", OccurredAt: "2026-09-22T00:00:00Z", Payload: []byte(fmt.Sprintf(`{"version":%d}`, version))})
+		require.NoError(t, e)
+		require.Equal(t, transport.Confirmed, publisher.Publish(ctx, m).Outcome)
+		seen := map[int]bool{}
+		firstIDs := map[int]string{}
+		for len(seen) < 2 {
+			select {
+			case got := <-delivered:
+				if !expectRedelivery {
+					seen[got.instance] = true
+					continue
+				}
+				if got.attempt == 1 {
+					firstIDs[got.instance] = got.id
+				} else {
+					require.Equal(t, firstIDs[got.instance], got.id, "actual broker redelivery must keep NSQ ID")
+					seen[got.instance] = true
+				}
+			case <-ctx.Done():
+				t.Fatal("not all runtime instances received event")
+			}
+		}
+	}
+	advance(2)
+	send(2, true)
+	send(1, false)
+	for i, runtime := range runtimes {
+		require.True(t, runtime.PolicyVersionLoaded(2))
+		require.EqualValues(t, 2, runtime.RuntimeHealthDetails()["loaded_policy_version"])
+		require.EqualValues(t, 2, sources[i].loads.Load(), "duplicate/old messages must not reload the same policy")
+	}
+	advance(3) // Deliberately no MQ event: original reconciliation is the recovery mechanism.
+	for i, runtime := range runtimes {
+		require.NoError(t, runtime.Reconcile(ctx))
+		require.True(t, runtime.PolicyVersionLoaded(3))
+		require.EqualValues(t, 3, sources[i].loads.Load())
+	}
+	send(2, false)
+	for i, runtime := range runtimes {
+		require.EqualValues(t, 3, runtime.RuntimeHealthDetails()["loaded_policy_version"])
+		require.EqualValues(t, 3, sources[i].loads.Load())
+		handler := policypublication.NewService(runtime, runtime)
+		require.Error(t, handler.Handle(ctx, []byte(`{"version":0}`), ""))
+	}
+	require.NoError(t, publisher.Drain(ctx))
+}
+
+// Drops the first consumer FIN on the wire. The client still updates its own
+// in-flight accounting, while the real broker times out and redelivers.
+func dropFirstFINProxy(t *testing.T, ctx context.Context, target string) (string, func()) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	proxyCtx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() {
+		downstream, e := listener.Accept()
+		if e != nil {
+			done <- e
+			return
+		}
+		defer downstream.Close()
+		upstream, e := net.DialTimeout("tcp", target, time.Second)
+		if e != nil {
+			done <- e
+			return
+		}
+		defer upstream.Close()
+		interrupt := context.AfterFunc(proxyCtx, func() { downstream.Close(); upstream.Close() })
+		defer interrupt()
+		copied := make(chan struct{})
+		go func() { defer close(copied); _, _ = io.Copy(downstream, upstream); downstream.Close() }()
+		defer func() { downstream.Close(); upstream.Close(); <-copied }()
+		var magic [4]byte
+		if _, e = io.ReadFull(downstream, magic[:]); e != nil {
+			done <- e
+			return
+		}
+		if _, e = upstream.Write(magic[:]); e != nil {
+			done <- e
+			return
+		}
+		reader := bufio.NewReader(downstream)
+		dropped := false
+		for {
+			line, e := reader.ReadString('\n')
+			if e != nil {
+				if e == io.EOF || proxyCtx.Err() != nil {
+					e = nil
+				}
+				done <- e
+				return
+			}
+			if strings.HasPrefix(line, "FIN ") && !dropped {
+				dropped = true
+				continue
+			}
+			if _, e = io.WriteString(upstream, line); e != nil {
+				done <- e
+				return
+			}
+			if line == "IDENTIFY\n" || line == "AUTH\n" {
+				var size [4]byte
+				if _, e = io.ReadFull(reader, size[:]); e != nil {
+					done <- e
+					return
+				}
+				n := binary.BigEndian.Uint32(size[:])
+				if n > 1024*1024 {
+					done <- fmt.Errorf("oversized command")
+					return
+				}
+				body := make([]byte, n)
+				if _, e = io.ReadFull(reader, body); e != nil {
+					done <- e
+					return
+				}
+				if _, e = upstream.Write(append(size[:], body...)); e != nil {
+					done <- e
+					return
+				}
+			}
+		}
+	}()
+	return listener.Addr().String(), func() {
+		cancel()
+		listener.Close()
+		select {
+		case e := <-done:
+			if e != nil && !errors.Is(e, net.ErrClosed) {
+				t.Errorf("FIN proxy: %v", e)
+			}
+		case <-time.After(5 * time.Second):
+			t.Error("FIN proxy failed to drain")
+		}
+	}
 }
