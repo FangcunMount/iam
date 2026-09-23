@@ -1,3 +1,2 @@
-# Checkout authentication must never enter builder layers or exported cache.
+# Keep checkout metadata and credentials outside image build layers.
 .git
-**/iam-module-auth.*

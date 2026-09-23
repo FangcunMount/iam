@@ -33,13 +33,6 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v6
-      - name: Configure private SDK access
-        id: private-modules
-        uses: ./.github/actions/private-modules
-        with:
-          client-id: ${{ vars.IAM_MODULES_APP_CLIENT_ID }}
-          private-key: ${{ secrets.IAM_MODULES_APP_PRIVATE_KEY }}
-
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -126,10 +119,3 @@ jobs:
       - name: Remove runner transient credentials
         if: always()
         run: sudo rm -f -- payload/private.json
-
-      - name: Remove temporary SDK credentials
-        if: always()
-        env:
-          MODULE_CONFIG: ${{ steps.private-modules.outputs.config-path }}
-        run: |
-          if [ -n "$MODULE_CONFIG" ]; then rm -f -- "$MODULE_CONFIG"; fi

@@ -10,8 +10,6 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 : "${DEPLOY_SHA:?DEPLOY_SHA is required}"
 : "${WWW_UID:?WWW_UID is required}"
 : "${WWW_GID:?WWW_GID is required}"
-: "${PRIVATE_MODULE_GIT_CONFIG:?Temporary private module Git config is required}"
-[ -f "$PRIVATE_MODULE_GIT_CONFIG" ] || { echo "Private module Git config is unavailable" >&2; exit 1; }
 
 case "${WWW_UID}:${WWW_GID}" in
   *[!0-9:]*|:*|*:|"")
@@ -27,7 +25,6 @@ CACHE_ARGS="--cache-from type=registry,ref=${BUILD_CACHE_REF} --cache-to type=re
 # shellcheck disable=SC2086
 docker buildx build \
   --file "$DOCKERFILE" \
-  --secret "id=private_git_config,src=${PRIVATE_MODULE_GIT_CONFIG}" \
   --push \
   --tag "${DOCKER_REGISTRY}/${DOCKER_REPOSITORY}/${IMAGE_NAME}:latest" \
   --tag "${DOCKER_REGISTRY}/${DOCKER_REPOSITORY}/${IMAGE_NAME}:${DEPLOY_SHA}" \
