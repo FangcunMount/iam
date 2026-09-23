@@ -188,7 +188,7 @@ func TestReliableMessagingPolicyConsumer(t *testing.T) {
 			require.NoError(t, e)
 			response, e := httpClient.Do(request)
 			require.NoError(t, e)
-			response.Body.Close()
+			require.NoError(t, response.Body.Close())
 			require.Equal(t, 200, response.StatusCode)
 		}
 		consumer, err := nsq.NewConsumer(topic, channel, config)
@@ -298,18 +298,18 @@ func dropFirstFINProxy(t *testing.T, ctx context.Context, target string) (string
 			done <- e
 			return
 		}
-		defer downstream.Close()
+		defer func() { _ = downstream.Close() }()
 		upstream, e := net.DialTimeout("tcp", target, time.Second)
 		if e != nil {
 			done <- e
 			return
 		}
-		defer upstream.Close()
-		interrupt := context.AfterFunc(proxyCtx, func() { downstream.Close(); upstream.Close() })
+		defer func() { _ = upstream.Close() }()
+		interrupt := context.AfterFunc(proxyCtx, func() { _ = downstream.Close(); _ = upstream.Close() })
 		defer interrupt()
 		copied := make(chan struct{})
-		go func() { defer close(copied); _, _ = io.Copy(downstream, upstream); downstream.Close() }()
-		defer func() { downstream.Close(); upstream.Close(); <-copied }()
+		go func() { defer close(copied); _, _ = io.Copy(downstream, upstream); _ = downstream.Close() }()
+		defer func() { _ = downstream.Close(); _ = upstream.Close(); <-copied }()
 		var magic [4]byte
 		if _, e = io.ReadFull(downstream, magic[:]); e != nil {
 			done <- e
@@ -363,7 +363,7 @@ func dropFirstFINProxy(t *testing.T, ctx context.Context, target string) (string
 	}()
 	return listener.Addr().String(), func() {
 		cancel()
-		listener.Close()
+		_ = listener.Close()
 		select {
 		case e := <-done:
 			if e != nil && !errors.Is(e, net.ErrClosed) {

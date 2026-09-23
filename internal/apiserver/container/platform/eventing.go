@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,27 +11,36 @@ import (
 	"github.com/FangcunMount/iam/v5/internal/apiserver/eventing"
 	messagingInfra "github.com/FangcunMount/iam/v5/internal/apiserver/infra/messaging"
 	eventoutbox "github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/options"
 	"github.com/FangcunMount/iam/v5/pkg/event"
 	"github.com/FangcunMount/iam/v5/pkg/eventcatalog"
 	"github.com/FangcunMount/iam/v5/pkg/eventruntime"
+	outboxport "github.com/FangcunMount/iam/v5/pkg/outbox"
 	"gorm.io/gorm"
 )
 
 // EventingDeps holds inputs required to initialize the event platform.
 type EventingDeps struct {
-	DB          *gorm.DB
-	EventBus    messaging.EventBus
-	CatalogPath string
-	OutboxBatch int
-	OutboxRetry time.Duration
+	ReliableMessaging options.ReliableMessagingOptions
+	NSQEnabled        bool
+	NSQAddress        string
+	OutboxInterval    time.Duration
+	DB                *gorm.DB
+	EventBus          messaging.EventBus
+	CatalogPath       string
+	OutboxBatch       int
+	OutboxRetry       time.Duration
 }
 
 // Eventing holds initialized event platform collaborators.
 type Eventing struct {
-	Catalog   *eventcatalog.Catalog
-	Publisher event.Publisher
-	Outbox    *eventoutbox.Store
-	Relay     messagingInfra.OutboxRelay
+	Stager                event.Stager
+	ReliableRuntime       *messagingInfra.ReliableRuntime
+	CloseReliableProducer func()
+	Catalog               *eventcatalog.Catalog
+	Publisher             event.Publisher
+	Outbox                outboxport.StatusReader
+	Relay                 messagingInfra.OutboxRelay
 }
 
 // InitEventing loads the catalog, publisher, and optional outbox relay.
@@ -48,15 +58,30 @@ func InitEventing(deps EventingDeps) (*Eventing, error) {
 		Catalog:   catalog,
 		Publisher: eventruntime.NewPublisherForBus(catalog, deps.EventBus, eventing.SourceAPIServer),
 	}
-	if deps.DB == nil {
+	if deps.DB == nil && !deps.ReliableMessaging.Enabled {
 		return result, nil
 	}
-	result.Outbox = eventoutbox.NewStore(deps.DB, catalog)
+	if !deps.ReliableMessaging.Enabled {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := eventoutbox.CheckStandardDrained(ctx, deps.DB); err != nil {
+			return nil, err
+		}
+	}
+	legacyStore := eventoutbox.NewStore(deps.DB, catalog)
+	result.Outbox = legacyStore
+	result.Stager = legacyStore
+	if deps.ReliableMessaging.Enabled {
+		if err := initReliableEventing(deps, result); err != nil {
+			return nil, fmt.Errorf("initialize reliable messaging: %w", err)
+		}
+		return result, nil
+	}
 	if deps.EventBus == nil {
 		log.Warnw("event outbox relay not started: event bus unavailable", "store", "iam.domain_event_outbox")
 		return result, nil
 	}
-	result.Relay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", result.Outbox, deps.EventBus, messagingInfra.OutboxRelayOptions{
+	result.Relay = messagingInfra.NewOutboxRelay("iam.domain_event_outbox", legacyStore, deps.EventBus, messagingInfra.OutboxRelayOptions{
 		BatchSize:  deps.OutboxBatch,
 		RetryDelay: deps.OutboxRetry,
 	})

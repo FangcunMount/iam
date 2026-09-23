@@ -261,3 +261,35 @@ func TestPreparePackageIncludesImageRetention(t *testing.T) {
 		}
 	}
 }
+
+func TestPreparePackageReliableMessagingMode(t *testing.T) {
+	for _, mode := range []string{"", "false", "true", "invalid"} {
+		t.Run("mode="+mode, func(t *testing.T) {
+			tmp := t.TempDir()
+			packageDir := filepath.Join(tmp, "package")
+			output, err := runPreparePackage(t, packageDir, filepath.Join(tmp, "package.tar.gz"), []string{
+				"SEED_MOCK_AUTH_ENABLED=false", "IAM_RELIABLE_MESSAGING_ENABLED=" + mode,
+			})
+			if mode == "invalid" {
+				if err == nil || !strings.Contains(output, "IAM_RELIABLE_MESSAGING_ENABLED must be true or false") {
+					t.Fatalf("invalid mode accepted: %v %s", err, output)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("package: %v %s", err, output)
+			}
+			body, err := os.ReadFile(filepath.Join(packageDir, "configs/env/config.prod.env"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := mode
+			if want == "" {
+				want = "false"
+			}
+			if !strings.Contains(string(body), "IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED="+want+"\n") {
+				t.Fatal("selected Outbox mode missing from package")
+			}
+		})
+	}
+}

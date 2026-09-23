@@ -14,11 +14,15 @@ import (
 
 func (c *Container) initEventing() error {
 	eventing, err := platform.InitEventing(platform.EventingDeps{
-		DB:          c.mysqlDB,
-		EventBus:    c.eventBus,
-		CatalogPath: c.runtimeOptions.Events.CatalogPath,
-		OutboxBatch: c.runtimeOptions.Events.OutboxRelayBatchSize,
-		OutboxRetry: c.runtimeOptions.Events.OutboxRelayRetryDelay,
+		DB:                c.mysqlDB,
+		ReliableMessaging: c.runtimeOptions.Events.ReliableMessaging,
+		NSQEnabled:        c.runtimeOptions.NSQEnabled,
+		NSQAddress:        c.runtimeOptions.NSQAddress,
+		OutboxInterval:    c.runtimeOptions.Events.OutboxRelayInterval,
+		EventBus:          c.eventBus,
+		CatalogPath:       c.runtimeOptions.Events.CatalogPath,
+		OutboxBatch:       c.runtimeOptions.Events.OutboxRelayBatchSize,
+		OutboxRetry:       c.runtimeOptions.Events.OutboxRelayRetryDelay,
 	})
 	if err != nil {
 		return err
@@ -26,6 +30,9 @@ func (c *Container) initEventing() error {
 	c.eventCatalog = eventing.Catalog
 	c.eventPublisher = eventing.Publisher
 	c.outboxStore = eventing.Outbox
+	c.eventStager = eventing.Stager
+	c.reliableRuntime = eventing.ReliableRuntime
+	c.closeReliableProducer = eventing.CloseReliableProducer
 	c.outboxRelay = eventing.Relay
 	return nil
 }

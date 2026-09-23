@@ -41,6 +41,7 @@ func createAPIServer(cfg *config.Config) (*apiServer, error) {
 		dbManager: dbManager,
 	}
 
+	configureReliableShutdownFailure(gs, server.reliableMessagingEnabled())
 	return server, nil
 }
 
@@ -49,7 +50,8 @@ func (s *apiServer) PrepareRun() (preparedAPIServer, error) {
 	// 创建准备运行 APIServer
 	prepared, _, err := newPrepareRunner(s).run()
 	if err != nil {
-		// 如果准备运行 APIServer 失败，则返回错误
+		// If startup allocated a candidate producer, release it after Relay drain.
+		s.cleanupReliableStartup()
 		return preparedAPIServer{}, err
 	}
 

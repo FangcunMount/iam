@@ -11,16 +11,17 @@ import (
 )
 
 const (
-	StatusPending    = "pending"
-	StatusPublishing = "publishing"
-	StatusPublished  = "published"
-	StatusFailed     = "failed"
+	StatusPending     = "pending"
+	StatusPublishing  = "publishing"
+	StatusPublished   = "published"
+	StatusFailed      = "failed"
+	StatusQuarantined = "quarantined"
 
 	DefaultPublishingStaleFor = time.Minute
 	DefaultRelayRetryDelay    = 10 * time.Second
 )
 
-var unfinishedStatuses = []string{StatusPending, StatusFailed, StatusPublishing}
+var unfinishedStatuses = []string{StatusPending, StatusFailed, StatusPublishing, StatusQuarantined}
 
 func UnfinishedStatuses() []string {
 	return append([]string(nil), unfinishedStatuses...)

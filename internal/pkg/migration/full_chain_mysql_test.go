@@ -37,7 +37,7 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !migrated || version != 37 {
+	if !migrated || version != 38 {
 		t.Fatalf("migration version=%d changed=%v", version, migrated)
 	}
 	db := openMigrationMySQL(t)
@@ -57,6 +57,9 @@ func TestFullMigrationChainAndBootstrapMySQL(t *testing.T) {
 
 	_, currentFile, _, _ := runtime.Caller(0)
 	bootstrapPath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "configs", "mysql", "bootstrap.sql")
+	if isolatedPath := os.Getenv("RM_IAM_BOOTSTRAP_SQL"); isolatedPath != "" {
+		bootstrapPath = isolatedPath
+	}
 	bootstrap, err := os.ReadFile(bootstrapPath)
 	if err != nil {
 		t.Fatalf("read bootstrap SQL: %v", err)
@@ -302,6 +305,7 @@ ORDER BY TABLE_NAME`, database)
 		"iam_scope_migrations",
 		"authz_roles",
 		"domain_event_outbox",
+		"rm_outbox",
 		"identity_session_revocation_outbox",
 		"idp_wechat_apps",
 		"jwks_keys",

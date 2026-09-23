@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"github.com/FangcunMount/iam/v5/internal/pkg/timezone"
 	"io"
 	"net"
 	"os"
@@ -34,6 +35,7 @@ func runRoleModelMigration(args []string, output io.Writer) error {
 	fingerprint := f.String("fingerprint", "", "reviewed source fingerprint")
 	stopped := f.Bool("writes-stopped", false, "authorization and relevant identity writers are stopped")
 	catalogPath := f.String("event-catalog", "configs/events.yaml", "durable event catalog")
+	outboxMode := f.String("outbox-mode", "", "standard or legacy, matching the reviewed running Relay; required after migration 38")
 	timeout := f.Duration("timeout", time.Minute, "operation timeout")
 	if err := f.Parse(args[1:]); err != nil {
 		return err
@@ -111,7 +113,10 @@ func runRoleModelMigration(args []string, output io.Writer) error {
 		if err != nil {
 			return err
 		}
-		stager := eventoutbox.NewStore(iam, eventcatalog.NewCatalog(cfg))
+		stager, gateErr := eventoutbox.NewMaintenanceStager(ctx, iam, eventcatalog.NewCatalog(cfg), *outboxMode)
+		if gateErr != nil {
+			return gateErr
+		}
 		var receipt *rolemodel.Receipt
 		if mode == "apply" {
 			receipt, err = rolemodel.Apply(ctx, iam, qs, stager, *fingerprint, *stopped)
@@ -186,6 +191,8 @@ func roleDatabase(prefix string) (*gorm.DB, error) {
 	cfg.Addr = net.JoinHostPort(host, port)
 	cfg.DBName = database
 	cfg.ParseTime = true
+	cfg.Loc = timezone.Location
+	cfg.Params = map[string]string{"time_zone": "'+08:00'"}
 	cfg.Timeout = 8 * time.Second
 	cfg.ReadTimeout = time.Minute
 	cfg.WriteTimeout = time.Minute

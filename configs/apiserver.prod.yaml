@@ -328,6 +328,8 @@ log:
 # ----------------------------------------------------------------------------
 events:
   catalog_path: /app/configs/events.yaml
+  reliable_messaging:
+    enabled: false # Explicit deployment variable selects the reviewed Outbox owner.
   outbox_relay_interval: 2s
   outbox_relay_batch_size: 100
   outbox_relay_retry_delay: 10s

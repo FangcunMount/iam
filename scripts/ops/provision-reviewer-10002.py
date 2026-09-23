@@ -198,6 +198,8 @@ def scope_command(args, mode, org_id, fingerprint=None):
     command = [args.maintenance, 'reviewer-scope', mode, '--input',
                str(args.directory / 'account.json'), '--org-id', org_id, '--report', str(receipt),
                '--event-catalog', str(Path(args.maintenance).parent / 'events.yaml')]
+    if mode == 'apply' and args.outbox_mode:
+        command += ['--outbox-mode', args.outbox_mode]
     if fingerprint:
         command += ['--fingerprint', fingerprint]
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
@@ -315,6 +317,8 @@ def main():
     parser.add_argument('--directory', required=True, type=lambda p: Path(p).absolute())
     parser.add_argument('--username', default='review@mfangcunmount.com')
     parser.add_argument('--maintenance', default='./iam-maintenance')
+    parser.add_argument('--outbox-mode', choices=['standard', 'legacy'],
+                        help='reviewed running Relay mode for direct scope maintenance after migration 38')
     parser.add_argument('--token-file', type=Path)
     parser.add_argument('--iam-url', default='https://iam.fangcunmount.cn/api/v4')
     parser.add_argument('--qs-url', default='https://qs.fangcunmount.cn/api/v1')

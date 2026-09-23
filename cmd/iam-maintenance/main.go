@@ -40,6 +40,8 @@ func run(args []string, output io.Writer) error {
 		return errors.New("a maintenance subcommand is required")
 	}
 	switch args[0] {
+	case "reliable-messaging":
+		return runReliableMessaging(args[1:], output)
 	case "purge-login-state":
 		return runPurgeLoginState(args[1:], output)
 	case "signing-key-cutover":
@@ -96,7 +98,7 @@ func authzConvergeDatabaseFromEnvironment() (*gorm.DB, error) {
 	if host == "" || port < 1 || port > 65535 || username == "" || database == "" {
 		return nil, errors.New("authorization database connection environment is invalid")
 	}
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&multiStatements=true",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Etc%%2FGMT-8&time_zone=%%27%%2B08%%3A00%%27&multiStatements=true",
 		username, password, net.JoinHostPort(host, strconv.Itoa(port)), database,
 	)
 	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})

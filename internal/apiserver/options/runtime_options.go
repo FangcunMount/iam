@@ -264,14 +264,16 @@ func NewSeedMockAuthOptions() *SeedMockAuthOptions {
 
 // EventOptions configures event catalog loading and durable outbox relay timing.
 type EventOptions struct {
-	CatalogPath           string        `json:"catalog_path" mapstructure:"catalog_path"`
-	OutboxRelayInterval   time.Duration `json:"outbox_relay_interval" mapstructure:"outbox_relay_interval"`
-	OutboxRelayBatchSize  int           `json:"outbox_relay_batch_size" mapstructure:"outbox_relay_batch_size"`
-	OutboxRelayRetryDelay time.Duration `json:"outbox_relay_retry_delay" mapstructure:"outbox_relay_retry_delay"`
+	ReliableMessaging     ReliableMessagingOptions `json:"reliable_messaging" mapstructure:"reliable_messaging"`
+	CatalogPath           string                   `json:"catalog_path" mapstructure:"catalog_path"`
+	OutboxRelayInterval   time.Duration            `json:"outbox_relay_interval" mapstructure:"outbox_relay_interval"`
+	OutboxRelayBatchSize  int                      `json:"outbox_relay_batch_size" mapstructure:"outbox_relay_batch_size"`
+	OutboxRelayRetryDelay time.Duration            `json:"outbox_relay_retry_delay" mapstructure:"outbox_relay_retry_delay"`
 }
 
 func NewEventOptions() *EventOptions {
 	return &EventOptions{
+		ReliableMessaging:   DefaultReliableMessagingOptions(),
 		CatalogPath:         "configs/events.yaml",
 		OutboxRelayInterval: 2 * time.Second,
 	}

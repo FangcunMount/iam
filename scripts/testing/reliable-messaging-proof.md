@@ -1,44 +1,71 @@
-# M2 original IAM UoW proof
+# IAM reliable messaging proofs
 
-Run `scripts/testing/reliable-messaging-proof.sh /absolute/path/to/reliable-messaging` with a local Docker context. The script creates a temporary Go workspace and isolated MySQL from the SDK's pinned Compose definition. It never rewrites either go.mod, accepts no external DSN, and cleans its own containers/database. Missing dependencies fail; the required proof does not skip.
+M3 uses the SDK standard `rm_outbox` table after the legacy path is drained. It remains a draft and is disabled in normal configuration. This document describes the current candidate, not production acceptance. Historical-table implementation/proof details remain in Git checkpoints d3036b14 and 4e20cf75; they are superseded as the M3 runtime route.
 
-Tested against SDK commit 42fa4c3, IAM baseline 24dbe924, MySQL 8.0.44. `TestReliableMessagingOriginalUoW` invokes the actual authz UoW, role repository, policy-version repository and historical Outbox stager. A thin test-only bridge obtains the original transaction with RequireTx and calls SDK BindGORM. Role/version/legacy event/SDK comparison intent commit or roll back together, including an SDK identity-conflict error. The committed legacy raw payload remains exactly `{"version":2}` and SDK claim/confirmation retains the original identity/fingerprint.
+## Reproducible isolated proof
 
-The SDK standard table is a comparison fixture, not a proposed production dual-write/dual-publish scheme. The historical producer has no persisted occurred_at field; this proof maps its stored created_at once. Production identity/time/routing policy, historical schema extensions, old/new claimant exclusion, migrations, live consumers and cutover remain later gates. This proof does not replace old-table claim/mark algorithms or establish production acceptance.
+Run `bash scripts/testing/reliable-messaging-proof.sh /absolute/path/to/reliable-messaging` with a local Unix-socket Docker context. The script creates a unique MySQL/NSQ project and temporary build directory, and destroys only its own containers, network, volume and build directory. It never uses production connection settings.
 
-Only a tagged test and isolated test runner are added. Production wiring, dependencies and configuration are unchanged. The SDK remains provisional and this draft should not be read as an IAM rollout approval.
+IAM go.mod pins the UTC+8 correction c35167f as v0.1.0-m2.1.0.20260922073526-c35167f2ba5a (SDK draft #3). The script builds the declared module with GOWORK=off; the SDK checkout supplies isolated infrastructure fixtures only. This fixes the candidate dependency without implying that the SDK change has been approved, merged or tagged. Final release must select the reviewed version.
 
-## Original policy consumer with real ACK loss
+## Standard transaction and actual platform wiring
 
-`TestReliableMessagingPolicyConsumer` runs two real IAM policypublication handlers and immutable runtimes against MySQLSource, receiving raw version-only payloads from the SDK publisher over NSQ. Each test instance uses its own channel (broadcast); this does not test the production ephemeral-channel lifecycle.
+`StandardStager` maps the original policy event ID, actual occurrence time and payload bytes into Message, then calls SDK BindGORM/Append in the original IAM UoW. It never stages a second historical Outbox row. Role facts, PolicyVersion and standard Outbox commit together; host abort or identity-content conflict roll back together. Duplicate identity retains one row.
 
-A TCP proxy drops each consumer's first FIN while preserving normal client accounting. NSQ really redelivers the same NSQ message ID with an increased attempt count. The handlers do not reload an already-loaded version, old versions do not regress the snapshot, and an intentionally unpublished database version is recovered by the original Reconcile path. Invalid version payloads still return errors. Local proof passed against SDK d13ee10 / NSQ 1.3.0 / MySQL 8.0.44; both consumers and proxies drained.
+`TestReliableMessagingStandardUoW` exercises a real UTC+8 business connection, immediate claiming and absolute lease time. `TestReliableMessagingPlatformWiring` uses real platform construction, standard Stager/Store, host-owned Producer, supervised SDK Relay and NSQ delivery. Its EventBus is a placeholder because this test targets the dedicated publisher, not complete subscriber bootstrap. It verifies the original component-base envelope, application event ID, payload bytes and metadata, published state and no legacy-table insert.
 
-The first ACK-loss fixture disabled automatic response in-process and left client in-flight accounting unresolved at shutdown; that failed run is not accepted evidence. The wire-level FIN-drop fixture replaces it. No production consumer implementation was modified.
+`PolicyWirePublisher` is the IAM-owned transport codec. The standard intent retains the business payload and its fingerprint. At publication, an immutable transport copy carries the original component-base v0.6.3 envelope: UUID=event ID, original payload bytes, event_type, aggregate_type=PolicyVersion, aggregate_id=version and source=iam-outbox-relay. SDK transport remains broker-generic. Sending only raw payload would lose the application UUID/metadata even though the current consumer can decode raw JSON; that candidate wiring defect is corrected. Golden bytes cover the legacy encoding and payload whitespace; Unknown/Confirmed/Rejected outcomes and Drain are delegated without changing the stored intent.
 
-## Historical schema and fencing feasibility
+SDK mode fails startup if migration 38 is missing/dirty or legacy unfinished work exists. Disabling SDK fails if standard unfinished work remains. The latter error cannot be suppressed by development degraded startup. These are data gates; no database query proves old processes have stopped or prevents an old writer racing the check. Cross-process handoff remains required.
 
-`TestReliableMessagingHistoricalFencing` uses the actual historical table and stager/UoW in real MySQL. It adds candidate nullable token/lease and defaulted claim version/count columns in the disposable database; the original stager continues to write. Conditional claim/confirmation preserves the original event identity, raw version-only body and the existing failed-publication counter. Forced lease expiry and ownership transfer reject an old token while accepting the replacement.
+The retained original consumer proof tests duplicate/old-version/ACK-loss/reconciliation behavior. It does not substitute for all deployed instances and real authorization decisions. M2 historical-fencing and UoW prototypes remain explicitly named baseline experiments, not production double-writing or historical adapters.
 
-The negative test then calls the unchanged original MarkEventFailed. Its ID-only update succeeds and changes the newly published record back to failed. This proves additive fields alone do not make overlapping old/new writers safe. Stop and drain all old writers, account for in-flight rows and establish a single executor before enabling a new adapter; rollback requires the reverse handoff. Compatibility DDL is not an execution fence.
+## Standard schema and rollback
 
-The inline SQL is a feasibility prototype, not a complete SDK Store, deployable migration or production index benchmark. rm_claim_count is a delivery-claim counter, whereas old attempt_count counts failed publications; do not silently equate the two or reset a retry budget. The current original IAM Relay uses its configured fixed delay without an attempt-count limit. A new budget would be a separately reviewed behavior change.
+The unshipped migration 38 now creates the SDK standard table in the host database. It leaves historical columns, rows and payloads untouched; IAM no longer adds legacy rm_claim fields. The real migration test verifies old-row preservation, an empty-table down/reapply, rejection of dropping a table even when it contains only published evidence, and identity/due/lease indexes. The full fresh migration/bootstrap test verifies the resulting table inventory.
 
-Historical state mapping for the eventual host adapter:
+Schema down is not application rollback. The guarded down SQL is tested directly; a failed migrator down may leave a dirty journal and must not be forced clean. Application rollback retains schema 38 and preserves standard pending/retry/publishing/quarantine ownership. See [handoff](reliable-messaging-handoff.md).
 
-| Stored state | Required treatment |
-| --- | --- |
-| pending | Preserve identity/payload/due time; claim only when due |
-| failed | Preserve last error and failure count; retain old retry policy |
-| publishing without token | Legacy in-flight work: resolve old executor ownership before reclaim; null token is not evidence of safe takeover |
-| publishing with token | Require token, generation, status and unexpired lease for every write |
-| published | Retain transport confirmation and skip automatic republish; it is not consumer completion |
-| unknown/new isolation states | Keep visible and classify explicitly; no silent success, deletion or rollback to a legacy-invisible backlog |
+Fresh bootstrap retains the reviewed one-time legacy phase: migrations 33/35 commit their original notifications before standard schema 38 exists. The compiled preflight rejects immediate SDK cutover. This is an explicit controlled purpose for the retained legacy writer, not an SDK-first fresh startup or permission to discard notifications.
 
-The eventual adapter still needs this complete state mapping, corrupt/unknown record isolation, indexing and a reviewed forward/backward migration before M3 acceptance. The test proves a safe conditional-write mechanism and the unsafe overlap boundary; it does not approve production cutover.
+`TestMaintenanceBootstrapHandoff` starts four sequential OS child processes against the full migration fixture and actual NSQ. The first uses the original component-base EventBus and legacy platform Relay to deliver the two original notifications; only the actual Relay marks them published. The parent observes their original IDs, payloads and source metadata and verifies retained database records, then the real preflight accepts SDK data readiness. A second process uses SDK platform composition plus the original authz UoW to increment PolicyVersion and publish a standard message. A fresh SDK process does not reclaim that published row. After standard drain, a legacy rollback process commits/publishes one new original-table notification. The parent verifies both table counts, envelopes and data readiness again.
 
-## Host shutdown boundary characterization
+Each child must terminate successfully before the next starts, with SDK Stop/Drain before producer and DB close. This exercises messaging composition in real processes; it does not launch the complete API server, prove production writer exclusion, inject in-flight crash failures, or establish all consumer/authorization decisions. The existing full-chain migration fixture uses its UTC test connection; the child maintenance factory uses UTC+8. Separate timezone matrix tests remain the clock evidence, rather than inferring all production clocks from this handoff.
 
-`TestReliableMessagingShutdownJoinBoundary` runs the actual legacy `runOutboxRelay` and `runShutdownSequence` with a controlled admitted dispatch and database-close callback. The hook is supplied explicitly: cancel-only mirrors current `startRuntimeTasks`; cancel-and-join is a candidate contract, not a production change. The legacy case demonstrates database close while admitted dispatch remains active. The candidate waits for the Relay before database close. Both cases passed ten repetitions under the race detector; the proof script now runs this host-only test before the isolated storage/broker tests.
+## Maintenance writer selection
 
-This is not a real SQL connection closure or NSQ durability test, and it does not assert that the current production dispatch always continues after cancellation. It establishes why cancel alone cannot satisfy the SDK drain contract. M3 must wire and test actual Run supervision, bounded shutdown, adapter drain and host resource ownership; those are not implemented by this characterization.
+Five mutation entry points share `NewMaintenanceStager`: condition-authz-retire, statistics-operations, scope-migrate, role-model-migrate and reviewer-scope. After standard schema installation they require explicit `--outbox-mode=standard|legacy` matching the reviewed live Relay. Pre-38 omission preserves the legacy writer; dirty/missing schema evidence and opposite-table unfinished records reject selection. Read-only operations retain their existing paths.
+
+`TestReliableMessagingMaintenanceStager` uses real MySQL and the original host transaction. It checks implicit-mode rejection, pre-38 compatibility, dirty/missing schema, unfinished/unknown/case-malformed states in both directions, canceled queries, standard-only inserts and host rollback. Synthetic state fixtures establish data gates, not actual legacy drain or process exclusion. Individual maintenance business workflows retain their existing regression tests; this does not establish all five production workflows end to end.
+
+## Read-only preflight and visibility
+
+`iam-maintenance reliable-messaging preflight` reads both tables under a bounded read-only repeatable-read transaction. The combined row budget includes historical published rows. Truncation, query errors, malformed metadata, unknown state and invalid unfinished standard content cannot report successful SDK data readiness. Published anomalies are reported and never replayed. Output contains counts and an explicit +08:00 database timestamp, not identities, payloads or claim tokens.
+
+Targets differ:
+
+- sdk requires no legacy unfinished rows and a valid standard recovery state.
+- legacy requires no unfinished standard rows; the legacy chain may still own known legacy pending/failed/publishing work.
+- schema-down requires the standard table to be empty, including published records.
+
+Every report leaves writer_exclusion_verified and cutover_authorized false. A clean report is neither a backup nor a process/consumer check. Production commands must use a reviewed account and scope.
+
+The selected StandardStatusReader reports standard and legacy backlog independently and includes unknown states. Standard dates are decoded as UTC then displayed as UTC+8; legacy dates retain the audited UTC+8 business convention. Readiness rejects legacy work appearing after SDK cutover, quarantine and unknown standard states; ordinary backlog uses the existing configured age threshold. Runtime age thresholds are not yet measured production SLO acceptance.
+
+## Clock and lifecycle contracts
+
+Business/maintenance connection parsing and session time use UTC+8, while standard scheduling/lease storage has an explicit UTC contract. Real maintenance connection factories run inside a TZ=UTC container and must still select +08:00 sessions and preserve absolute instants. No existing timestamp is bulk rewritten.
+
+ReliableRuntime has one serial supervisor. Stop cancels admission, joins admitted SDK publish/writeback, then drains borrowed transport operations; resources close afterward. Failed join/drain retains resources and propagates failure. The SDK never owns the DB or Producer. The real shutdown dispatcher child-process test requires nonzero failure exit; it is not a deployed SIGTERM/cutover test.
+
+Candidate configuration under events.reliable_messaging: enabled=false, concurrency=1, lease=30s, publish_timeout=5s, write_timeout=5s, restart_delay=2s, shutdown_timeout=20s. The legacy_stale historical-adapter option is removed. Original outbox_relay_interval and retry delay still supply polling/retry policy. Unknown policy-notification sends retain original identity; this does not authorize replaying unknown model executions.
+
+## Remaining acceptance
+
+### One cross-service business proof
+
+Run `bash scripts/testing/reliable-messaging-business-proof.sh /absolute/sdk /absolute/qs-proof-checkout` with the companion tagged QS test. This standalone command avoids repeating the full infrastructure matrix. Each module builds its declared dependencies with GOWORK=off. The SDK fixture supplies MySQL/NSQ; the local override adds lookupd. Only this unique Docker project's containers, network, volume and temporary binaries are removed.
+
+The actual IAM UoW revokes and restores a test grant, increments PolicyVersion and stages the standard notification in the same transaction. The actual Relay and legacy-compatible codec deliver via NSQ to both IAM PolicySyncSubscriber and QS SubscribeVersionChanges. Actual IAM runtime and mTLS/ACL authorization RPCs serve QS SnapshotLoader and ActionChecker. Temporary certificates are fixture-only; QS keeps a one-hour cache, so the short allow(v1), deny(v2), allow(v3) sequence proves notification invalidation rather than TTL expiry. IAM last_event_version and actual published rows are checked; legacy rows remain empty. Both modules' tagged tests passed against real infrastructure. This does not establish deployed certificates, HTTP routes, production scale or latency SLOs. Existing process/recovery evidence is reused.
+
+For the accelerated first release, reuse the completed proofs, including the isolated IAM-to-QS permission roundtrip above. Still required: reviewed fixed SDK dependency and green IAM CI; confirmation of current deployed receivers; and the concrete freeze/drain/cutover plan with actual process-exit and post-release business checks. Maintenance writers stay frozen during cutover; their shared database gate and existing business regressions need not be repeated as five production mutation rehearsals. Longer capacity/soak, additional topology and combined-fault matrices move to M6. Initial rollout timing limits and observation remain explicit in the reviewed release plan, without pretending to be measured long-term SLOs. NSQ publish confirmation still does not prove consumer completion or durable replication.

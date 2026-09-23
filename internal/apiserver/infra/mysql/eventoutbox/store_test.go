@@ -170,13 +170,14 @@ func TestOutboxStatusSnapshotCountsUnfinishedStatuses(t *testing.T) {
 		statusRow("evt-failed", outboxcore.StatusFailed, now.Add(-2*time.Minute)),
 		statusRow("evt-publishing", outboxcore.StatusPublishing, now.Add(-time.Minute)),
 		statusRow("evt-published", outboxcore.StatusPublished, now.Add(-time.Minute)),
+		statusRow("evt-quarantined", outboxcore.StatusQuarantined, now.Add(-4*time.Minute)),
 	}).Error)
 
 	snapshot, err := store.OutboxStatusSnapshot(context.Background(), now)
 	require.NoError(t, err)
 
 	require.Equal(t, "iam-mysql-outbox", snapshot.Store)
-	require.Len(t, snapshot.Buckets, 3)
+	require.Len(t, snapshot.Buckets, 4)
 	countByStatus := map[string]int64{}
 	for _, bucket := range snapshot.Buckets {
 		countByStatus[bucket.Status] = bucket.Count
@@ -185,6 +186,7 @@ func TestOutboxStatusSnapshotCountsUnfinishedStatuses(t *testing.T) {
 	require.Equal(t, int64(1), countByStatus[outboxcore.StatusPending])
 	require.Equal(t, int64(1), countByStatus[outboxcore.StatusFailed])
 	require.Equal(t, int64(1), countByStatus[outboxcore.StatusPublishing])
+	require.Equal(t, int64(1), countByStatus[outboxcore.StatusQuarantined])
 }
 
 func statusRow(eventID, status string, createdAt time.Time) eventoutbox.OutboxPO {

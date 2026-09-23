@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"time"
 
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/authn"
 	"github.com/FangcunMount/iam/v5/internal/apiserver/container/authz"
@@ -18,12 +19,20 @@ type OutboxRelay interface {
 	DispatchDue(context.Context) error
 }
 
+type ReliableMessagingRuntime interface {
+	Start(context.Context) error
+	Stop(context.Context) error
+}
+
 type RuntimeDeps struct {
-	RotationScheduler RotationScheduler
-	OutboxRelay       OutboxRelay
-	AuthzPolicySync   authz.PolicySyncSubscriber
-	SuggestCleanup    func() error
-	IdentityCleanup   func() error
+	ReliableMessaging       ReliableMessagingRuntime
+	ReliableShutdownTimeout time.Duration
+	CloseReliableProducer   func()
+	RotationScheduler       RotationScheduler
+	OutboxRelay             OutboxRelay
+	AuthzPolicySync         authz.PolicySyncSubscriber
+	SuggestCleanup          func() error
+	IdentityCleanup         func() error
 }
 
 // BuildRuntimeDeps exposes background runtime collaborators without leaking
@@ -41,6 +50,11 @@ func (c *Container) runtimeHooks() RuntimeDeps {
 	authn.CollectRuntime(c.AuthnModule, &rotation)
 	deps.RotationScheduler = rotation
 	deps.OutboxRelay = c.OutboxRelay()
+	if c.reliableRuntime != nil {
+		deps.ReliableMessaging = c.reliableRuntime
+		deps.ReliableShutdownTimeout = c.runtimeOptions.Events.ReliableMessaging.ShutdownTimeout
+		deps.CloseReliableProducer = c.closeReliableProducer
+	}
 	if c.eventBus != nil {
 		authz.CollectRuntime(c.AuthzModule, c.eventBus.Subscriber(), &deps.AuthzPolicySync)
 	}

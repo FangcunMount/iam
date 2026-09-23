@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/FangcunMount/component-base/pkg/log"
@@ -21,13 +22,21 @@ func (s *apiServer) outboxRelayInterval() time.Duration {
 }
 
 // startRuntimeTasks 启动运行时任务
-func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) {
+func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) error {
 	// 如果容器为空，则返回
 	if s.container == nil {
-		return
+		return nil
 	}
 	// 构建运行时依赖
 	deps := s.container.BuildRuntimeDeps()
+	if deps.ReliableMessaging != nil {
+		if deps.OutboxRelay != nil {
+			return fmt.Errorf("legacy and reliable Relay cannot run together")
+		}
+		if err := deps.ReliableMessaging.Start(context.Background()); err != nil {
+			return err
+		}
+	}
 	// 定义停止旋转调度器函数
 	var stopRotationScheduler func() error
 	if deps.RotationScheduler != nil {
@@ -82,6 +91,7 @@ func (s *apiServer) startRuntimeTasks(lifecycle *processruntime.Lifecycle) {
 		// 添加关闭钩子
 		lifecycle.AddShutdownHook("stop key rotation scheduler", stopRotationScheduler)
 	}
+	return nil
 }
 
 type authzPolicySyncRuntime interface {
@@ -142,7 +152,9 @@ func (s *apiServer) runOutboxRelay(ctx context.Context, relay interface {
 // registerShutdownCallbacks 注册关闭回调
 func (s *apiServer) registerShutdownCallbacks(lifecycle processruntime.Lifecycle) {
 	s.gs.AddShutdownCallback(shutdown.ShutdownFunc(func(string) error {
-		runShutdownSequence(s.buildShutdownSequenceDeps(lifecycle))
+		if err := runShutdownSequence(s.buildShutdownSequenceDeps(lifecycle)); err != nil {
+			return err
+		}
 		log.Info("🏗️  Hexagonal Architecture server shutdown complete")
 		return nil
 	}))
@@ -150,15 +162,18 @@ func (s *apiServer) registerShutdownCallbacks(lifecycle processruntime.Lifecycle
 
 // shutdownSequenceDeps 关闭序列依赖
 type shutdownSequenceDeps struct {
-	lifecycle       processruntime.Lifecycle
-	beginDrain      func()
-	drainDelay      time.Duration
-	waitDrain       func(time.Duration)
-	suggestCleanup  func() error // 清理建议模块
-	identityCleanup func() error
-	closeDatabase   func() error // 关闭数据库
-	closeHTTP       func() error // 关闭 HTTP 服务器
-	closeGRPC       func() error // 关闭 GRPC 服务器
+	stopReliable            func(context.Context) error
+	reliableShutdownTimeout time.Duration
+	closeReliableProducer   func()
+	lifecycle               processruntime.Lifecycle
+	beginDrain              func()
+	drainDelay              time.Duration
+	waitDrain               func(time.Duration)
+	suggestCleanup          func() error // 清理建议模块
+	identityCleanup         func() error
+	closeDatabase           func() error // 关闭数据库
+	closeHTTP               func() error // 关闭 HTTP 服务器
+	closeGRPC               func() error // 关闭 GRPC 服务器
 }
 
 // buildShutdownSequenceDeps 构建关闭序列依赖
@@ -169,6 +184,11 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 	}
 	if s.container != nil {
 		runtimeDeps := s.container.BuildRuntimeDeps()
+		if runtimeDeps.ReliableMessaging != nil {
+			deps.stopReliable = runtimeDeps.ReliableMessaging.Stop
+			deps.reliableShutdownTimeout = runtimeDeps.ReliableShutdownTimeout
+			deps.closeReliableProducer = runtimeDeps.CloseReliableProducer
+		}
 		deps.suggestCleanup = runtimeDeps.SuggestCleanup
 		deps.identityCleanup = runtimeDeps.IdentityCleanup
 		deps.beginDrain = s.container.MarkDraining
@@ -201,7 +221,7 @@ func (s *apiServer) buildShutdownSequenceDeps(lifecycle processruntime.Lifecycle
 }
 
 // runShutdownSequence 运行关闭序列
-func runShutdownSequence(deps shutdownSequenceDeps) {
+func runShutdownSequence(deps shutdownSequenceDeps) error {
 	if deps.beginDrain != nil {
 		deps.beginDrain()
 	}
@@ -211,6 +231,22 @@ func runShutdownSequence(deps shutdownSequenceDeps) {
 			wait = time.Sleep
 		}
 		wait(deps.drainDelay)
+	}
+	// Reliable drain is a resource-close gate, not a best-effort lifecycle hook.
+	if deps.stopReliable != nil {
+		if deps.reliableShutdownTimeout <= 0 {
+			return fmt.Errorf("reliable shutdown timeout required")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), deps.reliableShutdownTimeout)
+		err := deps.stopReliable(ctx)
+		cancel()
+		if err != nil {
+			log.Errorw("reliable messaging did not drain; host resources retained", "stage", "shutdown")
+			return fmt.Errorf("stop reliable messaging before closing resources: %w", err)
+		}
+		if deps.closeReliableProducer != nil {
+			deps.closeReliableProducer()
+		}
 	}
 	// 运行生命周期
 	deps.lifecycle.Run(func(name string, err error) {
@@ -222,6 +258,7 @@ func runShutdownSequence(deps shutdownSequenceDeps) {
 	runShutdownStep("close database connections", deps.closeDatabase)
 	runShutdownStep("close HTTP server", deps.closeHTTP) // 运行关闭 HTTP 服务器
 	runShutdownStep("close gRPC server", deps.closeGRPC) // 运行关闭 GRPC 服务器
+	return nil
 }
 
 // runShutdownStep 运行关闭序列步骤

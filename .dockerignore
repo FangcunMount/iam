@@ -1,0 +1,2 @@
+# Keep checkout metadata and credentials outside image build layers.
+.git

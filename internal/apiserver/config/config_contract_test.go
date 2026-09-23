@@ -73,6 +73,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertBoolPtr(t, "debug cache governance require admin", opts.Debug.CacheGovernance.RequireAdmin, false)
 				assertEqual(t, "seed mock disabled by default", opts.SeedMockAuth.Enabled, false)
 				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "configs/events.yaml")
+				assertEqual(t, "reliable messaging remains disabled", opts.Events.ReliableMessaging.Enabled, false)
 				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
 				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 50)
 				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
@@ -142,6 +143,7 @@ func TestAPIServerYAMLConfigMapsToRuntimeOptions(t *testing.T) {
 				assertEqual(t, "seed mock enabled by default", opts.SeedMockAuth.Enabled, true)
 				assertEqual(t, "seed mock secret", opts.SeedMockAuth.SharedSecret, "")
 				assertEqual(t, "events catalog path", opts.Events.CatalogPath, "/app/configs/events.yaml")
+				assertEqual(t, "reliable messaging remains disabled", opts.Events.ReliableMessaging.Enabled, false)
 				assertEqual(t, "events relay interval", opts.Events.OutboxRelayInterval, 2*time.Second)
 				assertEqual(t, "events relay batch size", opts.Events.OutboxRelayBatchSize, 100)
 				assertEqual(t, "events relay retry delay", opts.Events.OutboxRelayRetryDelay, 10*time.Second)
@@ -363,5 +365,27 @@ func assertBoolPtr(t *testing.T, label string, got *bool, want bool) {
 	}
 	if *got != want {
 		t.Fatalf("%s = %v, want %v", label, *got, want)
+	}
+}
+
+func TestProductionReliableMessagingEnvironmentSelectsMode(t *testing.T) {
+	for _, mode := range []string{"false", "true"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Setenv("IAM_APISERVER_EVENTS_RELIABLE_MESSAGING_ENABLED", mode)
+			reader := viper.New()
+			reader.SetConfigFile(filepath.Join(repoRoot(t), "configs/apiserver.prod.yaml"))
+			reader.SetEnvPrefix("IAM_APISERVER")
+			reader.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+			reader.AutomaticEnv()
+			if err := reader.ReadInConfig(); err != nil {
+				t.Fatal(err)
+			}
+			opts := apiserveroptions.NewOptions()
+			if err := reader.Unmarshal(opts); err != nil {
+				t.Fatal(err)
+			}
+			assertEqual(t, "reliable messaging mode", opts.Events.ReliableMessaging.Enabled, mode == "true")
+			assertEqual(t, "reliable messaging drain", opts.Events.ReliableMessaging.ShutdownTimeout, 20*time.Second)
+		})
 	}
 }

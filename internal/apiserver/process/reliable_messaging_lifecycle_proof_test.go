@@ -41,7 +41,9 @@ func TestReliableMessagingShutdownJoinBoundary(t *testing.T) {
 				return nil
 			})
 			go func() {
-				runShutdownSequence(shutdownSequenceDeps{lifecycle: lifecycle, closeDatabase: func() error { close(dbClosed); return nil }})
+				if err := runShutdownSequence(shutdownSequenceDeps{lifecycle: lifecycle, closeDatabase: func() error { close(dbClosed); return nil }}); err != nil {
+					t.Errorf("shutdown: %v", err)
+				}
 				close(shutdownDone)
 			}()
 			t.Cleanup(func() { release(); awaitMessagingSignal(t, shutdownDone, "shutdown cleanup") })

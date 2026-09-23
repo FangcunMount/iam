@@ -1,9 +1,11 @@
 package container
 
 import (
+	stderrors "errors"
 	"fmt"
 
 	"github.com/FangcunMount/component-base/pkg/log"
+	"github.com/FangcunMount/iam/v5/internal/apiserver/infra/mysql/eventoutbox"
 )
 
 type bootstrapStep struct {
@@ -36,6 +38,9 @@ func (c *Container) runBootstrapPlan() []error {
 			log.Warnf("Failed to initialize %s: %v", step.name, err)
 			c.recordBootstrapFailure(step.name, err)
 			errors = append(errors, fmt.Errorf("%s: %w", step.name, err))
+			if stderrors.Is(err, eventoutbox.ErrUnsafeMessagingHandoff) {
+				return errors
+			}
 		}
 	}
 	return errors

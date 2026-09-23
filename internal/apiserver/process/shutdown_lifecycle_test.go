@@ -22,7 +22,7 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 		return nil
 	})
 
-	runShutdownSequence(shutdownSequenceDeps{
+	err := runShutdownSequence(shutdownSequenceDeps{
 		lifecycle: lifecycle,
 		beginDrain: func() {
 			order = append(order, "begin drain")
@@ -53,6 +53,9 @@ func TestRunShutdownSequenceKeepsLifecycleAndCloseOrder(t *testing.T) {
 		},
 	})
 
+	if err != nil {
+		t.Fatalf("shutdown failed: %v", err)
+	}
 	want := []string{
 		"begin drain",
 		"drain delay",
